@@ -4526,9 +4526,14 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // realised pages a re-plan must not silently redesign or drop.
 //
 // PRESERVATION SET (widened 2026-07-19, bugs_open/001). Formerly this was the
-// adoption-locked subset alone, which made the whole function a no-op for any
-// site without a live adoption lock — i.e. most sites, since adoption locks
-// expire after 90 days and from-scratch builds are never locked. The realised
+// adoption-locked subset alone, which made the whole function a no-op on every
+// re-plan. NOTE what adoption_locked actually is (corrected 2026-07-20,
+// bugs_open/049): NOT a per-page 90-day lock — the live load_existing_pages
+// query derives it per SITE as "this site has no current plan", so it is true
+// for every page on a site's FIRST plan and false for every page on every
+// re-plan after that. The two-branch design in 053 §054 (branch (b): a live
+// timed per-page preserve-directive) is absent from the live query and has zero
+// rows behind it fleet-wide, so no per-page lock has ever existed. The realised
 // composition of a BUILT page was then carried by nothing: a page the LLM
 // re-proposed under the same name was silently re-composed to whatever the LLM
 // proposed that run, and a page the LLM omitted was dropped from the plan
@@ -4554,11 +4559,16 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 //	          subset, not the widened set: it is a name-stem heuristic, and a
 //	          false positive suppresses a legitimately new page (a new
 //	          "tool-pricing" beside a built "guide-pricing" shares the stem
-//	          "pricing"). Bounded to the 90-day window that risk is acceptable;
-//	          made permanent for every built page it is not, and it is not needed
-//	          for this bug — invented pages carry new topics and so collide with
-//	          nothing. See bugs_open/001 "pages invented", which this does not
-//	          claim to fix.
+//	          "pricing"). Made permanent for every built page that risk is not
+//	          acceptable, and it is not needed for this bug — invented pages carry
+//	          new topics and so collide with nothing. See bugs_open/001 "pages
+//	          invented", which this does not claim to fix.
+//	          CORRECTED 2026-07-20 (bugs_open/049): this used to read "bounded to
+//	          the 90-day window that risk is acceptable". There is no 90-day
+//	          window — see the preservation-set note above. Because lockedPages is
+//	          empty whenever the site has a current plan, Pass C2 can fire ONLY on
+//	          a site's first plan and never on a re-plan. The scoping decision
+//	          stands; the reason given for it did not exist.
 //	Pass B  — rename snap-back: same URL as a realised page, different name ->
 //	          replace with the realised identity.
 //	Pass B2 — composition snap-back: same NAME as a realised page whose realised
@@ -4630,8 +4640,9 @@ func reconcilePlanWithRealised(
 	// prefix/role/URL.
 	//
 	// Built deliberately from lockedPages, NOT the widened preservation set —
-	// see the Pass C2 note in the header for why this one heuristic stays inside
-	// the adoption window.
+	// see the Pass C2 note in the header for why this one heuristic stays
+	// narrow. In practice that makes it first-plan-only: lockedPages is empty
+	// whenever the site has a current plan (bugs_open/049).
 	itemStemSets := make(map[string]map[string]bool)
 	for _, rp := range lockedPages {
 		rm, ok := rp.(map[string]interface{})
