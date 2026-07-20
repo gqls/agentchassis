@@ -421,6 +421,21 @@ answers its open question: the "sweeper" performs no reclassification because
 timer, or (b) an explicit recoverable-error *response* from the child
 (`coordinator.go:291`). A child that never replies triggers neither.
 
+> **NUANCE ADDED 2026-07-20b (owner's point, verified):** retry machinery DOES
+> exist in `scheduled_tasks` — one layer up. `claimed-item-timeout` (every
+> 120s) auto-completes a claimed `site_work_items` row when artifact evidence
+> proves the work landed, and resets evidence-less claims >40 min old to
+> `triaged` for re-dispatch, capped by `max_attempts`. So **work-item-backed
+> flows do get an eventual retry**: reaper FAILs the orchestration (30–90 min)
+> → claim times out (≤40 min) → a dispatch loop re-runs the whole item. The
+> limits are what F2 addresses: latency is 70–130 min not ~1 min; the item is
+> redone from scratch (in-orchestration progress lost); attempts are finite;
+> and flows with **no work item or no running dispatch loop get nothing** —
+> child spawn chains inside an orchestration, direct kcat/council triggers,
+> and the diagnosis intake while `diagnose-pipeline-trigger` is disabled
+> (enabled=f today). The awaited-request layer itself still has no consumer of
+> `expired`.
+
 Note how the three root causes compound on any restart: §3d loses the in-flight
 messages (offset already committed), this section loses the timers that would
 have noticed, and §4.3 means the wedged parent is never reaped. That is why
