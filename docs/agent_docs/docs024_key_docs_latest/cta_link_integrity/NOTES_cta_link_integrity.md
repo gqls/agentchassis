@@ -610,3 +610,52 @@ renderer 10/6 · static 7/2 · query.* 2/2 · pages.* 1/1 (the `header-bold-grad
   required:true` URL) and `bayesian-ranking-hero-tool_pre_037` on **finetuning.uk** and
   **robot-hands.com** (P2.2/P2.3-shaped, config-level, non-overlapping with the
   source-authority Go/observe work). Will append findings here as usual.
+
+---
+
+## 2026-07-20 — council rounds 3 & 4: REJECTED → REVISE, and the council killed my migration (correctly)
+
+**Round 3** (v3, orchestration `7e6052ea`): verdict **REVISE**, decided by a single
+`tooling_provenance` objection — **9 approvals including the guardian**, whose round-2 veto
+lifted once the staging matched the arbitrated direction. Objections: (a) tooling_provenance,
+medium ×2 — the "observe-only now, flip later" context lived only in the plan's prose; it must
+survive in `doc_notes` (subject_type+subject_key) for the next agent who touches those files;
+(b) debug_historian, medium — the migration sketch lacked needle-gate discipline (expected-count
+assert, RETURNING, separate apply/verify/rollback); (c) three low objections: don't label a
+deferred fix "FIXED", verify the migration WHERE against live data, evidence the links.go
+reuse check.
+
+### ⚠️ THE BIG ONE — running editquality's "verify against live data" check killed Option A
+
+The migration's exact WHERE (`function IN` the six `ctaFieldNames` functions `AND source LIKE
+'site_specs.cta.%'`) matches **ZERO live rows**. Migrations 091/098 already flipped every
+mapped component's CTA url field to `renderer` — the job my stopgap proposed was **done months
+ago**. All **16** remaining `site_specs.cta.*` fossils sit on **unmapped** components
+(`bayesian-ranking-hero-tool_pre_037`, `product-hero_pre_037`, `header-minimal-tool_pre_037`,
+`archetype-result-card`, `game-master-explanation`, `content-sidebar`, `system-stats`,
+`product-specs`, `tool-ai-agent-roi-estimator`, `header-with-categories_pre_037`) — where the
+resolver never writes, so flipping the source would orphan the value, not fix it.
+
+Consequences, recorded plainly:
+- **Option A was a no-op from the moment I proposed it.** Two council rounds debated a
+  migration that had nothing to migrate. Neither round caught it by reasoning; a low-severity
+  "run the query" objection caught it in one SELECT. **The lesson is 016b's own rule again —
+  ground every figure against the live system — applied to a WHERE clause: a migration's scope
+  is a figure, and I carried it forward unchecked from my own analysis.**
+- The round-2 disagreement on Q3 ("is a fifth migration pragmatic?") was **moot** — there was
+  no fifth migration to run. The guardian's "four migrations beat one hot-path incident"
+  position and the five seats' "repetition is the defect" position were both arguing about an
+  empty set.
+- The staged derivation is not the *better* of two options; it is the **only** route to the
+  16 live fossils. Its urgency goes up, its staging stays as agreed.
+
+**Round 4** (v4, orchestration `2737379b`, submitted 2026-07-20): drops the migration with the
+evidence, adds the `doc_notes` persistence as a real edit (two rows: `pipeline/
+resolve_internal_links`, `pipeline/plan_sections`), relabels the required-field fix as
+DEFERRED, and records debug_historian's needle-gate discipline as a binding constraint on the
+follow-up flip round. Go-only, observe-only, zero behaviour change. Verdict pending.
+
+Landmines re-confirmed this round: seat edit-indexing still inconsistent (0- vs 1-based) — read
+the `problem` text, not the `edit` number; `abstained: 3` on round 3 with the relevance filter
+working as designed (compliance/render/diagnosis seats self-declared out of jurisdiction and
+still reported — the abstentions were elsewhere).
