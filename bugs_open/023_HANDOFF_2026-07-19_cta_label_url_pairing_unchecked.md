@@ -200,3 +200,55 @@ gating, 75 ungated), 4 (schema-lint), 5 (external reachability), 6 (P1.5 email�
 different-TLD), the generic `hero-tool` component (the selection landmine that caused the
 Bayesian adoptions — `_pre_037` row is now placement-free but still the sole selectable),
 and the class-A build check (P1.2).
+
+---
+
+## ADDENDUM 2026-07-20 (robot-hands thread) — the cause is stronger than "nothing pairs them"
+
+Found while repairing ~40 mispaired CTAs on robot-hands.com. **The URL is not
+authored and then left unchecked against the label — it is not authored at all.**
+It is recomputed on every render, label-blind, from nav order.
+
+`platform/orchestration/actions/resolve_internal_links_action.go`:
+
+- `ctaFieldNames` (`:99-105`) declares the fields the resolver owns:
+  `hero{cta_url, secondary_cta_url}`, `call-to-action{primary_cta_url,
+  secondary_cta_url}`, `content-block-about{cta_url}`,
+  `archetype-grid{cta_url}`, `archetype-combinations{...}`, `gauntlet-cta{...}`.
+- `chooseCTATargets` (`:319-350`) computes them. It ranks interactive pages then
+  hubs, drops `areasExcludedFromCTA` and self-links, sorts by **`NavOrder` then
+  `Name`**, and returns `primary = ordered[0]`, `secondary = ordered[1]`.
+  **The label is never read.**
+
+So every CTA of a given kind on a site converges on the *same* two destinations,
+whatever the buttons say. On robot-hands that produced 20 components across 11
+pages all pointing at `/tools/matchmatrix/index.html` — including "Search the
+Gripper Catalog", "Browse the Learning Center" and "Open the Payload Calculator"
+— for the single reason that `tool-matchmatrix` sorted first among interactive
+pages. It was a 404 at the time, which is how it got noticed at all; the 20
+mispaired *secondary* CTAs never 404'd and nothing had ever flagged them.
+
+**Demonstrated, not inferred.** I corrected `content_data` by label
+(`docs024_key_docs_latest/robot_hands/SQL_2026-07-20_r4_matchmatrix_and_cta_pairing.sql`),
+the page re-rendered, and the resolver put its own choice back — URL *and*
+`primary_cta_target_title` — with a later `updated_at` than my write.
+
+**Two consequences for whoever fixes this:**
+
+1. **A content-side fix cannot hold.** Teaching the content writer to pair label
+   and URL, or correcting `content_data` directly, is overwritten by the next
+   render. The fix belongs in `chooseCTATargets` — either make it label-aware, or
+   give an explicitly-authored URL precedence over the derived one. Note the
+   staged-rollout comment at `:79-84`: `ctaFieldNames` is currently an OVERRIDE on
+   the schema-derived pairing in `datahelpers/ctafields.go`, which runs
+   OBSERVE-ONLY pending a council round. Any fix should land inside that plan
+   rather than beside it.
+2. **`areasExcludedFromCTA` (`:72-74`) = `{about, contact, privacy, terms, legal}`
+   makes some correct pairings unreachable.** A button reading "Request
+   Integration Support" *should* go to `/contact.html`, and the resolver will
+   never allow it. That exclusion is sensible as a default for a generated CTA and
+   wrong as an absolute — it needs an authored-intent escape hatch, or labels of
+   that kind will stay permanently mispaired.
+
+Related: `/bugs_open/043` (generated copy invents quantitative claims) was found
+in the same sweep on the same site.

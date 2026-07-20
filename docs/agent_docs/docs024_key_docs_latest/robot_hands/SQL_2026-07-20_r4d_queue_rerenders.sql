@@ -61,3 +61,31 @@ WHERE site_id = :'site' AND source = 'robot-hands-r4-cta-pairing'
 GROUP BY 1,2;
 
 COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- CORRECTION, same session, ~15 min later. The 12 items above sat at `triaged`
+-- and were NEVER claimed, while the pipeline was demonstrably alive (6 unrelated
+-- items completed in that window) and they were the ONLY `triaged` items
+-- fleet-wide. The INSERT was modelled on an existing row's *visible* fields and
+-- I missed two that the dispatch loop needs:
+--
+--   handler_agent  must be 'page-rerender'  — I left it NULL, so the dispatch
+--                  loop had no handler to route to and silently skipped them
+--   item_key       the dedup key; NULL is accepted but leaves the row outside
+--                  idx_swi_dedup
+--
+-- Nothing errored and nothing warned: an unroutable item just sits at `triaged`
+-- looking queued. That is indistinguishable from "waiting behind the backlog",
+-- which is exactly what I assumed for the first ten minutes.
+-- ---------------------------------------------------------------------------
+UPDATE site_work_items
+   SET handler_agent = 'page-rerender',
+       item_key = 'page_rerender_' || (spec->>'page_name') || '_r4cta_' || site_id::text,
+       updated_at = now()
+ WHERE source = 'robot-hands-r4-cta-pairing'
+   AND handler_agent IS NULL;
+
+\echo '--- after the correction ---'
+SELECT status, handler_agent, priority, count(*)
+FROM site_work_items WHERE source = 'robot-hands-r4-cta-pairing'
+GROUP BY 1,2,3;

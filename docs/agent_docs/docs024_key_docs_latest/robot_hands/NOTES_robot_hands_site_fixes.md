@@ -487,3 +487,74 @@ feature: MatchMatrix now explains that discrepancy inline, naming the implied μ
   per `024` that reason reaches the real `rerender_sections` branch rather than
   stale-HTML assembly). **The DB edits are inert until that batch drains** — the
   live pages still carry the old CTAs and old stats until then.
+
+### CORRECTED 2026-07-20, same session — the CTA URL fix is NOT durable, and I now know why
+
+**What I claimed earlier in this turn:** that `SQL_2026-07-20_r4_matchmatrix_and_cta_pairing.sql`
+fixed the CTA pairing, and that keying the UPDATEs on the label rather than the
+URL was the important part.
+
+**What is actually true:** the label-keying was right, but **`content_data` is not
+the source of truth for a CTA URL**, so the SQL alone cannot hold. Caught when
+`services.html` re-rendered: I set "Request Integration Support" →
+`/contact.html`, the page re-rendered at 15:31:06, and both the URL *and* the
+`primary_cta_target_title` I had set came back as
+`/tools/matchmatrix/index.html` / "Run MatchMatrix | Gripper Selection Tool".
+The DB row's own `updated_at` was later than my UPDATE — so it was overwritten,
+not un-applied.
+
+**The mechanism, from the code** (`platform/orchestration/actions/
+resolve_internal_links_action.go`):
+
+- `ctaFieldNames` (`:99-105`) registers the CTA URL fields the resolver owns —
+  `hero{cta_url, secondary_cta_url}`, `call-to-action{primary_cta_url,
+  secondary_cta_url}`, `content-block-about{cta_url}`. Every component I edited
+  is on that list.
+- `chooseCTATargets` (`:319`) recomputes them, and **it never looks at the
+  label.** It ranks interactive pages then hubs, drops excluded areas and
+  self-links, sorts by `NavOrder` then `Name`, and takes
+  `primary = ordered[0]`, `secondary = ordered[1]`.
+
+So this was never drift. **Every CTA on the site is deterministically assigned
+the same first-and-second destination by nav order**, and
+`/tools/matchmatrix/index.html` became the "dumping ground" for the plain reason
+that `tool-matchmatrix` sorted first among interactive pages. The labels were
+written by a content pass that had no idea what the resolver would pick.
+
+- `areasExcludedFromCTA` (`:72-74`) = `{about, contact, privacy, terms, legal}`,
+  applied via `ctaExcludedDestination` (`:357`). **`/contact.html` can never be a
+  CTA destination.** That is specifically why "Request Integration Support"
+  reverted, and it means that particular pairing cannot be fixed in `content_data`
+  at all.
+
+**What this means for the fixes applied this turn:**
+
+- **Statistics (`r4b`/`r4c`) are durable** — `stat_*` fields are not in
+  `ctaFieldNames`, the resolver does not touch them, and `about.html` re-rendered
+  live showing 5 / 5 / 4. Confirmed on the live page, not the row.
+- **Secondary CTA fixes appear to have held** on the pages that re-rendered
+  (`/matchmatrix-methodology.html` on services and product-detail) — but
+  `secondary_cta_target_title` on services still reads "Gripper Payload
+  Calculator", i.e. URL and target-title now **disagree**. `[INFERRED]` that this
+  will be "corrected" back to the resolver's choice on the next render; I have not
+  watched a second render to confirm it.
+- **Primary CTA fixes are not durable.** Those that still look right — "Run a
+  MatchMatrix Query", "Run MatchMatrix on This Model" — look right only because
+  the resolver would pick `/tools/matchmatrix/index.html` anyway. Building the
+  tool is what made those correct, not my SQL.
+- **The tool page itself is unaffected** — it is a committed artefact in
+  `gqls/sites`, not a resolver-managed field.
+
+**Why the earlier verify looked green:** I ran it inside the same transaction as
+the UPDATEs, before any render. A `content_data` verify cannot detect a field the
+render will recompute. The check that would have caught it is the one CLAUDE.md
+already states — *trust the rendered artefact, not the status* — applied to the
+row as well: re-read after a render, not after a write.
+
+**Consequence for `/bugs_open/023`:** its framing ("label and URL are unrelated
+schema fields, nothing pairs them") is right about the symptom but understates
+the cause. Nothing pairs them **because the URL is not authored at all** — it is
+derived, label-blind, from nav order. A fix that only teaches the content writer
+to pair them will be overwritten by the next render. The fix has to be in
+`chooseCTATargets` (make it label-aware, or let an explicit authored URL win).
+Recorded there.
