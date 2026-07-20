@@ -121,3 +121,35 @@ the same churn.
    self-contained and stops wasted rebuilds.
 3. **B** — decide chassis-wide vs idea.uk-only; the idea.uk-only repoint is a 5-minute change to make
    the live contact page work at cutover.
+
+### C addendum, 2026-07-20 — the same class, but STALLED rather than churning
+
+A `page_rerender` item for idea.uk `tools` sat at `status='claimed'`,
+`claimed_by='build-dispatch-loop'`, for **16 minutes** with `attempt_count=0`, `handled_by` empty
+and `result='{}'`. Its sibling item (`index`, created in the same INSERT, same second) was claimed
+and completed in ~90 seconds. Nothing appeared in the chassis logs for it.
+
+**What differs from the churn described above:** there, the work succeeded and only the status write
+was lost, and the sweep reverted `claimed → triaged` so it re-ran. Here the work never started and
+the item did **not** revert within 16 minutes. `ClaimWorkItemAction` (`claim_work_item_action.go:96-105`)
+sets `claimed_at = NOW()`, but a grep of `platform/` for a requeue predicate on `claimed_at`
+(`claimed_at <`, `stale`, `claim_timeout`) returns **nothing** — so whatever performs the sweep this
+file describes is not in the Go tree, and its window is at minimum longer than 16 minutes. Left
+alone, a claim that dies before doing any work appears to stall indefinitely.
+
+Fleet check at the time: exactly **one** item was `claimed` and older than 10 minutes — this one. So
+it is not a systemic pile-up; it is a single lost claim with no visible recovery path.
+
+**Operator recovery that worked** (unblocked it; the item then completed in under a minute):
+```sql
+UPDATE site_work_items
+SET status='triaged', claimed_by=NULL, claimed_at=NULL, updated_at=now()
+WHERE id='<item>' AND status='claimed' AND claimed_at < now() - interval '10 minutes';
+```
+Safe when `attempt_count=0`, `result='{}'` and no handler log line exists — i.e. nothing was done, so
+there is nothing to duplicate. Do **not** apply it blind to the churn case above, where the work
+*has* succeeded: there the correct action is to mark the item `complete`, not to requeue it.
+
+**Open question for whoever takes C:** where does the claim-timeout sweep actually live, and what is
+its window? The two observed behaviours (revert-after-success vs stall-with-no-work) may have
+different causes and should not be assumed to be one bug.
