@@ -1040,4 +1040,44 @@ owner's call; the next `make build-agent-chassis` from HEAD will include it.
 Loose ends: the stale `fix/e505f70f` remote branch (084-based, gofmt-broken, no
 PR) is now superseded and can be deleted.
 
+## Turn 29 — 2026-07-20 — Constitution + mission as always-on council seats (v19)
+
+Owner's three directions (root-cause-not-workaround; gatekeep the constitution;
+everything follows the mission) resolved to ONE gap after reading the artifacts:
+the platform has a written constitution (`thin_slice_constitution.md`;
+`CTS-029`/`DEV-054`, deployed but only pasted as passive bundle context) and a
+written mission (`028_platform_mission_and_pipeline_direction`; `BIZ-001`,
+status *partial*), both of which state in their own text that changes should be
+checked against them — enforced by NO council seat (verified: grep of all 13
+charters; only incidental "symptom"/"workaround" mentions). Point 1 was already
+constitutional: *"Fix structural problems, not symptoms."*
+
+**Built (owner chose: two always-on seats; fix-proposer + gate scope):**
+- `review_constitution` + `review_mission`, ALWAYS-ON (no gate, no footprint) —
+  gating would contradict what a constitution/mission are. Advisory
+  (approve|object, no veto); an objection forces a revise round.
+- constitution headline = root-cause / anti-workaround (object if a fix routes
+  AROUND a known/listed bug instead of fixing the cause, absent an explicit
+  justified deferral) + reuse-before-recreate + schema-first + parameterised +
+  no-silent-rename + tone. Defers detailed contracts to the guidelines seat.
+- mission = best-site-per-domain / revenue-shapes-the-site (no consultancy
+  default) / classifier-is-strategic-brain / silent-override-is-the-failure-mode;
+  bug fixes usually mission-neutral → approve.
+
+**Method (mirror-safe, per CLAUDE.md):** read 099 first to confirm it copies
+`review_*` verbatim + re-asserts `editquality.next_step` + refuses on dangling
+targets. Matched live seat settings (claude-sonnet-5 @ 8000, temp 0.0,
+input_fields [diagnosis_row, plan_persisted, schema_hint], error_step
+complete_refused). v19 surgical migration (6 chained jsonb_set), snapshot, 0
+active runs, applied (UPDATE 1). Chain: editquality → constitution → mission →
+gate_bug_historian. Then `099 --apply` mirrored to council-gate (snapshot). Both
+councils: **15 seats**, deep-compare drift NONE, routing OK; gate got the four
+transforms (input_data / input_data.rationale / complete_invalid). Committed
+`6a25f3607`.
+
+**Flagged, not done:** (1) extend to feature-designer + experience-planner
+councils and the build pipeline (bigger, separate); (2) protect the
+constitution/mission DOCUMENTS from drift (owner-sign-off gate) — these seats
+enforce conformance TO the docs, they don't guard the docs themselves.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

@@ -317,3 +317,36 @@ proposed multi-model diagnosis gauntlet whenever you want to start it.
 
 ---
 
+**Constitution & mission became gatekeepers (2026-07-20).** You gave three
+directions: fixes must tackle the root cause, not work around a bug; the
+constitution needs a gatekeeper; and everything should follow the mission. I read
+the actual documents first, and the finding reframed all three into one: the
+platform already *has* a written constitution and a written mission, both of which
+say in their own text that changes should be checked against them — but nothing
+ever did. Your first point was literally already a constitutional rule ("fix
+structural problems, not symptoms") that no reviewer enforced.
+
+So rather than invent new principles, I pointed the council — the gatekeeping
+machinery we'd just finished — at the two documents that matter most. Two new
+always-on reviewer seats now sit on every fix and every submitted platform change:
+a **constitution** seat (root-cause-not-workaround first, then reuse-before-
+recreate and the other always-on rules) and a **mission** seat (best site per
+domain; the revenue model shapes the site; never let an agent silently override the
+strategic direction). Always-on rather than occasional, because that's what a
+constitution and a mission *are*. They're advisory like the other seats — an
+objection forces the fix to be reworked, it doesn't kill it — which is the right
+behaviour: a workaround gets sent back to become a real fix, not rejected outright.
+
+Both councils (the fix loop's own, and the gate any thread submits to) now carry
+the two seats, verified identical. Two things I flagged rather than decided: I've
+started only on the fix/change councils — extending this to the feature and
+experience councils, and to the site-build pipeline itself, is the natural next
+reach but a larger, separate piece. And one part of "the direction is fixed" that
+these seats don't cover: protecting the constitution and mission *documents* from
+drift — that they change only with your sign-off, not on a passing vote. Worth
+deciding how you want that guarded.
+
+(Also noted in passing: my earlier BUG A fix was quietly replaced by a better,
+more structural one from another thread — it now carries the truncated text back
+to the caller instead of discarding it. A live example of exactly the root-cause-
+over-patch principle you're now having the council enforce.)

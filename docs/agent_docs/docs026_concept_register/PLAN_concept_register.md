@@ -353,6 +353,29 @@ its stage-3 coordination with fixloop:
 
 ---
 
+## Direction gatekeepers — constitution + mission seats (owner directive 2026-07-20)
+
+LIVE on both councils (fix-proposer + council-gate), v19 + 099 mirror. Two
+ALWAYS-ON seats making the council enforce the platform's own fixed direction:
+- `review_constitution` — grounded in `thin_slice_constitution.md`
+  (`CTS-029`/`DEV-054`). Root-cause-not-workaround FIRST, then reuse-before-
+  recreate, schema-first, parameterised-only, no-silent-rename, tone.
+- `review_mission` — grounded in `028_platform_mission_and_pipeline_direction`
+  (`BIZ-001`). Best-site-per-domain; revenue model shapes the site; classifier is
+  the strategic brain; silent override is the failure mode being eliminated.
+
+**Open follow-ons (owner's call):**
+1. Extend both seats to the feature-designer and experience-planner councils, and
+   to the site-build pipeline (the classifier/planner checking each site against
+   the mission — the mission is literally about site-building). Larger, separate.
+2. **Protect the direction itself:** the constitution and mission DOCUMENTS should
+   change only with owner sign-off, not on a passing council vote. These seats
+   enforce conformance TO the documents; nothing yet guards the documents from
+   drift. Candidate mechanisms: a standing rule + a gate seat that objects to any
+   edit of the constitution/mission source without an owner-sign-off marker.
+3. Close `CTS-029`'s "destined to become `standards` rows scope=constitution" gap
+   so the seat cites live rows, not an inlined copy that can drift from the file.
+
 ## Proposed subproject — multi-model diagnosis gauntlet (owner idea, 2026-07-18)
 
 The owner's idea, recorded so it isn't lost: for bugs the diagnosis loop finds
