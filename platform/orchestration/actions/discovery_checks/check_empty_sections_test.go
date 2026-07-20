@@ -1,8 +1,13 @@
 package discovery_checks
 
 import (
+	"context"
+	"database/sql"
 	"strings"
 	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"go.uber.org/zap"
 )
 
 func TestEmptySectionVerdict(t *testing.T) {
@@ -54,5 +59,79 @@ func TestEmptyHeadingReMirrorsSQL(t *testing.T) {
 	}
 	if emptyHeadingRe.MatchString(`<h2>Real title</h2>`) {
 		t.Error("must not match a filled heading")
+	}
+}
+
+// TestVerifyMissingComponentIsNotSuccess pins bugs_open/032. The verifier used to
+// report Resolved:true when the page_components row was gone, on the assumption
+// that a removed component cannot be empty. But a missing row is equally the
+// signature of a rebuild silently deleting the component — so that branch
+// recorded content-loss incidents as verified fixes, which is precisely the
+// blind spot the completion gate exists to close.
+//
+// The contract now: never claim success from absence. Return an error, so the
+// gate's fail-OPEN policy completes the item while recording under
+// result._verification that verification could not be made. A false success
+// becomes a visible unknown.
+func TestVerifyMissingComponentIsNotSuccess(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	const componentID = "6f1b8a4e-6c2f-4a1e-9d3b-2f5c7a8e1b04"
+	mock.ExpectQuery("SELECT rendered_html FROM page_components").
+		WithArgs(componentID).
+		WillReturnError(sql.ErrNoRows)
+
+	res, err := VerifyEmptySectionResolved(
+		context.Background(), db,
+		map[string]interface{}{"component_id": componentID},
+		zap.NewNop(),
+	)
+
+	if err == nil {
+		t.Fatal("a missing component must NOT verify as resolved: absence is equally deletion (bugs_open/032)")
+	}
+	if res.Resolved {
+		t.Error("Resolved must be false when the component row is gone")
+	}
+	// The message has to say why it is unverifiable, or the recorded
+	// _verification entry is as uninformative as the silent success it replaced.
+	for _, want := range []string{"cannot verify", componentID, "indistinguishable"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q must contain %q", err.Error(), want)
+		}
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("unmet expectations: %v", err)
+	}
+}
+
+// A present-but-empty component must still fail closed — the ordinary path must
+// not regress while fixing the absent one.
+func TestVerifyPresentButEmptyStillFailsClosed(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock: %v", err)
+	}
+	defer db.Close()
+
+	const componentID = "6f1b8a4e-6c2f-4a1e-9d3b-2f5c7a8e1b04"
+	mock.ExpectQuery("SELECT rendered_html FROM page_components").
+		WithArgs(componentID).
+		WillReturnRows(sqlmock.NewRows([]string{"rendered_html"}).AddRow(""))
+
+	res, err := VerifyEmptySectionResolved(
+		context.Background(), db,
+		map[string]interface{}{"component_id": componentID},
+		zap.NewNop(),
+	)
+	if err != nil {
+		t.Fatalf("a present component must verify without error: %v", err)
+	}
+	if res.Resolved {
+		t.Error("an empty rendered_html must not verify as resolved")
 	}
 }

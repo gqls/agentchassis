@@ -203,8 +203,30 @@ func VerifyEmptySectionResolved(ctx context.Context, db *sql.DB, spec map[string
 		`SELECT rendered_html FROM page_components WHERE id = $1`, componentID,
 	).Scan(&html)
 	if err == sql.ErrNoRows {
-		// Component removed — nothing left to be empty.
-		return VerifyResult{Resolved: true, Detail: "component no longer exists"}, nil
+		// AMBIGUOUS — never report success here (bugs_open/032).
+		//
+		// A missing page_components row is equally the signature of a genuine fix
+		// (or a deliberate removal) and of this platform's most repeated failure:
+		// a rebuild silently deleting the component. The two are indistinguishable
+		// from this query, so reporting Resolved:true recorded content-loss
+		// incidents as verified fixes — the exact blind spot that caused the
+		// incidents this gate exists to catch (bugs_open/012, /021).
+		//
+		// An error rather than Resolved:false because the gate's documented policy
+		// is to fail OPEN on verifier error (complete_work_item_verification.go:14):
+		// the item still completes and nothing wedges, but result._verification
+		// records that verification could not be made. A false success becomes a
+		// visible unknown. Resolved:false would burn an attempt and, at
+		// max_attempts, strand a legitimately-removed component's item in 'failed'.
+		//
+		// Deliberately left open: if the page still EXPECTS this component (a
+		// plan_sections entry, a slot reference), absence is not ambiguous at all
+		// — it is deletion, and Resolved:false would be the honest answer. That is
+		// a better verdict and a bigger change; it belongs to the
+		// empty_sections_loop_integrity thread, and this floor does not preclude it.
+		return VerifyResult{}, fmt.Errorf(
+			"cannot verify: component %s no longer exists (genuinely fixed or silently deleted — indistinguishable here)",
+			componentID)
 	}
 	if err != nil {
 		return VerifyResult{}, err
