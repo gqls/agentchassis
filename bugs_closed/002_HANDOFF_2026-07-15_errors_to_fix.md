@@ -8,16 +8,30 @@
 > | **A** | superseded by `/bugs_open/003` — never was this file's work |
 > | **B** | ✅ **FIXED** — was already fixed by the truncation work in `/bugs_closed/005`; the entry was stale, not the code. Verified green 2026-07-19 |
 > | **C** | ✅ **FIXED** — migrations **175** + **176**, applied and ledger-recorded. Was **two sites, not one**; fleet-wide section drift now **0 pages** |
-> | **D** | **REROUTED** — news-listing half is owned by `/bugs_open/026` + `/bugs_open/027`; tool-guide-intro half is a **wiring gap, not an architectural one** (corrected 2026-07-20 — the targeted repair mechanism already exists and is production-proven; see the correction in its entry), still unowned |
+> | **D** | ✅ **CLOSED 2026-07-20** — tool-guide-intro needed no repair: the section had been gone from the DB since 2026-07-10 and is absent from all three live pages (cache-busted). **8 stale items closed.** news-listing half is owned by `/bugs_open/026` + `/bugs_open/027` |
 > | **E** | **OWNER DECISION**, not a bug. Re-grounded 2026-07-19, unchanged |
 > | **F** | **DIAGNOSED & REROUTED** — both suspects refuted; the real mechanism is filed as `/bugs_open/034`. Only the untested `kcat -c 1` suspect remains here |
 >
-> **Recommendation: close this file to `/bugs_closed/` once D's tool-guide-intro
-> half is given an owner.** It has done its job — it was always a routing
-> document ("route each to its own chat"), and five of six entries have now
-> either been fixed or handed to a bug that owns the mechanism properly. Keeping
-> it open past that point just means one more place the same defects are
-> described in parallel, which is the drift the working-docs rules warn about.
+> **✅ SIGNED OFF 2026-07-20 — nothing in this file is both live and unowned.**
+> Every entry is fixed, superseded, rerouted to a bug that owns the mechanism, or
+> an owner's decision. It has done its job: it was always a routing document
+> ("route each to its own chat"), and it routed. **Move it to `/bugs_closed/`.**
+>
+> Per `/bugs_closed/README.md` the bar is *fixed AND live*, and each entry meets
+> it on its own terms: B verified green in the tree; C applied to the live DB and
+> re-verified (0 drift); D verified absent on both DB and live pages; A/F rehomed
+> to `003`/`034` which stay open in their own right; E is a decision, not a
+> defect. Nothing here is waiting on an image roll.
+>
+> **What this file cost, and what it bought.** Its two most confident entries
+> were its two wrongest: `A` (retracted root cause, superseded by `003`) and
+> `D`'s "needs a targeted repair built" (the mechanism had shipped five months
+> earlier). Both were written as findings and read as findings by everyone
+> downstream, including me. The file's real lesson is not any one defect — it is
+> that a **fix-candidate list inherits none of the evidence standard of the
+> symptom report above it**, and nothing in the process ever re-checks it. That
+> is now `016b` §9 (`asserted-absence`), two rows in `WRONG_CALLS.md`, and a
+> proposed council seat.
 
 **Created 2026-07-15 from the `empty_sections_loop_integrity` workstream.**
 Each section below is an INDEPENDENT error — self-contained, can be handed to a
@@ -294,6 +308,51 @@ subsystem (`check_news_feed` / `check_empty_blog` / news feed population), NOT
 page-build-handler. Fixing = give the site a news source, or remove the
 news-listing sections. Out of the parent workstream's scope.
 
+> ## ✅ RESOLVED 2026-07-20 — the section no longer exists anywhere. 8 items closed.
+>
+> **Taken on and closed by the bugfix thread. It needed no repair: the defect had
+> already been fixed and the work items were stale.** Verified on both surfaces:
+>
+> - **DB** — there is no `page_components` row with `slot_name='tool-guide-intro'`
+>   on ANY of the three affected pages. `page_component_history` shows
+>   `save_page_sections_overwrite` archiving 6 rows at **2026-07-10 22:02:43** and
+>   writing back 5; the section went then. The `component_id` the work items carry
+>   (`7863b309-…`) does not exist in `content_components` at all — a dangling
+>   reference. robot-hands' three section sources agree (`hero`,
+>   `generic-text-block`, `call-to-action`) and page assembly walks
+>   `page_components` by position (`rerender_single_page_action.go:381-389`), so
+>   nothing can reintroduce it.
+> - **Live** — cache-busted GETs return 200 with **zero** `tgi-headline`
+>   references on all three: robot-hands `gripper-cycle-time-estimator`,
+>   finetuning.uk and leopardess `llm-cost-calculator`.
+>
+> **8 items closed** (not the 2 this entry counted): 4 `empty_section`,
+> 2 `empty_internal_href`, 1 `required_fields_missing`, plus one on a second site
+> — the entry only ever tracked robot-hands.
+>
+> **The guard analysis below is still correct, and was never the blocker.** The
+> content-regression guard did block the 2026-07-15 whole-page rebuild (6911 vs
+> 31001 chars). But the section had already been removed five days earlier, so
+> the blocked rebuild was trying to regenerate a page whose empty section was
+> gone — the item was stale *at the moment it was re-driven*. Nobody re-checked
+> the artefact before treating the failure as the finding.
+>
+> ### Two corrections this thread had to make on its own work — both worth reading
+> 1. **"No targeted single-section repair path exists"** — false;
+>    `apply_section_edit` / `section-editor` had existed since 2026-02-19 with 3
+>    production runs. See the correction under D's heading and `016b` §9
+>    (`asserted-absence`).
+> 2. **"The empty section is live and visibly broken"** — false, and I nearly
+>    forced a production re-deploy of a live client page on the strength of it.
+>    My first `curl` hit a **stale edge cache** (52,624 bytes with the orphan;
+>    the real page is 44,880 without). The origin had been updated at 12:46 that
+>    day and `max-age=3600` was still serving the old copy. Logged in
+>    `WRONG_CALLS.md` with the cheap check. **Corollary to "trust the rendered
+>    artefact": only if you have proven the artefact is the current one.**
+>
+> Both errors were the same shape — asserting where one command would have
+> checked — which is why D ended up costing far more than it was worth.
+
 ### tool-guide-intro on gripper-cycle-time-estimator — attempted, hit a guard
 Live section renders `<h1 class="tgi-headline"></h1>` (empty heading);
 `required_fields_missing` flags 12 missing `source: llm` fields. **I re-drove
@@ -432,7 +491,13 @@ dartsonline ships. Worth deciding before a rebuild surprises someone.
 
 ## What is actually left in this file
 
-**One thing: D's `tool-guide-intro` half.** The content-regression guard
+> **NOTHING, as of 2026-07-20.** D was taken on and closed — the section had
+> already been removed on 2026-07-10 and is absent from all three live pages;
+> 8 stale items closed. The section below is superseded and kept only because
+> its guard analysis is still accurate and its two corrections are the most
+> useful thing this file produced.
+
+**~~One thing: D's `tool-guide-intro` half.~~** The content-regression guard
 (`save_page_sections_action.go`, ~lines 357-395 as of 2026-07-20) blocks a
 page-scoped rebuild whose regenerated text comes under a quarter of what is
 there, so whole-page regen stays blocked on this page while that arithmetic

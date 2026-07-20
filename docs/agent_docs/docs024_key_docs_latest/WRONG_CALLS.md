@@ -27,11 +27,12 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 
 | the check that was skipped | times |
 |---|---|
-| read the code before asserting a mechanism | 5 |
+| read the code before asserting a mechanism | 6 |
 | wait / query again before calling an absence a failure | 3 |
 | **grep for the capability before asserting it does not exist** | **1** |
 | **prove the artefact is current before reasoning from it** | **1** |
 | measure a property before describing it | 1 |
+| **look at the real values before designing for the assumed ones** | **1** |
 | grep the index before filing | 1 |
 | read the rule before inferring its purpose | 1 |
 
