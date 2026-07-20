@@ -113,3 +113,19 @@ objected; 8 abstained). The objections were fair and improved the change:
 Round 2 resubmitted on the same trail (`RESUBMIT_CORR=3a18a1a4`), run orch
 `e4da4360`. No FORCE needed this round — the main file is now `platform/`.
 Build + gofmt + vet clean after the refactor. Verdict pending.
+
+**2026-07-20 ~15:30Z. Round 2 VOIDED by bugs_open/019's class, not by a
+verdict:** run `e4da4360` died at `review_editquality` with `error` empty; the
+real cause was in `collected_data.__step_error` (the 036-documented hiding
+place): `execute_llm_prompt: response truncated: stop_reason=max_tokens
+(output_tokens=8000)`. The 019 tolerance fix (migration 177) is live but its
+Go half is inert until the next image roll. **Misstep (mine): the round-2
+submission was ~2× round 1's length** — reviewer output scales with submission
+size, and the first seat blew the 8000 cap. Round 3 = same plan, submission
+halved, resubmitted on the same trail (run orch `518c399b`). Watcher now also
+breaks on `complete_invalid` — round 2's watcher only matched FAILED and sat
+silent for its full 45 min on a dead run (Monitor coverage lesson).
+
+**Bug-number collision:** another thread filed a different `040` today
+(failed-page-build). Recorded in `bugs_closed/README.md` duplicate-numbers
+table + a header note in our file; cite ours as **040-kafka-dial**.

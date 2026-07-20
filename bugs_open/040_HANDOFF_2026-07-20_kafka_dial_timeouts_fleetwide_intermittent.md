@@ -1,5 +1,10 @@
 # 040 — Kafka dial i/o timeouts are fleet-wide and intermittent: all three brokers, at least four of five nodes
 
+> **NUMBER COLLISION (2026-07-20, same day):** another thread filed a different
+> `040` (`failed_page_build_leaves_page_deployed_and_partially_composed`).
+> Numbers are never reassigned — resolve by slug (`bugs_closed/README.md`
+> duplicate-numbers table). Cite this case as **040-kafka-dial**.
+
 **Filed:** 2026-07-20 ("bugfix 003" thread) · **Status:** OPEN, not started
 **Class:** cluster network infrastructure. NOT a chassis code bug — split out of
 `bugs_open/003` per its fix plan, which deliberately excludes the network layer.
