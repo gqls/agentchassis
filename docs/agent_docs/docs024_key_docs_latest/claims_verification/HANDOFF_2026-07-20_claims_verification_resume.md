@@ -113,11 +113,16 @@ covers them with no seed change.
    prompt to report every unsupported operational assertion. Benchmark: ~174 on
    gaswholesalers, concentrated in `pricing-transparency` (19),
    `supply-terms-and-eligibility` (17), `who-we-serve` (17), `service-areas` (15).
-2. **Citation source kind** — the AI-influence page (feature `006`) must be
-   "very well researched and verified", i.e. claims sourced to external
-   publications. Schema has `sql` / `artifact` / `attested_by`; none fits. Likely
-   `source: {citation: "...", accessed: "..."}` plus a staleness policy. **Design
-   it before that page is written**, or it ships unaudited.
+2. **V5 — researched, cited, re-verifiable external facts. NOW SPEC'D:**
+   `SPEC_V5_researched_citations.md`. Owner's requirement (2026-07-20): the site
+   must "consistently use numbers that are verified from web deepsearch cited
+   references, so not manual but part of the chassis' capability". The key finding
+   is that the enforcement lanes already exist — V1 flags unregistered numbers, V2
+   whitelists registered ones, V4 re-checks them — so this is an **acquisition**
+   problem, not an enforcement one. The one genuinely new idea: a citation is
+   verified **deterministically** by re-fetching the URL and asserting the stored
+   verbatim quote still appears in it, which kills hallucinated references at
+   acquisition time and gives free re-verification later. Build order in §6.
 3. **Forward mode.** That page is the first chance to run the layer the other way
    round — register first, copy second. Every use so far has been remediation.
 4. **Open question that shapes V5:** should the claims layer gate the planned
