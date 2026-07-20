@@ -269,7 +269,16 @@ func DiagnoseRouteAction(ctx context.Context, params ActionParams) (interface{},
 	// only the bundle after the requesting verdict, so a guard-refused confirm LOSES
 	// the evidence and the loop re-asks. Re-forwarding every question ever issued
 	// makes an answer PERSIST for the price of a few indexed reads.
-	codeReqs, droppedCR := withPriorCodeRequests(verdict.CodeRequests, st.SeenCodeRequests, maxForwardedCodeRequests)
+	codeReqs, droppedCR, malformedCR := withPriorCodeRequests(verdict.CodeRequests, st.SeenCodeRequests, maxForwardedCodeRequests)
+	if malformedCR > 0 {
+		// Never expected in a healthy run: these keys are written by
+		// CodeRequestKey and read back unchanged. A non-zero count means the
+		// collected_data round-trip mangled them or the key encoding changed
+		// without the reader being updated — loud, because it would otherwise
+		// look identical to "the verdict asked nothing".
+		logger.Warn("diagnose_route: malformed code-request keys in loop state — encoding drift or corrupted round-trip",
+			zap.Int("malformed", malformedCR))
+	}
 	if len(codeReqs) > 0 {
 		result["code_requests"] = codeReqs
 	}
@@ -330,7 +339,7 @@ const maxForwardedCodeRequests = 10
 // progress on the promise that its answer arrives next gather, so a silent drop
 // breaks that promise with nothing in the trail (council-gate eba040a9).
 // Malformed keys are NOT counted as drops — they were never askable questions.
-func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool, max int) (out []interface{}, dropped int) {
+func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool, max int) (out []interface{}, dropped, malformed int) {
 	have := map[string]bool{}
 	out = make([]interface{}, 0, len(current))
 	for _, cr := range current {
@@ -356,6 +365,16 @@ func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool,
 	for _, k := range prior {
 		kind, query, ok := strings.Cut(k, "\x00")
 		if !ok || strings.TrimSpace(query) == "" || !diagnose.ValidCodeRequestKind(kind) {
+			// COUNTED, not silently skipped (council-gate eba040a9 round 5,
+			// bug_historian). Every other discard path here reports itself; this
+			// one was carved out on the reasoning that a malformed key was never
+			// an askable question, which is true but misses the point: these keys
+			// are WRITTEN by CodeRequestKey and read back through collected_data,
+			// so a malformed one means the round-trip corrupted them or the
+			// encoding changed. That is a defect signal, not a coverage signal —
+			// hence a separate counter and a log line rather than folding it into
+			// `dropped`, which the bundle renders as "coverage was capped".
+			malformed++
 			continue
 		}
 		if len(out) >= max {
@@ -368,7 +387,7 @@ func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool,
 			"why":   "re-run of a prior iteration's code question so its answer persists across iterations (F0.5)",
 		})
 	}
-	return out, dropped
+	return out, dropped, malformed
 }
 
 // seedScopeForRoute builds the FIRST iteration's loop scope from the SAME chain

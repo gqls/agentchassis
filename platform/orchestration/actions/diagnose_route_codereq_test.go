@@ -20,7 +20,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 			diagnose.CodeRequestKey("symbol", "GenerateText"):   true,
 			diagnose.CodeRequestKey("content", "%stop_reason%"): true,
 		}
-		got, _ := withPriorCodeRequests(nil, seen, 10)
+		got, _, _ := withPriorCodeRequests(nil, seen, 10)
 		if len(got) != 2 {
 			t.Fatalf("want both prior code questions forwarded, got %d: %v", len(got), got)
 		}
@@ -37,7 +37,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 
 	t.Run("current questions keep their why and dedupe against seen", func(t *testing.T) {
 		seen := map[string]bool{diagnose.CodeRequestKey("symbol", "GenerateText"): true}
-		got, _ := withPriorCodeRequests(
+		got, _, _ := withPriorCodeRequests(
 			cur(diagnose.CodeRequest{Kind: "symbol", Query: "GenerateText", Why: "fresh"}), seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("identical current+seen must not duplicate, got %d: %v", len(got), got)
@@ -49,7 +49,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 
 	t.Run("dedup is case-insensitive on the query, matching the action's own dedup", func(t *testing.T) {
 		seen := map[string]bool{diagnose.CodeRequestKey("symbol", "generatetext"): true}
-		got, _ := withPriorCodeRequests(
+		got, _, _ := withPriorCodeRequests(
 			cur(diagnose.CodeRequest{Kind: "symbol", Query: "GenerateText", Why: "fresh"}), seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("case-different spellings of one question must collapse, got %d: %v", len(got), got)
@@ -61,7 +61,7 @@ func TestWithPriorCodeRequests(t *testing.T) {
 		for _, q := range []string{"a", "b", "c"} {
 			seen[diagnose.CodeRequestKey("symbol", q)] = true
 		}
-		got, _ := withPriorCodeRequests(
+		got, _, _ := withPriorCodeRequests(
 			cur(diagnose.CodeRequest{Kind: "content", Query: "zzz", Why: "fresh"}), seen, 2)
 		if len(got) != 2 {
 			t.Fatalf("cap 2 not honoured: %v", got)
@@ -81,9 +81,15 @@ func TestWithPriorCodeRequests(t *testing.T) {
 			diagnose.CodeRequestKey("symbol", ""):                true, // empty query
 			diagnose.CodeRequestKey("ls", "platform/aiservice/"): true, // the only good one
 		}
-		got, _ := withPriorCodeRequests(nil, seen, 10)
+		got, _, malformed := withPriorCodeRequests(nil, seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("only the well-formed key should survive, got %d: %v", len(got), got)
+		}
+		// Counted, not silently skipped (council round 5): a malformed key means
+		// the collected_data round-trip corrupted them or CodeRequestKey's
+		// encoding changed — a defect signal that must not look like silence.
+		if malformed != 3 {
+			t.Fatalf("want the 3 unaskable keys counted as malformed, got %d", malformed)
 		}
 		if got[0].(map[string]interface{})["query"] != "platform/aiservice/" {
 			t.Fatalf("wrong survivor: %v", got[0])
@@ -103,7 +109,7 @@ func TestWithPriorCodeRequestsReportsDrops(t *testing.T) {
 			{Kind: "symbol", Query: "B"},
 			{Kind: "symbol", Query: "C"},
 		}
-		got, dropped := withPriorCodeRequests(cur, nil, 2)
+		got, dropped, _ := withPriorCodeRequests(cur, nil, 2)
 		if len(got) != 2 {
 			t.Fatalf("cap 2 not honoured: %v", got)
 		}
@@ -117,7 +123,7 @@ func TestWithPriorCodeRequestsReportsDrops(t *testing.T) {
 		for _, q := range []string{"a", "b", "c", "d"} {
 			seen[diagnose.CodeRequestKey("symbol", q)] = true
 		}
-		got, dropped := withPriorCodeRequests(nil, seen, 2)
+		got, dropped, _ := withPriorCodeRequests(nil, seen, 2)
 		if len(got) != 2 || dropped != 2 {
 			t.Fatalf("want 2 forwarded / 2 counted as dropped, got %d / %d", len(got), dropped)
 		}
@@ -129,7 +135,7 @@ func TestWithPriorCodeRequestsReportsDrops(t *testing.T) {
 			diagnose.CodeRequestKey("wat", "x"):    true,
 			diagnose.CodeRequestKey("symbol", "y"): true,
 		}
-		got, dropped := withPriorCodeRequests(nil, seen, 10)
+		got, dropped, _ := withPriorCodeRequests(nil, seen, 10)
 		if len(got) != 1 {
 			t.Fatalf("only the well-formed key should forward, got %v", got)
 		}
@@ -139,7 +145,7 @@ func TestWithPriorCodeRequestsReportsDrops(t *testing.T) {
 	})
 
 	t.Run("nothing dropped when under the cap", func(t *testing.T) {
-		_, dropped := withPriorCodeRequests(
+		_, dropped, _ := withPriorCodeRequests(
 			[]diagnose.CodeRequest{{Kind: "ls", Query: "platform/"}}, nil, 10)
 		if dropped != 0 {
 			t.Fatalf("want 0, got %d", dropped)

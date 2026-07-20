@@ -244,9 +244,14 @@ func DiagnoseAssembleBundleAction(ctx context.Context, params ActionParams) (int
 	// was named verbatim in all five bundles and was unreachable as evidence.
 	// Enrichment failure degrades to a log line; it must never fail assembly.
 	if rt != "" && params.DB != nil {
-		if steps := renderWorkflowSteps(ctx, params.DB, logger, workflowRefsFromRuntime(rt, maxWorkflowRefs)); steps != "" {
+		refs, refsExcluded := workflowRefsFromRuntime(rt, maxWorkflowRefs)
+		if steps := renderWorkflowSteps(ctx, params.DB, logger, refs); steps != "" {
 			b.WriteString("## Workflow step definitions named in the runtime evidence (from agent_definitions — citable as static tier)\n\n")
 			b.WriteString(steps)
+			if refsExcluded > 0 {
+				fmt.Fprintf(&b, "\n> %d further workflow step(s) named in the runtime evidence were NOT inlined (cap %d) — this listing is capped, not exhaustive; absence here is not evidence a step was uninvolved.\n",
+					refsExcluded, maxWorkflowRefs)
+			}
 			b.WriteString("\n")
 		}
 	}
@@ -441,22 +446,37 @@ const (
 var workflowRefRe = regexp.MustCompile(`([a-z][a-z0-9-]*)/([a-z][a-z0-9_]*) \(([a-z_]+)\)`)
 
 // workflowRefsFromRuntime extracts up to max distinct (agent_type, step) pairs
-// named by the runtime evidence, in order of first appearance.
-func workflowRefsFromRuntime(runtime string, max int) [][2]string {
+// named by the runtime evidence, in order of first appearance. Also returns how
+// many DISTINCT further refs the cap excluded.
+//
+// The count exists because of a platform-wide audit prompted by the council
+// (eba040a9 round 5, bug_historian: "no audit is shown for whether a THIRD
+// forwarding-cap-with-silent-truncation exists"). It did. This was it — a bare
+// `break` with nothing recorded, so a bundle could inline three step definitions
+// while the runtime evidence named eight, and the verdicter had no way to tell
+// the difference between "only three were named" and "five were cut". Lower
+// stakes than the request forwarders (this is bundle enrichment, not a question
+// the spin guard credited as progress) and the same shape, which is the whole
+// point of auditing by shape rather than fixing by instance.
+//
+// Sibling caps that already report and were confirmed NOT instances during the
+// same audit: diagnose_run_checks (max_checks) and diagnose_load_runtime
+// (max_code_checks) both render "coverage was capped, not complete".
+func workflowRefsFromRuntime(runtime string, max int) (out [][2]string, excluded int) {
 	seen := map[string]bool{}
-	var out [][2]string
 	for _, m := range workflowRefRe.FindAllStringSubmatch(runtime, -1) {
 		key := m[1] + "/" + m[2]
 		if seen[key] {
 			continue
 		}
 		seen[key] = true
-		out = append(out, [2]string{m[1], m[2]})
 		if len(out) >= max {
-			break
+			excluded++
+			continue
 		}
+		out = append(out, [2]string{m[1], m[2]})
 	}
-	return out
+	return out, excluded
 }
 
 // renderWorkflowSteps inlines the named steps' JSON from agent_definitions.
