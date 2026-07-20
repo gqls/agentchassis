@@ -178,10 +178,46 @@ Two further holes in the same layer:
    > unrelated `github-actions-runner`). Liveness fails only after
    > `KAFKA_UNHEALTHY_AFTER_SECONDS` (default 300) of *continuous* all-broker
    > unreachability, so 040-kafka-dial's intermittent flakes cannot trip it.
-   > **The restart-on-sustained-unreachability path is NOT yet observed in the
-   > wild [UNVERIFIED]** — no pod has been in that state since the roll; the
-   > deliberate test (block one pod's broker egress, expect restart at ~300s +
-   > probe lag) is still owed.
+   > **TEST RUN 2026-07-20 ~19:40Z — THE SHIPPED CHECK FAILED IT.** A
+   > disposable pod (`chassis-liveness-test`, since deleted) was given
+   > `KAFKA_BROKERS=10.255.255.1:9092` (unroutable) and the production probe
+   > shape. It was genuinely wedged — `wget` to that address timed out, every
+   > Kafka client logged `i/o timeout`, topic creation failed — and
+   > `/health` returned `{"status":"ok"}` for **six minutes straight**, never
+   > restarting. Two defects in the v1.0.1140 code:
+   > 1. **Wrong broker list.** The prober read `cfg.Infrastructure.KafkaBrokers`
+   >    (viper → the config *file*, or `SERVICE_INFRASTRUCTURE_KAFKA_BROKERS`)
+   >    while every real client resolves via `kafka.GetBrokers()` (that var,
+   >    else `KAFKA_BROKERS`). It was probing the real bootstrap address from
+   >    the config file while the agent talked to the blackhole. **In prod the
+   >    two currently agree**, so this is latent there — but it is the reason
+   >    the test could not fail the way it should have.
+   > 2. **TCP connect is not evidence.** `net.DialTimeout` to
+   >    `10.255.255.1:9092` **succeeded** — something in this pod network
+   >    completes TCP connects to addresses serving no Kafka — so even with the
+   >    right list, a bare dial cannot distinguish a broker from a black hole.
+   >
+   > **FIXED (committed `976618dbb`, INERT until the next image roll):**
+   > `GetBrokers()` with a cfg fallback, and `dialAny` now requires a Kafka
+   > METADATA round-trip (`kafka.Dialer` + `Conn.Brokers()`), which a non-Kafka
+   > acceptor cannot fake. **The restart path itself remains [UNVERIFIED]** —
+   > re-run the test above after the roll; it is now a real test, and a pass
+   > means the restart, not just a JSON body.
+   >
+   > **OPEN POLICY QUESTION (owner/council, not decided here):** the check
+   > passes when ANY broker answers, so a pod that has lost exactly one broker
+   > — 003's original §3a signature — still reports healthy. Requiring ALL
+   > brokers would catch it but risks false restarts during routine broker
+   > rollouts. That is a fleet-wide restart-policy call.
+   >
+   > **Landmine found while testing:** a throwaway pod inherits `KAFKA_TOPIC`
+   > from `personae-prod-config`, so despite a custom `AGENT_TYPE` it consumed
+   > `system.agent.generic.*`; with a fresh consumer group and
+   > `StartOffset: FirstOffset` it replayed 11-day-old messages from the start
+   > of the topic. Harmless here (separate group = its own copies, not stolen;
+   > **zero** `orchestration_states` or `processed_messages` rows written; the
+   > orchestrations it replayed were `COMPLETED` on 2026-07-09), but anyone
+   > repeating this must set `KAFKA_TOPIC` explicitly and expect a full replay.
    > **Governance caveat, stated plainly:** this shipped **without an APPROVED
    > council verdict.** The trail (`3a18a1a4`) ran three rounds — REVISE, then a
    > round voided by 019-class reviewer truncation, then REVISE again — and the

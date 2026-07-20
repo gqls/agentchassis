@@ -88,3 +88,46 @@ control, never a generic string the change merely uses:
 kubectl exec -n ai-persona-system <pod> -- sh -c \
   'strings /app/agent-chassis | grep -c "<literal-created-by-change>"'
 ```
+
+## Liveness restart test (bugs_open/003 F4) — how to run it properly
+
+Manifest: `scratchpad/liveness_test_pod.yaml` pattern — a standalone Pod on the
+chassis image with `KAFKA_BROKERS=10.255.255.1:9092` (unroutable TEST-NET),
+production probe shape, and shortened windows
+(`KAFKA_UNHEALTHY_AFTER_SECONDS=60`, `KAFKA_HEALTH_PROBE_INTERVAL_SECONDS=10`).
+
+**Two gotchas that cost the first run:**
+1. **Set `KAFKA_TOPIC` explicitly.** A custom `AGENT_TYPE` is NOT enough:
+   `personae-prod-config` supplies `KAFKA_TOPIC`, and `main.go` prefers the env
+   var over the agent-type-derived default, so the pod consumes
+   `system.agent.generic.*`. With a fresh consumer group and the reader's
+   `StartOffset: FirstOffset`, it then **replays the topic from the beginning**
+   (11-day-old messages, in the observed run). A distinct consumer group means
+   its own copies — it does not steal from the real group — but expect the
+   replay and check afterwards for writes:
+   ```sql
+   SELECT count(*) FROM orchestration_states WHERE processing_node='<pod>';
+   SELECT count(*) FROM processed_messages  WHERE processed_by='<pod>';
+   ```
+2. **A pass is a RESTART, not a JSON body.** Watch `restartCount` 0→1 AND
+   `kubectl describe pod` events for
+   `Liveness probe failed ... statuscode: 503`. If the container dies without
+   that event, it died of something else (agent init) — that is not a pass.
+
+```bash
+kubectl apply -f <manifest>
+# poll: restarts + endpoint together
+kubectl -n ai-persona-system get pod chassis-liveness-test \
+  -o jsonpath='{.status.containerStatuses[0].restartCount}'
+kubectl -n ai-persona-system exec chassis-liveness-test -- \
+  wget -qO- --timeout=4 localhost:8080/health
+kubectl -n ai-persona-system describe pod chassis-liveness-test | grep -A12 '^Events:'
+kubectl delete pod chassis-liveness-test -n ai-persona-system   # always clean up
+```
+
+**Prove the pod is really wedged before trusting a negative result** — the
+first run's `{"status":"ok"}` was the check being wrong, not the pod being fine:
+```bash
+kubectl -n ai-persona-system exec <pod> -- wget -T 4 -qO- 10.255.255.1:9092   # must time out
+kubectl -n ai-persona-system logs <pod> | grep -c 'i/o timeout'               # must be > 0
+```
