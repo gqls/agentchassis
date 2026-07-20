@@ -503,3 +503,49 @@ is fixed, and none challenged the diagnosis. A second run would spend credits
 chasing a trailer line. **No `Council-Reviewed` trailer** — that is earned by an
 APPROVED verdict only, and putting one on a REVISE leaves a permanent false claim
 of review (this repo has done that once already and had to correct it forward).
+
+### 036 diagnosis-loop run — corr `cbe08e6f`: UNVERIFIABLE, then wedged at `route`
+
+Filed per CLAUDE.md before asserting the root cause. Honest outcome: **the loop did
+not confirm or refute it — it could not see the evidence.**
+
+Verdict `outcome: UNVERIFIABLE`, `next_scope: [diagnose_council_decide_action.go]`,
+with its own `needed_evidence`: *"The bundle does not contain
+diagnose_council_decide_action.go, the councilReview struct, or any of the
+review-loop code the hypothesis describes … The runtime evidence present is
+entirely about unrelated workflows — page-rerender, build-dispatch-loop kafka
+timeouts, update_component_html's regression guard."* It then correctly issued two
+`code_requests` (`councilReview`, `diagnose_council_decide_action`) and two
+`data_requests` (`__step_error` rows, `council_report` rows) — i.e. it asked for
+exactly the four things I had already pulled by hand.
+
+**It never got to use them.** The run has sat `EXECUTING_STEP @ route` for 17+
+minutes with only the `bundle` artifact written and no second iteration. Same
+shape as the wedged diagnosis run recorded on 2026-07-18 (003-class). The
+`COMPLETED @ complete` row beside it is a sub-orchestration, not the diagnosis.
+
+**Correction to this workstream's memory: the code-lookup tier IS live.** It was
+recorded as "built, inert until an image roll". Discriminating pod grep on
+`agent-chassis-645674b498-rndg9`: `code_requests_field` 1, `diagnose_code_lookup`
+5, negative control `ZZZ_definitely_not_a_symbol` 0. So the tier shipped; the
+gap here is not that it is missing. (Same grep confirms 036 itself is correctly
+NOT live yet: `salvageMistypedReview` 0, `objectionEdit` 0.)
+
+**What this says about symptom authoring, and it is not the documented trap.**
+016b §9 records "councils log as `agent_type='generic'`, so a council-scoped
+symptom finds nothing — name `generic`". That covers the *runtime* half. This run
+shows the *source* half is a separate failure: the autogather bundle was built
+from runtime signals and pulled in none of the named file, even though the symptom
+named the file, the struct, the field and the branch explicitly. For a
+**code-shaped** hypothesis about a specific function, naming the symbol in the
+symptom does not get that symbol into the bundle — the loop has to spend an
+iteration asking, and if it wedges on that iteration you get nothing.
+
+**Consequence for this bug: none.** The diagnosis stands on direct evidence
+gathered by hand, and it is unusually self-evidencing: `__step_error` names the
+file, the field and the Go type verbatim; the three live payloads were fetched
+from `collected_data`; the branch was read. The loop's UNVERIFIABLE is a statement
+about its own bundle, not about that evidence — recorded here so nobody reads it
+as a refutation. Worth a cheaper route next time: for a hypothesis this
+code-local, the loop's value would come from the code tier being seeded into the
+FIRST bundle, not requested on iteration two.
