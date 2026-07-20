@@ -616,3 +616,19 @@ Done — committed as ece827ead, four files, all mine.
   I've also filed a separate bug for something the reviewers pushed me on: there's a second place in the code making the same judgement about empty components, and it still decides by pattern-matching the component's name against words like "article" and "content". Nothing trips it today. The first tool named something like "tool-content-planner" will.
 
 ※ recap: The fix is written and half of it is already live in production, swept in by another session's commit and verified in the running binary — on a "revise" verdict, so it carries no review claim, and nothing has exercised it yet. Checking my own work before committing found a fifth defect that would have made the whole plan a no-op. The remaining database change is written, committed, and waiting on the review round now queued.
+
+  ### 2026-07-20, later — the loop can now say "I've tried this three times"
+
+  Separate bug from this morning's, but the same tool and the same story. Bug 010 was filed back on the 17th with two suggested fixes. The first one shipped days ago and works — it's why the fixer stopped blaming the wrong element. The second one had never been built, and it's the one that matters for cost: nothing anywhere was counting how many times we'd tried and failed to fix the same thing.
+
+  So the loop had no memory. Every week the acceptance run would notice the tool was still broken, raise a fresh repair job, the repairer would try, fail, and the whole thing would go quiet until the next week — when it would do exactly the same thing again. Four rounds of that had already happened on this one tool. Nothing was wrong with any individual step; the loop simply had no way to notice it was going in circles.
+
+  It counts now. After two failed attempts at the same problem it stops trying and hands it to a person, with a note saying how many attempts it spent and what's still failing. Below two attempts, nothing changes at all — the point is to bound the loop, not to replace it.
+
+  I checked the counting against the real database before writing any code, which turned out to be worth doing: the count has to ignore an attempt that's still in progress, and there's one in progress on this exact tool right now, put there by another session. Had I got that wrong, the guard would have escalated a repair that was still running.
+
+  Two honest caveats, both of which I've written into the bug file rather than left in my head. The escalation goes into a list that a human has to actually read; if nobody reads it, I've stopped the retries and replaced them with nothing, which for that one tool is worse than before. And on this particular tool the guard will fire and blame the repairer, when we now know the real problem is the one from this morning — the fix never reaching the page. It's the right action for the wrong stated reason, which is the sort of thing that misleads whoever reads it next.
+
+  It's committed and it's gone through the review council, though it won't do anything until the next time the system's code is rebuilt and deployed.
+
+  ※ recap: The repair loop had no memory of its own failures and would retry the same broken fix weekly forever. It now counts, stops after two, and asks a person. Verified the counting against live data first, and confirmed the tests could actually fail before trusting them. Two caveats written down rather than glossed: the escalation only helps if someone reads that list, and on this tool it'll blame the wrong culprit.

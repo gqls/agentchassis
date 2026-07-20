@@ -3743,3 +3743,63 @@ is **180**. `177` and `178` remain on disk with **no ledger rows** —
 `bugs_open/007`'s trap, still armed. Next free bug number was **044**.
 
 Categories: (fix, gotcha, owner-ruling, council, misstep)
+
+### 2026-07-20 (evening) — bugs_open/010 (b): the loop finally has a bound
+
+Picked up 010, the sibling bug to 024: the fix loop had nothing stopping it
+repeating an insufficient fix. Candidate (a), drill-down attribution, has been
+live since v1.0.1135 and the bug file still described it as built-but-unshipped;
+candidate (b), the convergence guard, had never been built. Built it.
+
+**The count is the whole change**, and its three bounds each exist for a
+specific failure:
+- **terminal attempts only** — an OPEN item is the current cycle. Not
+  theoretical: `216ea5fe` is open on the benchmark tool right now (another
+  thread's 024 proof, status `claimed`) and counting it would escalate a loop
+  mid-flight. Probed: inverting that clause returns exactly that 1 row.
+- **only since the last PASSING verdict** — a green resets the tally, so a
+  regression weeks later is a new defect. Inert on this tool, which has **zero**
+  `acceptance-run` notes: it has never passed Tier 4.
+- **only criteria failing NOW** — a fixer that fixed X and left Y has not
+  failed at Y twice.
+
+**Probed the SQL against live data before writing the Go**, which is the part
+worth repeating: the benchmark counts **4**; a synthetic green verdict at 07-18
+00:00 cuts it to **2**; an unrelated criterion returns **0**. Three clauses,
+three discriminating probes, on real rows rather than fixtures.
+
+**The tests were confirmed to FAIL before being trusted.** Six sqlmock tests
+passed first run, which proves nothing — mutated `stuck` to `false && ...`,
+watched the two escalation tests fail with the right messages, restored, green
+again. Memory note "verify the failing branch" applied to my own tests this time.
+
+**Isolation, since the shared tree does not compile clean:**
+`imagery_style_guide_test.go` fails in the working tree (another session's WIP,
+both the source and its test dirty). It PASSES at committed HEAD. Verified my
+change by `git archive HEAD` into a scratch tree with only my two files
+overlaid — full package green. Committed `b13238be6` before doing anything else,
+per the standing rule that a dirty tree is shared mutable state; this bug's own
+files were swept by another session's commit only this morning.
+
+**What I got wrong in the bug file, and corrected there.** 010's headline
+evidence (two RED re-verifications, a "materially identical" second fix) reads
+as proof the fixer cannot aim. It is not — 07-19 established the page never
+re-rendered, so the loop was re-testing an unchanged page. I did not discover
+that; I read it in these NOTES and propagated the correction into the bug file,
+where it had never been recorded. **A correction that lives only in the
+workstream's notes and not in the bug file is half-filed**, because the bug file
+is what the next thread greps.
+
+**The open question I could not settle, now disclosed rather than buried:**
+`acceptance_stuck` has no handler — it lands in the generic needs_human_review
+list. If nobody reads that list, the escalation is a no-op that ALSO stops the
+retry, which is worse for that tool than the status quo. And on this very
+benchmark the guard would fire on 024's DELIVERY defect while its summary blames
+the FIXER. Both are in the submission's `risks` and in the bug file. Council
+correlation **eeeccdaa-f14b-49cb-b11f-06e7f053add8** (orch `bf6ae577`).
+
+Inert until the next chassis image. The benchmark is already past the threshold,
+so the first verdict after the roll should escalate — cheap to verify, and the
+query + discriminating pod-grep are in 010's "Verify after fixing" §2.
+
+Categories: (fix, tests, correction, council)
