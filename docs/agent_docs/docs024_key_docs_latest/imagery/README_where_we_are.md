@@ -669,3 +669,61 @@ after we had already paid for all of them. I have filed that as bug 036 and resu
 Worth knowing that the run recorded itself as "completed" while having produced nothing at
 all, which is the same trap we keep meeting elsewhere: the status said fine, the output was
 empty.
+
+---
+
+## 20 July — the hero fix is live, and what it turned out to be entangled with
+
+*(session "bugfix thread3", signing off bug 011 R1)*
+
+It went out with yesterday's roll and it is running. I checked it the honest way —
+by looking inside the two running programs rather than trusting the version
+number — and both carry the change.
+
+**One caveat I want to be straight about: nothing has actually used it yet.** No
+images at all have been generated since the roll, because tool imagery is on hold
+for a different reason (bug 020). So the new routing is *in place* but has not yet
+made a single picture. The first hero generated after that hold lifts is the real
+proof, and it takes one query to check: the record for a new hero should say
+`banana/…` where it used to say `stability/…`.
+
+**What the fix turned out to be entangled with.** While finishing, I found another
+session had, hours earlier, hit the same underlying flaw somewhere else in the same
+file — and a third had found something related again. Pulling those threads together:
+
+Routing heroes to the better model also means heroes stop getting their "don't do
+this" list, because that model ignores such lists entirely. That is not something my
+change broke — it has been true of *every other* kind of image for weeks, and nobody
+had noticed — but my change did extend it to the biggest category. The session that
+found it has already written the fix; it goes live on the next roll. I updated their
+notes, because they were working from an assumption my deploy had just made untrue,
+and I would rather they knew than discovered it later.
+
+There is also a length limit on the style instructions we send, set years-ago-style
+for the *old* model's much shorter limit. The code even says, in a comment, that it
+should be revisited "when provider routing lands". Provider routing has now landed.
+That one is also already being handled by another session.
+
+**What is left on my side**, in the order I would do it:
+
+1. The alarm I added for a wrongly-routed image is only a log line. It should be a
+   proper record, so a dashboard can catch it instead of a person reading logs at
+   the right moment. I did not do it because the piece of software that spots the
+   problem has no database access, and the obvious workaround would recreate a
+   different bug we have been bitten by before. I have written down the right shape
+   for whoever does it.
+2. **The spellchecker for pictures** — bug 011's second item, and I now think the
+   most valuable thing left. The good model still occasionally misspells a word
+   *inside* an image, and nothing anywhere reads the text in a picture we generate.
+   It reports success either way. Your own example was a map that rendered
+   "REPRETITIVE".
+3. Making infographic numbers come from the audited evidence base, so a picture
+   cannot state a figure we have not verified.
+
+**Still unanswered, and it is your call, not mine:** what this costs. Heroes are the
+largest category we generate and they have moved to a different paid provider. I had
+no billing data for either and I am not going to guess. If it matters, that is worth
+finding out before the hold lifts and volume resumes — undoing it is one line, or one
+config change per site.
+
+Resume point for all of this: `HANDOFF_2026-07-20_provider_routing_011.md`.

@@ -3,6 +3,20 @@
 **Last updated: 2026-07-19. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
 the running notes — it is the single entry point for a fresh session.**
 
+> **SIBLING THREAD, 2026-07-20 — provider routing changed underneath this document.**
+> `bugs_open/011` R1 is **live on v1.0.1139**: the adapter's hand-maintained
+> kind→provider `switch` is now an enumerable table
+> (`internal/adapters/imagegenerator/routing.go`), **`hero` has joined Banana** (so
+> *every* declared kind is now Banana-routed; SDXL is reached only by an empty/legacy
+> kind or an explicit per-site `provider:"stability"`), and a site can now pin its
+> provider from `imagery_style_guide.provider` as **config, not code**. An unrouted
+> kind is now detected and logged by name instead of falling silently to SDXL.
+> **Resume point and full detail: `HANDOFF_2026-07-20_provider_routing_011.md`.**
+> Two consequences land on this workstream: it completed `bugs_open/028`'s blast
+> radius (`avoid` is inert on heroes too — that thread has shipped a fix, inert until
+> a roll), and it made `bugs_open/027` §4b's 200-char cap due, since the cap is sized
+> for SDXL's CLIP wall and no declared kind uses SDXL any more.
+
 ## WHERE WE ARE (2026-07-19) — read this block, then "Mechanisms" below
 
 **The D13 gate failure is resolved on the imagery side. Nothing is blocked, and
