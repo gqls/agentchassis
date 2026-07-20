@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# commit-msg — D2 direction-document gate (owner ruling 2026-07-20: the
+# direction is FIXED; a GATE, like check-secrets, not advisory).
+#
+# Blocks a commit that touches a blessed direction document (the constitution,
+# the mission, their sanctioned copies, or the ledger itself) unless the commit
+# message carries a "Direction-Approved: <name>" trailer. The trailer is earned
+# by the owner's explicit word for that specific change — see
+# docs/agent_docs/docs026_concept_register/DIRECTION_LEDGER.md.
+#
+# Deliberately boring and narrow: for any commit not touching those paths this
+# script is a no-op (exit 0 on the first check). It must never break unrelated
+# commits — every failure mode other than "direction doc without trailer"
+# exits 0.
+
+MSG_FILE="$1"
+[ -n "$MSG_FILE" ] && [ -f "$MSG_FILE" ] || exit 0
+
+# Blessed paths (keep in lockstep with DIRECTION_LEDGER.md).
+BLESSED='docs/agent_docs/docs024_key_docs_latest/adoption/docubundle/thin_slice_constitution.md
+scripts/documentation_project/02/thin_slice_constitution.md
+docs/agent_docs/docs019_documentation_audit_autonomous_build_and_operate/go_files/contextkit/thin_slice_constitution.md
+docs/agent_docs/docs024_key_docs_latest/028_platform_mission_and_pipeline_direction(2).md
+docs/agent_docs/docs014_documentation_collection/028_platform_mission_and_pipeline_direction(2).md
+docs/agent_docs/docs026_concept_register/DIRECTION_LEDGER.md'
+
+STAGED=$(git diff --cached --name-only 2>/dev/null) || exit 0
+[ -n "$STAGED" ] || exit 0
+
+TOUCHED=""
+while IFS= read -r f; do
+  while IFS= read -r b; do
+    [ "$f" = "$b" ] && TOUCHED="${TOUCHED}  ${f}\n"
+  done <<EOF2
+$BLESSED
+EOF2
+done <<EOF1
+$STAGED
+EOF1
+
+[ -n "$TOUCHED" ] || exit 0
+
+if grep -qi '^Direction-Approved:' "$MSG_FILE"; then
+  exit 0
+fi
+
+printf '\033[1;31m── DIRECTION GATE: commit blocked ──\033[0m\n'
+printf 'This commit touches blessed direction document(s):\n'
+printf "$TOUCHED"
+printf 'The constitution and mission are the platform'"'"'s FIXED direction (owner\n'
+printf 'ruling 2026-07-20). Editing them requires the owner'"'"'s explicit word for\n'
+printf 'THIS change, recorded as a commit-message trailer:\n\n'
+printf '    Direction-Approved: <who gave the word>\n\n'
+printf 'Also update the sha256 in docs/agent_docs/docs026_concept_register/DIRECTION_LEDGER.md\n'
+printf 'in the same commit. Do NOT add the trailer without the owner'"'"'s word —\n'
+printf 'that defeats the guard and leaves a false record.\n'
+exit 1
