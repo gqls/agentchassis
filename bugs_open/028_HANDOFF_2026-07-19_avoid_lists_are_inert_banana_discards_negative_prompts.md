@@ -328,7 +328,16 @@ interface-contract change — being comment-only.**
 | Was an existing sentence-boundary/append helper missed? | reuse_agent | **Checked.** `endsWithSentenceBoundary` does exist in `generate_image_actions.go:1161` — but in `platform/orchestration/actions`, and importing that into a provider adapter inverts the dependency direction. Six lines of pure duplication is the right call; recorded so the next reader knows it was a decision. |
 | The three documents asserting the false lesson are not corrected | editquality | **The objection was right, my premise was wrong** — all three were already corrected before I started. See the correction block in §4; this seat is what caught it. |
 
-**OPEN — deliberately not resolved here, because it is an owner call.** Two seats
+> **RESOLVED 2026-07-20 — owner's call: keep the comment, add no enforcement.**
+> Rationale accepted: there are exactly **two** implementers, both now verified to
+> honour the field (Banana by the fold, Stability by weighted `api.TextPrompt`), and
+> adding a third is a deliberate act by someone who will have read this contract.
+> **The condition that would reopen this is a THIRD provider** — if you are adding
+> one, read the objection below before you write its `GenerateImage`, because the
+> seats' point stands: nothing mechanical will stop you repeating bugs_open/028.
+> The options below are kept costed, not discarded.
+
+**The owner call that was, and how it was argued.** Two seats
 (editquality, bug_historian, both medium) object that a comment cannot stop the next
 provider repeating the bug, and bug_historian says so explicitly: *"documentation-as-guard
 has already failed once on this exact field ... a human should decide whether the
