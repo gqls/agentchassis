@@ -1061,3 +1061,47 @@ literal you are about to fix, *before* costing the fix. Ten seconds.
 > Before citing one as a cause, grep the Go tree for the field name — if nothing
 > sets it, the value is content, not code, and the fix is a default plus a
 > validation check rather than an edit to a template.
+
+**(9) "The queue drains at ~2.4 msg/min; 86 deep clears in ~36 min; nothing had
+degraded."** Mine (bugfix-030 thread), written into `bugs_open/030` **as the
+correction to entry (7) above** — i.e. I made this error in the very act of
+documenting it, two paragraphs after writing "any two samples inside a burst give
+an arbitrarily high rate".
+**Actually:** I keyed on a window containing the +47-message burst and ending just
+before the stalls that followed. Straddling a burst, where (7) straddled a stall.
+The completed 40-sample run: **0.62 msg/min** over the full 22.8-min sampler window,
+**1.50 msg/min** over all 40.7 min I watched, with `LAG` **growing 82 → 130** and a
+single message pinning the offset for **≥15.4 minutes**. The queue was *diverging*.
+"Clears in ~36 min" was false — it never cleared and got 48 deeper.
+**Worse than the arithmetic:** the thread I corrected had concluded "slow,
+multi-hour possible, variance is large, no stable answer". That was **right**, and I
+overturned it with a wrong number while correctly faulting their derivation. Being
+right about their method licensed me to be wrong about their conclusion.
+**Caught by:** letting my own sampler finish. The first 21 samples said one thing;
+all 40 said the opposite. I published at 21.
+**The cheap check that would have caught it:** *wait for the measurement you already
+started.* I had a 20-minute run in flight and wrote the correction from a partial
+read of it — for no reason except that I had the answer I expected.
+
+> **(7), (8) and (9) are now three threads, three "measured" rates from the same
+> queue on one afternoon — 0.21, 2.4, 0.62 — each arithmetically defensible and each
+> useless as a forecast. At that point the fault is not in anyone's window choice.
+> There is no single rate to measure**: throughput is `1 / (duration of the
+> orchestration segment currently running inline on the consumer goroutine)`, which
+> ranges from milliseconds to ≥15 minutes depending on what is at the head. An
+> average over that describes no moment and predicts nothing.
+>
+> **So the remedy in (7)/(8) — "sample ≥20 min and take the slope" — is itself
+> wrong, and I am retracting it.** A longer window makes the number stabler, not
+> truer; it still answers a question the system does not have an answer to. Report
+> `LAG` (depth) and what kind of work is at the head, publish raw samples if you
+> report anything, and when asked "how long will it take" say **there is no reliable
+> answer** rather than producing a defensible one.
+>
+> The generalisable shape, and it is new to this file: **a metric can be
+> well-defined, correctly computed, and still not exist as a property of the
+> system.** All three of us assumed the rate was a fact awaiting better measurement.
+> Two of us then "improved" the measurement and got further from the truth. The tell
+> was available to all three: the mechanism is legible in `agent.go` and
+> `coordinator.go` in ten minutes and predicts non-stationarity outright — we each
+> reached for the stopwatch with the source code open.

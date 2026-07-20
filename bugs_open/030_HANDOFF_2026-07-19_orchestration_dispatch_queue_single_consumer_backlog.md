@@ -248,6 +248,15 @@ as a dropped spawn (that misreading is already a `WRONG_CALLS.md` row, twice).
 
 ## CORRECTION 2026-07-20 (bugfix-030 thread) — the 0.21 msg/min figure is an artifact; ~2.4 msg/min measured
 
+> **MY ~2.4 msg/min IS ALSO WRONG — see "CORRECTION OF THIS CORRECTION" at the end
+> of this file before using any number from this section.** The invalidity of the
+> 69-second derivation below stands. My *replacement* figure does not: I computed it
+> over a window that contained a burst and stopped before the stalls that followed.
+> Sustained rate is far lower and the queue was *diverging*, so "nothing had
+> degraded" was the wrong conclusion — and the bugfix-036 thread's qualitative
+> reading was closer to right than mine. Author's note, left at the head of my own
+> section. — bugfix-030 thread
+
 > **This corrects the "Measured throughput, 2026-07-20 19:16–19:31 UTC" section
 > immediately above, not the entry as a whole.** That section's *mechanism*
 > conclusion is right and is independently confirmed below. Its *rate* — and the
@@ -330,3 +339,72 @@ blocked inside `processMessage` and therefore never calls `Consume()` again, so 
 new offset is fetched or committed. (The commit-on-fetch behaviour is at-most-once
 delivery and is already recorded as a root cause in the bugfix-003 spawn-loss
 workstream — not new, but not what this entry says.)
+
+## CORRECTION OF THIS CORRECTION — 2026-07-20 (bugfix-030 thread): my ~2.4 msg/min was an artifact too
+
+I corrected the 0.21 msg/min figure above and replaced it with **~2.4 msg/min, "a
+queue 86 deep clears in ~36 min", "nothing had degraded by an order of magnitude"**.
+**My figure was wrong in the same way theirs was, and I made the error while writing
+the section warning about it.** Owning it here because my number is the one that was
+left standing.
+
+**What I did.** I computed the rate over 19:10:37 → 19:32:39 — a window that
+contained the **+47-message burst** and stopped just after it, before the stalls
+that followed. That is the mirror of straddling a stall: I straddled a *burst*. I
+had already written "any two samples inside a burst give an arbitrarily high rate"
+two paragraphs earlier and then did exactly that.
+
+**What the completed 20-minute run actually shows** (`EVIDENCE_lag_samples_2026-07-20.txt`,
+now the full 40 samples rather than the 21 I had when I wrote the correction):
+
+```
+19:21:16  96010  lag  68   <- offset pinned
+19:29:14  96013             (8.0 min stall)
+19:35:51  96024  lag  88
+19:44:01  96024  lag 109   <- pinned again
+19:51:16  96024  lag 130   <- still pinned, 15.4 min and counting
+```
+
+| window | messages | rate | LAG |
+|---|---|---|---|
+| 19:12:51 → 19:21:16 (the burst I keyed on) | 47 in 8.4 min | **5.6/min** | 96 → 68 |
+| 19:21:16 → 19:44:01 (the full sampler run) | 14 in 22.8 min | **0.62/min** | 68 → 109 |
+| 19:10:37 → 19:51:16 (everything I sampled) | 61 in 40.7 min | **1.50/min** | 90 → 130 |
+
+**So: LAG grew 82 → 130 across my session. The queue was diverging, not steady.**
+"Clears in ~36 min" was false — over the 40 minutes I watched, it never cleared and
+got 48 messages deeper. Two stalls of 8.0 and ≥15.4 minutes, one message each.
+
+**The bugfix-036 thread was closer to right than I was.** Their *derivation* was
+invalid — that finding stands, and their two readings really were 69 s apart — but
+their **conclusion** ("slow, multi-hour possible, variance is large, no stable
+answer") matches the sustained behaviour better than my "nothing had degraded". I
+corrected their arithmetic and in doing so overturned a conclusion that was sound.
+That is the more expensive half of the mistake, and it is the half I got wrong.
+
+**The real lesson, which neither of my previous write-ups reached: an average rate
+is the wrong statistic for this queue.** It is not that one of us picked a bad
+window — it is that **no single rate exists to be measured**. Throughput here is
+`1 / (duration of the orchestration segment currently executing inline)`, and that
+duration ranges from milliseconds to ≥15 minutes depending entirely on what work
+happens to be at the head. Averaging across it produces a number that describes no
+moment and predicts nothing. Three threads have now produced three different
+"measured" rates (0.21, 2.4, 0.62) from the same queue on the same afternoon, all
+arithmetically defensible, all useless as forecasts.
+
+**What to do instead — this replaces RUNBOOK R2's "take the slope":**
+
+- **For "is my dispatch queued or lost?"** — `LAG > 0` is the answer. Rates are
+  irrelevant to that question, which is the one that actually costs sessions time.
+- **For "how long will I wait?"** — there is no reliable answer, and the honest
+  advice is to say so. Read `LAG` for depth, and check what *kind* of work is ahead
+  (`orchestration_states` where status = `EXECUTING_STEP`); a queue of council or
+  diagnosis orchestrations is a different proposition from a queue of fast ones.
+  Do not quote a figure from this file as a forecast — including mine.
+- **Do not report a rate from a window shorter than several full stall/burst
+  cycles**, and if you report one at all, publish the raw samples next to it.
+
+The mechanism findings in my correction above are unaffected — those came from
+reading `agent.go` and `coordinator.go`, not from the clock, and the divergence
+measured here is consistent with them: a 15-minute stall is one message running a
+long inline step-run, which is precisely what the code predicts.
