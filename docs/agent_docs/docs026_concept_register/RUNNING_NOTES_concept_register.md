@@ -1160,4 +1160,30 @@ gate's first live firing.
 R3 (Go + image window), R4 (feature/experience councils — theirs are co-edited
 machinery; coordinate before seating), D4 (standards table, council-reviewed).
 
+## Turn 32 — 2026-07-20 — v1.0.1140 deploy verified; config survived; one wrong call logged
+
+Owner: fresh chassis build deployed 18:58:33 BST. Verification per CLAUDE.md
+(pod, never tag):
+
+- **Pod:** agent-chassis-5567d99bd6-5snzn, image v1.0.1140, started 17:58:20Z
+  (matches the owner's stamp); past the 300s dispatch-quiet window at check time.
+- **Truncation family LIVE in the binary:** strings-grep = 1 each for
+  `stop_reason=max_tokens`, `done_reason=length`, `stop_reason=refusal`,
+  `response truncated`. The superseding TruncatedError form (carries the
+  partial; 019's upstream cause) is what shipped.
+- **Re-seed clobber check: config SURVIVED.** 100_CHECK ALL GREEN (both
+  councils' seat anchors); classifier R0 block + R1 chain wiring intact
+  (design→review→gate→append verified). Note: the classifier row was updated
+  17:57:45Z — 35s before the pod — by someone else's pre-deploy touch; my
+  anchors intact, whatever it was preserved them.
+- **008 was ALREADY CLOSED** by another thread (19:06, their own pod
+  verification, §10 row updated) while I was drafting my own "verified but
+  don't close yet" update — my append recreated the moved path as an untracked
+  orphan fork, caught by the commit's pathspec error. Orphan deleted; their
+  closure stands; logged in WRONG_CALLS.md (cheap check: `ls bugs_open/NNN*
+  bugs_closed/NNN*` before UPDATING a case, not just before filing).
+- llm_call_log had 0 calls in the first 6 min post-roll [UNMEASURED beyond
+  that window] — behavioural evidence will accrue organically; the closing
+  thread's evidence standard already covered it.
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
