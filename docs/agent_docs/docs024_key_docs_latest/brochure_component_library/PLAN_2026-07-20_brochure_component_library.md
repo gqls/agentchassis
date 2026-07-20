@@ -89,9 +89,37 @@ not theory)
   (concatenate section HTML → inject head/header/footer) and deployed git → GitHub
   Actions → Backblaze B2. There is no per-request server render.
 - Full end-to-end trace of spec/mission → agent chain → component registration →
-  imagery eligibility → a worked recent example of adding a new component type: **see
-  the Explore agent findings, to be folded in below once returned** (dispatched
-  2026-07-20, in flight as this file was created).
+  imagery eligibility → a worked recent example of adding a new component type:
+  **returned 2026-07-20, folded into NOTES.** Headline facts: **no
+  carousel/hover-zoom/slider component exists anywhere in the framework today** —
+  this is a genuine from-scratch build, not an under-used capability. The mission
+  text already flows all the way from `082_submit_domain_unified.sh --mission` down
+  to the classifier that weights the site plan — the "reachable from the mission
+  downwards" hook the owner asked for already exists; we're adding component
+  *types* to the registry it selects from, not new plumbing.
+- **Landmine confirmed, and confirmed NOT to block us**: `bugs_open/041` (filed
+  today, unrelated thread) — a **chrome** (header/footer) component's declared JS
+  is silently never published, because the asset collector only reads
+  `page_components`. Our new carousel/hover-zoom components are ordinary
+  `component_level='section'` components reached via `page_components`, i.e. the
+  path that already works correctly. Still worth a real `curl` 200-check on the
+  published JS asset after building, since nothing else checks this automatically.
+- **The step most likely to be silently skipped**: registering a new component row
+  is not enough — `component_selector`/`plan_sections` only ever select a type the
+  **build-site-planner / site-architect prompt** actually names. A correctly-built,
+  correctly-styled component that isn't mentioned in that prompt will simply never
+  be chosen. Treat "confirmed present in the planner prompt" as a required
+  acceptance item for every new component type this workstream ships, not an
+  afterthought — see NOTES for the precedent this failure class has elsewhere in
+  the repo.
+- **A shared-build opportunity, not a new one**: leopardessconsulting's own rebuild
+  brief (owner-authored, `docs/leopardessconsulting/PLAN_leopardess_rebuild.md`
+  §2/A5) already asked for a **reusable code-rendered chart/infographic component
+  (Go + JS renderer)** — phase L7, still not started. That is materially the same
+  ask as this workstream's "stat band" component, under the same standing rule
+  (numbers/words are code-rendered, never diffusion-generated). **Proposing this as
+  ONE shared component built once and registered generically**, rather than two
+  separate builds for two workstreams — see Open Decisions.
 
 ## Deep external research (dispatched 2026-07-20, in flight)
 
@@ -127,6 +155,12 @@ as a single direct `WebFetch`.
    `stat-band` [code-rendered, per the leopardess rule], `people-feature-block`) as
    additions to that registry, sized to fit the existing `component_level` /
    `applies_to` / `is_dark_section` conventions — not a parallel system.
+4. **Shared chart/stat component with leopardessconsulting's outstanding L7?**
+   Recommend yes — one code-rendered (Go + JS, never diffusion-generated) chart/
+   stat-band component, registered generically enough that both leopardess's
+   infographics need and this workstream's Bain-style stat band draw from it. Needs
+   the owner's confirmation it's fine to size the component for two workstreams'
+   use rather than leopardess-specific fields only.
 
 ## Phasing (draft — to be firmed up once Explore + deep-research land)
 
@@ -142,8 +176,26 @@ as a single direct `WebFetch`.
   A throwaway or the new brand's site (once a domain decision is made) is the
   correct first target.
 - **P2:** roll additional component types (swipeable card grid, stat band, people
-  block) once P1's pattern is proven.
+  block) once P1's pattern is proven. Stat band = candidate shared build with
+  leopardess L7 (Open Decisions #4).
 - **P3:** apply the set to real domains once the owner has reviewed a design sample.
+
+**Acceptance checklist for every new component type shipped in P1/P2** (added after
+the Explore agent's findings — these are the specific ways a "done" component
+silently fails on this platform, not generic best practice):
+1. Row exists in `content_components` with correct `component_level`.
+2. **Confirmed present in the build-site-planner / site-architect prompt** — the
+   planner will otherwise never select it even though it renders fine standalone.
+3. CSS consumes `var(--section-*, var(--color-*))`, never hardcodes colour —
+   verified against a dark-section AND a light-section site, not just the one it
+   was designed on.
+4. Any JS asset it publishes returns a real `200`, checked by `curl` against the
+   live deployed URL — not assumed from a "complete" work-item status.
+5. If it carries a `site_plan_imagery` kind: confirmed against a real generated
+   image before wiring (leopardess's own rule — don't let a bad generation ship
+   unseen).
+6. Copy path is content-writer + `validate_page_content`, never hand-authored into
+   `content_data` — so claims/voice gates still apply.
 
 ## Corrections log (this file)
 
