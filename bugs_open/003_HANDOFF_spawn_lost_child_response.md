@@ -87,6 +87,12 @@ A `page-content-writer` pod on a **different** node (`prod-instance-177359254375
 route to `10.20.99.93:9092` while others can. **The broker-0/1 vs broker-2 asymmetry is the
 tell** — start the network investigation there.
 
+> **CORRECTED 2026-07-20 ("bugfix 003" thread):** the broker-2/one-node signature no longer
+> reproduces. 12h of live logs show dial i/o timeouts to **all three brokers from at least
+> four different nodes** (broker-0 dominating), low-grade and intermittent. See the
+> 2026-07-20 research pass at the end of this file — a static node→broker-2 network fix
+> would chase a moving target; the durable fixes are the platform gaps in §4.
+
 **3c. The reaper is a scheduled SQL sweep, not in-process.** The error strings come from
 `docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql` (~lines 1060–1078), a `scheduled_tasks`
 `pre_query` that bulk-`UPDATE`s `orchestration_states … SET status='FAILED'` where
@@ -158,6 +164,14 @@ Two further holes in the same layer:
    never reschedules it onto a healthy node. Add a liveness probe (or self-crash) when the
    Kafka consumer can't dial for N minutes. Entry point: `platform/agentbase/agent.go` around
    the idle-warn at line 1080 and `IDLE_TIMEOUT_SECONDS` handling at line 421.
+
+   > **CORRECTED 2026-07-20:** spawned Jobs already HAVE liveness+readiness probes
+   > (`cmd/remote-job-spawner/main.go:450–478` and `spawn_actions.go:2792–2812`) — but they
+   > point at `/health` and `/ready`, which are **hardcoded 200s**
+   > (`cmd/agent-chassis/main.go:141–150`). The fix is to make the endpoints honest, not to
+   > add probes. Details + two adjacent gaps (idle_timeout_seconds=0 for exactly the wedging
+   > child types; no probes at all on the chassis Deployment) in the 2026-07-20 research pass
+   > at the end of this file.
 
 2. **A parent in `AWAITING_RESPONSES` should honour its own `timeout_seconds`.** A lost child
    response shouldn't wait 30–90 min for a global SQL sweep. Either enforce the workflow
@@ -353,3 +367,174 @@ from the child's side: no error, no failed status, just a healthy-looking pod
 logging idle warnings. The only positive signal is `awaited_requests.status =
 'expired'` joined to the parent. Any monitor that watches pod health or log
 severity will report this as fine.
+
+---
+
+## Research pass — 2026-07-20 ("bugfix 003" thread): third root cause, two corrections, fix plan
+
+Every §3d/§4 code citation was re-verified against today's HEAD and still holds
+(`consumer.go` fetch L81 / commit L103; call sites `agent.go:468/:528`;
+receipt-time dedupe `agent.go:801/811` vs work at `:822`; the processor-path
+mirror; the `request_id=""` silent-no-dedupe gates). Live reaper config matches
+§3c plus one addition: its pre_query also marks `awaited_requests` rows
+`expired` after a 5-min grace — **but nothing anywhere consumes `expired`**
+(grep of the whole tree; the only writers are the reaper CTE and
+`cleanup_expired_awaited_requests()`, which merely mark and, after 7 days,
+delete).
+
+**Live scale, 2026-07-20:** 70 reaper-failed orchestrations in the last 2 days
+(`spawn_ingester` 27 — §5's business-intel fear confirmed; `spawn_diagnoser` 4 —
+the diagnosis loop is being eaten). 24 wedged `EXECUTING_STEP` rows, oldest
+`last_activity` **2026-05-28 (~53 days)** — §4.3's blind spot, still unswept.
+
+### THIRD ROOT CAUSE — timeout enforcement is a process-local sleeping goroutine; a pod restart deletes every pending timer, and nothing rebuilds them
+
+*(Direct code reading, each claim grep-verified. Filed to the diagnosis loop
+before being asserted here — correlation `d971e8c2-0c41-4251-b46f-705b471f5dc1`,
+item_key `needs_diagnosis:workflow-step-timeouts-on-awaited-child`; verdict
+pending at the time of writing — check `diagnosis_artifacts` for that
+correlation before building on this section.)*
+
+The retry machinery §"Fresh occurrence" hoped for **does exist and is correct**:
+`handleRequestTimeout` (`platform/orchestration/coordinator.go:2962`) checks the
+DB row, and if still waiting resends with `retry_version++` (max 3, then
+`routeToErrorStepOrFail` / loop-skip). What's broken is **how it is driven**:
+
+- Its only drivers are `go s.handleRequestTimeout(...)` at
+  `coordinator.go:1816` and `:2117` — goroutines spawned **at request-send
+  time**, whose first line is `time.Sleep(time.Until(timeoutAt))`. The timer
+  lives and dies with the pod that sent the request.
+- `TimeoutMonitor` (`platform/orchestration/helpers.go:19–80`) looks like the
+  durable answer but is **dead code** — `NewTimeoutMonitor` has zero callers.
+- Nothing on startup scans `awaited_requests` to re-arm timers, and nothing
+  consumes `status='expired'` (see above). So after a restart of the owning pod,
+  a lost child response has **no rescue path at all** until the 90-min reaper.
+- The owner of most parents is `generic` — the `agent-chassis` Deployment,
+  `replicas=1`, rolled constantly (current pod born 2026-07-20 07:35Z,
+  v1.0.1139). Every roll silently deletes every pending timer in that pod.
+
+This fully explains the fresh occurrence's `retry_version = 0` at 45+ min past
+`timeout_at` (attribution of that specific instance to a restart is plausible
+rather than proven — the structural claim does not depend on it). It also
+answers its open question: the "sweeper" performs no reclassification because
+**there is no sweeper-driven retry** — retries fire only from (a) the in-memory
+timer, or (b) an explicit recoverable-error *response* from the child
+(`coordinator.go:291`). A child that never replies triggers neither.
+
+Note how the three root causes compound on any restart: §3d loses the in-flight
+messages (offset already committed), this section loses the timers that would
+have noticed, and §4.3 means the wedged parent is never reaped. That is why
+deploy windows are so destructive.
+
+### Adjacent gaps confirmed while verifying §4
+
+- **Probes exist but measure nothing** (correction to §4.1, marked inline
+  above): `/health` and `/ready` return hardcoded 200s
+  (`cmd/agent-chassis/main.go:141–150`); `checkHealth()` (`agent.go:1068`) pings
+  only the DB and is wired to no probe. `platform/health/server.go` already has
+  a `Checkers`-based server the chassis doesn't use.
+- **The chassis Deployment has NO probes, no preStop, default 30s grace**
+  (`deployments/kustomize/services/agent-chassis/base/deployment.yaml`),
+  `replicas=1` in prod — §4.4b–d confirmed as filed.
+- **`agent_definitions.idle_timeout_seconds = 0` for `diagnose-agent` and
+  `image-generator`** — the idle monitor (`agent.go:421`) never starts for
+  exactly the child types observed wedging; only the Job's
+  `ActiveDeadlineSeconds=86400` (24h) bounds them. (`page-content-writer` is
+  180s.)
+- **The git adapter has the §3d defect too**: `internal/adapters/git/adapter.go:142`
+  and `:272` are the only other `Consume()` callers in the tree — a restart
+  mid-`git_commit` loses the message identically.
+- **`system.agent.generic.requests` has PartitionCount=1** (RF 3), so §4.4d's
+  `replicas≥2` buys failover only, not parallelism, unless partitions are
+  raised.
+
+### Proposed fix plan (2026-07-20) — ordered by leverage per risk
+
+**F1 — reaper coverage (SQL/config, LIVE immediately, no image roll).** Add an
+`EXECUTING_STEP` clause to the reaper pre_query (fixed prefix so triage's
+`left(error,140)` grouping still buckets the pattern; step name appended):
+
+```sql
+failed_wedged AS (
+    UPDATE orchestration_states
+    SET status = 'FAILED',
+        error = 'reaper: stale EXECUTING_STEP for >3h; step=' || current_step,
+        updated_at = NOW()
+    WHERE status = 'EXECUTING_STEP'
+      AND last_activity < NOW() - INTERVAL '3 hours'
+    RETURNING orchestration_id
+)
+```
+
+First firing drains the 24 standing zombies. Apply via `UPDATE scheduled_tasks`
+AND mirror into `020_scheduled_tasks.sql` (the patch-style re-seed clobber
+landmine). No legitimate step runs 3h.
+
+**F2 — durable, DB-driven retry of expired requests (Go).** Keep the sleeping
+goroutine as the fast path; make the DB the guarantee. The per-pod 1-min ticker
+`cleanupExpiredAwaitedRequests` (`coordinator.go:3649`) already exists: extend
+it to atomically claim newly-expired rows
+(`UPDATE … SET status='retrying' WHERE status='expired' … RETURNING` — atomic,
+so concurrent pods can't double-drive; add `'retrying'` to the status CHECK)
+and push each through the **same body as `handleRequestTimeout`** (factor it
+out): `retry_version<3` → the existing resend at `coordinator.go:2760–2860`
+(increments, re-arms `timeout_at`, persists, produces); `≥3` →
+`routeToErrorStepOrFail`/loop-skip. Per-workflow timeouts then hold to ~1-min
+granularity across restarts, and the 90-min reaper becomes a true backstop.
+`EXECUTING_STEP` wedges (no request row exists) stay F1's job — the two layers
+are complementary.
+
+**F3 — at-least-once consume + completion-time dedupe (Go; §4.4a + a-bis, must
+ship together).**
+- Port all four `Consume()` call sites (`agent.go:468/:528`,
+  `git/adapter.go:142/:272`) to `FetchMessage` → process → `CommitMessages`,
+  then delete `Consume()` so the trap can't be re-adopted. Commit after
+  `processMessage` *returns* (handler errors already route through
+  `handleProcessingError` — the guarantee being bought is against pod death,
+  not against handler error, so no poison-message loop is introduced).
+- `processed_messages` two-phase claim (needs a migration — the table has no
+  status column): add `status ('processing'|'complete')` + `lease_expires_at`;
+  `RecordMessageProcessing` writes `processing` with a lease; new
+  `MarkMessageComplete` after the handler succeeds (wire at `agent.go` ~849 and
+  the `processor.go` mirror); `HasProcessedMessage` treats as duplicate only
+  `complete` OR `processing` with a live lease. Same claim/lease shape as
+  `site_work_items` — reuse, don't invent.
+- `request_id=""` → make it loud (WARN + `MessagesDropped{reason="undeduped"}`
+  metric); guaranteeing request_id on every inbound path is follow-on work.
+
+**F4 — honest health, fail-fast, survivable rollout (Go + kustomize + config;
+§4.1, §4.4b–d).**
+- Consumer wrapper tracks last-successful-fetch / consecutive-dial-failure;
+  chassis `main.go` swaps its hardcoded mux for `platform/health.Server` with
+  real checkers (DB ping; Kafka broker dial). `/ready` reports ready only once
+  consumers are constructed and polling.
+- Self-crash backstop in agentbase: Kafka unreachable continuously for ~10 min
+  → `os.Exit(1)`. Job `RestartPolicy=OnFailure` reschedules (possibly onto a
+  healthy node); this is what actually un-wedges §3a-style pods even where
+  probes are stale.
+- Base deployment.yaml: liveness+readiness probes, `terminationGracePeriodSeconds:
+  60` (must exceed `Shutdown()`'s 30s drain), `preStop` sleep; prod overlay
+  `replicas: 2` (failover-only at 1 partition — raising partitions is a
+  separate decision).
+- Config (live immediately, no image): set `idle_timeout_seconds` for
+  `diagnose-agent` (~600) and `image-generator` (~900).
+
+**Sequencing.** (1) F1 + F4's idle_timeout config now — both config-only.
+(2) F2+F3 together in one image roll — they interlock: F3's redelivery is only
+safe with F3's completion-dedupe, and F2 gives a silent loss a driver. Council-
+gate (097) before commit — `platform/` scope. (3) F4's Go + kustomize in the
+next roll. Network flakiness is explicitly NOT fixed by any of this — after
+F2–F4 it degrades from silent loss to visible retries; if dial-error rates stay
+high, file a separate infra case (conntrack/CNI/broker load) with the new
+health metrics as evidence.
+
+**Verification for the fixing thread.**
+- §6's `ai-readiness-quiz` repro, end-to-end.
+- Pod-grep a literal the change **creates** (e.g. the new reaper error prefix,
+  the `'retrying'` status string) plus a positive control — not a string the
+  change merely uses.
+- Deliberate chassis roll mid-orchestration: `awaited_requests.retry_version`
+  must increment and the orchestration complete, instead of reaper-failing at
+  90 min.
+- `EXECUTING_STEP` zombie count drops to 0 and stays there.
+- Re-run §2's SQL after a week: `spawn_*` reaper deaths should collapse.
