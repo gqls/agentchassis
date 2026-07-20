@@ -26,6 +26,18 @@ looking. Full problem statement and evidence:
   between your add and your commit — check `git log` before assuming HEAD is yours.
 - Your session-start `git status` is a snapshot; it goes stale within minutes.
   Re-run it before acting on it.
+- **The auto-memory directory is versioned too** (2026-07-20). Every Write/Edit
+  under `~/.claude/projects/*/memory/` is auto-committed into a git repo inside
+  that directory by `scripts/memory-git-snapshot.py` (a PostToolUse hook; commits
+  one file by pathspec, attributed by session). It exists because a session
+  overwrote another session's memory file with `cat >` and it was
+  **unrecoverable** — the same mistake in this repo would have cost nothing,
+  because git had a copy. Recover with `git -C <memory dir> log/show`. Note the
+  hook cannot see a `cat >` that never goes through Write/Edit, so it captures
+  the *previous* state, not the clobbering write — which is exactly what you need
+  to restore. **Read before write on any file you did not create; prefer the
+  Write tool, which refuses an unread file, over a shell redirect, which does
+  not.**
 - **Your uncommitted work is not safe, and this practice does not make it safe.**
   Committing per task stops *you* sweeping up *others'* WIP; it cannot stop a
   session that still runs `git add -A` from sweeping up *yours*, half-finished,
