@@ -1007,3 +1007,59 @@ curl -s -o /dev/null -w '%{http_code}\n' https://idea.uk/tools/assets/audience-c
 curl -s https://idea.uk/tools.html | grep -c 'audience-check-form.js'                          # want 1
 curl -s https://idea.uk/tools.html | grep -oE 'href="/tools.html#audience-check"' | head       # cards retargeted
 ```
+
+### §X.4 — the rerender that reported success, deployed, and changed nothing (2026-07-20)
+
+**This is the CLAUDE.md rule biting in a form I had not seen: `complete` was true, the deploy was
+real, and the change still did not reach the page.**
+
+After p3_03 I fired `rerender-pages`. Result: 9/9 `page_rerender` items `complete`, a real deploy to
+`gqls/vm-sites` per page, and the JS asset genuinely published —
+`/tools/assets/audience-check-form.js` → **HTTP 200, 1469B**. Every status surface said done.
+
+The page markup was **unchanged**: no `<script src=…>` ref, no `#ac-result` div, tool cards still
+`href="/audience-check"`.
+
+**Two separate traps here, and I fell into the first one.**
+
+1. **I checked the wrong artefact and nearly called a real deploy a no-op.** I looked at
+   `page_components.rendered_html`, saw 18/19 July timestamps, and concluded "reported complete,
+   did nothing". Wrong — the rerender path assembles and deploys directly and does not necessarily
+   write back to `page_components`. What settled it was reading the work item's `result` JSON, which
+   lists the deployed files verbatim:
+   `"files": ["/tools.html", "/tools/assets/audience-check-form.js"]`.
+   *A stale `page_components.rendered_html` is not evidence that a rerender did nothing.*
+
+2. **The real cause — the section re-render is gated behind `spec.reason`.**
+   `rerender_page_sections_action.go:47-51`:
+   ```
+   check_rerender_mode (conditional: reason==image_landed OR reason==section_data_resolved)
+     -> rerender_sections -> check_escalated -> save_sections -> render_page
+   else_step (no/other reason) -> render_page      ← ASSEMBLE-ONLY
+   ```
+   The items `rerender-pages` creates carry **no `spec.reason`** (verified: `{"domain","page_id",
+   "filename","page_name"}` and nothing else). So all 9 took the assemble-only branch: pages
+   rebuilt from **stored section HTML** and deployed. **A `content_components.html_template` edit
+   can never reach a page down that path.**
+
+**Why the JS asset landed anyway, which is what made this confusing.** `collectJSAssets` reads
+`content_components.js_content` **directly**, not the rendered HTML — so the asset published while
+the `<script>` tag that references it (which lives in `html_template`) did not. The result is the
+worst possible shape to debug: the asset exists, returns 200, and nothing loads it.
+
+**Fix: `sql/p3_04`** inserts `page_rerender` items for tools + index with
+`reason='section_data_resolved'`, the documented route into `rerender_page_sections` — "re-render
+ALL of a page's sections from their STORED content_data plus FRESHLY re-resolved dynamic fields,
+WITHOUT invoking the content writer (no LLM)". Exactly right here: copy unchanged, only the template
+and one query-resolved URL need refreshing. Scoped to the 2 affected pages, not all 9.
+
+⚠️ **Guarded, because this path can rewrite live copy.** If ANY section has NULL/empty
+`content_data`, `rerender_page_sections` escalates the WHOLE page to the LLM content writer. p3_04
+refuses with a `RAISE EXCEPTION` rather than risk that on live sales copy. The guard passed (0
+sections affected), so the insert proceeded — but the check is in the file permanently.
+
+**Transferable rule for the next thread:** *a rerender has two modes, and the default one cannot
+see template changes.* If you edited `content_components.html_template`, a plain `rerender-pages`
+will deploy and report success without applying it. You need `spec.reason='section_data_resolved'`
+(or `image_landed`). Worth noting `rerender-pages` offers no way to set that — hence the manual
+insert.
