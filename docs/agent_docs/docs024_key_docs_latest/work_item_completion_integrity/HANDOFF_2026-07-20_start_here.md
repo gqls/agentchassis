@@ -1,11 +1,12 @@
 # START HERE — work_item_completion_integrity
 
-**Cold-start entry point for this workstream.** Written 2026-07-20 by the thread that
-closed `bugs_open/017` ("bugfix thread2"), so the next chat can resume without re-deriving
-anything. Read this file, then the two inbound handoffs named in §3.
+**Cold-start entry point.** Rewritten end of 2026-07-20 so a fresh chat can resume
+without re-deriving anything. This file is current-state and gets rewritten; the
+history lives in `NOTES` (technical, append-only), `README_where_we_are.md` (plain
+prose, append-only, the owner's) and the `SUMMARY_*` series (never edited).
 
-**Remit of this thread, in one sentence:** whether a `site_work_items` row can be trusted
-to mean what it says.
+**Remit of this thread, in one sentence:** whether a `site_work_items` row can be
+trusted to mean what it says.
 
 ---
 
@@ -13,176 +14,171 @@ to mean what it says.
 
 | | |
 |---|---|
-| **`bugs_open/017`** | ✅ **CLOSED 2026-07-20** — live in **v1.0.1139**, pod-verified. Moved to `/bugs_closed/017_…` |
 | **Branch** | `085_debug_and_feature_loops` |
-| **Commits** | `c82b2872c` (fix) · `c80fffc83` (council r2 follow-up) · `205b73a28` (§9 queue trap) · `41e3345b2` (standing five + corrections) · `93edb02f7` (closure) |
-| **Council** | `SUBMISSION_CORR=319e23f6-b333-42ba-88ef-069b4426c057` — r1 REVISE, r2 REVISE at **8 approve / 2 object**. No `Council-Reviewed:` trailer claimed (verdict was never APPROVED) |
-| **Live check** | defining sweep = **0**; no regressions |
-| **`bugs_open/021` §2** | **WORKED + LIVE 2026-07-20** (`08b35ccc4`, `c46e57bea`) — contract widened + coverage guard (now a source-scan SENSOR, which found 17 item types the DB snapshot could not see). Live in **v1.0.1140**, pod-verified with discriminating symbols. **Still OPEN**: net verifiers remain 1 of 86 |
-| **Council (021)** | `9f7bd637-081f-45c4-bf10-1f9645424ce8` — **REVISE at 9 approve / 2 object**, best result yet. bug_historian's deciding objection (the guard was a stale snapshot, reproducing the "relies on someone remembering" failure it was built to stop) was RIGHT and is fixed in `c46e57bea`. Two objections stand: net verifiers still 1, and the blast-radius claim rests on my grep. No trailer claimed |
-| **`bugs_open/032`** | CLOSED by `empty_sections_loop_integrity` (`ed1e20602`) — also live in v1.0.1140. Not ours |
-| **Next** | **submission A** (owner-assigned, §3B) — genuinely unstarted. Then a real verifier, remit-first |
+| **Deployed** | **v1.0.1140**, pod `agent-chassis-5567d99bd6-5snzn` (started 2026-07-20 17:58:20 UTC) |
+| **`bugs_open/017`** | ✅ **CLOSED & LIVE** — moved to `/bugs_closed/017_…` |
+| **`bugs_open/021` §2** | ⚠️ **WORKED & LIVE, still OPEN** — machinery shipped, but net verifiers are **1 of 86** |
+| **`bugs_open/032`** | ✅ Closed by `empty_sections_loop_integrity` (`ed1e20602`). Not ours |
+| **In flight** | **nothing.** No dispatches pending, no uncommitted work, no background jobs |
+| **Next** | **Submission A** (owner-assigned, unstarted) — §4 |
 
-## 2. What 017 was, and what shipped
+**Everything is committed.** Nothing is trapped in the previous chat.
 
-`site_work_items` could be stamped `status='complete'` while storing, in the same UPDATE,
-the error proving the work never happened.
+## 2. What has shipped, and what it does
 
-The root confusion is **two `status` fields one layer apart**:
-`result.response_status` is **delivery** (the coordinator sets it to `'complete'` whenever
-*any* reply arrives, `coordinator.go:2398-99`); `result.response.status` is the saga's own
-**verdict**. The completion path read the first as if it were the second.
+### `017` — a failed saga can no longer be stamped 'complete'
 
-Shipped in v1.0.1139:
+The root confusion is **two `status` fields one layer apart**. `result.response_status`
+is **delivery** — the coordinator sets it to `'complete'` whenever *any* reply arrives
+(`coordinator.go:2398-99`). `result.response.status` is the saga's own **verdict**. The
+completion path read the first as if it were the second, so a workflow that never ran
+was stamped complete beside the error proving it.
 
-- **`handlerReportedFailure`** (`complete_work_item_verification.go`) — blocks completion on
-  an explicit `failed`/`failure`/`error` verdict, routing into the *existing* attempt
-  machinery via a generalised `failUnverifiedCompletion`. Runs **before** the per-item-type
-  verifier.
-- **`recordUnknownVerdict`** — an unfamiliar verdict still COMPLETES (a novel status is not
+- `handlerReportedFailure` blocks completion on an explicit `failed`/`failure`/`error`
+  verdict, routing into the **existing** attempt machinery via a generalised
+  `failUnverifiedCompletion`. Runs *before* the per-item-type verifier.
+- `recordUnknownVerdict` — an unfamiliar verdict still COMPLETES (a novel status is not
   evidence of failure) but is written to `agent_error_log` as
   `error_code='UNKNOWN_HANDLER_VERDICT'`, because a `zap.Warn` dies with the pod.
-- **`fix_forced_text_colors` registered** in `GlobalActionRegistry` (leg 1; landed via
-  `06376bcbf` when another session swept my tree).
-- **`registry_parity_test.go`** — the build now fails if any action registers an
-  `ActionInputSpec` with no registry entry, with a `dormantActions` allowlist.
-- **Deleted** the dead `actioncheck.LocalActions` map + the comment and two guide docs that
-  told authors to "register in TWO places".
-- **Data:** 54 mis-stamped rows corrected to `failed`, reversible via `result._correction`.
+- `registry_parity_test.go` — the build fails if an action registers an
+  `ActionInputSpec` with no `GlobalActionRegistry` entry.
+- The dead `actioncheck.LocalActions` map is deleted, with the comment and two guide
+  docs that told authors to "register in TWO places".
+- 54 mis-stamped rows corrected to `failed`, reversible via `result._correction`.
 
-**Design decisions and their reasons are in `PLAN_…md` — read that table before changing
-any of it.** Two corrections to the original bug report are recorded there too (its root
-cause was wrong; its scale was 27× understated).
+### `021` §2 — verifiers are now *writable*, and the gap is *sensed*
 
-## 3. What's next — two inbound handoffs, both already council-reviewed
+`CompleteWorkItemAction` consults a per-item-type verifier before stamping complete.
+`RegisterVerifier` had been called **once** for 86 item types.
 
-Both sit in this directory. **Neither is started.** Between them they carry five council
-rounds already paid for; the outstanding objections are enumerated so you do not re-spend
-them.
+- **`VerifyTarget{ItemID,SiteID,PageID,ItemType,Spec}`** replaces the bare spec.
+  This was the real blocker, and `021` had mis-diagnosed it as opt-in discipline:
+  only **9 of 5,514** specs carry a `site_id`, so site-scoped verifiers were
+  *unwritable*, however willing the author.
+- **`verifier_coverage_test.go`** — every item type must be verified or classified
+  (`mechanical` / `creation` / `judgement` / `no_target`) with a reason, or the build
+  fails. Two halves: a **source-scan sensor** over `ItemType: "literal"` (needs no
+  refresh) and a **hand-refreshed DB snapshot** for types produced outside the package.
+- **`ctaClassifyAnchor`** extracts the misdirected-CTA predicate into one definition so
+  detection and verification cannot drift. Behaviour-preserving; it also gave that
+  check its first test coverage of its core classification logic.
 
-### A. `bugs_open/032` + `bugs_open/021` §INSTANCE 2 — the verifier layer
-`HANDOFF_2026-07-19_verifier_absent_row_defect_and_coverage.md`
+## 3. What is NOT done, stated plainly
 
-> **⚠️ THE HANDOFF IS OUT OF DATE ON 032 — CHECKED 2026-07-20, DO NOT REDO THIS WORK.**
-> It describes 032 as an open live defect with a fix "drafted". **The fix is written and
-> committed** — `a467baa11`, *"a deleted component no longer verifies as a successful
-> fix"* — and it is the conservative shape the handoff recommended: return an **error**,
-> not a verdict, relying on our gate failing OPEN on verifier error.
-> **But it is INERT.** Pod-grep of the running binary for its discriminating string
-> `"genuinely fixed or silently deleted"` → **0**, with my own 017 guard string → **1** as
-> a positive control. The commit (10:33 UTC) postdates the pod start (07:35 UTC). So 032
-> is in exactly the state 017 was in yesterday — fixed, not live — which is why it
-> correctly remains in `/bugs_open/`. **Next action on 032 is an image roll, not code.**
-> Its file names `empty_sections_loop_integrity` as owner; closing it is theirs.
->
-> Residual deliberately left open *in the code comment itself*: if the page still EXPECTS
-> the component (a `plan_sections` entry, a slot reference), absence is not ambiguous — it
-> is deletion, and `Resolved:false` is the honest verdict. Bigger change, assigned to
-> `empty_sections_loop_integrity`, and the error-return floor does not preclude it.
+**Net verifiers: 1 of 86.** The machinery is live; the coverage is not. This is the
+council's standing objection and it is correct — `CompleteWorkItemAction` still stamps
+complete with zero verification for 85 item types.
 
-- **Coverage gap (021 §2) — WORKED 2026-07-20 (`08b35ccc4`), still OPEN.** Contract
-  widened (`VerifyTarget`) so verifiers are writable at all — the real blocker, which
-  021 had mis-attributed to opt-in discipline; coverage guard built (all 69 live item
-  types must be verified or classified or the build fails). **Coverage is still 1
-  verifier, deliberately**: the `page_rerender` attempt was written, tested and held
-  because a whole-page predicate is stricter than the handler's `ctaFieldNames` remit
-  and would have destroyed two-strike escalation across 1,849 items (WRONG_CALLS.md
-  2026-07-20). **Next on this:** write a real verifier — read the HANDLER's remit
-  first, not the detector's predicate. The guard's gap map is the triage list, but its
-  categories are [INFERRED] except the three checks I read. Original framing below,
-  kept for context:
-- **(original)** Re-verified
-  2026-07-20: `RegisterVerifier` is called **exactly once** repo-wide
-  (`check_empty_sections.go`), against ~50 item types with discovery checks. 4,570
-  completions carry 5 `_verification` records. The mechanism is opt-in by construction
-  (`verifiers.go:47-51`), so it stays at one unless an author remembers. **This, not 032,
-  is what remains of handoff A.**
-- **Plan:** `reasoning_dataset/submission_B_register_more_item_verifiers.json`
-  (`SUBMISSION_CORR=66dbd0dd-de5f-4f50-acd3-f5f3d817dbd9`, 2 rounds, both REVISE).
-  **Take as a starting point, not a finished plan** — the `phantom_internal_link` edit is
-  "a stub dressed as an edit", `VerifierCoverage()` under-reports by iterating only the
-  check registry, and the known-gap allowlist (~47 entries) is sketched, not enumerated.
+**The `page_rerender` verifier is written, tested and deliberately HELD** — see §5
+trap 1. Do not simply un-hold it.
 
-### B. Submission A — work-item origin provenance (**owner-assigned 2026-07-20**)
+**No behavioural evidence yet.** Zero work items completed platform-wide in the first
+minutes after the v1.0.1140 roll, so the widened contract is *present* and *not
+observed running*. It is behaviour-neutral by construction, so what would surface is a
+regression, not a success.
+
+## 4. Next: Submission A — work-item origin provenance (**owner-assigned**)
+
 `HANDOFF_2026-07-20_submission_A_work_item_origin_provenance.md`
 
-One nullable `TEXT` column `site_work_items.origin_correlation_id`, populated at the single
-INSERT in `write_audit_findings_action.go:657`, plus a partial index. **Three council
-rounds, all REVISE, converging — "two small answers away", both drafted in the handoff.**
+One nullable `TEXT` column `site_work_items.origin_correlation_id`, populated at the
+single INSERT in `write_audit_findings_action.go:657`, plus a partial index. **Three
+council rounds, all REVISE, converging — "two small answers away", both drafted in the
+handoff.** Confirmed genuinely unstarted (column absent; identifier nowhere in
+`platform/`).
 
-**Confirmed NOT started (2026-07-20):** the column does not exist on `site_work_items`, and
-`origin_correlation_id` appears nowhere in `platform/`. So this one is genuinely
-green-field, unlike A.
+Why it matters standalone: auditors make ~15,000 LLM judgements a month that become
+work items with real terminal outcomes, and **nothing links the two** — so an auditor
+flagging twenty non-issues is indistinguishable in the data from one flagging twenty
+real defects. The filing thread declares a secondary interest (dataset ground truth)
+and states the platform motive wins if they conflict. It documents how to decline.
 
-The standalone case: auditors make ~15,000 LLM judgements a month that become work items
-with real terminal outcomes, and **nothing links the two** — so an auditor flagging twenty
-non-issues is indistinguishable in the data from one flagging twenty real defects. The
-filing thread declares a secondary interest (dataset ground truth) and states the platform
-motive wins if they conflict.
+**Then: write a real verifier.** Start from the guard's gap map — but its categories are
+`[INFERRED]` and **read the handler's remit first** (§5 trap 1).
+`hardcoded_section_colors` is the flagged candidate, newly unblocked by
+`VerifyTarget.SiteID`. `submission_B`
+(`66dbd0dd-de5f-4f50-acd3-f5f3d817dbd9`, 2 rounds, both REVISE) is a starting point,
+not a finished plan: its `phantom_internal_link` edit is "a stub dressed as an edit",
+and its `hardcoded_section_colors` verifier was unimplementable under the old contract.
 
-**It also documents how to decline** if you judge it out of remit.
+## 5. Traps this thread paid for — do not re-learn these
 
-## 4. How to verify anything here (full commands in `RUNBOOK_…md`)
+1. **A verifier asserts the HANDLER did its job — read the handler's remit, not the
+   detector's predicate.** `page_rerender` looked ideal (1,849 of 4,644 completions,
+   `page_id` on 1,914 of 1,929). Its handler only rewrites CTA fields in six component
+   types; a prose misdirect is *deliberately* left for two-strike escalation. A
+   whole-page verifier would mark correctly-handled items unresolved and strand them in
+   `failed`. **Six tests passed** — they tested the predicate I chose, not the one the
+   handler implements. → `WRONG_CALLS.md` 2026-07-20.
+2. **The pod-grep passes on a string your change merely USES.** `grep -c
+   fix_forced_text_colors` returned 1 *before* the fix too. Grep a literal from the
+   changed line (`"Strip forced child-text colours"`, the widened SELECT), plus a
+   positive control. → 016b §9.
+3. **A queued orchestration is indistinguishable from a dropped one.** No
+   `orchestration_state_audit` rows meant *queued* — ~18 min under backlog vs ~10 s
+   quiet. Resubmitting cost three redundant council runs. Ask when **other**
+   orchestrations started. → 016b §9.
+4. **"It rests on an author-run audit" from a reviewer is a defect report**, not
+   box-ticking. I waved that off twice; the claim held by luck, not method.
+5. **An inbound handoff is a claim about the PAST.** Verify its state before acting on
+   it *and* before forwarding it — three times this session a doc I was about to write
+   was already stale.
+6. **"The check passed" is not "I complied".** `check_append_only_docs` fires at ≥20
+   lines lost; I broke the never-overwrite SUMMARY rule by 7 and 1, and it caught
+   neither. Same shape as trusting green tests that exercised the wrong rule.
+
+## 6. Verification commands (full set in `RUNBOOK_…md`)
 
 ```sql
--- the defining query. MUST be 0. Any new row = the guard is not in the running pod.
+-- 017's defining query. MUST be 0.
 SELECT count(*) FROM site_work_items
 WHERE status='complete' AND result->'response'->>'status'='failed';
 
--- has the guard ever actually blocked in production? (still 0 as of 2026-07-20)
+-- has the 017 guard ever blocked in production? (0 as of the v1.0.1140 roll)
 SELECT id, item_type, status, attempt_count FROM site_work_items
 WHERE error LIKE 'completion blocked: handler saga reported failure%';
 
 -- an unfamiliar handler verdict appeared → widen the allowlist
 SELECT * FROM agent_error_log WHERE error_code='UNKNOWN_HANDLER_VERDICT';
+
+-- verifier coverage today (2026-07-20: 4,644 / 5)
+SELECT count(*) FILTER (WHERE status='complete') AS complete_total,
+       count(*) FILTER (WHERE status='complete' AND result ? '_verification') AS verified
+FROM site_work_items;
 ```
 
-## 5. Traps this thread paid for — do not re-learn these
+```bash
+# coverage report by category — never fails, prints the shape of the gap
+go test ./platform/orchestration/actions/discovery_checks/ -run TestVerifierCoverage -v
 
-1. **The pod-grep passes on a string your change merely USES.**
-   `grep -c fix_forced_text_colors` returned 1 *before* the fix too (the action file always
-   called `RegisterActionInputSpec`), so the old image passes identically. Grep a symbol
-   that **cannot exist unless your change shipped** — for a config-shaped change, a literal
-   from the changed line itself (`"Strip forced child-text colours"`). Always pair with a
-   positive control. → 016b §9.
-2. **A queued orchestration is indistinguishable from a dropped one.** No
-   `orchestration_state_audit` rows meant *queued* (~16 min under backlog vs ~10 s quiet),
-   not dropped. I resubmitted 3× on untested hypotheses = 3 wasted council runs. Ask when
-   **other** orchestrations started. → 016b §9.
-3. **"It rests on an author-run audit" from a reviewer is a defect report, not
-   box-ticking.** I asserted a structural claim about 8 call sites having opened 4 and
-   inferred 3 from filenames; the council objected twice and I waved it off. The claim held
-   — by luck, not method. → NOTES misstep 2.
-4. **CLAUDE.md changes mid-session.** Its diagnosis section *inverted* during this work
-   (filing is now the DEFAULT for any durable claim). Re-read it from disk before asserting
-   anything durable, not just at session start.
+# deploy check: a literal from a CHANGED line + a positive control
+kubectl exec -n ai-persona-system <pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "COALESCE(spec, .{}.::jsonb), site_id, page_id"'
+```
 
-## 6. Owner calls outstanding
+> Note: `RegisteredVerifierItemTypes` greps **0** in the binary and that is CORRECT —
+> it is called only from a test, so the linker strips it. Do not read it as a failed
+> deploy.
 
-- **Nothing on 017.** One monitoring note only: the guard's *blocking* path has not yet
-  fired in production, so it rests on tests rather than an observed live block. This is
-  stated plainly in the case file rather than implied away.
-- **Which inbound to take first.** Revised after checking the code rather than trusting the
-  handoffs: **032 is already fixed and needs only an image roll**, so the real choice is
-  between **submission A** (owner-assigned, 3 council rounds in, genuinely unstarted, small
-  and additive) and **021's coverage policy** (largest, least urgent, needs a decision on
-  shape before any code). Submission A is the obvious next move.
-- **An image roll would land 032** (and anything else committed since 07:35 UTC on
-  2026-07-20). Not this thread's call to make, but worth knowing it is the gate on someone
-  else's closed bug.
-- **Three stale `detected` `hardcoded_section_colors` items** remain (robot-hands.com,
-  vonc.com, gamesdesign.co.uk). Deliberately **not** dispatched: it would edit live sites
-  with an action `017` itself judged misconceived, against the "mark them failed and start
-  fresh" ruling. If you ever want leg 1 proven end-to-end, vonc.com (1 component, the
-  platform's own test site) is the right canary — but ask first.
+## 7. Council state
 
-## 7. Reading order for a cold start
+| run | scope | verdict |
+|---|---|---|
+| `319e23f6-b333-42ba-88ef-069b4426c057` | 017 | r1 REVISE → r2 **REVISE, 8 approve / 2 object** |
+| `9f7bd637-081f-45c4-bf10-1f9645424ce8` | 021 §2 | **REVISE, 9 approve / 2 object** — deciding objection acted on in `c46e57bea` |
+
+**No `Council-Reviewed:` trailer is claimed on any commit** — the trailer is earned by
+APPROVED only. Surviving objections on 021 §2: net verifiers still 1, and the
+blast-radius claim rests on my own grep rather than an independent check.
+
+## 8. Reading order for a cold start
 
 1. this file
-2. `PLAN_…md` — design decisions **and their reasons**, plus the two corrections to the
-   original bug report
-3. `NOTES_…md` — the technical log, **including three recorded missteps**; newest at bottom
-4. `HANDOFF_2026-07-19_verifier_absent…` and `HANDOFF_2026-07-20_submission_A…` — the work
-5. `RUNBOOK_…md` — commands, each with its gotcha
-6. `/bugs_closed/017_…` — the closed case with its verification evidence inline
-7. `README_where_we_are.md` — the owner's plain-prose log (append only; never rewrite)
+2. `PLAN_…md` — design decisions **and their reasons**, plus corrections to the
+   original bug reports
+3. `NOTES_…md` — technical log, **five recorded missteps**, newest at the bottom
+4. `SUMMARY_2026-07-18` then `SUMMARY_2026-07-20` — read in order; the series shows how
+   the understanding moved and is never edited
+5. `HANDOFF_2026-07-20_submission_A_…` — the next piece of work
+6. `RUNBOOK_…md` — commands, each with its gotcha
+7. `/bugs_closed/017_…` and `bugs_open/021` — the cases, with evidence inline

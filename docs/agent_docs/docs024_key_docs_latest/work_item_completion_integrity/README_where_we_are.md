@@ -150,3 +150,48 @@ The other thing left over is bigger and needs a decision from you rather than co
 exactly one of these completion verifiers, covering one item type out of about fifty. That
 gap is why the bug we just fixed could happen at all. Worth deciding what shape the answer
 takes before anyone writes anything.
+
+---
+
+**2026-07-20 evening — the second fix is live too, and where I'd pick it up**
+
+You rolled another image (v1.0.1140) and I checked the running pod: the verifier work
+from this afternoon is in it. I checked it the careful way this time — grepping for a
+scrap of text that only exists inside the lines I changed, rather than a name the file
+already contained. One of the checks came back zero and that turned out to be correct:
+the bit it was looking for only ever runs during tests, so it never reaches the shipped
+program at all. Worth knowing before it alarms someone.
+
+Nothing has actually completed since the roll, so I can say the code is there but not
+that I've watched it work. It shouldn't change any outcomes anyway — it hands the
+checker more information about what it's checking, nothing more.
+
+The bug we were fixing this afternoon stays open, and I want to be straight about why.
+We now have the machinery for these completion checks and a guard that stops the gap
+quietly reappearing — but there is still only **one** actual check, covering one kind
+of work item out of eighty-six. I built the thing that makes them possible and the
+alarm that notices when they're missing. I did not build many of them.
+
+The guard did earn its place, though. After the council pushed back, I rewrote it to
+read the source code rather than rely on a list I'd copied out of the database. It
+immediately found seventeen kinds of work item that list couldn't have known about —
+they exist in the code but have never once been created, so nothing in the database
+could reveal them. Each would have sailed through unchecked the first time it ever
+happened.
+
+Also: the other thread closed the deleted-component bug off the same image roll, about
+ten minutes before I got round to writing them a note saying it was ready to close.
+Their checking was sound. That's the third time today I've nearly written something
+that was already out of date — I've written the lesson down.
+
+Everything's committed and nothing is running in the background. If you start a fresh
+chat, `HANDOFF_2026-07-20_start_here.md` in this folder is the way in — I've rewritten
+it properly rather than patching it again, because it had drifted into contradicting
+itself. The next job is the provenance column you assigned, which is genuinely
+untouched and close to approved.
+
+I have deliberately **not** written a new summary for this. The rule you added this
+morning says they're for real turning points, not for every session — and answering the
+five headings today would mostly repeat this morning's. This belongs here and in the
+notes instead.
+
