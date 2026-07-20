@@ -86,3 +86,139 @@ swap the layout first, which is the sanctioned 025 FK-swap order anyway.
 - Deploy (debug_historian's round-2 point): Go is inert until an image
   build+roll — verify with a pod-binary grep for the new symbol, never the
   commit hash or tag.
+
+## FIX BUILT 2026-07-20 (this thread) — awaiting image roll, so still OPEN
+
+Implemented exactly per the fix candidate above, as its own council
+submission (`SUBMISSION_CORR=0328ddc7-3eac-4353-bcf9-b4b8f205720e`).
+
+**Round 1 verdict: REVISE — and the objection was real.** editquality +
+bug_historian both caught that my theme-without-text branch restored the
+theme background while keeping the spec's text — the exact half-swap this
+fix exists to forbid — and that my unit test codified it while the Warn
+claimed a full restore. Revised: refuse any partial restore. Round-1
+checks answered from the live system: exactly one live pipeline routes
+through `render_css_from_spec` (`agent_definitions` → webdesign-agent
+only); no `themeComposition` consumer exists outside the loader+action,
+and template binding is a hand-built map, never the struct; bug 017's
+generic_theme fix never reads `layouts.scheme` (it gates on
+`content_data.color_scheme`), so this guard is the sole enforcement
+point, not a duplicate.
+
+**Round 2 verdict: REVISE — ten approvals, bug_historian again right.**
+The round-1 revision "refused" by keeping the violating merge and
+Warning — an unwatched log line as the only signal, the exact shape
+behind this incident class ("a Warn nobody is paged on is one step
+better than fully-silent, but is not fail-loud"). Revised to the seat's
+own third named option: **hard-fail the render** — the same
+migration-gap-must-be-loud contract `loadThemeComposition` already
+enforces in this file pair, and a failed step is a recorded failure,
+which the fleet immune-system sweep consumes without any new
+`site_work_items` item_type (which would have needed a consumer and
+touched the idx_swi_dedup lockstep). Its low-severity point (the
+unjudgeable-background early-returns were fully silent) → both now emit
+an Info naming what was skipped.
+
+**Round 3 verdict: REVISE — the objections moved from the fix to my
+supporting claims, and verifying them was worth it.** guardian: does a
+failed step retry forever? **No** — the only step-retry counter is
+spawn-scoped (`coordinator.go:1408`, cap 30); `generate_css` declares no
+`error_step`, so the error fails the workflow once and the parent
+dispatch loop marks the item and moves on. prior_art_librarian: is the
+"failure sweep" real machinery or a doc quote? **Real, verified hop by
+hop**: `failWorkflow` → `notifyParentOfFailure` → `agent_error_log`
+severity=fatal (`coordinator.go:3520`) + parent notify →
+`build-dispatch-loop.call_handler.error_step=mark_failed` →
+`fail_work_item` → `site_work_items status='failed'` →
+`diagnosis-triage` (live agent) gathers exactly that surface
+(`diagnose_triage_action.go:328`). Honest caveat: `fail_work_item`
+writes the static "Handler failed", so triage's signature grouping is
+per-handler, not per-cause; the specific guard message lives in
+`agent_error_log`. bug_historian: missingkey silent-blank in this
+action's template? **Refuted for this action** — all palette/typo/token
+lookups go through FuncMap helpers with mandatory fallback args
+(Template Helper Fallback contract), and the five direct template keys
+are set unconditionally; the missingkey=zero incidents are
+`call_agent.go` and the closed json_envelope class. missingkey=error
+hardening here would be the ride-along shape guardian round-1 forbade —
+declined, flagged as its own candidate submission. Round 4 = evidence
+resubmission, code unchanged from round 3.
+
+**Round 4 verdict: REVISE — 13 approvals (all three round-3 objectors
+now approve), one new medium from reuse_agent.** The seat read the
+round-4 sketch standalone and objected that `parseHexColor`/
+`relativeLuminance` "are never shown being defined or imported" — but
+they are the PRE-EXISTING shared utilities in `color_util.go` (:26/:64,
+same package, which is why the diff shows no import), a fact this very
+file's §Verifications recorded before round 1 and reuse_agent's own
+round-1 approval praised ("explicitly reuses parseHexColor/
+relativeLuminance from color_util.go rather than writing new colour
+math"). My round-4 rationale had dropped that citation — seats have no
+cross-round memory, so every resubmission must carry its full evidence
+again. **Lesson for the runbook trap list: a resubmission rationale
+must re-state ALL standing evidence, not just the new round's.** Its
+low (layouts.scheme provenance) answered: the column pre-exists, created
+by `docs024_key_docs_latest/idea.uk/
+migration_layouts_scheme_and_light_tool_portal.sql` (nullable + CHECK,
+NULL = no scheme constraint by design). Round 5 = citations restored,
+code still unchanged from round 3.
+
+**Round 5 verdict: REVISE (12 approvals) — and here the trail was
+closed under the runbook's advisory principle.** The deciding medium
+was bug_historian objecting that the guard lives "in the caller, not in
+the shared merge primitive" — the direct reverse of its own round-1
+approval of the same placement on the same sketch ("explicitly patches
+the verified single call site of the shared merge mechanism … the
+correct fix shape per bug #6/#7's lesson"). This is the runbook's
+documented cross-round-contradiction trap verbatim; its prescription:
+both readings are defensible, pick one, record WHY in the code, move
+on. **Picked: the boundary guard** (022's own council-reviewed
+groundwork; `buildPaletteMap` is a pure no-logger helper and has exactly
+one non-test caller, re-verified twice — today the call site IS the
+mechanism). The WHY + the second-caller warning is now a comment on
+`enforceLayoutScheme` itself. Committed WITHOUT a `Council-Reviewed`
+trailer — that trailer is earned by APPROVED only, and this trail ends
+REVISE; the five council_reports on corr `0328ddc7` are the honest
+record (rounds 1–2 improved the code; rounds 3–5 verified claims:
+retry-path, failure-sweep liveness, missingkey, reuse provenance,
+column provenance, all resolved in the fix's favour).
+
+**Remaining to CLOSE (fixed AND live bar):** build+roll the chassis
+image from a commit containing this fix, then:
+`kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c enforceLayoutScheme'`
+(≥1 = live). Then the live verification above (§How to verify) — re-run
+webdesign-agent on a scheme=dark site with the design_intent pin
+removed; styles.css must stay dark and the pod log must carry the Warn.
+NOTE for the rolling thread: the roll also activates other threads'
+inert fixes (019, 001, code-lookup tier, V4 — see their bug files);
+quiet-check first, and no orchestration dispatch within ~300s of the
+restart.
+
+- `render_css_composition_loader.go`: `l.scheme` selected in the existing
+  JOIN, scanned as NullString (column nullable — live distribution 2026-07-20:
+  15 NULL / 2 light / 1 dark), exposed as `themeComposition.LayoutScheme`.
+- `render_css_from_spec_action.go`: new `enforceLayoutScheme` (returns
+  error), called immediately after `buildPaletteMap` and before
+  `logOverrides` (so a reverted background reports as
+  `claimed_but_ignored`, and every downstream consumer —
+  `BackgroundIsDark`, `buildSectionDefaults`, template lookups — sees the
+  corrected palette). Violation = declared `dark` + luminance > 0.5, or
+  declared `light` + luminance < 0.5. Outcomes: theme supplies both
+  `background`+`text` → restored together, one Warn naming rejected and
+  kept values; theme missing either slot → **the render hard-fails**
+  (nothing ships, site keeps last-good CSS, the failed step is what the
+  fleet failure sweep consumes); background absent/non-hex → passes with
+  an Info; scheme NULL/neutral → inert and logless.
+- `render_css_scheme_guard_test.go` (new): incident case (#F4F5F7 on
+  scheme=dark), light-mirror, conforming override survives, NULL/neutral
+  inert, unjudgeable-with-Info, incomplete-theme-fails-render — all pass
+  against `git archive HEAD` + these three files overlaid (other
+  sessions' WIP excluded).
+
+Load-bearing fact re-checked at implementation time as §Verifications
+demanded: `buildPaletteMap` / `loadThemeComposition` still exactly one
+non-test caller each (`render_css_from_spec_action.go:119` / `:107`).
+
+**Close only when live**: pod-binary check is
+`strings /app/agent-chassis | grep -c enforceLayoutScheme` (never the tag).
+The robot-hands `design_intent` pin stays in place as defence-in-depth.

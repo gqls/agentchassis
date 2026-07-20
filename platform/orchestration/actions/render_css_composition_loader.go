@@ -46,6 +46,12 @@ type themeComposition struct {
 	// by the caller.
 	LayoutTemplate string
 
+	// The layout's declared colour scheme ("light", "dark", "neutral",
+	// or "" when the layouts.scheme column is NULL). The renderer uses
+	// this to refuse a design_spec background that contradicts the
+	// user's layout choice (bugs_open/022).
+	LayoutScheme string
+
 	// Merged-ready inputs. Callers pass Palette and Typography through
 	// buildPaletteMap/buildTypographyMap with the design_spec before
 	// handing the result to the template; Structure goes straight to
@@ -99,6 +105,7 @@ func loadThemeComposition(
 			l.name                AS layout_name,
 			l.css_template        AS layout_css_template,
 			l.structure_tokens    AS layout_structure_tokens,
+			l.scheme              AS layout_scheme,
 			ts.id                 AS typo_id,
 			ts.name               AS typo_name,
 			ts.fonts              AS typo_fonts,
@@ -156,6 +163,7 @@ func loadThemeComposition(
 		paletteName, layoutName, typoName sql.NullString
 		paletteColoursJSON                []byte
 		layoutCSSTemplate                 sql.NullString
+		layoutScheme                      sql.NullString
 		layoutStructureTokensJSON         []byte
 		typoFontsJSON, typoScaleJSON      []byte
 	)
@@ -163,7 +171,7 @@ func loadThemeComposition(
 	err := row.Scan(
 		&themeName,
 		&paletteID, &paletteName, &paletteColoursJSON,
-		&layoutID, &layoutName, &layoutCSSTemplate, &layoutStructureTokensJSON,
+		&layoutID, &layoutName, &layoutCSSTemplate, &layoutStructureTokensJSON, &layoutScheme,
 		&typoID, &typoName, &typoFontsJSON, &typoScaleJSON,
 	)
 	if err == sql.ErrNoRows {
@@ -243,6 +251,7 @@ func loadThemeComposition(
 		LayoutName:      layoutName.String,
 		TypographyName:  typoName.String,
 		LayoutTemplate:  layoutCSSTemplate.String,
+		LayoutScheme:    layoutScheme.String,
 		Palette:         paletteColours,
 		Structure:       structureTokens,
 		Typography:      typoFonts,
@@ -253,6 +262,7 @@ func loadThemeComposition(
 		zap.String("theme", comp.ThemeName),
 		zap.String("palette", comp.PaletteName),
 		zap.String("layout", comp.LayoutName),
+		zap.String("layout_scheme", comp.LayoutScheme),
 		zap.String("typography", comp.TypographyName),
 		zap.String("resolved_by", resolvedBy),
 		zap.Int("palette_keys", len(comp.Palette)),

@@ -31,6 +31,11 @@ package actions
 //                         theme wins
 //   - Typography:         spec wins across the board
 //   - Structure tokens:   layout-only; spec does not contribute
+//   - Scheme guard (bugs_open/022): a layout with a declared scheme
+//     (light/dark) overrules a spec background that contradicts it —
+//     the theme's background AND text are restored together, and the
+//     render hard-fails when the theme cannot supply both (violating
+//     CSS must never ship on a Warn alone)
 
 import (
 	"bytes"
@@ -118,6 +123,19 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 	// template lookups, dark-section detection, buildSectionDefaults.
 	mergedPalette := buildPaletteMap(comp.Palette, specPalette)
 	mergedTypo := buildTypographyMap(comp.Typography, specTypo)
+
+	// 3b. Scheme guard: the layout's declared scheme is a user decision;
+	// the spec's color_scheme is a per-run LLM guess. When they
+	// contradict, the layout wins (bugs_open/022). A detected violation
+	// the theme cannot repair hard-fails the render — scheme-violating
+	// CSS must never ship, and a failed step is what the fleet-wide
+	// failure sweep consumes (a Warn alone goes unwatched).
+	if err := enforceLayoutScheme(comp.LayoutScheme, comp.Palette, mergedPalette, logger); err != nil {
+		return nil, fmt.Errorf(
+			"scheme guard (theme %q, layout %q): %w",
+			comp.ThemeName, comp.LayoutName, err,
+		)
+	}
 
 	// 4. Surface the override deltas for observability. Operators
 	// debugging a site's render can see at a glance which slots the
@@ -251,6 +269,109 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 }
 
 // --- private helpers ---
+
+// enforceLayoutScheme rejects a merged background that contradicts the
+// layout's declared colour scheme (bugs_open/022: analyze_design emits a
+// fresh color_scheme every run, and the core-slot spec-wins rule let a
+// light background ship onto a scheme=dark site with no warning).
+//
+// The layout's scheme is a user decision; the spec's palette is a
+// per-run LLM guess — on contradiction the layout wins. A violating
+// background is replaced by the THEME's background AND text together:
+// restoring only the background would pair it with a spec-chosen text
+// colour and break contrast (never half-swap).
+//
+// Outcomes:
+//   - scheme "", "neutral", or anything but light/dark → inert, no
+//     signal (15 of 18 seeded layouts declare no scheme — logging here
+//     would be per-render noise);
+//   - merged background absent or not parseable hex (gradient, var())
+//     → cannot be judged; passes through with an Info naming what was
+//     skipped, so a scheme-declaring site never goes unexamined
+//     silently (council round 2, bug_historian);
+//   - violation, theme supplies background AND text → both restored
+//     together, one Warn naming rejected and kept values;
+//   - violation, theme missing either slot → ERROR. Restoring one slot
+//     is the forbidden half-swap (council round 1), and shipping the
+//     violating merge with only a Warn is the unwatched-signal shape
+//     behind this class of incident (council round 2). A complete
+//     theme palette is a Phase 3 data invariant, so this is the same
+//     migration-gap-must-be-loud contract the composition loader
+//     already enforces; the failed step is what the fleet-wide failure
+//     sweep consumes, and the site keeps its last-good CSS.
+//
+// The luminance threshold is symmetric at 0.5: a dark layout rejects a
+// background lighter than mid, a light layout rejects one darker. Real
+// backgrounds cluster near the extremes (#F4F5F7 ≈ 0.91, #0f172a ≈ 0.01),
+// so mid-tone false positives are a theoretical concern, not an observed
+// one.
+//
+// PLACEMENT (council trail 0328ddc7, rounds 1+5): the guard lives HERE,
+// at buildPaletteMap's single non-test call site, not inside the merge
+// primitive. buildPaletteMap is a pure helper (its file's contract: no
+// logger, no side effects) and scheme enforcement needs both logging and
+// a failure path; today this call site IS the whole mechanism (caller
+// count re-verified 2026-07-20). If a second caller of buildPaletteMap
+// ever appears, it bypasses this guard — move the enforcement to that
+// boundary or wrap the merge, and re-read bugs_open/022 first.
+//
+// mergedPalette is modified in place.
+func enforceLayoutScheme(
+	layoutScheme string,
+	themePalette map[string]string,
+	mergedPalette map[string]string,
+	logger *zap.Logger,
+) error {
+	if layoutScheme != "light" && layoutScheme != "dark" {
+		return nil
+	}
+
+	bgHex := mergedPalette["background"]
+	if bgHex == "" {
+		logger.Info("RenderCSSFromSpecAction: layout declares a scheme but merged palette has no background — scheme guard has nothing to judge",
+			zap.String("layout_scheme", layoutScheme),
+		)
+		return nil
+	}
+	r, g, b, err := parseHexColor(bgHex)
+	if err != nil {
+		logger.Info("RenderCSSFromSpecAction: layout declares a scheme but merged background is not parseable hex — scheme guard cannot judge it",
+			zap.String("layout_scheme", layoutScheme),
+			zap.String("background", bgHex),
+		)
+		return nil
+	}
+	lum := relativeLuminance(r, g, b)
+
+	violates := (layoutScheme == "dark" && lum > 0.5) ||
+		(layoutScheme == "light" && lum < 0.5)
+	if !violates {
+		return nil
+	}
+
+	themeBG := themePalette["background"]
+	themeText := themePalette["text"]
+	if themeBG == "" || themeText == "" {
+		return fmt.Errorf(
+			"merged background %s (luminance %.3f) contradicts declared layout scheme %q, and the theme palette cannot supply both background and text to restore (has background: %t, has text: %t) — refusing to render scheme-violating CSS; repair the theme palette's core slots",
+			bgHex, lum, layoutScheme, themeBG != "", themeText != "",
+		)
+	}
+
+	rejectedText := mergedPalette["text"]
+	mergedPalette["background"] = themeBG
+	mergedPalette["text"] = themeText
+
+	logger.Warn("RenderCSSFromSpecAction: spec background contradicts layout scheme — restoring theme background and text",
+		zap.String("layout_scheme", layoutScheme),
+		zap.String("rejected_background", bgHex),
+		zap.Float64("rejected_luminance", lum),
+		zap.String("kept_background", themeBG),
+		zap.String("rejected_text", rejectedText),
+		zap.String("kept_text", themeText),
+	)
+	return nil
+}
 
 // lookupOrFallback is a non-template-context wrapper around the same
 // lookup rule makeMapLookupFunc implements, for use from Go code.

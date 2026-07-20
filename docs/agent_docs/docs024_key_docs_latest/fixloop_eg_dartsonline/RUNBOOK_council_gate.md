@@ -134,6 +134,17 @@ coming lockstep change in its header.
   row appears. Absence a minute later is not evidence of a dropped dispatch —
   poll by `fix_correlation_id` before concluding anything (this cost two
   needless resubmissions).
+- **A resubmission must re-state ALL standing evidence, not just the new
+  round's** (2026-07-20, bugs_open/022 submission, corr `0328ddc7`). Seats
+  have no cross-round memory: round 4's rationale answered round 3's
+  objections but dropped the round-1 reuse citation (parseHexColor/
+  relativeLuminance are pre-existing color_util.go helpers), and reuse_agent
+  — which had APPROVED rounds 1–3, praising that exact reuse — objected
+  "introduces new colour-math primitives ... never shown being defined or
+  imported" and decided a REVISE on it. Same-package helpers never appear in
+  a diff, so the rationale is the only place a reviewer can learn they
+  pre-exist. Carry the full evidence base forward every round; each
+  resubmission is judged standalone.
 
 ## Honest limits (advisory mode)
 
