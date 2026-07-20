@@ -5,13 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"sync/atomic"
 	"time"
 
+	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
 
@@ -39,6 +39,7 @@ import (
 type KafkaReachability struct {
 	brokers []string
 	logger  *zap.Logger
+	dialer  *kafka.Dialer
 
 	started atomic.Bool
 	lastOK  atomic.Int64 // unix seconds of the last successful broker dial
@@ -57,10 +58,19 @@ type KafkaReachability struct {
 // NewKafkaReachability seeds lastOK to now, so a pod that never reaches a
 // broker still gets the full UnhealthyAfter window before liveness fails —
 // no crash-loop at boot.
+//
+// Pass the broker list from kafkaplatform.GetBrokers() where one is available:
+// the callers' Kafka clients resolve brokers from the environment
+// (SERVICE_INFRASTRUCTURE_KAFKA_BROKERS, else KAFKA_BROKERS), and a health
+// check that probes a DIFFERENT list reports on a Kafka the process is not
+// using. That divergence was real and was caught in test on 2026-07-20 — the
+// config-file value and the env value disagreed, and the endpoint cheerfully
+// reported "ok" for a pod that could not reach its brokers at all.
 func NewKafkaReachability(brokers []string, logger *zap.Logger) *KafkaReachability {
 	k := &KafkaReachability{
 		brokers:        brokers,
 		logger:         logger,
+		dialer:         &kafka.Dialer{Timeout: 3 * time.Second, DualStack: true},
 		UnhealthyAfter: envSecondsOrDefault("KAFKA_UNHEALTHY_AFTER_SECONDS", 300),
 		ProbeInterval:  envSecondsOrDefault("KAFKA_HEALTH_PROBE_INTERVAL_SECONDS", 30),
 		DialTimeout:    3 * time.Second,
@@ -83,11 +93,23 @@ func (k *KafkaReachability) Run(ctx context.Context) {
 	}
 }
 
+// dialAny succeeds if any broker completes a Kafka METADATA exchange, not
+// merely a TCP handshake. A bare TCP dial is not evidence: proven 2026-07-20
+// on a deliberately wedged pod, where `wget 10.255.255.1:9092` timed out and
+// every real client logged `i/o timeout`, yet the endpoint reported "ok" —
+// something in the pod network completes a TCP connect to addresses that
+// serve no Kafka. Brokers() forces a real protocol round-trip.
 func (k *KafkaReachability) dialAny() {
 	for _, broker := range k.brokers {
-		conn, err := net.DialTimeout("tcp", broker, k.DialTimeout)
-		if err == nil {
-			conn.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), k.DialTimeout)
+		conn, err := k.dialer.DialContext(ctx, "tcp", broker)
+		cancel()
+		if err != nil {
+			continue
+		}
+		_, metaErr := conn.Brokers()
+		conn.Close()
+		if metaErr == nil {
 			k.lastOK.Store(time.Now().Unix())
 			return
 		}

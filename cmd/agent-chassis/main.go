@@ -14,6 +14,7 @@ import (
 	"github.com/gqls/agentchassis/platform/agentbase"
 	"github.com/gqls/agentchassis/platform/config"
 	"github.com/gqls/agentchassis/platform/health"
+	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/logger"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -142,7 +143,15 @@ func main() {
 		healthPort = "8080"
 	}
 
-	kafkaHealth := health.NewKafkaReachability(cfg.Infrastructure.KafkaBrokers, appLogger)
+	// Probe the SAME broker list the agent's Kafka clients use. They resolve it
+	// from the environment via kafka.GetBrokers(); cfg.Infrastructure is only
+	// the fallback. Probing cfg when the two disagree reports on a Kafka this
+	// process is not talking to — proven in test 2026-07-20 (bugs_open/003).
+	healthBrokers := kafkaplatform.GetBrokers()
+	if len(healthBrokers) == 0 {
+		healthBrokers = cfg.Infrastructure.KafkaBrokers
+	}
+	kafkaHealth := health.NewKafkaReachability(healthBrokers, appLogger)
 	go kafkaHealth.Run(ctx)
 
 	go func() {
