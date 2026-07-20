@@ -158,3 +158,179 @@
   `brochure-bold`/new layout if the visual language needs to diverge further (the
   Bain/BCG references are notably more kinetic than `brochure-formal`'s current
   css_template — to confirm once the deep-research pattern catalogue lands).
+
+## 2026-07-20 (continued) — owner corrections + deep-research workflow returned partial
+
+**Two open decisions resolved by the owner directly, not inferred:**
+- **Domain**: owner confirmed **fundamentallyai.com is owned** and will be pointed
+  at static hosting "shortly." Supersedes the earlier finding that it's a parked
+  domain for sale — that finding was correct *at the time it was checked*
+  (redirects to an Afternic listing), the owner has since clarified he holds the
+  registration. DNS/hosting is **not yet pointed** as of this note, so full
+  onboarding via `082_submit_domain_unified.sh` still can't complete end-to-end
+  today — but content/design work can proceed in parallel.
+- **People-imagery house style**: owner specified **line illustration**, not
+  photography. This resolves Open Decision #2 outright and sidesteps the
+  fabricated-person risk by construction — a line-illustration figure never reads
+  as "a photo of someone who doesn't exist."
+- **leopardessconsulting content is confirmed factually correct** by the owner
+  directly ("the content we have in leopardessconsulting.co.uk (in the framework)
+  is all factually correct"). Consistent with the claims-verification workstream
+  memory (V0-V5 live, 2,767 verified records) — this means leopardess's own
+  case-study/capability content can be reused/cross-referenced as grounded source
+  material for fundamentallyai's positioning, not just as prior-art precedent.
+
+**Workflow `wf_51d0513a-4d5` hit an account-wide session limit mid-run** (81/101
+sub-agents completed; the final synthesis agent and most 3-vote verification
+agents failed with "session limit, resets 6:20pm Europe/London"). **The
+aggregated `findings`/`confirmed` fields the tool returned are therefore
+incomplete** — read `journal.jsonl` directly (per the tool's own guidance) and
+pulled the raw per-agent claims that never made it into a synthesised report.
+Treat these as single-source research claims (search-agent findings, not full
+3-vote adversarial verification) except where marked otherwise — good enough to
+design from, not to publish as fact without a second check if it ever became a
+site claim itself (it won't — this is competitor research, not a claim about
+our own platform).
+
+**Named-site specifics (supplements the earlier direct-fetch Bain catalogue
+already in this file):**
+- **Bain**: hero slider/carousel **with embedded video** (not just static images
+  — a data point against a video-free assumption; Bain evidently accepts the
+  heavier cost there), sticky header with mega menu, hamburger nav on mobile.
+- **BCG**: leads with **heavy data-visualisation/interactive charts** as the
+  primary homepage device — signalling analytical capability through
+  motion/interactivity, not just imagery; its insight/blog carousel is
+  secondary. Strong signal that our proposed **code-rendered stat/chart
+  component** (shared build with leopardess's outstanding L7, see PLAN Open
+  Decisions #4) should be a first-class *homepage* element for an AI/strategy
+  consultancy brand, not an afterthought.
+- **McKinsey**: two-column hero using **original artwork/illustration, not stock
+  photography**, in the hero specifically; clean editorial grid, blue-and-white
+  palette; insights/reports foregrounded over a plain services list. Brand
+  system (Wolff Olins, rolled out Feb 2019): commissioned custom typefaces
+  (Bower for headings, McKinsey Sans for body), **one uniform photographic
+  treatment applied across all imagery — greyscale plus a blue/purple tint at
+  the edges** (duotone-style, not bespoke per-image direction), a purpose-built
+  data-viz system, a recurring blue line-pattern graphic motif substituting for
+  photography in places, and a custom minimalist monochrome icon set.
+  **This duotone/tint approach is directly transferable to our own
+  line-illustration decision** — one consistent tint/treatment applied across
+  every line illustration gives the same fleet-wide visual cohesion McKinsey
+  gets from photography, cheaply, and it was already illustration before the
+  tint, so it doubly avoids the fabricated-person problem.
+- **Accenture**: hover-reveal cards (image+headline box, extra info slides in
+  on hover — a sibling of our hover-zoom ask, revealing text rather than
+  zooming the image) and an "ecosystem" grid layering industries/capabilities/
+  case-studies/thought-leadership in one scroll.
+- **KPMG**: brand-colour (purple/lavender) tint on photography — another
+  duotone example.
+- **EY**: subtle animation (not video), large hero imagery with compelling
+  titles, content personalised to the visitor's presumed journey.
+- **Stat bands with animated count-up figures** are a named recurring pattern
+  (example cited: RHR International). Per the standing rule inherited from
+  leopardess: an animated count-up of a REAL number read from the evidence base
+  is fine; a rounded-up or invented number is not — same discipline as the
+  chart component.
+
+**Award-gallery correction (saves re-searching this later):** neither the
+current CSS Design Awards Website-of-the-Day roster nor the Awwwards Business &
+Services gallery (both checked as of July 2026) features Bain, BCG, McKinsey,
+Deloitte, Accenture, or KPMG at all — those galleries reward studio portfolios,
+brand microsites, and campaign sites. **Comparable award-gallery-grade
+inspiration, if wanted beyond the three owner-named references, sits with
+agency/tech sites**: Obys (obys.agency), Zentry, Igloo Inc, Wembi, Microsoft AI
+— not the consultancies themselves. Also, neither gallery documents
+component-level implementation (they tag technique categories only —
+Scrolling/Animation/Microinteractions/Transitions) — a source of exemplar names
+to look at directly, not a ready-made teardown.
+
+**Hover-zoom card — concrete implementation recipe** (the owner's "fancy image
+that slightly enlarges" ask, now with an exact recipe):
+- Wrapping container: `overflow: hidden`, fixed `aspect-ratio`; image at 100%
+  width/height, `object-fit: cover` (the clip is required — the scaled image
+  would otherwise spill past the container).
+- Transition the **standalone `scale` property** (not the legacy `transform`
+  shorthand) roughly `1 → 1.1` over ~250ms on hover.
+- Required accessibility pairing: `prefers-reduced-motion: reduce` zeroes the
+  transition, and `@media (hover: none)` disables the effect on touch devices
+  (a phone tap can't "hover" — it should simply not apply there, not get stuck
+  mid-zoom).
+
+**Swipeable mobile carousel — concrete implementation recipe:**
+- **CSS `scroll-snap` alone** (`scroll-snap-type: x mandatory` on the
+  container, `scroll-snap-align: start` on each card) gives the swipe-and-settle
+  behaviour with **zero JavaScript** — no `touchmove` listeners, no
+  `requestAnimationFrame` loop, the browser does the work. Right default for
+  "swipeable left/right on mobile."
+- Semantic markup: `<ul>/<li>`, native `<button>` controls for any prev/next
+  arrows, so a screen reader announces it as a list, not `<div>` soup.
+
+**Auto-advancing hero carousel — this one genuinely needs JS, with real
+accessibility obligations (WCAG 2.2.2 + ARIA APG), not optional polish:**
+- Visible pause/stop control, label changes to reflect the next action.
+- **Must** stop on keyboard focus entering the carousel and on mouse hover;
+  must not silently resume.
+- Correct ARIA: container `role="region"`/`role="group"` + accessible name +
+  `aria-roledescription="carousel"`; each slide `role="group"` +
+  `aria-roledescription="slide"` + name; off-screen slides `aria-hidden`, not
+  just visually hidden.
+- Controls precede the slides in DOM order for tab order; respect
+  `prefers-reduced-motion`.
+- **Real usability caveat, not just an accessibility footnote**: cited research
+  says only ~1% of users interact with a carousel at all, and 89% of those only
+  ever see the first slide; WebAIM's position is to avoid the pattern
+  altogether for exactly this reason. **Design implication**: the first card
+  must carry the complete message on its own — a hero carousel is "a rotating
+  hero that happens to have more cards," never a place to hide anything
+  essential on slide 2+.
+
+**Lazy-loading / perf, for card-grid and carousel images:** never lazy-load the
+hero/LCP image (eager-load it); set explicit width/height or `aspect-ratio` on
+every image to reserve layout space; a ~500px `rootMargin` buffer before
+viewport entry avoids visible pop-in; Chrome's own measured numbers show 97.5%
+of lazy images fully load within 10ms of becoming visible on 4G — the
+lazy-loading perf cost is genuinely negligible when done correctly.
+
+**People-imagery licensing** (lower priority now line-illustration is decided,
+kept on record for if photography is ever used elsewhere in the fleet): stock
+licensing splits Royalty-Free / Rights-Managed / Editorial-Use-Only (prohibits
+commercial use) / Creative Commons; commercial use of an identifiable real
+person's photo needs a signed model release. Doesn't apply to line
+illustration, which sidesteps licensing and fabrication both by construction.
+
+## 2026-07-20 (continued) — broadened ask: internal capability/case-study research
+
+Owner has broadened the brief significantly: fundamentallyai.com shouldn't just
+have nice-looking generic consultancy components — it should **market this
+platform's own real, true capabilities** as service lines/case studies (embeddings-
+based private in-house search for a partner without leaking data outside their
+org, instant marketing/product-test/presentation sites, our finetuning
+capability, our council/multi-agent review decision-making, backend engineering
+proof-points like idea.uk's Stripe integration and the relojistas.com expired-
+domain traffic work). Explicit instruction: **get a decent amount of TRUE facts
+before writing any content** — this is a claims-verification-constrained brand,
+same as leopardess, so nothing ships that isn't grounded.
+
+Dispatched an Explore agent (background, very-thorough breadth) to build a
+7-part capability inventory: embeddings/RAG (real or aspirational — a quick
+grep already found `platform/database/pgvector.go` and
+`platform/orchestration/actions/rag_actions.go`, so there is at least SOMETHING
+real here, scope TBC from the agent's findings), fine-tuning flywheel, the
+council/review system's track record, idea.uk's Stripe integration, the
+relojistas.com traffic-testing result, other genuinely demonstrable capabilities
+(claims-verification itself as a meta case study, the site-generation pipeline
+itself, imagery pipeline, multi-session coordination engineering), and a census
+of how many real sites are live today. Each finding tagged
+[LIVE/VERIFIED] / [BUILT BUT INERT] / [ASPIRATIONAL] — only the first two
+categories (clearly labelled) are usable as honest marketing content. Results
+not yet returned as of this note.
+
+**Scope note for this workstream, stated explicitly rather than assumed**: the
+deliverable from this research is a grounded FACT BASE / content brief per
+proposed page or section (bullet facts, evidence citations) — not hand-written
+final marketing copy. Final page copy still goes through the framework's
+content-writer agent (from `site_specs`/mission/briefing), same as every other
+site — matching the owner's own stated preference on the leopardess voice
+rewrite ("I don't want it written here manually"). This session's job is to make
+sure that when the content-writer runs, it has true, well-evidenced material to
+draw from and a clear brief of which components/case-studies to write for.

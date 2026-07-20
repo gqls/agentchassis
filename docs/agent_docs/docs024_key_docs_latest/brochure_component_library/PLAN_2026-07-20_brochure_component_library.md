@@ -25,16 +25,17 @@ he called out explicitly:
   system, reachable from site design planning, so the plumbing is reusable across every
   site, present and future.
 
-## Correction to the brief (2026-07-20) — fundamentallyai.com is not owned
+## Correction to the brief (2026-07-20) — fundamentallyai.com, resolved
 
-Checked directly: `https://fundamentallyai.com` 307-redirects to an Afternic
-"for sale" marketplace listing (`afternic.com/forsale/fundamentallyai.com`). It is
-**not currently registered to the owner** — it's a third-party domain-for-sale parked
-page. Nothing in the repo (`grep -ri fundamentallyai` across code/docs/seeds/deployments)
-references it either, confirming it has never been onboarded as a site here.
-**This blocks "onboard fundamentallyai.com" as a literal next step** until the owner
-either buys it or names an already-owned domain to use instead. Flagged to the owner in
-this session's reply; not treated as a green light to buy anything.
+Checked directly: `https://fundamentallyai.com` 307-redirected to an Afternic
+"for sale" marketplace listing at the time of checking. Flagged to the owner
+rather than assumed either way. **Owner has since confirmed he owns the domain
+and will point it at static hosting shortly** — the parked-page redirect was
+presumably the registrar's default landing page for a domain not yet pointed
+anywhere, not evidence of third-party ownership. DNS/hosting is **not yet live**
+as of this note, so `082_submit_domain_unified.sh` can't complete an end-to-end
+onboard today, but content/design/research work proceeds now in parallel —
+fundamentallyai.com is the confirmed target site for this workstream.
 
 ## Existing consultancy site as prior art — leopardessconsulting
 
@@ -136,17 +137,62 @@ returned HTTP 403 to WebFetch and mckinsey.com timed out twice — both are left
 deep-research workflow's search-based fetch, which doesn't hit the same 403/timeout
 as a single direct `WebFetch`.
 
+## Part 2 (added 2026-07-20) — content & positioning: marketing our own real capabilities
+
+Owner has broadened the brief substantially. fundamentallyai.com isn't just a
+design exercise in nicer components — it should **market this platform's own
+real capabilities** as service lines and case studies, the same way Bain
+markets "M&A" or McKinsey markets "AI transformation." Candidate service
+lines/case studies the owner named, to be grounded in true facts before any
+copy is written (see NOTES for the dispatched research and the pgvector/
+rag_actions.go grep hit that suggests the embeddings idea may be real, not
+just aspirational — confirmation pending):
+
+- **Private in-house search via embeddings** — "implement the whole framework
+  in-house to some corporate or partnership and use embeddings to safely let
+  them search their in-house databases without leaking info to outside
+  organisations." Needs the capability-inventory research to confirm how much
+  of this exists today vs. would need building.
+- **Instant marketing/product-test/presentation sites** — spinning up a site
+  fast for a launch, a test, or a pitch. This platform's own spec→live-site
+  pipeline (the subject of Part 1 above) IS the proof-point here, if we can
+  cite a real turnaround time.
+- **Fine-tuning capability** as a service line.
+- **Council/multi-agent review decision-making** as a service line/trust story
+  — genuinely distinctive and, per CLAUDE.md itself, live and commissioned with
+  a real track record.
+- **Backend engineering proof-points**: idea.uk's Stripe integration,
+  relojistas.com's expired-domain traffic-revival work — proposed as internal
+  case studies (real projects, our own platform's output, not fabricated
+  clients — matches leopardess's own "our sites demonstrate the platform, never
+  implied to be a client roster" rule).
+
+**Standing rule for this half of the workstream**: get the facts before the
+copy. This is a claims-verification-constrained brand exactly like leopardess —
+every capability claim needs an evidence citation (file, doc, DB figure) before
+it becomes a card title or a case-study paragraph. Dispatched an Explore agent
+2026-07-20 to build a 7-part LIVE/BUILT-BUT-INERT/ASPIRATIONAL capability
+inventory — see NOTES for the brief and (once returned) the findings.
+
+**This workstream's own output is a fact base and content brief, not final
+copy.** Final page text is written by the framework's content-writer agent from
+`site_specs`/mission/briefing, same as every other site — matching the owner's
+explicit preference stated on the leopardess voice rewrite ("I don't want it
+written here manually"). Don't hand-author finished marketing prose here; hand
+the content-writer a well-evidenced brief instead.
+
 ## Open decisions the owner needs to make (do not assume)
 
-1. **Domain.** Buy fundamentallyai.com, use a domain already owned, or park this as a
-   design exercise with no live domain yet?
-2. **House style for the new brand.** Photography-led (like Bain/BCG/McKinsey) needs
-   a real imagery source — stock library, commissioned photography, or an
-   illustration/duotone treatment that reads as "people" without depicting a specific
-   invented individual. Illustration-only (leopardessconsulting's current approach)
-   sidesteps the fabrication risk entirely but won't visually match the target
-   references. This is a brand decision, not an engineering one — flag options,
-   don't pick for him.
+1. **Domain — RESOLVED by owner 2026-07-20.** fundamentallyai.com is owned;
+   hosting to be pointed shortly (not yet live as of this note).
+2. **House style for the new brand — RESOLVED by owner 2026-07-20: line
+   illustration for people.** Not photography, not stock, not full-colour
+   illustration necessarily — line-illustration figures, which sidesteps the
+   fabrication risk by construction (a line drawing never reads as "a photo of
+   someone who doesn't exist"). McKinsey's own technique (a single uniform
+   duotone/tint treatment applied across all imagery, per the deep-research
+   findings in NOTES) is a directly transferable idea for giving our line
+   illustrations the same fleet-wide visual cohesion, cheaply.
 3. **Scope of "the framework."** Confirmed ask: new components must be registered in
    the same component system every site already uses (content_components +
    css_snippets + design_intent), reachable via site design planning — not a
@@ -162,23 +208,28 @@ as a single direct `WebFetch`.
    the owner's confirmation it's fine to size the component for two workstreams'
    use rather than leopardess-specific fields only.
 
-## Phasing (draft — to be firmed up once Explore + deep-research land)
+## Phasing (updated 2026-07-20 — domain + house style resolved, scope broadened)
 
-- **P0 (this session):** research (external patterns + internal pipeline), owner
-  decisions above, a written component-by-component spec proposal.
-- **P1:** build 1–2 new component types end-to-end through the real pipeline (likely
-  `hero-card-carousel` first — it's the most-requested, most reusable across every
-  brochure-style site, and exercises the carousel-JS + hover-zoom-CSS + imagery-kind
-  questions in one go), council-reviewed per CLAUDE.md before commit (touches
-  `platform/`/`internal/`).
-  Prove it on ONE site first — not leopardessconsulting (already in a delicate,
-  actively-audited state; see the clobber risk above) and not a live customer site.
-  A throwaway or the new brand's site (once a domain decision is made) is the
-  correct first target.
-- **P2:** roll additional component types (swipeable card grid, stat band, people
-  block) once P1's pattern is proven. Stat band = candidate shared build with
-  leopardess L7 (Open Decisions #4).
-- **P3:** apply the set to real domains once the owner has reviewed a design sample.
+- **P0 (this session):** research — external design patterns (done, see NOTES),
+  internal render pipeline (done, see NOTES), internal capability/case-study
+  inventory (dispatched, in flight) — converging into a written
+  component-by-component spec proposal AND a grounded content brief, both for
+  owner review before any build/content-writer firing.
+- **P1:** build 1–2 new component types end-to-end through the real pipeline
+  (likely `hero-card-carousel` first — most-requested, most reusable, exercises
+  carousel-JS + hover-zoom-CSS + imagery-kind in one go), council-reviewed per
+  CLAUDE.md before commit (touches `platform/`/`internal/`). Target site is now
+  confirmed: **fundamentallyai.com**, once its hosting is pointed and it's
+  onboarded via `082_submit_domain_unified.sh` — not leopardessconsulting
+  (delicate, actively-audited state; see clobber risk above) and not any other
+  live customer site.
+- **P2:** roll additional component types (swipeable card grid, stat band,
+  line-illustration people block) once P1's pattern is proven. Stat band =
+  candidate shared build with leopardess L7 (Open Decisions #4).
+- **P3:** apply the content brief (Part 2) — real capability case studies,
+  written by the content-writer agent from a grounded brief, never hand-authored
+  here — once the owner has reviewed both the component design sample and the
+  fact base.
 
 **Acceptance checklist for every new component type shipped in P1/P2** (added after
 the Explore agent's findings — these are the specific ways a "done" component
@@ -199,5 +250,7 @@ silently fails on this platform, not generic best practice):
 
 ## Corrections log (this file)
 
-- 2026-07-20: Original ask named fundamentallyai.com as available to use; corrected
-  above — it's a parked domain for sale, not owned.
+- 2026-07-20: This file initially recorded fundamentallyai.com as not owned
+  (Afternic parked-page redirect at time of check) and flagged it to the owner
+  rather than assuming. Owner confirmed same-session that he does own it —
+  recorded above as resolved, not silently overwritten.

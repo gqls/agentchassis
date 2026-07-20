@@ -36,3 +36,37 @@ system turns a site's spec into a rendered page, so any new component we design
 slots into the real pipeline rather than being a one-off. I'll come back here once
 both land with a concrete proposal for the first component or two to build, and the
 open questions above for you to weigh in on.
+
+**2026-07-20, later the same day** — Good news: you confirmed you do own
+fundamentallyai.com after all (my check just caught it mid-redirect to a
+"domain for sale" page — that's resolved now, hosting's coming shortly) and you
+settled the imagery question yourself: line illustration for people, not
+photography. That sidesteps the whole "don't invent a person" problem cleanly.
+You also confirmed leopardessconsulting's content is genuinely factually
+correct, which matters because you then asked for something bigger: don't just
+make the new site look good, make it actually market what this platform can do
+— embeddings-based private search for a partner's own database, instant
+marketing/test/presentation sites, our fine-tuning work, the multi-agent
+council review system, and real backend projects like idea.uk's Stripe
+integration and the relojistas.com traffic-revival work — all as honest,
+evidence-backed case studies rather than generic consultancy filler.
+
+The external design research came back with real, useful detail even though
+one part of it (the final "merge everything together" step) hit a system usage
+limit partway through — I pulled the raw findings out directly rather than
+losing them, so nothing was wasted. I now have a solid, concrete recipe for the
+carousel and hover-zoom effects you described, with the accessibility rules
+that come attached to them (a carousel that auto-advances has to be pausable,
+for instance — that's not optional, it's a legal accessibility requirement in
+most places).
+
+I've also kicked off a second research pass, this time internal: what does
+this platform actually, truly do well enough to put on a marketing page? A
+quick check already turned up real code for both a fine-tuning-style
+embeddings mechanism and a "RAG" (retrieve-and-generate search) mechanism, so
+the private-search idea may be more real than aspirational — I'm having that
+checked properly before we say so anywhere. Once that lands, I'll bring back a
+grounded list of what's genuinely true and impressive, and a first design
+proposal, before any actual page copy gets written — and to be clear, the
+final copy will always be written by the platform's own content-writer from a
+brief, not typed up by hand here, same as we agreed for leopardess.
