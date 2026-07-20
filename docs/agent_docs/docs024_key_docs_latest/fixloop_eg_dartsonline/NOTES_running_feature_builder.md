@@ -537,3 +537,49 @@ Nothing is mid-flight; no background runs pending; no uncommitted work of
 ours in the tree.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
+
+## Turn 15 — 2026-07-20 — Fresh chat ("fixloop feature builder 2"): state re-check + B1 candidate vetting
+
+Resumed from `HANDOFF_2026-07-19_feature_builder_thread.md`. Re-checked live
+state before touching anything (the row moves — turn 12's lesson):
+
+- **No staged-v1 plan since the handoff.** Today's `fix_plan` artifacts
+  (`2eed453a`, `d35844da`, 10:28–11:01Z) carry NO `plan_format` — legacy
+  fix-proposer runs from other threads. The implementer gap is still ours.
+- **No `feat/*` or `fix/*` branches on the remote** (fetched + pruned). E4
+  refusal will not trip on stale branches.
+- **Live chassis = v1.0.1139** (`agent-chassis-645674b498-rndg9`). Pod-grep:
+  `feature_stage_route` = 3 (stage loop live), **`formatGeneratedGo` = 0** —
+  the bugs_open/013 fix (`fc38c6058`, today 12:03 BST: commit-prep gofmts
+  generated Go via go/format) is committed but NOT in the live binary. That
+  fix exists because gofmt trivia killed the fix-implementer's first run
+  (70680566), and the prepare action is shared — firing our pilot on
+  v1.0.1139 carries the same known burn risk. The 019 council-truncation
+  degrade fix (a3b606798) is likewise inert until a roll after v1.0.1139;
+  until it lands, a truncated reviewer voids whole council rounds, including
+  our designer's.
+- **B1 vetting.** Strongest candidate: bugs_open/023's delivery gap —
+  **294 items sit at `status='needs_human_review'` and nothing consumes
+  them** (live count today). The digest reads `needs_diagnosis` and
+  `capability_gap`/`deferred` (fixloop_digest_action.go:307,358) but has NO
+  section for `needs_human_review`. A digest section surfacing that queue is:
+  genuinely wanted (023 names the gap; no open work item claims it), our own
+  machinery (file untouched 4 days, no collisions), read-only/additive, and
+  naturally a 2-stage staged-v1 plan (stage 1: new section file + new test
+  file; stage 2: wire into the digest) — Go edit + new files = the full B1
+  gate exercise. Runner-up: feature-run visibility in the digest
+  (plan_format discrimination — self-hosted awareness). Vetted and DEFERRED:
+  agent_type='generic' attribution (high cross-thread value but the caller
+  path `ai_actions.go` carries another session's live uncommitted WIP —
+  collision risk B1 forbids; arguably fix-loop jurisdiction anyway).
+  Rejected: bugs_open/007 `--record-only` migrations tooling (re-armed
+  today, genuinely wanted, but shell-only — leaves the Go build/test gates
+  unexercised; wrong pilot shape).
+- Working tree carries several other sessions' WIP (banana provider,
+  ai_actions.go, council actions, fleet kustomizations, prepare-commit
+  action) — left strictly alone.
+
+Next: owner decisions — B1 target choice, image roll before firing (my
+recommendation: yes, v1.0.1140 from committed HEAD arms both 013 and 019
+de-riskers), delta-2 gate resubmission. The four open delta-2 objections are
+ours and free — will action once the target is set.
