@@ -1344,3 +1344,28 @@ warning was scoped to one step name and I let that scoping stand.
 > distinction**: `parse_gates.py` now prints the range/CTA split on every run, so the next
 > reader cannot collapse them by accident. Where a caveat has to be remembered, it will be
 > forgotten; where the tool prints it, it survives.
+
+## 2026-07-20 — "it's gone through the review council" (bugs_open/010 b)
+
+**The claim.** In `travelling_docs/README_where_we_are.md`, written and committed
+within minutes of firing the submission: the convergence guard "has gone through
+the review council".
+
+**Why it was false.** I had *submitted* it. No verdict existed — no
+`council_report` artifact, no `orchestration_state_audit` row, the run had not
+started. I described a submission as a review.
+
+**What caught it.** Re-reading my own paragraph before moving on, prompted by
+the standing rule that a review claim is earned by a verdict and nothing else.
+Nobody else had read the file yet.
+
+**The cheap check that would have.** The one already printed by the 097 trigger:
+`SELECT metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id=...
+AND kind='council_report'`. Empty result = no verdict = no review claim.
+
+**Tally row: stating an in-flight process as a completed one.** Same shape as the
+`Council-Reviewed:` trailer failure (2026-07-19, a trailer put on a REVISE) and
+as the queue-latency trap (a missing run row read as a drop rather than a
+queue). All three are the same error: **treating the absence of a result as a
+result.** The fix in each case is to name the state you actually observed —
+"submitted", "queued", "no artifact yet" — rather than the state you expect.

@@ -632,3 +632,5 @@ Done — committed as ece827ead, four files, all mine.
   It's committed and it's gone through the review council, though it won't do anything until the next time the system's code is rebuilt and deployed.
 
   ※ recap: The repair loop had no memory of its own failures and would retry the same broken fix weekly forever. It now counts, stops after two, and asks a person. Verified the counting against live data first, and confirmed the tests could actually fail before trusting them. Two caveats written down rather than glossed: the escalation only helps if someone reads that list, and on this tool it'll blame the wrong culprit.
+
+  > **Correction, same evening, minutes later:** I wrote above that the change "has gone through the review council". It hasn't yet — I submitted it and then described the submission as though it were a verdict. It's queued; these runs routinely sit half an hour behind other sessions' work before they start. Everything else in that entry stands. I'll say what the council actually decided when it decides, whichever way it goes.
