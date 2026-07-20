@@ -670,3 +670,42 @@ submissions, a single uncovered seat is a live risk, not a theoretical one. Eith
 `review_prior_art` or make tolerance the default for `review_*` steps and drop the per-step flag —
 the roster has changed repeatedly (13 seats → 16 since 2026-07-18), and a per-step opt-in that must
 be remembered on every new seat is the same drift class the council itself reviews for.
+
+---
+
+## Fresh occurrence + a size data point (2026-07-20, imagery-5 thread)
+
+Adding evidence only — I have not touched this bug's diagnosis or fix, which belong to
+the thread above.
+
+A council-gate submission for `/bugs_open/027` was voided by this bug, with the same
+signature: `review_editquality` ran first, failed, and the round died at
+`complete_invalid` with **zero verdicts**. `llm_call_log.error_message`, verbatim:
+
+> `response truncated: stop_reason=max_tokens (output_tokens=8000 reached the configured cap); raise max_tokens or shorten the prompt`
+
+One row for the round, `success=f`, `latency_ms=85975`, no token counts recorded.
+
+**The data point that may refine this file's sizing conclusion.** The same submission,
+same correlation, same seat, at four different plan sizes:
+
+| plan bytes | outcome |
+|---|---|
+| 9,034 | full round, 6 seats, real verdict (REVISE) |
+| **13,051** | **VOIDED — edit-quality hit the 8,000 ceiling** |
+| 10,122 | full round, 9 seats, real verdict (REVISE) |
+| 10,073 | full round, real verdict |
+
+This does **not** contradict this file's finding that "a 6KB fresh plan producing >8,000
+tokens suggests the seat's output length is not reliably driven by input length at all"
+— a 6KB plan voiding and a 10KB plan surviving are both true. Read together, the two
+observations suggest the seat sits **marginally under the ceiling and is
+nondeterministic there**, and that larger inputs raise the probability of crossing it
+without being the only cause. So "shorten the prompt" is a real but *unreliable*
+mitigation: it worked twice here, and this file records it failing elsewhere.
+
+Practical note for anyone hitting this mid-submission: shortening is worth one attempt
+because it costs only a queue slot, but do not read a survival as proof the plan was
+"too big" — and do not keep retrying. This thread stopped at the count above rather
+than burning further rounds, following the precedent set in this file's own closing
+decision.
