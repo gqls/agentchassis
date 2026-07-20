@@ -791,3 +791,45 @@ remembering for anyone checking logs: look at both copies before concluding anyt
 Next up on this thread is the reviewers' one outstanding objection: when an unknown
 image kind falls through to the weaker provider, that fact currently lands only in a
 log line. It should become a proper record the dashboards can see.
+
+---
+
+**2026-07-20 evening — the avoid-list fix is now live, but nothing has used it yet.**
+
+The new build went out and the fix is in it. One thing worth flagging, because the
+deploy was described as a chassis build: **this fix doesn't live in the chassis.** It
+lives in the image-generator adapter, which is a separate service with its own image. As
+it happens both were rolled together to v1.0.1140, so we're fine — but if only the
+chassis had gone out, nothing would have changed and it would have looked like the fix
+had failed.
+
+I checked it against the two running adapter containers rather than against the code or
+the version tag. Both carry the new instruction-folding, and — the part that actually
+makes it a check rather than wishful thinking — **both no longer carry the old
+"Banana ignores it" line.** New thing present *and* old thing gone, on both copies. That
+pair can't accidentally pass on a stale build.
+
+**But no picture has been made through it.** Nothing has been generated since the roll,
+which is exactly what I'd expect given the hold on tool imagery. So what I can honestly
+say is: the code is loaded, not that it works. Those are different claims and I don't
+want to blur them — this whole bug exists because someone blurred a similar pair.
+
+**What would settle it, and it needs your say-so because it costs credits.** Generate one
+content hero on gamesdesign (its avoid list names white backgrounds and numerals), then
+read the adapter's log. The fix writes a line saying it folded the avoid list in, and it
+reports the instruction length before and after. If the length went up, the terms reached
+the model and this bug is done. If the line isn't there at all, the fix isn't working and
+I want to know that.
+
+Worth separating two questions that are easy to run together, since that conflation is
+what caused the original mess:
+
+1. *Do the avoid terms now reach the model?* — the log line answers this outright, and
+   one generation is enough.
+2. *Does the model actually obey them?* — a different question, which this fix never
+   promised to answer. It needs five or more pictures with violations counted. One
+   good-looking picture tells us nothing: four of the original nine were fine purely by
+   luck, and that luck is precisely what hid the bug for a whole release.
+
+Also note the hold on tool imagery is still in force, so if you want that test done, tell
+me whether to run it on a tool page anyway or pick a non-tool surface instead.
