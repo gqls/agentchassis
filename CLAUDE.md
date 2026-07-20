@@ -309,6 +309,16 @@ Rules that make them worth the effort:
   `bugs_open/NNN` or `aaa_fails_to_mend/NNN` pointer resolves by number in the
   other dir), and **`016` and `017` are each used by two different cases** — a
   bare number is ambiguous, resolve by slug.
+- **Before routing work AT an existing bug, check who owns it:**
+  `scripts/who-owns.py <number|slug>` (advisory, ~0.3s, no cluster calls). It
+  resolves the number across both dirs (warning on the ambiguous ones), names the
+  workstream most likely working it, and separates that from dirs merely citing
+  it. "Grep before you file" covers a NEW bug; this is the same failure mode for
+  an existing one, and it is not covered — on 2026-07-20 a thread promoted
+  `bugs_open/023` to a next action with implementation direction while its owning
+  workstream was six council rounds in with code already shipped. That surfaced
+  by luck. If it says OWNED: read their docs, contribute into the bug file
+  itself, do not start a competing fix.
 - **When you diagnose something durable**: file the case in
   `/bugs_open/NNN_HANDOFF_<date>_<slug>.md` (evidence, root cause, fix candidates,
   how to verify) AND add the transferable pattern to 016b §9. The case file is for
