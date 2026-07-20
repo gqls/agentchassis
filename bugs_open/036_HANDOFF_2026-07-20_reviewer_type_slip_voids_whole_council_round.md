@@ -246,6 +246,28 @@ a fleet-wide blast radius, not a council one — it wants its own bug, and it no
 matters less because this class should no longer void rounds. Until then, the
 diagnostic remains: **absence of a `council_report` row is the symptom, not `error`.**
 
+### Council gate: corr `80cdd428`, round 1 — REVISE (7 approve / 2 object)
+
+The round **completed without voiding** (`reviewers 9, abstained 7, unreadable 0`)
+— the gate reviewing a fix for its own worst habit, through the code that still
+has the bug. All four "confirm X" objections were checkable and are answered with
+evidence in the 019 workstream NOTES: the three struct fields pre-exist
+(`:73,74,79` — my sketch abbreviated the diff), 019's machinery is real
+(`markerFieldFor:151`, `salvageTruncatedReview:173`), there is **no** downstream
+consumer of `objections[].edit`, and the three types are unexported so the blast
+radius is this step alone.
+
+**One objection found a real gap and it is fixed** (edit-quality, low):
+`salvageMistypedReview` dropped the entire objections list when `objections`
+arrived as a single object instead of an array — the same wrong-register slip one
+level up. I had asserted that was acceptable in a test. It is not: the objection
+list is what goes back to the proposer in a revise round, so dropping it costs the
+round its content even though the verdict survives. Now coerced to a one-element
+list, with tests for the coercion and for a genuinely uncoercible payload.
+
+No round 2 (the gate has no reviser loop; objections go to the human, which is
+that record), and **no `Council-Reviewed` trailer** — earned by APPROVED only.
+
 ### Verify after the next image roll
 
 ```

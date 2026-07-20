@@ -463,3 +463,43 @@ first, for the same reason.
 `bugs_open/029` hung-spawn class, still live and still saturating the dispatch
 group. Both this thread's diagnosis run and its council submission sat queued
 behind it for well over the usual latency.
+
+### 036 council trail — corr `80cdd428`, round 1, REVISE (7 approve / 2 object)
+
+Round **COMPLETED without voiding** — `reviewers: 9, abstained: 7, unreadable: 0`.
+Worth stating plainly: the gate reviewed a fix for its own worst habit, through the
+code that still has the bug, and this time the round survived. (Unreadable 0 also
+means nothing was silently lost — the check the 171 abstention work made necessary.)
+
+Approve: reuse_agent, diagnosis_guardian, compliance, debug_historian,
+constitution, mission, prior_art_librarian. Object: editquality, guardian.
+
+**Every objection was "confirm X", not "X is broken", and all four were checkable.
+Answered with evidence rather than argued:**
+
+| objection | seat | answer |
+|---|---|---|
+| `rv.Missing` / `rv.Notes` / `salvaged.Degraded` referenced but not in the struct diff — may not compile | editquality e1 (med), constitution, prior_art | **Pre-exist**: `diagnose_council_decide_action.go:73,74,79`. Artifact of my abbreviating the struct diff in the sketch, not of the code. My fault in the submission, and a fair hit |
+| Is `salvageTruncatedReview` / the unreadable path / `markerFieldFor` real, or 019 folklore being built on? | prior_art_librarian (low) | **Real and current**: `markerFieldFor:151`, `salvageTruncatedReview:173`, `unreadable` appended at 4 sites. The reuse claim holds |
+| Downstream consumer expecting `objections[].edit` to always be a JSON number? | guardian e1 (med) | **None.** `grep -rn objections --include=*.go` over the repo returns no reader of the persisted report's `edit`; `fixloop_digest_action.go` only counts `council_report` rows. And `MarshalJSON` round-trips the original token, so a number stays a number |
+| Are `councilReview`/`councilObjection`/`objectionEdit` exported and consumed by another package? | guardian e2 (low) | **No** — all three lower-case, private to package `actions`. Blast radius is the `council_decide` step, as claimed |
+
+**The one objection that found a real gap — and it is now fixed.** editquality e2
+(low): `salvageMistypedReview` dropped the **entire** objections list if
+`objections` arrived as a single object rather than an array — the same
+wrong-register slip one level up from the `edit` field. I had asserted that as
+acceptable in a test (`wantObjs: 0`, "the detail is lost; the opinion is not").
+The seat was right that it is not acceptable: **the objection list is what goes
+back to the proposer in a revise round**, so dropping it costs the round its
+content even though the verdict survives. Now coerced to a one-element list, with
+a test for the coercion and one for a genuinely uncoercible payload (`objections`
+as a string). The fix's own council caught a gap in the fix — which is the whole
+argument for the gate.
+
+**No round 2, deliberately.** Same reasoning the 019 rounds stopped on: the gate
+has **no reviser loop** (`complete_revise` is terminal, objections go to the
+human — this record), every objection is answered above, the only substantive one
+is fixed, and none challenged the diagnosis. A second run would spend credits
+chasing a trailer line. **No `Council-Reviewed` trailer** — that is earned by an
+APPROVED verdict only, and putting one on a REVISE leaves a permanent false claim
+of review (this repo has done that once already and had to correct it forward).

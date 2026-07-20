@@ -218,7 +218,18 @@ func salvageMistypedReview(rb []byte) (councilReview, bool) {
 	// decode, so a mistyped `severity` costs that field and not the objection
 	// around it — the ignored errors below are doing more work than they look.
 	_ = json.Unmarshal(fields["reviewer"], &rv.Reviewer)
-	_ = json.Unmarshal(fields["objections"], &rv.Objections)
+	// A seat emitting `objections` as ONE object rather than a list is the same
+	// wrong-register slip one level up, and dropping it is not free: the objection
+	// list is what goes back to the proposer in a revise round, so losing it costs
+	// the round its content even though the verdict survives. Coerce it.
+	// (Raised as an objection by the edit-quality seat on council round 80cdd428 —
+	// the fix's own council caught a gap in the fix.)
+	if err := json.Unmarshal(fields["objections"], &rv.Objections); err != nil {
+		var one councilObjection
+		if json.Unmarshal(fields["objections"], &one) == nil {
+			rv.Objections = []councilObjection{one}
+		}
+	}
 	_ = json.Unmarshal(fields["missing"], &rv.Missing)
 	_ = json.Unmarshal(fields["notes"], &rv.Notes)
 	return rv, true

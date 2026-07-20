@@ -267,11 +267,22 @@ func TestSalvageMistypedReview(t *testing.T) {
 		wantObjs    int
 	}{
 		{
-			name:        "objections is an object, not an array — verdict survives",
+			// Was asserted as "objections lost, opinion survives" until the
+			// edit-quality seat objected on council round 80cdd428: the objection
+			// list is what goes back to the proposer, so a single object is now
+			// coerced to a one-element list rather than dropped.
+			name:        "objections is one object, not an array — coerced, not dropped",
 			body:        `{"reviewer":"guardian","verdict":"veto","objections":{"edit":1,"problem":"drops the CAS guard"}}`,
 			wantOK:      true,
 			wantVerdict: "veto",
-			wantObjs:    0, // the detail is lost; the opinion is not
+			wantObjs:    1,
+		},
+		{
+			name:        "objections is a string — nothing to coerce, opinion still survives",
+			body:        `{"reviewer":"render","verdict":"object","objections":"see my notes"}`,
+			wantOK:      true,
+			wantVerdict: "object",
+			wantObjs:    0,
 		},
 		{
 			name:        "missing is a string, not a list",
