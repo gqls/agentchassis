@@ -289,6 +289,11 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// Start timing the LLM call
 	llmCallStart := time.Now()
 
+	// Set when a truncated response is tolerated per step config (bugs_open/019),
+	// so the returned result can be MARKED partial for the consumer.
+	truncationTolerated := false
+	truncatedTokens := 0
+
 	// Call the AI service
 	result, err := aiClient.GenerateText(ctx, renderedPrompt, options)
 	if err != nil {
@@ -329,7 +334,47 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			RAGContextUsed:  flywheelRAG,
 		})
 
-		errStr := err.Error()
+		// ── Tolerated truncation: degrade the STEP, don't void the RUN ──
+		// bugs_open/019. A step whose output cap is reached fails, its error_step
+		// routes the whole workflow to a terminal state, and every sibling step's
+		// completed work is discarded. For a council that is catastrophic and
+		// routine at once: all 13 seats route error_step->complete_invalid and run
+		// sequentially, so the FIRST seat to overrun ends the round before any
+		// verdict exists — 9 rounds lost in 10 days, every one of them paid for.
+		//
+		// Opt-in per step (tolerate_truncation: true), never a default: turning a
+		// hard error into a usable result is only safe where the consumer knows the
+		// output is partial and treats it accordingly. The council decider does
+		// (it degrades an unreadable seat to a loud abstention and refuses to let
+		// an approve stand alongside one); a page renderer emphatically does not,
+		// which is why the catch-all below must keep failing loud for everyone else.
+		//
+		// The partial then flows through the SAME parse/repair path as any other
+		// response — no bypass — so it gets ParseLLMJSON's repair attempt, and the
+		// llm_call_log row above stays success=false, keeping the forensic trail
+		// the case file's own diagnostic queries rely on.
+		if te, isTrunc := aiservice.IsTruncated(err); isTrunc &&
+			datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false) {
+
+			truncationTolerated = true
+			truncatedTokens = te.OutputTokens
+			result = te.Partial
+
+			params.Logger.Warn("LLM response was TRUNCATED — tolerating per step config; downstream must treat this result as partial",
+				zap.String("step_name", params.ExecutionContext.StepName),
+				zap.String("reason", te.Reason),
+				zap.Int("output_tokens", te.OutputTokens),
+				zap.Int("partial_chars", len(te.Partial)),
+				zap.Int("sent_max_tokens", sentMaxTokens),
+			)
+
+			err = nil // handled: fall through to the normal result path
+		}
+
+		errStr := ""
+		if err != nil {
+			errStr = err.Error()
+		}
 
 		// ── Back-to-triage: fast-fail on infrastructure unavailability ──
 		// Connection refused, DNS failure, timeout, credit exhaustion (401/402).
@@ -442,28 +487,37 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	if mt, ok := options["__sent_max_tokens"].(int); ok {
 		sentMaxTokens = mt
 	}
-	LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
-		AgentType:       params.AgentType,
-		AgentID:         params.Headers["agent_id"],
-		StepName:        params.ExecutionContext.StepName,
-		OrchestrationID: params.ExecutionContext.OrchestrationID,
-		CorrelationID:   params.ExecutionContext.CorrelationID,
-		Model:           modelAlias,
-		ModelResolved:   resolvedModel,
-		Provider:        provider,
-		PromptTemplate:  promptTemplate,
-		PromptRendered:  renderedPrompt,
-		ResponseText:    result,
-		InputTokens:     inputTokens,
-		OutputTokens:    outputTokens,
-		LatencyMs:       llmLatencyMs,
-		Success:         true,
-		Temperature:     sentTemperature,
-		MaxTokens:       sentMaxTokens,
-		WorkItemID:      flywheelWorkItemID,
-		Vertical:        flywheelVertical,
-		RAGContextUsed:  flywheelRAG,
-	})
+	// A TOLERATED truncation was already logged in the error path above
+	// (success=false, stop_reason in error_message) — do not log it a second
+	// time as a success. A success=true row with output_tokens at exactly the
+	// cap is the pre-bugs_open/008 signature of a silent cut reading as a
+	// finished completion, and it would poison the headroom queries the 019
+	// case file documents (`success=t` rows are where the margins are measured).
+	// One call, one row: the failed row IS this call's record.
+	if !truncationTolerated {
+		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
+			AgentType:       params.AgentType,
+			AgentID:         params.Headers["agent_id"],
+			StepName:        params.ExecutionContext.StepName,
+			OrchestrationID: params.ExecutionContext.OrchestrationID,
+			CorrelationID:   params.ExecutionContext.CorrelationID,
+			Model:           modelAlias,
+			ModelResolved:   resolvedModel,
+			Provider:        provider,
+			PromptTemplate:  promptTemplate,
+			PromptRendered:  renderedPrompt,
+			ResponseText:    result,
+			InputTokens:     inputTokens,
+			OutputTokens:    outputTokens,
+			LatencyMs:       llmLatencyMs,
+			Success:         true,
+			Temperature:     sentTemperature,
+			MaxTokens:       sentMaxTokens,
+			WorkItemID:      flywheelWorkItemID,
+			Vertical:        flywheelVertical,
+			RAGContextUsed:  flywheelRAG,
+		})
+	}
 
 	// Strip markdown code blocks from response before processing
 	cleanedResult := stripMarkdownFromResponse(result)
@@ -482,10 +536,12 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			zap.Int("response_len", len(cleanedResult)),
 			zap.String("response_tail", datahelpers.TruncateString(lastRunes(cleanedResult, 80), 80)),
 		)
-		return map[string]interface{}{
+		out := map[string]interface{}{
 			"result": cleanedResult,
 			"type":   "text",
-		}, nil
+		}
+		markTruncated(out, truncationTolerated, truncatedTokens)
+		return out, nil
 	}
 	if repaired {
 		params.Logger.Info("LLM response required JSON repair (unescaped control characters in string values)",
@@ -493,10 +549,28 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
-	return map[string]interface{}{
+	out := map[string]interface{}{
 		"result": parsedResult,
 		"type":   "json",
-	}, nil
+	}
+	markTruncated(out, truncationTolerated, truncatedTokens)
+	return out, nil
+}
+
+// markTruncated stamps a tolerated-truncation marker onto an LLM step result.
+//
+// The marker is the whole point of tolerating a truncation rather than failing:
+// the step now SUCCEEDS, so without it a consumer cannot distinguish a complete
+// answer from a fragment, and bugs_open/019 would trade a loud void for a silent
+// half-answer — a strictly worse bug. Keyed with the "__" prefix used elsewhere
+// in collected_data for platform-set fields, so it cannot collide with a model's
+// own output keys.
+func markTruncated(out map[string]interface{}, tolerated bool, outputTokens int) {
+	if !tolerated {
+		return
+	}
+	out["__truncated"] = true
+	out["__truncated_output_tokens"] = outputTokens
 }
 
 // lastRunes returns up to n trailing runes of s, for logging a response tail

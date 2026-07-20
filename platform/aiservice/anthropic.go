@@ -177,19 +177,39 @@ func (c *AnthropicClient) GenerateText(ctx context.Context, prompt string, optio
 		options["__usage_output_tokens"] = response.Usage.OutputTokens
 	}
 
+	// Extract the text BEFORE deciding whether this was a truncation, so a cut
+	// completion can carry its partial back to the caller. Returning "" here is
+	// what made bugs_open/019 unrecoverable: the platform detected the cut and
+	// then destroyed the only thing that could survive it.
+	partial := ""
+	for _, block := range response.Content {
+		if block.Type == "text" || block.Type == "" {
+			partial = block.Text
+			break
+		}
+		if partial == "" && block.Text != "" {
+			partial = block.Text
+		}
+	}
+
 	if response.StopReason == "max_tokens" {
-		return "", fmt.Errorf("response truncated: stop_reason=max_tokens (output_tokens=%d reached the configured cap); raise max_tokens or shorten the prompt", response.Usage.OutputTokens)
+		// Non-nil error, so every existing `if err != nil` caller behaves exactly
+		// as before. Only a caller that asks via aiservice.IsTruncated sees the
+		// partial — tolerating a cut stays an opt-in decision at the step.
+		return partial, &TruncatedError{
+			Partial:      partial,
+			OutputTokens: response.Usage.OutputTokens,
+			Reason:       "stop_reason=max_tokens",
+			Provider:     "anthropic",
+		}
 	}
 
 	if len(response.Content) == 0 {
 		return "", fmt.Errorf("no content in response")
 	}
 
-	// Find the text block (skip thinking blocks)
-	for _, block := range response.Content {
-		if block.Type == "text" || block.Type == "" {
-			return block.Text, nil
-		}
+	if partial != "" {
+		return partial, nil
 	}
 
 	// Fallback: return first block with any text

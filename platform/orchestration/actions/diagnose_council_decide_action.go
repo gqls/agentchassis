@@ -59,9 +59,44 @@ type councilReview struct {
 	} `json:"objections,omitempty"`
 	Missing []string `json:"missing,omitempty"` // mechanisms the plan should cover but doesn't
 	Notes   string   `json:"notes,omitempty"`
+	// Degraded marks a review recovered from a TRUNCATED response by closing its
+	// open brackets: the verdict and any objections before the cut are real, but
+	// anything after it is missing. Surfaced in the report so a reader can tell a
+	// complete opinion from a salvaged fragment.
+	Degraded bool `json:"degraded,omitempty"`
 }
 
 var councilVerdicts = map[string]bool{"approve": true, "object": true, "veto": true}
+
+// salvageTruncatedReview tries to recover a usable opinion from a review cut off
+// at max_tokens, reusing repairTruncatedJSON (apply_adoption_plan_action.go) —
+// the same helper the truncation family has needed in three other places.
+//
+// This works as often as it does because of field ORDER: councilReview puts
+// `reviewer` and `verdict` first, and models emit them first, so the load-bearing
+// part of a review is usually intact and only trailing prose is lost. That is
+// also the limit of it — a recovered review may be missing objections the seat
+// had not written yet, which is why the caller marks it Degraded rather than
+// treating it as complete.
+//
+// Returns ok=false unless a review with a RECOGNISED verdict comes back: a
+// fragment that repairs into valid JSON with no usable verdict is not an
+// opinion, and must be counted unreadable rather than quietly become one.
+func salvageTruncatedReview(rb []byte) (councilReview, bool) {
+	var rv councilReview
+	repaired := repairTruncatedJSON(string(rb))
+	if repaired == "" {
+		return rv, false
+	}
+	if err := json.Unmarshal([]byte(repaired), &rv); err != nil {
+		return rv, false
+	}
+	rv.Verdict = strings.ToLower(strings.TrimSpace(rv.Verdict))
+	if !councilVerdicts[rv.Verdict] {
+		return rv, false
+	}
+	return rv, true
+}
 
 // DiagnoseCouncilDecideAction aggregates the reviewer steps' verdicts.
 func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -96,6 +131,12 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 
 	var reviews []councilReview
 	abstained := 0
+	// Seats that RAN and produced something unreadable — kept separate from
+	// `abstained` on purpose. An abstention is a seat the relevance filter skipped,
+	// which is information ("not applicable"); an unreadable seat is an opinion we
+	// were owed and lost, which is the absence of information. Conflating them
+	// would let a lost opinion read as a considered non-objection.
+	var unreadable []string
 	for _, field := range reviewFields {
 		raw := datahelpers.ExtractNestedField(params.CollectedData, field)
 		if raw == nil {
@@ -120,7 +161,33 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		var rv councilReview
 		if err := json.Unmarshal(rb, &rv); err != nil {
 			if !json.Valid(rb) {
-				return nil, fmt.Errorf("reviewer output at %q is invalid JSON — likely truncated at max_tokens: %w", field, err)
+				// TRUNCATED (bugs_open/019). Historically a hard error, which
+				// discarded every other seat's completed review and returned no
+				// verdict at all. Two things are true at once and the fix has to
+				// honour both: a council that cannot read a reviewer must not wave
+				// a plan through, AND one seat overrunning its cap must not destroy
+				// the round. So: try to recover the opinion; if that fails, record
+				// the seat as UNREADABLE and carry it into the decision, where it
+				// blocks an approval further down. Never a silent drop.
+				salvaged, ok := salvageTruncatedReview(rb)
+				if ok {
+					salvaged.Degraded = true
+					if strings.TrimSpace(salvaged.Reviewer) == "" {
+						salvaged.Reviewer = field
+					}
+					logger.Warn("diagnose_council_decide: reviewer output was TRUNCATED — verdict recovered from the partial, later objections may be missing",
+						zap.String("field", field),
+						zap.String("recovered_verdict", salvaged.Verdict),
+						zap.Int("objections_recovered", len(salvaged.Objections)))
+					reviews = append(reviews, salvaged)
+					continue
+				}
+				unreadable = append(unreadable, field)
+				logger.Warn("diagnose_council_decide: reviewer output is UNREADABLE (invalid JSON, likely truncated at max_tokens) and could not be salvaged — recorded as unreadable; an approval cannot stand alongside it",
+					zap.String("field", field),
+					zap.Int("bytes", len(rb)),
+					zap.Error(err))
+				continue
 			}
 			return nil, fmt.Errorf("reviewer output at %q does not match the review schema: %w", field, err)
 		}
@@ -135,24 +202,43 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 	}
 
 	if len(reviews) == 0 {
-		// Defensive: the always-on seats (edit-quality, guardian) mean this
-		// cannot happen in practice, but a council with zero opinions must
-		// never read as "all approve". Fail closed.
-		return nil, fmt.Errorf("no reviewer produced output (all %d configured reviewers abstained) — a council with no opinions cannot decide", abstained)
+		// A council with zero opinions must never read as "all approve". Fail
+		// closed. No longer merely defensive: with truncation tolerated upstream,
+		// a round where every seat that ran was unreadable reaches here, and that
+		// is precisely the state that must not become a verdict.
+		return nil, fmt.Errorf("no reviewer produced a readable opinion (%d abstained, %d unreadable: %s) — a council with no opinions cannot decide",
+			abstained, len(unreadable), strings.Join(unreadable, ", "))
 	}
 
 	decision, decidedBy := decideCouncil(reviews, hardVeto)
+
+	// An unreadable seat must never be the difference between revise and approve.
+	// The hard error this replaces was protecting a real property — "a council
+	// that cannot read its reviewers must not wave a plan through" — and it is
+	// kept here, at the only point where it actually matters, instead of by
+	// voiding the round. Note the asymmetry is deliberate: an objection or veto
+	// from a seat that WAS read stays decisive and is not softened, so this can
+	// only ever make the outcome more conservative, never less.
+	if decision == "approved" && len(unreadable) > 0 {
+		logger.Warn("diagnose_council_decide: downgrading approve->revise because a seat could not be read",
+			zap.Strings("unreadable", unreadable),
+			zap.Int("readable_reviews", len(reviews)))
+		decision = "revise"
+		decidedBy = fmt.Sprintf("unreadable reviewer(s): %s", strings.Join(unreadable, ", "))
+	}
 
 	report, _ := json.Marshal(map[string]interface{}{
 		"decision":   decision,
 		"decided_by": decidedBy,
 		"reviews":    reviews,
 		"abstained":  abstained,
+		"unreadable": unreadable,
 	})
 	metadata, _ := json.Marshal(map[string]interface{}{
-		"decision":  decision,
-		"reviewers": len(reviews),
-		"abstained": abstained,
+		"decision":   decision,
+		"reviewers":  len(reviews),
+		"abstained":  abstained,
+		"unreadable": len(unreadable),
 	})
 	if _, err := params.DB.ExecContext(ctx, `
 		INSERT INTO diagnosis_artifacts (
@@ -212,6 +298,7 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		zap.String("decided_by", decidedBy),
 		zap.Int("reviewers", len(reviews)),
 		zap.Int("abstained", abstained),
+		zap.Strings("unreadable", unreadable),
 		zap.Int("round", round),
 		zap.Bool("should_revise", shouldRevise),
 		zap.Bool("should_reframe", shouldReframe))
@@ -221,6 +308,8 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		"decided_by":     decidedBy,
 		"reviewers":      len(reviews),
 		"abstained":      abstained,
+		"unreadable":     len(unreadable),
+		"unreadable_at":  unreadable,
 		"round":          round,
 		"should_revise":  shouldRevise,
 		"should_reframe": shouldReframe,

@@ -151,8 +151,17 @@ func (c *OllamaClient) GenerateText(ctx context.Context, prompt string, options 
 		}
 	}
 
+	// Carry the partial back with the error, as the Anthropic client does — a
+	// truncation the caller cannot inspect is a truncation nothing can recover
+	// from (bugs_open/019). Fixing only the provider the councils happen to use
+	// would leave the same defect waiting behind a config change.
 	if response.DoneReason == "length" {
-		return "", fmt.Errorf("response truncated: done_reason=length (context length cap reached); raise the context window or shorten the prompt")
+		return response.Message.Content, &TruncatedError{
+			Partial:      response.Message.Content,
+			OutputTokens: response.EvalCount,
+			Reason:       "done_reason=length",
+			Provider:     "ollama",
+		}
 	}
 
 	return response.Message.Content, nil

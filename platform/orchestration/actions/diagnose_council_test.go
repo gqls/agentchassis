@@ -71,3 +71,99 @@ func TestApplyCouncilCaps(t *testing.T) {
 		})
 	}
 }
+
+// bugs_open/019: a reviewer truncated at max_tokens used to fail the whole
+// action, discarding every other seat's completed review and returning no
+// verdict. salvageTruncatedReview recovers the opinion where the cut left one
+// intact — which is usually, because `reviewer` and `verdict` are the first
+// fields models emit.
+func TestSalvageTruncatedReview(t *testing.T) {
+	cases := []struct {
+		name        string
+		body        string
+		wantOK      bool
+		wantVerdict string
+		wantObjs    int
+	}{
+		{
+			name:        "cut mid-notes, verdict intact",
+			body:        `{"reviewer":"edit-quality","verdict":"object","objections":[{"edit":1,"problem":"unguarded nil deref"}],"notes":"the third edit rewrites a shared help`,
+			wantOK:      true,
+			wantVerdict: "object",
+			wantObjs:    1,
+		},
+		{
+			name:        "cut mid-objections array — keeps the objections that survived",
+			body:        `{"reviewer":"guardian","verdict":"veto","objections":[{"edit":2,"problem":"drops the CAS guard"},{"edit":3,"problem":"partial`,
+			wantOK:      true,
+			wantVerdict: "veto",
+			wantObjs:    1,
+		},
+		{
+			name:   "cut before the verdict — nothing usable",
+			body:   `{"reviewer":"compliance"`,
+			wantOK: false,
+		},
+		{
+			name:   "repairs into valid JSON but carries no verdict — NOT an opinion",
+			body:   `{"reviewer":"reuse-agent","notes":"I looked at the adoption path and`,
+			wantOK: false,
+		},
+		{
+			name:   "unrecognised verdict is not an opinion either",
+			body:   `{"reviewer":"render","verdict":"looks-fine-to-me","notes":"trailing`,
+			wantOK: false,
+		},
+		{name: "empty", body: ``, wantOK: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rv, ok := salvageTruncatedReview([]byte(tc.body))
+			if ok != tc.wantOK {
+				t.Fatalf("ok: want %v got %v (verdict %q)", tc.wantOK, ok, rv.Verdict)
+			}
+			if !tc.wantOK {
+				return
+			}
+			if rv.Verdict != tc.wantVerdict {
+				t.Fatalf("verdict: want %q got %q", tc.wantVerdict, rv.Verdict)
+			}
+			if len(rv.Objections) != tc.wantObjs {
+				t.Fatalf("objections: want %d got %d", tc.wantObjs, len(rv.Objections))
+			}
+		})
+	}
+}
+
+// The safety property the old hard error was protecting, kept at the point where
+// it actually matters: an unreadable seat must never be the difference between
+// revise and approve. It can only make the outcome MORE conservative — an
+// objection from a seat that WAS read stays decisive and is not softened.
+func TestUnreadableSeatCannotApprove(t *testing.T) {
+	rv := func(name, verdict string) councilReview {
+		return councilReview{Reviewer: name, Verdict: verdict}
+	}
+	// The downgrade as applied in DiagnoseCouncilDecideAction.
+	decide := func(reviews []councilReview, unreadable []string) string {
+		d, _ := decideCouncil(reviews, map[string]bool{"guardian": true})
+		if d == "approved" && len(unreadable) > 0 {
+			d = "revise"
+		}
+		return d
+	}
+
+	if got := decide([]councilReview{rv("quality", "approve"), rv("guardian", "approve")}, nil); got != "approved" {
+		t.Fatalf("all readable approvals should approve, got %s", got)
+	}
+	if got := decide([]councilReview{rv("quality", "approve"), rv("guardian", "approve")}, []string{"review_guidelines.result"}); got != "revise" {
+		t.Fatalf("approve alongside an unreadable seat must downgrade to revise, got %s", got)
+	}
+	// Not softened in the other direction: a readable veto still rejects even
+	// though a seat was lost, and a readable objection still revises.
+	if got := decide([]councilReview{rv("guardian", "veto")}, []string{"review_render.result"}); got != "rejected" {
+		t.Fatalf("a readable veto must survive an unreadable seat, got %s", got)
+	}
+	if got := decide([]councilReview{rv("quality", "object")}, []string{"review_render.result"}); got != "revise" {
+		t.Fatalf("a readable objection must stay decisive, got %s", got)
+	}
+}
