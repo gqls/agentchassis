@@ -239,6 +239,29 @@ func refreshOneSiteEvidence(
 		if !ok {
 			continue
 		}
+		// V5: citation facts are re-verified by re-fetching their source and
+		// matching the stored verbatim quote (SPEC_V5_researched_citations §3c).
+		if src, ok := fact["source"].(map[string]interface{}); ok {
+			if _, has := src["citation"]; has {
+				entry := refreshCitationFact(ctx, fact, today)
+				if entry != nil {
+					res.FactsChecked++
+					switch entry.Outcome {
+					case "drifted":
+						res.Drifted++
+					case "error":
+						res.Errors++
+					}
+					if entry.Outcome == "updated" || (entry.Outcome == "fresh" && entry.VerifiedAt == today) {
+						res.FactsUpdated++
+						changed = true
+					}
+					res.Facts = append(res.Facts, *entry)
+				}
+				continue
+			}
+		}
+
 		query := factSQLSource(fact)
 		if query == "" {
 			continue // artifact/attested facts are checked for presence, not re-proved
@@ -348,6 +371,72 @@ func refreshOneSiteEvidence(
 		}
 	}
 	return res, nil
+}
+
+// refreshCitationFact re-verifies one citation fact in place and returns its
+// refresh entry. Outcomes and what they mean:
+//
+//	fresh    — quote still present at the source; accessed/verified_at bumped.
+//	drifted  — the source no longer supports the claim (quote gone on a 200),
+//	           OR the citation has aged past its staleness_days policy. Either
+//	           way the published claim needs a human ruling.
+//	error    — the source could not be checked (network, 403, PDF). Unknown is
+//	           not loss: reported, never treated as drift.
+//
+// Facts marked "reverifiable": false are never fetched — they age by policy
+// only, and re-attesting them is a human act.
+func refreshCitationFact(ctx context.Context, fact map[string]interface{}, today string) *evidenceFactRefresh {
+	entry := &evidenceFactRefresh{
+		FactID:    datahelpers.GetStringField(fact, "id", ""),
+		Claim:     datahelpers.GetStringField(fact, "claim", ""),
+		Tolerance: "citation",
+	}
+	src, _ := fact["source"].(map[string]interface{})
+	cit, err := datahelpers.ParseCitation(src)
+	if err != nil {
+		entry.Outcome = "error"
+		entry.Detail = err.Error()
+		return entry
+	}
+
+	stalenessDays := 0.0
+	if v, ok := numericField(fact["staleness_days"]); ok {
+		stalenessDays = v
+	}
+	verifiedAt := datahelpers.GetStringField(fact, "verified_at", "")
+	now, _ := parseFlexibleDate(today)
+
+	if datahelpers.GetBoolField(fact, "reverifiable", true) == false {
+		if citationDateStale(cit.Published, verifiedAt, stalenessDays, now) {
+			entry.Outcome = "drifted"
+			entry.Detail = "citation is past its staleness_days policy and is marked reverifiable:false — re-attest it by hand or retire the claim"
+		} else {
+			entry.Outcome = "fresh"
+			entry.Detail = "reverifiable:false — aged by policy only, not re-fetched"
+		}
+		return entry
+	}
+
+	outcome := verifyCitationLive(ctx, cit)
+	switch {
+	case outcome.FailClass == "fetch_error":
+		entry.Outcome = "error"
+		entry.Detail = outcome.FailDetail
+	case !outcome.Found:
+		entry.Outcome = "drifted"
+		entry.Detail = "citation_lost: " + outcome.FailDetail
+	case citationDateStale(cit.Published, verifiedAt, stalenessDays, now):
+		entry.Outcome = "drifted"
+		entry.Detail = "quote still present, but the citation is past its staleness_days policy — the source itself has aged; re-research the figure"
+	default:
+		entry.Outcome = "fresh"
+		fact["verified_at"] = today
+		if citRaw, ok := src["citation"].(map[string]interface{}); ok {
+			citRaw["accessed"] = today
+		}
+		entry.VerifiedAt = today
+	}
+	return entry
 }
 
 // factSQLSource returns the fact's SQL source, if it has one.

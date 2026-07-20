@@ -113,7 +113,14 @@ covers them with no seed change.
    prompt to report every unsupported operational assertion. Benchmark: ~174 on
    gaswholesalers, concentrated in `pricing-transparency` (19),
    `supply-terms-and-eligibility` (17), `who-we-serve` (17), `service-areas` (15).
-2. **V5 — researched, cited, re-verifiable external facts. NOW SPEC'D:**
+2. **V5 — researched, cited, re-verifiable external facts. BUILT 2026-07-20
+   (Go inert until an image ships; seed waiting on that image):**
+   engine `datahelpers/citations.go`; network half + acquisition
+   `actions/evidence_citations.go` (`verify_and_register_citations`, registered);
+   V4 freshness now re-verifies citations; agent seed
+   `SEED_evidence_researcher.sql` — apply ONLY after pod-grep for
+   `verify_and_register_citations`. All tests pass. Council submission
+   `f5ab4fb5-afd0-4da4-a8a2-d8cca79b4808`. Originally spec'd as:**
    `SPEC_V5_researched_citations.md`. Owner's requirement (2026-07-20): the site
    must "consistently use numbers that are verified from web deepsearch cited
    references, so not manual but part of the chassis' capability". The key finding

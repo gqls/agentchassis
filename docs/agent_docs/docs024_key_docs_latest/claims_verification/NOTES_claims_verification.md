@@ -439,3 +439,47 @@ passed, per the gate I set myself.
 **Other sites are opting in.** The sweep found `evidence_base` specs on vonc.com
 and relojistas.com (0 sql-facts each) — other threads have started using the layer.
 No seed change needed; the sweep covers them.
+
+---
+
+## 2026-07-20 (later) — V5 BUILT: citation evidence, verified by verbatim quote
+
+Owner directed: site numbers "verified from web deepsearch cited references, so
+not manual but part of the chassis' capability". Spec'd
+(`SPEC_V5_researched_citations.md`) then built the same day.
+
+**What was built** (all tests pass; Go inert until an image ships):
+- `datahelpers/citations.go` (+tests): the pure half. ParseCitation (url+quote+
+  publisher mandatory — an unverifiable citation must never pose as evidence);
+  NormalizeForQuoteMatch (entities, curly punctuation, nbsp, dashes, thousands
+  separators, case — forgiving on PRESENTATION, strict on CONTENT: 411 matches
+  "411&nbsp;", never 412); QuoteFoundInText over VisibleTextFromHTML (reuses
+  ExtractAssertionText, so a quote living only in <script>/<pre> cannot verify).
+- `actions/evidence_citations.go` (+tests): the network half. Fetch is http(s)-
+  only, 25s timeout, 4MiB cap; PDFs REFUSED (half-reading a binary would fake
+  verification → reverifiable:false + human attestation is the honest route).
+  Failure classification is the safety property: 200-but-quote-gone =
+  `citation_lost` (drift); 403/network/PDF = `fetch_error` (unknown — a paywall
+  going up is not evidence the fact is wrong). Proven offline via httptest.
+- V4 extension: the freshness pass re-verifies citation facts each run — fresh
+  bumps accessed/verified_at; citation_lost or past `staleness_days` (aged from
+  the PUBLICATION date, not the last check) = drifted → the existing
+  stale_evidence HITL route; errors are errors.
+- `verify_and_register_citations` action (registered): the acquisition
+  endpoint. LLM-extracted candidates are verified LIVE before anything is
+  written — **the model proposes, the string comparison disposes**. Verified →
+  citation facts (register auto-created for a site without one; CAS supersede
+  when one exists). Rejected → ONE citation_unverified item at human review,
+  never a fact. IDs are fnv(url + normalised quote) so re-runs are idempotent.
+- `SEED_evidence_researcher.sql` (NOT applied — names the new action, so image
+  first): search → prepare_urls (primary publishers preferred) → scrape →
+  extract ATOMIC claims with verbatim quotes (the prompt warns the model its
+  quotes will be machine-checked and paraphrases fail) → verify_and_register.
+
+**Design notes for the next reader:**
+- The whole point is that verification is a string comparison, not a judgement —
+  the same shape as the email check that founded the layer. Everything
+  downstream (V1 flags unregistered numbers, V2 whitelists + attributes via
+  writer_line, V4 re-checks) already existed, so V5 is acquisition only.
+- Council submission f5ab4fb5 sent with a deliberately TERSE plan (bug 019
+  punishes verbose rounds — reviewer output scales with submission size).

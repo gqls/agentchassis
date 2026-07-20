@@ -631,6 +631,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Re-run live-verifiable evidence_base facts, re-sync values, regenerate the writer whitelist, raise drift for human review",
 		IsLocal:     true,
 	},
+	"verify_and_register_citations": {
+		Handler:     VerifyAndRegisterCitationsAction,
+		Category:    "site",
+		Description: "Verify researched candidate claims against their cited sources (verbatim-quote match) and register the survivors as citation facts; failures go to human review",
+		IsLocal:     true,
+	},
 	"claim_work_item": {
 		Handler:     ClaimWorkItemAction,
 		Category:    "site",
