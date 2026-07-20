@@ -71,6 +71,13 @@ func (m captureArg) Match(v driver.Value) bool {
 // against a mock DB. priorAttempts is what the convergence count returns;
 // countErr (if set) makes that query fail, exercising the fail-open path.
 func runJudgeFailPath(t *testing.T, config map[string]interface{}, priorAttempts int, countErr error) judgeRun {
+	return runJudgeFailPathWithComponent(t, config, priorAttempts, countErr, "comp-1")
+}
+
+// runJudgeFailPathWithComponent additionally controls whether an active
+// content_components row exists; "" models a recreated or adopted tool, where
+// no work item of either kind can be raised.
+func runJudgeFailPathWithComponent(t *testing.T, config map[string]interface{}, priorAttempts int, countErr error, componentID string) judgeRun {
 	t.Helper()
 
 	run := judgeRun{}

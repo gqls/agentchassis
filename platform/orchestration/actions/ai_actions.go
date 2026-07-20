@@ -44,10 +44,20 @@ func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (inter
 // max_tokens still inherits the root provider/model. The returned sources
 // slice names the blocks that contributed, in overlay order.
 //
+// The per-key overlay itself reuses datahelpers.MergeInputData (the platform's
+// standard "copy existing, overlay new per key" map merge) rather than a
+// bespoke loop — this function only LOCATES the three blocks and records which
+// contributed. A shallow overlay is the correct config-precedence semantic: a
+// step declaring a key replaces root's value for that key wholesale. The
+// deep-merge variants (siteSpecDeepMerge, deepMergeNewsFeed) would instead
+// blend nested maps, which is wrong for precedence; and no ai_service key holds
+// a nested value in any live agent_definitions row (checked 2026-07-20), so the
+// shallow copy cannot alias a shared sub-map either.
+//
 // This replaces first-found-wins, under which the ENTIRE step block was dead
 // config whenever a root block existed — per-step max_tokens overrides
 // silently ran at the root (or hardcoded 2048) value (bugs_open/009).
-func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{}, currentStep string) (map[string]interface{}, []string) {
+func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{}, currentStep string, logger *zap.Logger) (map[string]interface{}, []string) {
 	merged := make(map[string]interface{})
 	var sources []string
 
@@ -55,9 +65,7 @@ func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{
 		if len(block) == 0 {
 			return
 		}
-		for k, v := range block {
-			merged[k] = v
-		}
+		merged = datahelpers.MergeInputData(merged, block, logger)
 		sources = append(sources, source)
 	}
 
@@ -197,7 +205,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// the root block is the fleet default, the current step's block overrides
 	// it key-by-key, and a runtime StepConfig block overrides both. First-found
 	// -wins made the step block dead config whenever a root block existed.
-	aiServiceConfig, aiServiceSources := resolveAIServiceConfig(agentConfig, params.StepConfig.Config, currentStep)
+	aiServiceConfig, aiServiceSources := resolveAIServiceConfig(agentConfig, params.StepConfig.Config, currentStep, params.Logger)
 
 	if len(aiServiceConfig) == 0 {
 		params.Logger.Error("ai_service configuration not found after checking all locations",

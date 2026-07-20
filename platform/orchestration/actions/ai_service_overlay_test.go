@@ -3,6 +3,8 @@ package actions
 import (
 	"reflect"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 // TestResolveAIServiceConfig covers bugs_open/009: a root ai_service block used
@@ -149,9 +151,10 @@ func TestResolveAIServiceConfig(t *testing.T) {
 		},
 	}
 
+	logger := zap.NewNop()
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, sources := resolveAIServiceConfig(tc.agentConfig, tc.stepConfig, tc.currentStep)
+			got, sources := resolveAIServiceConfig(tc.agentConfig, tc.stepConfig, tc.currentStep, logger)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("merged config:\n got %#v\nwant %#v", got, tc.want)
 			}
@@ -180,7 +183,7 @@ func TestResolveAIServiceConfig_DoesNotMutateInputs(t *testing.T) {
 		},
 	}
 
-	merged, _ := resolveAIServiceConfig(agentConfig, nil, "s1")
+	merged, _ := resolveAIServiceConfig(agentConfig, nil, "s1", zap.NewNop())
 	merged["max_tokens"] = float64(999)
 	merged["provider"] = "mutated"
 

@@ -14,6 +14,29 @@ the platform is concerned.
 > build-pipeline review items, reporting the queue as empty. Most of the fix needs
 > no owner ruling. The original text is left intact below as filed.
 
+> **UPDATE 2026-07-20 (bugfix thread) — the three display bugs are FIXED & LIVE;
+> the queue is now visible. Bug stays OPEN for the drain.**
+> - **Visibility (bugs 1–3): DONE & DEPLOYED, chassis + dashboard `v1.0.1141`.**
+>   `HandleListWorkItems` is paged (limit/offset, default 200) and returns
+>   server-side `status_counts`/`type_counts`/`total`/`truncated`; the dashboard
+>   filters server-side, shows "showing N of M" + Load more, and gained a pipeline
+>   selector (build/content/all). Verified: the handler's exact SQL returns 208
+>   `needs_human_review` live (was 0 in the window); unit tests pass and the
+>   count-scoping regression test fails on the reintroduced bug; the new symbols
+>   are in the running pod. NOT exercised: the auth-wrapped HTTP call end-to-end
+>   (no admin token to hand) — the owner sees it on first connect. Commit
+>   `c11a804bd`.
+> - **Access: DONE & LIVE.** Owner chose a VPN over a public Ingress (2026-07-20).
+>   WireGuard deployed (`06d860c6b` + swept `deployment.yaml`); pod Running, `wg0`
+>   up with 2 peers, and from inside the tunnel's network the dashboard resolves
+>   via kube-dns and returns HTTP 200. External UDP handshake unverified (needs the
+>   owner's client). Also fixed the two broken makefile targets (`7c969599c`).
+> - **Owner decision taken:** the ~175 deliberate escalations → **split it**:
+>   auto-drain what can be (wire `reconcile_section_data_action`, re-validate the
+>   stale 121), queue the rest. **NOT yet built** — this is the remaining work and
+>   why the bug is still OPEN. D2 (residue aging) and D3 (identity/auth) are still
+>   open owner decisions.
+
 ---
 
 ## Observed
