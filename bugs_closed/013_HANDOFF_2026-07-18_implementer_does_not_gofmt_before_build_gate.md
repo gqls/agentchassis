@@ -1,5 +1,30 @@
 # HANDOFF — FIX: fix-implementer commits un-`gofmt`'d LLM output, so the build gate rejects trivially-unformatted code and burns a whole implementer run
 
+> ## CLOSED 2026-07-20 19:00 BST — FIXED AND LIVE
+>
+> Fixed in `fc38c6058`, essentially as sketched in §2: `formatGeneratedGo` runs
+> every generated `.go` body through `go/format` immediately after the allowlist
+> validation, so the committed bytes are byte-identical to what the gate's
+> `gofmt -l` expects. Non-Go files pass through untouched. The gate keeps its
+> `gofmt -l` step — it is correct, and is now defence-in-depth rather than the
+> first thing to catch whitespace.
+>
+> The parse-error branch shipped as §2 recommended: an unparseable body fails
+> LOUD at commit-prep naming the file and the likely truncation, rather than
+> falling back to the raw bytes or deferring an opaque error to the build Job.
+>
+> Image rolled 18:58:33 BST; verified against the running binary (pod
+> `agent-chassis-5567d99bd6-5snzn`):
+>
+> ```
+> strings /app/agent-chassis | grep -c "is not valid Go (cannot format"   -> 1
+> ```
+>
+> Closing note on the irony recorded in §4: the implementer run that filed this
+> bug was the one trying to ship `008`'s fix. Both are now closed, and `008`'s
+> item 5 was finished by hand in the commit immediately preceding this one.
+
+
 **Filed:** 2026-07-18, from the concept-register / council thread. Diagnosed directly
 (visible bug — grep + read, per CLAUDE.md; NOT routed to the diagnosis loop). This
 handoff is the FIX only. Small, contained, structural.

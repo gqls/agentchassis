@@ -1,6 +1,21 @@
 # HANDOFF — FIX: `GenerateText` never decodes `stop_reason` (silent max_tokens truncation)
 
-> ## STATUS 2026-07-20 — ALL ITEMS NOW FIXED IN CODE; OPEN ONLY UNTIL THE IMAGE ROLLS
+> ## CLOSED 2026-07-20 19:00 BST — every item FIXED AND LIVE, verified in the running pod
+>
+> The image rolled at 18:58:33 BST. Verified against the running binary, not git
+> and not the tag (pod `agent-chassis-5567d99bd6-5snzn`):
+>
+> ```
+> strings /app/agent-chassis | grep -c "model declined to answer"   -> 1   (item 5)
+> strings /app/agent-chassis | grep -c "stop_reason=refusal"        -> 1   (item 5)
+> ```
+>
+> `bugs_closed/README.md` had recorded this case as staying open "until that
+> thread confirms it". This is that confirmation.
+>
+> The status table below is retained as the record of what shipped when.
+>
+> ## STATUS 2026-07-20 — ALL ITEMS FIXED IN CODE
 >
 > **Read this before §3–§8, which describe work that has since shipped.** The
 > sections below are preserved as the diagnosis and decision record, not as a

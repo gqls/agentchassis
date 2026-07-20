@@ -1,5 +1,32 @@
 # 032 — the completion verifier reads a DELETED component as a successful fix
 
+> ## CLOSED 2026-07-20 19:00 BST — FIXED AND LIVE
+>
+> Fixed in `a467baa11` (the conservative floor from § "Fix candidate": return an
+> error, never a verdict, so the gate's fail-OPEN policy turns a false success
+> into a visible unknown). Image rolled 18:58:33 BST; verified against the
+> running binary, not git and not the tag (pod `agent-chassis-5567d99bd6-5snzn`):
+>
+> ```
+> strings /app/agent-chassis | grep -c "cannot verify: component"   -> 1
+> ```
+>
+> Regression tests pin both directions via sqlmock: absence must not claim
+> success, and a present-but-empty component must still fail closed.
+>
+> **One thing deliberately NOT done, and still worth doing.** The stronger option
+> in § "Fix candidate" — if the page still EXPECTS the component (a
+> `plan_sections` entry, a slot reference) then absence is *deletion*, not
+> ambiguity, and `Resolved: false` is the honest answer — remains open. It is the
+> `empty_sections_loop_integrity` thread's call and this floor does not preclude
+> it. Reopen or file a follow-on rather than treating the error-return as the
+> finished shape.
+>
+> The coverage half of the finding still lives in `bugs_open/021`, unchanged:
+> `RegisterVerifier` is called for a handful of item types out of ~50, so most
+> items still complete on the handler's self-report.
+
+
 **Filed:** 2026-07-19 by the reasoning-dataset thread.
 **Found by:** the council gate's `bug_historian` seat, during review of a plan
 that proposed *copying* this behaviour to two more item types

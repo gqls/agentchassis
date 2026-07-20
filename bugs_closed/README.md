@@ -13,8 +13,14 @@ committed.
 **A fix that is committed but inert until the next image roll STAYS in
 `/bugs_open/`.** That is the whole point of the bar: between commit and image
 roll, the defect is still reproducible in prod, and that is exactly when the
-next thread to hit it needs to find the case file. `008` (stop_reason) and `017`
-(unregistered action) are in that state and deliberately remain open.
+next thread to hit it needs to find the case file.
+
+> **UPDATED 2026-07-20 19:00 BST:** `008` and `017` were named here as examples
+> of that inert state. Both have since shipped and been verified live, and both
+> are now in this directory. The *rule* stands unchanged — it is the examples
+> that expired. If you are looking for a case currently in that state, check
+> `/bugs_open/` rather than trusting a list here; a named example goes stale
+> within days, which is exactly what happened to this one.
 
 > **UPDATED 2026-07-20:** `012` (improver truncation) was named here as staying
 > open *because migration 169 was unapplied*. That condition is gone — 169 and
@@ -65,11 +71,29 @@ numbers are cited in commit messages and Go comments.
 | 004 | Landing an image can silently blank an article body | superseded by `005`, which found the real root cause |
 | 005 | Article-body blanking — root cause is LLM truncation (`max_tokens`) | fix deployed v1.0.1126; re-verified live 2026-07-19 (19/19 healthy, config survived a re-seed, repair fn present in the running pod) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo | both causes fixed (v1.0.1126 + pin removal) |
+| 008 | `GenerateText` never decoded `stop_reason` — truncations and refusals surfaced as successes or as parse faults | all 5 items live in the image rolled 2026-07-20 18:58 BST; **re-verified in the running pod** |
+| 012 | The improver truncates and destroys the component it is repairing | guard + migrations 168/169/170 live in v1.0.1139; chain driven and verified against production |
+| 013 | fix-implementer commits un-`gofmt`'d LLM output, so the gate burns the whole run | `formatGeneratedGo` at commit-prep; **re-verified in the running pod** 2026-07-20 |
+| 014 | VM-site artefacts silently deploy to the default `sites` repo | both causes fixed (v1.0.1126 + pin removal) |
 | 016 | `ssh` ignores `$HOME` and expands `~` from the passwd entry | fixed in the box scripts |
+| 017 | An unregistered action fails as "requires a topic" — and the failure is stamped `complete` | registration + `handlerReportedFailure` + a registry parity test, live in v1.0.1139 |
+| 031 | A stale register entry asserts a content-hash rerender skip that never existed, blocking correct plans | corrected in all 6 places, including the live council seat prompts |
+| 032 | The completion verifier reads a DELETED component as a successful fix | conservative floor (error, not verdict) shipped; **re-verified in the running pod** 2026-07-20 |
 
-Closure evidence lives inside each case file. `005` is the only one
-independently re-verified against the live system by the thread that moved it;
-the other three rest on their filing thread's own verification.
+Note `002` is also filed here as a routing document rather than a fixed defect —
+its A–C legs are done and it points at the owners of the rest. Read it before
+assuming everything it describes is closed.
+
+Closure evidence lives inside each case file. `005`, `008`, `012`, `013` and
+`032` were independently verified against the live system by the thread that
+moved them (`008`/`013`/`032` by grepping the running pod's binary on
+2026-07-20); the others rest on their filing thread's own verification.
+
+**`032` closed with a known residual, deliberately.** Its stronger fix — treat
+absence as *deletion* when the page still expects the component — was left to the
+owning thread. A case can close on its safe floor while a better answer stays
+open; say so in the file, as `032` does, rather than letting the floor read as
+the finished shape.
 
 ## Still the rules
 
