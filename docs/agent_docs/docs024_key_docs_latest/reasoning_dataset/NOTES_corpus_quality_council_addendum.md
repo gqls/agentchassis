@@ -90,3 +90,77 @@ without anyone labelling anything.
 - **Dissent is a peer measure, not a correctness measure.** A seat dissenting
   often is discriminating, not right. Nothing here says which seat was correct —
   that would need the terminal outcomes that proposal 1 just failed to supply.
+
+---
+
+# ADDENDUM 2 — the feed-triage lane (2026-07-20)
+
+*The third and last lane named in `NOTES_corpus_quality.md` §7. It is the
+largest, and the only one where a judgement and its outcome sit on the same row.*
+
+## Result
+
+**Corpus: 820 → 7,712 records across 448 trajectories.** The feed lane alone
+contributes **5,671 judgements**, of which **5,658 carry a terminal outcome**:
+
+| outcome | judgements |
+|---|---|
+| `rejected` | 3,472 |
+| `expired` | 1,385 |
+| `relevant` | 782 |
+| `review` | 19 |
+
+Each record carries the model's own reasoning as emitted — `reason`,
+`credibility`, `credibility_reason`, `topics`, `source_attribution` — against the
+title and summary it was judging.
+
+## The outcome is NOT a restatement of the judgement — checked, not assumed
+
+The obvious worry: if `status` is just a threshold on `relevance_score`, then
+using it as a label is circular — you would be training a model to predict its
+own threshold. Averages looked exactly like that (`rejected` 24.5, `relevant`
+71.4).
+
+It is not. `rejected` spans **0–90**, and the bands overlap heavily:
+
+| score band | rejected | relevant | expired |
+|---|---|---|---|
+| 60 | 409 | 73 | 82 |
+| 70 | 296 | 215 | 321 |
+| 80 | 170 | 307 | 584 |
+| 90 | 27 | 175 | 346 |
+
+**492 judgements scored ≥60 and were rejected anyway**, and `duplicate_of` and
+expiry explain **none** of them (both zero across that whole set). Something
+downstream decides and I do not know what. Those rows are flagged
+`score_outcome_divergence` rather than explained — they are the most interesting
+subset in the lane and the open question attached to it.
+
+```jsonc
+{"decision":"score=72","labels":{"terminal":"rejected","score_outcome_divergence":true},
+ "reasoning":{"reason":"Brent crude price movements, US-Iran tensions, and Hormuz
+  blockade fears are highly relevant to energy market professionals…"}}
+```
+
+## A silent truncation class the existing filter misses
+
+**50 of 439 `score_relevance` responses are unparseable JSON**, cut mid-array —
+and **zero** of them trip the `output_tokens >= max_tokens` rule that CLAUDE.md
+enshrines. They are `success=true` with plausible-looking text. The extractor
+counts and warns rather than skipping silently, because a silent skip would
+understate the lane by 11%.
+
+Worth surfacing to whoever owns feed-triage: this is the `bugs_open/008`
+stop_reason family in a lane nobody has checked.
+
+## Limits
+
+- **No published-page outcome.** `published_page_id` is populated on **0** of
+  6,711 rows, and `work_item_id` on 0. The strongest possible label — "did this
+  become an article?" — is not recorded, so `relevant` means "passed triage", not
+  "was used".
+- **`expired` is ambiguous.** 1,385 judgements, averaging a *higher* score than
+  `relevant` (72.2 vs 71.4). Judged good, never acted on. That may be a capacity
+  signal rather than a quality one; do not train it as a negative.
+- **One model.** The whole lane is `claude-sonnet-4-6`, so it cannot be sliced
+  by generation.

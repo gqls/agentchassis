@@ -152,6 +152,22 @@ go run ./cmd/reasoningset \
   --out reasoning_v1.jsonl < raw.txt
 ```
 
+> **Pipe through `gzip` inside the pod.** `kubectl exec` stdout **silently
+> truncates large streams** — the three-lane extract reached ~47 MB and the file
+> ended mid-word, having emitted 706 of 5,662 `feeditem` rows with no error and
+> exit 0. Compressing inside the pod cut it to 10 MB and returned all 5,662:
+>
+> ```bash
+> cat cmd/reasoningset/extract.sql \
+>   | kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+>       sh -c 'psql -U clients_user -d clients_db -At | gzip -c' > raw.gz
+> gunzip -c raw.gz > raw.txt
+> ```
+>
+> Always check the tail: `tail -c 60 raw.txt` must end with `}`, and the row
+> counts must match §1. This is the second silent-truncation trap in this one
+> command — see the next note.
+
 > **Do NOT add `-f -` to psql.** `psql -At -f -` under `kubectl exec -i`
 > **silently truncates after the first statement** — the first run emitted 781
 > `step` rows and zero `trail`/`bundle` rows, with only a "Waiting for server to

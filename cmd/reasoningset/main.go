@@ -82,6 +82,11 @@ type Labels struct {
 	SubsystemGrade string `json:"subsystem_grade,omitempty"`
 	Terminal       string `json:"terminal,omitempty"`
 
+	// feed-triage lane. ScoreOutcomeDivergence marks a judgement the triage
+	// scored highly that was rejected anyway — the interesting subset, because
+	// something OTHER than the score decided it and we do not yet know what.
+	ScoreOutcomeDivergence bool `json:"score_outcome_divergence,omitempty"`
+
 	// council lane, derived — no hand-labelling required.
 	// RoundDecision is what the council concluded; Dissent is whether THIS seat
 	// went against it. Dissent is the load-bearing signal: where seats split,
@@ -138,6 +143,29 @@ type inRow struct {
 	Notes            string          `json:"notes"`
 	SeatVotes        int             `json:"seat_votes"`
 	SeatNeverObjects bool            `json:"seat_never_objects"`
+
+	// feed-triage lane
+	ItemID            string          `json:"item_id"`
+	Status            string          `json:"status"`
+	RelevanceScore    *float64        `json:"relevance_score"`
+	Credibility       string          `json:"credibility"`
+	CredibilityReason string          `json:"credibility_reason"`
+	SourceAttribution json.RawMessage `json:"source_attribution"`
+	Topics            json.RawMessage `json:"topics"`
+	SourceTitle       string          `json:"source_title"`
+	SourceSummary     string          `json:"source_summary"`
+}
+
+// feedVerdict is one item's judgement inside a batched score_relevance response.
+type feedVerdict struct {
+	ID                string          `json:"id"`
+	Score             *float64        `json:"score"`
+	Credibility       string          `json:"credibility"`
+	CredibilityReason string          `json:"credibility_reason"`
+	Reason            string          `json:"reason"`
+	Topics            json.RawMessage `json:"topics"`
+	Flagged           *bool           `json:"flagged"`
+	SourceAttribution json.RawMessage `json:"source_attribution"`
 }
 
 // trailStep mirrors pkg/diagnose.Step, which carries NO json tags — so the
@@ -177,7 +205,7 @@ func main() {
 		fatal("labels: %v", err)
 	}
 
-	steps, trails, bundles, councils, err := readInput(os.Stdin)
+	steps, trails, bundles, councils, feedjudges, feeditems, err := readInput(os.Stdin)
 	if err != nil {
 		fatal("read: %v", err)
 	}
@@ -187,6 +215,7 @@ func main() {
 
 	records := build(steps, trails, bundles, labels)
 	records = append(records, buildCouncil(councils, labels)...)
+	records = append(records, buildFeed(feedjudges, feeditems)...)
 
 	out := os.Stdout
 	if *outPath != "" {
@@ -208,9 +237,11 @@ func main() {
 	report(records, len(trails), len(bundles))
 }
 
-func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[string]string, councils []inRow, err error) {
+func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[string]string, councils []inRow,
+	feedjudges []inRow, feeditems map[string]inRow, err error) {
 	trails = map[string]inRow{}
 	bundles = map[string]string{}
+	feeditems = map[string]inRow{}
 	sc := bufio.NewScanner(f)
 	// Bundles run to tens of KB and prompts larger still.
 	sc.Buffer(make([]byte, 0, 1<<20), 64<<20)
@@ -235,9 +266,13 @@ func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[
 			bundles[bundleKey(r.TrajectoryID, r.Iteration)] = r.Body
 		case "council":
 			councils = append(councils, r)
+		case "feedjudge":
+			feedjudges = append(feedjudges, r)
+		case "feeditem":
+			feeditems[r.ItemID] = r
 		}
 	}
-	return steps, trails, bundles, councils, sc.Err()
+	return steps, trails, bundles, councils, feedjudges, feeditems, sc.Err()
 }
 
 func bundleKey(traj string, iter int) string { return traj + "#" + fmt.Sprint(iter) }
@@ -426,6 +461,79 @@ func buildCouncil(rows []inRow, labels map[string]Labels) []Record {
 	return out
 }
 
+// buildFeed explodes each batched score_relevance response into one record per
+// judged item, joined to that item's persisted outcome.
+//
+// This is the only lane where the judgement and its outcome sit on the SAME row,
+// and the outcome is not a restatement of the judgement: `rejected` spans scores
+// 0-90, and 494 items scoring >=60 were rejected anyway — with duplicate_of and
+// expiry explaining NONE of them. Something downstream decides and we do not
+// know what, so those rows are FLAGGED (ScoreOutcomeDivergence) rather than
+// explained.
+func buildFeed(judgeRows []inRow, items map[string]inRow) []Record {
+	var out []Record
+	unparseable := 0
+	for _, j := range judgeRows {
+		var verdicts []feedVerdict
+		raw := extractJSON(j.ReasoningRaw)
+		if raw == nil || json.Unmarshal(raw, &verdicts) != nil {
+			// 23 successful calls carry malformed JSON that the
+			// output_tokens>=max_tokens rule does not catch. Count, do not drop
+			// silently — a silent skip here would understate the lane.
+			unparseable++
+			continue
+		}
+		for _, v := range verdicts {
+			item, haveItem := items[v.ID]
+			rec := Record{
+				TrajectoryID:  j.TrajectoryID,
+				RunID:         j.RunID,
+				Task:          "feed_relevance_judgement",
+				StepName:      "score_relevance",
+				InputComplete: true,
+				Provenance:    j.Provenance,
+			}
+			rec.Provenance.PreFixCorpus = runStartedBeforeFix(j.CreatedAt)
+
+			// What the model was judging.
+			if haveItem {
+				rec.InputState = strings.TrimSpace(item.SourceTitle + "\n\n" + item.SourceSummary)
+			}
+			// Its reasoning, as emitted.
+			reasoning, _ := json.Marshal(map[string]any{
+				"reason":             v.Reason,
+				"credibility":        v.Credibility,
+				"credibility_reason": v.CredibilityReason,
+				"topics":             v.Topics,
+				"source_attribution": v.SourceAttribution,
+				"flagged":            v.Flagged,
+			})
+			rec.Reasoning = reasoning
+			if v.Score != nil {
+				rec.Decision = fmt.Sprintf("score=%.0f", *v.Score)
+			}
+
+			if haveItem {
+				rec.Labels.Terminal = item.Status
+				if v.Score != nil && *v.Score >= 60 && item.Status == "rejected" {
+					rec.Labels.ScoreOutcomeDivergence = true
+				}
+			} else {
+				// Judged, but the item row is gone or was never persisted.
+				rec.InputComplete = false
+				rec.ExcludeReason = "item_row_missing"
+			}
+			out = append(out, rec)
+		}
+	}
+	if unparseable > 0 {
+		fmt.Fprintf(os.Stderr,
+			"WARN: %d score_relevance responses were unparseable JSON (truncated mid-array; "+
+				"the output_tokens>=max_tokens rule does NOT catch these)\n", unparseable)
+	}
+	return out
+}
+
 func classify(step string) string {
 	switch {
 	case step == "verdict":
@@ -602,7 +710,7 @@ func report(recs []Record, trails, bundles int) {
 	byGrade := map[string]int{}
 	byTerminal := map[string]int{}
 	guardTripped, guardUnaligned, graded, complete := 0, 0, 0, 0
-	dissenting, scopeApprove, contested := 0, 0, 0
+	dissenting, scopeApprove, contested, divergent := 0, 0, 0, 0
 	trajectories := map[string]bool{}
 
 	for _, r := range recs {
@@ -640,6 +748,9 @@ func report(recs []Record, trails, bundles int) {
 				scopeApprove++
 			}
 		}
+		if r.Labels.ScoreOutcomeDivergence {
+			divergent++
+		}
 		if r.Labels.SelfOutcome != "" {
 			byOutcome[r.Labels.SelfOutcome]++
 		}
@@ -674,6 +785,11 @@ func report(recs []Record, trails, bundles int) {
 		e("\ncouncil lane (labels derived, not hand-curated)\n")
 		e("  %-22s %d\n", "seat dissents", dissenting)
 		e("  %-22s %d   ← 'approve' may mean OUT OF SCOPE, not merit\n", "scope-approve risk", scopeApprove)
+	}
+	if divergent > 0 {
+		e("\nfeed lane\n")
+		e("  %-22s %d   ← scored >=60 and rejected anyway; the score did NOT decide\n",
+			"score/outcome divergence", divergent)
 	}
 	if len(byGrade) > 0 {
 		e("\nbenchmark_grade (gold, pre-registered rubric)\n")
