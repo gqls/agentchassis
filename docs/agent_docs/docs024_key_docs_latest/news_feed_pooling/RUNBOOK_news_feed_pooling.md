@@ -139,6 +139,40 @@ The applied one-shot for the two `audience` rows is preserved at
 
 The ranking embedding is computed from `who` + `position` only.
 
+## Pool synthetic sites (created 2026-07-20)
+
+Pools are sites: `pool-<slug>.internal`, **`status='pool'`**, `settings.pool.slug`
+for machine identification, `network_id` copied from `system.internal`. One
+pool-default `audience.v1` row each.
+
+**Why `status='pool'` and not `'system'`:** fleet loops iterate
+`WHERE status='deployed'` (`maintenance_actions.go:694,697`) so any non-deployed
+value is excluded — but nothing selects `WHERE status='system'` either
+(`system.internal` is referenced only by UUID, `diagnose_triage_action.go:41`),
+so a distinct value costs nothing and can never collide with a future
+"the system site" convention. `sites` has no CHECK constraints (verified).
+
+List pools:
+```sql
+SELECT domain, settings->'pool'->>'slug' AS slug FROM sites WHERE status='pool' ORDER BY 1;
+```
+
+Safety invariants to re-check after any change touching pools (all must be 0
+until pool ingestion is deliberately switched on):
+```sql
+SELECT count(*) FROM sites WHERE status='deployed' AND domain LIKE 'pool-%';
+SELECT count(*) FROM sites s JOIN site_specs ss ON ss.site_id=s.id
+  AND ss.aspect='classification' AND ss.is_current WHERE s.status='pool';
+```
+**GOTCHA:** the second query is the load-bearing one — the content-feed trigger
+selects on a current classification spec with `news_feed.recommended=true` plus
+a deployed page. Writing a classification spec to a pool site is the act that
+arms ingestion; do it knowingly, with sources costed.
+
+The pool creation SQL pattern is in the session scratchpad
+(`create_pool_sites.sql`); it is idempotent (`ON CONFLICT DO NOTHING` +
+`NOT EXISTS` on the spec insert).
+
 ## Domain-list analysis
 
 Scratch analysis lives outside the repo (session scratchpad); the method is in

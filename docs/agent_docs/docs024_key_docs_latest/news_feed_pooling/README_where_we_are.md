@@ -404,3 +404,36 @@ a poisoned asset.
 The komunikatif question is still open: it has the best news-shaped history of
 the lot — a real Indonesian regional news site until 2023 — and would be the
 natural first foreign-language pool site. Awaiting a yes or no.
+
+---
+
+## 2026-07-20 last entry — komunikatif is a yes, and the seventeen pools now exist
+
+Komunikatif got its yes — it joins the pilot as the first foreign-language
+rebuild, inheriting its Indonesian news history. The pilot stands at about
+thirty-seven.
+
+The owner also pointed out something I'd overcomplicated: the "measure zdec
+first" idea doesn't need anything new building, because we already built exactly
+that mechanism for relojistas — the box that serves the site keeps proper
+visitor logs, which is how we counted the feed subscribers before that rebuild.
+Point zdec at the same setup with a simple page and read the logs. One caveat
+carries over from that work: until the proxy is configured to pass real visitor
+addresses through, everyone looks like they come from the same place, so that
+configuration comes first.
+
+And the main event: **the seventeen news pools now exist** in the live system.
+Each one is a synthetic site — the same trick the platform already uses for its
+own internal work — with its default audience description attached, ready for
+member sites to inherit and specialise. Before creating them I verified, rather
+than assumed, that they're invisible to every automatic process that walks the
+fleet: the maintenance sweeps only look at deployed sites, and the news
+machinery only fires on sites that have been classified and have live pages —
+pools have neither. So they sit there costing nothing until we deliberately
+switch one on.
+
+That switch-on is the next piece of real work, and it's deliberately its own
+step: choosing actual news sources for one pool, letting it ingest, and then
+running the duplication measurement on real articles before any member site
+renders a feed. Between here and there sits pilot onboarding — turning the
+thirty-seven pilot domains into classified sites with audience profiles.

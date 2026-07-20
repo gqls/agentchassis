@@ -659,3 +659,47 @@ nanangmrk (adoption track), outfax. komunikatif recommended, not yet directed.
 zdec deliberately unstrategised — measure-first proposal recorded in PLAN (2–3
 weeks of holding-page analytics to characterise the 409 views before any
 investment; spam-era backlink profile may mean search distrust).
+
+---
+
+## 2026-07-20 — session 2 final: komunikatif YES; 17 pool sites CREATED
+
+Owner: yes to komunikatif (Decision 20, pilot ~37); mid-turn: the zdec
+measurement mechanism already exists — **the relojistas traffic-probe setup**
+(VM box + nginx logs + CF real-ip). Folded into the PLAN proposal, carrying that
+workstream's landmine: CF edge IPs make visitor counts impossible until real-ip
+is configured — a measurement prerequisite, not a nice-to-have.
+
+### Pool creation, gated on verification (Decision 21)
+
+Checks run BEFORE the insert, in order:
+1. `\d sites` — `status` is varchar(50), default 'active', **no CHECK
+   constraints** (`pg_constraint contype='c'` → empty). New status value safe.
+2. Grep for every `sites.status` predicate: fleet loops use `status='deployed'`
+   only (`maintenance_actions.go:694,697`); all other status predicates are
+   over pages/nav_items/companies.
+3. Grep `status='system'` / `system.internal` / `eac60db8`: the synthetic site
+   is referenced **only by hardcoded UUID** — no single-row-by-status assumption
+   exists, so a second synthetic status value breaks nothing.
+4. Feed-trigger arming condition re-read: needs current classification with
+   `news_feed.recommended=true` + deployed page. Pool sites get neither.
+
+Then: 17 × (site + pool-default audience row) in one idempotent transaction
+(34 inserts, all `INSERT 0 1`). Verified after: status distribution
+deployed 11 / pool 17 / system 1; 17/17 pools carry current `audience.v1`
+rows; both safety invariants zero (no pool in the deployed predicate, no pool
+with a classification spec).
+
+Design choices worth remembering:
+- **`status='pool'` over `'system'`** — not because 'system' breaks (it
+  doesn't, verified), but because a distinct value is self-describing in any
+  `GROUP BY status` and can never collide with a future single-system-site
+  convention.
+- **`settings.pool.slug`** so pools are machine-identifiable without parsing
+  domains.
+- Pool-default `who` texts are composites of the Decision 10 domain analysis —
+  written to be forked, and each row's notes carry the TLIB-022 rule verbatim
+  (site voice must FORK, never edit the shared base).
+- **Ingestion left structurally off.** Sources per pool = real curation + real
+  credits; that is its own deliberate step on ONE pool first, after pilot
+  onboarding.

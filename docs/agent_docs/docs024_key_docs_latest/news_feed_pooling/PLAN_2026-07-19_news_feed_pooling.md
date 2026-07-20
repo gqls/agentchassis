@@ -550,6 +550,56 @@ proposal, not a decision:
 > and patience — build for direct/type-in value, not SEO, until standing is
 > proven. Committing content before measuring risks investing in a penalised
 > asset.
+>
+> **Owner (2026-07-20): use the relojistas mechanism — it already exists.** The
+> traffic-probe setup built for relojistas.com (VM box, nginx access logs, CF
+> real-ip) is exactly this measurement: it characterised the legacy feed demand
+> (~136 pulls/day, UA/path/referrer detail) before the rebuild. Point zdec at a
+> VM box with a holding page and read the logs. Carry over the relojistas
+> workstream's landmine: **behind Cloudflare, subscriber/visitor counts are
+> impossible until CF real-ip is configured** — that workstream promoted it to a
+> measurement prerequisite; it is one here too.
+
+## Decision 20 — komunikatif: yes (owner, 2026-07-20)
+
+Indonesian-language rebuild inheriting the Central Java news legacy, as the first
+language-exception site (Decision 13). Joins the pilot — now **~37 domains**.
+Dedicated Indonesian sources at onboarding (Decision 14); its news supply is
+genuinely different from every English pool, so it exercises the per-language
+path end to end.
+
+## Decision 21 — 17 pool synthetic sites CREATED, `status='pool'` (2026-07-20)
+
+The Decision 8 open sub-question is now verified and closed, and the pools exist.
+
+**Verification that gated creation** (all live 2026-07-20):
+- Every fleet loop iterates `sites WHERE status='deployed'`
+  (`maintenance_actions.go:694,697`); other status predicates in the codebase are
+  over `pages`/`nav_items`/`companies`, not `sites`.
+- Nothing selects `WHERE status='system'` — `system.internal` is referenced only
+  by its hardcoded UUID (`diagnose_triage_action.go:41`), so there is no
+  single-system-site assumption a second synthetic status value could break.
+  A distinct **`status='pool'`** is therefore safest: outside the deployed
+  predicate, outside any future system-site convention, self-describing.
+- `sites` has **no CHECK constraints** (verified `pg_constraint contype='c'` — none).
+- The content-feed trigger requires a current classification spec with
+  `news_feed.recommended=true` AND a deployed page; pool sites have neither →
+  **ingestion is structurally inert** until sources and specs are deliberately
+  added. Creating the rows spends nothing.
+
+**Created:** 17 rows `pool-<slug>.internal` (naming after `system.internal`),
+`name='Pool: <Title>'`, `network_id` copied from `system.internal`,
+`settings.pool.slug` for machine identification, plus one pool-default
+`audience.v1` row each (`who` = composite pool audience from the Decision 10
+analysis; `position=null` by design — position belongs to member sites at fork;
+TLIB-022 fork rule in each row's notes). Verified: 17/17 with current audience
+rows; 0 in the deployed predicate; 0 with classification specs.
+
+**Deliberately NOT done yet:** `content_sources` for pools (spends real credits
+once ingesting — needs per-pool source curation and an explicit switch-on), pool
+membership binding for member sites, and classification specs for pool sites.
+Next build steps in order: pilot onboarding (member profiles at classification),
+pool sources + first ingestion on ONE pool, the 002 similarity baseline.
 
 ## Risks carried into the build
 
