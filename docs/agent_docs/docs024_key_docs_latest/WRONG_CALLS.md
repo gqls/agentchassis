@@ -1369,3 +1369,36 @@ as the queue-latency trap (a missing run row read as a drop rather than a
 queue). All three are the same error: **treating the absence of a result as a
 result.** The fix in each case is to name the state you actually observed —
 "submitted", "queued", "no artifact yet" — rather than the state you expect.
+
+---
+
+## 2026-07-20 — `git stash pop` with no stash of my own popped another branch's WIP
+
+**The call.** Mid-task, to verify whether HEAD's discovery_checks package compiled without my
+uncommitted test changes, I ran `git stash push -- <two test files>` then `git stash pop`. The
+push found "No local changes to save" (my changes had already been swept into a commit), so it
+created **no** stash — and the subsequent `pop` therefore popped `stash@{0}`, an **unrelated WIP
+stash from another branch** (`066_hitl_questionnaire`). It half-applied and left a merge conflict
+in `coordinator.go`, staging a new file (`awaited_requests_repo.go`) that belongs to that other
+work.
+
+**What caught it.** The `git status` immediately after the pop showed files I never touched
+(`coordinator.go` UU, `awaited_requests_repo.go` A) and the pop's own output naming an unrelated
+SQL file. `git stash list` then showed `stash@{0}` was another branch's.
+
+**Why it was recoverable with nothing lost.** A `pop` that hits a conflict does **not** drop the
+stash — `stash@{0}` stayed intact, so discarding the working-tree application lost nothing. I
+restored `coordinator.go` to HEAD and removed the pop's new file (verified byte-identical to the
+stash first), touching none of the *other* concurrent sessions' live WIP.
+
+**The cheap check that would have.** Two, either sufficient:
+1. `git stash list` **before** any `pop`. On a shared tree the stash stack is not yours; a bare
+   `pop` acts on whatever is at `{0}`.
+2. Never use `stash push`/`pop` to reverse *your own* change. If the goal is "test HEAD without
+   file X's local edits", use `git checkout HEAD -- X` on a named path (or a throwaway worktree),
+   which cannot touch anyone else's stash.
+
+**Tally row: acting on `{0}` as if it were mine.** Same family as the queue-latency and
+Council-Reviewed traps already logged — assuming a shared, mutable slot reflects my own state.
+On this tree, *nothing* at rest is private: not the index (commit-per-task exists for that), not
+HEAD (it moved four times mid-session), and not the stash stack.

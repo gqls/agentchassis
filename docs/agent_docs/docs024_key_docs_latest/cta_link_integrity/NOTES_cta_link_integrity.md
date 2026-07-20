@@ -1195,3 +1195,55 @@ three chrome rows: `bak_site_components_chrome_20260720`.
 > untouched, nothing has shipped" while `cdb64932` was queued. That was true at the instant but
 > misleading — the dispatch was authorized and unstoppable, so gaswholesalers *was* going to
 > ship regardless. It has now. The other two genuinely are untouched.
+
+---
+
+### 2026-07-20 (bugfix-049 session) — candidate 4 SHIPPED; re-render measured; 053 filed
+
+A separate session picked up 049 to action it. Landed:
+
+- **Candidate 4 implemented and committed** (swept into `2d529d6dc` v1.0.1142 by another
+  session's `git add -A` mid-edit — see the misstep below; the swept snapshot was complete and
+  compiles). `check_phantom_internal_links.go` now emits a distinct `unbuilt_internal_link`
+  finding for an href that resolves to a real `pages` row whose page has **never been deployed**
+  (`deployed_at IS NULL`). It carries the **target** page id and routes to `page-build-handler`,
+  because the fix is to build the page pointed *at*, not rebuild the page containing the (correct)
+  link. Tests + `verifier_coverage_test.go` classification committed alongside.
+  - **Predicate is `deployed_at IS NULL`, NOT `build_status <> 'deployed'`.** Measured live:
+    34/34 `needs_rebuild`-but-once-deployed pages return **200**; keying on build_status would
+    have false-flagged all 34. This corrects 049's candidate-4 wording and 052's "planned is the
+    state that means never-built" (4 pages are `needs_rebuild` AND never deployed, incl.
+    gaswholesalers `/fuel-pricing-framework.html`, this bug's own mechanism-2 page).
+
+- **Chrome re-render fully measured** (the owner question that was blocking candidate 1). Header
+  nav byte-identical on all three sites; footer gains nothing. Per-site outcome, every emitted
+  URL fetched: finetuning **−82 / +0** (clean, fire it), aao **−66 / +0**, gaswholesalers
+  **−56 / +28** (HOLD — the fallback re-emits the 404 framework page). Sequenced =
+  **−204 / +0**. Full table in `bugs_open/049`'s addendum.
+
+- **Filed `bugs_open/053`** — an empty `legal` nav group makes `GetNavItems` fall through to the
+  pages fallback, which fills the footer's legal slot with **every footer page**. Proven on
+  robot-hands (14 non-legal links in `.footer-legal`, matching the fallback one-for-one; the
+  template hypothesis predicts 15 and is refuted). This weakens 049's two-directional control:
+  **leopardess is the only post-fix site that actually exercises the 2026-06-10 fix.** The NOTES
+  claim above that "robot-hands' chrome emits no legal links at all" is wrong — it emits
+  fourteen, none legal. Corrected in 049's addendum too.
+
+- **Did NOT fire `049_TRIGGER_chrome_refresh.sh`.** Outward-facing on three live customer sites,
+  owner's two questions still open, and question 2 (do these sites need real privacy/terms
+  pages?) is untouched by the measurement. finetuning is ready as a strictly-clean −82 whenever
+  the owner says go.
+
+- **NOT done:** candidate 3 (a check that sweeps chrome staleness — 049's actual root cause).
+  Deferred: the working tree was being churned hard by concurrent sessions and I'd just been
+  bitten by the stash incident below, so I did not pile more uncommitted Go into it.
+
+**Misstep (recorded per the standing-docs rule).** While confirming my swept source change I ran
+`git stash pop` to test a hypothesis — with no stash of my own on the list, so it popped
+`stash@{0}`, another branch's WIP (`066_hitl_questionnaire`), half-applying it with a merge
+conflict in `coordinator.go`. Recovered surgically: the conflicted pop does NOT drop the stash,
+so `stash@{0}` stayed intact; I restored `coordinator.go` to HEAD and removed the pop's new
+`awaited_requests_repo.go` (byte-identical to the stash, so nothing lost), touching none of the
+other sessions' live WIP. Logged to `WRONG_CALLS.md`. Cheap check that would have avoided it:
+`git stash list` before any `pop`, and never `pop` to reverse your own `push` — use
+`git stash push -- <files>` / `git checkout` on named paths instead.
