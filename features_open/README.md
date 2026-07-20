@@ -44,3 +44,4 @@ hazard has materialised. A risk with no test is an opinion.
 | 002 | RISK | [Portfolio-wide duplicate content from pooled feeds](002_RISK_portfolio_duplicate_content.md) |
 | 003 | FEATURE | [Paid tier — per-site sources and beyond](003_FEATURE_paid_tier_beyond_news.md) |
 | 004 | FEATURE | [Duplicate-content council seat](004_FEATURE_duplicate_content_council_seat.md) |
+| 005 | FEATURE | [Pilot onboarding + first pool activation](005_FEATURE_pilot_onboarding_and_first_pool.md) — **ON HOLD, owner gate** |

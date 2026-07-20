@@ -598,8 +598,17 @@ rows; 0 in the deployed predicate; 0 with classification specs.
 **Deliberately NOT done yet:** `content_sources` for pools (spends real credits
 once ingesting — needs per-pool source curation and an explicit switch-on), pool
 membership binding for member sites, and classification specs for pool sites.
-Next build steps in order: pilot onboarding (member profiles at classification),
-pool sources + first ingestion on ONE pool, the 002 similarity baseline.
+
+## Decision 22 — everything downstream is ON HOLD behind an owner gate (owner, 2026-07-20)
+
+*"We're not quite ready to onboard more domains."* The remaining sequence —
+pilot onboarding (~37) → first pool armed → 002 similarity baseline — is parked
+in **`features_open/005_FEATURE_pilot_onboarding_and_first_pool.md`**, which is
+the handoff for whichever thread runs it when the owner says go. **No thread
+should onboard pilot domains, arm a pool, or write a classification spec to a
+pool site until then.** The workstream's built state (17 inert pools, 11
+profiled sites, the pilot list) is stable to leave: the safety invariants in the
+RUNBOOK are what "inert" means, and they hold without maintenance.
 
 ## Risks carried into the build
 

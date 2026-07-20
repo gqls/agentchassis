@@ -437,3 +437,22 @@ step: choosing actual news sources for one pool, letting it ingest, and then
 running the duplication measurement on real articles before any member site
 renders a feed. Between here and there sits pilot onboarding — turning the
 thirty-seven pilot domains into classified sites with audience profiles.
+
+---
+
+## 2026-07-20 final — everything downstream parked, on purpose
+
+The owner called a sensible halt: we're not quite ready to onboard more
+domains. So the whole remaining sequence — onboarding the thirty-seven, arming
+the first pool, running the duplication measurement — is written up as a single
+ready-to-run package in the features directory (entry 005), with every
+prerequisite, special case and blocker listed, so whichever session picks it up
+later starts from the front door rather than from archaeology.
+
+Everything built so far is safe to leave exactly as it stands. The seventeen
+pools cost nothing while dormant, the eleven site profiles are just data, and
+the two checks that prove the pools are dormant are written down where the next
+session will find them. The two rendering bugs that need fixing before any
+pilot get their time back too — that was half the reason to wait.
+
+Nothing further happens on this workstream until the owner says go.
