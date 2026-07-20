@@ -655,3 +655,48 @@ in production for ~4 hours, described to the owner as verified. Fixed in `976618
 **The transferable rule:** *"verified live" must name which BRANCH was exercised.* A green
 positive path plus a discriminating grep proves deployment, not correctness — for anything
 whose job is to detect a fault, the fault must be induced.
+
+### 2026-07-20 — robot-hands — "the CTA label/URL pairing is repaired"
+**Asserted:** to the owner in a summary, and in a commit message (`d497fbe24`,
+"CTA pairing repaired"), after applying label-keyed UPDATEs to `content_data` and
+running a verify query that came back clean.
+**Actually:** `content_data` is not the source of truth for a CTA URL.
+`resolve_internal_links_action.go` **owns** those fields (`ctaFieldNames`, `:99-105`)
+and recomputes them on every render via `chooseCTATargets` (`:319`), which never reads
+the label — it sorts candidates by `NavOrder`/`Name` and takes `[0]` and `[1]`. The
+next render put back both the URL and its `_target_title`, with a later `updated_at`
+than my write. The edits that still look correct do so only because the resolver would
+choose that URL anyway; *building the tool* is what fixed those, not the SQL.
+**Caught by:** watching `services.html` after it re-rendered, for an unrelated reason
+(I was checking whether the statistics had landed). **Luck.** Nothing in my process
+would have surfaced it — my verify ran inside the writing transaction, where it could
+not, in principle, detect a field the render recomputes.
+**The cheap check that would have caught it:** re-read the row **after a render**, not
+after the write. CLAUDE.md's "trust the rendered artefact, not the status" already says
+this about pages; it applies to the DB row just as much, and I applied it to one and
+not the other.
+**Cost:** a false "done" reached the owner and a commit message. Corrected in NOTES, in
+the handoff, and as an addendum to `/bugs_open/023` — where it turned out to sharpen
+that bug's stated cause, so the error paid for itself. But it was reported as finished
+work first, which is the part that matters.
+
+### 2026-07-20 — robot-hands — "zero work items completed fleet-wide since the roll"
+**Asserted:** to the owner, as the headline evidence for a fleet-wide build halt, from
+`SELECT count(*) ... WHERE status='complete' AND updated_at > '<roll>'` → 0.
+**Actually:** `site_work_items.updated_at` is **not maintained** (`/bugs_open/035`), so
+that query returns 0 whether or not anything completed. The halt was real — re-measured
+on `completed_at`, there were 0 completions between the roll and the recovery and 1
+immediately after — so **the claim was true and the evidence for it was worthless.**
+That is the more dangerous shape: I would have said the same thing had the fleet been
+perfectly healthy.
+**Caught by:** my own recovered work item completing and still not appearing in the
+query. The contradiction was only visible because I re-ran the check after the fix.
+**The cheap check that would have caught it:** `\d site_work_items` and a moment's
+thought about which column means what — or simply leading with the evidence that does
+not depend on a timestamp column at all: **N hung `build-pipeline-trigger` rows in
+`AWAITING_RESPONSES` against `max_concurrent`**, which is the mechanism itself and was
+sitting right there.
+**Cost:** nothing, because the conclusion held. Recorded because a right answer from a
+broken instrument is not a verification, and the next person reading that query in my
+runbook would have inherited the instrument. Fixed in `/bugs_open/029`'s addendum and
+in the robot-hands RUNBOOK.
