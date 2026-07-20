@@ -153,7 +153,7 @@ Criteria, all re-measured 2026-07-20 19:15 (see NOTES for the queries):
 |---|---|---|
 | 1 | RUNBOOK R1 census falls **and stays fallen after a rebuild** — the real test, since a content-level fix regresses and a template/schema fix does not | **PARTIAL.** 51 → **39** (22 empty href + 17 bare `#`); the fragment class is **extinct** (4 → 0). Survived a full rebuild *and* the v1.0.1140 image roll on 2026-07-20 — so the fixes are structural, as intended. The 17 bare `#` were never in scope (different class). Target: the 22 empty hrefs, which fall with candidate 2. |
 | 2 | RUNBOOK R8 against the affected live tool pages: zero `href=""`, zero unresolvable fragments, no external host failing DNS | **MET**, and wider than filed. All four pages across three sites verified against the rendered artefacts post-image-roll: `finetuning.uk/tools/llm-cost-calculator`, `robot-hands.com/gripper-cycle-time-estimator`, both leopardess tool pages — 200, zero defects. |
-| 3 | **No component in the active library can pair a rendered label with an absent destination** — i.e. classes A/C/E are structurally impossible, not merely absent from today's pages | **NOT MET** — this is the real remaining bar. Current: **171 ungated anchors / 41 components** (CORRECTED 2026-07-20, see below — the 70/37 figure was a measurement artefact) and **22 `source:llm` url fields / 6 components** (was 21). Close it with candidates 2 + 4. |
+| 3 | **No component in the active library can pair a rendered label with an absent destination** — i.e. classes A/C/E are structurally impossible, not merely absent from today's pages | **NOT MET**, but moving. After migration 181: **152 ungated CTA anchors / 29 components** (+17 range-scoped item links, a separate class) and **19 `source:llm` url fields / 5 components**. Both figures CORRECTED 2026-07-20 — the previous 70/37 was a measurement artefact; see below. Close it with candidates 2 + 4. |
 
 **Closure bar for this file:** criteria 1–3 above — i.e. classes **A, B, C, E**. Everything
 else has moved out, so that this file can close when *its own* scope is done:
@@ -250,6 +250,21 @@ gives:
   UNGATED 171 anchors / 41 components      <-- vs R9's 70/37: a 2.4x undercount
 ```
 
+> **REFINED an hour later, while writing migration 181 — and the refinement matters.**
+> **15 of those 171 are not CTA anchors at all.** They sit inside a `{{range}}`, so the
+> field is a property of the ranged item, not a component field:
+> `{{range .items}}<a href="{{.url}}" class="tool-cta-card">`. That is an **item link** fed
+> by a query-provided list — different class, different fix, different owner. The true CTA
+> worklist is therefore **156 anchors / 32 components** (pre-181), not 171/41.
+> Found the hard way: 181's first post-condition was a blanket *"no ungated `{{.x_url}}`
+> anchor remains in these components"*, which `tool-cta`'s range-scoped `.url` would have
+> tripped — rolling back an otherwise correct migration. Caught before applying, by reading
+> the third anchor instead of trusting the count. `parse_gates.py` now reports the split, so
+> the distinction cannot be lost again.
+> **Note the shape:** I corrected a figure, then within the hour over-stated the corrected
+> figure in the same way. The fix for "a number travelled without its caveat" is not a better
+> number — it is making the tool emit the distinction.
+
 R9 undercounts because its greedy `.{0,60}` prefix is consumed by the *previous* match, so in runs
 of adjacent anchors (nav lists, footer link columns — exactly where they cluster) every other
 anchor is swallowed. Script: `cta_link_integrity/scripts/parse_gates.py`; R9 now carries the
@@ -286,6 +301,42 @@ platform-comparison   cta_url                               1 placement  / 1 sit
 17 live placements. Fix candidate 4 (the schema-lint) is therefore **corrective, not preventive**,
 and should be sequenced accordingly. (The other 15 of the 22 `source:llm` url fields are nav-link
 fields in the dormant `header-*` stock.)
+
+### FIXED 2026-07-20 — migration 181, applied and ledgered (classes C+E on the live components)
+
+`181_class_e_live_cta_url_integrity.sql`, applied in one transaction with needle-gates and
+post-conditions (179's pattern), snapshot in `bak_class_e_components_20260720`:
+
+| component | placements | what changed |
+|---|---|---|
+| `content-block-about` | 13 / 5 sites | `cta_url` **llm+required → renderer+optional**, anchor gated |
+| `tool-cta` | 3 / 2 sites | `primary_cta_url` + `secondary_cta_url` **llm+required → renderer+optional**, both anchors gated |
+| `platform-comparison` | 1 / 1 site | **anchor gated only — schema deliberately unchanged** |
+
+Verified after apply: the three flipped fields read `renderer`/`false`; gated anchors
+**18 → 22** (exactly the four); ungated CTA anchors **156 → 152**.
+
+**The three are not treated alike, and the reasoning is the point:**
+
+- `content-block-about` is **in `ctaFieldNames`**, so `chooseCTATargets` already writes this
+  field on every render. Flipping the declared source to `renderer` makes the schema tell the
+  truth about who owns it; nothing about the rendered output changes.
+- `tool-cta` is **not** in the map, so after the flip nothing populates it and the gated
+  template renders **no button** — the intended LNK-005 outcome, and strictly better here
+  because the values it emitted while `llm+required` were **404s on live pages**
+  (`finetuning.uk/tools`, `finetuning.uk/tools/llm-cost-calculator`,
+  `leopardess/tools` — all verified 404 on 2026-07-20, and all three are in `bugs_open/049`'s
+  census).
+- `platform-comparison` was **gated but NOT flipped**. Its one live value,
+  `vonc.com/tools/gauntlet/index.html`, is a **real working page (200)**. It is not in the map
+  either, so flipping it would leave nothing to repopulate it and would **delete a working
+  button from a live page**. The structurally correct change is blocked on the field having an
+  owner — i.e. on the schema-derived pairing (council trail `2525f980`). Gating still removes
+  the `href=""` failure mode without removing the button.
+
+> **Residual, deliberate:** `platform-comparison.cta_url` remains `source:llm, required:true` —
+> the last live class-E field. It is recorded here rather than quietly left, because "we closed
+> class E" would be false. Flip it in the same change that gives it a resolver.
 
 ### And a defect class the gating sweep does NOT cover — filed as `bugs_open/049`
 
@@ -352,3 +403,49 @@ the page re-rendered, and the resolver put its own choice back — URL *and*
 
 Related: `/bugs_open/043` (generated copy invents quantitative claims) was found
 in the same sweep on the same site.
+
+### Proposal for the flip round: make field ownership queryable (robot-hands, 2026-07-20)
+
+Offered to the owning thread, not built — this belongs inside the staged rollout, not
+beside it.
+
+The knowledge that would have prevented my whole class of error **already exists in this
+file**, three lines above the map:
+
+```go
+// re-resolved into resolved_data on every render and merges last, so no
+// recompute or content edit can win against it.
+var ctaFieldNames = map[string][2]string{
+```
+
+That comment is exactly right and it reached nobody. It is visible only to someone already
+reading `resolve_internal_links_action.go` — which is to say, someone who has already
+worked out that the resolver is involved. A session editing `content_data` over psql has no
+path to it, and will be told nothing when its write is silently reverted on the next render.
+
+**The ask is small: emit the ownership set.** Whatever the flip settles on as the authority
+(`ctaFieldNames`, or the schema-derived successor in `datahelpers/ctafields.go`), write it
+somewhere queryable — a generated JSON committed beside the Go, or a small table. Then one
+source feeds three consumers that currently have none:
+
+1. **A pre-apply check** — `is this field mine to write?` before a session edits
+   `content_data`. This is the load-bearing one: a pre-commit check fires *after* the write
+   has already reached production, which is where the real cost lands.
+2. **`scripts/pattern-check.py`** — staged SQL touching a resolver-owned key. Mechanically
+   decidable, and it would have fired on
+   `robot_hands/SQL_2026-07-20_r4_matchmatrix_and_cta_pairing.sql`. Hold it to that script's
+   own bar (documented incident ✓, decidable ✓, ≤2% fire rate — **unmeasured**, measure
+   before wiring).
+3. **The conflict log you are already building at the rerender merge** — it can name the
+   owner in its message rather than just recording that a value was replaced.
+
+Cheapest possible version, if the above is too much for this round: put the comment's
+content in the RUNBOOK under a heading someone editing `content_data` would actually search
+for. That does not fix it, but it moves the knowledge from "in the file that defines it" to
+"in the file people read before touching the data", which is where it failed.
+
+**Why this is offered rather than done:** `ctaFieldNames` is mid-flip (OBSERVE-ONLY,
+`:79-84`), so freezing its shape into a second artefact now would create exactly the
+two-hand-maintained-lists drift this council reviews for — the same trap the gate-roster
+mirror (`099_SYNC_gate_roster.py`) exists to prevent. Whatever emits it should be generated
+from the winner, after the flip.
