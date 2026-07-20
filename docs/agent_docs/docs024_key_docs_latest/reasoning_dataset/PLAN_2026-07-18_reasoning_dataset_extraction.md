@@ -259,6 +259,15 @@ the file, flagged. A filtered corpus that silently omits 19 `repropose` rows rea
 as "we have no repropose data"; a flagged one records *why*, which is itself the
 finding. Consumers filter on `input_complete`.
 
+> **CORRECTED 2026-07-20, after measuring it.** This section calls the guard
+> block "the most distinctive thing in this corpus". Measured: **7 trips, all
+> carrying the SAME diagnostic** ("confirmed on one evidence family only"), plus
+> 14 records too ambiguous to assert on. Seven examples of one failure mode is an
+> illustration, not a training signal. The claim was written before the extractor
+> existed and was never checked. The mechanism is still worth having — it is free
+> and grows if the loop runs more — but it is not a reason to invest. Full
+> measurement: `NOTES_corpus_quality.md` §5.
+
 **The `guard` block — the novel signal, not in the handoff.** The trail stores the
 **coerced** verdict (`pkg/diagnose/advance.go:93-97`) while
 `collected_data.verdict.result` holds the **raw** model output. Pairing them

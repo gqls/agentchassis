@@ -76,6 +76,10 @@ type Guard struct {
 type Labels struct {
 	SelfOutcome    string `json:"self_outcome,omitempty"`
 	BenchmarkGrade string `json:"benchmark_grade,omitempty"`
+	// SubsystemGrade grades a MECHANISM a run exercised (the code-lookup tier,
+	// the council) rather than the diagnosis. Kept separate from
+	// BenchmarkGrade so a subsystem PASS can never be read as reasoning quality.
+	SubsystemGrade string `json:"subsystem_grade,omitempty"`
 	Terminal       string `json:"terminal,omitempty"`
 }
 
@@ -308,6 +312,7 @@ func build(steps []inRow, trails map[string]inRow, bundles map[string]string, la
 		// benchmark grade / terminal — hand-curated, keyed on an 8-char prefix.
 		if l, ok := labels[shortID(s.TrajectoryID)]; ok {
 			rec.Labels.BenchmarkGrade = l.BenchmarkGrade
+			rec.Labels.SubsystemGrade = l.SubsystemGrade
 			rec.Labels.Terminal = l.Terminal
 		}
 
@@ -489,6 +494,8 @@ func report(recs []Record, trails, bundles int) {
 	byModel := map[string]int{}
 	byExclude := map[string]int{}
 	byOutcome := map[string]int{}
+	byGrade := map[string]int{}
+	byTerminal := map[string]int{}
 	guardTripped, guardUnaligned, graded, complete := 0, 0, 0, 0
 	trajectories := map[string]bool{}
 
@@ -511,6 +518,10 @@ func report(recs []Record, trails, bundles int) {
 		}
 		if r.Labels.BenchmarkGrade != "" {
 			graded++
+			byGrade[r.Labels.BenchmarkGrade]++
+		}
+		if r.Labels.Terminal != "" {
+			byTerminal[r.Labels.Terminal]++
 		}
 		if r.Labels.SelfOutcome != "" {
 			byOutcome[r.Labels.SelfOutcome]++
@@ -540,6 +551,18 @@ func report(recs []Record, trails, bundles int) {
 		e("\nself_outcome\n")
 		for _, k := range sortedKeys(byOutcome) {
 			e("  %-22s %d\n", k, byOutcome[k])
+		}
+	}
+	if len(byGrade) > 0 {
+		e("\nbenchmark_grade (gold, pre-registered rubric)\n")
+		for _, k := range sortedKeys(byGrade) {
+			e("  %-22s %d\n", k, byGrade[k])
+		}
+	}
+	if len(byTerminal) > 0 {
+		e("\nterminal\n")
+		for _, k := range sortedKeys(byTerminal) {
+			e("  %-22s %d\n", k, byTerminal[k])
 		}
 	}
 	e("─────────────────────────────────────────────────────\n")

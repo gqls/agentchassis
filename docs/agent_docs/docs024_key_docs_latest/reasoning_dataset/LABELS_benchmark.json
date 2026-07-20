@@ -11,15 +11,32 @@
     "dismissed**', 'not reached', 'abstained (neutral)'). Worst of all, several uses of",
     "FAILED mean an API 529 or a lost spawn, NOT a rubric grade - a regex would",
     "confidently mislabel those as negatives, which is the one error a benchmark cannot",
-    "absorb. Enumerating ~10 runs by hand is faster and correct.",
+    "absorb. Enumerating them by hand is faster and correct.",
     "",
-    "STATUS: INCOMPLETE - only entries this thread could ground in evidence it actually",
-    "read are present. Do not treat absence as 'ungraded'; treat it as 'not yet",
-    "curated'. Completing it means reading NOTES_running_fixloop(10).md end to end.",
+    "COMPLETE as of 2026-07-20 for NOTES_running_fixloop(10).md, which is the only file",
+    "carrying grades (NOTES(9) predates the discipline and has none; the SUMMARY has no",
+    "per-run table). 12 runs curated. Re-read the notes if new runs are graded.",
     "",
-    "FIELDS: benchmark_grade PASS|PARTIAL|FAIL|null (null = no rubric grade, including",
-    "when a run died of infrastructure); terminal merged|approved|escalated|rejected|",
-    "infra_failure|null.",
+    "THREE KINDS OF LABEL, deliberately kept apart:",
+    "  benchmark_grade  PASS|PARTIAL|FAIL   graded against a rubric PRE-REGISTERED",
+    "                                       before dispatch. null when no rubric grade",
+    "                                       exists - including every infrastructure",
+    "                                       failure. Never infer FAIL from a bad outcome.",
+    "  subsystem_grade  PASS|FAIL           a grade on a MECHANISM (the code-lookup tier,",
+    "                                       the council) exercised by that run, NOT on the",
+    "                                       diagnosis. Kept separate so it cannot be",
+    "                                       mistaken for reasoning quality.",
+    "  terminal         how the run ended, including the honest non-answers.",
+    "",
+    "THE ABSTENTIONS ARE POSITIVES. 5120c0dc and b606dbf6 both refused to answer, and",
+    "both are graded PASS: one because a confident half-answer would have shipped to a",
+    "fixer, one because the symptom it was given embedded unevidenced empirical claims",
+    "and cite-or-abstain correctly refused them. A reasoning model should learn to",
+    "abstain; these are the hard positive examples, not the failures.",
+    "",
+    "TWO RUNS PRODUCED NO RECORDS AND THAT IS CORRECT: 32c1e88f never started, and",
+    "80c35dea's child orchestration row was never created (zero LLM calls). They are",
+    "listed so their absence reads as documented rather than as a gap in this file.",
     "",
     "BLINDING: this file is never concatenated into input_state. It ships separately",
     "and joins at emit time, so the corpus cannot leak the benchmark's own answers."
@@ -28,18 +45,74 @@
   "e505f70f": {
     "benchmark_grade": "PASS",
     "terminal": "approved",
-    "_note": "BUG A, stop_reason undecoded. First real-case CONFIRMED, 2026-07-16, graded PASS against a rubric pre-registered before dispatch. Council-approved; the fix landed as f32b208e5."
+    "_note": "BUG A - GenerateText never decodes stop_reason. CONFIRMED on 3 citations incl. a state-tier citation of 17 live llm_call_log rows with output_tokens==max_tokens, fetched by the loop's own data_request. 5 verdict iterations, Sonnet 5 @ 32000. NOTES:1933 'Graded PASS against the pre-registered rubric (RUBRIC_2026-07-16_two_config_bugs.md, written before dispatch)'. Council-approved; fix landed f32b208e5."
   },
 
-  "960b554d": {
+  "4d43d002": {
+    "benchmark_grade": "FAIL",
+    "terminal": "confirmed_wrong",
+    "_note": "BUG B run 1, the first benchmark run (Turn 6). 5 iterations, verdict CONFIRMED, stopped_by=confirmed - and NOTES:433 heads it 'THE BENCHMARK RAN. Plumbing passed. The loop FAILED the rubric - instructively.' A confident wrong answer: the most valuable negative in the corpus, because the loop was sure. Refutation credit passed (no reconcile/routing-table blame)."
+  },
+
+  "32c1e88f": {
+    "benchmark_grade": null,
+    "terminal": "never_started",
+    "_note": "BUG B run-2 attempt 1 (guides-nav-benchmark-r2). NOTES:668 'never started'. Produces ZERO records in the corpus, correctly - there is nothing to grade. Listed so the absence is documented."
+  },
+
+  "dd1186b9": {
     "benchmark_grade": "PARTIAL",
-    "terminal": "escalated",
-    "_note": "BUG B final run. Gated UNVERIFIABLE at iteration-cap. NOTES(10):2001 records the RAW verdict as CONFIRMED and rubric-perfect (5 static citations) with the coercion producing the gate - so this is a run where guard.tripped should be true and the PARTIAL is a grade on the gated output, not on the reasoning."
+    "terminal": "confirmed_partial",
+    "_note": "BUG B run 2 (guides-nav-benchmark-r3), 5 iterations. Mixed against the pre-registered must-claims (NOTES:718-721): claim 1 'partial' - names sections=[] as the cause but never establishes the site-wide partition and asserts one FALSE side-claim; claim 3 '**PASS, CITED**' - static quote of the success_message from agent_definitions; claim 4 '**FAIL - and actively dismissed**' - the conclusion asserts 'not a nav issue'. Net PARTIAL. Note the enrichment worked: run 1's unreachable cause became run 2's quoted evidence."
+  },
+
+  "5120c0dc": {
+    "benchmark_grade": "PASS",
+    "terminal": "abstained",
+    "_note": "BUG B run 3 (guides-nav-benchmark-r4), the F0.4d measurement. NOTES:855 'SCORE against the pre-registered run-3 criteria: primary criterion PASS - no confident half-answer exists to hand to a fixer; what would have shipped as run 2's partial CONFIRMED now ends as an honest, precisely-scoped abstention.' The gaming failure mode (a confirm whose symptom_check omits the nav clause) did not occur. A POSITIVE abstention - the guard tripped here (raw CONFIRMED -> coerced UNVERIFIABLE) and that was the right outcome."
+  },
+
+  "b606dbf6": {
+    "benchmark_grade": "PASS",
+    "terminal": "abstained",
+    "_note": "Root-ai_service-shadows-step, v1. NOTES:1961 'honest UNVERIFIABLE - code citations DO directly show the precedence structure, but the symptom embedded empirical claims (the 2048->32000 experiment; the 17-agent count) with no evidence in the bundle -> cite-or-abstain refused. Correct behaviour; bad symptom authoring.' Graded PASS on the LOOP's behaviour; the defect was in the symptom it was given. Do not train this as a failure."
   },
 
   "af19fa62": {
     "benchmark_grade": null,
     "terminal": "infra_failure",
-    "_note": "v2 mechanism-only. NOTES(10):1965 says 'FAILED on API 529 Overloaded'. This is EXACTLY the row a regex would mislabel: FAILED here means the API was overloaded, not that the reasoning was wrong. Grade is null, not FAIL."
+    "_note": "Root-ai_service v2, mechanism-only symptom. NOTES:1965 'FAILED on API 529 Overloaded (transient, loud, honest)'. THE row a regex would mislabel: FAILED here means the API was overloaded, not that the reasoning was wrong. Grade is null, not FAIL."
+  },
+
+  "80c35dea": {
+    "benchmark_grade": null,
+    "terminal": "spawn_lost",
+    "_note": "Root-ai_service v2-retry (2026-07-16 ~20:24Z). Parent wedged at spawn_diagnoser for 13.7h; child orchestration row never created; ZERO LLM calls - so it produces no corpus records, correctly. Deploy churn overnight (v1.0.1126->1128) suspected. Zombie row deliberately left in place as evidence for bugs_open/003."
+  },
+
+  "960b554d": {
+    "benchmark_grade": "PARTIAL",
+    "terminal": "escalated",
+    "_note": "Root-ai_service final run. Gated UNVERIFIABLE at iteration-cap. NOTES:2001 records the RAW verdict as CONFIRMED and 'rubric-perfect: 5 static' citations, with the coercion producing the gate. So guard.tripped should be TRUE here and the PARTIAL grades the GATED OUTPUT, not the reasoning - one of the clearest raw-vs-coerced pairs in the corpus."
+  },
+
+  "ca064df2": {
+    "benchmark_grade": null,
+    "subsystem_grade": "PASS",
+    "terminal": "approved",
+    "_note": "Council test (owner-requested), F1 on BUG A (NOTES:2062, 'e505f70f, run ca064df2'). Not a diagnosis run - it exercises the COUNCIL, so it carries no rubric grade. Records are council_review/propose/repropose, not verdicts."
+  },
+
+  "fc1a0503": {
+    "benchmark_grade": null,
+    "subsystem_grade": "PASS",
+    "terminal": "refused",
+    "_note": "Re-grade run on e505f70f after the F2.3b(c) code-lookup tier deployed (v1.0.1132). NOTES:2108 'the tier PASSED end to end' - code_lookup fired (checks_run=8), the bug-historian asked the adapter question as a symbol code_check, the tier returned BOTH GenerateText implementations with locations, and the repropose CONSUMED it and widened the plan to name ollama. Loop terminated revise->complete_refused after ONE round. subsystem_grade is on the TIER, not on a diagnosis."
+  },
+
+  "e08c5b01": {
+    "benchmark_grade": null,
+    "terminal": "engine_defect",
+    "_note": "The run that exposed council round-counting being scoped to correlation_id rather than orchestration_id (a correlation accumulates across re-runs). Kept as a labelled example of a run whose value was finding an engine defect, not producing a diagnosis. No rubric grade."
   }
 }
