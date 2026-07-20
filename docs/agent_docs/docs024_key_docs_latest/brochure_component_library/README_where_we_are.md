@@ -105,3 +105,19 @@ the mistake happened), and whether leopardess should be named directly as one
 of "our sites" or just referred to in general terms. Once you've weighed in,
 the next real step is turning all of this into a proper brief for the site's
 content-writer to work from — not me writing the actual page text by hand.
+
+**2026-07-20, decisions in** — You've answered all three: word the embeddings
+pitch as "buildable, not already delivered," use the self-correction story, and
+name leopardessconsulting.co.uk directly rather than keeping it vague. Those
+last two fit together well — naming the actual site is what makes "we caught
+our own mistake and fixed it" a real, checkable story rather than a
+suspiciously vague anecdote, which is rather the point of telling it at all.
+I've written all three into the plan as resolved, with one guardrail attached:
+that story has to be built strictly from the real audit record of what was
+fabricated and how it was fixed, not embellished — otherwise we'd be
+undermining the very point we're making. There's nothing left needing your
+input on this half of the work; the only thing still pending is your hosting
+being pointed at fundamentallyai.com. Once that's live, the next real step is
+turning this research into an actual content brief and firing the framework
+for real — and separately, starting on the first new component (the hero card
+carousel) so there's somewhere for that content to go.

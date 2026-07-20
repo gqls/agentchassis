@@ -210,25 +210,27 @@ agent actually fires, not copy to ship as-is:
    LIVE/VERIFIED, the cleanest evidence-grade case study found: legacy feed
    404→~97% success within 24h of launch, with the crawler-vs-human caveat
    disclosed rather than hidden. Strong, ready to use largely as-is.
-6. **Private in-house search via embeddings — NEEDS OWNER FRAMING DECISION,
-   see Open Decisions #5.** Real, production-proven vector search
-   infrastructure exists; tenant isolation does not exist yet on our own
-   shared testbed (the platform's own prior audit rules this out explicitly).
-   Must be framed as "buildable, because the hard technical part is proven,"
-   not "already delivered safely for outside parties" — the latter would be
-   the exact class of claim the platform's own verification system exists to
-   catch.
-7. **Claims-verification / anti-hallucination discipline — NEEDS OWNER CALL,
-   see Open Decisions #6.** A genuinely compelling meta-narrative (an AI
-   platform that checks its own AI-generated content against evidence and
-   catches fabrications, including from its own prior site) — but using it
-   means referencing that a past mistake happened, which is a brand-tone
-   decision, not an engineering one.
-8. **"We run our own fleet"** — 11 live production sites is a true, checkable
-   headline stat. Per the exclusion list, present it in rounded/categorical
-   form (content sites, a game platform, a paid tool with real payments, a
-   revived expired domain) rather than naming every site — and do NOT name
-   leopardessconsulting specifically without sign-off (Open Decisions #7).
+6. **Private in-house search via embeddings — RESOLVED by owner 2026-07-20:
+   "buildable, not delivered."** Framing to use: real, production-proven
+   vector search infrastructure exists; building a client a properly isolated
+   private instance (adding the tenant boundary our own shared testbed doesn't
+   have) is a scoped, buildable engagement — not an already-delivered
+   guarantee. This wording is now fixed, not a matter of taste.
+7. **Claims-verification / anti-hallucination discipline — RESOLVED by owner
+   2026-07-20: use it.** The self-correction narrative is approved as a case
+   study: "we verify our own AI's output against evidence and catch its
+   mistakes, including our own past ones." Must be built strictly from
+   `docs/leopardessconsulting/AUDIT_verified_facts.md` — the exact
+   fabrications found, when, and the exact fix — not embellished, since
+   overstating the "catch" would itself be the failure mode this story is
+   supposed to demonstrate immunity to.
+8. **"We run our own fleet" — RESOLVED by owner 2026-07-20: name
+   leopardessconsulting.co.uk directly.** This pairs naturally with #7 above —
+   naming the specific site makes the self-correction story concrete and
+   independently checkable rather than a vague unnamed anecdote, which is the
+   whole point of using it. The "11 live sites" stat can now be told with
+   leopardessconsulting named as the worked example of "we found our own
+   mistake and fixed it," with the other 10 described categorically.
 
 **A hard constraint carried into every pillar above**: a specific, named list
 of past leopardess fabrications (an invented founder, an invented "70+ agents/8
@@ -264,24 +266,16 @@ won't yet have that system's benefit of hindsight.
    infographics need and this workstream's Bain-style stat band draw from it. Needs
    the owner's confirmation it's fine to size the component for two workstreams'
    use rather than leopardess-specific fields only.
-5. **Embeddings/private-search framing — must be resolved before that pillar's
-   copy is written.** Recommend: pitch it as "buildable, because the hard
-   technical part (production-proven vector search) is already solved" — NOT
-   as an already-delivered guarantee of safe multi-tenant isolation, which the
-   platform's own audit says doesn't exist yet. This is close to a hard
-   constraint (see NOTES), flagged here as a decision point only because the
-   owner may want different wording, not because the underlying fact is
-   negotiable.
-6. **Use the claims-verification/anti-hallucination story as a case study?**
-   Recommend yes, strategically — it's genuinely differentiated ("we verify
-   our own AI's output and catch its mistakes, including our own past ones")
-   — but it means referencing that leopardess previously shipped fabricated
-   content, which is a brand-tone call for the owner, not something to include
-   or exclude by default.
-7. **Name leopardessconsulting.co.uk specifically as a proof-point site?**
-   Recommend no, or only with explicit sign-off — it's a sibling brand with its
-   own identity and a documented (if now-fixed) fabrication history. The "11
-   live sites" stat works fine without naming every one.
+5. **Embeddings/private-search framing — RESOLVED, see Part 2 pillar #6.**
+6. **Claims-verification story as case study — RESOLVED (yes), see Part 2
+   pillar #7.**
+7. **Name leopardessconsulting.co.uk directly — RESOLVED (yes), see Part 2
+   pillar #8.**
+
+All three were owner-decided 2026-07-20 in one round. No further engineering-
+relevant open decisions remain for Part 2 as of this note — the only
+outstanding blocker for actually building/publishing is fundamentallyai.com's
+hosting being pointed (owner's own in-progress action, not a decision to make).
 
 ## Phasing (updated 2026-07-20 — domain + house style resolved, scope broadened)
 

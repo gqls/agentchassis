@@ -492,11 +492,17 @@ training-adjacent patterns or stale cached context:
   11 real sites cited on fundamentallyai must be labelled as our own build.)
 - Fabricated stats: "99.9% uptime" (invented), "2,767 Awards Won" (a garbled,
   meaningless figure).
-- Do not name-check leopardessconsulting.co.uk directly as a positive case
-  study without the owner's explicit sign-off — it's a sibling consultancy
-  brand with its own separate identity and a documented fabrication history
-  that a diligent visitor could find; citing it invites exactly the scrutiny
-  fundamentallyai is trying to earn credit for withstanding.
+- **Owner has since (2026-07-20) explicitly approved naming
+  leopardessconsulting.co.uk directly**, specifically as the worked example
+  for the self-correction/claims-verification case study — the point being
+  transparency: name the real site, tell the real (audit-documented) story of
+  what was fabricated and how it was caught and fixed. The exclusion list
+  above still applies in full: the *specific fabricated figures themselves*
+  ("70+ agents/8 departments", the invented founder, invented case studies,
+  the fake uptime/awards figures) are what must never resurface as if true —
+  naming the site is now fine; restating the fabrication as fact is not. Any
+  copy telling this story must be built strictly from
+  `AUDIT_verified_facts.md`'s actual findings/dates/fixes, not embellished.
 
 ### Real site count
 
