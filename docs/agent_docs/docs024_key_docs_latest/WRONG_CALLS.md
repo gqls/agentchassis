@@ -405,3 +405,28 @@ manufacturer's own friction assumption — the primary figure is the force.
 **Cost:** nothing, and it turned into the tool's most useful feature: MatchMatrix now explains this
 exact discrepancy inline whenever a gripper passes on rated payload but fails on computed force,
 naming the implied μ. The trap that caught me is the one the tool's users were most likely to hit.
+
+### 2026-07-20 — bugfix 003 — "the new prober bridges into platform/health's existing Checkers machinery"
+**Asserted:** in a council-gate submission (rounds 2 and 3, trail `3a18a1a4`), as the
+answer to a reuse objection. I moved a chassis-local Kafka prober into
+`platform/health/` and gave it a `Checker() CheckFunc` method, then described this as
+reuse of "the existing `Checkers` machinery" in `health.Server` — implying the new type
+plugs into something the fleet already runs.
+**Actually:** `health.NewServer` has **zero callers** anywhere in the tree
+(`grep -rn "health.NewServer" --include='*.go' .` → nothing). The `Checkers`/`CheckFunc`
+types are real and well-shaped, but nothing constructs the server that consumes them, so
+my "bridge" connects to machinery that is itself dead. The *file placement* was still the
+right call — a shared package is where a shared prober belongs, and the other seven
+binaries with hardcoded health endpoints are now plausible adopters — but the reuse
+claim as written overstated what exists today.
+**Caught by:** the `prior_art_librarian` seat, round 3: it noticed that every OTHER
+absence claim in the submission carried an attached grep, and this one — the only
+*presence* claim — did not. That asymmetry was the tell, and it was correct.
+**The cheap check that would have caught it:** the same grep I ran for every other claim
+in the same submission. `grep -rn "health.NewServer"` — one command, and I ran its
+equivalent three times that hour for the claims I doubted, but not for the one I liked.
+**Cost:** none functionally (the method is three lines and harmless), but it is the exact
+dormant-machinery pattern this repo keeps rediscovering: a plausible-sounding "we already
+have this" that nobody re-greps. Recorded because the failure mode is *asymmetric
+scepticism* — I checked the claims that would have made my plan look worse, and not the
+one that made it look better.
