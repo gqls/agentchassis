@@ -985,3 +985,64 @@ cleaning pages again.
 
 **Nothing here needs further diagnosis** — the mechanism is confirmed and cited. What remains
 is construction with a known design. 016b §10 index updated for both files.
+
+---
+
+### 2026-07-20 — handover from the 033 thread: the excluded-area branch has no pairing test
+
+Found while grounding `bugs_open/033` (the review queue). Not fixed here — flagging it to
+this workstream because `check_misdirected_cta.go` is yours and two threads on one check is
+how contracts drift.
+
+The `cta_names_unknown_destination` items currently sitting in `needs_human_review` split
+by reason:
+
+| reason | count |
+|---|---|
+| phantom destination | 19 |
+| **excluded-area (contact/legal/about)** | **18** |
+| empty href | 8 |
+| self-link | 1 |
+| other | 1 |
+
+The excluded-area branch fires on the **destination alone**:
+
+```go
+// check_misdirected_cta.go:267
+case ctaAreaExcluded(a.Href):
+    why = "lands in an excluded area (contact/legal/about)"
+```
+
+There is no label/destination agreement test on that branch — the `continue // copy and
+destination agree` short-circuit at `:240` belongs to the *misdirect* path above it, not
+here. So a correct conversion CTA is flagged identically to a genuinely broken one. Live
+example, correct as built:
+
+```
+summary  : CTA "Get in touch" on how-we-work (call-to-action):
+           lands in an excluded area (contact/legal/about)
+spec.href: /contact.html
+spec.fix : "Product decision: build the promised page, or rewrite the copy/link."
+```
+
+Also in the 18: "Ask a question", "Describe the job", "Walk us through your problem",
+"Ask a specific question", "Get in touch" — all → `/contact.html`, all right.
+
+**Why this matters to 023 specifically.** Your notes cite the excluded-area detection of
+*Start Ranking Free* → `/contact.html` as "the one that WAS detected … correct diagnosis,
+correct component named, two days before the owner clicked it" — and it was. But it was
+correct because that label promises a **ranking tool** and lands on contact; the check did
+not know that, and fired on the destination. It would have fired on "Get in touch" too. So
+the detection was right by coincidence of the destination, not by reading the pairing —
+which is exactly the gap 023 exists to close. The excluded-area branch is currently
+evidence *for* the pairing check, not an instance of one.
+
+Suggested shape, offered not prescribed: on the excluded-area branch, only raise when the
+label does **not** semantically name the excluded area it lands in (contact-ish copy → a
+contact page is agreement, not a misdirect). That converts ~18 of 47 from noise to silence
+and leaves the 27 genuine ones untouched.
+
+Sizing caveat for whoever picks this up: these counts are of items **in
+`needs_human_review`**, which per `bugs_open/033` is a status nothing drains, so they
+accumulate. They are not a per-run false-positive rate — measure that from a single
+discovery run before tuning against them.
