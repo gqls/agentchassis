@@ -1836,8 +1836,10 @@ See `/bugs_closed/README.md`.
 | 038 | A re-plan rebuilds EVERY deployed page and regenerates its content — `decideEmit` needs `built_from_plan_version == planID`, and a re-plan changes `planID` for the whole site, so `skip_built` never fires after the first plan (`pages_skipped_built: 0` measured). `001` secures structure; this is copy | filed 2026-07-20; measured live, no fix started |
 | 039 | `pages.sections` stores the component **function**, `page_components` reference the component **name** (`hero-about` ⟷ `about-hero`) — a naive comparison reads correct pages as regressed. AND: 11 section entries resolve to no component at all, rendering a hollow 208-byte `<section>` on deployed pages (7 live stubs) while the build reports success. Detected by `check_empty_sections`, but every item is `unresolved` — same delivery gap as 023/033 | filed 2026-07-20; convention + real defect |
 
+| 040 | A **failed** page build leaves the page `build_status='deployed'`, partially composed, AND stamped with `built_from_plan_version` — so `decideEmit` returns `skip_built` and the reconciler never revisits it. dartsonline `index`: 5 of 6 sections, item `failed` (attempt 1/3, no retry, empty `error`) while the page says deployed. Fleet: **25 deployed pages short of their plan across 6 sites, 39 sections missing, 4 with zero components** — one verified live-blank (`<main>` empty, chrome only) | filed 2026-07-20; found by rebuilding via the framework's own route |
+
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
-> `/bugs_open/` but are not all indexed here (`034`–`039` are), and `027` is already used by **two** different cases. Filed by
+> `/bugs_open/` but are not all indexed here (`034`–`040` are), and `027` is already used by **two** different cases. Filed by
 > concurrent threads; list them with `ls bugs_open/` rather than trusting this table
 > to be complete.
 
