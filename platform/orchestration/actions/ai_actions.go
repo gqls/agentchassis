@@ -36,6 +36,56 @@ func ExecuteLLMPromptActionFAKE(ctx context.Context, params ActionParams) (inter
 
 }
 
+// resolveAIServiceConfig builds the effective ai_service block for a step.
+// Precedence, least to most specific, later wins PER KEY: the agent's root
+// ai_service block (fleet default: provider, api_key_env_var, model), the
+// workflow step's config.ai_service block, then a runtime StepConfig block.
+// A block contributes only the keys it declares, so a step that sets only
+// max_tokens still inherits the root provider/model. The returned sources
+// slice names the blocks that contributed, in overlay order.
+//
+// This replaces first-found-wins, under which the ENTIRE step block was dead
+// config whenever a root block existed — per-step max_tokens overrides
+// silently ran at the root (or hardcoded 2048) value (bugs_open/009).
+func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{}, currentStep string) (map[string]interface{}, []string) {
+	merged := make(map[string]interface{})
+	var sources []string
+
+	overlay := func(block map[string]interface{}, source string) {
+		if len(block) == 0 {
+			return
+		}
+		for k, v := range block {
+			merged[k] = v
+		}
+		sources = append(sources, source)
+	}
+
+	if agentConfig != nil {
+		if root, ok := agentConfig["ai_service"].(map[string]interface{}); ok {
+			overlay(root, "root")
+		}
+		if workflow, ok := agentConfig["workflow"].(map[string]interface{}); ok {
+			if steps, ok := workflow["steps"].(map[string]interface{}); ok {
+				if stepDef, ok := steps[currentStep].(map[string]interface{}); ok {
+					if stepConfig, ok := stepDef["config"].(map[string]interface{}); ok {
+						if block, ok := stepConfig["ai_service"].(map[string]interface{}); ok {
+							overlay(block, "workflow_step")
+						}
+					}
+				}
+			}
+		}
+	}
+	if runtimeStepConfig != nil {
+		if block, ok := runtimeStepConfig["ai_service"].(map[string]interface{}); ok {
+			overlay(block, "step_config")
+		}
+	}
+
+	return merged, sources
+}
+
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
@@ -143,53 +193,26 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		zap.Any("config", config),
 	)
 
-	// Extract AI service configuration
-	// First try to get ai_service from top-level agent_config
-	var aiServiceConfig map[string]interface{}
+	// Build the effective AI service configuration by overlay (bugs_open/009):
+	// the root block is the fleet default, the current step's block overrides
+	// it key-by-key, and a runtime StepConfig block overrides both. First-found
+	// -wins made the step block dead config whenever a root block existed.
+	aiServiceConfig, aiServiceSources := resolveAIServiceConfig(agentConfig, params.StepConfig.Config, currentStep)
 
-	// Check if agent_config has ai_service at top level
-	if agentConfig != nil {
-		if aiService, ok := agentConfig["ai_service"].(map[string]interface{}); ok && aiService != nil {
-			aiServiceConfig = aiService
-			params.Logger.Info("Found ai_service at top level of agent_config",
-				zap.Any("ai_service", aiService))
-		}
-	}
-
-	// If not found at top level, check in step config
-	if aiServiceConfig == nil {
-		params.Logger.Info("ai_service not at top level, checking step config")
-
-		// Look in the workflow steps for the current step's config
-		if workflow, ok := agentConfig["workflow"].(map[string]interface{}); ok {
-			if steps, ok := workflow["steps"].(map[string]interface{}); ok {
-				if currentStepConfig, ok := steps[currentStep].(map[string]interface{}); ok {
-					if stepConfig, ok := currentStepConfig["config"].(map[string]interface{}); ok {
-						if aiService, ok := stepConfig["ai_service"].(map[string]interface{}); ok {
-							aiServiceConfig = aiService
-							params.Logger.Info("Found ai_service in step config",
-								zap.String("step", currentStep),
-								zap.Any("ai_service", aiService))
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// Also check StepConfig if provided
-	if aiServiceConfig == nil && params.StepConfig.Config != nil {
-		if aiService, ok := params.StepConfig.Config["ai_service"].(map[string]interface{}); ok {
-			aiServiceConfig = aiService
-			params.Logger.Info("Found ai_service in StepConfig",
-				zap.Any("ai_service", aiService))
-		}
-	}
-
-	if aiServiceConfig == nil || len(aiServiceConfig) == 0 {
+	if len(aiServiceConfig) == 0 {
 		params.Logger.Error("ai_service configuration not found after checking all locations",
 			zap.String("checked_locations", "agent_config top-level, workflow.steps.config, StepConfig"))
 		return nil, fmt.Errorf("ai_service configuration not found")
+	}
+
+	if len(aiServiceSources) > 1 {
+		params.Logger.Info("ai_service: step overlay applied",
+			zap.Strings("sources", aiServiceSources),
+			zap.String("step", currentStep))
+	} else {
+		params.Logger.Info("ai_service: single source",
+			zap.Strings("sources", aiServiceSources),
+			zap.String("step", currentStep))
 	}
 
 	// Extract prompt template
