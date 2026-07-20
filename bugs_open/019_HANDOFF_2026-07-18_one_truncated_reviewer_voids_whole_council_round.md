@@ -709,3 +709,20 @@ because it costs only a queue slot, but do not read a survival as proof the plan
 "too big" — and do not keep retrying. This thread stopped at the count above rather
 than burning further rounds, following the precedent set in this file's own closing
 decision.
+
+## LIVE REPRODUCTION #3 — 2026-07-20 15:40Z (imagery-bugfixes thread, council-gate round 6)
+
+Still reproducing after the fix was built, consistent with "fix committed, inert until
+image roll" (a3b606798 landed after v1.0.1139; pods have not rolled since 07:35Z).
+
+- Orchestration `6e2f0018-0f7a-4935-9daa-7cd6d5b222bc` (council gate, corr `e996bf0a`,
+  round 6 of the 011-residual submission): `review_editquality` failed with
+  `stop_reason=max_tokens (output_tokens=8000 reached the configured cap)`, routed to
+  `complete_invalid`, **no verdict artifact written** — the round's four-plus completed
+  reviews were discarded with it.
+- agent_error_log row at `2026-07-20 15:40:24.729511+00`, error_code UNKNOWN, message
+  "response truncated: stop_reason=max_tokens … raise max_tokens or shorten the prompt".
+- Cost: one full relevance-gated council run's credits, zero verdict.
+- Same round-voiding shape as the 2026-07-19 reproduction above and the
+  claims-verification thread's voided round. The submitting thread resubmitted with a
+  shorter rationale rather than working around the discard.
