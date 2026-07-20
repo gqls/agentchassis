@@ -156,3 +156,36 @@ image build to activate, and its scheduled task is written and waiting. Nothing 
 imposed on any site that hasn't asked for it. The one open choice for you is
 whether to put the prose auditor on a schedule, which costs one model call per site
 per pass.
+
+----
+
+**2026-07-20 — the freshness check went live and immediately found something real**
+
+Three things to report.
+
+**First, the last piece is now running.** It turned out the code was already in the
+deployed system — someone had built an image after my change — so I checked it
+against the running pod rather than assuming, proved it with a dry run that writes
+nothing, and only then switched on the daily schedule.
+
+**Second, I found a gap in my own work.** Two days ago I prepared the update that
+lets the machine keep the writer's approved-numbers list current, and then never
+applied it — I got pulled into the review-council problem and it sat in a scratch
+file. Without it the freshness pass would have quietly done nothing useful. Applied
+now, after checking nobody else had changed that record in the meantime.
+
+**Third, and the important one: the check found a real problem on its first run.**
+The site says "2,767 business records verified against Companies House". The live
+count is **2,291**. I checked the underlying data directly rather than trusting the
+tool: 874 records have been reclassified as dismissed since the 16th. So the site is
+currently overclaiming by about 476 records, and had been for days with nothing in
+the platform able to notice.
+
+That needs your ruling, and I have deliberately not touched the copy. The options
+are: republish with the new figure; re-word it to something that survives movement,
+like "more than 2,000 records verified" — that form is protected automatically once
+it's worded that way; or find out why 874 were dismissed before changing anything,
+in case the reclassification is itself the thing worth investigating.
+
+Everything is written up so you can carry on in a fresh chat: start from
+`HANDOFF_2026-07-20_claims_verification_resume.md`, which opens with this finding.

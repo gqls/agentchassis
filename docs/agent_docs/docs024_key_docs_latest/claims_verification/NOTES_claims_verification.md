@@ -394,3 +394,48 @@ per pass) is an owner call. V4 (freshness) remains, plus vetcomparison.
   rows), per spec §1.
 - Spec open Q2 (fleet-shareable banned patterns) and Q3 (auto-update of
   exceeded numbers) remain owner decisions; nothing built assumes either.
+
+---
+
+## 2026-07-20 — V4 activated end-to-end; first freshness finding is REAL
+
+**Gap in my own work, found by checking rather than remembering.** The live
+evidence base was still rev 5: `writer_block_managed` unset, zero facts carrying
+`writer_line`. I generated rev 6 on 07-18 and never applied it — diverted into the
+council submission. V4's whitelist regeneration would have silently no-op'd
+("unmanaged"). Applied as rev 6, spec row `00b01b38`, after a compare-and-swap
+check that rev 5 was still current (it was).
+
+**The image already carried V4.** `v1.0.1139`, 11 symbol hits in the pod — someone
+built after `06376bcbf`. The "waiting on an image build" state I had been reporting
+was already stale. Verified against the pod, per house rule, not against git.
+
+**Dry run (orchestration `8ec0743e`).** 3 sites swept, 9 sql-facts, 0 errors,
+`dry_run` wrote nothing (spec row unchanged, no work item). Whitelist regeneration
+fired. Seven facts re-synced within tolerance; all the `gte` ones had grown.
+
+**★ The finding: `C1-records-verified` drifted DOWN, 2,767 → 2,291.** Exact
+tolerance, so it breaches. Sanity-checked the underlying data directly rather than
+trusting the action: `business_intel.businesses` now reads verified 2291,
+**dismissed 874**, pending 238, seed_import 16 — records were reclassified out of
+verified since 07-16. **The live site is overclaiming by ~476.** Owner ruling
+needed; recorded at the top of the handoff. This is the first thing V4 has caught
+and it justifies the phase on its own — the number had been stale for days with
+nothing to notice it.
+
+**Seed applied** (`evidence-freshness`, daily, enabled) only AFTER the dry run
+passed, per the gate I set myself.
+
+**Two dispatch missteps worth recording.**
+1. First dry-run attempt set `config.agent_type: "generic"` — that loads the
+   **no-op generic agent definition** instead of running the inline workflow.
+   Send `config.workflow` alone.
+2. I then concluded the second attempt had also failed, because no orchestration
+   row existed after 4 minutes. It landed later: the chassis was on ONE replica and
+   saturated with other threads' council runs. Same lesson as the council and
+   diagnosis runs — **"no row" means "not yet"**, and on a shared cluster your work
+   queues behind everyone else's.
+
+**Other sites are opting in.** The sweep found `evidence_base` specs on vonc.com
+and relojistas.com (0 sql-facts each) — other threads have started using the layer.
+No seed change needed; the sweep covers them.
