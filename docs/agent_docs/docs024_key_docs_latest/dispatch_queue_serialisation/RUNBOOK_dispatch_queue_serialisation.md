@@ -24,12 +24,28 @@ Gotchas, each of which cost time:
 - `--describe --all-groups` iterates every group and takes **>120 s** — always name
   the one group.
 
-## R2 — Sampling the queue over time (the one that stops you being wrong)
+## R2 — Sampling the queue over time
 
-**Do not sample for two minutes and draw a trend.** The drain on this topic is a
-sawtooth: an ~8-minute stall at a fixed offset, then a burst of tens of messages.
-Two minutes of a stall looks identical to a dead consumer, and two minutes of a
-burst looks identical to a healthy queue. Sample for **≥20 minutes**.
+> **CORRECTED 2026-07-20, same day, by the thread that wrote it.** This section
+> originally ended "sample for ≥20 minutes and take the slope". **That advice is
+> withdrawn.** I followed it and still got a figure ~4× off, because a longer window
+> makes a rate *stabler*, not *truer* — and there is no true rate here to converge
+> on. Three threads produced 0.21, 2.4 and 0.62 msg/min from this queue in one
+> afternoon, all correctly computed. Throughput is
+> `1 / (duration of the orchestration segment currently running inline on the
+> consumer goroutine)`, which ranges from milliseconds to ≥15 minutes depending on
+> what is at the head — a non-stationary signal, so its average describes no moment
+> and forecasts nothing. See `WRONG_CALLS.md` (7)(8)(9).
+
+**Sample to see the SHAPE, never to derive a rate.** The drain is a sawtooth: the
+offset pins for 8–15+ minutes while one long message is processed, then bursts by
+tens of messages. Two minutes of a stall looks identical to a dead consumer; two
+minutes of a burst looks identical to a healthy queue; and twenty minutes of either
+looks like a confident number that is wrong.
+
+**Do not publish a rate from this.** If you must quote one, publish the raw samples
+beside it and state the window. What the samples legitimately tell you: whether the
+consumer is moving at all, and how long the current head message has been running.
 
 ```bash
 for i in $(seq 1 40); do
@@ -106,3 +122,37 @@ is the inline-loop signature.
 Trigger scripts name orchestrations `...-$(date +%H%M%S)` in **local time (BST)**;
 the DB is **UTC**. A run named `-132453` was created at `12:24:53` UTC. This will
 make you think a run is an hour old or an hour in the future.
+
+## R7 — Answering "how long will my dispatch wait?" (added 2026-07-20)
+
+**There is no reliable answer. Say so.** This is the honest replacement for the
+rate-based estimate R2 used to encourage.
+
+What you *can* establish, and what each thing is good for:
+
+```bash
+# 1. Depth — is it queued at all? This is the question that actually matters.
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group generic-requests-group
+```
+
+`LAG > 0` → queued, not lost. **Do not resubmit.** That is the whole diagnostic
+value of this queue and it needs no rate at all.
+
+```sql
+-- 2. What kind of work is at the head — the only forecast input worth anything.
+SELECT orchestration_id, orchestration_name, status, current_step,
+       now()-updated_at AS since_update
+FROM orchestration_states
+WHERE status = 'EXECUTING_STEP' ORDER BY updated_at DESC LIMIT 5;
+```
+
+A head of council/diagnosis orchestrations is a wholly different proposition from a
+head of fast ones. `since_update` on the top row tells you how long the *current*
+blocking message has been running — measured at 8.0 and ≥15.4 min on 2026-07-20.
+
+**What not to do:** do not quote a msg/min figure from any doc in this repo,
+including this one, as an ETA. Three exist, they disagree by 12×, and all three were
+computed correctly. If someone needs a number for planning, give them `LAG` and the
+head-of-queue work type, and tell them the variance is the finding.
