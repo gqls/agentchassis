@@ -1008,6 +1008,28 @@ type workItem struct {
 	itemKey      string
 	batchID      uuid.UUID
 	dependsOn    []uuid.UUID
+
+	// recurrenceExpected marks an item whose RE-REQUEST is normal, rather than
+	// evidence that previous handlers failed to fix something.
+	//
+	// The anti-churn block below (within-cycle suppression + the two-strike
+	// label) reads a repeat item_key as "we keep fixing this and it keeps coming
+	// back". That is right for a DETECTED DEFECT, which recurs only because a
+	// detector found it again. It is wrong for an ACTION REQUEST — "re-render
+	// this page after I changed its template" — where a completed predecessor
+	// means the request SUCCEEDED, and asking again is the normal course of
+	// business, not a third strike.
+	//
+	// Conflating the two silently broke the tool fix loop: two SUCCESSFUL
+	// re-renders poisoned a shared item_key, so every later re-render on that
+	// site was born 'unresolved' and never dispatched, and durable template
+	// fixes never reached the live page for three cycles (bugs_open/024).
+	//
+	// Opt-in, default false: existing callers keep today's behaviour exactly.
+	// Dedup is NOT waived by this flag — idx_swi_dedup still refuses a second
+	// OPEN item for the same (site_id, item_key). Only the anti-churn heuristics
+	// are skipped.
+	recurrenceExpected bool
 }
 
 func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.Logger) (bool, error) {
@@ -1017,7 +1039,10 @@ func insertWorkItem(ctx context.Context, tx *sql.Tx, item workItem, logger *zap.
 	}
 
 	// --- Two-strike rule: suppress within-cycle, label unresolved after 2 attempts ---
-	if item.itemKey != "" {
+	// Skipped entirely for recurrence-expected items (see workItem.recurrenceExpected):
+	// for an action request a terminal predecessor is a SUCCESS, not a strike, and
+	// suppressing the re-request drops the very work that success depends on.
+	if item.itemKey != "" && !item.recurrenceExpected {
 		var terminalCount int
 		var newestAge float64 // hours since most recent terminal item
 
