@@ -111,3 +111,35 @@ sat behind them. That is an already-filed bug (029), not a new one, but today it
 was slowing real work down rather than just existing on a list.
 
 Nothing needs a decision from you.
+
+---
+
+**2026-07-20 evening — done, and proven done.**
+
+You rolled the new build just before seven. We then did the one thing the whole
+file had been building towards: made the bug happen on purpose, on the live
+system, and watched the fix catch it.
+
+The set-up: a throwaway copy of the review council with one reviewer's output
+limit set absurdly low, so it was guaranteed to get cut off. Under the old code
+that guaranteed a dead round — everything discarded, no verdict. What actually
+happened: the cut-off reviewer was recorded as "could not be read", the other
+nine reviewers ran and were heard, and the round returned a proper verdict with
+the unreadable seat named in the record. The log line for the cut call even says,
+in so many words, that the round carried on without it. The throwaway council was
+deleted afterwards.
+
+So the bug that four different threads documented across two days is now closed,
+verified by the exact test those threads wrote into the file. The case has moved
+to the closed pile.
+
+One hand-off note: the second, unrelated way a round could die — the "answered in
+words instead of a number" bug found earlier today — shipped its fix in this same
+build. Our test didn't happen to exercise it, so confirming that one stays with
+the thread that fixed it; the evidence that it's in the build is written down for
+them.
+
+Nothing needs a decision from you. The only 019-adjacent question still on your
+desk is the old one — whether to raise the reviewers' output limit for breathing
+room — and that is now genuinely optional rather than urgent, because running out
+of room no longer costs a round.
