@@ -11,7 +11,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -474,13 +476,153 @@ func (h *SiteAdminHandlers) HandleCreateWorkItem(c *gin.Context) {
 // GET /admin/work-items
 // ============================================================================
 
+const (
+	// Page size for the work-item list. The default is generous because the
+	// dashboard renders a filterable table rather than a paged one; the ceiling
+	// exists so a caller cannot ask for the whole table at once.
+	defaultWorkItemPageSize = 200
+	maxWorkItemPageSize     = 1000
+)
+
+// parseBoundedQueryInt reads an integer query param, falling back to def when it
+// is absent or unparseable, and clamping into [min, max].
+func parseBoundedQueryInt(c *gin.Context, name string, def, min, max int) int {
+	raw := c.Query(name)
+	if raw == "" {
+		return def
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil {
+		return def
+	}
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
 func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 	ctx := c.Request.Context()
 	status := c.Query("status")
 	pipeline := c.DefaultQuery("pipeline", "build")
 	siteIDStr := c.Query("site_id")
 	itemType := c.Query("item_type")
-	limit := 50
+
+	// Paging. The limit used to be a hardcoded 50 with no total returned, and
+	// the dashboard filtered the resulting window client-side — so with 687 open
+	// build items it showed the newest 50, of which none were needs_human_review,
+	// and reported that status's count as 0. A 208-item backlog read as empty for
+	// four months (bugs_open/033). Hence: caller-settable, and `total` is always
+	// returned so a truncated window can never look like the whole set again.
+	limit := parseBoundedQueryInt(c, "limit", defaultWorkItemPageSize, 1, maxWorkItemPageSize)
+	offset := parseBoundedQueryInt(c, "offset", 0, 0, math.MaxInt32)
+
+	// Scope predicate: pipeline + site only. Both count queries below use exactly
+	// this, deliberately excluding the status AND item_type predicates — a count
+	// scoped by the filter it populates would collapse its own dropdown to the
+	// one option already selected, leaving no way back to the others.
+	baseWhere := ""
+	baseArgs := []interface{}{}
+	argIdx := 1
+
+	// pipeline=all deliberately disables the filter: it defaults to "build", and
+	// the dashboard hardcoded that, making the 94 content-pipeline items
+	// unreachable by any route.
+	if pipeline != "all" {
+		baseWhere += fmt.Sprintf(" AND wi.pipeline = $%d", argIdx)
+		baseArgs = append(baseArgs, pipeline)
+		argIdx++
+	}
+
+	if siteIDStr != "" {
+		if siteID, err := uuid.Parse(siteIDStr); err == nil {
+			baseWhere += fmt.Sprintf(" AND wi.site_id = $%d", argIdx)
+			baseArgs = append(baseArgs, siteID)
+			argIdx++
+		}
+	}
+
+	// Status counts across every status in the filtered set, so "Needs Review (N)"
+	// is a fact about the table and not about the page.
+	statusCounts := map[string]int{}
+	countRows, err := h.db.QueryContext(ctx, `
+		SELECT wi.status, count(*)
+		FROM site_work_items wi
+		JOIN sites s ON s.id = wi.site_id
+		WHERE 1=1`+baseWhere+`
+		GROUP BY wi.status
+	`, baseArgs...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for countRows.Next() {
+		var st string
+		var n int
+		if err := countRows.Scan(&st, &n); err != nil {
+			h.logger.Warn("Failed to scan work item status count", zap.Error(err))
+			continue
+		}
+		statusCounts[st] = n
+	}
+	countRows.Close()
+
+	// Same treatment for the item-type filter: its option list was also built
+	// from the returned window, so types absent from the newest N were unlistable
+	// and therefore unfilterable.
+	typeCounts := map[string]int{}
+	typeRows, err := h.db.QueryContext(ctx, `
+		SELECT wi.item_type, count(*)
+		FROM site_work_items wi
+		JOIN sites s ON s.id = wi.site_id
+		WHERE 1=1`+baseWhere+`
+		GROUP BY wi.item_type
+	`, baseArgs...)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	for typeRows.Next() {
+		var it string
+		var n int
+		if err := typeRows.Scan(&it, &n); err != nil {
+			h.logger.Warn("Failed to scan work item type count", zap.Error(err))
+			continue
+		}
+		typeCounts[it] = n
+	}
+	typeRows.Close()
+
+	// Now the predicates that apply to the page but not to the counts.
+	pageWhere := baseWhere
+	pageArgs := append([]interface{}{}, baseArgs...)
+
+	if itemType != "" {
+		pageWhere += fmt.Sprintf(" AND wi.item_type = $%d", argIdx)
+		pageArgs = append(pageArgs, itemType)
+		argIdx++
+	}
+
+	if status != "" && status != "all" {
+		pageWhere += fmt.Sprintf(" AND wi.status = $%d", argIdx)
+		pageArgs = append(pageArgs, status)
+		argIdx++
+	} else if status == "" {
+		pageWhere += " AND wi.status != 'complete'"
+	}
+
+	total := 0
+	if err := h.db.QueryRowContext(ctx, `
+		SELECT count(*)
+		FROM site_work_items wi
+		JOIN sites s ON s.id = wi.site_id
+		WHERE 1=1`+pageWhere, pageArgs...).Scan(&total); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	query := `
 		SELECT wi.id, wi.site_id, s.domain, wi.item_type, wi.status,
@@ -489,35 +631,10 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 				wi.error, wi.created_at, wi.completed_at
 		FROM site_work_items wi
 		JOIN sites s ON s.id = wi.site_id
-		WHERE wi.pipeline = $1
-	`
-	args := []interface{}{pipeline}
-	argIdx := 2
+		WHERE 1=1` + pageWhere
 
-	if status != "" {
-		query += fmt.Sprintf(" AND wi.status = $%d", argIdx)
-		args = append(args, status)
-		argIdx++
-	} else {
-		query += " AND wi.status != 'complete'"
-	}
-
-	if siteIDStr != "" {
-		if siteID, err := uuid.Parse(siteIDStr); err == nil {
-			query += fmt.Sprintf(" AND wi.site_id = $%d", argIdx)
-			args = append(args, siteID)
-			argIdx++
-		}
-	}
-
-	if itemType != "" {
-		query += fmt.Sprintf(" AND wi.item_type = $%d", argIdx)
-		args = append(args, itemType)
-		argIdx++
-	}
-
-	query += fmt.Sprintf(" ORDER BY wi.created_at DESC LIMIT $%d", argIdx)
-	args = append(args, limit)
+	query += fmt.Sprintf(" ORDER BY wi.created_at DESC LIMIT $%d OFFSET $%d", argIdx, argIdx+1)
+	args := append(pageArgs, limit, offset)
 
 	rows, err := h.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -568,7 +685,20 @@ func (h *SiteAdminHandlers) HandleListWorkItems(c *gin.Context) {
 		items = append(items, item)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"items": items, "count": len(items)})
+	// `count` stays the window size for backwards compatibility; `total` is the
+	// size of the filtered set and `truncated` says plainly whether this response
+	// is the whole story. A consumer that reads only `count` can no longer mistake
+	// a page for a queue.
+	c.JSON(http.StatusOK, gin.H{
+		"items":         items,
+		"count":         len(items),
+		"total":         total,
+		"limit":         limit,
+		"offset":        offset,
+		"truncated":     offset+len(items) < total,
+		"status_counts": statusCounts,
+		"type_counts":   typeCounts,
+	})
 }
 
 // ============================================================================

@@ -3,6 +3,13 @@ import PipelinesPage from "./pages/PipelinesPage";
 
 const API_BASE = "/api/v1/admin";
 
+// Work-item paging. Must not exceed the server's own ceiling
+// (maxWorkItemPageSize in internal/core-manager/admin/site_admin_handlers.go),
+// which clamps silently — asking for more than it allows would quietly return
+// less than requested, which is the failure this paging exists to end.
+const PAGE_SIZE = 200;
+const MAX_PAGE_SIZE = 1000;
+
 // ── API helpers ──────────────────────────────────────────────────────────────
 async function apiFetch(path, token, opts = {}) {
     const res = await fetch(`${API_BASE}${path}`, {
@@ -399,6 +406,15 @@ function WorkItemsList({ token, siteFilter, onBack }) {
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState("");
     const [typeFilter, setTypeFilter] = useState("");
+    const [pipelineFilter, setPipelineFilter] = useState("build");
+    // Counts and totals come from the server. They used to be derived from the
+    // returned rows, which the API caps — so a 208-item needs_human_review
+    // backlog reported itself as 0 and the queue looked empty (bugs_open/033).
+    const [serverStatusCounts, setServerStatusCounts] = useState({});
+    const [serverTypeCounts, setServerTypeCounts] = useState({});
+    const [total, setTotal] = useState(0);
+    const [truncated, setTruncated] = useState(false);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -434,30 +450,51 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         finally { setActionLoading(false); }
     };
 
+    // Filter SERVER-side. Filtering client-side over a capped response silently
+    // pre-empts the filter: the rows you want may never have been sent.
+    const buildPath = useCallback((offset) => {
+        let path = `/work-items?pipeline=${encodeURIComponent(pipelineFilter)}&limit=${PAGE_SIZE}&offset=${offset}`;
+        if (siteFilter?.id) path += `&site_id=${siteFilter.id}`;
+        if (statusFilter) path += `&status=${encodeURIComponent(statusFilter)}`;
+        if (typeFilter) path += `&item_type=${encodeURIComponent(typeFilter)}`;
+        return path;
+    }, [siteFilter, statusFilter, typeFilter, pipelineFilter]);
+
     const loadItems = useCallback(async () => {
         setLoading(true);
         try {
-            // Load all non-complete items, filter client-side for accurate counts
-            let path = `/work-items?pipeline=build`;
-            if (siteFilter?.id) path += `&site_id=${siteFilter.id}`;
-            const data = await apiFetch(path, token);
+            const data = await apiFetch(buildPath(0), token);
             setAllItems(data.items || []);
+            setServerStatusCounts(data.status_counts || {});
+            setServerTypeCounts(data.type_counts || {});
+            setTotal(data.total ?? (data.items || []).length);
+            setTruncated(Boolean(data.truncated));
         } catch (err) {
             if (err.message === "UNAUTHORIZED") return;
             console.error(err);
         } finally {
             setLoading(false);
         }
-    }, [token, siteFilter]);
+    }, [token, buildPath]);
+
+    const loadMore = useCallback(async () => {
+        setLoadingMore(true);
+        try {
+            const data = await apiFetch(buildPath(allItems.length), token);
+            setAllItems(prev => [...prev, ...(data.items || [])]);
+            setTruncated(Boolean(data.truncated));
+        } catch (err) {
+            if (err.message === "UNAUTHORIZED") return;
+            console.error(err);
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [token, buildPath, allItems.length]);
 
     useEffect(() => { loadItems(); }, [loadItems]);
 
-    // Client-side filtering
-    const items = allItems.filter(item => {
-        if (statusFilter && item.status !== statusFilter) return false;
-        if (typeFilter && item.item_type !== typeFilter) return false;
-        return true;
-    });
+    // The server has already applied the filters; these are the rows to render.
+    const items = allItems;
 
     // When selecting a review item, initialise the editable data
     const selectItem = (item) => {
@@ -849,24 +886,31 @@ function WorkItemsList({ token, siteFilter, onBack }) {
         finally { setActionLoading(false); }
     };
 
-    // Unique item types from loaded items
-    const itemTypes = [...new Set(allItems.map(i => i.item_type))].sort();
+    // Item types come from the server's GROUP BY, not from the returned rows —
+    // a type absent from the current page was previously unlistable and so
+    // unfilterable, which hid whole categories of work.
+    const itemTypes = Object.keys(serverTypeCounts).sort();
     const isCheckpoint = selectedItem?.spec?.checkpoint === true;
     const isEditable = selectedItem?.status === "needs_human_review" && editedReviewData != null;
 
-    // Status counts for filter badges (from all items, not filtered)
-    const statusCounts = allItems.reduce((acc, item) => {
-        acc[item.status] = (acc[item.status] || 0) + 1;
-        return acc;
-    }, {} as Record<string, number>);
-    const allItemsCount = allItems.length;
+    // Server-side counts: totals for the whole filtered set, not for this page.
+    const statusCounts = serverStatusCounts;
+    const allItemsCount = Object.values(serverStatusCounts).reduce(
+        (a: number, b: number) => a + b, 0) - (serverStatusCounts["complete"] || 0);
     const failedCount = statusCounts["failed"] || 0;
 
     const handleRetryAllFailed = async () => {
         if (!confirm(`Retry all ${failedCount} failed items?`)) return;
         setActionLoading(true);
         try {
-            const failedItems = allItems.filter(i => i.status === "failed");
+            // Fetch the failed set explicitly rather than filtering the loaded
+            // page: failedCount is now a true total, so scanning only the rows
+            // that happen to be on screen would retry a fraction of what the
+            // button just promised.
+            let failedPath = `/work-items?pipeline=${encodeURIComponent(pipelineFilter)}&status=failed&limit=${MAX_PAGE_SIZE}`;
+            if (siteFilter?.id) failedPath += `&site_id=${siteFilter.id}`;
+            const failedData = await apiFetch(failedPath, token);
+            const failedItems = failedData.items || [];
             let retried = 0;
             for (const item of failedItems) {
                 try {
@@ -961,15 +1005,31 @@ function WorkItemsList({ token, siteFilter, onBack }) {
                     <option value="claimed">Claimed ({statusCounts["claimed"] || 0})</option>
                     <option value="failed">Failed ({statusCounts["failed"] || 0})</option>
                     <option value="blocked">Blocked ({statusCounts["blocked"] || 0})</option>
-                    <option value="complete">Complete</option>
+                    <option value="complete">Complete ({statusCounts["complete"] || 0})</option>
                 </select>
                 <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle}>
                     <option value="">All types</option>
-                    {itemTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                    {itemTypes.map(t => <option key={t} value={t}>{t} ({serverTypeCounts[t]})</option>)}
+                </select>
+                <select value={pipelineFilter} onChange={e => setPipelineFilter(e.target.value)} style={selectStyle}>
+                    <option value="build">build pipeline</option>
+                    <option value="content">content pipeline</option>
+                    <option value="all">all pipelines</option>
                 </select>
                 <span style={{ fontSize: 13, color: "#64748b" }}>
-                    {items.length} items
+                    {/* Always show the total alongside what is on screen: showing
+                        only the loaded count is how a 208-item backlog read as 0. */}
+                    {truncated
+                        ? `showing ${items.length} of ${total}`
+                        : `${items.length} item${items.length === 1 ? "" : "s"}`}
                 </span>
+                {truncated && (
+                    <button onClick={loadMore} disabled={loadingMore} style={{
+                        ...btnSecondary, fontSize: 12, padding: "5px 12px",
+                    }}>
+                        {loadingMore ? "Loading…" : `Load more (${total - items.length} remaining)`}
+                    </button>
+                )}
                 {failedCount > 0 && (
                     <button onClick={handleRetryAllFailed} disabled={actionLoading} style={{
                         ...btnSecondary, fontSize: 12, padding: "5px 12px", color: "#991b1b", borderColor: "#fca5a5",
