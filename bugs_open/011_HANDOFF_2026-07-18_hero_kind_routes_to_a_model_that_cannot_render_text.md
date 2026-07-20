@@ -3,11 +3,14 @@
 **Filed:** 2026-07-18, from the leopardessconsulting.co.uk rebuild (owner review).
 **Severity:** Medium. No code change is strictly required to get good infographics today — the
 capability is already wired. The bug is a routing default plus an unused lane.
-**Status:** **R1 FIXED AND LIVE 2026-07-20** on `v1.0.1139`, verified against the running
-binaries (§6) — though not yet exercised by a real generation (nothing has generated since
-the roll). **R2/R3/R4 remain OPEN, so this file stays in `/bugs_open/`.** The infographic
-capability itself is **PROVEN WORKING**. R1 going live arms `bugs_open/028` on heroes —
-read §6 before generating any.
+**Status:** **R1 FIXED, LIVE AND PROVEN END-TO-END 2026-07-20** on `v1.0.1139` — verified in
+the running binaries *and* by a real generation: `hero_guides` on dartsonline at 10:41Z came
+back `origin_model = banana/gemini-3-pro-image-preview` (with 7 icons behind it, 8/8, no
+timeouts). **Cost is answered and the change is APPROVED by the owner** (§6: ~14× per hero,
+≈ +$5/month, fleet image bill under $15/month). **R2/R3/R4 remain OPEN, so this file stays in
+`/bugs_open/`.** The infographic capability itself is **PROVEN WORKING**. R1 going live arms
+`bugs_open/028` on heroes — read §6 before generating any. Half-price batch API deferred to
+`features_open/008`.
 
 > ## ⚠️ CORRECTION — read this before anything else
 > The first version of this handoff (same number, 2026-07-18 morning) claimed *"generated

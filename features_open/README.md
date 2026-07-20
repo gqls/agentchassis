@@ -45,3 +45,6 @@ hazard has materialised. A risk with no test is an opinion.
 | 003 | FEATURE | [Paid tier — per-site sources and beyond](003_FEATURE_paid_tier_beyond_news.md) |
 | 004 | FEATURE | [Duplicate-content council seat](004_FEATURE_duplicate_content_council_seat.md) |
 | 005 | FEATURE | [Pilot onboarding + first pool activation](005_FEATURE_pilot_onboarding_and_first_pool.md) — **ON HOLD, owner gate** |
+| 006 | FEATURE | [gaswholesalers.com repositioning + "AI influence" page](006_FEATURE_gaswholesalers_repositioning_and_ai_influence_page.md) |
+| 007 | FEATURE | [AI-advisory chatbot, freemium/paid](007_FEATURE_ai_advisory_chatbot_freemium.md) |
+| 008 | FEATURE | [Halve image-generation cost via the Gemini Batch API](008_FEATURE_image_generation_batch_api.md) — **deferred, owner: revisit on volume** |
