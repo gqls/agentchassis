@@ -39,6 +39,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
+| **re-read the row AFTER a render, not after your own write** | **1** |
+| **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
