@@ -901,13 +901,27 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 		// flow to Path 3 (needs_new_component work item) instead of
 		// rendering broken markup. Empty/very-short templates are NOT
 		// dropped here — they may be stubs that legitimately have no body.
+		//
+		// component_level='tool' templates get their own check: a tool is
+		// self-contained HTML, not a <section> wrapper, so the '</section>'
+		// marker is the wrong truncation signal in BOTH directions there —
+		// it dropped healthy tools that end '</script>' (which is how a
+		// durable tool fix could never re-render, bugs_open/024) and passed
+		// truncated ones that happen to contain '</section>' upstream of
+		// the cut.
 		htmlTpl, _ := comp["html_template"].(string)
-		if !sectionTemplateValid(htmlTpl) {
+		level, _ := comp["component_level"].(string)
+		valid := sectionTemplateValid(htmlTpl)
+		if level == "tool" {
+			valid = toolTemplateValid(htmlTpl)
+		}
+		if !valid {
 			name, _ := comp["name"].(string)
 			function, _ := comp["function"].(string)
 			logger.Warn("plan_sections: component template truncated, skipping",
 				zap.String("function", function),
-				zap.String("name", name))
+				zap.String("name", name),
+				zap.String("component_level", level))
 			continue
 		}
 
@@ -963,6 +977,40 @@ func sectionTemplateValid(htmlTemplate string) bool {
 		return true
 	}
 	return strings.Contains(htmlTemplate, "</section>")
+}
+
+// toolTemplateValid is the truncation guard for component_level='tool'
+// templates. A tool is self-contained HTML, not a <section> wrapper, so
+// sectionTemplateValid's '</section>' marker misclassifies tools in both
+// directions: healthy tools ending '</script>' read as truncated (and were
+// silently dropped from the schemas map, so a durable tool fix could never
+// re-render — bugs_open/024), while genuinely cut templates that contain
+// '</section>' upstream of the cut read as whole.
+//
+// Reuses the component write guard's absolute structural signals instead:
+// every paired tag balanced, and the template ends on a closed tag.
+//
+// Calibrated against all 27 active tool components on 2026-07-20: the 19
+// structurally whole templates pass; the 8 truncated rows all fail (each cut
+// mid-JavaScript by a pre-guard truncation write, bugs_open/012's class —
+// four of which contain '</section>' and so pass sectionTemplateValid today).
+// Rejecting those here is load-bearing: it keeps the re-render loop on the
+// carry-stored-HTML path for a damaged template instead of deploying broken
+// markup from it.
+func toolTemplateValid(htmlTemplate string) bool {
+	if htmlTemplate == "" {
+		return true
+	}
+	if len(htmlTemplate) < 100 {
+		return true
+	}
+	folded := strings.ToLower(htmlTemplate)
+	for _, pair := range balancedPairs {
+		if strings.Count(folded, pair.open) > strings.Count(folded, pair.close) {
+			return false
+		}
+	}
+	return endsCleanly(htmlTemplate)
 }
 
 // ============================================================================

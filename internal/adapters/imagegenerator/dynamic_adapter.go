@@ -473,7 +473,9 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 	// Phase 2I: returns origin ("provider/model_id") for asset
 	// provenance — passed into sendSuccessResponse so the workflow's
 	// store_*_asset step can record it instead of hardcoded "sdxl".
-	imageData, _, origin, err := a.generateImage(request.Body.Data)
+	// Conditions (unrouted kind, bad hint, dropped anchors) ride the
+	// success response so the chassis can persist them (bugs_open/011 §4).
+	imageData, _, origin, conditions, err := a.generateImage(request.Body.Data)
 	if err != nil {
 		logger.Error("Failed to generate image", zap.Error(err))
 		a.sendErrorResponse(responseTopic, &request, err, logger)
@@ -494,7 +496,7 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 	}
 
 	// Send success response with both S3 URI and presigned URL
-	a.sendSuccessResponse(responseTopic, &request, imageURI, presignedURL, origin, time.Since(startTime), logger)
+	a.sendSuccessResponse(responseTopic, &request, imageURI, presignedURL, origin, conditions, time.Since(startTime), logger)
 
 	// Commit the message
 	a.consumer.CommitMessages(context.Background(), msg)
@@ -507,8 +509,10 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 }
 
 // generateImage routes the request to the appropriate provider based on
-// data.Kind. Returns the raw image bytes, the MIME type, and a
-// provenance string ("provider/model_id") for asset-row origin tracking.
+// data.Kind. Returns the raw image bytes, the MIME type, a provenance
+// string ("provider/model_id") for asset-row origin tracking, and any
+// routing conditions to report back to the chassis (see
+// reportedConditions in routing.go — bugs_open/011 §4 residual).
 //
 // Phase 2I — replaces the previous inline Stability HTTP call. SDXL
 // dimension whitelist, kind defaults, negative-prompt defaults and
@@ -516,7 +520,7 @@ func (a *DynamicImageAdapter) handleMessage(msg kafka.Message) {
 // implementations (internal/adapters/imagegenerator/stability,
 // internal/adapters/imagegenerator/banana). This function is just a
 // router; nothing here knows about Stability or Gemini wire formats.
-func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, string, string, error) {
+func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, string, string, []map[string]interface{}, error) {
 	req := provider.Request{
 		Kind:               data.Kind,
 		Prompt:             data.Prompt,
@@ -528,6 +532,11 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 	// bugs_open/011 R1 — resolve the routing decision (pure policy, see
 	// routeProvider), then bind it to this adapter's provider instances.
 	decision := routeProvider(data.Kind, data.ProviderHint)
+
+	// bugs_open/011 §4 residual — the same flags, as condition records the
+	// chassis persists to agent_error_log. The Warn logs below stay: logs
+	// are for live tailing, the response field is the durable record.
+	conditions := reportedConditions(decision, data.Kind, data.ProviderHint, len(data.ReferenceImageURIs))
 
 	var p provider.Provider
 	switch decision.Provider {
@@ -579,7 +588,7 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 	if err != nil {
 		// Surface provider sentinels in the error so the action layer
 		// can errors.Is against provider.ErrSafetyBlocked / ErrInvalidRequest.
-		return nil, "", "", fmt.Errorf("provider %s: %w", p.Name(), err)
+		return nil, "", "", nil, fmt.Errorf("provider %s: %w", p.Name(), err)
 	}
 
 	origin := result.ProviderName + "/" + result.ModelID
@@ -589,7 +598,7 @@ func (a *DynamicImageAdapter) generateImage(data ImageRequestData) ([]byte, stri
 		zap.String("mime_type", result.MimeType),
 		zap.Int("bytes", len(result.ImageBytes)),
 	)
-	return result.ImageBytes, result.MimeType, origin, nil
+	return result.ImageBytes, result.MimeType, origin, conditions, nil
 }
 
 // uploadImage uploads the generated image to S3 and returns both URI and presigned URL
@@ -649,6 +658,7 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 	imageURI string,
 	presignedURL string,
 	origin string,
+	conditions []map[string]interface{},
 	duration time.Duration,
 	logger *zap.Logger,
 ) {
@@ -679,23 +689,34 @@ func (a *DynamicImageAdapter) sendSuccessResponse(
 	}
 
 	// Build response body with both S3 URI and presigned URL
+	bodyData := map[string]interface{}{
+		"image_uri":       imageURI,     // S3 URI for storage/reference
+		"image_url":       presignedURL, // Presigned URL for web use (7 days)
+		"prompt":          request.Body.Data.Prompt,
+		"generated_at":    time.Now().Format(time.RFC3339),
+		"generation_time": duration.Seconds(),
+		"adapter_id":      a.adapterID,
+		// Phase 2I — origin = "provider/model_id" (e.g.
+		// "banana/gemini-3-pro-image-preview"). The workflow's
+		// store_*_asset step can read this from
+		// generate.response.origin_model via output_mapping
+		// instead of the hardcoded "sdxl" it uses today.
+		"origin_model": origin,
+	}
+
+	// bugs_open/011 §4 residual — routing conditions the chassis persists
+	// to agent_error_log (persistReportedConditions in
+	// platform/orchestration/agent_error_log.go reads exactly this key).
+	// Only set when non-empty: an absent field is the healthy case, and an
+	// old chassis simply ignores it — the two images may roll separately.
+	if len(conditions) > 0 {
+		bodyData["reported_conditions"] = conditions
+	}
+
 	responseBody := types.ResponseBody{
 		Success: true,
-		Body: map[string]interface{}{
-			"image_uri":       imageURI,     // S3 URI for storage/reference
-			"image_url":       presignedURL, // Presigned URL for web use (7 days)
-			"prompt":          request.Body.Data.Prompt,
-			"generated_at":    time.Now().Format(time.RFC3339),
-			"generation_time": duration.Seconds(),
-			"adapter_id":      a.adapterID,
-			// Phase 2I — origin = "provider/model_id" (e.g.
-			// "banana/gemini-3-pro-image-preview"). The workflow's
-			// store_*_asset step can read this from
-			// generate.response.origin_model via output_mapping
-			// instead of the hardcoded "sdxl" it uses today.
-			"origin_model": origin,
-		},
-		Error: nil,
+		Body:    bodyData,
+		Error:   nil,
 	}
 
 	response := &ImageResponse{

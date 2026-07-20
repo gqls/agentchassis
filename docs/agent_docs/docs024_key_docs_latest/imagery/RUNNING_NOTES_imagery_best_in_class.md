@@ -2632,3 +2632,119 @@ section as a named passenger (CLAUDE.md same-file rule).
 
 Next per the handoff: §4 item 1, the council residual — persist `UnmigratedKind` via
 adapter response → action, never by duplicating the routing table in the action layer.
+
+## 2026-07-20 ~12:15Z — 011 §4 residual BUILT: reported_conditions, adapter → chassis → agent_error_log
+
+The council residual (bug_historian, corr e996bf0a: "detection living only in process
+logs still depends on someone tailing the right pod") is implemented and submitted as
+round 4 on the same correlation (orchestration `e16bfb00-172f-441e-8f3b-753d3df00e31`).
+Shape, exactly as the handoff prescribed: the adapter DETECTS against the routing table
+its own binary ships and reports a `reported_conditions` list in its success response;
+the chassis coordinator PERSISTS each entry to `agent_error_log` (severity `warning`,
+`resolved=false`, reporter identity from `response.Headers.Sender`) at
+`handleCompleteResponse` — the one point every complete response crosses, so no
+workflow-branch coverage gap. Neither service predicts the other's config: the entire
+coupling is the field name.
+
+- `routing.go` `reportedConditions()` (pure) covers all three warn-then-forget flags:
+  `UNROUTED_IMAGE_KIND`, `UNRECOGNISED_PROVIDER_HINT`, `REFERENCE_ANCHORS_DROPPED`.
+- `agent_error_log.go` `parseReportedConditions()` (pure, junk-safe, capped at 10/response)
+  + `persistReportedConditions()` reusing `buildErrorEntry`/`logAgentError`.
+- Split-roll safe in both directions: old chassis ignores the field, old adapter never
+  sends it. Healthy path = absent field, one nil map-lookup per response fleet-wide.
+- Tests: 4 new in `routing_test.go` (11 total pass), 4 in new
+  `agent_error_log_test.go` — the latter run via `git archive HEAD` + overlay because
+  `orchestration_test.go` is broken AT HEAD (pre-existing: `NewSagaCoordinator` grew a
+  `storage.Client` param, old external test never updated — not this thread's, noted here
+  so nobody re-diagnoses it).
+- Checked before claiming (the 028 lesson): `reported_conditions` appears in NO seed,
+  config or live `agent_definitions` row; `warning` is already an in-use severity in
+  `agent_error_log` (`error`/`warning`/`fatal`).
+
+Uncommitted pending the council verdict; commit will carry the trailer only if APPROVED.
+
+## 2026-07-20 ~14:40Z — round 4 REVISE (decided by editquality), all objections answered by CHECKING; round 5 submitted
+
+Round 4 on corr `e996bf0a` came back REVISE (10 reviewers, 6 abstained). Every
+objection was answerable with evidence rather than argument, and two were genuine
+catches of my submission (not the code):
+
+- **editquality (medium, the deciding objection):** my sketch changed `generateImage`'s
+  signature but never showed the call-site update — "the plan may not compile as
+  described". The call site WAS updated in the working tree; I compressed it out of the
+  sketch. Lesson repeated from the runbook trap: **on a resubmit, the sketch is the
+  reviewable artifact — show the real hunks, not prose summaries of them.**
+- **editquality (low):** could `handleCompleteResponse` run twice for one physical
+  response (Kafka redelivery) and duplicate rows? CHECKED: no — it is reachable only
+  after `ProcessResponse`'s atomic claim (`coordinator.go:226` "This single operation
+  prevents duplicate processing"; redelivery → `awaitedReq == nil` → "Duplicate or
+  orphaned" → return). At most one persist per physical response.
+- **reuse_agent (medium):** did anyone search for an EXISTING adapter→chassis
+  non-fatal-condition convention before minting `reported_conditions`? Fair — I had
+  searched the DB-placement question, not the convention question. CHECKED: none
+  exists; "warnings"/"issues"/"conditions" hits are all local action result maps or
+  workflow branching config; `ResponseBody` = {Success, Headers, Body, Error} with
+  `ErrorInfo.Details` on the error path only. First convention, not a second.
+- **guardian (medium, "resolves to approve if checks clean"):** sole-crossing-point and
+  no-other-emitter both CHECKED clean (one call site at `coordinator.go:289`; the
+  `:1632` lookalike is `executeLocalAction` = local actions, never on the wire; key
+  emitted nowhere else in repo or live agent_definitions).
+- **debug_historian (approve-with-objection):** the plan must name its own deploy
+  verification — now committed in the risks section: discriminating pod-binary greps
+  for strings the change CREATES (`UNROUTED_IMAGE_KIND`, `REFERENCE_ANCHORS_DROPPED`,
+  the chassis persist log literal), on BOTH replicas of BOTH services, plus positive
+  control, plus a live-fire `agent_error_log` row check.
+- **tooling_provenance (low):** on landing, write a doc_note recording the contract
+  against `5db192c5` — which stays OPEN (it covers the wider unmatched-case family:
+  `directionAppliesToKind`, per-kind accessors).
+- **guidelines (approve)** flagged a GUIDELINE-GAP side-task for some future thread:
+  DECLARED CONTRACTS has no clause for chassis-parsed generic response fields
+  (headers already work this way, undeclared); recommend an explicit exemption clause.
+
+No code changes were needed — round 4's objections were all about evidence and sketch
+completeness. Round 5 resubmitted on the same correlation with the checks inline.
+
+## 2026-07-20 ~15:05Z — round 5 REJECTED (guardian hard veto — and it was RIGHT); gate built; round 6 submitted
+
+Round 5 flipped editquality and reuse_agent to approve but drew a **guardian hard
+veto**, and the veto is a genuine catch, not process friction: my unconditional
+`persistReportedConditions` call in `handleCompleteResponse` made the new channel
+**fleet-wide and ungoverned** — any future adapter emitting the key (deliberately or
+by copy-paste) would silently start writing `agent_error_log` rows with zero review.
+"A foundational-plumbing change wearing a one-adapter bug fix's clothes." My own
+DECLARED-CONTRACTS side-task note was correctly read as an admission.
+
+Built the guardian's contained alternative (a) verbatim:
+- `conditionReportingAgentTypes = {"image-generator": true}` — an explicit allowlist
+  in the CONSUMER; adding a sender is one reviewed line. Unsanctioned sender emitting
+  the field → loud named Warn, zero rows. Non-sanctioned pipelines: provably one map
+  lookup, nothing else.
+- Alternative (b) (gate via `agent_definitions.output_contract`) rejected with stated
+  reasons: config lookup in the hottest path; the config re-seed clobber landmine
+  would make the gate's ground truth mutable outside code review; the in-code list is
+  the direct expression of "whom the chassis believes". Swap seam if architecture
+  review disagrees: `senderMayReportConditions`.
+- Also fixed bug_historian's medium (the second real catch): parse now returns a
+  `malformed` flag — present-but-not-a-list and all-junk-list warn "the reporting
+  contract broke; conditions were lost, fix the emitter" instead of reading as
+  healthy. Empty list stays benign. Test-pinned.
+
+Six tests now in `agent_error_log_test.go` (incl. the gate), all passing via the
+archive-overlay run; builds clean. Round 6 submitted, orchestration `6e2f0018`.
+
+**Lesson for the file:** the council's value this round was exactly what CLAUDE.md's
+diagnosis section claims — the wrong shape FELT like the principled one (generic
+mechanism, no special-casing), and it took an adversarial seat to name the cost:
+generic-by-default in shared plumbing is an architecture decision, and "scoped by
+default, reviewed per addition" is the platform-safe shape.
+
+## 2026-07-20 ~16:00Z — round 6 VOIDED by bugs_open/019; round 7 submitted
+
+Round 6 (`6e2f0018`) produced NO verdict: `review_editquality` truncated at
+`max_tokens=8000` and the round routed to `complete_invalid` — bugs_open/019's exact
+mechanism, still live because its fix (a3b606798) is inert until the next image roll.
+Reproduction #3 logged in the 019 case file (committed `58a7c7a8d`). Not worked
+around; resubmitted as round 7 (`0430544f`) with the rationale cut to ~60% (the round
+history lives on the correlation trail, no need to restate it) and the sketches kept
+full per round 4's demand. Monitor now also watches for the void shape, not just the
+verdict, after the round-6 monitor burned its 40 minutes timing out on silence.

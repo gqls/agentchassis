@@ -132,3 +132,72 @@ func knownRoutedKinds() []string {
 	sort.Strings(kinds)
 	return kinds
 }
+
+// reportedConditions turns a routing decision's warning flags into condition
+// records for the response body's `reported_conditions` field, which the
+// chassis coordinator persists to agent_error_log (persistReportedConditions,
+// platform/orchestration/agent_error_log.go). That field name is the entire
+// coupling between the two services.
+//
+// Council residual from bugs_open/011 R1 (gate e996bf0a, bug_historian): a
+// warning that lives only in a pod log depends on someone tailing the right
+// pod at the right moment — this repo's history says that is how defects
+// survive for months. The adapter cannot persist these itself (it has no DB
+// handle, deliberately), and the action layer must not re-derive them (it
+// would be predicting a routing table deployed in a different binary — the
+// dedup-index↔Go-list drift class). So: this binary DETECTS, against the
+// table it actually ships; the chassis, which has the DB and the
+// orchestration context, RECORDS.
+//
+// referenceCount is how many ReferenceImageURIs the request carried; the
+// anchors-dropped condition is the same warn-then-forget class as the other
+// two, detected from the same decision.
+func reportedConditions(d routingDecision, kind, providerHint string, referenceCount int) []map[string]interface{} {
+	var conditions []map[string]interface{}
+
+	if d.UnmigratedKind {
+		conditions = append(conditions, map[string]interface{}{
+			"code":     "UNROUTED_IMAGE_KIND",
+			"severity": "warning",
+			"message": "image kind \"" + kind + "\" is not in kindProviderRouting and fell back to Stability, " +
+				"which cannot render legible text and ignores reference images; " +
+				"add it to the routing table if that is not what you want",
+			"context": map[string]interface{}{
+				"kind":         kind,
+				"provider":     d.Provider,
+				"routed_kinds": knownRoutedKinds(),
+			},
+		})
+	}
+
+	if d.BadHint {
+		conditions = append(conditions, map[string]interface{}{
+			"code":     "UNRECOGNISED_PROVIDER_HINT",
+			"severity": "warning",
+			"message": "provider_hint \"" + providerHint + "\" is not a recognised provider; " +
+				"the request fell back to kind routing — fix the imagery_style_guide's provider field " +
+				"(accepted: \"" + providerBanana + "\", \"" + providerStability + "\")",
+			"context": map[string]interface{}{
+				"kind":          kind,
+				"provider_hint": providerHint,
+				"provider":      d.Provider,
+			},
+		})
+	}
+
+	if referenceCount > 0 && d.Provider != providerBanana {
+		conditions = append(conditions, map[string]interface{}{
+			"code":     "REFERENCE_ANCHORS_DROPPED",
+			"severity": "warning",
+			"message": "request carried reference images but resolved to a provider that ignores them — " +
+				"per-site brand anchoring was silently lost for this asset",
+			"context": map[string]interface{}{
+				"kind":            kind,
+				"provider":        d.Provider,
+				"reference_count": referenceCount,
+			},
+		})
+	}
+
+	return conditions
+}

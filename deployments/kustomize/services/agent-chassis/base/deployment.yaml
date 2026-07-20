@@ -41,3 +41,24 @@ spec:
             limits:
               cpu: "1"
               memory: "2Gi"
+          # /health and /ready report real state as of the 2026-07-20 build
+          # (Kafka reachability + agent started — bugs_open/003 F4). Liveness
+          # only fails after KAFKA_UNHEALTHY_AFTER_SECONDS (default 300s) of
+          # continuous unreachability, so probe cadence here is not the
+          # flake-tolerance knob — the endpoint is.
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 4
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3

@@ -105,3 +105,81 @@ func TestKnownRoutedKindsIsSortedAndComplete(t *testing.T) {
 		}
 	}
 }
+
+// bugs_open/011 §4 residual — the flags must become condition RECORDS, not
+// just log lines, or detection depends on someone tailing the right pod.
+
+func TestReportedConditionsCleanDecisionReportsNothing(t *testing.T) {
+	// The healthy case must produce an ABSENT field, not an empty list —
+	// noise in every response body is how a signal stops being read.
+	d := routeProvider("hero", "")
+	if got := reportedConditions(d, "hero", "", 0); len(got) != 0 {
+		t.Errorf("clean decision produced %d conditions, want 0: %v", len(got), got)
+	}
+	// Legacy empty kind is a documented path, not a condition.
+	d = routeProvider("", "")
+	if got := reportedConditions(d, "", "", 0); len(got) != 0 {
+		t.Errorf("legacy empty kind produced %d conditions, want 0", len(got))
+	}
+}
+
+func TestReportedConditionsUnroutedKind(t *testing.T) {
+	d := routeProvider("diagram", "")
+	got := reportedConditions(d, "diagram", "", 0)
+	if len(got) != 1 {
+		t.Fatalf("unrouted kind produced %d conditions, want 1", len(got))
+	}
+	c := got[0]
+	if c["code"] != "UNROUTED_IMAGE_KIND" {
+		t.Errorf("code = %v, want UNROUTED_IMAGE_KIND", c["code"])
+	}
+	if c["severity"] != "warning" {
+		t.Errorf("severity = %v, want warning", c["severity"])
+	}
+	// The record must name the valid set — the row is read by someone who
+	// does not have the source open.
+	ctx, ok := c["context"].(map[string]interface{})
+	if !ok {
+		t.Fatal("condition has no context map")
+	}
+	kinds, ok := ctx["routed_kinds"].([]string)
+	if !ok || len(kinds) != len(kindProviderRouting) {
+		t.Errorf("context.routed_kinds = %v, want the full routed set", ctx["routed_kinds"])
+	}
+}
+
+func TestReportedConditionsBadHintAndAnchorsDropped(t *testing.T) {
+	// A bad hint on an unrouted kind with references carries all three
+	// conditions — each is a separate defect with a separate fix.
+	d := routeProvider("diagram", "bananna")
+	got := reportedConditions(d, "diagram", "bananna", 2)
+	if len(got) != 3 {
+		t.Fatalf("produced %d conditions, want 3 (unrouted + bad hint + anchors dropped): %v", len(got), got)
+	}
+	codes := map[string]bool{}
+	for _, c := range got {
+		code, _ := c["code"].(string)
+		codes[code] = true
+	}
+	for _, want := range []string{"UNROUTED_IMAGE_KIND", "UNRECOGNISED_PROVIDER_HINT", "REFERENCE_ANCHORS_DROPPED"} {
+		if !codes[want] {
+			t.Errorf("missing condition %s in %v", want, codes)
+		}
+	}
+}
+
+func TestReportedConditionsNoAnchorsDroppedOnBanana(t *testing.T) {
+	// Banana honours references — routing there with references is the
+	// healthy case whatever the kind's table entry says.
+	d := routeProvider("hero", "banana")
+	if got := reportedConditions(d, "hero", "banana", 3); len(got) != 0 {
+		t.Errorf("banana with references produced %v, want none", got)
+	}
+	// A deliberate stability opt-out WITH references does warn: the site
+	// chose the provider, but the anchor loss is still real information.
+	d = routeProvider("hero", "stability")
+	got := reportedConditions(d, "hero", "stability", 3)
+	if len(got) != 1 || got[0]["code"] != "REFERENCE_ANCHORS_DROPPED" {
+		t.Errorf("stability opt-out with references = %v, want exactly REFERENCE_ANCHORS_DROPPED", got)
+	}
+}

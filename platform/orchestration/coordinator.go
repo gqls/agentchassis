@@ -2250,6 +2250,13 @@ func (s *SagaCoordinator) handleCompleteResponse(ctx context.Context, state *Orc
 	stepName := awaitedReq.StepName
 	step, stepExists := state.WorkflowPlan.Steps[stepName]
 
+	// Adapter-reported conditions (e.g. the image adapter's unrouted-kind
+	// guard) become durable agent_error_log rows here — the one point every
+	// complete response crosses, whichever workflow sent it. Best-effort,
+	// once per response (outside the optimistic-lock retry loop below).
+	// See agent_error_log.go for the contract (bugs_open/011 §4 residual).
+	s.persistReportedConditions(ctx, state, stepName, response, normalisedData)
+
 	// 2. Create repo (but DON'T mark complete yet - wait for successful state save)
 	repo := NewStateRepository(s.db, s.logger)
 

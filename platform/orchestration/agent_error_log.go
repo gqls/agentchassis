@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
@@ -74,6 +75,175 @@ func (s *SagaCoordinator) logAgentError(ctx context.Context, entry AgentErrorEnt
 			zap.Error(err),
 			zap.String("error_message", entry.ErrorMessage))
 	}
+}
+
+// ── Adapter-reported conditions ──────────────────────────────────────────────
+//
+// A remote service can flag a non-fatal condition it detected while
+// SUCCEEDING — e.g. the image adapter's unrouted-kind guard (bugs_open/011
+// §4 residual, council e996bf0a): the request was served, but from a weaker
+// provider nobody chose. The detecting service has no DB handle, and this
+// coordinator must not re-derive the check (it would be predicting config
+// compiled into a different binary — the dedup-index↔Go-list drift class).
+// So the contract is: the adapter puts a `reported_conditions` list in its
+// response body; every complete response crosses handleCompleteResponse,
+// which calls persistReportedConditions; each condition becomes an
+// agent_error_log row (resolved=false), where dashboards and the
+// immune-system sweep already look. Detection lives with the deployed truth,
+// persistence with the DB.
+
+// maxReportedConditionsPerResponse bounds how many condition rows one
+// response may create — a misbehaving adapter must not flood the table.
+const maxReportedConditionsPerResponse = 10
+
+// conditionReportingAgentTypes is the set of senders whose
+// reported_conditions the chassis will persist. This gate exists by
+// guardian veto (council e996bf0a, round 5): an unconditional parse in
+// handleCompleteResponse would be a fleet-wide, ungoverned reporting
+// channel that any future adapter could start feeding by emitting the key
+// — "intentionally or by copy-paste coincidence" — with zero contract
+// review. Adding a sender here IS the review: one line, one council
+// submission, per adapter. An unsanctioned sender emitting the field is
+// warned about loudly and persisted never. This list is owned by the
+// consumer and describes whom it believes — it does not predict any other
+// binary's config, so the routing-table drift class does not apply.
+var conditionReportingAgentTypes = map[string]bool{
+	"image-generator": true,
+}
+
+// senderMayReportConditions reports whether a sender's conditions are
+// sanctioned for persistence. Split out for testability.
+func senderMayReportConditions(agentType string) bool {
+	return conditionReportingAgentTypes[agentType]
+}
+
+// reportedCondition is one entry of a response body's `reported_conditions`
+// list, after the Kafka JSON round-trip.
+type reportedCondition struct {
+	Code     string
+	Severity string
+	Message  string
+	Context  map[string]interface{}
+}
+
+// parseReportedConditions extracts well-formed conditions from a normalised
+// response body. Malformed entries are skipped, not fatal: a bad condition
+// report must never break response processing. Pure — unit-tested without a
+// coordinator.
+//
+// The second return distinguishes "field absent" (healthy, silent) from
+// "field present but unusable" — bug_historian's round-5 catch: collapsing
+// those two is the silent-failure shape this mechanism exists to cure,
+// applied to the cure itself. A contract break (adapter emits an object
+// instead of a list, a reshape upstream) must surface, not read as healthy.
+func parseReportedConditions(normalisedData map[string]interface{}) (conditions []reportedCondition, malformed bool) {
+	raw, present := normalisedData["reported_conditions"]
+	if !present {
+		return nil, false
+	}
+	list, ok := raw.([]interface{})
+	if !ok {
+		return nil, true // present but not a list — the contract broke
+	}
+
+	for _, item := range list {
+		if len(conditions) >= maxReportedConditionsPerResponse {
+			break
+		}
+		m, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		c := reportedCondition{}
+		c.Code, _ = m["code"].(string)
+		c.Severity, _ = m["severity"].(string)
+		c.Message, _ = m["message"].(string)
+		c.Context, _ = m["context"].(map[string]interface{})
+		if c.Code == "" && c.Message == "" {
+			continue // nothing worth a row
+		}
+		if c.Severity == "" {
+			c.Severity = "warning"
+		}
+		if c.Message == "" {
+			c.Message = c.Code
+		}
+		conditions = append(conditions, c)
+	}
+	// A non-empty list that yielded nothing usable is also a broken
+	// contract, not a healthy absence.
+	if len(list) > 0 && len(conditions) == 0 {
+		return nil, true
+	}
+	return conditions, false
+}
+
+// persistReportedConditions writes each adapter-reported condition to
+// agent_error_log. Best-effort, like logAgentError: a failed insert is
+// logged and never affects the workflow. Only sanctioned senders persist
+// (see conditionReportingAgentTypes) — for everyone else this is a no-op
+// beyond one map lookup, and an unsanctioned sender actually emitting the
+// field is warned about by name so the attempt cannot pass silently.
+func (s *SagaCoordinator) persistReportedConditions(ctx context.Context, state *OrchestrationState, stepName string, response types.ResponseMessage, normalisedData map[string]interface{}) {
+	if _, present := normalisedData["reported_conditions"]; !present {
+		return // the fleet-wide healthy path: one lookup, nothing else
+	}
+
+	senderType := response.Headers.Sender.AgentType
+	if !senderMayReportConditions(senderType) {
+		s.logger.Warn("reported_conditions from an UNSANCTIONED sender — not persisted; add the agent type to conditionReportingAgentTypes (with review) if this reporter is intended",
+			zap.String("sender_agent_type", senderType),
+			zap.String("step_name", stepName))
+		return
+	}
+
+	conditions, malformed := parseReportedConditions(normalisedData)
+	if malformed {
+		s.logger.Warn("reported_conditions present but MALFORMED — the reporting contract broke; conditions were lost, fix the emitter",
+			zap.String("sender_agent_type", senderType),
+			zap.String("step_name", stepName))
+		return
+	}
+	if len(conditions) == 0 {
+		return
+	}
+	if raw, ok := normalisedData["reported_conditions"].([]interface{}); ok && len(raw) > len(conditions) {
+		s.logger.Warn("reported_conditions truncated or partly malformed",
+			zap.Int("received", len(raw)),
+			zap.Int("persisted", len(conditions)),
+			zap.String("step_name", stepName))
+	}
+
+	for _, c := range conditions {
+		entry := s.buildErrorEntry(state, stepName, c.Message)
+		// The row's subject is the REPORTING service, not this coordinator —
+		// its identity travels in the response headers it set itself.
+		if response.Headers.Sender.AgentType != "" {
+			entry.AgentType = response.Headers.Sender.AgentType
+		}
+		if response.Headers.Sender.AgentID != "" {
+			entry.AgentID = response.Headers.Sender.AgentID
+		}
+		if response.Headers.Sender.PodName != "" {
+			entry.PodName = response.Headers.Sender.PodName
+		}
+		entry.ErrorCode = c.Code
+		entry.Severity = c.Severity
+		if len(c.Context) > 0 {
+			if entry.Context == nil {
+				entry.Context = map[string]interface{}{}
+			}
+			// Namespaced so a condition's keys cannot collide with the
+			// step-context snapshot buildErrorEntry already assembled.
+			entry.Context["reported"] = c.Context
+		}
+		s.logAgentError(ctx, entry)
+	}
+
+	s.logger.Info("Persisted adapter-reported conditions to agent_error_log",
+		zap.Int("count", len(conditions)),
+		zap.String("step_name", stepName),
+		zap.String("sender_agent_type", response.Headers.Sender.AgentType))
 }
 
 // buildErrorEntry extracts an AgentErrorEntry from OrchestrationState.

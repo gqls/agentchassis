@@ -13,6 +13,7 @@ import (
 
 	"github.com/gqls/agentchassis/platform/agentbase"
 	"github.com/gqls/agentchassis/platform/config"
+	"github.com/gqls/agentchassis/platform/health"
 	"github.com/gqls/agentchassis/platform/logger"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -129,35 +130,33 @@ func main() {
 		zap.String("topic", cfg.Custom["topic"].(string)),
 		zap.String("consumer_group", cfg.Custom["kafka_consumer_group"].(string)))
 
-	// Start health check server
+	// Create context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start health check server. The endpoints report real state (Kafka
+	// reachability, agent started) — they were hardcoded 200s until
+	// 2026-07-20, which made the spawner's probes decorative (bugs_open/003).
 	healthPort := os.Getenv("HEALTH_PORT")
 	if healthPort == "" {
 		healthPort = "8080"
 	}
 
+	kafkaHealth := health.NewKafkaReachability(cfg.Infrastructure.KafkaBrokers, appLogger)
+	go kafkaHealth.Run(ctx)
+
 	go func() {
 		mux := http.NewServeMux()
+		mux.HandleFunc("/health", kafkaHealth.HandleHealth)
+		mux.HandleFunc("/ready", kafkaHealth.HandleReady)
 
-		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
-		})
-
-		mux.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
-			// Could add actual readiness checks here
-			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("READY"))
-		})
-
-		appLogger.Info("Starting health check server", zap.String("port", healthPort))
+		appLogger.Info("Starting health check server",
+			zap.String("port", healthPort),
+			zap.Duration("kafka_unhealthy_after", kafkaHealth.UnhealthyAfter))
 		if err := http.ListenAndServe(":"+healthPort, mux); err != nil {
 			appLogger.Fatal("Health server failed", zap.Error(err))
 		}
 	}()
-
-	// Create context
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	// Initialize agent with the modified config
 	agent, err := agentbase.New(ctx, cfg, appLogger)
@@ -178,6 +177,7 @@ func main() {
 	}()*/
 
 	// Run agent in goroutine
+	kafkaHealth.SetStarted()
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- agent.Run() // sends nil on clean exit, error on failure

@@ -26,6 +26,33 @@
 //       "next_step": "complete"
 //   }
 //
+// Three optional config keys exist for callers whose item is an ACTION REQUEST
+// rather than a detected defect (bugs_open/024 — a tool re-render request that
+// was born dead three ways at once):
+//
+//   "spec_literal":          {"reason": "section_data_resolved"}
+//       Constants written into the spec verbatim. spec_data is a PATH into
+//       collected data and can never express a literal, so without this no
+//       workflow step can stamp a value that a downstream gate reads.
+//
+//   "spec_paths":            {"component_id": "update_result.component_id"}
+//       Per-key paths resolved individually. A configured path that does not
+//       resolve is a HARD ERROR — an incomplete spec silently degrades the
+//       downstream re-render to assemble-from-stale and still reports success.
+//
+//   "item_key_suffix_field": "update_result.component_id"
+//       Appends a resolved value to the item_key. The default key is
+//       '<prefix>_<domain>', which is SITE-wide: without a suffix, two
+//       components fixed close together collide on idx_swi_dedup and one
+//       request is lost.
+//
+//   "recurrence_expected":   true
+//       Sets workItem.recurrenceExpected, which skips insertWorkItem's
+//       anti-churn heuristics (dedup is NOT waived). For an action request a
+//       'complete' predecessor is a SUCCESS, not a strike.
+//
+// Layering: spec_data, then spec_paths, then spec_literal — later wins.
+//
 // Registration (add to registry.go):
 //   "create_work_item": { Handler: CreateWorkItemAction, IsLocal: true },
 
@@ -126,14 +153,79 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 			domain = siteID.String()[:8]
 		}
 		itemKey = fmt.Sprintf("%s_%s", itemKeyPrefix, domain)
+
+		// Optional scoping suffix. '<prefix>_<domain>' is SITE-wide: two
+		// components fixed close together on one site collide on
+		// idx_swi_dedup (site_id, item_key) and one request is simply lost.
+		// A step that knows what it is acting on names it here.
+		// Additive by design — unset or unresolved leaves the key exactly as
+		// it was, so no existing caller changes.
+		if f, ok := config["item_key_suffix_field"].(string); ok && f != "" {
+			if sfx := datahelpers.ExtractNestedFieldString(params.CollectedData, f); sfx != "" {
+				itemKey = fmt.Sprintf("%s_%s", itemKey, sfx)
+			} else {
+				logger.Warn("create_work_item: item_key_suffix_field did not resolve, key stays site-wide",
+					zap.String("field", f),
+					zap.String("item_key", itemKey),
+				)
+			}
+		}
 	}
 
-	// Build spec JSONB from spec_data path
-	specJSON := "{}"
+	// recurrence_expected marks an item whose RE-REQUEST is normal rather than
+	// evidence that previous handlers failed — see workItem.recurrenceExpected.
+	// Default false, so existing callers keep today's behaviour exactly.
+	recurrenceExpected, _ := config["recurrence_expected"].(bool)
+
+	// Build the spec JSONB in three layers, later winning over earlier:
+	//   spec_data    — a PATH to a map already in collected data (as before)
+	//   spec_paths   — {key: path}, each resolved individually
+	//   spec_literal — {key: value}, verbatim
+	// spec_data alone could never express a constant, which is why no workflow
+	// step could stamp e.g. reason='section_data_resolved' — the value
+	// create_rerender_items gates the section re-render on (bugs_open/024).
+	specMap := map[string]interface{}{}
 	if specData := inputs.GetMap("spec_data"); specData != nil {
-		if b, err := json.Marshal(specData); err == nil {
-			specJSON = string(b)
+		for k, v := range specData {
+			specMap[k] = v
 		}
+	}
+
+	// spec_paths: a configured path that does not resolve is a HARD ERROR.
+	// The step author asked for this field; silently omitting it is exactly how
+	// bugs_open/024 stayed invisible for three cycles — a spec missing
+	// component_id makes create_rerender_items' scoped=false, which degrades
+	// the re-render to assemble-from-stale and still reports success.
+	if sp, ok := config["spec_paths"].(map[string]interface{}); ok {
+		for key, rawPath := range sp {
+			path, isStr := rawPath.(string)
+			if !isStr || path == "" {
+				return nil, fmt.Errorf("spec_paths[%q] must be a non-empty string path", key)
+			}
+			val := datahelpers.ExtractNestedField(params.CollectedData, path)
+			if val == nil || val == "" {
+				return nil, fmt.Errorf(
+					"spec_paths[%q]: path %q did not resolve; refusing to create a work item with an incomplete spec",
+					key, path)
+			}
+			specMap[key] = val
+		}
+	}
+
+	// spec_literal: constants, no resolution attempted.
+	if sl, ok := config["spec_literal"].(map[string]interface{}); ok {
+		for k, v := range sl {
+			specMap[k] = v
+		}
+	}
+
+	specJSON := "{}"
+	if len(specMap) > 0 {
+		b, err := json.Marshal(specMap)
+		if err != nil {
+			return nil, fmt.Errorf("marshal spec: %w", err)
+		}
+		specJSON = string(b)
 	}
 
 	// Optional parent_item_id
@@ -183,6 +275,8 @@ func CreateWorkItemAction(ctx context.Context, params ActionParams) (interface{}
 		createdBy:    source,
 		itemKey:      itemKey,
 		dependsOn:    dependsOn,
+
+		recurrenceExpected: recurrenceExpected,
 	}, logger)
 	if err != nil {
 		return nil, fmt.Errorf("insert work item: %w", err)
