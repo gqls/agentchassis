@@ -2795,3 +2795,47 @@ R4 and none simulated it either — reviewers judge the plan against the rationa
 and my rationale contained a confident wrong number. A 40-line simulation against
 live data found it in two minutes. Simulate the machine you are about to feed,
 not just the property you care about.
+
+## 2026-07-20 ~18:10Z — round 7 REVISE (guardian veto RESOLVED); code went LIVE via someone else's sweep; round 8 submitted
+
+Three things happened at once, and the middle one matters most.
+
+**1. Round 7 = REVISE, but the veto lifted.** Guardian APPROVED — the sender allowlist
+answered its round-5 objection. 10 of 12 seats approve. Two mediums left, both real:
+- **bug_historian** (again, and again right): the round-5 fix caught "the whole field
+  is broken" but a MIXED list still silently dropped junk entries while the survivors
+  made the response look healthy. **Same silence, one level down.** Fixed: parse
+  returns a `skipped` count, caller warns "partly UNPARSEABLE — some entries were
+  dropped and are lost; the surviving ones are not the whole picture". New test
+  pins 3-valid + 2-junk → 3 parsed, skipped=2. Committed `8ec9e2ab8`.
+- **prior_art_librarian** (DORMANT-MACHINERY): had I checked `diagnosis_artifacts`,
+  which has a similar shape? Checked rather than argued — it holds ONLY fix-loop
+  artifacts (fix_plan 111, council_report 122, bundle 59, escalation 5), no adapter
+  writes it, and of {severity, resolved, work_item_id, site_id} it has only site_id,
+  so no `resolved=false` query and no analogue of `idx_error_log_unresolved`. Also
+  proved `logAgentError`/`buildErrorEntry` predate this work: both `c24aa7411`,
+  2026-03-12, via `git log -S`.
+
+**2. MY UNCOMMITTED CODE WENT TO PRODUCTION IN ANOTHER SESSION'S SWEEP.** `bca5d8255`
+("v1.0.1140 - sweep. includes imagegenerator changes, coordinator.go amend") took my
+then-uncommitted working tree — routing.go, dynamic_adapter.go, agent_error_log.go,
+coordinator.go, tests, NOTES, the submission JSON — into its build, and both services
+rolled at ~17:58Z. **This is exactly the hazard CLAUDE.md documents** ("your
+uncommitted work is not safe, and this practice does not make it safe"), experienced
+from the losing side: I was holding the code back pending a verdict, and holding it
+back is precisely what exposed it. Nothing was lost and forward-only holds, but the
+lesson is sharper than the doc's: *waiting for a verdict is not a reason to leave work
+uncommitted* — commit it narrowly and let the trailer, not the working tree, carry the
+review status.
+Verified live against running binaries, both replicas of both services, greping
+strings this change CREATES (never `case` values): chassis `UNSANCTIONED sender`=1,
+`Persisted adapter-reported conditions`=1, `the reporting contract broke`=1 (control
+`site provider preference applied`=1); adapter `UNROUTED_IMAGE_KIND`=1,
+`REFERENCE_ANCHORS_DROPPED`=1 on `-6df8q` AND `-drwlg` (control `UNROUTED KIND`=1).
+**No Council-Reviewed trailer claimed — the verdict is REVISE, and a deploy is not an
+approval.** Disclosed unprompted in the round-8 rationale so reviewers know they are
+reviewing code that already serves traffic.
+
+**3. Round 8 submitted** (`49512359`) with both objections answered by checks.
+The gate is what makes the accidental early ship tolerable: every non-sanctioned
+pipeline is provably unaffected, which is the property the guardian insisted on.

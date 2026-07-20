@@ -833,3 +833,42 @@ what caused the original mess:
 
 Also note the hold on tool imagery is still in force, so if you want that test done, tell
 me whether to run it on a tool page anyway or pick a non-tool surface instead.
+
+---
+
+**2026-07-20, early evening — the routing-warning work is live, though not quite the
+way I intended.**
+
+The job this afternoon was the reviewers' last outstanding complaint about this
+morning's routing fix: when the system picks the weaker image provider because nobody
+told it about a new image type, that fact only ever appeared in a log line. Logs get
+lost. It needed to become a proper record. That's built now — the image service spots
+the problem and says so in its reply, and the main chassis writes it to the errors
+table the dashboards already read.
+
+Getting it approved took several rounds, and the reviewers earned their keep twice.
+The first time, one of them vetoed my version outright: I had wired the new reporting
+into the single piece of plumbing every job in the system passes through, without any
+restriction, which would have meant any future component could start writing records
+there with nobody reviewing it. That was a fair hit — I'd built something
+foundational while describing it as a small fix. The new version only listens to
+components explicitly named on a list, so adding one is a deliberate decision. The
+second catch was subtler: if a reply contained a mix of good and garbled records, my
+code quietly kept the good ones and dropped the rest, which would have made a
+half-broken report look perfectly healthy. That's the exact disease this whole change
+exists to cure, so it was worth fixing properly.
+
+One thing happened that you should know about, because it's a process problem rather
+than a technical one. I was holding the code back from being committed while waiting
+for the review verdict. While I waited, another session ran a sweep commit that picked
+up everything sitting in the shared working folder — including my unfinished work —
+and shipped it to production in the evening build. Nothing was lost and the code is
+sound (I checked it is genuinely running on all four relevant containers, not just
+assumed it from the version number), but it went live before it was approved. The
+lesson is that holding work back for safety does the opposite here: the shared folder
+is not a private desk. In future I'll commit it straight away and let the commit
+message record whether it's been reviewed yet.
+
+Still to do on this thread: the picture-spellchecker (bug 011's second item), which I
+continue to think is the most valuable thing left, and infographic numbers coming from
+the audited evidence base.
