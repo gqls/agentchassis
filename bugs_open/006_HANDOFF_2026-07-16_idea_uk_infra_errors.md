@@ -277,6 +277,55 @@ fix this section asks for (complete atomically, or retry the completion write id
 the right one, and would make the per-item-type evidence branches unnecessary rather than needing
 fifteen more of them.
 
+### B — FIX BUILT 2026-07-20, committed, INERT until a chassis image roll
+
+Both halves are in. **B stays OPEN**: per `/bugs_closed/README.md` the bar is fixed AND live, and
+this is committed-but-inert — the defect is reproducible on all 10 sites until the image ships.
+
+| commit | what |
+|---|---|
+| `22678a74b` | `sanitiseFormAction` on the Go-template render path |
+| `c419b6f34` | same rule on the regex fallback path (the twin the pattern check caught) |
+| `3913a0adf` | `contact_form_undeliverable` discovery check |
+
+**What the fix does:** replaces a non-delivering `form_action` (`#contact`, `#`, `""`, `/contact`)
+with `mailto:<site address>?subject=<domain> enquiry` — the owner's 2026-07-17 choice. It leaves real
+destinations alone (an existing `mailto:`, live POST handlers like idea.uk's `/request`).
+
+**What it deliberately does NOT do:** synthesise `info@<domain>` for the 4 sites with no contact
+address, the way some display-only render paths do. A mailto nobody reads makes the form *look*
+repaired while still losing the message, and removes the only outward sign anything is wrong. Those
+sites keep their visible breakage and the new check raises them for a human.
+
+**Two things this fix would have got wrong, both caught by the repo's own machinery:**
+1. *A base-map default would have half-worked.* `ContentData` merges **over** the defaults in
+   `contextToInterfaceMap`, and the broken values are ones the content LLM actively wrote — so a
+   default next to `cta_url` would have repaired the 3 empty cases and left the 8 `#contact` sites
+   broken while reading as fixed. Hence post-merge sanitisation, guarded by
+   `TestFormActionSurvivesContentDataMerge`.
+2. *The fix covered one of two render branches.* The pre-commit pattern check flagged
+   `contextToInterfaceMap` changed without its twin `contextToMap` (016b §9 #26, untouched-twin) —
+   correctly: `RenderTemplate` falls back to regex substitution when Go templating errors, and that
+   path merges `ContentData` too. Fixed in `c419b6f34`.
+
+Both new tests were **fault-injected before being trusted** (sanitiser moved pre-merge; fallback call
+deleted) and confirmed to fail with the right diagnostic. The check's SQL was likewise tested against
+live data and **narrowed as a result** — the first draft matched any `<form>` and returned 16 rows,
+6 of them working tool calculators, because the JS-handler exemption it assumed does not exist
+(no form on the fleet has an inline submit binding; tool JS is external — cf. `041`, `046`).
+
+**Remaining, and NOT done here:**
+- **Enable the check** by adding `contact_form_undeliverable` to a discovery agent's `checks` array —
+  a config change to make *after* the image is live, per the sibling checks' convention.
+- **Repair the 10 already-deployed components.** The Go fix only affects new renders. A rebuild of an
+  already-`deployed` page bounces to `needs_human_review` at attempt 0, so this is a separate costed
+  step (a `content_data` migration plus a render through the review gate), not a consequence.
+- **Give the 4 address-less sites an address**, or the check will keep raising them — correctly.
+- **`sites.content_data.email` can be stale.** idea.uk's holds the old `idea-uk@leopardess.uk` while
+  its identity `site_spec` holds the current `idea.uk@contactforsales.com`. Whatever populates
+  `RenderContext.Email` should prefer the spec; **[UNVERIFIED]** which source wins on each render
+  path — worth checking before the remediation step, or it will bake in stale addresses.
+
 ### Found while verifying C — filed separately as `bugs_open/048`
 
 Four `scheduled_tasks` have not fired in **79 days** while `enabled=true`, because a fifth task in
