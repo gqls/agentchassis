@@ -15,6 +15,33 @@ luck of timing, not by design.
 
 ## ✅ CLOSED 2026-07-20 — fixed AND live, proven end-to-end against production
 
+> **RE-VERIFIED under v1.0.1140** (fresh chassis build deployed 2026-07-20
+> 18:58 BST). A new image can silently regress a fix out of prod if it is built
+> from an older ref, so the closure was re-checked rather than assumed: all six
+> guard strings are in the running pod, including `</fieldset>` (which proves
+> the *recalibrated* guard, not the first cut), and the DB half is intact
+> (`update_component.config.error_step=refuse_mangled_write`, both new steps
+> present, `improve_tool` at 32000).
+>
+> **A near-miss worth recording:** `response truncated: stop_reason=max_tokens`
+> greps to **0** in this image, which looks exactly like `bugs_open/008` being
+> reverted. It is not. That guard was refactored into a `TruncatedError` type
+> (`a3b606798`, `45e90acbb`) and the message text changed — `stop_reason=max_tokens`
+> is present, plus a new `stop_reason=refusal` case. **A pod-grep proves a
+> string, not a behaviour: confirm against the source before calling a
+> regression.**
+>
+> **Interaction created by that refactor** — truncation is now tolerable
+> per-step via `config.tolerate_truncation` (bugs_open/019: a cut reviewer
+> degrades instead of voiding the council round). A step that tolerates a cut
+> continues on the **partial**, which is precisely the input this guard exists
+> to refuse. Checked live: `tolerate_truncation=true` appears only on
+> `council-gate` reviewer steps (`execute_llm_prompt`), and on **no**
+> whole-component writer. The two layers compose correctly — (b) hard-fails by
+> default, and where a step opts to tolerate a cut, (a) stops the wreckage being
+> persisted. If a component writer ever sets that flag, this guard becomes its
+> only protection.
+
 Deployed in chassis **v1.0.1139** and verified by driving the real failure, not
 by reading config. Pod-binary grep confirms the shipped code
 (`component_write_regression_blocked`, `refusing to overwrite component`,

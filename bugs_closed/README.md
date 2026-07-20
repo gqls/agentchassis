@@ -72,7 +72,7 @@ numbers are cited in commit messages and Go comments.
 | 005 | Article-body blanking — root cause is LLM truncation (`max_tokens`) | fix deployed v1.0.1126; re-verified live 2026-07-19 (19/19 healthy, config survived a re-seed, repair fn present in the running pod) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo | both causes fixed (v1.0.1126 + pin removal) |
 | 008 | `GenerateText` never decoded `stop_reason` — truncations and refusals surfaced as successes or as parse faults | all 5 items live in the image rolled 2026-07-20 18:58 BST; **re-verified in the running pod** |
-| 012 | The improver truncates and destroys the component it is repairing | guard + migrations 168/169/170 live in v1.0.1139; chain driven and verified against production |
+| 012 | The improver truncates and destroys the component it is repairing | guard + migrations 168/169/170 live in v1.0.1139; chain **driven** against production (not inferred from config); **re-verified in the running pod under v1.0.1140** |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output, so the gate burns the whole run | `formatGeneratedGo` at commit-prep; **re-verified in the running pod** 2026-07-20 |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo | both causes fixed (v1.0.1126 + pin removal) |
 | 016 | `ssh` ignores `$HOME` and expands `~` from the passwd entry | fixed in the box scripts |
