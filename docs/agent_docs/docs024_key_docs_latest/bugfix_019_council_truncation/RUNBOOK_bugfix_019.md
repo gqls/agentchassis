@@ -65,6 +65,31 @@ WHERE type IN ('council-gate','fix-proposer','feature-designer')
 Gotcha: `LIKE 'review\_%'` — the underscore must be escaped or it matches any
 character ("reviewX..." would slip in).
 
+**Rollback** (accepted lore miss: 177 was applied without a pre-write backup —
+this strip-key UPDATE is the recovery; the key is additive so removal restores
+the exact prior state):
+
+```sql
+-- mirror of 177's DO block, with #- (delete key) in place of jsonb_set
+DO $$
+DECLARE r RECORD; step_key TEXT;
+BEGIN
+  FOR r IN SELECT id, default_config FROM agent_definitions
+    WHERE type IN ('council-gate','fix-proposer','feature-designer')
+      AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  LOOP
+    FOR step_key IN SELECT k FROM jsonb_object_keys(r.default_config->'workflow'->'steps') AS k
+      WHERE k LIKE 'review\_%'
+    LOOP
+      UPDATE agent_definitions
+      SET default_config = default_config #- ARRAY['workflow','steps',step_key,'config','tolerate_truncation'],
+          updated_at = now()
+      WHERE id = r.id;
+    END LOOP;
+  END LOOP;
+END $$;
+```
+
 ## Verify the fix after an image roll
 
 ```bash
