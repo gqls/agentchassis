@@ -1548,6 +1548,44 @@ before trusting a clean run. Kin: "A fix applied to one branch of a two-branch
 router reads as done" (§9). Category tags: `partial-coverage`, `authority-order`,
 `jsonb-null`, `false-clean`.
 
+### "The fix needs X to be built" is a claim about the codebase — grep before repeating it
+
+*Added 2026-07-20 from bugs_open/002 D; the error was made independently by two
+threads, which is why it earns a pattern.*
+
+A 2026-07-15 handoff said an empty section on a content-rich page needed "a
+TARGETED single-section repair (fill only the empty fields, no whole-page
+re-save)" to be designed. The signing-off thread (2026-07-20) repeated it as
+"no targeted single-section repair path exists — an architectural gap". The
+owner asked for a double-check. **The mechanism existed the whole time**:
+`apply_section_edit` / the `section-editor` agent
+(`section_editor_actions.go`, added **2026-02-19**) edits one
+`page_components` row's `content_data`, re-renders that component, reassembles
+via `assemblePage` — and never passes through `save_page_sections`, so the
+content-regression guard is not in its path. Seeded, active, in the deployed
+binary, trigger script present, **3 COMPLETED production runs**. Five months
+old at the time it was declared missing. What was actually missing was
+narrower: nothing *generates* the content (the editor applies caller-authored
+fields), and nothing *routes* `empty_section` items to it.
+
+**Why two threads missed it:** a "fix candidates" section reads as design
+guidance, so nobody treats it as an assertion needing evidence. But "X does
+not exist" is exactly as checkable as "X is broken", and cheaper: one grep of
+`registry.go` (`grep -nE '"[a-z_]*(section|component|repair)[a-z_]*":'`) put
+`apply_section_edit` on screen. The check for "does machinery exist" is:
+registry → agent_definitions row (active? workflow?) → pod binary (`strings`)
+→ `orchestration_states` (ever run?). Four queries, two minutes.
+
+**Rules.** (1) Before repeating a handoff's "needs X built", grep for X — the
+platform convention "reuse existing machinery before building new" applies to
+*claims about* machinery too. (2) When signing off someone else's entry,
+their fix-candidate list inherits none of the evidence standard of their
+symptom report — re-ground it. (3) Scope the surviving claim precisely: the
+guard-blocks-whole-page-regen half was true, but "can't be repaired at all"
+had silently widened it. Kin: the CLAUDE.md 2026-07-19 correction ("the
+failure mode is not missing information — it is not looking"). Category tags:
+`asserted-absence`, `fix-candidate-unverified`, `reuse-before-build`.
+
 ### A section name is not a component name — `section_type` is an invisible alias
 
 *Added 2026-07-19 from bugs_open/002 error C.*
