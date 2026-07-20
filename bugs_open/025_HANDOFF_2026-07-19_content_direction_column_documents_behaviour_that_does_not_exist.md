@@ -71,3 +71,12 @@ Same family as the general lesson in `016b §9`: *the repo SQL under `sql_for_ag
 migration history, not the live truth* — live prompts live in
 `agent_definitions.default_config`. Here the inverse bites: a `sql_for_tables/` comment is
 the only documentation of a capability, and it is wrong.
+
+## Addendum 2026-07-20 — the false claim also lives in the canonical contracts doc
+
+`003_contracts_and_standards(8).md` §"content_direction (Page-Level Edit Instructions)"
+states "Flows to content-writer's prompt when present" — the same claim as the column
+comment, in the doc every developer is told to check changes against. Corrected in place
+(dated block pointing here) rather than deleted, since it may be the *intended* design.
+This strengthens fix candidate (2) (wire it up as documented): the behaviour is documented
+in two places, so either the code should match the docs or both docs should change, not one.

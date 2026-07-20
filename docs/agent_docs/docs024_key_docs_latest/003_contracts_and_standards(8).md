@@ -1027,7 +1027,19 @@ Go actions that read common fields (`page_name`, `page_id`, `site_id`) should im
 
 ## content_direction (Page-Level Edit Instructions)
 
-JSONB column on `pages` table. Flows to content-writer's prompt when present.
+> **CORRECTED 2026-07-20 (relojistas thread) — this section describes behaviour
+> that does NOT exist. Filed as `bugs_open/025`.** [checked 2026-07-19: neither
+> build-path loader selects the column — `get_pages_to_build_actions.go:98-104`,
+> `load_page_record_action.go:167` — and no Go code writes it; every
+> `content_direction` hit in Go is the *site-level* `site_specs` aspect, a
+> different mechanism that shares the name. The live writer prompt dereferences
+> only `.site_specs.specs.content_direction.formatted`.] Setting the column has
+> no effect. The working per-page steering hook is the per-section
+> `content_brief` (`purpose` / `tone_direction` / `section_guidance`), which
+> demonstrably reaches the prompt. This section is retained as the *intended*
+> design pending the 025 decision (wire it up, or drop the column).
+
+JSONB column on `pages` table. ~~Flows to content-writer's prompt when present.~~
 
 ```json
 {
