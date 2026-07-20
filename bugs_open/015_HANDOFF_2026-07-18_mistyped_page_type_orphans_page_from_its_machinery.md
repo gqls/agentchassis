@@ -119,3 +119,54 @@ When a value is used as a **routing key by several independent gates**, a wrong 
 not produce one loud failure — it produces silence in every gate at once, and the symptom
 surfaces somewhere unrelated (here: a 404 in the nav). Diagnose by asking *which key does
 each mechanism select on*, not by following the visible symptom.
+
+---
+
+## PARTIAL FIX APPLIED 2026-07-20 — candidate 3 (adopt, don't duplicate). Candidates 1 and 2 still open.
+
+`MissingNewsPageCheck` no longer assumes "no `news-index` page" means "no news
+page". Before emitting the gap item it looks for pages already occupying the
+role, and when it finds any it tells the planner to **re-type one of them**
+rather than create a second page — the outcome §"Fix candidates" (3) asked for,
+and the one that would have prevented an English `/news.html` shipping beside
+the Spanish `/noticias`.
+
+**The intervention is the natural-language `description`/`suggestion` fields,
+deliberately.** The handler is `content-gap-planner`, an LLM that reads them.
+Adding a new structured key like `approach` *alone* would have been the
+dead-config shape of `bugs_open/025` and `/042` — a field written by one side
+and read by nobody. `approach` is set too, but the words are what carry it.
+
+**Detection is structural, not name-based:** nav-visible, `sections` empty, and
+`build_status <> 'deployed'`. A vocabulary match on "news"/"noticias"/
+"nachrichten" is the name-heuristic shape `bugs_open/044` was filed against and
+would fail worst on exactly the non-English sites this bug hurts most.
+
+> **CORRECTION — my first predicate was wrong, and live data caught it.**
+> I first wrote the predicate as nav-visible + sectionless, copying this file's
+> own "how to find others" query. Run against production it returned **six pages
+> on ai-agent-orchestration.com — all `deployed`, all working**: tool pages and a
+> blog index whose `sections` are legitimately empty because their content comes
+> from elsewhere. The check would have told the planner those six "can never
+> build and are dead links today", which is false, and invited it to re-type a
+> live tool page into a news index.
+> **An empty `sections` array only means "stranded" when the page never built.**
+> Adding `build_status <> 'deployed'` takes the fleet result to zero rows — which
+> is correct, because relojistas was already hand-fixed. The clause is pinned by
+> a test regex so it cannot be quietly dropped.
+> This file's own diagnostic query has the same false-positive and should not be
+> pasted into anything that acts on the result.
+
+**Scope, measured not assumed.** Exactly **one** site currently has
+`separate_page=true` with no `news-index` page (ai-agent-orchestration.com), and
+after the correction it yields zero candidates. So this is a **guard against
+recurrence**, not a repair of live damage — the triage note calling it
+"fleet-wide, non-English sites worst" was describing the mechanism's reach, not
+its current incidence.
+
+**Still open, and still the real fix:** candidate 2 — the planner emits
+`section-index` for a news listing in the first place. Everything above is
+downstream mitigation. Candidate 1 (assert intent against realisation at
+classification time) is also untouched.
+
+Go change — inert until a chassis image is rebuilt and rolled.

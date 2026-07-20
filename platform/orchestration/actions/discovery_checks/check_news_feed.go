@@ -35,6 +35,7 @@ package discovery_checks
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -559,20 +560,61 @@ func (c *MissingNewsPageCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 		SELECT domain FROM sites WHERE id = $1
 	`, dctx.SiteID).Scan(&domain)
 
-	specJSON, _ := json.Marshal(map[string]interface{}{
+	// bugs_open/015: "no news-index page" is NOT the same as "no news page".
+	// relojistas.com's planner emitted its Spanish news listing as
+	// page_type='section-index', which orphaned it from every gate keying on
+	// 'news-index' — including this one. Telling the planner to create a page
+	// would have shipped an English /news.html alongside the existing Spanish
+	// /noticias rather than fixing the mistyped page.
+	//
+	// So look for a page already OCCUPYING the role before claiming none
+	// exists. The signal is structural, taken from 015's own "how to find
+	// others" query — nav-visible, but with no sections, so it can never build
+	// and is a live 404 in the navigation. Deliberately NOT a name-vocabulary
+	// match ("news"/"noticias"/"nachrichten"…): that is the name-heuristic
+	// shape bugs_open/044 was filed against, and it fails on exactly the
+	// non-English sites this bug hurts most.
+	candidates, cerr := findStrandedNavPages(dctx)
+	if cerr != nil {
+		return nil, fmt.Errorf("missing_news_page: candidate query failed: %w", cerr)
+	}
+
+	gapSpec := map[string]interface{}{
 		"check":            "missing_news_page",
 		"page_name":        "news",
 		"page_type":        "news-index",
-		"description":      fmt.Sprintf("Site %s is recommended for a dedicated news page (separate_page=true) but no news-index page exists. Create a /news.html page with a news-listing component to display the full news archive.", domain),
-		"suggestion":       "Create a new page named 'news' with page_type 'news-index', a hero section, the news-listing component, and a call-to-action. Add it to header and footer navigation.",
 		"category":         "content_completeness",
 		"news_feed_config": newsFeed,
-	})
+	}
+	summary := fmt.Sprintf("Site %s needs a dedicated /news.html page (separate_page=true in spec)", domain)
+	message := fmt.Sprintf("Site spec recommends a separate news page but no news-index page exists for %s", domain)
+
+	if len(candidates) > 0 {
+		// The handler is content-gap-planner, an LLM reading these
+		// natural-language fields — so changing what they SAY is the whole
+		// intervention. Adding a new structured key nobody reads would be the
+		// dead-config shape of bugs_open/025 and /042.
+		gapSpec["approach"] = "retype_existing"
+		gapSpec["retype_candidates"] = candidates
+		gapSpec["description"] = fmt.Sprintf(
+			"Site %s is recommended for a dedicated news page (separate_page=true) and has NO page of type 'news-index' — but it does have %d navigation-linked page(s) with no sections, which can never build and are dead links today: %s. "+
+				"One of these is very likely the news listing already, created under the wrong page_type. Creating a new page would leave a duplicate alongside it, in the wrong language for a non-English site.",
+			domain, len(candidates), describeCandidates(candidates))
+		gapSpec["suggestion"] = "FIRST decide whether one of the listed stranded pages is already the news listing. If it is, RE-TYPE that page to page_type 'news-index' and give it the sections [hero, news-listing, call-to-action] — do NOT create a second page. Only if none of them is a news listing should you create a new page named 'news'. page_type is a routing key here, not a label: several independent gates key on 'news-index', so the wrong value silences all of them at once."
+		summary = fmt.Sprintf("Site %s: news page missing, but %d stranded nav page(s) may be it mistyped — re-type, do not duplicate", domain, len(candidates))
+		message = fmt.Sprintf("Site %s has no news-index page but %d nav-linked sectionless page(s) that may be it under the wrong page_type", domain, len(candidates))
+	} else {
+		gapSpec["approach"] = "new_page"
+		gapSpec["description"] = fmt.Sprintf("Site %s is recommended for a dedicated news page (separate_page=true) but no news-index page exists. Create a /news.html page with a news-listing component to display the full news archive.", domain)
+		gapSpec["suggestion"] = "Create a new page named 'news' with page_type 'news-index', a hero section, the news-listing component, and a call-to-action. Add it to header and footer navigation."
+	}
+
+	specJSON, _ := json.Marshal(gapSpec)
 
 	return &CheckResult{
 		Findings: []map[string]interface{}{{
 			"check":   "missing_news_page",
-			"message": fmt.Sprintf("Site spec recommends a separate news page but no news-index page exists for %s", domain),
+			"message": message,
 		}},
 		WorkItems: []WorkItemSpec{{
 			SiteID:       dctx.SiteID,
@@ -580,7 +622,7 @@ func (c *MissingNewsPageCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 			Pipeline:     "content",
 			ItemType:     "missing_news_page",
 			Severity:     "medium",
-			Summary:      fmt.Sprintf("Site %s needs a dedicated /news.html page (separate_page=true in spec)", domain),
+			Summary:      summary,
 			SpecJSON:     string(specJSON),
 			Priority:     60,
 			HandlerAgent: "content-gap-planner",
@@ -590,4 +632,106 @@ func (c *MissingNewsPageCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, er
 			BatchID:      dctx.BatchID,
 		}},
 	}, nil
+}
+
+// ===========================================================================
+// bugs_open/015 support — pages the navigation links to that can never build
+// ===========================================================================
+
+// strandedNavPage is a page linked from the header or footer that has no
+// sections. page-build-handler no-ops it ("no sections ready to build") into
+// needs_human_review, so it never deploys and the nav link stays a live 404.
+// On relojistas.com this was the news listing itself, emitted by the planner as
+// page_type='section-index' instead of 'news-index'.
+type strandedNavPage struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	PageType    string `json:"page_type"`
+	BuildStatus string `json:"build_status"`
+}
+
+// strandedNavPageCap bounds what goes into a work-item spec. Reported rather
+// than silently applied — a truncated list that reads as complete is how a
+// caller concludes "that is all of them".
+const strandedNavPageCap = 10
+
+// findStrandedNavPages returns nav-linked, section-less pages that have never
+// successfully built and are not already typed 'news-index'.
+//
+// The predicate is deliberately STRUCTURAL — nav-visible, sections-empty,
+// not deployed — and not a name match. A vocabulary list ("news", "noticias",
+// "nachrichten") is the name-heuristic shape bugs_open/044 was filed against,
+// and it would fail worst on the non-English sites this bug hurts most:
+// relojistas' page is called "noticias-index", and the next site's will be
+// called something else again.
+//
+// The `build_status <> 'deployed'` clause is NOT incidental, and was added
+// after checking the predicate against live data rather than reasoning about
+// it. Without it the query returned six pages on ai-agent-orchestration.com —
+// tool pages and a blog index, all deployed and working, whose `sections` are
+// legitimately empty because their content comes from elsewhere. Feeding those
+// to the planner as pages that "can never build and are dead links today"
+// would have been false, and would have invited it to re-type a live tool page
+// into a news index. An empty `sections` array only means "stranded" when the
+// page never built; on a deployed page it means the sections are somebody
+// else's job.
+//
+// Vocabulary check (live, 2026-07-20): build_status has exactly three values —
+// deployed (215), needs_rebuild (50), planned (20). needs_rebuild is kept
+// deliberately: sectionless and nav-linked, it cannot rebuild either.
+func findStrandedNavPages(dctx DiscoveryCheckContext) ([]strandedNavPage, error) {
+	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
+		SELECT id::text, name, COALESCE(page_type, ''), COALESCE(build_status, '')
+		FROM pages
+		WHERE site_id = $1
+		  AND COALESCE(page_type, '') <> 'news-index'
+		  AND (COALESCE(in_header, false) OR COALESCE(in_footer, false))
+		  AND jsonb_array_length(COALESCE(sections, '[]'::jsonb)) = 0
+		  AND COALESCE(build_status, '') <> 'deployed'
+		ORDER BY name
+	`, dctx.SiteID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []strandedNavPage
+	for rows.Next() {
+		var p strandedNavPage
+		if err := rows.Scan(&p.ID, &p.Name, &p.PageType, &p.BuildStatus); err != nil {
+			return nil, err
+		}
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(out) > strandedNavPageCap {
+		dctx.Logger.Info("missing_news_page: stranded nav page list capped",
+			zap.Int("found", len(out)),
+			zap.Int("reported", strandedNavPageCap))
+		out = out[:strandedNavPageCap]
+	}
+	return out, nil
+}
+
+// describeCandidates renders the candidates for the natural-language spec the
+// content-gap-planner reads. Name, current type and build status are all
+// load-bearing: the type is the thing that is wrong, and the build status is
+// what shows the page has never successfully built.
+func describeCandidates(candidates []strandedNavPage) string {
+	parts := make([]string, 0, len(candidates))
+	for _, c := range candidates {
+		pt := c.PageType
+		if pt == "" {
+			pt = "(no page_type)"
+		}
+		bs := c.BuildStatus
+		if bs == "" {
+			bs = "(no build_status)"
+		}
+		parts = append(parts, fmt.Sprintf("'%s' (page_type=%s, build_status=%s)", c.Name, pt, bs))
+	}
+	return strings.Join(parts, ", ")
 }
