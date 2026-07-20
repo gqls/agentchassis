@@ -558,3 +558,58 @@ derived, label-blind, from nav order. A fix that only teaches the content writer
 to pair them will be overwritten by the next render. The fix has to be in
 `chooseCTATargets` (make it label-aware, or let an explicit authored URL win).
 Recorded there.
+
+### Post-drain, 2026-07-20 — two more derived-field traps, and a real exposure I had left open
+
+The 12-item batch completed (12/12). Verified against the **rendered pages**:
+all fabricated figures gone from `/about.html`, `/entities/gripper-detail.html`
+and `/index.html`; `gripper-detail` now renders 5 / 5 / 4 / 24 with correct
+labels and **no placeholder suffixes** — the live `2,400+%` and `140+ms` are
+gone.
+
+**Trap 3 — the tool list is derived too.** `r4` removed the dead
+payload-budget card from `content_data->'items'`; the re-render at 17:10:23 put
+it straight back, all five entries, and the homepage still served the 404. Same
+shape as the CTA resolver: **the listing is regenerated from the site's tool
+pages**, so editing the rendered array cannot hold. It listed the page because
+the page still *existed* (`build_status='planned'`, never built).
+
+Fixed the way R6 did it — `pages.status='archived'`
+(`SQL_2026-07-20_r4e_archive_unbuilt_tool_page.sql`), which R6 already proved
+the listings respect. `tool-matchmatrix` deliberately **not** archived: it is
+real now and should be listed. Both `incomplete_page_group` items closed at the
+same time (`complete` for matchmatrix, `wont_fix` for payload-budget) — they had
+been sitting in `needs_human_review` since 2026-07-14 in a queue with no
+consumer (`/bugs_open/033`).
+
+> The structural point, which I have NOT fixed: **a listing that advertises
+> pages which were never built is how these 404 CTAs arose in the first place.**
+> Archiving rows per site is containment. The durable fix is for the tool-list
+> query to filter on `build_status`. Same family as the `023` addendum —
+> *derived field, authored edit cannot hold.*
+
+**Trap 4 — I had left the tool itself unprotected.** `tool-matchmatrix` still
+read `build_status='planned'` with **zero** `page_components`, because I had
+deployed the artefact straight to `gqls/sites` and never created a DB source.
+The page was live and working with nothing behind it — so the next rebuild of
+that page would have rendered an empty shell **over a working tool**. That is
+precisely the `/bugs_open/001` / `/bugs_open/038` class, and I had walked into
+it while writing up that very class two hours earlier.
+
+Fixed in `SQL_2026-07-20_r4f_matchmatrix_durable_source.sql`: component +
+page_components row wired to match the live reference implementation
+(`function=tool-matchmatrix`, `render_mode=template`, `component_level=tool`,
+`category=interactive`, `content_data={}`), page set to `deployed`. 23,281 B of
+template now in the DB. One deliberate deviation: the three existing tool
+components carry `is_active=f` and this one is created **active** — nothing
+depends on the flag (`renderAndStoreSiteComponent` ignores it, the R1 finding)
+and copying a past cleanup's artefact into a new row would be cargo-culting.
+
+**The pattern across all four traps.** Every one is the same shape: a field that
+*looks* authored is actually **derived on render** — CTA URLs from nav order,
+CTA target titles alongside them, the tool list from the page set, and the page
+body from the component source I had not created. The check that catches this
+class is not a better verify query; it is **re-reading after a render**, which is
+CLAUDE.md's "trust the rendered artefact, not the status" applied to the DB row
+as well as the page. My `content_data` verify ran inside the writing transaction
+and could not, in principle, have caught any of them.
