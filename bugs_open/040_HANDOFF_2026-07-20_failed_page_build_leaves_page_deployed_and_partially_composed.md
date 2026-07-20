@@ -1,5 +1,15 @@
 # Handoff — a FAILED page build leaves the page `deployed`, partially composed, and invisible to the reconciler
 
+> **NUMBER COLLISION (2026-07-20, same day):** another thread filed a different
+> `040` (`kafka_dial_timeouts_fleetwide_intermittent`, which cites itself as
+> **040-kafka-dial**). Numbers are never reassigned — resolve by slug
+> (`bugs_closed/README.md` duplicate-numbers table). Cite this case as
+> **040-partial-build**.
+>
+> The two are related in substance, not just in number: 040-kafka-dial is a
+> plausible *cause* of the spawn timeout that triggered this case (see "What
+> happened" below), and `/bugs_open/003` is the mechanism connecting them.
+
 **Filed 2026-07-20.** Found by asking the framework to rebuild a page through its own route
 (rather than hand-restoring it) while verifying `/bugs_open/001` — which is exactly what exposed it.
 
@@ -50,6 +60,48 @@ and only **five of the six** planned sections exist, each marked `build_status='
 `testimonials` is not suppressed (`pages.suppressed_sections = []`) and the component exists and is
 active (`content_components`: `name='testimonials', function='testimonials', is_active=t`). It was
 simply never written — almost certainly the request that timed out.
+
+> ### CORRECTED 2026-07-20 18:00 UTC, after the v1.0.1140 deploy — two of my own claims were wrong
+>
+> **(a) "almost certainly the request that timed out" is REFUTED.** The page was rebuilt again at
+> **15:18:17** by an `image-build-handler` item (*"Re-render index after its image asset landed"*,
+> reason `image_landed`) which reported **`status='complete'`** at 15:19:02. That build **also
+> produced 5 of 6 sections** — `testimonials` missing again, `category-listing` again a 364-byte
+> shell. **A successful build drops the section too**, so the timeout never explained it.
+>
+> Also, the timeout's failing step was **`deploy_page`**, i.e. *after* component writing. It could
+> not have eaten a component that the earlier steps were responsible for producing. I had asserted
+> a cause that the step name alone contradicts.
+>
+> Two other hypotheses tested and also refuted: the `testimonials` template passes
+> `sectionTemplateValid` (it contains `</section>`), so it is not being dropped by
+> `loadComponentSchemas`' truncation skip; and it is not in `sections_deferred` or
+> `sections_skipped`. **The cause of the dropped section is currently UNKNOWN** — that is the honest
+> state, and it wants its own investigation rather than another guess.
+>
+> **(b) "the cause is one join away but not written where a human or a sweep would look" is TOO
+> STRONG.** The failure *was* durably recorded, in `agent_error_log`, with the message, the step and
+> the work item id:
+> ```sql
+> SELECT agent_type, step_name, error_message, work_item_id FROM agent_error_log
+> WHERE orchestration_id='5c930b26-cf9a-4779-a19d-1215c8ad1de6';
+> -- page-build-handler | deploy_page | Request 57508ea9-… timed out after 3 retries | f98331dd-…
+> ```
+> The narrower true statement: **`site_work_items.error` is empty**, so the work item does not carry
+> its own failure, but the platform did record it in a queryable table (32,398 rows since
+> 2026-04-02). Fix candidate 2 below is therefore smaller than written — it is a join, not a
+> missing record. v1.0.1140 adds `platform/orchestration/agent_error_log.go`, a further writer for
+> that table from `routeToErrorStep` / `notifyParentOfFailure`.
+>
+> ### And the core defect is now DEMONSTRATED rather than predicted
+>
+> After the 15:18 rebuild the page is `deployed` **and stamped with the CURRENT plan**
+> (`built_from_plan_version = dcc7834e`, the second re-plan's id). So `decideEmit` now genuinely
+> returns `skip_built` for it. **dartsonline's homepage is a permanent five-sixths page that no
+> longer asks to be built**, and this time it got there via a build that reported success. That is
+> the whole bug, observed end to end, without needing the failure at all — which makes the title's
+> emphasis on "FAILED" too narrow. **A partial build reports success and strands the page either
+> way.**
 
 `category-listing`'s 364 bytes are an empty shell (empty `<h2>`, `href="#"`, empty grid) — the
 `/bugs_open/039` empty-section shape, and there is a matching `empty_section` work item for this
