@@ -54,3 +54,34 @@ Hardcoded-200 health endpoints confirmed (`cmd/agent-chassis/main.go:141–150`)
 — probes on spawned Jobs point at them; `platform/health/server.go` has a real
 Checkers-based server nobody wired in. Owner directed: fix the health checks
 now, summary doc written (SUMMARY_2026-07-20).
+
+**2026-07-20 (later, same session).** Health-check fix BUILT:
+`cmd/agent-chassis/health.go` (healthState + broker prober; liveness fails only
+after 300s continuous all-broker unreachability, env-tunable; readiness =
+started + broker reachable within ~63s; boot grace via lastKafkaOK seeded at
+start), main.go wired, probe stanzas added to the chassis base deployment.
+`go build` + `gofmt` clean. Council-submitted with FORCE=1 (files are cmd/ +
+deployments/, outside the ^(platform|internal|pkg)/ scope regex — code, not
+docs, so the override is the intended use). SUBMISSION_CORR
+`3a18a1a4-f3f1-429f-933c-2ef9e2e1833b`; verdict pending at time of writing.
+INERT until image roll either way.
+
+F2/F3 premise double-checks (owner asked before go-ahead) — ALL PASS:
+- `cleanupExpiredAwaitedRequests` ticker IS started (`coordinator.go:109`) —
+  unlike TimeoutMonitor, this extension point is live.
+- Live `awaited_requests` CHECK = waiting/processing/processed/expired/
+  cancelled/error — **no 'retrying'**; F2 needs migration `180` (next free
+  number in `docs/agent_docs/sql_for_agents/`; watch bugs_open/007's
+  migrations-ledger trap).
+- `processMessage` returns void; success branch at agent.go:849 is where
+  `MarkMessageComplete` goes.
+- `handleProcessingError` sends an error RESPONSE to the parent → in-process
+  failures already retry via the parent's handleRecoverableError; so F3's
+  commit must be unconditional after processMessage returns (redelivering
+  locally would double-execute and fight the parent's retry). D3 confirmed.
+- Diagnosis-loop verdict on the third root cause: NOT obtained — the run
+  wedged at `route` (EXECUTING_STEP, 140 min stale, bundle iter 1 only),
+  itself a 003-class casualty; will be reaped by the new F1 clause. Intake
+  item closed as cancelled with a note. Claim rests on direct code reading.
+- Owner's "scheduled_tasks has retry machinery" point: verified & reconciled
+  (see 2026-07-20b nuance in the bug file) — work-item layer only.
