@@ -164,6 +164,26 @@ not survive many concurrent sessions, which is exactly the situation `CLAUDE.md`
   partitions lose ordering guarantees that the orchestration state machine may rely on.
 - The 300 s post-restart drop documented in `CLAUDE.md` is a **separate, real** failure. Fixing this
   one does not retire that rule.
+- **A FROZEN CONSUMER OFFSET IS NOT A DEAD CONSUMER — it is this bug, mid-message** (added
+  2026-07-20, bugfix-028 thread, after I got it wrong). Chasing a stuck dispatch I sampled
+  `CURRENT-OFFSET` three times over a minute and found it pinned at **95919** while
+  `LOG-END-OFFSET` climbed (95970 → 95972) and `LAG` grew 51 → 61. I concluded the chassis had
+  **stopped consuming fleet-wide** and was about to report a live outage. It had not: offsets are
+  committed *after* a message is fully processed, and the message in flight was a multi-step
+  council orchestration. The pod was healthy and logging LLM steps the whole time
+  (`Rendered prompt template`, 18:33:52) — I had simply queried a log window that returned
+  nothing and read the silence as death. **So: `LAG` is a trustworthy queue-depth signal; a
+  static `CURRENT-OFFSET` is worthless as a liveness signal**, and will hold still for the entire
+  duration of the longest orchestration on the topic. To check liveness, look at the chassis log
+  for *any* recent line, or watch whether the offset eventually jumps by several messages at once
+  — which is what draining looks like here, not a smooth advance.
+- **Clearing bug 029's hung dispatch slots does NOT unblock this.** Same session, same hour: I
+  found two `build-pipeline-trigger` orchestrations hung at `spawn_dispatch` and applied 029's
+  documented recovery (2 cancelled, slots freed, group down to 1 of 8). The work item still did
+  not move, because the bottleneck was **upstream** — the trigger cannot even be *delivered* while
+  the single consumer is busy. 029 and 030 present identically (a healthy-looking `triaged` item
+  that never dispatches) and the 029 recovery is cheap and harmless, so it is a reasonable first
+  move — but if the item still does not budge, check `LAG` before concluding the recovery failed.
 
 ## Related
 
