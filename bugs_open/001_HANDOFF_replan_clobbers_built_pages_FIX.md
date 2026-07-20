@@ -376,6 +376,12 @@ read the LLM's string.
 
 ### Three things this run measured that the fix does NOT address
 
+**All now filed as their own cases** (2026-07-20): `/bugs_open/037` (needs_rebuild unprotected),
+`/bugs_open/038` (every deployed page still rebuilt, content regenerated), and — from the near-miss
+described above — `/bugs_open/039` (function-vs-name, and a section naming a missing component
+rendering a hollow stub). `/bugs_open/035` records the `updated_at` trap. Summaries follow; the case
+files hold the evidence and fix candidates.
+
 1. **`needs_rebuild` pages are not protected.** `index` had a live 7-section composition and lost
    `differentiators` + `content-listing` (both distinct components, not aliases — checked). It is
    `needs_rebuild`, so `realisedPageIsBuilt` excludes it. This is arguably fix step 4's intended
