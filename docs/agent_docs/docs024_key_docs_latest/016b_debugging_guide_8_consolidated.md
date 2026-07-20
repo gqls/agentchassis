@@ -1957,6 +1957,50 @@ LAST reader" (`bugs_closed/028`). One discards the tail of what it keeps, the
 other discards a whole field — both silently, both leaving output that reads as
 intended. Fleet enumeration + fix candidates: `bugs_open/027` §4b.
 
+### A cap on a READ path reports a backlog as "nothing to do" (2026-07-20)
+
+**Symptom.** 303 work items sat at `needs_human_review`, oldest four months, none
+ever actioned. Filed as *"the human-review queue has no working surface"*
+(`bugs_open/033`) — the reasonable inference from four months of total silence.
+
+**Mechanism.** The surface exists and is complete (approve / retry / resolve /
+save-and-rebuild / editable review forms, `frontends/admin-dashboard/src/App.tsx:397,1160-1189`).
+`HandleListWorkItems` hardcodes `limit := 50` `ORDER BY created_at DESC`
+(`site_admin_handlers.go:483,519`); the frontend passes **no** `status` param and
+filters client-side, under a comment asserting the opposite — `// Load all
+non-complete items, filter client-side for accurate counts` (`App.tsx:440`).
+Against live data the cross-site view could show **0 of 208** review items, and
+the "Needs Review (N)" badge — computed over the same 50-row window — read **0**.
+
+**The generalisation, and why it is not the truncation shape above.** A silent cap
+on a *write* path corrupts a stored artifact: the damage is visible in the row,
+and someone eventually reads it and frowns. A silent cap on a *read* path
+corrupts the **absence of evidence**, and absence is what people reason from when
+deciding whether a problem exists. It does not produce a wrong page; it produces a
+confident, well-founded, entirely false belief that there is no work — held by
+every human and every thread that looks. Four months of "nobody cares about this
+queue" was four months of the dashboard truthfully reporting what it could see.
+
+**Two checks that generalise:**
+- **When a UI filters client-side, the cap and the filter are one bug.** `LIMIT n`
+  is safe only if the client can also ask the server to narrow. Here the backend
+  already supported `?status=` and `?item_type=` (`:497,:513`) — the frontend
+  simply never used them, so the cap it did not know about silently pre-empted the
+  filter it did use. Grep the caller before trusting a filter's counts.
+- **"Nobody uses X" needs a search wide enough to be falsifiable.** 033's claim
+  that the three admin routes had never run came from a **backend-only** grep; the
+  callers were in `.tsx`. Before asserting a cross-cutting negative, name the
+  languages and directories the grep covered — if that list is narrower than the
+  claim, the claim is about your search, not the system. (`WRONG_CALLS.md`,
+  2026-07-20; third entry of this shape that week.)
+
+**Companion trap in the same file.** The designed HITL path (`checkpoint_for_review`
+→ `spec.checkpoint` → **Approve & Continue** → `HandleApproveWorkItem`) is fully
+implemented at every stage and has never run: **0 of 5,622 items in the platform's
+history have ever carried `spec.checkpoint`**, and the action is wired to 0 live
+agents. A button whose render condition has never been true is indistinguishable,
+from the outside, from a button nobody clicks — and the two have opposite fixes.
+
 ### A recorded user decision with no enforcement point is decorative — an LLM re-guesses it every run (2026-07-20)
 
 **Symptom.** robot-hands runs `tool-portal-dark` (`layouts.scheme='dark'`, a
