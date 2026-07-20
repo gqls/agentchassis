@@ -138,6 +138,87 @@ would re-arm exactly the trap this file documents. The 2026-07-16 instance alrea
 recorded a numbering collision being dismissed as "cosmetic only"; the correct reading is
 that the number is cosmetic and the *filename* is the key.
 
+## FIXED 2026-07-20 — the tooling landed (fix candidates a + b, plus two more)
+
+`scripts/migration/run-migrations.sh` now carries the mechanism the recurrence
+section above asked for. Shell only — no image roll, so this is live on commit.
+
+**(a) `--record-only <file> --note "<why>"`** — registers an out-of-band apply.
+Inserts `applied_by='record-only'` with a **required** free-text note; refuses a
+file that does not exist, refuses a sidecar (below), and is a no-op on second
+invocation. The note is mandatory precisely because the artifact check is the
+load-bearing part and a flag with no note invites recording without checking.
+
+**(b) The failure message now names the likely cause.** On any failed file the
+runner prints that a duplicate key (23505) most likely means already-applied-
+and-unrecorded rather than broken SQL, and prints the exact `--record-only`
+command to copy, with the warning that recording an unrun migration skips it
+for ever.
+
+**(e) NEW — the runner would have applied ROLLBACK and VERIFY sidecars.** Found
+while taking the baseline dry run for this fix. The candidate regex
+`^[0-9]{3}_[A-Za-z0-9_]+\.sql$` matched `180_tool_improver_rerender_request_ROLLBACK.sql`
+and `..._VERIFY.sql`, so both were listed as *pending migrations*. The ROLLBACK
+strips the four keys 180 added (**re-opening bugs_open/024**) and ends with
+`DELETE FROM schema_migrations WHERE filename = '180_tool_improver_rerender_request.sql'`.
+Its own guard is no protection — the guard fires when 180 is *absent*, and 180
+**is** applied (ledger row 2026-07-20 19:13), so the guard passes and the revert
+proceeds. `sort` puts `.sql` before `_ROLLBACK.sql`, so on a directory where the
+base migration was also pending it would apply and then immediately be undone in
+the same run.
+
+> **Precisely how live was it:** conditional, not certain. The runner stops at
+> the first failure, so the ROLLBACK only executed if 177, 178 and 179 all
+> succeeded first. It self-heals on a *subsequent* run (deleting 180's row makes
+> 180 pending again, so it re-applies) — but in the window bugs_open/024 is
+> genuinely re-opened, and it leaves a `doc_notes` row announcing the rollback
+> plus a spurious snapshot. Recorded as a near-miss, not an outage.
+>
+> Fix: exclude `_[A-Z][A-Z0-9_]*\.sql$` from candidates and **list them** under
+> a "Sidecars (hand-run only)" heading — reported, never silently dropped, for
+> the same reason the odd-filename warning exists. The uppercase rule matches
+> the live convention: of 176 files in the directory, the only two containing
+> any uppercase letter are exactly these two sidecars.
+
+**(f) A dry run took over 120 seconds; now 4.8.** It made one `kubectl exec`
+round trip *per file* to test the ledger. The whole ledger is now fetched in a
+single query. This is not cosmetic: the recurrence section's own advice is
+"**run the dry run before believing the queue is clean**", and a two-minute
+check is one that gets skipped.
+
+**(g) An unreachable database no longer reads as an empty ledger.** Every psql
+call swallowed stderr, so a failed `kubectl exec` returned "" — indistinguishable
+from "the ledger table does not exist", which the runner treated as *nothing is
+applied*. With `--apply` that meant replaying the entire history from 124. The
+runner now probes `SELECT 1;` first and refuses to do anything if it fails.
+
+**NOT done: fix candidate (c)**, the unguarded-`INSERT` lint. Still wanted, still
+optional; left out to keep this change reviewable. Candidate (d) (auto-record on
+23505) remains correctly rejected.
+
+### Verification
+
+Exercised against a stub psql (`fake-psql.sh`, scratch ledger) so the destructive
+paths could be driven without touching prod: sidecars listed-not-pending;
+below-baseline files ignored; `--apply` stops on a forced 23505 and prints the
+hint with the blocker **not** recorded; `--record-only` records, is a no-op on
+repeat, and survives an apostrophe in the note; the run resumes to completion
+once the blocker is recorded; `DOWN=1` refuses on both dry run and `--apply`;
+flag validation. Against the **live** ledger: dry run now reports 3 pending
+(was 5 — the two sidecars removed), 4.8s; the already-recorded no-op and the
+sidecar refusal both behave, and `count(*) WHERE applied_by='record-only'`
+stayed 0, confirming the probes wrote nothing.
+
+> **[UNEXERCISED]** The `--record-only` **INSERT** has not run against the
+> production ledger — deliberately. The only three pending files (177, 178, 179)
+> are other threads' and are *genuinely* pending; recording them is exactly the
+> harm this file warns about. First real out-of-band apply should use it and
+> confirm the row.
+
+**Left alone:** 177/178/179 remain pending and unrecorded — other threads' work,
+and applying someone else's migration can violate an image-first ordering. The
+two 175s and two 176s remain as they are, per the numbering-collision note above.
+
 ## References
 
 - Travelling-docs `HANDOFF_2026-07-10_stage5_live_and_next_fronts.md` **T23** (discovery + backfill detail).
