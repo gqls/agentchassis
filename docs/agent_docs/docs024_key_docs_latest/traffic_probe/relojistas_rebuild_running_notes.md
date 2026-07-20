@@ -879,3 +879,88 @@ both index pages built immediately after. The recovery is the proof; filed as
   `"empty_pattern": "empty_heading", "is_runtime_fill": false`).
 - `escapamento` (Portuguese, not Spanish) now appears on the Glosario index page too, not
   just the guides — it has propagated into the section intro copy.
+
+## 2026-07-20 — guidelines check of the 027 fix (operator request): VERDICT — rework required
+
+Checked the committed 027 change (1005e1af2: migration 178 + render_news_section_html.go +
+two call sites) against 001_development_guide(5), 002_system_architecture(4),
+003_contracts_and_standards(8). Three violations, several compliances, one corrected design
+that all three docs independently point at.
+
+### VIOLATION 1 — 003 "Source of truth principle", violated verbatim
+
+003 says, word for word:
+
+> **content_data is always the source of truth.** Every edit updates content_data first,
+> then re-renders. If we only patched rendered_html, the edit would be lost on the next
+> re-render (nav update, theme change, page rebuild).
+> **This is why HTML patching was rejected as an edit mechanism** — edits vanish on
+> re-render, and content_data/rendered_html drift apart.
+
+`injectNewsItems` + `persistNewsSectionHTML` IS the rejected mechanism: string surgery on
+`rendered_html`, bypassing `content_data`. 002 (§Section Editor) repeats the same rule.
+The council's render_guardian objection was not one reviewer's taste — it is a documented,
+load-bearing contract, and I would have found it by reading 003 before designing. The
+injection machinery must not ship.
+
+### VIOLATION 2 — 001 "STEP ZERO / Reuse Before Creating"
+
+001: *"If you cannot demonstrate that no existing agent or action covers the need (by
+showing the search results), do not create a new one."* I never ran or documented that
+search. The canonical machinery exists and 003 names it: *"Both [paths] go through the same
+RenderComponentAction template path"* — `RenderTemplate` renders `html_template` against
+content_data + resolved fields. Three council seats (reuse, prior-art, constitution)
+flagged exactly this; 001 makes it a rule, not an opinion.
+
+### VIOLATION 3 — 002's routing table shows the mechanism I rebuilt already has a route
+
+002 §Work-item routing: `page_rerender` with `spec.reason: section_data_resolved` exists
+precisely for "deferred query data became resolvable" — it re-resolves query-backed fields
+via **queryresolve** and re-renders each section from stored content_data, no LLM. And
+`reconcile_section_data` already emits it. News items becoming available IS "query data
+became resolvable". The platform had a designed path for this event; I built a bypass.
+
+### What COMPLIES (kept)
+
+- **Migration 178 (JS guard)** — complies with 003's JS Content Separation Contract
+  (raw body in `js_content`, no script tags, single shared row served at
+  `/tools/assets/{function}.js`). Council raised no reuse concern. Already applied; stands.
+  The guard's premise holds under the corrected design too: server-rendered articles must
+  survive a failed fetch regardless of HOW they were server-rendered.
+- **No wrapper+core split** (001) — all helpers are unexported, single package. Compliant,
+  though the injection helpers are being deleted anyway.
+- **Locked-component skip** — matches the improvement-loop contract ("unlock is always
+  MANUAL").
+- **HTML-escaping third-party feed text**; the contract-pinning test pattern.
+
+### The corrected design — where 001+002+003 and the council all converge
+
+1. **Declare the items in `input_schema`** with `source: "query.news_archive"` (and
+   `query.latest_news` for the homepage card), per 003's Component Input Schema v2
+   (`query.{name}` = "DB query at plan time, projected to the field's shape").
+2. **Extend `queryresolve`** with those two resolvers reading `content_feed_items` — a
+   switch case + function at the designed extension point; this is 001's "patch existing
+   machinery" pattern (the git_commit/WebscrapeAction examples), not new machinery.
+3. **Change the two `html_template`s** to render items server-side:
+   `{{if .items}}{{range .items}}…{{end}}{{end}}` — the `{{if}}` guard is mandatory per
+   001 §7 (Go templates fail SILENTLY on nil; `query_database`-style empties are null, not
+   []).
+4. **Delivery = the existing `page_rerender` light path** (`section_data_resolved`), which
+   persists content_data = stored ⊕ fresh-resolved and regenerates rendered_html through
+   RenderComponentAction. The feed refresh chain can emit it exactly as
+   `reconcile_section_data` does.
+5. **JSON + client fetch stay** as the between-rerenders freshness path (migration 178
+   makes that safe). Server HTML for correctness, client fetch for currency — unchanged
+   goal, contract-compliant mechanism.
+
+Under this design a scoped rerender REFRESHES the news instead of wiping it — the exact
+inversion of the flaw — and `content_data`/`rendered_html` never drift, because the items
+live in content_data like every other section field.
+
+### Disposition of the committed code
+
+Forward-only (no revert): a follow-up commit will remove `injectNewsItems`/
+`persistNewsSectionHTML`/anchor machinery and the two call sites, and implement the
+query-source route. The markup-generation + escaping + date-expansion helpers and their
+tests carry over — the template needs the same item shape the JS emits. Council resubmission
+on the same correlation (4b91237a) once reworked, per the REVISE protocol.
