@@ -160,6 +160,22 @@ kubectl exec -n ai-persona-system <pod> -- sh -c \
 > it is called only from a test, so the linker strips it. Do not read it as a failed
 > deploy.
 
+**If the tree does not compile, check whose work broke it before touching anything.**
+Several sessions edit this repo concurrently, so a package can fail to build on
+someone else's half-finished edit — this happened during the final check of this
+handoff (an uncommitted change in `check_news_feed.go`, a file last committed in
+April, with a mid-edit syntax error). Confirm ownership and prove your own work is
+sound by testing the committed state in isolation, and **never edit their file**:
+
+```bash
+git status --short <package>/          # whose uncommitted changes are these?
+git log -1 --format='%h %ci' -- <file> # is it a file you have touched at all?
+
+# prove HEAD is clean independently of the dirty working tree
+T=$(mktemp -d) && git archive HEAD | tar -x -C "$T" && cd "$T" \
+  && go build ./platform/... && go test ./platform/orchestration/actions/... -short
+```
+
 ## 7. Council state
 
 | run | scope | verdict |
