@@ -60,6 +60,23 @@ def main(path):
     print(f"  GATED   : {len(gat):3d} anchors / {len(set(r['component'] for r in gat))} components")
     print(f"  UNGATED : {len(ung):3d} anchors / {len(set(r['component'] for r in ung))} components")
     print()
+
+    # An anchor inside a {{range}} is an ITEM link (the field is a property of
+    # the ranged item, e.g. {{range .items}}<a href="{{.url}}">), not a CTA
+    # label/url pair. Different class, different fix, different owner — the CTA
+    # worklist is the NOT-in-range set. Counting them together overstates P2.1
+    # and, in a migration post-condition, a blanket "no ungated url anchor"
+    # regex will trip on them and roll back a correct change.
+    in_range = [r for r in ung
+                if any(c.split()[:1] == ['range'] for c in r['enclosing'])]
+    not_range = [r for r in ung if r not in in_range]
+    print(f"  of the UNGATED:")
+    print(f"    inside {{{{range}}}} (item links, separate class) : {len(in_range):3d} "
+          f"/ {len(set(r['component'] for r in in_range))} components "
+          f"-> fields {sorted(set(r['field'] for r in in_range))}")
+    print(f"    NOT in a range (the CTA worklist)              : {len(not_range):3d} "
+          f"/ {len(set(r['component'] for r in not_range))} components")
+    print()
     # url-suffixed only (the CTA class R9 measured)
     ung_url = [r for r in ung if r['field'].endswith('url')]
     print(f"UNGATED with *_url field : {len(ung_url)} anchors / "

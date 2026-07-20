@@ -201,6 +201,17 @@ python3 scripts/parse_gates.py components.json     # writes parsed_anchors.json 
 Tokenises each template, maintains an `{{if}}/{{range}}/{{with}}` … `{{end}}` block stack, and
 marks an anchor **gated only when an enclosing block's condition references the same field**.
 Result 2026-07-20: 189 `href="{{.X}}"` anchors — 18 gated / 14 components, **171 ungated / 41**.
+After migration 181: 22 gated, **169 ungated**, of which **152 / 29 components** are the CTA
+worklist.
+
+> **Read the range/CTA split the script prints — do not use the raw ungated total.**
+> An anchor inside a `{{range}}` is an **item link**, not a CTA: the field belongs to the ranged
+> item (`{{range .items}}<a href="{{.url}}">`), fed by a query-provided list. Different class,
+> different fix. 17 of the 169 are these, across 13 components (`url`, `affiliate_url`).
+> **This bites twice:** it inflates the P2.1 worklist by ~10%, and a migration post-condition
+> written as *"no ungated `{{.x_url}}` anchor remains in this component"* will trip on a
+> range-scoped `.url` and roll back an otherwise correct change — which is exactly what 181's
+> first draft did before it was caught. Gate by **exact needle**, per component, per anchor.
 
 > **Then resolve placements before editing anything** — 20 of the 41 are dormant library stock
 > holding ~80 of the anchors. `page_components` joins by `slot_name = function` (or `name`);
