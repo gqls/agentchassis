@@ -254,3 +254,65 @@ blocks it. That's the piece that produces the dataset, and it hasn't been
 started.
 
 ---
+
+## 2026-07-20 — the extractor is built, and it answered the question
+
+Three things landed today: the bug about your human-review queue, the assignment
+of submission A, and the actual extractor — the piece that produces the dataset.
+
+**The extractor works, and building it settled arguments that talking hadn't.**
+It produces 820 records, of which 689 are usable and 131 are flagged with the
+reason they aren't. I want to flag *how* two bugs in my own first version got
+caught, because it's the useful part: one showed up as an output the system
+cannot produce. The tool claimed the safety logic had *upgraded* a verdict, and
+that logic only ever downgrades. An impossible result is a much better alarm than
+a suspicious one, and it's the reason I now have the tool refuse to make that
+claim when it can't make it safely, rather than guess.
+
+**The labels are done — twelve runs, by hand.** I read the notes properly rather
+than writing something to scrape them, and I'm glad I did: the word "FAILED"
+appears there meaning "the API was overloaded" in one place and "the run never
+started" in another. A script would have filed both as the loop reasoning badly,
+which is precisely the error a benchmark can't survive. Two of the twelve produce
+no records at all — correctly, because those runs never actually ran — and the
+data agreeing with the notes on that is a small proof the pipeline is honest.
+
+**And the report gives you a straight answer, which is a split one.**
+
+*Can we train a reasoning model on this?* No. A hundred usable diagnosis steps
+spread across two different model generations. That was the expected answer and
+now it's measured rather than estimated.
+
+*Is it a usable evaluation set?* Yes, modestly — twenty-four graded steps over six
+runs. What makes it worth keeping is unusual: two of its three passes are runs
+that **refused to answer**, graded as correct for refusing, one because a
+confident half-answer would otherwise have gone to a fixer. Its single failure is
+a *confident* wrong answer — sure of itself after five iterations. Benchmarks
+where the right behaviour is declining to answer are hard to come by, and that's
+exactly the behaviour that's hardest to train into a model.
+
+*Where's the real volume?* Not where we've been looking. The council review lane
+is five and a half times bigger than the diagnosis lane and has no labels on it
+at all — and it has several reviewers arguing about the *same* plan, which is the
+comparison format this kind of training actually wants. Two ways to label it need
+no code change from anyone.
+
+**One more of my own claims died today.** The plan called a particular signal
+"the most distinctive thing in this corpus". I measured it: seven examples of a
+single failure mode. An illustration, not a signal. I'd written that before the
+tool existed and never checked it. Corrected where I wrote it, not quietly
+dropped — that's now eight wrong calls on this workstream, all caught before
+anything shipped, and all the same shape: being confident about a mechanism I
+hadn't actually looked at.
+
+**What I'd do next, and what needs you.** Mine the council lane — biggest return,
+no spend, no platform change. Then the news-feed triage, which is one query. Then
+your call on whether to run the loop deliberately to generate data; the cheap
+version is replaying the thirty-odd bugs we've already solved, where the answer
+is written down. I'd also stop extracting for its own sake — the pipeline is
+proven and re-running it over the same thirteen runs adds nothing.
+
+Two questions are genuinely yours: whether that 294-item review queue is meant to
+be worked or emptied, and whether generating data at volume is worth the spend.
+
+---
