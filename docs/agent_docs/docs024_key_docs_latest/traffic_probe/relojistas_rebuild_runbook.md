@@ -326,3 +326,44 @@ inflight=$(psql -t -A -c "SELECT count(*) FROM site_work_items
 ```
 Slower in appearance, faster in practice: a hung spawn costs 20 minutes and a manual reset,
 and the batch was never going to parallelise anyway.
+
+---
+
+## 027 rework — the query-source route (2026-07-20)
+
+### The one paragraph that prevents re-walking round 1
+
+To server-render dynamic data into a component: declare it as a `query.*` field in
+`input_schema`, add a resolver to `queryresolve`, render it in `html_template`, and let
+`page_rerender` (spec.reason `section_data_resolved`) deliver freshness. **Never write into
+`page_components.rendered_html` directly** — 003 rejects HTML patching, a scoped rerender
+wipes it, and the council will (rightly) bounce it. Round 1 of this fix did exactly that and
+shipped by accident; the rework deleted it.
+
+### Verify the config half (migration 179, applied 2026-07-20)
+
+```sql
+SELECT function, input_schema ? 'fields' AS v2,
+       input_schema->'fields' ? 'items'  AS has_items,
+       html_template LIKE '%{{range .items}}%' AS ranges
+  FROM content_components WHERE function IN ('news-listing','latest-news');
+-- expect t | t | t on both rows
+```
+Rollback + backup table (`component_news_backup_20260720_179`) are in the migration file.
+
+### Gotchas that cost time here
+
+- **Only the v2 `fields` schema shape is parsed** (`plan_sections_action.go:1137`). A
+  `properties`-shaped input_schema is INVISIBLE — no field guidance, no required-gate.
+  news-listing had exactly that, which is why its "required" headline could ship empty.
+- **`{{if .items}}` before `{{range .items}}` is mandatory** — text/template fails
+  *silently* on nil (001 §7), and RenderTemplate is text/template: **no auto-escaping**, so
+  resolver output must be escaped at projection (feed text is third-party).
+- The "data resolved → re-render" emitters use `itemType needs_page` + `spec.reason` +
+  `item_key page_rerender:<page>` — NOT item_type page_rerender (002's table reads that
+  way; the code convention in reconcile_section_data / flag_page_image_rebuild is what
+  counts). A reason-less item deploys stale HTML (`tool_render_path_test.go:127`).
+- Set `recurrenceExpected: true` on an emitter that fires every feed cycle, or the
+  two-strike rule labels the recurring item `unresolved`.
+- `latest-news`'s `insights_url` declares `source: "query.pages"` — that base does not
+  exist in the resolver switch. Pre-existing; do not attribute it to this change.
