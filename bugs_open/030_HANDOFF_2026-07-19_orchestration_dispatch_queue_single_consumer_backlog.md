@@ -195,3 +195,45 @@ not survive many concurrent sessions, which is exactly the situation `CLAUDE.md`
 - `docs024_key_docs_latest/idea_uk_vm_site/RUNNING_NOTES_idea_uk_vm_site.md` §X.1 — the full
   misdiagnosis, including the reasoning error ("first in a `kcat -o -60` window" means *oldest
   unprocessed*, not *skipped*) and the transferable rule.
+
+## Measured throughput, 2026-07-20 19:16–19:31 UTC (bugfix-036 thread)
+
+A hard number for the drain rate, since the file so far describes the shape but not
+the speed. Two `kafka-consumer-groups.sh --describe --group generic-requests-group`
+readings 14 minutes apart, on `system.agent.generic.requests`:
+
+```
+19:16   current=96013  end=96099  lag=86
+19:30   current=96016  end=96102  lag=86
+```
+
+**3 messages consumed in 14 minutes ≈ 0.21 msg/min ≈ one message every 4.7
+minutes.** Production was adding messages at the same rate, so `LAG` sat flat at
+86 rather than falling — a steady state, not a drain. At that rate a message
+arriving at the back of the queue waits **~6.5 hours**.
+
+Two things this pins down that the entry above leaves open:
+
+- **The rate is set by orchestration DURATION, not by queue mechanics.** ~4.7 min
+  per message is about what one council/diagnosis orchestration takes end to end,
+  which is consistent with the consumer running each orchestration to its wait
+  point before taking the next message. So throughput on this topic is
+  `1 / (mean orchestration duration)` — adding work of a *slower kind* lowers the
+  ceiling for everything else on the topic, including fast work.
+- **It is not the hung-spawn class.** At the time of these readings only **6**
+  orchestrations were in flight (4 `AWAITING_RESPONSES`, 2 `EXECUTING_STEP`), and
+  the single >4h straggler was reaped during the window. So the queue was 86 deep
+  with an almost-idle cluster — this is the consumer's own serialisation, exactly
+  as the entry above says, and 029 recovery would have changed nothing.
+
+**Variance is large and worth expecting.** Earlier the same day this queue drained
+85 → 5 in roughly 50 minutes (~1.6 msg/min, ~8× faster) when the queued work was
+short. A post-deploy burst of council-shaped work collapsed it to 0.21. So "how
+long will my submission wait" has no stable answer — read `LAG` *and* consider what
+kind of work is in front of you.
+
+**Practical consequence for any thread dispatching at the cluster:** a live
+verification that needs a round trip through this topic can be a **multi-hour**
+proposition with no failure signal at all — the run simply does not exist yet.
+Check `LAG` before you start, and do not read an absent `orchestration_states` row
+as a dropped spawn (that misreading is already a `WRONG_CALLS.md` row, twice).
