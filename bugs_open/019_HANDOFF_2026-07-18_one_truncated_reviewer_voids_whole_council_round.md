@@ -1,5 +1,49 @@
 # 019 — One truncated reviewer voids the entire council round
 
+> **FIX BUILT 2026-07-20 (bugfix-019 thread) — code committed `a3b606798`, config
+> migration 177 committed `76ff5ed25` and APPLIED LIVE. Stays OPEN: inert until
+> the next image roll after v1.0.1139.** Diagnosis, corrected mechanism and the
+> full decision log live in
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_019_council_truncation/`.
+>
+> **The dominant mechanism was upstream of everything this file documents as the
+> root cause.** Counted over 10 days: 9 truncation voids died at
+> `execute_llm_prompt` (the provider client returns `""` + a hard error on
+> `stop_reason=max_tokens`, so the partial never exists downstream and the seat's
+> `error_step` routes the round to the terminal before later seats run); only 2
+> died at the `json.Valid` hard error in `diagnose_council_decide` described
+> under §"Root cause" below. Both mechanisms are now fixed:
+>
+> 1. `platform/aiservice` — `TruncatedError` carries the partial text instead of
+>    discarding it (anthropic + ollama). This is what made fix-candidate 2
+>    below impossible as written: there was nothing to repair.
+> 2. `ExecuteLLMPromptAction` — a step with `tolerate_truncation: true` records
+>    the partial (result carries `__truncated`) and SUCCEEDS, so the chain
+>    continues to the seats that have not yet run — the behaviour the SECOND
+>    CORRECTION below identified as "the half that matters". Armed by migration
+>    177 on the `review_*` seats of council-gate/fix-proposer/feature-designer
+>    (35 seats, verified; deliberately narrow — owner decision 2026-07-20 —
+>    so experience-planner's `compose` still hard-fails).
+> 3. `diagnose_council_decide` — salvage the verdict via `repairTruncatedJSON`
+>    (marked `degraded`), else count the seat `unreadable` (distinct from
+>    abstentions), surface it in report/metadata/return, and downgrade an
+>    otherwise-`approve` to `revise` while any seat was unreadable. Fix
+>    candidate 1 below, essentially as specified.
+>
+> The cap was NOT raised — reinforced by a new measurement: an
+> `experience-planner/compose` call truncated at a **32,000**-token cap on
+> 2026-07-19, so raising demonstrably moves the cliff rather than removing it.
+>
+> **How to verify after the roll** (supersedes the §"How to verify a fix" steps,
+> which predate the upstream mechanism being known): pod-grep for
+> `tolerate_truncation` in the chassis binary; then a cheap reproduction via a
+> scratch council with one seat's `max_tokens` ~200 should produce a verdict
+> whose `council_report` metadata carries `unreadable` ≥ 1 (or a `degraded`
+> review) instead of `complete_invalid` — and `revise`, never `approve`, while
+> any seat is unreadable. Council submission for this fix: correlation
+> `2eed453a-9102-41e0-8838-7a711e99126b` (verdict pending at time of writing;
+> committed pre-verdict for tree-sweep reasons, recorded in the commit message).
+
 *Found 2026-07-18 by the claims-verification thread, submitting its own V4
 change through the council gate. Affects `diagnose_council_decide`, so it hits
 **every** council: `fix-proposer`, `feature-designer`, and `council-gate`.

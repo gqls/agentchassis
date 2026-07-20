@@ -233,3 +233,67 @@ Mechanism **stands, now verified from the code and the logs**; the loop's
 inability to confirm was an attribution artifact I could resolve directly. The
 three-layer shape in PLAN is unchanged, and Finding 6 strengthens its constraint
 4 (do not fix this by raising the cap) from an argument into a measurement.
+
+---
+
+## 2026-07-20 — build session: the fix, two near-misses, and the closure record
+
+Owner decision: **keep tolerance narrow (councils only)**; fix built as the
+three layers in PLAN. Code committed `a3b606798` (6 files, +402/−42), migration
+177 committed `76ff5ed25` and **applied live** (35/35 review seats armed:
+council-gate 15, fix-proposer 15, feature-designer 5 — the DO block iterates
+`review_*` keys, which silently covered the v19 constitution/mission seats that
+had landed since my 13-seat walk. That walk's count was already stale within a
+day: another live demonstration of "ground every figure").
+
+### NEAR-MISS 1 (caught in self-review): tolerated truncation would have double-logged
+
+My first layer-2 draft cleared `err` and fell through to the normal result path —
+which contains the SUCCESS-path `LogLLMCall`. A tolerated call would have logged
+twice: `success=false` (error path, correct) then `success=true` with
+`output_tokens` at exactly the cap — **the pre-008 silent-cut signature**, and
+poison for the headroom queries this very case file documents. Fixed by guarding
+the success log on `truncationTolerated`: one call, one row. The general shape:
+*converting a failure into a success mid-function must account for every side
+effect the success path performs again.*
+
+### NEAR-MISS 2 (git scare, resolved harmless): "my commits vanished"
+
+After resume, `git log -8` showed session-start's HEAD on top and none of my four
+commits; simultaneously my committed files showed clean. Brief hypothesis: a
+reset had orphaned my work — which would have been a forward-only violation by
+someone. **Reflog refuted it**: every entry is a plain `commit:`; my commits are
+all in ancestry (`git cat-file -t` on each: commit); the branch had simply
+advanced ~11 commits from concurrent sessions, and the context snapshot I was
+comparing against was regenerated at resume time, not at session start. Lesson
+recorded: **the resume-time snapshot is NOT the session-start snapshot** — treat
+any "state moved backwards" reading as a stale-baseline artifact until the
+reflog says otherwise.
+
+### Decision: committed BEFORE the council verdict, deliberately
+
+330 lines of coherent, tested platform code in the shared tree is precisely what
+CLAUDE.md documents being swept into other threads' commits. Weighed against the
+pre-commit review convention: committed first (`a3b606798` says so in its
+message), submitted after — correlation `2eed453a-9102-41e0-8838-7a711e99126b`,
+orchestration `21dc9751`. The submission is reviewed by the still-buggy gate; if
+it voids, that is reproduction five at zero marginal cost. No trailer unless a
+real APPROVED lands (trailer discipline; the bugfix-001 precedent for this exact
+situation is recorded in the case file's fourth reproduction).
+
+097 schema gotcha for the RUNBOOK: `plan` is an object (`summary`/`edits`/
+`grounded_in`/`risks`), each edit wants `symbol`; an array-shaped plan fails
+client-side as `.plan missing`.
+
+### Closure records
+
+- `bugs_open/019`: FIX BUILT header added (stays OPEN — inert until a roll after
+  v1.0.1139; "fixed AND live" bar).
+- 016b §9: existing entry corrected in place (minority-mechanism correction +
+  the three companion traps: generic attribution, JSON-path NULL, 32k cap).
+- Work item `needs_diagnosis:platform-aiservice-anthropic-go-generate` (mine):
+  complete, resolution recorded.
+- Work item `9ffdf0f8` (the pre-existing queued diagnosis aimed at the minority
+  mechanism): **cancelled** with a resolution note — unclaimed, superseded by
+  the fix; running it would have spent credits re-deriving a fixed defect.
+  Judgement call recorded here in case its filer disagrees.
