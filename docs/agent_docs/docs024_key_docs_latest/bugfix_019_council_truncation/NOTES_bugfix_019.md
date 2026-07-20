@@ -297,3 +297,11 @@ client-side as `.plan missing`.
   mechanism): **cancelled** with a resolution note — unclaimed, superseded by
   the fix; running it would have spent credits re-deriving a fixed defect.
   Judgement call recorded here in case its filer disagrees.
+
+### Attribution note: the 016b §9 correction rode in another thread's commit
+
+My 016b edit was swept into `867049c04` (a bugs_open/008 docs commit by a
+concurrent session) between my edit and my docs commit — the same-file-passenger
+case the commit-scope hook explicitly cannot see. Content verified present in
+HEAD; nothing lost. But my docs commit `2cb37685a` *claims* the 016b correction
+while not containing it — this note is the pointer for anyone tracing that edit.
