@@ -41,8 +41,16 @@
 > whose `council_report` metadata carries `unreadable` ≥ 1 (or a `degraded`
 > review) instead of `complete_invalid` — and `revise`, never `approve`, while
 > any seat is unreadable. Council submission for this fix: correlation
-> `2eed453a-9102-41e0-8838-7a711e99126b` (verdict pending at time of writing;
-> committed pre-verdict for tree-sweep reasons, recorded in the commit message).
+> `2eed453a-9102-41e0-8838-7a711e99126b` — **two rounds, both REVISE, both
+> COMPLETED without voiding** (10 seats round 1, 9 round 2 — themselves the
+> first substantive rounds this week to survive the seat chain). Round 1's
+> convergent objection earned a real second fix (`11a72dc31`: a partial that
+> parses cleanly is still marked degraded via the `__truncated` marker; tolerated
+> truncations legible in llm_call_log). Round 2's residue is provenance/process
+> only — dispositions, the 177 rollback, and snapshot
+> `bak_agentdef_councils_20260720` are in the workstream NOTES/RUNBOOK. Stopped
+> at two rounds (no reviser loop exists; resubmission is not a free retry). No
+> trailer on any commit — earned by APPROVED only.
 
 *Found 2026-07-18 by the claims-verification thread, submitting its own V4
 change through the council gate. Affects `diagnose_council_decide`, so it hits
