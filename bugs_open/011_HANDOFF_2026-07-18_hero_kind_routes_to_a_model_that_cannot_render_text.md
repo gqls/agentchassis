@@ -3,9 +3,11 @@
 **Filed:** 2026-07-18, from the leopardessconsulting.co.uk rebuild (owner review).
 **Severity:** Medium. No code change is strictly required to get good infographics today — the
 capability is already wired. The bug is a routing default plus an unused lane.
-**Status:** **R1 FIXED in code 2026-07-18** (inert until a chassis + image-generator-adapter
-image ships — see §6). R2/R3/R4 remain OPEN. The infographic capability itself is
-**PROVEN WORKING**.
+**Status:** **R1 FIXED AND LIVE 2026-07-20** on `v1.0.1139`, verified against the running
+binaries (§6) — though not yet exercised by a real generation (nothing has generated since
+the roll). **R2/R3/R4 remain OPEN, so this file stays in `/bugs_open/`.** The infographic
+capability itself is **PROVEN WORKING**. R1 going live arms `bugs_open/028` on heroes —
+read §6 before generating any.
 
 > ## ⚠️ CORRECTION — read this before anything else
 > The first version of this handoff (same number, 2026-07-18 morning) claimed *"generated
@@ -178,12 +180,44 @@ fleet-wide by one line in `kindProviderRouting`.
 `ecf15e75` relojistas) will get *new* heroes from a different model than their existing ones,
 so a page can mix two visual languages until regenerated.
 
-**Deploy state: INERT.** Go changes do nothing until an image is rebuilt and rolled. Verify
-against the **running pod**, never the tag:
-```
-kubectl exec -n ai-persona-system <image-generator-adapter-pod> -- \
-  sh -c 'strings /app/image-generator-adapter | grep -c "UNROUTED KIND"'
-```
+**Deploy state: ✅ LIVE 2026-07-20 on `v1.0.1139`** (both services; pods started 07:35).
+Verified against the **running binaries**, never the tag — and using log-message strings,
+because the Docker build does not retain `case` values and a miss on those reads exactly
+like a stale deploy:
+
+| service | pod | check | result |
+|---|---|---|---|
+| image-generator-adapter | `…-764d758d5c-lmp5j` | `strings /app/image-generator-adapter \| grep -c "UNROUTED KIND"` | 1 |
+| image-generator-adapter | `…-764d758d5c-lmp5j` | `… grep -c "routed_kinds"` | 1 |
+| agent-chassis | `…-645674b498-rndg9` | `strings /app/agent-chassis \| grep -c "site provider preference applied"` | 1 |
+| agent-chassis | `…-645674b498-rndg9` | `… grep -c "provider_hint"` | 1 |
+
+**But NOT yet observed end-to-end.** Zero assets have been generated since the roll
+(`SELECT … FROM assets WHERE created_at > '2026-07-20 07:35'` → 0 rows), consistent with
+the owner's tool-imagery HOLD. The code is live and the binaries carry it; **no hero has
+actually been generated through the new path.** Per "trust the rendered artefact, not the
+status", R1 is not fully proven until one has — the first hero generated after the hold
+lifts is that proof, and its `assets.origin_model` should read `banana/…`.
+
+### What R1 going live arms — read `bugs_open/028` before generating heroes
+
+Routing `hero` to Banana means **`hero`'s negative prompt is now inert**: Banana discards
+negative prompts outright (`banana/provider.go` header: *"NegativePrompt … is ignored here
+(Gemini has no negative-prompt concept)"*), so `kindDefaults["hero"].NegativePrompt`
+(*"text, watermark, signature, low quality, blurry, distorted"*) and any style-guide
+`avoid` for heroes now reach nothing. **R1 did not cause that defect — `bugs_open/028` is
+a pre-existing fleet-wide bug — but R1 extended it to the fleet's largest kind**, which is
+recorded in 028 with the verification above. Its fix candidate 1 (fold `avoid` into the
+POSITIVE prompt) is the right shape; **do not "fix" it by routing heroes back to SDXL** —
+that trades brand anchoring and legible text for a negative prompt, which is the wrong way
+round. That bug has an active thread; this one does not touch it.
+
+Second consequence, for whoever takes 028 candidate 1: `maxImageryDirectionInPrompt = 200`
+carries an in-code note that it is sized for *"the only generation backend (Stability
+hosted SDXL)"* and its 77-token CLIP wall, listing Banana at *"~1000+ char effective"*,
+explicitly deferred *"until provider routing lands"*. **Provider routing has now landed**,
+so that deferral has come due — the cap is calibrated for a provider no declared kind
+uses. See `bugs_open/027` §4b, which found the same cap truncating palettes.
 
 ## 5. Key files
 

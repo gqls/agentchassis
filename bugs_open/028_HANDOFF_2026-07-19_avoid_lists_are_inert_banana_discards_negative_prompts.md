@@ -74,10 +74,42 @@ empty/legacy kind or an explicit per-site `provider:"stability"`. So:
 
 have no effect on essentially all imagery the platform now generates.
 
-> **Caveat on `hero`:** its Banana routing is `bugs_open/011` R1, **fixed in code but
+> ~~**Caveat on `hero`:** its Banana routing is `bugs_open/011` R1, **fixed in code but
 > not yet live** at time of filing. So `hero` may still be reaching SDXL in prod, where
-> its negative prompt does work. Everything else has been Banana-routed and live since
+> its negative prompt does work.~~ Everything else has been Banana-routed and live since
 > v1.0.1135 or earlier.
+>
+> > **CAVEAT RESOLVED 2026-07-20 (011 R1 thread) — `hero` IS now live on Banana, so this
+> > bug's blast radius is complete.** Both services rolled to **v1.0.1139** (pods started
+> > 07:35); verified against the running binaries, not the tag:
+> > `strings /app/image-generator-adapter | grep -c "UNROUTED KIND"` → 1 and
+> > `… grep -c "routed_kinds"` → 1 on `image-generator-adapter-764d758d5c-lmp5j`;
+> > `strings /app/agent-chassis | grep -c "site provider preference applied"` → 1 on
+> > `agent-chassis-645674b498-rndg9`. (Log-message strings, not `case` values — the
+> > Docker build does not retain the latter, which reads exactly like a stale deploy.)
+> >
+> > So `hero` — **84 of 155 planned images, the fleet's largest kind** — has joined the
+> > inert-`avoid` set, including its `kindDefaults["hero"].NegativePrompt` of
+> > *"text, watermark, signature, low quality, blurry, distorted"*, which genuinely did
+> > work on the SDXL path. **011 R1 did not cause this defect; it extended it to the
+> > largest kind**, which raises the value of fix candidate 1 rather than changing its
+> > shape. Note the interaction cuts both ways: that negative prompt existed largely to
+> > suppress SDXL's *garbled* text, and Banana renders text legibly — so the risk profile
+> > shifted rather than simply worsening.
+> >
+> > **NOT yet observed end-to-end:** zero assets have been generated since the roll
+> > (`SELECT … FROM assets WHERE created_at > '2026-07-20 07:35'` → 0 rows), consistent
+> > with the owner's tool-imagery HOLD. The routing is verified *in the binary*; no hero
+> > has actually been generated through it. First real generation is the observation that
+> > would close that gap — and per §6 it is also the cheapest test of candidate 1.
+> >
+> > One more thing 011 R1 arms, flagged for whoever takes candidate 1: the
+> > `maxImageryDirectionInPrompt = 200` cap (`/bugs_open/027` §4b, already cited above)
+> > carries an in-code note that it is sized for *"the only generation backend (Stability
+> > hosted SDXL)"* and its 77-token CLIP wall, listing Banana at *"~1000+ char effective;
+> > cap could be raised significantly"* — explicitly deferred *"until provider routing
+> > lands"*. **Provider routing has now landed**, so that deferral has come due: the cap
+> > is now calibrated for a provider no declared kind uses.
 
 ## 3. The live evidence that prompted this
 
