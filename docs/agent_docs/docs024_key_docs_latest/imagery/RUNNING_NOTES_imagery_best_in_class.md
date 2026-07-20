@@ -2748,3 +2748,50 @@ around; resubmitted as round 7 (`0430544f`) with the rationale cut to ~60% (the 
 history lives on the correlation trail, no need to restate it) and the sketches kept
 full per round 4's demand. Monitor now also watches for the void shape, not just the
 verdict, after the round-6 monitor burned its 40 minutes timing out on silence.
+
+## Turn 54 — 2026-07-20 — the owner said "think hard again before committing", and that caught a real flaw the council also missed
+
+Council trail for the 027 fix (correlation 0a07f5ed): R1 REVISE (guardian +
+debug_historian, verification completeness — answered with fleet enumeration);
+one run VOIDED by bugs_open/019 (edit-quality hit max_tokens at 8000; evidence
+added to 019's file with a four-point size series); R2 REVISE (editquality caught
+my prose claiming a rune guard my sketch didn't contain); R3 REVISE (editquality:
+my test never called the function I was changing; reuse_agent: I was hand-rolling
+a second truncation while TruncateString sat in datahelpers — checked it, and it
+has THE SAME byte-slice bug, so the answer became extract SafeCut and fix both);
+R4 REVISE but all-low (8 approve).
+
+**Then the owner asked me to re-think before committing, and the re-think found
+what five council rounds had not.** I had never simulated the truncation backoff
+— I'd verified the palette SURVIVES and hand-waved what happens to the rest.
+Simulated the exact Go logic against all 8 live fleet directions:
+
+- **My round-2 claim to the guardian was FALSE.** "robot-hands gains the full
+  palette and loses two mood adjectives" — actually, under the R2–R4 plan it
+  keeps ONLY the palette. The backoff cuts at the FIRST '. ' past minKeep
+  (`strings.Index`, generate_image_actions.go:1145); with a >100-char palette
+  clause leading, that boundary is the END OF THE PALETTE, and medium + mood are
+  discarded even though the medium would fit.
+- **The bug is latent today and my reorder ARMS it.** Palette-last, the first
+  sentence boundary lands early (short medium first) so the first-sentence branch
+  almost never fires. Palette-first, it always fires. Fix is one word — Index →
+  LastIndex (keep every complete sentence that fits) — plus a fixture that fails
+  under Index and passes under LastIndex (robot-hands' own 122-char palette
+  clause is the distinguishing shape).
+- **An honest trade the earlier rounds under-stated:** all four BASE voices
+  (304–398 chars) cannot fit palette AND prose in 200 regardless of ordering or
+  backoff. Today they truncate to prose-without-colours; under the plan,
+  colours-without-prose. That is a value choice and is now argued openly in the
+  submission's risks (colour is the pinned, owner-approved field; the WARN makes
+  every over-cap site visible; config shortening is live-immediate).
+
+Round 5 submitted with the correction, the one-word backoff fix, the
+distinguishing test, and the round-4 lows answered with data (TruncateString: 31
+call sites in 7 files, all log/preview truncations).
+
+**The lesson, plainly: I verified the property I was optimising for and never
+simulated the mechanism I was feeding it through.** Nine council seats reviewed
+R4 and none simulated it either — reviewers judge the plan against the rationale,
+and my rationale contained a confident wrong number. A 40-line simulation against
+live data found it in two minutes. Simulate the machine you are about to feed,
+not just the property you care about.
