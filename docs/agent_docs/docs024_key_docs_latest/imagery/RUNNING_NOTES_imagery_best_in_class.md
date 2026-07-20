@@ -2853,3 +2853,48 @@ pipeline is provably unaffected, which is the property the guardian insisted on.
 > `git add`. Commit narrowly when coherent; let the trailer, not the tree, carry review
 > status. What is now WRONG in the entry above is only the actor — not the mechanism,
 > not the exposure, and not the remedy.
+
+### 028 PROVEN END-TO-END and CLOSED — plus the next measurement it hands us
+
+Owner waived the `bugs_open/020` tool-imagery HOLD for one generation. Superseded
+`content_hero_tool_xp_curve_designer` (the §3 near-white-ground asset), inserted ONE
+`triaged` `needs_imagery` item cloned from the completed row (spec verbatim — do not
+hand-roll it), and watched the adapter.
+
+**18:38:53Z, `image-generator-adapter-…-drwlg`:**
+```
+Banana: folded NegativePrompt into positive prompt as a prohibition clause
+kind=content_hero  prompt_len_before=517  prompt_len_after=905
+negative_prompt = text, watermark, signature, low quality, blurry, distorted,
+  photorealism, … numerals, … white background, pale background, bright full-bleed colour field
+```
+Both halves present — `kindDefaults["content_hero"]` **and** the site's
+`kinds.content_hero.avoid` — including `numerals` and `white background`, the two terms
+whose violation caused the filing. **028 moved to `/bugs_closed/`.**
+
+**The §6 trade-off is now measured, not predicted.** Same asset's stored
+`assets.origin_prompt` = **515 chars, containing neither term**, while the model received
+**905 chars containing both**. Anyone verifying via `origin_prompt` would conclude the fix
+is dead. **Adapter log only.**
+
+**THE NEXT MEASUREMENT, and it is ours, not the bugfix thread's.** Closing 028 proves the
+avoid terms are *delivered*. It proves nothing about whether Gemini *obeys* them, and n=1
+cannot: 5 of the original 9 complied by luck, which is exactly what hid the defect for a
+release. The honest prior is discouraging — this same asset had `near-black #121212` in its
+POSITIVE prompt on 07-19 and still came back pale. **So: generate 5+ content heroes on
+gamesdesign and COUNT violations against the list** (white/pale grounds, numerals,
+lettering). If the violation rate is materially below 4-in-9, the prohibition clause is
+earning its place; if it is not, the wording needs tuning (it is a first attempt) or the
+constraint needs a different instrument. Either way that is a real finding about how our
+imagery direction reaches the model, and it is now cheap to run.
+
+**Getting one generation to run cost ~18 minutes and crossed two open bugs.** The item sat
+at `triaged` looking perfectly dispatchable. `bugs_open/029` was genuinely present (2
+`build-pipeline-trigger` hung at `spawn_dispatch`; applied its documented recovery, 2
+cancelled) — **and it was not the blocker.** `bugs_open/030` was: one partition, one
+consumer, `LAG` 51→67, consumer offset frozen at 95919 while the chassis chewed a council
+run. **I misread that frozen offset as a dead consumer and nearly filed a fleet-wide
+outage.** It cleared by itself when the offset jumped 95919→95935 — 16 messages at once,
+because draining here is a jump, not a smooth advance. Both landmines are recorded in
+`bugs_open/030` § Landmines. Practical rule for this workstream: **a triaged imagery item
+that will not dispatch is almost always 030; check `LAG` before touching anything.**

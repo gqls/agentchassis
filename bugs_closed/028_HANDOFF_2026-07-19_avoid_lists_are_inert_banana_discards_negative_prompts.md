@@ -7,16 +7,21 @@ half has simply had no effect since the Banana migration, and at least one docum
 "hard-won fact" was attributed to it.
 ~~**Status:** OPEN — **FIX APPLIED 2026-07-20, INERT UNTIL AN IMAGE ROLL.**~~
 
-**Status: OPEN — FIX IS NOW LIVE (v1.0.1140, rolled 2026-07-20 ~17:58 UTC / 18:58 BST),
-BINARY-VERIFIED, BUT NEVER EXERCISED.** Fix + evidence in §7; live verification in §7c.
+**Status: CLOSED 2026-07-20 — fixed, live (v1.0.1140), and PROVEN END-TO-END on a real
+generation at 18:38:53Z (§7d).** Fix + design reasoning in §7; binary verification in
+§7c; the generation that proves it in §7d.
 
-**Why this is still OPEN despite meeting "fixed AND live" on the letter of the bar:**
-the discard is provably gone from the running binary, but **not one image has been
-generated through the new path** — zero `assets` rows since the roll, consistent with
-the owner's tool-imagery HOLD (`bugs_open/020`). "The binary contains the code" is not
-"the code ran". This is the same gap `bugs_open/011` R1 recorded for itself, and it
-closes the same way: **one real generation, checked in the adapter log.** See §7c for
-the exact observation and §6 for why the image itself proves less than you'd think.
+The defect this file describes — `avoid` lists and `kindDefaults` negative prompts
+reaching nothing on the Banana path — is gone: the terms now demonstrably arrive at the
+model (517→905 chars, both halves present, `numerals` and `white background` among
+them). **Verify via the ADAPTER LOG, never `assets.origin_prompt`** — §6's original
+instruction was wrong and §7d proves it: the stored prompt is 515 chars and contains no
+avoid term, while the model received 905 chars containing them.
+
+**One thing this bug never claimed and still does not: that Gemini OBEYS the clause.**
+That needs 5+ generations with violations counted, and belongs to the imagery workstream
+(§7d). Do not read this closure as "avoid lists now work" — read it as "avoid lists are
+now delivered".
 
 > **CONFIRMED 2026-07-20 (bugfix-028 thread), beyond the original filing.** The
 > mechanism was re-verified from code independently, and then proven end-to-end
@@ -387,10 +392,8 @@ strings were used deliberately — the Docker build (`-a -installsuffix cgo`, al
 does not retain `case` values, and a miss on one of those reads exactly like a stale
 deploy (the trap logged in 016b §9 and paid for once already on this workstream).
 
-**What is NOT verified, and it is the important half:**
-`SELECT … FROM assets WHERE created_at > '2026-07-20 17:55+00'` → **0 rows.** No image
-has traversed the fold. Everything above proves the code is *loaded*, not that it
-*works*.
+~~**What is NOT verified, and it is the important half:** no image has traversed the
+fold.~~ **NOW VERIFIED — see §7d.**
 
 **The cheapest closing observation** (spends credits — needs the owner's go, and note
 the `bugs_open/020` HOLD covers TOOL imagery specifically):
@@ -408,6 +411,68 @@ the `bugs_open/020` HOLD covers TOOL imagery specifically):
 
 Step 2 closes this bug. Step 3 answers a *different* question — whether Gemini obeys a
 prohibition clause — which this bug never claimed and which remains genuinely open.
+
+## 7d. PROVEN END-TO-END 2026-07-20 18:38:53Z — the constraint reaches the model
+
+One real generation, run with the owner's explicit go-ahead on a tool page (the
+`bugs_open/020` HOLD was waived for this single test). `content_hero_tool_xp_curve_designer`
+on gamesdesign.co.uk — the §3 asset that came back on a near-white ground — was
+superseded and regenerated. Adapter log, `image-generator-adapter-…-drwlg`:
+
+```
+msg               : Banana: folded NegativePrompt into positive prompt as a prohibition clause
+kind              : content_hero
+prompt_len_before : 517
+prompt_len_after  : 905          ← +388 chars: the prohibition clause
+negative_prompt   : text, watermark, signature, low quality, blurry, distorted,
+                    photorealism, photographic texture, gradients, 3D rendering,
+                    drop shadows, text, lettering, words, numerals, labels, captions,
+                    logos, watermarks, busy detail, colour outside the palette,
+                    white background, pale background, bright full-bleed colour field
+```
+
+**Both halves arrived**: `kindDefaults["content_hero"].NegativePrompt` *and* the site's
+`kinds.content_hero.avoid`, joined — including **`numerals`** and **`white background`**,
+the two terms whose violation caused this filing. `after > before` is the proof the
+terms reached the model. New asset row `origin_model = banana/gemini-3-pro-image-preview`,
+work item `complete`.
+
+**The §6 trade-off is now proven, not forecast.** The same asset's stored
+`assets.origin_prompt` is **515 chars and contains neither "white background" nor
+"numerals"**, while the model actually received **905 chars containing both**. A thread
+verifying via `origin_prompt` — which §6 originally instructed — would have found no
+avoid terms and concluded the fix was dead. **Use the adapter log.**
+
+### What this does and does not establish
+
+**Established:** the discard is gone; `avoid` lists and `kindDefaults` negatives are no
+longer inert on the Banana path. That is this bug, and it is closed.
+
+**NOT established, and NOT this bug's claim: whether Gemini OBEYS the clause.** n=1, and
+one image cannot distinguish obedience from luck — 5 of the original 9 complied by
+chance, which is what hid the defect for a release. The measurement that would settle it
+is 5+ generations with violations counted against the list, and it belongs to the imagery
+workstream, not here. Note the honest prior: this very asset had `near-black #121212` in
+its **positive** prompt on 2026-07-19 and still came back pale, so a prohibition clause
+being *sent* is no guarantee of compliance.
+
+### Getting the generation to run at all — two open bugs, in sequence
+
+Worth knowing before anyone repeats this: the item sat at `triaged` for ~18 minutes
+looking perfectly dispatchable. Two open bugs were in the way, and they present
+identically.
+
+- **`bugs_open/029`** — two `build-pipeline-trigger` orchestrations hung at
+  `spawn_dispatch` (18:04, 18:05). Applied 029's documented recovery: 2 cancelled,
+  group down to 1 of 8. **This did not unblock it.**
+- **`bugs_open/030`** — the real blocker: one partition, one consumer, `LAG` 51→67 and
+  the consumer offset frozen at 95919 while the chassis worked a long council run.
+  It cleared on its own at 18:38:53 when the offset jumped 95919→95935 (16 messages at
+  once — draining is a jump, not a smooth advance) and the item was claimed within
+  seconds. Total wait ~18 min, inside 030's measured 25–36 min band.
+
+I misread the frozen offset as a dead consumer and nearly reported a fleet-wide outage;
+both landmines are now recorded in `bugs_open/030` § Landmines.
 
 ## 8. Related
 

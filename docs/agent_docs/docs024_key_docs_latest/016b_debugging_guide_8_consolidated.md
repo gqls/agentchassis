@@ -1814,7 +1814,7 @@ Category tags: `false-positive-is-a-pointer`, `runtime-fill`,
 
 ### A field the backend has no parameter for gets accepted and discarded — and the comment saying so is why it survives (2026-07-20)
 
-*Added 2026-07-20 from bugs_open/028 (Banana discards every negative prompt).*
+*Added 2026-07-20 from `bugs_closed/028` (Banana discards every negative prompt). CLOSED same day: fixed, live in v1.0.1140, and proven end-to-end — the fold reached the model at 517→905 chars. The pattern below is what generalises, not the instance.*
 
 `provider.Request.NegativePrompt` crossed three layers — style guide → action →
 Kafka → adapter → provider — and died in the Banana provider at `logger.Debug`,
