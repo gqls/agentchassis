@@ -214,8 +214,15 @@ jobs at all; that is a code question nobody has looked at.
   generations write nothing anywhere. Per-image spend is currently unknowable from our own data.
 - **What to watch is the growth, not the total**: heroes went 8 → 15 → 40 per month. At 10× this
   volume the fleet bill is ~$145/month and batch stops being optional.
-- **Latency parity remains unverified.** The adapter's HTTP timeout (120s) was tuned around
-  SDXL's 30–60s generation; no measurement of Gemini's has been taken.
+- **Latency: the timeout risk did not materialise on first contact, but is not measured.**
+  The adapter's HTTP timeout (120s) was tuned around SDXL's 30–60s generation, and the worry
+  was that a slower provider would surface as timeouts under load. The first 8 post-roll
+  generations (dartsonline, 2026-07-20 10:41–10:56Z: 1 `hero` + 7 `icon`) **all succeeded,
+  8/8, with no timeouts and no retries** — so the 120s ceiling holds for real Gemini calls at
+  1024². What is still *not* known is the per-call generation time: the ~2-minute spacing
+  between those rows is orchestration cadence, not latency, and the adapter's own
+  `TimeSpent` is logged but never persisted. Anyone wanting a real number should read
+  `duration` off the adapter log rather than infer it from `assets.created_at`.
 
 Reversible per-site as data (`provider:"stability"`) and fleet-wide by one line in
 `kindProviderRouting`.
