@@ -15,29 +15,48 @@
 // without doing one of those breaks the build. The gap becomes a decision on the
 // record instead of an accident nobody can see.
 //
-// WHY THE LIST IS HAND-MAINTAINED, and the objection it answers. A council
-// bug_historian seat warned that a coverage helper iterating the check registry
-// would under-report, because an item_type created by a path that never
-// registered a discovery check would be invisible to the guard. That is correct
-// and it is worse than stated: the check registry keys on check NAME and each
-// check's item types are string literals inside its Run method, so they are not
-// enumerable at runtime AT ALL. And the highest-volume item types are exactly
-// the ones the objection describes — cta_improvement (313 completions),
-// needs_content_planning (387), spacing_fix (116) come from planner/auditor
-// paths with no discovery check. So the denominator is sourced from the live
-// database instead. Refresh query in RUNBOOK_work_item_completion_integrity.md;
-// last refreshed 2026-07-20 (69 item types).
+// TWO HALVES, and why. A council bug_historian seat warned that a coverage helper
+// iterating the check registry would under-report, because an item_type created by
+// a path that never registered a discovery check would be invisible. Correct: the
+// registry keys on check NAME (registry.go:102-104) and item types are literals
+// inside each Run, so they are not enumerable AT RUNTIME; and the highest-volume
+// types — cta_improvement (313 completions), needs_content_planning (387),
+// spacing_fix (116) — come from planner/auditor paths with no check at all.
 //
-// THE HONEST WEAKNESS: this list can go stale between refreshes, so the guard
-// catches a new item_type only once someone reruns the query. It is a ratchet,
-// not a sensor. It still converts the silent default (no verifier, nobody
-// notices) into a loud one (build fails until you classify it).
+//  1. SENSOR — TestEveryCheckProducedItemTypeIsClassified scans this package's
+//     SOURCE for `ItemType: "literal"`. Needs no refresh: a new check with a new
+//     item type fails the build the moment it is written. Covers 56 types.
+//  2. RATCHET — liveItemTypes, a hand-refreshed snapshot of item_type values seen
+//     in the database, for the types produced OUTSIDE this package. Refresh query
+//     in RUNBOOK_work_item_completion_integrity.md; last refreshed 2026-07-20.
+//
+// > **CORRECTED 2026-07-20, same day it was written.** The first version had only
+// > half 2, and this header said so plainly — "a ratchet, not a sensor" — as though
+// > naming the weakness discharged it. The council's deciding objection
+// > (bug_historian) pointed out what that admission was actually conceding: a guard
+// > against "the mechanism relies on someone remembering" that *itself* relies on
+// > someone remembering reproduces the exact failure mode this workstream had just
+// > finished correcting, one level down. I had also over-claimed "not enumerable at
+// > all" — true of runtime, but a TEST CAN READ THE SOURCE, which I had not
+// > considered.
+// >
+// > Adding the sensor immediately found **17 item types the snapshot could not
+// > see** (slot_name_mismatch, forced_text_colors, backend_unreachable, …): all
+// > declared by checks, none ever written to site_work_items, so NO refresh cadence
+// > of the DB query would ever have caught them. Each would have completed
+// > unverified the first time it fired, invisibly, because there is no data to look
+// > at until it does. **Caught by:** the council objection, acted on rather than
+// > answered in prose.
 
 package discovery_checks
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"regexp"
 	"sort"
+	"strings"
 	"testing"
 )
 
@@ -150,6 +169,38 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"unfulfilled_hero_variant":      {catMechanical, "imagery plan completeness"},
 	"silent_failure":                {catMechanical, "meta item; predicate is the silent-check sweep"},
 
+	// ---- FOUND BY THE SOURCE SCAN, not by the live-DB snapshot ----
+	//
+	// These 17 are declared by checks but have never appeared in site_work_items,
+	// so the hand-refreshed liveItemTypes list below could not see them — no
+	// possible refresh cadence would have. They are the proof that
+	// TestEveryCheckProducedItemTypeIsClassified is worth having: each is an
+	// item type that would have completed unverified the FIRST time it ever
+	// fired, silently, with nobody able to notice from the data because there is
+	// no data yet.
+	//
+	// Categories are [INFERRED] from check names — I have not opened these checks,
+	// and per this session's own wrong call that means the classification could be
+	// wrong in the direction that matters (a handler whose remit is narrower than
+	// its detector). Read the handler before writing any verifier from this block.
+	"slot_name_mismatch":       {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"unlinked_site_component":  {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"stacked_nav":              {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"missing_logo_in_header":   {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"broken_template_slots":    {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"missing_site_metadata":    {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"unwanted_nav_element":     {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"stale_news_section":       {catMechanical, "[INFERRED] check_news_feed; never observed live"},
+	"missing_news_section":     {catMechanical, "[INFERRED] check_news_feed; never observed live"},
+	"all_sources_erroring":     {catMechanical, "[INFERRED] check_news_feed; never observed live"},
+	"unrendered_template":      {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"cross_site_contamination": {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"forced_text_colors":       {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
+	"duplicate_palette":        {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
+	"placeholder_contact":      {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
+	"broken_nav_links":         {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
+	"backend_unreachable":      {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
+
 	// ---- creation: "make X exist" ----
 	"needs_page":                 {catCreation, "page existence; 49 of 365 carry page_id"},
 	"needs_content_page":         {catCreation, "page existence; 13 of 196 carry page_id"},
@@ -227,6 +278,99 @@ func TestEveryItemTypeIsVerifiedOrAnAcknowledgedGap(t *testing.T) {
 				"Silently completing on the handler's self-report is what bugs_open/021 filed.", itemType)
 		}
 	}
+}
+
+// itemTypeLiteralRe matches `ItemType: "foo"` in a check's WorkItemSpec.
+var itemTypeLiteralRe = regexp.MustCompile(`ItemType:\s*"([a-z_0-9]+)"`)
+
+// itemTypeComputedRe matches `ItemType: <expression>` — a type this test cannot
+// read from source. Each must be acknowledged in computedItemTypeSites.
+var itemTypeComputedRe = regexp.MustCompile(`ItemType:\s*([^"\s][^,\n]*)`)
+
+// computedItemTypeSites are the check sites that build item_type at RUNTIME, so
+// no source scan can enumerate what they produce. Listed explicitly so a NEW one
+// is a build failure rather than a silent hole in the sensor below.
+var computedItemTypeSites = map[string]string{
+	"check_image_url_404.go":            "mapping.itemType — per-surface mapping table",
+	"check_phantom_internal_links.go":   "f.IssueType — finding carries its own type",
+	"check_placeholder_image_in_use.go": "mapping.itemType — per-surface mapping table",
+	"check_unfulfilled_image_prompt.go": "itemType — computed from the prompt's surface",
+}
+
+// TestEveryCheckProducedItemTypeIsClassified is the SENSOR half of the guard.
+//
+// Answers the council's deciding objection (bug_historian, 2026-07-20): the
+// liveItemTypes list below is a hand-refreshed snapshot, so on its own this guard
+// "relies on someone remembering" — reproducing, one level down, the exact failure
+// mode that 021 and this workstream's own correction identify as the WRONG
+// diagnosis for the verifier gap. Naming that in a comment was not fixing it.
+//
+// So: scan the package SOURCE for ItemType literals. I had claimed item types are
+// "not enumerable at runtime at all" — true (Register keys on check.Name(),
+// registry.go:102-104, and the types are literals inside each Run), but a TEST can
+// read the files. 62 of them are source-visible today and need no refresh; adding a
+// check with a new literal item type now fails the build the moment it is written.
+//
+// Residual, stated rather than hidden: this cannot see the 4 computed sites above,
+// nor item types created outside discovery checks (cta_improvement,
+// needs_content_planning, spacing_fix — the highest-volume ones). Those still rely
+// on liveItemTypes. So the guard is now a sensor for the majority and a ratchet for
+// the rest, which is strictly better than a ratchet for all of it.
+func TestEveryCheckProducedItemTypeIsClassified(t *testing.T) {
+	files, err := filepath.Glob("*.go")
+	if err != nil {
+		t.Fatalf("glob: %v", err)
+	}
+
+	verified := map[string]bool{}
+	for _, itemType := range RegisteredVerifierItemTypes() {
+		verified[itemType] = true
+	}
+
+	seen := map[string]string{} // item type -> file it came from
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatalf("read %s: %v", f, err)
+		}
+		for _, m := range itemTypeLiteralRe.FindAllStringSubmatch(string(src), -1) {
+			seen[m[1]] = f
+		}
+		// A computed ItemType is invisible to the scan — require it be declared.
+		for _, m := range itemTypeComputedRe.FindAllStringSubmatch(string(src), -1) {
+			expr := strings.TrimSpace(m[1])
+			if expr == "" {
+				continue
+			}
+			if _, declared := computedItemTypeSites[f]; !declared {
+				t.Errorf("%s computes ItemType at runtime (%s) but is not in computedItemTypeSites.\n"+
+					"The source scan cannot see what it produces, so add it there with what it emits —\n"+
+					"otherwise this guard has a silent hole exactly where it claims coverage.", f, expr)
+			}
+		}
+	}
+
+	if len(seen) == 0 {
+		t.Fatal("scanned 0 item types — the regex or the layout changed, and this guard is now vacuous")
+	}
+
+	for itemType, file := range seen {
+		if verified[itemType] {
+			continue
+		}
+		if _, listed := itemTypesWithoutVerifiers[itemType]; listed {
+			continue
+		}
+		t.Errorf("item_type %q (produced by %s) has NO verifier and is NOT an acknowledged gap.\n"+
+			"Register a verifier, or add it to itemTypesWithoutVerifiers with a category and reason.\n"+
+			"Detected by source scan — no list refresh was needed, and none will excuse it.", itemType, file)
+	}
+
+	t.Logf("source scan: %d check-produced item types across %d files, %d computed sites acknowledged",
+		len(seen), len(files), len(computedItemTypeSites))
 }
 
 // TestVerifierCoverageIsReported prints the coverage picture so a reader sees
