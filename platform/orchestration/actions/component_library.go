@@ -667,6 +667,11 @@ func contextToMap(ctx *RenderContext) map[string]string {
 		}
 	}
 
+	// Same post-merge sanitisation as the Go-template path. This is the regex
+	// fallback RenderTemplate drops to when template execution fails; without
+	// this it would render the dead form the other path now repairs.
+	sanitiseFormActionStrings(result, ctx)
+
 	return result
 }
 
@@ -784,22 +789,43 @@ func sanitiseFormAction(data map[string]interface{}, ctx *RenderContext) {
 		// point somewhere; templates without one must not gain the field.
 		return
 	}
+	if replacement, ok := deliverableFormAction(fmt.Sprintf("%v", raw), ctx); ok {
+		data["form_action"] = replacement
+	}
+}
 
-	current := strings.TrimSpace(fmt.Sprintf("%v", raw))
-	if !nonDeliveringFormActions[strings.ToLower(current)] {
-		return // already points somewhere real (a mailto:, a live handler)
+// sanitiseFormActionStrings is the same rule for the regex fallback path, whose
+// context map is map[string]string. Both render paths in RenderTemplate merge
+// ContentData, so both can carry a "#contact" the LLM wrote; fixing only the Go
+// template path would leave the fallback rendering a dead form and still read
+// as fixed. One rule, two callers — deliberately not two copies of the list.
+func sanitiseFormActionStrings(data map[string]string, ctx *RenderContext) {
+	current, present := data["form_action"]
+	if !present {
+		return
+	}
+	if replacement, ok := deliverableFormAction(current, ctx); ok {
+		data["form_action"] = replacement
+	}
+}
+
+// deliverableFormAction reports the mailto: that should replace a form_action
+// which submits nowhere, or ok=false to leave the existing value alone.
+func deliverableFormAction(current string, ctx *RenderContext) (string, bool) {
+	if !nonDeliveringFormActions[strings.ToLower(strings.TrimSpace(current))] {
+		return "", false // already points somewhere real (a mailto:, a live handler)
 	}
 
 	email := strings.TrimSpace(ctx.Email)
 	if email == "" || !strings.Contains(email, "@") {
-		return // nothing honest to substitute — leave it for the check
+		return "", false // nothing honest to substitute — leave it for the check
 	}
 
 	subject := ctx.Domain
 	if subject == "" {
 		subject = "website"
 	}
-	data["form_action"] = fmt.Sprintf("mailto:%s?subject=%s enquiry", email, subject)
+	return fmt.Sprintf("mailto:%s?subject=%s enquiry", email, subject), true
 }
 
 // applySafeAliases only adds aliases for non-content fields

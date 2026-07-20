@@ -148,3 +148,46 @@ func TestFormActionSurvivesContentDataMerge(t *testing.T) {
 		t.Errorf("heading = %q, want the ContentData value preserved", h)
 	}
 }
+
+// TestFormActionSanitisedOnRegexFallbackPath covers the SECOND render branch.
+//
+// RenderTemplate falls back to regex substitution (contextToMap) whenever Go
+// template execution errors. That path merges ContentData too, so it can carry
+// the same "#contact". Fixing only contextToInterfaceMap would leave a branch
+// that still renders a dead form while the change reads as complete — the
+// failure mode 016b §9 calls out and which the pre-commit pattern check caught
+// here as an untouched twin.
+func TestFormActionSanitisedOnRegexFallbackPath(t *testing.T) {
+	ctx := &RenderContext{
+		Domain: "gaswholesalers.com",
+		Email:  "gas@contactforsales.com",
+		ContentData: map[string]interface{}{
+			"form_action": "#contact",
+		},
+	}
+
+	data := contextToMap(ctx)
+
+	if data["form_action"] == "#contact" {
+		t.Fatal("form_action is still #contact on the regex fallback path — " +
+			"the Go-template path was fixed and its twin was not, so a template " +
+			"execution error silently restores the original defect.")
+	}
+	if want := "mailto:gas@contactforsales.com?subject=gaswholesalers.com enquiry"; data["form_action"] != want {
+		t.Errorf("form_action = %q, want %q", data["form_action"], want)
+	}
+}
+
+// The honesty rule must hold identically on both paths — a site with no address
+// must not acquire a fabricated one just because rendering took the fallback.
+func TestFormActionNotFabricatedOnRegexFallbackPath(t *testing.T) {
+	ctx := &RenderContext{
+		Domain:      "robot-hands.com",
+		ContentData: map[string]interface{}{"form_action": "#contact"},
+	}
+
+	if got := contextToMap(ctx)["form_action"]; got != "#contact" {
+		t.Errorf("form_action = %q, want it left as #contact — no address is "+
+			"resolvable and a synthesised one would hide the breakage", got)
+	}
+}
