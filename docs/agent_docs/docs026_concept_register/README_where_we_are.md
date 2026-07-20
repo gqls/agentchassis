@@ -408,3 +408,15 @@ queue's triage would have swept them into the build pipeline toward a handler
 that doesn't exist — the exact "findings die with no consumer" failure we were
 designing against. They go to the notes log instead, with the report as their
 reader. The plan carries the correction visibly, as ever.
+
+**Handing over (2026-07-20, end of day).** Tonight's fresh build went out and I
+checked everything against the actual running system: the truncation fix family
+is live in the binary, and all of today's council and guard work survived the
+deploy untouched. One of the open bugs (the original truncation case) was
+closed by the thread that owned it, with their own verification. For the next
+conversation: the cold-start file is `HANDOFF_2026-07-20_council_continuation.md`
+in this directory — what's live, what's proven, the open decisions (mission
+reviewer's probation verdict, the two remaining councils, the fleet audit, the
+standards table, the multi-model gauntlet), and the landmines written down so
+nobody pays for them twice. Today's milestone summary is
+`SUMMARY_where_we_are_2026-07-20.md`, written to be read aloud.

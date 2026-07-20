@@ -212,6 +212,35 @@ what caught the discrepancy — not actioned by this workstream.
 
 ---
 
+## B2. Council-era commands (added 2026-07-20 — the handoff's toolkit)
+
+Every command here was hard to get right at least once; the gotcha is attached.
+
+- **Verify the whole direction stack** (run FIRST in any new session, and after
+  any seat migration or chassis deploy):
+  `python3 docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/100_CHECK_direction_integrity.py`
+  Read-only. ALL GREEN = files match ledger, copies match canonicals, seat
+  anchors present in BOTH councils. Gotcha: a deploy can re-seed agent configs —
+  v1.0.1140 didn't clobber, but the classifier row was touched 35s pre-deploy.
+- **Council roster sync check / apply:**
+  `python3 .../fixloop_eg_dartsonline/099_SYNC_gate_roster.py` (dry) then `--apply`.
+  Gotcha: seat `fix-proposer` first, mirror second, NEVER hand-patch the gate;
+  keep the exact `## The diagnosis` / `{{.diagnosis_row.conclusion}}` prompt
+  tokens in new seats or the mirror's rationale transform misses.
+- **Mission-review findings (R1's consumer; the R2 evidence):**
+  `./.../fixloop_eg_dartsonline/101_REPORT_mission_review_findings.sh [days]`
+  Gotcha: findings are doc_notes, NOT work items — the triager is type-blind
+  and would dispatch a `detected` item to a nonexistent handler.
+- **Editing a direction doc** (constitution / mission / ledger): the commit-msg
+  gate will block without `Direction-Approved: <name>` — the trailer is earned
+  by the owner's word for THAT change; update the sha in `DIRECTION_LEDGER.md`
+  in the same commit.
+- **Seat patch discipline:** chained `jsonb_set`, needles re-asserted INSIDE the
+  UPDATE's WHERE (a prompt changed under this session between two queries),
+  snapshot first, 0 active runs for structural changes, verify by DB read, then
+  099, then 100_CHECK. Model standard: claude-sonnet-5 @ 8000, temp 0.0,
+  advisory-only (`approve|object`).
+
 ## C. What you should expect the agent to do (so you don't have to)
 - All verification, corrections, and register edits — grep/find/read against
   the live repo, never assuming a doc claim without checking.
