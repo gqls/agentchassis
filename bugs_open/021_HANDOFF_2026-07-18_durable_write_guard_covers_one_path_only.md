@@ -123,6 +123,42 @@ only the check registry — an item_type created by a path that never registered
 discovery check would be invisible to the coverage guard, under-reporting the
 very gap it exists to expose.
 
+> **PROGRESS 2026-07-20 — work_item_completion_integrity thread. INSTANCE 2 stays
+> OPEN; two of its three parts are committed but inert.** Commit `08b35ccc4`.
+>
+> **Corrects this section's diagnosis.** INSTANCE 2 (and `verifiers.go`) attribute the
+> gap to the mechanism being opt-in — *"stays at one unless an author remembers"* —
+> which aims the fix at discipline. That is incomplete. The contract passed only
+> `(ctx, db, spec, logger)`, and measured over all 5,514 live items: 2,370 specs carry
+> `page_id`, 310 `component_id`, **9** `site_id`. For a site-aggregate type — this
+> file's own example `hardcoded_section_colors` files ONE item per site and its
+> predicate needs the site_id — a verifier was **unwritable**, however willing the
+> author. So `submission_B`'s proposal to register exactly that verifier was
+> unimplementable as specced. `VerifyTarget{ItemID,SiteID,PageID,ItemType,Spec}` now
+> carries the identity; site_id is NOT NULL so it costs nothing.
+>
+> **The "suggested shape" is built**, and it answers the bug_historian objection this
+> section records. `verifier_coverage_test.go`: all 69 live item types must be either
+> verified or classified (mechanical / creation / judgement / no_target) with a
+> reason, or the build fails. The objection was righter than stated — item types are
+> string literals inside each check's `Run` and so are **not enumerable at runtime at
+> all**, and the highest-volume types (`cta_improvement` 313, `needs_content_planning`
+> 387, `spacing_fix` 116) come from paths with no discovery check. The denominator is
+> therefore live-DB-sourced, refresh query in the workstream RUNBOOK; its weakness — a
+> ratchet, not a sensor — is stated in the file.
+>
+> **Coverage is still 1 verifier, deliberately.** A `page_rerender` verifier (1,849 of
+> 4,644 completions) was written, tested and **held**: re-running the misdirected-CTA
+> predicate over a whole page is stricter than the handler's remit — the rerender only
+> rewrites CTA fields in `ctaFieldNames` components, and a prose misdirect is
+> *deliberately* left for two-strike escalation — so it would have marked
+> correctly-handled items unresolved and stranded them in `failed`. Logged in
+> `WRONG_CALLS.md`; the finding is the guard's gap entry for `page_rerender`. Writing
+> it needs the rendered component mapped back to its spec section's
+> `component.function`. **Do that before re-attempting it.**
+>
+> Docs: `docs024_key_docs_latest/work_item_completion_integrity/`.
+
 **Related, filed separately because it is a distinct live defect rather than a
 coverage gap:** `bugs_open/032` — the one registered verifier reports
 `Resolved: true` when its target row is *absent*, so a rebuild that silently
