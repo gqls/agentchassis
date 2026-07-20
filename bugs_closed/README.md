@@ -13,9 +13,17 @@ committed.
 **A fix that is committed but inert until the next image roll STAYS in
 `/bugs_open/`.** That is the whole point of the bar: between commit and image
 roll, the defect is still reproducible in prod, and that is exactly when the
-next thread to hit it needs to find the case file. `008` (stop_reason),
-`012` (improver truncation, migration 169 unapplied) and `017`
-(unregistered action) are all in that state and deliberately remain open.
+next thread to hit it needs to find the case file. `008` (stop_reason) and `017`
+(unregistered action) are in that state and deliberately remain open.
+
+> **UPDATED 2026-07-20:** `012` (improver truncation) was named here as staying
+> open *because migration 169 was unapplied*. That condition is gone — 169 and
+> its correction 170 are applied, the guard shipped in **v1.0.1139**, and the
+> whole chain (component untouched · refusal logged · item to
+> `needs_human_review` · note written) was **driven and verified against
+> production**, not inferred from config. `012` has moved here. `008`'s
+> `stop_reason` code did ship in the same image, but its own case file owns that
+> verification, so it stays open until that thread confirms it.
 
 "Superseded by a later case" also qualifies — see `004`, superseded by `005`.
 

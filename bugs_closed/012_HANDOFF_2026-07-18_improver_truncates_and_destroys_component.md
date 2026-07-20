@@ -13,6 +13,55 @@ luck of timing, not by design.
 
 ---
 
+## ✅ CLOSED 2026-07-20 — fixed AND live, proven end-to-end against production
+
+Deployed in chassis **v1.0.1139** and verified by driving the real failure, not
+by reading config. Pod-binary grep confirms the shipped code
+(`component_write_regression_blocked`, `refusing to overwrite component`,
+`replacement ends mid-token`, `allow_structural_regression`, and `</fieldset>` —
+the last proving the *recalibrated* guard, not the first cut).
+
+**The test.** A scratch component (12,051 chars, complete: `<style>`, markup,
+`<fieldset>`, closed `<script>`, ending `</section>`) on a scratch archived page,
+with the real `tool-improver` dispatched at it and an issue instructing it to
+reduce the component to `<div>x</div>`. That produces a *complete but collapsed*
+replacement — deliberately NOT a provider-truncated one, so it exercises this
+guard rather than the `stop_reason` fix (`bugs_open/008`), which now intercepts
+provider-signalled truncation earlier and makes the original "lower max_tokens"
+recipe in §Verify test the wrong layer.
+
+**Result — all four properties, live:**
+
+| Property | Evidence |
+|---|---|
+| Component **untouched** | 12,051 chars, `</script>` + `<fieldset>` intact, and **zero** `component_versions` rows — the write never happened |
+| Refusal **logged** | `agent_error_log.error_code='component_write_regression_blocked'`: *"replacement is 12 chars against the current 12051 (0% retained…)"* |
+| Item **fails honestly** | `site_work_items.status='needs_human_review'`, carrying the guard's own message |
+| Refusal **noted** | `doc_notes` subject `guardtest-scratch`, categories `["fix","refused","llm-truncation"]` |
+
+All scratch fixtures were removed afterwards.
+
+**A second bug was found BY this test, and is also fixed.** The first run refused
+correctly but the orchestration went straight to `FAILED @ update_component`
+instead of routing — so the component was saved but the item never reached
+`needs_human_review` and no note was written. Cause: migration **169** set
+`error_step` as a **top-level** key on the step, following
+`pkg/models/contracts.go` (`ErrorStep`, which `routeToErrorStepOrFail` checks
+first). The stored `workflow_plan` for that very run has **no** `error_step` on
+that step, while `append_note`'s **config-level** `error_step` survives in the
+same plan — the top-level key is dropped building the plan. Migration **170**
+puts it in `config` as well, and the re-run produced the table above.
+
+That is 016b's own invariant met head-on — *a config key read on a different
+path than it's set is a silent no-op, not an error* — and the working shape was
+already visible in the same workflow (`append_note`, `compose_note` both set it
+in `config`). **Copy the working example; don't reason from the struct.**
+
+**Still open, deliberately:** `bugs_open/021` — this guard covers ONE write path;
+`page_components.rendered_html` and `pages.rendered_*` share the shape unguarded.
+
+---
+
 ## What happened
 
 `tool-improver` was dispatched to fix a mobile overflow. Its `improve_tool` step

@@ -660,6 +660,29 @@ FROM agent_definitions WHERE type = '<agent>' AND is_active;
 (The four tool-pipeline agents have NO root block, so 168's step-level change is
 live — confirmed by the log showing `max=8000` exactly matching the step value.)
 
+**`error_step` must be set INSIDE a step's `config`, not at the step's top level
+(2026-07-20).** `pkg/models/contracts.go` declares `ErrorStep string
+json:"error_step,omitempty"`, and `routeToErrorStepOrFail` checks it *first*
+("preferred location"). Reasoning from that struct is wrong: the top-level key
+does **not** survive into `orchestration_states.workflow_plan`, so at runtime the
+coordinator finds neither field and calls `failWorkflow`. Proven on one run —
+same stored plan, two steps:
+
+```sql
+SELECT workflow_plan #>  '{steps,update_component}',   -- no error_step key at all
+       workflow_plan #>> '{steps,append_note,config,error_step}'  -- 'complete', survives
+FROM orchestration_states WHERE orchestration_id = '<run>';
+```
+
+Symptom when you get it wrong: the step's own failure is correct and its side
+effects are correct, but the workflow dies at that step instead of routing, so
+every *downstream* consequence (work-item status, notes, compensation) silently
+never happens. Easy to miss precisely because the interesting part worked.
+This is the "config key read on a different path than it's set" invariant, and
+the antidote is in the same file you are editing: **every other step in that
+workflow already showed the working shape.** Copy the working example rather
+than deriving one from the struct. (`bugs_closed/012`, migrations 169 → 170.)
+
 **Transferable rules.**
 1. `output_tokens == max_tokens` is truncation until proven otherwise — never
    read it as "the model finished".
@@ -1815,7 +1838,7 @@ See `/bugs_closed/README.md`.
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | diagnosed; fix + fleet sweep open |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
 | 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
-| 012 | tool-improver truncates a component and saves the wreckage | exposure fixed (168); refusal-routing migration **169 APPLIED & verified 2026-07-19**; guard COMMITTED `cc7bcc881`/`614db7768` + stop_reason `f32b208e5` — **stays OPEN: both are inert until an image roll** |
+| 012 | tool-improver truncates a component and saves the wreckage | **CLOSED 2026-07-20 → `/bugs_closed/`** — guard live in v1.0.1139, migrations 168/169/**170**; whole chain driven against prod (component untouched · refusal logged · item `needs_human_review` · note written). 170 was found BY that test: 169 put `error_step` top-level, where the workflow plan drops it |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | filed; fix candidate (format at commit-prep) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) — **`→ bugs_closed/`** |
 | 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
