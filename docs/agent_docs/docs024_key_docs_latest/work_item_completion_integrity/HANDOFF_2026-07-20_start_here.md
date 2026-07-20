@@ -19,7 +19,7 @@ trusted to mean what it says.
 | **`bugs_open/017`** | ✅ **CLOSED & LIVE** — moved to `/bugs_closed/017_…` |
 | **`bugs_open/021` §2** | ⚠️ **WORKED & LIVE, still OPEN** — machinery shipped, but net verifiers are **1 of 86** |
 | **`bugs_open/032`** | ✅ Closed by `empty_sections_loop_integrity` (`ed1e20602`). Not ours |
-| **In flight** | **nothing.** No dispatches pending, no uncommitted work, no background jobs |
+| **In flight** | **nothing of MINE** — no dispatches pending, no background jobs, nothing uncommitted by this thread. Other sessions' uncommitted work WILL be in the tree; see §6 before assuming a build break is yours |
 | **Next** | **Submission A** (owner-assigned, unstarted) — §4 |
 
 **Everything is committed.** Nothing is trapped in the previous chat.
