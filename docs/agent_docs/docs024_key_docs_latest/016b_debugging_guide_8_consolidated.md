@@ -1417,10 +1417,28 @@ control is also 0, your problem is `strings`/build flags, not the image — see 
 D14 entry above, where a 0-and-0 result triggered an unnecessary rebuild. Positive control
 plus discriminating symbol is the pair; either alone misleads.
 
+**Use it in reverse, too — to prove something is NOT live.** The same rule settles the
+other question threads keep guessing at: *has someone else's fix shipped yet?* On
+2026-07-20 an inbound handoff described `bugs_open/032` as an open defect with a fix
+"drafted". The fix was in fact **written and committed** (`a467baa11`) — and pod-grep for
+its discriminating string `"genuinely fixed or silently deleted"` returned **0**, with a
+known-live symbol returning 1 as the control, and the commit timestamp postdating the pod
+start. Conclusion in one command pair: *fixed but inert*, so it correctly stays in
+`/bugs_open/` and its next action is an image roll, not code. Without the discriminating
+symbol there is no way to distinguish "not shipped" from "shipped but I grepped the wrong
+thing".
+
+**Corollary — an inbound handoff is a claim about the PAST.** It describes the system when
+it was written, and several threads commit here per hour. Before acting on one, re-verify
+its load-bearing state claims against the code and the pod; before *forwarding* one into
+your own handoff, do it again. The 032 handoff was ~28 hours old and already stale in its
+headline item; copying it forward unchecked would have sent the next thread to reimplement
+finished work.
+
 **Kin.** "Trust the rendered artefact, not the status" (§ durable invariants); the
 travelling-docs finding that verifying a fix by grepping a GENERIC CSS property always
 passes — same error, different medium. Category tags: `deploy-verification`,
-`false-positive-check`, `discriminating-symbol`.
+`false-positive-check`, `discriminating-symbol`, `stale-handoff`.
 
 ### A queued orchestration is indistinguishable from a dropped one — and "resubmit" is the expensive guess (2026-07-18)
 
@@ -1585,6 +1603,48 @@ guard-blocks-whole-page-regen half was true, but "can't be repaired at all"
 had silently widened it. Kin: the CLAUDE.md 2026-07-19 correction ("the
 failure mode is not missing information — it is not looking"). Category tags:
 `asserted-absence`, `fix-candidate-unverified`, `reuse-before-build`.
+
+**The detection gap — why NOTHING caught it (added 2026-07-20, same day).**
+The thread-side rules above fix the human error. The sharper finding is that
+every automated layer that could have caught it is blind to this class, by
+design:
+
+- **Discovery checks detect broken artifacts, not unused capabilities.** Every
+  check walks deployed pages/components asking "is this wrong?". None asks
+  "does a registered mechanism exist that nothing routes to?". Dormant
+  machinery produces no artifact to inspect, so the sweep can never see it.
+- **The work-item loop's failure path never consults the capability
+  inventory.** The `empty_section` item for gripper-cycle-time-estimator
+  burned two attempts into the regression guard and went `unresolved`
+  (2026-07-17) while the section-editor — the registered mechanism for
+  exactly that repair shape — had sat idle since **2026-07-10**. The retry
+  logic re-runs the SAME handler; nothing at exhaustion asks "is there
+  another registered path for this item's shape?".
+- **The council reviews the plan against its rationale — and takes the
+  rationale's factual claims on trust.** A submission saying "no targeted
+  repair path exists, so build one" would be judged on edit quality, blast
+  radius, guardian concerns… by seats that all inherit the false premise. No
+  seat's responsibility is *verifying asserted absences*. (Same shape as
+  bugs_open/031, where a seat *quoted* a false register entry as contract:
+  the council's inputs are only as true as what someone wrote down.)
+- **Handoffs give fix-candidate lists no evidence standard**, so an absence
+  asserted once propagates by citation — this one survived a handoff, a
+  re-grounding pass, and a sign-off, and fell only to a direct challenge.
+
+The class, named for filing and for the council (see the seat proposal in the
+§9 preamble of the council-gate runbook or below): **asserted-absence /
+dormant-machinery** — one bug, two faces. *Asserted-absence*: a durable claim
+that capability X does not exist, made without an existence check, driving a
+plan to build X or a gap to be declared unfixable. *Dormant-machinery*: the
+complementary platform state that makes the false claim easy — X exists, is
+deployed, may even be production-proven, but nothing routes work to it and no
+inventory surfaces it, so knowledge of X decays into folklore at the pace of
+session turnover. The existence check that collapses both: registry grep →
+`agent_definitions` (active? workflow?) → pod binary (`strings`) →
+`orchestration_states` (ever ran?). Four lookups, two minutes, and it is
+mechanical enough for a council seat or a discovery check to run verbatim.
+Category tags: `dormant-machinery`, `capability-inventory`,
+`absence-unverified-by-council`.
 
 ### A section name is not a component name — `section_type` is an invisible alias
 
@@ -1772,8 +1832,13 @@ See `/bugs_closed/README.md`.
 | 029 | `tool-suggester` emits `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool that has no `pages` row — the writer invents the URL, producing an owner-visible 404. Autonomous, and it regenerates human-reviewed copy while doing it. **This is the true cause of the leopardess damage wrongly filed under `001`** | filed 2026-07-19; primary DB evidence, no fix started; check `023` first — likely the same family |
 | 034 *(slug: `validation_errors_dropped_with_no_durable_record` — **a second, unrelated `034` exists**, slug `replan_rebuilds_every_deployed_page…`; resolve by slug, per `/bugs_closed/README.md`)* | A failed message is classified by **substring** (`"is required"`/`"validation"`/`"invalid"`) and, on a match, returns before `handleProcessingError` — skipping the error response to the waiting parent, the retry, **and any DB write**. Residue is one `zap.Warn` on a pod that rotates in minutes + a counter with no correlation_id. The match is unanchored, so it also eats driver errors, nil derefs and truncated-LLM parse failures. Explains `002` F.2's "accepted, never executed, no error anywhere" (`client_id is required` returns before `getOrCreateState` → zero rows) | filed 2026-07-20; mechanism proven from code, application to F.2's two correlations is hypothesis (evidence rotated away — which is the bug). Fix 1 = the `017`/`c80fffc83` template applied here. Do NOT conflate with `003` |
 
-> **Index gap (noted 2026-07-19):** `025`–`028` exist in `/bugs_open/` but are not
-> yet indexed here, and `027` is already used by **two** different cases. Filed by
+| 034 | A re-plan rebuilds EVERY deployed page and regenerates its content — `decideEmit` needs `built_from_plan_version == planID`, and a re-plan changes `planID` for the whole site, so `skip_built` never fires after the first plan (`pages_skipped_built: 0` measured). `001` secures structure; this is copy | filed 2026-07-20; measured live, no fix started |
+| 035 | `site_work_items.updated_at` is not maintained (4,156 of 4,643 complete rows have `updated_at == created_at`; no trigger, one unrelated Go writer) — so a finished job reads as one that never ran. `completed_at` IS reliable | filed 2026-07-20; one-trigger fix candidate |
+| 036 | `pages.sections` stores the component **function**, `page_components` reference the component **name** (`hero-about` ⟷ `about-hero`) — a naive comparison reads correct pages as regressed. AND: 11 section entries resolve to no component at all, rendering a hollow 208-byte `<section>` on deployed pages (7 live stubs) while the build reports success. Detected by `check_empty_sections`, but every item is `unresolved` — same delivery gap as 023/033 | filed 2026-07-20; convention + real defect |
+| 037 | A page flagged `needs_rebuild` is outside `001`'s guard, so a re-plan takes the LLM's composition — dartsonline `index` lost `differentiators` + `content-listing`. May be fix step 4's intended escape hatch; filed so the boundary is decided, not inherited. 34 pages currently `needs_rebuild` | filed 2026-07-20; decision needed |
+
+> **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
+> `/bugs_open/` but are not all indexed here (`034`–`037` are), and `027` is already used by **two** different cases. Filed by
 > concurrent threads; list them with `ls bugs_open/` rather than trusting this table
 > to be complete.
 
