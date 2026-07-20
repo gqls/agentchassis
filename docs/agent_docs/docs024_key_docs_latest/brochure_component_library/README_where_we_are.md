@@ -121,3 +121,14 @@ being pointed at fundamentallyai.com. Once that's live, the next real step is
 turning this research into an actual content brief and firing the framework
 for real — and separately, starting on the first new component (the hero card
 carousel) so there's somewhere for that content to go.
+
+**2026-07-20, trigger fired** — Ran the onboarding trigger for
+fundamentallyai.com with the mission brief above. I confirmed directly (not
+just trusting the script's "submitted" message) that it really did reach the
+system's message queue. But it hasn't started processing yet — there's a
+known, already-documented backlog on the shared queue every session's triggers
+go through (single lane, and several of us are using it at once), so it's
+sitting in a real queue, not lost. Past measurements put the wait anywhere from
+about 25 minutes to a few hours depending on how busy things are right now.
+I'm not going to resubmit it or force anything — that would just create a
+duplicate and waste money — I'll check back on it.

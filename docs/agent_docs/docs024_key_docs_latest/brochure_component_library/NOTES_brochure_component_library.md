@@ -504,6 +504,40 @@ training-adjacent patterns or stale cached context:
   copy telling this story must be built strictly from
   `AUDIT_verified_facts.md`'s actual findings/dates/fixes, not embellished.
 
+### 2026-07-20 — fundamentallyai.com onboarding triggered; queued behind a known platform bottleneck
+
+Owner confirmed hosting is being pointed (DNS still showed Afternic's parking
+nameservers at time of check — not yet a problem, propagation can take up to
+48h and doesn't block onboarding). Fired
+`bash 082_submit_domain_unified.sh fundamentallyai.com --email
+fundamentallyai@contactforsales.com --mission-file
+MISSION_BRIEF_fundamentallyai_2026-07-20.md` after owner review of the mission
+brief (same file, committed separately).
+
+**Correlation:** `099ca178-92fc-41ac-bf6c-bc17c0aa6ec6` · **Orchestration:**
+`c6a53a35-f479-48cc-9845-067cd4a729d2` · orchestration_name
+`submit-fundamentallyai.com-20260720-202254`.
+
+Verified by artifact, not by the script's own printed success message
+(`sites`/`orchestration_states` both showed 0 rows immediately after firing,
+which is exactly the "looks dropped" symptom `bugs_open/030` warns about — did
+NOT conclude drop or retry): consumed the raw Kafka topic directly and
+confirmed the message landed at offset 96081. Checked consumer lag for
+`generic-requests-group` on `system.agent.generic.requests`: current offset
+96024 vs log-end 96151 — **127 messages behind**, our message not yet reached.
+This is precisely `bugs_open/030` (single-partition, single-consumer,
+`replicas:1`, no HPA dispatch topology — a platform-wide, already-filed,
+OPEN issue, not specific to this trigger). Per that bug's own explicit
+warning: **do not retry** (duplicates the work and spends credits twice) —
+the message WILL be processed, on a timeline that bug's own measurements put
+anywhere from ~25 minutes to several hours depending on concurrent session
+load, not something to predict precisely.
+
+**Next-session/continuation note**: if `sites`/`site_specs`/`orchestration_states`
+still show nothing for `fundamentallyai.com` when this is picked up again, check
+`bugs_open/030`'s "one command" (consumer-group lag) before assuming anything
+failed — this is a known, expected wait, not a new problem.
+
 ### Real site count
 
 **11 live sites** (two independent code-checked counts converge, 2026-07-19/20):
