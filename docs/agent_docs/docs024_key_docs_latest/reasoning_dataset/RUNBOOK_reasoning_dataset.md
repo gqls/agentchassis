@@ -271,6 +271,36 @@ $PSQL -c "SELECT jsonb_array_length(default_config->'workflow'->'steps'->'counci
           FROM agent_definitions WHERE type='council-gate' AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;"
 ```
 
+## 5b. Provenance boundaries — the corpus is NOT homogeneous
+
+Three instants change what a record means. None is visible in the data itself;
+all three must be carried as provenance or a consumer will pool incomparable rows.
+
+| instant | what changed | how to tell |
+|---|---|---|
+| **2026-07-18 13:15:11Z** | `bugs_open/016` render fix. Before it, every `repropose` reasoned against blank objections. | `provenance.pre_fix_corpus` (already emitted). Grade on the **run** start, never the step timestamp. |
+| **2026-07-20 17:58:20Z** | chassis **v1.0.1140**. `bugs_open/032` fixed: a verifier whose target row is absent now records `"cannot verify"` instead of `Resolved: true`. | `site_work_items.result->'_verification'`; compare `updated_at` against the pod start. |
+| **2026-07-20 17:58:20Z** | same build — `ItemVerifier` widened to `VerifyTarget{ItemID,SiteID,PageID,ItemType,Spec}` (`08b35ccc4`). Verifier inputs differ before/after. | same boundary. |
+
+The second matters most for labelling: **before v1.0.1140 a deleted target was
+recorded as a successful fix**, so any outcome label derived from
+`result._verification` on an older row is unsafe as a positive. Treat pre-1140
+verification records as `unknown`, not as `verified`.
+
+Confirm the boundary against the pod, never the tag:
+
+```bash
+kubectl -n ai-persona-system get pods -l app=agent-chassis \
+  -o custom-columns=NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image
+kubectl -n ai-persona-system exec <pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "cannot verify"'   # >0 means 032 is live
+```
+
+> A symbol absent from the binary is not automatically a failed deploy. Checking
+> v1.0.1140 for `VerifierCoverage` returned **0** — correct, because it lives in
+> `verifier_coverage_test.go` and test code is not linked into the binary. Verify
+> where the symbol is defined before reading a zero as a missing deploy.
+
 ## 6. Gotchas (each one cost someone real time)
 
 - **`orchestration_states.last_activity` is `timestamp WITHOUT time zone`** while
