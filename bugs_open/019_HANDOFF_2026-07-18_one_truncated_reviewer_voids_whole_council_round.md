@@ -615,3 +615,58 @@ lean-plan remedy already refuted by round 2, put a third attempt squarely in the
 **without** a `Council-Reviewed:` trailer, and the two commits (`c41e9ddbc`,
 `fcd8812f3`) say so. That is a real coverage gap in the 098 report caused by this
 bug, not by the thread skipping review.
+
+---
+
+## Status check 2026-07-20 — the fix is committed and SEEDED, but the running image predates it
+
+Checked while chasing a verdict for the submission recorded in the reproduction above. **The fix
+exists and the config is already live; the deployed binary cannot read it.** Anyone resubmitting
+today will be voided exactly as before, for a reason that looks fixed from every angle except the
+pod.
+
+**Code — committed today:**
+```
+a3b606798  fix(bugs_open/019): a truncated reviewer degrades instead of voiding the council round
+11a72dc31  fix(bugs_open/019) round 2: a cleanly-parsing partial is still degraded; tolerated
+           truncations legible in llm_call_log
+```
+`ai_actions.go:321` reads the flag:
+`tolerateTruncation := datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false)`
+— opt-in per step, never a default (`:357`).
+
+**Config — already applied: 15 of 16 `review_*` steps on `council-gate` carry
+`"tolerate_truncation": true`.**
+
+**Pod — does NOT contain the code.** The running chassis binary is dated `Jul 19 16:42`, i.e. before
+today's commits:
+```
+$ kubectl exec agent-chassis-645674b498-rndg9 -- sh -c 'strings /app/agent-chassis | grep -c "<s>"'
+  tolerate_truncation → 0
+  max_tokens          → 15
+  stop_reason         → 3
+  truncated           → 46
+```
+The three control probes confirm the method works; `tolerate_truncation` is genuinely absent. So the
+flag is inert: `GetBoolField` is never called because the code that calls it is not in the image.
+
+**This is the ordering rule from CLAUDE.md, inverted.** The standing rule is *image first, then
+seeds* — precisely because a seed naming something the image lacks fails at runtime. Here the seed
+landed first. The failure mode is quiet: no error mentions the flag, the round just voids as it
+always did, and the config, the commits and the roster all read as "fixed".
+
+**Consequence:** do not resubmit to the council gate expecting truncation tolerance until a chassis
+image built from ≥ `a3b606798` is rolled and verified **against the pod**:
+```bash
+kubectl -n ai-persona-system exec <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c tolerate_truncation'   # want > 0
+```
+
+## Second, smaller finding — one seat is still uncovered
+
+`review_prior_art` is the **1 of 16** review steps with no `tolerate_truncation` flag. Once the
+image lands, every other seat degrades gracefully and that one can still void an entire round on its
+own. Given the reproduction above showed a *different* seat overrunning on each of two identical
+submissions, a single uncovered seat is a live risk, not a theoretical one. Either add the flag to
+`review_prior_art` or make tolerance the default for `review_*` steps and drop the per-step flag —
+the roster has changed repeatedly (13 seats → 16 since 2026-07-18), and a per-step opt-in that must
+be remembered on every new seat is the same drift class the council itself reviews for.
