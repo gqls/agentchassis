@@ -2028,8 +2028,10 @@ See `/bugs_closed/README.md`.
 
 | 045 | The active library contains **exactly one** component able to serve a generic `hero-tool` section, and it is hard-wired to a Bayesian ranker — 14 `source:static` fallbacks (`Start Ranking Free`, `Calculate Rankings`, `Try the Bayesian Ranker`) that `content_data` cannot override. So every tool page asking for a tool hero gets another product's vocabulary. **Not a planner defect** — the plan asked for `hero-tool` and that was correct; the library is missing the component. Sibling of `039` (same selector: that one resolves to *nothing*, this one to the *wrong* thing) | filed 2026-07-20, split out of `023` class F. **Armed on 2 live pages** (`finetuning.uk/ai-agent-roi-estimator`, `ai-agent-orchestration.com/agent-complexity-estimator`) — both `needs_rebuild` with `hero-tool` still in `pages.sections`, clean today only because they have not been rebuilt. Fix = build a generic gated tool hero; **do NOT delete the `_pre_037` row**, it is the sole active row for its function |
 
+| 041 | Section lookup (`loadSectionComponents`, `v3_site_actions.go:3353`) resolves by name then by function and **never normalises**, while a sibling path (`:3730`) does — so a `snake_case` section (`call_to_action`) matches nothing, `plan_sections` Path 3 raises a `needs_new_component` for a component that **already exists** as `call-to-action`, and the page deploys without the section. 10 such items, 4 sites, since 2026-05-18, all `failed`. Explains the BULK of 040's fleet sweep (`call_to_action` ×14, `hero` ×6, vs only 4 legitimate `skip_section`) | filed 2026-07-20; cause proven from code + live rows, no fix started |
+
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
-> `/bugs_open/` but are not all indexed here (`034`–`040` are), and `027` is already used by **two** different cases. Filed by
+> `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
 > concurrent threads; list them with `ls bugs_open/` rather than trusting this table
 > to be complete.
 
