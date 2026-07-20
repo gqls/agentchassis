@@ -1612,9 +1612,24 @@ moving and you are in a queue — wait. If nothing has started platform-wide, su
 the dispatch path. Your own run appearing in that list *is* the answer: mine was
 sitting there, 16 minutes late, while I was busy proving it had never arrived.
 
-**Rules.** Before resubmitting ANY credit-spending dispatch: (1) confirm the run is
-absent from the platform-wide start list above, not merely absent from your own
-polling window; (2) baseline the latency when the system is quiet so you know what
+> **SUPERSEDED IN PART, 2026-07-20 — read `bugs_open/030` first.** This entry was written
+> from one thread's observation (~16 min). `030` had already diagnosed the same thing the
+> day before, with the ROOT CAUSE (`system.agent.generic.requests` has PartitionCount 1
+> and a single consumer, so every dispatch queues in order behind every other), better
+> measurements (**25–36 min** end-to-end), and a decisive one-command test this entry
+> lacks:
+> ```
+> kubectl -n kafka exec <kafka-pod> -- /opt/kafka/bin/kafka-consumer-groups.sh \
+>   --bootstrap-server localhost:9092 --describe --group generic-requests-group
+> ```
+> A non-zero LAG answers "queued or dropped" in seconds. Measured 181 on 2026-07-20.
+> **Run that before any of the reasoning below.** The author of this entry then made the
+> same mistake a second time the next day — at 31 minutes, inside `030`'s stated range —
+> having never run the lag command (`WRONG_CALLS.md` 2026-07-20).
+
+**Rules.** Before resubmitting ANY credit-spending dispatch: (0) run the lag command
+above; (1) confirm the run is absent from the platform-wide start list, not merely absent
+from your own polling window; (2) baseline the latency when the system is quiet so you know what
 "late" means; (3) never ship a fix for a transport hypothesis you have not tested —
 a resubmission is not a free retry, it is another full council. Kin: "Trust the
 rendered artefact, not the status" (§ durable invariants) — the same error, applied
@@ -2126,8 +2141,20 @@ membership structurally (`cta_link_integrity/scripts/parse_gates.py` is a 60-lin
 the finding** — this one had been attached to the figure since the day it was written, through three
 status updates that repeated the number.
 
-**Cross-refs.** `bugs_open/023` (correction + resizing), RUNBOOK R9/R9b, `WRONG_CALLS.md`.
-Category tags: `measurement-artefact`, `regex-census`, `heuristic-vs-parse`, `warning-was-the-finding`.
+**And the sequel, which is the more useful half.** The *corrected* figure (171) was then written
+into four documents — and 15 of the 171 were not the thing being counted at all: they sit inside a
+`{{range}}`, so the field belongs to the ranged item (`{{range .items}}<a href="{{.url}}">`), an
+item link rather than a label/url pair. A corrected number inherits the authority of the correction
+and stops being questioned. It surfaced only because a migration post-condition was written as a
+blanket *"no ungated `{{.x_url}}` anchor remains"* and a range-scoped `.url` would have tripped it,
+rolling back a correct change. **Two transferable rules:** (1) a blanket structural assertion in a
+migration gate must be scoped to the exact needles you edited, or unrelated members of the same
+syntactic class will veto you; (2) when a caveat has to be *remembered*, it will be forgotten —
+put it in the tool's output. `parse_gates.py` now prints the range/CTA split on every run.
+
+**Cross-refs.** `bugs_open/023` (correction + resizing), RUNBOOK R9/R9b, `WRONG_CALLS.md`,
+migration `181`. Category tags: `measurement-artefact`, `regex-census`, `heuristic-vs-parse`,
+`warning-was-the-finding`, `corrected-figures-stop-being-questioned`.
 
 ## 10. Open bug queue (`/bugs_open/`) — index
 

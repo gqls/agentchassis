@@ -476,6 +476,37 @@ succeeded. Nothing shipped, and the probe was already queued so no work was lost
 but this is the one entry here where the error went *to the owner as a decision
 input*, which is worse than a wrong line in a doc.
 
+### 2026-07-20 — work_item_completion_integrity — "the diagnosis dispatch produced no orchestration; something didn't dispatch"
+**Asserted:** that two `090_TRIGGER_needs_diagnosis` runs had failed to dispatch. I had
+built what felt like a careful case: zero `orchestration_states` rows queried **by
+correlation id** (the documented method), zero artifacts after 30 minutes, zero
+occurrences of the correlation in the chassis log, and other council runs visibly
+completing at 19:35, 19:58 and 20:08 — so the pipe was demonstrably moving. I explicitly
+told the owner "the evidence is now much stronger than my earlier mistake", and I had
+already re-fired the trigger once and was drafting a new bug file.
+**Actually:** both runs were **queued**. `kafka-consumer-groups.sh --describe --group
+generic-requests-group` → **LAG 181**, PartitionCount 1, one consumer. Everything I
+listed as evidence of a drop is listed in `bugs_open/030` — filed the day before — as the
+signature of the backlog, under the heading *"Read this first if you are about to
+conclude 'my dispatch was dropped'. It probably was not."* Its measured latency is
+**25–36 minutes**; I called it at 31 and re-fired at ~30.
+**Caught by:** `grep -ril` over `/bugs_open/` and `/bugs_closed/` for the mechanism —
+the de-duplication check CLAUDE.md requires *before filing*. It fired one step before I
+wrote the duplicate. Not luck, but later than it should have been: the same grep was
+available before I concluded anything, and I ran it only when about to file.
+**The cheap check that would have caught it:** grep the bug directories for the
+mechanism BEFORE forming the conclusion, not before filing the write-up. And for this
+specific class, run the one command `030` puts in its own summary line — consumer-group
+lag — which answers "queued or dropped" in seconds and which I had not run in either of
+my two attempts at this question today.
+**Cost:** one redundant diagnosis dispatch (now also queued), a near-miss duplicate bug,
+and a confidently wrong status report to the owner. Second time today I read a queue as a
+failure; the first cost three council runs. The tally row below is the point — this class
+now has a filed bug, a §9 entry, a memory note and two ledger rows, which is the argument
+for automating the lag check rather than writing it down again.
+
+---
+
 ## When an entry should become a check
 
 Not every row can be automated, and a speculative check is worse than none — it
