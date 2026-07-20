@@ -549,3 +549,45 @@ about its own bundle, not about that evidence — recorded here so nobody reads 
 as a refutation. Worth a cheaper route next time: for a hypothesis this
 code-local, the loop's value would come from the code tier being seeded into the
 FIRST bundle, not requested on iteration two.
+
+---
+
+## 2026-07-20 evening — VERIFIED LIVE on v1.0.1140; case CLOSED
+
+Owner rolled `agent-chassis:v1.0.1140` (pod start 17:58:20Z). Binary grep: all
+six markers present (`tolerate_truncation`, `TOLERATED` prefix, `markerFieldFor`,
+`salvageTruncatedReview`, `TruncatedError` — and `objectionEdit`, so bug 036's
+fix from the sibling thread shipped in the same image).
+
+Reproduction per the case file's own recipe, against a SCRATCH copy of
+council-gate (`council-gate-scratch`, `review_editquality` capped at 200 —
+avoided touching the live row entirely; the 097 envelope was replicated by hand
+with `config.agent_type` pointed at the scratch). Orch `2e56d2b7`, corr
+`97aa75a3`:
+
+- `review_editquality` truncated at 200 → ONE `llm_call_log` row, `success=f`,
+  `TOLERATED (step continued on the partial):` prefix — round-2 legibility fix
+  observed live.
+- Chain CONTINUED: 9 further seats reviewed (constitution ran seconds after the
+  truncation — the moment the old code would already have voided).
+- Terminal `complete_revise|COMPLETED`; council_report metadata
+  `{"decision": "revise", "reviewers": 9, "abstained": 6, "unreadable": 1}`,
+  body names `review_editquality.result` in `unreadable`. No approve alongside.
+- At 200 tokens the partial had no recoverable verdict (adaptive thinking eats
+  the budget), so the UNREADABLE path fired rather than salvage — as predicted
+  in the plan. The salvage path remains covered by unit tests only; a live
+  salvage needs a cap high enough to emit `{"reviewer":...,"verdict":...` before
+  the cut, which is not worth a synthetic hunt.
+- One monitor-reading scare, resolved harmless: the workflow stepped through
+  `route_approved` and I briefly read that as the approve branch taken; it is
+  the router step's NAME, and the decision underneath was `revise`. Checked the
+  report before reacting — the right order.
+
+Scratch definition retired (`deleted_at` set, verified 0 remaining). Case moved
+`bugs_open/` → `bugs_closed/` (`cadf682f7`), 016b §10 row + §9 pointer updated
+(`8ecdfca68`). 036's own verification left to its thread — my run's edit
+pointers were all integers, so their free-text path was NOT incidentally
+exercised; the binary evidence is theirs to use.
+
+**This file's final state: the bug found by four threads is closed by the fifth,
+with the fix verified by the reproduction the first four wrote down.**
