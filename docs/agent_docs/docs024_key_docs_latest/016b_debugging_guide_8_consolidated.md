@@ -1670,3 +1670,39 @@ check would catch. Full case: `/bugs_open/020`. Sibling mechanism: `001`
 **Related-bug rule.** Before filing a new bug, grep this index for the mechanism —
 005/008/009/012 are all one truncation-and-config family found by four different
 threads. Filing the fifth copy costs more than reading the first four.
+
+### A verifier that treats a MISSING target as success cannot tell repair from deletion (2026-07-19)
+
+**Shape.** A check re-runs its own predicate to confirm a defect is gone. The
+target row has vanished. The natural branch — *"gone, so nothing is wrong with
+it"* — is wrong whenever deletion is itself a failure mode of the system being
+checked.
+
+**Live instance.** `VerifyEmptySectionResolved`
+(`check_empty_sections.go:205`) returned
+`VerifyResult{Resolved: true, Detail: "component no longer exists"}`. But a
+missing `page_components` row is the signature of a rebuild silently dropping a
+component — the platform's most repeated content-loss failure (`021`, `012`). So
+a content-loss incident was being recorded as a *verified fix*, by the mechanism
+built to stop self-reported completions being trusted. Full case: `/bugs_open/032`.
+
+**Why it recurs.** The branch reads as defensive — it avoids an error on a row
+that isn't there — so it survives review as robustness. It was also the
+*reference implementation*: `verifiers.go:17-19` tells new verifiers to copy it,
+and a plan to copy it to two more item types was in council review when a
+`bug_historian` seat caught it. A blind spot in a reference implementation
+propagates by being followed correctly.
+
+**The rule.** *Absent is UNKNOWN, not resolved.* Where the framework has a
+fail-open policy (this one completes the item and records the error), returning
+an error is strictly better than a verdict: item flow is unchanged, and a silent
+false positive becomes a visible unknown. Only claim `Resolved: false` if you can
+positively establish the target *should* still exist (a plan row, a slot
+reference) — otherwise a legitimate removal burns an attempt and, at
+`max_attempts`, strands a fine item in `failed`.
+
+**Generalises to.** Any confirm-the-fix path whose target can be deleted by
+something other than the fix: cache entries, rendered artefacts, generated files,
+child rows behind a DELETE+INSERT rebuild. Ask "could absence here mean the thing
+I am guarding against *already happened*?" — if yes, absence is evidence, not
+exemption.

@@ -77,9 +77,62 @@ legitimate rewrites (016b §9 has the counter-examples). The transferable rules:
   inherits it? The action layer was chosen for 012 because it was where the
   incident was; a lower seam covers more but touches more.
 
+---
+
+## INSTANCE 2 — the completion-verification framework, same shape (added 2026-07-19, reasoning-dataset thread)
+
+Filing here rather than as a separate bug, because it is this file's pattern
+exactly and a second account would drift.
+
+The completion gate (`complete_work_item_verification.go`) consults a per-item_type
+verifier before stamping `complete`, and routes a failed verification into the
+attempt machinery. Good mechanism, built properly, and:
+
+**`RegisterVerifier` has been called exactly ONCE in the entire codebase** —
+`RegisterVerifier("empty_section", VerifyEmptySectionResolved)`
+(`check_empty_sections.go:38`). There are ~50 item types with discovery checks.
+
+Live evidence, 2026-07-19:
+
+```
+site_work_items status='complete'                     : 4,570
+  ...carrying a result._verification record           :     5
+site_work_items ever status='verified'                :     9  (all empty_section,
+                                                                none since 07-14)
+```
+
+So ~49 item types complete on the handler saga's self-report — the precise shape
+this file describes: *"one call site patched, mechanism left generic."* The
+mechanism is even opt-in by construction (`verifiers.go:47-51`: *"Called from
+init() in check files"*), so it silently stays at one unless an author
+remembers.
+
+**Why it is the same bug and not a feature request:** the gate exists because a
+saga can "succeed" without touching the defect (robot-hands' gripper-detail
+sections, complete on 2026-07-10, still empty on 2026-07-14). Registering it for
+one item type fixes that one incident and leaves the class open, which is what
+this file was opened to stop happening again.
+
+**Suggested shape** (declined by the reasoning-dataset thread as out of its
+scope — it is read-only for `platform/`): make the gap *fail loud* rather than
+documented. A `VerifierCoverage()` helper plus a test asserting every registered
+check either has a verifier or appears on an explicit known-gap list with a
+reason, so adding a check without a verifier breaks the build. A council
+`bug_historian` seat reviewing that proposal noted the helper must not iterate
+only the check registry — an item_type created by a path that never registered a
+discovery check would be invisible to the coverage guard, under-reporting the
+very gap it exists to expose.
+
+**Related, filed separately because it is a distinct live defect rather than a
+coverage gap:** `bugs_open/032` — the one registered verifier reports
+`Resolved: true` when its target row is *absent*, so a rebuild that silently
+deleted a component reads as a successful fix.
+
 ## References
 
 - `bugs_open/012` — the incident and the shipped guard.
+- `bugs_open/032` — instance-2's sibling defect (verifier false-positive on a
+  deleted target).
 - `016b` §9 "LLM truncation persisted as a successful artifact" — the pattern,
   the calibration story, and the counter-examples that killed the first check.
 - `platform/orchestration/actions/component_write_guard.go` — the shape to reuse.
