@@ -209,9 +209,34 @@ right; `apply_gap_plan_action.go:465` and `k8s/bk_page_components.sql:140` are t
 The real fix is a **default + a validation check on `form_action`** (an unset/`#`/empty action on a
 `contact-form` should fail a discovery check), not building a `/contact` backend.
 
-**Also — idea.uk's mailto fix has NOT rendered.** Its `content_data.form_action` is the mailto, but
-its deployed `rendered_html` still carries `action="#contact"`. This is the known
-"content_data edits do not hold until re-render" landmine; the fix is staged, not live.
+**On idea.uk's mailto — staged, and deliberately so.** Its `content_data.form_action` is the mailto
+while its `rendered_html` still carries `action="#contact"`.
+
+> **CORRECTED 2026-07-20, same thread, within the hour:** I first wrote this up as an unnoticed
+> instance of the "content_data edits do not hold until re-render" landmine. It is not. The
+> idea.uk thread applied it source-only **on purpose** and documented why
+> (`idea_uk_vm_site/RUNNING_NOTES_idea_uk_vm_site.md` §Q, 2026-07-17): it publishes on the next
+> contact-page build, and forcing one was rejected because (a) a single-page rebuild of an
+> already-`deployed` page bounces to `needs_human_review` at attempt 0, and (b) the site was not
+> live, so there was no user-visible gap. **Caught by:** searching the docs before building the fix,
+> at the owner's prompting — the RUNNING_NOTES entry was four days old and directly on point.
+> The lesson is the one this file keeps relearning: *check whether a thread already decided this*
+> before reporting their deliberate decision as your discovery.
+
+**Two things this search settled, which change the fix rather than just the wording:**
+
+1. **The approach is already an owner decision.** Owner chose **"Convert form → mailto"**
+   on 2026-07-17 (§Q). So the fleet default should be a `mailto:` built from the site's own contact
+   address — the pattern already proven on idea.uk — not an invented convention and not a new backend.
+2. **This bug is the sanctioned owner of the fleet fix.** §Q ends: *"the fleet-wide dead-form fix
+   stays its own thread, `aaa_fails_to_mend/006 §B`"* — i.e. here. The idea.uk thread scoped itself
+   to one site on purpose. No concurrent thread holds this.
+
+**Operational constraint the same notes record, which the fleet fix must respect:** a single-page
+rebuild of an already-`deployed` page bounces to `needs_human_review` at attempt 0. So a Go default
+alone will NOT repair the 11 existing sites — it fixes newly-rendered components only. Remediating
+what is already deployed is a separate, deliberate step (a data migration over `content_data` plus a
+render, through the review gate), and should be costed as such rather than assumed to follow.
 
 ### C — the open question is ANSWERED: the sweep is a scheduled task, not Go
 
