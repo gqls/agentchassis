@@ -784,3 +784,47 @@ noted the one command that settles it in future.
 advisory — a verdict, not a gate — so it records a judgement either way. Separately, and still true:
 this Go change would not by itself make idea.uk navigable, because its two templates have no
 conditional guards at all. That part is a database-only change and needs no deploy.
+
+## 2026-07-20 (late) — the council said REVISE twice; the second time it's asking a real question
+
+Quick honest update on the chrome-renderer fix I put to the review council.
+
+Round 1 (yesterday's plan) came back REVISE and caught two things that were genuinely wrong in my
+code — worth it on its own. I widened the fix as you asked: instead of just the chrome renderer, it
+now also fixes the shared blanking mechanism underneath it and the second, related bug (the dead
+mobile menu). Resubmitted.
+
+Round 2 came back REVISE **again** — 6 of 11 reviewers approve, 5 object. Most of the objections are
+"you asserted this, prove it", and I've now measured every one of them (the numbers are in the notes;
+they all held up, including the blast radius). Two were real small bugs in my code sketch, which I'll
+fix.
+
+But there's one objection that keeps coming back, and it's not a mistake I can quietly fix — it's a
+genuine disagreement about how far this fix should go, and I think it's your call.
+
+**The disagreement in plain terms:** when the site builder can't fill in a link, my fix makes it
+**shout about it in the logs** — names the exact dead link, flags it as an error. The council says
+that's not enough: a log nobody reads isn't really "failing loudly", so the fix should either **stop
+the build** or **file a job for someone to fix it**, not just write a log line.
+
+They have a point. My reason for *not* doing that: we already have a pile of 34 correctly-detected
+broken-link findings sitting unread because nothing consumes them (that's a separate known problem).
+Adding a 35th kind of unread finding doesn't help anyone. And stopping the build outright is
+dangerous right now — 30-odd live components across the fleet have this exact issue today, so a hard
+stop would fail the next rebuild of most of our sites until each one is fixed.
+
+So it's a real fork, and both sides are defensible:
+- **My version (ship it as a loud log):** safe, immediate, improves the situation, doesn't pretend
+  the downstream consumer exists. But the council is right that it's still "documented silence".
+- **The council's version (make it block or file a job):** genuinely fixes the "fail loudly" promise,
+  but it's a bigger piece of work, needs the staged rollout so it doesn't break the fleet, and needs
+  something built to actually consume the jobs it files.
+
+I don't want to just keep rewording the plan to get a green light — the council has said the same
+thing twice and it deserves a straight answer, not a third revision that talks around it. **Which way
+do you want it:** the safe loud-log version now, or the bigger block/escalate version as a follow-on
+piece? Happy to do either; I just don't think I should pick for you.
+
+(Everything on the actual live site is already fixed and verified — nav, logo, the free tool. This is
+purely about the underlying platform fix and how thorough to make it before it ships in the next
+image.)
