@@ -30,7 +30,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | read the code before asserting a mechanism | 6 |
 | **read the CONTRACT a thing plugs into, not just its logic** | **1** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
-| wait / query again before calling an absence a failure | 3 |
+| wait / query again before calling an absence a failure | 4 |
 | **grep for the capability before asserting it does not exist** | **2** |
 | **prove the artefact is current before reasoning from it** | **2** |
 | measure a property before describing it | 1 |
@@ -802,3 +802,41 @@ was never once looked at through — would have been thrown away with it.
 **Pattern:** "nothing uses X" is a claim about the *whole* system, and a grep scoped to
 one language or one directory cannot support it. Same shape as the `health.NewServer`
 entry above: the absence was in the search, not in the code.
+
+### 2026-07-20 — council gate — "the dispatch was dropped, not slow"
+
+**The claim.** A council-gate submission produced no orchestration row 13 minutes after
+publishing, so I wrote: *"Round 2 never started… the dispatch was dropped, not slow"*,
+retried it, watched another 5 minutes of nothing, and started diagnosing the publish
+path — probing Kafka, reading the topic tail, hunting for a payload-size threshold.
+
+**It was slow.** The run (`0b8bcc1b`, the orchestration id my *first* submission printed)
+was created at **19:20:36 — about 29 minutes after the 18:51:57Z publish** — and went on
+to review normally. Nothing was dropped and nothing was wrong with the publish path.
+Two other correlations dispatched at 19:01 and 19:12 showed the same "0 runs" at the
+moment I looked, and were presumably also just queued.
+
+**Caught by:** re-running the same count against a *later* clock while investigating
+something else — the correlation that had shown zero orchestrations at 19:05 showed one
+at 19:25. The topic read (`kcat -C -o -400`) also disproved the drop theory on the way
+past: my messages were on the topic all along.
+
+**The cheap check that would have caught it:** wait, then ask again — the runbook I
+maintain says exactly this, four bullets into its own trap list: *"Runs can be slow to
+start. A submission may sit before its orchestration row appears. Absence a minute later
+is not evidence of a dropped dispatch."* I had **quoted that trap to the owner earlier in
+the same session** and still called it a drop 13 minutes in. Writing a rule down is not
+the same as having it available at the moment it applies.
+
+**Cost:** a duplicate submission (the retry will run a second, identical 16-seat round on
+the same correlation — real credits, and a confusing extra round on the trail), ~25
+minutes of publish-path forensics that found nothing because nothing was broken, and a
+separate 10-minute stall from a `case` statement matching lowercase `completed` against a
+status that is `COMPLETED`. Contained: no wrong state was written, and the misdiagnosis
+never left this session.
+
+**Pattern:** on an asynchronous queue, *"has not arrived yet"* and *"will never arrive"*
+are the same observation — a null result — and only elapsed time or reading the queue
+tells them apart. My threshold for "long enough" (13 minutes) was set by impatience, not
+by any measured dispatch latency; had I measured one first, the answer was ~29 minutes.
+An absence needs a stated waiting period *before* you look, or it is not evidence.
