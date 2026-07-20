@@ -353,3 +353,48 @@ Round 2 submitted on the SAME correlation (RESUBMIT_CORR), orch `a8b3e765` —
 3-edit delta plan. Round-2 code deliberately HELD UNCOMMITTED until the verdict:
 the diff is ~60 lines (vs round 1's 330), so the sweep-risk calculus inverts and
 an APPROVED verdict can put a legitimate Council-Reviewed trailer on the commit.
+
+---
+
+## 2026-07-20 — round 2: REVISE again; stopped at two rounds, closure
+
+Round 2 (orch `a8b3e765`): **revise**, decided by reuse_agent. Movement:
+objectors 5 → 3; diagnosis_guardian flipped to APPROVE; 6 abstained (delta plan
+matched fewer seats). Round-2 code committed `11a72dc31` WITHOUT a trailer.
+
+Dispositions of the six remaining objections (none a functional defect):
+
+- **reuse_agent e1 (medium, verdict-deciding)** — "does a generic sibling-marker
+  helper already exist that markerFieldFor duplicates?" No: the existing `__`
+  marker readers hardcode their paths (`load_work_item_actions.go:879` reads
+  `__step_error.message` literally); markerFieldFor is the first derivation
+  helper. Answerable, not actionable.
+- **reuse_agent e2 / guardian e2 (low)** — "structured field instead of an
+  error_message prefix?" `llm_call_log` has no status/degraded column; adding
+  one is a schema migration on a shared observability table — heavier than the
+  string prefix and someone else's surface to change. Recorded as a possible
+  future improvement for whoever owns that table.
+- **guardian e1 (low)** — non-`.result` review_fields get no marker check:
+  by design, degrades to round-1 behaviour, never worse.
+- **editquality e1 (low)** — marker write/read are a coupled pair in one
+  codebase (markTruncated writes bool; decider asserts bool); a JSON round-trip
+  preserves bool. Real risk only if a future writer stamps a string — noted.
+- **debug_historian e1 (HIGH)** — the lore objection, escalated because code now
+  DEPENDS on 177's values. Answered in substance, not prose: rollback DO block
+  committed to RUNBOOK (`8762033b2`), and snapshot
+  **`bak_agentdef_councils_20260720`** taken (3 rows — the platform's
+  established bak_agentdef_* pattern). The pre-write backup cannot be taken
+  retroactively; the miss stands recorded.
+
+**Why no round 3.** Two rounds, both completed (itself evidence the gate can
+review substantive submissions when the seats stay under the cap), objection
+count falling, zero functional defects remaining, and the gate has NO reviser
+loop — complete_revise is terminal and objections go to the human, which is
+this record. A third run would spend credits chasing a trailer line. The
+resubmission-is-not-a-free-retry rule is written in 016b §9 by a thread that
+learned it the expensive way; stopping here is that lesson applied.
+
+**Closure state:** code a3b606798 + 11a72dc31; config 76ff5ed25 (applied,
+verified, rollback + snapshot in place); docs complete; work items closed;
+bugs_open/019 OPEN pending image roll. Council record: corr 2eed453a, rounds
+1+2 both revise, full objection trail in council_report artifacts.
