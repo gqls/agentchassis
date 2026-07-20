@@ -1122,4 +1122,42 @@ gate/advisory) → D3 three-surface integrity check (files/copies/seat prompts) 
 D4 standards-table migration as the structural close. Nothing applied from the
 plan; commits 6a25f... family + this turn's three.
 
+## Turn 31 — 2026-07-20 — D1-D3 + R0+R1 IMPLEMENTED (owner approved gate + staged reach)
+
+Owner: "I agree with your lean on D2 and R2 please go ahead." Implemented the
+plan's first tranche, grounding-first throughout — and the grounding changed the
+design twice (both corrected VISIBLY in the plan):
+
+- **Consumer correction (the big one):** the plan's R1 said findings go to
+  site_work_items at 'detected', consumer = triage sweep. Reading
+  `triage_detect_items_action.go:91-103` refuted it — the triager is site-scoped
+  and TYPE-BLIND, promoting ALL detected items into dispatch → a mission_review
+  item would be swept toward a nonexistent handler (a fresh instance of the 023
+  class, inside the plan meant to avoid it). As built: objections append
+  doc_notes (categories mission-review; the gate's own verdict machinery —
+  reuse), consumer = NEW `101_REPORT_mission_review_findings.sh`.
+- **Hook-type correction:** D2 planned as pre-commit; a trailer check needs the
+  commit MESSAGE, which doesn't exist at pre-commit time → built as
+  `.githooks/commit-msg` (hooksPath already active in this clone).
+- **CTXK-004 is stale:** `cmd/assembler` does not exist in this repo (checked
+  cmd/ directly) — ledger blesses the docubundle copy and records the gap.
+  Register correction candidate; also a live example of the librarian's
+  asserted-absence class pointing at OUR OWN register.
+
+**LIVE now:** R0 (mission digest in classify_and_extract, before its return-JSON
+anchor), R1 (review_mission_alignment → gate_mission_note → append_mission_note,
+EVERY error path → create_next_item so a review failure can never block a
+build; snapshot taken; 0 active classifier runs at apply; chain verified),
+D1 (DIRECTION_LEDGER.md: canonical + copies + sha256s), D2 (commit-msg REAL
+GATE, tested no-op/block/trailer, constitution restored byte-identical after
+the test), D3 (100_CHECK: files/copies/seat-anchors across BOTH councils —
+first run ALL GREEN), 101 (R1's consumer; also prints the R2 denominator).
+**The guard-creation commit itself tripped the new gate** (ledger is a blessed
+path) and passed via the trailer earned by the owner's approval message — the
+gate's first live firing.
+
+**NOT started (per plan):** R2 (needs a week of R1 numbers + owner grading),
+R3 (Go + image window), R4 (feature/experience councils — theirs are co-edited
+machinery; coordinate before seating), D4 (standards table, council-reviewed).
+
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->

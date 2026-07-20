@@ -381,3 +381,30 @@ reviewer prompts in the database), and eventually the long-promised move of the
 constitution into proper database rows. Decisions that are yours in it: whether
 the commit gate blocks or just shouts, and when observation is allowed to
 become enforcement.
+
+**The direction guard is real now, and the mission reaches the pipeline
+(2026-07-20, later still).** You said go ahead, so: the constitution and mission
+files now have a ledger naming the one true copy of each (with fingerprints),
+and a commit gate that physically blocks any edit to them unless the commit
+carries a "Direction-Approved" mark — which only your word earns. The gate's
+very first act was to challenge the commit that created it, since the ledger is
+itself protected; it passed on the approval you'd just given, which is exactly
+how it should work. A checker script watches all three places the direction
+lives — the files, their copies, and the reviewer seats in the database — and
+its first run came back all green.
+
+On the pipeline side: the classifier that decides what every site should be now
+reads the platform mission as part of its brief, and right after it writes its
+decision, a new observe-only reviewer judges that decision against the mission —
+did it argue a revenue model from evidence or just default to "consultancy
+site"? It can't block anything; it writes its objections to a log, and there's a
+weekly report to read them. After a week or so of real numbers we'll know
+whether it's finding real drift or crying wolf — that's the evidence for your
+promotion decision later.
+
+One honest correction from the build: the plan originally had the reviewer's
+findings going into the work-item queue. Reading the actual code showed the
+queue's triage would have swept them into the build pipeline toward a handler
+that doesn't exist — the exact "findings die with no consumer" failure we were
+designing against. They go to the notes log instead, with the report as their
+reader. The plan carries the correction visibly, as ever.
