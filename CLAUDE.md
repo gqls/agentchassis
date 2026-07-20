@@ -174,7 +174,7 @@ deliverables. Writing them is part of doing the work, not part of finishing it.
 | `RUNBOOK_<slug>.md` | the commands. Every query/command you had to get right, with its gotcha attached. When one changes, change it HERE, not in your scrollback. | the moment a command was hard to get right — not later |
 | `NOTES_<slug>.md` | running record, append-only, **newest at the bottom**. What was tried, what the system actually said, and **every misstep: dead ends, wrong turns, mistaken diagnoses, and your own earlier claims in that file that turned out false.** The missteps are not an appendix — they are the point. | at least once per session, and again each time you get something wrong |
 | `README_where_we_are.md` | the owner's running **plain-prose log**, append-only, newest at the bottom. What you'd say out loud: what was found, what broke and why, what you decided, what you need a choice on. No jargon, no tables of field names, no file:line unless it genuinely helps a non-specialist. | **frequently — at every natural break where you stop to summarise, present a choice, or explain a bug.** Roughly: if you wrote a substantial reply in chat, it belongs here too |
-| `SUMMARY_<date>_<slug>.md` | the milestone read-out, so the owner can talk about the subproject to someone else. Five parts, in this order: **what we're trying to do · where we've come from · what we've done · where we are now · where we're going.** Plain prose, written to be read aloud. **Every summary is a NEW FILE — never an edit of the last one** (see below). | at milestones, not at the end — roughly once or twice a day, or whenever something significant lands |
+| `SUMMARY_<date>_<slug>.md` | the milestone read-out, so the owner can talk about the subproject to someone else. Five parts, in this order: **what we're trying to do · where we've come from · what we've done · where we are now · where we're going.** Plain prose, written to be read aloud. **Every summary is a NEW FILE — never an edit of the last one** (see below). | **at real milestones only, and NOT on a clock.** When the read-out would genuinely differ: a phase done, a design changed, a blocking question answered. If "where we are now" would say much the same as the last one, don't write one — expect days between summaries on a steady workstream |
 
 **`README_where_we_are.md` is the owner's document.** He maintains it too.
 **Append to it; never rewrite or reorder it**, and never edit his words — add a
@@ -191,9 +191,17 @@ Keep the three prose docs distinct or they collapse into one drifting account:
 
 **Write a NEW summary each time; never overwrite the last one** (owner directive,
 2026-07-19). Each file stays current-state-only, but **the series is the record.**
-`SUMMARY_2026-07-19_x.md`, then `SUMMARY_2026-07-20_x.md`; for a second on the
+`SUMMARY_2026-07-19_x.md`, then `SUMMARY_2026-07-22_x.md`; for a second on the
 same day, suffix the date — `SUMMARY_2026-07-19b_x.md`. The concept register
 already works this way (`SUMMARY_where_we_are_2026-07-16/17/17b/18.md`) — follow it.
+
+**Rarity is part of the design** (cadence cut 2026-07-20, the day after the
+new-file rule went in — the two rules only work together). A daily summary plus a
+never-overwrite rule produces a shelf of near-identical files that nobody reads
+and that bury the two or three which actually marked a turn. The series is only a
+record if each entry is an inflection. **The five headings are the test**: if
+answering them would produce substantially the last summary again, the milestone
+has not happened yet — put the material in NOTES or `README_where_we_are` and wait.
 
 Why: a summary is what we believed at a milestone, written for the owner to say
 out loud to someone else. Overwriting it destroys the only record of how the
