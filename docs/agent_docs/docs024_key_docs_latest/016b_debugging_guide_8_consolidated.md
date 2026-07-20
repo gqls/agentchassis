@@ -1488,6 +1488,36 @@ of that name and the bespoke `contact-block` was never a candidate. Determine
 which pass will win before concluding either way. Category tags:
 `alias-by-side-channel`, `resolution-order`, `name-is-not-identity`.
 
+### A false positive is a LOCATION, not a dismissal
+
+*Added 2026-07-19 from bugs_open/026, 027 (relojistas).*
+
+`check_empty_sections` flagged `news-listing` on a page that demonstrably renders
+twenty items. That finding is genuinely wrong — the section is a runtime-fill
+template, the data arrives client-side, the check only ever sees server HTML.
+The correct verdict is "false positive". **Dismissing it there would have cost
+two real fleet-wide defects**, both sitting inside the very component the checker
+pointed at:
+
+- the shared template hardcodes English `"Loading latest news..."` — visible on a
+  Spanish site, and permanently visible to any client that does not run JS (026);
+- its `headline` is declared `required` in `input_schema` and rendered **empty**,
+  so something that should have refused the save didn't (026);
+- and the reason the check "wrongly" sees nothing is itself the defect: news
+  exists **only** client-side, so every news page on the platform serves zero
+  news to a non-JS consumer (027).
+
+The generalisable move: when a check fires and you believe it is wrong, **read
+the artefact it named before closing it**. The checker's *reasoning* was wrong;
+its *aim* was perfect. A check pointed at a defective surface will often
+misdiagnose that surface — the wrongness of the verdict says nothing about the
+health of the thing it is looking at.
+
+Corollary, and the cheaper habit: a false positive that recurs is a standing
+invitation to stop reading a component that nobody else is reading either.
+Category tags: `false-positive-is-a-pointer`, `runtime-fill`,
+`server-vs-rendered`, `dismissal-cost`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
