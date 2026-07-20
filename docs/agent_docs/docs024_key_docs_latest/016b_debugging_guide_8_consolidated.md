@@ -2439,3 +2439,57 @@ can coincide: step config → action fallback, env var → compiled default, sit
 default, kustomize overlay → base. The dangerous case is not disagreement, which surfaces; it is
 *agreement*, which hides. Where a config key exists specifically to be tuned, prove once that
 tuning it does anything at all.
+
+### First-found-wins config lookup makes the MORE SPECIFIC block dead — and the trap is invisible to the author who wrote it (2026-07-20)
+
+**Symptom.** `diagnose-agent`'s verdict step declared `max_tokens: 8000` inside its
+step-level `ai_service` block. Every verdict call since 2026-07-10 logged
+`max_tokens=2048`, and fix plans were truncated mid-JSON. Setting `max_tokens: 32000`
+on the agent's **root** block fixed it immediately — the opposite of where the config
+had been written.
+
+**Mechanism.** `ExecuteLLMPromptAction` resolved the `ai_service` block by trying
+three locations **in order, stopping at the first hit**: root, then the current
+workflow step's `config.ai_service`, then `params.StepConfig.Config`. The two step
+lookups sat behind `if aiServiceConfig == nil`. So for any agent that also declared a
+root block, the step lookup **never ran**, and the step's ENTIRE block — model,
+provider, max_tokens — was unreachable. Not the key; the whole block. Where neither
+block declared a cap, `platform/aiservice/anthropic.go`'s hardcoded
+`"max_tokens": 2048` applied and cut the completion. Full case: `/bugs_open/009`.
+
+**Why it survived so long, and this is the transferable part.** The precedence is
+**backwards from every convention** — specific normally beats general — so the
+config author writes the override in the natural place, sees plausible output, and
+never suspects it. Nothing errors. Nothing logs "your block was ignored". The value
+is *visible in the config*, which is exactly what makes it look wired up; the only
+tell is the runtime value, and only if you go and read it (`llm_call_log`, or
+byte-counts clustering at ~7.5–8.1KB ≈ 2048 tokens).
+
+**And it inverted the documentation.** One agent (`page-content-writer`) has no root
+block, so ITS step-level fix worked — and that single success was generalised into a
+fleet-wide runbook rule stating the exact opposite of the truth ("max_tokens lives
+INSIDE a step's `ai_service` block; root is dead config"). That rule then sat in two
+handoffs for three months. **A rule derived from one agent that happened to lack the
+shadowing block is indistinguishable from a correct rule until you test it on an
+agent that has one.**
+
+**The fix shape.** Overlay, not selection: copy the general block, then apply each
+more-specific block **key by key**, so a step overriding only `max_tokens` still
+inherits the root provider and model. Step-wins-*wholesale* is the tempting
+simplification and it is wrong — four `site-adoption-agent` steps declare
+provider/model and omit `max_tokens`, and wholesale would have dropped them from
+16000 to the hardcoded 2048. The blast radius of a precedence change is decided by
+which keys each block **omits**, so audit omissions, not just conflicts.
+
+**Generalises to:** any resolver written as a chain of `if x == nil` fallbacks over
+config scopes — env/file/flag, tenant/site/global, root/step. The chain reads as
+"precedence" but implements "first non-empty wins at whole-object granularity",
+which silently discards the specific scope's other keys. Two questions that find it
+fast: *does a lower-priority source existing make a higher-priority one unreachable?*
+and *if I set a value here and it did nothing, would anything at all tell me?* If the
+answer to the second is no, verify the RUNTIME value before trusting the config.
+
+**Related:** §9 *"A config value that equals its code default proves nothing about
+whether config is wired up"* (same family — config that reads as live but was never
+parsed); `/bugs_open/008` (a capped call should fail loudly, closing this class end
+to end); `/bugs_open/012` (`output_tokens == max_tokens` means CUT, not finished).

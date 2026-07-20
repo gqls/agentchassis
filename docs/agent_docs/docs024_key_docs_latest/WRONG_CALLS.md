@@ -36,7 +36,9 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | measure a property before describing it | 1 |
 | **record the CLOCK beside a reading, never infer it afterwards** | **1** |
 | **run a census against a known-positive control before reporting the count** | **1** |
-| **look at the real values before designing for the assumed ones** | **3** |
+| **look at the real values before designing for the assumed ones** | **4** |
+| **read the SCHEMA before naming a column — a Go map key is not a column** | **1** |
+| **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
@@ -1143,3 +1145,89 @@ is not a disclaimer, it is a pending task.
 
 Related: `016b` §9 *"A `regexp_matches(…,'g')` census with a lookback prefix silently drops every
 other match"* (the mechanism, transferably), `bugs_open/023` (correction + resizing), RUNBOOK R9/R9b.
+
+---
+
+## "The configs will self-heal once the code ships" — asserted from a count, never queried (2026-07-20)
+
+**The claim.** `bugs_open/009` §4, written 2026-07-17, sized the fleet sweep like this: *"17
+agent defs have a root `ai_service` with NO max_tokens → every call at 2048. **10 of them ALSO
+declare max_tokens elsewhere (dead)**"*, and concluded *"If the overlay fix ships FIRST, the 10
+step-level declarations start working on their own (configs self-heal — this is the argument for
+code-first)."* That reads as a measurement and it shaped the sequencing recommendation.
+
+**What was true.** Running §4's own audit query against live `agent_definitions` before writing
+the fix: **16** such agents, not 17 (`content-creator-contact` has two rows and was
+double-counted), and **zero** of them declare a step-level `ai_service.max_tokens`. Not ten —
+none. The "self-healing" population is empty. Every one of those agents still runs at the
+hardcoded 2048 after the code fix ships, and still needs a deliberate per-agent decision.
+
+**Caught by:** running the query in the section I was reading, instead of carrying its prose
+forward into my own commit message. It took about ninety seconds.
+
+**The cheap check that would have caught it:** the SQL was *printed in the same section as the
+claim* — §4 even flags its own snippet as pseudo-code needing a real query ("practical version:
+… eyeball each def"). The claim was built from an eyeball pass and then written in the register
+of a count.
+
+**Why this one is worth a row.** The damage was not the number. It was that "configs self-heal"
+made the sweep sound like it would take care of itself, so a thread that shipped the code fix and
+stopped would have left 16 agents capped at 2048 believing the job was done — and the bug file
+would have agreed with them. **A wrong figure gets corrected; a wrong *implication* gets acted
+on.** Note also that the surrounding mechanism was completely correct and had been proven by
+direct experiment; being right about the hard part is not evidence about the arithmetic.
+
+**Generalises to:** any "N of them also do X" in a doc you are about to sequence work from. A
+population count is a query, not a recollection — and if the doc hands you the query, the fact
+that you are reading the section **is** the trigger to run it. Same shape as the R9 anchor-count
+row above: a figure travelling between documents, arriving as fact.
+
+Related: `bugs_open/009` §7 (the live audit + the correction, in place), `016b` §9 *"First-found-
+wins config lookup makes the MORE SPECIFIC block dead"*.
+
+### 2026-07-20 — bugs_closed/001 close-out (bugfix-001 thread, second session) — two wrong calls, one of them nearly shipped
+
+**(1) "The residual is real; the fix is a small Go change + test."** Reported to the
+owner as one of four ready workstreams, quoting `/bugs_open/001`'s own prescription
+for its surviving residual: *"take the LLM's sections when the realised ones are
+empty"*. I had read the code, confirmed the code path, and measured the reachable
+set at 18 pages. All of that was correct and the conclusion was still wrong.
+**Actually:** those 18 pages are what the fix would have damaged. All of them are
+`tool` (14), `blog-index` (2) or tool-ish `content` (2), and **15 of the 18 render
+content while carrying no sections at all** — they are composed by a different
+subsystem. For a **deployed** page, `sections=[]` is a positive statement ("not
+section-composed"), not an absence awaiting a fill. Implementing the prescription
+would have let a re-plan attach a generic `hero`/`features` layout to every one of
+them: content injection onto built pages, which is the exact failure class
+`/bugs_open/001` exists to prevent. Filed properly as `/bugs_open/050`.
+**Caught by:** reading the doc comment on `normaliseRealisedToPlanPage` — which
+explains that the union carries `sections` *because* the page sync's
+`<col> = EXCLUDED.<col>` would otherwise clobber them — and stopping to ask what an
+empty value in that column actually asserts, rather than what the bug file assumed
+it asserted.
+**The cheap check that would have caught it:** `SELECT` the rows the change would
+affect and **look at them** before writing the change, not after. One query
+described the whole population as tool pages and settled it. I had already counted
+those 18 rows for the report — I used the COUNT and never looked at the ROWS.
+**Second-order lesson, and the more useful one:** a residual documented by a
+previous session arrives with its diagnosis pre-attached and reads as a spec. It is
+a *hypothesis by someone who had stopped working*, and it deserves the same
+re-derivation as any other inherited claim. This one had been written, reviewed by
+its author, and carried into a handoff, and it was still wrong in the direction that
+would have caused damage.
+
+**(2) Guessed a column name instead of reading the schema.** Queried
+`p.adoption_locked` on `pages` to measure the preserved set.
+**Actually:** there is no such column — `adoption_locked` is *derived per query* by
+a `CASE` in the planner's `load_existing_pages` step, which is the finding that
+became `/bugs_open/051`. The error was free (Postgres refused it) and it led
+somewhere useful, but that was luck, not method.
+**The cheap check:** `\d pages`, which CLAUDE.md already mandates as "schema first"
+and which I skipped because I "knew" what the column was called from reading Go code
+that reads a **map key**, not a column.
+
+**Both are the same underlying move as the four logged from this workstream's first
+session:** trusting a name or a count as a stand-in for the thing itself. A map key
+is not a column; a row count is not the rows.
+
+**Two tally rows incremented; one new row.**

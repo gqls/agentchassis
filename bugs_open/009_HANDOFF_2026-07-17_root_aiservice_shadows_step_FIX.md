@@ -1,5 +1,14 @@
 # HANDOFF — FIX: root `ai_service` SHADOWS the step-level block (dead per-step config, fleet at 2048)
 
+> **STATUS 2026-07-20 — code fix WRITTEN, COMMITTED, and INERT.** The step-wins
+> overlay is in `4b11f223e` (`resolveAIServiceConfig` in `ai_actions.go` +
+> `ai_service_overlay_test.go`, 11 cases green). The inverted runbook gotcha is
+> corrected in `99dc0f95d`. **Not deployed** — inert until the chassis image is
+> rebuilt and rolled, so the defect is still live and this case stays OPEN.
+> Council submission `581754c8-390c-4f91-a3e6-43cd08a34e99` in flight (queued at
+> 20:14Z; no verdict yet, hence no `Council-Reviewed` trailer on the commit).
+> §4's fleet sweep is NOT done. See §7 for the audit that sized the change.
+
 **Filed:** 2026-07-17, from the "diagnosis fixloop 3" thread. Cold-start for a fixing
 thread. Mechanism is fully established (loop-cited + proven by direct experiment);
 this handoff is about the FIX and the FLEET SWEEP.
@@ -134,3 +143,74 @@ step 8000 vs root 32000 (root should now LOSE per-key) → then sweep the 7.**
   Sonnet 5 needs its cap re-sized, not just carried over.
 - Deploys landed 5× during the diagnosing session (1123→1128). Re-verify §1 line
   numbers against the code you check out, not against this doc.
+
+## 7. Behaviour-change audit (run 2026-07-20, live `agent_definitions`)
+
+§3 asks for this before changing precedence. Done — the blast radius is far
+smaller than the handoff assumed, because **no step block anywhere overrides a
+provider or a model**; every real difference is a `max_tokens` raise.
+
+Query used (dual-block agents):
+```sql
+SELECT ad.type, s.key AS step, jsonb_pretty(s.value->'config'->'ai_service')
+FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') s
+WHERE ad.deleted_at IS NULL AND s.value->'config' ? 'ai_service';
+```
+
+Exactly **3** agents declare both blocks (not a long tail):
+
+| agent | step(s) | root | step | delta under the overlay |
+|---|---|---|---|---|
+| `diagnose-agent` | `verdict` | sonnet-5, 32000 | sonnet-5, 32000 | **none** — blocks are byte-identical, so the §6 worry ("step 8000 would WIN") is already moot: the interim 32000 was copied into the step block at some point. Nothing to decide. |
+| `feed-triage` | `score_relevance` | sonnet-4-6, 4000 | sonnet-4-6, **8192** | **the only live change:** 4000 → 8192. The author's intended cap, never once applied. |
+| `site-adoption-agent` | `analyze_site`, `classify_archetype`, `derive_content_direction`, `generate_design_intent` | sonnet-4-6, 16000 | sonnet-4-6, **no max_tokens** | **none** — the steps restate provider/model and omit the cap, so root's 16000 survives. This shape is *why* the overlay must be per-key: step-wins-wholesale would have dropped these four steps to the hardcoded 2048. |
+
+Two further checks, both clean:
+- **Zero** agents declare both a top-level `max_tokens` and a step-level
+  `ai_service.max_tokens`, so the untouched top-level branch (`agentConfig
+  ["max_tokens"]` wins over the block) cannot newly shadow a step value.
+- The **16** active non-snapshot agents with a root block and no `max_tokens`
+  (§4 said 17; live count is 16 — `content-creator-contact` appears twice)
+  declare no step-level `ai_service.max_tokens` either, so **none of them
+  changes behaviour under the overlay**. §4's claim that "the 10 step-level
+  declarations start working on their own" does **not** hold: there are no such
+  declarations among them. They still run at 2048 and still need the deliberate
+  per-agent decision. **The code fix does not self-heal the sweep.**
+
+> **CORRECTED 2026-07-20:** §4's "configs self-heal — this is the argument for
+> code-first" is wrong as written. It is right that code-first is the safer
+> order, but the reason is not self-healing; it is that the overlay stops new
+> per-step config from being silently inert. The 16 capped agents are unaffected
+> either way. Caught by running §4's own audit query before trusting its prose.
+
+Sweep list (all `is_active`, root block, no cap anywhere — each needs a
+deliberate decision; 2048 may be right for short steps):
+`content-creator-about`, `content-creator-contact`, `content-creator-cta`,
+`content-creator-features`, `content-creator-hero`,
+`content-creator-hero-without-research`, `content-creator-testimonials`,
+`content-researcher`, `content_researcher`, `copywriter`, `reasoning`,
+`researcher`, `simple-content-writer-with-approval`, `vet-batch-processor`,
+`website-builder`. (Note `content-researcher` and `content_researcher` are two
+distinct rows — hyphen vs underscore.)
+
+## 8. What the fix actually does (as committed, `4b11f223e`)
+
+`resolveAIServiceConfig(agentConfig, runtimeStepConfig, currentStep)` builds the
+effective block by overlay, least- to most-specific, **later wins per key**:
+root → `workflow.steps[<current>].config.ai_service` → `params.StepConfig.Config
+["ai_service"]`. A block contributes only the keys it declares. The merged map
+is a fresh copy, so a runtime override cannot poison the cached agent
+definition (there is a test for this). The not-found error path is unchanged.
+
+§3's note about `ai_actions.go:181` being "a THIRD source" is folded in: it is
+now the last overlay layer rather than a third fallback.
+
+**Pod-verify literal** (created by this change, not merely used by it — a
+pre-existing symbol would give a false pass):
+`ai_service: step overlay applied`. Positive control: `ai_service: single source`
+(also new) or any known-present symbol.
+
+**Live check after the roll:** fire `feed-triage`'s `score_relevance` and
+confirm `llm_call_log` shows **8192**, not 4000. That is the one call in the
+fleet whose logged cap changes, which makes it the discriminating test — a
+green run of any *other* agent proves only that nothing broke.
