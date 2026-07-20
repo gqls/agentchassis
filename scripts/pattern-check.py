@@ -299,6 +299,59 @@ def check_declared_pairs(files, ref, findings):
             ))
 
 
+# ── append-only doc integrity ───────────────────────────────────────────────
+# Two docs in this repo are APPEND-ONLY by owner directive, and both have a
+# documented incident behind the rule:
+#   SUMMARY_*.md          each is a snapshot; the SERIES is the record. A
+#                         same-day second summary takes a b-suffix, it does not
+#                         replace the first. (Broken 2026-07-20 by the
+#                         reasoning-dataset thread, which rewrote that morning's
+#                         snapshot in place; restored from 4b8d2bca0.)
+#   README_where_we_are   the owner's log. Append; never rewrite or reorder.
+#                         (Broken 2026-07-19 by a session that mistook it for a
+#                         stray file and overwrote it.)
+# Both fire on DELETIONS, because an append has none. Thresholds measured over
+# 300 commits: SUMMARY at >=20 deleted lines fires on 2.0% (the same bar the
+# twin/gofmt checks were held to); README on ANY deletion fires on 0.7%. A
+# plain "SUMMARY was modified" predicate was rejected at 4.3% — it fires on
+# legitimate appends, which is how a check teaches people to ignore it.
+SUMMARY_DELETION_FLOOR = 20
+
+
+def _deleted_lines(path, ref):
+    return sum(
+        1 for ln in raw_diff(path, ref).splitlines()
+        if ln.startswith("-") and not ln.startswith("---")
+    )
+
+
+def check_append_only_docs(files, ref, findings):
+    """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
+    for path in files:
+        base = os.path.basename(path)
+        if base.startswith("SUMMARY_") and path.endswith(".md"):
+            deleted = _deleted_lines(path, ref)
+            if deleted >= SUMMARY_DELETION_FLOOR:
+                findings.append((
+                    "summary-overwritten", path,
+                    f"{deleted} lines removed from an existing {BOLD}SUMMARY{RESET} snapshot",
+                    "Summaries are snapshots and the series is the record — write a NEW file "
+                    "(b-suffix for a second on the same day) rather than editing the last one. "
+                    "If this IS a deliberate restoration or a correction, say so in the message "
+                    "and carry on; this never blocks.",
+                ))
+        elif base == "README_where_we_are.md":
+            deleted = _deleted_lines(path, ref)
+            if deleted > 0:
+                findings.append((
+                    "readme-not-appended", path,
+                    f"{deleted} line(s) removed from {BOLD}the owner's log{RESET}",
+                    "README_where_we_are.md is append-only: never rewrite, reorder, or edit the "
+                    "owner's words — add a dated correction below instead. A session overwrote "
+                    "one on 2026-07-19 after mistaking it for a stray file.",
+                ))
+
+
 def main():
     ref = None
     if "--commit" in sys.argv:                      # audit ONE commit in isolation
@@ -311,7 +364,8 @@ def main():
         return 0
 
     findings = []
-    for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs):
+    for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
+                  check_append_only_docs):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

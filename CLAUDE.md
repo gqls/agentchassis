@@ -224,6 +224,21 @@ Rules that make them worth the effort:
   carried forward unchecked is how a stale premise gets diagnosed as a bug.
 - **A verified fact needs its evidence inline** — the query, the file:line, the
   pod output. "Verified" without the check is a claim, not a verification.
+- **Mark the UNVERIFIED ones too.** The rule above only makes a checked claim
+  look checked; it does nothing to make an unchecked one look unchecked, and
+  that asymmetry is how every entry in `WRONG_CALLS.md` got written. An
+  inference stated in the same voice as a finding *is* the error. So mark it:
+  `[INFERRED]`, `[UNMEASURED]`, `[ASSUMED]` — inline, where the claim is. Typing
+  the marker is itself the check, because most of the time you will go and do
+  the query instead. A durable claim with no marker and no evidence is the
+  shape to distrust in your own writing and in anyone else's.
+- **Log the wrong calls: `docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md`.**
+  Fleet-wide, append-only — a claim you wrote down that turned out to be false,
+  what caught it, and the cheap check that would have. One row is an anecdote;
+  the **tally** of skipped checks is the point, because a check that keeps
+  appearing is one worth automating. That tally is what earned
+  `check_append_only_docs` its place in `scripts/pattern-check.py`. Distinct
+  from 016b §9: that file records how the *system* fails, this one how *we* do.
 - **Point at bugs, don't restate them.** Durable defects belong in `/bugs_open/`
   (see Debugging below) — link them; do not fork a second account that drifts.
 - **Grep before you file.** `/bugs_open/` and the workstream dirs first: several
