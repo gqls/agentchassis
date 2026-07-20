@@ -567,3 +567,57 @@ it is **cron-vs-everything**, in the one lane every new dispatch must pass throu
 **[UNVERIFIED]** — I have not checked what either scheduled job *does*, whether the
 health check is idempotent/cheap, or whether anything depends on the 60 s cadence.
 That is the next thing to establish before touching either.
+
+### Follow-up: the scheduler config, and a landmine in it (same thread, 2026-07-20)
+
+Resolving the `[UNVERIFIED]` above. `scheduled_tasks` (schema via `\d` first —
+there is no `schedule` column; the field is `interval_seconds`):
+
+```sql
+SELECT name, interval_seconds, enabled, target_topic, concurrency_group, max_concurrent, timeout_seconds
+FROM scheduled_tasks ORDER BY enabled DESC, interval_seconds;
+```
+
+**Twelve enabled tasks target `system.agent.generic.requests`.** The two that
+dominate the lane:
+
+| name | interval_seconds | max_concurrent | timeout_seconds |
+|---|---|---|---|
+| `ai-endpoint-health-check` | **30** | 1 | 15 |
+| `build-pipeline-trigger` | **30** | 8 | 300 |
+
+Nominal configured load across all twelve is **≈6 msg/min** into a lane whose single
+consumer was measured draining **1.43/min**. Even the observed 2.6/min is ~1.8× the
+consumer.
+
+> **LANDMINE — the queue is currently protected by a scheduling accident, and
+> "fixing" it would double the load.** Both jobs are configured at
+> `interval_seconds = 30`, and the scheduler's `TICK_INTERVAL_SECONDS` is also
+> **30** (`kafka-scheduler` deployment env; `cmd/scheduler/main.go:134`). The due
+> check is `last_triggered_at + interval <= NOW()`, so the tick that lands at the
+> boundary is marginally *early* and the task is not yet due — it fires on the
+> **next** tick instead. Net effect: **a 30 s task actually fires every 60 s.**
+> Confirmed against the wire — successive fire times are 59–60 s apart, drifting a
+> second at a time (`19:57:06 19:58:05 19:59:05 20:00:06`), which is the signature
+> of exactly this aliasing.
+>
+> So the lane is receiving **half its configured rate**. Anyone who "corrects" the
+> off-by-one (or drops the tick to 10 s, or changes the comparison to `<`) will
+> **double production to ~4 msg/min against a ~1.4 msg/min consumer** and turn a
+> slowly-growing backlog into a fast-growing one. Do not treat the 30 s config as
+> the effective rate, and do not tidy this without reading this entry.
+
+**This makes the cheapest fix cheaper still.** `interval_seconds` is a DB column, so
+raising it is **live immediately, no image roll** (per `CLAUDE.md`). Setting the two
+30 s jobs to something proportionate to what they actually need would restore
+headroom today. But note the aliasing when choosing a value: the effective period is
+the next tick boundary *after* the interval elapses, so with a 30 s tick the real
+options are 60 s, 90 s, 120 s… — asking for 45 s gets you 60 s.
+
+**Two things still [UNVERIFIED]** and worth establishing before changing either:
+- What `ai-endpoint-health-check` actually checks, and whether a 15 s timeout on a
+  30 s cadence implies anything depends on that frequency. Its handler is
+  `platform/orchestration/actions/check_endpoint_health_action.go`.
+- Whether `build-pipeline-trigger`'s `max_concurrent = 8` interacts with
+  `/bugs_open/029` (hung spawns saturating the dispatch group) — same
+  `concurrency_group = 'dispatch'`, and 029 is about that group filling up.
