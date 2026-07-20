@@ -117,15 +117,25 @@ MatchMatrix was hand-authored for exactly this reason.
    If the batch stalls, see RUNBOOK "Making a batch actually run" — and note
    `bugs_open/030` (single-consumer dispatch): do **not** re-fire a dispatch that
    looks dropped.
-2. **`bugs_open/023` — now the highest-value fix here, and it is a code fix.**
-   Its cause is stronger than the file originally said: the URL is not authored
-   at all. A content-side fix is overwritten by the next render, so this belongs
-   in `chooseCTATargets` — make it label-aware, or let an explicitly-authored URL
-   win. Land it inside the staged rollout already described at
-   `resolve_internal_links_action.go:79-84` (`ctaFieldNames` is currently an
-   OVERRIDE on the schema-derived pairing in `datahelpers/ctafields.go`, running
-   OBSERVE-ONLY pending a council round) rather than beside it. Until that lands,
-   robot-hands' primary CTAs will keep reverting to nav-order defaults.
+2. **`bugs_open/023` — DO NOT START IT HERE. It has an active owning thread.**
+   The `cta_link_integrity` workstream
+   (`../cta_link_integrity/`) is six council rounds in and its **observe-only
+   stage shipped LIVE in v1.0.1140** (`f6b4aea5a`, trail `2525f980`). Its PLAN
+   already carries the defect classes, including class H — `ctaFieldNames` is a
+   hardcoded 6-component map and anything outside it is "detectable but not
+   repairable". **Coordinate, do not duplicate**; that thread owns the fix.
+   What robot-hands contributes is an instance and one mechanism I did not find
+   in their notes, now written into `/bugs_open/023`'s addendum: `chooseCTATargets`
+   (`resolve_internal_links_action.go:319`) picks `primary = ordered[0]`,
+   `secondary = ordered[1]` after sorting by `NavOrder`/`Name` and **never reads
+   the label**, so every CTA of a kind on a site converges on the *same* two
+   destinations. That is why 20 components here collapsed onto one URL. Their
+   framing is about which components are *repairable*; this is about the *choice*
+   being label-blind. Hand it to them rather than acting on it.
+   Consequence for this site meanwhile: robot-hands' primary CTAs will keep
+   reverting to nav-order defaults until that thread lands its fix. The ones that
+   currently read correctly do so because the resolver would choose that URL
+   anyway.
 3. **`bugs_open/043` — generated copy invents quantitative claims.** Filed this
    turn, robot-hands contained. **The fleet-wide sweep has NOT been run** — that
    is the first thing the fixing thread should do (sweep query is in the file).
