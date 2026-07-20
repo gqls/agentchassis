@@ -181,6 +181,63 @@ explicit preference stated on the leopardess voice rewrite ("I don't want it
 written here manually"). Don't hand-author finished marketing prose here; hand
 the content-writer a well-evidenced brief instead.
 
+## Part 2 (continued) — grounded content brief (capability inventory returned 2026-07-20)
+
+Full evidence in NOTES. Proposed positioning pillars, each tagged with its
+honest status — this is the content brief for whenever the content-writer
+agent actually fires, not copy to ship as-is:
+
+1. **Rapid site delivery** — LIVE/VERIFIED. Real dated example: a 33-page site
+   rebuilt overnight, largely unattended, with a live 9-source news feed and 5
+   interactive calculators (verified against production, 2026-07-10). Directly
+   answers "instant marketing/product-test/presentation sites" — cite the real
+   example, don't hypothesise a capability we haven't shown.
+2. **Multi-agent council review / AI governance** — LIVE/VERIFIED, the
+   strongest and most differentiated pillar. 13 independent reviewer seats,
+   live since 2026-07-17, real growing decision record, a genuine
+   production-risk bug caught from an external submission, and a
+   self-correcting culture on record (a commit retracting its own falsely
+   claimed review). Recommend this as the FLAGSHIP case study.
+3. **Fine-tuning on real usage data** — LIVE/VERIFIED for one completed,
+   honestly-evaluated cycle (real production data, blind A/B against a
+   frontier model, non-flattering result disclosed). Do NOT claim the fully
+   automated unattended flywheel — that part is built but has never completed
+   a live cycle.
+4. **Real backend engineering (payments)** — idea.uk's Stripe integration,
+   LIVE/VERIFIED as a real hand-rolled checkout+webhook flow; do not cite a
+   transaction volume (unconfirmed in the docs).
+5. **Expired-domain revival / traffic engineering** — relojistas.com,
+   LIVE/VERIFIED, the cleanest evidence-grade case study found: legacy feed
+   404→~97% success within 24h of launch, with the crawler-vs-human caveat
+   disclosed rather than hidden. Strong, ready to use largely as-is.
+6. **Private in-house search via embeddings — NEEDS OWNER FRAMING DECISION,
+   see Open Decisions #5.** Real, production-proven vector search
+   infrastructure exists; tenant isolation does not exist yet on our own
+   shared testbed (the platform's own prior audit rules this out explicitly).
+   Must be framed as "buildable, because the hard technical part is proven,"
+   not "already delivered safely for outside parties" — the latter would be
+   the exact class of claim the platform's own verification system exists to
+   catch.
+7. **Claims-verification / anti-hallucination discipline — NEEDS OWNER CALL,
+   see Open Decisions #6.** A genuinely compelling meta-narrative (an AI
+   platform that checks its own AI-generated content against evidence and
+   catches fabrications, including from its own prior site) — but using it
+   means referencing that a past mistake happened, which is a brand-tone
+   decision, not an engineering one.
+8. **"We run our own fleet"** — 11 live production sites is a true, checkable
+   headline stat. Per the exclusion list, present it in rounded/categorical
+   form (content sites, a game platform, a paid tool with real payments, a
+   revived expired domain) rather than naming every site — and do NOT name
+   leopardessconsulting specifically without sign-off (Open Decisions #7).
+
+**A hard constraint carried into every pillar above**: a specific, named list
+of past leopardess fabrications (an invented founder, an invented "70+ agents/8
+departments" org structure, invented case-study clients, a fake uptime stat, a
+garbled "awards won" figure) must **never** resurface on fundamentallyai.com —
+full list in NOTES. This isn't a style preference; it's the exact failure mode
+the claims-verification system exists to prevent, on a brand-new site that
+won't yet have that system's benefit of hindsight.
+
 ## Open decisions the owner needs to make (do not assume)
 
 1. **Domain — RESOLVED by owner 2026-07-20.** fundamentallyai.com is owned;
@@ -207,6 +264,24 @@ the content-writer a well-evidenced brief instead.
    infographics need and this workstream's Bain-style stat band draw from it. Needs
    the owner's confirmation it's fine to size the component for two workstreams'
    use rather than leopardess-specific fields only.
+5. **Embeddings/private-search framing — must be resolved before that pillar's
+   copy is written.** Recommend: pitch it as "buildable, because the hard
+   technical part (production-proven vector search) is already solved" — NOT
+   as an already-delivered guarantee of safe multi-tenant isolation, which the
+   platform's own audit says doesn't exist yet. This is close to a hard
+   constraint (see NOTES), flagged here as a decision point only because the
+   owner may want different wording, not because the underlying fact is
+   negotiable.
+6. **Use the claims-verification/anti-hallucination story as a case study?**
+   Recommend yes, strategically — it's genuinely differentiated ("we verify
+   our own AI's output and catch its mistakes, including our own past ones")
+   — but it means referencing that leopardess previously shipped fabricated
+   content, which is a brand-tone call for the owner, not something to include
+   or exclude by default.
+7. **Name leopardessconsulting.co.uk specifically as a proof-point site?**
+   Recommend no, or only with explicit sign-off — it's a sibling brand with its
+   own identity and a documented (if now-fixed) fabrication history. The "11
+   live sites" stat works fine without naming every one.
 
 ## Phasing (updated 2026-07-20 — domain + house style resolved, scope broadened)
 

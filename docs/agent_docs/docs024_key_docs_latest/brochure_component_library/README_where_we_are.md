@@ -70,3 +70,38 @@ grounded list of what's genuinely true and impressive, and a first design
 proposal, before any actual page copy gets written — and to be clear, the
 final copy will always be written by the platform's own content-writer from a
 brief, not typed up by hand here, same as we agreed for leopardess.
+
+**2026-07-20, later still** — The internal research came back, and it's good
+material, with one important catch. The genuinely strong stuff: a real
+13-reviewer AI council that's been live for a few days and already caught a
+real production bug another team missed — I think this is the standout story.
+A real fine-tuning run we evaluated honestly against a frontier model and
+reported the result even though our model lost most of the time. A real Stripe
+payment integration on idea.uk. And a clean, honest case study on
+relojistas.com — we found a dead website's forgotten subscriber feed was still
+being checked daily, rebuilt the site, and got that feed working again within a
+day, and we were upfront in our own notes that most of that traffic is just
+search-engine bots, not real people, rather than dressing it up.
+
+The catch is about your embeddings idea. The actual search technology is real
+and does work — but the "safely, without leaking to other organisations" part
+isn't true yet on our own system. Right now everything sits in one shared
+database with nothing stopping one site's data being visible to another; it's
+a bit of a "the door isn't locked yet" situation. So I don't think we should
+say we already offer that safely — I think we say we have the hard technical
+part solved and can build a properly walled-off version for a client, which is
+still a strong, honest pitch, just a different one than "we already do this."
+
+I also found the original list of what got fabricated on leopardess last week
+— a made-up founder, a made-up "70+ agents in 8 departments" structure, made-up
+client case studies, a fake uptime number. None of that should ever show up on
+the new site, even by accident, so I've written the exact list down as a hard
+no.
+
+There are a few calls only you can make before I go further: how you want the
+embeddings pitch worded, whether you want to tell the story of us catching our
+own past mistake as part of the pitch (it's compelling, but it means admitting
+the mistake happened), and whether leopardess should be named directly as one
+of "our sites" or just referred to in general terms. Once you've weighed in,
+the next real step is turning all of this into a proper brief for the site's
+content-writer to work from — not me writing the actual page text by hand.

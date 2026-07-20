@@ -334,3 +334,181 @@ site — matching the owner's own stated preference on the leopardess voice
 rewrite ("I don't want it written here manually"). This session's job is to make
 sure that when the content-writer runs, it has true, well-evidenced material to
 draw from and a clear brief of which components/case-studies to write for.
+
+## 2026-07-20 (continued) — capability inventory returned; one load-bearing correction
+
+The Explore agent's 7-part capability inventory (methodology: code + all of
+`docs024_key_docs_latest/` + `bugs_open/`/`bugs_closed/`/`features_open/` +
+`git log`, every claim tagged LIVE/VERIFIED, BUILT BUT INERT, or ASPIRATIONAL
+with file:line/doc citations) returned. Condensed here; full per-claim evidence
+is in the agent's report (not re-transcribed in full — this file records the
+findings that change what we can honestly say, not a duplicate of the source
+material).
+
+### The one finding that changes the brief itself
+
+**[LIVE/VERIFIED] Real, production pgvector-based RAG infrastructure exists**:
+`knowledge_base` table (`vector(768)`, IVFFlat cosine index + trigram
+fallback), `code_symbols` (source-code semantic search, HNSW), `agent_memory`
+(`platform/database/pgvector.go`, per-client-schema). `rag_actions.go`
+implements index/lookup with Nomic task-prefixing, proven with a real
+discriminating-content test (French Bulldog BOAS ranked correctly above
+Labrador/piano/EV-battery content) and a live chassis smoke test. It's used for
+real work today (tool-generation PLANs indexed into a `tool_docs` collection).
+**Genuinely strong, verifiable infrastructure — this part of the owner's
+embeddings idea is real, not speculative.**
+
+**But [NOT TRUE TODAY, per the platform's OWN prior audit]: there is no
+tenant/client data isolation on this shared store.** `docs/leopardessconsulting/
+AUDIT_verified_facts.md` §4 finding P5 (code-verified, not inferred): *"Single
+shared Postgres (no row-level security anywhere in the schema), single shared
+Kafka cluster, single shared ollama-adapter pod — separated only by a `site_id`
+column in shared tables."* `knowledge_base` is explicitly documented as a
+**shared** resource, not per-tenant. A fine-tuning planning doc even lists
+"add `tenant_id` to `knowledge_base` + enforce in `rag_lookup`/`rag_index`" as
+an **unstarted** Week-1 TODO.
+
+**This directly constrains the owner's own pitch** ("use embeddings to safely
+let them search their in-house databases without leaking info to outside
+organisations"): **that specific claim — as a standing, already-shipped
+guarantee — would be an overclaim of exactly the kind the claims-verification
+system exists to catch.** The honest, still-compelling version: *we have real,
+production-proven vector search/retrieval infrastructure (running today across
+our own 11 sites and our own code search) — and building a client a properly
+isolated, private instance of it (adding the tenant boundary that our own
+shared testbed doesn't have) is a scoped, buildable engagement, not a
+speculative one.* "Buildable because we've already solved the hard technical
+part" is a true and still strong claim; "we already do this safely for
+multiple outside parties" is not. **Flagging this to the owner as a required
+framing decision before any copy is written — see PLAN.**
+
+### Fine-tuning
+
+**[LIVE/VERIFIED]** one real completed LoRA fine-tune: Llama-3.3-70B via
+Unsloth QLoRA on 1,958 real rows exported from the platform's own
+`llm_call_log` (every real LLM call the platform makes is logged — the
+data-capture "flywheel" mechanism is itself real and live), ~9h/~$20 on a
+rented A100. **Genuinely evaluated, not just claimed**: held-out real briefs,
+automated + Claude-judged blind A/B, honestly reported non-flattering result
+(Claude won 16/20 vs the fine-tune's 4/20), verdict recorded as *"shippable for
+low-stakes use, not client-facing."* Total real cost for the cycle: ~$22.
+**[BUILT BUT INERT]**: the fully-automated unattended version (auto-provision →
+train → evaluate → redeploy without a human watching) has real engineering
+behind it (a working Thunder Compute GPU-provisioning adapter) but has **never
+completed one full unattended cycle** — the decommission/monitor branch "has
+never fired live." Framing: cite the real fine-tune + honest evaluation
+methodology as the proof point; do not claim the automated flywheel is running
+unattended today.
+
+### Council-gate / multi-agent review — the strongest, cleanest pillar
+
+**[LIVE/VERIFIED]**, and the single most differentiated, quotable capability
+found. **13 seats** (code-verified as of 2026-07-19 — not 16; that figure
+belongs to a *different* council, the concept-register one, per this session's
+own memory — don't conflate the two when citing a seat count), live since
+2026-07-17, growing on a documented, independently-verified trajectory
+(2→6→7→9→13). Real decision record: 18 commits carry a `Council-Reviewed:`
+trailer; a real external submission (imagery D14) took 3 rounds (6/3→8/1→7/2)
+and caught 3 real defects including an unguarded `jsonb_array_length()` call
+that could **abort an entire discovery sweep in production** — a genuine
+production-risk catch with commit hashes and a correlation ID as the audit
+trail. **Self-correcting culture on record**: a commit literally titled
+"CORRECTION — the Council-Reviewed trailer... was not earned." Baseline
+adoption metric tracked honestly (28 in-scope commits/3 days, 0 reviewed, on
+first measurement). **This is strong enough to be the flagship pillar** — an
+AI platform whose changes are independently reviewed by other AI agents before
+they ship, with a real, growing, self-correcting decision record, is a
+genuinely rare and verifiable claim.
+
+### idea.uk (Stripe) and relojistas.com — both usable, one with a caveat
+
+**idea.uk [LIVE/VERIFIED]**: real hand-rolled Stripe integration (direct REST
+calls to the Checkout Sessions API, not the SDK; HMAC webhook signature
+verification implemented by hand; idempotent webhook processing; a
+human-review gate before auto-delivery) selling a real £29 report product, live
+on production nginx routing tuned specifically for Stripe's retry behaviour.
+**Caveat**: the docs themselves flag that the final "a real Stripe test event
+reaches a paid order" verification step was still outstanding as of the most
+recent dated note — cite the integration as real and live, do **not** cite a
+specific transaction volume (unconfirmed).
+
+**relojistas.com [LIVE/VERIFIED] — the cleanest, most quotable case study
+found.** A dead Spanish watch-forum domain, measured (not guessed) to still be
+receiving real subscriber traffic to one specific legacy RSS feed URL (~136
+hits/day, 100% failing). Rebuilt as a live Spanish watch-news portal; the
+legacy feed URL flipped from 100% failure to **~97% success within 24 hours of
+launch** (122/125 the first full day). Honestly caveated in the same doc: most
+traffic is crawlers, ~55 non-crawler fetches identified, Cloudflare-fronted IPs
+mean genuine subscriber counting isn't possible — **the honesty of the caveat
+is itself part of what makes this evidence-grade**, not a weakness to hide.
+
+### Other real, demonstrable capabilities (condensed; full table + citations in
+the agent's report)
+
+- **Claims-verification system itself** — a real anti-hallucination pipeline
+  that checks generated site copy against a per-site verified-evidence base,
+  live, catching real fabrications within hours of sites going live. Strong
+  meta-narrative potential (see PLAN — this one needs an explicit owner call,
+  not an assumption, because it involves referencing that a past mistake
+  happened).
+- **Voice-tells checker** — deterministic AI-prose-tell detector, live,
+  calibration verified against real pages.
+- **Site-generation speed** — a real, dated (2026-07-10), verified-against-
+  production example: a 33-page site rebuilt from scratch overnight, largely
+  unattended, including a live 9-source news feed and 5 interactive
+  calculators. **Directly answers the owner's "instant marketing/product-test/
+  presentation sites" idea** — this is the proof point for that pillar, not a
+  hypothetical.
+- **Imagery pipeline** — 14 bespoke hero images generated overnight, ~90
+  seconds each, prompt→model→optimise→git-commit, fully automated.
+- **Self-healing discovery loops** — 14 corrupted components found fleet-wide,
+  10 healed within a day, at least one with zero human involvement.
+- **Multi-session coordination engineering** — real infrastructure built so
+  many autonomous AI sessions can safely share one production codebase
+  (commit-per-task discipline, ref-pinned builds from committed HEAD). Found a
+  real production bug in the process (Kafka at-most-once consumption wedging
+  orchestrations up to 1,224 hours) — cite the coordination discipline as live;
+  the underlying bug it found (`bugs_open/003`) is filed with a fix specified
+  but **not yet shipped**, so don't claim that specific bug as "fixed."
+
+### The load-bearing exclusion list — never reuse these for fundamentallyai
+
+**[CRITICAL — read before any copy is written for this site]** Leopardess's own
+`AUDIT_verified_facts.md` documents specific fabrications a past thread found
+and stripped from leopardessconsulting.co.uk on 2026-07-09. These exact figures
+must **never** resurface anywhere, including on fundamentallyai.com, even
+though an LLM asked to write "about us" copy might reproduce them from
+training-adjacent patterns or stale cached context:
+- "70+ agents across 8 functional departments" (a fabricated org taxonomy —
+  `information_schema.columns WHERE column_name ILIKE '%department%'` returns 0
+  rows; the true, verified figure is over 150 agent definitions, no
+  departments).
+- Any invented founder/leadership bio (a "Peter Grenfell" headshot/bio was
+  invented and deleted; the real background is the owner's own, first-person).
+- Invented case-study titles/clients (leopardess's own subsystems were
+  relabelled as third-party client engagements — the platform's own standing
+  rule, worth repeating for fundamentallyai: **our own sites demonstrate the
+  platform; they are never to be implied to be a client roster.** Any of our
+  11 real sites cited on fundamentallyai must be labelled as our own build.)
+- Fabricated stats: "99.9% uptime" (invented), "2,767 Awards Won" (a garbled,
+  meaningless figure).
+- Do not name-check leopardessconsulting.co.uk directly as a positive case
+  study without the owner's explicit sign-off — it's a sibling consultancy
+  brand with its own separate identity and a documented fabrication history
+  that a diligent visitor could find; citing it invites exactly the scrutiny
+  fundamentallyai is trying to earn credit for withstanding.
+
+### Real site count
+
+**11 live sites** (two independent code-checked counts converge, 2026-07-19/20):
+dartsonline.com, finetuning.uk, gamesdesign.co.uk, idea.uk,
+leopardessconsulting.co.uk, robot-hands.com, vonc.com,
+ai-agent-orchestration.com, gaswholesalers.com, vetcomparison.uk,
+relojistas.com. (`wayfaringlondoner.com` is an experimental lander, not a full
+site — exclude it from any "11 sites" count; `worldsoccernews.com` is an
+owner-personal reference, not a platform-built site — never cite it as ours.)
+"We operate 11 live production sites on our own platform" is a true, checkable
+headline stat — but per the exclusion list above, don't enumerate
+leopardessconsulting by name without sign-off; a rounded framing ("content
+sites, an interactive game platform, a paid tool with real payments, a revived
+expired domain") works without naming every one.
