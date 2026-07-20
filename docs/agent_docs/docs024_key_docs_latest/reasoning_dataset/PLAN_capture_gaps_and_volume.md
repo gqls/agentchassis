@@ -98,6 +98,16 @@ schema change, and no new LLM spend.
 > complete items: 4,599   with result->'resolution': 0   with result->'approved_by': 0
 > ```
 >
+> **CORRECTED AGAIN 2026-07-20 — the query below was scoped to `status='complete'`
+> and undercounted.** Run unscoped it returns **8** rows carrying a real
+> `result->>'resolution'`: seven `cancelled`, one `section_source_drift`. They are
+> good prose, written by working threads via direct SQL — all eight have an empty
+> `resolved_by`, which the admin API would have stamped `'admin'`. So the reasons
+> ARE being captured: rarely, ad hoc, without identity, and never yet for a
+> `needs_human_review` item. What follows is correct about the *API* path and
+> wrong as an absolute. Full corrected account and the live queue figures:
+> **`bugs_open/033`**.
+>
 > **Zero. Not 0 of 316 — 0 of 4,599.** The human-resolution path has never been
 > called. `HandleResolveWorkItem` / `HandleApproveWorkItem`
 > (`site_admin_handlers.go:774`, `:817`) are live routes that nothing invokes,
