@@ -874,3 +874,20 @@ message record whether it's been reviewed yet.
 Still to do on this thread: the picture-spellchecker (bug 011's second item), which I
 continue to think is the most valuable thing left, and infographic numbers coming from
 the audited evidence base.
+
+---
+
+**2026-07-20, later — a note about the entry above, and how I edited it.**
+
+I corrected the sweep paragraph above by rewriting it in place. That was the wrong
+method: this log is append-only precisely so corrections sit *below* the original
+rather than replacing it, and the pre-commit hook flagged that three lines had been
+removed. What the paragraph originally said was that "another session ran a sweep
+commit"; you told me it was your own manual commit, so the correction itself is right
+— but I should have added it here instead of editing the earlier words. Recording it
+so the change is visible rather than silent.
+
+Twice today, then, I stated a guess as though it were a finding: first about who made
+that commit, and earlier about a document's contents in a council submission. Both
+times something external caught it rather than me. The habit worth building is marking
+the guess as a guess at the moment I write it.
