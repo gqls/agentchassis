@@ -28,6 +28,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | the check that was skipped | times |
 |---|---|
 | read the code before asserting a mechanism | 6 |
+| **read the CONTRACT a thing plugs into, not just its logic** | **1** |
 | wait / query again before calling an absence a failure | 3 |
 | **grep for the capability before asserting it does not exist** | **1** |
 | **prove the artefact is current before reasoning from it** | **1** |
@@ -54,6 +55,20 @@ from one thread on one bug entry within an hour, and **neither was caught by any
 process — both were caught by the owner asking for a double-check.** That is the
 uncomfortable line in this file: the tally measures checks we skipped, but the
 *catch* column is still mostly luck and human review.
+
+**Update 2026-07-20 (chassis v1.0.1140).** A tenth row lands, and it is the most
+expensive so far because it escaped the most checks: a council submission whose
+headline proposal was *unimplementable*, through two council rounds and into
+another thread's queue. Its new tally row — *read the CONTRACT a thing plugs
+into, not just its logic* — is a sibling of the dominant class, but note what is
+different about it. The dominant class is asserting a mechanism without reading
+the code; this is reading the code and stopping at the part that was interesting.
+I quoted `ItemVerifier`'s file twice in that same submission for other purposes
+and never once looked at its signature. **Neither the council nor any check
+caught it** — the implementing thread hit the wall. That is now twice in this
+file where a REVIEW passed something only implementation could refute, which is
+the honest limit of plan-stage review and an argument for handing a plan over
+sooner rather than polishing it through another round.
 
 ## Row shape
 
@@ -430,3 +445,30 @@ dormant-machinery pattern this repo keeps rediscovering: a plausible-sounding "w
 have this" that nobody re-greps. Recorded because the failure mode is *asymmetric
 scepticism* — I checked the claims that would have made my plan look worse, and not the
 one that made it look better.
+
+### 2026-07-20 — reasoning-dataset — proposed a verifier that could not be written
+**Asserted:** council submission B named `hardcoded_section_colors` as the first
+item type to gain a completion verifier — *"Predicate is purely deterministic"*,
+*"the check already knows how to decide"* — and shipped a sketch calling
+`hardcodedColorVerdict(html)` after a `component_id` lookup. Two council rounds
+argued about it. Nobody, me included, checked whether the verifier signature
+could reach the data that predicate needs.
+**Actually:** it could not. `ItemVerifier` took `(ctx, db, spec, logger)`, and
+`hardcoded_section_colors` files **one item per site** — its predicate needs
+`site_id`, which measured over all 5,514 live items appears in just **9** specs
+(against 2,370 with `page_id`). The verifier was **unwritable**, however willing
+the author. My submission's central proposal was unimplementable as specced.
+**Caught by:** the `work_item_completion_integrity` thread, when it went to
+implement the handoff and hit the wall. Not by me, not by two council rounds, and
+not by any check.
+**The cheap check that would have caught it:** read the *contract* the thing
+plugs into, not just the logic it would run. I described what the predicate
+computes without once opening `ItemVerifier`'s signature — the same file I had
+quoted twice for other purposes.
+**Cost:** real. It sent a handoff into another thread's queue with its headline
+proposal broken, and cost that thread the detour of widening the contract
+(`VerifyTarget{ItemID,SiteID,PageID,ItemType,Spec}`, commit `08b35ccc4`) before
+it could do the work at all. Their correction also improves on my diagnosis: I
+blamed the coverage gap on the mechanism being opt-in — *"stays at one unless an
+author remembers"* — which aims the fix at discipline. The real reason was that
+for a whole class of item types a verifier was impossible to write.
