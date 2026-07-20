@@ -27,15 +27,15 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 
 | the check that was skipped | times |
 |---|---|
-| read the code before asserting a mechanism | 6 |
+| read the code before asserting a mechanism | 7 |
 | **read the CONTRACT a thing plugs into, not just its logic** | **1** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
 | wait / query again before calling an absence a failure | 4 |
-| **grep for the capability before asserting it does not exist** | **2** |
-| **prove the artefact is current before reasoning from it** | **2** |
+| **grep for the capability before asserting it does not exist** | **3** |
+| **prove the artefact is current before reasoning from it** | **3** |
 | measure a property before describing it | 1 |
 | **run a census against a known-positive control before reporting the count** | **1** |
-| **look at the real values before designing for the assumed ones** | **2** |
+| **look at the real values before designing for the assumed ones** | **3** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
@@ -43,6 +43,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-read the row AFTER a render, not after your own write** | **1** |
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
+| **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
+| **confirm the record you are reading is the one that produced the artefact** | **2** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -840,3 +842,104 @@ are the same observation — a null result — and only elapsed time or reading 
 tells them apart. My threshold for "long enough" (13 minutes) was set by impatience, not
 by any measured dispatch latency; had I measured one first, the answer was ~29 minutes.
 An absence needs a stated waiting period *before* you look, or it is not evidence.
+
+### 2026-07-20 — bugs_open/001 + 039 + 040 (bugfix-001 thread) — five wrong calls in one session, four of them the same shape
+
+Logged together because the **repetition** is the finding. Individually each is
+small and each was caught; the pattern underneath them is not.
+
+**(1) "The section went missing because the request timed out."** Written into
+`bugs_open/040` as the explanation for dartsonline `index` rendering 5 of its 6
+planned sections.
+**Actually:** the section is dropped by builds that *succeed* — a later
+`image-build-handler` rebuild reported `status='complete'` and produced the same
+5-of-6. And the timeout's failing step was **`deploy_page`**, which runs *after*
+component writing, so it could not have consumed a component the earlier steps
+were responsible for producing.
+**Caught by:** re-checking the bug's own evidence against live state after a
+chassis deploy, and noticing the component timestamps had moved.
+**The cheap check that would have caught it:** read the failing step's NAME before
+attributing what the failure destroyed. `deploy_page` was in the error row I had
+already pasted into the bug file. I quoted the record and did not read the field.
+
+**(2) "The error was never written where a human or a sweep would look."** Same
+bug, offered as a fix candidate ("propagate the orchestration error onto the work
+item").
+**Actually:** `agent_error_log` had it — message, step, and `work_item_id` — and
+has 32,398 rows going back to 2026-04-02. The true, much narrower claim is that
+`site_work_items.error` is empty. The fix candidate is a join, not a missing record.
+**Caught by:** reading a new file in the v1.0.1140 diff (`agent_error_log.go`) and
+going to look at whether the table it writes to already had my failure in it.
+**The cheap check that would have caught it:** `\dt *error*` — one command, before
+writing "never recorded".
+
+**(3) "`testimonials` appears in neither `sections_deferred` nor `sections_skipped`."**
+Written into the same bug while ruling out explanations.
+**Actually:** it is in `sections_skipped`, with an explicit
+`"reason": "on_missing=skip_section triggered"` — and the section is being dropped
+**correctly**, because the component requires
+`site_specs.social_proof.testimonials` with `min_items: 1` and the site has none.
+The platform was refusing to invent customer testimonials. I had queried the
+wrong orchestration: one that recorded `"no sections to plan"` and never built
+anything, picked because it was the nearest run in the time window.
+**Caught by:** looking for the run that actually wrote the five components, rather
+than the run that was closest to the timestamp.
+**The cheap check that would have caught it:** confirm the record you are reading
+is the one that produced the artefact — match it to the artefact (here,
+`save_sections.sections_saved = 5`), not to the clock.
+
+**(4) "30 section entries resolve to no component."** A fleet census for
+`bugs_open/039`.
+**Actually 11.** The other 19 were `snake_case` and resolve fine —
+`NormalizeComponentFunction` converts `call_to_action` → `call-to-action`, and I
+had compared raw strings.
+**Caught by:** one live page (`gaswholesalers.com`) rendering a `call-to-action`
+from a `call_to_action` section entry, which my number said was impossible.
+**The cheap check that would have caught it:** apply the platform's own normaliser
+before declaring a mismatch — the function was in the tree, named exactly what I
+was doing by hand.
+
+**(5) "Pass B2 snapped `about` back and prevented a regression."** Written as the
+proof that the `bugs_open/001` fix worked on its first live run.
+**Actually:** the LLM proposed `differentiators-section` and the plan kept
+`differentiators` — which are the **`name`** and the **`function`** of the *same
+component row*. The snap proves the code path executed; it prevented nothing.
+**Caught by:** resolving both strings against `content_components` before writing
+the claim up — barely in time, and only because (4) had just made me suspicious of
+string comparisons.
+**Cost:** none, corrected before the claim left the session. A second re-plan later
+produced two genuine rescues, so the fix is proven — but had I stopped at run 1,
+`bugs_open/001` would carry a proof that was really a naming variant.
+
+**(6) "leopardess has no clients and no case studies."** Repeated from
+`bugs_open/001`'s FRESH EVIDENCE section into `bugs_open/040`, and used to
+recommend **deleting** a blank case-study page.
+**Actually:** the owner corrected it — the case studies describe real systems
+built and running; they are simply not *client* case studies. `/case-studies.html`
+is live, in the nav, and good. "No clients" had been read as "nothing to write
+about".
+**Caught by:** the owner, in conversation.
+**The cheap check that would have caught it:** fetch the page before recommending
+its deletion. I had the URL and never opened it. Also: a claim about the owner's
+own business, inherited from another thread's prose, is exactly the kind to ask
+about rather than act on.
+
+> **Four of these six — (1), (3), (4), (5) — are one shape: I compared two things
+> without first resolving them to the same ground.** Two records that were not the
+> same run; two strings that were not in the same namespace, twice. Each time the
+> comparison was *executed carefully* and the inputs were never checked for
+> identity. That is why it does not feel like carelessness from the inside: the
+> reasoning is sound and the operands are wrong.
+>
+> It maps onto the existing dominant class — reasoning from data instead of code —
+> but it is a distinguishable sub-shape and worth naming separately, because the
+> remedy is different. The remedy is not "read the code"; it is **one extra
+> resolution step before the comparison**: which run produced this artefact, and
+> what namespace is this string in. Both are single queries.
+>
+> This platform makes the string half of it especially easy to hit: `pages.sections`
+> stores a component's `function`, `page_components` references its `name`,
+> section names arrive in `snake_case` and components are `kebab-case`, and there
+> is a normaliser that some paths call and others do not (`bugs_open/041`). Three
+> namespaces for one concept. A census or a diff that does not normalise first will
+> be wrong, and will look thorough while being wrong.
