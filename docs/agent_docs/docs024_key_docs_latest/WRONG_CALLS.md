@@ -33,6 +33,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **grep for the capability before asserting it does not exist** | **1** |
 | **prove the artefact is current before reasoning from it** | **1** |
 | measure a property before describing it | 1 |
+| **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **2** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
@@ -385,6 +386,47 @@ absence of DB rows nor the absence of log lines can.
 was dropped (×3)" above, and this time the recorded row did its job. Logged as a
 *repeat prevented*, which is the tally this file exists to produce.
 
+### 2026-07-20 — bugfix thread (bugs_open/044) — "110 seeded, active agents have never run"
+
+**Asserted:** stated to the owner, in the same voice as the session's verified
+findings, that a one-line probe showed **110** active agents with no row in
+`orchestration_states` — offered as evidence that "dormant machinery is common
+rather than exceptional". I did hedge that spawn-only children might inflate it,
+which turned out to be the *wrong* caveat and gave the number false credibility:
+it looked like a figure someone had already thought about.
+
+**Actually:** the query was invalid. It counted via `owner_agent_type`, and
+**95,797 of ~101k orchestrations carry `owner_agent_type='generic'`** because
+that is the dispatch path, not the agent. Counting that way reports
+`fix-proposer` and `council-gate` as never-run — both demonstrably run (councils
+appear in 92 `workflow_plan`s; the new `review_prior_art` seat in 20). The
+spawn-only caveat was also wrong in the opposite direction: spawned children
+**do** appear as owners (`page-content-writer`, 638 rows). Re-measured by
+step-fingerprint the real figure is **57 of 122 measurable agents**, with a
+34-agent blind spot — and the 57 is mostly *retired* agents still flagged
+`is_active`, not dormant capability. The headline claim survived; the number
+that made it sound authoritative was about double, and its composition was
+nothing like what I implied.
+
+**Caught by:** recognising `fix-proposer` in the output list. **Not a check —
+luck.** Had the list happened to contain only agent names I did not know, I
+would have filed the 110. Worse, the invalidating fact was already written in my
+own memory (*"council_report source_agent='generic' fleet-wide — partition by
+another key"*), so I had been told and did not connect it.
+
+**The cheap check that would have caught it:** before reporting a census, run it
+against a **known-positive control** — pick two things you are certain are true
+(an agent you have watched run) and confirm the query says so. A count with no
+control is an untested query, and an untested query stated as a finding is the
+same error as an unchecked absence, wearing a number instead of a claim.
+
+**Cost:** nothing shipped — I flagged it as needing proper measurement before
+acting, which is the only reason it did not become a bug's headline figure. It
+did put a wrong number in front of the owner, and it is the **fourth**
+assertion-shaped error in one session (repair path, live defect, council seat,
+now this). Three of the four were caught by the owner asking; this one by luck.
+That distribution is the finding.
+
 ## When an entry should become a check
 
 Not every row can be automated, and a speculative check is worse than none — it
@@ -514,3 +556,49 @@ did not create** — CLAUDE.md already says a stale-looking file is not permissi
 replace it, and this is the mechanical version of that rule.
 **Cost:** one destroyed memory file, partially reconstructed; the owning thread may
 have lost detail it will have to rewrite.
+
+### 2026-07-20 — travelling docs / bugs_open/024 — "12 of 122 components" and "no tool has an input_schema"
+**Asserted:** in a council submission's `risks` block, that the tool-section
+exemption matches **12 of 122** active components and that the marker is safe
+because **no tool has an `input_schema`**. Both were stated flatly, as
+established facts, in the section a reviewer reads to judge blast radius.
+**Actually:** live at the time of writing it was **13 of 123**, and **14 of the
+27 active `component_level='tool'` components DO have an `input_schema`** — a
+majority-adjacent slice of the exact population I was making a safety claim
+about. The figures were carried forward unchecked from the round-4 submission
+written the previous day.
+**Caught by:** the council. `guardian` and `bug_historian` both refused to take
+the population on prose and demanded it be settled by query; one query settled
+both. Not caught by me at any point across two submissions.
+**The cheap check that would have caught it:** one `GROUP BY component_level`
+against `content_components` — the same query I eventually ran, which took
+seconds. CLAUDE.md's "ground every figure against the live system before
+repeating it from another doc" is exactly this rule, and the figure was
+**one day old**, which is precisely the age at which it still feels current.
+**Cost:** none to the code — the predicate tests the schema, so it was right
+while my justification for it was wrong. That is the uncomfortable part: a
+correct implementation defended with a false premise reads as verified, and had
+the population actually been what I claimed, nothing in the submission would
+have caught it.
+
+### 2026-07-20 — travelling docs / bugs_open/044 — a stale file:line and "silent"
+**Asserted:** that the sibling deferral heuristic lives at
+`plan_sections_action.go:1090-1108` and that it carries a section **silently**.
+Written into a council submission's `risks` block, then into the first draft of
+the bug file.
+**Actually:** it is at **1141-1160**, and it is **not silent at the decision** —
+it logs `plan_sections: content component has empty schema, deferring` at
+**Warn** with the function and section, and sets an explicit `item.Reason`. What
+is invisible is the downstream *consequence* (a deferred section is carried, so
+a template fix is discarded), which is a narrower and more useful claim than the
+one I made. The line numbers were inherited from the round-4 submission and then
+shifted **by my own edit to that same file** earlier in the session.
+**Caught by:** opening the function to check the citation before committing the
+bug file — i.e. by the filing discipline, one step before it became durable.
+**The cheap check that would have caught it:** read the code at the line you are
+citing, especially when you have edited that file yourself in the same session.
+A file:line carried across submissions is a moving target the moment anyone
+touches the file, and I was the one who touched it.
+**Cost:** none — corrected in place in `bugs_open/044` before first commit, with
+the correction kept visible. But it went into a council submission first, so
+reviewers reasoned about a citation that did not resolve.
