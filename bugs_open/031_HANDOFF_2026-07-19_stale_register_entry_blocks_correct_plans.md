@@ -3,6 +3,12 @@
 **Filed:** 2026-07-19 · travelling-docs thread (from the `bugs_open/024` council rounds)
 **Severity:** medium — costs real credits and real time, and misleads any thread reading the register.
 **Status:** OPEN. Diagnosed with evidence; register NOT yet corrected.
+> **OWNED BY ANOTHER THREAD as of 2026-07-19 (owner-confirmed).** The
+> travelling-docs thread filed this case and is **not** working it. Do not start
+> a parallel fix — the correction spans five files (three register copies + two
+> in `docs/leopardessconsulting/`) and two threads editing them would collide.
+> The filing thread's only remaining interest is that the fix candidates below
+> stay accurate; correct them in place if the owning thread finds otherwise.
 
 ---
 
