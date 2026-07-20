@@ -377,3 +377,79 @@ gone, which is the real lesson.
 shared practice and not specific to this workstream: overwriting destroys the
 record of how the understanding moved, and *"the new one is better"* is not the
 test, because the replacement here was accurate and it was still a loss.
+
+---
+
+## 2026-07-20 — session 2: the audience question, and a caution I overstated
+
+### MISSTEP 5 — I recorded "explicitly reverted, find out why" without opening the revert block
+
+In the cross-site survey I wrote that `identity.audience_primary` /
+`audience_secondary` / `sophistication` had been *"designed and then explicitly
+reverted"* in `003_site_classifier.sql`, and flagged it as a caution to resolve
+before rebuilding the same shape. I took that from a subagent's report and cited
+the file without reading the revert block.
+
+**Read now, the revert's stated reason is mechanical:**
+
+> `003_site_classifier.sql:170-174` — *"Revert: Undo 004 + 005 changes to existing
+> agents … Restores original state for agents modified by the **incorrect 004/005
+> scripts**. Safe to run even if 004/005 were never applied (idempotent)."*
+
+It rolls the whole `site-classifier` row back to the original single-step Haiku
+task. The rich profile — audience fields included — was **collateral in a wholesale
+rollback of two bad scripts**, not a design anyone judged and rejected. There is
+even an informally typed *"reset back to what it was"* above the block (`:167`).
+
+And `site-classifier` is **legacy**. Live reference counts:
+```
+site-classifier refs: 1
+domain-research-classifier refs: 4
+```
+The live intake chain is `domain-research-classifier` (049). So 003 is a superseded
+agent, and its audience fields are **usable prior art, not a warning**.
+
+**Cost of the error:** it was about to make me design around a constraint that does
+not exist. **What caught it:** doing the thing I had written down as a prerequisite
+instead of skipping to the design. The caution I wrote was the reason I found it —
+which is an argument for writing cautions down even when they turn out hollow.
+
+### The two live `audience` rows changed the schema
+
+Pulled both in full. Neither is an audience *description* — both are audience-derived
+**editorial directives**, written by `content-gap-planner` (a remediation agent):
+
+- `ai-agent-orchestration.com`, key `primary_buyer_hierarchy`: after describing the
+  CTO buyer it continues *"Lead all page copy with the technical failure mode …
+  CTA language is 'Technical Discovery Call' sitewide."*
+- `leopardessconsulting.co.uk`, key `target_audience`: *"… Non-technical SMB buyers
+  are explicitly out of scope. All pages should be written for the primary audience
+  by default … Pages that currently address non-technical readers (e.g. about page)
+  should be revised."*
+
+Two consequences, both recorded as Decision 9:
+
+1. **The aspect must separate identity from directive.** A ranking layer cannot
+   consume "CTA language is 'Technical Discovery Call' sitewide" — that is an
+   instruction to a content agent. The embedding used for feed selection must be
+   computed from the *who* + *position* blocks only. Including `editorial` would
+   make two sites with similar copy rules rank alike regardless of audience, which
+   is precisely the failure Decision 4 exists to prevent.
+2. **The differing key names are a symptom, not sloppiness.** Neither row was
+   written to a schema because the aspect has never had one. That is the work.
+
+Also worth keeping: leopardess's `out_of_scope` phrasing is genuinely useful — a
+negative audience constraint converts directly into a ranking penalty. Adopted into
+the schema on the strength of one real row using it unprompted.
+
+### Live state re-checked
+
+| check | result |
+|---|---|
+| `domain-research-classifier` | active, `experimental`, updated 2026-07-20 |
+| `site-classifier` | active, `experimental`, but 1 live ref — legacy |
+| `content-gap-planner` | active, `active` — the only writer of `audience` today |
+
+Note both classifiers show `updated_at` of today, likely from a fleet re-seed by
+another session. Not chased; flagged in case a later thread finds classifier
+behaviour changed under it.

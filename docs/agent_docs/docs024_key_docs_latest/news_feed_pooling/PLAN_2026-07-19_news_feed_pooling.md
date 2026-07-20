@@ -200,9 +200,23 @@ one genuinely new thing Decision 4 requires, and the `audience` aspect is where 
 should go.
 
 **Two cautions found in the survey:**
-- `identity.audience_primary` / `audience_secondary` / `sophistication` was
+- ~~`identity.audience_primary` / `audience_secondary` / `sophistication` was
   designed and then **explicitly reverted** in `003_site_classifier.sql`.
-  **Find out why before rebuilding the same shape.**
+  **Find out why before rebuilding the same shape.**~~
+  > **CORRECTED 2026-07-20 — the caution was overstated, and I had not read the
+  > revert block before recording it.** The revert is real but its stated reason is
+  > mechanical, not a judgement on the design: *"Undo 004 + 005 changes to existing
+  > agents … Restores original state for agents modified by the **incorrect 004/005
+  > scripts**"* (`003_site_classifier.sql:170-174`). The rich profile was collateral
+  > — it lived in the same `site-classifier` row that got rolled back wholesale to
+  > the original single-step Haiku task. **The audience fields were never rejected
+  > on their merits.**
+  > Further, `site-classifier` is **legacy**: the live intake chain uses
+  > `domain-research-classifier` (referenced 4× across live agent configs vs 1× for
+  > `site-classifier`). So this is prior art from a superseded agent, not a warning.
+  > **Treat `audience_primary` / `audience_secondary` / `sophistication` as a
+  > usable precedent** — someone had already reached the same shape.
+  > *What caught it:* reading the revert block, which I had cited without opening.
 - The audience question was **dropped** from the current briefing questionnaire —
   the backup had a required *"Who is your target audience?"* textarea; the live
   `026_pageflow_builder.sql:868` has no audience section. We have been losing this
@@ -256,6 +270,63 @@ iterate `sites WHERE status='deployed'` (`maintenance_actions.go:694-698`).
 predicate — likely free, but must be verified, not assumed. CTS-018 notes
 `system.internal` has a live side effect of absorbing untargeted scheduler
 dispatches; check whether pool sites would too.
+
+## Decision 9 — the `audience` aspect separates who they are from what to do about it
+
+Settled 2026-07-20 after reading the two live `audience` rows. **The evidence
+changed the shape**, so the reasoning matters more than the schema.
+
+**What the live rows actually contain.** Both current `audience` rows were written
+by `content-gap-planner` — a *remediation* agent — and both mix audience identity
+with editorial instruction in one prose blob:
+
+> `ai-agent-orchestration.com` (key: `primary_buyer_hierarchy`): *"Primary buyer is
+> the CTO or VP Engineering … **Lead all page copy with the technical failure mode**
+> … **CTA language is 'Technical Discovery Call' sitewide.**"*
+
+> `leopardessconsulting.co.uk` (key: `target_audience`): *"Primary: CTOs,
+> engineering leads … Non-technical SMB buyers are explicitly out of scope. **All
+> pages should be written for the primary audience by default** … **Pages that
+> currently address non-technical readers (e.g. about page) should be revised.**"*
+
+That conflation is fatal for our purpose: **a ranking layer cannot consume "CTA
+language is 'Technical Discovery Call' sitewide."** It is an instruction to a
+content agent, not a description of a reader. The differing key names
+(`primary_buyer_hierarchy` vs `target_audience`) are a symptom of the same thing —
+neither row was written to a schema because the aspect has never had one.
+
+**So the aspect splits in three:**
+
+| block | purpose | consumed by |
+|---|---|---|
+| `who` | who the reader is — prose + `sophistication` enum. The **embeddable** part. | feed ranking, angle generation |
+| `position` | how this domain differs from **our own** sibling domains | feed ranking (divergence), angle generation |
+| `editorial` | what that implies for copy, CTAs, register | content agents — **never** the ranking layer |
+
+`who` reuses the prior art the caution above wrongly warned us off:
+`audience_primary`, `audience_secondary`, `sophistication` (enum:
+`technical|professional|casual|luxury|institutional|editorial`). Add
+`out_of_scope`, because the leopardess row shows the field is genuinely used in
+practice (*"Non-technical SMB buyers are explicitly out of scope"*) and a negative
+constraint is directly usable as a ranking penalty.
+
+`position` is the genuinely new part — the intra-portfolio gap identified in
+Decision 7. It names sibling domains and states how this one differs. **This is
+the field that makes `bestinsurancerate.co.uk` and `bestinsurancerate.uk`
+different sites**, and nothing else in the platform carries it.
+
+**Seed, don't start blank:** `identity.target_audience` is populated for all 11
+sites with usable prose. It seeds `who.audience_primary` directly.
+
+**Embedding:** the vector used for ranking is computed from `who` + `position`
+only. Excluding `editorial` is not tidiness — including it would make two sites
+with similar copy rules rank alike regardless of audience, which is the exact
+failure we are designing against.
+
+**Open:** whether to migrate the two existing rows now (splitting their prose into
+the three blocks) or leave them and write the schema forward. Leaning migrate —
+two rows is cheap, and leaving two non-conforming rows in a newly-schema'd aspect
+is how the next thread learns the wrong shape.
 
 ## Risks carried into the build
 
