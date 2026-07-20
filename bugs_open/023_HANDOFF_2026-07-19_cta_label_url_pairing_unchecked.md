@@ -153,7 +153,7 @@ Criteria, all re-measured 2026-07-20 19:15 (see NOTES for the queries):
 |---|---|---|
 | 1 | RUNBOOK R1 census falls **and stays fallen after a rebuild** — the real test, since a content-level fix regresses and a template/schema fix does not | **PARTIAL.** 51 → **39** (22 empty href + 17 bare `#`); the fragment class is **extinct** (4 → 0). Survived a full rebuild *and* the v1.0.1140 image roll on 2026-07-20 — so the fixes are structural, as intended. The 17 bare `#` were never in scope (different class). Target: the 22 empty hrefs, which fall with candidate 2. |
 | 2 | RUNBOOK R8 against the affected live tool pages: zero `href=""`, zero unresolvable fragments, no external host failing DNS | **MET**, and wider than filed. All four pages across three sites verified against the rendered artefacts post-image-roll: `finetuning.uk/tools/llm-cost-calculator`, `robot-hands.com/gripper-cycle-time-estimator`, both leopardess tool pages — 200, zero defects. |
-| 3 | **No component in the active library can pair a rendered label with an absent destination** — i.e. classes A/C/E are structurally impossible, not merely absent from today's pages | **NOT MET** — this is the real remaining bar. Current: **70 ungated anchors / 37 components** (was 75/38) and **22 `source:llm` url fields / 6 components** (was 21). Close it with candidates 2 + 4. |
+| 3 | **No component in the active library can pair a rendered label with an absent destination** — i.e. classes A/C/E are structurally impossible, not merely absent from today's pages | **NOT MET** — this is the real remaining bar. Current: **171 ungated anchors / 41 components** (CORRECTED 2026-07-20, see below — the 70/37 figure was a measurement artefact) and **22 `source:llm` url fields / 6 components** (was 21). Close it with candidates 2 + 4. |
 
 **Closure bar for this file:** criteria 1–3 above — i.e. classes **A, B, C, E**. Everything
 else has moved out, so that this file can close when *its own* scope is done:
@@ -232,6 +232,74 @@ gating, 75 ungated), 4 (schema-lint), 5 (external reachability), 6 (P1.5 email�
 different-TLD), the generic `hero-tool` component (the selection landmine that caused the
 Bayesian adoptions — `_pre_037` row is now placement-free but still the sole selectable),
 and the class-A build check (P1.2).
+
+---
+
+## CORRECTION + RESIZING 2026-07-20 (bugfix-023 session 4) — the ungated count was wrong, and the live subset is small
+
+**The 75/38 → 70/37 ungated figure this file has carried since filing is a measurement artefact.**
+RUNBOOK **R9** attached its own warning ("a 60-character-lookback heuristic, not a parse …
+re-derive the exact list with a real template parse before mass-editing") and that warning was
+correct. A proper parse — tokenise each template, maintain an `{{if}}/{{range}}/{{with}}` block
+stack, mark an anchor gated only when an enclosing condition references **the same field** —
+gives:
+
+```
+189 href="{{.X}}" anchors in the active library
+  GATED    18 anchors / 14 components
+  UNGATED 171 anchors / 41 components      <-- vs R9's 70/37: a 2.4x undercount
+```
+
+R9 undercounts because its greedy `.{0,60}` prefix is consumed by the *previous* match, so in runs
+of adjacent anchors (nav lists, footer link columns — exactly where they cluster) every other
+anchor is swallowed. Script: `cta_link_integrity/scripts/parse_gates.py`; R9 now carries the
+correction.
+
+**But the job is smaller than 171, not bigger — because most of it is dormant.** Resolving every
+component to its live placements (`page_components` by `function`/`name`; `site_components` by
+`component_id`, which unlike `page_components` **is** populated fleet-wide):
+
+- **21 of the 41 components are placed anywhere.** The 20 unplaced ones hold ~80 of the anchors,
+  concentrated in library stock that nothing uses: `header-with-categories_pre_037` (27),
+  `footer-with-disclaimer_pre_037` (18), `header-docs` (14), `site-head` (12),
+  `header-with-cart-or-nav_pre_037` (11), `header-with-search_pre_037` (10).
+- **Live-placed, ungated, worth doing first:** `content-block-about` (13 placements / 5 sites),
+  `tool-list` (6), `case-studies-grid` (4), `system-stats` (4), `content-listing` (3),
+  `guide-list_pre_037` (3), `tool-ai-agent-roi-estimator` (3), `tool-cta` (3), plus nine more at
+  1–2, plus three chrome components (`site-header`, `site-footer`, `footer-theme-chrome`).
+
+So P2.1 stages naturally: **corrective** (the 21 placed components) then **prophylactic** (the 20
+dormant ones, zero live risk). That ordering was not available while the figure was a single
+aggregate.
+
+**Class E is still LIVE, and that is new.** Migration 179 fixed `tool-guide-intro`, but three
+*placed* components still declare `source:llm, required:true` URL fields — a model instructed to
+author a URL it cannot look up, which is precisely what fabricated
+`leopardess.contactforsales.com`:
+
+```
+content-block-about   cta_url                              13 placements / 5 sites
+tool-cta              primary_cta_url, secondary_cta_url    3 placements / 2 sites
+platform-comparison   cta_url                               1 placement  / 1 site
+```
+
+17 live placements. Fix candidate 4 (the schema-lint) is therefore **corrective, not preventive**,
+and should be sequenced accordingly. (The other 15 of the 22 `source:llm` url fields are nav-link
+fields in the dormant `header-*` stock.)
+
+### And a defect class the gating sweep does NOT cover — filed as `bugs_open/049`
+
+Sizing this sweep turned up **312 live broken-link instances across 7 sites** (68 unique 404
+targets, on 117 of 180 live pages), dominated by `/privacy.html` + `/terms.html` in the footer of
+every page of three sites. **It is not 023's defect** — the label/destination pairing is fine, the
+destination just does not exist — and critically:
+
+> **Gating an anchor does not help.** `{{if .x_url}}` tests non-emptiness; `/privacy.html` is
+> non-empty, passes the gate, and 404s.
+
+Cause proven and filed in `049`: the chrome renderer's hardcoded legal-link slice was fixed on
+2026-06-10 (`0681e1542`), but chrome is re-rendered only on explicit trigger and nothing sweeps it,
+so three sites still serve April/May artefacts. Do not count P2.1 as covering it.
 
 ---
 

@@ -1105,3 +1105,41 @@ read of it — for no reason except that I had the answer I expected.
 > was available to all three: the mechanism is legible in `agent.go` and
 > `coordinator.go` in ten minutes and predicts non-stationarity outright — we each
 > reached for the stopwatch with the source code open.
+
+---
+
+### 2026-07-20 — bugfix 023 — "70 ungated CTA anchors across 37 components"
+
+**The claim.** That the remaining gating sweep was **70 ungated anchors / 37 components**. It sat
+in `bugs_open/023`'s verify-criteria table, in the PLAN's P2.1 sizing, and in three separate status
+updates written across two days (75/38 at filing, 70/37 after migration 179). I inherited it and was
+about to build the edit worklist on it.
+
+**What was true.** A real template parse gives **171 ungated anchors across 41 components** — a
+**2.4× undercount**. The mechanism: `regexp_matches(col, pattern, 'g')` returns *non-overlapping*
+matches, and R9's `.{0,60}` lookback prefix is part of the match, so each match consumes the text
+before it. In a run of adjacent anchors — nav lists, footer link columns, i.e. **precisely where CTA
+anchors cluster** — every second anchor is swallowed and never counted. The error was therefore
+largest exactly where the problem was densest.
+
+**Caught by:** doing what the runbook entry told me to do. R9 carried the line *"Good enough to size
+the problem and to prove the direction; **re-derive the exact list with a real template parse before
+mass-editing**"* — attached to the figure from the day it was written.
+
+**The cheap check that would have caught it:** the one already written down, next to the number,
+in the same file. Nobody had to invent a method; the correction cost about fifteen minutes of
+scripting.
+
+**Why this one is worth a row.** Not because a heuristic was imprecise — it was *labelled*
+imprecise and honestly so. Because **a figure with a caveat attached travels without its caveat.**
+It was copied into a bug file, a plan and three status updates, and by the third copy it read as a
+measurement. The tell was never hidden; it was one line below, every time, and each thread
+(including me, for the first hour) read the number and skipped the sentence under it.
+
+**Generalises to:** any figure carried between documents. If you repeat a number you did not
+measure, carry its caveat or re-derive it — and if the caveat says *"do X before acting on this"*,
+then reaching the point of acting **is** the trigger to do X. A warning attached to a measurement
+is not a disclaimer, it is a pending task.
+
+Related: `016b` §9 *"A `regexp_matches(…,'g')` census with a lookback prefix silently drops every
+other match"* (the mechanism, transferably), `bugs_open/023` (correction + resizing), RUNBOOK R9/R9b.

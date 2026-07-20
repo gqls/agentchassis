@@ -2053,6 +2053,64 @@ round (round 4, now in `RUNBOOK_council_gate.md` traps).
 live v1.0.1140). Category tags: `authority-boundary`, `merge-seam`,
 `llm-overrides-user-decision`, `fail-loud-not-silent`.
 
+### A renderer fix is inert until something re-renders — and nothing schedules a re-render (2026-07-20)
+
+**Symptom.** A defect you can see on a live site is *already fixed* in the code, and has been for
+weeks. Grepping the repo shows the fix, the pod carries it, and the site still shows the bug.
+
+**Mechanism.** The artefact is written once and cached in a table (`site_components.rendered_html`,
+`page_components.rendered_html`, `pages.rendered_*`). The renderer runs only when something
+explicitly triggers it. If nothing sweeps that surface, a corrected renderer simply never runs for
+sites that don't happen to get rebuilt — so "committed and live" says nothing about what is served.
+`bugs_open/049`: the chrome renderer's hardcoded `{/privacy.html, /terms.html}` legal slice was
+fixed 2026-06-10 (`0681e1542`); three sites' footers date from 28 Apr / 21 May and **still served the
+phantom links 41 days later**, on every page.
+
+**The diagnostic, and it is cheap.** Compare the **artefact's timestamp** against the **commit date
+of the fix**. Two columns and a `git log -S`:
+```sql
+SELECT s.domain, sc.slot_name, sc.updated_at FROM site_components sc JOIN sites s ON s.id=sc.site_id ORDER BY 3;
+```
+```bash
+git log -S'<a literal from the fixed code>' --format='%h %ad %s' --date=short -- <file>
+```
+Any artefact older than the fix is a suspect, and the sites *newer* than the fix are your control —
+if they are correct, the fix works and the only defect is that it has never run. That two-directional
+check turns "is the fix good?" into a settled question in one query.
+
+**Generalises to:** any cached render (chrome, page sections, CSS), any config-derived artefact, and
+any "we fixed that weeks ago" claim about a live surface. Sibling of the *"Go changes are inert until
+an image is rebuilt"* rule — one level further out: **the image rolled and the artefact still didn't.**
+
+**Cross-refs.** §9 *"Light site renders dark chrome — … stale `site_components` chrome"* (same
+underlying property — nothing refreshes `site_components` — different consequence: that entry is
+about chrome pointing at *deactivated components*, this one about chrome predating a *code fix*).
+`bugs_open/049`, `bugs_open/041`, `bugs_open/018`. Category tags: `stale-artefact`,
+`fix-inert-until-rerender`, `artefact-timestamp-vs-commit-date`, `two-directional-control`.
+
+### A `regexp_matches(…,'g')` census with a lookback prefix silently drops every other match (2026-07-20)
+
+**Symptom.** A SQL census over template/HTML text returns a plausible number that is wrong by
+roughly half, in exactly the places the thing you are counting clusters.
+
+**Mechanism.** `regexp_matches(col, pattern, 'g')` returns **non-overlapping** matches. If the
+pattern carries a context prefix — `'(.{0,60})<a[^>]*href="…"'`, the standard trick for "is there an
+`{{if}}` before this anchor?" — that prefix is *part of the match* and consumes the preceding text.
+In a run of adjacent matches (nav lists, footer link columns, repeated CTA blocks) each match eats
+its predecessor, so about every second one is never counted. RUNBOOK R9 reported **70 ungated
+anchors / 37 components**; a real parse found **171 / 41** — a 2.4× undercount, concentrated in the
+components with the most anchors.
+
+**Rule.** A lookback prefix makes a counting regex unsound. Use it to establish *direction*, never to
+build a worklist. For a worklist, parse: tokenise the template, keep a block stack, and decide
+membership structurally (`cta_link_integrity/scripts/parse_gates.py` is a 60-line worked example).
+**And when a query carries its own "re-derive this properly before acting" warning, that warning is
+the finding** — this one had been attached to the figure since the day it was written, through three
+status updates that repeated the number.
+
+**Cross-refs.** `bugs_open/023` (correction + resizing), RUNBOOK R9/R9b, `WRONG_CALLS.md`.
+Category tags: `measurement-artefact`, `regex-census`, `heuristic-vs-parse`, `warning-was-the-finding`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -2117,6 +2175,7 @@ See `/bugs_closed/README.md`.
 
 | 041 | Section lookup (`loadSectionComponents`, `v3_site_actions.go:3353`) resolves by name then by function and **never normalises**, while a sibling path (`:3730`) does — so a `snake_case` section (`call_to_action`) matches nothing, `plan_sections` Path 3 raises a `needs_new_component` for a component that **already exists** as `call-to-action`, and the page deploys without the section. 10 such items, 4 sites, since 2026-05-18, all `failed`. Explains the BULK of 040's fleet sweep (`call_to_action` ×14, `hero` ×6, vs only 4 legitimate `skip_section`) | filed 2026-07-20; cause proven from code + live rows, no fix started |
 | 047 | Every `batch_scrape` rejected as "Empty URL" before its own handler (guard preceded the action switch) — research-agent's scrape lane + V5 acquisition dead, disguised as await-timeouts | FIX COMMITTED 8d9d9051a; open until a web-scrape-adapter image rolls |
+| 049 | **312 live broken links across 7 sites** (68 unique 404 targets, 117 of 180 live pages), measured against the shipped artefacts. 204 of them are `/privacy.html` + `/terms.html` in the footer of **every page** of three sites. Cause proven both directions: the chrome renderer's hardcoded legal-link slice was **fixed 2026-06-10 (`0681e1542`)**, but chrome re-renders only on explicit trigger and nothing sweeps it — those three sites' `site_components` date from **28 Apr / 21 May**, pre-fix; every post-fix render in the fleet is correct. Two further mechanisms: a page row that exists but was never built (`active` + `needs_rebuild`) which `check_phantom_internal_links` passes **by design** ("a planned-but-unbuilt page has a row and is not flagged"), and 32 extension-less targets on a `.html` fleet. **023's gating sweep does not cover any of it** — `{{if .x_url}}` tests non-emptiness and `/privacy.html` is non-empty | filed 2026-07-20 from the `023` sweep; cause proven from code + timestamps + a two-directional control, no fix started. Candidate 1 (re-render chrome on 3 sites) removes 204 and needs **no image** — but is outward-facing, owner go required |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by

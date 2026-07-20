@@ -1046,3 +1046,100 @@ Sizing caveat for whoever picks this up: these counts are of items **in
 `needs_human_review`**, which per `bugs_open/033` is a status nothing drains, so they
 accumulate. They are not a per-run false-positive rate — measure that from a single
 discovery run before tuning against them.
+
+---
+
+## 2026-07-20 21:00 — session 4 (bugfix-023): the ungated figure was wrong, and sizing it found a bigger live bug
+
+Task was 023's remaining scope (classes A/B/C/E — candidates 2 and 4). I did not get to the
+edits, because measuring the worklist properly invalidated the figure the worklist was built on
+and then surfaced 312 live broken links that are **not** 023's defect. Both are recorded here.
+
+### 1. R9 undercounts by 2.4× — and its own gotcha said so
+
+R9 carried the warning "re-derive the exact list with a real template parse before mass-editing".
+I did, and it was not a rounding difference:
+
+```
+R9 heuristic     :  70 UNGATED / 37 components
+real parse       : 171 UNGATED / 41 components     (189 anchors total; 18 gated / 14)
+```
+
+**Mechanism of the undercount** (worth knowing, it will recur in any `regexp_matches(…,'g')`
+census here): the matches are **non-overlapping**, and R9's greedy `.{0,60}` lookback prefix is
+part of the match — so each match consumes the 60 characters before it, which in a run of
+adjacent anchors is the *previous anchor*. Nav lists and footer link columns are exactly such
+runs, so roughly every other anchor vanished from the count. Not the window size; the
+consumption. R9 + R9b (`scripts/parse_gates.py`) now both carry this.
+
+**This is a `WRONG_CALLS.md`-shaped event**: a figure repeated across the bug file, the plan and
+three status updates, never re-derived, with a written warning attached to it the whole time.
+The cheap check was the one the runbook already prescribed.
+
+### 2. The 171 is mostly dormant — which makes P2.1 stageable
+
+Resolving all 41 components to live placements:
+
+- **21 placed / 20 unplaced.** The unplaced 20 hold ~80 anchors, nearly all in header/footer
+  library stock nothing uses (`header-with-categories_pre_037` 27, `footer-with-disclaimer_pre_037`
+  18, `header-docs` 14, `site-head` 12, `header-with-cart-or-nav_pre_037` 11,
+  `header-with-search_pre_037` 10).
+- Biggest live one is `content-block-about` — **13 placements / 5 sites**.
+
+**Join gotcha, corrected here:** `site_components.component_id` **is** populated (11/11 on every
+slot), unlike `page_components` where R6 correctly warns it is not. Chrome resolves by
+`component_id`; page sections resolve by `slot_name = function`. My first placement query joined
+chrome by `function` and reported `site-header`/`site-footer`/`site-head` as having **zero**
+placements when they serve live sites — the chrome slots are named `header`/`footer`/`head`.
+Caught it because "the fleet's headers are unplaced" is obviously false.
+
+### 3. Class E is live on 17 placements — 179 did not end it
+
+`tool-guide-intro` was fixed, but three **placed** components still carry `source:llm,
+required:true` URL fields: `content-block-about.cta_url` (13/5), `tool-cta.primary_cta_url` +
+`.secondary_cta_url` (3/2), `platform-comparison.cta_url` (1/1). Fix candidate 4 is corrective,
+not preventive. The other 15 of the 22 llm-url fields are nav fields in the dormant stock.
+
+### 4. Gating does not fix a link that points somewhere real-looking and absent → `bugs_open/049`
+
+Auditing what actually ships (not `page_components.rendered_html`) across 180 live pages on 7
+sites: **312 anchor instances → 68 unique targets → HTTP 404, on 117 of 180 pages.** Dominated by
+`/privacy.html` + `/terms.html` in the footer of **every** page of finetuning.uk,
+ai-agent-orchestration.com and gaswholesalers.com (204 of the 312).
+
+Root cause proven, both directions:
+
+- `render_site_components_action.go:183-195` **was** a hardcoded `{/privacy.html, /terms.html}`
+  slice; fixed **2026-06-10, `0681e1542`**, to emit only legal pages that exist.
+- Chrome re-renders only on explicit trigger; nothing sweeps it. The three affected sites'
+  `site_components.updated_at`: **2026-04-28, 2026-05-21, 2026-05-21** — all pre-fix.
+- **Control:** every site whose chrome rendered *after* 2026-06-10 is correct — leopardess links
+  `/privacy.html` + `/terms.html` and both are 200 (real pages); idea.uk 301s; robot-hands' chrome
+  emits no legal links at all. So the fix works and has simply never run for three sites.
+
+Two further mechanisms in the same audit: a page row that exists but was never built
+(`gaswholesalers.com/fuel-pricing-framework.html`, `active` + `needs_rebuild` since 2026-05-13,
+linked from 28 footers) which `check_phantom_internal_links` **deliberately** passes ("a
+planned-but-unbuilt page has a row and is not flagged" — its own comment); and 32 extension-less
+targets on a fleet that serves `.html`.
+
+**Why 023's gating sweep does not cover any of it:** `{{if .x_url}}` tests non-emptiness.
+`/privacy.html` is non-empty. It passes the gate and 404s. Recorded in 023 so the sweep is not
+mistaken for a fix.
+
+### 5. Misstep + a measurement caveat that changes R1
+
+I nearly filed the leopardess ROI estimator's two stored `<a href="">` anchors as a live class-C
+regression — `page_components.rendered_html` has them, and 023 criterion 2 claims that page is
+clean. **The live page has zero.** Stored page HTML is not what ships, so **R1's census (39 dead
+controls) over-reports**, and criterion 1 is measuring an artefact that partly does not exist.
+R8 already said "never trust rendered_html alone"; this is the case that proves it costs a wrong
+finding. Note the asymmetry: `site_components.rendered_html` matched live exactly on all three
+stale sites — the two tables are not equally stale, so "ignore stored HTML" would be the wrong
+lesson.
+
+**Nothing here was diagnosed by the loop.** The 049 cause is proven from code + timestamps +
+a two-directional control, so no diagnosis run was filed. The two `[INFERRED]` items in 049 —
+why finetuning's recent discovery produced no findings, and whether robot-hands' 33 `complete`
+phantom items regressed or never held — are marked as such in that file and are the honest
+candidates for a run if anyone needs them settled.

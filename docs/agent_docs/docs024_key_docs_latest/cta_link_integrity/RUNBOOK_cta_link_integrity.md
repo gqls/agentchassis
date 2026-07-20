@@ -181,6 +181,32 @@ get the per-component list.
 > problem and to prove the direction; **re-derive the exact list with a real template
 > parse before mass-editing.**
 
+> **CORRECTED 2026-07-20 — the warning above was right, and the number was wrong by 2.4×.**
+> The real parse (`scripts/parse_gates.py`, below) gives **171 UNGATED anchors across 41
+> components**, not 70/37. The undercount is not the lookback window: `regexp_matches(…,'g')`
+> returns **non-overlapping** matches, and the greedy `.{0,60}` prefix of each match eats the
+> *previous* anchor — so in runs of adjacent anchors (nav lists, footer link columns, i.e.
+> exactly where CTA anchors cluster) roughly every other anchor is consumed and never counted.
+> **Use R9 only for a direction-of-travel reading. For any worklist, run the parse.**
+
+## R9b — the real template parse (use this for worklists)
+
+```bash
+kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -tAc "
+SELECT jsonb_agg(jsonb_build_object('name',name,'function',function,'tpl',html_template))
+FROM content_components WHERE is_active AND html_template IS NOT NULL;" > components.json
+python3 scripts/parse_gates.py components.json     # writes parsed_anchors.json + a summary
+```
+
+Tokenises each template, maintains an `{{if}}/{{range}}/{{with}}` … `{{end}}` block stack, and
+marks an anchor **gated only when an enclosing block's condition references the same field**.
+Result 2026-07-20: 189 `href="{{.X}}"` anchors — 18 gated / 14 components, **171 ungated / 41**.
+
+> **Then resolve placements before editing anything** — 20 of the 41 are dormant library stock
+> holding ~80 of the anchors. `page_components` joins by `slot_name = function` (or `name`);
+> `site_components` joins by **`component_id`, which IS populated there** — the R6 gotcha about
+> `component_id` being unpopulated applies to `page_components` only. Live-placed: 21 components.
+
 ## R10 — Backup rows still serving live traffic
 
 ```sql
@@ -322,3 +348,40 @@ done
 > stream is the coverage evidence; the conflict stream is the damage evidence.
 > A quiet conflict stream with a loud delta stream still justifies the flip
 > (unmapped fields are unrepairable today even when not actively clobbered).
+
+## R15 — Live link audit: what actually 404s on the deployed sites (`bugs_open/049`)
+
+**The only trustworthy census.** Everything else in this runbook reads
+`page_components.rendered_html`, which is **demonstrably not what ships** — leopardess
+`/tools/ai-agent-roi-estimator.html` stores two `<a href="">` anchors and the live page has zero.
+Stored HTML over-reports. This fetches the artefacts.
+
+```bash
+# 1. the page list (any set of sites)
+kubectl exec -n ai-persona-system postgres-clients-0 -- psql -U clients_user -d clients_db -tAF'|' -c "
+SELECT s.domain, p.url FROM pages p JOIN sites s ON s.id=p.site_id
+WHERE p.status='active' AND s.domain IN ('finetuning.uk', ...) ORDER BY 1,2;" > pages.txt
+
+# 2. fetch every page, extract internal hrefs from SHIPPED html, test every distinct target
+./scripts/live_link_audit.sh          # writes live_anchors.txt + target_status.txt
+```
+
+Result 2026-07-20 across 7 sites: 180 pages, 3,386 anchor instances, **68 unique targets 404,
+312 anchor instances broken, on 117 of 180 pages**. Runtime ~4 minutes.
+
+Breakdowns worth having (from `target_status.txt` + `live_anchors.txt`):
+
+```bash
+grep '^404' target_status.txt | cut -d'|' -f2 | sort | uniq -c | sort -rn      # unique targets/site
+grep '^404' target_status.txt | cut -d'|' -f2,3 | sort -u > bad_targets.txt
+awk -F'|' 'NR==FNR{b[$1"|"$2]=1;next} b[$1"|"$3]{print $1"|"$3}' bad_targets.txt live_anchors.txt \
+  | sort | uniq -c | sort -rn | head -25                                        # worst targets
+```
+
+> **Gotcha — a 301 is not a break.** relojistas.com and idea.uk redirect several extension-less
+> paths at the Cloudflare edge and they resolve. 5 of 45 extension-less candidates were fine for
+> this reason. Classify on the **status code**, never on the shape of the path.
+
+> **Gotcha — `site_components` is trustworthy where `page_components` is not.** The stale chrome
+> in `049` matched the live artefact exactly on all three sites; the page-level staleness above did
+> not. Do not generalise "stored HTML is stale" into "ignore stored HTML" — check which table.

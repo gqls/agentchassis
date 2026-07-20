@@ -384,3 +384,63 @@ manufactures the problem.
 The structural half is with the other thread's council trail and is going fine — its
 observe-only stage went live in this evening's build and I verified it's genuinely in the
 running system.
+
+----
+
+**2026-07-20, later evening — I went to do the button-gating job and found something worse on the way.**
+
+The job on bug 023 was the sweep we've been describing for two days: go through the component
+library and make every button that has no destination simply not render. To do that you need the
+list of offending buttons. The number we've been carrying is 70, across 37 components.
+
+**The number was wrong.** It's 171, across 41. Our own runbook had a warning attached to that
+figure — "this is a rough count, do a proper parse before you edit anything" — and nobody had. The
+rough count was skipping roughly every other button in any run of buttons close together, which is
+exactly how nav bars and footer link columns are built. So we were undercounting in precisely the
+places that have the most buttons.
+
+That sounds bad and is actually good news, because the second thing I did was ask *which of those
+171 are on a real page right now*. Answer: most aren't. Twenty of the forty-one components are
+library stock that no site uses — old header and footer variants sitting in the cupboard. The live
+work is 21 components, and one of them (`content-block-about`) accounts for 13 placements across 5
+sites on its own. So the job is smaller and better-ordered than it looked: fix the ones people can
+actually see, then tidy the cupboard.
+
+**Then the thing worth interrupting for.** To check my work I stopped trusting the database's copy
+of each page and fetched the actual live sites — all 180 pages across seven of them — pulled out
+every link, and clicked every one automatically.
+
+**312 links on those sites are broken. They're on 117 of the 180 pages.**
+
+And the biggest single item is this: on **finetuning.uk, ai-agent-orchestration.com and
+gaswholesalers.com**, the footer of *every single page* has a "Privacy Policy" link and a "Terms of
+Service" link, and **both of them 404**. On finetuning it's almost comic — the footer has a working
+privacy link *and* a broken one, right next to each other, both labelled "Privacy Policy".
+
+I found out why, and it's a clean story. The code that builds site footers used to have those two
+links hardcoded, whether or not the pages existed. Somebody fixed that on **10 June** — the footer
+now only lists legal pages that genuinely exist. The fix works: every site whose footer has been
+rebuilt since then is correct. But **footers only get rebuilt when something specifically asks for
+one, and nothing ever asks.** Those three sites' footers were last built on 28 April and 21 May. So
+a bug fixed six weeks ago is still on every page of three live sites, because the fix has never had
+occasion to run.
+
+**Two decisions I'd like from you, because both are yours and not the platform's:**
+
+1. **Shall I rebuild the site chrome on those three sites?** It's cheap, needs no new software
+   release, and would remove 204 of the 312 broken links immediately. The caveat: those footers are
+   three months old, so rebuilding also brings three months of accumulated menu changes onto live
+   customer sites in one go. I didn't want to do that to three live sites without asking.
+2. **Do those three sites need actual privacy and terms pages?** Rebuilding the footer makes the
+   broken links *disappear*. It does not give the sites a privacy policy. finetuning has one (at a
+   slightly different address); the other two have neither. That's a business and legal question,
+   not a technical one, so I've left it alone.
+
+All of it is written up as **bug 049** with the evidence. It is deliberately *not* filed as part of
+023, because 023 is about buttons whose label and destination don't match, and these links match
+their labels perfectly — the destinations just aren't there. Worth being clear about one thing:
+the gating sweep we're doing for 023 would **not** have caught any of this. Gating asks "is this
+link empty?"; `/privacy.html` isn't empty, it's just wrong.
+
+Bug 023 itself is unchanged in scope — still the 21 live components to gate and the schema rule to
+add. I've corrected its numbers and left the sweep ready to run.
