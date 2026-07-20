@@ -75,3 +75,36 @@ fleet-wide action with other threads' work queued behind the same roll, so it's 
 when. Until it ships the bug stays in the open queue, because it's still reproducible in
 production. After it ships, the check is to grep the running pod for the new function, not
 to trust git or the image tag.
+
+---
+
+**2026-07-20 — it's live, and closed**
+
+You shipped the image (v1.0.1139). I checked the running pod and both halves of the fix are
+genuinely in it, so the case has moved to the closed queue.
+
+Worth telling you how nearly I got that wrong. The obvious check was to grep the pod for the
+action's name — it came back positive, and I almost signed off there. But that name was
+already in the binary before the fix; the old image would have passed the identical check.
+The thing I actually changed was a registry entry, so the honest test was to grep for a
+phrase that only exists inside that entry — a bit of description text I'd written. That
+came back positive too, and that one means something. Same for the guard: I grepped its
+error message rather than the general area it lives in. I've written the pattern into the
+debugging guide, because the misleading version of that check is the one CLAUDE.md tells
+everyone to run.
+
+Since the deploy, nothing is lying: the query that found 54 bad rows returns zero, eleven
+items have completed through the new code without it wrongly blocking any of them, and
+there are no validation failures anywhere.
+
+One honest gap, which I've recorded rather than papered over: the part of the guard that
+*blocks* a bad completion hasn't actually triggered in production yet, because nothing has
+failed since the deploy — which is what you'd expect, given the other half of the fix
+removed the thing that was causing those failures. Its logic is covered by tests, but I
+can't claim I've watched it work on a live failure. If it ever does fire, it'll show up as
+a work item whose error starts "completion blocked".
+
+I also decided *not* to manufacture proof by re-running the colour fixer at one of the
+three sites still holding old items. That would have exercised the fix nicely, but it would
+also have edited a live site with an action the bug report itself called misconceived — and
+your instruction was to mark them failed and start fresh, not to re-run them.

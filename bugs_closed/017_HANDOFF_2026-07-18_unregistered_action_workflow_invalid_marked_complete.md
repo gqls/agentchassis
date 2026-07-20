@@ -6,13 +6,38 @@ Two coupled defects, one incident.
 
 ---
 
-## STAYS OPEN — fix committed 2026-07-18 (bugfix thread2), but INERT until a chassis image ships
+## ✅ CLOSED 2026-07-20 — fixed AND live, verified against the running pod
 
-**Both legs fixed in code, plus the class fix and a correction to this file's own
-diagnosis — but the defect is still reproducible in production.** Per the
-`/bugs_closed/` bar (CLAUDE.md, 2026-07-19: *fixed AND live*), a fix that is committed
-but inert until the next image roll stays here. Move to `/bugs_closed/` only after the
-image ships AND the running pod is grepped for `handlerReportedFailure`.
+Shipped in **v1.0.1139** (`agent-chassis-645674b498-rndg9`). Both legs verified in the
+running binary with **discriminating** strings — ones that exist ONLY because of this fix:
+
+| Evidence (pod-grep, `strings /app/agent-chassis`) | Count | Proves |
+|---|---|---|
+| `Strip forced child-text colours that override the --section-*…` | 1 | Defect 1 — the `GlobalActionRegistry` entry is live |
+| `completion blocked: handler saga reported failure` | 1 | Defect 2 — the guard's blocking path is live |
+| `unrecognised handler verdict` | 1 | Round-2 follow-up (`agent_error_log`) is live |
+| controls: `verifyBeforeComplete` 5, `CompleteWorkItemAction` 6 | >0 | `strings` works — a 0 above would be real, not a tooling artefact |
+
+> **⚠️ TRAP MET WHILE VERIFYING THIS — the obvious grep was worthless.** My first check
+> was `grep -c fix_forced_text_colors` → 1, and I nearly signed off on it. But that string
+> was **already in the binary before the fix**, emitted by the action's own
+> `RegisterActionInputSpec` call — it would have returned 1 even if the registry entry had
+> never shipped. This is 016b's "verifying a fix by grepping a GENERIC property always
+> passes", in the one place CLAUDE.md tells you to look. **Pick a symbol that cannot exist
+> unless your change shipped** — here, the Description text written in the registry entry
+> itself. Added to 016b §9.
+
+**Live behaviour since deploy (~170 min):** the defining sweep returns **0**; 11 work items
+completed through the new code path with zero false-positives; 0 `WORKFLOW_INVALID`
+anywhere. **Residual, deliberately not a blocker:** the guard's *blocking* path has not yet
+fired in production — no saga has reported failure since deploy, which is expected now that
+the unregistered action that generated 49 of the 54 is registered. The blocking logic is
+covered by 11 unit subtests including a negative control. If it ever fires it will appear as
+`error LIKE 'completion blocked: handler saga reported failure%'` and, for an unfamiliar
+verdict, as `agent_error_log.error_code='UNKNOWN_HANDLER_VERDICT'`.
+
+**Workstream docs:** `docs/agent_docs/docs024_key_docs_latest/work_item_completion_integrity/`
+(the standing five). **Commits:** `c82b2872c`, `c80fffc83`, `205b73a28`, `41e3345b2`.
 
 **Workstream docs:** `docs/agent_docs/docs024_key_docs_latest/work_item_completion_integrity/`
 (the standing five — PLAN/RUNBOOK/NOTES/README_where_we_are/SUMMARY).

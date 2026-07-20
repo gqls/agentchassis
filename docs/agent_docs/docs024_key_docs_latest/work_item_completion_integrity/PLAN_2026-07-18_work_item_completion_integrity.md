@@ -1,7 +1,8 @@
-# PLAN — work-item completion integrity (bugs_open/017)
+# PLAN — work-item completion integrity (bugs_closed/017)
 
-**Started:** 2026-07-18 (session "bugfix thread2"). **Status:** code committed, INERT
-until a chassis image ships — so the bug stays in `/bugs_open/` per the closed-bar rule.
+**Started:** 2026-07-18 (session "bugfix thread2"). **Status: CLOSED 2026-07-20** — live in
+v1.0.1139, verified against the running pod with discriminating strings; case moved to
+`/bugs_closed/017_…`.
 
 ## The problem, in one line
 
@@ -65,10 +66,15 @@ that turns "orphaned by accident" into "dormant by decision".
 3. ~~Parity test + dead-map deletion + doc purge~~ — `c82b2872c`.
 4. ~~Unknown-verdict → `agent_error_log`~~ — `c80fffc83` (council round 2).
 5. ~~Data correction, 54 rows~~ — applied, reversible via `result._correction`.
-6. **PENDING: ship a chassis image, then verify against the RUNNING pod.** Until this
-   lands the defect is still reproducible in prod and the bug stays open.
+6. ~~Ship a chassis image, then verify against the RUNNING pod~~ — **v1.0.1139, done
+   2026-07-20.** Verified with symbols that cannot exist unless the change shipped (the
+   registry entry's own Description text; the guard's error message), plus positive
+   controls. The obvious grep — the action name — was a false pass: that string predated
+   the fix. See NOTES misstep 3 and 016b §9.
 
 ## Open questions for the owner
 
-- When to ship the image. Several threads have work queued behind the same roll, so
-  sequencing is a fleet decision, not this workstream's.
+- None outstanding. Residual monitoring only: the guard's *blocking* path has not yet
+  fired in production (nothing has failed since deploy). It will surface as
+  `site_work_items.error LIKE 'completion blocked: handler saga reported failure%'`, or
+  `agent_error_log.error_code='UNKNOWN_HANDLER_VERDICT'` for an unfamiliar verdict.

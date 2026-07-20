@@ -46,9 +46,19 @@ objections, and both rounds' objections produced real improvements.
 
 ## Where we are now
 
-Committed in three commits on `085_debug_and_feature_loops` and **inert**. Go changes do
-nothing until a chassis image is built and rolled, so the defect remains reproducible in
-production and the bug correctly stays in the open queue.
+**Live and closed.** Shipped in v1.0.1139 on 2026-07-20 and verified against the running
+pod — not against git, and not against the image tag. Since the deploy the defining query
+returns zero, eleven items have completed through the new path without a single false
+block, and there are no validation failures anywhere. The case has moved to
+`/bugs_closed/`.
+
+The verification itself produced the sharpest lesson of the work. The obvious check — grep
+the running binary for the action's name — passed, and would have passed identically
+against the old image, because that string predated the fix. Proof required a symbol that
+could not exist unless the change shipped: a phrase from the registry entry's own
+description, and the guard's own error message. That pattern is now in the debugging guide,
+because the misleading version of the check is the one the project's own instructions tell
+every thread to run.
 
 Two process failures are recorded alongside the fix, because they cost more than the bug
 did: a queued council run was misread as a dropped one and resubmitted three times on
@@ -58,7 +68,10 @@ off.
 
 ## Where we're going
 
-One step: ship a chassis image and verify against the running pod by grepping its binary
-for the new guard, never against git or the image tag. That roll is a fleet-wide decision
-with other threads' work queued behind it, so it is the owner's to sequence. Once it is
-live and verified, this case moves to `/bugs_closed/`.
+Nothing is outstanding on this case. One thing is watched rather than finished: the guard's
+*blocking* path has not yet fired in production, because nothing has failed since the
+deploy — which is the expected consequence of the other half of the fix removing what was
+causing those failures. Its logic rests on tests rather than on an observed live block, and
+that is stated plainly in the case file rather than implied away. If it fires it will be
+visible as a work item whose error begins "completion blocked", or as an
+`UNKNOWN_HANDLER_VERDICT` row in the agent error log.

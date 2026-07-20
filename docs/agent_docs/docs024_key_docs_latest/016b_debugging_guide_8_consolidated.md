@@ -1388,6 +1388,40 @@ above); `PATCH_feature_designer_018_reframe_reads_artifact.sql`;
 silent bug factory" (same family — the untravelled path is the one that rots).
 Category tags: `partial-fix`, `router-branch-asymmetry`, `false-closure`.
 
+### The pod-grep passes even when nothing shipped — grep a symbol your change CREATED, not one it merely uses (2026-07-20)
+
+**Symptom.** You follow CLAUDE.md's deploy rule exactly — `strings /app/<binary> | grep -c
+"<your symbol>"` against the running pod — and it returns a positive count. You sign off.
+The check was worthless.
+
+**Mechanism.** The natural symbol to grep is the *thing you were working on*: the action
+name, the config key, the item type. But that string is usually already in the binary,
+emitted by code that predates your change. Registering `fix_forced_text_colors` in
+`GlobalActionRegistry` was the entire fix for bugs_open/017's leg 1 — and
+`grep -c fix_forced_text_colors` returned **1 before the fix as well**, because the action
+file had always called `RegisterActionInputSpec("fix_forced_text_colors", …)`. A pod
+running the OLD image passes that check identically to one running the new one. The grep
+confirms the subject exists, not that your change to it shipped.
+
+**The rule.** Choose a symbol that **cannot exist unless your change shipped**:
+- a new function name (`handlerReportedFailure`, `recordUnknownVerdict`);
+- a new error code or constant (`UNKNOWN_HANDLER_VERDICT`);
+- a **literal string you wrote in the changed line itself** — the registry entry's
+  `Description`, the guard's error message. This is the best one for config-shaped
+  changes that add no new identifier, and it is how 017 was finally verified:
+  `strings … | grep -c "Strip forced child-text colours"` → 1, a phrase that exists
+  nowhere but the registry entry the fix added.
+
+**Always pair it with a control.** Grep an older, definitely-present symbol too. If the
+control is also 0, your problem is `strings`/build flags, not the image — see the imagery
+D14 entry above, where a 0-and-0 result triggered an unnecessary rebuild. Positive control
+plus discriminating symbol is the pair; either alone misleads.
+
+**Kin.** "Trust the rendered artefact, not the status" (§ durable invariants); the
+travelling-docs finding that verifying a fix by grepping a GENERIC CSS property always
+passes — same error, different medium. Category tags: `deploy-verification`,
+`false-positive-check`, `discriminating-symbol`.
+
 ### A queued orchestration is indistinguishable from a dropped one — and "resubmit" is the expensive guess (2026-07-18)
 
 **Symptom.** You dispatch a council run (or any orchestration). Nothing appears in
@@ -1690,7 +1724,7 @@ See `/bugs_closed/README.md`.
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts — **`→ bugs_closed/`** (note: a *different* case also numbered 016 — council revise — remains open) |
 | 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | open; needs site fix + new check |
 | 018 | idea.uk chrome renders with every link `href=""` (31/33) — site unnavigable; check fleet | open, unstarted |
-| 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **OPEN — fix committed, INERT** (`c82b2872c`, `c80fffc83`): both legs + parity test + dead-map deletion; 54 rows corrected. Stays open until the image ships and the pod is grepped |
+| 017 | `fix_forced_text_colors` never registered ("requires a topic" lie); failed saga stamped 'complete' | **CLOSED 2026-07-20 → `/bugs_closed/`** — live in v1.0.1139, pod-verified with discriminating strings; both legs + parity test + dead-map deletion; 54 rows corrected; sweep 0 |
 | 019 | One truncated reviewer (`output_tokens==max_tokens`) voids a whole council round, discarding every other seat's review | filed; fix candidates in 019 |
 | 020 | Tool-recreation invents a dataset when the original tool was data-backed; shipped fake practices live, all items `complete` | filed; fix candidates in 020 |
 | 021 | The 012 completeness guard covers ONE write path; `page_components.rendered_html` and `pages.rendered_*` have the same unguarded overwrite shape | filed (council bug_historian objection); needs scope decision |

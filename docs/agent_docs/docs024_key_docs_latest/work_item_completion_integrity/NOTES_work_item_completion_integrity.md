@@ -85,3 +85,54 @@ report, and reports lose the wrong turns.
 - My `registry.go` edit was swept into another session's commit `06376bcbf` mid-task. The
   git rules cover this: nothing lost, finish and commit the remainder, say so.
 - Two different cases share the number `017` (one in this dir's index). Resolve by slug.
+
+---
+
+## 2026-07-20 — deploy verification and closure
+
+Owner shipped the chassis image: **v1.0.1139**, pod `agent-chassis-645674b498-rndg9`.
+
+### MISSTEP 3 (caught before sign-off) — my first pod-grep was worthless
+
+Ran the CLAUDE.md deploy check and got `fix_forced_text_colors` → **1**. Nearly signed off
+on it. Then realised: that string was **already in the binary before the fix**, emitted by
+the action file's own `RegisterActionInputSpec("fix_forced_text_colors", …)` call, which has
+existed since the action was written. A pod running the OLD image passes that grep
+identically. The check confirmed the subject existed, not that my registry entry shipped —
+which was the entire fix for leg 1.
+
+Re-verified with **discriminating** strings, ones that cannot exist unless the change
+shipped:
+
+| string | count | proves |
+|---|---|---|
+| `Strip forced child-text colours that override the --section-*…` | 1 | the registry entry itself (leg 1) |
+| `completion blocked: handler saga reported failure` | 1 | the guard's blocking path (leg 2) |
+| `unrecognised handler verdict` | 1 | the round-2 `agent_error_log` follow-up |
+| `verifyBeforeComplete` 5, `CompleteWorkItemAction` 6 (controls) | >0 | `strings` works — a 0 above would be real |
+
+Note the negative control `LocalActions` → 0 is *weak* evidence and I am not leaning on it:
+a Go map's variable name need not appear in the binary at all, so 0 would be expected
+either way. The Description string is the load-bearing proof.
+
+Filed as 016b §9 "The pod-grep passes even when nothing shipped".
+
+### Live state
+
+Sweep = **0**. 11 completions through the new path since deploy, zero false-positives —
+which is the regression check passing. 0 `WORKFLOW_INVALID` anywhere.
+
+**Deliberately NOT claimed:** the guard's *blocking* path has not fired in production. No
+saga has reported failure since deploy — expected, since registering the action removed the
+generator of 49 of the 54. Blocking logic rests on 11 unit subtests with a negative control,
+not on a live firing. Said so in the case file rather than implying live proof.
+
+**Decided not to force a dispatch to manufacture proof.** Three stale `detected`
+`hardcoded_section_colors` items exist (robot-hands, vonc, gamesdesign), and dispatching one
+would exercise leg 1 end-to-end — but it would also run a colour-stripping action at a live
+site, which 017 itself judged misconceived on robot-hands, and the owner's ruling was
+"mark them failed and start fresh", not "re-run them". The registry entry being provably in
+the binary makes the "requires a topic" failure structurally impossible; that is enough
+without editing a live site to prove it.
+
+Moved to `/bugs_closed/017_…` (number and filename preserved, per that dir's rules).
