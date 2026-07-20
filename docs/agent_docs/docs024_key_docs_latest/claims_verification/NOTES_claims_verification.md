@@ -483,3 +483,25 @@ not manual but part of the chassis' capability". Spec'd
   writer_line, V4 re-checks) already existed, so V5 is acquisition only.
 - Council submission f5ab4fb5 sent with a deliberately TERSE plan (bug 019
   punishes verbose rounds — reviewer output scales with submission size).
+
+---
+
+## 2026-07-20 (evening) — V5 ACTIVATED on v1.0.1140; smoke run found bug 047
+
+- Fresh chassis (v1.0.1140) pod-verified to carry V5 (verify_and_register_citations,
+  citation_lost classifier). The V5 council submission (f5ab4fb5) was LOST in the
+  deploy restart after an hour queued — never reviewed; recorded here, not resubmitted.
+- SEED_evidence_researcher.sql APPLIED (image first, then seed). Agent active.
+- Smoke run (correlation f930dc2f, "global LNG trade volume 2024"): search and
+  prepare worked — 4 primary sources chosen (IGU World LNG Report, EIA, IEEFA ×2)
+  — then FAILED at scrape_pages: awaited request expired at retry=3, no step
+  error. Adapter pod log had the truth in one line: "Empty URL in request".
+- Root cause = bugs_open/047: the webscrape adapter validated top-level url
+  BEFORE the action switch; batch_scrape has no top-level url by construction,
+  so EVERY batch scrape ever sent was rejected at the door — including
+  research-agent's scrape step (the writer's whole research lane). Fix
+  committed (guard reordered); OPEN until a web-scrape-adapter image rolls.
+  §9 pattern added to 016b.
+- V5 smoke therefore PENDING the adapter image: re-run per RUNBOOK §7 with
+  {site_id, domain, research_query}; expect the gaswholesalers register to be
+  created by its first verified facts.

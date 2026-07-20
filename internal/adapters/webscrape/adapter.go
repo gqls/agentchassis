@@ -242,7 +242,18 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	l.Info("Processing webscrape request")
 
-	// Validate required fields
+	// batch_scrape carries its URLs in data["urls"] and legitimately has NO
+	// top-level url, so it must branch out BEFORE the single-url validation.
+	// Until 2026-07-20 this guard ran first, which rejected every batch_scrape
+	// ever sent as "Empty URL in request" — batch_webscrape (research-agent's
+	// scrape step, the evidence-researcher) could not work at all.
+	if action == "batch_scrape" {
+		a.handleBatchScrape(a.ctx, headers, body, replyToTopic, l)
+		a.consumer.CommitMessages(context.Background(), msg)
+		return
+	}
+
+	// Validate required fields (single-url actions only)
 	if url == "" {
 		l.Error("Empty URL in request")
 		a.sendErrorResponse(requestID, correlationID, orchestrationID, replyToTopic, clientID, stepName, "URL cannot be empty")
@@ -283,11 +294,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		} else {
 			result, err = provider.ExtractStructured(a.ctx, url, schema, scrapeConfig)
 		}
-	case "batch_scrape":
-		// Handle batch scrape separately - processes multiple URLs
-		a.handleBatchScrape(a.ctx, headers, body, replyToTopic, l)
-		a.consumer.CommitMessages(context.Background(), msg)
-		return
+	// batch_scrape is handled above, before the single-url validation.
 	default:
 		err = fmt.Errorf("unknown action: %s", action)
 	}
