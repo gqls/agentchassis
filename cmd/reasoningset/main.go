@@ -81,6 +81,23 @@ type Labels struct {
 	// BenchmarkGrade so a subsystem PASS can never be read as reasoning quality.
 	SubsystemGrade string `json:"subsystem_grade,omitempty"`
 	Terminal       string `json:"terminal,omitempty"`
+
+	// council lane, derived — no hand-labelling required.
+	// RoundDecision is what the council concluded; Dissent is whether THIS seat
+	// went against it. Dissent is the load-bearing signal: where seats split,
+	// the reasoning had to do work.
+	RoundDecision string `json:"round_decision,omitempty"`
+	Dissent       *bool  `json:"dissent,omitempty"`
+	// Contested marks a round where seats actually SPLIT (some approved, some
+	// did not). An uncontested round carries far less signal whichever way it
+	// went — everyone agreeing is cheap.
+	Contested bool `json:"contested,omitempty"`
+	// ScopeApproveRisk marks a seat that has NEVER objected in the whole corpus.
+	// Sampled, those seats are substantive — they write scope determinations
+	// ("this change is outside my footprint") rather than merit judgements. Their
+	// approve therefore does not mean what edit-quality's approve means, and
+	// pooling the two would be wrong.
+	ScopeApproveRisk bool `json:"scope_approve_risk,omitempty"`
 }
 
 type Provenance struct {
@@ -112,6 +129,15 @@ type inRow struct {
 	Diagnosis    json.RawMessage `json:"diagnosis"`
 	Iteration    int             `json:"iteration"`
 	Body         string          `json:"body"`
+
+	// council lane
+	RoundDecision    string          `json:"round_decision"`
+	Seat             string          `json:"seat"`
+	SeatVerdict      string          `json:"seat_verdict"`
+	Objections       json.RawMessage `json:"objections"`
+	Notes            string          `json:"notes"`
+	SeatVotes        int             `json:"seat_votes"`
+	SeatNeverObjects bool            `json:"seat_never_objects"`
 }
 
 // trailStep mirrors pkg/diagnose.Step, which carries NO json tags — so the
@@ -151,7 +177,7 @@ func main() {
 		fatal("labels: %v", err)
 	}
 
-	steps, trails, bundles, err := readInput(os.Stdin)
+	steps, trails, bundles, councils, err := readInput(os.Stdin)
 	if err != nil {
 		fatal("read: %v", err)
 	}
@@ -160,6 +186,7 @@ func main() {
 	}
 
 	records := build(steps, trails, bundles, labels)
+	records = append(records, buildCouncil(councils, labels)...)
 
 	out := os.Stdout
 	if *outPath != "" {
@@ -181,7 +208,7 @@ func main() {
 	report(records, len(trails), len(bundles))
 }
 
-func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[string]string, err error) {
+func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[string]string, councils []inRow, err error) {
 	trails = map[string]inRow{}
 	bundles = map[string]string{}
 	sc := bufio.NewScanner(f)
@@ -206,9 +233,11 @@ func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[
 			trails[r.RunID] = r
 		case "bundle":
 			bundles[bundleKey(r.TrajectoryID, r.Iteration)] = r.Body
+		case "council":
+			councils = append(councils, r)
 		}
 	}
-	return steps, trails, bundles, sc.Err()
+	return steps, trails, bundles, councils, sc.Err()
 }
 
 func bundleKey(traj string, iter int) string { return traj + "#" + fmt.Sprint(iter) }
@@ -316,6 +345,82 @@ func build(steps []inRow, trails map[string]inRow, bundles map[string]string, la
 			rec.Labels.Terminal = l.Terminal
 		}
 
+		out = append(out, rec)
+	}
+	return out
+}
+
+// buildCouncil turns each (report x seat) row into a record. The decision is
+// the seat's own verdict; the round's decision and this seat's dissent from it
+// are labels, derived rather than hand-curated — which is what makes this lane
+// usable at 5.6x the diagnosis lane's volume without a labelling campaign.
+func buildCouncil(rows []inRow, labels map[string]Labels) []Record {
+	// Dissent must be measured against the seats in the SAME round, not against
+	// the round's decision. The council returns "revise" if ANY seat objects, so
+	// comparing a seat to the decision labels every approver in a revise round a
+	// dissenter — which measured 520 of 836 and is obviously wrong: those seats
+	// are the majority. Real dissent is going against your peers on one plan.
+	type tally struct{ approve, other int }
+	rounds := map[string]*tally{}
+	for _, c := range rows {
+		t := rounds[c.RunID]
+		if t == nil {
+			t = &tally{}
+			rounds[c.RunID] = t
+		}
+		if c.SeatVerdict == "approve" {
+			t.approve++
+		} else {
+			t.other++
+		}
+	}
+
+	out := make([]Record, 0, len(rows))
+	for _, c := range rows {
+		t := rounds[c.RunID]
+		seatApproved := c.SeatVerdict == "approve"
+		// The modal verdict among this round's seats. A tie is not dissent for
+		// anyone — the round was genuinely split down the middle.
+		var dissent bool
+		if t.approve != t.other {
+			majorityApproves := t.approve > t.other
+			dissent = seatApproved != majorityApproves
+		}
+		contested := t.approve > 0 && t.other > 0
+
+		rec := Record{
+			TrajectoryID:  c.TrajectoryID,
+			RunID:         c.RunID,
+			Task:          "council_seat_review",
+			StepName:      c.Seat,
+			InputState:    "", // the plan under review; join via trajectory_id
+			ReasoningRaw:  c.Notes,
+			Decision:      strings.ToUpper(c.SeatVerdict),
+			InputComplete: true,
+			Labels: Labels{
+				RoundDecision:    c.RoundDecision,
+				Dissent:          &dissent,
+				Contested:        contested,
+				ScopeApproveRisk: c.SeatNeverObjects && seatApproved,
+			},
+			Provenance: Provenance{
+				AgentType:    "council",
+				CreatedAt:    c.CreatedAt,
+				PreFixCorpus: runStartedBeforeFix(c.CreatedAt),
+			},
+		}
+		if len(c.Objections) > 0 && string(c.Objections) != "[]" {
+			rec.Reasoning = c.Objections
+		}
+		if c.Notes == "" && rec.Reasoning == nil {
+			rec.InputComplete = false
+			rec.ExcludeReason = "empty_review"
+		}
+		if l, ok := labels[shortID(c.TrajectoryID)]; ok {
+			rec.Labels.BenchmarkGrade = l.BenchmarkGrade
+			rec.Labels.SubsystemGrade = l.SubsystemGrade
+			rec.Labels.Terminal = l.Terminal
+		}
 		out = append(out, rec)
 	}
 	return out
@@ -497,6 +602,7 @@ func report(recs []Record, trails, bundles int) {
 	byGrade := map[string]int{}
 	byTerminal := map[string]int{}
 	guardTripped, guardUnaligned, graded, complete := 0, 0, 0, 0
+	dissenting, scopeApprove, contested := 0, 0, 0
 	trajectories := map[string]bool{}
 
 	for _, r := range recs {
@@ -522,6 +628,17 @@ func report(recs []Record, trails, bundles int) {
 		}
 		if r.Labels.Terminal != "" {
 			byTerminal[r.Labels.Terminal]++
+		}
+		if r.Task == "council_seat_review" {
+			if r.Labels.Dissent != nil && *r.Labels.Dissent {
+				dissenting++
+			}
+			if r.Labels.Contested {
+				contested++
+			}
+			if r.Labels.ScopeApproveRisk {
+				scopeApprove++
+			}
 		}
 		if r.Labels.SelfOutcome != "" {
 			byOutcome[r.Labels.SelfOutcome]++
@@ -552,6 +669,11 @@ func report(recs []Record, trails, bundles int) {
 		for _, k := range sortedKeys(byOutcome) {
 			e("  %-22s %d\n", k, byOutcome[k])
 		}
+	}
+	if dissenting+scopeApprove > 0 {
+		e("\ncouncil lane (labels derived, not hand-curated)\n")
+		e("  %-22s %d\n", "seat dissents", dissenting)
+		e("  %-22s %d   ← 'approve' may mean OUT OF SCOPE, not merit\n", "scope-approve risk", scopeApprove)
 	}
 	if len(byGrade) > 0 {
 		e("\nbenchmark_grade (gold, pre-registered rubric)\n")

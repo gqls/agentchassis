@@ -83,3 +83,47 @@ SELECT jsonb_build_object(
 FROM diagnosis_artifacts da
 WHERE da.kind = 'bundle'
 ORDER BY da.correlation_id, da.iteration;
+
+-- ── 4. the council lane: one row per (report x seat) ─────────────────────────
+-- 5.6x the diagnosis lane and, until now, unextracted. Each row is one
+-- reviewer's argument about one plan, with the round's decision alongside — so
+-- dissent (a seat voting against its round's outcome) is computable without any
+-- new labelling. That is the signal: where seats split, the reasoning is
+-- load-bearing.
+--
+-- CAUTION on the semantics of 'approve'. Some seats are relevance-gated and
+-- approve because the change is OUTSIDE their footprint, writing a scope
+-- determination rather than a merit judgement ("doesn't touch classifier logic,
+-- revenue-shape decisions..."). Six seats have never objected. Sampled, they are
+-- substantive, NOT rubber stamps — but their approve does not mean what
+-- edit-quality's approve means. seat_never_objects is emitted so a consumer can
+-- separate the two rather than pooling them.
+WITH seat_stats AS (
+  SELECT r->>'reviewer' AS seat,
+         count(*) AS votes,
+         count(*) FILTER (WHERE r->>'verdict' <> 'approve') AS non_approvals
+  FROM diagnosis_artifacts da, jsonb_array_elements(da.body::jsonb->'reviews') r
+  WHERE da.kind = 'council_report'
+  GROUP BY 1
+)
+SELECT jsonb_build_object(
+  '_t',               'council',
+  'trajectory_id',    da.correlation_id,
+  'run_id',           da.orchestration_id,
+  'created_at',       da.created_at,
+  'round_decision',   da.metadata->>'decision',
+  'reviewers',        (da.metadata->>'reviewers'),
+  'abstained',        (da.metadata->>'abstained'),
+  'seat',             r->>'reviewer',
+  'seat_verdict',     r->>'verdict',
+  'objections',       COALESCE(r->'objections', '[]'::jsonb),
+  'missing',          COALESCE(r->'missing', '[]'::jsonb),
+  'notes',            COALESCE(r->>'notes', ''),
+  'seat_votes',       ss.votes,
+  'seat_never_objects', (ss.non_approvals = 0)
+)::text
+FROM diagnosis_artifacts da,
+     jsonb_array_elements(da.body::jsonb->'reviews') r
+     JOIN seat_stats ss ON ss.seat = r->>'reviewer'
+WHERE da.kind = 'council_report'
+ORDER BY da.created_at, r->>'reviewer';
