@@ -433,6 +433,37 @@ assertion-shaped error in one session (repair path, live defect, council seat,
 now this). Three of the four were caught by the owner asking; this one by luck.
 That distribution is the finding.
 
+### 2026-07-20 — bugfix-036 — "the dispatch queue drains at 0.21 msg/min, so my probe waits ~6.5 hours"
+
+**Asserted:** a throughput figure written into `bugs_open/030` as **measured**,
+with a timestamped table, and repeated to the owner as the reason a live
+verification could not be completed. I offered to abandon the probe on the
+strength of it.
+**Actually:** ~2.4 msg/min — the figure was **~12× too slow** and the queue
+estimate wrong by the same factor. My "two readings 14 minutes apart" were **69
+seconds apart**. I never recorded when the sampling job started; I *inferred*
+19:16 from when I thought I had launched it, and wrote the inference into a table
+as a measurement. The probe I said would take 6.5 hours was picked up at 19:30:32
+and had written its report by **19:34:12** — roughly 27 minutes end to end, and it
+landed four minutes after I told the owner it was hopeless.
+**Caught by:** the bugfix-030 thread, which had a continuous 30-second sampler
+running over the same window and matched my two rows to its own samples at
+19:29:48 and 19:30:57, to the digit. **Not by me** — and it should have been:
+**my own data contained the disproof.** My third sample read `current=96016` and
+the "14 minutes later" reading also read `current=96016`. Identical offsets mean
+no time passed. I had the contradiction in front of me and did not look at it.
+**The cheap check that would have caught it:** print the clock in the same command
+that prints the reading (`date -u; kafka-consumer-groups.sh …`) so a rate is
+computed from two recorded times, never two remembered ones. Then: this queue
+drains as a **sawtooth** (pins for minutes on one long message, then bursts), so
+two point samples cannot measure it at all — sample continuously for ≥20 min and
+take the slope.
+**Cost:** a wrong "measured" figure sat in an open bug file for about an hour and
+was quoted to the owner as grounds to give up on a verification that in fact
+succeeded. Nothing shipped, and the probe was already queued so no work was lost —
+but this is the one entry here where the error went *to the owner as a decision
+input*, which is worse than a wrong line in a doc.
+
 ## When an entry should become a check
 
 Not every row can be automated, and a speculative check is worse than none — it
@@ -1000,3 +1031,32 @@ Any window shorter than one full tooth is uninformative in *both* directions.
 > synchronously, and a workflow's consecutive steps run inline on the consumer
 > goroutine) is legible in `agent.go` and `coordinator.go` in about ten minutes, and
 > it predicts the sawtooth outright.
+
+---
+
+**(9) "Generated contact forms POST to a dead `/contact` endpoint, fleet-wide" —
+cited `k8s/bk_page_components.sql:140` as the emitter.** Written into
+`bugs_open/006` §B on 2026-07-16, carried unchallenged for four days, with fix
+options costed against it.
+**Actually:** on 2026-07-20 the live fleet had **zero** components with
+`action="/contact"`. The template is `action="{{.form_action}}"` fed from each
+component's own `content_data`; live values are `#contact` (8 sites), `""` (3)
+and one hand-fixed `mailto:`. The *defect* was real and arguably worse than filed
+(10 of 11 live sites cannot deliver a contact message) — but the cause, and
+therefore both proposed fixes, were aimed at a string that is not in the system.
+**Caught by:** one `GROUP BY` over `page_components` before starting the fix.
+**The cheap check that would have caught it:** query the live artifact for the
+literal you are about to fix, *before* costing the fix. Ten seconds.
+
+> **The transferable trap is the citation, not the staleness.** `bk_*.sql` files
+> are **backup dumps of a table**, not source. Citing one as the place a value is
+> emitted reads exactly like citing code — same path shape, same `file:line` — and
+> it silently converts "this row existed in March" into "this is what the platform
+> generates". The real emitter here (`bk_content_components.sql:134`) is *also* a
+> dump; the actual authority is the live `content_data`, and **no Go code sets
+> `form_action` at all**, which is the finding that matters and which no amount of
+> grepping the dumps would have produced.
+> **Rule: a `bk_` path is evidence about a past table state and nothing else.**
+> Before citing one as a cause, grep the Go tree for the field name — if nothing
+> sets it, the value is content, not code, and the fix is a default plus a
+> validation check rather than an edit to a template.
