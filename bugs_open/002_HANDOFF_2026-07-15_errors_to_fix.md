@@ -1,14 +1,23 @@
 # HANDOFF — errors surfaced but NOT fixed (route each to its own chat)
 
-> **STATUS 2026-07-19 (bugfix thread).**
-> **B ✅ FIXED** (already resolved by the truncation work in `/bugs_closed/005`;
-> verified green — the entry was stale, not the code).
-> **C ✅ FIXED** — migrations **175** + **176**, both applied and
-> ledger-recorded. It turned out to be **two sites, not one**; fleet-wide
-> section drift is now **0 pages**.
-> **A** superseded by `003`. **D**, **E**, **F** still open — D and E
-> re-grounded against the live system 2026-07-19 (see Priorities).
-> This file stays in `/bugs_open/` because D/E/F remain live.
+> **STATUS 2026-07-20 (bugfix thread) — this file is now a ROUTING DOC, not a
+> work queue. Nothing left in it is both live and unowned.**
+>
+> | | state |
+> |---|---|
+> | **A** | superseded by `/bugs_open/003` — never was this file's work |
+> | **B** | ✅ **FIXED** — was already fixed by the truncation work in `/bugs_closed/005`; the entry was stale, not the code. Verified green 2026-07-19 |
+> | **C** | ✅ **FIXED** — migrations **175** + **176**, applied and ledger-recorded. Was **two sites, not one**; fleet-wide section drift now **0 pages** |
+> | **D** | **REROUTED** — news-listing half is owned by `/bugs_open/026` + `/bugs_open/027`; tool-guide-intro half is a real guard-vs-repair architectural gap, still unowned (see its entry) |
+> | **E** | **OWNER DECISION**, not a bug. Re-grounded 2026-07-19, unchanged |
+> | **F** | **DIAGNOSED & REROUTED** — both suspects refuted; the real mechanism is filed as `/bugs_open/034`. Only the untested `kcat -c 1` suspect remains here |
+>
+> **Recommendation: close this file to `/bugs_closed/` once D's tool-guide-intro
+> half is given an owner.** It has done its job — it was always a routing
+> document ("route each to its own chat"), and five of six entries have now
+> either been fixed or handed to a bug that owns the mechanism properly. Keeping
+> it open past that point just means one more place the same defects are
+> described in parallel, which is the drift the working-docs rules warn about.
 
 **Created 2026-07-15 from the `empty_sections_loop_integrity` workstream.**
 Each section below is an INDEPENDENT error — self-contained, can be handed to a
@@ -373,7 +382,23 @@ dartsonline ships. Worth deciding before a rebuild surprises someone.
    dartsonline is still **0**, and both `product-grid` sections are still
    frozen `rendered_html` last touched 2026-07-06 (index 3055 chars,
    new-arrivals 3048). Still the owner's call, so deliberately not actioned.
-6. **F** — on-demand discovery dispatch. Untouched; needs a live trigger run.
+6. ~~**F** — on-demand discovery dispatch~~ — **DIAGNOSED 2026-07-20, rerouted
+   to `/bugs_open/034`.** Suspect (a) refuted from code; the real mechanism is a
+   missing durable error surface. Only suspect (b) (`kcat -P` without `-c 1`)
+   is untested, and it is a publisher fault, not a platform one.
+
+---
+
+## What is actually left in this file
+
+**One thing: D's `tool-guide-intro` half** — the content-regression guard
+(`save_page_sections_action.go:335-371`) blocks a page-scoped rebuild whose
+regenerated text comes out thinner than a quarter of what is there, which means
+**an empty section on an otherwise-rich page cannot be repaired by the
+page-scoped handler at all.** The guard is correct; the gap is that there is no
+targeted single-section repair path. That needs an owner and a small design
+decision, not a re-drive. Everything else here is fixed, superseded, rerouted to
+a bug that owns it, or an owner's call.
 
 ---
 
