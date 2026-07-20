@@ -170,6 +170,12 @@ homepage (4 curated sections) was rebuilt into 6 sections. The rebuild re-added
 - `case-studies-grid`: **invented case-study titles** ("Validation Layer Stops Bad Data
   Reaching the Warehouse", "Content Operation Running Without Manual Handoffs") — this site
   has no clients and no case studies.
+  > **CORRECTED 2026-07-20 by the site owner.** The last clause is wrong: the site **does** have
+  > case studies — real systems built and running — they are simply not *client* case studies.
+  > The fabrication finding stands (those two titles were invented, and the site has no clients),
+  > but "no case studies" must not be carried forward: `/case-studies.html` is live and honest,
+  > describing four real systems. Anyone acting on this paragraph should read the correction in
+  > `/bugs_open/040`, where the same mistaken premise nearly led to deleting good content.
 
 **Recurrence 2 — services page, 2026-07-18 07:50.** A restored, reviewed services page was
 rebuilt again. Among the generated content it created a link to

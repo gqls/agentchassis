@@ -146,10 +146,42 @@ rows). These are unambiguous damage:
 | `gaswholesalers.com/wholesale-pricing-explained.html` | 7 |
 | `leopardessconsulting.co.uk/case-study-multi-agent-cost-control-platform.html` | 4 |
 
-Two are blog posts with a title and no article. One is a pricing explainer with nothing in it. The
-leopardess one is a **case study on a site that has no clients** — so blank is arguably the safer
-failure here, and it should be deleted rather than rebuilt unless there is a real case study to
-tell. Check `/bugs_open/029`'s fabrication concern before regenerating any of them.
+Two are blog posts with a title and no article. One is a pricing explainer with nothing in it.
+
+> **CORRECTED 2026-07-20 by the site owner.** I wrote here that the leopardess entry was "a case
+> study on a site that has no clients", so blank was the safer failure and it should be deleted.
+> **The premise was wrong.** The owner's case studies describe **real work — systems actually built
+> and running — they are simply not *client* case studies.** The distinction matters: "no clients"
+> was read as "nothing to write about", which is false. That mistaken premise also appears in
+> `/bugs_open/001`'s FRESH EVIDENCE section ("this site has no clients and no case studies") and
+> should not be carried forward from there either.
+>
+> Checking the live site after the correction changed the conclusion completely — see below.
+
+**The leopardess case-studies section is NOT broken and must not be deleted.** `/case-studies.html`
+is `deployed`, in the header and footer nav, and serves 8,054 characters of honest, specific copy:
+h1 *"Systems running in production, not proposals waiting for a budget."*, then four real systems —
+Companies House record checking, news trust-ranking, no-code interactive tool generation, and "the
+platform that built this website". That is exactly the owner's framing (real work, not client work)
+and it reads well.
+
+**What is actually wrong is a set of orphaned detail pages.** Eight `case-study-*` detail pages exist
+in `pages`, and:
+
+- **nothing links to any of them** — checked `/`, `/case-studies.html`, `/who-we-help.html`,
+  `/use-cases.html`, `/how-it-works.html`, `/insights.html`, `/our-approach.html`: zero `href`s to
+  `/case-study-*`. They are also `in_header=false, in_footer=false` and **absent from
+  `sitemap.xml`** (27 URLs, none of them).
+- **seven of them serve HTTP 200 with a completely empty `<main>`**; the eighth
+  (`document-intelligence-pipeline`) 404s.
+
+So the index tells the story inline and never needed detail pages, while seven blank shells sit at
+live URLs reachable only by typing them directly. They are a tidy-up, not an outage — and deleting
+them is the likely right call precisely *because* the section above them is already complete.
+Rebuilding them instead would re-run the content writer over case-study material, which is the
+`/bugs_open/029` fabrication path on the one site where that history is worst.
+
+**Do not action the deletion without the owner's word** — this is live outward-facing content.
 
 **Group B — 21 pages, short by one or two sections but serving real content** (`<main>` from 1.6k to
 17k characters). e.g. `leopardessconsulting.co.uk/our-approach.html` renders 5 of 6 sections and
