@@ -758,3 +758,37 @@ the owner that did not need asking — most of the fix needs no ruling at all.
 > it convincing and wrong. The check is not "look harder" — it is **name the
 > layers the claim spans, and touch each one**, before writing "never", "no", or
 > "does not exist".
+
+### 2026-07-20 — bugs_open/033 — "the human-review queue has no working surface"
+**Asserted:** as the title and premise of a filed bug — 292 items, four months old,
+"read by nobody", with three admin routes that "have never run" and a fourth handler
+needing registration. The whole file was structured around an owner decision
+(queue or bin?) that had to be answered *before any code*.
+**Actually:** a complete review surface exists and always has — list, filters,
+per-status counts, Approve & Continue, Save & Rebuild, Retry, Resolve, editable
+review forms, auto-built forms for `needs_section_data`
+(`frontends/admin-dashboard/src/App.tsx:397,958,1160-1189`). It shows **0 of the 208**
+build-pipeline review items, because `HandleListWorkItems` hardcodes `limit := 50`
+`ORDER BY created_at DESC` (`site_admin_handlers.go:483,519`) and the frontend requests
+no `status` filter, capping and then filtering client-side. The "Needs Review (N)"
+count is computed over that same 50-row window, so it reads **0**. Nobody ignored the
+queue — the dashboard reported it as empty. The handlers had never run for the same
+class of reason: "Approve & Continue" renders only on `spec.checkpoint === true`, and
+**zero of 5,622 items in the platform's history have ever carried that key.**
+**Caught by:** asking "is the surface reachable?" as a separate question from "does the
+surface exist?", then running the UI's own query against live data. The 0-of-208 number
+is what turned a judgement call into a bug.
+**The cheap check that would have caught it:** open the dashboard source and grep for
+the endpoint the bug says is never called — `grep -n "work-items/.*\(approve\|resolve\|retry\)"
+frontends/admin-dashboard/src/App.tsx` returns the call sites in one command. "No code
+calls this" was asserted from a **backend-only** grep; the caller was in the frontend,
+which was never searched. A second cheap one: run the handler's own SQL and count what
+it returns.
+**Cost:** contained — caught while working the bug, before anything was built. But the
+file had already framed the work as blocked on an owner ruling, and the three real
+defects (50-cap, hardcoded `pipeline=build` hiding 94 more items, no Ingress) need no
+ruling at all. Had the ruling been "bin", the honest reading — a surface that works and
+was never once looked at through — would have been thrown away with it.
+**Pattern:** "nothing uses X" is a claim about the *whole* system, and a grep scoped to
+one language or one directory cannot support it. Same shape as the `health.NewServer`
+entry above: the absence was in the search, not in the code.
