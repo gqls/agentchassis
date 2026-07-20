@@ -447,6 +447,9 @@ func buildCouncil(rows []inRow, labels map[string]Labels) []Record {
 		if len(c.Objections) > 0 && string(c.Objections) != "[]" {
 			rec.Reasoning = c.Objections
 		}
+		if ok, why := commonExclusions(c.Notes+string(c.Objections), rec.Provenance); !ok {
+			rec.InputComplete, rec.ExcludeReason = false, why
+		}
 		if c.Notes == "" && rec.Reasoning == nil {
 			rec.InputComplete = false
 			rec.ExcludeReason = "empty_review"
@@ -513,6 +516,9 @@ func buildFeed(judgeRows []inRow, items map[string]inRow) []Record {
 				rec.Decision = fmt.Sprintf("score=%.0f", *v.Score)
 			}
 
+			if ok, why := commonExclusions(rec.InputState+string(reasoning), rec.Provenance); !ok {
+				rec.InputComplete, rec.ExcludeReason = false, why
+			}
 			if haveItem {
 				rec.Labels.Terminal = item.Status
 				if v.Score != nil && *v.Score >= 60 && item.Status == "rejected" {
@@ -545,6 +551,30 @@ func classify(step string) string {
 	default:
 		return step
 	}
+}
+
+// commonExclusions holds the rules that apply to EVERY lane regardless of where
+// the record came from. It exists because the lanes drifted: build() ran these
+// via judgeInput while buildCouncil and buildFeed set InputComplete directly and
+// skipped them, so 3 council rows citing the blinded fixloop docs would have
+// reached an eval set. pattern-check's untouched-twin rule caught that drift on
+// the commit that introduced it — a new lane must call this, not reimplement it.
+func commonExclusions(text string, p Provenance) (bool, string) {
+	for _, marker := range blindedMarkers {
+		if strings.Contains(text, marker) {
+			return false, "blinded_docs"
+		}
+	}
+	if p.OutputTokens != nil && p.MaxTokens != nil && *p.MaxTokens > 0 && *p.OutputTokens >= *p.MaxTokens {
+		return false, "truncated"
+	}
+	if p.Success != nil && !*p.Success {
+		if strings.HasPrefix(p.ErrorMessage, "response truncated") {
+			return false, "truncated"
+		}
+		return false, "call_failed"
+	}
+	return true, ""
 }
 
 // judgeInput implements the two exclusion rules that matter. Rows are FLAGGED,
