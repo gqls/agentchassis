@@ -398,3 +398,84 @@ So rendered files reach the site repo and deploy — the chain is complete. Two 
 - **vetcomparison also gets `/feed.xml`** from `render_rss_feed` — server-rendered and complete,
   which is precisely the artefact `/bugs_open/027` notes is *unaffected* by the client-side news
   defect. So the site gets a crawler-visible news surface even before 027 is fixed.
+
+## 2026-07-20 — the feed ingests but does not publish, and two things I got wrong
+
+Feed is **working at the ingestion end**: 2 real CMA items, genuine gov.uk URLs, real summaries,
+no LLM anywhere in the path.
+
+| item | published | age |
+|---|---|---|
+| Vets market investigation: draft funding Order and Undertakings | 2026-06-30 | 463 h |
+| Veterinary services for household pets | 2026-06-30 | 463 h |
+
+**But nothing reaches the site.** `/data/latest-news.json` and `/feed.xml` both 404. Cause found
+by reading the orchestration's own `collected_data`, not by guessing:
+
+```
+news_render: { rendered: true, item_count: 0, items: [] }
+news_commit: null
+```
+
+`render_news_json` runs with **`max_age_hours: 72`**; our items are 463 h old, so `loadNewsItems`
+filters both out → `item_count: 0` → `check_has_news` routes `0 → complete`, **skipping
+`commit_news`** → the JSON is never written. The component then renders its headline over
+nothing, which is the exact defect I removed the dead grid to avoid.
+
+72 h is right for daily-churn verticals (gas prices, watch news). It is wrong for **regulatory**
+news, which arrives a few times a month. Owner approved widening to **720 h (30 days)**, chosen
+to match the 30-day expiry `RenderNewsSectionAction` already applies — so it cannot surface
+anything the platform itself considers stale, and fresh items still win the ORDER BY under the
+`max_items: 6` cap.
+
+> **MISSTEP 1 — I declared a fleet-wide outage that was not one.** From three readings (13:37
+> sweep completed instantly; nothing fetched anywhere; no feed orchestrator pod) I concluded the
+> 6-hourly sweep was completing without doing any work fleet-wide, and **filed that to the
+> diagnosis loop** (`12ff5852`). It was **late, not broken** — it fetched at 14:30 and our source
+> went through cleanly. The likeliest explanation is the one CLAUDE.md already documents: a chassis
+> pod roll silently drops spawns within ~300s, and a fresh build had just been deployed. I filed a
+> platform-wide claim on ~10 minutes of absence-of-evidence. **Absence of a row is not evidence of
+> a defect on a cluster that queues.**
+>
+> **MISSTEP 2 — a DB-only config edit does not hold.** I set `max_age_hours: 720` on the live
+> `agent_definitions` row at ~18:23. The 19:41 run still rendered `item_count: 0`, i.e. it used 72.
+> The seeds carry the value (`sql_for_agents/090_...sql:493`, `087_...sql:1913,2297`), so a re-seed
+> re-applies it — the clobber landmine, met head-on. Seed 090 now carries 720 with the reason
+> inline. **Change config in the seed AND the row, or it silently reverts.**
+
+### Landmine: the reaper eats a queued diagnosis
+
+Run `be60b0d7` (empty-section guard) **FAILED**: `reaper: stale AWAITING_RESPONSES for >90 min`.
+It queued ~32 min behind a busy cluster, then was reaped before diagnosing. Its intake item sat at
+`awaiting_diagnosis`, which makes the 090 trigger refuse a refile — close the stale item first
+(done, with the reason in `spec.failure_reason`), then refile. Refiled as `459fbdf3`.
+**A diagnosis filed into a busy cluster can die without ever being answered, and the intake record
+will still look open.**
+
+### Separate, and more serious: the directory exporter is now failing
+
+`directory-export-json` ran 2026-07-19 20:25 and **failed**:
+
+```
+step export_json failed: failed to execute action directory_export_json:
+directory export requires an explicit domain; refusing to export without one
+```
+
+The config is **not** missing — `scheduled_tasks.input_data.input_data.domain` is
+`vetcomparison.uk`. `DirectoryExportAction` (`directory_export_action.go:123-136`) merges
+`params.CollectedData["input_data"]` over `params.StepConfig.Config` and then aborts on empty
+Domain, so the key is not arriving in that merged map. Last **successful** run was 2026-07-17
+20:25 (48 h cycle, so this was the first run since), with several chassis builds in between —
+consistent with a regression rather than a config change. `vet_med_export_action.go:152` has the
+identical merge-then-guard shape, so this is unlikely to be one exporter's problem.
+**Consequence: `/data/vet-full-index.json` stops refreshing.** The live file still serves 2,109
+practices, so nothing is broken *on the page* — it just goes stale. Filed as `2c5bb9e2`.
+
+### Not changed, deliberately
+
+`render_rss_xml` passes no `max_age_hours`, so `render_rss_feed_action.go:131` applies its own
+default of **336 h** with a stated reason ("feeds carry more history than the homepage card").
+Our items are 463 h old, so `/feed.xml` stays empty too. I did **not** widen it: unlike the
+homepage card's 72, that value was chosen deliberately and documented, so changing it is an
+owner call rather than a defect fix. Worth raising, because `/feed.xml` is server-rendered and
+is the one news surface `/bugs_open/027` does not affect.

@@ -484,13 +484,25 @@ SET default_config = jsonb_build_object(
                                       ),
 
                     -- Step 5: Render latest-news.json
+                    -- max_age_hours 720 (30 days), raised from 72 on 2026-07-19.
+                    -- 72h suits daily-churn verticals (gas prices, watch news) but starves
+                    -- low-frequency ones: vetcomparison.uk's source is CMA regulatory
+                    -- announcements, which arrive a few times a MONTH, so at 72h the render
+                    -- returned item_count 0, check_has_news routed straight to complete,
+                    -- commit_news never ran, and data/latest-news.json was never published —
+                    -- leaving the homepage component showing a headline over nothing.
+                    -- 720h deliberately matches the 30-day expiry that RenderNewsSectionAction
+                    -- already applies to content_feed_items, so this cannot surface anything
+                    -- the platform itself considers stale, and fresh items still win on the
+                    -- ORDER BY (relevance, then published_at DESC) under the max_items cap.
+                    -- Change it HERE as well as in the live row: a re-seed clobbers a DB-only edit.
                         'render_news_json', jsonb_build_object(
                                 'action', 'render_news_section',
                                 'config', jsonb_build_object(
                                         'site_id', 'input_data.site_id',
                                         'max_items', 6,
                                         'page_name', 'index',
-                                        'max_age_hours', 72
+                                        'max_age_hours', 720
                                           ),
                                 'next_step', 'check_has_news',
                                 'description', 'Produce latest-news JSON from relevant and recent items',
