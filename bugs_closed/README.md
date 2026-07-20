@@ -50,6 +50,8 @@ The numbering was assigned by concurrent threads and **collided twice**:
 |---|---|---|
 | `016` | `ssh` ignores `$HOME`, uses the passwd entry | council revise prompts drop reviewer output |
 | `017` | — | static cutover orphans entry forms **and** unregistered action marked complete (two files, both `017`) |
+| `018`, `027`, `028`, `029` | — | two files each in `/bugs_open/` (concurrent-thread collisions of 2026-07-18/19) |
+| `040` | — | kafka dial timeouts fleet-wide **and** failed page build leaves page deployed (two files, both `040`, both 2026-07-20) |
 
 A bare reference to `bugs_open/016` or `bugs_open/017` in older docs or code
 comments is therefore **ambiguous** — resolve it by the slug or the described
