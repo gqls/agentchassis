@@ -2216,3 +2216,39 @@ head, and treat any provenance claim it returns (commit shas, "already shipped")
 as unverified until you check it yourself. Three of that pass's four
 already-fixed verdicts held up; the fourth was the one touching the file the
 delegating session had open.
+
+### A config value that equals its code default proves nothing about whether config is wired up (2026-07-20)
+
+**Symptom.** `content-feed-orchestrator`'s `render_news_json` step config carried
+`max_age_hours: 72`, and the news card behaved like a 72-hour window. Everything agreed.
+Raising it to `720` changed nothing: the run still rendered `item_count: 0` while the same
+query, run by hand with 720, returned rows.
+
+**Mechanism.** `ExtractActionInputs`
+(`platform/orchestration/datahelpers/action_inputs.go`) reads step config in four places and
+every one asserts `config[field].(string)` — and even then treats that string as a *reference*
+to resolve against `collectedData`, never as a literal. A JSON number fails the assertion, so
+nothing lands in `result.Values` and the action falls through to its call-site fallback:
+`inputs.GetInt("max_age_hours", 72)`. The configured value had **never** been read. Neither had
+`max_items: 6` in the same block. Full case: `/bugs_open/042`.
+
+**Why it survived so long.** *The seeded value equalled the code default.* 72 in config, 72 in
+Go. Config and behaviour agreed, so the config looked live and load-bearing while being purely
+decorative. Nothing could look wrong, because nothing did look wrong.
+
+**The rule.** **To test whether a config value is wired up, set it to something whose effect
+would be visibly different, then observe the behaviour — never re-read the config.** Agreement
+between a setting and observed behaviour is not evidence the setting caused the behaviour; it is
+equally consistent with the setting being ignored and a default coinciding. This is the config
+analogue of "trust the rendered artefact, not the status".
+
+**Corollary for tests.** A regression test that configures a value equal to the fallback passes
+whether or not the plumbing works. The tests added with the fix deliberately configure values
+that *differ* from their fallbacks (720 against a 72 fallback, 30 against 6) — otherwise they
+would prove nothing.
+
+**Generalises to.** Any layered-default system where a declared value and a hardcoded default
+can coincide: step config → action fallback, env var → compiled default, site spec → platform
+default, kustomize overlay → base. The dangerous case is not disagreement, which surfaces; it is
+*agreement*, which hides. Where a config key exists specifically to be tuned, prove once that
+tuning it does anything at all.

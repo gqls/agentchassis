@@ -85,6 +85,39 @@ effect on the fix, without being mistaken for working.
 
 Option 1 is the smallest change that makes the documented tuning surface actually work.
 
+> **CORRECTED 2026-07-20, and this correction is the point.** Option 1 as first written above
+> ("take `config[field]` as a literal **regardless of type**") carries a regression risk I had
+> not thought through: a genuine reference that *fails to resolve* — say `"current_item.id"` on
+> an iteration where that data is absent — would stop being absent and silently become the
+> literal string `"current_item.id"`. A wiring bug would turn into a plausible-looking value.
+> That is a worse failure than the one being fixed, because it is invisible.
+>
+> **Implemented instead: non-string scalars only.** References are always strings, so restricting
+> the literal pass to `bool`, the int/uint families, `float32/64` and `json.Number` cannot alter
+> how any existing reference resolves — it only fills fields currently dropped on the floor. An
+> unresolvable string is still left ABSENT, on purpose, so broken references stay visible.
+> Composite values (objects, arrays) are excluded too: no evidence they were ever meant as
+> literals here.
+>
+> This leaves the literal-*string* case unfixed, which is a real gap — the sibling exporter bug
+> (`55dc0fa4`) is exactly that shape, where a literal domain string never reaches the action. It
+> needs its own change and its own argument, not a free ride on this one.
+
+## Status
+
+**Fix implemented 2026-07-20** in `action_inputs.go` as Strategy 5 (non-string scalars only),
+with regression cover in `action_inputs_literal_test.go`. Five tests pass; `datahelpers` and
+`actions` packages both build and pass. Submitted to the council gate as
+`712be028-1c57-4e90-a0b0-09eb9742fc9a`.
+
+**Go change — inert until the next image roll.** Until then the effective news window remains
+72 h and `data/latest-news.json` is still not published for vetcomparison.uk. Verify after the
+roll against the *pod*, not the tag, then against the *artefact*, not the status.
+
+The tests deliberately configure values that DIFFER from their fallbacks. A test that reuses the
+default would pass whether or not the plumbing works — which is precisely how this defect
+survived.
+
 ## How to verify a fix
 
 Do **not** re-read the config. Set a numeric config value to something whose effect is visible,

@@ -5,6 +5,7 @@
 package datahelpers
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -255,6 +256,46 @@ func ExtractActionInputs(
 			logger.Debug("Resolved config value as collected_data key",
 				zap.String("field", field),
 				zap.String("key", pathStr),
+			)
+		}
+	}
+
+	// Strategy 5: numeric and boolean config values, taken as LITERALS.
+	//
+	// Every strategy above reads step config as config[field].(string) and
+	// treats that string as a REFERENCE to resolve against collectedData. A
+	// JSON number or boolean fails the type assertion outright, so it never
+	// reaches the action and the call site's Go fallback wins instead —
+	// silently, while the config reads as though it were live. See
+	// bugs_open/042: render_news_json carried max_age_hours 72 and
+	// RenderNewsSectionAction defaulted to 72, so config and behaviour agreed
+	// and nothing looked wrong until the value was changed to 720 and the
+	// render kept behaving like 72. max_items had never been read either.
+	//
+	// Deliberately restricted to NON-STRING scalars. References are always
+	// strings, so this cannot change how any existing reference resolves — it
+	// only fills fields that are currently dropped on the floor. A string
+	// literal that fails to resolve is left alone on purpose: taking it as its
+	// own value would turn a broken reference into a silent literal and mask
+	// real wiring bugs. Composite values (objects, arrays) are left alone too,
+	// since there is no evidence they were ever intended as literals here.
+	for _, field := range allFields {
+		if _, hasValue := result.Values[field]; hasValue {
+			continue
+		}
+		raw, exists := config[field]
+		if !exists || raw == nil {
+			continue
+		}
+		switch raw.(type) {
+		case bool,
+			float64, float32,
+			int, int8, int16, int32, int64,
+			uint, uint8, uint16, uint32, uint64,
+			json.Number:
+			result.Values[field] = raw
+			logger.Debug("Strategy 5: took literal scalar config value",
+				zap.String("field", field),
 			)
 		}
 	}
