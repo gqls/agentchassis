@@ -943,3 +943,60 @@ about rather than act on.
 > is a normaliser that some paths call and others do not (`bugs_open/041`). Three
 > namespaces for one concept. A census or a diff that does not normalise first will
 > be wrong, and will look thorough while being wrong.
+
+---
+
+*(Entries below added 2026-07-20 by the bugfix-030 thread, after the six-item
+synthesis above. Both are the same shape as each other and new to this file: a
+rate or a state inferred from too few samples of a bursty signal.)*
+
+**(7) "The dispatch queue drains at 0.21 msg/min; a submission waits ~6.5 hours."**
+Written into `bugs_open/030` as a measured figure, from two
+`kafka-consumer-groups.sh` readings labelled 14 minutes apart.
+**Actually:** the two readings were **69 seconds** apart. They match, to the digit,
+two samples from a continuous 30-second run another thread had going at the same
+time (19:29:48 and 19:30:57). The first could not have been at 19:16, because the
+committed offset was pinned at 96010 across 19:21:16–19:28:40 — it would have had
+to run backwards. True rate over 22 minutes of continuous sampling: **~2.4
+msg/min**, so a queue 86 deep clears in ~36 min, matching the 25–36 min the same
+bug file had already measured the day before. The figure was ~12× too slow.
+**Caught by:** a second thread that happened to be sampling the same consumer group
+continuously, and recognised its own sample values in the other thread's write-up.
+That is luck, not process.
+**The cheap check that would have caught it:** *subtract the timestamps you are
+about to divide by.* The interval was the load-bearing number in the calculation
+and was never verified against the wall clock. Second-cheapest: sample three times,
+not twice — the third reading falsifies a straddled stall immediately.
+
+**(8) NEAR-MISS, same session, opposite direction: "consumption has stopped; ~19
+hours of backlog."** Not written down — caught before it left the session, so it is
+logged here as a near-miss because the tally is the point.
+**Actually:** I sampled for ~2 minutes, saw the offset frozen and `LAG` climbing,
+found zero fetch lines in a 30-minute log window, and was drafting a live-outage
+claim. Ten minutes later the offset jumped **+47 messages**. Nothing was wrong.
+**Caught by:** the frozen-offset landmine already in `bugs_open/030` — written by
+the bugfix-028 thread the same week, after making this exact error. **The landmine
+worked**, which is worth recording: it is the clearest evidence in this file that
+writing these up changes a later session's behaviour.
+**The cheap check that would have caught it:** keep sampling. The signal is a
+sawtooth — it pins for ~8 minutes while one long message is processed, then bursts.
+Any window shorter than one full tooth is uninformative in *both* directions.
+
+> **(7) and (8) are one class, and it is not the "resolve your operands" class
+> above — it is closer to "reasoning from data instead of code", with a twist.**
+> Both read a *bursty* signal over a window shorter than its period and reported the
+> instantaneous value as the steady state. (8) got the direction wrong and would have
+> declared a healthy cluster dead; (7) got the magnitude wrong by 12× and pushed a
+> "multi-hour, no failure signal" warning into a bug file that other threads plan
+> around. Note they were made by different threads, hours apart, on the *same
+> signal* — so this is a property of the signal, not of either session.
+>
+> **Remedy, and it is mechanical: a rate or a liveness claim about the dispatch
+> queue needs ≥20 minutes of continuous sampling, and the slope, not two points.**
+> The command is in
+> `docs024_key_docs_latest/dispatch_queue_serialisation/RUNBOOK_dispatch_queue_serialisation.md`
+> R2. The deeper tell is that **both threads had the code available and used the
+> clock instead** — the reason the queue behaves this way (each message is processed
+> synchronously, and a workflow's consecutive steps run inline on the consumer
+> goroutine) is legible in `agent.go` and `coordinator.go` in about ten minutes, and
+> it predicts the sawtooth outright.
