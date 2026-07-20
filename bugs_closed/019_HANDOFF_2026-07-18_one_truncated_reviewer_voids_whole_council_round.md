@@ -750,3 +750,58 @@ image roll" (a3b606798 landed after v1.0.1139; pods have not rolled since 07:35Z
 - Same round-voiding shape as the 2026-07-19 reproduction above and the
   claims-verification thread's voided round. The submitting thread resubmitted with a
   shorter rationale rather than working around the discard.
+
+---
+
+## FIRST LIVE PROOF OF THE FIX — 2026-07-20, and one seat that nearly wasn't covered
+
+The `tolerate_truncation` fix (a3b606798) shipped in the 2026-07-20 chassis image
+and was exercised in anger the same evening, on submission `eba040a9` round 5
+(orchestration `b66a9494`). **It worked.**
+
+```
+review_editquality        | f |  (truncated: stop_reason=max_tokens)
+review_constitution       | t |  1685
+review_mission            | t |   976
+review_prior_art          | t |  4448
+review_bug_historian      | t |  3984
+review_reuse_agent        | t |  3744
+review_guidelines         | t |  4433
+review_tooling_provenance | t |  2129
+review_diagnosis_guardian | t |  3872
+review_render_guardian    | t |   327
+review_llm_reliability    | t |   389
+review_debug_historian    | t |  1833
+review_guardian           | t |  7298
+```
+
+Edit-quality truncated exactly as it has in every prior void — and the round
+**continued through twelve more seats to a real verdict** (`complete_revise`, 10
+approve / 2 object) instead of dying at `complete_invalid`. Same submission, same
+correlation, same overrunning seat as rounds 2 and 4; the only difference is the
+fix. This is as clean a before/after as this bug is ever going to get.
+
+**The seat that nearly broke it.** `review_prior_art` (the 16th seat, added by
+`3cf14d429` as an always-on librarian) had NO `tolerate_truncation`, identically
+on both councils — a genuine omission, not gate mirror drift, because the mirror
+had faithfully copied the hole. It is always-on with no `gate_` step and no entry
+in `select_panel`, so the one seat still able to void a round was the one seat
+guaranteed to run on every round. Fixed and mirrored a few hours before this run
+(`c9950522b`), and it then ran clean at 4,448 tokens. Had it not been, this proof
+run would have voided too — on the very seat added to make the council better.
+
+**The class, stated once more because this is now its fifth instance in two
+days:** a fix whose scope is a snapshot of a growing set. 019's fix covered the
+seats that existed; the roster grew; the new arrival did not inherit it. Same as
+`bugs_open/016` finding 2 and the `withPriorRequests` twin (016b §9 #26). Any
+future seat needs the flag — the seeding procedure should carry it, not a human
+memory.
+
+**What is still true after the fix.** The ceiling itself has not moved:
+edit-quality still overran 8,000, and `review_guardian` came in at 7,298 (91%).
+So the fix converts a fatal round into a lossy one — the round survives but that
+seat's opinion is lost, and on this evidence the two seats most likely to be lost
+are the always-on ones that carry the most weight. The raise-vs-void decision is
+therefore only half-settled: void is fixed, the ceiling is not. On the numbers
+here, sizing against edit-quality and guardian rather than the average means
+~12,000–16,000, not 10,000.
