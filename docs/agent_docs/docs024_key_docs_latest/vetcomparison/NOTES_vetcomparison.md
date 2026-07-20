@@ -479,3 +479,58 @@ Our items are 463 h old, so `/feed.xml` stays empty too. I did **not** widen it:
 homepage card's 72, that value was chosen deliberately and documented, so changing it is an
 owner call rather than a defect fix. Worth raising, because `/feed.xml` is server-rendered and
 is the one news surface `/bugs_open/027` does not affect.
+
+### 2026-07-20 (later) — the window was never the bug: numeric step config is inert fleet-wide
+
+The 720h fix did not work, and chasing why found something much bigger.
+
+After the change, the 14:02 run still rendered `item_count: 0`. Checks, in order:
+
+1. The run **did** carry 720 — read from its own `initial_request_data.agent_config`:
+   `{"site_id":"input_data.site_id","max_items":6,"page_name":"index","max_age_hours":720}`.
+2. The renderer's query, run verbatim against the live DB with 720, **returns both items**
+   (status `relevant`, score 55, ~483 h old).
+3. So the pod was not behaving like 720. Verified what is actually deployed, per CLAUDE.md —
+   against the pod, not git:
+   ```
+   strings /app/agent-chassis | grep -c loadNewsItems          -> 5   (current query IS deployed)
+   strings /app/agent-chassis | grep -c persistNewsSectionHTML -> 0   (027 server-render is NOT)
+   ```
+
+**Root cause — `ExtractActionInputs`, `platform/orchestration/datahelpers/action_inputs.go`.**
+Every branch that consults step config reads `config[field].(string)` — Strategy 0 (:126),
+the `input_fields` branch (:144), the deprecated `*_field` branch (:180), Strategy 4 (:233).
+There is **no branch that takes a literal config value.** Consequences:
+
+- a **numeric** config value fails the type assertion and is dropped silently;
+- a **plain string** without a dot is treated as a single-segment *reference* and looked up as a
+  key in `collectedData` — so a literal like `"vetcomparison.uk"` resolves to nothing.
+
+So `max_age_hours: 720` never arrived and `GetInt("max_age_hours", 72)` returned its fallback.
+**`max_items: 6` has never been read either** — it just happens to equal its fallback.
+
+> **Why this hid so well, and the lesson.** The seeded value was **72** and the Go fallback is
+> **72**. Config and behaviour agreed, so the config looked live and load-bearing when it was
+> decorative. It took *changing* the value to reveal that changing the value does nothing.
+> **A config setting that matches its code default proves nothing about whether it is wired up.**
+> Predicted-then-observed: configure 720, observe behaviour identical to 72. That is the
+> confirmation, not the code read alone.
+
+Filed as `f155b0c4-881b-4369-abe4-569d7b2ad4c8`. Fleet-wide: any action tuned by a numeric step
+config value is silently running on its Go default.
+
+> **CORRECTION to my entry above.** I wrote that the fix "is in both places now" and that the
+> seed change made it durable. **Both places are inert.** Seed 090 keeps 720 with a loud comment
+> recording that it does nothing until the input-plumbing defect is fixed — the intent survives
+> and takes effect on the fix, but nobody should read it as working.
+
+**Effective window today is still 72 h**, so the homepage news card stays empty until either the
+plumbing is fixed or `render_news_section_action.go`'s fallback is changed (inert until an image
+roll). Not attempted here: another session is actively editing that file (`1005e1af2`
+server-renders news into the page, per `/bugs_open/027` — which is my own addendum being acted on).
+
+### Related, unresolved
+
+`/bugs_open/027`'s fix is **committed but not deployed** — `persistNewsSectionHTML` is absent from
+the running binary. It is inert until the next image roll, so 027 stays OPEN by the standing bar
+(fixed AND live).

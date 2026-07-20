@@ -496,6 +496,21 @@ SET default_config = jsonb_build_object(
                     -- the platform itself considers stale, and fresh items still win on the
                     -- ORDER BY (relevance, then published_at DESC) under the max_items cap.
                     -- Change it HERE as well as in the live row: a re-seed clobbers a DB-only edit.
+                    --
+                    -- !! CURRENTLY INERT — READ THIS BEFORE TRUSTING THE NUMBER ABOVE (2026-07-20) !!
+                    -- This value does not reach the action, and neither does max_items.
+                    -- ExtractActionInputs (platform/orchestration/datahelpers/action_inputs.go)
+                    -- only ever reads step config via config[field].(string), and even then treats
+                    -- the string as a REFERENCE to resolve against collectedData — never as a
+                    -- literal. A JSON number fails the type assertion outright, so
+                    -- RenderNewsSectionAction falls through to its own GetInt fallback of 72.
+                    -- This hid for as long as it did because the seeded 72 EQUALLED that fallback:
+                    -- config and behaviour agreed, so nothing looked wrong. Setting 720 is what
+                    -- exposed it — the run logged item_count 0, exactly as a 72h window predicts.
+                    -- Filed as needs_diagnosis correlation f155b0c4-881b-4369-abe4-569d7b2ad4c8.
+                    -- Until that is fixed, the ONLY way to change the effective window is the Go
+                    -- fallback in render_news_section_action.go (and that is inert until an image
+                    -- roll). Leaving 720 here so the intent survives and takes effect on the fix.
                         'render_news_json', jsonb_build_object(
                                 'action', 'render_news_section',
                                 'config', jsonb_build_object(
