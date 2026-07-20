@@ -174,6 +174,28 @@ Read `collected_data->'__step_error'->>'message'` to tell them apart. The
 4. Re-run this thread's actual submission (correlation above) and expect a real
    verdict rather than `complete_invalid`.
 
+## Independent diagnosis: ATTEMPTED, NOT OBTAINED (2026-07-19)
+
+CLAUDE.md was changed on 2026-07-19 to make the diagnosis loop the DEFAULT for any
+durable claim ("Confidence is not a signal"). This case is squarely that class — a
+mechanism, a cause outside the symptom, and fix candidates that change behaviour in
+all three councils — so it was filed to the loop for an independent cited verdict
+rather than resting on this thread's own reading.
+
+**No verdict was obtained.** The run (correlation
+`46253496-f8e0-471f-9ae0-29c9e630ada5`) was lost to `bugs_open/003` — the parent
+hung at `spawn_diagnoser` and its awaited request expired with no sweeper retry.
+Evidence is appended to 003.
+
+**So the standing of everything above is: this thread's own diagnosis, corroborated
+by a second thread's independent live reproduction (§LIVE REPRODUCTION), but NOT
+independently verified by the loop.** Treat the root cause and fix candidates as
+well-evidenced-but-unadjudicated. The direct evidence is strong (the error names the
+field; `output_tokens == max_tokens` identifies the seat; the asymmetry is visible
+in the quoted source) — but that is exactly the confidence the 2026-07-19 correction
+warns is not a signal. Re-filing needs `FORCE=1` or the orphaned intake item
+(`needs_diagnosis:diagnose-council-decide-in-platform-orch`) closed by hand first.
+
 ## Related
 
 - `bugs_open/016` — a different council defect (revise/reframe prompts render
