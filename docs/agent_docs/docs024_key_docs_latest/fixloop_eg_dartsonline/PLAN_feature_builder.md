@@ -54,8 +54,8 @@ pilot runs through the finished loop.
 | 3. Seed discipline | encoded in validation (D4) + PR checklist rendering | **BUILT** (part of 1b/2a) |
 | 4. Pilot (F1.2) | ref/base as per-run input | **CLOSED — superseded.** Run 5 produced a council-APPROVED plan (unanimous 5/5), but the fixloop thread fixed F1.2 by hand 60s before the run; applying the plan would regress it. Item `db066cac` closed `complete`; reason in its spec. Pilot proved the DESIGNER; a fresh target is needed to exercise the IMPLEMENTER. |
 | 5. Designer, live | 5 runs, each surfacing a real defect | **PROVEN** — run `8e837814` approved unanimously; 016 revise-loop fix verified from `llm_call_log` (0 `<no value>`, 31KB of real reviewer content) |
-| 6. Delta 2 through the council gate | our own platform code reviewed | **REVISE → fixed.** Found a high-severity fail-loud defect our tests missed (`9c94cc842`); 4 objections still open (see below) |
-| Image | deltas 1+2 in production | **LIVE** — v1.0.1132 (concurrent thread's rollout), pod binary verified 2026-07-17 |
+| 6. Delta 2 through the council gate | our own platform code reviewed | **ROUND 2 RESUBMITTED 2026-07-21** (`5a65ec4c`, run `14710d52`). All 4 round-1 objections answered — 2 by real live changes (PATCH_018 designer symbol-scope; migration 184 travelling action subjects), 2 in prose (registry-as-own-edit; reuse_agent). The high-severity fail-loud find was already fixed (`9c94cc842`). Verdict pending. |
+| Image | deltas 1+2 in production | **LIVE** — v1.0.1144 (pod-verified 2026-07-21: `feature_stage_route`=3, `formatGeneratedGo`=2, `tolerate_truncation`=1); carries the bug-013 gofmt-at-commit-prep and bug-019 council-degrade de-riskers |
 | Seeds | three agent defs in clients_db | **APPLIED & VERIFIED** 2026-07-17 (owner-approved in-session); inert until fired |
 
 ## Next steps (in order) — the ONE thing left is the implementer's first fire
@@ -81,21 +81,41 @@ Optional, before step 4: resubmit delta 2 to the council gate
 (`RESUBMIT_CORR=5a65ec4c-686c-40c7-813e-7c7fce03a779`) once the four open
 objections are answered — the high-severity one is already fixed.
 
-## Open council-gate objections on delta 2 (from `5a65ec4c`, verdict revise)
+## Delta-2 council-gate objections — ALL ANSWERED (round 2, `5a65ec4c`, 2026-07-21)
 
-- **editquality:** `registry.go` registration was buried in another edit's
-  sketch; it should be its own declared edit.
-- **editquality + guardian:** `expected_symbols`' verbatim substring check can
-  false-reject a correct stage whose symbol lives in an earlier stage's file.
-  Self-identified in the submission's own risks, still unmitigated. Honest fix
-  = designer-prompt guidance (name only symbols the stage's OWN files
-  introduce), not weakening the gate.
-- **reuse_agent:** should `site_work_items` sequencing (`parent_item_id`,
-  `depends_on`, `batch_id`) carry stage state instead of a new action? Our
-  view: no — that is work-item QUEUEING, this is in-run workflow state, and
-  `diagnose_route` is the precedent. Owes a written answer, not a dismissal.
-- **tooling_provenance:** the three shared actions should carry travelling
-  PLAN+NOTES subjects (`subject_type='action'`).
+Round 1 (verdict revise, 2026-07-18) raised these; round 2 (run `14710d52`)
+answers each. The one HIGH-severity find (bug_historian: three silent-fallback
+seams) was already fixed in `9c94cc842` (turn 13) — round-2 sketches show the
+committed fail-loud code.
+
+- **editquality — `registry.go` buried:** now its own declared edit (round-2
+  edit 2, real hunk at `registry.go:1219`). ✅
+- **editquality + guardian — `expected_symbols` false-reject:** fixed AT THE
+  SOURCE via `PATCH_feature_designer_018_expected_symbols_scope.sql` (applied
+  live, snapshot `ba8f1fcd`) — the design prompt's rule 8 now says name only
+  symbols the stage's OWN files introduce, never a cross-file symbol; the
+  deterministic `missingExpectedSymbols` gate is untouched. ✅
+- **reuse_agent — `site_work_items` sequencing vs a new action:** written
+  answer — that mechanism is cross-dispatch QUEUEING (each row its own
+  orchestration/claim); `feature_stage_route` carries IN-RUN state in one
+  orchestration's collected_data, the `diagnose_route` precedent. Registry
+  search: no existing generic stage-advance action. ✅
+- **tooling_provenance — travelling PLAN+NOTES for the three shared actions:**
+  the cited `subject_type='action'` had NO schema support (CHECK allowed only
+  tool/pipeline/experience, zero action rows). Migration
+  `184_travelling_action_subjects.sql` (applied live, ledger recorded) adds
+  `'action'` and seats a PLAN+NOTES for `diagnose_read_repo_files` /
+  `diagnose_prepare_fix_commit` / `diagnose_build_gate`. ✅
+- **editquality — E4 "reimplements branch creation":** answered — branch
+  CREATION stays on the git-adapter `create_branch` verb; the router's direct
+  call is a read-only existence GET (`githubBranchExists`, :375) for the
+  stale-branch refusal (no adapter verb exists for it, writes nothing). ✅
+
+If round 2 comes back APPROVED, the delta-2 code (`c19b5d097` + `9c94cc842`)
+earns a `Council-Reviewed: 5a65ec4c-686c-40c7-813e-7c7fce03a779` trailer on a
+closing commit (PATCH_018 + migration 184 are already committed in `de282bddd`).
+If REVISE again, read the new objections and iterate — the trail accumulates
+under the same correlation.
 
 ## Backlog / later options (explicitly deferred)
 

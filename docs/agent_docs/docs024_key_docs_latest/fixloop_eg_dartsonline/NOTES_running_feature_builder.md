@@ -583,3 +583,101 @@ Next: owner decisions — B1 target choice, image roll before firing (my
 recommendation: yes, v1.0.1140 from committed HEAD arms both 013 and 019
 de-riskers), delta-2 gate resubmission. The four open delta-2 objections are
 ours and free — will action once the target is set.
+
+## Turn 16 — 2026-07-21 — Delta-2 trail closed: two objections fixed at the source, round-2 resubmitted
+
+Owner's call: close the delta-2 council-gate trail (corr `5a65ec4c`) with a
+fresh round; a new chassis **v1.0.1144** is deployed. Verified the pod first
+(`agent-chassis-59c675c4f-pxr9f`, started 08:47Z): `feature_stage_route`=3,
+`formatGeneratedGo`=2 (bug 013 gofmt-at-commit-prep now LIVE), `tolerate_truncation`=1
+(bug 019 council-degrade now LIVE). Both de-riskers the pilot needed are in the
+binary — the first implementer fire (B4) is now on safe ground.
+
+**Answered all four open round-1 objections; two by real changes, applied live:**
+- **editquality + guardian — `expected_symbols` false-reject** (a symbol defined
+  in an earlier stage's file would false-reject a correct stage). Fixed AT THE
+  SOURCE, not by weakening the gate: `PATCH_feature_designer_018_expected_symbols_scope.sql`
+  tightens the design prompt's rule 8 — *name only symbols this stage's OWN files
+  INTRODUCE; never one you merely CALL from an earlier stage's file; wiring-only
+  stage → empty list.* Surgical `replace()` on rule 8's exact text inside one
+  jsonb leaf (`{workflow,steps,design,config,prompt_template}`), guarded idempotent.
+  Applied live, snapshot `ba8f1fcd`. `missingExpectedSymbols` gate untouched.
+- **tooling_provenance — travelling PLAN+NOTES for the three shared actions.**
+  The convention the seat cited (`subject_type='action'`) had **no schema support**:
+  the `doc_plans`/`doc_notes` CHECK allowed only tool/pipeline/experience, and zero
+  action rows existed. Migration **184_travelling_action_subjects.sql** adds
+  `'action'` to both constraints and seats a PLAN + a NOTES for
+  `diagnose_read_repo_files` / `diagnose_prepare_fix_commit` / `diagnose_build_gate`
+  (shared consumers, delta-2 seam, fail-loud invariant, gofmt behaviour). Applied
+  live; `schema_migrations` ledger row recorded (bug-007 rule). Both committed
+  narrowly in `de282bddd`.
+- **editquality — registry.go buried**: now its own declared edit (edit 2, real
+  hunk at `registry.go:1219`).
+- **reuse_agent — site_work_items sequencing vs a new action**: written answer.
+  site_work_items sequencing is cross-dispatch QUEUEING (each row its own
+  orchestration/claim); `feature_stage_route` carries IN-RUN state in one
+  orchestration's collected_data — the `diagnose_route` precedent. Registry search:
+  no existing generic stage-advance action.
+- **editquality — E4 "reimplements branch creation"**: no. Branch CREATION stays
+  on the git-adapter `create_branch` verb; `feature_stage_route`'s direct call is
+  a **read-only** existence GET (`githubBranchExists`, :375) for the stale-branch
+  refusal — the adapter has no "does branch X exist" verb, and it writes nothing.
+
+**The one HIGH-severity find was already fixed** (`9c94cc842`, turn 13): the three
+resolve-or-fall-back seams now FAIL LOUD on configured-but-empty. The round-2
+sketches show the committed hard-error code (RUNBOOK trap: reviewers judge the
+SKETCH — a stale sketch re-draws a fixed objection). Full standing evidence
+restated in the rationale (seats have no cross-round memory — RUNBOOK 2026-07-20).
+
+**Resubmitted** `submission_delta2_round2.json` (7 edits, 12,286 plan bytes) via
+097 with `RESUBMIT_CORR=5a65ec4c`. Run `14710d52-7efa-448a-b1c3-ab23e7cc4f58`
+(`council-gate-123606`) — dispatched immediately this time (no queue; contrast the
+measured 29-min latency), completed ~10 min end to end.
+
+**VERDICT: REVISE** (abstained 6, decided_by editquality). The trail ADVANCED but
+did not close, and it earned its credits by catching a real reuse gap. Round-2
+per-seat: guidelines, **tooling_provenance** (was objecting round 1 — my migration
+184 satisfied it), diagnosis_guardian, constitution, mission → **approve**;
+editquality, reuse_agent, guardian, debug_historian, prior_art_librarian → object.
+No `Council-Reviewed` trailer (revise is not approved — trailer discipline).
+
+**What round 2 said (and how much of it is real):**
+- **prior_art_librarian [edit 0, HIGH] — the one that bit.** My rationale asserted
+  "Registry search for an existing loop controller: none." FALSE: the registry has
+  a generic `loop` / `loop_complete` / `conditional_route` (registry.go:47/53/73).
+  I grepped only for my own action's name and asserted the absence. Logged in
+  WRONG_CALLS.md — this is the workstream's OWN documented failure mode (absence
+  claim without the search) reproduced in a submission TO the seat that catches it.
+  The code is not necessarily wrong (loop-vs-bespoke is a design call — `LoopAction`
+  emits sub-steps per collection item; the stage loop's bespoke parts are
+  emit-stage-as-single-plan + branch/ref threading, which `loop` may not do), but a
+  round-3 close owes a real `LoopAction` read, not a reworded assertion.
+- **reuse_agent [edit 1, med] + prior_art [edit 0, med] — githubBranchExists direct
+  GitHub GET.** Legitimate: it is a second path talking to GitHub from orchestration
+  code, bypassing the git-adapter. My claim "the adapter has no branch-exists verb"
+  is now EVIDENCED (adapter.go:337-345 verbs = commit/create_repo/delete_repo/
+  create_branch/create_pull_request — no read verb). The honest structural close is
+  to ADD a `get_branch`/`branch_exists` read verb to the git-adapter and route
+  through it — a small follow-up, a real design decision, not a defect (the read
+  writes nothing, so the WRITE cage is intact).
+- **editquality [edit 7, med] — the symbol fix is prompt-not-structural.** Fair:
+  PATCH_018 relies on the designer obeying rule 8; the deterministic gate still
+  false-rejects if it doesn't. The structural close would split the stage schema
+  into `introduces_symbols` (gated) vs `uses_symbols` (not) — a delta-1 schema
+  change, deferred.
+- **editquality [edit 5, med] + tooling_provenance MISSING — migration 184 narrated
+  but not in edits[].** Cheap close: add it as a discrete edit with the hunk.
+- **debug_historian [edit 7, HIGH] — jsonb surgery discipline not shown.** The
+  PATCH_018 change is correct and verified (has_new_guidance=t, old text gone,
+  snapshot ba8f1fcd), but I didn't show a pre-state needle-gate (assert the rule-8
+  text occurs exactly once before replace()). Method objection, not a defect; a
+  round-3 patch file would carry the count assertion.
+- **guardian [edits 1/6/7, med/low/low] — foundational-dir touches + name the owning
+  pipeline for the config_change.** Flags, not vetoes; cheap to name.
+
+If a round 3 is authorised, the shopping list is: (1) read `LoopAction` and give
+the real reuse answer; (2) decide the git-adapter read-verb question; (3) the
+cheap closes — 184-as-edit, attach the registry+verb search output, name the
+owning pipeline, show the needle-gate. Items (1)-(2) are genuine design work; the
+code is committed/live regardless. PATCH_018 + migration 184 stand on their own
+merits (both committed in `de282bddd`) whatever the owner decides on a round 3.

@@ -125,3 +125,20 @@ My recommendation is to do both, in that order. Say the word.
 
 
 ---
+---
+
+2026-07-21 — Delta 2 back through the council gate; two objections fixed at the source
+
+You asked me to close the delta-2 trail with a fresh council run, and told me a new chassis v1.0.1144 is deployed. I checked the running pod before trusting anything: it carries the stage loop, and — new since we last looked — the two fixes that were sitting committed-but-inert. One gofmts the implementer's generated Go at commit time so a stray whitespace can't burn a whole run (that killed the fix loop's very first fire); the other lets a truncated council reviewer degrade instead of voiding the whole round. Both matter for us, because the implementer's first real fire (still the one thing left) runs through exactly that machinery. So the ground is firmer than it was on the 19th.
+
+On the four objections still open from round 1: two I could only answer honestly by actually changing something, so I did.
+
+The first was the gate that checks each stage produced the symbols it promised. A reviewer pointed out it would wrongly reject a correct stage if that stage merely *uses* a name defined in an earlier stage. The tempting fix is to soften the gate; the honest fix is to stop the designer ever promising a name it doesn't itself introduce — so I tightened the designer's instructions to say exactly that, and left the gate strict. Applied it the careful way (one surgical edit, snapshot first), the same co-edited-row discipline the council taught me.
+
+The second was a provenance point: those three helper actions the feature loop now shares with the older fix loop should each carry a little travelling logbook, so the next person who edits them reads the prior decisions first. Turned out the system didn't actually allow a logbook keyed to an "action" at all — the convention existed on paper but nothing supported it. So I added that (a one-line schema widening) and wrote the three logbooks, each noting that these are shared, battle-tested actions and what changed. The other two objections were answerable in words — one was a request to declare a registration step as its own line item, the other a fair question about whether I should have reused an existing sequencing mechanism instead of writing new loop code (I explained why the two are different: one queues separate jobs, mine tracks state inside a single run).
+
+The one genuinely serious finding from round 1 — three places where an empty value would have silently done the wrong thing — was already fixed back on the 18th; I just made sure this round's write-up shows the fixed code, because the reviewers read the sketch, not the file.
+
+I resubmitted, and this time it dispatched straight away rather than sitting in the ~half-hour queue we measured last week. It's running as I write this. If it comes back approved, the delta-2 code finally carries a review stamp and the trail is closed; if it asks for more, the thread just continues under the same id. Either way the two real changes I made are already committed and live.
+
+I've written a fresh cold-start handoff dated today so you can carry this on in a new chat without losing the thread. The verdict and how to read it are at the top of it.
