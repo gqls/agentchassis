@@ -1,5 +1,40 @@
 # 016 — Council revise/reframe prompts silently drop every reviewer's output
 
+> ## ✅ CLOSED 2026-07-21 (bugfix-016 thread, owner-directed) — fixed AND live
+>
+> All fixes are DB config (live immediately, no image roll), and the core
+> machinery is now **verified against the running system**, not just committed:
+> - **Finding 1** (`.result}}` → `<no value>` render): fixed on every affected
+>   agent — `feature-designer` (proven in the wild, run `a8b66dee`), `fix-proposer`
+>   and `content-creator-hero` (per-seat refs removed / corrected), and the
+>   2026-07-21 **recurrence** in `domain-research-classifier`'s new
+>   `review_mission_alignment` seat (fixed live + seed corrected). Fleet sweep for
+>   `.result}}` in any active LLM prompt template returns **zero**.
+> - **Finding 2** (reviser blind to seats added after the prompt): fixed on
+>   `fix-proposer` (`load_council_reviews`) and `feature-designer`
+>   (`load_council_report`); N/A on `council-gate` (no reviser loop). The
+>   `fix-proposer` step is now **exercised live** — run
+>   `177b9fb1` ran `council_decide → load_council_reviews → check_approved →
+>   complete` and populated `council_reviews.body` with the full 5994-char council
+>   report. Per this document's own bar, *an approval proves the step*.
+>
+> **Documented residual, deliberately NOT blocking the close** (owner ruling): the
+> only post-fix verdict was **APPROVE round 1**, so `repropose`/`reframe` has not
+> rendered `{{.council_reviews.body}}` on a live REVISE round. It is *strongly
+> evidenced* — the field is populated and the identical `.body` template form
+> renders in the same run — but not directly observed. It will be confirmed
+> naturally the next time any real `fix-proposer`/`feature-designer` run draws a
+> REVISE; no separate work is scheduled. See the 2026-07-21 "LIVE EXERCISE"
+> section at the bottom for the full evidence.
+>
+> **Adjacent finding, NOT part of 016, left for the fixloop thread:** `propose`
+> has its own `max_tokens=8000` and no `tolerate_truncation`, so a complex-plan
+> bug (the pilot `e08c5b01`) refuses the whole fix run with `0 chars recovered`
+> before any council runs. Cap not raised (019 ruling).
+>
+> *(Numbering trap: `bugs_closed/016` is a DIFFERENT case — ssh/`$HOME`. Resolve
+> 016 by slug, never by number.)*
+
 *Found 2026-07-18 by the experience-loop thread while building its own council.
 Affects `fix-proposer` and `feature-designer` (both LIVE). Not fixed here —
 those agents belong to the fixloop / feature-builder / council-gate threads,

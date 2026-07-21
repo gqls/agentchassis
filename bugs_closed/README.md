@@ -54,7 +54,7 @@ The numbering was assigned by concurrent threads and **collided twice**:
 
 | number | this directory | still in `/bugs_open/` |
 |---|---|---|
-| `016` | `ssh` ignores `$HOME`, uses the passwd entry | council revise prompts drop reviewer output |
+| `016` | **both** here now: `ssh` ignores `$HOME` (passwd entry); **and** council revise prompts drop reviewer output (closed 2026-07-21) | — |
 | `017` | — | static cutover orphans entry forms **and** unregistered action marked complete (two files, both `017`) |
 | `018`, `027`, `028`, `029` | — | two files each in `/bugs_open/` (concurrent-thread collisions of 2026-07-18/19) |
 | `040` | — | kafka dial timeouts fleet-wide **and** failed page build leaves page deployed (two files, both `040`, both 2026-07-20) |
