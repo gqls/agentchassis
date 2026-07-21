@@ -167,20 +167,23 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 	inFlight := countInFlight(ctx, db, logger)
 
 	for _, task := range tasks {
-		// Concurrency check
+		// Concurrency check — refuse if the group is already at its
+		// max_concurrent, but do NOT claim the slot yet. A task whose
+		// pre-query finds no work must not consume its group's capacity;
+		// claiming the slot up-front and then bailing on the no-rows path is
+		// what starved the whole `maintenance` group for 79 days
+		// (bugs_open/048). The slot is claimed below, only once the task
+		// commits to firing or doing work.
 		if task.ConcurrencyGroup.Valid {
 			group := task.ConcurrencyGroup.String
-			current := inFlight[group]
-			if current >= task.MaxConcurrent {
+			if inFlight[group] >= task.MaxConcurrent {
 				logger.Info("Skipping task — concurrency group at max",
 					zap.String("task", task.Name),
 					zap.String("group", group),
-					zap.Int("current", current),
+					zap.Int("current", inFlight[group]),
 					zap.Int("max", task.MaxConcurrent))
 				continue
 			}
-			// Increment for subsequent tasks in this tick
-			inFlight[group] = current + 1
 		}
 
 		// Run pre-query if configured
@@ -193,7 +196,19 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 				continue
 			}
 			if dynamicData == nil {
-				logger.Info("Pre-query returned no rows, skipping task",
+				// The pre-query ran and found nothing to do. That is a
+				// successful no-op, not a skip: stamp the timestamps so the
+				// task rotates to the back of loadDueTasks' ASC NULLS FIRST
+				// queue like any completed run. Leaving them unchanged pins
+				// the task at the head of its group, where it re-wins the only
+				// slot every tick and never lets its group-mates run
+				// (bugs_open/048). For a CTE-only task the pre-query IS the
+				// work, so it has genuinely run to completion.
+				if err := stampCompleted(ctx, db, task.ID); err != nil {
+					logger.Warn("Failed to update timestamps",
+						zap.String("task", task.Name), zap.Error(err))
+				}
+				logger.Info("Pre-query found no rows — task ran with nothing to do",
 					zap.String("task", task.Name))
 				continue
 			}
@@ -205,12 +220,18 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			}
 		}
 
+		// The task has real work to do — claim the concurrency slot now, so
+		// other tasks in this group later in the same tick respect
+		// max_concurrent. Nothing above this point claimed it: a no-op or an
+		// errored pre-query leaves the slot free for its group-mates
+		// (bugs_open/048).
+		if task.ConcurrencyGroup.Valid {
+			inFlight[task.ConcurrencyGroup.String]++
+		}
+
 		// CTE-only tasks: pre_query did the work, no Kafka message needed
 		if !task.FireMessage {
-			_, err := db.ExecContext(ctx,
-				`UPDATE scheduled_tasks SET last_triggered_at = NOW(), last_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-				task.ID)
-			if err != nil {
+			if err := stampCompleted(ctx, db, task.ID); err != nil {
 				logger.Warn("Failed to update timestamps",
 					zap.String("task", task.Name), zap.Error(err))
 			}
@@ -229,10 +250,7 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 		// Update timestamps. For fire-and-forget tasks, mark completed immediately
 		// so the concurrency slot opens for the next tick. The message has been
 		// published — we don't wait for the orchestration to finish.
-		_, err := db.ExecContext(ctx,
-			`UPDATE scheduled_tasks SET last_triggered_at = NOW(), last_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
-			task.ID)
-		if err != nil {
+		if err := stampCompleted(ctx, db, task.ID); err != nil {
 			logger.Warn("Failed to update timestamps",
 				zap.String("task", task.Name), zap.Error(err))
 		}
@@ -242,6 +260,19 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			zap.String("agent_type", task.TargetAgentType),
 			zap.String("topic", task.TargetTopic))
 	}
+}
+
+// stampCompleted records that a task ran to completion this tick by advancing
+// both last_triggered_at and last_completed_at to NOW(). Advancing both (not
+// last_triggered_at alone) keeps the task out of countInFlight and satisfies
+// loadDueTasks' in-flight guard, and moves it to the back of its group's
+// ASC NULLS FIRST queue so a no-op run cannot pin it at the head forever
+// (bugs_open/048).
+func stampCompleted(ctx context.Context, db *sql.DB, taskID uuid.UUID) error {
+	_, err := db.ExecContext(ctx,
+		`UPDATE scheduled_tasks SET last_triggered_at = NOW(), last_completed_at = NOW(), updated_at = NOW() WHERE id = $1`,
+		taskID)
+	return err
 }
 
 // loadDueTasks returns enabled tasks whose interval has elapsed AND whose
