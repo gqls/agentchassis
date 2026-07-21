@@ -1513,3 +1513,35 @@ cause-family.
 **Cost:** none downstream — caught before the literal-string `ExtractActionInputs` change
 was attempted on a bug it could not have fixed. The literal-string half of 042 remains a
 real, separate gap.
+
+---
+
+## 2026-07-21 — "the validation blocker reason is unrecoverable from the DB" (brochure_component_library / fundamentallyai.com)
+
+**Claim (in HANDOFF_2026-07-21_start_here.md + the 07-21 SUMMARY/README):** the
+content-validation blocker that held 5 fundamentallyai.com pages was NOT
+recoverable from the database — `site_work_items.result` is empty and the
+overnight pod logs rotated on the v1.0.1144 restart — so the next thread must
+re-fire a page live and tail the chassis log during `validate_page_content` to
+capture it (a ~30-min single-consumer queue wait per `bugs_open/030`, plus a
+live log-tail).
+**Actually:** `ValidatePageContentAction` *deliberately persists* the full
+structured issue list to `agent_error_log` on failure
+(`writeValidationFailureLog`, validate_page_content.go:344-420,
+`error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`) — the code comment says in as
+many words that it exists so "post-mortem debugging doesn't require pod-log
+access" and survives log rotation. 9 such rows were already in the DB, each
+naming the exact blocker (`cross_site_domain` / `leopardessconsulting.co.uk`).
+The premise checked only ONE table (`site_work_items.result`) and generalised
+"empty there" to "unrecoverable anywhere".
+**Caught by:** reading `validate_page_content.go` end-to-end *before* acting on
+the handoff's re-fire prescription — the persistence path is right there in the
+same function that emits the error.
+**The cheap check that would have caught it:** `SELECT DISTINCT error_code FROM
+agent_error_log WHERE site_id = <site>` — one query, ~0.2s, before concluding a
+failure reason is "not in the DB". A gate that returns a deliberately-vague
+error almost always logs the detail somewhere on purpose; grep the action for
+where it writes on the failure path.
+**Cost:** none — the wasted re-fire + queue-wait + log-tail was avoided; the
+diagnosis was free and immediate. Recording it because "checked one table,
+declared it unrecoverable" is a repeatable shortcut worth naming.

@@ -162,3 +162,41 @@ so you can open a fresh chat and carry straight on — it has the current state,
 the two things to fix, and the still-to-come component build, all with the IDs
 and commands needed. Nothing here is broken or half-done in a risky way; it's a
 built site waiting on its last mile.
+
+**2026-07-21, later — we now know exactly why the pages are blocked, and it's a
+fixable own-goal.** The handoff assumed we'd have to rebuild a page and watch it
+fail live to find out what the content checker was objecting to. It turned out we
+didn't need to: the checker already writes the real reason into a database table
+for exactly this situation, and the reason was sitting there all along — I'd just
+been looking in the wrong place first time. (I've noted that as a lesson: check
+the code before believing "it's unrecoverable.")
+
+The reason is a bit of an irony given what this site is *about*. Our own
+content-checker has a rule that flags a page if it mentions one of our other
+sites by name — a sensible guard normally, meant to catch one site's text
+accidentally bleeding into another's. But this new site's whole job is to talk
+about our other work, and in particular to name leopardessconsulting.co.uk
+directly as the "we caught our own AI's mistake and fixed it" story — which you
+approved precisely because naming it is what makes the story credible. So the
+guard is firing on the one reference we deliberately want there. Every blocked
+page is blocked for that single reason.
+
+There's a nastier side to it worth telling you straight: the two pages that *did*
+get through only got through because, on a retry, the machine quietly rewrote
+them to drop the leopardess mention. So right now not a single page on the site
+actually contains the self-correction story — the pages that kept it are blocked,
+and the pages that lost it "passed". That's the database-says-done-but-the-page-
+isn't problem again, and it's exactly why we don't trust the status field.
+
+The fix is small and honest: teach the checker that a site can have an approved
+list of our own sites it's *allowed* to name, and put leopardess on that list for
+this brand. It leaves the guard fully in place for every other site — if nothing's
+on a site's allowed list, nothing changes for it. Because it's a change to the
+platform's own code it needs to go through our review council first and then a
+rebuild before it takes effect, so it's not instant, but it's straightforward and
+low-risk. I've filed it properly as bug 055 with all the evidence. I'll take it
+through the council, get the code rolled, then rebuild all the content pages so
+the story is actually present this time, and check the real pages rather than the
+status. The "nothing serves yet" problem is separate and still to sort — but
+there's no point serving the pages until they've got the real content in them,
+so this comes first.

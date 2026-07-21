@@ -628,3 +628,62 @@ point). Condensed evidence here:
   components are still a from-scratch build (Thread B in the handoff). Today's
   site proves the *content/positioning* half; the *visual-components* half is
   the remaining original ask.
+
+## 2026-07-21 — Blocker 1 DIAGNOSED (no re-fire needed); filed bugs_open/055
+
+**Root cause CONFIRMED, self-evidencing** — every one of the 5 blocked content
+pages fails on the **same single blocker**: the content-validation gate's
+cross-site contamination check (`checkDomainContamination`,
+`platform/orchestration/actions/validate_page_content.go:481-534`) flags
+`leopardessconsulting.co.uk` (in its hardcoded `knownSites` list, line 491) as a
+`blocker` (line 508) when it appears in fundamentallyai's copy. But naming
+leopardessconsulting.co.uk is the **entire, owner-approved point** of the
+self-correction story (MISSION_BRIEF lines 46-49). The anti-leakage check has
+**no per-site allowlist** — it assumes no site ever legitimately references
+another of ours. False for a portfolio/meta site, which fundamentallyai is by
+design. Full write-up + fix candidates: `bugs_open/055`.
+
+> **CORRECTED 2026-07-21 — the handoff's premise was WRONG, and it cost nothing
+> because I checked the code first.** `HANDOFF_2026-07-21_start_here.md` (and the
+> 07-21 SUMMARY/README) stated the blocker reason was "NOT recoverable from the
+> DB" (the `site_work_items.result` jsonb is empty) and prescribed re-firing a
+> page live on v1.0.1144 and watching the chassis log during
+> `validate_page_content` to capture it — a ~30-min single-queue wait
+> (`bugs_open/030`) plus a live log-tail. **That was unnecessary.** Reading
+> `validate_page_content.go` first showed it *deliberately persists* the full
+> structured issue list to `agent_error_log` (`writeValidationFailureLog`,
+> lines 344-420, `error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`) exactly so a
+> post-mortem never needs pod logs. **9 such rows** were already in the DB, each
+> naming the exact blocker. What caught it: reading the action's code end-to-end
+> before acting on the handoff's "unrecoverable" claim — a good instance of
+> "read the function before you assume." Logged in WRONG_CALLS.
+
+**Evidence [VERIFIED live DB, chassis v1.0.1144, 2026-07-21]:**
+- 9 × `agent_error_log` rows, `error_code='CONTENT_VALIDATION_BLOCKER_DETAIL'`,
+  every one a single `cross_site_domain` / `leopardessconsulting.co.uk` issue,
+  `location` snippet = the self-correction copy verbatim ("invented details on
+  leopardessconsulting.co.uk. Our verification system flagged it; we corrected
+  it."). Query in `bugs_open/055`.
+- **Second-order damage:** `count(*) FILTER (WHERE rendered_html ILIKE
+  '%leopardess%')` = **0** across all 9 pages' saved `page_components`. The 2
+  pages that reached `deployed` (`contact`, `model-fine-tuning`) did so by
+  *dropping* the leopardess story on retry; the pages that kept it stayed
+  blocked. So the flagship narrative is **absent from the site**, not merely
+  held back — a degraded page passed looking "done". This is the "trust the
+  artefact, not the status" rule biting exactly as CLAUDE.md warns.
+
+**Blocker 2 (serving) quick-scope [VERIFIED]:** `page_components.deploy_commit`
+is **empty** even on the two "deployed" pages → the git-adapter never pushed
+fundamentallyai's rendered pages to the portfolio deploy repo. Separate from
+055; still needs its own pass and likely a per-domain owner/infra step (as
+idea.uk's cutover was). Deferred behind Blocker 1 — nothing worth serving until
+the pages build *with* the story.
+
+**Fix direction (see 055 for candidates):** per-site allowlist of referenced
+domains, consulted by `checkDomainContamination`, opt-in (absent allowlist →
+unchanged behaviour, zero regression for the other 10 sites). Touches
+`platform/` → council-review before commit; Go change → inert until image roll.
+Next: design the fix, put it through the council gate, build+roll, seed
+fundamentallyai's allowlist, re-fire ALL content pages (incl. re-building the 2
+generic "deployed" ones so the story is restored), verify the leopardess
+reference is present in saved `rendered_html`.
