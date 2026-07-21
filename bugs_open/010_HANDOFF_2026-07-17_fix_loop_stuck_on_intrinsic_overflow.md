@@ -1,9 +1,9 @@
 # HANDOFF — the fix loop does not converge on layout-intrinsic mobile overflow
 
-> **STATUS 2026-07-20 — both candidates now built; (a) live, (b) inert until the
-> next chassis image.** Read the two corrections below before acting on the
-> original account: the diagnosis in §"Root cause" was **half wrong**, and the
-> half that was wrong is the half that felt most obvious.
+> **STATUS 2026-07-21 — both candidates now BUILT AND LIVE; (b)'s live proof in
+> flight.** Read the two corrections below before acting on the original account:
+> the diagnosis in §"Root cause" was **half wrong**, and the half that was wrong
+> is the half that felt most obvious.
 >
 > - **(a) drill-down attribution — LIVE and PROVEN.** Shipped v1.0.1135, still
 >   in v1.0.1140 (pod-verified). The signal went from the useless `fieldset
@@ -11,8 +11,18 @@
 >   tool-improver visibly re-aimed: its next attempt root-caused to the GRID
 >   ("grid items couldn't shrink") where the two previous attempts had both said
 >   "constrain the fieldset".
-> - **(b) convergence guard — BUILT 2026-07-20** (`b13238be6`), inert until the
->   next chassis image rolls. Details in §"Fix candidates" (b), rewritten below.
+> - **(b) convergence guard — LIVE in v1.0.1144, proof IN FLIGHT.** Built
+>   `b13238be6`, then two council-driven fixes: `b88da540b` (DO UPDATE refresh
+>   instead of DO NOTHING) and `905fbbeef` (MERGE the spec on re-escalation, not
+>   full-replace — so a human's triage keys survive). v1.0.1144 shipped the
+>   guard with the *pre-merge* form; the `905fbbeef` merge fix needs the NEXT
+>   image. The guard is LIVE and unfired (the benchmark's last verdict was 07-18,
+>   inside the 7-day cooldown). **A manual acceptance run was queued 2026-07-21
+>   11:51 to induce the first escalation** (the benchmark is genuinely past
+>   threshold — 4 complete cycles at `mobile-fit`, verified live) — [UNPROVEN
+>   until it resolves]; watch for an `acceptance_stuck:tool-loot-table-balancer:*`
+>   row. Council: 3 rounds, all REVISE, no veto; rounds 1 & 2 each produced a
+>   real fix (above), round 3 in flight. Details in §"Fix candidates" (b).
 > - **CORRECTION (2026-07-19, from the travelling-docs thread): the
 >   non-convergence evidence in this file does not mean what it says.** The two
 >   RED re-verifications and the "materially identical" second fix were not
