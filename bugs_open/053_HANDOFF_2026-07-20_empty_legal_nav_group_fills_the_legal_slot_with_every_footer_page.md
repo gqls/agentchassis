@@ -1,9 +1,15 @@
 # 053 — an empty `legal` nav group fills the footer's legal slot with every footer page
 
 **Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops`
-**Status:** FIX COMMITTED (candidate 1, `85d39f9b9`, 2026-07-21) — **stays OPEN**: inert on live
-sites until an image roll **and** a chrome re-render (see Landmines). Close only when a re-rendered
-site's `.footer-legal` is verified against the live page.
+**Status:** CODE LIVE in prod **v1.0.1146** (candidate 1, `85d39f9b9`) — but **stays OPEN**: live
+sites still serve the old footer because the output is a cached chrome artefact and nothing has
+re-rendered them yet. Close only when a re-rendered site's `.footer-legal` is verified empty against
+the live page.
+**Council gate:** submitted 2026-07-21, `SUBMISSION_CORR=550b9727-730b-44f9-8d37-5c56c2ce6615`
+(orchestration `e2300f05-d8e1-40d5-a84b-3c4997d69d6c`) — verdict pending.
+**Pod-verified 2026-07-21:** `strings /app/agent-chassis | grep -c siteHasAnyNavItems` = 4 on
+`agent-chassis-...-xrkv6` (image `v1.0.1146`); positive control `getNavItemsFromPagesFallback` = 6.
+Commit 11:43:55 UTC < image start 12:15:20 UTC, so the build carries it.
 **Severity:** medium — cosmetically wrong on every page of at least 6 live sites; not a 404 in
 itself, but it silently *reintroduces* whatever broken links live in the footer page set.
 **Class:** structural — a "no rows" result overloaded to mean two different things.
