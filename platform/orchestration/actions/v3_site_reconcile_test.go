@@ -300,6 +300,99 @@ func TestTruncate_KeepsBuiltPagesOverInventedOnes(t *testing.T) {
 	}
 }
 
+// bugs_open/037: a needs_rebuild page still holds its intended composition in
+// pages.sections, and every writer of that status means "re-render as planned",
+// never "recompose from scratch". A re-plan re-proposing it under the same name
+// with a different composition must snap back — the dartsonline index case
+// (2026-07-20: needs_rebuild, lost `differentiators` + `content-listing` to the
+// LLM's proposal because the guard only protected `deployed`).
+func TestReconcile_NeedsRebuildPageCompositionSurvivesReplan(t *testing.T) {
+	existing := []interface{}{
+		realised("index", "/index.html", "needs_rebuild",
+			`["hero","category-listing","product-grid","differentiators","call-to-action","testimonials","content-listing"]`, false),
+	}
+	llm := []interface{}{llmPage("index", "/index.html",
+		"hero", "product-grid", "category-listing", "features", "call-to-action", "testimonials")}
+
+	got, _, _, _, snapped := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if snapped != 1 {
+		t.Errorf("snapped_sections = %d, want 1 (needs_rebuild page was re-composed)", snapped)
+	}
+	want := []string{"hero", "category-listing", "product-grid", "differentiators", "call-to-action", "testimonials", "content-listing"}
+	if s := sectionsOf(t, got, "index"); !equalStrings(s, want) {
+		t.Errorf("needs_rebuild index sections = %v, want %v", s, want)
+	}
+}
+
+// bugs_open/037: a needs_rebuild page the LLM omits must be unioned back, not
+// dropped — the same protection a deployed page gets.
+func TestReconcile_NeedsRebuildPageOmittedByLLMIsUnioned(t *testing.T) {
+	existing := []interface{}{
+		realised("contact", "/contact.html", "needs_rebuild",
+			`["hero-contact","contact-form","call-to-action"]`, false),
+	}
+	llm := []interface{}{llmPage("index", "/index.html", "hero")}
+
+	got, unioned, _, _, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if unioned != 1 || !hasPage(got, "contact") {
+		t.Fatalf("needs_rebuild page dropped: unioned=%d present=%v", unioned, hasPage(got, "contact"))
+	}
+	want := []string{"hero-contact", "contact-form", "call-to-action"}
+	if s := sectionsOf(t, got, "contact"); !equalStrings(s, want) {
+		t.Errorf("contact sections = %v, want %v", s, want)
+	}
+}
+
+// bugs_open/037 x 050 interaction — the load-bearing test for the design choice.
+// A needs_rebuild page with EMPTY sections is NOT necessarily rendered elsewhere:
+// it may be genuinely awaiting composition (dartsonline brands-index:
+// needs_rebuild, 0 sections, 0 components). Bringing needs_rebuild into the
+// preserved MEMBERSHIP set must NOT force such a page back to empty the way a
+// DEPLOYED sectionless page is (that would block its composition forever). This
+// passes only because the empty-gate stays keyed on realisedPageIsBuilt
+// (== deployed) while membership uses realisedPageCompositionIsPreserved; a naive
+// "widen realisedPageIsBuilt to include needs_rebuild" would fail it by
+// force-emptying brands-index.
+func TestReconcile_NeedsRebuildEmptyPageIsStillComposable(t *testing.T) {
+	existing := []interface{}{
+		realised("index", "/index.html", "deployed", `["hero","features"]`, false),
+		realised("brands-index", "/brands.html", "needs_rebuild", `[]`, false),
+	}
+	llm := []interface{}{
+		llmPage("index", "/index.html", "hero", "features"),
+		llmPage("brands-index", "/brands.html", "category-listing"),
+	}
+
+	got, _, _, _, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	want := []string{"category-listing"}
+	if s := sectionsOf(t, got, "brands-index"); !equalStrings(s, want) {
+		t.Errorf("needs_rebuild empty page sections = %v, want %v (composition blocked or force-emptied)", s, want)
+	}
+}
+
+// The membership predicate itself: needs_rebuild joins deployed; planned and a
+// missing column do not (the latter is the safe-degradation fallback that lets
+// the Go change and migration 173 land in either order).
+func TestRealisedPageCompositionIsPreserved(t *testing.T) {
+	cases := []struct {
+		row  map[string]interface{}
+		want bool
+	}{
+		{map[string]interface{}{"build_status": "deployed"}, true},
+		{map[string]interface{}{"build_status": "needs_rebuild"}, true},
+		{map[string]interface{}{"build_status": "planned"}, false},
+		{map[string]interface{}{}, false},
+	}
+	for _, c := range cases {
+		if got := realisedPageCompositionIsPreserved(c.row); got != c.want {
+			t.Errorf("realisedPageCompositionIsPreserved(%v) = %v, want %v", c.row, got, c.want)
+		}
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
