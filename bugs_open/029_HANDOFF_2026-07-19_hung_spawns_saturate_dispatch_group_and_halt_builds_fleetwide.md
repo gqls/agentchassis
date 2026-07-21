@@ -192,3 +192,32 @@ Same as the first reproduction: a live `webdesign-agent` orchestration (idle 2:5
 present and was **not** touched. The recovery SQL's `agent_type IN
 ('build-dispatch-loop','build-pipeline-trigger')` clause is what keeps it safe — do not
 broaden it to "everything AWAITING_RESPONSES".
+
+### THIRD OCCURRENCE 2026-07-21 — confirms "every roll", and the recovery only buys a window under v1.0.1144
+
+Reproduced on the **v1.0.1144** roll (pod `agent-chassis-59c675c4f-pxr9f`, started
+`2026-07-21T08:47:45Z`). This is the third roll in a row that halted builds fleet-wide, which
+settles the "every image roll triggers it" claim from the second occurrence — it is not
+occasional.
+
+Measured ~73 min post-roll: **37 triaged build items waiting, 1 completed in the previous
+20 minutes**, newest `build-pipeline-trigger` stuck at `AWAITING_RESPONSES / call_dispatch`.
+
+**New detail — the one-shot cancel recovery only buys a brief window here.** After cancelling
+the six `build-*` orchestrations older than 15 min, exactly **one** work item completed, then
+throughput stalled again as fresh triggers re-hung at `call_dispatch` and re-filled the pool.
+So the documented recovery is *relief, not repair* under this build — it clears the backlog
+for one dispatch and no more. Re-running it is a treadmill; **do not** loop the cancel
+(and per the original warning, never loop a *dispatch* to "hurry" it — that manufactures more
+hung rows). The durable fix is still the reaper this file's "Why it survives" section calls
+for; until it lands, a roll needs a human to babysit dispatch or accept a backlog.
+
+**Diagnostic trap I nearly fell into, recorded because it is the useful part.** The
+`AWAITING_RESPONSES` count is a bad halt signal on its own — I watched it go 16 → 24 → 13 and
+first read "re-accumulating", then "clearing". Neither was the signal. The newest triggers
+were *completing* `complete_idle` in between the hung ones, so the raw count mixes healthy and
+dead rows. The signals that actually decide it: **(a)** does a *new* trigger reach
+`COMPLETED`, and **(b)** `completed_at` throughput against the `triaged` backlog. Here (a) was
+intermittently yes and (b) was ~1/20min against 37 waiting — i.e. degraded, not idle. I
+almost recorded "queue is empty, all fine" off the `complete_idle` rows; the 37-item backlog
+query is what refuted it. Check throughput-vs-backlog, not the pool census.
