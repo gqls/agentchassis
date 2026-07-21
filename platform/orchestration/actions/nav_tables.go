@@ -67,7 +67,23 @@ func GetNavItems(
 		return items
 	}
 
-	// No nav table entries for this site — fall back to pages table
+	// An empty result from the nav tables is ambiguous: it can mean "this site
+	// predates the nav tables" (the backward-compat case the fallback exists for)
+	// or "this site HAS nav tables and genuinely has no items in the requested
+	// groups" — the correct, expected answer for most sites (e.g. no legal pages).
+	// Only fall back when the site has no nav-table rows at all; otherwise respect
+	// the truthful empty answer. Gating on the per-group row count instead let a
+	// site with a full nav but no legal pages take the fallback, which then filled
+	// the footer's legal slot with every footer page. See /bugs_open/053.
+	if siteHasAnyNavItems(ctx, db, siteID, logger) {
+		logger.Debug("GetNavItems: Site uses nav tables but has no items for these groups; returning empty",
+			zap.String("site_id", siteID.String()),
+			zap.Strings("group_types", groupTypes),
+		)
+		return []NavItem{}
+	}
+
+	// No nav table entries for this site at all — fall back to pages table
 	logger.Debug("GetNavItems: No nav table entries, using pages fallback",
 		zap.String("site_id", siteID.String()),
 		zap.Strings("group_types", groupTypes),
@@ -312,6 +328,31 @@ func containsGroupType(types []string, target string) bool {
 		}
 	}
 	return false
+}
+
+// siteHasAnyNavItems reports whether the site has ANY rows in site_nav_items
+// (any group, any status). It is the gate that distinguishes a pre-nav-table
+// site — no rows, so the pages-table fallback is the only source of nav — from
+// a nav-table site that has simply no items in the requested group, whose empty
+// answer is truthful and must be respected. If the nav tables do not exist yet
+// (older deployments) the query errors and we treat the site as pre-nav-table.
+// See /bugs_open/053.
+func siteHasAnyNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) bool {
+	var exists bool
+	err := db.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM site_nav_items WHERE site_id = $1)`, siteID,
+	).Scan(&exists)
+	if err != nil {
+		if strings.Contains(err.Error(), "does not exist") {
+			logger.Debug("siteHasAnyNavItems: Nav tables not created yet, treating as pre-nav-table")
+			return false
+		}
+		// On any other error, prefer the fallback rather than silently
+		// suppressing all nav — the previous behaviour on a nav-table miss.
+		logger.Warn("siteHasAnyNavItems: existence check failed, using pages fallback", zap.Error(err))
+		return false
+	}
+	return exists
 }
 
 // navSimplifyLabel consolidates rerenderSimplifyNavLabel and
