@@ -1,8 +1,11 @@
 # FEATURE 009 — automate tool-fix delivery via the section-editor (the remaining work from bug 024)
 
 **Filed:** 2026-07-21 · travelling-docs workstream · site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk benchmark)
-**Status:** OPEN — owner decision pending on the recommended path (Option A). Spun
-out of `bugs_closed/024` when that bug was **closed** (its headline symptom —
+**Status:** OPEN — **Option A APPROVED by the owner 2026-07-21** (see "Owner
+decision + session log, 2026-07-21 (tooldoctraveller session)" at the bottom).
+Implementation (tool-improver config rewire + council gate) is the remaining work;
+coordinate with the primary 024 thread before shipping so it is not double-built.
+Spun out of `bugs_closed/024` when that bug was **closed** (its headline symptom —
 a tool-improver fix never reaching the live page — is now fixed AND live).
 **Why this exists:** so the two days of diagnosis behind 024 is not lost when the
 bug file closes. Read `bugs_closed/024` for the full six-defect chain; this note
@@ -148,3 +151,55 @@ not lost, but they are **separate and lower priority** than Option A.
   `c3828d17-cba4-4325-87b3-84b972ec9c7e`.
 - Full six-defect diagnosis: `bugs_closed/024`. Generic-path fix: `cdd858402`.
   Council submission: `submission_024_defect6_page_rerender_key.json`.
+
+---
+
+## Owner decision + session log — 2026-07-21 (tooldoctraveller session)
+
+**A concurrent session reached this file independently.** This "tooldoctraveller"
+session is the one that ran the two probes behind 009: probe 1 (a reason-bearing
+`page_rerender`, first to get past defect 6 → hit the ownership guard at
+`save_sections`) and probe 2 (`section-editor` `content_edit`, correlation
+`c3828d17`, the LIVE delivery this file cites). It then put the fix direction to
+the owner and reconciled on discovering the primary 024 thread had already closed
+024 and filed this feature. Recording here rather than forking a parallel account.
+
+**OWNER DECISION: Option A** — wire tool-improver's post-fix delivery to the
+section-editor. Chosen 2026-07-21 over Option B (relax the guard) and Option C
+(new tool-pipeline action). So the "owner decision pending" blocker at the top of
+this file is now resolved: **build Option A.**
+
+**Feasibility notes for whoever implements it:**
+- **The DIRECT section-editor drive is proven** (probe 2, top-level `input_data`
+  fields: `site_id`, `page_component_id`/`page_name`+`slot_name`, `edit_type=
+  content_edit`, `field_updates={}`). `content_edit` REQUIRES a non-nil
+  `field_updates` or `replacement_content_data`; `{}` satisfies it and is a pure
+  re-render from the *current* template (`applyContentEdit`, section_editor_actions.go:594).
+  `load_edit_context` resolves the section by `page_component_id` OR
+  `page_name`+`slot_name` — tool-improver knows the tool function (= page_name =
+  slot_name), so it needs no extra lookup.
+- **The WORK-ITEM route is NOT yet verified.** section-editor has never handled a
+  work item (0 rows in `site_work_items` for `handler_agent='section-editor'`). A
+  probe that drove section-editor with fields nested under `input_data.spec.*` (the
+  shape the dispatch loop produces from a work item) left **no orchestration_states
+  row** — inconclusive (looks like a dropped message, not a resolution failure;
+  the identical top-level drive minutes earlier completed). **Two clean shapes for
+  Option A, pick during implementation:**
+  - **(b) emit a `section-editor` work item** from tool-improver's tail (swap
+    `create_rerender_item`'s config). Cleanest reuse, but VERIFY the dispatch→
+    section-editor input mapping resolves `page_name`/`slot_name` from
+    `input_data.spec.*` first (the field-collision trap, 001 §).
+  - **(c) inline the actions** into tool-improver's workflow tail
+    (`load_edit_context → apply_section_edit → git_commit → update_page_status`,
+    all registered actions) — most directly proven (these are the exact actions
+    probe 2 exercised), synchronous, testable end-to-end, but lengthens
+    tool-improver and duplicates the section-editor's delivery steps.
+- **Option A complies with the experience-loop guard** (it uses their sanctioned
+  path, does not touch `save_page_sections`), so it does not need their sign-off to
+  ship — but the council gate (workstream norm for a tool-improver seed change) is
+  the right coordination mechanism, and the primary 024 thread should not
+  double-build it.
+- Note the benchmark is currently delivered/green-eligible ONLY because probe 2
+  drove the section-editor by hand. Until Option A ships, a fresh `improve_tool`
+  cycle would again write the template and enqueue the (undeliverable) generic
+  `needs_rerender` — so the loop is not yet autonomously closed for tools.
