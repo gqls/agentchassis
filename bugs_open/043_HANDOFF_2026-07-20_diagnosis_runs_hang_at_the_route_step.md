@@ -73,22 +73,22 @@ that fits the symptom is not evidence. Check the call site before adopting it.
 - **The `stale-orchestration-reaper` itself stalled** for ~2 h on 2026-07-20 (last_triggered
   17:01 against a 180 s interval) before recovering, so hung runs were not even being reaped
   during that window.
-- **The council gate is not starting either — and this is broader than the deploy.** The
-  orchestration layer created nothing at all between 18:53 and 19:06 UTC while the scheduler kept
-  beating normally, and a council submission at 19:03 (`712be028`) produced zero
-  `orchestration_state_audit` rows and never started. I attributed that to the quiet window and
-  resubmitted at 19:12 once general orchestrations were flowing again (8 created in 5 min).
-  > **The resubmission (`563462b8`, orchestration `44dcdbe3`) did not start either** — zero audit
-  > rows, zero artifacts, 14 minutes on, while unrelated orchestrations continued to be created
-  > throughout. So the quiet window is **not** a sufficient explanation, and my first reading of
-  > it was wrong. Whatever is stopping `route` from advancing may be the same thing stopping
-  > fix-loop work from being picked up at all; both the diagnosis loop and the council gate ride
-  > the same machinery. **Tally for 2026-07-19/20: five diagnosis runs and two council
-  > submissions, zero verdicts.**
-  CLAUDE.md documents a ~300 s no-dispatch window after a chassis restart — this quiet began
-  ~55 min after the roll, so that rule does not cover it. **Confirm orchestrations are actually
-  being created before trusting any dispatch**, and note that zero audit rows means *queued*
-  (~16 min under backlog) and cannot by itself be distinguished from *dropped* without watching.
+- **Submissions fired into a busy cluster take ~30 min to start — do not read the gap as a stall.**
+  > **CORRECTED 2026-07-21 — the paragraph that stood here was WRONG and I have removed it.** It
+  > claimed the council gate "is not starting either… the same machinery stalling," on the evidence
+  > that my two council submissions (`712be028`, `563462b8`) had zero `orchestration_state_audit`
+  > rows 13–14 min after submitting. **Both actually started and COMPLETED about an hour after
+  > submission** (found the next day by payload: `complete_invalid` at 20:07 and 20:08). They were
+  > not stalled and had nothing to do with the diagnosis-loop `route` hang. CLAUDE.md (updated
+  > 2026-07-20, after my session-start copy) states publish→run-start was measured at **~29 min**
+  > and that a missing orchestration row is almost always latency, not a drop — retrying costs a
+  > duplicate round, which is exactly what my resubmission was. Logged in `WRONG_CALLS.md`.
+  > Separately, both runs ended `complete_invalid` because the submission was structurally invalid
+  > (`edit 2: operation "create" not in the allowlist`), never because of any stall.
+  >
+  > So the honest **route-hang tally stands on the diagnosis runs alone**: three of three runs that
+  > reached `route` hung there and produced no verdict. The council is not evidence for or against
+  > this bug. Find any dispatched run by payload and give it ~30 min before concluding anything.
 
 ## Related
 

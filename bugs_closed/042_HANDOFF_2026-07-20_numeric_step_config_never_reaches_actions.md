@@ -1,5 +1,19 @@
 # 042 — numeric step config never reaches actions; string literals are misread as references
 
+> **CLOSED 2026-07-21 — FIXED AND LIVE in v1.0.1144.** Verified against the pod
+> (`strings /app/agent-chassis | grep -c 'took literal scalar config value'` -> 1, the
+> Strategy 5 marker) AND behaviourally: with the fix live, `content-feed-orchestrator`'s
+> `max_age_hours: 720` finally reaches `RenderNewsSectionAction`, so vetcomparison.uk's
+> `/data/latest-news.json` now publishes 3 CMA items that are 460h+ old — impossible under the
+> silent 72h fallback this bug describes. The numeric config now demonstrably drives behaviour.
+> Fix commit `4ac86e345` (Strategy 5, non-string scalars only) + tests. Council review was
+> attempted but the submission was rejected at intake for including a file-`create` edit (see
+> WRONG_CALLS 2026-07-20); the fix is covered by its own unit tests instead.
+> **The literal-STRING half is NOT fixed** — an unresolved literal string still never reaches an
+> action (the exporter's domain, `55dc0fa4`). That is deliberately out of scope here; if it needs
+> a home, open a new case rather than reopening this one.
+
+
 **Filed 2026-07-20** (vetcomparison thread). **Status: OPEN.** Fleet-wide.
 Diagnosis-loop correlation `f155b0c4-881b-4369-abe4-569d7b2ad4c8` (filed; the loop has been
 failing to reach a verdict today — see §Caveat — so this case file is the durable record).

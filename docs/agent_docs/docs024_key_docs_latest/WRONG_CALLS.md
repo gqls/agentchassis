@@ -1432,3 +1432,61 @@ edit's completeness and objected instead of approving. No production impact; the
 applied migration was whole. But it is the second row in this file where I put a
 truncated thing in front of a reviewer, and the first where I did it in a
 submission whose whole subject is truncation.
+
+### 2026-07-20 — vetcomparison — declared the content-feed sweep "broken fleet-wide" from ten minutes of absent rows
+**Asserted:** that the 6-hourly `content-feed-refresh` sweep was completing without
+doing any per-site work across the whole fleet — and filed it to the diagnosis
+loop (`12ff5852`) on that basis.
+**Actually:** the sweep was LATE, not broken. It fetched ~90 minutes later and
+every site went through cleanly. The likely trigger was a chassis pod roll (a fresh
+build had just deployed) silently dropping the spawn — a mechanism CLAUDE.md already
+documents.
+**Caught by:** waiting and re-querying: `max(last_fetched_at)` across all
+`content_sources` advanced on its own. I then withdrew the diagnosis item with the
+reason attached.
+**The cheap check that would have caught it:** before calling a scheduled job
+broken, confirm the scheduler is even beating (`last_triggered_at` on a 30s task)
+AND wait at least one more interval. Absence of a row on a system that queues is not
+evidence of failure — it is the default state between cycles.
+**Cost:** one wasted diagnosis-loop filing, later withdrawn.
+
+### 2026-07-20 — vetcomparison — called a council submission "dropped" and resubmitted it; it was invalid, twice
+**Asserted:** that my council submission (`712be028`) had been silently dropped,
+because 13 minutes after submitting it had zero `orchestration_state_audit` rows and
+showed "not-started". I resubmitted (`563462b8`), and wrote into `bugs_open/043`
+that "the council gate is not starting either… the same machinery stalling."
+**Actually:** BOTH runs started and completed — about an hour after submission, not
+dropped at all. CLAUDE.md (updated 2026-07-20, which my session-start copy predated)
+says publish→run-start was measured at ~29 minutes and that a missing orchestration
+row is almost always latency; retrying costs a duplicate round. I did the exact
+thing it warns against. Worse: the submission was structurally INVALID both times —
+it failed at `persist_submission` with `edit 2: operation "create" not in the
+allowlist`, because I included a file-*create* edit (the new test file). So neither
+run could ever have produced a verdict, and the resubmission repeated the same
+invalid plan.
+**Caught by:** re-reading CLAUDE.md the next day, then finding the runs by PAYLOAD
+(`collected_data->'input_data'->>'fix_correlation_id'`) rather than the printed id —
+both COMPLETED at `complete_invalid`, and `__step_error` named the allowlist
+rejection.
+**The cheap check that would have caught it:** (1) budget ~30 min for a council run
+and find it by payload before concluding anything; zero audit rows means QUEUED, not
+dropped. (2) The council fix-plan allowlist is `modify | remove | config_change` —
+NOT `create`. A submission that adds a file will be rejected at intake; describe the
+new file's content some other way, or expect the create edit to invalidate the whole
+plan. Both were client-side knowable before spending a single credit.
+**Cost:** two wasted council submissions, and a wrong causal claim written into
+`bugs_open/043` (now corrected) linking the council to the diagnosis-loop route-hang.
+
+### 2026-07-20 — vetcomparison — reported a diagnosis "filed" when it had never registered
+**Asserted:** to the owner that the directory-exporter diagnosis was filed as
+correlation `2c5bb9e2`.
+**Actually:** no intake row was ever created — the 090 trigger had refused or errored,
+and I never saw it because I piped its output through
+`grep -iE "Correlation|SAVE|item_key"`, which hid the refusal line. I reported a
+filing that did not exist.
+**Caught by:** checking `site_work_items` for the item_key afterwards and finding
+nothing; refiled properly as `55dc0fa4` and verified the row this time.
+**The cheap check that would have caught it:** read the trigger's FULL output (it
+prints "intake recorded and dispatched" on success), or assert the intake row exists
+before reporting a correlation id as filed. A narrow grep over a tool's output can
+hide the one line that says it failed.
