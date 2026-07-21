@@ -112,3 +112,20 @@ Both loaders were wired anyway (pageflow-builder / page-rebuild loop over
 **Remaining to CLOSE:** chassis image build + roll (Go half), then the acceptance
 test — set `pages.content_direction` on one real page, rebuild, confirm the
 instruction's effect in the **saved section**, not a `complete` status.
+
+### Update 2026-07-21 (same day) — BOTH HALVES NOW LIVE; only the acceptance test remains
+
+The Go edits were swept into commit `fe2ba5e52` ("v1.0.1146 - sweep") by a concurrent
+thread, which then built and rolled **v1.0.1146** across the fleet. The running chassis
+pod (`agent-chassis-…`, binary dated Jul 21 12:07) contains my code — pod-grep:
+`content_direction::text` ×3 (my three SELECTs), `addContentDirection` ×2, positive
+control `queryPagesForBuild` ×6. So the Go half is **live**, not inert — no build needed
+from this thread (the bugfix-047 lesson: a committed fix can already be live via
+another session's HEAD build; check the pod's tag before rebuilding).
+
+Status now:
+- **Go half — LIVE** on v1.0.1146 (pod-verified).
+- **Config half — LIVE** in the DB (migration 187; live template parse+execute verified).
+- **End-to-end acceptance test — NOT YET RUN.** Requires a live page rebuild. Safe
+  candidate: `vonc.com` test site (e.g. the `about` content page). This is the only
+  thing between here and CLOSED.
