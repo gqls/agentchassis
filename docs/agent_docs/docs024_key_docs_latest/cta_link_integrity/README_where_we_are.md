@@ -546,3 +546,15 @@ liable to get quietly rewritten by an AI on the next site rebuild. (Worth noting
 existing privacy page is *not* protected this way — flagged in the handoff.)
 
 The whole thing is written up so the next chat can pick up exactly here.
+
+----
+
+**2026-07-21, a bit later — finetuning's terms page is now live too. All three done.**
+
+Quick follow-up to the last note: finetuning's terms page has published and is live. It took a
+few extra minutes — the publishing queue had to reach it, and then there was a short lag while
+the new page propagated to the cache — but it's there now. So all three legal pages
+(ai-agent-orchestration's privacy and terms, finetuning's terms) are live, both sites' footers
+show a clean "Privacy · Terms", and every one of those links goes to a real page. Nothing left
+in flight on this. The owner-fill list (registration details, and the England-law question) is
+still yours to look at when you have a moment, but the pages are valid and working as they stand.

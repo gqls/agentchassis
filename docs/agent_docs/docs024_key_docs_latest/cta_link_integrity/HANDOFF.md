@@ -15,8 +15,9 @@ re-reading the whole directory. Deeper detail: `PLAN` (defect classes A–H), `N
 > `/terms.html` in the footer of every page of three sites whose chrome predates its own
 > 2026-06-10 fix (`0681e1542`) and was never re-rendered. See §9 below for the full state.
 > **In one line:** gaswholesalers **done** (chrome refreshed, 87→37 broken links); aao +
-> finetuning legal pages **written, created (migration 182), and deploying**; class C+E on the
-> live CTA components **fixed (migration 181)**. What's left is small and named in §9.
+> finetuning legal pages **written, created (migration 182), and LIVE** — all three at 200,
+> both footers clean 2-link legal; class C+E on the live CTA components **fixed (migration
+> 181)**. What's left is small and named in §9.
 **Owning workstream:** this one. If CTA/link work surfaces elsewhere, coordinate and
 contribute into `bugs_open/023` itself — do **not** start a competing fix.
 
@@ -239,9 +240,11 @@ undeployed-but-linked pages (mechanism 2) and extension-less internal links (mec
 - **Chrome refreshed on aao + finetuning** → both footers now render a **clean 2-link legal
   slot** pointing at the real pages (053 fallback avoided, because the legal nav groups now
   have real items). Verified in `site_components`.
-- **aao `/privacy.html` + `/terms.html` verified LIVE (200)** at write time.
-- **finetuning `/terms.html` was deploying** when this handoff was written (page_rerender item
-  boosted to priority 1). **Verify it is 200** — if still 404, see the deploy gotcha below.
+- **All three verified LIVE (200):** aao `/privacy.html`, aao `/terms.html`, finetuning
+  `/terms.html`. Both footers render a clean 2-link legal slot and every legal target resolves
+  200. finetuning's terms took a few extra minutes (build-dispatch cycle + CDN lag on a
+  brand-new file path — its work item `result.deploy_result` confirmed the commit before the
+  CDN caught up; poll per RUNBOOK R13, not just once).
 
 **The deploy gotcha that cost the most time here (READ THIS before the next page-create):**
 
@@ -270,8 +273,10 @@ existing `/privacy-policy.html` is `rebuild_policy='generic'` (less protected th
 pages) — consider flipping it to `owned`.
 
 **Still to do on 049 (small, named):**
-- Verify finetuning `/terms.html` went 200; if the queue stays clogged, the aao queue clog is
-  itself worth a look (dispatch not draining since ~Jul 10 — likely `bugs_open/003`/`030`).
+- ~~Verify finetuning `/terms.html` went 200~~ — **DONE, live.** But the queue clog it exposed is
+  real: aao + finetuning `page_rerender` queues weren't draining organically (last aao organic
+  completion ~Jul 10; ~40 items sat triaged until boosted). Worth a look — likely
+  `bugs_open/003`/`030`. The priority-1 boost is the workaround, not a fix.
 - gaswholesalers still shows a 21-link legal fallback (053) — it has no legal pages. Either
   give it real legal pages (same migration-182 pattern) or wait for 053's Go fix. Its other
   residual 37 broken links are mechanism 2/3 (content links + one `needs_rebuild` page), not
