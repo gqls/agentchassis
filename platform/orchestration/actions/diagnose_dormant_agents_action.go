@@ -71,10 +71,10 @@ const dormantSource = "diagnosis-dormant-agents"
 type dormantAgent struct {
 	Type         string    // agent_definitions.type
 	SampleStep   string    // one of its unique fingerprint steps (evidence)
-	UniqueSteps  int        // how many step keys are unique to this agent
-	ActiveRows   int        // active non-snapshot rows for this type (>1 is a hygiene flag)
-	AgeDays      float64    // now() - min(created_at) across its active rows
-	FirstCreated time.Time  // min(created_at) — when the capability first existed
+	UniqueSteps  int       // how many step keys are unique to this agent
+	ActiveRows   int       // active non-snapshot rows for this type (>1 is a hygiene flag)
+	AgeDays      float64   // now() - min(created_at) across its active rows
+	FirstCreated time.Time // min(created_at) — when the capability first existed
 }
 
 var DiagnoseDormantAgentsInputSpec = datahelpers.ActionInputSpec{
