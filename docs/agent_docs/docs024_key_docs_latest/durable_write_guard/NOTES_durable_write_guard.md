@@ -333,3 +333,8 @@ unbalanced `<script>` (tail-cut). Expect: component NOT created; work item
 Then a healthy generation must still be created. Mind the CLAUDE.md timing traps
 (~300s after a chassis restart; ~30 min dispatch queue latency). Clean up scratch
 fixtures after.
+
+**OWNER DECISION 2026-07-21:** leave it **live-but-unexercised** for now — no
+scratch dispatch this session. 021 INSTANCE 1 stays OPEN with that status. The
+fault-injection above is the one remaining step whenever it's picked up (or a real
+truncated generation trips it in the wild and lands the `agent_error_log` row).

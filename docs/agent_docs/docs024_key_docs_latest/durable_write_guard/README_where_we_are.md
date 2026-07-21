@@ -125,3 +125,9 @@ flagged for a human), while a healthy tool still sails through. That's a real bi
 of work on the live cluster (it involves kicking off a job and waiting on the
 queue, ~half an hour), so I'll do it on your say-so rather than assume. Until then
 I'm leaving bug 021 open and honest about it.
+
+**Your call:** leave it live-but-unexercised for now — don't spend the half-hour
+dispatch this session. So that's where it rests: the guard is live and protecting
+new tool/section births, bug 021 stays open with an honest "not yet sprung in
+anger" note, and the one deliberate live test is written down for whenever it's
+worth doing (or for the first real cut-off generation to trip it for us).
