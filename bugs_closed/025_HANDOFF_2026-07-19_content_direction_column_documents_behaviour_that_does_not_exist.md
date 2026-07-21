@@ -1,8 +1,11 @@
 # 025 — `pages.content_direction` documents per-page writer steering that does not exist
 
-**Filed 2026-07-19** (relojistas thread). **Status: OPEN.** Fleet-wide. Not a runtime
-failure — a *false affordance*: the column's own comment promises a capability nothing
-implements, so a thread that reads the schema plans against it and loses the time.
+**Filed 2026-07-19** (relojistas thread). **Status: CLOSED 2026-07-21** — wired up
+(owner chose candidate 2), both halves LIVE on v1.0.1146 + DB, and the live acceptance
+test PASSED (see the closing note at the foot). Fleet-wide. Was not a runtime failure —
+a *false affordance*: the column's own comment promised a capability nothing implemented,
+so a thread that read the schema planned against it and lost the time. Now the code
+matches the docs.
 
 ## Symptom
 
@@ -129,3 +132,26 @@ Status now:
 - **End-to-end acceptance test — NOT YET RUN.** Requires a live page rebuild. Safe
   candidate: `vonc.com` test site (e.g. the `about` content page). This is the only
   thing between here and CLOSED.
+
+### CLOSING NOTE 2026-07-21 — acceptance test PASSED, bug CLOSED
+
+Ran the live test on `vonc.com/about` (owner-approved). Set
+`content_direction.instruction` to weave in a distinctive off-theme verbatim marker
+sentence ("Quite simply, it began with one stubborn question"), baseline-confirmed 0
+occurrences, then rebuilt the page through the real pipeline (triaged
+`needs_content_page` work item → `build-pipeline-trigger` → dispatch loop →
+`page-build-handler` → `load_page_record` → `page-content-writer`).
+
+**Result: the verbatim marker sentence appeared in 4 regenerated sections** (hero-about,
+content-block-about, game-master-explanation, differentiators), woven in naturally;
+page redeployed. Baseline 0 → post-rebuild 4. That is the exact behaviour this bug said
+did not exist: setting the column steered the generated copy. Verified against the saved
+`page_components.rendered_html`, not a `complete` status.
+
+Cleanup: `content_direction` reset to NULL on the test page; a restoration rebuild
+queued (also a live negative control — with NULL set, the marker must not reappear).
+Full procedure: `docs024_key_docs_latest/bug025_content_direction/RUNBOOK_acceptance_test.md`.
+
+**Delivered:** Go in v1.0.1146 (both loaders, pod-verified) · migration 187 (prompt
+block + column comment) · `003_contracts` doc corrected to implemented. Moved to
+`bugs_closed/`.
