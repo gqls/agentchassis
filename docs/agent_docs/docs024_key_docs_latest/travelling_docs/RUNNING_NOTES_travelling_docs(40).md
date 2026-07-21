@@ -3864,3 +3864,52 @@ round 1's (21:37:54) — the trail correlation is shared, so an unfiltered poll
 returns round 1's REVISE and looks like the new verdict.
 
 Categories: (council, correction, seat-defect, fix)
+
+### 2026-07-21 — 010(b) fully live; the live-proof attempt found the benchmark already fixed
+
+The convergence guard is now **fully live in v1.0.1146** — guard (`b13238be6`),
+DO UPDATE refresh (`b88da540b`), and the spec MERGE (`905fbbeef`), all
+pod-verified (`grep -c "is not converging on this defect"`=1 AND
+`grep -c "spec = site_work_items.spec || EXCLUDED.spec"`=1). v1.0.1144 had the
+guard with the pre-merge form; v1.0.1146 (rolled 12:15) carries the merge.
+
+**Council round 2 → REVISE, and it caught a real bug I had shipped.** The round-1
+DO UPDATE did `SET spec = EXCLUDED.spec` — a full replace. bug_historian: a human
+triaging the standing needs_human_review item may have written an owner/note/
+override into that same jsonb, and a re-escalation would silently discard it.
+Correct, and the exact silent-overwrite shape this platform keeps paying for.
+Fixed to `spec = site_work_items.spec || EXCLUDED.spec` (merge; our keys win,
+human keys survive). Round-2's other objections were answerable (blast-radius:
+no item_type enumeration mishandles `acceptance_stuck` — both switches default
+safely, both SQL filters are scoped allowlists) or accepted-and-deferred
+(reuse_agent's parent_item_id: 0/19 improve_tool items use it, so native chaining
+is unpopulated — a fleet follow-up, not this PR). Round 3 was submitted and its
+run was **killed 5s in by the v1.0.1146 roll** (fix_plan 12:15:15, pod restart
+12:15:20) — not resubmitting; the gate is advisory and everything actionable is
+addressed.
+
+**The live-proof attempt, and what it actually showed.** Per verify-the-failing-
+branch, I queued a manual `acceptance_run` on the benchmark (past threshold: 4
+terminal `mobile-fit` cycles, count verified live) to watch it escalate. **It
+PASSED** — all 9 checks, `mobile-fit@mobile` green. **The benchmark self-resolved.**
+Its `.ltb-row-grid` is now `display:flex; flex-wrap:wrap` (was an unshrinkable
+grid), and the page re-rendered 11:33 — **024's delivery chain (mig 180 + the Go
+half, v1.0.1144) finally worked.** So the judge took the all-pass branch and
+never reached the count/escalate code. The guard's escalation INSERT is therefore
+**live-UNEXERCISED**; it rests on 6 mutation-verified unit tests + deployment
+verification.
+
+> **My mistake, logged.** I set out to prove the guard on a tool that had already
+> been fixed. I verified the *count* (4 historical cycles) but not the *current*
+> overflow state — a cycle count is about the past, not about whether the tool
+> fails NOW. Had I re-run the discriminating grid-rule check (024's own lesson)
+> before firing, I'd have seen the flex-wrap and known it would pass. The run
+> wasn't wasted — it surfaced that the benchmark is fixed, which matters for 024 —
+> but the framing "induce the escalation" was wrong from the start.
+
+Net: 010 candidate (b) is built, fully live, logic-proven, live-unexercised (no
+stuck tool to fire it); candidate (a) live+proven; the benchmark is green. To
+close (b) as PROVEN, the fleet's next genuinely-stuck tool is the test (query in
+the bug file's Verify §2).
+
+Categories: (fix, council, live-proof, correction, misstep)
