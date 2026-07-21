@@ -1,5 +1,49 @@
 # HANDOFF — applied-but-unrecorded migrations block the runner (ledger-omission trap)
 
+> ## STATUS 2026-07-21 — STILL OPEN, but the tooling shipped and is LIVE
+>
+> **Cold start:** read this banner, then jump to **"FIXED 2026-07-20 — the tooling
+> landed"** near the bottom for what changed and how it was verified. The
+> 2026-07-16 sections below are the original diagnosis and remain accurate history.
+>
+> **What is done and LIVE** (commit `a51333fd7`; shell only, so live on commit —
+> no image roll): `run-migrations.sh` now has `--record-only <file> --note "<why>"`
+> to register an out-of-band apply; a failure message that names the already-
+> applied cause and prints the recovery command; sidecar (`_ROLLBACK`/`_VERIFY`)
+> exclusion; a dry run cut from >120s to ~5s; and a refusal when the DB is
+> unreachable. These are fix candidates **(a)** and **(b)** from below, plus three
+> defects **(e)(f)(g)** found while taking the baseline dry run.
+>
+> **Why it is still OPEN, not moved to `/bugs_closed/`** (the bar there is
+> *fixed AND live AND not reproducible*):
+> 1. **The runner still HALTS on an already-applied-but-unrecorded migration.**
+>    Fix (b) made that halt *informative* and gave a one-command recovery — it did
+>    **not** make the runner auto-detect-and-skip (candidate (d), auto-record, was
+>    deliberately rejected as unsafe). Recording is still a manual, opt-in step, so
+>    a thread that forgets to record can still gate the queue for everyone. The
+>    *diagnosis cost* (the 3-day misread) is fixed; the *block itself* is mitigated,
+>    not eliminated — the symptom is still reproducible.
+> 2. **The `--record-only` INSERT path is UNEXERCISED against the production
+>    ledger** — deliberately: the only pending files were other threads' and
+>    genuinely pending, so there was nothing safe to record. The next real
+>    out-of-band apply should use it and confirm the row lands.
+> 3. **Fix candidate (c)** — the unguarded-`INSERT` lint — is **not built**
+>    (optional, preventive; left out to keep the change reviewable).
+>
+> **What IS eliminated:** near-miss (e) — the runner treating 180's `_ROLLBACK.sql`
+> as a pending migration and reverting bug 024 — is closed and live.
+>
+> **Next actions for a resuming chat**, in priority order:
+> - (nothing forces action — this is a mitigated landmine, not an outage.)
+> - When you next apply a migration by hand: use `--record-only` and confirm the
+>   ledger row, closing residual 2 above. That is the cheapest way to exercise it.
+> - Optional robustness: build candidate (c) lint; or reconsider auto-detect
+>   (skip-if-already-applied) now that the message path exists — note this changes
+>   the runner from "die loudly" to "carry on", which the 2026-07-16 analysis
+>   was wary of. Not obviously right; decide before building.
+> - Do **not** `--apply` casually: pending files are usually another thread's, and
+>   applying someone else's migration can violate an image-first ordering.
+
 **Created 2026-07-16 from the travelling-docs workstream** (its HANDOFF T23 has the discovery
 blow-by-blow). The INSTANCE is already resolved; what needs attention is the SYSTEM that let it
 happen and will let it happen again. **Not an outage.** Runner:
