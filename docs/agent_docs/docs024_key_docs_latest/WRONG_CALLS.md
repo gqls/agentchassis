@@ -1742,3 +1742,23 @@ prose. Cheap check that would have caught it first: `SELECT name, pre_query FROM
 scheduled_tasks WHERE pre_query ILIKE '%claimed%'` — enumerate the DB-resident logic, not just
 the Go. Family: not-looking at one component (here a *scheduled task*, the class Go-only greps
 always miss — cf. the admin-dashboard `.tsx` memory), confidence no protection.
+
+**2026-07-21 — nearly emitted `feature-designer` as a false positive from the new
+dormant-agents detector, trusting `bugs_open/044`'s own validation list.** Building the 044
+detector, my live reproduction flagged `feature-designer` as never-run — but 044 explicitly
+lists it as a positive control that "correctly detects as run" (its designer half was "PROVEN
+2026-07-18, run 8e837814"). A false positive is the detector's whole failure mode, so I
+stopped to reconcile instead of shipping around the contradiction. **The handoff was
+imprecise, not my code:** feature-designer's 3 unique steps (`check_spec_approved`,
+`load_council_report`, `load_spec`) appear NOWHERE in `orchestration_states` — not as
+top-level keys, not even by full-text `LIKE` over `workflow_plan::text`. Its own workflow has
+never fired; the "PROVEN" run was the review council approving its plan through other
+machinery (councils log `agent_type='generic'`), which is a different execution path. So the
+flag is correct and 044's positive-control claim was loose. What caught it: not trusting a
+prose validation list against the live data — reran the actual query. Cheap check that
+settles it: `SELECT count(*) FROM orchestration_states WHERE workflow_plan::text LIKE
+'%<a_unique_step>%'` — if an agent's unique steps appear nowhere even by text, its own
+workflow genuinely never ran (whatever a handoff remembers as "it worked"). Family: a
+confident claim in a handoff is a claim, not a measurement; "observed running" must name the
+exact signal (here: a unique TOP-LEVEL workflow step in retained history — which misses
+council/subtree paths, so the detector reports for triage, never asserts "N never ran").

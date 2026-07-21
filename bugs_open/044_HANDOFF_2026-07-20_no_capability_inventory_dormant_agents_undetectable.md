@@ -2,8 +2,38 @@
 
 **Filed:** 2026-07-20 by the bugfix thread, out of `bugs_closed/002` D.
 **Severity:** latent, diagnostic. Nothing errors. No site reports a failure.
-**Status:** OPEN — needs an owner for the check, and an owner decision on the
-`is_active` hygiene half (see §The two halves).
+**Status:** OPEN — the **detector half is BUILT and committed** (inert until the
+next chassis image roll); the `is_active` hygiene half remains an owner decision
+(see §The two halves and §UPDATE below).
+
+> **UPDATE 2026-07-21 — detector half BUILT (dormant_agents_inventory workstream).**
+> Half 1 (the detector) is implemented, tested, and committed; stays OPEN only
+> until a chassis image carrying it is rolled (the bar is fixed AND live).
+> - Action `diagnose_dormant_agents` (`platform/orchestration/actions/
+>   diagnose_dormant_agents_action.go`) — a deterministic fleet sweep beside
+>   triage/silent-check, exactly as this handoff [INFERRED]. Implements the
+>   step-fingerprint method verbatim; `owner_agent_type` deliberately unused.
+>   Age floor (default 14d) gates emission; the mirrored-agent blind spot is
+>   listed but **never flagged** (it cannot enter the never-set by construction).
+>   Emits INERT `dormant_agent` items (status='dormant', pipeline='maintenance',
+>   unclaimable, anchored to system.internal) for human triage; closes them when
+>   the agent is observed to run; one doc_note per sweep (categories
+>   `dormant-agents`+`fixloop`). Ships `dry_run=true`, manual trigger.
+> - Seed: `docs024.../dormant_agents_inventory/seed_diagnosis_dormant_agents.sql`
+>   (image-first — apply only after `grep -ac diagnose_dormant_agents /proc/1/exe`
+>   ≥ 1 in the chassis pod). Standing-five docs in that dir.
+> - **Live numbers moved since filing:** 156/122/**57** → **155/123/77** (70 past
+>   the 14d floor). More agents seeded; the 55-day orchestration window advanced.
+> - **Correction to this handoff's validation:** `feature-designer` is listed
+>   above as a positive control that "correctly detects as run." Live it reads as
+>   **never-run**, and that is correct — its 3 unique steps appear nowhere in
+>   `orchestration_states` (not even by text). Its own workflow has never fired;
+>   the "PROVEN 2026-07-18" run was the council approving its plan through other
+>   machinery (councils log `agent_type='generic'`). The solid positive controls
+>   are fix-proposer / page-build-handler / section-editor.
+> - **`orchestration_name` rejected** as the mirrored-agent second signal this
+>   handoff suggested: live it is `generic-orchestrate-<ts>`, it does not name the
+>   agent. The blind spot stays unmeasurable (listed, never flagged).
 
 This is the **producer-side** mirror of `bugs_open/033` (findings reach
 `needs_human_review` and no consumer ever actions them). 033 is work with no
