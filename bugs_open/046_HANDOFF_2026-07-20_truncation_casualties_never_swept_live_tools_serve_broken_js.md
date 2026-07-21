@@ -3,7 +3,71 @@
 **Filed:** 2026-07-20 · travelling-docs thread
 **Severity:** high — live customer-facing breakage on **6 domains**, present now,
 and invisible to every check we have.
-**Status:** OPEN. Census complete with live evidence; no repair attempted.
+**Status:** OPEN. Detection built (candidate 2) + committed, inert until image+seed;
+grip-force restored at source (census 9 → 8); 8 remain (no intact version).
+See "UPDATE 2026-07-21" below.
+
+---
+
+## UPDATE 2026-07-21 — bugfix-046 thread: sweep built, grip-force source-repaired, 8 remain
+
+**Census re-grounded 2026-07-21: still exactly 9** (now 8 after the grip-force
+restore below). Per-component facts added: 5 of 9 are on deployed pages; only
+**grip-force had an intact prior version** (v2, 23,526 chars, balanced).
+
+### Done
+
+1. **Detection — candidate 2, the durable structural fix.** New discovery check
+   `truncated_component` + verifier + drift-guard test, committed `1e5cb6fdc`
+   (`platform/orchestration/actions/discovery_checks/check_truncated_component.go`).
+   - Predicate: the 5-pair tag imbalance (`<script/<style/<section/<div/<fieldset`,
+     open>close). Calibrated against the full live population 2026-07-21 — catches
+     **exactly the 9 census rows, 0 over-fire.** Deliberately excludes
+     `toolTemplateValid`'s ends-mid-token heuristic, which as a fleet *sweep*
+     would flag **36** legitimate templates; a queue item must be high-precision.
+   - **Not tool-scoped** (per the file's own warning): joins `content_components`
+     at any level, so the `section` casualty is covered.
+   - **Detect-and-surface** (`needs_human_review`, NO handler — the `dead_controls`
+     pattern). It does NOT auto-route to a regenerator: the remedy varies, and
+     tool recreation can **fabricate data** (`bugs_open/020`). The spec carries
+     `intact_version_available` / `intact_version_number` so triage (restore vs
+     regenerate) is one glance.
+   - Verifier re-checks the current template with the same predicate; resolved
+     when balanced or deactivated; a missing row is an error, never a false green.
+   - **Inert** until an image roll **and** the enable seed
+     `docs/agent_docs/sql_for_agents/186_enable_truncated_component_check.sql`
+     (image-first) appends it to `completeness-discovery-agent`'s checks.
+
+2. **grip-force restored at source (candidate 1's cheap first step).**
+   `tool-grip-force-friction-calculator-robot-hands-com`'s `html_template`
+   restored from its intact v2 (DB, live). Balanced (1/1), ends clean. **Census
+   query now returns 8.** Damaged bytes backed up before the restore.
+
+### NOT done — and deliberately not attempted by this thread
+
+- **The live pages are still broken.** grip-force's page is `needs_rebuild` and
+  the live URL still serves `<script`×3 / `</script>`×2 (2026-07-21). Restoring
+  the template fixes the SOURCE; the live page only changes on the next
+  **re-render** — and that delivery pipeline is `bugs_open/024`'s active, buggy,
+  *owned* territory (defect 6 open). This thread did not touch it. The restore is
+  a net improvement for delivery regardless: `toolTemplateValid` now ACCEPTS the
+  template, so a re-render renders good bytes instead of carrying the cut.
+- **The other 8 have no intact prior version** → they need **regeneration**, which
+  is LLM-heavy and fabrication-guarded (`020`). Not auto-triggered. Once the check
+  is live they surface as tracked `truncated_component` items; the owner/next
+  thread decides regenerate-vs-remove per item.
+
+### Verify what this thread changed
+```sql
+-- was 9, now 8 (grip-force dropped out):
+SELECT cc.name FROM content_components cc
+WHERE cc.is_active AND length(cc.html_template) >= 100
+  AND (SELECT count(*) FROM regexp_matches(lower(cc.html_template),'<script','g'))
+    > (SELECT count(*) FROM regexp_matches(lower(cc.html_template),'</script>','g'));
+```
+`go test ./platform/orchestration/actions/discovery_checks/ -run 'Truncat|Unterminated'`
+
+Workstream docs: `docs/agent_docs/docs024_key_docs_latest/truncation_casualties_046/`.
 
 ---
 
