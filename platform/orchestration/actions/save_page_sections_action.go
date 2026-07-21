@@ -496,6 +496,7 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 
 	// Insert each section
 	savedCount := 0
+	var skippedStubs []string
 	for i, section := range sections {
 		// Dark section contract validation (warning only, non-blocking)
 		// Auto-detects dark sections from CSS patterns in the HTML.
@@ -512,6 +513,41 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			if parsed, err := uuid.Parse(section.ComponentID); err == nil {
 				componentIDPtr = &parsed
 			}
+		}
+
+		// ── Unresolvable-section guard (bugs_open/039) ───────────────────────
+		// A section name that resolves to no component falls back to
+		// generic-text-block; with no content it renders a hollow ~208-byte
+		// <section class="section section--generic"> — an empty heading and an
+		// empty body. Persisting that as a component_id=NULL,
+		// build_status='deployed' row is the defect: the page ships a hollow
+		// section and the build reports success (7 such stubs were live across
+		// 3 sites when this guard was written). This is the single INSERT every
+		// page-composition path flows through, so refuse here regardless of
+		// which upstream path produced the stub. Skip the row and raise a
+		// needs_new_component item (deduped per section_type per site, routed to
+		// the component-creator) so the gap is legible instead of rotting as an
+		// unconsumed empty_section finding. The discriminator is deliberately
+		// narrow — an empty generic stub AND no component link — so it never
+		// touches a resolved component, a generic block that DID receive content
+		// (those carry visible text), or a non-generic orphan.
+		if componentIDPtr == nil && isEmptyGenericStub(section.HTML) {
+			params.Logger.Error("SavePageSectionsAction: refusing to persist an empty generic stub for an unresolved section",
+				zap.String("page_name", pageName),
+				zap.String("slot_name", section.ComponentName),
+				zap.Int("position", i+1),
+			)
+			if cErr := CreateNeedsNewComponentItem(ctx, params.DB, siteID.String(),
+				section.ComponentName, pageName,
+				fmt.Sprintf("Section %q on page %q resolves to no component and rendered an empty stub; a component template is needed (bugs_open/039).", section.ComponentName, pageName),
+				"", "", params.Logger); cErr != nil {
+				params.Logger.Warn("SavePageSectionsAction: failed to raise needs_new_component for stub section",
+					zap.String("slot_name", section.ComponentName),
+					zap.Error(cErr),
+				)
+			}
+			skippedStubs = append(skippedStubs, section.ComponentName)
+			continue
 		}
 
 		// Marshal content_data to JSON if present
@@ -561,15 +597,31 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		zap.String("page_id", pageID.String()),
 		zap.Int("sections_found", len(sections)),
 		zap.Int("sections_saved", savedCount),
+		zap.Int("skipped_stub_sections", len(skippedStubs)),
 	)
 
 	return map[string]interface{}{
-		"success":        true,
-		"page_id":        pageID.String(),
-		"page_name":      pageName,
-		"sections_found": len(sections),
-		"sections_saved": savedCount,
+		"success":               true,
+		"page_id":               pageID.String(),
+		"page_name":             pageName,
+		"sections_found":        len(sections),
+		"sections_saved":        savedCount,
+		"skipped_stub_sections": skippedStubs,
 	}, nil
+}
+
+// isEmptyGenericStub reports whether rendered HTML is the hollow section that
+// generic-text-block emits when it stands in for a section name that resolves
+// to no component and receives no content: the `section--generic` marker with
+// an empty heading and empty body (~208 bytes). It is intentionally strict —
+// the class marker must be present AND stripping tags must leave no visible
+// text — so a generic block that DID receive content is never matched, only the
+// unresolvable-section stub. See bugs_open/039.
+func isEmptyGenericStub(html string) bool {
+	if !strings.Contains(html, "section--generic") {
+		return false
+	}
+	return strings.TrimSpace(stripHTMLTags(html)) == ""
 }
 
 // SectionData holds extracted section data
