@@ -43,6 +43,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
+| **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation** | **1** |
 | **re-read the row AFTER a render, not after your own write** | **1** |
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
@@ -1402,3 +1403,32 @@ stash first), touching none of the *other* concurrent sessions' live WIP.
 Council-Reviewed traps already logged — assuming a shared, mutable slot reflects my own state.
 On this tree, *nothing* at rest is private: not the index (commit-per-task exists for that), not
 HEAD (it moved four times mid-session), and not the stash stack.
+
+### 2026-07-20 — travelling docs / bugs_open/024 — submitted a TRUNCATED SQL sketch and called it complete
+**Asserted:** in the round-6 council submission, that migration 180's edit "now
+opens with a defensive ROLLBACK, has a pre-flight that counts target rows and
+RAISEs… a post-condition block that re-counts and RAISEs… writes a
+('pipeline','build') doc_note" — i.e. the rationale described a complete,
+hardened migration.
+**Actually:** the `sketch` field the reviewers actually saw was cut off
+mid-statement, inside the `jsonb_build_object` call, with no closing UPDATE, no
+RETURNING, no post-condition block, no doc_note, no COMMIT. I had built the
+submission JSON with `open(...).read()[:5200]` — a hard character slice — and the
+migration is longer than 5,200 chars. The FILE on disk is complete and was
+applied cleanly; the REVIEW COPY was truncated.
+**Caught by:** the council's editquality seat, at MEDIUM, on the single
+load-bearing edit. Not by me, and the irony is total: this entire workstream
+exists because agents persist truncated artifacts and report them as complete
+(`output_tokens==max_tokens`, bugs_open/012), and here I truncated an artifact
+and asserted its completeness in the same breath.
+**The cheap check that would have caught it:** after building a submission that
+embeds a file, read back the embedded field and check it ends where the file
+ends — `submission.plan.edits[i].sketch.endswith('COMMIT;')`. Or do not slice at
+all: embed the whole file, or a deliberately-marked excerpt that says it is one.
+A fixed `[:5200]` is a truncation with no marker, which is exactly the shape 016b
+§9 warns about — I built the machine's failure mode by hand.
+**Cost:** one wasted council round on that axis — editquality could not judge the
+edit's completeness and objected instead of approving. No production impact; the
+applied migration was whole. But it is the second row in this file where I put a
+truncated thing in front of a reviewer, and the first where I did it in a
+submission whose whole subject is truncation.

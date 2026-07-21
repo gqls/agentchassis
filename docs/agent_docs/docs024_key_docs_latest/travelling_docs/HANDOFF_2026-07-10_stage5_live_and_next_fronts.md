@@ -63,48 +63,70 @@ site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk) · tools `tool-x
 
 ---
 
-## 7. RESUME HERE — `bugs_open/024`: Go half LIVE, config half pending *(rewritten T31, 2026-07-20 evening)*
+## 7. RESUME HERE — `bugs_open/024`: request PROVEN correct, delivery blocked by a SIXTH defect *(rewritten T32, 2026-07-21)*
 
-> **T31 SUPERSEDES most of what follows.** The Go is **already in production**
-> (v1.0.1140) — swept in by another session's commit `bca5d8255` while round 5 was
-> being judged, and verified in pod `agent-chassis-5567d99bd6-5snzn` with a
-> discriminating grep. It shipped on a **REVISE**, so **no commit may carry a
-> `Council-Reviewed:` trailer for it.** The single remaining step is applying
-> **migration 180** (committed `dbb19169d`, NOT applied). Until then the live Go
-> does nothing for the bug.
+> **T32 SUPERSEDES T31.** Migration 180 is **APPLIED** (2026-07-20 19:13:22Z,
+> ledger row written). A real proof run then drove the whole chain and proved the
+> re-render request is now **correctly formed for the first time ever** — all four
+> of 180's changes visible in one live row. **But the page still did not render**,
+> because the proof exposed a **sixth defect** one layer below the fix: the
+> per-page `page_rerender` item_key is not reason-scoped, so a stale reason-less
+> request suppressed the correct one and then re-deployed stale HTML. Full
+> evidence + fix candidates are in **`bugs_open/024`** under "UPDATE 2026-07-21".
+> **This is where a new thread picks up.**
 
 **The single sentence:** a tool-improver fix is written correctly to
-`content_components.html_template` and **never rendered onto the page**, so every
-re-verification tests an unchanged page. **Five** defects in series (T30 knew of
-three; T31 found the fifth, and it is the one that made the reviewed plan a no-op):
+`content_components.html_template` and **never rendered onto the page**. **Six**
+defects in series; 5 fixed, the 6th open and blocking.
 
 | # | defect | status |
 |---|---|---|
-| 1 | `update_component_html` only sets `page_components.build_status='pending'` — **nothing in the repo scans it** (`store_generated_component_action.go:455` says so) | **not a blocker after all** — the request is made by tool-improver's own `create_rerender_item` step, which uses `create_work_item` → `insertWorkItem` (the NORMAL path, `create_work_item_action.go:170`). The dead flag remains dead; see 024 candidate 3 |
-| 2 | tool-improver's rerender request carries **no `spec.reason`** and no `spec.component_id`, so `create_rerender_items` computes `scoped=false`, `check_rerender_mode` falls to `else_step: render_page` = *"Simple concatenation - no template re-rendering"* → deploys stale HTML, reports success | **FIXED, pending apply** — migration **180** |
-| 3 | the content pre-check escalates any section with empty `content_data`, which every self-contained tool has by design → `check_escalated` routes to `complete`, bypassing `save_sections`, the ONLY writer of `rendered_html` | **FIXED & LIVE** — `isSelfContainedSection`, keyed on `component_level='tool'` + empty `input_schema` |
-| 4 | `item_key` is `<prefix>_<domain>` = **site-wide**, so `insertWorkItem`'s anti-churn block counted two **SUCCESSFUL** predecessors as strikes and branded later requests `unresolved` | **FIXED & LIVE** (`item_key_suffix_field` + `recurrence_expected`), **activated by 180** |
-| 5 | **`loadComponentSchemas` DROPS tool components entirely.** `sectionTemplateValid` keys on containing `</section>`; a tool is self-contained HTML ending `</script>`. The benchmark (10,626 chars, no `</section>`) never entered the schemas map — so defect 3's exemption looks it up, finds nothing, and **never fires**. 6 of 27 active tools were in this state, incl. all three gamesdesign tools | **FIXED & LIVE** — `toolTemplateValid`, calibrated against all 27 live templates (19 pass / 8 truncated fail; 4 of those 8 pass the OLD guard and would render broken markup) |
+| 1 | `update_component_html` only sets `page_components.build_status='pending'` — nothing scans it | **not a blocker** — the request goes via `create_work_item`→`insertWorkItem` (the normal path). Dead flag stays dead; 024 candidate 3 |
+| 2 | rerender request carries no `spec.reason`/`component_id` → `scoped=false` → assemble-only re-ship of stale HTML | **FIXED & LIVE** — migration 180 (`spec_literal`+`spec_paths`) |
+| 3 | content pre-check escalates any empty-`content_data` section; a tool has `content_data={}` by design → bypasses `save_sections` | **FIXED & LIVE** — `isSelfContainedSection` (`component_level='tool'`+empty `input_schema`) |
+| 4 | `needs_rerender` `item_key` is site-wide → anti-churn counts SUCCESSFUL predecessors as strikes → born `unresolved` | **FIXED & LIVE** — `item_key_suffix_field`+`recurrence_expected`, activated by 180 |
+| 5 | `loadComponentSchemas` DROPS tool components: `sectionTemplateValid` keys on `</section>`, a tool ends `</script>`, so the benchmark never entered the schemas map and defect 3's exemption never fired. **Two call sites** (`loadComponentSchemas` + `loadSingleComponentSchema`) — first fix covered ONE, `bug_historian` predicted the second | **FIXED**: `toolTemplateValid`+shared `componentTemplateValid`. Call site 1 LIVE in v1.0.1140; **call site 2 committed `3cb92dae4`, INERT until next image** |
+| **6** | **per-page `page_rerender` item_key `page_rerender_<page>_<site>` is NOT reason-scoped** (`create_rerender_items_action.go:248`), so a stale reason-less `page_rerender` in the backlog suppressed the correct reason-bearing one via `ON CONFLICT DO NOTHING` (0 items created), then itself ran assemble-only and re-deployed stale HTML | **OPEN — this is the current blocker.** Full timeline + 3 fix candidates in `bugs_open/024` UPDATE 2026-07-21 |
+
+**What was PROVEN this session (T32):** proof-run `improve_tool` `216ea5fe` →
+`tool-improver` emitted `needs_rerender` `666619d1` with `item_key
+=rerender_tool_fix_gamesdesign.co.uk_3862f72f-…`, `spec.reason=section_data_resolved`,
+`spec.component_id=3862f72f-…`, `status=triaged`. **All four of migration 180's
+changes, live, in one row.** The request half of the bug is fixed and evidenced.
 
 **Do this next, in order:**
-1. Read the round-6 verdict (`RUN_ORCH_ID=5688a8b2-48cc-4285-9372-3eb753017751`,
-   trail `7ef4de4e-…`). Poll `diagnosis_artifacts` **filtered by
-   `orchestration_id`**, never by correlation alone.
-2. Apply **`docs/agent_docs/sql_for_agents/180_tool_improver_rerender_request.sql`**,
-   then run its `_VERIFY.sql`. **Insert the ledger row in the same sitting** —
-   `177` and `178` are already on disk with no ledger row (`bugs_open/007`, still
-   armed).
-3. Re-run improve → rerender → acceptance and watch `tool-loot-table-balancer` go
-   GREEN on `mobile-fit@mobile`. **Do not hand-fix the benchmark.** The proof
-   query is in `bugs_open/024` § "How to verify a fix" — match the **specific**
-   rule (`minmax(0, 2fr)`), never a generic CSS property.
-4. **Watch for up to 8 new `needs_new_component` items** fleet-wide: `toolTemplateValid`
-   now rejects 8 genuinely truncated tool templates that the old guard admitted.
-   Correct, but it is a visible side effect nobody asked for.
+1. **Fix defect 6** — the delivery blocker. It is a Go change
+   (`create_rerender_items_action.go:248`), so image-gated, and it is subtle:
+   scoping the key alone lets both a section-render and an assemble-only run, and
+   if assemble-only runs LAST it re-deploys stale (024 candidate 4 is the
+   companion rule). **Recommended: diagnosis/council loop, not a rushed patch.**
+   This is the same collision class as defect 4, one layer down.
+2. Then re-run improve→rerender→acceptance and watch `tool-loot-table-balancer`
+   go GREEN on `mobile-fit@mobile`. **Do not hand-fix the benchmark.** ⚠️ **The
+   `bugs_open/024` verify query is STALE** — the improver now writes
+   `display:flex; flex-wrap:wrap; min-width:0`, not `minmax(0, 2fr)`. Prove
+   delivery by the rendered `.ltb-row-grid` rule leaving `display:grid;
+   grid-template-columns:2fr 1fr 1fr auto` and `rendered_html` leaving 9,901
+   chars. **`flex-wrap:wrap` is a FALSE marker** (present elsewhere in the v1
+   render). Match the component's OWN rule.
+3. **Ship call site 2 of defect 5** on the next chassis image (committed
+   `3cb92dae4`, currently inert): `loadSingleComponentSchema` still rejects tool
+   templates on `</section>` in the live binary.
+4. **Watch for up to 8 new `needs_new_component` items** fleet-wide once an image
+   ships call site 2: `toolTemplateValid` rejects 8 genuinely truncated tool
+   templates the old guard admitted (`bugs_open/046`).
 
-**[UNMEASURED]** Nothing has exercised the live changes: zero work items and zero
-errors since the 17:58Z roll, on a fleet quiet since 15:00. Absence of exercise,
-not evidence of safety.
+**Council round 6 = REVISE** (10 approve / 4 object / 2 abstained). Both
+code-earning objections are already fixed in `3cb92dae4` (the second call site;
+`item_key_suffix_field` now hard-fails like `spec_paths`). Remaining objections
+answered by query in that commit message. **No `Council-Reviewed:` trailer** is
+on any of this — the Go shipped on a REVISE (swept into `bca5d8255`), and applied
+migration 180 while round 6 was still queued.
+
+**Related bugs filed this arc:** `bugs_open/044` (sibling name-heuristic, latent),
+`bugs_open/046` (8 tools serve unterminated JS on 6 live sites — truncation
+casualties `bugs_closed/012` never swept). Both grep BOTH bug dirs; `044` and
+`045` each collided with a concurrent thread's filing (see `bugs_closed/README`).
 
 **Corrected figures** (both of mine were wrong, see `WRONG_CALLS.md`): the
 exemption matches **13 of 123** active components, not 12 of 122; and **14 of 27**
@@ -173,6 +195,13 @@ poisoned a site-wide key and later rerenders were born `unresolved`.
 ---
 
 ## Turn log (newest first — update EVERY turn)
+- **T32 (2026-07-21):** **Migration 180 APPLIED; the request is PROVEN correct end-to-end; a SIXTH defect found by the proof run still blocks delivery. Round 6 = REVISE, both code objections fixed.**
+  - **180 applied** 2026-07-20 19:13:22Z (pre-flight OK, post-condition OK, snapshot `1f3ebb4a`, ledger row same sitting, `('pipeline','build')` note written). Applied via `psql -f`, not the runner — `177`/`178` are unrecorded so the runner would try to re-apply another thread's migrations.
+  - **PROOF RUN.** Cloned the real acceptance-driven `improve_tool` spec into item `216ea5fe` (do NOT hand-fix the benchmark; drive the loop). `tool-improver` ran and emitted `needs_rerender` `666619d1` carrying — for the first time in this bug's history — `item_key=rerender_tool_fix_gamesdesign.co.uk_3862f72f-…`, `spec.reason=section_data_resolved`, `spec.component_id=3862f72f-…`, `status=triaged`. **All four of 180's changes proven in one live row.** The improver also chose a DIFFERENT valid fix this cycle (`display:flex; flex-wrap:wrap; min-width:0`, not `minmax(0,2fr)`) — so the old `bugs_open/024` verify query is stale, and `flex-wrap:wrap` is a FALSE delivery marker (it lived in the v1 render already).
+  - **DEFECT 6 — still no render.** `rendered_html` is still the 9,901-char v1 with the broken grid. `create_rerender_items` produced **zero** per-page items despite `scoped=true`, a valid dependent page, and a correct spec. Cause, from `claimed_at`/`completed_at` (NOT `updated_at` — `bugs_open/035`): a reason-less `page_rerender` (`b5dbd732`) born 18:50 sat in the backlog; my `needs_rerender` ran 21:45–21:46 and its `create_rerender_items` insert of `page_rerender_tool-loot-table-balancer_<site>` **collided with the open `b5dbd732` via `ON CONFLICT DO NOTHING` → 0 items**; then `b5dbd732` ran 22:51–22:53 with no reason → assemble-only → re-deployed stale HTML. The per-page key (`create_rerender_items_action.go:248`) is site+page scoped, **not reason-aware** — same collision class as defect 4, one layer down, untouched by 180. Full write-up + 3 fix candidates in `bugs_open/024` UPDATE 2026-07-21. **This is the resume point.**
+  - **Round 6 REVISE** (10/4/2). `bug_historian` (MED) predicted a SECOND call site of the template filter from platform history — RIGHT: `loadSingleComponentSchema` still rejected tool templates on `</section>`. Fixed both via shared `componentTemplateValid` (`3cb92dae4`, inert until image). `editquality`/`bug_historian` flagged the `item_key_suffix_field` warn-and-fallback asymmetry vs `spec_paths`' hard-fail — now both hard-fail. `reuse_agent`/`improvement_guardian`/`prior_art_librarian` answered by query (no combined validator exists; only tool-improver sets the new keys; numbering confirmed). `tooling_provenance`+`debug_historian` flipped to approve.
+  - **WRONG CALL logged:** `editquality` caught that edit 4's SQL sketch in the round-6 submission **cut off mid-statement** — because I truncated the sketch at 5,200 chars when building the JSON. In a workstream about truncated artifacts reported as complete, I submitted a truncated artifact and called it complete in the rationale. `WRONG_CALLS.md`.
+  - **NEXT:** §7 — fix defect 6 (Go, `create_rerender_items_action.go:248`; council/diagnosis loop recommended, key-scoping alone reopens via last-writer-wins), ship call site 2 of defect 5, then prove delivery by the rendered `.ltb-row-grid` rule changing.
 - **T31 (2026-07-20, evening):** **The Go half of 024 is LIVE in v1.0.1140 — swept in by another session, on a REVISE verdict. A FIFTH defect found on double-check, without which the council-reviewed plan would not have worked. Migration 180 written + committed, NOT applied.**
   - **The plan got SMALLER once I read the call site.** Round 4 moved the re-render request into `update_component_html_action.go` via `createRerenderWorkItem`'s raw-SQL bypass; the owner ruled against that and the two-strike fix landed (`f6e3f3166`, inert). Reading the call site made two of three reviewed edits unnecessary: **`create_work_item` ALREADY calls `insertWorkItem`** (`create_work_item_action.go:170`) — the normal path, not a bypass. And the propagation was **already wired**: `rerender-pages.create_rerender_items` maps `reason ← input_data.spec.reason` and `component_id ← input_data.spec.component_id`, `create_rerender_items_action.go:139` sets `scoped` from both, `:243` stamps the reason onto each per-page item, which is what `check_rerender_mode` gates on. The chain works the moment the item carries both values. It carried neither, and **could not**: `spec_data` resolves as a **path** only (`action_inputs.go:125-141`), so no step could stamp a constant. Hence `spec_literal`/`spec_paths`.
   - **THE FIFTH DEFECT — the reviewed plan was a no-op.** `loadComponentSchemas` DROPS any component failing `sectionTemplateValid`, which keys on `</section>`. A tool ends `</script>`. The benchmark never entered the schemas map, so the exemption's `schemas[slot]` lookup fails and **it never fires**. 6 of 27 active tools, incl. all three gamesdesign tools. Five council rounds reasoned about the guard; **none of us asked whether the component reached it.** `toolTemplateValid` reuses the write guard's own signals (`balancedPairs` + `endsCleanly`), calibrated against all 27 live templates: 19 pass, 8 truncated fail — **4 of those 8 contain `</section>` upstream of the cut**, so the OLD guard admits them and can render broken markup.

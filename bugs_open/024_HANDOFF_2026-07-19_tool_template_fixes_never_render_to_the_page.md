@@ -2,7 +2,96 @@
 
 **Filed:** 2026-07-19 · travelling-docs thread · site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk)
 **Severity:** high — silently defeats the whole self-verifying fix loop for tool components.
-**Status:** OPEN. Diagnosed with live evidence; no fix applied.
+**Status:** OPEN. **5 of 6 defects fixed (Go live in v1.0.1140 + migration 180 applied); the 6th, found by the first live proof run, still blocks delivery.** See "UPDATE 2026-07-20 — the request is now correct, and a SIXTH defect" below.
+
+---
+
+## UPDATE 2026-07-21 (00:xx) — the request is finally correct, and it exposed a SIXTH defect that still blocks delivery
+
+The whole fix (Go in v1.0.1140 + migration 180) is applied and **the re-render
+request is now correctly formed for the first time in this bug's history.** A
+real proof run (cloned acceptance-driven `improve_tool` item `216ea5fe`) drove
+`tool-improver`, which emitted `needs_rerender` row `666619d1` carrying:
+
+| field | value | fix that put it there |
+|---|---|---|
+| `item_key` | `rerender_tool_fix_gamesdesign.co.uk_3862f72f-…` | `item_key_suffix_field` (component-scoped) |
+| `spec.reason` | `section_data_resolved` | `spec_literal` |
+| `spec.component_id` | `3862f72f-…` | `spec_paths` |
+| `status` | `triaged` (not `[unresolved after 2 attempts]`) | `recurrence_expected` |
+
+All four of migration 180's changes proven in one row. **But the page still did
+not render** — `rendered_html` is still the 9,901-char v1 artifact with the
+broken `display:grid; grid-template-columns:2fr 1fr 1fr auto` (verified in the
+stored bytes; `flex-wrap:wrap` is a FALSE marker — it exists elsewhere in the v1
+render, so do not use it to prove delivery).
+
+### Defect 6 — the per-page `page_rerender` item_key is not reason-scoped, so a stale reason-less request suppresses the real one
+
+`create_rerender_items_action.go:248` builds
+`itemKey := fmt.Sprintf("page_rerender_%s_%s", pageName, siteID)` — **site+page
+scoped, blind to `reason` and `component_id`** — and inserts with `ON CONFLICT
+DO NOTHING`. This is the same collision class as defect 4, **one layer down**,
+and migration 180 does not touch it (180 scoped the `needs_rerender` key; this
+is the `page_rerender` key `create_rerender_items` generates from it).
+
+Timeline, all from `claimed_at`/`completed_at` (NOT `updated_at`, which is
+unmaintained — `bugs_open/035`):
+
+- **2026-07-20 18:50** a reason-less `page_rerender` (`b5dbd732`, born before
+  migration 180 from an earlier run) is created and sits in the dispatch backlog.
+- **21:45–21:46** my `needs_rerender` `666619d1` runs. `create_rerender_items`
+  computes `scoped=true`, finds the dependent page, and tries to insert
+  `page_rerender_tool-loot-table-balancer_<siteID>` — **collides with the open
+  `b5dbd732` and inserts nothing.** Zero per-page items. `items_created: 0`.
+- **22:51–22:53** `b5dbd732` is finally claimed and runs. With **no reason** it
+  takes `check_rerender_mode`'s `else_step` → `rerender_single_page`
+  ("Simple concatenation - no template re-rendering") → re-deploys the **stale**
+  HTML and sets `build_status='deployed'`.
+
+So the reason-less request both **blocked** the reason-bearing one (dedup) and
+then **overwrote** the outcome with a stale assemble-only deploy. Net: the
+correct request was produced and silently discarded.
+
+### Why this was invisible until now
+
+Before migration 180 the `needs_rerender` never carried a reason, so every
+`page_rerender` was reason-less and the collision was between identical
+requests — harmless. Making the request correct is exactly what exposed the next
+collision. This is the third time this bug's chain has hidden the next link
+behind the one in front of it.
+
+### Fix candidates for defect 6
+
+1. **Scope the `page_rerender` item_key by reason (and/or component_id)**, so a
+   `section_data_resolved` request and a reason-less one are different keys and
+   cannot suppress each other. Mirrors migration 180's key scoping, but in Go
+   (`create_rerender_items_action.go:248`), so it is image-gated, not config.
+   ⚠️ Not sufficient alone: two `page_rerender` items would then both run, and if
+   the assemble-only one runs LAST it re-deploys stale. Needs a companion rule so
+   a section-render is not overwritten by a later assemble-only (e.g. don't
+   assemble-deploy when the component template is newer than the stored render —
+   this is 024 candidate 4, and defect 6 is the strongest evidence for it).
+2. **Make the reason-bearing request UPGRADE a pending reason-less one** rather
+   than dedup against it: on conflict, if the incoming spec has a section-render
+   reason and the existing row does not, update the existing row's spec instead
+   of `DO NOTHING`.
+3. **Drain/supersede stale reason-less `page_rerender` items** for a page when a
+   reason-bearing one arrives.
+
+This deserves the diagnosis/council loop, not a rushed patch — the interaction
+between key scoping and last-writer-wins is exactly where a naive fix reopens the
+bug. Recommended for the next thread; see the handoff §7 resume block.
+
+### The verify query in this file is STALE
+
+The "How to verify a fix" query below keys on `minmax(0, 2fr)`. The improver now
+writes a **different, equally valid** fix (`display:flex; flex-wrap:wrap;
+min-width:0` on `.ltb-row-grid`), so `minmax(0, 2fr)` will never appear. The real
+delivery proof is: **the rendered `.ltb-row-grid` rule stops saying
+`display:grid; grid-template-columns:2fr 1fr 1fr auto`** and matches whatever the
+current template says, AND `length(rendered_html)` leaves 9,901. Match the
+component's OWN rule, never a generic property (the T24/T28 trap, restated).
 
 ---
 

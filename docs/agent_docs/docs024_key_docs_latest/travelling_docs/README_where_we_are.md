@@ -634,3 +634,25 @@ Done — committed as ece827ead, four files, all mine.
   ※ recap: The repair loop had no memory of its own failures and would retry the same broken fix weekly forever. It now counts, stops after two, and asks a person. Verified the counting against live data first, and confirmed the tests could actually fail before trusting them. Two caveats written down rather than glossed: the escalation only helps if someone reads that list, and on this tool it'll blame the wrong culprit.
 
   > **Correction, same evening, minutes later:** I wrote above that the change "has gone through the review council". It hasn't yet — I submitted it and then described the submission as though it were a verdict. It's queued; these runs routinely sit half an hour behind other sessions' work before they start. Everything else in that entry stands. I'll say what the council actually decided when it decides, whichever way it goes.
+
+---
+
+2026-07-21 (past midnight) — the fix is real, it's proven working, and it uncovered one more thing standing between it and the page.
+
+  Where we are: five of six problems in this chain are fixed, the database change is applied, and I ran a genuine end-to-end proof. The repair agent fixed the tool, then produced — for the first time since this bug was filed — a re-render request that says exactly what it should: which component changed, why, and a properly-scoped identity so it can't be mistaken for a stale duplicate. Every one of the four things I changed is visible, live, in that one request. That half of the bug is done.
+
+  And the page still didn't update. Which is the sixth thing.
+
+  When I traced why, the request was correct but it got swallowed. There was an older, vaguer re-render request for the same page that had been sitting in the queue since the afternoon — one of the ones born before the fix, with no "why" attached. The system treats two requests for the same page as duplicates and keeps only one. So my precise request arrived, saw the vague one already waiting, and quietly stepped aside. Then the vague one finally ran, and because it had no "why", it did the cheap thing — re-published the old page unchanged — and marked the page done.
+
+  So the correct request was both blocked by the stale one and then overwritten by it. It's the same kind of mistake as one I already fixed, just one level deeper: the fix scoped the identity of the outer request, but the inner per-page request it generates still uses a name that ignores the "why". A precise request and a vague request for the same page collide, and if the vague one is already in the queue, it wins.
+
+  I've written this up in full with the timeline, and I've stopped short of fixing it tonight on purpose. It's a code change, not a config one, so it needs a build anyway — and it's the kind of fix that's easy to get half-right: if you just make the two requests distinct, you can end up with both running, and if the cheap one runs last it re-publishes the stale page again. It wants the same careful review the rest of this got, not a tired midnight patch.
+
+  One more honest note. When I sent the last review round, the reviewers caught that the migration I'd pasted into the submission was cut off halfway through — I'd sliced it to a fixed length by mistake. The migration on disk was complete and applied fine; it was only the copy I showed the reviewers that was truncated. The bitter part is that this whole project exists because the system truncates things and reports them as finished, and there I was doing it by hand. It's logged.
+
+  The review came back "revise" again, but the two objections that needed code are already done: the second hidden copy of the tool-drop bug that a reviewer correctly predicted from our own history, and an inconsistency where one guard failed loudly and its twin failed quietly — both fixed. The rest were questions I answered by querying the live system.
+
+  If you're picking this up fresh: the handoff's section 7 is the resume point, and it now says "fix defect six" at the top. Everything up to that is done and proven.
+
+※ recap: The fix is proven working end-to-end — the re-render request is finally correct, all four changes live in one real row. But the page still didn't render, because a sixth problem surfaced: the per-page request still collides with stale vague duplicates and loses. Written up in full, deliberately left for a fresh thread because it needs a build and careful review, not a midnight patch. Round 6 came back revise; both code objections already fixed. One self-inflicted embarrassment logged — I truncated the migration in the review copy, in a project about truncation.
