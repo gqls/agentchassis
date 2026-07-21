@@ -176,11 +176,18 @@ func (c *BackendEntryOrphanedCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 	}
 
 	var findings []methodMismatchFinding
+	var probeErrors int
 	for _, k := range keys {
 		d := dests[k]
-		status, perr := probeGETStatus(dctx.Ctx, domain, d.probePath)
+		status, perr := probeGETStatus(dctx.Ctx, "https://"+domain+d.probePath)
 		if perr != nil {
-			dctx.Logger.Debug("backend_entry_orphaned: probe error (not a finding)",
+			// A probe that could not RUN is not evidence the route is clean — it
+			// means this route went UNCHECKED. Count it and surface it below
+			// (Warn), distinctly from a clean 200/404, so a check whose whole job
+			// is catching a silent failure does not itself go silently blind on
+			// exactly the fragile VM backends it exists to watch.
+			probeErrors++
+			dctx.Logger.Debug("backend_entry_orphaned: probe could not run — route UNCHECKED this run",
 				zap.String("domain", domain), zap.String("path", d.probePath), zap.Error(perr))
 			continue
 		}
@@ -196,6 +203,16 @@ func (c *BackendEntryOrphanedCheck) Run(dctx DiscoveryCheckContext) (*CheckResul
 			Path: d.probePath, Status: status, LinkedFrom: pages,
 		})
 	}
+	// Distinguish "probed clean" from "could not probe". A run where routes went
+	// unchecked is NOT a clean bill of health — say so, so the check's own blind
+	// spots are visible in its output, not hidden behind a zero-findings result.
+	if probeErrors > 0 {
+		dctx.Logger.Warn("backend_entry_orphaned: some routes could not be probed — UNCHECKED this run, NOT proven clean",
+			zap.String("domain", domain),
+			zap.Int("unchecked", probeErrors),
+			zap.Int("total_paths", len(keys)))
+	}
+
 	if len(findings) == 0 {
 		return result, nil
 	}
@@ -278,13 +295,15 @@ func handlerRouteCandidate(href string) (path string, ok bool) {
 	return p, true
 }
 
-// probeGETStatus issues a GET to https://<domain><path> and returns the HTTP
-// status. GET (not HEAD) reproduces exactly what a click on the <a href> sends,
-// since a handler may treat the two methods differently. The body is discarded.
-func probeGETStatus(ctx context.Context, domain, path string) (int, error) {
+// probeGETStatus issues a GET to the given URL and returns the HTTP status.
+// GET (not HEAD) reproduces exactly what a click on the <a href> sends, since a
+// handler may treat the two methods differently. The body is discarded. Takes a
+// full URL (rather than domain+path) so the 405-discrimination can be exercised
+// against an httptest server in the unit test.
+func probeGETStatus(ctx context.Context, url string) (int, error) {
 	cctx, cancel := context.WithTimeout(ctx, probePerRequestTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(cctx, http.MethodGet, "https://"+domain+path, nil)
+	req, err := http.NewRequestWithContext(cctx, http.MethodGet, url, nil)
 	if err != nil {
 		return 0, err
 	}
