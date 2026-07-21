@@ -154,3 +154,32 @@ visible on the site until that queue drains**, which takes a while because the
 system rebuilds one page per site at a time. Anyone picking this up should check
 the live pages rather than trusting the queue's own "done" marks — that caution is
 in the handoff.
+
+---
+
+## 21 July 2026 — checked the site still holds after the new build, and cleared a fleet snag
+
+A fresh build (v1.0.1144) went out this morning. I re-checked everything the
+robot-hands work touched, against the live pages rather than the system's own
+"done" marks: the MatchMatrix tool still loads and works, the made-up numbers on
+the about and gripper-detail pages are still gone (5 grippers, not 1,200+), and the
+dead tool link is still off the homepage. All good — nothing the earlier work fixed
+came undone.
+
+One thing worth knowing for whoever picks this up next: the build itself knocked out
+the site-building queue across all the sites, the same way the last two builds did.
+It's a known problem with its own write-up; robot-hands has no work waiting so it
+doesn't affect us, but if you fire anything off at the cluster it may sit in a
+backlog for a while. I cleared the jam once, which got one job through before it
+snagged again — so it's a nudge, not a cure. The real fix is somebody else's open
+task.
+
+Also: the "listing shows a page that was never built" problem I filed (052) got
+sharpened by another session — the right test for "never built" turned out to be
+"was it ever deployed", not the flag I first used, because some pages that show as
+needing a rebuild have in fact been live for weeks. Their version catches a worse
+case on another site (a link in 28 page-footers pointing at a missing page). I've
+pointed the handoff at their correction so we don't fix it the narrow way.
+
+The handoff document is now current as of today's build, so a new chat can start
+straight from it.
