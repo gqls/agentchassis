@@ -148,11 +148,21 @@ return 200 with a non-empty `items` array.
 
 ## Related
 
-- Sibling, same family (literal not reaching an action), filed separately:
+- Sibling, ~~same family (literal not reaching an action)~~, filed separately:
   `DirectoryExportAction` aborts on an empty domain although `scheduled_tasks.input_data` carries
   one — correlation `55dc0fa4-116c-40d6-90b2-bfad9ad73692`. **Consequence: vetcomparison.uk's
   practice directory has stopped refreshing since 2026-07-17** while the site still serves the
   last good file, so nothing looks wrong.
+  > **CORRECTED 2026-07-21 — this is NOT the same family, and the grouping was never checked
+  > against the code.** `DirectoryExportJSONAction` does not use `ExtractActionInputs`; it reads
+  > `config["domain"].(string)` directly. The domain is an ordinary string — the problem is that it
+  > is one nesting level too deep, because the scheduled task's `input_data` was authored as a full
+  > message envelope and the scheduler's `fireTrigger` wraps it a second time
+  > (`input_data.input_data.domain`). Fixing the literal-string half of `ExtractActionInputs` would
+  > do nothing here. **Full root cause, fix and behavioural verification: `bugs_open/054`
+  > (FIXED & LIVE 2026-07-21, data + seed, no image roll).** Caught by reading the failing action
+  > and tracing the live `collected_data` of run `6271b72d`. The literal-*string* half of
+  > `ExtractActionInputs` (this file's §Fix candidates) remains a genuine, separate gap.
 - `/bugs_open/027` — its server-render fix is committed (`1005e1af2`) but **not deployed**
   (`persistNewsSectionHTML` absent from the running binary), so 027 stays open on the
   fixed-AND-live bar.

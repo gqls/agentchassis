@@ -91,6 +91,16 @@ INSERT INTO agent_definitions (
 -- vetcomparison.uk task — DISABLED until the image containing the action is
 -- deployed and image_tag above is updated. Owner decisions 2026-07-16 baked
 -- into config: attributed on, min_n 3, live filename preserved.
+--
+-- ⚠️ input_data is the PAYLOAD ONLY. The scheduler's fireTrigger
+-- (cmd/scheduler/main.go) supplies the message envelope itself —
+-- {action:orchestrate, config:{agent_type}, input_data:<this column>}. The
+-- original seed here wrapped the payload in a second {action,config,input_data}
+-- envelope, so fireTrigger double-wrapped it and the domain ended up at
+-- input_data.input_data.domain, one level below where the action reads. Every
+-- scheduled run since aborted "requires an explicit domain". See
+-- bugs_open/054. Correct examples in the table: ch-enrichment, vet-batch-verify
+-- (payload only, no action/config keys).
 INSERT INTO scheduled_tasks (
     name, description, target_agent_type, target_topic,
     interval_seconds, enabled, input_data, concurrency_group
@@ -100,15 +110,14 @@ INSERT INTO scheduled_tasks (
     'directory-json-exporter',
     'system.agent.business-intel.requests',
     172800, false,
-    '{"action":"orchestrate","config":{"agent_type":"directory-json-exporter"},
-      "input_data":{
+    '{
         "vertical":"veterinary","domain":"vetcomparison.uk",
         "repo_name":"sites","data_path":"data",
         "business_type_ilike":"%vet%",
         "commit_message_prefix":"Update vetcomparison.uk directory data",
         "outputs":{"directory":true,"directory_filename":"vet-full-index.json",
                    "aggregates":{"enabled":true,"min_n":3},
-                   "claimed_prices":true,"attributed_prices":true}}}'::jsonb,
+                   "claimed_prices":true,"attributed_prices":true}}'::jsonb,
     'vetcomparison-uk-exports'
 ) ON CONFLICT (name) DO NOTHING;
 

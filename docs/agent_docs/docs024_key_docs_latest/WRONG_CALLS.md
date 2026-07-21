@@ -1490,3 +1490,26 @@ nothing; refiled properly as `55dc0fa4` and verified the row this time.
 prints "intake recorded and dispatched" on success), or assert the intake row exists
 before reporting a correlation id as filed. A narrow grep over a tool's output can
 hide the one line that says it failed.
+
+### 2026-07-21 — bugs_closed/042 grouped its sibling as a "literal-string" bug without reading the failing action
+**Asserted:** (in 042's §Related and fix-candidate 2) that the directory-exporter
+sibling — `DirectoryExportAction` aborting on an empty domain, correlation `55dc0fa4` —
+was the same `ExtractActionInputs` literal-string family as 042 itself: "a literal domain
+string does not reach the action".
+**Actually:** `DirectoryExportJSONAction` does not use `ExtractActionInputs` at all; it
+reads `config["domain"].(string)` directly. The domain is an ordinary string. The real
+cause is that the scheduled task's `input_data` was authored as a full message envelope,
+which the scheduler's `fireTrigger` wraps a SECOND time, so the domain lands at
+`input_data.input_data.domain` — one nesting level below where the action reads. A data
+bug, not a code bug; fixed live in the DB + seed with no image roll (`bugs_open/054`).
+**Caught by:** reading the failing action's source and running
+`jsonb_pretty(collected_data->'input_data')` on the failed run (`6271b72d`), which showed
+the double-nested envelope verbatim.
+**The cheap check that would have caught it:** open the action named in the symptom
+before assigning the bug to a family. The family label was inferred from the shared
+symptom ("required field absent → abort"); one read of `directory_export_action.go`
+would have shown it shares neither the code path nor the mechanism. Symptom-family is not
+cause-family.
+**Cost:** none downstream — caught before the literal-string `ExtractActionInputs` change
+was attempted on a bug it could not have fixed. The literal-string half of 042 remains a
+real, separate gap.

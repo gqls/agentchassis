@@ -2645,3 +2645,43 @@ stale deploy"* and *"The pod-grep passes even when nothing shipped"* (same famil
 check that passes on something other than what you meant); §9 *"A fix applied to one
 branch of a two-branch router reads as done"* (the sibling entry from the same bug);
 `WRONG_CALLS.md` 2026-07-20 for the near-miss this came from.
+
+### A scheduled task's `input_data` authored as a full message envelope double-wraps — the payload lands one level too deep and the action aborts as if unconfigured (2026-07-21)
+
+**Symptom.** A config-driven action fails on a REQUIRED field it was clearly given —
+here `directory_export_json` aborted "requires an explicit domain" while
+`scheduled_tasks.input_data` plainly carried `domain: vetcomparison.uk`. Reproduces
+every run; looks like the config was ignored (cf. `bugs_closed/042`, a genuine
+config-ignored bug — same symptom, different cause).
+
+**Mechanism.** The scheduler's `fireTrigger` (`cmd/scheduler/main.go`) is generic: it
+ALWAYS builds the Kafka body as `{action:orchestrate, config:{agent_type},
+input_data:<the whole scheduled_tasks.input_data column>}`. So the column must hold the
+**payload only**. This task's seed had wrapped the payload in its own
+`{action,config,input_data:{...}}` envelope, so the body became double-enveloped and the
+real fields sat at `body.input_data.input_data.*`. `BuildCollectedData` unwraps exactly
+one `input_data`, so `collectedData["input_data"]` = `{action,config,input_data:{domain}}`;
+the action merges that one level and finds no `domain`. The action's hard refusal was
+**correct fail-closed behaviour** — the data was wrong, not the code (`bugs_open/054`,
+FIXED & LIVE 2026-07-21, DB + seed, no image roll).
+
+**The transferable rules.**
+1. `scheduled_tasks.input_data` is the PAYLOAD ONLY — the scheduler supplies
+   `action`/`config`/the `input_data` wrapper. Never put those keys *inside* it. Correct
+   models already in the table: `ch-enrichment`, `vet-batch-verify`, `vet-sweep-continue`.
+2. When a required field is "present but missing", print the field's ACTUAL path in the
+   live `collected_data`, not the DB column — the gap is almost always a nesting level,
+   not an absent value. One `jsonb_pretty(collected_data->'input_data')` on the failed
+   run ended this in one query.
+3. Do NOT "fix" it by teaching the transport to flatten a nested `input_data`: that
+   reintroduces the `bugs_closed/042` regression class (a legitimate payload field named
+   `input_data`/`action`/`config` would be silently eaten). Fix the data; document the
+   contract.
+4. Symptom-family ≠ cause-family. 042 grouped this bug as "literal string not reaching
+   an action" from the symptom, without reading the failing action — which does not even
+   use `ExtractActionInputs`. Read the action before assigning a case to a family.
+
+**Related:** `bugs_closed/042` (the mis-grouped sibling; corrected there);
+`bugs_open/054`; §9 *"Manually invoking an agent via spawn+call — input_mapping must
+satisfy BOTH the input_contract AND the workflow's field paths"* (same nesting-contract
+family); `WRONG_CALLS.md` 2026-07-20 (the diagnosis-filing near-miss on this same case).
