@@ -535,3 +535,59 @@ three-day window that I have widened to thirty and fixed in both places it lives
 that the news system was broken fleet-wide — it was just late, and I have withdrawn that. The
 more serious thing is that the directory exporter has been failing since Sunday, so the practice
 list has quietly stopped refreshing even though the site still looks fine.
+
+---
+--
+
+Good news to start with: the news feed is now actually working, and the homepage has finally
+rebuilt itself into the proper version. If you look at vetcomparison.uk now you'll see the richer
+page with the working practice search, and underneath it three real CMA news items — the funding
+consultation, the market investigation, and a new impact-assessment publication — each linking
+back to gov.uk. And importantly, that news is now written into the page itself, so a search engine
+that doesn't run JavaScript can read it. That was the whole point of the exercise.
+
+The thing that unblocked it was the bug I found yesterday — the one where a setting you change in
+the database silently does nothing. That fix went out in the new build, so the thirty-day news
+window is finally real, which is why items from a few weeks ago now show up instead of being
+thrown away. I've marked that bug closed, because it's now both fixed and live and I could prove it
+by watching the news actually appear.
+
+Two honest caveats on the render, because it dragged a couple of things back in when it rebuilt the
+page. It restored the dead second search box I'd removed on Saturday, and it wiped the protective
+locks we'd put on the components after the fabrication incident. I've removed the dead box again,
+more thoroughly this time so it should stay gone. The locks being wiped is the more interesting
+finding: it turns out those locks don't survive a full page rebuild at all — the rebuild throws the
+old components away and makes fresh ones, and the lock goes with the old one. The reassuring part is
+that when it rebuilt, it produced clean content with no invented data, so nothing bad actually
+happened this time. But it means we can't rely on those locks as protection, and I've written that
+up against the fabrication bug so nobody trusts them again.
+
+Now the thing that still needs attention. The job that refreshes the list of 2,109 practices is
+still failing, and has been since Sunday. The site doesn't look broken — it's still serving the
+last good copy — but the list has quietly stopped updating. It'll try again tonight around 8:25. I
+should be straight with you: the fix I made yesterday does NOT cover this one. Mine handled numbers
+not reaching the code; this is a text value (the website's own name) not reaching the code, which
+is a close cousin I deliberately left alone because fixing it carelessly could hide real bugs
+elsewhere. So this one probably needs someone to sit down with that specific bit of code rather than
+wait for the automated diagnosis — which, frankly, hasn't been delivering. Every diagnosis I filed
+this session got stuck partway and never produced an answer; I've written that up as its own
+problem.
+
+I also owe you some corrections on my own work, which I've filed properly this time. I told you
+yesterday that a couple of my review submissions had been "dropped" and I resubmitted them. That was
+wrong twice over: they weren't dropped, they were just slow — about an hour, which the guidance now
+says is normal — and they were invalid anyway because I'd formatted them in a way the reviewer
+rejects. And earlier I declared the whole news system broken across every site when it was simply
+running late. Both of those, and one where I reported something as filed when it hadn't been, are
+now written into our shared log of wrong calls, because the pattern in all three is the same: I read
+"nothing here yet" as "it failed", on systems that queue.
+
+I've written a fresh handoff dated today so a new chat can pick up cleanly. The short version: the
+news feed works, the big config bug is fixed and shipped, and the one live problem left is the
+practice-list exporter, which needs a human look rather than the automated loop.
+
+※ recap: news feed live and server-rendered; the config bug that blocked it is fixed and shipped and
+closed; the dead search box is removed again and the protective locks turned out not to survive a
+rebuild (no harm done this time). Still failing: the directory exporter that refreshes the practice
+list — next attempt tonight ~20:25, and it needs a person, not the loop. New handoff written for the
+next thread.

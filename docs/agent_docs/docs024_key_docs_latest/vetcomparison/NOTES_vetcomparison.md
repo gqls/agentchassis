@@ -577,3 +577,48 @@ less visible failure than the one being fixed. Inert until the next image roll.
 next build, 042's fix makes `max_age_hours: 720` real, the two CMA items load, the JSON
 publishes, and 027 server-renders them into the page for crawlers. Verify in that order —
 pod, then artefact, then page — and trust none of the statuses.
+
+## 2026-07-21 — v1.0.1144: the feed works, the render landed, and what it dragged back in
+
+Re-read CLAUDE.md from disk first (it had moved: council ~30 min latency clause, WRONG_CALLS,
+`[INFERRED]` markers, who-owns.py). Verified v1.0.1144 against the **pod**.
+
+**042 is live and the news feed works.** `strings /app/agent-chassis | grep -c 'took literal
+scalar config value'` → 1 (Strategy 5 present). Behavioural proof: `/data/latest-news.json` → 200,
+`item_count: 3`, real CMA items 460h+ old — impossible under the silent 72h fallback. 042 moved to
+`bugs_closed/`. The homepage is now the 46.7 KB chassis render with 3 server-rendered news cards in
+the raw HTML.
+
+**027's `persistNewsSectionHTML` is gone** (pod grep → 0). Another session reworked 027 through the
+council (REVISE → queryresolve resolvers) and the v1.0.1142 sweep `2d529d6dc` removed the function.
+News is still server-rendered, so 027's goal is met by their approach — 027 is theirs now.
+
+**The 08:08 render dragged two things back:**
+- The dead `filtered-result-grid` I deleted on 07-19 returned. `pages.sections` still listed it, and
+  the regenerate path reads the manifest.
+  > **CORRECTION to my 07-19 claim.** I wrote then that editing `pages.sections` is "a silent
+  > no-op" because both *assembly* paths read `page_components` by position. True for assembly —
+  > but the *regeneration* path (full rebuild) reads `pages.sections` to decide which components to
+  > materialise. So sections is load-bearing for rebuilds, not for assembly. Removing a component
+  > durably needs BOTH: delete the `page_components` row AND remove it from `pages.sections`.
+  > Done today; snapshot `_vetcomparison_bak_20260721_index_components` first. DB clean; live page
+  > updates on the next render.
+- Every `bug-020` `permanent` lock was stripped. Verified delete-and-recreate, not in-place clear:
+  `hero`'s row id changed `c8df695e…` → `24060593…`. Filed to `bugs_open/020`: a lock on the old
+  row cannot survive a rebuild that replaces the row. Content regenerated clean (real fetch intact,
+  zero fabrication), so the exposure is latent — but no lock-based mitigation here survives a
+  rebuild.
+
+**Reconciled the pending runs by PAYLOAD (per new CLAUDE.md), not the printed id:**
+- Both council submissions (712be028, 563462b8) COMPLETED ~1 h after submission at
+  `complete_invalid` — `__step_error`: *"edit 2: operation 'create' not in the allowlist"*. They
+  were structurally invalid (I included a file-create edit for the test), never dropped. My
+  "dropped → resubmit" call on 07-20 was wrong on both counts (latency, and the plan was invalid
+  regardless). Logged in WRONG_CALLS; corrected the false council-linkage in `bugs_open/043`.
+- All three diagnosis runs (f155b0c4, 55dc0fa4, 459fbdf3) produced bundles but **no verdict** —
+  each has a FAILED/`route` row. `bugs_open/043` route-hang stands on these alone.
+
+**Exporter (55dc0fa4) still unresolved.** Last run 07-19 20:25 FAILED; next ~tonight 20:25. My 042
+fix is numeric-only and does NOT cover the literal-string domain case, so it will likely fail
+again — needs a human read of `directory_export_action.go`, not the loop (which isn't returning
+verdicts anyway).
