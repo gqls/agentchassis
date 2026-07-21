@@ -132,3 +132,33 @@ sitting in a real queue, not lost. Past measurements put the wait anywhere from
 about 25 minutes to a few hours depending on how busy things are right now.
 I'm not going to resubmit it or force anything — that would just create a
 duplicate and waste money — I'll check back on it.
+
+**2026-07-21** — It ran. Overnight the pipeline built almost the whole site on
+its own, and it came out genuinely on-brief. The palette is a smart dark navy
+and amber, the design instructions correctly say people are line-drawn with one
+consistent tint and never photographed, charts are to be drawn from real data
+rather than generated as pictures, and — the bit I'm most pleased about — the
+pages it created are named for exactly the things we decided to lead with: a
+multi-agent review council page, a fine-tuning page, and a page that tells the
+"we caught our own mistake" story and names leopardess directly, just as you
+approved. So the brief carried all the way through the machine.
+
+It's not live yet, and the two reasons why are actually the honest, useful part.
+Five of the content pages, the homepage among them, are being held back by our
+own content-checking gate — one issue flagged on each — while two other pages
+passed fine. I can't yet see what the gate is objecting to, because the logs
+that would tell me got wiped when the fresh build (v1.0.1144) restarted the
+system. Rather than guess, the right move next thread is to rebuild one page and
+watch it get rejected live. The second reason: nothing's actually being served
+to a browser yet. The domain's DNS has now switched over to our setup, but the
+pipe from our built pages to what a visitor would see isn't delivering, and I
+haven't got to the bottom of why — part of it is probably a hosting step at your
+end, like when idea.uk went live. Worth knowing: our database happily says two
+pages are "deployed" when nothing actually loads, which is exactly why we never
+trust the status and always check the real page.
+
+I've written a proper handoff (HANDOFF_2026-07-21_start_here.md in this folder)
+so you can open a fresh chat and carry straight on — it has the current state,
+the two things to fix, and the still-to-come component build, all with the IDs
+and commands needed. Nothing here is broken or half-done in a risky way; it's a
+built site waiting on its last mile.

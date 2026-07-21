@@ -552,3 +552,79 @@ headline stat — but per the exclusion list above, don't enumerate
 leopardessconsulting by name without sign-off; a rounded framing ("content
 sites, an interactive game platform, a paid tool with real payments, a revived
 expired domain") works without naming every one.
+> **UPDATE 2026-07-20 (later): owner approved naming leopardessconsulting
+> directly** (see the exclusion-list update above and PLAN Open Decisions #8).
+> The "name it" approval is specifically for the self-correction case study.
+
+## 2026-07-21 — the onboarding RAN; site built overnight; two blockers to live
+
+All [VERIFIED] against the live DB / live HTTP on 2026-07-21, on chassis
+**v1.0.1144** (image tag confirmed on running pod `agent-chassis-59c675c4f-pxr9f`
+and on the deployment — the fresh build the owner flagged is live). Full
+readable write-up: `HANDOFF_2026-07-21_start_here.md` (the new cold-start entry
+point). Condensed evidence here:
+
+- **The queued trigger survived and completed.** Domain-submitter orchestration
+  `c6a53a35-...` (corr `099ca178-...`) COMPLETED 2026-07-20 20:36. The
+  `bugs_open/030` queue wait resolved on its own, exactly as that bug says it
+  would — **the decision NOT to retry was correct**; a retry would have been a
+  wasted duplicate.
+- **The whole spec cascade completed overnight** (verified via `site_specs`):
+  submission → mission_brief → identity → classification → content_direction →
+  design_intent → vertical_landscape → strategy → briefing →
+  resolved_composition, all `is_current=t`. Note a step not in the CLAUDE.md-era
+  mental model: a `vertical-exemplar-researcher` agent ran between classifier
+  and strategist (aspect `vertical_landscape`) — the pipeline has a
+  best-in-class-exemplar research step now.
+- **The mission brief propagated faithfully** — this is the headline. Verified
+  `design_intent.imagery_direction` reads, verbatim: *"Line illustration only
+  for any human or figurative element — never photography of real or generated
+  individuals. All illustrations treated with a single consistent tint (navy or
+  amber overlay...) ... Charts are real, code-generated from verified data ...
+  No decorative data visualisation."* Palette resolved to a dark consultancy
+  navy/amber (`primary #0E1B2E`, `accent #C8902A`, `background #090F1A`). Pages
+  created by name include `multi-agent-review-council`, `model-fine-tuning`,
+  `self-correction-leopardessconsulting`, `capabilities`, `platform-log-index`,
+  `tool-decision-record` — i.e. our chosen pillars became real pages. Every
+  owner decision from 2026-07-20 shows up in the machine's output.
+- **Page build states**: `contact` + `model-fine-tuning` = `deployed` (DB);
+  `index` + `about` + `capabilities` + `multi-agent-review-council` =
+  `needs_rebuild`; `platform-log-index` + `self-correction-leopardessconsulting`
+  + `tool-decision-record` = `planned`.
+- **Blocker 1 — content-validation gate.** 5 content pages sit at
+  `needs_human_review` with `validate_content failed: ... content validation
+  failed: 1 blockers, 0 errors` — one blocker each, consistent, but `contact`/
+  `model-fine-tuning` passed, so it's content-specific not universal. **The
+  blocker reason is NOT in the DB** (`site_work_items.result` jsonb is empty)
+  and **the overnight logs rotated on the v1.0.1144 restart** — so it is
+  currently [UNRECOVERABLE without a live re-fire]. Next thread: re-fire one
+  blocked page and capture the blocker from the chassis log during
+  `validate_page_content`. **Do NOT assume the cause** — candidate hypotheses
+  (leopardess-class `contact-block` placeholder-email false positive; a
+  claims/banned-language blocker legitimately firing on honesty-heavy copy) are
+  UNVERIFIED. Also 2 pages failed differently: `page-build-handler no-op: no
+  sections ready to build (empty spec sections)` — a planner-level empty-section
+  issue, separate from the validation gate.
+- **Blocker 2 — nothing serves.** DNS has propagated to Cloudflare (NS now
+  `alexis`/`leah.ns.cloudflare.com`, matching the live fleet). But
+  `https://fundamentallyai.com` returns a Cloudflare **404** at root, `/contact`
+  times out (000), `/model-fine-tuning` 404s — i.e. even the DB-"deployed" pages
+  don't serve. `sites.github_repo`/bucket empty, but **that's normal** —
+  robot-hands.com and leopardessconsulting.co.uk are both live with those empty
+  (the B2 fleet deploys per-domain dirs via a *separate portfolio repo* the
+  git-adapter pushes to + `deploy-to-b2.yml`, NOT via `sites.github_repo`;
+  neither `fundamentallyai.com/` nor `robot-hands.com/` exists in THIS repo,
+  confirming the deploy dirs live elsewhere). So the serving gap is [INFERRED,
+  NOT YET DIAGNOSED]: either the git-adapter hasn't pushed rendered pages to the
+  portfolio deploy repo, or the new Cloudflare zone's origin→B2 wiring isn't set
+  up (likely a per-domain infra/owner step, as idea.uk's cutover was). Flagged
+  as next-thread action #2, not solved this session.
+- **2 `needs_section_data` items** (correctly asking for real data, not
+  inventing it): `portfolio-showcase` on index needs real project data;
+  `contact-info` needs a business email. Feed our own 11 real sites (honestly
+  labelled as ours) + a real address.
+- **The fancy components still don't exist** — the pipeline built this site from
+  the *existing* standard section components. The carousel/hover-zoom/swipeable
+  components are still a from-scratch build (Thread B in the handoff). Today's
+  site proves the *content/positioning* half; the *visual-components* half is
+  the remaining original ask.
