@@ -676,3 +676,78 @@ moving `kafka-scheduler` to its own lane (030 candidate 3) must preserve 029's
 Both `[UNVERIFIED]` items are now resolved. What remains genuinely unverified is only
 the core root-cause claim (inline handler vs `PartitionCount`), which is the subject
 of diagnosis corr `78470372` — still unstarted, queued in this very backlog.
+
+## CORRECTION 2026-07-21 (bugfix-030 thread) — the "aliasing landmine" was a special case of a UNIVERSAL +1-tick offset; and a config fix is now live
+
+> **This corrects the "tick aliasing" landmine two sections up.** That entry said a
+> 30 s task fires every 60 s because `interval == TICK_INTERVAL_SECONDS` is a special
+> aliasing case, and implied that setting `interval_seconds` to a clean multiple of
+> the tick removes it. **Both halves are wrong.** Verified today by changing the two
+> jobs and measuring, and confirmed against the scheduler source.
+
+**The real rule: effective fire period = `interval_seconds + TICK_INTERVAL_SECONDS`,
+for any interval that is a multiple of the tick.** Measured, three points:
+
+| interval_seconds | TICK | measured effective period |
+|---|---|---|
+| 30 | 30 | **60 s** (yesterday) |
+| 60 | 30 | **90 s** (today: gaps 90,90,91,89) |
+| 120 | 30 | **150 s** (today: gaps 151,149) |
+
+Evidence: `docs024_key_docs_latest/dispatch_queue_serialisation/EVIDENCE_fire_intervals_2026-07-21.txt`.
+
+**Why (from `cmd/scheduler/main.go`, not inferred):** `last_triggered_at` is stamped
+`NOW()` at **fire time** — late in `runTick`, after `loadDueTasks`, the concurrency
+check, the pre-query and `fireTrigger`. But the due test `last_triggered + interval
+<= NOW()` is evaluated by `loadDueTasks` at the **start** of a later tick. At the
+exact boundary tick (`last + interval` landing on a grid tick), the stamped-late
+timestamp is reliably a hair greater than the checked-early `NOW()`, so `<=` fails
+and the task slips to the **next** tick. The extra tick is therefore **not** special
+to `interval == tick` — it happens at every multiple. `interval == tick` only *looked*
+special because 30→60 is a doubling; 60→90 is ×1.5 and 120→150 is ×1.25, because the
++30 is absolute, not proportional.
+
+**So my earlier advice "pick a clean multiple of the tick" was exactly backwards** —
+multiples are the case that lands on the boundary and takes the extra tick. To get a
+target effective period **P** (a multiple of 30), set **`interval_seconds = P − 30`**.
+(A non-multiple just rounds up to the next grid tick with no extra: `interval = 45`
+gives 60 s, not 90.)
+
+### The fix that is now LIVE (config only, no image roll)
+
+```sql
+UPDATE scheduled_tasks SET interval_seconds = 60,  updated_at = now() WHERE name = 'ai-endpoint-health-check';  -- was 30
+UPDATE scheduled_tasks SET interval_seconds = 120, updated_at = now() WHERE name = 'build-pipeline-trigger';    -- was 30
+```
+
+Effective periods measured after: health-check **90 s**, build-pipeline-trigger
+**150 s** (both `= interval + 30`). Load effect:
+
+| | before (effective 60 s each) | after |
+|---|---|---|
+| ai-endpoint-health-check | 1.00/min | 0.67/min |
+| build-pipeline-trigger | 1.00/min | 0.40/min |
+| two dominant, combined | 2.00/min | **1.07/min** |
+
+Estimated total scheduled production **2.60 → ~1.67/min**. The single consumer was
+measured at ~1.43/min *under congestion* — and that figure rises as fewer expensive
+build chains are started (build-trigger now fires 2.5× less often), so the two should
+now be much closer to balanced, possibly balanced. **First post-change LAG reading:
+20** (was 82→168 and diverging yesterday) — but that is **one reading** and overnight
+quiet-hours draining is a confounder, so it is consistent-with-improvement, **not**
+proof. A proper before/after needs a LAG trend across a busy window (RUNBOOK R7/R2
+caveats apply).
+
+**Why these two, and why the values are safe:**
+- `ai-endpoint-health-check` is the only high-frequency **unconditional** job. 90 s
+  still honours the endpoints' own `check_interval_seconds` (claude 3600 s,
+  cpu-ollama 60 s → now checked at 90 s, mildly stale but fine for a health signal;
+  gpu-ollama wants 30 s but is `healthy=f` and was already at 60 s). [VERIFIED]
+- `build-pipeline-trigger` starts the **expensive** multi-step build chains — the
+  ones that hold the single consumer for minutes. Firing them 2.5× less often is the
+  lever that matters; build-pickup latency rises to ≤150 s, fine for minute-scale
+  builds. Capped by `max_concurrent = 8` (`dispatch` group), unchanged, so no
+  interaction with `/bugs_open/029`'s gate.
+
+**Reversible:** `UPDATE scheduled_tasks SET interval_seconds = 30 WHERE name IN
+(...)` — but that restores the higher load (and the 60 s effective period).

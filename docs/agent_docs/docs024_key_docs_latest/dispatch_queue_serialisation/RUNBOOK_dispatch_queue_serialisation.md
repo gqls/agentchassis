@@ -165,9 +165,9 @@ reads every tick, so this is **live immediately** and trivially reversible.
 **Before** (captured): both `interval_seconds = 30`.
 
 ```sql
--- APPLIED 2026-07-21. Both new values are exact multiples of TICK_INTERVAL_SECONDS
--- (30), so they fire deterministically and the every-30s-fires-every-60s aliasing
--- landmine (R2 / bug landmine) is gone.
+-- APPLIED 2026-07-21. Reduces the two dominant jobs' firing rate.
+-- NOTE: measured effective periods are interval + 30 (see caveat below), so these
+-- fire at 90 s and 150 s, not 60 s and 120 s.
 UPDATE scheduled_tasks SET interval_seconds = 60,  updated_at = now()
   WHERE name = 'ai-endpoint-health-check' AND interval_seconds = 30;
 UPDATE scheduled_tasks SET interval_seconds = 120, updated_at = now()
@@ -196,10 +196,16 @@ UPDATE scheduled_tasks SET interval_seconds = 30, updated_at = now()
 (But if you reverse, note you are restoring the aliasing landmine — the tasks will
 again read as 30 s while firing at 60 s.)
 
-**Choosing any future interval:** effective period **quantises to the 30 s tick** —
-the task fires on the first tick at or after `last_triggered + interval`. So 45 s
-gets you 60 s; ask for a multiple of 30. And never set `interval_seconds` equal to
-`TICK_INTERVAL_SECONDS` — that is the aliasing case.
+**Choosing any future interval (CORRECTED 2026-07-21 — I had this backwards):**
+the effective fire period is **`interval_seconds + TICK_INTERVAL_SECONDS`** whenever
+`interval_seconds` is a multiple of the 30 s tick. Measured: 30→60, 60→90, 120→150.
+The +30 is because `last_triggered_at` is stamped late in the tick (at fire time)
+while the due-check reads `NOW()` early in the next tick, so the boundary tick always
+fails `last + interval <= NOW()` and slips one tick — this is universal, **not** a
+special `interval == tick` aliasing. So **to get a target effective period P (a
+multiple of 30), set `interval_seconds = P − 30`.** A non-multiple just rounds up to
+the next grid tick with no extra (45 → 60). The two live values (60, 120) are exact
+multiples, so they fire at 90 s and 150 s respectively — deliberately, for headroom.
 
 **Verify against the running scheduler, not the config:**
 ```sql
