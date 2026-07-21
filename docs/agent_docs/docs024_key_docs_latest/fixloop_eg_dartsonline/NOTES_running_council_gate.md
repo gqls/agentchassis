@@ -349,3 +349,60 @@ the line.
 (supersedes the 07-17 one, which described a gate that did not yet exist).
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
+
+> **Turn 7 was written concurrently by two sessions — merged 2026-07-21.** This
+> thread and its sibling "fixloop council on every bugfix" both picked up the
+> handoff at once, both ran the same measurement, and both filed against the
+> *same single* diagnosis (corr `fa333384-c3bc-4c7e-8d26-105f25ade755`; verified
+> in the DB as ONE intake item `needs_diagnosis:council-approve-threshold` — so no
+> wasteful duplicate run, and the run had already started when I checked: orch
+> `2556c072` COMPLETED, `9d86cb45` executing `route`). My near-identical copy is
+> folded into the fuller entry below to leave one record; the collision itself is
+> the multi-session hazard, recorded rather than tidied away silently.
+
+## Turn 7 — 2026-07-21 — measured the approval rate (~4.5%); filed a diagnosis on the decision rule
+
+Picked the thread back up. Ran the probes from the handoff first: `016` second
+finding still UNEXERCISED (`load_council_reviews` audit count = 0); gate and
+`fix-proposer` both at **16 seats**, zero drift.
+
+**On-mission measurement, grounded in `diagnosis_artifacts` kind=`council_report`
+`metadata->>'decision'`:**
+
+| window | revise | rejected | approved | distinct corrs | approvals |
+|---|---|---|---|---|---|
+| 2 days | 73 | 2 | 1 | 25 | 1 (`17be3962`, an experience PLAN — not a bugfix) |
+| 7 days | 123 | 3 | 2 | ~44 | 2 |
+
+Rounds-per-correlation (2d): threads DO iterate — correlations reach 3/4/5/6/**7**
+rounds and still land REVISE. The lone 2-day approval took 5 rounds. `098` in the
+same window: **0 REVIEWED, 45 UNREVIEWED** (nearly all `fix(bugs_open/NNN)`), 1
+MISMATCH. So adoption is real (25 submissions, 56 gate verdict notes / 2d) but
+approval is ~4.5% → trailer-coverage is structurally stuck near 0 and PR-mode is
+unbuildable as designed at this rate.
+
+Caveats recorded honestly: council_report is `source_agent='generic'` fleet-wide,
+so this rate spans ALL councils, gate is a subset I can't cleanly split; and
+approved reports are deletable (handoff item 4), so the approved count is a FLOOR.
+
+**Owner chose: diagnose the low approval rate** (over accept-as-is / recalibrate /
+carry-on-mid-flight).
+
+**Quick code read → hypothesis (UNVERIFIED, under diagnosis):** `decideCouncil`
+(`diagnose_council_decide_action.go:535-552`) is ordered veto→veto→**object→revise**
+→all-approve. Rule 3 returns `revise` on ANY single readable `object`, and
+`councilObjection.Severity` (`low|medium|high`, line 87) is **never consulted** in
+the decision. So a lone low-severity nit from 1 of 16 seats blocks exactly as hard
+as a high-severity flaw, and `approved` needs unanimous bare approve. This would
+explain the rate mechanically — but per CLAUDE.md "confidence is not a signal", I
+filed it rather than asserting it.
+
+**Filed:** `090` → corr `fa333384-c3bc-4c7e-8d26-105f25ade755`, item
+`needs_diagnosis:council-approve-threshold`, REF = current branch (origin tip
+`2d529d6dc` confirmed to carry the severity-free rule at line 548),
+SEED_SCOPE = `diagnose_council_decide_action.go:decideCouncil`. The symptom points
+the loop at `decideCouncil` + unused `Severity`, the `council_decide` config in
+`agent_definitions`, and `council_report` `body->'reviews'` — to check whether
+each REVISE was decided by a lone `object` while other seats approved, and at what
+severity. A REFUTE (deciding objections are substantive/high across seats) is a
+success: it says the plans genuinely need the work, not the rule. Budget ~30 min.

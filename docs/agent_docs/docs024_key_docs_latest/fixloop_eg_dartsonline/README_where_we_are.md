@@ -128,3 +128,48 @@ chat can pick this up cleanly. The one genuinely unfinished item is a fix to the
 fix loop's reviser: it's applied and correct in configuration, but the fix loop
 hasn't run since, so it has never actually executed. I'd rather say that plainly
 than let it read as done.
+
+---
+
+**2026-07-21 — the council almost never says "approved", and I want to know why
+before we build anything on top of it.**
+
+I picked this thread back up and, before touching any of the leftover jobs, I
+counted how the council is actually doing on its own mission: reviewing every
+bugfix. The good half is genuinely good — over the last two days twenty-five
+separate changes were put through a council, and threads are doing it without
+being told to. Adoption is real. That was the hard part and it's working.
+
+The other half stopped me. Of those twenty-five, exactly **one** came back
+"approved" — and that one wasn't even a bugfix, it was a plan from a different
+part of the system. Over a whole week it's the same story: about forty-four
+changes reviewed, **two approved**. Everything else came back "revise", and
+people are clearly trying — some changes went through five, six, even seven
+rounds and still never got a yes.
+
+Two things follow from that, and both matter to you. First, the coverage report
+we use to measure the whole effort will keep reading nearly zero, because it only
+counts changes that got an *approval* stamp, and approvals essentially don't
+happen — so the number looks like nobody's using the council when in fact
+everybody is. Second, and more serious: the enforcement mode we've talked about
+building — where the council can actually *block* a commit — would, at this
+approval rate, block almost every bugfix on the platform. We cannot build that on
+top of a council that says no ninety-five times out of a hundred.
+
+So the real question isn't "is the council useful" — the objections it raises are
+clearly good — it's "why is a yes almost unreachable, and is that right?" When I
+read the code that tallies the reviewers' votes, I found something that would
+explain it: the rule approves a change only if *every single* reviewer says yes,
+and a single objection from any one of the sixteen — however minor — sends the
+whole thing back. The reviewers do grade their objections as low, medium or high,
+but the tallying code never looks at that grade, so a tiny nit counts exactly the
+same as a serious flaw.
+
+That's a strong hunch, not a verdict, so I've done what our own rules say to do
+with a strong hunch about how the platform works: I've handed it to the diagnosis
+loop to confirm or knock down against the live evidence, rather than asserting it
+and acting. If it holds, the fix is small and worth having — let a change pass
+when the only things left are minor. If it's knocked down, then the plans really
+do need the work and the honest move is to stop chasing approvals and just take
+the objections and ship. Either answer is useful. I'll report back when it lands
+(about half an hour).
