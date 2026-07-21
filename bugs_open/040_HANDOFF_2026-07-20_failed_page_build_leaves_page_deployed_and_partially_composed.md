@@ -18,11 +18,32 @@ the page also gets stamped with the current plan version, the reconciler will no
 
 ---
 
-## FIX APPLIED 2026-07-21 — candidate 1 (structural), fixed-but-inert until an image roll
+## FIX APPLIED 2026-07-21 — candidate 1 (structural), ALREADY LIVE on v1.0.1146
 
-**Status: FIX COMMITTED, not yet live.** Stays OPEN until the chassis image rolls (Go change is
-inert until rebuilt+deployed). This is the structural fix: a page must not be stamped
+**Status: FIX LIVE, behavioural firing not yet observed. 040 STAYS OPEN** (the section-DROP root
+cause is separate and unfixed — see below). This is the structural fix: a page must not be stamped
 `deployed` + `built_from_plan_version` unless every planned section was written.
+
+> **It went live faster than expected — via another session's build, not mine.** I edited
+> `v3_site_actions.go`, and before I committed it a concurrent add-all sweep committed it into
+> `fe2ba5e52` ("v1.0.1146 - sweep"), which then built and deployed the chassis image. So the Go
+> source shipped in **v1.0.1146** without my ever running a build — the exact
+> "committed code rides ANYONE's next sweep build, and builds are from HEAD" lesson. **Verified live
+> against the running pod binary** (not the tag): `strings /app/agent-chassis | grep -c "build is
+> short of its plan"` → 1, `"planned sections rendered"` → 1, positive control `"no rendered
+> components"` → 2. This commit carries only the **test + docs**; the Go source is in `fe2ba5e52`.
+>
+> **What is proven vs not.** LIVE in the binary ✓; decision logic unit-tested ✓
+> (`page_section_shortfall_test.go`: refuse 6/5, allow 4/4, allow 5>3, allow 0/0); SQL live-validated
+> ✓ (dartsonline → `testimonials` missing; 28 pages fleet-wide; `gaswholesalers.com/services` 4=4 NOT
+> flagged). **NOT yet proven: an actual live partial build being refused** — the guard is passive
+> until a build with a shortfall reaches the deploy mark, and none has since the 12:15:20Z roll
+> (`kubectl logs <chassis pod> | grep "short of its plan"` → 0). This is deployment, not correctness
+> (the "verify the failing branch" rule). To catch the first natural firing:
+> `kubectl -n ai-persona-system logs -l app=agent-chassis --since=1h | grep -i "short of its plan"`.
+> A forced proof (rebuild a known-partial page and assert it flips to `needs_rebuild` with the stamp
+> cleared) is deliberately NOT done here — it dispatches into the contended queue (`bugs_open/030`,
+> ~30-min latency) and, for a deterministic-drop page, starts the rebuild churn described below.
 
 **Where.** `platform/orchestration/actions/v3_site_actions.go`, `UpdatePageStatusAction` (the
 `update_page_status` action — the `update_status` step that every deploy path runs *before* the
@@ -62,9 +83,10 @@ rendered by another subsystem — `/bugs_open/050`) have `planned=0` and are nev
 runs *before* `update_status`, so a shortfall at the guard is real, not a mid-build race. This is the
 same precondition the live 0-component guard already relies on.
 
-**Fleet consequence to expect after the roll.** ~28 already-partial deployed pages (the sweep below)
-will, on their next build/edit/rerender, be refused and flipped to `needs_rebuild`, so the reconciler
-re-emits them. That is the intended healing. **Caveat (honest):** if the underlying section-drop is
+**Fleet consequence now live.** ~28 already-partial deployed pages (the sweep below) will, on their
+next build/edit/rerender (the fix is live as of the 12:15:20Z roll), be refused and flipped to
+`needs_rebuild`, so the reconciler re-emits them. That is the intended healing. **Caveat (honest):**
+if the underlying section-drop is
 *deterministic* for a page (dartsonline dropped `testimonials` on two separate builds — root cause
 still UNKNOWN, see the CORRECTED block below), that page will re-enter the build queue each reconcile
 cycle rather than converge. That is a **slow drip gated by reconcile cadence + work-item dedup**, and
@@ -74,9 +96,17 @@ error onto the work item's `error`) is NOT done here — it is now smaller than 
 already durable in `agent_error_log` since v1.0.1140; it is a join, not a missing record) and is a
 cheap independent follow-up.
 
-**How to verify once live** (against the running pod / a real build): see "How to verify a fix" below,
-plus re-run the fleet sweep and confirm no *healthy* page (e.g. `gaswholesalers.com/services`, 4=4)
-was flipped to `needs_rebuild`.
+**How to verify** (against a real build): see "How to verify a fix" below, plus re-run the fleet
+sweep and confirm no *healthy* page (e.g. `gaswholesalers.com/services`, 4=4) was flipped to
+`needs_rebuild`.
+
+**Residual / next investigation (NOT this fix).** The fix stops a partial build being *recorded* as
+a complete, plan-stamped success; it does **not** stop the partial build being *produced*. Why
+`testimonials` is dropped by a build that reports complete is still **UNKNOWN** (see the CORRECTED
+2026-07-20 block below — three hypotheses tested and refuted). Until that is found, the fix converts a
+silent permanent five-sixths page into a visible one that keeps asking to rebuild — which for a
+*deterministic*-drop page is a slow reconcile-paced loop. Finding the section-drop cause is now the
+highest-value follow-on, and this fix is what makes it visible instead of silent.
 
 ---
 
