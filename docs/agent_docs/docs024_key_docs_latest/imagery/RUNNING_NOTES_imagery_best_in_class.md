@@ -2898,3 +2898,54 @@ outage.** It cleared by itself when the offset jumped 95919→95935 — 16 messa
 because draining here is a jump, not a smooth advance. Both landmines are recorded in
 `bugs_open/030` § Landmines. Practical rule for this workstream: **a triaged imagery item
 that will not dispatch is almost always 030; check `LAG` before touching anything.**
+
+---
+
+### 2026-07-21 — §4b fix is LIVE in v1.0.1144, verified in the pod; landing gate still untouched (session "bugfix 027")
+
+**The roll happened.** `1191cecdb` (the §4b palette-first + LastIndex-backoff fix) is an
+ancestor of the `f9dfa0205` v1.0.1144 build commit, and v1.0.1144 is the tag deployed to
+the running `agent-chassis` and `image-generator-adapter` pods (up ~46m at check). So the
+bug file's "INERT UNTIL AN IMAGE ROLL" is now stale — corrected in place there.
+
+**Verified in the running binary, not the tag** (016b §9 / A6.3 — log-literal grep, with
+controls):
+- chassis pod `agent-chassis-59c675c4f-pxr9f`: `Imagery direction TRUNCATED before
+  generation` → **1** (the marker `1191cecdb` created); positive control `Prepended
+  imagery direction` → 1; negative control (a nonsense literal) → 0.
+- adapter pod `image-generator-adapter-5fb5dbf7c5-7qj9p`: `folded NegativePrompt into
+  positive prompt` → **1** (the 028 marker); positive control `Banana image generation
+  succeeded` → 1. So 028's fold is also live in this same roll — consistent with its
+  already-CLOSED status; nothing to do there.
+
+**Composition proof on robot-hands' real fields — the palette now survives (no credits
+spent).** robot-hands' `kinds.content_hero` composes to 233 chars (over the 200 cap; it is
+the only over-cap site — the three seeded guides are 139–147 and never truncate). Running
+the live logic by hand on the actual DB values:
+- `palette` = `deep charcoal ground, electric blue (#0080FF) flat shapes and linework,
+  light grey secondary accents only` (105 chars);
+- new order `colour palette: <palette>. <medium>. <mood>`; `LastIndex(". ")` within 200
+  lands after `medium`, so the truncated direction =
+  `colour palette: deep charcoal ground, electric blue (#0080FF) flat shapes and linework,
+  light grey secondary accents only. flat duotone editorial illustration.` — **palette
+  intact, `electric blue (#0080FF)` retained**, only `mood` dropped, and `truncated=true`
+  so the WARN fires. Under the pre-fix order (palette LAST) this same cut would have kept
+  medium+mood and lost the colour. This matches the shipped unit fixtures; it is the same
+  result against production data.
+
+**Base-voice trade re-measured, and it is now "acceptable", not a live break.** Base-guide
+composed lengths (guide-level medium/mood/palette, the fallback for photographic kinds with
+no per-kind override): robot-hands 398, gamesdesign 352, leopardess 305, finetuning 304 —
+all over 200. But palette-first means every one of them now **keeps the palette** and clips
+only trailing prose. The config trim (shorten the palette glosses so prose also fits) is an
+enhancement, not a fix for a live defect — the colour is no longer the casualty.
+
+**Landing gate: STILL UNTOUCHED.** Nothing has regenerated since the deploy. The
+/bugs_closed/ bar (fixed AND proven on a page) is not met: it needs robot-hands' 3 ARTICLE
+content heroes regenerated vs D13 + ≥5 observed generations. That spends real credits on a
+live production site and the 3 TOOL heroes stay behind the bugs 020 owner hold — so it is
+an owner-go step, not something to fire unilaterally. Left as the next decision.
+
+**Dispatch state at check** (for whoever runs the gate): across the four sites,
+`needs_content_image` failed ×9, `needs_imagery` failed ×1, `wont_fix` ×3 — pre-existing,
+not created by this session. Per the 030 rule above, check `LAG` before firing anything.

@@ -5,10 +5,19 @@ rollout was safe to let drain).
 **Severity:** Medium — no data loss, but it spends real image-API credits producing
 output of the exact class that failed the D13 owner gate, and it is armed on three
 sites right now.
-**Status:** OPEN — **§4b's CODE FIX APPLIED 2026-07-20 (`1191cecdb`), INERT UNTIL AN
-IMAGE ROLL.** Stays OPEN because the /bugs_closed/ bar is fixed AND live. §1's
-missing-style-guide half was mitigated in config 2026-07-19 (three sites seeded,
-live immediately); the fleet-default-direction candidate (§5(a)) remains unbuilt.
+**Status:** OPEN — **§4b's CODE FIX IS NOW LIVE (`1191cecdb` shipped in v1.0.1144).**
+> **CORRECTED 2026-07-21:** this line read "INERT UNTIL AN IMAGE ROLL" — the roll has
+> happened. `1191cecdb` is an ancestor of the v1.0.1144 build commit, and v1.0.1144 is
+> the tag on the running `agent-chassis` pod; the WARN marker `Imagery direction
+> TRUNCATED before generation` is present in the pod binary (positive+negative controls
+> confirm). Simulating the live logic on robot-hands' real 233-char content_hero
+> direction, the palette (`electric blue (#0080FF)`) is now retained and only `mood`
+> is dropped — the defect no longer bites. **Stays OPEN** because the /bugs_closed/ bar
+> is fixed AND proven on a page: the landing gate (regenerate robot-hands' 3 ARTICLE
+> heroes vs D13, ≥5 observed generations) has NOT run — it spends real credits on a live
+> site and awaits owner go. §1's missing-style-guide half was mitigated in config
+> 2026-07-19 (three sites seeded, live immediately); the fleet-default-direction
+> candidate (§5(a)) remains unbuilt.
 
 > **Fix trail (2026-07-20).** Seven council-gate rounds on correlation `0a07f5ed`
 > (one round voided by bugs 019), final tally **11 approve / 2 object / 4 abstain**

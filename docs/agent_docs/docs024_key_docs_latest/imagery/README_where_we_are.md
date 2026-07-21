@@ -1002,3 +1002,20 @@ every site is still the old one until something triggers a regeneration.
 
 Separately, the SES bounce-domain DNS record still hasn't appeared at your
 nameservers — nothing to do at our end but wait; the watch is still running.
+
+---
+
+**2026-07-21 (later) — a second pair of eyes confirms the colour fix is genuinely
+live, without spending anything.** I picked this up fresh, checked the deployed pod
+directly (not just the version tag), and the fix is really running on the live server.
+Then I did the honest check on the one site that actually gets truncated — robot-hands,
+whose picture instruction is longer than the limit — by working out on paper, from its
+real settings, what the live code now produces: it keeps the colour ("electric blue
+#0080FF") and drops only the mood sentence at the end. Before the fix that colour was
+exactly what got thrown away. So the code half is confirmed working on real data.
+
+I deliberately did NOT run the actual picture regeneration on robot-hands. That is the
+one step that spends real money at the image provider and changes a live public site, so
+it's your call to green-light — it's pickup (1) in the list above and it stays yours to
+say go. Everything I did this session is reading and note-keeping; nothing on any site
+has changed.
