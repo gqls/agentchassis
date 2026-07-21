@@ -5,8 +5,10 @@
 sites still serve the old footer because the output is a cached chrome artefact and nothing has
 re-rendered them yet. Close only when a re-rendered site's `.footer-legal` is verified empty against
 the live page.
-**Council gate:** submitted 2026-07-21, `SUBMISSION_CORR=550b9727-730b-44f9-8d37-5c56c2ce6615`
-(orchestration `e2300f05-d8e1-40d5-a84b-3c4997d69d6c`) — verdict pending.
+**Council gate:** `SUBMISSION_CORR=550b9727-730b-44f9-8d37-5c56c2ce6615`. Round 1 → **REVISE**
+(bug_historian; 6 approve / 4 object). Revised with a fail-loud guard (`309f519fc`) and resubmitted
+round 2 (orchestration `6dfa57aa-f5c5-47f1-8154-38bdf25c14c8`) — verdict pending. See *Council round 1*
+below.
 **Pod-verified 2026-07-21:** `strings /app/agent-chassis | grep -c siteHasAnyNavItems` = 4 on
 `agent-chassis-...-xrkv6` (image `v1.0.1146`); positive control `getNavItemsFromPagesFallback` = 6.
 Commit 11:43:55 UTC < image start 12:15:20 UTC, so the build carries it.
@@ -173,13 +175,15 @@ return getNavItemsFromPagesFallback(...)   // pre-nav-table site, or tables abse
 table itself does not exist (older deployments), the query errors on `does not exist` and the gate
 returns `false`, preserving the pre-nav-table fallback exactly as before.
 
-**Tested** — `nav_tables_fallback_test.go`, four sqlmock cases mapping to the verify list:
+**Tested** — `nav_tables_fallback_test.go`, five sqlmock/observer cases mapping to the verify list:
 1. nav-table site, 0 legal items → **0** links, and the fallback query is asserted *not* to run;
 2. nav-table site *with* legal items → those items, gate never consulted (regression guard);
 3. pre-nav-table site (0 rows) → pages fallback runs;
-4. tables absent (`does not exist`) → pages fallback runs.
-All pass (run against `git archive HEAD` + these two files, because an unrelated untracked WIP file
-in `discovery_checks` was breaking the shared tree at the time).
+4. *(added round 2)* anomaly guard — a `primary`-including request that comes back empty on a
+   nav-table site logs exactly one **Warn**; a lone `legal` empty logs **none** (loud vs quiet);
+5. tables absent (`does not exist`) → pages fallback runs.
+All pass (round 1 ran against `git archive HEAD` + these two files while an unrelated untracked WIP
+file in `discovery_checks` broke the shared tree; that cleared by round 2 and the suite runs in-tree).
 
 **Candidate 3 (deployedOnly for chrome nav) NOT applied, on purpose.** With candidate 1 in place the
 gaswholesalers legal-slot 404 (`/fuel-pricing-framework.html`) disappears anyway — that site has 18
@@ -198,6 +202,39 @@ filing — nav rows are live state. Today, sites with **active legal nav rows** 
 `primary` nav rows, so no real site is a pre-nav-table site — the fallback branch survives only for
 newly-created sites before `PopulateNavTablesAction` runs (verify list #3: the branch is not dead,
 just not exercised by any current live domain).
+
+## Council round 1 — REVISE, and the fail-loud guard it earned (`309f519fc`)
+
+Submitted candidate 1 to the council gate (`SUBMISSION_CORR=550b9727…`). Verdict **REVISE**, decided
+by `bug_historian`; **6 of 10 seats approved** (compliance, render_guardian, debug_historian,
+constitution, mission, edit-quality-modulo-one-nit). The objections were worth the run:
+
+- **`bug_historian` (medium, the decider) + `guardian` (medium) + `edit-quality` (low)** — candidate 1
+  *respected* the truthful empty answer but returned empty for **every** group with only a `Debug`
+  log. That is a **fresh instance of the very silent-empty-render class this bug is about** (016b §9):
+  if a sync/write bug ever dropped a site's `primary` nav, `GetNavItems` would serve an empty menu
+  silently, indistinguishable from the legitimate empty-`legal` case. **Fix:** the empty-return path
+  now logs **`Warn`** when the request *includes the `primary` group* (never legitimately empty on a
+  nav-table site) and stays `Debug` for a lone `legal`/`utility`/`content` group. Near-zero cost — no
+  live site has empty primary nav today, so it never fires until a real anomaly. A `site_work_item`
+  was the heavier option; the `Warn` is the near-zero-cost first step `bug_historian` itself proposed.
+- **`guardian` (blast radius)** — "the fix generalises to all callers; prove it." Answered from the
+  codebase, not asserted: every `GetNavItems` caller passes either the `primary` group or a lone
+  `[legal]` (enumerated), so only the legal caller is legitimately empty on a nav-table site — and a
+  `primary`-including caller returning empty is exactly the anomaly now made loud.
+- **`reuse_agent` (low) + `prior_art_librarian` (b)** — "show you checked for an existing helper."
+  Grepped `platform/ internal/ pkg/`: no pre-existing "site has any nav rows" helper (the other
+  `site_nav_items` queries are rename-tool / create-tool / orphan-pages), and exactly one definition
+  of `siteHasAnyNavItems`. Genuinely new, not a dormant duplicate.
+- **`prior_art_librarian` (HIGH)** — flagged the risks note "confirmed present in production v1.0.1146"
+  as contradicting edit-2's `add` operation (the `bugs_closed/031` false-already-deployed shape).
+  **Both are true and not contradictory:** this thread commits per task and the fleet builds from
+  HEAD, so the *new* function was committed and shipped in v1.0.1146 **before** this advisory review.
+  The pod-grep is real (count 4, positive control 6), not a copied trail. Clarified in the round-2
+  rationale rather than repeated as a bare claim.
+
+Resubmitted round 2 on the same correlation (orchestration `6dfa57aa…`); the code is already
+committed and live, so the verdict is recorded for the trail, not as a ship gate.
 
 ## How to verify a fix
 
