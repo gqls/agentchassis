@@ -1545,3 +1545,47 @@ where it writes on the failure path.
 **Cost:** none — the wasted re-fire + queue-wait + log-tail was avoided; the
 diagnosis was free and immediate. Recording it because "checked one table,
 declared it unrecoverable" is a repeatable shortcut worth naming.
+
+---
+
+## 2026-07-21 — "no existing loop-controller action" — an ABSENCE claim shipped without the search (fixloop feature builder 2)
+
+**The claim:** in the delta-2 council-gate resubmission (corr `5a65ec4c`, round 2)
+I wrote, to justify the new `feature_stage_route` action against reuse_agent's
+round-1 objection: *"Registry search for an existing generic 'stage advance' /
+'loop controller' action: none — the diagnosis loop's iteration is inline control
+flow, not a reusable action, so feature_stage_route is genuinely the only new
+control machinery."*
+
+**Actually:** the registry has a generic **`loop`** action ("Iterate over a
+collection, executing sub-steps for each item", registry.go:47) AND
+`loop_complete` (:53) AND `conditional_route` (:73) — core-category iteration
+primitives. Whether `loop` could actually host the stage loop is a real open
+question (the bespoke parts are emitting each stage AS a single-plan shape and
+threading branch/ref between iterations — a generic collection-loop may not do
+that), but I never opened `LoopAction` to find out. I asserted "none" having
+grepped the registry only for my OWN new action's name.
+
+**Caught by:** `prior_art_librarian` in round 2 — verdict object, HIGH: *"a
+load-bearing absence claim with no attached search output ... the defect class
+this council seat exists to catch is exactly this shape."* Correct, and the seat
+named the class precisely.
+
+**The cheap check that would have caught it:** `grep -nE '"[a-z_]+":'
+registry.go | grep -iE 'loop|iterate|stage|route|sequence'` — one command, and it
+surfaces `loop`/`loop_complete`/`conditional_route` immediately. Attach the
+output to the submission instead of asserting the absence.
+
+**Why this one stings:** the workstream's own memory
+([[reread-claudemd-and-standing-docs]]) already records this exact failure mode
+from 2026-07-19 ("asserted only one call site could carry a defect, having read
+four of eight and inferred three from their filenames"), and CLAUDE.md's
+"Diagnosis before debugging" section is built around "confidence is not a signal
+… the failure mode is not missing information — it is not looking." I did it
+again, on a claim I had time to check, in a submission TO the very council that
+exists to catch it. The gate worked; I didn't.
+
+**Cost:** none beyond the credits of the round it was raised in — the code is not
+wrong (the loop-vs-bespoke-action question is a design judgement, unresolved), but
+the *claim* was, and a round-3 close now owes a real `LoopAction` read, not a
+better-worded assertion.
