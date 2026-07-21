@@ -1,10 +1,22 @@
 # 041 — A site component's JS is never published: chrome references an asset that always 404s
 
-**Filed:** 2026-07-20 · idea.uk vm site thread · **Status:** OPEN, not started
+**Filed:** 2026-07-20 · idea.uk vm site thread · **Status:** ✅ **CLOSED — FIXED & LIVE & VERIFIED 2026-07-21.**
 **Severity:** medium-high — silently breaks any interactive behaviour in header/footer fleet-wide.
 Today it means **the mobile menu is dead on every page of idea.uk**; the hamburger renders, has
 `aria-expanded`, and does nothing.
 **Class:** structural — the asset pipeline models pages and does not model chrome.
+
+> **RESOLUTION 2026-07-21 — fix candidate 1 (the `collectJSAssets` UNION), live on v1.0.1146.**
+> Shipped in commit `36829b07b` (bundled with the `bugs_open/018` platform fix). `collectJSAssets`
+> now UNIONs `site_components`, mirroring `render_js_snippets_for_site_action.go:203-219`, so chrome
+> `js_content` publishes. Verified **end-to-end** on idea.uk after a safe assemble-only rerender:
+> - `curl https://idea.uk/tools/assets/site-header.js` → **200** (708 B, the real `.hamburger`
+>   click handler toggling `aria-expanded`); `…/site-footer.js` → **200** (was 404 for both).
+> - The homepage `<script src>`-references both assets, and still renders **0 empty hrefs** (no
+>   chrome regression from the rerender).
+> Binary confirmed in-pod (v1.0.1146) by discriminating grep alongside the 018 symbols. The mobile
+> menu is now functional. Other fleet sites publish their chrome JS on their next rerender (the code
+> is live fleet-wide); idea.uk was the only site carrying chrome `js_content`, so it was the test.
 
 ---
 

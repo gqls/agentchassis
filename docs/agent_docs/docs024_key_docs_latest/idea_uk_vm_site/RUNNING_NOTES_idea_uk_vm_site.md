@@ -1302,3 +1302,32 @@ Edit-6 write-back done: `cta_link_integrity/PLAN_2026-07-19` now records the **4
 - `[ASSUMED, vetted in plan]` vonc.com may newly render a logo image (its `logo_url` was empty and
   `header-bold-gradient` sources it from `site_assets.logo`) where it currently shows an `{{else}}`
   glyph — an accepted, reviewed side-effect (a fix), not a regression.
+
+### §X.9 — LIVE & VERIFIED on v1.0.1146; 018 + 041 CLOSED (2026-07-21)
+
+Owner deployed v1.0.1146; `36829b07b` rode it. Verified against the **running pod**, not the tag:
+```
+POD=agent-chassis-55bbccfdbc-xrkv6  (binary /app/agent-chassis, Jul 21 12:07)
+RenderTemplateReportingMissing → 2   URL attribute rendered empty → 1   missingBareFields → 2
+Cleaning up <no value>        → 0   (the DELETED string — the decisive discriminator)
+Render context built          → 1   (positive control, grep works)
+```
+
+**041 verified END-TO-END** (behavioural, not just pod-grep). Chrome JS publishes only on a page
+rerender, so I inserted ONE assemble-only `page_rerender` (`created_by='bugfix-018-chrome session
+verify041'`, spec has NO `reason` → assemble-only path, NO LLM, markup unchanged). Item went
+`triaged → claimed 15:53 → complete 15:54`.
+- **Trap re-lived, then resolved:** at 15:54 (item complete) `site-header.js` was STILL 404 for ~1
+  poll — looked like "complete ≠ done" again. It was **VM pull-sync lag**: idea.uk serves from the
+  box, `sitesync.timer` every 5 min, so there is a lag between chassis-publish and box-serve. Re-checked
+  a few minutes later → **200**. Do NOT conclude failure at the moment of `complete` on a VM-served
+  site; wait one sync cycle. (Belongs in the "complete≠done" family but the cause is propagation, not
+  a no-op render.)
+- Final state: `site-header.js` **200** (708 B, the real `.hamburger`/`aria-expanded` handler),
+  `site-footer.js` **200**; homepage `<script src>`-references both; homepage `href=""` count **0**
+  (no chrome regression from the rerender).
+
+**018 + 041 → `bugs_closed/`** (both fixed AND live AND verified). Follow-on `054` stays OPEN
+(block/escalate + consumer). No `Council-Reviewed` trailer on `36829b07b` (round 2 REVISE, owner
+overruled). Council round 3 NOT fired — the owner overruled its sole remaining objection, so a verdict
+would change nothing; the round-3 JSON stays prepped if the audit trail is later wanted.

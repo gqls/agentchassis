@@ -5,21 +5,24 @@ never run). **Status:** open, unstarted. **Severity:** high — the site is live
 navigated. **Scope:** idea.uk confirmed; the *class* is very likely fleet-wide (see "Is this only
 idea.uk?").
 
-> **UPDATE 2026-07-21 — two halves, and where each stands:**
+> **UPDATE 2026-07-21 — ✅ CLOSED: both halves FIXED & LIVE & VERIFIED.**
 > - **Site half (idea.uk itself): FIXED & LIVE.** The DB-only template rewrite (`d63e62aad`,
 >   `sql/p3_01`/`p3_02`) rewrote site-header/site-footer against the renderer's real vocabulary and
->   gated every anchor. `curl https://idea.uk/` now returns zero `href=""`, a populated logo `src`, and
+>   gated every anchor. `curl https://idea.uk/` returns **0** `href=""`, a populated logo `src`, and
 >   nav/CTA/footer links to real `.html` pages. (The two remaining `href="#"` are the
 >   `brief-explanation` "Get Started"/"Learn More" — a separate `dead_control` finding, not this bug.)
-> - **Platform half (the fleet-wide mechanism): BUILT & COMMITTED, inert until an image roll → this
->   case stays OPEN.** `36829b07b` makes `render_site_components` read `input_schema` and gap-fill via
->   the shared `sourceResolver`, and makes `RenderTemplate` name the fields it blanks (Error when a
->   blanked placeholder sits inside `href=`/`src=`). Same commit fixes `bugs_open/041` (chrome JS never
->   published) via the `collectJSAssets` UNION. Owner ruling 2026-07-21: ship this **observability**
->   layer now; the **block/escalate** half is the follow-on `bugs_open/054`. Council: round 2 REVISE on
->   the scope point the owner overruled — no `Council-Reviewed` trailer. **Verify after the roll** with
->   the fleet-wide `href=""` query below (should stay 0) and by confirming `/tools/assets/site-header.js`
->   returns 200, not 404.
+> - **Platform half (the fleet-wide mechanism): FIXED & LIVE on v1.0.1146.** `36829b07b` makes
+>   `render_site_components` read `input_schema` and gap-fill via the shared `sourceResolver`, and
+>   makes `RenderTemplate` name the fields it blanks (Error when a blanked placeholder sits inside
+>   `href=`/`src=`). **Binary pod-verified** by discriminating grep: new `RenderTemplateReportingMissing`/
+>   `missingBareFields` present, the deleted `Cleaning up <no value>` log absent. Same commit fixed
+>   `bugs_open/041` (chrome JS never published) — verified end-to-end (`site-header.js`/`site-footer.js`
+>   404→200, real mobile-menu JS, page references it; see 041's resolution block).
+> - **Owner ruling 2026-07-21:** ship the **observability** layer (this fix); the **block/escalate**
+>   half is the follow-on `bugs_open/054` (OPEN, tracked separately). Council: round 2 REVISE on the
+>   scope point the owner overruled — **no `Council-Reviewed` trailer** (trailer discipline).
+> Closing this case (both halves live). The *class* of "chrome renderer second-class vs page renderer"
+> continues in `054` (escalation) — this case is the observability fix and it is done.
 
 ## Symptom — measured, not estimated
 

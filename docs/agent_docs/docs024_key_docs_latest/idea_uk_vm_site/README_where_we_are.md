@@ -893,3 +893,28 @@ here.
 
 One thing left for you: it's committed, so it'll ride the next fleet build whenever that happens. If
 you want it live sooner I can build and roll the chassis myself — just say the word.
+
+
+## 2026-07-21 (later) — it's live, and the dead mobile menu is fixed for real
+
+You deployed a new chassis (v1.0.1146) and my change rode it. I checked it the careful way — not by
+trusting the version label, but by reading the actual program running in the pod and confirming the
+new code is in it and the old code is gone. It is.
+
+Then I proved the visible half actually works. The header and footer's little menu script — the
+mobile "hamburger" that had been dead on every page — now loads and runs. I nudged one idea.uk page
+to rebuild (the safe kind of rebuild: no copy touched, no AI involved) so it would publish that
+script, waited for the box to pick it up, and checked: both scripts now load (they were "not found"
+before), the file really is the menu code, the page points at it, and — importantly — nothing else
+on the page broke: every link still goes where it should. So the hamburger menu on phones now works.
+
+There was one honest wobble worth recording: right after the rebuild finished, the script still
+showed as "not found" for a few minutes. That's not a failure — idea.uk is served from the box, which
+only pulls fresh files every five minutes, so there's a short lag between "chassis published it" and
+"the public site serves it." A minute later it was live. (I nearly called it broken; the lag is the
+answer, and it's now noted so the next person doesn't.)
+
+So both parts of this are now done and live: the site reads its own components properly, and the menu
+works. I've marked the two bugs (018 and 041) as closed. The bigger follow-on — making a dead link
+actually *stop* the build rather than just shout in the logs — is still its own tracked job (054),
+exactly as you decided.
