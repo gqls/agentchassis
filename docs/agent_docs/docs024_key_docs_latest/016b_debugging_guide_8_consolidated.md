@@ -2857,3 +2857,45 @@ not a shortfall), and remember `sections=[]` pages are legitimately rendered by 
 **Related:** `bugs_open/040-partial-build` (the case + fix); `bugs_open/039` (the per-name matching
 pattern — correct for *detecting* a hollow section, wrong as a *deploy gate*); `bugs_open/050`
 (`sections=[]` means "rendered elsewhere", not "empty").
+
+### A scheduler that claims a slot before deciding it has work starves its group — and a no-op that never stamps pins itself at the queue head forever (2026-07-21)
+
+**Symptom.** `bugs_open/048`: four jobs in the scheduler's `maintenance` concurrency group
+(`max_concurrent=1`) had not run for **79 days** — nothing errored, `enabled` stayed true, the
+admin view showed them healthy.
+
+**Mechanism (two parts, both required).** `cmd/scheduler/main.go` (1) incremented the in-memory
+per-group `inFlight[group]` counter *before* running the task's pre-query, then `continue`d on the
+no-rows / pre-query-error / merge-error paths **without releasing it** — so a job that found
+nothing to do consumed its group's only slot for the whole tick; and (2) `loadDueTasks` orders
+`last_triggered_at ASC NULLS FIRST`, and the no-rows path never stamped `last_triggered_at`, so the
+job stayed permanently at the **head** of its group and re-won the slot on the very next tick. It
+could not lose its place by doing nothing, and doing nothing is what kept it there. "Nothing to do"
+is the *normal steady state* for a reaper, so this fires forever once the backlog it watches is
+empty.
+
+**The verification trap (a false GREEN).** The starvation is **intermittent under the old binary**:
+whenever the watched backlog is momentarily non-empty, the head job returns rows, runs its real
+work, stamps via the *success* path, and rotates to the back — briefly un-starving the whole group —
+until the backlog empties and it re-pins. So a post-roll snapshot showing all the group's
+`last_triggered_at` freshly advanced is **not** proof of the fix; it can be the old binary in its
+transient un-stuck phase. The discriminating test is to reproduce the *failing* condition: with the
+watched set empty (here `blocked=0`), does the head job **stamp**? Old binary → no (silent
+`continue`); fixed binary → yes. Confirm the empty condition AND the stamp AND a second advance one
+interval later. (Same shape as the "verify the failing branch" invariant.)
+
+**The fix (candidates 1+2 together).** Claim the slot only once the task commits to firing/doing
+work (move the increment past every early exit) — cleaner than decrementing on each `continue`,
+because it cannot leak on a path added later. And stamp `last_triggered_at`+`last_completed_at` on
+a *successful no-op* too (a shared helper), so the job rotates like any completed run and
+`last_triggered_at` means "we looked" — which every operator reading that column assumes. Leave
+genuine error paths un-stamped so they retry and stay visible. Live on `kafka-scheduler:v1.0.1146`.
+
+**Transferable heuristic.** Any capacity counter incremented *before* the "do we actually have
+work?" decision leaks on every no-op path; take the slot at the point of commitment, not the point
+of consideration. And any queue that sorts by a "last done" timestamp starves its tail if a no-op
+doesn't advance that timestamp — a run that found nothing has still *run*.
+
+**Related:** `bugs_open/048` (the case + fix); `bugs_open/029` (same starvation family, hung
+in-flight spawns rather than a leaked in-memory slot); `bugs_open/044` (silent dormancy is
+undetectable — the missing liveness alert that would have caught this in May).
