@@ -50,3 +50,34 @@
 ### Next
 - Rebuild-based verification: a rebuild is what arms this bug, so a clean rebuild
   is the proof. The two armed pages are already `needs_rebuild`.
+
+### Verification — the rerender trap (a dead end I avoided by reading the action)
+- `ai-agent-orchestration.com/agent-complexity-estimator` already had TWO fresh
+  `triaged` `page_rerender` items (2026-07-21 10:34). Tempting to just let those
+  run as the proof. **They would prove nothing about this fix.**
+- `rerender_single_page_action.go` header: "assembles a page from **stored /
+  pre-rendered components**." It re-renders existing `page_components`; it does
+  NOT re-run `plan_sections` or re-select. The armed pages have **no** hero-tool
+  placement (023 removed it), so a rerender can never create one — component
+  selection is simply not on the rerender path.
+- Only the full **site-build** path re-selects: `get_pages_to_build_actions.go`
+  (per-site, statuses `planned`+`needs_rebuild`) → `plan_sections` →
+  `resolveSectionComponent` → `SelectComponentByType` → `queryCandidates`. That
+  last query is what I mirrored in SQL; it returns ONLY the generic component
+  (score 0.69).
+- **Decision (2026-07-21):** did NOT trigger a full site build to verify. It is
+  per-site (would rebuild all 38-of-fleet / this site's pending pages), costs real
+  credits, and risks colliding with other sessions' active work on finetuning.uk /
+  ai-agent-orchestration.com (both have live voice_tells + CTA items). The fix is
+  proven deterministically (verbatim selector query → sole candidate; template
+  greps 0 Bayesian strings; migration post-conditions green) and the live build
+  path runs that identical query. The artefact-level proof lands naturally when
+  the platform drains these `needs_rebuild` pages; RUNBOOK documents the exact
+  confirmation query + live-page curl. 045 stays OPEN until that lands.
+- Pod age 176m (safe re the ~300s dispatch-drop caveat); build-dispatch-loop +
+  page-rerender confirmed alive (COMPLETED rows within the last ~15 min) — so the
+  drain WILL happen, it is a scheduling/backlog question, not a broken loop.
+
+### Pattern recorded
+- Added the transferable pattern to 016b §9 ("A generic section name resolves to a
+  product-specific component") including the rerender-does-not-re-select landmine.

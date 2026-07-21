@@ -2240,6 +2240,52 @@ because the current `deployedOnly` flag emits the wrong `build_status='deployed'
 `overloaded-empty`, `fallback-fires-on-legitimate-case`, `disambiguate-with-second-probe`,
 `fix-inert-until-rerender`.
 
+### A generic section name resolves to a product-specific component (the library has only one candidate)
+
+**Symptom.** A page plan asks for a *generic* section (e.g. `hero-tool`) and gets a panel
+full of another product's frozen vocabulary — on an LLM-cost page, "Start Ranking Free" /
+"Try the Bayesian Ranker". Looks like the planner proposed the wrong thing. It did not:
+`pages.sections` contains the literal string `"hero-tool"`; nothing about the other product
+was ever planned (`bugs_open/045`, FIXED & LIVE 2026-07-21, DB config, no image roll).
+
+**Diagnose.** A section name resolves through `component_selector.go` → `queryCandidates`,
+which matches on **`section_type`** — NOT `function` or `name` (023 R2 is about `slot_name`↔
+`function`; the *selector* keys on `section_type`):
+```sql
+SELECT function, name, section_type FROM content_components
+WHERE section_type = '<the section name>' AND component_level='section'
+  AND is_active=true AND forked_from IS NULL ORDER BY <score> DESC;   -- caller takes row 0
+```
+If that returns exactly ONE row and it is product-specific, every generic request inherits
+it. Two amplifiers make it stick: (1) `SelectComponentByType` has **no minimum-score
+threshold** — a sole candidate always wins, however low it scores; (2) the offending row's
+labels are `source:static` with product fallbacks, which re-apply on every render and cannot
+be overridden by `content_data` (`plan_sections_action.go` static branch) — so page-level
+edits can't paper over it.
+
+**Root cause.** A **library gap**, not a planner or selector bug: there is no neutral
+component carrying that `section_type`, so selection correctly resolves the only match.
+
+**Fix.** Add a generic component with that `section_type` (labels `source:llm` or genuinely
+generic; CTA anchors gated `{{if .x_url}}` with `*_url` fields `source:renderer` — LNK-005 by
+construction; optional gated stats with anti-fabrication guidance), THEN re-point the
+specific row's `section_type` to its own function so it leaves the generic pool — kept
+`is_active=true`, **never deleted** (it is the sole active row for its function; 023 R10). Do
+both atomically so the pool is never empty or ambiguous. Precedent: migration 179
+(`tool-guide-intro`) for the CTA shape; migration 183 for the whole fix. Sibling failure:
+`bugs_open/039` — a section name resolving to **no** component renders a hollow stub (same
+selector, opposite end).
+
+**Verification landmine — a rerender does NOT prove a selection fix.**
+`RerenderSinglePageAction` "assembles a page from stored/pre-rendered components" — it
+re-renders existing `page_components`, it does **not** re-run `plan_sections` or re-select.
+So re-opening a `page_rerender` work item on a page that has no placement for the section
+will never create one, and proves nothing about selection. Only the full **site-build** path
+(`get_pages_to_build_actions.go` → `plan_sections` → `SelectComponentByType`, per-site over
+`planned`/`needs_rebuild`) re-selects. To confirm a component-selection fix at the artefact
+level you need a real build, not a rerender — or mirror `queryCandidates` in SQL (it is a
+verbatim copy of the Go query) and confirm the sole candidate, which is deterministic.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
