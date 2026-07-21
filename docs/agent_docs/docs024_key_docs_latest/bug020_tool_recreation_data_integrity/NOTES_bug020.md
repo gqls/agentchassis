@@ -91,3 +91,17 @@ rebuild (08:08 today) — the rebuild delete-and-recreates the component rows (t
 Benign this time (the rebuild regenerated `hero` from a clean source; zero
 fabrication live). Reinforces why 020's fix must live in the generator's contract
 (Half A) + a deploy gate (Half B), not in a per-row flag.
+
+### 2026-07-21 — tolerated migration-number collision on 183 (not a problem)
+
+A concurrent session (bugfix 045) also took **183** —
+`183_generic_hero_tool_component.sql` — for its own DB-config patch. So there are
+now TWO `183_*.sql` files. Checked the ledger: both are recorded, mine first
+(`183_tool_recreation_no_invented_data.sql` at 10:52:58, theirs at 10:56:37). No
+functional conflict — `schema_migrations` is keyed on **filename**, not number, so
+they are distinct rows, both applied. The 045 session already noticed and
+explicitly tolerated it. **No renumber** (forward-only; renaming an applied+
+recorded migration would orphan its ledger row). Next free number is 184. This is
+the concurrent-sessions numbering race the repo warns about — both of us read
+max=182 and took 183 within the same minute; the collision is cosmetic because the
+ledger keys on filename.
