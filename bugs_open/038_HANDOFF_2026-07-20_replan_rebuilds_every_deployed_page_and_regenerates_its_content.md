@@ -98,6 +98,68 @@ this page" still should not silently discard reviewed copy — it should surface
 4. Lock a `page_components` row (`locked_at`), force a rebuild of its page, and assert the locked
    row survives.
 
+## FIX APPLIED 2026-07-21 — candidate 1, but corrected (committed, inert until an image roll)
+
+> **CORRECTION to candidate 1 as written above.** It says "compare the plan's section list for a
+> page against `pages.sections`". **That comparison cannot work**, and it would have been the wrong
+> fix. The build-site-planner workflow runs `write_site_plan → sync_pages → reconcile_site_plan`
+> (`docs/agent_docs/sql_for_agents/053_build_site_planner.sql:8`). `sync_pages`
+> (`SyncPagesToDBAction`) upserts every plan page with `sections = EXCLUDED.sections`
+> (`platform/orchestration/actions/site_db_actions.go:1126`), sourcing sections from the **new**
+> plan. So by the time `reconcile_site_plan` runs, `pages.sections` has **already been overwritten to
+> equal the new plan** — comparing plan-sections to `pages.sections` is a tautology (always equal),
+> which would make it *always* re-stamp and *never* rebuild, discarding genuinely re-composed pages.
+> Nothing else writes `pages.sections`: the deploy-time writer `UpdatePageStatusAction`
+> (`v3_site_actions.go:671-680`) stamps `built_from_plan_version` but does **not** touch `sections`.
+>
+> **Live confirmation (2026-07-21):** of 144 deployed pages fleet-wide, 138 are stamped
+> `built_from_plan_version = current plan`; the 6 built from an older version all have
+> `pages.sections` matching the **current** plan's `site_plan_sections`, not their build plan's — the
+> fingerprint of the sync overwrite.
+
+**What shipped instead — a plan-to-plan comparison on `site_plan_sections`, which is per-plan and
+immutable.** In `decideEmit` (`platform/orchestration/actions/reconcile_site_plan_action.go`), a
+page that is `deployed` from an **older** plan version is no longer unconditionally `stale`. The
+reconciler now loads the ordered section list (normalised via `NormalizeComponentFunction`) for the
+current plan **and** for the plan version the page was built from, both from `site_plan_sections`. If
+the two lists are identical, the page's composition did not change: it returns a new `"restamp"`
+decision, the caller updates `built_from_plan_version` to the current plan **in the same
+transaction**, and the page is skipped. A genuine change (different list, reorder, or the built-from
+list is unknown) still returns `"stale"` → rebuild.
+
+Why plan-to-plan and not "compare against the realised composition (`page_components`)": both plans
+were written by the same `write_site_plan` path, so comparing them is apples-to-apples and needs no
+name↔function resolution (`/bugs_open/039`). The signal answers the exact question — *did this
+re-plan change the spec for this page?* — and it is robust to the sync overwrite. **Boundary:** if a
+past build diverged from its plan (a `/bugs_open/039` hollow stub, or a `/bugs_open/001` drop that
+got snapped back), plan-to-plan can skip a page whose live composition doesn't match its plan. That
+is out of scope here — rebuilding under an identical plan would reproduce the same divergence, so it
+is no worse; correctness-of-a-past-build belongs to 001/037/039.
+
+**Safety direction.** A false *positive* (rebuild a page we could have skipped) is the status quo —
+merely wasteful. A false *negative* (skip a page that actually changed) is the dangerous direction,
+so `"restamp"` is gated on **positive** evidence: the built-from plan must carry a non-nil section
+list for the page that equals the current one. Absence of evidence (nil built-from list) falls
+through to a rebuild.
+
+Result now also reports `pages_restamped` alongside `pages_skipped_built` (re-stamped pages count
+into `pages_skipped_built` so it stays the total of deployed-and-unchanged pages, satisfying
+verify-step 1).
+
+Unit tests: `reconcile_site_plan_action_test.go` — `TestDecideEmit` (missing/not_built/stale/
+skip_built/restamp + change/reorder/unknown-list/sectionless edge cases),
+`TestDecideEmit_NormalisationUnifiesEquivalentNames` (`call_to_action`≡`call-to-action`),
+`TestSectionsEqual`. Live end-to-end verification (verify-steps 1–3) is **still pending an image
+roll** — the change is Go and inert until the chassis image is rebuilt; this case stays **OPEN**.
+
+**Candidate 3 (content locks) — investigated, NOT fixed here, confirmed still open.** The lock
+helper `CheckComponentLock` (`platform/orchestration/actions/lock_helpers.go`) exists but has **zero
+callers** across `platform/` (grep 2026-07-21) — no execution/rebuild writer of `page_components`
+consults it. So the rebuild path does **not** honour `locked_at`; candidate 3 is real and unfixed.
+It spans many writer actions (`render_site_components`, `rerender_*`, `create_tool_component`, …) and
+deserves its own task/submission rather than being bundled with the reconciler change. Left for a
+follow-up.
+
 ## Related
 
 - `/bugs_open/001` — the composition half. Fixed and verified live 2026-07-20; that file's
