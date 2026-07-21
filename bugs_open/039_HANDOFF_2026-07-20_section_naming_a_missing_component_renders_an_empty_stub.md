@@ -5,6 +5,62 @@ convention that is easy to get wrong** (and that anyone comparing plans to pages
 **defect** — a section name that resolves to nothing produces a hollow `<section>` on a deployed
 page instead of failing.
 
+---
+
+> ## FIX COMMITTED 2026-07-21 (`bd4dc30a0`) — INERT UNTIL THE CHASSIS IMAGE ROLLS; stays OPEN
+>
+> **Candidate 1 applied structurally, at the single chokepoint.** Every page-composition path
+> flows through one INSERT — `SavePageSectionsAction` (`save_page_sections_action.go:543`). The fix
+> adds a guard there: when a section is about to be written with **no component link
+> (`componentIDPtr == nil`) AND its HTML is an empty `section--generic` stub** (new helper
+> `isEmptyGenericStub` — `section--generic` marker present AND stripping tags leaves no visible
+> text), it **skips the row** and raises a **deduped `needs_new_component` work item** (via the
+> existing `CreateNeedsNewComponentItem`, routed to `component-creator`, `item_key` per section-type
+> per site) naming the page + section. So the hollow section is never persisted as a `deployed`
+> row, the build no longer reports a clean success while shipping it, and the gap becomes an
+> **actionable, consumer-routed** item instead of a rotting `empty_section` finding.
+>
+> **Why the chokepoint and not `GetComponentWithFallback`:** the generic fallback is *also* how the
+> **22** live sections that resolve to nothing but DID receive real content are rendered — those are
+> legitimate and must not break (the handoff's "35 orphans, different situation"). The discriminator
+> is therefore **empty-vs-content**, not fallback-vs-not. Placing it at the save INSERT catches the
+> stub regardless of upstream path (content-writer HTML fallback, deprecated
+> `assemble_from_library`, direct spec-load) in one place.
+>
+> **Grounded against live data (2026-07-21).** Mirroring the Go guard in SQL (strip tags, remove all
+> whitespace, test empty) over the 29 null-component `section--generic` rows on deployed pages:
+> **7 GUARD-MATCH = exactly the 7 known stubs; 22 has-text = the content-bearing renders, untouched.**
+> The 14 non-generic orphan rows never carry the `section--generic` marker, so they are untouched too.
+> Unit test: `save_page_sections_stub_guard_test.go` (`TestIsEmptyGenericStub`, 6 cases, passing).
+>
+> **Interaction with the existing render guard.** The `generic-text-block` seed already marks
+> `heading`+`content` as `required` source:llm, and `RenderComponentAction`'s
+> `missingRequiredLLMFields` guard (live since v1.0.1126) refuses an empty required-field render — so
+> the **primary content-writer path already prevents new stubs** (all 7 live stubs are legacy:
+> gaswholesalers 2026-04-08, finetuning 2026-04-10; none created since). This save-time guard is the
+> **structural backstop** that (a) is independent of whether a fallback component happens to declare
+> required fields, and (b) closes the dormant non-content-writer leak paths.
+>
+> **Candidate 2/3 were already live** and are necessary-but-insufficient: `validate_site_plan` runs
+> with `validate_components: true` in both active planners (`site-planner`, `build-site-planner`),
+> and its `componentNameResolver` resolves by function, normalised function, display name AND
+> component `name` (so it already fixes the 8 name-not-function latent entries and drops unresolvable
+> names) — but only for section names that pass through the planner, and not for the already-stored
+> rows or non-planner rebuild paths. That gap is exactly what this save-time guard covers.
+>
+> **NOT done here — the cleanup (candidate 4), deliberately deferred:** removing/rebuilding the 7
+> legacy stubs is gated on (i) this guard being **live** (a rebuild before then just re-stubs) and
+> (ii) real components existing for `featured-article` / `article-grid` / `category-section` — which
+> the `needs_new_component` items this guard raises will drive. It is content-sensitive
+> (re-rendering guide/insight bodies risks the `/bugs_open/029` fabrication path), so it belongs to
+> the `empty_sections_loop_integrity` / component-creator workstream, not this mechanical fix.
+>
+> **How to finish closing this bug** (after the next chassis roll): (1) confirm the guard is in the
+> pod (`strings /app/agent-chassis | grep -c isEmptyGenericStub`); (2) rebuild a page with a bogus
+> section name and assert **no** `component_id IS NULL` stub row appears and a `needs_new_component`
+> item was raised; (3) re-run the fleet `stub` query and confirm it trends to 0 as pages rebuild;
+> (4) confirm the 22 content-bearing generic renders and the 8 name-not-function entries still render.
+
 ## Part 1 — the convention (read this before comparing a plan to a page)
 
 `pages.sections` stores the component's **`function`**. `page_components` reference the component
