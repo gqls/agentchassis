@@ -323,3 +323,54 @@ Diagnosis corr `78470372` has been `awaiting_diagnosis` for **55 minutes** and h
 not started. LAG 168 and rising at ~1.2/min. Since the queue is *diverging*, there
 is no basis for expecting it to start at any particular time — it will start when
 the head of the queue happens to be cheap, or not today. Flagged to the owner.
+
+---
+
+## 2026-07-21 — first fix applied: cron/config only (owner-instructed)
+
+Owner asked for the config-only change to "adjust the timeouts so they work together
+properly", and for a milestone snapshot. Snapshot = `SUMMARY_2026-07-21_*`.
+
+**Grounded the values before changing (read before write):**
+- `scheduled_tasks`: of the 12 enabled tasks on the generic lane, only
+  `ai-endpoint-health-check` is high-frequency **and** unconditional (`pre_query`
+  NULL → fires every cycle). `build-pipeline-trigger` is gated but its gate is open
+  (3 pending triaged build sites now). Everything else is 120 s+ and gated. [VERIFIED]
+- `ai_endpoint_health`: active endpoints want claude 3600 s, cpu-ollama 60 s,
+  gpu-ollama 30 s. gpu-ollama is `healthy=f`. So the shortest *healthy* need is 60 s;
+  the 30 s want was already unmet (aliasing fired the orchestration at 60 s). [VERIFIED]
+
+**Applied** (both guarded with `AND interval_seconds = 30` — safe no-op on concurrent
+change; both returned `UPDATE 1`):
+
+```
+ai-endpoint-health-check : 30 -> 60
+build-pipeline-trigger   : 30 -> 120
+```
+
+Both are exact multiples of `TICK_INTERVAL_SECONDS` (30), so they now fire
+deterministically and the interval==tick aliasing landmine is gone. Full command +
+reversal in RUNBOOK R8.
+
+**Reasoning, not just arithmetic:**
+- The health-check change is **behaviourally neutral** (it already fired at 60 s under
+  aliasing) — its value is honesty (config == reality) and removing the trap.
+- The build-trigger change is the **load lever that matters**, and not because of raw
+  message count: it starts the expensive multi-step build orchestrations that occupy
+  the single consumer for minutes at a time. Halving its rate reduces both production
+  *and* the number of long inline stalls, which raises effective consumption. That
+  coupling is why 1.43/min is not a fixed ceiling — it was measured under exactly the
+  congestion this change reduces.
+
+**Did NOT touch `timeout_seconds`.** The owner said "timeouts" but the defect is the
+firing cadence (`interval_seconds`) vs the tick; `timeout_seconds` is the re-fire
+guard and is fine (15 s << 60 s interval for the health check, so no overlap). Noting
+the interpretation explicitly in case it was meant literally — easy to revisit.
+
+**Verification** (against the running scheduler, not the config): background sampler
+of `last_triggered_at` running now. Expect `build-pipeline-trigger` spacing to widen
+from ~60 s to ~120 s; health-check stays ~60 s. Result appended below when the
+sampler completes. **Not claiming the backlog is fixed** — that needs a fresh LAG
+trend over ≥20 min AND accounting for what work is at the head, and the queue was
+diverging when the change went in. This reduces scheduled production; whether it
+brings production under consumption is the thing to measure next, not assert.

@@ -197,3 +197,40 @@ currently growing rather than shrinking, I can't honestly tell you when it will 
 — it'll go when the job at the front happens to be a quick one. So "wait for the
 verdict before doing anything" may not be a workable plan today, and you may want to
 decide without it.
+
+## 2026-07-21 — made the small fix, and took a snapshot
+
+You asked for two things: a milestone snapshot, and the config-only change to make the
+scheduled jobs work together properly. Both done.
+
+The snapshot is a new summary document (I never overwrite the last one — the series is
+the record), written in plain prose to be read aloud: what the bug is, the rather
+embarrassing measurement history, the finding that the queue is almost all our own
+housekeeping, and the change I've just made.
+
+The change itself: I slowed the two jobs that dominate the queue, and — just as
+importantly — I set them to intervals that don't trip the timing trap I found
+yesterday. The health check goes to 60 seconds, which is what it was actually doing
+all along; that one's really about making the configuration honest and removing the
+trap, so nobody later "fixes" it and doubles the load. The build trigger goes to 120
+seconds, and that's the one that should actually help, because it halves how often the
+big, slow build jobs get kicked off — and those are what jam up the single worker for
+minutes at a stretch.
+
+It's a database change, so it took effect the moment I made it — no rebuild, no
+deploy — and it's a one-line command to put back if we don't like it. I grounded the
+numbers first: I checked what the health check actually needs (the endpoints it pings
+want checking every 60 seconds at most, except one that's already broken), so 60
+seconds doesn't starve anything real.
+
+I want to be careful about what I'm claiming. This reduces how much work the scheduler
+pours into the queue. Whether that's enough to get the queue *shrinking* rather than
+growing, I don't yet know — I've got a check running, but an honest answer needs
+twenty minutes of watching, and the queue was still growing when I made the change. So
+this is "a sensible first lever pulled", not "fixed". The bigger structural question —
+whether to give the scheduler its own separate lane so it can never queue in front of
+your work again — I've left for a separate, careful decision, and it's written up.
+
+And the diagnosis run I sent yesterday to double-check my reasoning is still stuck in
+the queue, more than an hour on. So if it never surfaces, we decide the structural
+part on the evidence we have, which is already fairly strong.
