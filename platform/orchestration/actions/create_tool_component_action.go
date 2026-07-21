@@ -107,6 +107,41 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 			content.ToolDocOpen, content.ToolDocClose)
 	}
 
+	// Completeness gate (bugs_open/021 INSTANCE 1 / bugs_open/046). HasToolDocHeader
+	// above only proves the doc-header SENTINELS are present, and they sit at the
+	// TOP of the <script> — so a generation cut off mid-stream at the TAIL keeps its
+	// header and sails through. That is exactly how bugs_open/046's 8 tools were
+	// born truncated and shipped broken JavaScript to 6 live customer domains.
+	//
+	// componentTemplateValid is the SAME absolute structural predicate the schema
+	// loader applies (plan_sections_action.go: every paired tag balanced and the
+	// template ends on a closed tag), calibrated 0-false-positive against the live
+	// tool population. Applying it at the birth WRITE means a tool that would be
+	// dropped at LOAD can never be born in the first place — one contract, both
+	// seams. Hard fail: the workflow's error_step routes the item to
+	// needs_human_review carrying this reason (same path as the header gate above).
+	if !componentTemplateValid(htmlContent, "tool") {
+		recordComponentWriteRejection(
+			ctx, params.DB, logger, params,
+			actionProvenance{
+				AgentType: params.ExecutionContext.Sender.AgentType,
+				StepName:  params.ExecutionContext.StepName,
+				Action:    "create_tool_component",
+			},
+			fmt.Sprintf("tool birth refused for site %s: generated HTML is structurally incomplete — a paired tag (<script>/<style>/<section>/<div>/<fieldset>) is unterminated or it ends mid-token, the signature of a cut-off generation",
+				siteIDStr),
+			"tool_birth_truncation_blocked",
+			"error",
+			map[string]interface{}{
+				"site_id":      siteIDStr,
+				"html_length":  len(htmlContent),
+				"ends_cleanly": endsCleanly(htmlContent),
+			},
+		)
+		return nil, fmt.Errorf("refusing to persist truncated tool for site %s: generated HTML is structurally incomplete (unterminated tag or ends mid-token) — the generation was cut; regenerate",
+			siteIDStr)
+	}
+
 	function := inputs.Get("function")
 	displayName := inputs.Get("display_name")
 	description := inputs.Get("description")

@@ -151,6 +151,31 @@ var balancedPairs = []struct{ open, close string }{
 	{"<fieldset", "</fieldset>"},
 }
 
+// hasUnbalancedStructuralTags reports whether any structural pair in
+// balancedPairs is left open (more opens than closes) in html. This is the
+// ABSOLUTE form of the guard's tag-balance signal — no prior row, no size gate,
+// no mid-token check — for use at BIRTH writes, where a whole LLM artifact is
+// persisted with nothing to compare it against (bugs_open/021 INSTANCE 1).
+//
+// Calibration (bugs_open/046, 2026-07-21): across every active component
+// fleet-wide this 5-pair predicate flagged EXACTLY the 9 known truncation
+// casualties and nothing else — 0 over-fire. The companion "ends mid-token"
+// signal (endsCleanly) is deliberately NOT folded in here: it is tool-safe but
+// adds ~36 false positives fleet-wide on non-tool components that legitimately
+// end on text or a closed non-tag. So a general birth gate (store_generated_component's
+// section path) uses tag-imbalance ALONE; only the tool path (toolTemplateValid)
+// additionally applies endsCleanly, against the tool population it was calibrated
+// on.
+func hasUnbalancedStructuralTags(html string) bool {
+	folded := strings.ToLower(html)
+	for _, pair := range balancedPairs {
+		if strings.Count(folded, pair.open) > strings.Count(folded, pair.close) {
+			return true
+		}
+	}
+	return false
+}
+
 // componentRegressionIssues compares a proposed html_template against the row
 // it would overwrite and returns the reasons it must not be persisted. An
 // empty result means the write is safe to proceed.

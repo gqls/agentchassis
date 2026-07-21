@@ -159,3 +159,32 @@ func TestEndsCleanly(t *testing.T) {
 		}
 	}
 }
+
+// hasUnbalancedStructuralTags is the absolute tag-imbalance signal used by the
+// BIRTH gates (bugs_open/021 INSTANCE 1). It must fire on a generation cut
+// mid-stream and stay quiet on a whole artifact — INCLUDING the bugs_open/046
+// shape where a truncated <script> sits after a legitimately-closed </section>,
+// which the old <section>-only TemplateClosed check let through.
+func TestHasUnbalancedStructuralTags(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want bool
+	}{
+		{"whole: all pairs balanced", "<style>.a{}</style><section><div><script>var t=1;</script></div></section>", false},
+		{"truncated <script> (046 signature)", "<section><div><script>var t=1; // cut", true},
+		{"046 shape: cut <script> AFTER a closed </section>", "<section><h1>x</h1></section><script>var t=['a','b", true},
+		{"012 wreck: CSS only, <style> left open", "<style>.a{font-weight: bold;", true},
+		{"unterminated <div>", "<section><div><div></div></section>", true},
+		{"case-insensitive: <SCRIPT> open", "<SECTION><SCRIPT>var t=1;</SECTION>", true},
+		{"no structural tags at all", "just some plain text", false},
+		{"empty", "", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := hasUnbalancedStructuralTags(c.in); got != c.want {
+				t.Fatalf("hasUnbalancedStructuralTags(%q) = %v, want %v", c.in, got, c.want)
+			}
+		})
+	}
+}

@@ -308,6 +308,21 @@ func StoreGeneratedComponentAction(ctx context.Context, params ActionParams) (in
 			strings.Count(htmlTemplate, "<no value>")))
 	}
 
+	// Unterminated structural tag = a generation cut mid-stream (bugs_open/021
+	// INSTANCE 1 / bugs_open/046). preStoreScore.TemplateClosed above only
+	// balances <section> tags, so a section whose <script>/<style> is cut but
+	// whose <section> closes upstream of the cut passes it — which is how 4 of
+	// bugs_open/046's 8 casualties (and its one 'section' casualty) slipped
+	// through. hasUnbalancedStructuralTags checks all five pairs. It is the
+	// tag-imbalance signal ALONE (NOT the tool path's ends-mid-token check, which
+	// over-fires on non-tool components) — calibrated to 0 over-fire fleet-wide.
+	// The <100-char skip mirrors sectionTemplateValid's stub tolerance; a
+	// truncated generation is long, not a tiny intentional stub.
+	if len(htmlTemplate) >= 100 && hasUnbalancedStructuralTags(htmlTemplate) {
+		blockingIssues = append(blockingIssues,
+			"template leaves a structural tag (<script>/<style>/<section>/<div>/<fieldset>) unterminated — the generation was cut mid-stream")
+	}
+
 	// Regeneration must not break the field-name contract that existing
 	// dependents' content_data is keyed on. content_data is written to
 	// match the component's input_schema field names at build time;
