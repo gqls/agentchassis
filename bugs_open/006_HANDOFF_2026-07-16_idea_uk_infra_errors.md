@@ -331,3 +331,74 @@ live data and **narrowed as a result** — the first draft matched any `<form>` 
 Four `scheduled_tasks` have not fired in **79 days** while `enabled=true`, because a fifth task in
 their concurrency group consumes the group's only slot on every tick and then does nothing. Not a
 duplicate of `029` (that is hung orchestrations holding real slots). See `048`.
+
+### B — COUNCIL VERDICT = REVISE (2026-07-21), objections resolved; a real defect was found and fixed
+
+Submission `c75718c1-c6e1-45b8-bb4d-f66a28759b5c` came back **REVISE** (decided by `editquality`;
+`bug_historian` and `guardian` also objected; the other 10 seats approved). None was a veto and the
+fix was already live, so per the RUNBOOK the objections are addressed as follow-up commits and the
+trail resubmitted. **One objection turned out to name a real defect**, not just a documentation gap.
+
+**The real defect — `info@<domain>` fabrication (guardian + editquality).** The fix's headline
+guarantee ("refuses to fabricate an address for the 4 address-less sites") held only on render paths
+that leave `ctx.Email` empty. But `section_editor_actions.go:452` and `multipage_actions.go:333`
+synthesise `ctx.Email = "info@" + Domain` as a display fallback **before** rendering. On those two
+paths `deliverableFormAction` saw a non-empty `info@robot-hands.com` and would have built
+`mailto:info@robot-hands.com` — fabricating exactly the address the fix promises never to invent.
+- **Verified live:** all 4 address-less sites (robot-hands, relojistas, vetcomparison, vonc) have an
+  **empty `sites.email`** column, so only that code fallback can produce the value. The working sites
+  carry real `@contactforsales.com` addresses; none is `info@<its own domain>`, so zero live sites
+  are affected by the guard except the 4 that should be.
+- **Fix** (`efe634b37`): `deliverableFormAction` — the single chokepoint both render paths funnel
+  through — now refuses `info@<the site's own domain>` exactly as it already refuses an empty address,
+  leaving the form for the discovery check. A real `info@` on a **different** domain (a shared CRM
+  inbox) is still honoured. Two regression tests, both **fault-injected and watched to fail**
+  (produced the exact `mailto:info@robot-hands.com` before the guard): one via `sanitiseFormAction`
+  (Go-template path), one via `contextToMap` (regex fallback path).
+
+**Objection: which source feeds `RenderContext.Email`? (guardian, editquality, several low-sev seats)
+— now VERIFIED, no staleness bake-in.** `RenderContext.Email` is loaded from the **top-level
+`sites.email` column** (`loadSiteDataFull`, `COALESCE(si.email,'')`) — NOT `content_data.email` and
+NOT the identity `site_spec`. idea.uk's `sites.email` is already the current
+`idea.uk@contactforsales.com`, so the stale `idea-uk@leopardess.uk` sitting elsewhere never reaches a
+mailto. The earlier `[UNVERIFIED]` note (line ~326) is resolved. The discovery check's `remedy` text
+was also corrected in `efe634b37`: it told a human to set `content_data.email` / the site_spec, which
+would **not** engage the render fix — it now names `sites.email`.
+
+**Objection: the merge-order bug is generic; `form_action` may not be the only exposed field
+(`bug_historian`, `cta_url` named).** True that the mechanism is generic — in `contextToInterfaceMap`
+`ContentData` merges **over** the base map, so any base-default field the LLM can emit is overwritable
+(`contextToMap` is safer: it skips already-set known fields). But the other URL-bearing field,
+`cta_url`, is **already guarded by a dedicated subsystem**: the internal-link resolver
+(`resolve_internal_links_action.go`, `ctaFieldsByComponent`) + the `cta_links_stale` recompute in
+`rerender_page_sections_action.go` (bug 023 / migration 098). Live audit confirms `cta_url` values are
+real page paths, not `#`-anchors. So `form_action` was the **one** URL-bearing field with the merge
+exposure and **no** owner — which is precisely why this fix adds a guard + a check for it, rather than
+a blanket sweep. A wider audit of non-URL base fields is a separate, lower-priority item (they do not
+produce a silently-dead control the way a URL does).
+
+**Objection: blast radius of the render seam (`guardian`).** `contextToInterfaceMap` / `contextToMap`
+are called **only** inside `RenderTemplate` / `RenderTemplateReportingMissing`; every site-component
+render funnels through them (assemble, section_editor, v3, render_site_components,
+rerender_page_sections, rerender_pages). There is **no** non-web consumer (no email-template or
+preview render). The sanitiser is guarded on the `form_action` key being **present** in the merged
+data, so although the seam is universal it only fires on form-bearing components. That containment is
+now stronger, not weaker, with the `info@` guard.
+
+**Objection: the discovery check is registered but unwired (`editquality`, `bug_historian`).** Correct
+— and deliberately deferred to its own `config_change` step (adding `contact_form_undeliverable` to a
+discovery agent's `checks` array), which the RUNBOOK requires be reviewed separately naming the owning
+pipeline. It is a live-immediately DB change and does not depend on an image roll. Tracked as
+follow-up (1) below; not folded in here so it gets its own review.
+
+**Commit:** `efe634b37` (guard + 2 fault-injected tests + check remedy-text correction). Resubmitted
+to the council as a REVISE follow-up (`RESUBMIT_CORR=c75718c1-c6e1-45b8-bb4d-f66a28759b5c`).
+
+**Still open after this (unchanged in kind, decisions for the owner):**
+1. **Enable the check** — add `contact_form_undeliverable` to a discovery agent's `checks` array
+   (config, live immediately). Its own reviewed change.
+2. **Remediate the 10 already-deployed components** — the Go fix only affects new renders; a rebuild
+   of a `deployed` page bounces to `needs_human_review` at attempt 0, so this is a separate costed
+   `content_data`-migration-plus-render step through the review gate.
+3. **The 4 address-less sites still have no address** — the check will keep raising them (correctly)
+   until a real contact address is put in each site's `sites.email` column.
