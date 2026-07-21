@@ -2419,3 +2419,61 @@ edit-quality at 75% of cap) and the resubmission-loop finding.
   silently CREATED a stray untracked file containing only my text. Removed, and
   re-appended to the real file. `>>` to a path you have not just listed will
   happily invent it.
+
+---
+
+## Turn 45 — 2026-07-21 — the config-blindness roster lint (`102_LINT_council_seat_parity.py`)
+
+HANDOFF_4 §1.2: `pattern-check.py` closed the Go half of the recurring "snapshot
+of a growing set" class, but two of the five instances lived in
+`agent_definitions` JSON, which is in the DB and never passes through git — so a
+pre-commit hook structurally cannot see it. Built the missing half as a **live-DB
+lint**, not a hook.
+
+**Design forced by measurement, not assumed.** Pulled all 1130 live steps across
+155 agents into `scratchpad/fleet_steps.tsv` and simulated the rule before
+writing it. Findings:
+- **Grouping by step `action` is WRONG and would MISS the exact 019 case.**
+  `fix-proposer` has 19 `execute_llm_prompt` steps: 16 reviewer seats (all carry
+  `tolerate_truncation`) + `propose`/`reframe`/`repropose` (legitimately without
+  it). By action, `tolerate_truncation` reads as 16/19 — missing from 3 — and an
+  odd-one-out rule never fires. The right family boundary is the `review_`/`gate_`
+  **name prefix** (099 relies on it too). Confirmed live:
+  `SELECT ... split_part(key,'_',1) IN ('review','gate') ... count(DISTINCT keyset)`
+  → every review_/gate_ family has `distinct_keysets = 1` (internally uniform).
+- **The default council scope reports ZERO on the healthy fleet** — it is the
+  pattern-check property: silent until a genuine deviation. The general
+  `--all-families` pass surfaces ~11 findings, all the recognisable
+  legitimate-divergence classes a roster does NOT have (terminal `complete_*`
+  `success_message`, static-query `params`, escalation `finalize_*`). So that pass
+  is OFF by default and labelled advisory. Requiring **same action** within a
+  family (not just same prefix) is strictly more correct — comparing keys across a
+  `query_database` and a bespoke loader that merely share `load_` is meaningless —
+  and it cut the general pass from 36 → 11.
+- **Non-overlap with 099 is the whole point.** 099 compares fix-proposer↔council-gate
+  against each other, so it is BLIND to a key missing on BOTH — which is exactly
+  how the 019 hole survived (`prior_art` lacked `tolerate_truncation` on both, read
+  as "in sync"). 102 compares each seat against its OWN family, one council at a
+  time. Verified live: default run = `clean`; `--strict` on clean = exit 0.
+
+**Three checks, all falsification-tested offline** (induced the fault, confirmed
+the catch — a green happy path proves nothing about a detector; memory
+`verify-the-failing-branch`). Synthetic 4-seat roster with one seat missing
+`tolerate_truncation`, one on a stale model, one unwired from the decider →
+`seat-missing-key` + `seat-value-drift` + `seat-not-in-decider` all fired.
+- `seat-missing-key` — a near-universal config key missing from a minority seat.
+- `seat-value-drift` — a critical value (`model`/`max_tokens`/`temperature`) held
+  by a minority against the family plurality (the D1 stale-model class).
+- `seat-not-in-decider` — a `review_` seat that runs but is absent from
+  `council_decide.review_fields` (its vote is silently ignored), or the reverse.
+
+**Observation surfaced, NOT acted on (not mine to change):** `feature-designer`'s
+whole 5-seat council is on `claude-sonnet-4-6 @ 3000`, while `fix-proposer` and
+`council-gate` are on `claude-sonnet-5 @ 8000` (the D1 migration). It is
+within-family uniform, so 102 correctly does not flag it — but it is a genuine
+cross-council question: did feature-designer's council miss the D1 model bump, or
+is the older/smaller model deliberate for the designer workload? Flagged to owner.
+A cross-council parity rule would NOT be clean here — `experience-planner`
+uniformly OMITS `tolerate_truncation` by owner ruling, so comparing councils to
+each other fires on intended state. That is why 102 stays within-family and 099
+only mirrors the two councils that are meant to be byte-identical.

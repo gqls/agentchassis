@@ -475,3 +475,35 @@ finetuning.uk are held**, waiting on your call — proceed on both now and accep
 look until they have real legal pages, or hold them until I've drafted those pages so their
 re-render comes out clean the first time. My recommendation is still: finetuning is safe to do now
 (it has a proper legal list), hold ai-agent-orchestration for the legal pages.
+
+---
+
+**2026-07-21 — the "blank section" tidy-up (bug 054).**
+
+You picked this one out of four options I offered at the start of the session. It's the small,
+safe, in-family job: five of our reusable page sections (the ones that list games, guides, tools,
+entities) had no "nothing here yet" message. On a brand-new site whose lists haven't filled up
+yet, those sections just rendered as an empty box — no explanatory line, nothing. Two sibling
+"news" sections had already been given a graceful empty message a few days ago; these five had
+been missed. A reviewer had flagged exactly that, which is why the bug existed.
+
+It's now fixed and live (it's a settings change in the database, so it took effect immediately —
+no waiting for a software release). Each of the five sections now shows a short "more coming soon"
+style line when its list is empty, and — importantly — that line is written in the site's own
+language, not hardcoded English, so it works on the Spanish sites too. I also left behind a small
+checker script so this can't quietly creep back in: it flags any list section that's missing its
+empty-state, and right now it reports all clear.
+
+One thing worth telling you because it nearly tripped me up. Those five sections were all marked in
+the system as "this list must have at least one item". So my first instinct was that they were
+already protected and my change was pointless belt-and-braces. Before writing that down I checked
+the actual code — and found the system **doesn't enforce that "must have at least one" rule at all**
+for these query-filled lists. It says the rule exists and then ignores it. So the empty boxes were
+genuinely reachable and the fix is real. I've deliberately *not* touched that deeper flaw (the
+ignored rule) in this pass — it's a bigger, riskier change about data integrity, and it deserves its
+own careful diagnosis rather than being bolted onto a tidy-up. I've recorded it clearly so it isn't
+lost.
+
+Separately: another session is already building the fix for the "Bayesian ranker turning up on the
+wrong tool page" problem (one of the other three options I offered you), so that one is in hand
+elsewhere.

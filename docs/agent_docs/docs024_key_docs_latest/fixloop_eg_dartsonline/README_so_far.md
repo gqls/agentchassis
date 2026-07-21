@@ -1467,3 +1467,42 @@ appended the proof notes to the bug file's old location without checking, not
 realising another thread had moved it now that it's fixed; the append silently
 created a new stray file containing only my text. Both harmless, both my own
 carelessness with tools I use constantly.
+
+---
+
+**2026-07-21 — a small tool to catch the mistake we keep making.**
+
+There's a shape of bug that has bitten us five times in two days: we have a
+row of near-identical things — the reviewer "seats" on a council, say — and
+someone adds a new one but forgets to give it one setting the others all have.
+The whole point of that setting on the others still holds, but the new one
+quietly does the wrong thing, and nobody notices because nothing was comparing
+the new seat against its neighbours. That is literally how the last hole in bug
+019 survived: a sixteenth reviewer was added without the "tolerate a cut-off
+answer" flag the other fifteen had, and it re-opened the very failure the whole
+019 fix existed to close.
+
+We already built one guard for this (`pattern-check`), but it can only see
+changes that go through a code commit — and half of these live in the database
+config, which changes instantly without any commit at all. So today I built the
+missing half: a little read-only checker that reads the live councils and says,
+one council at a time, "seat X is missing something all its siblings have," or
+"seat X is on an older model than the rest," or "seat X is running but the vote-
+counter doesn't even know it exists." It spends no credits and changes nothing —
+it just looks and reports.
+
+I did the homework before writing it rather than after: pulled every step of
+every agent (1,130 of them) and tried the rule against reality first. That
+caught a subtle trap — the obvious way to group the seats would have grouped
+them so loosely that it would have MISSED the exact 019 bug it's meant to catch.
+The version that shipped groups them the way the councils are actually named, and
+on today's healthy system it reports a clean bill of health, which is what you
+want: quiet until something is genuinely wrong. I also deliberately induced each
+of the three faults on a fake council to watch the checker catch them, rather
+than trust that it works because it stayed quiet.
+
+One thing it turned up that I did NOT touch, because it isn't mine to decide:
+the "feature-designer" council is still running on the older, smaller model
+(sonnet-4-6) while the other two councils were moved up to sonnet-5 a few days
+ago. It might be deliberate, or it might have been missed in that upgrade —
+worth a look when you have a moment.

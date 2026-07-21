@@ -632,13 +632,26 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 	// Fail-open on a check error: a transient check failure must not halt
 	// legitimate deploys; Option A (the claimed-item-timeout evidence check) is
 	// the other layer of protection.
+	//
+	// bugs_open/040-partial-build: the same reasoning applies one step up, to a
+	// build that wrote SOME but not ALL of its planned sections. dartsonline
+	// index (2026-07-20) reached this deploy mark with 5 of 6 planned sections
+	// (testimonials never written) and was stamped deployed + built_from_plan_version
+	// = current, so decideEmit returns skip_built and the reconciler will never
+	// revisit the missing section — a permanent five-sixths page that no longer
+	// asks to be built. A partial build must be treated exactly like a 0-component
+	// one: refuse the mark, flip to needs_rebuild, clear the stamp. This runs
+	// AFTER save_page_sections has written the components (page-build-handler,
+	// page-rerender, section-editor and tool-recreation-handler all write their
+	// components before this step), so a shortfall here is a real one, not a race.
 	if newStatus == "deployed" {
 		hasComponents, checkErr := pageHasComponents(ctx, params.DB, pageID)
-		if checkErr != nil {
+		switch {
+		case checkErr != nil:
 			params.Logger.Warn("UpdatePageStatusAction: component check failed; proceeding with deploy",
 				zap.String("page_id", pageID.String()),
 				zap.Error(checkErr))
-		} else if !hasComponents {
+		case !hasComponents:
 			params.Logger.Warn("UpdatePageStatusAction: refusing to mark page deployed with no rendered components; setting needs_rebuild",
 				zap.String("page_id", pageID.String()))
 			const rebuildQuery = `UPDATE pages SET build_status = 'needs_rebuild', built_from_plan_version = NULL, updated_at = NOW() WHERE id = $1`
@@ -654,6 +667,33 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 				"build_status": "needs_rebuild",
 				"reason":       "refused deploy: page has no rendered components",
 			}, nil
+		default:
+			// Page has >= 1 component but may still be short of its plan.
+			// Fail-open on a check error, same as the 0-component guard above.
+			planned, rendered, shErr := pageSectionShortfall(ctx, params.DB, pageID)
+			if shErr != nil {
+				params.Logger.Warn("UpdatePageStatusAction: section-shortfall check failed; proceeding with deploy",
+					zap.String("page_id", pageID.String()),
+					zap.Error(shErr))
+			} else if rendered < planned {
+				params.Logger.Warn("UpdatePageStatusAction: refusing to mark page deployed; build is short of its plan; setting needs_rebuild",
+					zap.String("page_id", pageID.String()),
+					zap.Int("planned_sections", planned),
+					zap.Int("rendered_components", rendered))
+				const rebuildQuery = `UPDATE pages SET build_status = 'needs_rebuild', built_from_plan_version = NULL, updated_at = NOW() WHERE id = $1`
+				if rbErr := execDB(ctx, params.DB, rebuildQuery, pageID); rbErr != nil {
+					params.Logger.Error("UpdatePageStatusAction: failed to set needs_rebuild after refusing partial deploy",
+						zap.String("page_id", pageID.String()),
+						zap.Error(rbErr))
+					return nil, fmt.Errorf("failed to set needs_rebuild for partial-build page: %w", rbErr)
+				}
+				return map[string]interface{}{
+					"updated":      false,
+					"page_id":      pageID.String(),
+					"build_status": "needs_rebuild",
+					"reason":       fmt.Sprintf("refused deploy: only %d of %d planned sections rendered", rendered, planned),
+				}, nil
+			}
 		}
 	}
 
@@ -771,6 +811,49 @@ func pageHasComponents(ctx context.Context, db interface{}, pageID uuid.UUID) (b
 	default:
 		return false, fmt.Errorf("unsupported database type: %T", db)
 	}
+}
+
+// pageSectionShortfall reports how many sections the page's plan promised
+// (planned) versus how many page_components rows exist for it (rendered). It is
+// the 040-partial-build companion to pageHasComponents: a build that reaches the
+// deploy mark having written a row for only 5 of 6 planned sections must NOT be
+// stamped deployed + built_from_plan_version, or decideEmit
+// (reconcile_site_plan_action.go) returns skip_built for it forever and the
+// reconciler never revisits the shortfall (dartsonline index, 2026-07-20:
+// testimonials dropped by a build that reported complete; caller flips it to
+// needs_rebuild and clears the stamp instead).
+//
+// It compares ROW COUNTS, deliberately NOT section names. pages.sections names
+// do NOT reliably equal page_components.slot_name / content_components.function
+// across templates — gaswholesalers services planned ["services-hero", …,
+// "call_to_action"] against live slots ["hero-services", …, "call-to-action"]
+// (word order and _/- both differ) — so per-name matching produces false
+// positives that would refuse a healthy page and drive it into a rebuild loop.
+// The row count is the signal the bugs_open/040 fleet sweep validated; a genuine
+// missing section (no row at all) is what it catches, while a present-but-hollow
+// section (a row that exists but rendered nothing) is bugs_open/039's concern and
+// still counts as rendered here. suppressed_sections are excluded from the
+// planned count so a deliberately-dropped section is never read as a shortfall.
+// Mirrors the db type switch used by pageHasComponents/execDB.
+func pageSectionShortfall(ctx context.Context, db interface{}, pageID uuid.UUID) (planned int, rendered int, err error) {
+	const query = `
+		SELECT
+			(SELECT count(*)
+			   FROM jsonb_array_elements_text(COALESCE(p.sections, '[]'::jsonb)) AS sec
+			  WHERE sec NOT IN (
+			      SELECT jsonb_array_elements_text(COALESCE(p.suppressed_sections, '[]'::jsonb)))),
+			(SELECT count(*) FROM page_components pc WHERE pc.page_id = p.id)
+		FROM pages p
+		WHERE p.id = $1`
+	switch d := db.(type) {
+	case *sql.DB:
+		err = d.QueryRowContext(ctx, query, pageID).Scan(&planned, &rendered)
+	case *pgxpool.Pool:
+		err = d.QueryRow(ctx, query, pageID).Scan(&planned, &rendered)
+	default:
+		err = fmt.Errorf("unsupported database type: %T", db)
+	}
+	return planned, rendered, err
 }
 
 // BuildRenderContextAction assembles a RenderContext from multiple sources
@@ -2714,7 +2797,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		for _, rp := range existingPages {
 			if rm, ok := rp.(map[string]interface{}); ok {
 				locked, _ := rm["adoption_locked"].(bool)
-				if locked || realisedPageIsBuilt(rm) {
+				if locked || realisedPageCompositionIsPreserved(rm) {
 					mustKeep = append(mustKeep, rp)
 				}
 			}
@@ -3366,11 +3449,17 @@ func loadSectionComponents(
 		return buildStubSectionComponents(sectionNames)
 	}
 
-	placeholders := make([]string, len(sectionNames))
-	args := make([]interface{}, len(sectionNames))
-	for i, name := range sectionNames {
+	// Match each requested section against BOTH its raw name and its kebab-
+	// normalised form (bugs_open/041): the library stores kebab-case, but plans
+	// may emit snake_case/CamelCase ("call_to_action"). This value set is a
+	// strict superset of the raw names, so nothing that resolved before stops
+	// resolving — including the few components whose *name* is itself snake_case.
+	lookupValues := sectionLookupValueSet(sectionNames)
+	placeholders := make([]string, len(lookupValues))
+	args := make([]interface{}, len(lookupValues))
+	for i, v := range lookupValues {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = name
+		args[i] = v
 	}
 
 	var components []map[string]interface{}
@@ -3428,7 +3517,7 @@ func loadSectionComponents(
 
 	var missing []string
 	for _, name := range sectionNames {
-		if !foundNames[name] {
+		if !sectionResolvedByFound(foundNames, name) {
 			missing = append(missing, name)
 		}
 	}
@@ -3438,11 +3527,15 @@ func loadSectionComponents(
 		logger.Info("loadSectionComponents: trying function lookup for missing",
 			zap.Strings("missing", missing))
 
-		funcPlaceholders := make([]string, len(missing))
-		funcArgs := make([]interface{}, len(missing))
-		for i, name := range missing {
+		// Same raw+normalised superset as Pass 1 (bugs_open/041).
+		funcValues := sectionLookupValueSet(missing)
+		funcValueSet := make(map[string]bool, len(funcValues))
+		funcPlaceholders := make([]string, len(funcValues))
+		funcArgs := make([]interface{}, len(funcValues))
+		for i, v := range funcValues {
+			funcValueSet[v] = true
 			funcPlaceholders[i] = fmt.Sprintf("$%d", i+1)
-			funcArgs[i] = name
+			funcArgs[i] = v
 		}
 
 		funcQuery := fmt.Sprintf(`
@@ -3475,7 +3568,7 @@ func loadSectionComponents(
 					continue
 				}
 				function, _ := comp["function"].(string)
-				if !containsString(missing, function) {
+				if !funcValueSet[function] {
 					continue
 				}
 				components = append(components, comp)
@@ -3491,7 +3584,7 @@ func loadSectionComponents(
 	// Stubs for anything still not found
 	var stillMissing []string
 	for _, name := range sectionNames {
-		if !foundNames[name] {
+		if !sectionResolvedByFound(foundNames, name) {
 			stillMissing = append(stillMissing, name)
 		}
 	}
@@ -3510,13 +3603,16 @@ func loadSectionComponents(
 		}
 	}
 
-	// Reorder to match sectionNames input order
+	// Reorder to match sectionNames input order. Match a component to a requested
+	// section under either the raw or normalised form (bugs_open/041), mirroring
+	// the lookup above so a resolved "call_to_action" lands in its slot.
 	ordered := make([]map[string]interface{}, 0, len(components))
 	for _, sectionName := range sectionNames {
+		keys := sectionLookupKeys(sectionName)
 		for _, comp := range components {
 			name, _ := comp["name"].(string)
 			function, _ := comp["function"].(string)
-			if name == sectionName || function == sectionName {
+			if containsString(keys, name) || containsString(keys, function) {
 				ordered = append(ordered, comp)
 				break
 			}
@@ -4544,12 +4640,29 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // A built page deserves preservation whether or not it is adoption-locked, so
 // the set is now:
 //
-//	adoption_locked == true  OR  build_status == "deployed"
+//	adoption_locked == true  OR  build_status IN ("deployed", "needs_rebuild")
 //
-// Both flags come from the load_existing_pages query. build_status is only
-// surfaced by that query as of the same change — if it is absent the term is
-// simply empty and behaviour falls back to the adoption-locked set, so the Go
-// change and the query change are safe to land in either order.
+// needs_rebuild joined the set 2026-07-21 (bugs_open/037). A needs_rebuild page
+// still holds its intended composition in pages.sections, and EVERY writer of
+// that status keeps those sections and means "re-render this page as planned",
+// never "recompose it from scratch": a refused 0-component or partial deploy
+// (UpdatePageStatusAction — clears built_from_plan_version but keeps sections),
+// an image/maintenance rebuild (flagPagesForRebuild), or a now-available
+// component the sections already name (markPagesForRebuild,
+// check_unresolved_sections — those two would be actively DEFEATED by
+// recomposition, since the sections name the very components the rebuild exists
+// to pick up). So letting a re-plan take the LLM's composition for a
+// needs_rebuild page was silent loss, not an honoured redesign request. This
+// widens only MEMBERSHIP of the preserved set (realisedPageCompositionIsPreserved);
+// the empty-sections classification in Pass B/B2 still keys on realisedPageIsBuilt
+// (== deployed), because a needs_rebuild page with empty sections may be either
+// rendered-elsewhere OR genuinely awaiting composition, which Pass B2's non-empty
+// gate already routes correctly (see bugs_open/050 for the deployed-empty case).
+//
+// All flags come from the load_existing_pages query. build_status is only
+// surfaced by that query as of migration 173 — if it is absent both status terms
+// are empty and behaviour falls back to the adoption-locked set, so the Go change
+// and the query change are safe to land in either order.
 //
 // Passes over the preservation set:
 //
@@ -4570,15 +4683,28 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 //	          a site's first plan and never on a re-plan. The scoping decision
 //	          stands; the reason given for it did not exist.
 //	Pass B  — rename snap-back: same URL as a realised page, different name ->
-//	          replace with the realised identity.
-//	Pass B2 — composition snap-back: same NAME as a realised page whose realised
-//	          sections are NON-EMPTY -> restore those sections over the LLM's.
-//	          The non-empty gate is what makes this safe in both directions: a
-//	          built page cannot be re-composed, while a catalogued page with
-//	          sections=[] keeps the LLM's proposal, so composition is finally
-//	          allowed to happen. Carrying emptiness forward unconditionally is
-//	          what made "re-plan to compose the missing pages" structurally
-//	          impossible (bugs_open/001, second defect).
+//	          replace with the realised identity. Its sections are carried too,
+//	          EXCEPT when the realised page is NOT deployed and its sections are
+//	          empty: that is a catalogued page that has never been composed, so
+//	          keep the realised identity but take the LLM's proposed sections so
+//	          the re-plan can finally compose it (bugs_open/050).
+//	Pass B2 — composition snap-back: same NAME as a realised page. Reconciles the
+//	          LLM's sections against the realised composition, keyed on the
+//	          realised sections and deployed-ness (bugs_open/050):
+//	            NON-EMPTY            -> restore those sections over the LLM's; a
+//	                                    built page must not be re-composed.
+//	            EMPTY + deployed     -> force the LLM's proposal back to empty; the
+//	                                    page renders through another subsystem (a
+//	                                    tool or blog-index page) and must not
+//	                                    receive an injected generic layout.
+//	            EMPTY + not-deployed -> keep the LLM's proposal; a catalogued page
+//	                                    is finally composed.
+//	          Carrying emptiness forward unconditionally is what made "re-plan to
+//	          compose the missing pages" structurally impossible (bugs_open/001,
+//	          second defect); composing onto a deployed sectionless page is the
+//	          injection risk bugs_open/050 closes. For a deployed page, empty
+//	          sections is a positive statement ("not section-composed here"), not
+//	          an absence awaiting composition.
 //	Pass A  — union: append every preserved realised page not already present.
 //
 // Returns the reconciled page slice plus counts for logging.
@@ -4599,7 +4725,7 @@ func reconcilePlanWithRealised(
 		if locked {
 			lockedPages = append(lockedPages, rp)
 		}
-		if locked || realisedPageIsBuilt(rm) {
+		if locked || realisedPageCompositionIsPreserved(rm) {
 			preserved = append(preserved, rp)
 		}
 	}
@@ -4700,24 +4826,39 @@ func reconcilePlanWithRealised(
 			continue
 		}
 
-		// Pass B: same URL as a realised page, different name -> snap back.
+		// Pass B: same URL as a realised page, different name -> snap back to the
+		// realised identity, carrying its sections. Exception (bugs_open/050): a
+		// NOT-deployed realised page with empty sections is a catalogued page that
+		// has never been composed, so keep the realised identity but take the LLM's
+		// proposed sections. A DEPLOYED empty page renders through another subsystem
+		// and its emptiness is authoritative — carry it (as normalise already does).
 		if rp, ok := realisedByURL[lurl]; ok {
 			if rname, _ := rp["name"].(string); rname != "" && rname != lname {
+				snapped := normaliseRealisedToPlanPage(rp)
+				if !realisedPageIsBuilt(rp) && len(realisedSectionsOf(rp)) == 0 {
+					if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
+						snapped["sections"] = ls
+					}
+				}
 				logger.Info("validate: snapped renamed page back to realised identity",
 					zap.String("llm_name", lname), zap.String("realised_name", rname))
-				kept = append(kept, normaliseRealisedToPlanPage(rp))
+				kept = append(kept, snapped)
 				snappedRename++
 				continue
 			}
 		}
 
-		// Pass B2: same NAME as a preserved realised page -> restore that page's
-		// composition over whatever the LLM proposed, but ONLY when the realised
-		// composition is non-empty. Non-empty means the page is really built, and
-		// a re-plan must not redesign it; empty means the page is catalogued but
-		// uncomposed, and the LLM's proposal is exactly what it needs. Only
-		// "sections" is snapped — title/meta/nav stay the LLM's, so a re-plan can
+		// Pass B2: same NAME as a preserved realised page -> reconcile the LLM's
+		// sections against the realised composition (bugs_open/050). Only
+		// "sections" is touched — title/meta/nav stay the LLM's, so a re-plan can
 		// still refresh copy and navigation without touching the layout.
+		//   - realised NON-EMPTY: restore those sections over the LLM's; a page
+		//     built through the section composer must not be re-composed.
+		//   - realised EMPTY + deployed: force the LLM's proposal back to empty; the
+		//     page renders through another subsystem (a tool or blog-index page)
+		//     and must not receive an injected generic layout.
+		//   - realised EMPTY + not-deployed: keep the LLM's proposal (fall through);
+		//     a catalogued page is finally composed.
 		if rp, ok := realisedByName[lname]; ok {
 			if rs := realisedSectionsOf(rp); len(rs) > 0 {
 				if !sameSectionList(lm["sections"], rs) {
@@ -4725,6 +4866,14 @@ func reconcilePlanWithRealised(
 						zap.String("page", lname),
 						zap.Int("realised_sections", len(rs)))
 					lm["sections"] = rs
+					snappedSections++
+				}
+			} else if realisedPageIsBuilt(rp) {
+				if ls, ok := lm["sections"].([]interface{}); ok && len(ls) > 0 {
+					logger.Info("validate: forced deployed sectionless page back to empty",
+						zap.String("page", lname),
+						zap.Int("llm_sections", len(ls)))
+					lm["sections"] = []interface{}{}
 					snappedSections++
 				}
 			}
@@ -4771,6 +4920,38 @@ func reconcilePlanWithRealised(
 func realisedPageIsBuilt(rm map[string]interface{}) bool {
 	status, _ := rm["build_status"].(string)
 	return status == "deployed"
+}
+
+// realisedPageCompositionIsPreserved reports whether a realised pages-table row
+// carries a composition a re-plan must not silently discard. Two build states
+// qualify, for the same reason — the page already holds an intended composition
+// in pages.sections that machinery expects to survive a re-plan:
+//
+//	"deployed"      -- built and live.
+//	"needs_rebuild" -- awaiting a re-render, but its sections ARE its intended
+//	    composition. Every writer of needs_rebuild keeps pages.sections and means
+//	    "re-render as planned", never "recompose from scratch" (bugs_open/037; see
+//	    the reconcilePlanWithRealised header for the enumeration of writers).
+//
+// This is the preservation-MEMBERSHIP predicate, used by reconcilePlanWithRealised
+// and the truncation guard. It is deliberately DISTINCT from realisedPageIsBuilt
+// (== deployed), which the empty-sections gate in Pass B/B2 keeps using: an empty
+// needs_rebuild page may be genuinely awaiting composition rather than rendered
+// elsewhere, so it must not be force-emptied. Pass B2's non-empty gate routes both
+// kinds correctly — a needs_rebuild page with real sections is snapped back; one
+// with empty sections falls through to the LLM's proposal, exactly as before this
+// change (bugs_open/050 owns the deployed-empty classification).
+//
+// Returns false when build_status is absent, so the preservation set degrades
+// safely to the adoption-locked set on a chassis whose load_existing_pages query
+// has not been updated to surface the column.
+func realisedPageCompositionIsPreserved(rm map[string]interface{}) bool {
+	switch status, _ := rm["build_status"].(string); status {
+	case "deployed", "needs_rebuild":
+		return true
+	default:
+		return false
+	}
 }
 
 // realisedSectionsOf extracts a realised page's section list. The

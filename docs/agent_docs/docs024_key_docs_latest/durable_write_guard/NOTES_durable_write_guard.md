@@ -244,3 +244,57 @@ stop-new / clean-old split that 012 established.
 This is a scope call because it (a) contradicts the handoff premise and (b)
 changes WHERE the guard goes (birth write, absolute) vs what the handoff asked
 (rendered_html, comparative). Surface to owner before coding.
+
+## 2026-07-21 — owner chose Phase 1 + section gate; IMPLEMENTED + committed `ba702c8c6`
+
+Owner scope decision: **Phase 1 (tool birth gate) + Phase 2 (section birth gate).**
+Shipped (all in package `actions`, inert until an image roll):
+1. `component_write_guard.go` — new pure helper `hasUnbalancedStructuralTags`
+   (absolute 5-pair tag-imbalance; NO endsCleanly, per the 046 +36-FP calibration).
+2. `create_tool_component_action.go` — after the `HasToolDocHeader` gate (which
+   can't see a tail cut), a hard `componentTemplateValid(htmlContent, "tool")`
+   gate → `recordComponentWriteRejection` (`tool_birth_truncation_blocked`) →
+   error routes to `needs_human_review` via the workflow's existing `error_step`.
+   Placed with the other raw-input validation (before any DB work).
+3. `store_generated_component_action.go` — added to the existing `blockingIssues`
+   structural checks: `len>=100 && hasUnbalancedStructuralTags` → rejects a section
+   whose `<script>/<style>` is cut but whose `<section>` closes upstream (the
+   TemplateClosed blind spot; 4 of 046's 8 casualties).
+4. `component_write_guard_test.go` — `TestHasUnbalancedStructuralTags`, incl. the
+   046 discriminator "cut `<script>` after a closed `</section>`". All existing
+   `toolTemplateValid`/`componentTemplateValid` tests unchanged and green.
+Build OK; `go test ./platform/orchestration/actions/` = ok.
+
+### MISSTEP navigated — a same-file passenger in plan_sections_action.go
+Originally I ALSO refactored `toolTemplateValid` (its inline 5-pair loop → a call
+to the new `hasUnbalancedStructuralTags`) — a cosmetic DRY change. When I went to
+commit, `git diff --stat` showed `plan_sections_action.go | 53 +++++`, far more
+than my ~4-line edit. The diff revealed **another session's uncommitted WIP in the
+same file**: `aliasNormalisedSectionKeys` (bugs_open/041) + an `isSelfContainedSection`
+exemption in `planSection` (bugs_open/044). A pathspec commit of that file would
+have swept their work under my message (the same-file passenger CLAUDE.md warns
+about — no hook can prevent it), and `git checkout` would have destroyed their WIP.
+**Resolution:** reverted ONLY my hunk (Edit the loop back), leaving the file to the
+041/044 session, and did NOT commit it. Cost: `toolTemplateValid` keeps its own
+inline loop instead of sharing the helper — purely cosmetic, functionally
+identical, and both still key off the same `balancedPairs`. Lesson reaffirmed: the
+shared tree is live mutable state; check the per-file diff size against your own
+edit before committing, and never fold a cosmetic refactor into a file you don't
+otherwise need to touch.
+
+### Observation (not mine to fix) — a pre-existing broken test at HEAD
+`discovery_checks/verifier_coverage_test.go::TestEveryCheckProducedItemTypeIsClassified`
+FAILS at committed HEAD (reproduced with my changes stashed): two committed checks
+— `contact_form_undeliverable` (3913a0adf) and `backend_entry_orphaned`
+(7b03f296a) — were added without a verifier or a classification entry. That is the
+INSTANCE 2 coverage guard (owned by `work_item_completion_integrity`) doing its
+job on OTHER threads' omissions. Not this workstream's; the `actions` package
+(all my changes) passes clean. Flagged here for the record only.
+
+### Still to do
+- Build + roll a chassis image (owner-sanctioned — outward-facing), then VERIFY by
+  fault-injection per the PLAN (drive a tail-cut tool through create_tool_component
+  → not created, item `needs_human_review`, refusal in `agent_error_log`), plus a
+  discriminating pod-grep of the CREATED literal `tool_birth_truncation_blocked`.
+- Optional: advisory council gate on the platform change (credits + ~30 min).
+- Until it ships, INSTANCE 1 stays OPEN (bar = fixed AND live).

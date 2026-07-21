@@ -21,20 +21,25 @@
 //     plan_id: <uuid>,
 //     pages_total: <int>,           total plan pages considered
 //     pages_emitted: <int>,         needs_page items written
-//     pages_skipped_built: <int>,   already deployed at current plan version
+//     pages_skipped_built: <int>,   deployed & unchanged (includes re-stamped)
+//     pages_restamped: <int>,       deployed, older plan, composition unchanged
+//                                   → built_from_plan_version carried forward
 //     pages_skipped_queued: <int>,  open work item already exists
 //     rerender_emitted: <bool>,
 //     batch_id: <uuid>,
 //   }
 //
 // Decision per plan page (in order):
-//   1. no row in pages / not deployed / stale plan  → candidate (else skip)
-//   2. tool/game role OR pages.rebuild_policy='owned'
+//   1. deployed at current plan version, OR deployed at an OLDER version but the
+//      new plan proposes the same composition  → skip (the latter re-stamps
+//      built_from_plan_version forward; /bugs_open/038)
+//   2. no row in pages / not deployed / genuinely re-composed → candidate
+//   3. tool/game role OR pages.rebuild_policy='owned'
 //        → emit owned_page_review (needs_human_review, NO handler) — the
 //          generic builder clobbers owned pages (TP-004 / TL-001; guard
 //          rail 1 of the experience loop)
-//   3. existing open item for the key               → skip (queued)
-//   4. otherwise                                    → emit needs_page
+//   4. existing open item for the key               → skip (queued)
+//   5. otherwise                                    → emit needs_page
 //
 // "Open" = status NOT IN ('complete','verified','rejected','wont_fix','failed').
 // Same set the dedup index uses; consistent semantics.
@@ -148,6 +153,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 			"pages_total":          0,
 			"pages_emitted":        0,
 			"pages_skipped_built":  0,
+			"pages_restamped":      0,
 			"pages_skipped_queued": 0,
 			"rerender_emitted":     false,
 		}, nil
@@ -156,6 +162,14 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 	realised, err := loadRealisedPages(ctx, params.DB, siteID)
 	if err != nil {
 		return nil, fmt.Errorf("load realised pages: %w", err)
+	}
+
+	// Section lists for the current plan and each version a deployed page was
+	// built from, so decideEmit can tell a genuine re-composition (rebuild) from
+	// an unchanged page (re-stamp + skip). /bugs_open/038.
+	planSections, err := loadPlanSectionsByVersion(ctx, params.DB, planID, realised)
+	if err != nil {
+		return nil, fmt.Errorf("load plan sections: %w", err)
 	}
 
 	openItems, err := loadOpenPageItems(ctx, params.DB, siteID)
@@ -174,6 +188,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 	emitted := 0
 	emittedReview := 0
 	skippedBuilt := 0
+	restamped := 0
 	skippedQueued := 0
 
 	// Iterate pages in name order so priorities are deterministic across runs.
@@ -187,9 +202,29 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		plan := planPages[name]
 		real := realised[name]
 
-		decision := decideEmit(plan, real, planID)
+		var builtFromSections []string
+		if real.BuiltFromPlanVersion.Valid {
+			builtFromSections = planSections[real.BuiltFromPlanVersion.UUID][name]
+		}
+		decision := decideEmit(real, planID, planSections[planID][name], builtFromSections)
 		if decision == "skip_built" {
 			skippedBuilt++
+			continue
+		}
+		if decision == "restamp" {
+			// Deployed from an older plan version, but the new plan proposes the
+			// same composition — carry the stamp forward instead of rebuilding,
+			// which would only regenerate identical copy (/bugs_open/038). Counts
+			// as skipped-from-build so pages_skipped_built stays the total of
+			// deployed-and-unchanged pages.
+			if _, err = tx.ExecContext(ctx, `
+				UPDATE pages SET built_from_plan_version = $1, updated_at = NOW()
+				WHERE site_id = $2 AND name = $3
+			`, planID, siteID, name); err != nil {
+				return nil, fmt.Errorf("re-stamp built_from_plan_version for %q: %w", name, err)
+			}
+			skippedBuilt++
+			restamped++
 			continue
 		}
 
@@ -317,6 +352,7 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		zap.Int("pages_emitted", emitted),
 		zap.Int("pages_review_emitted", emittedReview),
 		zap.Int("pages_skipped_built", skippedBuilt),
+		zap.Int("pages_restamped", restamped),
 		zap.Int("pages_skipped_queued", skippedQueued),
 		zap.Bool("rerender_emitted", rerenderEmitted),
 	)
@@ -327,18 +363,38 @@ func ReconcileSitePlanAction(ctx context.Context, params ActionParams) (interfac
 		"pages_emitted":        emitted,
 		"pages_review_emitted": emittedReview,
 		"pages_skipped_built":  skippedBuilt,
+		"pages_restamped":      restamped,
 		"pages_skipped_queued": skippedQueued,
 		"rerender_emitted":     rerenderEmitted,
 		"batch_id":             batchID.String(),
 	}, nil
 }
 
-// decideEmit returns one of: "missing", "not_built", "stale", "skip_built".
+// decideEmit returns one of: "missing", "not_built", "stale", "skip_built",
+// "restamp".
+//
 // Inputs:
-//   - plan: the plan page record (always present — caller filters)
 //   - realised: the realised pages row, may be zero-value if absent
-//   - planID: the current plan id, for stale check
-func decideEmit(plan planPageRecord, realised realisedPageRecord, planID uuid.UUID) string {
+//   - planID: the current plan id, for the stale check
+//   - currentSections:   the current plan's ordered, normalised section list
+//     for this page (from site_plan_sections)
+//   - builtFromSections: the same for the plan version the page was built from
+//     (nil if that version has no sections for the page, or is unknown)
+//
+// "restamp" means: the page is deployed from an older plan version, but the new
+// plan proposes the same composition, so it needs no rebuild — the caller
+// carries built_from_plan_version forward and skips. This is the fix for
+// /bugs_open/038: a re-plan writes a new site_plans row, so EVERY deployed page
+// fails the plain built_from == planID equality and was being rebuilt (and its
+// copy regenerated) even when the plan left the page untouched.
+//
+// The comparison is plan-to-plan on site_plan_sections, deliberately NOT
+// plan-to-pages.sections. sync_pages runs before this action and overwrites
+// pages.sections with the new plan's proposal (site_db_actions.go, `sections =
+// EXCLUDED.sections`), so pages.sections always equals the current plan and
+// cannot tell an unchanged page from a re-composed one. site_plan_sections is
+// per-plan and immutable, so it can.
+func decideEmit(realised realisedPageRecord, planID uuid.UUID, currentSections, builtFromSections []string) string {
 	if realised.BuildStatus == "" {
 		return "missing" // no row in pages table
 	}
@@ -348,10 +404,32 @@ func decideEmit(plan planPageRecord, realised realisedPageRecord, planID uuid.UU
 	if !realised.BuiltFromPlanVersion.Valid {
 		return "stale" // built but no plan-version recorded; treat as stale until set
 	}
-	if realised.BuiltFromPlanVersion.UUID != planID {
-		return "stale"
+	if realised.BuiltFromPlanVersion.UUID == planID {
+		return "skip_built"
 	}
-	return "skip_built"
+	// Built from an older plan version. Only a genuine composition change is
+	// stale; an unchanged page is re-stamped and skipped. Require the built-from
+	// version to actually carry a section list for the page — a nil list means
+	// we cannot positively confirm the old composition, so fall through to a
+	// (safe) rebuild rather than skipping on absence of evidence.
+	if builtFromSections != nil && sectionsEqual(currentSections, builtFromSections) {
+		return "restamp"
+	}
+	return "stale"
+}
+
+// sectionsEqual reports whether two ordered, already-normalised section lists
+// are identical. Order matters: it determines page layout.
+func sectionsEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func loadPlanPages(ctx context.Context, db *sql.DB, planID uuid.UUID) (map[string]planPageRecord, error) {
@@ -396,6 +474,64 @@ func loadRealisedPages(ctx context.Context, db *sql.DB, siteID uuid.UUID) (map[s
 			return nil, err
 		}
 		out[name] = r
+	}
+	return out, rows.Err()
+}
+
+// loadPlanSectionsByVersion loads, for the current plan and for every distinct
+// plan version any DEPLOYED realised page was built from, the ordered and
+// normalised component list per page name. Shape: map[planID]map[pageName][]string.
+//
+// The set of plan versions is small (the current plan plus a handful of
+// build-time stamps), so one query per version is cheaper and clearer than a
+// single ANY(...) with a driver-specific array literal.
+func loadPlanSectionsByVersion(
+	ctx context.Context,
+	db *sql.DB,
+	currentPlanID uuid.UUID,
+	realised map[string]realisedPageRecord,
+) (map[uuid.UUID]map[string][]string, error) {
+	want := map[uuid.UUID]struct{}{currentPlanID: {}}
+	for _, r := range realised {
+		if r.BuildStatus == "deployed" && r.BuiltFromPlanVersion.Valid {
+			want[r.BuiltFromPlanVersion.UUID] = struct{}{}
+		}
+	}
+
+	out := make(map[uuid.UUID]map[string][]string, len(want))
+	for planID := range want {
+		secs, err := loadPlanSections(ctx, db, planID)
+		if err != nil {
+			return nil, fmt.Errorf("load plan sections for %s: %w", planID, err)
+		}
+		out[planID] = secs
+	}
+	return out, nil
+}
+
+// loadPlanSections returns the ordered, normalised component list per page name
+// for a single plan version. Names are normalised with the same rule the rest
+// of the build path uses (NormalizeComponentFunction), so a plan that wrote
+// "call_to_action" and one that wrote "call-to-action" compare equal.
+func loadPlanSections(ctx context.Context, db *sql.DB, planID uuid.UUID) (map[string][]string, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT page_name, component_name
+		FROM site_plan_sections
+		WHERE plan_id = $1
+		ORDER BY page_name, ordering
+	`, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string][]string)
+	for rows.Next() {
+		var pageName, componentName string
+		if err := rows.Scan(&pageName, &componentName); err != nil {
+			return nil, err
+		}
+		out[pageName] = append(out[pageName], NormalizeComponentFunction(componentName))
 	}
 	return out, rows.Err()
 }

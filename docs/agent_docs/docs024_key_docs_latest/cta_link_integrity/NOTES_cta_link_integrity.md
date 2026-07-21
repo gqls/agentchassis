@@ -1247,3 +1247,49 @@ so `stash@{0}` stayed intact; I restored `coordinator.go` to HEAD and removed th
 other sessions' live WIP. Logged to `WRONG_CALLS.md`. Cheap check that would have avoided it:
 `git stash list` before any `pop`, and never `pop` to reverse your own `push` — use
 `git stash push -- <files>` / `git checkout` on named paths instead.
+
+---
+
+## 2026-07-21 — bugs_open/054 empty-state sweep (5 unguarded list components)
+
+Owner picked this thread from a 4-way choice (045 hero-tool / 054 guards / P2.1 anchor
+gating / hand over the sketch-falsifier proposal). Chose 054 = the fresh, in-family,
+lowest-risk win. (Aside confirming the choice: `183_generic_hero_tool_component.sql` is
+already in the tree — **another session is building the 045 fix** — so staying off 045 was
+right.)
+
+**What shipped.** `migration 185` (`sql_for_agents/185_list_empty_state_guards.sql`), applied
++ ledgered 11:46Z, live immediately (config). Wraps `{{range .items}}` in
+`{{if .items}}…{{else}}<p class="…-empty">…</p>{{end}}` on `archetype-grid`, `game-list`,
+`guide-list`, `tool-cta`, `tool-list` — matching the two news components. Empty-state copy is a
+new `source:llm empty_state_text` field (translatable, per bugs_open/026) + English template
+fallback. Plus `scripts/check_list_empty_states.py` = the standing lint (054 fix-candidate 3).
+Commit `f8ef83133`; 054 file updated with a FIXED&LIVE banner, narrowed to fix-candidate 2.
+
+**The misstep I nearly made, and what caught it (the point of this entry).** The 2 already-guarded
+components (`latest-news`, `news-listing`) have `items` **optional** (`required:false`); the 5
+unguarded ones all have `items` **`required:true, min_items:1`**. That asymmetry *looks* like the
+original authors relied on `required/min_items` to prevent an empty render on the 5 — which would
+have made my `{{else}}` guard **defensive dead code**, and I was about to frame it that way in the
+commit message. I read the resolver instead of asserting it. `plan_sections_action.go:1288-1321`:
+the `source:query.*` branch does `resolvedData[field]=value; continue` whenever the query result
+is non-`nil`, and an empty slice is not `nil` in Go — so control **never reaches** the
+`required`/`on_missing`/`min_items` branch at `:1333-1432` for a query array. `min_items:1` is
+therefore **silently unenforced**; the empty list reaches the template; the blank render is real;
+the guard is a **real fix**, not defensive. (The comment at `:1285-1287` claims `on_missing`
+applies on empty — the code does not implement it.) Not a WRONG_CALLS entry because I flagged it
+as an open question and resolved it by reading *before* writing the claim — which is the process
+working. But it is exactly the shape of "an inference stated in the same voice as a finding":
+`required:true` read as protection when it protects nothing.
+
+**Left for fix-candidate 2 (deliberately out of scope):** the resolver gap above is a
+data-integrity issue broader than empty-state UX (a section that *must* have items can ship empty
+with nobody notified). `[UNVERIFIED]` whether a downstream content-validation stage re-checks
+`min_items` — I did not trace past `plan_sections`. Wants its own diagnosis run before anyone
+touches the resolver (the trap: masking a genuine "resolver errored" as "empty").
+
+**Verification (all three, per "trust the rendered artefact"):** (a) bug 054's own audit query →
+`has_if_guard=t` for all 7 range components; (b) Go `text/template` parse+render of all 5
+transformed templates — populated⇒cards/no-empty, empty⇒empty-state/no-cards, override honoured;
+(c) BEGIN…ROLLBACK dry-run against live DB before the real apply. All five backed up in
+`bak_054_list_components_20260721`.

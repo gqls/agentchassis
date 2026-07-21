@@ -79,6 +79,54 @@ legitimate rewrites (016b §9 has the counter-examples). The transferable rules:
 
 ---
 
+> **PROGRESS 2026-07-21 — INSTANCE 1 diagnosed + fixed (committed, inert until an
+> image roll). Stays OPEN until it ships. `durable_write_guard` workstream
+> (`docs024_key_docs_latest/durable_write_guard/`), commit `ba702c8c6`.**
+>
+> **Corrects the scope this file asked for.** The two named surfaces are
+> non-exposures, verified live 2026-07-21:
+> - `pages.rendered_*` — **no Go writer anywhere** (exhaustive grep) and **0 of 301
+>   pages** carry a value. Dormant columns; chrome lives in
+>   `site_components.rendered_html`, assembled deterministically. A guard here
+>   protects a write that never happens.
+> - `page_components.rendered_html` — a **derived render** of the guarded+versioned
+>   `content_components.html_template` (for every tool, `rendered_html` length ≈
+>   `html_template` length, 98–122%). Recovered by re-render. An agent census of
+>   all 19 writers (both tables) found **none** takes a whole LLM completion into
+>   it as an *overwrite*: they are deterministic renders (a comparative guard would
+>   fire on legitimate output) or deterministic CSS transforms (it would block
+>   legitimate fixes). So the `componentRegressionIssues` *comparative* shape does
+>   NOT belong here.
+>
+> **The real hole is at BIRTH, not overwrite.** `create_tool_component` and
+> `store_generated_component` INSERT a whole LLM artifact with no completeness
+> check strong enough to see a *tail* cut — `HasToolDocHeader` only proves the
+> top-of-`<script>` sentinels, and `scoreComponent.TemplateClosed` balances
+> `<section>` only. That is the 012 shape at birth, and it is **live**: it is how
+> `bugs_open/046`'s 8 tools were born serving broken JavaScript on 6 domains
+> (7 of 8 with no intact prior version). Because there is no prior row at birth,
+> the fix is an **absolute** structural check, not the comparative guard this file
+> imagined.
+>
+> **Shipped (owner scope decision: Phase 1 + section gate):**
+> - `hasUnbalancedStructuralTags` — the absolute 5-pair tag-imbalance signal
+>   (`component_write_guard.go`), calibrated 0-over-fire fleet-wide per 046;
+>   ends-mid-token excluded (tool-safe but +36 FP on non-tools).
+> - `create_tool_component` gates birth on `componentTemplateValid(_, "tool")` —
+>   the SAME predicate the schema loader applies, so a tool that would be dropped
+>   at LOAD can't be BORN. Hard fail → `agent_error_log`
+>   (`tool_birth_truncation_blocked`) → `needs_human_review`.
+> - `store_generated_component` rejects an unbalanced `<script>/<style>/…` section.
+> - Tests incl. the 046 "cut `<script>` after a closed `</section>`" discriminator.
+>
+> **Coordination:** this is the PREVENTION half of the stop-new/clean-old split;
+> `bugs_open/046` (`truncation_casualties_046`) owns the SWEEP of the 8 existing
+> casualties and its own PLAN explicitly routed the write guard here. Non-competing.
+> Verify-after-ship steps are in the workstream PLAN (fault-inject a tail-cut tool
+> → not created, item `needs_human_review`, refusal logged).
+
+---
+
 ## INSTANCE 2 — the completion-verification framework, same shape (added 2026-07-19, reasoning-dataset thread)
 
 Filing here rather than as a separate bug, because it is this file's pattern

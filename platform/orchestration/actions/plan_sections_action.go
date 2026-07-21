@@ -952,7 +952,36 @@ func loadComponentSchemas(ctx context.Context, db *sql.DB, sectionNames []string
 		}
 	}
 
+	// Alias each raw requested name to its resolved component when the plan asked
+	// in snake_case/CamelCase but the component is stored kebab-case
+	// (bugs_open/041). loadSectionComponents now resolves such a section, but this
+	// map is keyed by the STORED name/function; callers look it up by the
+	// REQUESTED name (plan_sections' section loop, rerender's slot_name). Without
+	// the alias a "call_to_action" request misses the "call-to-action" entry and
+	// falls through to a spurious needs_new_component.
+	aliasNormalisedSectionKeys(result, sectionNames)
+
 	return result
+}
+
+// aliasNormalisedSectionKeys adds, for each requested section name that is not
+// already a key, an alias to the entry stored under its kebab-normalised form.
+// Strict superset — it only ADDS keys and never rebinds an existing one, so a
+// component whose own name is snake_case (keyed by its raw name) is untouched.
+// See /bugs_open/041 (section-lookup-never-normalises).
+func aliasNormalisedSectionKeys(result map[string]componentInfo, sectionNames []string) {
+	for _, name := range sectionNames {
+		if _, ok := result[name]; ok {
+			continue
+		}
+		norm := NormalizeComponentFunction(name)
+		if norm == name {
+			continue
+		}
+		if ci, ok := result[norm]; ok {
+			result[name] = ci
+		}
+	}
 }
 
 // sectionTemplateValid mirrors the original SQL CASE used by loadComponentSchemas:
@@ -1155,6 +1184,23 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 	// Get fields from schema
 	fieldsRaw, ok := comp.InputSchema["fields"].(map[string]interface{})
 	if !ok || len(fieldsRaw) == 0 {
+		// A self-contained TOOL component legitimately has an empty input_schema:
+		// its HTML renders entirely from its own template, with no LLM-authored
+		// content fields to supply. Exempt it by the SAME explicit
+		// component_level='tool' marker the rerender escalation guard uses
+		// (isSelfContainedSection), NEVER by the name heuristic below. Without
+		// this, a future tool whose Function name happens to contain
+		// "content"/"body"/"article"/… would be marked `deferred` here — carried
+		// unchanged, so a durable template fix is computed and silently discarded
+		// — the identical end-state as bugs_open/024, reached one function away by
+		// a different route (bugs_open/044). Two call sites of the "is this
+		// emptiness legitimate?" judgement, now one shared predicate so they
+		// cannot drift apart again.
+		if isSelfContainedSection(comp) {
+			item.Reason = "self-contained tool component — renders from its own template, no content fields"
+			return item
+		}
+
 		// No v2 schema — component has no declared content fields.
 		// Check if the template has actual HTML structure. If it's CSS-only
 		// or truncated, it was likely created by a broken component-creator

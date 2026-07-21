@@ -137,6 +137,90 @@ func TestReconcile_EmptyCataloguedPageAcceptsLLMComposition(t *testing.T) {
 	}
 }
 
+// bugs_open/050: a DEPLOYED page with sections=[] renders through another
+// subsystem (a tool page, a blog-index) — its emptiness is a positive statement,
+// not an absence awaiting composition. A re-plan that proposes a generic layout
+// under the SAME NAME (Pass B2) must be forced back to empty, not allowed to
+// inject sections onto a built page.
+func TestReconcile_DeployedEmptyPageStaysEmpty_PassB2(t *testing.T) {
+	existing := []interface{}{
+		realised("tool-embed-x", "/tools/x.html", "deployed", `[]`, false),
+	}
+	llm := []interface{}{llmPage("tool-embed-x", "/tools/x.html", "hero", "features")}
+
+	got, _, _, _, snapped := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if snapped != 1 {
+		t.Errorf("snapped_sections = %d, want 1 (LLM layout should have been forced empty)", snapped)
+	}
+	if s := sectionsOf(t, got, "tool-embed-x"); len(s) != 0 {
+		t.Errorf("deployed sectionless page sections = %v, want [] (a re-plan injected a layout)", s)
+	}
+}
+
+// bugs_open/050: the same deployed sectionless page reached via Pass B (the LLM
+// reuses its URL under a DIFFERENT name). The realised emptiness is authoritative
+// — the snapped-back page must stay empty, dropping the LLM's proposed sections.
+func TestReconcile_DeployedEmptyPageStaysEmpty_PassB(t *testing.T) {
+	existing := []interface{}{
+		realised("tool-embed-x", "/tools/x.html", "deployed", `[]`, false),
+	}
+	llm := []interface{}{llmPage("tool-embed-renamed", "/tools/x.html", "hero")}
+
+	got, _, _, renamed, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if renamed != 1 {
+		t.Errorf("snapped_rename = %d, want 1", renamed)
+	}
+	if !hasPage(got, "tool-embed-x") {
+		t.Fatal("renamed page was not snapped back to the realised identity")
+	}
+	if s := sectionsOf(t, got, "tool-embed-x"); len(s) != 0 {
+		t.Errorf("deployed sectionless page sections = %v, want [] (Pass B carried an LLM layout)", s)
+	}
+}
+
+// bugs_open/050: a NOT-deployed catalogued page (adoption-locked, so preserved,
+// and per bugs_open/051 on the site's first plan) with sections=[] has never been
+// composed. A re-plan that proposes the SAME NAME (Pass B2 fall-through) must be
+// allowed to compose it — take the LLM's sections.
+func TestReconcile_NotDeployedEmptyPageTakesLLMSections_PassB2(t *testing.T) {
+	existing := []interface{}{
+		realised("catalog-tool", "/cat.html", "planned", `[]`, true),
+	}
+	llm := []interface{}{llmPage("catalog-tool", "/cat.html", "hero", "body")}
+
+	got, _, _, _, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	want := []string{"hero", "body"}
+	if s := sectionsOf(t, got, "catalog-tool"); !equalStrings(s, want) {
+		t.Errorf("catalogued page sections = %v, want %v (composition was blocked)", s, want)
+	}
+}
+
+// bugs_open/050: the same not-deployed catalogued page reached via Pass B (the
+// LLM proposes its URL under a DIFFERENT name). Keep the realised identity but
+// take the LLM's sections so the first-plan page can finally be composed.
+func TestReconcile_NotDeployedEmptyPageTakesLLMSections_PassB(t *testing.T) {
+	existing := []interface{}{
+		realised("catalog-page", "/cat.html", "planned", `[]`, true),
+	}
+	llm := []interface{}{llmPage("catalog-fresh", "/cat.html", "hero", "body")}
+
+	got, _, _, renamed, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if renamed != 1 {
+		t.Errorf("snapped_rename = %d, want 1", renamed)
+	}
+	if !hasPage(got, "catalog-page") {
+		t.Fatal("renamed page was not snapped back to the realised identity")
+	}
+	want := []string{"hero", "body"}
+	if s := sectionsOf(t, got, "catalog-page"); !equalStrings(s, want) {
+		t.Errorf("catalogued page sections = %v, want %v (Pass B blocked composition)", s, want)
+	}
+}
+
 // A genuinely from-scratch build — nothing built, nothing locked — must still
 // leave the LLM plan completely untouched.
 func TestReconcile_FromScratchBuildIsUntouched(t *testing.T) {

@@ -109,6 +109,13 @@ separate, evidence is one `section` casualty (unplaced), so lower priority.
 
 ## Status
 - Investigation COMPLETE, evidence-grounded, docs written.
-- **Blocked on an owner scope decision** (handoff demands one; finding revises the
-  premise). Options put to owner: (A) ship Phase 1 tool birth gate; (B) + Phase 2
-  section gate; (C) formally record the rendered_html/pages.rendered_* dismissal.
+- Owner scope decision 2026-07-21: **Phase 1 + Phase 2.**
+- **CODE COMMITTED `ba702c8c6`** (component_write_guard.go, create_tool_component_action.go,
+  store_generated_component_action.go, + test). Build + tests green. `bugs_open/021`
+  updated with the corrected scope + fix. **Inert until an image roll → INSTANCE 1
+  stays OPEN.**
+- NOTE (NOTES §misstep): the planned `toolTemplateValid` refactor in
+  `plan_sections_action.go` was DROPPED to avoid a same-file passenger (another
+  session's 041/044 WIP in that file); cosmetic only, no functional loss.
+- NEXT: owner-sanctioned build + roll, then fault-injection verify; optional
+  advisory council gate.

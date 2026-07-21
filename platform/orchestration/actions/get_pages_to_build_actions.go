@@ -95,13 +95,14 @@ func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, s
 
 	if includeAll {
 		query = `
-			SELECT id, site_id, name, url, title, page_type, status, 
+			SELECT id, site_id, name, url, title, page_type, status,
 			       COALESCE(build_status, 'planned') as build_status,
 			       COALESCE(sections, '[]'::jsonb) as sections,
 			       nav_label, nav_order, in_header, in_footer,
 			       COALESCE(version, 1) as version,
-			       meta_description
-			FROM pages 
+			       meta_description,
+			       content_direction::text
+			FROM pages
 			WHERE site_id = $1 AND status = 'active'
 			ORDER BY nav_order ASC, name ASC
 		`
@@ -121,9 +122,10 @@ func queryPagesForBuild(ctx context.Context, db interface{}, siteID uuid.UUID, s
 			       COALESCE(sections, '[]'::jsonb) as sections,
 			       nav_label, nav_order, in_header, in_footer,
 			       COALESCE(version, 1) as version,
-			       meta_description
-			FROM pages 
-			WHERE site_id = $1 
+			       meta_description,
+			       content_direction::text
+			FROM pages
+			WHERE site_id = $1
 			  AND status = 'active'
 			  AND COALESCE(build_status, 'planned') IN (%s)
 			ORDER BY nav_order ASC, name ASC
@@ -174,28 +176,29 @@ func scanPageRowsForBuild(rows *sql.Rows, logger *zap.Logger) ([]map[string]inte
 
 	for rows.Next() {
 		var (
-			id              uuid.UUID
-			siteID          uuid.UUID
-			name            string
-			url             string
-			title           string
-			pageType        string
-			status          string
-			buildStatus     string
-			sectionsJSON    []byte
-			navLabel        sql.NullString
-			navOrder        int
-			inHeader        bool
-			inFooter        bool
-			version         int
-			metaDescription sql.NullString
+			id               uuid.UUID
+			siteID           uuid.UUID
+			name             string
+			url              string
+			title            string
+			pageType         string
+			status           string
+			buildStatus      string
+			sectionsJSON     []byte
+			navLabel         sql.NullString
+			navOrder         int
+			inHeader         bool
+			inFooter         bool
+			version          int
+			metaDescription  sql.NullString
+			contentDirection sql.NullString
 		)
 
 		err := rows.Scan(
 			&id, &siteID, &name, &url, &title, &pageType, &status,
 			&buildStatus, &sectionsJSON,
 			&navLabel, &navOrder, &inHeader, &inFooter,
-			&version, &metaDescription,
+			&version, &metaDescription, &contentDirection,
 		)
 		if err != nil {
 			logger.Error("Failed to scan page row", zap.Error(err))
@@ -230,10 +233,36 @@ func scanPageRowsForBuild(rows *sql.Rows, logger *zap.Logger) ([]map[string]inte
 			"meta_description": metaDescription.String,
 		}
 
+		// Per-page content_direction (bug 025): optional writer steering, nullable jsonb.
+		// Only set when present so the writer's {{if .current_page.content_direction}} guard
+		// stays false for pages without it.
+		if contentDirection.Valid {
+			addContentDirection(page, contentDirection.String, logger)
+		}
+
 		pages = append(pages, page)
 	}
 
 	return pages, rows.Err()
+}
+
+// addContentDirection parses the raw per-page content_direction jsonb text and, when
+// it is a non-null value, stores it under "content_direction" on the page map so it
+// reaches the writer as .current_page.content_direction (bug 025). A parse failure is
+// logged and skipped — the page still builds, just without the extra steering.
+func addContentDirection(page map[string]interface{}, raw string, logger *zap.Logger) {
+	if raw == "" {
+		return
+	}
+	var cd interface{}
+	if err := json.Unmarshal([]byte(raw), &cd); err != nil {
+		logger.Warn("Failed to parse page content_direction JSON",
+			zap.String("content_direction_raw", raw), zap.Error(err))
+		return
+	}
+	if cd != nil {
+		page["content_direction"] = cd
+	}
 }
 
 // scanPageRowsForBuildPgx scans pgx rows into page maps
@@ -242,28 +271,29 @@ func scanPageRowsForBuildPgx(rows pgx.Rows, logger *zap.Logger) ([]map[string]in
 
 	for rows.Next() {
 		var (
-			id              uuid.UUID
-			siteID          uuid.UUID
-			name            string
-			url             string
-			title           string
-			pageType        string
-			status          string
-			buildStatus     string
-			sectionsJSON    []byte
-			navLabel        *string
-			navOrder        int
-			inHeader        bool
-			inFooter        bool
-			version         int
-			metaDescription *string
+			id               uuid.UUID
+			siteID           uuid.UUID
+			name             string
+			url              string
+			title            string
+			pageType         string
+			status           string
+			buildStatus      string
+			sectionsJSON     []byte
+			navLabel         *string
+			navOrder         int
+			inHeader         bool
+			inFooter         bool
+			version          int
+			metaDescription  *string
+			contentDirection *string
 		)
 
 		err := rows.Scan(
 			&id, &siteID, &name, &url, &title, &pageType, &status,
 			&buildStatus, &sectionsJSON,
 			&navLabel, &navOrder, &inHeader, &inFooter,
-			&version, &metaDescription,
+			&version, &metaDescription, &contentDirection,
 		)
 		if err != nil {
 			logger.Error("Failed to scan page row", zap.Error(err))
@@ -304,6 +334,11 @@ func scanPageRowsForBuildPgx(rows pgx.Rows, logger *zap.Logger) ([]map[string]in
 			"in_footer":        inFooter,
 			"version":          version,
 			"meta_description": metaDescStr,
+		}
+
+		// Per-page content_direction (bug 025): optional writer steering, nullable jsonb.
+		if contentDirection != nil {
+			addContentDirection(page, *contentDirection, logger)
 		}
 
 		pages = append(pages, page)

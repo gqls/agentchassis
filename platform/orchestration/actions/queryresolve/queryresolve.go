@@ -158,13 +158,63 @@ const ListedPageEligibilitySQL = `
 // 20 of the fleet's 33 deployed tool pages carry zero sections legitimately.
 // Requiring sections there would exclude almost every real tool page.
 //
-// Deliberately NOT applied by resolvePagesWhereType: `tool-list` is meant to
-// advertise the whole tool directory, so the listing keeps its own looser
-// contract. This constant exists for consumers that must not spend money on
-// pages that never shipped — today, the imagery sweep. Same alias contract
+// This constant exists for consumers that must not spend money on pages that
+// never shipped — today, the imagery sweep. It is deliberately conservative:
+// a false negative (skipping a shipped-but-unstamped page) only costs one
+// missing image, self-corrects when deployed_at is stamped, and so `deployed_at
+// IS NOT NULL` alone is the right floor for a spend guard. Same alias contract
 // (`p` for pages) as ListedPageEligibilitySQL.
+//
+// Listings need a DIFFERENT floor — see FetchablePageEligibilitySQL — because
+// their error costs are asymmetric the other way: a false negative delists a
+// working page. This constant used to say it was "deliberately NOT applied by
+// resolvePagesWhereType" so listings kept a "looser contract" and advertised
+// the whole tool directory. That reasoning was bugs_open/052: the loose
+// contract advertised never-built pages that 404.
 const DeployedPageEligibilitySQL = `
 		  AND p.deployed_at IS NOT NULL`
+
+// FetchablePageEligibilitySQL is the floor EVERY page-listing derivation must
+// carry: a listing must never advertise a page that would 404 (bugs_open/052 —
+// a tool list re-derived from the page set on every render and re-advertised
+// two never-built, 404 tool cards; bugs_open/023's derived-field family). Alias
+// contract (`p` for pages) as above.
+//
+// The predicate is "did this page ship / will it serve", validated fleet-wide
+// against live HTTP (bugs_open/049 Correction 2, 052 addendum): a page keeps
+// serving its old artefact once deployed_at is stamped even after it is flagged
+// `needs_rebuild`, so `deployed_at IS NOT NULL` keeps those (the 200s). The
+// `OR build_status = 'deployed'` disjunct is load-bearing, not polish: it keeps
+// the one fleet page that is `deployed` yet never stamped (idea.uk's
+// tool-audience-check, a bugs_open/040 shape — it serves 200 and is a real
+// `page_type='tool'` page, so dropping it would delist a working tool, "worse
+// than the bug"). A plain `deployed_at IS NOT NULL` floor would do exactly that.
+//
+// It is a strict superset of what a never-built page passes: `planned` and
+// `needs_rebuild` pages that were never deployed have deployed_at NULL and
+// build_status <> 'deployed', so both disjuncts reject them — the 404s go.
+//
+// Stronger than DeployedPageEligibilitySQL (adds the unstamped-deployed keep)
+// and weaker than ListedPageEligibilitySQL (does not require `sections`, since
+// tool pages legitimately have none). The three are deliberately distinct; each
+// comment says why, so the split does not read as accidental drift.
+const FetchablePageEligibilitySQL = `
+		  AND (p.deployed_at IS NOT NULL OR p.build_status = 'deployed')`
+
+// pageListEligibilitySQL returns the WHERE fragment (alias `p`) a page-listing
+// query must carry so it never advertises a 404. Extracted as a function so the
+// "the generic listing path always has a build-state floor" invariant is
+// unit-testable without a database: before bugs_open/052 the listedOnly=false
+// path carried NO build-state filter (eligibility was ""), which is precisely
+// how tool/game/guide/entity-page listings advertised never-built pages. The
+// listedOnly path is the stricter article contract, which already implies the
+// fetchability floor.
+func pageListEligibilitySQL(listedOnly bool) string {
+	if listedOnly {
+		return ListedPageEligibilitySQL
+	}
+	return FetchablePageEligibilitySQL
+}
 
 // pageImageProjection / pageImageJoins are the shared SQL fragments that give
 // every page-listing query its item image (Phase I3, Lane B). Two candidates,
@@ -239,16 +289,21 @@ func (c pageImageCols) webPath() string {
 // these keys via their `items.items.X.source: "field.X"` declarations
 // (handled at template-render time, not here).
 //
-// Filter: status IN ('active', 'deployed') so unbuilt pages don't appear.
+// Filter: status IN ('active', 'deployed') AND pageListEligibilitySQL. The
+// status filter alone does NOT keep unbuilt pages out — a planned, never-built
+// page sits status='active', 404s, and was still listed (bugs_open/052). The
+// eligibility floor (FetchablePageEligibilitySQL for the generic base) is what
+// excludes pages that would 404 while keeping needs_rebuild pages that were
+// deployed once and still serve.
 //
-// listedOnly (F2.1, 2026-07-17) additionally requires deployed_at set AND
-// non-empty sections — the page really shipped with real content. Used by
-// the blog_posts base: plan-era scaffold rows and never-built duplicates
-// pass the status filter and were listed as 404 links. MUST stay in
+// listedOnly (F2.1, 2026-07-17) is the STRICTER article contract: it requires
+// deployed_at set AND non-empty sections — the page really shipped with real
+// content. Used by the blog_posts base: plan-era scaffold rows and never-built
+// duplicates pass the status filter and were listed as 404 links. MUST stay in
 // lockstep with check_content_image_missing's sweep predicate — the listing
-// and the imagery sweep must agree on which articles exist. Kept off for
-// the generic pages_where_type base: tool pages are deployed shells whose
-// sections may legitimately be empty.
+// and the imagery sweep must agree on which articles exist. The generic base
+// uses the weaker FetchablePageEligibilitySQL instead (no `sections` demand):
+// tool pages are deployed shells whose sections may legitimately be empty.
 //
 // Note on in_header: we deliberately do NOT filter on in_header here.
 // Tool/blog/entity detail pages typically have in_header=false (they are
@@ -279,10 +334,7 @@ func resolvePagesWhereType(
 		limit = hardCap
 	}
 
-	eligibility := ""
-	if listedOnly {
-		eligibility = ListedPageEligibilitySQL
-	}
+	eligibility := pageListEligibilitySQL(listedOnly)
 	rows, err := db.QueryContext(ctx, `
 		SELECT
 		    p.name,
@@ -342,7 +394,12 @@ func resolvePagesWhereType(
 // fallback so `query.pages_under_section:guides` resolves whether the area was
 // keyed "guides" or "/guides".
 //
-// Filter: status IN ('active', 'deployed') so unbuilt pages don't appear.
+// Filter: status IN ('active', 'deployed') AND FetchablePageEligibilitySQL —
+// the same build-state floor as the generic resolvePagesWhereType, so a section
+// listing cannot advertise a never-built page any more than a type listing can
+// (bugs_open/052; the status filter alone does not stop a planned page). This
+// resolver has no live consumer in the active schema today, but it is on the
+// plan path and is the same page-set derivation, so it gets the same floor.
 // in_header is deliberately NOT filtered — item pages under a section often
 // have in_header=false but still belong in the section's listing (same
 // reasoning as resolvePagesWhereType).
@@ -383,7 +440,7 @@ func resolvePagesUnderSection(
 		  AND (lower(sa.name) = lower($2)
 		       OR sa.url_prefix = $2
 		       OR sa.url_prefix = '/' || $2)
-		  AND p.status IN ('active', 'deployed')
+		  AND p.status IN ('active', 'deployed')`+FetchablePageEligibilitySQL+`
 		ORDER BY COALESCE(p.nav_order, 100), p.name
 		LIMIT $3
 	`, siteID, area, limit)

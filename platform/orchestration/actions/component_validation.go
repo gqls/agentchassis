@@ -120,6 +120,58 @@ func NormalizeSectionNames(names []string, logger *zap.Logger) {
 	}
 }
 
+// sectionLookupKeys returns the distinct identifiers a requested section name
+// should be matched against when resolving it to a component: the raw name and
+// its kebab-normalised form. Components are stored kebab-case
+// (content_components.function, per the naming contract above), but a site plan
+// or adoption flow may emit "call_to_action" or "SocialProof". Trying BOTH forms
+// is a strict SUPERSET of trying the raw string alone — every section that
+// resolved before still resolves, and "call_to_action" now also matches the
+// stored "call-to-action".
+//
+// Returning both (rather than REPLACING raw with normalised) is load-bearing: a
+// handful of live components carry a snake_case *name* whose function is a
+// different kebab string — e.g. name "featured_article", function
+// "featured-content". Those resolve ONLY by their raw name; normalise-then-
+// look-up would silently drop them. See
+// /bugs_open/041 (section-lookup-never-normalises).
+func sectionLookupKeys(name string) []string {
+	norm := NormalizeComponentFunction(name)
+	if norm == "" || norm == name {
+		return []string{name}
+	}
+	return []string{name, norm}
+}
+
+// sectionResolvedByFound reports whether a section name is satisfied by the set
+// of component name/function values already loaded, matching under either its
+// raw or normalised form.
+func sectionResolvedByFound(found map[string]bool, name string) bool {
+	for _, k := range sectionLookupKeys(name) {
+		if found[k] {
+			return true
+		}
+	}
+	return false
+}
+
+// sectionLookupValueSet flattens sectionLookupKeys over many names into a
+// de-duplicated slice suitable for a SQL IN-list. Order is preserved so the
+// query args stay stable for a given input.
+func sectionLookupValueSet(names []string) []string {
+	seen := make(map[string]bool, len(names)*2)
+	out := make([]string, 0, len(names)*2)
+	for _, n := range names {
+		for _, k := range sectionLookupKeys(n) {
+			if !seen[k] {
+				seen[k] = true
+				out = append(out, k)
+			}
+		}
+	}
+	return out
+}
+
 // --- CSS custom-property vocabulary audit (R6f, 2026-07-06) -----------------
 //
 // Component templates consume CSS custom properties (var(--name)). The theme

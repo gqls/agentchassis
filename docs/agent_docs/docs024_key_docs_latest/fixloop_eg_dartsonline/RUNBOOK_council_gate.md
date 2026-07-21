@@ -193,6 +193,17 @@ the reviewer step verbatim (swap `## The diagnosis` /
 gate + footprint, extend `review_fields`/`check_fields`, re-run the literal +
 routing validator, then re-apply this file (`snapshot_agent` backs up first).
 
+**After any seat/roster change, run the parity lint** (read-only, no credits):
+`python3 102_LINT_council_seat_parity.py`. It reads the LIVE rosters and flags a
+seat that has drifted from its siblings — a config key the rest of the family
+carries but it lacks (this is how `bugs_open/019`'s last hole survived:
+`review_prior_art` shipped without `tolerate_truncation` while the other 15 seats
+had it), a stale model/ceiling, or a seat wired into the workflow but absent from
+`council_decide.review_fields`. It is the complement to `099`: 099 compares the
+two councils against EACH OTHER and is therefore blind to a key missing on BOTH;
+102 compares each seat against its OWN family, one council at a time. Clean on the
+whole live fleet as of 2026-07-21 (`--all-families` adds a noisier general audit).
+
 ## Cross-links
 
 - `HANDOFF_2026-07-17_council_gate_thread.md` — this thread's cold-start.

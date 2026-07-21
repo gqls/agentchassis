@@ -396,3 +396,38 @@ awk -F'|' 'NR==FNR{b[$1"|"$2]=1;next} b[$1"|"$3]{print $1"|"$3}' bad_targets.txt
 > **Gotcha — `site_components` is trustworthy where `page_components` is not.** The stale chrome
 > in `049` matched the live artefact exactly on all three sites; the page-level staleness above did
 > not. Do not generalise "stored HTML is stale" into "ignore stored HTML" — check which table.
+
+## R16 — List-section empty-state audit (`bugs_open/054`, migration 185)
+
+The standing check that a list component degrades gracefully when its query-sourced
+`items` resolves empty. Same coarse regex the bug uses.
+
+```sql
+SELECT function, (html_template ~ '\{\{ *if [^}]*items *\}\}') AS has_if_guard
+  FROM content_components
+ WHERE is_active AND html_template LIKE '%{{range .items}}%'
+ ORDER BY has_if_guard, function;
+```
+
+`has_if_guard=f` ⇒ the component ranges over `items` with no enclosing guard, so an empty
+list renders a **blank container**. Fix per migration 185: wrap in
+`{{if .items}}{{range .items}}…{{end}}{{else}}<p class="…-empty">{{if .empty_state_text}}{{.empty_state_text}}{{else}}<English fallback>{{end}}</p>{{end}}`
+and add an `empty_state_text` `source:llm` field (translatable — do NOT hardcode English,
+bugs_open/026). Result 2026-07-21 after 185: **7 of 7 guarded** (was 5 of 7).
+
+Or run the packaged lint (advisory, exit 1 on any unguarded component):
+
+```bash
+python3 scripts/check_list_empty_states.py
+```
+
+> **Gotcha — the guard regex is coarse.** It proves *some* `{{if …items…}}` exists in the
+> template, not that it **encloses the range**. Good enough to flag a candidate; read the
+> template before editing. A precise check needs the block tokeniser (`scripts/parse_gates.py`
+> shape).
+
+> **Gotcha — do NOT "fix" this in the resolver.** `min_items:1`/`required:true` on a
+> query-sourced array is silently ignored: `plan_sections_action.go:1288-1321` `continue`s
+> before the required-branch, so the empty list always reaches the template. Changing that is
+> `bugs_open/054` fix-candidate 2 — a separate, riskier change (it can mask a real "resolver
+> errored" as "empty"). This runbook entry is only about the template guard.

@@ -153,32 +153,36 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 
 	// Query the page — by name if available, otherwise by page_id
 	var (
-		pageID       string
-		name         string
-		title        sql.NullString
-		pageType     sql.NullString
-		sectionsJSON sql.NullString
-		url          sql.NullString
-		buildStatus  sql.NullString
-		navLabel     sql.NullString
-		navOrder     sql.NullInt32
+		pageID           string
+		name             string
+		title            sql.NullString
+		pageType         sql.NullString
+		sectionsJSON     sql.NullString
+		url              sql.NullString
+		buildStatus      sql.NullString
+		navLabel         sql.NullString
+		navOrder         sql.NullInt32
+		contentDirection sql.NullString
 	)
 
-	selectCols := `SELECT id::text, name, title, page_type, sections::text, url, build_status, nav_label, nav_order FROM pages`
+	// content_direction: optional per-page writer steering (bug 025). Nullable jsonb;
+	// reaches page-content-writer as .current_page.content_direction because
+	// page-build-handler maps current_page <- page_record (this row).
+	selectCols := `SELECT id::text, name, title, page_type, sections::text, url, build_status, nav_label, nav_order, content_direction::text FROM pages`
 
 	if pageName != "" {
 		err = params.DB.QueryRowContext(ctx,
 			selectCols+` WHERE site_id = $1 AND name = $2 LIMIT 1`,
 			siteID, pageName,
 		).Scan(&pageID, &name, &title, &pageType,
-			&sectionsJSON, &url, &buildStatus, &navLabel, &navOrder)
+			&sectionsJSON, &url, &buildStatus, &navLabel, &navOrder, &contentDirection)
 	} else {
 		// Lookup by page_id — the work item column always has this
 		err = params.DB.QueryRowContext(ctx,
 			selectCols+` WHERE site_id = $1 AND id = $2::uuid LIMIT 1`,
 			siteID, pageIDInput,
 		).Scan(&pageID, &name, &title, &pageType,
-			&sectionsJSON, &url, &buildStatus, &navLabel, &navOrder)
+			&sectionsJSON, &url, &buildStatus, &navLabel, &navOrder, &contentDirection)
 	}
 
 	if err == sql.ErrNoRows {
@@ -233,6 +237,18 @@ func LoadPageRecordAction(ctx context.Context, params ActionParams) (interface{}
 	}
 	if navOrder.Valid {
 		result["nav_order"] = navOrder.Int32
+	}
+	// Parse per-page content_direction (bug 025). Only set the key when a value is
+	// present, so the writer's {{if .current_page.content_direction}} guard stays false
+	// for the (currently every) page that has none.
+	if contentDirection.Valid && contentDirection.String != "" {
+		var cd interface{}
+		if err := json.Unmarshal([]byte(contentDirection.String), &cd); err != nil {
+			logger.Warn("LoadPageRecordAction: failed to parse content_direction JSON",
+				zap.String("content_direction_raw", contentDirection.String), zap.Error(err))
+		} else if cd != nil {
+			result["content_direction"] = cd
+		}
 	}
 
 	logger.Info("LoadPageRecordAction: page loaded",

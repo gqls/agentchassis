@@ -204,7 +204,16 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 
 	// 3. Cross-site contamination
 	if domain != "" {
-		issues = append(issues, checkDomainContamination(htmlStr, domain, companyName)...)
+		// A portfolio / meta site may legitimately name another of our sites
+		// (owner-approved case studies). Load this site's opt-in allowlist so
+		// those references are not misread as contamination (bugs_open/055).
+		var allowedRefs map[string]bool
+		if params.DB != nil && siteIDStr != "" {
+			if siteID, err := uuid.Parse(siteIDStr); err == nil {
+				allowedRefs = loadAllowedReferenceDomains(ctx, params.DB, siteID, logger)
+			}
+		}
+		issues = append(issues, checkDomainContamination(htmlStr, domain, companyName, allowedRefs)...)
 	}
 
 	// 4. Broken internal links
@@ -478,7 +487,7 @@ func checkUnrenderedTemplates(html string) []ValidationIssue {
 // Check 3: Cross-site contamination
 // ============================================================================
 
-func checkDomainContamination(html string, expectedDomain string, expectedCompany string) []ValidationIssue {
+func checkDomainContamination(html string, expectedDomain string, expectedCompany string, allowedRefs map[string]bool) []ValidationIssue {
 	var issues []ValidationIssue
 
 	knownSites := []struct {
@@ -497,6 +506,19 @@ func checkDomainContamination(html string, expectedDomain string, expectedCompan
 
 	for _, known := range knownSites {
 		if strings.ToLower(known.Domain) == expectedLower {
+			continue
+		}
+
+		// Owner-approved cross-reference: a portfolio / meta site (e.g.
+		// fundamentallyai.com) may name another of our sites on purpose — as a
+		// case study, or as the worked example of the self-correction story.
+		// When this site's allowlist names the known domain, the reference is
+		// intentional, not contamination; skip BOTH its domain and company
+		// checks (they are the same site being legitimately referenced).
+		// Absent allowlist → nil map → every known site still flagged, so this
+		// is fully opt-in and unchanged for sites that have not declared one.
+		// See bugs_open/055.
+		if allowedRefs[strings.ToLower(known.Domain)] {
 			continue
 		}
 
@@ -846,6 +868,53 @@ func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, log
 		return ""
 	}
 	return email.String
+}
+
+// loadAllowedReferenceDomains returns the lowercased set of domains this site is
+// explicitly allowed to reference in its copy — read from
+// sites.content_data->'allowed_reference_domains' (a JSON array of domain
+// strings). It is the opt-in escape hatch for portfolio / meta sites whose
+// PURPOSE is to name our other sites (e.g. fundamentallyai.com naming
+// leopardessconsulting.co.uk as its owner-approved self-correction case study;
+// bugs_open/055). Returns nil when the site declares none — so the contamination
+// check is unchanged for every site that has not opted in. Data-driven and
+// live-editable: adding a domain needs a one-line UPDATE, no image roll.
+func loadAllowedReferenceDomains(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) map[string]bool {
+	var raw []byte
+	err := db.QueryRowContext(ctx, `
+		SELECT content_data->'allowed_reference_domains'
+		FROM sites WHERE id = $1
+	`, siteID).Scan(&raw)
+	if err != nil {
+		if err != sql.ErrNoRows {
+			logger.Warn("Failed to load allowed_reference_domains", zap.Error(err))
+		}
+		return nil
+	}
+	if len(raw) == 0 {
+		return nil // key absent → JSONB null → no allowlist
+	}
+
+	var domains []string
+	if err := json.Unmarshal(raw, &domains); err != nil {
+		logger.Warn("allowed_reference_domains is not a JSON string array — ignored",
+			zap.Error(err))
+		return nil
+	}
+	if len(domains) == 0 {
+		return nil
+	}
+
+	set := make(map[string]bool, len(domains))
+	for _, d := range domains {
+		if d = strings.ToLower(strings.TrimSpace(d)); d != "" {
+			set[d] = true
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
 }
 
 func isPlaceholderEmail(email string) bool {

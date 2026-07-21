@@ -6,6 +6,37 @@ generic form of the defect the 027 rework fixed in only two of seven places, and
 (bug_historian seat) correctly flagged that fixing two call sites leaves the mechanism
 generic and the other five exposed.
 
+> **UPDATE 2026-07-21 (cta_link_integrity thread) — the empty-state SWEEP is FIXED & LIVE.
+> Bug stays OPEN, narrowed to the resolver root-cause (fix-candidate 2).**
+>
+> - **Fix-candidate 1 (template guards): DONE & LIVE.** `migration 185`
+>   (`docs/agent_docs/sql_for_agents/185_list_empty_state_guards.sql`, applied + ledgered
+>   `2026-07-21 11:46Z`, config change so live immediately — no image roll). Wraps all five
+>   unguarded templates (`archetype-grid`, `game-list`, `guide-list`, `tool-cta`, `tool-list`)
+>   in `{{if .items}}…{{else}}<p class="…-empty">…</p>{{end}}`, matching the news pair. The
+>   empty-state copy is a **new `source:llm` `empty_state_text` field** (translatable, per
+>   bugs_open/026) with an English template fallback. Verified three ways: (a) the bug's own
+>   audit query below now returns `has_if_guard=t` for **all 7** range components; (b) Go
+>   `text/template` parse+render of every transformed template — populated → cards & no
+>   empty-state, empty → empty-state & no cards, `empty_state_text` override honoured;
+>   (c) dry-run with ROLLBACK before the real apply. Commit `f8ef83133`.
+> - **Fix-candidate 3 (standing lint): DONE.** `scripts/check_list_empty_states.py` — advisory,
+>   flags any active component that `{{range .items}}` without an items guard, exit 1 on a hit.
+>   Currently clean (`OK: all 7 …`). DB-only content, so it is an operational check, not a
+>   `pattern-check.py` (diff-linter) entry. Same commit.
+> - **Fix-candidate 2 (resolver root-cause): still OPEN, now precisely located.** The empty
+>   render is reachable because **`plan_sections_action.go:1288-1321` sets
+>   `resolvedData[field]=value` and `continue`s for any `source:query.*` field before the
+>   `required`/`on_missing`/`min_items` branch (`:1333-1432`) ever runs.** An empty slice is
+>   not `nil` in Go, so the `items {required:true, min_items:1}` all five carry (and every
+>   query-sourced array in the library) is **silently ignored** — the schema says "≥1 item
+>   required" and nothing enforces it. The comment at `:1285-1287` even claims `on_missing`
+>   applies on empty; the code does not implement it. `[UNVERIFIED]` whether any *downstream*
+>   stage (a content-validation action) re-checks `min_items` after this resolver — I did not
+>   trace past `plan_sections`. This is a data-integrity gap beyond empty-state UX and wants
+>   its own diagnosis run before anyone changes the resolver (masking a genuine "resolver
+>   errored" case as "empty" is the trap the original fix-candidate-2 flags).
+
 ## What
 
 Seven active `content_components` render a query-sourced list with `{{range .items}}`. After

@@ -333,6 +333,36 @@ func CreateNeedsNewComponentItem(
 	logger *zap.Logger,
 ) error {
 
+	// Backstop guard (bugs_open/041): never raise needs_new_component for a
+	// section that already resolves under kebab-normalisation. The library stores
+	// kebab-case (content_components.function); a snake_case/CamelCase request
+	// that reached here is a naming mismatch, not a missing component. Raising the
+	// item asks a creator to rebuild a component that already exists — that is
+	// exactly the 10 failed items across 4 sites this bug catalogued.
+	// loadSectionComponents + loadComponentSchemas now resolve these upstream, so
+	// this branch should no longer be reached for such names; this is the last
+	// line of defence for any future caller that bypasses them.
+	if norm := NormalizeComponentFunction(sectionType); norm != sectionType {
+		var resolves bool
+		if qErr := db.QueryRowContext(ctx, `
+			SELECT EXISTS(
+				SELECT 1 FROM content_components
+				WHERE is_active = true
+				  AND (lower(function) = lower($1)
+				       OR lower(name) = lower($1)
+				       OR lower(section_type) = lower($1))
+			)`, norm).Scan(&resolves); qErr != nil {
+			logger.Warn("component_selector: normalisation guard check failed, proceeding",
+				zap.String("section_type", sectionType),
+				zap.Error(qErr))
+		} else if resolves {
+			logger.Warn("component_selector: NOT raising needs_new_component — section resolves under kebab-normalisation (naming mismatch, not a missing component)",
+				zap.String("requested", sectionType),
+				zap.String("normalised", norm))
+			return nil
+		}
+	}
+
 	// item_key ensures dedup — only one work item per section_type per site
 	itemKey := fmt.Sprintf("needs_new_component:%s", sectionType)
 
