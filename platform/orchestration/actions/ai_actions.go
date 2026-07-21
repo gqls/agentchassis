@@ -94,6 +94,26 @@ func resolveAIServiceConfig(agentConfig, runtimeStepConfig map[string]interface{
 	return merged, sources
 }
 
+// checkOverlayRequiredKeys fails loud when a required ai_service key is present
+// in the effective config but empty — the shape an overlay creates if a more-
+// specific block declares e.g. `"provider": ""`, silently blanking a good root
+// default (bugs_open/009 council round 2). It fires ONLY on present-but-empty:
+// an absent key is not an error here (it keeps its normal downstream default),
+// so a legitimately partial block is unaffected.
+func checkOverlayRequiredKeys(cfg map[string]interface{}) error {
+	for _, key := range []string{"provider", "model", "api_key_env_var"} {
+		v, present := cfg[key]
+		if !present {
+			continue
+		}
+		s, isStr := v.(string)
+		if !isStr || strings.TrimSpace(s) == "" {
+			return fmt.Errorf("ai_service overlay produced an empty %q — a step or runtime block cleared it; declare it with a value or omit it to inherit the root default", key)
+		}
+	}
+	return nil
+}
+
 func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing LLM prompt action",
 		zap.String("agent_type", params.AgentType),
@@ -211,6 +231,21 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		params.Logger.Error("ai_service configuration not found after checking all locations",
 			zap.String("checked_locations", "agent_config top-level, workflow.steps.config, StepConfig"))
 		return nil, fmt.Errorf("ai_service configuration not found")
+	}
+
+	// Overlay guard (bugs_open/009 council round 2, bug_historian): the len==0
+	// check above only catches TOTAL absence. A more-specific block that declares
+	// a required key as an empty string would overlay a good root default with
+	// nothing — the platform's recurring "present-but-empty passes silently"
+	// shape. Fail loud HERE, naming the key, rather than downstream with an
+	// obscure message. Only present-but-empty is an error; an absent key is left
+	// to its normal default, so this changes no behaviour for legitimate configs
+	// (createAIClient already rejects an empty provider, but model and
+	// api_key_env_var were unguarded, and an early named error beats a late one).
+	if err := checkOverlayRequiredKeys(aiServiceConfig); err != nil {
+		params.Logger.Error("ai_service: required key emptied by overlay",
+			zap.Error(err), zap.Strings("sources", aiServiceSources), zap.String("step", currentStep))
+		return nil, err
 	}
 
 	if len(aiServiceSources) > 1 {

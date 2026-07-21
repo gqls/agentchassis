@@ -165,6 +165,63 @@ func TestResolveAIServiceConfig(t *testing.T) {
 	}
 }
 
+// TestCheckOverlayRequiredKeys covers bugs_open/009 council round 2
+// (bug_historian): a more-specific block that declares a required key as an
+// empty string overlays a good root default with nothing, and the len==0 check
+// does not catch it. The guard must fire on present-but-empty and stay silent
+// on absent (an omitted key inherits its normal default, so must NOT error).
+func TestCheckOverlayRequiredKeys(t *testing.T) {
+	cases := []struct {
+		name    string
+		cfg     map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name:    "all present and non-empty",
+			cfg:     map[string]interface{}{"provider": "anthropic", "model": "claude-sonnet-5", "api_key_env_var": "ANTHROPIC_API_KEY"},
+			wantErr: false,
+		},
+		{
+			name:    "provider absent is fine (inherits/handled downstream)",
+			cfg:     map[string]interface{}{"model": "claude-sonnet-5"},
+			wantErr: false,
+		},
+		{
+			name:    "model absent is fine",
+			cfg:     map[string]interface{}{"provider": "anthropic"},
+			wantErr: false,
+		},
+		{
+			name:    "provider present but empty string fires",
+			cfg:     map[string]interface{}{"provider": "", "model": "claude-sonnet-5"},
+			wantErr: true,
+		},
+		{
+			name:    "model present but empty string fires",
+			cfg:     map[string]interface{}{"provider": "anthropic", "model": ""},
+			wantErr: true,
+		},
+		{
+			name:    "api_key_env_var present but whitespace-only fires",
+			cfg:     map[string]interface{}{"provider": "anthropic", "api_key_env_var": "  "},
+			wantErr: true,
+		},
+		{
+			name:    "required key present but non-string fires",
+			cfg:     map[string]interface{}{"provider": 123},
+			wantErr: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkOverlayRequiredKeys(tc.cfg)
+			if (err != nil) != tc.wantErr {
+				t.Errorf("checkOverlayRequiredKeys(%v) err=%v, wantErr=%v", tc.cfg, err, tc.wantErr)
+			}
+		})
+	}
+}
+
 // TestResolveAIServiceConfig_DoesNotMutateInputs guards the overlay against
 // writing through to the shared agent_definitions config map: the merged map
 // must be a copy, or a runtime override would poison the cached definition.
