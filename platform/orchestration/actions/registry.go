@@ -1336,6 +1336,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Verify LLM tool output is complete and not truncated",
 		IsLocal:     true,
 	},
+	"check_tool_fabrication": {
+		Handler:     CheckToolFabricationAction,
+		Category:    "validation",
+		Description: "Detect invented/synthetic datasets in a recreated tool (bug 020)",
+		IsLocal:     true,
+	},
 	"create_tool_cross_link_items": {
 		Handler:     CreateToolCrossLinkItemsAction,
 		Category:    "site",
