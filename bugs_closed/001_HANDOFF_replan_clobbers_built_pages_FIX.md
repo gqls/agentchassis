@@ -310,6 +310,11 @@ Both halves are written; the Go half is **inert until the chassis image rolls**.
   a built `guide-pricing` shares the stem `pricing`). Bounded to the 90-day window that is
   acceptable; permanent for every built page it is not. It is also not needed here — invented
   pages carry new topics and so collide with nothing.
+
+  > **CORRECTED 2026-07-21 (bugs_open/051):** there is no 90-day window. `adoption_locked` is a
+  > per-site "no current plan" flag, so Pass C2's real bound is **the site's first plan only** —
+  > `lockedPages` is empty on every re-plan, so Pass C2 can never fire after a site's first plan.
+  > The scoping decision stands; the "90-day window" reason given for it does not exist.
 - **"Pages invented" (original symptom 3) is NOT fixed.** Nothing here stops the LLM proposing
   net-new pages; truncation now merely can't evict a built one to make room. Suppressing
   invention outright would block legitimate site growth, so it needs the explicit-intent

@@ -8,6 +8,40 @@ leaving it is that threads keep reasoning from it — `/bugs_open/001` did, and 
 
 This is the same class as `/bugs_open/025` (a column documenting behaviour that does not exist).
 
+## Status — 2026-07-21 (bugfix-051 thread)
+
+**Fix candidate 1 (correct the false premise everywhere it is written) is COMPLETE.**
+- `v3_site_actions.go` comments — already done before this thread (`1a13e265d`, refs
+  renumbered `49b3c46b7`), committed at HEAD. The Pass C2 header note already reads
+  "first-plan-only", not "90-day window". The rename half of candidate 3 (the *comment*
+  re-scoping) is therefore also already in.
+- `bugs_closed/001` §"Deliberately NOT done" (the `:310` "90-day window" paragraph) — corrected
+  this thread with an inline `> **CORRECTED 2026-07-21**` note.
+- `053_build_site_planner.sql` — corrected this thread at the intent line (`:2537`) and at the
+  head of the "adoption locks"/full-054 section, flagging branch (b) as never-built design
+  history, not live behaviour.
+
+Live query re-verified against `agent_definitions` on 2026-07-21: still the single-branch
+"no current plan" form, `build_status` now surfaced (migration 173). No 90-day / per-page /
+timed branch present. So there is nothing further to correct for candidate 1.
+
+**What remains is a direction choice, and it is the owner's — candidates 2 and 3 compete:**
+- **Candidate 3 (retire the concept):** rename the wire key `adoption_locked` →
+  `site_has_no_current_plan` / `is_first_plan` so nobody reasons about a lock again. This is the
+  *only* remaining code action, and it is a config-live / Go-inert coupling change: the alias
+  lives in the live `load_existing_pages` query (`agent_definitions`) while the deployed pod reads
+  `rm["adoption_locked"]`, so it must ship image-first (Go reads the new key with a fallback,
+  roll, then re-seed the query) or a first-plan adoption preserve breaks in the gap. It also
+  forecloses candidate 2.
+- **Candidate 2 (build adoption faithfulness for real):** build BOTH halves of branch (b) — the
+  query branch AND a writer that emits `scope='page'`, `category='preserve'`, `locked_by='adoption'`,
+  `lock_type='timed'` directives at adoption time. A real feature, not a bug fix; keeps the
+  `adoption_locked` name meaningful.
+
+No production fire either way — measured exposure is ~nil (the 3 `planned` dartsonline pages are
+001-verification artefacts; the 17 `needs_rebuild` pages belong to `/bugs_open/037`). Awaiting the
+owner's direction on 2-vs-3 before any code lands.
+
 ## The claim in one line
 
 `adoption_locked` is **not** a per-page, 90-day-expiring lock. It is a **per-site** boolean meaning

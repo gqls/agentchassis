@@ -2535,6 +2535,11 @@ COMMIT;
 --
 
 -- adoption faithfulness for 90 days using new lock
+-- CORRECTED 2026-07-21 (bugs_open/051): the 90-day "new lock" (branch (b) of the
+-- 054 design below) was NEVER built — it is absent from the live
+-- load_existing_pages query and has zero rows behind it fleet-wide. What is live
+-- is the minimal first-plan-only variant further down; there is NO 90-day window
+-- and no per-page timed lock. See bugs_open/051.
 -- 052_planner_reads_realised_state.sql
 -- Doc 029 Phase 1: make build-site-planner read the realised (adopted) pages
 -- and converge on them, instead of planning a generic skeleton from identity alone.
@@ -2708,6 +2713,16 @@ COMMIT;
 
 ---
 -- adoption locks
+--
+-- CORRECTED 2026-07-21 (bugs_open/051): the FULL 054 immediately below (branches
+-- (a)+(b), with the "90-day window" note) is a DESIGN that was never built.
+-- Branch (b) — the per-page timed preserve-directive — is absent from the live
+-- load_existing_pages query and has zero rows behind it (462 site_plan_directives,
+-- locked_by NULL on every one; nothing writes them). What is LIVE is the minimal
+-- first-plan-only variant ("054 minimal", further down): adoption_locked = true
+-- ONLY on a site's first plan, false on every re-plan after. There is no 90-day
+-- lock, no per-page lock, no expiry. Read the aspirational text below as design
+-- history, not as live behaviour.
 
 -- 054_load_existing_pages_adoption_locked.sql
 -- Update build-site-planner.load_existing_pages so each returned page carries
