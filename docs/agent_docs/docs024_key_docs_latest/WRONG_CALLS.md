@@ -1589,3 +1589,35 @@ exists to catch it. The gate worked; I didn't.
 wrong (the loop-vs-bespoke-action question is a design judgement, unresolved), but
 the *claim* was, and a round-3 close now owes a real `LoopAction` read, not a
 better-worded assertion.
+
+## 2026-07-21 — a monitor re-read round 2's verdict as round 3's (bugs_open/010 b)
+
+**The claim (nearly).** A background monitor watching for the council round-3
+verdict emitted "COUNCIL ROUND 3 verdict: revise". I was one query away from
+recording round 3 as REVISE and stopping the council process on it.
+
+**Why it was false.** The monitor filtered council_reports by
+`correlation_id AND created_at > '10:58:00'` — a cutoff I set to "just after
+round 2". Round 2's report was actually stamped **10:58:10**, ten seconds later,
+so it slipped past the cutoff and the monitor returned round 2's decision as if
+it were round 3's. Round 3 (orch 1e288285) had produced **zero** artifacts — it
+was still queued behind the ~30-min dispatch latency.
+
+**What caught it.** Dumping the report body to parse the objections — it came
+back **0 bytes**, because I filtered that query by round 3's `orchestration_id`
+and there was no such row. The emptiness, not the decision, exposed it.
+
+**The cheap check that would have.** My OWN recorded guidance, in this
+workstream's NOTES: *"Poll diagnosis_artifacts filtered by orchestration_id,
+never by correlation alone — every round shares the trail correlation."* The
+monitor used correlation + a hand-set timestamp instead of the round's
+orchestration_id. A `created_at >` cutoff is a footgun: it must be strictly
+greater than the previous round's EXACT timestamp, and "round it to the minute"
+loses by seconds.
+
+**Tally row: reading a shared-correlation council report by a loose filter.**
+This is the THIRD of this family — trailer-on-a-REVISE (07-19),
+submission-read-as-verdict (07-20), now stale-round-read-as-new (07-21). All
+three treat a stale/absent result as the current one. The durable fix is
+mechanical: **always key a council poll on the round's orchestration_id**, not
+on correlation + time. I wrote that rule and then didn't follow it in a monitor.
