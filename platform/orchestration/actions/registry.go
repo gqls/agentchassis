@@ -1252,6 +1252,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic verification checker (no LLM) for silent failures: structural invariants violated in observable state with NO covering work item (the darts class); emits INERT silent_failure items for triage to route, closes them when resolved; one doc_note per sweep",
 		IsLocal:     true,
 	},
+	"diagnose_dormant_agents": {
+		Handler:     DiagnoseDormantAgentsAction,
+		Category:    "diagnose",
+		Description: "Deterministic capability inventory (no LLM, bugs_open/044): active agents whose workflow has never been observed running (step-fingerprint method; owner_agent_type deliberately unused), age-floored, mirrored-agent blind spot never flagged; emits INERT dormant_agent items for human triage, closes them when the agent runs; one doc_note per sweep",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
