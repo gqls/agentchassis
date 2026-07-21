@@ -607,8 +607,12 @@ Categories: acceptance-run`,
 			// needs_human_review is a non-terminal status, so a later verdict
 			// CONFLICTS with the standing item and DO UPDATE refreshes its count
 			// and reason in place (a re-escalation should say "5 cycles", not the
-			// stale "2" a DO NOTHING would leave) without minting a duplicate or
-			// disturbing the row a human may already be triaging.
+			// stale "2" a DO NOTHING would leave) without minting a duplicate.
+			// The spec is MERGED (site_work_items.spec || EXCLUDED.spec), not
+			// replaced: a human triaging this item may have written an owner,
+			// a note or an override into the same jsonb bag, and a full replace
+			// would silently discard it on the next cycle. Our keys win on the
+			// right of ||; any human-added keys survive.
 			spec := map[string]interface{}{
 				"component_id":      componentID,
 				"check":             "tool_acceptance_tier4",
@@ -645,8 +649,9 @@ Categories: acceptance-run`,
 				          'tool-acceptance-agent', $3::jsonb, $4, $5::uuid)
 				ON CONFLICT (site_id, item_key)
 					WHERE item_key IS NOT NULL AND status NOT IN (%s)
-				DO UPDATE SET spec = EXCLUDED.spec, summary = EXCLUDED.summary,
-				              updated_at = now()`, sqlInList(workItemTerminalStatuses)),
+				DO UPDATE SET spec = site_work_items.spec || EXCLUDED.spec,
+				              summary = EXCLUDED.summary, updated_at = now()`,
+				sqlInList(workItemTerminalStatuses)),
 				siteID,
 				fmt.Sprintf("Tier-4 acceptance not converging for %s after %d fix cycle(s): %s",
 					function, attempts, first(v.Details)),

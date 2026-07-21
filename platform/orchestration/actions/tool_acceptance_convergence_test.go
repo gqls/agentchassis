@@ -213,6 +213,13 @@ func TestConvergenceGuard_EscalatesAfterTwoFailedCycles(t *testing.T) {
 	if strings.Contains(ins, "DELETE FROM site_work_items") {
 		t.Errorf("escalation must not DELETE+INSERT — no such dedup contract exists:\n%s", ins)
 	}
+	// The spec must MERGE (|| ), not full-replace: a human triaging the standing
+	// needs_human_review item may have written notes/owner/override into the same
+	// jsonb bag, and `spec = EXCLUDED.spec` would silently discard them on the next
+	// cycle. Round-2 council catch (bug_historian, edit 3).
+	if !strings.Contains(ins, "spec = site_work_items.spec || EXCLUDED.spec") {
+		t.Errorf("escalation must MERGE spec (site_work_items.spec || EXCLUDED.spec), not overwrite it:\n%s", ins)
+	}
 }
 
 // Below the threshold the loop must be untouched — the guard bounds the loop,
