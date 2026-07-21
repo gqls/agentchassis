@@ -1,5 +1,12 @@
 # 054 — FOLLOW-ON: make an unresolvable chrome/render field ESCALATE, not just log
 
+> **⚠️ NUMBER COLLISION (concurrent filing 2026-07-21).** Two different bugs were filed as `054` by
+> two sessions at once — this one (`…_chrome_unresolved_field_escalation_and_consumer`) and
+> `054_HANDOFF_2026-07-21_unguarded_range_items_in_list_templates_no_empty_state.md` (relojistas
+> thread). Per the repo convention (`bugs_closed/README.md`, same as 016/017), the number is NOT
+> reassigned — **resolve by slug.** Council submission `7152c7cf` references *this* one (the chrome
+> escalation follow-on). They are unrelated.
+
 **Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** OPEN, not started — deliberately a
 follow-on, owner-scheduled 2026-07-21.
 **Severity:** medium — it is the second half of a fix whose first half (observability) is already in
