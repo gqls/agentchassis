@@ -62,3 +62,34 @@ survive a full page rebuild — the rebuild replaces the component rows wholesal
 a lock attached to the old row just vanishes. It was harmless this time, but it's a
 good reminder of exactly why 020's fix has to live in the rebuilder's contract and
 in a publish-time gate, not in a flag stuck on a row that a rebuild throws away.
+
+**2026-07-21, later — I put the gate through our reviewer council, and it earned its keep.**
+
+I sent the mechanical gate to the internal reviewer panel for a second opinion. It
+was a bumpy ride — the first attempt hung on our own flaky dispatch, and one of my
+resubmissions bounced back because I'd written a file path sloppily — but two of the
+rounds came back with real, substantive reviews, and they were worth every credit.
+
+The most important thing they caught: my gate "failed open". If, for some odd reason,
+it couldn't read the recreated tool at all, it was quietly deciding "nothing wrong
+here" and letting it through. One reviewer pointed out that this is *the exact same
+kind of silent-yes* that caused bug 020 in the first place — a safety check that,
+when it can't do its job, waves everything through. That's embarrassing and correct,
+so I flipped it: now, if the gate can't inspect the output, it *holds it for a human*
+rather than deploying it. As a bonus, that also means if the plumbing ever shifts
+under it, the gate will loudly stop everything for review instead of silently doing
+nothing — which is exactly the failure that would otherwise be invisible.
+
+The rest of what they raised I've addressed too (I verified the internal data paths
+are right, checked there wasn't already a tool doing this job before building a new
+one, tightened the database-change script so it double-checks it's touching exactly
+the one row it should, and left a note on the pipeline explaining the design for the
+next person). A couple of their points were really "prove it even harder in the
+submission" and "consider whether other parts of the platform need the same gate" —
+both fair, but the first can't be fully shown until we actually roll the new build,
+and the second is a sensible follow-up rather than part of this fix. So I stopped
+there. To be clear: the panel never gave a final green tick, so I'm *not* claiming it
+did — but it made the change materially better, which is the whole point of asking.
+
+Bottom line unchanged: half the fix is live, the other half is ready and now a bit
+sturdier, and bug 020 stays open until we roll a build and switch the gate on.

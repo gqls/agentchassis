@@ -180,3 +180,44 @@ repo-relative path (jq `.plan.edits[].file`), even for a config_change/docs edit
 Corrected edit 5 to the real wiring SQL path and resubmitted **round 4** (orch
 `e07a6629`). Council-run tally so far on this change: R1 wedged (003-class), R2
 REVISE (real, addressed), R3 voided (my bad path), R4 pending.
+
+### 2026-07-21 — council round 4 = REVISE (found a real flaw); addressed; STOPPING the loop
+
+Round 4 (orch `e07a6629`) ran clean this time: `complete_revise`, 11 reviewers, 5
+abstained, decided by editquality. It reviewed the fuller plan INCLUDING the wiring
+(edit 5). Two classes of objection:
+
+- **REAL FLAW — bug_historian (HIGH), echoed by editquality/compliance: the detector
+  failed OPEN.** Missing recreation HTML returned `fabricated=false` → deploy. That is
+  the exact `missingkey=zero` silent-default class bug 020 itself belongs to. **Fixed
+  (commit `37d3bb119`): fail-SAFE now** — un-inspectable output returns
+  `fabricated=true, tier=uninspectable` → held for review. Bonus: this also kills
+  guardian's separate "silent no-op if the field path drifts" fear — a drifted path
+  now fails LOUD (everything held) instead of silently passing. New test. This was the
+  single most valuable thing the whole council thread surfaced.
+- **SQL/plan discipline on edit 5 (the wiring) — debug_historian (HIGH), prior_art,
+  guardian:** jsonb surgery on a live workflow row is needle-gate class; show a
+  pre-count + RETURNING; put the "verified" field-path SQL check IN the plan, not
+  asserted. **Partly addressed:** the WIRING SQL now opens with a needle-gate DO block
+  (assert exactly 1 live row AND not-already-wired = idempotency guard) and the repoint
+  UPDATE carries RETURNING. The "evidence in the plan" ask is inherent to a
+  config_change edit that can't be applied/verified until the action ships (image-first)
+  — the verification queries live in the RUNBOOK and were run live this session.
+- tooling_provenance: the doc_note isn't a plan edit — true; it was written out of band
+  (id 0547229b). guardian/prior_art (LOW): want the reviewers' own code_checks on
+  "registry additive"/"new work". bug_historian (MISSING): audit OTHER regeneration
+  pipelines for the same fabrication class — a legitimate scope-broadening follow-up
+  (candidate 2's "apply to every generative prompt"), noted, out of scope for this fix.
+
+**DECISION: stop the council loop here (after R4).** Tally: R1 wedged, R2 REVISE
+(addressed), R3 self-voided (bad path, fixed), R4 REVISE (addressed). The two REVISE
+rounds each found something real (wiring-must-be-in-plan; fail-open) and both are now
+fixed in committed code/docs. The residual R4 objections are plan-*presentation*
+(show the SQL check in-plan, run code_checks) and scope-broadening (audit other
+pipelines) — not defects in the change. Marginal value of another round is low, the
+infra is flaky (a wedge + a void already), and a config_change edit is inherently hard
+to fully evidence before the image roll. **No APPROVED was obtained, so NO
+`Council-Reviewed:` trailer** (CLAUDE.md: earned by APPROVED only). The change stands
+on: verified field paths, a 12-test precision+fail-safe contract, needle-gated wiring,
+and a design the approving seats (compliance, constitution, mission, prior_art,
+render_guardian) endorsed. The owner reviews before rolling the image.

@@ -10,10 +10,13 @@ served to visitors.** Contained on the affected site; the platform defect is unf
 >   not just arithmetic; `analyze_tool` now captures the original tool's `data_source` verbatim.
 >   This is candidates (1)+(2). It reduces the rate; it does not, alone, guarantee obedience.
 > - **Mechanical gate — BUILT + UNIT-TESTED + COMMITTED, inert until an image roll** (candidate 3).
->   New Go action `check_tool_fabrication` (`platform/orchestration/actions/`) + 11 passing tests;
->   workflow wiring staged **image-first** at
+>   New Go action `check_tool_fabrication` (`platform/orchestration/actions/`) + 12 passing tests
+>   (incl. **fail-SAFE** on un-inspectable output — a council find); workflow wiring staged
+>   **image-first** (now needle-gated) at
 >   `docs/.../bug020_tool_recreation_data_integrity/WIRING_check_tool_fabrication_APPLY_AFTER_IMAGE.sql`.
->   Council review submitted (`SUBMISSION_CORR 8eef369f`).
+>   Council reviewed (`SUBMISSION_CORR 8eef369f`): **2× REVISE, all substantive objections addressed**
+>   (wiring folded in-plan; fail-open→fail-safe; paths verified; needle-gate + RETURNING). No APPROVED
+>   obtained → **no `Council-Reviewed:` trailer** (earned by APPROVED only). Loop stopped after round 4.
 > - **Still OPEN** until the gate is live: needs a chassis image roll carrying `check_tool_fabrication`,
 >   then apply the wiring, then verify (recreate a data-backed tool → held, not deployed). Candidates
 >   (1)+(2) shipping does not close the bug — the defect is reproducible until the mechanical net ships.

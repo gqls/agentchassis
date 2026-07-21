@@ -40,6 +40,29 @@ BEGIN;
 
 SELECT snapshot_agent('tool-recreation-handler', 'WIRING_check_tool_fabrication: pre-update');
 
+-- Needle-gate (per bugs_open/016b needle discipline): confirm the blast radius
+-- BEFORE any mutation. This is jsonb surgery on a LIVE production workflow row, so
+-- assert exactly one live row will be touched and that it is NOT already wired
+-- (idempotency guard — a re-run must not double-apply). Each UPDATE below also
+-- prints "UPDATE 1" (its own row count), and the tail DO block re-verifies the
+-- resulting step graph.
+DO $$
+DECLARE n int; already int;
+BEGIN
+    SELECT count(*) INTO n FROM agent_definitions
+      WHERE type='tool-recreation-handler' AND deleted_at IS NULL;
+    IF n <> 1 THEN
+        RAISE EXCEPTION 'needle-gate: expected exactly 1 live tool-recreation-handler row, found % — aborting before mutation', n;
+    END IF;
+    SELECT count(*) INTO already FROM agent_definitions
+      WHERE type='tool-recreation-handler' AND deleted_at IS NULL
+        AND default_config #>> '{workflow,steps,check_completeness,next_step}' = 'check_fabrication';
+    IF already > 0 THEN
+        RAISE EXCEPTION 'needle-gate: gate already wired (check_completeness.next_step=check_fabrication) — nothing to do, aborting';
+    END IF;
+    RAISE NOTICE 'needle-gate ok: exactly 1 live row, not yet wired — proceeding';
+END $$;
+
 -- (1) The detector step.
 UPDATE agent_definitions
 SET default_config = jsonb_set(
@@ -94,12 +117,15 @@ SET default_config = jsonb_set(
       }$j$::jsonb, true)
 WHERE type = 'tool-recreation-handler' AND deleted_at IS NULL;
 
--- (4) Repoint check_completeness onto the gate.
+-- (4) Repoint check_completeness onto the gate. RETURNING confirms exactly which
+--     row changed and the resulting edge (needle discipline).
 UPDATE agent_definitions
 SET default_config = jsonb_set(
       default_config, '{workflow,steps,check_completeness,next_step}',
       '"check_fabrication"'::jsonb, false)
-WHERE type = 'tool-recreation-handler' AND deleted_at IS NULL;
+WHERE type = 'tool-recreation-handler' AND deleted_at IS NULL
+RETURNING id, type, version,
+          default_config #>> '{workflow,steps,check_completeness,next_step}' AS check_completeness_next_step;
 
 -- Verify.
 DO $$
