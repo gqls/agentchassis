@@ -3803,3 +3803,64 @@ so the first verdict after the roll should escalate — cheap to verify, and the
 query + discriminating pod-grep are in 010's "Verify after fixing" §2.
 
 Categories: (fix, tests, correction, council)
+
+### 2026-07-20 (late) — 010(b) council round 1: REVISE, and a seat invented a contract
+
+Round 1 verdict on the convergence guard (corr eeeccdaa, orch bf6ae577):
+**REVISE**, no veto, 12 seats / 4 abstained / 0 unreadable — a clean round
+(no truncation void). 10 of 12 approved or approved-with-notes. Four objections
+carried weight; here is each and what I did.
+
+**guidelines (HIGH) — and it cited a contract that does not exist.** It said the
+escalation insert must use `DELETE+INSERT`, not `ON CONFLICT`, per "the
+documented contract". I went to comply and checked first. **There is no such
+contract.** Every `DELETE+INSERT` hit in the concept register
+(`docs026 .buckets/tool-lifecycle.md`) is describing the **tool-widget-clobber
+BUG** — `save_page_sections_action.go` rebuilding `page_components` by
+`DELETE FROM … then re-INSERT`, which *destroys* side-written tool widgets. That
+is a defect mechanism, not a mandated pattern. The real work-item dedup contract
+(`work_items_common.go`) and the canonical `insertWorkItem`
+(`load_work_item_actions.go:1101`) both use `ON CONFLICT … WHERE <non-terminal>`.
+> **This is the same failure the bug-024 rounds recorded** — a seat citing a
+> knowledge-base entry as fact and turning it into a high-severity blocker on a
+> correct plan (there it was render_guardian and `styling-render-pipeline.md`).
+> The register entry here is not even wrong; the seat MISREAD a bug description
+> as a contract. Confidence is not a signal, on a seat's side either.
+
+**But the behavioural half of that objection was right**, and worth acting on:
+`ON CONFLICT DO NOTHING` froze a re-escalation's count at the *first* cycle's
+number — a human would see "2 cycles" when five had since failed. Fixed
+(`b88da540b`): `ON CONFLICT (site_id, item_key) WHERE <non-terminal> DO UPDATE
+SET spec/summary/updated_at`, arbiter predicate = the canonical dedup one so it
+matches `idx_swi_dedup` and cannot 42P10. Refreshes in place, no duplicate, does
+not disturb a row a human may be triaging. **Not** DELETE+INSERT. Test asserts
+DO UPDATE + the arbiter and rejects DELETE, confirmed to fail against a DO
+NOTHING mutation.
+
+**reuse_agent (MED) — use `parent_item_id`/`attempt_count`, not a bespoke
+count.** Its own answered check settles it: **0 of 19** improve_tool items carry
+a `parent_item_id`, so chaining is unpopulated for this pipeline. Wiring it is
+new machinery (a raise-site that finds its predecessor and rolls attempt_count
+forward), and the seat conceded that with chaining unused my approach is
+"defensible as the simplest fix". Recorded as disclosed-and-deferred — the
+native mechanism is the right long-term home; a follow-up should populate
+`parent_item_id` fleet-wide — **not narrowed away** (024's pattern).
+
+**guardian (MED) — is `needs_human_review` actually surfaced?** Yes. The admin
+dashboard lists and actions it (`site_admin_handlers.go`, `App.tsx`,
+`confirm_work_item_handler.go`); the read-cap that once showed 0 of 208
+(`bugs_open/033`) is FIXED and LIVE in v1.0.1141, VPN-reachable. "Ask a human"
+is earned. The residual is queue DEPTH — 302 open — which is disclosed in risks
+and in the bug file, grounded against a live count.
+
+**bug_historian (MED) — the mechanism is generic, patched at one site.** Agreed,
+and a single PR is the right scope per the seat's own note. The generic shape
+("a fresh work item per retry cycle defeats a per-item attempt cap") is now a
+transferable rule in **016b §9 (rule 4)** for a fleet audit follow-up.
+
+Round 2 resubmitted on the same correlation (orch 1de88507). Operational note:
+poll `diagnosis_artifacts` for a council_report with `created_at` LATER than
+round 1's (21:37:54) — the trail correlation is shared, so an unfiltered poll
+returns round 1's REVISE and looks like the new verdict.
+
+Categories: (council, correction, seat-defect, fix)
