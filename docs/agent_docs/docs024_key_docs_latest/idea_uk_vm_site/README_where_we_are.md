@@ -862,3 +862,34 @@ then. The bug stays officially open until it's live.
 One piece I left for later on purpose: a second check for "this site has a tool but no form anywhere
 to feed it" needs us to first fix that empty label problem (how does the platform know a site has a
 backend at all?), which is really its own decision rather than something to bolt on here.
+
+
+## 2026-07-21 — you decided, and the platform fix is now built
+
+You picked the safe route: ship the loud-log version now, and do the bigger block-or-escalate version
+as a separate follow-on. That's the fleet-safe one, and it doesn't wave the council's point away — it
+schedules it.
+
+So I've built the actual platform change. Until today it was only a plan — a set of sketches in the
+council submission; now it's real code, committed. What it does, in plain terms: when the site builder
+renders a page's header or footer, it now reads each component's OWN list of the fields it needs,
+instead of only knowing a fixed shopping-list baked into the code. Anything it still can't fill it
+leaves blank AND says so in the logs — and if the blank is a link or an image it says so louder (an
+error, naming the exact dead control), because a dead link on a live page is worse than a missing word.
+It also fixes a second, related thing while it was in there: the header and footer's little bit of
+JavaScript — the mobile "hamburger" menu — was never being published at all, so that menu was dead on
+every page of every site. That now publishes.
+
+Two honest caveats. First, this is a code change, so it does nothing until the next image is built and
+rolled out. The live idea.uk site is already fine — that was the database fix days ago; this is the
+fleet-wide plumbing underneath. Second, I did NOT put a "reviewed by council" stamp on it, because the
+council never actually approved it — they said REVISE on the one point you've now overruled. That's the
+honest record: you ruled, I shipped, and the stamp stays reserved for a real green light.
+
+The follow-on — making a dead link actually block the build or raise a job for someone, not just log —
+is filed as its own bug (054) so it isn't forgotten. It needs a staged rollout and something that
+actually actions the jobs it would raise, which is exactly why it's a separate piece and not bolted on
+here.
+
+One thing left for you: it's committed, so it'll ride the next fleet build whenever that happens. If
+you want it live sooner I can build and roll the chassis myself — just say the word.

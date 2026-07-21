@@ -1266,3 +1266,39 @@ image roll + adding `backend_entry_orphaned` to a discovery agent's `checks` arr
 it references an unregistered check). **017 stays OPEN** until live. Finding B (`no_backend_entry`)
 deferred — it needs a reliable "site has a backend" signal, which the empty `deploy_config` shows is
 itself missing (a data-model gap for a separate decision).
+
+### §X.8 — ROUND 3 built as CODE, not just a plan (2026-07-21, owner ruling applied)
+
+Owner ruled via AskUserQuestion 2026-07-21: **ship the observability version now, block/escalate as
+follow-on `bugs_open/054`.** The round-3 submission JSON already baked that ruling in and `054` was
+already filed (both in commit `76aaeb72b`, a prior turn). This turn turned the five plan sketches into
+committed Go — **commit `36829b07b`** (`platform/orchestration/actions/{render_site_components,component_library,rerender_single_page}_action.go` + the CTA-plan write-back). No `Council-Reviewed` trailer — round 2 was REVISE on the scope point the owner overruled, and the trailer is earned only by APPROVED.
+
+Verified before committing:
+- `go build ./platform/orchestration/actions/` → **exit 0** (compiles). No signature changes:
+  `RenderTemplate` stays a thin wrapper over the new `RenderTemplateReportingMissing`, so none of its
+  many callers are touched.
+- `input_schema` is `jsonb` → `COALESCE(cc.input_schema,'{}'::jsonb)` scanned into `[]byte` is fine.
+- **Not inert:** `contextToInterfaceMap` merges `ctx.ContentData` at `component_library.go:744-746`, so
+  edit 2's writes into `renderCtx.ContentData[name]` DO reach the rendered template. Checked, not assumed.
+- `newSourceResolver` is a cheap struct init (specs/pages/assets lazy-loaded); `resolve()` returns
+  `(nil,false)` on a `pages.*` miss and **never** fabricates `/contact.html`. Edit 2 handles
+  `static`/`llm`/`renderer`/`""` BEFORE calling `resolve`, so the fossil-fallback path is unreachable
+  on a data-source miss (LNK-005 correct-or-absent holds).
+- Both schema shapes handled: wrapped `{"fields":{...}}` and FLAT (top-level field names, e.g.
+  "Document Head"); a top-level value that isn't a field descriptor map is skipped, so stray scalars in
+  the flat shape (`required`, `version`) are ignored.
+- Live idea.uk (`curl`) already clean — every link resolves to a real `.html`, logo `src` populated
+  (the DB fix `d63e62aad`). **This Go change is the fleet-wide mechanism; it is inert until an image roll.**
+
+Edit-6 write-back done: `cta_link_integrity/PLAN_2026-07-19` now records the **4th call site**; a
+`doc_notes` row was inserted **live** (`subject_type='pipeline'`, `subject_key='cta_link_integrity'`,
+`categories ? 'council-gate'`), idempotent via `WHERE NOT EXISTS`.
+
+- `[UNMEASURED]` after the roll: the **~30 active ungated URL-placeholder components** (count measured
+  2026-07-20) will newly log at **Error** fleet-wide when their URL fields are unresolved. That is the
+  accepted observability cost — a log-volume change, NOT a behaviour change (the content was already
+  blanked). Watch Error volume after the first roll; it is the signal `054` will escalate on.
+- `[ASSUMED, vetted in plan]` vonc.com may newly render a logo image (its `logo_url` was empty and
+  `header-bold-gradient` sources it from `site_assets.logo`) where it currently shows an `{{else}}`
+  glyph — an accepted, reviewed side-effect (a fix), not a regression.
