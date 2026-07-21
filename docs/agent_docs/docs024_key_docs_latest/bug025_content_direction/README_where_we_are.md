@@ -33,3 +33,22 @@ State now:
 What's left to fully close it: build and roll the chassis image, then the real proof —
 set a direction on one live page, rebuild it, and read the saved section to confirm the
 instruction actually changed the copy. Until that's done and live, the bug stays open.
+
+## 2026-07-21 (later) — done and proven; bug CLOSED
+
+Two good pieces of news. First, I didn't have to build anything: another session's big
+"sweep" commit had already scooped up my two small code changes and built them into the
+live release (v1.0.1146) that the whole fleet is now running — I checked the actual
+running program and my code is in it. So the code half was already live.
+
+Second, the real test worked. You approved running it on the vonc test site. I told the
+system, via the new column, to weave one very specific and deliberately odd sentence
+into the About page's copy, checked the page did not already contain it, then rebuilt
+the page through the normal pipeline. The regenerated page came back with that exact
+sentence woven naturally into four of its sections. Before: zero. After: four. That is
+precisely the thing this bug said was impossible — setting the column now steers what
+gets written.
+
+I've cleared the test instruction off the page and kicked off one more rebuild to wash
+the odd sentence back out. The bug is closed and filed under the closed cases. Nothing
+outstanding.
