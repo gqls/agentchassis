@@ -1039,17 +1039,32 @@ Go actions that read common fields (`page_name`, `page_id`, `site_id`) should im
 > demonstrably reaches the prompt. This section is retained as the *intended*
 > design pending the 025 decision (wire it up, or drop the column).
 
-JSONB column on `pages` table. ~~Flows to content-writer's prompt when present.~~
+> **UPDATED 2026-07-21 (bugfix 025 thread) — NOW IMPLEMENTED (owner chose "wire it
+> up as documented").** Both build-path loaders now SELECT the column onto the page
+> map (`load_page_record_action.go`, `get_pages_to_build_actions.go`), so it reaches
+> the writer as `.current_page.content_direction`, and the `page-content-writer`
+> prompt renders it in a guarded block right after the site-level content-direction
+> block (migration `sql_for_agents/187_page_content_direction_wireup.sql`). The Go
+> half is inert until the chassis image roll that carries it; the prompt half is live
+> immediately (harmless before the binary ships — the guard stays false with no data).
+> Structure is `{ instruction, format, examples, avoid }` (all keys optional) — see the
+> `COMMENT ON COLUMN pages.content_direction`. The per-section `content_brief` hook
+> remains the finer-grained alternative; the two now coexist (site → page → section).
+
+JSONB column on `pages` table. Flows to `page-content-writer`'s prompt as
+`.current_page.content_direction` when present (bug 025).
 
 ```json
 {
+  "instruction": "Lead with the founder story; keep the intro under 120 words.",
   "format": "problem-agitate-solution",
-  "instruction": "Each use case: present a real problem, agitate the pain, suggest solutions.",
-  "use_cases": ["automated website generation", "content refresh"]
+  "examples": ["We started in a garage in 2019.", "Every client gets a named lead."],
+  "avoid": ["buzzwords", "fabricated statistics"]
 }
 ```
 
-Used when: page-level rewrite needed (set `build_status = 'needs_rebuild'`), then trigger page-rebuild.
+All keys optional. Used when: page-level rewrite needed (set `build_status =
+'needs_rebuild'`), then trigger page-rebuild.
 
 ---
 

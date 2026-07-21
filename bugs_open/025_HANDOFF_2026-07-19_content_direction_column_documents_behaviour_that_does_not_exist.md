@@ -80,3 +80,35 @@ comment, in the doc every developer is told to check changes against. Corrected 
 (dated block pointing here) rather than deleted, since it may be the *intended* design.
 This strengthens fix candidate (2) (wire it up as documented): the behaviour is documented
 in two places, so either the code should match the docs or both docs should change, not one.
+
+## Fix in progress 2026-07-21 (bugfix 025 thread) — candidate (2), owner-chosen
+
+**Owner chose "wire it up as documented", not delete.** Status stays **OPEN** until
+the Go half is fixed AND live (inert until the next chassis image roll).
+
+**Correction to the handoff's data-flow model.** The handoff listed both loaders but
+implied `current_page` for the rebuild path comes from the work-item `spec` (as seed
+`055_page_build_handler.sql:85` shows: `"current_page": "input_data.spec"`). **The LIVE
+`page-build-handler` does not** — it maps `"current_page": "page_record"`, the fresh
+output of `load_page_record`. So the load-bearing loader for the acceptance test
+("rebuild the page") is **`load_page_record_action.go`**, not the spec. Verified by
+dumping the live `page-build-handler` default_config; the seed is migration history.
+Full path table in `docs024_key_docs_latest/bug025_content_direction/PLAN_2026-07-21_*`.
+Both loaders were wired anyway (pageflow-builder / page-rebuild loop over
+`get_pages_to_build`; site-work-orchestrator reads the spec).
+
+**Done (committed):**
+- Go: `load_page_record_action.go` and `get_pages_to_build_actions.go` now SELECT
+  `content_direction::text` and put the parsed value on the page map (only when
+  present, so the writer guard stays false otherwise). Compiles + gofmt clean.
+- Config (LIVE now): migration `sql_for_agents/187_page_content_direction_wireup.sql`
+  renders `.current_page.content_direction` in the `page-content-writer` prompt
+  (guarded block, `{ instruction, format, examples, avoid }`), and corrects the
+  column COMMENT. Applied to live DB (UPDATE 1). Full-template parse+execute verified
+  under `text/template` for absent / full / partial cases — block emits zero
+  `<no value>` when the key is absent.
+- Docs: `003_contracts_and_standards(8).md` §content_direction updated to IMPLEMENTED.
+
+**Remaining to CLOSE:** chassis image build + roll (Go half), then the acceptance
+test — set `pages.content_direction` on one real page, rebuild, confirm the
+instruction's effect in the **saved section**, not a `complete` status.
