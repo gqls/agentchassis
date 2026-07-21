@@ -119,3 +119,31 @@ still exposed. See `docs/agent_docs/docs024_key_docs_latest/vetcomparison/HANDOF
 
 `016` is currently used by two unrelated cases (council-revise-prompts and ssh-HOME) — concurrent
 threads collided. This file takes `020`; highest existing was `019`.
+
+---
+
+## Addendum 2026-07-21 — the `permanent` locks do NOT survive a full page rebuild
+
+The remediation relied on `page_components.lock_type='permanent'` (set by
+`vetcomparison-fabrication-fix-bug020`) to protect the corrected components. On
+2026-07-21 08:08 a normal full-page render ran on vetcomparison.uk's index and
+**stripped every lock** — all five components came back with `lock_type` NULL.
+
+Verified it is a delete-and-recreate, not an in-place clear: the `hero` row's primary
+key changed across the render (`c8df695e-…` → `24060593-…`). So the rebuild replaces
+the component rows wholesale; a lock living on the old row cannot survive, by
+construction. **A `permanent` lock protects against an in-place overwrite, not against
+a rebuild that re-materialises the page's components from its manifest.**
+
+The saving grace this time: the rebuild regenerated `hero` from a clean source — the
+real `fetch('/data/vet-full-index.json')` is intact and there is **zero** fabrication
+(`Mulberry32`/`makePostcode`/`representative sample` all absent from the live HTML).
+So the anticipated test — the original handoff said "if fabrication returns, the locks
+did not hold" — fired with a benign outcome: the locks did **not** hold, but fabrication
+did not return either. The exposure is therefore latent: the day the tool-recreation
+path (this bug's actual subject) runs as part of a rebuild, the locks that were meant to
+stop it will already be gone.
+
+Consequence for any lock-based mitigation on this platform: **do not rely on
+`lock_type` to survive a rebuild.** Protection has to live in the component's data
+source or the generator's contract, not in a per-row flag the rebuild discards.
