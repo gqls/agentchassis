@@ -128,3 +128,40 @@ ledger keys on filename.
   (that returned zero rows for me, correctly — the run never produced a report).
   Same family as the documented "council_report source_agent='generic' fleet-wide"
   trap. RUNBOOK query corrected.
+
+### 2026-07-21 — council round 2 = REVISE (a good one); addressed, resubmitted round 3
+
+Round 2 (resubmit orch `d9aaa0b5`) returned **REVISE**, 5 approve / 4 object,
+decided by editquality. The objections were sharp and mostly correct:
+
+- **editquality (HIGH) — the central one, and it was right:** the detector is
+  INERT without the wiring, and I had NOT put the wiring in the reviewed plan — yet
+  my rationale asked them to "confirm the gate routing cannot deploy a fabricated
+  tool". You can't confirm deploy-blocking from a plan that omits the deploy-block.
+  → **Fixed round 3: the wiring is now edit 5 (config_change), naming
+  tool-recreation-handler as owner and showing the fabricated=true branch never
+  reaches save_sections/deploy_page.** guardian, compliance, prior_art_librarian all
+  independently flagged the same dormant-machinery risk.
+- **guardian (MED) — field paths unverified.** Legit concern (a wrong path = silent
+  fail-open while unit tests pass on hand-built payloads). **Verified, and they are
+  correct:** `completeness_check.clean_html` is the exact path `validate_tool` reads;
+  `existing_content.existing_content.raw_html` + `tool_analysis.result` are
+  referenced by the recreate_tool prompt itself. No code change — documented.
+- **reuse_agent (MED) — did I search for an existing quality pipeline?** Did the
+  negative-result search: `compute_component_quality` scores `content_components`
+  template CONTRACT compliance (tag balance, schema-field match), has ZERO
+  fabrication signals, runs **0** times in this workflow, and recreated tools are
+  `page_components` (invisible to it). No hook to extend — the detector is novel.
+- **editquality (LOW) — test filename.** Renamed to
+  `check_tool_fabrication_action_test.go` (commit `ec6f5788b`), tests still green.
+- **tooling_provenance (MED) — leave a travelling doc_note.** Inserted a
+  design-rationale note keyed `subject_type=pipeline / subject_key=tool-recreation-handler`
+  (id 0547229b) recording the Tier A/B corroboration tradeoff for the next fixer.
+- **debug_historian (MED) — pod-grep before trusting the gate.** Already in the
+  RUNBOOK and the wiring header; cited in the round-3 rationale.
+
+Approvers (compliance, constitution, mission, prior_art_librarian) all endorsed the
+DESIGN (tiered corroboration targets the real bug-020 signature, not a generic PRNG
+grep; reuses checkpoint_for_review; fail-open is a reasonable narrow default, not a
+gate weakening) — the only blocking theme was "review the wiring too", now done.
+Round 3 resubmitted (orch `8fba93dd`, same corr `8eef369f`).
