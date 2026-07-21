@@ -113,3 +113,102 @@ is still in its rewritten state.
   correlation `a8b483ff-55af-463d-9622-837c73780e48`) but **never dispatched** — no
   orchestration row exists for it. Everything above is primary DB evidence, not a loop verdict.
   Re-firing the 090 trigger on this symptom would still be worth it.
+
+---
+
+# VERIFIED + SHARPENED 2026-07-21 (bugfix-029 tool-suggester session) — the code is read, the URL is fabricated (not "invented by the writer"), and it 404s even for tools that WERE built
+
+Picked this up to fix it. The mechanism holds and is now read at the code, but the
+framing above needs two corrections and the blast radius is measurably worse than
+"tools that were never built".
+
+## The diagnosis item DID run — it is now `status='complete'`
+
+The 2026-07-19 note that "no orchestration row exists" was **queue latency**, not a drop
+(the ~30-min council/diagnosis dispatch lag — same trap as the council gate). The
+`needs_diagnosis` item is `complete` today. No durable verdict surfaced in `doc_notes`
+(only unrelated council-gate notes match), so treat the primary evidence below as the record.
+
+## CORRECTION 1 — the writer does not "invent a plausible URL". The **emitter** fabricates it and hands it over as an instruction + an acceptance test.
+
+`platform/orchestration/actions/create_tool_cross_link_items.go:142`:
+
+```go
+toolPageURL := fmt.Sprintf("/tools/%s.html", toolFunction)   // suggestion-time, prefix intact
+```
+
+It reads `evaluation.result.suggestions` (`:88` — the same suggestion-time array
+`create_items_loop` iterates), and bakes that fabricated URL into BOTH the rewrite
+instruction and its acceptance test (`:173-186`). Verified in a live spec on leopardess:
+
+> `suggestion`: "Weave a natural reference to 'Monitoring Coverage Gap Finder' (…). **Link to
+> /tools/tool-monitoring-coverage-gap-finder.html.** …"
+> `acceptance_test`: "Page contains at least one inline link to
+> /tools/tool-monitoring-coverage-gap-finder.html …"
+
+The live `page-build-handler` maps `rewrite_guidance? → input_data.spec.suggestion`
+(pod config on v1.0.1144; the `k8s/bk_agent_definitions_backup.sql` copy is stale and says
+otherwise — migration 072 threaded it). So `page-content-writer` is **obeying a phantom URL
+it was told to use**, and the item's own acceptance test *requires* the phantom. This is not
+an LLM confabulation; it is deterministic, and it is the emitter's.
+
+## CORRECTION 2 — it is not "tools that were never built" that 404. It is **all of them**, because `/tools/{function}.html` never matches the real `pages.url`.
+
+Fleet sweep, 2026-07-21 — every `source='tool-suggester'` `content_rewrite`, its constructed
+`/tools/{tool_function}.html` left-joined to `pages.url` for that site:
+
+```
+24 items across 3 sites (leopardess 10, gamesdesign 13, ai-agent-orchestration 1)
+0 of 24 constructed URLs resolve to a real page  — matched_page_url NULL on every row
+```
+
+Including a tool that **was** built: `tool-process-automation-scorer` deployed at
+`/tools/process-automation-scorer/index.html`, but the item points at
+`/tools/tool-process-automation-scorer.html`. The deployed-tool URL shape is
+**non-deterministic across build paths** and cannot be reconstructed from the function name:
+
+| build path | example | url shape |
+|---|---|---|
+| `deploy_tool_action.go:269-277` (library fork) | `tool-fuel-cost-estimator` | `/tools/fuel-cost-estimator.html` (**strips** `tool-`) |
+| `create_tool_component_action.go:211-218` (novel, `CanonicalisePage`) | `tool-process-automation-scorer` | `/tools/process-automation-scorer/index.html` (`/index.html`) |
+| observed fleet-wide | `tool-drop-rate-tuner`, `tool-loot-table-balancer` | `/tools/tool-…​.html` (**keeps** `tool-`) |
+
+The emitter keeps the prefix and always appends `.html`. So it is wrong on **all three**
+shapes. **The URL cannot be constructed; it must be looked up from `pages.url`, and the
+lookup is only meaningful once the tool page row exists.** That is the whole bug in one line.
+
+## Why nothing downstream caught it (three layers, all confirmed at code)
+
+1. `internal-link-resolver` (`resolve_internal_links_action.go`) resolves only structured
+   **CTA fields** (`ctaFieldNames`, `:98-105`), against real `pages.url`. It never looks at an
+   arbitrary in-body prose `<a href>`, and it is **not wired onto content_rewrite output**.
+2. `validate_page_content.go` `validateInternalLinks` (`:540-582`) **does** extract every
+   in-body href and check it against real `pages.url` — and files a phantom as
+   `Severity:"warning"` (`:571`), which is **non-blocking** (`valid := blockerCount==0 &&
+   errorCount==0`, `:257`). So the page deploys with the 404, by design ("the improvement loop
+   resolves it" — it doesn't; cf. 023/033/049 detected-but-not-delivered family).
+3. Post-deploy `check_phantom_internal_links.go` exists but has the coverage/durability gaps
+   documented in `049`.
+
+## Fix chosen: emit from the tool-BUILD success path, using the real page URL (candidate 1, made concrete)
+
+The race is removable **by construction**: the `add_tool` item spec already carries
+`related_pages` (the suggester writes `spec_data: current_suggestion`, verified live), and the
+build actions already create the tool page and emit follow-on items (`needs_content_page`,
+companion guide) carrying the real `page_id`/`tool_page_url`. So:
+
+- Emit the `content_rewrite` cross-link items from `deploy_tool_action.go` /
+  `create_tool_component_action.go`, **after** the page row exists, using the **real
+  `pageURL`** they just computed; read `related_pages` from the incoming `add_tool` spec.
+- Extract the spec-builder into a shared helper (reuse `create_tool_cross_link_items.go`'s
+  body, delete `:142`'s fabrication, take `realURL` as a parameter).
+- Remove the suggester's `create_cross_links` workflow step (098) so nothing emits at
+  suggestion time any more.
+
+Result: a cross-link item only exists for a tool whose page row exists, and it carries a
+resolvable URL. **Residual, deliberately deferred to `049`:** if the tool page is created
+(`planned`) but its content build never deploys, the link still 404s — that is 049's
+mechanism 2 (planned-but-unbuilt page linked), a broader class, not this emitter's defect.
+
+Existing damage (the 24 items + their woven links on live pages) is **not** cleaned up by the
+emitter fix — that is a separate sweep, coordinated with `049`.
