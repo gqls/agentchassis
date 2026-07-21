@@ -2819,3 +2819,41 @@ cannot simply make the miss an error — you must distinguish *"no contract"* (e
 
 **Related:** `bugs_open/026` (the case); the "two-branch router" entry above (same "two nets,
 one blind spot" family, different mechanism — there it was placement, here it is dialect).
+
+### A completeness gate must count ROWS, not names — the plan's section names do not equal the live component names (2026-07-21)
+
+**Symptom.** `bugs_open/040-partial-build`: a page build that wrote 5 of 6 planned sections was
+stamped `deployed` + `built_from_plan_version = current`, so `decideEmit` returns `skip_built`
+and the reconciler never revisits the missing section — a permanent five-sixths page. The fix
+(candidate 1): at the deploy mark (`UpdatePageStatusAction`), refuse to stamp when the build is
+short of its plan.
+
+**The trap that nearly shipped a fleet-wide false positive.** The obvious way to ask "is this page
+complete?" is per-section name matching: for each name in `pages.sections`, does a `page_components`
+row exist whose `slot_name` (or `content_components.function`) equals it? That is the
+`bugs_open/039` Part-1 pattern and it reads as the *more precise* check. **It is wrong as a gate.**
+`pages.sections` names are authored by the planner and do **not** reliably equal the live
+component `slot_name`/`function`. Measured live 2026-07-21: name matching flagged **74** deployed
+pages; row-count matching flagged **28**. The ~46 extra were healthy pages, e.g.
+`gaswholesalers.com/services` — planned `["services-hero",…,"call_to_action"]` vs live slots
+`["hero-services",…,"call-to-action"]`: **word order swapped** and **underscore vs hyphen**, on a
+page serving four full components. A per-name gate refuses it and drives it into a `needs_rebuild`
+loop.
+
+**The heuristic.** For a *gate* (something that refuses/loops on a hit), a false positive is far
+more expensive than a false negative — it damages healthy state. Prefer the coarser, robust signal
+(`count(page_components) < count(sections − suppressed_sections)`) over the precise-but-brittle one.
+The count method's own false negative — a page with a duplicate row *and* a missing section counts
+equal and passes — is acceptable because the fleet sweep and the `incomplete_page_group` /
+`empty_sections` discovery checks are the other layers. **Validate any completeness/eligibility
+predicate fleet-wide against live data before wiring it to an action**; a predicate that looks
+sharper on one grounding page (dartsonline, where names happened to match exactly) can be
+systematically wrong across the fleet.
+
+**Also:** exclude `suppressed_sections` from the planned count (a deliberately-dropped section is
+not a shortfall), and remember `sections=[]` pages are legitimately rendered by another subsystem
+(`bugs_open/050`) — `planned=0`, never a shortfall.
+
+**Related:** `bugs_open/040-partial-build` (the case + fix); `bugs_open/039` (the per-name matching
+pattern — correct for *detecting* a hollow section, wrong as a *deploy gate*); `bugs_open/050`
+(`sections=[]` means "rendered elsewhere", not "empty").

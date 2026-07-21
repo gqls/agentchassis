@@ -16,6 +16,70 @@
 **The work item says `failed`. The page says `deployed`. Nothing reconciles the two**, and because
 the page also gets stamped with the current plan version, the reconciler will now *skip* it forever.
 
+---
+
+## FIX APPLIED 2026-07-21 — candidate 1 (structural), fixed-but-inert until an image roll
+
+**Status: FIX COMMITTED, not yet live.** Stays OPEN until the chassis image rolls (Go change is
+inert until rebuilt+deployed). This is the structural fix: a page must not be stamped
+`deployed` + `built_from_plan_version` unless every planned section was written.
+
+**Where.** `platform/orchestration/actions/v3_site_actions.go`, `UpdatePageStatusAction` (the
+`update_page_status` action — the `update_status` step that every deploy path runs *before* the
+git deploy). The existing "Option B" guard already refused a **0-component** deploy; this extends
+the same choke point to refuse a **partial** deploy. New helper `pageSectionShortfall` returns
+`(planned, rendered)`; the guard flips the page to `needs_rebuild` and clears the stamp when
+`rendered < planned`, exactly like the 0-component path. Test:
+`platform/orchestration/actions/page_section_shortfall_test.go`.
+
+**The load-bearing decision: count ROWS, not section names.** My first instinct was to match each
+planned section name against `page_components.slot_name` / `content_components.function` (the
+`/bugs_open/039` Part-1 pattern, and candidate 3's suggestion). **I validated it fleet-wide before
+shipping and it was WRONG** — it flagged **74** deployed pages where the count method flags **28**.
+The extra ~46 are false positives: `pages.sections` names do **not** reliably equal the live
+`slot_name`/`function`. Concrete, from the live DB 2026-07-21:
+
+- `gaswholesalers.com/services` — planned `["services-hero","services-grid","features","call_to_action"]`
+  vs live slots `["hero-services","services-grid","features","call-to-action"]`. Two names diverge —
+  **word order** (`services-hero`↔`hero-services`) and **underscore vs hyphen**
+  (`call_to_action`↔`call-to-action`) — on a page that is complete and serving 4 real components
+  (1275/3473/4925/2151 bytes). Per-name matching would refuse it and drive it into a rebuild loop.
+
+So the guard compares **row count** (`count(page_components) < count(sections − suppressed_sections)`),
+which is the signal the fleet sweep below already validated. Trade-off, stated plainly: the count
+method has a **false negative** the name method would not — a page with a duplicate component *and* a
+missing section counts equal and slips through. That is acceptable for a deploy gate, where a false
+*positive* (refusing a healthy page) is far more damaging than a false negative (the fleet sweep and
+`incomplete_page_group`/`empty_sections` discovery checks are the other layers). See
+`016b_debugging_guide` §9 for the transferable pattern.
+
+**Suppressed sections are excluded** from the planned count, so a deliberately-dropped section
+(`pages.suppressed_sections`) is never read as a shortfall. `sections=[]` pages (tools/blog-index
+rendered by another subsystem — `/bugs_open/050`) have `planned=0` and are never refused.
+
+**Positioning verified.** In all four deploy callers (`page-build-handler`, `page-rerender`,
+`section-editor`, `tool-recreation-handler`) a component-writing step (`save_sections`/`apply_edit`)
+runs *before* `update_status`, so a shortfall at the guard is real, not a mid-build race. This is the
+same precondition the live 0-component guard already relies on.
+
+**Fleet consequence to expect after the roll.** ~28 already-partial deployed pages (the sweep below)
+will, on their next build/edit/rerender, be refused and flipped to `needs_rebuild`, so the reconciler
+re-emits them. That is the intended healing. **Caveat (honest):** if the underlying section-drop is
+*deterministic* for a page (dartsonline dropped `testimonials` on two separate builds — root cause
+still UNKNOWN, see the CORRECTED block below), that page will re-enter the build queue each reconcile
+cycle rather than converge. That is a **slow drip gated by reconcile cadence + work-item dedup**, and
+it is strictly better than a silent permanent five-sixths page — the loop is the visible signal that
+the separate section-drop defect needs its own diagnosis. **Candidate 2** (propagate the orchestration
+error onto the work item's `error`) is NOT done here — it is now smaller than filed (the error is
+already durable in `agent_error_log` since v1.0.1140; it is a join, not a missing record) and is a
+cheap independent follow-up.
+
+**How to verify once live** (against the running pod / a real build): see "How to verify a fix" below,
+plus re-run the fleet sweep and confirm no *healthy* page (e.g. `gaswholesalers.com/services`, 4=4)
+was flipped to `needs_rebuild`.
+
+---
+
 ## What happened (dartsonline.com `index`, 2026-07-20)
 
 A `needs_page` item for `index` was handed to the framework. The build wrote five components, then
