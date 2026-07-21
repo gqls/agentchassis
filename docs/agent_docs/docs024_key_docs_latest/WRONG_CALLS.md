@@ -1724,3 +1724,21 @@ live too, and both owning sessions filed the same correction the same hour (comm
 `412c88edb`, `0ff96a972`). Family: "committed code rides ANYONE's next HEAD build" —
 already logged for `bugs_open/047`; the recurrence is the point. **A Go fix is inert
 until an image rolls; whether one has ALREADY rolled is a pod check, not an assumption.**
+
+**2026-07-21 — nearly wrote "nothing releases orphaned `claimed` items → sites wedge
+forever" as `bugs_open/029`'s residual. False.** Diagnosing 029 (build halt after a roll) I
+built the chain: hung `build-dispatch-loop` → items stuck in `status='claimed'` →
+`find_dispatchable_site`'s `NOT EXISTS(claimed)` per-site mutex → site undispatchable. Correct
+so far. Then I checked the reaper, `load_work_items`, `fail_work_item`, and the DB triggers,
+found none reset `claimed`→`triaged` on orchestration death, and was about to assert a
+permanent wedge. **The whole self-heal lives in one scheduled task I had not opened —
+`claimed-item-timeout` — which resets any claim >40 min back to `triaged`.** The wedge is
+bounded, not permanent; my residual would have been the opposite of the truth. **The signal I
+walked past:** I had *grepped* for claim-reset paths and got hits in the files I expected
+(`claim_work_item_action.go`, `load_work_item_actions.go`) — a scheduled-task `pre_query` is a
+DB row, invisible to a Go grep, so "I searched and found the release paths" was false comfort.
+What caught it: the `090` trigger script's own header comment names the 40-minute reset in
+prose. Cheap check that would have caught it first: `SELECT name, pre_query FROM
+scheduled_tasks WHERE pre_query ILIKE '%claimed%'` — enumerate the DB-resident logic, not just
+the Go. Family: not-looking at one component (here a *scheduled task*, the class Go-only greps
+always miss — cf. the admin-dashboard `.tsx` memory), confidence no protection.

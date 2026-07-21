@@ -12,6 +12,18 @@ keeps advancing. Here the task is *selected and runs*, finds nothing to do, and 
 never given back — because the accounting happens before the work does. Same family
 (concurrency-group starvation), different mechanism, different fix.
 
+> **CORRECTION (bugfix-029 thread, 2026-07-21):** the clause above — "029 is hung
+> orchestrations occupying real in-flight slots in the `dispatch` group … the task fires and
+> is legitimately refused a slot" — is **inherited from 029's own (wrong) title mechanism and
+> does not hold**. Nothing hung in `orchestration_states` occupies a `dispatch` slot:
+> `countInFlight` counts `scheduled_tasks`, not orchestrations, and `build-pipeline-trigger`
+> (the group's only enabled member, max 8) vacates its slot on every fire via
+> `stampCompleted`. 029's real cause is claimed-item starvation of `find_dispatchable_site`,
+> driven by `bugs_open/003` spawn loss — see the "CORRECTED DIAGNOSIS 2026-07-21" section at
+> the foot of `bugs_open/029`. **This does not touch 048's own finding** (the in-memory
+> `inFlight[group]` head-of-queue pin on the `maintenance` group), which is correct and now
+> fixed in `dc2e4b61a`; only the one-line characterisation of 029 is wrong.
+
 ## Observed
 
 ```sql

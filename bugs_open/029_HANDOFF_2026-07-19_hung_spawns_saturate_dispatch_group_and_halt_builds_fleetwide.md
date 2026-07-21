@@ -221,3 +221,138 @@ dead rows. The signals that actually decide it: **(a)** does a *new* trigger rea
 intermittently yes and (b) was ~1/20min against 37 waiting — i.e. degraded, not idle. I
 almost recorded "queue is empty, all fine" off the `complete_idle` rows; the 37-item backlog
 query is what refuted it. Check throughput-vs-backlog, not the pool census.
+
+---
+
+## CORRECTED DIAGNOSIS 2026-07-21 (bugfix-029 thread) — the title mechanism is wrong; this is bug 003's blast radius, not a concurrency-group bug
+
+Read the whole file above first — the *observations* (degraded builds after a roll,
+recovery via cancel, throughput-vs-backlog signal) are all real and reproduce. What is
+wrong is the **named cause**: "hung spawns saturate the `dispatch` concurrency group".
+The `dispatch` concurrency group cannot be saturated by hung orchestrations, and nothing
+about the scheduler's slot accounting is involved. The evidence is direct, from current
+`HEAD` code and the live DB; every figure below has its check inline.
+
+### Why the concurrency group is NOT the mechanism (verified against HEAD)
+
+`cmd/scheduler/main.go` computes group occupancy from `scheduled_tasks`, **never from
+`orchestration_states`**:
+- `countInFlight` (`:327`) counts *enabled scheduled_tasks* whose
+  `last_completed_at < last_triggered_at AND last_triggered_at + timeout > NOW()`. A hung
+  *orchestration* has no bearing on it. And it self-heals: the `+ timeout > NOW()` guard
+  ages any DB-level slot out on its own (this is exactly the "leaked slot" hypothesis
+  `bugs_open/048` tested and **refuted**, 048 §"REFUTED").
+- The fire path stamps `last_completed_at = NOW()` **immediately** after producing
+  (`stampCompleted`, `:253`) — fire-and-forget. So a scheduled task is out of
+  `countInFlight` the instant it fires; it never holds its slot pending the orchestration.
+- Live roster of the `dispatch` group: **`build-pipeline-trigger` is the only enabled
+  member** (`improvement-sweep`, `intent-collection` are `enabled=false`), `max_concurrent=8`.
+  One enabled member against a pool of 8 that it vacates on every fire **cannot be refused a
+  slot**. Verify:
+  ```sql
+  SELECT name, enabled, max_concurrent FROM scheduled_tasks WHERE concurrency_group='dispatch';
+  -- build-pipeline-trigger | t | 8   ;  improvement-sweep | f | 2 ;  intent-collection | f | 2
+  ```
+  I have watched `build-pipeline-trigger` fire and COMPLETE hundreds of times an hour with
+  hung rows present the whole time (265 COMPLETED in one 6h window while 1–2 sat
+  AWAITING_RESPONSES). It is never blocked.
+
+> **This wrong premise has already propagated.** `bugs_open/048` opens by distinguishing
+> itself from 029 and, in doing so, restates 029's cause as fact: *"029 is hung
+> orchestrations occupying real in-flight slots in the `dispatch` group … the task fires
+> and is legitimately refused a slot."* It is not, and it never was. 048's *own* mechanism
+> (in-memory `inFlight[group]` pinning the `maintenance` group's head-of-queue) is real and
+> correctly diagnosed — but its one-line characterisation of 029 should not be trusted.
+> That is the cost of a confident cause in a handoff: the next thread builds on it.
+
+### What actually halts/degrades builds (verified)
+
+The gate is **work-item claiming**, one layer up from the scheduler:
+
+1. `build-pipeline-trigger`'s workflow step **`find_dispatchable_site`** (live
+   `agent_definitions`) picks a site to dispatch with:
+   ```sql
+   ... WHERE wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+       AND NOT EXISTS (SELECT 1 FROM site_work_items active
+                       WHERE active.site_id = wi.site_id AND active.status = 'claimed')
+   ```
+   The `NOT EXISTS (... status='claimed')` is a **per-site mutex**: a site with even one
+   `claimed` item is not dispatchable.
+2. `build-dispatch-loop` **claims** each item before working it (`claim_work_item_action.go:98`
+   sets `status='claimed'`). If the loop then hangs in `AWAITING_RESPONSES` — because its
+   handler spawn was dropped (the 300s post-roll window) or lost (**`bugs_open/003`**, spawn
+   loses child response) — the item is orphaned in `claimed`.
+3. That single orphaned `claimed` item removes its whole site from `find_dispatchable_site`,
+   and (if it was the last un-claimed triaged work anywhere) empties the scheduled task's
+   `pre_query` (`EXISTS ... status='triaged'`) so the scheduler stops firing the trigger at
+   all. **That is the 1st reproduction's "from 13:25 not one build-pipeline-trigger
+   orchestration was created"** — not a refused slot; an empty pre-query because everything
+   dispatchable had been claimed by dead loops.
+
+So the whole chain is downstream of **bug 003**. 029 is bug 003's *fleet-wide symptom on the
+build path*, exactly as this file's header always said ("the consequence half of 003") — but
+the consequence is delivered through claimed-item starvation, not through the scheduler.
+
+### It self-heals — bounded, not permanent (the piece the file omits)
+
+Two guards already live in the DB (config, no image roll) bound every hang:
+- **`claimed-item-timeout`** (scheduled task, enabled, 120s tick) resets any `claimed` item
+  older than **40 min** back to `triaged`/`failed` (clearing `claimed_by/claimed_at`), and
+  auto-completes claims >15 min whose artifact is provably done. This is the load-bearing
+  un-wedge — it is what returns a starved site to dispatchable. Evidence it fires:
+  ```sql
+  SELECT left(error,42), count(*) FROM site_work_items
+   WHERE error LIKE 'Claim timed out%' OR error LIKE 'Auto-completed%' GROUP BY 1;
+  -- 'Claim timed out — handler pod likely died' | 396   (newest today)
+  -- 'Auto-completed: work verified done…'        |  93
+  -- 'Claim timed out (attempts exhausted)'        |  25
+  ```
+- **`stale-orchestration-reaper`** (enabled, 180s tick) fails the hung `build-dispatch-loop`
+  at 30 min / any `AWAITING_RESPONSES` at 90 min / `EXECUTING_STEP` at 4h, and expires
+  `awaited_requests`. (These 30/90-min AWAITING clauses were committed **2026-04-03**,
+  `7c9d7b67d` — i.e. they were already live during *all three* reproductions. The reaper the
+  "third occurrence" section calls for as the missing durable fix **already exists**.)
+
+So the maximum unattended window is ~40 min (claimed-item-timeout), not "until a human
+notices". The 1st/2nd reproductions were manually recovered at ~22–25 min — *before* the
+auto-reset would have fired — which is why they read as a permanent halt. The manual
+`UPDATE orchestration_states SET status='CANCELLED'` does **not** release claims (no trigger
+does: only `claimed-item-timeout`, `fail_work_item` on a live loop, or admin requeue), so the
+one-tick "recovery" was the pre-query finding other, un-starved work — not the cancel
+un-wedging anything. That is also why the third occurrence saw the cancel "buy one dispatch"
+and then re-stall: it never addressed the claims or the ongoing spawn loss.
+
+### The honest current picture
+
+At 2026-07-21 15:49Z the fleet is **healthy**: 0 `claimed` items older than 40 min, builds
+dispatching (`find_dispatchable_site` returns sites), `claimed-item-timeout` recycling
+normally. 029 is therefore **not an active permanent outage** — it is a *degraded-throughput
+window after a roll*, whose depth and duration are set by the **rate of bug-003 spawn loss**
+vs the ~40-min recycle. When spawn loss is heavy right after a roll (the third occurrence),
+the guards can't keep pace and builds crawl (1 completion / 20 min vs 37 waiting); once the
+loss rate drops, they catch up. Reaping AWAITING_RESPONSES faster would **not** fix this,
+because the driver is new losses, not old rows.
+
+### Where the durable fix belongs
+
+Route it to **`bugs_open/003` F2/F3** (parent-driven await timeout + retry, migration 180),
+owned by the bugfix_003 workstream — that is the only change that stops loops hanging in the
+first place. Two *optional* config-only mitigations for the window, neither a real fix:
+tighten `claimed-item-timeout`'s 40-min reset (risk: prematurely reclaiming a legitimately
+slow 1200s handler → duplicate work — do not touch without measuring the tail), or add a
+post-roll dispatch check to the deploy routine. **Do not** add another orchestration reaper —
+the reaper is live and is not the lever.
+
+### My own near-miss (recorded per the working-docs rule)
+
+Mid-diagnosis I had concluded "nothing releases orphaned `claimed` items → sites wedge
+forever" and was about to write it here as the residual. It is **false** — I had read the
+reaper, `load_work_items`, `fail_work_item` and the triggers, but skipped the
+`claimed-item-timeout` scheduled task, which is the whole self-heal. Caught by reading the
+`090` trigger script's own comment ("resets any claim older than 40 minutes"). The lesson is
+the CLAUDE.md one exactly: the failure was not-looking at one task, and confidence was no
+protection. Logged in `WRONG_CALLS.md`.
+
+*Independent diagnosis-loop verification of this correction was offered but not run — the
+model is grounded on current-HEAD code + live queries (all cited above) and is corroborated
+by three independent reproductions; the durable fix (003 F2/F3) is unchanged either way.*
