@@ -606,3 +606,91 @@ first two are live checks; only the wiring is left.
 **016 stays OPEN**, on the same finding 1 it has been open on — now stated
 per-agent: `fix-proposer` unexercised, `feature-designer` proven. Finding 2
 unexercised on both. The one-line class fix in §1 is closed and live.
+
+---
+
+## LIVE EXERCISE 2026-07-21 (bugfix-016 thread) — `load_council_reviews` FINALLY RAN; step PROVEN, revise-render path still owed
+
+Fired `fix-proposer` twice to close the "0 audit rows, never executed" state that
+has kept finding 2 open since 2026-07-18. Result: **the step is proven live**; one
+detour and one honest gap remain.
+
+### Run 1 — REFUSED at `propose` (a separate, real defect surfaced)
+
+`091_TRIGGER` on the pilot `e08c5b01` (dartsonline guides). It never reached the
+council: `propose` hit `stop_reason=max_tokens (output_tokens=8000, 0 chars
+recovered)`, **failed after 4 retries**, and routed to `complete_refused`. The
+pilot's staged plan is too large to emit under propose's 8000 cap (adaptive
+thinking on sonnet-5 spends from the same budget → 0 recoverable chars).
+
+Two things worth recording, neither of them 016:
+- **`propose` has its OWN `ai_service.max_tokens=8000`** (no root block, so no
+  shadowing — checked). It carries **no `tolerate_truncation`**; that protection
+  (019) was armed on council *review* seats, not on `propose`. So a complex-enough
+  bug refuses the whole fix run with no review at all. That is a genuine fix-loop
+  limitation — surfaced here, left for the fixloop thread; **cap NOT raised**, per
+  019's standing ruling that raising just moves the cliff.
+- This is why the pilot is a poor vehicle to exercise the council. Switched to the
+  minimal seeded benchmark `11111111` (the PR-#1 one-line debug-log fix), whose
+  plan is small.
+
+### Run 2 — COMPLETED end-to-end; `load_council_reviews` executed and populated correctly
+
+Run `177b9fb1-428a-40e7-b084-bdb48547822c` on `11111111`. (Dispatched ~11h after
+firing — queued behind the backlog, bugs_open/030; a reminder that a missing row
+is latency, not a drop.) Fingerprinted as genuine fix-proposer by its steps
+(`load_diagnosis`/`propose`/`code_lookup`/`select_panel` + 13 seats + 12 `gate_*`),
+per the §9 lesson two entries above — not by a step name three agents share.
+
+Audit trail, the part that matters:
+
+```
+council_decide        11:02:38
+load_council_reviews   11:02:42 → 11:02:51   <-- FIRST execution in 016's history
+check_approved         11:02:52
+complete               11:02:53
+```
+
+`SELECT count(*) … new_current_step='load_council_reviews'` had been **0** every
+time this document checked it since 16:21:44Z on 2026-07-18. It is no longer 0.
+
+**The step did its job, verified against `collected_data` (not the audit alone):**
+`council_reviews` landed as an `object` with keys `body, rows, count, columns`,
+`count=1`, and **`body` = 5994 chars** — byte-identical in length to this run's
+`council_report` artifact, holding every seat's verdict verbatim
+(`{"abstained":6,"decided_by":"all reviewers approve","decision":"approved",
+"reviews":[{"reviewer":"editquality",…`). So the documented structural prediction
+is now confirmed with live data: `query_database` + `output_format:object` flattens
+the selected `body` column onto the result map, and **`{{.council_reviews.body}}`
+resolves to the full report** — the exact shape argued from `diagnosis_row`.
+
+**Render corroboration from the SAME run's `propose` prompt** (the template engine
+that a repropose would use):
+- `{{.diagnosis_row.conclusion}}` → rendered (both distinctive diagnosis phrases
+  present; **no** `<no value>` on the conclusion).
+- `{{.last_bundle.body}}` → rendered `<no value>`, and it is **benign**: `11111111`
+  has no `kind='bundle'` artifact, so `load_last_bundle`'s `string_agg(body…)` over
+  zero rows is NULL. Correct `.body` form, genuinely-absent data — the *opposite*
+  of the 016 defect (a wrong reference blanking data that is present). Recorded so
+  the next reader does not misread it as a recurrence.
+
+### What this does and does NOT settle
+
+- **SETTLED:** `load_council_reviews` executes, completes, routes
+  `council_decide → load_council_reviews → check_approved`, and **populates
+  `council_reviews.body` with the whole council verbatim.** Finding 2's "the step
+  is untested, not merely unrevised" is now false. Per this document's own bar —
+  *"an approval proves the step"* — the step is proven.
+- **STILL OWED:** the verdict was **APPROVE round 1**, so `repropose`/`reframe`
+  never executed — *"a revise proves the whole path"* has not happened. The
+  reviser rendering `{{.council_reviews.body}}` into its prompt is now
+  **strongly evidenced** (the field is populated; the identical `.body` form
+  demonstrably renders in the same run) but **not directly observed**. Marking it
+  as exactly that, not as closed — this bug's whole history is inferences stated
+  as findings.
+
+**016 stays OPEN**, but its remaining gap has shrunk from "the step has never run"
+to "no *revise* round has run since the fix." Closing it needs a fix-proposer run
+whose council **objects** — the minimal benchmark approves, the pilot truncates
+`propose`, so forcing a revise deterministically is a credits-costing exercise and
+is flagged as the owner's call rather than spent here unasked.
