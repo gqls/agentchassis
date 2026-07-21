@@ -1,7 +1,9 @@
 # 048 — a scheduled task whose pre-query finds nothing holds its concurrency group's only slot forever, starving every other task in that group
 
 **Filed 2026-07-20** by the bugfix-006 thread, found while answering the open question in
-`bugs_open/006` §C (where does the claim-timeout sweep live). **Status: OPEN.**
+`bugs_open/006` §C (where does the claim-timeout sweep live).
+**Status: CLOSED — fixed AND live on `kafka-scheduler:v1.0.1146` (2026-07-21).** See "RESOLVED"
+at the bottom. Moved to `/bugs_closed/`.
 **Severity: silent, long-running.** Nothing errors, nothing alerts, `enabled` stays `true`, and the
 admin pipeline view shows the tasks as healthy. Four maintenance tasks have simply not run since
 **2026-05-02 — 79 days.**
@@ -148,3 +150,45 @@ chassis one — verify against the running pod, not the tag.
   `database-cleanup`, `stale-work-item-reaper`, `work-item-archiver` (the starved).
 - Related: `bugs_open/029` (same family, hung spawns), `bugs_open/044` (silent dormancy undetectable),
   `bugs_open/006` §C (where this was found).
+
+## RESOLVED — fixed AND live on `kafka-scheduler:v1.0.1146` (2026-07-21, bugfix-048 thread)
+
+Applied candidates **(1) + (2) together** in `cmd/scheduler/main.go` (commit `dc2e4b61a`,
+in mainline ancestry of HEAD). Full workstream:
+`docs/agent_docs/docs024_key_docs_latest/scheduler_group_starvation/`.
+
+**(1) The slot is no longer claimed up-front.** `inFlight[group]++` moved from the top of the loop
+(before the pre-query) to just before the fire/CTE-complete branch. A no-op, an errored pre-query,
+or a merge error now leaves the slot free for its group-mates. Chosen over decrementing on each
+early-`continue` because it cannot leak on a path added later.
+
+**(2) A successful no-op pre-query now stamps `last_triggered_at` + `last_completed_at`** (new
+`stampCompleted` helper, shared by the no-op / CTE-only / fired paths — was two copy-pasted UPDATEs).
+The task rotates to the back of the `ASC NULLS FIRST` queue like any completed run, so it cannot pin
+itself at the head; and `last_triggered_at` now means "we looked". Error paths deliberately stay bare
+`continue` (no stamp) so a genuinely failing task retries and stays visible.
+
+**Candidate (3), the liveness alert, is NOT done** — separate monitor, tracked with `bugs_open/044`.
+**No unit test** was added: the scheduler is a single `package main` with `runTick` coupled to live
+DB+Kafka and zero existing tests; a real regression test needs the decision logic extracted behind
+seams (a refactor widening the blast radius on a fleet-critical binary). Accepted gap; verification
+was the live-pod check below.
+
+### Live verification (v1.0.1146, running pod `kafka-scheduler-7bc78485b-h6p95`)
+
+- **Binary:** `strings /app/kafka-scheduler | grep -c "task ran with nothing to do"` = 1 (string the
+  fix CREATED); old `"Pre-query returned no rows, skipping task"` = 0; control `"Triggered task"` = 1.
+- **Discriminating behaviour with `blocked=0`:** pod log `main.go:211`
+  `"Pre-query found no rows — task ran with nothing to do","task":"feasibility-recheck"` — the head
+  task ran, found nothing, and STAMPED (rotated) instead of pinning. Under the old binary this path
+  did not stamp, so this is the exact fix firing. `feasibility-recheck` then advanced again 600s later
+  (15:35 → 15:56) with `blocked` still 0, proving it cycles and never re-pins.
+- **All four `maintenance` tasks left 2026-05-02** and every one of the 14 enabled tasks is now FRESH
+  (`last_triggered_at` within 3× its interval), including `thunder-reaper` (was stuck 2026-06-19 — its
+  no-op liveness signal is fixed by the same change).
+- **Consequence cleared:** the `stale-work-item-reaper` backlog drained (was 1 at fix time → 0).
+
+Note the earlier partial advances seen today (`work-item-archiver` 11:45, others 14:47) were the OLD
+binary's *intermittent* self-heal: whenever `blocked>0`, `feasibility-recheck` returns rows, stamps
+via the CTE-only path and rotates, briefly un-starving the group until `blocked` hits 0 and it
+re-pins. The steady state (`blocked=0`) is the starvation; that is what the fix removes permanently.
