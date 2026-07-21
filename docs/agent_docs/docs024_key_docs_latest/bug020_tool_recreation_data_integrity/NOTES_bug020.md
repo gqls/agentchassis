@@ -165,3 +165,18 @@ DESIGN (tiered corroboration targets the real bug-020 signature, not a generic P
 grep; reuses checkpoint_for_review; fail-open is a reasonable narrow default, not a
 gate weakening) — the only blocking theme was "review the wiring too", now done.
 Round 3 resubmitted (orch `8fba93dd`, same corr `8eef369f`).
+
+### 2026-07-21 — round 3 VOIDED at persist_submission (MY error, not infra)
+
+Round 3 ended `complete_invalid` with **no fix_plan and no council_report** — it
+voided at `persist_submission`, before any review seat ran. Cause was NOT the
+019/036 truncation-void class and NOT infra: **edit 5's `file` field was a
+descriptive string** ("platform/... (agent_definitions ...) — WIRING_...sql")
+rather than a repo-relative path, and `diagnose_persist_fix_plan` validates
+repo-relative paths server-side → rejected the plan → `complete_invalid`. The 097
+trigger's client-side check does NOT validate the per-edit `file` path shape, so it
+passed locally and failed server-side. **Lesson: every edit `file` must be a clean
+repo-relative path (jq `.plan.edits[].file`), even for a config_change/docs edit.**
+Corrected edit 5 to the real wiring SQL path and resubmitted **round 4** (orch
+`e07a6629`). Council-run tally so far on this change: R1 wedged (003-class), R2
+REVISE (real, addressed), R3 voided (my bad path), R4 pending.
