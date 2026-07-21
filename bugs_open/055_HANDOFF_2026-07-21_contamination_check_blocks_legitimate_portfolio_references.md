@@ -123,6 +123,18 @@ Go change → inert until an image rebuild + roll.
   premise was **wrong** — it checked only `site_work_items.result`; the detail
   was in `agent_error_log` all along (see WRONG_CALLS 2026-07-21). No re-fire /
   queue-wait was needed to diagnose.
-- Blocker 2 (nothing serves) is **separate** — `page_components.deploy_commit`
-  is empty even on the "deployed" pages, so the git-adapter never pushed
-  rendered pages to the portfolio deploy repo for this new domain. Not this bug.
+- Blocker 2 (nothing serves) is **separate** and NOT visible in the app DB.
+  > **CORRECTED 2026-07-21:** an earlier version of this line inferred "empty
+  > `page_components.deploy_commit` ⇒ the git-adapter never pushed". That is
+  > **wrong** — robot-hands.com (live and serving) *also* has `deploy_commit`
+  > empty on all 87 of its components, so it is not the signal. fundamentallyai's
+  > entire clients_db config is identical to robot-hands (empty `github_repo`,
+  > `status='deployed'`), so nothing in the app DB explains why one serves and
+  > the other doesn't. The gap is purely in the external serving path: the
+  > per-domain rendered dir in the *portfolio deploy repo* (a separate repo the
+  > git-adapter pushes to) and/or the Cloudflare zone → B2 origin wiring for the
+  > new domain — a per-domain infra/owner step (as idea.uk's cutover was).
+  > Caught by comparing against a known-live B2 site instead of reading one
+  > site's column in isolation. Serving is moot until Blocker 1 is fixed and the
+  > content pages rebuild *with* the story — do Blocker 1 first, then re-check
+  > serving, then whatever remains is the pure Cloudflare/B2 owner step.

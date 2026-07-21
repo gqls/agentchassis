@@ -672,12 +672,23 @@ design. Full write-up + fix candidates: `bugs_open/055`.
   held back — a degraded page passed looking "done". This is the "trust the
   artefact, not the status" rule biting exactly as CLAUDE.md warns.
 
-**Blocker 2 (serving) quick-scope [VERIFIED]:** `page_components.deploy_commit`
-is **empty** even on the two "deployed" pages → the git-adapter never pushed
-fundamentallyai's rendered pages to the portfolio deploy repo. Separate from
-055; still needs its own pass and likely a per-domain owner/infra step (as
-idea.uk's cutover was). Deferred behind Blocker 1 — nothing worth serving until
-the pages build *with* the story.
+**Blocker 2 (serving) quick-scope [VERIFIED, with a self-correction]:**
+fundamentallyai's clients_db config is **identical to robot-hands.com** (a
+known-live B2 site): both have empty `github_repo`, `status='deployed'`,
+`network_id=…002`. So **nothing in the app DB explains why one serves and the
+other doesn't** — the gap is entirely in the external serving path (the
+per-domain rendered dir in the separate *portfolio deploy repo* the git-adapter
+pushes to, and/or the Cloudflare zone → B2 origin wiring for the new domain).
+Per-domain infra/owner step, as idea.uk's cutover was.
+> **CORRECTED 2026-07-21:** I first inferred "empty
+> `page_components.deploy_commit` on the deployed pages ⇒ git-adapter never
+> pushed". **Wrong** — robot-hands.com serves live with `deploy_commit` empty
+> on all 87 of its components, so it is not the signal. Caught by comparing
+> against a known-live site rather than reading one site's column in isolation
+> (the recurring lesson: a value only means something relative to a working
+> control). Deferred behind Blocker 1 regardless — nothing worth serving until
+> the pages rebuild *with* the story; re-check serving after the fix, then
+> whatever remains is the pure Cloudflare/B2 owner step.
 
 **Fix direction (see 055 for candidates):** per-site allowlist of referenced
 domains, consulted by `checkDomainContamination`, opt-in (absent allowlist →
