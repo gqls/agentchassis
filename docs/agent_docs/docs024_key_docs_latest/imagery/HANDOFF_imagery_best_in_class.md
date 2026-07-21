@@ -1,7 +1,53 @@
 # HANDOFF — Imagery best-in-class workstream (start a new chat from here)
 
-**Last updated: 2026-07-19. UPDATE THIS DOCUMENT EVERY WORKING TURN, alongside
-the running notes — it is the single entry point for a fresh session.**
+**Last updated: 2026-07-21 (imagery-5). UPDATE THIS DOCUMENT EVERY WORKING TURN,
+alongside the running notes — it is the single entry point for a fresh session.**
+
+## ★ START HERE (2026-07-21) — v1.0.1144 is live; the palette-truncation fix is IN IT
+
+**Two code fixes that were "inert until a roll" are now LIVE in `v1.0.1144`**, both
+verified against the running pod (`agent-chassis-59c675c4f-pxr9f`) by log-message
+literal, not symbol grep (A6.3):
+- **`bugs_open/027` §4b — palette truncation** (`1191cecdb`): the WARN literal
+  `Imagery direction TRUNCATED before generation` is present in the binary (control
+  literal also present, so the marker is valid). Palette now composes FIRST; the
+  backoff is LastIndex; `datahelpers.SafeCut` is the shared rune-safe cut.
+- **`bugs_open/028` — avoid lists inert** (other thread, live since v1.0.1140): every
+  site's `avoid` list is now genuinely sent to Banana. Both fixes now shape every
+  generated image's prompt.
+
+**Because the fix is live, three things are now TRUE, not pending:**
+1. **The `027` landing gate is now ACTIONABLE** (was blocked on the roll). Next
+   concrete step for a fresh thread: **regenerate robot-hands' 3 ARTICLE content
+   heroes and re-check against the D13 criteria** (distinct, on-style, click-through
+   matching, cards ≤60KB). Its **3 TOOL content heroes are EXCLUDED — they wait out
+   the `bugs_open/020` owner hold** (the STOP block below). Verify the new code fired
+   by the WARN literal in the pod logs, not a symbol grep. Use A6.5 to supersede +
+   A6.1 to sweep; nothing has run on robot-hands since the 08:47Z deploy, so the gate
+   is untouched.
+2. **The base-voice flip is now LIVE and unmitigated.** All four sites' BASE voices
+   (304–398 chars) now truncate to **colours-without-prose** instead of
+   prose-without-colours. Correct by design, but any hero/illustration/infographic
+   regenerated on those sites will now drop its medium/mood prose — the WARN names
+   which. **Config remedy (live-immediate, no roll): shorten the base-guide palette
+   glosses** — hex codes need no prose. Do it as a backed-up needle-gate migration
+   (pattern: `SQL_2026-07-19_*`). robot-hands' base guide is the owner's; the other
+   three I authored are mine to shorten.
+3. **`027` and `028` themselves stay OPEN** until fixed-AND-live is *proven on a page*
+   (the /bugs_closed/ bar). The code is live; the proof (a regenerated, on-style,
+   on-palette set) is the landing gate above. `027` shipped on a **REVISE, no
+   `Council-Reviewed:` trailer** — 7 rounds, 11 approve / 2 object; the two open
+   objections are recorded as follow-ups in the bug file, not silently dropped.
+
+**Cross-thread, NOT imagery (parked, owner-driven):** `bounce.leopardess.uk` SES
+custom-MAIL-FROM is failing because its **MX record does not exist at the
+authoritative nameservers** (dns1/dns2.uk-noc.com). Owner must add, at the Krystal/
+uk-noc DNS panel: `MX 10 feedback-smtp.eu-west-2.amazonses.com` and `TXT "v=spf1
+include:amazonses.com ~all"` on `bounce.leopardess.uk`, then retry MAIL FROM in the
+SES console (eu-west-2). A persistent monitor is watching the authoritative NS and
+will report the moment the record lands. Region value is load-bearing.
+
+---
 
 > **SIBLING THREAD, 2026-07-20 — provider routing changed underneath this document.**
 > `bugs_open/011` R1 is **live on v1.0.1139**: the adapter's hand-maintained

@@ -966,3 +966,39 @@ their wording shortened, which is a five-minute config change per site.
 
 Meanwhile: the DNS record for your SES bounce address still hasn't appeared at the
 nameservers — the watch is running and will say the moment it does.
+
+## 2026-07-21 — the new build is live, and the colour fix is in it
+
+The software release you deployed (v1.0.1144) carries the colour-truncation fix. I
+confirmed it against the actual running server, not just the code — the new warning
+message is baked into the deployed program. Two fixes are now live together: the one
+that stops brand colours being silently dropped from the picture instructions (mine),
+and the one from another thread that makes our "don't include X" lists actually reach
+the image model for the first time.
+
+Nothing has regenerated yet — I checked, and no site has run its imagery pass since the
+deploy this morning, which is the clean state I want to hand over. So the picture on
+every site is still the old one until something triggers a regeneration.
+
+**What a fresh thread should pick up, in order:**
+
+1. **The proof step for the colour fix.** Regenerate robot-hands' three ARTICLE header
+   pictures and check them against the standard you set in July — same style across the
+   set, colours correct, each click-through matching. This is the last thing standing
+   between "fixed in code" and "proven fixed." Its three TOOL pictures stay parked under
+   your bug-020 hold, so this only touches the articles.
+
+2. **One live consequence to expect and manage.** For the four sites whose base picture
+   style is written as long prose, the fix now keeps their colours and drops the prose
+   description when the instruction is too long. That is the correct trade, but it means
+   those sites' next regenerated hero could lose its "flat illustration"-type wording.
+   The remedy is a five-minute wording trim per site, done in config (takes effect
+   immediately, no release). The new warning tells us exactly which sites need it. I'll
+   do the three I wrote; robot-hands' is yours.
+
+3. **Still held, still waiting on you:** the tool-picture rollout on all sites (your
+   bug-020 hold), and the two remaining tool-picture sites (finetuning, leopardess)
+   whose style guides are written but whose passes I have not fired.
+
+Separately, the SES bounce-domain DNS record still hasn't appeared at your
+nameservers — nothing to do at our end but wait; the watch is still running.
