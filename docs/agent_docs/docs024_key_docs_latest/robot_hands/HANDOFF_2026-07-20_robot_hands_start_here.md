@@ -14,6 +14,45 @@ no local checkout). DB:
 
 ---
 
+## STATE AT 2026-07-21 (v1.0.1144 roll) — read this first
+
+**Everything R4 is still live and correct after the roll.** Re-verified against the
+rendered pages, not statuses, 2026-07-21 ~10:00 BST: `/`,
+`/tools/matchmatrix/index.html`, `/about.html`, `/entities/gripper-detail.html` all
+**200**; **0** fabricated figures (`1,200+` / `2,400+` / `140+`); **0** links to the
+dead payload-budget tool on the homepage. robot-hands has **0** pending build work —
+both R4 batches (13 items) are complete. **There is nothing outstanding on this
+workstream that needs the cluster.**
+
+**The roll halted builds fleet-wide again (`/bugs_open/029`, third roll running).**
+Not this site's problem — robot-hands has nothing queued — but if you dispatch
+anything, know that ~37 build items were backed up with ~1 completing per 20 min,
+newest trigger stuck at `call_dispatch`. I applied 029's cancel recovery; under
+v1.0.1144 it buys **one** dispatch then re-stalls, so it is relief not repair. Do
+**not** loop it. Owned by the 029 thread; the reaper fix is still pending.
+
+**`/bugs_open/052` gained a correction from another thread** (the bugfix-049
+session): the never-built predicate is **`deployed_at IS NULL`**, not
+`build_status='planned'` — four `needs_rebuild` pages have never deployed and 404,
+including `gaswholesalers`'s framework page linked from 28 live footers. Fix
+candidate 1 in 052 inherits the gap; use `deployed_at IS NULL`. See next action 6.
+
+**`/bugs_open/023` is progressing (still owned, still observe-only in the pod).**
+Migration `181` gated the live CTA anchors (class C+E) and `/bugs_open/049` was filed
+for 312 live 404s from stale chrome — same derived-field class. The resolver flip is
+**not** live in v1.0.1144 (only the observe stage from 1140), so robot-hands' primary
+CTAs still revert to nav-order defaults on render; the ones that read correctly do so
+because the resolver would pick that URL anyway. Do not start a competing fix
+(`scripts/who-owns.py 023` shows the owner).
+
+**Tooling built alongside this workstream** (committed, fleet-wide, documented in
+CLAUDE.md): `scripts/who-owns.py` (does a bug already have an owning thread — run it
+before routing work at any bug) and `scripts/memory-git-snapshot.py` (auto-versions
+the shared auto-memory dir). Both came out of missteps logged in
+`docs024_key_docs_latest/WRONG_CALLS.md`.
+
+---
+
 ## Status of the original six defects
 
 | # | Defect | State (2026-07-20) |
@@ -152,13 +191,18 @@ MatchMatrix was hand-authored for exactly this reason.
    listed it as open and so did this one, until `scripts/who-owns.py` surfaced
    the closure. Nothing to do.
 
-6. **`bugs_open/052` — filed this turn, unowned, and the one build-workflow
-   change worth arguing for.** A listing regenerates from the page set with no
-   build-state filter, so it re-advertises never-built pages; it undid the dead
-   card removal on this site's homepage. Measured honestly: currently biting ONE
-   site (the other two never-built tool pages fleet-wide are unreferenced). The
-   trap for a fixer is that `needs_rebuild` pages usually still serve 200 —
-   exclude `planned`, do not include-only `deployed`.
+6. **`bugs_open/052` — filed this turn, and the one build-workflow change worth
+   arguing for.** A listing regenerates from the page set with no build-state
+   filter, so it re-advertises never-built pages; it undid the dead card removal
+   on this site's homepage. **Another thread (bugfix-049) has since corrected the
+   predicate** — see 052's addendum: use **`deployed_at IS NULL`**, NOT
+   `build_status='planned'`. Four `needs_rebuild` pages have never deployed and
+   404 (one is `gaswholesalers`'s framework page, linked from 28 live footers), so
+   the `planned`-only predicate I originally proposed misses the worst real
+   instance. The `needs_rebuild`-usually-serves trap still holds; the fix is just
+   to key on `deployed_at`, not the flag. Related: `/bugs_open/049` (chrome 404s)
+   and `/bugs_open/053` (legal nav) are the same derivation of "is this page
+   fetchable" — coordinate, do not solve three times.
 
 7. **Optional: `tool-robot-payload-budget-calculator`.** Still `planned`, no page,
    card removed, CTA repointed — so nothing is user-visibly broken. If it is ever
