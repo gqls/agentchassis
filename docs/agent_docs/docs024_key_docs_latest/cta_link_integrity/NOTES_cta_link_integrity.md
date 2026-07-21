@@ -1340,3 +1340,60 @@ one at a time. So `orchestration=COMPLETED` does NOT mean the new page is live.
 > **Verify live (200), never the DB.** A `build_status='deployed'` row + `rendered_html` is NOT
 > proof the file shipped — that is 049 mechanism 2 itself. aao pages confirmed 200 with correct
 > content (title, data-controller line, real contact email).
+
+---
+
+### 2026-07-21 (bugfix-049 session) — legal pages CREATED and LIVE on all three stale sites (049 candidate 2)
+
+Owner instruction: create the privacy + terms pages ("they may soon have more relevant
+functionality and we don't want to miss out the terms"). Done — **all five legal pages are now
+live (HTTP 200)**:
+
+| site | page | status | authored by |
+|---|---|---|---|
+| gaswholesalers.com | /privacy.html | **200 live** | this session (hand-authored) |
+| gaswholesalers.com | /terms.html | **200 live** | this session (hand-authored) |
+| finetuning.uk | /terms.html | **200 live** | concurrent thread (privacy already at /privacy-policy.html) |
+| ai-agent-orchestration.com | /privacy.html | **200 live** | concurrent thread |
+| ai-agent-orchestration.com | /terms.html | **200 live** | concurrent thread |
+
+**A concurrent thread had already created aao + finetuning legal pages** (DB rows at 09:21, good
+honest content, marked `deployed`) **but they were 404** — created, never shipped. I did not
+overwrite that content. The genuine gaps were (a) gaswholesalers had no legal pages at all, and
+(b) none of the five had ever been assembled to a live file.
+
+**What I did:**
+- **Authored gaswholesalers privacy + terms** by hand (NOT via content-gap-planner — an LLM would
+  fabricate legal terms). Grounded in real facts: Gas Wholesalers, wholesale gas/fuel supply,
+  `gas@contactforsales.com`, `+44 (0) 7934 524 911` (from `sites.phone`), England & Wales, UK GDPR
+  / ICO, and a tools-and-calculators disclaimer (it has fuel calculators). Modelled on the
+  finetuning privacy and aao terms already on the fleet. `rebuild_policy='owned'` protects them
+  from the 001 re-plan clobber. Script: `scripts/049b_create_gaswholesalers_legal_pages.sql`
+  (collision-guarded — aborts if the pages already exist). Created a `legal` nav group + Privacy/
+  Terms nav items too, so a future chrome render links them via the nav-tables path (and this
+  also removes gaswholesalers from bugs_open/053's empty-legal-group set).
+- **Deployed all five** — and this is the transferable finding: **the build-dispatch queue is
+  dead (bug 029), but a DIRECT `page-rerender` orchestrate bypasses it.** 0 build items had
+  completed in 46+ min; items were claimed for ~10 days. Rather than fight 029 (restarting the
+  chassis / killing hung spawns is destructive shared-infra work owned by bugfix-003), I fired
+  `page-rerender` per page straight at `system.agent.generic.requests`
+  (`scripts/049b_deploy_single_page.sh <page_id> <site_id> <domain>`). Each completed in seconds,
+  assembled (chrome + my stored section HTML, no LLM — the `render_page` branch since no
+  regenerating `reason` is stamped), committed to `gqls/sites` as `<domain>/<page>.html`, and
+  went live after B2/Cloudflare propagation. **This is a working single-page deploy path while the
+  queue is stalled.** (I first hit the kcat nested-quoting trap — the `sh -c "echo '$JSON'"` form
+  mangles the payload's double quotes; the fix is the 049 script's `kcat -P -c 1` + heredoc.)
+
+**Bug-049 side benefit, measured live:** aao's stale footer phantom links `/privacy.html` and
+`/terms.html` **now resolve (200)** — creating real pages at those exact URLs fixed mechanism-1's
+legal links for aao *without* a chrome refresh, because the phantom target now exists.
+
+**Remaining gap (not this task):** `finetuning.uk/privacy.html` is still 404 — its real privacy
+page is at `/privacy-policy.html`, so the footer phantom `/privacy.html` does not match a page.
+That one is fixed by the chrome refresh (candidate 1, which repoints the footer to the real nav
+item `/privacy-policy.html`), not by page creation. finetuning's privacy + terms both exist and
+work; only the stale footer link spelling is wrong.
+
+**Not overwritten:** the concurrent thread's aao/finetuning page content and its own priority-80
+`page_rerender` items were left untouched. My own staged items (created_by='bugfix-049') were
+marked complete after the direct deploy so they don't re-deploy redundantly when 029 recovers.
