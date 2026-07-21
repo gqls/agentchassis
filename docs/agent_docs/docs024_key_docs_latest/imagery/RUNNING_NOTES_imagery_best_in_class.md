@@ -2949,3 +2949,39 @@ an owner-go step, not something to fire unilaterally. Left as the next decision.
 **Dispatch state at check** (for whoever runs the gate): across the four sites,
 `needs_content_image` failed ×9, `needs_imagery` failed ×1, `wont_fix` ×3 — pre-existing,
 not created by this session. Per the 030 rule above, check `LAG` before firing anything.
+
+---
+
+### 2026-07-21 (later) — §5(a) structural fix BUILT (option i, the exclude form), `5e19fd3cb`
+
+Owner picked the minimal §5(a) route: exclude `content_hero` from the photographic
+free-text fallback rather than invent a fleet-default flat-illustration direction (that
+would be option ii, and it needs a brand decision that is the owner's).
+
+**The trap I nearly stepped in, and the reason the fix is two changes not one.** §1's
+root cause is stated as "D14 added content_hero to `directionForKind` but not to
+`directionAppliesToKind`" — an *asymmetry between two sibling functions*. Reading only
+that line, the obvious fix is one line in `directionAppliesToKind`. But tracing every
+path a photographic direction can reach a flat `content_hero` shows **three**, and that
+one-line fix closes only two:
+1. free-text `design_intent.imagery_direction` fallback (guide-LESS site) — gated by
+   `directionAppliesToKind`. ✓ closed by the exclusion.
+2. `directionForKind`'s `default:` case = the photographic **base voice**
+   `composeDirection(g.Medium, g.Mood, g.Palette)` (guide site, no `content_hero`
+   override). ✗ NOT closed by touching `directionAppliesToKind` — it is a different
+   function. This is the twin hole; fixing only #1 would have re-created §1's exact
+   asymmetry, just moved by one function.
+3. `referenceKeysForKind`'s guide-level anchor fallback — also gated by
+   `directionAppliesToKind` (line 226). ✓ closed as a side effect.
+
+So the fix moves `content_hero` into the flat-vector branch of **both** functions:
+excluded from `directionAppliesToKind`, and palette-only (like icon/sprite_sheet) in
+`directionForKind`'s switch. No current site is affected — all four with a guide carry a
+`content_hero` override and hit the override path (line 171) in both. It is future-proofing
+for the next site that has a guide but forgets the override, or has no guide at all.
+
+**Verified**: `go build` + `go vet` clean on the package; `TestDirectionAppliesToKind`
+(new) and the extended `TestStyleGuideDirectionForKind` green, alongside the existing
+§4b fixtures. Inert until an image roll (Go change). **Not council-reviewed** — it is
+council-gate-eligible (fleet-wide generation behaviour); left as an offered next step
+rather than spending a council run unprompted.

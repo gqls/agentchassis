@@ -16,8 +16,9 @@ sites right now.
 > is fixed AND proven on a page: the landing gate (regenerate robot-hands' 3 ARTICLE
 > heroes vs D13, ≥5 observed generations) has NOT run — it spends real credits on a live
 > site and awaits owner go. §1's missing-style-guide half was mitigated in config
-> 2026-07-19 (three sites seeded, live immediately); the fleet-default-direction
-> candidate (§5(a)) remains unbuilt.
+> 2026-07-19 (three sites seeded, live immediately); the structural §5(a) fix (option
+> i — exclude, no fleet-default direction invented) is now BUILT 2026-07-21
+> (`5e19fd3cb`), inert until an image roll — see §5(a) below.
 
 > **Fix trail (2026-07-20).** Seven council-gate rounds on correlation `0a07f5ed`
 > (one round voided by bugs 019), final tally **11 approve / 2 object / 4 abstain**
@@ -240,6 +241,28 @@ matching D14's intent — give the kind a **fleet default flat-illustration dire
 used when no site override exists. The second is more code but removes the lottery
 instead of just muting it. This wants the council gate: it changes generation
 behaviour fleet-wide.
+
+> **BUILT 2026-07-21 (`5e19fd3cb`) — option (i), the exclude form.** Owner chose the
+> minimal, no-brand-decision route (no fleet-default direction string invented). Two
+> changes, in lockstep, because §1's root cause was an *asymmetry* between the two
+> gating functions and fixing only one would repeat it:
+> - `directionAppliesToKind` now excludes `content_hero` (joins icon/logo/sprite_sheet)
+>   → suppresses the photographic free-text `imagery_direction` fallback AND the
+>   photographic reference-key fallback (`referenceKeysForKind`) for a guide-less site.
+> - `directionForKind`'s default no longer applies to `content_hero`: without a per-kind
+>   override it now returns **palette-only** (like icon/sprite_sheet) instead of the
+>   photographic base voice — closing the twin path a guide-site-without-override would
+>   have hit.
+>
+> An override-less `content_hero` therefore gets palette-only (if a palette exists) or
+> nothing — never the photographic direction. Every site with a `content_hero` override
+> (all four that have a guide) is UNCHANGED. Latent until a new/override-less site
+> generates one; **inert until an image roll**. Tests: `TestDirectionAppliesToKind`
+> (new) + extended `TestStyleGuideDirectionForKind`. **Not yet council-reviewed** — the
+> change is council-gate-eligible (fleet-wide generation behaviour); no
+> `Council-Reviewed:` trailer on `5e19fd3cb`. Did NOT build option (ii): a real
+> fleet-default flat-illustration voice needs a brand decision (the owner's), and
+> muting the contamination was the requested scope.
 
 **(b) Per-site — write the three sites an `imagery_style_guide` with a
 `kinds.content_hero` override (config, live immediately, no image roll).** This is what
