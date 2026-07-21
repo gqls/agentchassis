@@ -1004,3 +1004,44 @@ the next `render_news_section` execution (6-hourly content-feed cycle).
 mechanism — it should land in the next image roll so the injection path's lifetime is one
 feed-cycle window, and the rework commit must REMOVE the injection call sites (not just add
 the new route) or both paths will write the same rows.
+
+## 2026-07-20 (evening) — 027 REWORK BUILT (contract-compliant), council resubmitted
+
+Owner confirmed the v1.0.1140 sweep+push was a manual error, and asked to continue the
+rework. Built the query-source route the council REVISE and the guidelines check both
+pointed at. All code builds; all new tests pass.
+
+**What was built (forward-only; the injection code is removed, not reverted):**
+- `queryresolve/news_items.go` — `QueryNewsItems` (the ONE selection, now shared by the JSON
+  path and the template fields, so they can't disagree) + `resolveLatestNews` /
+  `resolveNewsArchive` + `projectNewsItems` (HTML-escaped, because RenderTemplate is
+  text/template and feed text is third-party). Registered two cases in `Resolve`.
+- Migration **179** (APPLIED, verified `v2=t has_items=t ranges=t`): news-listing →v2 fields
+  schema + `items` from `query.news_archive`; latest-news +`items` from `query.latest_news`;
+  both templates `{{if .items}}{{range}}…{{else}}placeholder{{end}}`. Needle-gated, backed
+  up, rollback in-file. Incidentally closes 026-A for news-listing (loading text is now a
+  translatable llm field).
+- `render_news_section_html.go` — `persistNewsSectionHTML`/`injectNewsItems`/anchors
+  **DELETED**; replaced by `queueNewsPageRerenders` (emits the existing scoped re-render
+  item after each feed refresh).
+- `render_news_section_action.go` — both injection call sites removed; `loadNewsItems` now
+  delegates to `QueryNewsItems`; returns `rerender_queued`.
+- Old injection tests deleted; `queryresolve/news_items_test.go` added (5 tests, escaping is
+  the load-bearing one).
+
+**Council resubmitted on the SAME correlation** (`4b91237a`, `RESUBMIT_CORR`), sketches
+updated to the real code per the runbook trap ("reviewers judge the sketch"). Round-2 run
+`4fc06dd5` in flight at time of writing.
+
+> **Trap met, recorded:** the verdict-wait query keyed on "any council_report for corr X in
+> the last N min" fired on ANOTHER thread's council-gate run (a fixloop-digest submission,
+> corr `bd12762a`) that reused the shared machinery — its REVISE note is NOT mine. The
+> reliable wait keys on my own orchestration_id reaching COMPLETED, not on a report count.
+> Also: the first resubmit dispatch produced no orchestration row (kcat vanish); refired,
+> `4fc06dd5` appeared. Both are known traps; both bit here.
+
+**Not yet done (blocked on verdict, then image):** commit the code with the
+`Council-Reviewed:` trailer once APPROVED (or revise again); build+roll the image carrying
+the resolvers (179 config is inert until then — `items` degrades to skip_field → placeholder
+on the old binary, which is safe); then verify from `curl` that `<article>` elements are
+present AND survive a scoped rerender.
