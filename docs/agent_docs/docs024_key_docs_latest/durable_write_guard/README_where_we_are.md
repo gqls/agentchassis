@@ -102,3 +102,26 @@ honest way — by deliberately feeding the tool-creator a cut-off tool and watch
 it get refused, not just by checking the code shipped. (The 8 tools already broken
 on live sites are a separate, already-tracked cleanup job — bug 046 — not this
 one; this fix stops *new* ones.)
+
+---
+
+**2026-07-21 (later still) — turns out it's ALREADY live.**
+
+Small twist: I didn't need to build or deploy anything. While I was tidying up the
+notes, you ran one of your "sweep" builds (v1.0.1146), and because my code was
+already committed, it got picked up and shipped automatically. I checked the
+actual running server and my new checks are in it — all the tell-tale strings are
+there, and a known-good control string confirms I'm looking at the right binary.
+So the guard is *live on the cluster right now*.
+
+One honest caveat, and it's the same one I always insist on: seeing my code in the
+running server proves it *shipped*, not that it *works*. This guard's whole job is
+to catch a broken tool, and the only way to truly prove a catcher works is to
+throw it something broken and watch it catch. I haven't done that live yet — so
+right now the status is "shipped and in place, but the trap hasn't been sprung in
+anger." To finish the job properly I'd run one deliberate test: hand the
+tool-creator a tool that's cut off at the end and confirm it gets refused (and
+flagged for a human), while a healthy tool still sails through. That's a real bit
+of work on the live cluster (it involves kicking off a job and waiting on the
+queue, ~half an hour), so I'll do it on your say-so rather than assume. Until then
+I'm leaving bug 021 open and honest about it.

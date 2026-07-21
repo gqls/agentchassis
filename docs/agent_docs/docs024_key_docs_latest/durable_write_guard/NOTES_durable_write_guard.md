@@ -298,3 +298,38 @@ job on OTHER threads' omissions. Not this workstream's; the `actions` package
   discriminating pod-grep of the CREATED literal `tool_birth_truncation_blocked`.
 - Optional: advisory council gate on the platform change (credits + ~30 min).
 - Until it ships, INSTANCE 1 stays OPEN (bar = fixed AND live).
+
+## 2026-07-21 (later) — the fix is ALREADY LIVE in v1.0.1146 (rode a sweep build)
+
+I did not have to build or deploy. Between committing my code (`ba702c8c6`) and
+committing my docs, the owner ran a sweep build **`fe2ba5e52` "v1.0.1146 - sweep"**.
+That commit is a descendant of my code commit (`git merge-base --is-ancestor
+ba702c8c6 fe2ba5e52` → true), the makefile IMAGE_TAG is now `v1.0.1146`, and the
+running pod is on `v1.0.1146`. So my birth gates rode that build — the exact
+"committed code rides ANYONE's next sweep build" pattern the memory notes and
+CLAUDE.md warn about. (My three doc files were ALSO swept into `fe2ba5e52` — the
+`git add -A` sweep took my half-finished docs too; nothing lost, forward-only
+holds, only the README remained for my own commit `213e3eb4d`.)
+
+**Pod-verified (discriminating grep, pod on v1.0.1146):**
+```
+tool_birth_truncation_blocked              -> 1   (my Phase 1 error_code, CREATED)
+"generated HTML is structurally incomplete"-> 2   (my Phase 1 msg + returned err)
+"leaves a structural tag"                  -> 1   (my Phase 2 section msg)
+component_write_regression_blocked         -> 1   (positive control = 012 guard, live)
+```
+So DEPLOYMENT is proven. **CORRECTNESS is NOT** — per [[verify-the-failing-branch]],
+a pod-grep proves the string shipped, not that the branch fires. The guard's whole
+job is to DETECT a truncated birth, so it must be verified by INDUCING one, not by
+a green happy path. Status: **fix LIVE in v1.0.1146, failing branch
+LIVE-UNEXERCISED.** (Same honest register another thread used for bugs_open/010 on
+this very image — `9a525d46a`.)
+
+**To fully close** (fault-injection, has real cost/latency — put to owner):
+dispatch `create_tool_component` (via the tool-generator workflow, or a scratch
+orchestration) with an `html_content` that has a valid tool-doc header but an
+unbalanced `<script>` (tail-cut). Expect: component NOT created; work item
+`needs_human_review`; `agent_error_log.error_code='tool_birth_truncation_blocked'`.
+Then a healthy generation must still be created. Mind the CLAUDE.md timing traps
+(~300s after a chassis restart; ~30 min dispatch queue latency). Clean up scratch
+fixtures after.

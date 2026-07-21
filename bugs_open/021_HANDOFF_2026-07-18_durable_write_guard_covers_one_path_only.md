@@ -79,9 +79,19 @@ legitimate rewrites (016b §9 has the counter-examples). The transferable rules:
 
 ---
 
-> **PROGRESS 2026-07-21 — INSTANCE 1 diagnosed + fixed (committed, inert until an
-> image roll). Stays OPEN until it ships. `durable_write_guard` workstream
-> (`docs024_key_docs_latest/durable_write_guard/`), commit `ba702c8c6`.**
+> **PROGRESS 2026-07-21 — INSTANCE 1 diagnosed + fixed + now DEPLOYED LIVE in
+> v1.0.1146 (rode the owner's sweep build `fe2ba5e52`, which took HEAD past my
+> code commit `ba702c8c6`). Pod-verified. Stays OPEN only because the failing
+> branch is LIVE-UNEXERCISED — a pod-grep proves deployment, not that the guard
+> fires. `durable_write_guard` workstream (`docs024_key_docs_latest/durable_write_guard/`).**
+>
+> **Live-deploy evidence (pod `agent-chassis-…-xrkv6`, image `v1.0.1146`):** all
+> three created literals present — `tool_birth_truncation_blocked` (×1),
+> `generated HTML is structurally incomplete` (×2), `leaves a structural tag`
+> (×1); positive control `component_write_regression_blocked` (×1). To CLOSE:
+> fault-inject a tail-cut tool through `create_tool_component` → component NOT
+> created, item `needs_human_review`, refusal in `agent_error_log`; and a healthy
+> generation still passes.
 >
 > **Corrects the scope this file asked for.** The two named surfaces are
 > non-exposures, verified live 2026-07-21:

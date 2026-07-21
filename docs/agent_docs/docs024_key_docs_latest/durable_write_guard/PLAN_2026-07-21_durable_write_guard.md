@@ -112,8 +112,11 @@ separate, evidence is one `section` casualty (unplaced), so lower priority.
 - Owner scope decision 2026-07-21: **Phase 1 + Phase 2.**
 - **CODE COMMITTED `ba702c8c6`** (component_write_guard.go, create_tool_component_action.go,
   store_generated_component_action.go, + test). Build + tests green. `bugs_open/021`
-  updated with the corrected scope + fix. **Inert until an image roll → INSTANCE 1
-  stays OPEN.**
+  updated with the corrected scope + fix.
+- **NOW LIVE in v1.0.1146** — rode the owner's sweep build `fe2ba5e52` (a descendant
+  of my code commit). Pod-verified: all 3 created literals present + positive
+  control. **INSTANCE 1 stays OPEN because the failing branch is LIVE-UNEXERCISED**
+  (pod-grep = deployment, not correctness). Close needs fault-injection.
 - NOTE (NOTES §misstep): the planned `toolTemplateValid` refactor in
   `plan_sections_action.go` was DROPPED to avoid a same-file passenger (another
   session's 041/044 WIP in that file); cosmetic only, no functional loss.
