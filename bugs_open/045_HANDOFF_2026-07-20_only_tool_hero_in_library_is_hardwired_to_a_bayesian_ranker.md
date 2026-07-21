@@ -1,8 +1,45 @@
 # 045 — the library's only tool-hero component is hard-wired to a Bayesian ranker, so every tool page that asks for one gets the wrong product's vocabulary
 
-**Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops` · **Status:** OPEN, not started
+**Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops`
+**Status:** OPEN — **FIX APPLIED & LIVE** (migration `183_generic_hero_tool_component.sql`,
+2026-07-21); held open only pending the rebuild-based proof (a rebuild is what arms this bug).
 **Severity:** medium-high — **armed on 2 live pages right now** (both `needs_rebuild`); latent
 across 37 tool pages / 10 sites
+
+---
+
+## FIX LOG — 2026-07-21 (workstream `hero_tool_component_045`)
+
+**Done (candidates 1 + 2, atomically in migration 183):**
+1. **Built a generic `hero-tool` component** (id `0bf81196-e4e7-430b-bd5d-1585703678ae`,
+   `function=section_type=hero-tool`, `component_level=section`). Every visible label is
+   `source:llm` — **zero `source:static` product fallbacks**. CTA anchors **gated**
+   `{{if .x_url}}` with `*_url` fields `source:renderer` (LNK-005 by construction, 023 class
+   H). Trust stats **optional + gated** with anti-fabrication guidance (bugs_open/043). No
+   embedded widget — the tool is a separate `tool-<slug>` section. Same shape as
+   `tool-guide-intro` after migration 179.
+2. **Retired the Bayesian row from the pool, did NOT delete it** — `section_type`
+   `hero-tool` → `bayesian-ranking-hero-tool`, kept `is_active=true`, function unchanged.
+   The generic component is now the **sole** `hero-tool` selector candidate (score 0.69);
+   `SelectComponentByType` has no score threshold, so selection is deterministic.
+
+**Verified (DB/template level):** selector simulation returns exactly one `hero-tool`
+candidate (the generic); new template greps **0** Bayesian strings; all 5 migration
+post-conditions green. Touches **no deployed page** (page_components bake `component_id` +
+`rendered_html`).
+
+> **CORRECTION to this file's own blast-radius section (2026-07-21):** there are **THREE**
+> pages requesting `hero-tool`, not two, and the Bayesian row is **NOT** placement-free —
+> `gamesdesign.co.uk/bayesian-ranking` is **deployed** with the Bayesian hero (position 1),
+> and it is the one page where that is *correct*. The "0 placements / four removed" figure
+> counted only the 023-scope pages. This is exactly why the retire step is a supersede, not
+> a delete; gamesdesign's ranking function survives (separate `tool-bayesian-ranking` section,
+> position 3). Caught by re-querying `pages.sections LIKE '%hero-tool%'` fleet-wide.
+
+**Not done (deliberately):** candidate 4 (build-time selection-sanity check) — it is Go
+(needs an image roll) and is the shared branch with `bugs_open/039`; left for a dedicated
+change. **Remaining to close:** rebuild one armed page and confirm the hero renders generic
+(RUNBOOK in `docs024_key_docs_latest/hero_tool_component_045/`).
 **Class:** library gap (a missing component), NOT a planner defect — that distinction is the
 whole point of this file
 
