@@ -1,6 +1,9 @@
 # 053 — an empty `legal` nav group fills the footer's legal slot with every footer page
 
-**Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops` · **Status:** OPEN, not started
+**Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops`
+**Status:** FIX COMMITTED (candidate 1, `85d39f9b9`, 2026-07-21) — **stays OPEN**: inert on live
+sites until an image roll **and** a chrome re-render (see Landmines). Close only when a re-rendered
+site's `.footer-legal` is verified against the live page.
 **Severity:** medium — cosmetically wrong on every page of at least 6 live sites; not a 404 in
 itself, but it silently *reintroduces* whatever broken links live in the footer page set.
 **Class:** structural — a "no rows" result overloaded to mean two different things.
@@ -141,6 +144,54 @@ new, unaudited surface for exactly the class 049 is about.
 
 Candidates 1 and 3 are independent and compose. 1 without 3 still leaves undeployed pages
 linkable from the header/quick-links path.
+
+## Fix applied — 2026-07-21 (candidate 1, commit `85d39f9b9`)
+
+Chose **candidate 1**: it is the smallest correct change and it fixes every group type at once,
+where candidate 2 papers over only `legal`. Candidate 3 was **deliberately deferred** — see below.
+
+`GetNavItems` (`nav_tables.go`) no longer runs the pages fallback on any zero-row nav-table
+result. It now consults a new gate, `siteHasAnyNavItems`, and falls back **only when the site has
+no `site_nav_items` rows in any group**:
+
+```go
+items := getNavItemsFromTables(...)
+if len(items) > 0 { return items }
+if siteHasAnyNavItems(ctx, db, siteID, logger) {
+    return []NavItem{}          // nav-table site, truthful empty answer for this group
+}
+return getNavItemsFromPagesFallback(...)   // pre-nav-table site, or tables absent
+```
+
+`siteHasAnyNavItems` runs `SELECT EXISTS(SELECT 1 FROM site_nav_items WHERE site_id = $1)`. If the
+table itself does not exist (older deployments), the query errors on `does not exist` and the gate
+returns `false`, preserving the pre-nav-table fallback exactly as before.
+
+**Tested** — `nav_tables_fallback_test.go`, four sqlmock cases mapping to the verify list:
+1. nav-table site, 0 legal items → **0** links, and the fallback query is asserted *not* to run;
+2. nav-table site *with* legal items → those items, gate never consulted (regression guard);
+3. pre-nav-table site (0 rows) → pages fallback runs;
+4. tables absent (`does not exist`) → pages fallback runs.
+All pass (run against `git archive HEAD` + these two files, because an unrelated untracked WIP file
+in `discovery_checks` was breaking the shared tree at the time).
+
+**Candidate 3 (deployedOnly for chrome nav) NOT applied, on purpose.** With candidate 1 in place the
+gaswholesalers legal-slot 404 (`/fuel-pricing-framework.html`) disappears anyway — that site has 18
+nav items and 0 legal, so its legal fallback no longer runs at all. Candidate 3's remaining value is
+the header/quick-links path and genuine pre-nav-table sites, but its *correct* predicate is
+`deployed_at IS NULL`, **not** the `build_status = 'deployed'` that the current `deployedOnly` flag
+emits — 34 fleet pages are `needs_rebuild` and serve 200 fine, so flipping the flag on today would
+**drop valid links**. That predicate fix is `/bugs_open/052`; candidate 3 should ride it, not this.
+
+**Corrected fleet figures (re-grounded 2026-07-21).** The counts in *Fleet exposure* have moved since
+filing — nav rows are live state. Today, sites with **active legal nav rows** are
+`leopardessconsulting.co.uk` (2), `finetuning.uk` (2), `ai-agent-orchestration.com` (2) and
+`idea.uk` (1) — not "leopardess (6) and finetuning (1)". robot-hands still has **15** nav items and
+**0** legal, and its legal fallback still returns **14** footer pages today (reproduced live). The
+*mechanism* is unchanged; only the per-site tallies drifted. Every real live site now has
+`primary` nav rows, so no real site is a pre-nav-table site — the fallback branch survives only for
+newly-created sites before `PopulateNavTablesAction` runs (verify list #3: the branch is not dead,
+just not exercised by any current live domain).
 
 ## How to verify a fix
 

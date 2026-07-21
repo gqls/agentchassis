@@ -2201,6 +2201,45 @@ put it in the tool's output. `parse_gates.py` now prints the range/CTA split on 
 migration `181`. Category tags: `measurement-artefact`, `regex-census`, `heuristic-vs-parse`,
 `warning-was-the-finding`, `corrected-figures-stop-being-questioned`.
 
+### An empty result overloaded to mean "nothing here" AND "ask elsewhere" fires the fallback on the truthful-empty case (2026-07-21)
+
+**Symptom.** robot-hands.com's footer `.footer-legal` slot renders **14 links, none legal** — the
+whole footer navigation rendered a second time in the legal position, three entries duplicated,
+on every page of at least six live sites (`bugs_open/053`).
+
+**Mechanism.** `GetNavItems` (`nav_tables.go`) queried the nav tables, and on **zero rows** fell
+through to a pages-table fallback built for sites that predate those tables. But a zero-row result
+is *two different facts*: "this site has no nav tables" (fall back) and "this nav-table site
+genuinely has no items in this group" (the correct, expected answer — most sites have no legal
+pages). The fallback cannot tell them apart, so it ran on both; for the `legal` group its footer
+branch matches every `in_footer` page, and the `in_footer` disjunct dominates the legal-name
+disjunct — nothing constrains the result *to* legal pages. A truthful empty answer was read as a
+missing table.
+
+**The transferable test.** When a lookup returns empty and the code *does something else* on empty
+— a fallback source, a default, a broader query — ask whether empty is **overloaded**. If "no rows
+for X" and "X is not configured here" produce the identical empty value, the branch that fires on
+empty fires on the legitimate case too. The fix is to **disambiguate empty with a second, cheap
+probe** that distinguishes the two states, not to tune the fallback query. Here: gate the fallback
+on `SELECT EXISTS(SELECT 1 FROM site_nav_items WHERE site_id=$1)` — fall back only when the site
+has **no** nav rows *in any group*; otherwise respect the empty answer. That fixes every group type
+at once, where narrowing only the legal query would have papered over `legal` alone.
+
+**Watch the error path in the probe.** The original empty could also come from the table *not
+existing* (older deployments). The disambiguating probe must treat its own `does not exist` error
+as "fall back", or the backward-compat branch it was protecting breaks. Test both the real-empty and
+the table-absent cases (`nav_tables_fallback_test.go`, four sqlmock cases).
+
+**Sibling trap — the fix is inert until a re-render.** The output lives in `site_components.
+rendered_html`; the corrected `GetNavItems` changes nothing served until chrome re-renders. Same
+property as the entry above — do not report it fixed on the strength of the code change.
+
+**Cross-refs.** `bugs_open/053` (case + candidates 1/2/3; candidate 3 deferred to `bugs_open/052`
+because the current `deployedOnly` flag emits the wrong `build_status='deployed'` predicate),
+`bugs_open/049` (found while measuring its re-render). Commit `85d39f9b9`. Category tags:
+`overloaded-empty`, `fallback-fires-on-legitimate-case`, `disambiguate-with-second-probe`,
+`fix-inert-until-rerender`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -2269,6 +2308,7 @@ See `/bugs_closed/README.md`.
 
 | 050 | For a **deployed** page `sections=[]` means "rendered by another subsystem", not "awaiting composition" — all 18 such pages fleet-wide are `tool` (14), `blog-index` (2) or tool-ish `content` (2), and 15 have rendered `page_components` regardless. So `001`'s prescription for its own residual ("take the LLM's sections when the realised ones are empty") would let a re-plan attach a generic layout to all 18: **content injection onto built pages, the class `001` exists to stop.** The genuine defect survives only where the preserved page is NOT deployed — the first-plan case per `051`, which is exactly where every observed benefit occurred (dartsonline `guides-index`/`brands-index`/`shop-index`, all `planned`). Corrected fix gates on deployed-ness, not emptiness, in Pass B **and** Pass B2 — the latter closes a pre-existing exposure `001` did not introduce | filed 2026-07-20, split out of `001` so that case could close. Measured, not shipped: a fleet-wide rule about what a re-plan may write to a built page resting on an interpretation of an empty column — routed to the council gate, which `001` itself never got |
 | 051 *(**a second, unrelated `051` may appear** — this one is the planner/adoption-lock case; the other `049`-numbered case that day is stale chrome + 404s. Resolve by slug)* | The per-page **90-day adoption lock does not exist.** `053` §054 designs `adoption_locked` as "no current plan OR a live timed per-page preserve-directive"; the live query carries only the first branch, and the second would match nothing anyway — 462 `site_plan_directives` rows, `locked_by` NULL on every one, **zero** rows at `scope='page'`+`category='preserve'`, and no code writes one. So `adoption_locked` is a **per-SITE** flag meaning "this site has no current plan": true on a site's FIRST plan, false on every re-plan. Consequence: **Pass C2 can only ever fire on a first plan**, and the comment justifying its scope appealed to a 90-day window that is not there. Also: the documented "adoption faithfulness for 90 days" is undelivered | filed 2026-07-20 while closing `001`. Live exposure ≈ nil (3 `planned` pages, all dartsonline artefacts of `001`'s own verification) — **filed for the wrong premise, not the damage.** Comments corrected in `1a13e265d`; the `needs_rebuild` slice belongs to `037` |
+| 053 | `GetNavItems` overloaded a zero-row nav-table result: "no nav tables here" and "this nav-table site has no items in this group" both fell through to the pages fallback, which for `legal` matches every `in_footer` page. So a full-nav site with no legal pages (robot-hands + ≥5 more) filled its footer's legal slot with **all 14 footer links, none legal**; on gaswholesalers one is a live 404. See §9 *"An empty result overloaded to mean two things"* | **FIX COMMITTED (candidate 1, `85d39f9b9`, 2026-07-21)** — fallback now gated on `siteHasAnyNavItems` (fall back only when the site has **no** nav rows at all), fixing every group type at once; sqlmock regression test. **Stays OPEN**: inert until an image roll **and** a chrome re-render. Candidate 3 (deployedOnly for chrome nav) deferred to `052` — its correct predicate is `deployed_at IS NULL`, not today's `build_status='deployed'` |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
