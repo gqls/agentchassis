@@ -44,6 +44,18 @@ BASELINE=124
 # the directory containing ANY uppercase letter are 180's ROLLBACK and VERIFY.
 SIDECAR_RE='_[A-Z][A-Z0-9_]*\.sql$'
 
+# Idempotency lint (bugs_open/007 candidate c). Tables where a duplicate INSERT
+# on replay is HARMLESS, so an unguarded insert into them is not a hazard worth
+# a warning: append-only log tables (doc_notes, doc_plans) and the runner's own
+# ledger (schema_migrations, always written ON CONFLICT DO NOTHING). An unguarded
+# INSERT into any OTHER table is the non-idempotency that springs the trap on
+# replay — 151 inserted into content_components with no guard and that is what
+# blocked the runner for 3 days. This allowlist is grounded in the live corpus,
+# NOT the handoff's literal "any bare INSERT" spec: nearly every migration writes
+# a doc_notes row, so linting those would be pure noise and the warning would be
+# learned-ignored. Optional schema prefix (public.doc_notes) tolerated.
+IDEMPOTENT_SINK_RE='(^|\.)(doc_notes|doc_plans|schema_migrations)$'
+
 APPLY=0
 RECORD_ONLY=""
 NOTE=""
@@ -65,6 +77,28 @@ fi
 
 sql_lit() {  # escape a value for a single-quoted SQL literal
   printf '%s' "$1" | sed "s/'/''/g"
+}
+
+# Advisory idempotency lint (bugs_open/007 candidate c). Echoes one warning line
+# for a file that INSERTs into a non-log table while carrying no guard DO block,
+# no ON CONFLICT and no WHERE NOT EXISTS — the shape that errors on replay. If
+# the file has ANY guard we trust the author's handling and stay silent (the
+# check is file-global, matching the handoff's spec and the shop convention that
+# a migration guards itself). Warning only: some INSERTs are meant to fail loudly
+# on a duplicate, so this never blocks and never changes the exit code.
+lint_idempotency() {  # $1 = path to a .sql file; echoes a warning tail or nothing
+  local file="$1" flat sinks t risky=()
+  flat=$(tr '\n' ' ' < "$file")
+  grep -qiE 'ON CONFLICT|WHERE NOT EXISTS' <<<"$flat" && return 0
+  grep -qE 'DO \$\$|DO \$[A-Za-z_]' <<<"$flat" && return 0
+  sinks=$(grep -oiP 'INSERT\s+INTO\s+\K[A-Za-z_][A-Za-z0-9_.]*' <<<"$flat" | sort -u)
+  [ -z "$sinks" ] && return 0
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    grep -qiE "$IDEMPOTENT_SINK_RE" <<<"$t" || risky+=("$t")
+  done <<<"$sinks"
+  [ ${#risky[@]} -eq 0 ] && return 0
+  echo "INSERT into ${risky[*]} with no guard DO block, ON CONFLICT or WHERE NOT EXISTS"
 }
 
 psql_scalar() {  # run one -tAc query, echo the result
@@ -201,6 +235,23 @@ fi
 
 echo "Pending (${#PENDING[@]}):"
 printf '  %s\n' "${PENDING[@]}"
+
+# Advisory idempotency lint over the pending set (bugs_open/007 candidate c).
+# Doubles as an early warning for the ledger trap itself: a pending file that
+# looks non-idempotent is exactly the one that errors if it was already applied
+# by hand. Warnings go to stderr; they never change what runs or the exit code.
+LINT=()
+for f in "${PENDING[@]}"; do
+  msg=$(lint_idempotency "$MIGRATIONS_DIR/$f")
+  [ -n "$msg" ] && LINT+=("  $f — $msg")
+done
+if [ ${#LINT[@]} -gt 0 ]; then
+  echo "" >&2
+  echo "IDEMPOTENCY WARNING (advisory, bugs_open/007) — these pending files may error on replay:" >&2
+  printf '%s\n' "${LINT[@]}" >&2
+  echo "  If a file above is ALREADY applied and merely unrecorded, this IS the replay hazard —" >&2
+  echo "  verify its artifacts and use --record-only, do not --apply." >&2
+fi
 
 if [ "$APPLY" != "1" ]; then
   echo ""
