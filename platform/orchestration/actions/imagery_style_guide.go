@@ -158,10 +158,19 @@ func composeDirection(medium, mood, palette string) string {
 // image kind. Mirrors directionAppliesToKind's gating philosophy:
 //   - photographic kinds (hero, illustration, infographic, legacy default)
 //     get the full brand voice: medium, mood, palette;
-//   - icons get ONLY the palette — a photographic medium prepended to an
-//     icon prompt makes the model composite an icon onto a photo
-//     (icon_cycle_time, 2026-05-20);
+//   - flat-vector kinds (icon, sprite_sheet, content_hero) get ONLY the
+//     palette — a photographic medium prepended to a flat prompt makes the
+//     model composite the flat subject onto a photo (icon_cycle_time,
+//     2026-05-20);
 //   - logos get nothing: generated once, human-approved, then locked.
+//
+// content_hero (D14, a flat duotone illustration kind) takes its full voice
+// from a per-kind override when one exists — that is the intended path, hit by
+// every site that has configured it. WITHOUT an override it must NOT fall to
+// the photographic base voice (bugs_open/027 §5(a)): that is the same
+// contamination as prepending the photographic medium to an icon. So it joins
+// the palette-only branch, in lockstep with its exclusion from
+// directionAppliesToKind — content_hero is flat in BOTH gating functions.
 func (g *imageryStyleGuide) directionForKind(kind string) string {
 	if g == nil {
 		return ""
@@ -175,10 +184,11 @@ func (g *imageryStyleGuide) directionForKind(kind string) string {
 	switch kind {
 	case "logo":
 		return ""
-	case "icon", "sprite_sheet":
+	case "icon", "sprite_sheet", "content_hero":
 		// Flat-vector kinds take the brand palette only — a photographic
-		// medium prepended to a glyph prompt contaminates the output
-		// (2026-05-20 lesson; sprite_sheet added Phase I2).
+		// medium prepended to a flat prompt contaminates the output
+		// (2026-05-20 lesson; sprite_sheet added Phase I2, content_hero
+		// bugs_open/027 §5(a)).
 		if g.Palette == "" {
 			return ""
 		}

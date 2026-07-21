@@ -24,8 +24,10 @@ func TestStyleGuideDirectionForKind(t *testing.T) {
 	}
 
 	// Flat-vector kinds get palette only — photographic medium contaminates
-	// glyph prompts (the 2026-05-20 lesson; sprite_sheet added Phase I2).
-	for _, kind := range []string{"icon", "sprite_sheet"} {
+	// flat prompts (the 2026-05-20 lesson; sprite_sheet added Phase I2,
+	// content_hero bugs_open/027 §5(a): without a per-kind override it must
+	// NOT fall to the photographic base voice).
+	for _, kind := range []string{"icon", "sprite_sheet", "content_hero"} {
 		if d := g.directionForKind(kind); d != "Colour palette: deep charcoal, electric blue" {
 			t.Errorf("directionForKind(%s) = %q", kind, d)
 		}
@@ -49,6 +51,33 @@ func TestStyleGuideDirectionForKind(t *testing.T) {
 	}
 	if d := partial.directionForKind("icon"); d != "" {
 		t.Errorf("partial (no palette) directionForKind(icon) = %q, want empty", d)
+	}
+	// content_hero with no palette and no override yields nothing (unstyled
+	// but uncontaminated) rather than the photographic base voice.
+	if d := partial.directionForKind("content_hero"); d != "" {
+		t.Errorf("partial (no palette) directionForKind(content_hero) = %q, want empty", d)
+	}
+}
+
+// TestDirectionAppliesToKind pins the flat-vector exclusion set — the gate that
+// keeps the site's PHOTOGRAPHIC free-text imagery_direction (and its
+// photographic reference anchors) off flat kinds. content_hero (D14) is in the
+// excluded set: bugs_open/027 §1 was exactly D14 adding content_hero to
+// directionForKind but not here, so an override-less site prepended its
+// photographic direction to a flat kind. §5(a) fixes BOTH functions in lockstep
+// — this test and the directionForKind palette-only case are the two halves.
+func TestDirectionAppliesToKind(t *testing.T) {
+	// Flat-vector kinds: NO photographic free-text direction / reference anchors.
+	for _, kind := range []string{"icon", "logo", "sprite_sheet", "content_hero"} {
+		if directionAppliesToKind(kind) {
+			t.Errorf("directionAppliesToKind(%q) = true, want false (flat-vector kind)", kind)
+		}
+	}
+	// Photographic kinds and the empty/legacy default DO take the direction.
+	for _, kind := range []string{"hero", "illustration", "infographic", ""} {
+		if !directionAppliesToKind(kind) {
+			t.Errorf("directionAppliesToKind(%q) = false, want true (photographic kind)", kind)
+		}
 	}
 }
 

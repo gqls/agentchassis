@@ -1120,13 +1120,25 @@ func getImageryDirectionForSite(ctx context.Context, db interface{}, siteID stri
 // planner ("minimalist flat icon ... line illustration style, single light
 // grey colour on transparent background, no shadows, no photorealism") and
 // must not receive the photographic direction.
+//
+// content_hero (D14) is a flat duotone editorial illustration kind routed to
+// Banana, so it joins the excluded set for the same reason (bugs_open/027
+// §5(a)). D14 added content_hero to directionForKind via the per-kind override
+// map but NOT here — so an override-less site fell to the default:true branch
+// and had its site's photographic free-text direction prepended to a flat
+// kind, the exact 2026-05-20 contamination class. This gate governs the
+// free-text imagery_direction fallback AND the reference-key fallback
+// (referenceKeysForKind); the sibling directionForKind default is fixed in
+// lockstep so content_hero is treated as flat in BOTH gating functions — the
+// asymmetry §1 identified as the root cause.
 func directionAppliesToKind(kind string) bool {
 	switch kind {
-	case "icon", "logo", "sprite_sheet":
-		// sprite_sheet (Phase I2) joins the flat-vector class: prepending a
-		// photographic direction (or anchoring to photographic brand heroes)
-		// to a flat glyph grid reproduces the 2026-05-20 contamination
-		// failure. Palette-only styling comes via the style guide instead.
+	case "icon", "logo", "sprite_sheet", "content_hero":
+		// sprite_sheet (Phase I2) and content_hero (D14) join the flat-vector
+		// class: prepending a photographic direction (or anchoring to
+		// photographic brand heroes) to a flat illustration reproduces the
+		// 2026-05-20 contamination failure. Palette-only / per-kind-override
+		// styling comes via the style guide instead.
 		return false
 	default:
 		return true
