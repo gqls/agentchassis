@@ -1708,3 +1708,19 @@ on with a fix built on its *earlier* framing instead of re-reading the top first
 Cheap check: when a bug is actively owned, re-read the case file before investing
 in and shipping a fix premised on it. Family: stale-premise, but sourced from a
 concurrent session rather than my own earlier claim.
+
+**2026-07-21 — wrote "fixed-but-inert until the image rolls" for a fix that was
+already LIVE.** Applying `bugs_open/040-partial-build` I edited `v3_site_actions.go`
+and, before committing, wrote in the bug file that the Go change was "fixed-but-inert
+until an image roll" — the reflexive framing for a Go fix. **It was already deployed.**
+A concurrent add-all sweep had committed my file into `fe2ba5e52` ("v1.0.1146 -
+sweep"), which built the image from HEAD and rolled it; the running chassis pod was
+on v1.0.1146 with my guard's literals in its binary. I only found out because I
+checked the pod tag AFTER writing "inert". Cheap check that would have caught it
+before the claim: `kubectl get pod -l app=agent-chassis -o …image` + a discriminating
+`strings /app/agent-chassis | grep "<a literal my change created>"` BEFORE writing any
+inert/live status. This is not rare — the SAME sweep took `bugs_open/038` and `041`
+live too, and both owning sessions filed the same correction the same hour (commits
+`412c88edb`, `0ff96a972`). Family: "committed code rides ANYONE's next HEAD build" —
+already logged for `bugs_open/047`; the recurrence is the point. **A Go fix is inert
+until an image rolls; whether one has ALREADY rolled is a pod check, not an assumption.**
