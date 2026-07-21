@@ -42,6 +42,43 @@ No production fire either way — measured exposure is ~nil (the 3 `planned` dar
 001-verification artefacts; the 17 `needs_rebuild` pages belong to `/bugs_open/037`). Awaiting the
 owner's direction on 2-vs-3 before any code lands.
 
+### Update — owner chose candidate 3 (rename); Go rename HELD, contention (2026-07-21)
+
+Owner picked **candidate 3**. I built the full order-free rename and it was **clobbered twice** while
+I held it uncommitted, because `reconcilePlanWithRealised` (`v3_site_actions.go`) is under **continuous
+concurrent rework by the `/bugs_open/037` session**: within this session I saw the working tree carry a
+`case "deployed": // NEUTRALISED — needs_rebuild removed to prove discriminating` experiment, then get
+**reset to HEAD** (wiping both their experiment and my uncommitted rename), then be **re-modified again
+mid-edit**. The test file `v3_site_reconcile_test.go` still carries their uncommitted `needs_rebuild`
+tests. A pathspec commit of a file two sessions are editing takes **both** edits — so committing my
+rename would have swept their in-flight experiment into HEAD (and reverted their committed `needs_rebuild`
+widening on the next build). I withdrew cleanly (zero traces of my rename left in the tree).
+
+**Decision: hold the rename until reconcile settles.** The acute harm — threads reasoning from the false
+"90-day lock" — is already closed by candidate 1 (committed `2318f9b47`; the Go header now accurately
+documents the flag). The rename is a name-only hardening with no fire, so it is not worth clobbering the
+037 session's behavioural work.
+
+**Ready-to-execute plan (order-free, pick up when `reconcilePlanWithRealised` is calm):**
+1. **Go** (`v3_site_actions.go`): add a `noCurrentPlanFlag(rm)` helper that reads
+   `rm["site_has_no_current_plan"]` and **falls back to** `rm["adoption_locked"]` (legacy alias — keeps
+   it order-free). Replace the two `rm["adoption_locked"]` reads (the main preservation loop and the
+   truncation guard) with it; rename the local `locked`→`noCurrentPlan` and the slice
+   `lockedPages`→`noCurrentPlanPages`; update the truncate helper's `locked`→`keep` and its "adoption-locked
+   pages exceed max_pages" log; sweep the header/comment prose off "adoption-locked". Do NOT touch
+   `realisedPageIsBuilt` / `realisedPageCompositionIsPreserved` (037's). Existing tests pass unchanged
+   because the fixtures set `adoption_locked` and the fallback still resolves them; optionally add one
+   new-key test once the test file is clean of 037 WIP.
+2. **Migration** (`sql_for_agents/NNN`, model on `173`): re-seed `build-site-planner.load_existing_pages`
+   to emit BOTH `site_has_no_current_plan` (primary) and `adoption_locked` (transition alias) — safe to
+   apply against the current chassis, which reads `adoption_locked`.
+3. **After** a chassis carrying the renamed reader is fleet-live (verify `strings /app/agent-chassis |
+   grep site_has_no_current_plan`), a final migration DROPS the `adoption_locked` transition alias and a
+   follow-up Go commit drops the fallback. Only then is the concept fully retired.
+
+Live query re-verified 2026-07-21: still emits `adoption_locked` only (`has_new=f, has_old=t`); nothing
+of the rename has landed. Candidate 1 remains the only committed change.
+
 ## The claim in one line
 
 `adoption_locked` is **not** a per-page, 90-day-expiring lock. It is a **per-site** boolean meaning
