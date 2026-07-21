@@ -1,41 +1,103 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-19
+> ## ▶ START HERE — state as of 2026-07-21
 >
-> **The migration is DONE and LIVE.** idea.uk serves the chassis static site with all 16 tool paths
-> proxied on one origin (cutover 2026-07-18 14:55 UTC). Pull-sync runs every 5 min; the
-> chassis→vm-sites→box pipeline is proven end-to-end by a real build. Credentials rotated. Both tool
-> entry forms restored and live.
+> **The migration is DONE and LIVE, and `/bugs_open/018` (the broken chrome) is FIXED AND VERIFIED
+> LIVE.** idea.uk now serves the chassis static site with full navigable chrome and a working free
+> tool, on one origin. Nothing on the live site is currently broken by a defect this workstream owns.
 >
-> **THE TOP JOB — `/bugs_open/018`: the site chrome is broken on every page.**
-> 31 of 33 homepage links are `href=""` — the entire nav, every CTA, all social links; only the two
-> literal logo hrefs work. `<img class="header-logo-img" src="">` too, though the asset serves 200.
-> The site is effectively **unnavigable**, live and public. Templates render fine; only *resolved
-> values* are missing, which points at the data-fill for `site_components`, not the templates. It
-> almost certainly pre-dates the cutover — the pages went to B2 where nobody looked. **Check whether
-> it is fleet-wide before fixing per-site** (query in 018).
+> **What was fixed since the last handoff (all live, all verified against the deployed page — not the
+> work-item status):**
+> 1. **`018` — chrome links all `href=""` → 0.** Root cause was NOT the theory 018 guessed: the chrome
+>    renderer (`render_site_components_action.go`) fills templates from a HARDCODED value map and never
+>    reads `input_schema`; idea.uk's two per-site components declared other field names, so every one
+>    resolved empty, and the templates had no `{{if}}` gates so each empty became a visible dead link.
+>    Fixed by `sql/p3_01` (rewrote both templates against the real vocabulary, gated every anchor, set
+>    `sites.logo_url`) + `sql/p3_02` (promoted the stuck rerender item). **NOT fleet-wide — idea.uk was
+>    the only affected site.** Verified: `curl https://idea.uk/ | grep -oE '<a href="[^"]*"'` → 0 empty.
+> 2. **The free taster ("no chrome, just text" + "POST only").** `/audience-check` is an AJAX fragment
+>    endpoint by design; the form was seeded as a native POST with no JS, so the browser navigated to
+>    the bare fragment. Same defect `p2_02` fixed for the report form, never applied here. Fixed by
+>    `sql/p3_03` (JS interceptor + result div; corrected the pointer-page URL that fed the POST-only
+>    cards) + `sql/p3_04` (forced a SECTION rerender — a plain `rerender-pages` cannot apply a template
+>    edit; see the landmine below). Verified: real POST returns the 2537B fragment; taster runs in place.
 >
-> **Then, in order:** prove the money path (Stripe test event through the new nginx); confirm
-> `proxy_read_timeout 930s` really landed in `/etc/nginx/snippets/proxy_tool.conf` on the box; purge
-> Cloudflare; deploy the tool binary (spam defences + email subject fix, one build carries both);
-> add the two SES bounce DNS records.
+> **THE PLATFORM FIX is in COUNCIL REVIEW, round 3 pending — this is the one live thread.**
+> The chrome renderer's schema-blindness is a CLASS (not just idea.uk), so it went to the council gate
+> as submission **`SUBMISSION_CORR=7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5`**. Rounds 1 & 2 = REVISE; the
+> round-1 void was `bugs_open/019` (fixed & now live). Round 3 submitted 2026-07-21 (`RUN_ORCH_ID=
+> 0e4e5f26-5967-4343-bb89-5dedf9a5931d`), verdict pending. **FIRST THING IN THE NEW THREAD: read the
+> verdict** (queries below). Round 3 = the OBSERVABILITY version (fixes the shared blanking mechanism
+> in `component_library.go`, the chrome resolver, AND `bugs_open/041`'s dead-JS bug; loud field-named
+> Error on dead controls). The council wanted it to BLOCK/ESCALATE too; **owner ruled 2026-07-21: ship
+> observability now, do block/escalate as `bugs_open/054` (a follow-on, NOT started).**
 >
-> **Read in this order:** `BRIEFING` (plain English, read-aloud) → this file → `RUNNING_NOTES §T–§W`
-> (execution record + collected missteps) → `RUNBOOK` (how) → `/bugs_open/016,017,018` + `002 F`.
+> **Read the verdict:**
+> ```
+> SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+>  WHERE correlation_id='7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5' AND kind='council_report' ORDER BY created_at;
+> SELECT body FROM diagnosis_artifacts WHERE correlation_id='7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5'
+>  AND kind='council_report' ORDER BY created_at DESC LIMIT 1;   -- full reviews JSON
+> ```
+> If APPROVED → the fix is a Go change (`platform/`), so it must be BUILT into a chassis image and
+> rolled, then verified in-pod, then commit carries `Council-Reviewed: 7152c7cf-…`. The plan (6 edits,
+> all in the submission JSON in this dir) is a SKETCH — someone implements the real diff. If REVISE
+> again → the objections come back with the reviewers' own checks answered; the submission JSON has
+> every measurement already attached, so a 4th round is wording, not new evidence.
 >
-> **Three rules this workstream learned the hard way:**
-> 1. **Verify against the deployed artefact, never the work-item status.** A `failed` item here had
->    rendered and deployed correctly; a `missing_structure` finding is false because the footer is a
->    `<section class="footer-…">`, so `grep '<footer'` "confirms" it.
-> 2. **A green smoke test cannot see a missing form.** All 16 routes returned the tool's codes while
->    the funnel was entirely absent (`017`).
-> 3. **Reuse before rebuild** — `076_improvement_loop_trigger.sh` already runs the auditors; a
->    hand-rolled trigger cost a run (`002 F`).
+> **NEW BUGS THIS THREAD FILED (all real, none started):**
+> - `bugs_open/030` — the dispatch queue: ONE partition, ONE consumer, so every session's trigger
+>   serialises. Measured latency 16–36 min, and under load it DIVERGES (lag 21→161 in 2h). A council
+>   review costs an hour+ before it starts. **Cheapest fix: print the lag at publish time** (snippet in
+>   030). **Check lag before submitting anything** (`kafka-consumer-groups.sh --describe --group
+>   generic-requests-group`), and NEVER re-fire a queued dispatch — it double-spends and lands further back.
+> - `bugs_open/041` — chrome component JS is never published (`collectJSAssets` reads `page_components`
+>   only); idea.uk's mobile menu is dead on every page (`/tools/assets/site-header.js` 404s). Fixed IN
+>   the council submission (edit 5), so it lands with the platform fix.
+> - `bugs_open/054` — the block/escalate follow-on (above).
+> - `bugs_open/006` C addendum — a claim that dies BEFORE doing work stalls indefinitely (no
+>   `claimed_at` requeue predicate exists in `platform/`); operator reset is in the addendum.
+> - `bugs_open/024` — got a 2nd reproduction: `rerender-pages` sets no `spec.reason`, so it can NEVER
+>   apply a template edit, for any component, on any site, while reporting success.
+>
+> **Still owed on the tool (owner box-side, unchanged from before, NOT this thread's work):** deploy the
+> tool binary (hardened `/request` + email-subject fix + it should emit `/report.html#request-a-report`
+> so `p3_03`'s client-side `#request` retarget stopgap can be deleted); prove Stripe through the new
+> nginx; confirm `proxy_read_timeout`; purge Cloudflare; two SES bounce DNS records.
+>
+> **Four rules this workstream learned the hard way:**
+> 1. **Verify against the deployed artefact, never the work-item status.** `complete` is not proof:
+>    a rerender reported 9/9 complete, deployed real files, published a JS asset — and changed nothing
+>    on the page (`§X.4`). Read the work item's `result` JSON for what actually deployed.
+> 2. **A rerender has TWO modes and the default cannot see template edits.** `rerender-pages` sets no
+>    `spec.reason` → assemble-from-stored-HTML. To apply a `content_components.html_template` edit you
+>    need `reason='section_data_resolved'` (or `image_landed`/`cta_links_stale`) — insert the
+>    `page_rerender` item by hand (`sql/p3_04` is the template). Guard it: that path escalates to the
+>    LLM content writer (rewrites live copy) if any section has NULL `content_data`.
+> 3. **A schema `fallback` is not a safe default — on a URL field it is a fabrication licence.** Applying
+>    `header-bold-gradient.cta_url`'s `/contact.html` fallback on a miss re-creates the phantom-CTA bug
+>    LNK-007 killed. Correct-or-absent (LNK-005): leave it unset, let the gated template render nothing.
+> 4. **A rendered value that looks hand-authored may be a resolved query.** The tool-card URLs came from
+>    `source: query.pages_where_type:tool` (the pointer page), not the stored `content_data`. Fix the
+>    source, not the copy.
 
-**Updated 2026-07-19.** This is the single entry point to continue the idea.uk → VM workstream.
+**Updated 2026-07-21.** This is the single entry point to continue the idea.uk → VM workstream.
 Read `SUMMARY_idea_uk_vm_site.md` for the plain-English state, then this for the operational detail.
-Companions in this directory: `PLAN`, `RUNBOOK`, `RUNNING_NOTES`, and `sql/` (every change applied,
-in order). The `HANDOFF_replan_clobbers_built_pages_FIX.md` here is a SEPARATE chassis-fix task.
+Companions in this directory: `PLAN`, `RUNBOOK`, `RUNNING_NOTES` (execution log — newest at the
+bottom, §X.1–§X.7 cover this thread), `README_where_we_are.md` (owner's plain-prose log),
+`council_submission_chrome_schema_driven.json` (the live council submission), and `sql/` (every DB
+change applied, in order — `p3_01`…`p3_04` are this thread's). The
+`HANDOFF_replan_clobbers_built_pages_FIX.md` here is a SEPARATE chassis-fix task.
+
+**Where to pick up (new thread, in order):**
+1. Read the council verdict for `7152c7cf` (queries in START HERE). That is the one live decision.
+2. If APPROVED → implement the 6-edit plan for real, build+roll a chassis image, verify in-pod, commit
+   with the `Council-Reviewed:` trailer. If REVISE → the objections are wording now, not evidence.
+3. `bugs_open/054` (block/escalate) is the owner-scheduled next platform piece — but it overlaps
+   `bugs_open/023` fix #3 (the same consumer); coordinate, don't build a parallel handler.
+4. Side-finding to close: `sites.content_data` for idea.uk still holds the stale
+   `idea-uk@leopardess.uk` (a reviewer's check surfaced it; the p1_05/p1_06 sweep missed this column).
+   Not rendering today, but a live wrong address one code path away.
 
 ## Goal
 Make idea.uk one complete site behind the VM's nginx: the chassis-built static pages **and** the live
