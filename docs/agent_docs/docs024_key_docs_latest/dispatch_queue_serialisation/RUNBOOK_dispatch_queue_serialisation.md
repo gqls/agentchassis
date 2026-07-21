@@ -156,3 +156,55 @@ blocking message has been running — measured at 8.0 and ≥15.4 min on 2026-07
 including this one, as an ETA. Three exist, they disagree by 12×, and all three were
 computed correctly. If someone needs a number for planning, give them `LAG` and the
 head-of-queue work type, and tell them the variance is the finding.
+
+## R8 — The config change made 2026-07-21 (and how to reverse it)
+
+Cron/config only, no image roll — `interval_seconds` is a DB column the scheduler
+reads every tick, so this is **live immediately** and trivially reversible.
+
+**Before** (captured): both `interval_seconds = 30`.
+
+```sql
+-- APPLIED 2026-07-21. Both new values are exact multiples of TICK_INTERVAL_SECONDS
+-- (30), so they fire deterministically and the every-30s-fires-every-60s aliasing
+-- landmine (R2 / bug landmine) is gone.
+UPDATE scheduled_tasks SET interval_seconds = 60,  updated_at = now()
+  WHERE name = 'ai-endpoint-health-check' AND interval_seconds = 30;
+UPDATE scheduled_tasks SET interval_seconds = 120, updated_at = now()
+  WHERE name = 'build-pipeline-trigger'   AND interval_seconds = 30;
+```
+
+The `AND interval_seconds = 30` guard makes each UPDATE a safe no-op if another
+session has already changed the value — check `UPDATE 1` vs `UPDATE 0`.
+
+**Why these two, and these values:**
+- `ai-endpoint-health-check` is the only high-frequency **unconditional** job (no
+  `pre_query` — fires every cycle regardless of work). 30→60 makes the config equal
+  to the 60 s reality it already had under aliasing, and honours the endpoints' own
+  `check_interval_seconds` (claude 3600 s, cpu-ollama 60 s; gpu-ollama wants 30 s but
+  is unhealthy and was already at 60 s). No behavioural change, landmine removed.
+- `build-pipeline-trigger` is gated (`pre_query` on triaged build work) but its gate
+  is currently open, and it starts the **expensive** multi-step build chains. 30→120
+  halves both its lane contribution and, more importantly, the rate at which those
+  long inline orchestrations begin — which is what actually stalls the consumer.
+
+**To reverse:**
+```sql
+UPDATE scheduled_tasks SET interval_seconds = 30, updated_at = now()
+  WHERE name IN ('ai-endpoint-health-check','build-pipeline-trigger');
+```
+(But if you reverse, note you are restoring the aliasing landmine — the tasks will
+again read as 30 s while firing at 60 s.)
+
+**Choosing any future interval:** effective period **quantises to the 30 s tick** —
+the task fires on the first tick at or after `last_triggered + interval`. So 45 s
+gets you 60 s; ask for a multiple of 30. And never set `interval_seconds` equal to
+`TICK_INTERVAL_SECONDS` — that is the aliasing case.
+
+**Verify against the running scheduler, not the config:**
+```sql
+SELECT name, interval_seconds, last_triggered_at FROM scheduled_tasks
+WHERE name IN ('ai-endpoint-health-check','build-pipeline-trigger');
+```
+Sample `last_triggered_at` a few times — `build-pipeline-trigger` should now advance
+by ~120 s, not ~60 s.
