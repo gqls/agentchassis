@@ -105,3 +105,26 @@ recorded migration would orphan its ledger row). Next free number is 184. This i
 the concurrent-sessions numbering race the repo warns about — both of us read
 max=182 and took 183 within the same minute; the collision is cosmetic because the
 ledger keys on filename.
+
+### 2026-07-21 — council run WEDGED (003-class), and a verdict-query trap I nearly hit
+
+- The first council submission (`SUBMISSION_CORR 8eef369f`, orch `0b0552b8`) **wedged**:
+  it ran the early seats (`gate_guidelines` → `gate_tooling_provenance` →
+  `review_tooling_provenance`) then stopped at `review_tooling_provenance |
+  EXECUTING_STEP` and did not move for **3h42m**. Only a `fix_plan` artifact exists;
+  **no `council_report`**. This is the 003-class EXECUTING_STEP hang (a dropped
+  awaited response), NOT a REVISE/REJECT — it is an infra failure, not a judgement
+  on the change. Other submissions completed in the same window (`ed4851c9` got a
+  REVISE), so the council infra is not globally down; this was a transient per-run
+  drop. Resubmitted once with `RESUBMIT_CORR=8eef369f` (same fix-correlation, so the
+  trail accumulates).
+- **TRAP nearly hit:** the CLAUDE.md verdict query
+  `SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at
+  DESC LIMIT 1` returns the most recent council note **FLEET-WIDE**, not yours. My
+  background poller returned `ed4851c9`'s REVISE note — another thread's — which
+  reads as *my* verdict if you don't check the "submission correlation:" line in the
+  body. **Always confirm the verdict against the correlation-keyed source:**
+  `diagnosis_artifacts WHERE correlation_id=<yours> AND kind='council_report'`
+  (that returned zero rows for me, correctly — the run never produced a report).
+  Same family as the documented "council_report source_agent='generic' fleet-wide"
+  trap. RUNBOOK query corrected.

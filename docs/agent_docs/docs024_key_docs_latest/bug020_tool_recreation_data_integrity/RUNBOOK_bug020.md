@@ -98,7 +98,18 @@ curl -s "https://<site>/<tool-page>?cb=$RANDOM" | grep -ciE 'Mulberry32|makePost
 ```
 Verdict (budget ~30 min — dispatch queues behind the fleet; a missing row is latency, not a drop):
 ```sql
-SELECT current_step, status FROM orchestration_states
+-- Run state. If it sits at EXECUTING_STEP for hours it is WEDGED (003-class spawn
+-- loss), NOT queued and NOT a verdict — resubmit with RESUBMIT_CORR (first run
+-- 8eef369f wedged at review_tooling_provenance for 3h42m on 2026-07-21):
+SELECT current_step, status, now()-updated_at AS since_update FROM orchestration_states
 WHERE collected_data->'input_data'->>'fix_correlation_id' = '8eef369f-5d93-4ebc-8491-e4d96397a91a';
-SELECT body FROM doc_notes WHERE categories ? 'council-gate' ORDER BY created_at DESC LIMIT 1;
+
+-- THE verdict — keyed on YOUR correlation. This is the authoritative source:
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='8eef369f-5d93-4ebc-8491-e4d96397a91a' AND kind='council_report'
+ORDER BY created_at;
 ```
+> ⚠️ Do NOT read the verdict from `SELECT body FROM doc_notes WHERE categories ?
+> 'council-gate' ORDER BY created_at DESC LIMIT 1` — that is the most recent council
+> note **fleet-wide** and will hand you ANOTHER thread's verdict. If you must read the
+> prose note, confirm the "submission correlation:" line in the body matches yours.
