@@ -137,10 +137,14 @@ func (c *ContactFormUndeliverableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 			"page_id":   pageID,
 			"page_name": pf[0].PageName,
 			"findings":  pf,
-			"remedy": "Give the site a real contact address (sites.content_data.email " +
-				"or the identity site_spec) and re-render — the render path then " +
-				"converts the form to a mailto automatically. Otherwise point the " +
-				"form at a live POST handler, or remove it.",
+			"remedy": "Set the site's contact address in the sites.email column " +
+				"(that is the field the render path reads — loadSiteDataFull's " +
+				"COALESCE(si.email,''); content_data.email and the identity " +
+				"site_spec are NOT read on render) and re-render — the render path " +
+				"then converts the form to a mailto automatically. A bare " +
+				"info@<domain> is treated as no address (the synthesised display " +
+				"fallback, not a real inbox). Otherwise point the form at a live " +
+				"POST handler, or remove it.",
 		})
 
 		var pageIDPtr *uuid.UUID

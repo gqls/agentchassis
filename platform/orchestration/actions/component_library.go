@@ -887,6 +887,23 @@ func deliverableFormAction(current string, ctx *RenderContext) (string, bool) {
 		return "", false // nothing honest to substitute — leave it for the check
 	}
 
+	// Two render paths synthesise ctx.Email = "info@" + Domain as a DISPLAY
+	// fallback before rendering when the site has no configured address
+	// (section_editor_actions.go:452, multipage_actions.go:333). That value is
+	// not a real inbox — the 4 address-less sites (robot-hands, relojistas,
+	// vetcomparison, vonc) all have an empty sites.email, so any
+	// "info@<their own domain>" reaching here IS that fallback. Building a mailto
+	// to it would fabricate exactly the address this function refuses to invent,
+	// silently and only on those two paths. The struct field is the sole input
+	// the sanitiser sees, so guarding it here closes the gap on every caller at
+	// once. A site that has genuinely configured info@<its own domain> as a
+	// monitored inbox is the one false refusal; the form is then left for the
+	// contact_form_undeliverable check to raise for a human, which is safe.
+	// A real info@ on a DIFFERENT domain (e.g. a shared CRM inbox) is honoured.
+	if strings.EqualFold(email, "info@"+strings.TrimSpace(ctx.Domain)) {
+		return "", false
+	}
+
 	subject := ctx.Domain
 	if subject == "" {
 		subject = "website"

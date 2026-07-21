@@ -66,6 +66,30 @@ func TestSanitiseFormAction(t *testing.T) {
 			wantKey: true,
 		},
 		{
+			// The gap the council REVISE (guardian + editquality) flagged.
+			// section_editor_actions.go:452 / multipage_actions.go:333 set
+			// ctx.Email = "info@"+Domain as a display fallback BEFORE rendering,
+			// so on those paths an address-less site would otherwise get a
+			// fabricated mailto:info@<domain>. The synthesised value must be
+			// refused, same as an empty one — the form is left for the check.
+			name:   "the synthesised info@<domain> fallback is refused, not turned into a mailto",
+			action: "#contact", present: true,
+			email: "info@robot-hands.com", domain: "robot-hands.com",
+			want:    "#contact",
+			wantKey: true,
+		},
+		{
+			// The guard is precise: it refuses ONLY info@<the site's own domain>
+			// (the synthesised fallback). A genuinely configured info@ on a
+			// different domain — a shared CRM inbox, say — is a real address and
+			// must still be honoured.
+			name:   "a real info@ on a different domain is still honoured",
+			action: "#contact", present: true,
+			email: "info@leopardess.uk", domain: "robot-hands.com",
+			want:    "mailto:info@leopardess.uk?subject=robot-hands.com enquiry",
+			wantKey: true,
+		},
+		{
 			name:   "an existing mailto is left untouched",
 			action: "mailto:idea.uk@contactforsales.com?subject=idea.uk enquiry", present: true,
 			email: "someone@else.com", domain: "idea.uk",
@@ -189,5 +213,22 @@ func TestFormActionNotFabricatedOnRegexFallbackPath(t *testing.T) {
 	if got := contextToMap(ctx)["form_action"]; got != "#contact" {
 		t.Errorf("form_action = %q, want it left as #contact — no address is "+
 			"resolvable and a synthesised one would hide the breakage", got)
+	}
+}
+
+// The info@<domain> honesty guard must also hold on the regex fallback path.
+// Here ctx.Email is the synthesised "info@"+Domain value some render paths set
+// before rendering; if template execution errors and drops to contextToMap, a
+// fabricated mailto:info@<domain> must NOT appear on the page.
+func TestFormActionInfoFallbackNotFabricatedOnRegexFallbackPath(t *testing.T) {
+	ctx := &RenderContext{
+		Domain:      "robot-hands.com",
+		Email:       "info@robot-hands.com", // the section_editor/multipage synth fallback
+		ContentData: map[string]interface{}{"form_action": "#contact"},
+	}
+
+	if got := contextToMap(ctx)["form_action"]; got != "#contact" {
+		t.Errorf("form_action = %q, want it left as #contact — info@<own domain> "+
+			"is the synthesised display fallback, not a real inbox", got)
 	}
 }
