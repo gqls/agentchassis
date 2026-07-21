@@ -2772,3 +2772,50 @@ FIXED & LIVE 2026-07-21, DB + seed, no image roll).
 `bugs_open/054`; §9 *"Manually invoking an agent via spawn+call — input_mapping must
 satisfy BOTH the input_contract AND the workflow's field paths"* (same nesting-contract
 family); `WRONG_CALLS.md` 2026-07-20 (the diagnosis-filing near-miss on this same case).
+
+### A reader that understands one schema dialect FAILS OPEN on every other dialect — "couldn't read the contract" becomes "there is no contract" (2026-07-21)
+
+**Symptom.** A field declared `required` in a component's `input_schema` renders empty,
+saves, deploys, and serves — with nothing anywhere logging that a required field was
+missing. The enforcement gate that exists precisely to stop this (`missingRequiredLLMFields`,
+"refusing to render an empty section") ran and found nothing wrong.
+
+**The instance.** `bugs_open/026`: the shared `news-listing` component's `<h1>{{.headline}}</h1>`
+served empty. `headline` was `required:true, source:"llm"`. Root cause was **not** a
+validator treating `""` as present — it was schema-**shape** blindness. The component's
+`input_schema` was the old JSON-Schema dialect
+(`{"type":"object","required":["headline"],"properties":{…}}`). Two independent readers parse
+**only** the v2 `input_schema.fields.<name>` dialect:
+
+- **Generation** — `planSection` (`plan_sections_action.go:1182`):
+  `comp.InputSchema["fields"].(map)` misses → falls to `"no field schema — all fields from
+  LLM"` with an empty `llmFieldSpecs`. The writer is never told the field exists → never
+  generates it. (A name-keyword backstop at :1206 defers only `article/content/body/text/blog`;
+  `news-listing` matches none.)
+- **Enforcement** — `missingRequiredLLMFields` (`json_envelope.go:192`): reads only
+  `inputSchema["fields"]` → `nil` → zero enforcement.
+
+Both readers returned "nothing here" on a schema that in fact declared a required field.
+Downstream treated *"I can't read this contract"* identically to *"there is no contract."*
+That is failing **open**. A required field was therefore neither **requested** (generation)
+nor **checked** (enforcement) — the two independent safety nets shared the exact same blind
+spot, so having two did not help.
+
+**The general shape.** Any parser of the form `x, ok := m["known_key"].(T); if !ok { return
+nil }` fails open when the input is a *different valid dialect* rather than genuinely empty.
+The nil/empty return is indistinguishable to the caller from "legitimately nothing to do."
+Empty-schema components (tools, decorative sections) rely on exactly that nil return, so you
+cannot simply make the miss an error — you must distinguish *"no contract"* (empty `{}`) from
+*"a contract I don't speak"* (non-empty, carries `properties`/`required[]` but no `fields`).
+
+**What to do.**
+- When a schema/format flips dialects (here: a seed migrating `properties`→`fields`), **grep
+  every consumer of the OLD dialect before assuming the flip is inert.** The flip fixed the
+  one migrated component; every *other* consumer still silently mis-reads any un-migrated row.
+- Ground "is the old dialect extinct?" against the live DB, don't assume the migration was
+  total: `count(*) FILTER (WHERE input_schema ? 'properties' AND NOT (input_schema ? 'fields'))`.
+- Prefer normalising the old dialect into the view the readers already consume (so old-shape
+  rows become *understood*, not merely *rejected*) over bolting a second parser onto each site.
+
+**Related:** `bugs_open/026` (the case); the "two-branch router" entry above (same "two nets,
+one blind spot" family, different mechanism — there it was placement, here it is dialect).
