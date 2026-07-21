@@ -189,8 +189,13 @@ func jsonStructureFollows(runes []rune, i int) bool {
 // This is the check that turns "a required content field never arrived" from a
 // silently-empty render into a loud, actionable failure — the article-body
 // component declares exactly one such field, `content`.
+//
+// The field set is read via schemaContentFields, so a component authored in the
+// legacy JSON-Schema dialect (`properties`+`required[]`, no `fields`) is enforced
+// too rather than silently passing with zero required fields — the fail-open that
+// let bugs_open/026's required `news-listing` headline ship empty.
 func missingRequiredLLMFields(inputSchema map[string]interface{}, content map[string]interface{}) []string {
-	fields, ok := inputSchema["fields"].(map[string]interface{})
+	fields, ok := schemaContentFields(inputSchema)
 	if !ok {
 		return nil
 	}

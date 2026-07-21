@@ -1181,8 +1181,12 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 		Component: comp.Raw,
 	}
 
-	// Get fields from schema
-	fieldsRaw, ok := comp.InputSchema["fields"].(map[string]interface{})
+	// Get fields from schema. Read via schemaContentFields so a component in the
+	// legacy JSON-Schema dialect (`properties`+`required[]`, no `fields`) has its
+	// fields planned for — before bugs_open/026 a missed dialect fell through to
+	// "all fields from LLM" with no field specs, so a required field the writer
+	// was never told about (the news-listing headline) was never generated.
+	fieldsRaw, ok := schemaContentFields(comp.InputSchema)
 	if !ok || len(fieldsRaw) == 0 {
 		// A self-contained TOOL component legitimately has an empty input_schema:
 		// its HTML renders entirely from its own template, with no LLM-authored
