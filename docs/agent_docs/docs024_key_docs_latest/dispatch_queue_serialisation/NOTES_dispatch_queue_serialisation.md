@@ -374,3 +374,55 @@ sampler completes. **Not claiming the backlog is fixed** — that needs a fresh 
 trend over ≥20 min AND accounting for what work is at the head, and the queue was
 diverging when the change went in. This reduces scheduled production; whether it
 brings production under consumption is the thing to measure next, not assert.
+
+---
+
+## 2026-07-21 — verified the config change, and corrected my own mechanism claim
+
+Measured the fire cadence after the change (`EVIDENCE_fire_intervals_2026-07-21.txt`,
+13 samples at 30 s):
+
+- `ai-endpoint-health-check` (interval 60): fired 10:34:03, 10:35:33, 10:37:03,
+  10:38:34, 10:40:03 → gaps **90, 90, 91, 89 s**. Steady 90 s.
+- `build-pipeline-trigger` (interval 120): fired 10:33:33, 10:36:04, 10:38:33 →
+  gaps **151, 149 s**. Steady 150 s.
+
+**This overturned my own "tick aliasing" landmine.** I had written that a 30 s task
+fires every 60 s because `interval == TICK` is a special aliasing case, and that a
+clean multiple of the tick removes it. Both wrong. The measured rule is
+**effective = interval + TICK, for any multiple of the tick** (30→60, 60→90,
+120→150), and the source says why: `last_triggered_at` is stamped at *fire time*
+(late in `runTick`) but the due test reads `NOW()` at the *start* of the next tick,
+so the boundary tick reliably fails `last + interval <= NOW()` and slips one tick.
+Universal, not special. My "pick a clean multiple" advice was exactly backwards —
+multiples are the boundary case that takes the extra tick. Corrected rule: for a
+target effective period P, set `interval = P − 30`. Recorded in the bug file and
+RUNBOOK R8; SUMMARY carries a visible correction note.
+
+**Load effect (from measured effective periods):**
+
+| | before (60 s each) | after |
+|---|---|---|
+| ai-endpoint-health-check | 1.00/min | 0.67/min |
+| build-pipeline-trigger | 1.00/min | 0.40/min |
+| two dominant | 2.00/min | **1.07/min** |
+
+Estimated total scheduled production **2.60 → ~1.67/min**, against a consumer
+measured ~1.43/min under congestion — and that consumer figure *rises* as fewer
+expensive build chains start, so the two are now near-balanced, possibly balanced.
+
+**LAG after the change: 20** (10:49 UTC), against 82→168 and diverging yesterday.
+**[NOT PROOF]** — one reading, and the offset had advanced ~1,960 overnight, so
+quiet-hours draining is a large confounder. Consistent with improvement; a real
+before/after needs a LAG trend across a *busy* window, which I have not yet run. Do
+not record "030 fixed" on this evidence.
+
+### What remains
+- The core root-cause claim (inline handler vs `PartitionCount`) is still only filed,
+  not adjudicated — diagnosis corr `78470372` never started (stuck in this queue).
+  The config change does not depend on it, and the mass balance + blast-radius
+  findings corroborate the mechanism independently.
+- Structural fix (dedicated scheduler lane) still open, still needs the council gate,
+  still must be checked against `/bugs_open/029`.
+- The diagnosability win (triggers print `LAG` on publish) is untouched and remains
+  the highest-value cheap change.

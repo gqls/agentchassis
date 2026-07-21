@@ -234,3 +234,37 @@ your work again — I've left for a separate, careful decision, and it's written
 And the diagnosis run I sent yesterday to double-check my reasoning is still stuck in
 the queue, more than an hour on. So if it never surfaces, we decide the structural
 part on the evidence we have, which is already fairly strong.
+
+## 2026-07-21 — the fix is in and measured, and I caught myself getting the mechanism wrong again
+
+I watched the two jobs actually fire after the change, rather than trust the setting.
+Good thing too, because they aren't firing at the intervals I set. I set 60 and 120
+seconds; they're firing every 90 and 150. And that turned out to expose a mistake in
+my own explanation from yesterday.
+
+I'd said the every-30-seconds-means-every-60 problem was a special coincidence of the
+job interval matching the scheduler's heartbeat, and that picking a "clean" interval
+would fix it. Watching it run showed the opposite: *every* job fires one heartbeat
+later than its setting, always, because of how the scheduler stamps the time. So my
+"clean interval" reasoning was backwards — and I've corrected it everywhere I wrote
+it. The plain rule is: whatever you set, add one heartbeat (30 seconds) to get the
+real interval.
+
+The happy accident is that this makes the fix slightly *better* than I intended —
+90 and 150 seconds is a bit more breathing room than 60 and 120 would have been. The
+scheduler is now putting work into the queue at roughly a third less than before, and
+the two dominant jobs have gone from two-a-minute down to about one-a-minute between
+them.
+
+Is the backlog actually recovering? The one snapshot I took looked very healthy — the
+queue was down to 20 waiting, from 168 yesterday. But I want to be honest that I can't
+claim victory from that: a lot of the overnight hours are quiet and the queue drains
+itself then, so I can't tell how much is my change and how much is just 3am. Proving
+it needs watching the queue through a busy stretch, which I haven't done yet. So:
+lever pulled, measured, pointing the right way — not "fixed" with a tick in the box.
+
+The two bigger pieces are still open and still yours to steer when you want them: the
+structural change (giving the scheduler its own separate lane so it can never queue in
+front of your work), and the cheap diagnosability win (making the trigger scripts tell
+you "you're queued behind N" instead of leaving you guessing). Neither was touched
+today; today was just the safe, reversible, config-only first step you asked for.

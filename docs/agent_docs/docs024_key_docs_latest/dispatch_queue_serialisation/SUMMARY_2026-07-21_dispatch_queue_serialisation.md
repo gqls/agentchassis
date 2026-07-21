@@ -59,12 +59,19 @@ the picture resolved quickly and firmly:
   load overnight.
 
 **And today we made the first fix — config only, no code, live immediately.** We
-raised the two dominant jobs to intervals that (a) are clean multiples of the
-scheduler tick, so the every-30s-means-every-60s trap is gone, and (b) reduce the
-load. The health check moves 30→60s (which is what it was really doing anyway, now
-made honest and honouring each endpoint's own needs), and the build trigger moves
-30→120s, which halves the rate at which the *expensive* build chains are started —
-the ones that actually clog the single consumer.
+raised the two dominant jobs to reduce the load: the health check from a 30 to a 60
+second setting, and the build trigger from 30 to 120. The build trigger is the one
+that matters, because it halves the rate at which the *expensive* build chains are
+started — the ones that actually clog the single consumer.
+
+> **CORRECTED same day:** an earlier draft of this paragraph said the new values were
+> "clean multiples of the scheduler tick, so the every-30s-means-every-60s trap is
+> gone." I then measured it and found I had the mechanism backwards. Every task
+> actually fires *one tick later* than its setting — the trap is universal, not
+> special to the 30-equals-30 case — so the jobs now fire every 90 and 150 seconds,
+> not 60 and 120. That is *more* headroom, so the fix is if anything better than
+> intended; but the tidy "clean multiples" story was wrong, and the honest rule is
+> "effective period = your setting plus one tick." Full detail in the bug file.
 
 ## Where we are now
 
