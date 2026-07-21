@@ -169,4 +169,10 @@ its current incidence.
 downstream mitigation. Candidate 1 (assert intent against realisation at
 classification time) is also untouched.
 
-Go change — inert until a chassis image is rebuilt and rolled.
+**LIVE 2026-07-21 in v1.0.1144** — pod-verified (`stranded nav page list capped`
+and `RE-TYPE that page to page_type` both present in the running binary). The
+case **stays OPEN** regardless: the partial (candidate 3) is only the
+adopt-don't-duplicate mitigation; the defect that makes the planner emit
+`section-index` for a news listing (candidate 2) is untouched, so the class is
+not closed. Do NOT move this to `/bugs_closed/` on the strength of the partial
+being live.
