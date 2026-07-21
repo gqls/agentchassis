@@ -5,8 +5,18 @@ re-reading the whole directory. Deeper detail: `PLAN` (defect classes A–H), `N
 (evidence + every misstep, append-only), `RUNBOOK` (R1–R14, every query with its gotcha),
 `README_where_we_are.md` (the owner's plain-prose log), `SUMMARY_*` (milestone read-outs).
 
-**Last updated:** 2026-07-21 · **Branch:** `085_debug_and_feature_loops`
+**Last updated:** 2026-07-21 (bugfix-023 session, evening — 049 + legal pages) · **Branch:** `085_debug_and_feature_loops`
 **Origin:** owner review of leopardessconsulting.co.uk, 4 broken buttons (2026-07-19).
+
+> ## ⏩ START HERE if resuming the 049 / legal-pages thread (2026-07-21)
+>
+> A separate, larger defect was found while sizing 023's sweep and is the live work right now:
+> **`bugs_open/049` — 312 live broken links across 7 sites**, dominated by `/privacy.html` +
+> `/terms.html` in the footer of every page of three sites whose chrome predates its own
+> 2026-06-10 fix (`0681e1542`) and was never re-rendered. See §9 below for the full state.
+> **In one line:** gaswholesalers **done** (chrome refreshed, 87→37 broken links); aao +
+> finetuning legal pages **written, created (migration 182), and deploying**; class C+E on the
+> live CTA components **fixed (migration 181)**. What's left is small and named in §9.
 **Owning workstream:** this one. If CTA/link work surfaces elsewhere, coordinate and
 contribute into `bugs_open/023` itself — do **not** start a competing fix.
 
@@ -185,3 +195,96 @@ R9 (ungated worklist), R10 (backup rows live), R11 (retrieve a council/diagnosis
 R12/R14 (read the observe streams), plus every council-submission gotcha. Deploy is verified
 against the **running pod**, never the tag:
 `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "cta derivation delta"'`.
+
+---
+
+## 9. bugs_open/049 + the legal pages — the live work (2026-07-21 evening, bugfix-023 session)
+
+**What 049 is.** Sizing 023's ungated sweep, a live audit of 180 pages across 7 sites
+(`scripts/live_link_audit.sh`, RUNBOOK R15) found **312 broken anchor instances on 117 of 180
+pages**. 204 of them are `/privacy.html` + `/terms.html` in the footer of **every page** of
+finetuning.uk, ai-agent-orchestration.com and gaswholesalers.com. Root cause proven both
+directions: the chrome renderer's hardcoded legal slice was fixed **2026-06-10 (`0681e1542`)**,
+but chrome re-renders only on explicit trigger and nothing sweeps it — those three sites'
+`site_components` date from Apr/May, pre-fix. Every post-fix chrome render in the fleet is
+correct (the control). Full file: `bugs_open/049`. Two sibling mechanisms in the same audit:
+undeployed-but-linked pages (mechanism 2) and extension-less internal links (mechanism 3).
+
+**What is DONE and verified live:**
+
+- **Migration 181** (`sql_for_agents/181_class_e_live_cta_url_integrity.sql`, applied+ledgered) —
+  023 classes C+E on the **live** components: `content-block-about` + `tool-cta` CTA url fields
+  flipped `source:llm+required` → `renderer+optional`, all four anchors gated.
+  `platform-comparison` gated but **deliberately not flipped** (its one live value is a real
+  working page; flipping would delete a working button — the residual llm field is recorded in
+  023). Ungated CTA anchors 156→152.
+- **gaswholesalers.com chrome refresh** (owner-approved "all three"): 87→37 broken link
+  instances, the phantom legal 404s gone from every page. ⚠️ It confirmed **`bugs_open/053`**
+  live — with no `legal` nav group, the footer legal slot rendered a 21-link pages-table
+  fallback. Left in place (rollback restores the 56 404s); the *clean* outcome is what the
+  legal pages below now give the other two sites.
+
+**What is DONE this session and DEPLOYING (verify it landed):**
+
+- **Legal pages written + created — migration 182** (`sql_for_agents/182_legal_pages_aao_finetuning.sql`,
+  applied+ledgered). Creates:
+  - aao: `/privacy.html` + `/terms.html` + a **new `legal` nav group** (Privacy, Terms)
+  - finetuning.uk: `/terms.html` + a Terms item in its **existing** legal group (it already
+    has `/privacy-policy.html`)
+  - All are `generic-text-block` content pages, `rebuild_policy='owned'` + `page_components`
+    `lock_type='permanent'` (clobber-protected — stronger than finetuning's existing privacy,
+    which is only `generic`; see owner-fill list).
+  - **Content is verifiable-facts-only**, mirroring finetuning's live owner-approved privacy
+    policy in structure and its honest hedges. Facts from `site_specs.identity` + `sites`.
+- **Chrome refreshed on aao + finetuning** → both footers now render a **clean 2-link legal
+  slot** pointing at the real pages (053 fallback avoided, because the legal nav groups now
+  have real items). Verified in `site_components`.
+- **aao `/privacy.html` + `/terms.html` verified LIVE (200)** at write time.
+- **finetuning `/terms.html` was deploying** when this handoff was written (page_rerender item
+  boosted to priority 1). **Verify it is 200** — if still 404, see the deploy gotcha below.
+
+**The deploy gotcha that cost the most time here (READ THIS before the next page-create):**
+
+`rerender-pages` with `refresh_site_components:true` refreshes chrome **inline** but deploys
+pages **asynchronously** — `create_rerender_items` inserts one `page_rerender` work item per
+page and `build-dispatch-loop` processes them one at a time. So a brand-new page does NOT go
+live when the orchestration reports `complete`; it goes live when its work item is claimed.
+**aao's page_rerender queue was clogged** (31 triaged + 21 unresolved since Apr/Jul, dispatch
+slow) so a new item sits at the back. Claim order is `priority ASC, created_at ASC`, so:
+**boost the specific item to `priority=1`** and it is claimed next:
+```sql
+UPDATE site_work_items w SET priority=1 FROM pages p
+WHERE w.page_id=p.id AND w.item_type='page_rerender' AND w.status='triaged'
+  AND p.site_id='<site>' AND p.url IN ('/privacy.html','/terms.html');
+```
+Verify the page LIVE (200), never the DB status. `page_components.rendered_html` and a
+`build_status='deployed'` row are NOT proof the file shipped (that is 049 mechanism 2 itself).
+
+**Owner-fill items for the legal pages** (they are valid without these; add if wanted — they
+were deliberately NOT fabricated): registered company name/number if incorporated; registered
+or trading address (both sites' `site_specs.contact.address` is NULL, location "United
+Kingdom"); ICO registration number; named data processors / analytics tools (the pages say
+"we will name tools as confirmed" — finetuning's approved policy does the same); confirm
+governing law is **England and Wales** (used as the UK default) vs Scotland/NI. finetuning's
+existing `/privacy-policy.html` is `rebuild_policy='generic'` (less protected than the new
+pages) — consider flipping it to `owned`.
+
+**Still to do on 049 (small, named):**
+- Verify finetuning `/terms.html` went 200; if the queue stays clogged, the aao queue clog is
+  itself worth a look (dispatch not draining since ~Jul 10 — likely `bugs_open/003`/`030`).
+- gaswholesalers still shows a 21-link legal fallback (053) — it has no legal pages. Either
+  give it real legal pages (same migration-182 pattern) or wait for 053's Go fix. Its other
+  residual 37 broken links are mechanism 2/3 (content links + one `needs_rebuild` page), not
+  chrome.
+- The two post-refresh sites' **existing page files** still carry old baked-in chrome until
+  they re-render; harmless now that the legal pages exist (old chrome linked the same URLs),
+  but a full page re-render across each site would make them consistent — needs the queue to
+  drain.
+- 049 mechanisms 2 (undeployed-but-linked pages) and 3 (extension-less links) are unstarted;
+  fix candidates 3/4/5 in `bugs_open/049`.
+
+**Scripts added this session:** `scripts/049_TRIGGER_chrome_refresh.sh <domain>` (dispatch a
+chrome-refresh; the inherited `kubectl run -i <<JSON` pattern is a **stdin race that can send
+nothing while printing success** — this one echoes the payload inside the pod and tells you to
+verify against the **topic**, not the orchestration table). `scripts/parse_gates.py` now prints
+the range-vs-CTA split. `scripts/live_link_audit.sh` = RUNBOOK R15.

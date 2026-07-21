@@ -507,3 +507,42 @@ lost.
 Separately: another session is already building the fix for the "Bayesian ranker turning up on the
 wrong tool page" problem (one of the other three options I offered you), so that one is in hand
 elsewhere.
+
+----
+
+**2026-07-21 — the legal pages are written, and two of the three sites are sorted.**
+
+You asked me to write the legal pages for ai-agent-orchestration and do finetuning too, now that
+the new build is out. Done, and here's the plain version.
+
+**I wrote three legal pages by hand:** a privacy policy and terms of service for
+ai-agent-orchestration, and a terms of service for finetuning (it already had a privacy policy).
+I wrote them the careful way — using only facts I could verify (the business name, the contact
+email, the phone, "United Kingdom"), and I deliberately did *not* invent the things a lawyer
+would want filled in: a company registration number, a registered address, an ICO number, the
+names of specific data-processing tools. The pages are valid and honest without those, and they
+say so where it matters (finetuning's own existing privacy policy does the same thing — I mirrored
+it). There's a short list in the handoff of what you might want to add or confirm — including one
+choice that's genuinely yours: I've written the terms as governed by English law, which is the
+usual UK default, but if the business is set up in Scotland or Northern Ireland that line should
+change.
+
+**Why this matters beyond the pages themselves:** the reason those three sites had broken
+"Privacy"/"Terms" links in the first place is that the links existed but the pages didn't. Now the
+pages exist. I also made sure each site has a proper "legal links" list so the footer shows a tidy
+"Privacy · Terms" instead of the cluttered dump you saw on gaswholesalers — and that worked, both
+footers are clean.
+
+**Where it stands right now:** ai-agent-orchestration's two pages are **live** — you can visit
+them. finetuning's terms page is **still publishing** as I write this; the site's publishing queue
+was backed up and I've pushed this page to the front of it, so it should appear shortly. If it
+hasn't by the time you read this, the handoff explains exactly how to nudge it (it's one command),
+and the backed-up queue is itself worth a look — that site hasn't published anything since around
+the 10th, which smells like the dispatch problem we already have a bug open for.
+
+**One thing I protected against:** these legal pages are marked "owned", which means the automatic
+rebuild machinery is forbidden from regenerating them. Legal text you've reviewed shouldn't be
+liable to get quietly rewritten by an AI on the next site rebuild. (Worth noting finetuning's
+existing privacy page is *not* protected this way — flagged in the handoff.)
+
+The whole thing is written up so the next chat can pick up exactly here.

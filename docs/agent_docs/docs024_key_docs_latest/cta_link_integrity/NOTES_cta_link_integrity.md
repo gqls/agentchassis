@@ -1293,3 +1293,50 @@ touches the resolver (the trap: masking a genuine "resolver errored" as "empty")
 transformed templates — populated⇒cards/no-empty, empty⇒empty-state/no-cards, override honoured;
 (c) BEGIN…ROLLBACK dry-run against live DB before the real apply. All five backed up in
 `bak_054_list_components_20260721`.
+
+---
+
+## 2026-07-21 — session 4 cont'd: legal pages written + deployed (049 candidate 2), deploy-queue mechanics
+
+Owner: "write the ai-agent-orchestration legal and do it as well as finetuning" + build v1.0.1144
+deployed. Read as: complete the legal pages for BOTH aao and finetuning so their chrome refresh
+comes out clean (no 053 fallback), and deploy.
+
+**Mechanism established before writing anything** (so the content survives and the deploy works):
+- Legal pages = `content` page, `sections=['generic-text-block']`, content in
+  `page_components.content_data {heading, content}`. Template just wraps heading+content in
+  `<section class="section--generic">`. finetuning's live `/privacy-policy.html` is the reference.
+- **Re-render reads STORED `rendered_html`** (`rerenderLoadSections`, `rerender_pages_actions.go:592`)
+  — no LLM regeneration — so hand-written legal text in `rendered_html` (+ `content_data`) ships
+  intact. This is why legal text is SAFE to hand-author here (LLM generation would risk fabricated
+  GDPR/registration claims).
+- Protection: `pages.rebuild_policy='owned'` makes `save_page_sections` REFUSE a generic clobber
+  (`save_page_sections_action.go:148`); + `page_components lock_type='permanent'`.
+
+**Migration 182** applied+ledgered: aao `/privacy.html`+`/terms.html`+new legal nav group;
+finetuning `/terms.html`+terms item in existing legal group. Content = verifiable-facts-only,
+aao privacy mirrors finetuning's approved privacy policy structure/hedges. No fabricated
+company number / address / ICO / processors — owner-fill list in HANDOFF §9.
+
+**The deploy-queue lesson (cost the most time, now in HANDOFF §9 and the trigger script):**
+`rerender-pages refresh_site_components:true` refreshes chrome INLINE but deploys pages
+ASYNC via `create_rerender_items` → one `page_rerender` work item per page → `build-dispatch-loop`
+one at a time. So `orchestration=COMPLETED` does NOT mean the new page is live.
+
+- **Trap I fell into and corrected:** I first concluded "0 rerender items were created" and
+  nearly filed it as a workflow bug — a **mis-query** (I filtered `created_at > now()-20min` and
+  read 0). The items DID exist, `triaged`, created 10:34:22. Re-queried without the time filter
+  → both there. Lesson: before declaring "nothing was created", query without the incidental
+  filter; a 0 from a compound WHERE is not evidence of absence.
+- **aao's page_rerender queue is clogged** (31 triaged + 21 unresolved, dispatch slow, last
+  organic completion ~Jul 10) — but it IS alive (3 completed at 10:34:22). Claim order is
+  `priority ASC, created_at ASC` (`load_work_item_actions.go:589`), so a new item (priority 80,
+  newest) sits at the back. **Boosted the 2 aao + 1 ft legal items to `priority=1`** → claimed
+  next. aao `/privacy.html` + `/terms.html` went **200** within minutes. finetuning `/terms.html`
+  still deploying at write time.
+- Chrome refresh gave both aao and finetuning a **clean 2-link legal footer** (Privacy + Terms /
+  Privacy Policy + Terms of Service) — 053 avoided because the legal nav groups now have real items.
+
+> **Verify live (200), never the DB.** A `build_status='deployed'` row + `rendered_html` is NOT
+> proof the file shipped — that is 049 mechanism 2 itself. aao pages confirmed 200 with correct
+> content (title, data-controller line, real contact email).
