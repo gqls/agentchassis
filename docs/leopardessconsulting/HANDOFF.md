@@ -102,7 +102,11 @@ Plan for these: `PLAN_imagery_and_design_2026-07-18.md`.
 
 | # | Item | Status |
 |---|---|---|
-| 1 | 4 buttons on the tool pages broken/meaningless: *Start Ranking Free*, *See How It Works*, *Start the Guide*, *Visit the Tool* | **DIAGNOSED & PLANNED, not fixed** (deliberate — owner scoped the fix to a later thread). Bug: `bugs_open/023`. Plan + evidence + queries: `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/`. |
+| 1 | 4 buttons on the tool pages broken/meaningless: *Start Ranking Free*, *See How It Works*, *Start the Guide*, *Visit the Tool* | **✅ FIXED & EXTINCT FLEET-WIDE (2026-07-20).** leopardess tool pages cleaned (P4, verified live); fleet completed + `tool-guide-intro` fixed at component level by migration 179; the structural fix (schema-derived pairing) runs as a live observe-stage. **This grew into its own workstream — resume there, not here: `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/HANDOFF.md`.** Bug: `bugs_open/023` (+ siblings 033/039/045). |
+
+> The block below is the ORIGINAL 2026-07-19 diagnosis, kept for the record. It is
+> superseded by the CTA workstream HANDOFF above — figures here (75 ungated, 34/21/13 items)
+> are the 07-19 snapshot and have since moved; do not act on them, use the workstream doc.
 
 **Summary of the diagnosis** (full detail in the plan — do not re-derive):
 Four buttons, four *different* mechanisms, each defeating a different check. `href=""`
