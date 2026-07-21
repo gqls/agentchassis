@@ -6,9 +6,12 @@
 > 13 price-aggregate rows — then sent them to the git-adapter
 > (`export_json.git_result.file_count = 5`), reaching step `complete` with no error.
 > That is behaviour an empty domain could never produce; the config now demonstrably
-> drives the export. The live site's `directory-metadata.json exported_at` advances past
-> 2026-07-17 once the git-adapter commit lands and the site redeploys (downstream, no
-> further action needed). **This is a DB-config + seed fix — no image roll required.**
+> drives the export. **Downstream confirmed:** within ~50 min the git-adapter commit
+> landed and the site redeployed — `https://vetcomparison.uk/data/directory-metadata.json`
+> now reads `exported_at: 2026-07-21T10:55:03Z` (was stuck at `2026-07-17T20:23:37Z`),
+> directory of 2,109 businesses. Verified end to end: DB config → orchestration → git
+> commit → site deploy → live artefact. **This is a DB-config + seed fix — no image roll
+> required.**
 
 **Filed 2026-07-21.** **Status: FIXED (data live; seed committed).** Fleet-wide authoring trap; one live casualty (`directory-export-json`, now fixed).
 
