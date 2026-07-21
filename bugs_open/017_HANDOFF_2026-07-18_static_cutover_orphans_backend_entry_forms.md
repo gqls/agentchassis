@@ -157,3 +157,37 @@ un-gated probe variant of Finding A). The site half is closable. `contact_form_u
 (landed 2026-07-20, `bugs_open/006 §B`) is a *sibling*, not this: it flags contact-form components
 with dead actions and explicitly treats POST handlers like `/request` as valid destinations — it does
 not cover the GET-link-to-POST-only-handler case.
+
+### Finding A BUILT (2026-07-21) — `backend_entry_orphaned` / `method_mismatch_link`
+
+`platform/orchestration/actions/discovery_checks/check_backend_entry_orphaned.go` (+ `_test.go`),
+committed `7b03f296a`. Follows the owner-chosen **probe-based, un-gated** design (session decision
+2026-07-21):
+
+- Reads deployed `page_components.rendered_html` (active + deployed, `page_components` only — chrome
+  has its own fixers), extracts anchors via the canonical `datahelpers.ExtractAnchors` /
+  `ClassifyLinkScope`, keeps only internal **extensionless** handler-like routes (a cost filter:
+  funnel handlers are clean paths like `/audience-check`; `.html`/assets can't 405), dedupes per
+  destination path, caps probes at 40 (logged on hit — no silent cap).
+- Live-probes `GET https://<domain><path>` (GET, not HEAD — reproduces the click) and files a
+  **high** `needs_human_review` item (no handler — repointing the link vs authoring the form is a
+  business decision) for **exactly HTTP 405**. 405-only keeps it off `phantom_internal_links`' (404)
+  and `backend_unreachable`'s (5xx) turf.
+- **Un-gated by `deploy_config.target='vm'`** on purpose — idea.uk's `deploy_config` is empty `{}`,
+  so the gate the sibling `check_backend_unreachable` uses would NOOP here.
+
+**Verified live 2026-07-21** (the induced-failing-branch, not just wiring): `GET /audience-check` →
+405 and `GET /request` → 405 → both FLAG (the exact symptom); `GET /subscribe` → **400**,
+`/tools.html` → 200, `/health` → 200, a bogus path → 404, `/` → 200 → all correctly ignored. Unit
+test pins the filter (17 cases); `go vet` clean. On idea.uk *today* it reports clean (the orphaned
+links were removed by the site fix), so it won't false-positive on the fixed site.
+
+**Status:** committed, **under council review** (advisory, corr `ed4851c9-e51b-446d-a4b4-bbbf516eaa60`).
+**Inert** until (1) an image roll carries the file into the pod, then (2) `backend_entry_orphaned` is
+added to a discovery agent's `checks` array (config, live immediately — but image-first, else it
+references an unregistered check). **017 stays OPEN** until it is live per the fixed-AND-live bar.
+
+**Still not built (deferred, follow-on):** Finding B `no_backend_entry` — a site declares a backend
+but no deployed page carries a `<form>` posting to a backend POST route ("site cannot sell
+anything"). Left out because it needs a reliable "does the site have a backend" signal, which the
+empty `deploy_config` shows is itself missing — a data-model gap worth its own decision.

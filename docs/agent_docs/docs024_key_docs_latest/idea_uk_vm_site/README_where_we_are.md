@@ -828,3 +828,37 @@ piece? Happy to do either; I just don't think I should pick for you.
 (Everything on the actual live site is already fixed and verified — nav, logo, the free tool. This is
 purely about the underlying platform fix and how thorough to make it before it ships in the next
 image.)
+
+## 2026-07-21 — the funnel bug (017): built the auditor that would have caught it
+
+Picking up the older funnel bug — the one where, right after the cutover, clicking "Free Audience
+Check" gave you a bare "POST only" page. The site itself was already fixed a couple of days ago (the
+two forms are back on the tools and report pages, and I checked again today: they're still there and
+working, nothing on the site points a plain click at that POST-only address any more). So the live
+site is fine.
+
+What was still missing is the *watchdog*. The whole reason that bug was scary is that nothing noticed
+— every automatic check we run said the page was healthy, because they only ask "does this link go
+somewhere?" and it did (it went to the tool). None of them asked the one question that mattered: "if
+someone *clicks* this, will the tool actually accept a click?" A form sends its data one way (a
+"POST"); a plain link is a different way (a "GET"); the tool only accepts the first, so a plain link
+to it is a dead end that looks alive.
+
+Two things I found that the old write-up got wrong, now that a few days have passed. First, it said no
+automatic check had ever run on idea.uk — that's no longer true, they have run (30 findings), and
+tellingly not one of them caught this funnel problem, which proves the gap is real. Second, the site
+isn't even *labelled* in our records as having a tool behind it (that field is just empty), which is
+why none of our backend checks ever looked at it. So I deliberately built the new check to not rely on
+that label at all — it just tries the link the way a visitor would and watches for the "wrong method"
+rejection.
+
+I've written that check and proved it works against the real site: clicking-style requests to the two
+tool addresses come back with exactly the "POST only" rejection it's meant to catch, while ordinary
+pages, the health check, and missing pages all come back clean — so it flags the real problem and
+doesn't cry wolf. It's gone into the review council (advisory) and I've committed it. It won't
+actually start running until the next image ships and I switch it on for the checker — I'll do that
+then. The bug stays officially open until it's live.
+
+One piece I left for later on purpose: a second check for "this site has a tool but no form anywhere
+to feed it" needs us to first fix that empty label problem (how does the platform know a site has a
+backend at all?), which is really its own decision rather than something to bolt on here.

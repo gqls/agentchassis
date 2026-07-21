@@ -1232,3 +1232,37 @@ several seats literally cannot query the tables):**
 one is a scope decision — does the fix stop at "name the dead control loudly" (my position, grounded
 in 023's delivery gap) or must it escalate/gate (the council's position, grounded in FAIL-LOUD)? I am
 taking that to the owner rather than revising past it a third time. See README entry.
+
+### §X.8 — bugs_open/017 auditor gap: `backend_entry_orphaned` Finding A BUILT (2026-07-21, session "bugfix 017")
+
+Separate strand from the chrome-renderer council above. This closes the *durable* half of
+`bugs_open/017` (the static-cutover funnel break); the site half was already fixed & verified live
+(§X.5) and I re-confirmed it holds today (forms present, zero GET links to `/audience-check`, taster
+JS 200, `GET /audience-check` → 405 correct).
+
+**Two premises in the 017 handoff were stale — corrected against the live DB:**
+1. "discovery has never run against idea.uk (0 rows)" — FALSE now: **30 `source='discovery'` items**
+   (9 phantom_internal_link, 8 cta_names_unknown_destination, 4 dead_control, …). The operational gap
+   closed. Crucially **none of the 30 is the 017 symptom** — confirming the backend-orphan gap is real.
+2. Proposed check gated on `deploy_config.target='vm'`. **idea.uk's `deploy_config` is `{}`** — no
+   backend marker at all — so that gate (shared with `check_backend_unreachable`) would NOOP here. So
+   `check_backend_unreachable` has *also* never probed idea.uk. Owner chose the **un-gated probe** path.
+
+**Built:** `check_backend_entry_orphaned.go` (+ `_test.go`), commit `7b03f296a`. Reads deployed
+`page_components`, keeps internal extensionless handler-like routes (`ExtractAnchors` +
+`ClassifyLinkScope`; `.html`/assets can't 405 — a cost filter, not the decision), dedupes, probes
+`GET https://<domain><path>`, flags **exactly 405** → high `needs_human_review`, no handler. Cap 40
+probes/site (logged on hit). Modeled on `check_backend_unreachable`'s probe idiom.
+
+**Induced-failing-branch evidence (live, 2026-07-21), not just wiring:** `GET /audience-check` → 405
+and `GET /request` → 405 → FLAG (the exact symptom the owner saw as "POST only"); `GET /subscribe` →
+**400** (a route that answers a bare GET with 400, not 405, is deliberately NOT flagged — validates
+the 405-only boundary), `/tools.html` 200, `/health` 200, bogus 404, `/` 200 → all ignored. Unit test
+17/17, `go vet` clean. On idea.uk today it reports clean (links removed by the fix) — so no
+false-positive on the fixed site.
+
+**Under council review** (advisory), corr `ed4851c9-e51b-446d-a4b4-bbbf516eaa60`. **Inert** until an
+image roll + adding `backend_entry_orphaned` to a discovery agent's `checks` array (image-first, else
+it references an unregistered check). **017 stays OPEN** until live. Finding B (`no_backend_entry`)
+deferred — it needs a reliable "site has a backend" signal, which the empty `deploy_config` shows is
+itself missing (a data-model gap for a separate decision).
