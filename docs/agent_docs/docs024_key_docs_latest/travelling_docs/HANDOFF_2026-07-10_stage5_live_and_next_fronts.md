@@ -65,6 +65,15 @@ site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk) · tools `tool-x
 
 ## 7. RESUME HERE — `bugs_open/024`: the delivery path was WRONG; the sanctioned path DELIVERS, proven LIVE *(rewritten T33, 2026-07-21)*
 
+> **UPDATE 2026-07-21 (owner-directed close):** bug 024 is now **CLOSED** →
+> `bugs_closed/024` (headline symptom fixed AND live via the section-editor).
+> **Remaining work is tracked in `features_open/009`**: Option A (wire
+> tool-improver → section-editor, still owner-pending), plus the non-tool
+> generic-path residuals — the defect-6 `page_rerender` mode-collision fix is
+> **committed `cdd858402`** (inert until the next image; council corr
+> `746c7d60`) and candidate 4 (assemble-only ships stale). Resume from
+> `features_open/009`; the paragraphs below are the diagnosis history.
+
 > **T33 SUPERSEDES T32.** The whole defect-1…6 chain has been patching the
 > **generic** section-render→save path — which the experience-loop workstream
 > **deliberately forbids for tool pages** (`save_page_sections` hard-refuses any
