@@ -1110,8 +1110,9 @@ confident wrong conclusion follows ("coverage is good", "only 4 commits touched
 platform"). Any report that counts things should have its total cross-checked
 against its source query at least once.
 
-**Cross-refs.** `bugs_open/018`. Category tags: `stdin-theft` (new),
-`silent-truncation`.
+**Cross-refs.** `bugs_closed/018` (coverage report — CLOSED 2026-07-21; the *idea.uk*
+`018` is a different, still-open case — resolve by slug). Category tags:
+`stdin-theft` (new), `silent-truncation`.
 
 ### A capability the platform already has, believed missing because one enum value routes elsewhere
 

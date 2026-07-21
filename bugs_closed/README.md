@@ -56,7 +56,8 @@ The numbering was assigned by concurrent threads and **collided twice**:
 |---|---|---|
 | `016` | **both** here now: `ssh` ignores `$HOME` (passwd entry); **and** council revise prompts drop reviewer output (closed 2026-07-21) | — |
 | `017` | — | static cutover orphans entry forms **and** unregistered action marked complete (two files, both `017`) |
-| `018`, `027`, `028`, `029` | — | two files each in `/bugs_open/` (concurrent-thread collisions of 2026-07-18/19) |
+| `018` | coverage report hid 90% of commits (stdin theft) — closed 2026-07-21 | idea.uk chrome renders every link empty (still open) |
+| `027`, `028`, `029` | — | two files each in `/bugs_open/` (concurrent-thread collisions of 2026-07-18/19) |
 | `040` | — | kafka dial timeouts fleet-wide **and** failed page build leaves page deployed (two files, both `040`, both 2026-07-20) |
 | `044` | — | no capability inventory / dormant agents undetectable (19:22) **and** plan_sections defers an empty-schema component by name heuristic (19:57) — two files, both `044`, both 2026-07-20 |
 
@@ -80,6 +81,7 @@ numbers are cited in commit messages and Go comments.
 | 017 | An unregistered action fails as "requires a topic" — and the failure is stamped `complete` | registration + `handlerReportedFailure` + a registry parity test, live in v1.0.1139 |
 | 031 | A stale register entry asserts a content-hash rerender skip that never existed, blocking correct plans | corrected in all 6 places, including the live council seat prompts |
 | 032 | The completion verifier reads a DELETED component as a successful fix | conservative floor (error, not verdict) shipped; **re-verified in the running pod** 2026-07-20 |
+| 018 | Council coverage report (`098_…sh`) hid 90% of in-scope commits — `kubectl exec -i` stole the read loop's stdin | shell fix (live on commit): `-i` dropped, dual-id (correlation OR run) resolution, EVIDENCE-GONE bucket, first-token trailer parse; **verified against live DB + git** 2026-07-21 (full-DB count == raw `git log`; approved run-id → REVIEWED). The *idea.uk* `018` is a different case, still open. |
 
 Note `002` is also filed here as a routing document rather than a fixed defect —
 its A–C legs are done and it points at the owners of the rest. Read it before

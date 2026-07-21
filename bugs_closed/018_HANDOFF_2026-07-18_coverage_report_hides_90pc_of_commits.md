@@ -1,3 +1,41 @@
+> **✅ CLOSED 2026-07-21 — both defects fixed & live; a third robustness gap of the
+> same class was found during verification and fixed.** Closed by the
+> bug-backlog-clearing thread. This is a **shell-script** fix, so "live" = committed
+> (the script runs from the working tree, like config/SQL — no image roll). Moved to
+> `/bugs_closed/`. The *other* `018` (idea.uk chrome, `018_HANDOFF_2026-07-19_…`) is
+> unrelated and stays open — resolve by slug, not number.
+>
+> **Defect 1 — stdin theft — FIXED & VERIFIED.** `1493b74f3` dropped `-i` from the
+> in-loop `db_decision` call. The full run *with the DB* (the path defect 1 broke)
+> now returns the same in-scope count as the raw query at every window — 2026-07-21:
+> 3d 62==62, 7d 111==111, 14d 150==150. Pre-fix it stopped at the first trailered
+> commit (4 of 41).
+>
+> **Defect 2 — a fix-proposer-approved commit read as MISMATCH — RESOLVED & VERIFIED.**
+> `9c56128c5` resolves the trailer against **either** `correlation_id` **or**
+> `orchestration_id`; proven live — `db_decision('8c9adc27')` (a *run* id) →
+> `approved|run` → REVIEWED, and `db_decision('17be3962')` (a correlation) →
+> `approved|correlation` → REVIEWED. `ee5a9bed9` added the **EVIDENCE GONE** bucket:
+> the handoff's own example `f32b208e5` (trailer `53da3a30` = orchestration of
+> correlation `e505f70f`) has only `fix_plan` rows and no `council_report` — the
+> report was *cleared* (the 091 "clear them first" practice), not mis-`kind`ed.
+> `e505f70f` was genuinely council-approved (BUG A / MDL-038), so "evidence gone" is
+> the honest verdict — the report no longer accuses it (the original defect) nor
+> credits it without evidence. The handoff's open question ("does a fix-proposer run
+> write its verdict under a different `kind`?") is answered **no**.
+>
+> **Defect 3 (found here) — a mangled trailer hid a false claim of review — FIXED.**
+> `9c94cc842` authored a non-conforming trailer
+> (`Council-Reviewed: 5a65ec4c-…-7c7fce03a779 (verdict: revise; these`); the parser
+> stripped whitespace and glued the prose onto the id, so `db_decision`'s
+> `tr -cd '0-9a-fA-F-'` kept hex-ish garbage, the `LIKE` prefix ran *longer* than the
+> real 36-char id and matched nothing → the commit fell through to EVIDENCE GONE.
+> Its real verdict is a `council_report`/`revise` — a **false claim of review**,
+> silently excused, which is exactly the dishonesty this report exists to surface.
+> Fix (this thread): take only the trailer's first whitespace-delimited token
+> (`awk '{print $1}'`) before resolving. Post-fix `9c94cc842` correctly buckets as
+> MISMATCH and the count invariant is unchanged.
+
 # HANDOFF — the council coverage report hid 90% of in-scope commits (stdin theft in a read loop)
 
 **Created 2026-07-18 from the travelling-docs thread**, while checking whether my

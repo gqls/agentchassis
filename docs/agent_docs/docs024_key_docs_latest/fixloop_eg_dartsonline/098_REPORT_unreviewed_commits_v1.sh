@@ -80,7 +80,14 @@ count=0
 while IFS='|' read -r sha short date subject; do
   [ -n "$sha" ] || continue
   count=$((count+1))
-  corr=$(git show -s --format=%B "$sha" | sed -n 's/^[Cc]ouncil-[Rr]eviewed:[[:space:]]*//p' | head -1 | tr -d '[:space:]')
+  # The trailer VALUE is its first whitespace-delimited token; anything after it
+  # is prose, not part of the id. Take only $1 — a commit that jammed
+  # "(verdict: revise; ...)" onto the trailer line (9c94cc842, 2026-07-18)
+  # otherwise glued hex-ish junk onto the id (tr -cd keeps hex+dashes), so the
+  # LIKE prefix was LONGER than the real id and matched nothing: a genuine
+  # `revise` misread as EVIDENCE GONE, silently excusing a false claim of review
+  # — the exact dishonesty this report exists to surface.
+  corr=$(git show -s --format=%B "$sha" | sed -n 's/^[Cc]ouncil-[Rr]eviewed:[[:space:]]*//p' | head -1 | awk '{print $1}')
   line="$short  $date  $subject"
   if [ -z "$corr" ]; then
     unreviewed+=("$line")
