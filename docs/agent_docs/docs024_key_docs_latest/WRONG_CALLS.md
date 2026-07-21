@@ -1657,3 +1657,32 @@ an "approved" action is only as sound as the basis I gave for it, and I gave a f
 about a *change* from its stated intent ("more retries") instead of from the *code path it
 plugs into*. "Read the CONTRACT a thing plugs into" (existing tally row) applied to a config
 value, not just a code call.
+
+## 2026-07-21 — tried to prove a guard on a tool I assumed was still broken (bugs_open/010 b)
+
+**The claim (acted on).** I queued a live acceptance run on `tool-loot-table-balancer`
+to watch the new convergence guard escalate it, on the basis that it was "past
+threshold — 4 complete cycles at mobile-fit, verified live". I set up a monitor
+to catch the escalation.
+
+**Why it was wrong.** The count of 4 is about the PAST — four failed repair
+cycles between 07-17 and 07-18. It says nothing about whether the tool fails
+NOW. Between 07-18 and 07-21 the tool was fixed (its grid became a wrapping flex,
+024's delivery chain rendered it), so the run PASSED and the guard's escalation
+branch never executed. I proved nothing about the escalation, and briefly framed
+an unrun branch as a proof-in-flight.
+
+**What caught it.** Checking the actual run outcome instead of assuming — the
+acceptance-run note said PASSED, and the live `.ltb-row-grid` rule was
+`display:flex;flex-wrap:wrap`, not the overflowing grid.
+
+**The cheap check that would have.** 024's OWN lesson, which I even cite in this
+bug: verify a tool's state by its specific rendered rule, not its history. One
+`substring(html_template from '\.ltb-row-grid…')` before firing would have shown
+the flex-wrap and told me it would pass.
+
+**Tally row: treating a historical failure count as current state.** A count of
+past failures is not a measurement of present failure. Before inducing a failure
+path on a specific target, RE-MEASURE the target now — the world moved since the
+count was taken (here: another workstream fixed the tool). Same family as the
+stale-figure entries: a number carried forward unchecked.
