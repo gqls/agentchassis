@@ -110,3 +110,86 @@ unprotected" when planning any re-plan.
 - `/bugs_open/039` — why the `differentiators` / `differentiators-section` distinction above needed
   checking before this could be called a real loss.
 - `/bugs_open/033` — why fix candidate 3 would currently rot.
+- `/bugs_open/050` — the deployed-empty classification; my fix composes with it (see below).
+
+---
+
+## RESOLVED 2026-07-21 — decision made (candidate 2), fix LIVE on v1.0.1146
+
+**The "leave as-is" reading is REFUTED by the code, so this is a real defect, not the wanted
+behaviour.** The "For leaving it as-is" argument above rests on `needs_rebuild` being the explicit
+redesign intent (fix step 4's escape hatch). It is not. Every writer of `needs_rebuild` **preserves
+`pages.sections`** and means *"re-render this page as planned"*, never *"recompose it from scratch"*
+(grep of all setters, 2026-07-21):
+
+- `v3_site_actions.go:644` `UpdatePageStatusAction` — refuses a 0-component (and, via the in-flight
+  040 work, a partial) deploy; sets `needs_rebuild`, clears `built_from_plan_version`, **keeps
+  sections**.
+- `maintenance_actions.go` `flagPagesForRebuild` — an image/maintenance rebuild; keeps sections.
+- `store_generated_component_action.go` `markPagesForRebuild` **and**
+  `discovery_checks/check_unresolved_sections.go` — flag a page `needs_rebuild` **precisely because
+  its `sections` already name a component that has just become available**. The sections are the
+  whole point; recomposition would *defeat* the rebuild. These two make the "redesign intent"
+  reading impossible.
+
+**Fleet state when fixed** (live DB, 2026-07-21): 26 active `needs_rebuild` pages — 19 carry a real
+composition (the protected case), 5 empty (2 dartsonline `section-index` awaiting composition, 3
+robot-hands `tool` pages rendered elsewhere per 050; 1 more content page):
+
+```
+ page_type    | empty/has_sections | count
+ blog-index   | has_sections       |  1
+ blog-post    | has_sections       |  5
+ content      | has_sections       |  9
+ landing      | has_sections       |  2
+ section-index| empty              |  2   <- awaiting composition (brands-index, shop-index; 0 comp)
+ tool         | empty              |  3   <- rendered elsewhere (robot-hands; 1 comp each), 050's case
+ tool         | has_sections       |  4
+```
+
+**Decision: candidate 2, done so it composes with the in-flight 050 work.** Introduced a SEPARATE
+membership predicate `realisedPageCompositionIsPreserved(rm)` = `deployed OR needs_rebuild`, used at
+the two preservation-**membership** sites (the preserved-set filter `:4728` and the truncation
+must-keep `:2800`). The empty-sections classification in Pass B/B2 **deliberately stays on
+`realisedPageIsBuilt` (= `deployed`)**, because a `needs_rebuild` empty page may be *awaiting
+composition* (dartsonline `brands-index`), not *rendered-elsewhere* — Pass B2's existing non-empty
+gate routes both kinds correctly.
+
+**Why a separate predicate and not just widening `realisedPageIsBuilt`:** the 050 work overloaded
+that predicate for the empty-gate too. A naive widening would **force-empty** an awaiting-composition
+`needs_rebuild` page. Proven discriminating in an isolated worktree:
+
+| test (`v3_site_reconcile_test.go`) | without fix | naive widening | this fix |
+|---|---|---|---|
+| `NeedsRebuildPageCompositionSurvivesReplan` | FAIL | pass | pass |
+| `NeedsRebuildPageOmittedByLLMIsUnioned` | FAIL | pass | pass |
+| `RealisedPageCompositionIsPreserved` | FAIL | pass | pass |
+| `NeedsRebuildEmptyPageIsStillComposable` | pass | **FAIL** | pass |
+
+**Landed & LIVE.** The Go change was swept into the `v1.0.1146` fleet build (owner sweep commit
+`fe2ba5e52`, "sweep. v3 site actions … several bugfixes"). Tests committed separately (`9864fab37`,
+this session). Verified live on the running pod `agent-chassis-55bbccfdbc-xrkv6`:
+`strings /app/agent-chassis | grep -c realisedPageCompositionIsPreserved` = **1** (positive control
+`reconcilePlanWithRealised` = 2; negative control = 0). Whole fleet is on `v1.0.1146`.
+
+**The redesign route (candidate 2's caveat, answered).** A built page can no longer be *silently*
+redesigned by a re-plan. To deliberately recompose one, empty its `pages.sections`; Pass B2's
+non-empty gate then lets the LLM compose it. (For a `deployed` page, 050 makes `deployed`+empty
+authoritative, so the deliberate route runs through `needs_rebuild`+empty.) So the "only route to a
+redesign" the handoff warned candidate 2 removes is **not** removed — it just becomes an explicit
+"empty the composition" act instead of a silent side effect of a status flag.
+
+### Two things left OPEN (neither blocks closing this defect)
+
+1. **Candidate 1 (explicit redesign intent) is a deferred FEATURE, not required to fix this bug.**
+   A clean `rebuild:true` / `needs_replan` per-page spec field (fix step 4) would replace the
+   "empty the composition" dance with an explicit signal. `/bugs_open/001` deferred fix step 4 as
+   "a policy call, not a bug fix"; that call is still open. **Owner decision.**
+2. **Live behavioural verification not yet fired.** Unit tests are discriminating and the symbol is
+   live, but a re-plan on a site carrying a `needs_rebuild` page (e.g. dartsonline `contact`:
+   `needs_rebuild`, 3 sections) to watch `pages.sections` survive has not been run — it mutates a
+   live site + ~30 min dispatch + build spend. [UNVERIFIED — live re-plan]
+
+**Not moved to `/bugs_closed/` yet** pending the owner's read on (1) and whether the live re-plan in
+(2) is wanted. The headline defect is fixed and live; what remains is a decision and an optional
+gold-standard check, both recorded above.
