@@ -448,3 +448,125 @@ func TestCreateWorkItem_ItemKeySuffix_ScopesTheKey(t *testing.T) {
 		t.Fatal("no insert captured")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// create_rerender_items: the per-page item_key must discriminate render MODE
+// (bugs_open/024 defect 6). A reason-less assemble-only request and a
+// reason-bearing section-render request for the same page must NOT dedup
+// against each other: keyed on page_rerender_<page>_<site> alone, a stale
+// reason-less item in the backlog suppressed the correct reason-bearing one
+// (INSERT ... ON CONFLICT DO NOTHING → 0 items), then re-deployed stale HTML.
+// ---------------------------------------------------------------------------
+
+func TestPageRerenderItemKey_DiscriminatesRenderMode(t *testing.T) {
+	site := uuid.New()
+
+	assemble := pageRerenderItemKey("about", site, "")
+	section := pageRerenderItemKey("about", site, "section_data_resolved")
+	image := pageRerenderItemKey("about", site, "image_landed")
+	cta := pageRerenderItemKey("about", site, "cta_links_stale")
+
+	// A reason-less request keys on the explicit "assemble" token — never a
+	// bare page_rerender_<page>_<site> that a reason-bearing request could also
+	// land on.
+	if !strings.HasSuffix(assemble, "_assemble") {
+		t.Fatalf("reason-less key should end _assemble, got %q", assemble)
+	}
+
+	// Every mode must be distinct — the whole point is that they cannot collide
+	// on idx_swi_dedup for the same page.
+	seen := map[string]string{}
+	for name, k := range map[string]string{
+		"assemble": assemble, "section": section, "image": image, "cta": cta,
+	} {
+		if prev, dup := seen[k]; dup {
+			t.Fatalf("modes %s and %s produced the SAME key %q — they would suppress each other", name, prev, k)
+		}
+		seen[k] = name
+	}
+
+	// Same mode + same page + same site MUST still collapse to one key, so two
+	// concurrent site-wide refreshes still dedup (the behaviour we keep).
+	if pageRerenderItemKey("about", site, "") != assemble {
+		t.Fatal("same mode/page/site must produce a stable key")
+	}
+	// Different pages never share a key.
+	if pageRerenderItemKey("contact", site, "section_data_resolved") == section {
+		t.Fatal("different pages must not share a key")
+	}
+}
+
+// runCreateRerenderItems drives CreateRerenderItemsAction against a single page
+// and returns the item_key it composed for the page_rerender insert ($5).
+func runCreateRerenderItems(t *testing.T, site, pageID, reason, componentID string) (itemKey string) {
+	t.Helper()
+
+	db, mock, mErr := sqlmock.New()
+	if mErr != nil {
+		t.Fatalf("sqlmock: %v", mErr)
+	}
+	defer db.Close()
+	mock.MatchExpectationsInOrder(false)
+
+	// Scoped (component-triggered) runs look up the changed component's
+	// dependent pages; hand back our page so it is not filtered out.
+	if reason == "section_data_resolved" || reason == "image_landed" {
+		mock.ExpectQuery("SELECT pc.page_id").
+			WillReturnRows(sqlmock.NewRows([]string{"page_id"}).AddRow(pageID))
+	}
+	mock.ExpectExec("INSERT INTO site_work_items").
+		WithArgs(
+			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
+			specArgMatcher{got: &itemKey}, // $5 = item_key
+			sqlmock.AnyArg(),
+		).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	collected := map[string]interface{}{
+		"site_id":      site,
+		"domain":       "example.com",
+		"reason":       reason,
+		"component_id": componentID,
+		"rerender_pages": map[string]interface{}{
+			"pages": []interface{}{
+				map[string]interface{}{
+					"page_id":  pageID,
+					"name":     "about",
+					"filename": "about.html",
+				},
+			},
+		},
+	}
+	params := ActionParams{
+		Context:          context.Background(),
+		DB:               db,
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{Action: "process"},
+		CollectedData:    collected,
+		StepConfig:       models.Step{Config: map[string]interface{}{}},
+	}
+	if _, err := CreateRerenderItemsAction(context.Background(), params); err != nil {
+		t.Fatalf("action failed: %v", err)
+	}
+	return itemKey
+}
+
+func TestCreateRerenderItems_ItemKeyScopedByRenderMode(t *testing.T) {
+	// Same page, same site — so the ONLY thing that can differ between the two
+	// keys is the render-mode discriminator. That is the regression guard.
+	site := uuid.New().String()
+	pageID := uuid.New().String()
+
+	assemble := runCreateRerenderItems(t, site, pageID, "", "")
+	section := runCreateRerenderItems(t, site, pageID, "section_data_resolved", uuid.New().String())
+
+	if !strings.HasSuffix(assemble, "_assemble") {
+		t.Fatalf("reason-less run should emit an _assemble key, got %q", assemble)
+	}
+	if !strings.HasSuffix(section, "_section_data_resolved") {
+		t.Fatalf("section-render run should emit a _section_data_resolved key, got %q", section)
+	}
+	if assemble == section {
+		t.Fatalf("same page/site produced identical keys across modes (%q) — the defect-6 collision is not fixed", assemble)
+	}
+}

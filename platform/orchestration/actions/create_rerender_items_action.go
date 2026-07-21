@@ -92,6 +92,29 @@ func singlePageFromScalars(collected map[string]interface{}, config map[string]i
 	}
 }
 
+// pageRerenderItemKey builds the idx_swi_dedup key for a per-page rerender work
+// item. It MUST carry the render-MODE discriminator (the stamped spec.reason, or
+// "assemble" when none is stamped), because that reason is what page-rerender's
+// check_rerender_mode branches on: a reason-bearing item drives a true template
+// re-render (rerender_page_sections, the ONLY writer of page_components.rendered_html),
+// while a reason-less item drives assemble-only (rerender_single_page — "Simple
+// concatenation, no template re-rendering", which re-ships stored HTML).
+//
+// Keying both modes on page_rerender_<page>_<site> alone let a stale reason-less
+// item sitting in the dispatch backlog SUPPRESS the correct reason-bearing one:
+// create_rerender_items' INSERT ... ON CONFLICT DO NOTHING collided with the open
+// reason-less row, created zero items, and the reason-less item then re-deployed
+// stale HTML — bugs_open/024 defect 6, the six-month-invisible delivery blocker.
+// Scoping the key by mode preserves dedup WITHIN a mode (two concurrent site-wide
+// refreshes still collapse to one assemble-only item per page) while ensuring the
+// two modes can never suppress each other.
+func pageRerenderItemKey(pageName string, siteID uuid.UUID, keyReason string) string {
+	if keyReason == "" {
+		keyReason = "assemble"
+	}
+	return fmt.Sprintf("page_rerender_%s_%s_%s", pageName, siteID, keyReason)
+}
+
 func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	logger := params.Logger.With(zap.String("action", "create_rerender_items"))
 
@@ -141,6 +164,14 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 	// in rerender_page_sections is cheap and page-scoped, and a site-wide CTA
 	// repair has no single triggering component to scope by.
 	stampReason := scoped || reason == "cta_links_stale"
+
+	// keyReason mirrors EXACTLY what the spec carries (empty spec.reason =>
+	// assemble-only), so the dedup key discriminates the two render modes. See
+	// pageRerenderItemKey — bugs_open/024 defect 6.
+	keyReason := ""
+	if stampReason {
+		keyReason = reason
+	}
 
 	var dependentPages map[string]bool
 	if scoped {
@@ -245,7 +276,7 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 		}
 		specJSON, _ := json.Marshal(spec)
 
-		itemKey := fmt.Sprintf("page_rerender_%s_%s", pageName, siteID)
+		itemKey := pageRerenderItemKey(pageName, siteID, keyReason)
 
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO site_work_items (
