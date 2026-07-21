@@ -268,3 +268,28 @@ structural change (giving the scheduler its own separate lane so it can never qu
 front of your work), and the cheap diagnosability win (making the trigger scripts tell
 you "you're queued behind N" instead of leaving you guessing). Neither was touched
 today; today was just the safe, reversible, config-only first step you asked for.
+
+## 2026-07-21 (afternoon) — watched it through a busy stretch: the backlog now clears itself
+
+This is the check I promised — the queue watched for half an hour during the working
+day, not overnight. The result is good, and I can be more confident now.
+
+Yesterday the queue only ever grew: 82 waiting, then 130, then 168, never coming back
+down. Today, over the same kind of window, it bounced between empty and about 15, and
+crucially it hit *empty twice* — the backlog is clearing itself between busy patches
+now, rather than piling up without end. That's the difference the change was meant to
+make, and it made it.
+
+One honest caveat, and it points at the bigger job still to come. The queue still has
+moments where a single heavy job sits at the front for seven or eight minutes and
+everything waits behind it — that hasn't changed, because it can't be fixed by
+scheduling; it's the deeper "one worker, one job at a time" limitation. What the
+change did was stop those heavy jobs arriving so often that the queue never recovered.
+So the queue now recovers between them. Fixing the stall itself — so nothing waits
+behind a slow job at all — is the structural change I've left for a separate decision.
+
+So where we've landed today: you asked for the safe config-only lever, and it's
+pulled, verified, and measurably working — the runaway backlog is gone. The two bigger
+pieces (a separate lane for the scheduler, and making the trigger scripts tell you
+you're queued) are written up and waiting for your steer. Nothing was rebuilt or
+deployed; it's all reversible with one line.

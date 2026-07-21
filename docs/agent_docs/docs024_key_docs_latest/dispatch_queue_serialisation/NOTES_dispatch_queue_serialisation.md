@@ -426,3 +426,52 @@ not record "030 fixed" on this evidence.
   still must be checked against `/bugs_open/029`.
 - The diagnosability win (triggers print `LAG` on publish) is untouched and remains
   the highest-value cheap change.
+
+---
+
+## 2026-07-21 — busy-window LAG trend: divergence → bounded sawtooth (the actual verification)
+
+The evidence I said the fix needed. 27 samples at 60 s, 15:44–16:11 UTC (working
+hours, real load), `EVIDENCE_lag_postfix_2026-07-21.txt`:
+
+```
+15:44  LAG 0    <- fully drained
+15:52  LAG 9    (offset pinned at 98442 since 15:45 — one message, ~6.5 min stall)
+15:54  LAG 0    <- drained again
+16:07  LAG 15   (offset pinned at 98462 since 15:58 — one message, ~8.5 min stall)
+16:11  LAG 15
+```
+
+**Read the shape, not the average — the average is a window-phase artifact.** Raw
+counts over the window: produced +41 (1.53/min), consumed +26 (0.97/min). That
+"production > consumption" is exactly the LAG delta (0→15) and nothing more — the
+window opens on a drained queue and closes mid-climb. Averaging a sawtooth across an
+odd number of half-cycles always manufactures a trend. (This is the same trap as
+`WRONG_CALLS` 7/8/9, so I am not repeating it.)
+
+**What actually changed — qualitative, and it is decisive:**
+
+| | yesterday (pre-fix) | today (post-fix) |
+|---|---|---|
+| LAG path | 82 → 130 → 168, monotonic | 0 → 9 → 0 → 15, oscillating |
+| returns to 0 | never (in 40 min watched) | twice (in 27 min) |
+| peak LAG | 168 and climbing | 15 |
+
+The queue now **fully clears between stalls**. That is the difference between a
+diverging backlog and a bounded one, and it is not subtle.
+
+**What did NOT change — and this is the structural residual:** the single-message
+head-of-line stall is still ~7–8 minutes (offset pinned at 98442 for 6.5 min, 98462
+for 8.5 min). The config change reduced how *often* expensive orchestrations arrive,
+so each drain burst now catches all the way up — but when one is at the head,
+everything still waits behind it for its full duration. That is the inline
+synchronous handler (the unadjudicated root cause), and it is exactly what the
+structural fix (dedicated scheduler lane, and/or non-blocking step execution) would
+address. The config change made the queue bounded; it did not make it non-blocking.
+
+**Verdict I am willing to record:** the config change converted an unbounded,
+diverging backlog into a bounded sawtooth peaking around 15 with periodic full
+drains, measured across a busy 27-minute window with two complete drain cycles. That
+is a real, measured improvement — **not** "030 closed" (the head-of-line stall
+persists, and two drain cycles is indicative, not a week of data), but enough to say
+the lever worked and the direction is right.
