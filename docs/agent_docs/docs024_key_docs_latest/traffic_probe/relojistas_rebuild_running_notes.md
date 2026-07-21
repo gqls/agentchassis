@@ -1045,3 +1045,63 @@ updated to the real code per the runbook trap ("reviewers judge the sketch"). Ro
 the resolvers (179 config is inert until then — `items` degrades to skip_field → placeholder
 on the old binary, which is safe); then verify from `curl` that `<article>` elements are
 present AND survive a scoped rerender.
+
+## 2026-07-21 — 027 rework is LIVE (swept into v1.0.1144); council round 2 REVISE, triaged
+
+**The rework shipped, and I did not commit it — another session's `git add -A` swept it.**
+Exactly the CLAUDE.md hazard (someone else's broad add taking my half-finished work). Two
+commits took it: `a9ae2210c` ("commit orphaned news_items.go callee to unbreak core-manager"
+— my uncommitted resolver was referenced by committed code and broke their build, so they
+committed the file) and `f9dfa0205` (v1.0.1144 sweep). Forward-only holds: nothing lost, HEAD
+is the complete rework. Lesson re-underlined: commit implementation the moment it is coherent,
+even mid-council — a shared tree is not a private workspace.
+
+**Pod-verified live** (`agent-chassis-59c675c4f-pxr9f`, image v1.0.1144), the check
+debug_historian's council objection rightly demanded given the accidental-ship history:
+```
+QueryNewsItems 7 | queueNewsPageRerenders 11 | resolveNewsArchive 2 | resolveLatestNews 2
+persistNewsSectionHTML 0 | "container anchors not found" 0
+```
+So the contract-compliant route is live AND the wrong injection mechanism is gone from
+production — the dual-write window the guardian flagged is closed by this roll.
+
+**Council round 2 = REVISE (bug_historian, 4 abstained).** Triaged every objection against
+the live system rather than resubmitting a third round (the runbook's "advisory means
+advisory — pick one, record why, move on"):
+
+- **guardian: dropping `components_rendered` is a breaking output-shape change** →
+  DISSOLVED. `grep -rn components_rendered` finds only `site_components_rendered` (a
+  different key) anywhere in platform/internal/pkg/sql. Nothing read it.
+- > **CORRECTED — my risk-item-3 claim was WRONG.** I wrote "news components only sit on
+  > landing/news-index pages today". False: they are also on `content` (3) and
+  > `section-index` (3) pages. The council was right to reject the assertion. BUT the hazard
+  > it was dismissing (scoped rerender escalates to a destructive full rebuild on a NULL
+  > content_data section) is **non-destructive here anyway**: I checked whether any
+  > news-carrying page also holds interactive tool/game *markup* — only idea.uk and
+  > robot-hands `index` carry `tool-list`, which is a **query-sourced listing component**,
+  > not hand-authored interactive markup, so a full rebuild regenerates it. No news page
+  > carries a `tool`/`game` page_type hero. So: claim wrong, conclusion (safe) still holds,
+  > now for a checked reason rather than a false one.
+- **prior_art ×4: "unverified from this seat"** (recurrenceExpected persistence, emission-
+  shape reuse, switch cases, injection-exists) → ALL verified: `recurrenceExpected` is an
+  insert-time gate at `load_work_item_actions.go:1045` (`if item.itemKey != "" &&
+  !item.recurrenceExpected`), not a persisted column — semantics hold; the two cited
+  emission sites match; the switch cases exist. Read-only seats could not run these; the
+  answers stand.
+- **bug_historian: the `{{if}}` guard is per-call-site, five other list templates unguarded**
+  → REAL, and genuinely out of 027's scope. Filed as **bugs_open/054** (accurately: it is a
+  missing graceful empty-state, not a crash — `{{range nil}}` is a Go-template no-op).
+- **debug_historian: no pod-grep step stated** → done above; added to the runbook's close
+  criteria.
+- needle-gate discipline nits (occurrence-count vs LIKE; verify/rollback in separate files)
+  → noted; 179 is a full-column idempotent overwrite so re-run is safe, and it is applied.
+
+**Not resubmitted for a third round:** round 1's objection was a real mechanism defect and is
+fixed; round 2's are verification (answered), one factual correction (made), scope (ticketed
+as 054), and rollout sequencing (closed by the 1144 roll). None is a mechanism-correctness
+defect. Council is advisory; value extracted.
+
+**027 close status:** mechanism live and correct; the remaining close criterion is the
+end-to-end proof — a `curl` showing server-rendered `<article>`s that SURVIVE a scoped
+rerender. Pending the next `render_news_section` cycle (or a manual trigger) populating
+content_data via the new query route.
