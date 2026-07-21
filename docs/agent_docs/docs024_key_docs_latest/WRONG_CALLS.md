@@ -28,7 +28,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | the check that was skipped | times |
 |---|---|
 | read the code before asserting a mechanism | 7 |
-| **read the CONTRACT a thing plugs into, not just its logic** | **1** |
+| **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
 | wait / query again before calling an absence a failure | 4 |
 | **grep for the capability before asserting it does not exist** | **3** |
@@ -1621,3 +1621,39 @@ submission-read-as-verdict (07-20), now stale-round-read-as-new (07-21). All
 three treat a stale/absent result as the current one. The durable fix is
 mechanical: **always key a council poll on the round's orchestration_id**, not
 on correlation + time. I wrote that rule and then didn't follow it in a monitor.
+
+### 2026-07-21 — diagnose-dispatch resilience (bugfix-001 thread) — "raise max_attempts, it's a safe one-liner that makes the loop resilient"
+**Asserted:** to the owner, recommending a fix for the diagnosis queue burning items on
+transient spawn failures — *"Raise max_attempts to 2–3 on the diagnosis items so a single
+spawn flake doesn't burn a request. One-line change; makes the loop resilient."* The owner
+approved it on that basis.
+**Actually:** `max_attempts=1` on `needs_diagnosis` items is **load-bearing**, and the 090
+trigger's header note 5 says so. Raising it re-exposes a laundering hazard, every link of
+which I confirmed live only *after* recommending the change:
+- the failure/verification path re-queues a not-yet-exhausted item to **`status='triaged'`**,
+  not `awaiting_diagnosis` (`complete_work_item_verification.go:245`, `ELSE 'triaged'`);
+- the **build** dispatcher claims `status IN ('triaged','approved')` with **no pipeline
+  filter** in its live config (`load_work_item_actions.go`, `build-dispatch-loop.load_items`
+  sets only `site_id`/`max_items`);
+- its trigger fires for `system.internal`, which is an **unlocked** `sites` row that **does**
+  carry `pipeline='build'` items (41). So a `triaged` diagnose item on the system site is
+  reachable by a build handler — a diagnosis spec handed to the wrong pipeline.
+`max_attempts=1` forces the failed diagnose item to terminal `failed` instead, by construction.
+So the value I called an oversight is a guard, and raising it trades a contained
+"burns-on-flake" for an uncontained "wrong-pipeline-claims-it".
+**Caught by:** reading the *contract* before executing the approved change — the retry path's
+target status, and the build claim's pipeline filter — instead of assuming "more attempts =
+more resilience". The requeue goal was then met safely a different way: set the 4 transient
+failures to `awaiting_diagnosis` + `attempt_count=0` (a status only the diagnose loop claims),
+leaving `max_attempts` at 1. No laundering surface touched.
+**The cheap check that would have caught it:** before calling a retry-count change "safe",
+answer two one-line questions — *what status does the failure path move the item to, and who
+else claims that status?* Both are a single grep / config read. I answered neither before
+recommending.
+**Cost:** none realised — caught before the change, and the owner's approval was acted on in
+the safe form, not the unsafe one I had described. But the recommendation itself was the error:
+an "approved" action is only as sound as the basis I gave for it, and I gave a false one.
+**Pattern:** same family as the "resolve both operands" cluster above, one level up — I reasoned
+about a *change* from its stated intent ("more retries") instead of from the *code path it
+plugs into*. "Read the CONTRACT a thing plugs into" (existing tally row) applied to a config
+value, not just a code call.
