@@ -32,6 +32,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -44,6 +45,7 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		"gather_step", "emit_step", "max_iterations",
 		"seed_hypothesis_field", "seed_scope_field", "code_results_field",
 		"resolver_top_k", "resolver_min_similarity", "max_expanded_scope",
+		"resolver_budget_seconds", "resolver_embedding_timeout_seconds",
 	},
 	Defaults: map[string]interface{}{
 		"verdict_field":  "verdict.result",       // ExecuteLLMPromptAction wraps JSON under .result
@@ -69,6 +71,12 @@ var DiagnoseRouteInputSpec = datahelpers.ActionInputSpec{
 		// Cap on the engine's call-graph enrichment of next_scope (named entries
 		// always kept). 0 = engine default (18); <0 = unlimited.
 		"max_expanded_scope": 18,
+		// §7D resolver wall-clock budget + per-embedding-call ceiling
+		// (bugs_open/043). The resolver is enrichment; these keep it from
+		// keeping `route` reaching out for minutes on a contended embedder.
+		// 0 budget = unbounded (prior behaviour, for rollback).
+		"resolver_budget_seconds":            20,
+		"resolver_embedding_timeout_seconds": 15,
 	},
 }
 
@@ -561,7 +569,31 @@ func resolveFuzzyNextScope(ctx context.Context, params ActionParams, config map[
 	}
 	minSim := configFloatField(config, "resolver_min_similarity", 0.55)
 	repo := resolveCodeRepoLabel(config, params.CollectedData)
-	search := buildScopeResolverSearch(ctx, params, config, repo, topK, logger)
+
+	// BOUND the resolver's external work with a hard wall-clock budget
+	// (bugs_open/043 — "diagnosis runs hang at the route step"). `route` is the
+	// loop's per-iteration CONTROLLER, and the §7D resolver is the ONLY thing it
+	// does that reaches OUT: an embedding HTTP call to ollama-adapter PLUS a
+	// code_symbols read, per FUZZY next_scope entry. Left on the raw action ctx
+	// those calls are bounded only by the embedding client's 120s-per-call HTTP
+	// timeout — so a verdict with several fuzzy entries against a contended
+	// ollama-adapter can keep route reaching out for minutes, on an ephemeral
+	// diagnose-agent Job pod with just a 4-connection DB pool. The resolver is
+	// pure ENRICHMENT (fuzzy prose → real path:Symbol) whose §7D contract is
+	// already "no worse than not resolving", so the loop's wall-clock is never
+	// worth stalling for it. When the budget expires the remaining entries
+	// fail-open to their prose labels — resolveScopeEntries' existing behaviour
+	// on a cancelled/erroring search. This mirrors the sibling rag_index action,
+	// which wraps its embedding call in a WithTimeout (rag_actions.go). 0 (or
+	// negative) disables the budget, preserving the prior unbounded behaviour.
+	resolveCtx := ctx
+	if budget := time.Duration(datahelpers.GetIntField(config, "resolver_budget_seconds", 20)) * time.Second; budget > 0 {
+		var cancel context.CancelFunc
+		resolveCtx, cancel = context.WithTimeout(ctx, budget)
+		defer cancel()
+	}
+
+	search := buildScopeResolverSearch(resolveCtx, params, config, repo, topK, logger)
 	if search == nil {
 		return
 	}
@@ -588,14 +620,23 @@ func buildScopeResolverSearch(ctx context.Context, params ActionParams, config m
 	if embErr != nil {
 		logger.Warn("diagnose_route: resolver embedding client unavailable — trigram fallback for all entries", zap.Error(embErr))
 	}
+	// Per-embedding-call ceiling, well below the client's 120s HTTP default, so
+	// one slow call cannot consume the whole resolver budget (bugs_open/043).
+	// The parent ctx already carries the resolver's total wall-clock budget;
+	// this WithTimeout is the min(perCall, remaining-budget) per call. On a
+	// timeout/error the entry falls back to trigram, then (if that also fails
+	// under the same expired ctx) fail-opens to its prose label upstream.
+	embTimeout := time.Duration(datahelpers.GetIntField(config, "resolver_embedding_timeout_seconds", 15)) * time.Second
 	return func(entry string) ([]map[string]interface{}, error) {
 		if embErr == nil {
 			promptText, _ := applyNomicPrefix(config, entry, "search_query")
-			if emb, genErr := embClient.GenerateEmbedding(ctx, promptText); genErr == nil {
+			embCtx, cancel := context.WithTimeout(ctx, embTimeout)
+			emb, genErr := embClient.GenerateEmbedding(embCtx, promptText)
+			cancel()
+			if genErr == nil {
 				return vectorSearchCodeSymbols(ctx, params.DB, repo, emb, topK)
-			} else {
-				logger.Warn("diagnose_route: resolver embedding failed — trigram fallback for this entry", zap.Error(genErr))
 			}
+			logger.Warn("diagnose_route: resolver embedding failed — trigram fallback for this entry", zap.Error(genErr))
 		}
 		return trigramSearchCodeSymbols(ctx, params.DB, repo, entry, topK)
 	}

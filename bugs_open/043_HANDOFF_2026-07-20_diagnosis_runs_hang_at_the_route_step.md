@@ -94,3 +94,109 @@ that fits the symptom is not evidence. Check the call site before adopting it.
 
 - `/bugs_open/042` — the config-literal defect; its diagnosis run (`f155b0c4`) is one of the hung
   ones, which is why 042 carries a full case file rather than relying on a verdict.
+- **`/bugs_open/003` (spawn-loss) — this IS the owning class. See the diagnosis below.**
+
+---
+
+# DIAGNOSIS 2026-07-21 (bugfix-043-route-hang thread)
+
+**Cause structurally identified: `043` is an instance of the actively-owned `bugs_open/003`
+(spawn-loss / at-most-once consume / zombie `EXECUTING_STEP`) class, NOT a defect in `route`'s
+logic.** The exact pod-death *trigger* is not yet pinned (see "What is NOT pinned"), but every
+`route`-internal cause has been ruled out with evidence, and the strand-and-reap mechanism is
+`003`'s. Filed here rather than into the diagnosis loop because the loop is the thing that stalls.
+
+## What the live evidence shows
+
+Queried `orchestration_states` for every hung run (`workflow_plan->'steps' ? 'route' AND status
+FAILED AND current_step='route'` = **20 runs, all 2026-07-19/20**; distinct real symptoms, all
+against the `agentchassis` repo — not a retry storm):
+
+- **`route` never returns.** A hung run has a populated `verdict.result` (e.g. `7fb35bbb…`:
+  `UNVERIFIABLE` with 4 `next_scope` entries) but **no `route` key in `collected_data` at all** —
+  the action started and never produced its result map, so `saveStepResultWithRetry` never ran.
+  `error` is only the reaper line `reaper: stale EXECUTING_STEP for >4h; step=route`, so it did
+  **not** error/panic (panics are recovered → `action "diagnose_route" panicked: …`, which is
+  absent). `execution_path` is `[]`; `currently_executing='route'`.
+- **The pod is gone; the reaper is `003`'s.** `processing_node` is a per-run ephemeral
+  `agent-diagnose-agent-*` **Job** pod (spawn spec: `RestartPolicyOnFailure`, `BackoffLimit 3`,
+  `ActiveDeadlineSeconds 86400`, `TTLSecondsAfterFinished 3600`). The `EXECUTING_STEP >4h` reaper
+  that FAILs them is exactly `bugs_open/003` **F1** (commit `539768695`). These 20 runs are `003`
+  zombies. `003` already records `bug(003): fresh occurrence on a DIAGNOSIS spawn — sweeper did
+  not retry` (`bcd14b8bc`) and `at-most-once consume loop destroys in-flight work on restart`
+  (`027aa7588`) — the strand mechanism: the triggering Kafka message is already consumed/committed,
+  so a dead/ restarted pod leaves nothing to re-drive the orchestration.
+- **Death is early and load-correlated, not a fixed deadline.** `processing_history` (heartbeats
+  are written per state-save, `state.go:UpdateStateWithVersion`) shows the workflow ran normally —
+  `analyse_repo → lookup_symbols → load_runtime → assemble_bundle → verdict(≈41s LLM) → route` —
+  then went silent **8–36 s into `route`** (measured across all 20). Total elapsed varies **108–535 s**
+  (no fixed deadline). Failures cluster in bursts (13 distinct diagnoses 20:37–21:25 on 07-20) and
+  as singles; **29 diagnose runs COMPLETED** in the same period (latest 07-20 20:45, interleaved
+  with the burst), several running the resolver across up to 5 iterations. So `route` is **not**
+  deterministically fatal — it fails under load.
+
+## What is ruled OUT (each with its check)
+
+- **NOT the `max_iterations` numeric-config red herring** (the tidy `042` story) — already refuted
+  in this file; `diagnose_route_action.go` reads it via `GetIntField`, bypassing `ExtractActionInputs`.
+- **NOT a logic hang / infinite loop.** `Advance → DecideStep → nextScope → Neighbourhood`
+  (`pkg/diagnose/{advance,step,callgraph}.go`) is pure and single-hop; no unbounded recursion.
+- **NOT bounded-external slowness.** Embedding client has a 120s HTTP timeout; a fully-hung
+  ollama gives ≤120s×N-entries ≈ 8 min worst case, then trigram fallback, then return. `route`
+  would still *return* — it never does. `code_symbols` is **3,723 rows with an HNSW + GIN-trgm
+  index**, so the vector/trigram searches are instant, not slow.
+- **NOT memory OOM.** Limit 1Gi; sibling chassis agents (`agent-page-content-writer`,
+  `agent-build-dispatch-loop`) peak at **33–73 Mi** in Prometheus; `repo_analysis` is 2 MB /
+  461 files, `collected_data` ~1.3 MB. Nowhere near 1Gi.
+- **NOT a Kafka rebalance/poll kick.** This is segmentio/kafka-go; group membership is kept by a
+  **background heartbeat goroutine** (`HeartbeatInterval = session/3`), so a long synchronous
+  message-handler does not trip a rebalance.
+- **NOT a liveness-probe DB/CPU starvation.** The agent-chassis liveness handler is
+  `KafkaReachability.HandleHealth` — a **non-blocking atomic read**, DB-independent by design
+  (`kafka_reachability.go`); it 503s only after 300 s of continuous all-broker unreachability.
+
+## The route-specificity (the one thing `003` alone doesn't explain)
+
+All 20 of the 07-19/20 deaths are at `route`, never at the equally-frequent, *longer* `verdict`
+step — so `route` does something special. `route` is the **only local step that reaches out**
+(embedding HTTP to in-cluster ollama-adapter + a `code_symbols` read per fuzzy `next_scope` entry,
+via the §7D resolver) **on a pod whose DB pool is `SetMaxOpenConns(4)`** (`agent.go:248`,
+`processor.go:68`), and it does so on the **raw, unbounded action ctx** — unlike the sibling
+`rag_index` action, which wraps its embedding call in a `context.WithTimeout` (`rag_actions.go:206`).
+The deaths cluster in `route`'s ~9 s embedding window. `[INFERRED, UNPINNED]` the most likely
+trigger is node-level resource pressure/churn during the concurrent-diagnosis bursts evicting the
+long-lived, analysis-heavy diagnose-agent Job pods, caught during `route`'s reach-out window — but
+this is not proven and a competing "resolver reaches out and the pod is torn down mid-call" story
+fits equally.
+
+## What is NOT pinned
+
+The exact instruction that terminates the pod mid-`route` (node/kubelet eviction vs. Job/container
+restart vs. spot reclaim). Pinning it needs a **live reproduction**: dispatch a small BURST of
+diagnoses (a single run usually completes), then watch the pods — `kubectl get pod <p> -o yaml`
+(`status.reason`/`containerStatuses[].lastState`), `kubectl get events`, and exit code — to catch
+one dying at `route`. That is the cheapest place to settle it and should precede any larger fix.
+
+## Fix applied (this thread) — hardening, honestly scoped
+
+`diagnose_route_action.go`: the §7D resolver now runs under a **hard wall-clock budget**
+(`resolver_budget_seconds`, default 20) with a **per-embedding-call ceiling**
+(`resolver_embedding_timeout_seconds`, default 15), both passed down so the embedding + DB calls
+cancel on the deadline; on expiry entries **fail-open** to their prose labels (the §7D
+"no-worse-than-not-resolving" contract). This fixes a **real latent defect** — `route`'s external
+calls previously ran on the raw unbounded ctx in a latency-critical control loop on a 4-connection
+pool — and matches the sibling `rag_index` pattern. **It is defence-in-depth, not the root fix:**
+the observed deaths are 8–36 s in (below the 20 s budget), so this removes `route`'s pathological
+minutes-long worst case and any indefinite reach-out, but will not by itself stop an environmental
+mid-`route` kill. Inert until a chassis image roll.
+
+## The root fix belongs to `bugs_open/003` (OWNED — do not fork)
+
+The durable fix is `003`'s in-progress work: **at-least-once consume / retry the orchestration when
+its pod is lost** (F2/F3), so a diagnose-agent that dies mid-`route` is *re-driven* instead of
+stranded. Diagnose-agent is disproportionately exposed because it runs a **long, heavy,
+multi-iteration marathon** (repo clone + analysis + up to 5×`gather→verdict→route`, 100–535 s) in
+one ephemeral Job pod. **Recommended (owner call, not applied here):** raise the diagnose-agent
+resource *requests* (currently `100m`/`256Mi`) toward its real footprint so it is a less likely
+eviction victim under node pressure — a live `agent_definitions.resources` config change, no image
+roll. Contribute these findings into `003`; do not start a competing structural fix.
