@@ -6,29 +6,34 @@
 > landed"** near the bottom for what changed and how it was verified. The
 > 2026-07-16 sections below are the original diagnosis and remain accurate history.
 >
-> **What is done and LIVE** (commit `a51333fd7`; shell only, so live on commit —
-> no image roll): `run-migrations.sh` now has `--record-only <file> --note "<why>"`
-> to register an out-of-band apply; a failure message that names the already-
-> applied cause and prints the recovery command; sidecar (`_ROLLBACK`/`_VERIFY`)
-> exclusion; a dry run cut from >120s to ~5s; and a refusal when the DB is
-> unreachable. These are fix candidates **(a)** and **(b)** from below, plus three
-> defects **(e)(f)(g)** found while taking the baseline dry run.
+> **What is done and LIVE** (commits `a51333fd7` + `ed1f70396`; shell only, so
+> live on commit — no image roll): `run-migrations.sh` now has
+> `--record-only <file> --note "<why>"` to register an out-of-band apply; a
+> failure message that names the already-applied cause and prints the recovery
+> command; sidecar (`_ROLLBACK`/`_VERIFY`) exclusion; a dry run cut from >120s to
+> ~5s; a refusal when the DB is unreachable; and an advisory idempotency lint on
+> pending files. This is **all three** non-rejected fix candidates — **(a)** and
+> **(b)** and **(c)** — plus three defects **(e)(f)(g)** found while taking the
+> baseline dry run.
 >
 > **Why it is still OPEN, not moved to `/bugs_closed/`** (the bar there is
-> *fixed AND live AND not reproducible*):
+> *fixed AND live AND not reproducible*). Both defects the trap needs are now
+> *made-easy-to-avoid* — recording is one command (a), the replay cause is named
+> (b), non-idempotent pending files are flagged (c) — but **none is enforced**,
+> so the blocking symptom is still reproducible:
 > 1. **The runner still HALTS on an already-applied-but-unrecorded migration.**
->    Fix (b) made that halt *informative* and gave a one-command recovery — it did
->    **not** make the runner auto-detect-and-skip (candidate (d), auto-record, was
->    deliberately rejected as unsafe). Recording is still a manual, opt-in step, so
->    a thread that forgets to record can still gate the queue for everyone. The
->    *diagnosis cost* (the 3-day misread) is fixed; the *block itself* is mitigated,
->    not eliminated — the symptom is still reproducible.
+>    Fix (b) made that halt *informative* and gave a one-command recovery; fix (c)
+>    warns *before* you apply a non-idempotent file — but neither makes the runner
+>    auto-detect-and-skip (candidate (d), auto-record, was deliberately rejected as
+>    unsafe: a 23505 can also be genuinely-wrong SQL, and auto-recording would mark
+>    broken SQL as applied — worse than a replay). Recording and heeding the
+>    warning are both manual, so a thread that ignores them can still gate the
+>    queue. The *diagnosis cost* (the 3-day misread) is fixed; the *block itself*
+>    is mitigated, not eliminated.
 > 2. **The `--record-only` INSERT path is UNEXERCISED against the production
 >    ledger** — deliberately: the only pending files were other threads' and
 >    genuinely pending, so there was nothing safe to record. The next real
 >    out-of-band apply should use it and confirm the row lands.
-> 3. **Fix candidate (c)** — the unguarded-`INSERT` lint — is **not built**
->    (optional, preventive; left out to keep the change reviewable).
 >
 > **What IS eliminated:** near-miss (e) — the runner treating 180's `_ROLLBACK.sql`
 > as a pending migration and reverting bug 024 — is closed and live.
@@ -36,11 +41,14 @@
 > **Next actions for a resuming chat**, in priority order:
 > - (nothing forces action — this is a mitigated landmine, not an outage.)
 > - When you next apply a migration by hand: use `--record-only` and confirm the
->   ledger row, closing residual 2 above. That is the cheapest way to exercise it.
-> - Optional robustness: build candidate (c) lint; or reconsider auto-detect
->   (skip-if-already-applied) now that the message path exists — note this changes
->   the runner from "die loudly" to "carry on", which the 2026-07-16 analysis
->   was wary of. Not obviously right; decide before building.
+>   ledger row, closing residual 2 above. That is the cheapest way to exercise it,
+>   and it is the ONE thing left before 007 could be argued closable.
+> - If you want the runner to stop halting at all (residual 1): the honest options
+>   are (i) leave it — "die loudly with a fix in the message" is a defensible
+>   design, or (ii) reconsider auto-detect (skip-if-already-applied). Note (ii)
+>   changes the runner from "die loudly" to "carry on", which the 2026-07-16
+>   analysis was wary of *for the auto-record variant*; a skip-only variant that
+>   still refuses to *record* is a middle path worth designing before building.
 > - Do **not** `--apply` casually: pending files are usually another thread's, and
 >   applying someone else's migration can violate an image-first ordering.
 
@@ -236,9 +244,29 @@ from "the ledger table does not exist", which the runner treated as *nothing is
 applied*. With `--apply` that meant replaying the entire history from 124. The
 runner now probes `SELECT 1;` first and refuses to do anything if it fails.
 
-**NOT done: fix candidate (c)**, the unguarded-`INSERT` lint. Still wanted, still
-optional; left out to keep this change reviewable. Candidate (d) (auto-record on
-23505) remains correctly rejected.
+**(c) An advisory idempotency lint on pending files** (commit `ed1f70396`, added
+2026-07-21). The dry run and `--apply` both warn (stderr, never blocking) when a
+pending file INSERTs into a non-log table while carrying no guard `DO` block, no
+`ON CONFLICT` and no `WHERE NOT EXISTS` — the exact shape that errors on replay.
+It doubles as an early warning for *this* trap: a non-idempotent pending file is
+precisely the one that blows up if it turns out to be already-applied-and-
+unrecorded, so the warning points at `--record-only`.
+
+> **Calibrated against the live corpus, not the handoff's literal "any bare
+> `INSERT`" spec.** Nearly every migration writes a `doc_notes` audit row, so a
+> literal lint would fire on almost every file and be learned-ignored within a
+> day. The allowlist — `doc_notes`, `doc_plans` (append-only logs) and
+> `schema_migrations` (self-record, always `ON CONFLICT DO NOTHING`) — is the
+> load-bearing refinement. Validated: it flags 151 (the original culprit,
+> `INSERT INTO content_components`, no guard) and 166 (a versioned `site_specs`
+> double-insert); it is silent on guarded files, on `ON CONFLICT` (167), on
+> `WHERE NOT EXISTS` (184), on `UPDATE`-only files, on `doc_notes`-only files,
+> and on the entire live pending queue.
+
+Candidate (d) (auto-record on 23505) remains correctly rejected: a 23505 can also
+be genuinely-wrong SQL colliding with unrelated data, and auto-recording would
+mark broken SQL as applied — strictly worse than a replay. All three non-rejected
+candidates (a, b, c) are now shipped.
 
 ### Verification
 
