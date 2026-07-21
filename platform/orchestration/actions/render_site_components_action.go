@@ -482,16 +482,19 @@ func renderAndStoreSiteComponent(
 		}
 	}
 
-	// Get component template
+	// Get component template + its declared input_schema. The schema is what
+	// makes render_site_components honour a component's own field vocabulary
+	// rather than only the hardcoded ContentData map below — bugs_open/018.
 	var componentID uuid.UUID
 	var htmlTemplate string
+	var inputSchemaRaw []byte
 
 	err := db.QueryRowContext(ctx, `
-		SELECT sc.component_id, cc.html_template
+		SELECT sc.component_id, cc.html_template, COALESCE(cc.input_schema, '{}'::jsonb)
 		FROM site_components sc
 		JOIN content_components cc ON sc.component_id = cc.id
 		WHERE sc.site_id = $1 AND sc.slot_name = $2
-	`, siteID, slot).Scan(&componentID, &htmlTemplate)
+	`, siteID, slot).Scan(&componentID, &htmlTemplate, &inputSchemaRaw)
 
 	if err != nil {
 		// No component assigned, try to find default
@@ -505,11 +508,11 @@ func renderAndStoreSiteComponent(
 			funcName = mapped
 		}
 		err = db.QueryRowContext(ctx, `
-			SELECT id, html_template 
-			FROM content_components 
+			SELECT id, html_template, COALESCE(input_schema, '{}'::jsonb)
+			FROM content_components
 			WHERE function = $1
 			ORDER BY name LIMIT 1
-		`, funcName).Scan(&componentID, &htmlTemplate)
+		`, funcName).Scan(&componentID, &htmlTemplate, &inputSchemaRaw)
 
 		if err != nil {
 			logger.Warn("No component found for slot",
@@ -526,8 +529,87 @@ func renderAndStoreSiteComponent(
 		`, siteID, slot, componentID)
 	}
 
-	// Render the template
-	renderedHTML := RenderTemplate(htmlTemplate, renderCtx, logger)
+	// Schema-driven fill (bugs_open/018). renderCtx.ContentData above is a FIXED
+	// vocabulary; a chrome component declaring any other field name previously
+	// received "" for it, silently — idea.uk rendered 30 dead href="" controls
+	// because its templates ask for nav_link_1_url etc. and the map has none of
+	// them. Resolve the component's OWN declared schema fields through the
+	// existing sourceResolver, GAP-FILLING only, so wherever the map already
+	// supplies a value it stays authoritative and the nine sites on
+	// header-bold-gradient/footer-4-column render byte-identically under every
+	// caller. `unresolved` is at function scope so the report below (outside the
+	// schema block) can read it.
+	var unresolved []string
+	if len(inputSchemaRaw) > 0 {
+		var raw map[string]interface{}
+		if jErr := json.Unmarshal(inputSchemaRaw, &raw); jErr != nil {
+			logger.Warn("site chrome: input_schema unparseable; fixed vocabulary only",
+				zap.String("slot", slot), zap.Error(jErr))
+		} else {
+			// TWO live schema shapes: wrapped {"fields":{name:{...}}} (most
+			// components) and FLAT {name:{...}} (e.g. "Document Head", the head
+			// slot on most sites). Detect both; a shape that is neither is skipped.
+			fields := raw
+			if w, ok := raw["fields"].(map[string]interface{}); ok {
+				fields = w
+			}
+			resolver := newSourceResolver(siteID, db, logger, "") // site-wide: no page
+			for name, defAny := range fields {
+				def, ok := defAny.(map[string]interface{})
+				if !ok {
+					continue // not a field descriptor (e.g. a stray scalar)
+				}
+				// GAP-FILL ONLY. Presence wins for EVERY non-string type, so a
+				// set bool like show_subscribe is never overwritten; only a
+				// genuinely empty string is filled.
+				if existing, present := renderCtx.ContentData[name]; present {
+					if s, isStr := existing.(string); !isStr || s != "" {
+						continue
+					}
+				}
+				source, _ := def["source"].(string)
+				if source == "" || source == "static" || strings.HasPrefix(source, "static.") {
+					// Declared static literal (e.g. nav_aria_label): honour its
+					// fallback. A data-source MISS below never gets a fallback.
+					if fb := def["fallback"]; fb != nil {
+						renderCtx.ContentData[name] = fb
+					} else {
+						unresolved = append(unresolved, name)
+					}
+					continue
+				}
+				if source == "llm" || source == "renderer" || strings.HasPrefix(source, "renderer.") {
+					unresolved = append(unresolved, name)
+					continue
+				}
+				if v, found := resolver.resolve(ctx, source); found && v != nil {
+					renderCtx.ContentData[name] = v
+					continue
+				}
+				// MISSED data-source resolution. Do NOT apply def["fallback"] —
+				// header-bold-gradient's cta_url fallback is /contact.html, the
+				// fossil of the phantom-CTA bug LNK-007. Correct-or-absent (LNK-005).
+				unresolved = append(unresolved, name)
+			}
+		}
+	}
+
+	// Render the template, reporting which placeholders rendered empty so a dead
+	// chrome control is named (Error, via the mechanism) and combined here with
+	// the site/slot/component only this caller knows. Deliberately a log, not a
+	// work item: bugs_open/023 established the failure mode here is a DELIVERY
+	// gap (34 findings unread), so escalation is the follow-on bugs_open/054.
+	renderedHTML, missing, deadURLFields := RenderTemplateReportingMissing(htmlTemplate, renderCtx, logger)
+	if len(unresolved) > 0 || len(missing) > 0 {
+		logger.Warn("site chrome: fields rendered empty — template must gate these",
+			zap.String("slot", slot),
+			zap.String("component_id", componentID.String()),
+			zap.String("site_id", siteID.String()),
+			zap.Strings("schema_unresolved", unresolved),
+			zap.Strings("template_missing", missing),
+			zap.Strings("dead_url_fields", deadURLFields),
+		)
+	}
 
 	if renderedHTML == "" {
 		logger.Warn("Template rendered to empty string",

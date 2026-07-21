@@ -88,6 +88,20 @@ override for the handful of components whose fields don't follow the convention.
 > derivation function, three call sites: `plan_sections`, `resolve_internal_links`,
 > `applyCTARecompute`.
 
+> **UPDATED 2026-07-21 — a FOURTH call site.** The site-chrome renderer
+> (`render_site_components_action.go`) built a hardcoded `ContentData` map and never
+> read `input_schema`, so chrome components (header/footer/head) were entirely outside
+> this principle — idea.uk shipped 30 dead `href=""` controls as a result
+> (`bugs_open/018`). It now resolves a component's declared schema fields through the
+> same `sourceResolver` (gap-fill only; fallbacks only for `source:static`, never on a
+> data-source miss — so the `/contact.html` fossil LNK-007 removed cannot return).
+> Added under council submission `7152c7cf` (round 3, owner ruling 2026-07-21: ship the
+> observability layer now, escalation follow-on is `bugs_open/054`). Why this was
+> invisible: the CTA census (`RUNBOOK_cta_link_integrity.md:40-42`) covers
+> `page_components` only. A second instance of the same chrome blind spot —
+> `collectJSAssets` omitting `site_components`, so chrome JS never publishes and the
+> mobile menu is dead on every page — is `bugs_open/041`, fixed in the same submission.
+
 **P1.1b — the LLM-authored URL surface is 21 fields, not 1.** `tool-guide-intro.cta_secondary_url`
 was not a one-off: **21 of the 119 derived CTA url fields are `source:llm` across 7
 components.** Every one is an instruction to a model to author a URL it cannot look up. This

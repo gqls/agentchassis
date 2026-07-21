@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -496,11 +497,66 @@ func containsAny(s string, substrings ...string) bool {
 // TEMPLATE RENDERING - Unified for both Go-style and Handlebars-style
 // ===========================================================================
 
-// RenderTemplate renders a component template with the given context
-// Uses Go's text/template for full support of {{if}}, {{range}}, {{with}}, etc.
+// bareFieldRe matches a bare OUTPUT placeholder — {{.Name}} / {{ .Name }} —
+// only. Names inside {{if .x}} / {{range .x}} carry the "if"/"range" keyword
+// and are deliberately NOT matched: absence there is correct gating, not a
+// defect, and reporting it would drown the signal in noise.
+var bareFieldRe = regexp.MustCompile(`\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}`)
+
+// urlAttrRe tests whether the text immediately preceding a placeholder ends in
+// an href=/src= attribute opener, in EITHER quote style with optional
+// whitespace, so a blanked href="{{.x}}" or href='{{.x}}' is recognised as a
+// dead control rather than a merely-missing word.
+var urlAttrRe = regexp.MustCompile(`(?:href|src)\s*=\s*["']?$`)
+
+// missingBareFields returns the names of bare output placeholders ({{.Name}})
+// that the data map will render empty, and the subset of those that sit inside
+// an href=/src= URL attribute. It is deterministic and independent of the
+// "<no value>" output string — it scans the SOURCE template and tests the data
+// map, so it reports the same set whichever render path ran.
+func missingBareFields(tpl string, data map[string]interface{}) (missing, inURLAttr []string) {
+	seen := map[string]bool{}
+	for _, m := range bareFieldRe.FindAllStringSubmatchIndex(tpl, -1) {
+		name := tpl[m[2]:m[3]]
+		if seen[name] {
+			continue
+		}
+		if v, present := data[name]; present && v != nil && v != "" {
+			continue // field is filled — not missing
+		}
+		seen[name] = true
+		missing = append(missing, name)
+		// Attribute context: does the placeholder sit right after href=/src=?
+		if urlAttrRe.MatchString(tpl[:m[0]]) {
+			inURLAttr = append(inURLAttr, name)
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(inURLAttr)
+	return
+}
+
+// RenderTemplate renders a component template with the given context.
+// It keeps its original signature; every existing caller is unchanged. It is a
+// thin wrapper over RenderTemplateReportingMissing, which also returns the set
+// of placeholders that rendered empty (consumed by the site-chrome renderer to
+// name dead controls — bugs_open/018).
 func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) string {
+	out, _, _ := RenderTemplateReportingMissing(templateStr, ctx, logger)
+	return out
+}
+
+// RenderTemplateReportingMissing renders a component template and additionally
+// reports which bare output placeholders rendered empty (`missing`) and which
+// of those sat inside an href=/src= attribute (`inURLAttr` — a dead control on
+// a live page). A blanked URL attribute logs at Error with its field names; any
+// other blanked field logs at Warn. This replaces the previous count-only
+// <no value> log, which named nothing and let 30 dead controls ship silently on
+// idea.uk (bugs_open/018). Uses Go's text/template for full support of {{if}},
+// {{range}}, {{with}}, etc.
+func RenderTemplateReportingMissing(templateStr string, ctx *RenderContext, logger *zap.Logger) (string, []string, []string) {
 	if templateStr == "" {
-		return ""
+		return "", nil, nil
 	}
 
 	// Convert context to map[string]interface{} - preserves nested structures
@@ -542,23 +598,33 @@ func RenderTemplate(templateStr string, ctx *RenderContext, logger *zap.Logger) 
 	}
 
 	// =====================================================================
-	// Clean up <no value> placeholders from Go template nil access
-	//
-	// Go's missingkey=zero for map[string]interface{} returns nil (the
-	// zero value of interface{}), which still renders as "<no value>".
-	// This is a Go quirk - missingkey=zero only works cleanly for
-	// concrete types like map[string]string where zero is "".
+	// Report fields that rendered empty, then strip Go's "<no value>"
+	// artefact. Detection is deterministic — missingBareFields scans the
+	// source template and tests the data map, independent of the
+	// "<no value>" string. A blanked href=/src= is a DEAD CONTROL shipped
+	// to a live page: logged at Error with its field names so it is
+	// greppable and alertable, not a merely-missing word (Warn). This
+	// replaced the previous count-only Warn that named nothing, under which
+	// 30 dead controls shipped silently on idea.uk (bugs_open/018).
 	// =====================================================================
+	missing, inURLAttr := missingBareFields(templateStr, data)
 	if strings.Contains(result, "<no value>") {
-		count := strings.Count(result, "<no value>")
-		logger.Warn("RenderTemplate: Cleaning up <no value> placeholders",
-			zap.Int("count", count),
-			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
-		)
 		result = strings.ReplaceAll(result, "<no value>", "")
 	}
+	if len(inURLAttr) > 0 {
+		logger.Error("RenderTemplate: URL attribute rendered empty — dead control",
+			zap.Strings("fields", inURLAttr),
+			zap.Strings("all_missing", missing),
+			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+		)
+	} else if len(missing) > 0 {
+		logger.Warn("RenderTemplate: fields rendered empty",
+			zap.Strings("fields", missing),
+			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+		)
+	}
 
-	return result
+	return result, missing, inURLAttr
 }
 
 // contextToMap converts RenderContext to a map for template substitution

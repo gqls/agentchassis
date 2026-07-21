@@ -159,6 +159,18 @@ func collectJSAssets(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 		WHERE pc.page_id = $1
 		  AND cc.js_content IS NOT NULL
 		  AND cc.js_content != ''
+		UNION
+		-- Chrome (header/footer/head) is reached only through site_components,
+		-- so its js_content was never published and its <script src> always
+		-- 404'd (bugs_open/041) — the mobile menu is dead on every page. Mirrors
+		-- the UNION already used by render_js_snippets_for_site_action.go:203-219
+		-- for the snippets bundle, so the two JS paths agree that chrome exists.
+		SELECT DISTINCT cc.function, cc.js_content
+		FROM site_components sc
+		JOIN content_components cc ON sc.component_id = cc.id
+		WHERE sc.site_id = (SELECT site_id FROM pages WHERE id = $1)
+		  AND cc.js_content IS NOT NULL
+		  AND cc.js_content != ''
 	`, pageID)
 	if err != nil {
 		logger.Warn("collectJSAssets: query failed", zap.Error(err))
