@@ -1,10 +1,22 @@
 # 047 — every batch_scrape is rejected as "Empty URL" before reaching its own handler
 
+> **CLOSED 2026-07-21 — FIXED AND LIVE on v1.0.1145.** The reordered guard
+> (commit `8d9d9051a`) built into `web-scrape-adapter:v1.0.1145` and rolled to all
+> three adapter pods (`84bc6fd69d-*`, 0 restarts). **Verified behaviourally**, not
+> by pod-grep (the fix is a pure reordering — no new symbol): a `batch_scrape`
+> smoke request (`client_id=verify047`, corr `4619736a-…`) at **2026-07-21
+> 10:49:20Z** on pod `…-z2gnc` was logged `Processing webscrape request`
+> (action=batch_scrape, **url=""**) → **`Processing batch scrape request`**
+> (`batch_handler.go:85`, i.e. it reached `handleBatchScrape`) → `Scraping URL` →
+> `Batch scrape completed` total=1 success=1 errors=0 → success response.
+> **No "Empty URL in request".** The exact condition that used to reject at the
+> door (empty top-level url) now flows to the batch handler. See "Verified live"
+> at the foot of this file. Moved to `/bugs_closed/`.
+
 **Found:** 2026-07-20 by the claims-verification thread, on the evidence-researcher's
 first smoke run. **Fix committed same day** (guard reordered in
-`internal/adapters/webscrape/adapter.go`) — **OPEN until a web-scrape-adapter image
-is rebuilt and rolled**; the defect is reproducible in prod until then
-(bugs_closed bar: fixed AND live).
+`internal/adapters/webscrape/adapter.go`) — was **OPEN until a web-scrape-adapter
+image was rebuilt and rolled**; that happened with **v1.0.1145** (2026-07-21).
 
 ## The defect
 
@@ -66,6 +78,35 @@ for single-url requests.
 2. Adapter log should show the batch reaching `handleBatchScrape` (and NO
    "Empty URL in request" for it).
 3. The step's awaited request completes instead of expiring at `retry=3`.
+
+## Verified live (2026-07-21, closing the case)
+
+Deployment state at close:
+
+- All three `web-scrape-adapter-84bc6fd69d-*` pods Running `docker.io/aqls/web-scrape-adapter:v1.0.1145`, 0 restarts.
+- Fix commit `8d9d9051a` is an ancestor of the HEAD that v1.0.1145 was built from
+  (`make build-*` archives committed HEAD), so the reordering is in the binary.
+- Kustomization catch-up is lagging behind the live deploy at close time (the
+  committed overlay still read v1.0.1143, a concurrent thread's uncommitted diff
+  bumps it to v1.0.1144) — the running image is v1.0.1145, deployed directly. The
+  verification is against the **running pod**, not the overlay, exactly because
+  the overlay is not the source of truth for what is live.
+
+Behavioural proof (pod `…-z2gnc` log, 2026-07-21T10:49:20Z, `client_id=verify047`):
+
+```
+Processing webscrape request      action=batch_scrape url="" corr=4619736a-…
+Processing batch scrape request   batch_handler.go:85  url_count=1     ← reached handleBatchScrape
+Scraping URL                      index=0 url=https://example.com
+Batch scrape completed            total=1 success=1 errors=0
+Sending batch scrape success response  result_count=1
+```
+
+The rejection string `Empty URL in request` does **not** appear for this request.
+An empty top-level `url` — the precise state that used to be rejected before the
+action switch — now branches straight into the batch handler and completes. This
+is the verification the handoff's "How to verify" section asked for (batch reaches
+`handleBatchScrape`; no "Empty URL"; await completes rather than expiring).
 
 ## Related
 
