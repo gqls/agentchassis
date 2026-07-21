@@ -191,3 +191,32 @@ references an unregistered check). **017 stays OPEN** until it is live per the f
 but no deployed page carries a `<form>` posting to a backend POST route ("site cannot sell
 anything"). Left out because it needs a reliable "does the site have a backend" signal, which the
 empty `deploy_config` shows is itself missing — a data-model gap worth its own decision.
+
+#### Council round 1: REVISE (corr `ed4851c9`, 2026-07-21) — 9/12 approve, 3 object, 0 unreadable
+
+Every seat that judged the detection logic **approved** it ("well-targeted", "correct architectural
+shape", "unusually well-evidenced"); the reviewers' own read-only checks independently **confirmed**
+every evidence claim (deploy_config `{}`, 30 discovery items none matching, `pages.status='active'`
+covers the deployed population). Three objections, two of them actionable — both now fixed
+(commit `a02e27853`):
+
+- **bug_historian [medium] — FIXED.** `probeGETStatus`'s error was effectively swallowed, so a
+  TLS/DNS/timeout blip read as "not a 405" → clean. A check whose job is catching silent failures
+  must not go silently blind on the fragile VM backends it watches. Now counts unchecked routes and
+  logs `Warn` that they are UNCHECKED (not proven clean).
+- **editquality [low] — FIXED.** Test pinned only the filter. `probeGETStatus` now takes a full URL;
+  added an httptest test covering 405-flag / 200 / 400 / 404 **and** the failed-probe-must-error case.
+- **editquality/guardian [medium] — CLARIFIED (not a code gap).** "Plan omits registration." The
+  check **self-registers** via `init(){ Register(...) }` exactly like every sibling — not dead code;
+  `RunDiscoveryChecksAction` logs `checks.Names()` to prove it. **Enablement** = add
+  `"backend_entry_orphaned"` to the `config.checks` array of the `run_discovery_checks` workflow step
+  (`RunDiscoveryChecksAction` reads `config["checks"]`, defaulting to a 4-check list). That is a
+  config edit, **image-first** (a named check that isn't registered is skipped, non-fatal), so it is
+  a deliberately-sequenced follow-on, not an omission.
+- **bug_historian [high] — TRACKED, by design.** This is the *auditor* half; the *cause* — a static
+  cutover (a manual nginx op, README §4) that overwrites `/` and silently orphans the tool's forms
+  with no check on what it replaces — is untouched. bug_historian's own note calls this check "the
+  correct architectural shape" and asks that the cause be tracked separately. **Follow-on:** a
+  *pre-cutover* content/route-diff guard (what routes+forms is the old `/` serving that the new `/`
+  will drop?) belongs in the idea.uk cutover RUNBOOK §4 and generalises the handoff's "should
+  discovery run after a deploy-target/origin change?" It is prevention; this check is detection.
