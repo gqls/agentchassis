@@ -9,6 +9,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // GetNavItems overloads a zero-row nav-table result. It can mean "this site
@@ -92,6 +94,41 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 		}
 		if err := mock.ExpectationsWereMet(); err != nil {
 			t.Fatal(err)
+		}
+	})
+
+	// Scenario A-loud — the anomaly guard (bugs_open/053 council revision). A
+	// request that INCLUDES the primary group must never be empty on a nav-table
+	// site; if it is, primary nav is missing (a sync/write defect), so returning
+	// empty is logged LOUD (Warn), not silently — the silent-empty-render class
+	// (016b §9). A lone legal group returning empty stays quiet (Debug).
+	t.Run("primary-including empty on a nav-table site warns; legal-only empty stays quiet", func(t *testing.T) {
+		run := func(groups []string) *observer.ObservedLogs {
+			core, logs := observer.New(zapcore.DebugLevel)
+			db, mock := newMockDB(t)
+			mock.ExpectQuery("FROM site_nav_items ni").WillReturnRows(navRows()) // 0 rows for the group
+			mock.ExpectQuery("SELECT EXISTS").WillReturnRows(
+				sqlmock.NewRows([]string{"exists"}).AddRow(true)) // site has nav rows elsewhere
+			got := GetNavItems(ctx, db, siteID, groups, false, 0, zap.New(core))
+			if len(got) != 0 {
+				t.Fatalf("groups %v: expected empty, got %+v", groups, got)
+			}
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Fatal(err)
+			}
+			return logs
+		}
+
+		// primary-including request → exactly one Warn, no fallback
+		if n := run([]string{NavGroupPrimary}).FilterLevelExact(zapcore.WarnLevel).Len(); n != 1 {
+			t.Fatalf("primary-only: expected 1 Warn about missing primary nav, got %d", n)
+		}
+		if n := run([]string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}).FilterLevelExact(zapcore.WarnLevel).Len(); n != 1 {
+			t.Fatalf("footer (primary+utility+legal): expected 1 Warn, got %d", n)
+		}
+		// lone legal request → no Warn (legitimately-empty group)
+		if n := run([]string{NavGroupLegal}).FilterLevelExact(zapcore.WarnLevel).Len(); n != 0 {
+			t.Fatalf("legal-only: expected 0 Warn (empty is legitimate), got %d", n)
 		}
 	})
 

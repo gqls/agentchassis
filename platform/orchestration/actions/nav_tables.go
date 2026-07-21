@@ -76,10 +76,32 @@ func GetNavItems(
 	// site with a full nav but no legal pages take the fallback, which then filled
 	// the footer's legal slot with every footer page. See /bugs_open/053.
 	if siteHasAnyNavItems(ctx, db, siteID, logger) {
-		logger.Debug("GetNavItems: Site uses nav tables but has no items for these groups; returning empty",
-			zap.String("site_id", siteID.String()),
-			zap.Strings("group_types", groupTypes),
-		)
+		// The site uses nav tables and simply has no items in the requested
+		// groups. Respect that truthful empty answer rather than papering over
+		// it with the pages fallback.
+		//
+		// But distinguish a LEGITIMATELY-empty group from an ANOMALOUS one. A
+		// lone legal/utility/content group is empty for most sites by design. A
+		// request that includes the PRIMARY group, however, should never come
+		// back empty on a site that has nav rows — primary is the main menu, so
+		// an empty result means the primary nav is missing (a bad sync/write),
+		// not a truthful "no such pages". Returning empty silently there would
+		// be a fresh instance of the platform's silent-empty-render class
+		// (016b §9): required-but-missing rendered as empty with no error. So
+		// fail LOUD for that case and quiet for the expected one, at no cost
+		// until an anomaly actually occurs (today every live site has primary
+		// nav rows, so this Warn never fires).
+		if containsGroupType(groupTypes, NavGroupPrimary) {
+			logger.Warn("GetNavItems: nav-table site returned NO items for a request including the primary group — primary nav appears to be missing (expected non-empty); serving empty nav",
+				zap.String("site_id", siteID.String()),
+				zap.Strings("group_types", groupTypes),
+			)
+		} else {
+			logger.Debug("GetNavItems: nav-table site has no items for these groups; returning truthful empty",
+				zap.String("site_id", siteID.String()),
+				zap.Strings("group_types", groupTypes),
+			)
+		}
 		return []NavItem{}
 	}
 
