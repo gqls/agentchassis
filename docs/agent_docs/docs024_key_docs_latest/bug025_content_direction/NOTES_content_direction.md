@@ -70,3 +70,15 @@ test. Go half is inert until then.
   did deploy. [OBSERVED, not chased]
 - Cleanup: content_direction reset to NULL; restoration rebuild `f92fe45e` queued as a
   live negative control (marker must clear).
+
+## 2026-07-21 — negative control PASSED; test items tidied; bug fully closed
+
+- Restoration rebuild ran with content_direction NULL: sections regenerated (update
+  16:27 → 16:42) and marker hits went **4 → 0**. So the guard correctly emits nothing
+  when the column is empty — wiring confirmed in BOTH directions (set → appears, NULL →
+  absent). Test page final state: content_direction NULL, marker_hits 0. Clean.
+- Both hand-queued test work items (`61de62d8`, `f92fe45e`) stayed at `claimed` while
+  their pages deployed (the completion-stamping lag). Hand-stamped both `complete` so a
+  claimed-item-timeout reaper wouldn't churn them. Their pages did the real work; only
+  the status stamp lagged. This is a separate matter (work-item completion integrity),
+  not bug 025 — recorded here, not chased.
