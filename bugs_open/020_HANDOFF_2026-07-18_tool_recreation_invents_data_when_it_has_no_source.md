@@ -3,6 +3,22 @@
 *Found 2026-07-18 by the vetcomparison thread. **Live fabrication shipped to a public site and
 served to visitors.** Contained on the affected site; the platform defect is unfixed.*
 
+> **STATUS 2026-07-21 (bugfix 020 thread).** The platform fix is **half live, half built-and-inert.**
+> - **Prompt half — LIVE NOW** (migration `183`, DB config, no image roll). `recreate_tool` gained a
+>   prominent `## Data Integrity` section (self-contained = code not data; preserve the original
+>   fetch source; honest empty state, never invent records) and rule 9 was rewritten to bind DATA
+>   not just arithmetic; `analyze_tool` now captures the original tool's `data_source` verbatim.
+>   This is candidates (1)+(2). It reduces the rate; it does not, alone, guarantee obedience.
+> - **Mechanical gate — BUILT + UNIT-TESTED + COMMITTED, inert until an image roll** (candidate 3).
+>   New Go action `check_tool_fabrication` (`platform/orchestration/actions/`) + 11 passing tests;
+>   workflow wiring staged **image-first** at
+>   `docs/.../bug020_tool_recreation_data_integrity/WIRING_check_tool_fabrication_APPLY_AFTER_IMAGE.sql`.
+>   Council review submitted (`SUBMISSION_CORR 8eef369f`).
+> - **Still OPEN** until the gate is live: needs a chassis image roll carrying `check_tool_fabrication`,
+>   then apply the wiring, then verify (recreate a data-backed tool → held, not deployed). Candidates
+>   (1)+(2) shipping does not close the bug — the defect is reproducible until the mechanical net ships.
+>   Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bug020_tool_recreation_data_integrity/`.
+
 **Family:** same class as `001` (a rebuild resurrecting fabrication that had been audited out of
 a site days earlier) but a **different mechanism** — 001 is `reconcilePlanWithRealised` no-op
 during re-plan; this is the tool-recreation path having no concept of a data dependency. Read 001

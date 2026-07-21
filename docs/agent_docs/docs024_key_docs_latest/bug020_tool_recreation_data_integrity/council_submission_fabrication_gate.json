@@ -1,0 +1,44 @@
+{
+  "rationale": "bugs_open/020: tool-recreation-handler recreated a real, data-backed practice directory (2,109 verified practices loaded from /data/vet-full-index.json) as a client-side generator of fake practice names and postcodes, and shipped it to a live public site. Every work item said 'complete'. The prompt half (migration 183, already live) tells the model never to invent data and to preserve the original data source, but confidence in a prompt is not a signal — the model already ignored the old, arithmetic-scoped rule 9. This change is the mechanical net that does NOT rely on prompt obedience: a Go detector (check_tool_fabrication) that inspects the generated tool and, on a fabrication signature, routes the item to needs_human_review via checkpoint_for_review instead of deploying. The whole design problem is PRECISION: a blunt 'grep for a PRNG' would flag every legitimate game (they use randomness for gameplay), so detection is tiered and the ambiguous tier requires corroboration that is exactly the bug-020 signature (original was data-backed AND the recreation dropped the fetch). Please pressure-test the detector for false positives on legitimate tools and false negatives against the real fabrication, and confirm the gate routing cannot deploy a fabricated tool.",
+  "submitter": "bugfix 020 thread (session 4950b0e9)",
+  "plan": {
+    "summary": "Add a mechanical fabrication gate to tool-recreation-handler for bug 020. A new local action check_tool_fabrication inspects the generated tool; on a fabrication signature it returns fabricated=true so the workflow routes the item to needs_human_review (via checkpoint_for_review) instead of deploying. Detection is tiered so it stays precise: Tier A (declaration of synthetic data, or synthetic-PII generators the recreation introduced) fires alone; Tier B (seeded PRNG / corpus builder / crossed fragment arrays / large literal record array) fires only when corroborated by the exact bug-020 signature — the original was data-backed and the recreation dropped the fetch. Go only (inert until an image roll); the workflow wiring is staged image-first and not part of this review.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/check_tool_fabrication_action.go",
+        "symbol": "DetectToolFabrication",
+        "operation": "add",
+        "rationale": "The pure, DB-free core so the precision logic is fully unit-testable. Tier A fires on its own (self-declaration of synthetic/fake/deterministic data near a data noun; makePostcode/randomPhone-style PII generators the recreation INTRODUCED that the original lacked). Tier B fires only when corroborated: a corpus signature AND the original was data-backed (a data-ish fetch/XHR, or analysis data_source.has_external_data) AND the recreation preserves no fetch of its own. The corroboration is what spares a legitimate dice game or a name-generator tool whose original had no data source.",
+        "sketch": "tierA := selfDeclaration || (syntheticPII(rec) && !syntheticPII(orig)); if tierA {fabricated,tier=declaration}; else corpus := prng||builder||>=2 fragmentArrays||>=15 recordObjects; if corpus && (analysisDataBacked||originalDataFetch(orig)) && !anyFetch(rec) {fabricated,tier=corroborated_corpus}. Returns {fabricated,tier,signals,detail}."
+      },
+      {
+        "file": "platform/orchestration/actions/check_tool_fabrication_action.go",
+        "symbol": "CheckToolFabricationAction",
+        "operation": "add",
+        "rationale": "The action wrapper: reads the generated HTML (completeness_check.clean_html), the original source and the analysis data_source from collected_data, runs DetectToolFabrication, and returns the result map for a downstream conditional. Fails OPEN on missing HTML (the completeness step owns empty output) so the gate never becomes a fleet-wide recreation blocker on an unexpected input.",
+        "sketch": "recreation := ExtractNestedFieldString(cd, html_field); res := DetectToolFabrication(recreation, original, dataSourceIsExternal(...)); return {fabricated,tier,signals,detail}"
+      },
+      {
+        "file": "platform/orchestration/actions/registry.go",
+        "symbol": "check_tool_fabrication",
+        "operation": "modify",
+        "rationale": "Register the action as a local validation action beside check_tool_completeness so the workflow can name it.",
+        "sketch": "\"check_tool_fabrication\": { Handler: CheckToolFabricationAction, Category: \"validation\", IsLocal: true }"
+      },
+      {
+        "file": "platform/orchestration/actions/check_tool_fabrication_test.go",
+        "symbol": "TestDetect_*",
+        "operation": "add",
+        "rationale": "11 tests pinning the precision contract. The real vetcomparison fabrication is gated both WITH the confessing comment (Tier A) and with it removed (Tier B). A dice game, a calculator, a faithful fetch-preserving recreation, an honest empty state, and a name-generator tool are NOT gated.",
+        "sketch": "vetcompFabrication (Mulberry32+TOWNS/PREFIXES/SUFFIXES+makePostcode+buildData, no fetch) over vetcompOriginal (fetch /data/vet-full-index.json) -> Fabricated; dice game with mulberry32 for rolls + no original data -> not gated."
+      }
+    ],
+    "grounded_in": [
+      "bugs_open/020: '// The original directory holds 2,100+ UK practices. For this recreation we generate a large, realistic, deterministic dataset so search, filtering and pagination behave exactly as they would against the real directory.'",
+      "bugs_open/020 root cause (a): 'The recreation path has no data-dependency contract ... A tool whose behaviour is its data therefore cannot be recreated faithfully — the model must either emit a dead empty widget or invent records to make search/filter/pagination demonstrably work.'",
+      "bugs_open/020 fix candidate 3: 'Add a post-generation fabrication check beside the existing completeness-marker check ... Grep generated JS for data-invention tells — seeded PRNG (Mulberry32, imul, seed), name-fragment arrays crossed to build labels, buildData/generate*, literal record arrays over N entries — and fail the item to needs_human_review rather than deploying.'",
+      "checkpoint_for_review_action.go: 'Creates a site_work_item with status needs_human_review ... The workflow then completes normally' — the existing machinery this gate reuses to hold a fabricated tool without deploying it."
+    ],
+    "risks": "1) FALSE POSITIVES on legitimate tools -> a legit game/calculator wrongly held for review. Mitigated by the corroboration gate on Tier B and by 6 negative unit tests; a false positive routes to human review, not silent breakage. Check the Tier A synthetic-PII regex for a legitimate 'postcode generator' dev tool (rare; would be reviewed). 2) FALSE NEGATIVES: a fabrication that fetches a decoy URL would look 'preserved'. Check whether preserved-fetch should be required to hit the SAME source, not just any fetch. 3) The action reads original_html_field default existing_content.existing_content.raw_html — confirm that path is populated at this step. 4) Gate routing: on fabrication the workflow must skip save_sections/deploy_page entirely (the wiring, reviewed separately, routes to checkpoint_for_review -> complete)."
+  }
+}
