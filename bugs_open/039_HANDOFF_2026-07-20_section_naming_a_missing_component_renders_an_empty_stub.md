@@ -7,7 +7,20 @@ page instead of failing.
 
 ---
 
-> ## FIX COMMITTED 2026-07-21 (`bd4dc30a0`) — INERT UNTIL THE CHASSIS IMAGE ROLLS; stays OPEN
+> ## FIX LIVE 2026-07-21 on `v1.0.1146` (`bd4dc30a0`); stays OPEN pending behavioural proof + cleanup
+>
+> > **UPDATED 2026-07-21 ~13:10 — the fix went live faster than expected.** It was committed at
+> > 12:44 and another session's **`v1.0.1146` sweep build** (commit `fe2ba5e52`, 13:04) built from
+> > HEAD, which includes `bd4dc30a0`. Pod-verified: `agent-chassis-…` on `v1.0.1146`,
+> > `strings /app/agent-chassis | grep -c isEmptyGenericStub` = 2. So the guard is **running in
+> > prod**. (The bugs_open/047 lesson: a "committed, inert until roll" fix can already be live via
+> > another thread's HEAD build — check the pod tag.) **It stays OPEN** because two things are still
+> > owed: (a) the failing branch has not been *induced* live — pod-grep proves deployment, not that
+> > the guard fires (the verify-the-failing-branch discipline), and (b) the 7 legacy stubs are not
+> > yet cleaned up. Do NOT force a rebuild of the 3 live sites to prove it — those are outward-facing
+> > and re-running their content writers risks the `/bugs_open/029` fabrication path. Prove it on the
+> > first *natural* rebuild of a stub page (assert the stub row is gone and a `needs_new_component`
+> > item was raised), or via the component-creator workstream driving the cleanup.
 >
 > **Candidate 1 applied structurally, at the single chokepoint.** Every page-composition path
 > flows through one INSERT — `SavePageSectionsAction` (`save_page_sections_action.go:543`). The fix
