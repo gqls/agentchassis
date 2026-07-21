@@ -185,10 +185,21 @@ func TestDetect_UncorroboratedCorpus_ReportedNotGated(t *testing.T) {
 	}
 }
 
-// Empty input is a no-op (the completeness step owns empty output).
-func TestDetect_Empty_NotGated(t *testing.T) {
-	if DetectToolFabrication("", "", false).Fabricated {
-		t.Fatalf("empty recreation must not be gated")
+// FAIL-SAFE: an un-inspectable (empty/missing) recreation must be HELD for review,
+// not silently passed to deploy — a safety gate that can't read its input must not
+// default to "clean" (the missingkey=zero class bug 020 belongs to). This also
+// makes a drifted field path fail loud rather than becoming a silent no-op.
+func TestDetect_UninspectableEmpty_FailsSafe(t *testing.T) {
+	res := DetectToolFabrication("", "", false)
+	if !res.Fabricated {
+		t.Fatalf("empty/uninspectable recreation must be HELD for review (fail-safe), not passed")
+	}
+	if res.Tier != "uninspectable" {
+		t.Fatalf("expected tier=uninspectable, got %q", res.Tier)
+	}
+	// whitespace-only is equally uninspectable
+	if !DetectToolFabrication("   \n\t ", "", false).Fabricated {
+		t.Fatalf("whitespace-only recreation must be held for review")
 	}
 }
 

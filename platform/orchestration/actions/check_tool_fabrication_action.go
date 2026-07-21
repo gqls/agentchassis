@@ -136,7 +136,20 @@ type FabricationResult struct {
 // when the analysis step flagged an external data source.
 func DetectToolFabrication(recreation, original string, analysisDataBacked bool) FabricationResult {
 	var res FabricationResult
+
+	// FAIL-SAFE, not fail-open. A safety gate that cannot inspect its input must
+	// not silently pass — that silent default is the exact `missingkey=zero` class
+	// bug 020 itself belongs to. If there is no recreation HTML to read (a missing
+	// field, an upstream extraction bug, or a drifted field path), hold for review
+	// rather than deploy unvetted output. This is normally unreachable —
+	// check_completeness runs first and guarantees substantial clean_html or errors
+	// out — so it will not cause spurious reviews; but if the path ever drifts it
+	// fails LOUD (everything held) instead of becoming a silent no-op.
 	if strings.TrimSpace(recreation) == "" {
+		res.Fabricated = true
+		res.Tier = "uninspectable"
+		res.Signals = []string{"no recreated tool HTML to inspect — cannot confirm the output is not fabricated"}
+		res.Detail = "Fail-safe: the fabrication gate could not read the recreation output, so the item is held for human review rather than deployed."
 		return res
 	}
 
@@ -232,10 +245,12 @@ func CheckToolFabricationAction(ctx context.Context, params ActionParams) (inter
 
 	recreation := datahelpers.ExtractNestedFieldString(params.CollectedData, htmlField)
 	if recreation == "" {
-		// No HTML to inspect — nothing to gate. Let the workflow continue; the
-		// completeness/validate steps own the empty-output case.
-		logger.Warn("check_tool_fabrication: no recreation HTML found — skipping", zap.String("field", htmlField))
-		return map[string]interface{}{"fabricated": false, "skipped": true, "reason": "no recreation html"}, nil
+		// FAIL-SAFE: missing recreation HTML is anomalous here (check_completeness
+		// runs first). Do NOT silently pass — DetectToolFabrication returns an
+		// "uninspectable" fabricated=true so the item is held for review, and a
+		// drifted field path fails loud instead of becoming a silent no-op.
+		logger.Warn("check_tool_fabrication: no recreation HTML at field — holding for review (fail-safe)",
+			zap.String("field", htmlField))
 	}
 	original := datahelpers.ExtractNestedFieldString(params.CollectedData, originalField)
 
