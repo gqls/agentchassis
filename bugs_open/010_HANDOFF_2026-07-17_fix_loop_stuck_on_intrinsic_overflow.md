@@ -1,9 +1,10 @@
 # HANDOFF — the fix loop does not converge on layout-intrinsic mobile overflow
 
-> **STATUS 2026-07-21 — both candidates now BUILT AND LIVE; (b)'s live proof in
-> flight.** Read the two corrections below before acting on the original account:
-> the diagnosis in §"Root cause" was **half wrong**, and the half that was wrong
-> is the half that felt most obvious.
+> **STATUS 2026-07-21 — both candidates BUILT AND FULLY LIVE; (b)'s escalation
+> branch is live-UNEXERCISED (the benchmark self-resolved before it could fire).**
+> Read the two corrections below before acting on the original account: the
+> diagnosis in §"Root cause" was **half wrong**, and the half that was wrong is
+> the half that felt most obvious.
 >
 > - **(a) drill-down attribution — LIVE and PROVEN.** Shipped v1.0.1135, still
 >   in v1.0.1140 (pod-verified). The signal went from the useless `fieldset
@@ -11,18 +12,29 @@
 >   tool-improver visibly re-aimed: its next attempt root-caused to the GRID
 >   ("grid items couldn't shrink") where the two previous attempts had both said
 >   "constrain the fieldset".
-> - **(b) convergence guard — LIVE in v1.0.1144, proof IN FLIGHT.** Built
->   `b13238be6`, then two council-driven fixes: `b88da540b` (DO UPDATE refresh
->   instead of DO NOTHING) and `905fbbeef` (MERGE the spec on re-escalation, not
->   full-replace — so a human's triage keys survive). v1.0.1144 shipped the
->   guard with the *pre-merge* form; the `905fbbeef` merge fix needs the NEXT
->   image. The guard is LIVE and unfired (the benchmark's last verdict was 07-18,
->   inside the 7-day cooldown). **A manual acceptance run was queued 2026-07-21
->   11:51 to induce the first escalation** (the benchmark is genuinely past
->   threshold — 4 complete cycles at `mobile-fit`, verified live) — [UNPROVEN
->   until it resolves]; watch for an `acceptance_stuck:tool-loot-table-balancer:*`
->   row. Council: 3 rounds, all REVISE, no veto; rounds 1 & 2 each produced a
->   real fix (above), round 3 in flight. Details in §"Fix candidates" (b).
+> - **(b) convergence guard — FULLY LIVE in v1.0.1146** (pod-verified: guard
+>   marker + spec-merge form both present). Three commits: `b13238be6` (guard),
+>   `b88da540b` (DO UPDATE refresh, not DO NOTHING — refreshes a re-escalation's
+>   count), `905fbbeef` (MERGE the spec, `site_work_items.spec || EXCLUDED.spec`,
+>   so a human's triage keys survive a refresh). Logic proven by 6 unit tests,
+>   each mutation-verified. **The escalation branch has NOT run live**, and the
+>   reason is the honest headline: I queued a manual acceptance run on the
+>   benchmark 2026-07-21 11:51 to watch it escalate — and it **PASSED** (all 9
+>   checks, `mobile-fit@mobile` green). **The benchmark is no longer RED.** Its
+>   `.ltb-row-grid` is now `display:flex; flex-wrap:wrap` (was an unshrinkable
+>   grid), so it wraps instead of overflowing, and the page re-rendered 11:33 —
+>   024's delivery chain (migration 180 + the Go half, v1.0.1144) finally worked.
+>   So the run took the all-pass branch and never reached the count/escalate
+>   code. The guard therefore rests on unit tests + deployment verification; its
+>   live escalation awaits the fleet's next genuinely-stuck tool (see §"Verify"
+>   §2 for how to confirm it then). **I mis-set out to prove it on a tool that
+>   had already been fixed** — the count (4 historical cycles) told me nothing
+>   about whether the tool was *currently* failing, and I did not re-check the
+>   live overflow before firing. Council: 3 rounds, all REVISE, no veto; rounds
+>   1 & 2 each produced a real fix (above), round 3's run was killed 5s in by the
+>   v1.0.1146 roll (fix_plan at 12:15:15, pod restart 12:15:20). Every actionable
+>   objection is addressed or accepted-and-deferred (parent_item_id reuse,
+>   generic-mechanism audit). Details in §"Fix candidates" (b).
 > - **CORRECTION (2026-07-19, from the travelling-docs thread): the
 >   non-convergence evidence in this file does not mean what it says.** The two
 >   RED re-verifications and the "materially identical" second fix were not
@@ -142,8 +154,8 @@ browser-runner-adapter image (+ chassis image for the judge). **Not yet
 re-verified end-to-end** — needs the images, then a fresh acceptance run so
 tool-improver receives the pointed hint and can target the grid.
 
-**(b) A convergence guard (judge/loop) — BUILT 2026-07-20, inert until the next
-chassis image.** `judge_acceptance_results` now counts the fix cycles that
+**(b) A convergence guard (judge/loop) — FULLY LIVE in v1.0.1146 (guard +
+DO UPDATE refresh + spec merge).** `judge_acceptance_results` now counts the fix cycles that
 already failed at the criteria failing *now*, and at N (config `max_fix_cycles`,
 default 2) raises ONE `acceptance_stuck` item at `needs_human_review` carrying
 `why_escalated`, instead of an identical N+1th `improve_tool`. Below the
@@ -182,8 +194,11 @@ risks are in the council submission (`submission_010_convergence_guard.json`,
 correlation `eeeccdaa-f14b-49cb-b11f-06e7f053add8`).
 
 **(c) NOT recommended: hand-fix this one tool.** It would clean the trial site
-but erase the benchmark and prove nothing. The tool is left overflowing on
-purpose.
+but erase the benchmark and prove nothing. The tool was left overflowing on
+purpose. **UPDATE 2026-07-21: the benchmark self-resolved anyway** — not by a
+hand-fix but by 024's delivery chain finally rendering tool-improver's layout
+change (grid → wrapping flex) to the live page. So this tool is no longer a
+valid test subject for either candidate; it passes Tier-4 now.
 
 ## Verify after fixing
 
@@ -195,32 +210,38 @@ purpose.
    unrelated reason in the correction at the top (024: the page never re-rendered).
 2. With (b): force two non-converging cycles on any tool; the third fail should
    produce `needs_human_review`, not a third identical improve_tool item.
-   **NOT YET DONE — this is the outstanding verification.** The guard is
-   committed but inert until a chassis image rolls. The benchmark tool is
-   already past the threshold (4 prior cycles, counted live), so the *first*
-   Tier-4 verdict after the roll should escalate rather than raise a fifth
-   improve_tool item — which makes this cheap to verify, but note it also means
-   the escalation will fire on a tool whose real defect is 024's delivery chain.
-   After the roll:
+   **STILL UNEXERCISED LIVE, and the benchmark can no longer test it.** The guard
+   is FULLY live in v1.0.1146 (pod-verified) and its logic is unit-tested with
+   mutation checks, but the escalation INSERT has never run against prod. I tried
+   to induce it (manual `acceptance_run` on the benchmark, 2026-07-21 11:51) and
+   the run **PASSED** — the benchmark self-resolved (its `.ltb-row-grid` is now
+   `display:flex; flex-wrap:wrap`, page re-rendered 11:33, 024's delivery chain
+   working), so the judge took the all-pass branch and never reached the count.
+   **Lesson banked:** the count (4 historical cycles) says nothing about whether
+   the tool is *currently* failing — always re-check the live overflow state
+   before assuming a past-threshold tool is still RED.
+   - **To verify when the fleet next produces a genuinely-stuck tool** (a tool
+     with ≥2 terminal `improve_tool` cycles at a criterion it *still* fails): on
+     the next Tier-4 verdict, expect an `acceptance_stuck:<function>:<site>` row
+     at `needs_human_review` carrying `why_escalated`/`fix_cycles_spent`, and NO
+     new `improve_tool` for that function. The count the judge runs:
    ```
-   -- the guard's own count, as the judge runs it (expect >= 2)
    SELECT count(*) FROM site_work_items w
-   WHERE w.site_id='e33263f4-74f8-494f-b191-546845dbbddf'::uuid
-     AND w.item_type='improve_tool'
-     AND w.item_key='acceptance_fail:tool-loot-table-balancer:e33263f4-74f8-494f-b191-546845dbbddf'
+   WHERE w.site_id=$SITE::uuid AND w.item_type='improve_tool'
+     AND w.item_key='acceptance_fail:'||$FN||':'||$SITE
      AND w.status IN ('complete','failed')
+     AND w.created_at > COALESCE((SELECT max(created_at) FROM doc_notes
+           WHERE subject_type='tool' AND subject_key=$FN AND source='tool-acceptance'
+             AND categories @> '["acceptance-run"]'::jsonb),'-infinity'::timestamptz)
      AND jsonb_typeof(w.spec->'failing_checks')='array'
      AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(w.spec->'failing_checks') e
-                 WHERE e = ANY('{"mobile-fit"}'::text[]));
-   -- after the next verdict: an escalation, and NO new improve_tool item
-   SELECT item_type, status, spec->>'why_escalated' FROM site_work_items
-   WHERE item_key LIKE 'acceptance_stuck:tool-loot-table-balancer:%';
+                 WHERE e = ANY(<the criteria failing now>));
    ```
-   Verify the deploy with a **discriminating** pod-grep — a string the change
-   CREATED, not one it merely uses:
-   `kubectl exec -n ai-persona-system <chassis-pod> -- sh -c 'strings /app/agent-chassis | grep -c "is not converging on this defect"'`
-   (positive control: `acceptance_stuck`; negative control: any string not in
-   this change).
+   - **Deploy check (already done for v1.0.1146):** discriminating pod-grep on a
+     string the change CREATED, not one it merely uses:
+     `strings /app/agent-chassis | grep -c "is not converging on this defect"`
+     (=1) and `grep -c "spec = site_work_items.spec || EXCLUDED.spec"` (=1 —
+     confirms the merge fix, not just the guard).
 
 ## References
 
