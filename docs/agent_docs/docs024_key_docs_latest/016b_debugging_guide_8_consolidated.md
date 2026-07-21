@@ -2287,6 +2287,52 @@ will never create one, and proves nothing about selection. Only the full **site-
 level you need a real build, not a rerender — or mirror `queryCandidates` in SQL (it is a
 verbatim copy of the Go query) and confirm the sole candidate, which is deterministic.
 
+### One call site of a shared judgement gets the rigorous fix; the sibling stays heuristic
+
+**Symptom.** A defect is fixed at the site where it was observed — with a rigorous
+explicit-marker predicate — and reported done. A SECOND, independent piece of code makes the
+*same* judgement one function away, still by a fragile heuristic (a name substring, a
+field-shape guess). It is latent: nothing trips the heuristic *today*, so there is no
+reproduction. The first input that does trips it silently — no error, no work item, no failed
+status — and presents as "the fix didn't take", which is exactly how the original defect
+presented and cost it multiple cycles.
+
+**Diagnose.** After fixing a judgement of the form *"is this X legitimate?"*, grep the
+codebase for the OTHER encodings of the same judgement, not only the one you touched. The
+tell is a predicate on a **proxy** (a Function name contains `content`/`body`/`article`; "has
+no required LLM fields") standing in for an **explicit marker that already exists elsewhere**
+(`component_level='tool'`). Two hand-maintained encodings of one contract always drift — the
+question is only when.
+
+**Root cause.** The judgement was duplicated, not centralised. Both sites answer the same
+question; only one was given the authoritative predicate. In `044`: `planSection`
+(generation) decided a component's empty schema was legitimate by name-matching
+`comp.Function`, while `isSelfContainedSection` (the rerender escalation guard, one function
+away) decided the identical question by the explicit `component_level='tool'` marker. A tool
+whose name happened to contain a content token would be name-matched to `deferred` and its
+template fix discarded — the same end-state as `bugs_closed/024`, reached by a different route.
+
+**Fix.** Make both call sites call ONE predicate (extract it if it does not exist yet), keyed
+on the explicit marker, never the proxy — a shared function cannot drift, two copies will. Add
+a test that pins BOTH sites to the same predicate. Precedent within this same file:
+`bugs_closed/024` unified the template-truncation judgement under `componentTemplateValid`
+(two loaders); `bugs_closed/044` unified the empty-schema judgement under
+`isSelfContainedSection` (plan + rerender). `schemaContentFields` (`bugs_open/026`) is the
+same move for the field-reading judgement.
+
+**How this class is found.** The council's `bug_historian` seat predicts the second site from
+the platform's *documented history of the same filter existing twice*, and it has been right
+twice running — it found 024's second call site, and it filed 044 before either had a live
+reproduction. The transferable rule: when you fix a shared judgement, **assume a sibling
+exists and go looking**; "I only see one" is the same "I didn't look" the diagnosis section of
+this guide warns about — confidence is not the signal, coverage is.
+
+**Cross-refs.** `bugs_closed/044` (this pattern's exemplar), `bugs_closed/024` (the
+template-truncation sibling), and the earlier instance the council cited — the page
+assembler's visible-content filter alongside the rebuild's own filter. Category tags:
+`duplicated-judgement`, `one-site-fixed-sibling-heuristic`, `explicit-marker-over-proxy`,
+`latent-until-new-input`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

@@ -3,7 +3,78 @@
 **Filed:** 2026-07-20 · travelling-docs thread · sibling of `bugs_open/024`
 **Severity:** medium — latent today, silent when it fires, and it fires on a
 component that does not exist yet (so nothing will surface it at the time).
-**Status:** OPEN. Not started. Filed at the council's instruction (see below).
+**Status:** ✅ CLOSED 2026-07-21 — fixed AND live on chassis `v1.0.1146`.
+
+> ⚠️ **Duplicate number.** Two unrelated cases share `044`. THIS one is the
+> `plan_sections` slug (now closed). The OTHER — *no capability inventory /
+> dormant agents undetectable* — is a different case and stays in `/bugs_open/`.
+> Resolve 044 by slug, never by number.
+
+---
+
+## CLOSURE — 2026-07-21 (fixed AND live)
+
+**Fix candidate 1 (preferred) was taken.** `planSection`'s empty-schema branch
+now calls the SAME predicate the rerender escalation guard uses,
+`isSelfContainedSection(comp)` (`component_level == 'tool'` AND empty
+input_schema), BEFORE the function-name heuristic. A self-contained tool is
+exempted by its explicit marker and returns `"ready"`; the name heuristic can no
+longer carry a tool to `deferred`. Two call sites of the "is this emptiness
+legitimate?" judgement now share ONE predicate, so they cannot drift apart — the
+exact residual `bug_historian` flagged.
+
+**Where the fix lives.** The Go change (`plan_sections_action.go`, the
+`isSelfContainedSection(comp)` exemption in `planSection`'s empty-schema branch)
+was swept into HEAD as part of the `v1.0.1146` build commit
+(`fe2ba5e52`, a multi-session sweep). It now sits just after the concurrent
+`bugs_open/026` change that reads fields via `schemaContentFields(...)`; the two
+compose correctly — `schemaContentFields({})` returns `(nil,false)`, so the
+empty-schema branch is still entered for a tool and the exemption still fires.
+
+**Live verification (2026-07-21).** Running pod
+`agent-chassis-55bbccfdbc-xrkv6`, image `docker.io/aqls/agent-chassis:v1.0.1146`:
+```
+strings /app/agent-chassis | grep -c "self-contained tool component"   # 1  (the NEW Reason literal, unique to this fix)
+strings /app/agent-chassis | grep -c "needs regeneration with content fields"  # 1  (positive control — pre-existing)
+strings /app/agent-chassis | grep -c "self-contained tool section"     # 1  (rerender's DIFFERENT wording — negative control, distinct string)
+```
+The discriminating literal `self-contained tool component` is created only by
+this change (the rerender path uses `self-contained tool section`), so its
+presence proves THIS fix is in the pod, not merely that the file was touched.
+
+**Regression test** (`plan_sections_tool_defer_test.go`, committed `8ef063e6a`).
+Exercised at the `planSection` level the "How to verify" section below asks for.
+Proven discriminating against an isolated tree built from `git archive HEAD`:
+- WITH the exemption → the tripping-name tools (`tool-content-planner`,
+  `tool-blog-outliner`, `tool-body-copy-scorer`, `tool-article-summariser`,
+  `tool-text-fitter`) all return `"ready"`. PASS.
+- With the exemption stripped (026 kept) → they return `"deferred"`. FAIL,
+  reproducing the bug exactly.
+- The benchmark tool stays `"ready"` (unchanged); a genuine schemaless SECTION
+  with a content name (`article-body`, `content-block`, `text-body`) still
+  `"deferred"` — the `bugs_closed/004`/`005` blanked-article protection is
+  preserved (it keys on `component_level != 'tool'`, so sections are untouched).
+
+**Latency claim re-checked live (2026-07-21).** Of the active
+`component_level='tool'` components, the 14 with an empty/NULL input_schema are
+exactly the set that reached this branch, and **none** trips the five substrings
+— so there was never a live reproduction, and the fix changes no current tool's
+observable status (they now reach `"ready"` via the marker instead of by falling
+through the name check). The 15 tools that DECLARE fields never enter this
+branch at all.
+
+**Fix candidate 2 (observability) NOT done** — deliberately out of scope. Making
+the *consequence* legible (surface when a carried section's component template is
+newer than its stored render) is a broader change to the re-render path and is
+the same idea as 024's fix candidate 4; candidate 1 structurally prevents the
+tool mis-carry, which is what closes this case. If the class recurs on a
+non-tool path, that observability is the follow-on worth building.
+
+**Pattern recorded.** The transferable shape — *"one call site of a shared
+judgement gets the rigorous fix; the sibling stays heuristic"* — is added to
+016b §9.
+
+*Original filing below, unchanged.*
 
 ---
 
