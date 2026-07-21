@@ -1,5 +1,10 @@
 # HANDOFF → next chat (continues "diagnosis fixloop 3")
 
+> ## ⛔ SUPERSEDED 2026-07-20 — start from `HANDOFF_diagnosis_fixloop_4.md`.
+> Its §1.1 (016 f2) is done, and §1.2 (the code tier) is built and LIVE. This
+> file's open items are resolved in _4; read it for current state. Kept for the
+> trail.
+
 *Written 2026-07-18 evening (turn 40). Cold-start bootstrap for the next chat —
 read top to bottom, it is self-sufficient. Supersedes
 `HANDOFF_diagnosis_fixloop_2.md` as the fresh-chat entry point. Deeper detail:
