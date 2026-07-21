@@ -1,5 +1,58 @@
 # Handoff — for a DEPLOYED page, `sections=[]` means "rendered elsewhere", not "awaiting composition" — and the planner does not know the difference
 
+> ## ✅ CLOSED 2026-07-21 — FIXED AND LIVE on v1.0.1146
+>
+> The §4 fix is implemented, verified, and running in production. The reconcile
+> logic now gates the empty-sections case on **deployed-ness**, exactly as §3/§4
+> prescribe, in both Pass B and Pass B2.
+>
+> **What shipped** (`platform/orchestration/actions/v3_site_actions.go`,
+> `reconcilePlanWithRealised`):
+> - **Pass B** — realised page reached by URL under a different name: carry the
+>   realised sections, EXCEPT `!deployed && empty` → take the LLM's sections
+>   (a catalogued first-plan page is finally composable).
+> - **Pass B2** — realised page reached by name: `non-empty` → restore realised;
+>   `empty && deployed` → **force the LLM's proposal back to empty** (closes the
+>   pre-existing injection exposure §4 names); `empty && !deployed` → keep the
+>   LLM's proposal (fall through).
+> - New log line `validate: forced deployed sectionless page back to empty` is the
+>   discriminating marker for the Pass B2 branch.
+>
+> **Verification**
+> - 4 discriminating unit tests in `v3_site_reconcile_test.go`
+>   (`TestReconcile_DeployedEmptyPageStaysEmpty_PassB{,2}`,
+>   `TestReconcile_NotDeployedEmptyPageTakesLLMSections_PassB{,2}`): all pass, and
+>   neutralising the two *new* gates fails exactly the two new-behaviour tests
+>   (`_PassB2` deployed-force-empty, `_PassB` not-deployed-take-LLM) while the two
+>   invariant-guard tests keep passing — the §"How to verify" #1/#2 method.
+> - **Live**: the discriminating string `forced deployed sectionless page back to
+>   empty` is present in the running `agent-chassis:v1.0.1146` pod binary
+>   (`strings /app/agent-chassis | grep -c` = 1), positive control present. The
+>   fix is a chassis Go change, so being in the running image is what makes it live.
+>
+> **How it shipped — a process note.** The change was authored on a thread working
+> this bug, then swept into the `v1.0.1146` build commit `fe2ba5e52`
+> ("sweep … several bugfixes") together with unrelated `bugs_open/037` and
+> `bugs_open/041` work — the `git add -A` hazard CLAUDE.md documents. Nothing was
+> lost (the committed code is byte-identical to the authored fix and to the §4
+> plan), but it means the change reached production **without** the council review
+> §5 recommended. The evidence in §2 is strong (fleet-wide measurement + control
+> group) and the fix is strictly *more* conservative for deployed pages, so the
+> live risk is low; the recommended review, if run, is now retrospective and would
+> spawn a follow-up bug only on REVISE/REJECTED.
+>
+> **Residual / adjacent items unaffected by this closure:** the duplicate-page
+> observation in §6 (tool subsystem, not the planner) is still just recorded, not
+> filed. `bugs_open/037` (needs_rebuild membership) is a *different* thread's work
+> and interacts with this gate — see the `TestReconcile_NeedsRebuildEmptyPageIsStillComposable`
+> test note: needs_rebuild joins the preserved-set *membership* but the empty-gate
+> deliberately still keys on `realisedPageIsBuilt` (== deployed only), so a
+> needs_rebuild page with empty sections stays composable.
+>
+> Everything below is the original filing, kept verbatim as the diagnosis record.
+
+---
+
 **Filed 2026-07-20**, splitting the surviving residual out of `/bugs_open/001` so that case can close.
 **Read the correction in §2 before implementing anything**: 001's own prescription for this residual
 is unsafe as written, and applying it would create an injection risk of exactly the class 001 exists
