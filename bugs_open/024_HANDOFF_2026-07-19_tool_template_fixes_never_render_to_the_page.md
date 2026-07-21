@@ -2,7 +2,119 @@
 
 **Filed:** 2026-07-19 · travelling-docs thread · site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk)
 **Severity:** high — silently defeats the whole self-verifying fix loop for tool components.
-**Status:** OPEN. **5 of 6 defects fixed (Go live in v1.0.1140 + migration 180 applied); the 6th, found by the first live proof run, still blocks delivery.** See "UPDATE 2026-07-20 — the request is now correct, and a SIXTH defect" below.
+**Status:** OPEN — **RE-SCOPED 2026-07-21.** The whole defect-1…6 chain patches the
+**generic** rerender path (`rerender_page_sections` → `save_page_sections`). That
+path is **deliberately forbidden for tool pages** by the experience-loop's
+ownership guard (migration 164, `fb89f1071`), and **every tool page is
+`rebuild_policy='owned'` by definition**. The sanctioned delivery — the
+`section-editor` agent (`apply_section_edit`) — **works, and has now delivered the
+benchmark fix LIVE** (see "UPDATE 2026-07-21 (later)" immediately below). Defect 6
+is moot for tools; **migration 180's request is well-formed but aimed at a path
+that cannot deliver a tool.** The remaining work is a re-wire (tool-improver →
+section-editor), not another patch to the generic path.
+
+---
+
+## UPDATE 2026-07-21 (later) — the delivery path was WRONG the whole time; the sanctioned path works and is now LIVE
+
+**The single sentence:** every defect in this file (1–6) has been patching the
+**generic** section-render→save path, but a deliberate guard from the
+**experience-loop** workstream forbids that path for tool pages — and the
+**sanctioned** path (`apply_section_edit` via the `section-editor` agent) delivers
+the fix correctly, **proven live on the benchmark today**.
+
+### How it was found
+
+With defects 3 + 5 fixed and live in **v1.0.1144** (pod-verified:
+`isSelfContainedSection`, `toolTemplateValid`/`componentTemplateValid`,
+`loadSingleComponentSchema` all present), I drove a correctly-formed reason-bearing
+`page_rerender` for the benchmark **directly** (kafka, unique item_key — bypassing
+defect 6's collision; the page-rerender dispatch lane is cron-starved, ~1
+completion in 6h). This is the **first proof run in this bug's history to get PAST
+defect 6 and reach `save_sections`.** Result:
+
+- `rerender_page_sections` **rendered the tool from its template and did NOT
+  escalate** — so defects 3 + 5 are **sufficient**. The render logic works.
+- Then `save_sections` **FAILED**:
+  > `page tool-loot-table-balancer is rebuild_policy=owned (tool/widget-owned): a
+  > generic section save would clobber it. Use apply_section_edit for targeted
+  > edits or the tool pipeline for rebuilds. Refusing to overwrite.`
+
+Nobody in this bug's six-defect history had ever seen this guard, because an
+**earlier defect always blocked first** (T28 escalated pre-defect-3; T32 was
+suppressed by defect 6 before reaching `page_rerender` at all).
+
+### The guard is deliberate, and forbids exactly what defects 1–6 attempt
+
+`save_page_sections_action.go:138-160` — "guard rail 1, experience loop"
+(`fb89f1071`, migration **164**). `save_page_sections` DELETE-and-reinserts
+`page_components`; on a tool-owned page that is "the TL-001 clobber," so it
+**hard-refuses**. Migration 164's own notes:
+
+- `UPDATE pages SET rebuild_policy='owned' WHERE page_type='tool'` — **every tool
+  page fleet-wide is owned**; the benchmark is `rebuild_policy=owned`, confirmed.
+- *"apply_section_edit and the tool pipeline remain the edit paths."*
+- *"page_rerender/**assembly** is NOT gated — re-assembly of existing
+  page_components is how owned pages deploy."* — the experience-loop **kept the
+  assemble path (rerender_single_page) open on purpose** and gated ONLY the
+  section-render **write**. The two workstreams were working the same page from
+  opposite ends: one bolting the section-write door shut to protect owned tools,
+  the other (this bug) patching that same door to push tool fixes through it.
+
+**Consequence for migration 180 / defect 6.** 180 makes tool-improver's
+`needs_rerender` carry `reason=section_data_resolved` so `page-rerender` takes the
+section-render branch. That branch ends at `save_page_sections`, which now refuses
+tool-owned pages. So **180's request is correct but undeliverable for a tool**, and
+**defect 6 (reason-scoping the generic key) is moot for tools** — fixing it only
+lets the request reach the guard that refuses it. (Defect 6 / 180 may retain value
+for **non-tool** `generic` pages — the idea.uk audience-check-form reproduction
+below is one — but that is a separate, lower-priority track, not tool delivery.)
+
+### The sanctioned path works — PROVEN LIVE
+
+The `section-editor` agent is active and its workflow is a complete delivery:
+`load_edit_context → apply_section_edit → git_commit → update_page_status`.
+`apply_section_edit`:
+- `content_edit` re-renders the component from its **current** template (loaded
+  fresh from `content_components`) with `content_data` as source of truth, then
+  UPDATEs `page_components.rendered_html`, reassembles the page, and returns HTML
+  for `git_commit`. It is the guard's own named path, so it is **not** gated.
+
+I drove `section-editor` `content_edit` (`field_updates={}`, a pure re-render) for
+the benchmark. Orchestration **COMPLETED**. Result, verified live:
+
+| where | `.ltb-row-grid` rule | len |
+|---|---|---|
+| before | `display: grid; grid-template-columns: 2fr 1fr 1fr auto` | 9,901 |
+| `page_components.rendered_html` (after) | `display: flex; flex-wrap: wrap; min-width: 0; max-width: 100%` | 10,705 |
+| **live page** `curl gamesdesign.co.uk/tools/tool-loot-table-balancer.html` | `display: flex; flex-wrap: wrap; … min-width: 0; max-width: 100%` | — |
+
+`page_components.build_status='deployed'`. **The tool-improver fix is on the live
+page for the first time since this bug was filed.** Correlation
+`c3828d17-cba4-4325-87b3-84b972ec9c7e`.
+
+### The fix (owner decision pending — reverses this bug's approach, touches another workstream)
+
+**Recommended — Option A:** wire tool-improver's post-fix delivery to the
+**section-editor** (`apply_section_edit`) instead of the generic `needs_rerender`.
+No new machinery; the section-editor exists and is proven; it respects the
+experience-loop guard. Retire/repurpose migration 180's generic-rerender config on
+tool-improver. This is a config/seed change to tool-improver's workflow tail
+(swap `create_rerender_item` for a section-editor enqueue), not a Go patch.
+
+**Option B (not recommended):** carve a self-contained-tool exemption into the
+`save_page_sections` ownership guard. This re-opens a guard the experience-loop
+added deliberately (TL-001) — re-litigating their guard rail; coordinate with that
+workstream, don't do it unilaterally.
+
+**Option C:** a dedicated tool-pipeline re-render+deploy action. More new code than
+reusing the section-editor; only if A proves insufficient for tool-improver's
+actual edit shape (a template change, which `content_edit`/`component_swap`
+already cover).
+
+**Verify green:** now that the fix is live, a Tier-4 acceptance run should pass
+`mobile-fit@mobile`. Delivery is PROVEN; the green verdict is the last
+confirmation.
 
 ---
 

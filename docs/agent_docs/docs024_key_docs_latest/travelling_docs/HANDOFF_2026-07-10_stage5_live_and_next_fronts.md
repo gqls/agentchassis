@@ -63,17 +63,23 @@ site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk) · tools `tool-x
 
 ---
 
-## 7. RESUME HERE — `bugs_open/024`: request PROVEN correct, delivery blocked by a SIXTH defect *(rewritten T32, 2026-07-21)*
+## 7. RESUME HERE — `bugs_open/024`: the delivery path was WRONG; the sanctioned path DELIVERS, proven LIVE *(rewritten T33, 2026-07-21)*
 
-> **T32 SUPERSEDES T31.** Migration 180 is **APPLIED** (2026-07-20 19:13:22Z,
-> ledger row written). A real proof run then drove the whole chain and proved the
-> re-render request is now **correctly formed for the first time ever** — all four
-> of 180's changes visible in one live row. **But the page still did not render**,
-> because the proof exposed a **sixth defect** one layer below the fix: the
-> per-page `page_rerender` item_key is not reason-scoped, so a stale reason-less
-> request suppressed the correct one and then re-deployed stale HTML. Full
-> evidence + fix candidates are in **`bugs_open/024`** under "UPDATE 2026-07-21".
-> **This is where a new thread picks up.**
+> **T33 SUPERSEDES T32.** The whole defect-1…6 chain has been patching the
+> **generic** section-render→save path — which the experience-loop workstream
+> **deliberately forbids for tool pages** (`save_page_sections` hard-refuses any
+> `rebuild_policy='owned'` page; migration 164, `fb89f1071`; **every tool page is
+> owned by definition**). Defect 6 is **moot for tools**, and migration 180's
+> request is correct but **aimed at a path that cannot deliver a tool** — proven:
+> the first probe to get PAST defect 6 reached `save_sections` and hit the guard.
+> The **sanctioned** path — the `section-editor` agent (`apply_section_edit`) —
+> **works and has now delivered the benchmark fix LIVE** (`.ltb-row-grid` on
+> `gamesdesign.co.uk/tools/tool-loot-table-balancer.html` is `display:flex;
+> flex-wrap:wrap; min-width:0; max-width:100%`, `rendered_html` 9,901→10,705,
+> deployed). Full evidence + the fix options are in **`bugs_open/024`** under
+> "UPDATE 2026-07-21 (later)". **The remaining work is a RE-WIRE (tool-improver →
+> section-editor), an OWNER DECISION — not another generic-path patch.** This is
+> where a new thread picks up.
 
 **The single sentence:** a tool-improver fix is written correctly to
 `content_components.html_template` and **never rendered onto the page**. **Six**
@@ -95,26 +101,30 @@ defects in series; 5 fixed, the 6th open and blocking.
 changes, live, in one row.** The request half of the bug is fixed and evidenced.
 
 **Do this next, in order:**
-1. **Fix defect 6** — the delivery blocker. It is a Go change
-   (`create_rerender_items_action.go:248`), so image-gated, and it is subtle:
-   scoping the key alone lets both a section-render and an assemble-only run, and
-   if assemble-only runs LAST it re-deploys stale (024 candidate 4 is the
-   companion rule). **Recommended: diagnosis/council loop, not a rushed patch.**
-   This is the same collision class as defect 4, one layer down.
-2. Then re-run improve→rerender→acceptance and watch `tool-loot-table-balancer`
-   go GREEN on `mobile-fit@mobile`. **Do not hand-fix the benchmark.** ⚠️ **The
-   `bugs_open/024` verify query is STALE** — the improver now writes
-   `display:flex; flex-wrap:wrap; min-width:0`, not `minmax(0, 2fr)`. Prove
-   delivery by the rendered `.ltb-row-grid` rule leaving `display:grid;
-   grid-template-columns:2fr 1fr 1fr auto` and `rendered_html` leaving 9,901
-   chars. **`flex-wrap:wrap` is a FALSE marker** (present elsewhere in the v1
-   render). Match the component's OWN rule.
-3. **Ship call site 2 of defect 5** on the next chassis image (committed
-   `3cb92dae4`, currently inert): `loadSingleComponentSchema` still rejects tool
-   templates on `</section>` in the live binary.
-4. **Watch for up to 8 new `needs_new_component` items** fleet-wide once an image
-   ships call site 2: `toolTemplateValid` rejects 8 genuinely truncated tool
-   templates the old guard admitted (`bugs_open/046`).
+1. **OWNER DECISION (the real fix).** Wire tool-improver's post-fix delivery to the
+   **section-editor** (`apply_section_edit`) instead of the generic `needs_rerender`
+   — Option A in `bugs_open/024`. It is a **config/seed** change to tool-improver's
+   workflow tail (swap the `create_rerender_item` step for a section-editor
+   enqueue), not a Go patch — so it can be live without an image roll. The
+   section-editor is proven (it delivered the benchmark fix live this session).
+   Options B (relax the guard — re-litigates the experience-loop's guard rail) and
+   C (new tool-pipeline action) are in the bug file; A is recommended.
+2. **Confirm GREEN.** The fix is LIVE, so a Tier-4 acceptance run should now pass
+   `mobile-fit@mobile`. Match the component's OWN rule when verifying delivery
+   (`.ltb-row-grid` = `display:flex; flex-wrap:wrap; min-width:0; max-width:100%`,
+   `rendered_html` len 10,705). ⚠️ **`flex-wrap:wrap` alone is a FALSE marker** (it
+   lived in the v1 render too) — require the FULL rule, incl. `min-width:0`.
+   **Do not hand-fix the benchmark's TEMPLATE** (driving the section-editor to
+   RENDER the improver's existing fix is delivery, not a hand-fix, and is fine).
+3. **~~Ship call site 2 of defect 5~~ DONE** — `3cb92dae4` rode into **v1.0.1144**
+   and is pod-verified live (`loadSingleComponentSchema` etc. present).
+4. **Watch for up to 8 new `needs_new_component` items** fleet-wide from
+   `toolTemplateValid`'s reject direction (`bugs_open/046`) — now that call site 2
+   is live in v1.0.1144.
+5. **Generic-path track (separate, lower priority).** Defect 6 / migration 180 are
+   moot for TOOLS but may retain value for NON-tool `generic` pages (the idea.uk
+   audience-check-form reproduction in `bugs_open/024`). Not on the tool-delivery
+   critical path.
 
 **Council round 6 = REVISE** (10 approve / 4 object / 2 abstained). Both
 code-earning objections are already fixed in `3cb92dae4` (the second call site;
@@ -195,6 +205,13 @@ poisoned a site-wide key and later rerenders were born `unresolved`.
 ---
 
 ## Turn log (newest first — update EVERY turn)
+- **T33 (2026-07-21):** **The delivery path was WRONG the whole time. Bug 024's defect-1…6 chain patches the GENERIC section-render→save path, which the experience-loop DELIBERATELY forbids for tool pages. The SANCTIONED path (section-editor / `apply_section_edit`) delivers the fix — PROVEN LIVE on the benchmark.**
+  - **Grounded v1.0.1144** (chassis+adapter; docs said 1140). **Call site 2 of defect 5 (`3cb92dae4`) rode into it** and is pod-verified — closes T32's resume item 3. Migration 180's config **survived** on tool-improver (all four changes intact). Two `unresolved` needs_rerender items are pre-180 debris (in the dedup index's terminal set, inert). **Next free migration 183.**
+  - **PROBE 1 (the discovery).** Drove a correctly-formed reason-bearing `page_rerender` for the benchmark DIRECTLY via kafka (unique item_key, bypassing defect 6; the page-rerender dispatch lane is cron-starved — ~1 completion in 6h, dispatch is a stateless cron-spawned agent, not a poller). **First run in this bug's history to get PAST defect 6 and reach `save_sections`.** `rerender_page_sections` rendered the tool and did NOT escalate (defects 3+5 **sufficient**), then `save_sections` **FAILED**: *"page is rebuild_policy=owned (tool/widget-owned): a generic section save would clobber it. Use apply_section_edit … Refusing to overwrite."* — experience-loop guard rail 1 (`fb89f1071`, migration 164). **Every tool page is `owned` by definition** (`UPDATE pages SET rebuild_policy='owned' WHERE page_type='tool'`). Migration 164's own note: *"page_rerender/assembly is NOT gated — re-assembly is how owned pages deploy"* — they gated the section-WRITE and kept the assemble path open, on purpose. **So defect 6 is moot for tools and 180's request is undeliverable for a tool.**
+  - **PROBE 2 (the fix, proven).** Drove `section-editor` `content_edit` (`field_updates={}`, pure re-render) for the benchmark → **COMPLETED**. `rendered_html` 9,901→**10,705**, `.ltb-row-grid` now `display:flex; flex-wrap:wrap; min-width:0; max-width:100%`, **git-deployed**, verified on the LIVE page. **The tool-improver fix is on the live page for the first time since this bug was filed.** Corr `c3828d17`. Section-editor workflow = `load_edit_context → apply_section_edit → git_commit → update_page_status`; `apply_section_edit` re-renders from the current template, UPDATEs `rendered_html`, reassembles — the guard's own named path, ungated.
+  - **THE FIX (owner decision, in `bugs_open/024`):** Option A = wire tool-improver → section-editor (config/seed on tool-improver's tail, no image); B = relax the guard (re-litigates the experience-loop rail — coordinate, don't do unilaterally); C = new tool-pipeline action. **A recommended.** Retire/repurpose 180's generic-rerender config for tools; 180/defect-6 may still help NON-tool `generic` pages (idea.uk repro) — separate track.
+  - **Cleanup:** cancelled the stale probe work item (`319b166c`, `result.resolution` set). Probe-1's failed orchestration wrote/deployed NOTHING (guard refused before any write) — page was unchanged until probe 2.
+  - **NEXT:** owner picks A/B/C → wire it → confirm the benchmark GREEN via a Tier-4 acceptance run (delivery already proven; green is the last confirmation).
 - **T32 (2026-07-21):** **Migration 180 APPLIED; the request is PROVEN correct end-to-end; a SIXTH defect found by the proof run still blocks delivery. Round 6 = REVISE, both code objections fixed.**
   - **180 applied** 2026-07-20 19:13:22Z (pre-flight OK, post-condition OK, snapshot `1f3ebb4a`, ledger row same sitting, `('pipeline','build')` note written). Applied via `psql -f`, not the runner — `177`/`178` are unrecorded so the runner would try to re-apply another thread's migrations.
   - **PROOF RUN.** Cloned the real acceptance-driven `improve_tool` spec into item `216ea5fe` (do NOT hand-fix the benchmark; drive the loop). `tool-improver` ran and emitted `needs_rerender` `666619d1` carrying — for the first time in this bug's history — `item_key=rerender_tool_fix_gamesdesign.co.uk_3862f72f-…`, `spec.reason=section_data_resolved`, `spec.component_id=3862f72f-…`, `status=triaged`. **All four of 180's changes proven in one live row.** The improver also chose a DIFFERENT valid fix this cycle (`display:flex; flex-wrap:wrap; min-width:0`, not `minmax(0,2fr)`) — so the old `bugs_open/024` verify query is stale, and `flex-wrap:wrap` is a FALSE delivery marker (it lived in the v1 render already).
