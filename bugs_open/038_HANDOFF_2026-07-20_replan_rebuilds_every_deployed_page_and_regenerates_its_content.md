@@ -98,7 +98,18 @@ this page" still should not silently discard reviewed copy — it should surface
 4. Lock a `page_components` row (`locked_at`), force a rebuild of its page, and assert the locked
    row survives.
 
-## FIX APPLIED 2026-07-21 — candidate 1, but corrected (committed, inert until an image roll)
+## FIX APPLIED 2026-07-21 — candidate 1, but corrected (LIVE on chassis v1.0.1146; case stays OPEN)
+
+> **Deployment status (2026-07-21):** the Go change was committed and, before this thread committed
+> the accompanying test + docs, was **swept into `fe2ba5e52` ("v1.0.1146 - sweep … reconcile site
+> plan")** by another session's build — the multi-session sweep landmine, this time in our favour.
+> **It is already live**, not inert: `agent-chassis-…:v1.0.1146` is the running image, and its binary
+> contains both literals this change created (`pages_restamped`, `re-stamp built_from_plan_version`;
+> discriminating pod-grep, positive control `post_reconcile_assembly` also present). The working tree
+> is clean for the source file, which proves the committed `.go` equals this thread's final version
+> (an intermediate grab would have left it modified). **The case stays OPEN** until the behaviour is
+> observed on a real reconcile (see "verification status" at the end of this section) — deployed is
+> not the same as behaviourally proven.
 
 > **CORRECTION to candidate 1 as written above.** It says "compare the plan's section list for a
 > page against `pages.sections`". **That comparison cannot work**, and it would have been the wrong
@@ -146,11 +157,40 @@ Result now also reports `pages_restamped` alongside `pages_skipped_built` (re-st
 into `pages_skipped_built` so it stays the total of deployed-and-unchanged pages, satisfying
 verify-step 1).
 
-Unit tests: `reconcile_site_plan_action_test.go` — `TestDecideEmit` (missing/not_built/stale/
-skip_built/restamp + change/reorder/unknown-list/sectionless edge cases),
-`TestDecideEmit_NormalisationUnifiesEquivalentNames` (`call_to_action`≡`call-to-action`),
-`TestSectionsEqual`. Live end-to-end verification (verify-steps 1–3) is **still pending an image
-roll** — the change is Go and inert until the chassis image is rebuilt; this case stays **OPEN**.
+**Verification status — three layers proven, end-to-end still pending a real reconcile:**
+
+1. **Decision logic (proven).** `reconcile_site_plan_action_test.go`: `TestDecideEmit`
+   (missing/not_built/stale/skip_built/restamp + change/reorder/unknown-list/sectionless edge cases),
+   `TestDecideEmit_NormalisationUnifiesEquivalentNames` (`call_to_action`≡`call-to-action`),
+   `TestSectionsEqual`. All pass.
+2. **Deployment (proven).** Live in the v1.0.1146 chassis binary (pod-grep above).
+3. **Loader SQL (proven against live data).** The exact `site_plan_sections` query the loader runs
+   returns identical normalised lists for dartsonline's `new-arrivals` (`{hero,product-grid,
+   call-to-action}`) and `shipping-returns` (`{generic-text-block}`) across both the current plan
+   `dcc7834e` and their build plan `fba367c9`.
+4. **End-to-end (PENDING).** No reconcile has run under v1.0.1146 yet (latest `reconcile_result`
+   predates the deploy and lacks `pages_restamped`). Deliberately NOT force-triggered: reconcile is
+   not a read-only probe — it would emit `needs_page` for dartsonline's ~14 `planned` pages and could
+   kick off real builds on a live site, which is disproportionate to observing two restamps.
+   **Golden repro for the next natural re-plan** (or a deliberate build-site-planner run on a test
+   site): `new-arrivals` and `shipping-returns` are `deployed` from the older plan `fba367c9` while
+   current is `dcc7834e`, and both plans propose identical sections — so the first reconcile under
+   v1.0.1146 must re-stamp them, not rebuild. Assert after it runs:
+>
+> ```sql
+> -- both should now read the current plan id, updated_at bumped only by the re-stamp,
+> -- and NO needs_page item should exist for them from that batch:
+> SELECT name, build_status, built_from_plan_version, updated_at
+> FROM pages WHERE site_id='5fe8785b-223d-41a3-88ee-c07187622381'
+>   AND name IN ('new-arrivals','shipping-returns');
+> SELECT collected_data->'reconcile_result'->>'pages_restamped'
+> FROM orchestration_states
+> WHERE collected_data->'reconcile_result'->>'plan_id'='dcc7834e-153a-4132-ae59-7a6c92e2f31c'
+> ORDER BY updated_at DESC LIMIT 1;   -- expect >= 2
+> ```
+>
+> Verify the artefact too (verify-step 2): those pages' `page_components.updated_at` must be
+> **unchanged** after the reconcile. This case stays **OPEN** until that observation lands.
 
 **Candidate 3 (content locks) — investigated, NOT fixed here, confirmed still open.** The lock
 helper `CheckComponentLock` (`platform/orchestration/actions/lock_helpers.go`) exists but has **zero
