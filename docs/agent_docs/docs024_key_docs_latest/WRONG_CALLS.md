@@ -1686,3 +1686,25 @@ past failures is not a measurement of present failure. Before inducing a failure
 path on a specific target, RE-MEASURE the target now — the world moved since the
 count was taken (here: another workstream fixed the tool). Same family as the
 stale-figure entries: a number carried forward unchecked.
+
+---
+
+**2026-07-21 — shipped a fix under a headline framing a concurrent thread was, at
+that moment, refuting.** Commit `cdd858402` fixes `bugs_open/024` defect 6 (the
+`page_rerender` item_key mode-collision) and its message + my council submission
+(corr `746c7d60`) call it *"the delivery blocker that kept every tool-improver fix
+off the live page."* **That framing was already being overturned in the same
+working tree.** Another travelling-docs session had found that the whole generic
+section-render path defect 6 sits on is **deliberately forbidden for tool pages**
+by the experience-loop's ownership guard (`save_page_sections_action.go:138`,
+migration 164 — `rebuild_policy='owned'` hard-refuses the write), so defect 6 is
+**moot for tools**; the sanctioned path (`section-editor`/`apply_section_edit`)
+had already delivered the benchmark fix LIVE (rendered_html 9,901→10,705, grid→
+flex). The fix is CORRECT and keeps value for **non-tool generic pages** (the
+idea.uk reproduction), but the "tool delivery blocker" claim is false. **The
+signal I walked past:** I hit *"File has been modified since read"* on
+`bugs_open/024` mid-edit — an actively-owned bug file moving under me — and pressed
+on with a fix built on its *earlier* framing instead of re-reading the top first.
+Cheap check: when a bug is actively owned, re-read the case file before investing
+in and shipping a fix premised on it. Family: stale-premise, but sourced from a
+concurrent session rather than my own earlier claim.

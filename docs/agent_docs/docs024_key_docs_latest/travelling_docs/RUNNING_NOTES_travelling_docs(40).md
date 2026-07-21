@@ -3913,3 +3913,36 @@ close (b) as PROVEN, the fleet's next genuinely-stuck tool is the test (query in
 the bug file's Verify §2).
 
 Categories: (fix, council, live-proof, correction, misstep)
+
+---
+
+## 2026-07-21 (T33, a separate "bugfix 024" session) — defect 6 generic-path fix committed, then found moot for tools by this file's own concurrent re-scope
+
+A separate session picked up `bugs_open/024` from the T32 state ("defect 6 is the
+open blocker") and built the fix for it: **`create_rerender_items` now scopes the
+per-page `page_rerender` item_key by render MODE** (the stamped `spec.reason`, or
+`assemble` when none), via a new `pageRerenderItemKey` helper, so a reason-less
+assemble-only request can neither suppress nor be suppressed by a reason-bearing
+section-render request. Committed **`cdd858402`**, inert until the next image; two
+tests added to `tool_render_path_test.go` (`TestPageRerenderItemKey_…`,
+`TestCreateRerenderItems_ItemKeyScopedByRenderMode`) — `create_rerender_items` had
+no action-level test before. Built + green against a clean `git archive HEAD`
+overlay (the shared tree wouldn't compile — another session's half-applied
+`decideEmit`/`isEmptyGenericStub` WIP). Submitted to the council gate, corr
+**`746c7d60-9ec5-491d-8a28-40bfd3ad8503`**.
+
+**Then the ground moved (and this NOTES/README already knew it).** While that was
+in flight, the concurrent 024 thread re-scoped the bug: the generic
+`rerender_page_sections → save_page_sections` path is **deliberately forbidden for
+tool pages** (`save_page_sections_action.go:138`, migration 164 ownership guard —
+`rebuild_policy='owned'`), so defect 6 only lets a tool request reach the guard
+that refuses it. **Verified live independently:** benchmark render is now
+10,705 chars / `display: flex` / `deployed` (delivered by `section-editor`, not by
+any generic-path fix). So `cdd858402` is a **correct fix for the NON-TOOL generic
+collision** (the idea.uk `audience-check-form` reproduction) and **moot for tools**.
+The over-claim in its commit message + the council submission is logged in
+`WRONG_CALLS.md`. Tool delivery is already solved via the section-editor; the
+owner-pending remaining tool work is Option A (wire tool-improver → section-editor),
+which belongs to the primary 024 thread, not this one.
+
+Categories: (fix, correction, coordination, misstep)
