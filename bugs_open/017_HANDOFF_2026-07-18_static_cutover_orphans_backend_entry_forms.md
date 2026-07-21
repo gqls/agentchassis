@@ -114,3 +114,46 @@ An on-demand trigger now exists: `docs024_key_docs_latest/idea_uk_vm_site/TRIGGE
 **Wider question worth answering:** should discovery run automatically after a *deploy-target or
 origin change*? Every check assumes the site is served the way it was built. A cutover changes the
 serving model underneath a site that no check re-examines.
+
+---
+
+## STATUS UPDATE 2026-07-21 (session "bugfix 017") — site fix LIVE & holding; two of this file's premises are now stale
+
+**The immediate site fix is DONE, live, and still holding** — verified against the deployed site
+today, not against work-item status (idea_uk workstream RUNNING_NOTES §X.5 did the original
+end-to-end verify 2026-07-20; re-confirmed 2026-07-21):
+```
+GET /                -> 200   href="/audience-check" = 0   (was 2 GET links to a POST-only handler)
+GET /tools.html      -> 200   <form action="/audience-check" method="POST"> present  (taster)
+GET /report.html     -> 200   <form action="/request"> present                        (report funnel)
+GET /tools/assets/audience-check-form.js -> 200            (JS interceptor; fetch+inject, no navigation)
+GET /audience-check  -> 405   (correct — it is the POST-only handler; no browser route GETs it anymore)
+```
+So the funnel is reachable and driven again. It was fixed by authoring the two forms as chassis
+sections with a JS interceptor (idea_uk `sql/p2_01`, `p3_03`, `p3_04`) — the handoff's option 2
+("put the forms in the static build"), not option 1. The `/audience-check` card URLs were retargeted
+via the `pages` source of truth (`tool-audience-check.url` → `/tools.html#audience-check`), not the
+transient `content_data` copies (see `bugs_open/001`).
+
+**Two premises in the sections above are now stale — corrected against the live DB 2026-07-21:**
+
+1. *"No discovery check has ever run against idea.uk … discovery is not among the sources (0 rows)."*
+   **No longer true.** idea.uk now has **30 `source='discovery'` work items** (9 phantom_internal_link,
+   8 cta_names_unknown_destination, 4 dead_control, 3 empty_internal_href, 1 required_fields_missing,
+   …). The on-demand trigger work closed this operational gap. **Notably, none of the 30 is the 017
+   symptom** — no existing check models "a GET `<a href>` to a route that only accepts POST", which is
+   exactly the gap this file argues for and it is still open.
+
+2. *Proposed check gates on `deploy_config.target='vm'`.* **idea.uk's `deploy_config` is empty `{}`** —
+   no `target`, no backend marker of any kind, despite the site being VM-hosted with 16 proxied tool
+   routes. Consequence the handoff did not foresee: **`check_backend_unreachable` (same `target='vm'`
+   gate) has never probed idea.uk either**, and `backend_entry_orphaned` as specified would NOOP on the
+   very site it was written for. The backend is not modelled in the data — that is the deeper root, and
+   any target-gated check inherits it. A probe-based Finding A (GET a linked path, treat a 405 as a
+   method-mismatch link) sidesteps the gate entirely and would fire on any site regardless of tagging.
+
+**Remaining open for 017:** the durable auditor gap only — the `backend_entry_orphaned` check (or an
+un-gated probe variant of Finding A). The site half is closable. `contact_form_undeliverable`
+(landed 2026-07-20, `bugs_open/006 §B`) is a *sibling*, not this: it flags contact-form components
+with dead actions and explicitly treats POST handlers like `/request` as valid destinations — it does
+not cover the GET-link-to-POST-only-handler case.
