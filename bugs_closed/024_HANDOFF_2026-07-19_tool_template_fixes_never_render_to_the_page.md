@@ -2,12 +2,26 @@
 
 **Filed:** 2026-07-19 · travelling-docs thread · site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk)
 **Severity:** high — silently defeats the whole self-verifying fix loop for tool components.
-**Status:** OPEN — **RE-SCOPED 2026-07-21.** The whole defect-1…6 chain patches the
-**generic** rerender path (`rerender_page_sections` → `save_page_sections`). That
-path is **deliberately forbidden for tool pages** by the experience-loop's
+**Status:** **CLOSED 2026-07-21 (fixed AND live) — owner-directed close.** The
+headline symptom — a tool-improver fix never reaching the live page — is resolved
+and **verified live**: the benchmark's `.ltb-row-grid` rule ships `display: flex;
+… min-width: 0; max-width: 100%` (was the broken `grid`), `rendered_html` 10,705
+bytes, `build_status='deployed'`, delivered via the sanctioned `section-editor`
+path (correlation `c3828d17-cba4-4325-87b3-84b972ec9c7e`). The **remaining work is
+spun out to `features_open/009`** so it is not lost: (1) Option A — wire
+tool-improver's tail to the section-editor so delivery is automatic (owner
+decision pending, touches the experience-loop workstream); (2) the non-tool
+generic-path residuals — the `page_rerender` mode-collision fix (`cdd858402`,
+committed, inert until the next image; council corr `746c7d60`) and candidate 4
+(assemble-only ships stale). This file is the durable diagnosis record; the live
+tracker is `features_open/009`.
+
+**RE-SCOPED 2026-07-21 (kept for the record).** The whole defect-1…6 chain patches
+the **generic** rerender path (`rerender_page_sections` → `save_page_sections`).
+That path is **deliberately forbidden for tool pages** by the experience-loop's
 ownership guard (migration 164, `fb89f1071`), and **every tool page is
 `rebuild_policy='owned'` by definition**. The sanctioned delivery — the
-`section-editor` agent (`apply_section_edit`) — **works, and has now delivered the
+`section-editor` agent (`apply_section_edit`) — **works, and delivered the
 benchmark fix LIVE** (see "UPDATE 2026-07-21 (later)" immediately below). Defect 6
 is moot for tools; **migration 180's request is well-formed but aimed at a path
 that cannot deliver a tool.** The remaining work is a re-wire (tool-improver →
