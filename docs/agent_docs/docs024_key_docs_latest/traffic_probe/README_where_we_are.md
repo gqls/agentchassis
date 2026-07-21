@@ -407,3 +407,48 @@ pointing at.
 
 That framing is concrete enough to act on and narrow enough not to compete with anything.
 It's the version I'd want the next session to read.
+
+## 2026-07-21 — the no-JavaScript news problem is fixed, and I want to be honest about how it got there
+
+The thing we found on the sweep — that a search crawler visiting our news pages saw a "loading…"
+message and no news — is fixed, live on all three news sites, and I've closed the bug. A crawler
+now fetches the page and gets the actual headlines in the HTML, in Spanish on our Spanish site.
+That's the outcome, and it's real: I checked it the honest way, with the JavaScript switched off.
+
+But the path there is worth telling straight, because two of the turns were mistakes and one was
+the review system doing exactly its job.
+
+My first version of the fix was wrong. I wrote the news straight into the finished page's HTML.
+It worked when I looked at it, but the platform has a firm rule I'd skipped reading: never edit
+the finished HTML directly, because the system regenerates pages from an underlying source, and
+anything you scribble onto the finished copy gets wiped the next time that happens. The review
+council caught it — one reviewer showed exactly how a routine page refresh would silently undo my
+work and put us right back where we started. When you asked me to double-check my change against
+the written guidelines, they said the same thing in black and white. So I was wrong, and two
+independent checks agreed on why.
+
+The awkward bit: that wrong version had already gone to production. Not because I deployed it —
+because I committed it while the review was still running, and someone else's routine build swept
+it up and shipped it. That's a known hazard here (the working tree is shared; another session's
+broad "commit everything" can take your half-finished work), and it's the second time this project
+has bitten me on it. The lesson has landed: don't commit code that's still under review unless
+you'd be happy for it to ship as-is.
+
+The second version is the right one, and it's what's live now. Instead of writing the news onto
+the finished page, it teaches the page's own template to pull the news from the proper source — so
+now a page refresh *regenerates* the news correctly instead of wiping it. That's the whole
+difference, and I proved it: the news items are stored in the durable place, not the throwaway
+place, so no amount of rerendering can lose them. Same good outcome, but built so it stays built.
+
+Two useful things fell out of it. The review flagged that five other list components on the
+platform had a smaller version of the same gap — no "nothing here yet" message when a list is
+empty — and I filed that; another session has already fixed it across the board within the hour.
+And the schema change I made to the news component turned out to also fix a separate bug another
+thread was chasing (a required field that was silently shipping empty). So the fix paid for itself
+a couple of times over.
+
+Where relojistas stands now: the site is live, the feed is reactivated and measured, the Guías and
+Glosario sections are written and behind a fabrication fence, the homepage has no broken links, and
+the news now works for machines as well as people. The remaining items are the ones we listed
+before — search-that-answers, per-board category feeds, and promoting the Cloudflare real-IP change
+so we can actually count subscribers.
