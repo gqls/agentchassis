@@ -17,11 +17,16 @@ import "regexp"
 // tag/attr names case-insensitive.
 var deadAnchorRe = regexp.MustCompile(`(?is)<a\b[^>]*\shref\s*=\s*(?:""|'')[^>]*>.*?</a>`)
 
-// deadSrcAttrRe matches an empty src attribute (empty double- or single-quoted
-// src). An empty src on an <img>/<script>/<source> makes the browser re-request
-// the current document —
-// a real defect — so it is stripped, leaving a source-less element that loads
-// nothing rather than the page itself.
+// deadImgRe matches an <img> whose src rendered empty (empty double- or
+// single-quoted src). The whole void element is DROPPED, not just its attribute:
+// an empty src="" makes the browser re-request the current document, and a bare
+// <img> left behind is itself a residual dead control (council editquality note,
+// 2026-07-22) — symmetry with the anchor drop.
+var deadImgRe = regexp.MustCompile(`(?is)<img\b[^>]*\ssrc\s*=\s*(?:""|'')[^>]*>`)
+
+// deadSrcAttrRe blanks an empty src on any OTHER element (<source>, <script>, …)
+// where dropping the whole element is not obviously safe: the element then loads
+// nothing rather than re-requesting the page.
 var deadSrcAttrRe = regexp.MustCompile(`(?i)\ssrc\s*=\s*(?:""|'')`)
 
 // DropDeadURLControls removes interactive controls whose URL attribute rendered
@@ -29,11 +34,13 @@ var deadSrcAttrRe = regexp.MustCompile(`(?i)\ssrc\s*=\s*(?:""|'')`)
 // schema-driven fill an empty href/src in chrome is never legitimate (nav toggles
 // use href="#", not href=""), so it is a DEAD CONTROL. Rather than ship it
 // (idea.uk shipped 30 empty-href nav links), the whole anchor is dropped
-// (LNK-005: correct-or-absent) and a dead src is blanked. Callers gate this on a
-// non-empty deadURLFields set from RenderTemplateReportingMissing, so a clean
-// render is never scanned and byte-identical output is preserved on the happy path.
+// (LNK-005: correct-or-absent), a dead <img> is dropped whole, and any other
+// empty src is blanked. Callers gate this on a non-empty deadURLFields set from
+// RenderTemplateReportingMissing, so a clean render is never scanned and
+// byte-identical output is preserved on the happy path.
 func DropDeadURLControls(html string) string {
 	html = deadAnchorRe.ReplaceAllString(html, "")
+	html = deadImgRe.ReplaceAllString(html, "")
 	html = deadSrcAttrRe.ReplaceAllString(html, "")
 	return html
 }

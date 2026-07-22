@@ -614,9 +614,11 @@ func renderAndStoreSiteComponent(
 	// way, and the council held that "a named log is not escalation". Owner ruling
 	// 2026-07-22: make it MEAN something. (1) DROP the dead control from the
 	// rendered chrome so it never reaches a live page (LNK-005 correct-or-absent),
-	// and (2) ESCALATE to the worked human-review queue (owner ruled 033 IS a
-	// queue) via a draining pathway. Gated on deadURLFields, so a clean render is
-	// never touched and its byte-identical output is preserved.
+	// and (2) FILE it to the human-review queue (owner ruled 033 IS a worked queue)
+	// with NO handler, mirroring the sibling check_dead_controls — a dropped
+	// control is a human decision, not something an auto-re-render can invent.
+	// Gated on deadURLFields, so a clean render is never touched and its
+	// byte-identical output is preserved.
 	if len(deadURLFields) > 0 {
 		beforeLen := len(renderedHTML)
 		renderedHTML = DropDeadURLControls(renderedHTML)
@@ -678,17 +680,23 @@ func renderAndStoreSiteComponent(
 
 // emitChromeDeadControlItem files ONE work item when a site-chrome component
 // renders a dead URL control that DropDeadURLControls has just dropped
-// (bugs_open/054). It follows the phantom_internal_links site_component
-// convention — status 'detected' + handler 'nav-link-fixer', build pipeline — so
-// the immune system's triage promotes it (it moves every 'detected' item) and the
-// dispatch loop drains it: a re-render fixes the common data-lag case (idea.uk's
-// nav fields resolved after a data fix), while a genuinely unresolvable field
-// exhausts max_attempts and surfaces to the human-review queue, which the owner
-// ruled 2026-07-22 IS worked (bugs_open/033 = queue). Deduped by item_key against
-// idx_swi_dedup (a re-emit is a no-op while an item is open; a regressed control
-// re-files only once the prior item has terminalised). A failure is logged, never
-// returned — the signal must not block the render, and DropDeadURLControls has
-// already made the page safe. deadFields arrives pre-sorted from missingBareFields.
+// (bugs_open/054). Routing MIRRORS the sibling check_dead_controls
+// (page_components): status 'needs_human_review' with NO handler_agent. A dropped
+// chrome control is a human decision — nothing can auto-invent a destination, and
+// an auto-re-render handler would mark the item complete without verifying the
+// field resolved (council REVISE, 2026-07-22, owner-confirmed). The owner ruled
+// 033 IS a worked queue, so needs_human_review is the visible queue the dashboard
+// surfaces (v1.0.1141), not the pre-033 void. The common data-lag case (idea.uk's
+// nav fields resolved after a data fix) self-heals on the next normal chrome
+// re-render regardless.
+//
+// Persistence goes through the shared insertWorkItem helper (the exact path
+// check_dead_controls uses) rather than a hand-rolled INSERT, so it inherits the
+// correct idx_swi_dedup-matched ON CONFLICT (keyed on the shared
+// workItemTerminalStatuses list, no drift) and the two-strike anti-churn label.
+// A failure is logged, never returned — the signal must not block the render, and
+// DropDeadURLControls has already made the page safe. deadFields arrives
+// pre-sorted from missingBareFields.
 func emitChromeDeadControlItem(ctx context.Context, db *sql.DB, siteID, componentID uuid.UUID,
 	slot string, deadFields []string, logger *zap.Logger) {
 
@@ -702,10 +710,11 @@ func emitChromeDeadControlItem(ctx context.Context, db *sql.DB, siteID, componen
 		"source":          "render_site_components",
 		"fix": "A site-chrome control (nav link / header CTA / logo) had no " +
 			"resolvable destination and was DROPPED from the rendered page so it " +
-			"would not ship as a dead href=\"\" control (bugs_open/054). Re-render " +
-			"the site chrome from real-page data to restore it if the destination " +
-			"now exists; otherwise wire a real destination or accept the drop. " +
-			"Never point it at /contact.html (the LNK-007 fossil).",
+			"would not ship as a dead href=\"\" control (bugs_open/054). Decide: " +
+			"wire a real destination, build the missing target, or accept the drop. " +
+			"A re-render of the site chrome restores it automatically if the " +
+			"destination now exists. Never point it at /contact.html (the LNK-007 " +
+			"fossil).",
 	}
 	specJSON, _ := json.Marshal(spec)
 
@@ -715,21 +724,42 @@ func emitChromeDeadControlItem(ctx context.Context, db *sql.DB, siteID, componen
 	}
 	itemKey := fmt.Sprintf("chrome_dead_control:%s:%s:%s", siteID, slot, fieldList)
 
-	_, err := db.ExecContext(ctx, `
-		INSERT INTO site_work_items (
-			site_id, source, pipeline, item_type, severity, summary,
-			spec, priority, status, handler_agent, created_by, item_key
-		) VALUES ($1, 'render-site-components', 'build', 'chrome_dead_control', 'high', $2,
-				  $3::jsonb, 40, 'detected', 'nav-link-fixer', 'render_site_components', $4)
-		ON CONFLICT DO NOTHING
-	`, siteID, summary, string(specJSON), itemKey)
+	compID := componentID
+	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		logger.Warn("render_site_components: failed to insert chrome_dead_control item",
+		logger.Warn("render_site_components: begin tx for chrome_dead_control failed",
 			zap.String("slot", slot), zap.Error(err))
 		return
 	}
-	logger.Info("render_site_components: chrome_dead_control item filed",
-		zap.String("slot", slot), zap.Strings("dead_url_fields", deadFields))
+	inserted, err := insertWorkItem(ctx, tx, workItem{
+		siteID:      siteID,
+		componentID: &compID,
+		source:      "render-site-components",
+		pipeline:    "build",
+		itemType:    "chrome_dead_control",
+		severity:    "high",
+		summary:     summary,
+		spec:        string(specJSON),
+		priority:    40,
+		status:      "needs_human_review",
+		createdBy:   "render_site_components",
+		itemKey:     itemKey,
+	}, logger)
+	if err != nil {
+		_ = tx.Rollback()
+		logger.Warn("render_site_components: insert chrome_dead_control item failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	if err := tx.Commit(); err != nil {
+		logger.Warn("render_site_components: commit chrome_dead_control item failed",
+			zap.String("slot", slot), zap.Error(err))
+		return
+	}
+	if inserted {
+		logger.Info("render_site_components: chrome_dead_control item filed for review",
+			zap.String("slot", slot), zap.Strings("dead_url_fields", deadFields))
+	}
 }
 
 // loadNavItems loads navigation items for header

@@ -45,9 +45,14 @@ func TestDropDeadURLControls(t *testing.T) {
 			want: ``,
 		},
 		{
-			name: "empty src attribute is stripped, element kept",
+			name: "dead img (empty src) is dropped whole",
 			in:   `<img class="logo" src="" alt="Logo">`,
-			want: `<img class="logo" alt="Logo">`,
+			want: ``,
+		},
+		{
+			name: "empty src on a non-img element is stripped, element kept",
+			in:   `<source src="" type="video/mp4">`,
+			want: `<source type="video/mp4">`,
 		},
 		{
 			name: "multiple dead anchors all removed",
@@ -57,7 +62,7 @@ func TestDropDeadURLControls(t *testing.T) {
 		{
 			name: "realistic idea.uk header shape",
 			in:   `<header><a class="logo" href="/index.html"><img src=""></a><a href="">Home</a><a href="" class="header-cta-btn">Contact</a></header>`,
-			want: `<header><a class="logo" href="/index.html"><img></a></header>`,
+			want: `<header><a class="logo" href="/index.html"></a></header>`,
 		},
 
 		// --- negative: nothing legitimate is touched -----------------------------
