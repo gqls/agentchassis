@@ -490,3 +490,51 @@ reported `drift: ['select_panel']`; --apply wrote; a final dry-run reports in-sy
 `[LESSON]` a mirror that mutates one side of its own before/after comparison can
 report "in sync" while being out of sync — verify a sync by reading the TARGET
 row, not by trusting the tool's drift line.
+
+## Turn 10 — 2026-07-22 — severity gate LIVE on v1.0.1149; dogfood APPROVED (first ever); guidelines fired; objections harvested
+
+**Owner deployed a new chassis build (v1.0.1149).** Verified the fix live against
+the POD, not the tag: `objectionGates`/`severityGates` + literals `"advisory
+objection"`/`"gating objection"` present (control `decideCouncil` present).
+**Behavioural proof (pod-grep only proves deployment):** an ORGANIC round decided
+`approved` — decided_by "approved with 4 advisory objection(s) — none
+high-severity" (corr `cbbc7c83`, 14:07). A 4-objection round that was a guaranteed
+revise yesterday now approves.
+
+**Dogfood: APPROVED** (SUBMISSION_CORR `e0a9b843`, orch `26b87be3` →
+`complete_approved`, 14:57). **First approved gate submission.** 9 seats ran, 7
+abstained (relevance filter). Seat verdicts: constitution/debug_historian/
+diagnosis_guardian/**guidelines**/mission/reuse_agent = approve (0 obj);
+editquality = approve+1 low note; prior_art = approve+1 low note; **guardian =
+object (medium + low)**. Decided_by "approved with 1 advisory objection(s) — none
+high-severity" — `advisory` counts OBJECTING SEATS (guardian, verdict=object),
+not individual objections. **The demonstration:** the guardian (always-on
+hard-veto seat) OBJECTED medium+low and wrote "the plan is right that this is the
+correct convergence point ... so I'm not vetoing"; old rule → revise, new rule →
+approved. The strictest seat, exercising the exact behaviour we changed.
+
+**GUIDELINES FIRED and approved** — the footprint widening (Turn 9) worked: a
+council-logic change (`diagnose_council_decide_action.go` contains `council_decide`)
+drew the guidelines seat. The owner's request is satisfied and proven on a real run.
+
+**Objections harvested (advisory = optional, but two were fair):**
+- guardian (low): no test for a Degraded review with ZERO objections (Degraded and
+  empty-objections branches each covered, not their conjunction). **Added**
+  `TestObjectionGates` case "degraded object with zero objections → gates". Green.
+- editquality (low): the ruling says low/medium must be "recorded and returned to
+  the proposer", the sketch only showed the count string. They ARE returned — the
+  full `reviews[]` (objections included) is persisted in the report body and read
+  by the reviser (the 016 fix). A sketch-visibility gap, not a code gap. `[NOTE]`
+- prior_art (low): can't verify the "live on v1.0.1149" liveness claim from the
+  plan. Fair — inherent to a retrospective dogfood.
+
+**Trailer/coverage limit (honest):** the reviewed change (`872c830a8`) was
+committed BEFORE the dogfood approval (forward-only, no amend), so it can't carry
+`Council-Reviewed`. The harvested-test commit does carry the trailer — it's part of
+the approved change and touches a file that was in the approved plan. The approval
+is recorded against corr `e0a9b843`; 098's auto-join won't see the main commit.
+This is a property of dogfooding a LIVE change, not a gap in the fix.
+
+**`bugs_open/057`:** fixed & live, two live approve examples (organic + dogfood),
+floor test-covered. Ready to close; holding only for a live GATING example (none
+organic yet — councils quiet). Milestone summary: `SUMMARY_2026-07-22b_council_approval_rate_live.md`.
