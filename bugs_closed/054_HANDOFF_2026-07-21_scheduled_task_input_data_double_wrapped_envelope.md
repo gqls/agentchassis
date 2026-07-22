@@ -13,7 +13,27 @@
 > commit → site deploy → live artefact. **This is a DB-config + seed fix — no image roll
 > required.**
 
-**Filed 2026-07-21.** **Status: FIXED (data live; seed committed).** Fleet-wide authoring trap; one live casualty (`directory-export-json`, now fixed).
+**Filed 2026-07-21.** **Status: CLOSED — FIXED & LIVE (data live; seed committed). Moved to `/bugs_closed/` 2026-07-22.** Fleet-wide authoring trap; one live casualty (`directory-export-json`, now fixed).
+
+> **RE-VERIFIED 2026-07-22 (independent close-out).** Grounded every figure against the
+> live system before closing:
+> - **DB config** — `scheduled_tasks.input_data` for `directory-export-json` is now
+>   payload-only (`domain: vetcomparison.uk`, `outputs`, `vertical`, `data_path`, …); no
+>   `action`/`config`/`input_data` envelope. Fix commit `30f531ccb`, working tree clean.
+> - **Orchestration** — the forced run `9964b72e-341b-4693-b181-f03e3264ef0f` is
+>   `COMPLETED` at step `complete`, no error (`owner_agent_type=business-intel`).
+> - **Live artefact** — `https://vetcomparison.uk/data/directory-metadata.json` reads
+>   `exported_at: 2026-07-21T10:55:03Z` (was stuck 2026-07-17), directory of 2,109
+>   businesses, 13 aggregate rows. The 48h-interval task (`interval_seconds=172800`) is not
+>   due again until ~2026-07-23; `last_triggered_at`/`last_completed_at` = the 07-21 run.
+>
+> The **residual** below (disabled `med-*` siblings + the `037` seed's trap) is unchanged
+> and remains OUT OF SCOPE for this case — those rows are disabled and currently harmless
+> (`med-export-json`'s buried domain is empty; `med-discover-urls`/`diagnose-pipeline-trigger`
+> carry empty payloads). There is no active `vet_med_export` workstream directory; the `037`
+> seed was last touched by an old commit. **Left as a recommendation for that concern to
+> apply the identical unwrap** — not fixed here, to avoid a unilateral reach into another
+> concern's (dormant) seed and disabled live rows.
 
 This is the **sibling case of `bugs_closed/042`** (correlation `55dc0fa4-116c-40d6-90b2-bfad9ad73692`),
 opened as its own case per 042's own instruction ("if it needs a home, open a new case rather than

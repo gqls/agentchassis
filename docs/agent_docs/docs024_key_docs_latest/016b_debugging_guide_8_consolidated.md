@@ -2808,8 +2808,8 @@ input_data:<the whole scheduled_tasks.input_data column>}`. So the column must h
 real fields sat at `body.input_data.input_data.*`. `BuildCollectedData` unwraps exactly
 one `input_data`, so `collectedData["input_data"]` = `{action,config,input_data:{domain}}`;
 the action merges that one level and finds no `domain`. The action's hard refusal was
-**correct fail-closed behaviour** — the data was wrong, not the code (`bugs_open/054`,
-FIXED & LIVE 2026-07-21, DB + seed, no image roll).
+**correct fail-closed behaviour** — the data was wrong, not the code (`bugs_closed/054`,
+FIXED & LIVE 2026-07-21, DB + seed, no image roll; closed 2026-07-22).
 
 **The transferable rules.**
 1. `scheduled_tasks.input_data` is the PAYLOAD ONLY — the scheduler supplies
@@ -2828,7 +2828,7 @@ FIXED & LIVE 2026-07-21, DB + seed, no image roll).
    use `ExtractActionInputs`. Read the action before assigning a case to a family.
 
 **Related:** `bugs_closed/042` (the mis-grouped sibling; corrected there);
-`bugs_open/054`; §9 *"Manually invoking an agent via spawn+call — input_mapping must
+`bugs_closed/054`; §9 *"Manually invoking an agent via spawn+call — input_mapping must
 satisfy BOTH the input_contract AND the workflow's field paths"* (same nesting-contract
 family); `WRONG_CALLS.md` 2026-07-20 (the diagnosis-filing near-miss on this same case).
 
