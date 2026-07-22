@@ -961,3 +961,32 @@ So I've closed the funnel bug (017) as fixed-and-live. The *prevention* half —
 stops a future cutover silently dropping a form in the first place — I've filed separately as a feature
 (011) and dropped a ready-to-run version into the cutover runbook (§3d(ii)), per your call to ship the
 detector now and keep the bigger prevention piece as its own thing.
+
+## 2026-07-22 — the chrome "dead link" detector is now sharper, and it's live
+
+Quick background: back when the idea.uk site had every link broken, the fix taught the page-builder to
+notice when a link comes out empty and shout about it in the logs (an empty link is a dead button on a
+live page). That fix has been live for a while. But the advisory review council kept flagging one flaw
+in *how* it noticed: it was doing a crude text search of the page template, and that crude search
+mistook some perfectly-fine links for broken ones — it would shout "dead link!" about buttons that
+were only ever meant to appear under certain conditions, or that were part of a repeating list. On
+about thirty of our components fleet-wide it would have cried wolf. That matters because the *next*
+piece of work (the one that will actually *block* a broken page from going out) is supposed to act on
+those shouts — and a channel full of false alarms is one everyone learns to ignore.
+
+You ruled: ship the smarter version now rather than spend another review round arguing wording. So I
+rewrote the detector to actually understand the template's structure instead of pattern-matching text,
+so it now only flags a link that is genuinely dead and unconditional. I also found a second, older
+copy of the same "render a template" machinery that had the same blind spot and fixed that too — though
+I should be straight with you: that second copy turns out to be code nothing currently calls, so fixing
+it is insurance for the future, not something doing any work today.
+
+It's committed and — because another session rolled a new image (v1.0.1149) that happened to pick up my
+change — it is already live in production. I checked the running system directly to confirm the new
+code is really there (not just merged). So the false-alarm problem is gone fleet-wide.
+
+Two honest loose ends, neither urgent: the council never formally "approved" this — it stayed at
+"revise" because the council can't actually block anything and you'd told me to ship — so there's no
+"reviewed" stamp on it, same as the footer fix (053) we handled the same way last week. And there's a
+stale old email address (idea-uk@leopardess.uk) still sitting in one database field for idea.uk; it
+isn't shown anywhere today, but it's a wrong address one wrong turn away, so it's on the list.

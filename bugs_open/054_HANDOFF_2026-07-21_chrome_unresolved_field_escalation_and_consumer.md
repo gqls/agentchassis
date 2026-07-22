@@ -173,3 +173,24 @@ existing 124-item unread pile (`unresolved_cta`=68, `cta_names_unknown_destinati
 `dead_control`=6, `empty_internal_href`=3) is `bugs_open/033`'s work now that the owner has ruled it
 a queue — this change only wires the **chrome** finding into a draining path; it does not build the
 human-facing drain for the pre-existing pile.
+
+---
+
+## Note from the idea.uk thread — the signal you escalate on is now accurate (2026-07-22)
+
+The observability prerequisite you build on (`RenderTemplateReportingMissing` / `missingBareFields`)
+had a **control-flow-blind regex** detector when it first shipped: it flagged a bare `{{.Name}}` even
+inside `{{range}}`/`{{if}}`/`{{with}}` bodies, testing it against the top-level map → **false-positive
+`inURLAttr` Errors on ~30 active components fleet-wide**. If your escalation had BLOCKED a build on
+`inURLAttr`, those false positives would have blocked ~30 legitimate builds.
+
+That is fixed (commit `78482c86b`, LIVE in **v1.0.1149**): `missingBareFields` is now a scope-aware
+`text/template/parse` walk — it reports only **ungated, root-scope** bare fields. So the `inURLAttr`
+list you consume is now a true "dead control on this page" set, safe to gate/escalate on. Test:
+`platform/orchestration/actions/missing_bare_fields_test.go`.
+
+One thing to know: `RenderTemplateWithMap` (the contact-info render path) was the "second sibling"
+`bug_historian` flagged — I routed it through the same detector, but it is **dead code today** (its
+only caller `rerenderContactInfo` has no callers; linker-eliminated, `RenderTemplateWithMap`=0 in the
+v1.0.1149 binary). So your escalation only needs to cover the live `RenderTemplate` path for now.
+— idea.uk vm site thread

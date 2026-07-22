@@ -1379,3 +1379,63 @@ was already proven on the induced 405 (live probe + httptest); NOT observed insi
 committed discovery-trigger, ~30 min queue, and zero findings expected today). Moved the case to
 `bugs_closed/`, updated 016b §10. Cause-guard split to `features_open/011` + RUNBOOK §3d(ii); Finding
 B (`no_backend_entry`) deferred pending a backend-presence signal (the empty `deploy_config` gap).
+
+### §X.8 — COUNCIL ROUND 3: REVISE, owner ruled SHIP, parse-tree refinement LIVE on v1.0.1149 (2026-07-22)
+
+Round 3 verdict (2026-07-21 11:17): **REVISE**, decided_by `bug_historian` (non-veto). 11/13 approve;
+only `bug_historian` + `guardian` object, both explicitly "not a veto". `abstained: 2`;
+`review_editquality.result` came back **unreadable** this round.
+
+**The handoff predicted "round 4 is wording, not evidence." That was WRONG, and I checked before
+acting on it.** Ran the objections' read-only checks against the real code:
+- `guardian` (enumerate `RenderTemplate` callers): **~8 call sites across 5 files / multiple pipelines**
+  (chrome, assemble_from_library, rerender_page_sections, section_editor ×2, v3_site_actions, + 3
+  internal). "Large and diverse" is real — the fleet-wide log-behaviour change guardian feared is real.
+- `bug_historian` (audit for a sibling silent-drop path): **FOUND ONE** — `RenderTemplateWithMap`
+  (`rerender_pages_actions.go:757`) is a second, independent renderer that does its own parse/execute
+  and (pre-fix) left `<no value>` visible, logging only on error. So the round-2 claim "fixes THE
+  MECHANISM" was incomplete.
+- `guardian`+`bug_historian` (regex control-flow blindness): **CONFIRMED in the working-tree code.**
+  `missingBareFields`'s flat `bareFieldRe` matches a bare `{{.Name}}` textually even inside
+  `{{range}}`/`{{if}}` bodies, then tests it against the TOP-LEVEL map → false-positive. Per §X.7 the
+  URL-bound placeholder count is 71/59-active/**30-ungated** — so up to ~30 active components could log
+  a false Error on every render. That is exactly the noisy channel `bugs_open/054` is meant to escalate
+  on. [Was `[UNMEASURED]` as a "still a heuristic, risk 5" line; now measured against the parse tree.]
+- `guardian` (collectJSAssets other callers): **one call site** (`rerender_single_page:121`) — safe.
+
+**Owner ruling 2026-07-21 (already recorded for round 2's scope fork): ship the observability version,
+do block/escalate as `bugs_open/054`.** Owner ruling 2026-07-22 (this thread): **ship on the standing
+ruling — no round 4.** Council is advisory; it stays at REVISE, no `Council-Reviewed:` trailer (earned
+by APPROVED only — same posture `bugs_open/053` took).
+
+**What shipped (commit `78482c86b`, 2026-07-22 11:07 UTC):**
+1. Rewrote `missingBareFields` as a **scope-aware `text/template/parse` walk** — reports only ungated,
+   root-scope bare fields; a field inside `{{range}}`/`{{if}}`/`{{with}}` is NOT reported. The flat
+   regex is kept as `missingBareFieldsRegex`, the fallback for templates that won't parse as Go.
+   `an.Pos` points just INSIDE the `{{`, so back up via `strings.LastIndex(tpl[:an.Pos], "{{")` before
+   testing `urlAttrRe` (debugged empirically — my first cut had the href/src test failing on offset 11
+   vs the `{{` at 9). Test `missing_bare_fields_test.go` locks all scope cases + the fallback.
+2. Routed the sibling `RenderTemplateWithMap` through the same detector + `<no value>` strip.
+
+**VERIFIED LIVE on v1.0.1149** (pod `agent-chassis-7d4ff8b54-cm786`, started 2026-07-22 13:56 UTC,
+built AFTER my 11:07 commit). Discriminating pod-grep (symbols created by ONLY my commit,
+`git log -S` confirms):
+- `missingBareFieldsRegex` = 2, `bareFieldName` = 1, `scanTemplateFuncs` = 1 → **parse-tree fix is in
+  the binary and on the live `RenderTemplate` path.**
+- positive control `RenderTemplate: URL attribute rendered empty` (base fix) = 1.
+
+**CAVEAT, recorded honestly:** the sibling half has **zero runtime effect today.** Pod-grep for
+`RenderTemplateWithMap` = **0** — the linker dead-code-eliminated it, because its only caller
+`rerenderContactInfo` (`rerender_pages_actions.go:660`) has **no callers of its own** (`git grep`
+confirms). So the contact-info render path is currently unreachable. My fix makes it correct IF it is
+ever wired back up; it is not exercised now. Do NOT claim "sibling fixed and live" — claim "sibling
+made correct; path is dead code today". [This is the honest read of bug_historian's audit: the sibling
+mechanism exists in source but is not a live silent-drop path in the current chassis.]
+
+**No build/roll needed from me** — my commit was already in HEAD when another session built v1.0.1149,
+so it rode that roll (owner: "a new chassis image is on production"). The makefile tag churned
+1147→1149 under three sessions during this thread; I never claimed a tag.
+
+**Side-finding still open** (a reviewer's check, §X.6): `sites.content_data` for idea.uk still carries
+`"email": "idea-uk@leopardess.uk"` — not rendering today (footer takes `email` from the render
+context) but one code path from a live wrong address. Not fixed this thread.

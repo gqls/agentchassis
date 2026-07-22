@@ -1,6 +1,6 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-21
+> ## ▶ START HERE — state as of 2026-07-22
 >
 > **The migration is DONE and LIVE, and `/bugs_open/018` (the broken chrome) is FIXED AND VERIFIED
 > LIVE.** idea.uk now serves the chassis static site with full navigable chrome and a working free
@@ -22,28 +22,33 @@
 >    cards) + `sql/p3_04` (forced a SECTION rerender — a plain `rerender-pages` cannot apply a template
 >    edit; see the landmine below). Verified: real POST returns the 2537B fragment; taster runs in place.
 >
-> **THE PLATFORM FIX is in COUNCIL REVIEW, round 3 pending — this is the one live thread.**
-> The chrome renderer's schema-blindness is a CLASS (not just idea.uk), so it went to the council gate
-> as submission **`SUBMISSION_CORR=7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5`**. Rounds 1 & 2 = REVISE; the
-> round-1 void was `bugs_open/019` (fixed & now live). Round 3 submitted 2026-07-21 (`RUN_ORCH_ID=
-> 0e4e5f26-5967-4343-bb89-5dedf9a5931d`), verdict pending. **FIRST THING IN THE NEW THREAD: read the
-> verdict** (queries below). Round 3 = the OBSERVABILITY version (fixes the shared blanking mechanism
-> in `component_library.go`, the chrome resolver, AND `bugs_open/041`'s dead-JS bug; loud field-named
-> Error on dead controls). The council wanted it to BLOCK/ESCALATE too; **owner ruled 2026-07-21: ship
-> observability now, do block/escalate as `bugs_open/054` (a follow-on, NOT started).**
+> **THE PLATFORM FIX is SHIPPED AND LIVE — the council thread is CLOSED (2026-07-22). Not the live
+> thread any more.** The chrome renderer's schema-blindness (a CLASS, not just idea.uk) went to the
+> council gate as `SUBMISSION_CORR=7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5`. **All 3 rounds = REVISE**
+> (round-1 void was `bugs_open/019`, since fixed & live). The base observability fix (schema resolver +
+> named dead-control Errors + `bugs_open/041`'s dead-JS UNION) was committed & rolled during rounds 2–3
+> by concurrent sessions and is **live in v1.0.1146+**. Round 3 (verdict 2026-07-21 11:17, REVISE,
+> 11/13 approve, non-veto) surfaced three REAL objections the handoff had wrongly predicted were
+> "wording": (a) the missing-field detector used a control-flow-blind **regex** that false-flags
+> `{{range}}`/`{{if}}`-nested fields — ~30 active components would log false Errors; (b) a second
+> silent-drop **sibling** (`RenderTemplateWithMap`) the fix hadn't touched; (c) `RenderTemplate`'s
+> caller set is large/diverse (8 sites, 5 pipelines). **Owner ruled 2026-07-22: ship the fix, no round
+> 4** (council is advisory, stays at REVISE, **no `Council-Reviewed:` trailer** — same posture as
+> `bugs_open/053`).
 >
-> **Read the verdict:**
-> ```
-> SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
->  WHERE correlation_id='7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5' AND kind='council_report' ORDER BY created_at;
-> SELECT body FROM diagnosis_artifacts WHERE correlation_id='7152c7cf-5c4d-41b3-8ab4-0c3d8d40fbd5'
->  AND kind='council_report' ORDER BY created_at DESC LIMIT 1;   -- full reviews JSON
-> ```
-> If APPROVED → the fix is a Go change (`platform/`), so it must be BUILT into a chassis image and
-> rolled, then verified in-pod, then commit carries `Council-Reviewed: 7152c7cf-…`. The plan (6 edits,
-> all in the submission JSON in this dir) is a SKETCH — someone implements the real diff. If REVISE
-> again → the objections come back with the reviewers' own checks answered; the submission JSON has
-> every measurement already attached, so a 4th round is wording, not new evidence.
+> **Shipped `78482c86b` (2026-07-22), VERIFIED LIVE on v1.0.1149:** rewrote `missingBareFields` as a
+> scope-aware `text/template/parse` walk (only ungated root-scope fields reported; regex kept as the
+> unparseable-template fallback) + routed the sibling `RenderTemplateWithMap` through the same detector.
+> Pod-grep (symbols created by ONLY my commit): `missingBareFieldsRegex`/`bareFieldName`/
+> `scanTemplateFuncs` all present in `agent-chassis-7d4ff8b54-cm786`. **Caveat:** the sibling half is
+> **dead code today** (`RenderTemplateWithMap`=0 in the binary — its only caller `rerenderContactInfo`
+> has no callers; linker-eliminated), so it is *correct-if-revived*, not doing runtime work now.
+>
+> **`bugs_open/054` (block/escalate) is the remaining platform follow-on — OWNED BY ANOTHER SESSION,
+> not started as of this handoff.** Number collision: `054_…_chrome_unresolved_field_escalation_and_
+> consumer` is OURS; `054_…_unguarded_range_items…` is the relojistas thread's. My parse-tree fix
+> SHARPENS the exact `inURLAttr` signal 054 will escalate on (no more false positives) — coordinate,
+> don't duplicate. Do NOT re-submit `7152c7cf`; the council thread is done.
 >
 > **NEW BUGS THIS THREAD FILED (all real, none started):**
 > - `bugs_open/030` — the dispatch queue: ONE partition, ONE consumer, so every session's trigger
@@ -81,20 +86,22 @@
 >    `source: query.pages_where_type:tool` (the pointer page), not the stored `content_data`. Fix the
 >    source, not the copy.
 
-**Updated 2026-07-21.** This is the single entry point to continue the idea.uk → VM workstream.
+**Updated 2026-07-22.** This is the single entry point to continue the idea.uk → VM workstream.
 Read `SUMMARY_idea_uk_vm_site.md` for the plain-English state, then this for the operational detail.
 Companions in this directory: `PLAN`, `RUNBOOK`, `RUNNING_NOTES` (execution log — newest at the
-bottom, §X.1–§X.7 cover this thread), `README_where_we_are.md` (owner's plain-prose log),
-`council_submission_chrome_schema_driven.json` (the live council submission), and `sql/` (every DB
-change applied, in order — `p3_01`…`p3_04` are this thread's). The
+bottom, §X.1–§X.8 cover this thread; §X.8 is the round-3 close), `README_where_we_are.md` (owner's
+plain-prose log), `council_submission_chrome_schema_driven.json` (the council submission — CLOSED, do
+not resubmit), and `sql/` (every DB change applied, in order — `p3_01`…`p3_04` are this thread's). The
 `HANDOFF_replan_clobbers_built_pages_FIX.md` here is a SEPARATE chassis-fix task.
 
 **Where to pick up (new thread, in order):**
-1. Read the council verdict for `7152c7cf` (queries in START HERE). That is the one live decision.
-2. If APPROVED → implement the 6-edit plan for real, build+roll a chassis image, verify in-pod, commit
-   with the `Council-Reviewed:` trailer. If REVISE → the objections are wording now, not evidence.
-3. `bugs_open/054` (block/escalate) is the owner-scheduled next platform piece — but it overlaps
-   `bugs_open/023` fix #3 (the same consumer); coordinate, don't build a parallel handler.
+1. **The council thread (`7152c7cf`) is CLOSED — shipped on the owner's ruling, live in v1.0.1149. Do
+   NOT read its verdict expecting a live decision, and do NOT resubmit.** (See START HERE + NOTES §X.8.)
+2. `bugs_open/054` (block/escalate — make an unresolvable render field ESCALATE, not just log) is the
+   remaining platform follow-on. **OWNED BY ANOTHER SESSION — check `scripts/who-owns.py 054` and read
+   their docs before touching it.** It consumes the `inURLAttr` signal my parse-tree fix just made
+   accurate; it also overlaps `bugs_open/023` fix #3 (same consumer). Coordinate, don't build a
+   parallel handler. Number collision: resolve `054` by slug (chrome-escalation is ours).
 4. Side-finding to close: `sites.content_data` for idea.uk still holds the stale
    `idea-uk@leopardess.uk` (a reviewer's check surfaced it; the p1_05/p1_06 sweep missed this column).
    Not rendering today, but a live wrong address one code path away.
