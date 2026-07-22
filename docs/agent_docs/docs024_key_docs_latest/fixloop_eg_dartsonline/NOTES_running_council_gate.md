@@ -406,3 +406,48 @@ the loop at `decideCouncil` + unused `Severity`, the `council_decide` config in
 each REVISE was decided by a lone `object` while other seats approved, and at what
 severity. A REFUTE (deciding objections are substantive/high across seats) is a
 success: it says the plans genuinely need the work, not the rule. Budget ~30 min.
+
+## Turn 8 — 2026-07-22 — the loop STALLED at `route`; hand-confirmed the diagnosis from primary evidence
+
+**The 090 run never produced a verdict.** orch `9d86cb45` FAILED, reaped by the
+`>4h stale EXECUTING_STEP` reaper (bugs_open/003 F1) **stuck at step `route`** —
+one bundle written (iter 1), then nothing. This is the spawn-loss / dispatch-queue
+backlog (bugs_open/003, /030) biting the DIAGNOSE LOOP ITSELF: `route` spawns a
+code-lookup child and awaits it; that await never returned, so a code-seeded
+diagnosis stalls at route. The reaper worked as designed; the diagnosis did not.
+**Second finding, worth a separate line: the canonical diagnosis path is
+currently unreliable for code-seeded symptoms** — re-firing would likely re-stall
+at the same step. Did NOT re-fire; gathered the evidence by hand instead.
+
+**Hand-diagnosis — CONFIRMED. Grounded in `diagnosis_artifacts` kind='council_report'
+`body::jsonb->'reviews'`, last 3 days, `metadata->>'decision'='revise'`:**
+- Objector-count per REVISE round (88 rounds): **14 rounds decided by a LONE
+  objector** against avg 8.8 approving seats; mode is 2–3 objectors of ~9 seats.
+  So a single seat routinely overrides 8–9 approvals — the unanimity rule, live.
+- **Severity of the 485 objections: medium 279 / low 165 / high 41. High is 8.5%.**
+- Lone-objector rounds (14): the single blocking objection was medium in 9, low in
+  4, **high in only 1**. A lone seat blocks 8–9 approvers on a non-high nit 13/14×.
+- **Counterfactual (the sizing number): 59 of 88 REVISE rounds (67%) had ZERO
+  high-severity objections and no veto** → would flip to approve/approve-with-notes
+  under a rule where only high (or veto) blocks. **25 of 32 revised correlations**
+  reached such a round. So approval is unreachable because of the RULE, not the
+  plans: `decideCouncil` (`diagnose_council_decide_action.go:535-552`) returns
+  revise on ANY `object` and never reads `councilObjection.Severity` (line 87).
+
+**Confidence, marked honestly:** the STRUCTURAL defect is certain from the code
+(severity field exists, decision ignores it). The rate-causation is confirmed by
+primary DB evidence (queries above, reproducible). What I do NOT have: the loop's
+INDEPENDENT council grading (it stalled) — so this is a hand-diagnosis, not a
+council-graded verdict. And `severity` is reviewer-self-reported: if seats
+under-label, some low/medium are really blocking — which is why any fix must stay
+conservative (keep high + veto blocking; the design question is medium). `[ASSUMED]`
+that reviewers' low/medium are mostly genuine nits — the 67% is an upper bound on
+what a severity-gate would flip, not a promise.
+
+**Fix direction (NOT yet built — fleet-wide behaviour change, owner's call):** wire
+severity into `decideCouncil` — high objection or veto still blocks; low (and
+possibly medium unless ≥N seats raise it) becomes approve-with-notes: recorded and
+returned to the proposer, non-gating. Preserves the objections' value (still
+surfaced) while making approval reachable, which unblocks trailer-coverage and
+PR-mode. Affects ALL councils; should itself go through the gate once. Taking the
+decision to the owner (threshold shape) before writing anything.
