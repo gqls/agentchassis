@@ -76,3 +76,53 @@ inserted one `directory_claims` row, then attempted a second `is_current`
 row for the same `(entity_id, field)` — correctly rejected with
 `duplicate key value violates unique constraint "idx_directory_claims_current"`.
 Phase A complete and verified.
+
+**Phase B — Go actions + seeds, 2026-07-22.** Wrote
+`platform/orchestration/actions/directory_claims.go`
+(`verify_and_register_directory_claims`, `refresh_directory_claims`), reusing
+`verifyCitationLive`/`datahelpers.QuoteFoundInText` unchanged (same package,
+no export needed — confirmed by reading evidence_citations.go in full before
+writing a line). Registered both in `registry.go`. `go build ./platform/...`
+clean; `go vet` clean (one pre-existing unreachable-code warning in
+`load_component_library_actions.go`, not mine). Extracted the status-decision
+logic into a pure `classifyDirectoryClaimOutcome` and unit-tested it
+(`directory_claims_test.go`) — the found/citation_lost/fetch_error/recovered
+distinction is exactly the property this layer must never get wrong, so it's
+worth being independently testable of the DB, same rationale as
+`evidence_citations_test.go`.
+
+**Correction, same session:** the first draft of the schema (per the plan
+file) omitted `directory_entities.links`/`attributes` from the one write path
+(`upsertDirectoryEntity` only set name/owner/summary) — a silent gap that
+would have permanently left "where to find it / how to use it" empty despite
+the schema being designed to carry it. Caught before commit by re-reading my
+own draft against the brief, not by any external check. Fixed: candidates may
+carry `entity_links`/`entity_attributes`, shallow-merged into the existing
+jsonb via `||` so a later pass can add a key without clobbering earlier ones.
+
+**Second correction, same session — routing bug caught before shipping.**
+First draft of `SEED_directory_scheduled_tasks.sql` gave the discovery task
+`target_topic = 'system.agent.directory-researcher.requests'`. Checked the
+live `scheduled_tasks` table before trusting this: only 4 distinct
+`target_topic` values exist across the whole fleet
+(`business-intel`/`vet-intel` — separate deployed microservices per the
+kustomize list — plus `generic` and an internal noop). `content-feed-refresh`
+proves the actual pattern: `target_agent_type='content-feed-trigger'` but
+`target_topic='system.agent.generic.requests'` — a custom agent TYPE that
+runs on the shared agent-chassis (not its own microservice) is dispatched
+through the generic topic, with the real type carried in the message payload
+(`cmd/scheduler/main.go` `fireTrigger`, `config.agent_type =
+task.TargetAgentType`, sent to `task.TargetTopic` regardless of what that
+type is). A dedicated `system.agent.directory-researcher.requests` topic has
+no consumer — the task would have fired into the void, silently. Fixed to
+match `content-feed-refresh` exactly. This is precisely the class of bug the
+"diagnosis before debugging" standing rule is about: it would have looked
+identical to "working" (task fires, no error) right up until the moment
+someone checked whether anything actually happened.
+
+Not yet applied: `SEED_directory_researcher_agent.sql` and
+`SEED_directory_scheduled_tasks.sql` are correctly gated behind an image roll
+(image-first-then-seed) — pausing here to confirm with the owner before
+building/pushing/rolling a chassis image, since that is a shared-cluster
+action with real blast radius on other concurrent sessions, unlike everything
+committed so far (docs, schema, Go source only — no running process changed).

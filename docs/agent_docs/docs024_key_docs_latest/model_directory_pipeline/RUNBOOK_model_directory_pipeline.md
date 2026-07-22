@@ -53,6 +53,21 @@ curl -sL '<citation.url>' | grep -F '<citation.quote>'
 Empty output = the quote is gone; the automated freshness sweep should have
 flipped that claim's `status` to `citation_lost`, not left it `found`.
 
+## scheduled_tasks target_topic for a custom agent type
+
+A custom `target_agent_type` that runs on the shared agent-chassis (not its
+own microservice like business-intel/vet-intel) must still use
+`target_topic = 'system.agent.generic.requests'` — NOT
+`system.agent.<type>.requests`. The real type travels inside the message
+payload (`config.agent_type`), read by whichever pod consumes the generic
+topic. Verify the pattern against a known-live example before trusting a new
+one:
+```sql
+SELECT name, target_agent_type, target_topic FROM scheduled_tasks
+WHERE name = 'content-feed-refresh';
+-- expect target_agent_type='content-feed-trigger', target_topic='system.agent.generic.requests'
+```
+
 ## Checking directory_claims state
 
 ```sql

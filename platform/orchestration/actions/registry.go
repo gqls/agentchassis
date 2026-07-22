@@ -637,6 +637,18 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Verify researched candidate claims against their cited sources (verbatim-quote match) and register the survivors as citation facts; failures go to human review",
 		IsLocal:     true,
 	},
+	"verify_and_register_directory_claims": {
+		Handler:     VerifyAndRegisterDirectoryClaimsAction,
+		Category:    "site",
+		Description: "Verify researched candidate model/company/protocol claims against their cited sources (verbatim-quote match) and register survivors in the cross-site directory_entities/directory_claims registry; failures go to human review",
+		IsLocal:     true,
+	},
+	"refresh_directory_claims": {
+		Handler:     RefreshDirectoryClaimsAction,
+		Category:    "site",
+		Description: "Re-verify is_current directory_claims whose staleness_days has elapsed; supersede into a new current row on any status transition (found/citation_lost/fetch_error), raise stale_directory_claim on any flip away from found",
+		IsLocal:     true,
+	},
 	"claim_work_item": {
 		Handler:     ClaimWorkItemAction,
 		Category:    "site",
