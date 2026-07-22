@@ -17,9 +17,21 @@ served to visitors.** Contained on the affected site; the platform defect is unf
 >   Council reviewed (`SUBMISSION_CORR 8eef369f`): **2× REVISE, all substantive objections addressed**
 >   (wiring folded in-plan; fail-open→fail-safe; paths verified; needle-gate + RETURNING). No APPROVED
 >   obtained → **no `Council-Reviewed:` trailer** (earned by APPROVED only). Loop stopped after round 4.
-> - **Still OPEN** until the gate is live: needs a chassis image roll carrying `check_tool_fabrication`,
->   then apply the wiring, then verify (recreate a data-backed tool → held, not deployed). Candidates
->   (1)+(2) shipping does not close the bug — the defect is reproducible until the mechanical net ships.
+> - **Gate is now LIVE + WIRED (2026-07-22).** `check_tool_fabrication` pod-verified in
+>   agent-chassis **v1.0.1146** (grep: 4 hits + `corroborated_corpus` 1). Wiring applied via
+>   migration **189** (needle-gated, out of band, ledger-recorded) and routing independently
+>   verified: `check_completeness → check_fabrication → route_fabrication`; `fabricated==true →
+>   request_fabrication_review → complete` (NEVER reaches save_sections/deploy_page), else →
+>   save_training_data. Core protection against invented datasets is active.
+> - **Still OPEN — two gaps before a clean "fixed AND live" close:**
+>   1. **The fail-SAFE hardening is NOT in v1.0.1146** (`uninspectable` grep = 0). The image was
+>      built ~20 min before commit `37d3bb119`, so the pod runs the fail-OPEN detector the council
+>      flagged HIGH. Edge-case only (empty output isn't fabrication), so the core hole is closed —
+>      but the reviewed/hardened version needs the **next image roll**.
+>   2. **No induced-fault run.** Routing is verified statically + the primitives (`conditional`,
+>      `checkpoint_for_review`, dotted-path) are production-proven in this same workflow; but a real
+>      fabrication has not been driven through the wired path end-to-end. Do this ONCE on the
+>      fail-safe version after the next roll (recreate a data-backed tool → held, not deployed).
 >   Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bug020_tool_recreation_data_integrity/`.
 
 **Family:** same class as `001` (a rebuild resurrecting fabrication that had been audited out of
