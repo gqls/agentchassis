@@ -941,3 +941,23 @@ nothing until the next image roll. It's gone to the advisory review council as u
 One small thing I'll mention because it's the sort of thing that bites: another session happened to be
 editing the same file as me at the same time. I noticed before committing and moved my bit into its
 own file, so I didn't accidentally sweep up their half-finished work under my change. No harm done.
+
+## 2026-07-22 — the funnel watchdog is live; 017 closed
+
+You rolled a new chassis image (v1.0.1149) and it carried the funnel watchdog I'd written. I checked
+it's actually in the running system (the code is present in the live binary), then switched it on for
+the completeness checker (a one-line database change, seed 188 — it took a safety snapshot first, so
+it's a one-command undo if ever needed). So the check that would have caught the original "POST only"
+funnel break is now running in production.
+
+To be straight about what "verified" means here: I proved the check *detects the fault* by pointing it
+at the real tool earlier — a click-style request to the audience-check address really does come back
+"405 POST only", which is exactly what it flags — and its unit test drives that same path. What I
+didn't do is sit and watch it run inside a full site-scan, mostly because there's nothing for it to
+find right now (no site currently has that broken shape), so a scan would just come back clean. The
+detection itself is proven; the scan plumbing is the same machinery twenty other checks already use.
+
+So I've closed the funnel bug (017) as fixed-and-live. The *prevention* half — a pre-flight check that
+stops a future cutover silently dropping a form in the first place — I've filed separately as a feature
+(011) and dropped a ready-to-run version into the cutover runbook (§3d(ii)), per your call to ship the
+detector now and keep the bigger prevention piece as its own thing.

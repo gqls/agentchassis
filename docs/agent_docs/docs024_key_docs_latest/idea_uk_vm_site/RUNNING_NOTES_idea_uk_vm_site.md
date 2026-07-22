@@ -1367,3 +1367,15 @@ Council review in flight (advisory), `SUBMISSION_CORR=f54a1808-51a6-4ddd-8f60-78
 `Council-Reviewed` trailer on `524b03f03` (committed before the verdict, per the commit-per-task
 rule; trailer is earned only by APPROVED). `054` stays OPEN until the change is live AND verified on
 the failing branch; the general pre-existing unread pile stays `033`'s.
+
+### §X.9 — bugs_open/017 (static-cutover) CLOSED & LIVE on v1.0.1149 (2026-07-22)
+
+Owner rolled v1.0.1149. Verified `backend_entry_orphaned` is in the running binary — pod
+`agent-chassis-7d4ff8b54-cm786`: `strings /app/agent-chassis | grep -c BackendEntryOrphanedCheck` = 10,
+`handlerRouteCandidate` = 2, positive control `DeadControlsCheck` = 10 (grep discriminates). Applied
+**seed 188** (snapshot `b05773e0` taken; `DO` appended the name; doc_note written; COMMIT) → the
+completeness-discovery-agent checks array now carries `backend_entry_orphaned` (24 checks). Detection
+was already proven on the induced 405 (live probe + httptest); NOT observed inside a live sweep (no
+committed discovery-trigger, ~30 min queue, and zero findings expected today). Moved the case to
+`bugs_closed/`, updated 016b §10. Cause-guard split to `features_open/011` + RUNBOOK §3d(ii); Finding
+B (`no_backend_entry`) deferred pending a backend-presence signal (the empty `deploy_config` gap).
