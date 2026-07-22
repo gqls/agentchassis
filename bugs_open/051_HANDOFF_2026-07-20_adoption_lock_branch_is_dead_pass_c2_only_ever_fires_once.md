@@ -79,6 +79,30 @@ documents the flag). The rename is a name-only hardening with no fire, so it is 
 Live query re-verified 2026-07-21: still emits `adoption_locked` only (`has_new=f, has_old=t`); nothing
 of the rename has landed. Candidate 1 remains the only committed change.
 
+### Update — DB half of the rename SHIPPED & LIVE (2026-07-22)
+
+Owner chose option (b): ship the safe, contention-free DB half now and let the Go half follow. Done.
+
+**Migration `193_load_existing_pages_site_has_no_current_plan.sql`** — applied live and recorded
+(`--record-only`), committed `315dae537`. The `load_existing_pages` step query now emits BOTH
+`site_has_no_current_plan` (primary — the clear name threads grep from `agent_definitions`) and
+`adoption_locked` (deprecated transition alias). Same boolean, same CASE. Verified live:
+`has_new=t, has_old=t`, identical row-for-row on site `1368e337`; snapshot `f263eaa1` captured for
+rollback. **Order-free and zero-behaviour-change:** the running `agent-chassis` still reads
+`adoption_locked`, which is still emitted, so first-plan preservation is exactly as before; the extra
+column is ignored by consumers that don't read it (as 173's `build_status` was).
+
+**Still pending (the Go half — held on `/bugs_open/037` contention, see above):**
+1. Go: read `site_has_no_current_plan` with an `adoption_locked` fallback (`noCurrentPlanFlag` helper),
+   rename the local var/slice, sweep the comments — plan in the "Update — owner chose candidate 3"
+   section above. Ride the next chassis build.
+2. After a renamed chassis is fleet-live (`strings /app/agent-chassis | grep site_has_no_current_plan`),
+   a final migration DROPS the `adoption_locked` transition alias and a Go commit drops the fallback.
+   Only THEN is the concept fully retired and this bug closeable.
+
+So today the grep surface is renamed; the code still says `adoption_locked` (now accurately documented)
+until the reconcile file settles enough to land the Go half safely.
+
 ## The claim in one line
 
 `adoption_locked` is **not** a per-page, 90-day-expiring lock. It is a **per-site** boolean meaning
