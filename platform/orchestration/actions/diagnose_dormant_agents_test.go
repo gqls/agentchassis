@@ -103,8 +103,8 @@ func TestRenderDormantAgentsHonestAndComplete(t *testing.T) {
 	past := []dormantAgent{{Type: "nav-link-fixer", SampleStep: "fix_nav", UniqueSteps: 3, ActiveRows: 1, AgeDays: 145}}
 	under := []dormantAgent{{Type: "feature-implementer", SampleStep: "implement", UniqueSteps: 2, ActiveRows: 1, AgeDays: 3.9}}
 
-	// dry run
-	r := renderDormantAgents(now, 14, stats, past, under, nil, oldest, 0, 0, 0, 10, 0, true)
+	// dry run (window comfortably sufficient)
+	r := renderDormantAgents(now, 14, stats, past, under, nil, oldest, 54.0, true, 0, 0, 0, 10, 0, true)
 	for _, want := range []string{"DRY RUN", "nav-link-fixer", "feature-implementer", "never observed", "2026-05-28", "owner_agent_type"} {
 		if !strings.Contains(r, want) {
 			t.Fatalf("report missing %q:\n%s", want, r)
@@ -114,8 +114,8 @@ func TestRenderDormantAgentsHonestAndComplete(t *testing.T) {
 		t.Fatal("dry run must not print live bookkeeping")
 	}
 
-	// live run
-	r2 := renderDormantAgents(now, 14, stats, past, under, nil, oldest, 1, 0, 0, 10, 2, false)
+	// live run, window sufficient
+	r2 := renderDormantAgents(now, 14, stats, past, under, nil, oldest, 54.0, true, 1, 0, 0, 10, 2, false)
 	if !strings.Contains(r2, "## Bookkeeping") {
 		t.Fatalf("live run must print bookkeeping:\n%s", r2)
 	}
@@ -124,12 +124,36 @@ func TestRenderDormantAgentsHonestAndComplete(t *testing.T) {
 	}
 }
 
+// The window guard is the correctness fix for the aggressive 24h prune of
+// orchestration_states: a live sweep whose observation window is shorter than
+// the age floor must emit NOTHING and say so loudly, so flipping dry_run off
+// after a prune cannot flood false positives (fix-proposer et al.).
+func TestRenderDormantAgentsWindowTooShortBanner(t *testing.T) {
+	now := time.Date(2026, 7, 22, 15, 0, 0, 0, time.UTC)
+	oldest := time.Date(2026, 7, 13, 0, 0, 0, 0, time.UTC) // ~9d window
+	past := []dormantAgent{{Type: "fix-proposer", SampleStep: "check_confirmed", UniqueSteps: 5, ActiveRows: 1, AgeDays: 145}}
+
+	// live sweep, window (9d) < floor (14d): must show the banner and emit nothing.
+	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, oldest, 9.0, false, 0, 0, 0, 10, 0, false)
+	if !strings.Contains(r, "WINDOW TOO SHORT") {
+		t.Fatalf("live sweep with insufficient window must show the guard banner:\n%s", r)
+	}
+	if !strings.Contains(r, "usage_count") {
+		t.Fatal("banner must name the missing durable substrate (usage_count)")
+	}
+	// window sufficient: no banner.
+	r2 := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, oldest, 30.0, true, 0, 0, 0, 10, 0, false)
+	if strings.Contains(r2, "WINDOW TOO SHORT") {
+		t.Fatal("a sufficient window must NOT show the too-short banner")
+	}
+}
+
 // A type with more than one active row is the is_active-hygiene shadowing case;
 // the report must surface it rather than silently collapse it.
 func TestRenderDormantAgentsFlagsDuplicateActiveRows(t *testing.T) {
 	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
 	past := []dormantAgent{{Type: "chief-strategist", SampleStep: "strategise", UniqueSteps: 1, ActiveRows: 2, AgeDays: 245}}
-	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, time.Time{}, 0, 0, 0, 10, 0, true)
+	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, time.Time{}, 0.0, false, 0, 0, 0, 10, 0, true)
 	if !strings.Contains(r, "2 active rows") {
 		t.Fatalf("report must flag duplicate active rows:\n%s", r)
 	}

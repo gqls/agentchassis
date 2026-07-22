@@ -139,13 +139,34 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 	// that simply has not aged in yet).
 	past, under := dormantPartition(never, float64(ageFloor))
 
-	// Emit (live only): one item per past-floor agent, newest-first so the
-	// freshest genuinely-unused capabilities surface before the legacy backlog,
-	// capped, deduped by ON CONFLICT (status='dormant' is inside idx_swi_dedup,
-	// so ON CONFLICT dedups cleanly — unlike silent-check's 'failed' items).
+	now := time.Now().UTC()
+
+	// WINDOW GUARD (added 2026-07-22, live-verified). "never observed" is only as
+	// strong as the retained history. orchestration_states is pruned HOURLY by the
+	// database-cleanup task (DELETE where status IN COMPLETED/FAILED and updated_at
+	// < now()-24h), so the observation window is typically ~1-2 days — far shorter
+	// than any sane age floor. Under a short window a still-ACTIVE agent that
+	// merely has not run inside the window reads as never-observed (fix-proposer is
+	// the canonical false positive: run many times, but its runs were pruned). So:
+	// NEVER emit unless the window is at least as long as the age floor, i.e. long
+	// enough to substantiate "dormant for >= floor days". The report is always
+	// written and states the window; only the item writes are gated. (There is no
+	// durable per-agent run record to fall back on — usage_count is unmaintained,
+	// 0 for every agent including known-live ones; see the report + bugs_open/044.)
+	windowDays := 0.0
+	if !oldestObserved.IsZero() {
+		windowDays = now.Sub(oldestObserved).Hours() / 24.0
+	}
+	windowSufficient := !oldestObserved.IsZero() && windowDays >= float64(ageFloor)
+
+	// Emit (live only, AND only when the window supports the claim): one item per
+	// past-floor agent, newest-first so the freshest genuinely-unused capabilities
+	// surface before the legacy backlog, capped, deduped by ON CONFLICT
+	// (status='dormant' is inside idx_swi_dedup, so ON CONFLICT dedups cleanly —
+	// unlike silent-check's 'failed' items).
 	created, deduped, capped := 0, 0, 0
 	var emittedKeys []string
-	if !dryRun {
+	if !dryRun && windowSufficient {
 		for _, a := range dormantEmitOrder(past) {
 			if created >= maxEmit {
 				capped++
@@ -181,9 +202,8 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 		}
 	}
 
-	now := time.Now().UTC()
 	report := renderDormantAgents(now, ageFloor, stats, past, under, blindSpot, oldestObserved,
-		created, deduped, capped, maxEmit, closed, dryRun)
+		windowDays, windowSufficient, created, deduped, capped, maxEmit, closed, dryRun)
 
 	noteID, nerr := insertDocNote(ctx, params.DB, "pipeline", "diagnose", "",
 		report, `["dormant-agents","fixloop"]`, "diagnose_dormant_agents", nullSafeAgentType(params), "", "diagnose_dormant_agents")
@@ -202,6 +222,8 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 		zap.Int("deduped", deduped),
 		zap.Int("capped", capped),
 		zap.Int("closed_resolved", closed),
+		zap.Float64("window_days", windowDays),
+		zap.Bool("window_sufficient", windowSufficient),
 		zap.Bool("dry_run", dryRun),
 		zap.String("note_id", noteID),
 		zap.String("orchestration_id", orchIDForLog(params)))
@@ -214,6 +236,8 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 		"never_observed":       len(never),
 		"past_floor":           len(past),
 		"under_floor":          len(under),
+		"window_days":          windowDays,
+		"window_sufficient":    windowSufficient,
 		"emitted":              created,
 		"deduped":              deduped,
 		"capped":               capped,
@@ -499,20 +523,24 @@ func dormantEra(a dormantAgent) string {
 // renderDormantAgents is pure — tested. The owner-readable inventory artifact.
 func renderDormantAgents(now time.Time, ageFloor int, stats dormantStats,
 	past, under []dormantAgent, blind []string, oldestObserved time.Time,
+	windowDays float64, windowSufficient bool,
 	created, deduped, capped, maxEmit, closed int, dryRun bool) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# Dormant-agents sweep (generated %s UTC; age floor %dd)\n\n", now.Format("2006-01-02 15:04"), ageFloor)
 	if dryRun {
 		b.WriteString("_DRY RUN — findings below are report-only this sweep: NO dormant_agent items were written, none were closed._\n\n")
+	} else if !windowSufficient {
+		fmt.Fprintf(&b, "> ⚠ **WINDOW TOO SHORT — NO items emitted this sweep (report only).** The retained orchestration history is only **%.1f days** deep, shorter than the %dd age floor, so \"dormant for ≥ %dd\" cannot be substantiated and emitting would flood false positives. `orchestration_states` is pruned hourly (`database-cleanup`: COMPLETED/FAILED older than 24h are DELETEd), and there is no durable per-agent run record to fall back on (`usage_count` is unmaintained — 0 for every agent, including known-live ones like `fix-proposer`). Emission stays gated until the window ≥ the floor. See the retention note below and `bugs_open/044`.\n\n",
+			windowDays, ageFloor, ageFloor)
 	}
 
-	fmt.Fprintf(&b, "**Capability inventory (fingerprint method).** Of **%d** active non-snapshot agents with a workflow, **%d** are measurable (have ≥1 step key unique to them) and **%d** are in the mirrored-agent blind spot (no unique step — unmeasurable this way, never flagged). Of the measurable, **%d** have never been observed running: **%d** past the %dd age floor (eligible to emit), **%d** too new to flag yet.\n\n",
+	fmt.Fprintf(&b, "**Capability inventory (fingerprint method).** Of **%d** active non-snapshot agents with a workflow, **%d** are measurable (have ≥1 step key unique to them) and **%d** are in the mirrored-agent blind spot (no unique step — unmeasurable this way, never flagged). Of the measurable, **%d** have never been observed running in the retained window: **%d** past the %dd age floor, **%d** too new to flag yet.\n\n",
 		stats.ActiveWithWorkflow, stats.Measurable, stats.BlindSpot,
 		len(past)+len(under), len(past), ageFloor, len(under))
 
 	if !oldestObserved.IsZero() {
-		fmt.Fprintf(&b, "> **What \"never observed\" means here:** no unique top-level workflow step seen in the retained orchestration history (since **%s**). An agent that ran only before that, or only via a council/subtree path whose steps never surface as top-level plan keys, reads as never-observed. Triage each finding before acting — this is an inventory for human review, not a fix.\n\n",
-			oldestObserved.Format("2006-01-02"))
+		fmt.Fprintf(&b, "> **What \"never observed\" means here — READ THIS before acting.** It means \"no unique top-level workflow step seen in the RETAINED orchestration history\", which is only **%.1f days** deep (oldest surviving run **%s**), because `orchestration_states` is pruned hourly at a 24h retention. **This is a RECENT-ACTIVITY signal, not a lifetime one** — an agent that ran before the window, runs less often than the window, or runs only via a council/subtree path whose steps never surface as top-level plan keys, all read as never-observed. `fix-proposer` (run many times) is flagged here purely because its runs were pruned. So this is an inventory for HUMAN TRIAGE, never an assertion that an agent has never run. A reliable lifetime signal needs a durable run record the platform does not currently keep (`bugs_open/044` follow-on).\n\n",
+			windowDays, oldestObserved.Format("2006-01-02"))
 	}
 
 	writeGroup := func(title string, agents []dormantAgent) {
