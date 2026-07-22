@@ -190,3 +190,22 @@ safe either way.
 - **OPEN owner policy call**: should a parked review HOLD deploys? This
   reconciler only produces the evidence either way (033 interacts: the review
   queue has no drain).
+
+**Round 2 verdict (2026-07-22 18:16 UTC): APPROVED** — 1 advisory objection,
+none high-severity, guardian approving. The reviewed code is commit
+`8fd1e3bfc` (committed before the verdict landed, per commit-not-wait; this
+docs commit carries the trailer so the 098 join resolves). Advisories worth
+carrying to the roll: (a) the pair-selection SQL itself is untested — cover
+page_id/page_name fallback when the schedule seed lands; (b) the page_name
+fallback is plain equality scoped only by site_id — same-named pages on one
+site would produce extra pairs (under-blocking is impossible; over-reporting
+only); (c) `GREATEST(created_at, updated_at)` under-matches if `updated_at`
+drifts (bugs_open/035) — acknowledged heuristic.
+
+**Remaining to close this bug:** image roll → pod-grep
+(`reconcile_superseded_reviews`, `REVIEW_SUPERSEDED_BY_PASSING_SAVE`,
+positive control `diagnose_dormant_agents`) → seed the schedule (AFTER the
+roll) → first sweep `dry_run=true` must surface the fundamentallyai pair →
+enable writes → verify the parked item's annotation lands. Then the
+owner policy call (hold deploys on parked review?) decides whether a
+prevention half follows.
