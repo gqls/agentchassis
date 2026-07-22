@@ -2346,6 +2346,48 @@ assembler's visible-content filter alongside the rebuild's own filter. Category 
 `duplicated-judgement`, `one-site-fixed-sibling-heuristic`, `explicit-marker-over-proxy`,
 `latent-until-new-input`.
 
+### A NUL byte anywhere in marshalled state kills the whole jsonb persist (22P05) — and silently, the run
+
+**Symptom.** An orchestration dies at a step whose own work succeeded; the stored result says
+`failed to persist step result for '<step>': … unsupported Unicode escape sequence (SQLSTATE 22P05)`.
+The `site_work_items` row reads `complete` (a response was delivered) while the payload inside is
+`failed` — the status-vs-artefact trap. Concentration at ONE step across runs = the offending bytes
+are in that step's own data structure, not in LLM text (bugs_closed/056 nul-byte: 25 runs, 100% at
+`route`).
+
+**Diagnose.**
+```sql
+SELECT substring(collected_data::text from 'failed to persist step result for ''([a-z_]+)''') AS step,
+       COUNT(*), MIN(created_at), MAX(created_at)
+FROM orchestration_states
+WHERE collected_data::text ILIKE '%failed to persist%unsupported Unicode escape%'
+GROUP BY 1;
+```
+**Census trap:** match the FULL error shape as above. Matching just `%unsupported Unicode escape%`
+also matches every artifact ABOUT the bug (council submissions, diagnosis bundles quoting the error)
+— this produced a phantom "2 new deaths" on 2026-07-22 that were this fix's own council runs.
+
+**Root cause class.** Postgres jsonb rejects exactly ONE Unicode escape — `\u0000` — and
+`json.Marshal` emits it for any NUL byte in a string or map key. A NUL delimiter in a map key that
+round-trips through `collected_data` (the 056 case: `CodeRequestKey`'s `\x00`) means the first
+persist after the map becomes non-empty fails wholesale. You cannot find the NUL in the DB — the
+rejected write never lands; the only artefact is the error string.
+
+**Fix shape (both halves shipped 2026-07-22, `7a9f5f652` + `165f04ae7`).** (1) Never use NUL as an
+in-key delimiter; use `\x1f` (unit separator — jsonb-safe) and keep builder+reader as ONE
+exported pair (`CodeRequestKey`/`SplitCodeRequestKey`) so the encoding cannot drift. (2) Floor at
+the persist boundary: `datahelpers.SanitiseJSONBNulEscapes` substitutes `\ufffd` for genuine
+`\u0000` escapes (backslash-parity spares literal quoted-escape TEXT), returns a count, and
+`UpdateStateWithVersion` WARNs when it fired. Policy substitute-don't-die was council-reviewed as
+its own change (corr `d8e844ac`): no code handles 22P05, and jsonb can never store the byte, so
+hard failure preserves nothing — it just kills the run.
+
+**Editing trap while fixing it:** any tooling layer that decodes JSON/Unicode escapes will turn the
+6-char TEXT `\u0000` in your patch into a real NUL byte (this session shipped one into a Go comment
+before catching it with `cat -A`). Verify escape-bearing edits byte-level: `cat -A`, or
+`perl -ne 'print if /\x00/'` — and remember bash CANNOT pass a NUL in $'\x00' (it becomes
+the empty string, so that grep matches every line and proves nothing).
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -2415,6 +2457,8 @@ See `/bugs_closed/README.md`.
 | 050 | For a **deployed** page `sections=[]` means "rendered by another subsystem", not "awaiting composition" — all 18 such pages fleet-wide are `tool` (14), `blog-index` (2) or tool-ish `content` (2), and 15 have rendered `page_components` regardless. So `001`'s prescription for its own residual ("take the LLM's sections when the realised ones are empty") would let a re-plan attach a generic layout to all 18: **content injection onto built pages, the class `001` exists to stop.** The genuine defect survives only where the preserved page is NOT deployed — the first-plan case per `051`, which is exactly where every observed benefit occurred (dartsonline `guides-index`/`brands-index`/`shop-index`, all `planned`). Corrected fix gates on deployed-ness, not emptiness, in Pass B **and** Pass B2 — the latter closes a pre-existing exposure `001` did not introduce | filed 2026-07-20, split out of `001` so that case could close. Measured, not shipped: a fleet-wide rule about what a re-plan may write to a built page resting on an interpretation of an empty column — routed to the council gate, which `001` itself never got |
 | 051 *(**a second, unrelated `051` may appear** — this one is the planner/adoption-lock case; the other `049`-numbered case that day is stale chrome + 404s. Resolve by slug)* | The per-page **90-day adoption lock does not exist.** `053` §054 designs `adoption_locked` as "no current plan OR a live timed per-page preserve-directive"; the live query carries only the first branch, and the second would match nothing anyway — 462 `site_plan_directives` rows, `locked_by` NULL on every one, **zero** rows at `scope='page'`+`category='preserve'`, and no code writes one. So `adoption_locked` is a **per-SITE** flag meaning "this site has no current plan": true on a site's FIRST plan, false on every re-plan. Consequence: **Pass C2 can only ever fire on a first plan**, and the comment justifying its scope appealed to a 90-day window that is not there. Also: the documented "adoption faithfulness for 90 days" is undelivered | filed 2026-07-20 while closing `001`. Live exposure ≈ nil (3 `planned` pages, all dartsonline artefacts of `001`'s own verification) — **filed for the wrong premise, not the damage.** Comments corrected in `1a13e265d`; the `needs_rebuild` slice belongs to `037` |
 | 053 | `GetNavItems` overloaded a zero-row nav-table result: "no nav tables here" and "this nav-table site has no items in this group" both fell through to the pages fallback, which for `legal` matches every `in_footer` page. So a full-nav site with no legal pages (robot-hands + ≥5 more) filled its footer's legal slot with **all 14 footer links, none legal**; on gaswholesalers one is a live 404. See §9 *"An empty result overloaded to mean two things"* | **FIX COMMITTED (candidate 1, `85d39f9b9`, 2026-07-21)** — fallback now gated on `siteHasAnyNavItems` (fall back only when the site has **no** nav rows at all), fixing every group type at once; sqlmock regression test. **Stays OPEN**: inert until an image roll **and** a chrome re-render. Candidate 3 (deployedOnly for chrome nav) deferred to `052` — its correct predicate is `deployed_at IS NULL`, not today's `build_status='deployed'` |
+| 056 *(slug: `diagnose_route_step_nul_byte_kills_jsonb_persist` — **a second, unrelated `056` exists**, slug `regeneration_silently_drops_content…`; resolve by slug)* | The diagnosis loop killed its own runs: `CodeRequestKey` delimited `SeenCodeRequests` keys with a literal NUL; `json.Marshal` → `\u0000`, the ONE escape jsonb rejects (22P05); the `route` step's first persist after any code request died — 25 runs, 100% at `route`, incl. `030`'s own root-cause diagnosis. See §9 *"A NUL byte anywhere in marshalled state…"* | **CLOSED 2026-07-22 → `/bugs_closed/`** — delimiter → `\x1f` + `SplitCodeRequestKey` lockstep + persist-boundary sanitiser (`7a9f5f652`, live v1.0.1149 pod-verified; relocation+WARN `165f04ae7` council-approved corr `d8e844ac`, inert until next roll). End-to-end proven: 5-iteration code-tier diagnosis persisted non-empty `seen_code_requests` (`\u001f` keys) and completed; census flat |
+| 056 *(slug: `regeneration_silently_drops_content_that_tripped_a_blocker` — the OTHER `056`)* | Filed as "regeneration silently drops content that tripped a validate blocker, no record" — **the inferred mechanism was REFUTED by the diagnosis loop** (corr `b361298a`, 2026-07-22): the blocker IS recorded verbatim (`agent_error_log` `CONTENT_VALIDATION_BLOCKER_DETAIL`) and rerender actions never generate content. **Corrected mechanism: review-bypass-by-sibling-item** — item A parks at `needs_human_review` on the blocker; sibling item B (e.g. `page_rerender` after an asset lands) reruns the SAME build pipeline; fresh copy omits the flagged element, passes, deploys; nothing reconciles B's success with A's parked review (fundamentallyai `model-fine-tuning`: A parked 07-20 21:27, page deployed 07-21 03:41, A still dangling) | open — corrected mechanism + fix direction (fail-loud reconciliation at `save_sections`, NOT a dispatch block: 033's queue has no drain, 029-class wedge risk) grounded in-file 2026-07-22; fix not yet implemented |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
