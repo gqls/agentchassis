@@ -1762,3 +1762,41 @@ workflow genuinely never ran (whatever a handoff remembers as "it worked"). Fami
 confident claim in a handoff is a claim, not a measurement; "observed running" must name the
 exact signal (here: a unique TOP-LEVEL workflow step in retained history — which misses
 council/subtree paths, so the detector reports for triage, never asserts "N never ran").
+
+---
+
+## 2026-07-22 — "the contamination-allowlist fix needs writing + a fleet roll" (brochure_component_library / fundamentallyai.com) — it was ALREADY LIVE
+
+**Claim (acted on for most of a session):** fundamentallyai's pages are blocked by
+the contamination check with no per-site allowlist mechanism; therefore I must
+WRITE the allowlist fix (`loadAllowedReferenceDomains` etc.), council-review it,
+and roll a new chassis image to make it live.
+**Actually:** the entire allowlist implementation was **already committed and
+live**. `git log -S 'allowed_reference_domains' -- validate_page_content.go`
+shows it was introduced by `fe2ba5e52` ("v1.0.1146 sweep"), built into the
+v1.0.1146 image, and running on production since 2026-07-21 18:50 UTC. A pod-grep
+of the live pod found `loadAllowedReferenceDomains` (2), `checkDomainContamination`
+(2) and the `allowed_reference_domains` literal (3) — the fix was already there,
+byte-identical to what I "wrote". My commit `f2780e1bd` changed only a **comment**
+in that file (+ added a test + the seed script). The one thing actually missing
+was the **data seed** (`content_data->'allowed_reference_domains'` for the site),
+which no code roll could ever provide — and which the council's "you never flip
+the switch" objection was pointing straight at.
+**Caught by:** the OWNER — "double check your findings, v1.0.1146 is on
+production" — which finally made me pod-grep the running binary instead of
+INFERRING from build-time-vs-commit-time that the fix couldn't be live.
+**The cheap checks that would have caught it, at the very start:**
+`grep -rn 'allowed_reference_domains\|allowlist' platform/orchestration/actions/`
+(would have shown the existing mechanism) and a pod-grep of the running chassis
+for the symbol BEFORE writing a line. I checked `/bugs_open` + `/bugs_closed` for
+the mechanism (found none) but never checked the CURRENT CODE or the LIVE POD for
+an existing implementation — the exact "is this already built/live?" liveness
+check CLAUDE.md's own DORMANT-MACHINERY / prior-art discipline exists for.
+**Cost:** a diagnosis that was correct but a fix-and-council effort that was
+largely redundant — ~2 council rounds + credits re-reviewing already-live code,
+and I nearly cut an unnecessary fleet image roll (stopped only by the owner).
+Salvage: the diagnosis, the seed script, the test, `bugs_open/056` (a real new
+finding) and `features_open/010` (the council-decider improvement) are all still
+valid work. But the headline lesson is blunt: **before writing OR rolling a fix,
+grep the current code and pod-grep the live binary for the mechanism — "is it
+already done?" comes before "how do I do it?".**

@@ -1,8 +1,26 @@
 # BUG 055 — content-validation contamination check blocks legitimate cross-site references
 
-**Filed:** 2026-07-21 · **Status:** OPEN · **Severity:** high (blocks a whole
-site from going live) · **Class:** cross-cutting / platform-wide validation gate
+**Filed:** 2026-07-21 · **Status:** OPEN (code live; data seeded; pages not yet
+regenerated) · **Severity:** high (blocks a whole site from going live) ·
+**Class:** cross-cutting / platform-wide validation gate
 **Found by:** brochure_component_library workstream (fundamentallyai.com go-live)
+
+> **CORRECTION 2026-07-22 — the fix CODE was already live; only the DATA seed was
+> ever needed.** The per-site allowlist implementation
+> (`loadAllowedReferenceDomains`, `checkDomainContamination(..., allowedRefs)`,
+> `content_data->'allowed_reference_domains'`) was **already committed and live**
+> — introduced by `fe2ba5e52` ("v1.0.1146 sweep"), running on production since
+> 2026-07-21 18:50 UTC (pod-grep verified). The "fix candidates" section below
+> was written without realising the code already existed (see WRONG_CALLS
+> 2026-07-22). The one genuinely-missing step was seeding the site's allowlist
+> DATA, which no code roll provides. **Done 2026-07-22:**
+> `sql/055_seed_allowlist.sql` ran against prod — `content_data->'allowed_
+> reference_domains'` for fundamentallyai.com = `["leopardessconsulting.co.uk",
+> "finetuning.uk","idea.uk","relojistas.com"]` (guarded/idempotent/backed-up;
+> POST-STATE key_present=t, n=4). **Remaining to CLOSE (fixed AND live):**
+> regenerate the 5 stuck + 2 degraded content pages and verify the leopardess
+> reference is present in saved `page_components.rendered_html`. No build/roll
+> needed. Deeper silent-drop defect stays `bugs_open/056`.
 
 ## Symptom
 

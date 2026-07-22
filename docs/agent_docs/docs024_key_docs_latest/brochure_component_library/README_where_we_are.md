@@ -233,3 +233,33 @@ Once the council's happy, the sequence is: roll it, prove it's live, switch this
 site on, rebuild every content page, and — the bit that matters — actually read
 the finished pages to confirm the leopardess story is really on them this time,
 not just that the database says "done".
+
+**2026-07-22 — I have to correct myself, and it's an important one. You caught it.**
+You said "double check your findings — v1.0.1146 is on production", and that made
+me actually look at the live server's program instead of reasoning about dates. It
+turns out the fix I'd spent the session writing and sending round the review
+council **already existed and was already running in production** — someone (in
+the big v1.0.1146 batch yesterday) had already built exactly the same thing. My
+own change to that file was, in the end, one comment. So there was never any new
+code to write or any server rebuild to do. I got that wrong by assuming, from the
+timing, that the fix couldn't already be live, instead of just checking — and I
+nearly did an unnecessary full-fleet rebuild off the back of that assumption. I've
+written the miss down plainly in our shared "wrong calls" log so the next person
+doesn't repeat it: before writing or rolling a fix, check whether it's already
+there and already live.
+
+The genuinely useful news: the *one* thing that was actually missing all along was
+the simple switch-flip — telling this specific site that it's allowed to name
+leopardess. No code, no rebuild; just a small, careful, backed-up database write.
+I've now done that (it added the four of our own sites we agreed this brand may
+cite as case studies). So the guard will now let the leopardess story through for
+fundamentallyai and no other site is affected at all.
+
+What's left is the part that actually puts the story on the page: rebuilding the
+content pages that are still stuck, and then — the bit that matters most — reading
+the finished pages myself to confirm the story is really there, rather than
+trusting a "done" flag. There's a known wrinkle (the same silent-drop fault I
+filed as bug 056) where a rebuild can still leave the bit out by chance, so I'll
+check each page and re-run any that come back without it. The "nothing serves yet"
+hosting step is still separate and still yours, but as before there's no point
+wiring that up until the pages actually carry their content.

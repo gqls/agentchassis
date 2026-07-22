@@ -753,3 +753,38 @@ rationale + code comment; filed and scoped-out 056. Awaiting round-2 verdict
 (monitor armed). **A REVISE is a success, not a waste** — the council caught that
 "fix the mechanism" ≠ "close the incident", which is exactly the gap that leaves
 sites half-live.
+
+## 2026-07-22 — CORRECTION: the fix was already LIVE; only the seed was needed; seed done
+
+> **CORRECTED 2026-07-22 — most of the round-1/round-2 fix effort was redundant.**
+> The owner said "double check your findings, v1.0.1146 is on production." That
+> made me pod-grep the running chassis instead of INFERRING from timestamps. The
+> live v1.0.1146 pod (agent-chassis-687cdf6db5-fq2fd, running since 2026-07-21
+> 18:50 UTC) **already contains the full allowlist implementation** —
+> `loadAllowedReferenceDomains` (2), `checkDomainContamination` (2),
+> `allowed_reference_domains` literal (3). `git log -S allowed_reference_domains`
+> shows it was introduced by `fe2ba5e52` ("v1.0.1146 sweep"), byte-identical to
+> what I wrote. My commit `f2780e1bd` changed only a COMMENT in that file (+ a
+> test + the seed). **No build/roll was ever needed** — I nearly cut an
+> unnecessary fleet image roll (caught only by the owner). Logged in WRONG_CALLS.
+> The lesson: grep the current code + pod-grep the live binary for the mechanism
+> BEFORE writing OR rolling a fix — "is it already done?" precedes "how do I do
+> it?".
+
+**What was actually missing — and is now done:** the DATA seed. The live code
+reads `sites.content_data->'allowed_reference_domains'`; fundamentallyai's was
+absent → loader returns nil → contamination still fired. Ran
+`sql/055_seed_allowlist.sql` against prod 2026-07-22: PRE key_already_present=f →
+UPDATE 1 → POST key_present=t, n=4, domains =
+`["leopardessconsulting.co.uk","finetuning.uk","idea.uk","relojistas.com"]`,
+COMMIT. [VERIFIED, live DB.] The live loader (byte-identical to fe2ba5e52's) reads
+exactly this key/format, so the seed is now effective.
+
+**Remaining:** regenerate the 5 stuck (needs_human_review) + 2 degraded
+(deployed-but-storyless) content pages so they rebuild WITH the leopardess story
+and pass validation (now that the allowlist skips it), then verify the reference
+is present in saved `page_components.rendered_html` — trust the artefact, not the
+status. Watch for the bugs_open/056 non-determinism (a regeneration may still omit
+the reference by chance — verify, re-fire if so). The self-correction-
+leopardessconsulting page is separately blocked (planned, 0 sections — empty spec
+sections, a planner-level issue, not the contamination gate).
