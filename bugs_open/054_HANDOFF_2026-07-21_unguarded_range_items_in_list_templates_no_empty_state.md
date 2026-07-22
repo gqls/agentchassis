@@ -135,11 +135,43 @@ generic and the other five exposed.
 >   `.(bool)`/`.(float64)` reads genuinely fire (a top-level `input_schema->>'required'` is
 >   NULL by design — the contract is per-field; that is what the R1 reviewer's query hit).
 >
-> R2 revisions committed `6e9f06ecf`; **resubmitted on the same corr** (R2 run `2904a344`,
-> verdict pending). **Two owner fast-follows the council raised** (neither blocks this fix):
-> (1) a standing lint that future `queryresolve.Resolve` consumers length-check, not
-> `value!=nil`; (2) whether a required `skip_section` listing whose data never arrives needs
-> a staleness/HITL tripwire beyond the new Warn log.
+> R2 revisions committed `6e9f06ecf`; resubmitted on the same corr (R2 run `2904a344`).
+>
+> **COUNCIL ROUND 2 = REVISE, but 7 approve / 3 object** (up from 4/4; `debug_historian` and
+> `prior_art_librarian` flipped to approve — the pod-grep step and the quoted code-checks
+> landed). **Loop STOPPED here** per the runbook ("one council run per coherent task, not
+> per iteration"; "seats contradict — pick one, record why, move on"). The 3 remaining
+> objections, and the disposition of each:
+> - **editquality (low) — the `hasItems` reuse is scope-creep against minimality.** This
+>   directly contradicts R1's `reuse_agent` ask (which wanted exactly this consolidation, and
+>   approved it in R2). Per the runbook's "seats contradict across rounds" rule: **kept**, because
+>   it removes a genuine duplicate type-switch and the reuse seat approved it twice. Recorded here
+>   as the deliberate call.
+> - **editquality (low) — call out the `continue`→`return`.** It only affects the optional
+>   path, which was already the last statement before the loop's end, so `return` from the
+>   closure and `continue` are behaviourally identical; the pre-existing `planSection` defer
+>   tests pass unchanged. Documented, no further change.
+> - **guardian (medium) — name the pipelines that invoke `plan_sections` (runtime blast
+>   radius).** Answered from the live DB: the `plan_sections` action is invoked within the
+>   **build pipeline** — `page-build-handler` and `build-site-planner` (also referenced by
+>   `page-content-writer`/`image-build-handler`/`diagnose-agent`). Bounded set, all the
+>   page-build path; not an unbounded fan-out.
+> - **bug_historian (medium) — a required listing that NEVER recovers data should fail-loud
+>   into a tracked `site_work_items` row, not just a Warn log.** Principled, but it
+>   **re-litigates the owner's own decision**: the 7 fields declare `on_missing=skip_section`
+>   ("drop if empty"), and the owner chose (2026-07-22) to honour that. Creating a tracked item
+>   instead would OVERRIDE the declared `skip_section` intent — a different decision from the one
+>   made. Left as an **explicit owner call** (below), because the honest schema-faithful behaviour
+>   and the fail-loud behaviour genuinely diverge here.
+>
+> **Bug remains OPEN** (fix inert until roll). **Open owner decisions:**
+> 1. **Accept the fix as-is** (honours `skip_section` literally: empty listing dropped + Warn
+>    logged) **OR** build `bug_historian`'s structural fail-loud guard — an empty *required*
+>    `skip_section` list emits a tracked `site_work_items` (needs_human_review-style) row so a
+>    never-recovering listing is surfaced, not just logged. The latter overrides the schema's
+>    declared `skip_section` for the required+empty case.
+> 2. The two fast-follows: a standing lint (future `Resolve` consumers length-check, not
+>    `value!=nil`); the staleness/HITL tripwire (subsumed by decision 1 if the guard is built).
 
 ## What
 
