@@ -126,3 +126,100 @@ Not yet applied: `SEED_directory_researcher_agent.sql` and
 building/pushing/rolling a chassis image, since that is a shared-cluster
 action with real blast radius on other concurrent sessions, unlike everything
 committed so far (docs, schema, Go source only — no running process changed).
+
+**Phase C — publish action, resolver, components, 2026-07-22.** Read
+`render_news_section_action.go`, `queryresolve/news_items.go` and
+`queryresolve.go`'s dispatch switch in full before writing anything, to
+confirm the "one query, two projections" discipline and the dual-layer
+(server-template + client-JSON-fetch) rendering shape were real, not
+assumed. Key finding that shaped the design: `queryresolve.Resolve()`
+requires a non-nil `SiteID` and documents "there are no cross-site queries"
+as a hard invariant — my resolver still takes one (satisfies the contract)
+but genuinely ignores it, since the model directory is the one query whose
+answer doesn't depend on which site asked. Wrote
+`queryresolve/model_directory_items.go` (`QueryModelDirectoryEntries`,
+shared by both the resolver and the JSON publish path), wired
+`model_directory`/`model_directory_full` into `queryresolve.go`'s switch, and
+`render_model_directory_action.go` (cousin of `RenderNewsSectionAction`,
+including its own `queueModelDirectoryPageRerenders` cousin of
+`queueNewsPageRerenders` — confirmed sharing the `page_rerender:<page>`
+item_key convention across multiple triggers is the *intended* idiom, not a
+collision risk: a scoped rerender re-resolves every `query.*` field on the
+page regardless of which trigger asked for it).
+
+**Correction, same session — a security divergence, deliberate.** Read
+`latest-news`'s live `js_content` before writing my own: it builds card HTML
+by concatenating feed-sourced text (title, summary, source) directly into
+`innerHTML`. That is a real XSS surface already live in production, not
+something I introduced — but model/company names, summaries and quotes here
+are ALSO third-party text, sourced via a broader attack surface (web-scrape +
+LLM extraction, not a curated feed), so I did not copy the pattern. Both new
+components' `js_content` build the DOM via `createElement`/`textContent`
+instead, documented inline as a deliberate divergence from the news
+precedent, not an oversight. Did not go back and fix the news component —
+out of scope for this workstream, flagged here in case it becomes its own
+bug.
+
+Wrote `SEED_directory_components.sql` for the two new `content_components`
+rows (`model-directory`, `model-directory-listing`), gated behind the image
+roll like the agent/scheduled-task seeds. **Verified all four gated SEED
+files by dry-running them against the live DB inside a transaction I then
+rolled back** (`sed` swap of the trailing `COMMIT;`/`ROLLBACK;` line) —
+caught nothing wrong, but this is the check that would have caught a
+dollar-quoting or column-count mistake before it sat silently broken in the
+repo for weeks.
+
+**Phase D — discovery checks + growth budget, 2026-07-22.** Read
+`check_news_feed.go` in full (all five checks + the bugs_open/015 stranded-
+nav-page logic) before writing my two. Deliberately did NOT clone the
+stranded-nav-page retype logic — that exists because news pages had already
+accumulated years of wrong-page_type history across many sites before the
+gate existed; model-directory is a brand-new page_type with no such history
+yet, so there is nothing to retype. Documented as a scope cut, not an
+oversight, in case it needs adding later.
+
+Both checks gate on TWO conditions before ever raising a finding: the site
+opted in (`site_specs.classification.content_features.model_directory`) AND
+the global registry actually has `status='found'` claims — unlike news,
+there is no per-site "are there any sources yet" check, because the registry
+that would answer that isn't site-scoped. Wrote
+`check_model_directory_test.go` with sqlmock, covering all four branches
+(not opted in / opted in but empty registry / raises a finding / section
+already exists) plus the `separate_page` gate — these are exactly the
+conditions a silent regression would hit first.
+
+**Caught by running the FULL test suite, not just my own package**: my two
+new item types (`missing_model_directory_section`,
+`missing_model_directory_page`) tripped
+`TestEveryCheckProducedItemTypeIsClassified` in
+`verifier_coverage_test.go` — a real, pre-existing fleet-wide governance
+gate (bugs_open/021 §INSTANCE 2: every check-produced item_type must have a
+verifier or be an acknowledged gap) that I would otherwise have silently
+violated. Added both to `itemTypesWithoutVerifiers` with `catMechanical`
+(same category as their `missing_news_section`/`missing_news_page`
+siblings — same handler, same existence-check shape), explicitly noting
+they are NOT `[INFERRED]` since I wrote and read the checks myself. Two
+OTHER item types (`backend_entry_orphaned`, `contact_form_undeliverable`)
+were already failing this same test before I touched anything — confirmed
+via `git log` on their check files, dated 2026-07-22 from other sessions'
+work — left untouched, not mine to fix.
+
+Also found and fixed a real duplication landmine while adding
+`"model-directory"` to `structuralPageTypes`: `page_growth_budget.go` keeps
+a SECOND, hand-copied list of the same page-type vocabulary inline in a raw
+SQL string (`page_type IN (...)`), used to split the weekly-budget count.
+Updated both copies and added a comment flagging the duplication for
+whoever touches this next — it is exactly the "two hand-maintained rosters
+that must stay identical" shape CLAUDE.md already calls out for the council
+gate, just undocumented here until now.
+
+Full `go build`/`go vet`/`go test ./platform/...` run clean except three
+pre-existing, unrelated failures (confirmed via `git log`/`git status` on
+each file, none touched by this workstream): the two item-type gaps above,
+an `orchestration_test.go` build failure from an unrelated `NewSagaCoordinator`
+signature change, and a `missing_bare_fields_test.go` failure in an
+untracked file belonging to another concurrent session.
+
+Still not applied: all four gated SEED files (agent, 2× scheduled_tasks,
+components) and migration 194 (check enablement) await the same image roll —
+pausing here, as before, at the actual build/push/deploy step.

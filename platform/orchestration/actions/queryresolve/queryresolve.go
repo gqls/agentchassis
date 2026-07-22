@@ -101,6 +101,18 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 		// archive depth and window, topics included.
 		return resolveNewsArchive(ctx, db, req.SiteID, req.Limit, logger)
 
+	case "model_directory":
+		// Homepage model-directory snippet (model-directory component).
+		// Deliberately NOT site-scoped — see model_directory_items.go's
+		// header: directory_entities/directory_claims is one global
+		// registry, req.SiteID is unused here.
+		return resolveModelDirectory(ctx, db, req.Limit, logger)
+
+	case "model_directory_full":
+		// Model-directory listing page (model-directory-listing component).
+		// Same registry, listing depth.
+		return resolveModelDirectoryFull(ctx, db, req.Limit, logger)
+
 	case "blog_posts":
 		// Article listings (content-listing, blog-listing components declare
 		// `source: "query.blog_posts"`). Fleet convention: articles are pages

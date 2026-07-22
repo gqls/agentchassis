@@ -649,6 +649,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Re-verify is_current directory_claims whose staleness_days has elapsed; supersede into a new current row on any status transition (found/citation_lost/fetch_error), raise stale_directory_claim on any flip away from found",
 		IsLocal:     true,
 	},
+	"render_model_directory": {
+		Handler:     RenderModelDirectoryAction,
+		Category:    "site",
+		Description: "Produce model-directory JSON for git commit from the global directory_entities/directory_claims registry",
+		IsLocal:     true,
+	},
 	"claim_work_item": {
 		Handler:     ClaimWorkItemAction,
 		Category:    "site",
