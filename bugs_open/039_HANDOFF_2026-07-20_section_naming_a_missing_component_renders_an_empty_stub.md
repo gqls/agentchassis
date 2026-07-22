@@ -74,6 +74,41 @@ page instead of failing.
 > item was raised; (3) re-run the fleet `stub` query and confirm it trends to 0 as pages rebuild;
 > (4) confirm the 22 content-bearing generic renders and the 8 name-not-function entries still render.
 
+> ### Council review (advisory) — corr `74cdb054`, 2026-07-21
+>
+> The run **crashed on a transient Anthropic 529 "Overloaded"** at `review_tooling_provenance`
+> after all earlier seats had run, so there is **no aggregate `council_report` verdict**. But 8 seat
+> reviews were captured in `collected_data`: **6 approve** (constitution, editquality, guidelines,
+> mission, reuse_agent — plus prior_art's substance was positive), **2 logged `object`**
+> (bug_historian, prior_art). None objected to correctness; all objections are grounding/completeness.
+> Addressed here:
+>
+> - **"Is the `needs_new_component` consumer live, or is this a silent work-item pileup?"**
+>   (prior_art, bug_historian). Checked: `component-creator` **is** an active agent
+>   (`agent_definitions.is_active=t`), and `needs_new_component` items **reach a terminal status**
+>   (2 complete, 11 failed) — i.e. they are *claimed*, unlike `empty_section` findings which rot
+>   `unresolved` forever. So routing to it is strictly better than the rotting-detection path this
+>   bug is about. **Caveat, recorded honestly:** the consumer's recent record is poor (11 failed),
+>   so a raised item is not a *guarantee* the component gets built. The fix's core win — **not
+>   persisting a hollow stub and not reporting false success** — does not depend on it.
+> - **"'Single INSERT' claim not code-quoted"** (prior_art, editquality). Verified: the other three
+>   `page_components` INSERTs are tool/blog-only — `deploy_tool_action.go:333` and
+>   `create_tool_component_action.go:242` always set a real `component_id`;
+>   `rebuild_blog_listing_action.go:255` omits the column (blog-listing, position hardcoded 3).
+>   `save_page_sections_action.go:543` is the sole general page-composition writer.
+> - **"Root mechanism `GetComponentWithFallback` left unpatched — instance-#7 shape"**
+>   (bug_historian). Fair architectural note, **considered and deferred**: the fallback is *also*
+>   how the 22 legitimate content-bearing generic renders are produced, so making it hard-fail is
+>   not safe; the render path is separately guarded (`missingRequiredLLMFields`, v1.0.1126). Making
+>   the *substitution point* merely observable (a loud signal without failing) is a reasonable
+>   follow-on so a future non-persist consumer inherits the signal — noted, not done, because the
+>   persistence choke point covers every path that produces a *deployed* hollow row today.
+> - `[UNVERIFIED]` residual (editquality): I have not code-proven that *every* leak path populates
+>   `section.HTML` with the `section--generic` fragment identically; the observed 7/7 match is from
+>   already-produced rows. In practice the non-content-writer paths either feed
+>   `saveSectionsExtractFromHTML` (which preserves the fragment → caught) or are guarded upstream at
+>   render, but a code-level confirmation across all three paths is still owed.
+
 ## Part 1 — the convention (read this before comparing a plan to a page)
 
 `pages.sections` stores the component's **`function`**. `page_components` reference the component
