@@ -52,3 +52,22 @@ So: the class of bug is now *visible* going forward, one casualty is repaired at
 source, and the rest are catalogued with clear next steps. What still needs an
 owner decision: (a) roll the image + switch the sweep on, and (b) how to rebuild
 the eight without the fabrication trap.
+
+---
+
+**2026-07-22 (bugfix-046 thread)**
+
+The new chassis build went to production, which is what the sweep I wrote was
+waiting for. I checked it was genuinely in the running server (not just tagged),
+switched it on, and — importantly — didn't just trust that it was wired up: I ran
+it for real against one of the broken sites (vonc.com) and watched it correctly
+flag the broken "arena" tool, with the right details and the right "here's how to
+fix it" note, while correctly leaving alone a broken-but-unused component that no
+visitor can reach. So the detection half of this is now genuinely done and
+working, not just written.
+
+What's left is unchanged and still needs owner steering: the eight remaining
+broken tools need rebuilding (the fabrication-risk area, so a human should drive
+it), and the live pages need re-rendering through the pipeline another thread
+owns. But from today, any new casualty like this will surface itself as a tracked
+item automatically — which is the thing that was missing when this bug was filed.

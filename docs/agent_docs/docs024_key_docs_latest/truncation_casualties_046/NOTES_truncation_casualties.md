@@ -67,3 +67,26 @@
   HTML (no change, no harm). Now that it ACCEPTS the restored template, the next
   re-render renders good bytes. The restore cannot make the already-broken live
   page worse.
+
+## 2026-07-22 — detection LIVE + ENABLED + PROVEN end-to-end
+
+- Chassis **v1.0.1149** on prod carries the check. Pod-verified with the
+  discriminating literals I created (`truncated_component query failed`: 1;
+  `still truncated: unterminated`: 1; positive controls present; negative control
+  0). Pod up 24m — past the 300s post-restart dispatch window.
+- Numbering-collision scare, resolved: migration 192's ledger note claimed "186
+  already applied by hand". It is NOT — my check was `already_enabled=f`, and 186
+  is uniquely my file (only `186_*.sql` in the tree). 192's author saw the file
+  exist and assumed it was applied; it was correctly waiting image-first. No real
+  collision — applied 186 cleanly.
+- Applied seed 186 (psql -f; its own guards + snapshot `b05773e0`), then
+  `run-migrations.sh --record-only` with a note. Verified: checks array now has
+  `truncated_component`.
+- **Induced the check** (verify-the-failing-branch discipline, not a pod-grep):
+  triggered `completeness-discovery-agent` on vonc.com (corr `c6721ab9`), built
+  the kcat publish by hand to SKIP the trigger script's hardcoded finetuning.uk
+  auto-approve tail. Orchestration COMPLETED clean; item `ae5ab628` created for
+  `tool-arena-interface-vonc-com` with the exact expected spec
+  (`unterminated:["<script"]`, `intact_version_available:false`, priority 35,
+  needs_human_review). The unplaced archetype-clash-calculator was correctly NOT
+  flagged (0 page_components). Correctness proven, not just deployment.

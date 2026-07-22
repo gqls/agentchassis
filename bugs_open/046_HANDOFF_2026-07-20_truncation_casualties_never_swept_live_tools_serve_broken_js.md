@@ -3,9 +3,43 @@
 **Filed:** 2026-07-20 · travelling-docs thread
 **Severity:** high — live customer-facing breakage on **6 domains**, present now,
 and invisible to every check we have.
-**Status:** OPEN. Detection built (candidate 2) + committed, inert until image+seed;
-grip-force restored at source (census 9 → 8); 8 remain (no intact version).
-See "UPDATE 2026-07-21" below.
+**Status:** OPEN. Detection (candidate 2) is **LIVE, ENABLED, and PROVEN
+end-to-end** (v1.0.1149 + seed 186, 2026-07-22); grip-force restored at source
+(census 9 → 8); 8 remain (no intact version → regeneration). The live *pages* are
+still broken pending re-render delivery (bugs_open/024). See the UPDATEs below.
+
+---
+
+## UPDATE 2026-07-22 — detection is LIVE, ENABLED, and PROVEN on real data
+
+The chassis image carrying `check_truncated_component.go` reached production as
+**v1.0.1149** (pod-verified: the literals `truncated_component query failed` and
+`still truncated: unterminated` are in `/app/agent-chassis`; negative control 0).
+
+- **Enabled:** seed `186_enable_truncated_component_check.sql` applied and
+  ledgered (`schema_migrations`, applied_by=record-only). `completeness-discovery-agent`'s
+  checks array now contains `truncated_component` (snapshot `b05773e0` taken).
+- **Proven end-to-end** (not just deployed): a real `completeness-discovery-agent`
+  pass on vonc.com (corr `c6721ab9`, orchestration COMPLETED clean) raised
+  `truncated_component` item `ae5ab628` for `tool-arena-interface-vonc-com` —
+  spec exactly as designed: `unterminated:["<script"]`,
+  `intact_version_available:false`, `needs_human_review`, priority 35, the full
+  restore/regenerate/remove `fix` note. The unplaced
+  `tool-archetype-clash-calculator-vonc-com` was correctly NOT flagged (0
+  page_components — the check sees only components on a site's pages, as
+  documented). This is the "verify the failing branch, not the happy path"
+  standard: the check's job is to detect, and it was induced against a real
+  casualty and detected it.
+- **Scope note for the census:** the sweep is per-site via the page join, so the
+  3 truly *unplaced* casualties (archetype-clash-calculator, the leopardess
+  llm-cost variant, archetype-taster-quiz — 0 page_components) will never be
+  swept by a site pass. They are not serving visitors either; they need a
+  fleet-level cleanup (deactivate or regenerate), tracked here rather than by the
+  check.
+
+Going forward the class is self-surfacing: each casualty on a live page becomes a
+tracked `truncated_component` item as its site is next swept. Remaining work is
+the *repair* (regeneration of the 8, owner-steered per 020) and *delivery* (024).
 
 ---
 
