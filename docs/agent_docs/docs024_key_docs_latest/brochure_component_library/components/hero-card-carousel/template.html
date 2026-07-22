@@ -1,0 +1,212 @@
+<style>
+  .hero-card-carousel {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background);
+    color: var(--color-text);
+  }
+  .hero-card-carousel__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+  .hero-card-carousel__eyebrow {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+  }
+  .hero-card-carousel__title {
+    font-size: clamp(1.75rem, 3.5vw, 2.75rem);
+    font-weight: 700;
+    line-height: 1.15;
+    color: var(--color-heading);
+    margin: 0 0 1.75rem;
+    max-width: 40ch;
+  }
+  .hero-card-carousel__head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  /* Controls — placed before the track in DOM for tab order (WCAG APG). */
+  .hero-card-carousel__controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .hero-card-carousel__btn {
+    inline-size: 44px;
+    block-size: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface, transparent);
+    color: var(--color-heading);
+    border-radius: 999px;
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  }
+  .hero-card-carousel__btn:hover {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary-text, #fff);
+  }
+  .hero-card-carousel__btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* Track — native scroll-snap gives swipe-on-mobile with zero JS; the JS only
+     drives auto-advance and the buttons. */
+  .hero-card-carousel__track {
+    list-style: none;
+    margin: 0;
+    padding: 0.5rem 0 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+  }
+  .hero-card-carousel__track::-webkit-scrollbar { display: none; }
+  .hero-card-carousel__slide {
+    scroll-snap-align: start;
+    flex: 0 0 min(85%, 620px);
+  }
+  @media (min-width: 900px) {
+    .hero-card-carousel__slide { flex-basis: calc((100% - 3rem) / 2.15); }
+  }
+
+  .hero-card-carousel__card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface, transparent);
+    border: 1px solid var(--color-hairline, var(--color-border));
+    border-radius: var(--border-radius, 0.75rem);
+    overflow: hidden;
+  }
+
+  /* Hover-zoom — the clip is required; the scaled image would otherwise spill. */
+  .hero-card-carousel__media {
+    overflow: hidden;
+    aspect-ratio: 16 / 10;
+    background: var(--color-surface-alt, var(--color-surface));
+  }
+  .hero-card-carousel__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: scale 0.45s ease;
+  }
+  .hero-card-carousel__card:hover .hero-card-carousel__img,
+  .hero-card-carousel__card:focus-within .hero-card-carousel__img {
+    scale: 1.08;
+  }
+
+  .hero-card-carousel__body {
+    padding: 1.5rem 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    flex-grow: 1;
+  }
+  .hero-card-carousel__card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-heading);
+    margin: 0;
+    line-height: 1.25;
+  }
+  .hero-card-carousel__teaser {
+    font-size: 0.9375rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+    margin: 0;
+    flex-grow: 1;
+  }
+  .hero-card-carousel__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    min-height: 44px;
+    margin-top: auto;
+  }
+  .hero-card-carousel__link:hover { text-decoration: underline; }
+  .hero-card-carousel__link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  .hero-card-carousel__live {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  /* Accessibility: no motion for users who ask for none; no zoom on touch. */
+  @media (prefers-reduced-motion: reduce) {
+    .hero-card-carousel__track { scroll-behavior: auto; }
+    .hero-card-carousel__img { transition: none; }
+    .hero-card-carousel__card:hover .hero-card-carousel__img,
+    .hero-card-carousel__card:focus-within .hero-card-carousel__img { scale: 1; }
+  }
+  @media (hover: none) {
+    .hero-card-carousel__card:hover .hero-card-carousel__img { scale: 1; }
+  }
+  @media (max-width: 768px) {
+    .hero-card-carousel { padding: 3rem 1.25rem; }
+  }
+</style>
+
+<section class="hero-card-carousel" data-component="hero-card-carousel" role="region" aria-roledescription="carousel" aria-label="{{if .section_title}}{{.section_title}}{{else}}Featured{{end}}">
+  <div class="hero-card-carousel__inner">
+    <div class="hero-card-carousel__head">
+      <div>
+        {{if .section_eyebrow}}<span class="hero-card-carousel__eyebrow">{{.section_eyebrow}}</span>{{end}}
+        {{if .section_title}}<h2 class="hero-card-carousel__title">{{.section_title}}</h2>{{end}}
+      </div>
+      <div class="hero-card-carousel__controls" data-hcc-controls>
+        <button type="button" class="hero-card-carousel__btn" data-hcc-pause aria-label="Pause automatic rotation"><span data-hcc-pause-icon aria-hidden="true">&#10073;&#10073;</span></button>
+        <button type="button" class="hero-card-carousel__btn" data-hcc-prev aria-label="Previous card"><span aria-hidden="true">&lsaquo;</span></button>
+        <button type="button" class="hero-card-carousel__btn" data-hcc-next aria-label="Next card"><span aria-hidden="true">&rsaquo;</span></button>
+      </div>
+    </div>
+
+    <ul class="hero-card-carousel__track" data-hcc-track>
+      {{range $i, $card := .cards}}
+      <li class="hero-card-carousel__slide" role="group" aria-roledescription="slide" aria-label="{{$card.title}}" data-hcc-slide>
+        <article class="hero-card-carousel__card">
+          <div class="hero-card-carousel__media">
+            <img class="hero-card-carousel__img" src="{{if $card.image}}{{$card.image}}{{else}}/assets/images/hero.jpg{{end}}" alt="{{$card.image_alt}}" width="800" height="500" loading="{{if eq $i 0}}eager{{else}}lazy{{end}}">
+          </div>
+          <div class="hero-card-carousel__body">
+            <h3 class="hero-card-carousel__card-title">{{$card.title}}</h3>
+            <p class="hero-card-carousel__teaser">{{$card.teaser}}</p>
+            {{if $card.link_url}}<a class="hero-card-carousel__link" href="{{$card.link_url}}">{{if $card.link_label}}{{$card.link_label}}{{else}}Read more{{end}}<span aria-hidden="true">&nbsp;&rarr;</span></a>{{end}}
+          </div>
+        </article>
+      </li>
+      {{end}}
+    </ul>
+
+    <div class="hero-card-carousel__live" aria-live="polite" data-hcc-live></div>
+  </div>
+</section>
