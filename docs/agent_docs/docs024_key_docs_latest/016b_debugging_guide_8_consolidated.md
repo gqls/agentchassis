@@ -2958,3 +2958,50 @@ doesn't advance that timestamp — a run that found nothing has still *run*.
 **Related:** `bugs_open/048` (the case + fix); `bugs_open/029` (same starvation family, hung
 in-flight spawns rather than a leaked in-memory slot); `bugs_open/044` (silent dormancy is
 undetectable — the missing liveness alert that would have caught this in May).
+
+### A schema field the DECISION never reads is a latent mis-calibration — it looks like "the reviewers are strict", it is actually "the rule is blind" (2026-07-22)
+
+**Symptom.** `bugs_open/057`: councils almost never `approved` — ~4.5% over a week (123 revise
+/ 3 rejected / 2 approved across ~44 submissions fleet-wide), and threads iterating 5–7 rounds
+still landed on revise. It *reads* as "the plans are bad" or "the panel is harsh."
+
+**Diagnose (the discriminator, when the diagnosis loop itself is unavailable).** Do not argue
+about whether the plans deserved it — measure whether the DECIDING objections were substantive.
+The reviewer contract already graded every objection `low|medium|high`, so the evidence was
+sitting in the persisted reports:
+```sql
+-- severity mix of blocking objections, and the counterfactual: how many revise
+-- rounds carried NO high-severity objection at all?
+WITH r AS (SELECT body::jsonb b FROM diagnosis_artifacts
+  WHERE kind='council_report' AND created_at>now()-interval '3 days'
+    AND metadata->>'decision'='revise')
+SELECT count(*) FILTER (WHERE NOT EXISTS (
+  SELECT 1 FROM jsonb_array_elements(b->'reviews') rv, jsonb_array_elements(rv->'objections') o
+  WHERE rv->>'verdict'='object' AND lower(o->>'severity')='high')) AS no_high_rounds,
+  count(*) AS total FROM r;
+```
+Result: **67% of revise rounds had zero high-severity objections** (8.5% of all objections were
+high); 14 rounds were a lone seat blocking ~9 approvers on a non-high nit. That is not strictness,
+it is a blind rule.
+
+**Root cause.** `decideCouncil` (`diagnose_council_decide_action.go`) returned `revise` on ANY
+`object` verdict and **never consulted `councilObjection.Severity`** — a field wired into the
+contract and populated by every reviewer, but which the deciding code did not read. So a low nit
+gated exactly as hard as a real flaw, and `approved` required unanimous bare approval.
+
+**Fix.** Only a high-severity objection (or veto) gates; explicit low/medium become advisory
+(recorded + returned, non-gating). Conservative carve-outs: a Degraded/truncated object still gates
+(its high objection may have been cut), and an un-graded/unrecognised severity still gates. Commit
+`872c830a8`, inert until an image roll.
+
+**Two transferable heuristics.**
+1. When a system's output distribution looks pathological (near-0 approvals, near-100% one verdict),
+   check whether the DECISION reads the fields the inputs already carry. A populated field the
+   decision ignores is a silent mis-calibration that masquerades as harsh judgement.
+2. When the diagnosis loop stalls on infra (here it was reaped at `route` — the spawn-loss backlog,
+   `bugs_open/003`/`030` — biting the diagnosis path itself), do not just re-fire into the same
+   stall: hand-gather the discriminating counterfactual query. The loop's value is the citation, not
+   a place you cannot reach; mark the result "hand-confirmed, not council-graded" and move.
+
+**Related:** `bugs_open/057` (the case); `bugs_open/003`/`030` (why the loop stalled); the
+"verify the failing branch" invariant (the fix must still gate a genuine high-severity objection).
