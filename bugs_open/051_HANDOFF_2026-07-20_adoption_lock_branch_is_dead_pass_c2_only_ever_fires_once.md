@@ -103,6 +103,27 @@ column is ignored by consumers that don't read it (as 173's `build_status` was).
 So today the grep surface is renamed; the code still says `adoption_locked` (now accurately documented)
 until the reconcile file settles enough to land the Go half safely.
 
+### Update — Go half COMMITTED (2026-07-22, awaiting next chassis build)
+
+`reconcilePlanWithRealised` settled (the `/bugs_open/037` fix step 4 landed as `385eb0b26`; prod is
+`v1.0.1149`), so I landed the Go half — commit **`ec7ade491`**. `reconcilePlanWithRealised` and the
+truncation guard now read the flag via a `noCurrentPlanFlag(rm)` helper that reads
+`site_has_no_current_plan` and **falls back to** `adoption_locked`; local var/slice renamed
+(`locked`→`noCurrentPlan`, `lockedPages`→`noCurrentPlanPages`), truncate helper's `locked`→`keep`,
+comments swept. **Behaviour-neutral** — the existing reconcile/truncate tests (fixtures set
+`adoption_locked`) pass via the fallback; gofmt clean; compiles. The commit is isolated (guarded
+against sweeping the 037 work).
+
+**NOT yet live:** prod `v1.0.1149` was built BEFORE `ec7ade491`, so it still reads `adoption_locked`
+(via migration 193's alias, which is exactly why 193 kept it). The rename goes live on the **next
+chassis build** from HEAD.
+
+**Last step to CLOSE 051** — after a chassis carrying `ec7ade491` is fleet-live (verify
+`strings /app/agent-chassis | grep -c site_has_no_current_plan` > 0 on the running pod): apply a final
+migration that DROPS the `adoption_locked` transition alias from `load_existing_pages`, and a tiny Go
+commit that drops the fallback in `noCurrentPlanFlag`. Do the migration only AFTER the pod is confirmed
+reading the new key, or a not-yet-rolled pod would lose the flag on a first-plan preserve.
+
 ## The claim in one line
 
 `adoption_locked` is **not** a per-page, 90-day-expiring lock. It is a **per-site** boolean meaning
