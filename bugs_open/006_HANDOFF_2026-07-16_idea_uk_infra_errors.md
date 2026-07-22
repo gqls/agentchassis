@@ -402,3 +402,28 @@ to the council as a REVISE follow-up (`RESUBMIT_CORR=c75718c1-c6e1-45b8-bb4d-f66
    `content_data`-migration-plus-render step through the review gate.
 3. **The 4 address-less sites still have no address** — the check will keep raising them (correctly)
    until a real contact address is put in each site's `sites.email` column.
+
+### B — follow-ups (1) and (3) DONE 2026-07-22 (owner-directed)
+
+- **(1) Check enabled.** `contact_form_undeliverable` appended to
+  `completeness-discovery-agent`'s `run_checks.config.checks` array (config, live immediately; no image
+  roll). Recorded as `docs/agent_docs/sql_for_agents/190_enable_contact_form_undeliverable_check.sql`
+  (commit `1cbd49a86`). Verified: exactly one active non-snapshot row now carries the check; the
+  check's own SQL finds **10 sites** (1 form each) — matching the filed "10 of 11". Items appear per
+  site on the next **discovery cycle** (pipeline-triggered, not a timed `scheduled_task`), routed to
+  `needs_human_review` with no handler. The runner **skips-not-errors** an unregistered name
+  (`discovery_checks.go:122-127`), so enabling was safe regardless of image timing; the live binary
+  registers it (pod-grep 5). NB the corrected remedy text (`efe634b37`) is inert until the next image
+  roll, so items created before then carry the old (content_data.email) remedy prose — cosmetic only.
+- **(3) The 4 address-less sites now have addresses** (owner-supplied 2026-07-22):
+  `vonc@contactforsales.com`, `relojistas@contactforsales.com`, `robot-hands@contactforsales.com`,
+  `vetcomparison@contactforsales.com`. Set in each site's `sites.email` column (guarded UPDATE, only
+  where empty; `UPDATE 4`, committed). On their next render the form self-converts to a mailto to
+  these addresses; the `info@<domain>` guard does not interfere (real addresses, distinct localpart).
+  Until they re-render, the deployed html still shows `#contact`, so the check will still raise all 10
+  — which is correct and settles as pages re-render.
+
+**Remaining on B:** (2) remediate the 10 already-`deployed` components (separate costed re-render
+through the review gate — a rebuild of a `deployed` page bounces to `needs_human_review` at attempt 0),
+and the image roll that makes `efe634b37` (the `info@` guard + remedy text) live. Council resubmission
+of the REVISE was deferred (owner call; original submission JSON not saved in-repo). B STAYS OPEN.
