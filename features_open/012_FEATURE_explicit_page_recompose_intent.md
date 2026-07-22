@@ -1,9 +1,16 @@
 # 012 — Explicit per-page redesign intent (`recompose_pages` in the re-plan spec)
 
 **Filed:** 2026-07-22, owner-approved follow-on to `/bugs_closed/037`. **Class:** planner
-capability. **Status:** code BUILT & committed (`385eb0b26`), **inert until the next chassis image
-roll**; the trigger-side convenience (how an operator sets `recompose_pages`) is the remaining open
-part.
+capability. **Status:** code **LIVE on v1.0.1149** (2026-07-22 — commit `385eb0b26`; verified in the
+running pod: `strings /app/agent-chassis | grep -c recomposePagesFromSpec` = 2). Remaining open:
+operator ergonomics (a friendlier way to set `recompose_pages`), an optional end-to-end live check,
+and the drop-vs-keep design choice below.
+
+> **Note on the spec-read path.** The one link unit tests can't cover is the live
+> `input_data.spec.recompose_pages` extraction. It uses the SAME accessor an existing production
+> action already relies on (`update_site_spec_from_item_action.go:74` reads `input_data.spec`), so the
+> plumbing is proven-in-use, not new. A full live re-plan would only re-confirm known-good plumbing —
+> hence it's optional, not a blocker.
 
 ## Why
 
@@ -54,8 +61,8 @@ files compiles clean.
 
 ## What is still OPEN
 
-1. **It is inert until the chassis image rolls** (Go change). It will go live on the next build/sweep
-   — verify then with `strings /app/agent-chassis | grep -c recomposePagesFromSpec`.
+1. ~~It is inert until the chassis image rolls.~~ **DONE — live on v1.0.1149 (2026-07-22), symbol
+   verified in the running pod.**
 2. **Operator ergonomics — how you actually set it.** Today you would emit a `needs_site_plan` item
    with `spec = '{"recompose_pages":["index"]}'` by hand (see the RUNBOOK). A nicer trigger (a small
    script, or an admin-dashboard action) is optional polish, not required for the capability to work.

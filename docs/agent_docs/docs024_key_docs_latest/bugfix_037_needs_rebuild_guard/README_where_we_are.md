@@ -64,3 +64,12 @@ One design choice worth flagging: if you name a page to recompose and the model 
 shouldn't exist, it gets dropped. That's the honest meaning of "recompose from scratch", but if you'd
 rather "redesign but never delete", say so and I'll make it keep the page. I left it as the simpler
 "model governs" version for now.
+
+**Update, later 2026-07-22: the new chassis build (v1.0.1149) is on production, so the redesign
+feature is now live** — I checked the running binary, both its functions are there. So both pieces of
+this work are on prod: the 037 guard and the `recompose_pages` redesign signal. Nothing is
+outstanding that blocks you. The only thing I *haven't* done is fire a real re-plan on a live site to
+watch it work end-to-end — the feature is thoroughly unit-tested and the one un-tested link (reading
+your `recompose_pages` off the request) uses the exact same mechanism an existing production step
+already relies on, so it's low-risk. If you'd like me to prove it on the dartsonline test site anyway,
+I can — it just takes ~half an hour of the build queue. Otherwise this is complete.
