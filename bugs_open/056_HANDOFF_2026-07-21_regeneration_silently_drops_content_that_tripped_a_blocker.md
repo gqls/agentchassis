@@ -159,3 +159,34 @@ dropped, not resolved") and annotate the parked item's `result` (never its
 status — a human still owns the flag). Whether a parked review should HOLD
 deploys outright is an owner policy call (033 interacts); the reconciliation is
 safe either way.
+
+## Fix trail (2026-07-22, bugfix-056 session, continued)
+
+- **Round 1** (`f1e5a8f7d`): reconciliation wired INTO SavePageSectionsAction.
+  Council corr `1d8ef2c0` → **REJECTED, guardian veto on placement**: review-
+  domain logic inlined into the one save path every pipeline shares is a
+  core-plumbing edit dressed as a point fix. The veto endorsed the diagnosis,
+  the evidence shape and the non-blocking stance; it named the alternative.
+- **Round 2** (`8fd1e3bfc`): the guardian's alternative implemented verbatim —
+  save path UNWIRED (reverted), new standalone registered action
+  `reconcile_superseded_reviews` (category diagnose, no LLM): a separately-
+  schedulable sweep over (parked `needs_human_review` item) × (page deployed
+  after it was parked) pairs. page_id-first join, `spec->>'page_name'`
+  fallback; ALL blocker-detail rows gathered (deduped type+value), presence
+  checked against the CURRENTLY-DEPLOYED `page_components` content — every
+  deploy path covered by construction. Writes `REVIEW_SUPERSEDED_BY_PASSING_SAVE`
+  to `agent_error_log` + annotates the item's `result.superseded_by_passing_save`
+  (idempotence key). Never blocks, closes nothing, status untouched.
+  Round-1 seat objections discharged with attached checks (page_id exists;
+  parent_item_id is creation-lineage only, no supersede convention exists;
+  the ONLY Go consumer of status='needs_human_review' is this action's scan —
+  033's no-drain claim verified in code). Resubmitted under the same corr;
+  verdict pending at commit time.
+- **INERT until an image roll.** Then: pod-grep `reconcile_superseded_reviews`
+  + `REVIEW_SUPERSEDED_BY_PASSING_SAVE` (+ positive control), seed the
+  schedule (AFTER the roll — unregistered-action trap), first sweep
+  `dry_run=true`, expect the fundamentallyai pair
+  (`needs_page:model-fine-tuning` parked 07-20 21:27 vs deployed 07-21 03:41).
+- **OPEN owner policy call**: should a parked review HOLD deploys? This
+  reconciler only produces the evidence either way (033 interacts: the review
+  queue has no drain).
