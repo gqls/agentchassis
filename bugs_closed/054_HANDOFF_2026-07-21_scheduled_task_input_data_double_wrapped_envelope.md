@@ -31,24 +31,36 @@
 > "med-discover and med-export will be active"). The double-wrap is now unwrapped in both
 > the seeds and the live disabled rows, so a re-seed or an enable can't reintroduce the
 > 054 trap:
-> - **Seeds** (committed `5deea39ea`): `037` → `med-export-json` payload
->   `{"domain":"vetcomparison.co.uk"}`; `096` → `med-discover-urls` `{}`,
->   `med-scrape-prices` `{"batch_size":20}` — each with a PAYLOAD-ONLY contract comment.
+> - **Seeds** (committed `5deea39ea`, domain corrected `<followup>`): `037` →
+>   `med-export-json` payload `{"domain":""}` (see correction below); `096` →
+>   `med-discover-urls` `{}`, `med-scrape-prices` `{"batch_size":20}` — each with a
+>   PAYLOAD-ONLY contract comment.
 > - **Live rows** (DB, disabled): `med-discover-urls` → `{}`, `med-export-json` →
 >   `{"domain":""}`. Idempotent unwrap (`input_data->'input_data'`), guarded on the trap
 >   signature.
 >
-> **The envelope is fixed; three CONTENT/INFRA gaps remain the owner's call before
-> enabling — NOT invented here:**
-> 1. **`med-export-json` domain is empty**, and seed `037`'s documented target
->    `vetcomparison.co.uk` is **not a live site** (only `vetcomparison.uk` exists,
->    `status=deployed`). `MedExportJSONAction` fail-closes on an empty domain by design
->    (`vet_med_export_action.go:55,151` — "no default domain"). Set a real domain first.
-> 2. **No med price data source exists live** — zero tables matching `%med%` in
->    `clients_db`; the exporter's `loadMedPricesForExport` has nothing to read.
-> 3. **`med-scrape-prices` is not a live task** — seed `096`'s UPDATE for it was a no-op
->    (row never created), so nothing populates prices. Only `med-export-json` and
->    `med-discover-urls` exist.
+> **CORRECTION 2026-07-22 (after reading the latest vetcomparison docs — the owner told me
+> "things have changed").** My first pass framed the empty med-export domain as a "gap to
+> fill" and left seed `037` pointing at `vetcomparison.co.uk`. Both were wrong:
+> - **The empty domain is DELIBERATE, not a gap.** The vetcomparison `RUNBOOK` standing
+>   safety rail is explicit: *"we do NOT own vetcomparison.co.uk — never reintroduce it"*,
+>   and DB export configs are **blanked fail-closed** on purpose after the fabrication
+>   remediation. I re-blanked seed `037`'s domain (`{"domain":""}`) to match — carrying
+>   `vetcomparison.co.uk` in the seed violated that rail.
+> - **The med exporter is SUPERSEDED.** Phase 2 shipped the generic `directory_export_json`
+>   (the fixed casualty of this very case), *"modelled on `MedExportJSONAction` but generic"*
+>   — it is the live exporter for vetcomparison.uk (directory + aggregates + claimed +
+>   attributed prices, all under the provenance/consent policy). The separate
+>   `med-export-json` / `medicine-prices.json` path predates the Phase-1 unified price schema.
+> - **"Med scrape prices feeds vetcomparison" is true, but via the NEW path**: Phase 5
+>   provenance-first scraping → unified price schema (per-price `source_url` + `observed_at`)
+>   → `directory_export_json` → vetcomparison.uk. NOT via re-enabling the old med agents.
+>
+> **So the envelope fix stands (structural, rail-compliant), but enabling the med pipeline
+> is a deliberate owner decision, NOT a defect to close here.** Per the RUNBOOK: all med/
+> scrape tasks stay disabled and are enabled *"deliberately, one at a time"*; re-enabling the
+> verifier/scraper first requires extending the discovery deny-list and making it persist
+> per-price `source_url` (hard provenance rule). Left untouched.
 >
 > `diagnose-pipeline-trigger` (enabled, empty payload) and `ai-endpoint-health-check`
 > (`{"action":"check_endpoint_health"}`, no nested `input_data`) still carry envelope-shaped

@@ -152,9 +152,12 @@ INSERT INTO scheduled_tasks (
              -- action="orchestrate" and config.agent_type (from target_agent_type) and wraps this
              -- column as input_data itself. Nesting an {action,config,input_data} envelope here
              -- double-wraps it and the payload never reaches the action — see bugs_closed/054.
-             -- NOTE: 'vetcomparison.co.uk' is the original documented target and is NOT a live
-             -- site (only vetcomparison.uk exists); set a real domain before enabling this task.
-             '{"domain":"vetcomparison.co.uk"}'::jsonb,
+             -- DOMAIN DELIBERATELY BLANK (fail-closed). Per the vetcomparison RUNBOOK standing
+             -- safety rail: "we do NOT own vetcomparison.co.uk — never reintroduce it", and DB
+             -- configs are blanked so nothing can export to a wrong domain. This med exporter is
+             -- ALSO superseded by the generic directory_export_json (Phase 2). Only the owner sets
+             -- a real domain, deliberately, when/if enabling this task — one at a time.
+             '{"domain":""}'::jsonb,
              'med-collection'
          ) ON CONFLICT (name) DO NOTHING;
 
