@@ -49,14 +49,20 @@ type ActionParams struct {
 	StepConfig       models.Step
 	InputData        []byte
 	CollectedData    map[string]interface{}
-	SagaCoordinator  interface{}
-	Producer         kafka.Producer
-	DB               *sql.DB
-	StorageClient    storage.Client
-	Logger           *zap.Logger
-	Tracer           types.MessageTracer // interface
-	AgentType        string
-	CurrentStep      string
+	// WorkflowSteps is the whole plan's step map, read-only, so an action can
+	// validate a name-based coupling to a SIBLING step's config that the compiler
+	// cannot see (e.g. diagnose_load_runtime asserting the diagnose_route step's
+	// output_field matches the prefix it reads back). Populated by buildActionParams;
+	// may be nil for callers/tests that do not set it — treat nil as "unknown, skip".
+	WorkflowSteps   map[string]models.Step
+	SagaCoordinator interface{}
+	Producer        kafka.Producer
+	DB              *sql.DB
+	StorageClient   storage.Client
+	Logger          *zap.Logger
+	Tracer          types.MessageTracer // interface
+	AgentType       string
+	CurrentStep     string
 }
 
 // AgentDefinition represents an agent's configuration from the database

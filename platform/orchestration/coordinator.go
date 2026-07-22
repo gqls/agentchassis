@@ -1456,6 +1456,7 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
+		WorkflowSteps:    state.WorkflowPlan.Steps,
 		//SagaCoordinator:  coordinator,
 		SagaCoordinator: nil,
 		Logger:          logger,

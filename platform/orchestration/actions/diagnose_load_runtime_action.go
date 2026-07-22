@@ -25,9 +25,11 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/gqls/agentchassis/pkg/diagnose"
+	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -90,12 +92,88 @@ func init() {
 	datahelpers.RegisterActionInputSpec("diagnose_load_runtime", DiagnoseLoadRuntimeInputSpec)
 }
 
+// validateRouteWiring guards the name-based coupling between this reader and the
+// diagnose_route step. This action reads route's forwarded requests and its
+// upstream drop counts back under a prefix (data_requests_field / code_requests_field
+// / *_dropped_field, all defaulting to the "route." namespace); diagnose_route writes
+// them under ITS output_field. The two ends are joined only by a string, with no
+// schema or compile-time tie -- a per-workflow override of the route step's
+// output_field (or of this reader's *_field config) that moves one end but not the
+// other makes every route.* read resolve to nothing, so a forwarded request or an
+// upstream drop is silently counted as zero. That is exactly the silence the drop
+// reporting exists to close (council-gate eba040a9, round 5): the spin guard credits
+// a code/data request as progress on the promise its answer arrives next gather, and
+// a silent drop breaks that promise with nothing in the trail.
+//
+// TestRouteDropFieldsStayInSyncWithLoadRuntimeDefaults guards the DEFAULT wiring;
+// only the live workflow can reveal an OVERRIDE, so the check belongs here, at the
+// first gather, where WorkflowSteps is available. A CONSISTENT override (both ends
+// moved together) still names one namespace and passes -- only a divergence fails.
+//
+// Fails OPEN, never closed: a nil/empty step map (a caller or test that does not
+// populate WorkflowSteps) or a workflow with no diagnose_route step means there is
+// no coupling to verify -- return nil rather than invent a constraint.
+func validateRouteWiring(cfg map[string]interface{}, steps map[string]models.Step) error {
+	if len(steps) == 0 {
+		return nil
+	}
+	routeOutputFields := map[string]bool{}
+	for _, st := range steps {
+		if st.Action == "diagnose_route" {
+			routeOutputFields[st.OutputField] = true
+		}
+	}
+	if len(routeOutputFields) == 0 {
+		return nil // no route step -> nothing forwards into this reader
+	}
+	// The four config fields that read INTO the route step's output namespace, with
+	// the defaults the InputSpec declares. Each field's leading segment must name a
+	// namespace some diagnose_route step actually writes under.
+	coupled := [][2]string{
+		{"data_requests_field", "route.data_requests"},
+		{"code_requests_field", "route.code_requests"},
+		{"data_requests_dropped_field", routeOutputPrefix + dataRequestsDroppedKey},
+		{"code_requests_dropped_field", routeOutputPrefix + codeRequestsDroppedKey},
+	}
+	for _, c := range coupled {
+		field := datahelpers.GetStringField(cfg, c[0], c[1])
+		prefix := field
+		if i := strings.IndexByte(field, '.'); i >= 0 {
+			prefix = field[:i]
+		}
+		if !routeOutputFields[prefix] {
+			return fmt.Errorf(
+				"diagnose_load_runtime: route wiring mismatch -- %s=%q reads namespace %q, but no "+
+					"diagnose_route step writes under that output_field (present: %s). A forwarded "+
+					"request or upstream drop would read as absent and be silently counted as zero; "+
+					"align the diagnose_route step's output_field with this reader's %s.",
+				c[0], field, prefix, sortedQuotedKeys(routeOutputFields), c[0])
+		}
+	}
+	return nil
+}
+
+func sortedQuotedKeys(m map[string]bool) string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, fmt.Sprintf("%q", k))
+	}
+	sort.Strings(ks)
+	return strings.Join(ks, ", ")
+}
+
 func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	config := params.StepConfig.Config
 	logger := params.Logger
 
 	if params.ExecutionContext != nil && params.ExecutionContext.Action == "initialize" {
 		return map[string]interface{}{"status": "initialized"}, nil
+	}
+	// Guard the name-based coupling to diagnose_route BEFORE trusting any route.*
+	// read below. On a mismatch every forwarded request and upstream drop reads as
+	// zero; fail loudly on the first gather rather than run the whole loop blind.
+	if err := validateRouteWiring(config, params.WorkflowSteps); err != nil {
+		return nil, err
 	}
 	if params.DB == nil {
 		return nil, fmt.Errorf("diagnose_load_runtime: no DB handle")

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
@@ -93,4 +94,77 @@ func TestRouteDropFieldsStayInSyncWithLoadRuntimeDefaults(t *testing.T) {
 			t.Errorf("%s missing from InputSpec.Optional — not settable from workflow config", c.configKey)
 		}
 	}
+}
+
+// The defaults test above guards the DEFAULT wiring; validateRouteWiring guards a
+// per-workflow OVERRIDE of the route step's output_field, which the defaults test
+// cannot see (council-gate eba040a9 round 5, left open as a design decision). These
+// induce the mismatch and confirm the guard fails loudly rather than reading a dead
+// namespace as zero — a green happy path proves nothing about a detector.
+func TestValidateRouteWiring(t *testing.T) {
+	routeStep := func(outputField string) models.Step {
+		return models.Step{Action: "diagnose_route", OutputField: outputField}
+	}
+	defaultWiring := map[string]models.Step{
+		"route":        routeStep("route"),
+		"load_runtime": {Action: "diagnose_load_runtime"},
+	}
+
+	t.Run("default wiring passes", func(t *testing.T) {
+		if err := validateRouteWiring(map[string]interface{}{}, defaultWiring); err != nil {
+			t.Fatalf("default wiring must pass: %v", err)
+		}
+	})
+
+	t.Run("consistent override passes (both ends moved together)", func(t *testing.T) {
+		steps := map[string]models.Step{"route": routeStep("myroute")}
+		cfg := map[string]interface{}{
+			"data_requests_field":         "myroute.data_requests",
+			"code_requests_field":         "myroute.code_requests",
+			"data_requests_dropped_field": "myroute.data_requests_dropped",
+			"code_requests_dropped_field": "myroute.code_requests_dropped",
+		}
+		if err := validateRouteWiring(cfg, steps); err != nil {
+			t.Fatalf("a consistent override must pass: %v", err)
+		}
+	})
+
+	t.Run("divergent override fails loudly", func(t *testing.T) {
+		steps := map[string]models.Step{"route": routeStep("myroute")} // reader left on route.* defaults
+		err := validateRouteWiring(map[string]interface{}{}, steps)
+		if err == nil {
+			t.Fatal("an output_field override with the reader on defaults must fail")
+		}
+		if !strings.Contains(err.Error(), "wiring mismatch") || !strings.Contains(err.Error(), `"myroute"`) {
+			t.Fatalf("error must name the mismatch and the present namespace: %v", err)
+		}
+	})
+
+	t.Run("partial reader override fails (one field pointed off-namespace)", func(t *testing.T) {
+		steps := map[string]models.Step{"route": routeStep("route")}
+		cfg := map[string]interface{}{"code_requests_dropped_field": "elsewhere.code_requests_dropped"}
+		if err := validateRouteWiring(cfg, steps); err == nil {
+			t.Fatal("a single reader field off the route namespace must fail")
+		}
+	})
+
+	t.Run("empty route output_field fails (route stores nothing)", func(t *testing.T) {
+		steps := map[string]models.Step{"route": routeStep("")}
+		if err := validateRouteWiring(map[string]interface{}{}, steps); err == nil {
+			t.Fatal("a route step with an empty output_field stores nothing; the reader reads a dead namespace")
+		}
+	})
+
+	t.Run("no route step: no coupling to check", func(t *testing.T) {
+		steps := map[string]models.Step{"load_runtime": {Action: "diagnose_load_runtime"}}
+		if err := validateRouteWiring(map[string]interface{}{}, steps); err != nil {
+			t.Fatalf("without a route step there is nothing to verify: %v", err)
+		}
+	})
+
+	t.Run("nil steps: fail open", func(t *testing.T) {
+		if err := validateRouteWiring(map[string]interface{}{}, nil); err != nil {
+			t.Fatalf("nil workflow steps must skip, not fail: %v", err)
+		}
+	})
 }
