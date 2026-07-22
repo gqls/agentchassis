@@ -112,10 +112,16 @@ specialist corpus, not a big one.
 
 - **Read the RUN start, never the step timestamp**, when grading a config change —
   step timestamps post-date a fix whose run began before it (WRONG_CALLS #2).
-- **Provenance boundaries are dated cutoffs baked into the extractor**: the
-  `bugs_open/016` render fix (2026-07-18 13:15:11Z), chassis v1.0.1140's
-  `bugs_open/032` fix and the `VerifyTarget` widening (2026-07-20 17:58:20Z). Rows
-  before a boundary carry different meaning — the extractor flags, doesn't drop.
+- **Provenance boundaries are dated cutoffs baked into the extractor** (RUNBOOK §5b
+  is the authoritative table): the `bugs_open/016` render fix (2026-07-18
+  13:15:11Z); chassis v1.0.1140's `bugs_open/032` fix and the `VerifyTarget`
+  widening (2026-07-20 17:58:20Z); and — added 2026-07-22 — chassis **v1.0.1149**'s
+  **council decision-rule change** (≤2026-07-22 13:56:14Z, pod-verified): only a
+  HIGH-severity objection now gates a round to `revise`, so `round_decision` means
+  two things across the instant. The extractor stamps `labels.round_decision_rule`
+  (`any_objection_gates` | `high_severity_gates`) per council row; `dissent`/
+  `contested` are raw-vote measures and are UNAFFECTED. Rows before a boundary
+  carry different meaning — the extractor flags, doesn't drop.
 - **The coercion guard only ever DEGRADES a verdict, never upgrades** — an extract
   showing raw-UNVERIFIABLE → coerced-CONFIRMED is a bug in the extractor, not the
   data (it was, once; fixed by asserting only when verdict/trail counts agree).
