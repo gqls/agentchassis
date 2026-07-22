@@ -1539,3 +1539,40 @@ catches it. It's committed but won't take effect until the next time the system
 image is rebuilt. It's the kind of platform change that can go through the
 reviewer council if you want the extra pair of eyes — say the word and I'll send
 it (it costs a bit and takes about half an hour).
+
+---
+
+**2026-07-22 — the code tier finally fired on a real bug, and it worked
+beautifully.**
+
+You asked me to prove the "code tier" — the part of the diagnosis loop that lets
+it stop and ask "let me look at the actual code" when a hypothesis turns on what
+the code does, rather than only reading the live database. It was built weeks ago
+but had never once fired on a real case. Now it has.
+
+First I hit a real snag worth knowing about: the loop reads the code from a
+pre-built search index, and that index turned out to be **three weeks out of
+date** — nobody had refreshed it, and nothing refreshes it automatically. That
+matters beyond my test, because the same stale index is what the review council's
+"does this already exist?" checker reads too — so for three weeks, anything built
+recently would have looked, to both of them, like it didn't exist. I filed that as
+a bug and refreshed the index (which also took a bit of detective work — the
+documented way to refresh it was out of date and failed; I found the right one).
+
+Then I gave the loop a genuinely code-shaped question: "some of these helper
+functions quietly drop items when they hit a limit without saying how many —
+which ones?" And it did exactly what it's supposed to. It stopped, fetched the
+real code, and — this is the good part — it **corrected me**: the three functions
+I'd pointed at all turned out to already report their drops properly. So instead
+of rubber-stamping my guess, it went looking through the rest of the code and
+found the *actual* culprit I hadn't named — a different function that quietly caps
+a list and only leaves a vague text note instead of a real count. Then it went one
+step further and checked the live data to confirm that limit has genuinely been
+hit in real runs, not just that it *could* be. It reached a firm, fully-sourced
+conclusion in four passes.
+
+That's the whole point of it: it doesn't take my word, it reads the code, and it
+follows the evidence to the real cause even when that means overruling the person
+who asked. The thing it found is minor and I haven't rushed to fix it (it's your
+call whether it's worth it), but the machinery is proven. That was the last big
+thing the previous session left owed.

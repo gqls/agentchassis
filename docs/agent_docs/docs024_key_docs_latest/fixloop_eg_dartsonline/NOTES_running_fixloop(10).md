@@ -2528,3 +2528,60 @@ until the next image roll. The handoff's proposed fix was WRONG; recording why.*
 - OPEN: council gate (owner leaned "I'd council-gate it") — a platform change, so
   it's eligible; not yet submitted (credits + ~30 min, owner go). No
   `Council-Reviewed:` trailer on `6f7e69d22` — not reviewed.
+
+---
+
+## Turn 47 — 2026-07-22 — #1: the code tier PROVEN on a real diagnosis (the main thing owed)
+
+**Corr `fbe41ffb-b62d-42ba-9522-8b09edd5ffd6` — CONFIRMED, 4 iterations, fully cited.**
+HANDOFF_4 §1.1's main owed item. Delivered — with a real finding attached.
+
+**Blocker found + fixed first: the `code_symbols` index was 3 weeks stale.** The
+code tier `SELECT`s from `code_symbols` (`answerCodeCheck`/`lookup_code_symbols`)
+but never re-indexes; the index was last built 2026-07-02 at commit `e3176f8`
+(3723 rows), and the recurring-cap symbols added since were ABSENT — a code_request
+about them would have returned empty = "mechanism absent" (the worst-case false
+negative). This also silently degrades the `prior_art` council seat. Filed
+**bugs_open/059** and refreshed the index (owner chose "refresh then prove").
+  - Trap: the docs019 `TRIGGER_code_indexer_v2.sh` dispatches `agent_type=code-indexer`
+    DIRECTLY → adopted in-place by a chassis pod (no `GITHUB_READ_TOKEN`) →
+    `analyse_repo_local` fails. The correct entry is **`index-orchestrator`**
+    (`spawn_indexer`→`call_indexer`, 1800s), which spawns the indexer as its own
+    pod with the token. My first (direct) dispatch FAILED; index-orchestrator
+    COMPLETED → 4486 rows at fresh commit `ca8dc7f`, `updated_at` today.
+  - Pre-flight that mattered: spawn gate (`isRepoCloningAgent` lists code-indexer,
+    verified in the running chassis+core-manager binaries); branch on origin;
+    verdict prompt still carries `code_requests` (t); diagnose-agent sonnet-5@32000;
+    needs_diagnosis queue empty (no collision).
+
+**The proof (exactly the design):**
+- Bundle iteration 1 = runtime-only (no code section).
+- Verdict emitted **two code_requests**; bundle iteration 2 rendered them under the
+  STATIC heading "Code questions this diagnosis asked, answered from the
+  code_symbols index":
+  - `kind=symbol query="workflowRefsFromRuntime"` → answered:
+    `diagnose_assemble_bundle_action.go:workflowRefsFromRuntime [L465-480] func …(… ) (out [][2]string, excluded int) (commit ca8dc7f)` — the FRESH signature, incl. its `excluded` count.
+  - `kind=content query="dropped++"` → `(no content matches)`, correctly framed as
+    "treat a stale or empty answer as 'unknown', NOT as 'absent'".
+- Code section persisted through iterations 2/3/4.
+
+**The diagnosis was BETTER than the symptom.** It read the three helpers I named,
+found they ALL return companion counts (so my "some truncate silently" framing of
+THEM was wrong — cite-or-abstain corrected it), then surveyed the package and
+surfaced the ACTUAL silent site I did NOT name: **`renderWorkflowSteps`** — bounds
+step JSON with a bare `break` at `workflowStepCap`, returns only `b.String()`,
+folds the omission into an inline text marker ("_further named steps omitted — cap
+reached_") rather than a companion count. It then ran a data_request against
+`diagnosis_artifacts` and found the cap-reached marker HAS fired in real runs
+(including this run's own prior iterations) — distinguishing "the code permits it"
+from "it has occurred". Verdict CONFIRMED, 5 `[static]` + 1 `[state]` citation.
+
+**`renderWorkflowSteps` is a genuine (minor) new instance of the recurring class** —
+recorded here as the loop's finding, NOT filed separately: it DOES surface the
+omission to a human reader (text marker), so the "silent" harm is limited; a fix
+(return a count too) is optional, owner's call. The value demonstrated is the
+tier itself: the loop found an unguarded cap that four hand-fixes to its siblings
+had not swept for — the exact "snapshot of a growing set" class, found by machine.
+
+Intake `needs_diagnosis:silent-collection-caps` closed; both orch rows COMPLETED.
+Run did NOT wedge at the route step (bugs_open/043) — 4 clean iterations.
