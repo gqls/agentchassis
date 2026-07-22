@@ -17,21 +17,25 @@ served to visitors.** Contained on the affected site; the platform defect is unf
 >   Council reviewed (`SUBMISSION_CORR 8eef369f`): **2× REVISE, all substantive objections addressed**
 >   (wiring folded in-plan; fail-open→fail-safe; paths verified; needle-gate + RETURNING). No APPROVED
 >   obtained → **no `Council-Reviewed:` trailer** (earned by APPROVED only). Loop stopped after round 4.
-> - **Gate is now LIVE + WIRED (2026-07-22).** `check_tool_fabrication` pod-verified in
->   agent-chassis **v1.0.1146** (grep: 4 hits + `corroborated_corpus` 1). Wiring applied via
->   migration **189** (needle-gated, out of band, ledger-recorded) and routing independently
->   verified: `check_completeness → check_fabrication → route_fabrication`; `fabricated==true →
->   request_fabrication_review → complete` (NEVER reaches save_sections/deploy_page), else →
->   save_training_data. Core protection against invented datasets is active.
-> - **Still OPEN — two gaps before a clean "fixed AND live" close:**
->   1. **The fail-SAFE hardening is NOT in v1.0.1146** (`uninspectable` grep = 0). The image was
->      built ~20 min before commit `37d3bb119`, so the pod runs the fail-OPEN detector the council
->      flagged HIGH. Edge-case only (empty output isn't fabrication), so the core hole is closed —
->      but the reviewed/hardened version needs the **next image roll**.
->   2. **No induced-fault run.** Routing is verified statically + the primitives (`conditional`,
->      `checkpoint_for_review`, dotted-path) are production-proven in this same workflow; but a real
->      fabrication has not been driven through the wired path end-to-end. Do this ONCE on the
->      fail-safe version after the next roll (recreate a data-backed tool → held, not deployed).
+> - **UPDATE 2026-07-22 (2nd roll) — the induced-fault caught a REAL BUG; gate UNWIRED again.**
+>   v1.0.1146 wired via migration 189, then v1.0.1149 rolled WITH the fail-safe (`uninspectable`
+>   grep = 1). Re-wired and ran an **induced-fault probe** (scratch agent, live gate on a stubbed
+>   fabrication). It reached the HELD terminal — but via `tier:"uninspectable"`, NOT `declaration`:
+>   the fabrication content never reached the detector. **Root cause:** the action read `html_field`
+>   via `datahelpers.ExtractActionInputs`, whose Strategy 0 **resolves dotted config values against
+>   collected_data** — so `"completeness_check.clean_html"` became the HTML *content*, and extracting
+>   again with that as a path returned `""` → empty → uninspectable. On the fail-OPEN detector this is
+>   a **silent no-op (deploys everything, incl. real fabrications)**; the fail-safe turned it into a
+>   loud over-HOLD, which is how it was caught. **Fixed** (`1a2718213`): read config paths directly
+>   like `check_tool_completeness` does; new wrapper regression test. **Gate UNWIRED live** (snapshot
+>   taken; `next_step` back to `save_training_data`, gate steps removed) so recreations are not
+>   over-held meanwhile — the Half-A prompt fix still protects. `WRONG_CALLS.md` logged.
+> - **Still OPEN. To CLOSE:** (1) next image roll carrying `1a2718213` (pod-grep — a symbol the fix
+>   created); (2) re-apply migration **189** (re-wire); (3) re-run the induced-fault probe and confirm
+>   `tier:"declaration"` (real detection, not uninspectable) + item HELD, not deployed; (4) → bugs_closed
+>   + lift the tool-imagery HOLD. **Lesson:** static "paths verified" ≠ correctness — the action must be
+>   verified by inducing the fault, and the layer that RUNS (the wrapper) must be tested, not only the
+>   pure detector.
 >   Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bug020_tool_recreation_data_integrity/`.
 
 **Family:** same class as `001` (a rebuild resurrecting fabrication that had been audited out of

@@ -258,3 +258,42 @@ protection is live now, so no urgency. TO CLOSE (next roll): (1) pod-grep confir
 data-backed tool, confirm a `needs_human_review` item is raised and the page is NOT
 deployed with generator symbols (grep the rendered page, not `complete`); (3) move 020
 to bugs_closed.
+
+### 2026-07-22 (2nd roll) — the induced-fault EARNED ITS KEEP: caught a silent no-op bug
+
+v1.0.1149 rolled WITH the fail-safe (`uninspectable` grep = 1, `check_tool_fabrication`=4,
+`corroborated_corpus`=1). Wiring had persisted from 189. Ran the **induced-fault probe** —
+the fixloop-036 pattern: a scratch agent `tool-recreation-020probe` (all-local workflow,
+run in-process via generic orchestrate like council-gate) whose `check_completeness` reads
+a stubbed fabrication from `input_data.stub_html`, then the LIVE `check_fabrication →
+route_fabrication → checkpoint`. Terminals: `complete_held` (PASS) vs `complete_clean` (FAIL).
+
+Result: reached `complete_held` and raised a `needs_human_review` item — routing WORKS. **But
+the verdict was `tier:"uninspectable"`, NOT `declaration`.** The fabrication (with the
+confessing comment + makePostcode, `completeness_check.clean_html` = 1412 chars, present)
+never reached the detector. Chased it: `input_data.stub_html`=1447 present, `completeness_check.clean_html`
+=1412 present — yet `check_fabrication` read empty.
+
+**Root cause — a REAL production bug the probe exposed:** the wrapper read `html_field` via
+`datahelpers.ExtractActionInputs`, whose **Strategy 0** (`action_inputs.go`) resolves any
+dotted config VALUE against `collected_data` BEFORE the handler runs. So
+`html_field="completeness_check.clean_html"` was resolved to the 1412-char HTML, `inputs.Get`
+returned the content, and the handler extracted AGAIN with the content as a path → `""` →
+`recreation=""` → `uninspectable`. `check_tool_completeness` avoids this by reading
+`config["html_field"]` directly; I used `ExtractActionInputs` and double-resolved.
+
+**Severity:** on the fail-OPEN detector (v1.0.1146, which I had WIRED), this reads empty for
+EVERY recreation → `fabricated=false` → deploys everything, incl. real fabrications — a silent
+no-op that looks wired. The fail-SAFE change (council R4) turned it into a loud over-HOLD,
+which is the ONLY reason it was catchable. Without inducing the fault + the fail-safe, I'd
+have "verified" the gate green and closed 020 while it silently passed fabrications.
+
+**Actions:** (1) UNWIRED the gate live (snapshot; `next_step`→`save_training_data`, 3 gate
+steps removed) — 0 real recreations had been over-held; (2) FIXED the action (`1a2718213`):
+read config paths directly + new wrapper regression test `TestCheckToolFabricationAction_ReadsDottedConfigPath`
+(fails against the bug); (3) deleted the scratch agent + cancelled the probe review item;
+(4) logged WRONG_CALLS.
+
+**To CLOSE (next roll):** pod-grep the fix is in the binary → re-apply 189 → re-run the probe,
+require `tier:"declaration"` (real detection) + HELD not deployed → bugs_closed + lift the
+imagery HOLD. The probe agent SQL + trigger are in the session scratchpad if needed again.
