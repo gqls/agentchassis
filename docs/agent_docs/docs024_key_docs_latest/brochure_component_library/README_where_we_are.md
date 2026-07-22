@@ -263,3 +263,28 @@ filed as bug 056) where a rebuild can still leave the bit out by chance, so I'll
 check each page and re-run any that come back without it. The "nothing serves yet"
 hosting step is still separate and still yours, but as before there's no point
 wiring that up until the pages actually carry their content.
+
+**2026-07-22 — it worked, and I've read the pages to prove it.** After the switch
+was flipped, I rebuilt the four main content pages one at a time and then actually
+opened each one's content to check. Three of them — the About page, the
+Capabilities page, and the Multi-Agent Review Council page — are now built and
+carry the self-correction story in their own words: "We caught our own platform
+generating invented details on leopardessconsulting.co.uk. Our verification system
+flagged it; we corrected it…". That's the exact thing the guard had been silently
+stripping, now present on the page, checked by reading it rather than trusting a
+flag. The homepage has the story in it too, but it's deliberately still waiting on
+one thing — the "our work" showcase strip that needs the real list of our own
+sites, which is one of the two bits I flagged earlier as correctly asking for real
+data rather than inventing it. And across all of this, not a single new block from
+the guard. So the original problem — our own checker refusing to let this site
+tell the story it was built to tell — is genuinely fixed and live, and I've closed
+that bug.
+
+Three things remain before the site is truly done, and they're all separate from
+what we just fixed: (1) the dedicated self-correction page, plus a couple of
+others, came out of the build with no sections at all — that's a different,
+planning-stage gap I haven't dug into yet; (2) the two "give me real data" asks —
+the list of our sites for the homepage strip, and a real business email; and
+(3) the hosting cut-over so the pages actually reach a browser, which is your step.
+None of those is a nasty surprise; they're the remaining last-mile items now that
+the story itself flows.
