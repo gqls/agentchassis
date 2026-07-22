@@ -30,19 +30,28 @@
 >    warning are both manual, so a thread that ignores them can still gate the
 >    queue. The *diagnosis cost* (the 3-day misread) is fixed; the *block itself*
 >    is mitigated, not eliminated.
-> 2. **The `--record-only` INSERT path is UNEXERCISED against the production
->    ledger** — deliberately: the only pending files were other threads' and
->    genuinely pending, so there was nothing safe to record. The next real
->    out-of-band apply should use it and confirm the row lands.
+> 2. ~~**The `--record-only` INSERT path is UNEXERCISED against the production
+>    ledger.**~~ **CLOSED 2026-07-22.** The path is now in active fleet use:
+>    8 `applied_by='record-only'` rows exist (183 first, on 07-21; then 177/178/
+>    179/187/189/190/193 on 07-22). Verified idempotent under real contention — a
+>    concurrent session recorded 193 in the seconds before this thread tried, and
+>    the `ON CONFLICT DO NOTHING` no-op fired cleanly ("already recorded — nothing
+>    to do"). See **RECURRENCE 2026-07-22** below.
 >
 > **What IS eliminated:** near-miss (e) — the runner treating 180's `_ROLLBACK.sql`
 > as a pending migration and reverting bug 024 — is closed and live.
 >
 > **Next actions for a resuming chat**, in priority order:
 > - (nothing forces action — this is a mitigated landmine, not an outage.)
-> - When you next apply a migration by hand: use `--record-only` and confirm the
->   ledger row, closing residual 2 above. That is the cheapest way to exercise it,
->   and it is the ONE thing left before 007 could be argued closable.
+> - **Residual 2 is DONE** (see above). The one remaining lever before 007 is
+>   arguably closable is residual 1 (the runner still halts). The 2026-07-22
+>   recurrence hardened the case for a *mechanism* and proposes a **safe** design
+>   for the first time — read that section before deciding to build or to leave it.
+> - **Run the dry run at the START of any session that will touch migrations** —
+>   the 2026-07-22 recurrence found the queue lying about SEVEN files at once, and
+>   the set churns every few minutes under concurrent load. "Pending" is now more
+>   often "applied-and-unrecorded" than "genuinely pending" — verify each before
+>   believing either.
 > - If you want the runner to stop halting at all (residual 1): the honest options
 >   are (i) leave it — "die loudly with a fix in the message" is a defensible
 >   design, or (ii) reconsider auto-detect (skip-if-already-applied). Note (ii)
@@ -286,10 +295,99 @@ stayed 0, confirming the probes wrote nothing.
 > are other threads' and are *genuinely* pending; recording them is exactly the
 > harm this file warns about. First real out-of-band apply should use it and
 > confirm the row.
+>
+> **CORRECTED 2026-07-22:** all three of 177/178/179 had been applied out of band
+> (unrecorded) by the morning of 07-22 — their owner threads applied them between
+> 07-21 and 07-22 without a ledger row. So the "genuinely pending" read was true
+> when written and stale by the next morning; this is the trap's exact signature,
+> and this thread recorded all three after verifying artifacts live. Do **not**
+> read a past "genuinely pending" note as still-true — re-verify. Path now
+> exercised (residual 2 CLOSED). Full story in **RECURRENCE 2026-07-22** below.
 
-**Left alone:** 177/178/179 remain pending and unrecorded — other threads' work,
-and applying someone else's migration can violate an image-first ordering. The
-two 175s and two 176s remain as they are, per the numbering-collision note above.
+**Left alone:** ~~177/178/179 remain pending and unrecorded~~ (CORRECTED
+2026-07-22 — now applied-and-recorded, see above). The two 175s and two 176s
+remain as they are, per the numbering-collision note above. The genuinely-pending
+files as of 2026-07-22 11:48 BST are 186, 188, 194 — all image-first `enable_*`
+seeds waiting on their check's Go code to ship (owners: 046, 017, model-directory
+Phase D); applying someone else's image-gated seed can violate that ordering.
+
+## RECURRENCE 2026-07-22 — it sprang SEVEN-fold, and residual 2 closed itself
+
+The biggest instance yet, found by starting a session on this bug with the dry
+run (exactly the discipline this file preaches). At ~10:00 UTC the runner
+reported 5 pending; by the time each was verified the set had churned three more
+times as concurrent threads committed new migrations. Verifying **every** pending
+file against the live DB — the load-bearing step, never skipped — split them:
+
+| file | reported | live check | verdict |
+|---|---|---|---|
+| 177 council tolerate_truncation | pending | 37/37 council `review_*` seats carry `tolerate_truncation=true` | **applied-unrecorded** → recorded |
+| 178 news-listing JS PE | pending | `news-listing` js carries `hasServerRenderedItems` guard | **applied-unrecorded** → recorded |
+| 179 news query-sourced items | pending | both news components v2 `fields`+`items`, templates render them | **applied-unrecorded** → recorded (RAISES on replay — a live halt removed) |
+| 187 content_direction wireup | pending | `page-content-writer` prompt carries `current_page.content_direction`; column comment cites bug 025 | **applied-unrecorded** → recorded |
+| 190 contact_form_undeliverable | pending | check present in `completeness-discovery-agent` run_checks | **applied-unrecorded** → recorded |
+| 193 adoption_locked rename | pending | `build-site-planner` config carries both `site_has_no_current_plan` + `adoption_locked` alias | **applied-unrecorded** → recorded (by a concurrent session, in a race — see below) |
+| 189 tool-fabrication gate | (cleared) | — | recorded by a concurrent session at 10:06 |
+| 191 diagnose-agent resources | pending → cleared | resources now `250m/512Mi` (was `100m/256Mi`), ledger `applied_by='clients_user'` | **applied for real** by its owner (043) via the runner — healthy path |
+| 186 truncated_component check | pending | check ABSENT from run_checks | **genuinely pending** — left (046, image-gated) |
+| 188 backend_entry_orphaned check | pending | check ABSENT from run_checks | **genuinely pending** — left (017, image-gated) |
+| 194 model_directory checks | pending | both checks ABSENT from run_checks | **genuinely pending** — left (Phase D, image-gated) |
+
+**Seven applied-but-unrecorded files were live in the queue at once**, de-armed by
+at least two–three sessions working concurrently within one hour. **Residual 2
+closed itself in the process:** the `--record-only` INSERT is no longer
+theoretical — it is in active fleet use, and a genuine race (a concurrent session
+recorded 193 seconds before this thread tried) exercised the `ON CONFLICT DO
+NOTHING` no-op exactly as designed.
+
+**What this tells us, sharpened.** The process rule ("whoever applies, records")
+has now failed at three events — 3 files (07-16), 3 files (07-20), **7 files
+(07-22)** — across ~10 distinct workstreams. The trend is **up, not down**, four
+days after the rule and the tooling both landed. This is no longer evidence that a
+mechanism *might* help; it is proof the rule cannot hold in a repo where threads
+routinely apply config-half migrations out of band (safe-before-image, live-on-
+apply) and hand off mid-task. **The dry run must be run per session, not per day.**
+
+### A SAFE design for residual 1 (the halt), for the first time
+
+The handoff called auto-record "unsafe" (candidate d) because a 23505 can be
+genuinely-wrong SQL, and rightly rejected it. But the 2026-07-22 corpus shows the
+failing-replay cases are not one class — they are three, and only ONE is
+ambiguous:
+
+- **Class A — self-declaring idempotent** (177, 187, 190, 193): a `WHERE … NOT
+  LIKE` / `NOT (checks ? x)` guard makes a replay a 0-row no-op. Never halts.
+  Harm is only that it sits "pending" for ever (and an *unconditional* rewrite
+  like 178's `js_content` would clobber a later hand-edit on replay).
+- **Class B — self-declaring guard-RAISE** (186, 188, and 179's precondition):
+  `IF checks ? x THEN RAISE EXCEPTION 'NNN: x already enabled'`. Halts, but with a
+  message the migration's OWN author wrote to mean "I have already run."
+- **Class C — unguarded** (151, the 2026-07-16 culprit): a bare `INSERT` → raw
+  Postgres 23505. This — and ONLY this — is the ambiguous case candidate (d) was
+  rejected for: already-applied vs genuinely-wrong-SQL colliding with live data.
+
+Two buildable, safe options fall out, both fleet-wide runner changes (shell-only,
+live-on-commit) → **design/council-review first; owner = travelling-docs. Do not
+build unilaterally.**
+
+1. **Savepoint-probe in dry run (recommended — needs no new convention).** For
+   each pending file, run its SQL inside `BEGIN … ROLLBACK`. If it RAISEs a
+   Class-B "already"-guard, or a guarded file affects 0 rows, print **"LIKELY
+   ALREADY APPLIED — verify & `--record-only`"**. This turns the *silent* Class-A
+   files (the insidious ones that never halt) into loud dry-run warnings, keeps
+   the human in the verify loop (candidate d stays rejected), and leverages guards
+   that already exist. Risk to weigh: a migration with a non-transactional side
+   effect (none seen in the corpus — all pure, transactional SQL, but audit
+   before building).
+2. **Auto-skip-and-record for Class B only, gated on a standardised sentinel.**
+   Have already-applied guards RAISE a magic prefix (e.g. `-- ALREADY_APPLIED`),
+   and let the runner record-and-continue on exactly that signal, never on a raw
+   SQLSTATE. Safe, but needs the sentinel convention rolled across existing
+   migrations first — heavier, and that rollout is itself the design work.
+
+Until one lands, the halt stays a "die-loudly-with-a-fix-in-the-message" design,
+which remains defensible — but the dry-run-per-session discipline above is now
+mandatory, not advisory.
 
 ## References
 
