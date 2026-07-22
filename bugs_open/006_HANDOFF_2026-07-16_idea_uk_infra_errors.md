@@ -427,3 +427,24 @@ to the council as a REVISE follow-up (`RESUBMIT_CORR=c75718c1-c6e1-45b8-bb4d-f66
 through the review gate — a rebuild of a `deployed` page bounces to `needs_human_review` at attempt 0),
 and the image roll that makes `efe634b37` (the `info@` guard + remedy text) live. Council resubmission
 of the REVISE was deferred (owner call; original submission JSON not saved in-repo). B STAYS OPEN.
+
+### B — the code fix is now LIVE (v1.0.1149, verified 2026-07-22)
+
+`efe634b37` (the `info@<domain>` fabrication guard + the corrected check remedy text) shipped in
+chassis **v1.0.1149**. Verified against the running pod `agent-chassis-7d4ff8b54-cm786` by
+discriminating pod-grep, not the tag: two literals unique to that commit are present —
+`"synthesised display fallback"` (=1) and the `loadSiteDataFull's COALESCE(si.email,'')` remedy
+fragment (=1) — with the positive control `contact_form_undeliverable` (=5) intact. The guard is a
+code path (no greppable string) but ships in the same commit and the same binary, so it is live too;
+its behaviour was already fault-injection-proven in unit tests. The whole B render-seam fix
+(original sanitiseFormAction + the info@ guard) is now fully deployed.
+
+**What is NOT yet realised, and why B STAYS OPEN:** the defect is still reproducible on the
+already-`deployed` pages. Spot-check 2026-07-22: all 4 now-addressed sites still render
+`action="#contact"` in their DEPLOYED html — the live fix only affects NEW renders, and these pages
+have not re-rendered. On their next render the live code converts the form to
+`mailto:<their sites.email>` (the 4 now have real addresses; the 6 real-address sites likewise). The
+enabled check has produced **0** work items so far because discovery is pipeline-triggered, not a
+timed task, and has not cycled these sites since enablement — it will raise all 10 on the next cycle
+and settle as pages re-render. Remaining on B: follow-up (2), the costed re-render of the 10 deployed
+components through the review gate (deferred to the owner). Everything on the code side is done and live.
