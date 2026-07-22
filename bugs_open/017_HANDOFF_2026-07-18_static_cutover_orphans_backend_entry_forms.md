@@ -220,3 +220,32 @@ covers the deployed population). Three objections, two of them actionable — bo
   *pre-cutover* content/route-diff guard (what routes+forms is the old `/` serving that the new `/`
   will drop?) belongs in the idea.uk cutover RUNBOOK §4 and generalises the handoff's "should
   discovery run after a deploy-target/origin change?" It is prevention; this check is detection.
+
+#### Council round 2: REVISE (2026-07-21) — 8/12 approve, and the objections CONVERGED
+
+Two-round advisory verdict, both REVISE, 0 unreadable. Round 2's objections collapsed onto **one
+theme, raised by three seats** (editquality/bug_historian/prior_art [all medium]): *the check
+self-registers but ENABLEMENT is deferred, so it never actually runs — the edits make the code
+available, not live; the dormant-machinery pattern (cf. bugs_open/044).* Answered concretely:
+
+- **Enablement seed WRITTEN — `docs/agent_docs/sql_for_agents/188_enable_backend_entry_orphaned_check.sql`**
+  (commit `3d54eb421`), modeled on `165_enable_dead_controls_check.sql`. It appends
+  `backend_entry_orphaned` to the live gate — `default_config #> '{workflow,steps,run_checks,config,checks}'`
+  on `completeness-discovery-agent` (currently 20 checks). **NOT applied — image-first** (verify
+  `strings /app/agent-chassis | grep BackendEntryOrphanedCheck` first; on an older image the name is
+  logged and skipped). `contact_form_undeliverable` and `backend_unreachable` are **also**
+  built-but-not-enabled on that agent today, so this is the normal image→seed lifecycle, not a defect
+  unique to this plan.
+- **improvement_guardian [medium] status nit — ANSWERED.** `needs_human_review` at insert is verified
+  precedent: `dead_controls` and `contact_form_undeliverable` both do it (no auto-fixer → a human
+  decides). `backend_unreachable` uses `detected` only because it **self-clears**; mine does not, so
+  `needs_human_review` is the correct, precedented choice.
+- **bug_historian [high] symptom-vs-cause — RECURRING → OWNER SCOPE DECISION.** Raised both rounds. Per
+  the idea.uk chrome-fix precedent (REVISE twice on a scope question → take it to the owner, don't
+  revise past it a third time), the council loop is **stopped at round 2**. The fork for the owner:
+  ship the detector alone (this check, ready + enablement seed ready), or also commission the
+  *pre-cutover content-diff guard* (prevention) as a sibling piece before this ships.
+
+**Net state:** detection code committed + live-verified + council-approved-on-logic; enablement seed
+committed + ready (image-first). 017 stays OPEN until the image roll + seed 188 applied + verified in
+pod. The only open judgement is the owner scope call above.
