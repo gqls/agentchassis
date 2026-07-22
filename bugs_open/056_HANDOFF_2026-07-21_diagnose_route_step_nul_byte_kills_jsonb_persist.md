@@ -1,6 +1,6 @@
 # 056 — The diagnosis loop kills its own runs: a NUL byte in `SeenCodeRequests` keys makes the `route` step's state-persist fail with Postgres `22P05`
 
-**Filed:** 2026-07-21 · **Branch:** `085_debug_and_feature_loops` · **Status:** OPEN, not started
+**Filed:** 2026-07-21 · **Branch:** `085_debug_and_feature_loops` · **Status:** FIXED & LIVE 2026-07-22 (commit `7a9f5f652`, in prod via v1.0.1149 — see §Resolution at the bottom; end-to-end verification in flight, council follow-up open on the sanitiser half)
 **Severity:** medium-high — not data corruption (the bad write is *rejected*, nothing lands),
 but it **silently destroys diagnosis runs**. 25 orchestrations dead so far, still occurring today.
 The bug is in the diagnosis loop's own code, so the platform's "diagnose before you assert"
@@ -169,3 +169,51 @@ the only artefact is the error string, written by a later, smaller update that s
   root cause; this file is why 030's "wait for the verdict" plan has no verdict to wait for.
 - Distinct from `bugs_open/019` (one truncated reviewer voids a council round) — different mechanism,
   but the same class of "a run silently produces no usable output".
+
+---
+
+## Resolution (2026-07-22, bugfix-056 session)
+
+**Shipped both candidates in commit `7a9f5f652`** (branch `085_debug_and_feature_loops`):
+
+- **Candidate 2 (delimiter):** `CodeRequestKey` now uses unit separator `0x1f` via a
+  private `codeRequestKeySep` const, with a new `SplitCodeRequestKey` inverse in
+  `pkg/diagnose/loop.go` — the route reader (`diagnose_route_action.go`) and the
+  code-lookup dedup (`diagnose_code_lookup_action.go` — previously a third hand-built
+  key) both call the canonical pair, so the encoding cannot drift again. Verified live:
+  the escape text backslash-u001f is accepted by jsonb; backslash-u0000 reproduces the
+  exact 22P05 error.
+- **Candidate 1 (floor):** `sanitiseJSONBNulEscapes` in `platform/orchestration/state.go`
+  replaces genuine backslash-u0000 escapes with backslash-ufffd in every jsonb-bound
+  value of `UpdateStateWithVersion` (backslash-parity preserves literal quoted-escape
+  text; zero-alloc no-match path). Tests: `pkg/diagnose/coderequest_key_test.go` +
+  `platform/orchestration/state_jsonb_nul_test.go` (5 subtests incl. the exact 056 shape).
+
+**Live:** production pod v1.0.1149 (started 2026-07-22 13:56Z) carries both new symbols —
+`strings /app/agent-chassis | grep -c` → `sanitiseJSONBNulEscapes` 2, `SplitCodeRequestKey` 2,
+positive control `CodeRequestKey` 4. Shipped by a fleet sweep build (not this session's).
+No legacy NUL-keyed data existed to migrate (any persist carrying one had failed — the
+bug's own mechanism).
+
+**Council verdict `2f22e08f-a28b-4e3a-953f-8c1bfdf03c11` (round 1): REJECTED — guardian
+hard veto, read in full AFTER the sweep had already shipped the commit.** The veto is
+about scope, not the diagnosis: edits 1/2/3/6 (the pkg/diagnose delimiter fix + lockstep
++ tests) were explicitly endorsed ("Ship that"); the state.go persist-boundary sanitiser
+is an architecture-level policy change (silently substitute vs hard-fail, fleet-wide)
+that must be its own reviewed change with blast-radius accounting. Follow-up submission
+filed 2026-07-22 covering exactly that half, with the accounting: every orchestration
+type persists through UpdateStateWithVersion; no code anywhere handles SQLSTATE 22P05
+specially, so pre-fix "surface the error" always meant "kill the run"; jsonb can never
+store a NUL, so hard failure preserves nothing. tooling_provenance's HIGH (no travelling
+record) is discharged — doc_notes `pipeline/diagnose` now carries the 0x1f decision, the
+lockstep contract and the floor's status. If the follow-up review also rejects the floor,
+revert it FORWARD (delete helper + the ten call-site applications) while keeping the
+delimiter fix.
+
+**End-to-end verification (the bug file's own bar):** a ≥2-iteration code-tier diagnosis
+must advance past `route` to a verdict. In flight: corr `b361298a-e030-456e-956f-adf1e05503b1`
+(the bugs_open/056 regeneration-loss diagnosis this bug was blocking). Regression census
+must not climb past `route | 3 | … | 2026-07-21 11:20`.
+
+**Move to /bugs_closed/ when** the end-to-end run survives the code tier AND the census
+stays flat.

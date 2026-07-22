@@ -78,3 +78,32 @@ FROM pages p LEFT JOIN page_components pc ON pc.page_id=p.id
 WHERE p.site_id=(SELECT id FROM sites WHERE domain='fundamentallyai.com')
 GROUP BY p.name, p.build_status;
 ```
+
+---
+
+## Progress (2026-07-22, bugfix-056 session)
+
+**The suggested 090 is now IN FLIGHT: corr `b361298a-e030-456e-956f-adf1e05503b1`**
+(item_key `needs_diagnosis:regen-drops-blocked-content`, seed scope
+`validate_page_content.go` + `rerender_single_page_action.go`, runtime site
+fundamentallyai.com, pages model-fine-tuning + contact).
+
+It could not be fired earlier: **the diagnosis loop itself was broken** for any
+run reaching the code tier — the OTHER bug numbered 056
+(`056_HANDOFF_2026-07-21_diagnose_route_step_nul_byte_kills_jsonb_persist.md`,
+the ambiguous-number trap in person). That bug is now FIXED & LIVE (commit
+`7a9f5f652`, prod v1.0.1149 pod-verified 2026-07-22); this diagnosis run doubles
+as its end-to-end verification (≥2 iterations must advance past `route`).
+
+Dispatch notes: the 090 coverage probe refused first (open items touching the
+target pages) — read and overridden with FORCE=1 because none is a competing
+fix: `needs_page:model-fine-tuning` at `needs_human_review` is this incident's
+own residue (evidence, not work), and the `contact` hits are parked design-audit
+items on other sites matched by page name. The 055 session's in-flight
+allowlist fix narrows the TRIGGER, not this loss mechanism, and the evidence
+(agent_error_log rows, deployed page_components) is historical and stable.
+
+**Next:** read the verdict (`diagnosis_artifacts` on the corr above), then
+implement whatever fix it confirms — candidate direction unchanged (fail-loud
+guard comparing a newly-passing generation against a previously blocked one for
+the same page, raising a work item instead of silently deploying).
