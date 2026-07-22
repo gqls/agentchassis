@@ -14,6 +14,24 @@ no local checkout). DB:
 
 ---
 
+## UPDATE 2026-07-22 — R7 landed: the six-technology claim is now BACKED (read NOTES Turn 10)
+
+The "42 prose fields" owner decision below (next action 4) is **resolved**. Owner chose
+**expand the catalogue**. Five real, datasheet-sourced grippers added — one per missing
+actuation technology (Festo DHPS-10-A pneumatic, OnRobot VG10 vacuum, OnRobot Soft Gripper
+SG soft-robotic, OnRobot Gecko SP5 adhesive, Schmalz SGM-HP 50 magnetic). The `products`
+index now holds **10 grippers across 6 technologies**, sourced, and the stat blocks were
+re-pointed to computed subqueries over the catalogue (10 models / 6 manufacturers / 39
+figures; `index`'s "6 technologies" now backed). Live in the DB **now**; the prose claim is
+true immediately (it was always rendered, just unbacked). Only the two stat *numbers* on
+about/gripper-detail await a re-render (`robot-hands-r7-catalogue-expand`), which is sitting
+behind the bug-029 queue stall — until it drains those pages show 5, an undercount, not a
+lie. Details: `SQL_2026-07-22_r7_…`, NOTES Turn 10, `bugs_open/043` (Update 2026-07-22),
+PLAN D10. Commit `efa9dea1b`. **Residual (flagged, not part of the decision):** MatchMatrix
+still scores only the parallel-jaw subset, so *tool-scope* prose remains ahead of the tool;
+new grippers have no browsable catalog rows. A SUMMARY is due once the re-render lands and
+the live numbers read 10/6.
+
 ## STATE AT 2026-07-21 (v1.0.1144 roll) — read this first
 
 **Everything R4 is still live and correct after the roll.** Re-verified against the
