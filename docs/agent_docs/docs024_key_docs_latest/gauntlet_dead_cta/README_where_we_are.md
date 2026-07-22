@@ -43,3 +43,29 @@ component that's actually serving, not the page's stale flag) and sent it to the
 council with your placeholder message as the reasoning it reviews against. Waiting on
 the council's verdict (~30 min). Next I'm rebuilding the gauntlet page itself so the
 buttons do real things and the fake numbers come out.
+
+## 2026-07-22 (done for today)
+
+Both jobs are done. The gauntlet page now works honestly: the two dead buttons are
+gone — "Enter the Gauntlet" is a real button that starts the clock and drops you into
+the challenge, and "Preview Rules" now scrolls to a short "How the Gauntlet works"
+card. I stripped the invented numbers and the fake leaderboard entirely; the page no
+longer pretends there's a crowd of competitors. It's honestly a self-paced solo
+challenge now, and it says so ("no sign-up, nothing is scored or shared"). All of this
+is live on vonc.com right now — verified.
+
+The generic detector fix went to the council and was APPROVED, and I've committed it.
+It won't actually take effect until the next time the backend image is rebuilt (I
+didn't force a fleet-wide rebuild just for a detection tweak) — but from then on, any
+new site that ships a dead button on a page in this "serving-but-flagged-for-rebuild"
+state will get caught, where before it slipped through.
+
+And I sent the council your message — that we shouldn't be creating placeholders that
+don't work — as the reasoning it reviewed this fix against, so it's on record with the
+seats that judge platform changes.
+
+On the backend question: I've deliberately kept this to an honest front-end for now, for
+the reason above (a live leaderboard with no real users would just be a new fake). If
+you'd like, the natural next step is to let a visitor actually submit their "Position"
+to you using the same contact-form delivery we already fixed — a small, real feature —
+and only build the full competitive backend once there's real traffic to populate it.

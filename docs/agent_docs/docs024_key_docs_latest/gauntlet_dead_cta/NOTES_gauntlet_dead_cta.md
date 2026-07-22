@@ -47,3 +47,41 @@
   (bugs_open/030) — drive via kafka 085 envelope, don't wait on the queue.
 - Verify live by the component's OWN rule, never a generic property (024/046 trap).
 - collectJSAssets republishes js_content as /tools/assets/*.js.
+
+## 2026-07-22 — P2 delivery DONE + verified live
+- Rewrote gauntlet-interface: removed both `href="#"` CTAs, removed fabricated
+  stats bar (12,847/94,210/38%/7) + 5-name leaderboard (AxonFury…), added an
+  honest #gi-rules card. Primary CTA is now a real `<button data-gi-enter-btn>`
+  that starts the timer + scrolls to the challenge + focuses objective 1;
+  secondary is `<a href="#gi-rules">` (a NAMED anchor — a real link, not a dead
+  control) that reveals+highlights the rules. Template 25054→22912, JS 3910→4090.
+- Applied via UPDATE content_components (dollar-quoted, verified 1 row) then
+  DELIVERED via section-editor content_edit (corr 7fe2143d, COMPLETED). field_updates
+  carried honest copy (eyebrow TODAY'S GAUNTLET, softened subtitle, rules list).
+- LANDMINE HIT: apply_section_edit reassembles+deploys the HTML but does NOT run
+  collectJSAssets, so the JS asset stayed stale (old 3909B, didn't wire the new
+  button). collectJSAssets runs ONLY in rerender_single_page (page-rerender's
+  render_page/else branch). Fixed by an assemble-only page-rerender.
+- LANDMINE HIT: the 049b bare `action=orchestrate` page-rerender envelope did NOT
+  ingest (the kubectl-run stdin race its own comment warns about — no orch row, no
+  work item, no log trace). The 086-style DIRECT orchestrator envelope
+  (spawn_agent+call_agent, action=process, full inline workflow) routed reliably.
+  Script saved: scripts/republish_gauntlet_js.sh. USE THIS PATTERN, not bare 049b.
+- LANDMINE: section-editor left pc.build_status='approved' (drift). Set back to
+  'deployed' before the assemble rerender (an assemble path could otherwise drop a
+  non-deployed component). This drift is itself more evidence for the P1 fix.
+- VERIFIED LIVE (cache-busted): page 0 dead href=#, 0 fabricated data, real
+  <button> CTA, #gi-rules card; JS asset last-modified 2026-07-22T18:17:48Z, 4090B,
+  wires enter-btn + rules-btn, no dead stat-counter. Hero copy honest (only
+  remaining 'Live' is aria-live on the timer).
+
+## 2026-07-22 — P1 council + commit
+- Council APPROVED (corr 1834a349, round 1, 3 advisory objections none high-sev;
+  10 reviewers / 6 abstained). Committed check_dead_controls.go 01e18019a with
+  trailer Council-Reviewed: 1834a349. INERT until next chassis image roll (did NOT
+  roll a fleet image for a detection-only change — ships with next build).
+  Post-roll verify: re-run dead_controls on vonc → a dead_control item should now
+  be filed for tool-gauntlet (it currently is NOT, because the page is
+  needs_rebuild). NOTE the gauntlet's OWN dead CTAs are now gone, so the post-roll
+  proof needs a DIFFERENT needs_rebuild page that still has a dead control, OR a
+  temporary re-check before this fix would have flagged it.
