@@ -164,14 +164,20 @@ generic and the other five exposed.
 >   made. Left as an **explicit owner call** (below), because the honest schema-faithful behaviour
 >   and the fail-loud behaviour genuinely diverge here.
 >
-> **Bug remains OPEN** (fix inert until roll). **Open owner decisions:**
-> 1. **Accept the fix as-is** (honours `skip_section` literally: empty listing dropped + Warn
->    logged) **OR** build `bug_historian`'s structural fail-loud guard — an empty *required*
->    `skip_section` list emits a tracked `site_work_items` (needs_human_review-style) row so a
->    never-recovering listing is surfaced, not just logged. The latter overrides the schema's
->    declared `skip_section` for the required+empty case.
-> 2. The two fast-follows: a standing lint (future `Resolve` consumers length-check, not
->    `value!=nil`); the staleness/HITL tripwire (subsumed by decision 1 if the guard is built).
+> **OWNER DECISION 2026-07-22: ACCEPT THE FIX AS-IS.** Honour `skip_section` literally — an
+> empty required listing is dropped and the Warn log is the observability signal; do NOT build
+> the fail-loud tracked-item guard (it would override the declared `skip_section`). This
+> resolves `bug_historian`'s medium objection by owner ruling. **No further code.** The council
+> loop is closed at advisory R2 (7 approve / 3 object; remaining objections dispositioned above,
+> the one medium resolved here). **No `Council-Reviewed` trailer** — that is earned only by an
+> APPROVED verdict; the trail lives under `SUBMISSION_CORR=958d52f4…` in the DB + this file.
+>
+> **Bug stays OPEN only because the Go fix is inert until the next chassis image roll.** To
+> close: after the roll, `strings /app/agent-chassis | grep -c queryListBelowContract` (≥1) on
+> the running orchestration pod, then confirm an empty `product-grid`/`directory-listing` is
+> dropped (not blank) and re-appears on a later render once data exists; the 5 list components
+> still render the empty-state. **Filed fast-follow (not built):** a standing lint that future
+> `queryresolve.Resolve` consumers length-check rather than `value!=nil`.
 
 ## What
 
