@@ -207,6 +207,10 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		if len(s.contentData) == 0 {
 			reason = "no stored content_data"
 		} else if comp, ok := schemas[s.slotName]; ok && len(comp.InputSchema) > 0 {
+			// The rerender path reaches the gate WITHOUT a plan_sections pass, so
+			// this is where a re-rendered legacy-dialect component would otherwise
+			// be enforced silently — fire the fail-loud tripwire here.
+			datahelpers.WarnIfLegacyDialect(comp.InputSchema, logger, "render-gate", comp.Function)
 			if missing := missingRequiredLLMFields(comp.InputSchema, s.contentData); len(missing) > 0 {
 				reason = fmt.Sprintf("stored content_data missing required field(s) %v", missing)
 			}

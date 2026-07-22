@@ -80,7 +80,10 @@ func fieldSource(raw interface{}) string {
 // DeriveCTAURLFields returns the CTA destination fields a schema declares,
 // per the derivation rule above. Output is sorted by URLField for determinism.
 func DeriveCTAURLFields(inputSchema map[string]interface{}) []CTAField {
-	fields, _ := inputSchema["fields"].(map[string]interface{})
+	// Via SchemaContentFields so a legacy-dialect CTA component's url fields are
+	// derived too — a fail-open here would ship a broken/empty call-to-action
+	// (the bugs_open/026 silently-broken-content class) once precedence flips.
+	fields, _, _ := SchemaContentFields(inputSchema)
 	if len(fields) == 0 {
 		return nil
 	}
@@ -115,7 +118,7 @@ func DeriveCTAURLFields(inputSchema map[string]interface{}) []CTAField {
 // the observe stage; the precedence flip must replace this with a consumed
 // detection path (a work-item type with a named handler) before it ships.
 func UncoveredCTAURLFields(inputSchema map[string]interface{}) []string {
-	fields, _ := inputSchema["fields"].(map[string]interface{})
+	fields, _, _ := SchemaContentFields(inputSchema)
 	if len(fields) == 0 {
 		return nil
 	}

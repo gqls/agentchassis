@@ -1712,6 +1712,7 @@ func RenderComponentAction(ctx context.Context, params ActionParams) (interface{
 	// the step fails and the good content is left in place (the content
 	// regression guard in save_page_sections blocks the overwrite).
 	if len(comp.InputSchema) > 0 {
+		datahelpers.WarnIfLegacyDialect(comp.InputSchema, params.Logger, "render-gate", comp.Function)
 		if missing := missingRequiredLLMFields(comp.InputSchema, renderCtx.ContentData); len(missing) > 0 {
 			params.Logger.Error("RenderComponentAction: required content field(s) missing — refusing to render an empty section",
 				zap.String("component_function", comp.Function),

@@ -135,3 +135,15 @@ func WarnLegacyDialect(logger *zap.Logger, where string, component string) {
 		zap.String("where", where),
 		zap.String("component", component))
 }
+
+// WarnIfLegacyDialect fires the tripwire iff inputSchema is the legacy dialect.
+// A convenience for call sites that need the tripwire but consume the field set
+// via a different helper (the render gate's paths call missingRequiredLLMFields,
+// not SchemaContentFields directly) — so the render/rerender paths surface a
+// reintroduced dialect even though they never run plan_sections. The extra read
+// is a pure map lookup on the extinct dialect's absence. Nil logger no-ops.
+func WarnIfLegacyDialect(inputSchema map[string]interface{}, logger *zap.Logger, where string, component string) {
+	if _, _, fromLegacy := SchemaContentFields(inputSchema); fromLegacy {
+		WarnLegacyDialect(logger, where, component)
+	}
+}

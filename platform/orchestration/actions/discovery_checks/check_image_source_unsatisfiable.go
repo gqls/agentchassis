@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/imageryplan"
 	"go.uber.org/zap"
 )
@@ -117,9 +118,15 @@ func (c *ImageSourceUnsatisfiableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 		if err := json.Unmarshal([]byte(schemaText), &schema); err != nil {
 			continue
 		}
-		fields, ok := schema["fields"].(map[string]interface{})
+		// Read via SchemaContentFields so a legacy-dialect component's required
+		// image fields are checked too — a fail-open here means a missing required
+		// image is never flagged (silently-absent content, the bugs_open/026 class).
+		fields, ok, fromLegacy := datahelpers.SchemaContentFields(schema)
 		if !ok {
 			continue
+		}
+		if fromLegacy {
+			datahelpers.WarnLegacyDialect(dctx.Logger, "check_image_source_unsatisfiable", function)
 		}
 
 		for fieldName, defRaw := range fields {

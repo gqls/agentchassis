@@ -196,9 +196,11 @@ func jsonStructureFollows(runes []rune, i int) bool {
 // authored in the legacy JSON-Schema dialect (`properties`+`required[]`, no
 // `fields`) is enforced too rather than silently passing with zero required
 // fields — the fail-open that let bugs_open/026's required `news-listing`
-// headline ship empty. The fromLegacy tripwire is surfaced on the generation and
-// audit paths (plan_sections, check_required_fields_missing); this render-time
-// gate uses the shared reader purely for the correctness projection.
+// headline ship empty. The fail-loud tripwire for a reintroduced dialect is
+// fired at the two gate CALL SITES (RenderComponentAction, rerender_page_sections)
+// via datahelpers.WarnIfLegacyDialect — those paths reach the gate on a
+// re-render/redeploy WITHOUT a fresh plan_sections pass, so they, not this pure
+// reader, are where the render-side tripwire belongs (they hold the logger).
 func missingRequiredLLMFields(inputSchema map[string]interface{}, content map[string]interface{}) []string {
 	fields, ok, _ := datahelpers.SchemaContentFields(inputSchema)
 	if !ok {
