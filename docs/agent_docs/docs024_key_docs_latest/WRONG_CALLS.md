@@ -1816,3 +1816,24 @@ instead of reading it" shape this whole bug (026) is about — a small irony wor
 The 097 trigger validates plan SHAPE client-side but not the operation enum; validating the
 enum there too would move this from runtime-invalid to a client-side error (candidate for the
 council-gate owner).
+
+---
+
+**2026-07-21 — a council submission that said an `add` edit was "confirmed present in
+production" read as the false-already-deployed anti-pattern (bugfix-053).** Round-1 of the
+053 council submission described the new `siteHasAnyNavItems` helper as `operation: "add"`
+in the plan, while the risks section noted "confirmed present in production binary v1.0.1146
+(pod-grep)". Both were true — this thread commits per task and the fleet builds from HEAD, so
+the new function had been committed and shipped *before* the (advisory, post-ship) review — but
+`prior_art_librarian` correctly flagged the pair as **self-contradictory at HIGH severity**: a
+brand-new `add` cannot already be live, which is exactly the `bugs_closed/031` false-already-
+deployed shape it exists to catch. **The cheap check:** before submitting, read the risks/evidence
+section against the edit `operation`s for internal consistency — an "add" carrying an "already in
+production" claim is a contradiction on its face; if you commit-then-review (which the repo's rules
+encourage), say so explicitly up front ("this edit is already committed and shipped in <tag>; the
+review is advisory and post-ship") rather than pairing "add" with a bare liveness claim. **Cost:**
+one of the objections in a REVISE round (round 1 also found a *real* gap, so the round was not
+wasted); resolved by explanation in round 2, which the seat accepted. Low, but it is the reviewer
+reading the submission literally — the same "the sketch is all they see" discipline that cost the
+round-2 and round-3 nitpicks (`containsGroupType` not shown as pre-existing; blast radius asserted
+not independently confirmed).
