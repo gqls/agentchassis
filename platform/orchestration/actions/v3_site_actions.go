@@ -2742,8 +2742,8 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 
 	// ── Deterministic convergence with realised pages ───────────────────────
 	// existing_pages is loaded by the load_existing_pages workflow step and
-	// carries adoption_locked and build_status per page. reconcilePlanWithRealised
-	// force-preserves every page that is adoption-locked OR built, so a re-plan
+	// carries site_has_no_current_plan and build_status per page. reconcilePlanWithRealised
+	// force-preserves every page on the site's first plan OR built, so a re-plan
 	// can no longer silently redesign or drop a built page (bugs_open/001). It is
 	// a no-op only for a genuinely from-scratch build. See
 	// FOCUS_adoption_faithfulness_via_locks.md.
@@ -2798,7 +2798,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		zap.Int("snapped_sections", snappedSections),
 		zap.Int("pages_after", len(pages)))
 
-	// ── Truncate, preserving adoption-locked AND built pages ────────────────
+	// ── Truncate, preserving first-plan AND built pages ─────────────────────
 	maxPages := 20
 	if mp, ok := config["max_pages"].(float64); ok {
 		maxPages = int(mp)
@@ -2811,8 +2811,7 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 		var mustKeep []interface{}
 		for _, rp := range existingPages {
 			if rm, ok := rp.(map[string]interface{}); ok {
-				locked, _ := rm["adoption_locked"].(bool)
-				if locked || realisedPageCompositionIsPreserved(rm) {
+				if noCurrentPlanFlag(rm) || realisedPageCompositionIsPreserved(rm) {
 					mustKeep = append(mustKeep, rp)
 				}
 			}
@@ -4637,12 +4636,12 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // realised pages a re-plan must not silently redesign or drop.
 //
 // PRESERVATION SET (widened 2026-07-19, bugs_open/001). Formerly this was the
-// adoption-locked subset alone, which made the whole function a no-op on every
-// re-plan. NOTE what adoption_locked actually is (corrected 2026-07-20,
-// bugs_open/051): NOT a per-page 90-day lock — the live load_existing_pages
-// query derives it per SITE as "this site has no current plan", so it is true
-// for every page on a site's FIRST plan and false for every page on every
-// re-plan after that. The two-branch design in 053 §054 (branch (b): a live
+// first-plan subset alone, which made the whole function a no-op on every
+// re-plan. NOTE what that flag actually is (renamed 2026-07-22 from the
+// misleading "adoption_locked", bugs_open/051): NOT a per-page or 90-day lock —
+// there never was one. The live load_existing_pages query surfaces it as
+// site_has_no_current_plan, derived per SITE, so it is true for every page on a
+// site's FIRST plan and false for every page on every re-plan after that. The two-branch design in 053 §054 (branch (b): a live
 // timed per-page preserve-directive) is absent from the live query and has zero
 // rows behind it fleet-wide, so no per-page lock has ever existed. The realised
 // composition of a BUILT page was then carried by nothing: a page the LLM
@@ -4652,10 +4651,10 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 // built pages regressed, two of which re-rendered and re-deployed the regressed
 // artefact.
 //
-// A built page deserves preservation whether or not it is adoption-locked, so
+// A built page deserves preservation whether or not it is on the first plan, so
 // the set is now:
 //
-//	adoption_locked == true  OR  build_status IN ("deployed", "needs_rebuild")
+//	site_has_no_current_plan == true  OR  build_status IN ("deployed", "needs_rebuild")
 //
 // needs_rebuild joined the set 2026-07-21 (bugs_open/037). A needs_rebuild page
 // still holds its intended composition in pages.sections, and EVERY writer of
@@ -4676,14 +4675,14 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 //
 // All flags come from the load_existing_pages query. build_status is only
 // surfaced by that query as of migration 173 — if it is absent both status terms
-// are empty and behaviour falls back to the adoption-locked set, so the Go change
+// are empty and behaviour falls back to the first-plan set, so the Go change
 // and the query change are safe to land in either order.
 //
 // Passes over the preservation set:
 //
 //	Pass C  — section-collision dedup: drop an LLM page whose slug equals the
 //	          stem of a realised section index ("games" vs "games-index").
-//	Pass C2 — item-topic dedup. Deliberately still scoped to the ADOPTION-LOCKED
+//	Pass C2 — item-topic dedup. Deliberately still scoped to the FIRST-PLAN
 //	          subset, not the widened set: it is a name-stem heuristic, and a
 //	          false positive suppresses a legitimately new page (a new
 //	          "tool-pricing" beside a built "guide-pricing" shares the stem
@@ -4693,8 +4692,8 @@ func normaliseRealisedToPlanPage(rm map[string]interface{}) map[string]interface
 //	          invented", which this does not claim to fix.
 //	          CORRECTED 2026-07-20 (bugs_open/051): this used to read "bounded to
 //	          the 90-day window that risk is acceptable". There is no 90-day
-//	          window — see the preservation-set note above. Because lockedPages is
-//	          empty whenever the site has a current plan, Pass C2 can fire ONLY on
+//	          window — see the preservation-set note above. Because noCurrentPlanPages
+//	          is empty whenever the site has a current plan, Pass C2 can fire ONLY on
 //	          a site's first plan and never on a re-plan. The scoping decision
 //	          stands; the reason given for it did not exist.
 //	Pass B  — rename snap-back: same URL as a realised page, different name ->
@@ -4728,19 +4727,19 @@ func reconcilePlanWithRealised(
 	existingPages []interface{},
 	logger *zap.Logger,
 ) ([]interface{}, int, int, int, int) {
-	// Force-preserve adoption-locked OR built pages (see header).
+	// Force-preserve first-plan (no-current-plan) OR built pages (see header).
 	var preserved []interface{}
-	var lockedPages []interface{}
+	var noCurrentPlanPages []interface{}
 	for _, rp := range existingPages {
 		rm, ok := rp.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		locked, _ := rm["adoption_locked"].(bool)
-		if locked {
-			lockedPages = append(lockedPages, rp)
+		noCurrentPlan := noCurrentPlanFlag(rm)
+		if noCurrentPlan {
+			noCurrentPlanPages = append(noCurrentPlanPages, rp)
 		}
-		if locked || realisedPageCompositionIsPreserved(rm) {
+		if noCurrentPlan || realisedPageCompositionIsPreserved(rm) {
 			preserved = append(preserved, rp)
 		}
 	}
@@ -4780,12 +4779,12 @@ func reconcilePlanWithRealised(
 	// an LLM page that re-proposes an adopted item under a different
 	// prefix/role/URL.
 	//
-	// Built deliberately from lockedPages, NOT the widened preservation set —
-	// see the Pass C2 note in the header for why this one heuristic stays
-	// narrow. In practice that makes it first-plan-only: lockedPages is empty
-	// whenever the site has a current plan (bugs_open/051).
+	// Built deliberately from noCurrentPlanPages, NOT the widened preservation
+	// set — see the Pass C2 note in the header for why this one heuristic stays
+	// narrow. In practice that makes it first-plan-only: noCurrentPlanPages is
+	// empty whenever the site has a current plan (bugs_open/051).
 	itemStemSets := make(map[string]map[string]bool)
-	for _, rp := range lockedPages {
+	for _, rp := range noCurrentPlanPages {
 		rm, ok := rp.(map[string]interface{})
 		if !ok {
 			continue
@@ -4930,11 +4929,30 @@ func reconcilePlanWithRealised(
 // single definition of "built", so keep the two in step.
 //
 // Returns false when build_status is absent, which is what makes the widened
-// preservation set degrade safely to the adoption-locked set on a chassis whose
+// preservation set degrade safely to the first-plan set on a chassis whose
 // load_existing_pages query has not yet been updated to surface the column.
 func realisedPageIsBuilt(rm map[string]interface{}) bool {
 	status, _ := rm["build_status"].(string)
 	return status == "deployed"
+}
+
+// noCurrentPlanFlag reports the load_existing_pages "site_has_no_current_plan"
+// flag for a realised page: true when the page's site has no current plan yet —
+// uniquely the site's FIRST plan after adoption (bugs_open/051). It force-preserves
+// adopted pages through that one plan and is empty on every re-plan thereafter.
+//
+// Renamed 2026-07-22 from the misleading "adoption_locked" (there was never a
+// per-page or 90-day lock — bugs_open/051). The old alias is read as a fallback so
+// a re-seeded query and a renamed chassis are safe to land in either order: the
+// query emits both names during the transition (migration 193), and either name
+// resolves to the same boolean. Drop the fallback (and the query's transition
+// alias) once this renamed chassis is fleet-live.
+func noCurrentPlanFlag(rm map[string]interface{}) bool {
+	if v, _ := rm["site_has_no_current_plan"].(bool); v {
+		return true
+	}
+	v, _ := rm["adoption_locked"].(bool) // legacy alias, pre-193 query
+	return v
 }
 
 // realisedPageCompositionIsPreserved reports whether a realised pages-table row
@@ -4958,7 +4976,7 @@ func realisedPageIsBuilt(rm map[string]interface{}) bool {
 // change (bugs_open/050 owns the deployed-empty classification).
 //
 // Returns false when build_status is absent, so the preservation set degrades
-// safely to the adoption-locked set on a chassis whose load_existing_pages query
+// safely to the first-plan set on a chassis whose load_existing_pages query
 // has not been updated to surface the column.
 func realisedPageCompositionIsPreserved(rm map[string]interface{}) bool {
 	switch status, _ := rm["build_status"].(string); status {
@@ -5068,8 +5086,8 @@ func sameSectionList(proposed interface{}, realised []interface{}) bool {
 }
 
 // truncatePreservingRealised caps the plan at maxPages but never drops a
-// must-keep page — adoption-locked or built (see the caller). Must-keep pages
-// are kept first; net-new proposed pages fill the remaining budget in order.
+// must-keep page — on the site's first plan or built (see the caller). Must-keep
+// pages are kept first; net-new proposed pages fill the remaining budget in order.
 func truncatePreservingRealised(
 	pages, mustKeep []interface{},
 	maxPages int,
@@ -5083,28 +5101,28 @@ func truncatePreservingRealised(
 			}
 		}
 	}
-	var locked, netNew []interface{}
+	var keep, netNew []interface{}
 	for _, p := range pages {
 		name := ""
 		if pm, ok := p.(map[string]interface{}); ok {
 			name, _ = pm["name"].(string)
 		}
 		if keepNames[name] {
-			locked = append(locked, p)
+			keep = append(keep, p)
 		} else {
 			netNew = append(netNew, p)
 		}
 	}
-	if len(locked) >= maxPages {
-		logger.Warn("validate: adoption-locked pages exceed max_pages; keeping all locked, dropping all net-new",
-			zap.Int("locked", len(locked)), zap.Int("max_pages", maxPages))
-		return locked
+	if len(keep) >= maxPages {
+		logger.Warn("validate: preserved pages exceed max_pages; keeping all preserved, dropping all net-new",
+			zap.Int("preserved", len(keep)), zap.Int("max_pages", maxPages))
+		return keep
 	}
-	budget := maxPages - len(locked)
+	budget := maxPages - len(keep)
 	if budget > len(netNew) {
 		budget = len(netNew)
 	}
-	return append(locked, netNew[:budget]...)
+	return append(keep, netNew[:budget]...)
 }
 
 // ----------------------------------------------------------------------------
