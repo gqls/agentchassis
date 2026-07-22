@@ -788,3 +788,70 @@ status. Watch for the bugs_open/056 non-determinism (a regeneration may still om
 the reference by chance — verify, re-fire if so). The self-correction-
 leopardessconsulting page is separately blocked (planned, 0 sections — empty spec
 sections, a planner-level issue, not the contamination gate).
+
+## 2026-07-22 — Missteps this session, the complete list (the record IS the point)
+
+Per CLAUDE.md the missteps are not an appendix — they are the most valuable thing
+the next thread cannot rederive. Collected here in full, each with what caught it
+and the cheap check that would have prevented it. (Cross-filed in WRONG_CALLS
+where the check-class is fleet-wide.)
+
+1. **[BIG ONE] Re-derived and council-reviewed (×2) a fix whose code was ALREADY
+   LIVE.** Claimed: the contamination check has no per-site allowlist, so I must
+   WRITE one, council-review it, and roll a new chassis image. Actual: the full
+   allowlist implementation (`loadAllowedReferenceDomains`,
+   `checkDomainContamination(..., allowedRefs)`, the `allowed_reference_domains`
+   read) was already committed in `fe2ba5e52` ("v1.0.1146 sweep") and running on
+   production since 2026-07-21 18:50 UTC — byte-identical to what I wrote. My
+   commit changed only a comment. **Caught by:** the owner ("double check your
+   findings, v1.0.1146 is on production") → which finally made me pod-grep. **Cheap
+   check:** `grep -rn 'allowed_reference_domains\|allowlist'
+   platform/orchestration/actions/` + a pod-grep of the live binary, BEFORE
+   writing a line. "Is it already built and live?" precedes "how do I build it?".
+   I checked `/bugs_open` + `/bugs_closed` for the mechanism but never the CURRENT
+   CODE or the LIVE POD.
+
+2. **Inferred "the live 1146 pod lacks my fix" from timestamps instead of
+   pod-grepping.** Claimed: pod built 18:50 07-21 < my commit 09:07 07-22, so the
+   fix cannot be in it. Actual: the fix WAS in it (built by another session).
+   **Caught by:** the owner's nudge → pod-grep found `loadAllowedReferenceDomains`
+   in the binary. **Cheap check:** the pod-grep IS the authoritative test CLAUDE.md
+   mandates ("verify against the running pod, never git, never the tag"). I knew
+   the rule and inferred anyway — confidence/logic is not a substitute for the grep.
+
+3. **Nearly cut an unnecessary fleet image roll off misstep #2.** I got as far as
+   bumping the tag mentally to 1147 and building a clean HEAD archive to pre-flight
+   a roll — for code that was already live. **Caught by:** the owner, before any
+   push/deploy. **Cheap check:** same as #2. Momentum is not evidence; the roll was
+   downstream of an unverified premise.
+
+4. **"Blocker 2: empty `page_components.deploy_commit` ⇒ the git-adapter never
+   pushed."** Actual: robot-hands.com (live and serving) also has deploy_commit
+   empty on all 87 components — it is not the signal. **Caught by:** comparing to a
+   known-live control. **Cheap check:** a column value means nothing without a
+   working control; diff the new thing against a known-good one before reading a
+   field in isolation.
+
+5. **(Inherited from the handoff, caught early) "the blocker reason is
+   unrecoverable from the DB."** The handoff checked only `site_work_items.result`
+   (empty) and concluded the reason was lost to log rotation, prescribing a live
+   re-fire. Actual: it was in `agent_error_log` (`CONTENT_VALIDATION_BLOCKER_DETAIL`)
+   all along — a deliberate persistence path. **Caught by:** reading
+   `validate_page_content.go` before acting on the handoff. **Cheap check:**
+   `SELECT DISTINCT error_code FROM agent_error_log WHERE site_id=…` before
+   declaring any reason "not in the DB"; a gate that returns a vague error usually
+   logs the detail on purpose.
+
+6. **Timeline/working-tree archaeology rabbit hole.** Spent several cycles trying
+   to reconstruct how an 18:50-07-21 pod could contain code I "committed" at
+   09:07-07-22, in a shared mutable working tree. **Lesson:** in a shared tree the
+   LIVE POD and committed HEAD (`git log -S <symbol>`) are ground truth; my
+   session's file-read and my own edits are NOT reliable indicators of what is
+   real. Stop reconstructing the sequence; grep the authoritative state and move.
+
+**The through-line:** every one of these is the same failure — trusting an
+inference (a timestamp, an empty column, a vague error, my own edit) over a
+cheap authoritative check (a pod-grep, a control comparison, one query, `git
+log -S`). The single most expensive one (#1) would have cost one grep at the
+very start. The owner caught the two that mattered; the loop/tools did not,
+because I never ran the check that would have surfaced them.
