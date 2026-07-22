@@ -855,3 +855,42 @@ cheap authoritative check (a pod-grep, a control comparison, one query, `git
 log -S`). The single most expensive one (#1) would have cost one grep at the
 very start. The owner caught the two that mattered; the loop/tools did not,
 because I never ran the check that would have surfaced them.
+
+## 2026-07-22 — seed PROVEN end-to-end on `about`; 3 remaining pages re-queued
+
+**Re-fire mechanism [VERIFIED]:** the `build-pipeline-trigger` scheduled task
+(every 120s) fires when a site has a `site_work_items` row with `status='triaged'`,
+`pipeline='build'`, `attempt_count < max_attempts` (its `pre_query`). The stuck
+pages sit at `needs_human_review` (the auto-loop won't re-claim that). Safe
+re-queue = set the `needs_page:<page>` build item back to `triaged`,
+`attempt_count=0`, clear `error`/`claimed_*` (same row → no dedup conflict). It
+then rebuilds the page's content through the content-writer.
+
+**`about` proof [VERIFIED by artefact, not status]:** re-queued item `7e03bcc8`
+→ triaged. Outcome: work item `complete`, page `build_status=deployed`, and **2
+`page_components` mention leopardess** — the actual rendered text is the
+owner-approved narrative verbatim: *"We caught our own platform generating
+invented details on leopardessconsulting.co.uk. Our verification system flagged
+it; we corrected it. That is not a cautionary anecdote — it is what ha[ppens]…"*.
+**Zero new `CONTENT_VALIDATION_BLOCKER_DETAIL` rows** since the seed. So: the
+seeded allowlist makes the live guard skip leopardess for this site, the page
+rebuilds, and the content-writer included the reference (no bug-056 drop this
+time). The whole chain — seed → re-queue → rebuild → story on the page — works.
+
+**Batch re-queued (same reset):** `needs_page:index`, `needs_page:capabilities`,
+`needs_page:multi-agent-review-council` → triaged. Monitor watching all three to
+terminal state + verifying leopardess in each. Watch for bug-056: a page could
+rebuild WITHOUT the reference by chance (a non-deterministic generation) — that
+would show as build=deployed but leopardess=0; re-queue again if so.
+
+**Still separate / not fixed by the seed:**
+- `self-correction-leopardessconsulting`, `platform-log-index`,
+  `tool-decision-record` = `planned` with **0 sections** ("empty spec sections")
+  — a planner-level issue, NOT the contamination gate. The self-correction page
+  is the dedicated home for the story and needs its sections populated before it
+  can build. Separate sub-task.
+- 2 `needs_section_data`: `portfolio-showcase` on index (real project data),
+  `contact-info` (business email).
+- `contact` + `model-fine-tuning` are `deployed` but storyless (dropped the
+  reference on the pre-seed retry) — optional rebuild to restore it.
+- Blocker 2 (serving): Cloudflare→B2 origin for the new zone — owner/infra step.
