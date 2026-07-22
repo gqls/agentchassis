@@ -306,10 +306,10 @@ stayed 0, confirming the probes wrote nothing.
 
 **Left alone:** ~~177/178/179 remain pending and unrecorded~~ (CORRECTED
 2026-07-22 — now applied-and-recorded, see above). The two 175s and two 176s
-remain as they are, per the numbering-collision note above. The genuinely-pending
-files as of 2026-07-22 11:48 BST are 186, 188, 194 — all image-first `enable_*`
-seeds waiting on their check's Go code to ship (owners: 046, 017, model-directory
-Phase D); applying someone else's image-gated seed can violate that ordering.
+remain as they are, per the numbering-collision note above. ~~The genuinely-pending
+files as of 2026-07-22 11:48 BST are 186, 188, 194~~ (CORRECTED — all three were
+applied out of band once v1.0.1149 shipped their checks that afternoon; see the
+post-roll addendum. The queue is "Up to date" as of 2026-07-22 ~15:30 BST).
 
 ## RECURRENCE 2026-07-22 — it sprang SEVEN-fold, and residual 2 closed itself
 
@@ -347,6 +347,29 @@ days after the rule and the tooling both landed. This is no longer evidence that
 mechanism *might* help; it is proof the rule cannot hold in a repo where threads
 routinely apply config-half migrations out of band (safe-before-image, live-on-
 apply) and hand off mid-task. **The dry run must be run per session, not per day.**
+
+### Post-roll addendum — the prediction held within hours (v1.0.1149, same day)
+
+The three "genuinely pending" files above (186, 188, 194) were image-first seeds
+waiting on a chassis image carrying their Go check. That image (**v1.0.1149**,
+pod started 13:56 UTC) rolled a few hours later — pod-grep confirms all three
+checks compiled in (`truncated_component` 9, `backend_entry_orphaned` 10,
+`missing_model_directory_section`/`_page` 4/4). Within ~90 minutes **all three
+seeds were applied out of band**, exactly the re-arm window the recurrence
+predicted:
+
+| file | how it landed | ledger | trap? |
+|---|---|---|---|
+| 194 | applied by owner | `manual-single-file` 14:25 | no — recorded |
+| 186 | applied out of band | `record-only` 15:23 (concurrent session) | no — recorded |
+| 188 | applied out of band by 017 | **none** → recorded by 007 thread 15:2x | **YES** — 188 RAISES on replay; a live halt, de-armed |
+
+So one of three re-armed the trap on the way in (188). The queue then reached
+**"Up to date — no pending migrations"** — a rare fully-clean state. The lesson
+compounds: an image roll is not the end of the image-gated seeds' risk, it is the
+*start* of their highest-risk window, because that is precisely when owners apply
+the config half by hand. Re-run the dry run **after** any chassis roll, not just
+at session start.
 
 ### A SAFE design for residual 1 (the halt), for the first time
 
