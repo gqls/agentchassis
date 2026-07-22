@@ -107,3 +107,55 @@ allowlist fix narrows the TRIGGER, not this loss mechanism, and the evidence
 implement whatever fix it confirms — candidate direction unchanged (fail-loud
 guard comparing a newly-passing generation against a previously blocked one for
 the same page, raising a work item instead of silently deploying).
+
+---
+
+> **CORRECTED 2026-07-22 — the inferred mechanism was REFUTED by the diagnosis
+> loop (corr `b361298a`, 5 iterations, verdict REFUTED, stopped
+> scope-not-narrowing). Caught by: the 090 run this file itself demanded.**
+> Two parts of the inference were wrong, on citation:
+> 1. **"No record of the loss" is false.** Every blocker is captured verbatim in
+>    `agent_error_log` (`CONTENT_VALIDATION_BLOCKER_DETAIL`, naming the exact
+>    flagged value `leopardessconsulting.co.uk`, category, description), and
+>    validate_content's `error_step: mark_needs_review` parks the work item at
+>    `needs_human_review`. The record exists; what is missing is reconciliation.
+> 2. **The rerender path was the wrong suspect.** `RerenderSinglePageAction` /
+>    `assemblePage` / `rerenderLoadSections` never generate or validate content —
+>    pure reassembly of stored `page_components` ("Simple concatenation - no
+>    template re-rendering", the file's own header). The clean deploy came from
+>    the page-build pipeline itself: `page_component_history` row sourced
+>    `save_page_sections_overwrite` at 2026-07-21 03:40:44 → `pages.deployed_at`
+>    03:41:45.
+
+## Corrected mechanism (grounded 2026-07-22)
+
+The gap is **review-bypass-by-sibling-item**, in the build pipeline:
+
+1. Item A (`needs_page:model-fine-tuning`) hits the blocker →
+   `mark_needs_review` parks A at `needs_human_review` (**still parked, live DB:
+   updated 2026-07-20 21:27, never completed**). Blocker detail recorded. ✓
+2. Item B (`page_rerender:model-fine-tuning`, fired when an image asset landed)
+   runs the SAME pipeline for the same page; generation is non-deterministic;
+   the fresh copy omits the flagged element; validation passes; `save_sections`
+   → **deployed 2026-07-21 03:41:45**. B completes.
+3. Nothing connects B's success to A's parked review: `save_page_sections_action.go`
+   has zero references to blocker records or review state (grep verified
+   2026-07-22); `complete_work_item`'s preserve-the-flag guard
+   (`load_work_item_actions.go:792-808`) protects only the flagged item ITSELF.
+   The human review A demanded never happened; the page shipped without the
+   contested element; A dangles as queue noise.
+
+## Fix direction (for council review — NOT yet implemented)
+
+Fail-loud reconciliation at the point the superseding save lands
+(`save_page_sections_action.go`), NOT a dispatch-time block: blocking dispatch
+behind a parked review would wedge pages indefinitely while the review queue has
+no working drain (bugs_open/033), the 029-class risk. Shape: after a successful
+save for page P, if P has a sibling item parked `needs_human_review` or an
+unresolved `CONTENT_VALIDATION_BLOCKER_DETAIL` newer than P's last deploy,
+check the newly-saved content for each previously-flagged value; write a loud
+`agent_error_log` record (present→absent = "the element that tripped review was
+dropped, not resolved") and annotate the parked item's `result` (never its
+status — a human still owns the flag). Whether a parked review should HOLD
+deploys outright is an owner policy call (033 interacts); the reconciliation is
+safe either way.
