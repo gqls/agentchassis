@@ -93,3 +93,29 @@ did — but it made the change materially better, which is the whole point of as
 
 Bottom line unchanged: half the fix is live, the other half is ready and now a bit
 sturdier, and bug 020 stays open until we roll a build and switch the gate on.
+
+**2026-07-22 — the build rolled, and the gate is now switched on and guarding.**
+
+The new build went out, so I switched the gate on. First I checked the running
+program actually contained the new check — it did — and that it wasn't already
+switched on by anyone else — it wasn't (it was sitting there doing nothing, which is
+the worst state: built but not connected). I connected it: now, every time the system
+rebuilds one of these tools, the output passes through the fabrication check before it
+can be published, and anything that looks like invented data is held for a person to
+look at instead of going live. I double-checked the plumbing routes correctly — a
+flagged tool goes to the review pile and stops; a clean tool carries on and publishes
+as normal. So the core protection is live and working.
+
+Two honest caveats, and then a decision you made. First, this particular build was cut
+about twenty minutes before I'd finished the small "fail-safe" tweak from the review
+(the one that makes the check hold things for review if it ever can't read the output
+at all), so the running version is the slightly-less-hardened one. It still catches
+real invented data — the tweak only matters for an odd empty-output edge that isn't
+fabrication anyway — but it's not the fully-hardened version yet. Second, I've proven
+the check works by testing and proven the routing is correct, but I haven't yet pushed
+a deliberately-fabricated tool all the way through the live system end to end.
+
+You decided: leave bug 020 open and finish it properly on the next build. That's the
+right call — there's no urgency now that the protection is live, and both remaining
+bits (the fail-safe tweak, and one deliberate end-to-end test) are cleanest to do
+together on the next roll. The runbook has the exact three steps to close it out then.

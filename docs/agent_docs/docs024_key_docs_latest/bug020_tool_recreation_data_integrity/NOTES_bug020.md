@@ -221,3 +221,40 @@ to fully evidence before the image roll. **No APPROVED was obtained, so NO
 on: verified field paths, a 12-test precision+fail-safe contract, needle-gated wiring,
 and a design the approving seats (compliance, constitution, mission, prior_art,
 render_guardian) endorsed. The owner reviews before rolling the image.
+
+### 2026-07-22 — gate WIRED & LIVE on v1.0.1146; fail-safe gap found; owner: finish next roll
+
+The image rolled. Verified BEFORE touching anything (never trust the tag):
+- Pod `agent-chassis-687cdf6db5-fq2fd`, **v1.0.1146**, started 2026-07-21T18:50:01Z.
+- `strings /app/agent-chassis | grep -c`: `check_tool_fabrication`=**4**,
+  `corroborated_corpus`=**1** (Tier B live), positive control
+  `check_tool_completeness`=2, negative control=0. Detector IS live.
+- **BUT `uninspectable`=0** — the fail-SAFE commit `37d3bb119` (18:27:40Z) is NOT in
+  this image; it was built ~20 min before that commit. **The pod runs the fail-OPEN
+  detector.** Edge-case only (empty output isn't fabrication — real fabricated content
+  is non-empty and still inspected), so the core bug-020 hole is closed; the hardened
+  version needs the next roll.
+- The gate was NOT wired (`check_completeness.next_step` was still `save_training_data`;
+  no `check_fabrication` step) — dormant machinery, exactly what prior_art warned of.
+
+WIRED via **migration 189** (`sql_for_agents/189_wire_tool_fabrication_gate.sql`,
+needle-gated: pre-count + idempotency guard + RETURNING; applied out of band,
+ledger-recorded). Routing independently re-queried (not the migration's own DO block):
+`check_completeness → check_fabrication → route_fabrication`; conditional
+`fabrication_check.fabricated == true → request_fabrication_review → complete` (NEVER
+save_sections/deploy_page), else → `save_training_data → validate_tool → … →
+deploy_page`. **The WIRING_..._APPLY_AFTER_IMAGE.sql staged file is now SUPERSEDED by
+189** (re-applying it would safely abort on the idempotency guard).
+
+Did NOT run a bespoke induced-fault today: the routing PRIMITIVES are already
+production-proven in this same workflow (`check_page_found` uses the same `conditional`
++ dotted-path `page_record.found == true` shape every run) and the detection is
+unit-proven, so the residual runtime risk is low — and doing a scratch reproduction on
+the fail-OPEN version now and AGAIN on the fail-safe version after the roll is wasteful.
+
+**Owner decision (2026-07-22): keep 020 OPEN, finish on the next image roll.** Core
+protection is live now, so no urgency. TO CLOSE (next roll): (1) pod-grep confirms
+`uninspectable` >= 1 (fail-safe landed); (2) ONE induced-fault test — recreate a
+data-backed tool, confirm a `needs_human_review` item is raised and the page is NOT
+deployed with generator symbols (grep the rendered page, not `complete`); (3) move 020
+to bugs_closed.

@@ -73,21 +73,38 @@ go build ./platform/orchestration/actions/
 go test  ./platform/orchestration/actions/ -run 'TestDetect_|TestDataSourceIsExternal' -v
 ```
 
-## Ship Half B (the gate) — ONLY when an image carrying the action is live
+## Ship Half B (the gate)
+
+**DONE 2026-07-22: the gate is WIRED & LIVE on v1.0.1146 via migration 189.** The
+detector action was pod-verified first; wiring applied + ledger-recorded. Routing:
+`check_completeness → check_fabrication → route_fabrication` (fabricated → review →
+complete, else → save_training_data). `WIRING_..._APPLY_AFTER_IMAGE.sql` is SUPERSEDED
+by `sql_for_agents/189_wire_tool_fabrication_gate.sql`.
+
+### What REMAINS to CLOSE 020 (do on the next image roll):
 
 ```bash
-# 1. Roll a chassis image (owner's call). Then confirm the action is in the POD:
 POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
-kubectl -n ai-persona-system exec $POD -- sh -c 'strings /app/agent-chassis | grep -c check_tool_fabrication'  # >= 1
 
-# 2. Renumber WIRING_check_tool_fabrication_APPLY_AFTER_IMAGE.sql into sql_for_agents/1NN_...,
-#    apply out of band, record-only. (It is kept OUT of sql_for_agents/ until now on purpose.)
+# 1. Confirm the FAIL-SAFE hardening (commit 37d3bb119) is now in the image —
+#    v1.0.1146 was built BEFORE it, so it runs the fail-OPEN detector:
+kubectl -n ai-persona-system exec $POD -- sh -c 'strings /app/agent-chassis | grep -c uninspectable'  # must be >= 1
 
-# 3. Verify the gate holds a fabrication (do NOT trust `complete`):
-#    recreate a data-backed tool; confirm a needs_human_review item was raised and
-#    the page was NOT deployed with generator symbols:
+# 2. INDUCE THE FAULT (do NOT trust `complete`): drive a real fabrication through the
+#    wired path and confirm it is HELD, not deployed. Recreate a data-backed tool, then:
+#    - a needs_human_review item was raised (checkpoint_for_review), page NOT deployed:
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+  "SELECT status, summary FROM site_work_items WHERE item_type='needs_human_review' AND summary ILIKE '%INVENT data%' ORDER BY created_at DESC LIMIT 5;"
+#    - the rendered page carries NO generator symbols:
 curl -s "https://<site>/<tool-page>?cb=$RANDOM" | grep -ciE 'Mulberry32|makePostcode|buildData|SUFFIXES'  # must be 0
+
+# 3. Move 020 to bugs_closed.
 ```
+> If a natural data-backed recreation won't fabricate (the prompt fix makes it
+> unlikely), induce it with a SCRATCH agent (fixloop-036 pattern): clone
+> tool-recreation-handler, replace recreate_tool with a stub emitting the known
+> vetcomparison fabrication HTML, run it against a data-backed page, confirm the item
+> lands at needs_human_review and never reaches save_sections/deploy_page.
 
 ## Council gate
 

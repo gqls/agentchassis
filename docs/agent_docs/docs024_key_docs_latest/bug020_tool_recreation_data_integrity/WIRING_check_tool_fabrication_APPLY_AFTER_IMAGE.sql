@@ -1,3 +1,9 @@
+-- >>> SUPERSEDED 2026-07-22 — DO NOT APPLY. This content was promoted to the
+-- >>> numbered migration `sql_for_agents/189_wire_tool_fabrication_gate.sql` and
+-- >>> APPLIED once the action was pod-verified live in v1.0.1146. Re-applying this
+-- >>> file would safely ABORT on the needle-gate idempotency guard (already wired),
+-- >>> but use 189 as the record. Kept for history only.
+--
 -- WIRING_check_tool_fabrication_APPLY_AFTER_IMAGE.sql — the workflow half of the
 -- /bugs_open/020 mechanical gate. STAGED, NOT APPLIED, and DELIBERATELY NOT a
 -- numbered migration in sql_for_agents/.
