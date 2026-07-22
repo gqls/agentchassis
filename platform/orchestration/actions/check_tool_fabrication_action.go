@@ -224,24 +224,18 @@ func CheckToolFabricationAction(ctx context.Context, params ActionParams) (inter
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
 
-	inputs, err := datahelpers.ExtractActionInputs(
-		params.CollectedData, params.StepConfig.Config, CheckToolFabricationInputSpec, logger)
-	if err != nil {
-		return nil, err
-	}
-
-	htmlField := inputs.Get("html_field")
-	if htmlField == "" {
-		htmlField = "completeness_check.clean_html"
-	}
-	originalField := inputs.Get("original_html_field")
-	if originalField == "" {
-		originalField = "existing_content.existing_content.raw_html"
-	}
-	analysisField := inputs.Get("analysis_field")
-	if analysisField == "" {
-		analysisField = "tool_analysis.result"
-	}
+	// Read the field PATHS directly from config (literal dot-paths), then resolve
+	// each ONCE. We deliberately do NOT use datahelpers.ExtractActionInputs here:
+	// its Strategy 0 resolves any dotted config VALUE against collected_data, which
+	// turns html_field="completeness_check.clean_html" into the HTML *content* — and
+	// then extracting again with that content as a path yields "" (a silent no-op on
+	// the fail-open detector, or a fail-safe over-HOLD of every recreation on this
+	// one). check_tool_completeness reads config directly for exactly this reason.
+	// Caught live by the bug-020 induced-fault probe, 2026-07-22 (WRONG_CALLS).
+	config := params.StepConfig.Config
+	htmlField := configStringOr(config, "html_field", "completeness_check.clean_html")
+	originalField := configStringOr(config, "original_html_field", "existing_content.existing_content.raw_html")
+	analysisField := configStringOr(config, "analysis_field", "tool_analysis.result")
 
 	recreation := datahelpers.ExtractNestedFieldString(params.CollectedData, htmlField)
 	if recreation == "" {
@@ -306,6 +300,17 @@ func dataSourceIsExternal(ds interface{}) bool {
 		return true
 	}
 	return false
+}
+
+// configStringOr reads a literal string from step config, or returns def. Used
+// for dot-path fields that must NOT be pre-resolved by ExtractActionInputs.
+func configStringOr(config map[string]interface{}, key, def string) string {
+	if config != nil {
+		if v, ok := config[key].(string); ok && v != "" {
+			return v
+		}
+	}
+	return def
 }
 
 func dedupe(in []string) []string {

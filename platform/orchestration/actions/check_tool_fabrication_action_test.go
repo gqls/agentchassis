@@ -7,7 +7,48 @@
 
 package actions
 
-import "testing"
+import (
+	"context"
+	"testing"
+
+	"github.com/gqls/agentchassis/pkg/models"
+	orchtypes "github.com/gqls/agentchassis/platform/orchestration/types"
+	"go.uber.org/zap"
+)
+
+// Regression for the 2026-07-22 induced-fault find: the action must read the
+// html_field config as a LITERAL path and resolve it ONCE. If it double-resolves
+// (via ExtractActionInputs Strategy 0, which resolves dotted config values against
+// collected_data), the path becomes the HTML *content*, the detector sees empty
+// input, and returns "uninspectable" — silently no-op'ing on the fail-open detector
+// or over-HOLDING every recreation on the fail-safe one. Caught live by the probe;
+// this test fails against that bug and passes against the config-read fix.
+func TestCheckToolFabricationAction_ReadsDottedConfigPath(t *testing.T) {
+	collected := map[string]interface{}{
+		"completeness_check": map[string]interface{}{"clean_html": vetcompFabrication},
+	}
+	params := ActionParams{
+		Context:          context.Background(),
+		Logger:           zap.NewNop(),
+		ExecutionContext: &orchtypes.ExecutionContext{Action: "process"},
+		CollectedData:    collected,
+		StepConfig:       models.Step{Config: map[string]interface{}{"html_field": "completeness_check.clean_html"}},
+	}
+	out, err := CheckToolFabricationAction(context.Background(), params)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	m, ok := out.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map result, got %T", out)
+	}
+	if m["fabricated"] != true {
+		t.Fatalf("expected fabricated=true reading the dotted config path, got %v (tier=%v)", m["fabricated"], m["tier"])
+	}
+	if m["tier"] != "declaration" {
+		t.Fatalf("expected tier=declaration (real detection ran), got %v — the action likely double-resolved html_field into content and saw empty input", m["tier"])
+	}
+}
 
 // The actual fabrication that shipped to vetcomparison.uk (condensed but with
 // every real tell: the confessing comment, Mulberry32, the fragment arrays,
