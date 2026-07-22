@@ -112,6 +112,34 @@ generic and the other five exposed.
 > only on APPROVED). **To close:** verify live after roll — an empty `product-grid`/
 > `directory-listing` etc. is dropped (not blank) and re-appears on the next render once
 > data exists; the 5 list components still render the empty-state.
+>
+> **COUNCIL ROUND 1 = REVISE** (bug_historian drove it; 4 approve / 4 object). Objections
+> and how R2 addressed each — all verified against the live code/DB, not re-asserted:
+> - **bug_historian #1 (the empty-slice convention is generic across callers):** code-check
+>   `grep queryresolve.Resolve` → exactly **2 consumers**; the other
+>   (`reconcile_section_data_action.go:171`) already guards with `!hasItems(val)` (a length
+>   check), so **no other `value!=nil` trap site exists**. Not left generically exploitable.
+> - **bug_historian #2 (silent permanent disappearance of a never-populated listing):** added
+>   a **Warn log** at the below-contract branch so a dropped required listing is
+>   operator-visible. A fuller staleness/HITL tripwire is flagged as an **owner fast-follow**.
+> - **reuse / prior_art:** consolidated the duplicate `hasItems` type-switch onto the shared
+>   `queryResultLen` primitive; code-checks confirm **no** pre-existing on_missing handler or
+>   min_items/length comparator existed to reuse.
+> - **guardian (layer choice):** stated explicitly — the fix must live in `planSection` because
+>   the field's `required`/`min_items`/`on_missing` metadata is only in scope there;
+>   `queryresolve.Resolve` gets only `(name, siteID, limit)` and there is no post-resolve
+>   validation stage. Caller-safety: `shouldSkip`/`shouldDefer`/`missingFields` are locals.
+> - **debug_historian:** added a **pod-grep verification step** (post-roll,
+>   `strings /app/agent-chassis | grep -c queryListBelowContract`) to the plan.
+> - JSON-type check: `required` is a JSON boolean and `min_items` a JSON number, so the Go
+>   `.(bool)`/`.(float64)` reads genuinely fire (a top-level `input_schema->>'required'` is
+>   NULL by design — the contract is per-field; that is what the R1 reviewer's query hit).
+>
+> R2 revisions committed `6e9f06ecf`; **resubmitted on the same corr** (R2 run `2904a344`,
+> verdict pending). **Two owner fast-follows the council raised** (neither blocks this fix):
+> (1) a standing lint that future `queryresolve.Resolve` consumers length-check, not
+> `value!=nil`; (2) whether a required `skip_section` listing whose data never arrives needs
+> a staleness/HITL tripwire beyond the new Warn log.
 
 ## What
 
