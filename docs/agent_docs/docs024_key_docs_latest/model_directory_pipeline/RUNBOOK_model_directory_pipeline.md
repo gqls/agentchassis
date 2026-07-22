@@ -16,12 +16,25 @@ kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user 
 ## Checking migration numbering before filing a new one
 
 Another session may have claimed the next number since this doc was last
-updated — always re-check, don't trust a cached number:
+updated — always re-check IMMEDIATELY BEFORE APPLYING, not just when drafting
+the file (a collision was caught this way on 2026-07-22: `191` was taken
+concurrently by an unrelated session between draft and apply — ours is `192`):
 
 ```
 ls docs/agent_docs/sql_for_agents/ | grep -oE '^[0-9]+' | sort -n | tail -5
+git status --short docs/agent_docs/sql_for_agents/   # catches untracked concurrent files too
 git log --oneline -5 -- docs/agent_docs/sql_for_agents/
 ```
+
+## Applying a migration
+
+```
+./scripts/migration/run-migrations.sh            # dry run, lists pending
+./scripts/migration/run-migrations.sh --apply    # applies + records, in order
+```
+This applies ALL pending files >= baseline in order, not just yours — check
+the dry-run output first to see whether anything else is pending that isn't
+yours (another session's filed-but-unapplied migration).
 
 ## Verifying the site_specs opt-in write took
 

@@ -54,3 +54,25 @@ permanence.
 Migration numbering at kickoff: latest filed is `190_enable_contact_form_undeliverable_check.sql`;
 claiming `191` for the schema (Phase A). No other session's docs mention
 `directory_entities`/`directory_claims`/`model_directory` as of this check.
+
+**Collision on apply:** by the time the migration file was written, another
+session had concurrently filed `191_diagnose_agent_resources.sql` (unrelated —
+diagnose-agent pod resource requests, bugs_open/043) as an untracked file.
+Re-checked numbering immediately before applying (per CLAUDE.md: a session-start
+snapshot goes stale within minutes) and caught it before running the migration.
+Renamed mine to `192_model_directory_schema.sql`. Lesson confirmed in practice,
+not just in principle: re-run the numbering check right before you apply, not
+just when you first draft the file.
+
+**Applied 2026-07-22.** Ran `192_model_directory_schema.sql` directly via
+`psql -f` (not `run-migrations.sh --apply`), specifically to avoid sweeping in
+the other session's `191_diagnose_agent_resources.sql` (unrelated, in-flight)
+along with three already-applied-by-hand-but-unrecorded files (186/188/190) —
+none of that is my task, so I recorded only my own file in `schema_migrations`
+by hand, checksum-matched, `applied_by='manual-single-file'` with a note
+explaining why. `\d` confirmed both tables + indexes match the design exactly.
+Failing-branch test (in a rolled-back transaction, no data left behind):
+inserted one `directory_claims` row, then attempted a second `is_current`
+row for the same `(entity_id, field)` — correctly rejected with
+`duplicate key value violates unique constraint "idx_directory_claims_current"`.
+Phase A complete and verified.
