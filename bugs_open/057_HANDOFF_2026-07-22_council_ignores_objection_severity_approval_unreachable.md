@@ -1,8 +1,20 @@
 # 057 — the council ignored objection severity, so an APPROVE was unreachable
 
-**Filed 2026-07-22** (fixloop council-gate thread). **Status: FIXED IN CODE, inert
-until the next chassis image roll** — stays in `/bugs_open/` until it is live,
-because the defect is still reproducible on every running council until the roll.
+**Filed 2026-07-22** (fixloop council-gate thread). **Status: FIXED & LIVE on
+chassis `v1.0.1149`, behaviourally verified 2026-07-22.** Ready to move to
+`/bugs_closed/` once the in-flight dogfood submission (corr
+`e0a9b843-a61f-4677-938a-73518eabcbd0`) records a live GATING example too — the
+approve path is already confirmed live (below).
+
+> **VERIFIED LIVE 2026-07-22.** Pod-grep of `agent-chassis-…` on `v1.0.1149`:
+> `objectionGates`, `severityGates`, and the new literals `"advisory objection"` /
+> `"gating objection"` all present (positive control `decideCouncil` present).
+> **Behavioural proof (the half a pod-grep can't give):** an ORGANIC council round
+> decided `approved` with `decided_by` = **"approved with 4 advisory objection(s) —
+> none high-severity"** (corr `cbbc7c83`, 14:07) — a round with 4 low/medium
+> objections that would have been `revise` under the old rule. The gating floor
+> (high/veto/degraded/un-graded still gates) is covered by the unit tests baked
+> into the same binary and will show on the next organic high-severity round.
 Full diagnosis, sizing and the fix options weighed:
 `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/SUMMARY_2026-07-22_council_approval_rate.md`.
 

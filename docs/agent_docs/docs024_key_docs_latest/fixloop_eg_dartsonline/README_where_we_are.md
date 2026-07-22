@@ -213,3 +213,36 @@ down exactly how to check it. There's also an optional step: I can put this very
 change through the council for review, which would be a fitting test — though under
 the *old* rule still in force, it will probably come back "revise", which is the
 problem proving itself one last time. Your call on whether that's worth the credits.
+
+---
+
+**2026-07-22 (later) — the new build is live, and the fix is working in the real
+world.**
+
+Two good pieces of news. First, one more thing landed before the build: you asked
+for the guidelines reviewer to be part of the council for this change, and it now
+is — I widened the rule that decides which reviewers wake up so that changes to the
+council's *own* decision code (like this one) always draw the guidelines seat. In
+doing that I tripped over — and fixed — a real bug in the little tool that keeps our
+two councils identical: it was quietly failing to copy exactly this kind of change
+from one council to the other, while reporting that everything was in sync. So that
+class of silent drift is closed now too.
+
+Second, and the headline: the new chassis build carries the fix, and I've confirmed
+it's genuinely live — not by trusting the version number, but by reading the running
+program and, better, by catching it in the act. Within the hour a real council
+review came back **approved** for the first time in a way that matters — its own
+record reads "approved with 4 advisory objections, none high-severity." That is
+exactly the new behaviour: a change that four reviewers had minor notes on, but no
+serious objection to, now passes instead of being sent back. Under yesterday's rule
+that same review would have been a "revise". So the thing we diagnosed is fixed, and
+I've watched it work on someone else's change, not a test of mine.
+
+I've now also done the optional dogfood you and I discussed: I've put the fix itself
+through the council, and this time under the *new* rule, with the guidelines seat in
+the room. If the reviewers only have minor notes, it should become the first change
+approved through the gate — which would also be the first commit that can honestly
+carry the "reviewed by council" stamp. If any of them raises something serious, it
+gets sent back, and that's the safety floor doing its job. Either way I'll have
+watched both halves of the new rule work on a real submission. The verdict takes
+about half an hour; I'll report which way it went.
