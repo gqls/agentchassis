@@ -1276,6 +1276,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic capability inventory (no LLM, bugs_open/044): active agents whose workflow has never been observed running (step-fingerprint method; owner_agent_type deliberately unused), age-floored, mirrored-agent blind spot never flagged; emits INERT dormant_agent items for human triage, closes them when the agent runs; one doc_note per sweep",
 		IsLocal:     true,
 	},
+	"reconcile_superseded_reviews": {
+		Handler:     ReconcileSupersededReviewsAction,
+		Category:    "diagnose",
+		Description: "Deterministic review-bypass reconciler (no LLM, bugs_open/056 regeneration): scans for pages deployed AFTER a sibling work item parked them at needs_human_review, checks previously-flagged blocker values against the deployed content (dropped vs still-present), writes REVIEW_SUPERSEDED_BY_PASSING_SAVE to agent_error_log and annotates the parked item's result; never blocks, closes nothing, idempotent per pair",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
