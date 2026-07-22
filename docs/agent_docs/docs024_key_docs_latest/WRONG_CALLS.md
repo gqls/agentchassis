@@ -1872,3 +1872,22 @@ change *can* reach the failing assertion (here it can't: the failing item types 
 never touched), or overlay your file onto `git show HEAD:<path>`. Cost: none (the pop failed),
 but a hair from importing another thread's uncommitted work under my branch. `git stash` is
 process-global; the multi-session CLAUDE.md rules about pathspec commits apply to it doubly.
+
+---
+
+**2026-07-22 — "round 4 is wording, not new evidence" (idea.uk chrome council, corr 7152c7cf).**
+The RESUME handoff, written between round 3's submission and its verdict, asserted that if round 3
+came back REVISE "the objections are wording now, not evidence — the submission JSON has every
+measurement already attached, so a 4th round is wording." Round 3 DID come back REVISE, and the
+prediction was wrong on all three live objections: (1) the missing-field detector used a
+control-flow-blind **regex** that false-flags `{{.x}}` nested in `{{range}}`/`{{if}}` — up to ~30
+active components would log false Errors; (2) `bug_historian` asked whether a **sibling** silent-drop
+path existed, and one did (`RenderTemplateWithMap`), un-audited; (3) `RenderTemplate`'s caller set was
+asserted small, but is 8 sites across 5 pipelines. None was wording; two needed a real code redesign
+(regex → `text/template/parse` walk) and the third a genuine grep. **What caught it:** running the
+objections' own read-only checks against the code BEFORE assuming they were wording —
+`git grep RenderTemplate` (caller set), `git grep "no value"/missingkey` (sibling audit), and reading
+`missingBareFields` to see the regex really was blind. **The cheap check that would have:** the same
+three greps, ~2 minutes, done before writing "it's just wording" into a handoff. This is the exact
+failure the debugging-guide's diagnosis section names — *confidence is not a signal; the wrong claim
+felt obvious.* A handoff prediction stated in the same confident voice as a finding IS the error.
