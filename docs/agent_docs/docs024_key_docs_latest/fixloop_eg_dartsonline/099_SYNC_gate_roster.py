@@ -36,6 +36,7 @@ USAGE (read-only by default — always dry-run first):
 Safety: --apply runs snapshot_agent('council-gate', ...) first, so the prior row
 is restorable from agent_definitions_backup, and the UPDATE is parameterised.
 """
+import copy
 import json
 import subprocess
 import sys
@@ -104,7 +105,16 @@ def main():
     after = sorted(k for k in mirrored if k.startswith("review_"))
     added, removed = sorted(set(after) - set(before)), sorted(set(before) - set(after))
 
-    new_steps = {k: v for k, v in gate_steps.items()
+    # DEEP-COPY the carried-over gate steps. A shallow copy aliases the gate's
+    # step objects, so mutating a shared step below (select_panel.footprints,
+    # council_decide.review_fields, run_checks.check_fields) would ALSO mutate
+    # gate_steps — defeating the deep drift compare, which then sees both sides
+    # change together and reports "no drift". That silently skipped a
+    # footprint-only sync (guidelines gaining council_decide/select_review_panel,
+    # 2026-07-22): the docstring says it mirrors the footprints map, and without
+    # this copy it could not. transform_step already returns fresh objects for the
+    # review_/gate_ steps, so only these carried-over ones need copying.
+    new_steps = {k: copy.deepcopy(v) for k, v in gate_steps.items()
                  if not (k.startswith("review_") or k.startswith("gate_"))}
     for name, step in mirrored.items():
         new_steps[name] = transform_step(name, step)

@@ -451,3 +451,42 @@ returned to the proposer, non-gating. Preserves the objections' value (still
 surfaced) while making approval reachable, which unblocks trailer-coverage and
 PR-mode. Affects ALL councils; should itself go through the gate once. Taking the
 decision to the owner (threshold shape) before writing anything.
+
+## Turn 9 — 2026-07-22 — widened the guidelines footprint to cover council logic; found + fixed a 099 aliasing bug that silently blocked footprint syncs
+
+Owner: "I'd like guidelines to be in the council" (for the severity-gate change).
+The `guidelines` seat is relevance-gated (`gate_guidelines` → `panel.run_guidelines
+== true`); its footprint targeted contracts/schemas/agent-defs and did NOT match
+council *code* like `diagnose_council_decide_action.go`, so it would not fire.
+Owner chose (AskUserQuestion): **widen the footprint to cover council logic** (over
+one-off / always-on).
+
+**Matching surface (read `select_review_panel_action.go` first):** a seat fires if
+any footprint token is a case-insensitive substring of any edited FILE PATH **or**
+of the plan/rationale text corpus (`plan_persisted.plan_json` + extra_text_fields).
+Plain substrings, not regex.
+
+**Change (config, live immediately, source-of-truth = fix-proposer):** snapshotted
+fix-proposer (`f9d90a2d`), appended `council_decide` + `select_review_panel` to
+`select_panel.config.footprints.guidelines` via `jsonb_set ... || '[...]'`. Then
+mirrored to the gate with `099_SYNC_gate_roster.py --apply` (NOT a hand-patch of
+the gate — the standing rule). Verified: both councils identical, and
+`council_decide` is a substring of `diagnose_council_decide_action.go`, so
+guidelines will now fire for the dogfood submission and every future
+council-logic change.
+
+**BUG FOUND & FIXED in 099 (the reason the first --apply would have written
+nothing).** The first dry-run reported `drift (none)` AFTER I changed
+fix-proposer's footprint — wrong. Cause: `new_steps` was a SHALLOW copy of the
+gate's carried-over step objects (line 107), so line 126
+`new_steps["select_panel"]["config"]["footprints"] = fp_panel["footprints"]`
+**mutated the gate object too** (aliasing). The deep drift compare (`norm(new) !=
+norm(gate)`) then saw both sides change together → no drift → `changed=False` →
+`if not changed: return` skips the write. Its own docstring claims it mirrors the
+footprints map; the aliasing meant it silently could not (same latent class for
+`council_decide.review_fields` and `run_checks.check_fields` if they were the ONLY
+change). **Fix:** `copy.deepcopy` the carried-over steps. Dry-run then correctly
+reported `drift: ['select_panel']`; --apply wrote; a final dry-run reports in-sync.
+`[LESSON]` a mirror that mutates one side of its own before/after comparison can
+report "in sync" while being out of sync — verify a sync by reading the TARGET
+row, not by trusting the tool's drift line.
