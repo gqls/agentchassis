@@ -27,13 +27,32 @@
 >   businesses, 13 aggregate rows. The 48h-interval task (`interval_seconds=172800`) is not
 >   due again until ~2026-07-23; `last_triggered_at`/`last_completed_at` = the 07-21 run.
 >
-> The **residual** below (disabled `med-*` siblings + the `037` seed's trap) is unchanged
-> and remains OUT OF SCOPE for this case — those rows are disabled and currently harmless
-> (`med-export-json`'s buried domain is empty; `med-discover-urls`/`diagnose-pipeline-trigger`
-> carry empty payloads). There is no active `vet_med_export` workstream directory; the `037`
-> seed was last touched by an old commit. **Left as a recommendation for that concern to
-> apply the identical unwrap** — not fixed here, to avoid a unilateral reach into another
-> concern's (dormant) seed and disabled live rows.
+> **RESIDUAL med-\* envelope — DEFENSIVE FIX APPLIED 2026-07-22** (owner authorised;
+> "med-discover and med-export will be active"). The double-wrap is now unwrapped in both
+> the seeds and the live disabled rows, so a re-seed or an enable can't reintroduce the
+> 054 trap:
+> - **Seeds** (committed `5deea39ea`): `037` → `med-export-json` payload
+>   `{"domain":"vetcomparison.co.uk"}`; `096` → `med-discover-urls` `{}`,
+>   `med-scrape-prices` `{"batch_size":20}` — each with a PAYLOAD-ONLY contract comment.
+> - **Live rows** (DB, disabled): `med-discover-urls` → `{}`, `med-export-json` →
+>   `{"domain":""}`. Idempotent unwrap (`input_data->'input_data'`), guarded on the trap
+>   signature.
+>
+> **The envelope is fixed; three CONTENT/INFRA gaps remain the owner's call before
+> enabling — NOT invented here:**
+> 1. **`med-export-json` domain is empty**, and seed `037`'s documented target
+>    `vetcomparison.co.uk` is **not a live site** (only `vetcomparison.uk` exists,
+>    `status=deployed`). `MedExportJSONAction` fail-closes on an empty domain by design
+>    (`vet_med_export_action.go:55,151` — "no default domain"). Set a real domain first.
+> 2. **No med price data source exists live** — zero tables matching `%med%` in
+>    `clients_db`; the exporter's `loadMedPricesForExport` has nothing to read.
+> 3. **`med-scrape-prices` is not a live task** — seed `096`'s UPDATE for it was a no-op
+>    (row never created), so nothing populates prices. Only `med-export-json` and
+>    `med-discover-urls` exist.
+>
+> `diagnose-pipeline-trigger` (enabled, empty payload) and `ai-endpoint-health-check`
+> (`{"action":"check_endpoint_health"}`, no nested `input_data`) still carry envelope-shaped
+> `input_data` but are NOT the 054 nested-payload trap and are owned elsewhere — left alone.
 
 This is the **sibling case of `bugs_closed/042`** (correlation `55dc0fa4-116c-40d6-90b2-bfad9ad73692`),
 opened as its own case per 042's own instruction ("if it needs a home, open a new case rather than
