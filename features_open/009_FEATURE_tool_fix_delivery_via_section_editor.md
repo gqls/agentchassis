@@ -1,10 +1,16 @@
 # FEATURE 009 — automate tool-fix delivery via the section-editor (the remaining work from bug 024)
 
 **Filed:** 2026-07-21 · travelling-docs workstream · site `e33263f4-74f8-494f-b191-546845dbbddf` (gamesdesign.co.uk benchmark)
-**Status:** OPEN — **Option A APPROVED by the owner 2026-07-21** (see "Owner
-decision + session log, 2026-07-21 (tooldoctraveller session)" at the bottom).
-Implementation (tool-improver config rewire + council gate) is the remaining work;
-coordinate with the primary 024 thread before shipping so it is not double-built.
+**Status:** **IMPLEMENTED 2026-07-22 — migration 195 APPLIED & PROVEN end-to-end**
+(tooldoctraveller session; owner-approved 2026-07-21). tool-improver's delivery
+step now emits a `section_edit` work item routed to the `section-editor` agent; the
+build-dispatch-loop routes it and section-editor delivers via `apply_section_edit`.
+Proven: a `section_edit` item shaped exactly as tool-improver now emits was
+dispatched → section-editor → git-committed the benchmark page (item
+`195b9c03`, section-editor orchestration COMPLETED). **No council gate** — the change
+is config-only (a migration/agent-def edit), which the gate's scope
+(`platform/`,`internal/`,`pkg/`) deliberately excludes (097 refuses it); governed by
+owner approval + the migration's pre-flight/snapshot/post-condition guards.
 Spun out of `bugs_closed/024` when that bug was **closed** (its headline symptom —
 a tool-improver fix never reaching the live page — is now fixed AND live).
 **Why this exists:** so the two days of diagnosis behind 024 is not lost when the
@@ -203,3 +209,54 @@ this file is now resolved: **build Option A.**
   drove the section-editor by hand. Until Option A ships, a fresh `improve_tool`
   cycle would again write the template and enqueue the (undeliverable) generic
   `needs_rerender` — so the loop is not yet autonomously closed for tools.
+
+---
+
+## IMPLEMENTED — migration 195, 2026-07-22 (tooldoctraveller session)
+
+**Shape chosen: (b) emit a `section_edit` work item** (not (c) inline). Reason:
+`content_edit` needs a literal `edit_type`, and `create_work_item`'s `spec_literal`
+(migration 180) carries literals cleanly into the item's spec — so (b) is genuinely
+config-only, whereas (c) would need a literal-injection affordance. The
+build-dispatch-loop routes it generically and delivery is synchronous *within the
+section-editor orchestration* (no LLM, no starved-lane dependency for correctness).
+
+**`195_tool_improver_deliver_via_section_editor.sql`** replaces tool-improver's
+`create_rerender_item` step config (step key/output_field/next_step unchanged, so
+`complete.output_fields`'s `rerender_item` reference stays valid):
+- `handler_agent`: `rerender-pages` → `section-editor`; `item_type`: `needs_rerender`
+  → `section_edit`.
+- `spec_literal`: `{reason:section_data_resolved}` → `{edit_type:content_edit,
+  field_updates:{}}` (a pure re-render from the current template).
+- `spec_paths`: `{component_id}` → `{page_name: tool_data.page_name, slot_name:
+  tool_data.function}` (both verified present/populated in real runs;
+  `create_work_item` hard-errors on an unresolved path).
+- Keeps `item_key_suffix_field: update_result.component_id` (component-scoped dedup)
+  and `recurrence_expected: true`.
+
+**Every link proven this session:**
+1. section-editor delivers a tool fix live (probe 2, corr `c3828d17`).
+2. section-editor resolves `input_data.spec.*` fields via recursive lookup (probe
+   `8dfbb732`, COMPLETED).
+3. build-dispatch-loop routes ANY handler dynamically — `spawn_handler` uses
+   `agent_type_field: current_item.handler_agent`; `load_work_items` has no handler
+   filter; `call_handler` maps `spec ← current_item.spec` → `input_data.spec`.
+4. `tool_data.page_name`/`.function` and `update_result.component_id` all resolve.
+5. **Full route end-to-end:** a `section_edit` item shaped as tool-improver now
+   emits (`195b9c03`) → dispatch-loop claimed it → section-editor orchestration
+   `load_edit_context → apply_edit → git_commit → update_page_status` COMPLETED →
+   `result.git_result.files=["/tools/tool-loot-table-balancer.html"]`. Benchmark
+   still `rendered_html`=10,705 FLEX-FIX, live.
+
+**Not exercised (verified in parts, low risk):** a full LLM tool-improver run
+CREATING the `section_edit` item. Deliberately skipped — a fresh `improve_tool`
+LLM pass could regress the already-good benchmark template, and the emit is plain
+`create_work_item` mechanics on a verified config with resolvable paths. **The
+natural confirmation is the next tool-auditor-driven improve cycle**, which will now
+deliver via section-editor instead of dying at the ownership guard. Rollback:
+snapshot `1f3ebb4a` + `195_..._ROLLBACK` (strip the step back to the 180 shape).
+
+**Caveat — delivery latency:** the section_edit item rides the same cron-spawned
+build-dispatch-loop, which is currently starved (`bugs_open/030`), so autonomous
+delivery may lag until that lane's throughput is fixed. Correctness is unaffected;
+latency is a separate workstream.
