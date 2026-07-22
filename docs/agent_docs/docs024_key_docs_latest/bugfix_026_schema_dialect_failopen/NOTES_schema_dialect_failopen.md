@@ -124,6 +124,35 @@ Round-2 code committed `f27c5ad1d` (7 files; datahelpers + actions tests green; 
 `required_fields_missing`; confirmed my change is not the cause). Resubmitted on the SAME corr
 `cbbc7c83` (RESUBMIT_CORR, trail accumulates), orch `f1457624`.
 
+### 2026-07-22 — council round 2: REVISE again (bug_historian medium), addressed in round 3
+
+Round-2 verdict: **REVISE**. editquality now APPROVED (with a low note); bug_historian held on
+two "verify-don't-assert" points, both fair:
+1. *Gate tripwire gap* (low, both seats): the render gate is reached on a re-render/redeploy
+   WITHOUT a plan_sections pass (`rerender_page_sections_action.go:210` runs on stored
+   content_data), so a reintroduced legacy dialect could hit the gate silently. → **Fixed r3**:
+   new `datahelpers.WarnIfLegacyDialect` fired at BOTH gate call sites (v3 render + rerender).
+   Tripwire now comprehensive across generation + render + rerender + audit — no legacy
+   component is silent on any path to a served page. Kept `missingRequiredLLMFields` 2-arg (the
+   tripwire lives at the call sites) to avoid a signature ripple into 11 test calls incl. the
+   article-body workstream's `json_envelope_test.go`.
+2. *Triage asserted not demonstrated* (medium): I'd *claimed* the 6 left-direct readers were a
+   "lesser class" without reading them. bug_historian named two — and was **right**. I read them:
+   - `check_image_source_unsatisfiable` (`if !ok continue`) skips a legacy component entirely →
+     a required image never checked → silently-absent image. **Rewired + tripwire.**
+   - `DeriveCTAURLFields`/`UncoveredCTAURLFields` return nil on legacy → underived → broken/empty
+     CTA once precedence flips off observe-only. **Rewired.**
+   The 3 truly-left readers (compute_component_quality field-count, store_generated sync flags,
+   load_existing field-name print) are demonstrably metric/metadata/creation-aid — verified by
+   reading them; none emits served content. The principled line: *does the fail-open silently
+   break/hide SERVED content?* (yes → rewire; no → leave, and the tripwire covers visibility).
+
+Round-3 code committed `cbacd450c` (6 files; datahelpers+actions green; discovery_checks RED
+still pre-existing/unrelated). Resubmitted r3 on corr `cbbc7c83`, orch `670e611a`.
+LESSON reinforced: bug_historian's whole method is "you asserted, demonstrate it" — the same
+verify-don't-assert discipline this bug is about. Reading the two named call sites turned an
+assertion into two real rewires. Don't classify a reader's consequence from its name; read it.
+
 **MISSTEP — `git stash` in a shared tree (nearly pulled another session's WIP).** To verify the
 discovery_checks RED was pre-existing I ran `git stash push -- <two paths>` where one path was
 an *untracked* file → the push errored (untracked paths don't match a pathspec stash) and did
