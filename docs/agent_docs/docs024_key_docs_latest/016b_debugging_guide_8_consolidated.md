@@ -2388,6 +2388,51 @@ before catching it with `cat -A`). Verify escape-bearing edits byte-level: `cat 
 `perl -ne 'print if /\x00/'` — and remember bash CANNOT pass a NUL in $'\x00' (it becomes
 the empty string, so that grep matches every line and proves nothing).
 
+### A "liveness" filter keyed on the PAGE-level build_status misses live-serving pages whose flag has drifted (2026-07-22)
+
+**Symptom.** A discovery/verification check that is supposed to scan "what's live" silently skips
+pages that are demonstrably serving 200 on the CDN. The `dead_controls` check (built specifically to
+catch the vonc gauntlet's `href="#"` CTAs, and naming it in its own header as the proof case) NEVER
+flagged it — 0 `dead_control` items for the site despite the dead CTAs sitting in the deployed
+`rendered_html`.
+
+**Root cause class.** The check filtered `p.build_status='deployed'` on the **pages** row. But
+`pages.build_status` is a lifecycle flag that drifts to `needs_rebuild` (after a re-plan, an asset
+land, a partial build) while the page keeps serving its last-deployed artefact — **~34 fleet pages
+serve 200 as `needs_rebuild`** (`bugs_open/049/052/053`). The thing that actually serves is the
+**component**: `page_components.build_status='deployed'` + non-empty `rendered_html`. Keying liveness
+on the page flag is a false-negative on exactly the drifted-but-live population. (Sibling observation
+in `053`/`052`: for CHROME/nav the correct "is it live" predicate is `deployed_at IS NULL`, not
+`build_status='deployed'` — same class: don't infer "serving" from a mutable lifecycle flag when a
+deploy-state column exists.)
+
+**Diagnose.** Compare the flag against reality: `curl` the URL (200?) and read the component row.
+```sql
+SELECT p.build_status AS page_flag, pc.build_status AS component_flag,
+       (pc.rendered_html <> '') AS has_render
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE p.url = '/tools/gauntlet/index.html';   -- page_flag=needs_rebuild, component_flag=deployed
+```
+If `page_flag` says not-deployed but the URL serves and `component_flag=deployed`, any check keyed on
+`page_flag` is blind to this page.
+
+**Fix shape (`01e18019a`, council corr `1834a349`, inert until next chassis image).** Move the
+`='deployed'` predicate from `p.build_status` to `pc.build_status`. Detect-only widening; no
+behavioural change beyond a wider, correct scan. **Verify-green trap:** don't prove it on the page
+that motivated it if you also just FIXED that page's dead control — the proof needs a *different*
+live-`needs_rebuild` page that still carries a dead control, or a re-check taken before the content
+fix landed.
+
+**Adjacent delivery landmines banked the same day (owned tool-page content fix):** (1)
+`apply_section_edit` (the sanctioned owned-page path, `bugs_closed/024`) reassembles+deploys the page
+HTML but does NOT run `collectJSAssets` — a component's `js_content` asset (`/tools/assets/*.js`)
+only republishes via `rerender_single_page` (page-rerender, no reason → else branch). So a template
+whose behaviour lives in the JS asset needs a follow-up assemble-only rerender, or it ships new HTML
+against stale JS. (2) The bare `action=orchestrate` page-rerender envelope (`049b`) can silently fail
+to ingest (kubectl-run stdin race) — no orchestration row, no work item, no log. The reliable route
+is a DIRECT orchestrator envelope (`action=process`, `spawn_agent`+`call_agent`, full inline
+workflow — the `086` pattern). Scripts: `docs024.../gauntlet_dead_cta/scripts/`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
