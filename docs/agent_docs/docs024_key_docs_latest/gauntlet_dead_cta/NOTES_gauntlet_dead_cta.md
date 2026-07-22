@@ -124,3 +124,35 @@ that a check would have saved. Recorded so the next thread doesn't re-walk them.
 5. **Minor: a shell grep broke on an apostrophe** (`grep … "TODAY'S GAUNTLET"` → unexpected
    EOF) mid-verification. Cost one re-run; switched the verification to a Python heredoc.
    LESSON: quote apostrophe-bearing literals in Python/`-F`, not inline double-quoted bash.
+
+## 2026-07-22 (evening) — CORRECTION: the "genuinely works" claim was WRONG; owner overrides no-backend
+
+> **CORRECTED:** My earlier NOTES/summary said the gauntlet was "genuinely functional
+> and honest, live." That was FALSE in the way that matters. I removed the dead
+> `href="#"` and wired the buttons — but to effects that are INVISIBLE in context:
+> "Enter the Gauntlet" starts the (already-startable) timer + scrolls to a panel
+> already on-screen + focuses a checkbox; "Preview Rules" scrolls to a rules card
+> already visible in the sidebar. The objective checkboxes tick a progress bar wired
+> to nothing. Owner (2026-07-22 20:37) confirmed: checkboxes tick but mean nothing,
+> Enter/Preview appear to do nothing. **I fixed the dead-link LETTER and missed the
+> POINT — the tool still does not DO anything.** This is the hollow-placeholder problem
+> I told the council to avoid, one layer in. Logged to WRONG_CALLS.md.
+>
+> Note the JS *did* republish and bind correctly (checkboxes prove the IIFE runs);
+> the failure is design, not delivery — the handlers fire but produce nothing a user
+> can perceive.
+
+**Owner's new direction (overrides the earlier "no backend yet" decision — correctly):**
+build the gauntlet END TO END with a real backend + an **AI competitor ENGINE** that
+plays the opponent. It may honestly label itself an AI competitor while there is no
+human traffic, so it is a real feature, not a fabrication. And: "involve the experience
+loop so we can get it (and other tools) to work end to end."
+
+**Why the experience loop is exactly right here:** it was PROPOSED (2026-07-17) because
+of this very gauntlet ("a decorative mock with href=# CTAs and fabricated
+stats/leaderboard"). Its planner/council half is proven (CP2 CLOSED, run 8 approved an
+EXPERIENCE_PLAN); the **T4 MVP build** phase is the never-fired gap. The owner's
+AI-competitor requirement goes BEYOND run 8's "gauntlet minimal-real" cut, so this is a
+re-plan / feature round + NEW backend infrastructure (a static-hosted page needs a live
+HTTP endpoint its JS can fetch). Research launched (3 lanes: experience-loop build
+machinery, feature-builder implementer, backend/API path for static tools). Plan to follow.

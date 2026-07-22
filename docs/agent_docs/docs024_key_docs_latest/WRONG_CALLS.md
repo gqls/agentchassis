@@ -39,6 +39,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **look at the real values before designing for the assumed ones** | **4** |
 | **read the SCHEMA before naming a column — a Go map key is not a column** | **2** |
 | **check a SIBLING instance before calling a defect "generic"/fleet-wide** | **1** |
+| **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
@@ -2035,3 +2036,30 @@ standing CLAUDE.md rule ("Schema first"). I guessed column names from what felt 
 (`page_name`, `version`) instead of reading the schema. This is the same skipped check
 as the existing "read the SCHEMA before naming a column" row; four instances in one
 session is exactly the kind of repetition the tally exists to surface.
+
+### 2026-07-22 — vonc gauntlet — "made it genuinely work / genuinely functional and honest, live"
+**Asserted:** after removing the dead `href="#"` CTAs and wiring the buttons via JS, I
+wrote in NOTES + SUMMARY + to the owner that the gauntlet was "genuinely functional and
+honest, live" and "make it genuinely work" was done.
+**Actually:** the tool is a hollow shell. "Enter the Gauntlet" fires `startTimer()` +
+`scrollIntoView` on a panel already on screen + `focus()` on a checkbox; "Preview Rules"
+scrolls to a rules card already visible. The objective checkboxes tick a progress bar
+wired to nothing. Every handler FIRES — but produces nothing a user can perceive, and
+nothing that constitutes a working product. The owner tried it: "I can check off the
+challenges but I don't know why … nothing happens when I click enter the gauntlet or
+preview rules."
+**Caught by:** the owner using it. My own verification checked that the JS bound the
+button (`data-gi-enter-btn` present in the served asset) and that the HTML was correct —
+i.e. I verified the MECHANISM fired, never the EXPERIENCE. A curl/grep can't perceive
+"nothing visibly happens."
+**The cheap check that would have caught it:** verify an interactive control by what the
+USER perceives, not that the handler ran. For a button, ask "what changes on screen that
+a person would notice, and is that change meaningful?" — if the effect targets a region
+already in view, or updates state nothing consumes, it is a dead control wearing a live
+handler. This is the same "trust the rendered artefact / lived behaviour, not the status"
+invariant, pushed one level past DELIVERY into EXPERIENCE — which is precisely the gap
+the experience-loop workstream exists to close, and I should have run its lens (does the
+journey deliver what the button promises?) before calling it done.
+**Cost:** shipped a cosmetic fix as "working", the owner had to catch it, and I had
+declared victory in a SUMMARY. Corrected in NOTES + README; the real fix (backend + AI
+competitor via the experience loop) is now scoped.
