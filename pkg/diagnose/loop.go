@@ -155,12 +155,28 @@ type CodeRequest struct {
 	Why   string `json:"why,omitempty"` // what this would settle (for the trail)
 }
 
+// codeRequestKeySep separates kind from query inside a CodeRequestKey. It must
+// survive the collected_data jsonb round-trip: the original NUL ("\x00")
+// delimiter marshalled to the escape sequence backslash-u0000, the ONE Unicode escape Postgres jsonb
+// rejects (22P05), so the route step's first persist after any code request
+// killed the whole run (bugs_open/056). Unit separator (0x1F) is jsonb-safe,
+// and kind is a closed validated set, so neither half can contain it.
+const codeRequestKeySep = "\x1f"
+
 // CodeRequestKey is the identity of a code request for guard/dedup purposes:
 // kind + case-folded query. Shared by the spin guard (loop.go), the route's
 // cumulative re-forwarding, and the action's dedup, so all three agree on what
 // "the same question" means.
 func CodeRequestKey(kind, query string) string {
-	return strings.ToLower(strings.TrimSpace(kind)) + "\x00" + strings.ToLower(strings.TrimSpace(query))
+	return strings.ToLower(strings.TrimSpace(kind)) + codeRequestKeySep + strings.ToLower(strings.TrimSpace(query))
+}
+
+// SplitCodeRequestKey is CodeRequestKey's single inverse. Every reader must
+// come through here: a builder and a reader holding separate copies of the
+// separator break cross-iteration dedup silently when one moves — it reads as
+// "malformed keys" in the route's counter, not as a crash.
+func SplitCodeRequestKey(key string) (kind, query string, ok bool) {
+	return strings.Cut(key, codeRequestKeySep)
 }
 
 // ValidCodeRequestKind reports whether kind is one the code-lookup action can

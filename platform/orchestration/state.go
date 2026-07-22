@@ -2,6 +2,7 @@
 package orchestration
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -742,6 +743,49 @@ func (r *StateRepository) UpdateState(ctx context.Context, state *OrchestrationS
 	return r.UpdateStateWithVersion(ctx, state, state.Version)
 }
 
+// jsonbNulEscape is the ONE Unicode escape Postgres jsonb rejects (22P05).
+// json.Marshal emits it (always lower-case) for any NUL byte in a string or
+// map key, so a single stray NUL anywhere in an orchestration's state made the
+// whole persist fail and silently killed the run — bugs_open/056: every
+// multi-iteration diagnosis reaching the code tier died this way at 'route'.
+var (
+	jsonbNulEscape  = []byte(`\u0000`)
+	jsonbNulReplace = []byte(`\ufffd`) // U+FFFD keeps composite keys distinct where stripping would collapse a delimiter
+)
+
+// sanitiseJSONBNulEscapes replaces every GENUINE \u0000 escape in marshalled
+// JSON with the replacement character's escape, so the value survives a jsonb
+// column. Literal backslash-u0000 TEXT (an escaped backslash followed by
+// "u0000" — e.g. a diagnosis quoting this very escape from a doc) is left
+// untouched: a backslash starts an escape only when preceded by an even number
+// of backslashes. Zero-allocation on the overwhelmingly common no-match path.
+func sanitiseJSONBNulEscapes(b []byte) []byte {
+	if !bytes.Contains(b, jsonbNulEscape) {
+		return b
+	}
+	out := make([]byte, 0, len(b))
+	for i := 0; i < len(b); {
+		j := bytes.Index(b[i:], jsonbNulEscape)
+		if j < 0 {
+			out = append(out, b[i:]...)
+			break
+		}
+		j += i
+		preceding := 0
+		for k := j - 1; k >= 0 && b[k] == '\\'; k-- {
+			preceding++
+		}
+		out = append(out, b[i:j]...)
+		if preceding%2 == 0 {
+			out = append(out, jsonbNulReplace...)
+		} else {
+			out = append(out, jsonbNulEscape...)
+		}
+		i = j + len(jsonbNulEscape)
+	}
+	return out
+}
+
 // UpdateStateWithVersion updates state with version check for optimistic locking
 func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *OrchestrationState, expectedVersion int) error {
 	r.logger.Info("UpdateStateWithVersion in state.go 623")
@@ -755,7 +799,9 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 		Details:   fmt.Sprintf("Status: %s", state.Status),
 	})
 
-	// Serialize complex fields
+	// Serialize complex fields. Every jsonb-bound value then passes through
+	// sanitiseJSONBNulEscapes: one stray NUL anywhere in the state otherwise
+	// fails the whole UPDATE (22P05) and silently kills the run (bugs_open/056).
 	awaitedStepsJSON, _ := json.Marshal(state.AwaitedSteps)
 	collectedDataJSON, _ := json.Marshal(state.CollectedData)
 	workflowPlanJSON, _ := json.Marshal(state.WorkflowPlan)
@@ -764,11 +810,18 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 	awaitedRequestsJSON, _ := json.Marshal(state.AwaitedRequests)
 	processingHistoryJSON, _ := json.Marshal(state.ProcessingHistory)
 	subtreeAgentsJSON, _ := json.Marshal(state.SubtreeAgents)
+	for _, j := range []*[]byte{
+		&awaitedStepsJSON, &collectedDataJSON, &workflowPlanJSON,
+		&executionMetadataJSON, &executionPathJSON, &awaitedRequestsJSON,
+		&processingHistoryJSON, &subtreeAgentsJSON,
+	} {
+		*j = sanitiseJSONBNulEscapes(*j)
+	}
 
 	// Handle nullable fields
 	var finalResultValue, errorValue, currentlyExecutingValue sql.NullString
 	if state.FinalResult != nil {
-		finalResultValue = sql.NullString{String: string(state.FinalResult), Valid: true}
+		finalResultValue = sql.NullString{String: string(sanitiseJSONBNulEscapes(state.FinalResult)), Valid: true}
 	}
 	if state.Error != "" {
 		errorValue = sql.NullString{String: state.Error, Valid: true}
@@ -796,7 +849,7 @@ func (r *StateRepository) UpdateStateWithVersion(ctx context.Context, state *Orc
 		awaitedRequestsJSON,
 		currentlyExecutingValue,
 		collectedDataJSON,
-		state.InitialRequestData,
+		json.RawMessage(sanitiseJSONBNulEscapes(state.InitialRequestData)),
 		finalResultValue,
 		errorValue,
 		workflowPlanJSON,

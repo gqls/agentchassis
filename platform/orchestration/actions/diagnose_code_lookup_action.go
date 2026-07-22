@@ -42,6 +42,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -313,7 +314,7 @@ func dedupCodeChecks(in []codeCheck) []codeCheck {
 	seen := make(map[string]bool, len(in))
 	var out []codeCheck
 	for _, c := range in {
-		key := c.Kind + "\x00" + strings.ToLower(c.Query)
+		key := diagnose.CodeRequestKey(c.Kind, c.Query)
 		if seen[key] {
 			continue
 		}

@@ -371,7 +371,7 @@ func withPriorCodeRequests(current []diagnose.CodeRequest, seen map[string]bool,
 	}
 	sort.Strings(prior)
 	for _, k := range prior {
-		kind, query, ok := strings.Cut(k, "\x00")
+		kind, query, ok := diagnose.SplitCodeRequestKey(k)
 		if !ok || strings.TrimSpace(query) == "" || !diagnose.ValidCodeRequestKind(kind) {
 			// COUNTED, not silently skipped (council-gate eba040a9 round 5,
 			// bug_historian). Every other discard path here reports itself; this
