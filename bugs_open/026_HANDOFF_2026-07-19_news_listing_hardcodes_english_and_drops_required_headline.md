@@ -208,3 +208,50 @@ other dialect does not fail safe — it **fails open**: downstream treats "could
 contract" as "there is no contract." Two such readers over one field (plan + gate) both
 fell open here, so a *required* field was neither requested nor enforced. When a shape flips
 formats, grep every consumer of the old shape before assuming the flip is inert.
+
+---
+
+## Addendum 2026-07-22 (bugfix-026 thread) — fail-open hardening BUILT, council-APPROVED, committed; STAYS OPEN until an image roll
+
+The owner chose to **build** the fail-open hardening (over close-on-diagnosis). Done and
+council-approved; workstream docs in
+`docs/agent_docs/docs024_key_docs_latest/bugfix_026_schema_dialect_failopen/`.
+
+**What shipped (into git; inert until an `agent-chassis` image roll):**
+- One shared dialect-tolerant reader `datahelpers.SchemaContentFields(inputSchema) (fields, ok,
+  fromLegacy)` — projects the legacy `properties`+`required[]` dialect onto the v2 `fields` view.
+  Bare example-value + empty schemas stay `ok=false` (the 7-12 legacy core sections are untouched).
+- **Every reader whose fail-open can silently break/hide SERVED content is rewired** to it:
+  generation (`plan_sections`), the render + rerender required-field gate (`missingRequiredLLMFields`),
+  the post-deploy audit (`check_required_fields_missing`), the image-satisfiability check
+  (`check_image_source_unsatisfiable`), and CTA-URL derivation (`DeriveCTAURLFields` /
+  `UncoveredCTAURLFields`). Readers with a different consequence (a wrong quality metric, a sync
+  flag, a component-creator prompt field-name) are left direct, verified non-content-hiding.
+- **A fail-loud tripwire** (`WarnLegacyDialect` / `WarnIfLegacyDialect`) fires whenever the extinct
+  dialect is actually projected — comprehensively across **generation + render + rerender +
+  post-deploy audit**, so a re-seed/snapshot-restore/component-creator regression that revives the
+  dialect is surfaced loudly rather than silently absorbed.
+
+**Commits (ancestors of HEAD, all pre-verdict — see trailer note):** `fd87c8ebf` (initial
+two-reader fix), `f27c5ad1d` (relocate to datahelpers + audit rewire + tripwire),
+`cbacd450c` (render/rerender gate tripwire + image-check + CTA rewires). Diagnosis + pattern:
+`428c3cc82`.
+
+**Council:** APPROVED, `SUBMISSION_CORR=cbbc7c83-d073-419a-bfc5-6ab26e687d9c`, round 3.
+Trail: r1 REVISE (call-site completeness + fail-loud) → r2 REVISE (verify-don't-assert on the
+image/CTA readers + the render-gate tripwire gap) → **r3 APPROVED** (abstained 5, no objections).
+editquality + reuse_agent approved throughout; bug_historian's objections drove r1/r2 and each
+made the fix materially better.
+> **Trailer note (honesty):** the three code commits predate the verdict — I committed early to
+> protect the work in a fast-moving multi-session tree (HEAD moved repeatedly mid-task), so they
+> carry **no** `Council-Reviewed:` trailer and forward-only prevents adding one. The approval is
+> recorded here and in the workstream NOTES with the corr; expect the 098 coverage report to list
+> these three commits as trailer-less. This is a documented gap, not an unreviewed change.
+
+**STATUS: STILL OPEN.** Per the `/bugs_closed/` bar (fixed AND *live*), 026 stays open because the
+Go fix is inert until the next `agent-chassis` image roll. It is defensive (legacy dialect extinct
+fleet-wide, re-verified 0 of ~174), so it need not force a fleet roll of its own — it rides the
+next coordinated build. **Close criteria:** (1) an image carrying `cbacd450c` is live (pod-verify),
+and (2) a behavioural check — a scratch component in the legacy dialect with an empty required field
+is *refused* at render and trips `WarnLegacyDialect` — passes. Defect A + B-part-1 are already
+fixed live and are closeable independently; the whole case closes when B-part-2 ships.

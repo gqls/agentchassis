@@ -153,6 +153,27 @@ LESSON reinforced: bug_historian's whole method is "you asserted, demonstrate it
 verify-don't-assert discipline this bug is about. Reading the two named call sites turned an
 assertion into two real rewires. Don't classify a reader's consequence from its name; read it.
 
+### 2026-07-22 — council round 3: APPROVED
+
+Round-3 verdict: **APPROVED** (8 min; abstained 5, no objections — `decided_by` empty because
+nothing objected). editquality + reuse_agent approved throughout; bug_historian, which drove the
+two REVISE rounds, no longer objects. The fix is materially better for it: what began as a
+2-reader patch is now a shared reader consumed by all 6 content-affecting readers, with a
+comprehensive fail-loud tripwire across generation + render + rerender + audit.
+
+**Trailer gap (recorded honestly):** the 3 code commits (fd87c8ebf, f27c5ad1d, cbacd450c) were
+committed BEFORE the verdict (protect-the-work in a fast-moving tree), so they carry no
+`Council-Reviewed:` trailer and forward-only prevents adding one. Approval recorded in bug 026 +
+here + memory with corr `cbbc7c83`. 098 will list them trailer-less — a documented gap, not an
+unreviewed change. LESSON for next time: for a change I intend to council-review AND that is
+inert until a roll (so no rush), submit FIRST and commit WITH the trailer on APPROVED — the
+early-commit was over-cautious here since the fix couldn't reach prod without a roll anyway.
+
+**026 STAYS OPEN.** Fix is inert until an `agent-chassis` image roll (the /bugs_closed bar is
+fixed AND live). Defensive (legacy dialect extinct, 0/~174 re-verified), so it rides the next
+coordinated fleet build rather than forcing one. Close = image with cbacd450c live + behavioural
+check (legacy-dialect empty-required component refused at render + trips WarnLegacyDialect).
+
 **MISSTEP — `git stash` in a shared tree (nearly pulled another session's WIP).** To verify the
 discovery_checks RED was pre-existing I ran `git stash push -- <two paths>` where one path was
 an *untracked* file → the push errored (untracked paths don't match a pathspec stash) and did
