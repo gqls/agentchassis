@@ -92,7 +92,12 @@ type Labels struct {
 	// went against it. Dissent is the load-bearing signal: where seats split,
 	// the reasoning had to do work.
 	RoundDecision string `json:"round_decision,omitempty"`
-	Dissent       *bool  `json:"dissent,omitempty"`
+	// RoundDecisionRule names which council decision rule produced RoundDecision:
+	// "any_objection_gates" before the 2026-07-22 severity change, "high_severity_gates"
+	// after. `round_decision` MUST NOT be pooled across the two — a pre-change
+	// "revise" can be a low nit that would be an "approve" under the new rule.
+	RoundDecisionRule string `json:"round_decision_rule,omitempty"`
+	Dissent           *bool  `json:"dissent,omitempty"`
 	// Contested marks a round where seats actually SPLIT (some approved, some
 	// did not). An uncontested round carries far less signal whichever way it
 	// went — everyone agreeing is cheap.
@@ -194,6 +199,36 @@ var blindedMarkers = []string{"fixloop_eg_dartsonline", "RUBRIC_", "NOTES_runnin
 // halves must not be pooled. Graded on the RUN start, never the step timestamp:
 // a run that straddles the fix carries pre-fix config in its later steps.
 var theFixLanded = time.Date(2026, 7, 18, 13, 15, 11, 0, time.UTC)
+
+// councilSeverityGate is the instant the council's decision RULE changed on the
+// live chassis: v1.0.1149, pod-verified 2026-07-22T13:56:14Z (symbol
+// `severityGates` present, 2 hits). Before it, ANY seat objection at ANY severity
+// gated a round to "revise" (commits 9e91999a4 + 872c830a8); after it, only a
+// HIGH-severity objection gates — low/medium are advisory and no longer block. So
+// `round_decision` means two different things across this instant and must NOT be
+// pooled. The per-seat `dissent`/`contested` labels are computed from raw votes,
+// independent of how the round decision was reached, so they are UNAFFECTED.
+//
+// Unlike theFixLanded (a run straddles many steps, so grade on the run start), a
+// council_report's created_at IS its decision time — one action, not a
+// trajectory — so we compare the row itself. The `≤` in the docs: the two commits
+// landed 09:06Z/11:02Z on 2026-07-22 and an earlier roll that day may already
+// have carried them, so the pod start is the LATEST instant it could have gone
+// live; rows before it are conservatively old-rule, rows on/after it confirmed new.
+var councilSeverityGate = time.Date(2026, 7, 22, 13, 56, 14, 0, time.UTC)
+
+// councilRule names which decision rule produced a council round_decision, so a
+// consumer never redoes the boundary arithmetic. Empty on an unparseable stamp.
+func councilRule(ts string) string {
+	t, err := parseTS(ts)
+	if err != nil {
+		return ""
+	}
+	if t.Before(councilSeverityGate) {
+		return "any_objection_gates"
+	}
+	return "high_severity_gates"
+}
 
 func main() {
 	labelsPath := flag.String("labels", "", "path to LABELS_benchmark.json (hand-curated gold grades)")
@@ -433,10 +468,11 @@ func buildCouncil(rows []inRow, labels map[string]Labels) []Record {
 			Decision:      strings.ToUpper(c.SeatVerdict),
 			InputComplete: true,
 			Labels: Labels{
-				RoundDecision:    c.RoundDecision,
-				Dissent:          &dissent,
-				Contested:        contested,
-				ScopeApproveRisk: c.SeatNeverObjects && seatApproved,
+				RoundDecision:     c.RoundDecision,
+				RoundDecisionRule: councilRule(c.CreatedAt),
+				Dissent:           &dissent,
+				Contested:         contested,
+				ScopeApproveRisk:  c.SeatNeverObjects && seatApproved,
 			},
 			Provenance: Provenance{
 				AgentType:    "council",

@@ -289,19 +289,33 @@ $PSQL -c "SELECT jsonb_array_length(default_config->'workflow'->'steps'->'counci
 
 ## 5b. Provenance boundaries — the corpus is NOT homogeneous
 
-Three instants change what a record means. None is visible in the data itself;
-all three must be carried as provenance or a consumer will pool incomparable rows.
+Four instants change what a record means. None is visible in the data itself;
+all must be carried as provenance or a consumer will pool incomparable rows.
 
 | instant | what changed | how to tell |
 |---|---|---|
 | **2026-07-18 13:15:11Z** | `bugs_open/016` render fix. Before it, every `repropose` reasoned against blank objections. | `provenance.pre_fix_corpus` (already emitted). Grade on the **run** start, never the step timestamp. |
 | **2026-07-20 17:58:20Z** | chassis **v1.0.1140**. `bugs_open/032` fixed: a verifier whose target row is absent now records `"cannot verify"` instead of `Resolved: true`. | `site_work_items.result->'_verification'`; compare `updated_at` against the pod start. |
 | **2026-07-20 17:58:20Z** | same build — `ItemVerifier` widened to `VerifyTarget{ItemID,SiteID,PageID,ItemType,Spec}` (`08b35ccc4`). Verifier inputs differ before/after. | same boundary. |
+| **≤2026-07-22 13:56:14Z** | chassis **v1.0.1149**. **Council decision semantics changed**: `9e91999a4` (severity adjudicator) + `872c830a8` (`severityGates`) mean only a **HIGH**-severity objection now gates a round to `revise` — low/medium are ADVISORY and no longer block. Before this, **any** objection at any severity gated. | `provenance.pre_council_severity_gate` on council rows (emitted, `cmd/reasoningset/main.go`). Pod-grep `severityGates` (verified live: 2 hits on v1.0.1149). |
 
-The second matters most for labelling: **before v1.0.1140 a deleted target was
-recorded as a successful fix**, so any outcome label derived from
+**The first still matters most for labelling:** before v1.0.1140 a deleted target
+was recorded as a successful fix, so any outcome label derived from
 `result._verification` on an older row is unsafe as a positive. Treat pre-1140
 verification records as `unknown`, not as `verified`.
+
+**The fourth is council-lane-only, and it is narrower than it looks.** It changes
+what `round_decision` *means* (`revise` no longer implies "a seat objected" — it
+implies "a seat objected at high severity"), so **`round_decision` must not be
+pooled across the boundary**. But the two load-bearing council labels are
+**insulated**: `dissent` and `contested` are computed by the extractor from the
+raw per-seat votes, independent of how the round decision was reached, so they
+carry the same meaning on both sides. The boundary instant is the **pod start**
+(when the new binary began deciding rounds), not the commit time; the two commits
+landed 09:06Z and 11:02Z on 2026-07-22, so the true boundary may be an earlier
+roll that day — hence `≤`. Council rows already exist on the far side (measured
+2026-07-22: rows after 13:56:14Z, newest 14:07:50Z), so the **next** council-lane
+extraction will cross it.
 
 Confirm the boundary against the pod, never the tag:
 

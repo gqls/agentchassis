@@ -316,3 +316,24 @@ Two questions are genuinely yours: whether that 294-item review queue is meant t
 be worked or emptied, and whether generating data at volume is worth the spend.
 
 ---
+
+**2026-07-22 — a new production image quietly changed what a council label means.**
+You told me a fresh chassis went live (v1.0.1149). My extractor runs off to the
+side and reads the database, so it needs nothing rebuilt — but I checked whether
+the new image changes the *meaning* of anything I read, and it does, in one place.
+The review council's rule for when to send a plan back was changed this morning:
+it used to send it back if any reviewer raised any objection at all, and now it
+only does so for a *serious* one — minor nits are noted but no longer block. I
+confirmed that's genuinely running by looking inside the live program, not just
+trusting the version number.
+
+Why it matters to us: I'd earlier written down "the council sends a plan back if
+any seat objects" as a fact, and used it to fix one of our figures. That fact is
+now only true for the old data. So the label "was this plan sent back" means two
+different things either side of 2 o'clock this afternoon, and can't be lumped
+together. The good news is that the two numbers we actually rely on — how often a
+reviewer disagreed with its peers, and whether a round was split — are worked out
+by our own tool from the raw votes, so they're untouched. I've recorded the
+cut-off point in the runbook and taught the extractor to stamp every council row
+with which rule was in force when it was written, so nobody has to remember this
+later. Nothing we've already produced is wrong; it only affects the next batch.

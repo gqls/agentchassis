@@ -547,3 +547,56 @@ carries a reason; zero unflagged blinded rows.
 - [ ] Harvest `feed-triage` (423 calls × many judgements each, already
       structured) — needs a second extract query, no new machinery.
 - [ ] Owner call on 033 (queue or bin) and on whether to generate volume.
+
+---
+
+## 2026-07-22 — new chassis v1.0.1149 adds a 4th provenance boundary (council lane)
+
+Owner flagged a fresh production image. Checked whether it touches this thread's
+**read contract** (the verdict / council_report / score_relevance JSON shapes),
+since the extractor runs outside the cluster and needs nothing rebuilt of its own.
+
+**Finding: the council DECISION RULE changed, live.** Commits `9e91999a4`
+(severity adjudicator) + `872c830a8` (`severityGates`) ship in v1.0.1149. Before
+them, ANY seat objection at any severity gated a round to `revise`; now only a
+**high**-severity objection gates (low/medium are advisory). Pod-verified against
+the running binary (not the tag): `severityGates` = 2 hits, `objectionGates` = 2,
+`council_decide` positive control = 16. Pod `agent-chassis-7d4ff8b54-cm786`
+started **2026-07-22T13:56:14Z**.
+
+**Why it matters here:** this overturns the exact fact my dissent metric was
+*corrected against* — the addendum says "the council returns `revise` if any seat
+objects". That is now false for post-boundary rows, so `round_decision` carries
+two different meanings across the instant and must not be pooled.
+
+**Blast radius, measured not assumed:** the council is running now — 1
+council_report row after 13:56:14Z, 5 after the 11:02Z commit, newest
+14:07:50Z. The **current** corpus (last extracted 07-20) has zero post-boundary
+rows, so nothing already emitted is wrong; the *next* council-lane extraction
+will cross it.
+
+**What I did NOT over-claim:** `dissent` and `contested` are computed by the
+extractor from raw per-seat votes, independent of how the round decision was
+reached — so they are unaffected and I said so rather than flagging the whole
+lane. [VERIFIED by reading buildCouncil: dissent = seat-vs-same-round-majority;
+contested = approve>0 && other>0; neither reads RoundDecision.]
+
+**Recorded structurally, not as a scrollback note:** RUNBOOK §5b boundary table
+extended (now four). Extractor now emits `labels.round_decision_rule` on every
+council row (`any_objection_gates` | `high_severity_gates`, keyed on the row's own
+created_at vs `councilSeverityGate = 2026-07-22T13:56:14Z`) so a consumer never
+redoes the arithmetic. Compiles, vet clean, pattern-check silent.
+
+**Boundary uncertainty, stated honestly:** the two commits landed 09:06Z/11:02Z;
+an earlier roll that day may already have carried them. The pod start is the
+LATEST instant it could have gone live, so the boundary is `≤13:56:14Z` — rows
+before it are conservatively old-rule, rows on/after confirmed new-rule. [The
+prior pod's start time is unrecoverable, so I cannot tighten this further without
+it — marked `≤` rather than guessing.]
+
+Two other 1141→1149 changes noted, NOT boundaries for my read contract: feed
+render window 72h→720h (`d3c2f95db`) shifts the `expired` distribution downstream
+but not the score_relevance shape — reinforces "don't train `expired` as a
+negative"; and `7be33718f` fixed a NEW `.result` blank-render recurrence in the
+CLASSIFIER's mission seat — a different subsystem from the fix-loop council I
+mine, so [ASSUMED out of lane, not verified against a council_report sample].
