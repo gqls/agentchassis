@@ -1905,3 +1905,35 @@ delivered" and should have said "you're looking at the wrong file".
 **The cheap check that would have caught it:** `SELECT url FROM pages WHERE name=…`
 before curling. The page NAME is not the deployed PATH.
 **Cost:** ~5 min and a near-miss bug write-up; no wrong claim reached a handoff.
+
+### 2026-07-22 — bugfix 020 — "field paths verified" (they were; the extractor re-resolved them)
+**Asserted:** to the review council (rounds 3–4) that `check_tool_fabrication`'s
+`collected_data` field paths were "verified against the real workflow shape" —
+`completeness_check.clean_html` is exactly what `validate_tool` reads, etc. That
+much was true. The unstated, unchecked assumption was that the ACTION would *use*
+those config values as literal paths.
+**Actually:** the wrapper read them via `datahelpers.ExtractActionInputs`, whose
+**Strategy 0** resolves any dotted config VALUE against `collected_data` before the
+handler runs. So `html_field="completeness_check.clean_html"` was turned into the
+1412-char HTML *content*, and the handler then extracted *again* with that content
+as a path → `""` → the detector saw empty input → returned `uninspectable`. On the
+fail-OPEN detector (v1.0.1146) this is a silent no-op — the gate inspects nothing
+and deploys everything, including real fabrications. On the fail-SAFE detector
+(v1.0.1149) it over-HOLDS every recreation. I had wired the gate live before finding
+this.
+**Caught by:** the induced-fault probe (a scratch agent running the live gate on a
+stubbed fabrication). It reached the HELD terminal but via `tier:"uninspectable"`,
+not the expected `tier:"declaration"` — so the fabrication content never reached the
+detector. Static verification (graph correct, paths correct, detection unit-proven)
+said "green"; only inducing the fault exposed it. **The fail-safe change (council R4)
+is what made the bug loud enough to catch** — the old fail-open would have looked
+identical to a clean pass.
+**The cheap check that would have caught it:** read how the action *consumes* the
+config field, not just whether the path resolves — `check_tool_completeness` reads
+`config["html_field"]` directly for exactly this reason; I used `ExtractActionInputs`
+and never traced what it does to a dotted value. A one-off `go test` of the WRAPPER
+(not just the pure detector) with a dotted config path would have failed instantly.
+**Cost:** wired a broken gate live (~1h, zero real recreations hit it, unwired on
+discovery); one extra image roll now needed before 020 can close. The lesson is the
+one the debugging guide keeps making: static "verified" ≠ correctness — induce the
+fault for anything whose job is to detect one, and test the layer that actually runs.
