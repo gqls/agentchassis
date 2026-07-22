@@ -84,6 +84,10 @@ func TestObjectionGates(t *testing.T) {
 		{"object, no objections → gates", councilReview{Verdict: "object"}, true},
 		{"object, unset severity → gates", councilReview{Verdict: "object", Objections: []councilObjection{o("")}}, true},
 		{"degraded object, only medium visible → still gates", councilReview{Verdict: "object", Degraded: true, Objections: []councilObjection{o("medium")}}, true},
+		// Raised by the guardian seat on the dogfood council (corr e0a9b843, 2026-07-22):
+		// the Degraded and empty-objections branches are both covered, but not their
+		// conjunction — a review cut off before it wrote ANY objection. Degraded wins.
+		{"degraded object with zero objections → gates", councilReview{Verdict: "object", Degraded: true}, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
