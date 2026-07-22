@@ -62,10 +62,18 @@ func (c *DeadControlsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error
 		JOIN pages p ON p.id = pc.page_id
 		WHERE p.site_id = $1
 		  AND p.status = 'active'
-		  AND p.build_status = 'deployed'
+		  AND pc.build_status = 'deployed'
 		  AND pc.rendered_html IS NOT NULL
 		  AND pc.rendered_html <> ''
 	`, dctx.SiteID)
+	// Liveness is the COMPONENT's deploy state (pc.build_status='deployed' +
+	// rendered_html), NOT the page-level p.build_status. A page routinely serves
+	// its deployed artefact on the CDN while p.build_status has drifted to
+	// 'needs_rebuild' (bugs_open/049/052/053: ~34 fleet pages serve 200 as
+	// needs_rebuild). Filtering on p.build_status='deployed' therefore blinded
+	// this check to exactly those live pages — including the vonc gauntlet, the
+	// case named in this file's header: it serves two dead href="#" CTAs while
+	// p.build_status='needs_rebuild', so the detector never saw its own proof.
 	if err != nil {
 		return nil, fmt.Errorf("dead_controls page_components query failed: %w", err)
 	}
