@@ -90,7 +90,19 @@ ON CONFLICT (type, version) DO UPDATE
 
 COMMIT;
 
--- Flip out of dry-run once the preview looks right:
+-- ██ DO NOT FLIP dry_run OFF YET ██ (added 2026-07-22 — bugs_open/060).
+-- orchestration_states is pruned hourly at 24h by the database-cleanup task, so
+-- the observation window is ~1-2 days — far shorter than the 14d age floor.
+-- Under a short window a still-ACTIVE agent that merely has not run today reads
+-- as never-observed (fix-proposer is the canonical false positive). The
+-- guarded build (> v1.0.1149) REFUSES to emit while the window < the age floor;
+-- the CURRENTLY-LIVE binary (v1.0.1149) does NOT have that guard, so flipping
+-- dry_run off now would write false-positive items. Keep dry_run=true until:
+--   (a) a chassis image carrying the WINDOW GUARD is live (verify in-pod:
+--       strings show the "WINDOW TOO SHORT" banner literal), AND
+--   (b) bugs_open/060 gives a durable run signal (usage_count is dead), OR the
+--       window genuinely exceeds the age floor.
+-- Flip (only when the above hold):
 --   UPDATE agent_definitions
 --   SET default_config = jsonb_set(default_config,
 --         '{workflow,steps,sweep,config,dry_run}', 'false'::jsonb), updated_at=now()

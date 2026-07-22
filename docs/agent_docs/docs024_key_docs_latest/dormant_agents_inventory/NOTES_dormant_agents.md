@@ -70,3 +70,56 @@ duplicate-active-rows flagged). All pass. Package builds clean on the shared tre
 
 **State:** code + seed + docs written and committed. Action is INERT until a
 chassis image carrying it is rolled. 044 stays OPEN until then.
+
+## 2026-07-22 — live sweep + a substrate finding that changes the emission story
+
+Chassis v1.0.1149 shipped with the action (pod-grep: `diagnose_dormant_agents`=4,
+matching the silent-check control). Applied the seed, fired the trigger
+(`TRIGGER_diagnosis_dormant_agents_v1.sh`, orch `4d8c433d…`). It **ran end-to-end
+in ~3s** (dispatch was fast, not the ~29min queue) and wrote a dry-run report to
+`doc_notes` (categories `dormant-agents`). The detector works.
+
+**BUT the report exposed a substrate problem I had underweighted.** The report's
+window read "since **2026-07-13**" — a **9-day** window, not the ~55 days I
+measured on 07-21. And the never-count jumped 77 → **103**. Cause, run down live:
+
+- `orchestration_states` went from **106,530 rows (oldest 05-28)** on 07-20 to
+  **1,737 rows (oldest 07-13, 94% in the last 36h)** now.
+- The `database-cleanup` scheduled task (hourly) does
+  `DELETE FROM orchestration_states WHERE status IN ('COMPLETED','FAILED') AND
+  updated_at < now()-INTERVAL '24 hours'`. So the real retention is **24h**; the
+  55-day window on 07-20 was a transient (cleanup wasn't pruning then).
+- Proof it over-flags: **`fix-proposer` is now flagged never-observed** — its
+  unique step `check_confirmed` appears **nowhere** (its runs were pruned). A
+  known-live agent, a false positive, purely from retention.
+
+**No durable fallback exists.** `agent_definitions.usage_count` is **0 for every
+agent** (162/162), including fix-proposer/section-editor/generic — the column is
+unmaintained. `orchestration_state_audit` is also ~2 days. So there is NO durable
+"has this agent ever run" signal — which is the exact lifetime question `044`
+wants (section-editor had 3 lifetime runs when declared missing). Filed as
+**bugs_open/060**.
+
+**What I changed in response (committed):**
+- **Window guard** in the action: when live (`!dry_run`) AND the observation
+  window `< age_floor`, emit NOTHING and print a loud "WINDOW TOO SHORT" banner
+  naming the prune + the dead usage_count. Prevents a future `dry_run=false` from
+  flooding false positives. New unit test `…WindowTooShortBanner`.
+- **Report reworded**: "never observed" is now explicitly a RECENT-ACTIVITY
+  signal over the retained window, not lifetime; states the window depth and that
+  fix-proposer-class agents are false positives.
+- **Seed flip-warning**: DO NOT flip dry_run until the guarded build (>v1.0.1149)
+  is live AND 060 is addressed. The LIVE binary (1149) has no guard — its only
+  protection is dry_run=true, which I left in place.
+
+**Net:** the detector is a sound, honest, windowed **inventory report** today
+(discoverability — the core `044` value, LIVE and proven). Its **emission** is
+correctly gated off until a durable run record exists (060). I did NOT build 060
+(a hot-path write with the same generic-attribution crux as owner_agent_type) —
+surfaced it for an owner call.
+
+MISSTEP logged (WRONG_CALLS 2026-07-22): on 07-21 I treated the observed 55-day
+`orchestration_states` window as a stable retention policy and reasoned from it;
+it was a transient. The cheap check I skipped: read the cleanup job's retention
+(`SELECT pre_query FROM scheduled_tasks WHERE name='database-cleanup'`) before
+trusting `min(created_at)` as "the window".

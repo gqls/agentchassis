@@ -34,6 +34,28 @@ next chassis image roll); the `is_active` hygiene half remains an owner decision
 > - **`orchestration_name` rejected** as the mirrored-agent second signal this
 >   handoff suggested: live it is `generic-orchestrate-<ts>`, it does not name the
 >   agent. The blind spot stays unmeasurable (listed, never flagged).
+>
+> **UPDATE 2026-07-22 — LIVE on v1.0.1149, and a substrate finding → `bugs_open/060`.**
+> The action shipped (pod-grep `diagnose_dormant_agents`=4); seed applied; a real
+> sweep ran in ~3s and wrote its dry-run report to `doc_notes` (categories
+> `dormant-agents`). **The discoverability half (the inventory report) is LIVE and
+> proven.** But running it exposed that the detection SUBSTRATE is too ephemeral for
+> reliable *emission*:
+> - `orchestration_states` is pruned **hourly at 24h** by the `database-cleanup`
+>   task. The ~55-day window this handoff's method was validated against
+>   (2026-07-20) was a TRANSIENT — the cleanup wasn't pruning then. Live 07-22:
+>   1,737 rows, 9-day span, 94% in the last 36h. On a 24h window "never observed"
+>   over-flags: **`fix-proposer` (runs constantly) is now flagged**, its runs pruned.
+> - There is **no durable "has ever run" signal**: `usage_count` is 0 for all 162
+>   agents (unmaintained), `orchestration_state_audit` is ~2 days. So the LIFETIME
+>   question (section-editor's 3 runs) cannot be answered at all today. Filed
+>   **`bugs_open/060`** (the real blocker to reliable emission).
+> - **Response (committed):** a WINDOW GUARD (no emit while window < age floor;
+>   loud banner) + reworded report (recent-activity, not lifetime) + a seed
+>   flip-warning. Emission is now correctly gated off until 060 is addressed.
+>   `dry_run` stays true (the LIVE 1149 binary has no guard yet — its only
+>   protection). **044 stays OPEN**: the report is live, but the emitting detector
+>   the two halves describe is blocked on 060.
 
 This is the **producer-side** mirror of `bugs_open/033` (findings reach
 `needs_human_review` and no consumer ever actions them). 033 is work with no

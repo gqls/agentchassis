@@ -61,3 +61,54 @@ reliably tell "retired, should be switched off" from "paused on purpose" from
 "real capability we forgot to wire up". That last group is the actual point of
 the bug. The report surfaces all of it; deciding which agents to retire vs. wire
 up is the half 044 reserved for you.
+
+---
+
+**2026-07-22 — it ran on production, and running it taught us something.**
+
+The new chassis build carrying the detector went live, so I switched it on
+(applied the seed, fired one sweep). It worked first time — ran in about three
+seconds and wrote its report. So the discoverability half is genuinely done: we
+now have a standing, plain-language inventory of every agent and whether it's
+been active, which is the thing that would have stopped the "does this even
+exist?" folklore the bug is about.
+
+But actually running it surfaced a catch that the original write-up couldn't have
+known, because the ground had shifted under it. When the bug was filed, the
+system was holding about two months of run history, so "hasn't run" meant
+something. Overnight, a routine cleanup job started doing its job again and now
+deletes finished runs after just **24 hours**. So the detector can only "see"
+about a day of history. Over a one-day window, "hasn't run" stops meaning
+"dormant" and starts meaning "hasn't run *today*" — and our own fix-proposer,
+which runs constantly, got flagged simply because its runs from last week were
+already deleted.
+
+I dug for a more durable signal — there's a counter column that looks purpose-
+built for exactly this ("how many times has this agent run") — and found it's
+dead: it reads zero for every single agent, including ones we know run all the
+time. Nothing ever updates it. So the platform currently has **no lasting record
+of what its agents have ever done**; the only record is the one that gets wiped
+daily.
+
+That's actually a second, deeper bug hiding inside the first, and I've written it
+up separately (060). It's the real blocker to the detector ever *acting* on its
+findings rather than just reporting them.
+
+What I did about it: I taught the detector to know its own blind spot. If the
+history it can see is shorter than the "give it two weeks" cutoff, it now refuses
+to file anything and says so loudly, instead of dumping a pile of false alarms.
+And I left it in preview mode — importantly, the version live on production right
+now does *not* have that new safety guard yet, so its only protection is that
+preview switch, which I've made sure stays on (with a big warning on the switch).
+
+So where we are: the inventory report is live, honest, and useful today. The
+"file a ticket per dormant agent" half is deliberately parked — it can't be
+trusted until either the history is kept longer or that dead counter is brought
+to life (bug 060), which is an owner call because the fix touches a hot,
+much-used path and has the same "which agent gets the credit?" difficulty that
+bit us earlier.
+
+**A decision for you (owner):** bug 060 — do we want a durable record of agent
+runs (revive the counter, or a small dedicated log)? Without it, this detector
+stays a report, not an actor. With it, it becomes the real capability inventory
+044 asked for.

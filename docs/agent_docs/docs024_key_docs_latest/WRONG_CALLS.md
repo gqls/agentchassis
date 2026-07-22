@@ -1967,3 +1967,20 @@ consumer USES the thing, not just that the wiring resolves).
 
 **Cost:** one council round (REVISE→revise→APPROVED) + one owner question. Cheap — the gate is exactly
 where being wrong is supposed to cost the least. A REFUTED-by-council routing is a success, not a waste.
+
+**2026-07-22 — treated a transient `orchestration_states` retention as a stable policy
+and reasoned from it.** Building the 044 dormant-agents detector on 07-21, I measured the
+run-history window as `now - min(orchestration_states.created_at)` = ~55 days (106k rows back
+to 05-28) and wrote that into NOTES as "the retention window", reasoning that legacy agents
+show as never-run because they predate it. **The 55 days was a transient, not a policy.** By
+07-22 the table was 1,737 rows, oldest 9 days, 94% in the last 36h — the hourly
+`database-cleanup` task deletes COMPLETED/FAILED orchestrations after **24h**, and it simply
+had not been pruning on 07-20. On the real 24h window "never observed" over-flags badly:
+`fix-proposer` (runs constantly) is flagged because its runs were pruned. The detector shipped
+`dry_run=true` so nothing false was emitted, and I added a window guard + filed the substrate
+gap (`bugs_open/060`). **Cheap check I skipped:** never treat `min(created_at)` as "the
+window" — read the retention policy itself: `SELECT pre_query FROM scheduled_tasks WHERE
+name='database-cleanup'` (or grep for the DELETE). A table's current age-span is an
+observation; the retention rule is the fact. Family: ground a figure against the mechanism
+that produces it, not against a snapshot of its output (cf. "ground every figure against the
+live system" — here the *figure was live and still wrong*, because it was volatile).
