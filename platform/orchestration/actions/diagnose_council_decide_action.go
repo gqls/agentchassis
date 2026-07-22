@@ -10,10 +10,25 @@
 // placement question stays open for F2.2.
 //
 // Decision rules, in order:
-//  1. any hard-veto reviewer says veto            → "rejected"
-//  2. any reviewer says veto (advisory veto)      → "rejected"
-//  3. any reviewer says object                    → "revise"
-//  4. all approve                                 → "approved"
+//  1. any hard-veto reviewer says veto                 → "rejected"
+//  2. any reviewer says veto (advisory veto)           → "rejected"
+//  3. any reviewer raises a HIGH-severity objection    → "revise"
+//  4. otherwise (only low/medium objections, or none)  → "approved"
+//
+// Rule 3 changed 2026-07-22 (owner ruling). It used to be "any reviewer says
+// object → revise", with severity ignored entirely — so a single low nit from
+// one of ~16 seats blocked exactly as hard as a real flaw, and an approval was
+// effectively unreachable (measured: ~4.5% approval rate over a week; 67% of
+// revise rounds carried NO high-severity objection at all — they were blocked by
+// low/medium nits). Now only a HIGH-severity objection gates; low/medium
+// objections are ADVISORY — still recorded in the report and returned to the
+// proposer, but they do not force a revise. The objections keep their value; a
+// minor one just stops being a block. Deliberately conservative against a minor
+// label hiding a real problem: a Degraded (truncated) object still gates — its
+// high-severity objection may have been cut off before we saw it — and an object
+// with an un-graded / unrecognised severity still gates. Only an EXPLICITLY
+// low/medium objection is waved through. This corrects every council at once
+// (fix-proposer, gate, experience, concept-register) because they share it.
 //
 // The report is persisted to diagnosis_artifacts (kind='council_report') on
 // the SAME correlation_id as the diagnosis and the plan, and the decision is
@@ -530,8 +545,47 @@ func applyCouncilCaps(decision, decidedBy string, round, maxRounds, rejectedCoun
 	return decision, decidedBy, shouldRevise, shouldReframe
 }
 
+// severityGates reports whether an objection's severity is one that FORCES a
+// revise. Owner ruling 2026-07-22: only "high" gates; "low"/"medium" are
+// advisory. Anything that is NOT explicitly low or medium — unset, "", or an
+// unrecognised value — gates: the change only wants to wave through an objection
+// a reviewer EXPLICITLY marked minor, never one it forgot to grade.
+func severityGates(sev string) bool {
+	switch strings.ToLower(strings.TrimSpace(sev)) {
+	case "low", "medium":
+		return false
+	default:
+		return true // "high", unset, or anything unrecognised
+	}
+}
+
+// objectionGates reports whether an `object` review should force a revise rather
+// than be recorded as an advisory note. Only meaningful for verdict "object"
+// (veto and approve are handled by their own rules above). Two conservative
+// carve-outs so a minor label cannot hide a real problem:
+//   - a Degraded review was recovered from a truncated response, so a
+//     high-severity objection it raised may have been cut off before we ever saw
+//     it — a Degraded object always gates;
+//   - an object with no gradable objection at all is not "explicitly minor", so
+//     it gates. This also preserves the pre-severity behaviour for a bare object.
+func objectionGates(r councilReview) bool {
+	if r.Verdict != "object" {
+		return false
+	}
+	if r.Degraded || len(r.Objections) == 0 {
+		return true
+	}
+	for _, o := range r.Objections {
+		if severityGates(o.Severity) {
+			return true
+		}
+	}
+	return false
+}
+
 // decideCouncil applies the ordered rules. decidedBy names the rule that fired
-// so the report is auditable without re-deriving.
+// so the report is auditable without re-deriving. A low/medium-only object does
+// not gate (rule 3, changed 2026-07-22) — see the file header for why.
 func decideCouncil(reviews []councilReview, hardVeto map[string]bool) (decision, decidedBy string) {
 	for _, r := range reviews {
 		if r.Verdict == "veto" && hardVeto[strings.ToLower(r.Reviewer)] {
@@ -543,10 +597,29 @@ func decideCouncil(reviews []councilReview, hardVeto map[string]bool) (decision,
 			return "rejected", "veto from " + r.Reviewer
 		}
 	}
+	// Rule 3: only a HIGH-severity (or un-graded/degraded) objection gates. A
+	// low/medium objection is advisory — it rides along in the persisted report's
+	// `reviews` and reaches the proposer, but it does not force a revise.
+	var firstGate string
+	gating, advisory := 0, 0
 	for _, r := range reviews {
-		if r.Verdict == "object" {
-			return "revise", "objection from " + r.Reviewer
+		if r.Verdict != "object" {
+			continue
 		}
+		if objectionGates(r) {
+			gating++
+			if firstGate == "" {
+				firstGate = r.Reviewer
+			}
+		} else {
+			advisory++
+		}
+	}
+	if gating > 0 {
+		return "revise", "gating objection from " + firstGate
+	}
+	if advisory > 0 {
+		return "approved", fmt.Sprintf("approved with %d advisory objection(s) — none high-severity", advisory)
 	}
 	return "approved", "all reviewers approve"
 }

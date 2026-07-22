@@ -11,6 +11,14 @@ func TestDecideCouncil(t *testing.T) {
 	rv := func(name, verdict string) councilReview {
 		return councilReview{Reviewer: name, Verdict: verdict}
 	}
+	// obj builds an object review carrying one objection per severity given.
+	obj := func(name string, sevs ...string) councilReview {
+		r := councilReview{Reviewer: name, Verdict: "object"}
+		for _, s := range sevs {
+			r.Objections = append(r.Objections, councilObjection{Problem: "p", Severity: s})
+		}
+		return r
+	}
 	guardianVeto := map[string]bool{"guardian": true}
 
 	cases := []struct {
@@ -21,10 +29,20 @@ func TestDecideCouncil(t *testing.T) {
 		byPrefix string
 	}{
 		{"all approve", []councilReview{rv("quality", "approve"), rv("guardian", "approve")}, guardianVeto, "approved", "all reviewers"},
-		{"objection → revise", []councilReview{rv("quality", "object"), rv("guardian", "approve")}, guardianVeto, "revise", "objection from quality"},
+		// A bare object with no gradable objection still gates (pre-severity behaviour kept).
+		{"bare object → revise", []councilReview{rv("quality", "object"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
 		{"hard veto wins over objections", []councilReview{rv("quality", "object"), rv("guardian", "veto")}, guardianVeto, "rejected", "hard veto from guardian"},
 		{"advisory veto still rejects", []councilReview{rv("quality", "veto"), rv("guardian", "approve")}, guardianVeto, "rejected", "veto from quality"},
 		{"hard veto reported as hard", []councilReview{rv("guardian", "veto"), rv("quality", "veto")}, guardianVeto, "rejected", "hard veto from guardian"},
+		// Severity gate (owner ruling 2026-07-22): only high gates; low/medium are advisory.
+		{"high objection → revise", []councilReview{obj("quality", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
+		{"medium-only objection → approved (advisory)", []councilReview{obj("quality", "medium"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 1 advisory"},
+		{"low-only objection → approved (advisory)", []councilReview{obj("quality", "low"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 1 advisory"},
+		{"two medium seats → approved (only high gates)", []councilReview{obj("a", "medium"), obj("b", "medium"), rv("guardian", "approve")}, guardianVeto, "approved", "approved with 2 advisory"},
+		{"mixed low+high in one seat → high gates", []councilReview{obj("quality", "low", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
+		{"one medium seat, one high seat → high gates", []councilReview{obj("a", "medium"), obj("b", "high"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from b"},
+		{"unset severity gates (not explicitly minor)", []councilReview{obj("quality", ""), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
+		{"unrecognised severity gates", []councilReview{obj("quality", "critical"), rv("guardian", "approve")}, guardianVeto, "revise", "gating objection from quality"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -34,6 +52,43 @@ func TestDecideCouncil(t *testing.T) {
 			}
 			if tc.byPrefix != "" && len(by) < len(tc.byPrefix) || by[:len(tc.byPrefix)] != tc.byPrefix {
 				t.Fatalf("decided_by: want prefix %q got %q", tc.byPrefix, by)
+			}
+		})
+	}
+}
+
+// The severity gate's carve-outs (owner ruling 2026-07-22): only an EXPLICITLY
+// low/medium objection is waved through; a high, un-graded, or degraded object
+// still gates. Conservative so a minor label cannot hide a real problem.
+func TestObjectionGates(t *testing.T) {
+	for sev, wantGate := range map[string]bool{
+		"high": true, "HIGH": true, " high ": true,
+		"medium": false, "Medium": false, "low": false, "LOW": false,
+		"": true, "critical": true, "moderate": true, "unknown": true,
+	} {
+		if got := severityGates(sev); got != wantGate {
+			t.Fatalf("severityGates(%q): want %v got %v", sev, wantGate, got)
+		}
+	}
+
+	o := func(sev string) councilObjection { return councilObjection{Problem: "p", Severity: sev} }
+	cases := []struct {
+		name string
+		r    councilReview
+		want bool
+	}{
+		{"non-object never gates", councilReview{Verdict: "approve"}, false},
+		{"object, medium only → advisory", councilReview{Verdict: "object", Objections: []councilObjection{o("medium")}}, false},
+		{"object, low only → advisory", councilReview{Verdict: "object", Objections: []councilObjection{o("low")}}, false},
+		{"object, one high among mediums → gates", councilReview{Verdict: "object", Objections: []councilObjection{o("medium"), o("high")}}, true},
+		{"object, no objections → gates", councilReview{Verdict: "object"}, true},
+		{"object, unset severity → gates", councilReview{Verdict: "object", Objections: []councilObjection{o("")}}, true},
+		{"degraded object, only medium visible → still gates", councilReview{Verdict: "object", Degraded: true, Objections: []councilObjection{o("medium")}}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := objectionGates(tc.r); got != tc.want {
+				t.Fatalf("objectionGates: want %v got %v", tc.want, got)
 			}
 		})
 	}
