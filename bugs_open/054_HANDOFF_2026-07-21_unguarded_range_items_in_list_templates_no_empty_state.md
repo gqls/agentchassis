@@ -37,6 +37,70 @@ generic and the other five exposed.
 >   its own diagnosis run before anyone changes the resolver (masking a genuine "resolver
 >   errored" case as "empty" is the trap the original fix-candidate-2 flags).
 
+> **UPDATE 2026-07-22 (085_debug_and_feature_loops thread) — fix-candidate 2 diagnosis
+> COMPLETED; the `[UNVERIFIED]` is now resolved and the feared trap does NOT apply.
+> Bug stays OPEN pending an owner direction call (below) + the Go change + an image roll.**
+>
+> **Root cause, fully traced and cited (working tree, 2026-07-22):**
+> 1. `queryresolve.go:359` — `resolvePagesWhereType` (and the sibling array resolvers)
+>    build `items := make([]map[string]interface{}, 0)` and `return items, nil` on zero
+>    rows. That is a **non-nil empty slice**, so at `plan_sections_action.go:1313` the
+>    `else if value != nil` branch is taken → `resolvedData[field]=value; continue`
+>    (`:1314-1315`). The `required`/`on_missing`/`min_items` logic below is never reached
+>    for a query field. Confirmed.
+> 2. `min_items` is **read** into `fieldMinItems` (`:1260-1262`) but a fleet-wide grep
+>    (`min_items|MinItems|minItems` over `platform/ pkg/ internal/`, non-test) shows it is
+>    only ever copied into the `missingField` **metadata** struct (`:1367,1395,1409,1421,
+>    1433`) — it is **never length-compared against a resolved slice anywhere**. So the
+>    contract `{required:true, min_items:1}` is dead for query arrays.
+> 3. **`[UNVERIFIED]` resolved:** the same grep proves **no downstream Go stage** re-checks
+>    `min_items` after this resolver (only `plan_sections_action.go` and
+>    `component_schema_fields.go` mention it; the latter just normalises `minItems`→
+>    `min_items`). Nothing enforces it, full stop.
+>
+> **Blast radius (live DB, 2026-07-22) — every `source:query.*` field across active
+> components, by declared `on_missing`:**
+>
+> | on_missing (declared) | required | fields | components | effect of honouring it on an EMPTY array |
+> |---|---|---|---|---|
+> | `skip_field` | false | 10 | 5 | field omitted → `{{if .items}}` false → **empty-state** (already the outcome; candidate 1) |
+> | *blank* → defaults to `skip_field` (`:1251-1253`) | true | 7 | 6 | same — omit → empty-state. **Includes all 5 of this bug's list components.** |
+> | *blank* → `skip_field` | false | 4 | 4 | omit → empty-state |
+> | `skip_section` | true | 8 | 8 | **section dropped from the build** — the only behaviour-changing bucket |
+>
+> The 8 `skip_section` set (all `component_level='section'`): `category-listing`,
+> `content-listing`, `directory-listing`, `filtered-result-grid`, `gripper-spec-sheet`,
+> `product-card-with-cta`, `product-grid` (all array fields), + `featured-content`
+> (a `text` scalar — unaffected by an array/min_items fix). These 7 array listings are a
+> **separate exposure** from the 7 `{{range .items}}` components candidate 1 guarded: they
+> range over `.products`/`.entries`/`.results`/`.articles`, carry **no** `{{if}}` guard,
+> and today render a genuinely blank section when empty. Their authors declared
+> `on_missing=skip_section`, which the short-circuit silently ignores.
+>
+> **Why honouring `on_missing` is SAFE (the handoff's traps do not fire):**
+> - The `skipped` status is aggregated at `:733-735` into neither `ready` (not built) nor
+>   `deferred` (no HITL/data-request item) — a skipped section is **simply omitted** and
+>   re-evaluated on the next re-plan/render, so it **self-heals** when data arrives.
+> - A skipped section never reaches `check_empty_sections`, so honouring `skip_section`
+>   **shrinks** the empty-section false-positive family (016b §9), not grows it.
+> - "Mask resolver-errored as empty" cannot happen: the code already routes `qerr != nil`
+>   to fallback (`:1307-1312`) separately from the empty-success path; a fix touches only
+>   the latter.
+> - No query field declares `block` or `needs_human_review`, so no fix can start blocking
+>   or HITL-flooding a page.
+>
+> **The one genuine decision (fleet-facing, so it's the owner's):** for an empty
+> `skip_section` array listing (e.g. a `product-grid` with zero products), should the
+> section be **dropped** (honour the declared intent — recommended) or instead get an
+> **empty-state** like the 5 list components? The 5 list components are unaffected either
+> way (they already render an empty-state).
+>
+> **Fix shape (Go, inert until image roll):** in the `query.*` branch, when the resolved
+> value is an empty array that fails its declared contract (`required` or `min_items≥1`),
+> do NOT short-circuit — route it through the SAME `on_missing` handling the generic path
+> uses (factored into one shared helper so the two paths cannot drift — the drift class
+> `bugs_closed/044` was closed for). Council-gate before commit.
+
 ## What
 
 Seven active `content_components` render a query-sourced list with `{{range .items}}`. After
