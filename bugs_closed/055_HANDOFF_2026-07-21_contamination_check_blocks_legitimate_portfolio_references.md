@@ -1,9 +1,27 @@
 # BUG 055 — content-validation contamination check blocks legitimate cross-site references
 
-**Filed:** 2026-07-21 · **Status:** OPEN (code live; data seeded; pages not yet
-regenerated) · **Severity:** high (blocks a whole site from going live) ·
+**Filed:** 2026-07-21 · **Status:** CLOSED — fixed AND live 2026-07-22 ·
+**Severity:** high (blocks a whole site from going live) ·
 **Class:** cross-cutting / platform-wide validation gate
 **Found by:** brochure_component_library workstream (fundamentallyai.com go-live)
+
+> **CLOSED 2026-07-22 — the contamination false-positive no longer blocks
+> fundamentallyai, verified live by artefact.** Resolution: the allowlist CODE
+> was already live (v1.0.1146, see correction below); the DATA seed
+> (`sql/055_seed_allowlist.sql`) made it effective. The four core content pages
+> were re-queued (`needs_page:<page>` → `triaged`) and rebuilt: `about`,
+> `capabilities`, `multi-agent-review-council` are **deployed with the
+> self-correction story present in `rendered_html`** (2 components each; the
+> verbatim narrative naming leopardessconsulting.co.uk), and `index` has the
+> story too (held at needs_rebuild only by its portfolio-showcase data gap, a
+> separate `needs_section_data` item). **Zero new
+> `CONTENT_VALIDATION_BLOCKER_DETAIL` rows** after the seed. The contamination
+> gate now correctly lets this site's owner-approved references through while
+> remaining unchanged for every other site. NOT part of this bug (tracked
+> elsewhere): the deeper silent-drop-on-regeneration mechanism (`bugs_open/056`),
+> the 3 empty-section `planned` pages incl. the dedicated self-correction page
+> (planner-level), the two `needs_section_data` items, and serving/Cloudflare→B2
+> (Blocker 2, owner/infra).
 
 > **CORRECTION 2026-07-22 — the fix CODE was already live; only the DATA seed was
 > ever needed.** The per-site allowlist implementation
