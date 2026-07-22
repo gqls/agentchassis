@@ -72,3 +72,25 @@ func TestQueryResultLen(t *testing.T) {
 		t.Error("nil must report isList=false")
 	}
 }
+
+// hasItems (reconcile_section_data_action.go) was consolidated onto queryResultLen
+// so the list-shape type-switch lives in one place (bugs_open/054, council R1).
+// Pin its behaviour is preserved: non-empty list → true, everything else → false.
+func TestHasItemsBehaviourPreserved(t *testing.T) {
+	cases := []struct {
+		value interface{}
+		want  bool
+	}{
+		{[]map[string]interface{}{{"a": 1}}, true},
+		{[]interface{}{"x"}, true},
+		{[]map[string]interface{}{}, false},
+		{[]interface{}{}, false},
+		{"scalar", false},
+		{nil, false},
+	}
+	for _, c := range cases {
+		if got := hasItems(c.value); got != c.want {
+			t.Errorf("hasItems(%#v) = %v, want %v", c.value, got, c.want)
+		}
+	}
+}

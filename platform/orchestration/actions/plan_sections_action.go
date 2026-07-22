@@ -1458,10 +1458,24 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 			// does, rather than storing an empty slice the template ranges over to
 			// nothing (bugs_open/054 fix-candidate 2). Scalars and satisfied lists
 			// store as before; a nil, non-list value keeps its prior fallback path.
-			if below := queryListBelowContract(value, required, fieldMinItems); below {
+			if queryListBelowContract(value, required, fieldMinItems) {
+				// A required / min_items-declaring list resolved empty (or shorter
+				// than its floor). Honour on_missing — but log it first, so a
+				// required listing that never recovers data is an operator-visible
+				// event, not a silent disappearance (bugs_open/054, council R1
+				// bug_historian). Errored resolves took the branch above, not this.
+				n, _ := queryResultLen(value)
+				resolver.logger.Warn("plan_sections: query list below its required/min_items contract — applying on_missing",
+					zap.String("field", fieldName),
+					zap.String("source", source),
+					zap.Int("resolved_items", n),
+					zap.Int("min_items", fieldMinItems),
+					zap.Bool("required", required),
+					zap.String("on_missing", onMissing))
 				handleMissingField()
 				continue
-			} else if value != nil {
+			}
+			if value != nil {
 				resolvedData[fieldName] = value
 				continue
 			}

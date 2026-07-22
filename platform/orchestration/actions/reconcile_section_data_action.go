@@ -234,13 +234,10 @@ func ReconcileSectionDataAction(ctx context.Context, params ActionParams) (inter
 }
 
 // hasItems reports whether a queryresolve result is a non-empty list.
+// hasItems reports whether a resolved query value is a non-empty list. Built on
+// the shared queryResultLen primitive (plan_sections_action.go) so the list-shape
+// type-switch lives in exactly one place (bugs_open/054, council R1 reuse seat).
 func hasItems(v interface{}) bool {
-	switch t := v.(type) {
-	case []map[string]interface{}:
-		return len(t) > 0
-	case []interface{}:
-		return len(t) > 0
-	default:
-		return false
-	}
+	n, isList := queryResultLen(v)
+	return isList && n > 0
 }
