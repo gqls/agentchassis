@@ -1105,3 +1105,16 @@ defect. Council is advisory; value extracted.
 end-to-end proof — a `curl` showing server-rendered `<article>`s that SURVIVE a scoped
 rerender. Pending the next `render_news_section` cycle (or a manual trigger) populating
 content_data via the new query route.
+
+## 2026-07-22 — 027 fix survived the v1.0.1149 roll (regression check)
+
+New chassis image v1.0.1149 on prod (up from 1144). Re-verified the closed 027 fix against
+the new binary and the live sites — it is intact and NOT tag-coupled:
+- pod-grep (`agent-chassis-7d4ff8b54-cm786`): `QueryNewsItems` 7, `queueNewsPageRerenders` 11,
+  `resolveNewsArchive` 2; `persistNewsSectionHTML` 0 (injection still gone).
+- curl (JS off), all three news sites: 0 loading placeholders, server-rendered `<article>`s
+  present.
+- content_data still durable AND freshly regenerated on the new binary: noticias-index 20
+  items / homepage 6, `updated_at` 2026-07-22 08:29–08:33 — i.e. the feed cycle ran on 1149
+  and re-resolved the query route into content_data, which is the durability property itself
+  demonstrated across an image roll. 027 stays CLOSED.
