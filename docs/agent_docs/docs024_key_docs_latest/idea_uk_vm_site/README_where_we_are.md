@@ -918,3 +918,26 @@ So both parts of this are now done and live: the site reads its own components p
 works. I've marked the two bugs (018 and 041) as closed. The bigger follow-on — making a dead link
 actually *stop* the build rather than just shout in the logs — is still its own tracked job (054),
 exactly as you decided.
+
+---
+
+**2026-07-22 — the "make a dead link stop the build" follow-on (054) is now built.**
+
+This is the bigger job I flagged last time — the one you decided to split off from the chrome fix.
+Two quick decisions from you today set the shape of it. First, *how* a dead link should be caught:
+rather than editing every template by hand or hard-failing the whole build, I made the site's chrome
+renderer itself quietly **drop** a broken link/button before the page is saved, so a dead control can
+never reach a live page. Second, you confirmed the review queue is a real queue that someone works —
+so alongside dropping the control, the system now files a proper job that actually gets picked up and
+retried (a re-render fixes the common case where the link's data just arrived late), instead of
+dumping it on a pile nobody reads.
+
+Worth saying plainly: when I checked the live sites first, the original fire was already out — no live
+page is currently shipping one of these dead links, and the only components that still could are old
+stock that nothing uses. So this change is a **safety net against it happening again**, not an
+emergency repair. It's written, tested (16 cases), and committed, but like all our Go changes it does
+nothing until the next image roll. It's gone to the advisory review council as usual.
+
+One small thing I'll mention because it's the sort of thing that bites: another session happened to be
+editing the same file as me at the same time. I noticed before committing and moved my bit into its
+own file, so I didn't accidentally sweep up their half-finished work under my change. No harm done.

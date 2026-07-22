@@ -36,6 +36,16 @@ the platform is concerned.
 >   stale 121), queue the rest. **NOT yet built** — this is the remaining work and
 >   why the bug is still OPEN. D2 (residue aging) and D3 (identity/auth) are still
 >   open owner decisions.
+>
+> **RE-AFFIRMED 2026-07-22 (bugfix o54 session):** owner ruled again, via
+> AskUserQuestion, that this queue **is a queue, not a bin** — a human works these.
+> On that basis `bugs_open/054` wired the new **chrome dead-control** finding into a
+> *draining* pathway (`status='detected'` + `handler_agent='nav-link-fixer'`, the
+> phantom-links convention) rather than adding a 125th row to the unread
+> `needs_human_review` pile. It does **not** build the general drain for the existing
+> pile (68 `unresolved_cta` + 47 `cta_names_unknown_destination` + 6 `dead_control` +
+> 3 `empty_internal_href`, measured 2026-07-22) — that "auto-drain + queue the rest"
+> work is still this file's, still OPEN.
 
 ---
 

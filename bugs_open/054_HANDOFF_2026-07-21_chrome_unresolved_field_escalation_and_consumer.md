@@ -7,8 +7,9 @@
 > reassigned — **resolve by slug.** Council submission `7152c7cf` references *this* one (the chrome
 > escalation follow-on). They are unrelated.
 
-**Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** OPEN, not started — deliberately a
-follow-on, owner-scheduled 2026-07-21.
+**Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** IMPLEMENTED (chrome path), committed
+`524b03f03`, **inert until an image roll** — see "IMPLEMENTED 2026-07-22" at the foot. Council review
+in flight, `SUBMISSION_CORR=f54a1808-51a6-4ddd-8f60-783f9b263e37`.
 **Severity:** medium — it is the second half of a fix whose first half (observability) is already in
 council review. On its own the gap is "a dead control is now logged loudly but nothing acts on it".
 **Class:** structural — completes the FAIL-LOUD contract for the render path; requires a staged
@@ -109,3 +110,66 @@ from the chrome side and the page side. Grep `023` and coordinate before buildin
 - `bugs_open/023` — CTA label/URL pairing unchecked; **its fix #3 is the same consumer this needs — coordinate.**
 - `docs024_key_docs_latest/idea_uk_vm_site/RUNNING_NOTES §X.6–X.7` — the two council rounds and the measurements.
 - Council submission `7152c7cf` round 3 rationale — the owner ruling that created this file.
+
+---
+
+## IMPLEMENTED 2026-07-22 (bugfix o54 session) — chrome path done, committed, inert until roll
+
+**Two owner rulings unblocked this** (AskUserQuestion, 2026-07-22):
+1. **Mechanism = render-path drop-the-control.** Make the site-chrome renderer itself refuse to
+   ship a dead URL control, rather than gate templates one-by-one or hard-block a deploy.
+2. **`bugs_open/033` IS a queue** — a human works these escalations. So the finding goes to a
+   **draining** pathway, not the `needs_human_review` void that Constraint 2 warned against. (This
+   is a decision `033`'s own thread needs — recorded there.)
+
+**What the acute state actually is (grounded live 2026-07-22, and it changes the calculus):**
+- **0** live `site_components` render an empty `href`/`src`; all **10** live-placed chrome
+  components are gated. The 7 ungated chrome components in Constraint 1's census
+  (`*_pre_037`, `site-head`, `header-docs`) have **0 placements** — dormant library stock.
+- So the acute idea.uk fire (30 dead controls) is **out**, and a chrome-scoped mechanism has
+  **~0 live blast radius**. Constraint 1's "can't gate cold" fear is largely moot for this path;
+  the change is **preventive** (stops a recurrence at source) and inert on today's fleet.
+
+**Built (commit `524b03f03`), both gated on the already-computed `deadURLFields` set so a clean
+render is never touched and its byte-identical output is preserved:**
+- **Half 1 — drop the control.** `DropDeadURLControls` (new file
+  `platform/orchestration/actions/drop_dead_url_controls.go`) removes any anchor whose `href`
+  rendered empty and blanks any empty `src` from the rendered chrome before store (LNK-005
+  correct-or-absent). Wired into `renderAndStoreSiteComponent` after
+  `RenderTemplateReportingMissing`. 16 unit cases (`drop_dead_url_controls_test.go`), positive +
+  negative boundaries (`<area>`/`<abbr>` excluded, `href="#"` and non-empty attrs untouched).
+- **Half 2 — escalate to the worked queue.** `emitChromeDeadControlItem` files ONE
+  `chrome_dead_control` work item per (site, slot) at `status='detected'` +
+  `handler_agent='nav-link-fixer'` (`build` pipeline) — the `phantom_internal_links`
+  site_component convention. Triage promotes every `detected` item; the dispatch loop claims it;
+  a re-render fixes the common data-lag case, a genuinely-unresolvable field exhausts
+  `max_attempts` → `failed` (bounded, no storm) and surfaces to the human queue. Deduped by
+  `item_key` against `idx_swi_dedup`.
+
+**Why NOT the `needs_human_review` void:** `check_dead_controls` (page_components) files at
+`needs_human_review` with no handler *by design* ("picking a fixer automatically would guess"), and
+the machinery map confirmed triage cannot even reach those rows — that is the 124-item unread pile.
+The owner's 033=queue ruling + the phantom-links `detected`+handler convention is the deliberate
+alternative: a chrome dead control routes to a re-render first (which fixes the idea.uk-shape
+data-lag case) and only a persistently-dead one reaches a human.
+
+**Concurrency note (not a wrong call, but logged):** `component_library.go` was under **active edit
+by another session** (a template-scanning feature) while I worked — the helper was moved to its own
+file `drop_dead_url_controls.go` so the commit's pathspec excludes the contended file and takes no
+same-file passenger.
+
+**How to verify once it rolls:**
+- Induce the failing branch (per the "verify the failing branch" rule — a green happy path proves
+  deployment, not detection). Place a `*_pre_037` chrome component on a test site with an
+  unresolvable nav/CTA field and re-render; assert the rendered chrome has **no** `href=""`/`src=""`
+  and a `chrome_dead_control` row appears at `status='detected'`, `handler_agent='nav-link-fixer'`.
+- Confirm it drains: the item is claimed and either re-render resolves the field (data present) or
+  it exhausts attempts to `failed`.
+- Pod-grep the roll for the CREATED symbols (`DropDeadURLControls`, `emitChromeDeadControlItem`,
+  `chrome_dead_control`) — not a string the change merely uses.
+
+**Still genuinely out of this file's scope (unchanged):** the *general* consumer that drains the
+existing 124-item unread pile (`unresolved_cta`=68, `cta_names_unknown_destination`=47,
+`dead_control`=6, `empty_internal_href`=3) is `bugs_open/033`'s work now that the owner has ruled it
+a queue — this change only wires the **chrome** finding into a draining path; it does not build the
+human-facing drain for the pre-existing pile.

@@ -1331,3 +1331,39 @@ verify041'`, spec has NO `reason` → assemble-only path, NO LLM, markup unchang
 (block/escalate + consumer). No `Council-Reviewed` trailer on `36829b07b` (round 2 REVISE, owner
 overruled). Council round 3 NOT fired — the owner overruled its sole remaining objection, so a verdict
 would change nothing; the round-3 JSON stays prepped if the audit trail is later wanted.
+
+### §X.10 — bugs_open/054 IMPLEMENTED: drop-the-control + drain (2026-07-22, bugfix o54 session)
+
+The follow-on `054` the owner scheduled off §X.8's ruling. Two owner rulings this session
+(AskUserQuestion): **(1)** mechanism = **render-path drop-the-control** (not per-template gating,
+not a hard build-block); **(2)** `bugs_open/033` **is a queue** — so the escalation goes to a
+**draining** pathway, not the `needs_human_review` void that `023`/Constraint 2 warned against.
+
+**Grounded first (and it reframed the job):** live 2026-07-22, **0** `site_components` render an
+empty `href`/`src`; all 10 live-placed chrome components are gated; the 7 ungated chrome census
+components (`*_pre_037`/`site-head`/`header-docs`) have **0 placements**. So the acute idea.uk fire
+is out and a chrome-scoped mechanism has ~0 live blast radius — the change is **preventive**, inert
+until an image roll. Constraint 1's "can't gate cold" is largely moot for this path.
+
+**Built (commit `524b03f03`), both gated on the already-computed `deadURLFields`:**
+- `DropDeadURLControls` (new file `drop_dead_url_controls.go`) — removes any anchor whose `href`
+  rendered empty, blanks any empty `src`, from the rendered chrome before store (LNK-005). Wired
+  into `renderAndStoreSiteComponent`. 16 unit cases incl. negative boundaries (`<area>`/`<abbr>`
+  excluded, `href="#"`/non-empty attrs untouched).
+- `emitChromeDeadControlItem` — files one `chrome_dead_control` item at `detected` +
+  `nav-link-fixer`/`build` (the `phantom_internal_links` site_component convention), deduped by
+  `item_key` against `idx_swi_dedup`. Triage promotes it, dispatch drains it; a re-render fixes the
+  data-lag case, a persistently-dead field exhausts `max_attempts` → surfaces to the human queue.
+
+**Misstep avoided, logged:** `component_library.go` was under **active concurrent edit** by another
+session (a template-scanning feature — `scanTemplateFuncs`/`bareFieldName`). I first put the helper
+there; caught it via `git diff --stat` (130 insertions, only ~10 mine) + a transient `go vet`
+"text/template unused" (their mid-edit state). **Moved the helper to its own file** so the pathspec
+commit excludes the contended file and takes no same-file passenger. The general lesson (re-derive
+which insertions are yours before committing a file two sessions touch) is why the helper lives in
+`drop_dead_url_controls.go` rather than beside `RenderTemplateReportingMissing`.
+
+Council review in flight (advisory), `SUBMISSION_CORR=f54a1808-51a6-4ddd-8f60-783f9b263e37`. No
+`Council-Reviewed` trailer on `524b03f03` (committed before the verdict, per the commit-per-task
+rule; trailer is earned only by APPROVED). `054` stays OPEN until the change is live AND verified on
+the failing branch; the general pre-existing unread pile stays `033`'s.
