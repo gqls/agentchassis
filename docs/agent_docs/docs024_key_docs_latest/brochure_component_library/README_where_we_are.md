@@ -264,6 +264,33 @@ check each page and re-run any that come back without it. The "nothing serves ye
 hosting step is still separate and still yours, but as before there's no point
 wiring that up until the pages actually carry their content.
 
+**2026-07-22 — the site is live, and I've done the last-mile cleanup.** You
+deployed the new build and wired the hosting, so the site is now actually visible.
+It doesn't look like the brief yet — that's the stage-2 job — but it works. You
+spotted two broken menu links (a "Platform Log" and a "Decision Record" page). Those
+turned out to be empty shells the pipeline created but never filled, and you asked
+me to take them out of the menus. That was fiddlier than it should have been —
+the menus are baked into a shared header/footer that every page reuses, and it took
+me a few wrong turns to find where they actually live — but they're now gone from
+every page (I checked each live page directly, not just the database). I've written
+the wrong turns down so the next person finds it faster.
+
+I've put your phone number on the site. And I've published the "our work" showcase
+you approved — the three verified projects (the revived watch site, the idea.uk
+payments work, and the leopardess honesty story), with "rebuilt same day" as you
+said. The homepage is rebuilding now to show them; it's going through a backed-up
+internal queue so it'll appear shortly rather than instantly.
+
+One honest note: while fixing the menus I found a separate small broken link on the
+council page — a "Review a sample record" button that points at a slightly wrong
+address and 404s. It's a pre-existing content glitch, nothing to do with the menu
+fix, and I've flagged it for the content pass rather than let it slip by unnoticed.
+
+So: the site is live, the broken menu links are gone, your phone and the showcase
+are in. What remains is genuinely stage-2 — making it look like the brief, and the
+few empty pages (including the dedicated self-correction page) that need real
+content built into them.
+
 **2026-07-22 — it worked, and I've read the pages to prove it.** After the switch
 was flipped, I rebuilt the four main content pages one at a time and then actually
 opened each one's content to check. Three of them — the About page, the

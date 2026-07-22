@@ -894,3 +894,60 @@ would show as build=deployed but leopardess=0; re-queue again if so.
 - `contact` + `model-fine-tuning` are `deployed` but storyless (dropped the
   reference on the pre-seed retry) — optional rebuild to restore it.
 - Blocker 2 (serving): Cloudflare→B2 origin for the new zone — owner/infra step.
+
+## 2026-07-22 — the LAST MILE: site serving (owner), nav 404s removed, phone, portfolio
+
+Owner deployed a fresh chassis image (v1.0.1149) and wired serving — **the site is
+live and visible** (Blocker 2's infra half done by the owner). Then the last-mile
+cleanup:
+
+**Two 404s** — `platform-log-index` (page_type `section-index`, a listing with
+nothing to list) and `tool-decision-record` (page_type `tool`) — linked from top +
+bottom nav but never built (0 planned sections by type, can't be re-queued). Owner
+chose **remove from nav**. Non-obvious mechanics discovered the hard way (full
+misstep trail below):
+- The rendered nav is NOT per-page (`pages.rendered_header/footer` are empty) and
+  NOT re-derived from `v_navigation_pages` at render time. It lives in
+  **`site_components`** — the shared `site-header`/`site-footer` chrome
+  (`component_level='site'`), rendered once and reused by every page assemble.
+- Fixing `pages.in_header/footer` + `site_nav_items.status` did nothing to the
+  live pages, because the cached `site_components` chrome still held the links and
+  an assemble-only rerender reuses it unchanged (→ deploy skipped, bytes
+  identical).
+- Fix that worked: **surgically strip the two links from `site_components` header
+  + footer `rendered_html`** (regexp, backup, verify still_has_dead=f), THEN
+  re-deploy each page so the changed chrome ships.
+- The build-dispatch-loop was **stalled** (bugs_open/029/030 — 33 `page_rerender`
+  items triaged, 1 complete in 30 min), so the proper `rerender-pages` agent
+  route queued forever. Bypassed it with the **direct `049b_deploy_single_page.sh`**
+  per page (assemble-only page-rerender orchestration) — these still queue but
+  drained; result: **0 links to `/platform-log/` or `/tools/decision-record/`
+  across all 6 live pages** [VERIFIED via cache-busted origin fetch].
+
+**Phone:** `sites.phone` set to `+44 (0) 7934 524 911` (owner-provided).
+
+**Portfolio showcase** (homepage `portfolio-showcase`, reads
+`site_specs.portfolio.projects`): published an owner-approved 3-project spec
+(relojistas / idea.uk / leopardess), every claim grounded, `build_time="rebuilt
+same day"` (owner's wording). Resolved the `needs_section_data` item, re-queued
+`needs_page:index` — will render when the stalled build queue reaches it.
+
+**Residual (pre-existing, NOT the nav 404s):** the `multi-agent-review-council`
+`info-card-grid` has a "Review a sample record" card linking to
+`/multi-agent-review-council#decision-record` — a no-`.html` internal URL that
+404s (verified: `/multi-agent-review-council` → 404). A content-quality bug from
+when the page was built, unrelated to the nav removal; left for a content pass.
+
+> **Missteps this last-mile stretch (the record is the point):**
+> 1. Assumed the nav came from `v_navigation_pages` (pages.in_header/footer) —
+>    changed those + `site_nav_items`, re-deployed `about`, nothing happened.
+>    WRONG: the nav lives in cached `site_components` chrome. Caught by checking
+>    `last-modified` didn't move (deploy skipped) then finding the chrome table.
+> 2. Assumed the assemble-only 049b rerender would pick up nav changes — it
+>    reuses cached chrome, so it skipped. Only changing the chrome itself made a
+>    rerender not-skip.
+> 3. My dead-link detector regexp `(platform-log|decision-record)` false-positived
+>    on the same-page anchor `#decision-record`; the precise removed-page paths
+>    (`/platform-log/`, `/tools/decision-record/`) are the right needle.
+> 4. Read a live page's dead-link count without a cache-buster and saw a CDN-cached
+>    old copy flap; cache-busted origin fetch is the true state.
