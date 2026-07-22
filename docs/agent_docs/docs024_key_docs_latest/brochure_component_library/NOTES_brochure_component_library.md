@@ -951,3 +951,36 @@ when the page was built, unrelated to the nav removal; left for a content pass.
 >    (`/platform-log/`, `/tools/decision-record/`) are the right needle.
 > 4. Read a live page's dead-link count without a cache-buster and saw a CDN-cached
 >    old copy flap; cache-busted origin fetch is the true state.
+
+## 2026-07-22 — LAST MILE COMPLETE; Stage-2 backlog (owner-confirmed)
+
+The site is **live and functional**: serving, the two 404 nav links removed
+(verified 0 real dead links across all pages), and the homepage "our work"
+showcase live with the 3 grounded projects. `sites.phone` is set. Bug 055 closed.
+
+**Stage-2 backlog (the remaining work, all owner-confirmed as stage-2):**
+1. **The interactive components** — the ORIGINAL Thread-B ask, still unbuilt:
+   auto-advancing hero card carousel, hover-zoom cards, swipeable mobile
+   carousels, code-rendered stat bands. None exist in the framework (from-scratch
+   build). Recipes + acceptance checklist already in PLAN/NOTES. The site today
+   uses standard section components — making it *look like the brief* is this work.
+2. **Contact-details block** (owner routed here 2026-07-22): the contact page is a
+   form only; `hero-contact`/`contact-form` have no phone/`tel:` field in schema or
+   template, so `sites.phone` (+ email) can't display. Needs a component with a
+   phone/email slot. Data is already set and ready.
+3. **The 3 empty `planned` pages** — each needs a type-specific build (NOT a
+   generic re-queue; they have 0 planned sections by page-type):
+   - `self-correction-leopardessconsulting` (`blog-post`) — the story's dedicated
+     home; needs a blog-post content build. (Story is already live on about/
+     capabilities/multi-agent, so this is a deep-dive, not load-bearing.)
+   - `platform-log-index` (`section-index`) — a listing page; needs child entries.
+   - `tool-decision-record` (`tool`) — needs the owner-aware tool build.
+   All three are currently OUT of nav (unlinked in the last-mile fix), so no 404s.
+   Building them = re-linking + a type-specific build.
+4. **Council-page stray link** — `info-card-grid` "Review a sample record" →
+   `/multi-agent-review-council#decision-record` (no `.html`) 404s. Content-pass fix
+   (add `.html` or make it a same-page `#decision-record` anchor + ensure the
+   anchor target exists).
+
+**Not this workstream:** `bugs_open/056` (silent-drop-on-regeneration — another
+session owns it), `features_open/010` (council decision adjudicator).
