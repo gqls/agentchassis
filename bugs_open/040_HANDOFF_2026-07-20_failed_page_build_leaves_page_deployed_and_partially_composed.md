@@ -18,11 +18,48 @@ the page also gets stamped with the current plan version, the reconciler will no
 
 ---
 
-## FIX APPLIED 2026-07-21 — candidate 1 (structural), ALREADY LIVE on v1.0.1146
+## FIX APPLIED 2026-07-21 — candidate 1 (structural), LIVE + BEHAVIOURALLY VERIFIED
 
-**Status: FIX LIVE, behavioural firing not yet observed. 040 STAYS OPEN** (the section-DROP root
-cause is separate and unfixed — see below). This is the structural fix: a page must not be stamped
-`deployed` + `built_from_plan_version` unless every planned section was written.
+**Status: FIX LIVE (v1.0.1146, still live v1.0.1149) and VERIFIED FIRING IN PRODUCTION on real
+partial builds. 040 STAYS OPEN** — candidate 1 (the reconciler-invisibility defect) is done, but the
+section-DROP root cause (the "partially composed" half) is separate and still UNKNOWN. This is the
+structural fix: a page must not be stamped `deployed` + `built_from_plan_version` unless every
+planned section was written.
+
+> ### VERIFIED LIVE 2026-07-22 (v1.0.1149) — the guard is firing on real partial builds
+>
+> Four things now proven, end to end:
+>
+> 1. **Live in the binary** (v1.0.1149): `strings /app/agent-chassis | grep -c "build is short of
+>    its plan"` → 1.
+> 2. **Fired in production on 4 real partial builds.** Four pages carry the guard's exact DB
+>    signature — `build_status='needs_rebuild'` **and** `built_from_plan_version IS NULL` — set since
+>    the fix went live, and every one is genuinely partial (`1 ≤ pc_rows < planned`):
+>    `fundamentallyai.com/index` 5/6, `gaswholesalers.com/index` 6/7,
+>    `finetuning.uk/ai-agent-roi-estimator` 1/4, `ai-agent-orchestration.com/agent-complexity-estimator`
+>    1/4. **Attribution is airtight:** only two code sites clear the stamp — the 0-component guard
+>    (fires at `pc_rows=0`) and this partial guard; every other `needs_rebuild` writer
+>    (`check_unresolved_sections`, `store_generated_component`, `flagPagesForRebuild`) leaves
+>    `built_from_plan_version` intact. `pc_rows ≥ 1` on all four rules out the 0-component guard. So
+>    these are this guard, and nothing else.
+> 3. **The bug, observed whole.** `fundamentallyai.com/index` and `gaswholesalers.com/index` each have
+>    a `needs_page` work item marked **`complete`** (the handler reported success on a partial build) —
+>    yet the *page* is `needs_rebuild`. That is the entire defect: the item lies, but the page state is
+>    now honest, so `decideEmit` returns `not_built`/re-emits instead of `skip_built`. Under the old
+>    behaviour the page would be `deployed`+stamped and lost forever.
+> 4. **No false positives, no gaps.** The fleet sweep is stable (28 → 27), so the count method did NOT
+>    wrongly flip healthy pages (the naming-divergence pages like `gaswholesalers.com/services` 4=4 are
+>    untouched); and **zero** deployed-short pages have a `deployed_at` after the fix went live — i.e.
+>    no new partial build slipped past the guard to `deployed`. The 27 remaining are all pre-fix
+>    backlog, healing as they are next built.
+>
+> The only thing not captured is the ephemeral log line (pod restarted 1146→1149, logs reset) — but
+> the DB signature is the more durable proof and every other writer of it is ruled out above.
+> **To re-check:** the guard-signature query is
+> `SELECT … FROM pages WHERE build_status='needs_rebuild' AND built_from_plan_version IS NULL AND
+> updated_at > '<fix-live time>'`, then confirm each hit has `1 ≤ (count page_components) < (count
+> sections − suppressed_sections)`; and the no-gap query is the fleet sweep below with
+> `AND deployed_at > '<fix-live time>'` (must return 0 rows).
 
 > **It went live faster than expected — via another session's build, not mine.** I edited
 > `v3_site_actions.go`, and before I committed it a concurrent add-all sweep committed it into
