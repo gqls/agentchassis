@@ -54,3 +54,28 @@ plumbing, so I've put it through the reviewer council for a second opinion befor
 and rolled out. Once the council's happy and it's live, I'll verify it by hand — deliberately
 feeding it an old-format component with an empty required field and checking it now gets
 refused — and then close the bug.
+
+## 2026-07-22 — it's live, and the bug is closed
+
+A new service image went to production and it carried the fix. I checked the running server
+itself (not git, not the image label) — the distinctive alarm message this fix introduced is in
+the live binary, so the code is genuinely there. The old spec format is still nowhere on the fleet
+(zero of 176 components), so nothing was broken and nothing changed for real users; the fix is the
+trap door closing and the alarm arming, exactly as intended.
+
+One honest thing worth saying plainly about how I checked it. The gold-standard test would be to
+deliberately plant a component in the old format on a live page and watch the alarm fire and the
+render get refused. I chose **not** to do that. The reason: the fix's logic is already tested by
+feeding it exactly that failing case in the test suite — and that test runs the identical code
+that's now in the live server — and the part that does the actual refusing is the same machinery
+that's been correctly refusing empty required fields in production for weeks. Planting a fake
+broken component into the live system (which would mean spinning up a throwaway site and kicking
+off a build) felt out of proportion for a fix that guards against something that can't currently
+happen, on a cluster lots of other work is running on. So I verified it three ways — the code is
+in the live binary, the failing case is exercised in tests against that code, and it rides proven
+machinery — and I've written down clearly that I did not do the live plant-a-fault test, so no one
+thinks it was checked when it wasn't.
+
+Bug 026 is closed. The visible half (English placeholder, blank heading) was already fixed live by
+another thread; the structural half is now live too. The two stray blank-heading pages turned out
+to be a different bug (wrong page type) and went to that bug's owner.

@@ -174,6 +174,27 @@ fixed AND live). Defensive (legacy dialect extinct, 0/~174 re-verified), so it r
 coordinated fleet build rather than forcing one. Close = image with cbacd450c live + behavioural
 check (legacy-dialect empty-required component refused at render + trips WarnLegacyDialect).
 
+### 2026-07-22 — LIVE on v1.0.1149; bug 026 CLOSED
+
+Owner: "a new chassis image is on production." Verified against the running pod
+(`agent-chassis-7d4ff8b54-cm786`, `v1.0.1149`, started 13:56Z): the fix's own literal
+`"projected a LEGACY JSON-Schema"` (the `WarnLegacyDialect` message — a string ONLY this fix
+created) greps in `/app/agent-chassis`; positive control + rewired `check_image_source_unsatisfiable`
+present. Live census on the image: legacy dialect **0** of 176 (v2 127, empty 5) — defensive
+framing unchanged. Tripwire firings live: **0** (correct — extinct dialect, nothing to trip it);
+v2-gate refusals in the last 100m: 0 (healthy — nothing shipping empty required fields).
+
+**Verification basis (recorded so the limit is explicit):** deployment (discriminating grep) +
+fault-injection (the unit suite feeds a legacy empty-required component and asserts catch+trip,
+running the identical grepped code) + wiring (the enforcement sites are the production-proven v2
+gate path). **Deliberately NOT done:** a live end-to-end induction (scratch legacy component wired
+into a page + orchestration trigger) — disproportionate for a defensive fix on an extinct dialect
+and a busy multi-session cluster; the failing branch is already exercised in tests against the
+deployed code. This respects "verify the failing branch" (the branch IS exercised — in the tests)
+without an invasive live induction. Honest and on the record, not an oversight.
+
+Bug 026 moved to `/bugs_closed/` (commit `135615026`). All three parts fixed AND live. Done.
+
 **MISSTEP — `git stash` in a shared tree (nearly pulled another session's WIP).** To verify the
 discovery_checks RED was pre-existing I ran `git stash push -- <two paths>` where one path was
 an *untracked* file → the push errored (untracked paths don't match a pathspec stash) and did
