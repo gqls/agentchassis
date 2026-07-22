@@ -1,10 +1,41 @@
 # 054 — list components `{{range .items}}` with no `{{if}}` guard: no empty-state, fleet-wide
 
 **Filed 2026-07-21** (relojistas thread, from a council objection on the bugs_open/027 rework).
-**Status: OPEN.** Low severity — a completeness/UX gap, not a crash. Filed because it is the
-generic form of the defect the 027 rework fixed in only two of seven places, and the council
-(bug_historian seat) correctly flagged that fixing two call sites leaves the mechanism
-generic and the other five exposed.
+**Status: ✅ CLOSED 2026-07-22 — all three fix-candidates FIXED AND LIVE** (moved to
+`/bugs_closed/`; resolve the `054` number BY SLUG — it collides with the scheduled-task-envelope
+`054` also in `/bugs_closed/` and the chrome-escalation `054` still open). Low severity — a
+completeness/UX gap, not a crash. Filed because it is the generic form of the defect the 027
+rework fixed in only two of seven places.
+
+## CLOSURE — 2026-07-22 (fixed AND live on chassis v1.0.1149)
+
+- **Candidate 1 (empty-state guards) + Candidate 3 (standing lint):** LIVE since migration 185
+  / commit `f8ef83133` (config, live immediately). Re-verified 2026-07-22: all 7 range
+  components `has_if_guard=t`; `scripts/check_list_empty_states.py` OK.
+- **Candidate 2 (resolver root-cause):** shipped in commits `7e60627ef` + `6e9f06ecf`, now
+  **LIVE on `v1.0.1149`**. Deployment verified against the running pod
+  `agent-chassis-7d4ff8b54-cm786` with a **discriminating** grep (a literal + symbols this
+  change CREATES, plus controls):
+  ```
+  strings /app/agent-chassis | grep -c "query list below its required/min_items contract"  # 1  (Warn literal unique to this fix)
+  strings /app/agent-chassis | grep -c "queryListBelowContract"                             # 1  (new symbol)
+  strings /app/agent-chassis | grep -c "queryResultLen"                                      # 1  (new symbol)
+  strings /app/agent-chassis | grep -c "plan_sections: query resolution failed"             # 1  (pre-existing positive control)
+  strings /app/agent-chassis | grep -c "queryListAboveContract"                             # 0  (negative control)
+  ```
+- **Owner accepted the fix as-is** (2026-07-22): honour `skip_section` (drop empty listing +
+  Warn log); the fail-loud tracked-item guard was declined.
+
+**Honest verification caveat (per `verify-the-failing-branch`):** the pod-grep proves
+DEPLOYMENT; correctness of the routing logic is proven by unit tests
+(`plan_sections_contract_test.go`) and council review, **not** by a fault-injected live drop.
+The new below-contract branch had **not** fired in the 40 min after the roll (0 Warn lines) —
+most of the 12 live sections using these 5-of-7 components resolve non-empty. I deliberately
+did **not** force-drop a real production section to test it (that is an outward-facing change
+to a live page); the Warn log is now the standing signal for the first natural occurrence.
+This matches how the sibling `bugs_closed/044` closed (deployment + tests + analysis, no forced
+repro). **Filed fast-follow (not built):** a standing lint that future `queryresolve.Resolve`
+consumers length-check rather than `value!=nil`.
 
 > **UPDATE 2026-07-21 (cta_link_integrity thread) — the empty-state SWEEP is FIXED & LIVE.
 > Bug stays OPEN, narrowed to the resolver root-cause (fix-candidate 2).**
