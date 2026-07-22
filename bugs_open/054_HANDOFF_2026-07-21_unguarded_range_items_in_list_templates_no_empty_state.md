@@ -100,6 +100,18 @@ generic and the other five exposed.
 > do NOT short-circuit — route it through the SAME `on_missing` handling the generic path
 > uses (factored into one shared helper so the two paths cannot drift — the drift class
 > `bugs_closed/044` was closed for). Council-gate before commit.
+>
+> **STATUS 2026-07-22 — fix-candidate 2 BUILT, TESTED & COMMITTED (`7e60627ef`); INERT
+> until the next chassis image roll → bug stays OPEN.** The owner chose **honour
+> `skip_section` (drop)** for empty listings. The Go change is exactly the fix shape above:
+> a `handleMissingField` closure shared by the generic + `query.*` paths, plus pure DB-free
+> helpers `queryListBelowContract`/`queryResultLen`, with unit tests
+> (`plan_sections_contract_test.go`). `go build` + `go test ./…/actions` pass, incl. the
+> pre-existing `planSection` defer tests (refactor preserved). Council-gate submitted:
+> `SUBMISSION_CORR=958d52f4-af5e-4414-9caa-82655577bda6` (verdict pending; trailer added
+> only on APPROVED). **To close:** verify live after roll — an empty `product-grid`/
+> `directory-listing` etc. is dropped (not blank) and re-appears on the next render once
+> data exists; the 5 list components still render the empty-state.
 
 ## What
 
