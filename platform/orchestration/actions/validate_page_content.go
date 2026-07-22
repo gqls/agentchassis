@@ -514,10 +514,13 @@ func checkDomainContamination(html string, expectedDomain string, expectedCompan
 		// case study, or as the worked example of the self-correction story.
 		// When this site's allowlist names the known domain, the reference is
 		// intentional, not contamination; skip BOTH its domain and company
-		// checks (they are the same site being legitimately referenced).
-		// Absent allowlist → nil map → every known site still flagged, so this
-		// is fully opt-in and unchanged for sites that have not declared one.
-		// See bugs_open/055.
+		// checks. Company suppression is deliberate: it is the SAME first-party
+		// site, so a rewrite that names the company ("Leopardess Consulting")
+		// rather than the bare domain must not re-block the same approved
+		// reference. This does not widen blast radius — only the five hardcoded
+		// first-party known sites can ever be suppressed. Absent allowlist →
+		// nil map → every known site still flagged, so this is fully opt-in and
+		// unchanged for sites that have not declared one. See bugs_open/055.
 		if allowedRefs[strings.ToLower(known.Domain)] {
 			continue
 		}
