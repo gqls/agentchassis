@@ -173,3 +173,43 @@ when the only things left are minor. If it's knocked down, then the plans really
 do need the work and the honest move is to stop chasing approvals and just take
 the objections and ship. Either answer is useful. I'll report back when it lands
 (about half an hour).
+
+---
+
+**2026-07-22 — reporting back: the hunch was right, and it's fixed (though it
+won't take effect until the next rebuild).**
+
+Two things to tell you. First, the diagnosis loop I handed it to **got stuck and
+never answered.** It stalled at the same step our other investigations keep
+getting stuck on — one where it hands a job to another part of the system and
+waits for a reply that never comes, the dispatch-queue backlog we already have
+open cases on. After four hours a safety timer gave up on it. So the loop that is
+supposed to check my hunch couldn't run — which is itself a finding: our
+diagnosis machine is currently blocked by the same traffic jam it exists to
+investigate. I've noted that against the existing cases rather than starting a new
+one.
+
+Second, rather than re-fire it into the same jam, I checked the hunch by hand
+against the live evidence — which is exactly what the loop would have read. It
+holds, clearly. Of every objection that sent a change back over three days, only
+**8.5% were graded serious**; **two-thirds of the "revise" verdicts had no serious
+objection in them at all** — they were held up entirely by minor nits. In fourteen
+cases a single reviewer overrode eight or nine colleagues who'd approved, and in
+thirteen of those fourteen the thing they objected to wasn't even marked serious.
+So approval was unreachable because of the *rule*, not because the work was bad.
+
+You chose the fix — only a serious objection (or a formal veto) blocks; minor
+ones still get recorded and sent back to the author, they just stop being a wall.
+I've built it, tested it, and committed it. It's deliberately careful in two
+places: an objection the reviewer didn't grade at all still blocks (silence isn't
+"minor"), and a review that got cut off mid-sentence still blocks (its serious
+objection might be in the part we lost). It corrects **every** council at once,
+because they all share this one piece of code.
+
+The one caveat worth saying plainly: it's a code change, so it does nothing until
+the next rebuild ships. Until then every council still behaves the old way. Once
+it's live, the test is simple — the approval rate should climb, and I've written
+down exactly how to check it. There's also an optional step: I can put this very
+change through the council for review, which would be a fitting test — though under
+the *old* rule still in force, it will probably come back "revise", which is the
+problem proving itself one last time. Your call on whether that's worth the credits.
