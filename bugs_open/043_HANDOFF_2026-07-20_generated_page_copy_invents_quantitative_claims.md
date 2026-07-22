@@ -128,6 +128,49 @@ fleet-wide and no figure here should be read as if I had.** The verify query abo
 running it across all sites is the first thing the fixing thread should do, before choosing
 between candidates (1)–(4).
 
+## Update 2026-07-22 — robot-hands resolved the actuation claim by EXPANDING the index (owner decision)
+
+The `43 prose fields` note above framed the six-technology claim as a copy decision.
+Put to the owner as four options (rewrite prose / expand catalogue / minimal strip /
+leave), the owner chose **expand the catalogue**: keep the positioning, make it true.
+
+Key finding that sharpened the decision — the claim was not merely *unsourced*, it was
+**contradicted by the index**. All five grippers are parallel-jaw (three explicitly
+`24 V DC` → electric); the specs contain **no** vacuum, magnetic, soft-robotic, adhesive
+or even pneumatic attribute. So "indexes grippers across six actuation technologies:
+pneumatic, electric, vacuum, magnetic, soft-robotic, adhesive" advertised **four
+technologies with zero grippers**. This is the vetcomparison class (published claim vs
+data), not a soft overstatement.
+
+Fix applied (`SQL_2026-07-22_r7_expand_catalogue_actuation_types.sql`): one **real,
+datasheet-sourced** gripper added per missing technology — Festo DHPS-10-A (pneumatic),
+OnRobot VG10 (vacuum), OnRobot Soft Gripper SG (soft-robotic), OnRobot Gecko SP5
+(adhesive), Schmalz SGM-HP 50 (magnetic). Each carries `content_data.source_url` +
+`verified_date` and only figures read off the manufacturer/distributor page — **no
+invented specs** (that being the whole point of the family). The index now holds **10
+grippers across 6 actuation technologies**, and the stat blocks were re-pointed to
+**computed subqueries over `products`** (fix candidate 1 in miniature: a stat value that
+traces to a query and cannot drift). about/gripper-detail now compute 10 models / 6
+manufacturers / 39 figures; the `index` page's "6 actuation technologies" — flagged above
+as fabricated — is now backed (`count(distinct actuation)=6`). Re-render queued
+(`robot-hands-r7-catalogue-expand`); inert until the build queue drains (bug 029 stall).
+
+**Residual, honestly (NOT fixed by expansion, flagged to owner):**
+- **MatchMatrix scope.** The tool scores only the parallel-jaw grippers on clamping
+  force; it does not evaluate vacuum/magnetic/adhesive/soft grippers (different physics).
+  Prose claiming the *tool* "evaluates across six technologies" is still ahead of the tool.
+  Expanding the index fixed the **catalogue** claim, not the **tool-scope** claim.
+- **No browsable listing.** The gripper-catalog page is static prose (0 gripper names
+  rendered live 2026-07-22); the new grippers back the claim + the counts but do not
+  auto-generate catalog rows or detail pages. Pre-existing rendering gap.
+- **Learning-center depth.** "One guide per actuation technology" (6) vs 3 real guides.
+
+**This does not close the platform bug.** Candidates 1–4 are still unbuilt and the
+fleet-wide sweep is still unrun — expansion is a per-site containment for robot-hands,
+the same status the stat-number fix had. The lesson it adds: for a data-backed site the
+honest fix can be to *make the data real*, not to soften the copy — but only where real
+sources exist, and only with the specs actually cited.
+
 ## Related
 
 - `/bugs_open/020` — the tool-recreation fabrication. Same family, different path. Fix both.

@@ -639,3 +639,69 @@ target, so its live verification ran here. What was done TO robot-hands:
 
 R-series implication: the R1 churn mechanism is now guarded at the merge seam
 fleet-wide, not just by this site's pin. The pin stays (defence-in-depth).
+
+---
+
+## Turn 10 — 2026-07-22 — R7: expanded the index so "six actuation technologies" is TRUE
+
+Continued from `HANDOFF_2026-07-20`. Everything R1–R6 + R4 re-verified holding on
+v1.0.1144 (pod `agent-chassis-59c675c4f-pxr9f`, started 08:47Z). The one genuinely
+open, robot-hands-scoped, owner-blocked item was 043's "42 prose fields" carrying the
+six-actuation-technologies claim. Put it to the owner; **owner chose EXPAND the
+catalogue** (see PLAN D10).
+
+**The finding that made it a data bug, not a copy call.** Read the actual index
+(`products`, category='gripper'): five parallel-jaw grippers, three with an explicit
+`24 V DC` spec (electric). Full spec dump showed **no** actuation field and **no**
+vacuum/magnetic/soft-robotic/adhesive/pneumatic attribute on any of the five. So the
+claim named four technologies the index held **zero** of. `[VERIFIED]` by
+`SELECT name, specifications FROM products WHERE site_id=…` — not inferred from the
+part numbers (that would be the exact trap in WRONG_CALLS; the 24 V DC values are the
+evidence, the model names are not).
+
+**Sourcing discipline (the whole point — 043/020 is the fabrication family).** One
+real product per missing technology, every figure read off a fetched manufacturer or
+distributor page on 2026-07-22, stored with `content_data.source_url` + `verified_date`
+exactly as the existing five already do (Festo EHPS cites rs-online, etc.):
+
+| technology | product | key figure(s) verified | source |
+|---|---|---|---|
+| pneumatic | Festo DHPS-10-A | 34.5 N/jaw closing @6bar, 3 mm stroke, 67 g, 2–8 bar | motionworld (Festo DS 1254040; Festo PDF was binary-unreadable via fetch) |
+| vacuum | OnRobot VG10 | 15 kg payload, electric dual-zone | onrobot.com |
+| soft-robotic | OnRobot Soft Gripper SG | 2.2 kg, 11–118 mm grip, food-grade silicone | onrobot.com |
+| adhesive | OnRobot Gecko SP5 | 5 kg payload, van der Waals | onrobot.com |
+| magnetic | Schmalz SGM-HP 50 | 560 N (385 N w/ friction ring), 50 mm, 350 °C | schmalz.com |
+
+I deliberately did **not** carry figures I saw only in a search-result *summary* (e.g.
+VG10's "80% vacuum / 12 Nl/min") into the row — only what a fetched page actually stated.
+That is the difference between "verified" and "plausible" and it is where this family
+bites.
+
+**Stat blocks re-pointed to the catalogue, not hand-typed** (bug 043 fix candidate 1 at
+one-site scale). The three count stats now UPDATE from `SELECT count(*)…`/`count(DISTINCT
+…)` subqueries over `products`, so they cannot drift from the index again:
+about + gripper-detail = 10 models / 6 manufacturers (was 5/5); gripper-detail figures
+24 → 39; `index`'s "6 actuation technologies" was fabricated, now `count(distinct
+actuation)=6` backs it — same value, now true. Verified inline in the SQL echoes:
+10 / 6 / 6 and adhesive1 electric5 magnetic1 pneumatic1 soft-robotic1 vacuum1.
+
+**What is live vs pending.** The catalogue expansion is live in the DB **immediately**,
+and because the six-technology prose was already rendered (just unbacked), the claim is
+true the moment the index holds them — no re-render needed for *correctness*. Only the
+two stat *numbers* (5→10, 5→6 on about/gripper-detail) await a re-render, queued as
+`robot-hands-r7-catalogue-expand` with `handler_agent='page-rerender'` + a distinct
+`item_key` and `reason='cta_links_stale'` (the proven branch; R4d learned that a NULL
+handler_agent leaves the item unroutable-but-green). Until it drains those pages show 5 —
+a conservative understatement, not a fabrication. `[NOT-YET-LIVE]` on the numbers.
+
+**Did not fight the queue.** robot-hands has 1 `claimed` item ahead of mine and the
+fleet pipeline is doing ~2 completions/hour (bug 029 stall, third roll). README says the
+029 recovery is another thread's and not to loop it, so the re-renders sit. Fine — the
+data is already correct.
+
+**Residual, recorded not hidden** (into 043 too): MatchMatrix scores only the
+parallel-jaw subset on clamping force, so any prose claiming the *tool* evaluates all six
+technologies is still ahead of the tool — expansion fixed the **index** claim, not the
+**tool-scope** claim. The new grippers also have no browsable catalog row/detail page
+(the catalog page is static prose). Neither is part of the owner's decision; both are
+flagged for a follow-up.

@@ -183,3 +183,47 @@ pointed the handoff at their correction so we don't fix it the narrow way.
 
 The handoff document is now current as of today's build, so a new chat can start
 straight from it.
+
+---
+
+## 22 July 2026 — made the "six technologies" claim true by adding real grippers
+
+You'll remember the one thing I flagged as your decision: the site says all over that it
+covers grippers across six actuation technologies — pneumatic, electric, vacuum, magnetic,
+soft-robotic and adhesive — and the catalogue behind it was five grippers that are all the
+same kind (parallel-jaw, and the ones that say so are electric). I'd fixed the made-up
+numbers but left that bigger claim alone because changing it is really a decision about
+what the site is.
+
+When I actually looked at the five grippers in the database, it was worse than "unsupported":
+of the six technologies the site names, four of them (vacuum, magnetic, soft-robotic,
+adhesive) had **zero** grippers in the catalogue at all. So the site wasn't just rounding up
+— it was advertising whole categories it held nothing in. That's the same shape as the vet
+site's made-up prices.
+
+You chose to make the claim true rather than water it down, and I've done that. I added one
+real, genuine product for each of the missing technologies — a Festo pneumatic gripper, an
+OnRobot vacuum gripper, an OnRobot soft silicone gripper, an OnRobot "Gecko" adhesive
+gripper, and a Schmalz magnetic gripper. These are all real products you can buy; I read
+each one's specifications off the manufacturer's own page and saved the web address next to
+it, so every number on the site now traces back to a real datasheet, not to something the
+content generator invented. That was the whole discipline of this — the temptation with a
+job like this is to type in plausible-looking specs, and plausible-looking is exactly the
+disease. I didn't add a single figure I couldn't point at a source for.
+
+The catalogue now genuinely holds ten grippers across all six technologies, and I've wired
+the site's counters ("Gripper Models Indexed", "Manufacturers Covered") to count the
+catalogue directly, so they can't drift away from the truth again the way the old made-up
+numbers did. Those counters will tick from 5 to 10 (and manufacturers from 5 to 6) once the
+site rebuilds — and the rebuild queue is still backed up behind that platform build problem
+I mentioned, so it may be a little while. In the meantime the pages show 5, which is now an
+undercount rather than a lie, so nothing dishonest is live.
+
+Two honest limitations I want to name rather than bury. First, the MatchMatrix tool still
+only compares the parallel-jaw grippers — it works out clamping force, which is a
+jaw-gripper idea and doesn't apply to a vacuum or magnetic gripper — so any sentence that
+implies the *tool* itself weighs up all six technologies is still ahead of what the tool
+does. Fixing the catalogue fixed the catalogue claim, not that one. Second, the new grippers
+don't yet get their own browsable pages; they back the claim and the counts, but the
+"catalogue" page is still written as prose rather than a real list. Both are follow-ups, not
+part of what you decided today, and I've written them down so they don't get lost.

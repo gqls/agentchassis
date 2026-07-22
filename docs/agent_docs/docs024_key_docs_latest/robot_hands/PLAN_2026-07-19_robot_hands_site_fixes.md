@@ -83,6 +83,19 @@ with one dissent whose points were answerable — one by a grep (no other check
 shares the shape), one by a small refactor. Spending a fourth round on a
 low-severity design point would spend credits against explicit guidance.
 
+**D10 — R7: back the "six actuation technologies" claim by expanding the index, not
+by rewriting 42 paragraphs (owner decision, 2026-07-22).** The fabricated claim (bug
+043) survived in ~38 prose components after the stat numbers were contained. Rather
+than soften the copy, the owner chose to make it true: add one **real, datasheet-sourced**
+gripper per missing technology (pneumatic/vacuum/magnetic/soft-robotic/adhesive), so the
+`products` index — the site's source of truth — genuinely spans six. Reason it works:
+the prose was never re-rendered wrong, it was *unbacked*; the claim's truth is a property
+of the catalogue, so expanding the catalogue makes every "across six technologies"
+sentence true at once, with no prose edit. Discipline: no invented specs (that is the
+043/020 family), every figure cited to a manufacturer page, stat blocks re-pointed to
+computed subqueries so they trace. Residual left for the owner: MatchMatrix still scores
+only the parallel-jaw subset, so *tool-scope* prose remains ahead of the tool.
+
 ## Phasing (as executed)
 
 1. R1 palette + components + pin → re-render CSS → re-render 37 pages.
