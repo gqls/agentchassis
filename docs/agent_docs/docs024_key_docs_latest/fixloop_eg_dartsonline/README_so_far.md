@@ -1506,3 +1506,36 @@ the "feature-designer" council is still running on the older, smaller model
 (sonnet-4-6) while the other two councils were moved up to sonnet-5 a few days
 ago. It might be deliberate, or it might have been missed in that upgrade —
 worth a look when you have a moment.
+
+---
+
+**2026-07-22 — upgraded the lagging council, then fixed a hidden trap the last
+handoff got wrong.**
+
+You said to bring the feature-designer council up to Sonnet 5, so I did. It
+turned out to be a clean case of a half-finished upgrade: the part that WRITES
+the design had already been moved to the new model a few days ago, but the panel
+of reviewers that CHECKS the design was left behind on the old one. I moved the
+five reviewers up to match the other two councils, backed up the old version
+first, and re-ran the checker afterwards to confirm nothing else drifted. Live
+now.
+
+Then I took on the third item — a subtle wiring trap the previous session had
+flagged but described the fix for incorrectly. Two steps in the diagnosis loop
+talk to each other by an agreed name ("route"): one writes its results under that
+name, the other reads them back. If someone ever renamed one end without the
+other, the reader would quietly find nothing and report "zero problems" — the
+exact false-silence the whole loop is built to prevent. The old handoff said "just
+check whether the value is there." I found that doesn't actually work: the value
+is legitimately absent most of the time (there's usually nothing to report), and
+the failure being guarded against erases the very clue you'd use to detect it. So
+"is it there?" can't tell a healthy run from a broken one.
+
+The honest fix was to let the reader see the writer's actual configured name and
+compare the two directly — if they disagree, stop loudly instead of running
+blind. I built that, and (importantly) I didn't just check that it passes when
+things are fine — I deliberately broke the wiring in a test and confirmed it
+catches it. It's committed but won't take effect until the next time the system
+image is rebuilt. It's the kind of platform change that can go through the
+reviewer council if you want the extra pair of eyes — say the word and I'll send
+it (it costs a bit and takes about half an hour).

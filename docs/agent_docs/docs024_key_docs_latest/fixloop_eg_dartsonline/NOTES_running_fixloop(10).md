@@ -2477,3 +2477,54 @@ A cross-council parity rule would NOT be clean here — `experience-planner`
 uniformly OMITS `tolerate_truncation` by owner ruling, so comparing councils to
 each other fires on intended state. That is why 102 stays within-family and 099
 only mirrors the two councils that are meant to be byte-identical.
+
+---
+
+## Turn 46 — 2026-07-22 — feature-designer council → sonnet-5, then #3 (the field-name coupling)
+
+**feature-designer council upgraded, PATCH_022 (`ee31c3632`), applied LIVE.**
+The observation 102 surfaced was real and confirmed by reading the row: the
+worker steps (`design`/`reframe`/`repropose`) were already on `sonnet-5 @ 16000`,
+but the 5 reviewer seats were left on `sonnet-4-6 @ 3000` — a PARTIAL D1 migration
+(the design got the bump, its own council didn't). Moved the 5 seats to the
+reviewer standard the other two councils use (`sonnet-5 @ 8000`; 16000 is the
+design step's ceiling, not a reviewer's). Surgical `jsonb_set` on model+max_tokens
+only via a guarded DO-block (skips any seat not on 4-6, so re-run/concurrent-safe);
+`snapshot_agent` first (id `ba8f1fcd`); `tolerate_truncation=true` untouched on all
+5 (019 protection survives). 102 lint clean after (all 5 moved uniformly).
+
+**#3 — the route↔load_runtime output_field coupling. Fix `6f7e69d22`, inert
+until the next image roll. The handoff's proposed fix was WRONG; recording why.**
+
+- Handoff §1.3 said the fix is "a runtime check — does the field the reader
+  expects actually exist in collected_data before trusting its absence?" It does
+  NOT work, for three reasons I only found by reading the writer + the plumbing:
+  1. The writer (`diagnose_route`, line 301-302) writes `route.code_requests_dropped`
+     ONLY when `dropped>0`. So absence is the NORMAL zero-drops case — "field
+     absent" cannot mean "wiring broken."
+  2. An `output_field` override moves route's WHOLE namespace, including
+     `route.diagnose_state`/`route.iteration` (line 206-207) — so the reader has
+     NO override-independent signal to tell "route ran elsewhere" from "iteration 1,
+     route hasn't run." The override erases exactly the disambiguator.
+  3. The reader cannot see a sibling step's config: `ActionParams` carried
+     `StepConfig` (its own) and `ExecutionContext` (routing only), not the plan.
+- It is also a LATENT risk, not an active bug: an `output_field` override also
+  moves `route.data_requests`/`route.code_requests`, so it breaks the whole
+  route→gather FORWARDING loudly — the silent drop-count is a sub-symptom.
+- Owner chose "validate at dispatch (complete)". Design: thread the plan's step
+  map into `ActionParams.WorkflowSteps` (read-only, additive — no other action
+  uses it; populated in `buildActionParams`, coordinator.go), and have
+  `diagnose_load_runtime` assert on its first gather that each of its four
+  route-coupled `*_field` values names a namespace some `diagnose_route` step
+  actually writes under. Kept the diagnose-specific invariant OUT of the generic
+  coordinator (the reader validates its own contract). A CONSISTENT override (both
+  ends moved) still names one namespace and passes; only a DIVERGENCE fails, hard,
+  before the loop runs blind. Fails OPEN on nil steps / no route step.
+- Falsification-tested (`TestValidateRouteWiring`), not just happy-path: default +
+  consistent-override pass; divergent / partial-reader-override / empty-output_field
+  FAIL; no-route / nil-steps skip. `go build ./platform/orchestration/...` green;
+  `go test` green. gofmt clean. No same-file passenger (coordinator.go = 1 line;
+  types.go = my field + gofmt realignment).
+- OPEN: council gate (owner leaned "I'd council-gate it") — a platform change, so
+  it's eligible; not yet submitted (credits + ~30 min, owner go). No
+  `Council-Reviewed:` trailer on `6f7e69d22` — not reviewed.
