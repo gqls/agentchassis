@@ -705,3 +705,45 @@ technologies is still ahead of the tool — expansion fixed the **index** claim,
 **tool-scope** claim. The new grippers also have no browsable catalog row/detail page
 (the catalog page is static prose). Neither is part of the owner's decision; both are
 flagged for a follow-up.
+
+---
+
+## Turn 11 — 2026-07-22 — R7 verified after the v1.0.1149 roll; R7b fixes what live verification exposed
+
+Owner said a new chassis image was on prod (pod `agent-chassis-7d4ff8b54-cm786`,
+v1.0.1149, started 13:56Z). Checked whether R7 went fully live. The R7 re-renders had
+already completed under the *previous* image (about 07-22 11:19, gripper-detail 12:04) —
+the bug-029 queue drained (it self-heals ~40 min per the corrected 029 diagnosis).
+
+**about.html — clean and correct live: 10 models / 6 manufacturers, zero fabrication
+tells.** `[VERIFIED]` curl of the deployed artefact.
+
+**A misstep I caught, logged to WRONG_CALLS.** I curled `https://robot-hands.com/
+gripper-detail.html` (root) and saw an empty stat skeleton whose gqls/sites file dated to
+**May 02** — and briefly diagnosed a bug-024 delivery gap (re-render marked complete/
+deployed but never delivered). It wasn't. **gripper-detail deploys to
+`/entities/gripper-detail.html`** — `pages.url` says so, and so did the 07-20 handoff. The
+root file is a stale unrelated artefact. On the *correct* URL R7's values were live all
+along (10 / 6 / 4 / 39). Lesson: read `pages.url` before curling; the page NAME is not the
+path, and "the deployed file is old" against the wrong path proves nothing. The DB was the
+tell I ignored first — the component's `rendered_html` (build_status=deployed, updated
+12:03) already held the right content; a deployed artefact that contradicts a fresh
+`rendered_html` should have pointed me at "wrong file", not "delivery gap".
+
+**R7b — two real defects the correct-URL check exposed** (`SQL_2026-07-22_r7b_…`):
+1. **The placeholder-suffix bug (043 point b) was STILL LIVE on gripper-detail.**
+   `stat{1..4}_suffix` = `%`, `ms`, `+`, `x` (unedited generic-template junk), so the page
+   rendered **"10%", "6ms", "4+", "39x"**. The 07-20 containment cleared this on `about`
+   (which simply has no suffix keys) but not here. Cleared all four → empty.
+2. **R7's own count bump left two descriptions false** — the exact fabrication-family drift
+   R7 was about, now self-inflicted. `stat2_description` listed 5 manufacturers (value 6) →
+   added Schmalz. `stat4_description` said "two models publish no payload rating and two
+   publish no IP rating" — with ten grippers it is **4 no-payload / 7 no-IP** `[VERIFIED]`
+   `count(*) FILTER (WHERE NOT specifications ? 'payload')=4`, `… 'ip_rating')=7`) →
+   genericised so no hardcoded count can drift again.
+   **Takeaway for the R7 method: updating a stat VALUE from the catalogue is not enough —
+   the surrounding prose that cites the old value has to move with it, or it re-fabricates.**
+   `about` needed nothing (labels+values only, no descriptions/suffixes).
+
+R7b re-render queued (`robot-hands-r7b-suffix-fix`, gripper-detail only); live-verify
+pending the drain.

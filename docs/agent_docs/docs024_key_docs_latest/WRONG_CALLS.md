@@ -48,7 +48,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
-| **confirm the record you are reading is the one that produced the artefact** | **2** |
+| **confirm the record you are reading is the one that produced the artefact** | **3** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -1891,3 +1891,17 @@ objections' own read-only checks against the code BEFORE assuming they were word
 three greps, ~2 minutes, done before writing "it's just wording" into a handoff. This is the exact
 failure the debugging-guide's diagnosis section names — *confidence is not a signal; the wrong claim
 felt obvious.* A handoff prediction stated in the same confident voice as a finding IS the error.
+
+### 2026-07-22 — robot-hands — "gripper-detail's re-render never delivered — the deployed file is from May" (a delivery gap that wasn't)
+**Asserted:** curled `https://robot-hands.com/gripper-detail.html`, saw an empty
+stat skeleton whose gqls/sites file dated to 2026-05-02, and began writing it up as
+a bug-024 delivery gap — a re-render marked complete/deployed that never shipped.
+**Actually:** that root file is a stale unrelated artefact. The page's real path is
+`/entities/gripper-detail.html` (`pages.url`), where R7's values (10/6/4/39) were
+live all along. Nothing failed to deliver.
+**Caught by:** reading `pages.url` — after the DB already told me: the component's
+`rendered_html` was populated and `build_status=deployed`, which contradicts "never
+delivered" and should have said "you're looking at the wrong file".
+**The cheap check that would have caught it:** `SELECT url FROM pages WHERE name=…`
+before curling. The page NAME is not the deployed PATH.
+**Cost:** ~5 min and a near-miss bug write-up; no wrong claim reached a handoff.
