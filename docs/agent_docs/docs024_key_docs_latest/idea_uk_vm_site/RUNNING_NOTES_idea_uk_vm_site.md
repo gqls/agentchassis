@@ -1439,3 +1439,32 @@ so it rode that roll (owner: "a new chassis image is on production"). The makefi
 **Side-finding still open** (a reviewer's check, §X.6): `sites.content_data` for idea.uk still carries
 `"email": "idea-uk@leopardess.uk"` — not rendering today (footer takes `email` from the render
 context) but one code path from a live wrong address. Not fixed this thread.
+
+### §X.11 — bugs_open/054 council: REVISE → routing fix → APPROVED (2026-07-22, bugfix o54 session)
+
+Update to §X.10. The council REVISE'd the first plan (corr `3951e2be`) and it was the right call: it
+found a real hole in **my** Half-2 routing (not the owner's intent). I had routed the finding to
+`detected`+`handler=nav-link-fixer`; that agent's live workflow (`fix_nav_templates` → rerender →
+`complete_workflow`) marks the item **complete without verifying the field resolved**, so a
+genuinely-unresolvable chrome control would be re-dropped and marked done on every re-render and
+**never reach a human** — exactly the "silent loss with a hopeful side-channel" bug_historian named.
+
+Owner confirmed the reroute (AskUserQuestion): **`needs_human_review`, no handler**, mirroring the
+sibling `check_dead_controls`. A dropped control is a human decision; the data-lag case self-heals on
+the next normal re-render regardless. Revision `0132f859b` also switched the emit to the SHARED
+`insertWorkItem` helper (the `idx_swi_dedup`-matched `ON CONFLICT` + two-strike label — house
+standard, answers reuse_agent/guidelines) and made a dead `<img>` drop whole (editquality).
+
+**Round 2 APPROVED** (4 advisory, none high). Acted on `render_guardian`'s `data-runtime-fill`
+exemption (`2afa6531a`, carries the `Council-Reviewed: 3951e2be` trailer). The rest were the seats'
+partial-schema inability to see `site_components` (it exists, 36 rows) and a preference for attached
+code_check bundles over manual grep.
+
+Trigger schema gotchas learned (both died `complete_invalid`, no credits): `plan.risks` is a STRING
+not an array; edit `operation` ∈ `modify|add|remove|config_change`, new files = `add` not "create".
+
+**Cross-dependency with your own §X.8 work:** my drop is gated on `deadURLFields` = `missingBareFields`'
+`inURLAttr`. Until `78482c86b` (your scope-aware parse-tree detector, LIVE v1.0.1149) that was
+control-flow-blind — dropping on its false positives would have removed live gated controls. It's an
+ancestor of my commits, so next-build-from-HEAD is safe. That fix was also the concurrent
+`component_library.go` edit I stepped around. `054` stays OPEN until live + verified on the failing branch.

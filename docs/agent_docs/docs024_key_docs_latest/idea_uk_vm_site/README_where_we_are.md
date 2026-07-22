@@ -990,3 +990,22 @@ Two honest loose ends, neither urgent: the council never formally "approved" thi
 "reviewed" stamp on it, same as the footer fix (053) we handled the same way last week. And there's a
 stale old email address (idea-uk@leopardess.uk) still sitting in one database field for idea.uk; it
 isn't shown anywhere today, but it's a wrong address one wrong turn away, so it's on the list.
+
+---
+
+**2026-07-22 (later) — the 054 follow-on passed review, with one genuinely useful correction.**
+
+I put the change through the advisory review council. It came back "revise" first — and it was right
+to. My first version filed the "I dropped a broken link" note onto an automatic fixer that re-renders
+the page and then marks the job done *without checking the link was actually fixed*. So a link that
+genuinely has nowhere to go would have been quietly re-dropped and marked "done" forever, never
+reaching a person. That's the exact silent-loss trap this whole piece of work exists to close, so I'm
+glad the review caught it. You confirmed the fix: send those notes straight to the human review queue
+instead (the same place the equivalent page-level check already sends them). The common case — a link
+whose data just arrived late — fixes itself on the next normal rebuild, so nothing is lost.
+
+Second pass came back approved. I made one more small safety tweak it suggested (leave alone the
+special "fill this in later on the visitor's screen" placeholders). It's committed and reviewed, and —
+as always — does nothing until the next image roll. It also quietly depends on another change that's
+already live (v1.0.1149), which happens to be the same file another session was editing while I
+worked; that ordering is fine.

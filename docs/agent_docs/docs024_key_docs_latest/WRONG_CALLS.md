@@ -1937,3 +1937,33 @@ and never traced what it does to a dotted value. A one-off `go test` of the WRAP
 discovery); one extra image roll now needed before 020 can close. The lesson is the
 one the debugging guide keeps making: static "verified" ≠ correctness — induce the
 fault for anything whose job is to detect one, and test the layer that actually runs.
+
+---
+
+## 2026-07-22 — routed a work item to a handler without checking the handler handles it (bugs_open/054, bugfix o54 session)
+
+**The claim:** filing the new `chrome_dead_control` finding at `status='detected'` with
+`handler_agent='nav-link-fixer'` (the `phantom_internal_links` site_component routing convention)
+would DRAIN it — "a re-render fixes the data-lag case, a genuinely-unresolvable field exhausts
+max_attempts → failed and surfaces to the human queue." I grounded the routing in
+`check_phantom_internal_links.go`'s `routeBySurface` table and asserted the drain worked.
+
+**Why it was false:** `routeBySurface` is only the DISPATCH table — it says which agent gets the
+item, not that the agent's workflow handles this item's shape. `nav-link-fixer`'s live workflow
+(`ensure_site_record → fix_nav_templates → rerender_site_components → complete_workflow`) marks the
+item **complete unconditionally** — it never verifies the dead field resolved. So a genuinely-
+unresolvable chrome control would be re-dropped on the re-render and marked *done*, on every render,
+and **never reach a human** — the exact silent-loss shape the whole bug exists to close.
+
+**Caught by:** the council gate (guardian + bug_historian, MEDIUM), on the first submission. Its
+recommendation ("confirm the handler discriminates on the new item_type / actually fixes it") was
+correct; owner then confirmed the reroute to `needs_human_review`, no handler.
+
+**The cheap check that would have caught it:** before routing an item to a handler, READ THE
+HANDLER'S WORKFLOW (`agent_definitions.default_config.workflow`), not just the dispatch routing
+table. One query would have shown `complete_workflow` has no verify step. The routing table answers
+"who gets it", never "does it get fixed". Same shape as the 020 wrong call above (trace how the
+consumer USES the thing, not just that the wiring resolves).
+
+**Cost:** one council round (REVISE→revise→APPROVED) + one owner question. Cheap — the gate is exactly
+where being wrong is supposed to cost the least. A REFUTED-by-council routing is a success, not a waste.
