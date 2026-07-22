@@ -41,6 +41,12 @@ no-regression proof.
 Submission JSON schema (the trap that cost a retry): `plan` is an **object** with
 `plan.summary` (string), `plan.edits` (array ≤8, each needs file/operation/rationale/sketch),
 `plan.grounded_in` (array). NOT a top-level `plan` array + top-level `grounded_in`.
+
+**`operation` vocabulary (second trap):** exactly `modify | add | remove | config_change`
+(`diagnose_persist_fix_plan_action.go:80`). A NEW file is **`add`**, NOT `create` — a `create`
+completes the run at step `complete_invalid` with a persist-time reject *before* any reviewer
+runs (no credits, no verdict), so it looks like a silent failure. Check
+`collected_data->'__step_error'` on a `complete_invalid` run.
 ```
 ./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/097_TRIGGER_council_review_v1.sh <submission.json>
 ```

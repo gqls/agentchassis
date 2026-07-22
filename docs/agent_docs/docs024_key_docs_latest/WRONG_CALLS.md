@@ -1800,3 +1800,19 @@ finding) and `features_open/010` (the council-decider improvement) are all still
 valid work. But the headline lesson is blunt: **before writing OR rolling a fix,
 grep the current code and pod-grep the live binary for the mechanism — "is it
 already done?" comes before "how do I do it?".**
+
+---
+
+**2026-07-21 — assumed the council fix_plan `operation` vocabulary instead of reading it (bugfix-026).**
+Submitted a council-gate plan with `operation: "create"` for two new files (a git-verb
+guess). The run completed at `complete_invalid` with a persist-time reject — *"operation
+\"create\" not in the allowlist"* — before any reviewer ran. The allowlist is
+`modify | add | remove | config_change` (`diagnose_persist_fix_plan_action.go:80`); a new
+file is `add`. **The cheap check:** the vocabulary is a 1-line constant in the persist
+action — read it (or copy an existing valid submission) before submitting, rather than
+guessing from git. **Cost:** one wasted council dispatch (no credits — rejected pre-review;
+just the ~queue latency and a resubmit). Low, but it is the same "assumed the contract
+instead of reading it" shape this whole bug (026) is about — a small irony worth the row.
+The 097 trigger validates plan SHAPE client-side but not the operation enum; validating the
+enum there too would move this from runtime-invalid to a client-side error (candidate for the
+council-gate owner).

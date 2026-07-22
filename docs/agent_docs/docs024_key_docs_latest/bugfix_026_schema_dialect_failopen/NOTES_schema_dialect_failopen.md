@@ -76,3 +76,15 @@ the verdict, not the commit.
 
 **Open:** council verdict pending (~30 min queue). Then build/deploy/verify behaviourally,
 then close 026.
+
+### 2026-07-21 later — first council submission ruled INVALID (my error, not a verdict)
+
+First run (`corr a85c1220`) completed at step `complete_invalid` with `__step_error`:
+*"plan failed validation: edit 1: operation \"create\" not in the allowlist; edit 4:
+operation \"create\" not in the allowlist."* The reviewers never ran — this is a
+persist-time schema reject, before any credits are spent. `diagnose_persist_fix_plan_action.go:80`
+allows exactly `modify | add | remove | config_change`. **A NEW file is `add`, not `create`**
+(I assumed a git-verb vocabulary; it is not). Fixed both new-file edits to `add` and resubmitted:
+new `SUBMISSION_CORR=cbbc7c83-d073-419a-bfc5-6ab26e687d9c`, orch `f31330cb-5f6b-4f0d-8f4c-6080229b9702`.
+The code commit `fd87c8ebf` is unaffected — this was only the council submission's plan JSON.
+(Logged to RUNBOOK + WRONG_CALLS.)
