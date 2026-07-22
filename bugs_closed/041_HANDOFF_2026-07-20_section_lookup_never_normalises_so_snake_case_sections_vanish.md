@@ -1,5 +1,13 @@
 # Handoff — section lookup never normalises, so a `snake_case` section silently vanishes and the platform asks to rebuild a component it already has
 
+> **STATUS: CLOSED 2026-07-22 — fixed, LIVE on chassis v1.0.1146, and behaviourally
+> verified on the failing branch** (gaswholesalers/index snake `call_to_action`
+> resolved to a real `call-to-action` component post-deploy; 0 new
+> `needs_new_component` since). See the CLOSED section below. This is the
+> section-lookup 041, NOT the chrome-JS 041 (which stays open in `/bugs_open/`).
+> Residual = a per-site page backfill, tracked with `/bugs_open/040` and the site
+> owners — not this code bug.
+
 **Filed 2026-07-20.** Found while chasing a single missing section on dartsonline; it turned out to
 be the smaller half of a two-month-old fleet-wide defect. **This is the upstream cause of most of
 the "deployed page is short of its plan" damage catalogued in `/bugs_open/040-partial-build`.**
@@ -115,7 +123,31 @@ normalisation** — that check is two lines and would have surfaced this in May.
 
 ---
 
-## RESOLUTION — fixed AND LIVE on v1.0.1146, 2026-07-21 (behavioural end-to-end still to confirm)
+## CLOSED — fixed, live on v1.0.1146, AND behaviourally verified on the failing branch (2026-07-22)
+
+**Live behavioural proof, on real fleet traffic — no manual trigger needed.**
+`gaswholesalers.com/index` carries the snake form in its stored `pages.sections`:
+`[hero, features, services-grid, differentiators-section, social_proof,
+latest-news, call_to_action]`. The before/after is exact:
+
+| when | binary | what happened |
+|---|---|---|
+| 2026-05-20 & 2026-07-21 **07:48Z** | pre-fix | `needs_new_component` for `call_to_action` raised, **failed** (the bug) |
+| 2026-07-21 **12:15Z** | — | v1.0.1146 (this fix) deploys |
+| 2026-07-21 **19:55Z** | post-fix | same page's snake `call_to_action` **resolved to the real `call-to-action` component** — `page_components` row written with `component_id=0197e8d7-1adc-43d6-ab32-d0716e013175` (function `call-to-action`), **not a stub** |
+
+Fleet-wide since the 12:15Z deploy: **8** `call-to-action` `page_components` written,
+**0** new `call_to_action` `needs_new_component` items. That is the failing branch
+(snake → vanish) resolving, verified on the live binary — the last gate the deploy-
+grep alone could not clear (cf. "verify the failing branch").
+
+The other 7 CTA writes were pages whose section name was already kebab
+`call-to-action` (would have resolved pre-fix too, via the by-function pass) — only
+`gaswholesalers/index` is the discriminating snake_case case. `gaswholesalers/index`
+itself is `needs_rebuild` (bugs_open/040's partial-build guard, also live in 1146) —
+independent of this bug: the CTA *resolved*, which is all 041 was about.
+
+### RESOLUTION — fixed AND LIVE on v1.0.1146, 2026-07-21
 
 > **Deployment note (the CLAUDE.md sweep-build landmine, in the flesh):** the four
 > code files were committed not by this thread's `git commit` but by another
@@ -182,25 +214,18 @@ independently broken by another session's unused `sort` import in
 `component_library.go` — not this change; verified via `git archive HEAD` + these
 files overlaid).
 
-### Why this stays OPEN despite being live — and what remains
+### The one residual — NOT a reason to keep 041 open
 
-The code is live and both properties are proven at the unit level + deployment is
-pod-verified. What is NOT yet done is the **behavioural end-to-end** confirmation on
-the live binary (memory's "verify the failing branch": a deploy-grep proves the code
-shipped, not that the running flow resolves the section):
+The defect is fixed, live, and verified non-reproducing, so the CODE bug is CLOSED.
+What remains is a **data backfill**, which the fix explicitly never promised (step 4):
 
-- **Confirm on the next `call_to_action` build.** No `needs_new_component` for
-  `call_to_action` has been created since the 12:15Z deploy (latest is 07:48Z,
-  pre-deploy) — consistent, but that is absence-of-evidence until a plan_sections
-  run with a `call_to_action` section actually executes on ≥ v1.0.1146. Verify per
-  steps 1 & 3: CTA resolves → a `page_components` row is written → **no**
-  `needs_new_component`. Move to `/bugs_closed/` only after that run is observed.
-- **The already-damaged pages are not backfilled by the fix** (step 4). Pages that
-  already deployed short of a `call_to_action`/`hero` section (leopardess,
-  robot-hands, gaswholesalers) need a rebuild; a `deployed`+stamped page is skipped
-  by the reconciler (see `/bugs_open/040`), so those may need
-  `built_from_plan_version` cleared to be picked up. **Coordinate the rebuild with
-  each site's owning workstream** — do not unilaterally regenerate an owned site's
-  content (the leopardess careers page is owned by the leopardess-rebuild thread).
+- **The already-damaged pages are not backfilled by the fix.** Pages that already
+  deployed short of a `call_to_action`/`hero` section (leopardess careers,
+  robot-hands, and others) still need a rebuild to restore the dropped section; a
+  `deployed`+stamped page is skipped by the reconciler (see `/bugs_open/040`), so
+  those may need `built_from_plan_version` cleared to be picked up. **This is a
+  per-site cleanup to coordinate with each owning workstream** — regenerating an
+  owned site's content is outward-facing and re-runs the LLM copy (claims-audit
+  surface on e.g. leopardess), so it is the site owner's call, not a platform sweep.
 - The `skip_section` data-guard path (`testimonials`) is **untouched** — this change
   only affects component *resolution*, not the `on_missing` data requirement.
