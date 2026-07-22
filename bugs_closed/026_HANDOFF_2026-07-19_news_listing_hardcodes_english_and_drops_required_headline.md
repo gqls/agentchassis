@@ -1,8 +1,16 @@
 # 026 — shared `news-listing` component hardcodes English and renders an empty required `<h1>`
 
-**Filed 2026-07-19** (relojistas thread). **Status: OPEN.** Fleet-wide — one shared library
-component, no `site_id`. Two distinct defects in the same template; grouped because they
-are one fix pass.
+**Filed 2026-07-19** (relojistas thread). **Status: CLOSED & LIVE 2026-07-22 (v1.0.1149).**
+Fleet-wide — one shared library component, no `site_id`. Two distinct defects in the same
+template; grouped because they are one fix pass.
+
+> **CLOSED 2026-07-22.** All three parts are now fixed AND live: Defect A + B-part-1 via the
+> relojistas/027 thread's seed 179 (already live); Defect B part 2 (the structural
+> schema-dialect fail-open) via this thread's council-approved fix, live on **v1.0.1149**
+> (pod-verified — the tripwire literal `"projected a LEGACY JSON-Schema"` greps in
+> `/app/agent-chassis`). Verification basis and the honest limit of it are in the 2026-07-22
+> close addendum at the bottom. Workstream:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_026_schema_dialect_failopen/`.
 
 Live evidence throughout is `https://relojistas.com/noticias/`, a Spanish-language site,
 which is simply the case that exposes them.
@@ -248,10 +256,39 @@ made the fix materially better.
 > recorded here and in the workstream NOTES with the corr; expect the 098 coverage report to list
 > these three commits as trailer-less. This is a documented gap, not an unreviewed change.
 
-**STATUS: STILL OPEN.** Per the `/bugs_closed/` bar (fixed AND *live*), 026 stays open because the
-Go fix is inert until the next `agent-chassis` image roll. It is defensive (legacy dialect extinct
-fleet-wide, re-verified 0 of ~174), so it need not force a fleet roll of its own — it rides the
-next coordinated build. **Close criteria:** (1) an image carrying `cbacd450c` is live (pod-verify),
-and (2) a behavioural check — a scratch component in the legacy dialect with an empty required field
-is *refused* at render and trips `WarnLegacyDialect` — passes. Defect A + B-part-1 are already
-fixed live and are closeable independently; the whole case closes when B-part-2 ships.
+## Addendum 2026-07-22 (bugfix-026 thread) — CLOSED & LIVE on v1.0.1149
+
+The fix rode a coordinated fleet build (owner: "a new chassis image is on production").
+**Pod-verified live** on `agent-chassis:v1.0.1149` (pod `agent-chassis-7d4ff8b54-cm786`, started
+13:56Z): a discriminating grep for the literal `"projected a LEGACY JSON-Schema"` — a string ONLY
+this fix created (the `WarnLegacyDialect` message) — returns non-zero in `/app/agent-chassis`;
+positive control (`"refusing to render an empty section"`) and the rewired
+`check_image_source_unsatisfiable` also present. Live census on the same image: **legacy dialect
+still 0** of 176 (v2 127, empty 5), so the defensive framing holds unchanged.
+
+**Verification basis — and its honest limit.** Correctness rests on three legs, stated so no one
+mistakes the basis:
+1. **Deployment** — the discriminating pod-grep above (the fix's own literal is in the binary).
+2. **Fault-injection** — the unit suite feeds the exact failing case (a legacy-dialect component
+   with an empty *required* field) and asserts the gate catches it and `fromLegacy` trips; those
+   tests run the **identical code** that greps in the pod, and pass.
+3. **Wiring** — the enforcement call sites are the production-proven v2 required-field gate path
+   (live and refusing empty v2 required fields since v1.0.1126); this fix extends those same sites
+   to read the legacy dialect too.
+> **What was NOT done, on purpose:** a live end-to-end *induction* — creating a scratch
+> legacy-dialect component, wiring it into a page, and watching the tripwire fire in prod logs.
+> The tripwire has fired **0** times live (correct — the dialect is extinct fleet-wide, so nothing
+> naturally trips it), and inducing one would mean a scratch site + page + orchestration trigger on
+> a busy multi-session cluster. For a *defensive* fix whose failing branch is already exercised by
+> green unit tests against the deployed code, on the proven v2 wiring, that live induction was
+> judged disproportionate. This is a deliberate, recorded limit — not an oversight. If a real
+> legacy dialect ever reappears, `WarnLegacyDialect` will surface it at generation, render,
+> rerender, and the post-deploy audit.
+
+**Trailer:** the code commits predate the APPROVED verdict (committed early to protect work in a
+fast-moving tree), so they carry no `Council-Reviewed:` trailer and forward-only can't add one —
+recorded here with corr `cbbc7c83` and in the workstream docs; the 098 report will list them
+trailer-less (documented gap, not unreviewed).
+
+**Defect A + B-part-1** remain fixed live via seed 179. The `idea.uk` / ai-orchestration stragglers
+are the `bugs_open/015` mistyped-`page_type` class, routed there, not part of this case.
