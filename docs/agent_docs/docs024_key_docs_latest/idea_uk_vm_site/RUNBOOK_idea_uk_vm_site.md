@@ -400,6 +400,26 @@ for p in /health /capacity /audience-check /subscribe /request /confirm /approve
   printf '%-16s -> ' "$p"; curl -s -o /dev/null -w '%{http_code}\n' https://idea.uk$p
 done
 ```
+**§3d(ii) — THE FUNNEL-ENTRY DIFF (`bugs_open/017`, prevention `features_open/011`).** The loop above
+proves the routes *reach* the tool; it does NOT prove the new static `/` still contains the **forms
+that drive them**. That is exactly what 017 lost: the cutover kept `/audience-check` and `/request`
+reachable but dropped the tool's own landing-page forms, leaving GET links to POST-only handlers
+("405 POST only") on a live earning site. **Every POST-only funnel route must have a live `<form>`
+posting to it, or the cutover orphans the funnel.** Run this against the staged config (the port-8443
+rehearsal, README §4c) BEFORE the public swap — a block here is free, nothing public has changed:
+```bash
+NEW=https://127.0.0.1:8443          # staged config; Host header carries idea.uk
+missing=0
+for route in /audience-check /request; do    # POST-only handlers that carried the entry forms
+  code=$(curl -sk -o /dev/null -w '%{http_code}' -H 'Host: idea.uk' "$NEW$route")   # GET -> 405 = POST-only
+  hasform=$(for pg in / /tools.html /report.html /index.html; do
+              curl -sk -H 'Host: idea.uk' "$NEW$pg"; done | grep -c "action=\"$route\"")
+  printf '%-16s GET=%s  forms-posting-to-it=%s\n' "$route" "$code" "$hasform"
+  [ "$code" = 405 ] && [ "$hasform" -eq 0 ] && { echo "  ✗ ORPHANED: $route is POST-only, no page posts to it"; missing=1; }
+done
+[ "$missing" -eq 0 ] || echo "STOP — cutover would orphan the funnel (bugs_open/017). Author the entry form into the static build first."
+```
+
 **THE MONEY PATH.** Send a Stripe test event through the new config and confirm the tool verifies and
 processes it (order moves to paid in `orders.json`). **Do not proceed until `/stripe/webhook` is proven
 through the new nginx** and the CTA funnel link resolves to `/request`.

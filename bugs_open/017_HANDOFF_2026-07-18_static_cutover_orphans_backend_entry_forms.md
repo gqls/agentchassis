@@ -248,4 +248,12 @@ available, not live; the dormant-machinery pattern (cf. bugs_open/044).* Answere
 
 **Net state:** detection code committed + live-verified + council-approved-on-logic; enablement seed
 committed + ready (image-first). 017 stays OPEN until the image roll + seed 188 applied + verified in
-pod. The only open judgement is the owner scope call above.
+pod.
+
+**OWNER DECISION 2026-07-22: ship the detector; file the cause-guard separately.** Done — the
+pre-cutover content/route-diff guard (bug_historian's cause-side objection) is filed as
+**`features_open/011_FEATURE_pre_cutover_content_diff_guard.md`**, and its immediate zero-cost
+mitigation — a blocking funnel-entry diff run against the staged config before the nginx swap — is now
+in the cutover RUNBOOK at **§3d(ii)**. So 017 is scoped to the detector, and 011 owns prevention.
+**Remaining for 017 to CLOSE:** next chassis image roll → apply seed 188 → verify
+`strings /app/agent-chassis | grep BackendEntryOrphanedCheck` in the discovery pod.
