@@ -592,6 +592,21 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		savedCount++
 	}
 
+	// ── Superseded-review reconciliation (bugs_open/056 regeneration) ────────
+	// A page can be parked at needs_human_review by a validation blocker (item
+	// A, validate_content's error_step mark_needs_review), then a SIBLING work
+	// item for the same page (e.g. a page_rerender raised when an image asset
+	// lands) reruns this pipeline; generation is non-deterministic, the fresh
+	// copy omits the flagged element, passes validation, and this save deploys
+	// it. complete_work_item's preserve-the-flag guard protects only the flagged
+	// item ITSELF, so the pending human review is silently bypassed and dangles
+	// (fundamentallyai model-fine-tuning: parked 2026-07-20 21:27, page deployed
+	// 07-21 03:41, item still parked). Reconcile LOUDLY here — the one place
+	// with the winning content in hand. Deliberately NOT a block and never an
+	// error: holding the save would wedge builds behind a review queue that has
+	// no working drain (bugs_open/033), the 029-class risk.
+	reconcileSupersededReview(ctx, params, siteID, pageID, pageName, sections)
+
 	params.Logger.Info("SavePageSectionsAction: Complete",
 		zap.String("page_name", pageName),
 		zap.String("page_id", pageID.String()),
@@ -1062,4 +1077,164 @@ func enrichSectionsWithPlannedNames(ctx context.Context, db *sql.DB, pageID uuid
 			zap.Int("total", len(sections)),
 		)
 	}
+}
+
+// reconcileSupersededReview makes the review-bypass visible when a passing save
+// lands on a page that a sibling work item has parked at needs_human_review
+// (bugs_open/056 regeneration-loss, mechanism corrected by diagnosis corr
+// b361298a). It never blocks and never returns an error — every failure path
+// degrades to a warning log, because the save it rides on is already committed
+// and a reconciliation must not be the thing that fails a build.
+//
+// What it does, when (and only when) parked reviews exist for the page:
+//  1. reads the newest CONTENT_VALIDATION_BLOCKER_DETAIL row for the page and
+//     checks each previously-flagged value against the newly-saved content —
+//     distinguishing "the contested element was dropped, not resolved" (absent)
+//     from "still present" (the review is still live for the same content);
+//  2. writes a loud agent_error_log row (REVIEW_SUPERSEDED_BY_PASSING_SAVE)
+//     naming the parked items and the per-value present/absent findings;
+//  3. annotates each parked item's result with the same findings — its STATUS
+//     is untouched: a human still owns the needs_human_review flag, this only
+//     makes the queue row say the page has since shipped without them.
+func reconcileSupersededReview(ctx context.Context, params ActionParams, siteID, pageID uuid.UUID, pageName string, sections []SectionData) {
+	rows, err := params.DB.QueryContext(ctx, `
+		SELECT id, item_key, item_type FROM site_work_items
+		WHERE site_id = $1 AND status = 'needs_human_review' AND spec->>'page_name' = $2
+	`, siteID, pageName)
+	if err != nil {
+		params.Logger.Warn("reconcileSupersededReview: parked-review query failed (save unaffected)", zap.Error(err))
+		return
+	}
+	type parkedItem struct {
+		id, key, itemType string
+	}
+	var parked []parkedItem
+	for rows.Next() {
+		var p parkedItem
+		if rows.Scan(&p.id, &p.key, &p.itemType) == nil {
+			parked = append(parked, p)
+		}
+	}
+	rows.Close()
+	if len(parked) == 0 {
+		return // the common path: nothing parked, nothing to reconcile
+	}
+
+	// Newest blocker detail for this page, if any — names the flagged values.
+	var blockerContext []byte
+	_ = params.DB.QueryRowContext(ctx, `
+		SELECT context FROM agent_error_log
+		WHERE site_id = $1 AND error_code = 'CONTENT_VALIDATION_BLOCKER_DETAIL'
+		  AND context->>'page_name' = $2
+		ORDER BY occurred_at DESC LIMIT 1
+	`, siteID, pageName).Scan(&blockerContext)
+
+	var newContent strings.Builder
+	for _, s := range sections {
+		newContent.WriteString(s.HTML)
+		newContent.WriteString("\n")
+	}
+	findings := flaggedValueFindings(blockerContext, newContent.String())
+
+	dropped := 0
+	for _, f := range findings {
+		if !f["present_in_new_content"].(bool) {
+			dropped++
+		}
+	}
+	parkedForJSON := make([]map[string]string, 0, len(parked))
+	for _, p := range parked {
+		parkedForJSON = append(parkedForJSON, map[string]string{"id": p.id, "item_key": p.key, "item_type": p.itemType})
+	}
+	reconContext := map[string]interface{}{
+		"page_name":    pageName,
+		"page_id":      pageID.String(),
+		"parked_items": parkedForJSON,
+		"flagged":      findings,
+	}
+	reconJSON, mErr := json.Marshal(reconContext)
+	if mErr != nil {
+		reconJSON = []byte("{}")
+	}
+
+	msg := fmt.Sprintf(
+		"page %q saved and deployed while %d sibling work item(s) sit parked at needs_human_review — the pending review has been superseded",
+		pageName, len(parked))
+	if dropped > 0 {
+		msg += fmt.Sprintf("; %d previously-flagged element(s) are ABSENT from the new content (dropped, not resolved)", dropped)
+	}
+	if _, iErr := params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log (
+			site_id, work_item_id, orchestration_id, agent_type, step_name,
+			action, error_message, error_code, severity, context
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+	`,
+		siteID,
+		parked[0].id,
+		params.ExecutionContext.OrchestrationID,
+		params.ExecutionContext.Sender.AgentType,
+		params.ExecutionContext.StepName,
+		"save_page_sections",
+		msg,
+		"REVIEW_SUPERSEDED_BY_PASSING_SAVE",
+		"warning",
+		string(reconJSON),
+	); iErr != nil {
+		params.Logger.Warn("reconcileSupersededReview: could not persist supersession record (save unaffected)", zap.Error(iErr))
+	}
+
+	for _, p := range parked {
+		if _, uErr := params.DB.ExecContext(ctx, `
+			UPDATE site_work_items
+			SET result = COALESCE(result, '{}'::jsonb)
+			          || jsonb_build_object('superseded_by_passing_save', $2::jsonb)
+			WHERE id = $1
+		`, p.id, string(reconJSON)); uErr != nil {
+			params.Logger.Warn("reconcileSupersededReview: could not annotate parked item (save unaffected)",
+				zap.String("item_id", p.id), zap.Error(uErr))
+		}
+	}
+
+	params.Logger.Warn("reconcileSupersededReview: REVIEW SUPERSEDED — page deployed past a parked needs_human_review",
+		zap.String("page_name", pageName),
+		zap.Int("parked_items", len(parked)),
+		zap.Int("flagged_values", len(findings)),
+		zap.Int("flagged_values_dropped", dropped),
+	)
+}
+
+// flaggedValueFindings extracts the flagged issue values from a
+// CONTENT_VALIDATION_BLOCKER_DETAIL context payload and reports, per value,
+// whether it is present in the newly-saved content. Empty/absent/unparseable
+// context yields an empty slice — the supersession record still gets written,
+// it just cannot name the contested elements.
+func flaggedValueFindings(blockerContext []byte, newContent string) []map[string]interface{} {
+	findings := []map[string]interface{}{}
+	if len(blockerContext) == 0 {
+		return findings
+	}
+	var parsed struct {
+		Issues []struct {
+			Type     string `json:"type"`
+			Value    string `json:"value"`
+			Severity string `json:"severity"`
+		} `json:"issues"`
+	}
+	if json.Unmarshal(blockerContext, &parsed) != nil {
+		return findings
+	}
+	lowerContent := strings.ToLower(newContent)
+	for _, issue := range parsed.Issues {
+		v := strings.TrimSpace(issue.Value)
+		if v == "" {
+			continue
+		}
+		findings = append(findings, map[string]interface{}{
+			"type":                   issue.Type,
+			"value":                  v,
+			"severity":               issue.Severity,
+			"present_in_new_content": strings.Contains(lowerContent, strings.ToLower(v)),
+		})
+	}
+	return findings
 }
