@@ -196,7 +196,13 @@ The durable fix is `003`'s in-progress work: **at-least-once consume / retry the
 its pod is lost** (F2/F3), so a diagnose-agent that dies mid-`route` is *re-driven* instead of
 stranded. Diagnose-agent is disproportionately exposed because it runs a **long, heavy,
 multi-iteration marathon** (repo clone + analysis + up to 5×`gather→verdict→route`, 100–535 s) in
-one ephemeral Job pod. **Recommended (owner call, not applied here):** raise the diagnose-agent
-resource *requests* (currently `100m`/`256Mi`) toward its real footprint so it is a less likely
-eviction victim under node pressure — a live `agent_definitions.resources` config change, no image
-roll. Contribute these findings into `003`; do not start a competing structural fix.
+one ephemeral Job pod. Contribute these findings into `003`; do not start a competing structural fix.
+
+**Eviction-exposure mitigation APPLIED 2026-07-22 (migration `191_diagnose_agent_resources.sql`,
+live + committed):** diagnose-agent carried NO explicit `resources`, so it inherited the
+`agent_definitions` table default — requests **cpu 100m / memory 256Mi**. A pod is an eviction
+candidate under node pressure precisely when it exceeds its REQUESTS, so a long-lived analysis-heavy
+pod on a 256Mi request was a disproportionately likely victim. Its row now carries an explicit
+requests bump to **cpu 250m / memory 512Mi** (limits unchanged at 500m/1Gi — memory peak ~150Mi, and
+OOM was ruled out). The spawner reads `resources` at spawn time, so this is **live on the next
+diagnose run — no image roll**. This reduces exposure; it is NOT the root fix (still `003`'s F2/F3).
