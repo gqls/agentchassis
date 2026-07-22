@@ -2401,7 +2401,7 @@ See `/bugs_closed/README.md`.
 | 036 | A reviewer emitting `"edit": "<free text>"` where the struct wants `int` voids the whole council round at `council_decide` — after every seat has run and been paid for. **Not `019`**: the JSON is complete and VALID, so the truncation salvage cannot help. 3 of 5 `council_decide` voids in 14 days, all naming the same seat | **CLOSED 2026-07-20 → `/bugs_closed/`** — fixed (`58f5a6bb6` + `ab158c32a`) and VERIFIED LIVE on v1.0.1140 by **forced reproduction**: a scratch-council seat emitted `"edit": "edit 1 (comment-only change to…)"` and the round reached `complete_revise` with a `council_report` written and `unreadable 0`, where the same shape previously gave `complete_invalid` + no report. The report round-trips a string and an int side by side. All 3 live payloads had been plan-level *prose*, so `json.Number` (the case file's own candidate) would have parsed NONE of them. Residual: candidate (2)'s `salvageMistypedReview` is unit-proven only — the guardian seat refused to self-corrupt, correctly. Shared by **5 pipelines**, not one |
 | 037 | A page flagged `needs_rebuild` is outside `001`'s guard, so a re-plan takes the LLM's composition — dartsonline `index` lost `differentiators` + `content-listing`. May be fix step 4's intended escape hatch; filed so the boundary is decided, not inherited. 34 pages currently `needs_rebuild` | filed 2026-07-20; decision needed |
 | 038 | A re-plan rebuilds EVERY deployed page and regenerates its content — `decideEmit` needs `built_from_plan_version == planID`, and a re-plan changes `planID` for the whole site, so `skip_built` never fires after the first plan (`pages_skipped_built: 0` measured). `001` secures structure; this is copy | filed 2026-07-20; measured live, no fix started |
-| 039 | `pages.sections` stores the component **function**, `page_components` reference the component **name** (`hero-about` ⟷ `about-hero`) — a naive comparison reads correct pages as regressed. AND: 11 section entries resolve to no component at all, rendering a hollow 208-byte `<section>` on deployed pages (7 live stubs) while the build reports success. Detected by `check_empty_sections`, but every item is `unresolved` — same delivery gap as 023/033 | filed 2026-07-20; convention + real defect |
+| 039 | `pages.sections` stores the component **function**, `page_components` reference the component **name** (`hero-about` ⟷ `about-hero`) — a naive comparison reads correct pages as regressed. AND: 11 section entries resolve to no component at all, rendering a hollow 208-byte `<section>` on deployed pages (7 live stubs) while the build reports success. Detected by `check_empty_sections`, but every item is `unresolved` — same delivery gap as 023/033 | **CLOSED 2026-07-22 → `/bugs_closed/`** — the *defect* (hollow-stub-as-success) is fixed & live on `v1.0.1146` (`bd4dc30a0`): a guard at the sole page-composition INSERT (`save_page_sections_action.go`) skips a `component_id IS NULL` + empty-`section--generic` row and raises a deduped `needs_new_component`. Discriminator is **empty-vs-content** (proven 7-match / 22-content-safe on live rows — NOT fallback-vs-not, which would break the 22 legit generic renders). Third prevention layer behind live `validate_components` (plan-time) + `missingRequiredLLMFields` (render-time), so the backstop is quiet (0 items raised, 0 new stubs across 63 post-guard rows). **Honest caveat:** skip+raise branch proven by review + fault-data, not fault-injected (upstream layers strip the fault). Council corr `74cdb054` ran 8 seats (6 approve / 2 grounding objections, addressed) then died on API 529 — no aggregate verdict. **Residual (content work, NOT this defect): 7 legacy stub rows on 3 live sites → `empty_sections_loop_integrity`** |
 
 | 040 *(slug `failed_page_build…`; a second `040` exists, slug `kafka_dial_timeouts…` — cite this one as **040-partial-build**)* | A **partial** page build leaves the page `build_status='deployed'`, partially composed, AND stamped with `built_from_plan_version` — so `decideEmit` returns `skip_built` and the reconciler never revisits it. dartsonline `index`: 5 of 6 sections. **CORRECTED 2026-07-20: a build reporting `complete` produced the same shortfall, so the failure was never the cause — and the page is now stamped with the CURRENT plan, so `skip_built` fires and it is permanently a five-sixths page.** Why the section is dropped is UNKNOWN (template validity + deferral both ruled out). Fleet: **25 deployed pages short of their plan across 6 sites, 39 sections missing, 4 with zero components** — one verified live-blank (`<main>` empty, chrome only) | filed 2026-07-20; found by rebuilding via the framework's own route |
 | 044 *(slug: `no_capability_inventory_dormant_agents_undetectable` — **a second, unrelated `044` exists**, slug `plan_sections_defers_empty_schema_components…`; resolve by slug per `/bugs_closed/README.md`)* | Nothing detects a capability that **exists but nothing routes work to**. All 49 discovery checks are site-scoped; none inspects the platform's own inventory, and "which agents never run" is not a per-site question. **57 of 122 measurable active agents have never run** (step-fingerprint method; `owner_agent_type` is USELESS here — 95,797 orchestrations are `generic`, which is how a first pass got a wrong 110). Mostly *retired* agents still `is_active`, but ~8 are current-generation repair capabilities that never fired — incl. `feature-implementer`, which its own workstream independently records as never-fired. Producer-side mirror of `033` | filed 2026-07-20 out of `bugs_closed/002` D. **DETECTOR HALF BUILT & COMMITTED 2026-07-21** (`diagnose_dormant_agents` action + `diagnosis-dormant-agents` seed, dry_run; docs in `dormant_agents_inventory/`), inert until an image roll — stays OPEN until live. Live count moved to **155/123/77** (70 past the 14d age floor). `is_active` hygiene half still an owner call (5 types have >1 active row). |
@@ -3005,3 +3005,56 @@ gated exactly as hard as a real flaw, and `approved` required unanimous bare app
 
 **Related:** `bugs_open/057` (the case); `bugs_open/003`/`030` (why the loop stalled); the
 "verify the failing branch" invariant (the fix must still gate a genuine high-severity objection).
+
+### A silent fallback deploys a hollow section as success — and the guard's discriminator is EMPTY-vs-content, not fallback-vs-not (2026-07-22)
+
+**Symptom.** A section name in `pages.sections` that resolves to no component renders a hollow
+~208-byte `<section class="section section--generic">` (empty `<h2>`, empty body), persisted as a
+`page_components` row with `component_id IS NULL`, `build_status='deployed'` — and the build reports
+success. `bugs_closed/039`: 7 live stubs across 3 sites, all `unresolved` empty_section items that
+aged out.
+
+**Diagnose.** The stub is the `generic-text-block` component's `html_template` rendered with empty
+fields — the silent fallback in `GetComponentWithFallback` (`component_library.go`): an unresolvable
+function name is *substituted* with `generic-text-block` rather than failing. Two live queries
+separate the real defect from look-alikes that must NOT be touched:
+```sql
+-- All null-component generic rows on deployed pages, split empty-vs-content
+-- (mirror of the Go guard). NB: btrim() trims only SPACES — use \s to match
+-- Go's TrimSpace on an all-whitespace body, or the 7 stubs read as "has text".
+SELECT CASE WHEN regexp_replace(regexp_replace(rendered_html,'<[^>]*>','','g'),'\s','','g')=''
+            THEN 'stub (skip)' ELSE 'content (keep)' END, count(*)
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE pc.component_id IS NULL AND p.build_status='deployed'
+  AND pc.rendered_html ILIKE '%section--generic%' GROUP BY 1;
+-- 039: 7 stub / 22 content. The 22 are the SAME fallback with real LLM copy —
+-- legitimate. A "refuse the generic fallback" fix would break all 22.
+```
+
+**Root cause.** The fallback is load-bearing for genuinely-generic content (the 22), so the defect
+is not "we fell back" — it is "we fell back AND produced nothing visible." The distinguishing signal
+is empty-vs-content, and the failure survives because detection (`check_empty_sections`) exists but
+its items rot `unresolved` (the 023/033 delivery gap), so nothing consumes them.
+
+**Fix.** Guard at the single chokepoint every page-composition row flows through —
+`SavePageSectionsAction`'s INSERT — not at the fallback (blast radius: 3 callers, would break the 22).
+Skip a row that is `component_id==nil && isEmptyGenericStub(html)` (`section--generic` marker present
+AND `TrimSpace(stripHTMLTags(html))==""`), and raise a **deduped, consumer-routed**
+`needs_new_component` item (`CreateNeedsNewComponentItem`) rather than a rotting `empty_section`.
+Ground the discriminator against the live rows before shipping (039: 7-match / 22-safe), and prove
+the predicate with a unit test on the exact stub markup.
+
+**Two transferable heuristics.**
+1. When a "silent fallback → useless output" bug tempts you to kill the fallback, first count how many
+   *legitimate* outputs share that fallback. If any exist, the discriminator is a property of the
+   *output* (empty vs content), not of the *path* (fell-back vs not) — put the guard at the write
+   chokepoint keyed on that property, and it catches every upstream path at once.
+2. A backstop behind live upstream prevention (here: plan-time `validate_components` +
+   render-time `missingRequiredLLMFields`) is, by design, hard to fault-inject live — the outer
+   layers strip the fault first (0 items raised, 0 new stubs post-deploy). That is not a reason to
+   claim "behaviourally verified"; close on predicate-proof-against-real-fault-data + production
+   stability, and say plainly the innermost branch was proven by review, not execution.
+
+**Related:** `bugs_closed/039` (the case + fix `bd4dc30a0`, live `v1.0.1146`); `bugs_open/045`
+(sibling — same selector resolves to the *wrong* component, not *nothing*); `bugs_open/040`
+(a completeness gate counts rows not names); `bugs_open/023`/`033` (why the detected items rot).

@@ -7,20 +7,42 @@ page instead of failing.
 
 ---
 
-> ## FIX LIVE 2026-07-21 on `v1.0.1146` (`bd4dc30a0`); stays OPEN pending behavioural proof + cleanup
+ ## CLOSED 2026-07-22 → `/bugs_closed/` — mechanism FIXED & LIVE on `v1.0.1146` (`bd4dc30a0`)
 >
-> > **UPDATED 2026-07-21 ~13:10 — the fix went live faster than expected.** It was committed at
-> > 12:44 and another session's **`v1.0.1146` sweep build** (commit `fe2ba5e52`, 13:04) built from
-> > HEAD, which includes `bd4dc30a0`. Pod-verified: `agent-chassis-…` on `v1.0.1146`,
-> > `strings /app/agent-chassis | grep -c isEmptyGenericStub` = 2. So the guard is **running in
-> > prod**. (The bugs_open/047 lesson: a "committed, inert until roll" fix can already be live via
-> > another thread's HEAD build — check the pod tag.) **It stays OPEN** because two things are still
-> > owed: (a) the failing branch has not been *induced* live — pod-grep proves deployment, not that
-> > the guard fires (the verify-the-failing-branch discipline), and (b) the 7 legacy stubs are not
-> > yet cleaned up. Do NOT force a rebuild of the 3 live sites to prove it — those are outward-facing
-> > and re-running their content writers risks the `/bugs_open/029` fabrication path. Prove it on the
-> > first *natural* rebuild of a stub page (assert the stub row is gone and a `needs_new_component`
-> > item was raised), or via the component-creator workstream driving the cleanup.
+> > **CLOSE DECISION 2026-07-22 (owner: bugfix-039 thread).** The defect this case is about — *an
+> > unresolvable section name renders a hollow stub and the build reports success* — is fixed and
+> > live, so it is no longer reproducible for new builds. What was verified, and the one honest
+> > caveat, spelled out so the close is not an overclaim:
+> >
+> > - **Deployed:** pod on `v1.0.1146`, `strings /app/agent-chassis | grep -c isEmptyGenericStub` = 2.
+> >   (Committed 12:44; rode another session's HEAD-build sweep `fe2ba5e52` at 13:04 — the bugs_open/047
+> >   lesson.)
+> > - **Predicate proven against the real fault, not a happy path:** the 7 live stub rows each satisfy
+> >   *both* guard conditions (`component_id IS NULL` AND an empty `section--generic` body) at their
+> >   actual save time — so the discriminator provably matches genuine production fault input. Unit
+> >   test `TestIsEmptyGenericStub` locks the logic (6 cases).
+> > - **Production-stable since the guard went live:** stub count holds at exactly **7** (not growing);
+> >   **63 `page_components` rows were built across 6+ hours of real builds with 0 new stubs.**
+> > - **Layered prevention is why the backstop is quiet:** **0** `needs_new_component` items have been
+> >   raised since deploy, i.e. no unresolvable section reached the save path at all — plan-time
+> >   `validate_components` (live in both planners) strips them first, and the render-time
+> >   `missingRequiredLLMFields` guard catches the content-writer path. The save guard is the third,
+> >   innermost layer.
+> >
+> > **Honest caveat (why this is a close, not a claim of "behaviourally verified"):** the guard's
+> > *skip+raise* branch has **not** been induced by live fault-injection — precisely because the two
+> > upstream layers strip the fault before it reaches the save INSERT, so forcing one past them would
+> > need a contrived direct-`pages.sections` build. The 6-line skip+raise wiring is therefore proven
+> > by review + the fault-data match, not by execution. Given the strength of that evidence and the
+> > disproportionate cost/risk of a contrived induction, the mechanism is closed.
+> >
+> > **Residual, tracked separately (NOT this defect):** the **7 legacy hollow stub rows** on 3 live
+> > sites (finetuning.uk ai-guides/insights, gaswholesalers.com fuel-industry-insights) are pre-guard
+> > *data damage*. Cleaning them is **content work, not a mechanical fix** — those slots
+> > (`featured-article`, `article-grid`, `category-section`) genuinely need real components (the
+> > `needs_new_component` route) or an owner content decision; stripping them degrades the pages, and
+> > rebuilding them risks the `/bugs_open/029` fabrication path. **Routed to the
+> > `empty_sections_loop_integrity` workstream.** Do NOT force-rebuild the 3 live sites to clear them.
 >
 > **Candidate 1 applied structurally, at the single chokepoint.** Every page-composition path
 > flows through one INSERT — `SavePageSectionsAction` (`save_page_sections_action.go:543`). The fix

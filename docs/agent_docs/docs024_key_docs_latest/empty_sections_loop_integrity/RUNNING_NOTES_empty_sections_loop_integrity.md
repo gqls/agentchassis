@@ -860,3 +860,37 @@ phrasing is loose. If ever rebuilt for another reason, distinguish
 Both bugs fixed and proven live. Nothing outstanding on the capability itself.
 Open only as future niceties: Festo needs a real mfr spec URL (human discovery,
 by design) to refresh; the log-phrasing note above.
+
+---
+
+### 2026-07-22 — inbound residual handed off from `bugs_closed/039` (empty-generic-stub cleanup)
+
+`bugs_open/039` is now **CLOSED** (`/bugs_closed/039`): the *defect* — a section name
+resolving to no component renders a hollow `section--generic` stub and the build reports
+success — is fixed & live on `v1.0.1146` (`bd4dc30a0`, a guard at
+`save_page_sections_action.go`'s INSERT that skips the empty stub and raises a deduped
+`needs_new_component`).
+
+**What is left, and why it belongs to this workstream (not that fix):** the **7 pre-guard
+legacy stub rows** are still live and are *content* damage, not a mechanical fix:
+
+```sql
+SELECT s.domain, p.name, pc.slot_name
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE pc.component_id IS NULL AND p.build_status='deployed'
+  AND pc.rendered_html ILIKE '%section--generic%'
+  AND regexp_replace(regexp_replace(pc.rendered_html,'<[^>]*>','','g'),'\s','','g')='';
+-- finetuning.uk/ai-guides:        featured-article, category-section, article-grid
+-- finetuning.uk/insights:         category-section, article-grid
+-- gaswholesalers.com/fuel-industry-insights: featured-article, article-grid
+```
+
+Those slots genuinely need real components (`featured-article`, `article-grid`,
+`category-section`) — the guard raises `needs_new_component` for them on the next rebuild,
+routed to `component-creator` (which is **live but unreliable: 11 failed / 2 complete**, so
+it is not a guaranteed path). **Do NOT force-rebuild the 3 sites to clear the stubs** — they
+are outward-facing and re-running their content writers risks the `bugs_open/029`
+fabrication path. Options for a human decision: build the 3 missing components (right, needs
+the component-creator to work), or strip the slots from `pages.sections` (clean but degrades
+the guide/insights index pages to hero+CTA only). Not urgent — no new stubs since the guard
+shipped (stub count stable at 7 across 63 post-guard builds).
