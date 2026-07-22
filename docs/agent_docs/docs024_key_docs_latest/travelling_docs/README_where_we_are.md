@@ -686,3 +686,21 @@ Done — committed as ece827ead, four files, all mine.
   I also made a small mistake worth owning: I lined up that test on a tool I assumed was still broken because it *had been* four times. But "it failed four times last week" doesn't tell you it's failing now. I checked the failure history and not the current state. Had I re-run the actual measurement first, I'd have seen it now passes. The run wasn't wasted — it's how I found out the tool was fixed — but I set out to prove the wrong thing.
 
   ※ recap: The guard is live in production. Two review rounds each caught a real bug in my code (stale count, then wiping human edits) — both fixed. I tried to watch the guard escalate a stuck tool and discovered the tool had already been fixed (by the delivery repair I've chased all week finally working). So the guard is proven in test and in deployment but not yet in live action, and I owned assuming a tool was still broken from its history rather than checking its current state.
+
+---
+
+2026-07-22 — the loop now mends tools by itself, through the right door.
+
+  Yesterday I found that the tool repairer had been shipping its fixes at a door another team had deliberately bolted shut, while the right door stood open beside it. You approved the obvious fix: point the repairer at the open door — the "section editor". Today I did that, and it works.
+
+  It's a settings change, not new code, so it took effect immediately with no rebuild. The repairer now, after writing a fix, hands the page to the section editor to render and publish — exactly the sanctioned path. I tested the whole chain end to end (short of making the AI rewrite the tool again, which I avoided so as not to disturb the one that's already fixed): I put through a hand-off shaped exactly like the one the repairer now produces, and watched the system pick it up, route it to the section editor, render the page and commit it live. Every hop worked.
+
+  A note on process, and an honest one. I'd assumed this would go through the review council like the earlier fixes. It turns out the council only reviews actual code changes; a settings change like this is deliberately outside its remit. So the governance here is your approval plus the safety checks baked into the change itself (it snapshots the old settings first, refuses to run if the world isn't as it expects, and verifies itself afterwards). It's fully reversible.
+
+  And a note on the other hands on this. A separate session had, in parallel, closed the original bug and opened a feature file for exactly this remaining work — building on what I'd found. Rather than build it twice, I recorded your decision and my results into their file and did the implementation once. Nothing collided; nothing was lost.
+
+  One caveat I won't gloss: the hand-off from repairer to section editor rides the same background queue that's currently sluggish (a separate, known problem). So a real fix will deliver correctly but perhaps not instantly. That's a latency issue, not a correctness one, and it's someone else's workstream.
+
+  Where that leaves us: the self-verifying tool loop is, for the first time, closed end to end for tools — a tool can fail its own check, be repaired, and have the repair reach the live page, all without a human. The next real repair (the auditor kicks those off on its own) will be the live proof in the wild.
+
+※ recap: The tool repairer now delivers its fixes through the sanctioned "section editor" door — a settings change, live immediately, fully reversible, proven end to end today. It turned out to be outside the review council's remit (that's for code, not settings), so your approval plus the change's own safety checks are the governance. Did the work once, into the other session's feature file, rather than twice. One caveat: delivery rides a currently-sluggish background queue, so it's correct but maybe not instant. The autonomous tool loop is now closed end to end for the first time.
