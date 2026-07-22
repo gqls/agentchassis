@@ -51,13 +51,29 @@ carries `properties`/`required[]`) is projected. Empty `{}` also stays `ok=false
 
 ## Scope
 
-**In:** the two readers that caused 026 (generation + enforcement), one shared helper, one
-regression test.
+> **WIDENED 2026-07-21 by the council's round-1 REVISE (bug_historian).** The original scope
+> below was "the two readers that caused 026". bug_historian correctly asked whether two was
+> really all of them — it was not (9 genuine `input_schema["fields"]` readers). Scope widened
+> to the correctness readers + the direct safety-net audit + a fail-loud tripwire; see the
+> round-2 classification.
 
-**Out (noted, not done):** `check_required_fields_missing.go` (post-deploy audit) and
-`compute_component_quality.go` also read only `fields` and would also fail open on the legacy
-dialect. They are detection/scoring nets, not gates, and live in different packages. Left as
-a lower-priority consistency follow-up so this change stays tight and reviewable.
+**In (round 2):**
+- shared reader **relocated to `datahelpers.SchemaContentFields`** (the home both `actions`
+  and `discovery_checks` import — no cycle), returning `(fields, ok, fromLegacy)`.
+- **rewired** (dialect-tolerant): `plan_sections` (generation), `missingRequiredLLMFields`
+  (render gate), and **`check_required_fields_missing`** (post-deploy audit — the render
+  gate's direct companion; rewiring it was bug_historian's completeness point).
+- **fail-loud tripwire** `WarnLegacyDialect`, fired by the generation path (every build) and
+  the audit (post-deploy) when a legacy dialect is actually projected.
+- tests: reader unit tests in `datahelpers`, enforcement regression in `actions`.
+
+**Left direct, on purpose (different legacy-consequence than "required field ships empty"):**
+`compute_component_quality` (field count), `store_generated_component` (sync flags),
+`load_existing_component` (field-name print), `check_image_source_unsatisfiable`, `ctafields`
+(CTA derivation), `expectedItemFieldsFromComponentSchema` (array item-fields). A wrong
+metric/CTA/array is a different, lesser bug class outside 026; rewiring them would shift
+quality scores/sync flags with no benefit while the dialect is extinct. The tripwire makes any
+legacy component visible fleet-wide regardless, so none can silently absorb a regression.
 
 **Not ours (routed to bugs_open/015):** the two residual empty/stale news sections — `idea.uk`
 (`headline=''`, `page_type='section-index'`, page 404s) and `ai-agent-orchestration.com/news.html`

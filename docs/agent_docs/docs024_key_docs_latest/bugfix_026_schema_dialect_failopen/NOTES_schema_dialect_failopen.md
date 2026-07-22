@@ -88,3 +88,50 @@ allows exactly `modify | add | remove | config_change`. **A NEW file is `add`, n
 new `SUBMISSION_CORR=cbbc7c83-d073-419a-bfc5-6ab26e687d9c`, orch `f31330cb-5f6b-4f0d-8f4c-6080229b9702`.
 The code commit `fd87c8ebf` is unaffected — this was only the council submission's plan JSON.
 (Logged to RUNBOOK + WRONG_CALLS.)
+
+### 2026-07-21 later — council round 1 ran: REVISE from bug_historian (2/3 seats approved); addressed and resubmitted
+
+Round-1 verdict on `corr cbbc7c83`: **REVISE**, `abstained:6`. `editquality` and `reuse_agent`
+APPROVED — reuse_agent called it "the reuse discipline working correctly" and editquality
+confirmed both named readers get a real covering edit. `bug_historian` objected, two points,
+both fair:
+
+1. **Call-site completeness** (medium): *"is two call sites really all of them?"* It flagged
+   `content_components.schema_field_count`/`schema_template_synced` as implying more readers.
+   **It was right.** I audited every `input_schema["fields"]` reader repo-wide — **9 genuine**
+   (the many `config["fields"]` hits are workflow-step config, not input_schema). Classified by
+   legacy-consequence:
+   - *correctness (required field ships empty — the 026 class):* plan_sections (generation) +
+     missingRequiredLLMFields (render gate) — already rewired.
+   - *the direct safety-net companion:* `check_required_fields_missing` (post-deploy "did a
+     required field ship empty?" audit) — **now rewired**; it would have failed open on the same
+     dialect the gate now handles.
+   - *different consequence (wrong metric/CTA/array, NOT missing content):* compute_component_quality,
+     store_generated_component, load_existing_component, check_image_source_unsatisfiable,
+     ctafields, expectedItemFieldsFromComponentSchema — named and **left direct**, covered by the
+     tripwire below.
+   To rewire the audit (a different package), I **relocated the reader to `datahelpers`**
+   (`SchemaContentFields`) — the shared home both `actions` and `discovery_checks` import
+   (no cycle: datahelpers imports neither). reuse-disciplined and it completes the extraction.
+2. **No fail-loud signal** (missing): a silent-correct-path means a re-seeded/restored legacy
+   dialect is absorbed invisibly forever. **Added** `fromLegacy` return + `WarnLegacyDialect`;
+   plan_sections (every build) and the audit (post-deploy) fire it. A Warn is what bug_historian
+   listed as acceptable ("a log line, diagnosis_artifact, or site_work_item").
+
+Round-2 code committed `f27c5ad1d` (7 files; datahelpers + actions tests green; the
+`discovery_checks` package RED is **pre-existing** — verifier_coverage for
+`contact_form_undeliverable`/`backend_entry_orphaned`, other sessions' checks, not
+`required_fields_missing`; confirmed my change is not the cause). Resubmitted on the SAME corr
+`cbbc7c83` (RESUBMIT_CORR, trail accumulates), orch `f1457624`.
+
+**MISSTEP — `git stash` in a shared tree (nearly pulled another session's WIP).** To verify the
+discovery_checks RED was pre-existing I ran `git stash push -- <two paths>` where one path was
+an *untracked* file → the push errored (untracked paths don't match a pathspec stash) and did
+nothing useful. Then a bare `git stash pop` tried to pop `stash@{0}` — which in this many-session
+tree was **another branch's stash** (`066_hitl_questionnaire`), not mine — and would have applied
+its `coordinator.go`/awaited_requests WIP into my tree. It failed harmlessly only because
+`coordinator.go` had conflicting local changes. **Never `git stash pop` here without checking
+whose `stash@{0}` it is** (`git stash list` first). My work was intact throughout; no code lost.
+Logged to WRONG_CALLS. Better verification for "is this RED mine?": `git show HEAD:<file> | go
+test` against an overlay, or just reason about whether the change *can* affect the failing
+assertion (mine can't — the failing item types are files I never touched).

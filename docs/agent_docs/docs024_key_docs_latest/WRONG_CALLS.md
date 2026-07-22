@@ -1856,3 +1856,19 @@ could not be committed independently anyway (it referenced helpers from another 
 uncommitted `component_validation.go`), so the fix reached prod only *because* the sweep took
 it — a same-file passenger in the other direction. **Cost:** two confused verification cycles;
 no wrong claim shipped (the worktree caught it before I recorded anything).
+
+---
+
+**2026-07-21 — bare `git stash pop` in the shared tree popped another session's stash (bugfix-026).**
+To check whether a RED `discovery_checks` test was pre-existing, I ran `git stash push -- pathA
+pathB` (pathB untracked → errored, stashed nothing useful), then a bare `git stash pop`. In this
+many-session working tree `stash@{0}` was **another branch's** WIP (`066_hitl_questionnaire`,
+carrying `coordinator.go` + awaited_requests changes), not mine. `pop` with no id pops
+`stash@{0}` regardless of owner — it would have merged that session's half-finished code into my
+tree. It failed harmlessly only because `coordinator.go` had conflicting local edits. **The cheap
+checks skipped:** (1) `git stash list` before any `pop` — the top entry is shared state, not
+yours; (2) don't use `git stash` at all to test "is this RED mine?" — instead reason whether your
+change *can* reach the failing assertion (here it can't: the failing item types are in files I
+never touched), or overlay your file onto `git show HEAD:<path>`. Cost: none (the pop failed),
+but a hair from importing another thread's uncommitted work under my branch. `git stash` is
+process-global; the multi-session CLAUDE.md rules about pathspec commits apply to it doubly.
