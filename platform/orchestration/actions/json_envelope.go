@@ -44,6 +44,8 @@ import (
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
 // ParseLLMJSON parses an LLM response as JSON, repairing the one malformation
@@ -190,12 +192,15 @@ func jsonStructureFollows(runes []rune, i int) bool {
 // silently-empty render into a loud, actionable failure — the article-body
 // component declares exactly one such field, `content`.
 //
-// The field set is read via schemaContentFields, so a component authored in the
-// legacy JSON-Schema dialect (`properties`+`required[]`, no `fields`) is enforced
-// too rather than silently passing with zero required fields — the fail-open that
-// let bugs_open/026's required `news-listing` headline ship empty.
+// The field set is read via datahelpers.SchemaContentFields, so a component
+// authored in the legacy JSON-Schema dialect (`properties`+`required[]`, no
+// `fields`) is enforced too rather than silently passing with zero required
+// fields — the fail-open that let bugs_open/026's required `news-listing`
+// headline ship empty. The fromLegacy tripwire is surfaced on the generation and
+// audit paths (plan_sections, check_required_fields_missing); this render-time
+// gate uses the shared reader purely for the correctness projection.
 func missingRequiredLLMFields(inputSchema map[string]interface{}, content map[string]interface{}) []string {
-	fields, ok := schemaContentFields(inputSchema)
+	fields, ok, _ := datahelpers.SchemaContentFields(inputSchema)
 	if !ok {
 		return nil
 	}

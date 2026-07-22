@@ -27,8 +27,10 @@
 // on entity pages whose sections list is empty), and the honest resolutions —
 // give the site a data source, or remove the component — are human decisions.
 //
-// NOTE: input_schema uses a `fields` wrapper, NOT JSON-Schema `properties`.
-// Querying `properties` returns nothing and will mislead you.
+// NOTE: input_schema is normally the v2 `fields` wrapper. A legacy JSON-Schema
+// (`properties`+`required[]`) component is read via datahelpers.SchemaContentFields
+// too — this audit is the post-deploy companion to the render gate, so it must
+// not fail open on the same dialect the gate now handles (bugs_open/026).
 
 package discovery_checks
 
@@ -38,6 +40,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -94,9 +97,12 @@ func (c *RequiredFieldsMissingCheck) Run(dctx DiscoveryCheckContext) (*CheckResu
 		if err := json.Unmarshal([]byte(schemaText), &schema); err != nil {
 			continue
 		}
-		fields, ok := schema["fields"].(map[string]interface{})
+		fields, ok, fromLegacy := datahelpers.SchemaContentFields(schema)
 		if !ok {
 			continue
+		}
+		if fromLegacy {
+			datahelpers.WarnLegacyDialect(dctx.Logger, "check_required_fields_missing", function)
 		}
 		var contentData map[string]interface{}
 		if err := json.Unmarshal([]byte(contentText), &contentData); err != nil {
