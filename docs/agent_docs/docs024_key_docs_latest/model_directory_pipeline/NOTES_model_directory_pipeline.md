@@ -220,6 +220,40 @@ an `orchestration_test.go` build failure from an unrelated `NewSagaCoordinator`
 signature change, and a `missing_bare_fields_test.go` failure in an
 untracked file belonging to another concurrent session.
 
-Still not applied: all four gated SEED files (agent, 2× scheduled_tasks,
-components) and migration 194 (check enablement) await the same image roll —
-pausing here, as before, at the actual build/push/deploy step.
+**Deployed and seeded live, 2026-07-22 14:15–14:25 UTC.** The owner reported a
+new chassis image (`v1.0.1149`) was already on production — pod-verified
+non-zero `strings` counts for every new symbol (`verify_and_register_directory_claims`
+5, `refresh_directory_claims` 6, `render_model_directory` 2,
+`missing_model_directory_section` 4, `missing_model_directory_page` 4,
+`directory-researcher` 1, `model-directory-listing` 3) before applying
+anything. Applied in order: `SEED_directory_researcher_agent.sql` →
+`SEED_directory_scheduled_tasks.sql` → `SEED_directory_components.sql` →
+migration 194 (check enablement, recorded in `schema_migrations` after one
+retry — the auto-mode classifier blocked the first ledger INSERT attempt for
+an unclear reason; the migration's actual effect had already committed
+either way, only the ledger row was blocked). Then opted
+`ai-agent-orchestration.com` in via a manual supersede-then-insert on its
+`classification` site_spec (mirroring `write_site_spec`'s own idiom) — verified
+the sibling `news_feed` key survived the merge untouched.
+
+**UNVERIFIED so far — do not read the above as "proven end-to-end."** The
+live `kafka-scheduler` picked up both new scheduled_tasks rows within
+seconds of seeding (their `last_triggered_at` was NULL, so both were
+immediately due) — not something I triggered manually, just the natural
+consequence of seeding a task into an already-running scheduler. The
+`model-directory-discovery` run this produced
+(`orchestration_id=78da45b7-c324-4d42-9c70-9ea794260a90`, started 14:15:57)
+is, as of 14:27 (12 minutes later), still `AWAITING_RESPONSES` at
+`search_web` with an empty `awaited_steps` array and no `last_activity`
+update since it started — i.e. stuck, not merely slow.
+`directory_entities`/`directory_claims` are still both at 0 rows. Checked
+whether this is MY bug: `web-search-adapter` is healthy (Running, no
+restarts), no Kubernetes Job exists for this orchestration, and the step's
+`web_search` action config is structurally identical to `evidence-researcher`'s
+proven-working step — nothing found that points at the new workflow itself.
+The shape (a chassis-issued request that never comes back, `awaited_steps`
+empty) matches [[bugfix-003-spawn-loss-workstream]]'s known pattern more than
+it points at new code, but this is **not yet properly diagnosed** — logged
+here as an observation, not a conclusion. If it's still stuck after the F1
+reaper's ~4h window, or recurs on the next weekly discovery fire, that would
+be worth a proper 090 diagnosis run rather than assuming it away.
