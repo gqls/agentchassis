@@ -53,3 +53,23 @@
   `needs_rebuild` empty page answers them differently.
 - `/tmp` is a 16 GB tmpfs and was **95% full** — `go test` failed ENOSPC until I set
   `TMPDIR`/`GOTMPDIR` to a repo-local dir.
+
+## 2026-07-22 — owner ruling + candidate 1 built
+
+- Put the two open decisions to the owner. Rulings: (1) **close 037 on current evidence** (unit tests
+  + live pod-grep = the accepted bar); (2) **build candidate 1** (explicit redesign intent).
+- **037 CLOSED** → `git mv` to `/bugs_closed/037`, CLOSED section added, commit `930befa91`.
+- **Candidate 1 built as `/features_open/012`** (commit `385eb0b26`, inert until roll). Mapped the
+  spec flow first (Explore agent): the `needs_site_plan` work-item spec travels unmodified to
+  `params.CollectedData["input_data"]["spec"]` (dispatch-loop `call_handler` maps
+  `spec:current_item.spec`; precedent reader `update_site_spec_from_item_action.go:74`). So the
+  feature is pure Go — read `input_data.spec.recompose_pages`, **pre-filter** those pages out of
+  `existingPages` before convergence → the guard treats them as from-scratch. **No signature change**
+  to the contended `reconcilePlanWithRealised`; the filter runs before both it and the truncation
+  must-keep. Verified HEAD + my 2 files builds in an isolated worktree (avoided the earlier coupling
+  trap). 3 tests pass.
+- Cross-session note: while I worked this file, a separate `/bugs_open/051` session was doing an
+  `adoption_locked`→`site_has_no_current_plan` rename on the SAME function and saw my neutralise
+  experiment / working-tree churn; and `/bugs_open/050` CLOSED & shipped on v1.0.1146 via a sweep.
+  My candidate-1 change reads `rm["name"]` only, so it is orthogonal to both the 050 empty-gate and
+  the 051 rename (which keeps `adoption_locked` as a transition alias).

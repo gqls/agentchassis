@@ -65,6 +65,29 @@ kubectl -n ai-persona-system exec "$POD" -- sh -c 'strings /app/agent-chassis | 
 kubectl -n ai-persona-system exec "$POD" -- sh -c 'strings /app/agent-chassis | grep -c reconcilePlanWithRealised'          # positive control, expect 2
 ```
 
+## features_open/012 — deliberately recompose a specific page (once the chassis rolls)
+
+Emit a `needs_site_plan` with `recompose_pages` in its spec; every page NOT named keeps its layout,
+the named ones are redesigned by the LLM:
+
+```sql
+INSERT INTO site_work_items (id, site_id, item_type, status, spec, handler_agent, created_at)
+SELECT gen_random_uuid(), s.id, 'needs_site_plan', 'detected',
+       '{"recompose_pages":["index"]}'::jsonb, 'build-site-planner', NOW()
+FROM sites s WHERE s.domain = '<domain>';
+```
+
+Verify the feature is live (Go change, inert until the next image roll):
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -o name | grep 'agent-chassis-' | head -1 | cut -d/ -f2)
+kubectl -n ai-persona-system exec "$POD" -- sh -c 'strings /app/agent-chassis | grep -c recomposePagesFromSpec'  # expect 1 once rolled
+```
+
+Then live-check behaviour: after the run, the named page's `pages.sections` should be the LLM's new
+composition; unnamed peers unchanged. Look for the log lines `recompose_pages requested` and
+`recompose — realised pages released from the preserve guard`.
+
 ## (Optional) live behavioural verification
 
 Pick a site with a `needs_rebuild` page carrying a real composition (e.g. dartsonline `contact`).

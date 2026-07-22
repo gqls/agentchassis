@@ -49,7 +49,10 @@ deployed-empty gate). 050 had overloaded `realisedPageIsBuilt` for *two* jobs: p
 
 - **Candidate 1 (explicit redesign intent).** A `rebuild:true` / `needs_replan` spec field (001's fix
   step 4) is a deferred FEATURE and a policy call, not required to fix this defect. The redesign route
-  after this fix is "empty the composition, then re-plan". Left for the owner.
+  after this fix is "empty the composition, then re-plan".
+  > **UPDATE 2026-07-22 — owner ruled BUILD IT.** Implemented as `/features_open/012`
+  > (`recompose_pages` in the re-plan spec, pre-filtered out of `existingPages`; commit `385eb0b26`,
+  > inert until roll). Does not reopen 037 — 037's guard stands; 012 adds an explicit opt-out.
 - **`/bugs_open/050` itself** (deployed-empty classification) — another session's, in flight.
 - **`/bugs_open/038`** (every deployed page still rebuilt / content regenerated) — the other half.
 

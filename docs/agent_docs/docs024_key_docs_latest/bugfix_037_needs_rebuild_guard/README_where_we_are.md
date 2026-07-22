@@ -42,3 +42,25 @@ binary, not just the version tag. I committed my tests separately on top.
    didn't fire it without asking.
 
 I've left the bug in `/bugs_open/` (not closed) until you've had a look at those two.
+
+## 2026-07-22 (Claude) — your two calls, and the follow-on built
+
+You made both calls: **close 037 now** (the tests + the live-binary check are enough), and **build the
+proper "redesign this page" button**. Done both.
+
+037 is now closed (moved to `/bugs_closed/`). And I built the redesign signal: when you re-plan a
+site, you can now name specific pages to recompose — everything else keeps its layout, only the pages
+you name get redesigned by the model. It's a list called `recompose_pages` you put on the re-plan
+request; you don't have to touch anything else. Nicely, it needed no plumbing changes — the re-plan
+request already carries that information to where it's needed, so it's a small, self-contained change
+to the planner.
+
+Two honest caveats: (1) like any code change it only goes live on the next build of the chassis — it's
+committed and waiting; (2) right now setting it means writing the re-plan request by hand (one line of
+SQL, in the runbook). A friendlier button for it is optional polish, not needed for it to work. I
+wrote it up as `features_open/012` with the exact usage.
+
+One design choice worth flagging: if you name a page to recompose and the model then decides that page
+shouldn't exist, it gets dropped. That's the honest meaning of "recompose from scratch", but if you'd
+rather "redesign but never delete", say so and I'll make it keep the page. I left it as the simpler
+"model governs" version for now.
