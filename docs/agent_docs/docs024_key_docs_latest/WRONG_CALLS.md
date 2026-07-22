@@ -1837,3 +1837,22 @@ wasted); resolved by explanation in round 2, which the seat accepted. Low, but i
 reading the submission literally — the same "the sketch is all they see" discipline that cost the
 round-2 and round-3 nitpicks (`containsGroupType` not shown as pre-existing; blast radius asserted
 not independently confirmed).
+
+---
+
+**2026-07-22 — "neutralise the predicate in place to prove the tests discriminate" on a
+hotly-contended file, and the edit silently vanished (bugfix-037).** To prove the 037 tests
+were discriminating I edited `realisedPageCompositionIsPreserved` in `v3_site_actions.go`
+in place (drop the `needs_rebuild` case), ran the tests — and they *passed*, which was
+impossible. Cause: the whole `actions` package was a large uncommitted multi-session WIP, and
+an owner `git add -A` build sweep (`fe2ba5e52`, v1.0.1146) committed/rewrote the file
+**underneath the running experiment**, restoring the non-neutralised version before the test
+binary built. I briefly misread the green as "my tests aren't discriminating" rather than "my
+edit didn't take". **The cheap check:** never run a throwaway in-place edit (neutralise,
+bisect, spike) on a file under active concurrent commit — do it in an isolated `git worktree`
+(`git worktree add --detach <dir> HEAD`, overlay your uncommitted files, run there, remove).
+That is what finally proved discrimination cleanly. Corollary confirmed the same day: the file
+could not be committed independently anyway (it referenced helpers from another session's
+uncommitted `component_validation.go`), so the fix reached prod only *because* the sweep took
+it — a same-file passenger in the other direction. **Cost:** two confused verification cycles;
+no wrong claim shipped (the worktree caught it before I recorded anything).
