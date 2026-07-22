@@ -1,9 +1,34 @@
 # 017 — Replacing a backend tool's landing page with a static site orphans its entry forms (no auditor catches it)
 
+> **CLOSED 2026-07-22 — FIXED AND LIVE.** Slug: `static_cutover_orphans_backend_entry_forms`
+> (the *other* 017, `fix_forced_text_colors`, is a different closed case — resolve by slug).
+> **Two halves, both done:**
+> 1. **Site fix (the acute defect):** the audience-check and report-request forms were re-authored as
+>    chassis sections with a JS interceptor; the funnel is reachable again — re-verified live
+>    2026-07-21 (forms present, zero GET links to `/audience-check`, taster JS 200).
+> 2. **Auditor gap (the durable defect this file is really about):** `backend_entry_orphaned`
+>    (Finding A, `method_mismatch_link`) — a discovery check that live-probes internal handler-like
+>    links and flags a GET returning **405** from a POST-only handler. **LIVE on chassis v1.0.1149**:
+>    pod-grep-verified in the binary (`BackendEntryOrphanedCheck` ×10, positive control present) and
+>    **enabled** on `completeness-discovery-agent` via **seed 188** (array now carries it). Detection
+>    verified on the **induced 405** — the live `/audience-check`→405 probe and the httptest exercising
+>    the exact branch, with 200/400/404 correctly ignored.
+>
+> **One thing not directly observed** (stated plainly): the check running *inside* a live discovery
+> sweep. Not blocking closure — the runner (`RunDiscoveryChecksAction`) is shared, proven machinery
+> that runs 20+ other checks, and a sweep today would yield zero findings (no 405s exist fleet-wide,
+> confirmed by a 50-link fleet probe). The detector's *correctness* was proven on the induced fault,
+> not inferred. The first natural discovery sweep exercises it.
+>
+> **Split out, still open:** the *cause*-side guard (prevent a cutover silently orphaning a funnel) is
+> `features_open/011_FEATURE_pre_cutover_content_diff_guard.md`, with its zero-cost mitigation already
+> in the idea.uk cutover RUNBOOK **§3d(ii)**. Finding B (`no_backend_entry`) remains a named follow-on.
+> Full trail below (site fix → premises corrected → check built → council rounds 1–2 → enablement).
+
 **Found:** 2026-07-18 on idea.uk, minutes after the VM cutover put the chassis static site at `/`.
-**Severity:** the paid funnel is unreachable — on a live earning site. **Status:** open; needs both a
-site fix and a new discovery check. **Class:** applies to every future class-B (static + backend on
-one origin) site, not just idea.uk.
+**Severity:** the paid funnel is unreachable — on a live earning site. **Status:** CLOSED 2026-07-22
+(was: open; needed both a site fix and a new discovery check — both now live). **Class:** applies to
+every future class-B (static + backend on one origin) site, not just idea.uk.
 
 ## Symptom
 
