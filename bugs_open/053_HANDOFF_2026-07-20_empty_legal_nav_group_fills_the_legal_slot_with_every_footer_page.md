@@ -5,10 +5,11 @@
 sites still serve the old footer because the output is a cached chrome artefact and nothing has
 re-rendered them yet. Close only when a re-rendered site's `.footer-legal` is verified empty against
 the live page.
-**Council gate:** `SUBMISSION_CORR=550b9727-730b-44f9-8d37-5c56c2ce6615`. Round 1 → **REVISE**
-(bug_historian; 6 approve / 4 object). Revised with a fail-loud guard (`309f519fc`) and resubmitted
-round 2 (orchestration `6dfa57aa-f5c5-47f1-8154-38bdf25c14c8`) — verdict pending. See *Council round 1*
-below.
+**Council gate:** `SUBMISSION_CORR=550b9727-730b-44f9-8d37-5c56c2ce6615`, 3 rounds, all REVISE —
+but **substantively approved** (see *Council review* below). R1 found a real gap (fixed, `309f519fc`);
+R2 = 11/12 approve, R3 = only guardian (low). Stopped at R3 on owner ruling (2026-07-22): no
+`Council-Reviewed:` trailer (earned by APPROVED only), the remaining objections are low
+"independently-confirm-a-claim" nits from rotating seats and the fix is already live and correct.
 **Pod-verified 2026-07-21:** `strings /app/agent-chassis | grep -c siteHasAnyNavItems` = 4 on
 `agent-chassis-...-xrkv6` (image `v1.0.1146`); positive control `getNavItemsFromPagesFallback` = 6.
 Commit 11:43:55 UTC < image start 12:15:20 UTC, so the build carries it.
@@ -203,11 +204,32 @@ filing — nav rows are live state. Today, sites with **active legal nav rows** 
 newly-created sites before `PopulateNavTablesAction` runs (verify list #3: the branch is not dead,
 just not exercised by any current live domain).
 
-## Council round 1 — REVISE, and the fail-loud guard it earned (`309f519fc`)
+## Council review — 3 rounds, all REVISE, substantively approved; stopped by owner ruling
 
-Submitted candidate 1 to the council gate (`SUBMISSION_CORR=550b9727…`). Verdict **REVISE**, decided
-by `bug_historian`; **6 of 10 seats approved** (compliance, render_guardian, debug_historian,
-constitution, mission, edit-quality-modulo-one-nit). The objections were worth the run:
+`SUBMISSION_CORR=550b9727…`. **Round 1 earned a real fix; rounds 2–3 were single low-severity
+"independently confirm a claim" nitpicks from rotating seats.** The gate treats *any* objection —
+even `low` — as REVISE, so a sound change with one nit never reaches a unanimous APPROVED. Owner
+ruling 2026-07-22: **stop at round 3, apply no `Council-Reviewed:` trailer** (the trailer is earned
+by an APPROVED verdict only — [[council-reviewed-trailer-discipline]]), because the fix is already
+live and correct and every substantive concern is resolved.
+
+- **Round 2 → REVISE, 11/12 approve.** The fail-loud guard flipped `bug_historian`, `guardian`,
+  `reuse_agent` and `prior_art_librarian` to *approve*. Sole objection: `edit-quality` (low) — the
+  *sketch* used `containsGroupType` without evidence it pre-exists; "pending that check, verdict
+  would move to approve". (It does pre-exist, `nav_tables.go:346`; sketch-evidence gap, not a code
+  defect. The runbook trap: reviewers judge the sketch, not the file.)
+- **Round 3 → REVISE.** Added the `containsGroupType` provenance; `edit-quality` cleared. Sole
+  objection: `guardian` (low) — wanted the blast-radius claim *independently* confirmed, specifically
+  that `GetNavItems` is a render-time leaf and not reached from work-item dispatch / agent-spawning.
+  **Answered definitively:** all seven callers are render/site-assembly actions
+  (`RenderSiteComponentsAction`, `RenderFooter`, `BuildRenderContextAction`, `RerenderSitePagesAction`,
+  `LoadSiteForRebuildAction`, `SyncPagesToDBAction`, `buildRenderContextFromDB`); a grep of
+  `coordinator*/dispatch*/agentbase/internal/` finds **zero** callers. Blast radius is closed.
+
+### Round 1 in detail — REVISE, and the fail-loud guard it earned (`309f519fc`)
+
+Verdict **REVISE**, decided by `bug_historian`; **6 of 10 seats approved** (compliance, render_guardian,
+debug_historian, constitution, mission, edit-quality-modulo-one-nit). The objections were worth the run:
 
 - **`bug_historian` (medium, the decider) + `guardian` (medium) + `edit-quality` (low)** — candidate 1
   *respected* the truthful empty answer but returned empty for **every** group with only a `Debug`
@@ -233,8 +255,8 @@ constitution, mission, edit-quality-modulo-one-nit). The objections were worth t
   The pod-grep is real (count 4, positive control 6), not a copied trail. Clarified in the round-2
   rationale rather than repeated as a bare claim.
 
-Resubmitted round 2 on the same correlation (orchestration `6dfa57aa…`); the code is already
-committed and live, so the verdict is recorded for the trail, not as a ship gate.
+Resubmitted round 2 on the same correlation; the code is already committed and live, so each verdict
+is recorded for the trail, not as a ship gate (see *Council review* summary above for R2/R3).
 
 ## How to verify a fix
 
