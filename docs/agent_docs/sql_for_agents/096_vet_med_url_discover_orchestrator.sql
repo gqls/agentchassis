@@ -143,15 +143,19 @@ WHERE type IN ('med-price-collector', 'med-url-discoverer');
 --    Columns: target_agent_type, target_topic, input_data
 -- ============================================================================
 
+-- input_data is PAYLOAD ONLY. fireTrigger (cmd/scheduler/main.go) supplies
+-- action="orchestrate" and config.agent_type (from target_agent_type) and wraps this
+-- column as input_data itself. Never nest an {action,config,input_data} envelope here —
+-- it double-wraps and the payload never reaches the action. See bugs_closed/054.
 UPDATE scheduled_tasks
 SET target_agent_type = 'med-price-scrape-orchestrator',
-    input_data = '{"action":"orchestrate","config":{"agent_type":"med-price-scrape-orchestrator"},"input_data":{"batch_size":20}}'::jsonb,
+    input_data = '{"batch_size":20}'::jsonb,
     updated_at = NOW()
 WHERE name = 'med-scrape-prices';
 
 UPDATE scheduled_tasks
 SET target_agent_type = 'med-url-discover-orchestrator',
-    input_data = '{"action":"orchestrate","config":{"agent_type":"med-url-discover-orchestrator"},"input_data":{}}'::jsonb,
+    input_data = '{}'::jsonb,
     updated_at = NOW()
 WHERE name = 'med-discover-urls';
 

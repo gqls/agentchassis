@@ -148,7 +148,13 @@ INSERT INTO scheduled_tasks (
              'system.agent.business-intel.requests',
              172800,
              false,
-             '{"action":"orchestrate","config":{"agent_type":"med-json-exporter"},"input_data":{"domain":"vetcomparison.co.uk"}}'::jsonb,
+             -- PAYLOAD ONLY. The scheduler's fireTrigger (cmd/scheduler/main.go) supplies
+             -- action="orchestrate" and config.agent_type (from target_agent_type) and wraps this
+             -- column as input_data itself. Nesting an {action,config,input_data} envelope here
+             -- double-wraps it and the payload never reaches the action — see bugs_closed/054.
+             -- NOTE: 'vetcomparison.co.uk' is the original documented target and is NOT a live
+             -- site (only vetcomparison.uk exists); set a real domain before enabling this task.
+             '{"domain":"vetcomparison.co.uk"}'::jsonb,
              'med-collection'
          ) ON CONFLICT (name) DO NOTHING;
 
