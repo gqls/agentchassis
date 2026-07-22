@@ -190,6 +190,21 @@ redesign" the handoff warned candidate 2 removes is **not** removed — it just 
    `needs_rebuild`, 3 sections) to watch `pages.sections` survive has not been run — it mutates a
    live site + ~30 min dispatch + build spend. [UNVERIFIED — live re-plan]
 
-**Not moved to `/bugs_closed/` yet** pending the owner's read on (1) and whether the live re-plan in
-(2) is wanted. The headline defect is fixed and live; what remains is a decision and an optional
-gold-standard check, both recorded above.
+## CLOSED — 2026-07-22 (owner ruling)
+
+Moved to `/bugs_closed/`. The bar is **fixed AND live**, and the headline defect meets it: a re-plan
+can no longer silently re-compose or drop a `build_status='needs_rebuild'` page. Fixed via
+`realisedPageCompositionIsPreserved` (`v3_site_actions.go`, swept into `v1.0.1146`), tests
+`9864fab37`, symbol verified in the running pod. The two open items were put to the owner
+(2026-07-22):
+
+1. **Live re-plan verification — owner ruled: close on current evidence.** The discriminating unit
+   tests + live pod-grep are the accepted bar (the same machinery `/bugs_closed/001` verified live
+   twice). The live re-plan step is written down in the workstream RUNBOOK if ever wanted.
+2. **Candidate 1 (explicit redesign intent) — owner ruled: BUILD IT.** This is a follow-on **feature**,
+   not part of this defect: a per-page `recompose_pages` signal in the `needs_site_plan` spec so a
+   deliberate single-page redesign is a clean flag instead of the "empty the composition, then
+   re-plan" dance. Tracked separately in **`/features_open/012`** so this bug can close on its own
+   terms. Candidate 1 does not reopen 037 — 037's guard stands; 012 adds an *explicit* opt-out to it.
+
+Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bugfix_037_needs_rebuild_guard/`.
