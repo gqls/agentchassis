@@ -37,7 +37,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **record the CLOCK beside a reading, never infer it afterwards** | **1** |
 | **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **4** |
-| **read the SCHEMA before naming a column — a Go map key is not a column** | **1** |
+| **read the SCHEMA before naming a column — a Go map key is not a column** | **2** |
+| **check a SIBLING instance before calling a defect "generic"/fleet-wide** | **1** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
@@ -2002,3 +2003,35 @@ will not hold a content_data edit. This is the "DERIVED on render" landmine alre
 memory; I did not apply it.
 **Cost:** one wasted re-render cycle (R7b) before R7c fixed the root; no wrong claim
 reached a handoff (the correction is in NOTES Turn 12 before this closed).
+
+### 2026-07-22 — vonc gauntlet — "the tools ship dead `href="#"` CTAs" framed as a fleet-wide pattern
+**Asserted (heading toward a durable claim):** on finding the gauntlet's two hero
+CTAs were `href="#"`, and primed by the request to make the fix "generic to any new
+site", I framed this as a blanket "every tool ships dead CTAs" pattern before checking
+any other tool.
+**Actually:** the two sibling tools on the SAME site — `arena` and
+`archetype-taster-quiz` — have **zero** `href="#"`. The gauntlet was the anomaly. The
+*generic* defect was real but lived elsewhere (the detector's `build_status` filter),
+not in a shared "tools emit dead CTAs" behaviour.
+**Caught by:** a two-line sibling curl (`for t in arena archetype-taster-quiz; do curl
+… | grep -c 'href="#"'`) — run BEFORE the claim reached a handoff. Cost ≈ nil; the
+correction is in NOTES and the framing never shipped.
+**The cheap check that would have caught it:** before calling a single-page defect
+"generic" or "fleet-wide", curl 2–3 sibling instances and count. "Make it generic" is a
+request about the FIX's blast radius, not evidence that the SYMPTOM is already
+widespread — those are different questions and I conflated them. Family: measure the
+population before describing it.
+
+### 2026-07-22 — vonc gauntlet — four SQL queries written against columns that don't exist
+**Asserted (implicitly, by querying):** `pages.page_name`; `content_components.component_type`;
+`schema_migrations.version`/`id`; `orchestration_states.name`/`agent_type`.
+**Actually:** the columns are `pages.name`, no `component_type` at all,
+`schema_migrations.filename`, `orchestration_states.orchestration_name`/`owner_agent_type`.
+Each threw and cost a retry (four in one session).
+**Caught by:** Postgres, immediately, every time — so no wrong claim propagated, only
+wasted round-trips.
+**The cheap check that would have caught it:** `\d <table>` before writing SQL — the
+standing CLAUDE.md rule ("Schema first"). I guessed column names from what felt natural
+(`page_name`, `version`) instead of reading the schema. This is the same skipped check
+as the existing "read the SCHEMA before naming a column" row; four instances in one
+session is exactly the kind of repetition the tally exists to surface.

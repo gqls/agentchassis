@@ -85,3 +85,42 @@
   needs_rebuild). NOTE the gauntlet's OWN dead CTAs are now gone, so the post-roll
   proof needs a DIFFERENT needs_rebuild page that still has a dead control, OR a
   temporary re-check before this fix would have flagged it.
+
+## 2026-07-22 — MISSTEPS this session (recorded on owner request; the point is the pattern)
+
+Two reached WRONG_CALLS.md (fleet-wide ledger); the rest are wasted cycles / near-misses
+that a check would have saved. Recorded so the next thread doesn't re-walk them.
+
+1. **Framed the dead CTAs as a fleet-wide "tools ship dead CTAs" pattern before checking
+   siblings.** The request ("generic to any new site") primed a fleet-wide framing;
+   `arena` + `archetype-taster-quiz` on the same site had ZERO `href="#"`. Caught by a
+   2-line sibling curl before it reached a durable claim. → WRONG_CALLS. LESSON: "make the
+   fix generic" is about the FIX's blast radius, not evidence the SYMPTOM is widespread.
+
+2. **Four SQL queries against non-existent columns** (`page_name`, `component_type`,
+   `schema_migrations.version/id`, `orchestration_states.name/agent_type`). Each threw;
+   four retries. → WRONG_CALLS. LESSON: `\d <table>` first (the standing CLAUDE.md rule I
+   skipped four times).
+
+3. **Fired the bare `049b` page-rerender envelope and waited on it — it never ingested.**
+   Six polls (60s) returned no orchestration row, no work item, no log trace. The script's
+   OWN header warns of a kubectl-run stdin race with `action=orchestrate`. I trusted "works
+   in seconds" (my memory note) over the caveat in front of me. Recovered by switching to
+   the 086-style DIRECT orchestrator envelope (`action=process`, spawn+call, full inline
+   workflow), which routed first try. LESSON: after firing a fire-and-forget dispatch,
+   confirm INGEST (an orch row within ~30s) before waiting on the outcome; read the
+   trigger's own caveats before reusing it. Durable route saved as
+   `scripts/republish_gauntlet_js.sh`.
+
+4. **Near-miss: nearly declared the page fixed on the HTML alone.** After the section-editor
+   delivery the DB `rendered_html` + live HTML were correct and the orchestration was
+   COMPLETED — I could have stopped there. The JS ASSET was still stale (old 3909B), so the
+   primary `<button>` was inert. Caught only because I checked the asset's last-modified +
+   content separately. LESSON: for a tool whose behaviour lives in a JS asset, "the HTML is
+   right + status COMPLETED" is NOT proof the tool works — verify the served
+   `/tools/assets/*.js` (last-modified + a symbol it must contain). This is the
+   status-vs-artefact trap one layer out, and it's now a 016b §9 pattern.
+
+5. **Minor: a shell grep broke on an apostrophe** (`grep … "TODAY'S GAUNTLET"` → unexpected
+   EOF) mid-verification. Cost one re-run; switched the verification to a Python heredoc.
+   LESSON: quote apostrophe-bearing literals in Python/`-F`, not inline double-quoted bash.
