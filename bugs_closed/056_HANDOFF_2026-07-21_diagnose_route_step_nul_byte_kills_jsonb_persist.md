@@ -1,6 +1,6 @@
 # 056 — The diagnosis loop kills its own runs: a NUL byte in `SeenCodeRequests` keys makes the `route` step's state-persist fail with Postgres `22P05`
 
-**Filed:** 2026-07-21 · **Branch:** `085_debug_and_feature_loops` · **Status:** FIXED & LIVE 2026-07-22 (commit `7a9f5f652`, in prod via v1.0.1149 — see §Resolution at the bottom; end-to-end verification in flight, council follow-up open on the sanitiser half)
+**Filed:** 2026-07-21 · **Branch:** `085_debug_and_feature_loops` · **Status:** CLOSED 2026-07-22 — fixed, LIVE and end-to-end verified (commit `7a9f5f652`, in prod via v1.0.1149 — see §Resolution at the bottom; end-to-end verification in flight, council follow-up open on the sanitiser half)
 **Severity:** medium-high — not data corruption (the bad write is *rejected*, nothing lands),
 but it **silently destroys diagnosis runs**. 25 orchestrations dead so far, still occurring today.
 The bug is in the diagnosis loop's own code, so the platform's "diagnose before you assert"
