@@ -984,3 +984,34 @@ showcase live with the 3 grounded projects. `sites.phone` is set. Bug 055 closed
 
 **Not this workstream:** `bugs_open/056` (silent-drop-on-regeneration — another
 session owns it), `features_open/010` (council decision adjudicator).
+
+## 2026-07-22 — STAGE 2 kickoff: component 1 (hero-card-carousel) built + registered
+
+Mechanism confirmed (see components/README.md): components are `content_components`
+rows; `render_mode='agent'` → content-writer fills `input_schema`; `js_content`
+auto-publishes to `/tools/assets/{function}.js`; `load_component_library` returns
+all active `section` components in the planner's AvailableFunctions (NO
+`suitable_site_types` gate — so registration IS enough to REACH the planner; the
+NOTES landmine about the planner prompt is about whether the LLM *chooses* it, a
+separate empirical check).
+
+**hero-card-carousel [BUILT + REGISTERED + template-validated]:** function
+`hero-card-carousel`, section_type `hero-carousel`, section level, agent mode,
+is_active. Combines swipe (CSS scroll-snap) + accessible auto-advance (WCAG 2.2.2)
++ hover-zoom. Go template parses + renders with sample data (standalone
+`html/template` validator, EXIT 0; empty-image card falls back cleanly, first card
+`loading=eager`). Source version-controlled in `components/hero-card-carousel/`.
+
+**NOT yet done for this component:** a **live render on a page** — the meaningful
+proof (a registered-but-never-rendered component is the "inert until used" trap).
+Blocked by (a) the build/dispatch queue being backlogged (bugs_open/029/030), and
+(b) it needs to reach a page either by the planner selecting it or by explicit
+placement. Also unverified: per-card imagery generation for the `type:image` card
+field (the template falls back gracefully, so it renders regardless).
+
+**Remaining Stage-2 components** (registry additions, same pattern):
+`image-hover-card-grid`, `swipeable-insight-carousel`, `stat-band` (code-rendered
+from verified data — shared with leopardess L7), `people-feature-block`
+(line-illustration). Then: re-plan selected fundamentallyai pages to actually USE
+the new components (that's what makes the site "look like the brief"), and verify
+each renders live + its JS asset 200s.
