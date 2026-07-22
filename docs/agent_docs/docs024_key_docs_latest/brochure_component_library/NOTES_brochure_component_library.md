@@ -698,3 +698,58 @@ Next: design the fix, put it through the council gate, build+roll, seed
 fundamentallyai's allowlist, re-fire ALL content pages (incl. re-building the 2
 generic "deployed" ones so the story is restored), verify the leopardess
 reference is present in saved `rendered_html`.
+
+## 2026-07-21 — fix written + tested; council round 1 = REVISE; resubmitted round 2
+
+**Owner decisions (2026-07-21):** image roll = "roll it once approved" (durable
+authorization to build+roll the fleet on an APPROVED verdict, quiet-check first);
+allowlist scope = the full intended portfolio (leopardessconsulting.co.uk,
+finetuning.uk, idea.uk, relojistas.com). NB only leopardess + finetuning.uk are
+in the checker's hardcoded knownSites, so those two are the ones that actually
+suppress anything; idea.uk + relojistas.com are harmless future-proofing.
+
+**Fix (candidate 1, built):** `checkDomainContamination` gains a per-site
+allowlist loaded from `sites.content_data->'allowed_reference_domains'`
+(`loadAllowedReferenceDomains`, fail-closed to nil). Unit tests pass
+(`TestContamination_*`): no allowlist → leopardess flagged blocker; allowlisted →
+leopardess + company suppressed, un-listed dartsonline.com still flagged.
+`go vet` clean (the one warning is pre-existing in another file). Single caller
+confirmed (one: `ValidatePageContentAction`). **Code held UNCOMMITTED** pending
+an APPROVED verdict so it lands with the `Council-Reviewed:` trailer — safe to
+hold because the change is INERT until the allowlist is seeded (which I control),
+so there's no prod risk and no urgency.
+
+**Council round 1 (corr `03908b72-2471-474e-baaf-7952d1903460`) = REVISE**, back
+in ~15 min (faster than the ~30 CLAUDE.md budgets). **5 approve / 3 object.** The
+code itself was NOT vetoed — constitution/mission/guardian/render_guardian/
+prior_art called it sound, minimal, opt-in, fail-closed, reuse-respecting
+(`loadSiteContactEmail`/`loadEvidenceBase` pattern). The 3 objections
+(editquality, bug_historian, debug_historian) were all **plan COMPLETENESS**, and
+all fair:
+1. The plan fixes the guard but never flips the switch — no edit performs the
+   config seed (editquality, med).
+2. The prod jsonb UPDATE needs needle-gate discipline — backup/idempotent
+   guard/RETURNING/verify+rollback (debug_historian, med).
+3. No deploy-verification (pod-grep the running binary for the new symbol)
+   (debug_historian, med).
+4. The 5 stuck + 2 degraded pages need re-queue + REGENERATION (not a
+   rendered_html SQL patch) or the incident doesn't close (editquality +
+   debug_historian).
+5. **The deeper defect:** the content-writer/regeneration path *silently drops
+   flagged content on retry* with no record — that's what actually erased the
+   story, and it's generic; patching this one trigger leaves it exploitable
+   (bug_historian, med). **→ filed as `bugs_open/056` (mechanism [INFERRED],
+   needs-diagnosis) and explicitly scoped OUT of the 055 plan.**
+6. Minor (both low, handled): company-suppression rationale slightly over-reaches
+   the domain-only evidence (it's deliberate — same first-party site, forward-
+   proofs a company-name rewrite); verify single caller (done).
+
+**Round 2 resubmitted** (`RESUBMIT_CORR=03908b72`, new run
+`6c385a7f-46ae-4f2f-9651-2cfa458ddb72`), addressing every objection: added the
+needle-gated seed script (`sql/055_seed_allowlist.sql` + `_VERIFY`/`_ROLLBACK`
+sidecars) as an explicit edit; spelled out the full rollout (build→roll→pod-grep
+verify→seed→regenerate→verify-by-artefact); tightened the company-suppression
+rationale + code comment; filed and scoped-out 056. Awaiting round-2 verdict
+(monitor armed). **A REVISE is a success, not a waste** — the council caught that
+"fix the mechanism" ≠ "close the incident", which is exactly the gap that leaves
+sites half-live.

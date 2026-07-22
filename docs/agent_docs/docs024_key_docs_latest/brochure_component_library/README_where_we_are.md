@@ -200,3 +200,36 @@ the story is actually present this time, and check the real pages rather than th
 status. The "nothing serves yet" problem is separate and still to sort — but
 there's no point serving the pages until they've got the real content in them,
 so this comes first.
+
+**2026-07-21, later still — the fix is written and the review council has been
+round it once already, which was worth doing.** You made two calls for me first:
+go ahead and roll the fix out fleet-wide once it's approved, and put not just
+leopardess but our whole intended portfolio (idea.uk, relojistas, finetuning) on
+this site's "allowed to name" list so a future mention can't re-block it. I wrote
+the fix, it passed its tests, and I sent it to the council rather than just
+shipping it.
+
+The council came back with "revise, not yet" — and it was a genuinely useful
+"not yet", not a nitpick. Five of the eight reviewers were happy with the actual
+code. The other three all made the same essential point in different ways: I'd
+written the fix to the *mechanism* but hadn't written down the steps that
+actually *close the problem* — flipping the switch on for this specific site
+(with proper backup-and-verify care, not a casual database poke), checking the
+new code is really running on the live server before trusting it, and rebuilding
+the already-broken pages rather than assuming the fix alone heals them. Fair, all
+of it. One reviewer also spotted something sharper and more important: the reason
+the story vanished in the first place is a *separate* fault — when a page trips
+the checker, the machine quietly regenerates it without the offending bit and
+ships that, with nothing recording that something was dropped. My fix stops the
+checker firing wrongly here, but that silent-drop behaviour is still lurking for
+the next time any page trips any check. I've written that up as its own bug (056)
+so it gets looked at properly rather than being quietly assumed "fixed" by this
+one — because assuming exactly that is the trap.
+
+So I've rewritten the plan to include the whole rollout, not just the code, and
+sent it back round. I'm holding the code uncommitted until it's approved (it's
+harmless sitting there — it does nothing until I switch it on for this site).
+Once the council's happy, the sequence is: roll it, prove it's live, switch this
+site on, rebuild every content page, and — the bit that matters — actually read
+the finished pages to confirm the leopardess story is really on them this time,
+not just that the database says "done".
