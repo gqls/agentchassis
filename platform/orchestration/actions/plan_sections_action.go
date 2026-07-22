@@ -1163,6 +1163,41 @@ func loadSingleComponentSchema(ctx context.Context, db *sql.DB, function string,
 	return nil
 }
 
+// queryResultLen returns the element count of a resolved query value when it is
+// a list, and reports whether it was a list at all. Query list resolvers return
+// []map[string]interface{}; the []interface{} case is defensive. Scalars (e.g. a
+// URL string from section_index_for) are not lists and never fail a cardinality
+// contract here.
+func queryResultLen(value interface{}) (int, bool) {
+	switch v := value.(type) {
+	case []map[string]interface{}:
+		return len(v), true
+	case []interface{}:
+		return len(v), true
+	default:
+		return 0, false
+	}
+}
+
+// queryListBelowContract reports whether a successfully-resolved query value is a
+// LIST that fails the field's declared cardinality contract: fewer items than
+// min_items, or empty when the field is required. A required list with no explicit
+// min_items is treated as needing at least one item. Non-list values (scalars,
+// nil) never fail here. This is what makes a query-sourced field honour its
+// required/min_items/on_missing declaration instead of silently accepting an empty
+// slice (bugs_open/054 fix-candidate 2).
+func queryListBelowContract(value interface{}, required bool, minItems int) bool {
+	n, isList := queryResultLen(value)
+	if !isList {
+		return false
+	}
+	floor := minItems
+	if required && floor < 1 {
+		floor = 1
+	}
+	return n < floor
+}
+
 // ============================================================================
 // Plan a single section
 // ============================================================================
@@ -1262,88 +1297,13 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 			fieldMinItems = int(mi)
 		}
 
-		// LLM-generated fields — always available
-		if source == "llm" {
-			llmFields = append(llmFields, fieldName)
-			llmFieldSpecs = append(llmFieldSpecs, llmFieldSpec{
-				Name:        fieldName,
-				Type:        fieldType,
-				Required:    required,
-				Description: stringOrEmpty(fieldDef["llm_guidance"]),
-				OnMissing:   onMissing,
-				Fallback:    fallback,
-				ItemFields:  extractArrayItemFields(fieldDef),
-			})
-			continue
-		}
-
-		// Query.* fields — resolve via the queryresolve package.
-		// The query resolver runs SQL against the database and returns
-		// data shaped for the field. For array-typed fields (lists, grids,
-		// directories) the result is []map[string]interface{} that the
-		// downstream content writer / template renderer iterates over.
-		//
-		// Failure handling:
-		//   - Unknown query name → log warning, fall through to fallback/skip
-		//   - DB error → log warning, fall through to fallback/skip
-		//   - Empty result → put empty slice in resolvedData (the component's
-		//     html_template should handle empty lists; on_missing applies if
-		//     the field is required and the schema treats empty as missing)
-		if strings.HasPrefix(source, "query.") {
-			queryName := strings.TrimPrefix(source, "query.")
-
-			// Optional limit from the field schema (max items for the list).
-			itemLimit := 0
-			if l, ok := fieldDef["limit"].(float64); ok {
-				itemLimit = int(l)
-			}
-
-			req := queryresolve.QueryRequest{
-				Name:   queryName,
-				SiteID: resolver.siteID,
-				Limit:  itemLimit,
-			}
-			value, qerr := queryresolve.Resolve(ctx, resolver.db, req, resolver.logger)
-			if qerr != nil {
-				resolver.logger.Warn("plan_sections: query resolution failed",
-					zap.String("field", fieldName),
-					zap.String("source", source),
-					zap.Error(qerr))
-				// Fall through to fallback handling below
-			} else if value != nil {
-				resolvedData[fieldName] = value
-				continue
-			}
-
-			// Resolution failed or returned nil — apply fallback if any,
-			// otherwise leave the field unresolved (the template will see
-			// nothing for this field, which the html_template should handle).
-			if fallback != nil {
-				resolvedData[fieldName] = fallback
-			}
-			continue
-		}
-
-		// Renderer/static fields — resolved at render time, not now
-		if source == "renderer" || source == "static" ||
-			strings.HasPrefix(source, "renderer.") ||
-			strings.HasPrefix(source, "static.") {
-			if fallback != nil {
-				resolvedData[fieldName] = fallback
-			}
-			continue
-		}
-
-		// Resolve data source
-		value, found := resolver.resolve(ctx, source)
-
-		if found && value != nil {
-			resolvedData[fieldName] = value
-			continue
-		}
-
-		// Data not found — apply on_missing rule
-		if !found || value == nil {
+		// handleMissingField applies the field's declared on_missing policy when
+		// its source yielded no usable data — not found, nil, or (for a
+		// query-sourced list) an empty/short result that fails the field's
+		// required/min_items contract. Defined here so the generic and query.*
+		// resolution paths share ONE policy implementation and cannot drift — the
+		// drift class bugs_closed/044 was closed for. See bugs_open/054.
+		handleMissingField := func() {
 			if !required {
 				// Optional field missing — apply on_missing
 				switch onMissing {
@@ -1367,7 +1327,7 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 						MinItems:  fieldMinItems,
 					})
 				}
-				continue
+				return
 			}
 
 			// Required field missing — apply on_missing
@@ -1434,6 +1394,108 @@ func planSection(ctx context.Context, sectionName string, comp componentInfo, re
 				})
 			}
 		}
+
+		// LLM-generated fields — always available
+		if source == "llm" {
+			llmFields = append(llmFields, fieldName)
+			llmFieldSpecs = append(llmFieldSpecs, llmFieldSpec{
+				Name:        fieldName,
+				Type:        fieldType,
+				Required:    required,
+				Description: stringOrEmpty(fieldDef["llm_guidance"]),
+				OnMissing:   onMissing,
+				Fallback:    fallback,
+				ItemFields:  extractArrayItemFields(fieldDef),
+			})
+			continue
+		}
+
+		// Query.* fields — resolve via the queryresolve package.
+		// The query resolver runs SQL against the database and returns
+		// data shaped for the field. For array-typed fields (lists, grids,
+		// directories) the result is []map[string]interface{} that the
+		// downstream content writer / template renderer iterates over.
+		//
+		// Failure handling:
+		//   - Unknown query name → log warning, fall through to fallback/skip
+		//   - DB error → log warning, fall through to fallback/skip
+		//   - Empty result → put empty slice in resolvedData (the component's
+		//     html_template should handle empty lists; on_missing applies if
+		//     the field is required and the schema treats empty as missing)
+		if strings.HasPrefix(source, "query.") {
+			queryName := strings.TrimPrefix(source, "query.")
+
+			// Optional limit from the field schema (max items for the list).
+			itemLimit := 0
+			if l, ok := fieldDef["limit"].(float64); ok {
+				itemLimit = int(l)
+			}
+
+			req := queryresolve.QueryRequest{
+				Name:   queryName,
+				SiteID: resolver.siteID,
+				Limit:  itemLimit,
+			}
+			value, qerr := queryresolve.Resolve(ctx, resolver.db, req, resolver.logger)
+			if qerr != nil {
+				resolver.logger.Warn("plan_sections: query resolution failed",
+					zap.String("field", fieldName),
+					zap.String("source", source),
+					zap.Error(qerr))
+				// Resolver ERRORED — distinct from an empty result and must NOT be
+				// routed into on_missing, or a genuine failure would be masked as
+				// "no data" (the trap bugs_open/054 flags). Apply fallback if any,
+				// else leave the field unresolved.
+				if fallback != nil {
+					resolvedData[fieldName] = fallback
+				}
+				continue
+			}
+
+			// Successful resolve. A query-sourced list that came back empty — or
+			// shorter than its declared min_items — fails the field's required/
+			// min_items contract, so honour on_missing exactly as the generic path
+			// does, rather than storing an empty slice the template ranges over to
+			// nothing (bugs_open/054 fix-candidate 2). Scalars and satisfied lists
+			// store as before; a nil, non-list value keeps its prior fallback path.
+			if below := queryListBelowContract(value, required, fieldMinItems); below {
+				handleMissingField()
+				continue
+			} else if value != nil {
+				resolvedData[fieldName] = value
+				continue
+			}
+
+			// value == nil with no error and not a below-contract list — preserve
+			// prior behaviour: apply fallback if any, else leave unresolved.
+			if fallback != nil {
+				resolvedData[fieldName] = fallback
+			}
+			continue
+		}
+
+		// Renderer/static fields — resolved at render time, not now
+		if source == "renderer" || source == "static" ||
+			strings.HasPrefix(source, "renderer.") ||
+			strings.HasPrefix(source, "static.") {
+			if fallback != nil {
+				resolvedData[fieldName] = fallback
+			}
+			continue
+		}
+
+		// Resolve data source
+		value, found := resolver.resolve(ctx, source)
+
+		if found && value != nil {
+			resolvedData[fieldName] = value
+			continue
+		}
+
+		// Data not found — apply the field's on_missing rule. Shared with the
+		// query.* path above via handleMissingField so the two cannot drift
+		// (the drift class bugs_closed/044 was closed for).
+		handleMissingField()
 	}
 
 	// Skip takes priority over defer
