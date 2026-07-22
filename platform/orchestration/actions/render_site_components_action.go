@@ -618,8 +618,11 @@ func renderAndStoreSiteComponent(
 	// with NO handler, mirroring the sibling check_dead_controls — a dropped
 	// control is a human decision, not something an auto-re-render can invent.
 	// Gated on deadURLFields, so a clean render is never touched and its
-	// byte-identical output is preserved.
-	if len(deadURLFields) > 0 {
+	// byte-identical output is preserved. data-runtime-fill shells hydrate their
+	// own hrefs client-side, so an empty URL attribute there is intentional, not a
+	// dead control — exempt them exactly as check_dead_controls does
+	// (render_guardian council note, 2026-07-22).
+	if len(deadURLFields) > 0 && !strings.Contains(renderedHTML, "data-runtime-fill") {
 		beforeLen := len(renderedHTML)
 		renderedHTML = DropDeadURLControls(renderedHTML)
 		logger.Warn("site chrome: dropped dead URL control(s) before store — bugs_open/054",
