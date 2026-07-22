@@ -393,6 +393,66 @@ func TestRealisedPageCompositionIsPreserved(t *testing.T) {
 	}
 }
 
+// features_open/012 (bugs_open/037 fix step 4): recomposePagesFromSpec reads the
+// explicit redesign list from the trigger spec at input_data.spec.recompose_pages.
+func TestRecompose_ReadsSpecList(t *testing.T) {
+	cd := map[string]interface{}{
+		"input_data": map[string]interface{}{
+			"spec": map[string]interface{}{
+				"recompose_pages": []interface{}{"index", "about"},
+			},
+		},
+	}
+	set := recomposePagesFromSpec(cd, zap.NewNop())
+	if len(set) != 2 || !set["index"] || !set["about"] {
+		t.Errorf("recompose set = %v, want {index, about}", set)
+	}
+	if s := recomposePagesFromSpec(map[string]interface{}{}, zap.NewNop()); s != nil {
+		t.Errorf("expected nil for absent recompose_pages, got %v", s)
+	}
+}
+
+// features_open/012: filterOutRecomposePages releases only the named realised
+// pages, leaving the rest of the preserve set intact.
+func TestRecompose_FilterReleasesOnlyNamedPages(t *testing.T) {
+	existing := []interface{}{
+		realised("index", "/index.html", "deployed", `["hero","features"]`, false),
+		realised("contact", "/contact.html", "needs_rebuild", `["hero-contact"]`, false),
+	}
+	kept := filterOutRecomposePages(existing, map[string]bool{"index": true}, zap.NewNop())
+	if hasPage(kept, "index") {
+		t.Error("recompose page 'index' was not released from the realised set")
+	}
+	if !hasPage(kept, "contact") {
+		t.Error("non-recompose page 'contact' was wrongly released")
+	}
+}
+
+// features_open/012 end-to-end: a page named in recompose_pages has its LLM
+// composition honoured (the guard is released for it), while a peer NOT named is
+// still preserved. Discriminating: without the filter, 'index' would be snapped
+// back to its three realised sections.
+func TestRecompose_EndToEnd_NamedPageIsRedesignedPeerIsPreserved(t *testing.T) {
+	existing := []interface{}{
+		realised("index", "/index.html", "deployed", `["hero","category-listing","features"]`, false),
+		realised("about", "/about.html", "deployed", `["hero-about","about-body"]`, false),
+	}
+	existing = filterOutRecomposePages(existing, map[string]bool{"index": true}, zap.NewNop())
+
+	llm := []interface{}{
+		llmPage("index", "/index.html", "hero", "testimonials"), // redesigned
+		llmPage("about", "/about.html", "hero", "about-body"),   // LLM tries to genericise it
+	}
+	got, _, _, _, _ := reconcilePlanWithRealised(llm, existing, zap.NewNop())
+
+	if s := sectionsOf(t, got, "index"); !equalStrings(s, []string{"hero", "testimonials"}) {
+		t.Errorf("recomposed index sections = %v, want [hero testimonials] (LLM should govern)", s)
+	}
+	if s := sectionsOf(t, got, "about"); !equalStrings(s, []string{"hero-about", "about-body"}) {
+		t.Errorf("preserved about sections = %v, want [hero-about about-body] (guard should hold for an unnamed page)", s)
+	}
+}
+
 func equalStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

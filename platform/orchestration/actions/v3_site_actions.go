@@ -2768,6 +2768,20 @@ func ValidateSitePlanAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 	}
+	// Explicit redesign intent (bugs_open/037 fix step 4 / features_open/012).
+	// Pages named in the trigger spec's optional `recompose_pages` list are
+	// RELEASED from the preserve guard for THIS re-plan only, so the LLM's proposed
+	// composition governs them (a page may be recomposed or, if the LLM omits it,
+	// dropped). This is the sanctioned way to deliberately redesign a preserved
+	// (deployed / needs_rebuild) page — without an entry here the guard preserves
+	// it. Filtering the realised set HERE, before both reconcilePlanWithRealised
+	// and the truncation must-keep read `existingPages`, makes a recompose page
+	// uniformly from-scratch. Ordinary re-plans carry no such field and are
+	// unaffected.
+	if recompose := recomposePagesFromSpec(params.CollectedData, params.Logger); len(recompose) > 0 {
+		existingPages = filterOutRecomposePages(existingPages, recompose, params.Logger)
+	}
+
 	// Surface the convergence input size so an empty set is never silent again.
 	params.Logger.Info("ValidateSitePlanAction: existing pages loaded for convergence",
 		zap.Int("existing_pages", len(existingPages)),
@@ -4952,6 +4966,66 @@ func realisedPageCompositionIsPreserved(rm map[string]interface{}) bool {
 	default:
 		return false
 	}
+}
+
+// recomposePagesFromSpec reads the OPTIONAL `recompose_pages` list from the
+// needs_site_plan trigger spec, at input_data.spec.recompose_pages (the work
+// item's spec travels there unchanged — see features_open/012). It names realised
+// pages the caller has DELIBERATELY asked to redesign, the explicit-intent escape
+// hatch for bugs_open/037: `needs_rebuild`/`deployed` pages are otherwise
+// preserved, so this is the only way a re-plan may recompose one. Returns nil when
+// the field is absent (every ordinary re-plan), so behaviour is unchanged unless a
+// caller opts in. Names match realised page names (pages.name), case-sensitive as
+// elsewhere in the planner.
+func recomposePagesFromSpec(collectedData map[string]interface{}, logger *zap.Logger) map[string]bool {
+	raw := datahelpers.ExtractNestedField(collectedData, "input_data.spec.recompose_pages")
+	list, ok := raw.([]interface{})
+	if !ok || len(list) == 0 {
+		return nil
+	}
+	set := make(map[string]bool, len(list))
+	for _, v := range list {
+		if name, ok := v.(string); ok && name != "" {
+			set[name] = true
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(set))
+	for n := range set {
+		names = append(names, n)
+	}
+	logger.Info("ValidateSitePlanAction: recompose_pages requested (explicit redesign intent)",
+		zap.Strings("pages", names))
+	return set
+}
+
+// filterOutRecomposePages drops every realised page named in the recompose set
+// from the convergence input, so reconcilePlanWithRealised — and the truncation
+// must-keep, which reads the same slice — treat those pages as from-scratch: the
+// LLM's proposed composition governs, and the page may be redesigned or dropped
+// per the LLM's plan. A named page matching no realised page is a harmless no-op.
+func filterOutRecomposePages(existingPages []interface{}, recompose map[string]bool, logger *zap.Logger) []interface{} {
+	if len(recompose) == 0 {
+		return existingPages
+	}
+	kept := make([]interface{}, 0, len(existingPages))
+	var released []string
+	for _, rp := range existingPages {
+		if rm, ok := rp.(map[string]interface{}); ok {
+			if name, _ := rm["name"].(string); recompose[name] {
+				released = append(released, name)
+				continue
+			}
+		}
+		kept = append(kept, rp)
+	}
+	if len(released) > 0 {
+		logger.Info("ValidateSitePlanAction: recompose — realised pages released from the preserve guard for this re-plan",
+			zap.Strings("pages", released))
+	}
+	return kept
 }
 
 // realisedSectionsOf extracts a realised page's section list. The
