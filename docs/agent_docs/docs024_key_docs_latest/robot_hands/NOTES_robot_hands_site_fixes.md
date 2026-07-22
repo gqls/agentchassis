@@ -785,3 +785,15 @@ VALUE (llm field, edit content_data), the PROSE that cites it (llm field, edit c
 must move with the value), and the UNIT (static field, fix the schema fallback, NOT
 content_data). Getting one right and assuming the others follow is how R7→R7b→R7c each
 found the next layer.
+
+**R7c VERIFIED LIVE 2026-07-22** (`agent-chassis-7d4ff8b54-cm786`, v1.0.1149). The
+re-render completed and `/entities/gripper-detail.html` now renders the stat block bare:
+`10 Gripper Models Indexed`, `6 Manufacturers Covered`, `4 Parameters Compared`,
+`39 Published Figures Held` — zero unit suffixes, correct labels, corrected descriptions.
+(The R7c re-render also changed the card structure to `<div class="stat-value">10<span
+class="stat-suffix"></span></div>`; the number is a bare text node now, not a `stat-number`
+span — noted so the next verifier's grep does not read an empty `stat-number` as a lost
+value.) robot-hands is correct end-to-end: about 10/6, gripper-detail 10/6/4/39, six real
+sourced actuation technologies, no fabrication tells. The 043(b) fallback root fix is live
+fleet-wide (recurrence prevented); the four other sites' persisted junk suffixes remain
+their owners' cleanup, documented in 043.

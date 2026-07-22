@@ -29,8 +29,23 @@ behind the bug-029 queue stall — until it drains those pages show 5, an underc
 lie. Details: `SQL_2026-07-22_r7_…`, NOTES Turn 10, `bugs_open/043` (Update 2026-07-22),
 PLAN D10. Commit `efa9dea1b`. **Residual (flagged, not part of the decision):** MatchMatrix
 still scores only the parallel-jaw subset, so *tool-scope* prose remains ahead of the tool;
-new grippers have no browsable catalog rows. A SUMMARY is due once the re-render lands and
-the live numbers read 10/6.
+new grippers have no browsable catalog rows.
+
+**VERIFIED LIVE after the v1.0.1149 roll (2026-07-22), and two follow-on fixes landed:**
+- `about` renders 10/6; `/entities/gripper-detail.html` renders **10 / 6 / 4 / 39** bare.
+  Note gripper-detail's real url is `/entities/…` (`pages.url`) — NOT root; a stale root
+  file misled me briefly (WRONG_CALLS).
+- **R7b→R7c:** gripper-detail still carried bug 043 point (b) — the placeholder unit
+  suffixes ("10%", "6ms", "4+", "39x"). Root-caused to the SHARED `system-stats` component's
+  `input_schema` `fallback`s (`%/ms/+/x`, `source=static`), which is **fleet-wide** (all 5
+  consumers; vonc "14,203%", ai-agent-orch "1,000sms"). R7c set the fallbacks to `""`
+  (zero live-page impact on the other 4 — their suffixes are persisted non-empty) and
+  cleared+re-rendered robot-hands. VERIFIED bare live. Commits `569b160c3`, `642bb57cb`.
+  See `bugs_open/043` Update 2026-07-22 (b), NOTES Turns 11–12, `SQL_…_r7b/r7c_…`.
+- **Residual → 043 thread:** the other 4 `system-stats` sites still carry persisted junk
+  suffixes; the schema fix does not retro-clear them and the intended unit is each owner's
+  call. Not touched from this lane.
+A SUMMARY is now warranted (R7 closed end-to-end).
 
 ## STATE AT 2026-07-21 (v1.0.1144 roll) — read this first
 
