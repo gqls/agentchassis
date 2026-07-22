@@ -44,7 +44,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
 | **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation** | **1** |
-| **re-read the row AFTER a render, not after your own write** | **1** |
+| **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
@@ -1984,3 +1984,21 @@ name='database-cleanup'` (or grep for the DELETE). A table's current age-span is
 observation; the retention rule is the fact. Family: ground a figure against the mechanism
 that produces it, not against a snapshot of its output (cf. "ground every figure against the
 live system" — here the *figure was live and still wrong*, because it was volatile).
+
+### 2026-07-22 — robot-hands — "clearing the stat suffix in content_data fixes the '10%' render" (R7b)
+**Asserted:** R7b set `stat*_suffix=""` in `page_components.content_data` and queued a
+re-render, reporting the placeholder-suffix bug fixed.
+**Actually:** the suffix reverted to `%/ms/+/x` within one render. The field is
+`source=static` with a junk `fallback` in the shared component's `input_schema`; an
+empty static field resolves to its fallback and persists it. My *value* and
+*description* edits (source=llm, no fallback) held — only the suffix, which needed a
+schema-level fix, did not.
+**Caught by:** verifying the live page after the re-render, then reading the
+`input_schema` field `source`/`fallback` — not by anything up front.
+**The cheap check that would have caught it:** before editing a field in
+`content_data`, check whether it is derived on render — `render_mode` and the field's
+`source` in `input_schema`. A `source=static`+`fallback` or an agent-rendered field
+will not hold a content_data edit. This is the "DERIVED on render" landmine already in
+memory; I did not apply it.
+**Cost:** one wasted re-render cycle (R7b) before R7c fixed the root; no wrong claim
+reached a handoff (the correction is in NOTES Turn 12 before this closed).

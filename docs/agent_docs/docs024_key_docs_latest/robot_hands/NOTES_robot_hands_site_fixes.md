@@ -747,3 +747,41 @@ tell I ignored first — the component's `rendered_html` (build_status=deployed,
 
 R7b re-render queued (`robot-hands-r7b-suffix-fix`, gripper-detail only); live-verify
 pending the drain.
+
+---
+
+## Turn 12 — 2026-07-22 — R7b's suffix fix did NOT hold; found and fixed the real (fleet-wide) root
+
+> **CORRECTED — R7b (Turn 11) claimed the suffix fix; it reverted within one render.**
+Verified the R7b re-render live: gripper-detail still rendered **"10%", "6ms", "4+",
+"39x"**, and `content_data` had my `suffix=""` back to `%/ms/+/x`. My *value* (10/6/39) and
+*description* (Schmalz, genericised) edits from R7/R7b **held**; only the suffixes reverted.
+
+**Why — and the misstep.** The `system-stats` component is `render_mode='agent'`, and its
+`input_schema` marks the suffix fields **`source=static, fallback="%"/"ms"/"+"/"x"`** while
+value/label/description are `source=llm` with no fallback. A `static` field left empty
+resolves to its fallback **and persists it**. So an empty suffix can never stay empty while
+the fallback is junk. I edited `content_data` on that field without checking the schema —
+the same shape as the "DERIVED on render, content_data edits can't hold" landmine already
+in memory, which I should have applied here. `about` stays clean only because its component
+has no suffix fields at all. Logged to WRONG_CALLS.
+
+**This is bug 043 point (b)'s structural ROOT, and it is fleet-wide.** All five
+`system-stats` consumers render the fallback: ai-agent-orchestration ("1,000sms",
+"14,203%" on vonc) — nonsense that proves it is a leaking placeholder, not a unit.
+
+**R7c fix** (`SQL_2026-07-22_r7c_…`): set the four fallbacks to `""` on the shared
+component (`fdd92ad4-…`). Because the field is `source=static` (deterministic, not LLM) and
+the other four pages carry their suffix persisted **non-empty**, this changes **no current
+live page** — verified blast radius (5 pages / 4 sites, all non-empty) before applying.
+Then cleared robot-hands' persisted `%/ms/+/x` to empty so the static resolve lands on the
+new empty fallback, and re-rendered. Live-verify pending the drain. Residual, into 043: the
+other four sites still carry the junk **persisted** — the schema fix does not retro-clear a
+persisted value, and the intended unit is each owner's call, so not touched from this lane.
+
+**The compounding method lesson (Turn 11 + 12):** a stat block on an agent-rendered,
+schema-backed component has three independent layers that each need the right level — the
+VALUE (llm field, edit content_data), the PROSE that cites it (llm field, edit content_data,
+must move with the value), and the UNIT (static field, fix the schema fallback, NOT
+content_data). Getting one right and assuming the others follow is how R7→R7b→R7c each
+found the next layer.

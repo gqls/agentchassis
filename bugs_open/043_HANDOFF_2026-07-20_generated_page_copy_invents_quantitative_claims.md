@@ -171,6 +171,55 @@ the same status the stat-number fix had. The lesson it adds: for a data-backed s
 honest fix can be to *make the data real*, not to soften the copy — but only where real
 sources exist, and only with the specs actually cited.
 
+## Update 2026-07-22 (b) — point (b)'s ROOT CAUSE located: the suffix placeholders live in a shared component's input_schema `fallback`s, and it is fleet-wide
+
+Point (b) above ("unedited placeholders from a generic template", `%`/`ms`) is not a
+per-instance content mistake — it is **structural**, in the `system-stats` content
+component (`content_components.id = fdd92ad4-521a-4602-89cf-7ee1a66c10f1`). Its
+`input_schema.fields` declare the four suffixes as:
+
+```
+stat1_suffix: source=static, fallback="%"
+stat2_suffix: source=static, fallback="ms"
+stat3_suffix: source=static, fallback="+"
+stat4_suffix: source=static, fallback="x"
+```
+
+When a page leaves a suffix empty, the render resolves it to the fallback **and persists
+that back into `page_components.content_data`**. So the junk is not typed by anyone — the
+schema hands it out as the default. `stat*_value/label/description` are `source=llm` with
+no fallback, which is why hand-edits to *those* hold and edits to the suffix do not (proven
+on robot-hands: R7's values and R7b's descriptions held; R7b's `suffix=""` reverted to `%`
+within one render).
+
+**Fleet-wide — every consumer renders the junk** (5 pages, 4 sites; none set a real unit):
+
+| site | page | renders |
+|---|---|---|
+| ai-agent-orchestration.com | index | `70+%`, `1,000sms`, … |
+| ai-agent-orchestration.com | case-study-kafka-… | `70%`, `8ms`, … |
+| gamesdesign.co.uk | index | `36.6%`, `4ms`, … |
+| vonc.com | index | `14,203%`, `61ms`, … |
+| robot-hands.com | gripper-detail | `10%`, `6ms`, `4+`, `39x` |
+
+`1,000sms` and `14,203%` show these are not intended units — they are the schema
+placeholder leaking through.
+
+**Structural fix (applied to the root + robot-hands 2026-07-22,
+`SQL_2026-07-22_r7c_…`):** set the four `fallback`s to `""` — a stat has no unit unless one
+is specified. Because the field is `source=static` (deterministic, not LLM) and the other
+four pages carry their suffix **persisted non-empty**, this change has **zero effect on any
+current live page** — it only changes the default for a genuinely-empty suffix. robot-hands
+gripper-detail is then fixed by clearing its four persisted `%/ms/+/x` back to empty and
+re-rendering, so the static resolve lands on the new empty fallback.
+
+**Residual (NOT fixed here — other owners' sites):** the four rows above other than
+robot-hands still carry the junk suffix **persisted** in their `content_data`; the schema
+fix does not retro-clear a persisted value. Each needs its suffixes cleared (or set to the
+real unit its owner intends) and a re-render. Listed here for the 043 fixing thread; not
+touched from the robot-hands lane because the intended unit is the site owner's call
+(gamesdesign's `36.6` may genuinely want `%`).
+
 ## Related
 
 - `/bugs_open/020` — the tool-recreation fabrication. Same family, different path. Fix both.
