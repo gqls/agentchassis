@@ -50,3 +50,54 @@ model directory gets its own page or lives as a section on an existing page;
 how often we should double-check prices specifically versus more stable
 facts; and whether to switch this on for finetuning.uk immediately alongside
 ai-agent-orchestration.com, or just the one site for now.
+
+**2026-07-22, later the same day — all the code and schema is written,
+tested and committed. Nothing is running yet.**
+
+I built the whole thing in four pieces and committed each one separately as
+it became solid, the way we're meant to work in this shared repo:
+
+1. The database tables that hold the directory itself — one for each thing
+   (a model, later a company or a protocol), one for every individual cited
+   fact about it (a price, a licence type), each fact carrying its source
+   URL and the exact quote that proves it. Applied to the live database
+   already; I tested that it correctly refuses a duplicate fact for the same
+   thing, and rolled that test back so nothing fake is sitting in there.
+
+2. The actual researcher — code that takes a batch of claims a research
+   agent has found, re-fetches every cited web page itself, and only keeps
+   the ones where the quote genuinely appears on the page. Anything that
+   fails goes into a queue for a person to look at rather than being quietly
+   dropped or quietly trusted. There's also a separate daily check that goes
+   back over everything already published and re-verifies it, so if a
+   source changes or a page disappears, we notice.
+
+3. The part that actually turns that data into something a webpage can
+   show — both a version baked into the page's HTML (so it works with no
+   JavaScript and is visible to search engines) and a live JSON file the
+   page quietly refreshes from in the background, so updates don't need a
+   full page rebuild.
+
+4. The automatic "does this site need one of these yet" checks, so any site
+   can just flip a switch in its configuration and the system will notice,
+   build the section, and keep it fed — no separate one-off work for each
+   new site.
+
+Along the way I caught two things worth mentioning, because they're exactly
+the kind of mistake that looks fine until someone actually tries to use it.
+First, I'd initially wired the "run this on a schedule" piece to send its
+message to a queue nothing was listening on — it would have looked like it
+worked (no error) while doing nothing at all. I found that by checking how
+an existing, working feature does the same thing, rather than trusting my
+first guess. Second, I noticed the news section's existing on-page script
+builds its content in a way that's vulnerable to malicious text if a source
+ever contains it — I didn't fix that (not what I was asked to do), but I
+made sure I didn't copy the same weakness into the new one, since the model
+directory's content comes from a wider, less curated set of sources.
+
+Everything above is written, tested against a real (but disposable, rolled-
+back) copy of the database, and committed to the repo. **None of it is live
+yet.** The last step — building a new version of our backend, pushing it,
+and rolling it out to the cluster — is the one action in all of this that
+actually touches the shared, live system everyone else is working on right
+now, so I've stopped short of doing that without asking first.
