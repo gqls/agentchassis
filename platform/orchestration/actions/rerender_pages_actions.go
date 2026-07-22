@@ -753,7 +753,15 @@ func rerenderLoadContactFromSite(ctx context.Context, db *sql.DB, siteID uuid.UU
 }
 
 // RenderTemplateWithMap renders a Go template with a map of data
-// Used for component templates where we need explicit control over field names
+// Used for component templates where we need explicit control over field names.
+//
+// It shares component_library.go's silent-drop discipline: after execution it
+// names the bare root-scope fields that rendered empty (escalating a blanked
+// href/src to a dead-control Error via missingBareFields) and strips Go's
+// "<no value>" artefact. This is the SECOND independent render path the council's
+// round-3 audit of the idea.uk chrome fix warned must not be left untouched
+// (bugs_open/018) — before this it left "<no value>" visible and logged only on
+// parse/execute error.
 func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logger *zap.Logger) string {
 	tmpl, err := template.New("component").Parse(templateStr)
 	if err != nil {
@@ -767,5 +775,24 @@ func RenderTemplateWithMap(templateStr string, data map[string]interface{}, logg
 		return ""
 	}
 
-	return buf.String()
+	result := buf.String()
+
+	missing, inURLAttr := missingBareFields(templateStr, data)
+	if strings.Contains(result, "<no value>") {
+		result = strings.ReplaceAll(result, "<no value>", "")
+	}
+	if len(inURLAttr) > 0 {
+		logger.Error("RenderTemplateWithMap: URL attribute rendered empty — dead control",
+			zap.Strings("fields", inURLAttr),
+			zap.Strings("all_missing", missing),
+			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+		)
+	} else if len(missing) > 0 {
+		logger.Warn("RenderTemplateWithMap: fields rendered empty",
+			zap.Strings("fields", missing),
+			zap.String("template_preview", datahelpers.TruncateString(templateStr, 100)),
+		)
+	}
+
+	return result
 }

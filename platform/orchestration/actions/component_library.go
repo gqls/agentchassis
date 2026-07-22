@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"text/template"
+	"text/template/parse"
 	"time"
 
 	"github.com/google/uuid"
@@ -498,9 +500,9 @@ func containsAny(s string, substrings ...string) bool {
 // ===========================================================================
 
 // bareFieldRe matches a bare OUTPUT placeholder — {{.Name}} / {{ .Name }} —
-// only. Names inside {{if .x}} / {{range .x}} carry the "if"/"range" keyword
-// and are deliberately NOT matched: absence there is correct gating, not a
-// defect, and reporting it would drown the signal in noise.
+// only. Used solely by the missingBareFieldsRegex FALLBACK below (when a
+// template will not parse as a Go template); the primary detector is the
+// scope-aware parse-tree walk in missingBareFields.
 var bareFieldRe = regexp.MustCompile(`\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}`)
 
 // urlAttrRe tests whether the text immediately preceding a placeholder ends in
@@ -509,12 +511,108 @@ var bareFieldRe = regexp.MustCompile(`\{\{\s*\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}`)
 // dead control rather than a merely-missing word.
 var urlAttrRe = regexp.MustCompile(`(?:href|src)\s*=\s*["']?$`)
 
+// scanTemplateFuncs registers, by NAME only, every function a component template
+// may call, so a parse-only scan succeeds on the same templates executeGoTemplate
+// (call_agent.go) renders. The bodies are irrelevant here — the template is
+// PARSED, never executed — but Funcs still validates each value is a function,
+// so trivial stubs with the right arity are supplied. A template that calls a
+// name not listed here fails to parse and falls back to the regex scan, which is
+// exactly what its render path does too. Keep this list in step with
+// executeGoTemplate's FuncMap.
+var scanTemplateFuncs = template.FuncMap{
+	"default": func(_, v interface{}) interface{} { return v },
+	"eq":      func(_, _ interface{}) bool { return false },
+	"ne":      func(_, _ interface{}) bool { return false },
+	"lower":   strings.ToLower,
+	"upper":   strings.ToUpper,
+	"isset":   func(_ interface{}) bool { return false },
+	"safe":    func(_ interface{}) string { return "" },
+}
+
 // missingBareFields returns the names of bare output placeholders ({{.Name}})
 // that the data map will render empty, and the subset of those that sit inside
-// an href=/src= URL attribute. It is deterministic and independent of the
-// "<no value>" output string — it scans the SOURCE template and tests the data
-// map, so it reports the same set whichever render path ran.
+// an href=/src= URL attribute. It walks the parsed template's SYNTAX TREE and
+// reports only ROOT-SCOPE bare fields, so it is scope-aware:
+//   - a bare {{.Name}} nested inside {{range .Items}}…{{end}} refers to the
+//     per-item dot, NOT the top-level data map, and is NOT reported;
+//   - a bare {{.Name}} nested inside {{if .x}}…{{end}} (or {{with}}) is
+//     author-gated — its empty case is deliberately handled — and is NOT
+//     reported.
+//
+// Reporting either produced the false-positive Error noise the council flagged
+// (a noisy channel bugs_open/054 is meant to escalate on). Only an ungated,
+// root-scope bare field that renders empty is a dead control. Detection is
+// deterministic and independent of the "<no value>" output string, so the same
+// set is reported whichever render path ran. If the template will not parse as a
+// Go template (executeGoTemplate would have used its regex fallback too), this
+// degrades to the flat regex scan in missingBareFieldsRegex.
 func missingBareFields(tpl string, data map[string]interface{}) (missing, inURLAttr []string) {
+	t, err := template.New("scan").Funcs(scanTemplateFuncs).Option("missingkey=zero").Parse(tpl)
+	if err != nil || t.Tree == nil || t.Tree.Root == nil {
+		return missingBareFieldsRegex(tpl, data)
+	}
+
+	seen := map[string]bool{}
+	// Walk ONLY the root node list. We deliberately do not descend into the
+	// bodies of {{if}}/{{range}}/{{with}}/{{template}} nodes (they are not
+	// ActionNodes), which is precisely how a field is judged root-scope-and-
+	// ungated versus per-item-or-gated.
+	for _, n := range t.Tree.Root.Nodes {
+		an, ok := n.(*parse.ActionNode)
+		if !ok {
+			continue
+		}
+		name, isBare := bareFieldName(an.Pipe)
+		if !isBare || seen[name] {
+			continue
+		}
+		if v, present := data[name]; present && v != nil && v != "" {
+			continue // field is filled — not missing
+		}
+		seen[name] = true
+		missing = append(missing, name)
+		// Attribute context: does the placeholder sit right after href=/src=?
+		// an.Pos is the offset just INSIDE the action (after "{{" and any trim
+		// marker/whitespace), so back up to the "{{" delimiter and test the
+		// source text preceding it.
+		if int(an.Pos) <= len(tpl) {
+			if open := strings.LastIndex(tpl[:an.Pos], "{{"); open >= 0 && urlAttrRe.MatchString(tpl[:open]) {
+				inURLAttr = append(inURLAttr, name)
+			}
+		}
+	}
+	sort.Strings(missing)
+	sort.Strings(inURLAttr)
+	return
+}
+
+// bareFieldName reports whether a pipe is a bare single-segment output field —
+// {{.Name}} — and returns "Name". It excludes: variable declarations
+// ({{$x := …}}), pipelines through functions ({{.Name | safe}}), commands with
+// arguments, and nested access ({{.Foo.Bar}}, whose top-level presence says
+// nothing about whether the leaf renders empty). This matches the class the old
+// regex targeted, now decided structurally rather than textually.
+func bareFieldName(pipe *parse.PipeNode) (string, bool) {
+	if pipe == nil || len(pipe.Decl) != 0 || len(pipe.Cmds) != 1 {
+		return "", false
+	}
+	cmd := pipe.Cmds[0]
+	if len(cmd.Args) != 1 {
+		return "", false
+	}
+	fn, ok := cmd.Args[0].(*parse.FieldNode)
+	if !ok || len(fn.Ident) != 1 {
+		return "", false
+	}
+	return fn.Ident[0], true
+}
+
+// missingBareFieldsRegex is the pre-parse-tree flat-scan fallback, used only
+// when a template will not parse as a Go template. It is control-flow-blind (it
+// matches {{.Name}} textually wherever it appears, including inside {{range}}/
+// {{if}} bodies), so it can over-report; that is acceptable only as a
+// last-resort signal for templates the structured walk cannot read.
+func missingBareFieldsRegex(tpl string, data map[string]interface{}) (missing, inURLAttr []string) {
 	seen := map[string]bool{}
 	for _, m := range bareFieldRe.FindAllStringSubmatchIndex(tpl, -1) {
 		name := tpl[m[2]:m[3]]
@@ -526,7 +624,6 @@ func missingBareFields(tpl string, data map[string]interface{}) (missing, inURLA
 		}
 		seen[name] = true
 		missing = append(missing, name)
-		// Attribute context: does the placeholder sit right after href=/src=?
 		if urlAttrRe.MatchString(tpl[:m[0]]) {
 			inURLAttr = append(inURLAttr, name)
 		}
