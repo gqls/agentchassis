@@ -35,16 +35,17 @@ import (
 // than content. These have their own weekly budget so they don't compete
 // with content pages for growth slots.
 var structuralPageTypes = map[string]bool{
-	"news-index": true,
-	"blog-index": true,
-	"sitemap":    true,
-	"privacy":    true,
-	"terms":      true,
-	"error-404":  true,
-	"faq":        true,
-	"search":     true,
-	"tag-index":  true,
-	"category":   true,
+	"news-index":      true,
+	"blog-index":      true,
+	"sitemap":         true,
+	"privacy":         true,
+	"terms":           true,
+	"error-404":       true,
+	"faq":             true,
+	"search":          true,
+	"tag-index":       true,
+	"category":        true,
+	"model-directory": true,
 }
 
 // isStructuralPageType returns true if the page type is infrastructure
@@ -98,17 +99,22 @@ func CheckPageGrowthBudget(ctx context.Context, db *sql.DB, siteID uuid.UUID, pa
 	// Blog: page_type = 'blog-post'
 	// Structural: page_type IN (news-index, blog-index, privacy, terms, sitemap, etc.)
 	// Content: everything else
+	//
+	// NOTE: this SQL list and structuralPageTypes above are two hand-maintained
+	// copies of the same vocabulary — the same drift risk the council-gate
+	// roster is reviewed for (CLAUDE.md). Add a new structural page type to
+	// BOTH or the Go-side check and the SQL-side count disagree silently.
 	var recentContent, recentBlog, recentStructural int
 	db.QueryRowContext(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE page_type = 'blog-post'),
 			COUNT(*) FILTER (WHERE page_type IN (
 				'news-index', 'blog-index', 'sitemap', 'privacy', 'terms',
-				'error-404', 'faq', 'search', 'tag-index', 'category'
+				'error-404', 'faq', 'search', 'tag-index', 'category', 'model-directory'
 			)),
 			COUNT(*) FILTER (WHERE COALESCE(page_type, 'content') NOT IN (
 				'blog-post', 'news-index', 'blog-index', 'sitemap', 'privacy', 'terms',
-				'error-404', 'faq', 'search', 'tag-index', 'category'
+				'error-404', 'faq', 'search', 'tag-index', 'category', 'model-directory'
 			))
 		FROM pages
 		WHERE site_id = $1

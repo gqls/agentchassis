@@ -198,23 +198,32 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// and per this session's own wrong call that means the classification could be
 	// wrong in the direction that matters (a handler whose remit is narrower than
 	// its detector). Read the handler before writing any verifier from this block.
-	"slot_name_mismatch":       {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"unlinked_site_component":  {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"stacked_nav":              {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"missing_logo_in_header":   {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"broken_template_slots":    {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"missing_site_metadata":    {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"unwanted_nav_element":     {catMechanical, "[INFERRED] check_component_standards; never observed live"},
-	"stale_news_section":       {catMechanical, "[INFERRED] check_news_feed; never observed live"},
-	"missing_news_section":     {catMechanical, "[INFERRED] check_news_feed; never observed live"},
-	"all_sources_erroring":     {catMechanical, "[INFERRED] check_news_feed; never observed live"},
-	"unrendered_template":      {catMechanical, "[INFERRED] check_integrity; never observed live"},
-	"cross_site_contamination": {catMechanical, "[INFERRED] check_integrity; never observed live"},
-	"forced_text_colors":       {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
-	"duplicate_palette":        {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
-	"placeholder_contact":      {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
-	"broken_nav_links":         {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
-	"backend_unreachable":      {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
+	"slot_name_mismatch":      {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"unlinked_site_component": {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"stacked_nav":             {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"missing_logo_in_header":  {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"broken_template_slots":   {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"missing_site_metadata":   {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"unwanted_nav_element":    {catMechanical, "[INFERRED] check_component_standards; never observed live"},
+	"stale_news_section":      {catMechanical, "[INFERRED] check_news_feed; never observed live"},
+	"missing_news_section":    {catMechanical, "[INFERRED] check_news_feed; never observed live"},
+	"all_sources_erroring":    {catMechanical, "[INFERRED] check_news_feed; never observed live"},
+
+	// model_directory_pipeline Phase D (2026-07-22) — not [INFERRED]: I wrote
+	// and read both checks myself. Same mechanical shape as their news-feed
+	// siblings (missing_news_section/missing_news_page): existence checks
+	// (page_component by function / page by page_type), handled by the same
+	// content-gap-planner. Not yet enabled (migration 194 pending an image
+	// roll), so genuinely never observed live, not just unrefreshed.
+	"missing_model_directory_section": {catMechanical, "page_component existence by function (model-directory); handler is content-gap-planner, same as missing_news_section; not yet enabled"},
+	"missing_model_directory_page":    {catMechanical, "page existence by page_type (model-directory); handler is content-gap-planner, same as missing_news_page; not yet enabled"},
+	"unrendered_template":             {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"cross_site_contamination":        {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"forced_text_colors":              {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
+	"duplicate_palette":               {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
+	"placeholder_contact":             {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
+	"broken_nav_links":                {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
+	"backend_unreachable":             {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 
 	// ---- creation: "make X exist" ----
 	"needs_page":                 {catCreation, "page existence; 49 of 365 carry page_id"},
