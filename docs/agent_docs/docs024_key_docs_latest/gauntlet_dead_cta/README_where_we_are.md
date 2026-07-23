@@ -94,3 +94,41 @@ static sites don't have yet. So I'm researching three things before I commit to 
 route: how the experience loop's build step works, how the "feature builder" implements
 things, and how a static page like this can safely call a live AI backend. Then I'll lay
 out a concrete plan for you rather than guess.
+
+## 2026-07-23 — the real build is underway
+
+Today the gauntlet stopped being a cosmetics job and became a real feature build, on
+your decisions: a debate opponent (you file your take, the AI genuinely argues back,
+you defend on the clock, it judges honestly), built by the platform's own
+feature-builder, exposed through a shared API address on apis.uk with a bastion
+machine guarding the cluster.
+
+Progress so far today, in order:
+
+1. **Unstuck the experience loop.** Its contracts reviewer had been blocking every
+   plan that proposed new code (it demanded quotes from source that doesn't exist
+   yet). Applied the rule split you approved — strict as ever about existing code,
+   sane about genuinely new code. Config change, snapshotted, reversible.
+
+2. **Gave the planner your new ruling.** The planner's standing instructions still
+   said "client-side only, no server" — that's how decisions travel to it, so I
+   updated that block with the debate design and the exact API endpoints, and fired
+   a fresh planning run. It's working now (these queue behind the fleet; expected).
+
+3. **The backend is being built by the machine, right now.** I wrote the formal
+   capability request for `tools-api` (the debate engine service), the
+   feature-designer turned it into a 6-stage build plan, and its review council
+   approved it **unanimously on the first round**. Then I fired the
+   feature-implementer — the first time it has ever run. It's writing the Go code
+   stage by stage on its own branch, with a compile gate after every stage, and will
+   open a pull request for you to review. **Nothing lands without your merge.**
+
+4. **The security shell is drafted.** The tunnel config, the bastion proxy rules
+   (only the tools API path gets through, with size and rate limits), and the
+   cluster-side network policy are written and waiting on three things only you can
+   do: name the subdomain on apis.uk, provision the bastion machine, and approve the
+   WireGuard peering. No rush — the code has to land first anyway.
+
+What I got wrong earlier still stands corrected in the record: last night's "fix"
+looked right and did nothing a visitor could feel. Today's work is the opposite shape:
+the machine is building something real, and the last gate is you reading a pull request.
