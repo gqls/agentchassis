@@ -17,6 +17,18 @@ spec:
                   name: personae-default-secrets
                   key: ANTHROPIC_API_KEY
 
+            # Gemini key, pre-wired but not yet provisioned: configmap's
+            # custom.ai_service.provider still reads "anthropic", so this is
+            # inert until (a) the key is added to personae-default-secrets and
+            # (b) the configmap is flipped to provider: "gemini". optional:true
+            # so a rollout before the key exists does not fail pod startup.
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-default-secrets
+                  key: GEMINI_API_KEY
+                  optional: true
+
             # Database Password from platform secrets
             - name: CLIENTS_DB_PASSWORD # Matches password_env_var in custom config
               valueFrom:

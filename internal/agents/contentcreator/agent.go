@@ -103,7 +103,7 @@ func NewAgent(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logger
 		return nil, fmt.Errorf("ai_service configuration missing in custom config")
 	}
 
-	aiClient, err := aiservice.NewAnthropicClient(ctx, aiConfig)
+	aiClient, err := aiservice.NewClient(ctx, aiConfig)
 	if err != nil {
 		consumer.Close()
 		producer.Close()
@@ -624,10 +624,13 @@ func (a *Agent) getFuelActionName(req RequestPayload) string {
 func (a *Agent) getGenerationOptions(req RequestPayload, config *models.AgentConfig) map[string]interface{} {
 	options := make(map[string]interface{})
 
-	// Set defaults
+	// Set defaults. model reflects whichever provider/model the agent was
+	// constructed with (aiClient is fixed at startup from ai_service config;
+	// none of the providers read a per-call model override), so this is
+	// metadata for cost estimation and the response payload, not a selector.
 	options["temperature"] = 0.7
 	options["max_tokens"] = 2000
-	options["model"] = "claude-3-5-sonnet-20241022"
+	options["model"] = a.aiClient.Model()
 
 	// Override with agent config if available
 	if config != nil && config.CoreLogic != nil {
@@ -663,7 +666,6 @@ func (a *Agent) getGenerationOptions(req RequestPayload, config *models.AgentCon
 		options["max_tokens"] = 500
 	case "long":
 		options["max_tokens"] = 4000
-		options["model"] = "claude-3-opus-20240229" // Use larger model for long content
 	}
 
 	// Platform-specific limits
@@ -685,6 +687,8 @@ func (a *Agent) estimateCost(tokens int, model string) float64 {
 		"claude-3-haiku-20240307":    0.00025,
 		"claude-3-5-sonnet-20241022": 0.003,
 		"claude-3-opus-20240229":     0.015,
+		"gemini-2.5-flash":           0.001,
+		"gemini-2.5-pro":             0.010,
 	}
 
 	rate, ok := costPerThousand[model]
