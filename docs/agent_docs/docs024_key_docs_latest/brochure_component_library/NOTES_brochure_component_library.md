@@ -1015,3 +1015,31 @@ from verified data — shared with leopardess L7), `people-feature-block`
 (line-illustration). Then: re-plan selected fundamentallyai pages to actually USE
 the new components (that's what makes the site "look like the brief"), and verify
 each renders live + its JS asset 200s.
+
+## 2026-07-22 — component 1 PROVEN LIVE + a real JS-delivery finding
+
+hero-card-carousel is **live and fully working** on
+fundamentallyai.com/capabilities.html (hand-placed page_component at position 2,
+grounded pillar content pointing at real pages + real hero images, deployed
+assemble-only via direct 049b to bypass the stalled queue). Verified against the
+live origin: carousel HTML renders, hover-zoom CSS present, and the auto-advance
+JS runs.
+
+**Finding (important for every Stage-2 component with JS):** the per-component
+`content_components.js_content` lane **publishes `/tools/assets/{function}.js`
+(curl 200) but the assemble injects NO `<script>` tag** — so the JS is
+published-but-inert. This is the `bugs_open/041` class, and it applies to SECTION
+components, not just chrome (the earlier NOTES/PLAN assumption that the section
+`js_content` path "works correctly" is **wrong** — it publishes, but nothing
+loads it). The working lane is `js_snippets` (`applies_to:["<function>"]`) →
+`render_js_snippets_for_site` bundles it into the site-wide
+`/assets/js/snippets.js` that every page already `<script src>`s. Fired the
+`site-asset-renderer` agent for the site to rebundle; the carousel JS
+(`data-hcc-track`/`initCarousel`) is now in the live bundle — no page re-deploy
+needed. Component `js_content` cleared to avoid an orphan asset. Corrected in
+components/README.md (JS-delivery convention + acceptance checklist) and
+components/hero-card-carousel/snippet.sql.
+
+**De-risked for components 2–5:** register the component + put any JS in
+`js_snippets` (not `js_content`) + fire `site-asset-renderer`. The template/CSS
+render path and the JS-delivery path are both now proven end-to-end.
