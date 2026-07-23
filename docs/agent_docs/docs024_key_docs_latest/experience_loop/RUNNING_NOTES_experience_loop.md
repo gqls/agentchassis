@@ -921,3 +921,29 @@ Sharp objection, and one I had not thought of.
 **Cost so far**: 3 council runs (~75 min + credits) since the seat landed, none
 converged. It is finding real, provable defects every round; it is also blocking
 on its own over-strict rule. Both are true and should be weighed together.
+
+### 2026-07-23 — the runs 9/10/11 rule split APPLIED (migration 196) — owner-approved, config-only
+
+The greenfield-strictness fix proposed in the "runs 9/10/11" entry above is now live.
+Owner (vonc gauntlet AI-competitor-debate workstream) reviewed the exact rule split and
+approved it verbatim. Migration `196_experience_contracts_greenfield_split.sql`
+(`docs/agent_docs/sql_for_agents/`) replaces ONLY the strictness paragraph inside
+`review_contracts`' prompt_template — everything else about the seat (its 4 judged
+pairs, verdict shape, non-veto-but-blocking status, council wiring, recompose
+visibility) is untouched and re-asserted by the migration's own `DO $$` block.
+
+**The split, as applied:** for each producer/consumer pair, first decide whether the
+consumer is EXISTING code (in context) or NEW code the plan proposes.
+- EXISTING consumer: unchanged — must quote source; an unseen consumer is still a hard
+  objection (this is what caught the real §3<->loader mismatch on run 9; not weakened).
+- NEW consumer: no longer an automatic objection. Approve iff BOTH (1) the plan states
+  the exact access path the new code must implement, and (2) §5 carries an acceptance
+  criterion that would fail if that path is never built. Missing either → THAT is the
+  objection (named precisely), not "the code doesn't exist yet".
+
+Applied out of band via `psql -f` (config-only, no image dependency); ledgered in
+`schema_migrations` with the snapshot id for rollback (`e0194bee-3b8e-4a38-a402-a031d4fe7a15`).
+Byte-exact match verified against the live prompt before applying (avoids a silent
+no-op `replace()`).
+
+**Not yet exercised.** No council run has fired since. The next `092_TRIGGER_experience_plan.sh vonc.com vonc-spark-game` run against the pending debate-gauntlet requirement (a maximally-greenfield plan) is both the real feature work and the first live test of this split — if `contracts` still objects to genuinely-new consumers whose access path IS pinned and IS criterion-backed, the split needs another look before trusting it generally.
