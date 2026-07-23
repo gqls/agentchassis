@@ -253,20 +253,20 @@ func MedExportJSONAction(ctx context.Context, params ActionParams) (interface{},
 // ============================================================================
 
 type medPriceExportRow struct {
-	ListingID       string
-	RetailerID      string
-	RetailerName    string
-	GroupName       string
-	RetailerDomain  string
-	RetailerURL     string
-	ProductName     string // from med_products if matched, else retailer_product_name
-	Brand           string
-	Category        string
-	Species         string
-	SizeVariant     string
-	Price           float64
-	InStock         bool
-	CollectedAt     time.Time
+	ListingID      string
+	RetailerID     string
+	RetailerName   string
+	GroupName      string
+	RetailerDomain string
+	RetailerURL    string
+	ProductName    string // from med_products if matched, else retailer_product_name
+	Brand          string
+	Category       string
+	Species        string
+	SizeVariant    string
+	Price          float64
+	InStock        bool
+	CollectedAt    time.Time
 }
 
 // loadMedPricesForExport returns the freshest snapshot per (listing, size
