@@ -1009,3 +1009,29 @@ special "fill this in later on the visitor's screen" placeholders). It's committ
 as always — does nothing until the next image roll. It also quietly depends on another change that's
 already live (v1.0.1149), which happens to be the same file another session was editing while I
 worked; that ordering is fine.
+
+## 2026-07-23 — the home page now sends people to the paid tool
+
+You flagged that the home-page buttons still didn't go to the paid report tool. They didn't: the four
+main call-to-action blocks on the page (the big banner, the "how it works" strip, the tools grid, and
+the closing call-to-action) had button *text* stored but no *destination*, so every one of them fell
+through to a default contact page — or, in one case, a dead button that went nowhere. And the
+automatic link-fixer we have can't help here, because by design it only ever points buttons at
+"section" hub pages (guides, news), never at the report page (which is a product/landing page). So
+sending the home page at the paid tool is a deliberate choice that had to be set by hand.
+
+I set every one of those buttons to the destination you confirmed: the report/"get started"/"learn
+more"/"see how it works" ones go to the paid report page; "run the free idea check" goes to the free
+taster; "browse all tools" goes to the tools page. One of them ("Get Started" in a lower block) was a
+dead button hardcoded to go nowhere — I fixed the underlying template for that, in a careful way that
+leaves the two other sites using the same template completely unchanged.
+
+Our page-rebuild queue happened to be stuck (nothing had run through it for about 15 hours — a known
+recurring problem elsewhere), so I pushed the rebuild through directly instead of waiting. Then I
+checked the actual live page, not just the "done" status, and confirmed all the buttons now go where
+they should. I've locked those blocks so a future automatic pass can't quietly undo them.
+
+One thing left, and it's a decision for you rather than a bug: the small "Get Started" button up in the
+site *header* (the one that sits on every page, not just the home page) still goes to the contact page.
+Pointing it at the report tool as well is easy, but because it's in the shared header it would change
+on all nine pages at once — so I've left it and asked you which you'd prefer.
