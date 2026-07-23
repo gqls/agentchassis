@@ -1,0 +1,11 @@
+{
+  "fields": {
+    "section_eyebrow": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Short uppercase eyebrow, e.g. 'What we've learned'. Under 4 words. Optional." },
+    "section_title": { "type": "text", "source": "llm", "required": true, "llm_guidance": "Section heading in one phrase. Under 9 words." },
+    "cards": {
+      "type": "array", "source": "llm", "required": true,
+      "items": { "label": {"type":"text"}, "headline": {"type":"text"}, "body": {"type":"text"}, "attribution": {"type":"text"}, "link_url": {"type":"url"}, "link_label": {"type":"text"} },
+      "llm_guidance": "4 to 8 insight cards, swiped/scrolled horizontally. Each: label (short uppercase tag, e.g. a topic or a real metric like '97% recovered'), headline (the insight in one bold line, max 12 words), body (one supporting sentence, max 22 words, optional), attribution (a real source/site if the insight is a claim, optional), link_url + link_label (optional). Only put a number in a label/headline if it is real and evidenced — never invent one."
+    }
+  }
+}

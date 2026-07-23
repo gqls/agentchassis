@@ -1,0 +1,107 @@
+<style>
+  .people-feature-block {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background);
+    color: var(--color-text);
+  }
+  .people-feature-block__inner {
+    max-width: var(--container-max-width, 1100px);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+  .people-feature-block--reverse .people-feature-block__media { order: 2; }
+
+  .people-feature-block__media {
+    border-radius: var(--border-radius, 1rem);
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    background: var(--color-surface-alt, var(--color-surface));
+    border: 1px solid var(--color-hairline, var(--color-border));
+  }
+  .people-feature-block__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .people-feature-block__eyebrow {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+  }
+  .people-feature-block__title {
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-heading);
+    margin: 0 0 1rem;
+  }
+  .people-feature-block__body {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--color-text);
+    margin: 0 0 1.25rem;
+  }
+  .people-feature-block__quote {
+    margin: 0 0 1.25rem;
+    padding-inline-start: 1.1rem;
+    border-inline-start: 3px solid var(--color-primary);
+    font-size: 1.125rem;
+    font-style: italic;
+    line-height: 1.5;
+    color: var(--color-heading);
+  }
+  .people-feature-block__attribution {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    font-style: normal;
+    font-weight: 600;
+    color: var(--color-text-muted);
+  }
+  .people-feature-block__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    min-height: 44px;
+  }
+  .people-feature-block__link:hover { text-decoration: underline; }
+  .people-feature-block__link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (max-width: 820px) {
+    .people-feature-block__inner { grid-template-columns: 1fr; }
+    .people-feature-block--reverse .people-feature-block__media { order: 0; }
+    .people-feature-block { padding: 3rem 1.25rem; }
+  }
+</style>
+
+<section class="people-feature-block{{if .reverse}} people-feature-block--reverse{{end}}" data-component="people-feature-block">
+  <div class="people-feature-block__inner">
+    <div class="people-feature-block__media">
+      <img class="people-feature-block__img" src="{{if .image}}{{.image}}{{else}}/assets/images/hero.jpg{{end}}" alt="{{.image_alt}}" loading="lazy" width="720" height="540">
+    </div>
+    <div class="people-feature-block__content">
+      {{if .eyebrow}}<span class="people-feature-block__eyebrow">{{.eyebrow}}</span>{{end}}
+      {{if .title}}<h2 class="people-feature-block__title">{{.title}}</h2>{{end}}
+      {{if .body}}<p class="people-feature-block__body">{{.body}}</p>{{end}}
+      {{if .quote}}<blockquote class="people-feature-block__quote">{{.quote}}{{if .attribution}}<cite class="people-feature-block__attribution">{{.attribution}}</cite>{{end}}</blockquote>{{end}}
+      {{if .link_url}}<a class="people-feature-block__link" href="{{.link_url}}">{{if .link_label}}{{.link_label}}{{else}}Read more{{end}}<span aria-hidden="true">&nbsp;&rarr;</span></a>{{end}}
+    </div>
+  </div>
+</section>

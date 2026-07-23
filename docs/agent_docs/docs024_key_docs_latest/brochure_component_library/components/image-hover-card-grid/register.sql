@@ -1,0 +1,184 @@
+\set ON_ERROR_STOP on
+INSERT INTO content_components
+  (id, name, function, display_name, description, category, semantic_tags,
+   section_type, component_level, render_mode, is_dark_section, is_active,
+   suitable_site_types, suitable_page_types, html_template, input_schema)
+VALUES (
+  gen_random_uuid(),
+  'image-hover-card-grid','image-hover-card-grid','Image Hover Card Grid',
+  'A grid of image cards. Each shows a headline on the image; the description slides in on hover (kept in the accessibility tree, shown always on touch), with a subtle hover-zoom. CSS-only, no JS.',
+  'feature','["cards","hover","imagery","interactive","brochure"]'::jsonb,
+  'image-hover-cards','section','agent',true,true,
+  '["brochure","consultancy","professional-services","b2b"]'::jsonb,
+  '["index","home","about","capabilities","landing"]'::jsonb,
+  $HTML$
+<style>
+  .image-hover-card-grid {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-background);
+    color: var(--color-text);
+  }
+  .image-hover-card-grid__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+  .image-hover-card-grid__header {
+    max-width: 60ch;
+    margin: 0 auto 3rem;
+    text-align: center;
+  }
+  .image-hover-card-grid__eyebrow {
+    display: inline-block;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+  }
+  .image-hover-card-grid__title {
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-heading);
+    margin: 0;
+  }
+  .image-hover-card-grid__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .image-hover-card-grid__card {
+    position: relative;
+    display: block;
+    text-decoration: none;
+    color: #fff;
+    border-radius: var(--border-radius, 0.75rem);
+    overflow: hidden;
+    aspect-ratio: 4 / 5;
+    background: var(--color-surface-alt, var(--color-surface));
+    isolation: isolate;
+  }
+  .image-hover-card-grid__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: -2;
+    transition: scale 0.5s ease;
+  }
+  /* Legibility scrim; deepens on reveal. */
+  .image-hover-card-grid__card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.35) 45%, rgba(0,0,0,0.12) 100%);
+    transition: background 0.4s ease;
+  }
+  .image-hover-card-grid__body {
+    position: absolute;
+    inset-inline: 0;
+    inset-block-end: 0;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .image-hover-card-grid__card-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0;
+    line-height: 1.25;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+  /* Description: present in the DOM for screen readers at all times; visually
+     revealed on hover/focus. Uses opacity + transform (NOT display:none), so it
+     is never removed from the accessibility tree. */
+  .image-hover-card-grid__desc {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    margin: 0;
+    opacity: 0;
+    max-height: 0;
+    transform: translateY(0.5rem);
+    overflow: hidden;
+    transition: opacity 0.35s ease, max-height 0.35s ease, transform 0.35s ease;
+  }
+  .image-hover-card-grid__cue {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    margin-top: 0.25rem;
+  }
+  .image-hover-card-grid__card:hover .image-hover-card-grid__img,
+  .image-hover-card-grid__card:focus-visible .image-hover-card-grid__img {
+    scale: 1.07;
+  }
+  .image-hover-card-grid__card:hover .image-hover-card-grid__desc,
+  .image-hover-card-grid__card:focus-visible .image-hover-card-grid__desc {
+    opacity: 1;
+    max-height: 12rem;
+    transform: translateY(0);
+  }
+  .image-hover-card-grid__card:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 3px;
+  }
+
+  /* Touch devices can't hover — show the description permanently there. */
+  @media (hover: none) {
+    .image-hover-card-grid__desc { opacity: 1; max-height: 12rem; transform: none; }
+    .image-hover-card-grid__cue { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .image-hover-card-grid__img,
+    .image-hover-card-grid__desc,
+    .image-hover-card-grid__card::after { transition: none; }
+    .image-hover-card-grid__card:hover .image-hover-card-grid__img { scale: 1; }
+  }
+  @media (max-width: 768px) {
+    .image-hover-card-grid { padding: 3rem 1.25rem; }
+    .image-hover-card-grid__grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<section class="image-hover-card-grid" data-component="image-hover-card-grid">
+  <div class="image-hover-card-grid__inner">
+    <header class="image-hover-card-grid__header">
+      {{if .section_eyebrow}}<span class="image-hover-card-grid__eyebrow">{{.section_eyebrow}}</span>{{end}}
+      {{if .section_title}}<h2 class="image-hover-card-grid__title">{{.section_title}}</h2>{{end}}
+    </header>
+    <div class="image-hover-card-grid__grid">
+      {{range .cards}}
+      <a class="image-hover-card-grid__card" href="{{if .link_url}}{{.link_url}}{{else}}#{{end}}">
+        <img class="image-hover-card-grid__img" src="{{if .image}}{{.image}}{{else}}/assets/images/hero.jpg{{end}}" alt="{{.image_alt}}" loading="lazy" width="600" height="750">
+        <div class="image-hover-card-grid__body">
+          <h3 class="image-hover-card-grid__card-title">{{.title}}</h3>
+          <p class="image-hover-card-grid__desc">{{.description}}</p>
+          {{if .link_label}}<span class="image-hover-card-grid__cue">{{.link_label}}<span aria-hidden="true">&nbsp;&rarr;</span></span>{{end}}
+        </div>
+      </a>
+      {{end}}
+    </div>
+  </div>
+</section>
+$HTML$,
+  $SCHEMA${
+  "fields": {
+    "section_eyebrow": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Short uppercase eyebrow above the heading, e.g. 'Our work' or 'Case studies'. Under 4 words. Optional." },
+    "section_title": { "type": "text", "source": "llm", "required": true, "llm_guidance": "Section heading in one compelling phrase. Under 9 words." },
+    "cards": {
+      "type": "array", "source": "llm", "required": true,
+      "items": { "image": {"type":"image"}, "image_alt": {"type":"text"}, "title": {"type":"text"}, "description": {"type":"text"}, "link_url": {"type":"url"}, "link_label": {"type":"text"} },
+      "llm_guidance": "3 to 6 image cards. Each: image_alt (concise description of the line-illustration for screen readers), title (3-6 words, shown on the image at all times), description (ONE sentence, max 22 words, revealed on hover but always present for screen readers — so it must read well as standalone context, never rely on the hover), link_url (relative/absolute URL the whole card links to), link_label (short cue e.g. 'Read more'). Keep it tight."
+    }
+  }
+}
+$SCHEMA$::jsonb
+)
+RETURNING function, section_type, component_level, is_active, length(html_template) AS tpl_len;

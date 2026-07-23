@@ -1,0 +1,84 @@
+<style>
+  .stat-band {
+    padding: var(--spacing-section, 4.5rem 2rem);
+    background: var(--color-primary);
+    color: var(--color-primary-text, #fff);
+  }
+  .stat-band__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+  .stat-band__header {
+    text-align: center;
+    max-width: 60ch;
+    margin: 0 auto 2.5rem;
+  }
+  .stat-band__eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+  .stat-band__title {
+    font-size: clamp(1.5rem, 2.6vw, 2.1rem);
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.5rem 0 0;
+  }
+  .stat-band__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 2rem 1.5rem;
+    text-align: center;
+  }
+  .stat-band__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 0 0.5rem;
+  }
+  .stat-band__stat + .stat-band__stat {
+    border-inline-start: 1px solid color-mix(in srgb, var(--color-primary-text, #fff) 22%, transparent);
+  }
+  @media (max-width: 620px) {
+    .stat-band__stat + .stat-band__stat { border-inline-start: 0; }
+  }
+  .stat-band__value {
+    font-size: clamp(2.5rem, 5vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  .stat-band__label {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .stat-band__caption {
+    font-size: 0.8125rem;
+    opacity: 0.8;
+    line-height: 1.5;
+  }
+  @media (max-width: 768px) { .stat-band { padding: 3.25rem 1.25rem; } }
+</style>
+
+<section class="stat-band" data-component="stat-band">
+  <div class="stat-band__inner">
+    {{if or .section_title .section_eyebrow}}
+    <header class="stat-band__header">
+      {{if .section_eyebrow}}<span class="stat-band__eyebrow">{{.section_eyebrow}}</span>{{end}}
+      {{if .section_title}}<h2 class="stat-band__title">{{.section_title}}</h2>{{end}}
+    </header>
+    {{end}}
+    <div class="stat-band__grid">
+      {{range .stats}}
+      <div class="stat-band__stat">
+        <span class="stat-band__value" data-countup aria-label="{{.value}}">{{.value}}</span>
+        <span class="stat-band__label">{{.label}}</span>
+        {{if .caption}}<span class="stat-band__caption">{{.caption}}</span>{{end}}
+      </div>
+      {{end}}
+    </div>
+  </div>
+</section>

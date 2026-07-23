@@ -1,0 +1,11 @@
+{
+  "fields": {
+    "section_eyebrow": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Short uppercase eyebrow, e.g. 'By the numbers'. Optional." },
+    "section_title": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Optional short heading for the stat band. Under 9 words." },
+    "stats": {
+      "type": "array", "source": "llm", "required": true,
+      "items": { "value": {"type":"text"}, "label": {"type":"text"}, "caption": {"type":"text"} },
+      "llm_guidance": "3 or 4 stats. Each: value (the figure exactly as it should read, e.g. '97%', '11', '<24h', '£29' — it is code-rendered and count-up animated, so it must be a REAL, EVIDENCED number; NEVER invent, round up, or estimate a figure here — if you do not have a verified number, do not add the stat), label (what it measures, 2-5 words), caption (a one-line source or context, optional). Prefer figures that are demonstrably true about the platform's own work."
+    }
+  }
+}

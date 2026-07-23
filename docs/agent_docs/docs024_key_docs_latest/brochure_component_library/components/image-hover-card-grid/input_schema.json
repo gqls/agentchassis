@@ -1,0 +1,11 @@
+{
+  "fields": {
+    "section_eyebrow": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Short uppercase eyebrow above the heading, e.g. 'Our work' or 'Case studies'. Under 4 words. Optional." },
+    "section_title": { "type": "text", "source": "llm", "required": true, "llm_guidance": "Section heading in one compelling phrase. Under 9 words." },
+    "cards": {
+      "type": "array", "source": "llm", "required": true,
+      "items": { "image": {"type":"image"}, "image_alt": {"type":"text"}, "title": {"type":"text"}, "description": {"type":"text"}, "link_url": {"type":"url"}, "link_label": {"type":"text"} },
+      "llm_guidance": "3 to 6 image cards. Each: image_alt (concise description of the line-illustration for screen readers), title (3-6 words, shown on the image at all times), description (ONE sentence, max 22 words, revealed on hover but always present for screen readers — so it must read well as standalone context, never rely on the hover), link_url (relative/absolute URL the whole card links to), link_label (short cue e.g. 'Read more'). Keep it tight."
+    }
+  }
+}

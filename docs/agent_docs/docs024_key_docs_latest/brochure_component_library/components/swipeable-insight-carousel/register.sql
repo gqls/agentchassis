@@ -1,0 +1,167 @@
+\set ON_ERROR_STOP on
+INSERT INTO content_components
+  (id, name, function, display_name, description, category, semantic_tags,
+   section_type, component_level, render_mode, is_dark_section, is_active,
+   suitable_site_types, suitable_page_types, html_template, input_schema)
+VALUES (
+  gen_random_uuid(),
+  'swipeable-insight-carousel','swipeable-insight-carousel','Swipeable Insight Carousel',
+  'A horizontally swipeable row of text-forward insight cards (label, headline, body, optional source/link). Native scroll-snap: swipe on touch, thin scrollbar on desktop. CSS-only, no JS.',
+  'feature','["carousel","swipe","insights","interactive","brochure"]'::jsonb,
+  'insight-carousel','section','agent',false,true,
+  '["brochure","consultancy","professional-services","b2b"]'::jsonb,
+  '["index","home","about","capabilities","landing"]'::jsonb,
+  $HTML$
+<style>
+  .swipeable-insight-carousel {
+    padding: var(--spacing-section, 5rem 2rem);
+    background: var(--color-surface, var(--color-background));
+    color: var(--color-text);
+  }
+  .swipeable-insight-carousel__inner {
+    max-width: var(--container-max-width, 1200px);
+    margin: 0 auto;
+  }
+  .swipeable-insight-carousel__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.75rem;
+  }
+  .swipeable-insight-carousel__eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+  .swipeable-insight-carousel__title {
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-heading);
+    margin: 0.4rem 0 0;
+  }
+  .swipeable-insight-carousel__hint {
+    font-size: 0.8125rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  /* Scroll-snap row: native swipe on touch, thin scrollbar for desktop mouse. */
+  .swipeable-insight-carousel__track {
+    display: flex;
+    gap: 1.25rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 1rem;
+    scrollbar-color: var(--color-primary) transparent;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+  .swipeable-insight-carousel__track::-webkit-scrollbar { height: 6px; }
+  .swipeable-insight-carousel__track::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 999px;
+  }
+  .swipeable-insight-carousel__card {
+    scroll-snap-align: start;
+    flex: 0 0 min(80%, 380px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1.75rem;
+    background: var(--color-background);
+    border: 1px solid var(--color-hairline, var(--color-border));
+    border-radius: var(--border-radius, 0.75rem);
+  }
+  @media (min-width: 800px) {
+    .swipeable-insight-carousel__card { flex-basis: calc((100% - 2.5rem) / 3); }
+  }
+  .swipeable-insight-carousel__label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+  }
+  .swipeable-insight-carousel__headline {
+    font-size: 1.3rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--color-heading);
+    margin: 0;
+  }
+  .swipeable-insight-carousel__body {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--color-text-muted);
+    margin: 0;
+    flex-grow: 1;
+  }
+  .swipeable-insight-carousel__attribution {
+    font-size: 0.8125rem;
+    color: var(--color-text);
+    font-weight: 600;
+    margin: 0;
+  }
+  .swipeable-insight-carousel__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    text-decoration: none;
+    min-height: 44px;
+  }
+  .swipeable-insight-carousel__link:hover { text-decoration: underline; }
+  .swipeable-insight-carousel__link:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  @media (max-width: 768px) {
+    .swipeable-insight-carousel { padding: 3rem 1.25rem; }
+  }
+</style>
+
+<section class="swipeable-insight-carousel" data-component="swipeable-insight-carousel">
+  <div class="swipeable-insight-carousel__inner">
+    <div class="swipeable-insight-carousel__header">
+      <div>
+        {{if .section_eyebrow}}<span class="swipeable-insight-carousel__eyebrow">{{.section_eyebrow}}</span>{{end}}
+        {{if .section_title}}<h2 class="swipeable-insight-carousel__title">{{.section_title}}</h2>{{end}}
+      </div>
+      <span class="swipeable-insight-carousel__hint" aria-hidden="true">Swipe or scroll &rarr;</span>
+    </div>
+    <ul class="swipeable-insight-carousel__track" aria-label="{{if .section_title}}{{.section_title}}{{else}}Insights{{end}}">
+      {{range .cards}}
+      <li class="swipeable-insight-carousel__card">
+        {{if .label}}<span class="swipeable-insight-carousel__label">{{.label}}</span>{{end}}
+        <p class="swipeable-insight-carousel__headline">{{.headline}}</p>
+        {{if .body}}<p class="swipeable-insight-carousel__body">{{.body}}</p>{{end}}
+        {{if .attribution}}<p class="swipeable-insight-carousel__attribution">{{.attribution}}</p>{{end}}
+        {{if .link_url}}<a class="swipeable-insight-carousel__link" href="{{.link_url}}">{{if .link_label}}{{.link_label}}{{else}}Read more{{end}}<span aria-hidden="true">&nbsp;&rarr;</span></a>{{end}}
+      </li>
+      {{end}}
+    </ul>
+  </div>
+</section>
+$HTML$,
+  $SCHEMA${
+  "fields": {
+    "section_eyebrow": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Short uppercase eyebrow, e.g. 'What we've learned'. Under 4 words. Optional." },
+    "section_title": { "type": "text", "source": "llm", "required": true, "llm_guidance": "Section heading in one phrase. Under 9 words." },
+    "cards": {
+      "type": "array", "source": "llm", "required": true,
+      "items": { "label": {"type":"text"}, "headline": {"type":"text"}, "body": {"type":"text"}, "attribution": {"type":"text"}, "link_url": {"type":"url"}, "link_label": {"type":"text"} },
+      "llm_guidance": "4 to 8 insight cards, swiped/scrolled horizontally. Each: label (short uppercase tag, e.g. a topic or a real metric like '97% recovered'), headline (the insight in one bold line, max 12 words), body (one supporting sentence, max 22 words, optional), attribution (a real source/site if the insight is a claim, optional), link_url + link_label (optional). Only put a number in a label/headline if it is real and evidenced — never invent one."
+    }
+  }
+}
+$SCHEMA$::jsonb
+)
+RETURNING function, section_type, is_active, length(html_template) AS tpl_len;

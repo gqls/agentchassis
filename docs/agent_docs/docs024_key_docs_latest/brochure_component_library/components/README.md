@@ -40,9 +40,21 @@ live DB. Keep them in sync.
 - [ ] Planner actually selects it (or the page is planned to use it explicitly).
 
 ## Components
-| dir | function | status |
-|---|---|---|
-| `hero-card-carousel/` | `hero-card-carousel` | **PROVEN LIVE 2026-07-22** on fundamentallyai.com/capabilities.html — renders + hover-zoom + scroll-snap swipe + auto-advance JS all working (JS via `snippet.sql`/js_snippets). |
+| dir | function | section_type | JS | status |
+|---|---|---|---|---|
+| `hero-card-carousel/` | `hero-card-carousel` | hero-carousel | js_snippets | **PROVEN LIVE 2026-07-22** on fundamentallyai.com/capabilities.html — render + hover-zoom + scroll-snap swipe + auto-advance JS all working. |
+| `image-hover-card-grid/` | `image-hover-card-grid` | image-hover-cards | none (CSS) | REGISTERED + template-validated 2026-07-22; hover-reveal cards, dark. Not yet placed on a page. |
+| `swipeable-insight-carousel/` | `swipeable-insight-carousel` | insight-carousel | none (CSS) | REGISTERED + template-validated 2026-07-22; scroll-snap text cards. Not yet placed. |
+| `stat-band/` | `stat-band` | stat-band | js_snippets (count-up) | REGISTERED + template-validated 2026-07-22; code-rendered stats, dark. Not yet placed. |
+| `people-feature-block/` | `people-feature-block` | people-feature | none (CSS) | REGISTERED + template-validated 2026-07-22; line-illustration + statement, reversible. Not yet placed. |
+
+**All five are the from-scratch interactive brochure components the workstream was
+created to build.** hero-card-carousel is proven end-to-end (render + JS lane); the
+other four are registered + template-validated but not yet rendered on a live page.
+The remaining work is to **place them on the fundamentallyai pages** (re-plan pages
+to use them, or place explicitly) — that is what makes the site "look like the
+brief" — plus verify each renders live and, for stat-band, its count-up JS bundles
+(fire `site-asset-renderer` once a page uses it).
 
 ### hero-card-carousel
 Auto-advancing, swipeable hero carousel. Combines three of the requested effects:

@@ -1,0 +1,14 @@
+{
+  "fields": {
+    "eyebrow": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Short uppercase eyebrow, e.g. 'How we work'. Optional." },
+    "title": { "type": "text", "source": "llm", "required": true, "llm_guidance": "Heading for this feature block. One phrase, under 10 words." },
+    "body": { "type": "text", "source": "llm", "required": true, "llm_guidance": "One or two short paragraphs about an approach, value, or way of working — NOT a person's biography. Max 55 words." },
+    "quote": { "type": "text", "source": "llm", "required": false, "llm_guidance": "An optional pull-quote. Use ONLY a real, attributable quote (or omit). Never invent a testimonial or attribute words to a person who did not say them." },
+    "attribution": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Source of the quote, if any. Never invent a name or a client." },
+    "image": { "type": "image" },
+    "image_alt": { "type": "text", "source": "llm", "required": true, "llm_guidance": "Describe the line illustration for screen readers, e.g. 'A line illustration of two people reviewing a document'. The figure is a GENERIC line illustration — never a named or specific real/invented individual." },
+    "link_url": { "type": "url", "source": "llm", "required": false, "llm_guidance": "Optional link URL." },
+    "link_label": { "type": "text", "source": "llm", "required": false, "llm_guidance": "Optional link text." },
+    "reverse": { "type": "boolean", "source": "llm", "required": false, "llm_guidance": "Set true to place the illustration on the right instead of the left (for visual rhythm when several blocks stack). Default false." }
+  }
+}
