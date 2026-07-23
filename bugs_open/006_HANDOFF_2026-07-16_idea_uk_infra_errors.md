@@ -448,3 +448,19 @@ enabled check has produced **0** work items so far because discovery is pipeline
 timed task, and has not cycled these sites since enablement — it will raise all 10 on the next cycle
 and settle as pages re-render. Remaining on B: follow-up (2), the costed re-render of the 10 deployed
 components through the review gate (deferred to the owner). Everything on the code side is done and live.
+
+### B — the fix is now PROVEN WORKING LIVE (2026-07-23, v1.0.1150)
+
+Two live confirmations, not just deployment:
+- **The render fix converts a form on re-render.** `fundamentallyai.com`'s contact form now serves
+  `action="mailto:fundamentallyai@contactforsales.com?subject=fundamentallyai.com enquiry"` in its
+  DEPLOYED html — the live seam turned `#contact` into a mailto to the site's real `sites.email`
+  address (correctly a real address, not an `info@` fabrication; the guard was not needed here). Fleet
+  audit at the time: 1 mailto, 9 `#contact`, 1 empty — the rest simply have not re-rendered yet.
+- **The enabled check produces work items.** One `contact_form_undeliverable` item now sits at
+  `needs_human_review` — the backstop fired on a discovery cycle, end-to-end.
+
+Fix survived into v1.0.1150 (discriminating pod-grep `"synthesised display fallback"`=1 on
+`agent-chassis-99455fb79-7cbrv`). A concurrent thread's `78482c86b` (scope-aware dead-control detector)
+edited a different part of `component_library.go`; my `info@` guard and tests are intact and pass.
+B still OPEN only for the deployed remainder (9 forms) re-rendering — the mechanism is now proven.
