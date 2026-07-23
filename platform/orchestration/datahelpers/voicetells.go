@@ -49,8 +49,8 @@ type VoiceGateConfig struct {
 
 	// ExpectContractions: on a plain-register site, a page with zero
 	// contractions across many sentences reads stiff (the v1-leopardess tell).
-	ExpectContractions bool `json:"expect_contractions"`
-	MinSentencesForContractionCheck int `json:"min_sentences_for_contraction_check"` // default 15
+	ExpectContractions              bool `json:"expect_contractions"`
+	MinSentencesForContractionCheck int  `json:"min_sentences_for_contraction_check"` // default 15
 
 	// LongForm relaxes thresholds for essay-shaped pages. Applied when the
 	// caller says the page is long-form (page_type blog-post / guide).
@@ -254,16 +254,16 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 		if density > emDashTrip {
 			findings = append(findings, VoiceFinding{
 				Check: "em_dash_density", Matched: "—",
-				Reason:    "em-dash as a rhythm — use a full stop or a comma",
-				Value:     density, Threshold: emDashTrip, Occurrences: emDashes,
+				Reason: "em-dash as a rhythm — use a full stop or a comma",
+				Value:  density, Threshold: emDashTrip, Occurrences: emDashes,
 			})
 		}
 	}
 	if triads > triadTrip {
 		findings = append(findings, VoiceFinding{
 			Check: "triad_density", Matched: "X, Y, and Z",
-			Reason:    "balanced three-item lists by reflex — two examples are usually enough",
-			Value:     float64(triads), Threshold: float64(triadTrip), Occurrences: triads,
+			Reason: "balanced three-item lists by reflex — two examples are usually enough",
+			Value:  float64(triads), Threshold: float64(triadTrip), Occurrences: triads,
 		})
 	}
 	if totalSentences > 0 {
@@ -272,22 +272,22 @@ func (g *VoiceGate) ScanVoice(blocks []string, longForm bool) []VoiceFinding {
 		if share > longShareTrip {
 			findings = append(findings, VoiceFinding{
 				Check: "long_sentences", Matched: fmt.Sprintf("%d of %d sentences over %d words", longSentences, totalSentences, longWords),
-				Reason:    "dense sentences — one idea per sentence",
-				Value:     share, Threshold: longShareTrip, Occurrences: longSentences,
+				Reason: "dense sentences — one idea per sentence",
+				Value:  share, Threshold: longShareTrip, Occurrences: longSentences,
 			})
 		}
 		if mean > meanTrip {
 			findings = append(findings, VoiceFinding{
 				Check: "long_sentences", Matched: fmt.Sprintf("mean sentence length %.1f words", mean),
-				Reason:    "average sentence too long for the register",
-				Value:     mean, Threshold: meanTrip, Occurrences: totalSentences,
+				Reason: "average sentence too long for the register",
+				Value:  mean, Threshold: meanTrip, Occurrences: totalSentences,
 			})
 		}
 		if g.cfg.ExpectContractions && contractions == 0 && totalSentences >= minSentences {
 			findings = append(findings, VoiceFinding{
 				Check: "no_contractions", Matched: fmt.Sprintf("0 contractions in %d sentences", totalSentences),
-				Reason:    "stiff register — the site's voice uses contractions (it's, we'd, you're)",
-				Value:     0, Threshold: 1, Occurrences: 0,
+				Reason: "stiff register — the site's voice uses contractions (it's, we'd, you're)",
+				Value:  0, Threshold: 1, Occurrences: 0,
 			})
 		}
 	}
