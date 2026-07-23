@@ -82,6 +82,16 @@ var skipDomains = map[string]bool{
 	"checkatrade.com":    true,
 	"britaine.co.uk":     true,
 	"places-near-me.com": true,
+	// Added 2026-07-23 per vetcomparison RUNBOOK ("extend the sweep/verifier
+	// deny-list before re-enabling vet-batch-verify") — third-party aggregators
+	// whose listings must never be stored as a practice's own website.
+	"bestlocalrated.co.uk": true,
+	"starofservice.com":    true,
+	"starofservice.co.uk":  true,
+	"threebestrated.com":   true,
+	"threebestrated.co.uk": true,
+	"allvets.co.uk":        true,
+	"calmshops.co.uk":      true,
 	// Review sites
 	"tripadvisor.com": true,
 	"trustpilot.com":  true,

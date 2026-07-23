@@ -166,15 +166,28 @@ func MedExportJSONAction(ctx context.Context, params ActionParams) (interface{},
 	}
 
 	// 2. Query current prices with filters
-	prices, err := loadMedPricesForExport(ctx, params.DB, ec.Filters)
+	prices, scanSkipped, err := loadMedPricesForExport(ctx, params.DB, ec.Filters)
 	if err != nil {
 		return nil, fmt.Errorf("load prices: %w", err)
 	}
 
 	params.Logger.Info("MedExportJSON: loaded price data", zap.Int("total_variants", len(prices)))
 
+	// 2b. Fail-closed provenance gate: a price without a source URL and a
+	// capture date is never published. Skips are counted and surfaced in
+	// price-metadata.json as skipped_missing_provenance, never silent.
+	prices, provenanceSkipped := filterMedExportProvenance(prices)
+	skippedMissingProvenance := scanSkipped + provenanceSkipped
+	if skippedMissingProvenance > 0 {
+		params.Logger.Warn("MedExportJSON: skipped_missing_provenance — price rows dropped for missing source url or capture date",
+			zap.Int("skipped", skippedMissingProvenance))
+	}
+
 	if len(prices) == 0 {
-		return map[string]interface{}{"status": "complete", "skipped": true, "reason": "no prices to export", "domain": ec.Domain}, nil
+		return map[string]interface{}{
+			"status": "complete", "skipped": true, "reason": "no prices to export", "domain": ec.Domain,
+			"skipped_missing_provenance": skippedMissingProvenance,
+		}, nil
 	}
 
 	// 3. Group by product
@@ -204,7 +217,7 @@ func MedExportJSONAction(ctx context.Context, params ActionParams) (interface{},
 		}
 	}
 	if ec.Outputs.Metadata {
-		if j, err := buildMedExportMetadata(prices, products, ec); err == nil {
+		if j, err := buildMedExportMetadata(prices, products, ec, skippedMissingProvenance); err == nil {
 			files[basePath+"/price-metadata.json"] = j
 		}
 	}
@@ -253,11 +266,14 @@ type medPriceExportRow struct {
 	SizeVariant     string
 	Price           float64
 	InStock         bool
-	TypicalVetPrice float64
 	CollectedAt     time.Time
 }
 
-func loadMedPricesForExport(ctx context.Context, db *sql.DB, filters medExportFilters) ([]medPriceExportRow, error) {
+// loadMedPricesForExport returns the freshest snapshot per (listing, size
+// variant) plus a count of rows dropped because they could not be scanned —
+// those are folded into the provenance skip count rather than vanishing
+// silently (publication policy: no price without provenance).
+func loadMedPricesForExport(ctx context.Context, db *sql.DB, filters medExportFilters) ([]medPriceExportRow, int, error) {
 	query := `
 		SELECT DISTINCT ON (ps.listing_id, ps.size_variant)
 			ps.listing_id::text, ps.retailer_id, r.name, COALESCE(r.group_name, ''),
@@ -266,7 +282,7 @@ func loadMedPricesForExport(ctx context.Context, db *sql.DB, filters medExportFi
 			COALESCE(p.brand, ''), COALESCE(p.category, ''),
 			COALESCE(array_to_string(p.species, ','), ''),
 			COALESCE(ps.size_variant, ''), ps.price,
-			COALESCE(ps.in_stock, true), COALESCE(ps.typical_vet_price, 0),
+			COALESCE(ps.in_stock, true),
 			ps.collected_at
 		FROM business_intel.med_price_snapshots ps
 		JOIN business_intel.med_retailer_listings l ON l.id = ps.listing_id
@@ -310,24 +326,41 @@ func loadMedPricesForExport(ctx context.Context, db *sql.DB, filters medExportFi
 
 	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var prices []medPriceExportRow
+	scanSkipped := 0
 	for rows.Next() {
 		var p medPriceExportRow
 		if err := rows.Scan(
 			&p.ListingID, &p.RetailerID, &p.RetailerName, &p.GroupName,
 			&p.RetailerDomain, &p.RetailerURL, &p.ProductName, &p.Brand,
 			&p.Category, &p.Species, &p.SizeVariant, &p.Price,
-			&p.InStock, &p.TypicalVetPrice, &p.CollectedAt,
+			&p.InStock, &p.CollectedAt,
 		); err != nil {
+			scanSkipped++
 			continue
 		}
 		prices = append(prices, p)
 	}
-	return prices, rows.Err()
+	return prices, scanSkipped, rows.Err()
+}
+
+// filterMedExportProvenance drops any price row lacking a source URL or a
+// capture timestamp. Publication policy (vetcomparison LEGAL record,
+// 2026-07-15): no price is published without provenance — skip and count,
+// never silently.
+func filterMedExportProvenance(prices []medPriceExportRow) (kept []medPriceExportRow, skipped int) {
+	for _, p := range prices {
+		if strings.TrimSpace(p.RetailerURL) == "" || p.CollectedAt.IsZero() {
+			skipped++
+			continue
+		}
+		kept = append(kept, p)
+	}
+	return kept, skipped
 }
 
 // ============================================================================
@@ -343,15 +376,18 @@ type medExportProduct struct {
 	Options  []medExportOption `json:"options"`
 }
 
+// medExportOption deliberately carries NO typical_vet_price: the published
+// "typical vet price" figure family was the fabricated one in the 2026-07-15
+// remediation (LEGAL record, vet_price_est). It may only return if genuinely
+// sourced — an owner decision, not a code default.
 type medExportOption struct {
-	Retailer        string  `json:"retailer"`
-	RetailerGroup   string  `json:"retailer_group,omitempty"`
-	URL             string  `json:"url"`
-	SizeVariant     string  `json:"size"`
-	Price           float64 `json:"price"`
-	InStock         bool    `json:"in_stock"`
-	TypicalVetPrice float64 `json:"typical_vet_price,omitempty"`
-	CollectedAt     string  `json:"collected_at"`
+	Retailer      string  `json:"retailer"`
+	RetailerGroup string  `json:"retailer_group,omitempty"`
+	URL           string  `json:"url"`
+	SizeVariant   string  `json:"size"`
+	Price         float64 `json:"price"`
+	InStock       bool    `json:"in_stock"`
+	CollectedAt   string  `json:"collected_at"`
 }
 
 func groupMedPricesByProduct(prices []medPriceExportRow) []medExportProduct {
@@ -373,8 +409,7 @@ func groupMedPricesByProduct(prices []medPriceExportRow) []medExportProduct {
 			Retailer: p.RetailerName, RetailerGroup: p.GroupName,
 			URL: p.RetailerURL, SizeVariant: p.SizeVariant,
 			Price: p.Price, InStock: p.InStock,
-			TypicalVetPrice: p.TypicalVetPrice,
-			CollectedAt:     p.CollectedAt.Format("2006-01-02"),
+			CollectedAt: p.CollectedAt.Format("2006-01-02"),
 		})
 	}
 
@@ -528,7 +563,7 @@ func buildMedLetterBucketedJSON(products []medExportProduct, basePath string) (m
 	return files, nil
 }
 
-func buildMedExportMetadata(prices []medPriceExportRow, products []medExportProduct, ec medExportConfig) (string, error) {
+func buildMedExportMetadata(prices []medPriceExportRow, products []medExportProduct, ec medExportConfig, skippedMissingProvenance int) (string, error) {
 	retailerProducts := make(map[string]map[string]bool)
 	retailerVariants := make(map[string]int)
 	retailerNames := make(map[string]string)
@@ -560,13 +595,18 @@ func buildMedExportMetadata(prices []medPriceExportRow, products []medExportProd
 		TotalVariants int               `json:"total_variants"`
 		Retailers     []medRetailerStat `json:"retailers"`
 		DataFreshness string            `json:"data_freshness"`
-		Filters       interface{}       `json:"filters,omitempty"`
+		// Always present (no omitempty): its presence proves the provenance
+		// gate ran; its value is the number of price rows withheld for
+		// missing source url / capture date.
+		SkippedMissingProvenance int         `json:"skipped_missing_provenance"`
+		Filters                  interface{} `json:"filters,omitempty"`
 	}
 
 	meta := metadata{
 		ExportedAt: time.Now().UTC().Format(time.RFC3339), Domain: ec.Domain,
 		TotalProducts: len(products), TotalVariants: len(prices),
-		Retailers: retailers, DataFreshness: "14 days", Filters: filtersOut,
+		Retailers: retailers, DataFreshness: "14 days",
+		SkippedMissingProvenance: skippedMissingProvenance, Filters: filtersOut,
 	}
 	b, err := json.MarshalIndent(meta, "", "  ")
 	return string(b), err
