@@ -75,3 +75,44 @@ Dead-control detection is guard-rail-3 of the experience loop, actively owned by
 `bugs_open/054` (chrome dead-control) / `cta_link_integrity` (`bugs_open/023`) threads.
 Do NOT fork: the P1 fix goes through the council gate; the finding is contributed into
 their record. `who-owns.py 054` confirms active ownership (cqls).
+
+---
+
+## 2026-07-23 — PHASE 2: the real build (owner-approved plan; supersedes "P2/P3 optional" above)
+
+The 2026-07-22 fix was CORRECTED as cosmetic (see NOTES + WRONG_CALLS: buttons wired
+to invisible-in-context effects; checkboxes theatre). Owner directed the real build.
+
+**Owner decisions (2026-07-23, all on record in the approved session plan):**
+- **D-A. Debate opponent**: file a Position on today's provocation → AI files a real
+  opposing Position + challenge → defend on the clock → honest AI verdict with
+  reasons. Objectives = real self-checking steps. "AI competitor" labelling while no
+  human traffic. Degraded mode honest, never a mock.
+- **D-B. Backend via the feature-builder** (first fire of its implementer = platform
+  milestone B4). Work item `capability_gap:tools-api-gauntlet-debate`
+  (`9ed684bc-864a-4aa1-b17a-7ed061e08f2a`); designer corr `cff7ff61-…`.
+- **D-C. Experience loop unstuck**: contracts-rule greenfield split (migration 196).
+  New requirement injected via compose-prompt decisions block (migration 197,
+  D1-REVISED). Re-plan fired: corr `4d3d89fa-…`.
+- **D-D. Architecture**: engine in-cluster (`tools-api`, ClusterIP, no ingress);
+  public path = Cloudflare (`<SUB>.apis.uk`, owner names) → Tunnel → bastion VM
+  (Caddy allowlist `/api/v1/tools/*` only, caps, rate limit, no k8s creds) →
+  WireGuard → service. Drafts in `infra/`. Sites stay static.
+- **D-E. Credit policy**: blanket go for this workstream's paid runs (designer,
+  implementer + shakeout, contingency 092 re-fire); each spend reported as it
+  happens. Owner's hard gate = the PR merge.
+
+**API contract (FIXED — pinned in 197 and the capability_gap spec; do not drift):**
+`POST /api/v1/tools/gauntlet/round` → `{round_id, provocation:{headline, body}}`
+(provocation fetched server-side from the calling site's live feed);
+`POST …/position {round_id, position_text}` → `{counter_position, challenge}`;
+`POST …/defend {round_id, defence_text}` → `{verdict, reasons}`.
+Caps ≤2000 chars; CORS from sites table; per-IP rate limit; LLM via aiservice.
+
+**Sequence + status:** P0 done (196 applied+ledgered) · P1 fired (197 applied,
+092 corr 4d3d89fa in flight — accept only approved + abstained:0 + reviewers:5) ·
+P2 designer in flight (corr cff7ff61) → implementer B4 on approval → owner merges
+PR → image → migration → deploy · P3 blocked on owner infra tasks
+(infra/README_bastion_exposure.md) · P4 front-end via section-editor +
+assemble-only JS republish · P5 Tier-4 journey acceptance + claimscan +
+dead_controls re-check · P6 docs/close-out.
