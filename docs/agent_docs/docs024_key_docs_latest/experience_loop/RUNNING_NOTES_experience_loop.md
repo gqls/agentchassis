@@ -947,3 +947,32 @@ Byte-exact match verified against the live prompt before applying (avoids a sile
 no-op `replace()`).
 
 **Not yet exercised.** No council run has fired since. The next `092_TRIGGER_experience_plan.sh vonc.com vonc-spark-game` run against the pending debate-gauntlet requirement (a maximally-greenfield plan) is both the real feature work and the first live test of this split — if `contracts` still objects to genuinely-new consumers whose access path IS pinned and IS criterion-backed, the split needs another look before trusting it generally.
+
+### 2026-07-23 — run 12 (corr fa4b77cd): 196's split PROVEN LIVE; REJECTED on correct sequencing
+
+First council fire since the 196 greenfield split. **The split worked exactly as
+designed**: `contracts` APPROVED every plan-created pair — its own words: *"New-consumer
+pairs (gauntlet API/DOM, arena day-counter, provocations-detail query script) each state
+exact access paths with a matching §5 criterion"* — and objected ONLY to two
+existing-consumer contradictions it could quote (provocation-card-loader never reads
+`data.lobby`; lobby-grid-loader wires clicks via a closure, not the `data-url` attribute
+the plan described). No greenfield false-positives. The rule split is behaviourally
+verified; CP2-class convergence is now blocked by real findings only.
+
+**Verdict: REJECTED — feasibility veto, and the veto is CORRECT.** The plan (composed
+under the 197 debate-gauntlet ruling) gates Journey A on POSTs to
+{API_BASE}/api/v1/tools/gauntlet/* — an API that does not exist yet (its build is
+in-flight in the feature-builder, corr c2a9fd27). Feasibility: *"a council-review plan
+cannot gate an MVP on infrastructure whose existence is unconfirmed"*, and it named the
+right sequence: *ship Steps 0–3 (all static-buildable) as the MVP; the live-API Gauntlet
+is its own gated follow-up once API_BASE is confirmed reachable.* The loop is enforcing
+build-before-promise — the exact honesty discipline it exists for.
+
+Other seats: honesty APPROVED ("unusually disciplined" — Day-N labelled as
+publish-count, no client-computed score, honest offline banner, no leaderboard);
+journeys/mvp objections are direct build-round input (defence/verdict steps need
+acceptance interaction checks; secondary-CTA journey missing; drop the arena rebuild
+from the MVP cut). NOTE: the rejected plan is now `is_current` — per the seed's own
+rule it MUST NOT be built from until a re-run converges. Re-fire 092 AFTER the
+tools-api is deployed + smoke-POST-verified, with the liveness evidence carried into
+the compose decisions block (the 197 channel).
