@@ -115,8 +115,13 @@ separate, evidence is one `section` casualty (unplaced), so lower priority.
   updated with the corrected scope + fix.
 - **NOW LIVE in v1.0.1146** — rode the owner's sweep build `fe2ba5e52` (a descendant
   of my code commit). Pod-verified: all 3 created literals present + positive
-  control. **INSTANCE 1 stays OPEN because the failing branch is LIVE-UNEXERCISED**
-  (pod-grep = deployment, not correctness). Close needs fault-injection.
+  control.
+- **BEHAVIOURALLY VERIFIED 2026-07-23 on v1.0.1149** (fault-injection via a scratch
+  one-step `create_tool_component` agent; LLM bypassed). Tail-cut tool → gate
+  fired, `tool_birth_truncation_blocked` logged, 0 created; healthy tool → gate
+  passed (failed later at site-load), 0 created. Scratch fixtures removed, leak
+  check 0. Evidence in NOTES (2026-07-23). **INSTANCE 1 is DONE** — the 021 file
+  stays in /bugs_open/ only for INSTANCE 2 (not ours).
 - NOTE (NOTES §misstep): the planned `toolTemplateValid` refactor in
   `plan_sections_action.go` was DROPPED to avoid a same-file passenger (another
   session's 041/044 WIP in that file); cosmetic only, no functional loss.

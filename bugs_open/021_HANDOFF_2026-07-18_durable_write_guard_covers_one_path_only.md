@@ -88,10 +88,23 @@ legitimate rewrites (016b §9 has the counter-examples). The transferable rules:
 > **Live-deploy evidence (pod `agent-chassis-…-xrkv6`, image `v1.0.1146`):** all
 > three created literals present — `tool_birth_truncation_blocked` (×1),
 > `generated HTML is structurally incomplete` (×2), `leaves a structural tag`
-> (×1); positive control `component_write_regression_blocked` (×1). To CLOSE:
-> fault-inject a tail-cut tool through `create_tool_component` → component NOT
-> created, item `needs_human_review`, refusal in `agent_error_log`; and a healthy
-> generation still passes.
+> (×1); positive control `component_write_regression_blocked` (×1).
+>
+> **UPDATE 2026-07-23 — INSTANCE 1 is now BEHAVIOURALLY VERIFIED on v1.0.1149
+> (re-verified across the roll; no regression-out).** Fault-injection via a scratch
+> one-step `create_tool_component` agent fed a controlled payload (LLM bypassed):
+> - **Tail-cut tool** (valid tool-doc header, unterminated `<script>`/`<section>`,
+>   ends mid-token): gate FIRED — `agent_error_log.error_code='tool_birth_truncation_blocked'`
+>   (*"generated HTML is structurally incomplete …"*, `ends_cleanly:false`), the
+>   workflow routed `save_tool → complete_error`, and **0** components were created.
+> - **Healthy tool** + a nonexistent site_id: gate PASSED — the run failed one step
+>   LATER with *"failed to load site domain"* (not a truncation error) and no
+>   `tool_birth_truncation_blocked` row, proving the gate does not false-block a
+>   whole tool. **0** components created.
+> All scratch fixtures removed (leak check 0). Evidence + method:
+> `docs024_key_docs_latest/durable_write_guard/NOTES_…` (2026-07-23 entry).
+> **INSTANCE 1 is done** — this file remains in `/bugs_open/` only because
+> INSTANCE 2 (owned by `work_item_completion_integrity`) is still open.
 >
 > **Corrects the scope this file asked for.** The two named surfaces are
 > non-exposures, verified live 2026-07-21:

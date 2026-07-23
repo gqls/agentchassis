@@ -131,3 +131,29 @@ dispatch this session. So that's where it rests: the guard is live and protectin
 new tool/section births, bug 021 stays open with an honest "not yet sprung in
 anger" note, and the one deliberate live test is written down for whenever it's
 worth doing (or for the first real cut-off generation to trip it for us).
+
+---
+
+**2026-07-23 — you said go, so I sprang the trap. It works.**
+
+A fresh image had rolled (v1.0.1149); I first checked my guard survived the
+rebuild — it did — then ran the real test on the live cluster. I set up a
+throwaway one-step job that hands the tool-creator a tool I control, so I could
+feed it a deliberately broken one without waiting on the AI.
+
+- I fed it a **cut-off tool** (looks fine at the top, chopped off mid-script). The
+  guard **refused it**: nothing was saved, the job ended in the error path, and it
+  logged exactly why ("generated HTML is structurally incomplete"). That's the
+  trap catching what it's meant to catch.
+- Then I fed it a **healthy, complete tool**. The guard **let it straight
+  through** — it only tripped later on a deliberately-fake site id, which proves it
+  got *past* the guard. So we're not going to start refusing good tools.
+
+Both tests created nothing on real sites, and I cleaned up every trace afterwards
+(including the test error-log entries, so nothing sweeps them up as a real fault).
+
+**Bottom line:** bug 021's prevention job is now *done and proven* — live, and
+demonstrated to actually fire. The only reason the bug file stays open at all is
+the unrelated second item in it, which belongs to a different workstream. The 8
+already-broken tools remain the separate cleanup job (bug 046). Nothing further
+from me on this unless you want it.

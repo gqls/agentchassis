@@ -338,3 +338,59 @@ fixtures after.
 scratch dispatch this session. 021 INSTANCE 1 stays OPEN with that status. The
 fault-injection above is the one remaining step whenever it's picked up (or a real
 truncated generation trips it in the wild and lands the `agent_error_log` row).
+
+## 2026-07-23 — FAULT-INJECTION DONE, failing branch PROVEN live on v1.0.1149
+
+Owner said go. First re-verified my code survived the new roll (image v1.0.1149,
+pod `…-cm786`): all 3 created literals + the 012 positive control present. No
+regression-out.
+
+**Harness (controlled, LLM bypassed).** The real dispatch can't inject a
+"complete-looking but structurally broken" HTML — the `stop_reason` guard
+(bugs_open/008) would intercept a provider-truncated generation upstream, testing
+the wrong layer, and an unresolved-string config value is NOT taken as a literal
+(`action_inputs_literal_test.go`). So I fed the HTML through the payload: a scratch
+one-step agent_definition `scratch-toolgate-021` whose sole step is
+`create_tool_component`, reading `site_id/html_content/function/display_name` from
+`input_data.*`. Spawned via the kcat `orchestrate` envelope (mirrors 091). Runs on
+the generic chassis (create_tool_component is IsLocal); processed in ~2.4s — no
+queue latency. My gate sits at line ~110, BEFORE the site-domain load (line 133),
+which enabled a zero-cleanup design: nothing is ever created on either path.
+
+**NEGATIVE — tail-cut tool (valid tool-doc header, `<script>`+`<section>`
+unterminated, ends `'Epic`), `orch 937888f4`:**
+- state: `save_tool → complete_error → COMPLETED` (the guard's hard error routed
+  through the workflow's error_step).
+- `agent_error_log`: **`tool_birth_truncation_blocked`** (severity error, action
+  `create_tool_component`, step `save_tool`) — *"tool birth refused for site …:
+  generated HTML is structurally incomplete — a paired tag
+  (<script>/<style>/<section>/<div>/<fieldset>) is unterminated or it ends
+  mid-…"*; context `{html_length:368, ends_cleanly:false}`. Plus the workflow-level
+  `UNKNOWN` row recording the returned error (*"refusing to persist truncated
+  tool …"*).
+- `content_components` with the scratch function: **0**. Nothing persisted. ✅
+
+**POSITIVE control — healthy tool (fully balanced, ends `</section>`) + a
+NONEXISTENT site_id, `orch 0042b1e7`:**
+- state: `save_tool → complete_error → COMPLETED`, but the error is **"failed to
+  load site domain: sql: no rows in result set"** — a DIFFERENT error, at the
+  site-load step that runs only AFTER my gate. So the healthy tool **passed the
+  gate**.
+- `agent_error_log`: NO `tool_birth_truncation_blocked` (only the `UNKNOWN`
+  site-load row). The gate did not false-block a healthy generation. ✅
+- component created: **0**.
+
+**So both branches are proven on the live binary:** the guard fires on a tail cut
+(refuse + log + no persist) and passes a healthy tool. This satisfies
+[[verify-the-failing-branch]] — the fault was INDUCED, not inferred from a green
+happy path.
+
+**Cleanup:** leak check 0 (no components/pages/work-items/scratch-site rows), then
+deleted the scratch agent_definition, both orchestration_states (+12 audit rows),
+and the 3 scratch `agent_error_log` rows (so the immune-system sweep doesn't treat
+a scratch test as a real failure). Verified 0 remaining. Evidence preserved here
+because the DB rows are gone.
+
+**STATUS: INSTANCE 1 is FIXED + LIVE (v1.0.1149) + BEHAVIOURALLY VERIFIED.** The
+021 file stays in `/bugs_open/` ONLY because INSTANCE 2 (not ours) is still open;
+INSTANCE 1 itself is done.
