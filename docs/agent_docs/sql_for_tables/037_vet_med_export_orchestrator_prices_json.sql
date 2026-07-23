@@ -13,6 +13,14 @@
 
 -- ============================================================================
 -- 1. Export worker agent (generic — config comes from input_data)
+--
+-- DOMAIN DELIBERATELY BLANK in the step config below (fail-closed; blanked
+-- 2026-07-23). This INSERT is ON CONFLICT DO UPDATE SET default_config, so
+-- re-seeding this file OVERWRITES the live worker config — an unblanked domain
+-- here would reinject it fleet-live. Safety rail (vetcomparison RUNBOOK): we do
+-- NOT own vetcomparison.co.uk — never reintroduce it. The real target domain is
+-- supplied by the scheduled task's input_data at enable time (input_data keys
+-- overwrite this step config; the action refuses an empty domain).
 -- ============================================================================
 
 INSERT INTO agent_definitions (
@@ -36,7 +44,7 @@ INSERT INTO agent_definitions (
                          "export_json": {
                              "action": "med_export_json",
                              "config": {
-                                 "domain": "vetcomparison.co.uk",
+                                 "domain": "",
                                  "repo_name": "sites",
                                  "data_path": "data",
                                  "commit_message_prefix": "Update medicine prices",

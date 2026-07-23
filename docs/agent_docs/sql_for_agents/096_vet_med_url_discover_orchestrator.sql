@@ -147,6 +147,11 @@ WHERE type IN ('med-price-collector', 'med-url-discoverer');
 -- action="orchestrate" and config.agent_type (from target_agent_type) and wraps this
 -- column as input_data itself. Never nest an {action,config,input_data} envelope here —
 -- it double-wraps and the payload never reaches the action. See bugs_closed/054.
+--
+-- ⚠️ The med-scrape-prices UPDATE below was ALWAYS A NO-OP: no such row ever
+-- existed, so nothing populated med_price_snapshots. The row is now owned by
+-- docs/agent_docs/docs024_key_docs_latest/vetcomparison/011_med_scrape_prices_task.sql
+-- (idempotent INSERT ... ON CONFLICT, 2026-07-23). Kept here only as history.
 UPDATE scheduled_tasks
 SET target_agent_type = 'med-price-scrape-orchestrator',
     input_data = '{"batch_size":20}'::jsonb,
