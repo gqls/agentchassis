@@ -1468,3 +1468,62 @@ not an array; edit `operation` ∈ `modify|add|remove|config_change`, new files 
 control-flow-blind — dropping on its false positives would have removed live gated controls. It's an
 ancestor of my commits, so next-build-from-HEAD is safe. That fix was also the concurrent
 `component_library.go` edit I stepped around. `054` stays OPEN until live + verified on the failing branch.
+
+### §X.9 — Home-page CTAs don't reach the paid tool: diagnosis + fix (2026-07-23)
+
+**Owner report:** "the links on the home page still don't go to the paid for tool."
+
+**Diagnosis (read the live page + DB, not theory).** `/report.html` IS the paid £29 tool — `curl`
+shows `<form class="rr-form" action="/request" method="POST">`, "Request a report", `£29` ×2, the
+honeypot `company_url` + `_elapsed` timing field. So the destination exists and works. The home page
+(`index`, page_id `b147b925-…`, 6 sections) simply doesn't point at it. Live hrefs on the prominent
+CTAs: `[Get Started]→/contact.html`, `[See how it works]→/contact.html`, `[Browse All Tools]→
+/contact.html`, plus two dead `#`. **Root cause: the four CTA sections were never link-resolved** —
+`page_components.content_data` has the button LABELS but no `cta_url`, and `resolved_data` is NULL on
+all four. So each URL field fell back:
+- hero `{{.cta_url}}`/`{{.secondary_cta_url}}` (`source: renderer`) → `contextToInterfaceMap`'s
+  `/contact.html` default (`component_library.go`).
+- brief-explanation → **`href="#"` HARDCODED in the shared template** (no url field declared at all).
+- tool-list `{{.cta_url}}` (`source: query.section_index_for:tool`) → the query finds no tool
+  section-index for idea.uk (tools is `page_type='content'`, not `section-index`) → nil → default.
+- call-to-action (`source: renderer`) → skip_field.
+
+**The deeper reason it can't self-heal:** the fleet-wide resolver (`resolve_internal_links` /
+`applyCTARecompute`, owned by the cta-link-integrity workstream) only ever points CTAs at content
+HUBS (`page_type='section-index'`, excluding about/contact/legal). `/report.html` is `page_type=
+'landing'`, so the generic resolver would NEVER choose it. Funnelling the home page to the paid tool
+is idea.uk **business intent** that has to be set explicitly — this is not a resolver bug.
+
+**Fix (`sql/p3_05`, owner-confirmed mapping via AskUserQuestion 2026-07-23 — all tool CTAs → the
+paid page):** set the url fields in each section's `content_data` (hero cta+secondary → /report.html;
+call-to-action primary → /tools.html#audience-check, secondary → /report.html; tool-list cta →
+/tools.html; brief pri+sec → /report.html) + a GATED edit to the shared brief-explanation template
+(`href="{{if .cta_primary_url}}…{{else}}#{{end}}"`, backward-compat no-op for the 3 other instances —
+verified none sets those fields) + a `reason='section_data_resolved'` rerender of the index only (no
+CTA recompute, no LLM; NULL-content_data guard passed 0). Read-back confirmed all four content_data
+writes. **Mechanism that makes it hold:** `applyCTARecompute` runs ONLY for `cta_links_stale`
+(`rerender_page_sections_action.go:287`), so a `section_data_resolved` rerender uses stored
+content_data; `contextToInterfaceMap` defaults `cta_url` then the ContentData merge OVERRIDES it;
+`mergeIntoRenderContext` captures ALL content_data keys (`v3_site_actions.go:1465`); the tool-list
+query returns nil so the set value survives ("assigns any NON-nil value").
+
+**DELIVERY — the page_rerender queue was DEAD** (nothing completed in ~15h; the bugs_open/029/030
+stalled-dispatch). The p3_05 work item sat `triaged`. Direct-fired a `section_data_resolved` rerender
+via Kafka (the 049b pattern + `input_data.spec.reason` — the workflow's `check_rerender_mode` reads
+`input_data.spec.reason`, NOT `input_data.reason`). Orchestration `335739d2-…` → COMPLETED 11:41.
+(The queue later revived and completed the p3_05 work item too — a harmless idempotent 2nd rerender.)
+
+**VERIFIED LIVE 2026-07-23** (`curl https://idea.uk/`): all four body CTAs correct —
+`[See how it works]`/`[Request a verified idea report]`→/report.html (hero);
+`[Get Started]`/`[Learn More]`→/report.html (brief-explanation, the dead `#` gone);
+`[Run the free idea check]`→/tools.html#audience-check, `[See what a verified idea report contains]`→
+/report.html (call-to-action); `[Browse All Tools]`→/tools.html (tool-list). **Sections LOCKED**
+(`sql/p3_06`, lock_type=permanent) + a `doc_note` warns cta-link-integrity off a blind cta_links_stale
+recompute.
+
+**ONE REMAINING, and it is CHROME not body — flagged to owner:** the header/mobile "Get Started"
+button (`site-header` component, `class="btn-primary"`, on EVERY page) still → `/contact.html`. It is
+a template-var CTA resolved from the chrome value map (sites has no cta_url → /contact.html default,
+the LNK-007 fossil). Fixing it → /report.html is a SITE-WIDE chrome change (all 9 pages), broader than
+"the home page", so it is an owner decision (asked 2026-07-23). The `[Contact]` nav link correctly
+stays /contact.html.
