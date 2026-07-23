@@ -173,3 +173,20 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - 092 fired: CORR 4d3d89fa-cfed-4381-bfdf-17d325c7a397. First live test of 196+197.
   Judge by council_report artifacts on that correlation, NOT the wrapper; ~30 min
   queue. Accept only approved + abstained:0 (+reviewers:5 now).
+
+## 2026-07-23 — P2 fires: designer APPROVED round 1; implementer B4 FIRST FIRE
+- Blanket credit go recorded (owner): designer, implementer + shakeout, contingency 092.
+- capability_gap work item `9ed684bc` (item_key capability_gap:tools-api-gauntlet-debate),
+  owner_approval stamped from the approved session plan.
+- feature-designer corr cff7ff61: staged plan (fix_plan 11:25) → council APPROVED 11:29,
+  ROUND 1. 6 stages: 198_tools_api_gauntlet_rounds.sql → service skeleton (cmd/tools-api,
+  internal/tools-api/api|db, makefile) → middleware (cors/ratelimit/inputcap) → round
+  (provocation fetch/cache, rounds repo, handler) → position+defend via aiservice →
+  kustomize ClusterIP no-ingress. All contract markers verified present.
+- feature-implementer FIRED 11:36 via orchestrator (RUN_ORCH_ID b5f6b929) — the
+  platform's FIRST-EVER implementer execution (feature-builder milestone B4). Branch
+  feat/cff7ff61 expected; PR on green gates; NO merge (owner's gate).
+- experience-planner corr 4d3d89fa still AWAITING_RESPONSES at spawn_planner (the
+  spawned planner queues behind the fleet — known ~30min latency; do NOT retry).
+- NOTE: staged plan claims migration number 198 — re-check for collision at APPLY time
+  (another session may take 198 before the PR merges; renumber then, don't renumber the PR).
