@@ -1,0 +1,20 @@
+# Cluster: restrict tools-api ingress to the WireGuard/bastion path only.
+# Apply AFTER the tools-api service exists (feature-builder PR) and the WG peer
+# address is known. Namespace + labels must match the deployed service.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tools-api-bastion-only
+  namespace: ai-persona-system
+spec:
+  podSelector:
+    matchLabels:
+      app: tools-api
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - ipBlock:
+            cidr: <WG_BASTION_PEER_IP>/32   # the bastion's WireGuard address
+      ports:
+        - protocol: TCP
+          port: <TOOLS_API_PORT>

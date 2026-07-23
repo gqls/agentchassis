@@ -1,0 +1,27 @@
+# Bastion: /etc/caddy/Caddyfile
+# The ONLY thing this host does: forward /api/v1/tools/* to the cluster over
+# WireGuard, with caps. No k8s creds live here; compromise of this host yields
+# reachability to ONE ClusterIP service and nothing else.
+{
+  auto_https off   # TLS terminates at Cloudflare; tunnel delivers plaintext locally
+}
+:8081 {
+  @tools path /api/v1/tools/*
+  handle @tools {
+    request_body {
+      max_size 1MB
+    }
+    # per-IP rate limit (requires caddy-ratelimit plugin; else enforce in tools-api)
+    rate_limit {
+      zone tools_ip {
+        key {remote_host}
+        events 30
+        window 1m
+      }
+    }
+    reverse_proxy <WG_CLUSTER_IP>:<TOOLS_API_PORT>
+  }
+  handle {
+    respond 404
+  }
+}
