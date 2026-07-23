@@ -666,3 +666,26 @@ data files only (no medicine page rebuild — separate task, bug-020 class).
 **State at writing:** discover run 5bb6cc19 EXECUTING; scrape + export still disabled,
 next in sequence. Enable order + verification queries now in the RUNBOOK §Med retailer
 pipeline.
+
+## 2026-07-23 (later) — pipeline verified END TO END; two data-quality findings filed
+
+**D1 discover:** orch 5bb6cc19 COMPLETED; listings 304→306 (+1 animed, +1 pdo).
+**D2 scrape:** orch 8e2eaa07/parent 5717ab5d COMPLETED (~45 min for batch of 20 — the LLM
+fallback runs at ~3 tok/s on CPU ollama; a regex-miss page costs 10+ min. If retailer page
+formats drifted since April, fallback will dominate runtime — refreshing the regex
+strategies is the real speed fix). 10 fresh snapshots + 19 evidence rows.
+**Spot-check method that WORKS:** the retailer pages are JS shells — curl sees zero prices;
+Firecrawl renders them. So verify against `med_scrape_evidence.markdown_content` (the
+retained rendered artefact), NOT a raw curl of the retailer. 8/10 prices verified verbatim
+in their own evidence. **2/10 did NOT** (Advocate ±£0.20) → filed `bugs_open/061` (scrape
+can store a price absent from its own evidence; gate checks provenance PRESENCE not parse
+FIDELITY). Also flagged there: legacy category-page listings ("Cat Tick"/"Horse", from
+2026-04-02 discovery) publish cheapest-in-category prices under non-product names —
+hygiene = owner call; note export ignores `med_retailer_listings.is_active`.
+**D3 export:** orch da5345e3 COMPLETED (in-process on business-intel, ~1.5s); git commit
+`a52fbf0` (9 files); LIVE minutes later — price-metadata.json exported_at=2026-07-23T12:31:28Z
+with `skipped_missing_provenance: 0` PRESENT (the new-code proof), medicine-prices.json
+10/10 options carry url+collected_at, ZERO typical_vet_price. Chain verified: DB → export →
+git → live artefact.
+**Council:** APPROVED round 1 (corr abf75d33, 3 advisory objections none high-severity).
+All three med tasks now ENABLED (weekly discover / 6h scrape / 48h export).
