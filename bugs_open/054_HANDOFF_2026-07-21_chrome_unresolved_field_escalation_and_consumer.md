@@ -7,10 +7,10 @@
 > reassigned — **resolve by slug.** Council submission `7152c7cf` references *this* one (the chrome
 > escalation follow-on). They are unrelated.
 
-**Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** IMPLEMENTED (chrome path), committed
-`524b03f03` + council-REVISE revision `0132f859b`, **inert until an image roll** — see "IMPLEMENTED
-2026-07-22" at the foot. Council trail `SUBMISSION_CORR=3951e2be-cf0e-4f73-901f-27bd84b3342d`
-(round 2 in review; the earlier `f54a1808`/`9ce1895d` attempts died at schema validation — no credits).
+**Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** DEPLOYED & LIVE in **v1.0.1150**
+(2026-07-23), council-APPROVED — but **OPEN pending the induced-fault behavioural test** (deploy-grep
+proves deployment, not detection). Commits `524b03f03` → `0132f859b` → `2afa6531a`. Council trail
+`SUBMISSION_CORR=3951e2be-cf0e-4f73-901f-27bd84b3342d` (APPROVED, round 2).
 **Severity:** medium — it is the second half of a fix whose first half (observability) is already in
 council review. On its own the gap is "a dead control is now logged loudly but nothing acts on it".
 **Class:** structural — completes the FAIL-LOUD contract for the render path; requires a staged
@@ -177,14 +177,30 @@ another session** — which turned out to be exactly `78482c86b` above. The help
 file `drop_dead_url_controls.go` so the commit's pathspec excludes the contended file and takes no
 same-file passenger.
 
-**How to verify once it rolls (INDUCE THE FAILING BRANCH — a green happy path proves deployment, not
-detection):**
-- Pod-grep the roll for the CREATED symbols (`DropDeadURLControls`, `emitChromeDeadControlItem`,
-  `chrome_dead_control`) — not a string the change merely uses.
-- Place a `*_pre_037` chrome component on a test site with an unresolvable nav/CTA field and
-  re-render; assert the rendered chrome has **no** `href=""`/`src=""` **and** a `chrome_dead_control`
-  row appears at `status='needs_human_review'` (no `handler_agent`), deduped on re-render.
-- Assert a clean site is untouched (byte-identical chrome; no `chrome_dead_control` row).
+**DEPLOY-VERIFIED LIVE 2026-07-23 (v1.0.1150), against the running pod, not git/tag:**
+```
+POD=agent-chassis-99455fb79-7cbrv  image v1.0.1150
+strings /app/agent-chassis | grep -c: DropDeadURLControls=2  emitChromeDeadControlItem=2
+                                       chrome_dead_control=5  deadAnchorRe=1  (positive control RenderTemplateReportingMissing=2)
+```
+Also confirmed live: **0** `chrome_dead_control` rows filed since the roll and **0** "dropped dead URL
+control" log lines — i.e. nothing on the live fleet trips it (blast radius ~0, as expected; this is
+preventive). That is deployment proof, NOT detection proof.
+
+**REMAINING closure step — INDUCE THE FAILING BRANCH (a green happy path proves deployment, not
+detection; this is the rule this fix's own genesis, 018/041, was about):**
+- Place a `*_pre_037` chrome component (e.g. `header-with-search_pre_037`, id
+  `d44490cb-89ef-4657-bcbe-793d5861f81c` — bare `<a href="{{.nav_link_N_url}}">`) on a **scratch**
+  site (`sites` needs only `domain`) with fields that will not resolve, run a chrome render, assert
+  the stored `rendered_html` has **no** `href=""`/`src=""` **and** a `chrome_dead_control` row appears
+  at `status='needs_human_review'` (no `handler_agent`), deduped on re-render; and a clean site is
+  byte-identical with no row.
+- **Trigger caveat (why not done yet):** the only found chrome-render trigger is `rerender-pages` +
+  `refresh_site_components=true` (049_TRIGGER_chrome_refresh.sh), which also reassembles + **deploys
+  every page** (~26–37 commits to `gqls/sites` + B2 sync + CF purge per run) — unacceptable
+  side-effects for a scratch verification. A clean single-action `render_site_components` dispatch
+  (no page deploy) is the right vehicle; build/find one before inducing, or piggy-back the next time
+  a site with a genuinely ungated chrome component is legitimately re-rendered.
 
 **Still genuinely out of this file's scope (unchanged):** the *general* consumer that drains the
 existing unread pile (`unresolved_cta`=68, `cta_names_unknown_destination`=47, `dead_control`=6,
