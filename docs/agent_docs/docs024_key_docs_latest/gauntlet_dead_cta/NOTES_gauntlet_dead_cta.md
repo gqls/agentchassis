@@ -190,3 +190,28 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   spawned planner queues behind the fleet — known ~30min latency; do NOT retry).
 - NOTE: staged plan claims migration number 198 — re-check for collision at APPLY time
   (another session may take 198 before the PR merges; renumber then, don't renumber the PR).
+
+## 2026-07-23 — B4 first fire: REFUSED CLEAN at s2 (max_tokens); 2 plan defects found; round 2 fired
+- Implementer run 1 (impl orch 55d321c5, branch feat/cff7ff61): s1 (migration file)
+  committed + build gate PASS; s2 (4-file skeleton incl. WHOLE-makefile modify) died
+  stage_implement `stop_reason=max_tokens` (32000 cap, 85,942 chars recovered) →
+  complete_refused, NO PR, no truncated code committed. FAIL-LOUD WORKED (the
+  v1.0.1138 stop_reason decode class). Root cause structural: stage_implement emits
+  COMPLETE file bodies; makefile is 2,146 lines/105KB → guaranteed blowout + a
+  bug-012-class silent-drop hazard even with a bigger cap.
+- TWO plan defects surfaced: (a) makefile edit is UNNECESSARY — pattern rule
+  `build-%-ref` already covers any service; the actually-missing artifact was
+  build/docker/backend/tools-api.dockerfile (NO stage created it — council missed it
+  too); (b) council advisory objection was real: middleware files created, never wired.
+- capability_gap spec updated (v2, same item 9ed684bc): hard constraints — no makefile
+  edit; dockerfile ADD (~15 lines, core-manager shape); middleware stage wires
+  server.go in the SAME stage; ≤4 small files/stage, no modify of >600-line files.
+- Stale branch feat/cff7ff61 DELETED (E4 prerequisite; held only regenerable s1).
+- Experience-planner corr 4d3d89fa: spawn SILENTLY DROPPED (no spawned orchestration
+  row ever appeared, 2.5h; wrapper's 1200s timeout never fired = bug-003 signature:
+  at-most-once consume + process-local timers). Pod 4h44m old so NOT the 300s
+  restart window. Contingency re-fire: corr fa4b77cd.
+- Designer round 2 fired on v2 spec: FEATURE_CORR c2a9fd27 (orch 24ff0e9b).
+- Spends so far (blanket go): planner run 1 (spawn lost — cost ~nil), designer run 1
+  (approved; plan superseded), implementer run 1 (refused s2; s1 knowledge kept),
+  planner run 2 + designer run 2 in flight.
