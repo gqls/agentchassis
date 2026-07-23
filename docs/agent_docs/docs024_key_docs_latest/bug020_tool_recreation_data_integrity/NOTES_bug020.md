@@ -297,3 +297,24 @@ read config paths directly + new wrapper regression test `TestCheckToolFabricati
 **To CLOSE (next roll):** pod-grep the fix is in the binary → re-apply 189 → re-run the probe,
 require `tier:"declaration"` (real detection) + HELD not deployed → bugs_closed + lift the
 imagery HOLD. The probe agent SQL + trigger are in the session scratchpad if needed again.
+
+### 2026-07-23 (3rd roll) — ✅ CLOSED. Induced-fault passed via REAL detection.
+
+v1.0.1150 rolled carrying the fix `1a2718213` (gate symbols pod-verified:
+`check_tool_fabrication`=4, `corroborated_corpus`=1, `uninspectable`=1; the fix itself
+has no distinct string literal, so the probe is the verdict). Wiring was still unwired
+from 07-22 (no other thread touched it). Re-ran the induced-fault probe (same scratch
+agent + stub):
+- `terminal = complete_held` (PASS), `fabrication_check.tier = "declaration"` (REAL
+  detection — NOT `uninspectable` this time), signals `["declared synthetic/fake data:
+  realistic, deterministic dataset", "synthetic identifier generator introduced:
+  makePostcode"]`, `needs_human_review` item raised, **never deployed**.
+So the fixed action reads `completeness_check.clean_html` correctly and the whole wired
+path holds a fabrication end-to-end. Re-applied migration **189** (re-wire, routing
+independently verified); the gate is now LIVE + WIRED + backed by the FIXED action.
+Cleaned up the scratch agent + probe item. Moved the case file to `/bugs_closed/020_*`
+and appended a note to the imagery workstream's README that the hold condition is met.
+
+**Both halves of the 020 fix are now live and verified:** Half A (prompt contract, mig
+183) + Half B (mechanical gate: fixed detector `1a2718213` on v1.0.1150, wired via mig
+189, induced-fault proven). CLOSED.

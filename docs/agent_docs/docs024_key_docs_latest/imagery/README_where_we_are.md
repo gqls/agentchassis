@@ -1019,3 +1019,16 @@ one step that spends real money at the image provider and changes a live public 
 it's your call to green-light — it's pickup (1) in the list above and it stays yours to
 say go. Everything I did this session is reading and note-keeping; nothing on any site
 has changed.
+
+---
+
+**2026-07-23 (note from the bugfix-020 thread) — bug 020 is CLOSED, so the tool-imagery hold condition is met.**
+The tool-recreation "invents a dataset" defect (020) is now fixed and live: a prompt
+contract stops the model inventing data, and a mechanical gate (live on chassis
+v1.0.1150, wired into tool-recreation-handler) holds any fabricated recreation for
+human review instead of publishing it — proven end-to-end by an induced-fault test.
+Case file: `/bugs_closed/020_HANDOFF_2026-07-18_*`; workstream docs:
+`docs/agent_docs/docs024_key_docs_latest/bug020_tool_recreation_data_integrity/`.
+The hold was "until 020 is fixed" — that condition is now satisfied, so lifting it is
+your green-light to give whenever you're ready. (Left as a note, not a change — this
+is the imagery workstream's doc.)

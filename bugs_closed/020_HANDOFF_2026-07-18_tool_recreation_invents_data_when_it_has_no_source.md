@@ -1,7 +1,18 @@
 # 020 — tool-recreation invents a dataset when the original tool was data-backed
 
+> # ✅ CLOSED 2026-07-23 — FIXED, LIVE, and VERIFIED end-to-end.
+> The mechanical fabrication gate is live on chassis **v1.0.1150** and **wired** into
+> tool-recreation-handler (migration 189), backed by the **fixed** detector
+> (commit `1a2718213`). Proven by an **induced-fault probe** on the live build: a stubbed
+> fabrication driven through the wired path was HELD at `needs_human_review` via REAL
+> detection (`tier:"declaration"`, signals `["realistic, deterministic dataset",
+> "makePostcode"]`) and **never deployed**. Plus the live prompt contract (migration 183).
+> Two-part fix, both live. The tool-imagery HOLD (`3f6f1febf`) can lift. Full journey below
+> and in `docs/.../bug020_tool_recreation_data_integrity/`.
+
 *Found 2026-07-18 by the vetcomparison thread. **Live fabrication shipped to a public site and
-served to visitors.** Contained on the affected site; the platform defect is unfixed.*
+served to visitors.** Contained on the affected site; **the platform defect is now FIXED & LIVE
+(2026-07-23) — see the CLOSED banner above.***
 
 > **STATUS 2026-07-21 (bugfix 020 thread).** The platform fix is **half live, half built-and-inert.**
 > - **Prompt half — LIVE NOW** (migration `183`, DB config, no image roll). `recreate_tool` gained a
@@ -30,12 +41,14 @@ served to visitors.** Contained on the affected site; the platform defect is unf
 >   like `check_tool_completeness` does; new wrapper regression test. **Gate UNWIRED live** (snapshot
 >   taken; `next_step` back to `save_training_data`, gate steps removed) so recreations are not
 >   over-held meanwhile — the Half-A prompt fix still protects. `WRONG_CALLS.md` logged.
-> - **Still OPEN. To CLOSE:** (1) next image roll carrying `1a2718213` (pod-grep — a symbol the fix
->   created); (2) re-apply migration **189** (re-wire); (3) re-run the induced-fault probe and confirm
->   `tier:"declaration"` (real detection, not uninspectable) + item HELD, not deployed; (4) → bugs_closed
->   + lift the tool-imagery HOLD. **Lesson:** static "paths verified" ≠ correctness — the action must be
->   verified by inducing the fault, and the layer that RUNS (the wrapper) must be tested, not only the
->   pure detector.
+> - **✅ CLOSED 2026-07-23 (3rd roll).** v1.0.1150 carries the fix `1a2718213` (gate symbols
+>   pod-verified). Re-wired via migration 189 (routing independently verified). Re-ran the
+>   induced-fault probe: `terminal=complete_held`, `fabrication_check.tier="declaration"` (REAL
+>   detection this time, not uninspectable), signals `["realistic, deterministic dataset",
+>   "makePostcode"]`, `needs_human_review` item raised, **never deployed**. That is the end-to-end
+>   proof the fix works on the live wired path. Scratch agent + probe item cleaned up. **Lesson kept:**
+>   static "paths verified" ≠ correctness — the action was proven only by inducing the fault, and the
+>   layer that RUNS (the wrapper) is now tested, not only the pure detector.
 >   Workstream docs: `docs/agent_docs/docs024_key_docs_latest/bug020_tool_recreation_data_integrity/`.
 
 **Family:** same class as `001` (a rebuild resurrecting fabrication that had been audited out of

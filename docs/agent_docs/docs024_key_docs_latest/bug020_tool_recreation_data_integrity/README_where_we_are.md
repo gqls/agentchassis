@@ -94,6 +94,41 @@ did — but it made the change materially better, which is the whole point of as
 Bottom line unchanged: half the fix is live, the other half is ready and now a bit
 sturdier, and bug 020 stays open until we roll a build and switch the gate on.
 
+**2026-07-23 — bug 020 is CLOSED. The gate is on, and I proved it actually catches things.**
+
+The story since the last entry is a good one, because the careful step is exactly the
+one that paid off. A build went out with the gate in it, I switched it on, and — before
+trusting it — I ran a deliberate test: I fed the system a fake, invented tool (the exact
+kind of thing bug 020 was about) and watched what happened. It did NOT get caught by the
+real check; instead a *safety net* caught it, which told me the real check wasn't
+actually seeing the tool at all. Digging in, I found a genuine bug: the check was being
+handed the tool's contents where it expected the *location* of the contents, so it kept
+looking at an empty box and waving everything through. On the earlier build that would
+have meant the gate silently did nothing — it would have looked switched-on while
+letting fabricated tools straight out to sites. The only reason I caught it is that I'd
+added that safety net earlier (from the review) and that I insisted on testing with a
+real fake rather than trusting the wiring.
+
+So I switched the gate back off immediately (nothing had slipped through — no real tools
+had run in that window), fixed the bug, and added a test that would catch it again.
+
+This build (the one you just deployed) has that fix. I switched the gate on again and
+re-ran the same deliberate test — and this time the *real* check caught the fake tool,
+by name: it flagged the give-away phrases ("realistic, deterministic dataset", the fake-
+postcode generator) and held the tool for review instead of publishing it. That is the
+end-to-end proof I wanted: a fabricated tool, driven through the live system, stopped
+before it could go out.
+
+So both halves are now live and working: the instructions that tell the builder never to
+invent data, and the mechanical gate that stops it if it does anyway. Bug 020 is closed.
+I've noted on the imagery workstream's page that the "wait for 020" hold has met its
+condition, so lifting it is your green-light whenever you want it.
+
+The honest reflection: this took three builds instead of one, because the first "it's
+wired, ship it" would have shipped a gate that did nothing. The lesson — don't trust a
+detector until you've made it catch something real — is exactly the one the bug itself
+was teaching.
+
 **2026-07-22 — the build rolled, and the gate is now switched on and guarding.**
 
 The new build went out, so I switched the gate on. First I checked the running
