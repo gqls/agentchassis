@@ -591,3 +591,42 @@ closed; the dead search box is removed again and the protective locks turned out
 rebuild (no harm done this time). Still failing: the directory exporter that refreshes the practice
 list — next attempt tonight ~20:25, and it needs a person, not the loop. New handoff written for the
 next thread.
+
+---
+
+Today the medicine price comparison came back to life — the data side of it, not yet the
+pages. You asked for the medicine scraping to feed vetcomparison again, and for us to read
+the latest notes first because things had changed. That reading mattered twice over. First,
+it corrected a mistake I'd written down yesterday: I had claimed the medicine price tables
+didn't exist any more. They do — I had simply looked in the wrong part of the database, like
+checking one filing cabinet and declaring the archive empty. That correction is now written
+where the mistake was. Second, it surfaced the real distinction: the retailer prices we
+collected in the spring were genuinely scraped, with the receipts kept — but the "typical
+vet price" figure we used to show beside them was the invented one from the fabrication
+episode.
+
+So before switching anything on, two protections went into the code. The invented figure
+family is now stripped out of everything we publish — it cannot reappear unless someone
+deliberately builds a sourced version. And the exporter now refuses to publish any price
+that lacks its source link and capture date; anything withheld is counted, and the count is
+printed in the published metadata, so silence is impossible. There's a test that proves the
+refusing branch actually refuses.
+
+We also found and defused a trap: the setup file for the medicine exporter still carried the
+old wrong web address (the .co.uk one we don't own), in a place where re-running that file
+would have quietly put it back into the live system. It's blanked now, in both places. And
+the reason medicine prices never refreshed on a schedule turned out to be simple: the
+scraping task's database row had never actually been created — the setup script that was
+supposed to point it at the right agent was updating a row that didn't exist, succeeding at
+doing nothing. That row now exists.
+
+The pipeline is coming up one step at a time, checking each before the next: the discovery
+step ran and found two new product pages; the price scraping is running as I write this; the
+export to the live site comes last, pointed at the real vetcomparison.uk. The prices land as
+data files only for now — putting pages back in front of them is a separate decision, and
+given what happened last time a tool was rebuilt automatically, one to take deliberately.
+
+※ recap: medicine data pipeline switched back on step by step with provenance enforced in
+code (no source link and date, no publication — withheld prices are counted publicly); the
+invented "typical vet price" is stripped and cannot silently return; two dormant traps
+removed; yesterday's wrong claim about missing tables corrected where it was made.

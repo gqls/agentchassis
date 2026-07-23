@@ -166,10 +166,55 @@ step for the bug-020 fix.
 
 - Nothing may export without an explicit domain (Go fail-closed + blanked DB configs). We do
   NOT own vetcomparison.co.uk — never reintroduce it.
-- Scheduled tasks: `directory-export-json` is **ENABLED** (48h). All others remain disabled —
-  med-export-json, med-discover-urls, vet-sweep-continue, ch-vet-collect, vet-batch-verify.
+- Scheduled tasks: `directory-export-json` is **ENABLED** (48h). The med retailer pipeline is
+  being re-enabled one task at a time (owner direction 2026-07-23; see §Med retailer pipeline
+  below). vet-sweep-continue, ch-vet-collect, vet-batch-verify remain disabled.
   Enable deliberately, one at a time.
-- Before re-enabling vet-batch-verify: extend the sweep/verifier deny-list (wheree.com,
-  bestlocalrated.co.uk, yelp.*, starofservice, threebestrated, allvets.co.uk, calmshops.co.uk)
-  and make the verifier persist per-price source_url.
+- Before re-enabling vet-batch-verify: the sweep deny-list is now extended IN CODE
+  (`scan_discovery_candidates.go` skipDomains, +5 families, v1.0.1151) — the REMAINING
+  prerequisite is making the verifier persist per-price source_url. Note: sweep workers run as
+  spawned pods, so their `agent_definitions.image_tag` must be ≥ v1.0.1151 when re-enabled or
+  the deny-list additions won't be in the running code.
 - 176 practices sit in `pending` with wheree.com websites awaiting genuine re-verification.
+
+## Med retailer pipeline (revived 2026-07-23, provenance-first)
+
+Three tasks, enabled one at a time in this order (discover → scrape → export; the export's
+hard 14-day freshness window makes exporting stale data structurally impossible):
+
+| task | target | payload | interval |
+|---|---|---|---|
+| `med-discover-urls` | med-url-discover-orchestrator (spawn) | `{}` | weekly |
+| `med-scrape-prices` | med-price-scrape-orchestrator (spawn) | `{"batch_size":20}` | 21600s (~4-day full coverage of 304 listings) |
+| `med-export-json` | med-json-exporter (in-process on business-intel) | `{"domain":"vetcomparison.uk"}` at enable; blank = fail-closed refusal | 48h |
+
+- **v1.0.1151 changes** (`f82f8b425`): `typical_vet_price` STRIPPED from all export outputs
+  (the fabricated family, LEGAL record `vet_price_est`); fail-closed provenance gate — any
+  price row without a source URL + capture date is withheld and COUNTED, surfaced as the
+  always-present `skipped_missing_provenance` field in `data/price-metadata.json`. That
+  field's PRESENCE is the deploy proof (the stripped field was omitempty, absence proves
+  nothing).
+- **Two deploy artefacts must BOTH be current** or workers silently run old code:
+  the business-intel deployment image (in-process export) AND
+  `agent_definitions.image_tag` for the 8 med-* types (spawned pods use the def tag, not the
+  deployed image — `spawn_actions.go`). Verify:
+  `kubectl -n ai-persona-system exec <business-intel pod> -- sh -c 'strings /app/agent-chassis | grep -c skipped_missing_provenance'` (≥1)
+  and `SELECT type, image_tag FROM agent_definitions WHERE type LIKE 'med-%'`.
+- Force a run: `UPDATE scheduled_tasks SET last_triggered_at=NULL WHERE name='<task>';`
+- Verify scrape by the artefact: fresh `business_intel.med_price_snapshots.collected_at` +
+  `med_scrape_evidence` rows, then spot-check 2–3 prices against the live retailer pages.
+- Verify export by the artefact: `curl https://vetcomparison.uk/data/price-metadata.json` —
+  fresh `exported_at` AND `skipped_missing_provenance` present; every option in
+  `medicine-prices.json` carries `url` + `collected_at`.
+- Pre-flights before any enable: `FIRECRAWL_API_KEY` in the business-intel pod env
+  (passthrough to spawned workers; secret `personae-default-secrets`); ollama-adapter up with
+  `mistral-small3.1` (LLM fallback parser); git-adapter pods Running.
+- Known cosmetic: export logs may Warn `view refresh failed` — `med_price_current` lacks the
+  unique index CONCURRENTLY needs; harmless, the export queries snapshots directly.
+- Dormant leak paths for the fabricated-figure family (recorded, deliberately not fixed):
+  scrape still persists retailer-claimed `typical_vet_price` into `med_price_snapshots` (a
+  DIFFERENT provenance class — extracted from the retailer's own page with evidence); the
+  matview and snapshot `raw_data` expose it to any future consumer. Un-persisting it is a
+  separate owner decision.
+- Site surface: data files only. The medicine pages/calculator rebuild is a SEPARATE task
+  (bug-020 class: a rebuilt tool must not invent data).

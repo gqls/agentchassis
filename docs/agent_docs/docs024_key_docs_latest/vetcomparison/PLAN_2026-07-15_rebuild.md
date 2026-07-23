@@ -306,3 +306,30 @@ render bots push to master continuously. Never push from it, never `reset --hard
 `git fetch` → `git worktree add --detach <scratchpad>/sites-<task> origin/master` → edit/commit
 in the worktree → `git push origin HEAD:master` → verify origin + live URL → `git worktree
 remove`. If the push races a bot, re-fetch and cherry-pick onto the new head; never force-push.
+
+---
+
+## ADDENDUM 2026-07-23 — med retailer arm revived (owner direction; not part of the original phasing)
+
+The original phases treat prices as the practice/service arm (unified schema →
+`directory_export_json`). The RETAILER-medicine arm (`business_intel.med_*` →
+`med_export_json` → `data/medicine-*.json`) is a distinct, parallel arm: its spring-2026
+price data was genuinely scraped with evidence retained, but its published
+`typical_vet_price` figure was the invented family (LEGAL record, `vet_price_est`) and the
+whole surface was stripped on 2026-07-15.
+
+Owner direction 2026-07-22/23: revive the retailer arm, data files first, feeding
+vetcomparison.uk. Decisions: strip `typical_vet_price` from every export output; fail-closed
+provenance gate in the exporter (no source URL + capture date → withheld and publicly
+COUNTED as `skipped_missing_provenance` in price-metadata.json); no medicine page rebuild in
+this pass (separate task, bug-020 class). Shipped in v1.0.1151 (`f82f8b425`, seeds
+`b28137859`, new seed 011 for the never-created med-scrape-prices row). Runbook §"Med
+retailer pipeline" holds the operational detail (two deploy artefacts: business-intel image
+AND med agent_definitions.image_tag).
+
+Hard-constraint reading: constraint 2's prohibition on "republishing another aggregator's or
+retailer's compiled dataset" was written for the PRACTICE arm's sourcing rules; the retailer
+comparison publishes per-price retailer attribution (name + source URL + date), which is the
+comparison service model the site exists for. The LEGAL §8 database-right solicitor advisory
+REMAINS OPEN and now clearly covers this arm too — flagged, not resolved; nothing here
+forecloses it.

@@ -66,6 +66,27 @@
 > (`{"action":"check_endpoint_health"}`, no nested `input_data`) still carry envelope-shaped
 > `input_data` but are NOT the 054 nested-payload trap and are owned elsewhere — left alone.
 
+> **CORRECTED 2026-07-23 — two claims in this trail were wrong; both caught while scoping
+> the med-pipeline revival (WRONG_CALLS.md 2026-07-23):**
+> 1. **"No med price data source exists live — zero tables matching `%med%`"** (stated in
+>    this file's 2026-07-22 close-out, commits `cde8b4da0`→`2377ba5c4`, and in `5deea39ea`'s
+>    commit message). **FALSE.** The check queried only the `public` schema. The med tables
+>    live in **`business_intel.*`**: `med_retailers` (3 active), `med_retailer_listings`
+>    (304, per-listing `retailer_url`), `med_price_snapshots` (2,587),
+>    `med_scrape_evidence` (2,157), matview `med_price_current` — plus the unified
+>    `business_intel.products`/`product_prices`. Caught by reading the vetcomparison docs +
+>    `\dn`. The cheap check that would have caught it: `information_schema.tables` with
+>    **no schema filter**, or `\dn` first.
+> 2. The 2026-07-22 note above over-reads "superseded": the generic `directory_export_json`
+>    superseded the med exporter's **plumbing** and owns the **practice/service arm**; the
+>    **retailer-medicine arm** (`med_*` tables → `med_export_json` →
+>    `medicine-prices.json`) is a distinct, parallel arm — genuinely scraped, evidence-backed
+>    — that the owner directed to revive on 2026-07-23. Revived provenance-first: fabricated
+>    `typical_vet_price` stripped from exports + fail-closed provenance gate (`f82f8b425`,
+>    v1.0.1151), `med-scrape-prices` task created (vetcomparison seed `011`), seed `037`'s
+>    worker-config domain blanked (`b28137859`). The med-arm work is owned by the
+>    **vetcomparison workstream** from here — this case stays closed on the envelope defect.
+
 This is the **sibling case of `bugs_closed/042`** (correlation `55dc0fa4-116c-40d6-90b2-bfad9ad73692`),
 opened as its own case per 042's own instruction ("if it needs a home, open a new case rather than
 reopening this one").

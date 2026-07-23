@@ -622,3 +622,47 @@ News is still server-rendered, so 027's goal is met by their approach — 027 is
 fix is numeric-only and does NOT cover the literal-string domain case, so it will likely fail
 again — needs a human read of `directory_export_action.go`, not the loop (which isn't returning
 verdicts anyway).
+
+## 2026-07-23 — med retailer pipeline revived, provenance-first (session "bugfix 054")
+
+Owner directed (yesterday + today): med-discover/med-export will be active; med scrape
+prices feed vetcomparison.uk; read the latest docs first. Decisions taken with the owner:
+strip `typical_vet_price` from exports entirely; export-side fail-closed provenance guard;
+data files only (no medicine page rebuild — separate task, bug-020 class).
+
+**Shipped:**
+- `f82f8b425` + gofmt `ff5e2f7df` (v1.0.1151): `vet_med_export_action.go` — TVP stripped
+  end-to-end (struct/SELECT/Scan/option/assignment; was `omitempty`, so it had to be gone at
+  compile time); `filterMedExportProvenance` between load and grouping (drops url-less/
+  zero-date rows); the previously SILENT `rows.Scan` error `continue` now feeds the same
+  counter; always-present `skipped_missing_provenance` in price-metadata.json.
+  `scan_discovery_candidates.go`: +7 aggregator domains (5 RUNBOOK families). Discriminating
+  tests for the failing branch (drop 3 of 4, count them; metadata field present at 0).
+- `b28137859`: seed 037 worker-config domain BLANKED (the def INSERT is ON CONFLICT DO
+  UPDATE SET default_config — an unblanked seed re-run would reinject vetcomparison.co.uk
+  into the LIVE worker config); NEW vetcomparison/011_med_scrape_prices_task.sql (the row
+  NEVER EXISTED — 096's UPDATE was a silent no-op, which is why nothing ever populated
+  med_price_snapshots on a schedule); 096 annotated.
+- Deploy: business-intel rolled to v1.0.1151 (the export runs IN-PROCESS there — the task
+  targets med-json-exporter directly, no spawn); all 8 med-* agent_definitions bumped to
+  v1.0.1151 (spawned temp pods run the DEF tag, not the deployed image —
+  spawn_actions.go:2127-2139,:2755). Pod-grep: needle skipped_missing_provenance=3,
+  positive control=1, stripped literal=0, deny-list needle=1. Council submission corr
+  abf75d33-c9ac-42fc-99b3-47ddf2694422 (verdict pending at commit time; committed without
+  trailer per discipline).
+
+**Missteps this session (also in WRONG_CALLS 2026-07-23):**
+- Yesterday's close-out of bugs_closed/054 claimed "no %med% table exists live" — FALSE,
+  the query filtered table_schema='public'; everything is in business_intel.*. Caught by
+  the owner's "read the latest docs" + `\dn`. Corrected in bugs_closed/054.
+- I initially framed the empty med-export domain as a "gap to fill" and left seed 037
+  carrying vetcomparison.co.uk — the RUNBOOK rail says never reintroduce it. Corrected
+  yesterday (`2377ba5c4`), and today the WORKER-config copy of the same domain was also
+  found and blanked (the 2377 fix only covered the scheduled-task payload).
+- Enabled med-discover-urls at 11:49:19, ~187s after the business-intel restart — inside
+  the ~300s no-dispatch window. Got away with it (orch 5bb6cc19 EXECUTING at 11:49:47);
+  do not copy the timing.
+
+**State at writing:** discover run 5bb6cc19 EXECUTING; scrape + export still disabled,
+next in sequence. Enable order + verification queries now in the RUNBOOK §Med retailer
+pipeline.

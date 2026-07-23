@@ -2063,3 +2063,28 @@ journey deliver what the button promises?) before calling it done.
 **Cost:** shipped a cosmetic fix as "working", the owner had to catch it, and I had
 declared victory in a SUMMARY. Corrected in NOTES + README; the real fix (backend + AI
 competitor via the experience loop) is now scoped.
+
+---
+
+## 2026-07-23 — "no `%med%` table exists live" (a schema-filtered query read as fleet truth)
+
+**Asserted:** in the `bugs_closed/054` close-out (2026-07-22, commits `cde8b4da0`,
+`5deea39ea` message): "No med price data source exists live — zero tables matching
+`%med%` in clients_db; the exporter's loadMedPricesForExport has nothing to read." Also
+a derived claim in session memory: "the Phase-1 product_prices/kind unified schema is
+NOT in clients_db."
+**Actually:** both false. The query filtered `table_schema='public'`. The med arm lives
+in `business_intel.*` — med_retailers (3 active), med_retailer_listings (304 with
+per-listing retailer_url), med_price_snapshots (2,587), med_scrape_evidence (2,157),
+matview med_price_current — alongside the unified `business_intel.products`/
+`product_prices`. The exporter had plenty to read; it was merely stale (>14-day window).
+**Caught by:** the owner saying "look at the latest docs — things have changed" while
+scoping the med revival; the vetcomparison RUNBOOK's `business_intel.claim_requests`
+reference prompted `\dn`, which showed 8 schemas.
+**The cheap check that would have caught it:** `\dn` FIRST, or query
+`information_schema.tables` with **no schema filter**, before asserting any "table does
+not exist" claim. A negative existence claim inherits the blind spots of its search — the
+same failure shape as grepping one directory and declaring a symbol absent.
+**Cost:** one false durable claim in a closed bug file + a poisoned memory entry; both
+corrected 2026-07-23 (bugs_closed/054 CORRECTED block). Caught before any thread built on
+it — but only because the owner pushed back.
