@@ -156,3 +156,20 @@ AI-competitor requirement goes BEYOND run 8's "gauntlet minimal-real" cut, so th
 re-plan / feature round + NEW backend infrastructure (a static-hosted page needs a live
 HTTP endpoint its JS can fetch). Research launched (3 lanes: experience-loop build
 machinery, feature-builder implementer, backend/API path for static tools). Plan to follow.
+
+## 2026-07-23 — P0+P1 executed (plan approved: debate opponent, feature-builder, contracts split, apis.uk+bastion)
+- Owner decisions recorded in the approved plan (~/.claude/plans/resilient-wobbling-lovelace.md,
+  mirrored in PLAN_2026-07-22 update to follow): AI competitor = DEBATE OPPONENT;
+  backend via feature-builder (B4 first fire); contracts-rule split approved; engine in
+  cluster + shared API domain on apis.uk + BASTION host; sites stay static.
+- P0 DONE: migration 196 (review_contracts greenfield split) applied + ledgered,
+  snapshot e0194bee; byte-verified before apply; recorded in experience_loop
+  RUNNING_NOTES (their workstream file — contributed, not forked).
+- P1 DONE (fired): migration 197 injects D1-REVISED (debate + tools-api contract:
+  round/position/defend paths, degraded-mode honesty) + updated gauntlet diagnosis
+  into the compose prompt — decisions live in the compose prompt BY DESIGN (the
+  "Decisions already made" block is the owner-ruling channel; the 092 trigger has no
+  requirement field). Applied + ledgered, same snapshot id.
+- 092 fired: CORR 4d3d89fa-cfed-4381-bfdf-17d325c7a397. First live test of 196+197.
+  Judge by council_report artifacts on that correlation, NOT the wrapper; ~30 min
+  queue. Accept only approved + abstained:0 (+reviewers:5 now).
