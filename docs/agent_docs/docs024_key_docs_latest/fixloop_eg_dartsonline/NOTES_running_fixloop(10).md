@@ -2708,6 +2708,34 @@ always prints the ACTUAL age so the reader can judge regardless.
 Verdicts pending on both (monitor running). NEXT session: read both verdicts
 BEFORE building further on either.
 
+**VERDICTS IN (same evening): BOTH APPROVED.**
+- **Rework r2 (6cdbc374): APPROVED**, 3 advisory objections, none high-severity —
+  the guardian's round-1 veto is lifted by its own named alternative. Notable
+  advisory items: (a) editquality — the DB-backed loader's new failure paths were
+  untested → FIXED same evening (`57aa37d2f`, pure `parseWorkflowSteps` split +
+  guard tests, trailer earned); (b) reuse_agent asked whether an existing plan
+  loader exists → grepped: NO (diagnose_dormant_agents does an AGGREGATE query, a
+  different shape); (c) guardian repeated the 060-passenger entanglement concern —
+  recorded, forward-only, 060's thread owns their half; (d) debug_historian —
+  compile-verification is git-shaped; the POD-GREP + induced-fault verification is
+  OWED when the next image rolls (standing next step).
+- **Freshness guard (8ed67200): APPROVED**, 2 advisory objections — (a)
+  bug_historian: the banner is bolt-on at 2 call sites, a third consumer could skip
+  it (the recurring class!) → FIXED mechanically (`4920cd629`): pattern-check
+  declared pair `FROM code_symbols ↔ codeIndexFreshness`, falsified both ways
+  (fires on pre-guard 0bd3543bc, silent on f21e54687); census grounded — exactly 3
+  reader files exist (lookup=guarded, code_symbols_actions=writer,
+  analyse_repo_local=non-LLM internals, named exempt in the pair's message); (b)
+  guardian's blast-radius ask → grounded: only fix-proposer's `code_lookup` step
+  invokes diagnose_code_lookup; no other code string-matches the header text.
+- Trailer discipline held: primary commits (3af7b9d8d, f21e54687) predate the
+  verdicts and carry the trail in prose; the two follow-up commits carry the
+  EARNED trailers.
+- **STILL OWED when the next image rolls:** discriminating pod-grep + a live
+  induced fault for BOTH (a mismatched-wiring workflow for the route guard; the
+  freshness banner visible in a real bundle — and its STALE branch fires naturally
+  if the cadence ever misses two days).
+
 ## 2026-07-24 — code-lookup misses CLOSURES: `handleMissingField` unresolvable, drove a 5-iteration run to UNVERIFIABLE (from the 040-partial-build thread)
 
 Diagnosis corr `f9bcee6f` (skip-not-recorded mechanism) ended **UNVERIFIABLE** with its

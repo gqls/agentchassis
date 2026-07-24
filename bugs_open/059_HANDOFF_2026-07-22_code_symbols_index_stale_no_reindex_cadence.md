@@ -113,10 +113,16 @@ pre_query resolves to the live branch. First-fire behaviour verification: see NO
 turn 48b / the session monitor.
 
 RESIDUALS (bug stays OPEN):
-- **fix #3 — the freshness guard is NOT built.** The cadence keeps the index close
-  but a stale/lagging answer STILL reads as "absent" at read time. The deeper fix
-  (code tier + prior_art seat compare index `commit_sha`/`updated_at` and degrade to
-  "unknown" rather than empty-as-absent) remains — it is the 019-family protection.
+- ~~**fix #3 — the freshness guard is NOT built.**~~ **BUILT & COUNCIL-APPROVED
+  2026-07-24** (commit `f21e54687` + follow-up `4920cd629`; council corr `8ed67200`
+  APPROVED, 2 advisory objections both applied). Every rendered answer from
+  code_symbols (diagnose gather + council code_checks incl. the prior_art seat) now
+  carries a freshness banner: quiet age+commit when fresh, loud STALE/EMPTY warning
+  (>48h = one missed 24h-cadence fire) naming age/commit/remedy, fail-open note on
+  a query error. Plus a pattern-check declared pair (`FROM code_symbols` ↔
+  `codeIndexFreshness`) so a future third consumer cannot silently skip the guard.
+  **INERT until the next chassis image roll** — the bug stays open until the guard
+  is verified IN A POD (fixed-and-live bar), then it can close with fix #2 noted.
 - **fix #2 — the docs019 `TRIGGER_code_indexer_v2.sh` is still the wrong (direct)
   dispatch.** A hand reindex should go via `index-orchestrator`; the stale script
   wastes a run. Left for a docs sweep.
