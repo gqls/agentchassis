@@ -36,3 +36,27 @@ technical question: whether we can attach the new block to one about page and
 re-render just that page without a full rebuild — the platform has burned us
 before on "the fix is in but the page never re-rendered", so we're verifying
 rather than assuming.
+
+## 2026-07-24, evening — pilot built and fired; it tripped over an older bug
+
+The checking paid off: there is a safe way to add the block to one page, and we
+built it. The new block is in the component library, finetuning.uk was chosen as
+the guinea pig (quiet site, nobody else working on it), and its settings were
+written so that only the "Built by fundamentallyai.com" line would show — the
+for-sale and advertise lines stay hidden until there's a real Afternic listing
+and a real advertise.co.uk to point at. We deliberately started with the honest
+minimum.
+
+When we pressed the button, the rebuild failed — but not because of anything we
+added. It hit a fault that's been sitting in the platform since at least the
+16th: the "rebuild one page" machinery hands its content writer less information
+than the writer's link-checking step insists on, so every single-page rebuild
+dies at that step no matter whose page it is. Two earlier failures in the logs
+show someone hit this eight days ago and nobody filed it. We've now put it
+through the formal diagnosis loop (so the cause gets verified and fixed
+properly, not patched twice by two threads), and our pilot is still armed: the
+page is untouched, still flagged, and the moment the rebuild path is fixed it
+will pick our block up with no further work.
+
+So: design done, block built, pilot armed, one pre-existing platform bug found
+and filed — waiting on the diagnosis verdict before the last step.

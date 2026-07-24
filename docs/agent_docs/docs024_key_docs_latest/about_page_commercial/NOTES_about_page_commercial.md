@@ -82,3 +82,31 @@ class of assumption 024 punished.
   same-owner footer/about links to fundamentallyai.com are exactly the
   widget/footer-credit pattern Google discounts; traffic value is clicks, not
   PageRank. [DECIDED without owner — flag if he wants built-by followed]
+
+## 2026-07-24 (later still) — pilot rebuild FAILED on a PRE-EXISTING platform bug; diagnosis filed
+
+- Fired p1_trigger_rebuild.sh SEND=1 (corr 7a820803). Queue latency ~8 min, then
+  the run FAILED at build_pages_loop_iter_0_write_page_content / resolve_links:
+  `contract violation for agent 'internal-link-resolver': missing required
+  fields: [sections]. Provided: [page_name page_type site_id]`.
+- NOT our component's doing: identical failure fired TWICE on 2026-07-16 (also
+  from a rebuild loop, agent_error_log), and 60 writer-bearing orchestrations
+  COMPLETED in the last 8 days via the normal build path. Mechanism (pinned by
+  read, filed for verification): page-content-writer's resolve_links maps
+  `"sections?": "input_data.section_plan.sections_ready"` (OPTIONAL) while the
+  internal-link-resolver input_contract REQUIRES [site_id, sections]; the
+  pageflow-builder caller supplies section_plan, page-rebuild's writer dispatch
+  does not ⇒ every page-REBUILD dies at resolve_links. The step's
+  error_step:select_sections intent (non-fatal link-resolve) is BYPASSED because
+  the violation happens at extraction, before the call.
+- Greps clean: /bugs_open/ + /bugs_closed/ only hit 029 (different resolve_links
+  defect — phantom tool links); needs_diagnosis queue was EMPTY. Filed 090 per
+  CLAUDE.md (cause in shared infra, cross-cutting, fix would change fleet
+  behaviour): CORR **38cffebf-d01a-4922-9f39-e2deb5930e0d**, item_key
+  `needs_diagnosis:page-rebuild-s-per-page-writer-dispatch`. Advisory noted:
+  local HEAD 51 ahead of origin — irrelevant here, defect is live-DB config.
+- Live about page verified UNTOUCHED (0 grep hits) and build_status still
+  needs_rebuild — the armed pilot survives; a fixed rebuild picks it up as-is.
+- [INFERRED] the 07-16 pair was another thread's rebuild attempt that was
+  abandoned or routed around; no bug was filed then — the sweep only sees
+  recorded failures, and these two rows evidently didn't clear its bar.
