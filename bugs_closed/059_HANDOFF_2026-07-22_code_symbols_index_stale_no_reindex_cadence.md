@@ -145,3 +145,30 @@ RESIDUALS (bug stays OPEN):
   wastes a run. Left for a docs sweep.
 - The cadence is 24h (matches other freshness tasks). Tighten the one column if the
   index must stay within a single image roll (images roll several times a day).
+
+## ADDENDUM 2026-07-24 (same evening) — fix #2 DONE & VERIFIED; the close banner's residual is resolved
+
+*(separate session, chat "bugfix 059", working concurrently with the closing thread —
+the two verifications interlocked without either knowing: the closing probe's banner
+named commit `e19aa5d`, which is the sha THIS session's fix-#2 verification run had
+just written into the index.)*
+
+**Root finding: the fix had existed since 2026-07-02 and was invisible.** The
+corrected script (target `index-orchestrator`) sat in a stray
+`TRIGGER_code_indexer_v2(1).sh` duplicate (`820289fda`) while the canonical filename
+kept the broken direct dispatch — which is what burned this bug's filer on
+2026-07-22. Folded into the canonical `docs019/…/TRIGGER_code_indexer_v2.sh`,
+duplicate deleted. `REF` was also hardcoded to the dead `083_imagery` (this bug's
+own drift class) — now derives from the current branch, env-overridable.
+
+**Verified first try, live:** dispatch corr `8ba6ac69` COMPLETED;
+`code_symbols` advanced `adb00fd` → `e19aa5d` (4507 → 4535 rows, 16:59 UTC);
+positive controls `freshnessBanner` and `loadOwnWorkflowSteps` — symbols committed
+that same afternoon — now return rows. (`TestFreshnessBanner` also re-run green
+independently, from a `git archive HEAD` to dodge the shared tree's WIP.)
+
+**Operational dependency worth remembering:** the indexer fetches the REMOTE tip
+(`tarball/<ref>`), so cadence and script keep the index only as fresh as the last
+PUSH — found with origin 84 commits behind and the index sitting exactly at
+origin's old tip. The script now says push-first; a same-sha result after a hand
+reindex means the push is missing, not that the run failed.
