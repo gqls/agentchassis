@@ -688,3 +688,31 @@ waiting for you to verify the levy figures and submit through the CMA portal.
 
 So there are now two live CMA deadlines: the funding one in ~6 days, and the bigger substantive
 one in ~4 weeks. Both need you; I've not submitted anything.
+
+---
+
+**24 July 2026 (evening) — the medicine price scraper was inventing prices, and two invented
+ones reached the live site. Found, cleaned up, and fixed — fix awaiting the next deploy.**
+
+The bug filed yesterday (two Advocate prices on the site that don't match the shop's actual
+page) is now fully explained, and the explanation is uncomfortable but tidy: when our normal
+price-reading code finds nothing on a page, we fall back to asking a small local AI model to
+read the page instead. That fallback was being shown a snippet of the page that contained no
+prices at all — and instead of saying "no prices here", the model made some up. Convincing ones.
+In one case it literally copied the example price we'd used to show it the answer format. And
+because we filed those made-up prices under the same label as properly-read ones, nothing
+downstream could tell them apart.
+
+The damage, once I swept everything against the saved page evidence: 212 invented price entries
+in total — 8 from this week (two of which were on the public site) and 204 from back in April,
+when the pipeline first ran. All 212 are now removed from the live data (kept in a quarantine
+table, nothing destroyed), and the public site cleans itself at the next scheduled data export.
+Important nuance: 19 entries at the suspicious £17.48 turned out to be *genuine* — so the sweep
+checks each price against its own saved evidence, never just the number.
+
+The fix: prices can now only be stored if they actually appear in the page text we save as
+evidence — anything else is skipped and logged loudly. AI-read prices also get their own label
+so they're always auditable. That code is written, tested, and committed, but it doesn't take
+effect until the next software deploy; until then the scraper runs every 6 hours, so I've left
+a re-check query in the runbook and the sweep should be re-run until the deploy lands. The
+change has also gone to the review council (verdict pending at time of writing).
