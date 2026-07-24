@@ -1146,3 +1146,20 @@ bug-056 vigilance), failure (work-item error / new agent_error_log rows — a
 provider misconfig would fail the generate_content step). Rollback if Gemini
 misbehaves: restore ai_service from `bak_agent_definitions_pcw_20260724`
 (or just re-point provider/model back to anthropic/claude-sonnet-4-6).
+
+## 2026-07-24 — writer back on Claude (fleet switch-back); style prompt RETAINED; test now Claude+prompt
+
+Owner: "we have switched back. please continue with the prompt change." The
+switch-back was fleet-level (sweep `fb6d6ad44` "v1.0.1151 — prior to more
+automated reliance on Claude" reverted the content-creator service). My
+page-content-writer flip was still standing (DB untouched since my write) —
+reverted it to `anthropic/claude-sonnet-4-6` to align, guarded on updated_at,
+**keeping the Voice & Style block** (verified: provider/model reverted,
+style_block=true). Net state: the model experiment is off; the PROMPT change
+stands and is live.
+
+The queued `about` rebuild never ran under Gemini (still triaged behind the
+backlog) — so the one-page test is now exactly the clean experiment: **Claude +
+new voice prompt vs the Claude + old prompt baseline** (about_copy_before.txt).
+Monitor unchanged. On completion: before/after comparison against the style
+rules + voice-tells + leopardess-story presence.
