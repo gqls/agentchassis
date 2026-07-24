@@ -75,8 +75,17 @@ their own output.
 - Deploy pipeline: optimise → commit image to git (durable path via Cloudflare
   worker, not an expiring S3 URL) → re-render pages. Per-kind byte/dimension
   budgets + image-integrity checks (placeholder-in-use, 404, undeployed, missing).
-- **Hard rule: data charts are code-rendered from real series (go-echarts), never
+- **Hard rule: data charts are code-rendered from real series, never
   drawn by a diffusion model** — the model only adds an annotation layer.
+
+> **CORRECTED 2026-07-24:** this line originally said charts are rendered
+> "(go-echarts)" as if that were live. **No chart rendering exists** —
+> go-echarts is not in go.mod, no chart action exists, and the concept
+> register (`docs026_concept_register/register/data-charts.md`) marks
+> data-charts "aspirational — not started". The *doctrine* (real series,
+> code-rendered, never diffusion) is genuine and enforced as a rule about
+> what NOT to do; the rendering implementation is a gap. Caught by a plan-
+> mode explorer grepping go.mod (2026-07-24); logged in WRONG_CALLS.md.
 
 ## 4. Claims / fact verification — the "honesty machinery"  [LIVE, V5 DESIGNED]
 Per-site fact register (`evidence_base`): facts with value/kind/source (sql |

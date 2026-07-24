@@ -2261,3 +2261,21 @@ cross-read the two; one glance at the plan's file list would have caught the
 contradiction. An instruction's example is a claim about the target artifact and needs
 the same verification as any claim.
 **Cost:** one implementer round + migration 200 to say precisely what 199 should have.
+
+### 2026-07-24 — per_site_ai — a capabilities inventory carried an unverified [LIVE] tag for two strategy rounds
+**Asserted:** `CAPABILITIES_framework_inventory_2026-07-21.md` §3: "Hard rule:
+data charts are code-rendered from real series (go-echarts)" — presented under
+a [LIVE] section heading, implying a working chart renderer.
+**Actually:** go-echarts appears nowhere in go.mod/go.sum/*.go; no chart action
+exists; the concept register's own entry (data-charts.md) says "aspirational —
+not started". The doctrine was real; the implementation was not.
+**Caught by:** a plan-mode Explore agent grepping go.mod while scoping the
+gripper-dossier pilot — three days and two external-LLM strategy rounds after
+the claim was written (Gemini echoed it back as a platform strength both times).
+**The cheap check that would have caught it:** for any capability tagged
+[LIVE] in a compiled inventory, one grep of go.mod / the action registry for
+the named artifact. A compiled summary inherits none of its sources'
+verification — every [LIVE] tag is a fresh claim needing its own check.
+**Cost:** none realised (caught before the pilot's chart step was designed
+around it), but the pilot design now has to solve chart rendering it believed
+was free.

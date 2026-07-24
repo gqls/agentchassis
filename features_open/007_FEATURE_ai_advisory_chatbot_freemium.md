@@ -6,6 +6,14 @@ owner at the time of raising: *"that is another feature for another time"*.
 owner reopening it.
 **Depends on:** `features_open/006_FEATURE_gaswholesalers_repositioning_and_ai_influence_page.md`
 — the page must exist and be credible first; the bot is an extension of it.
+**Related:** `features_open/013_FEATURE_three_tier_ai_tooling_funnel.md`
+(2026-07-24) — the fleet-wide generalisation of this idea. That workstream's
+first pass wrongly assumed every site's chatbot should be a cheap intake
+front-door; this feature is the counter-evidence (a deliberately *high-quality*
+model, deep research, caching, paid per-session) and 013 has been corrected to
+treat "cheap Tier-2 utility chat" and "expensive Tier-3 conversational
+deliverable" as two different things, not one. This entry is still deferred —
+013 does not reopen it.
 
 ## The idea
 

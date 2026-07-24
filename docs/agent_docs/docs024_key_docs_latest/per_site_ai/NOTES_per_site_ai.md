@@ -178,3 +178,199 @@ gate; if a single prompt does it, it's a funnel-top widget not a paid op) ·
 Not every vertical has a strong *paid utility* op. Liability verticals (Vet,
 Health) lean pattern 3 (comparison) + pattern 4 (novelty), NOT advice — triage/
 diagnosis is a liability minefield. Say so rather than forcing a weak paid op.
+
+## 2026-07-24 — external-LLM session extraction + features_open discovery
+
+Owner ran a parallel strategy conversation with Gemini (pasted our
+2026-07-21 CAPABILITIES inventory as grounding), developed a 3-tier funnel +
+domain-archetype framing + a reusable "universal domain strategy prompt", then
+brought the transcript back for extraction. Task: strip good ideas, discard
+noise, define what to say/do fleet-wide. Before touching that material, grepped
+`features_open/` per CLAUDE.md's "grep before you file" discipline (should have
+done this on 2026-07-21 when the workstream opened — did not; caught now, cost
+nothing since nothing had been built).
+
+### The discovery that reframes everything: 006/007/003 already exist
+`features_open/006` (2026-07-20, four days before this workstream opened) is
+the owner's own original, concrete, single-domain version of this exact idea:
+gaswholesalers.com repositioned for oil/gas executives, "AI influence" nav page,
+honest, three-level remediation (corporate/employee/personal). `007` is the
+deferred advisory chatbot for that page — explicitly a **high-quality model**,
+deep research, caching, paid per-session. `003` is the paid-tier/entitlement
+design in progress (`client_entitlements` cache, BIZ-014 tier flag). This
+workstream is not a new idea — it is 006/007 generalised to most of the fleet.
+Filed `features_open/013` as the anchor and cross-linked all three. Decisions
+folded into PLAN as D9–D14 plus the 006 connection note.
+
+**Correction to this workstream's own D2 (2026-07-21):** "chatbot = cheap
+intake front-door, never the product" was too narrow. `007` is direct
+counter-evidence — the owner explicitly wanted a *high-quality*, expensive,
+deep-research chat as the product for one vertical. Resolved as D12: cheap
+Tier-2 utility chat and expensive Tier-3 conversational deliverable are two
+different things; which one (if either) a pool gets depends on its archetype
+and value-per-lead, not a blanket rule.
+
+### Extraction: KEPT (genuinely new or genuinely sharper than what we had)
+1. **Tier 2 "sticky go-to AI utility"** as a distinct funnel layer between the
+   free probe and the paid deliverable — D9. This was a real gap: D6/D7 covered
+   the free and paid ends and nothing covered the middle, which is exactly what
+   the owner asked for two turns before this ("an AI tool... to draw targeted
+   traffic... on top of the free algorithmic tools").
+2. **Four reusable Tier-2 templates** (Extractor, Transformer, RAG Fast-Checker,
+   Diagnostic Schema Generator) — a genuinely generalisable mechanism, not
+   vertical-specific. Kept in `IDEAS_...md` §1.
+3. **Archetype × Pattern two-axis grid** — D10. Sharper than either taxonomy
+   alone; the archetype axis (who/why/risk-register) was implicit in this
+   workstream's earlier liability discussion (turn 1 point 5) but never made
+   explicit or crossed against the pattern axis.
+4. **006's three-level remediation frame** (corporate/employee/personal) —
+   technically from `006`, not from the Gemini session, but surfaced by this
+   extraction pass. Replaces this workstream's vaguer "job-title-specific
+   articles" language (D3) with something concrete and already owner-approved.
+5. **"Artifact as lead magnet"** — a co-designed deliverable makes an
+   email-gate read as delivery, not friction, so a user who has just spent two
+   minutes configuring a report doesn't experience giving an email as marketing
+   friction. Useful design guidance for Tier 2/3 gating (folded into D13's
+   framing, not a separate decision).
+6. **Graduated gating ladder** (free-rate-limited → email-gate → micro-sub →
+   per-deliverable paywall) — D13, refines D4's binary free/paid split into
+   something with intermediate rungs, while preserving D4's core rule (don't
+   paywall the chat itself, paywall depth/volume/the deliverable).
+7. **Modality→ROI heuristic** (text/data = trust+speed; voice = reassurance/
+   hands-free; video = virality/desire; motion graphics = spatial mechanics) —
+   kept as a heuristic for *if/when* modalities beyond text+image+embeddings get
+   added; does not change the standing modality-gap finding (CAPABILITIES, still
+   true: no voice/video/animation wired in).
+8. **Pool-level (not per-domain) ideation prompt**, corrected and adapted —
+   D11, `IDEAS_...md` §4. Kept the underlying prompt-engineering technique
+   (background context + explicit negative/positive examples prevents an LLM
+   defaulting to "ask me anything" chatbot slop) but changed the unit from
+   domain to pool, and added a hard groundedness gate that refuses to infer a
+   vertical from a domain string.
+
+### Extraction: DISCARDED or MUST-VERIFY-BEFORE-USE
+1. **All 15 sample-domain archetype/tool assignments.** Checked against the
+   live `sites` table 2026-07-24: **zero of the fifteen exist as platform
+   sites.** Every assignment (e.g. "airportcollections.com = chauffeur
+   transfers", "arabianperfumes.co.uk = luxury fragrance") was inferred from
+   the domain string alone — exactly the failure mode `news_feed_pooling`
+   already named ("profiles written from research, never from the domain name
+   alone"). Kept as ungrounded brainstorm seed material only
+   (`IDEAS_...md` §3), heavily flagged, never to be treated as a validated plan.
+2. **Illustrative SQL** (an `agent_workflows` table with `INSERT` example rows)
+   — does not match this platform's real schema
+   (`agent_definitions.default_config.workflow.steps`); confabulated for
+   illustration by the external LLM, not evidence of anything to reuse or a
+   real design to follow.
+3. **Per-run cost estimates** ("$0.001–$0.005/run", "$4.99–$9.99/mo") — the
+   external LLM's own unverified guess, not checked against our real model
+   pricing (see aiservice model tables). Don't quote as fact; would need
+   grounding against actual Claude/Ollama per-token costs before appearing in
+   any pricing decision.
+4. **The "reality check" readiness table** — pure restatement of the
+   CAPABILITIES inventory we ourselves supplied as context; no new information,
+   and less rigorously evidenced (no file paths) than our own version.
+5. **Running the deep-dive prompt per domain across the whole fleet** — doesn't
+   scale to 1,000+ sites; superseded by D11 (pool-level ideation +
+   lightweight per-site specialisation).
+6. A **unified cross-portfolio account/payment** was never actually proposed by
+   the external session, but the ambiguity was live in this workstream's own
+   open questions. Owner closed it directly, restated 2026-07-24: domains stay
+   independent (D14).
+
+### What "define what we need to say and do, going forward" resolves to
+(the actual answer to the owner's question this turn — full statement given in
+chat, condensed here for the log): most sites get a nav-linked AI section built
+as a 3-tier funnel (free algorithmic probes → cheap sticky utility → paid
+signature operation), with an honest AI-impact editorial page (006's
+three-level frame) sitting above it as the trust/SEO layer. We do not claim to
+out-think foundation models; we sell the produced, verified, deployed thing a
+single prompt can't produce, and every tool doubles as a live advert for the
+framework itself. Chat is a delivery format inside Tier 2 or Tier 3, never the
+product on its own. Still pure deliberation — nothing built.
+
+## 2026-07-24b — second Gemini batch: 8 domains, this time "already on our
+## system" — ground-checked, real corrections found
+
+Owner brought a second external-LLM batch (8 domains: robot-hands.com,
+gaswholesalers.com, agritec.uk, mortgagecalculator.co.uk, websitedesign.com,
+leopardessconsulting.co.uk, idea.uk, ai-agent-orchestration.com), this time
+claimed as domains already on the platform. Checked every one against the live
+`sites` table before using any of it — same discipline as the first batch, but
+this time worth doing thoroughly because 5/8 turned out real. Full per-domain
+findings in `GROUNDED_domain_profiles_2026-07-24.md`; summary here.
+
+**Still 3/8 ungrounded**: `agritec.uk`, `mortgagecalculator.co.uk`,
+`websitedesign.com` do not exist in `sites`. Filed as brainstorm-only in
+`IDEAS_...md` §3b, same treatment as the first batch's 15.
+
+**5/8 real, and checking them found concrete, useful corrections** — pulling
+real page titles + tagline (not `audience.v1`, which was empty on every site
+checked so far) was what caught these:
+
+- **robot-hands.com**: real site is a narrower, more mature "vendor-neutral
+  gripper selection platform" than Gemini's broader guess (which wrongly
+  included prosthetics research). More importantly: **Tier 1 already exists**
+  (3 calculators live) and MatchMatrix already functions as a sticky Tier-2
+  utility — Gemini's Tier-1/2 ideas were redundant with what's already built.
+  The real gap is Tier 3, and a sharper candidate than Gemini's (CAD/video
+  ingestion, no precedent) is extending MatchMatrix into a verified
+  procurement dossier — which also structurally addresses `bugs_open/043`
+  (fabricated stats found on this exact site).
+- **gaswholesalers.com**: DB still shows the STALE content `006` exists to
+  replace (checked live, 2026-07-24) — the rewrite hasn't shipped. Gemini's
+  guess was unexpectedly well-aligned with `006`'s *corrected* positioning
+  (independent convergent validation), but any build here must sequence behind
+  `006` shipping, and must frame Tier-3 output as advisory-for-the-reader, not
+  first-person operational claims — reintroducing that exact pattern is what
+  caused `006` in the first place.
+- **idea.uk**: Gemini's whole profile (patents, IP law, prior-art search) was
+  **wrong** — free-associated "idea" → "invention" from the domain name alone,
+  the sharpest miss in the batch. Real site validates business/product ideas,
+  with a "Verified Idea Report" tool. **Then a memory update mid-session
+  upgraded this further**: `idea-uk-vm-site-workstream` (a separate active
+  session) verified LIVE, same day, that the home+header CTA funnels into a
+  PAID `/report.html` tool — spot-checked directly against the live `pages`
+  row (`report-request-form` section confirmed). idea.uk is not a pilot
+  candidate, it's **the closest thing on the platform to a working reference
+  implementation of this workstream's whole Tier-3 concept**, already live,
+  owned by another session (follow-on `bugs_open`/`054` is theirs). Read their
+  HANDOFF before proposing anything here — don't re-derive what's already
+  built and don't start parallel work on an owned domain.
+- **leopardessconsulting.co.uk**: Gemini's guess (generalist management/ESG
+  consultancy, C-suite/PE personas, governance tools) was **wrong archetype
+  entirely** — real tagline and real case studies (Companies House pipeline,
+  tool-generation pipeline, news pipeline, hierarchical agent architecture) show
+  this is an AI-engineering delivery consultancy, sibling to
+  ai-agent-orchestration.com, both flagship framework-demo sites (PLAN D8).
+  Real content already includes an "AI Production Readiness Assessment" quiz —
+  a live Tier-1/2-ish tool Gemini didn't know about.
+- **ai-agent-orchestration.com**: the best match of the whole batch — Gemini's
+  guess was strongly aligned, real content includes 4 already-live tools (ROI
+  estimator, LLM cost calculator, readiness quiz, complexity estimator) plus a
+  genuine technical blog and case studies. Confirms D8 from an independent
+  source. Gemini's "live 3-min fleet deploy" Tier-3 idea is on-strategy but
+  risky (depends on the platform's most bug-fought delivery path); a lower-risk
+  first step is a personalised "Architecture Fit Report" citing the real case
+  studies, no live deploy required.
+
+### Meta-lesson, stated plainly
+Gemini's accuracy tracked **how literally the domain name described the real
+business** — near-perfect for `ai-agent-orchestration.com`, badly wrong for
+`idea.uk` and `leopardessconsulting.co.uk`. A domain name is not evidence
+either way; sometimes it happens to be right. The only thing that caught the
+misses was pulling real page titles and the real tagline. **Strengthening
+D11's groundedness gate accordingly**: the pool-level ideation prompt must be
+fed real page titles/content pulled from the platform, not just an
+`audience.v1` reference — `audience.v1` was empty on every site checked in
+both batches, so it isn't yet a reliable mechanism to point the gate at.
+
+### Revised pilot recommendation (supersedes the 2026-07-21 "Property" pick)
+Property was never grounded in a real domain — it was a pool, not a specific
+site. Now grounded candidates exist, ranked in
+`GROUNDED_domain_profiles_2026-07-24.md`: **robot-hands.com first** (real
+audience, Tier 1/2 already live, one scoped Tier-3 gap that also fixes a known
+bug), **ai-agent-orchestration.com + leopardessconsulting.co.uk** as a close
+second pair (validates D8, both further along than any other domain checked),
+**gaswholesalers.com** sequenced behind `006`, and **idea.uk treated as the
+reference implementation to study, not a build target.**

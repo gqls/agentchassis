@@ -8,7 +8,19 @@ site/content thread picks it up. Claims-verification's own slice is noted in §5
 **Related:** `features_open/007_FEATURE_ai_advisory_chatbot_freemium.md` (the
 chatbot that belongs on the page this feature creates),
 `docs024_key_docs_latest/claims_verification/PLAN_2026-07-20_gaswholesalers_second_site.md`
-(the evidence that the current site is wrong, and how wrong).
+(the evidence that the current site is wrong, and how wrong),
+`features_open/013_FEATURE_three_tier_ai_tooling_funnel.md` (2026-07-24 — this
+feature's shape, generalised to most of the domain portfolio; the three-level
+threats/advantages/remediation frame in §3 below is adopted there as the
+canonical shape for the honest-AI-impact page fleet-wide).
+
+**Update 2026-07-24:** a separate session generalised this single-domain brief
+into a fleet-wide "AI section per site" workstream
+(`docs024_key_docs_latest/per_site_ai/`). Nothing here changes — this remains
+the owned, committed instance — but the open question in §6.3 (flagship
+editorial vs. entry point to the paid advisory flow) is effectively answered by
+that workstream's design: the honest AI-impact page sits *above* a produced Tier
+2/3 tool funnel, not as a standalone article. See `013` for the reconciliation.
 
 ## 1. The correction — what the site is FOR
 

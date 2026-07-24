@@ -46,5 +46,10 @@ hazard has materialised. A risk with no test is an opinion.
 | 004 | FEATURE | [Duplicate-content council seat](004_FEATURE_duplicate_content_council_seat.md) |
 | 005 | FEATURE | [Pilot onboarding + first pool activation](005_FEATURE_pilot_onboarding_and_first_pool.md) — **ON HOLD, owner gate** |
 | 006 | FEATURE | [gaswholesalers.com repositioning + "AI influence" page](006_FEATURE_gaswholesalers_repositioning_and_ai_influence_page.md) |
-| 007 | FEATURE | [AI-advisory chatbot, freemium/paid](007_FEATURE_ai_advisory_chatbot_freemium.md) |
+| 007 | FEATURE | [AI-advisory chatbot, freemium/paid](007_FEATURE_ai_advisory_chatbot_freemium.md) — **deferred, owner gate** |
 | 008 | FEATURE | [Halve image-generation cost via the Gemini Batch API](008_FEATURE_image_generation_batch_api.md) — **deferred, owner: revisit on volume** |
+| 009 | FEATURE | [Automate tool-fix delivery via the section-editor](009_FEATURE_tool_fix_delivery_via_section_editor.md) |
+| 010 | FEATURE | [Council decision adjudicator, severity/nature-weighted](010_FEATURE_council_decision_adjudicator_severity_weighted.md) |
+| 011 | FEATURE | [Pre-cutover content/route-diff guard](011_FEATURE_pre_cutover_content_diff_guard.md) |
+| 012 | FEATURE | [Explicit per-page redesign intent (`recompose_pages`)](012_FEATURE_explicit_page_recompose_intent.md) |
+| 013 | FEATURE | [Three-tier AI tooling funnel across the domain portfolio](013_FEATURE_three_tier_ai_tooling_funnel.md) — generalises 006/007 |
