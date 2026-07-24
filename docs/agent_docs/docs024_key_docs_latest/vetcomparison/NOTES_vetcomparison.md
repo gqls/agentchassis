@@ -689,3 +689,60 @@ with `skipped_missing_provenance: 0` PRESENT (the new-code proof), medicine-pric
 git → live artefact.
 **Council:** APPROVED round 1 (corr abf75d33, 3 advisory objections none high-severity).
 All three med tasks now ENABLED (weekly discover / 6h scrape / 48h export).
+
+## 2026-07-24 — the dead search grid recurs a THIRD time: root cause is the PLAN, fixed at source
+
+**Symptom (continuation of HANDOFF_2026-07-21 §2 watch-item 2).** The dead
+`filtered-result-grid` component was back on the live homepage again (`curl` → 28
+`filtered-result-grid` occurrences, the empty "No results found." grid, and the
+sort dropdown whose `Price: Low to High` option is the last surviving entry in the
+07-19 fabrication-marker grep). It had been hand-removed twice — 07-19 (page_components)
+and 07-21 (page_components **and** `pages.sections`) — and returned both times.
+
+**Diagnosis (self-evidencing, local — no diagnosis-loop needed).** The index page
+(`9fad89c1-…`) was re-rendered and deployed **2026-07-23 20:36:41**; that render
+re-materialised all components (consistent with the 07-21 note that a render
+delete-and-recreates every component and strips the bug-020 locks). Traced the source
+of the section list upward:
+- `pages.sections` again listed `filtered-result-grid` (the 07-21 removal had not held).
+- `site_plan_sections` for the **current** plan (`9d9c601d`, `is_current=t`,
+  `source_agent=build-site-planner`, never superseded) listed it at `ordering=1`,
+  between `hero` and `info-card-grid`.
+- Chain confirmed in code: `reconcile_site_plan_action.go:393` regenerates
+  `pages.sections` from the plan; `plan_sections`/render then materialise
+  `page_components`; `getPageSections` (rerender_single_page_action.go:393) assembles
+  the deployed HTML **from `page_components`**. So the plan is upstream of everything a
+  hand-delete touches — deleting downstream can never hold.
+
+> **CORRECTION to HANDOFF_2026-07-21 §2:** it framed the recurrence as a
+> `bugs_open/001` **re-plan-clobber**. It is not. Nothing re-planned the site — the
+> plan (unchanged since 07-17) has **always** contained the grid, and every faithful
+> render reproduces it. This is a plan-content correction, not a clobber, and not a
+> lock problem (`bugs_open/020`). The 07-21 instinct — "the source is the site plan" —
+> was right; the bug-number attribution was wrong.
+
+**`suppressed_sections` does NOT help here** `[verified by code read]`: the column is
+consulted only by `pageSectionShortfall` (v3_site_actions.go:844) and the
+`check_empty_sections` / `check_required_fields_missing` discovery checks — i.e. it
+suppresses *nagging*, not *rendering*. Neither the render (`plan_sections`) nor the
+assembly (`getPageSections`) excludes a suppressed section, so the admin "hide section"
+endpoint (page_admin_handlers.go:562, comment "Phase 5 prep — column may not exist yet")
+would not actually remove a section from the deployed page. Noted here as a latent
+platform gap; NOT asserted as a filed bug (fleet-wide claim, unverified beyond the read).
+
+**Fix (DB, live immediately — no image roll).** Snapshotted first
+(`_vetcomparison_bak_20260724_plan_sections` / `_index_pagecomponents` / `_index_page`),
+then in one transaction: deleted the grid row from `site_plan_sections` and closed the
+ordering gap (→ 0 hero,1 info-card-grid,2 latest-news,3 call-to-action); removed
+`filtered-result-grid` from `pages.sections`; deleted the grid `page_component` and
+renumbered positions (→ 1..4). All three layers now consistent at 4 sections, so
+`pageSectionShortfall` sees planned=4==rendered=4 (no false shortfall).
+
+**Why it holds now:** the plan no longer contains the grid, so a reconcile can only ever
+regenerate `pages.sections` as the 4 real sections. `[UNVERIFIED — awaiting render]` the
+LIVE page still shows the grid until the next full re-render. `content-feed-refresh`
+(6 h cycle, last 2026-07-24 13:44, **next ~19:44 UTC**) re-renders the whole homepage, so
+that run should flush it. Verify then:
+`curl -s "https://vetcomparison.uk/?cb=$RANDOM" | grep -c 'filtered-result-grid'` must be 0.
+If it returns AGAIN after a render, the plan edit did not survive → the planner regenerated
+the plan (a genuine re-plan), which is the real `bugs_open/001` case — do NOT re-delete.

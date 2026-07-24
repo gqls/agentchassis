@@ -630,3 +630,33 @@ given what happened last time a tool was rebuilt automatically, one to take deli
 code (no source link and date, no publication — withheld prices are counted publicly); the
 invented "typical vet price" is stripped and cannot silently return; two dormant traps
 removed; yesterday's wrong claim about missing tables corrected where it was made.
+
+---
+
+**2026-07-24 — the broken-looking "second search box" is finally gone for good (I hope).**
+
+There was a stray, empty search box sitting on the homepage under the real one: a box with
+a "sort by price" dropdown and a permanent "No results found." message beneath it. It never
+worked and it was never meant to — the real search directly above it already does the whole
+job. Two earlier sessions deleted it by hand and both times it came back a day or two later,
+which is why the last handoff flagged it as the thing to watch.
+
+I found out why it kept coming back. The site has a "plan" — a master list of what each page
+is made of — and that plan still had this dead box in it. So every time the homepage rebuilt
+itself (which it does automatically every few hours to pull in the latest CMA news), it
+faithfully put the dead box back, exactly as the plan told it to. Deleting the box off the
+page was like crossing a name off a printout while leaving it on the master list: the next
+reprint brings it straight back.
+
+So this time I removed it from the master list itself, not just the page. That's the part
+that should make it stick. The website you see won't change this instant — it only updates
+when it next rebuilds for the news refresh, roughly every six hours — but at that point the
+dead box should be gone and stay gone. Nothing else on the page is affected; the real search,
+the news, and the practice directory are untouched. I've kept a backup of the old settings in
+case, and left a one-line check for the next person to confirm it's actually gone once the
+site rebuilds this evening.
+
+One smaller thing worth flagging: the platform has a "hide this section" button in the admin
+screen, but from reading the code it looks like it only hides a section from the internal
+health-checks, not from the actual published page — so it wouldn't have fixed this. I've noted
+that as something to look at properly another time; I haven't touched it.

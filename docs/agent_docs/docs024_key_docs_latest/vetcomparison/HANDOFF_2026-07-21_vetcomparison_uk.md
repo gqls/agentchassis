@@ -68,6 +68,13 @@ needs a human read of `directory_export_action.go:123-136` and `vet_med_export_a
 literal-string plumbing is the cause.**
 
 ### 2. A render restored the dead search grid and stripped the anti-fabrication locks
+> **RESOLVED 2026-07-24 (durably, at the source).** The grid returned a third time (via the
+> 07-23 20:36 render). Root cause: it was in the **current site plan** (`site_plan_sections`,
+> plan `9d9c601d`, `ordering=1`), so every render faithfully reproduced it — a plan-content
+> issue, **not** the `bugs_open/001` re-plan-clobber this note guessed (nothing re-planned).
+> Fixed by removing it from the plan itself (+ `pages.sections` + `page_components`, all
+> snapshotted); reconciles can no longer regenerate it. Live page flushes on the next
+> `content-feed-refresh` render (~6 h). Full account: `NOTES_vetcomparison.md` 2026-07-24 entry.
 The 08:08 render re-materialised all five index components — which (a) brought back the dead
 `filtered-result-grid` I had deleted on 07-19, and (b) stripped every `bug-020` `permanent` lock
 (verified delete-and-recreate: the `hero` row's id changed). **I re-removed the grid today, this
