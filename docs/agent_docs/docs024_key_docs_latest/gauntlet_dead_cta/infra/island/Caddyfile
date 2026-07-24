@@ -1,0 +1,20 @@
+# Island: /opt/island/Caddyfile — served by the caddy container on :8081.
+# Only /api/v1/tools/* is forwarded; 1MB body cap; everything else 404.
+# Rate limiting lives at the Cloudflare edge rule + in tools-api's own
+# middleware — the stock caddy image has no ratelimit plugin, so none here
+# (this replaces the bastion draft's caddy-ratelimit dependency).
+{
+  auto_https off   # TLS terminates at Cloudflare; the tunnel delivers locally
+}
+:8081 {
+  @tools path /api/v1/tools/*
+  handle @tools {
+    request_body {
+      max_size 1MB
+    }
+    reverse_proxy tools-api:8080   # compose service name; port confirmed at PR time
+  }
+  handle {
+    respond 404
+  }
+}

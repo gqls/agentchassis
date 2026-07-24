@@ -1,0 +1,45 @@
+# Island: /opt/island/docker-compose.yml  (Mythic Beasts VM vds:toolsapisuk,
+# toolsapisuk.vs.mythic-beasts.com / 176.126.243.183 — Route B1, decided 2026-07-24)
+# Postgres + Caddy run now; the tools-api block activates when the
+# feature-builder PR lands and an image exists. Secrets live in /opt/island/.env
+# (root-only, NOT in this repo).
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tools_api
+      POSTGRES_USER: tools_api
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # host-local only (pg_dump/debugging); never public
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tools_api"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:8081:8081"   # only cloudflared (on the host) talks to Caddy
+
+  # Activate when the PR's image is published. Port confirmed at PR time.
+  # tools-api:
+  #   image: <REGISTRY>/tools-api:<TAG>
+  #   restart: unless-stopped
+  #   environment:
+  #     DATABASE_URL: postgres://tools_api:${POSTGRES_PASSWORD}@postgres:5432/tools_api?sslmode=disable
+  #     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}   # DEDICATED spend-capped key, never the platform's
+  #     ALLOWED_ORIGINS: https://vonc.com         # CORS-from-config (the PR-review note)
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+
+volumes:
+  pgdata:

@@ -467,3 +467,32 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   GenerateText, anthropic.go:23,68), site-context wiring rule (c.Set site_id/domain),
   body-restore rule (io.NopCloser). Designer round 5 fired: corr ffb74056; script
   baar1cfmi auto-fires the implementer on approval.
+
+## 2026-07-24 — B1 island BUILT & VERIFIED (bastion-host session, working over SSH)
+- Owner provisioned Mythic Beasts vds:toolsapisuk: VPS 2 (1c/2GB), 20GB SSD,
+  IPv4 176.126.243.183, Ubuntu 26.04 LTS (owner chose Ubuntu to match cluster),
+  backup account + 2x10GB backup space; £16.20/mo ex-VAT. SSH host is
+  toolsapisuk.vs.mythic-beasts.com (.vs. — the owner's pasted .v2. was a typo).
+  Owner's key worked from this dev machine → root access, setup done directly.
+- Hardened: sshd_config.d/99-island-hardening.conf (PasswordAuthentication no,
+  PermitRootLogin prohibit-password, KbdInteractiveAuthentication no; sshd -t
+  before reload); ufw ACTIVE deny-incoming/allow-OpenSSH-only;
+  unattended-upgrades on. Verified: ufw status + fresh ssh session survived.
+- Stack live at /opt/island (docker.io 29.1.3, compose v2.40.3): postgres:16
+  (16.14, tools_api db/user, pgdata volume, 127.0.0.1:5432 only) + caddy:2
+  (127.0.0.1:8081, path allowlist). VERIFIED: / → 404, /api/v1/tools/ping →
+  502 (correct: no engine yet), psql answers. Secrets /opt/island/.env mode
+  600, password generated ON box (never in transcript/repo); ANTHROPIC_API_KEY
+  EMPTY pending owner's dedicated spend-capped key.
+- CADDY DELTA from bastion draft: stock caddy image has NO ratelimit plugin —
+  rate limiting moved to Cloudflare edge rule + tools-api middleware; Caddy
+  keeps allowlist + 1MB cap. Upstream tools-api:8080 [ASSUMED port — confirm
+  at PR time].
+- Backups: cron 02:17 → backup_pg.sh (pg_dump|gzip, 14d retention); first dump
+  verified (392B, empty db). Off-box rsync leg TODO: needs backup host/user
+  from MB control panel.
+- cloudflared 2026.7.3 installed; `tunnel login` running, URL handed to owner
+  (also /root/cf_login.log). Remaining after cert: tunnel create tools-api →
+  route dns tools.apis.uk → systemd; then dashboard: delete `*` wildcard,
+  Full (strict), rate rule, WAF. As-built record + next steps:
+  infra/island/RUNBOOK_island.md (repo copies = source of truth for the box).

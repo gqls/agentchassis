@@ -262,3 +262,25 @@ Skip managed hosting, SMS monitoring and graphs. The 10GB of mirrored backup spa
 (80p) is worth it for nightly database dumps held off-box at a second UK site.
 All in: roughly £11.40/month before VAT. Debian 12 as the operating system;
 monthly billing while we prove it, switch to annual (12 for 10) once settled.
+
+## 2026-07-24 — the island is built and running; one click from you connects it to the world
+
+You ordered the machine (Ubuntu to match the cluster — good call, everything runs
+identically) and I set it up the same afternoon, working over SSH with your key.
+As of now the island is live: locked down (key-only access, firewall dropping all
+inbound except SSH, automatic security updates), running its database and the
+front-door proxy in containers, with a nightly backup already tested. The proxy
+behaves exactly as designed — it answers "not found" to everything except the one
+API path, and that path answers "nothing behind me yet", which is correct until
+the machine-built engine arrives. Nothing on the box holds any production
+credential of any kind — no cluster access, no platform keys. The corrected rule
+from this morning stands: if this box is ever compromised, your cluster is simply
+not reachable from it.
+
+The Cloudflare tunnel software is installed and waiting on the one step only you
+can do: click its authorisation link (in the chat, and saved on the box) and pick
+the apis.uk zone. The moment you do, I can create the tunnel, point tools.apis.uk
+at it, and the island is publicly addressed — still serving 404s until the engine
+lands, which is exactly right. Two small tasks stay on your list afterwards: the
+backup account's host and username from the Mythic Beasts panel (so the nightly
+dumps mirror off-box), and deleting that dead catch-all DNS record.
