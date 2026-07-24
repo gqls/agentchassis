@@ -378,3 +378,12 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   file paths; never relocate/rename/re-package a planned file; explicit negative
   example. Snapshot taken.
 - Round 5 fired (script bz2essxgm) on the same approved plan.
+
+## 2026-07-24 — council gate APPROVED the formatter fix (resubmit)
+- Corr 6bf3806f: run 1 complete_invalid (Anthropic endpoint i/o timeout at a seat —
+  infra, no judgement); resubmit APPROVED 12:02. The commit (430ed5c18) predates the
+  verdict and carries the corr in its MESSAGE but no Council-Reviewed trailer
+  (forward-only, no amend; trailer discipline = trailer only on APPROVED at commit
+  time). 098 will bucket it accordingly — the corr in the message is the audit path.
+- Round 5b: attempt 1 ALSO dropped (4th bug-003 sighting in 2 days); attempt 2 fired
+  13:58:03Z via the ingest-confirming script.
