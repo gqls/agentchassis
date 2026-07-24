@@ -2433,6 +2433,31 @@ to ingest (kubectl-run stdin race) — no orchestration row, no work item, no lo
 is a DIRECT orchestrator envelope (`action=process`, `spawn_agent`+`call_agent`, full inline
 workflow — the `086` pattern). Scripts: `docs024.../gauntlet_dead_cta/scripts/`.
 
+### `spec.reason` does not make `needs_page` scoped — the light path is a different item_type
+
+*Added 2026-07-24 from the relojistas freshness-emitter regression.*
+
+Two emitters (`reconcile_section_data`, `flag_page_image_rebuild`) emit
+`needs_page` + `spec.reason` + `item_key page_rerender:<page>`. That reads like
+"a scoped re-render request", and copying the shape for a light-refresh intent
+routes your item into **page-build-handler's FULL LLM pipeline** — the writer
+regenerates every section's copy. The scoped no-LLM gate lives in a different
+route entirely: **item_type `page_rerender` → page-rerender**, whose
+reason-stamp (`create_rerender_items_action.go:162`, canonical insert `:282`)
+selects `rerender_page_sections` (re-resolve + re-render from stored
+content_data). The two look-alike emitters use `needs_page` *deliberately*:
+their fields are ABSENT from content_data, so only the writer can backfill
+them.
+
+The test for which you need: **is the data already in `content_data`?** Present
+→ `page_rerender` (light, no LLM). Absent → `needs_page` (full, LLM). Copying
+an emission shape verifies existence, not fitness — the relojistas homepage was
+LLM-regenerated every 6h for four days, until a bad roll re-invented phantom
+links and fabricated a contact email. Cost of the wrong row in 002's routing
+table: 4–7 LLM calls per cycle and copy-roulette on a live page. Category
+tags: `route-by-item-type`, `look-alike-emitters`, `existence-is-not-fitness`,
+`llm-regeneration-roulette`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
