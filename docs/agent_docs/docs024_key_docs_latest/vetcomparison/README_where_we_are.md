@@ -660,3 +660,12 @@ One smaller thing worth flagging: the platform has a "hide this section" button 
 screen, but from reading the code it looks like it only hides a section from the internal
 health-checks, not from the actual published page — so it wouldn't have fixed this. I've noted
 that as something to look at properly another time; I haven't touched it.
+
+**2026-07-24 (correction to the note just above).** I said the homepage rebuilds "roughly every
+six hours" — that isn't quite right and I watched the 7:45pm rebuild cycle do nothing. The
+six-hourly news check only rebuilds the homepage when there's actually new or changed news; when
+there isn't, it does nothing. In practice the homepage seems to rebuild about once a day (it did
+so yesterday evening and again this afternoon). So the stray empty box should disappear on its
+own within about a day, not within six hours. Nothing to worry about — the underlying change is
+done and permanent; this is only about when the public page catches up. If it's still showing a
+day from now, it can be nudged, just carefully.

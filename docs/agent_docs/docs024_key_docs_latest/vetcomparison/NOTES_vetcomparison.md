@@ -746,3 +746,19 @@ that run should flush it. Verify then:
 `curl -s "https://vetcomparison.uk/?cb=$RANDOM" | grep -c 'filtered-result-grid'` must be 0.
 If it returns AGAIN after a render, the plan edit did not survive → the planner regenerated
 the plan (a genuine re-plan), which is the real `bugs_open/001` case — do NOT re-delete.
+
+### 2026-07-24 (later) — correction: the 6h content-feed cycle does NOT reliably re-render the homepage
+My prediction above ("next content-feed-refresh ~19:44 … should flush it") was **wrong** and I
+watched it fail. The 19:45:02 `content-feed-refresh` run completed in <1s (`last_triggered_at`
+== `last_completed_at`) — a **no-op**: no new/changed news, so no homepage render dispatched, so
+no flush. `[OBSERVED]` The index page re-renders *periodically*, not every 6h cycle: `deployed_at`
+went 2026-07-23 20:36:41 → 2026-07-24 14:05:29 (~17.5h apart), each a real content-feed render
+that had work to do. The news window is 720h and the CMA items are ~530h old with no new CMA
+veterinary news imminent, so the next real render is driven by whatever next changes the news
+HTML (likely the daily relative-date rollover) — **expect the live flush within ~a day, not on a
+6h clock.** The DB fix is durable regardless; this only affects *when* the live page catches up.
+The verification one-liner is unchanged: `curl -s "https://vetcomparison.uk/?cb=$RANDOM" | grep -c
+'filtered-result-grid'` → 0 once it flushes. Did NOT force a render: a `page_rerender` assemble-only
+item is the safe mechanism, but create_rerender_items_action.go warns against hand-rolling the
+INSERT (item_type/pipeline/dedup-key), and no enabled sweep picks a reason-less item up cleanly —
+not worth the risk on this multi-session live site for a cosmetic empty box. Left to natural cadence.
