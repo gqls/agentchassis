@@ -1608,3 +1608,33 @@ too. Tested by deliberately simulating a stale, an empty, and a broken index and
 checking each produces the right warning. It takes effect at the next image
 rebuild. Both changes are with the council now; I'll read the verdicts before
 going further.
+
+---
+
+**2026-07-24 (night) — the new build went out, and both safety checks passed
+their live trial by fire.**
+
+The verdicts came back first: both changes APPROVED — the reworked wiring guard
+lifted the earlier veto, and the freshness warning passed first time. The
+reviewers left a handful of advisory suggestions and I applied the two real ones
+the same evening (tests for the new failure paths, and a mechanical check so any
+FUTURE code that reads the code index without the freshness warning gets flagged
+at commit time).
+
+Then you told me the new build had deployed, so I ran the proper live trial —
+not just "is the code in the pod" but "does each guard actually catch the fault
+it exists for". I built two tiny throwaway test workflows: one deliberately
+mis-wired, one healthy. The mis-wired one was stopped immediately with a clear
+error naming exactly what was wrong on both ends — that's the guard doing its
+job in production. The healthy one ran through cleanly. And in a nice twist, my
+FIRST "healthy" test was itself stopped by the guard — I'd accidentally given it
+a wiring the guard is designed to reject, so the guard caught even its own
+tester being sloppy. The freshness warning also showed up live: a real run's
+code answer now opens with "index refreshed 3 hours ago at commit …", exactly
+as designed. The throwaway test workflows are switched off and kept as evidence.
+
+With that, the stale-index bug is CLOSED — cause fixed (daily auto-refresh,
+proven), symptom guarded (the warning, proven live), future-proofed (the commit
+check), and the lesson written into the debugging guide for every other thread.
+The only leftover is a stale paragraph in some old documentation pointing at the
+wrong way to run a manual refresh — a tidy-up, not a defect.

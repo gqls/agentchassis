@@ -2736,6 +2736,57 @@ BEFORE building further on either.
   freshness banner visible in a real bundle — and its STALE branch fires naturally
   if the cadence ever misses two days).
 
+---
+
+## Turn 51 — 2026-07-24 evening — v1.0.1155 rolled: BOTH guards verified LIVE by induced fault; 059 CLOSED
+
+Owner: "new chassis build has deployed to production." The owed verification ran.
+
+**Pod-greps (v1.0.1155, pod started 19:06Z):** all created-literals present for
+both guards ("route wiring mismatch" 1, "route-wiring guard SKIPPED" 1,
+"CODE INDEX STALE" 1, "NOT YET INDEXED" 1, "index freshness: refreshed" 1),
+negative control 0. ONE precise gap: "workflow_plan has no steps object" = 0 —
+the image predates follow-up `57aa37d2f` (the parse-split refactor). Functionally
+equivalent (empty plan errors either way, less specific message); rides next roll.
+
+**Induced-fault probes (scratch agents, 036scratch pattern — seeded, dispatched,
+DEACTIVATED after, kept as evidence; SEED_wiring_probe_agents.sql; zero LLM spend,
+all probes stop before any model step):**
+- **Route guard, fault branch — CAUGHT LIVE.** `diagnose-wiring-probe-bad` (a
+  diagnose_route step present with output_field "elsewhere", reader on route.*
+  defaults) FAILED at the first gather with the full designed message:
+  `route wiring mismatch -- data_requests_field="route.data_requests" reads
+  namespace "route", but no diagnose_route step writes under that output_field
+  (present: "elsewhere")...` (corr 7c3778ed).
+- **An accidental EXTRA falsification.** My first "healthy" probe carried BOTH a
+  route step AND `code_requests_field=input_data.code_requests` — and the live
+  guard REJECTED it. Correct per the approved contract (round-1 risk #1
+  verbatim: with a route step present, pointing any coupled field off the route
+  namespace is the divergence). **The probe was wrong, not the guard** — recorded
+  in the seed file. Split into probe-ok (no route step → guard skips → injection
+  legal) + probe-pass (route step + pure defaults).
+- **Route guard, healthy branch — PASSED LIVE.** probe-pass COMPLETED through the
+  gather (corr ac91c91b).
+- **Freshness banner — RENDERED LIVE.** probe-ok (corr 24365c79) injected one
+  code_request via input_data; the gather's code_evidence opens with the header +
+  `(index freshness: refreshed 3h ago at commit e19aa5d)` and then answers the
+  question — which deliberately asked the index about `freshnessBanner` ITSELF,
+  and got back the guard's own definition [L83-97] at e19aa5d. The quiet branch
+  live; stale/empty/error branches remain covered by TestFreshnessBanner (inducing
+  a stale index live would mean corrupting real data — not worth it).
+
+**Index attribution note (don't over-claim):** the index at probe time was
+`e19aa5d`, refreshed ~17:20Z — NOT my cadence (its row still shows last fire
+13:34Z; next due tomorrow). Another thread ran the indexer at their newer HEAD.
+Consistent with design: any refresh path keeps the banner honest.
+
+**bugs 059 CLOSED** (fixed AND live AND verified): file moved to `bugs_closed/`
+with the close banner; transferable pattern appended to 016b §9 ("An indexed
+snapshot read by a correctness check is a silent freshness dependency");
+residual = fix #2 (stale docs019 trigger) left as a docs item, named in the close.
+**Route guard: fully verified live; no residual owed.** The parse-split literal
+lands with the next roll (cosmetic).
+
 ## 2026-07-24 — code-lookup misses CLOSURES: `handleMissingField` unresolvable, drove a 5-iteration run to UNVERIFIABLE (from the 040-partial-build thread)
 
 Diagnosis corr `f9bcee6f` (skip-not-recorded mechanism) ended **UNVERIFIABLE** with its
