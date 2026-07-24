@@ -212,6 +212,32 @@ highest-value follow-on, and this fix is what makes it visible instead of silent
 > the deferral variant), parked `needs_rebuild` + NULL stamp by this guard. Fix goes to the
 > council next (skip-persistence into `suppressed_sections` at the decision point; deferral
 > policy flagged as a reviewer question).
+>
+> **SKIP-PERSISTENCE FIX BUILT & COUNCIL-APPROVED (2026-07-24). Inert until an image roll.**
+> Council corr `164058e6` — **APPROVED round 1**, 4 advisory objections, none high-severity.
+> Commits: `e3bca5b35` (core: `persistSectionSkips` in `plan_sections` — `suppressed :=
+> (suppressed − ready) ∪ skipped`, self-healing, merge SQL validated live in both directions;
+> committed before the verdict, so no trailer — the corr is in its message body) and
+> `88b8f2af0` (carries the earned `Council-Reviewed:` trailer; responds to bug_historian's
+> low objection — a persist failure now escalates durably to `agent_error_log` as
+> `SKIP_PERSISTENCE_FAILED` instead of being a bare log line, which would have reproduced the
+> vanishing-record defect at the persistence layer itself).
+>
+> **One advisory deliberately declined, recorded here so it is not silently dropped:**
+> bug_historian (medium) proposed provenance-tagged entries (`{"name":…, "source":"auto_skip"}`)
+> now, while the column is empty, so a future *manual* suppression can't be silently un-suppressed
+> by the auto-merge. Declined because tagged objects break the `jsonb ?` containment all three
+> readers use today (each would need rewriting), there is zero manual usage to protect (0/306),
+> and the comment contract at both ends names the auto-writer. **If anyone builds a manual
+> suppression feature: that is the moment to namespace this column — this paragraph is the
+> pointer bug_historian asked for.**
+>
+> **Verify once live** (after the next image roll — or another session's sweep build; check the
+> pod, not the tag): (1) rebuild a data-gated page (gaswholesalers/index) → `suppressed_sections`
+> gains `social_proof`'s section name, the 040 guard passes, page stamps `deployed` at N−1;
+> (2) the parked pages heal on their next natural build; (3) `check_empty_sections` stops
+> re-flagging the suppressed slots; (4) negative control: a page with a *genuinely* dropped
+> section (no skip recorded) is still refused.
 
 ---
 
