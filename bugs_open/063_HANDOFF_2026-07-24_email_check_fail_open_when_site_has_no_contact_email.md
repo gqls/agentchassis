@@ -100,7 +100,26 @@ five-source COALESCE `loadSiteContactEmail` uses):
   `error` was chosen over the `warning` fallback contemplated above.
 
 **Council:** submission corr `7080124b-716f-45ac-8d42-f24465228b4b` (2026-07-24, this
-session) — verdict recorded below when it lands.
+session). **R1 = REVISE** (6 approve, 2 object, 8 abstained; gating objection:
+prior_art_librarian, high) — a submission-authoring defect, not a fix defect: I sketched
+the edits as *proposals* while the rationale said "committed as fb3d5f5ea", which reads as
+the dormant-machinery pattern. Same final-state-sketch lesson the relojistas thread logged
+this week; WRONG_CALLS row added. The two answerable checks R1 surfaced, both run:
+- **guardian (medium): consumer breadth** — `validate_page_content` has THREE active
+  consumers (`page-build-handler`/`validate_content`, `content-reviewer`/`validate_content`,
+  `tool-recreation-handler`/`validate_tool`). All three already carry `invalid_email`/error
+  via the mismatch branch — no new severity class anywhere; the new branch widens the
+  triggering inputs symmetrically, with a measured-zero triggering population at ship.
+  Config-flag opt-out rejected: it would recreate the 026/063 fail-open family.
+- **prior_art (medium): test absence** — `git grep -l validateEmails fb3d5f5ea^ --
+  '*_test.go'` → 0 files; the pre-existing trio is claims/contamination/meta.
+
+**R2 resubmitted** same day with final-state sketches (verbatim `git show fb3d5f5ea`
+hunks) + all checks attached (run `5f884438`). Verdict recorded below when it lands.
+
+**Follow-up worth its own pass (compliance seat, R1):** 063 is the second member of the
+fail-open-on-missing-config family in validation code (with 026) — audit the OTHER
+`validate_page_content` checks for the same missing-else shape. Not this fix's scope.
 
 **Premise shift to note:** relojistas NOW has `sites.email = 'relojistas@contactforsales.com'`
 — the very address this file calls fabricated — `[OBSERVED 2026-07-24, source unknown]`; it
