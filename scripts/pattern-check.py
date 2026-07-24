@@ -259,6 +259,12 @@ DECLARED_PAIRS = [
     (r"idx_swi_dedup", r"workItemTerminalStatuses",
      "016b/memory — the dedup index's status set and the Go terminal-status list are ONE "
      "contract. Drift gives fleet-wide 42P10 on every keyed insert (bit 2026-07-16)."),
+    (r"FROM code_symbols", r"codeIndexFreshness",
+     "bugs_open/059 — code_symbols is an indexed SNAPSHOT: a stale index answers 'absent' "
+     "identically to a genuine absence (it sat 3 weeks stale and fed false negatives to the "
+     "code tier AND the prior_art seat). Any renderer reading it must carry codeIndexFreshness "
+     "so the answer names its own staleness. If this is the indexer/writer side or a "
+     "non-LLM-facing read (analyse_repo_local), say so in the commit message and carry on."),
 ]
 
 
