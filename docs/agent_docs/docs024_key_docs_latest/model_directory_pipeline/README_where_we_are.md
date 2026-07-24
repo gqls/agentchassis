@@ -101,3 +101,40 @@ yet.** The last step — building a new version of our backend, pushing it,
 and rolling it out to the cluster — is the one action in all of this that
 actually touches the shared, live system everyone else is working on right
 now, so I've stopped short of doing that without asking first.
+
+**2026-07-24 — it works. The directory has its first real, verified data.**
+
+Getting from "deployed" to "working" took two days of peeling back an
+onion: the research runs kept dying at the web-page-fetching step, and each
+fix revealed another, older problem underneath. First, the fetched results
+were too big for our internal messaging system, and the component that knew
+this just noted it privately in its own logs and told nobody — so the rest
+of the system waited twelve minutes for an answer that could never come.
+Then, once the answer was small enough to deliver, it turned out to be
+written in a format the receiving side couldn't read — a known mistake
+that had been fixed in three sister components but had been copied into
+this one. And finally, once the answers were arriving and being read, the
+proof-checking step was comparing quotes taken from one rendering of a
+pricing table against a differently-rendered copy of the same table, so
+every genuine fact failed its own proof. The important thing: at that last
+stage the system did exactly what we designed it to do — it refused to
+publish anything it couldn't prove, and queued the rejects for a person to
+look at. That refusal is what made the last problem easy to find.
+
+All three fixes are live (the middle one went through the review council
+and passed first time). Tonight the directory holds ten models and
+twenty-two priced facts — real current OpenAI model prices, each one
+carrying the exact sentence from the vendor's own pricing page that proves
+it, and each one due to be automatically re-checked every day so a stale
+price can't sit there looking authoritative. I also found and closed a gap
+in my own earlier work: the piece that actually delivers the directory
+data onto opted-in websites had been planned but never switched on. It's
+on now, and it deliberately does nothing until the website page it feeds
+exists — which the fleet's own page-building machinery should create on
+its next pass, since the pilot site is opted in and the directory now has
+something to show.
+
+Worth saying plainly: the model list the first runs found is real but
+narrow — it leaned heavily on one vendor's pricing page. The weekly
+research query is written to cast wider; whether it does so in practice is
+the first thing to watch next week.

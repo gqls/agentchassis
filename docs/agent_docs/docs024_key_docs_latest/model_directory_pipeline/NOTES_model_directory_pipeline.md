@@ -393,3 +393,37 @@ one-character replacer entry, so deploy evidence is the digest chain (fresh
 tag built from HEAD at `eabe9ddfb`, pushed, set-image, rollout complete) —
 stated honestly rather than inventing a fake discriminating grep. Run 6
 fired after the 300s post-restart quiet window (spawn-drop rule).
+
+**Run 6 rejected everything again — but it was a TIMING INVERSION, not the
+fix failing.** Verified the fix locally first (ran the exact rejected quote
+through the real Go matcher against the live page: full row + all 9
+progressive prefixes match; wrong-price and cross-row guards still fail),
+THEN checked the cluster: the v1.0.1154 ReplicaSet was created at 11:23:52,
+but run 6 was created 11:16:16 — my background watcher (launched before the
+rollout actually landed, sleeping a fixed 360s) fired the run against the
+OLD pod. Lesson: a fixed-delay watcher launched "after" a rollout command
+races the rollout itself; gate the fire on the new pod's start time, not on
+wall-clock patience.
+
+**Run 7 (11:32, on the genuinely-new binary): SUCCESS.** COMPLETED
+end-to-end; registry populated: **10 entities, 22 claims, all
+status='found'** — real models (gpt-5.6-sol $5.00/$30.00 per Mtok, sora-2
+$0.10/s, image + audio + transcribe models), each claim carrying the
+verified verbatim citation against OpenAI's live pricing page. The pipeline
+is PROVEN: scheduled task → directory-researcher → search → scrape (lean
+reply, delivered, parsed) → LLM extraction → deterministic verification →
+registry. The daily freshness sweep now owns re-verification.
+
+**Publish-trigger gap closed, 2026-07-24.** Noticed while wrapping up: the
+Phase D plan's publish leg (model-directory-trigger + model-directory-publish
+scheduled task) had never been seeded — nothing would have committed
+data/model-directory.json to opted-in sites. Wrote
+`SEED_directory_publish_trigger.sql` (publisher agent + trigger agent
+mirroring content-feed-trigger's spawn+call loop + 6h scheduled task),
+caught one constraint on the dry-run (`check_ad_category` rejects
+category='site'; content-feed-trigger's own values are
+orchestrator/coordinator — copied those), applied live. Self-gating: the
+find-sites query requires opt-in flag AND a deployed page carrying the
+component AND a non-empty registry, so it idles harmlessly until the
+auto-created page ships. First SUMMARY written (genuine milestone:
+end-to-end proof with live data).
