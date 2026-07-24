@@ -25,9 +25,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"regexp"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -171,7 +171,7 @@ func fixTemplateColors(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 			continue
 		}
 
-		newTemplate := replaceHardcodedColors(template)
+		newTemplate := checks.ReplaceHardcodedColors(template)
 		if newTemplate == template {
 			continue
 		}
@@ -227,7 +227,7 @@ func fixRenderedColors(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 			continue
 		}
 
-		newHTML := replaceHardcodedColors(renderedHTML)
+		newHTML := checks.ReplaceHardcodedColors(renderedHTML)
 		if newHTML == renderedHTML {
 			continue
 		}
@@ -264,69 +264,8 @@ func fixRenderedColors(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 	return fixed, details
 }
 
-// ============================================================================
-// Replacement logic
-// ============================================================================
-
-// replaceHardcodedColors finds hardcoded hex colors in CSS background
-// declarations within <style> blocks and replaces them with CSS variables.
-//
-// Only operates inside <style>...</style> blocks — does not touch inline
-// style="" attributes or HTML content.
-//
-// Replacement strategy:
-//   - background with single dark hex     → var(--color-primary)
-//   - background-color with dark hex      → var(--color-primary)
-//   - gradient with two dark hex values   → gradient with var(--color-primary), var(--color-secondary)
-//   - color: #fff/#ffffff/white in dark   → var(--color-white) (already works but normalises)
-func replaceHardcodedColors(html string) string {
-	// Find <style> blocks and only do replacements within them
-	styleBlockRe := regexp.MustCompile(`(?is)(<style[^>]*>)(.*?)(</style>)`)
-
-	return styleBlockRe.ReplaceAllStringFunc(html, func(block string) string {
-		matches := styleBlockRe.FindStringSubmatch(block)
-		if len(matches) < 4 {
-			return block
-		}
-		openTag := matches[1]
-		cssContent := matches[2]
-		closeTag := matches[3]
-
-		newCSS := replaceCSSColors(cssContent)
-		return openTag + newCSS + closeTag
-	})
-}
-
-// replaceCSSColors does the actual CSS color replacement within a style block.
-func replaceCSSColors(css string) string {
-	result := css
-
-	// Pattern: linear-gradient(Xdeg, #hex1, #hex2) → linear-gradient(Xdeg, var(--color-primary), var(--color-secondary))
-	gradientRe := regexp.MustCompile(
-		`(linear-gradient\s*\(\s*\d+deg\s*,\s*)` + // gradient opening with angle
-			`#[0-9a-fA-F]{3,8}` + // first color
-			`(\s*,\s*)` + // comma
-			`#[0-9a-fA-F]{3,8}` + // second color
-			`(\s*\))`, // close paren
-	)
-	result = gradientRe.ReplaceAllString(result,
-		`${1}var(--color-primary)${2}var(--color-secondary)${3}`)
-
-	// Pattern: linear-gradient(rgba(0,0,0,X), rgba(0,0,0,Y)) — overlay gradients, leave alone
-	// These are opacity overlays on hero images, not brand colors
-
-	// Pattern: background: #hex (single dark color, not white/light)
-	// Only replace dark colors (first digit 0-4 in hex = dark)
-	bgSingleRe := regexp.MustCompile(
-		`(background\s*:\s*)#([0-4][0-9a-fA-F]{5})(\s*[;}\n])`,
-	)
-	result = bgSingleRe.ReplaceAllString(result, `${1}var(--color-primary)${3}`)
-
-	// Pattern: background-color: #hex (dark)
-	bgColorRe := regexp.MustCompile(
-		`(background-color\s*:\s*)#([0-4][0-9a-fA-F]{5})(\s*[;}\n])`,
-	)
-	result = bgColorRe.ReplaceAllString(result, `${1}var(--color-primary)${3}`)
-
-	return result
-}
+// The replacement transform (ReplaceHardcodedColors) lives in
+// discovery_checks/check_hardcoded_section_colors.go — the completion-time
+// verifier for this item type uses it as the remit predicate, and that package
+// cannot import this one (actions imports discovery_checks). Keep it the single
+// copy; do not fork a private one back here.

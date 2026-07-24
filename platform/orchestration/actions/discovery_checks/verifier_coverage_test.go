@@ -147,8 +147,12 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// verifier would have been MORE wrong than the hold assumed.
 	"page_rerender": {catMechanical, "verifier written and held: a whole-page predicate is stricter than the handler's ctaFieldNames remit and would destroy the designed two-strike escalation — needs component→spec-function scoping first"},
 
-	"hardcoded_section_colors":      {catNoTarget, "site-aggregate item; predicate is a site-wide component count. UNBLOCKED by VerifyTarget.SiteID — this is the next verifier to write"},
-	"undeployed_asset":              {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID"},
+	// hardcoded_section_colors got its verifier 2026-07-24 (bugs_open/021
+	// INSTANCE 2) — check_hardcoded_section_colors.go, the first written against
+	// the widened contract and the pattern to copy for the entry below: the
+	// verdict is "the HANDLER's transform is at a fixed point", never the
+	// detector's broader predicate.
+	"undeployed_asset": {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
 	"needs_rerender":                {catMechanical, "43 of 142 carry component_id; predicate is the section-drift check"},
 	"needs_component_regeneration":  {catMechanical, "12 of 57 carry component_id"},
 	"phantom_internal_link":         {catMechanical, "all 65 carry page_id; predicate is check_phantom_internal_links"},
@@ -165,6 +169,8 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"unresolved_cta":                {catMechanical, "66 items, none completed yet"},
 	"image_source_unsatisfiable":    {catMechanical, "predicate is the imagery source check"},
 	"image_url_404":                 {catMechanical, "deliberately NOT a verifier candidate: verification would add an outbound HTTP call to the completion path"},
+	"backend_entry_orphaned":        {catMechanical, "live-probe check (GET → 405); deliberately NOT a verifier candidate — verification would put an outbound HTTP probe in the completion path, same reason as image_url_404"},
+	"contact_form_undeliverable":    {catMechanical, "needs_human_review queue — since cc2cff79b only the address-less branch files this type (resolvable sites route to page_rerender). Predicate re-runs on DEPLOYED html, which re-renders only after a fix lands, so a completion-time re-check would false-fail during the render lag; resolve delivery timing before writing one"},
 	"section_source_drift":          {catMechanical, "predicate is check_section_source_drift"},
 	"page_component_status_drift":   {catMechanical, "predicate is check_page_component_status_drift"},
 	"generic_theme":                 {catMechanical, "site-scoped theme marker check"},
@@ -260,6 +266,12 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	"capability_gap":          {catJudgement, "capability opinion"},
 	"owned_page_review":       {catJudgement, "human review item"},
 	"evaluate_tools":          {catJudgement, "tool evaluation opinion"},
+
+	// ---- first observed in site_work_items by the 2026-07-24 refresh ----
+	"needs_human_review":            {catJudgement, "generic HITL checkpoint item (checkpoint_for_review_action.go); resolution IS the human's ruling"},
+	"directory_citation_unverified": {catJudgement, "human ruling on citation candidates that failed live verification (directory_claims.go); nothing mechanical to re-run"},
+	"audit_finding_brief_fidelity":  {catJudgement, "audit_finding_* is computed in write_audit_findings_action.go; auditor opinion, sibling of audit_finding_audience"},
+	"section_edit":                  {catJudgement, "[INFERRED] owner-directed section edit, created outside Go (agent workflow config — no ItemType literal anywhere in platform/); 'applied as intended' has no stored predicate"},
 }
 
 func TestEveryItemTypeIsVerifiedOrAnAcknowledgedGap(t *testing.T) {
@@ -427,30 +439,43 @@ func TestVerifierCoverageIsReported(t *testing.T) {
 }
 
 // liveItemTypes is every item_type observed in site_work_items.
-// Refreshed 2026-07-20 (69 rows):
+// Refreshed 2026-07-24 (66 live rows, UNIONed with the previous list):
 //
 //	SELECT DISTINCT item_type FROM site_work_items ORDER BY 1;
+//
+// Refresh by UNION, never replacement: site_work_items rows get pruned, so a
+// type can vanish from the live query while its producer is still deployed
+// (10 of the 2026-07-20 types had no rows left by 07-24 — e.g. silent_failure,
+// tone_shift). Dropping one would drop its protection.
 var liveItemTypes = []string{
-	"acceptance_run", "add_tool", "audit_finding_audience", "audit_tool",
+	"acceptance_run", "add_tool", "audit_finding_audience",
+	"audit_finding_brief_fidelity", "audit_tool",
 	"capability_gap", "claims_unverified", "component_quality_scan",
+	"contact_form_undeliverable",
 	"content_rewrite", "cta_improvement", "cta_names_unknown_destination",
-	"dead_control", "deactivated_component", "empty_internal_href",
+	"dead_control", "deactivated_component", "directory_citation_unverified",
+	"empty_internal_href",
 	"empty_section", "evaluate_tools", "generic_theme",
 	"hardcoded_section_colors", "image_source_unsatisfiable", "image_url_404",
 	"improve_tool", "incomplete_page_group", "link_resolution_rebuild",
-	"missing_css", "missing_news_page", "missing_news_sources",
+	"missing_css", "missing_model_directory_page",
+	"missing_model_directory_section", "missing_news_page",
+	"missing_news_sources",
 	"missing_style_collection", "nav_drift", "needs_blog_posts",
 	"needs_brand_head_assets", "needs_briefing", "needs_component_regeneration",
 	"needs_composition", "needs_content_image", "needs_content_page",
 	"needs_content_planning", "needs_design", "needs_design_review",
 	"needs_diagnosis", "needs_domain_research", "needs_experience_plan",
-	"needs_hero_image", "needs_imagery", "needs_internal_links",
+	"needs_hero_image", "needs_human_review", "needs_imagery",
+	"needs_internal_links",
 	"needs_logo", "needs_new_component", "needs_new_layout_candidate",
 	"needs_page", "needs_rerender", "needs_section_data", "needs_site_plan",
 	"needs_sprite_css", "needs_strategy", "needs_tool_recreation",
 	"needs_vertical_research", "orphan_blog_posts", "owned_page_review",
 	"page_component_status_drift", "page_rerender", "phantom_internal_link",
-	"required_fields_missing", "responsive_fix", "section_source_drift",
-	"silent_failure", "spacing_fix", "tone_shift", "undeployed_asset",
+	"required_fields_missing", "responsive_fix", "section_edit",
+	"section_source_drift",
+	"silent_failure", "spacing_fix", "tone_shift", "truncated_component",
+	"undeployed_asset",
 	"unfulfilled_hero_variant", "unresolved_cta", "voice_tells",
 }
