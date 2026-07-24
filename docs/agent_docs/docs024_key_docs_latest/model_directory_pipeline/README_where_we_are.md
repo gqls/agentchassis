@@ -138,3 +138,16 @@ Worth saying plainly: the model list the first runs found is real but
 narrow — it leaned heavily on one vendor's pricing page. The weekly
 research query is written to cast wider; whether it does so in practice is
 the first thing to watch next week.
+
+**2026-07-24, evening — it's on the site.** The directory is live at
+ai-agent-orchestration.com/model-directory.html — a full page listing the
+models with their prices, each figure linking to the page that proves it —
+with a teaser section on the homepage and the background data file that
+lets the page refresh itself between rebuilds. Getting the page created
+surfaced two things worth knowing about the wider fleet: site "health
+check" scans don't run anywhere automatically (this site hadn't had one
+since early May, which is also why its empty tools page sat unnoticed —
+that's fixed and live too), and the queue that hands work to builders can
+leave a site waiting hours when it's busy with other jobs (evidence filed
+with the team that owns that queue). You ruled: keep the health scans
+per-site on demand rather than switching them on fleet-wide.

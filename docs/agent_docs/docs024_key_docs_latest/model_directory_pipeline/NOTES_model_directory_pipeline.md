@@ -438,7 +438,19 @@ page-build-handler within minutes. The same stale-discovery root cause is
 why this sat unnoticed: the checks that would have flagged it haven't run
 here since May either.
 
-**Publish-trigger gap closed, 2026-07-24.** Noticed while wrapping up: the
+**2026-07-24 evening — DELIVERED, all three surfaces live.** After the
+dispatch-lane stall (2h+ triaged; evidence contributed to bugs_open/030 —
+their case, not forked), the lane served the site and the chain ran clean:
+`/model-directory.html` deployed (hero + model-directory-listing + CTA,
+model entries server-rendered — verified against the rendered page);
+homepage snippet item `complete`; and the publish leg's FIRST live cycle
+committed `/data/model-directory.json` (HTTP 200, 10 entries, updated_at
+16:39:00Z, citations intact per entry) — surviving a chassis roll to
+v1.0.1155 mid-flight (task fired 16:36:53, completed 16:39:25, across the
+new pod's startup). Every stage of the fleet capability has now run in
+production at least once: opt-in flag → discovery checks → gap-planner →
+page build → deploy → publish → JSON. Discovery scope ruling (owner,
+2026-07-24): stay per-site on demand; no fleet-wide sweep. Noticed while wrapping up: the
 Phase D plan's publish leg (model-directory-trigger + model-directory-publish
 scheduled task) had never been seeded — nothing would have committed
 data/model-directory.json to opted-in sites. Wrote
