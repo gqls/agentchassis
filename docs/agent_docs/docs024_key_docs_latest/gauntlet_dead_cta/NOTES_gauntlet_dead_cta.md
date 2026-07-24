@@ -451,3 +451,19 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   signature. Red branch deleted (gate log preserved in DB + here).
 - Designer round 4 fired: FEATURE_CORR 7773219b. Script bbm3u351l auto-fires the
   implementer (single, patient) on approval.
+
+## 2026-07-24 — designer 4: council enforced OUR rule + found 2 wiring bugs; repropose cap defect fixed (201)
+- Designer 4 council (corr 7773219b) REVISE — all three objections excellent:
+  (a) the aiservice sketch PUNTED on the exact signature ("implementer MUST
+  inspect…") — the very class constraint 6 bans, now enforced BY the council;
+  (b) CORS computes the matched site but nothing passes site_id/domain to the
+  handlers (real cross-stage wiring gap); (c) InputCap drains the request body
+  without restoring it (would break downstream JSON binding).
+- Designer then DIED at repropose: stop_reason=max_tokens, cap 16000 vs ~26k-char
+  plans → the designer has NEVER completed a revise cycle (also explains 07-23's
+  silent repropose death). Migration 201 applied+ledgered: repropose 16000→32000
+  (matches compose). Snapshot taken.
+- Spec v5: quoted the REAL aiservice signatures verbatim (NewAnthropicClient /
+  GenerateText, anthropic.go:23,68), site-context wiring rule (c.Set site_id/domain),
+  body-restore rule (io.NopCloser). Designer round 5 fired: corr ffb74056; script
+  baar1cfmi auto-fires the implementer on approval.
