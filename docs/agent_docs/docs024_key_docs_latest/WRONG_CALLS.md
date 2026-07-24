@@ -32,7 +32,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **attach the query to a load-bearing absence claim — "checked" without the check text is a claim about diligence** | **1** |
 | **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
-| wait / query again before calling an absence a failure | 5 |
+| wait / query again before calling an absence a failure | 6 |
 | **grep for the capability before asserting it does not exist** | **3** |
 | **prove the artefact is current before reasoning from it** | **3** |
 | measure a property before describing it | 1 |
