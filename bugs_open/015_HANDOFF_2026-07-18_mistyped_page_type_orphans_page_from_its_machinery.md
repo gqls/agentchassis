@@ -176,3 +176,94 @@ adopt-don't-duplicate mitigation; the defect that makes the planner emit
 `section-index` for a news listing (candidate 2) is untouched, so the class is
 not closed. Do NOT move this to `/bugs_closed/` on the strength of the partial
 being live.
+
+---
+
+## CANDIDATES 1 + 2 BUILT 2026-07-24 — and the root cause was deeper than this file said
+
+> **CORRECTED 2026-07-24 — "the planner created the page as section-index" was
+> only half true, and the missing half changes the fix.** The mistype is
+> manufactured **deterministically in Go**, not (only) chosen by the LLM.
+> `ValidateRoles` (platform/orchestration/datahelpers/page_role_validator.go)
+> rewrites ANY non-leaf role to `section-index` when the page name ends in
+> `-index` (rule 2), when other pages declare it as parent (rule 3), or when
+> the URL is `/<slug>/index.html` (rule 4) — and `news-index` was not a leaf
+> role, so even a correct `news-index` emission from the LLM would have been
+> flattened. Both persist paths feed the corrected role onward, and
+> `CanonicalisePage` had no `news-index` case either. Teaching the prompt the
+> vocabulary (candidate 2 as originally written) would have changed nothing on
+> its own. Caught by reading the persist path end-to-end instead of stopping
+> at the prompt.
+
+**Second finding: candidate 3's advice was unexecutable.** The re-type
+suggestion shipped in v1.0.1144 routes to `content-gap-planner`, whose entire
+action surface (`apply_gap_plan_action.go`) was `add_to_page | new_page |
+update_spec | not_actionable` — `retype_existing` hit the unknown-approach
+branch (`applied=false`), or the LLM mapped it onto `new_page` and minted the
+exact duplicate the advice warns against. No code path anywhere let the
+gap-planner change `pages.page_type`. Third finding, same class:
+`defaultSectionsForPage` ignored its `pageType` parameter, so a news page
+whose plan omitted sections got `generic-text-block` instead of
+`news-listing` — orphaned again, one layer down.
+
+**What shipped (commit carries all of it; council corr `45664479`):**
+
+- `page_role_validator.go` — rule 1b: an explicit flavoured index role
+  (`isTypedIndexRole`, currently just `news-index`) is trusted as-is; rules
+  2–4 can no longer flatten it. Sloppy/generic roles are corrected exactly as
+  before (regression-pinned). `normaliseRole` keeps `news-index` distinct.
+- `page_canonical.go` — `news-index` joins the section-index family: planner
+  shape `{news-index, noticias}` → `(noticias-index, /noticias/index.html,
+  news-index)`, flavour preserved as page_type (the family's stated design).
+- `apply_gap_plan_action.go` — new `retype_existing` branch,
+  **fail-closed**: the LLM plan only NAMES the page; the authorising facts
+  (candidate set, target page_type) come from the original work item's spec
+  as written by `findStrandedNavPages` — a page outside the stranded set is
+  refused, the target type is never LLM-chosen, `RowsAffected==0` refuses a
+  stale candidate. On success: page re-typed + sections set by candidate id,
+  `needs_content_page` item filed for page-build-handler, original completed.
+  Deliberately no growth-budget check (nothing is created).
+  `defaultSectionsForPage` now keys `news-index` → `[hero, news-listing,
+  call-to-action]` before the name heuristics (names are localised, types are
+  not).
+- Tests: `TestValidateRoles_NewsIndexFlavourPreserved` (one subtest per
+  flattening rule), `TestCanonicalisePage_NewsIndex`,
+  `apply_gap_plan_retype_test.go` (happy path pins UPDATE-by-candidate-id +
+  spec-sourced type; three refusal tests pin that nothing beyond the spec
+  read touches the DB). All pass on a clean `git archive HEAD` overlay.
+  (`discovery_checks` has a PRE-EXISTING verifier-coverage failure on pure
+  HEAD — `backend_entry_orphaned`/`contact_form_undeliverable` lack
+  verifiers — another thread's, not this change's.)
+
+**ACTIVATION — two steps remain, in this order (Go is inert until rolled):**
+
+1. Roll a chassis image containing this commit; verify against the pod with a
+   string this change CREATES plus a positive control:
+   `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c isTypedIndexRole'` (>0)
+2. Apply BOTH migrations (they are fail-closed — anchor/md5-gated WHERE, so
+   drift = 0-row no-op, and each header carries the pod-grep gate):
+   - `docs/agent_docs/sql_for_agents/206_planner_news_index_page_type.sql`
+   - `docs/agent_docs/sql_for_agents/206_content_gap_planner_retype_approach.sql`
+   Applied BEFORE the roll they recreate the bug (planner emission flattened
+   by the old binary) or dead-end gap items (approach E with no executor).
+
+Then the branch check (verify-the-failing-branch): confirm a
+`retype_existing` plan actually flips `pages.page_type` and files the build
+item — ai-agent-orchestration.com is the one `separate_page=true` site with
+no `news-index` page (its stranded-candidate set is empty, so it exercises
+the `new_page` arm; a synthetic stranded row exercises the retype arm).
+
+**Adjacent gaps observed, deliberately NOT fixed here (evidence first):**
+- Rules 2–4 flatten an explicit `entity-directory` the same way (`{name:
+  clinics-index, role: entity-directory}` → `section-index`); `blog-index` is
+  collapsed even earlier, by `normaliseRole`, deliberately. No observed
+  incident for either; `rebuild_blog_listing_action.go:326` even auto-repairs
+  the blog case downstream. Widen `isTypedIndexRole` only when a real page
+  breaks.
+- `check_model_directory.go`'s missing-page check (same shape as news)
+  deliberately omits stranded/retype logic; if model-directory ever grows
+  legacy mistyped pages, the executor branch is already generic — the check
+  need only write `retype_candidates` + `page_type` into its spec.
+
+Case stays OPEN until the image rolls, both migrations apply, and the branch
+check above passes.

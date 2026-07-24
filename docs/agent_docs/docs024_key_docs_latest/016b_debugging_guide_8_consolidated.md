@@ -883,6 +883,16 @@ visible symptom, which will be downstream and in a different subsystem. Corollar
 prefer **adopting/re-typing** the existing row over the check's `approach=new_page`, which would mint a
 duplicate (an English `/news.html` beside the Spanish `/noticias`) and leave the orphan in place.
 
+**Addendum (2026-07-24, from closing 015's candidates 1+2):** two follow-on shapes worth checking on
+any routing-key bug. (1) **The mistyper may be a deterministic "corrector", not the chooser** — here
+`ValidateRoles` rewrote *any* non-leaf role to `section-index` on three separate signals, so fixing the
+LLM's vocabulary alone would have changed nothing; ask *what rewrites the key after it is chosen*, and
+read the persist path end-to-end. (2) **Advice-only fixes need an execution path** — the v1.0.1144
+partial told an LLM planner to "re-type the page" while its executor (`apply_gap_plan`) had no approach
+that could touch `page_type`; the instruction could only dead-end or be mis-mapped onto the duplicating
+approach it warned against. When a fix is a prompt/suggestion, grep the handler's action surface for
+the verb you are asking for before shipping it.
+
 ### A generator that commits LLM whole-file output must format it before the gate — un-`gofmt`'d code fails the gate and yields no PR (2026-07-18)
 
 **The family.** Another member of the truncation family above (`005/008/012`), one
@@ -2558,7 +2568,7 @@ See `/bugs_closed/README.md`.
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | **CLOSED 2026-07-20 → `/bugs_closed/`** — `formatGeneratedGo` runs `go/format` at commit-prep (`fc38c6058`), pod-verified. Unparseable bodies still fail LOUD there rather than falling back to raw bytes — usually a `max_tokens` truncation, so the message names it |
 | 032 | The completion verifier reads a DELETED component as a successful fix — absence is equally a rebuild silently dropping it | **CLOSED 2026-07-20 → `/bugs_closed/`** — returns an error, not a verdict, so the gate's fail-OPEN policy turns a false success into a visible unknown (`a467baa11`), pod-verified. **Closed on its safe floor:** treating absence as *deletion* when the page still expects the component is the better verdict and stays open for the `empty_sections_loop_integrity` thread. Coverage half remains in `021` |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo (two causes) | FIXED (v1.0.1126 + pin removal) — **`→ bugs_closed/`** |
-| 015 | Mistyped `page_type` orphans a page from every gate that keys on it | worked around per-site; planner fix open |
+| 015 | Mistyped `page_type` orphans a page from every gate that keys on it | full fix BUILT 2026-07-24 (validator rule 1b + retype executor + 206 migrations); inert until image roll + migrations |
 | 016 | `ssh` ignores `$HOME` (uses passwd entry) — service-account git-over-ssh fails twice over | FIXED in the box scripts — **`→ bugs_closed/`** (note: a *different* case also numbered 016 — council revise — is ALSO now in `bugs_closed/`, closed 2026-07-21; resolve by slug) |
 | 017 | Static cutover orphans a backend tool's entry forms — funnel unreachable, no auditor models it | **CLOSED 2026-07-22 → `/bugs_closed/`** (slug `static_cutover_orphans_backend_entry_forms` — NOT the `fix_forced_text_colors` 017 below). Site fix live (forms re-authored as chassis sections). Auditor gap closed by `backend_entry_orphaned` (Finding A: flags a GET link returning 405 from a POST-only handler) — LIVE v1.0.1149, pod-grep-verified + enabled via seed 188 on completeness-discovery-agent; detection proven on the induced 405 (live probe + httptest). Cause-guard split to `features_open/011` + RUNBOOK §3d(ii); Finding B deferred |
 | 018 | idea.uk chrome renders with every link `href=""` (31/33) — site unnavigable; check fleet | open, unstarted |
