@@ -241,3 +241,24 @@ Worth naming: this is really the beginning of the "fully UK-hosted stack" idea y
 parked a fortnight ago — British-owned compute, your own Kafka and database on it.
 If you want to take that seriously, it deserves its own planning thread; I've not
 absorbed it into this one.
+
+## 2026-07-24 — DECIDED: the small island now (B1), a bigger box later if the framework needs one
+
+You chose Route B1: the minimal island — one small Mythic Beasts VM running the
+debate engine, its database, the proxy and the tunnel — with the explicit plan to
+rent a bigger machine when the time comes to install the framework. That's a sound
+sequence: moving later is an afternoon's work (copy the database over, start the
+tunnel on the new box — the tunnel identity moves with its credentials file), so
+nothing is locked in by starting small.
+
+On the order form you drafted (VPS 1 with 5GB disk and IPv4, £6.90/month), two
+adjustments recommended: take VPS 2 instead of VPS 1 — £2.50 more doubles the
+memory to 2GB, which is the comfortable floor for running Postgres alongside the
+engine without ever worrying about it; and raise the disk from 5GB to 20GB (about
+£1.20 more) — 5GB is tight once the operating system, container images, logs and a
+growing database share it. Keeping IPv4 (+£2) is right: some services we call out
+to are IPv4-only, and £2 removes a whole class of connectivity head-scratching.
+Skip managed hosting, SMS monitoring and graphs. The 10GB of mirrored backup space
+(80p) is worth it for nightly database dumps held off-box at a second UK site.
+All in: roughly £11.40/month before VAT. Debian 12 as the operating system;
+monthly billing while we prove it, switch to annual (12 for 10) once settled.
