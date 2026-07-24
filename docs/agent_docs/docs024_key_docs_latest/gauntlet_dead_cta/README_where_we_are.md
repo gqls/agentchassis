@@ -171,3 +171,35 @@ One admission: while inspecting the live VPN I printed its private keys into my 
 session log on your machine. Low risk since it never left your machine, but the clean
 move is to re-issue the laptop/phone keys sometime soon — five minutes, and I can do
 it whenever suits.
+
+## 2026-07-24 — your better idea: don't let the public near the cluster at all
+
+You asked whether, instead of tunnelling public traffic into the production cluster,
+we could run the debate engine on its own small setup at Mythic Beasts — a cut-down
+cluster with Kafka and a database — completely independent of the main system.
+
+I went and audited the approved build plan rather than answering from memory, and the
+answer is yes — and it's even smaller than you asked for. The engine as designed needs
+no Kafka at all: it's a plain web service plus one database table. It talks to three
+things — its own Postgres, Anthropic's API (outbound), and the public vonc.com site to
+fetch the day's provocation (also outbound). The only tie to the main system is that
+it reads the list of your sites to decide which websites may call it, and that's a
+one-line change to read from configuration instead.
+
+So the whole thing fits on one small Mythic Beasts VM at £7–9 a month: the engine, its
+database, the front-door proxy and the Cloudflare tunnel, all on the same box. No
+Kubernetes, no Kafka, no VPN into the cluster. And the security picture transforms:
+public traffic then never touches your production cluster in any way — there is
+nothing to tunnel, nothing to firewall, no bastion to harden. If the worst happens and
+someone owns that box, they get the debate records and an AI key we'll deliberately
+issue as a separate, spend-capped key — and nothing else. Your cluster isn't reachable
+from there at all. The bastion design I corrected this morning stays on file as the
+fallback, but this is simply better for your stated worry, and cheaper.
+
+It also gives the island a future: when the per-site AI features come along (the
+advisory chatbot and friends), they're the same shape — public AI endpoints — and can
+live on the same contained box, all on British-owned hosting.
+
+Still yours to confirm: go with the island (I'll then write the VM setup files and
+the amended runbook), order the VM, and we note the one config change for the pull
+request when the machine-built code lands.
