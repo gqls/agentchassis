@@ -1,5 +1,22 @@
 # HANDOFF — robot-hands.com — START HERE (2026-07-20)
 
+> **UPDATE 2026-07-24 — the residuals are CLOSED (R8/R8b/R9); read NOTES Turn 13.**
+> Owner chose extend-don't-soften again: **MatchMatrix v2** scores all 10
+> grippers across six technologies with per-technology physics (30/30 tests,
+> live, DB durable source synced); **R8b** rewrote the methodology/about prose
+> that described an invented weighted-scoring system no honest tool can have;
+> **R9** put the query-backed gripper grid on gripper-catalog
+> (gripper-spec-sheet, NOT product-grid — empty price scaffolding invites
+> fabrication). The 043 fleet sweep ran: it caught a routine re-render
+> RE-inventing "2,400+" on this site's index that same morning → fixed, and
+> root-treated fleet-wide via **migration 201** (scalar no-unsourced-figures
+> rule) + an **evidence_base writer_block** for this site (the only assertable
+> numbers; the durability mechanism value-edits lacked). 043 lane artefacts:
+> `../fabricated_stats_043/`. Commits `997a04e16`, `f6b93e683`, `b2aa8d2fa`,
+> `cd17061b0`. Site is fully consistent: index 10/6/39 · about 10/6 ·
+> gripper-detail 10/6/4/39 · catalog lists all 10 · tool tests all 10 ·
+> methodology describes the real tool.
+
 **Supersedes `HANDOFF_2026-07-19_robot_hands_start_here.md`.** That file's R1–R6
 status table still holds; its "Next actions" list is done or superseded — see
 Corrections below, several of its premises were wrong.

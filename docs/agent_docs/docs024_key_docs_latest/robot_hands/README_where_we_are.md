@@ -227,3 +227,58 @@ does. Fixing the catalogue fixed the catalogue claim, not that one. Second, the 
 don't yet get their own browsable pages; they back the claim and the counts, but the
 "catalogue" page is still written as prose rather than a real list. Both are follow-ups, not
 part of what you decided today, and I've written them down so they don't get lost.
+
+---
+
+## 24 July 2026 — the tool now really does all six technologies, and the fabrication engine got its muzzle
+
+You asked me to carry on with the leftovers, and made three calls: make the tool
+match the claims rather than water the claims down, clean up the other sites'
+made-up numbers properly, and put a stop in the machine that invents them.
+
+**The tool.** MatchMatrix now tests all ten grippers — including the vacuum,
+magnetic, soft and adhesive ones — and it does it honestly, which took some care,
+because you can't ask a suction cup how hard it squeezes. Each type is judged on
+the numbers its own manufacturer publishes: the jaw grippers keep the force
+calculation (including the trap explainer about optimistic payload ratings), the
+magnet is checked against its published holding force and only on steel, and the
+suction, gecko and soft grippers are checked against their payload ratings with
+your acceleration and safety factor applied — so a "15 kg" vacuum cup correctly
+fails an 8 kg part that's being flung around. Thirty logic tests pass, and one of
+them failed the right way first: I'd written a test assuming a small gripper
+could open 10 mm when its own datasheet says 6 — the tool was right and my test
+was wrong, again. That's twice now, and it's why the tests exist.
+
+**The write-ups.** Checking the claims against the new tool turned up something
+worse than stale numbers: the methodology page described a scoring system that
+has never existed — weighted six-dimension scoring, adjustable weightings, spec
+"normalisation" with a worked example that misuses the name of a standard. I
+rewrote those pages to describe what the tool actually does. The honest version
+is genuinely stronger: every result now prints its own formula, so an engineer
+can check it by hand — the invented version could never say that.
+
+**The catalogue page** finally lists the grippers — all ten, pulled live from
+the database each time the page rebuilds, so it can't drift.
+
+**The other sites.** The made-up stats you'd have found embarrassing are gone:
+vonc's "14,203 takes filed today" (there is no counter — and it claimed nine
+archetypes when its own site documents eight), gamesdesign's "PRD accuracy gap"
+(no tool on the site does any such calculation), and the agency site's "70
+agents, 8 departments, 1000 concurrent" — which, funnily enough, UNDERSOLD the
+real platform: it actually runs 170 agents across 13 live sites and has
+completed over 1,200 automated jobs. Those real numbers are on the page now.
+
+**The muzzle.** The important one. While I was working, the platform itself
+demonstrated the disease: a routine page rebuild re-invented "2,400+ gripper
+models" on robot-hands' homepage — a number I'd removed four days ago. The cause
+turned out to be precise: the writing engine is handed a form that says "this
+stat field is required, give me a number like 2.4M", its rulebook says "never
+invent statistics", and given no data, the demand beats the rule. The fix gives
+it a legal way out: if you weren't given a figure, leave the field empty — an
+empty stat shows nothing, an invented one publishes a lie. And each of the four
+cleaned sites now carries a short "verified facts" card — the only numbers the
+writer may use, with instructions to recount them from the database before
+changing them. One site found this morning still carries invented claims
+(finetuning.uk's "clients served 11+, satisfaction 100%") — I've left it, because
+inventing a "true" replacement without knowing that site's real story would be
+the same sin; it needs a decision from you.

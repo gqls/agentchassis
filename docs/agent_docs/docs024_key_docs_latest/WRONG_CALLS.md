@@ -2211,3 +2211,19 @@ retry on that evidence (it costs a duplicate round)." I wrote an automatic retri
 whose timeout contradicted a recorded lesson. Ingest-latency under load is MINUTES;
 any auto-refire must wait longer than the worst observed latency (≥10 min here) or
 not exist. Family: wait / query again before calling an absence a failure.
+
+### 2026-07-24 — robot-hands/043 — superseded a site_specs row I had not read (caught same minute)
+**Asserted:** (by action, not in prose) an unconditional "supersede any current
+evidence_base row" UPDATE across four sites, assuming none existed — three had
+none, but vonc carried migration 166's structured evidence_base whose
+banned_claims regexes feed the experience-loop claims checkers. My
+writer_block-only replacement silently removed them from "current".
+**Actually:** another thread's live machinery was keyed on the row I clobbered.
+**Caught by:** the apply output — `UPDATE 1` where I expected `UPDATE 0`. Read
+the superseded row, found the structure, fixed with a MERGE row carrying both.
+**The cheap check that would have caught it:** SELECT the current rows BEFORE
+writing a supersede — the same "read before write on any file you did not
+create" rule, applied to DB config rows. One query.
+**Cost:** ~10 minutes of checker-pattern absence on one site; nothing reached a
+handoff; the merge row is strictly better than either original (166 had no
+writer_block, which is why the WRITER kept inventing on vonc despite checkers).

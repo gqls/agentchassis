@@ -797,3 +797,65 @@ value.) robot-hands is correct end-to-end: about 10/6, gripper-detail 10/6/4/39,
 sourced actuation technologies, no fabrication tells. The 043(b) fallback root fix is live
 fleet-wide (recurrence prevented); the four other sites' persisted junk suffixes remain
 their owners' cleanup, documented in 043.
+
+---
+
+## Turn 13 — 2026-07-24 — R8 (MatchMatrix v2) · R8b (methodology truth) · R9 (catalog grid) — the residuals closed
+
+Owner said "carry on with the residuals" and chose: extend the tool (not soften
+the prose), full 043 treatment on the other sites, sweep + prompt rule. This
+site's share of that session:
+
+**R8 — MatchMatrix v2, all six technologies, honest physics.** The v1 tool
+tested 5 parallel-jaw grippers and its scope note claimed "5 grippers … the
+complete index" — false since R7. v2 (committed `997a04e16`, live gqls/sites
+`67a6c3d5`, DB durable source synced): all 10 grippers, each assessed on the
+criteria its manufacturer PUBLISHES — jaw friction calc unchanged (μ-trap note
+kept); magnetic = direct hold m·a·S vs the LOWER published figure (385 N,
+friction ring) + a ferromagnetic-workpiece gate; vacuum/adhesive/soft =
+published payload vs dynamics-adjusted equivalent m′ = m·a·S/g (a rating earned
+at rest is not credited with surviving your acceleration); soft also the
+11–118 mm cup range. Requirement panel prints all three formulas with numbers.
+**30/30 logic tests** (node:20-alpine, DOM stub over the real submit handler) —
+and one test failed FIRST because the TEST was wrong: DHPS-10-A has 6 mm total
+stroke, so a 10 mm travel ask rightly fails — the μ-trap lesson self-applied;
+kept as case 21b. `[VERIFIED live]` all 10 grippers render, form intact, 0 tells.
+
+**R8b — the methodology page described an invented system.** Re-reading the ~10
+tool-scope claims against v2: most became TRUE, but matchmatrix-methodology +
+two about differentiators described machinery that has never existed — a
+six-dimension weighted distance metric, adjustable/saveable weighting vectors,
+spec "normalization" with a fabricated "120 N → 94 N, IEC 60529-aligned"
+example (IEC 60529 is the IP-rating standard — the generator even misused the
+standard number), third-party/peer-reviewed data, manufacturer "enrolment",
+hard-limit override, "identical criteria" across technologies. No honest
+extension can make those true — they'd require inventing data/processes. Rewrote
+3 fields (about features [0][1][2][4][6]; methodology body; methodology FAQ 9 of
+10 answers) to v2's real mechanics; kept truthful entries byte-identical.
+`[VERIFIED live]` fiction markers 0, real markers present, on both pages.
+
+**R9 — gripper-catalog gets the real grid.** Reused the EXACT machinery proven
+on gripper-detail: one page_components row → `gripper-spec-sheet`
+(`query.products:gripper`), sections array mirrored, positions shifted 3→4→5.
+Rejected `product-grid` deliberately — it is an e-commerce card
+(price/rating/badge/image) and empty price scaffolding is a fabrication
+invitation. `[VERIFIED live]` all 10 gripper names render on
+/gripper-catalog.html, including the 5 new ones; component survived its render.
+
+**The regression that proves the platform bug.** The fleet sweep (043 work, same
+session) found robot-hands/index brief-explanation RE-fabricated: a routine
+needs_page re-render at 10:54 that morning had re-invented "2,400+ Gripper
+Models Indexed" — the exact figure R4c removed on 07-20 — because the writer's
+schema demands a required numeric stat value and rule 14's prohibition offered
+no legal alternative ("2,400+" is the prompt's own '2.4M' example shape). Fixed
+(computed 10/6/39) AND root-treated: migration 201 (scalar rule with the
+empty-string alternative) + an evidence_base writer_block for this site listing
+the only assertable numbers. Full mechanics in `bugs_open/043` Update 2026-07-24.
+**Lesson for this site's docs: content_data value-edits on agent-rendered
+components are NOT durable against the full writer path — durability needs the
+evidence_base declaration (now in place) or a query-backed field.**
+
+Re-renders all verified against live pages, not statuses. robot-hands ends the
+day fully consistent: index 10/6/39, about 10/6 + honest differentiators,
+gripper-detail 10/6/4/39 bare, catalog page listing all 10, tool testing all 10,
+methodology describing the real tool.
