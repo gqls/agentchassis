@@ -103,6 +103,44 @@ The scheduler picks it up on its next ~30s tick. Gotchas this arc paid for:
   unparseable reply). The callee's logs discriminate; the caller's error
   never does.
 
+## Getting the page created: discovery does NOT run on a timer
+
+The `missing_model_directory_*` checks only fire when a
+completeness-discovery run happens AT the site — and there is no scheduled
+task for that: it is pipeline-triggered, and the improvement-sweep that
+would drive it is deliberately off fleet-wide (see the
+content_quality_and_internal_linking runbooks). On aao, discovery had not
+run since **2026-05-02**; the checks were enabled but never got a turn.
+Dispatch one manually (proven 2026-07-24, corr `03ee816c`):
+
+```bash
+# kcat orchestrate pattern (cloned from cta_link_integrity/scripts/049b_deploy_single_page.sh)
+kubectl -n kafka run -i --rm "kcat-disc-$(date +%s)" \
+  --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -P -c 1 \
+  -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests \
+  -H correlation_id=$(cat /proc/sys/kernel/random/uuid) ... <<JSON
+{"action":"orchestrate","config":{"agent_type":"completeness-discovery-agent"},"input_data":{"site_id":"<id>","domain":"<domain>"}}
+JSON
+```
+
+Then: **findings land `status='detected'`, which is UNCLAIMABLE** — the
+dispatch loop only picks up `triaged`. With the sweep off, triage the two
+model-directory items by hand:
+
+```sql
+UPDATE site_work_items SET status='triaged', updated_at=now()
+WHERE site_id='<id>' AND item_type IN
+  ('missing_model_directory_section','missing_model_directory_page')
+AND status='detected';
+```
+
+Expect a 3-months-unswept site to also surface a large backlog of OTHER
+findings (aao 2026-07-24: 7 phantom links, 20 unknown-destination CTAs, 25
+required_fields, 1 truncated_component, ~19 page_rerenders) — most park at
+`needs_human_review` by design; leave them for their owning workstreams.
+
 ## Publish leg (model-directory-publish, live 2026-07-24)
 
 Self-gating: idles (`complete_idle`) until an opted-in site has a DEPLOYED

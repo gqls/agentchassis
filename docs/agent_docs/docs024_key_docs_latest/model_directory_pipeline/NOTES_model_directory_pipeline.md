@@ -414,6 +414,30 @@ is PROVEN: scheduled task → directory-researcher → search → scrape (lean
 reply, delivered, parsed) → LLM extraction → deterministic verification →
 registry. The daily freshness sweep now owns re-verification.
 
+**2026-07-24 afternoon — owner asked "where on the site is it?", which
+exposed the LAST unexamined assumption: that discovery would come.** The
+honest answer was "nowhere": the registry had data but the page-creation
+machinery keys off a completeness-discovery run at the site, and discovery
+had not run for aao since **2026-05-02** — it is pipeline-triggered with the
+improvement-sweep deliberately off fleet-wide, so my enabled checks had
+simply never had a turn. `[ASSUMED]` in the earlier read-outs ("the fleet's
+own machinery takes over from here") — never verified against when that
+machinery actually last ran. Dispatched discovery manually (kcat orchestrate,
+corr `03ee816c`): **both model-directory checks fired first time live**,
+raising `missing_model_directory_section` + `missing_model_directory_page`.
+Second gate immediately behind it: findings land `status='detected'`, which
+the dispatch loop never claims — triaged both by hand (recorded in RUNBOOK).
+
+Same conversation surfaced that aao's **/tools.html serves an empty main**:
+`pages.sections` = [hero, tool-list, call-to-action] but ZERO
+`page_components` rows — nothing to render, deployed that way since May,
+sitting at `needs_rebuild` which builds nothing on its own. Queued a full
+build (`needs_page`, triaged, item_key `manual_tools_rebuild_2a8ebf9c`,
+spec notes tool-list is query-sourced so it self-populates) — claimed by
+page-build-handler within minutes. The same stale-discovery root cause is
+why this sat unnoticed: the checks that would have flagged it haven't run
+here since May either.
+
 **Publish-trigger gap closed, 2026-07-24.** Noticed while wrapping up: the
 Phase D plan's publish leg (model-directory-trigger + model-directory-publish
 scheduled task) had never been seeded — nothing would have committed
