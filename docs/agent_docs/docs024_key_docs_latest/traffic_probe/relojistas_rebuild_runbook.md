@@ -367,3 +367,23 @@ Rollback + backup table (`component_news_backup_20260720_179`) are in the migrat
   two-strike rule labels the recurring item `unresolved`.
 - `latest-news`'s `insights_url` declares `source: "query.pages"` — that base does not
   exist in the resolver switch. Pre-existing; do not attribute it to this change.
+
+### After the image carrying the emitter fix rolls (c05357102 + 4b8a8ca47)
+
+1. Pod-grep the RUNNING binary (never the tag):
+   `kubectl -n ai-persona-system exec <pod> -- sh -c 'strings /app/agent-chassis | grep -c "fresh news items available"'` → ≥1
+2. After the NEXT feed cycle, confirm the emitter's rows are the light shape:
+   ```sql
+   SELECT item_type, count(*) FROM site_work_items
+    WHERE source='render_news_section' AND created_at > '<roll time>' GROUP BY 1;
+   -- expect page_rerender only; ANY needs_page row = old binary still live, STOP
+   ```
+3. ONLY THEN remove the interim suppressors (guarded, idempotent):
+   ```sql
+   DELETE FROM site_work_items
+    WHERE item_key IN ('page_rerender:index','page_rerender:noticias-index')
+      AND status='blocked' AND source='relojistas-thread'
+    RETURNING item_key;   -- expect exactly 2 rows; 0 on re-run
+   ```
+   Until step 3 runs, homepage/noticias server-HTML freshness is paused (JSON + client JS
+   still refresh); after it, the fixed emitter resumes per-cycle no-LLM rerenders.
