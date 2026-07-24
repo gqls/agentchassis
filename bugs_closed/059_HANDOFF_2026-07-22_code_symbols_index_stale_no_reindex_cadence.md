@@ -1,4 +1,21 @@
-# bugs_open/059 — code_symbols index goes stale silently (no reindex cadence)
+# bugs_closed/059 — code_symbols index goes stale silently (no reindex cadence)
+
+> **CLOSED 2026-07-24 — fixed AND live AND verified on v1.0.1155.**
+> Fix #1 (cadence): `scheduled_tasks` `code-index-refresh`, live 2026-07-24,
+> proven on its first fire (derived ref, `ca8dc7f`→`adb00fd`). Fix #3 (read-time
+> freshness guard): council-APPROVED (corr `8ed67200`), live in v1.0.1155, and
+> verified by a LIVE probe — a real gather on the deployed pod rendered
+> `(index freshness: refreshed 3h ago at commit e19aa5d)` above a code answer
+> (probe corr `24365c79`, scratch agent `diagnose-wiring-probe-ok`, deactivated
+> and kept as evidence). The stale/empty/error branches are falsification-tested
+> in `TestFreshnessBanner`; a pattern-check declared pair
+> (`FROM code_symbols` ↔ `codeIndexFreshness`) guards future consumers.
+> Transferable pattern filed in 016b §9 ("An indexed snapshot read by a
+> correctness check is a silent freshness dependency").
+> **Residual, deliberately left open as a docs item, not a defect:** fix #2 —
+> the docs019 `TRIGGER_code_indexer_v2.sh` still documents the wrong (direct)
+> dispatch; a hand reindex should use `index-orchestrator`. The cadence makes a
+> hand reindex rarely necessary.
 
 *Filed 2026-07-22 (chat "diagnosis fixloop 5"). Found while proving the diagnosis
 code tier: the tier is live, but the index it reads was 3 weeks stale, so every
