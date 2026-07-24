@@ -1,10 +1,12 @@
 # 057 — the council ignored objection severity, so an APPROVE was unreachable
 
-**Filed 2026-07-22** (fixloop council-gate thread). **Status: FIXED & LIVE on
-chassis `v1.0.1149`, behaviourally verified 2026-07-22.** Ready to move to
-`/bugs_closed/` once the in-flight dogfood submission (corr
-`e0a9b843-a61f-4677-938a-73518eabcbd0`) records a live GATING example too — the
-approve path is already confirmed live (below).
+**Filed 2026-07-22** (fixloop council-gate thread). **Status: CLOSED 2026-07-24 —
+FIXED & LIVE on chassis `v1.0.1149`, BOTH halves now behaviourally verified on
+organic rounds** (approve path 2026-07-22; gating floor 2026-07-22→24, §"CLOSED"
+below). The dogfood submission this file was holding for (corr `e0a9b843`)
+APPROVED rather than gated, so it never supplied the gating example — the
+examples arrived organically instead, the first (a guardian hard veto, corr
+`1d8ef2c0`) the same evening this file was written.
 
 > **VERIFIED LIVE 2026-07-22.** Pod-grep of `agent-chassis-…` on `v1.0.1149`:
 > `objectionGates`, `severityGates`, and the new literals `"advisory objection"` /
@@ -17,6 +19,34 @@ approve path is already confirmed live (below).
 > into the same binary and will show on the next organic high-severity round.
 Full diagnosis, sizing and the fix options weighed:
 `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/SUMMARY_2026-07-22_council_approval_rate.md`.
+
+## CLOSED 2026-07-24 — the gating floor verified live, organically
+
+All 25 organic council rounds after the roll (2026-07-22 14:00 → 2026-07-24
+15:49, `diagnosis_artifacts` kind=`council_report`) split **13 approved / 9
+revise / 3 rejected**, and every decision matches the new rule exactly:
+
+- **Every `revise` was decided by an explicitly high-severity objection** —
+  `decided_by` = "gating objection from <seat>" and a per-round check found ≥1
+  `severity='high'` objection in all 9 (e.g. corr `c2a9fd27`, 07-23 15:56,
+  editquality, 2 high; the `fa4b77cd` run of four contracts-seat rounds).
+- **Every `rejected` was a veto**: "hard veto from guardian" (corrs `1d8ef2c0`
+  07-22 17:08, `6cdbc374` 07-24 15:17) and "veto from feasibility"
+  (`fa4b77cd` 07-23 16:00). The first landed ~3 hours after this file said
+  "none organic yet — councils quiet".
+- **Every `approved` carried the advisory string** ("approved with N advisory
+  objection(s) — none high-severity") — no bare-unanimity round needed.
+- **This file's own discriminator query over the post-fix window: 0 of 9 revise
+  rounds lacked a high objection** (pre-fix: 59 of 88). No round now gates on
+  low/medium nits. (Query as in §Root cause, window `>'2026-07-22 14:00'`, with
+  `coalesce(rv->'objections','[]')` — some post-fix reviews omit the array.)
+
+Approval per submission ran ~80% in the two days after the roll (8 of 10 corrs;
+fixloop NOTES turn 11), against ~5% the week before. Fix commits `872c830a8` +
+`e37ec804f` (harvested Degraded-zero-objections test, `Council-Reviewed:
+e0a9b843`) both in HEAD; the "gating objection from"/"advisory objection(s)"
+strings in today's rows are emitted by the new code, so the live binary is
+proven behaviourally, not just by pod-grep.
 
 ## Symptom
 

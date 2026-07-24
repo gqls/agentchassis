@@ -578,3 +578,31 @@ regardless of branch. Forward-only; did not fight it.
 cluster (098 needs BOTH git + DB), so a fully-scheduled run needs a runner with
 both — recommend running `098 --persist` at the digest cadence; a scheduled job is
 an owner call (offered).
+
+## Turn 12 — 2026-07-24 — `057` CLOSED: the gating floor arrived organically (a different session, "bugfix 057")
+
+Turn 10's hold ("holding only for a live GATING example — none organic yet") was
+satisfied within hours and nobody looked back: the first organic gating round was
+the **guardian hard veto at 07-22 17:08 (corr `1d8ef2c0` R1** — the same corr the
+056-regen thread later took to an R2 APPROVED). Checked the full post-fix window
+(07-22 14:00 → 07-24 15:49, 25 organic rounds):
+
+- **13 approved** — every one "approved with N advisory objection(s) — none
+  high-severity"; no bare-unanimity round needed.
+- **9 revise** — every one "gating objection from <seat>" and every one carried
+  ≥1 *explicitly high* objection when the reviews were checked per-round
+  (editquality ×5, contracts ×4; e.g. corr `c2a9fd27` 07-23 15:56, 2 high).
+- **3 rejected** — all vetoes (guardian `1d8ef2c0`, feasibility `fa4b77cd`,
+  guardian `6cdbc374`).
+- The case file's own discriminator over the post-fix window: **0/9** revise
+  rounds without a high objection (pre-fix 59/88). One query gotcha for reuse:
+  post-fix some reviews omit `objections` entirely, so wrap it
+  `coalesce(rv->'objections','[]'::jsonb)` or the EXISTS silently skips rows.
+
+That is both halves of the contract observed live — approve-on-nits AND
+gate-on-high/veto — which is exactly what "verify the failing branch" wanted and
+the unit tests could only promise. **Moved the case to `bugs_closed/057`**, added
+the §10 index row, pointed CLAUDE.md / this dir's PLAN+RUNBOOK at the new path.
+Dedup checks before acting: who-owns (this dir active but on `059`), no 057
+commits since 07-22, `site_work_items` clear. No code touched; nothing for the
+next image roll.

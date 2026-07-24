@@ -62,7 +62,7 @@ bottleneck, and without pretending it is compulsory when it is not.
 
 1. **PR-mode?** Only on evidence from advisory mode. Adoption is the input.
    > **RESOLVED 2026-07-24 — DEFERRED; strengthen advisory instead.** The evidence
-   > came in: after the severity-gate fix (`bugs_open/057`, live v1.0.1149) the
+   > came in: after the severity-gate fix (`bugs_closed/057`, live v1.0.1149) the
    > approval rate went from ~5% (3/53 submissions, 07-15..07-22) to **~80%** (8/10,
    > the two days after), and `098` REVIEWED went 0 → 4 in three days. So approval
    > is now reachable AND discriminating (the gate still blocked the ~20% with a

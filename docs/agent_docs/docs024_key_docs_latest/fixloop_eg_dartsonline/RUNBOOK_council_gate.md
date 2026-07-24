@@ -89,8 +89,8 @@ coming lockstep change in its header.
    `PERSIST=1` files it to doc_notes (categories digest+council-gate).
 
 **Strengthen-advisory machinery (owner ruling 2026-07-24: strengthen advisory,
-defer PR-mode).** Approval is reachable now (~80% since the `bugs_open/057` severity
-fix, v1.0.1149), so the norm is reinforced without enforcement:
+defer PR-mode).** Approval is reachable now (~80% since the `bugs_closed/057` severity
+fix, v1.0.1149; case CLOSED 2026-07-24), so the norm is reinforced without enforcement:
 - **Commit-time nudge (loud):** `.githooks/commit-msg` runs
   `scripts/council-coverage-nudge.sh` — an ADVISORY note when a commit touches
   `platform/|internal/|pkg/` code with no `Council-Reviewed:` trailer. Never blocks;

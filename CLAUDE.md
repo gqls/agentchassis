@@ -70,7 +70,7 @@ and never spend credits. Full runbook + submission schema:
 ruling 2026-07-24: strengthen advisory, defer enforcement).** Until 2026-07-22 the
 decision rule ignored objection severity, so an APPROVED verdict was effectively
 unreachable (~5%) and submitting felt pointless. That is fixed and live
-(`bugs_open/057`, chassis v1.0.1149): approval ran **~80%** over the two days after
+(`bugs_closed/057`, chassis v1.0.1149): approval ran **~80%** over the two days after
 — a sound platform change now passes, usually quickly, in ~30 minutes. **So: put
 platform-code changes through the gate before (or alongside) committing them.** It
 stays ADVISORY — it cannot block your commit, and PR-mode enforcement is still
