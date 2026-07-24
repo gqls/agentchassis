@@ -220,6 +220,92 @@ real unit its owner intends) and a re-render. Listed here for the 043 fixing thr
 touched from the robot-hands lane because the intended unit is the site owner's call
 (gamesdesign's `36.6` may genuinely want `%`).
 
+## Update 2026-07-24 — fleet sweep RUN; live recurrence caught; candidate 3 SHIPPED (migration 201 + evidence_base); all found instances fixed
+
+Artefacts: `docs/agent_docs/docs024_key_docs_latest/fabricated_stats_043/` (per-site
+SQL, wave-2, evidence_base seeds); migration
+`docs/agent_docs/sql_for_agents/201_content_writers_never_invent_numbers.sql`.
+
+### The sweep (finally run, per "How to verify a fix" above)
+
+All `stat[_]?N_value` fields fleet-wide + rendered-page suffix grep + a sibling
+sweep of `input_schema` static fallbacks. Classification:
+
+| site / page | was serving | verdict → action |
+|---|---|---|
+| robot-hands/index (brief-explanation) | **"2,400+ Gripper Models Indexed"** — RE-INVENTED by a routine re-render 2026-07-24 10:54, four days after R4c corrected it | **LIVE RECURRENCE** → fixed (computed 10/6/39); the motivating case for candidate 3 |
+| vonc/index + about (system-stats, gauntlet-cta ×2, content-block, brief-explanation) | "14,203 Takes Filed Today", "Happy Customers 14,203", "Avg. Rating: 6 Archetypes", "Setup Time: 4h 12m", "Players Scored 10K+", "updated every 15 minutes" — NO takes/activity tables exist; wrong about its own content (8 archetypes, not 9; no "Contrarian") | fabricated → replaced with register counts (8/3/2/17), computed |
+| gamesdesign/index | "PRD Accuracy Gap 36.6%" (no tool implements PRD), "Economy Model Types 6" (no presets exist), pity description naming parameters the tuner doesn't have | fabricated → replaced with traced figures (11 tools / 4 real tuner inputs / 10,000 trials **kept — traces to shipped JS** / 10 articles) |
+| ai-agent-orch/case-study + index + about | "70 Deployed Agents / 8 Departments / 30 Types / 1000 Concurrent"; about: "Satisfaction Rate: **30+**", "Awards Won: **30 yrs**" (template mad-libs) | fabricated (and UNDERSTATED reality) → grounded in the platform's own DB: 170 agents / 13 sites / 17 services / 1,267 work items |
+| leopardessconsulting/about | "Agent Definitions 150+" | **VERIFIED TRUE** (registry holds 170) — the audited-claims discipline works |
+| gamesdesign/about-index, idea.uk | "Free/100%/Growing"; "£29/8 tools/5 working days" | qualitative or owner-set product facts — left |
+| vonc archetype pages | "Longest/Widest/Sharpest…" | superlative brand voice, no figures — not this class |
+| **finetuning.uk/about** | "Clients Served 11+ / Satisfaction Rate 100% / Awards Won 0" | **fabricated, NOT FIXED** — no honest replacement derivable from the DB; needs its owner's real story. **OPEN residual.** |
+| sibling components | `system-stats-leopardess` had the same junk suffix fallbacks (0 consumers) → cleared; `gauntlet-interface` still holds 12,847/94,210/7 persisted + as schema fallbacks but the template no longer references them — INERT residue, gauntlet_dead_cta thread's territory | |
+
+### The recurrence, mechanically (why rule 14 lost)
+
+The 10:54 regression came through `needs_page` → page-build-handler →
+page-content-writer. The writer's prompt **already had** rule 14 ("NEVER invent
+specific statistics"). But the "What To Write" block lists each llm field with
+its schema description — and a stat field's says *"stat_1_value (required): The
+numeric value… e.g. '99.99', '2.4M', '150'"*. A REQUIRED field demanding a
+number, example shapes to copy, no data anywhere in the prompt: the model
+resolves the conflict by inventing ("2,400+" is literally the '2.4M' example
+shape). **A prohibition without a legal alternative loses to a structural
+demand.**
+
+### Candidate 3 SHIPPED (config-only, LIVE 2026-07-24)
+
+- **Migration 201**: rule 14 rewritten to name the conflict and the alternative —
+  a figure not given in the prompt (Verified Facts / Research / Admin Brief /
+  Existing Content) must not be stated; for numeric stat fields, required-ness
+  is NOT permission; return an **empty string**. Same rule added to
+  content-writer's Guidelines. Snapshots taken; anchors verified; ledger-recorded.
+- **evidence_base seeded for the four fixed sites** (robot-hands, vonc,
+  gamesdesign, ai-agent-orch): the writer_block lists each site's true countables
+  with meanings + explicit NEVER-STATE lists — so 201 has figures to *allow* and
+  a full-writer re-render keeps the corrected stats instead of blanking them.
+  (vonc's row is a MERGE preserving migration 166's `banned_claims` checker
+  patterns — see the correction note in the SQL file.)
+
+### Wave-2c (same day): the prose-beyond-stat-fields tail, on vonc
+
+Chasing the last grep hit ("4h 12m") after the stat blocks were clean surfaced
+the class 043 predicted: fabrication in ordinary prose fields. Fixed
+(`SQL_2026-07-24_wave2c_…`): fabricated countdowns ("Gauntlet closes in 4h 12m"
+/ "3h 44m" — no clock exists), liveness theatre ("watch the split happen in
+real time. The clock is live. The takes are stacking."; "Your Archetype updated
+in real time" — no server, no persistence), and — the deepest cut — the
+archetypes page's `archetype-combinations` component built entirely on **six
+invented archetypes** (Contrarian, Analyst, Idealist, Provocateur, Realist,
+Sage) that are not the site's documented eight; rewritten to real pairs.
+
+**Recorded, deliberately NOT touched (experience-loop / vonc-spark thread's
+call):** the present-tense product-VISION copy — the arena guide article
+("Every day, a new Provocation drops… watch the distribution shift in real
+time") and the conceptual differentiators ("The Gauntlet Has a Clock", "The
+World reads your pattern"). Their migration-166 banned_claims deliberately
+routes such copy to review rather than banning the concept; whether Spark's
+vision may be described in the present tense is a positioning decision in their
+lane, not a number to correct in this one.
+
+### Still open on this bug
+
+- **Candidate 1** (provenance-bound stat fields in component schemas — the
+  `stat_1_value` llm_guidance with its "2.4M" example shapes is the field-level
+  seed of the invention; binding those fields to `query.*`/evidence sources kills
+  the class structurally). **Candidate 2** (post-generation numeric audit →
+  needs_human_review). Both Go/schema work, unbuilt.
+- finetuning.uk/about (owner story needed).
+- vonc present-tense vision copy (above) — experience-loop thread's positioning
+  call.
+- Sites beyond this sweep's stat-field shape: prose numbers not in stat fields
+  are NOT covered by the stat-value sweep (robot-hands' 42-field experience says
+  the stat blocks are the tip, and wave-2c proved it on vonc); 201 now guards
+  the writer for all of them going forward, but existing prose was not audited
+  fleet-wide.
+
 ## Related
 
 - `/bugs_open/020` — the tool-recreation fabrication. Same family, different path. Fix both.
