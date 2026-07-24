@@ -91,6 +91,21 @@ transaction.
   `structuralPageTypes` (`page_growth_budget.go:37`), `model-directory-trigger`
   agent + `scheduled_tasks` row `model-directory-publish`. Pilot on aao only
   before the fleet-wide loop would pick it up.
+
+  > **CORRECTED 2026-07-24:** the publish-trigger half of this phase (the
+  > `model-directory-trigger`/`model-directory-publish` items named in the
+  > sentence above) was planned here but **never implemented in the Phase D
+  > work** — the checks, growth budget and enablement migration all shipped
+  > on 2026-07-22 while the publish leg silently fell out of the work list.
+  > Nothing caught it: the omission produced no error anywhere, because a
+  > trigger that doesn't exist looks identical to a trigger that is idling.
+  > Noticed only on 2026-07-24, while writing the milestone summary — i.e.
+  > by re-reading THIS plan against what was actually seeded, which is the
+  > check that should have run at the end of Phase D itself. Closed the same
+  > day: `SEED_directory_publish_trigger.sql` (publisher agent + trigger
+  > agent + 6h task, self-gating), applied live after a dry-run caught a
+  > second miss (`check_ad_category` rejects invented category values; use
+  > content-feed-trigger's `orchestrator`/`coordinator`).
 - **E — Later.** Adoption tracker: `kind='company'`/`kind='protocol'` rows,
   new `field` values, same tables.
 

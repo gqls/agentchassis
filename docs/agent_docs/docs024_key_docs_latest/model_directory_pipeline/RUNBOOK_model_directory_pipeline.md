@@ -68,6 +68,53 @@ WHERE name = 'content-feed-refresh';
 -- expect target_agent_type='content-feed-trigger', target_topic='system.agent.generic.requests'
 ```
 
+## Re-firing a discovery run (and watching it without fooling yourself)
+
+```sql
+UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name = 'model-directory-discovery';
+```
+The scheduler picks it up on its next ~30s tick. Gotchas this arc paid for:
+
+- **Find the run by its workflow, not by input filters.** A filter on
+  `initial_request_data->>'research_query'` missed a real row and read as
+  "nothing dispatched" (WRONG_CALLS 2026-07-24). Use:
+  ```sql
+  SELECT orchestration_id, status, current_step, error, created_at
+  FROM orchestration_states
+  WHERE workflow_plan::text ILIKE '%batch_webscrape%'
+  ORDER BY created_at DESC LIMIT 3;
+  ```
+- **Pin which binary processed the run before crediting/blaming a change:**
+  compare the run's `created_at` against the pod's start time —
+  `kubectl -n ai-persona-system get rs -l app=agent-chassis --sort-by=.metadata.creationTimestamp`
+  — a fixed-delay watcher launched "after" a rollout command races the
+  rollout itself (run 6 fired against the old pod this way).
+- **After a chassis (re)start, wait ≥300s before firing** — the spawn is
+  silently dropped inside that window (CLAUDE.md standing rule).
+- **Read the ADAPTER's logs inside the failure window, immediately** — fleet
+  pod rolls destroy them within hours (lost twice in this arc):
+  ```
+  kubectl -n ai-persona-system logs <web-scrape-adapter-pod> --since=45m \
+    | grep -E "Batch scrape completed|Failed to produce|<request_id>"
+  ```
+- A caller-side `Request ... timed out after 3 retries` says NOTHING about
+  where the loss is — runs 1–4 each failed with that identical error for
+  four different mechanisms (transient, oversize reply, oversize reply,
+  unparseable reply). The callee's logs discriminate; the caller's error
+  never does.
+
+## Publish leg (model-directory-publish, live 2026-07-24)
+
+Self-gating: idles (`complete_idle`) until an opted-in site has a DEPLOYED
+page carrying a `model-directory`/`model-directory-listing` component AND
+the registry has `found` claims. Verify a cycle ran:
+```sql
+SELECT name, last_triggered_at, last_completed_at FROM scheduled_tasks
+WHERE name = 'model-directory-publish';
+```
+Once pages exist: expect `data/model-directory.json` committed in the site
+repo and `page_rerender:<page>` work items queued.
+
 ## Checking directory_claims state
 
 ```sql

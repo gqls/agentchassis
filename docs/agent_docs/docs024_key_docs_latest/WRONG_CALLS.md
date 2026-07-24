@@ -27,10 +27,12 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 
 | the check that was skipped | times |
 |---|---|
-| read the code before asserting a mechanism | 7 |
+| read the code before asserting a mechanism | 9 |
+| **read the CALLEE's logs before diagnosing the CALLER's timeout** | **1** |
+| **attach the query to a load-bearing absence claim — "checked" without the check text is a claim about diligence** | **1** |
 | **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
-| wait / query again before calling an absence a failure | 4 |
+| wait / query again before calling an absence a failure | 5 |
 | **grep for the capability before asserting it does not exist** | **3** |
 | **prove the artefact is current before reasoning from it** | **3** |
 | measure a property before describing it | 1 |
@@ -50,7 +52,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
-| **confirm the record you are reading is the one that produced the artefact** | **3** |
+| **confirm the record you are reading is the one that produced the artefact** | **4** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -2088,3 +2090,107 @@ same failure shape as grepping one directory and declaring a symbol absent.
 **Cost:** one false durable claim in a closed bug file + a poisoned memory entry; both
 corrected 2026-07-23 (bugs_closed/054 CORRECTED block). Caught before any thread built on
 it — but only because the owner pushed back.
+
+---
+
+## 2026-07-24 — "the discovery run is stuck — this is the bug-003 spawn-loss shape" (model_directory_pipeline, run 1)
+
+**Asserted:** in the workstream NOTES and the session read-out (2026-07-22): the first
+`model-directory-discovery` orchestration was "stuck, not merely slow" at `search_web`,
+and "the shape matches bug-003 spawn-loss more than it points at new code."
+**Actually:** neither. The run was mid-retry when observed, and resolved itself to a clean
+`FAILED — Request timed out after 3 retries` ~12 minutes in: the coordinator's own
+await-timeout machinery working exactly as designed. The real cause (found two runs
+later) was in the adapter's REPLY path — a different mechanism, a different component.
+**Caught by:** re-reading the orchestration row the next day instead of building on the
+observation.
+**The cheap check that would have caught it:** read the row's `status`/`error` to a
+TERMINAL state before classifying it — "still running when I looked" is an observation
+about my look, not about the run. And naming a known bug family from symptom shape alone
+is asserting a mechanism without reading anything.
+**Cost:** one wrong durable line in NOTES (corrected in place), plus it pre-framed the
+next day's debugging toward spawn-loss when the defect was in the adapter.
+
+---
+
+## 2026-07-24 — "the batch is too slow for the await — raise the timeout, shrink the batch" (runs 2–3)
+
+**Asserted:** (NOTES + a live config change, 2026-07-24 morning): the scrape batch
+plausibly exceeds the 120s await every time — fix by raising `scrape_pages.timeout_seconds`
+120→300 and `max_scrapes` 4→3.
+**Actually:** the scrape took **4.69 seconds**. The reply was refused by the Kafka broker
+(`Message Size Too Large`) and dropped silently by the adapter — timing was never the
+mechanism. Worse, the "raise" edited a STEP-LEVEL `timeout_seconds`, a field
+`models.Step` does not have: it is silently dropped at unmarshal, and only
+`config.timeout_seconds` is read (`ConvertStepTimeout`). Every await had been running at
+the 180s default all along, including under the seed's original 120.
+**Caught by:** finally reading the ADAPTER's logs inside the failure window (the two
+prior windows were destroyed by fleet pod rolls before I looked); the inert field by the
+run-3 row's `workflow_plan` carrying my `max_scrapes` change but no timeout at all.
+**The cheap check that would have caught it:** (1) read the CALLEE's logs before
+diagnosing the CALLER's timeout — two theories were built and one config change shipped
+entirely from caller-side evidence; (2) before "fixing" a config value, grep for its
+READER — a field nothing consumes accepts any value you like.
+**Cost:** one wasted run, one inert config change presented as a fix, and the same
+inert field sits in the evidence-researcher seed it was copied from (flagged in 062).
+
+---
+
+## 2026-07-24 — "no orchestration appeared — consistent with dispatch-queue latency" (run 3 watcher)
+
+**Asserted:** (session read-out): the run-3 watcher timed out with "no orchestration
+appeared", which I attributed to the known ~30-min dispatch-queue latency.
+**Actually:** the orchestration was created at 10:01:46 — dispatch was instant. My
+watcher's filter (`initial_request_data->>'research_query'`) didn't match the row's
+actual shape, so the query returned nothing and I read my filter's blind spot as the
+fleet's queue.
+**Caught by:** a broader query minutes later (all orchestrations since 10:00).
+**The cheap check that would have caught it:** when a filtered query returns nothing,
+WIDEN THE FILTER before asserting the event didn't happen — a negative claim inherits
+the blind spots of its search (same shape as the 2026-07-23 `%med%` entry, one day
+apart).
+**Cost:** minutes only, but only because the wider query was cheap; the same habit on a
+slower loop is how a healthy system gets diagnosed as backed-up.
+
+---
+
+## 2026-07-24 — "run 6 fired against the genuinely-new chassis binary" (the watcher/rollout race)
+
+**Asserted:** (session read-out): run 6 was fired "after the 300s post-restart quiet
+window", i.e. against the freshly-rolled v1.0.1154 chassis carrying the pipe-folding
+fix — so when it rejected every claim again, the natural reading was "the fix doesn't
+work".
+**Actually:** the v1.0.1154 ReplicaSet was created at 11:23:52; run 6 was created at
+11:16:16, fired by my background watcher — launched before the rollout had actually
+landed, sleeping a fixed 360s — against the OLD pod. The fix was never exercised.
+**Caught by:** testing the fix locally FIRST (the exact rejected quote through the real
+Go matcher against the live page: matches) and only then comparing the ReplicaSet
+creation time against the run's `created_at`.
+**The cheap check that would have caught it:** pin WHICH binary processed a run (pod
+start time vs run created_at) before crediting or blaming a code change — a fixed-delay
+watcher launched "after" a rollout command races the rollout itself; gate on the new
+pod's start time, not wall-clock patience.
+**Cost:** one wasted run and twenty minutes of doubting a correct fix. The local-test
+habit is what kept it from becoming a wrong "the fix failed" entry in NOTES.
+
+---
+
+## 2026-07-24 — "checked: no live workflow reads raw_html from a batch output" (an absence claim without its lookup)
+
+**Asserted:** (council submission for the 062 fix): "checked: no live workflow config
+references raw_html/html_content from a batch_webscrape output", and "directory-researcher
+is the ONLY user of batch_webscrape" — both load-bearing for shipping a lean-by-default
+reply as a safe change, both stated as prose with no query attached.
+**Actually:** both turned out TRUE — but two council seats (guardian, prior_art_librarian)
+correctly refused to inherit them, naming the exact shape: ASSERTED ABSENCE standing in
+for an existence check. The exhaustive `agent_definitions` scan took ~2 minutes when
+actually run, found 3 batch_webscrape consumers and 6 false-positive `raw_html` hits
+(all self-referential), and went into the case file.
+**Caught by:** the council round — i.e. by process, after submission, rather than by me
+before it.
+**The cheap check that would have caught it:** attach the QUERY to any load-bearing
+absence claim at the moment of writing it — "checked" without the check text is a claim
+about my diligence, not about the system. If it's cheap enough to run when challenged,
+it was cheap enough to attach unprompted.
+**Cost:** none this time (the claims held) — which is exactly why it's worth logging:
+the identical habit with a false absence ships a breaking change on my say-so.

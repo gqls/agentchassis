@@ -223,3 +223,36 @@ anything but a timeout. Then the happy path: a small batch round-trips with
 content intact. Then re-fire `model-directory-discovery`
 (`UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name='model-directory-discovery'`)
 and confirm `directory_claims` gains rows.
+
+## CLOSED 2026-07-24 — fixed AND live, proven end-to-end
+
+All layers live and verified against the running system, same day as filing:
+- Defects 1–3 (oversize reply / silent drop / no formats override):
+  web-scrape-adapter **v1.0.1152**, pod-verified on all 3 replicas by
+  created-symbol grep (`stripBatchResultsForRetry`).
+- Defect 4 (bool trap): web-scrape-adapter **v1.0.1153**, pod-verified
+  (`buildBatchSuccessEnvelope`).
+- Layer 3 (markdown pipe folding): agent-chassis **v1.0.1154** (no greppable
+  literal for a one-char replacer entry — deploy evidence is the digest
+  chain plus the behavioural proof below).
+- **Behavioural proof, not just deployment proof:** discovery run 7
+  (orchestration `9b6cba0b`, 2026-07-24 11:33) COMPLETED end-to-end and
+  registered 10 entities / 22 claims, all `status='found'` — the exact
+  quotes that failed on runs 5–6 now verify against the live source page.
+  The failing branch was also exercised naturally along the way: runs 5–6
+  proved rejects terminate at a `directory_citation_unverified` human-review
+  item rather than vanishing.
+
+Residuals, each with an owner, none blocking closure:
+- The inert step-level `timeout_seconds` in
+  `claims_verification/SEED_evidence_researcher.sql` — claims-verification
+  workstream's file; flagged above, not fixed here.
+- `isKafkaMessageTooLarge`'s substring fallback remains alongside the typed
+  checks (kafka.WriteErrors composite shapes can defeat unwrapping) — noted
+  in the council round, accepted.
+- The single-scrape path (adapter.go) never carried the bool-trap fields and
+  is untouched.
+
+Wrong calls made during this case are logged in WRONG_CALLS.md (five entries,
+2026-07-24); the transferable pattern is 016b §9 "A response that cannot be
+delivered must become a deliverable error".
