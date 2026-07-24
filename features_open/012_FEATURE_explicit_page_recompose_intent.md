@@ -1,10 +1,11 @@
 # 012 — Explicit per-page redesign intent (`recompose_pages` in the re-plan spec)
 
 **Filed:** 2026-07-22, owner-approved follow-on to `/bugs_closed/037`. **Class:** planner
-capability. **Status:** code **LIVE on v1.0.1149** and **VERIFIED END-TO-END** on the dartsonline test
-site (2026-07-22 — commit `385eb0b26`; symbol in the running pod, and a same-page A/B re-plan proof
-below). Remaining open: operator ergonomics (a friendlier way to set `recompose_pages`) and the
-drop-vs-keep design choice below — neither blocks use.
+capability. **Status:** code **LIVE on v1.0.1149**, **VERIFIED END-TO-END** on the dartsonline test
+site (same-page A/B proof below), and **COUNCIL-APPROVED** (advisory, retrospective, 2026-07-24 —
+`Council-Reviewed: 3d025222-31a9-47a3-982e-197a77cce002`, 3 advisory objections none high-severity).
+Remaining open: operator ergonomics, and the drop-loud follow-up the council recommended (below) —
+neither blocks use.
 
 > **Note on the spec-read path.** The one link unit tests can't cover is the live
 > `input_data.spec.recompose_pages` extraction. It uses the SAME accessor an existing production
@@ -67,9 +68,14 @@ files compiles clean.
    with `spec = '{"recompose_pages":["index"]}'` by hand (see the RUNBOOK). A nicer trigger (a small
    script, or an admin-dashboard action) is optional polish, not required for the capability to work.
 3. ~~Live verification once rolled.~~ **DONE — proven live on dartsonline, see below.**
-4. **Drop semantics.** A recompose page the LLM then omits is dropped from the plan. That is the
-   honest meaning of "recompose from scratch", but if the owner wants "redesign but never delete", a
-   follow-up could union such a page back with empty sections instead. Recorded, not built.
+4. **Drop semantics — now with a council recommendation (upgraded 2026-07-24).** A recompose page the
+   LLM then omits is dropped from the plan with no signal. The council's `bug_historian` seat
+   (medium) rightly flags this as a miniature of the very silent-loss class 037 closed. **Recommended
+   next step:** make the drop *loud* — after convergence, if a `recompose_pages` name is absent from
+   the final plan, raise a `site_work_item` (or at minimum an error-level log distinguishable from
+   ordinary absence). Optionally also the "redesign but never delete" variant (union the page back
+   with empty sections). This is a small follow-up code change (+ image roll); **owner call on whether
+   to build it now.** Until then, a caller should only name pages they expect the LLM to re-propose.
 
 ## How to use it (once live)
 
@@ -110,6 +116,44 @@ Two `needs_site_plan` re-plans on the dartsonline test site, on chassis v1.0.114
   `is_current`). Runs' spawned rebuilds were cancelled/left to settle; `index` and `shipping-returns`
   on the dartsonline TEST site now carry their recomposed layouts (restorable from the pre-run values
   recorded in the workstream NOTES if ever wanted).
+
+## COUNCIL REVIEW — APPROVED, 2026-07-24 (advisory, retrospective)
+
+`Council-Reviewed: 3d025222-31a9-47a3-982e-197a77cce002`. Submitted the combined 037+012 change
+(one coherent task, same function). Verdict **APPROVED** — 13 seats, 5 abstained, **3 advisory
+objections, none high-severity**; every guardian (incl. the hard-veto seat) approved. Reviewers
+praised the separate-predicate design ("mirrors the lesson embedded in bugs_closed/050 itself") and
+the reuse discipline (ExtractNestedField(input_data.spec) reuse "is the STEP ZERO discipline working
+as intended"). (First run wedged on a bug-003 spawn-loss at `gate_bug_historian`; resubmitted, flowed
+through in ~10 min.)
+
+**Advisory objections + responses:**
+
+- **editquality (medium) — "does swapping the predicate drop adoption-locked pages?"** No. The two
+  membership sites are `if noCurrentPlan || realisedPageCompositionIsPreserved(rm)` — the
+  adoption-locked term (now `noCurrentPlanFlag`, post-051 rename) is a *separate* OR'd term and was
+  never folded into `realisedPageIsBuilt`. Swapping only the second term leaves adoption-locked
+  coverage intact. No regression. (The seat flagged it because edit 1's sketch showed the predicate in
+  isolation; the call-site line carries the `||` term.)
+- **prior_art_librarian (medium) — "only 2 of 4 needs_rebuild setters were evidenced."** The other two
+  also preserve `pages.sections`: `UpdatePageStatusAction` (`v3_site_actions.go:644` — refused
+  0-component/partial deploy: sets `needs_rebuild`, clears `built_from_plan_version`, **keeps
+  sections**) and `flagPagesForRebuild` (`maintenance_actions.go` — image/maintenance rebuild, **keeps
+  sections**). All four preserve sections; the universal claim holds. (I checked all four when filing
+  037 — see `/bugs_closed/037`; the submission only quoted the two clearest.)
+- **bug_historian (medium) — FOLLOW-UP worth tracking.** The recompose escape hatch reopens, in
+  miniature, the silent-loss class 037 closed: a recompose-named page the LLM omits is dropped with no
+  signal. Recommendation: after convergence, if a `recompose_pages` name is absent from the final
+  plan, raise a `site_work_item` (or at least an error-level log) so the drop is *loud*. This sharpens
+  the parked drop-vs-keep choice below into a concrete, better option: **keep-or-surface, don't
+  silently drop.** → tracked as open item 4 (upgraded).
+- **guardian / bug_historian (low):** a `recompose_pages` name matching no realised page silently
+  no-ops — worth a name-not-found log/metric; and confirm no *other* convergence path reads
+  `build_status` for preserve-vs-recompose (only `reconcilePlanWithRealised` + its truncation do;
+  `decideEmit` reads it for emit/skip, not preservation). Minor diligence, noted.
+
+None unwind the live change; all are advisory improvements. The medium follow-up (loud-signal on a
+recompose drop) is the one genuinely worth doing next.
 
 ## Grounded in
 
