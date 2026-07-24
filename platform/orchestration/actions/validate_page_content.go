@@ -615,9 +615,13 @@ func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID 
 // ============================================================================
 
 func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UUID, logger *zap.Logger) []ValidationIssue {
-	var issues []ValidationIssue
+	return checkEmails(html, loadSiteContactEmail(ctx, db, siteID, logger))
+}
 
-	officialEmail := loadSiteContactEmail(ctx, db, siteID, logger)
+// checkEmails is the pure core of check 5, split from the DB load so both
+// branches are testable (same shape as checkDomainContamination).
+func checkEmails(html, officialEmail string) []ValidationIssue {
+	var issues []ValidationIssue
 
 	// Assertion contexts only: text nodes plus mailto: hrefs. An email that
 	// exists only in a placeholder= attribute, <code> sample, or script body
@@ -652,6 +656,21 @@ func validateEmails(ctx context.Context, db *sql.DB, html string, siteID uuid.UU
 				Value:       email,
 				Expected:    officialEmail,
 				Description: fmt.Sprintf("Email '%s' doesn't match site contact '%s'", email, officialEmail),
+			})
+		} else {
+			// No registered contact address means EVERY asserted email is an
+			// invention — the site has nothing legitimate to publish. This
+			// branch used to fall through, so the sites needing the check
+			// most had no protection at all (bugs_open/063: a fabricated
+			// mailto deployed and served live for ~4h). Severity error routes
+			// the build to review, same as the mismatch case.
+			issues = append(issues, ValidationIssue{
+				Type:        "invalid_email",
+				Category:    "email",
+				Severity:    "error",
+				Location:    "email address",
+				Value:       email,
+				Description: fmt.Sprintf("Email '%s' asserted but the site has no registered contact address — no email may be published", email),
 			})
 		}
 	}
