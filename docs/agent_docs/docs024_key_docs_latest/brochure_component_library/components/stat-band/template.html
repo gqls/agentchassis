@@ -72,13 +72,13 @@
     </header>
     {{end}}
     <div class="stat-band__grid">
-      {{range .stats}}
+      {{range .stats}}{{if .value}}
       <div class="stat-band__stat">
         <span class="stat-band__value" data-countup aria-label="{{.value}}">{{.value}}</span>
         <span class="stat-band__label">{{.label}}</span>
         {{if .caption}}<span class="stat-band__caption">{{.caption}}</span>{{end}}
       </div>
-      {{end}}
+      {{end}}{{end}}
     </div>
   </div>
 </section>

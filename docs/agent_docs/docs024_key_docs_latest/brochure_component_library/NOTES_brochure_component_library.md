@@ -1239,3 +1239,30 @@ Source: `agents/brief-fidelity-auditor.{config.json,seed.sql}`.
 Commissioning run: corr `ca900c2a` vs fundamentallyai (findings will reflect the
 PRE-wave state; re-run post-wave for the real read). Findings land as
 site_work_items, status 'detected'.
+
+## 2026-07-24 — wave 1 partial (reconciler interaction); index verified; wave 2 re-queued properly
+
+**FLEET-RELEVANT FINDING — re-queueing a DEPLOYED page's needs_page item no
+longer works by itself.** The new superseded-review reconciler (bugfix-056
+thread, live on v1.0.1155) sweeps non-terminal needs_page items whose page is
+`build_status='deployed'` → my 5 triaged re-queues were marked `unresolved`
+before the build loop claimed them; only `index` won the race and rebuilt.
+**Correct re-queue for a deployed page: set `pages.build_status='needs_rebuild'`
+FIRST, then the item to triaged.** (Done for the 4 swept pages — wave 2 running.)
+
+**index rebuild VERIFIED (the one that ran; v2 prompt + plan components):**
+- stat-band arrived from the PLAN and was filled by the pipeline. Guardrails
+  MOSTLY held: "1 hallucination caught and corrected" (grounded), "0 fabricated
+  client claims" (honest), and an EMPTY value for build-time — the writer obeyed
+  "leave empty rather than invent". **But "5 — Agent roles in review council" is
+  WRONG** (council is 13+ seats; "5" looks like a stale fragment) — the
+  unverified-number class, unblocked because **fundamentallyai has NO
+  evidence_base** so checkUnregisteredNumbers never runs here. → The systematic
+  fix is to SEED an evidence_base for this site (the designed opt-in gate), not
+  to hand-edit the stat. Proposed to owner.
+- v2 copy: "That X matters" family = 0 ✓; **em dashes persist (11, mostly in
+  stat captions)** despite the v2 hard rule — model keeps reaching for them.
+  Options: a 3rd prompt tightening, accept some, or a mechanical post-pass.
+- **Component template fix shipped:** stat-band now `{{if .value}}`-skips
+  empty-value stats (no blank cells; validated; applied to content_components;
+  synced to repo).
