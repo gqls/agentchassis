@@ -1032,3 +1032,18 @@ Case file: `/bugs_closed/020_HANDOFF_2026-07-18_*`; workstream docs:
 The hold was "until 020 is fixed" — that condition is now satisfied, so lifting it is
 your green-light to give whenever you're ready. (Left as a note, not a change — this
 is the imagery workstream's doc.)
+
+---
+
+**2026-07-24 — tool-imagery hold LIFTED (your instruction).**
+You've said to lift it, and bug 020 is closed — the tool-recreation "invents a
+dataset" defect is fixed and live (prompt contract + a mechanical gate that holds
+any fabricated recreation for human review, proven end-to-end on chassis v1.0.1150).
+So the "wait for 020" condition is met and the hold is released. Tool imagery can
+resume: the tool-page heroes/cards, the tool-directory listing, and the finetuning /
+leopardess tool sweeps. The 🛑 STOP banner in HANDOFF_imagery_best_in_class.md is now
+marked LIFTED (its original rationale kept for the record). Two small carry-overs to
+glance at before publishing gamesdesign's tool imagery, neither a blocker: four of the
+nine stored heroes break their own `avoid` list (bugs_open/028), and nobody ever
+verified whether gamesdesign's game calculators invented data (they're formula-based,
+so almost certainly fine, but the check was never run).

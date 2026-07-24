@@ -99,11 +99,30 @@ on **v1.0.1136**. The two things left in I3 need *your decisions*, not code
 `8b804bc27` (F3 surface table) · migration `170` (tool-list image slot, applied)
 · `c0ef457a1` (release the adapter with the chassis).
 
-## 🛑 STOP — TOOL IMAGERY IS HELD BY OWNER RULING UNTIL `/bugs_open/020` IS FIXED (2026-07-20)
+## ✅ LIFTED 2026-07-24 — tool-imagery hold RELEASED (owner instruction)
 
-**Do not publish, derive, re-render or extend tool-page imagery. Do not fire the
-tool sweeps on finetuning.uk or leopardessconsulting.co.uk.** This is an owner
-instruction, not a technical block — the machinery works.
+> **The hold below is LIFTED.** `/bugs_open/020` is **CLOSED** — fixed, live on chassis
+> **v1.0.1150**, and induced-fault-proven (case file: `/bugs_closed/020_HANDOFF_2026-07-18_*`;
+> workstream: `docs024_key_docs_latest/bug020_tool_recreation_data_integrity/`). The
+> tool-recreation path now carries a live prompt contract against inventing data AND a
+> mechanical gate (`check_tool_fabrication`, wired via migration 189) that holds any
+> fabricated recreation at `needs_human_review` instead of publishing it — proven by a
+> live induced-fault test.
+> **Tool imagery may resume:** publish / derive / re-render tool-page imagery and fire the
+> finetuning.uk / leopardessconsulting.co.uk tool sweeps.
+> **Two things worth a look first (neither blocks):** (1) gamesdesign's 9 stored
+> `content_hero` assets — 4 violate their own `avoid` list (see `/bugs_open/028`); (2)
+> whether gamesdesign's game calculators ever invented data was never verified (020's
+> failure mode is *data-backed* tools; game calculators are formula-based, so likely
+> clean, but the check was never run).
+>
+> _The original 2026-07-20 hold rationale is preserved below, for the record._
+
+## 🛑 (HISTORICAL — hold LIFTED 2026-07-24) tool imagery was held by owner ruling until `/bugs_open/020` was fixed (2026-07-20)
+
+**~~Do not publish, derive, re-render or extend tool-page imagery. Do not fire the
+tool sweeps on finetuning.uk or leopardessconsulting.co.uk.~~** _(Hold lifted — see the
+banner above.)_ This was an owner instruction, not a technical block — the machinery works.
 
 **Why:** `bugs_open/020` is the tool-recreation path inventing datasets and reporting
 `complete` (live fabrication reached a public site on vetcomparison). Everything this
