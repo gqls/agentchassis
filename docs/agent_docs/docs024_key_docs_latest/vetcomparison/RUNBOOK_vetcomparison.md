@@ -218,3 +218,44 @@ hard 14-day freshness window makes exporting stale data structurally impossible)
   separate owner decision.
 - Site surface: data files only. The medicine pages/calculator rebuild is a SEPARATE task
   (bug-020 class: a rebuilt tool must not invent data).
+
+### Fidelity sweep — stored price must appear in its own evidence (bugs_open/061)
+
+The LLM fallback fabricated 212 snapshots over two eras (all quarantined in
+`med_price_snapshots_quarantine_061`, 2026-07-24). **Until the parse-fidelity guard is
+live in a rolled image, re-run this after scrape activity** and quarantine-delete any
+PRICE_ABSENT rows (pattern: bugs_open/061 §Remediation). Gotchas baked in: pair snapshot
+to SAME-RUN evidence (gap ≤120s, nearest `created_at`); use `FM999999990D00` — the
+zero-less `FM999999D00` renders 0.42 as `.42` and false-OKs sub-£1 fabrications; strip
+commas from the markdown, not the price.
+
+```sql
+WITH snaps AS (
+  SELECT ps.id, ps.listing_id, ps.size_variant, ps.price, ps.collected_at
+  FROM business_intel.med_price_snapshots ps
+), ev AS (
+  SELECT DISTINCT ON (s.id) s.id AS snap_id, e.markdown_content,
+         abs(extract(epoch from (e.created_at - s.collected_at))) AS gap_s
+  FROM snaps s
+  JOIN business_intel.med_scrape_evidence e ON e.listing_id = s.listing_id
+  ORDER BY s.id, abs(extract(epoch from (e.created_at - s.collected_at)))
+)
+SELECT s.id, l.retailer_product_name, s.size_variant, s.price, s.collected_at,
+       CASE WHEN ev.snap_id IS NULL OR ev.gap_s > 120 THEN 'UNCHECKABLE'
+            WHEN replace(ev.markdown_content, ',', '')
+                 LIKE '%' || to_char(s.price,'FM999999990D00') || '%' THEN 'OK'
+            ELSE 'PRICE_ABSENT' END AS verdict
+FROM snaps s
+LEFT JOIN ev ON ev.snap_id = s.id
+JOIN business_intel.med_retailer_listings l ON l.id = s.listing_id
+WHERE s.collected_at > now() - interval '14 days'   -- drop for full-table
+ORDER BY s.collected_at DESC;
+```
+
+- Attribute a PRICE_ABSENT before deleting: the fabricated values sit verbatim in
+  `llm_call_log` (`provider='ollama'`, `prompt_rendered LIKE '%Extract all product
+  size/price variants%'`) at a timestamp matching the snapshot to the second.
+- **Never purge by price value** — 19 genuine £17.48 rows exist alongside the 79
+  example-echo fabrications; only the evidence check separates them.
+- Post-roll, LLM-extracted rows carry `collection_method='scrape_llm'` (guard-verified);
+  regex rows stay `'scrape'`.

@@ -2564,6 +2564,7 @@ See `/bugs_closed/README.md`.
 | 056 *(slug: `regeneration_silently_drops_content_that_tripped_a_blocker` — the OTHER `056`)* | Filed as "regeneration silently drops content that tripped a validate blocker, no record" — **the inferred mechanism was REFUTED by the diagnosis loop** (corr `b361298a`, 2026-07-22): the blocker IS recorded verbatim (`agent_error_log` `CONTENT_VALIDATION_BLOCKER_DETAIL`) and rerender actions never generate content. **Corrected mechanism: review-bypass-by-sibling-item** — item A parks at `needs_human_review` on the blocker; sibling item B (e.g. `page_rerender` after an asset lands) reruns the SAME build pipeline; fresh copy omits the flagged element, passes, deploys; nothing reconciles B's success with A's parked review (fundamentallyai `model-fine-tuning`: A parked 07-20 21:27, page deployed 07-21 03:41, A still dangling) | **CLOSED 2026-07-24 → `/bugs_closed/`** — standalone `reconcile_superseded_reviews` (council 1d8ef2c0 R2 APPROVED after an R1 placement veto; the shared save path stays clean) LIVE v1.0.1150, seeded 2026-07-23 (docs024/bugfix_056_regen/): dry-run surfaced the exact model-fine-tuning pair, live sweep 25/25, independently row-verified 07-24. Review-bypass is now loud + queryable; owner policy (HOLD deploys on parked review?) deliberately open |
 | 057 | **A populated schema field the DECISION never read**: `decideCouncil` returned `revise` on ANY `object` verdict and never consulted `councilObjection.Severity` — one low nit from ~16 seats gated as hard as a real flaw, `approved` needed unanimous bare approval. Fleet-wide ~4.5% approval over a week (123 revise / 3 rejected / 2 approved, ~44 submissions); 67% of revise rounds carried NO high objection; `098` coverage read ~0 and PR-mode was unbuildable. Affects every council sharing `diagnose_council_decide`. See §9 *"A schema field the DECISION never reads…"* | **CLOSED 2026-07-24 → `/bugs_closed/`** — only a high-severity objection or veto gates; explicit low/medium are advisory (recorded + returned); Degraded or un-graded object still gates. `872c830a8` + harvested test `e37ec804f`, live v1.0.1149. **Both halves proven on organic rounds** (25 post-fix): 13 approved ("N advisory objection(s) — none high-severity"), 9 revise ALL on ≥1 high objection ("gating objection from <seat>", e.g. corr `c2a9fd27`), 3 rejected all vetoes (first: guardian `1d8ef2c0`, same evening as filing). Discriminator flipped 59/88 → **0/9** no-high revise rounds; approval ~5% → ~80% per submission |
 | 059 | **`code_symbols` went 3 weeks stale silently — no reindex cadence.** The diagnosis code tier and the `prior_art_librarian` council seat both render empty-because-stale identically to "mechanism absent", so a stale index CONFIRMS a false absence — the exact failure that seat exists to catch. Secondary: the documented manual trigger dispatched `code-indexer` directly (adopted in-place on a chassis pod, no `GITHUB_READ_TOKEN`, fails); the corrected form had existed since 2026-07-02 but only in a stray `(1)` duplicate file. See §9 *"An indexed snapshot read by a correctness check is a silent freshness dependency"* | **CLOSED 2026-07-24 → `/bugs_closed/`** — three fixes, all live same day: (1) 24h `code-index-refresh` scheduled_task firing `index-orchestrator`, ref DERIVED at fire time (a hardcoded ref would be the bug's own class), proven on first fire; (3) read-time freshness banner on every code_symbols answer (`f21e54687`, council `8ed67200` APPROVED, live v1.0.1155, verified by live probe corr `24365c79` rendering the banner) + pattern-check pair guarding future consumers; (2) canonical trigger script repointed at `index-orchestrator` + REF derived from current branch, verified first-try (corr `8ba6ac69`, index `adb00fd`→`e19aa5d`). LANDMINE: the indexer reads the REMOTE tip, so index freshness is bounded by the last PUSH — origin was 84 commits behind with the index sitting exactly at origin's old tip; push before a hand reindex, and a same-sha result means the push is missing |
+| 061 | **The med-scrape LLM fallback fabricates price tables and stores them as `collection_method='scrape'`.** Regex finds 0 variants → a 1,500-char truncated window goes to local Mistral; the £-gate checked the FULL section (a delivery banner's £ passes) while the window held NO product prices — shown priceless text, the model invents sizes/prices/TVPs, one call even **echoing the prompt's worked example verbatim** (£17.48 ×79 in the April era). 212 fabricated snapshots total (8 in the live export window, 2 published to vetcomparison.uk); every one matched to its `llm_call_log` response to the second. See §9 *"An extraction fallback that inherits the primary path's provenance label…"* | **FIX BUILT + tested 2026-07-24, OPEN until image roll.** Parse-fidelity guard (price literal must appear in the retained evidence markdown; skip+count+Warn), `scrape_llm` provenance label, gate on the actual LLM window, prompt hardening. All 212 rows quarantined (`med_price_snapshots_quarantine_061`) + deleted, 33 poisoned `last_price` reset; full-table sweep now 0 PRICE_ABSENT. Post-roll verify = induced category-page scrape must skip, not store |
 | 062 | **batch_scrape response exceeds Kafka `max.message.bytes`; adapter logs-and-drops it; caller starves through its full retry budget.** Scrape SUCCEEDS in seconds, reply refused by the broker, produce-failure branch just logs — 4 × 180s awaits burned on a deterministic failure. Grew to FOUR defects + a verification layer as each fix exposed the next: (1–3) oversize reply / silent drop / no formats override; (4) `"is_complete": "true"` STRING fails the chassis's typed unmarshal (the 035 §1.5 bool trap, copied into the 047-era handler) — so **no batch_scrape response had EVER been consumed in prod**; (layer 3) markdown table pipes in extracted quotes never match the verifier's HTML flattening. Also recorded in-file: step-level `timeout_seconds` in workflow seeds is silently dropped (only `config.timeout_seconds` is read) — the `evidence-researcher` seed still carries the inert form. See §9 *"A response that cannot be delivered…"* | **CLOSED 2026-07-24 → `/bugs_closed/`**, same day as filing: adapter fixes live v1.0.1152/1153 (pod-verified, created-symbol greps), pipe folding live in chassis v1.0.1154; **behavioural proof** = discovery run 7 completed end-to-end, 10 entities / 22 claims all `found`; council corr `fe468218` APPROVED R1, objections closed with attached evidence. Five wrong calls from the case logged in WRONG_CALLS.md |
 | 063 | **`validate_page_content` check 5 (hallucinated emails) fails OPEN when the site has no registered contact email**: the mismatch branch is gated on `officialEmail != ""`, so a site with NO registered address — where every asserted email is by definition invented — is protected only by the placeholder-pattern list, which a plausible fabrication sails past (`relojistas@contactforsales.com`, deployed and served ~4h on 2026-07-24). Protection inversely correlated with need: 20/31 sites have no registered email (measured 07-24). Same fail-open-on-missing-config family as `026` | **FIX COMMITTED `fb3d5f5ea` (2026-07-24), stays OPEN — inert until an image roll.** Fail-closed else-branch (`invalid_email`/error routes to review) + pure-core `checkEmails` split + 5 contract tests. Pre-ship fleet survey: zero live pages on no-email sites assert ANY email → zero false-positive exposure at ship; no directory-site case exists. Council corr `7080124b` submitted. Post-roll verify = induced fabricated email on a no-email site (the failing branch), not pod-grep alone |
 | 064 | **Doc-subject split contract**: the `subject_type` enum has FOUR enforcement points (doc_plans + doc_notes DB CHECKs; `docResolveSubject` shared by write_doc_plan/append_doc_note/load_doc_context; `persist_diagnosis_note`'s own allowlist) and the last two additions each missed some — 163 (+experience) missed persist_diagnosis_note (experience diagnosis notes silently skipped, with a misleading "no explicit subject" log), 184 (+action) moved the DB CHECKs ONLY, so the three action PLANs it seeded to answer council objection `5a65ec4c` are unreachable through every doc action. See §9 *"A schema CHECK and its code gates are one contract"* | filed 2026-07-24 (experience-register session). Fix planned in passing by the experience_register P2 change-set (`experience-pattern` subject_type; full checklist in `experience_register/design/subject_type_addition.md`); if another thread touches doc subjects first, take it |
@@ -3435,3 +3436,54 @@ reader render the freshness fact next to the rule that depends on it.
 missing signal read as negative); `bugs_closed/031` (stale REGISTER entry — the
 same failure one layer up); pattern-check `DECLARED_PAIRS` (the forward
 enforcement).
+
+### An extraction fallback that inherits the primary path's provenance label can fabricate — and nothing downstream can tell (2026-07-24)
+
+**Symptom.** A pipeline that extracts structured facts (prices, dates, counts)
+from captured source material stores a value that does not appear in its own
+retained evidence. The row looks exactly like every verified row — same
+`collection_method`, same shape, provenance fields all present — so a
+provenance-PRESENCE gate (url + capture date) passes it into publication.
+
+**Diagnose.** Fidelity-sweep stored values against their own same-run evidence
+(pair by listing + nearest `created_at`, gap ≤120s; render the value both
+comma-stripped and 2dp):
+```sql
+-- bugs_open/061 form; full query in vetcomparison RUNBOOK §Med retailer pipeline
+... WHERE replace(evidence.markdown_content, ',', '')
+      NOT LIKE '%' || to_char(snapshot.price,'FM999999990D00') || '%'
+-- FM999999990D00, not FM999999D00: the latter renders 0.42 as '.42', which
+-- LIKE-matches almost anything — sub-£1 fabrications read as false OK.
+```
+Then attribute: if the pipeline logs its LLM calls (`llm_call_log`), the
+fabricated values sit verbatim in a response whose timestamp matches the row
+to the second. That is the mechanism, not an inference.
+
+**Root cause (three stacked defects, bugs_open/061).** (1) The LLM fallback's
+trigger checked the FULL product section for a `£`, but sent the model a
+1,500-char truncated window — so a delivery banner's £ fired the fallback on a
+window containing no product prices at all. (2) An LLM shown priceless text
+and asked to extract prices does not return `[]`; it invents a plausible table
+— and it **copies the prompt's worked example** (`100ml, £17.48` appeared as a
+stored "price" 80 times across two eras). (3) The fallback's output was stored
+under the same `collection_method='scrape'` as regex-parsed rows, so no query
+could even find the LLM-sourced rows to audit them.
+
+**Fix shape.** A parse-fidelity guard AT THE WRITE: a value is stored only if
+its literal appears in the evidence being retained alongside it (skip + count
++ Warn — never silent); distinct provenance labels per extraction path
+(`scrape` vs `scrape_llm`); gate the fallback on the window it will actually
+send; tell the model the example is format-only. The guard is the load-bearing
+part — prompt rules alone are hope, not enforcement.
+
+**Transferable rule.** Every extraction fallback needs its OWN provenance
+label and a write-time fidelity check against the evidence the row will cite.
+"Evidence was captured" is not "the value is in the evidence" — presence gates
+pass fabrications whose paperwork is in order. And any few-shot example in an
+extraction prompt is a candidate output: if you cannot afford to see its
+values in your data, either label it as format-only or expect to.
+
+**Related:** `bugs_open/061` (the case); export provenance gate (v1.0.1151 —
+the presence-not-fidelity gate that passed these); §9 *"A hard cap that
+silently discards its input's tail rewrites meaning"* (truncation changing
+what a consumer sees); WRONG_CALLS tally on unverified figures.

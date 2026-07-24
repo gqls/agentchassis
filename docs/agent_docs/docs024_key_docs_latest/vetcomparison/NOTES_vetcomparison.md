@@ -777,3 +777,27 @@ not worth the risk on this multi-session live site for a cosmetic empty box. Lef
   connect.cma.gov.uk (VetsMI@cma.gov.uk).
 - Most recent case-page entry: 21 Jul 2026 "Consultation on draft substantive Order and Undertakings
   published."
+
+### 2026-07-24 — bugs_open/061 DIAGNOSED, fixed, remediated (session "bugfix 061 med scrape")
+`[VERIFIED against llm_call_log + med_scrape_evidence, queries in RUNBOOK §fidelity sweep]`
+- Mechanism CONFIRMED, no diagnosis loop needed — the fabricated values sit verbatim in
+  `llm_call_log` ollama responses, timestamps matching the snapshots to the second. The LLM
+  fallback (regex found 0 variants → Mistral on a 1,500-char window) invents price tables
+  when its window holds no product prices; the £-gate had checked the FULL section, so a
+  delivery banner's £49 fired it. One call echoed the prompt's worked example verbatim
+  (£17.48) — 79 April-era snapshots carry that exact price fabricated (19 others are
+  genuine 17.48s; only the evidence check separates them).
+- Both filed hypotheses REFUTED: no was-price (LLM never saw the real prices); no markdown
+  divergence (9293 vs 9256 = Go bytes vs PG chars; octet_length = 9293 exactly).
+- Blast radius corrected 2 → **212** (8 in the export window incl. the 2 live Advocate
+  rows; 204 April-era). All quarantined to `med_price_snapshots_quarantine_061` +
+  deleted; MV refreshed; 33 poisoned `med_retailer_listings.last_price` reset (column is
+  write-only in Go — checked). Full-table sweep now 0 PRICE_ABSENT. Live JSON self-cleans
+  at the next med-export-json run (48h cadence).
+- Fix BUILT + 17 unit tests green (archive-overlay build): write-time parse-fidelity
+  guard, `scrape_llm` provenance label, gate on the actual LLM window, prompt hardening.
+  INERT until image roll — until then re-run the RUNBOOK fidelity sweep after scrapes.
+- Wrong turn worth keeping: my first sweep pattern `FM999999D00` renders 0.42 as `.42`,
+  which LIKE-matches nearly anything — sub-£1 fabrications would false-OK. Re-ran with
+  `FM999999990D00`; counts happened to be identical, but the corrected form is the one in
+  the RUNBOOK.
