@@ -1233,3 +1233,28 @@ repairing the data it protects — protection first, then repair.**
   conditional + execution proof), bugs_open/063 filed (validator email fail-open — the
   bug_historian's insistence found a sharper mechanism than my notes entry). Round 2
   resubmitted on corr 320878ca; verdict watcher running.
+
+## 2026-07-24 (evening) — v1.0.1155 recheck: EMITTER FIX LIVE; homepage repaired & holding
+
+**v1.0.1155 pod-verified** (`agent-chassis-5ddbdb9448-dp7vk`): `insertPageRerenderItem` 2
+(the fix + helper are in), `queueNewsPageRerenders` 8, `persistNewsSectionHTML` 0. The 027
+machinery survived a second roll.
+
+**Homepage: fully repaired and holding.** manual-p52b delivered post-suppression: live curl
+shows 0 phantoms/mailto, search box present, MY honest card titles, and the fleet's 18
+recent writer calls include **0** against relojistas (site-scoped check).
+
+**Post-roll gate armed, per the runbook:** a watcher waits for the next feed cycle
+(~19:45Z) and reports the emitted item_type. `page_rerender` only → run the guarded
+suppressor DELETE (expect exactly 2). ANY `needs_page` → stop, old binary somewhere.
+
+**Council: round 2 was another REVISE (12:12) and the decisive objections were MY OWN
+STALE SKETCHES AGAIN** — edit 1's sketch showed the intermediate inline-INSERT commit while
+the landed code calls the helper (verified: render_news_section_html.go:118, no inline
+INSERT in the file). The runbook trap ("reviewers judge the sketch") hit me twice in one
+correlation. Round 3 submitted (run `36129298`) with FINAL-state sketches + the two
+substantive answers: (a) DELETE+INSERT vs ON-CONFLICT — suppression-by-open-row is harmless
+for render-INSTRUCTION items because freshness comes from render time, not emit time; a
+stale open row, whenever dispatched, performs the identical up-to-date render; (b) 063
+ships after its survey (its fix lands in a fleet-wide blocker path; the survey precondition
+is in the file). guardian's orphan check answered: insertWorkItem has 5+ live callers.
