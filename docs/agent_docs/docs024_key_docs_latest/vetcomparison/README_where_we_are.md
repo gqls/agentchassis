@@ -669,3 +669,22 @@ so yesterday evening and again this afternoon). So the stray empty box should di
 own within about a day, not within six hours. Nothing to worry about — the underlying change is
 done and permanent; this is only about when the public page catches up. If it's still showing a
 day from now, it can be nudged, just carefully.
+
+**2026-07-24 — the big CMA document we were waiting for has landed (owner action needed).**
+
+I checked the CMA's case page. The substantive draft Order — the main remedies document we'd
+been watching for, described in the last handoff as "overdue and imminent" — was **published on
+21 July 2026**, which was the same day the handoff was written, so it must have gone up just after
+that day's check. It's now open for consultation and **that consultation closes at 23:59 on 20
+August 2026** (about four weeks away). This is the one the briefing note (§3) was prepared for:
+our line is pro-independent — an express right to reuse the mandated price lists, machine-readable
+lists, and no selective blocking. It's drafted in outline but nothing gets submitted without your
+sign-off.
+
+Separately, and sooner: the **funding consultation closes at 23:59 on 30 July 2026** — about six
+days away. I confirmed that date directly on the CMA case page (the last handoff had asked for it
+to be re-checked against the notice). The draft response for that one is already written and
+waiting for you to verify the levy figures and submit through the CMA portal.
+
+So there are now two live CMA deadlines: the funding one in ~6 days, and the bigger substantive
+one in ~4 weeks. Both need you; I've not submitted anything.

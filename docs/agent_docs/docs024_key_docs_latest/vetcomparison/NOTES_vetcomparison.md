@@ -762,3 +762,18 @@ The verification one-liner is unchanged: `curl -s "https://vetcomparison.uk/?cb=
 item is the safe mechanism, but create_rerender_items_action.go warns against hand-rolling the
 INSERT (item_type/pipeline/dedup-key), and no enabled sweep picks a reason-less item up cleanly —
 not worth the risk on this multi-session live site for a cosmetic empty box. Left to natural cadence.
+
+### 2026-07-24 — CMA substantive draft Order PUBLISHED 21 Jul 2026; two live consultation deadlines
+`[VERIFIED against the CMA case page today]` https://www.gov.uk/cma-cases/veterinary-services-market-for-pets-review
+- **Substantive remedies Order**: "draft Veterinary Services Market Investigation Order 2026" +
+  draft Explanatory Note + draft RCVS Undertakings 2026 — **published 21 Jul 2026**, consultation
+  **closes 23:59 on 20 Aug 2026**. This resolves HANDOFF_2026-07-21 open item #3 ("still not
+  published; overdue and imminent" — it landed the same day that handoff was written). Response
+  basis = `CONSULTATION_2026-07-16_briefing.md` §3 (express reuse right, machine-readable lists,
+  no selective blocking). OWNER SIGN-OFF REQUIRED — not drafted/submitted by me.
+- **Funding Order consultation**: **closes 23:59 on 30 Jul 2026** (~6 days) — confirmed on the case
+  page (item #2 asked for this to be re-verified against the notice). Draft ready at
+  `CONSULTATION_RESPONSE_funding_DRAFT_2026-07-16.md`; owner verifies levy figures + submits via
+  connect.cma.gov.uk (VetsMI@cma.gov.uk).
+- Most recent case-page entry: 21 Jul 2026 "Consultation on draft substantive Order and Undertakings
+  published."
