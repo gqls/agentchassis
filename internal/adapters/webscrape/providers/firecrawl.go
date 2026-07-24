@@ -58,8 +58,16 @@ func (f *FirecrawlScrapingProvider) IsAvailable() bool {
 func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
 	f.logger.Info("Starting scrape", zap.String("url", url))
 
-	// Build formats array (v2 format — at top level for /scrape endpoint)
+	// Build formats array (v2 format — at top level for /scrape endpoint).
+	// config["formats"] overrides the default, same contract the /crawl path
+	// already honours (buildCrawlPayload below) — a text-only caller can
+	// request ["markdown"] and cut the fetched payload to a third
+	// (bugs_open/062: the 4-format default helped push batch responses past
+	// Kafka's max message size).
 	formats := []interface{}{"markdown", "html", "rawHtml", "links"}
+	if requested, ok := config["formats"].([]interface{}); ok && len(requested) > 0 {
+		formats = requested
+	}
 
 	captureScreenshot := true
 	if capture, ok := config["capture_screenshot"].(bool); ok {

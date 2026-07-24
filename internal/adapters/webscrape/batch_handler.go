@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -179,8 +180,14 @@ func (a *Adapter) handleBatchScrape(
 			pageDescription = d
 		}
 
-		// Pass through raw content fields from scrape result
-		// Preserves markdown + rawHtml separately for adoption crawl usage
+		// Build the result LEAN by default (bugs_open/062): the response
+		// travels as ONE Kafka message for the whole batch, and the broker
+		// refuses anything over max.message.bytes (~1 MiB) — a refusal this
+		// handler used to swallow, starving the caller through its full
+		// retry budget. So: one content field, not four. `content` carries
+		// markdown (html fallback); `raw_html`/`html_content` ship ONLY
+		// when the request opts in via include_raw_html, and no current
+		// caller does.
 		pageResult := map[string]interface{}{
 			"index":       index,
 			"url":         url,
@@ -189,26 +196,28 @@ func (a *Adapter) handleBatchScrape(
 			"success":     true,
 		}
 
-		// Pass through all content fields the provider returned
+		content := ""
 		if md, ok := scrapeResult["markdown_content"].(string); ok && md != "" {
+			content = md
 			pageResult["markdown"] = md
+		} else if html, ok := scrapeResult["html_content"].(string); ok && html != "" {
+			content = html
 		}
-		if rawHTML, ok := scrapeResult["raw_html"].(string); ok && rawHTML != "" {
-			pageResult["raw_html"] = rawHTML
-		}
-		if html, ok := scrapeResult["html_content"].(string); ok && html != "" {
-			pageResult["html_content"] = html
+		pageResult["content"] = content
+
+		if includeRaw, _ := scrapeConfig["include_raw_html"].(bool); includeRaw {
+			if rawHTML, ok := scrapeResult["raw_html"].(string); ok && rawHTML != "" {
+				pageResult["raw_html"] = rawHTML
+			}
+			if html, ok := scrapeResult["html_content"].(string); ok && html != "" {
+				pageResult["html_content"] = html
+			}
 		}
 		if meta, ok := scrapeResult["metadata"].(map[string]interface{}); ok {
 			pageResult["metadata"] = meta
 		}
 
-		// Backward-compatible "content" field (markdown preferred, html fallback)
-		if md, ok := pageResult["markdown"].(string); ok {
-			pageResult["content"] = md
-		} else if html, ok := pageResult["html_content"].(string); ok {
-			pageResult["content"] = html
-		}
+		truncateBatchResult(pageResult, batchResultContentCap)
 
 		results = append(results, pageResult)
 		successCount++
@@ -230,8 +239,61 @@ func (a *Adapter) handleBatchScrape(
 		})
 }
 
+// batchResultContentCap bounds one result's content within the batch reply.
+// The whole batch travels as ONE Kafka message against a ~1 MiB broker cap
+// (bugs_open/062); 150 KiB × a 3–5 URL batch leaves comfortable envelope
+// headroom. The cut is VISIBLE — `truncated: true` on the result — because
+// an invisible cut is the damage (the 012 truncation family).
+const batchResultContentCap = 150 * 1024
+
+// oversizeStripContentCap is the drastic per-result cap for the one retry
+// after the broker refuses a reply as too large.
+const oversizeStripContentCap = 8 * 1024
+
+// truncateBatchResult caps a result's content-bearing fields in place,
+// marking the result truncated if anything was actually cut.
+func truncateBatchResult(result map[string]interface{}, capBytes int) {
+	truncated := false
+	for _, key := range []string{"content", "markdown", "raw_html", "html_content"} {
+		if s, ok := result[key].(string); ok && len(s) > capBytes {
+			result[key] = s[:capBytes]
+			truncated = true
+		}
+	}
+	if truncated {
+		result["truncated"] = true
+	}
+}
+
+// stripBatchResultsForRetry applies the drastic cap to every result, for the
+// single resend after an oversize refusal. Raw HTML fields are dropped
+// outright — if the reply did not fit WITH them, they are what did not fit.
+func stripBatchResultsForRetry(results []map[string]interface{}) {
+	for _, r := range results {
+		delete(r, "raw_html")
+		delete(r, "html_content")
+		truncateBatchResult(r, oversizeStripContentCap)
+	}
+}
+
+// isKafkaMessageTooLarge reports whether a produce error is the broker's
+// message-size refusal — the one produce failure that is deterministic
+// (resending the same bytes can never succeed), so it gets a degrade-and-
+// retry rather than being surfaced as-is.
+func isKafkaMessageTooLarge(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "Message Size Too Large")
+}
+
 // sendBatchSuccessResponse sends a successful batch scrape response
 // Follows the exact pattern from sendSuccessResponse in adapter.go
+//
+// bugs_open/062: a reply the broker refuses as too large is degraded
+// (raw HTML dropped, content cut to a stub, truncated markers on) and
+// resent ONCE; if even the stub reply is refused, an error response goes
+// out instead. A response that cannot be delivered must become a
+// deliverable error, never silence — the caller is listening on the reply
+// topic, not reading this pod's logs, and the silent drop starved callers
+// through 4 × 180s of retries on a failure that is deterministic.
 func (a *Adapter) sendBatchSuccessResponse(
 	requestID, correlationID, orchestrationID, replyTopic,
 	clientID, stepName, stepID string,
@@ -315,19 +377,57 @@ func (a *Adapter) sendBatchSuccessResponse(
 	a.logger.Info("Sending batch scrape success response",
 		zap.String("request_id", requestID),
 		zap.String("reply_topic", replyTopic),
+		zap.Int("response_bytes", len(responseBytes)),
 		zap.Int("result_count", len(result["results"].([]map[string]interface{}))))
 
-	if err := a.producer.ProduceWithValidation(
+	err = a.producer.ProduceWithValidation(
 		a.ctx,
 		replyTopic,
 		headers,
 		[]byte(correlationID),
 		responseBytes,
-	); err != nil {
+	)
+	if err == nil {
+		return
+	}
+	if !isKafkaMessageTooLarge(err) {
+		// Transient produce failures (broker unreachable etc.) keep the old
+		// behaviour: the coordinator's retry resends the request and the
+		// next attempt may deliver.
 		a.logger.Error("Failed to produce batch response",
 			zap.Error(err),
 			zap.String("topic", replyTopic))
+		return
 	}
+
+	// Deterministic refusal: degrade hard and resend once.
+	results, _ := result["results"].([]map[string]interface{})
+	stripBatchResultsForRetry(results)
+	responseBody["results"] = results
+	strippedBytes, merr := json.Marshal(response)
+	if merr == nil {
+		a.logger.Warn("Batch response exceeded broker max message size — resending with stripped content",
+			zap.String("request_id", requestID),
+			zap.Int("original_bytes", len(responseBytes)),
+			zap.Int("stripped_bytes", len(strippedBytes)))
+		if perr := a.producer.ProduceWithValidation(
+			a.ctx, replyTopic, headers, []byte(correlationID), strippedBytes,
+		); perr == nil {
+			return
+		} else {
+			err = perr
+		}
+	}
+
+	// Even the stub would not fit (or re-marshal failed): the caller gets a
+	// real error now instead of a timeout in 12 minutes.
+	a.logger.Error("Batch response undeliverable even after stripping — sending error response",
+		zap.Error(err),
+		zap.String("request_id", requestID),
+		zap.String("topic", replyTopic))
+	a.sendBatchErrorResponse(requestID, correlationID, orchestrationID, replyTopic,
+		clientID, stepName, stepID,
+		fmt.Sprintf("batch scrape succeeded but the response could not be delivered: %v", err))
 }
 
 // sendBatchErrorResponse sends an error response for batch scrape
