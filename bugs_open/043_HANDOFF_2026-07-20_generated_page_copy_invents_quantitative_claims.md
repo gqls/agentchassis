@@ -290,6 +290,37 @@ routes such copy to review rather than banning the concept; whether Spark's
 vision may be described in the present tense is a positioning decision in their
 lane, not a number to correct in this one.
 
+### Wave-2d (same day, hours later): the POISONED GIVEN — a fourth mechanism, observed live
+
+Migration 201 + evidence_base did NOT stop a 15:10 full-writer re-render of
+ai-agent-orchestration/index rewriting the grounded stats back to
+"70+ / 8 / 30+ / 1000s". Cause: the site's own `content_direction` / `site_plan`
+/ `briefing` specs contain, verbatim, *"the system-stats component showing real
+numbers — 70+ agents, 8 departments, 30+ agent types, thousands of concurrent
+instances"* — rendered in the prompt under **"follow this closely"**, above the
+Verified Facts block. The writer was *ordered* to write those figures and told
+they are real. Rule 14 v2 permits given figures; a spec is a given. **The
+candidate-3 rule cannot beat a poisoned spec — the givens themselves must
+trace.**
+
+Truth audit of the poisoned spec (agent-generated, Apr–May): three of its four
+claims were TRUE-but-conservative ("over 70 agents" — registry holds 171;
+"8 departments" — the platform's real self-taxonomy, which wave-1's treatment
+had wrongly classed as fabricated and banned; "30+ agent types" — 165). Only
+"thousands of concurrent agent instances" was untrue — and its honest
+neighbour exists: **1,699 orchestrations in the 24h to 2026-07-24**. Fixed
+(`SQL_2026-07-24_wave2d_…`, versioned supersede+insert on all four aspects):
+untrue clause → "over a thousand orchestrations a day"; hardcoded figure list →
+"real registry counts, taken only from the Verified Facts list"; evidence_base
+refreshed (taxonomy + volume added, over-broad departments ban narrowed to the
+"departments served" misframing); index stats restored (now 171 / 8 / 14 /
+1,284 — the counts moved during the session because they are live).
+
+**Implication for candidates 1/2 and for any future 043 work: audit the SPEC
+aspects (`briefing`, `identity`, `content_direction`, `site_plan`) for numeric
+claims, not just content_data.** A number in a spec is an instruction, and it
+outranks every writer-side rule.
+
 ### Still open on this bug
 
 - **Candidate 1** (provenance-bound stat fields in component schemas — the

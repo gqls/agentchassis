@@ -54,3 +54,27 @@ remaining, 3 re-renders queued). Scope line drawn and recorded in 043: the
 present-tense product-VISION copy (arena guide article, conceptual
 differentiators) belongs to the experience-loop/vonc-spark thread — their 166
 banned_claims routes it to review by design; not touched from this lane.
+
+## 2026-07-24 (evening) — wave-2d: the poisoned given, caught live
+
+The final drain-verify showed aiagent/index CLOBBERED at 15:10 — a full-writer
+re-render wrote "70+/8/30+/1000s" back over the grounded values, WITH migration
+201 and the evidence_base live. Mechanism (fourth for the 043 file): the site's
+own specs hardcode the figure list into the writer's "follow this closely"
+content-direction — a spec number is a GIVEN and outranks every writer-side
+rule. Truth audit flipped part of my wave-1 read: "over 70 agents" and the
+"8 departments" taxonomy were TRUE (registry 171; departments = the platform's
+own named structure — my evidence_base ban was over-broad, now narrowed to the
+"departments served" misframing). The one untrue clause ("thousands of
+concurrent agent instances") became the measured truth ("over a thousand
+orchestrations a day" — 1,699 in the last 24h). All four aspects patched by
+versioned supersede+insert; one differently-worded variant in briefing needed a
+second pass (verify query caught it). Index stats restored and re-queued —
+values recomputed live came back HIGHER than wave-1 (171 agents, 14 sites,
+1,284 work items): the platform grew during the session, which is the whole
+point of computed values.
+
+Lessons: (1) verify EVERY page the writer touched after a full-writer pass, not
+just the one you edited — about/case-study held (lightweight path), index did
+not (writer path); (2) sweep the spec aspects for numeric claims — added to
+043's candidate-1/2 scope.
