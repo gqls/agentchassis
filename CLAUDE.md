@@ -66,6 +66,18 @@ committing it. Advisory: it records a verdict, it cannot block you. Scope is
 and never spend credits. Full runbook + submission schema:
 `docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/RUNBOOK_council_gate.md`.
 
+**Approval is now reachable, so this is a real norm — not a formality (owner
+ruling 2026-07-24: strengthen advisory, defer enforcement).** Until 2026-07-22 the
+decision rule ignored objection severity, so an APPROVED verdict was effectively
+unreachable (~5%) and submitting felt pointless. That is fixed and live
+(`bugs_open/057`, chassis v1.0.1149): approval ran **~80%** over the two days after
+— a sound platform change now passes, usually quickly, in ~30 minutes. **So: put
+platform-code changes through the gate before (or alongside) committing them.** It
+stays ADVISORY — it cannot block your commit, and PR-mode enforcement is still
+deferred — but a platform-code commit with no `Council-Reviewed:` trailer now draws
+an advisory `commit-msg` nudge and is listed by the `098` coverage report. One run
+per coherent task, not per iteration.
+
 - **Submit**, from a JSON file holding `rationale` (the real why — reviewers judge
   the plan against it) and a `plan` (≤8 edits, each with file/operation/rationale/
   sketch; real diff hunks welcome; plus `grounded_in` evidence quotes):
