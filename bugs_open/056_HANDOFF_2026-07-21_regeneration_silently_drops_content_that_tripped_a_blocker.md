@@ -239,3 +239,13 @@ prevention half follows.
 - **Close this bug when** the live writes are confirmed (the fundamentallyai
   item annotated). The owner policy question (hold deploys on parked review?)
   is a follow-on decision, not a blocker to closing the silent-bypass defect.
+
+**Live-sweep result recovered (poll output captured 2026-07-23, read 2026-07-24):**
+orch `bd4f5850` **COMPLETED with `pairs_found=25, annotated=25, dry_run=false`** —
+`annotated` increments only after BOTH writes (agent_error_log row + item
+annotation) succeed, so the action reports all 25 pairs fully written,
+including the fundamentallyai one. Per the status-vs-artefact rule this is
+the action's own accounting, not an independent row read — the two count
+queries above (expect ~25 each) plus eyeballing the `needs_page:model-fine-tuning`
+row's `result->'superseded_by_passing_save'` remain the CLOSE check, blocked
+only on refreshed cluster credentials.
