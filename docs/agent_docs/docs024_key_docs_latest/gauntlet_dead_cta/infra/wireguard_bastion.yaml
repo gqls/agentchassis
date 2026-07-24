@@ -1,0 +1,96 @@
+# DRAFT — apply only after the tools-api PR lands (it fixes <TOOLS_API_PORT>
+# and should PIN the service's spec.clusterIP → <TOOLS_API_CLUSTERIP>).
+#
+# Dedicated WireGuard instance for the BASTION ONLY. Never add the bastion as a
+# peer of the main `wireguard` deployment: that instance masquerades (verified
+# live 2026-07-24), so every peer inherits the pod's identity, and
+# allow-same-namespace then grants it reach into EVERY pod in ai-persona-system,
+# postgres included.
+#
+# ONE-TIME EDIT after first start (the image generates /config/wg_confs/wg0.conf
+# on the PVC; edit it once, then restart the pod) — replace the generated
+# PostUp/PostDown with the contained version:
+#
+#   PostUp = iptables -A FORWARD -i %i -d <TOOLS_API_CLUSTERIP> -p tcp --dport <TOOLS_API_PORT> -j ACCEPT; iptables -A FORWARD -i %i -j DROP; iptables -A FORWARD -o %i -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -A POSTROUTING -o eth+ -j MASQUERADE
+#   PostDown = iptables -D FORWARD -i %i -d <TOOLS_API_CLUSTERIP> -p tcp --dport <TOOLS_API_PORT> -j ACCEPT; iptables -D FORWARD -i %i -j DROP; iptables -D FORWARD -o %i -m state --state RELATED,ESTABLISHED -j ACCEPT; iptables -t nat -D POSTROUTING -o eth+ -j MASQUERADE
+#
+# Belt-and-braces order: cryptokey routing (peer sources only 10.13.14.2/32) →
+# in-pod FORWARD filter (this file) → Calico egress policy
+# (networkpolicy_tools_api.yaml), which holds even if this pod is compromised.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wireguard-bastion-config
+  namespace: ai-persona-system
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wireguard-bastion
+  namespace: ai-persona-system
+  labels:
+    app: wireguard-bastion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wireguard-bastion
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wireguard-bastion
+    spec:
+      containers:
+      - name: wireguard
+        image: linuxserver/wireguard:latest
+        env:
+        - { name: PUID, value: "1000" }
+        - { name: PGID, value: "1000" }
+        - { name: TZ, value: Europe/London }
+        - { name: PEERS, value: bastion }            # exactly ONE peer, ever
+        - { name: SERVERURL, value: "134.213.168.37" }  # node public IP (same as main WG)
+        - { name: SERVERPORT, value: "31821" }
+        - { name: INTERNAL_SUBNET, value: "10.13.14.0" }  # main WG uses 10.13.13.0
+        - { name: ALLOWEDIPS, value: "<TOOLS_API_CLUSTERIP>/32" }  # client routes ONLY tools-api
+        - { name: PEERDNS, value: "off" }            # bastion needs no cluster DNS
+        ports:
+        - containerPort: 51820
+          protocol: UDP
+        resources:
+          requests: { cpu: 25m, memory: 32Mi }
+          limits: { cpu: 250m, memory: 128Mi }
+        # mirrors the working main-WG securityContext; likely tightenable to
+        # NET_ADMIN-only once the wg module is resident on all nodes
+        securityContext:
+          capabilities:
+            add: ["NET_ADMIN", "SYS_MODULE"]
+          privileged: true
+        volumeMounts:
+        - mountPath: /config
+          name: wg-config
+      volumes:
+      - name: wg-config
+        persistentVolumeClaim:
+          claimName: wireguard-bastion-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wireguard-bastion
+  namespace: ai-persona-system
+spec:
+  type: NodePort
+  selector:
+    app: wireguard-bastion
+  ports:
+  - port: 51820
+    targetPort: 51820
+    nodePort: 31821
+    protocol: UDP

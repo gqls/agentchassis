@@ -132,3 +132,42 @@ Progress so far today, in order:
 What I got wrong earlier still stands corrected in the record: last night's "fix"
 looked right and did nothing a visitor could feel. Today's work is the opposite shape:
 the machine is building something real, and the last gate is you reading a pull request.
+
+## 2026-07-24 — the bastion plan had a hole; found it before we built it
+
+You picked the address (tools.apis.uk), asked for a UK-owned machine to host the
+bastion, and — importantly — asked me to double-check that the WireGuard link would
+actually protect the cluster. Good instinct: it wouldn't have.
+
+The original sketch said "add the bastion as another peer on the VPN you already use
+from your laptop, then add a firewall rule that only lets the bastion's address reach
+the new tools service." I went and looked at the real VPN inside the cluster instead
+of trusting the sketch. Two problems. First, that VPN rewrites the sender's address on
+everything passing through it, so the planned firewall rule would be checking an
+address that never appears — it could never work. Second, and worse: anyone connected
+to that VPN can reach everything in the system — including the main database — because
+that's exactly what it's for: it's your admin door. Fine for your laptop and phone;
+not fine for a machine that faces the internet.
+
+The corrected design gives the bastion its own separate, single-purpose VPN doorway
+into the cluster, walled in three ways: the doorway only accepts the one bastion key;
+the doorway itself only forwards traffic to the one debate-engine service and drops
+everything else; and the cluster's own network enforcement (which I confirmed is real
+and active here) pins that doorway pod so that even if someone took it over completely,
+the only thing it can talk to is still just the debate engine. So the promise we made
+in the design — "if the bastion is compromised, the attacker gets the ability to use
+the public API and nothing more" — is now actually true rather than just written down.
+
+Also verified today: apis.uk is properly live on Cloudflare already (the nameserver
+move worked), though there's a leftover catch-all address entry pointing at nothing —
+one click to delete before we wire up the real one. The step-by-step for creating the
+tunnel is written up and takes about ten minutes on the new machine, with one browser
+login from you. On providers: Mythic Beasts (independently British-owned for 25 years,
+solid reputation) is my recommendation; Clouvider (London) is the cheaper option; and
+worth knowing — a Hetzner box wouldn't be UK-based at all, their machines are in
+Germany and Finland. The smallest tier anywhere is plenty.
+
+One admission: while inspecting the live VPN I printed its private keys into my own
+session log on your machine. Low risk since it never left your machine, but the clean
+move is to re-issue the laptop/phone keys sometime soon — five minutes, and I can do
+it whenever suits.

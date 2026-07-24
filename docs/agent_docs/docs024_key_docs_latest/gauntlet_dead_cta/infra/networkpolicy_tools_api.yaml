@@ -1,10 +1,46 @@
-# Cluster: restrict tools-api ingress to the WireGuard/bastion path only.
-# Apply AFTER the tools-api service exists (feature-builder PR) and the WG peer
-# address is known. Namespace + labels must match the deployed service.
+# CORRECTED 2026-07-24. The previous version keyed tools-api ingress on an
+# ipBlock for the bastion's WireGuard address. That could never match: the
+# in-cluster WireGuard masquerades (verified live in the wg pod:
+# `iptables -t nat -S POSTROUTING` → `-o eth+ -j MASQUERADE`), so peer traffic
+# arrives carrying the WG POD's IP, not the peer's. Under the namespace's
+# default-deny it would have blocked everything — fail-closed, not a design.
+#
+# Two policies now, applied together with wireguard_bastion.yaml:
+#
+# 1. wireguard-bastion-egress — THE enforcement. Calico applies egress at the
+#    node, outside the pod: even a compromised/misconfigured wireguard-bastion
+#    pod can only open connections to tools-api on its port. No DNS egress
+#    needed — the ClusterIP is pinned, nothing is looked up. (If the container
+#    ever fails at startup on name resolution, add a 53/UDP rule to kube-dns —
+#    not expected with PEERDNS=off.)
+#
+# 2. tools-api-from-wireguard-bastion — documentation of intent. Technically
+#    redundant while allow-same-namespace (podSelector {} ← podSelector {})
+#    grants all intra-namespace ingress, but it survives any future tightening
+#    of that policy and states which path is the intended one.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: tools-api-bastion-only
+  name: wireguard-bastion-egress
+  namespace: ai-persona-system
+spec:
+  podSelector:
+    matchLabels:
+      app: wireguard-bastion
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: tools-api
+      ports:
+        - protocol: TCP
+          port: <TOOLS_API_PORT>
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: tools-api-from-wireguard-bastion
   namespace: ai-persona-system
 spec:
   podSelector:
@@ -13,8 +49,9 @@ spec:
   policyTypes: ["Ingress"]
   ingress:
     - from:
-        - ipBlock:
-            cidr: <WG_BASTION_PEER_IP>/32   # the bastion's WireGuard address
+        - podSelector:
+            matchLabels:
+              app: wireguard-bastion
       ports:
         - protocol: TCP
           port: <TOOLS_API_PORT>

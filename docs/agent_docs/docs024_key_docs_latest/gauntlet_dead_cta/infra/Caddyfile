@@ -19,7 +19,9 @@
         window 1m
       }
     }
-    reverse_proxy <WG_CLUSTER_IP>:<TOOLS_API_PORT>
+    # the tools-api ClusterIP, reached through the dedicated wireguard-bastion
+    # tunnel (the bastion's wg0 routes exactly this /32 and nothing else)
+    reverse_proxy <TOOLS_API_CLUSTERIP>:<TOOLS_API_PORT>
   }
   handle {
     respond 404

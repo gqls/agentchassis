@@ -3,6 +3,6 @@
 tunnel: tools-api
 credentials-file: /etc/cloudflared/tools-api.json
 ingress:
-  - hostname: <SUB>.apis.uk
+  - hostname: tools.apis.uk
     service: http://localhost:8081        # Caddy below
   - service: http_status:404              # anything else: refuse

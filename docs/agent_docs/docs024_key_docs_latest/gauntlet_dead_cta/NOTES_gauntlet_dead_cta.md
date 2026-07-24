@@ -290,3 +290,34 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - NEXT: council verdict → chassis image v1.0.1152 → deploy → re-fire implementer
   (round 4) with same approved plan corr 278a37c3 (delete feat/278a37c3 first — it
   exists again, zero commits).
+
+## 2026-07-24 — P3 bastion design CORRECTED (separate "bastion host" session); subdomain named; zone live
+- Owner decisions: subdomain = **tools.apis.uk**; bastion on a UK-based/owned
+  provider (Mythic Beasts recommended, Clouvider budget option; Hetzner fallback
+  noted as NOT UK — German-owned, no UK DC).
+- Zone verified ACTIVE: `dig NS apis.uk` → alexis/leah.ns.cloudflare.com. A
+  proxied WILDCARD record answers for `*` + apex and 525s (dead origin) — delete
+  it before the tunnel route.
+- > **CORRECTED 2026-07-24:** the original infra/ draft (peer the bastion onto
+  the existing admin WireGuard + ipBlock NetworkPolicy on the peer's WG /32) was
+  WRONG in both halves, caught by reading the live cluster, not the drafts:
+  (1) the wg pod MASQUERADES (`iptables -t nat -S POSTROUTING` in pod
+  wireguard-85bd4b8c8d-qq5pm: `-o eth+ -j MASQUERADE`) so the ipBlock can never
+  match — fail-closed under default-deny, not a working design; (2) any peer of
+  that instance masquerades to the wg pod's identity and `allow-same-namespace`
+  (`{}`←`{}`) then grants full-namespace reach incl. postgres-clients:5432 (the
+  database-access-policy allowlist is unioned away). Laptop/phone-appropriate;
+  bastion-unacceptable.
+- Fix drafted in infra/: DEDICATED `wireguard-bastion` instance (NodePort
+  31821/UDP, subnet 10.13.14.0/24, ONE peer) + in-pod PostUp FORWARD filter to
+  `<TOOLS_API_CLUSTERIP>:<TOOLS_API_PORT>` only + Calico EGRESS NetworkPolicy on
+  the wg-bastion pod (enforced at the node — holds even if the pod is owned).
+  Cluster confirmed Calico (calico-system pods; policies active 359d). Ask the
+  tools-api PR to PIN spec.clusterIP so Caddyfile/PostUp/egress never drift.
+- Tunnel runbook written into infra/README_bastion_exposure.md (cloudflared apt
+  install → tunnel login/create/route dns → systemd). Placeholders left:
+  TOOLS_API_CLUSTERIP, TOOLS_API_PORT (feature-builder PR fixes both).
+- HYGIENE: while inspecting the live wg pod this session printed wg0.conf —
+  server PRIVATE key + laptop/phone PSKs — into its transcript. Local-only
+  exposure, but rotate those peers at a convenient moment (regenerate peer
+  confs + restart; 5 min). Do NOT paste key material into docs.
