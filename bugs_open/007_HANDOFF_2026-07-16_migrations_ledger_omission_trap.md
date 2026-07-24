@@ -1,5 +1,17 @@
 # HANDOFF — applied-but-unrecorded migrations block the runner (ledger-omission trap)
 
+> ## STATUS 2026-07-24 — residual 1 SHIPPED & LIVE: the runner probes and SKIPS (never records) files that declare themselves already applied
+>
+> Read **"RESIDUAL 1 — the poisoned-commit probe"** at the bottom: mechanism,
+> safety argument, verification, and its FIRST LIVE CATCH — `202` was flagged
+> LIKELY ALREADY APPLIED on the probe's maiden run against the real queue,
+> verified, and recorded. The halt now survives only for Class C (a raw 23505),
+> **by design**, per candidate (d)'s standing rejection. Owner call whether that
+> meets the `/bugs_closed/` bar (fixed AND live AND not reproducible): the
+> *blocking* symptom is gone for every file that follows the shop's own guard
+> convention; a bare unguarded INSERT can still halt the run — loudly, with the
+> recovery command in the message. Everything below is accurate history.
+>
 > ## STATUS 2026-07-21 — STILL OPEN, but the tooling shipped and is LIVE
 >
 > **Cold start:** read this banner, then jump to **"FIXED 2026-07-20 — the tooling
@@ -402,6 +414,24 @@ build unilaterally.**
    that already exist. Risk to weigh: a migration with a non-transactional side
    effect (none seen in the corpus — all pure, transactional SQL, but audit
    before building).
+
+   > **CORRECTED 2026-07-24 (and built the same day):** the mechanism as
+   > sketched — "run its SQL inside `BEGIN … ROLLBACK`" — is **UNSAFE against
+   > this corpus**, caught by exactly the audit the sketch asked for. 86 of 92
+   > live migrations carry their own top-level `COMMIT;`, which would commit
+   > the wrapper's transaction mid-probe — a "dry run" that applies the file
+   > for real. The obvious fallback (a `default_transaction_read_only=on`
+   > session) fails differently: Class-B files write (`snapshot_agent`)
+   > *before* they guard, so a read-only probe dies at 25006 and never reaches
+   > the "already" guard it exists to read. What shipped keeps this option's
+   > intent but changes the mechanism — a deferred-constraint poison makes any
+   > COMMIT fail, so the file runs verbatim and still cannot commit. See
+   > **"RESIDUAL 1 — the poisoned-commit probe"** below. (Its Class-A
+   > detection hope is dropped: 0-row tags are invisible for writes inside DO
+   > blocks, which is where this corpus writes — a 0-row advisory would fire
+   > on genuinely-pending files and be learned-ignored. Class A never halts,
+   > so residual 1 does not need it.) Option 2 (a sentinel convention) stays
+   > unbuilt — the guards' own `already` texts proved sufficient.
 2. **Auto-skip-and-record for Class B only, gated on a standardised sentinel.**
    Have already-applied guards RAISE a magic prefix (e.g. `-- ALREADY_APPLIED`),
    and let the runner record-and-continue on exactly that signal, never on a raw
@@ -411,6 +441,80 @@ build unilaterally.**
 Until one lands, the halt stays a "die-loudly-with-a-fix-in-the-message" design,
 which remains defensible — but the dry-run-per-session discipline above is now
 mandatory, not advisory.
+
+## RESIDUAL 1 — the poisoned-commit probe (SHIPPED & LIVE 2026-07-24)
+
+Shell-only change to `run-migrations.sh`, live on commit; `--no-probe` restores
+the previous behaviour byte for byte (verified by diffing a probing-disabled dry
+run against the pre-change script's output — identical).
+
+**Mechanism.** By default, every pending file is asked *itself* whether it has
+already been applied: the runner executes it **verbatim** inside a transaction
+that cannot commit. Before the file, it plants a deferred UNIQUE violation
+(`CREATE TEMP TABLE _probe_commit_poison … DEFERRABLE INITIALLY DEFERRED` plus a
+duplicate insert). Any `COMMIT` the file issues then **fails at commit time**
+(23505 naming `probe_commit_poison`) and rolls everything back —
+Postgres-enforced, no SQL parsing — and `ON_ERROR_STOP` stops psql at that first
+error so nothing after it can run in autocommit. Mechanics proven against the
+live DB before building: the deferred violation fires at COMMIT; a DO-block
+`COMMIT` errors `2D000` (fail-safe); a guard RAISE surfaces as
+`ERROR:  P0001: …` under `\set VERBOSITY verbose`, which is what the classifier
+keys on.
+
+**Verdicts.** A file whose own guard RAISEs `P0001` matching `/already/i` is
+reported **LIKELY ALREADY APPLIED** (dry run) and — the residual-1 fix — under
+`--apply` it is **SKIPPED and the run continues**, instead of halting everything
+behind it. The skip **never records**: recording stays a human act
+(`--record-only` after artifact checks), so a skipped file nags on every run
+until someone does the verify — by design. A raw 23505 (Class C) **never
+skips** — it can be genuinely wrong SQL — so it still halts loudly with the
+2026-07-20 recovery message; candidate (d) stays rejected. The probe's clean
+signal (it reached its own COMMIT and only the poison stopped it) reports
+"genuinely pending as far as the probe can tell". Anything else is
+inconclusive and behaves exactly as before.
+
+**The one structural blind spot, found in the corpus, fail-closed.** A file
+carrying its own top-level `ROLLBACK`/`ABORT` would abort the doomed
+transaction, after which its own `BEGIN…COMMIT` would run **for real**. Four
+live files do exactly this — a defensive leading `ROLLBACK;` ("clear sticky
+failed-transaction state") in 136, 180, 195 and 205, the newest file in the
+directory, so it is a live authoring pattern, not a rarity. Such files (plus
+psql meta-commands other than `\set ON_ERROR_STOP`, `PREPARE TRANSACTION`,
+`dblink`/`postgres_fdw`, `SET CONSTRAINTS`, and non-transactional `setval`) are
+**refused: listed "not probed", never executed**. They apply exactly as before.
+
+**The honest trade, stated plainly:** a probing run is no longer purely
+read-only — it executes pending SQL and rolls it back, taking brief row locks
+(~1–2s per file, 90s timeout each). That cost was chosen deliberately: the
+alternative was the status quo, where the queue lies until an `--apply` halts on
+it. Counts of `schema_migrations`, `doc_notes` and agent snapshots were
+bracketed around a live probing run over 7 real pending files — all unchanged.
+
+**Verification.** (i) Mechanics proof above. (ii) Scratch-dir end-to-end
+(`MIGRATIONS_DIR` override, real DB, prod ledger bracketed at 88 rows
+throughout): two Class-B-true files SKIPPED with the run continuing past both;
+a Class-C duplicate still halting with the recovery hint; a clean file
+reported via the poison sentinel; a completing run printing the skipped
+summary. (iii) **First live catch, maiden run:** `202_about_commercial_block_
+component.sql` probed LIKELY ALREADY APPLIED — its guard's own message even
+says "another thread got here first". Artifacts verified (sole
+about-commercial-block section-level candidate, the file's own post-insert
+assertion; row active, 2,248-char template; the owning thread's NOTES record
+the out-of-band apply) and recorded. The trap's exact signature, caught by the
+new mechanism minutes after it went live, on a file applied out of band that
+same day.
+
+**Council note.** The gate refuses `scripts/` client-side (scope = `platform/`,
+`internal/`, `pkg/`, owner ruling 2026-07-17), so the "design/council-review
+first" instruction above could not be satisfied without FORCE-ing past that
+ruling — declined. This section is the design record; built on the owner's
+direct instruction to fix this bug (2026-07-24 session).
+
+**What remains reproducible:** only Class C — a bare unguarded INSERT replaying
+against live data still halts the run (loudly, with the fix in the message).
+That is the deliberate residue of candidate (d)'s rejection, three times
+reaffirmed. Files matching the fail-closed refusals are simply not probed and
+keep today's behaviour.
 
 ## References
 

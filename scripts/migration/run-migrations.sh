@@ -12,6 +12,8 @@
 #   ./scripts/migration/run-migrations.sh --apply    # apply pending, in order
 #   ./scripts/migration/run-migrations.sh --record-only <file> --note "<why>"
 #                                                    # register an out-of-band apply
+#   ./scripts/migration/run-migrations.sh --no-probe # dry run / apply without the
+#                                                    # already-applied probe (below)
 #
 # Env overrides:
 #   MIGRATIONS_DIR  (default: docs/agent_docs/sql_for_agents relative to repo root)
@@ -30,6 +32,22 @@
 # UPPERCASE-suffixed sidecars are NOT migrations (see SIDECAR_RE below):
 #   NNN_name_ROLLBACK.sql / NNN_name_VERIFY.sql are run by hand, deliberately,
 #   never by this runner. See bugs_open/007.
+#
+# The PROBE (bugs_open/007 residual 1, added 2026-07-24): by default each
+# pending file is asked whether it has already been applied, by executing it
+# verbatim inside a DOOMED transaction — a deferred UNIQUE violation planted
+# first makes any COMMIT the file issues fail (Postgres-enforced, no SQL
+# parsing), and ON_ERROR_STOP stops psql at that failure so nothing after it
+# can run in autocommit. A file whose own guard RAISEs '... already ...'
+# (P0001) is reported LIKELY ALREADY APPLIED; under --apply it is SKIPPED and
+# the run continues past it instead of halting — but it is never RECORDED
+# (recording stays a human act: verify artifacts, then --record-only). A raw
+# duplicate key (23505) never skips — it can be genuinely wrong SQL — so that
+# still halts loudly. Files the doomed transaction cannot safely contain (their
+# own ROLLBACK/ABORT, psql metas, setval, ...) are listed "not probed" and
+# behave exactly as before. NOTE a probing run EXECUTES pending SQL then rolls
+# it back: brief row locks are taken and sequences may advance. --no-probe
+# restores the previous behaviour byte for byte.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -59,13 +77,15 @@ IDEMPOTENT_SINK_RE='(^|\.)(doc_notes|doc_plans|schema_migrations)$'
 APPLY=0
 RECORD_ONLY=""
 NOTE=""
+PROBE=1
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --apply)        APPLY=1; shift ;;
+    --no-probe)     PROBE=0; shift ;;
     --record-only)  RECORD_ONLY="${2:-}"; shift 2 || { echo "--record-only needs a filename" >&2; exit 2; } ;;
     --note)         NOTE="${2:-}"; shift 2 || { echo "--note needs text" >&2; exit 2; } ;;
-    -h|--help)      sed -n '10,17p' "${BASH_SOURCE[0]}"; exit 0 ;;
+    -h|--help)      sed -n '10,19p' "${BASH_SOURCE[0]}"; exit 0 ;;
     *)              echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -99,6 +119,81 @@ lint_idempotency() {  # $1 = path to a .sql file; echoes a warning tail or nothi
   done <<<"$sinks"
   [ ${#risky[@]} -eq 0 ] && return 0
   echo "INSERT into ${risky[*]} with no guard DO block, ON CONFLICT or WHERE NOT EXISTS"
+}
+
+# ---------------------------------------------------------------------- probe
+# (bugs_open/007 residual 1.) Ask a pending file itself whether it has already
+# been applied: run it verbatim inside a transaction that CANNOT commit. A
+# deferred UNIQUE violation is planted before the file, so any COMMIT the file
+# issues fails with 23505 naming probe_commit_poison and rolls everything back;
+# ON_ERROR_STOP then stops psql so no later statement can run in autocommit.
+# 86 of the 92 live migrations carry their own BEGIN/COMMIT, which is why a
+# plain BEGIN..ROLLBACK wrap would be UNSAFE here — the poison closes that hole
+# without parsing anyone's SQL. Mechanics proven against the live DB 2026-07-24
+# (deferred violation fires at COMMIT; DO-block COMMIT errors 2D000; guard
+# RAISE surfaces as "ERROR:  P0001: ..." under VERBOSITY verbose).
+#
+# The one structural blind spot: a top-level ROLLBACK/ABORT in the file would
+# abort the doomed transaction, and a later BEGIN..COMMIT of its own would then
+# run FOR REAL — four live files carry a defensive leading "ROLLBACK;"
+# (136/180/195/205). Those, and anything else the doomed transaction cannot
+# safely contain, are refused fail-closed: listed "not probed", never executed.
+
+probe_refusal() {  # $1 = path; echoes a reason (=> do not probe) or nothing
+  local flat
+  flat=$(sed 's/--.*//' "$1")
+  if grep -qiE '\b(ROLLBACK|ABORT)\b' <<<"$flat"; then
+    echo "contains its own ROLLBACK/ABORT — would escape the doomed transaction"; return 0; fi
+  if grep -vE '^[[:space:]]*\\set[[:space:]]+ON_ERROR_STOP\b' <<<"$flat" \
+       | grep -qE '^[[:space:]]*\\|\\gexec|\\gset|\\copy'; then
+    echo "contains psql meta-commands"; return 0; fi
+  if grep -qiE 'PREPARE[[:space:]]+TRANSACTION' <<<"$flat"; then
+    echo "uses two-phase commit"; return 0; fi
+  if grep -qiE '\b(dblink|postgres_fdw)\b' <<<"$flat"; then
+    echo "may write through a foreign connection the rollback cannot reach"; return 0; fi
+  if grep -qiE 'SET[[:space:]]+CONSTRAINTS' <<<"$flat"; then
+    echo "re-times constraint checks — could fire the poison early"; return 0; fi
+  if grep -qiE '\bsetval[[:space:]]*\(' <<<"$flat"; then
+    echo "setval is non-transactional and would persist through the rollback"; return 0; fi
+  return 0
+}
+
+probe_file() {  # $1 = path; sets PROBE_VERDICT + PROBE_DETAIL
+  local file="$1" out rc reason err
+  PROBE_VERDICT=""; PROBE_DETAIL=""
+  reason=$(probe_refusal "$file")
+  if [ -n "$reason" ]; then
+    PROBE_VERDICT="NOT_PROBED"; PROBE_DETAIL="$reason"; return 0
+  fi
+  out=$(
+    {
+      printf '%s\n' \
+        '\set VERBOSITY verbose' \
+        'BEGIN;' \
+        'CREATE TEMP TABLE _probe_commit_poison(x int, CONSTRAINT probe_commit_poison UNIQUE(x) DEFERRABLE INITIALLY DEFERRED);' \
+        'INSERT INTO _probe_commit_poison VALUES (1),(1);'
+      cat "$file"
+      printf '\n%s\n' 'ROLLBACK;'
+    } | timeout 90 $PSQL_CMD -v ON_ERROR_STOP=1 2>&1
+  )
+  rc=$?
+  err=$(grep -m1 '^ERROR:' <<<"$out" || true)
+  if [ "$rc" = "124" ]; then
+    PROBE_VERDICT="INCONCLUSIVE"; PROBE_DETAIL="probe exceeded 90s (transaction aborted server-side)"
+  elif grep -q '^ERROR:  23505:' <<<"$out" && grep -q 'probe_commit_poison' <<<"$out"; then
+    PROBE_VERDICT="CLEAN"; PROBE_DETAIL="ran to its own COMMIT without error (everything rolled back)"
+  elif grep -qiE '^ERROR:  P0001:.*already' <<<"$out"; then
+    PROBE_VERDICT="ALREADY"; PROBE_DETAIL="${err#ERROR:  P0001: }"
+  elif grep -q '^ERROR:  23505:' <<<"$out"; then
+    PROBE_VERDICT="DUP"; PROBE_DETAIL="${err#ERROR:  } — already applied out of band, OR genuinely wrong SQL; verify by hand"
+  elif [ -n "$err" ]; then
+    PROBE_VERDICT="INCONCLUSIVE"; PROBE_DETAIL="$err"
+  elif [ "$rc" != "0" ]; then
+    PROBE_VERDICT="INCONCLUSIVE"; PROBE_DETAIL="probe exited $rc"
+  else
+    PROBE_VERDICT="CLEAN"; PROBE_DETAIL="ran to end without error (no COMMIT of its own; rolled back)"
+  fi
+  return 0
 }
 
 psql_scalar() {  # run one -tAc query, echo the result
@@ -253,6 +348,31 @@ if [ ${#LINT[@]} -gt 0 ]; then
   echo "  verify its artifacts and use --record-only, do not --apply." >&2
 fi
 
+# Probe every pending file once, report, and cache the verdicts — --apply
+# reuses them rather than probing twice. See the probe block above for why a
+# probing run is not purely read-only (locks + rolled-back execution).
+declare -A PROBE_V=() PROBE_D=()
+SKIPPED=()
+if [ "$PROBE" = "1" ]; then
+  echo ""
+  echo "Probe (each pending file executed in a doomed transaction, rolled back; --no-probe skips):"
+  for f in "${PENDING[@]}"; do
+    probe_file "$MIGRATIONS_DIR/$f"
+    PROBE_V["$f"]="$PROBE_VERDICT"
+    PROBE_D["$f"]="$PROBE_DETAIL"
+    case "$PROBE_VERDICT" in
+      ALREADY)
+        echo "  !! $f — LIKELY ALREADY APPLIED; its own guard raised:"
+        echo "       ${PROBE_DETAIL}"
+        echo "       Verify its artifacts in the DB, then: $0 --record-only $f --note '<what you checked>'" ;;
+      CLEAN)        echo "  ok $f — ${PROBE_DETAIL}" ;;
+      DUP)          echo "  !! $f — DUPLICATE KEY during probe: ${PROBE_DETAIL}" ;;
+      NOT_PROBED)   echo "  -- $f — not probed: ${PROBE_DETAIL}" ;;
+      INCONCLUSIVE) echo "  ?? $f — probe inconclusive: ${PROBE_DETAIL}" ;;
+    esac
+  done
+fi
+
 if [ "$APPLY" != "1" ]; then
   echo ""
   echo "Dry run. Re-run with --apply to execute."
@@ -268,6 +388,19 @@ for f in "${PENDING[@]}"; do
   HAVE_LEDGER=$(psql_scalar "SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='schema_migrations';")
   if is_applied "$f"; then
     echo "== $f — already recorded (skipping)"
+    continue
+  fi
+  # Skip-not-record (bugs_open/007 residual 1): the file's OWN guard declared it
+  # already applied, so replaying it would only halt the run. Skipping is safe —
+  # the halt it replaces produced the identical end state, minus every file
+  # after it. Recording is NOT safe to automate, so the file stays pending (and
+  # gets skipped again) until a human verifies artifacts and records it.
+  if [ "${PROBE_V[$f]:-}" = "ALREADY" ]; then
+    echo "== $f SKIPPED — its own guard says it has already been applied:"
+    echo "   ${PROBE_D[$f]}"
+    echo "   NOT recorded. It stays pending until you verify its artifacts and run:"
+    echo "     $0 --record-only $f --note 'applied by hand <date>; <what you checked>'"
+    SKIPPED+=("$f")
     continue
   fi
   echo "== applying $f"
@@ -291,5 +424,10 @@ for f in "${PENDING[@]}"; do
                   ON CONFLICT (filename) DO NOTHING;" >/dev/null
   echo "== $f recorded"
 done
+if [ ${#SKIPPED[@]} -gt 0 ]; then
+  echo ""
+  echo "Skipped as likely-already-applied — each stays PENDING until verified and recorded:"
+  printf '  %s\n' "${SKIPPED[@]}"
+fi
 echo ""
 echo "Done."
