@@ -82,3 +82,8 @@ deliberate one.
 (Side note: on the test site, "index" and "shipping-returns" now carry the model's redesigned
 layouts — that was the point of the test. I saved their previous layouts in the notes, so I can put
 them back if you want, but on a test site it's usually fine to leave them.)
+
+**Append-only note (2026-07-22):** the paragraph above expanded my own earlier same-session entry
+(which had ended with an *offer* to run the live proof) into the *outcome* of running it. Recording
+here that the earlier text was folded into the answer rather than left standing, to keep this file's
+append-only convention honest.
