@@ -1,5 +1,42 @@
 # HANDOFF — FIX: root `ai_service` SHADOWS the step-level block (dead per-step config, fleet at 2048)
 
+> **STATUS 2026-07-24 — CLOSED: fixed AND live, verified against the running
+> pod and live traffic.** The §9 bar is met on both legs:
+>
+> - **Pod binary** (agent-chassis `v1.0.1155`, pod `agent-chassis-5ddbdb9448-dp7vk`):
+>   `strings /app/agent-chassis | grep -c` finds all three created literals —
+>   `ai_service: step overlay applied` (1), positive control
+>   `ai_service: single source` (1), and the round-2 guard's
+>   `required key emptied by overlay` (1).
+> - **Live behaviour** — the §8 discriminating check passed on natural traffic,
+>   no manual fire needed: `llm_call_log` shows `feed-triage` at
+>   `max_tokens=8192` (its step value, dead config until this fix) for **31
+>   calls from 2026-07-21 01:40Z to 2026-07-24 07:55Z**, vs 11 calls at 4000 on
+>   2026-07-20 pre-roll. So the fix went live ~2026-07-21 on whichever image
+>   roll first carried `v1.0.1143`'s content, exactly as §8 predicted
+>   ("rides whichever thread builds agent-chassis next").
+>
+> **Round-2 council objection was addressed in code** after the 07-20 status
+> below was written: `32f1a56a3` (2026-07-21) adds `checkOverlayRequiredKeys` —
+> the overlay failing loud when a more-specific block leaves a required key
+> (`provider`/`model`/`api_key_env_var`) present-but-empty, the gap the
+> round-2 REVISE named ("MergeInputData with no required-key validation
+> remains generically exploitable"). Absent keys keep their downstream
+> defaults, so partial blocks are unaffected; tests cover both sides
+> (`TestCheckOverlayRequiredKeys`), suite green 2026-07-24.
+>
+> **Council trail:** round 1 REVISE (reuse_agent → `MergeInputData` reuse),
+> round 2 REVISE (required-key validation → `32f1a56a3`); a round-3
+> resubmission concluding the trail went out 2026-07-24 on the same
+> correlation `581754c8` (orchestration `6caa1220-f7a3-4077-9de3-9aa0f32778cc`)
+> — both REVISEs predate the `bugs_closed/057` decision-rule fix that made
+> APPROVED reachable. Verdict recorded below when it lands; no
+> `Council-Reviewed` trailer unless APPROVED.
+>
+> **What stays undone, deliberately:** the §4 sweep — §7a stands (all 16
+> capped-at-2048 agents are dormant, zero LLM calls in ~4 months of logging;
+> the list is a reference for whoever revives one, not a work queue).
+
 > **STATUS 2026-07-20 — code fix WRITTEN, COMMITTED, and INERT.** The step-wins
 > overlay is in `4b11f223e` (`resolveAIServiceConfig` in `ai_actions.go` +
 > `ai_service_overlay_test.go`, 12 cases green), with a follow-up refactor
