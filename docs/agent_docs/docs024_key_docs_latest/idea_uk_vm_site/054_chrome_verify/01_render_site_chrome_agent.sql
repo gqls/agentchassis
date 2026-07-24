@@ -1,5 +1,12 @@
 -- 01_render_site_chrome_agent.sql — a minimal "render site chrome ONLY" agent.
 --
+-- ⚠️ RETIRED 2026-07-24 (owner request) after it served its purpose (verifying
+-- bugs_open/054, now CLOSED). The live agent is is_active=false + deleted_at set.
+-- This file is kept as the reusable recipe: to run a future chrome-render
+-- verification, re-apply this file (it re-activates the agent via ON CONFLICT),
+-- use it, then retire it again:
+--   UPDATE agent_definitions SET is_active=false, deleted_at=now() WHERE type='render-site-chrome';
+--
 -- WHY THIS EXISTS (bugs_open/054 verification gap): to behaviourally verify the
 -- chrome dead-control drop/escalate (054) you must run render_site_components
 -- against a site with an ungated chrome component and observe the stored
