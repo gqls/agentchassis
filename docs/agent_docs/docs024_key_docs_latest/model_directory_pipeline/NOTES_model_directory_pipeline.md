@@ -295,3 +295,46 @@ and `prepare_urls.config.max_scrapes` 4→3. Third run fired via
 overnight watcher from run 2 spun uselessly on expired kubectl credentials —
 lesson: bound the watch to the session, don't let it run past credential
 lifetime).
+
+> **CORRECTED 2026-07-24, later the same day — the batch-sizing/timeout
+> theory was WRONG on both counts, and the timeout change above was writing
+> to a field nothing reads.** Run 3 (max_scrapes=3) failed identically, but
+> this time the adapter logs survived long enough to read (the two prior
+> windows were destroyed by fleet pod rolls before I got to them). The
+> truth: the scrape SUCCEEDED in **4.69 seconds** (`success:3 errors:0`) —
+> then the reply was refused by the Kafka broker: **`[10] Message Size Too
+> Large`** — and the adapter's produce-failure branch just logs and returns.
+> The caller starves through 4 × 180s awaits on a deterministic failure.
+> Neither slowness nor flakiness, and not spawn-loss either: transport-layer
+> loss of a COMPLETE result, with the sender fully aware and silent.
+> **Caught by:** finally reading the adapter logs in the failure window,
+> instead of reasoning from the caller's side. Two wrong theories (spawn
+> loss; batch-too-slow) both came from caller-side evidence only.
+>
+> **Second correction inside the same investigation:** my 120→300 "timeout
+> raise" was inert — `models.Step` has no step-level `timeout_seconds`
+> field; the JSON is silently dropped at unmarshal, and only
+> `config.timeout_seconds` (INSIDE the step's config object) is read
+> (`ConvertStepTimeout`, timeout_helpers.go:23). Proven from the run-3 row:
+> `workflow_plan->'steps'->'scrape_pages'` carried my `max_scrapes` change
+> but NO timeout at all. The `evidence-researcher` seed this was copied from
+> carries the same inert field — flagged in bugs_open/062, their workstream's
+> to fix.
+
+**2026-07-24 — bugs_open/062 filed, fixed, council-submitted.** Case filed
+(`bugs_open/062_HANDOFF_2026-07-24_batch_scrape_response_exceeds_kafka_max_silent_starve.md`)
++ 016b §9 pattern ("A response that cannot be delivered must become a
+deliverable error") + §10 index row. Fix committed `21968a513` (inert until
+image roll): lean batch results (one content field, raw HTML opt-in only),
+150KiB per-result cap with a VISIBLE `truncated:true` marker, and on the
+broker's size refusal strip-to-stubs → resend once → batch ERROR response as
+the floor; transient produce failures keep the coordinator-retry path. Pure
+helpers unit-tested (4 tests green). firecrawl `/scrape` now honours
+`config["formats"]` like `/crawl` always did. Council submission corr
+`fe468218-d2c3-477e-a1ff-3f0f6cd1e57d` (per the strengthened 2026-07-24
+advisory norm), verdict pending. Config side done properly this time
+(snapshot first, live row + seed file together): `scrape_config.formats =
+["markdown"]` (ignored harmlessly until the image ships) and
+`config.timeout_seconds = 240` in the place the coordinator actually reads;
+inert step-level field removed. Registry still empty — next discovery run
+needs the 062 image rolled first.

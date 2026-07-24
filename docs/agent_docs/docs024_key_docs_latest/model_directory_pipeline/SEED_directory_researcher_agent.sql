@@ -29,6 +29,15 @@
 -- and the V5 verifier (verifyCitationLive, reused unchanged by
 -- directory_claims.go). ai_service is set at STEP level only (bugs_open/009:
 -- a root ai_service shadows step config).
+--
+-- TIMEOUT GOTCHA (bugs_open/062, corrected 2026-07-24): timeout_seconds must
+-- live INSIDE the step's "config" object — models.Step has no step-level
+-- timeout field, so a step-level value is silently dropped at unmarshal and
+-- the await runs at the 180s DefaultRequestTimeout. The first version of
+-- this seed (copied from SEED_evidence_researcher.sql, which carries the
+-- same inert field) had it at step level. scrape_config.formats=["markdown"]
+-- keeps the batch reply inside Kafka's max message size (062's root cause);
+-- honoured by the provider once the 062 fix ships, harmlessly ignored before.
 
 INSERT INTO agent_definitions (
     type, display_name, description, category, agent_category, status, is_active,
@@ -72,11 +81,11 @@ SELECT
         "action": "batch_webscrape",
         "config": {
           "urls_field": "prepared_urls.urls_to_scrape",
-          "scrape_config": {"only_main_content": true, "capture_screenshot": false}
+          "scrape_config": {"only_main_content": true, "capture_screenshot": false, "formats": ["markdown"]},
+          "timeout_seconds": 240
         },
         "next_step": "extract_claims",
         "output_field": "scrape_results",
-        "timeout_seconds": 120,
         "description": "Scrape the selected sources"
       },
       "extract_claims": {
