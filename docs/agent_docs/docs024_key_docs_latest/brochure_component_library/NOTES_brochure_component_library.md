@@ -1192,3 +1192,26 @@ image-hover-card-grid (fine-tuning), hero-card-carousel (capabilities).
 `site_plan_sections` (plan-level data) so rebuilds preserve them** — the
 rebuild-proof fix, and the data half of features_open/017. Then rebuild pages,
 then restore about's block.
+
+## 2026-07-24 — components written into the SITE PLAN; site-wide v2-voice rebuild wave fired
+
+Chassis now v1.0.1155 (owner deployed). **Plan-level placement done** — the 5
+components are now `site_plan_sections` rows (backup `bak_sps_fai_20260724`,
+25 rows): index/stat-band@1, capabilities/hero-card-carousel@1,
+about/people-feature-block@2, multi-agent-review-council/
+swipeable-insight-carousel@3, model-fine-tuning/image-hover-card-grid@3.
+Rebuilds now PRESERVE the components (the about clobber cannot recur), and the
+content-writer will FILL them through their input_schemas (grounded llm_guidance)
+rather than my hand-rendered instances.
+**TRAP hit:** `idx_site_plan_sections_key` UNIQUE(plan_id,page_name,ordering) —
+an in-place `ordering=ordering+1` shift collides mid-UPDATE; shift high (+100),
+insert, then bring back down (−99).
+
+**All 5 pages re-queued** (needs_page:* → triaged) for full rebuilds = v2 voice
+prompt + plan components, one wave. Verification when terminal (monitor armed):
+per page — plan components present in page_components; copy v2-compliant (em
+dashes ≈ 0, no "That X matters" family); leopardess story intact; **stat-band
+values grounded** (the writer now authors them per schema guidance "never invent
+— leave empty if no verified figure"; any number NOT in the known-true set
+{97%, 11, <24h} is a finding). Then: restore-check about, and onwards to
+features_open/016 (brief-fidelity audit).
