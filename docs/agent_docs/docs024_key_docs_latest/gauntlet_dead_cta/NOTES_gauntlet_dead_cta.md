@@ -259,3 +259,14 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   kustomize base; s6 prod overlay. NO makefile edit, NO ingress, all small files.
 - Implementer round 2 FIRED (wrapper orch 1d6e2253); branch will be feat/278a37c3;
   feat/* namespace verified empty first. Watcher bd6iuhqvd.
+
+## 2026-07-24 — implementer round 2 refused at s1 prepare (output-shape); round 3 retried
+- Round 2 (agent orch 2284a8f4): stage_prepare rejected generated cmd/tools-api/main.go
+  — "non-string body (map[string]interface{})": the model emitted a JSON object where
+  the file-body string belongs. Deterministic validator caught it PRE-commit (branch
+  created, zero commits). Clean refusal again — the cage holds; the flaw is model
+  output-shape nondeterminism, not the plan (v3 plan intact + approved).
+- Branch cleared; round 3 fired with the SAME approved FEATURE_CORR 278a37c3
+  (wrapper orch 8ec40110). If the same shape-slip repeats, the durable fix is
+  schema-forcing stage_implement's output (implementer seed change) — file that as a
+  feature-builder finding rather than retry-looping.
