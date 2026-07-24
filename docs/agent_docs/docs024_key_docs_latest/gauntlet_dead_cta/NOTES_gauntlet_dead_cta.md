@@ -321,3 +321,14 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   server PRIVATE key + laptop/phone PSKs — into its transcript. Local-only
   exposure, but rotate those peers at a convenient moment (regenerate peer
   confs + restart; 5 min). Do NOT paste key material into docs.
+
+## 2026-07-24 — chassis v1.0.1155 ROLLED, fix pod-verified; round 4 queued
+- Council resubmit (same trail 6bf3806f) after run 1 died on an Anthropic endpoint
+  i/o timeout at review_editquality → complete_invalid (infra, not judgement).
+- Other sessions had rolled 1152–1154 meanwhile; my fix NOT in 1154 lineage
+  (checked ancestry AND discriminating pod-grep: 0 before, control 1).
+- Built v1.0.1155 from HEAD (430ed5c18 included), pushed, chassis-only kustomize
+  apply (NOT fleet deploy-agents), rollout complete 12:44Z. POD-VERIFIED: new
+  string present 1, control 1.
+- feat/278a37c3 cleared again; round 4 auto-fires after the 300s window
+  (script bug3qv0lo waits, fires, polls). Same approved plan corr 278a37c3.
