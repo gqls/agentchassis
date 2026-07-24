@@ -450,7 +450,34 @@ v1.0.1155 mid-flight (task fired 16:36:53, completed 16:39:25, across the
 new pod's startup). Every stage of the fleet capability has now run in
 production at least once: opt-in flag → discovery checks → gap-planner →
 page build → deploy → publish → JSON. Discovery scope ruling (owner,
-2026-07-24): stay per-site on demand; no fleet-wide sweep. Noticed while wrapping up: the
+2026-07-24): stay per-site on demand; no fleet-wide sweep.
+
+> **CORRECTED 2026-07-24 (later): the "22 claims" milestone figure was
+> double-counted.** The watcher query counted `directory_claims` rows with
+> NO `is_current` filter: the true state after run 7 was **11 current
+> claims** plus 11 superseded duplicates (TWO discovery runs drained from
+> the dispatch queue a minute apart — the run-6-era retries — the second
+> idempotently superseding the first's identical rows; supersede timestamps
+> 11:40:14-15 prove it). Nothing was wrong on the site: the published JSON
+> filters `is_current AND status='found'` correctly and always showed the
+> real registry. Caught while chasing an apparent overnight 22→11 "loss"
+> that never happened. The habit this indicts is reading a count without
+> restating its filter — same family as the WRONG_CALLS absence-claim
+> entries, on the positive side of the ledger.
+
+**2026-07-24 evening — breadth pass: 3 vendor-targeted research runs
+dispatched** (Anthropic, Google Gemini, open-weight Llama/Mistral/DeepSeek/
+Qwen; kcat orchestrate, staggered ~4 min for the single-consumer lane).
+Results: registry **11 → 34 current found claims, 10 → 21 entities**, now
+spanning OpenAI (10), Google (7 Gemini models incl. 2.5 Pro/Flash), and
+Anthropic (4: claude-sonnet-4-6, claude-haiku-4-5, claude-opus-5,
+claude-fable-5) — all citation-verified. The open-weight run's yield is
+visible in the entity list as NOT producing distinct Meta/Mistral/DeepSeek
+entities [UNMEASURED which of the 3 runs contributed which claims — the
+created_by column says 'generic' for all] — aggregator-page quotes failing
+verification is the expected explanation but unproven; watch whether the
+weekly sweep's broad query has the same open-weight blind spot. Publish
+cycle brought forward to ship the widened registry to the live JSON. Noticed while wrapping up: the
 Phase D plan's publish leg (model-directory-trigger + model-directory-publish
 scheduled task) had never been seeded — nothing would have committed
 data/model-directory.json to opted-in sites. Wrote
