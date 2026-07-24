@@ -1348,6 +1348,30 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic server-side MatchMatrix v2 scoring: rank a site's gripper index against one visitor application spec; emits the fact_block that bounds report prose",
 		IsLocal:     true,
 	},
+	"pull_report_requests": {
+		Handler:     PullReportRequestsAction,
+		Category:    "data",
+		Description: "One-way pull of pending dossier requests from a site's report island (deploy_config.report_island); one report_request work item per request, no PII",
+		IsLocal:     true,
+	},
+	"verify_report_prose": {
+		Handler:     VerifyReportProseAction,
+		Category:    "site",
+		Description: "Deterministic gate binding report prose to the scoring fact_block: numbers, SKU-shaped names, the mandatory no-match sentence, no empty sections",
+		IsLocal:     true,
+	},
+	"create_report_page": {
+		Handler:     CreateReportPageAction,
+		Category:    "site",
+		Description: "Compose and persist one gripper-dossier report page (owned, nav-invisible, UUID slug) from verified scoring + prose; renders final HTML incl. SVG chart",
+		IsLocal:     true,
+	},
+	"emit_report_status_files": {
+		Handler:     EmitReportStatusFilesAction,
+		Category:    "site",
+		Description: "Build the /reports/<id>.json status sidecar files map (ready|failed) for git_commit; the island polls exactly this sidecar",
+		IsLocal:     true,
+	},
 
 	// tool lifecycle (deploy, update)
 	"deploy_tool_to_site": {
