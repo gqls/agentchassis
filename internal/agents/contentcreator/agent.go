@@ -632,16 +632,17 @@ func (a *Agent) getGenerationOptions(req RequestPayload, config *models.AgentCon
 	options["max_tokens"] = 3000
 	options["model"] = a.aiClient.Model()
 
-	// Override with agent config if available
+	// Override with agent config if available. Deliberately NOT model: a
+	// CoreLogic model cannot change which model serves the call (that is fixed
+	// in aiClient), so honouring it here only mislabelled the response
+	// metadata and cost estimate — GetDefaultConfig's fallback stamped
+	// claude-3-haiku on calls actually served by the configured provider.
 	if config != nil && config.CoreLogic != nil {
 		if temp, ok := config.CoreLogic["temperature"].(float64); ok {
 			options["temperature"] = temp
 		}
 		if maxTokens, ok := config.CoreLogic["max_tokens"].(float64); ok {
 			options["max_tokens"] = int(maxTokens)
-		}
-		if model, ok := config.CoreLogic["model"].(string); ok {
-			options["model"] = model
 		}
 	}
 
@@ -687,6 +688,7 @@ func (a *Agent) estimateCost(tokens int, model string) float64 {
 		"claude-3-haiku-20240307":    0.00025,
 		"claude-3-5-sonnet-20241022": 0.003,
 		"claude-3-opus-20240229":     0.015,
+		"claude-sonnet-5":            0.003,
 		"gemini-2.5-flash":           0.001,
 		"gemini-2.5-pro":             0.010,
 	}
