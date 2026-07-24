@@ -303,27 +303,21 @@ func isKafkaMessageTooLarge(err error) bool {
 	return strings.Contains(err.Error(), "Message Size Too Large")
 }
 
-// sendBatchSuccessResponse sends a successful batch scrape response
-// Follows the exact pattern from sendSuccessResponse in adapter.go
-//
-// bugs_open/062: a reply the broker refuses as too large is degraded
-// (raw HTML dropped, content cut to a stub, truncated markers on) and
-// resent ONCE; if even the stub reply is refused, an error response goes
-// out instead. A response that cannot be delivered must become a
-// deliverable error, never silence — the caller is listening on the reply
-// topic, not reading this pod's logs, and the silent drop starved callers
-// through 4 × 180s of retries on a failure that is deterministic.
-func (a *Adapter) sendBatchSuccessResponse(
-	requestID, correlationID, orchestrationID, replyTopic,
+// buildBatchSuccessEnvelope constructs the full response message (headers +
+// body) for a successful batch scrape. Pure, so the envelope's contract with
+// the chassis — it must unmarshal into types.ResponseMessage — is testable
+// offline; that contract was silently broken from this handler's birth
+// (bugs_open/062 defect 4: `"is_complete": "true"` as a STRING fails the
+// chassis's typed unmarshal into ResponseHeaders.IsComplete `bool`, and the
+// response is dropped — the 035 §1.5 bool trap browserrunner/analyser/
+// thunder already carry the correction for). The Kafka HEADER map stays
+// strings — kafka headers are strings by contract; only this JSON body is
+// typed.
+func buildBatchSuccessEnvelope(
+	requestID, correlationID, orchestrationID,
 	clientID, stepName, stepID string,
 	result map[string]interface{},
-) {
-	if replyTopic == "" {
-		a.logger.Warn("No reply topic specified for batch response",
-			zap.String("request_id", requestID))
-		return
-	}
-
+) map[string]interface{} {
 	// Response body - flat structure matching web_search adapter pattern
 	// The entire body becomes collected_data[output_field]
 	responseBody := map[string]interface{}{
@@ -334,8 +328,7 @@ func (a *Adapter) sendBatchSuccessResponse(
 		"total_count":   result["total_count"],
 	}
 
-	// Full response with headers and body
-	response := map[string]interface{}{
+	return map[string]interface{}{
 		"headers": map[string]interface{}{
 			// Required fields for validation
 			"correlation_id":   correlationID,
@@ -361,13 +354,40 @@ func (a *Adapter) sendBatchSuccessResponse(
 				"pod_name":   os.Getenv("HOSTNAME"),
 			},
 
-			// Metadata
+			// Metadata. is_complete is a REAL JSON bool — see the function
+			// comment; the string form kills the whole response.
 			"timestamp":   time.Now().UTC().Format(time.RFC3339),
 			"success":     true,
-			"is_complete": "true",
+			"is_complete": true,
 		},
 		"body": responseBody,
 	}
+}
+
+// sendBatchSuccessResponse sends a successful batch scrape response
+// Follows the exact pattern from sendSuccessResponse in adapter.go
+//
+// bugs_open/062: a reply the broker refuses as too large is degraded
+// (raw HTML dropped, content cut to a stub, truncated markers on) and
+// resent ONCE; if even the stub reply is refused, an error response goes
+// out instead. A response that cannot be delivered must become a
+// deliverable error, never silence — the caller is listening on the reply
+// topic, not reading this pod's logs, and the silent drop starved callers
+// through 4 × 180s of retries on a failure that is deterministic.
+func (a *Adapter) sendBatchSuccessResponse(
+	requestID, correlationID, orchestrationID, replyTopic,
+	clientID, stepName, stepID string,
+	result map[string]interface{},
+) {
+	if replyTopic == "" {
+		a.logger.Warn("No reply topic specified for batch response",
+			zap.String("request_id", requestID))
+		return
+	}
+
+	response := buildBatchSuccessEnvelope(requestID, correlationID, orchestrationID,
+		clientID, stepName, stepID, result)
+	responseBody := response["body"].(map[string]interface{})
 
 	responseBytes, err := json.Marshal(response)
 	if err != nil {
@@ -497,9 +517,13 @@ func (a *Adapter) sendBatchErrorResponse(
 				"pod_name":   os.Getenv("HOSTNAME"),
 			},
 
+			// Real JSON bool — same 035 §1.5 bool trap as is_complete above:
+			// the string form fails the chassis's typed unmarshal and the
+			// error response is dropped, which for THIS response means the
+			// fail-loud floor silently reverts to fail-silent.
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 			"success":   false,
-			"is_error":  "true",
+			"is_error":  true,
 		},
 		"body": responseBody,
 	}

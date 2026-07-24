@@ -9,11 +9,13 @@
 package webscrape
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 	"testing"
 
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"github.com/segmentio/kafka-go"
 )
 
@@ -74,6 +76,47 @@ func TestStripBatchResultsForRetryDropsRawAndShrinks(t *testing.T) {
 	}
 	if r["url"] != "https://example.com" {
 		t.Errorf("identity field was modified: %v", r["url"])
+	}
+}
+
+// The envelope's contract with the chassis: processor.go unmarshals the
+// message value into types.ResponseMessage, whose ResponseHeaders.IsComplete
+// is a real bool. This handler shipped from birth with `"is_complete":
+// "true"` (a string), which failed that unmarshal and dropped EVERY batch
+// response ever sent (bugs_open/062 defect 4). This test round-trips the
+// real envelope through the real type, so the contract can never silently
+// regress to the string form again.
+func TestBatchSuccessEnvelopeUnmarshalsIntoResponseMessage(t *testing.T) {
+	envelope := buildBatchSuccessEnvelope(
+		"req-1", "corr-1", "orch-1", "client-1", "scrape_pages", "step-1",
+		map[string]interface{}{
+			"results":       []map[string]interface{}{{"index": 0, "url": "https://example.com", "content": "x", "success": true}},
+			"success_count": 1, "error_count": 0, "total_count": 1,
+		})
+
+	raw, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	var parsed types.ResponseMessage
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("the envelope MUST unmarshal into types.ResponseMessage — the chassis drops it otherwise: %v", err)
+	}
+	if !parsed.Headers.IsComplete {
+		t.Error("is_complete must arrive as a true bool")
+	}
+	if parsed.Headers.InResponseToRequestID != "req-1" {
+		t.Errorf("in_response_to_request_id = %q, want req-1", parsed.Headers.InResponseToRequestID)
+	}
+	if parsed.Headers.Status != "complete" {
+		t.Errorf("status = %q, want complete", parsed.Headers.Status)
+	}
+
+	// The regression this guards against, demonstrated: the string form
+	// fails the typed unmarshal outright.
+	bad := []byte(`{"headers":{"is_complete":"true"},"body":{}}`)
+	if err := json.Unmarshal(bad, &parsed); err == nil {
+		t.Error("expected the string form of is_complete to fail the typed unmarshal — if this passes, the type contract changed and this test needs rethinking")
 	}
 }
 

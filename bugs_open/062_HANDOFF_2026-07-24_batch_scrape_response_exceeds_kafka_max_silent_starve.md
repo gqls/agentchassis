@@ -109,6 +109,35 @@ markdown-only and cut the fetch itself by ~3×.
 `max.message.bytes` treats the symptom fleet-wide and invites the next
 bigger page to re-break it; rejected as primary fix.
 
+## Defect 4, found by the fixed path (2026-07-24, run 4)
+
+With defects 1–3 fixed and pod-verified live (v1.0.1152), run 4
+(`orchestration 5db0890c`, request `1c11033d`) STILL timed out — and the
+logs now prove a second, independent kill-switch stacked on the same path:
+the reply was small (79,397 bytes, markdown-only honoured), **successfully
+produced** to `system.agent.generic.responses` at 10:51:00, **consumed by
+the chassis** at 10:51:01.720 with perfect headers — and then dropped at
+`processor.go:1469`: `Failed to unmarshal response message (ResponseMessage)`,
+followed by `Cannot propagate error to parent - missing replyToRequestID`.
+
+Cause: the batch handler's JSON-body headers carried `"is_complete": "true"`
+and `"is_error": "true"` — STRINGS — while the chassis unmarshals the
+envelope into `types.ResponseHeaders`, whose `IsComplete`/`IsError` are
+`bool`. `json.Unmarshal` hard-fails on the type mismatch and the whole
+response is discarded. This is the **known 035 §1.5 bool trap**: the
+browserrunner, analyser and thunder adapters all carry explicit corrections
+("is_complete/is_error are real JSON bools") — the batch handler, added
+2026-07-21 for bug 047, copied the older broken pattern. The Kafka HEADER
+map (strings by contract) was never the problem; only the typed JSON body.
+
+Consequence worth stating plainly: **no batch_scrape response had EVER been
+consumed successfully** — the size refusal (defects 1–3) masked this parse
+failure, which was waiting underneath. Each fix peeled back the next layer.
+Fixed: both fields are real bools; the envelope construction is extracted to
+a pure `buildBatchSuccessEnvelope` and a test round-trips it through the
+real `types.ResponseMessage` (plus a regression guard demonstrating the
+string form fails), so the contract cannot silently regress.
+
 ## Council verdict + objection follow-ups (2026-07-24)
 
 **APPROVED round 1** (corr `fe468218-d2c3-477e-a1ff-3f0f6cd1e57d`, "3
