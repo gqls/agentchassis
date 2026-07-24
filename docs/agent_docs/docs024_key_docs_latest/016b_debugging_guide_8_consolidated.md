@@ -2532,6 +2532,7 @@ See `/bugs_closed/README.md`.
 | 056 *(slug: `diagnose_route_step_nul_byte_kills_jsonb_persist` — **a second, unrelated `056` exists**, slug `regeneration_silently_drops_content…`; resolve by slug)* | The diagnosis loop killed its own runs: `CodeRequestKey` delimited `SeenCodeRequests` keys with a literal NUL; `json.Marshal` → `\u0000`, the ONE escape jsonb rejects (22P05); the `route` step's first persist after any code request died — 25 runs, 100% at `route`, incl. `030`'s own root-cause diagnosis. See §9 *"A NUL byte anywhere in marshalled state…"* | **CLOSED 2026-07-22 → `/bugs_closed/`** — delimiter → `\x1f` + `SplitCodeRequestKey` lockstep + persist-boundary sanitiser (`7a9f5f652`, live v1.0.1149 pod-verified; relocation+WARN `165f04ae7` council-approved corr `d8e844ac`, inert until next roll). End-to-end proven: 5-iteration code-tier diagnosis persisted non-empty `seen_code_requests` (`\u001f` keys) and completed; census flat |
 | 056 *(slug: `regeneration_silently_drops_content_that_tripped_a_blocker` — the OTHER `056`)* | Filed as "regeneration silently drops content that tripped a validate blocker, no record" — **the inferred mechanism was REFUTED by the diagnosis loop** (corr `b361298a`, 2026-07-22): the blocker IS recorded verbatim (`agent_error_log` `CONTENT_VALIDATION_BLOCKER_DETAIL`) and rerender actions never generate content. **Corrected mechanism: review-bypass-by-sibling-item** — item A parks at `needs_human_review` on the blocker; sibling item B (e.g. `page_rerender` after an asset lands) reruns the SAME build pipeline; fresh copy omits the flagged element, passes, deploys; nothing reconciles B's success with A's parked review (fundamentallyai `model-fine-tuning`: A parked 07-20 21:27, page deployed 07-21 03:41, A still dangling) | **CLOSED 2026-07-24 → `/bugs_closed/`** — standalone `reconcile_superseded_reviews` (council 1d8ef2c0 R2 APPROVED after an R1 placement veto; the shared save path stays clean) LIVE v1.0.1150, seeded 2026-07-23 (docs024/bugfix_056_regen/): dry-run surfaced the exact model-fine-tuning pair, live sweep 25/25, independently row-verified 07-24. Review-bypass is now loud + queryable; owner policy (HOLD deploys on parked review?) deliberately open |
 | 062 | **batch_scrape response exceeds Kafka `max.message.bytes`; adapter logs-and-drops it; caller starves through its full retry budget.** Scrape SUCCEEDS in seconds, reply refused by the broker, produce-failure branch just logs — 4 × 180s awaits burned on a deterministic failure. Grew to FOUR defects + a verification layer as each fix exposed the next: (1–3) oversize reply / silent drop / no formats override; (4) `"is_complete": "true"` STRING fails the chassis's typed unmarshal (the 035 §1.5 bool trap, copied into the 047-era handler) — so **no batch_scrape response had EVER been consumed in prod**; (layer 3) markdown table pipes in extracted quotes never match the verifier's HTML flattening. Also recorded in-file: step-level `timeout_seconds` in workflow seeds is silently dropped (only `config.timeout_seconds` is read) — the `evidence-researcher` seed still carries the inert form. See §9 *"A response that cannot be delivered…"* | **CLOSED 2026-07-24 → `/bugs_closed/`**, same day as filing: adapter fixes live v1.0.1152/1153 (pod-verified, created-symbol greps), pipe folding live in chassis v1.0.1154; **behavioural proof** = discovery run 7 completed end-to-end, 10 entities / 22 claims all `found`; council corr `fe468218` APPROVED R1, objections closed with attached evidence. Five wrong calls from the case logged in WRONG_CALLS.md |
+| 064 | **Doc-subject split contract**: the `subject_type` enum has FOUR enforcement points (doc_plans + doc_notes DB CHECKs; `docResolveSubject` shared by write_doc_plan/append_doc_note/load_doc_context; `persist_diagnosis_note`'s own allowlist) and the last two additions each missed some — 163 (+experience) missed persist_diagnosis_note (experience diagnosis notes silently skipped, with a misleading "no explicit subject" log), 184 (+action) moved the DB CHECKs ONLY, so the three action PLANs it seeded to answer council objection `5a65ec4c` are unreachable through every doc action. See §9 *"A schema CHECK and its code gates are one contract"* | filed 2026-07-24 (experience-register session). Fix planned in passing by the experience_register P2 change-set (`experience-pattern` subject_type; full checklist in `experience_register/design/subject_type_addition.md`); if another thread touches doc subjects first, take it |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
@@ -3226,3 +3227,29 @@ caller fails in seconds with a cause instead of starving blind.
 **Related:** `bugs_open/062` (the case); `bugs_closed/047` (the front-door bug that kept this path
 unexercised); 016 §9 silent-completion family (this is its transport-layer sibling: the SENDER
 knows it failed and stays quiet, where the classic family's sender believes it succeeded).
+
+### A schema CHECK and its code gates are one contract — enumerate every enforcement point before widening either (2026-07-24)
+
+*Added 2026-07-24 from `bugs_open/064` (found during experience-register design research).*
+
+The doc_plans/doc_notes `subject_type` enum is enforced in **four** places: the two DB CHECK
+constraints, `docResolveSubject` (`write_doc_plan_action.go:136` — shared by `write_doc_plan`,
+`append_doc_note` AND `load_doc_context`), and `persist_diagnosis_note`'s separate allowlist
+(`persist_diagnosis_note_action.go:78`). Every addition so far missed at least one. Migration
+163 (+`experience`) missed persist_diagnosis_note — so a diagnosis note for an experience
+subject is silently skipped, and the log line **lies about why** ("no explicit subject" when
+the subject was explicit and only its type post-dates the allowlist). Migration 184
+(+`action`) moved the DB CHECKs **only** — so the three action PLANs it seeded to answer a
+council-gate objection shipped as rows no agent can read: `load_doc_context` errors on the
+type, and the docs can only evolve by raw SQL. The gate's own comment states the rule ("A
+value the DB accepts but this gate rejects — or vice versa — is a split contract; move both
+together") and did not prevent the drift, because a comment does not enumerate the points.
+
+**The pattern** (same class as the dedup-index ↔ `workItemTerminalStatuses` lockstep,
+v1.0.1127): before adding a value to any enum-like contract, grep for an EXISTING value
+(`'pipeline'`) to enumerate every hard-coded allowlist, then move them all in ONE change —
+and prefer collapsing to a single source (one shared Go set + a lockstep test that reads the
+live CHECK values). A cheap review tell: **a migration that widens a CHECK with no Go diff in
+the same change-set is either dead schema or a split contract.** Category tags:
+`split-contract`, `enum-allowlist-drift`, `capability-shipped-as-unreachable-rows`,
+`move-both-together`.
