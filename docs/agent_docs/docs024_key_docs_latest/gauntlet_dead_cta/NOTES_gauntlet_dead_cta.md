@@ -438,3 +438,16 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   RUN THE CODE — for spawned per-agent pods that is agent_definitions.image_tag,
   not the chassis deployment. Rows updated 1151→1155 (snapshots 84c71c64/28ade197).
 - Round 7 fired (patient script, watcher bjhtkcwn2), branch namespace clear.
+
+## 2026-07-24 — round 7: formatter fix PROVEN in the spawned pod; gate red on a guessed API; v4 + designer 4
+- Round 7 (orch 863668c1) got PAST stage_prepare — the formatter fix works at
+  runtime (first commit of Go by the implementer EVER: s1 committed, sha 790988cf)
+  — and failed honestly at the BUILD GATE: `server.go:23:20: undefined: health.Check`.
+  The model guessed a cross-package API it cannot see (stage_read shows only the
+  stage's own files; platform/health actually exports a standalone NewServer, no
+  gin-mountable Check).
+- Spec v4: health = LOCAL gin GET /health (drop platform/health); general rule —
+  never call a cross-package symbol unless the plan sketch quotes its exact
+  signature. Red branch deleted (gate log preserved in DB + here).
+- Designer round 4 fired: FEATURE_CORR 7773219b. Script bbm3u351l auto-fires the
+  implementer (single, patient) on approval.
