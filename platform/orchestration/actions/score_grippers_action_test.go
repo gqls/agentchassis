@@ -23,7 +23,7 @@ func ip(v int) *int         { return &v }
 func testGripperIndex() []gripperCandidate {
 	mk := func(name string, spec matchmatrixSpec) gripperCandidate {
 		return gripperCandidate{Name: name, Spec: spec,
-			SourceURL: "https://example.test/" + strings.ToLower(strings.ReplaceAll(name, " ", "-")),
+			SourceURL:    "https://example.test/" + strings.ToLower(strings.ReplaceAll(name, " ", "-")),
 			VerifiedDate: "2026-07-22"}
 	}
 	return []gripperCandidate{
