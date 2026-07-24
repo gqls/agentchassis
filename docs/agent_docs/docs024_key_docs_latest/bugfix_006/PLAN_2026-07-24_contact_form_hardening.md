@@ -220,3 +220,48 @@ skip.)
 - Check enable convention: `sql_for_agents/190_enable_contact_form_undeliverable_check.sql`
 - Test models: `discovery_checks/check_empty_sections_test.go`, `tool_render_path_test.go`,
   `component_library_form_action_test.go`
+
+---
+
+## 7. DECISIONS & BUILD (2026-07-24, same day)
+
+**Owner decisions:** Layer 3 = **Option B** (light re-render + address-source fix). Layer 2 =
+**skip periodic for now** (rely on build/manual-trigger discovery; revisit later). Layer 1 tests: yes.
+
+**BUILT & COMMITTED `cc2cff79b` — inert until a chassis image roll.** What shipped:
+- `buildRerenderBaseData` now reads `COALESCE(sites.email,'')` in its single-row query and applies it
+  to `base["email"]`/`base["contact_email"]` AFTER the content_data merge — the canonical column wins,
+  empty column falls back to content_data (no regression). Both render paths now agree on the source.
+- `check_contact_form_undeliverable` gates on resolvability (`resolveSiteContact` +
+  `contactAddressResolvable`, mirroring `deliverableFormAction` incl. the `info@<own-domain>` refusal;
+  lockstep comments both sides). Resolvable → `page_rerender` item (handler `page-rerender`, status
+  `detected`, pipeline `build`, reason `section_data_resolved`, key
+  `contact_form_undeliverable_rerender:<page>`). Address-less → the unchanged `needs_human_review` row.
+  Header routing paragraph updated to document both branches.
+- Tests (all fault-injected, watched to fail): `TestContactAddressResolvable`,
+  `TestContactFormUndeliverableRoutesByResolvability` (sqlmock end-to-end routing),
+  `TestBuildRerenderBaseDataPrefersSitesEmailColumn` (the idea.uk stale-address case is a literal
+  test case). actions-package tests verified via `git archive HEAD` + overlay (another session's WIP
+  in `diagnose_dormant_agents_test.go` broke the shared tree's test build — not ours).
+
+**Design points settled during build** (rationale in the submission JSON alongside this file):
+- Reason = `section_data_resolved`, NOT a new `form_action_stale`: the routing conditional lives in
+  the page-rerender agent's config, and a config-only reason would be clobberable by an agent re-seed
+  (documented landmine); the shared reason is seed-stable, routes to the true template re-render, and
+  does NOT fire the `cta_links_stale`-gated CTA recompute. Its `scoped` behaviour in
+  `create_rerender_items` needs a `component_id` the spec doesn't carry, so it is not triggered.
+- Distinct dedup key for the rerender item, so a site that gains an address later is not suppressed
+  by a stale parked human-review row (`check_misdirected_cta` precedent for a check-owned key).
+- `contactAddressResolvable` duplicates (not imports) the actions-package guard — package boundary;
+  parity is pinned by tests on both sides.
+
+**Council:** submitted alongside the commit (advisory, per the 2026-07-24 norm) —
+`SUBMISSION_CORR=5d64be67-b9e8-47e8-8768-828a34093b08`, submission JSON
+`submission_006B_autoheal_handler.json` (this directory). Verdict PENDING at time of writing; if
+APPROVED, note the trailer in a follow-up commit.
+
+**What this means operationally once the image rolls:** the next discovery cycle on each affected
+site emits a `page_rerender` instead of parking — the 9 remaining `#contact` forms self-heal through
+triage → dispatch → light re-render → `sanitiseFormAction` → mailto to `sites.email`. The deferred
+"remediate the 10 deployed" follow-up (2) is thereby absorbed into the standing loop. Any future
+address-less site still parks for a human — the honesty rule is untouched.
