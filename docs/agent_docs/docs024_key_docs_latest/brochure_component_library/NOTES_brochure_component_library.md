@@ -1091,3 +1091,41 @@ version-controlled in components/placements/. Monitor watching all 6 signals
 
 **Trap hit (shell):** printf with rendered-HTML containing % / ) breaks — build
 SQL files with echo/cat only (the shell-tool-traps memory strikes again).
+
+## 2026-07-24 — human style prompt IMPLEMENTED in page-content-writer (owner priority 1)
+
+Owner review session: site-quality automation specs filed (features_open/016
+brief-fidelity audit, 017 component-adoption check, 018 specialist design critic
+— Gemini for now, 019 sweep enrolment LAST since the improvement loop is off).
+Then the prompt work, first per owner.
+
+**Where the copy actually comes from (two paths, easily conflated):**
+- `page-content-writer` (chassis agent def) — writes the site page sections via
+  `process_sections_loop → generate_content` (`execute_llm_prompt`,
+  `prompt_template` 7.8K chars). **Still `claude-sonnet-4-6`/anthropic.**
+- `content-creator-agent` (separate service, kustomize configmap) — THIS is what
+  the other thread swapped to Gemini (`7b27edfa9`, `gemini-2.5-pro`;
+  `014e45ffa` added the provider). The page copy the owner read did NOT come
+  through Gemini.
+
+**Style prompt [IMPLEMENTED, LIVE — config is live immediately, no image roll]:**
+distilled `REVERSE_ENGINEERED_STYLE_PROMPT_v3.md` (the 3-round owner-refined
+de-AI-ify prompt) into a "Voice & Style" block in
+`page-content-writer.prompt_template`: one idea per sentence; no em dashes;
+start with the fact (no negative-frame/manufactured-reveal openings);
+word-weight matched to claim in BOTH directions (no grand words, no dramatised
+humility); cut self-flagging filler (crucially/seamless/robust/leverage/delve…);
+contractions; active we/our; no cadence-templates; landing sentence ≤1/section
+and only if genuinely surprising; one rough edge left standing; no exclamation
+points. Document-structure rules (tables/fenced logs/headings) deliberately NOT
+carried over — they're for documents, not section fields. STRICT RULE 6
+("Professional but engaging tone") now points at the block instead.
+Applied patch-style: backup table `bak_agent_definitions_pcw_20260724`,
+optimistic guard on `updated_at` (the row was touched by another thread today —
+guard held), verified stored (`has_style_block=t`, old rule 6 gone).
+
+**Gemini flip for page-content-writer: READY but NOT DONE** — chassis supports
+`provider:"gemini"` (`platform/aiservice/gemini.go`, factory), `GEMINI_API_KEY`
+is set in the running pod. One-line ai_service change when the owner says go.
+Verification plan either way: rebuild ONE page, read the copy against the
+style rules (and voice-tells), before any site-wide rewrite.
