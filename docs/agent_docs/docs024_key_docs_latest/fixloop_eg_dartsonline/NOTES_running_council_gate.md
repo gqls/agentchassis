@@ -538,3 +538,43 @@ This is a property of dogfooding a LIVE change, not a gap in the fix.
 **`bugs_open/057`:** fixed & live, two live approve examples (organic + dogfood),
 floor test-covered. Ready to close; holding only for a live GATING example (none
 organic yet — councils quiet). Milestone summary: `SUMMARY_2026-07-22b_council_approval_rate_live.md`.
+
+## Turn 11 — 2026-07-24 — PR-mode reopened → DEFERRED (strengthen advisory instead); commit-nudge + norm + 098 baseline
+
+Owner: "please reopen" (PR-mode). Measured the precondition (does the fix make
+approval reachable enough for enforcement?): approval **5% → 80%** (before fix
+07-15..07-22: 3 approved / 143 revise / 4 rejected across 53 corrs; after
+07-22 14:00: 8 approved / 5 revise / 2 rejected across 10 corrs), and `098`
+REVIEWED **0 → 4** in 3 days (my `e37ec804f` + 3 other threads' council-approved
+commits: bugs_open/056, 054, dead_controls — all "by correlation"). So PR-mode is
+now buildable. **Owner chose (AskUserQuestion): strengthen advisory, DEFER
+structural.** Reason PR-mode is costly here: it collides with many-sessions/one-
+shared-branch — platform fixes land directly and ride the next sweep build; fix/*
+PRs hold them until merge + add a council round of latency = a workflow change for
+every thread. PLAN open-Q #1 marked RESOLVED.
+
+**Delivered (loud + regular):**
+- LOUD — a **commit-msg** advisory nudge (`scripts/council-coverage-nudge.sh`):
+  prints when a commit touches `platform/|internal/|pkg/` code with NO
+  `Council-Reviewed:` trailer; silent on reviewed/docs commits (commit-msg, not
+  pre-commit, so it can read the message and check the trailer). NEVER blocks
+  (trap + exit 0). Wired into `.githooks/commit-msg` AFTER the existing D2
+  direction gate. **CRITICAL: preserved the direction gate verbatim** — it is a
+  BLOCKING gate; verified live it still blocks a blessed doc w/o trailer (exit 1)
+  and passes with one, and the nudge never blocks. Its early `exit 0`s became
+  fall-throughs so the nudge runs on normal commits.
+- NORM — hardened the CLAUDE.md council section: approval is reachable now (~80%),
+  so "submit platform changes to the gate" is a real norm; still advisory,
+  PR-mode still deferred.
+- REGULAR — persisted a `098` coverage baseline to doc_notes (`PERSIST=1`,
+  categories digest+council-gate).
+
+`[LANDMINE]` the shared tree switched branch mid-session (085→086, another
+session) — my commits are recorded on whatever branch was HEAD at commit time;
+the hooks/CLAUDE.md are working-tree files so they are live for the shared tree
+regardless of branch. Forward-only; did not fight it.
+
+`[OPEN]` truly-automated "regular": a cloud cron agent likely lacks kubectl to the
+cluster (098 needs BOTH git + DB), so a fully-scheduled run needs a runner with
+both — recommend running `098 --persist` at the digest cadence; a scheduled job is
+an owner call (offered).

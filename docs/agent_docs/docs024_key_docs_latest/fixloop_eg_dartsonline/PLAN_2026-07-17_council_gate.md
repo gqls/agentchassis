@@ -61,6 +61,20 @@ bottleneck, and without pretending it is compulsory when it is not.
 ## Open questions for the owner
 
 1. **PR-mode?** Only on evidence from advisory mode. Adoption is the input.
+   > **RESOLVED 2026-07-24 — DEFERRED; strengthen advisory instead.** The evidence
+   > came in: after the severity-gate fix (`bugs_open/057`, live v1.0.1149) the
+   > approval rate went from ~5% (3/53 submissions, 07-15..07-22) to **~80%** (8/10,
+   > the two days after), and `098` REVIEWED went 0 → 4 in three days. So approval
+   > is now reachable AND discriminating (the gate still blocked the ~20% with a
+   > high-severity/veto problem) — PR-mode is now *buildable*. The owner chose NOT
+   > to build it yet: **strengthen advisory, defer structural.** PR-mode collides
+   > with the many-sessions/one-shared-branch model (platform fixes land directly
+   > and ride the next sweep build; fix/* PRs would hold them until merge + add a
+   > council round of latency) — a workflow change for every thread, not worth it
+   > while advisory is delivering coverage. Delivered instead: a `commit-msg`
+   > advisory nudge on an un-reviewed platform-code commit (`scripts/council-coverage-nudge.sh`),
+   > the hardened norm in CLAUDE.md, and a persisted `098` coverage baseline (the
+   > "loud + regular" pair). Revisit PR-mode if direct-commit coverage stalls.
 2. **Repropose seat coverage (bug 016, second finding).** The fix loop's
    reviser sees 6 of 13 seats. Fixing it wants a shape decision — list all
    thirteen, or have the reviser read the `council_report` artifact once — and

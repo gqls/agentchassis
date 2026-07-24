@@ -88,6 +88,19 @@ coming lockstep change in its header.
 4. `./098_REPORT_unreviewed_commits_v1.sh [days]` shows fleet coverage;
    `PERSIST=1` files it to doc_notes (categories digest+council-gate).
 
+**Strengthen-advisory machinery (owner ruling 2026-07-24: strengthen advisory,
+defer PR-mode).** Approval is reachable now (~80% since the `bugs_open/057` severity
+fix, v1.0.1149), so the norm is reinforced without enforcement:
+- **Commit-time nudge (loud):** `.githooks/commit-msg` runs
+  `scripts/council-coverage-nudge.sh` — an ADVISORY note when a commit touches
+  `platform/|internal/|pkg/` code with no `Council-Reviewed:` trailer. Never blocks;
+  silent on reviewed or docs-only commits. It runs AFTER the D2 direction gate
+  (that gate still blocks — do not weaken it when editing the hook).
+- **Coverage baseline (regular):** run `PERSIST=1 ./098_… [days]` at the digest
+  cadence to file a coverage snapshot. A fully-scheduled run needs a runner with
+  BOTH git and cluster (kubectl) access — a cloud cron agent likely lacks the
+  latter; that automation is an owner call.
+
 ### Traps met in real use (2026-07-18, bugs_open/012 submission)
 
 - **On a resubmit, update the `sketch` fields — not just the `rationale`.**
