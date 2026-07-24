@@ -464,3 +464,32 @@ Fix survived into v1.0.1150 (discriminating pod-grep `"synthesised display fallb
 `agent-chassis-99455fb79-7cbrv`). A concurrent thread's `78482c86b` (scope-aware dead-control detector)
 edited a different part of `component_library.go`; my `info@` guard and tests are intact and pass.
 B still OPEN only for the deployed remainder (9 forms) re-rendering — the mechanism is now proven.
+
+### B — CHECKER→HANDLER BUILT 2026-07-24 (owner-directed): auto-heal where an address exists
+
+Owner asked for standing protection (tests + periodic + handler). Decisions, analysis and evidence:
+`docs024_key_docs_latest/bugfix_006/PLAN_2026-07-24_contact_form_hardening.md` (chose Option B — light
+re-render + address-source fix; periodic detection deferred; the improvement-sweep that would drive it
+has been disabled fleet-wide since ~2026-05).
+
+**Committed `cc2cff79b`, INERT until a chassis image roll:**
+- `check_contact_form_undeliverable` now branches on whether the site's **`sites.email` column** holds
+  a resolvable address (guard mirrors `deliverableFormAction`, incl. the `info@<own-domain>` refusal):
+  resolvable → emits a **`page_rerender`** item (handler `page-rerender`, status `detected`, reason
+  `section_data_resolved`, key `contact_form_undeliverable_rerender:<page>`) that self-heals through
+  triage → dispatch → light re-render → `sanitiseFormAction` → mailto. Address-less → the unchanged
+  `needs_human_review` row (the honesty rule is untouched).
+- `buildRerenderBaseData` (the light re-render's ambient base) now prefers `COALESCE(sites.email,'')`
+  over `content_data.email`, applied after the content_data merge — closing a real divergence from the
+  full-writer path (`loadSiteDataFull`): `content_data.email` was empty on 8 of the 10 affected sites
+  and STALE on idea.uk (`idea-uk@leopardess.uk`), which a light re-render would otherwise have baked
+  into a mailto.
+- 3 new test groups, each fault-injected and watched to fail; the check previously had zero tests.
+  actions-package tests verified via `git archive HEAD` + overlay (another session's WIP broke the
+  shared tree's test build).
+
+**Once the image rolls:** the next discovery cycle on each affected site emits the rerender item — the
+9 remaining `#contact` forms self-heal, absorbing follow-up (2) ("remediate the 10 deployed") into the
+standing loop. Council (advisory, per the 2026-07-24 norm): submitted alongside,
+`SUBMISSION_CORR=5d64be67-b9e8-47e8-8768-828a34093b08`, verdict pending; submission JSON in the plan's
+directory.
