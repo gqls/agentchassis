@@ -2194,3 +2194,20 @@ about my diligence, not about the system. If it's cheap enough to run when chall
 it was cheap enough to attach unprompted.
 **Cost:** none this time (the claims held) — which is exactly why it's worth logging:
 the identical habit with a false absence ships a breaking change on my say-so.
+
+### 2026-07-24 — gauntlet/B4 — "the implementer fire was dropped" called at 120 seconds, twice
+**Asserted (operationally):** my fire-with-retry script declared an implementer
+dispatch "NOT ingested — refiring" after a 120s window, twice, and an earlier fire
+"never ingested" after ~4 minutes of polling.
+**Actually:** all three fires ingested — LATE (one ~9 minutes). The refires piled
+three concurrent implementers onto one correlation; they raced branch creation and
+all mutually died on the E4 pre-existing-branch guard. Cost: three wasted runs and a
+cleanup round.
+**Caught by:** the post-mortem query listing three implementer orchestrations created
+within 3 minutes of each other, all `complete_refused` on E4.
+**The cheap check that would have caught it:** my OWN memory already says it —
+"no orchestration row means QUEUED (~16+ min under backlog), not dropped … do not
+retry on that evidence (it costs a duplicate round)." I wrote an automatic retrier
+whose timeout contradicted a recorded lesson. Ingest-latency under load is MINUTES;
+any auto-refire must wait longer than the worst observed latency (≥10 min here) or
+not exist. Family: wait / query again before calling an absence a failure.
