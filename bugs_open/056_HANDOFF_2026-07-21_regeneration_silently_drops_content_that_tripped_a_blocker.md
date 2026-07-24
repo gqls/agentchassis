@@ -209,3 +209,33 @@ roll) → first sweep `dry_run=true` must surface the fundamentallyai pair →
 enable writes → verify the parked item's annotation lands. Then the
 owner policy call (hold deploys on parked review?) decides whether a
 prevention half follows.
+
+## Post-roll verification (2026-07-23/24)
+
+- **Pod-verified LIVE on v1.0.1150** (pod started 2026-07-23 10:47Z):
+  `reconcile_superseded_reviews` 3, `REVIEW_SUPERSEDED_BY_PASSING_SAVE` 2,
+  positive control `diagnose_dormant_agents` 4. (The approved sanitiser
+  relocation also shipped in the same image: `SanitiseJSONBNulEscapes` 2.)
+- **Seeded**: `diagnosis-superseded-reviews` agent (assets in
+  `docs/agent_docs/docs024_key_docs_latest/bugfix_056_regen/` — seed applied
+  live 2026-07-23, manual trigger script alongside).
+- **Dry-run sweep VERIFIED the failing branch** (orch `64729593`, 2026-07-23):
+  25 pairs found (capped at 25 — a fleet-wide backlog of parked reviews whose
+  pages have since deployed; mostly April design-audit items with no blocker
+  detail, correctly reported with empty `flagged`). **The discriminating pair
+  surfaced exactly as predicted**: `needs_page:model-fine-tuning` /
+  fundamentallyai with flagged `{cross_site_domain,
+  leopardessconsulting.co.uk, blocker, present_in_new_content: false}` —
+  the dropped-not-resolved verdict this bug is about, produced mechanically.
+- **dry_run flipped to false; live sweep dispatched** (orch `bd4f5850`,
+  2026-07-23 ~19:5x). **Verification of its writes is PENDING** — cluster
+  credentials expired before the result could be read. Next session: check
+  `SELECT count(*) FROM agent_error_log WHERE
+  error_code='REVIEW_SUPERSEDED_BY_PASSING_SAVE'` and
+  `SELECT count(*) FROM site_work_items WHERE result ?
+  'superseded_by_passing_save'` (expect ~25 each from the first live sweep;
+  re-fire the trigger if orch bd4f5850 shows FAILED — idempotence makes
+  re-runs safe). Then subsequent sweeps drain the >25 backlog 25 at a time.
+- **Close this bug when** the live writes are confirmed (the fundamentallyai
+  item annotated). The owner policy question (hold deploys on parked review?)
+  is a follow-on decision, not a blocker to closing the silent-bypass defect.
