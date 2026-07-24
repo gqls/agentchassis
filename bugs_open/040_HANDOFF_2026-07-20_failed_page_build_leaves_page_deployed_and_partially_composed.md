@@ -238,6 +238,38 @@ highest-value follow-on, and this fix is what makes it visible instead of silent
 > (2) the parked pages heal on their next natural build; (3) `check_empty_sections` stops
 > re-flagging the suppressed slots; (4) negative control: a page with a *genuinely* dropped
 > section (no skip recorded) is still refused.
+>
+> ### VERIFIED LIVE 2026-07-24 (v1.0.1155) — the golden case, end to end, on the original bug page
+>
+> v1.0.1155 rolled at 16:29Z carrying both commits (pod-grep: `persistSectionSkips` ×5,
+> `SKIP_PERSISTENCE_FAILED` ×1, positive control ×1). dartsonline/index (this file's own headline
+> case, parked `needs_rebuild`) was nudged through the platform's own route — a `needs_page` item
+> in the reconciler's exact shape (item `3226f2a5`, `created_by='bugfix-040-thread'`, reason
+> `manual_verification_bugs_open_040_skip_persistence`; no forced dispatch, the normal loop picked
+> it up). Result, ~30 minutes later:
+>
+> - item `complete`; page **`deployed`**, stamped with the **current** plan (`0fb05b75`);
+> - **`suppressed_sections = ["product-grid","testimonials"]`** — the skip decisions, durably
+>   recorded for the first time; plan 6 − 2 suppressed = 4 planned-effective, 4 rendered → guard
+>   passed **honestly** (arithmetic exact);
+> - live page: HTTP 200, `<main>` serves hero / info-card-grid / call-to-action + the 364-byte
+>   `category-listing` shell (the `/bugs_open/039` legacy residual, separately tracked by its open
+>   `empty_section` item — NOT this bug).
+>
+> **Both skips are correct, and the second one is a cross-fix composing as designed:**
+> `testimonials` = no `social_proof` aspect (this file's known case). `product-grid` = `query.products`
+> `required:true, min_items:1, on_missing:skip_section` and the site has no product data — it used to
+> render 3,055 bytes of **LLM-invented products** because empty `query.*` results bypassed
+> `required`/`min_items` entirely until `bugs_closed/054` (unguarded-range) shipped in v1.0.1149.
+> 054's fix **armed the data gate**; this fix lets the honest skip **not wedge the page**. Composed
+> result: dartsonline serves an honest homepage, its state says exactly what it is, and the two
+> data-gated sections are recorded, discoverable, and self-healing if data ever arrives.
+>
+> Remaining verify items: gaswholesalers/index nudged the same way (item `b9cf6147` — also exercises
+> the legacy `site_specs.site_plan` path, since that site has **zero `site_plans` rows** and the
+> reconciler never manages it; stamp COALESCE is NULL-safe there); `check_empty_sections`
+> non-flagging observable at its next discovery run; negative control already evidenced by the
+> guard's four pre-fix live catches (the refusal branch is unchanged for non-suppressed shortfalls).
 
 ---
 
