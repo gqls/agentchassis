@@ -1118,3 +1118,63 @@ the new binary and the live sites — it is intact and NOT tag-coupled:
   items / homepage 6, `updated_at` 2026-07-22 08:29–08:33 — i.e. the feed cycle ran on 1149
   and re-resolved the query route into content_data, which is the durability property itself
   demonstrated across an image roll. 027 stays CLOSED.
+
+## 2026-07-24 — REGRESSION found & fixed: my freshness emitter was LLM-regenerating the homepage every cycle
+
+Asked to carry on building (P5.2 next), re-grounding found live damage first.
+
+**Symptom:** the homepage `info-card-grid` — hand-repaired 07-20 — carried `/ferias` again,
+plus NEW inventions `/marcas` and **a fabricated contact email**
+(`mailto:relojistas@contactforsales.com`; the site has no real contact email — contacto's
+`needs_section_data` is still open, so any mailto is invented). glosario-index served one
+`href=""` with the English static label "Explore All Archetypes" (archetype-grid's `cta_url`
+resolved empty).
+
+**Root cause — MINE, and a correction to my own council-round-2 triage.** `llm_call_log`
+07:56–07:58: `page-content-writer` regenerated all 4 index sections, triggered by MY
+`queueNewsPageRerenders` item (source `render_news_section`, completed 07:50). The emitter
+emitted **`needs_page` → page-build-handler = the FULL LLM pipeline**, every feed cycle,
+for every news page. I had copied that shape from `reconcile_section_data`/
+`flag_page_image_rebuild` believing `spec.reason` selects a scoped no-LLM branch in that
+handler. It does not: the scoped gate lives in the **page_rerender → page-rerender** route
+(`create_rerender_items_action.go:162`, and the canonical insert at `:282`), and the two
+emitters I copied use `needs_page` DELIBERATELY because their fields are absent from
+content_data and only the writer can backfill them. Ours are present.
+
+> **CORRECTED (my round-2 council triage was too generous to me):** bug_historian's
+> "escalates to full rebuild, mitigation is topological not technical" and prior_art's
+> "emission-shape reuse unverified from this seat" were both pointing at THIS. I verified
+> the cited lines existed and stopped there; existence was never the question — fitness
+> was. Every feed cycle since v1.0.1144 has been copy-regeneration roulette on the
+> homepage (4–7 LLM calls a cycle), and it took four days for a bad roll to make it
+> visible.
+
+**Fixes, in order:**
+1. `content_data` repaired: honest 6-card set restored (all links resolve; no mailto);
+   glosario archetype-grid given a real Spanish CTA (`Ver las últimas noticias` →
+   `/noticias/`).
+2. Delivered via the CORRECT route, proving the fix shape by execution before committing
+   it: two hand-inserted `page_rerender` items (spec reason `section_data_resolved`,
+   `pageRerenderItemKey`-format keys) both completed — live homepage phantom/mailto count
+   0, glosario empty-href 0, **zero LLM calls in the path**.
+3. Interim suppression: the LIVE binary (1149) still runs the mis-routed emitter, so two
+   `status='blocked'` suppressor rows now hold the old dedup keys
+   (`page_rerender:index|noticias-index`) — `insertWorkItem` is `ON CONFLICT … DO NOTHING`
+   (verified :1111), so each cycle's re-emit is silently swallowed. **DELETE the two rows
+   after the fixed image rolls** (self-describing summary on the rows).
+4. The Go fix (`c05357102`, note: landed on `086_experience_loop` — the shared tree's
+   branch moved under another session): emitter now mirrors the canonical page_rerender
+   insert verbatim, reuses `pageRerenderItemKey` (same package). Council submission
+   `320878ca` in flight; commit made per the strengthened-advisory norm with the pending
+   review recorded.
+
+**Open validator question `[UNVERIFIED]`:** `validate_page_content` passed a fabricated,
+non-placeholder email on a domain that is not the site's. 003 lists "hallucinated emails"
+as error severity — either the check is placeholder-pattern-only or it did not run on this
+path. Not chased (bugfix threads own that area); recorded here so it is not lost.
+
+**Locks are NOT an interim defence:** `plan_sections`/`save_page_sections` never consult
+`lock_type` — only discovery filters and explicit `CheckComponentLock` callers do. Locking
+the card grid would not have stopped the writer.
+
+P5.2 (search-that-answers) not started this session — regression triage took priority.
