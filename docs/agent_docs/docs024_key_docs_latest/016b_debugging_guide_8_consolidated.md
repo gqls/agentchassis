@@ -2506,6 +2506,7 @@ See `/bugs_closed/README.md`.
 | 053 | `GetNavItems` overloaded a zero-row nav-table result: "no nav tables here" and "this nav-table site has no items in this group" both fell through to the pages fallback, which for `legal` matches every `in_footer` page. So a full-nav site with no legal pages (robot-hands + ≥5 more) filled its footer's legal slot with **all 14 footer links, none legal**; on gaswholesalers one is a live 404. See §9 *"An empty result overloaded to mean two things"* | **FIX COMMITTED (candidate 1, `85d39f9b9`, 2026-07-21)** — fallback now gated on `siteHasAnyNavItems` (fall back only when the site has **no** nav rows at all), fixing every group type at once; sqlmock regression test. **Stays OPEN**: inert until an image roll **and** a chrome re-render. Candidate 3 (deployedOnly for chrome nav) deferred to `052` — its correct predicate is `deployed_at IS NULL`, not today's `build_status='deployed'` |
 | 056 *(slug: `diagnose_route_step_nul_byte_kills_jsonb_persist` — **a second, unrelated `056` exists**, slug `regeneration_silently_drops_content…`; resolve by slug)* | The diagnosis loop killed its own runs: `CodeRequestKey` delimited `SeenCodeRequests` keys with a literal NUL; `json.Marshal` → `\u0000`, the ONE escape jsonb rejects (22P05); the `route` step's first persist after any code request died — 25 runs, 100% at `route`, incl. `030`'s own root-cause diagnosis. See §9 *"A NUL byte anywhere in marshalled state…"* | **CLOSED 2026-07-22 → `/bugs_closed/`** — delimiter → `\x1f` + `SplitCodeRequestKey` lockstep + persist-boundary sanitiser (`7a9f5f652`, live v1.0.1149 pod-verified; relocation+WARN `165f04ae7` council-approved corr `d8e844ac`, inert until next roll). End-to-end proven: 5-iteration code-tier diagnosis persisted non-empty `seen_code_requests` (`\u001f` keys) and completed; census flat |
 | 056 *(slug: `regeneration_silently_drops_content_that_tripped_a_blocker` — the OTHER `056`)* | Filed as "regeneration silently drops content that tripped a validate blocker, no record" — **the inferred mechanism was REFUTED by the diagnosis loop** (corr `b361298a`, 2026-07-22): the blocker IS recorded verbatim (`agent_error_log` `CONTENT_VALIDATION_BLOCKER_DETAIL`) and rerender actions never generate content. **Corrected mechanism: review-bypass-by-sibling-item** — item A parks at `needs_human_review` on the blocker; sibling item B (e.g. `page_rerender` after an asset lands) reruns the SAME build pipeline; fresh copy omits the flagged element, passes, deploys; nothing reconciles B's success with A's parked review (fundamentallyai `model-fine-tuning`: A parked 07-20 21:27, page deployed 07-21 03:41, A still dangling) | open — corrected mechanism + fix direction (fail-loud reconciliation at `save_sections`, NOT a dispatch block: 033's queue has no drain, 029-class wedge risk) grounded in-file 2026-07-22; fix not yet implemented |
+| 062 | **batch_scrape response exceeds Kafka `max.message.bytes`; adapter logs-and-drops it; caller starves through its full retry budget.** Scrape SUCCEEDS in seconds (`success:3 errors:0 duration:4.69s`), then the reply is refused by the broker (`[10] Message Size Too Large`) and `batch_handler.go`'s produce-failure branch just logs — no truncation retry, no error response — so the orchestration burns 4 × 180s awaits on a deterministic failure. Three compounding defects: firecrawl `/scrape` hard-codes 4 formats with no `config["formats"]` override (unlike `/crawl`); the handler forwards markdown+raw_html+html_content+a duplicate `content` copy per page; the failure is silent to the caller. First real exerciser of the path since `047` unblocked it (3-day sweep: no other `batch_webscrape` user). Blocks `directory-researcher` (model_directory_pipeline) and will hit `evidence-researcher` on its first live run. Also recorded in-file: step-level `timeout_seconds` in workflow seeds is silently dropped (`models.Step` has no such field — only `config.timeout_seconds` is read), so both researcher seeds' 120s values were always inert. See §9 *"A response that cannot be delivered…"* | filed 2026-07-24; cause proven from adapter logs + code, fix candidates in-file, no fix started |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
@@ -3149,3 +3150,54 @@ the predicate with a unit test on the exact stub markup.
 **Related:** `bugs_closed/039` (the case + fix `bd4dc30a0`, live `v1.0.1146`); `bugs_open/045`
 (sibling — same selector resolves to the *wrong* component, not *nothing*); `bugs_open/040`
 (a completeness gate counts rows not names); `bugs_open/023`/`033` (why the detected items rot).
+
+### A response that cannot be delivered must become a deliverable error — a too-large Kafka reply logged-and-dropped starves the caller through its whole retry budget (2026-07-24)
+
+**Symptom.** An orchestration fails a `batch_webscrape` (or any adapter round-trip) step with
+`Request <id> timed out after 3 retries` after ~12 minutes (4 × the 180s default await), while the
+adapter's own logs show the work SUCCEEDING quickly — e.g. `Batch scrape completed … success:3
+errors:0 duration:4.69s`. Work provably done; caller times out anyway.
+
+**Diagnose.** Grep the adapter pod's logs (before the next fleet roll destroys them — this
+diagnosis was lost twice to pod restarts) for the producer failure right after the success line:
+
+```
+"msg":"Failed to produce Kafka message" … "error":"[10] Message Size Too Large"
+```
+
+The response exceeded the broker's `max.message.bytes` (~1 MB default), the producer refused it,
+and the adapter's error path is log-and-return (`batch_handler.go` `sendBatchSuccessResponse`
+produce-failure branch) — nothing reaches the caller, which is indistinguishable from the adapter
+being down. Every coordinator retry re-runs the work successfully and re-drops the reply
+identically: a deterministic failure disguised as a flaky timeout.
+
+**Root cause (bugs_open/062, three compounding defects).** (1) The firecrawl provider hard-codes
+fetching every page in FOUR formats (`markdown, html, rawHtml, links` — `firecrawl.go:62`,
+`/scrape` path; the `/crawl` path honours `config["formats"]`, `/scrape` does not). (2) The batch
+handler forwards `markdown` + `raw_html` + `html_content` + a byte-identical backward-compat
+`content` copy per page (`batch_handler.go:193-211`) — 3 modern pages × ~4 renderings clears 1 MB
+easily. (3) On the produce failure it logs and gives up: no truncation retry, no degraded reply,
+**no error response**.
+
+**Fix direction.** Adapter-side (bugs_open/062 candidate A): send only what callers use; cap
+per-result content with a VISIBLE `truncated: true` marker (the 012-family lesson — the invisible
+cut is the damage); on message-too-large, strip-and-retry once, then send the ERROR response so the
+caller fails in seconds with a cause instead of starving blind.
+
+**Transferable rules.**
+1. **In an async request/reply system, the reply path is part of the work.** An adapter that
+   completes the work but cannot deliver the answer has failed — and must say so on the reply
+   topic, where the caller is listening. A log line on the adapter's side is written to nobody.
+2. **Payload size is an input-dependent failure mode; test the path with real-sized data.** This
+   path had never round-tripped a content-heavy batch in production (its "Empty URL" front-door
+   bug, 047, was only fixed 2026-07-21) — the first real exerciser found the next wall. "The
+   config shape matches a proven workflow" proves the shape, not the sizes.
+3. **Step-level `timeout_seconds` in a workflow seed is silently dropped** — `models.Step` has no
+   such field; only `config.timeout_seconds` (inside the step's `config` object) is read
+   (`ConvertStepTimeout`, `timeout_helpers.go:23`). Both `evidence-researcher` and
+   `directory-researcher` seeds carried inert step-level values; every await ran at the 180s
+   default. A timeout you set that nothing reads is the config-that-lies shape (cf. 025/042).
+
+**Related:** `bugs_open/062` (the case); `bugs_closed/047` (the front-door bug that kept this path
+unexercised); 016 §9 silent-completion family (this is its transport-layer sibling: the SENDER
+knows it failed and stays quiet, where the classic family's sender believes it succeeded).
