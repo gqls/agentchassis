@@ -496,3 +496,21 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   route dns tools.apis.uk → systemd; then dashboard: delete `*` wildcard,
   Full (strict), rate rule, WAF. As-built record + next steps:
   infra/island/RUNBOOK_island.md (repo copies = source of truth for the box).
+
+## 2026-07-24 — tunnel LIVE: tools.apis.uk answers from the public internet
+- Owner's browser auth delivered cert.pem as a local DOWNLOAD (island's waiting
+  login had exited) → scp'd to island /root/.cloudflared/ (0600), local copy
+  rm'd. HYGIENE: the cert (incl. its API token) transited this session's
+  transcript reading the file — local-only; dashboard revoke+relogin if wanted.
+- Tunnel tools-api f917c7c1-4dae-446f-a1e0-8f4c636cc345; CNAME added via
+  route dns; /etc/cloudflared/{config.yml,tools-api.json}; systemd active.
+- VERIFIED OUTSIDE: https://tools.apis.uk/ → 404 from island Caddy (was 525
+  edge error pre-tunnel); /api/v1/tools/ping → 502 (no engine — correct).
+  Random subdomain now NXDOMAIN → the dead `*` wildcard appears already
+  deleted (owner in dashboard, presumably).
+- REMAINING owner items: zone settings (Full-strict, Always-HTTPS, rate rule on
+  tools.apis.uk/*, free WAF ruleset); backup-space host/user for the rsync leg;
+  dedicated spend-capped Anthropic key when the engine lands.
+- P3 exposure leg is now COMPLETE up to the engine: static sites can be pointed
+  at a live, guarded, isolated public endpoint the moment the tools-api PR
+  merges and its image reaches the island (image path = [OPEN]).

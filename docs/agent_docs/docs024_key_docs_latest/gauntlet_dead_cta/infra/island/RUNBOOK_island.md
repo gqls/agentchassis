@@ -32,24 +32,26 @@ Access: `ssh root@toolsapisuk.vs.mythic-beasts.com` (key-only).
   authorisation URL (in /root/cf_login.log). Cert lands at
   /root/.cloudflared/cert.pem automatically.
 
-## Once the cert lands (next session steps, in order)
+## Tunnel — DONE 2026-07-24 (~16:14Z), verified from the public internet
 
-```bash
-ssh root@toolsapisuk.vs.mythic-beasts.com
-cloudflared tunnel create tools-api          # note the UUID
-cloudflared tunnel route dns tools-api tools.apis.uk
-mkdir -p /etc/cloudflared
-cp /root/.cloudflared/<UUID>.json /etc/cloudflared/tools-api.json
-# config: ../cloudflared_config.yml from this repo dir → /etc/cloudflared/config.yml
-#   (tunnel: tools-api, credentials-file: /etc/cloudflared/tools-api.json,
-#    hostname tools.apis.uk → http://localhost:8081)
-cloudflared service install
-systemctl enable --now cloudflared
-curl -s https://tools.apis.uk/            # expect 404 from OUR Caddy (not 525/530)
-```
-Cloudflare dashboard (apis.uk zone): DELETE the `*` wildcard record (dead-origin
-525s); SSL/TLS → Full (strict); Always Use HTTPS; one rate-limiting rule on
-`tools.apis.uk/*`; Free Managed WAF ruleset on.
+- The owner's browser auth delivered cert.pem as a DOWNLOAD (the island's
+  waiting `tunnel login` had already exited) → moved to island
+  /root/.cloudflared/cert.pem (0600), local copy deleted. NOTE: the cert
+  transited the session transcript (local-only); revoke+relogin in the
+  dashboard if ever concerned.
+- Tunnel `tools-api` id **f917c7c1-4dae-446f-a1e0-8f4c636cc345**; credentials
+  /etc/cloudflared/tools-api.json (0600); config /etc/cloudflared/config.yml
+  (hostname tools.apis.uk → http://localhost:8081, fallback 404);
+  CNAME tools.apis.uk → tunnel added by `route dns`; systemd service
+  installed, `systemctl is-active` = active.
+- VERIFIED from outside: `https://tools.apis.uk/` → **404 from our Caddy**
+  (was Cloudflare 525 this morning); `/api/v1/tools/ping` → **502** (no engine
+  yet — correct). A random other subdomain now fails to RESOLVE — the dead `*`
+  wildcard appears deleted (owner, presumably, while in the dashboard).
+
+Cloudflare dashboard still to set (owner, ~2 min in apis.uk zone): SSL/TLS →
+Full (strict); Always Use HTTPS; one rate-limiting rule on `tools.apis.uk/*`;
+Free Managed WAF ruleset on.
 
 ## When the engine lands (feature-builder PR merged, image published)
 
