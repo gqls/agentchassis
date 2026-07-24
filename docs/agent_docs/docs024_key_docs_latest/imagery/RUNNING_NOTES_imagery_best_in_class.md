@@ -2985,3 +2985,104 @@ for the next site that has a guide but forgets the override, or has no guide at 
 §4b fixtures. Inert until an image roll (Go change). **Not council-reviewed** — it is
 council-gate-eligible (fleet-wide generation behaviour); left as an offered next step
 rather than spending a council run unprompted.
+
+---
+
+### 2026-07-24 — 027 residue clearance (session "bugfix 027"): §5(a) LIVE, base voices trimmed, landing gate FIRED with owner go
+
+Owner asked for 027 to be researched and fixed; approved BOTH credit spends (article
+landing gate + queued-item drain). Who-owns check first: nobody else on 027 (last bug
+commit 07-21; today's imagery activity was the 020 hold-lift, a different bug).
+
+- **§5(a) (`5e19fd3cb`) is LIVE in v1.0.1155 — by ancestry, not symbol grep.** The
+  diff creates no unique retained literal and §6/A6.3 forbid the `content_hero` grep,
+  so: `reconcile_superseded_reviews` (first added `8fd1e3bfc`, 2026-07-22, a strict
+  descendant of `5e19fd3cb`) is in the running pod binary ×3, WARN literal positive
+  control ×1, absent-string negative control 0. Build point ≥ 07-22 ⟹ contains the
+  07-21 fix. Changed branch stays latent (all guide sites carry overrides) —
+  unit-pinned only, recorded as such.
+- **The stale §4b "avoid UNVERIFIED" paragraph corrected in the bug file**: it became
+  `bugs_closed/028` (fold-into-positive-prompt fix `32f2d51e2`, live v1.0.1140,
+  proven end-to-end). Traced the full chain again this session to be sure:
+  action layer assembles `negative_prompt` (kind defaults + input constraints +
+  guide avoid) → adapter → Banana provider folds it into the positive prompt
+  (`banana/provider.go:121-134`); Stability keeps true `Weight:-1.0`. Delivered ≠
+  obeyed: lettering can still appear (Gemini).
+- **Base voices under the cap** (`SQL_2026-07-24_base_voices_under_cap.sql`): the
+  promised trim of the three authored guides' ROOT voices — 304/352/305 → 196/189/190
+  (palette-first order). Needle-gated on current `mood` text (all three hit UPDATE 1);
+  backup `site_specs_imagery_guide_backup_20260724` (6 rows). robot-hands untouched
+  (base 398 + 233 override both the owner's / gate testbed).
+- **Landing gate fired**: superseded the 3 ACTIVE article guide-hero assets
+  (grip_force/payload/cycle_time `_guide`), fired design-discovery on robot-hands
+  (detached kcat, produce VERIFIED on the topic — A6.1 gotcha respected). The 3
+  queued `image_url_404` items (pages referencing never-deployed guide hero JPGs)
+  are the symptom this regeneration resolves. Judging vs D13: distinct, on-style
+  (electric blue #0080FF retained — the §4b proof), click-through matching, cards
+  ≤60KB. Truncation WARN EXPECTED for robot-hands (233-char override, mood tail
+  drops, palette survives).
+- **Council retro-review of `5e19fd3cb` submitted** (corr `7388a068`), per the
+  2026-07-24 strengthened-advisory ruling. Verdict pending at time of writing.
+
+---
+
+### 2026-07-24 — 011 residual round 9: over-cap truncation counted; owed items 3+4 done (bugfix-011 session)
+
+Ownership check before touching anything: who-owns → imagery (last 011 activity
+2026-07-20/21), no open work items in the territory, no round-9 submission
+existed, no uncommitted edits on the files. Clear.
+
+**Round 8 read in full** (council_report 2026-07-20 19:15Z): **11 approve, 1
+objection** — bug_historian (medium): `parseReportedConditions` capped via a
+bare `break`, over-cap WELL-FORMED entries dropped with `skipped=0` — the same
+silence rounds 5/7 cured, re-entering at the cap boundary; plus a named MISSING
+test (length > cap, all well-formed, truncation counted distinctly). Note the
+committed code already had a caller-side truncation warn (8ec9e2ab8 re-derived
+it from the raw list) — but the round-8 SKETCH showed the bare break. Same
+lesson as relojistas 07-24: **sketches must be FINAL-state**; the reviewers can
+only see the sketch.
+
+**Fix, committed `2f4fc0596`:** `parseReportedConditions` returns a 4th value
+`truncated` (entries never examined because the cap fired — indexed loop,
+`truncated = len(list) - i` at the break); `persistReportedConditions` warns on
+it distinctly (truncated/persisted/cap) and the caller-side re-derivation is
+DELETED. truncated deliberately NOT folded into skipped — different remedy
+(raise cap / report less, vs fix the emitter). The distinction is now
+absent ≠ malformed ≠ partly-dropped ≠ over-cap. New
+`TestParseReportedConditionsOverCapTruncationIsCountedDistinctly` (15
+well-formed → 10/0/5) is the historian's missing test verbatim; capped + mixed
+tests now pin both counts in both directions. 8/8 green — **against
+`git archive HEAD` + the two files**, because the tree's
+`orchestration_test.go` (external test package) has a pre-existing
+`NewSagaCoordinator` signature break at clean HEAD, unrelated.
+
+**Round 9 submitted** with `RESUBMIT_CORR=e996bf0a` (submission JSON committed:
+`submission_011_residual_round9.json`, final-state hunks extracted
+programmatically from the committed files, not retyped). Verdict pending at
+write time.
+
+**Owed item 3 done:** doc_note `5842d7ed` (subject pipeline/image-generation,
+source bugfix-011, source_item_id `5db192c5`) records the contract: allowlist
+load-bearing, the four distinct parse states, scope = only the
+routing-observability member of the unmatched-case family. NOTE: item
+`5db192c5` is now status **complete** (the bug file's "stays open" is stale —
+it completed sometime after 2026-07-20).
+
+**Owed item 4 done:** DECLARED CONTRACTS exemption clause (the guidelines seat
+asked twice) — `PATCH_fix_proposer_011_guidelines_declared_contracts_exemption.sql`
+applied (snapshot `f9d90a2d`), mirrored to council-gate via 099 (drift was
+exactly `review_guidelines`, verified 1 occurrence on both councils).
+
+**Live-fire proof in flight:** the 021-style harness turned out simpler than
+planned — no scratch agent_definition needed. The existing `image-generator`
+agent IS the 1-step harness (workflow: generate → complete), so the kcat
+`orchestrate` envelope targets it directly with
+`input_data:{kind:"scratch_unrouted_011", prompt:"a plain flat mid-grey
+square…"}`, NO site_id (skips direction enrichment and provider hint — cleanest
+possible path to the adapter). Pre-flight: pods 68 min up (300s rule ok);
+chassis binary carries "Persisted adapter-reported conditions" + "UNSANCTIONED
+sender" =1 each; both adapter replicas carry UNROUTED_IMAGE_KIND=1; my new
+"TRUNCATED at the per-response cap" string =0 on the live chassis (correct —
+2f4fc0596 not yet rolled, good negative control). Envelope published ~21:15Z
+(orch name `scratch-011-livefire-211539`); row not yet visible at +2 min —
+queued, not dropped (the 30-min dispatch trap; do NOT resubmit).
