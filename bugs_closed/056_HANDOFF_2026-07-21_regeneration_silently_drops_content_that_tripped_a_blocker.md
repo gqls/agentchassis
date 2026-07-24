@@ -1,6 +1,6 @@
 # BUG 056 — page regeneration silently drops the content that tripped a validation blocker, with no record
 
-**Filed:** 2026-07-21 · **Status:** OPEN · **Severity:** medium (silent loss of
+**Filed:** 2026-07-21 · **Status:** CLOSED 2026-07-24 — fixed, LIVE v1.0.1150 & independently row-verified (see Fix trail + Post-roll verification at the bottom) · **Severity:** medium (silent loss of
 owner-intended content) · **Class:** cross-cutting / build-loop integrity
 **Found by:** council-gate review of bugs_open/055 (bug_historian + editquality
 seats, corr `03908b72-2471-474e-baaf-7952d1903460`, round 1) + this workstream.
@@ -249,3 +249,15 @@ the action's own accounting, not an independent row read — the two count
 queries above (expect ~25 each) plus eyeballing the `needs_page:model-fine-tuning`
 row's `result->'superseded_by_passing_save'` remain the CLOSE check, blocked
 only on refreshed cluster credentials.
+
+**CLOSED 2026-07-24.** Independent row reads (fresh credentials): 25
+`REVIEW_SUPERSEDED_BY_PASSING_SAVE` rows in `agent_error_log` (2026-07-23
+11:22), 25 items annotated, and the fundamentallyai
+`needs_page:model-fine-tuning` row carries the full artefact — status still
+`needs_human_review` (by design), annotation naming the flagged value with
+`present_in_new_content: false`. The silent-bypass defect is closed: a page
+can no longer ship past a parked review without a durable, queryable record
+of what shipped and what was dropped. Follow-ons, tracked outside this bug:
+(a) owner policy — should a parked review HOLD deploys; (b) the backlog >25
+drains 25/sweep on further manual triggers (or a schedule, owner's call);
+(c) 055 owns regenerating the fundamentallyai story itself.
