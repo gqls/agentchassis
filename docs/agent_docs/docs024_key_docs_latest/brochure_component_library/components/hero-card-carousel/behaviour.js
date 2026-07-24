@@ -1,7 +1,7 @@
-/* hero-card-carousel — accessible auto-advancing card carousel.
-   WCAG 2.2.2: auto-rotation is pausable, stops on hover and keyboard focus,
-   respects prefers-reduced-motion, and every control is a real <button>.
-   Self-contained, supports multiple instances, no dependencies. */
+/* hero-card-carousel — overlaid prev/next arrows + optional accessible
+   auto-advance. Auto-advance is OFF by default (data-hcc-autoplay="false"); when
+   on it is pausable, stops on hover/keyboard focus, and respects
+   prefers-reduced-motion. The arrows always work. Multi-instance, no dependencies. */
 (function () {
   "use strict";
   var ROTATE_MS = 6000;
@@ -11,16 +11,17 @@
     var track = root.querySelector("[data-hcc-track]");
     if (!track) return;
     var slides = Array.prototype.slice.call(root.querySelectorAll("[data-hcc-slide]"));
-    if (slides.length < 2) {
-      var c = root.querySelector("[data-hcc-controls]");
-      if (c) c.style.display = "none";
-      return;
-    }
-    var pauseBtn = root.querySelector("[data-hcc-pause]");
-    var pauseIcon = root.querySelector("[data-hcc-pause-icon]");
     var prevBtn = root.querySelector("[data-hcc-prev]");
     var nextBtn = root.querySelector("[data-hcc-next]");
+    var pauseBtn = root.querySelector("[data-hcc-pause]");
+    var pauseIcon = root.querySelector("[data-hcc-pause-icon]");
     var live = root.querySelector("[data-hcc-live]");
+    var autoplay = root.getAttribute("data-hcc-autoplay") === "true";
+
+    if (slides.length < 2) {
+      [prevBtn, nextBtn, pauseBtn].forEach(function (b) { if (b) b.style.display = "none"; });
+      return;
+    }
 
     var current = 0;
     var paused = false;      // user pressed pause
@@ -50,22 +51,25 @@
     function stopTimer() { if (timer) { clearInterval(timer); timer = null; } }
     function startTimer() {
       stopTimer();
-      if (reduceMotion || paused || suspended) return;
+      if (!autoplay || reduceMotion || paused || suspended) return;
       timer = setInterval(function () { goTo(current + 1, false); }, ROTATE_MS);
     }
 
-    function setPaused(p) {
-      paused = p;
-      if (pauseBtn) pauseBtn.setAttribute("aria-label", p ? "Start automatic rotation" : "Pause automatic rotation");
-      if (pauseIcon) pauseIcon.innerHTML = p ? "&#9654;" : "&#10073;&#10073;";
-      startTimer();
-    }
-
-    if (pauseBtn) pauseBtn.addEventListener("click", function () { setPaused(!paused); });
+    // Overlaid arrows — always active. Left = previous, right = next.
     if (prevBtn) prevBtn.addEventListener("click", function () { goTo(current - 1, true); });
     if (nextBtn) nextBtn.addEventListener("click", function () { goTo(current + 1, true); });
 
-    // Pause on hover and on keyboard focus entering the carousel; resume on leave.
+    // Pause control only exists when autoplay is on.
+    if (autoplay && pauseBtn) {
+      pauseBtn.addEventListener("click", function () {
+        paused = !paused;
+        pauseBtn.setAttribute("aria-label", paused ? "Start automatic rotation" : "Pause automatic rotation");
+        if (pauseIcon) pauseIcon.innerHTML = paused ? "&#9654;" : "&#10073;&#10073;";
+        startTimer();
+      });
+    }
+
+    // Auto-advance courtesy behaviours (no-ops when autoplay is off).
     root.addEventListener("pointerenter", function () { suspended = true; stopTimer(); });
     root.addEventListener("pointerleave", function () { suspended = false; startTimer(); });
     root.addEventListener("focusin", function () { suspended = true; stopTimer(); });
@@ -73,29 +77,28 @@
       if (!root.contains(document.activeElement)) { suspended = false; startTimer(); }
     });
 
-    // Keyboard arrows when the track (or a control) has focus.
     root.addEventListener("keydown", function (e) {
       if (e.key === "ArrowRight") { e.preventDefault(); goTo(current + 1, true); }
       else if (e.key === "ArrowLeft") { e.preventDefault(); goTo(current - 1, true); }
     });
 
-    // Keep `current` in sync when the user swipes/scrolls manually.
     var scrollT = null;
     track.addEventListener("scroll", function () {
       if (scrollT) clearTimeout(scrollT);
       scrollT = setTimeout(function () { current = nearestIndex(); }, 120);
     }, { passive: true });
 
-    // Pause when the carousel scrolls out of view (don't rotate off-screen).
-    if ("IntersectionObserver" in window) {
-      new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          if (en.isIntersecting) { suspended = false; startTimer(); }
-          else { suspended = true; stopTimer(); }
-        });
-      }, { threshold: 0.25 }).observe(root);
-    } else {
-      startTimer();
+    if (autoplay) {
+      if ("IntersectionObserver" in window) {
+        new IntersectionObserver(function (entries) {
+          entries.forEach(function (en) {
+            if (en.isIntersecting) { suspended = false; startTimer(); }
+            else { suspended = true; stopTimer(); }
+          });
+        }, { threshold: 0.25 }).observe(root);
+      } else {
+        startTimer();
+      }
     }
   }
 

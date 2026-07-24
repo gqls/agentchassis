@@ -17,14 +17,32 @@
       "source": "llm",
       "required": true,
       "items": {
-        "image": { "type": "image" },
-        "image_alt": { "type": "text" },
-        "title": { "type": "text" },
-        "teaser": { "type": "text" },
-        "link_url": { "type": "url" },
-        "link_label": { "type": "text" }
+        "image": {
+          "type": "image"
+        },
+        "image_alt": {
+          "type": "text"
+        },
+        "title": {
+          "type": "text"
+        },
+        "teaser": {
+          "type": "text"
+        },
+        "link_url": {
+          "type": "url"
+        },
+        "link_label": {
+          "type": "text"
+        }
       },
-      "llm_guidance": "3 to 5 hero cards. The FIRST card must carry the complete headline message on its own — a visitor who sees only the first card should still get the point (research: about 89% of carousel viewers only ever see slide one, so never hide anything essential on later cards). Each card: image_alt (a concise description of the line-illustration, for screen readers), title (a 3-6 word heading), teaser (ONE short line, max 16 words), link_url (relative or absolute URL for the read-more link), link_label (short CTA text, e.g. 'Read more'). Keep card copy minimal — a hero card is a title, one teaser line and a link, nothing more."
+      "llm_guidance": "3 to 5 hero cards. The FIRST card must carry the complete headline message on its own \u2014 a visitor who sees only the first card should still get the point (research: about 89% of carousel viewers only ever see slide one, so never hide anything essential on later cards). Each card: image_alt (a concise description of the line-illustration, for screen readers), title (a 3-6 word heading), teaser (ONE short line, max 16 words), link_url (relative or absolute URL for the read-more link), link_label (short CTA text, e.g. 'Read more'). Keep card copy minimal \u2014 a hero card is a title, one teaser line and a link, nothing more."
+    },
+    "autoplay": {
+      "type": "boolean",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Whether the carousel auto-advances through the cards. DEFAULT false (it stays put and the visitor uses the arrows). Set true ONLY when gentle automatic movement genuinely helps this specific carousel; when true a pause button appears and rotation stops on hover/focus. Most carousels should leave this false."
     }
   }
 }

@@ -1043,3 +1043,21 @@ components/hero-card-carousel/snippet.sql.
 **De-risked for components 2–5:** register the component + put any JS in
 `js_snippets` (not `js_content`) + fire `site-asset-renderer`. The template/CSS
 render path and the JS-delivery path are both now proven end-to-end.
+
+## 2026-07-23 — hero-card-carousel design iteration (owner feedback)
+
+Owner reviewed the live carousel: liked the images, the hover-enlarge, the style
+and colours. Requested changes (now applied):
+- **Overlaid prev/next arrows** on the carousel edges (left arrow on the left edge,
+  right on the right), floated over the cards, instead of a top control bar. Left =
+  previous card, right = next.
+- **Default is PAUSED, no pause/play button.** Auto-advance is now an opt-in flag
+  (`autoplay`, default false) — "I like the movement but not for all carousels and
+  not for this one". When `autoplay:true`, the pause button appears and rotation
+  stops on hover/focus (the previous behaviour); when false (default) the carousel
+  sits still and the visitor uses the arrows. The component reads
+  `data-hcc-autoplay`; the JS only starts a timer when it is "true".
+Applied to the DB (content_components.html_template + input_schema, js_snippets),
+re-rendered the live capabilities.html instance, rebundled snippets.js, redeployed.
+Source synced in components/hero-card-carousel/. Design direction APPROVED by owner
+— proceed to place the components across the pages.
