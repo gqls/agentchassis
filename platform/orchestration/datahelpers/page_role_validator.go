@@ -71,6 +71,11 @@ type ValidatedPage struct {
 //     of LLM input. "index" is the page name convention for the homepage;
 //     "landing" is the canonical page type for it.
 //
+//  1b. Explicit flavoured index role (isTypedIndexRole: "news-index") →
+//     accepted as-is. These are section hubs, so rules 2-4 would all fire
+//     and flatten the flavour to "section-index" — which orphans the page
+//     from every gate keying on the flavour (bugs_open/015).
+//
 //  2. Page NAME ends in "-index" AND the LLM role is not an explicit leaf
 //     role → role="section-index". This is the NAME signal, and it is the
 //     reliable one: the plan-builder names section hubs "<section>-index"
@@ -149,6 +154,17 @@ func ValidateRoles(pages []LLMPlannedPage) []ValidatedPage {
 		// storage convention; its canonical page type is "landing".
 		if rawRole == "index" || v.Name == "index" || slug == "index" {
 			correctedRole = "landing"
+		} else if isTypedIndexRole(rawRole) {
+			// Rule 1b: an explicitly flavoured index role is trusted as-is.
+			// These ARE section hubs, so every section-index correction
+			// below (rules 2-4: "-index" name, declared parent, index URL)
+			// would fire on them — and each would flatten the flavour to
+			// generic "section-index". The flavour is a routing key, not a
+			// label: render_news_section, MissingNewsPageCheck and
+			// page-build-handler all select on page_type='news-index', so
+			// flattening it orphans the page from all of them at once
+			// (bugs_open/015, relojistas.com /noticias).
+			correctedRole = rawRole
 		} else if strings.HasSuffix(v.Name, "-index") && !isLeafRole(rawRole) {
 			// Rule 2: name signal — a page NAMED "<section>-index" is a
 			// section hub regardless of URL/parent. This is the reliable
@@ -192,6 +208,19 @@ func isLeafRole(role string) bool {
 	return false
 }
 
+// isTypedIndexRole reports whether a normalised role is an index-family
+// role that carries a routing FLAVOUR downstream gates key on. Rule 1b
+// consults this so the section-index corrections (rules 2-4) cannot
+// flatten an explicit flavoured index to generic "section-index".
+//
+// Only "news-index" today. blog-index cannot join it here because
+// normaliseRole deliberately collapses it before the rules run, and
+// entity-directory has the same exposure but no observed incident —
+// widen this only with evidence (bugs_open/015 records the observation).
+func isTypedIndexRole(role string) bool {
+	return role == "news-index"
+}
+
 // normaliseRole converts LLM role variants to canonical kebab form and
 // lowercases everything. Accepts both kebab and snake inputs for
 // backward compatibility with older planner prompts; output is always
@@ -208,6 +237,10 @@ func normaliseRole(r string) string {
 		return "blog-post"
 	case "blog-index", "blog_index", "section-index", "section_index":
 		return "section-index"
+	case "news-index", "news_index":
+		// NOT collapsed into section-index: the news flavour is a routing
+		// key several gates select on (bugs_open/015). See isTypedIndexRole.
+		return "news-index"
 	case "entity-directory", "entity_directory":
 		return "entity-directory"
 	case "entity-page", "entity_page":

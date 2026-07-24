@@ -338,6 +338,75 @@ func TestValidateRoles_NameSuffixLeafGuard(t *testing.T) {
 	}
 }
 
+// TestValidateRoles_NewsIndexFlavourPreserved pins bugs_open/015: an
+// explicit news-index role must survive rules 2-4, each of which would
+// otherwise flatten it to generic section-index. page_type is a routing
+// key — render_news_section, MissingNewsPageCheck and page-build-handler
+// all select on 'news-index' — so the flattening orphaned relojistas.com's
+// /noticias page from all of them at once.
+func TestValidateRoles_NewsIndexFlavourPreserved(t *testing.T) {
+	cases := []struct {
+		name string
+		in   []LLMPlannedPage
+		page string
+	}{
+		{
+			// Rule 2 shape: name ends in "-index", no URL, no parent.
+			// This is the exact relojistas emission shape.
+			name: "name-suffix rule must not flatten news-index",
+			in:   []LLMPlannedPage{{Name: "noticias-index", Role: "news-index"}},
+			page: "noticias-index",
+		},
+		{
+			// Rule 4 shape: /<slug>/index.html URL.
+			name: "index-URL rule must not flatten news-index",
+			in:   []LLMPlannedPage{{Name: "noticias", Role: "news-index", URL: "/noticias/index.html"}},
+			page: "noticias",
+		},
+		{
+			// Rule 3 shape: another page declares this slug as parent.
+			name: "declared-parent rule must not flatten news-index",
+			in: []LLMPlannedPage{
+				{Name: "noticias", Role: "news-index"},
+				{Name: "old-news", Role: "content", ParentSection: "noticias"},
+			},
+			page: "noticias",
+		},
+		{
+			// Snake input normalises to kebab and is then preserved.
+			name: "news_index snake input normalises and survives",
+			in:   []LLMPlannedPage{{Name: "noticias-index", Role: "news_index"}},
+			page: "noticias-index",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := ValidateRoles(tc.in)
+			got := make(map[string]ValidatedPage, len(out))
+			for _, v := range out {
+				got[v.Name] = v
+			}
+			v, ok := got[tc.page]
+			if !ok {
+				t.Fatalf("missing page %q in output", tc.page)
+			}
+			if v.Role != "news-index" {
+				t.Errorf("page %q: role=%q want news-index", tc.page, v.Role)
+			}
+			if v.CorrectedFromRole != "" && v.CorrectedFromRole != "news_index" {
+				t.Errorf("page %q: unexpectedly corrected from %q", tc.page, v.CorrectedFromRole)
+			}
+		})
+	}
+
+	// Regression guard: a sloppy generic role on the same name shape is
+	// still corrected — only the EXPLICIT news-index flavour is trusted.
+	out := ValidateRoles([]LLMPlannedPage{{Name: "noticias-index", Role: "content"}})
+	if out[0].Role != "section-index" {
+		t.Errorf("sloppy role: role=%q want section-index (rule 2 must still fire)", out[0].Role)
+	}
+}
+
 // TestValidateRoles_NameSuffixIdempotent confirms the name-suffix
 // correction is stable: feeding the corrected section-index role back in
 // (now with a "-index" name) keeps it section-index.

@@ -3,11 +3,13 @@
 // Executes the content-gap-planner's LLM decision. Takes the plan output
 // and creates the appropriate database records and work items.
 //
-// Handles four approaches:
-//   - add_to_page:    creates content_rewrite work item for existing page
-//   - new_page:       creates page record + needs_content_page work item
-//   - update_spec:    writes to site_specs via inline query
-//   - not_actionable: marks the original work item as wont_fix
+// Handles five approaches:
+//   - add_to_page:     creates content_rewrite work item for existing page
+//   - new_page:        creates page record + needs_content_page work item
+//   - retype_existing: flips a stranded page's page_type to the routing key
+//     the originating check selects on (bugs_open/015)
+//   - update_spec:     writes to site_specs via inline query
+//   - not_actionable:  marks the original work item as wont_fix
 //
 // Registration:
 //   "apply_gap_plan": {
@@ -135,6 +137,9 @@ func ApplyGapPlanAction(ctx context.Context, params ActionParams) (interface{}, 
 
 	case "new_page":
 		return applyNewPage(ctx, params.DB, plan, siteID, domain, originalItemID, logger)
+
+	case "retype_existing":
+		return applyRetypeExisting(ctx, params.DB, plan, siteID, originalItemID, logger)
 
 	case "update_spec":
 		return applyUpdateSpec(ctx, params.DB, plan, siteID, originalItemID, logger)
@@ -451,12 +456,208 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 	}, nil
 }
 
+// ============================================================================
+// retype_existing: flip a stranded page onto the right page_type
+// ============================================================================
+
+// applyRetypeExisting re-types a page the discovery check identified as
+// "occupying the role under the wrong page_type" (bugs_open/015:
+// relojistas.com's news listing was emitted as section-index, orphaning
+// it from every gate that keys on news-index). Creating a page here would
+// mint a duplicate; the fix is to flip the existing one.
+//
+// The plan only NAMES the page. Everything that AUTHORISES the re-type
+// comes from the original work item's spec, written deterministically by
+// the discovery check, never from the LLM:
+//   - retype_candidates: the structural stranded-set (nav-visible,
+//     sectionless, never deployed — findStrandedNavPages). A page outside
+//     that set is refused, so a plan cannot re-type a live, working page.
+//   - page_type: the routing key the check selects on (e.g. news-index).
+//
+// Refusals return applied=false and leave the original item untouched.
+//
+// Deliberately NO growth-budget check: nothing is created — the page
+// already exists and already holds its nav slot.
+func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interface{}, siteID uuid.UUID, originalItemID *uuid.UUID, logger *zap.Logger) (interface{}, error) {
+	retypePlan, ok := plan["retype_existing"].(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("retype_existing plan missing or invalid")
+	}
+
+	pageName, _ := retypePlan["page_name"].(string)
+	if pageName == "" {
+		return nil, fmt.Errorf("retype_existing.page_name is required")
+	}
+	pageName = strings.ToLower(strings.TrimSpace(pageName))
+
+	refuse := func(reason string) (interface{}, error) {
+		logger.Warn("ApplyGapPlanAction: retype_existing refused",
+			zap.String("page_name", pageName),
+			zap.String("reason", reason))
+		return map[string]interface{}{
+			"applied":  false,
+			"approach": "retype_existing",
+			"reason":   reason,
+		}, nil
+	}
+
+	if originalItemID == nil {
+		return refuse("no original work item — retype is only authorised by a discovery-check item carrying retype_candidates")
+	}
+
+	var itemSpecJSON []byte
+	err := db.QueryRowContext(ctx, `
+		SELECT spec FROM site_work_items WHERE id = $1 AND site_id = $2
+	`, *originalItemID, siteID).Scan(&itemSpecJSON)
+	if err != nil {
+		return refuse("original work item spec unreadable: " + err.Error())
+	}
+	var itemSpec map[string]interface{}
+	if err := json.Unmarshal(itemSpecJSON, &itemSpec); err != nil {
+		return refuse("original work item spec is not valid JSON: " + err.Error())
+	}
+
+	targetType, _ := itemSpec["page_type"].(string)
+	if targetType == "" {
+		return refuse("original item spec carries no page_type — nothing deterministic to re-type to")
+	}
+
+	candidatesRaw, _ := itemSpec["retype_candidates"].([]interface{})
+	if len(candidatesRaw) == 0 {
+		return refuse("original item spec carries no retype_candidates — this item did not authorise a re-type")
+	}
+
+	var candidateID uuid.UUID
+	var previousType string
+	var candidateNames []string
+	found := false
+	for _, c := range candidatesRaw {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		name, _ := cm["name"].(string)
+		candidateNames = append(candidateNames, name)
+		if strings.ToLower(strings.TrimSpace(name)) != pageName {
+			continue
+		}
+		idStr, _ := cm["id"].(string)
+		id, perr := uuid.Parse(idStr)
+		if perr != nil {
+			return refuse(fmt.Sprintf("candidate %q has an unparseable id %q", name, idStr))
+		}
+		candidateID = id
+		previousType, _ = cm["page_type"].(string)
+		found = true
+		break
+	}
+	if !found {
+		return refuse(fmt.Sprintf("page %q is not in retype_candidates [%s] — refusing to re-type a page the check did not identify as stranded",
+			pageName, strings.Join(candidateNames, ", ")))
+	}
+
+	// Sections: plan's list resolved to canonical component functions
+	// (same treatment as new_page), else the archetype default for the
+	// target type.
+	sections := defaultSectionsForPage(pageName, targetType)
+	if sectionsRaw, ok := retypePlan["sections"].([]interface{}); ok && len(sectionsRaw) > 0 {
+		raw := make([]string, 0, len(sectionsRaw))
+		for _, s := range sectionsRaw {
+			if ss, ok := s.(string); ok {
+				raw = append(raw, ss)
+			}
+		}
+		resolver := loadComponentNameResolver(ctx, db, logger)
+		if len(resolver.validFunctions) > 0 {
+			resolved := make([]string, 0, len(raw))
+			for _, name := range raw {
+				if fn, ok := resolver.resolve(name); ok {
+					resolved = append(resolved, fn)
+				} else {
+					logger.Warn("applyRetypeExisting: dropped unresolvable section name",
+						zap.String("page", pageName), zap.String("section", name))
+				}
+			}
+			if len(resolved) > 0 {
+				sections = resolved
+			}
+		} else if len(raw) > 0 {
+			sections = raw // resolver unavailable — use as-is rather than lose them
+		}
+	}
+	sectionsJSON, _ := json.Marshal(sections)
+
+	res, err := db.ExecContext(ctx, `
+		UPDATE pages
+		SET page_type = $2, sections = $3::jsonb, updated_at = NOW()
+		WHERE id = $1 AND site_id = $4
+	`, candidateID, targetType, string(sectionsJSON), siteID)
+	if err != nil {
+		return nil, fmt.Errorf("retype page %q: %w", pageName, err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return refuse(fmt.Sprintf("page %q (id %s) no longer exists — candidate list was stale", pageName, candidateID))
+	}
+
+	// Hand the now-correctly-typed page to the build pipeline, mirroring
+	// new_page's work item so it actually gets built.
+	reasoning, _ := plan["reasoning"].(string)
+	spec := map[string]interface{}{
+		"page_name":    pageName,
+		"page_type":    targetType,
+		"sections":     sections,
+		"source":       "content-gap-planner",
+		"retyped_from": previousType,
+	}
+	specJSON, _ := json.Marshal(spec)
+	summary := fmt.Sprintf("Build re-typed page: %s (now %s) — %s", pageName, targetType, truncate(reasoning, 60))
+	itemKey := fmt.Sprintf("gap_plan_retype_%s_%s", pageName, siteID)
+
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			spec, page_id, priority, handler_agent, status, created_by,
+			item_key, parent_item_id
+		) VALUES ($1, 'content-gap-planner', 'build', 'needs_content_page', 'medium', $2,
+		          $3::jsonb, $4, 40, 'page-build-handler', 'triaged', 'content-gap-planner',
+		          $5, $6)
+		ON CONFLICT DO NOTHING
+	`, siteID, summary, string(specJSON), candidateID, itemKey, originalItemID)
+	if err != nil {
+		return nil, fmt.Errorf("create build work item for re-typed page: %w", err)
+	}
+
+	markOriginalComplete(ctx, db, originalItemID)
+
+	logger.Info("ApplyGapPlanAction: retype_existing applied",
+		zap.String("page_name", pageName),
+		zap.String("page_id", candidateID.String()),
+		zap.String("from_type", previousType),
+		zap.String("to_type", targetType))
+
+	return map[string]interface{}{
+		"applied":      true,
+		"approach":     "retype_existing",
+		"page_name":    pageName,
+		"page_id":      candidateID.String(),
+		"from_type":    previousType,
+		"to_type":      targetType,
+		"item_created": true,
+	}, nil
+}
+
 // defaultSectionsForPage returns archetype-appropriate default sections
 // for a new page when the planner LLM provides none. A recognised page
 // type gets its archetype shape (e.g. faq -> structured faq, not a
 // generic-text-block that would compete with it). Unrecognised pages keep
 // the generic content shape.
 func defaultSectionsForPage(pageName, pageType string) []string {
+	// page_type outranks the name heuristics: a typed page has an
+	// archetype regardless of what it is called — the name is localised
+	// ("noticias"), the type is not (bugs_open/015).
+	if strings.ToLower(strings.TrimSpace(pageType)) == "news-index" {
+		return []string{"hero", "news-listing", "call-to-action"}
+	}
 	key := strings.ToLower(strings.TrimSpace(pageName))
 	switch {
 	case key == "faq" || strings.Contains(key, "faq"):

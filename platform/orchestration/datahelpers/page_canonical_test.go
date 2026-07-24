@@ -336,3 +336,49 @@ func TestCanonicalisePage(t *testing.T) {
 		})
 	}
 }
+
+// TestCanonicalisePage_NewsIndex pins bugs_open/015: news-index joins the
+// section-index family (same name/URL shape) with its flavour preserved
+// as page_type, because several gates route on 'news-index' exactly.
+func TestCanonicalisePage_NewsIndex(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       PageDescriptor
+		wantName string
+		wantURL  string
+		wantType string
+	}{
+		{
+			name:     "news-index planner shape (localised slug)",
+			in:       PageDescriptor{Role: "news-index", Slug: "noticias"},
+			wantName: "noticias-index",
+			wantURL:  "/noticias/index.html",
+			wantType: "news-index",
+		},
+		{
+			name:     "news-index adoption shape (already -index suffixed)",
+			in:       PageDescriptor{Role: "news-index", Slug: "noticias-index"},
+			wantName: "noticias-index",
+			wantURL:  "/noticias/index.html",
+			wantType: "news-index",
+		},
+		{
+			name:     "news_index (legacy snake input) normalises to news-index output",
+			in:       PageDescriptor{Role: "news_index", Slug: "news"},
+			wantName: "news-index",
+			wantURL:  "/news/index.html",
+			wantType: "news-index",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotName, gotURL, gotType := CanonicalisePage(tc.in)
+			if gotName != tc.wantName || gotURL != tc.wantURL || gotType != tc.wantType {
+				t.Errorf("CanonicalisePage(%+v)\n  got  (%q, %q, %q)\n  want (%q, %q, %q)",
+					tc.in, gotName, gotURL, gotType,
+					tc.wantName, tc.wantURL, tc.wantType)
+			}
+		})
+	}
+}

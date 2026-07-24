@@ -50,17 +50,17 @@ import (
 //
 //	"index" | "content" | "landing" |
 //	"tool" | "guide" | "game" |
-//	"section-index" | "blog-index" |
+//	"section-index" | "blog-index" | "news-index" |
 //	"entity-directory" |
 //	"blog-post" |
 //	"entity-page"
 //
-// Underscore forms (blog_post, blog_index, section_index,
+// Underscore forms (blog_post, blog_index, section_index, news_index,
 // entity_directory, entity_page) are normalised to their kebab
 // equivalents on input.
 //
 // The section-index family (`section-index`, `blog-index`,
-// `entity-directory`) all share the same name and URL shape — they
+// `news-index`, `entity-directory`) all share the same name and URL shape — they
 // represent "a page that lists other pages of a category" — but the
 // helper preserves the original role as `page_type` so downstream
 // consumers (page-build-handler in particular) can dispatch differently
@@ -126,7 +126,8 @@ func CanonicalisePage(d PageDescriptor) (name, url, pageType string) {
 		return "index", "/index.html", "landing"
 	}
 
-	// Section-index family: section-index, blog-index, entity-directory.
+	// Section-index family: section-index, blog-index, news-index,
+	// entity-directory.
 	// Same name and URL shape; page_type preserved as the input role so
 	// downstream dispatch can distinguish flavours. Adoption's
 	// (role=blog-index, slug=guides) and planner's
@@ -265,6 +266,8 @@ func normalisePageType(r string) string {
 		return "blog-index"
 	case "section_index":
 		return "section-index"
+	case "news_index":
+		return "news-index"
 	case "entity_directory":
 		return "entity-directory"
 	case "entity_page":
@@ -280,7 +283,7 @@ func normalisePageType(r string) string {
 // by normalisePageType (kebab form).
 func isSectionIndexRole(role string) bool {
 	switch role {
-	case "section-index", "blog-index", "entity-directory":
+	case "section-index", "blog-index", "entity-directory", "news-index":
 		return true
 	}
 	return false
