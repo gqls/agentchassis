@@ -58,13 +58,14 @@
   /* Viewport is the positioning context for the overlaid arrows. */
   .hero-card-carousel__viewport { position: relative; }
 
-  /* Track — native scroll-snap gives swipe-on-mobile with zero JS; the arrows
-     and (optional) auto-advance are the only JS. */
+  /* Track — native scroll-snap gives swipe-on-mobile with zero JS. align-items:
+     start so cards size to their own content (no equal-height whitespace). */
   .hero-card-carousel__track {
     list-style: none;
     margin: 0;
     padding: 0.5rem 0 1.5rem;
     display: flex;
+    align-items: flex-start;
     gap: 1.5rem;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
@@ -80,10 +81,10 @@
     .hero-card-carousel__slide { flex-basis: calc((100% - 3rem) / 2.15); }
   }
 
-  /* Overlaid prev/next arrows — floated on the left and right edges, over the cards. */
+  /* Overlaid prev/next arrows — nudged up to sit over the image, not the text. */
   .hero-card-carousel__arrow {
     position: absolute;
-    top: calc(50% - 1.5rem);
+    top: 34%;
     transform: translateY(-50%);
     z-index: 2;
     inline-size: 48px;
@@ -110,14 +111,25 @@
   }
   .hero-card-carousel__arrow:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
+  /* The whole card is the click target. */
   .hero-card-carousel__card {
-    height: 100%;
     display: flex;
     flex-direction: column;
     background: var(--color-surface, transparent);
     border: 1px solid var(--color-hairline, var(--color-border));
     border-radius: var(--border-radius, 0.75rem);
     overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  a.hero-card-carousel__card:hover {
+    border-color: var(--color-primary);
+    box-shadow: var(--shadow, 0 6px 20px rgba(0,0,0,0.1));
+  }
+  a.hero-card-carousel__card:focus-visible {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   /* Hover-zoom — the clip is required; the scaled image would otherwise spill. */
@@ -134,16 +146,16 @@
     transition: scale 0.45s ease;
   }
   .hero-card-carousel__card:hover .hero-card-carousel__img,
-  .hero-card-carousel__card:focus-within .hero-card-carousel__img {
+  .hero-card-carousel__card:focus-visible .hero-card-carousel__img {
     scale: 1.08;
   }
 
+  /* Compact body — content stacks tight, no filler gap below the text. */
   .hero-card-carousel__body {
-    padding: 1.5rem 1.5rem 1.75rem;
+    padding: 1.25rem 1.5rem 1.4rem;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    flex-grow: 1;
+    gap: 0.5rem;
   }
   .hero-card-carousel__card-title {
     font-size: 1.25rem;
@@ -157,7 +169,6 @@
     color: var(--color-text-muted);
     line-height: 1.6;
     margin: 0;
-    flex-grow: 1;
   }
   .hero-card-carousel__link {
     display: inline-flex;
@@ -166,16 +177,9 @@
     font-size: 0.875rem;
     font-weight: 600;
     color: var(--color-primary);
-    text-decoration: none;
-    min-height: 44px;
-    margin-top: auto;
+    margin-top: 0.15rem;
   }
-  .hero-card-carousel__link:hover { text-decoration: underline; }
-  .hero-card-carousel__link:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
+  a.hero-card-carousel__card:hover .hero-card-carousel__link { text-decoration: underline; }
 
   .hero-card-carousel__live {
     position: absolute;
@@ -190,7 +194,7 @@
     .hero-card-carousel__track { scroll-behavior: auto; }
     .hero-card-carousel__img { transition: none; }
     .hero-card-carousel__card:hover .hero-card-carousel__img,
-    .hero-card-carousel__card:focus-within .hero-card-carousel__img { scale: 1; }
+    .hero-card-carousel__card:focus-visible .hero-card-carousel__img { scale: 1; }
   }
   @media (hover: none) {
     .hero-card-carousel__card:hover .hero-card-carousel__img { scale: 1; }
@@ -218,16 +222,16 @@
       <ul class="hero-card-carousel__track" data-hcc-track>
         {{range $i, $card := .cards}}
         <li class="hero-card-carousel__slide" role="group" aria-roledescription="slide" aria-label="{{$card.title}}" data-hcc-slide>
-          <article class="hero-card-carousel__card">
+          {{if $card.link_url}}<a class="hero-card-carousel__card" href="{{$card.link_url}}">{{else}}<div class="hero-card-carousel__card">{{end}}
             <div class="hero-card-carousel__media">
               <img class="hero-card-carousel__img" src="{{if $card.image}}{{$card.image}}{{else}}/assets/images/hero.jpg{{end}}" alt="{{$card.image_alt}}" width="800" height="500" loading="{{if eq $i 0}}eager{{else}}lazy{{end}}">
             </div>
             <div class="hero-card-carousel__body">
               <h3 class="hero-card-carousel__card-title">{{$card.title}}</h3>
               <p class="hero-card-carousel__teaser">{{$card.teaser}}</p>
-              {{if $card.link_url}}<a class="hero-card-carousel__link" href="{{$card.link_url}}">{{if $card.link_label}}{{$card.link_label}}{{else}}Read more{{end}}<span aria-hidden="true">&nbsp;&rarr;</span></a>{{end}}
+              {{if $card.link_url}}<span class="hero-card-carousel__link">{{if $card.link_label}}{{$card.link_label}}{{else}}Read more{{end}}<span aria-hidden="true">&nbsp;&rarr;</span></span>{{end}}
             </div>
-          </article>
+          {{if $card.link_url}}</a>{{else}}</div>{{end}}
         </li>
         {{end}}
       </ul>
