@@ -284,3 +284,20 @@ at it, and the island is publicly addressed — still serving 404s until the eng
 lands, which is exactly right. Two small tasks stay on your list afterwards: the
 backup account's host and username from the Mythic Beasts panel (so the nightly
 dumps mirror off-box), and deleting that dead catch-all DNS record.
+
+## 2026-07-24 (evening) — the island is on the internet
+
+You clicked the authorisation link (the certificate came down as a browser download;
+I moved it onto the island and deleted the local copy), and the tunnel is now live as
+a proper system service. **https://tools.apis.uk** answers from the public internet —
+politely refusing everything (404) except the one API path, which says "nothing behind
+me yet". That's precisely the state we wanted: publicly addressed, guarded, waiting
+for the engine. This morning that address was a Cloudflare error; the catch-all DNS
+entry seems to have been deleted along the way too (you, I assume — good).
+
+Left on your list, none urgent: two minutes of Cloudflare zone settings (strict TLS,
+always-HTTPS, one rate-limit rule, the free firewall ruleset), the backup account's
+host and username so the nightly dumps mirror off-box, and — when the engine's pull
+request lands — a separate spend-capped AI key for the island. The engine build
+carries on in the other thread; the moment its image exists, we switch it on here and
+the Gauntlet has a real opponent at a real address.
