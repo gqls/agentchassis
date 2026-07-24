@@ -349,3 +349,47 @@ deploy-verification-by-commit-hash trap. Config side done properly this time
 `config.timeout_seconds = 240` in the place the coordinator actually reads;
 inert step-level field removed. Registry still empty — next discovery run
 needs the 062 image rolled first.
+
+**2026-07-24, continued — the stacked-defect arc, runs 4–6.** Rolled the
+062 adapter fix as web-scrape-adapter v1.0.1152 (narrow `kubectl set image`,
+NOT the fleet-wide deploy-agents target; pod-grep on created symbols passed,
+though my first positive-control string `batch_scrape` turned out not to be
+retained by the binary — the needles passing is what proved the deploy;
+switched the documented control to a retained log literal).
+
+**Run 4: the size fix WORKED and revealed defect 4 beneath it.** Reply came
+back 79KB (markdown-only honoured), produced successfully, consumed by the
+chassis with perfect headers — then dropped at `processor.go:1469`:
+`Failed to unmarshal response message`. Cause: the batch handler's JSON-body
+headers carried `"is_complete": "true"` / `"is_error": "true"` as STRINGS
+into `types.ResponseHeaders`' `bool` fields — the documented **035 §1.5
+bool trap**, which browserrunner/analyser/thunder adapters already carry
+corrections for; the batch handler (born 2026-07-21 for 047) copied the old
+pattern. Blunt consequence, now in the case file: **no batch_scrape response
+had EVER been consumed** — the size refusal masked the parse failure.
+Fixed (real bools; envelope extracted to pure `buildBatchSuccessEnvelope`;
+test round-trips it through the real `types.ResponseMessage` + a regression
+guard proving the string form fails), rolled as v1.0.1153, pod-verified.
+
+**Run 5: the pipeline COMPLETED end-to-end for the first time** — and the
+designed fail-safe engaged: all candidates rejected `citation_lost`, rejects
+correctly parked at a `directory_citation_unverified` human-review item.
+The rejections exposed layer 3: every quote was a markdown TABLE ROW
+(`gpt-5.6-sol | $5.00 | $0.50 | ...` — verbatim in collected_data) because
+extraction reads firecrawl's markdown while the verifier flattens re-fetched
+HTML to space-joined cells — pipes never match, so any claim quoted from a
+table (i.e. most pricing) fails deterministically. Checked the SPA
+hypothesis first and REFUTED it myself before acting: the plain GET of the
+OpenAI pricing page returns 17,460 chars of visible text WITH prices — the
+gap is representational, not JS-rendering.
+
+Fix: fold `|` to space in the shared `NormalizeForQuoteMatch` (chassis-side
+datahelpers) — squarely inside the file's own "forgiving about presentation,
+strict about content" rule; strictness pinned by tests (altered price still
+fails; cross-row cell stitching still fails; test uses run 5's verbatim
+failing quote). All pre-existing citation tests green. Ships in the CHASSIS
+image: rolled as agent-chassis v1.0.1154. No greppable literal exists for a
+one-character replacer entry, so deploy evidence is the digest chain (fresh
+tag built from HEAD at `eabe9ddfb`, pushed, set-image, rollout complete) —
+stated honestly rather than inventing a fake discriminating grep. Run 6
+fired after the 300s post-restart quiet window (spawn-drop rule).
