@@ -250,3 +250,12 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - Spend tally: designer runs 1 (approved/superseded), 2 (revise, died), 3 (in flight);
   implementer 1 (clean refusal); planner runs 1 (spawn lost), 2 (rejected, correct +
   proved 196). All under the blanket go.
+
+## 2026-07-24 — designer v3 APPROVED; implementer round 2 FIRED
+- Designer round 3 (corr 278a37c3): council APPROVED 09:59. Plan verified clean:
+  6 stages — s1 scaffold WITH db/conn.go+config (the round-2 HIGH honoured);
+  s2 middleware + server.go wiring IN-STAGE; s3 store/fetch/handlers + wiring;
+  s4 migration file (claims 198 — recheck number at APPLY time); s5 dockerfile +
+  kustomize base; s6 prod overlay. NO makefile edit, NO ingress, all small files.
+- Implementer round 2 FIRED (wrapper orch 1d6e2253); branch will be feat/278a37c3;
+  feat/* namespace verified empty first. Watcher bd6iuhqvd.
