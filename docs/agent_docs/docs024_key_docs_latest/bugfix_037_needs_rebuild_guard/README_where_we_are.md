@@ -66,10 +66,19 @@ rather "redesign but never delete", say so and I'll make it keep the page. I lef
 "model governs" version for now.
 
 **Update, later 2026-07-22: the new chassis build (v1.0.1149) is on production, so the redesign
-feature is now live** — I checked the running binary, both its functions are there. So both pieces of
-this work are on prod: the 037 guard and the `recompose_pages` redesign signal. Nothing is
-outstanding that blocks you. The only thing I *haven't* done is fire a real re-plan on a live site to
-watch it work end-to-end — the feature is thoroughly unit-tested and the one un-tested link (reading
-your `recompose_pages` off the request) uses the exact same mechanism an existing production step
-already relies on, so it's low-risk. If you'd like me to prove it on the dartsonline test site anyway,
-I can — it just takes ~half an hour of the build queue. Otherwise this is complete.
+feature is now live** — I checked the running binary, both its functions are there.
+
+**And now proven working on a real site.** You said go ahead, so I ran it on the dartsonline test
+site. It took two goes to get a clean proof — the first time I asked it to redesign the "contact"
+page, the model happened to redraw it identically to what was already there, so I couldn't tell the
+feature apart from doing nothing (an old known gotcha). The second time I picked two pages —
+"index" and "shipping-returns" — that I'd already watched the model *want* to change but be held back
+by the guard. When I named those two for redesign, they took the model's new layout, while the pages
+I *didn't* name kept theirs untouched. Same pages, opposite result, the only difference being whether
+I named them. That's the feature doing exactly what it says. So this whole piece of work is now done
+and proven end to end: the guard that stops accidental redesigns, and the clean way to ask for a
+deliberate one.
+
+(Side note: on the test site, "index" and "shipping-returns" now carry the model's redesigned
+layouts — that was the point of the test. I saved their previous layouts in the notes, so I can put
+them back if you want, but on a test site it's usually fine to leave them.)

@@ -1,10 +1,10 @@
 # 012 — Explicit per-page redesign intent (`recompose_pages` in the re-plan spec)
 
 **Filed:** 2026-07-22, owner-approved follow-on to `/bugs_closed/037`. **Class:** planner
-capability. **Status:** code **LIVE on v1.0.1149** (2026-07-22 — commit `385eb0b26`; verified in the
-running pod: `strings /app/agent-chassis | grep -c recomposePagesFromSpec` = 2). Remaining open:
-operator ergonomics (a friendlier way to set `recompose_pages`), an optional end-to-end live check,
-and the drop-vs-keep design choice below.
+capability. **Status:** code **LIVE on v1.0.1149** and **VERIFIED END-TO-END** on the dartsonline test
+site (2026-07-22 — commit `385eb0b26`; symbol in the running pod, and a same-page A/B re-plan proof
+below). Remaining open: operator ergonomics (a friendlier way to set `recompose_pages`) and the
+drop-vs-keep design choice below — neither blocks use.
 
 > **Note on the spec-read path.** The one link unit tests can't cover is the live
 > `input_data.spec.recompose_pages` extraction. It uses the SAME accessor an existing production
@@ -66,8 +66,7 @@ files compiles clean.
 2. **Operator ergonomics — how you actually set it.** Today you would emit a `needs_site_plan` item
    with `spec = '{"recompose_pages":["index"]}'` by hand (see the RUNBOOK). A nicer trigger (a small
    script, or an admin-dashboard action) is optional polish, not required for the capability to work.
-3. **Live verification** once rolled: emit a re-plan with `recompose_pages:["<a deployed page>"]`,
-   assert that page takes the LLM's new composition while its peers keep theirs.
+3. ~~Live verification once rolled.~~ **DONE — proven live on dartsonline, see below.**
 4. **Drop semantics.** A recompose page the LLM then omits is dropped from the plan. That is the
    honest meaning of "recompose from scratch", but if the owner wants "redesign but never delete", a
    follow-up could union such a page back with empty sections instead. Recorded, not built.
@@ -83,6 +82,34 @@ FROM sites s WHERE s.domain = '<domain>';
 ```
 (Shape mirrors `docs/.../idea_uk_vm_site/sql/p1_01_replan_emit.sql`; the only addition is the
 `recompose_pages` key in `spec`.)
+
+## VERIFIED LIVE — 2026-07-22, dartsonline.com (a clean same-page A/B)
+
+Two `needs_site_plan` re-plans on the dartsonline test site, on chassis v1.0.1149:
+
+- **Run 1** (`recompose_pages:["contact"]`) proved the plumbing — the orchestration's
+  `input_data.spec` came through as `{"recompose_pages":["contact"]}` — and proved the guard still
+  protects **unnamed** pages: `index` and `shipping-returns` were **preserved** (kept their realised
+  composition) even though the LLM proposed *different* compositions for them. It was inconclusive on
+  the release itself only because the LLM coincidentally re-proposed `contact`'s exact realised
+  composition (the coin-flip `/bugs_closed/037` warned about), and the `validate_plan` step's
+  ephemeral pod logs were already gone.
+
+- **Run 2** (`recompose_pages:["index","shipping-returns"]`) closed it. The **same two pages** that
+  were preserved-when-unnamed in run 1 were **released-when-named** in run 2 — they took the LLM's
+  divergent composition, while the three control pages held:
+
+  | page | run 1 (unnamed) | run 2 (named) |
+  |---|---|---|
+  | `index` | PRESERVED `[hero, product-grid, category-listing, features, cta, testimonials]` | **RELEASED** → `[hero, product-grid, info-card-grid, category-listing, cta, testimonials]` (LLM: dropped `features`, added `info-card-grid`) |
+  | `shipping-returns` | PRESERVED `[generic-text-block]` | **RELEASED** → `[hero, generic-text-block, faq]` (LLM added `hero`+`faq`) |
+  | `about` / `new-arrivals` / `contact` | preserved | preserved (unchanged) |
+
+  Same page, opposite outcome, one variable (membership in `recompose_pages`) — the genericity-proof
+  shape `/bugs_closed/001` used. Corroborated by run 2's own `site_plan_sections` (plan `0fb05b75`,
+  `is_current`). Runs' spawned rebuilds were cancelled/left to settle; `index` and `shipping-returns`
+  on the dartsonline TEST site now carry their recomposed layouts (restorable from the pre-run values
+  recorded in the workstream NOTES if ever wanted).
 
 ## Grounded in
 

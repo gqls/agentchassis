@@ -73,3 +73,28 @@
   experiment / working-tree churn; and `/bugs_open/050` CLOSED & shipped on v1.0.1146 via a sweep.
   My candidate-1 change reads `rm["name"]` only, so it is orthogonal to both the 050 empty-gate and
   the 051 rename (which keeps `adoption_locked` as a transition alias).
+
+## 2026-07-22 — features_open/012 VERIFIED LIVE end-to-end (dartsonline)
+
+- Two re-plans on dartsonline (v1.0.1149). **Run 1** `recompose_pages:["contact"]`: proved plumbing
+  (`input_data.spec` = `{"recompose_pages":["contact"]}` in the orchestration) + guard preserves
+  unnamed pages (`index`, `shipping-returns` preserved vs divergent LLM), but INCONCLUSIVE on release
+  (LLM re-proposed `contact` identically — the coin-flip trap — and the `validate_plan` pod logs were
+  ephemeral/gone; `ValidateSitePlanAction` msgs absent from the surviving planner pod, confirming the
+  step ran in a now-gone pod).
+- **Run 2** `recompose_pages:["index","shipping-returns"]`: DECISIVE same-page A/B. The two pages
+  preserved-when-unnamed in run 1 were RELEASED-when-named in run 2 (took the LLM's divergent
+  composition); the three controls held. Proof survives in plan `0fb05b75` (`is_current`)
+  `site_plan_sections` and current `pages.sections`; orchestration `collected_data` was purged after
+  ~2 days (so capture DB evidence within the day next time).
+- **Pre-run realised values (for restore if ever wanted)** — the recompose targets before run 2:
+  - `index` = `["hero","product-grid","category-listing","features","call-to-action","testimonials"]`
+  - `shipping-returns` = `["generic-text-block"]`
+  After run 2 they became `["hero","product-grid","info-card-grid","category-listing","call-to-action","testimonials"]`
+  and `["hero","generic-text-block","faq"]` respectively (the LLM's redesign — the feature working).
+  Controls unchanged: `about`, `new-arrivals`, `contact`.
+- Cancelled run 1's pending rerenders; run 2's settled on its own (nothing pending now).
+- METHOD TRAP: `orchestration_states` (with `llm_plan.result.pages` vs `validate_plan.pages`) is
+  purged in ~2 days; `site_plan_sections` for the plan is immutable and survives — grade off the plan
+  record, not collected_data, if reading days later. And `site_plan_sections.component_name` is the
+  COMPONENT while `pages.sections` is the FUNCTION (039 trap) — they matched here, but don't assume.
