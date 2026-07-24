@@ -97,3 +97,28 @@ dependency: a stale index answers "absent" identically to a genuine absence, so 
 check that trusts absence (existence checks, drop-reporting, coverage) is only as
 correct as the index is fresh — and nothing surfaces the staleness at read time.*
 Same family as 019 (a truncated/missing signal read as a negative one).
+
+## UPDATE 2026-07-24 — fix #1 (reindex CADENCE) shipped & live
+
+`scheduled_tasks` row **`code-index-refresh`** applied live (no image roll):
+`SEED_code_index_refresh_cadence.sql` in `docs024/…/fixloop_eg_dartsonline/`. Fires
+`index-orchestrator` every 24h. The load-bearing choice was **not to hardcode a
+ref** (that would BE this bug's own class — a snapshot that drifts): the ref is
+DERIVED at fire time by the task's `pre_query` — the most-recent human/diagnosis-
+driven feature-branch ref (`NNN_*`), excluding the reindex's own runs
+(`owner_agent_type NOT IN ('index-orchestrator','code-indexer')`) so it can't pin
+itself to a dead branch. The scheduler shallow-merges `{ref}` into `input_data`
+(`cmd/scheduler/main.go`); no rows → tick skipped (safe). Verified: row enabled,
+pre_query resolves to the live branch. First-fire behaviour verification: see NOTES
+turn 48b / the session monitor.
+
+RESIDUALS (bug stays OPEN):
+- **fix #3 — the freshness guard is NOT built.** The cadence keeps the index close
+  but a stale/lagging answer STILL reads as "absent" at read time. The deeper fix
+  (code tier + prior_art seat compare index `commit_sha`/`updated_at` and degrade to
+  "unknown" rather than empty-as-absent) remains — it is the 019-family protection.
+- **fix #2 — the docs019 `TRIGGER_code_indexer_v2.sh` is still the wrong (direct)
+  dispatch.** A hand reindex should go via `index-orchestrator`; the stale script
+  wastes a run. Left for a docs sweep.
+- The cadence is 24h (matches other freshness tasks). Tighten the one column if the
+  index must stay within a single image roll (images roll several times a day).
