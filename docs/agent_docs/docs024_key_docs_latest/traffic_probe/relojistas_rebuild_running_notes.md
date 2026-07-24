@@ -1289,3 +1289,9 @@ worth folding into any future touch of this file: a Debug log on the suppressed
 (inserted==false) path. The substantive correctness question was settled by execution,
 not argument: the emitter emits the right shape and the page survives its own refresh
 cycle.
+
+> **Process note (2026-07-24):** milestone summary written as a NEW file
+> (`SUMMARY_2026-07-24_relojistas_rebuild.md`) per the owner's never-overwrite directive.
+> My 2026-07-21 update EDITED `SUMMARY_relojistas_rebuild.md` in place — that predated my
+> noticing the rule and was a violation of it; the old file stays as-is as the 19–21 July
+> read-out, and the series is correct from today.
