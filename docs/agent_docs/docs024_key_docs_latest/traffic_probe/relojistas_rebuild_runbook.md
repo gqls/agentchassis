@@ -387,3 +387,43 @@ Rollback + backup table (`component_news_backup_20260720_179`) are in the migrat
    ```
    Until step 3 runs, homepage/noticias server-HTML freshness is paused (JSON + client JS
    still refresh); after it, the fixed emitter resumes per-cycle no-LLM rerenders.
+
+---
+
+## P5.2 — owner convergence run (ONE box session closes four standing items)
+
+Order matters. All on the box as root; setup.sh is the reconciled generator
+(commit c0d205cdd — it now owns the legacy-feed location, so the re-run no
+longer deletes it).
+
+```bash
+# 0. copy up the reconciled generator + current engine binary path if needed
+scp docs/agent_docs/docs024_key_docs_latest/traffic_probe/deploy_setup/vm-deploy/setup.sh root@167.233.33.159:/root/setup.sh
+
+# 1. re-run (regenerates nginx conf incl. /buscar, /events, /external.php +
+#    variants, writes /etc/nginx/conf.d/cloudflare-realip.conf, reloads nginx)
+DOMAINS="relojistas.com" LETSENCRYPT_EMAIL=<real> MODE=full bash /root/setup.sh
+#    sanity: nginx -t ran inside; then
+curl -s -o /dev/null -w '%{http_code}\n' 'https://relojistas.com/external.php?type=RSS2'   # 200 (survived)
+curl -s -o /dev/null -w '%{http_code}\n' 'https://relojistas.com/external.php?type=rss2'   # 200/302 (variant fixed)
+curl -s -o /dev/null -w '%{http_code}\n' 'https://relojistas.com/events'                    # 401/403-ish from engine, NOT 404
+
+# 2. enable search-that-answers (engine env; binary already deployed by the Action)
+cat >>/etc/site-engine/site-engine.env <<'ENV'
+WEBROOT_DIR=/var/www/vm-sites
+RESULTS_PATH=/buscar
+ENV
+systemctl restart site-engine
+curl -s 'https://relojistas.com/buscar?q=tourbillon' | grep -c buscar-item   # ≥1
+
+# 3. real-ip proof: tail the access log — visitor IPs, not 172.70.x/104.22.x
+```
+
+Then, cluster-side (any thread):
+```sql
+-- collector: retarget (registration doc §3, never applied) + enable
+UPDATE scheduled_tasks SET target_agent_type='intent-collection-orchestrator',
+       enabled=true WHERE name='intent-collection';
+-- verify within ~10 min: rows appear
+SELECT count(*), max(collected_at) FROM intent_events;
+```
