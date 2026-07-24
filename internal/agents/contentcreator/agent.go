@@ -629,7 +629,7 @@ func (a *Agent) getGenerationOptions(req RequestPayload, config *models.AgentCon
 	// none of the providers read a per-call model override), so this is
 	// metadata for cost estimation and the response payload, not a selector.
 	options["temperature"] = 0.7
-	options["max_tokens"] = 2000
+	options["max_tokens"] = 3000
 	options["model"] = a.aiClient.Model()
 
 	// Override with agent config if available
@@ -663,9 +663,9 @@ func (a *Agent) getGenerationOptions(req RequestPayload, config *models.AgentCon
 	// Adjust max tokens based on length
 	switch req.Data.Length {
 	case "short":
-		options["max_tokens"] = 500
+		options["max_tokens"] = 1200
 	case "long":
-		options["max_tokens"] = 4000
+		options["max_tokens"] = 6000
 	}
 
 	// Platform-specific limits
