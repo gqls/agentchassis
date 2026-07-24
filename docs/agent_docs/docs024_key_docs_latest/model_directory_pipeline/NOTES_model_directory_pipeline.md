@@ -257,3 +257,41 @@ it points at new code, but this is **not yet properly diagnosed** — logged
 here as an observation, not a conclusion. If it's still stuck after the F1
 reaper's ~4h window, or recurs on the next weekly discovery fire, that would
 be worth a proper 090 diagnosis run rather than assuming it away.
+
+> **CORRECTED 2026-07-24: it was NOT spawn-loss / not stuck-forever.** The
+> run resolved itself to a clean `FAILED` ~12 min after start: `Request ...
+> timed out after 3 retries` at `search_web` — the coordinator's own
+> await-timeout machinery working as designed, not a stranded orchestration.
+> Caught by re-checking the row the next day instead of trusting the
+> observation. The spawn-loss hypothesis was wrong on both counts (wrong
+> mechanism, and the "stuck" state was just mid-retry).
+
+**Run 2, 2026-07-23 11:21 (retry after fleet stabilised) — got further,
+failed at the NEXT hop, and the evidence now points at batch sizing, not
+infra flakiness.** `search_web` succeeded this time (real results),
+`prepare_urls` picked 4 sensible targets (openrouter.ai model page, OpenAI
+pricing docs, llm-stats.com's "300+ LLMs" mega-page, a release tracker) —
+then `scrape_pages` died with the identical timeout-after-3-retries
+signature, total run 17 min 26 s. Diagnosis (from reading the code, not
+guessing): `batch_webscrape` sends ONE Kafka request for the whole batch and
+the adapter replies once when ALL URLs are done
+(`batch_webscrape_action.go`); the await window is the step's
+`timeout_seconds` (`GetStepTimeout`, coordinator.go `getTimeout` →
+`TimeoutAt`), which my seed set to 120s (copied from evidence-researcher);
+each retry RE-SENDS the same full batch. The adapter throttles at 5s minimum
+between requests (`throttle.go` log line) and scrapes via firecrawl — 4
+pages, one of them a giant model-comparison table, plausibly takes ≥120s
+EVERY time, so all 3 retries fail identically. Also checked: **no baseline
+exists** — mine was the only orchestration to touch `batch_webscrape` in 3
+days, so "evidence-researcher's config shape is proven" (my earlier claim)
+was true of the *shape* but nothing had exercised the *timing* recently.
+Adapter logs from the failure window were lost to yet another fleet-wide pod
+roll (16:00 that day) before I could read them.
+
+**Fix applied 2026-07-24 (config-only, live immediately):** snapshot_agent
+first, then `directory-researcher`'s `scrape_pages.timeout_seconds` 120→300
+and `prepare_urls.config.max_scrapes` 4→3. Third run fired via
+`last_triggered_at = NULL`; watching with a bounded background loop (the
+overnight watcher from run 2 spun uselessly on expired kubectl credentials —
+lesson: bound the watch to the session, don't let it run past credential
+lifetime).
