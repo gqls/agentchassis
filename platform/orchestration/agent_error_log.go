@@ -131,10 +131,10 @@ type reportedCondition struct {
 // report must never break response processing. Pure — unit-tested without a
 // coordinator.
 //
-// Two returns beyond the conditions, both there because silence about lost
+// Three returns beyond the conditions, all there because silence about lost
 // data is the very failure this mechanism exists to cure — and the cure
-// must not reproduce it at its own edges (bug_historian, council rounds 5
-// and 7):
+// must not reproduce it at its own edges (bug_historian, council rounds 5,
+// 7 and 8):
 //
 //	malformed — the field was PRESENT but unusable as a whole (not a list,
 //	  or a list yielding nothing). Distinct from absent, which is healthy
@@ -144,18 +144,28 @@ type reportedCondition struct {
 //	  parsed fine. A mixed list is the subtler case: without this count, some
 //	  conditions vanish and the surviving ones make the response look wholly
 //	  healthy. The caller warns on any non-zero value.
-func parseReportedConditions(normalisedData map[string]interface{}) (conditions []reportedCondition, malformed bool, skipped int) {
+//	truncated — how many entries were never examined because the
+//	  per-response cap fired. Distinct from skipped: these were dropped for
+//	  CAPACITY, not because they were junk, so the remedy differs (raise the
+//	  cap or report less, versus fix the emitter) and folding them into
+//	  skipped would misdiagnose a healthy-but-chatty reporter as a broken
+//	  one. The caller warns on any non-zero value.
+func parseReportedConditions(normalisedData map[string]interface{}) (conditions []reportedCondition, malformed bool, skipped, truncated int) {
 	raw, present := normalisedData["reported_conditions"]
 	if !present {
-		return nil, false, 0
+		return nil, false, 0, 0
 	}
 	list, ok := raw.([]interface{})
 	if !ok {
-		return nil, true, 0 // present but not a list — the contract broke
+		return nil, true, 0, 0 // present but not a list — the contract broke
 	}
 
-	for _, item := range list {
+	for i, item := range list {
 		if len(conditions) >= maxReportedConditionsPerResponse {
+			// Everything from here on is dropped unexamined. Count it —
+			// an over-cap loss with skipped=0 must not read as a clean
+			// parse of a short list (bug_historian, round 8).
+			truncated = len(list) - i
 			break
 		}
 		m, ok := item.(map[string]interface{})
@@ -184,9 +194,9 @@ func parseReportedConditions(normalisedData map[string]interface{}) (conditions 
 	// not a healthy absence — reported as malformed rather than as N
 	// skipped entries, because there is no surviving signal at all.
 	if len(list) > 0 && len(conditions) == 0 {
-		return nil, true, skipped
+		return nil, true, skipped, truncated
 	}
-	return conditions, false, skipped
+	return conditions, false, skipped, truncated
 }
 
 // persistReportedConditions writes each adapter-reported condition to
@@ -208,7 +218,7 @@ func (s *SagaCoordinator) persistReportedConditions(ctx context.Context, state *
 		return
 	}
 
-	conditions, malformed, skipped := parseReportedConditions(normalisedData)
+	conditions, malformed, skipped, truncated := parseReportedConditions(normalisedData)
 	if malformed {
 		s.logger.Warn("reported_conditions present but MALFORMED — the reporting contract broke; conditions were lost, fix the emitter",
 			zap.String("sender_agent_type", senderType),
@@ -224,14 +234,19 @@ func (s *SagaCoordinator) persistReportedConditions(ctx context.Context, state *
 			zap.String("sender_agent_type", senderType),
 			zap.String("step_name", stepName))
 	}
+	// Over-cap loss is a different failure from junk: well-formed entries
+	// were dropped for CAPACITY. Without its own count a chatty reporter's
+	// losses read as a clean parse of a short list.
+	if truncated > 0 {
+		s.logger.Warn("reported_conditions TRUNCATED at the per-response cap — well-formed entries were dropped unexamined; raise the cap or report less",
+			zap.Int("truncated", truncated),
+			zap.Int("persisted", len(conditions)),
+			zap.Int("cap", maxReportedConditionsPerResponse),
+			zap.String("sender_agent_type", senderType),
+			zap.String("step_name", stepName))
+	}
 	if len(conditions) == 0 {
 		return
-	}
-	if raw, ok := normalisedData["reported_conditions"].([]interface{}); ok && len(raw) > len(conditions)+skipped {
-		s.logger.Warn("reported_conditions truncated at the per-response cap",
-			zap.Int("received", len(raw)),
-			zap.Int("persisted", len(conditions)),
-			zap.String("step_name", stepName))
 	}
 
 	for _, c := range conditions {

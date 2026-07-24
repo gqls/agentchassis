@@ -13,7 +13,7 @@ import "testing"
 func TestParseReportedConditionsAbsentIsSilent(t *testing.T) {
 	// Absent field — the healthy case for every adapter that predates or
 	// never uses the contract. Not malformed: nothing was attempted.
-	got, malformed, _ := parseReportedConditions(map[string]interface{}{"image_uri": "s3://x"})
+	got, malformed, _, _ := parseReportedConditions(map[string]interface{}{"image_uri": "s3://x"})
 	if got != nil || malformed {
 		t.Errorf("absent field parsed as (%v, malformed=%v), want (nil, false)", got, malformed)
 	}
@@ -24,20 +24,20 @@ func TestParseReportedConditionsPresentButBrokenIsMalformed(t *testing.T) {
 	// read as healthy — a contract break upstream (object instead of list,
 	// a key reshape) has to surface, or the cure inherits the disease.
 	for _, bad := range []interface{}{"warning", 42, map[string]interface{}{"code": "X"}} {
-		got, malformed, _ := parseReportedConditions(map[string]interface{}{"reported_conditions": bad})
+		got, malformed, _, _ := parseReportedConditions(map[string]interface{}{"reported_conditions": bad})
 		if got != nil || !malformed {
 			t.Errorf("non-list %T parsed as (%v, malformed=%v), want (nil, true)", bad, got, malformed)
 		}
 	}
 	// A non-empty list yielding nothing usable is also a broken contract.
-	got, malformed, _ := parseReportedConditions(map[string]interface{}{
+	got, malformed, _, _ := parseReportedConditions(map[string]interface{}{
 		"reported_conditions": []interface{}{"junk", map[string]interface{}{}},
 	})
 	if got != nil || !malformed {
 		t.Errorf("all-junk list parsed as (%v, malformed=%v), want (nil, true)", got, malformed)
 	}
 	// But an EMPTY list is a benign no-op, not a break.
-	got, malformed, _ = parseReportedConditions(map[string]interface{}{
+	got, malformed, _, _ = parseReportedConditions(map[string]interface{}{
 		"reported_conditions": []interface{}{},
 	})
 	if got != nil || malformed {
@@ -56,7 +56,7 @@ func TestParseReportedConditionsWellFormed(t *testing.T) {
 			},
 		},
 	}
-	got, malformed, _ := parseReportedConditions(data)
+	got, malformed, _, _ := parseReportedConditions(data)
 	if malformed {
 		t.Fatal("well-formed input flagged malformed")
 	}
@@ -83,7 +83,7 @@ func TestParseReportedConditionsDefaultsAndSkips(t *testing.T) {
 			map[string]interface{}{"severity": "error"}, // no code AND no message
 		},
 	}
-	got, malformed, skipped := parseReportedConditions(data)
+	got, malformed, skipped, _ := parseReportedConditions(data)
 	if malformed {
 		t.Fatal("partly-usable list flagged malformed — junk beside a good entry must degrade, not fail")
 	}
@@ -115,7 +115,7 @@ func TestParseReportedConditionsMixedListReportsWhatItDropped(t *testing.T) {
 			map[string]interface{}{"code": "REFERENCE_ANCHORS_DROPPED"},
 		},
 	}
-	got, malformed, skipped := parseReportedConditions(data)
+	got, malformed, skipped, truncated := parseReportedConditions(data)
 	if malformed {
 		t.Fatal("mixed list must not be flagged wholly malformed — three entries are usable")
 	}
@@ -125,6 +125,9 @@ func TestParseReportedConditionsMixedListReportsWhatItDropped(t *testing.T) {
 	if skipped != 2 {
 		t.Errorf("skipped = %d, want 2 — the caller cannot warn about losses it is not told about", skipped)
 	}
+	if truncated != 0 {
+		t.Errorf("truncated = %d, want 0 — junk drops must not masquerade as capacity drops", truncated)
+	}
 }
 
 func TestParseReportedConditionsIsCapped(t *testing.T) {
@@ -133,12 +136,44 @@ func TestParseReportedConditionsIsCapped(t *testing.T) {
 	for i := 0; i < maxReportedConditionsPerResponse*3; i++ {
 		raw = append(raw, map[string]interface{}{"code": "FLOOD"})
 	}
-	got, malformed, _ := parseReportedConditions(map[string]interface{}{"reported_conditions": raw})
+	got, malformed, skipped, truncated := parseReportedConditions(map[string]interface{}{"reported_conditions": raw})
 	if malformed {
 		t.Fatal("capped flood flagged malformed")
 	}
 	if len(got) != maxReportedConditionsPerResponse {
 		t.Errorf("parsed %d conditions, want cap %d", len(got), maxReportedConditionsPerResponse)
+	}
+	if skipped != 0 {
+		t.Errorf("skipped = %d, want 0 — nothing here was junk", skipped)
+	}
+	if truncated != maxReportedConditionsPerResponse*2 {
+		t.Errorf("truncated = %d, want %d — every entry dropped by the cap must be counted", truncated, maxReportedConditionsPerResponse*2)
+	}
+}
+
+func TestParseReportedConditionsOverCapTruncationIsCountedDistinctly(t *testing.T) {
+	// bug_historian, council round 8 — the same silence the round-7 fix
+	// cured for junk entries, re-entering at the cap boundary: a sender
+	// reporting more well-formed conditions than the cap allows must not
+	// see skipped=0 and a healthy-looking short list. Capacity drops are
+	// counted in their own channel, distinct from junk, because the remedy
+	// differs (raise the cap / report less, versus fix the emitter).
+	var raw []interface{}
+	for i := 0; i < maxReportedConditionsPerResponse+5; i++ {
+		raw = append(raw, map[string]interface{}{"code": "REAL_CONDITION", "message": "well-formed"})
+	}
+	got, malformed, skipped, truncated := parseReportedConditions(map[string]interface{}{"reported_conditions": raw})
+	if malformed {
+		t.Fatal("over-cap list of well-formed entries flagged malformed")
+	}
+	if len(got) != maxReportedConditionsPerResponse {
+		t.Errorf("parsed %d conditions, want cap %d", len(got), maxReportedConditionsPerResponse)
+	}
+	if skipped != 0 {
+		t.Errorf("skipped = %d, want 0 — over-cap drops are NOT junk and must not be booked as junk", skipped)
+	}
+	if truncated != 5 {
+		t.Errorf("truncated = %d, want 5 — a capacity drop with no count is indistinguishable from a clean parse of a short list", truncated)
 	}
 }
 
