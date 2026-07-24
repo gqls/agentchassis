@@ -1,5 +1,18 @@
 # Handoff — the per-page adoption lock does not exist, so `adoption_locked` is a per-SITE flag that is true only on a site's first plan
 
+> **CLOSED 2026-07-24 — fixed AND live.** The misleading name is fully retired. Candidate 1
+> (correct the false 90-day-lock premise everywhere it was written) landed in `1a13e265d`/`2318f9b47`.
+> Candidate 3 (rename the wire key) is complete: migration **193** added `site_has_no_current_plan`
+> beside `adoption_locked`; the renamed reader (`noCurrentPlanFlag`, commit **`ec7ade491`**) shipped
+> in **agent-chassis v1.0.1151** and was pod-verified reading the new key; migration **194** then
+> dropped the `adoption_locked` alias, so the live `load_existing_pages` query emits only
+> `site_has_no_current_plan` (`has_new=t, has_old=f`). Behaviour is unchanged throughout — a pure
+> rename. Candidate 2 (build real adoption faithfulness) was NOT done: it is a separate feature the
+> owner did not ask for; if ever wanted, it is a fresh bug/feature, not a reopen of this one. One
+> harmless vestige remains by design: `noCurrentPlanFlag` keeps a dead `adoption_locked` fallback as
+> a documented compat/rollback read (the reconcile tests' fixtures still set the old key). Full trail
+> below.
+
 **Filed 2026-07-20**, found while closing out `/bugs_open/001`. No fire: the practical exposure today
 is three pages on a test site. What is broken is a **documented protection mechanism that is not
 built**, and a **code comment that justifies a design decision by appealing to it**. The cost of
