@@ -410,6 +410,12 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		var cb strings.Builder
 		cb.WriteString("Code questions this diagnosis asked, answered from the code_symbols index\n")
 		cb.WriteString("(an INDEXED snapshot — each answer names its commit_sha; treat a stale or\nempty answer as 'unknown', NOT as 'absent'):\n")
+		// The read-time freshness guard (bugs_open/059): the line above states the
+		// rule; this line gives the verdicter the FACT needed to apply it. A stale
+		// index answers "absent" identically to a genuine absence, and the verdict
+		// prompt's cite-or-abstain acts on absence — so the answer must carry its
+		// own freshness, loudly when stale.
+		cb.WriteString(codeIndexFreshness(ctx, params.DB))
 		for i, c := range codeChecks {
 			fmt.Fprintf(&cb, "\n[code_request %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
 			if err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, &cb); err != nil {

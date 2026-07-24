@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The extractor is the seam between reviewer JSON and the fixed-SQL executor:
@@ -129,5 +131,78 @@ func TestDedupCodeChecks(t *testing.T) {
 	}
 	if got[0].Why != "first" {
 		t.Fatalf("first occurrence's why should survive, got %q", got[0].Why)
+	}
+}
+
+// The read-time freshness guard (bugs_open/059). The header text has always SAID
+// "treat a stale or empty answer as unknown, not absent" — these tests verify the
+// guard that finally COMPUTES that, branch by induced branch (a guard whose job
+// is to catch a fault must be seen catching it, not only passing when healthy).
+func TestFreshnessBanner(t *testing.T) {
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
+	staleAfter := 48 * time.Hour
+
+	t.Run("fresh index: quiet one-liner naming age and sha", func(t *testing.T) {
+		got := freshnessBanner("adb00fd1234", now.Add(-3*time.Hour), now, staleAfter, nil)
+		if strings.Contains(got, "STALE") || strings.Contains(got, "!!") {
+			t.Fatalf("a fresh index must not be flagged: %q", got)
+		}
+		for _, must := range []string{"3h", "adb00fd"} {
+			if !strings.Contains(got, must) {
+				t.Fatalf("banner must name %q: %q", must, got)
+			}
+		}
+	})
+
+	t.Run("stale index: loud, names age, date, sha and the remedy", func(t *testing.T) {
+		got := freshnessBanner("e3176f8abc", now.Add(-20*24*time.Hour), now, staleAfter, nil)
+		for _, must := range []string{"STALE", "20d", "e3176f8", "NOT YET INDEXED", "index-orchestrator"} {
+			if !strings.Contains(got, must) {
+				t.Fatalf("stale banner must contain %q: %q", must, got)
+			}
+		}
+	})
+
+	t.Run("boundary: exactly the threshold is not yet stale", func(t *testing.T) {
+		got := freshnessBanner("abc1234", now.Add(-staleAfter), now, staleAfter, nil)
+		if strings.Contains(got, "STALE") {
+			t.Fatalf("age == threshold must not flag (only >): %q", got)
+		}
+	})
+
+	t.Run("empty index: loudest — every answer is unknown", func(t *testing.T) {
+		got := freshnessBanner("", time.Time{}, now, staleAfter, nil)
+		for _, must := range []string{"EMPTY", "UNKNOWN, not absent", "index-orchestrator"} {
+			if !strings.Contains(got, must) {
+				t.Fatalf("empty banner must contain %q: %q", must, got)
+			}
+		}
+	})
+
+	t.Run("query error: fail open with an unknown-freshness note, never silent", func(t *testing.T) {
+		got := freshnessBanner("", time.Time{}, now, staleAfter, fmt.Errorf("connection refused"))
+		for _, must := range []string{"UNKNOWN", "connection refused", "unknown, not absent"} {
+			if !strings.Contains(got, must) {
+				t.Fatalf("error banner must contain %q: %q", must, got)
+			}
+		}
+	})
+}
+
+func TestFormatAge(t *testing.T) {
+	cases := []struct {
+		d    time.Duration
+		want string
+	}{
+		{30 * time.Minute, "30m"},
+		{3 * time.Hour, "3h"},
+		{47 * time.Hour, "47h"},
+		{49 * time.Hour, "2d"},
+		{21 * 24 * time.Hour, "21d"},
+	}
+	for _, c := range cases {
+		if got := formatAge(c.d); got != c.want {
+			t.Fatalf("formatAge(%v) = %q, want %q", c.d, got, c.want)
+		}
 	}
 }

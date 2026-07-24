@@ -41,11 +41,73 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
+
+// codeIndexStaleAfter is when the code_symbols index is loud-flagged as STALE in
+// every rendered answer. The index is refreshed by the `code-index-refresh`
+// scheduled task every 24h (SEED_code_index_refresh_cadence.sql, bugs_open/059);
+// 48h therefore means "at least one scheduled refresh was missed". Deliberately a
+// const, not step config: it is one platform-wide fact coupled to that cadence
+// row, and the banner always prints the ACTUAL age, so a reader can judge for
+// themselves whatever this threshold says.
+const codeIndexStaleAfter = 48 * time.Hour
+
+// codeIndexFreshness reads the index's high-water mark and renders the freshness
+// banner both answer tiers prepend to their output. One query per action run.
+// Never fatal: an error degrades to an "unknown freshness" note (fail open) —
+// the guard must not break the lookup it qualifies.
+func codeIndexFreshness(ctx context.Context, db *sql.DB) string {
+	var sha string
+	var updatedAt time.Time
+	err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(commit_sha,''), updated_at FROM code_symbols
+		 ORDER BY updated_at DESC LIMIT 1`).Scan(&sha, &updatedAt)
+	if err == sql.ErrNoRows {
+		return freshnessBanner("", time.Time{}, time.Now(), codeIndexStaleAfter, nil)
+	}
+	return freshnessBanner(sha, updatedAt, time.Now(), codeIndexStaleAfter, err)
+}
+
+// freshnessBanner is the pure decision+formatting half of codeIndexFreshness,
+// split out so the stale/empty/error branches are unit-testable without a DB
+// (verify-the-failing-branch: a guard whose job is to catch a fault must be
+// SEEN catching it). bugs_open/059's read-time half: a stale index answers
+// "absent" identically to a genuine absence, so at read time the answer must
+// carry its own freshness — an empty result against a stale index is UNKNOWN,
+// not evidence of absence, and nothing upstream can add that qualifier later.
+func freshnessBanner(sha string, updatedAt, now time.Time, staleAfter time.Duration, queryErr error) string {
+	if queryErr != nil {
+		return fmt.Sprintf("(index freshness UNKNOWN — %v; treat every empty answer below as unknown, not absent)\n", queryErr)
+	}
+	if updatedAt.IsZero() {
+		return "!! CODE INDEX EMPTY — no symbols indexed at all. Every answer below is UNKNOWN, not absent. Run index-orchestrator before trusting any of this. !!\n"
+	}
+	age := now.Sub(updatedAt)
+	if age > staleAfter {
+		return fmt.Sprintf(
+			"!! CODE INDEX STALE: last refreshed %s ago (%s) at commit %s — code newer than that is NOT in the index, so a 'no matches' answer below may mean NOT YET INDEXED, not absent. Run index-orchestrator to refresh. !!\n",
+			formatAge(age), updatedAt.Format("2006-01-02"), shortSHA(sha))
+	}
+	return fmt.Sprintf("(index freshness: refreshed %s ago at commit %s)\n", formatAge(age), shortSHA(sha))
+}
+
+// formatAge renders a duration at banner altitude: days for old, hours/minutes
+// for recent. Precision beyond this is noise in a provenance line.
+func formatAge(d time.Duration) string {
+	switch {
+	case d >= 48*time.Hour:
+		return fmt.Sprintf("%dd", int(d.Hours()/24))
+	case d >= time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+}
 
 var DiagnoseCodeLookupInputSpec = datahelpers.ActionInputSpec{
 	Optional: []string{
@@ -121,6 +183,10 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 	var b strings.Builder
 	b.WriteString("Code questions your reviewers asked, answered from the code_symbols index\n")
 	b.WriteString("(an INDEXED snapshot — each answer names its commit_sha; treat a stale or\nempty answer as 'unknown', not 'absent'):\n")
+	// The read-time freshness guard (bugs_open/059): the header above SAYS to
+	// treat a stale answer as unknown, but until now nothing COMPUTED staleness,
+	// so a reader had no way to apply the rule. One query; loud when stale.
+	b.WriteString(codeIndexFreshness(ctx, params.DB))
 	run := 0
 	for i, c := range checks {
 		fmt.Fprintf(&b, "\n[code_check %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
