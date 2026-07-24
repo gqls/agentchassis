@@ -71,7 +71,7 @@ type ValidatedPage struct {
 //     of LLM input. "index" is the page name convention for the homepage;
 //     "landing" is the canonical page type for it.
 //
-//  1b. Explicit flavoured index role (isTypedIndexRole: "news-index") →
+//     1b. Explicit flavoured index role (isTypedIndexRole: "news-index") →
 //     accepted as-is. These are section hubs, so rules 2-4 would all fire
 //     and flatten the flavour to "section-index" — which orphans the page
 //     from every gate keying on the flavour (bugs_open/015).
