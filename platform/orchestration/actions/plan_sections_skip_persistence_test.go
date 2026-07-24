@@ -69,9 +69,11 @@ func TestPersistSectionSkips_EmptySlicesEncodeAsEmptyJSONArrays(t *testing.T) {
 	}
 }
 
-// Warn-not-fail: a DB error must not escape (persistence failure must not
-// break the build — same fail-open convention as the 040 guard's own checks).
-func TestPersistSectionSkips_DBErrorDoesNotPanic(t *testing.T) {
+// A DB error must be RETURNED, not swallowed: the caller stays warn-not-fail
+// for the build but escalates the failure to agent_error_log — a skip decision
+// silently failing to persist would reproduce the vanishing-record defect this
+// helper exists to fix (council 164058e6, bug_historian objection).
+func TestPersistSectionSkips_DBErrorIsReturned(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("sqlmock: %v", err)
@@ -83,9 +85,11 @@ func TestPersistSectionSkips_DBErrorDoesNotPanic(t *testing.T) {
 		WithArgs(siteID, "index", `[]`, `["testimonials"]`).
 		WillReturnError(context.DeadlineExceeded)
 
-	// Must return normally.
-	persistSectionSkips(context.Background(), db, siteID, "index",
+	persistErr := persistSectionSkips(context.Background(), db, siteID, "index",
 		nil, []string{"testimonials"}, zap.NewNop())
+	if persistErr == nil {
+		t.Fatal("expected the DB error to be returned so the caller can escalate it durably; got nil")
+	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("expectations: %v", err)

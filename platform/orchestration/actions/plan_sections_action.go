@@ -851,7 +851,45 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		for i, s := range skipped {
 			skippedNames[i] = s.Name
 		}
-		persistSectionSkips(ctx, params.DB, siteID, pageName, readyNames, skippedNames, logger)
+		if persistErr := persistSectionSkips(ctx, params.DB, siteID, pageName, readyNames, skippedNames, logger); persistErr != nil {
+			// Warn-not-fail for the BUILD, but the failure itself must be
+			// durable: a skip decision that silently fails to persist is the
+			// same vanishing-record defect this write exists to fix (council
+			// 164058e6, bug_historian). agent_error_log is the durable channel;
+			// if even that insert fails, the log line is the last resort.
+			logger.Warn("plan_sections: persistSectionSkips failed — skip decisions not durably recorded this build",
+				zap.String("page", pageName),
+				zap.Strings("skipped", skippedNames),
+				zap.Error(persistErr))
+			escCtx, _ := json.Marshal(map[string]interface{}{
+				"page_name":      pageName,
+				"skipped":        skippedNames,
+				"ready":          readyNames,
+				"remedy":         "the page's suppressed_sections was not updated; the 040 guard may refuse its deploy stamp until the next successful plan — see bugs_open/040 skip-not-recorded",
+				"council_review": "164058e6-4630-47a2-b0d7-58659997b291",
+			})
+			if _, escErr := params.DB.ExecContext(ctx, `
+				INSERT INTO agent_error_log (
+					site_id, orchestration_id, agent_type, agent_id, pod_name,
+					step_name, action, error_message, error_code, severity, context
+				) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+			`,
+				siteID,
+				params.ExecutionContext.OrchestrationID,
+				params.ExecutionContext.Sender.AgentType,
+				params.ExecutionContext.Sender.AgentID,
+				params.ExecutionContext.Sender.PodName,
+				params.ExecutionContext.StepName,
+				"plan_sections",
+				"persistSectionSkips failed: "+persistErr.Error(),
+				"SKIP_PERSISTENCE_FAILED",
+				"warning",
+				string(escCtx),
+			); escErr != nil {
+				logger.Warn("plan_sections: could not escalate skip-persistence failure to agent_error_log",
+					zap.Error(escErr))
+			}
+		}
 	}
 
 	logger.Info("plan_sections: planning complete",
@@ -1723,10 +1761,14 @@ func closeResolvedDataRequest(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 // readyNames makes the record self-healing: when the missing data later
 // arrives and the section plans ready, it is un-suppressed the same build.
 // Deferred sections are NOT passed here (their needs_human_review item is
-// their durable trace). Warn-not-fail: a persistence failure must not break
-// the build (same fail-open convention as the guard's own check errors).
-// Values stay plain text names — readers use jsonb `?` containment.
-func persistSectionSkips(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, readyNames, skippedNames []string, logger *zap.Logger) {
+// their durable trace). Returns the persistence error rather than swallowing
+// it: the caller stays warn-not-fail for the BUILD (a persistence failure
+// must not break it) but escalates the failure to agent_error_log — a skip
+// decision silently failing to persist would otherwise reproduce the exact
+// vanishing-record defect this function exists to fix (council 164058e6,
+// bug_historian objection). Values stay plain text names — readers use
+// jsonb `?` containment.
+func persistSectionSkips(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, readyNames, skippedNames []string, logger *zap.Logger) error {
 	// nil-safety: a nil slice marshals to JSON null, which would make
 	// jsonb_array_length($4::jsonb) fail and disarm the WHERE tail's no-op
 	// guard. Always send [] for empty.
@@ -1738,13 +1780,11 @@ func persistSectionSkips(ctx context.Context, db *sql.DB, siteID uuid.UUID, page
 	}
 	readyJSON, err := json.Marshal(readyNames)
 	if err != nil {
-		logger.Warn("persistSectionSkips: marshal ready failed", zap.Error(err))
-		return
+		return fmt.Errorf("marshal ready: %w", err)
 	}
 	skippedJSON, err := json.Marshal(skippedNames)
 	if err != nil {
-		logger.Warn("persistSectionSkips: marshal skipped failed", zap.Error(err))
-		return
+		return fmt.Errorf("marshal skipped: %w", err)
 	}
 	// The WHERE tail makes the call a no-op unless there is something to add
 	// (skips this build) or possibly remove (an existing non-empty set), so the
@@ -1766,11 +1806,7 @@ func persistSectionSkips(ctx context.Context, db *sql.DB, siteID uuid.UUID, page
 		       OR jsonb_array_length($4::jsonb) > 0)
 	`, siteID, pageName, string(readyJSON), string(skippedJSON))
 	if err != nil {
-		logger.Warn("persistSectionSkips: update failed",
-			zap.String("page", pageName),
-			zap.Strings("skipped", skippedNames),
-			zap.Error(err))
-		return
+		return fmt.Errorf("suppressed_sections merge update: %w", err)
 	}
 	if rows, _ := result.RowsAffected(); rows > 0 {
 		logger.Info("persistSectionSkips: skip decisions persisted to suppressed_sections",
@@ -1778,6 +1814,7 @@ func persistSectionSkips(ctx context.Context, db *sql.DB, siteID uuid.UUID, page
 			zap.Strings("skipped", skippedNames),
 			zap.Int("ready_unsuppressed_candidates", len(readyNames)))
 	}
+	return nil
 }
 
 // ============================================================================
