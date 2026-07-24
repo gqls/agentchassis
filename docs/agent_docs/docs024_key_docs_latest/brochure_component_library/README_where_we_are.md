@@ -315,3 +315,36 @@ the list of our sites for the homepage strip, and a real business email; and
 (3) the hosting cut-over so the pages actually reach a browser, which is your step.
 None of those is a nasty surprise; they're the remaining last-mile items now that
 the story itself flows.
+
+**2026-07-24 — the components are built, tweaked to your notes, and live across the
+site.** This is the bit you originally asked for, delivered. The carousel you
+approved got your three tweaks: the arrows now float over the images (not the
+text), clicking anywhere on a card takes you through (not just the small link),
+and the dead space under the text is gone. It also now sits still by default —
+the movement you liked is there as an opt-in per carousel, but this one waits for
+you to click.
+
+Then the roll-out: each main page now has one of the new interactive pieces, so
+the pages differ from each other the way the big consultancy sites do. The
+homepage has a dark band of three real numbers that count up as you scroll to
+them — 97% of a dead site's feed restored, 11 live sites, under a day to a
+working site — all true, all checked. The capabilities page has the card
+carousel. The about page pairs a line illustration with "review first, ship
+second, correct openly". The review-council page has a swipeable strip of
+what-independent-review-actually-looks-like cards (deliberately no numbers that
+could go stale). The fine-tuning page has hover-reveal picture cards linking
+onwards. I checked every page live after it deployed: all up, all rendering
+cleanly, nothing half-baked.
+
+Along the way we also found and worked around a real platform quirk (component
+scripts were being published but never actually loaded on the page — now
+documented for everyone), and everything — components, their behaviour, and the
+exact content placed on each page — is version-controlled, so future tweaks are
+small edits rather than archaeology.
+
+What's still open, all smaller than what just shipped: the three empty pages
+(the self-correction story's dedicated page chief among them), the contact page
+getting a proper contact-details block so your phone number actually shows, one
+stray link on the council page, and — if you want it — letting the site planner
+choose these new components automatically for future pages, which I've built the
+foundations for but not yet exercised.
