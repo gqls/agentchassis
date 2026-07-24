@@ -151,6 +151,68 @@ api_locations() {
         proxy_pass http://127.0.0.1:$SERVICE_PORT;
         proxy_set_header Host \$host;
     }
+    # Search-that-answers (relojistas manifest §6 B): server-rendered results
+    # page from the engine. Rate-limited like /intent — it is visitor-facing.
+    location = /buscar {
+        limit_req zone=engine_rl burst=20 nodelay;
+        proxy_pass http://127.0.0.1:$SERVICE_PORT;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+EOF
+}
+
+# Legacy vBulletin feed URLs (relojistas P5.1, reconciled 2026-07-24 from the
+# box's SURGICAL edit — this generator now owns it; a re-run must not lose it).
+# The old forum served RSS at /external.php?type=RSS2 (+ board/classifieds
+# variants); subscribers still pull those URLs, so every variant lands on the
+# static /feed.xml the chassis publishes. Case-insensitive type match and the
+# /ventas/ + bare-path variants close the 3 residual 404s measured 2026-07-19.
+legacy_feed_locations() {
+  cat <<'EOF'
+    location = /external.php {
+        if ($arg_type ~* ^rss2$) { rewrite ^ /feed.xml last; }
+        # No type argument: old readers and hand-typed URLs — still the feed.
+        rewrite ^ /feed.xml redirect;
+    }
+    location ~ ^/(ventas|forums)/external\.php$ {
+        rewrite ^ /feed.xml redirect;
+    }
+EOF
+}
+
+# Cloudflare real-ip (P0): restore the visitor's address from CF's header so
+# access logs count subscribers, not edge nodes. IP list = published CF ranges
+# (https://www.cloudflare.com/ips/, snapshot 2026-07-24 — refresh on re-run if
+# stale). Emitted once at http{} level via the conf.d include the caller writes.
+cloudflare_realip() {
+  cat <<'EOF'
+# Cloudflare origin-pull ranges — restore true client IP (managed by setup.sh)
+set_real_ip_from 173.245.48.0/20;
+set_real_ip_from 103.21.244.0/22;
+set_real_ip_from 103.22.200.0/22;
+set_real_ip_from 103.31.4.0/22;
+set_real_ip_from 141.101.64.0/18;
+set_real_ip_from 108.162.192.0/18;
+set_real_ip_from 190.93.240.0/20;
+set_real_ip_from 188.114.96.0/20;
+set_real_ip_from 197.234.240.0/22;
+set_real_ip_from 198.41.128.0/17;
+set_real_ip_from 162.158.0.0/15;
+set_real_ip_from 104.16.0.0/13;
+set_real_ip_from 104.24.0.0/14;
+set_real_ip_from 172.64.0.0/13;
+set_real_ip_from 131.0.72.0/22;
+set_real_ip_from 2400:cb00::/32;
+set_real_ip_from 2606:4700::/32;
+set_real_ip_from 2803:f800::/32;
+set_real_ip_from 2405:b500::/32;
+set_real_ip_from 2405:8100::/32;
+set_real_ip_from 2a06:98c0::/29;
+set_real_ip_from 2c0f:f248::/32;
+real_ip_header CF-Connecting-IP;
 EOF
 }
 
@@ -163,6 +225,7 @@ static_body() {
     root $webroot;
     index index.html;
 $(api_locations)
+$(legacy_feed_locations)
     location / {
         try_files \$uri \$uri/ =404;
     }
@@ -240,6 +303,8 @@ write_nginx_conf() {
       echo
     done
   } >"$NGINX_CONF"
+  # P0: real client IPs behind Cloudflare (http{}-level, so a conf.d file).
+  cloudflare_realip >/etc/nginx/conf.d/cloudflare-realip.conf
 }
 
 # ── binary install (used by both full and update) ──────────────────────────────
