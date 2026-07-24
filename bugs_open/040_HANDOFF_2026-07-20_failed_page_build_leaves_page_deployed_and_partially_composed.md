@@ -186,6 +186,32 @@ highest-value follow-on, and this fix is what makes it visible instead of silent
 > the loop is slow — reconcile-paced + anti-churn — not runaway). The fix direction (persist the
 > skip on the page row so the guard can exclude it; decide separately whether a *deferral* should
 > hold the page un-stamped) awaits the diagnosis verdict before any code moves.
+>
+> **Diagnosis outcome (2026-07-24): two runs, then a human completion of the trail — mechanism
+> CONFIRMED.** Run 1 (corr `65103331`) completed its 5-iteration evidence gather but **lost its
+> verdict to `bugs_open/003`** at `call_diagnoser` (instance appended to 003). Run 2 (corr
+> `f9bcee6f`) completed and returned **UNVERIFIABLE** — not a refutation: its `needed_evidence`
+> names exactly what its code index could not serve, and the loop's own instruction is "Hand to a
+> human with the full trail; do NOT auto-conclude." The three open items, answered from direct
+> reads in this thread:
+> 1. *"Need `UpdatePageStatusAction`'s body"* — read here: the guard compares
+>    `count(page_components)` vs `count(sections − suppressed_sections)` and clears the stamp
+>    (`v3_site_actions.go:635–700`, shipped `fe2ba5e52`, live).
+> 2. *"`handleMissingField` returned no symbol match"* — it is a **closure** inside
+>    `plan_sections_action.go` (`:1312`), invisible to the top-level symbol index (index gap noted
+>    to the fixloop workstream). Its body: `case "skip_section": shouldSkip = true` — in-memory;
+>    `sections_skipped` reaches only the action result (`:845–846`).
+> 3. *"Counterexample: `tools`/`shop-index`/`brands-index` are `needs_rebuild` with a NON-null
+>    stamp"* — reconciled: only the two guards in `UpdatePageStatusAction` clear the stamp (grep:
+>    exactly two `built_from_plan_version = NULL` writers); the other `needs_rebuild` writers
+>    (`check_unresolved_sections`, `flagPagesForRebuild`, `store_generated_component`) leave it.
+>    Those pages were flipped by other writers — consistent, not contradictory.
+>
+> The run also surfaced **new supporting instances**: contact pages planned
+> `[hero-contact, contact-info, contact-form]` holding 2 of 3 rows (`contact-info` absent —
+> the deferral variant), parked `needs_rebuild` + NULL stamp by this guard. Fix goes to the
+> council next (skip-persistence into `suppressed_sections` at the decision point; deferral
+> policy flagged as a reviewer question).
 
 ---
 
