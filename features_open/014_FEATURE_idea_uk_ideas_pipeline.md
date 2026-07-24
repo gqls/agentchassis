@@ -100,8 +100,19 @@ section is the owner's lead), decide guide-vs-tool and tier per stage, and run i
 per_site_ai / 013 funnel design + claims-verification. Keep it as deliberation until the
 owner says go — same discipline as 013.
 
+## Sequencing (owner 2026-07-24)
+
+idea.uk's full build is **queued behind the already-listed pilots** (robot-hands.com etc., per
+`013`): the pilots go first, idea.uk stays the working *reference* while they do, THEN idea.uk
+is built out to this full pipeline — becoming the **top-rung exemplar**. After that, other sites
+are brought up to the same level, but **in stages, not one leap** — the staged "site maturity
+ladder" captured as **`features_open/015_FEATURE_staged_site_maturity_ladder.md`** (to be planned
+in a separate thread). So 014 is both a build target *and* the worked example rung 015 points other
+sites at.
+
 ## Cross-links
 - `docs/agent_docs/docs024_key_docs_latest/idea_uk_vm_site/` (the site: PLAN/README/RUNNING_NOTES)
 - `features_open/013_FEATURE_three_tier_ai_tooling_funnel.md` (the funnel; cross-noted)
+- `features_open/015_FEATURE_staged_site_maturity_ladder.md` (the fleet-wide staged rollout)
 - `docs/agent_docs/docs024_key_docs_latest/per_site_ai/` (the strategy: PLAN/IDEAS/GROUNDED)
 - `features_open/003_FEATURE_paid_tier_beyond_news.md` (entitlement plumbing)
