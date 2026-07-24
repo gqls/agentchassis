@@ -2787,6 +2787,11 @@ residual = fix #2 (stale docs019 trigger) left as a docs item, named in the clos
 **Route guard: fully verified live; no residual owed.** The parse-split literal
 lands with the next roll (cosmetic).
 
+*Attribution note:* my 016b §9 append rode a concurrent session's commit
+(`0ee749fe1`, their bugs_open/063 record) as a same-file passenger — the mirror
+of the fe2ba5e52 sweep. The entry is committed and correct; it just carries their
+message. Recorded so the 016b history reads right.
+
 ## 2026-07-24 — code-lookup misses CLOSURES: `handleMissingField` unresolvable, drove a 5-iteration run to UNVERIFIABLE (from the 040-partial-build thread)
 
 Diagnosis corr `f9bcee6f` (skip-not-recorded mechanism) ended **UNVERIFIABLE** with its
