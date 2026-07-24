@@ -232,12 +232,17 @@ func fixRenderedColors(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 			continue
 		}
 
-		_, err := db.ExecContext(ctx, `
-			UPDATE page_components SET rendered_html = $1 WHERE id = $2
-		`, newHTML, pcID)
+		res, err := db.ExecContext(ctx, `
+			UPDATE page_components SET rendered_html = $1 WHERE id = $2 AND `+pageComponentAgentWritableSQL(""),
+			newHTML, pcID)
 		if err != nil {
 			logger.Error("fixRenderedColors: update failed",
 				zap.String("slot", slotName), zap.String("page", pageName), zap.Error(err))
+			continue
+		}
+		if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+			logger.Warn("fixRenderedColors: component is human-locked — colour fix skipped (bugs_open/058)",
+				zap.String("slot", slotName), zap.String("page", pageName))
 			continue
 		}
 

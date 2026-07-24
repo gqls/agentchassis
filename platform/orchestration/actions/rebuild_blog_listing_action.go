@@ -235,14 +235,38 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	var componentID uuid.UUID
 
 	if existingComponentID != uuid.Nil {
-		// Update existing component in the correct slot
-		_, err = params.DB.ExecContext(ctx, `
+		// Update existing component in the correct slot — unless a human has
+		// locked it (bugs_open/058): the lock predicate on the WHERE makes the
+		// refusal race-free, and the blocked refresh is surfaced as a work
+		// item rather than silently skipped.
+		res, updErr := params.DB.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $1, content_data = $2::jsonb, updated_at = NOW()
-			WHERE id = $3
+			WHERE id = $3 AND `+pageComponentAgentWritableSQL("")+`
 		`, rendered, string(contentDataJSON), existingComponentID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update blog listing component: %w", err)
+		if updErr != nil {
+			return nil, fmt.Errorf("failed to update blog listing component: %w", updErr)
+		}
+		if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+			logger.Warn("RebuildBlogListingAction: blog listing component is human-locked — refresh refused (bugs_open/058)",
+				zap.String("component_id", existingComponentID.String()),
+				zap.String("slot_name", slotName),
+			)
+			lock, lockErr := CheckComponentLock(ctx, params.DB, existingComponentID, logger)
+			lockedBy, lockType := "", ""
+			if lockErr == nil && lock.IsLocked {
+				lockedBy, lockType = lock.LockedBy, lock.LockType
+			}
+			pcID := existingComponentID
+			emitLockBlockedChangeItem(ctx, params.DB, siteID, &blogPageID, &pcID,
+				blogPageName, slotName, lockedBy, lockType,
+				"overwrite", "rebuild_blog_listing", logger)
+			return map[string]interface{}{
+				"rebuilt": false,
+				"skipped": true,
+				"locked":  true,
+				"reason":  fmt.Sprintf("blog listing component %s is locked by %q — auto-refresh refused", existingComponentID, lockedBy),
+			}, nil
 		}
 		componentID = existingComponentID
 		logger.Info("RebuildBlogListingAction: Updated existing component",

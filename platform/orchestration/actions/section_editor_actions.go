@@ -21,6 +21,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -289,6 +290,36 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	slotName, _ := pcData["slot_name"].(string)
+	pageName := getStringVal(pageData, "name")
+
+	// ── Lock gate (bugs_open/058) ────────────────────────────────────────────
+	// A human-locked component must not be overwritten by an automated edit
+	// (this action is reachable from the tool-improver loop, not only from a
+	// human request). Skip-result, not error: an error would fail/retry the
+	// orchestration for a state only a human unlock can change. The check is
+	// advisory for messaging; the race-free enforcement is the lock predicate
+	// on the UPDATEs themselves (errComponentLocked below). A check failure is
+	// non-fatal for the same reason.
+	if lock, lockErr := CheckComponentLock(ctx, params.DB, pcID, logger); lockErr != nil {
+		logger.Warn("ApplySectionEditAction: component lock check failed — relying on guarded UPDATE",
+			zap.Error(lockErr))
+	} else if lock.IsLocked {
+		emitLockBlockedChangeItem(ctx, params.DB, siteID, &pageID, &pcID,
+			pageName, slotName, lock.LockedBy, lock.LockType,
+			"edit", "apply_section_edit", logger)
+		logger.Warn("ApplySectionEditAction: refusing to edit human-locked component (bugs_open/058)",
+			zap.String("page_component_id", pcIDStr),
+			zap.String("slot_name", slotName),
+			zap.String("locked_by", lock.LockedBy),
+		)
+		return map[string]interface{}{
+			"success": true,
+			"skipped": true,
+			"locked":  true,
+			"reason": fmt.Sprintf("component %s (%s) is locked by %q — unlock via the admin dashboard to edit it",
+				pcIDStr, slotName, lock.LockedBy),
+		}, nil
+	}
 
 	// --- Apply the edit ---
 	var newHTML string
@@ -304,6 +335,15 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	}
 
 	if err != nil {
+		if errors.Is(err, errComponentLocked) {
+			// Race window: the lock landed between the pre-check and the write.
+			return map[string]interface{}{
+				"success": true,
+				"skipped": true,
+				"locked":  true,
+				"reason":  fmt.Sprintf("component %s (%s) is locked — unlock via the admin dashboard to edit it", pcIDStr, slotName),
+			}, nil
+		}
 		return nil, fmt.Errorf("edit failed (%s): %w", editType, err)
 	}
 
@@ -312,6 +352,14 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 	// but content_edit needs this separate update
 	if editType == "content_edit" {
 		err = updatePageComponentAfterEdit(ctx, params.DB, pcID, newHTML, newContentData)
+		if errors.Is(err, errComponentLocked) {
+			return map[string]interface{}{
+				"success": true,
+				"skipped": true,
+				"locked":  true,
+				"reason":  fmt.Sprintf("component %s (%s) is locked — unlock via the admin dashboard to edit it", pcIDStr, slotName),
+			}, nil
+		}
 		if err != nil {
 			return nil, fmt.Errorf("failed to update page_component: %w", err)
 		}
@@ -927,9 +975,16 @@ func loadComponentByFunction(ctx context.Context, db *sql.DB, function string) (
 	return result, nil
 }
 
+// errComponentLocked is returned by the page_components UPDATE helpers when
+// the row exists but carries an active human lock (bugs_open/058). The
+// lock predicate lives in the UPDATE's WHERE clause, so the refusal is
+// race-free; callers convert this to a skip-result rather than a failure.
+var errComponentLocked = errors.New("page component is locked or missing — automated edit refused (bugs_open/058)")
+
 func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUID, html string, contentData map[string]interface{}) error {
 	var contentDataJSON []byte
 	var err error
+	var res sql.Result
 
 	if contentData != nil {
 		contentDataJSON, err = json.Marshal(contentData)
@@ -939,25 +994,31 @@ func updatePageComponentAfterEdit(ctx context.Context, db *sql.DB, pcID uuid.UUI
 	}
 
 	if contentDataJSON != nil {
-		_, err = db.ExecContext(ctx, `
+		res, err = db.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $2,
 			    content_data = $3::jsonb,
 			    build_status = 'approved',
 			    updated_at = NOW()
-			WHERE id = $1
+			WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
 		`, pcID, html, string(contentDataJSON))
 	} else {
-		_, err = db.ExecContext(ctx, `
+		res, err = db.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $2,
 			    build_status = 'approved',
 			    updated_at = NOW()
-			WHERE id = $1
+			WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
 		`, pcID, html)
 	}
 
-	return err
+	if err != nil {
+		return err
+	}
+	if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+		return errComponentLocked
+	}
+	return nil
 }
 
 func updatePageComponentSwap(ctx context.Context, db *sql.DB, pcID, componentID uuid.UUID, newSlotName, html string, contentData map[string]interface{}) error {
@@ -966,7 +1027,7 @@ func updatePageComponentSwap(ctx context.Context, db *sql.DB, pcID, componentID 
 		return fmt.Errorf("failed to marshal content_data: %w", err)
 	}
 
-	_, err = db.ExecContext(ctx, `
+	res, err := db.ExecContext(ctx, `
 		UPDATE page_components
 		SET component_id = $2,
 		    slot_name = $3,
@@ -974,10 +1035,16 @@ func updatePageComponentSwap(ctx context.Context, db *sql.DB, pcID, componentID 
 		    content_data = $5::jsonb,
 		    build_status = 'approved',
 		    updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND `+pageComponentAgentWritableSQL("")+`
 	`, pcID, componentID, newSlotName, html, string(contentDataJSON))
 
-	return err
+	if err != nil {
+		return err
+	}
+	if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+		return errComponentLocked
+	}
+	return nil
 }
 
 // ===========================================================================

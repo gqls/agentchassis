@@ -483,10 +483,20 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		)
 	}
 
-	// Clear existing components for this page
+	// --- Locked-section preservation (bugs_open/058) ---
+	// Human-locked rows must survive the rebuild with copy AND row identity
+	// intact (admin lock/unlock addresses rows by id; "unchanged" means
+	// updated_at too). So: preload the actively-locked rows, delete only the
+	// agent-writable ones, and skip the incoming section that would have
+	// replaced a locked slot — the locked copy stands, only its position moves
+	// to follow the new composition. Expiry-aware predicate is the single
+	// shared one (lock_helpers.go).
+	lockedRows := loadActiveLockedRows(ctx, params.DB, pageID, params.Logger)
+
+	// Clear existing components for this page — except actively-locked rows
 	_, err = params.DB.ExecContext(ctx, `
-		DELETE FROM page_components WHERE page_id = $1
-	`, pageID)
+		DELETE FROM page_components WHERE page_id = $1 AND `+pageComponentAgentWritableSQL(""),
+		pageID)
 	if err != nil {
 		params.Logger.Warn("SavePageSectionsAction: Failed to clear existing components",
 			zap.Error(err),
@@ -497,7 +507,34 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Insert each section
 	savedCount := 0
 	var skippedStubs []string
+	var lockedSlotsPreserved []string
 	for i, section := range sections {
+		// ── Locked-slot guard (bugs_open/058) ────────────────────────────────
+		// The new composition produced fresh copy for a slot a human has
+		// locked: the locked row (kept out of the DELETE above) stands, the
+		// fresh copy is discarded, and the block is surfaced as a work item —
+		// a silent skip would trade one silent failure for another. Only the
+		// row's position moves, so ordering follows the new composition.
+		if lr := matchLockedRow(lockedRows, section.ComponentName); lr != nil {
+			lr.consumed = true
+			if _, posErr := params.DB.ExecContext(ctx, `
+				UPDATE page_components SET position = $2 WHERE id = $1
+			`, lr.id, i+1); posErr != nil {
+				params.Logger.Warn("SavePageSectionsAction: failed to reposition locked section",
+					zap.String("slot_name", lr.slot), zap.Error(posErr))
+			}
+			params.Logger.Warn("SavePageSectionsAction: preserving human-locked section over rebuilt copy (bugs_open/058)",
+				zap.String("page_name", pageName),
+				zap.String("slot_name", lr.slot),
+				zap.String("locked_by", lr.lockedBy),
+			)
+			lockedSlotsPreserved = append(lockedSlotsPreserved, lr.slot)
+			lrID := lr.id
+			emitLockBlockedChangeItem(ctx, params.DB, siteID, &pageID, &lrID,
+				pageName, lr.slot, lr.lockedBy, lr.lockType,
+				"overwrite", "save_page_sections", params.Logger)
+			continue
+		}
 		// Dark section contract validation (warning only, non-blocking)
 		// Auto-detects dark sections from CSS patterns in the HTML.
 		if missing := ValidateDarkSectionContract(section.HTML, false, params.Logger); len(missing) > 0 {
@@ -592,22 +629,121 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		savedCount++
 	}
 
+	// Locked rows the new composition no longer includes: the lock holds them
+	// on the page (bugs_open/058 — automation may not remove human-locked
+	// copy). Reposition after the new set in old-position order so the
+	// assembler's bare ORDER BY position stays deterministic, and surface the
+	// blocked removal.
+	nextPos := len(sections) + 1
+	for _, lr := range lockedRows {
+		if lr.consumed {
+			continue
+		}
+		if _, posErr := params.DB.ExecContext(ctx, `
+			UPDATE page_components SET position = $2 WHERE id = $1
+		`, lr.id, nextPos); posErr != nil {
+			params.Logger.Warn("SavePageSectionsAction: failed to reposition retained locked section",
+				zap.String("slot_name", lr.slot), zap.Error(posErr))
+		}
+		nextPos++
+		params.Logger.Warn("SavePageSectionsAction: retaining human-locked section the new composition dropped (bugs_open/058)",
+			zap.String("page_name", pageName),
+			zap.String("slot_name", lr.slot),
+			zap.String("locked_by", lr.lockedBy),
+		)
+		lockedSlotsPreserved = append(lockedSlotsPreserved, lr.slot)
+		lrID := lr.id
+		emitLockBlockedChangeItem(ctx, params.DB, siteID, &pageID, &lrID,
+			pageName, lr.slot, lr.lockedBy, lr.lockType,
+			"remove", "save_page_sections", params.Logger)
+	}
+
 	params.Logger.Info("SavePageSectionsAction: Complete",
 		zap.String("page_name", pageName),
 		zap.String("page_id", pageID.String()),
 		zap.Int("sections_found", len(sections)),
 		zap.Int("sections_saved", savedCount),
 		zap.Int("skipped_stub_sections", len(skippedStubs)),
+		zap.Int("locked_sections_preserved", len(lockedSlotsPreserved)),
 	)
 
 	return map[string]interface{}{
-		"success":               true,
-		"page_id":               pageID.String(),
-		"page_name":             pageName,
-		"sections_found":        len(sections),
-		"sections_saved":        savedCount,
-		"skipped_stub_sections": skippedStubs,
+		"success":                   true,
+		"page_id":                   pageID.String(),
+		"page_name":                 pageName,
+		"sections_found":            len(sections),
+		"sections_saved":            savedCount,
+		"skipped_stub_sections":     skippedStubs,
+		"locked_sections_preserved": lockedSlotsPreserved,
 	}, nil
+}
+
+// lockedPageRow is an actively-locked page_components row preserved through a
+// rebuild (bugs_open/058).
+type lockedPageRow struct {
+	id       uuid.UUID
+	slot     string
+	position int
+	lockedBy string
+	lockType string
+	consumed bool // matched (and thereby blocked) an incoming section this save
+}
+
+// loadActiveLockedRows returns the page's rows automation may not overwrite,
+// in position order. Best-effort: on query failure it returns nil and the save
+// proceeds exactly as before this guard existed (the DELETE predicate still
+// protects the rows themselves; only slot-matching is lost, which would leave
+// a duplicate slot rather than destroy locked copy).
+func loadActiveLockedRows(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) []*lockedPageRow {
+	rows, err := db.QueryContext(ctx, `
+		SELECT id, COALESCE(slot_name, ''), position, COALESCE(locked_by, ''), COALESCE(lock_type, '')
+		FROM page_components
+		WHERE page_id = $1 AND NOT `+pageComponentAgentWritableSQL("")+`
+		ORDER BY position ASC
+	`, pageID)
+	if err != nil {
+		logger.Warn("SavePageSectionsAction: locked-row preload failed (bugs_open/058)", zap.Error(err))
+		return nil
+	}
+	defer rows.Close()
+
+	var locked []*lockedPageRow
+	for rows.Next() {
+		lr := &lockedPageRow{}
+		if scanErr := rows.Scan(&lr.id, &lr.slot, &lr.position, &lr.lockedBy, &lr.lockType); scanErr != nil {
+			logger.Warn("SavePageSectionsAction: locked-row scan failed", zap.Error(scanErr))
+			continue
+		}
+		locked = append(locked, lr)
+	}
+	return locked
+}
+
+// matchLockedRow finds the first unconsumed locked row whose slot matches the
+// incoming section name — exact first, then kebab-normalised (the 041 naming
+// landmine: the library stores kebab-case but older rows/plans may carry
+// snake_case or CamelCase variants of the same slot). Each locked row matches
+// at most one incoming section, so a page with duplicate slot names cannot
+// have one lock swallow several sections.
+func matchLockedRow(lockedRows []*lockedPageRow, sectionName string) *lockedPageRow {
+	if sectionName == "" {
+		return nil
+	}
+	for _, lr := range lockedRows {
+		if !lr.consumed && lr.slot == sectionName {
+			return lr
+		}
+	}
+	norm := NormalizeComponentFunction(sectionName)
+	if norm == "" {
+		return nil
+	}
+	for _, lr := range lockedRows {
+		if !lr.consumed && lr.slot != "" && NormalizeComponentFunction(lr.slot) == norm {
+			return lr
+		}
+	}
+	return nil
 }
 
 // isEmptyGenericStub reports whether rendered HTML is the hollow section that

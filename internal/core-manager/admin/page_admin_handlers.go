@@ -15,10 +15,13 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
+
+	"github.com/gqls/agentchassis/platform/orchestration/actions"
 )
 
 type PageAdminHandlers struct {
@@ -341,8 +344,18 @@ func (h *PageAdminHandlers) HandleUpdateComponent(c *gin.Context) {
 		shouldLock = *body.Lock
 	}
 	if shouldLock {
+		// Stamp the policy vocabulary alongside the lock (lock_policy.go:
+		// human source => permanent, no expiry) so readers can classify on
+		// lock_type instead of parsing locked_by.
+		lockType, lockExpires := actions.LockPolicyFor("admin", time.Now())
 		setClauses = append(setClauses, "locked_at = NOW()")
 		setClauses = append(setClauses, "locked_by = 'admin'")
+		setClauses = append(setClauses, fmt.Sprintf("lock_type = $%d", argIdx))
+		args = append(args, lockType)
+		argIdx++
+		setClauses = append(setClauses, fmt.Sprintf("lock_expires_at = $%d", argIdx))
+		args = append(args, lockExpires)
+		argIdx++
 	}
 
 	query := fmt.Sprintf("UPDATE page_components SET %s WHERE id = $%d",
@@ -424,7 +437,7 @@ func (h *PageAdminHandlers) HandleUnlockComponent(c *gin.Context) {
 	// Verify ownership
 	result, err := h.db.ExecContext(ctx, `
 		UPDATE page_components pc
-		SET locked_at = NULL, locked_by = NULL, updated_at = NOW()
+		SET locked_at = NULL, locked_by = NULL, lock_type = NULL, lock_expires_at = NULL, updated_at = NOW()
 		FROM pages p
 		WHERE pc.id = $1 AND pc.page_id = p.id AND p.site_id = $2
 	`, componentID, siteID)
@@ -462,12 +475,13 @@ func (h *PageAdminHandlers) HandleLockComponent(c *gin.Context) {
 		return
 	}
 
+	lockType, lockExpires := actions.LockPolicyFor("admin", time.Now())
 	result, err := h.db.ExecContext(ctx, `
 		UPDATE page_components pc
-		SET locked_at = NOW(), locked_by = 'admin', updated_at = NOW()
+		SET locked_at = NOW(), locked_by = 'admin', lock_type = $3, lock_expires_at = $4, updated_at = NOW()
 		FROM pages p
 		WHERE pc.id = $1 AND pc.page_id = p.id AND p.site_id = $2
-	`, componentID, siteID)
+	`, componentID, siteID, lockType, lockExpires)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -546,14 +560,17 @@ func (h *PageAdminHandlers) HandleRemoveComponent(c *gin.Context) {
 	`, componentID)
 
 	// Soft delete: mark removed and lock
+	removeLockType, removeLockExpires := actions.LockPolicyFor("admin-removed", time.Now())
 	_, err = tx.ExecContext(ctx, `
 		UPDATE page_components
 		SET build_status = 'removed',
 		    locked_at = NOW(),
 		    locked_by = 'admin-removed',
+		    lock_type = $2,
+		    lock_expires_at = $3,
 		    updated_at = NOW()
 		WHERE id = $1
-	`, componentID)
+	`, componentID, removeLockType, removeLockExpires)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -649,6 +666,8 @@ func (h *PageAdminHandlers) HandleRestoreSection(c *gin.Context) {
 		SET build_status = 'pending',
 		    locked_at = NULL,
 		    locked_by = NULL,
+		    lock_type = NULL,
+		    lock_expires_at = NULL,
 		    updated_at = NOW()
 		WHERE page_id = $1 AND slot_name = $2 AND build_status = 'removed'
 	`, pageID, body.SlotName)
@@ -1083,8 +1102,15 @@ func (h *PageAdminHandlers) HandleUpdateSiteComponent(c *gin.Context) {
 		shouldLock = *body.Lock
 	}
 	if shouldLock {
+		lockType, lockExpires := actions.LockPolicyFor("admin", time.Now())
 		setClauses = append(setClauses, "locked_at = NOW()")
 		setClauses = append(setClauses, "locked_by = 'admin'")
+		setClauses = append(setClauses, fmt.Sprintf("lock_type = $%d", argIdx))
+		args = append(args, lockType)
+		argIdx++
+		setClauses = append(setClauses, fmt.Sprintf("lock_expires_at = $%d", argIdx))
+		args = append(args, lockExpires)
+		argIdx++
 	}
 
 	query := fmt.Sprintf("UPDATE site_components SET %s WHERE id = $%d",
@@ -1174,10 +1200,11 @@ func (h *PageAdminHandlers) HandleLockSiteComponent(c *gin.Context) {
 	}
 	slotName := c.Param("slot_name")
 
+	lockType, lockExpires := actions.LockPolicyFor("admin", time.Now())
 	res, err := h.db.ExecContext(ctx, `
-		UPDATE site_components SET locked_at = NOW(), locked_by = 'admin', updated_at = NOW()
+		UPDATE site_components SET locked_at = NOW(), locked_by = 'admin', lock_type = $3, lock_expires_at = $4, updated_at = NOW()
 		WHERE site_id = $1 AND slot_name = $2
-	`, siteID, slotName)
+	`, siteID, slotName, lockType, lockExpires)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -1202,7 +1229,7 @@ func (h *PageAdminHandlers) HandleUnlockSiteComponent(c *gin.Context) {
 	slotName := c.Param("slot_name")
 
 	res, err := h.db.ExecContext(ctx, `
-		UPDATE site_components SET locked_at = NULL, locked_by = NULL, updated_at = NOW()
+		UPDATE site_components SET locked_at = NULL, locked_by = NULL, lock_type = NULL, lock_expires_at = NULL, updated_at = NOW()
 		WHERE site_id = $1 AND slot_name = $2
 	`, siteID, slotName)
 	if err != nil {
