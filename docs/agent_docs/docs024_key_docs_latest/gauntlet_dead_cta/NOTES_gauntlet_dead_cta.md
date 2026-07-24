@@ -270,3 +270,23 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   (wrapper orch 8ec40110). If the same shape-slip repeats, the durable fix is
   schema-forcing stage_implement's output (implementer seed change) — file that as a
   feature-builder finding rather than retry-looping.
+
+## 2026-07-24 — B4 root cause FOUND: a real platform bug (contract drift), fixed + council-submitted
+- Rounds 2+3 refusals were NOT the model: stored implementation payload has ALL file
+  contents as jsonb strings. The parser chain produced the map — 
+  validateImplementation (diagnose_prepare_fix_commit_action.go:316) wraps every body
+  as GitCommitData {content, encoding}, while formatGeneratedGo type-asserted a bare
+  STRING → the first .go file through the implementer ALWAYS died. .sql-only stages
+  pass (formatter skips non-.go) — why round 1's s1 sailed and every Go stage died.
+  Bug-013's formatter + the GitCommitData wrap were each unit-tested with their OWN
+  shape and never run together until B4. Textbook two-sides-of-one-contract drift.
+- FIX committed 430ed5c18 (both shapes accepted, fail-loud kept, real-chain
+  regression test + wrapped-truncation test; build+tests green). Council corr
+  6bf3806f pending (~80% approval norm now — CLAUDE.md 07-24). INERT until chassis roll.
+- SECOND find: generated imports used an INVENTED module (github.com/resistance-app/…)
+  — stage_implement never named the module. Seed 199 applied+ledgered (Hard rule 8:
+  github.com/gqls/agentchassis; snapshot 84c71c64). 198 left reserved for the PR.
+- UTC/BST clock trap hit again reading orch timestamps (10:45 UTC = 11:45 local).
+- NEXT: council verdict → chassis image v1.0.1152 → deploy → re-fire implementer
+  (round 4) with same approved plan corr 278a37c3 (delete feat/278a37c3 first — it
+  exists again, zero commits).
