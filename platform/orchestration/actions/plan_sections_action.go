@@ -834,6 +834,26 @@ func PlanSectionsAction(ctx context.Context, params ActionParams) (interface{}, 
 		readyNames[i] = s.Name
 	}
 
+	// Persist the skip decisions on the page row (bugs_open/040 skip-not-recorded;
+	// council corr 164058e6). Until this write, an on_missing=skip_section outcome
+	// lived only in this action's result — collected_data, which database-cleanup
+	// prunes — so pages.sections permanently promised sections the platform had
+	// deliberately declined to render, and the 040 partial-build guard
+	// (UpdatePageStatusAction) read every data-gated skip as a build shortfall and
+	// parked the page at needs_rebuild on every rebuild. The merge is symmetric:
+	// skipped names are added to pages.suppressed_sections (which every
+	// completeness reader already excludes) and names that planned ready this
+	// build are removed, so a section whose data later arrives is un-suppressed
+	// the same build it renders. Deferred sections are deliberately NOT
+	// suppressed — their debt stays visible via their needs_human_review item.
+	if params.DB != nil && (len(skipped) > 0 || len(ready) > 0) {
+		skippedNames := make([]string, len(skipped))
+		for i, s := range skipped {
+			skippedNames[i] = s.Name
+		}
+		persistSectionSkips(ctx, params.DB, siteID, pageName, readyNames, skippedNames, logger)
+	}
+
 	logger.Info("plan_sections: planning complete",
 		zap.Int("ready", len(ready)),
 		zap.Int("deferred", len(deferred)),
@@ -1686,6 +1706,77 @@ func closeResolvedDataRequest(ctx context.Context, db *sql.DB, siteID uuid.UUID,
 		logger.Info("closeResolvedDataRequest: stale data request auto-closed",
 			zap.String("section", sectionName),
 			zap.String("page", pageName))
+	}
+}
+
+// ============================================================================
+// Persist skip decisions onto the page row (bugs_open/040 skip-not-recorded)
+// ============================================================================
+
+// persistSectionSkips durably records this build's on_missing=skip_section
+// outcomes: pages.suppressed_sections := (current − readyNames) ∪ skippedNames.
+// The column was verified unused fleet-wide before adoption (0 of 306 pages,
+// 2026-07-24) and every completeness reader — the 040 partial-build guard in
+// UpdatePageStatusAction, check_empty_sections, check_required_fields_missing —
+// already excludes it, so recording here is what stops a legitimately
+// data-gated section being counted as a build shortfall forever. Removing
+// readyNames makes the record self-healing: when the missing data later
+// arrives and the section plans ready, it is un-suppressed the same build.
+// Deferred sections are NOT passed here (their needs_human_review item is
+// their durable trace). Warn-not-fail: a persistence failure must not break
+// the build (same fail-open convention as the guard's own check errors).
+// Values stay plain text names — readers use jsonb `?` containment.
+func persistSectionSkips(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string, readyNames, skippedNames []string, logger *zap.Logger) {
+	// nil-safety: a nil slice marshals to JSON null, which would make
+	// jsonb_array_length($4::jsonb) fail and disarm the WHERE tail's no-op
+	// guard. Always send [] for empty.
+	if readyNames == nil {
+		readyNames = []string{}
+	}
+	if skippedNames == nil {
+		skippedNames = []string{}
+	}
+	readyJSON, err := json.Marshal(readyNames)
+	if err != nil {
+		logger.Warn("persistSectionSkips: marshal ready failed", zap.Error(err))
+		return
+	}
+	skippedJSON, err := json.Marshal(skippedNames)
+	if err != nil {
+		logger.Warn("persistSectionSkips: marshal skipped failed", zap.Error(err))
+		return
+	}
+	// The WHERE tail makes the call a no-op unless there is something to add
+	// (skips this build) or possibly remove (an existing non-empty set), so the
+	// common all-ready/nothing-suppressed build never rewrites the row.
+	result, err := db.ExecContext(ctx, `
+		UPDATE pages SET suppressed_sections = (
+			SELECT COALESCE(jsonb_agg(v ORDER BY v), '[]'::jsonb) FROM (
+				SELECT DISTINCT v FROM (
+					SELECT jsonb_array_elements_text(COALESCE(suppressed_sections, '[]'::jsonb)) AS v
+					EXCEPT
+					SELECT jsonb_array_elements_text($3::jsonb)
+					UNION
+					SELECT jsonb_array_elements_text($4::jsonb)
+				) u
+			) s
+		), updated_at = NOW()
+		WHERE site_id = $1 AND name = $2
+		  AND (jsonb_array_length(COALESCE(suppressed_sections, '[]'::jsonb)) > 0
+		       OR jsonb_array_length($4::jsonb) > 0)
+	`, siteID, pageName, string(readyJSON), string(skippedJSON))
+	if err != nil {
+		logger.Warn("persistSectionSkips: update failed",
+			zap.String("page", pageName),
+			zap.Strings("skipped", skippedNames),
+			zap.Error(err))
+		return
+	}
+	if rows, _ := result.RowsAffected(); rows > 0 {
+		logger.Info("persistSectionSkips: skip decisions persisted to suppressed_sections",
+			zap.String("page", pageName),
+			zap.Strings("skipped", skippedNames),
+			zap.Int("ready_unsuppressed_candidates", len(readyNames)))
 	}
 }
 

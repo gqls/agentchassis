@@ -670,6 +670,11 @@ func UpdatePageStatusAction(ctx context.Context, params ActionParams) (interface
 		default:
 			// Page has >= 1 component but may still be short of its plan.
 			// Fail-open on a check error, same as the 0-component guard above.
+			// suppressed_sections (subtracted inside pageSectionShortfall) is
+			// maintained by plan_sections' persistSectionSkips: an
+			// on_missing=skip_section name is added there and removed again the
+			// build it plans ready — so a legitimately data-gated section does
+			// not count as a shortfall here (bugs_open/040 skip-not-recorded).
 			planned, rendered, shErr := pageSectionShortfall(ctx, params.DB, pageID)
 			if shErr != nil {
 				params.Logger.Warn("UpdatePageStatusAction: section-shortfall check failed; proceeding with deploy",
