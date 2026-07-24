@@ -1178,3 +1178,58 @@ path. Not chased (bugfix threads own that area); recorded here so it is not lost
 the card grid would not have stopped the writer.
 
 P5.2 (search-that-answers) not started this session — regression triage took priority.
+
+## 2026-07-24 (afternoon) — P5.2 BUILT: engine search + homepage box + generator reconcile
+
+Operator approved full P5.2 with the generator-reconcile route for nginx. Delivered:
+
+**1. Engine (gqls/site-engine, commit `c049b8f`, pushed → auto-deployed by the Action).**
+`GET /buscar` renders a server-side Spanish results page: query matched (AND semantics,
+Spanish diacritic folding, title > topics > summary ranking) against the site's published
+`data/news-archive.json` plus a reference index of guías/glosario page `<title>`s; news
+links OUT, reference links local, honest empty state. `html/template` throughout — the
+visitor's query and feed text are auto-escaped, pinned by test (the chassis's
+text/template no-escape mistake must not migrate). All env-gated, default-off:
+`WEBROOT_DIR` enables the page, `RESULTS_PATH` flips `/intent`'s success redirect to
+`/buscar?q=…` (POST-redirect-GET — recording byte-identical, GET records nothing). First
+12 tests in that repo; one caught my patch silently no-opping (I'd edited against the
+chassis SNAPSHOT of service.go, whose IntentEvent has a LandingQuery field the real repo
+lacks — the replace found no match; existence-of-a-snapshot ≠ fidelity).
+
+**2. Homepage box LIVE, delivered with zero LLM calls.** Re-placed the existing
+`intent-probe` component (it survived in the library) at position 3: hand-authored Spanish
+content_data; `config.intent_probe.{kind,privacy_text}` written as a `site_specs
+site_config` aspect so the Spanish privacy text survives re-resolution (config.* resolves
+from site_specs — plan_sections_action.go:496; content_data alone would be overwritten by
+the EN fallback on every light re-render). Updated `pages.sections` AND
+`site_plan_sections` (the two-tables trap) + `page_components` positions. POST /intent →
+303 /gracias.html today; flips to results when RESULTS_PATH is set post-re-run.
+
+**3. nginx generator reconciled (`c0d205cdd`)** — setup.sh now owns: `/buscar` (rate-limited),
+the legacy-feed block + the 3 residual-404 variants (case-insensitive rss2, bare path,
+/ventas|/forums), CF real-ip conf.d (P0). Rendered output verified as a strict superset of
+the live conf's locations. **One owner-run re-run converges the box** (then: set
+WEBROOT_DIR=/var/www/vm-sites + RESULTS_PATH=/buscar in /etc/site-engine/site-engine.env,
+restart engine; then retarget+enable the intent-collection scheduled task — /events 404s
+on the live conf until the re-run, so the collector CANNOT be enabled before it).
+
+### MY SEQUENCING ERROR, and the third card roll
+
+The morning's cards repair was destroyed AGAIN at 14:01 by one more LLM roll: a 13:45 feed
+cycle emitted the mis-routed items IN THE GAP between my repair (~13:30) and parking the
+suppressors (~15:25). Suppression has held since (no emitter items after 13:45). The p52
+box render then faithfully served the rolled content — which is exactly what a
+content_data-faithful renderer should do; the data was wrong, not the render. Repair
+re-applied post-suppression + re-delivered. **Rule to carry: park the suppressor BEFORE
+repairing the data it protects — protection first, then repair.**
+
+### Also this afternoon
+- 029 recurrence (2 build-pipeline-triggers hung at call_dispatch + 2 children) — the
+  documented recovery worked again; my p52 item dispatched within a tick of the cancels.
+  kcat vanish trap also bit 4 more times (dispatches with no orchestration row).
+- Emitter-fix council round 1 = REVISE → answered/actioned: shared `insertPageRerenderItem`
+  helper extracted (`4b8a8ca47` — reuse objection was right), handler-side gate verified as
+  spec.reason-alone (editquality's component_id concern answered with the live workflow
+  conditional + execution proof), bugs_open/063 filed (validator email fail-open — the
+  bug_historian's insistence found a sharper mechanism than my notes entry). Round 2
+  resubmitted on corr 320878ca; verdict watcher running.
