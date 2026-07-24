@@ -4942,16 +4942,19 @@ func realisedPageIsBuilt(rm map[string]interface{}) bool {
 // adopted pages through that one plan and is empty on every re-plan thereafter.
 //
 // Renamed 2026-07-22 from the misleading "adoption_locked" (there was never a
-// per-page or 90-day lock — bugs_open/051). The old alias is read as a fallback so
-// a re-seeded query and a renamed chassis are safe to land in either order: the
-// query emits both names during the transition (migration 193), and either name
-// resolves to the same boolean. Drop the fallback (and the query's transition
-// alias) once this renamed chassis is fleet-live.
+// per-page or 90-day lock — bugs_open/051). The live query now emits ONLY
+// site_has_no_current_plan: migration 193 added it beside the old alias, the
+// renamed chassis (v1.0.1151) went fleet-live reading it, then migration 194
+// dropped the adoption_locked alias. The adoption_locked read below is KEPT as a
+// defensive compat path — it is dead against the current query, costs nothing,
+// resolves a snapshot rollback of 194, and is what the reconcile tests exercise
+// (their fixtures set the old key). An absent flag degrades to false, matching
+// realisedPageIsBuilt's treatment of a missing column.
 func noCurrentPlanFlag(rm map[string]interface{}) bool {
 	if v, _ := rm["site_has_no_current_plan"].(bool); v {
 		return true
 	}
-	v, _ := rm["adoption_locked"].(bool) // legacy alias, pre-193 query
+	v, _ := rm["adoption_locked"].(bool) // legacy alias, kept as a defensive compat read
 	return v
 }
 
