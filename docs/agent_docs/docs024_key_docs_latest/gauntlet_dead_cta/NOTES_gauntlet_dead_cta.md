@@ -425,3 +425,16 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   time). 098 will bucket it accordingly — the corr in the message is the audit path.
 - Round 5b: attempt 1 ALSO dropped (4th bug-003 sighting in 2 days); attempt 2 fired
   13:58:03Z via the ingest-confirming script.
+
+## 2026-07-24 — rounds 5/5b/6: two self-inflicted lessons + one real deploy gap
+- Round 5/5b pile-up: my 120s "ingest or refire" window contradicted the RECORDED
+  queue-latency lesson (ingest under load = minutes; one fire ingested ~9 min late).
+  THREE implementers raced one corr; all mutually E4-refused. Logged in WRONG_CALLS
+  (absence-called-failure family → 6). Fire scripts now single-shot + patient.
+- Round 6 refused with the ORIGINAL formatter error DESPITE the pod-verified 1155
+  roll: spawned implementer pods take their image from agent_definitions.image_tag,
+  which pinned v1.0.1151 — the deployment's pod-grep verified the WRONG runtime.
+  LANDMINE (new, durable): "pod-verify the deploy" must verify the pod that will
+  RUN THE CODE — for spawned per-agent pods that is agent_definitions.image_tag,
+  not the chassis deployment. Rows updated 1151→1155 (snapshots 84c71c64/28ade197).
+- Round 7 fired (patient script, watcher bjhtkcwn2), branch namespace clear.
