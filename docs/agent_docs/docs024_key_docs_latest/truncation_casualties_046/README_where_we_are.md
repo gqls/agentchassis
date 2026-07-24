@@ -71,3 +71,27 @@ broken tools need rebuilding (the fabrication-risk area, so a human should drive
 it), and the live pages need re-rendering through the pipeline another thread
 owns. But from today, any new casualty like this will surface itself as a tracked
 item automatically — which is the thing that was missing when this bug was filed.
+
+---
+
+**2026-07-24 (bugfix-046 thread)**
+
+Good news on two fronts. While I was away, the two things that were blocking the
+actual repair both got fixed by other threads: the "how do we get a fixed tool
+onto the live page" problem (bug 024) is solved — there's a sanctioned path now —
+and the "the tool-rebuilder invents fake data" problem (bug 020) is fixed too. So
+the road is clear.
+
+I used that to finish off the grip-force calculator on robot-hands.com properly.
+Last time I'd repaired its recipe but the live page was still broken. Today I
+pushed the repair through the sanctioned delivery path and confirmed on the live
+site: the broken (never-closed) script is gone, the tool's JavaScript is now
+whole. That's the first one completely fixed, front to back — and it proves the
+delivery recipe works, which is the thing that matters for the rest.
+
+The remaining eight are the harder ones: none has a clean old version, so each
+needs a genuine rebuild by the tool-generator (now safe, thanks to the fake-data
+fix), then the same delivery step I just proved. That's a bigger, LLM-heavy job
+that changes eight live customer tools and produces new designs for each, so I've
+stopped here to check how you'd like to proceed rather than firing off eight
+rebuilds unprompted.

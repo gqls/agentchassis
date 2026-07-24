@@ -90,3 +90,28 @@
   (`unterminated:["<script"]`, `intact_version_available:false`, priority 35,
   needs_human_review). The unplaced archetype-clash-calculator was correctly NOT
   flagged (0 page_components). Correctness proven, not just deployment.
+
+## 2026-07-24 — grip-force FULLY repaired live; delivery blocker gone
+
+- Re-grounded: census still 8. Both blockers I'd deferred to are now CLOSED by
+  other threads: **024 (delivery)** — sanctioned path is section-editor
+  `apply_section_edit`/`content_edit` (features_open/009, migration 195 wired
+  tool-improver's tail to it); **020 (fabrication)** — prompt mig 183 +
+  `check_tool_fabrication` gate, live. Chassis now v1.0.1151.
+- **Delivered grip-force LIVE** via the section-editor content_edit path (a pure
+  re-render from the current, now-good template — no LLM). Drove it with the 086
+  direct-orchestrator wrapper (spawn section-editor → call_agent), input_data
+  carrying site_id/page_component_id/page_name/slot_name/edit_type=content_edit/
+  field_updates={}. Wrote a reusable drive script (scripts/deliver_via_section_editor.sh).
+- Result (corr 06c6c158): section-editor orchestration COMPLETED; rendered_html
+  23,874(1/0) → 23,526(1/1); build_status deployed; **live page 3/3 script tags
+  (was 3/2).** Full end-to-end repair proven.
+- Trap banked: the `content_edit field_updates={}` empty-object DID pass cleanly
+  through the wrapper's call_agent input_mapping — apply_section_edit accepted it
+  (features_009 said {} satisfies the non-nil requirement; confirmed live).
+- Trap banked: curl to a missing scratchpad dir returns "HTTP 200" with 0 bytes
+  (the -o write fails, not the fetch). mkdir the dir; the live page was fine (200,
+  38,318 bytes) once the file could be written.
+- For the 8 remaining: recipe is regenerate (tool-recreation, fabrication-gated) →
+  deliver (section-editor). Left as an owner decision — LLM-heavy + changes 8 live
+  customer tools + each regenerated tool is a NEW design.

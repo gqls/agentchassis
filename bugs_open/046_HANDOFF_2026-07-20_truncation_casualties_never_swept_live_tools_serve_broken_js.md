@@ -3,10 +3,47 @@
 **Filed:** 2026-07-20 · travelling-docs thread
 **Severity:** high — live customer-facing breakage on **6 domains**, present now,
 and invisible to every check we have.
-**Status:** OPEN. Detection (candidate 2) is **LIVE, ENABLED, and PROVEN
-end-to-end** (v1.0.1149 + seed 186, 2026-07-22); grip-force restored at source
-(census 9 → 8); 8 remain (no intact version → regeneration). The live *pages* are
-still broken pending re-render delivery (bugs_open/024). See the UPDATEs below.
+**Status:** OPEN. Detection **LIVE + ENABLED + PROVEN** (v1.0.1149 + seed 186).
+**grip-force FULLY REPAIRED end-to-end and LIVE** (template + render + live page,
+2026-07-24). **8 remain — they need LLM regeneration (no intact version); the
+delivery recipe for them is now PROVEN.** See the UPDATEs below.
+
+---
+
+## UPDATE 2026-07-24 — grip-force fully repaired LIVE; the delivery blocker (024) is gone
+
+Two blockers I recorded on 07-21 are now **both resolved by other threads**:
+- **bugs_open/024 (delivery) is CLOSED.** A tool page is `rebuild_policy='owned'`,
+  so the generic rerender is (correctly) forbidden; the sanctioned delivery is the
+  **section-editor** agent's `apply_section_edit` (`edit_type=content_edit,
+  field_updates={}`) — a pure re-render from the *current* template, no LLM, git
+  commit + deploy. Recipe: `features_open/009` + `bugs_closed/024`.
+- **bugs_open/020 (tool-recreation fabrication) is CLOSED** — prompt fix (mig 183)
+  + `check_tool_fabrication` gate live (v1.0.1150+). So regeneration is now safe.
+
+**grip-force delivered LIVE via the section-editor** (corr
+`06c6c158-4c0b-4eef-8479-9251c02480d1`, section-editor orchestration COMPLETED):
+- `page_components.rendered_html`: 23,874 (script 1/0, damaged) → **23,526 (1/1,
+  balanced)**; `build_status='deployed'`.
+- **Live page** `https://robot-hands.com/tools/grip-force-friction-calculator/index.html`:
+  `<script` 3 / `</script>` **3** (was 3/2). **The unterminated script is gone.**
+
+First casualty fully repaired end-to-end (source + render + live page); proves the
+delivery half of the recipe. Drive script:
+`docs/agent_docs/docs024_key_docs_latest/truncation_casualties_046/scripts/deliver_via_section_editor.sh`.
+
+### Repair recipe for the remaining 8 (all need regeneration — no intact version)
+1. **Regenerate the template** — `needs_tool_recreation` → tool-recreation-handler
+   (now fabrication-gated, bugs_closed/020). Produces a NEW tool (won't match the
+   original design); for a broken tool, working ≠ broken is a win.
+2. **Deliver** — section-editor `content_edit` (the proven recipe above).
+   NB: a regenerated tool referencing an EXTERNAL `/tools/assets/{fn}.js` needs an
+   assemble-only JS republish afterwards (gauntlet_dead_cta republish pattern) —
+   `apply_section_edit` does not run `collectJSAssets`. grip-force's script is
+   inline, so it needed none.
+
+**Owner decision point:** whether to mass-regenerate the 8 live tools (LLM-heavy,
+changes 8 live customer tools) or triage per-tool. Not auto-triggered.
 
 ---
 
