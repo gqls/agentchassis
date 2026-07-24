@@ -2647,6 +2647,67 @@ a lagging/stale answer still reads as "absent"; the 019-family protection) and t
 outdated docs019 manual trigger (fix #2). The cadence fixes the "drifts for weeks"
 headline; the guard is the deeper "absence is not an answer" fix.
 
+---
+
+## Turn 50 — 2026-07-24 — council VETOED #3's delivery (rework shipped); freshness guard BUILT
+
+Owner: "council gate first then build 059's read-time freshness guard." Both done —
+and the gate earned its credits by vetoing my delivery mechanism.
+
+**#3 → council 6cdbc374 round 1 = REJECTED, guardian hard veto (4 approve /
+3 object / 1 veto / 8 abstained).** The guardian blessed the LOGIC ("well-scoped,
+fail-open, and falsification-tested — this part is fine") and vetoed the DELIVERY:
+round 1 threaded the whole plan through `ActionParams` + edited `buildActionParams`
+— "the universal ActionParams contract and the coordinator's core dispatch
+function" widened for ONE pipeline's two-sibling-step contract; "foundational
+plumbing edited because it was the easiest place to reach from". Named alternative:
+keep the check inside the diagnosis pipeline's own boundary. Other objections:
+editquality (fail-open on nil is SILENT — log it; the diagnose_state coupling
+question; every-gather vs first-gather deviation), reuse_agent + prior_art (the
+absence claims — no existing validator / no existing plan field — were asserted,
+not code_checked).
+
+**Rework shipped (`3af7b9d8d`), exactly the veto's named alternative:**
+`ActionParams.WorkflowSteps` and the coordinator line REMOVED (walk-back total —
+grep confirms zero references); `diagnose_load_runtime` now reads ITS OWN
+orchestration's `workflow_plan->'steps'` from the DB (`loadOwnWorkflowSteps` — one
+indexed SELECT per gather, the action already holds DB + orchestration id);
+`validateRouteWiring` + falsification tests kept unchanged; every skip path now
+LOGGED (editquality). Commit-set compile-verified against CLEAN HEAD via
+git-archive overlay. **Resubmitted as round 2 on the same trail**
+(RESUBMIT_CORR=6cdbc374) with the sketches rewritten to the new delivery and every
+seat's evidence-ask answered inline (the searches were run: NO existing workflow
+validator, NO pre-existing plan field on ActionParams; diagnose_state is the ROUTE
+step's self-coupling, out of this reader's contract). NO Council-Reviewed trailer
+on either commit — REJECTED verdicts earn none; the trail is in the message prose.
+
+**Same-file passenger knot, resolved deliberately:** the shared tree carried
+another session's in-flight bugs_open/060 work (`RunAgentType`) in coordinator.go +
+types/context.go + ai_actions.go. My walk-back HAD to land types.go+coordinator.go
+atomically (HEAD stops compiling otherwise), and their coordinator hunk references
+the context.go field — so excluding context.go would ALSO break HEAD. Resolution:
+include coordinator.go + types/context.go (their 060 halves ride, NAMED and
+attributed in the commit message), leave their compile-independent ai_actions.go
+out, and prove the exact commit-set compiles against clean HEAD before committing
+(git archive overlay — the shared-tree-wont-compile technique). The passenger is
+unpreventable (CLAUDE.md); the sin would have been silence.
+
+**059 fix #3 — the read-time freshness guard — BUILT & committed (`f21e54687`,
+inert until image roll), submitted to the gate (corr 8ed67200).**
+`codeIndexFreshness` (one QueryRow: newest code_symbols commit_sha+updated_at) →
+`freshnessBanner` (PURE decision/format fn — every branch unit-testable without a
+DB). Prepended at BOTH render sites: diagnose_code_lookup's reviewer-answers header
+(incl. prior_art's existence checks) and diagnose_load_runtime's code-evidence
+header. Branches: fresh = quiet age+sha line; stale (>48h = one missed fire of the
+24h cadence) = loud banner naming age/date/sha/remedy; empty index = loudest;
+query error = fail-open unknown-freshness note. Falsification-tested branch by
+branch incl. the boundary (age==threshold does not flag). Threshold deliberately a
+const, not config: one platform-wide fact tied to the cadence row, and the banner
+always prints the ACTUAL age so the reader can judge regardless.
+
+Verdicts pending on both (monitor running). NEXT session: read both verdicts
+BEFORE building further on either.
+
 ## 2026-07-24 — code-lookup misses CLOSURES: `handleMissingField` unresolvable, drove a 5-iteration run to UNVERIFIABLE (from the 040-partial-build thread)
 
 Diagnosis corr `f9bcee6f` (skip-not-recorded mechanism) ended **UNVERIFIABLE** with its

@@ -1576,3 +1576,35 @@ follows the evidence to the real cause even when that means overruling the perso
 who asked. The thing it found is minor and I haven't rushed to fix it (it's your
 call whether it's worth it), but the machinery is proven. That was the last big
 thing the previous session left owed.
+
+---
+
+**2026-07-24 (later) — the council vetoed my own fix's plumbing, and it was
+right.**
+
+You asked me to put the wiring-guard change through the reviewer council and then
+build the index freshness warning. Both done — and the council run was worth every
+penny, because it rejected my change. Not the idea: the reviewers agreed the check
+itself is sound, careful, and well-tested. What the safety reviewer vetoed was HOW
+I'd delivered it — I had widened a piece of core plumbing that every workflow in
+the whole platform passes through, just to solve a problem that lives in one
+corner of one pipeline. Its words, roughly: you edited the foundations because
+they were the easiest place to reach from. That's a fair cop, and it's exactly the
+class of creeping damage the council exists to catch.
+
+The veto came with a prescription — keep the check entirely inside the diagnosis
+pipeline's own walls — so I rebuilt it that way the same afternoon: the foundation
+changes are removed, the check now gets what it needs by reading the diagnosis
+run's own saved plan, and the proven test suite carried over untouched. I've
+resubmitted the reworked version so the trail shows the veto was acted on, not
+shelved.
+
+Then the freshness warning: every code answer the diagnosis loop or a reviewer
+gets from the code index now carries a line saying how fresh that index is — a
+quiet note when it's current, a loud warning when it's out of date ("code newer
+than X is not in here — a 'no match' may mean not-yet-indexed, not absent"). The
+rule was always written above those answers; now the fact needed to apply it is
+too. Tested by deliberately simulating a stale, an empty, and a broken index and
+checking each produces the right warning. It takes effect at the next image
+rebuild. Both changes are with the council now; I'll read the verdicts before
+going further.
