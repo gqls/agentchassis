@@ -7,10 +7,12 @@
 > reassigned — **resolve by slug.** Council submission `7152c7cf` references *this* one (the chrome
 > escalation follow-on). They are unrelated.
 
-**Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** DEPLOYED & LIVE in **v1.0.1150**
-(2026-07-23), council-APPROVED — but **OPEN pending the induced-fault behavioural test** (deploy-grep
-proves deployment, not detection). Commits `524b03f03` → `0132f859b` → `2afa6531a`. Council trail
-`SUBMISSION_CORR=3951e2be-cf0e-4f73-901f-27bd84b3342d` (APPROVED, round 2).
+**Filed:** 2026-07-21 · idea.uk vm site thread · **Status:** ✅ **CLOSED — FIXED, LIVE & BEHAVIOURALLY
+VERIFIED** on **v1.0.1155** (2026-07-24). Council-APPROVED. Commits `524b03f03` → `0132f859b` →
+`2afa6531a`; council trail `SUBMISSION_CORR=3951e2be-cf0e-4f73-901f-27bd84b3342d`. Its own scope
+(chrome dead-control drop + escalate) is complete; the general unread-pile drain stays `033`'s and the
+page-render paths are a noted follow-on — both explicitly out of scope (see foot). See "VERIFIED
+2026-07-24" below.
 **Severity:** medium — it is the second half of a fix whose first half (observability) is already in
 council review. On its own the gap is "a dead control is now logged loudly but nothing acts on it".
 **Class:** structural — completes the FAIL-LOUD contract for the render path; requires a staged
@@ -111,6 +113,34 @@ from the chrome side and the page side. Grep `023` and coordinate before buildin
 - `bugs_open/023` — CTA label/URL pairing unchecked; **its fix #3 is the same consumer this needs — coordinate.**
 - `docs024_key_docs_latest/idea_uk_vm_site/RUNNING_NOTES §X.6–X.7` — the two council rounds and the measurements.
 - Council submission `7152c7cf` round 3 rationale — the owner ruling that created this file.
+
+---
+
+## VERIFIED 2026-07-24 — induced the failing branch on the live binary, both halves proven
+
+Deploy-grep alone proves deployment, not detection (this fix's own genesis, 018/041). So I built the
+missing trigger and induced a real dead chrome control on a throwaway site:
+
+- **The trigger gap:** no existing agent renders chrome without also deploying — `rerender-site` and
+  `nav-updater` both chain `render_site_components → render_js_snippets → deploy_js_snippets (git_commit)
+  → page deploy` (~26–37 commits to `gqls/sites` + B2 + CF per run). So I added a minimal
+  **`render-site-chrome`** agent (`render_site_components → complete`, `site_id` from input_data,
+  config-only/live, manual-dispatch) and a scratch-site verifier. Both in
+  `054_chrome_verify/` (`01_render_site_chrome_agent.sql`, `02_verify_054_induced_fault.sh`).
+- **Induced fault:** scratch site `scratch-054-verify.invalid` with the **ungated**
+  `header-with-search_pre_037` on its header slot (bare `<a href="{{.nav_link_N_url}}">`,
+  `src="{{.logo_url}}"`, `<a href="{{.cta_url}}">` — none resolvable). Dispatched `render-site-chrome`.
+- **Result (both PASS, on v1.0.1155):**
+  - **Half 1 (drop):** rendered header — `has_empty_url_attr=false`, `has_unrendered_placeholder=false`,
+    header markup intact, some anchors still present (surgical, not a wipe), length 10220→9250.
+  - **Half 2 (escalate):** exactly one `chrome_dead_control` row at `status=needs_human_review`,
+    **no handler_agent**, `source=render-site-components`, `dead_url_fields=["cta_url","logo_url",
+    "nav_link_1_url".."nav_link_4_url"]` — the 6 unresolvable URL fields, named precisely.
+  - Scratch site cleaned up; the reusable trigger + verifier are committed for the next time.
+- **Trap fixed along the way:** the first agent used `ensure_site_record` as start_step — it FAILED on a
+  spec-less scratch site. `render_site_components` reads `site_id` from input_data and loads its own site
+  data, so the step was unnecessary; dropped it. Also `psql -tA` on `INSERT … RETURNING` prints the
+  `INSERT 0 1` command tag alongside the value — switched to INSERT-then-SELECT.
 
 ---
 
