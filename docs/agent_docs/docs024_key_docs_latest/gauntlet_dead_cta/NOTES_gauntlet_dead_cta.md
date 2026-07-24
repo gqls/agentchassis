@@ -322,6 +322,41 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   exposure, but rotate those peers at a convenient moment (regenerate peer
   confs + restart; 5 min). Do NOT paste key material into docs.
 
+## 2026-07-24 — owner floats a STANDALONE ISLAND for tools-api (off-cluster); dependency audit says YES, and smaller than asked
+- Owner (bastion-host session): likes Mythic Beasts; asks whether a cut-down
+  cluster (kafka + postgres) on Mythic Beasts could run the API fully
+  independently of the production cluster, given the pipeline's risk to it.
+- Dependency audit of the APPROVED v3 plan (read from designer orch 5bff84b3
+  collected_data, 198KB, still inside the 24h prune window):
+  **ZERO kafka references in the entire design** — tools-api is a plain gin
+  HTTP service. Full surface: pgxpool + DSN from env (ONE new table,
+  gauntlet_rounds, migration 198); platform/aiservice → outbound Anthropic
+  (model via config, default claude-sonnet-5); provocation fetched server-side
+  from the calling site's PUBLIC /data/provocations.json (plain HTTPS GET —
+  no cluster dependency); platform/health; in-memory rate limit. The ONE
+  platform-DB coupling: CORS allowlist derived from the sites table.
+- So the island needs: 1 small VM + Postgres. NO kafka, NO k8s. Compose (or
+  systemd binary) suffices. Mythic Beasts real pricing (order page, 2026-07-24):
+  VPS 2 = 1 vCPU/2GB £7/mo, VPS 4 = 2 vCPU/4GB £13.50/mo, SSD 8p/GB.
+  VPS 2 + 20GB ≈ £8.60/mo covers tools-api + Postgres + Caddy + cloudflared.
+- Security consequence: the public pipeline then NEVER touches the production
+  cluster — bastion + dedicated wireguard-bastion + egress policy all become
+  unnecessary (KEEP drafted in infra/ as the fallback design). Island blast
+  radius = gauntlet_rounds data + the Anthropic key on the box → use a
+  DEDICATED spend-capped key, not the platform's.
+- Deltas the island needs from the build: (a) CORS origin source must work
+  without the sites table — env allowlist fallback (spec/PR-review note; the
+  spec item 9ed684bc is OWNED by the vonc 3 thread — coordinate, don't edit
+  their spec from here); (b) migration 198 applies to the ISLAND's DB, NOT
+  clients_db (keep an island-side ledger note); (c) deploy = compose on the VM,
+  the PR's kustomize files simply go unused (harmless, keep for fallback);
+  (d) [UNVERIFIED] whether aiservice usage-accounting hard-requires platform
+  tables — check at PR review.
+- CONCURRENCY note: vonc 3 fired ANOTHER implementer round 13:25 UTC
+  (wrapper 73172725 → complete_refused 0fe15199) — before the 430ed5c18
+  formatter fix has rolled, so same-class refusal expected. Their lane; not
+  touched from here.
+
 ## 2026-07-24 — chassis v1.0.1155 ROLLED, fix pod-verified; round 4 queued
 - Council resubmit (same trail 6bf3806f) after run 1 died on an Anthropic endpoint
   i/o timeout at review_editquality → complete_invalid (infra, not judgement).
@@ -332,3 +367,14 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   string present 1, control 1.
 - feat/278a37c3 cleared again; round 4 auto-fires after the 300s window
   (script bug3qv0lo waits, fires, polls). Same approved plan corr 278a37c3.
+
+## 2026-07-24 — round 4 refused on a path deviation MY rule seeded; 200 applied; round 5 fired
+- Round 4 (orch 0fe15199): allowlist refused internal/tools-api/config/config.go —
+  the model relocated the plan's internal/tools-api/config.go into its own package.
+  OWN-GOAL: seed 199's rule-8 example ("…/internal/tools-api/config") itself
+  suggested a config package dir, contradicting the plan's file list. The
+  deterministic allowlist behaved exactly right.
+- Migration 200 applied+ledgered: rule 8 rewritten — imports derive from THE PLAN'S
+  file paths; never relocate/rename/re-package a planned file; explicit negative
+  example. Snapshot taken.
+- Round 5 fired (script bz2essxgm) on the same approved plan.
