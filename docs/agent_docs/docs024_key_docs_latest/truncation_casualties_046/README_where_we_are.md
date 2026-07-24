@@ -95,3 +95,30 @@ fix), then the same delivery step I just proved. That's a bigger, LLM-heavy job
 that changes eight live customer tools and produces new designs for each, so I've
 stopped here to check how you'd like to proceed rather than firing off eight
 rebuilds unprompted.
+
+---
+
+**2026-07-24, later (bugfix-046 thread)**
+
+You asked for one full proof before touching the rest — done, and it worked. I
+picked the broken "arena" tool on vonc.com (our test site). First I worked out
+which of the platform's three rebuild mechanisms is actually right for these:
+the "recreate an adopted site's tool" path doesn't apply (these tools were born
+on the platform, not copied from an old site), and the "create a new tool" path
+would have made a duplicate page. The right one is the tool *improver* — it takes
+the broken tool as-is, is told exactly what's wrong, and rewrites it whole.
+
+That run took about three minutes: the rewritten tool came back complete (all
+tags closed, the JavaScript finished properly, no invented data — I checked),
+and I pushed it to the live site through the same delivery path proven this
+morning. The live arena page now serves whole JavaScript and the page content
+that used to be swallowed after the break is back.
+
+One stumble worth recording: my first attempt silently vanished because another
+team had just rolled a new server and there's a known quiet period right after a
+restart where requests get dropped. Re-firing after the window worked instantly.
+
+Scoreboard: two of the nine originally-broken components are now fully fixed and
+live (grip-force, arena). Seven remain: six broken tools actually sitting on
+pages, plus one orphaned component nobody uses. The proven recipe applies to all
+six. As agreed, I've stopped here for your go/no-go on running it across the rest.

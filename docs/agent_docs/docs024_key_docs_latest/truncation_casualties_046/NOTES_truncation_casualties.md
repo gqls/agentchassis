@@ -115,3 +115,36 @@
 - For the 8 remaining: recipe is regenerate (tool-recreation, fabrication-gated) →
   deliver (section-editor). Left as an owner decision — LLM-heavy + changes 8 live
   customer tools + each regenerated tool is a NEW design.
+
+## 2026-07-24 (later) — regeneration proof: arena-interface FULLY repaired (census 8 → 7)
+
+- Owner chose "one full proof first". Investigated the regeneration mechanism:
+  - `needs_tool_recreation`/tool-recreation-handler is for ADOPTED sites (rebuilds
+    from adoption-crawl interactive_features; its own comments defer generation to
+    the tool-suggester path) — wrong shape for our platform-generated tools.
+  - tool-generator's `create_tool_component` NO-OPs on an existing active tool
+    (`already_exists`) and its birth path always INSERTs a NEW page — a
+    regeneration would need deactivate-first + risks a duplicate page.
+  - **tool-improver is the right mechanism**: rewrites the existing component's
+    html_template in place from the current (truncated) template + an issue
+    statement (prompt = "Issue to Fix" + current HTML, sonnet-5 @ 32k); the write
+    guard's comparative checks deliberately allow a rewrite onto an already-broken
+    row; mig 195's tail auto-emits the section_edit delivery item.
+- MISSTEP + trap re-confirmed: first drive (corr 502ba210) published 57s after a
+  chassis pod restart (another thread's roll, pod start 12:44:01Z, publish
+  12:44:58) → spawn silently dropped, wrapper stuck AWAITING_RESPONSES. The
+  CLAUDE.md ~300s no-dispatch window, hit live. Re-fired once the pod was ~1h old
+  → ran immediately.
+- Proof run (corr 32a77a00, COMPLETED ~2.5min): arena template 23,353 (1/0, cut)
+  → **38,342, script 1/1, style 1/1, ends clean `})();</script>`**. No
+  fabrication tells (no PRNG/seed arrays, no external fetch — self-contained).
+  Census 8 → 7. mig-195 section_edit item bd51ff8a auto-emitted (triaged).
+- Delivery: drove section-editor directly (corr 64a6a599, COMPLETED — the queued
+  bd51ff8a rides the starved dispatch lane; a direct drive is idempotent with it).
+  rendered_html 38,342 (1/1); **live page vonc.com/tools/arena/index.html: HTTP
+  200, 55,870 bytes, 3/3 script tags** (bug's original evidence: 39,646 @ 3/2 —
+  the swallowed page tail is restored).
+- Closed tracked item ae5ab628 (status complete, evidence in result jsonb).
+- Recipe script: scripts/regenerate_via_tool_improver.sh (+ the existing
+  deliver_via_section_editor.sh). STOPPED here per the owner's instruction —
+  6 placed casualties + 1 unplaced-section remain for the scale-out decision.
