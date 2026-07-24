@@ -51,8 +51,12 @@ echo "pod=$POD  DropDeadURLControls symbols=$SYM  (0 => 054 not in this build; a
 PSQL "DELETE FROM site_work_items WHERE site_id IN (SELECT id FROM sites WHERE domain='$DOMAIN');" >/dev/null || true
 PSQL "DELETE FROM site_components WHERE site_id IN (SELECT id FROM sites WHERE domain='$DOMAIN');" >/dev/null || true
 PSQL "DELETE FROM sites WHERE domain='$DOMAIN';" >/dev/null || true
-SITE_ID=$(PSQL "INSERT INTO sites (domain, status) VALUES ('$DOMAIN','draft') RETURNING id;")
+# INSERT then SELECT (not RETURNING): psql -tA prints the "INSERT 0 1" command tag
+# on its own line alongside a RETURNING value, which pollutes a captured id.
+PSQL "INSERT INTO sites (domain, status) VALUES ('$DOMAIN','draft');" >/dev/null
+SITE_ID=$(PSQL "SELECT id FROM sites WHERE domain='$DOMAIN';" | head -1 | tr -d '[:space:]')
 echo "scratch site_id=$SITE_ID"
+[ -n "$SITE_ID" ] || { echo "FAIL: could not create scratch site"; exit 1; }
 
 # 2. assign the ungated header component to the header slot (rendered_html NULL so render will run)
 PSQL "INSERT INTO site_components (site_id, slot_name, component_id, build_status)

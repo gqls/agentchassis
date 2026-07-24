@@ -9,10 +9,12 @@
 -- -> page (re)assembly/deploy (~26-37 commits to gqls/sites + B2 sync + CF purge
 -- per run). That is far too heavy — and unsafe — for a scratch verification.
 --
--- This agent is the missing primitive: ensure_site_record -> render_site_components
--- -> complete. It renders header/footer chrome and stores site_components.rendered_html,
--- and does NOTHING else — no JS render, no git commit, no page deploy. It is
--- MANUAL-DISPATCH ONLY (never scheduled), so it is inert unless explicitly invoked.
+-- This agent is the missing primitive: render_site_components -> complete. It reads
+-- site_id straight from input_data (render_site_components loads its own site data
+-- via loadSiteDataFull, so no ensure_site_record step is needed — and ensure_site_record
+-- FAILED on a spec-less scratch site, 2026-07-24). It renders header/footer chrome and
+-- stores site_components.rendered_html, and does NOTHING else — no JS render, no git
+-- commit, no page deploy. MANUAL-DISPATCH ONLY (never scheduled) — inert unless invoked.
 --
 -- Config-only (agent_definitions): LIVE immediately, no image roll. Idempotent on
 -- (type, version). Remove with:
@@ -28,23 +30,17 @@ VALUES (
   true,
   '{
     "workflow": {
-      "start_step": "ensure_site_record",
+      "start_step": "render_chrome",
       "steps": {
-        "ensure_site_record": {
-          "action": "ensure_site_record",
-          "config": {},
-          "next_step": "render_chrome",
-          "description": "Find the site record by domain; produces site_record.site_id"
-        },
         "render_chrome": {
           "action": "render_site_components",
-          "config": { "slots": ["header", "footer"], "force_rerender": true },
+          "config": { "site_id_field": "input_data.site_id", "slots": ["header", "footer"], "force_rerender": true },
           "next_step": "complete",
-          "description": "Render site chrome ONLY (bugs_open/054 verify) — no render_js_snippets, no deploy_js_snippets, no page assembly"
+          "description": "Render site chrome ONLY (bugs_open/054 verify) — no render_js_snippets, no deploy_js_snippets, no page assembly. site_id from input_data."
         },
         "complete": {
           "action": "complete_workflow",
-          "config": { "output_fields": ["site_record", "site_components_rendered"] },
+          "config": { "output_fields": ["site_components_rendered"] },
           "description": "Done"
         }
       }
