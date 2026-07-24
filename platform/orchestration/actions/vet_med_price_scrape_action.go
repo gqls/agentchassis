@@ -143,6 +143,7 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 	totalScraped := 0
 	totalVariants := 0
 	totalFailed := 0
+	totalFidelitySkipped := 0
 
 	for _, listing := range listings {
 		if ctx.Err() != nil {
@@ -181,23 +182,53 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 			}
 		}
 
+		collectionMethod := "scrape"
 		if len(variants) == 0 {
 			// LLM fallback: if the page has prices but regex couldn't extract them,
 			// ask the local CPU Mistral to extract structured price data.
 			// This also collects training data for future LoRA fine-tuning.
+			//
+			// Gate on the truncated window the LLM will actually see, not the
+			// full product section: a £ beyond the truncation point (or a
+			// delivery-banner £ inside it) is no evidence the window holds a
+			// product price, and an LLM shown priceless text invents price
+			// tables (bugs_open/061).
 			productSection := extractProductSection(rawMarkdown)
-			if strings.Contains(productSection, "£") {
+			llmWindow := productSection
+			if len(llmWindow) > medLLMWindowChars {
+				llmWindow = llmWindow[:medLLMWindowChars]
+			}
+			if strings.Contains(llmWindow, "£") {
 				params.Logger.Info("MedScrapePrices: regex found 0 variants, trying LLM fallback",
 					zap.String("url", listing.RetailerURL),
 					zap.String("retailer_id", listing.RetailerID))
 
-				llmVariants := llmExtractPriceVariants(ctx, params, listing, productSection)
+				llmVariants := llmExtractPriceVariants(ctx, params, listing, llmWindow)
 				if len(llmVariants) > 0 {
 					variants = llmVariants
+					collectionMethod = "scrape_llm"
 					params.Logger.Info("MedScrapePrices: LLM fallback extracted variants",
 						zap.String("url", listing.RetailerURL),
 						zap.Int("variants", len(llmVariants)))
 				}
+			}
+		}
+
+		// Parse-fidelity guard (bugs_open/061): a price is stored only if its
+		// literal appears in the markdown retained as evidence for this scrape.
+		// Regex-extracted prices pass by construction; this catches the LLM
+		// fallback fabricating variants (8 rows in one 14-day window, each one
+		// llm_call_log-confirmed). Skip + count + Warn — never silent.
+		variantsFoundPreGuard := len(variants)
+		variants, guardDropped := medFilterVariantsByEvidence(variants, rawMarkdown)
+		if len(guardDropped) > 0 {
+			totalFidelitySkipped += len(guardDropped)
+			for _, d := range guardDropped {
+				params.Logger.Warn("MedScrapePrices: fidelity guard dropped variant — price absent from scraped markdown",
+					zap.String("url", listing.RetailerURL),
+					zap.String("size_variant", d.SizeVariant),
+					zap.Float64("price", d.Price),
+					zap.String("collection_method", collectionMethod))
 			}
 		}
 
@@ -207,7 +238,7 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 				zap.String("retailer_id", listing.RetailerID))
 			totalFailed++
 
-			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, screenshotURL, 0, 0, params.Logger)
+			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, screenshotURL, variantsFoundPreGuard, 0, params.Logger)
 
 			_, _ = params.DB.ExecContext(ctx, `
 				UPDATE business_intel.med_retailer_listings
@@ -219,7 +250,7 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 		}
 
 		// Store price snapshots
-		storedCount, err := storeMedPriceSnapshots(ctx, params.DB, listing, variants, rawMarkdown)
+		storedCount, err := storeMedPriceSnapshots(ctx, params.DB, listing, variants, rawMarkdown, collectionMethod)
 		if err != nil {
 			params.Logger.Warn("MedScrapePrices: failed to store snapshots",
 				zap.String("listing_id", listing.ListingID),
@@ -229,7 +260,9 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 			totalScraped++
 			totalVariants += storedCount
 
-			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, screenshotURL, len(variants), storedCount, params.Logger)
+			// variants_found records the pre-guard count so a fidelity drop is
+			// visible in the evidence row itself (variants_found > prices_stored).
+			storeMedScrapeEvidence(ctx, params.DB, listing, rawMarkdown, screenshotURL, variantsFoundPreGuard, storedCount, params.Logger)
 
 			params.Logger.Info("MedScrapePrices: stored",
 				zap.String("url", listing.RetailerURL),
@@ -261,13 +294,15 @@ func MedScrapePricesAction(ctx context.Context, params ActionParams) (interface{
 	params.Logger.Info("MedScrapePrices: complete",
 		zap.Int("scraped", totalScraped),
 		zap.Int("variants_stored", totalVariants),
-		zap.Int("failed", totalFailed))
+		zap.Int("failed", totalFailed),
+		zap.Int("fidelity_skipped", totalFidelitySkipped))
 
 	return map[string]interface{}{
-		"status":          "complete",
-		"scraped":         totalScraped,
-		"variants_stored": totalVariants,
-		"failed":          totalFailed,
+		"status":           "complete",
+		"scraped":          totalScraped,
+		"variants_stored":  totalVariants,
+		"failed":           totalFailed,
+		"fidelity_skipped": totalFidelitySkipped,
 	}, nil
 }
 
@@ -834,6 +869,70 @@ func parsePoundValue(s string) float64 {
 	return v
 }
 
+// medLLMWindowChars is the size of the markdown window handed to the LLM
+// fallback. The fallback fires only if this window — not the full product
+// section — contains a £ (bugs_open/061: gating on the full section let the
+// LLM see priceless text and invent a price table).
+const medLLMWindowChars = 1500
+
+// medFilterVariantsByEvidence is the parse-fidelity guard (bugs_open/061):
+// a variant is kept only if its price literal appears in the markdown that
+// storeMedScrapeEvidence will retain for this scrape, so a stored price is
+// always verifiable against its own evidence. A TVP absent from the markdown
+// is zeroed rather than dropping the variant. Returns kept and dropped.
+func medFilterVariantsByEvidence(variants []medExtractedVariant, markdown string) (kept, dropped []medExtractedVariant) {
+	mdNoCommas := strings.ReplaceAll(markdown, ",", "")
+	for _, v := range variants {
+		if !medPriceLiteralInMarkdown(mdNoCommas, v.Price) {
+			dropped = append(dropped, v)
+			continue
+		}
+		if v.TypicalVetPrice > 0 && !medPriceLiteralInMarkdown(mdNoCommas, v.TypicalVetPrice) {
+			v.TypicalVetPrice = 0
+		}
+		kept = append(kept, v)
+	}
+	return kept, dropped
+}
+
+// medPriceLiteralInMarkdown reports whether the price occurs verbatim in the
+// (comma-stripped) markdown with non-digit neighbours. The two-decimal form
+// ("17.95") may appear bare; shorter renderings ("£17", "£17.4") only count
+// £-prefixed, so a bare size figure like "17ml" cannot vouch for £17.00.
+func medPriceLiteralInMarkdown(mdNoCommas string, price float64) bool {
+	twoDP := strconv.FormatFloat(price, 'f', 2, 64)
+	if medLiteralOccurs(mdNoCommas, twoDP, false) {
+		return true
+	}
+	if minimal := strconv.FormatFloat(price, 'f', -1, 64); minimal != twoDP {
+		return medLiteralOccurs(mdNoCommas, "£"+minimal, true)
+	}
+	return false
+}
+
+// medLiteralOccurs scans for needle bounded by non-digits on both sides.
+// strictAfter additionally rejects a following '.' so "£17" cannot match
+// inside "£17.95".
+func medLiteralOccurs(haystack, needle string, strictAfter bool) bool {
+	for start := 0; ; {
+		idx := strings.Index(haystack[start:], needle)
+		if idx < 0 {
+			return false
+		}
+		idx += start
+		beforeOK := idx == 0 || haystack[idx-1] < '0' || haystack[idx-1] > '9'
+		after := idx + len(needle)
+		afterOK := after >= len(haystack) || haystack[after] < '0' || haystack[after] > '9'
+		if strictAfter && after < len(haystack) && haystack[after] == '.' {
+			afterOK = false
+		}
+		if beforeOK && afterOK {
+			return true
+		}
+		start = idx + 1
+	}
+}
+
 // cleanSizeLabel normalises the size variant label.
 func cleanSizeLabel(s string) string {
 	s = strings.TrimSpace(s)
@@ -870,7 +969,10 @@ func cleanSizeLabel(s string) string {
 }
 
 // storeMedPriceSnapshots inserts price snapshot rows and updates the listing.
-func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceListing, variants []medExtractedVariant, rawMarkdown string) (int, error) {
+// collectionMethod records how the variants were extracted: 'scrape' for the
+// regex parser, 'scrape_llm' for the LLM fallback (bugs_open/061: LLM rows
+// used to be indistinguishable from parsed ones).
+func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceListing, variants []medExtractedVariant, rawMarkdown, collectionMethod string) (int, error) {
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, fmt.Errorf("begin tx: %w", err)
@@ -900,7 +1002,7 @@ func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceLis
 		_, err := tx.ExecContext(ctx, `
 			INSERT INTO business_intel.med_price_snapshots
 				(listing_id, product_id, retailer_id, size_variant, price, in_stock, typical_vet_price, collection_method, raw_data)
-			VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, 'scrape', $8::jsonb)
+			VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
 			ON CONFLICT (listing_id, size_variant, collected_at) DO NOTHING`,
 			listing.ListingID,
 			productID,
@@ -909,6 +1011,7 @@ func storeMedPriceSnapshots(ctx context.Context, db *sql.DB, listing medPriceLis
 			v.Price,
 			v.InStock,
 			tvp,
+			collectionMethod,
 			string(rawJSON),
 		)
 		if err != nil {
@@ -1051,21 +1154,23 @@ func llmExtractPriceVariants(ctx context.Context, params ActionParams, listing m
 		model = "mistral-small3.1"
 	}
 
-	// Truncate markdown to ~1500 chars to reduce LLM inference time
+	// Truncate markdown to the fallback window to reduce LLM inference time
+	// (callers pass the window already; this is defensive)
 	md := productSection
-	if len(md) > 1500 {
-		md = md[:1500]
+	if len(md) > medLLMWindowChars {
+		md = md[:medLLMWindowChars]
 	}
 
 	prompt := fmt.Sprintf(`Extract all product size/price variants from this product page markdown.
 
 Rules:
+- Only extract prices that appear verbatim in the markdown below — never estimate, recall, or compute a price
 - Only extract actual product prices (not delivery, savings, or subscription amounts)
 - "was £X" means the price is £X (the product was previously sold at this price)
 - Include out-of-stock items with in_stock: false
-- If no valid prices are found, return an empty array
+- If the markdown shows no product prices, return an empty array: []
 
-Return ONLY a JSON array, no other text:
+Return ONLY a JSON array, no other text. Format example only — never copy its values:
 [{"size": "100ml", "price": 17.48, "tvp": 0, "in_stock": true}]
 
 Fields:
