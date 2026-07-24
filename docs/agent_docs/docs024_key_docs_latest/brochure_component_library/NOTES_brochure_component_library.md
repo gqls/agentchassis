@@ -1061,3 +1061,33 @@ Applied to the DB (content_components.html_template + input_schema, js_snippets)
 re-rendered the live capabilities.html instance, rebundled snippets.js, redeployed.
 Source synced in components/hero-card-carousel/. Design direction APPROVED by owner
 — proceed to place the components across the pages.
+
+## 2026-07-24 — carousel tweak-2 + FULL ROLLOUT placed & deploying
+
+**Carousel tweak-2 (owner feedback):** arrows nudged up (top:34%, over the image
+not the text); the WHOLE CARD is now the click target (card renders as an <a> when
+link_url present — the small link below is now a visual cue inside the card, not
+the click target); whitespace tightened (align-items:flex-start on the track so
+cards size to content; removed flex-grow/margin-auto filler). JS unchanged.
+Default-paused JS confirmed LIVE in snippets.js (the earlier stale bundle was an
+earlier-queued rebundle racing the DB update — one snippet row, correct content;
+re-fire after the update resolved it).
+
+**ROLLOUT (owner: "go ahead and roll it out") — one new component per page so the
+design varies per the brief, every instance grounded:**
+| page | component | position | content |
+|---|---|---|---|
+| index | stat-band (dark) | 2, under hero | 3 verified figures: 97% feed restored (relojistas), 11 live sites, <24h to a working site |
+| capabilities | hero-card-carousel | 2 (existing, tweaked) | 4 pillar cards → real pages |
+| about | people-feature-block | 3 | "Review first, ship second, correct openly" + hero-about illustration → council page |
+| multi-agent-review-council | swipeable-insight-carousel | 4 | 4 qualitative on-the-record insights (NO volatile counts — seat numbers change; attributions "our own decision records/commit history") |
+| model-fine-tuning | image-hover-card-grid | 4 | "Explore more" — 3 cards → council/capabilities/about with hero images |
+
+All placed via hand-rendered instances (page_components INSERT with position
+shift) + direct 049b deploys (queue backlogged as usual); stat-band count-up JS
+needs the site-asset-renderer rebundle (fired). Placement content_data JSONs
+version-controlled in components/placements/. Monitor watching all 6 signals
+(5 components + countup JS) to live.
+
+**Trap hit (shell):** printf with rendered-HTML containing % / ) breaks — build
+SQL files with echo/cat only (the shell-tool-traps memory strikes again).

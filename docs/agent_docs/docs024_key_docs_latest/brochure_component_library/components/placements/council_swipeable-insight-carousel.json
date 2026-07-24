@@ -1,0 +1,5 @@
+{"section_eyebrow":"On the record","section_title":"What independent review actually looks like","cards":[
+{"label":"Real objections","headline":"Reviewers object, and it's recorded","body":"Verdicts, objections and revisions are stored as a queryable decision trail, not a rubber stamp.","attribution":"our own decision records"},
+{"label":"A real catch","headline":"It caught a production-risk defect before it shipped","body":"A code review by the council flagged an unguarded call that could have aborted a production sweep.","attribution":"our own commit history"},
+{"label":"Self-correcting","headline":"It reviews us, too","body":"When a change was wrongly marked as approved, the correction went into the record by name.","attribution":"our own commit history"},
+{"label":"Every change","headline":"Platform changes go through the gate","body":"The same review process that checks client work checks the platform's own code.","link_url":"/capabilities.html","link_label":"Our capabilities"}]}
