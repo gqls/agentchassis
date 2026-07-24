@@ -1,5 +1,17 @@
 # Adding doc-subject type `experience-pattern` — the full change-set (P2)
 
+> **UPDATE 2026-07-24 (bugfix-064 thread, commit `c9cc95a5a`):** 064 is fixed ahead of P2 —
+> change-set items 1 and 3 below are DONE, and item 5's tests exist. The Go side is now
+> single-sourced in `platform/orchestration/actions/doc_subjects_common.go`
+> (`validDocSubjectTypes`, consumed by both `docResolveSubject` and the
+> `persist_diagnosis_note` gate, which now also has the distinct-reason log fix). A
+> migration-lockstep test (`doc_subjects_common_test.go`) parses the newest migration that
+> recreates `doc_plans_subject_type_check` and fails on drift. **P2 therefore shrinks to:**
+> add `"experience-pattern"` to `validDocSubjectTypes`, ship the migration (item 2), and
+> keep the image-before-migration order (item 6 unchanged; item 4 unchanged). If the P2
+> migration file lands without the Go entry, the lockstep test fails the build gate by
+> design. Inert until the next image roll; 064 stays in `bugs_open/` until the live proof.
+
 The subject_type contract currently has **four enforcement points**, and every addition so
 far has missed at least one (bugs_open/064): migration 163 (+`experience`) moved the DB
 CHECKs and `docResolveSubject` but missed `persist_diagnosis_note`; migration 184

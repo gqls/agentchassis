@@ -1,7 +1,8 @@
 # 064 — doc-subject split contract: the DB accepts subject types the doc actions reject
 
 Filed 2026-07-24 (session "experience register", found during register design research and
-verified first-hand). Status: **OPEN**. Severity: low-medium — no data loss, but a seeded
+verified first-hand). Status: **OPEN — fix committed `c9cc95a5a` 2026-07-24, inert until the
+next image roll** (see "Fix taken" below). Severity: low-medium — no data loss, but a seeded
 capability is silently unreachable and one note path silently drops valid subjects.
 
 ## Mechanism
@@ -73,3 +74,38 @@ its Phase-2 change-set and will fix this in passing — the full four-point chec
 `docs/agent_docs/docs024_key_docs_latest/experience_register/design/subject_type_addition.md`.
 If another thread touches doc subjects first: take the fix, note it here, follow that
 checklist (image before migration, or the widened CHECK just recreates 184's split).
+
+## Fix taken — 2026-07-24, session "bugfix 064 subject split contract"
+
+Taken per the invitation above (checked first: `who-owns.py` verdict read, experience_register
+P2 not started, no open `site_work_items`, no competing commits on the four files). Fix
+candidate 1 (preferred) implemented, commit **`c9cc95a5a`**:
+
+- NEW `platform/orchestration/actions/doc_subjects_common.go` — canonical
+  `validDocSubjectTypes = tool|pipeline|experience|action` (the `work_items_common.go`
+  v1.0.1127 lockstep idiom) + `docSubjectGateReason` with **distinct** skip reasons.
+- `docResolveSubject` and the `persist_diagnosis_note` gate both consume it: point count
+  4 → 2. Point-4 policy decided deliberately (per the checklist): any subject the substrate
+  accepts can carry a diagnosis note; the misleading `"no explicit subject"` log for
+  explicit-but-unsupported types is fixed (`"unsupported subject_type …"`).
+- Tests: table-driven vocabulary × both gates; distinct-reasons regression; a
+  **migration-lockstep test** that parses the newest `sql_for_agents` migration recreating
+  `doc_plans_subject_type_check` and fails on drift — verified by induced fault (widening the
+  Go list alone fails naming `184_travelling_action_subjects.sql`). Run in a clean
+  `git archive HEAD` overlay (shared tree was broken by unrelated WIP): all pass.
+- Scope: **Go-side only, no migration** — the DB was already wider than the code, so there is
+  no image-before-migration ordering risk. `'experience-pattern'` deliberately NOT added
+  (that stays in the experience_register P2 change-set; the lockstep test now catches a
+  P2 migration that lands without the Go entry).
+- Council gate: submission corr `2b03e56d-d770-4d8d-a1e2-4d3a46494927` — **APPROVED round 1**
+  (1 low-severity advisory: edit 5 — the test-comment tidy — is non-substantive; accepted,
+  it stays because the comment was factually stale). bug_historian's residual concern
+  (a possible THIRD hard-coded allowlist beyond the two gates) answered with evidence
+  post-verdict: `grep -rn '"tool"' --include='*.go' platform/ internal/ pkg/ | grep
+  '"pipeline"'` → only hit is `validDocSubjectTypes` itself; the only other subject-type
+  comparison grep hit is `page_role_validator.go` (page *roles*, unrelated domain).
+
+**Stays OPEN until live** (fixed-AND-live bar): after the next image roll, verify with the
+discriminating pod-grep (a string the change CREATED, e.g. `unsupported subject_type`, plus a
+positive control) and then the live proof above — a scratch `load_doc_context` with
+`subject_type='action'`, `subject_key='diagnose_build_gate'` returning the 184-seeded plan.
