@@ -42,6 +42,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the SCHEMA before naming a column — a Go map key is not a column** | **2** |
 | **check a SIBLING instance before calling a defect "generic"/fleet-wide** | **1** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
+| **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents** | **1** |
+| **check an example you write against the artifact it constrains** | **1** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
@@ -2227,3 +2229,35 @@ create" rule, applied to DB config rows. One query.
 **Cost:** ~10 minutes of checker-pattern absence on one site; nothing reached a
 handoff; the merge row is strictly better than either original (166 had no
 writer_block, which is why the WRITER kept inventing on vonc despite checkers).
+
+### 2026-07-24 — gauntlet/B4 — "the formatter fix is live — pod-verified" (it was, on the wrong pod)
+**Asserted:** after rolling chassis v1.0.1155 I reported the fix "POD-VERIFIED live"
+(discriminating symbol present, positive control present) and re-fired the implementer.
+**Actually:** the implementer runs as a SPAWNED dedicated pod whose image comes from
+`agent_definitions.image_tag` — pinned `v1.0.1151`. Round 6 failed with the exact error
+the fix removes, on a binary four tags old. The deployment pod-grep proved the image
+exists, not that the agent would run it. Fleet census after: 168 active chassis-image
+agent rows pinned to v1.0.1151 → filed `bugs_open/066`.
+**Caught by:** round 6's refusal reproducing the "impossible" error.
+**The cheap check that would have caught it:** verify the runtime that will EXECUTE the
+code path — for spawn-class agents, `SELECT image_tag FROM agent_definitions WHERE
+type='<agent>'` (and after firing, the spawned pod's `.spec.containers[0].image`),
+never only the deployment pod. "Pod-verify" must name WHICH pod and why that pod is the
+one that runs the code.
+**Cost:** one wasted implementer round + a false "live" report in NOTES (corrected).
+
+### 2026-07-24 — gauntlet/B4 — my own corrective rule's example seeded the next failure
+**Asserted (as an instruction):** seed 199's module-path rule gave the example import
+`github.com/gqls/agentchassis/internal/tools-api/config` — implicitly asserting that a
+config PACKAGE DIRECTORY was the right layout.
+**Actually:** the approved plan's file is `internal/tools-api/config.go` (no config
+package). The model followed my example, relocated the file to
+`internal/tools-api/config/config.go`, and the deterministic allowlist rightly refused
+the whole stage (round 4).
+**Caught by:** the allowlist violation naming both paths side by side.
+**The cheap check that would have caught it:** check an example you WRITE against the
+artifact it constrains — my rule was authored next to the approved plan and I never
+cross-read the two; one glance at the plan's file list would have caught the
+contradiction. An instruction's example is a claim about the target artifact and needs
+the same verification as any claim.
+**Cost:** one implementer round + migration 200 to say precisely what 199 should have.

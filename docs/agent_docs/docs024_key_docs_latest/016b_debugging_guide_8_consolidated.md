@@ -2388,6 +2388,37 @@ before catching it with `cat -A`). Verify escape-bearing edits byte-level: `cat 
 `perl -ne 'print if /\x00/'` — and remember bash CANNOT pass a NUL in $'\x00' (it becomes
 the empty string, so that grep matches every line and proves nothing).
 
+### Two halves of one contract, each green in isolation, meet for the first time in production (2026-07-24)
+
+**Symptom.** A pipeline that "cannot fail this way" fails on its very first real run, at
+the seam between two features that both have passing tests. B4: `validateImplementation`
+emits `{content, encoding}` commit entries; `formatGeneratedGo` asserts bare strings;
+each was unit-tested with its OWN fixture shape; the implementer's first-ever Go stage
+was the first execution of the pair — instant death (`bugs_closed/065`).
+
+**Root cause class.** The dedup-index/Go-list drift class at function granularity: a
+producer and consumer inside one file, changed by different commits, whose fixtures
+encode different beliefs about the shared shape. Unit tests pass forever because each
+tests its own belief; nothing runs the chain.
+
+**Diagnose.** When a validator rejects data "of the wrong shape", FIRST check the stored
+payload's actual types (jsonb_typeof over the real run's data) before blaming the
+producer/model — if the stored shape is valid, the defect is between the parser and the
+check, not upstream. (Here: every content was a jsonb string; the wrapping happened
+in-process.)
+
+**Fix shape.** Accept-both at the consumer + a regression test that runs the REAL chain
+(producer output piped straight into the consumer), not fixtures. The test that matters
+is the one whose input the other function BUILT.
+
+**Sibling trap discovered shipping the fix — verify the runtime that will EXECUTE the
+code (`bugs_open/066`).** "Pod-verify the deploy" against the chassis Deployment pod is a
+FALSE GREEN for any agent that runs as a spawned dedicated pod: those take
+`agent_definitions.image_repository/image_tag`, which nothing updates on deploy (census
+2026-07-24: 168 active chassis-image rows pinned v1.0.1151 after v1.0.1155 rolled). For
+spawn-class agents: update the row (snapshot first), then verify the SPAWNED pod's
+image, not the deployment's.
+
 ### A "liveness" filter keyed on the PAGE-level build_status misses live-serving pages whose flag has drifted (2026-07-22)
 
 **Symptom.** A discovery/verification check that is supposed to scan "what's live" silently skips
