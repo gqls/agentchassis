@@ -1129,3 +1129,20 @@ guard held), verified stored (`has_style_block=t`, old rule 6 gone).
 is set in the running pod. One-line ai_service change when the owner says go.
 Verification plan either way: rebuild ONE page, read the copy against the
 style rules (and voice-tells), before any site-wide rewrite.
+
+## 2026-07-24 — page-content-writer FLIPPED to Gemini; one-page test in flight
+
+Owner: "Flip to Gemini + test one page." `generate_content.ai_service` patched
+(guarded on updated_at, same backup table): `anthropic/claude-sonnet-4-6` →
+`gemini/gemini-2.5-pro` (`GEMINI_API_KEY`, verified present in the pod;
+provider supported per platform/aiservice/gemini.go). Now matches the
+content-creator service's model. Verified stored: `gemini/gemini-2.5-pro`.
+
+**Test:** `about` re-queued for a full content rebuild — the FIRST page build
+through Gemini + the new Voice & Style prompt. Baseline copy snapshotted
+(`about_copy_before.txt`, 15KB) for before/after comparison. Monitor covers:
+success (compare copy against the style rules + leopardess story still present —
+bug-056 vigilance), failure (work-item error / new agent_error_log rows — a
+provider misconfig would fail the generate_content step). Rollback if Gemini
+misbehaves: restore ai_service from `bak_agent_definitions_pcw_20260724`
+(or just re-point provider/model back to anthropic/claude-sonnet-4-6).
