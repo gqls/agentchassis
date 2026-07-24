@@ -103,34 +103,28 @@ func queueNewsPageRerenders(ctx context.Context, db *sql.DB, siteID uuid.UUID, l
 	batchID := uuid.New()
 	queued := 0
 	for _, page := range pages {
-		// The canonical page_rerender shape (create_rerender_items_action.go
-		// ~:282): item_type page_rerender → page-rerender, reason in spec so
-		// the handler takes rerender_page_sections, key from
-		// pageRerenderItemKey so the reason-stamped mode can never be
-		// dedup-suppressed by an assemble-only item.
+		// The canonical page_rerender shape via the shared helper (ONE
+		// literal INSERT, two emitters — see insertPageRerenderItem). The
+		// reason in spec makes page-rerender take rerender_page_sections
+		// (its gate is spec.reason alone — verified in the live workflow's
+		// conditional); the pageRerenderItemKey reason-suffix means the
+		// reason-stamped mode can never be dedup-suppressed by an
+		// assemble-only item.
 		spec := fmt.Sprintf(
 			`{"reason":"section_data_resolved","page_name":%q,"page_id":%q,"domain":%q}`,
 			page.name, page.id.String(), page.domain)
 		itemKey := pageRerenderItemKey(page.name, siteID, "section_data_resolved")
 
-		res, err := db.ExecContext(ctx, `
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				page_id, priority, handler_agent, status, created_by,
-				spec, item_key, batch_id
-			) VALUES ($1, 'render_news_section', 'build', 'page_rerender',
-			          'low', $2, $3, 80, 'page-rerender', 'triaged',
-			          'render_news_section', $4::jsonb, $5, $6)
-			ON CONFLICT DO NOTHING
-		`, siteID,
+		inserted, err := insertPageRerenderItem(ctx, db, siteID, page.id,
+			"render_news_section", "low",
 			fmt.Sprintf("Re-render %s — fresh news items available", page.name),
-			page.id, spec, itemKey, batchID)
+			spec, itemKey, batchID)
 		if err != nil {
 			logger.Warn("queueNewsPageRerenders: insert failed",
 				zap.String("page", page.name), zap.Error(err))
 			continue
 		}
-		if n, _ := res.RowsAffected(); n > 0 {
+		if inserted {
 			queued++
 		}
 	}

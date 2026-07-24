@@ -23,6 +23,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -113,6 +114,52 @@ func pageRerenderItemKey(pageName string, siteID uuid.UUID, keyReason string) st
 		keyReason = "assemble"
 	}
 	return fmt.Sprintf("page_rerender_%s_%s_%s", pageName, siteID, keyReason)
+}
+
+// insertPageRerenderItem is THE one INSERT for page_rerender work items — the
+// canonical shape (item_type page_rerender → page-rerender, priority 80,
+// targetless ON CONFLICT DO NOTHING, key from pageRerenderItemKey). Shared so
+// a second emitter can never drift into a textually-similar-but-different
+// row: the news freshness emitter (queueNewsPageRerenders) previously carried
+// its own hand-rolled copy of this shape with the WRONG item_type and spent
+// four days LLM-regenerating live pages. One literal implementation, two
+// callers — the ExtractHrefs/PageURLSet sharing pattern.
+//
+// Targetless ON CONFLICT DO NOTHING is deliberate: idx_swi_dedup is a
+// PARTIAL unique index (non-terminal statuses only), and a targeted
+// ON CONFLICT (site_id, item_key) without the index's exact WHERE predicate
+// raises 42P10. The targetless form matches whatever constraint conflicts —
+// the same idiom this INSERT has always used here.
+//
+// Returns true when a row was actually inserted (false = dedup-suppressed by
+// an open item with the same key, which for recurring emitters is normal).
+func insertPageRerenderItem(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	pageID uuid.UUID,
+	source string,
+	severity string,
+	summary string,
+	specJSON string,
+	itemKey string,
+	batchID uuid.UUID,
+) (bool, error) {
+	res, err := db.ExecContext(ctx, `
+		INSERT INTO site_work_items (
+			site_id, source, pipeline, item_type, severity, summary,
+			page_id, priority, handler_agent, status, created_by,
+			spec, item_key, batch_id
+		) VALUES ($1, $2, 'build', 'page_rerender',
+		          $3, $4, $5, 80, 'page-rerender', 'triaged',
+		          $2, $6::jsonb, $7, $8)
+		ON CONFLICT DO NOTHING
+	`, siteID, source, severity, summary, pageID, specJSON, itemKey, batchID)
+	if err != nil {
+		return false, err
+	}
+	n, _ := res.RowsAffected()
+	return n > 0, nil
 }
 
 func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -278,22 +325,10 @@ func CreateRerenderItemsAction(ctx context.Context, params ActionParams) (interf
 
 		itemKey := pageRerenderItemKey(pageName, siteID, keyReason)
 
-		_, err = params.DB.ExecContext(ctx, `
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				page_id, priority, handler_agent, status, created_by,
-				spec, item_key, batch_id
-			) VALUES ($1, 'rerender-pages', 'build', 'page_rerender',
-			          'medium', $2, $3, 80, 'page-rerender', 'triaged',
-			          'rerender-pages', $4::jsonb, $5, $6)
-			ON CONFLICT DO NOTHING
-		`, siteID,
+		_, err = insertPageRerenderItem(ctx, params.DB, siteID, pageUUID,
+			"rerender-pages", "medium",
 			fmt.Sprintf("Rerender page: %s", pageName),
-			pageUUID,
-			string(specJSON),
-			itemKey,
-			batchID,
-		)
+			string(specJSON), itemKey, batchID)
 
 		if err != nil {
 			logger.Warn("CreateRerenderItemsAction: Failed to create work item",

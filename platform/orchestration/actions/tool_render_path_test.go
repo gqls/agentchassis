@@ -514,10 +514,14 @@ func runCreateRerenderItems(t *testing.T, site, pageID, reason, componentID stri
 		mock.ExpectQuery("SELECT pc.page_id").
 			WillReturnRows(sqlmock.NewRows([]string{"page_id"}).AddRow(pageID))
 	}
+	// Args now flow through insertPageRerenderItem (the shared canonical
+	// INSERT): $1 site, $2 source, $3 severity, $4 summary, $5 page_id,
+	// $6 spec, $7 item_key, $8 batch.
 	mock.ExpectExec("INSERT INTO site_work_items").
 		WithArgs(
 			sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
-			specArgMatcher{got: &itemKey}, // $5 = item_key
+			sqlmock.AnyArg(), sqlmock.AnyArg(),
+			specArgMatcher{got: &itemKey}, // $7 = item_key
 			sqlmock.AnyArg(),
 		).
 		WillReturnResult(sqlmock.NewResult(1, 1))
