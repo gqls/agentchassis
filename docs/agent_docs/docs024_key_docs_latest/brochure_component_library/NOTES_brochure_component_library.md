@@ -1266,3 +1266,27 @@ FIRST, then the item to triaged.** (Done for the 4 swept pages — wave 2 runnin
 - **Component template fix shipped:** stat-band now `{{if .value}}`-skips
   empty-value stats (no blank cells; validated; applied to content_components;
   synced to repo).
+
+## 2026-07-24 — EVIDENCE BASE SEEDED for fundamentallyai (owner-directed) + fault-injection PROVEN
+
+`site_specs` aspect `evidence_base` seeded: **9 facts** (all live-verified at
+seeding or artifact-dated: 12 deployed sites → floor "more than 10" gte; 16
+council-gate seats → floor "more than a dozen" gte, both with live-SQL sources
+so the evidence-freshness task re-verifies them; relojistas 97/100/24; the
+leopardess correction=1; 0 fabricated clients; idea.uk £29; private-search
+"buildable not delivered"), **6 banned patterns** (the leopardess exclusion
+list + "5 agent roles" — the wrong figure that reached the index stat-band,
+banned by name with the verified 16 cited), allowed_entities = the four
+approved reference domains, writer_block (managed) feeding the content-writer
+prompt. Mirrors the leopardess shape exactly (incl. floor-form gte discipline —
+"11 sites" had ALREADY gone stale to 12, proving the rule).
+
+**Fault-injection VERIFIED via claimscan** (clean HEAD archive — shared tree
+broken again by another session's WIP): all 3 induced banned claims fired incl.
+"5 agent roles"; unregistered numbers (99.9, 70, invented "43 clients") flagged;
+the legitimate registered claims produced ZERO false positives. Both branches
+exercised. The number-gate that was missing when "5" shipped is now LIVE for
+this site: validate_page_content check 8 runs on every future build.
+
+index re-queued (needs_rebuild first) so the stat-band regenerates under the
+gate with the writer_block facts. Source: `sql/evidence_base_fundamentallyai.json`.
