@@ -1,11 +1,13 @@
 package actions
 
 import (
+	"context"
 	"strings"
 	"testing"
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 )
 
 // The render half of the drop-reporting fix. Round 3's council (eba040a9,
@@ -165,6 +167,45 @@ func TestValidateRouteWiring(t *testing.T) {
 	t.Run("nil steps: fail open", func(t *testing.T) {
 		if err := validateRouteWiring(map[string]interface{}{}, nil); err != nil {
 			t.Fatalf("nil workflow steps must skip, not fail: %v", err)
+		}
+	})
+}
+
+// The loader's own failure paths (council 6cdbc374 r2, editquality: the DB-backed
+// loader added failure modes the round-1 in-memory delivery did not have, and no
+// test covered them). The pre-DB guards and the parse half are testable without a
+// DB; the query-error path is exercised in production by the logged-skip contract.
+func TestLoadOwnWorkflowStepsGuards(t *testing.T) {
+	t.Run("nil execution context: refuses before touching the DB", func(t *testing.T) {
+		if _, err := loadOwnWorkflowSteps(context.Background(), nil, nil); err == nil {
+			t.Fatal("nil execCtx must error (the caller logs it as a skipped guard)")
+		}
+	})
+	t.Run("empty orchestration id: refuses before touching the DB", func(t *testing.T) {
+		if _, err := loadOwnWorkflowSteps(context.Background(), nil, &types.ExecutionContext{}); err == nil {
+			t.Fatal("empty orchestration id must error")
+		}
+	})
+}
+
+func TestParseWorkflowSteps(t *testing.T) {
+	t.Run("valid steps parse with output_field and action", func(t *testing.T) {
+		steps, err := parseWorkflowSteps([]byte(`{"route":{"action":"diagnose_route","output_field":"route"}}`))
+		if err != nil {
+			t.Fatalf("valid steps must parse: %v", err)
+		}
+		if st := steps["route"]; st.Action != "diagnose_route" || st.OutputField != "route" {
+			t.Fatalf("parsed step lost fields: %+v", st)
+		}
+	})
+	t.Run("empty raw (no steps object on the row) errors", func(t *testing.T) {
+		if _, err := parseWorkflowSteps(nil); err == nil {
+			t.Fatal("empty workflow_plan->steps must error, not return an empty map (the guard would silently see no route step)")
+		}
+	})
+	t.Run("malformed JSON errors", func(t *testing.T) {
+		if _, err := parseWorkflowSteps([]byte(`{"route":`)); err == nil {
+			t.Fatal("malformed steps JSON must error")
 		}
 	})
 }

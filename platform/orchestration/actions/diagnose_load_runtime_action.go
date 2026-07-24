@@ -134,6 +134,17 @@ func loadOwnWorkflowSteps(ctx context.Context, db *sql.DB, execCtx *types.Execut
 	if err != nil {
 		return nil, fmt.Errorf("read own workflow_plan: %w", err)
 	}
+	return parseWorkflowSteps(raw)
+}
+
+// parseWorkflowSteps is the pure half of loadOwnWorkflowSteps, split out so the
+// failure paths the guard can skip on are unit-testable without a DB (council
+// 6cdbc374 r2, editquality: the loader added failure modes round 1 did not have,
+// and none was tested).
+func parseWorkflowSteps(raw []byte) (map[string]models.Step, error) {
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("workflow_plan has no steps object")
+	}
 	var steps map[string]models.Step
 	if err := json.Unmarshal(raw, &steps); err != nil {
 		return nil, fmt.Errorf("parse workflow_plan steps: %w", err)
