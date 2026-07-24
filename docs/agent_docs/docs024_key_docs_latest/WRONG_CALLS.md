@@ -2279,3 +2279,21 @@ verification — every [LIVE] tag is a fresh claim needing its own check.
 **Cost:** none realised (caught before the pilot's chart step was designed
 around it), but the pilot design now has to solve chart rendering it believed
 was free.
+
+### 2026-07-24 — bugfix 063 — council sketches authored as proposals for a change already committed
+**Asserted:** (implicitly, by form) the R1 council submission's edit sketches
+presented the 063 email fail-closed fix as work to be authored, while the
+rationale said "Fix committed as fb3d5f5ea" — two claims about the same diff
+in mutual contradiction.
+**Actually:** the fix was committed before submission (deliberately, per the
+strengthened-advisory norm). The sketches should have been the landed diff,
+labelled as such; reviewers cannot resolve past-tense-rationale vs
+proposal-tense-sketch without reading the repo, which is not their seat.
+**Caught by:** prior_art_librarian's high-severity DORMANT-MACHINERY objection
+— the gating objection of an otherwise 6-approve round (corr `7080124b` R1).
+**The cheap check that would have caught it:** the relojistas thread had
+ALREADY logged this exact lesson the same week ("sketches must be FINAL-state",
+after 3×REVISE on the emitter fix). Reading the sibling thread's council
+lessons before authoring a submission — or one pass over the submission asking
+"does every edit describe the repo's current state?" — costs a minute.
+**Cost:** one council round (~35 min queue + run) + the R2 authoring.
