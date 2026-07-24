@@ -1,0 +1,70 @@
+// FILE: platform/orchestration/actions/doc_subjects_common.go   (NEW FILE)
+//
+// Centralised subject_type vocabulary for the travelling-docs substrate
+// (doc_plans/doc_notes), in the same mould as work_items_common.go — the
+// dedup-index/terminal-status lockstep lesson (v1.0.1127) applied to doc
+// subjects. Before this file the contract had FOUR enforcement points (two DB
+// CHECKs + two independently hard-coded Go gates) and every addition moved a
+// subset of them: migration 163 (+'experience') missed the
+// persist_diagnosis_note gate; migration 184 (+'action') moved the DB CHECKs
+// only, leaving its own seeded action docs unreachable through every doc
+// action (bugs_open/064). Now there are two points: the DB CHECKs and this
+// list.
+
+package actions
+
+import (
+	"fmt"
+	"strings"
+)
+
+// validDocSubjectTypes is the canonical set of subject_type values a
+// travelling doc (doc_plans/doc_notes row) may carry. It MUST agree with the
+// DB CHECK constraints doc_plans_subject_type_check /
+// doc_notes_subject_type_check — a value the DB accepts but a Go gate
+// rejects, or vice versa, is a split contract; move both together.
+// History: 'tool','pipeline' (base schema); +'experience' (migration 163,
+// experience loop); +'action' (migration 184, shared fix-loop actions).
+//
+// When adding a subject type, follow the full checklist in
+// docs/agent_docs/docs024_key_docs_latest/experience_register/design/subject_type_addition.md
+// — image BEFORE migration, or the widened CHECK just recreates 184's split.
+// TestValidDocSubjectTypes_LockstepWithMigrationCheck reads the newest
+// migration that sets the CHECK and fails on drift.
+var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action"}
+
+// isValidDocSubjectType reports membership in validDocSubjectTypes.
+func isValidDocSubjectType(subjectType string) bool {
+	for _, t := range validDocSubjectTypes {
+		if subjectType == t {
+			return true
+		}
+	}
+	return false
+}
+
+// docSubjectTypesQuoted renders the vocabulary for error and log messages:
+// 'tool', 'pipeline', 'experience', 'action'.
+func docSubjectTypesQuoted() string {
+	quoted := make([]string, len(validDocSubjectTypes))
+	for i, t := range validDocSubjectTypes {
+		quoted[i] = "'" + t + "'"
+	}
+	return strings.Join(quoted, ", ")
+}
+
+// docSubjectGateReason classifies a (subject_type, subject_key) pair for the
+// skip-don't-guess gates: "" means proceed, otherwise the skip reason. The
+// two reasons are deliberately distinct (bugs_open/064: an explicit
+// 'experience' subject used to be skipped as "no explicit subject" — the
+// subject was explicit, only its type fell outside a stale private
+// allowlist).
+func docSubjectGateReason(subjectType, subjectKey string) string {
+	if subjectType == "" || subjectKey == "" {
+		return "no explicit subject"
+	}
+	if !isValidDocSubjectType(subjectType) {
+		return fmt.Sprintf("unsupported subject_type %q (valid: %s)", subjectType, docSubjectTypesQuoted())
+	}
+	return ""
+}

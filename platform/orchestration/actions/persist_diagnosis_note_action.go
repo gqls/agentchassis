@@ -72,13 +72,19 @@ func PersistDiagnosisNoteAction(ctx context.Context, params ActionParams) (inter
 		return datahelpers.ExtractNestedFieldString(cd, datahelpers.GetStringField(config, key, def))
 	}
 
-	// Subject gate — skip (success, persisted=false), never guess.
+	// Subject gate — skip (success, persisted=false), never guess. The gate
+	// is membership in validDocSubjectTypes (doc_subjects_common.go): any
+	// subject the doc substrate accepts can carry a diagnosis note — that is
+	// what the note trail is for (bugs_open/064 policy, decided deliberately;
+	// a stale private tool/pipeline list here silently dropped 'experience'
+	// subjects and logged them, misleadingly, as "no explicit subject").
 	subjectType := get("diag_subject_type_field", "input_data.subject_type")
 	subjectKey := get("diag_subject_key_field", "input_data.subject_key")
-	if (subjectType != "tool" && subjectType != "pipeline") || subjectKey == "" {
-		logger.Info("persist_diagnosis_note: no explicit subject — skipping (do not guess)",
+	if reason := docSubjectGateReason(subjectType, subjectKey); reason != "" {
+		logger.Info("persist_diagnosis_note: subject gate — skipping (do not guess)",
+			zap.String("reason", reason),
 			zap.String("subject_type", subjectType), zap.String("subject_key", subjectKey))
-		return map[string]interface{}{"persisted": false, "reason": "no explicit subject"}, nil
+		return map[string]interface{}{"persisted": false, "reason": reason}, nil
 	}
 
 	status := get("diag_status_field", "diagnosis.status")
