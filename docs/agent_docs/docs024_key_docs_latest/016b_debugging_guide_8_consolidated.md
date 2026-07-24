@@ -3327,3 +3327,54 @@ page join (tool-improver's `load_tool` requires a placement).
 **Related:** `bugs_closed/046` (the case, with both repair recipes scripted);
 `bugs_closed/012` (the cause); `bugs_closed/024` (delivery path); `bugs_closed/020`
 (why auto-regeneration was gated).
+
+### An optional input_mapping (`field?`) feeding a REQUIRED contract field is a latent per-caller fatality — and it bypasses the step's own error_step (2026-07-24)
+
+`page-content-writer`'s `resolve_links` step maps `"sections?":
+"input_data.section_plan.sections_ready"` — optional, omit-when-absent. The
+target agent `internal-link-resolver`'s `input_contract` REQUIRES `sections`.
+Nothing is wrong until a caller arrives that doesn't supply `section_plan`:
+`page-build-handler` always does (32 COMPLETED writer children in 8 days);
+`page-rebuild` structurally cannot (this writer generation selects its own
+sections), so **every single-page rebuild died at extraction** — 2026-07-16 ×2
+unfiled, 2026-07-24 the about-commercial pilot (`bugs_open/068`).
+
+Two mechanisms compound:
+
+- **The `?` mapping and the contract are one agreement written in two places.**
+  An optional mapping into a required field is a drift bug identical in class to
+  the dedup-index/Go-list lockstep: each side is locally consistent, the pair is
+  broken, and only a caller-shape you haven't run yet detects it.
+- **Extraction-time contract violations bypass `error_step`.** The step declared
+  `error_step: select_sections` — the author explicitly made link-resolution
+  non-fatal. But the violation fires in input extraction, BEFORE call dispatch,
+  and that path never consults error_step: the author's declared degradation is
+  unreachable exactly where it was meant to apply. (Structural fix — route
+  extraction failures through error_step — is `bugs_open/068` candidate C,
+  untaken.)
+
+Diagnosis technique that settled it: **compare the callers at RUNTIME, not in
+config** — `orchestration_states.initial_request_data->'input_data'` keys of a
+FAILED child vs a COMPLETED one names the missing field and the caller in two
+queries, immune to config-JSON truncation (which is what capped the 090 loop).
+
+Census for other instances of the class:
+
+```sql
+-- every 'field?' mapping, with the target agent named in the same step config
+SELECT ad.type AS caller, s.key AS step, m.key AS optional_field,
+       s.value->'config'->>'agent_type' AS callee
+FROM agent_definitions ad,
+     jsonb_each(ad.default_config->'workflow'->'steps') s,
+     jsonb_each_text(s.value->'config'->'input_mapping') m
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND m.key LIKE '%?'
+  AND EXISTS (SELECT 1 FROM agent_definitions tgt
+              WHERE tgt.type = s.value->'config'->>'agent_type'
+                AND tgt.is_active AND COALESCE(tgt.is_snapshot,false)=false AND tgt.deleted_at IS NULL
+                AND tgt.input_contract->'required' ? rtrim(m.key,'?'));
+```
+
+**Related:** `bugs_open/068` (the case); `bugs_closed/054` query-list contract
+(the empty-but-present sibling: a non-nil empty list defeats `required`; this
+entry is the absent-key form); dedup-index↔Go-list lockstep (the drift class).
