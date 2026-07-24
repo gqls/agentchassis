@@ -1456,7 +1456,6 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		StepConfig:       step,
 		Headers:          execCtx.ToHeaders(),
 		CollectedData:    state.CollectedData,
-		WorkflowSteps:    state.WorkflowPlan.Steps,
 		//SagaCoordinator:  coordinator,
 		SagaCoordinator: nil,
 		Logger:          logger,
@@ -3104,6 +3103,14 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 
 // Helper methods
 func (s *SagaCoordinator) determineOwnerAgentType(execCtx *types.ExecutionContext) string {
+	// The RESOLVED real agent type whose workflow is executing, set by the
+	// processor. Preferred so owner_agent_type records the real agent rather than
+	// the dispatch-path 'generic' (bugs_open/060). Falls back to the pre-existing
+	// behaviour when unset (child spawns that inherit the parent's Sender, older
+	// messages without the header).
+	if execCtx.RunAgentType != "" {
+		return execCtx.RunAgentType
+	}
 	if execCtx.Sender.AgentType != "" {
 		return execCtx.Sender.AgentType
 	}

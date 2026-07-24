@@ -31,6 +31,7 @@ import (
 	"github.com/gqls/agentchassis/pkg/diagnose"
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
+	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
 )
 
@@ -106,13 +107,40 @@ func init() {
 // a silent drop breaks that promise with nothing in the trail.
 //
 // TestRouteDropFieldsStayInSyncWithLoadRuntimeDefaults guards the DEFAULT wiring;
-// only the live workflow can reveal an OVERRIDE, so the check belongs here, at the
-// first gather, where WorkflowSteps is available. A CONSISTENT override (both ends
-// moved together) still names one namespace and passes -- only a divergence fails.
+// only the live workflow can reveal an OVERRIDE, so the check runs here, at the
+// gather, against this orchestration's own persisted plan (loadOwnWorkflowSteps).
+// A CONSISTENT override (both ends moved together) still names one namespace and
+// passes -- only a divergence fails.
 //
-// Fails OPEN, never closed: a nil/empty step map (a caller or test that does not
-// populate WorkflowSteps) or a workflow with no diagnose_route step means there is
-// no coupling to verify -- return nil rather than invent a constraint.
+// Fails OPEN, never closed: a nil/empty step map or a workflow with no
+// diagnose_route step means there is no coupling to verify -- return nil rather
+// than invent a constraint. The caller logs every skip (council 6cdbc374,
+// editquality: a silently-absent guard is the failure shape being guarded).
+// loadOwnWorkflowSteps reads THIS orchestration's step map from its own persisted
+// row. Deliberately a pipeline-local DB read, not a widening of ActionParams: the
+// council's guardian vetoed threading the whole plan through the shared action
+// contract for one pipeline's benefit (6cdbc374 — "the universal ActionParams
+// contract and the coordinator's core dispatch function" are not where a
+// two-sibling-step check belongs). The action already holds a DB handle and its
+// own orchestration id; one indexed SELECT per gather is the entire cost.
+func loadOwnWorkflowSteps(ctx context.Context, db *sql.DB, execCtx *types.ExecutionContext) (map[string]models.Step, error) {
+	if execCtx == nil || execCtx.OrchestrationID == "" {
+		return nil, fmt.Errorf("no orchestration id in execution context")
+	}
+	var raw []byte
+	err := db.QueryRowContext(ctx,
+		`SELECT workflow_plan->'steps' FROM orchestration_states WHERE orchestration_id = $1`,
+		execCtx.OrchestrationID).Scan(&raw)
+	if err != nil {
+		return nil, fmt.Errorf("read own workflow_plan: %w", err)
+	}
+	var steps map[string]models.Step
+	if err := json.Unmarshal(raw, &steps); err != nil {
+		return nil, fmt.Errorf("parse workflow_plan steps: %w", err)
+	}
+	return steps, nil
+}
+
 func validateRouteWiring(cfg map[string]interface{}, steps map[string]models.Step) error {
 	if len(steps) == 0 {
 		return nil
@@ -169,14 +197,25 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 	if params.ExecutionContext != nil && params.ExecutionContext.Action == "initialize" {
 		return map[string]interface{}{"status": "initialized"}, nil
 	}
+	if params.DB == nil {
+		return nil, fmt.Errorf("diagnose_load_runtime: no DB handle")
+	}
 	// Guard the name-based coupling to diagnose_route BEFORE trusting any route.*
 	// read below. On a mismatch every forwarded request and upstream drop reads as
 	// zero; fail loudly on the first gather rather than run the whole loop blind.
-	if err := validateRouteWiring(config, params.WorkflowSteps); err != nil {
+	//
+	// The plan comes from THIS orchestration's own persisted row — a diagnosis-
+	// pipeline-local read (council 6cdbc374, guardian veto: the first delivery
+	// threaded the whole plan through ActionParams + buildActionParams, widening
+	// shared load-bearing infrastructure for one pipeline's two-step contract;
+	// walked back in favour of this). Skip paths are LOGGED, never silent — a
+	// guard that vanishes quietly is the failure shape it exists to catch
+	// (council 6cdbc374, editquality).
+	if steps, err := loadOwnWorkflowSteps(ctx, params.DB, params.ExecutionContext); err != nil {
+		logger.Warn("diagnose_load_runtime: route-wiring guard SKIPPED — could not load own workflow plan",
+			zap.Error(err))
+	} else if err := validateRouteWiring(config, steps); err != nil {
 		return nil, err
-	}
-	if params.DB == nil {
-		return nil, fmt.Errorf("diagnose_load_runtime: no DB handle")
 	}
 
 	siteID := datahelpers.ExtractNestedFieldString(params.CollectedData,

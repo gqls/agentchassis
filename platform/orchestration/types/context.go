@@ -59,6 +59,13 @@ type ExecutionContext struct {
 	FromAgentID    string `json:"from_agent_id,omitempty"`
 	FromAgentType  string `json:"from_agent_type,omitempty"`
 
+	// RunAgentType is the RESOLVED real agent type whose workflow is executing
+	// (from config.agent_type / the loaded agent definition), as opposed to the
+	// dispatch-path sender which is often 'generic'. Set by the processor before
+	// executing a workflow; consumed by the coordinator's determineOwnerAgentType
+	// so owner_agent_type records the real agent, not 'generic' (bugs_open/060).
+	RunAgentType string `json:"run_agent_type,omitempty"`
+
 	// Resource Management
 	FuelBudget     int           `json:"fuel_budget"`
 	FuelUsed       int           `json:"fuel_used,omitempty"`
@@ -538,6 +545,7 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ToAgentType:    headers["to_agent_type"],
 		FromAgentID:    headers["from_agent_id"],
 		FromAgentType:  headers["from_agent_type"],
+		RunAgentType:   headers["run_agent_type"],
 
 		// Step info
 		StepID:   headers["step_id"],
@@ -658,6 +666,7 @@ func (ec *ExecutionContext) ToHeaders() map[string]string {
 		"to_agent_type":       ec.ToAgentType,
 		"from_agent_id":       ec.FromAgentID,
 		"from_agent_type":     ec.FromAgentType,
+		"run_agent_type":      ec.RunAgentType,
 		"responses_topic":     ec.ResponsesTopic,
 		"requests_topic":      ec.RequestsTopic,
 		"reply_to_request_id": ec.ReplyToRequestID,
