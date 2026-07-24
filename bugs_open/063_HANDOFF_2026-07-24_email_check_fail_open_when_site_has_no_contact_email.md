@@ -72,3 +72,49 @@ relojistas homepage rebuild would have been held, not deployed.
 - `bugs_open/026` — schema-dialect fail-open: same "missing config disables the gate" family.
 - `traffic_probe/relojistas_rebuild_running_notes.md` 2026-07-24 — the incident record.
 - `016b §9` "spec.reason does not make needs_page scoped" — the emitter half of the incident.
+
+---
+
+## FIX COMMITTED 2026-07-24 (`fb3d5f5ea`) — stays OPEN, inert until an image roll
+
+**Change** (bugfix-063 session): `validateEmails` split into a thin DB-load wrapper + pure
+`checkEmails(html, officialEmail)` (the `checkDomainContamination` testability shape, 055),
+and the missing `else` branch added: when `officialEmail == ""`, ANY non-placeholder
+assertion-context email → `invalid_email`, severity `error` (routes the build to review,
+same as the mismatch case; not a blocker). Placeholder classification keeps precedence;
+mismatch branch unchanged. Five contract tests in
+`validate_page_content_email_test.go`, all green against `git archive HEAD` + the two
+changed files overlaid (the shared tree had another session's WIP in the same package).
+
+**The risk check this file asked for was run before shipping** (fleet survey, live DB,
+2026-07-24, regex over `page_components.rendered_html` on active pages vs the same
+five-source COALESCE `loadSiteContactEmail` uses):
+
+- Non-official emails serving on live pages fleet-wide: **3**, ALL on sites that HAVE an
+  official email (finetuning.uk `finetuning@` vs official `finetune@` — a near-miss variant;
+  idea.uk `idea-uk@leopardess.uk`; robot-hands.com `jane@company.com`). These are
+  pre-existing mismatch escapes, not the 063 class.
+- Sites with NO registered contact email: **20 of 31**. Zero of their live pages assert any
+  email → **the new branch flags nothing on today's fleet; false-positive exposure at ship
+  time is zero.** No directory-style legitimate-third-party-email site exists, so severity
+  `error` was chosen over the `warning` fallback contemplated above.
+
+**Council:** submission corr `7080124b-716f-45ac-8d42-f24465228b4b` (2026-07-24, this
+session) — verdict recorded below when it lands.
+
+**Premise shift to note:** relojistas NOW has `sites.email = 'relojistas@contactforsales.com'`
+— the very address this file calls fabricated — `[OBSERVED 2026-07-24, source unknown]`; it
+was NOT set by the hand-repair (the running notes show the repair *removed* the mailto).
+Three other sites (finetuning.uk, idea.uk, robot-hands.com) have official emails at
+`contactforsales.com`, so it appears to be the owner's for-sale-contact domain and the
+registration likely legitimises the address after the fact. That softens the "reaches
+whoever owns contactforsales.com" damage line above, but does not touch the mechanism: the
+fabrication deployed while the site had no registered email, and 20 sites remain in that
+state.
+
+**Close criteria** (fixed AND live, per the /bugs_closed/ bar):
+1. Image roll carrying `fb3d5f5ea`; pod-grep a string this change CREATED
+   (`no registered contact address`) + a positive control.
+2. **Behavioural, the failing branch**: induce a fabricated non-placeholder email on a
+   no-email site's page build → expect `invalid_email` error and the build routed to
+   review, not deployed. (A green happy path + pod-grep proves deployment, not detection.)

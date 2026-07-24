@@ -2564,6 +2564,7 @@ See `/bugs_closed/README.md`.
 | 056 *(slug: `regeneration_silently_drops_content_that_tripped_a_blocker` — the OTHER `056`)* | Filed as "regeneration silently drops content that tripped a validate blocker, no record" — **the inferred mechanism was REFUTED by the diagnosis loop** (corr `b361298a`, 2026-07-22): the blocker IS recorded verbatim (`agent_error_log` `CONTENT_VALIDATION_BLOCKER_DETAIL`) and rerender actions never generate content. **Corrected mechanism: review-bypass-by-sibling-item** — item A parks at `needs_human_review` on the blocker; sibling item B (e.g. `page_rerender` after an asset lands) reruns the SAME build pipeline; fresh copy omits the flagged element, passes, deploys; nothing reconciles B's success with A's parked review (fundamentallyai `model-fine-tuning`: A parked 07-20 21:27, page deployed 07-21 03:41, A still dangling) | **CLOSED 2026-07-24 → `/bugs_closed/`** — standalone `reconcile_superseded_reviews` (council 1d8ef2c0 R2 APPROVED after an R1 placement veto; the shared save path stays clean) LIVE v1.0.1150, seeded 2026-07-23 (docs024/bugfix_056_regen/): dry-run surfaced the exact model-fine-tuning pair, live sweep 25/25, independently row-verified 07-24. Review-bypass is now loud + queryable; owner policy (HOLD deploys on parked review?) deliberately open |
 | 057 | **A populated schema field the DECISION never read**: `decideCouncil` returned `revise` on ANY `object` verdict and never consulted `councilObjection.Severity` — one low nit from ~16 seats gated as hard as a real flaw, `approved` needed unanimous bare approval. Fleet-wide ~4.5% approval over a week (123 revise / 3 rejected / 2 approved, ~44 submissions); 67% of revise rounds carried NO high objection; `098` coverage read ~0 and PR-mode was unbuildable. Affects every council sharing `diagnose_council_decide`. See §9 *"A schema field the DECISION never reads…"* | **CLOSED 2026-07-24 → `/bugs_closed/`** — only a high-severity objection or veto gates; explicit low/medium are advisory (recorded + returned); Degraded or un-graded object still gates. `872c830a8` + harvested test `e37ec804f`, live v1.0.1149. **Both halves proven on organic rounds** (25 post-fix): 13 approved ("N advisory objection(s) — none high-severity"), 9 revise ALL on ≥1 high objection ("gating objection from <seat>", e.g. corr `c2a9fd27`), 3 rejected all vetoes (first: guardian `1d8ef2c0`, same evening as filing). Discriminator flipped 59/88 → **0/9** no-high revise rounds; approval ~5% → ~80% per submission |
 | 062 | **batch_scrape response exceeds Kafka `max.message.bytes`; adapter logs-and-drops it; caller starves through its full retry budget.** Scrape SUCCEEDS in seconds, reply refused by the broker, produce-failure branch just logs — 4 × 180s awaits burned on a deterministic failure. Grew to FOUR defects + a verification layer as each fix exposed the next: (1–3) oversize reply / silent drop / no formats override; (4) `"is_complete": "true"` STRING fails the chassis's typed unmarshal (the 035 §1.5 bool trap, copied into the 047-era handler) — so **no batch_scrape response had EVER been consumed in prod**; (layer 3) markdown table pipes in extracted quotes never match the verifier's HTML flattening. Also recorded in-file: step-level `timeout_seconds` in workflow seeds is silently dropped (only `config.timeout_seconds` is read) — the `evidence-researcher` seed still carries the inert form. See §9 *"A response that cannot be delivered…"* | **CLOSED 2026-07-24 → `/bugs_closed/`**, same day as filing: adapter fixes live v1.0.1152/1153 (pod-verified, created-symbol greps), pipe folding live in chassis v1.0.1154; **behavioural proof** = discovery run 7 completed end-to-end, 10 entities / 22 claims all `found`; council corr `fe468218` APPROVED R1, objections closed with attached evidence. Five wrong calls from the case logged in WRONG_CALLS.md |
+| 063 | **`validate_page_content` check 5 (hallucinated emails) fails OPEN when the site has no registered contact email**: the mismatch branch is gated on `officialEmail != ""`, so a site with NO registered address — where every asserted email is by definition invented — is protected only by the placeholder-pattern list, which a plausible fabrication sails past (`relojistas@contactforsales.com`, deployed and served ~4h on 2026-07-24). Protection inversely correlated with need: 20/31 sites have no registered email (measured 07-24). Same fail-open-on-missing-config family as `026` | **FIX COMMITTED `fb3d5f5ea` (2026-07-24), stays OPEN — inert until an image roll.** Fail-closed else-branch (`invalid_email`/error routes to review) + pure-core `checkEmails` split + 5 contract tests. Pre-ship fleet survey: zero live pages on no-email sites assert ANY email → zero false-positive exposure at ship; no directory-site case exists. Council corr `7080124b` submitted. Post-roll verify = induced fabricated email on a no-email site (the failing branch), not pod-grep alone |
 | 064 | **Doc-subject split contract**: the `subject_type` enum has FOUR enforcement points (doc_plans + doc_notes DB CHECKs; `docResolveSubject` shared by write_doc_plan/append_doc_note/load_doc_context; `persist_diagnosis_note`'s own allowlist) and the last two additions each missed some — 163 (+experience) missed persist_diagnosis_note (experience diagnosis notes silently skipped, with a misleading "no explicit subject" log), 184 (+action) moved the DB CHECKs ONLY, so the three action PLANs it seeded to answer council objection `5a65ec4c` are unreachable through every doc action. See §9 *"A schema CHECK and its code gates are one contract"* | filed 2026-07-24 (experience-register session). Fix planned in passing by the experience_register P2 change-set (`experience-pattern` subject_type; full checklist in `experience_register/design/subject_type_addition.md`); if another thread touches doc subjects first, take it |
 | 065 | `formatGeneratedGo` asserts bare-string file bodies while its ONLY caller (`validateImplementation`) emits GitCommitData `{content, encoding}` entries — the feature-implementer could never ship a single `.go` file (first .go stage of every run died at commit-prep, `.sql` stages sailed through because the formatter skips non-.go). Each half unit-tested with its OWN fixture shape; B4's first fire was their first joint execution. See §9 *"Two halves of one contract, each green in isolation"* | **CLOSED 2026-07-24 → `/bugs_closed/`** same day: accept-both + real-chain regression test (`430ed5c18`), council APPROVED corr `6bf3806f`, live v1.0.1155, behaviourally proven round 7 (first implementer Go commit ever) |
 | 066 | **Spawned agent pods pin stale image tags — a chassis deploy never reaches them, and the deployment pod-grep is a FALSE GREEN for them.** Spawn-class agents (repo-cloning: fix-proposer, feature-implementer, …) take `agent_definitions.image_repository/image_tag`; nothing updates those rows on deploy. Census 2026-07-24: **168 active chassis-image rows pinned v1.0.1151** after v1.0.1155 rolled; verified harm = implementer round 6 failing on a fixed bug, on a 4-tags-old binary, minutes after a green deployment pod-grep | filed 2026-07-24, OPEN. Interim rule: for spawn-class fixes, UPDATE the agent's image_tag (snapshot first) + verify the SPAWNED pod's image. Fix candidates: deploy-time row sync / single-authority tag indirection / advisory drift check |
@@ -3381,3 +3382,55 @@ WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS
 **Related:** `bugs_open/068` (the case); `bugs_closed/054` query-list contract
 (the empty-but-present sibling: a non-nil empty list defeats `required`; this
 entry is the absent-key form); dedup-index↔Go-list lockstep (the drift class).
+
+### An indexed snapshot read by a correctness check is a silent freshness dependency
+
+**Symptom.** A code-existence check (a diagnosis `code_request`, the prior-art
+seat's `code_checks`, any "does X exist?" answered from `code_symbols`) returns
+empty and is read as "mechanism absent" — but the mechanism exists; it was simply
+built after the index's last refresh. Nothing looks broken: the query succeeds,
+zero rows is a normal answer, and the caller's prompt even says to treat stale
+answers as unknown — with no fact available to apply that rule.
+
+**Diagnose.**
+```sql
+SELECT count(*), (SELECT DISTINCT commit_sha FROM code_symbols LIMIT 1) AS sha,
+       max(updated_at) FROM code_symbols;
+-- compare max(updated_at) against the deployed image's build date, and the sha
+-- against the branch head the fleet is actually working on.
+```
+Found 2026-07-22: last refresh 2026-07-02 at `e3176f8` — three weeks stale; every
+symbol added since was invisible, and both consumers (the diagnosis code tier and
+the `prior_art_librarian` council seat) had been answering "absent" from it.
+
+**Root cause.** The index only refreshed when someone ran `index-orchestrator`
+by hand, and nobody had. A stale index answers "absent" IDENTICALLY to a genuine
+absence — same family as `bugs_open/019` (a missing signal read as a negative
+one). Trap inside the trap: the documented manual trigger (docs019
+`TRIGGER_code_indexer_v2.sh`) dispatches `agent_type=code-indexer` DIRECTLY, gets
+adopted in-place on a chassis pod with no `GITHUB_READ_TOKEN`, and fails; the
+correct entry is `index-orchestrator` (spawns the indexer pod with the token).
+
+**Fix** (bugs_closed/059, both halves live + verified on v1.0.1155):
+1. *Cadence* — `scheduled_tasks` row `code-index-refresh` fires
+   `index-orchestrator` every 24h with the ref DERIVED at fire time by its
+   `pre_query` (most-recent human/diagnosis feature-branch ref, self-excluding
+   the indexer's own runs) — a hardcoded ref would itself be a snapshot that
+   drifts.
+2. *Read-time guard* — every rendered answer carries `codeIndexFreshness`: quiet
+   `(refreshed 3h ago at commit …)` when fresh; a loud `!! CODE INDEX STALE !!`
+   banner naming age/commit/remedy beyond 48h (one missed fire); loudest for an
+   empty index; fail-open note on a query error. Enforced forward by a
+   pattern-check declared pair (`FROM code_symbols` ↔ `codeIndexFreshness`): a
+   future consumer cannot silently skip the guard.
+
+**Transferable rule.** Any correctness check that trusts ABSENCE (existence
+checks, drop counts, coverage scans) over an indexed snapshot is only as correct
+as the snapshot is fresh — and staleness is invisible at read time unless the
+answer itself carries it. Give the snapshot a refresh cadence AND make every
+reader render the freshness fact next to the rule that depends on it.
+
+**Related:** `bugs_closed/059` (the case); `bugs_closed/019` (the family:
+missing signal read as negative); `bugs_closed/031` (stale REGISTER entry — the
+same failure one layer up); pattern-check `DECLARED_PAIRS` (the forward
+enforcement).
