@@ -1341,6 +1341,14 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		IsLocal:     true,
 	},
 
+	// gripper report pilot (robot_hands_gripper_dossier workstream)
+	"score_grippers": {
+		Handler:     ScoreGrippersAction,
+		Category:    "data",
+		Description: "Deterministic server-side MatchMatrix v2 scoring: rank a site's gripper index against one visitor application spec; emits the fact_block that bounds report prose",
+		IsLocal:     true,
+	},
+
 	// tool lifecycle (deploy, update)
 	"deploy_tool_to_site": {
 		Handler:     DeployToolToSiteAction,
