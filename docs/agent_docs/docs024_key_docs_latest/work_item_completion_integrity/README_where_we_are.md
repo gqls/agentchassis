@@ -195,3 +195,38 @@ morning says they're for real turning points, not for every session — and answ
 five headings today would mostly repeat this morning's. This belongs here and in the
 notes instead.
 
+
+---
+
+**24 July, evening — a different session picking up the verifier thread.** The
+completion-checking work sat quiet since the 20th, so when the owner pointed a
+session at bug 021 tonight it checked nobody else was on it and then did the next
+thing this folder's own handoff asked for: the first real verifier against the
+widened contract, for the hardcoded-colour items.
+
+The one lesson this folder keeps teaching — check what the *fixer* actually does,
+not what the *detector* looks for — turned out to matter immediately. The
+detector flags any hex colour background; the fixer only replaces the dark
+six-digit ones inside style blocks, on purpose. So the new verifier asks the only
+fair question: "would the fixer's own find-and-replace still change anything?"
+If yes, the item can't complete. If no, it completes even when out-of-scope
+colours remain, because leaving those is the fixer behaving as designed. On
+today's data that distinction is live, not academic: thirty-two components across
+eight sites still match the broad pattern, and twenty-one items have already been
+marked complete against them.
+
+Two housekeeping finds along the way. First, the build guard this folder created
+was already doing its job: it was failing, because two new item types had been
+added by other threads without saying how they'd be checked. They're classified
+now. Second, the hand-refreshed list of known item types was four days stale and
+eight types behind — refreshed, and a rule written down that the list only ever
+grows, because old rows get cleaned out of the database and a type that vanishes
+from the data hasn't vanished from the code.
+
+The code is committed and goes live with the next image build. Still owed after
+that: actually watching the verifier refuse a completion on a dirty site once,
+so we're not taking its presence for its behaviour. The council is reviewing the
+change in parallel; one open question left for this workstream — the detector
+and fixer disagree about scope, so these items will keep being re-detected even
+when handled correctly, and deciding which side moves is a design call, not a
+bug fix.

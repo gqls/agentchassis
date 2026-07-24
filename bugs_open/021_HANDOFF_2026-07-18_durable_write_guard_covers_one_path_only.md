@@ -230,6 +230,36 @@ very gap it exists to expose.
 >
 > Docs: `docs024_key_docs_latest/work_item_completion_integrity/`.
 
+> **PROGRESS 2026-07-24 — the flagged verifier is WRITTEN; coverage is now 3
+> registered verifiers, and the coverage guard itself needed healing.** Commit
+> `34adb171c` (+ gofmt `591c47cd9`), inert until the next image roll. Council
+> submission corr `56c7e177-688f-4e9f-bad5-ca715a7238fa`.
+>
+> - `hardcoded_section_colors` — the candidate the coverage map itself flagged
+>   ("UNBLOCKED by VerifyTarget.SiteID — this is the next verifier to write") —
+>   is registered, with the verdict scoped to the HANDLER's remit per the
+>   recorded page_rerender trap: it asks whether the fixer's own transform
+>   (`ReplaceHardcodedColors`, moved to `check_hardcoded_section_colors.go` as
+>   the single shared copy) is at a fixed point over the detector's population.
+>   The detector matches ANY hex background; the handler only rewrites dark
+>   6-digit hexes and `Ndeg` gradients inside `<style>` blocks — live on
+>   2026-07-24 the detector still matched 32 components across 8 sites while 21
+>   items sat complete, so a detector-predicate verifier would have stranded
+>   correct completions wholesale. Discriminator tests encode the distinction.
+> - Registered verifiers are now THREE: `empty_section`, `truncated_component`
+>   (registered by the 046 lane with its check), and this one.
+> - The sensor half of the coverage guard was RED on the shared tree
+>   (`contact_form_undeliverable`, `backend_entry_orphaned` shipped by other
+>   threads without classification) — both classified; `liveItemTypes` refreshed
+>   by UNION 69→77 (8 new live types classified; pruned types retained, rule
+>   documented in the list).
+> - Still owed post-roll: the behavioural check (scratch `complete_work_item`,
+>   dirty site → refused + attempt_count+1; clean site → completes with
+>   `_verification.resolved=true`). Churn finding left for the owning
+>   workstream: detector broader than handler ⇒ correctly-handled items keep
+>   re-detecting; which side moves is a design call. Evidence + method:
+>   `work_item_completion_integrity/NOTES_…` (2026-07-24 entry).
+
 **Related, filed separately because it is a distinct live defect rather than a
 coverage gap:** `bugs_open/032` — the one registered verifier reports
 `Resolved: true` when its target row is *absent*, so a rebuild that silently

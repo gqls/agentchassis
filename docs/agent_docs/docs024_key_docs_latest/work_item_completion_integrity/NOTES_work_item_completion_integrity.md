@@ -337,3 +337,76 @@ but net verifiers remain 1 of 86 classified item types — which is `bug_histori
 standing objection and it is correct. Live coverage is unchanged: 5 `_verification`
 records against 4,644 completions.
 
+
+---
+
+## 2026-07-24 — the flagged verifier is written (by the durable_write_guard/021 thread), and the guard's sensor was already red
+
+*(Written by the bugfix-021 session, not the thread that owns this workstream —
+continuing §4 of the start-here handoff's "then: write a real verifier", since
+this workstream has been dormant since 07-20 and the queue and tree were clear.
+Contributing here rather than forking a parallel account.)*
+
+**`hardcoded_section_colors` now has its verifier** — commit `34adb171c`
+(+ gofmt `591c47cd9`), inert until the next image roll. Written the way MISSTEP 4
+taught: the verdict is *"the HANDLER's own transform is at a fixed point over the
+detector's population"*, never the detector's predicate. Confirmed the trap is
+real here, not theoretical: the detector regex matches ANY hex background
+(`#[0-9a-fA-F]{3,8}`, light or dark, inline `style=""` included) in components
+carrying a `<style>` tag, while `fix_hardcoded_colors` only rewrites dark
+6-digit hexes and two-colour `Ndeg` gradients inside `<style>` blocks. Live on
+2026-07-24: 21 items complete (one that day), 7 unresolved, 5 failed, and the
+detector still matched **32 components across 8 sites** — a detector-predicate
+verifier would have stranded every one of those completions.
+
+Mechanics worth recording:
+- `ReplaceHardcodedColors` MOVED (verbatim, exported) from
+  `fix_harcoded_colours_action.go` into `check_hardcoded_section_colors.go` so
+  handler and verifier share one predicate — `actions` imports
+  `discovery_checks`, never the reverse, so this avoids the mirror-plus-guard
+  the `truncationTagPairs` precedent was forced into.
+- Discriminator tests encode the trap (`check_hardcoded_section_colors_test.go`):
+  light `#f5f5f5`, 3-digit `#333`, dark hex in an inline `style=""` attribute —
+  all detector-visible, all out of remit, all must verify Resolved.
+- Aggregate items have no `bugs_open/032` missing-target ambiguity: an empty
+  sweep IS the defect gone (commented inline in the verifier).
+
+**The coverage guard's sensor half was RED on the shared tree** —
+`TestEveryCheckProducedItemTypeIsClassified` failing on
+`contact_form_undeliverable` and `backend_entry_orphaned`, both shipped by other
+threads after 07-20 without classification. Both now classified from their check
+headers (both are needs_human_review/no-handler routes; backend_entry_orphaned
+is a live-probe check so it inherits image_url_404's "no outbound HTTP in the
+completion path" refusal; contact_form_undeliverable's predicate reads DEPLOYED
+html which re-renders only after a fix — a completion-time re-check would
+false-fail during the render lag, noted in its entry). The guard did its job:
+it was red, someone had to look.
+
+**`liveItemTypes` refreshed by UNION, 69 → 77** (refresh rule now documented in
+the list's comment): 8 types observed live since 07-20 —
+`audit_finding_brief_fidelity` (computed `"audit_finding_"+category` in
+`write_audit_findings_action.go`, so the sensor can never see it),
+`directory_citation_unverified`, `needs_human_review`, `section_edit`
+(`[INFERRED]` — no ItemType literal anywhere in platform/, created from agent
+workflow config), `contact_form_undeliverable`, `truncated_component` (arrived
+with its OWN verifier from the 046 lane — coverage is 3 registered verifiers
+now, not 1), and the two model-directory types already classified. **10 of the
+07-20 types have no rows left** (site_work_items rows get pruned) — they are
+RETAINED in the list; refresh by union, never replacement, or a pruned type
+loses its protection.
+
+**Churn finding, left for this workstream:** items of this type complete while
+the detector still matches out-of-remit colours, so the check re-files and the
+cycle repeats — handler-correct completions churning against a broader detector.
+The verifier stops the *false completions*; it does not stop the *re-detection*.
+Narrowing the detector to the handler's remit (or widening the handler) is a
+behaviour change that belongs to whoever owns the check.
+
+Verification: full `discovery_checks` + `actions` suites green against
+`git archive HEAD` + the four changed files overlaid (the shared tree's actions
+test build was broken by unrelated WIP in `diagnose_dormant_agents_test.go`).
+Council submission corr `56c7e177-688f-4e9f-bad5-ca715a7238fa`, verdict pending
+at time of writing. **Post-roll behavioural check still owed** (the
+verify-the-failing-branch rule): scratch `complete_work_item` on a fixture item —
+dirty site → completion refused and attempt_count+1; clean site → completes with
+`result._verification.resolved=true`. Steps mirror the 021 INSTANCE 1 harness.
