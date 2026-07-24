@@ -10,8 +10,11 @@ package webscrape
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/segmentio/kafka-go"
 )
 
 func TestTruncateBatchResultMarksTheCut(t *testing.T) {
@@ -75,11 +78,21 @@ func TestStripBatchResultsForRetryDropsRawAndShrinks(t *testing.T) {
 }
 
 func TestIsKafkaMessageTooLargeClassification(t *testing.T) {
-	// The broker's refusal, as the kafka client actually wraps it (observed
-	// live, bugs_open/062).
+	// Typed: the broker's error code, wrapped the way the producer wraps it
+	// (%w), must classify via errors.Is.
+	if !isKafkaMessageTooLarge(fmt.Errorf("failed to write message to kafka: %w", kafka.MessageSizeTooLarge)) {
+		t.Error("the wrapped typed broker refusal must classify as message-too-large")
+	}
+	// Typed: the writer's client-side pre-send detection, via errors.As.
+	if !isKafkaMessageTooLarge(fmt.Errorf("write: %w", kafka.MessageTooLargeError{})) {
+		t.Error("the wrapped client-side MessageTooLargeError must classify as message-too-large")
+	}
+	// Fallback: the failure as a bare string (composite shapes like
+	// kafka.WriteErrors can break the unwrap chain — observed live form,
+	// bugs_open/062).
 	refusal := errors.New("failed to write message to kafka: [10] Message Size Too Large: the server has a configurable maximum message size to avoid unbounded memory allocation and the client attempted to produce a message larger than this maximum")
 	if !isKafkaMessageTooLarge(refusal) {
-		t.Error("the broker's size refusal must classify as message-too-large")
+		t.Error("the broker's size refusal as a string must classify as message-too-large")
 	}
 
 	// Transient failures must NOT classify — they keep the coordinator-retry

@@ -332,7 +332,18 @@ the floor; transient produce failures keep the coordinator-retry path. Pure
 helpers unit-tested (4 tests green). firecrawl `/scrape` now honours
 `config["formats"]` like `/crawl` always did. Council submission corr
 `fe468218-d2c3-477e-a1ff-3f0f6cd1e57d` (per the strengthened 2026-07-24
-advisory norm), verdict pending. Config side done properly this time
+advisory norm) — **APPROVED round 1** ("3 advisory objections, none
+high-severity"). All three checkable objections closed with attached
+evidence rather than prose (see the verdict section added to the 062 case
+file): the blast-radius absence claim now carries its exhaustive
+`agent_definitions` scan (exactly 3 batch_webscrape consumers, none reading
+raw fields); the error classifier upgraded from substring-only to typed
+`errors.Is`/`As` on kafka-go's `MessageSizeTooLarge`/`MessageTooLargeError`
+with substring fallback (editquality was right — the typed errors exist);
+and the post-roll check is a pod-grep of a CREATED symbol
+(`stripBatchResultsForRetry` in `/app/web-scrape-adapter`) with a positive
+control, per the debug_historian's exactly-on-target catch of the
+deploy-verification-by-commit-hash trap. Config side done properly this time
 (snapshot first, live row + seed file together): `scrape_config.formats =
 ["markdown"]` (ignored harmlessly until the image ships) and
 `config.timeout_seconds = 240` in the place the coordinator actually reads;

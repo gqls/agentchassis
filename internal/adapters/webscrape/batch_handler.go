@@ -4,11 +4,13 @@ package webscrape
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
 
@@ -280,8 +282,25 @@ func stripBatchResultsForRetry(results []map[string]interface{}) {
 // message-size refusal — the one produce failure that is deterministic
 // (resending the same bytes can never succeed), so it gets a degrade-and-
 // retry rather than being surfaced as-is.
+//
+// Typed checks first (council fe468218, editquality): the producer wraps
+// with %w so errors.Is/As unwrap to kafka-go's MessageSizeTooLarge (broker
+// error code 10) or MessageTooLargeError (the writer's client-side
+// pre-send detection). The substring fallback stays because WriteMessages
+// can also surface the failure inside composite shapes (kafka.WriteErrors)
+// that the unwrap chain does not always reach.
 func isKafkaMessageTooLarge(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "Message Size Too Large")
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, kafka.MessageSizeTooLarge) {
+		return true
+	}
+	var tooLarge kafka.MessageTooLargeError
+	if errors.As(err, &tooLarge) {
+		return true
+	}
+	return strings.Contains(err.Error(), "Message Size Too Large")
 }
 
 // sendBatchSuccessResponse sends a successful batch scrape response

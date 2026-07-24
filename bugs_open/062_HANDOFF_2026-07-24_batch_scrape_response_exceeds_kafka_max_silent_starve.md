@@ -109,6 +109,46 @@ markdown-only and cut the fetch itself by ~3×.
 `max.message.bytes` treats the symptom fleet-wide and invites the next
 bigger page to re-break it; rejected as primary fix.
 
+## Council verdict + objection follow-ups (2026-07-24)
+
+**APPROVED round 1** (corr `fe468218-d2c3-477e-a1ff-3f0f6cd1e57d`, "3
+advisory objections, none high-severity"). The three checkable objections
+were each closed with evidence rather than argued:
+
+1. **Asserted-absence on the blast radius** (guardian + prior_art_librarian,
+   both medium): the claim "no live workflow reads raw_html/html_content
+   from a batch_webscrape output" now has its lookup attached. Exhaustive
+   `agent_definitions` scan (active, non-snapshot, not deleted):
+   `batch_webscrape` is invoked by exactly THREE workflows —
+   `evidence-researcher`, `directory-researcher`, `research-agent`, each at
+   a `scrape_pages` step feeding an LLM-extraction step. Six OTHER agents
+   match `raw_html|html_content` in config text, all self-referential or
+   unrelated: `html-developer-chunked` reads its own generation steps'
+   `raw_html`; `tool-generator` maps its own `generated_html.result`;
+   `tool-recreation-handler` reads `existing_content.raw_html` populated by
+   `load_existing_content` (a DB/storage read, not the webscrape adapter);
+   `council-gate`/`feature-designer`/`fix-proposer` hits are prompt/config
+   text. The single-scrape path (adapter.go `sendSuccessResponse`) is
+   untouched by this fix.
+2. **Substring-only error classification** (editquality, low): the
+   kafka-go client (segmentio/kafka-go v0.4.47) DOES expose typed errors —
+   `kafka.MessageSizeTooLarge` (broker code 10) and
+   `kafka.MessageTooLargeError` (writer-side pre-send detection) — and the
+   producer wraps with `%w`, so `isKafkaMessageTooLarge` now checks
+   `errors.Is`/`errors.As` first, keeping the substring as a fallback for
+   composite shapes (`kafka.WriteErrors`) the unwrap chain can miss.
+   Test covers all three routes.
+3. **Deploy verification by commit hash is the documented trap**
+   (debug_historian, medium): the post-roll check is a pod-grep of a symbol
+   this change CREATED, with a positive control, against the
+   web-scrape-adapter pod (not agent-chassis — the adapter is its own
+   image/service):
+   ```
+   kubectl -n ai-persona-system exec <web-scrape-adapter-pod> -- \
+     sh -c 'strings /app/web-scrape-adapter | grep -c stripBatchResultsForRetry'
+   ```
+   (expect >0; positive control: grep `batch_scrape`, which predates the fix).
+
 ## How to verify
 
 Failing branch first (the bug IS the silent branch): batch-scrape a set of
