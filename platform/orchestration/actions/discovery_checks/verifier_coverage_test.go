@@ -152,7 +152,7 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// the widened contract and the pattern to copy for the entry below: the
 	// verdict is "the HANDLER's transform is at a fixed point", never the
 	// detector's broader predicate.
-	"undeployed_asset": {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
+	"undeployed_asset":              {catNoTarget, "site-scoped asset sweep; no per-item target id. Unblocked by VerifyTarget.SiteID — next in line; read the handler's remit first"},
 	"needs_rerender":                {catMechanical, "43 of 142 carry component_id; predicate is the section-drift check"},
 	"needs_component_regeneration":  {catMechanical, "12 of 57 carry component_id"},
 	"phantom_internal_link":         {catMechanical, "all 65 carry page_id; predicate is check_phantom_internal_links"},
