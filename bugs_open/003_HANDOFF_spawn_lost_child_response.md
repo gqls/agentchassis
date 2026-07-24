@@ -745,3 +745,12 @@ Operational counter adopted by this workstream: fire ONCE; treat a missing
 orchestration row as QUEUED for ≥10 minutes before even considering a re-fire; never
 auto-refire inside that window (E4 makes duplicate implementer fires mutually fatal,
 which is the guard working).
+
+5. **2026-07-24 16:36** — feature-implementer run `2b1a154e` (approved plan corr
+   `c379f7b7`): mid-run, stages s1–s3 committed + gated green, then the s4
+   `stage_commit` await went dead — no branch commit, no state update for 3.3h, the
+   await's timeout never fired. Timing: minutes after a 16:29:38Z chassis restart;
+   the git-adapter replicas were later restarted too (history unrecoverable). A
+   healthy long-running dedicated-pod agent lost exactly ONE request/response pair
+   and hung forever — the at-most-once + process-local-timer signature, mid-workflow
+   rather than at spawn. Recovery: branch cleared, patient re-fire.

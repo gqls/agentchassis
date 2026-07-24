@@ -514,3 +514,17 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - P3 exposure leg is now COMPLETE up to the engine: static sites can be pointed
   at a live, guarded, isolated public endpoint the moment the tools-api PR
   merges and its image reaches the island (image path = [OPEN]).
+
+## 2026-07-24 (evening) — designer CONVERGED (first ever); implementer died mid-run to a lost s4 commit; re-fired
+- Designer round 6 (corr c379f7b7): **APPROVED after 3 rounds** — two COMPLETED
+  repropose cycles = behavioural proof of 067+201+202. First genuine multi-round
+  convergence in the designer's history.
+- Auto-fired implementer (orch 2b1a154e) ran beautifully: s1 scaffold, s2
+  docker+kustomize, s3 error-helper+CORS — all committed, gates green. Then the s4
+  stage_commit await died 16:36 (minutes after the 16:29 chassis restart); 3.3h
+  stale, timeout never fired, git-adapter replicas since restarted → response
+  unrecoverable. 5th bug-003 sighting (appended to its evidence).
+- Branch cleared; patient re-fire (script bv9wn7n1j) on the SAME approved v6 plan.
+- RUNBOOK created (standing five complete). Chassis prod = v1.0.1155 re-roll @16:29,
+  formatter fix verified present; more spawn-class rows now pinned 1155 (066 interim
+  rule spreading).
