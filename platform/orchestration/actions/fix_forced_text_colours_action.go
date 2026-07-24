@@ -518,7 +518,6 @@ func rewriteSectionDeclarationsInHTML(html string, class paintClass, pairKind st
 	})
 }
 
-
 func processComponentCSS(
 	html, function string, isDarkSection bool,
 	palette sitePalette, minContrast float64, logger *zap.Logger,
@@ -702,13 +701,11 @@ const sectionContractCSS = `
     --section-surface: rgba(255,255,255,0.05);
     --section-border: rgba(255,255,255,0.2);`
 
-
 // containerBgRe finds CSS rules with a dark background (container-level).
 // Matches rules like: .hero-section { background: #1a1a2e; ... }
 var containerBgRe = regexp.MustCompile(
 	`(\.[a-z][a-z0-9-]*-section\s*\{[^}]*)(background(?:-color)?:\s*(?:#[0-4][0-9a-fA-F]{5}|var\(--color-primary\)))([^}]*)(\})`,
 )
-
 
 // ============================================================================
 // Background color extraction
