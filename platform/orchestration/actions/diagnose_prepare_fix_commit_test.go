@@ -171,6 +171,62 @@ func TestFormatGeneratedGoCanonicalisesBodies(t *testing.T) {
 	}
 }
 
+// TestFormatGeneratedGoAcceptsCommitEntryShape pins the B4 first-fire failure
+// (2026-07-24): validateImplementation emits GitCommitData entries —
+// {"content": <string>, "encoding": "utf-8"} — while formatGeneratedGo asserted
+// a bare string, so the FIRST .go file through the implementer died at
+// commit-prep with "non-string body (map[string]interface {})". The two
+// functions were tested separately with different shapes and never run
+// together; this test runs the real chain.
+func TestFormatGeneratedGoAcceptsCommitEntryShape(t *testing.T) {
+	unformatted := "package main\n\nfunc main() {\nprintln(\"x\")\n}\n"
+	plan := planLite{Edits: []planEditLite{{File: "cmd/tools-api/main.go", Operation: "add"}}}
+	impl := implWire{Files: []implFile{{Path: "cmd/tools-api/main.go", Content: unformatted}}}
+
+	files, violations := validateImplementation(plan, impl, map[string]string{})
+	if len(violations) != 0 {
+		t.Fatalf("fixture should validate cleanly, got: %v", violations)
+	}
+	if err := formatGeneratedGo(files); err != nil {
+		t.Fatalf("commit-entry-shaped .go body must format, not error: %v", err)
+	}
+	entry, ok := files["cmd/tools-api/main.go"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("commit entry shape must be preserved, got %T", files["cmd/tools-api/main.go"])
+	}
+	got, _ := entry["content"].(string)
+	want, err := format.Source([]byte(unformatted))
+	if err != nil {
+		t.Fatalf("fixture is not valid Go: %v", err)
+	}
+	if got != string(want) {
+		t.Errorf("wrapped body not canonicalised.\n got: %q\nwant: %q", got, string(want))
+	}
+	if entry["encoding"] != "utf-8" {
+		t.Errorf("encoding field must survive formatting, got %v", entry["encoding"])
+	}
+}
+
+// A truncated body inside the commit-entry shape must still fail loud — the
+// wrapped path must keep the bugs_open/013 posture, not silently bypass it.
+func TestFormatGeneratedGoFailsLoudOnUnparseableWrappedBody(t *testing.T) {
+	files := map[string]interface{}{
+		"platform/aiservice/anthropic.go": map[string]interface{}{
+			"content":  "package aiservice\n\nfunc GenerateText() {\n\tif x {\n",
+			"encoding": "utf-8",
+		},
+	}
+	err := formatGeneratedGo(files)
+	if err == nil {
+		t.Fatal("an unparseable wrapped body must fail commit-prep, not reach the gate")
+	}
+	for _, want := range []string{"platform/aiservice/anthropic.go", "truncated"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q must name %q", err.Error(), want)
+		}
+	}
+}
+
 // A body that will not parse is a different failure and must stay loud — it is
 // most often a max_tokens truncation. Silently committing the raw bytes would
 // push known-broken Go and defer the error to the build Job.

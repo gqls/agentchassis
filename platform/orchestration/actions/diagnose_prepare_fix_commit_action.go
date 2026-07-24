@@ -263,15 +263,39 @@ func formatGeneratedGo(files map[string]interface{}) error {
 		if !strings.HasSuffix(path, ".go") {
 			continue
 		}
-		src, ok := body.(string)
-		if !ok {
-			return fmt.Errorf("generated %s has a non-string body (%T)", path, body)
+		// Two producer shapes reach here: a bare string body, and the
+		// GitCommitData entry validateImplementation builds —
+		// {"content": <string>, "encoding": "utf-8"}. The original assertion
+		// accepted only the string, so the very first .go file through the
+		// implementer died at commit-prep ("non-string body
+		// (map[string]interface {})", B4 first-fire rounds 2+3, 2026-07-24)
+		// while the .sql-only stage before it sailed through. The two halves
+		// had each been tested alone and never run together — dedup-index/
+		// Go-list class, one function down.
+		var src string
+		wrap, isWrapped := body.(map[string]interface{})
+		if isWrapped {
+			s, ok := wrap["content"].(string)
+			if !ok {
+				return fmt.Errorf("generated %s has a non-string content in its commit entry (%T)", path, wrap["content"])
+			}
+			src = s
+		} else {
+			s, ok := body.(string)
+			if !ok {
+				return fmt.Errorf("generated %s has a non-string body (%T)", path, body)
+			}
+			src = s
 		}
 		formatted, err := format.Source([]byte(src))
 		if err != nil {
 			return fmt.Errorf("generated %s is not valid Go (cannot format — likely truncated at max_tokens): %w", path, err)
 		}
-		files[path] = string(formatted)
+		if isWrapped {
+			wrap["content"] = string(formatted)
+		} else {
+			files[path] = string(formatted)
+		}
 	}
 	return nil
 }
