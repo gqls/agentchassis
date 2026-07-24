@@ -53,9 +53,37 @@ owner action: issue the $50-capped key.
   matchmatrix block yet (seed 204 will add).
 - Island tunnel public; API path answers 502 (nothing behind Caddy yet).
 
+### Committed + submitted (same day)
+- `e19aa5d10` score_grippers + tests + registry + seed 204 (pathspec commit).
+- `ede694ef2` gofmt fix (pre-commit pattern check caught the test file).
+- `12fa24e6b` this workstream's DESIGN + standing docs.
+- `5229d7fa1` per_site_ai session docs + features_open/013 + WRONG_CALLS +
+  CAPABILITIES correction.
+- Council gate: **SUBMISSION_CORR ffccb83c-1833-45cb-bb0f-8edcc874699e**
+  (score_grippers change; first submission bounced client-side — `plan` must
+  be an OBJECT {summary, edits[], grounded_in, risks}, not a bare edits
+  array; header of 097 has the schema). If APPROVED, later platform commits
+  in this lane carry `Council-Reviewed: ffccb83c-…`.
+
+### Missteps this session (append-only, the point of this file)
+1. Conflict-note test expectation derived from intuition instead of the
+   reference JS (impliedMu uses published payload, not request mass) —
+   caught by the first test run; code was right.
+2. **A `| tail -2` pipe swallowed a `go test` build failure**, so the gofmt
+   commit chained through on a red build. Lucky twice over: the failure was
+   another session's uncommitted vet_med WIP (shared-tree-wont-compile
+   class, verified by building a clean `git archive HEAD` — my code green),
+   and the commit was formatting-only. Practice: never gate a commit on a
+   piped test command; check `go build` exit directly or use pipefail.
+3. First council submission rejected client-side on schema (see above) —
+   cheap, by design (no credits spent).
+
 ### Next
-1. Commit (3 narrow pathspec commits: platform code+seed / this workstream's
-   docs / the per_site_ai session docs) + council submission for the code.
+1. Await council verdict (corr ffccb83c…; ~30 min budget, missing row =
+   queued not dropped).
 2. create_report_page + report_charts.go (SVG) + verify_report_prose +
-   pull_report_requests + emit_report_status_files.
-3. Agent seeds 205–208; island service cmd/gripper-intake.
+   pull_report_requests + emit_report_status_files (one commit per coherent
+   task; council per task or batched at this lane's discretion).
+3. Agent seeds 205–208 (207/208 strictly post-image); island service
+   cmd/gripper-intake (blocked only on the owner's $50-capped key for LIVE
+   turns; code+tests can proceed offline).
