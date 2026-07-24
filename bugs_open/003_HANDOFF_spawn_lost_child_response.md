@@ -705,3 +705,15 @@ placement retained). If F2–F4 land, producer-side loss stays out of scope —
 a dispatch wrapper that produces with `-X request.required.acks=all` and
 confirms delivery (or just polls for the orchestration row before declaring
 success, as CLAUDE.md's council runbook already advises) is the cheap guard.
+
+---
+
+## Fresh instance 2026-07-24 (from the 040-partial-build workstream) — a diagnosis run lost its VERDICT at `call_diagnoser`
+
+Diagnosis run corr `65103331-2872-4d7a-bcbe-93057eea1af4`: the child evidence loop COMPLETED
+(5 bundles in `diagnosis_artifacts`, 09:52→10:26Z), but the parent sat `AWAITING_RESPONSES` at
+`call_diagnoser` and ended `FAILED` — the diagnoser's response never came back. No row in
+`agent_error_log` for orchestration `374bcd58-e316-4f0a-ab30-4a6a1f497056`. Same shape as
+`bugs_open/043` (route-step instance): the awaited-response loss, at a different step. Cost: a
+full 5-iteration evidence gather with no verdict; re-fired as corr `f9bcee6f`. One more data
+point that F2/F3 shipping together is what this class is waiting on.
