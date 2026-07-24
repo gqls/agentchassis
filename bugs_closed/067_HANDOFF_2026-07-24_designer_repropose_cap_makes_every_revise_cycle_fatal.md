@@ -34,3 +34,12 @@ The 07-23 instance shows why the v1.0.1138-class stop_reason decode matters: the
 defect was a silent 4-hour hang on the older path and a clean named error on the new
 one. Cap sizing for whole-artifact re-emitters belongs in review checklists — any step
 that re-emits an artifact must have max_tokens ≥ the artifact's realistic ceiling.
+
+## ADDENDUM 2026-07-24 (same day) — the `design` and `reframe` steps had the same cap
+
+Round 5 (corr `ffb74056`) died at the INITIAL `design` step, stop_reason=max_tokens at
+16000 — the same defect one step upstream, exposed when the capability spec grew. 201
+fixed only `repropose`; **migration 202** raises `design` + `reframe` to 32000 so all
+three whole-artifact emitters match. Reviewer seats stay at 8000 (verdict JSON only).
+Lesson sharpened: when a cap defect is found on ONE step, sweep EVERY step of that
+agent for the same sizing before closing — I closed 067 one step too narrow.
