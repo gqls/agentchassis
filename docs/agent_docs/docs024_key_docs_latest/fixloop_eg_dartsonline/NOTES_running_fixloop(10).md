@@ -2585,3 +2585,21 @@ had not swept for — the exact "snapshot of a growing set" class, found by mach
 
 Intake `needs_diagnosis:silent-collection-caps` closed; both orch rows COMPLETED.
 Run did NOT wedge at the route step (bugs_open/043) — 4 clean iterations.
+
+---
+
+## Turn 48 — 2026-07-24 — grounding update (wrote SUMMARY_2026-07-24)
+
+Re-checked the drift-prone state before writing a fresh summary:
+- **#3 is now LIVE.** A new image **v1.0.1151** rolled 2026-07-23 16:00 (pod
+  `agent-chassis-5f8c54978-gvbxx`), and the running binary now carries the route
+  wiring guard (`strings | grep -c "route wiring mismatch"` = 1, was 0 on v1.0.1146).
+  So `6f7e69d22` flipped inert→live on the roll. STILL OWED: a LIVE fault-induction
+  (memory `verify-the-failing-branch`) — the unit test passed but the guard has not
+  been watched firing on a real mismatched workflow. Not yet council-gated either.
+- **bugs_open/059 re-demonstrated.** `code_symbols` is still at `ca8dc7f`,
+  `updated_at` 2026-07-22 16:02 — while the deployed code moved to v1.0.1151. So the
+  index is already behind the running binary by ~a day of commits, exactly the drift
+  059 is about (no reindex cadence). The one-off refresh bought two days.
+- **feature-designer council held**: review seats still `claude-sonnet-5 @ 8000`
+  (PATCH_022 intact).
