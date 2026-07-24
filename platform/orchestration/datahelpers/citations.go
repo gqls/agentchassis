@@ -96,6 +96,16 @@ var quotePunctReplacer = strings.NewReplacer(
 	"–", "-", "—", "-", "−", "-", // en/em dash, minus
 	" ", " ", " ", " ", " ", " ", // nbsp and thin spaces
 	"…", "...", // ellipsis
+	// Markdown table pipes (2026-07-24, bugs_open/062 layer 3): researchers
+	// extract quotes from a scrape's MARKDOWN rendering, where a table row
+	// reads `gpt-5.6-sol | $5.00 | $0.50`; the verifier re-fetches HTML and
+	// flattens the same row to space-joined cells. The pipe is presentation
+	// (firecrawl's table syntax), not source content — under the file's own
+	// rule ("forgiving about presentation, strict about content") it folds
+	// to a space on both sides; the words and numbers must still match
+	// exactly, in order. Without this, every claim quoted from a table —
+	// i.e. most pricing facts — fails verification deterministically.
+	"|", " ",
 )
 
 // NormalizeForQuoteMatch reduces text to a form stable across publisher

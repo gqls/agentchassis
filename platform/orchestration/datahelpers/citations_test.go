@@ -71,6 +71,36 @@ func TestQuoteFoundInText(t *testing.T) {
 	}
 }
 
+// The markdown-table case (bugs_open/062 layer 3, 2026-07-24): a researcher
+// quotes a pricing-table ROW from a scrape's markdown rendering; the verifier
+// re-fetches HTML and flattens the same row to space-joined cells. The pipes
+// are firecrawl's table syntax — presentation — and must fold away; the
+// cells' words and numbers stay strict. The failing quote below is verbatim
+// from the first live directory-researcher run that completed end-to-end
+// (every candidate rejected on exactly this mismatch).
+func TestQuoteFoundInTextMarkdownTableRow(t *testing.T) {
+	doc := VisibleTextFromHTML(`
+		<html><body><table>
+		  <tr><th>Model</th><th>Input</th><th>Cached</th><th>Batch in</th><th>Output</th></tr>
+		  <tr><td>gpt-5.6-sol</td><td>$5.00</td><td>$0.50</td><td>$6.25</td><td>$30.00</td></tr>
+		  <tr><td>gpt-5.5</td><td>$1.25</td><td>$0.13</td><td>$1.56</td><td>$10.00</td></tr>
+		</table></body></html>`)
+
+	// The markdown rendering of the row, exactly as extracted live.
+	if !QuoteFoundInText("gpt-5.6-sol | $5.00 | $0.50 | $6.25 | $30.00", doc) {
+		t.Error("a markdown table-row quote must match the HTML-flattened row — pipes are presentation")
+	}
+
+	// Strict about content: a wrong price in the same row shape must fail.
+	if QuoteFoundInText("gpt-5.6-sol | $4.00 | $0.50 | $6.25 | $30.00", doc) {
+		t.Error("a table-row quote with an altered price must NOT match")
+	}
+	// And cells from DIFFERENT rows must not be stitchable into one quote.
+	if QuoteFoundInText("gpt-5.6-sol | $1.25", doc) {
+		t.Error("cells from different rows must NOT match as one quote")
+	}
+}
+
 func TestParseCitation(t *testing.T) {
 	// Not a citation source at all → nil, nil.
 	c, err := ParseCitation(map[string]interface{}{"sql": "SELECT 1"})

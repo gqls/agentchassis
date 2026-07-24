@@ -138,6 +138,41 @@ a pure `buildBatchSuccessEnvelope` and a test round-trips it through the
 real `types.ResponseMessage` (plus a regression guard demonstrating the
 string form fails), so the contract cannot silently regress.
 
+## Layer 3, found by the fully-working pipeline (2026-07-24, run 5)
+
+With defects 1–4 fixed and live (adapter v1.0.1153, pod-verified), run 5
+**COMPLETED end-to-end for the first time** — search → scrape → reply
+delivered AND parsed → LLM extraction → live verification — and the
+fail-safe engaged exactly as designed: every candidate was rejected
+`citation_lost` and terminated at a `directory_citation_unverified` human-
+review item rather than being silently registered or dropped.
+
+But the rejections themselves exposed the next (and, for this case, final)
+representational gap: **researchers quote from the scrape's MARKDOWN
+rendering; the verifier re-fetches HTML and flattens it to visible text.**
+The live evidence: every quote was a pricing-table ROW in firecrawl's
+markdown table syntax — verbatim from run 5's collected_data:
+`"gpt-5.6-sol | $5.00 | $0.50 | $6.25 | $30.00 | ..."` — while the
+verifier's fetch of the same page (checked directly: 200, 17,460 chars of
+visible text, prices present) flattens that row to space-joined cells with
+NO pipes. The quote can never match, deterministically, for ANY claim
+quoted from a table — which is where pricing facts live.
+
+Fix (shared `datahelpers.NormalizeForQuoteMatch`, chassis-side): fold `|`
+to a space, exactly as the normaliser already folds nbsp/curly quotes/
+thousands separators — the pipe is presentation (markdown table syntax),
+not source content, and the file's own rule is "forgiving about
+presentation, strict about content". Strictness is preserved and
+test-pinned: an altered price in the same row shape still fails, and cells
+from different rows cannot be stitched into one matching quote. Test case
+uses the verbatim failing quote from run 5. Benefits `evidence-researcher`
+identically — its acquisition lane would have hit the same wall on its
+first tabular source.
+
+NOTE this fix ships in the **agent-chassis image** (the verify action runs
+chassis-side), unlike defects 1–4 (web-scrape-adapter image). Committed to
+HEAD; rides the next chassis build/roll.
+
 ## Council verdict + objection follow-ups (2026-07-24)
 
 **APPROVED round 1** (corr `fe468218-d2c3-477e-a1ff-3f0f6cd1e57d`, "3
