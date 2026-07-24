@@ -499,37 +499,52 @@ func buildRerenderBaseData(ctx context.Context, db *sql.DB, siteID uuid.UUID, do
 		"year":   fmt.Sprintf("%d", time.Now().Year()),
 	}
 
+	// Read content_data AND the canonical sites.email COLUMN together. The
+	// full-writer render path (loadSiteDataFull) sources ctx.Email from the
+	// sites.email column; this light path historically read only
+	// content_data.email, which is empty or stale on most sites (idea.uk held a
+	// stale idea-uk@leopardess.uk while its column carried the current address).
+	// So a section re-render could not convert a dead contact form to a mailto
+	// even where the site had a real address. We now prefer the column, applied
+	// AFTER the content_data merge so it wins — making both render paths agree.
+	// See bugs_open/006 §B.
 	var cdJSON []byte
-	if err := db.QueryRowContext(ctx, `SELECT content_data FROM sites WHERE id = $1`, siteID).Scan(&cdJSON); err != nil {
+	var siteEmail string
+	if err := db.QueryRowContext(ctx, `SELECT content_data, COALESCE(email, '') FROM sites WHERE id = $1`, siteID).Scan(&cdJSON, &siteEmail); err != nil {
 		if err != sql.ErrNoRows {
-			logger.Warn("rerender_page_sections: load sites.content_data failed", zap.Error(err))
+			logger.Warn("rerender_page_sections: load sites row failed", zap.Error(err))
 		}
-		return base
-	}
-	if len(cdJSON) == 0 {
-		return base
-	}
-
-	var cd map[string]interface{}
-	if err := json.Unmarshal(cdJSON, &cd); err != nil {
-		logger.Warn("rerender_page_sections: parse sites.content_data failed", zap.Error(err))
-		return base
-	}
-
-	// reviewed_brief first so its keys are present, then top-level wins on overlap.
-	if rb, ok := cd["reviewed_brief"].(map[string]interface{}); ok {
-		for k, v := range rb {
-			if _, exists := base[k]; !exists {
+	} else if len(cdJSON) > 0 {
+		var cd map[string]interface{}
+		if err := json.Unmarshal(cdJSON, &cd); err != nil {
+			logger.Warn("rerender_page_sections: parse sites.content_data failed", zap.Error(err))
+		} else {
+			// reviewed_brief first so its keys are present, then top-level wins on overlap.
+			if rb, ok := cd["reviewed_brief"].(map[string]interface{}); ok {
+				for k, v := range rb {
+					if _, exists := base[k]; !exists {
+						base[k] = v
+					}
+				}
+			}
+			for k, v := range cd {
+				if k == "reviewed_brief" {
+					continue
+				}
 				base[k] = v
 			}
 		}
 	}
-	for k, v := range cd {
-		if k == "reviewed_brief" {
-			continue
-		}
-		base[k] = v
+
+	// The sites.email column is canonical (matches loadSiteDataFull) — applied
+	// last so it overrides any stale/empty content_data.email merged above.
+	// The sites.email column is canonical (matches loadSiteDataFull) — applied
+	// last so it overrides any stale/empty content_data.email merged above.
+	if siteEmail != "" {
+		base["email"] = siteEmail
+		base["contact_email"] = siteEmail
 	}
+
 	return base
 }
 

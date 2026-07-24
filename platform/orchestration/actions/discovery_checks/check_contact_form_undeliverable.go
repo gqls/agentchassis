@@ -40,9 +40,16 @@
 //     not defects.
 //   - page_components only, matching dead_controls: chrome has its own fixers.
 //
-// Routing: needs_human_review with NO handler. The fix is a business decision
-// — supply a contact address, point at a backend, or drop the form — and
-// picking one automatically would guess. Compare dead_controls, same reasoning.
+// Routing (two branches since 2026-07-24, PLAN_2026-07-24_contact_form_hardening):
+//   - site WITH a resolvable sites.email → AUTO-REMEDIATE: emit a page_rerender
+//     (handler page-rerender, reason section_data_resolved). The light section
+//     re-render re-runs sanitiseFormAction, which deterministically converts the
+//     dead form to a mailto to that address — no guess involved, so the
+//     objection below does not apply to this branch.
+//   - site WITHOUT one → needs_human_review with NO handler, unchanged. The fix
+//     is a business decision — supply a contact address, point at a backend, or
+//     drop the form — and picking one automatically would guess. Compare
+//     dead_controls, same reasoning.
 //
 // Registration: automatic via init(). Enable by adding
 // "contact_form_undeliverable" to a discovery agent's checks array AFTER the
@@ -53,6 +60,7 @@ package discovery_checks
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -131,7 +139,65 @@ func (c *ContactFormUndeliverableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 		pageFindings[f.PageID] = append(pageFindings[f.PageID], f)
 	}
 
+	// Resolve the site's canonical contact address once. The render seam builds
+	// the mailto from the sites.email COLUMN (loadSiteDataFull, and now
+	// buildRerenderBaseData too), so a site WITH a resolvable address self-repairs
+	// on a re-render — we can auto-remediate it rather than parking it for a
+	// human. A site with no resolvable address still parks: inventing one is the
+	// guess this file's header warns against, and that objection applies ONLY to
+	// the address-less branch. See bugs_open/006 §B / PLAN_2026-07-24_contact_form_hardening.
+	siteEmail, siteDomain := resolveSiteContact(dctx)
+	resolvable := contactAddressResolvable(siteEmail, siteDomain)
+
 	for pageID, pf := range pageFindings {
+		var pageIDPtr *uuid.UUID
+		if parsed, err := uuid.Parse(pageID); err == nil {
+			pageIDPtr = &parsed
+		}
+
+		if resolvable {
+			// AUTO-REMEDIATE. rerender_page_sections re-runs sanitiseFormAction,
+			// which converts the dead form to a mailto to sites.email. It is a
+			// light, in-place, no-LLM re-render, so it does NOT hit the deployed-
+			// page rebuild bounce that a full needs_page rebuild risks. reason
+			// section_data_resolved routes to the true template re-render via
+			// check_rerender_mode WITHOUT the cta_links_stale CTA recompute, and
+			// is the conventional "re-render this page's sections to reflect
+			// resolved data" reason (render_news_section_html, reconcile_section_data).
+			specJSON, _ := json.Marshal(map[string]interface{}{
+				"check":     "contact_form_undeliverable",
+				"reason":    "section_data_resolved",
+				"page_id":   pageID,
+				"page_name": pf[0].PageName,
+				"findings":  pf,
+				"fix": fmt.Sprintf("A section re-render converts the dead form to mailto:%s "+
+					"(built by sanitiseFormAction from the sites.email column).", siteEmail),
+			})
+			result.WorkItems = append(result.WorkItems, WorkItemSpec{
+				SiteID:   dctx.SiteID,
+				PageID:   pageIDPtr,
+				Source:   "discovery",
+				Pipeline: "build",
+				ItemType: "page_rerender",
+				Severity: "high",
+				Summary: fmt.Sprintf("Contact form on page %s submits nowhere — a re-render converts it to mailto:%s",
+					pf[0].PageName, siteEmail),
+				SpecJSON:     string(specJSON),
+				Priority:     30,
+				HandlerAgent: "page-rerender",
+				Status:       "detected",
+				CreatedBy:    dctx.AgentType,
+				// Distinct from the human-review key below, so a page that gains an
+				// address later is not blocked by a stale needs_human_review row.
+				ItemKey: fmt.Sprintf("contact_form_undeliverable_rerender:%s", pageID),
+				BatchID: dctx.BatchID,
+			})
+			continue
+		}
+
+		// ADDRESS-LESS: no honest address to convert to, so a re-render cannot
+		// fix it. Supplying an address, pointing at a live backend, or dropping
+		// the form is a business decision — park for a human (unchanged).
 		specJSON, _ := json.Marshal(map[string]interface{}{
 			"check":     "contact_form_undeliverable",
 			"page_id":   pageID,
@@ -146,12 +212,6 @@ func (c *ContactFormUndeliverableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 				"fallback, not a real inbox). Otherwise point the form at a live " +
 				"POST handler, or remove it.",
 		})
-
-		var pageIDPtr *uuid.UUID
-		if parsed, err := uuid.Parse(pageID); err == nil {
-			pageIDPtr = &parsed
-		}
-
 		result.WorkItems = append(result.WorkItems, WorkItemSpec{
 			SiteID:   dctx.SiteID,
 			PageID:   pageIDPtr,
@@ -172,6 +232,32 @@ func (c *ContactFormUndeliverableCheck) Run(dctx DiscoveryCheckContext) (*CheckR
 	}
 
 	return result, nil
+}
+
+// resolveSiteContact returns the site's canonical contact address (the
+// sites.email COLUMN — the field the render seam reads) and its domain.
+func resolveSiteContact(dctx DiscoveryCheckContext) (email, domain string) {
+	_ = dctx.DB.QueryRowContext(dctx.Ctx,
+		`SELECT COALESCE(email, ''), COALESCE(domain, '') FROM sites WHERE id = $1`,
+		dctx.SiteID,
+	).Scan(&email, &domain)
+	return email, domain
+}
+
+// contactAddressResolvable mirrors deliverableFormAction's guard
+// (component_library.go): an address the render seam will actually convert into
+// a mailto — non-empty, contains '@', and not the synthesised info@<own-domain>
+// fallback some render paths set for a site with no configured address. Kept in
+// lockstep with that guard; if one changes, change both.
+func contactAddressResolvable(email, domain string) bool {
+	email = strings.TrimSpace(email)
+	if email == "" || !strings.Contains(email, "@") {
+		return false
+	}
+	if strings.EqualFold(email, "info@"+strings.TrimSpace(domain)) {
+		return false
+	}
+	return true
 }
 
 // classifyUndeliverableAction names WHY the action delivers nothing, so the
