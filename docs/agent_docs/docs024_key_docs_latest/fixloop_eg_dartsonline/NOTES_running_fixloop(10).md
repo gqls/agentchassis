@@ -2646,3 +2646,21 @@ the full chain.
 a lagging/stale answer still reads as "absent"; the 019-family protection) and the
 outdated docs019 manual trigger (fix #2). The cadence fixes the "drifts for weeks"
 headline; the guard is the deeper "absence is not an answer" fix.
+
+## 2026-07-24 — code-lookup misses CLOSURES: `handleMissingField` unresolvable, drove a 5-iteration run to UNVERIFIABLE (from the 040-partial-build thread)
+
+Diagnosis corr `f9bcee6f` (skip-not-recorded mechanism) ended **UNVERIFIABLE** with its
+`needed_evidence` naming two code bodies the lookup could not serve. One of them,
+`handleMissingField`, IS in the repo — `plan_sections_action.go:1312` — but it is a
+**closure assigned inside `planSection`'s body**, not a top-level declaration, and the
+symbol index apparently only carries top-level decls. The loop's own absence-vs-unknown
+rule saved it from a wrong conclusion (it said "unknown, not confirmed absent"), but the
+practical cost was a full run that could not confirm a mechanism whose load-bearing code
+sits in a closure. Also unserved: a `content` search for `sections_skipped` (a literal
+present at `plan_sections_action.go:846`) — so either content search lagged or its corpus
+is narrower than the working tree. Worth a look at the indexer: closures/nested funcs and
+map-key literals are exactly where policy logic lives in this codebase (cf. bugs_closed/054's
+`handleMissingField` closure being load-bearing). Separately: run 1 of the same symptom
+(corr `65103331`) lost its verdict to `bugs_open/003` at `call_diagnoser` — instance
+appended to 003's file. The human completion of the UNVERIFIABLE trail is recorded in
+`bugs_open/040…partial_build…md` (2026-07-24 diagnosis block).
