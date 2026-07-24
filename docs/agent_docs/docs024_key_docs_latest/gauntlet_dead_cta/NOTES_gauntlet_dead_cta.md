@@ -237,3 +237,16 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   assume a client no stage creates; v1 had db/conn.go, v2 dropped it). Otherwise clean:
   dockerfile right, middleware wired in-stage, no makefile edit. Run continues at
   `repropose` (internal revise loop) — watcher b0b0k1cta on it.
+
+## 2026-07-24 — designer v2 DIED mid-repropose; v3 fired
+- Overnight: designer run 24ff0e9b FAILED at repropose 19:59 (~4h stuck, NO error
+  recorded — the stalled-await class; API was flaky all yesterday afternoon). Round-2
+  plan never produced. kubectl creds expired overnight; owner re-authed.
+- Spec v3 (same item 9ed684bc): added hard constraint 5 = DB-pool bootstrap
+  (db/conn.go NewDBPool + config surface) in the FIRST code stage, CORS + rounds
+  stages explicitly depend on it — so the round-2 council's HIGH find survives the
+  dead run.
+- Designer round 3 FIRED: FEATURE_CORR 278a37c3 (orch 5bff84b3). Watcher bhcymno3h.
+- Spend tally: designer runs 1 (approved/superseded), 2 (revise, died), 3 (in flight);
+  implementer 1 (clean refusal); planner runs 1 (spawn lost), 2 (rejected, correct +
+  proved 196). All under the blanket go.
