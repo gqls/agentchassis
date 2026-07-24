@@ -3,14 +3,19 @@
 **Filed:** 2026-07-20 · travelling-docs thread
 **Severity:** high — live customer-facing breakage on **6 domains**, present now,
 and invisible to every check we have.
-**Status:** OPEN (residual only). Detection **LIVE + ENABLED + PROVEN** (v1.0.1149
-+ seed 186). **ALL 6 PLACED CASUALTIES REPAIRED & VERIFIED LIVE 2026-07-24** —
-every live customer page that was serving unterminated JavaScript now serves
-whole, balanced markup. Census 9 → 3; the 3 remaining are UNPLACED orphans
-(0 page_components, serving nobody): `tool-archetype-clash-calculator-vonc-com`,
-`tool-llm-cost-calculator-…-leopardessconsulting-co-uk`, `archetype-taster-quiz`
-(section). Residual decision: deactivate vs regenerate the orphans. See the
-UPDATEs below.
+**Status:** **CLOSED 2026-07-24 — fixed AND live, census ZERO.** All 9 casualties
+repaired: 6 placed components verified against live bytes on all 7 affected pages,
+and the 3 unplaced orphans regenerated on owner instruction (2026-07-24 evening,
+corrs `c7407258`/`ea57da00`/`7af8362a` — an inline pipeline mirroring
+tool-improver minus its page join, since `load_tool` requires a placement; all 3
+balanced, end clean, zero fabrication tells, version snapshots taken). **The
+bug's own close-condition query returns 0 rows**, and both named URLs re-fetched
+at close: vonc arena 3/3 @55,870B, robot-hands grip-force 3/3 @38,318B. The
+`truncated_component` discovery check + completion verifier stay live as the
+permanent guard against recurrence. Transferable pattern recorded in 016b §9
+("fixing a corruption's CAUSE does not repair its casualties"). Repair recipes
+scripted in
+`docs/agent_docs/docs024_key_docs_latest/truncation_casualties_046/scripts/`.
 
 ## UPDATE 2026-07-24 (later) — the batch: all remaining placed tools repaired & live
 

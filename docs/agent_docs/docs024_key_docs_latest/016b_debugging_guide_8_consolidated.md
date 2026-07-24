@@ -3253,3 +3253,43 @@ live CHECK values). A cheap review tell: **a migration that widens a CHECK with 
 the same change-set is either dead schema or a split contract.** Category tags:
 `split-contract`, `enum-allowlist-drift`, `capability-shipped-as-unreachable-rows`,
 `move-both-together`.
+
+### Fixing a corruption's CAUSE does not repair its casualties — closing a corruption-class bug needs a census, and same-cut source+render is invisible to every comparison check (2026-07-24)
+
+**Symptom.** Months after a data-corruption bug is "fixed AND live" (bugs_closed/012: truncated
+LLM generations overwriting whole components), live customer pages still serve the damage — 9
+components across 6 domains with an unterminated `<script>`, so the tool's JS never runs and the
+page tail is swallowed as script text. Nothing flags it: work items are green, acceptance passes,
+the census only happened because an unrelated calibration run (bugs_open/024's `toolTemplateValid`)
+listed the rejects.
+
+**Why it was invisible.** The cut sat identically in BOTH `content_components.html_template` and
+`page_components.rendered_html` — so there was no source-vs-render disagreement for any drift check
+to notice; Tier-4 acceptance judges declared layout criteria, and a dead script fails none of them.
+A corruption that propagates before detection erases its own contrast.
+
+**Fix shape (bugs_closed/046).** (1) A structural sweep — discovery check `truncated_component`,
+5-pair tag-imbalance predicate calibrated against the full live population (caught exactly the 9,
+0 false positives; the ends-mid-token heuristic was EXCLUDED — it flags 36 legitimate templates as
+a fleet sweep even though it is correct as a load-time drop). Detect-and-surface, no auto-handler.
+(2) Repair: restore from an intact `component_versions` row where one exists (1 of 9); else an
+in-place whole rewrite via tool-improver (NOT tool-recreation — adoption-fingerprint-based; NOT
+tool-generator — no-ops `already_exists` and its birth path INSERTs a duplicate page), delivered
+via the section-editor `content_edit` path. Unplaced components need the same pipeline minus the
+page join (tool-improver's `load_tool` requires a placement).
+
+**Transferable rules.**
+1. **A corruption-class close requires a census of the wreckage, not just the cause.** "Fixed AND
+   live" stops NEW damage; ask "what did it already destroy, and who repaired that?" before moving
+   the case. 012's closure was correct on its own terms — the bar simply never asked.
+2. **Calibrate any fleet-facing predicate against the full live population before enabling it.**
+   The same signal can be right as a load-time guard and wrong as a sweep: precision requirements
+   differ by consumer (a silent schema drop tolerates false positives; a human queue does not).
+3. **A sweep's remedy must respect the remedy's own risk class.** Auto-routing these to a
+   regenerator was unsafe while tool recreation could fabricate data (020, open at the time) —
+   detect-and-surface with `intact_version_available` in the spec let a human pick
+   restore-vs-regenerate at a glance.
+
+**Related:** `bugs_closed/046` (the case, with both repair recipes scripted);
+`bugs_closed/012` (the cause); `bugs_closed/024` (delivery path); `bugs_closed/020`
+(why auto-regeneration was gated).

@@ -173,3 +173,25 @@
   JavaScript from this class any more.** Remaining: 3 unplaced orphans
   (archetype-clash, leopardess llm-cost variant, archetype-taster-quiz section) —
   deactivate-vs-regenerate is the residual decision; they serve nobody today.
+
+## 2026-07-24 (evening) — orphans regenerated on owner instruction; 046 CLOSED
+
+- Owner chose regeneration over deactivation for the 3 orphans. Mechanism gap:
+  tool-improver's `load_tool` JOINs page_components/pages, so an unplaced
+  component resolves not_found. Built `regenerate_orphan_component.sh`: the SAME
+  pipeline inline (query_database load without the page join → the improve
+  prompt at sonnet-5/32k → `update_component_html` with create_version, keeping
+  the write guard + version snapshot in the loop), no delivery step (nothing to
+  deliver to).
+- All 3 COMPLETED (corrs c7407258 archetype-clash / ea57da00 llm-cost-leo /
+  7af8362a taster-quiz): 28,737 / 33,834 / 30,360 chars, script 1/1, style 1/1,
+  end clean, zero fabrication tells, v1 version snapshots taken (these had 0
+  versions before — the pre-update snapshot is their first).
+- **CLOSE evidence, per the bug's own "How to verify":** census query returns
+  0 rows fleet-wide; both named URLs re-fetched — vonc arena 3/3 @55,870B,
+  robot-hands grip-force 3/3 @38,318B. All 9 casualties repaired.
+- CLOSED: file moved bugs_open/ → bugs_closed/ (bar met: fixed AND live,
+  verified against the running system). §9 pattern added to 016b ("fixing a
+  corruption's CAUSE does not repair its casualties — a corruption-class close
+  needs a census"). Detection check + verifier remain live as the permanent
+  guard. 046 was never indexed in 016b §10, so no index edit needed.

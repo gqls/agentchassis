@@ -150,3 +150,24 @@ broken JavaScript from this damage any more.** What's left is housekeeping — t
 broken components that aren't on any page and serve nobody. My recommendation is
 to deactivate them rather than spend rebuild credits; that's the one remaining
 decision.
+
+---
+
+**2026-07-24, late (bugfix-046 thread)**
+
+You asked for the three orphaned components to be rebuilt rather than binned, so
+that's done. One small engineering note: the normal rebuild route refuses to
+touch a component that isn't on any page, so I ran the same rebuild steps
+directly — same AI rewrite, same safety guard on the write, same version
+snapshot — just without the page lookup. All three came back complete and clean:
+the clash calculator, the spare cost calculator, and the taster quiz. If any of
+them is ever placed on a page in future, it will render whole.
+
+And with that, this bug is closed — properly closed, by its own test: a sweep of
+the entire component library finds zero cut-off components, and the two pages
+named in the original bug report both serve intact JavaScript, checked against
+the actual live bytes tonight. All nine casualties are repaired. The watchdog we
+built stays on permanently, so if this ever happens again it becomes a tracked
+review item within a day rather than sitting invisible for months. The lesson
+we've written into the shared debugging guide: fixing what *caused* damage
+doesn't repair the damage already done — always go back and count the casualties.
