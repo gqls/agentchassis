@@ -1163,3 +1163,32 @@ backlog) — so the one-page test is now exactly the clean experiment: **Claude 
 new voice prompt vs the Claude + old prompt baseline** (about_copy_before.txt).
 Monitor unchanged. On completion: before/after comparison against the style
 rules + voice-tells + leopardess-story presence.
+
+## 2026-07-24 — prompt test round 1: real improvement, two residual tells; v2 tightening applied
+
+**The about rebuild ran (Claude + v1 style prompt, 16:11), content SAVED; only
+`deploy_page` timed out** ("Request 59150fa3 timed out after 3 retries" — the
+awaited-response/backlog class) → item auto-reset to triaged; the retry will
+deploy. **Before/after vs the baseline snapshot:**
+- Mechanical: filler words 1→0; em dashes 19→14 (down, NOT gone — rule partially
+  obeyed); negative frames 0→0; leopardess mentions 2→3 (story survived).
+- Qualitative: fact-first openings landed ("FundamentallyAI is an AI
+  consultancy." vs the old "not a methodology deck, not a proof-of-concept…"
+  stacking); sentences shorter and plainer. But "**That second part matters**"
+  reproduced the exact "That X matters" tic, and em dashes persisted.
+**v2 tightening applied from this evidence** (guarded update, 16:22): the
+em-dash rule now demands a pre-return scan ("a draft containing an em dash is
+wrong even if it reads well"); a dedicated rule names and bans the "That X
+matters" family. **The pending retry of `needs_page:about` becomes the v2
+test** — it will build with the current (v2) prompt.
+
+**STRUCTURAL FINDING — hand-placed components do NOT survive full rebuilds.**
+The about rebuild rebuilt sections from the SITE PLAN: my hand-placed
+people-feature-block is GONE from about (page now hero-about/about-content/
+differentiators/call-to-action). Full-page content rebuilds on the other pages
+would likewise strip stat-band (index), swipeable-insight-carousel (council),
+image-hover-card-grid (fine-tuning), hero-card-carousel (capabilities).
+**Before rolling the new voice across pages: add the 5 placements to
+`site_plan_sections` (plan-level data) so rebuilds preserve them** — the
+rebuild-proof fix, and the data half of features_open/017. Then rebuild pages,
+then restore about's block.
