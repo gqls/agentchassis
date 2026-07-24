@@ -67,3 +67,74 @@ the signal the human already gave (`locked_at`) is being ignored outright.
   This is the orthogonal half: honour locks when a page *is* legitimately rebuilt.
 - `/bugs_open/029` — `tool-suggester` regenerating pages; same consequence, different trigger.
 - `/bugs_open/033` — the missing human-review surface; the natural home for candidate 3's signal.
+
+---
+
+## FIX COMMITTED 2026-07-24 (`82ae5a550` + gofmt sweep `3a309cbeb`) — OPEN until image roll + live behavioural proof
+
+Council gate: submitted 2026-07-24, corr `d2539ca6-ff16-414d-897d-363ebc559df0` (verdict pending at
+commit time; see the docs commit trailer or `doc_notes` categories `council-gate`).
+
+**What shipped** — candidates 1 + 3 together, with candidate 2's cheap SQL form used where it fits:
+
+- **One shared expiry-aware predicate** (`lock_helpers.go` `pageComponentAgentWritableSQL`), taken
+  verbatim from the applied 053/115 schema migration: agent-writable iff `locked_at IS NULL OR
+  (lock_type='timed' AND lock_expires_at IS NOT NULL AND lock_expires_at < NOW())`. Any other locked
+  row (permanent / review / NULL type / unexpired timed) blocks automation. No force-override in v1 —
+  031_LOCKS approved policy: the override is manual human unlock.
+- **`save_page_sections`** (the choke-point): actively-locked rows survive the DELETE+INSERT with
+  **row identity intact** (same id, untouched `updated_at`); a locked slot's fresh copy is discarded
+  and only the row's `position` moves to follow the new composition (exact slot match, then
+  kebab-normalised fallback, consume-once for duplicate slots); a locked slot the composition
+  dropped is retained after the new set. Result reports `locked_sections_preserved`.
+- **`apply_section_edit`**: pre-check + race-free predicate on both UPDATEs (`errComponentLocked` →
+  skip-result `{skipped:true, locked:true}`, not an error — an error would retry the orchestration
+  against a state only a human unlock can change).
+- **`rebuild_blog_listing`**, **`fix_harcoded_colours`**, **`fix_forced_text_colours`**: guarded
+  UPDATEs, loud skips.
+- **Candidate 3 signal**: every blocked overwrite/removal/edit files a deduped
+  `lock_blocked_change` work item, `status='needs_human_review'`, **no handler_agent** (the
+  owner-confirmed dead-control routing; surfaces on the 033 dashboard) via the shared
+  `insertWorkItem` (no 42P10 drift). Best-effort — never blocks the write path.
+- **Admin endpoints** (`page_admin_handlers.go`) now stamp/clear `lock_type`/`lock_expires_at` via
+  `LockPolicyFor` on lock/unlock/remove/restore (page_components AND site_components) — the May
+  lock-coherence plan's Step 2, scoped.
+
+**Corrections to this file's own claims** (found while fixing):
+
+> **CORRECTED 2026-07-24:** the verification example above (`lock_type='admin'`) would violate the
+> live CHECK constraint — `chk_page_components_lock_type` allows only
+> `permanent|timed|review`. Use `lock_type='permanent'` (or leave it NULL; the gate treats a locked
+> row with no lock_type as hard, conservatively).
+
+> **CORRECTED 2026-07-24:** `CheckComponentLock`'s original hard/soft switch
+> (`locked_by IN ('admin','admin-removed','checkpoint')`) misclassified **every live lock as
+> soft** — real rows carry free-text reasons in `locked_by` (`182_legal_pages`, the idea.uk CTA
+> reason strings). Reworked to classify on `lock_type` via `lock_policy.go` (`IsHardLockType`),
+> which was committed in May 2026 with zero callers until now.
+
+> **CORRECTED 2026-07-24 (writer list):** of the 10 files listed under "Writers that overwrite",
+> only `save_page_sections` and the `apply_section_edit` helpers overwrite existing copy from
+> automation. `loop_actions.go` has **no DB write at all** (in-memory maps); 
+> `render_site_components_action.go` and most of `fix_component_template_action.go` write
+> **site_components** (chrome), not page_components; `create_tool_component` / `deploy_tool` are
+> INSERT-only (`ON CONFLICT DO NOTHING` — a new row cannot be locked);
+> `update_component_html` / `store_generated_component` / `link_site_components` touch metadata or
+> other tables. The admin surface is exempt (it sets the locks; its regenerate fan-out at
+> `page_admin_handlers.go:843` already filtered locked rows).
+
+**Residual, spun out:** `site_components` (chrome) has the identical defect — admin lock endpoints
+exist, and NO chrome writer reads the columns. Filed as `/bugs_open/069` (the shared predicate is
+table-generic, so the fix there is mechanical).
+
+**Post-roll verification recipe** (the failing branch, not a pod-grep):
+
+1. On a scratch page: `UPDATE page_components SET locked_at=now(), locked_by='058-verify',
+   lock_type='permanent' WHERE id='<pc>';` — note `rendered_html` md5 + `updated_at`.
+2. Drive a rebuild of that page (or an `apply_section_edit` at the locked component).
+3. Assert: locked row's `rendered_html` md5, `id` and `updated_at` **unchanged** (position may
+   move); an **unlocked sibling on the same page WAS rebuilt** (do not pass this by never writing);
+   one `site_work_items` row `item_type='lock_blocked_change'`, `status='needs_human_review'` for
+   the page/slot.
+4. Unit tests already cover the SQL-level branches (`lock_gate_test.go`, 13 cases, green 2026-07-24
+   via `git archive HEAD` overlay: full `actions` + `core-manager/admin` suites pass).
