@@ -78,12 +78,42 @@ owner action: issue the $50-capped key.
 3. First council submission rejected client-side on schema (see above) —
    cheap, by design (no credits spent).
 
+## 2026-07-24b — batch 2: the four pipeline actions (all built, tested, committed)
+
+- **Council verdict on batch 1 (score_grippers): APPROVED** (corr ffccb83c,
+  17:07Z). Commits predate the verdict (advisory-first flow), so no trailer
+  on them; verdict recorded here and resolvable by corr.
+- **Batch 2 committed `2849564ec`** (pull_report_requests +
+  emit_report_status_files / verify_report_prose / create_report_page /
+  report_charts.go + registry). Council submission:
+  **SUBMISSION_CORR 7ed137d1-361c-4f69-9361-9e4ba1dfa6bf** (pending).
+- All tests green against clean `git archive HEAD` overlay (shared tree
+  still carries the other session's vet_med WIP — never gate on the dirty
+  tree).
+- **Design deltas, declared**: ONE chart (headroom) — the payload scatter
+  dropped: published payload is only comparable within payload-rated
+  technologies, a cross-tech scatter would mislead. verify_report_prose
+  gained a `context_field` (request strings like the mounting standard are
+  legitimate prose context score_grippers never sees) and a SKU-shape check.
+- **Misstep 4 (kept me honest twice)**: my "clean prose" test fixtures used
+  the 2.5 kg + IP54 scenario — which is a GENUINE zero-match application
+  (every candidate fails or goes unknown on unpublished IP). The gate
+  rejected my own fixtures for missing the mandatory no-match sentence
+  before it ever saw an LLM. Fixture bug, not gate bug — but also the first
+  live proof the gate bites. Second: the SKU regex missed digit-leading
+  models ("2F-140"); caught by its own test, tightened.
+- **Accepted pilot residual (documented in the council submission)**: a
+  fabricated plain-word product name with no digits passes the deterministic
+  gate — left to the writer prompt + validate_page_content contamination
+  checks. Revisit if observed.
+
 ### Next
-1. Await council verdict (corr ffccb83c…; ~30 min budget, missing row =
-   queued not dropped).
-2. create_report_page + report_charts.go (SVG) + verify_report_prose +
-   pull_report_requests + emit_report_status_files (one commit per coherent
-   task; council per task or batched at this lane's discretion).
-3. Agent seeds 205–208 (207/208 strictly post-image); island service
-   cmd/gripper-intake (blocked only on the owner's $50-capped key for LIVE
-   turns; code+tests can proceed offline).
+1. Await council verdict corr 7ed137d1 (~30 min; missing row = queued).
+2. Seeds 205 (report-dossier component), 206 (island config placeholder),
+   207 (three agent_definitions), 208 (two scheduled_tasks, disabled) —
+   205 pre-image OK; 207/208 strictly post-image.
+3. Island service `cmd/gripper-intake/` (code+tests offline; live turns
+   blocked only on the owner's $50-capped key).
+4. Image roll (IMAGE_TAG bump; discriminating pod-grep: 'report-dossier' +
+   'pull_report_requests' + positive control), then 206–208, then induced
+   E2E fixtures (success / no-match / failure) per DESIGN §6.
