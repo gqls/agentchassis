@@ -1215,3 +1215,27 @@ values grounded** (the writer now authors them per schema guidance "never invent
 — leave empty if no verified figure"; any number NOT in the known-true set
 {97%, 11, <24h} is a finding). Then: restore-check about, and onwards to
 features_open/016 (brief-fidelity audit).
+
+## 2026-07-24 — features_open/016 BUILT: brief-fidelity-auditor seeded + commissioning run fired
+
+While the 5-page rebuild wave drains (all triaged, queued), built 016 v1 — the
+"did the machine build what was asked" audit. **Config-only, live on insert**
+(agent_definitions seed; every action already registered — no image roll):
+`ensure_site_record → load_brief_context (SQL: mission_brief + design_intent +
+content_direction + per-page component inventory + imagery counts) →
+run_fidelity_audit (execute_llm_prompt, claude-sonnet-4-6 — matching the fleet's
+switch-back; model is one config line) → write_audit_findings
+(audit_source='brief-fidelity-audit') → complete`. Mirrors visual-design-auditor's
+proven shape + the auditFinding output contract exactly (category/severity/
+description/current_value/suggestion/acceptance_test/…, findings_field
+'<llm_output>.result'). Audit rules in the prompt: extract CONCRETE promises
+from the brief's own words; report ONLY broken/under-delivered ones (≤8), each
+quoting the brief phrase; current_value must come from the given inventory (no
+invented facts); kept promises are NOT findings — this grades fidelity, not
+taste (taste = 018). v1 deliberately inventory-based, no screenshots (component
+classes/imagery density/layout variety are inspectable from the DB; pixels come
+with 018).
+Source: `agents/brief-fidelity-auditor.{config.json,seed.sql}`.
+Commissioning run: corr `ca900c2a` vs fundamentallyai (findings will reflect the
+PRE-wave state; re-run post-wave for the real read). Findings land as
+site_work_items, status 'detected'.
