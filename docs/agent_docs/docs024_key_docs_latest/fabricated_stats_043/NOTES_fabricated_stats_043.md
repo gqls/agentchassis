@@ -78,3 +78,21 @@ Lessons: (1) verify EVERY page the writer touched after a full-writer pass, not
 just the one you edited — about/case-study held (lightweight path), index did
 not (writer path); (2) sweep the spec aspects for numeric claims — added to
 043's candidate-1/2 scope.
+
+## 2026-07-24 (close) — BEHAVIOURAL PROOF: the writer regenerated a stat block and did not fabricate
+
+The wave-2d re-render (16:08) went through the FULL WRITER again — provably: the
+persisted labels are fresh rewordings ("Agent Definitions", "Work Items
+Completed"), not the stored ones. And it wrote **170 / 13 / 17 / 1,267** — the
+exact dated snapshots listed in the evidence_base writer_block, rendered live.
+So the first live exercise of the complete stack (de-poisoned spec → repointed
+content_direction → Verified Facts → rule 14 v2) produced a freshly-generated,
+fully-true stat block. Item 5 of the open list (behavioural proof of 201) is
+DONE — earlier and more convincingly than the planned probe: same page, same
+writer path, same afternoon as the 15:10 fabrication, opposite outcome.
+
+Note the writer chose from the evidence list rather than echoing stored
+content_data (it replaced my 171/8/14/1,284 restore with the LISTED 170/13/17/
+1,267 snapshots) — exactly what the block licenses ("dated snapshots up to a
+listed live count are fine"). On writer-path pages the evidence_base IS the
+source of truth; keep IT current, not the content_data.
