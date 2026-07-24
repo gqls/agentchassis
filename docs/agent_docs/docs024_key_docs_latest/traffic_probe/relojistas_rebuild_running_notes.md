@@ -1258,3 +1258,34 @@ for render-INSTRUCTION items because freshness comes from render time, not emit 
 stale open row, whenever dispatched, performs the identical up-to-date render; (b) 063
 ships after its survey (its fix lands in a fleet-wide blocker path; the survey precondition
 is in the file). guardian's orphan check answered: insertWorkItem has 5+ live callers.
+
+## 2026-07-24 (late) — POST-ROLL GATE PASSED; emitter saga CLOSED; council stopped at 3 rounds
+
+**The behavioural proof landed.** The first natural feed cycle on v1.0.1155 emitted
+**`page_rerender × 2` and zero `needs_page`** — the fixed emitter, proven in production by
+its own traffic. Both items completed, and the homepage came through the cycle honest:
+0 phantoms/mailto, search box present, my card set intact, 0 relojistas writer calls. The
+full loop (feed refresh → no-LLM scoped re-render → live page tracks content_data) now
+works as designed. **The 07-24 LLM-roulette class is closed.**
+
+**Suppressor cleanup: moot, with one loose end.** The guarded DELETE found **0 rows** — my
+two `blocked` suppressors were already gone (something deleted them; no trace of who).
+Harmless: they existed only to muzzle the v1.0.1149 binary, which the 1155 roll retired.
+`[UNVERIFIED]` who removed them — if a janitor sweeps `blocked` items, the suppression
+window had a hole late in its life; worth knowing if anyone parks blocked rows again.
+
+**Council: STOPPED after round 3 (REVISE ×3), per the 053 precedent — no trailer.**
+Round 3's objections moved off my change onto platform doctrine: improvement_guardian's
+"runner owns insertion" and "detected→triaged staging" apply equally to the pre-existing
+canonical emitter (which has always inserted triaged directly — unchanged since 024
+defect 6); the reuse seat now asks for the OPPOSITE of round 1's direction (extend
+insertWorkItem vs the helper round 1 pushed me toward); and editquality's [high] is
+structural and correct — the code had already shipped via fleet builds, so the review was
+retroactive by the time of round 2. The runbook's own doctrine applies: seats contradict
+across rounds, advisory means advisory, pick one and record why. What the three rounds
+genuinely produced: the shared helper (round 1, right), bugs_open/063 (round 1, right),
+the final-state-sketch discipline (rounds 2–3, my fault twice), and one small open nit
+worth folding into any future touch of this file: a Debug log on the suppressed
+(inserted==false) path. The substantive correctness question was settled by execution,
+not argument: the emitter emits the right shape and the page survives its own refresh
+cycle.
