@@ -1035,3 +1035,10 @@ One thing left, and it's a decision for you rather than a bug: the small "Get St
 site *header* (the one that sits on every page, not just the home page) still goes to the contact page.
 Pointing it at the report tool as well is easy, but because it's in the shared header it would change
 on all nine pages at once — so I've left it and asked you which you'd prefer.
+
+## 2026-07-24 — header button done too; the whole home page now points at the tool
+
+You said yes to pointing the header "Get Started" button at the report tool as well. Done and checked
+on the live site: that button now goes to the report page on every page of the site, not just the home
+page. The only thing still going to the contact page is the actual "Contact" menu link, which is right.
+So the whole funnel — the big page buttons and the header button — now sends people to the paid tool.

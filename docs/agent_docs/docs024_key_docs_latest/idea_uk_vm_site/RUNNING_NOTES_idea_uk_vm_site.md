@@ -1527,3 +1527,16 @@ a template-var CTA resolved from the chrome value map (sites has no cta_url → 
 the LNK-007 fossil). Fixing it → /report.html is a SITE-WIDE chrome change (all 9 pages), broader than
 "the home page", so it is an owner decision (asked 2026-07-23). The `[Contact]` nav link correctly
 stays /contact.html.
+
+**§X.9 addendum — header CTA DONE & VERIFIED LIVE (2026-07-23/24).** Owner chose to point the header
+"Get Started" at the paid tool too. `cta_url` is source=renderer (hard-set to the contact page in
+`render_site_components_action.go:155-156`, and the renderer does NOT read `site_components.content_data`
+— no per-site data override), so edited idea.uk's OWN `site-header` component (`f420f3fa-…`, 1 site) —
+`href="{{.cta_url}}"` → `href="/report.html"` on both anchors (gate preserved; snapshot
+`bak_ideauk_header_20260723`); `sql/p3_07`. Fired the chrome refresh
+(`agent_type=rerender-pages, refresh_site_components:true`, CORR `22c993cb`, message PRODUCE-verified on
+the topic) → re-renders chrome + reassembles all 9 pages. Orchestration COMPLETED; `site_components`
+header rendered_html carries `/report.html`. VERIFIED LIVE: header `btn-primary` → /report.html on
+`/`, `/about.html`, `/tools.html`, `/report.html`, `/guides/index.html`; the only remaining
+`/contact.html` on the home page is the correct `[Contact]` nav link. **The idea.uk CTA funnel now
+drives to the paid tool end-to-end (body + header).**
