@@ -215,3 +215,25 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - Spends so far (blanket go): planner run 1 (spawn lost — cost ~nil), designer run 1
   (approved; plan superseded), implementer run 1 (refused s2; s1 knowledge kept),
   planner run 2 + designer run 2 in flight.
+
+## 2026-07-23 (late pm) — run 12 REJECTED (correctly); designer v2 in repropose
+- Experience run 12 (fa4b77cd): spawn WORKED on re-fire (contrast 4d3d89fa's silent
+  drop — one more bug-003 data point). Council REJECTED via feasibility veto — and the
+  veto is CORRECT sequencing: the plan gated Journey A on the not-yet-existing tools
+  API. Its prescription = ship the static Steps 0–3, gate the gauntlet on a verified
+  API. **196 PROVEN LIVE**: contracts approved ALL greenfield pairs, objected only to
+  2 quotable existing-consumer contradictions (data.lobby dead? / data-url vs closured
+  click). Honesty APPROVED. PARKED: re-fire 092 only after tools-api is deployed +
+  smoke-POSTed, carrying liveness evidence via the compose decisions block.
+- P4 BUILD INPUT (bank these for the front-end round): defence/verdict objectives need
+  §5 interaction checks; secondary CTA needs a real journey step; arena rebuild OUT of
+  the MVP cut (mvp seat); current gauntlet JS lets checkboxes toggle freely + runs a
+  20-min mock timer — the rebuild must bind objectives to API events (feasibility);
+  verify data.lobby consumer question + use entry.url closure (not data-url) per the
+  real loader source (contracts).
+- Rejected plan is is_current but MUST NOT be built from (seed's own escalation rule).
+- Designer v2 (c2a9fd27): round-1 council REVISE — editquality caught that the v2
+  restructure LOST the DB-pool bootstrap (s2 CORS sites-lookup + s3 RoundsStore both
+  assume a client no stage creates; v1 had db/conn.go, v2 dropped it). Otherwise clean:
+  dockerfile right, middleware wired in-stage, no makefile edit. Run continues at
+  `repropose` (internal revise loop) — watcher b0b0k1cta on it.
