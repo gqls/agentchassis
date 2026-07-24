@@ -3,10 +3,42 @@
 **Filed:** 2026-07-20 · travelling-docs thread
 **Severity:** high — live customer-facing breakage on **6 domains**, present now,
 and invisible to every check we have.
-**Status:** OPEN. Detection **LIVE + ENABLED + PROVEN** (v1.0.1149 + seed 186).
-**grip-force FULLY REPAIRED end-to-end and LIVE** (template + render + live page,
-2026-07-24). **8 remain — they need LLM regeneration (no intact version); the
-delivery recipe for them is now PROVEN.** See the UPDATEs below.
+**Status:** OPEN (residual only). Detection **LIVE + ENABLED + PROVEN** (v1.0.1149
++ seed 186). **ALL 6 PLACED CASUALTIES REPAIRED & VERIFIED LIVE 2026-07-24** —
+every live customer page that was serving unterminated JavaScript now serves
+whole, balanced markup. Census 9 → 3; the 3 remaining are UNPLACED orphans
+(0 page_components, serving nobody): `tool-archetype-clash-calculator-vonc-com`,
+`tool-llm-cost-calculator-…-leopardessconsulting-co-uk`, `archetype-taster-quiz`
+(section). Residual decision: deactivate vs regenerate the orphans. See the
+UPDATEs below.
+
+## UPDATE 2026-07-24 (later) — the batch: all remaining placed tools repaired & live
+
+Owner-approved batch run (after the arena proof). The "6 remaining placed"
+resolved to **4 components across 5 page placements** (the finetuning llm-cost
+component is shared onto leopardessconsulting too; my earlier table header
+mis-said 6 — the true reconciliation: 9 casualties = 6 placed components + 3
+unplaced, and grip-force + arena were already done).
+
+Recipe per component: tool-improver in-place rewrite → verify balanced + no
+fabrication tells → section-editor `content_edit` delivery per placement →
+verify live bytes.
+
+| component | rewrite corr | template | live page | live script |
+|---|---|---|---|---|
+| drop-rate-tuner (gamesdesign) | `0ed21972` | 22,518 cut → 21,478 balanced | tools/tool-drop-rate-tuner.html | **3/3** |
+| llm-cost (ai-agent-orchestration) | `e7ec3fe1` | 21,724 cut → 35,290 | tools/tool-llm-cost-calculator.html | **5/5** |
+| llm-cost shared (finetuning) | `716203fb` | 17,828 cut → 31,324 | finetuning.uk + leopardess /tools/llm-cost-calculator.html | **5/5 both** |
+| process-automation-scorer (leopardess) | `25019a4e` | 14,644 cut → 18,775 | tools/process-automation-scorer/index.html | **5/5** |
+
+Delivery corrs: `3f5aa1d6` / `94434d81` / `564d1485` / `7e6c27e9` / `a228c040`,
+all COMPLETED; all 5 `rendered_html` rows match the new templates (script 1/1,
+`deployed`). All rewrites: zero fabrication tells (no PRNG/seed arrays, no
+external fetch), all end clean.
+
+Operational note: the 5 delivery publishes sat queued ~5 minutes behind another
+session's council run (the bugs_open/030 serialisation) with **no orchestration
+row** — the documented latency trap; waiting (not re-publishing) was correct.
 
 ---
 

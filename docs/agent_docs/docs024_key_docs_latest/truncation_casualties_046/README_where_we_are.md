@@ -122,3 +122,31 @@ Scoreboard: two of the nine originally-broken components are now fully fixed and
 live (grip-force, arena). Seven remain: six broken tools actually sitting on
 pages, plus one orphaned component nobody uses. The proven recipe applies to all
 six. As agreed, I've stopped here for your go/no-go on running it across the rest.
+
+---
+
+**2026-07-24, evening (bugfix-046 thread)**
+
+You gave the go-ahead and the batch is done. One honest correction first: I'd
+said "six remaining" in my last note — the real number was four broken tools
+still sitting on pages (one of them shared between two sites, so five pages in
+all); six was the total of placed casualties including the two already fixed.
+
+All four were rebuilt by the tool-improver in one pass — each came back complete,
+properly terminated, and with no invented data — and all five pages were pushed
+live through the proven delivery path. I then fetched every one of the five live
+pages and checked the actual bytes: every script tag on every page is now
+properly closed. gamesdesign, ai-agent-orchestration, finetuning and both
+leopardess pages are all serving whole JavaScript.
+
+One wobble mid-run worth recording: after I sent the five delivery requests,
+nothing appeared to happen for five minutes. This is the known queue behaviour —
+the platform was busy with another thread's council review and my requests were
+simply waiting in line. The documented advice (wait, don't re-send) was right;
+they all ran and completed the moment the queue cleared.
+
+So the headline of this bug is now closed out: **no live customer page is serving
+broken JavaScript from this damage any more.** What's left is housekeeping — three
+broken components that aren't on any page and serve nobody. My recommendation is
+to deactivate them rather than spend rebuild credits; that's the one remaining
+decision.

@@ -148,3 +148,28 @@
 - Recipe script: scripts/regenerate_via_tool_improver.sh (+ the existing
   deliver_via_section_editor.sh). STOPPED here per the owner's instruction —
   6 placed casualties + 1 unplaced-section remain for the scale-out decision.
+
+## 2026-07-24 (batch) — all remaining placed tools repaired & verified live (census 7 → 3)
+
+- Owner approved the scale-out. Fresh placement query first: the "6 remaining
+  placed" was MY MISCOUNT (sloppy table header in the report) — truth: 4
+  components / 5 placements remained (finetuning's llm-cost is shared onto
+  leopardessconsulting). Full reconciliation: 9 casualties = 6 placed components
+  + 3 unplaced; grip-force + arena were already done.
+- Fired all 4 tool-improver rewrites concurrently (corrs 0ed21972, e7ec3fe1,
+  716203fb, 25019a4e) — all COMPLETED in ~3 min; all 4 templates balanced
+  (script 1/1, style 1/1), end clean, ZERO fabrication tells. Census 7 → 3.
+- Fired all 5 section-editor deliveries. TRAP REPLAYED, correctly read this time:
+  ~5 min with NO orchestration row for any of them — the ingest lane was busy
+  with another session's council run (bugs_open/030 serialisation). Did NOT
+  re-publish (would have minted duplicate deliveries); rows appeared at round 5
+  and all 5 COMPLETED within 2 more minutes.
+- Verified BOTH surfaces for all 5 placements: rendered_html == new template
+  lengths (21478 / 35290 / 31324 ×2 / 18775), script 1/1, build_status deployed;
+  live bytes: gamesdesign 3/3 @39,459; aao 5/5 @48,276; finetuning 5/5 @54,117;
+  leopardess llm-cost 5/5 @53,979; leopardess process-automation 5/5 @32,423.
+  All HTTP 200, all BALANCED.
+- **The bug's headline harm is extinct: no live customer page serves unterminated
+  JavaScript from this class any more.** Remaining: 3 unplaced orphans
+  (archetype-clash, leopardess llm-cost variant, archetype-taster-quiz section) —
+  deactivate-vs-regenerate is the residual decision; they serve nobody today.
