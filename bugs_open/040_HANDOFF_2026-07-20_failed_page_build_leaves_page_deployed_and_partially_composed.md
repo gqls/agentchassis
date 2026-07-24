@@ -145,6 +145,48 @@ silent permanent five-sixths page into a visible one that keeps asking to rebuil
 *deterministic*-drop page is a slow reconcile-paced loop. Finding the section-drop cause is now the
 highest-value follow-on, and this fix is what makes it visible instead of silent.
 
+> **CORRECTED 2026-07-24 — the drop cause is no longer unknown. It decomposes into three, and
+> none of them is a new rendering defect:**
+>
+> **(1) The bulk was `bugs_closed/041` (section-lookup never normalised), already found, fixed and
+> behaviourally verified by that workstream** — snake_case section names (`call_to_action`, 14 of
+> this sweep's 39 missing occurrences, plus most `hero` cases) never matched their kebab components,
+> fell to Path 3, were deferred, and the page deployed short. Fixed & live v1.0.1146. What remains of
+> that damage is a per-site **backfill** (already-short pages need a rebuild), owned per site.
+>
+> **(2) dartsonline's `testimonials` — the case this file called UNKNOWN — was the
+> `on_missing=skip_section` data guard working correctly.** Grounded live 2026-07-24: the
+> `testimonials` component's `input_schema` requires `site_specs.social_proof.testimonials`
+> (`required:true, min_items:1, on_missing:"skip_section"`), and dartsonline has **no current
+> `social_proof` aspect at all** (`SELECT aspect FROM site_specs … is_current` — ten aspects, no
+> social_proof). The platform refused to invent customer quotes. Why my 2026-07-20 check found
+> nothing in `sections_skipped`: that record lives **only in the orchestration's `collected_data`**,
+> and `orchestration_states` is pruned at ~24h (the `bugs_open/060` retention finding) — the record
+> had evaporated before I looked. The refutation was of the *record*, not the mechanism.
+> `bugs_closed/041` §"What is NOT this bug" had already stated this; I verified rather than assumed.
+> Same mechanism grounded for `gaswholesalers/index`'s missing `social_proof` (no aspect) and — as a
+> *deferral* variant — `fundamentallyai/index`'s `contact-info` (schema sources
+> `site_specs.identity.email`; the live data holds `identity.contact.email` — a **source-path
+> mismatch** → optional field, `on_missing:"needs_human_review"` → section deferred).
+>
+> **(3) The two 1-of-4 tool pages** (`finetuning.uk/ai-agent-roi-estimator`,
+> `ai-agent-orchestration.com/agent-complexity-estimator`) hold only the tool widget itself; the
+> planned `hero-tool`/`tool-guide-intro`/`tool-cta` trio was never rendered — that is the
+> `bugs_open/045` tool-hero library gap (+ TP-004 family), **owned by the hero_tool_component_045
+> workstream**; the generic `hero-tool` now exists and this guard has already queued the rebuilds.
+> Contributed there, not forked.
+>
+> **The genuinely new structural finding — filed for diagnosis 2026-07-24, corr `65103331`:**
+> a *correct* skip/defer decision is **never durably recorded** — `handleMissingField` sets it
+> in-memory, `sections_skipped`/`sections_deferred` land only in prunable `collected_data`, and no
+> code path writes `pages.suppressed_sections`. So `pages.sections` permanently over-promises, and
+> this file's own guard (which subtracts only `suppressed_sections`) reads every data-gated section
+> as a shortfall — **a page whose plan contains one can now never be stamped `deployed`**, however
+> many times it rebuilds (gaswholesalers/index and fundamentallyai/index are parked this way today;
+> the loop is slow — reconcile-paced + anti-churn — not runaway). The fix direction (persist the
+> skip on the page row so the guard can exclude it; decide separately whether a *deferral* should
+> hold the page un-stamped) awaits the diagnosis verdict before any code moves.
+
 ---
 
 ## What happened (dartsonline.com `index`, 2026-07-20)

@@ -165,3 +165,21 @@ were never (re)built after the 023 cleanup — not because anything prevents it.
 - `bugs_open/033` — human-review queue has no working surface (where 023's class G went).
 - `bugs_open/001` — re-plan clobbers built pages; constrains `page_components`-level
   workarounds (fix candidate 3).
+
+---
+
+## Contribution from the 040-partial-build workstream (2026-07-24) — your two rebuild candidates are queued, and a third page family surfaced
+
+While decomposing 040's section-drop causes: the two 1-of-4 tool pages
+(`finetuning.uk/ai-agent-roi-estimator`, `ai-agent-orchestration.com/agent-complexity-estimator`)
+each hold ONLY the tool widget row (`tool-<name>`, `build_status='pending'`); the planned
+`hero-tool` / `tool-guide-intro` / `tool-cta` trio has no `page_components` row at all. When a
+deploy path tried to stamp them `deployed`, 040's shortfall guard (live v1.0.1146+) refused and
+flipped both to `needs_rebuild` with the plan stamp cleared — so **your rebuild-arms-the-fix test
+is already queued by the platform itself**; when those rebuilds fire, the section trio should now
+resolve (generic `hero-tool` exists post-2ba9d3d50; `tool-cta`'s `query.pages_where_type:tool`
+has data; `tool-guide-intro` is llm-sourced). If a rebuilt page comes back still 1-of-4, that is
+evidence of a second defect in the tool-page build path (does it run `plan_sections` at all?),
+not of this one. No fix forked here — observation only. Full context:
+`bugs_open/040…partial_build…md` CORRECTED 2026-07-24 block; diagnosis of the
+skip-not-recorded interaction is corr `65103331`.
