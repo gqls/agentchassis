@@ -751,3 +751,44 @@ caveats apply).
 
 **Reversible:** `UPDATE scheduled_tasks SET interval_seconds = 30 WHERE name IN
 (...)` — but that restores the higher load (and the 60 s effective period).
+
+---
+
+## Observation from another thread, 2026-07-24 (model_directory_pipeline session) — a triaged build item waited 2h+ while the site's dispatch turns went to claim-touches that don't stick
+
+Contributed per who-owns (this case owns the dispatch lane); evidence only, no
+competing fix started.
+
+**Timeline (site `2a8ebf9c`, ai-agent-orchestration.com):**
+- 14:08 UTC: `needs_content_page` (page_name=model-directory, priority 40)
+  created `triaged` by content-gap-planner. A near-identical `needs_page` for
+  the same site had been claimed within ~5 minutes earlier that day (13:52),
+  so the lane CAN be fast.
+- 14:08→16:05: item stays `triaged`, `attempt_count` 0. Live 404.
+- `build-pipeline-trigger` fires every ~150s throughout; almost every run ends
+  `complete_idle` (checked `collected_data->dispatchable_site`: empty), even
+  at moments when a by-hand run of the IDENTICAL `find_dispatchable_site`
+  query (read from the run's own `workflow_plan`, not the definition row)
+  returns this site. The one non-idle run in the 15:23–15:40 window (15:34,
+  orch `16a03bbd`) dispatched the OTHER dispatchable site (`ecf15e75`) — i.e.
+  this site was excluded at that instant too, implying its `NOT EXISTS
+  (status='claimed')` gate was closed at nearly every tick sampled.
+- **The odd part:** at 15:18:12 the model-directory item's `updated_at` moved
+  while status stayed `triaged` and `attempt_count` stayed 0; same for a
+  `page_rerender:index` item at 15:22:49. Something claims-or-touches and
+  releases without incrementing attempts. Three 20s-apart samples at 15:02–03
+  found `claimed: NONE`, so the claimed windows (if that is what excludes the
+  site) are short-lived and were never directly observed — [INFERRED] from
+  the idle runs + the 15:34 other-site dispatch, not seen.
+
+**Why this thread cares:** it is the last hop of an otherwise fully-proven
+pipeline (bugs_closed/062) — the page record exists, the build item is valid,
+and delivery now depends only on this lane. No urgency beyond that.
+
+**Possibly relevant structural note (unverified as a cause):** the
+`find_dispatchable_site` query is `DISTINCT ON (site_id) … ORDER BY site_id,
+priority LIMIT 1` — one site per tick, ordered by raw uuid, excluded while ANY
+of its items is claimed. A site with frequent short-lived claims (busy
+rerender cycle) can lose most ticks; and among competing sites the lexically
+smallest uuid always wins ties. Left here as a question for this workstream,
+not a diagnosis.
