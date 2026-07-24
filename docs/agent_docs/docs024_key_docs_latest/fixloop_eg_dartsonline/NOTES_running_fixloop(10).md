@@ -2603,3 +2603,46 @@ Re-checked the drift-prone state before writing a fresh summary:
   059 is about (no reindex cadence). The one-off refresh bought two days.
 - **feature-designer council held**: review seats still `claude-sonnet-5 @ 8000`
   (PATCH_022 intact).
+
+---
+
+## Turn 49 — 2026-07-24 — bugs_open/059 fix #1: the reindex CADENCE (proven on first fire)
+
+Owner: "yes we need a cadence for the reindex loop." Built `scheduled_tasks` row
+**`code-index-refresh`** (`SEED_code_index_refresh_cadence.sql`), applied live.
+
+**The design decision that mattered: DERIVE the ref, don't hardcode it.** The
+deployed code lives on a feature branch whose NAME churns (085→086 this week), so a
+hardcoded `ref` in the task's input_data would BE the drift class 059 is about. The
+scheduler supports dynamic input_data (`cmd/scheduler/main.go`: `runPreQuery` takes
+the pre_query's FIRST ROW as JSON, `mergeJSON` shallow-merges it into input_data,
+`fireTrigger` wraps it in the orchestrate envelope with `config.agent_type =
+target_agent_type`). So `input_data = {owner,repo,language}` (no ref) and the
+`pre_query` returns a `ref` column that merges in. The pre_query = most-recent
+human/diagnosis-driven feature-branch ref (`NNN_*`), with two guards:
+  - **self-exclusion** `owner_agent_type NOT IN ('index-orchestrator','code-indexer')`
+    — else the reindex's own 1/day runs (few other orchestrations carry a NNN_ ref)
+    would drown the signal and pin it to a dead branch (a staleness bug inside the
+    fix for one). Verified the human-driven runs are `generic`/`diagnose-*`.
+  - **gate**: no rows (quiet repo) → tick SKIPPED (safe — don't index a guessed ref).
+  `orchestration_states` is tiny (~1557 rows, reaper-kept), so the scan is trivial.
+
+**Mechanics learned:** the scheduler WRAPS input_data itself, so the input_data
+column is just the nested `{owner,repo,ref,language}` (NOT the full envelope — unlike
+what a couple of existing rows' input_data suggested). `target_agent_type =
+index-orchestrator` (NOT code-indexer directly — that's the trap from turn 47:
+direct dispatch is adopted in-place with no token; index-orchestrator spawns the
+pod). interval 86400 (24h, matches other freshness tasks; tunable).
+
+**PROVEN on the first fire** (verify the behaviour, not the config): applied seed →
+within ~2 min the scheduler fired it (`last_triggered_at` never→13:34:47, next_due
++24h) → the pre_query derived `ref=086_experience_loop` and injected it → a
+code-indexer run COMPLETED carrying `ref=086` → `code_symbols` refreshed
+`ca8dc7f`→`adb00fd` (4507 rows, updated 13:36:52). The index-orchestrator parent was
+already reaped, but the last_triggered flip + derived-ref child + index refresh are
+the full chain.
+
+**059 stays OPEN** for the two residuals: the read-time FRESHNESS GUARD (fix #3 —
+a lagging/stale answer still reads as "absent"; the 019-family protection) and the
+outdated docs019 manual trigger (fix #2). The cadence fixes the "drifts for weeks"
+headline; the guard is the deeper "absence is not an answer" fix.
