@@ -53,3 +53,6 @@ hazard has materialised. A risk with no test is an opinion.
 | 011 | FEATURE | [Pre-cutover content/route-diff guard](011_FEATURE_pre_cutover_content_diff_guard.md) |
 | 012 | FEATURE | [Explicit per-page redesign intent (`recompose_pages`)](012_FEATURE_explicit_page_recompose_intent.md) |
 | 013 | FEATURE | [Three-tier AI tooling funnel across the domain portfolio](013_FEATURE_three_tier_ai_tooling_funnel.md) — generalises 006/007 |
+| 020 | FEATURE | [Traffic probe on apis.uk — where is existing traffic coming from?](020_FEATURE_apis_uk_traffic_probe.md) — island-side, £0; stage 2 owner-gated |
+
+*(index gap: 014–019 exist on disk but were never indexed by their filing sessions)*
