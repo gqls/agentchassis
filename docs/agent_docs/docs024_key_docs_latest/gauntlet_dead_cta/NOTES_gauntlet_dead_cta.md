@@ -379,6 +379,44 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   example. Snapshot taken.
 - Round 5 fired (script bz2essxgm) on the same approved plan.
 
+## 2026-07-24 — owner escalates island question: host the FRAMEWORK on Mythic Beasts (bastion-host session)
+- Owner reasoning: the API may become very busy and should take advantage of our
+  workflows/framework; "without kafka I don't think we have a framework" —
+  correct: chassis/scheduler/dispatch are Kafka-fed, and 33 of 71 pods in
+  ai-persona-system are DYNAMICALLY SPAWNED agent-* pods (chassis creates k8s
+  Jobs) → the framework requires a real k8s API; compose cannot run it. Any
+  framework island must be k3s (or similar), not docker-compose.
+- Live sizing evidence (kubectl top, 2026-07-24): the app namespace is tiny —
+  chassis 44Mi, agents ~20Mi each, postgres-clients 379Mi, whole namespace well
+  under 1.5 cores/~3GB. The elephant is Kafka: prod runs Strimzi KRaft 3 brokers
+  × ~4GB (kafka ns). A single-broker KRaft at island load fits ~2GB. So a FULL
+  framework island (k3s + 1-broker Kafka + Postgres + core-manager + chassis +
+  kafka-scheduler + selected adapters) fits a Mythic Beasts VPS 12 (4c/12GB,
+  £37/mo); VPS 24 (6c/24GB, £70/mo) = generous headroom. Feasible.
+- CRITICAL DISTINCTION vs the existing multicluster/ design
+  (HANDOFF_multi_cluster_dispatch.md — dispatch_agent + remote-job-spawner,
+  written NOT deployed): that design is ONE SHARED KAFKA + shared Postgres
+  (PgBouncer tunnel back to primary) — an execution ANNEX of production. Joining
+  a public-facing Mythic cluster that way re-couples everything the island
+  exists to sever, and the doc's own §3 caveat applies: prod Kafka has NO
+  authorization (User:ANONYMOUS, full access) — a compromised annex = full
+  prod Kafka. So: multi-cluster dispatch is for trusted capacity scaling, NOT
+  for the public island. An island framework must be a SECOND, INDEPENDENT
+  instance: own Kafka, own Postgres, own secrets, own spend-capped Anthropic
+  key, zero shared credentials; any prod↔island data flow via the public API
+  with its own auth (or prod pulls), never shared infra.
+- Recommended shape if owner wants framework-grade: Route B2 "framework-ready
+  island" — k3s from day one on the Mythic VM, tools-api deployed into it via a
+  new kustomize overlay set; add single-broker Strimzi + core services when the
+  load/feature need actually arrives (B1→B2 on the same box, no re-platforming).
+  Honest costs: owner becomes k8s admin of the island (k3s upgrades, Kafka,
+  pg backups — bounded, ~weekend to stand up); [OPEN] image-registry path for
+  the island (prod's push targets need checking); "very busy" is LLM-latency
+  bound, not CPU — a £37/mo box carries a lot of debates.
+- This is de facto the START of the parked uk-sovereign-stack exploration
+  (memory: owner wanted a dedicated thread) — flag to owner rather than absorb
+  it silently here.
+
 ## 2026-07-24 — council gate APPROVED the formatter fix (resubmit)
 - Corr 6bf3806f: run 1 complete_invalid (Anthropic endpoint i/o timeout at a seat —
   infra, no judgement); resubmit APPROVED 12:02. The commit (430ed5c18) predates the

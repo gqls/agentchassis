@@ -203,3 +203,41 @@ live on the same contained box, all on British-owned hosting.
 Still yours to confirm: go with the island (I'll then write the VM setup files and
 the amended runbook), order the VM, and we note the one config change for the pull
 request when the machine-built code lands.
+
+## 2026-07-24 — you raised the stakes: could the whole framework live at Mythic Beasts?
+
+Your thinking: the API may get genuinely busy, and it should be able to use our
+workflows and agent machinery — and without Kafka there is no framework. You're
+right on both counts, and I checked the real numbers rather than guessing.
+
+Three facts. First, the framework does need more than a bare VM: the agent system
+creates and destroys its worker pods on demand (a third of the pods running right
+now were spawned that way), so it needs a real Kubernetes underneath — a lightweight
+one (k3s) on a Mythic Beasts VM does fine. Second, the framework is much lighter
+than it looks: measured today, everything except Kafka uses under a couple of cores
+and about 3GB; Kafka is the heavyweight, but a single-node Kafka (rather than
+production's three) is entirely adequate for an island and fits in ~2GB. Put
+together, the whole framework island fits a £37/month machine, £70/month with
+generous headroom. So yes — it's genuinely possible, affordably.
+
+One trap I want on the record: we already have a half-built "multi-cluster" feature
+that looks like the obvious answer — it lets production dispatch agents to a second
+cluster. It is the WRONG tool here, because it works by sharing production's Kafka
+and database with the second cluster — and our Kafka currently has no access
+control at all internally. Connecting a public-facing island that way would hand a
+successful attacker the keys to production's nervous system — precisely what the
+island exists to prevent. If the island runs the framework, it must be a second,
+fully independent instance: its own Kafka, own database, own keys, nothing shared,
+talking to production (if ever) only through proper authenticated APIs.
+
+My recommendation, which keeps every option open: make the island "framework-ready"
+from day one — put k3s on the Mythic Beasts VM and deploy the debate engine into it
+now. If and when the load or ambition justifies it, we add the one-node Kafka and
+the core framework services onto the same machine — an upgrade in place, no
+re-platforming. And honestly: the debate engine's speed limit is the AI model, not
+the hardware, so even the small box carries a lot of traffic before we'd feel it.
+
+Worth naming: this is really the beginning of the "fully UK-hosted stack" idea you
+parked a fortnight ago — British-owned compute, your own Kafka and database on it.
+If you want to take that seriously, it deserves its own planning thread; I've not
+absorbed it into this one.
