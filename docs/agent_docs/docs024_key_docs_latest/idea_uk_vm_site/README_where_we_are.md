@@ -1042,3 +1042,20 @@ You said yes to pointing the header "Get Started" button at the report tool as w
 on the live site: that button now goes to the report page on every page of the site, not just the home
 page. The only thing still going to the contact page is the actual "Contact" menu link, which is right.
 So the whole funnel — the big page buttons and the header button — now sends people to the paid tool.
+
+## 2026-07-24 — owner: turn idea.uk into a full "idea lifecycle" pipeline (captured for later)
+
+You've asked for something much bigger than the migration: you want idea.uk to become a whole guided
+journey for someone with an idea — a section on **patents and what to do with an idea**, and then a
+full set of **guides and tools** running from helping people create ideas, through building, testing,
+user acceptance, feedback loops, patents, copyright, funding (both the *ways* to fund and the actual
+*sources*), and "a whole load more in that pipeline". Along the way, tools — some free, some paid —
+built using the same three-tier AI-tooling strategy that so far has only used idea.uk as an *example*
+(the point being: use it to enhance idea.uk itself too).
+
+I've written this down properly so it isn't lost — as `features_open/014_FEATURE_idea_uk_ideas_pipeline.md`
+— with the pipeline stages, how the free/paid tools map onto the AI-tooling funnel, and what idea.uk
+already has (the live paid report funnel) so nobody rebuilds it. I've also left a cross-note on the
+AI-tooling-strategy feature (`013`) so that thread knows you now want idea.uk *enhanced*, not just used
+as a reference. I've NOT started designing or building any of it — it's captured as a request, waiting
+on your go and on which stage (patents first, I'd assume) you want to start with.
