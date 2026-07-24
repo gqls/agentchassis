@@ -717,3 +717,31 @@ Diagnosis run corr `65103331-2872-4d7a-bcbe-93057eea1af4`: the child evidence lo
 `bugs_open/043` (route-step instance): the awaited-response loss, at a different step. Cost: a
 full 5-iteration evidence gather with no verdict; re-fired as corr `f9bcee6f`. One more data
 point that F2/F3 shipping together is what this class is waiting on.
+
+---
+
+## EVIDENCE 2026-07-23/24 — four fresh sightings from the gauntlet/B4 workstream (contributed, not a re-diagnosis)
+
+Four dispatch anomalies in two days, all consistent with this bug's at-most-once
+consume + unfired-timer mechanism, logged here so the census keeps growing:
+
+1. **2026-07-23 11:18** — experience-planner spawn (corr `4d3d89fa`): wrapper sat
+   `AWAITING_RESPONSES|spawn_planner` 2.5h+; NO spawned orchestration row ever
+   appeared; the workflow's own 1200s timeout never fired. Pod 4h44m old (not the
+   300s window). Re-fire (corr `fa4b77cd`) spawned normally.
+2. **2026-07-24 13:48** — implementer fire (wrapper `133fa614`): no orchestration row
+   within ~4 min of polling… and then it **ingested ~9 minutes late**, creating a
+   branch under a later re-fire's feet. LESSON HARDENED: latency, not loss, is the
+   common case — see WRONG_CALLS 2026-07-24 (a 120s "dropped" call caused a
+   triple-fire pile-up; all three mutually E4-refused).
+3. **2026-07-24 13:55** — implementer fire attempt: not ingested at 120s, ingested
+   ~later (same pile-up).
+4. **2026-07-23 19:59** — designer corr `c2a9fd27` FAILED at repropose with no
+   recorded error after ~4h — subsequently explained as bugs_closed/067 (max_tokens
+   cap) on the old undecoded path, NOT this bug; listed here to keep the record
+   honest about which stall was which.
+
+Operational counter adopted by this workstream: fire ONCE; treat a missing
+orchestration row as QUEUED for ≥10 minutes before even considering a re-fire; never
+auto-refire inside that window (E4 makes duplicate implementer fires mutually fatal,
+which is the guard working).
