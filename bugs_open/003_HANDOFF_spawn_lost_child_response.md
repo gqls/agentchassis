@@ -617,6 +617,12 @@ landmine).
 > `|| current_step` would NULL the entire error string on a NULL step.
 > Live in `scheduled_tasks` and mirrored to `020_scheduled_tasks.sql`.
 
+> **STATUS 2026-07-25: F2+F3 BUILT & COMMITTED (`fd122fbec`), migration 205
+> APPLIED LIVE, code INERT until the agent-chassis + git-adapter image roll.**
+> See "2026-07-25 build record" at the end of this file — including three
+> premise-corrections found during implementation that the design text below
+> does not carry.
+
 **F2 — durable, DB-driven retry of expired requests (Go).** Keep the sleeping
 goroutine as the fast path; make the DB the guarantee. The per-pod 1-min ticker
 `cleanupExpiredAwaitedRequests` (`coordinator.go:3649`) already exists: extend
@@ -776,3 +782,68 @@ which is the guard working).
 > [INFERRED, unchecked]: a request topic deleted between wrapper-produce and the
 > spawned pod's first consume would present exactly as "no spawned orchestration
 > row, ever". Sightings 2/3 remain latency, not loss.
+
+---
+
+## 2026-07-25 build record — F2+F3 built, committed, migration live; awaiting roll
+
+**Commits:** `fd122fbec` (12 files: migration 205 trio + seed mirrors + 8 Go
+edits), `171063cb8` (deployment grace/preStop quick win). Council submission
+`b896fc22-05d9-4c61-9852-cb1e494de872` (advisory) was in flight at commit time —
+trailer deliberately absent; it is earned only by an APPROVED verdict.
+
+**Live already (DB, no image needed):** migration
+`205_bug003_awaited_retry_and_processed_lease.sql` applied 08:40 UTC, all 8
+VERIFY checks pass. `awaited_requests` CHECK now admits `'retrying'`;
+`processed_messages` has `status` (DEFAULT `'complete'` — old binaries keep
+today's semantics during the mixed-fleet roll) + `lease_expires_at`;
+`idle_timeout_seconds` 600/900 for diagnose-agent/image-generator.
+
+**Inert until the roll:** everything in Go. Build `agent-chassis` AND
+`git-adapter` (the adapter was the only other `Consume()` caller).
+
+**Three premise-corrections found during implementation** (the design text
+above predates them; the code carries all three):
+
+1. **`retry_version` was parsed only for responses** —
+   `types/context.go` `FromHeaders` had the Sscanf inside the
+   `message_type=="response"` block, so a resent *request* reached the child as
+   v0 and was dedupe-dropped. Without this one-line fix, F2's retries could
+   never heal the lost-response case. (The typed twins
+   `FromRequestHeaders`/`FromResponseHeaders` were never affected — they copy
+   the field directly; pattern-check's untouched-twin flag on the commit is a
+   verified false alarm.)
+2. **`RecordMessageProcessing`'s ON CONFLICT named the PK** (which includes
+   `retry_version`) while the table's UNIQUE constraint
+   `processed_messages_unique` excludes it — so a v1 insert *errored* instead
+   of taking over the v0 row. The two-phase claim targets
+   `ON CONFLICT ON CONSTRAINT processed_messages_unique`.
+3. **`GetAwaitedRequest` filtered `status='waiting'` only**, and expiry stamps
+   `processed_at`, so a late response to a retrying request was
+   DUPLICATE_SKIPPED. Claims now set `processed_at=NULL` and the getter admits
+   `('waiting','retrying')`.
+
+**Shape as built** (differs from the sketch above only in mechanics):
+- Both the fast-path timer (`handleRequestTimeout`, signature unchanged, 3
+  launch sites untouched) and the 1-min ticker funnel through an atomic
+  `ClaimAwaitedRequestForRetry` / `ClaimExpiredAwaitedRequestsForRetry`
+  (`'expired'→'retrying'`, `FOR UPDATE OF a SKIP LOCKED`, joined on
+  `orchestration_states.status='AWAITING_RESPONSES'`, 60-min expiry window so
+  the 668-row pre-deploy backlog is NOT replayed, 5-min stale-claim reclaim) —
+  exactly one actor drives any expiry, across pods and restarts.
+- `retry_version>=3` marks the row `'error'` BEFORE routing (wedge-proof).
+- Dedupe: claim `'processing'` with lease (`PROCESSED_MESSAGES_LEASE_SECONDS`,
+  default 900) → `MarkMessageComplete` as defer; duplicate ⇔
+  `retry_version >= incoming` AND (`'complete'` OR live lease held by a
+  DIFFERENT pod — same-pod exemption because agentbase and processor layers
+  both record under one key on a single delivery). `request_id=""` is now loud
+  (`DEDUPE_SKIPPED_NO_REQUEST_ID` + SystemErrors counter), not a silent bypass.
+- Consume: `FetchMessage` → process → `CommitMessages`, commit UNCONDITIONAL
+  after `processMessage` returns (ratified D3 — parent drives retry; a poisoned
+  message must not head-of-line-block the partition). `Consume()` deleted.
+
+**Verification still owed (the §"Verification for the fixing thread" list
+stands), plus the discriminating pod-greps:** created literals
+`RETRY_TICKER_CLAIMED`, `DEDUPE_CLAIM_LOST`, `MARK_COMPLETE_FAILED`,
+`DEDUPE_SKIPPED_NO_REQUEST_ID`, `TIMEOUT_FAST_PATH_CLAIM_FAILED`; removed
+literal `Consume() called` must grep 0. Both images.
