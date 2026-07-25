@@ -2587,3 +2587,43 @@ must name BOTH sides of every rename (old path and new), exactly as CLAUDE.md's
 same lifecycle. Loud failure, so cheap as these go: a build break announces
 itself, unlike the silent classes this file mostly records. Family:
 rename-is-two-paths, verified-the-wrong-tree.
+
+**2026-07-25 — I read "queued" off a polling loop for 60 minutes; the run had
+failed validation in 7 seconds.** Submitted `040` candidate 2 to the council gate
+and wrote my own watcher instead of using the two queries the 097 trigger prints.
+Mine said `SELECT ... FROM orchestration_states WHERE id='<uuid>'` — the column is
+`orchestration_id`; there is no `id`. Every iteration errored, and because I had
+written `2>/dev/null` the error went nowhere and the empty result printed as my
+own hand-written default string, `<no row yet: queued>`. So the loop confidently
+reported a queue wait, 60 times, for a run that had reached `complete_invalid`
+before the first tick: `plan does not match the fix-plan schema: json: cannot
+unmarshal array into Go struct field fixPlan.risks of type string` (`risks` is a
+`string`, not a list; and my second edit's `operation: "create"` is not in the
+allowlist either — `add` is). The real state was in `collected_data.__step_error`
+the whole time.
+
+**What caught it.** The loop hitting its own 60-minute timeout. Nothing else would
+have — the output looked healthy, and CLAUDE.md's own guidance ("a missing
+orchestration row is almost always latency, not a dropped dispatch — do not
+retry") is exactly the story my broken output was telling, so the more carefully I
+followed the runbook the longer I would have waited.
+
+**The cheap check that would have caught it.** Run the query **once, in the
+foreground, with stderr visible**, before wrapping it in a loop — the SQL error
+names the bad column immediately. Or simply paste the trigger's own printed
+watch-queries, which are correct.
+
+**Transferable rule.** **`2>/dev/null` in a polling loop converts every error into
+your default branch, and a default branch you wrote yourself will always sound
+plausible.** Never suppress stderr in a watcher; distinguish "no row" from "query
+failed" explicitly, and give a poll a fail-fast case for the terminal states
+(`complete_invalid`, `FAILED`) as well as the success one, so a dead run announces
+itself instead of aging into a timeout. The near-miss beneath it is worse than the
+lost hour: the same silence would have hidden a *rejected* verdict just as well as
+an invalid one. Family: absence-of-evidence (with [[the 24h-pruned record]] entry
+above — the record was there, my instrument wasn't), verified-the-wrong-thing.
+
+**Footnote worth the irony.** This happened while shipping a fix whose entire
+subject is *a failure that was durably recorded and simply not shown on the
+surface anyone reads*. The council run recorded its reason in `__step_error`, in
+the same field the fix propagates. I built the fix and then walked into the bug.
