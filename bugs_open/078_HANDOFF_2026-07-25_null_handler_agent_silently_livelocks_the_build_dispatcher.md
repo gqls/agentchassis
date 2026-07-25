@@ -121,12 +121,47 @@ is a page re-render; `page-rerender` is an active agent type). It is reversible.
 
 > **IMPORTANT, and the reason this case stays OPEN beyond the code fix:** after that repair
 > the loader query returns the row correctly (verified by running it verbatim), **but the
-> queue had still not drained as of 18:26** — no new dispatch orchestration was created after
-> 18:23:24 even though the trigger fired at 18:24:58. So the NULL scan is **a** cause, proven
-> and repaired, but **not the only thing wrong with the build queue right now.** Do not read
-> this case as "queue stall explained". The residual may be `bugs_open/029`, may be
-> `bugs_open/030`, or may be a third thing. **[UNVERIFIED]** — I did not diagnose it; I was
-> closing an unrelated case and stopped at the boundary.
+> queue still had not drained as of 18:31** — **no dispatch orchestration has been created
+> since 18:23:25** even though `build-pipeline-trigger.last_triggered_at` kept advancing
+> (18:24:58, 18:29:59). So the NULL scan is **a** cause, proven and repaired, but **not the
+> only thing wrong with the build queue.** Do not read this case as "queue stall explained".
+
+### Second cause — NOT diagnosed, but here is the evidence already gathered
+
+State at 18:31, with two sites holding eligible work (`leopardess` 1 item, `webdesign` 95;
+both `pipeline='build'`, `status='triaged'`, `attempt_count 0 < 3`, `approval_mode auto`,
+neither site `locked_at`) — so `find_dispatchable_site` *should* return a site and
+`spawn_dispatch` *should* run. It does not. **The trigger fires and produces nothing.**
+
+The tell is in `scheduled_tasks`: when a dispatch actually runs, the loop's
+`notify_scheduler` step does `UPDATE scheduled_tasks SET last_completed_at = NOW()`, so
+`last_completed_at` lands *after* `last_triggered_at` (18:19:59 → 18:21:27). Since 18:24 the
+two are **identical** on every tick — the idle path (`complete_idle` /
+`notify_scheduler_idle`), meaning `check_has_site` saw no site.
+
+**Ruled out** (each checked, each negative — this is the value of the note):
+
+- **Not `029` (hung spawns saturating the `dispatch` group).** `SELECT status, count(*) FROM
+  orchestration_states WHERE status IN ('AWAITING_RESPONSES','EXECUTING_STEP')` returns
+  **zero** `AWAITING_RESPONSES` and 2 `EXECUTING_STEP`, neither a dispatch agent. Nothing is
+  stuck waiting on a child.
+- **Not pod-pool exhaustion.** `dispatch` group `max_concurrent` is 8; there are **2 running**
+  `build-dispatch-loop` pods (plus 5 `Completed` not yet reaped) and **0**
+  `build-pipeline-trigger` pods.
+- **Not site locks.** `locked_at IS NULL` on all four active sites.
+- **Not item ineligibility.** The loader's SQL, run verbatim against leopardess, returns the
+  row.
+
+So the failure is between "eligible rows exist" and "`find_dispatchable_site` returns a
+site". **Start there** — run that query verbatim as the agent would, and check whether the
+`query_database` step is returning its result into `dispatchable` at all (an
+`output_format: "object"` step that yields no row leaves the field unset, and
+`check_has_site` then reads a missing field, which is the same as false). Note `orchestration_states`
+is pruned at 24h, so gather evidence before it ages out.
+
+**[UNVERIFIED]** — I did not diagnose this; I was closing an unrelated case
+(`028-page-build-noop`) and stopped at the boundary rather than assert a mechanism I had not
+tested. The negative results above are measured, not inferred.
 
 ## How to verify a fix
 
