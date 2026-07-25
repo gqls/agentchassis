@@ -517,3 +517,25 @@ envelope: `bugfix_006/091_TRIGGER_improvement_loop_single_site.sh` (committed `a
 `IMPROVEMENT_CORR=5c6cd4d2-50f0-4fdd-9517-74c2d7ae5902`. Success = the page component's form action
 becomes `mailto:vonc@contactforsales.com` with **no human touch**. If it does, the same loop heals the
 other 9 as discovery reaches them.
+
+### B — 2026-07-25: council APPROVED (round 1) — corr 8bfcbc68-cb06-4ee8-a67e-7b8273c5e1e1
+
+12 seats reviewed, 4 abstained, verdict **approved with 3 advisory objections, none high-severity**
+(~25 min publish→verdict). The guardian's two pre-conditions were run immediately and both pass:
+- **Fleet divergence check**: sites where content_data.email and sites.email are both set and differ =
+  **1 of 30 — idea.uk**, the exact stale case the fix corrects. No other site's ambient address changes
+  on unrelated image_landed/cta_links_stale re-renders.
+- **Live routing check**: page-rerender's `check_rerender_mode` condition in agent_definitions is
+  verbatim `reason == 'image_landed' OR 'section_data_resolved' OR 'cta_links_stale'` — the plan's
+  description was accurate, not trusted prose.
+
+Advisory follow-up worth an owner call (raised by bug_historian medium + reuse_agent medium +
+editquality/tooling_provenance low): `contactAddressResolvable` duplicates `deliverableFormAction`'s
+guard across the package boundary (discovery_checks is imported BY actions, so it cannot import the
+guard back). Council's suggestion: a one-time extraction to a neutral shared package both sides import,
+OR an explicit human decision that two comment+test-pinned copies are tolerable. Parity test pins
+today's cases only — it cannot catch a future one-sided edit.
+
+debug_historian's asked-for post-rollout checks were already done this morning (v1.0.1156 pod-grep,
+audit numbers re-derived live). render_guardian's bail-out concern is covered by the behavioural
+watcher: it watches the RENDERED artefact (form action), not the item status.
