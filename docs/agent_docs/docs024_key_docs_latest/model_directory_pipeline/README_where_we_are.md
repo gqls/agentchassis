@@ -240,3 +240,29 @@ and is with the review council now. It does not reach the live site until the
 next software deployment, which I am deliberately not doing while jobs are
 sitting in a stuck queue: that is exactly how yesterday's homepage job got
 killed.
+
+**2026-07-25, 09:10 — correction to what I wrote an hour ago about the queue,
+and the homepage section is being built right now.**
+
+I said the builder queue was stuck. It was, from about 08:36 to 08:55 — but
+it cleared itself and is working. What actually happened is more ordinary
+than "stuck": the queue serves one site at a time in a fixed order, three
+sites had work waiting, and this site sorts last of the three. Add one job
+that died waiting for a reply that never came, and it looks identical from
+the outside to a dead queue. It isn't, and I should not have called it that
+on twenty minutes of evidence.
+
+As of now the homepage job is claimed and running — it is generating the
+copy for the model-directory teaser section. I have also put the navigation
+repair into the same queue rather than firing it at the cluster by hand,
+since the queue is demonstrably moving.
+
+One more correction, this one about something I told you in the entry above:
+I said the news section has "exactly the same" styling gap fleet-wide. I have
+now measured it rather than assumed it, and it is narrower than that. Of the
+five sites whose homepage uses those news cards, **two** render them
+unstyled (this one and relojistas.com) and three are fine. Same symptom, but
+it is not universal — which makes it more interesting, not less, because the
+same component produced the markup on all five. I have written that up as a
+bug case with the measurement and an explicit note that the cause is NOT
+diagnosed, rather than guessing at one.
