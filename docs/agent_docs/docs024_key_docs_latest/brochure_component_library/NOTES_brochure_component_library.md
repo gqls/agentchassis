@@ -1314,3 +1314,72 @@ mechanisms treat deliberate iteration as recurrence. A first-class "rebuild
 these pages" operation (or an operator flag the rules respect) is the fix.
 Sequential queue: capabilities (now) → multi-agent-review-council →
 model-fine-tuning → index (stat-band under the new evidence-base gate).
+
+## 2026-07-25 — the parking mechanism FOUND; my "single-flight" theory was wrong
+
+> **CORRECTED 2026-07-25 — the working theory recorded above ("single-flight per
+> site parks sibling triaged items") is WRONG as a description of what parks
+> them.** The parker is `stale-work-item-reaper`, a `scheduled_tasks.pre_query`
+> (hourly, live, `enabled=true`) that flips any `triaged` build item to
+> `unresolved` when **`created_at`** is 48h+ old and `claimed_at IS NULL` — row
+> age, not time spent in `triaged`. Our re-queued rows were created 2026-07-20
+> 21:27, so every re-queue of them was eligible the instant it was set `triaged`.
+> Filed as `bugs_open/070`; pattern in 016b §9; feature `features_open/021`.
+
+**What caught it: the row's own `summary` column.** It reads
+`[stale: triaged 48h+] [stale: triaged 48h+] Build index page (not_built)` — the
+mechanism, its rule, and the fact that it fired twice, stored in the row I had
+been querying all along. My `SELECT`s truncated `summary` to 50 chars for
+readability and cut the prefix off. `grep -rn "stale: triaged"` then found the
+writer in one hop — and it is **DB config, not Go**, which is why reading actions
+code could never have found it. Logged in WRONG_CALLS.md.
+
+**Why sequential works and batches don't** (the half the theory got right, now
+with the real reason): the claimer `build-pipeline-trigger` runs every **120s**,
+the reaper every **3600s**. One re-queued item is claimed in ~2 min and
+`claimed_at IS NULL` then excludes it forever. A batch loses because siblings
+wait behind an in-flight build (tens of minutes) — long enough for the reaper's
+tick. Verified both directions on this site today: `needs_page:capabilities`
+re-queued ~08:09 -> claimed 08:11 -> complete 08:17; the three batch rows parked,
+twice. The site is NOT locked (`sites.locked_at IS NULL`) and every item has
+`attempt_count=0 < max_attempts=3`, so neither of those is the gate.
+[INFERRED, not traced] the serialisation that makes siblings wait is downstream
+of the trigger — possibly the same mechanism as `bugs_open/029`/`030`.
+
+**capabilities rebuilt & VERIFIED** — second page proving the plan chain: 5
+components, `hero-card-carousel` restored at **position 2** from
+`site_plan_sections` (11,714 chars rendered), pipeline-filled. `about` and
+`capabilities` now both demonstrate plan-level placement surviving a rebuild.
+
+**Practice change for the rest of this rollout:** keep queueing sequentially, and
+prefer creating a NEW work-item row over re-queueing a historic one — a fresh
+`created_at` is outside the reaper's rule, and the summary then describes the
+rebuild actually being asked for rather than a 2026-07-20 first build. Caveat:
+a hand-written `INSERT` bypasses the Go-side two-strike suppression in
+`insertWorkItem`, so that guard is skipped deliberately, not accidentally.
+
+## 2026-07-25 — the evidence-base gate's first organic catch: a real defect, flagged for the wrong reason
+
+index's rebuild parked at `needs_human_review`: check 8 flagged
+`unregistered_number "2192"` ×3. Classification wrong — `\2192` is the CSS
+escape for `→`, not a business claim — but the page defect was REAL: the
+`portfolio-showcase` template had `Visit Site \2192` in anchor TEXT (HTML
+context), so visitors literally saw "Visit Site \2192". CSS escapes only mean
+anything inside CSS `content:`; the older components (`content-sidebar`,
+`guide-list`, `blog-listing`) all do it correctly. Fixed in the template with
+`&#8594;` (entity, immune to the [[escape-sequence-emission-trap]]), snapshot in
+`bak_cc_portfolio_showcase_20260725`; fleet sweep of rendered HTML = 1 instance,
+index only, which the re-queued rebuild re-renders. DB-only, live immediately.
+
+Grep gotcha re-hit: plain `grep -rn "2192"` on the repo went SILENT (NUL-byte
+binary trap from another session's WIP); `git grep` found the check in one hop.
+
+**Wave verification so far (4 of 5 pages):** every rebuilt page carries its
+planned interactive component — about/`people-feature-block` pos 3,
+capabilities/`hero-card-carousel` pos 2, multi-agent-review-council/
+`swipeable-insight-carousel` pos 4, model-fine-tuning/`image-hover-card-grid`
+pos 4. Copy: "That X matters" = 0 on all four; em dashes persist (8/6/5/2 per
+page, aside-style) — the third-round decision (worked example vs mechanical
+post-pass) remains with the owner. Also seen: the "isn't a log entry. It's a
+decision record" negative-frame twice on one page (v3 prompt rule 3/13
+residue). index pending under the fixed template.
