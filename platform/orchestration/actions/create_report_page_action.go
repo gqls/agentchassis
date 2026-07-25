@@ -36,6 +36,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"html"
@@ -176,13 +177,40 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 	lookupErr := params.DB.QueryRowContext(ctx, `
 		SELECT id FROM page_components WHERE page_id = $1 AND slot_name = $2`,
 		pageID, reportComponentFunction).Scan(&existingPC)
+	lockedPreserved := false
 	switch {
 	case lookupErr == nil:
-		_, err = params.DB.ExecContext(ctx, `
+		var res sql.Result
+		res, err = params.DB.ExecContext(ctx, `
 			UPDATE page_components
 			SET rendered_html = $1, content_data = $2::jsonb,
 			    build_status = 'approved', updated_at = NOW()
-			WHERE id = $3`, sectionHTML, string(contentJSON), existingPC)
+			WHERE id = $3 AND `+pageComponentAgentWritableSQL(""),
+			sectionHTML, string(contentJSON), existingPC)
+		if err == nil {
+			if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+				// Human-locked instance row: the stored dossier stands and this
+				// re-run's fresh copy is discarded (bugs_open/058). Downstream
+				// validation gets the artefact that will actually serve.
+				lockedPreserved = true
+				lockedBy, lockType := "", ""
+				if st, lockErr := CheckComponentLock(ctx, params.DB, existingPC, logger); lockErr == nil && st != nil {
+					lockedBy, lockType = st.LockedBy, st.LockType
+				}
+				logger.Warn("create_report_page: instance row is human-locked — stored report kept (bugs_open/058)",
+					zap.String("page_component_id", existingPC.String()),
+					zap.String("locked_by", lockedBy))
+				emitLockBlockedChangeItem(ctx, params.DB, siteID, &pageID, &existingPC,
+					pageName, reportComponentFunction, lockedBy, lockType,
+					"overwrite", "create_report_page", logger)
+				if scanErr := params.DB.QueryRowContext(ctx,
+					`SELECT rendered_html FROM page_components WHERE id = $1`,
+					existingPC).Scan(&sectionHTML); scanErr != nil {
+					logger.Warn("create_report_page: could not load stored locked report",
+						zap.Error(scanErr))
+				}
+			}
+		}
 	default:
 		_, err = params.DB.ExecContext(ctx, `
 			INSERT INTO page_components
@@ -198,7 +226,7 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 	logger.Info("create_report_page: page composed",
 		zap.String("page_id", pageID.String()), zap.String("url", pageURL),
 		zap.Int("html_bytes", len(sectionHTML)))
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"page_id":       pageID.String(),
 		"page_name":     pageName,
 		"page_url":      pageURL,
@@ -206,7 +234,11 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 		"site_id":       siteID.String(),
 		"domain":        siteDomain,
 		"rendered_html": sectionHTML, // for the validate_page_content step
-	}, nil
+	}
+	if lockedPreserved {
+		result["locked_preserved"] = true
+	}
+	return result, nil
 }
 
 // ============================================================================
