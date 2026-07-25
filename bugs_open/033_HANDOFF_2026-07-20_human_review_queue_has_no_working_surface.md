@@ -4,8 +4,8 @@
 **Severity:** latent, accumulating. Nothing errors. No site reports a failure.
 Items route to `needs_human_review` correctly and then stop existing as far as
 the platform is concerned.
-**Status:** OPEN. Needs an **owner decision on intent** before any code — see
-§"The question that has to be answered first".
+**Status:** see §"UPDATE 2026-07-25 — the drain" at the FOOT of this file; it
+supersedes the status lines above and below.
 
 > **READ §"GROUNDED 2026-07-20" AT THE FOOT OF THIS FILE FIRST.** Everything above
 > was re-checked against the live system that day and three load-bearing claims
@@ -367,3 +367,117 @@ worked and can be fixed without the ruling. D1–D3 still need the owner.
   "the mechanism exists but almost nothing uses it".
 - `reasoning_dataset/PLAN_capture_gaps_and_volume.md` §Gap 2 — the fuller
   write-up, including the corrected figures.
+
+---
+
+# UPDATE 2026-07-25 (bugfix-033 thread) — the drain
+
+Workstream docs: `docs/agent_docs/docs024_key_docs_latest/review_queue_drain/`
+(PLAN / NOTES / RUNBOOK / README_where_we_are). Code commit `f2570e1bc`.
+
+## Ground truth, re-measured today
+
+```
+status='needs_human_review'              : 370   (292 filed, 303 grounded, +67 in five days)
+  build / content / maintenance          : 224 / 145 / 1
+approved_by IS NOT NULL (all 5,600+ rows): 0
+result->>'resolved_by' = 'admin'         : 0
+```
+
+The visibility fix has been live and reachable for five days. **In those five
+days the queue grew by 67 and drained by 0.** That is not an argument against the
+owner's "it is a queue" ruling — it is the reason the auto-drain half had to
+exist before a human could sensibly work the rest.
+
+## The finding that reframed the drain
+
+**321 of the 370 parked items describe a page that has been REDEPLOYED since the
+item was filed**, and nothing re-checks any of them. So the queue's problem is
+not its depth, it is that a ghost and a live finding are byte-identical in
+`site_work_items` — a human cannot tell which item is about the site as it stands.
+
+Proven, not inferred. `leopardessconsulting.co.uk` / `how-we-work`, two
+`unresolved_cta` items parked 2026-07-10 (`d0d5f910`, `bad6aa52`) saying hero and
+call-to-action have no destination for `cta_url`/`secondary_cta_url`. Page
+redeployed 2026-07-18; live components carry
+`cta_url=/tools/password-entropy.html`, `secondary_cta_url=/services.html`,
+`primary_cta_url=/tools/password-entropy.html`. Both items are ghosts.
+
+## What was built — `revalidate_review_queue`
+
+A deterministic, no-LLM sweep that re-evaluates each parked finding against
+currently-deployed state and returns one of three verdicts:
+
+| verdict | effect |
+|---|---|
+| `resolved` | close: `status='complete'`, `resolution_path='auto:revalidated'`, evidence in `result.revalidation` |
+| `still_holds` | **no status change**; stamp `result.revalidation` — the re-confirmation signal the queue has never had |
+| `unknown` | stamp the reason, leave alone (no revalidator, no deployed component, component renders from something other than `content_data`) |
+
+**Auto-closing is reversible by construction.** Every terminal status is excluded
+from the `idx_swi_dedup` predicate, so a close releases the item's dedup key and
+the originating check re-raises the finding if it is still true. A wrong close
+costs one re-raise; it cannot lose a finding. `resolved` still demands positive
+evidence — every ambiguity is `unknown` and stays queued.
+
+Measured on live data, the v1 revalidator set closes **51 of 370**, re-confirms
+35, and declines 72 as not-determinable rather than guessing.
+
+`resolution_path` — one of the two dead columns this file names — now has its
+first Go writer, and it writes `auto:revalidated`, which claims no human.
+`approved_by` remains unwritten and stays that way until D3.
+
+## > **CORRECTED 2026-07-25 — fix candidate A would drain ZERO items**
+
+This file says: *"The one genuine automated consumer,
+`reconcile_section_data_action.go:114-116` … **48 items of the queue** … is
+registered as an action but wired to 0 live agents"*. Measured live today,
+**0 of the 45** parked `needs_section_data` items have all-`query.*` missing
+sources — 30 carry `site_specs.*`/`site_assets.*` and 15 carry `missing: null`.
+`ReconcileSectionDataAction` skips any item with a non-`query.` source, so wiring
+it re-triggers **zero** pages, and would report success while doing so
+(`retriggered_pages: []`). The action is not wrong; the population it was built
+for is not the population in this queue. The section-data revalidator is the
+generalisation that applies. Logged in `WRONG_CALLS.md` — the failure mode is
+counting the population a fix is ABOUT rather than the one it would ACT on.
+
+## > **CORRECTED 2026-07-25 — "the stale 121" is 321**
+
+Not a contradiction: 121-of-126 was scoped to items carrying `page_id` (only 155
+of 370 do). Joined on `spec->>'page_name'`, the whole-queue figure is 321.
+
+## Still open, and still the owner's
+
+- **D1** — unchanged in substance, but the evidence has moved: the ~175
+  deliberate escalations are now backed by five days of a working, reachable
+  surface with zero human actions. The drain does not decide D1; it makes the
+  remainder trustworthy enough to be worth deciding about.
+- **D2 (residue aging)** — 78 of the 370 carry an `error` and a machine
+  `handler_agent`: failures parked by `FailWorkItemAction`'s `status_override`
+  branch, which does not increment `attempt_count`, so they neither retry nor age
+  out. Untouched by the drain, deliberately. Live error split: 51
+  content-validation failures, 25 `page-build-handler no-op`, 2 "requires real
+  data".
+- **D3 (identity/auth)** — unchanged and still correct.
+
+## Not in scope, on purpose
+
+`cta_names_unknown_destination` (69, the largest class) is **not** revalidated
+here: `bugs_open/023` / `cta_link_integrity` owns that check and is mid-flight on
+it, and already knows 18 of them are false positives of its own excluded-area
+branch. A unit test fails if anyone registers a revalidator for it from this side.
+
+## Status
+
+**OPEN** until the drain is LIVE — the code is committed but inert until a
+chassis image rolls, and the seed ships `dry_run=true`. Closing bar per
+`bugs_closed/README.md` is fixed AND live.
+
+Deploy sequence, gotchas attached, is in
+`review_queue_drain/RUNBOOK_review_queue_drain.md`. Pod-verify with a string the
+change CREATED:
+
+```
+kubectl exec -n ai-persona-system <chassis-pod> -- \
+  sh -c 'strings /app/agent-chassis | grep -c "auto:revalidated"'
+```

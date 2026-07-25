@@ -2894,3 +2894,62 @@ re-firing "worked", and if I had stopped there the RUNBOOK would now teach a
 `-c 1` cargo cult to every thread that follows. **A workaround that coincides
 with the real cause resolving is indistinguishable from a fix** unless you go
 back and check what the original attempt did.
+
+---
+
+## 2026-07-25 — "wire `reconcile_section_data_action` and 48 items drain" (`bugs_open/033`). Wrong: it drains **zero**.
+
+**The claim.** `bugs_open/033`'s grounding pass (2026-07-20) named the automated
+consumer the queue was missing: *"The one genuine automated consumer,
+`reconcile_section_data_action.go:114-116` (re-opens `needs_section_data` when
+query-sourced data later resolves — **48 items of the queue**), is registered as
+an action but wired to **0 live agents**."* That became fix candidate A, it was
+carried into the memory index and into `OPEN_THREADS_RESTART_LIST.md`, and it sat
+there for five days as the thing to do next.
+
+**What was actually true.** The action only re-triggers an item when **every**
+one of its missing fields is `query.`-sourced (`strings.HasPrefix(m.Source,
+"query.")`, else `allQuery = false` and the item is skipped). Live, 2026-07-25:
+
+```sql
+WITH s AS (SELECT (SELECT bool_and(m->>'source' LIKE 'query.%')
+                   FROM jsonb_array_elements(spec->'missing') m) AS all_query
+           FROM site_work_items
+           WHERE status='needs_human_review' AND item_type='needs_section_data'
+             AND jsonb_typeof(spec->'missing')='array')
+SELECT all_query, count(*) FROM s GROUP BY 1;
+--  f | 30      <- and no 't' row at all
+```
+
+**0 of 45.** Thirty carry `site_specs.*` / `site_assets.*` sources (image, email,
+pricing tiers, case-study urls — human data by construction) and fifteen carry
+`missing: null`. Wiring it would have re-triggered nothing, and the wiring would
+have looked correct while doing so: the action returns success with
+`retriggered_pages: []`.
+
+**What caught it.** Sizing the fix before building it — one `GROUP BY` over the
+population the fix was aimed at, run because the plan said "48 items" and I
+wanted the per-site split.
+
+**The cheap check that would have caught it.** The count that the number itself
+came from. "48 items of the queue" was a count of `needs_section_data` **rows**,
+not a count of rows the action would ACT on; the two were never the same number
+and no query was run against the action's actual predicate. The check is: take
+the condition out of the code, put it in the `WHERE`, and count that.
+
+**Why it matters more than one stale figure.** The claim was in the *fix
+candidates* section, which is the part of a bug file the next thread executes
+rather than re-derives — and it had already propagated into two indexes. The
+failure mode is specific and worth naming: **counting the population a fix is
+ABOUT instead of the population it would ACT on.** A fix sized that way looks
+proportionate right up to the moment it ships and moves nothing, and the thread
+that ships it is not obviously wrong — the code does what it says.
+
+**Same day, my own version of it, so this is not a finger-point.** Re-validating
+those items, I keyed the first queries on `spec->>'component_id'` and got "30 of
+30 components gone" — which I nearly wrote up as "the queue points at deleted
+components". `page_components.id` is not stable across re-renders; the sections
+were all still there under new row ids, and my own memory notes already said so.
+What caught it was the number being *too* clean: 30/30 is a join bug, not a
+defect signature. The cheap check was to print the page's actual slot list beside
+the wanted slot.
