@@ -1383,3 +1383,52 @@ page, aside-style) — the third-round decision (worked example vs mechanical
 post-pass) remains with the owner. Also seen: the "isn't a log entry. It's a
 decision record" negative-frame twice on one page (v3 prompt rule 3/13
 residue). index pending under the fixed template.
+
+## 2026-07-25 — index LANDED; bugs_open/070 confirmed live on our own queue; two brief-core pages worked
+
+**index rebuilt & deployed** with all 7 planned components incl. `stat-band`
+(pos 2) and the fixed `portfolio-showcase` (pos 6). Fleet sweep for the literal
+`Visit Site \2192` in rendered HTML: **0**. Wave complete — all 5 primary pages
+carry their planned interactive component:
+
+| page | interactive component | pos |
+|---|---|---|
+| index | stat-band | 2 |
+| about | people-feature-block | 3 |
+| capabilities | hero-card-carousel | 2 |
+| multi-agent-review-council | swipeable-insight-carousel | 4 |
+| model-fine-tuning | image-hover-card-grid | 4 |
+
+**`bugs_open/070` reproduced on our own queue, unprompted.** Re-queued
+`needs_page:self-correction-leopardessconsulting` (created 2026-07-20) at ~15:20;
+the reaper's tick parked it `unresolved` at **15:32** with a fresh
+`[stale: triaged 48h+]` prefix — 12 minutes after a re-queue, the label claiming
+48h. Best possible evidence for the bug file, from the exact failing branch.
+Then applied 070's own workaround: **INSERT a fresh row** (`c2a3cb85`, source
+`operator:brochure_component_library`, summary describing the REBUILD) rather
+than resurrect the historic one. `unresolved` IS in `idx_swi_dedup`'s terminal
+set, so the same `item_key` inserts cleanly alongside the parked row — the
+workaround is legal, not a hack around a constraint. Landmine found doing it:
+`site_work_items.created_by` is NOT NULL with no default, so a copy-INSERT
+must name it.
+
+**Two brief-core pages are missing from the site plan entirely** — that is why
+they never built, and it is a REAL brief-fidelity gap, not queue friction:
+`self-correction-leopardessconsulting` (the leopardess trust story the brief
+names as the differentiator, "Name that site directly as the worked example")
+and `platform-log-index` (the decision record). Both sat `planned` with 0
+sections and 0 components since 2026-07-20; the current plan (30 rows) has
+sections for only 6 pages. The build refused correctly and said so:
+`plan_sections` -> `check_has_ready_sections` -> **`mark_no_ready_sections`** in
+38 seconds, no LLM spend. Placed 5 plan sections for the self-correction page
+(hero / generic-text-block / swipeable-insight-carousel / info-card-grid /
+call-to-action) so the pipeline has something to fill.
+
+**Also found, not yet fixed:** every same-page anchor on the two fresh
+mid-pages is a dead target — `#decision-record`, `#reviewer-seats`,
+`#role-design`, `#production-sites`, `#self-correction` on the council page and
+6 more on model-fine-tuning resolve to **0** matching `id="..."` attributes. The
+writer emits anchor hrefs; no component emits section ids. That is a
+generic-detector gap (a phantom-link check that only tests PATHS passes all of
+these), so it belongs with the 023/049 link-integrity family rather than as a
+hand-fix here.

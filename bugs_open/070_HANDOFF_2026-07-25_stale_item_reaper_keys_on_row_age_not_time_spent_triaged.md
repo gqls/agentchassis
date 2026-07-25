@@ -127,3 +127,39 @@ trigger won the race.
 - The three parked rows on fundamentallyai.com are evidence — leave them until
   the fix is verified, then clean up the corrupted summaries by hand (there is
   no automated way back).
+
+## Reproduced live, unprompted, on the failing branch (2026-07-25 15:32 UTC)
+
+Recorded the same day the bug was filed, from the same site's queue — this is the
+induced-fault evidence the Verification section asks for, obtained by accident:
+
+| what | when (UTC) |
+|---|---|
+| row `dd50beb1` (`needs_page:self-correction-leopardessconsulting`) created | 2026-07-20 21:27 |
+| re-queued to `triaged` by hand | 2026-07-25 ~15:20 |
+| reaper parked it `unresolved`, prefix `[stale: triaged 48h+]` | 2026-07-25 **15:32** |
+
+**Twelve minutes** between entering `triaged` and being labelled "triaged 48h+".
+`build-pipeline-trigger` did not get to it first because the site had another
+build in flight. Nothing about this run was set up to test the reaper.
+
+**The workaround from Fix candidate 3's neighbourhood works and is legal.**
+Instead of resurrecting the historic row, INSERT a new one:
+
+- `unresolved` IS in `idx_swi_dedup`'s terminal-status exclusion list
+  (`complete, verified, rejected, wont_fix, failed, unresolved, cancelled`), so a
+  second row with the **same `item_key`** inserts cleanly beside the parked one.
+  No constraint is being worked around.
+- The fresh `created_at` puts it outside the reaper's predicate entirely, and the
+  summary can describe the rebuild actually requested rather than the 2026-07-20
+  first build.
+- **Landmine:** `site_work_items.created_by` is NOT NULL with no default, so a
+  `INSERT … SELECT` copy of an existing row must name it explicitly or fail with
+  23502.
+- Caveat repeated from §Fix candidates: a hand-written INSERT bypasses the
+  Go-side two-strike suppression in `insertWorkItem`. Deliberate here; know that
+  you are doing it.
+
+This makes candidate 1 (`updated_at`) less urgent for operators — there is a
+working path — but no less correct: the label the reaper writes is false, and it
+writes it onto rows that are actively being worked.
