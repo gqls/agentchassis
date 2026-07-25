@@ -178,3 +178,53 @@ Three rounds, no APPROVED verdict; the trailer is earned, not assumed.
 `agent-chassis` binary** into the repo root (`git ls-files agent-chassis`
 confirms it is tracked). That is another session's commit and possibly
 deliberate, so flagged rather than removed.
+
+---
+
+## 2026-07-25 — F2+F3 built, committed `fd122fbec`, migration 205 live; awaiting roll
+
+**What landed.** The full F2+F3 pass from the approved plan
+(`~/.claude/plans/bugs-open-003-...md`): migration 205 trio + seed mirrors
+(001/007), 8 Go edits (context.go retry_version unconditional; state.go
+two-phase dedupe + atomic retry claims; coordinator.go fast-path/ticker funnel;
+agent.go + processor.go + git adapter consume ports; consumer.go `Consume()`
+DELETED). Quick wins: idle_timeout 600/900 live via the migration;
+`terminationGracePeriodSeconds: 60` + preStop committed `171063cb8` (rides the
+roll). Migration applied 08:40 UTC, **all 8 VERIFY checks pass** — 159,142
+processed_messages rows defaulted to `'complete'`, both partial indexes
+present, cleanup function carries the retrying sweep.
+
+**Council:** submission `b896fc22-05d9-4c61-9852-cb1e494de872` dispatched
+09:37; run `6bc842f4` was EXECUTING_STEP (review_tooling_provenance) within
+minutes — no 29-min queue this time. Committed WITHOUT waiting per the
+holding-work-uncommitted-for-a-verdict rule; NO trailer (earned only on
+APPROVED).
+
+**Missteps and frictions this session, for the record:**
+- **The scratchpad did not survive the session boundary.** The council
+  submission JSON, the overlay, and the processor patch splits were all gone at
+  resume; rebuilt from the working tree + plan. Anything that must survive a
+  session belongs in the repo or the DB, not `/tmp`.
+- **processor.go same-file passenger:** the file carried another session's
+  uncommitted bugs_open/060 hunk (@1709, calls `discovery.RecordAgentRun` which
+  is NOT in HEAD — it would not even compile). Committed via the reverse-apply
+  dance: split `git diff` by hunk → `git apply -R` theirs → pathspec commit
+  mine → re-apply theirs. Window kept to seconds by building the verification
+  overlay BEFORE the dance. Post-restore grep confirmed their WIP back in the
+  tree.
+- **Pattern-check untouched-twin flag on context.go: verified FALSE ALARM.**
+  `FromRequestHeaders`/`FromResponseHeaders` take typed structs and copy
+  RetryVersion/RetryCount directly (context.go:359/:401) — the defect only ever
+  lived in the string-map `FromHeaders`. Checked before dismissing, not after.
+- **Pre-existing test breakage at HEAD** (`orchestration_test.go:171`,
+  NewSagaCoordinator signature) — another session's; not touched, per the
+  shared-tree rule. Everything else passes; compile of all four real trees
+  clean against current HEAD.
+
+**Still owed (plan §E):** image roll of agent-chassis AND git-adapter (bump
+IMAGE_TAG), discriminating pod-greps (`RETRY_TICKER_CLAIMED`,
+`DEDUPE_CLAIM_LOST`, `MARK_COMPLETE_FAILED`, `DEDUPE_SKIPPED_NO_REQUEST_ID`,
+`TIMEOUT_FAST_PATH_CLAIM_FAILED`; `Consume() called` must grep 0), the
+mid-orchestration roll test, the child-kill lease test, the leopardess
+`ai-readiness-quiz` repro, the liveness restart re-test, and week-later reaper
+stats.

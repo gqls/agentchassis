@@ -132,3 +132,31 @@ unnecessarily during routine maintenance. And a caution for anyone repeating
 the test: my throwaway pod ended up listening to the main shared channel and
 replayed eleven days of old messages. It did no damage (I checked — it wrote
 nothing to the database), but the runbook now says how to avoid it.
+
+---
+
+2026-07-25. The two big fixes are built and committed. In plain terms: until
+now, if an agent's pod died at the wrong moment, the message it was working on
+was gone for good — the queue had already been told it was handled. And when a
+child agent never answered, the reminder to chase it lived only inside one
+process's memory, so a restart meant nobody ever chased it. Both are now fixed
+in code: the queue is only told "handled" after the work actually finishes
+(with a claim-and-lease system so a retried message isn't accidentally done
+twice), and the chase-up list now lives in the database, where any pod can pick
+it up — a request that times out gets retried within about a minute, up to
+three times, instead of sitting until the 90-minute sweeper kills the job.
+
+The database side is already live and verified; the code side does nothing
+until we ship new images for the chassis and the git adapter, which is the next
+step. The review council is looking at the change now — we committed without
+waiting, as agreed, and will add the review stamp only if they approve. Two
+small extras rode along: two slow agents now get a proper idle timeout instead
+of none, and pods now get a full minute to finish up when asked to shut down
+instead of being killed mid-drain.
+
+One thing worth knowing: while wiring this we found three subtle traps that
+would have made the retries useless if we had shipped the original design as
+written — the retry counter wasn't being read on resent requests, the
+bookkeeping table refused updates instead of taking them over, and a
+chased-and-answered request was being mistaken for a duplicate. All three are
+fixed and written up in the bug file.
