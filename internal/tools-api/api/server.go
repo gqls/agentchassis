@@ -22,6 +22,14 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	apiGroup := r.Group("/api/v1/tools/gauntlet")
 	apiGroup.Use(middleware.CORSMiddleware(pool))
 
+	// Rate limiting and input cap are ordered after CORS so that preflight
+	// OPTIONS requests (already aborted with 204 by CORSMiddleware) never
+	// reach these checks.
+	apiGroup.Use(
+		middleware.RateLimitMiddleware(cfg.RateLimitRPS, cfg.RateLimitBurst),
+		middleware.InputCapMiddleware(cfg.MaxBodyBytes),
+	)
+
 	_ = apiGroup
 
 	return r
