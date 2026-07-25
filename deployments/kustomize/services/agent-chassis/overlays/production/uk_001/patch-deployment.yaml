@@ -98,6 +98,26 @@ spec:
             - name: REQUESTS_TOPIC
               value: "system.agent.generic.requests"
 
+            # bugs_open/030 — the scheduler's own dispatch lane.
+            # Every top-level dispatch used to arrive on the single generic
+            # requests topic, drained by one consumer that runs each
+            # orchestration's consecutive steps inline: measured 2026-07-20 the
+            # lane was 93% kafka-scheduler traffic (two cron jobs alone 84%),
+            # while interactive council/diagnosis dispatches were ~6% queued
+            # behind the chores for 25–36 minutes. The chassis now consumes this
+            # second lane on its own goroutine and consumer group, and the cron
+            # rows in scheduled_tasks.target_topic point at it, so cron and
+            # operators no longer block each other.
+            #
+            # MUST STAY A DIRECT ENV VAR HERE. Never move it into the shared
+            # personae-prod-config ConfigMap: spawned agent pods inherit that
+            # ConfigMap wholesale (spawn_actions.go EnvFrom), and every pod that
+            # joined this lane would re-run every scheduled dispatch under its
+            # own consumer group. agent.go refuses the var on non-static agents
+            # as a backstop, but do not lean on the backstop.
+            - name: EXTRA_REQUEST_TOPICS
+              value: "system.agent.scheduled.requests"
+
           envFrom:
             - configMapRef:
                 name: personae-prod-config

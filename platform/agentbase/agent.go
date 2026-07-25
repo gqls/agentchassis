@@ -97,6 +97,13 @@ type Agent struct {
 	requestConsumer  *kafka.Consumer
 	responseConsumer *kafka.Consumer
 
+	// Additional request lanes, from EXTRA_REQUEST_TOPICS (bugs_open/030).
+	// Each lane is a separate topic with its own consumer, consumer group and
+	// goroutine, so a multi-minute orchestration occupying one lane cannot
+	// delay dispatches arriving on another. Empty for every agent that does
+	// not set the env var, which is all of them except the chassis.
+	extraRequestLanes []requestLane
+
 	// Topics
 	requestsTopic  string // as an agent this is my requests topic
 	responsesTopic string // as an agent this is my responses topic
@@ -115,6 +122,14 @@ type Agent struct {
 	// Metrics
 	messagesProcessed uint64
 	lastActivity      time.Time
+}
+
+// requestLane is one additional request topic this agent consumes alongside its
+// main requests topic (bugs_open/030).
+type requestLane struct {
+	topic    string
+	group    string
+	consumer *kafka.Consumer
 }
 
 // New creates a new agent with the standard constructor signature
@@ -382,8 +397,123 @@ func (a *Agent) setupConsumers() error {
 	)
 
 	a.responseConsumer = responseConsumer
+	if err != nil {
+		return err
+	}
 
-	return err
+	return a.setupExtraRequestLanes(requestsTopic, consumerGroup)
+}
+
+// setupExtraRequestLanes creates a consumer per topic named in
+// EXTRA_REQUEST_TOPICS (comma-separated) — bugs_open/030.
+//
+// WHY. Every top-level dispatch in the fleet arrived on ONE topic with ONE
+// consumer, processed synchronously: `processMessage` runs the orchestration's
+// consecutive local steps inline before the loop can fetch again, so a single
+// council or build chain held the lane for 8–15 minutes and everything behind
+// it waited. Measured 2026-07-20: the lane was 93% kafka-scheduler traffic, two
+// scheduled jobs alone 84% of it, while the interactive council and diagnosis
+// dispatches the bug was reported about were ~6% queued behind the chores.
+// Giving the scheduler its own lane means an operator's dispatch no longer
+// waits behind cron's.
+//
+// Raising PartitionCount on the shared topic was the obvious-looking
+// alternative and is the wrong tool: it is one-way (Kafka cannot reduce
+// partitions), and with replicas: 1 a single consumer is simply assigned every
+// partition and still runs one blocking goroutine — no throughput gain at all.
+//
+// A misconfigured lane must not take the platform down with it, so a lane that
+// cannot be created is logged loudly and SKIPPED rather than returned as a
+// fatal error: a crash-looping chassis is worse than one missing lane. That is
+// also why the rollout order is load-bearing — the image that consumes a lane
+// ships BEFORE any producer is pointed at it (scheduled_tasks.target_topic is a
+// DB column and switches live). Point a producer at an unconsumed topic and its
+// messages accumulate with nothing to run them.
+func (a *Agent) setupExtraRequestLanes(mainTopic, baseGroup string) error {
+	raw := os.Getenv("EXTRA_REQUEST_TOPICS")
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+
+	// A lane is a SHARED work queue: exactly one consumer group may drain it, or
+	// every message on it runs more than once. Spawned job agents are the danger
+	// — each gets its own pod, its own generated group, and (spawn_actions.go
+	// ~2389) a per-job `job.<id>.requests` topic, so if this env var ever
+	// reached them every scheduled dispatch would execute once per live pod.
+	// They cannot reach it through the explicit env list built for a spawn, but
+	// they DO inherit `envFrom: personae-prod-config`, so refuse structurally
+	// rather than trusting the deployment to stay right: extra lanes are for
+	// statically deployed agents only.
+	// >>> NEVER put EXTRA_REQUEST_TOPICS in personae-prod-config. <<<
+	if !strings.HasPrefix(mainTopic, "system.agent.") {
+		a.logger.Warn("EXTRA_REQUEST_TOPICS is set but this agent is not statically deployed — ignoring it",
+			zap.String("extra_request_topics", raw),
+			zap.String("main_topic", mainTopic))
+		return nil
+	}
+
+	seen := map[string]bool{mainTopic: true}
+	topicManager := kafka.NewTopicManager(a.config.KafkaBrokers, a.logger)
+
+	for _, entry := range strings.Split(raw, ",") {
+		topic := strings.TrimSpace(entry)
+		if topic == "" {
+			continue
+		}
+		if seen[topic] {
+			// Consuming one topic twice in one process would double-execute
+			// every message on it. Refuse rather than obey.
+			a.logger.Warn("Ignoring duplicate extra request topic",
+				zap.String("topic", topic),
+				zap.String("main_topic", mainTopic))
+			continue
+		}
+		seen[topic] = true
+
+		// Idempotent (returns nil when the topic already exists), so this is
+		// safe on every pod start and makes the lane self-provisioning.
+		if err := topicManager.CreateTopic(a.ctx, kafka.TopicDefinition{
+			Name:              topic,
+			Partitions:        1,
+			ReplicationFactor: 3,
+		}); err != nil {
+			a.logger.Error("Could not ensure extra request lane topic exists — SKIPPING this lane; anything published to it will not be consumed",
+				zap.String("topic", topic),
+				zap.Error(err))
+			continue
+		}
+
+		// A distinct group per lane: offsets are tracked per group+topic, and a
+		// separate group keeps this lane's rebalances away from the main one.
+		group := fmt.Sprintf("%s-lane-%s", baseGroup, laneSuffix(topic))
+
+		consumer, err := kafka.NewConsumer(a.config.KafkaBrokers, topic, group, a.logger)
+		if err != nil {
+			a.logger.Error("Could not create consumer for extra request lane — SKIPPING this lane",
+				zap.String("topic", topic),
+				zap.String("group", group),
+				zap.Error(err))
+			continue
+		}
+
+		a.extraRequestLanes = append(a.extraRequestLanes, requestLane{
+			topic:    topic,
+			group:    group,
+			consumer: consumer,
+		})
+
+		a.logger.Info("Extra request lane ready (bugs_open/030)",
+			zap.String("extra request lane topic", topic),
+			zap.String("extra request lane group", group))
+	}
+
+	return nil
+}
+
+// laneSuffix turns a topic name into a consumer-group-safe suffix.
+func laneSuffix(topic string) string {
+	suffix := strings.NewReplacer(".", "-", "_", "-", " ", "-").Replace(topic)
+	return strings.Trim(suffix, "-")
 }
 
 // Run starts the agent's message processing loops
@@ -403,6 +533,21 @@ func (a *Agent) Run() error {
 	// Start request processing
 	a.wg.Add(1)
 	go a.processRequests()
+
+	// One goroutine per extra request lane (bugs_open/030). The request and
+	// response loops above have always run concurrently in this process — these
+	// add lanes, not a new concurrency model.
+	for i := range a.extraRequestLanes {
+		lane := a.extraRequestLanes[i]
+		a.logger.Info("Starting request processor for extra lane",
+			zap.String("lane", lane.topic),
+			zap.String("group", lane.group))
+		a.wg.Add(1)
+		go func() {
+			defer a.wg.Done()
+			a.consumeRequestLane(lane.consumer, lane.topic)
+		}()
+	}
 
 	// Start response processing (ALL agents process responses)
 	a.wg.Add(1)
@@ -460,17 +605,31 @@ func (a *Agent) processRequests() {
 		zap.String("which agent am I from environment", envMyAgentType),
 	)
 
+	a.consumeRequestLane(a.requestConsumer, a.requestsTopic)
+}
+
+// consumeRequestLane is the fetch→process→commit loop for ONE request topic. It
+// is shared by the main requests consumer and by every extra lane from
+// EXTRA_REQUEST_TOPICS (bugs_open/030) deliberately: two copies of this loop
+// would drift, and the delivery semantics below are the ones bugs_open/003 F3
+// paid for.
+//
+// Each lane runs one of these on its own goroutine, so lanes make progress
+// independently. Within a lane, processing stays strictly serial and in order —
+// that is unchanged, and it is what keeps per-orchestration ordering intact.
+func (a *Agent) consumeRequestLane(consumer *kafka.Consumer, laneTopic string) {
 	for {
 		select {
 		case <-a.ctx.Done():
-			a.logger.Info("Request processor stopping due to context cancellation")
+			a.logger.Info("Request processor stopping due to context cancellation",
+				zap.String("lane", laneTopic))
 			return
 		default:
 			// bugs_open/003 F3: FetchMessage, NOT the old Consume() — Consume
 			// committed the offset on fetch, so a pod death annihilated the
 			// in-flight message (at-most-once). The offset is now committed
 			// via commitConsumed AFTER processMessage returns.
-			msg, err := a.requestConsumer.FetchMessage(a.ctx)
+			msg, err := consumer.FetchMessage(a.ctx)
 
 			if err != nil {
 				// Handle timeout specifically
@@ -479,7 +638,9 @@ func (a *Agent) processRequests() {
 					continue
 				}
 				if !errors.Is(err, context.Canceled) {
-					a.logger.Error("Failed to fetch request message", zap.Error(err))
+					a.logger.Error("Failed to fetch request message",
+						zap.String("lane", laneTopic),
+						zap.Error(err))
 					time.Sleep(1 * time.Second) // don't spin on a persistent fetch error
 				}
 				continue
@@ -488,12 +649,14 @@ func (a *Agent) processRequests() {
 			// Skip empty messages
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
-				a.logger.Info("Skipping empty requests message")
-				a.commitConsumed(a.requestConsumer, msg, "request") // still advance past it
+				a.logger.Info("Skipping empty requests message",
+					zap.String("lane", laneTopic))
+				a.commitConsumed(consumer, msg, "request") // still advance past it
 				continue
 			}
 
 			a.logger.Info("Request consumer received message",
+				zap.String("lane", laneTopic),
 				zap.Int("value_length", len(msg.Value)),
 			)
 
@@ -504,7 +667,7 @@ func (a *Agent) processRequests() {
 			a.processMessage(msg, "request")
 
 			// Commit AFTER processing (unconditional — see commitConsumed)
-			a.commitConsumed(a.requestConsumer, msg, "request")
+			a.commitConsumed(consumer, msg, "request")
 		}
 	}
 }
@@ -1250,6 +1413,11 @@ func (a *Agent) Shutdown() error {
 	}
 	if a.responseConsumer != nil {
 		a.responseConsumer.Close()
+	}
+	for _, lane := range a.extraRequestLanes {
+		if lane.consumer != nil {
+			lane.consumer.Close()
+		}
 	}
 	if a.producer != nil {
 		a.producer.Close()
