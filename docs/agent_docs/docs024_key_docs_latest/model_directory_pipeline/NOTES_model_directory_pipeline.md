@@ -532,8 +532,11 @@ gap it was hiding.**
 **New finding — the flagship page is in no navigation at all.**
 `/model-directory.html` is `active`/`deployed` with `in_header=f`,
 `in_footer=t`, `nav_label='Model Directory'`, but `site_nav_items` has **no
-row for it** (every nav row on this site was seeded 2026-05-01 and has never
-been rebuilt). So the page is reachable only by typing the URL — not from
+row for it** (15 of aao's 17 nav rows carry `created_at` 2026-05-01; the two
+exceptions are the legal pair, inserted 2026-07-21 by something that was not
+a full rebuild — `populate_nav_tables` starts with
+`DELETE FROM site_nav_items WHERE site_id=$1`, so a real rebuild would have
+restamped all 17). So the page is reachable only by typing the URL — not from
 the header, not from the footer's resources group where `/news.html` sits.
 The site's own `nav_drift` check would catch it, but the open item
 (`9aa51f90…`, still `detected`) was raised 2026-07-24 13:59, ~10 minutes
@@ -576,3 +579,28 @@ when a page actually carries the `model-directory-listing` component
 vendors (GPT-5 ×12, Claude ×9, Gemini ×7, DeepSeek ×8, Mistral ×8, Qwen ×5,
 Llama ×4 occurrences) plus its freshness script at
 `/tools/assets/model-directory-listing.js` (HTTP 200, 2,832 bytes).
+
+**2026-07-25 — the nav gap looks fleet-wide, so it went to the diagnosis loop
+rather than straight into a bug file.** What I can show without asserting a
+cause: `site_nav_items` has exactly two writers in the tree —
+`insertNavItem` (`populate_nav_tables_action.go`, reached only via the
+`nav-updater` agent) and `create_tool_component_action.go:461` (tool pages
+add their own nav row) — `page-build-handler`'s live workflow contains
+neither (`actions`: call_agent, ensure_site_record, load_page_record,
+plan_sections, save_page_sections, spawn_agent, update_page_status, … ;
+spawns: page-content-writer, page-rerender), and no `scheduled_tasks` row
+targets nav at all. Newest `site_nav_items` row per site fleet-wide ranges
+from 2026-07-08 (robot-hands) to 2026-07-25 (fundamentallyai), i.e. nav is
+rebuilt only when something happens to run the agent.
+
+That is a *structural* claim about a pipeline I did not write, which is the
+exact shape CLAUDE.md says to put through 090 first — a confident structural
+claim assembled from grep hits is how the 2026-07-19 refutation happened.
+Six live agent definitions DO call `populate_nav_tables` (build-site-planner,
+multipage-website-builder ×2, pageflow-builder, site-adoption-agent,
+site-work-orchestrator, nav-updater); I have not opened all of their
+workflows to prove none is reachable from the incremental page-creation
+path, and "I grepped and found nothing" is not the same as "there is no
+path". Filed: correlation `726c2439-b3ff-4a8d-a7a6-fc69d4ae7edd`, symptom
+states the mechanism and names the symbols, asserts no counts. A REFUTED
+verdict here is the cheap outcome and would be worth the run on its own.
