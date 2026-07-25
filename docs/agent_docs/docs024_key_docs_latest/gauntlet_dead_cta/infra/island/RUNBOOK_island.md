@@ -23,10 +23,15 @@ Access: `ssh root@toolsapisuk.vs.mythic-beasts.com` (key-only).
   engine lands); Postgres 16.14 answering as tools_api/tools_api, data in the
   `pgdata` volume; both containers restart unless-stopped.
 - **Backups**: `/etc/cron.d/island-backup` → 02:17 nightly
-  `/opt/island/backup_pg.sh` (pg_dump | gzip, 14-day local retention).
-  First dump verified. **TODO(owner)**: backup-space host + username from the
-  MB control panel, install the island's SSH key there, uncomment the rsync
-  line in backup_pg.sh — until then dumps are on-box only.
+  `/opt/island/backup_pg.sh` (pg_dump | gzip, 14-day local retention, then
+  rsync mirror to the MB backup account
+  `32950_toolsapisuk@backup-sov-a.mythic-beasts.com:tools-api-backups/`, 20GB,
+  MB-mirrored to a second UK site). The backup host is **key-only**.
+  **TODO(owner, last step)**: install the island's key in the MB control panel
+  (Backup account → SSH keys): `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMhCipVo2VJ32WuzEZ2qjA/QZ3B7brCYiE1OFjF/Tkhm island-backup@toolsapisuk`
+  Until then the rsync leg fails loudly (verified 2026-07-25: dump+retention
+  fine, rsync `Permission denied (publickey)`) and self-heals once the key is in.
+  Test after: `ssh root@island /opt/island/backup_pg.sh` → exit 0.
 - **cloudflared** 2026.7.3 installed from Cloudflare's apt repo.
   `cloudflared tunnel login` launched; awaiting the owner clicking the
   authorisation URL (in /root/cf_login.log). Cert lands at
@@ -49,9 +54,29 @@ Access: `ssh root@toolsapisuk.vs.mythic-beasts.com` (key-only).
   yet — correct). A random other subdomain now fails to RESOLVE — the dead `*`
   wildcard appears deleted (owner, presumably, while in the dashboard).
 
-Cloudflare dashboard still to set (owner, ~2 min in apis.uk zone): SSL/TLS →
-Full (strict); Always Use HTTPS; one rate-limiting rule on `tools.apis.uk/*`;
-Free Managed WAF ruleset on.
+Cloudflare dashboard settings **applied by owner 2026-07-25** (SSL/TLS Full
+(strict); Always Use HTTPS; rate rule on tools.apis.uk; Free Managed WAF).
+Verified from outside: `http://tools.apis.uk/` → 301 to https; https → our 404.
+
+## Traffic probe — features_open/020 stage 1, LIVE 2026-07-25
+
+- DNS: apex `apis.uk` + `*.apis.uk` are proxied CNAMEs → the tunnel, added
+  from the island via `cloudflared tunnel route dns tools-api <name>` (the
+  zone cert at /root/.cloudflared/cert.pem authorises this — no dashboard).
+- cloudflared ingress: apex + `*.apis.uk` → `http://localhost:8082` (rules sit
+  between the tools.apis.uk rule and the 404 fallback).
+- Caddy `:8082` vhost: responds 404 to everything, logs JSON per request to
+  `/var/log/caddy/probe_access.log` = host bind-mount
+  `/opt/island/logs/probe/probe_access.log`. Caddy's own rolling: 10MiB ×10,
+  kept 720h (=30 days) — no host logrotate. Log includes Host, method, uri and
+  all forwarded headers (Cf-Connecting-Ip, Cf-Ipcountry, Referer, User-Agent).
+- Verified end-to-end from the public internet: apex/www/random-subdomain →
+  404, log line carries CF-Connecting-IP + GB country.
+- **Review ~2026-08-08**: rank hostname × path, e.g.
+  `jq -r '.request | .host + " " + .uri' probe_access.log | sort | uniq -c | sort -rn | head -30`
+  (cross-check against the zone's free Cloudflare analytics).
+- Apex note: when the owner's bees homepage (separate thread) exists, repoint
+  ONLY the apex record at its hosting; wildcard + probe stay as they are.
 
 ## When the engine lands (feature-builder PR merged, image published)
 

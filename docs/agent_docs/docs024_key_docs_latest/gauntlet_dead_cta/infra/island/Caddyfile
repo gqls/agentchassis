@@ -18,3 +18,20 @@
     respond 404
   }
 }
+
+# features_open/020 stage 1 — passive traffic probe for every OTHER apis.uk
+# hostname (wildcard + apex ride the tunnel here). Serves nothing but 404;
+# the access log is the product: JSON per request incl. Host, method, uri and
+# all forwarded headers (Referer, User-Agent, CF-Connecting-IP, CF-IPCountry).
+# Caddy's own log rolling gives the 30-day retention — no host logrotate.
+:8082 {
+  log probe {
+    output file /var/log/caddy/probe_access.log {
+      roll_size 10MiB
+      roll_keep 10
+      roll_keep_for 720h
+    }
+    format json
+  }
+  respond 404
+}

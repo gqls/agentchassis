@@ -18,6 +18,16 @@ the zone carried a proxied `*` wildcard pointing at a dead origin (every name
 learn nothing from that traffic: the wildcard is gone, so every other name
 NXDOMAINs and the requests never reach anything we can see.
 
+> **STAGE 1 LIVE 2026-07-25** ("bastion host" session). All four steps below are
+> done: DNS added via `cloudflared tunnel route dns` (apex + `*.apis.uk` →
+> tunnel, no dashboard work needed), catch-all ingress in cloudflared config,
+> Caddy probe vhost on :8082 (log rolling gives the 30-day retention — no host
+> logrotate needed). Verified from the public internet: apex/www/random
+> subdomain all 404 with a JSON log line incl. CF-Connecting-IP + CF-IPCountry.
+> Logs: `/opt/island/logs/probe/probe_access.log`. **Review due ~2026-08-08.**
+> NOTE: apex will be repointed at the owner's planned bees homepage (separate
+> thread) when that exists — one record swap, wildcard/probe unaffected.
+
 ## Design (stage 1 — passive, ~30 min on the island, no new infra)
 
 1. **Re-add DNS**: `*` and apex `apis.uk` as proxied CNAMEs →

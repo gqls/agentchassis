@@ -26,8 +26,10 @@ services:
     restart: unless-stopped
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./logs/probe:/var/log/caddy      # features_open/020 probe access logs
     ports:
       - "127.0.0.1:8081:8081"   # only cloudflared (on the host) talks to Caddy
+      - "127.0.0.1:8082:8082"   # 020 probe vhost (wildcard/apex catch-all)
 
   # Activate when the PR's image is published. Port confirmed at PR time.
   # tools-api:

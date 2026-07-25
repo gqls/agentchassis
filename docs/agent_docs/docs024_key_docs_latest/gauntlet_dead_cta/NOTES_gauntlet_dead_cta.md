@@ -528,3 +528,26 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - RUNBOOK created (standing five complete). Chassis prod = v1.0.1155 re-roll @16:29,
   formatter fix verified present; more spawn-class rows now pinned 1155 (066 interim
   rule spreading).
+
+## 2026-07-25 (morning) — CF settings verified, backup leg wired (key pending), probe 020 stage 1 LIVE
+- Owner applied the Cloudflare zone settings; verified from outside:
+  `http://tools.apis.uk/` → 301 https (Always Use HTTPS live), https → our 404.
+- Backup account arrived: `32950_toolsapisuk@backup-sov-a.mythic-beasts.com`
+  (20GB). Host is **publickey-only** — generated island key
+  (`/root/.ssh/id_ed25519`, comment island-backup@toolsapisuk), rsync line in
+  backup_pg.sh now real and UNcommented. Full-script test: dump + retention OK,
+  rsync `Permission denied (publickey)` as expected → self-heals when the owner
+  installs the pubkey in the MB panel (key text in RUNBOOK_island.md).
+- **features_open/020 stage 1 SHIPPED**: Caddy `:8082` probe vhost (404 +
+  JSON access log, Caddy-native rolling 30d, bind-mount
+  `/opt/island/logs/probe/`), cloudflared catch-all ingress (apex +
+  `*.apis.uk` → :8082), and — better than asking the owner for DNS — added
+  apex + wildcard proxied CNAMEs myself from the island via
+  `cloudflared tunnel route dns tools-api …` (cert.pem authorises zone DNS).
+  Verified end-to-end from outside: apis.uk / www / random subdomain all 404
+  with log lines carrying Cf-Connecting-Ip + Cf-Ipcountry. `caddy validate`
+  run in-container BEFORE reload (a bad Caddyfile would have downed the API
+  vhost too). Review due ~2026-08-08 (jq one-liner in RUNBOOK).
+- Owner intent recorded: apex apis.uk will become a BEES homepage (unrelated
+  to the API), built in another thread — apex rides the probe 404 until then;
+  swap is one DNS record, wildcard/probe unaffected.

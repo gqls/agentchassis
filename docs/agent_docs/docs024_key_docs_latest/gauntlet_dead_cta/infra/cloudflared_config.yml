@@ -1,8 +1,14 @@
-# Bastion: /etc/cloudflared/config.yml
-# Tunnel dials OUT to Cloudflare; no inbound ports on the bastion.
+# Island: /etc/cloudflared/config.yml (toolsapisuk.vs.mythic-beasts.com)
+# Tunnel dials OUT to Cloudflare; no inbound ports on the island.
 tunnel: tools-api
 credentials-file: /etc/cloudflared/tools-api.json
 ingress:
   - hostname: tools.apis.uk
-    service: http://localhost:8081        # Caddy below
-  - service: http_status:404              # anything else: refuse
+    service: http://localhost:8081        # Caddy API vhost (allowlist + 1MB cap)
+  # features_open/020 stage 1 — every other apis.uk name (proxied * wildcard
+  # + apex in DNS) lands on the probe vhost: 404 + structured access log.
+  - hostname: apis.uk
+    service: http://localhost:8082
+  - hostname: "*.apis.uk"
+    service: http://localhost:8082
+  - service: http_status:404              # non-apis.uk hostnames: refuse
