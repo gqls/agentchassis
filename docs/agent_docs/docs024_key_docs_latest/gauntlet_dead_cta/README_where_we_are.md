@@ -379,3 +379,20 @@ saved in the island's database with everything filled in. This is the real
 evidence the experience-planning loop needs to design the front end around, so
 that's next, followed by rebuilding the actual gauntlet page against the live
 API. Also: the backup pubkey you pasted in is confirmed working now.
+
+2026-07-25 (~4.45pm): the experience-planning council has APPROVED a real build
+plan for the debate opponent — the first time this has ever happened for this
+tool. It took two tries. The first attempt ran five rounds of genuine, detailed
+critique from the review panel (five different reviewers each checking a
+different concern: does it actually work, is it honest, is it well-scoped, does
+every piece connect to something real) and then hit its round limit without
+full agreement — which is a deliberate safety valve, not a failure: rather than
+loop forever, it stops and hands you the disagreement to review. Reading through
+it, the remaining objections were narrow and fixable: I had exact information
+the reviewers didn't (the real shape of the API's responses, since I built and
+tested it myself), plus two small facts about existing code they'd correctly
+flagged as unverified. I fed all of that back in and re-ran it once — it
+converged immediately, with only minor advisory notes left (nothing that blocks
+building). The approved plan now exists as a record in the database, ready to
+build against. Next: rewrite the actual gauntlet page against this plan, so
+visitors get the real debate flow instead of what's there now.
