@@ -493,3 +493,27 @@ has been disabled fleet-wide since ~2026-05).
 standing loop. Council (advisory, per the 2026-07-24 norm): submitted alongside,
 `SUBMISSION_CORR=5d64be67-b9e8-47e8-8768-828a34093b08`, verdict pending; submission JSON in the plan's
 directory.
+
+### B — 2026-07-25: checker→handler LIVE in v1.0.1156; council schema saga; behavioural run fired
+
+**`cc2cff79b` is LIVE.** Pod `agent-chassis-bdd85599c-l8sv2` (v1.0.1156, started 08:24Z), discriminating
+pod-grep: `contact_form_undeliverable_rerender` = 1 (created by the check branch),
+`SELECT content_data, COALESCE(email` = 1 (created by the buildRerenderBaseData fix), control
+`contact_form_undeliverable` = 6. Both new literals present, so the auto-heal chain is deployed.
+
+**Council: two runs died at validation before any reviewer fired — the plan schema is stricter than the
+docs said.** Corr `5d64be67` → `complete_invalid` (`fixPlan.risks` must be a **string**, ours was an
+array); corr `85ab8894` → `complete_invalid` (`operation "create"` not in the allowlist — it is
+`modify|add|remove|config_change`; a new file is `add`). An invalid run writes **no artifacts**, so
+polling `diagnosis_artifacts` alone waits forever — poll `orchestration_states.current_step` too.
+Both traps + the full pre-check now in `fixloop_eg_dartsonline/RUNBOOK_council_gate.md` ("strict-schema"
+bullet). Third submission `SUBMISSION_CORR=8bfcbc68-cb06-4ee8-a67e-7b8273c5e1e1`, verdict pending.
+
+**Behavioural verification IN FLIGHT.** All 10 remaining affected sites now hold resolvable
+`@contactforsales.com` addresses (query 2026-07-25 — so every one routes to the auto-remediate branch).
+Discovery has no cadence (improvement-sweep disabled), so a single-site improvement-loop run was fired
+for vonc.com (site `9ec3b9ee`, page `56f049fb`, action currently `#contact`) with the sweep's own
+envelope: `bugfix_006/091_TRIGGER_improvement_loop_single_site.sh` (committed `ab885ff8b`),
+`IMPROVEMENT_CORR=5c6cd4d2-50f0-4fdd-9517-74c2d7ae5902`. Success = the page component's form action
+becomes `mailto:vonc@contactforsales.com` with **no human touch**. If it does, the same loop heals the
+other 9 as discovery reaches them.
