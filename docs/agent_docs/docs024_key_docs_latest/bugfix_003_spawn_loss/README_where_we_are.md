@@ -235,3 +235,36 @@ recovery machinery under controlled conditions (the fleet was too quiet to
 run it this afternoon — I have a watcher waiting for the next busy moment), a
 re-run of the old health-check restart test, and a look at the weekly numbers
 around the 1st of August to confirm the ninety-minute strandings are gone.
+
+---
+
+2026-07-25, evening. The controlled kill test ran, and it earned its keep
+twice over. I deleted the main worker server on purpose while three jobs were
+mid-flight. The new rescue machinery did exactly what it was built to do —
+within half a minute of the first job's deadline passing, a completely
+different service's housekeeping loop picked up the orphaned request and set
+the work going again. That was the one code path no real traffic had
+exercised yet, and it works, across services, with no shared memory at all.
+
+But the test also flushed out an older problem that had been hiding behind
+the one we just fixed. Each rescued job kept being re-done every three
+minutes, forever: the work itself succeeded every time (including a real
+code-repository commit per attempt), but the "job finished" message was being
+thrown away by an old guard that only accepts messages for the server that
+originally owned the job — and that server was the one I'd killed. Dead
+servers never answer, so the guard would have rejected those messages until
+the end of time, and the safety sweep that catches stuck jobs can't see this
+shape because the loop looks busy. Before our fix this same flaw just meant
+a job quietly died within the hour; now it means a tireless loop — which is
+louder and, frankly, how we found it. I stopped the loop by clearing the
+dead server's name off both jobs (they then finished normally within a
+minute — no work lost), filed it properly as bug 075 with the fix mapped
+out, and left the fix itself for a fresh thread: it's the same piece of work
+that's been blocking us from running more than one worker server, so it was
+always coming.
+
+Score for the day: the big delivery rewrite is live, ratified and proven
+under deliberate failure; one long-hidden defect found, contained and filed;
+and the platform now has the architecture-review process the council was
+asking for. Remaining on this workstream: the health-check restart re-test,
+and the weekly numbers around the 1st of August.
