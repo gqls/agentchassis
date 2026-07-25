@@ -266,3 +266,49 @@ it is not universal — which makes it more interesting, not less, because the
 same component produced the markup on all five. I have written that up as a
 bug case with the measurement and an explicit note that the cause is NOT
 diagnosed, rather than guessing at one.
+
+**2026-07-25, 09:35 — I told you the prices were re-checked every day. They
+never were, not once, and I only found out by trying to break it.**
+
+This is the correction that matters most today, so it goes first and plainly.
+Yesterday I wrote that each cited figure was "due to be automatically
+re-checked every day so a stale price can't sit there looking authoritative".
+That was false. The daily re-check job had **never run** — not for a single
+claim, since the day it was built. What it did every day was start, do
+nothing, and report success.
+
+The reason it looked fine is the uncomfortable part. The job fires on
+schedule, a run is created, it finishes, and both "last started" and "last
+finished" timestamps update. Every indicator I had said it worked. The job's
+instructions were written in a place the system doesn't read, so it quietly
+ran an empty checklist instead, and an empty checklist completes very
+successfully.
+
+I found it by accident, doing something else. The new adoption research came
+back with seventeen claims and seventeen verifications — nothing rejected. My
+own notes say a perfect first score on marketing material is *less*
+believable than a mixed one, so rather than take it, I deliberately sabotaged
+one stored quote: replaced it with a sentence that exists on no web page
+anywhere, and aged it so the checker would pick it up. The checker should
+have caught it within minutes. It didn't. Chasing why is what uncovered that
+the checker had never examined anything, ever.
+
+It is fixed, and this time I proved it the hard way rather than trusting a
+green tick: after the fix I re-ran the same sabotage, and the system correctly
+flagged the claim as no-longer-verifiable and retired it. Then I put the real
+quote back and deleted the test's leftovers, so the record doesn't carry a
+false mark against Klarna, whose citation was never actually wrong.
+
+Two things follow that you should know. First, everything the directory has
+published so far is still sound — the claims were all verified *when they were
+registered*; what was missing was the ongoing re-checking, which matters for
+prices that change, not for facts that were true when recorded. Second, the
+same mistake exists in another part of the platform built by a different
+thread — their evidence-checking sweep is wired the same way — so I've written
+it up with the two queries that answer it in seconds and left it for them
+rather than reaching into their work.
+
+The wider lesson I'd draw, and I'd rather say it than bury it: for anything
+whose whole job is to *detect* a problem, "it ran and reported success" is not
+evidence it works. Only breaking something on purpose and watching it get
+caught is.
