@@ -267,10 +267,11 @@ DB description is complete.
 
 ## Part 5 — Open questions for the owner
 
-1. **Island trust boundary** — is pull-only acceptable as "merged", or do you
-   want the island under the same push control as the rest (accepting that the
-   cluster then holds a credential to it)? My recommendation: **pull-only**; it
-   gets the merge benefit without spending the isolation the island was built for.
+1. **Island trust boundary** — ~~is pull-only acceptable as "merged"?~~
+   **DECIDED (owner, 2026-07-25): pull-only.** *"I like that the island pulls its
+   rendered profile outbound only."* The island joins the merged generator and
+   drift check but fetches its own rendered profile outbound; the cluster never
+   holds a credential to it. This is now a design constraint, not an option.
 2. **Provider spread** — Hetzner *and* Mythic Beasts, or consolidate? Two
    providers means two adapters. There may be good reasons (UK sovereignty for
    the island; see the UK-sovereign-stack thread) — this plan does not assume.

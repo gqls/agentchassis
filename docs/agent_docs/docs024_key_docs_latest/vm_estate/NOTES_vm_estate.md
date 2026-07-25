@@ -118,3 +118,21 @@ contract doc `003`. A surgical hand-edit to the live conf on 07-19 (legacy feed)
 would have been destroyed by the next generator run; it was reconciled by hand on
 07-24. That is precisely the manual repair the platform refuses to accept for
 pages, running unchallenged on machines.
+
+## 2026-07-25 (later) — owner ratifies pull-only; merge sequence fixed
+
+Owner: *"I like that the island pulls its rendered profile outbound only."* PLAN Part 5
+question 1 marked DECIDED — pull-only is now a design **constraint**, not an option. The
+cluster never holds a credential to the island; the island fetches its rendered profile
+outbound (same direction as its cloudflared dial).
+
+Merge order restated for the record, with the reasoning attached:
+1. **relojistas** — first because best-understood (script walked line-by-line today);
+   P2's byte-for-byte render-vs-live diff is the free proof.
+2. **idea.uk** — second because it needs NO new machinery (a second profile row through
+   the same renderer); this is the step that kills the 614-line fork.
+3. **island** — third, pull delivery; sequencing bonus: if the merge lands before the
+   tools-api engine does, the engine deploys onto an already-managed box instead of
+   adding more hand-config to migrate later.
+
+First milestone summary written: `SUMMARY_2026-07-25_vm_estate.md`.

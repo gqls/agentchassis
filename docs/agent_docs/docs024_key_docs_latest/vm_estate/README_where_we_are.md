@@ -76,3 +76,41 @@ for. If you'd rather have everything under one control path, that's a legitimate
 it just spends something we paid for.
 
 Nothing is built. What exists so far is the plan, the walkthrough, and one fixed bug.
+
+---
+
+**25 July 2026, later — you ratified the island's pull-only path, and asked me to lay out
+the three merges again. Here they are, as I'd say them.**
+
+Today we have three servers in three shapes. The relojistas box is the classic one: nginx
+serves the site and handles certificates, and behind it a single small program does the
+dynamic bits — recording searches, answering them, exporting events. Its configuration
+comes from the 585-line script a human runs. The idea.uk box is the same shape but
+provisioned by the older copy of that script — the ancestor, missing two months of
+improvements but also missing the bug. The island is deliberately different: nothing on
+the public internet can reach it except SSH; it dials *out* to Cloudflare, its software
+runs in containers, it keeps its own database and its own nightly backups, and its
+configuration is a pair of files someone copies over by hand.
+
+The target is one sentence: each box described once in the database; one renderer that
+turns that description into the box's actual config files, whatever its shape; delivery
+by push for the public boxes and by outbound pull for the island — your ruling, now
+recorded as a constraint rather than a question; and a drift check that re-renders and
+compares against what's really running.
+
+The three merges, in order. **Relojistas first**, because it's the box I now know line by
+line: its hard-coded truths become database rows, the script's generator half becomes the
+renderer, and the proof is free — render the config and compare it byte-for-byte with
+what's live on the box before anything is ever applied. **idea.uk second**, and it's the
+cheap one: no new machinery, just a second row through the same renderer. That's the
+moment the fork dies — the 614 lines the two scripts disagree on collapse into data
+differences, and the older box picks up two months of improvements without inheriting the
+copy's bugs. **The island third**: the same renderer emits its container and Caddy files,
+but the island fetches them itself, outward, keeping both things it was built for — no
+way in, and nothing on it that touches production. There's a timing bonus: its engine
+hasn't landed yet, so if the merge gets there first, the engine arrives onto a box that's
+already managed instead of adding more hand-config we'd have to migrate later.
+
+None of this is built. Where we actually are: design settled, one bug fixed, your island
+decision recorded, and the next step — the free byte-for-byte proof on relojistas —
+waiting its turn. Your relojistas server session is untouched by all of this.
