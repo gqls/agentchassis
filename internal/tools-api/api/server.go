@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/internal/tools-api/config"
+	"github.com/gqls/agentchassis/internal/tools-api/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -19,6 +20,8 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 
 	// apiGroup is retained for s3/s4/s5/s6 to attach middleware and routes.
 	apiGroup := r.Group("/api/v1/tools/gauntlet")
+	apiGroup.Use(middleware.CORSMiddleware(pool))
+
 	_ = apiGroup
 
 	return r
