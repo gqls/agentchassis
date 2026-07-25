@@ -431,3 +431,31 @@ sentence is now in the travelling `doc_notes` row for
 `editquality` (medium) is also right that the doc_notes row was claimed in prose
 but was not an edit in the plan — it was real (inserted before submission), but
 a reviewer could not see it from the plan.
+
+### RESOLVED — the truncation guard is APPROVED on its OWN correlation
+**`37a32e02-19a7-409a-a74f-9363556bb39e`**, 2026-07-25 18:33Z:
+`approved with 5 advisory objection(s) — none high-severity`. 12 seats ran
+(7 approve, 5 object, all advisory), `abstained: 4`, `unreadable: null`.
+
+So the change in `8e8b55818` **is** genuinely council-approved — just not by the
+correlation its own trailer names.
+
+> **HOW TO RESOLVE `8e8b55818`'s REVIEW STATUS (read this before trusting its
+> trailer):** the commit says `Council-Reviewed: 7ed137d1`. That correlation is
+> approved but its approved round **excludes** this change. The correlation that
+> actually reviewed and approved it is **`37a32e02-19a7-409a-a74f-9363556bb39e`**.
+> Forward-only: the commit cannot be corrected, so this note is the correction.
+> `098` will join on the trailer and reach the wrong verdict for the right
+> commit — a MISMATCH it cannot detect, because both correlations say
+> `approved`.
+
+**Both halves of the batch are now approved:** the pipeline under `7ed137d1`
+(round 3), the truncation guard under `37a32e02`. Splitting it, which is what
+editquality asked for and what I initially resisted by bundling, produced a
+cleaner record than the bundle would have — each change is now resolvable to
+the verdict that actually judged it.
+
+**Still not approved by anything:** `fail_workflow` (`6b14055d7`, a new CORE
+primitive) and the report CSS + drift guards (`5eb433e47`). Both were built
+after the round-3 plan was written. A core workflow-control action in
+particular should get its own round before anyone attaches a trailer to it.
