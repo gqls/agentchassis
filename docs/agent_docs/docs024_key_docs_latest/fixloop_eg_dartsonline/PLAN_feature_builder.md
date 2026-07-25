@@ -3,8 +3,9 @@
 *Standing plan for the "fixloop feature builder" workstream. Companions:
 `NOTES_running_feature_builder.md` (turn-by-turn record),
 `RUNBOOK_feature_builder.md` (the owner's tasks),
-`SUMMARY_feature_builder_2026-07-19.md` (read-aloud, current). Parent design:
-`DESIGN_feature_builder_and_council_gate.md` §1. Last updated 2026-07-19.*
+`SUMMARY_feature_builder_2026-07-25.md` (read-aloud, current). Cold-start:
+`HANDOFF_2026-07-25_feature_builder_thread.md`. Parent design:
+`DESIGN_feature_builder_and_council_gate.md` §1. Last updated 2026-07-25.*
 
 ## Mission
 
@@ -49,37 +50,42 @@ pilot runs through the finished loop.
 | 1b. Staged validation | `diagnose_persist_fix_plan_action.go` | **BUILT** — commit `4b3d50f4c`, tests green, legacy path unchanged |
 | 1c. feature-designer seed | `0NN_feature_designer.sql` (+ patches 016, 017) | **APPLIED & LIVE**; 5-seat council; reviser reads the artifact |
 | 2a. Stage-loop machinery | `feature_stage_route_action.go` + seams (read `ref_field`, prepare branch/message/symbols, gate `test_packages_field`, spawn gate) | **BUILT** — commit `c19b5d097`, tests green |
-| 2b. feature-implementer seeds | `0NN_feature_implementer.sql` + `_orchestrator.sql` | **APPLIED & LIVE** 2026-07-17 — but **NEVER FIRED** |
-| 2c. Triggers | `0NN_TRIGGER_feature_designer_v1.sh`, `0NN_TRIGGER_feature_implementer_v1.sh` | designer **PROVEN** (5 fires); implementer trigger **UNUSED** |
+| 2b. feature-implementer seeds | `0NN_feature_implementer.sql` + `_orchestrator.sql` | **APPLIED, LIVE & PROVEN** — first complete run 2026-07-25 (orch `af286d2c`) |
+| 2c. Triggers | `0NN_TRIGGER_feature_designer_v1.sh`, `0NN_TRIGGER_feature_implementer_v1.sh` | both **PROVEN**; the B4 run drove the implementer via a patient-watcher wrapper (`fire_impl8.sh`, gauntlet thread) over the same orchestrator target |
 | 3. Seed discipline | encoded in validation (D4) + PR checklist rendering | **BUILT** (part of 1b/2a) |
 | 4. Pilot (F1.2) | ref/base as per-run input | **CLOSED — superseded.** Run 5 produced a council-APPROVED plan (unanimous 5/5), but the fixloop thread fixed F1.2 by hand 60s before the run; applying the plan would regress it. Item `db066cac` closed `complete`; reason in its spec. Pilot proved the DESIGNER; a fresh target is needed to exercise the IMPLEMENTER. |
 | 5. Designer, live | 5 runs, each surfacing a real defect | **PROVEN** — run `8e837814` approved unanimously; 016 revise-loop fix verified from `llm_call_log` (0 `<no value>`, 31KB of real reviewer content) |
 | 6. Delta 2 through the council gate | our own platform code reviewed | **ROUND 2 → REVISE 2026-07-21** (`5a65ec4c`, run `14710d52`; abstained 6). tooling_provenance + guidelines flipped to APPROVE (migration 184 landed); the high-severity fail-loud find stays fixed (`9c94cc842`). New/surviving objections: prior_art [HIGH] caught a real absence gap — a generic `loop` action DOES exist (my "none" was wrong, WRONG_CALLS logged); reuse_agent — `githubBranchExists` is a 2nd GitHub path (adapter has no read verb — confirmed); editquality — symbol fix is prompt-not-structural; debug_historian [HIGH] — jsonb-surgery discipline not shown; + cheap process closes. **Round-3 close is now genuine design work, not a formality — owner's call (see NOTES turn 16 shopping list).** |
-| Image | deltas 1+2 in production | **LIVE** — v1.0.1144 (pod-verified 2026-07-21: `feature_stage_route`=3, `formatGeneratedGo`=2, `tolerate_truncation`=1); carries the bug-013 gofmt-at-commit-prep and bug-019 council-degrade de-riskers |
-| Seeds | three agent defs in clients_db | **APPLIED & VERIFIED** 2026-07-17 (owner-approved in-session); inert until fired |
+| 7. **B4 — the implementer's first complete run** | plan `c379f7b7` (tools-api), orch `af286d2c` | **CLOSED 2026-07-25.** 6 gated stages → test_gate PASS → **PR #3 MERGED into `main` 09:19:16Z** (`c02d56b9a`), 18 files +880/−0, one commit per stage; awaits 8/8 processed, 0 expired. Driven by the `gauntlet_dead_cta` thread on its own target. Shakeout yield: bugs 065/067 CLOSED, **066 OPEN**, 071 fix live+tick-proven, migrations 199/200/201/202. |
+| Image | deltas 1+2 in production | **LIVE — v1.0.1158** (pod-verified 2026-07-25, `agent-chassis-54fff9df8b-966hj`: `feature_stage_route`=3, `formatGeneratedGo`=2). *Was v1.0.1144 at the 07-21 update.* |
+| Seeds | three agent defs in clients_db | **APPLIED, VERIFIED & EXERCISED**; all three rows active at `image_tag` v1.0.1158 (2026-07-25); designer council still 5 seats, reviewer seats on sonnet-5 (`ee31c3632`) |
 
-## Next steps (in order) — the ONE thing left is the implementer's first fire
+## Next steps — REWRITTEN 2026-07-25, because the old list is done
 
-**The designer half is proven. The implementer half has never executed.**
-Everything below serves that single gap.
+> **CORRECTED 2026-07-25:** this section used to open *"The designer half is
+> proven. The implementer half has never executed."* Both halves are now proven.
+> The whole 5-step list below it (pick a target → spec → design → fire → merge)
+> was walked end to end on plan `c379f7b7` and ended in a merged PR. The list is
+> preserved in git history; what follows replaces it.
 
-1. **Pick a fresh pilot target** (RUNBOOK B1). The F1.2 pilot was overtaken by
-   a hand-fix, so its approved plan must not be applied. Needs: a small, real
-   capability; a known-good shape we can grade against; and — critically —
-   a target NO other thread is touching (check `site_work_items` AND
-   `git log --since` before choosing).
-2. **Owner: write + approve the spec** (`owner_approval` + `code_pointers` in
-   spec jsonb; RUNBOOK B2 has the SQL shape).
-3. **Fire the designer**, grade the plan, let the council approve it.
-4. **Fire the implementer via its ORCHESTRATOR** (`feature-implementer-
-   orchestrator`, never the implementer directly) — the first live exercise of
-   `feature_stage_route`, the per-stage allowlist, the stage gates and the
-   derived test gate.
-5. **Review the PR as a human**; decide the merge; walk its checklist.
-
-Optional, before step 4: resubmit delta 2 to the council gate
-(`RESUBMIT_CORR=5a65ec4c-686c-40c7-813e-7c7fce03a779`) once the four open
-objections are answered — the high-severity one is already fixed.
+1. **A SECOND build, on a target we choose.** One success is not a capability:
+   the first took 6 designer rounds and 8 implementer fires, and most failures
+   were environmental (071, 066) rather than architectural. A second run is the
+   only thing that tells us whether the shakeout fixes generalised. RUNBOOK B1's
+   selection criteria still apply — above all, a target no other thread is
+   touching.
+2. **Decide the delta-2 council trail** (below): spend a round 3 on the two real
+   design questions, or accept advisory-REVISE and record it closed-unapproved.
+   The risk argument for round 3 is weaker now that the reviewed code has built
+   and shipped a real feature; it is a review-coverage decision, not a safety one.
+3. **Hand `bugs_open/066` to whoever owns deploys.** A chassis roll does not
+   reach spawned agent pods (they pin `agent_definitions.image_tag`), and the
+   symptom is indistinguishable from an agent defect — it cost rounds 6–7. The
+   sync `UPDATE` exists only in `deploy-100-bootstrap-agents` (`makefile:518`),
+   not in `deploy-agents`. Census before every fire.
+4. **Not ours:** building/deploying the merged tools-api, migration 198 (→ the
+   ISLAND DB, not `clients_db`), smoke-testing tools.apis.uk. That is the
+   island/gauntlet threads' work — `scripts/who-owns.py` before touching it.
 
 ## Delta-2 council-gate objections — ALL ANSWERED (round 2, `5a65ec4c`, 2026-07-21)
 
@@ -111,11 +117,16 @@ committed fail-loud code.
   call is a read-only existence GET (`githubBranchExists`, :375) for the
   stale-branch refusal (no adapter verb exists for it, writes nothing). ✅
 
-If round 2 comes back APPROVED, the delta-2 code (`c19b5d097` + `9c94cc842`)
-earns a `Council-Reviewed: 5a65ec4c-686c-40c7-813e-7c7fce03a779` trailer on a
-closing commit (PATCH_018 + migration 184 are already committed in `de282bddd`).
-If REVISE again, read the new objections and iterate — the trail accumulates
-under the same correlation.
+**Round 2 came back REVISE**, so no `Council-Reviewed` trailer was earned or
+added (it is earned by APPROVED only; a false trailer is a permanent lie the 098
+report buckets as MISMATCH). PATCH_018 + migration 184 stand on their own merits
+and are committed in `de282bddd` regardless.
+
+**Verified 2026-07-25: nothing has run on `5a65ec4c` since.** Zero orchestration
+rows carry that `fix_correlation_id` after the round-2 run. The trail is exactly
+where 07-21 left it. The round-3 shopping list lives in NOTES turn 16 and in
+`HANDOFF_2026-07-25_feature_builder_thread.md`; the two substantive items are the
+`LoopAction` reuse answer and the `githubBranchExists` read-verb decision.
 
 ## Backlog / later options (explicitly deferred)
 

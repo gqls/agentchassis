@@ -1,5 +1,13 @@
 # HANDOFF — resume the FEATURE BUILDER thread
 
+> **SUPERSEDED 2026-07-25 by `HANDOFF_2026-07-25_feature_builder_thread.md`.**
+> Read that one instead. This file is kept as a point-in-time record and is now
+> **wrong on its central claim**: it says the implementer "has still never
+> executed once". It has — plan `c379f7b7`, run `af286d2c`, six gated stages,
+> **PR #3 merged into `main` at 09:19:16Z on 2026-07-25**. RUNBOOK B4 is CLOSED.
+> The delta-2 council trail described below is still accurate (round 2 = REVISE,
+> nothing has run since).
+
 **Filed 2026-07-21** from the "fixloop feature builder 2" session. Cold-start for
 a NEW chat. **Supersedes `HANDOFF_2026-07-19_feature_builder_thread.md`** (still
 accurate on architecture; this one carries the delta-2 council close and the

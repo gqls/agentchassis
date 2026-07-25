@@ -696,3 +696,69 @@ B4 shakeout's full fix ledger: bugs 065 (formatGeneratedGo shape, live), 066
 (+addendum: designer caps, live), 071, migrations 199/200 (module path,
 plan-paths-are-law), 201/202 (designer caps). Owner's hard gate = the PR merge;
 deployment target pivoted to the island VM (see gauntlet_dead_cta docs).
+
+## Turn 17 — 2026-07-25 — State re-verified after B4; the PR was already MERGED
+
+Session task: bring the 07-21 handoff up to date and write a milestone summary.
+No runs fired, no credits spent. Everything below was measured today, not carried
+forward.
+
+**The headline the previous entry could not have had.** The 2026-07-25 B4 entry
+above (contributed by the gauntlet thread, committed `d7f335b9c` at 09:17:06Z)
+ends "Owner's hard gate is next: PR review + merge." It was already being walked:
+`gh pr view 3` → **state MERGED, mergedAt 09:19:16Z, mergedBy gqls**, base `main`,
+merge commit `c02d56b9a8ea542a79c653d5e2a171c4963131ae`. Confirmed it is not a
+side branch: `gh api compare c02d56b9a...main` → `identical, ahead:0, behind:0`.
+So the merge landed **two minutes after** that doc was committed. Their doc is not
+wrong, it aged in 120 seconds — recorded here rather than edited there.
+
+**Live state (all re-measured):**
+- Chassis Deployment + pod `agent-chassis-54fff9df8b-966hj` = **v1.0.1158**
+  (was v1.0.1144 at the 07-21 handoff). Pod-grep: `feature_stage_route`=3,
+  `formatGeneratedGo`=2. `makefile:16` IMAGE_TAG = v1.0.1158.
+- All three feature agent rows active, `image_tag` v1.0.1158, updated
+  2026-07-25 10:13:53Z. Designer council still **5** `review_fields`.
+- Fleet census: **173/173** chassis-image agent rows at v1.0.1158.
+- Delta-2 trail `5a65ec4c`: **zero** orchestration rows after the round-2 run.
+  Unchanged at REVISE since 07-21. No `Council-Reviewed` trailer exists.
+- Merged PR paths: `cmd/tools-api`, `internal/tools-api/**`,
+  `build/docker/backend/tools-api.dockerfile`,
+  `deployments/kustomize/services/tools-api/**`,
+  `docs/agent_docs/sql_for_agents/198_tools_api_gauntlet_rounds.sql`.
+
+**Traps found while verifying — all worth the next thread's time:**
+1. **The merged code is not on disk here.** Checkout is on `086_experience_loop`,
+   there is no local `main` branch, and local `origin/main` is stale
+   (`998c0b312`). A grep for `cmd/tools-api` in the working tree returns nothing
+   and that proves nothing. `git fetch` first. This is the same
+   absence-without-search shape the council caught me in on turn 16 — the
+   difference is I checked GitHub before believing the empty grep.
+2. **Migration 198 is UNAPPLIED and probably not for `clients_db`.** Not in
+   `schema_migrations` (ledger holds 199, 200, 201×2, 202×2 — no 198). The deploy
+   target pivoted to the ISLAND VM, so 198 belongs to the island's Postgres and
+   the PR's cluster kustomize manifests are not the deployment path.
+3. **Migration numbers have collided across threads**: `201_`, `202_`, `203_`,
+   `205_`, `206_` each exist twice under different slugs. The ledger keys on
+   *filename* so they coexist without error, but a bare number is now ambiguous
+   in conversation. Quote slugs.
+4. **`bugs_open/066` is NOT fixed, it is merely not biting.** The census is clean
+   today, but the `UPDATE agent_definitions SET image_tag` lives in
+   `deploy-100-bootstrap-agents` (`makefile:518`), **not** `deploy-agents`.
+   `[INFERRED]` that whoever rolled 1158 ran a target that syncs. Census before
+   every fire; do not read one clean census as a fix.
+5. **Work item `9ed684bc-…` is still `needs_human_review`** though its PR is
+   merged. It belongs to the gauntlet thread — flagged, not touched.
+
+**Docs written:** `HANDOFF_2026-07-25_feature_builder_thread.md` (supersedes
+07-21, which got a banner saying exactly why it is wrong),
+`SUMMARY_feature_builder_2026-07-25.md` (new file per the never-overwrite rule —
+this is a genuine inflection: the five headings answer differently than they did
+on 07-19). PLAN status table + "next steps" rewritten with a visible CORRECTED
+marker; RUNBOOK B1–B4 ticked with the 8-fire result recorded.
+
+**Judgement recorded, not acted on:** the case for spending a round 3 on the
+delta-2 trail is weaker than it was on the 21st. The code that trail reviews has
+since built and shipped a merged feature; the one high-severity find was fixed on
+the 18th; the survivors are design questions (LoopAction reuse, the
+`githubBranchExists` read verb). It is now a review-coverage decision, not a risk
+one. Owner's call — no run fired.

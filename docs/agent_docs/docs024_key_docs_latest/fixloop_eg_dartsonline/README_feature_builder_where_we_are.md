@@ -142,3 +142,55 @@ The one genuinely serious finding from round 1 — three places where an empty v
 I resubmitted, and this time it dispatched straight away rather than sitting in the ~half-hour queue we measured last week. It's running as I write this. If it comes back approved, the delta-2 code finally carries a review stamp and the trail is closed; if it asks for more, the thread just continues under the same id. Either way the two real changes I made are already committed and live.
 
 I've written a fresh cold-start handoff dated today so you can carry this on in a new chat without losing the thread. The verdict and how to read it are at the top of it.
+
+
+---
+---
+
+2026-07-25 — It built the thing, and you merged it
+
+You asked me to bring the handoff up to date because a lot had changed. A lot
+had. The sentence that has been at the top of every handoff in this workstream —
+"the implementer has never run" — is no longer true, and the way it stopped being
+true is worth saying out loud.
+
+The gauntlet thread needed a backend built from scratch and gave the job to our
+builder rather than writing it by hand. It took six attempts to get a plan the
+council would approve and eight attempts to get a build that finished. Then on
+the morning of the 25th it ran the whole thing straight through: six stages, each
+committed on its own and gated before the next was allowed to start, a test run
+derived from the plan rather than declared by the machine, and one pull request
+— eighteen files, eight hundred and eighty lines, nothing deleted, nothing
+touched outside its own service. You merged it at 09:19.
+
+I want to be precise about one thing I found while checking. The other thread's
+write-up, committed at 09:17, says the PR is open and awaiting your review. It
+was — for two more minutes. I checked GitHub rather than trusting the doc, and
+the merge was already in. I've recorded that in our notes rather than editing
+their file, because their file was accurate when it was written and it is a
+record of a moment, not a status board.
+
+What I'd flag, honestly, rather than let the milestone paper over:
+
+Most of what went wrong in those fourteen attempts wasn't the builder. Two runs
+died because a housekeeping job was deleting the message channels the agents were
+replying on, and one whole upgrade never reached the agents at all because they
+pin their image version in the database and nothing updates it. That second one
+is still open, and it's the nastiest of the lot: when it happens, a perfectly
+good agent looks broken. I've put a census query at the top of the runbook so
+nobody fires again without checking, and flagged it as belonging to whoever owns
+deployment rather than us.
+
+And one success isn't a capability. The next genuinely useful thing is a second
+build, on a target we choose ourselves, to find out whether that fortnight of
+fixes generalised or just got this one job over the line.
+
+The old review trail on our own stage-loop code is still sitting at "revise" and
+nothing has run on it since the 21st. My view has shifted: the code it's
+reviewing has now built and shipped a real feature, the one serious thing it
+found was fixed a week ago, and what's left are two design questions rather than
+risks. So it's a tidiness decision now, not a safety one — worth doing, not worth
+hurrying, and it's your call whether to spend the credits.
+
+There's a fresh cold-start handoff dated today, and a new summary you can read
+aloud to someone. I fired nothing and spent nothing this session.

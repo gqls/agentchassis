@@ -5,14 +5,33 @@ ordered; each names its verification. Last updated 2026-07-19.*
 
 ## Standing summary
 
-**A1–A5 are DONE.** Code is live (image v1.0.1132+, pod-verified), all three
-agents are seeded and active, and the designer has been fired five times —
-the last returning a **unanimous council approval**. The original F1.2 pilot
-is CLOSED as superseded (another thread hand-fixed the target 60s before our
-run; its approved plan must NOT be applied).
+> **UPDATED 2026-07-25 — A1–A5 *and* B1–B4 are now DONE.** This section used to
+> end "the one thing left: the implementer has never run." It has run, and
+> finished: plan `c379f7b7`, orch `af286d2c`, six gated stages, **PR #3 merged
+> into `main` at 09:19:16Z**. The B-task instructions below are kept because they
+> are the procedure for the NEXT build, not because anything in them is pending.
+> Chassis is now **v1.0.1158** (pod-verified), not v1.0.1132.
 
-**The one thing left: the implementer has never run.** Tasks B1–B4 below are
-that, and nothing else. A1–A4 are kept for provenance.
+Code is live and pod-verified, all three agents are seeded and active at
+`image_tag` v1.0.1158, the designer has converged twice (unanimous on run 5, and
+after three council rounds on the B4 plan), and the implementer has completed a
+full six-stage build. The original F1.2 pilot is CLOSED as superseded (another
+thread hand-fixed the target 60s before our run; its approved plan must NOT be
+applied).
+
+**What is left is in `PLAN_feature_builder.md` → "Next steps":** a second build
+on a target we pick, the delta-2 council decision, and handing `bugs_open/066`
+to whoever owns deploys. A1–A5 and B1–B4 are kept below for provenance and as
+the runbook for run number two.
+
+**Before ANY implementer fire, run the 066 census** — a chassis roll does not
+reach spawned agent pods, and the symptom looks exactly like an agent defect:
+```sql
+SELECT COALESCE(image_tag,'(null)') tag, count(*) FROM agent_definitions
+WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND image_repository LIKE '%agent-chassis%' GROUP BY 1 ORDER BY 2 DESC;
+-- every row should be the tag now on the agent-chassis Deployment
+```
 
 ## A1 — build + deploy the chassis image ☑ DONE (via v1.0.1132)
 
@@ -63,9 +82,9 @@ evidence in `NOTES_running_feature_builder.md` turns 7–12.
 
 ---
 
-# What is actually next — B tasks
+# B tasks — ALL DONE 2026-07-25; kept as the procedure for the next build
 
-## B1 — choose a fresh pilot target ☐
+## B1 — choose a fresh pilot target ☑ DONE (tools-api, by the gauntlet thread)
 
 The F1.2 pilot is spent. Pick a NEW capability that is:
 - small, real, and genuinely wanted;
@@ -86,7 +105,7 @@ file edit and one new file**, so the stage loop, the per-stage allowlist, the
 build gate AND the derived test gate all get exercised. A seed-only target
 would leave most of the machinery untested.
 
-## B2 — write + approve the spec ☐
+## B2 — write + approve the spec ☑ DONE (item `9ed684bc-864a-4aa1-b17a-7ed061e08f2a`)
 
 ```sql
 INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity,
@@ -109,7 +128,7 @@ UPDATE site_work_items SET spec = spec ||
 WHERE id = '<work_item_id>';
 ```
 
-## B3 — fire the designer, grade, let the council approve ☐
+## B3 — fire the designer, grade, let the council approve ☑ DONE (round 6, corr `c379f7b7`, approved after 3 council rounds)
 
 ```
 ./0NN_TRIGGER_feature_designer_v1.sh <work_item_id>   # SAVE the FEATURE_CORR
@@ -117,7 +136,7 @@ WHERE id = '<work_item_id>';
 Watch: `SELECT kind, metadata->>'decision' FROM diagnosis_artifacts WHERE
 correlation_id='<corr>' ORDER BY created_at;` — proceed only on `approved`.
 
-## B4 — THE FIRST IMPLEMENTER FIRE ☐ ← the actual milestone
+## B4 — THE FIRST IMPLEMENTER FIRE ☑ DONE 2026-07-25 ← the milestone, CLOSED
 
 ```
 FEATURE_CORR=<uuid> ./0NN_TRIGGER_feature_implementer_v1.sh
@@ -131,7 +150,16 @@ derived `go test` end gate, then ONE PR whose body carries the post-merge
 checklist as a task list. A red gate = NO PR, branch + log left for
 inspection: that is the hand-off working, not a failure of it.
 
-Nothing here has ever executed. Watch it closely and expect to find defects —
+> **RESULT 2026-07-25.** It took **8 fires**. Rounds 1–5 each hit a real defect
+> (max_tokens refusal at s2, output-shape refusal at s1, a path deviation our own
+> rule-8 example had seeded, designer caps that made every revise cycle fatal);
+> rounds 6–7 died on `bugs_open/071` — an unrelated cleanup cron deleting the
+> live `job.*` topics the agents were replying on — which looked exactly like an
+> implementer defect and was not. Round 8 ran clean: six gated stage commits,
+> `test_gate` PASS, **PR #3** (18 files, +880/−0), merged by the owner six
+> minutes later. Full record in `gauntlet_dead_cta/NOTES_gauntlet_dead_cta.md`.
+
+Expect the same on the next fire: watch it closely and expect to find defects —
 that has been the pattern of every first fire so far, and it is the point.
 
 ## Parked / recurring
