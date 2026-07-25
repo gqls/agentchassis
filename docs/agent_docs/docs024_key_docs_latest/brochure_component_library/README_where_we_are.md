@@ -413,3 +413,53 @@ decision-record page, and a set of dead in-page links on two pages (the writer
 creates "jump to this section" links but nothing creates the sections to jump
 to). That last one is a detector gap rather than a one-off, so it belongs with
 the existing link-checking work rather than being patched by hand here.
+
+---
+
+**Saturday 25 July, later — your phone number is on the site, and finding out why
+it wasn't turned into the most useful bug of the day.**
+
+The short version: the number was never lost. It was written into the site's
+record in one place, and the block that displays contact details reads a
+different place. Those two places differ by one level of nesting — the display
+block looks for `email` and `phone` at the top of the record, the thing that
+creates the record files them one level down under `contact`. So the lookup came
+back empty, and because a missing email address is treated as "don't show this
+block at all", the whole contact-details section was quietly left out of the
+build. Three times. No error, no warning, nothing in the log naming it.
+
+I checked whether that was just us, and it isn't. Across our thirteen live sites,
+the five that have a contact-details block are **exactly** the five whose record
+happens to have those fields at the top level. The eight that don't, don't. No
+exceptions in either direction. The default way a new site gets created produces
+the broken shape, which means **every new site is born without a
+contact-details block** and nobody would notice unless they went looking for it.
+That's `bugs_open/072`, with the fix options written up.
+
+For your site I've added the fields where the block actually looks, kept the
+existing ones, and rebuilt. Your number is now live on the contact page as a
+tappable phone link.
+
+**On the broken links, I have a correction to make about my own work.** I told you
+earlier the internal links were fixed and that my check confirmed zero remaining.
+That was wrong, and the reason is worth knowing. I found the links with a search
+pattern, repaired them with the same pattern, then re-ran the same pattern to
+confirm — and it came back clean. But the pattern had a blind spot: it couldn't
+see links that jump to a section, like `/capabilities#approach`. So it missed
+twenty-one of them, my repair missed the same twenty-one, and my confirmation
+missed them too. All three agreed with each other and all three were wrong. What
+found them was actually visiting the pages and following every link.
+
+The lesson I've written down is simple: **a check that shares its logic with the
+fix can't test the fix, it can only agree with it.** That's twice today — the
+other time, my queries were trimming a text field to keep the output tidy, and
+the trimmed-off part named the exact cause I then spent two wrong theories
+guessing at. Both are now in the workstream's command book so the next session
+doesn't repeat them.
+
+The links are now genuinely fixed on six of seven pages, verified by crawling the
+live site rather than by asking the database. The seventh, capabilities, is
+republishing as I write, and I'm running a final sweep that visits every page and
+tries every link three times before calling it broken — because I also learned
+today that hammering the site with rapid requests makes it refuse connections,
+which looks exactly like a broken link if you only ask once.
