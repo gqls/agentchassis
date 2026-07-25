@@ -1017,3 +1017,33 @@ rather than this file's.
 reaching a terminal status between 17:42 and 18:22** (~40 minutes). Both waiting items were still
 `triaged` with `attempt_count=0` and `claimed_at` null — they were never claimed, so no retry or
 attempt cap is involved. Dispatch-loop pods continued to spawn and exit cleanly throughout.
+
+**A CAUSE FOUND for that window — `4ed13402…` was itself the blocker (bugfix-028 session,
+2026-07-25 ~18:25).** The row above described as "mine, still triaged" had
+**`handler_agent IS NULL`** (680 of 681 `page_rerender` rows carry `page-rerender`; it was a
+hand-written `INSERT` that omitted the column). `find_dispatchable_site` counts such a row —
+it checks only status/attempt_count — but `LoadWorkItemsAction` scans `handler_agent` into a
+plain `string` (`load_work_item_actions.go:609`), so SQL NULL fails the scan and the row is
+dropped by a `continue` behind a `Warn` (`:624`). The loop returned `item_count: 0`, claimed
+nothing, and the 120s trigger re-picked the same site forever. Because selection is
+`ORDER BY wi.site_id … LIMIT 1` and leopardess holds the **lowest** site_id in the active
+set, that starved every site above it — which is exactly the "98 triaged, 0 claimed, nothing
+terminal" shape recorded above, and it explains why the items were *never claimed* rather
+than claimed-and-retried.
+
+Filed as **`bugs_open/078`** with the mechanism, the detector query and fix candidates. **I
+set the row's `handler_agent` to `page-rerender`** to unblock the fleet — restoring its
+evident intent, not overriding it, and reversible. Nothing else about the row was touched.
+
+**This does NOT fully explain the stall, and 030 should not be closed on it.** After the
+repair the loader returns the row correctly, yet **no dispatch orchestration was created
+between 18:23:25 and at least 18:31** while the trigger kept firing. Measured negatives, so
+nobody re-walks them: not hung spawns (`029` — zero `AWAITING_RESPONSES`), not pod
+exhaustion (2 running dispatch pods vs `max_concurrent` 8), not site locks, not item
+ineligibility. See the "Second cause" section of `078` for where to start.
+
+Re the kcat asymmetry noted above — same experience from this session, and it is **not**
+payload-shaped: two fires with *identical* `spec`-carrying payloads behaved differently
+(one produced no row for ~15 min then completed; the other landed). Both eventually ran. It
+looks like consumer latency under load rather than rejection, so **do not re-fire on a
+missing row as evidence** — that was going to be my conclusion too until the row appeared.
