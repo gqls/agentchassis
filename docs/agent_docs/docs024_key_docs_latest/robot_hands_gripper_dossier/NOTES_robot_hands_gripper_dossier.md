@@ -359,3 +359,75 @@ own round).
   was written, so also outside it.
 - Seeds 207–210 — config, not `platform/`; out of council scope by the
   client-side rule.
+
+### The approved round's ADVISORY objections — three checkable claims, now checked
+The council approved, but `prior_art_librarian` objected that I had asserted
+three codebase-shape claims **without attaching evidence**. That is a fair hit
+and exactly the discipline in the working-docs rules ("a verified fact needs
+its evidence inline"). All three run below. **One of my claims was wrong.**
+
+**1. "input_contracts is consumed ONLY by call_agent" — OVERSTATED, correct me.**
+> **CORRECTED 2026-07-25:** there are two further references. The claim as
+> written was wrong.
+```
+grep -rn "input_contracts\.\|InputContract\b" --include=*.go platform/ internal/ cmd/ pkg/ | grep -v _test | grep -v ^platform/orchestration/input_contracts/
+  platform/orchestration/actions/call_agent.go
+  platform/orchestration/datahelpers/action_inputs.go
+grep -rln "input_contract" scripts/ .githooks/
+  scripts/goscripts/workflow_validator/main.go   (+ run/, docs)
+```
+- `datahelpers/action_inputs.go` → `GenerateInputContract` is a **producer**
+  (builds contract JSON from an ActionInputSpec). It validates nothing.
+- `scripts/goscripts/workflow_validator/main.go` →
+  `validateInputContract` (line 608) checks in the **opposite direction** to the
+  guidelines seat's concern: for each field the contract *expects*, it warns if
+  **no step uses it** (`category: "unused_input"`, severity `warning`). There is
+  no check that a field a step READS must be declared, and it is an offline
+  script, not a runtime gate.
+
+**The conclusion survives with better evidence than it had.** Nothing declared-
+or-not affects whether `report_prose.__truncated` is present in collected_data:
+it is a previous step's `output_field` in the same workflow, the shape every
+live workflow already uses (`rendered_page.skipped`, `claimed.count`,
+`deploy_result.commit_sha` — none declared anywhere). But **I asserted it from
+one grep and called it settled**, and the seat was right that one grep is not a
+codebase check. [STILL UNVERIFIED: the guard has never actually fired. Only an
+induced-truncation run proves it — a green report proves only that no
+truncation occurred.]
+
+**2. "no third implementation of the pull shape" — CONFIRMED.**
+```
+grep -rln "bufio.NewScanner(resp.Body)" --include=*.go .
+  platform/orchestration/actions/ndjson_feed.go        (only)
+grep -rln "X-Internal-Key" --include=*.go .
+  ndjson_feed.go · report_request_pull_action.go · intent_collector_actions.go
+  + docs/**/traffic_probe, idea.uk, content_quality (VM SERVER code — the other
+    end of the wire, not cluster pulls)
+```
+The extraction consolidated the only two cluster-side instances; there is no
+third to fold in. (The doc hits are the servers being pulled FROM.)
+
+**3. "no Go template engine in the renderers" — CONFIRMED.**
+```
+grep -n "text/template|html/template|template\.(New|Must|Parse)" \
+  create_report_page_action.go report_charts.go
+  → the ONLY match is my own comment at create_report_page_action.go:250
+```
+
+### The one advisory objection NOT acted on, and why
+`guardian` (medium) says the `intent_collector` refactor is an unrelated live
+pipeline bundled into a report-feature batch, names the contained alternative
+(use the helper in the NEW action only), and notes there is no pre-existing
+test on `collectOneSite` so behaviour-preservation rests on diff-reading.
+
+**Two seats want opposite things**: round 1's `reuse_agent` objected precisely
+because the duplication was left in place, and round 3's `guardian` objects
+because removing it touches production. Both are right about their own risk.
+The verdict is APPROVED, so the refactor stands — but guardian's real point is
+the untested live path, and that is worth carrying: **if intent events stop
+arriving from a VM-hosted site, this delegation is the first suspect.** That
+sentence is now in the travelling `doc_notes` row for
+`collect_intent_events`, where the next thread will find it.
+`editquality` (medium) is also right that the doc_notes row was claimed in prose
+but was not an edit in the plan — it was real (inserted before submission), but
+a reviewer could not see it from the plan.
