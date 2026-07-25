@@ -860,3 +860,22 @@ per-service blast radius). NB: the full change is already committed, so any
 session's next chassis/git-adapter build carries it — mixed-fleet-safe by
 design (migration applied first), but hold a deliberate roll until the trail
 resolves. If round 2 rejects: owner decision packet.
+
+**Council round 2 (2026-07-25): REJECTED — guardian veto again, ground
+narrowed to process/scale only.** debug_historian flipped to approve (the
+pod-verification procedure answered its round-1 HIGH); 7 seats approve; the
+guardian concedes the technical case ("not frivolous", blast radius "named and
+mechanically checked") but holds that a multi-package delivery-guarantee
+rewrite belongs in an architecture-review track with a staged rollout plan,
+not this point-fix gate. Its round-2 alternative: ship only the context.go
+header fix; route the rest through architecture review. Post-verdict, both
+remaining evidence gaps were closed by lookup: `Consume()` has ZERO callers
+including test files (repo-wide grep + `go vet`, which compiles _test.go,
+exit 0), and every other `'expired'` reference is either an expiry MARKER
+(scheduled_tasks sweeps), this change's own new code, or a different table.
+Follow-ons noted from seat objections: delete `RunSimpleNotUsed` outright;
+carry config tweaks separately from migrations. **Resubmission stops at two
+rounds (053 lesson). Roll PARKED — owner decision packet in
+`bugfix_003_spawn_loss/README_where_we_are.md` (options: canary-sequenced
+roll without trailer / guardian's revert-and-review / create the
+architecture-review track).**
