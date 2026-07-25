@@ -1,5 +1,18 @@
 # HANDOFF — applied-but-unrecorded migrations block the runner (ledger-omission trap)
 
+> ## CLOSED 2026-07-25 (owner ruling) → `/bugs_closed/`
+>
+> The blocking symptom is gone for every file that follows the shop's guard
+> convention (Class A/B — the probe + skip-not-record, live 2026-07-24, first
+> live catch `202` the same day). The one remaining halt is Class C (raw
+> 23505), kept **by design**: one occurrence ever (151, 2026-07-16), and since
+> 2026-07-25 it fires *before* execution with the table and key named, while
+> `pattern-check.py` flags new members of the class at commit time. That
+> residue is die-loudly, not defect. The operational rule OUTLIVES the
+> closure: **dry-run per session and after every chassis roll; verify a
+> pending file's artifacts before recording it.** See "CLASS C looked at
+> properly" and "RESIDUAL 1" below for the mechanism and evidence.
+
 > ## STATUS 2026-07-24 — residual 1 SHIPPED & LIVE: the runner probes and SKIPS (never records) files that declare themselves already applied
 >
 > Read **"RESIDUAL 1 — the poisoned-commit probe"** at the bottom: mechanism,
