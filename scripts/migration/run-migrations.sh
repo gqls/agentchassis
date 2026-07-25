@@ -43,7 +43,9 @@
 # the run continues past it instead of halting — but it is never RECORDED
 # (recording stays a human act: verify artifacts, then --record-only). A raw
 # duplicate key (23505) never skips — it can be genuinely wrong SQL — so that
-# still halts loudly. Files the doomed transaction cannot safely contain (their
+# still halts loudly; since 2026-07-25 the halt lands BEFORE the file is
+# executed (the probe already saw the duplicate; the verdict names the table
+# and key). Files the doomed transaction cannot safely contain (their
 # own ROLLBACK/ABORT, psql metas, setval, ...) are listed "not probed" and
 # behave exactly as before. NOTE a probing run EXECUTES pending SQL then rolls
 # it back: brief row locks are taken and sequences may advance. --no-probe
@@ -159,7 +161,7 @@ probe_refusal() {  # $1 = path; echoes a reason (=> do not probe) or nothing
 }
 
 probe_file() {  # $1 = path; sets PROBE_VERDICT + PROBE_DETAIL
-  local file="$1" out rc reason err
+  local file="$1" out rc reason err tbl key
   PROBE_VERDICT=""; PROBE_DETAIL=""
   reason=$(probe_refusal "$file")
   if [ -n "$reason" ]; then
@@ -185,7 +187,12 @@ probe_file() {  # $1 = path; sets PROBE_VERDICT + PROBE_DETAIL
   elif grep -qiE '^ERROR:  P0001:.*already' <<<"$out"; then
     PROBE_VERDICT="ALREADY"; PROBE_DETAIL="${err#ERROR:  P0001: }"
   elif grep -q '^ERROR:  23505:' <<<"$out"; then
-    PROBE_VERDICT="DUP"; PROBE_DETAIL="${err#ERROR:  } — already applied out of band, OR genuinely wrong SQL; verify by hand"
+    # VERBOSITY verbose makes Postgres name the table and key in the error
+    # fields — surface them so the human check starts at the right row.
+    tbl=$(grep -m1 '^TABLE NAME:' <<<"$out" | sed 's/^TABLE NAME:[[:space:]]*//')
+    key=$(grep -m1 '^DETAIL:' <<<"$out" | sed 's/^DETAIL:[[:space:]]*//')
+    PROBE_VERDICT="DUP"
+    PROBE_DETAIL="${err#ERROR:  }${tbl:+ [table ${tbl}${key:+; ${key}}]} — already applied out of band, OR genuinely wrong SQL (key/numbering collision); inspect the existing row before deciding"
   elif [ -n "$err" ]; then
     PROBE_VERDICT="INCONCLUSIVE"; PROBE_DETAIL="$err"
   elif [ "$rc" != "0" ]; then
@@ -366,7 +373,8 @@ if [ "$PROBE" = "1" ]; then
         echo "       ${PROBE_DETAIL}"
         echo "       Verify its artifacts in the DB, then: $0 --record-only $f --note '<what you checked>'" ;;
       CLEAN)        echo "  ok $f — ${PROBE_DETAIL}" ;;
-      DUP)          echo "  !! $f — DUPLICATE KEY during probe: ${PROBE_DETAIL}" ;;
+      DUP)          echo "  !! $f — DUPLICATE KEY during probe: ${PROBE_DETAIL}"
+                    echo "       --apply will REFUSE this file. If it was applied out of band: verify artifacts, then --record-only." ;;
       NOT_PROBED)   echo "  -- $f — not probed: ${PROBE_DETAIL}" ;;
       INCONCLUSIVE) echo "  ?? $f — probe inconclusive: ${PROBE_DETAIL}" ;;
     esac
@@ -402,6 +410,25 @@ for f in "${PENDING[@]}"; do
     echo "     $0 --record-only $f --note 'applied by hand <date>; <what you checked>'"
     SKIPPED+=("$f")
     continue
+  fi
+  # A DUP probe verdict can NEVER auto-skip — the duplicate may be an out-of-
+  # band apply OR genuinely wrong SQL (numbering collisions are live in this
+  # directory: two 203s exist), and only a human inspecting the existing row
+  # can tell. But executing the file would just crash into the same duplicate
+  # the probe already hit seconds ago. Halt BEFORE running it, with the
+  # classification done and the table/key named. Same exit code, same
+  # die-loudly, later files equally not attempted; --no-probe --apply
+  # restores the old crash-into-it behaviour.
+  if [ "${PROBE_V[$f]:-}" = "DUP" ]; then
+    echo "!! $f REFUSED — the probe hit a duplicate key before this file's own COMMIT:" >&2
+    echo "   ${PROBE_D[$f]}" >&2
+    echo "   Nothing applied (the probe's execution rolled back); later files not attempted." >&2
+    echo "   If it was applied out of band: verify its artifacts in the DB, then" >&2
+    echo "     $0 --record-only $f --note 'applied by hand <date>; <what you checked>'" >&2
+    echo "   If the SQL is genuinely wrong (key collision): fix the file or the colliding row." >&2
+    echo "   Only record it if you CHECKED — a ledger row for a migration that never" >&2
+    echo "   ran skips it for ever. See bugs_open/007." >&2
+    exit 1
   fi
   echo "== applying $f"
   if ! $PSQL_CMD -v ON_ERROR_STOP=1 < "$MIGRATIONS_DIR/$f"; then

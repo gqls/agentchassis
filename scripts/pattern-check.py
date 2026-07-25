@@ -331,6 +331,47 @@ def _deleted_lines(path, ref):
     )
 
 
+# Migration idempotency (bugs_open/007, "Class C"). A migration whose INSERT
+# into a durable table carries no guard cannot be replayed: if it is ever
+# applied out of band and left unrecorded (three real events — 07-16, 07-20,
+# 07-22 — and the trend was up), the runner replays it and dies on a raw 23505
+# that is indistinguishable from broken SQL. 151 did exactly this and blocked
+# the runner for 3 days. The runner's own dry run already warns
+# (lint_idempotency in run-migrations.sh — SAME semantics, keep them in step),
+# but only after commit, at whoever runs it next; this fires at the moment the
+# author can still add the guard. Same allowlist: append-only log tables where
+# a duplicate insert is harmless. Measured against the corpus 2026-07-25:
+# 6 true hits in ~95 migrations >=124, no false fires (see bugs_open/007).
+MIGRATION_DIR = "docs/agent_docs/sql_for_agents/"
+MIGRATION_NAME = re.compile(r"^\d{3}_[a-z0-9_]+\.sql$")   # sidecars (_ROLLBACK etc.) excluded
+IDEMPOTENT_SINKS = re.compile(r"(^|\.)(doc_notes|doc_plans|schema_migrations)$", re.I)
+
+
+def check_unguarded_migration_insert(files, ref, findings):
+    """bugs_open/007 Class C — a bare-INSERT migration halts the runner on replay."""
+    for path in files:
+        if not path.startswith(MIGRATION_DIR):
+            continue
+        if not MIGRATION_NAME.match(os.path.basename(path)):
+            continue
+        flat = strip_comments(file_content(path, ref))
+        if re.search(r"ON\s+CONFLICT|WHERE\s+NOT\s+EXISTS", flat, re.I):
+            continue          # any guard anywhere exempts the file — author is handling it
+        if re.search(r"DO\s+\$", flat):
+            continue
+        risky = sorted({t for t in re.findall(r"INSERT\s+INTO\s+([A-Za-z_][A-Za-z0-9_.]*)", flat, re.I)
+                        if not IDEMPOTENT_SINKS.search(t)})
+        if risky:
+            findings.append((
+                "unguarded-migration-insert", path,
+                f"INSERT into {BOLD}{', '.join(risky)}{RESET} with no ON CONFLICT / WHERE NOT EXISTS / DO $$ guard",
+                "bugs_open/007 Class C — applied out of band and left unrecorded, this file's "
+                "replay dies on a raw 23505 that reads as broken SQL (151 blocked the runner "
+                "3 days). Guard the INSERT so a replay is a no-op; if the duplicate SHOULD "
+                "fail loudly, say so in a comment and carry on.",
+            ))
+
+
 def check_append_only_docs(files, ref, findings):
     """Owner directive — SUMMARY snapshots and README_where_we_are are append-only."""
     for path in files:
@@ -371,7 +412,7 @@ def main():
 
     findings = []
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
-                  check_append_only_docs):
+                  check_unguarded_migration_insert, check_append_only_docs):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

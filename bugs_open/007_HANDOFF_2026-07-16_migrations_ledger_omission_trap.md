@@ -12,6 +12,15 @@
 > convention; a bare unguarded INSERT can still halt the run — loudly, with the
 > recovery command in the message. Everything below is accurate history.
 >
+> **2026-07-25 addendum — Class C looked at properly (owner request), then
+> hardened:** see **"CLASS C looked at properly"** near the bottom. Measured:
+> six Class-C files ever, one halt ever (151), one still pending (206). Shipped:
+> DUP verdicts name the table+key; `--apply` refuses a DUP-probed file BEFORE
+> executing it; `pattern-check.py` flags new unguarded-INSERT migrations at
+> commit time. The ambiguity itself is irreducible without SQL parsing, so the
+> halt stays — but it is now pre-execution, self-explaining, and the class has
+> a commit-time extinction path.
+>
 > ## STATUS 2026-07-21 — STILL OPEN, but the tooling shipped and is LIVE
 >
 > **Cold start:** read this banner, then jump to **"FIXED 2026-07-20 — the tooling
@@ -515,6 +524,58 @@ against live data still halts the run (loudly, with the fix in the message).
 That is the deliberate residue of candidate (d)'s rejection, three times
 reaffirmed. Files matching the fail-closed refusals are simply not probed and
 keep today's behaviour.
+
+## CLASS C looked at properly (owner request, 2026-07-25) — measured, then hardened
+
+**The population is six files, ever** (corpus ≥124, ~95 files, measured with the
+lint's own semantics): `151/152/153/156` (the gripper set), `166_vonc_evidence_base`,
+and `206_content_gap_planner_retype_approach` — the only one still pending
+(bugfix-015's, in its post-roll highest-risk window as of today). The other five
+are all recorded (`ledger-backfill` 07-16; 166 at apply time). **Class C has
+halted exactly once in the bug's whole history** — 151, the original 07-16 event;
+every later halt (179, 188, the 07-20/07-22 events) was Class B, which the probe
+now removes. All six carry their own `BEGIN/COMMIT`, so a mid-file 23505 aborts
+the whole transaction — no partial-application hazard in the current corpus.
+
+**The ambiguity itself is irreducible, so the halt stays.** A raw 23505 says
+"this key exists", not "this file ran": distinguishing an out-of-band apply from
+a key/numbering collision (two 203s exist in the directory today) or plain wrong
+SQL would need the probe to know what the file *meant* to insert — SQL parsing,
+rejected from the start. Auto-skip on DUP stays refused. What CAN be done is make
+the halt cheaper to act on and the class extinct at the source; both shipped
+2026-07-25:
+
+1. **DUP verdicts now name the table and key** — `\set VERBOSITY verbose` makes
+   Postgres emit `TABLE NAME`/`DETAIL` fields in the very error the probe already
+   captures, so the verdict reads `[table X; Key (a)=(1) already exists.]` for
+   free. The human check starts at the right row instead of at grep.
+2. **`--apply` now REFUSES a DUP-probed file before executing it** — same exit 1,
+   same later-files-not-attempted, but the halt is an informed refusal carrying
+   the classification and both recovery paths (`--record-only` if applied out of
+   band; fix the file/row if colliding), rather than a crash into the same
+   duplicate the probe hit seconds earlier. `--no-probe --apply` restores the
+   old crash-into-it behaviour.
+3. **The class dies at the source: `scripts/pattern-check.py` gained
+   `check_unguarded_migration_insert`** — the runner lint's exact semantics
+   (file-global guard exemption, same allowlist; keep the two in step) fired at
+   COMMIT time, when the author can still add the guard, instead of at the next
+   dry run, at whoever inherits the file. Measured before inclusion, per that
+   script's own bar: over the last 40 commits touching `sql_for_agents/` it fires
+   on exactly one — the commit that added 206, a true Class C — and on the
+   commit that added 151/152/153. Zero fires on ordinary work. Advisory, never
+   blocks, like everything in that script.
+
+Verified 2026-07-25: scratch `--apply` run shows skip → skip → REFUSED (exit 1,
+enriched message, ledger count unchanged at 90); `--no-probe` dry-run output
+byte-identical to HEAD's; pattern-check positive controls (151-add and 206-add
+commits) + 40-commit noise sweep + staged-path direct call (sidecar and guarded
+files silent). Council gate still refuses `scripts/` scope — this section stays
+the design record.
+
+**So the closure question sharpens to:** the halt now exists only for a
+single-occurrence class (1 halt ever), fires *before* execution with the table
+and key named, and new members of the class get flagged at commit time. If that
+residue reads as by-design, 007 meets the bugs_closed bar.
 
 ## References
 
