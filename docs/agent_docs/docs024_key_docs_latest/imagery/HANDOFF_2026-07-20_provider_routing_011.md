@@ -1,9 +1,30 @@
-# HANDOFF — image provider routing (`bugs_open/011`), resume point 2026-07-20
+# HANDOFF — image provider routing (`bugs_closed/011`), resume point 2026-07-20
 
 **Start a new chat from this file for the provider-routing thread.** Self-contained:
 assume no prior context. Sibling entry point for the wider workstream is
 `HANDOFF_imagery_best_in_class.md`; this one covers only who-generates-which-image
 and what 011 left open.
+
+> ## ✅ THE BUG IS CLOSED — 2026-07-25. Read this before the rest of the file.
+> `011` moved to **`bugs_closed/011_HANDOFF_2026-07-18_hero_kind_routes_to_a_model_that_cannot_render_text.md`**;
+> its **§8 is the closure evidence chain** and supersedes anything below that reads
+> as outstanding. In short: R1 live since `v1.0.1139` and proven fleet-wide by a
+> **zero** — 60 active SDXL assets remain, **none generated on or after 2026-07-18**.
+> The council residual is live and **APPROVED at round 9** (corr `e996bf0a`, 8/8
+> approve, 2026-07-24 20:33Z), and §4 item 1's deferred live-fire proof **fired**:
+> an `UNROUTED_IMAGE_KIND` row for kind `scratch_unrouted_011`, 2026-07-24 20:45Z.
+> **§4 items 2/3/4 (R2/R3/R4) are no longer tracked here** — they were never routing
+> defects and now live in **`features_open/022`** (legibility guard + the 60-asset
+> sweep) and **`features_open/023`** (evidence-based figures; the SVG boundary).
+>
+> **What is still worth reading below:** §3 (how routing works — unchanged and
+> current), §6 (the traps, all still live), §7 (key files). **What is stale:** the
+> "NOT proven end-to-end" paragraphs in §2 and the owed items in §4.
+>
+> **One live artefact the closure deliberately left alone:** the gibberish SDXL hero
+> is still the header on `leopardessconsulting.co.uk/how-it-works.html`. Stale
+> artefact, not a reproduction — regenerating needs no code change. Owner-flagged;
+> in `features_open/022`.
 
 ---
 

@@ -1157,7 +1157,8 @@ that switch?* Two cheap greps (the switch, and the deployed model/env var) answe
   rendered text. Success signals do not cover artefact correctness — see "Trust the rendered
   artefact, not the status".
 
-**Cross-refs.** `bugs_open/011` (routing fix, legibility guard, evidence-base-driven figures).
+**Cross-refs.** `bugs_closed/011` (the routing fix — CLOSED 2026-07-25); the legibility guard
+and the evidence-base-driven figures moved on closure to `features_open/022` and `023`.
 Category tags: `dispatch-table-not-output`, `expired-generalisation`, `unused-lane`,
 `request-specificity`.
 
@@ -1200,7 +1201,8 @@ when it isn't. Adding a value stays a code change; **forgetting to stops being s
 selection and ask of each: *if a new enum value reached this, what would tell me?* If the answer
 is "a human eventually looks at the output", it is this bug, already written and waiting.
 
-**Cross-refs.** `bugs_open/011` §6 (the fix, and the persistence still owed);
+**Cross-refs.** `bugs_closed/011` §6 (the fix) and §8.2 (the persistence, no longer owed —
+built, live, council-APPROVED at round 9, and proven by a real `UNROUTED_IMAGE_KIND` row);
 "A capability the platform already has…" above (the same routing table seen from the diagnosis
 side); "Every keyed work-item insert fails 42P10…" (the sibling failure where two hand-maintained
 lists drift apart). Category tags: `silent-default`, `enumerable-not-switch`,
@@ -1987,7 +1989,7 @@ Four things made this survive, each transferable:
 - **`Debug` is `/dev/null`.** A discard nobody can see is a discard nobody
   finds. If a layer drops a caller's constraint, that is Warn at minimum.
 - **The routing change that caused it was correct.** Every kind moved to Banana
-  for good reasons (bugs_open/011). The defect was its unnoticed *consequence*.
+  for good reasons (`bugs_closed/011`). The defect was its unnoticed *consequence*.
   When you migrate a path to a new backend, enumerate what the old backend
   honoured that the new one does not — the migration diff will not show you a
   field that simply stops being read.
@@ -2656,7 +2658,7 @@ See `/bugs_closed/README.md`.
 | 008 | `GenerateText` never decodes `stop_reason` — a truncation returned as success, a refusal as "no text content in response (had 1 blocks)" | **CLOSED 2026-07-20 → `/bugs_closed/`** — all 5 items live in the 18:58 BST image, pod-verified (`model declined to answer` → 1). Items 1–4 in `f32b208e5` (both providers, plus `TruncatedError` carrying the partial — the transport half of `019`); item 5 + the provider-parity CI guard in `45e90acbb` |
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | **CLOSED 2026-07-24 → `/bugs_closed/`** — per-key step-wins overlay (`resolveAIServiceConfig` via `MergeInputData`, `4b11f223e`/`119e14071`) + present-but-empty required-key guard (`32f1a56a3`, council round 2) live since ~07-21; verified v1.0.1155 pod-grep (all 3 created literals) AND live traffic (`feed-triage` 31 calls at its step's 8192, dead config until this fix). The §4 sweep stays deliberately undone: all 16 capped-at-2048 agents are dormant (§7a) — a reference list for whoever revives one, not a work queue |
 | 010 | Fix loop non-convergent on layout-intrinsic overflow | candidate (a) SHIPPED v1.0.1135; (b) open |
-| 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | open |
+| 011 | `kind:"hero"` routes to SDXL (cannot render text); the Gemini infographic lane works and was unused | **CLOSED 2026-07-25 → `/bugs_closed/`** — R1 live since v1.0.1139 (07-20) and proven by a **zero**: 60 active SDXL assets remain, **none generated on or after the fix**. The council residual (adapter reports → chassis persists to `agent_error_log`) is live, **APPROVED at round 9** (corr `e996bf0a`, 8/8 approve), and its deferred live-fire fired — `UNROUTED_IMAGE_KIND` row for `scratch_unrouted_011`, 07-24 20:45Z. Verdict post-dates the commit, so no trailer is possible and `098` will read UNREVIEWED — a false negative, recorded in §8.2. R2/R3/R4 were never routing defects → `features_open/022` + `023`. One pre-fix gibberish hero is still live on leopardessconsulting `how-it-works.html` — a stale artefact, in 022's sweep, not a reproduction |
 | 012 | tool-improver truncates a component and saves the wreckage | **CLOSED 2026-07-20 → `/bugs_closed/`** — guard live in v1.0.1139, migrations 168/169/**170**; whole chain driven against prod (component untouched · refusal logged · item `needs_human_review` · note written). 170 was found BY that test: 169 put `error_step` top-level, where the workflow plan drops it |
 | 013 | fix-implementer commits un-`gofmt`'d LLM output; build gate rejects it, no PR | **CLOSED 2026-07-20 → `/bugs_closed/`** — `formatGeneratedGo` runs `go/format` at commit-prep (`fc38c6058`), pod-verified. Unparseable bodies still fail LOUD there rather than falling back to raw bytes — usually a `max_tokens` truncation, so the message names it |
 | 032 | The completion verifier reads a DELETED component as a successful fix — absence is equally a rebuild silently dropping it | **CLOSED 2026-07-20 → `/bugs_closed/`** — returns an error, not a verdict, so the gate's fail-OPEN policy turns a false success into a visible unknown (`a467baa11`), pod-verified. **Closed on its safe floor:** treating absence as *deletion* when the page still expects the component is the better verdict and stays open for the `empty_sections_loop_integrity` thread. Coverage half remains in `021` |

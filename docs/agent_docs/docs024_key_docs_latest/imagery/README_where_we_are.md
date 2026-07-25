@@ -1069,3 +1069,52 @@ noted in the case file (none of them can bring this bug back), and the picture f
 are a touch heavier than the old 60KB card target — but that target was for the little
 card images, these are full-width headers, and they weigh the same as the ones you
 passed last week.
+
+---
+
+**2026-07-25 (later) — bug 011, the wrong-model heroes, is closed. And one thing you should decide on.**
+This is the one from your leopardess review back on the 18th: pictures marked as
+"hero" were being sent to the older image generator, the one that cannot write
+words, so when a picture was meant to have any labelling in it you got a
+handsome-looking diagram full of nonsense. That was fixed a week ago and the fix
+has been running ever since. I didn't build anything today — I checked whether
+everything the last session left in the air had actually landed, and it had.
+
+The proof I liked most was a zero. Rather than point at one or two good pictures,
+I counted every picture the system has ever made on the old generator and still
+has live: sixty of them, across eight sites — and **not one has been made since
+the fix went in a week ago**. Newest is the 17th, the day before. That is every
+site, every kind of picture, every route into the system, saying the same thing.
+
+Two other things settled. The review panel came back **approved** on the last
+code change, unanimously, eight of eight with no objections — that was the ninth
+round of review on this one, which tells you how carefully it was picked over.
+And the deliberate "let's actually break it on purpose and see if it tells us"
+test finally ran: we asked the system for a picture of a made-up kind it has
+never heard of, and instead of quietly falling back to the weak generator the way
+it used to, it wrote itself down in the error log by name. That was the whole
+point of the fix. The old failure wasn't really "heroes look bad" — it was that
+the system made a silent choice and only a human looking at a picture months
+later could ever catch it. It can't be silent any more.
+
+**Now the thing for you.** The actual picture that started all this is still on
+your leopardess site. It's the header image on the "how it works" page — the
+gold-and-charcoal flowchart where every label is gibberish. It's dimmed behind a
+dark overlay so it reads mostly as texture, but it is still that picture, and
+it's the only page still using it. It's a leftover from before the fix, not the
+fault coming back: regenerating it now needs no code change at all, it would just
+come out right. I've not done it, because that's a live change to a client site
+that belongs to the leopardess thread rather than to a bug-closing session, and
+it also needs the page rebuilt afterwards to pick up the new file. Say the word
+and it's a few minutes' work, or leave it for whoever next touches that site.
+
+Two follow-ups were sitting inside the bug that were never really bugs, so I've
+moved them out to their own files rather than let them hold a fixed bug open.
+The first is a proper check on words *inside* pictures — the good generator is
+good, not perfect, and your own Gemini map once wrote "REPRETITIVE". Nothing in
+the system reads the text in an image, so a single wrong letter would sail
+straight through onto a client page. The second is that any numbers in a
+generated infographic ought to come from the audited figures we hold, not from
+the model's imagination. Worth knowing: only eight sites have an audited figure
+list at all, so that one is a bigger job than it sounds, and I've written that
+number into the file so nobody starts it believing otherwise.

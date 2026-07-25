@@ -3125,3 +3125,70 @@ morning found and did:
   the full evidence chain. Residuals recorded there (truncation-signal
   persistence, TruncateString sweep, §5(a) latent branch) — follow-ups, not
   reproductions.
+
+### 2026-07-25 — 011 CLOSED to bugs_closed/: round 9 APPROVED, live-fire landed, R2/R3/R4 migrated (session "bugfix 011")
+
+Ownership check first: `who-owns.py 011` → OWNED by imagery (35 mentions, 86
+commits/14d). Read `HANDOFF_2026-07-20_provider_routing_011.md` and this file's
+07-24 entry before touching anything. No open work items in the territory (the
+15 open `needs_imagery` rows are today's webdesign.co.uk icons, unrelated), and
+`git status` clean on all five 011 code files — no other session mid-edit.
+
+**Nothing was built today.** Everything owed had either landed or was in flight
+when the 07-24 session stopped; the work was checking whether it arrived.
+
+- **Round 9: APPROVED.** `diagnosis_artifacts` corr `e996bf0a`, `council_report`
+  20:33:34Z on 07-24: `decided_by: "all reviewers approve"`, 8 reviewers,
+  **0 objections**. `abstained:8` is the 16-seat relevance filter, not silence —
+  the standing reading trap. Resolve by correlation, never "latest note" (the
+  07-25 morning entry above records another thread's REVISE sitting on top).
+- **`2f4fc0596` is now LIVE** — it was inert at commit time on 07-24. Chassis pod
+  `agent-chassis-774877f4c6-zjh4t` (88 min up): `"TRUNCATED at the per-response
+  cap"` = 1 (the string the change CREATES), `"Persisted adapter-reported
+  conditions"` = 1 as positive control.
+- **Live-fire proof FIRED** — §7's owed item 2, deferred since 07-20 because it
+  costs a real generation. The 07-24 envelope landed:
+  `agent_error_log` row `UNROUTED_IMAGE_KIND` / warning / image-generator /
+  **2026-07-24 20:45:57Z**, context `{"kind":"scratch_unrouted_011",
+  "provider":"stability","routed_kinds":[7 kinds]}`. Published ~20:15Z → landed
+  20:45Z: **exactly the ~30-minute dispatch latency**, and the 07-24 session was
+  right not to resubmit at +2 minutes.
+- **The strongest R1 proof turned out to be a zero.** `SELECT count(*) … FROM
+  assets WHERE origin_model ILIKE '%stability%' AND status='active'` → 60, of
+  which **0 created on or after 2026-07-18**; newest is 2026-07-17. Seven days,
+  every site, every kind, every dispatch path: nothing has reached the weaker
+  provider. Two single-generation proofs (07-20 dartsonline, 07-25 robot-hands)
+  could not say that; one aggregate does.
+
+**What I found that nobody had checked since 07-18: the bug's own exhibit is
+still live.** `https://leopardessconsulting.co.uk/assets/images/hero.jpg` → 200,
+143,819 bytes. **Downloaded it and looked at it** — a gold/charcoal flowchart in
+which every label is gibberish, exactly as §1 describes. Referenced by ONE live
+page, `how-it-works.html:300`, as the hero `background-image` behind a 50–60%
+black gradient; the other five pages checked don't reference it. Asset row:
+`asset_key='hero'`, `stability/…`, `active`, created 2026-07-17 22:46Z — the day
+*before* the fix. **A stale artefact, not a reproduction**: regenerating it needs
+no code, because `hero` routes to Banana now. Deliberately NOT regenerated —
+that is a production action on another workstream's client site plus a page
+re-render, so it is flagged to the owner in `README_where_we_are.md` and written
+into `features_open/022` as the sweep's first confirmed target.
+
+**R2/R3/R4 migrated rather than dropped.** They were never routing defects, and
+keeping them in the bug file would have held a fixed bug open indefinitely.
+`features_open/022` = the legibility guard, carrying the 60-asset legacy corpus
+and the constraint set the council imposed (adapter reports → chassis persists;
+the sender allowlist IS the review; absent ≠ malformed ≠ partly-dropped ≠
+over-cap). `features_open/023` = evidence-based figures + the SVG boundary; it
+records that **only 8 sites have an `evidence_base` at all** (8 current rows,
+17 all-versions), which is the design question that feature turns on and which
+the bug file never measured.
+
+**A structural gap worth naming:** the council verdict (20:33Z) post-dates the
+commit it approved (`2f4fc0596`, 20:10Z UTC). Forward-only means no amend, so no
+`Council-Reviewed:` trailer can ever be attached, and `098` will bucket it
+UNREVIEWED. That is a **false negative, not a missed review** — any commit made
+while its own council round runs is unattributable by design. Recorded in the
+closed bug's §8.2 with the correlation to quote.
+
+**Closed**: `git mv` → `bugs_closed/011_…`; `016b` §10 row and its three
+`bugs_open/011` cross-refs updated to `bugs_closed`.

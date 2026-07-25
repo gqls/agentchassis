@@ -3,14 +3,19 @@
 **Filed:** 2026-07-18, from the leopardessconsulting.co.uk rebuild (owner review).
 **Severity:** Medium. No code change is strictly required to get good infographics today — the
 capability is already wired. The bug is a routing default plus an unused lane.
-**Status:** **R1 FIXED, LIVE AND PROVEN END-TO-END 2026-07-20** on `v1.0.1139` — verified in
-the running binaries *and* by a real generation: `hero_guides` on dartsonline at 10:41Z came
-back `origin_model = banana/gemini-3-pro-image-preview` (with 7 icons behind it, 8/8, no
-timeouts). **Cost is answered and the change is APPROVED by the owner** (§6: ~14× per hero,
-≈ +$5/month, fleet image bill under $15/month). **R2/R3/R4 remain OPEN, so this file stays in
-`/bugs_open/`.** The infographic capability itself is **PROVEN WORKING**. R1 going live arms
-`bugs_open/028` on heroes — read §6 before generating any. Half-price batch API deferred to
-`features_open/008`.
+**Status:** ✅ **CLOSED 2026-07-25 — fixed, live, and the full evidence chain is in §8.**
+R1 (the routing defect) has been live since `v1.0.1139` on 2026-07-20 and is proven twice over:
+by real generations, and by the fleet-wide fact that **not one SDXL asset has been produced since
+the roll** (§8). The council residual — the observability mechanism that makes an unrouted kind a
+*record* rather than a log line — is live, **council-APPROVED at round 9** (corr `e996bf0a`,
+2026-07-24), and its deliberately-deferred live-fire proof has now fired. **Cost is answered and
+the change is APPROVED by the owner** (§6: ~14× per hero, ≈ +$5/month, fleet image bill under
+$15/month). R2/R3/R4 were never routing defects — they are forward work unlocked by this fix and
+now carry their own files: **`features_open/022`** (text-legibility guard + the 60-asset legacy
+sweep) and **`features_open/023`** (evidence-based infographic figures; where generated images
+stop). Half-price batch API is `features_open/008`. The infographic capability itself is
+**PROVEN WORKING**. `bugs_open/028`, which R1 armed on heroes, is itself **closed** — the
+negative-prompt discard path was fixed on `v1.0.1140`.
 
 > ## ⚠️ CORRECTION — read this before anything else
 > The first version of this handoff (same number, 2026-07-18 morning) claimed *"generated
@@ -69,6 +74,17 @@ Two consequences worth separating:
   (three now live on this site).
 
 ## 3. Remaining real work
+
+> **MIGRATED 2026-07-25 at closure — R2, R3 and R4 now live in `/features_open/`, and this
+> section is history, not a tracker.** They were never routing defects; they are the forward
+> work the routing fix unlocked, and leaving them here would have kept a fixed bug open
+> indefinitely. **R2 → `features_open/022`** (rendered-text legibility guard, carrying the
+> 60-asset legacy sweep and the one confirmed live gibberish artefact from §8.3).
+> **R3 and R4 → `features_open/023`** (infographic figures from `site_specs.evidence_base`;
+> and the boundary rule that generated images explain while code-rendered SVG states).
+> Both files carry measurements this section never had: 8 sites have an `evidence_base` at
+> all, and 60 pre-fix SDXL assets are still live. Read them there — the text below is
+> preserved as the originating statement.
 
 **R1 — fix the hero routing default. ✅ FIXED IN CODE 2026-07-18 — see §6 for what shipped
 and what is still owed.** Choose the provider from the site's
@@ -372,3 +388,132 @@ round-8 rationale.
 Commits: `8ec9e2ab8` (per-entry drop counting) · `bca5d8255` (owner sweep carrying the
 rest) · `58a7c7a8d` (`bugs_open/019` reproduction #3 — a council round of this work was
 voided by the truncated-reviewer defect, still live pre-roll).
+
+---
+
+## 8. CLOSURE — 2026-07-25 (session "bugfix 011")
+
+Nothing new was built to close this. Every owed item from §7 had either landed or was in
+flight when the previous session stopped on 2026-07-24; this session's job was to check
+whether they had actually arrived, and they had. Each claim below carries its own check.
+
+### 8.1 The routing fix holds, and the strongest proof is a zero
+
+| check | result |
+|---|---|
+| `hero` still in the routing table at HEAD | `internal/adapters/imagegenerator/routing.go:66` — `"hero": providerBanana` |
+| the 011 code files modified in the working tree by another session? | no — `git status` clean on `routing.go`, `routing_test.go`, `imagery_style_guide.go`, `agent_error_log*.go` |
+| assets generated in the last 3 days | 10, **all** `banana/gemini-3-pro-image-preview` (4 `content_hero` on 07-25, 3 `icon` on 07-24, 3 `icon` on 07-22) |
+| **active SDXL assets generated on or after the 07-18 fix** | **0** |
+
+```sql
+SELECT count(*) AS active_sdxl_total,
+       count(*) FILTER (WHERE created_at >= '2026-07-18') AS after_fix,
+       max(created_at)::date AS newest
+  FROM assets WHERE origin_model ILIKE '%stability%' AND status = 'active';
+--  60 | 0 | 2026-07-17
+```
+
+That zero is the fleet-wide statement the two-generation proofs of 07-20 and 07-25 could not
+make on their own: across every site, every kind and every dispatch path, **nothing has
+reached the weaker provider in the seven days since the roll.** 60 SDXL assets remain live,
+newest 2026-07-17 — all of them pre-fix, and they are `features_open/022`'s corpus, not a
+reproduction of this defect.
+
+### 8.2 The council residual: APPROVED, and the live-fire proof fired
+
+**Round 9 verdict: APPROVED** — `diagnosis_artifacts`, corr `e996bf0a`, `council_report`
+written 2026-07-24 20:33:34Z: `{"decision":"approved","decided_by":"all reviewers approve"}`,
+**8 reviewers, 8 approve, 0 objections** (editquality, reuse_agent, guardian,
+diagnosis_guardian, debug_historian, constitution, mission, prior_art_librarian).
+`abstained: 8` is the relevance filter on the 16-seat gate, not silence — the known reading
+trap. This closes the objection `bug_historian` carried from round 1: the round-8 catch was
+that `parseReportedConditions` dropped over-cap **well-formed** entries with `skipped=0`,
+re-entering at the cap boundary the very silence rounds 5 and 7 had cured.
+
+**The round-9 fix is live.** `2f4fc0596` was committed 2026-07-24 21:10 and was inert at the
+time; the chassis has since rolled (pod `agent-chassis-774877f4c6-zjh4t`):
+
+```bash
+strings /app/agent-chassis | grep -c "TRUNCATED at the per-response cap"   # → 1  (the new string)
+strings /app/agent-chassis | grep -c "Persisted adapter-reported conditions"  # → 1  (positive control)
+```
+
+Both greps are on strings the change *creates*, never `case` values — the false-negative trap
+§2 of the resume handoff warns about.
+
+**Live-fire proof — §7 owed item 2, deliberately deferred since 2026-07-20, now DONE.** The
+07-24 session published an `orchestrate` envelope at the `image-generator` agent with
+`kind:"scratch_unrouted_011"` and no `site_id` (the cleanest possible path to the adapter: no
+direction enrichment, no provider hint). It landed ~30 minutes later, exactly the dispatch
+latency this repo keeps re-learning:
+
+```
+SELECT error_code, severity, agent_type, occurred_at, resolved, context FROM agent_error_log
+ WHERE error_code = 'UNROUTED_IMAGE_KIND' ORDER BY occurred_at DESC LIMIT 1;
+
+ UNROUTED_IMAGE_KIND | warning | image-generator | 2026-07-24 20:45:57Z | resolved=f
+ error_message: image kind "scratch_unrouted_011" is not in kindProviderRouting and fell back
+                to Stability, which cannot render legible text and ignores reference images…
+ context: {"reported": {"kind": "scratch_unrouted_011", "provider": "stability",
+           "routed_kinds": ["content_hero","hero","icon","illustration","infographic","logo","sprite_sheet"]}}
+```
+
+The whole chain in one row: **adapter detects against the table its own binary ships → reports
+it in the response → chassis persists it to `agent_error_log`.** The original defect — a
+`default:` branch that chose the weaker provider *silently* — is now not merely fixed but
+**incapable of being silent**, and that is what was actually proven here. Owed items 3 (the
+`doc_note`, `5842d7ed`) and 4 (the DECLARED CONTRACTS exemption clause) were completed on
+07-24.
+
+**No `Council-Reviewed:` trailer exists on the landing commits and none can be added.** The
+verdict (07-24 20:33Z) post-dates `2f4fc0596` (21:10Z is BST = 20:10Z — the commit went in
+before the verdict came back), and this repo is forward-only: no amends. The `098` coverage
+report will therefore bucket it UNREVIEWED, which is a **false negative, not a missed review**
+— it is recorded here instead, and the correlation to quote is `e996bf0a`. Worth knowing that
+this is a structural gap in the join: a commit made *while* its council round runs can never
+carry its own verdict.
+
+### 8.3 The one live artefact this bug leaves behind — checked, not assumed
+
+The picture that caused this file to be written **is still on a client page.** Checked
+2026-07-25:
+
+- `https://leopardessconsulting.co.uk/assets/images/hero.jpg` → **200**, 143,819 bytes, 900×900.
+  Downloaded and **looked at**: a convincing gold-and-charcoal flowchart in which *every single
+  label is gibberish* — pseudo-words, pseudo-sentences, a caption-shaped smear along the bottom.
+  Exactly what §1 describes, and the reason "trust the rendered artefact" is a standing rule.
+- It is referenced by **one** live page — `how-it-works.html:300`, as the hero
+  `background-image` behind a 50–60% black gradient. The other five pages checked (`/`,
+  services, about, contact, case-studies) do not reference it.
+- Asset row: `asset_key='hero'`, site `4851f6fc`, `stability/stable-diffusion-xl-1024-v1-0`,
+  `active`, created **2026-07-17 22:46Z** — the day *before* the fix.
+
+**Why that does not keep this bug open.** `/bugs_closed/`'s bar is *fixed and live*, and the
+defect — the routing — is both. This is a stale artefact generated by the old path, not a
+reproduction of it: regenerating that asset today needs no code change at all, because `hero`
+now routes to Banana. **It is not left as a loose end**: it is written into
+`features_open/022` as the confirmed live instance and the sweep's first target.
+
+**Deliberately not done here, and whose call it is.** Regenerating it is a production action on
+another workstream's client site (`docs/leopardessconsulting/`), and it is the *asset* that
+needs re-generating plus a page re-render to pick it up. That belongs to the leopardess thread
+or the owner, not to a bug-closure session. Flagged in the imagery workstream's
+`README_where_we_are.md` for exactly that reason.
+
+### 8.4 What this bug leaves the platform
+
+The lasting change is not "heroes look better". It is that **provider selection stopped being a
+hand-maintained `switch` whose `default:` branch made a silent choice**, and became an
+enumerable table that can be interrogated, a pure function that can be tested, a per-site
+override that lives in data, and — the part that took nine council rounds — a fall-through that
+**writes itself down**. Three kinds fell through that `default:` over the platform's life and
+each was found months later by a human looking at a picture. A fourth would now be a row in
+`agent_error_log` within seconds of the first generation.
+
+The transferable pattern is in `016b` §9, *"A dispatch table's `default:` branch is a silent
+bug factory"*.
+
+**Follow-ons, all filed, none blocking:** `features_open/022` (legibility guard + 60-asset
+sweep) · `features_open/023` (evidence-based figures; the SVG boundary) · `features_open/008`
+(half-price batch API, owner-deferred).

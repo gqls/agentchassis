@@ -54,5 +54,7 @@ hazard has materialised. A risk with no test is an opinion.
 | 012 | FEATURE | [Explicit per-page redesign intent (`recompose_pages`)](012_FEATURE_explicit_page_recompose_intent.md) |
 | 013 | FEATURE | [Three-tier AI tooling funnel across the domain portfolio](013_FEATURE_three_tier_ai_tooling_funnel.md) — generalises 006/007 |
 | 020 | FEATURE | [Traffic probe on apis.uk — where is existing traffic coming from?](020_FEATURE_apis_uk_traffic_probe.md) — island-side, £0; stage 2 owner-gated |
+| 022 | FEATURE | [Rendered-text legibility guard for generated imagery](022_FEATURE_rendered_text_legibility_guard.md) — was `011` R2; carries the 60-asset legacy sweep |
+| 023 | FEATURE | [Infographic figures from the evidence base (+ where generated images stop)](023_FEATURE_infographic_figures_from_the_evidence_base.md) — was `011` R3/R4 |
 
-*(index gap: 014–019 exist on disk but were never indexed by their filing sessions)*
+*(index gap: 014–019 and 021 exist on disk but were never indexed by their filing sessions)*
