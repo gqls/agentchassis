@@ -235,3 +235,62 @@ and an explicit `dark_light`.
 
 63 tools, 31 learn pages, 1 about = 95 catalogued; plus 2 generated indexes = 97
 pages; 28 assets; `search.json` 95 entries; `sitemap.xml` 98 URLs.
+
+---
+
+## 2026-07-25 — session 1, end state (BLOCKED on dispatch)
+
+### Live and verified
+
+- **Homepage responds 200** at `https://webdesign.co.uk/`.
+- **Static assets serving from B2**: `styles.css`, `port-compat.css`, `search.json`,
+  `sitemap.xml`, `robots.txt`, `404.html`, and every tool's sibling JS
+  (`/tools/bayesian-rank/bayes.js` → 200), plus the header's own JS at
+  `/tools/assets/webdesign-couk-header.js` → 200. 43 files.
+- **The design pin held end to end.** The committed `assets/css/styles.css`
+  contains `#f9f8f6`, `#5c6b5d`, `#d4a373`, `#2b2b2b`, `#edece9`, `#717171`,
+  both font families, **zero** `prefers-color-scheme` blocks and **zero**
+  occurrences of the old `#0055ff`. The four colour copies agree; layout is
+  `tool-portal-light`, scheme `light`.
+- **Chrome rendered**: header 3900 chars with Tools/Learn/About, the search pill,
+  its `<script src>`, and zero empty hrefs; footer 1196; head 570.
+- **97 pages imported** as owned rows with their component instances.
+- **Planner honoured the scoping**: one page only.
+
+### BLOCKED: the 98 page assemblies will not dispatch
+
+`rerender-pages` ran (twice, by direct kcat) and did its job: it rendered chrome
+and created **98 `page_rerender` work items**. Those items are all `status='triaged'`,
+priority 5, and **nothing claims them**.
+
+Evidence that this is the dispatch layer and not our items:
+- No `claimed` rows on the site at all, site `locked_at IS NULL`.
+- Only 4 claimed rows fleet-wide, so `max_concurrent=8` is not saturated.
+- Earlier items on this same site *did* dispatch and complete (`needs_page`,
+  4 of 12 `needs_imagery`), so the site was dispatchable minutes earlier.
+- A **direct** `page-rerender` kcat dispatch for `tools-index`
+  (page_id `6fd84cb9-7f8d-455d-ac29-350f24b17cf0`) produced **no
+  `orchestration_states` row at all** — the spawn was dropped, which is the
+  `bugs_open/003` signature, not a queue delay.
+- The chassis pod is 116 minutes old, so the "no dispatch within ~300s of a pod
+  restart" rule does not explain it.
+
+Note the asymmetry worth chasing: `rerender-pages` dispatched fine by direct
+kcat, twice. `page-rerender` did not. Same envelope shape, same topic.
+
+**The work items are correct and are left in place.** When dispatch recovers they
+assemble with no further action. Nothing needs re-importing.
+
+### Also open
+
+- **The homepage was assembled BEFORE chrome existed**, so the published
+  `index.html` carries the default head, no header and no footer, and does not
+  link `port-compat.css`. Its re-assembly is one of the 98 queued items.
+- **The hero is wrong for the brief.** The planner chose a full-bleed `hero`
+  component that paints `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6))` over
+  a background image with `--hero-ink: #fff`. The brief asked for a two-column
+  hero (copy left, image right) and the `design_intent.avoid` list forbids dark
+  backgrounds. This is component SELECTION, not the palette — the pin is doing
+  its job; the chosen component simply is not the one the brief describes.
+  Needs either a different section component or a recompose of that one section.
+- 8 of 12 `needs_imagery` items still queued.
