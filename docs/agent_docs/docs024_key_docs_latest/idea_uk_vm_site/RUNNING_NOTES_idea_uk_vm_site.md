@@ -1888,3 +1888,13 @@ both hub listings deriving free.** One render batch quirk: 3 of 5 orchestrations
 2 sat in deploy_page AWAITING_RESPONSES ~10 min under git-adapter backlog — the pages were already
 deployed+live while their orchestrations still showed in-flight; page state, not job state, was
 the truth again.
+
+**§X.15 addendum — one more silent cap found and fixed (`sql/p4_15`).** With nine guides live, the
+hub listed SIX: `guide-list`'s schema declares `items.limit: 6`, so the first six by nav_order got
+in and copyright + both funding guides silently fell off the hub that exists to list them — green
+render, healthy-looking page, absent content (the "no silent caps" failure shape, as data). Raised
+to the resolver's hard cap (24); guard enforces the no-op for the other guide-list sites
+(gamesdesign 5 guides, relojistas 4 — both under the old cap; gamesdesign live-verified unchanged
+after). VERIFIED LIVE 16:05: all 9 cards, journey order — creating-ideas → building-it →
+testing-it → user-acceptance → feedback-loops → patents → copyright → funding-ways →
+funding-sources.
