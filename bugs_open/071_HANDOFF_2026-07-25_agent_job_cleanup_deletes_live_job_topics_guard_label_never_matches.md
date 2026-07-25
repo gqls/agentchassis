@@ -1,6 +1,6 @@
 # BUG 071 — agent-job-cleanup deletes LIVE job.* topics: its "any spawned pods running?" guard has never matched a pod
 
-**Filed:** 2026-07-25 · gauntlet_dead_cta / feature-builder B4 shakeout · **OPEN (guard fixed & live; residuals + fleet questions remain)**
+**Filed:** 2026-07-25 · gauntlet_dead_cta / feature-builder B4 shakeout · **OPEN (guard fixed & live; residuals 1+2 SHIPPED 2026-07-25 pm — see §Residuals progress; remaining: image roll for residual 1, idle-window observation for residual 2, 003-family re-attribution)**
 **Severity:** critical — every 10 minutes, the cleanup cronjob deleted every
 `job.*` Kafka topic in the cluster, including request/response topics under
 agents that were mid-run. Long-running spawned agents (feature-implementer,
@@ -142,3 +142,77 @@ self-evidencing, hence marked hypothesis.
 - Negative control: with zero spawned jobs/pods, a tick still deletes orphan
   topics (the cleanup's actual job) — verified by the delete-all branch running
   on the 08:20 tick and topics re-listed at 88 by 08:34 (churn + zombies).
+
+## Residuals progress (2026-07-25 pm, dedicated bugfix-071 session)
+
+**Residual 1 — pod-template labels: COMMITTED `5540d203e`, INERT UNTIL IMAGE ROLL.**
+`spawned-by: orchestrator` added to the pod-template labels map in
+`spawn_actions.go` (~2739) and `spawned-by: remote-job-spawner` in
+`cmd/remote-job-spawner/main.go` (~400); both build. The two divergent values
+are KEPT deliberately and documented in-code: a full-repo audit shows every
+live `spawned-by` selector targets **Jobs** (cleanup steps 2/3/5,
+`deploy-agents.sh:21`, `test-agent-spawn.sh:52`, `test-workflow.sh:82`), so
+pods gaining the label changes no existing consumer — it only makes pod-level
+selection possible, which is this residual's whole point. No third spawn path
+exists (`diagnose_build_gate_action.go:143` creates Jobs with disjoint labels,
+deliberately outside the guard). **No image roll this session** (bug-003's
+parked F2/F3 ride any chassis build; that roll is the owner's call). Post-roll
+check: `kubectl get pods -n ai-persona-system -l spawned-by` returns spawned
+pods.
+
+**Residual 2 — two-pass tombstone: SHIPPED & LIVE (commit `bc1f12718`,
+applied, cronjob generation 6).** An idle tick no longer deletes all `job.*`
+topics: deletion now requires a topic to be observed orphaned on two
+CONSECUTIVE idle ticks (~20 min), protecting queued work with no Job yet.
+State in new ConfigMap `agent-job-cleanup-state` (pre-created by manifest;
+RBAC `create` can't be resourceName-scoped); busy ticks, broker-unobservable
+ticks and zero-topic ticks wipe the state so "consecutive" stays strict; a
+failed state read deletes nothing (fail-safe) but still stores. Verified:
+- 6-scenario stubbed-`kubectl` sh harness against the script extracted from
+  the applied yaml: idle tick 1 deletes 0 + tombstones all; idle tick 2
+  deletes exactly the intersection + stores survivors; busy tick prints the
+  keep line **byte-identical** to the guard fix's (this file's check above
+  still holds) and wipes state; read-failure deletes nothing; empty listing
+  yields a single-line 0; jobs-query failure takes the keep branch.
+- Live busy-tick run (`cleanup-manual-071r2`, 10:02): 334 topics, keep branch,
+  no state-write error. `can-i patch configmaps/agent-job-cleanup-state`
+  flipped no→yes; `create configmaps` still no.
+- **Idle branch [UNVERIFIED live]** until an idle window occurs. When one
+  does, the two ticks' logs must show `N of M job topics were already orphaned
+  on the previous tick; deleting those only` → `Tombstoned M ...`, then the
+  intersection deleted on the next tick. Logs TTL fast
+  (`successfulJobsHistoryLimit: 1`, ttl 300s) — catch them live.
+
+**New findings fixed en route (same commit):**
+- **Cronjob step 1 has been silently Forbidden since inception**: the SA
+  `ai-persona-app` had no `pods delete` verb, so `kubectl delete pods
+  --field-selector=status.phase=Failed` failed every tick. Granted
+  (namespace-wide — unscopable by resourceName) and **proven by induced
+  fault**: pod `test-071-step1-failed` (busybox `false`, phase=Failed) was
+  actually deleted by the next run — the first time that step ever worked.
+- Latent `TOPIC_COUNT` bug: `grep -c ... || echo 0` yields the two-line string
+  `0\n0` on no match (grep -c prints 0 AND exits 1); `[ -gt 0 ]` then errors
+  and happened to fall through false. Fallback dropped.
+- The old `DELETED` counter was incremented inside a piped-`while` subshell
+  and never counted; replaced with word-split `for` loops (topic charset is
+  alphanumeric/dot/hyphen, so splitting is safe).
+
+**Council trail (advisory), corr `d0fcf7ef-f43b-4bbc-933f-ededfa4963a4`:**
+round 1 REVISE — gating objection (prior_art_librarian): the absence claim
+"kafka-topics.sh exposes no creation time" was asserted without evidence.
+Fair, and worth recording the answer here because it licenses the whole
+design: `--describe` output carries **no timestamp field**; the cluster is
+**KRaft** (zero zookeeper pods → no znode-ctime route); 3 brokers at RF=1
+with partitions spread across them (sampled topic: brokers 2 and 0) → a
+single-broker `exec` cannot stat all topics' data dirs; offset timestamps are
+message-age, not topic-age (empty topic → no signal). Round 2 resubmitted
+with all checks attached: PENDING at time of writing (verdict lands under the
+corr above).
+
+**Remaining open here:**
+1. Image roll carrying residual 1 (owner-gated via bug-003's parked roll).
+2. Idle-window observation of the tombstone delete branch.
+3. Dedicated ServiceAccount for the cleanup cronjob (the `pods delete` grant
+   is namespace-wide on the shared `ai-persona-app` SA — bounded, since its
+   existing jobs-delete cascades to pods anyway, but a scoped SA is cleaner).
+4. The 003-family re-attribution hypothesis (unchanged, owned by 003).
