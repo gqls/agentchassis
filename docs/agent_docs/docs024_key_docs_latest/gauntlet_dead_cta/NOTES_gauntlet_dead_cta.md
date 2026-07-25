@@ -596,3 +596,40 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   DB for migration 198 (ISLAND Postgres, not clients_db) need the island
   session's runbook, not this PR's manifests, at deploy time. Re-check 198 is
   still a free number at apply time either way.
+
+## 2026-07-25 ~14:15 — tools-api DEPLOYED TO THE ISLAND & smoke-verified from the public internet
+
+- Owner merged PR #3 (09:19Z, merge c02d56b9a). Carried the tools-api tree onto
+  the 086 branch (verbatim; ref-builds need working-tree dockerfile + our branch
+  lacks the source otherwise), image `docker save|ssh load`ed to the island (no
+  registry creds there — Route B1 rule held).
+- **Three defects found at first deploy/smoke — none catchable by the stage
+  gates** (gofmt/go build/go test; no fresh-round test, no SQL parse, no edge):
+  1. dockerfile `golang:1.23-alpine` vs go.mod `go 1.24.0` → image build failed
+     (gate compiles on its OWN toolchain, so only a real build could see it).
+  2. **GetRound NULL-scan**: position_text/defence_text NULL on every fresh
+     round; pgx can't scan NULL→string → EVERY /position + /defend failed —
+     and both handlers mapped every error to 404 "round not found" (the row
+     provably existed). Fix: COALESCE + ErrNoRows-only-404 (else 500).
+  3. Migration 198's guard was a top-level ASSERT — not SQL outside PL/pgSQL;
+     psql refuses the file. DO-block guard applied on the island AND corrected
+     in-repo.
+- **Fourth find (public-path)**: Cloudflare REPLACES an origin-502 body with its
+  own bare error page → our honest JSON degraded-mode shape never reached the
+  browser. LLM-failure statuses 502→503 (passes through with body; truer
+  semantics). Commits 258444df1 + b498df16b (+ dockerfile fix + carry commits);
+  council corr `64e6112c` submitted alongside (advisory).
+- Island DB prep: minimal `sites` (seeded vonc.com with its REAL cluster id) +
+  corrected 198 + `island_migrations` ledger. Image v1.0.1162 live.
+- **Public smoke matrix — all green from the internet**: /round 200 (real
+  provocation, row persisted) · real-round /position → JSON 503 (honest
+  degraded, key still placeholder) · missing round → 404 · denied origin → 403
+  · preflight → 204 · non-allowlisted path → Caddy 404.
+- **FLAG (P4 + data):** vonc.com/data/provocations.json carries FABRICATED
+  stats (1,284 Positions Filed / 62% Disagree / 3h 12m Until Close) — /round
+  passes them through in provocation.stats. Front-end must not render them;
+  regenerate the file (later: real counts from gauntlet_rounds).
+- BLOCKED on owner: dedicated spend-capped ANTHROPIC key (island .env carries
+  the named placeholder; /position + /defend light up on `compose up -d` after).
+  Experience re-fire waits for a REAL LLM round-trip so the plan's liveness
+  evidence is whole.

@@ -60,21 +60,36 @@ RESUBMIT_CORR=<corr> ./docs/.../097_TRIGGER_council_review_v1.sh <same.json>  # 
   `'deployed'` (an assemble path may drop non-deployed components).
 - Verify live cache-busted, matching strings the change CREATED (never generic CSS).
 
-## 5. tools-api build & deploy (after the PR merges — next stages)
+## 5. tools-api build & deploy — ISLAND, not the cluster (as done 2026-07-25)
+
+> The cluster kustomize steps that stood here are SUPERSEDED: the exposure home
+> is the island VM (Route B1) — the PR's kustomize manifests are unused.
+> Full as-built record: `infra/island/RUNBOOK_island.md` §ENGINE LANDED.
 
 ```bash
-# NO makefile edit needed — pattern rule covers any service with a dockerfile:
-make build-tools-api-ref            # builds committed HEAD via build/docker/backend/tools-api.dockerfile
-docker push docker.io/aqls/tools-api:$(IMAGE_TAG)   # confirm target name from the kustomize base
-kubectl apply -k deployments/kustomize/services/tools-api/overlays/production
-kubectl -n ai-persona-system rollout status deployment/tools-api
+# build from the 086 branch (carries tools-api source + post-merge fixes);
+# bump IMAGE_TAG in the makefile first, commit both:
+make build-tools-api-ref
+# ship WITHOUT registry creds on the island:
+docker save docker.io/aqls/tools-api:<TAG> | gzip | \
+  ssh root@toolsapisuk.vs.mythic-beasts.com 'gunzip | docker load'
+# update image: tag in infra/island/docker-compose.yml, scp it to /opt/island/,
+# then on the island: cd /opt/island && docker compose up -d tools-api
 ```
-- **Migration number:** the PR carries `198_tools_api_gauntlet_rounds.sql` — RE-CHECK
-  198 is still free in ledger+dir at APPLY time (renumber the applied copy if taken;
-  ledger the actual filename). Apply AFTER the image is live (image-first-then-seed).
-- Smoke (in-cluster first, then via bastion once P3 lands):
-  `kubectl -n ai-persona-system run curl-smoke --rm -i --image=curlimages/curl -- \
-   curl -s -X POST http://tools-api:<port>/api/v1/tools/gauntlet/round -H 'Origin: https://vonc.com' -d '{}'`
+- **Migrations go to the ISLAND Postgres** (`docker exec -i island-postgres-1
+  psql -U tools_api -d tools_api`), ledgered in its `island_migrations` table —
+  NOT clients_db, NOT schema_migrations. The island also carries a minimal
+  `sites` table (CORS lookup + FK target) seeded with real cluster site ids.
+- **GOTCHA:** the island runs the code exactly as committed — a defect fixed
+  in-repo is inert until you rebuild + save|load + `compose up -d` (same
+  image-first rule as the cluster, different transport).
+- **GOTCHA (Cloudflare):** origin 502 bodies are REPLACED by Cloudflare's own
+  page — use 503 for "engine offline" so the JSON shape survives; verify error
+  shapes from OUTSIDE, not just island-local.
+- Smoke from outside:
+  `curl -s -X POST https://tools.apis.uk/api/v1/tools/gauntlet/round -H 'Origin: https://vonc.com' -d '{}'`
+  plus the matrix: denied origin → 403, missing round → 404, real-round
+  /position with no key → 503, preflight OPTIONS → 204, `/anything` → 404.
 
 ## 6. Experience re-plan re-fire (ONLY after the API answers a smoke POST)
 

@@ -346,3 +346,22 @@ and merge it — that's your gate. One thing to decide at merge time: since the
 public-facing home for this API moved to the standalone island machine, we'll
 deploy it there rather than with the in-repo cluster files, and the game-rounds
 table belongs in the island's own database.
+
+2026-07-25 (~2.15pm): you merged the machine's pull request, and the backend is
+now running on the island and answering from the real internet. Getting it live
+surfaced three genuine bugs the machine's own checks couldn't have seen — a
+wrong Go version in its container recipe, a database read that broke the two AI
+endpoints for every fresh round (and mislabelled the failure as "round not
+found"), and a database script whose safety check wasn't valid database language
+at all. All three are fixed and the fixes are live; I've also sent them through
+the review council for the record. One more discovery: when our server says "the
+AI engine is offline" with a tidy error message, Cloudflare was swallowing the
+message and showing its own bare error page — switched the status code so the
+honest message gets through. Today's provocation now comes back from
+https://tools.apis.uk with a round recorded in the island's database; wrong
+origins are refused; oversized input is refused. Two things need you: (1) the
+dedicated spend-capped Anthropic key for the island — until it's in, the two AI
+endpoints answer honestly that the engine is offline; (2) the backup pubkey
+paste from before. Also flagged: the provocations data file on vonc still
+contains made-up stats from June — the new front end won't show them and the
+file needs regenerating.

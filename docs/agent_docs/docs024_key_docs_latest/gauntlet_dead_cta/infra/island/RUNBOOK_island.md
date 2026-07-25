@@ -78,18 +78,43 @@ Verified from outside: `http://tools.apis.uk/` → 301 to https; https → our 4
 - Apex note: when the owner's bees homepage (separate thread) exists, repoint
   ONLY the apex record at its hosting; wildcard + probe stay as they are.
 
-## When the engine lands (feature-builder PR merged, image published)
+## ENGINE LANDED — 2026-07-25 (PR #3 merged 09:19Z, deployed + smoke-verified same day)
 
-1. Solve the image path: the island pulls from a registry or `docker save |
-   ssh docker load` — decide at PR time ([OPEN] in NOTES).
-2. Owner issues a DEDICATED spend-capped Anthropic key → `/opt/island/.env`.
-3. Uncomment the tools-api block in docker-compose.yml (fix image + port; the
-   Caddyfile's `tools-api:8080` upstream must match the PR's real port).
-4. Apply migration 198 to the ISLAND's Postgres (NOT clients_db) and record it
-   in a ledger note here.
-5. `docker compose up -d` → `/api/v1/tools/*` goes 502 → live. Smoke-POST a
-   round from outside; confirm a gauntlet_rounds row.
-6. Re-fire the experience plan with this liveness evidence (the parked 092).
+As built (supersedes the checklist that stood here):
+
+1. **Image path decided: `docker save | gzip | ssh docker load`** — no registry
+   creds on the island, keeping the no-production-credentials rule. Image
+   `aqls/tools-api:v1.0.1162` (built from the 086 branch which carries the
+   tools-api source + three post-merge fixes; build via `make build-tools-api-ref`).
+2. **DB prep applied** (`/opt/island/island_db_prep.sql`, ledgered in the
+   island's own `island_migrations` table): minimal `sites` table (id/domain/
+   status — the merged CORS lookup + 198's FK need it; island has no platform
+   schema) seeded with vonc.com's REAL cluster site id `9ec3b9ee-…`; migration
+   198 applied **with a DO-block guard replacing the merged file's top-level
+   ASSERT (not valid SQL — psql refuses the file; repo copy corrected too)**.
+3. **compose**: tools-api block ACTIVE (PORT 8080 = Caddy upstream;
+   DATABASE_URL to the island PG; GAUNTLET_MODEL claude-sonnet-5). The drafted
+   `ALLOWED_ORIGINS` env never existed in the merged code — CORS reads the
+   island `sites` table.
+4. **ANTHROPIC_API_KEY: still the explicit placeholder** `PENDING-OWNER-SPEND-
+   CAPPED-KEY` (the service refuses to start on an empty value). /round is fully
+   live; /position + /defend return honest JSON 503 until the owner issues the
+   dedicated key → put it in `/opt/island/.env`, `docker compose up -d tools-api`.
+5. **Three defects found at first smoke, fixed, live** (commits 01e-style on
+   branch 086: dockerfile golang 1.23→1.24; GetRound NULL-scan killed both LLM
+   endpoints + 404-masked-500; LLM-failure 502→503 because **Cloudflare replaces
+   an origin-502 body with its own error page** — JSON only survives as 503).
+   Council corr `64e6112c` (advisory, alongside-commit).
+6. **Public smoke matrix (2026-07-25, from the internet)**: /round 200 + real
+   provocation + persisted row · real-round /position JSON 503 · missing-round
+   404 · denied-origin 403 · preflight 204 · non-allowlisted path 404.
+7. NEXT: owner key → real /position + /defend round-trip → re-fire the
+   experience plan with full liveness evidence (the parked 092).
+   **FLAG:** vonc.com/data/provocations.json carries FABRICATED stats
+   ("1,284 Positions Filed", "62% Disagree") which /round passes through in
+   `provocation.stats` — P4 front-end must not render them and the data file
+   needs regenerating (real counts can come from gauntlet_rounds once traffic
+   exists).
 
 ## Standing facts
 

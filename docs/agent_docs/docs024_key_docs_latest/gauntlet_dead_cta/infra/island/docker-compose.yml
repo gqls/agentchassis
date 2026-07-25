@@ -31,17 +31,26 @@ services:
       - "127.0.0.1:8081:8081"   # only cloudflared (on the host) talks to Caddy
       - "127.0.0.1:8082:8082"   # 020 probe vhost (wildcard/apex catch-all)
 
-  # Activate when the PR's image is published. Port confirmed at PR time.
-  # tools-api:
-  #   image: <REGISTRY>/tools-api:<TAG>
-  #   restart: unless-stopped
-  #   environment:
-  #     DATABASE_URL: postgres://tools_api:${POSTGRES_PASSWORD}@postgres:5432/tools_api?sslmode=disable
-  #     ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}   # DEDICATED spend-capped key, never the platform's
-  #     ALLOWED_ORIGINS: https://vonc.com         # CORS-from-config (the PR-review note)
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
+  # ACTIVATED 2026-07-25 (PR #3 merged; image loaded via docker save|ssh load —
+  # no registry creds on the island). Env contract from the MERGED code
+  # (internal/tools-api/config/config.go): PORT (default 8080, matches the
+  # Caddyfile upstream), DATABASE_URL + ANTHROPIC_API_KEY required (the service
+  # refuses to start if either is empty — until the owner issues the dedicated
+  # spend-capped key, .env carries an explicitly-named placeholder so /round is
+  # live and /position + /defend fail LOUD via httperr = the honest degraded
+  # mode). CORS comes from the island DB's minimal sites table, NOT an env
+  # allowlist (the drafted ALLOWED_ORIGINS never existed in the merged code).
+  tools-api:
+    image: docker.io/aqls/tools-api:v1.0.1162
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://tools_api:${POSTGRES_PASSWORD}@postgres:5432/tools_api?sslmode=disable
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}   # DEDICATED spend-capped key, never the platform's
+      GAUNTLET_MODEL: claude-sonnet-5
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   pgdata:
