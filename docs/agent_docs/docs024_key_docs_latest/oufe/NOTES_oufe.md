@@ -197,3 +197,39 @@ lane as "93% cron" and the remaining symptom as "~8min stalls". This is a
 non-cron instance with a named cause (a large council submission), which is a
 sharper statement of the mechanism than "stalls" — the queue is not slow, it is
 strictly serial behind whatever is longest.
+
+### Resolved, and the diagnosis held exactly
+
+The blocking council reached `complete_revise | COMPLETED`. Within seconds the
+committed offset moved 104102 → 104105 and the submission at 104104 was consumed.
+**Total wait ~28 minutes, entirely behind one unrelated council run.** No
+intervention, no resubmission, nothing wrong with the message. Had I resubmitted
+on the "no orchestration row" evidence, the site would have been submitted twice.
+
+Cascade confirmed started:
+```
+aspect              source_agent      text_chars
+submission          domain-submitter
+mission_brief       domain-submitter  3696
+roadmap_brief       domain-submitter  2828
+
+item_type              status   handler_agent                priority
+needs_domain_research  triaged  domain-research-classifier   5
+```
+`roadmap_brief` persisting with 2,828 characters is the part worth noting: this is
+a **Tier-3 submission carrying an authoritative roadmap, which the shipped trigger
+script cannot produce.** The item lands at `triaged`, which is what
+build-pipeline-trigger dispatches on, so the chain now self-advances:
+classifier → strategist → briefing → planner → pages.
+
+**One lesson to carry:** `processed_messages` looked like the natural
+"was it consumed?" oracle and would have sent me the wrong way — neither my
+message nor the scheduler messages around it had rows, while those schedulers were
+demonstrably running. **Consumer-group lag is the oracle**; `processed_messages`
+records a narrower path, and logs `DEDUPE_SKIPPED_NO_REQUEST_ID` when it records
+nothing at all.
+
+Also proven end to end while waiting: the oxenunity object in B2 is
+**byte-identical** to the source file (2,767 bytes, `diff -q` clean). So authoring
+→ commit → Action → B2 works for this workstream; what remains for that domain is
+purely DNS.

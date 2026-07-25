@@ -14,37 +14,40 @@ only "what state is it in and what do I do next".
 | oufe.com site row | **Created** — `a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39` |
 | oufe.com evidence_base | **Seeded** — 18 banned patterns, **0 facts** |
 | oufe.com imagery_style_guide | **Seeded** |
-| oufe.com Tier-3 submission | **Published, awaiting consumption** — corr `e916f41b-a534-4b12-883f-411312ee7ad8`, topic offset 104104 |
+| oufe.com Tier-3 submission | **CONSUMED — cascade running.** corr `e916f41b-a534-4b12-883f-411312ee7ad8`. Both briefs persisted (3,696 / 2,828 chars); `needs_domain_research` triaged |
 | Thames Water evidence (V5) | **Not started** |
 | Waterfall tool | **Authored + arithmetic verified**, insertion SQL prepared, **not applied** |
 | Legal pages | **Not built**; wording drafted, needs owner approval |
 
-## First thing to check
-
-The submission was published at 16:56 and had not been consumed by ~17:20,
-because `generic-requests-group` was wedged at offset 104102 on **another
-session's 20KB council-gate submission** — a named-cause instance of
-`bugs_open/030` head-of-line blocking. The queue is strictly serial, so it clears
-when that council finishes.
+## First thing to check — where the cascade got to
 
 ```sql
--- did it land?
 SELECT ss.aspect, ss.source_agent, ss.is_current
   FROM site_specs ss JOIN sites s ON s.id=ss.site_id
  WHERE s.domain='oufe.com' ORDER BY ss.created_at;
+
+SELECT wi.item_type, wi.status, wi.handler_agent, LEFT(COALESCE(wi.error,''),100)
+  FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+ WHERE s.domain='oufe.com' ORDER BY wi.priority;
+
+SELECT name, page_type, build_status, jsonb_array_length(sections) AS n_sections
+  FROM pages WHERE site_id=(SELECT id FROM sites WHERE domain='oufe.com');
 ```
-`mission_brief` and `roadmap_brief` present ⇒ consumed, cascade running.
-Only `evidence_base` + `imagery_style_guide` ⇒ still queued. Check the lag before
-doing anything:
+Expected order as it fills: `classification` → `strategy` → `briefing` →
+`site_plan` / `design_intent` / `resolved_composition`, then pages.
+
+**If it looks stalled, check the queue before concluding anything:**
 ```bash
 kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
   bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
   --describe --group generic-requests-group
 ```
-**Do not resubmit on an absent row.** A duplicate would sit behind the same
-blockage and then build the site twice. If the lag is stuck and the blocking
-orchestration is not advancing (`updated_at` not moving), that is a different
-problem and belongs to the 030 workstream, not to this one.
+The original submission sat unconsumed for ~28 minutes behind another session's
+20KB council-gate run — a named-cause instance of `bugs_open/030` head-of-line
+blocking, resolved the instant that council completed. **Never re-fire on an
+absent row**; a duplicate queues behind the same blockage and then does the work
+twice. Note also that `processed_messages` is *not* a reliable
+was-it-consumed oracle (it records a narrower path) — consumer-group lag is.
 
 ## Then, in order
 
