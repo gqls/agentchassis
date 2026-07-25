@@ -165,6 +165,31 @@ registry.go, all inert until image roll):
   + JS runtime tag + heavier council review for two static charts; SVG is
   golden-file-testable and cannot break at view time).
 
+> **CORRECTED 2026-07-25 — deltas against this section, all shipped:**
+> - **ONE chart, not two.** The payload scatter was dropped: published payload
+>   is only comparable *within* a payload-rated technology, so a cross-tech
+>   scatter would mislead. Declared to the council rather than folded in
+>   silently (round 1, editquality).
+> - **The chart reports its omissions.** A candidate with no comparable
+>   capacity figure gets no bar (correct — inventing one is the dishonesty this
+>   exists to prevent) but the omission is now NAMED on the page, so a figure
+>   lost to an upstream bug is distinguishable from one never published.
+> - **The renderer inlines its own CSS.** rerender concatenates stored
+>   `rendered_html` and collects no component stylesheets; robot-hands.com's
+>   site_specs define zero `report-*` classes, so the deliverable would have
+>   shipped unstyled (bugs_open/027 shape). Two drift-guard tests hold it.
+> - **NO Go template engine** in the renderers, deliberately and permanently:
+>   `text/template` renders a missing field as empty with no error
+>   (`missingkey=zero`), which on this page is the worst available failure.
+>   Pure `strings.Builder`/`Fprintf` only.
+> - **The prose gate gained** a truncation check, a vendor-trace check sourced
+>   from live product data, and a `context_field`. See NOTES for the council
+>   trail.
+> - **`fail_workflow` is a new core primitive**, needed by the failure path
+>   below: `complete_workflow` always signals success, so a handler that tidies
+>   up and then completes gets its work item stamped 'complete' beside the
+>   evidence it failed.
+
 **Agent definitions** (3, all orchestrator):
 - `report-request-collector` v1: pull → complete.
 - `report-dispatch-loop` v1 (diagnose-lane clone): reap_stuck (reporting >
@@ -193,16 +218,35 @@ on any site having deploy_config?'report_island') · `report-dispatch`
 (report-dispatch-loop, interval 90, group report-dispatch, pre_query
 EXISTS(awaiting_report OR stuck reporting)).
 
-**Seeds** (docs/agent_docs/sql_for_agents/, next free = 204; ON CONFLICT
-(type,version) DO UPDATE; NO migrations needed — statuses/item_type free
-text): 204 matchmatrix normalised spec blocks into the 10 products rows
-(content_data || merge, never clobber) [pre-image OK] · 205 report-dossier
-component (component_level='section' NOT 'tool' — keeps it out of the
-deployable tool catalogue; render_mode='template'; category='report')
-[pre-image OK] · 206 deploy_config.report_island {base_url, pull_key}
-placeholder [values at apply time] · 207 the 3 agent_definitions [AFTER
-image — names new actions] · 208 the 2 scheduled_tasks rows w/ commented
-enable lines [after image].
+**Seeds** (docs/agent_docs/sql_for_agents/; ON CONFLICT DO UPDATE; NO
+migrations needed — statuses/item_type free text).
+
+> **CORRECTED 2026-07-25 — RENUMBERED 205–208 → 207–210.** Other sessions
+> took 205 and 206 while this lane was building (206 twice over: both
+> `206_content_gap_planner_retype_approach` and
+> `206_planner_news_index_page_type`). Seed numbers are claimed by whoever
+> commits first, so **re-check `ls docs/agent_docs/sql_for_agents/` at the
+> moment you write one** — the number in a design doc goes stale the same way
+> a figure does. 204 is unaffected.
+
+- **204** matchmatrix normalised spec blocks into the 10 products rows
+  (`content_data ||` merge, never clobber) — [pre-image OK] — *not yet applied*
+- **207** report-dossier component (`component_level='section'` NOT `'tool'`,
+  which keeps it out of the deployable tool catalogue;
+  `render_mode='template'`; `category='report'`) — [pre-image OK].
+  `created_from` must be one of `manual|generated|adopted|tool|forked` — a
+  CHECK constraint the dry run found.
+- **208** `deploy_config.report_island` {base_url, pull_key} — [pre-image OK,
+  but see below]. The key is NOT in the file: it comes from `psql -v` and is
+  bridged into plpgsql via `set_config`, echo to `/dev/null`. **Must be applied
+  via stdin or `-f`, never `psql -c`** (no variable interpolation with `-c`,
+  and none inside `$$ … $$` either — both verified). Applying it early is not
+  free: `pull_report_requests` selects sites by this key, so the pull starts
+  hitting the endpoint once the row exists.
+- **209** the 3 agent_definitions — [STRICTLY AFTER the image: names six
+  actions no earlier image carries].
+- **210** the 2 scheduled_tasks, both **disabled**, in isolated concurrency
+  groups; `enabled` deliberately not overwritten on conflict — [after image].
 
 ## 4. Build order
 
