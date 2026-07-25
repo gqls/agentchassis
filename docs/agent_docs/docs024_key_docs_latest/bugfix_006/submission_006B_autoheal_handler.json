@@ -21,14 +21,14 @@
       {
         "file": "platform/orchestration/actions/discovery_checks/check_contact_form_undeliverable_test.go",
         "symbol": "TestContactAddressResolvable / TestContactFormUndeliverableRoutesByResolvability",
-        "operation": "create",
+        "operation": "add",
         "rationale": "The check had zero tests. TestContactAddressResolvable pins the guard's parity with deliverableFormAction (real address / empty / malformed / info@own-domain refused case-insensitively / info@DIFFERENT-domain honoured / whitespace). TestContactFormUndeliverableRoutesByResolvability is the end-to-end routing guard via sqlmock: the SAME broken form (#contact) yields a page_rerender (handler page-rerender, status detected, rerender key) when the site row returns a resolvable address, and the needs_human_review shape (empty handler) when it returns '' or info@<own-domain>. Fault-injected: forcing resolvable=false made the resolvable-route case fail with HandlerAgent='' want 'page-rerender' before being trusted.",
         "sketch": "mock.ExpectQuery(\"data-component\").WillReturnRows(... one '#contact' finding ...)\nmock.ExpectQuery(\"FROM sites WHERE id\").WillReturnRows(rows(email, domain))\nres, _ := (&ContactFormUndeliverableCheck{}).Run(dctx)\n// resolvable: wi.ItemType==page_rerender && wi.HandlerAgent==page-rerender && wi.Status==detected\n// address-less/info@own: wi.ItemType==contact_form_undeliverable && wi.Status==needs_human_review"
       },
       {
         "file": "platform/orchestration/actions/rerender_page_sections_base_data_test.go",
         "symbol": "TestBuildRerenderBaseDataPrefersSitesEmailColumn",
-        "operation": "create",
+        "operation": "add",
         "rationale": "Pins the address-source contract for the light path: the sites.email column wins over a stale content_data.email (the idea.uk case, asserted with its literal values), an empty column falls back to content_data.email (no regression), and an empty content_data still gets the column address. Fault-injected: removing the column preference reproduced exactly the stale idea-uk@leopardess.uk assertion failure.",
         "sketch": "mock.ExpectQuery(\"SELECT content_data\").WillReturnRows(rows(contentDataJSON, colEmail))\nbase := buildRerenderBaseData(ctx, db, siteID, \"example.com\", zap.NewNop())\n// {cd email: idea-uk@leopardess.uk, col: idea.uk@contactforsales.com} → base[email]==column value\n// {cd email: cd@example.com, col: \"\"} → base[email]==cd@example.com"
       }

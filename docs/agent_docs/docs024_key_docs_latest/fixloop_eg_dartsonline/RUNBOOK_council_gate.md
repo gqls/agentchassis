@@ -172,6 +172,21 @@ fix, v1.0.1149; case CLOSED 2026-07-24), so the norm is reinforced without enfor
   a diff, so the rationale is the only place a reviewer can learn they
   pre-exist. Carry the full evidence base forward every round; each
   resubmission is judged standalone.
+- **The plan schema is stricter than the 097 header suggests — validate the
+  types before submitting** (2026-07-25, bugfix-006 submission: two runs died
+  `complete_invalid` at `persist_submission` before any reviewer fired).
+  `fixPlan` (diagnose_persist_fix_plan_action.go): `risks` is a **single
+  string**, not an array (an array kills the whole unmarshal:
+  `cannot unmarshal array into Go struct field fixPlan.risks`); `edits[].operation`
+  allowlist is exactly **modify | add | remove | config_change** — `create` is
+  refused (use `add` for a new file); `grounded_in` IS a string array; ≤8 edits,
+  ≤32KB single-plan bytes. Also mind `noOpEditReason`: a sketch containing
+  "add a comment" / "no change needed"-family phrases is refused as a no-op.
+  An invalid run writes **no artifacts at all** — polling
+  `diagnosis_artifacts` by corr waits forever; poll `orchestration_states.current_step`
+  too and treat `complete_invalid` as terminal (the error is in
+  `collected_data->'__step_error'`). Cheap pre-check: unmarshal your JSON
+  against the struct fields at lines 60–77 of the action file before firing.
 
 ## Honest limits (advisory mode)
 
