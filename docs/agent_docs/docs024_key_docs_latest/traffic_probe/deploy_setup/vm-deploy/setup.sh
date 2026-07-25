@@ -493,7 +493,12 @@ systemctl reload nginx
 for d in $DOMAINS; do
   if [[ ! -d "/etc/letsencrypt/live/$d" ]]; then
     log "obtaining TLS certificate for $d"
-    local extra_san=""
+    # NOT `local` — this loop is at top level, and `local` outside a function is
+    # a bash error ("can only be used in a function") which, under `set -e`,
+    # ABORTS the run. Dormant on a box whose domains all have certs (the branch
+    # is skipped); fatal on exactly the path the header advertises — "adding a
+    # domain = add it to DOMAINS and re-run". Found + verified 2026-07-25.
+    extra_san=""
     if [[ "$WWW_ALIAS" == "true" ]] && getent hosts "www.$d" >/dev/null 2>&1; then
       extra_san="-d www.$d"
       log "including www.$d SAN (DNS resolves)"
