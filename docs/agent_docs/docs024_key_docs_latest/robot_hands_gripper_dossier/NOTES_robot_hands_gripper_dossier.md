@@ -117,3 +117,108 @@ owner action: issue the $50-capped key.
 4. Image roll (IMAGE_TAG bump; discriminating pod-grep: 'report-dossier' +
    'pull_report_requests' + positive control), then 206–208, then induced
    E2E fixtures (success / no-match / failure) per DESIGN §6.
+
+## 2026-07-25 — batch 2 REVISE answered; truncation guard; a false trailer
+
+### CORRECTION — the trailer on `8e8b55818` claims a review that did not happen
+
+> **CORRECTED 2026-07-25:** commit `8e8b55818` carries
+> `Council-Reviewed: 7ed137d1`. **7ed137d1's verdict was REVISE, not APPROVED**
+> (`complete_revise | COMPLETED | 2026-07-24 20:30:31Z`) — and it had been
+> decided the previous evening, before the commit was written. I appended the
+> correlation id from these NOTES without querying the verdict, treating
+> "submitted" as "reviewed". Forward-only: the trailer stands in history and
+> `098` will bucket it as MISMATCH, which is the report working correctly.
+> Full entry in `WRONG_CALLS.md` (2026-07-25). What caught it: writing the
+> next commit message and re-reading the trailer-discipline rule.
+> **The check is one query, and it belongs BEFORE the trailer, not after.**
+
+### Built: truncation guard on the prose gate (`8e8b55818`)
+`execute_llm_prompt` tolerates a cut response and stamps `__truncated` beside
+`.result` — the step then SUCCEEDS with a fragment. A partial that PARSES is
+still a partial: prose cut mid-section can close into valid JSON with every key
+present and the honest caveats gone, and the numeric/SKU checks would pass it.
+Marker path is **derived** from `prose_field` via `markerFieldFor` (the
+`diagnose_council_decide` precedent) rather than a second config key, so it
+cannot drift when `prose_field` changes; `truncation_field` overrides.
+
+### Council REVISE on batch 2 (corr 7ed137d1) — answered in `b7fd2ef8b`
+Decided by a gating objection from **compliance**. Seats: editquality approve,
+tooling_provenance approve, guardian approve, render_guardian approve,
+bug_historian object, reuse_agent object, compliance object. 5 abstained.
+
+- **compliance HIGH** — a fabricated *plain-word* vendor passed the gate:
+  `modelNumberRe` needs digits, and `check_claims:false` means
+  `validate_page_content` is not backstopping report pages either. So "we also
+  considered Piab" sailed through. Fixed with a **trace requirement over the
+  vertical's real vendor field**: a name on that list is a violation UNLESS the
+  scored candidate set / fact block contains it — which means it **relaxes on
+  its own as the product index grows** (6 of 24 indexed today). This was
+  logged in batch 2's own submission as an "accepted pilot residual"; the seat
+  was right that accepting it silently was the wrong call for a feature whose
+  whole claim is that names trace. Remaining residual (a wholly invented vendor
+  on no list) is now named in the code and pushed onto the writer prompt.
+- **compliance MEDIUM** — no proximate disclaimer on a new public page type.
+  Added at the top of the dossier, not a footer: machine-generated, information
+  not engineering advice, unpublished figures never estimated, verify against
+  the datasheet before buying.
+- **reuse_agent MEDIUM** — the pull was "mirrored line for line" from
+  `intent_collector`'s `collectOneSite`; they asked for evidence that
+  *extending* it had been considered, not just that it had been found. It
+  hadn't. Extracted the genuinely identical half (GET + `X-Internal-Key` +
+  NDJSON scan + raised buffer) to `scanInternalNDJSONFeed` and moved **both**
+  call sites onto it — including the live collector, since leaving it
+  duplicated is the objection. New `partialStreamError` keeps the load-bearing
+  distinction the inline code had: mid-stream death = partial success (lines
+  stand, resume from checkpoint); transport/status failure = fatal. Tested
+  with `httptest`, incl. that an oversized line cannot masquerade as a
+  complete feed.
+- **bug_historian MEDIUM** — asked whether the new renderers expose Go's
+  `missingkey=zero` (the platform's most recent unpatched root cause). They do
+  not: pure `strings.Builder`/`Fprintf`, no template engine anywhere in
+  `create_report_page_action.go` or `report_charts.go`. Now stated in the file
+  header as a property to preserve, which is what they asked for.
+- **bug_historian / render_guardian LOW** — the chart silently dropped
+  candidates with no capacity figure, so a figure lost to an upstream bug
+  looked identical to one never published. `renderHeadroomChart` now returns
+  the omissions and the page **names them** ("Not plotted, because no
+  comparable capacity figure is published for them: …").
+- **guardian LOW** — asked for two collision checks before this lands. Run and
+  clean: no existing `awaiting_report`/`reporting` status, no `report*`
+  `handler_agent`, no `%report%` `item_type` in `site_work_items`; no registry
+  key collisions. No namespacing needed.
+
+### Seed renumbering — 205–208 are TAKEN, this lane uses 207–210
+Other sessions filed `205_bug003_*`, `206_content_gap_planner_*` and
+`206_planner_news_index_*` (206 is itself doubled). This lane's seeds are now:
+**207** report-dossier component · **208** island config placeholder ·
+**209** three agent_definitions · **210** two scheduled_tasks (disabled).
+Seed **204** (matchmatrix normalized specs) is unchanged and still unapplied.
+`create_report_page_action.go`'s comment still says "seed 205" — corrected when
+the seed lands.
+
+### Resolved: how the report-builder loads its work item
+`query_database` takes `$N` placeholders plus `config.params` — an array of
+dotted paths into collected_data, each tried again with an `input_data.`
+prefix if it resolves nil. Live precedent: `fix-implementer.load_plan` uses
+`params: ["input_data.fix_correlation_id"]` with `output_format: "object"`
+(which also flattens row 1 to the top level, so later steps can path at
+`loaded.field` without array indexing). Seed 209's `load_request` copies that
+shape with `input_data.work_item_id`.
+
+### Also confirmed live (for seed 209)
+- `execute_llm_prompt` config shape, from the live `diagnose-agent`:
+  `ai_service{model, provider, max_tokens, api_key_env_var}`, `temperature`,
+  `input_fields`, `output_format`, `prompt_template` with `{{.step.field}}`
+  interpolation. Returns `{result: <parsed>, type: "json"}` — so the prose path
+  is **`report_prose.result`**, and the truncation marker is its sibling.
+- The scratchpad was reaped between sessions; `head_archive` (clean
+  `git archive HEAD` overlay) had to be rebuilt. All tests this session ran
+  against that overlay, not the shared tree.
+
+### Next
+1. Resubmit batch 2 to council with `RESUBMIT_CORR=7ed137d1-…` so the trail
+   accumulates. Only a genuine APPROVED verdict earns a trailer.
+2. Seeds 207–210 (207 pre-image OK; 209/210 strictly post-image).
+3. Island service `cmd/gripper-intake/`.
+4. Image roll, then 208–210, then the three induced E2E fixtures per DESIGN §6.
