@@ -3577,6 +3577,60 @@ missing signal read as negative); `bugs_closed/031` (stale REGISTER entry — th
 same failure one layer up); pattern-check `DECLARED_PAIRS` (the forward
 enforcement).
 
+### A config field that is ACCEPTED but never READ is indistinguishable from one that works — the job reports success and does nothing (2026-07-25)
+
+**Symptom.** A scheduled sweep had "run" daily for weeks. `last_triggered_at`
+and `last_completed_at` both advanced every day, an orchestration row was
+created each time, and it completed without error. It had never processed a
+single row.
+
+**Mechanism.** The task carried its workflow INLINE, in
+`scheduled_tasks.input_data.config.workflow`, and targeted
+`target_agent_type='generic'`. The chassis runs the **target agent's own**
+workflow, not the one in `input_data` — and `generic`'s own workflow is a
+single no-op step (`"description": "No-op — scheduled task pre_query already
+did the work"`). The inline field is accepted, stored, never read, and never
+complained about. An empty checklist completes very successfully.
+
+**Why every check passed.** The happy path and the broken path are
+*identical at every observable except the work itself*: fires → run created →
+completes → both timestamps stamped. Health checks, "did the task run?"
+queries, and the scheduled-task dashboard all read green. Only the output
+distinguishes them.
+
+**The two queries that settle it in seconds** (generalise: count the ROW
+CHANGE, never the job):
+```sql
+-- has the action ever been in a workflow that actually executed?
+SELECT count(*) FROM orchestration_states WHERE workflow_plan::text LIKE '%<the_action>%';
+-- has the output ever changed? (the sweep's only fingerprint)
+SELECT count(*) FILTER (WHERE verified_at > created_at + interval '1 minute'), count(*) FROM <table>;
+```
+Both returned 0 (and `0 of 108`) against a sweep described in its own docs as
+live and proven.
+
+**How it was actually found — and the rule that should have found it sooner.**
+By INDUCING A FAULT for an unrelated reason: a batch that verified 17 of 17
+looked implausible, so one stored quote was corrupted to a sentence on no page
+and the sweep forced. The expected rejection never came, and chasing why
+exposed that the sweep had never examined anything. **For any mechanism whose
+job is to DETECT a fault, a green run proves deployment, not correctness.** The
+only proof is breaking something on purpose and watching it get caught — before
+the fix it was not caught, after the fix it was, first attempt.
+
+**Generalises beyond scheduled tasks.** Any place config is handed to a
+consumer that may not read it: a step-level field the unmarshal drops
+(`timeout_seconds`, this guide, 2026-07-24), an input_mapping key nothing
+consumes, a component field absent from the template. The tell is always the
+same — the system accepts your configuration politely and behaves as though
+you never wrote it. **Prefer designs that REFUSE unknown or unreadable config
+over ones that ignore it**; where refusal is too strong, a WARN naming the
+task turns months of silence into one grep.
+
+Case: `bugs_open/074`. Fix pattern: move the workflow to where the runtime
+actually reads it (an `agent_definitions` row) rather than making the ignored
+field work.
+
 ### An extraction fallback that inherits the primary path's provenance label can fabricate — and nothing downstream can tell (2026-07-24)
 
 **Symptom.** A pipeline that extracts structured facts (prices, dates, counts)
