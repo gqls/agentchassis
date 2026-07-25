@@ -161,3 +161,84 @@ FROM directory_claims dc JOIN directory_entities de ON de.id = dc.entity_id
 WHERE dc.is_current
 ORDER BY de.slug, dc.field;
 ```
+
+## Direct kcat dispatch — the FULL header set is load-bearing (2026-07-25)
+
+Bypassing the build-dispatch queue (wedged again 2026-07-25: the
+`build-pipeline-trigger` orchestration sat `spawn_dispatch |
+AWAITING_RESPONSES` for 15+ minutes, so nothing was claimed on any site)
+means firing an agent at `system.agent.generic.requests` directly. The trap:
+**a dispatch with only `correlation_id`/`client_id`/`request_id` produces NO
+orchestration row and NO error.** Nothing rejects it, nothing logs it; it
+simply never becomes a run. Ten headers are needed, per
+`cta_link_integrity/scripts/049b_deploy_single_page.sh`:
+
+```bash
+dispatch() {   # dispatch <agent_type> <input_data_json> <label>
+  local AGENT="$1" PAYLOAD="$2" LABEL="$3"
+  local CORR=$(cat /proc/sys/kernel/random/uuid) ORCH=$(cat /proc/sys/kernel/random/uuid)
+  local REQ=$(cat /proc/sys/kernel/random/uuid)  MSG=$(cat /proc/sys/kernel/random/uuid)
+  local TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  kubectl -n kafka run -i --rm "kcat-${LABEL}-$(date +%s)" \
+    --image=edenhill/kcat:1.7.1 --restart=Never -- \
+    kcat -P -c 1 \
+    -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORR -H orchestration_id=$ORCH -H request_id=$REQ \
+    -H message_id=$MSG -H message_type=request -H client_id=demo_client \
+    -H action=orchestrate -H sender_agent_type=cli -H sender_agent_id=cli-user \
+    -H responses_topic=system.agent.generic.responses -H timestamp=$TS <<JSON
+{"action":"orchestrate","config":{"agent_type":"$AGENT"},"input_data":$PAYLOAD}
+JSON
+  echo "$LABEL corr=$CORR"
+}
+```
+
+`-P -c 1` + heredoc is not optional either — it reads exactly one message and
+sidesteps the kubectl-run stdin race.
+
+**Budget ~30 minutes before concluding a dispatch was dropped.** A missing
+`orchestration_states` row in the first few minutes is queue latency, not a
+lost message (CLAUDE.md measured publish→run start at 29 min under load).
+Find the run by correlation:
+
+```sql
+SELECT current_step, status, left(COALESCE(error,''),200)
+FROM orchestration_states WHERE correlation_id = '<CORR>' ORDER BY created_at DESC LIMIT 3;
+```
+
+### Re-rendering ONE page so a component change reaches the live HTML
+
+A component edit (`content_components.html_template`) is live in the DB
+immediately and invisible on the site until the page's sections are
+re-rendered. Assemble-only will NOT do it — it keeps the existing
+`rendered_html`. Stamp the reason:
+
+```bash
+dispatch page-rerender '{"page_id":"<page>","site_id":"<site>","domain":"<domain>",
+  "spec":{"reason":"section_data_resolved","page_id":"<page>","page_name":"<name>",
+          "filename":"<name>.html","domain":"<domain>"}}' mypage
+```
+
+### Rebuilding navigation for one site
+
+```bash
+dispatch nav-updater '{"site_id":"<site>","domain":"<domain>"}' nav
+```
+
+Rebuilds `site_nav_items` from the `pages` flags, re-renders header/footer
+and the JS snippets bundle, commits, then queues a re-render for EVERY
+deployed page — on a 35-page site that is 35 items into whatever state the
+dispatch queue is in, so do it knowing that.
+
+**Simulate before firing.** `populate_nav_tables` starts with
+`DELETE FROM site_nav_items WHERE site_id=$1` — it replaces the header
+wholesale, and the stored order can be months older than `pages.nav_order`.
+Read `classifyPagesForNav` (`populate_nav_tables_action.go`) and work out
+what the new header will be BEFORE you run it: tier 1 is
+index/services/tools/about/contact by name, tier 2 is
+blog/news/case-studies/pricing/... plus section-index page types, `/tools/…`
+and `/blog/…` child URLs are dropped whatever their `in_header` flag says,
+and `max_header_items` (default 8) truncates the tail. On aao the rebuild was
+a no-op for the header and added the missing footer entry, which is why it
+was safe to run.
