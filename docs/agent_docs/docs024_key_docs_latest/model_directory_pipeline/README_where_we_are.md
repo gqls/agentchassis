@@ -151,3 +151,48 @@ that's fixed and live too), and the queue that hands work to builders can
 leave a site waiting hours when it's busy with other jobs (evidence filed
 with the team that owns that queue). You ruled: keep the health scans
 per-site on demand rather than switching them on fleet-wide.
+
+**2026-07-25, morning — two things I told you yesterday were wrong, and one
+of them was hiding a real gap.**
+
+First correction, the good one. I said the run that went looking for
+open-weight models (Llama, Mistral, DeepSeek, Qwen) had come back with
+nothing and speculated about why. It hadn't — I looked at the register while
+that run was still finishing and wrote up an explanation for a result that
+never happened. The directory this morning holds **27 models from seven
+owners**: OpenAI 10, Google 7, Anthropic 4, DeepSeek 2, Mistral 2, Meta 1,
+Qwen 1, and 48 proven facts between them. So the "it leaned on one vendor"
+worry from the day before is genuinely answered — it now spans the field,
+closed and open weights alike.
+
+Second correction, the one that cost something. I said three things had
+gone live: the directory page, the data file, and a teaser section on the
+homepage. The first two are real and I've re-checked both this morning. The
+third never happened. The job that adds that homepage section was killed
+three times in a twenty-minute window yesterday afternoon — by my own
+deployment of the new software, as it happens; the machine doing the work
+went away mid-task and the system correctly gave up after three tries. What
+I saw was the *planning* step reporting success, and I read that as the
+section being built. It wasn't, and one `curl` at the homepage would have
+told me so in a second. I've put the job back in the queue this morning; it
+is a transient infrastructure failure, not a rejected plan.
+
+Chasing that turned up something neither of us had noticed: **the directory
+page isn't in the site's navigation at all.** Not the top menu, not the
+footer. You can only reach it by typing the address. The site's navigation
+lists were built once in May and have never been rebuilt, so anything
+created since — the directory page included — simply isn't in them. There's
+a standard repair for exactly this and I'm running it, after the homepage
+section lands, so the two don't fight over the same queue. It rebuilds the
+menus from the pages that exist and then refreshes every page's header and
+footer.
+
+**One choice I'd like from you.** The top menu holds eight items and it is
+currently full: Home, Services, About, Tools, Contact, Case Studies, Blog,
+Pricing. Putting Model Directory in the top menu means one of those comes
+out, and the one the rules would drop is **Pricing**. I'm not making that
+trade on your behalf. The alternative — what I'll do unless you say
+otherwise — is to put Model Directory in the footer's resources group,
+alongside News, and rely on the homepage teaser section for prominence. If
+you'd rather it were in the top menu, tell me which of the eight you'd
+sacrifice, or whether you'd rather the menu simply grew to nine.

@@ -2316,3 +2316,54 @@ current `site_specs` aspects (no `social_proof`). **Cheap check: before treating
 compare it to your investigation lag.** Same 24h-pruning trap that made
 `bugs_open/044`'s dormant-agent sweep over-flag `fix-proposer` — the recurrence
 is the point. Family: absence-is-not-evidence, retention variant.
+
+**2026-07-25 — built and refuted two theories about a parked work item while the
+row's own `summary` column named the mechanism in plain text.** Re-queued page
+rebuilds on fundamentallyai.com kept flipping to `unresolved`. I read
+`reconcile_superseded_reviews_action.go` (predicate is `needs_human_review`, mine
+were `triaged` — refuted), then the two-strike rule in
+`load_work_item_actions.go:1041` (counts terminal rows per `item_key`; these had
+none — refuted), then wrote up "single-flight per site" as the surviving working
+theory and told the owner so. The actual answer was
+`[stale: triaged 48h+] [stale: triaged 48h+] Build index page (not_built)` —
+**stored in the row I had been SELECTing from all along**, naming both the
+mechanism and its rule, twice. One `grep -rn "stale: triaged"` reached the writer
+in seconds: a `scheduled_tasks.pre_query` that keys on `created_at` instead of
+time-in-state (`bugs_open/070`), which is why no amount of Go-reading would ever
+have found it. **Cheap check: read every column of the row whose fate you are
+explaining — `summary`, `status`, `attempt_count`, `claimed_at` — before reasoning
+about which code moved it. A mechanism that annotates its own work has already
+answered the question.** Two corollaries I got wrong for free: my `SELECT`s had
+been truncating `summary` with `left(...,50)` for brevity, cutting off the very
+prefix that mattered; and I never asked whether the mover was code at all —
+platform logic lives in DB config too, so "not in the Go" is not "not in the
+system". Cost: ~2 hours of the owner's rebuild sequence run by hand, one
+incorrect mechanism stated to the owner (corrected same session), and a NOTES
+entry that had to be rewritten. Family: annotation-names-the-mechanism,
+truncated-your-own-evidence, config-not-code.
+
+**2026-07-25 — reported "all three surfaces live" from a PARENT item's status
+while the child that builds one of them had failed three times.** The
+model-directory arc's read-out to the owner named three delivered surfaces on
+ai-agent-orchestration.com: the listing page, the published JSON, and a
+**homepage snippet**. The first two were real. The third never existed: the
+gap-planner's child item (`content_rewrite`, "Add content to index",
+`add_sections:["model-directory"]`) had gone `failed` at 16:28:31Z the previous
+afternoon — `attempt_count` 3/3, `error = "Claim timed out — handler pod likely
+died"` — killed by the very chassis roll I was shipping. What I actually
+observed was the **parent** `missing_model_directory_section` item going
+`complete`, which it does when the gap PLAN is applied, not when the section is
+built. **Cheap check: `curl -s <url> | grep -c <component-slug>` — one second,
+and it returns 0.** I had already fetched the page's sibling surfaces by curl
+that same session; I just never fetched the one whose status looked green.
+Family: status-is-not-artefact (`016b` says this in as many words), plus a new
+variant worth naming — **parent-complete ≠ child-shipped**: in a planner→handler
+chain the parent's terminal status reports only that work was *emitted*. Second
+call wrong the same morning, same root habit: I wrote that the open-weight
+research run "produced no distinct entities" and reasoned about why, from a
+registry snapshot taken while its claims were still landing — the live count was
+27 entities across seven owners including all four open-weight vendors. Cost:
+one wrong sentence in a delivery report to the owner, one speculative
+explanation of a non-existent blind spot committed to NOTES, and a day in which
+the flagship section the owner asked to be *prominent* was absent from the
+homepage. Family: status-is-not-artefact, measured-mid-flight.

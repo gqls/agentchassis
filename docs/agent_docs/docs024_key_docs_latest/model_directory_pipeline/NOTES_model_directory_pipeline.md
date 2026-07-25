@@ -490,3 +490,89 @@ find-sites query requires opt-in flag AND a deployed page carrying the
 component AND a non-empty registry, so it idles harmlessly until the
 auto-created page ships. First SUMMARY written (genuine milestone:
 end-to-end proof with live data).
+
+---
+
+**2026-07-25 morning — two corrections to yesterday's read-out, and a real
+gap it was hiding.**
+
+> **CORRECTED 2026-07-25: the open-weight run DID land.** Yesterday's entry
+> says it produced "NOT distinct Meta/Mistral/DeepSeek entities" and
+> speculated about aggregator-quote verification failure. Wrong: I read the
+> registry before that run's claims were registered. Live state this
+> morning — `directory_entities` 27 active models / `directory_claims` 48
+> current+found — spans **seven owners**: OpenAI 10, Google 7, Anthropic 4,
+> DeepSeek AI 2, Mistral AI 2, Meta 1, Alibaba/Qwen 1. There is no
+> open-weight blind spot to chase. The habit this indicts: calling a
+> yield from a snapshot taken while the pipeline was still running, then
+> writing the explanation before the measurement.
+> ```sql
+> SELECT e.owner, count(DISTINCT e.id),
+>        count(c.id) FILTER (WHERE c.is_current AND c.status='found')
+> FROM directory_entities e LEFT JOIN directory_claims c ON c.entity_id=e.id
+> WHERE e.kind='model' AND e.status='active' GROUP BY e.owner;
+> ```
+
+> **CORRECTED 2026-07-25: "all three surfaces live" was wrong — the
+> homepage snippet never shipped.** The gap-planner's child item
+> `34d578b5-5e49-4870-8357-aaf620f3e536` (`content_rewrite`, "Add content to
+> index", `add_sections: ["model-directory"]`, handler `page-build-handler`)
+> ended **`failed`** at 2026-07-24 16:28:31Z — `attempt_count` 3/3,
+> `error = "Claim timed out — handler pod likely died"`, claimed 16:08:42Z,
+> i.e. straight through the v1.0.1155 roll. I saw the *parent*
+> `missing_model_directory_section` item go `complete` (it completes when the
+> gap plan is applied, not when the section is built) and read that as the
+> section shipping. **Parent-complete ≠ child-shipped**, and this is exactly
+> the "trust the rendered artefact, not the status" rule I have written down
+> twice. The check that would have caught it takes one second:
+> `curl -s https://ai-agent-orchestration.com/ | grep -c model-directory` → 0.
+> Requeued it this morning (status→triaged, attempt_count→0) — a claim
+> timeout during a rollout is transient infra, not a rejected plan.
+
+**New finding — the flagship page is in no navigation at all.**
+`/model-directory.html` is `active`/`deployed` with `in_header=f`,
+`in_footer=t`, `nav_label='Model Directory'`, but `site_nav_items` has **no
+row for it** (every nav row on this site was seeded 2026-05-01 and has never
+been rebuilt). So the page is reachable only by typing the URL — not from
+the header, not from the footer's resources group where `/news.html` sits.
+The site's own `nav_drift` check would catch it, but the open item
+(`9aa51f90…`, still `detected`) was raised 2026-07-24 13:59, ~10 minutes
+*before* the page existed, and names only `tool-ai-agent-roi-estimator`.
+Fix path is the platform's own: triage that item → `nav-updater` →
+`populate_nav_tables` (rebuild from `pages` flags) → site components + JS
+snippets → rerender items for every deployed page.
+
+**Simulated the rebuild before firing it** (`classifyPagesForNav`,
+`populate_nav_tables_action.go:278`), because a nav rebuild is a
+`DELETE FROM site_nav_items WHERE site_id=$1` followed by a repopulate — it
+replaces the header wholesale, and the stored order dates from May while
+`pages.nav_order` has moved since. Result: **header comes out identical** to
+what is live (Home, Services, About, Tools, Contact, Case Studies, Blog,
+Pricing). Working: tier-1 names (index/services/tools/about/contact) sort
+first by `nav_order` → 1,2,4,5,7; tier-2 (case-studies 3, blog 6, pricing
+100) follow; the four `/tools/…` child-URL pages are skipped regardless of
+their `in_header=true` flags. Eight candidates, `max_header_items=8` — an
+exact fit, and therefore a knife-edge one.
+
+**The header-slot trade-off is an owner call, not mine.** With the cap at 8
+and 8 tier-1/tier-2 pages already qualifying, putting Model Directory in the
+*header* (`in_header=true`) necessarily evicts the lowest-ranked tier-2
+page, which is **Pricing** (`nav_order` 100). Leaving `in_header=false` puts
+it in the footer resources group next to News — visible everywhere, but not
+prominent in the sense the brief asked for. Not silently trading a pricing
+link for a directory link on a commercial site; asked the owner. The
+homepage section (requeued above) delivers prominence at no such cost, which
+is why it goes first.
+
+**Not a bug — the two JSON files differ by design, and the difference looked
+like data loss.** `data/model-directory.json` is the **homepage snippet**
+feed: `max_items` default 12, so it shows 12 of 27 ordered by
+`updated_at DESC` (hence: newest runs' models, no OpenAI/Anthropic).
+`data/model-directory-full.json` is the listing feed: `full_max_items`
+default 50, all 27, and `render_model_directory_action.go` only emits it
+when a page actually carries the `model-directory-listing` component
+(`hasListingPage`). Both verified live this morning: 12 and 27 entries,
+`updated_at 2026-07-25T02:21:49Z`; the server-rendered page shows all seven
+vendors (GPT-5 ×12, Claude ×9, Gemini ×7, DeepSeek ×8, Mistral ×8, Qwen ×5,
+Llama ×4 occurrences) plus its freshness script at
+`/tools/assets/model-directory-listing.js` (HTTP 200, 2,832 bytes).
