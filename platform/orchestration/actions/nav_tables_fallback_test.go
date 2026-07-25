@@ -153,3 +153,32 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 		}
 	})
 }
+
+// ---------------------------------------------------------------------------
+// navPriorityTier — the directory registers rank as hubs, not leftovers
+// ---------------------------------------------------------------------------
+//
+// The property: a directory page must sort with the content hubs, not behind
+// them. Tier decides who survives max_header_items truncation, so a tier-3
+// directory is one newly-promoted page away from silently falling out of a
+// header the owner deliberately put it in. Tested rather than trusted because
+// the failure is invisible — nothing errors, the link just stops being there.
+func TestNavPriorityTierRanksDirectoryPagesAsHubs(t *testing.T) {
+	for _, name := range []string{"model-directory", "adoption-tracker", "protocol-tracker"} {
+		if got := navPriorityTier(name, name); got != 2 {
+			t.Errorf("navPriorityTier(%q) = %d, want 2 (content hub)", name, got)
+		}
+	}
+
+	// Guard the boundaries the same call decides, so a future edit to the maps
+	// cannot quietly promote or demote the surrounding cases either.
+	if got := navPriorityTier("index", "content"); got != 1 {
+		t.Errorf("navPriorityTier(index) = %d, want 1", got)
+	}
+	if got := navPriorityTier("blog", "blog-index"); got != 2 {
+		t.Errorf("navPriorityTier(blog) = %d, want 2", got)
+	}
+	if got := navPriorityTier("some-landing-page", "content"); got != 3 {
+		t.Errorf("navPriorityTier(some-landing-page) = %d, want 3 (secondary)", got)
+	}
+}

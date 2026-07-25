@@ -400,6 +400,18 @@ func navPriorityTier(nameLower, pageType string) int {
 		"blog": true, "news": true, "case-studies": true, "use-cases": true,
 		"pricing": true, "how-we-work": true, "portfolio": true,
 		"products": true, "solutions": true, "industries": true,
+		// The directory registers (model_directory_pipeline). These are hub
+		// pages in exactly the sense this tier means — a listing of many
+		// entries, continuously updated, that a visitor navigates TO rather
+		// than lands on. Ranked explicitly because the alternative is not
+		// neutral: as tier 3 they sort behind every tier-2 page and are the
+		// first thing dropped when max_header_items truncates, so a site that
+		// deliberately promoted its directory into the header would silently
+		// lose it again the next time any other page gained in_header. That
+		// is a real sequence — ai-agent-orchestration.com's header was exactly
+		// full on 2026-07-25 and the directory only fitted because the owner
+		// moved Pricing down to make room.
+		"model-directory": true, "adoption-tracker": true, "protocol-tracker": true,
 	}
 	// Also tier 2: the section-index family (blog-index, entity-directory,
 	// section-index) — listing/hub pages.
