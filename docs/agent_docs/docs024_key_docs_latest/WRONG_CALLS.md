@@ -2297,3 +2297,22 @@ after 3×REVISE on the emitter fix). Reading the sibling thread's council
 lessons before authoring a submission — or one pass over the submission asking
 "does every edit describe the repo's current state?" — costs a minute.
 **Cost:** one council round (~35 min queue + run) + the R2 authoring.
+
+**2026-07-24 — called a section drop "UNKNOWN" when the record had simply been
+pruned.** `bugs_open/040-partial-build` carried, in my own CORRECTED block of
+2026-07-20, the claim that dartsonline's dropped `testimonials` was **not** a
+`skip_section` deferral because *"it is not in `sections_deferred` or
+`sections_skipped`"*. That check was worthless and I did not notice: those lists
+live **only** in the orchestration's `collected_data`, which `database-cleanup`
+prunes at ~24h, so by the time I looked the record of a *correctly working*
+mechanism had evaporated. I read absence-of-record as absence-of-mechanism and
+wrote UNKNOWN into a handoff, where it sat for four days as an open mystery —
+and `bugs_closed/041` had already stated the true answer in its "What is NOT this
+bug" section, which I had read. The mechanism was confirmed on 2026-07-24 by
+grounding it in state that does NOT expire: the component's `input_schema`
+(`required:true, min_items:1, on_missing:skip_section`) against the site's
+current `site_specs` aspects (no `social_proof`). **Cheap check: before treating
+"not in the log/record" as evidence, ask what that record's RETENTION is and
+compare it to your investigation lag.** Same 24h-pruning trap that made
+`bugs_open/044`'s dormant-agent sweep over-flag `fix-proposer` — the recurrence
+is the point. Family: absence-is-not-evidence, retention variant.
