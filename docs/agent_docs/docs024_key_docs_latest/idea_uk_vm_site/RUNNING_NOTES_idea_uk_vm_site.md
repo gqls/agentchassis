@@ -1898,3 +1898,38 @@ to the resolver's hard cap (24); guard enforces the no-op for the other guide-li
 after). VERIFIED LIVE 16:05: all 9 cards, journey order — creating-ideas → building-it →
 testing-it → user-acceptance → feedback-loops → patents → copyright → funding-ways →
 funding-sources.
+
+### §X.16 — funding-fit finder (second free tool) + /report.html copy pass (2026-07-25 late)
+
+Owner: *"please go ahead with both."* Both live.
+
+**COPY PASS (`sql/p4_16`)** — light by design, now the engine matches the promise (extended binary
+deployed & verified running). Two edits only: one paragraph appended to the body ("The report does
+not stop at the idea you sent…" — the further-ideas half: cross-vendor critique, live-web checks,
+ranked survivors each with its own cheap test and sources, plus what didn't make the cut); one
+sentence extended in the closing CTA ("…with sources you can check — plus further ideas for your
+business, tested the same way"). Sections verified UNLOCKED before editing (a locked section's
+rerender is discarded by save_page_sections — the p4_08 lesson applied in the other direction).
+Pre-checks that turned out fine: the info-cards' `/report` links serve 200 (a tool route, not a
+404), and the stale leopardess email in the form section's ambient blob does not render.
+VERIFIED LIVE: both new texts on the page.
+
+**FUNDING-FIT FINDER (`sql/p4_17`, locks `p4_18`)** — /tools/funding-fit/index.html + new
+`funding-fit` component (56548044). Second application of the gate-before-score rule, exactly as
+014 predicted it would be needed: **two dispositive answers checked before anything composes** —
+GATE 1 "money is for living costs" → the honest almost-nothing-funds-runway verdict (a sum-score
+would route a runway-seeker to Innovate UK); GATE 2 "no evidence yet" → buy evidence cheaply,
+funnelled at the testing/building guides + the report. **Past the gates the answers COMPOSE a
+route map** (grants / equity / debt / customer money) rather than picking one winner — funding
+routes are not mutually exclusive, which is the second reason a scored quiz is the wrong machine.
+Q7 is CHECKBOXES (18–30 / social purpose / devolved nation — not mutually exclusive; validation
+requires only the six radios). Tension detection included (never-equity + must-be-huge → "one of
+the two normally has to give"). Same content policy as the funding guides (durable institutions,
+zero amounts, free-front-doors, paid-intermediary warning) and same delivery posture as
+patent-check (inline JS, static-fallback-free schema, template parse-tested before insert, nginx
+already probed). VERIFIED LIVE: 7 questions, 20 radios + 3 checkboxes, gating JS present
+unescaped, 0 unreplaced actions. page_type='tool' → /tools.html lists it at nav_order 20
+(report → patent-check → funding-fit → audience-check).
+
+idea.uk now: 9 guides + 3 free-ish tools (2 client-side finders + the audience-check taster) +
+the paid report, everything cross-funnelled, all authored surfaces locked, all listings derived.
