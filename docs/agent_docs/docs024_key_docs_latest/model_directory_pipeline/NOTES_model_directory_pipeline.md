@@ -604,3 +604,27 @@ path, and "I grepped and found nothing" is not the same as "there is no
 path". Filed: correlation `726c2439-b3ff-4a8d-a7a6-fc69d4ae7edd`, symptom
 states the mechanism and names the symbols, asserts no counts. A REFUTED
 verdict here is the cheap outcome and would be worth the run on its own.
+
+**2026-07-25 — Phase E platform change APPROVED by the council; and a trailer
+put on the wrong commit.**
+
+Submission `c67ecb24-eb0e-49a0-b673-2b055fdf3f11` (the kind-driven
+generalisation of the register's read/publish/discovery legs) came back
+**APPROVED** at 09:05:39, about 13 minutes after submission — well inside the
+~30-minute budget, and first round.
+
+> **CORRECTION, recorded here because it cannot be corrected in git:** I put
+> the `Council-Reviewed: c67ecb24-…` trailer on commit **`1d61675ec`**, which
+> is `bugs_open/073` — a bug file the council never saw. The verdict covers
+> **`f1dafb6e4`**, the Phase E platform commit (the eight files listed in the
+> submission). Forward-only means the bad trailer stays, so: the 098 coverage
+> report's commit↔verdict join will attribute this verdict to the wrong
+> commit, `f1dafb6e4` will list as un-reviewed, and both those readings are
+> wrong. The cause was ordinary — I wrote the trailer into the next commit I
+> happened to be making, rather than the one it belonged to, and the platform
+> commit had already gone in an hour earlier without it. The habit that
+> prevents it: submit, then hold the commit until the verdict, which is
+> exactly what the workstream memory note "holding work uncommitted for a
+> verdict" says NOT to do — so the real answer is that a verdict arriving
+> after its commit needs a deliberate follow-up commit that names the reviewed
+> SHA, not a trailer of convenience on whatever is next in the queue.
