@@ -99,6 +99,29 @@ not just in the footer — for paid research the real exposure isn't a regulator
 it's someone saying they relied on us and lost money. I'll draft it for you to
 approve rather than invent your legal position for you.
 
+**Update, same day — good news on one domain, a job for you on the other.**
+
+The oxenunity.com page is written and deployed. It's live in storage — I've
+confirmed the file is there — and the deploy pipeline ran clean in twenty-one
+seconds.
+
+But I was wrong about the Cloudflare job being one task covering both domains, and
+the difference matters. I went and looked rather than assuming, and the two
+domains are in opposite states.
+
+**oufe.com is already fully wired up.** Its nameservers are ours, and when I asked
+it for a page it answered with our own system's error message saying it looked in
+the right place and found nothing there — which is exactly right, because we
+haven't built anything yet. So the thing I flagged as a risk, the step that left
+fundamentallyai.com invisible after a perfectly good build, simply cannot happen
+here. The moment content exists, oufe.com serves it. Nothing for you to do.
+
+**oxenunity.com is not with us at all.** It's still sitting at the registrar and
+currently redirects to a parking page. So the page I've built for it is finished
+and sitting in storage, and it will stay unreachable at its own address until the
+domain is moved onto Cloudflare and pointed at our system. That's now the only
+infrastructure job in this whole workstream, and it's a small one.
+
 **One thought to leave you with.** Everything in this field is stated with total
 confidence, and a good deal of it is wrong. We have machinery that goes and checks
 its own claims against the source document, and a track record of catching and

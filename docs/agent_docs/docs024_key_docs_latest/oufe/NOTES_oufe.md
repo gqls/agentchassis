@@ -65,3 +65,53 @@ map would seed generic financial-markets / interest-rates keywords with a separa
 news page — the opposite of a specialist restructuring publication, and it spends
 credits per fetch. There is no `restructuring` / `insolvency` / `corporate-finance`
 vertical in the map; adding one is a fleet-wide Go change.
+
+---
+
+## 2026-07-25 — oxenunity.com shipped to B2; the two domains are in OPPOSITE infra states
+
+Page authored (`sites/oxenunity.com/index.html`, 111 lines, hand-written), pushed
+to `gqls/sites` master, **Deploy to B2 action completed success in 21s**, object
+confirmed present:
+```
+$ b2 ls b2://portfolio-sites/oxenunity.com/
+oxenunity.com/index.html
+```
+The local `sites` checkout was **1,532 commits behind origin** — fast-forwarded
+before committing. Worth checking every time; this repo takes rerender commits
+from every session in the fleet all day.
+
+**CORRECTION to my own plan (PLAN §6 item 2 / the owner checklist).** I had
+written the Cloudflare wiring as one blocking step covering both domains, on the
+fundamentallyai precedent. Measured, it is not one step and it does not cover both:
+
+| | oufe.com | oxenunity.com |
+|---|---|---|
+| NS | `leah` + `alexis.ns.cloudflare.com` (our fleet pair) | `*.ns.porkbun.com` (registrar) |
+| A | 104.21.85.181 / 172.67.208.225 (Cloudflare) | 207.207.210.36 / .50 |
+| Serving | **our Worker, already bound** | openresty 302 → `oxenunity-com.l.ink` (parking) |
+| Needs | **nothing — content only** | full zone move + Worker route |
+
+The proof that oufe.com's Worker route is already bound is its 404 **body**, which
+is our own Worker's error JSON, not a Cloudflare 404 page:
+```json
+{"error":"B2 returned error","objectKey":"oufe.com/index.html","status":404,
+ "body":"…<Code>NoSuchKey</Code>…"}
+```
+It is looking in exactly the right bucket prefix and finding nothing there, which
+is correct — `b2 ls b2://portfolio-sites/oufe.com/` is empty. **So the failure mode
+that left fundamentallyai.com dark after a successful build cannot happen to
+oufe.com: the moment content lands in B2, it serves.** That removes the only infra
+item from oufe's critical path.
+
+oxenunity.com is the reverse: the page is built and in the bucket, and it is
+unreachable at its own domain until the zone moves to Cloudflare and the
+portfolio-sites Worker route is bound to `oxenunity.com/*` and `*.oxenunity.com/*`.
+Owner step, and now the *only* infra step in this workstream.
+
+**Misstep worth logging:** I tried to prove the deployed page by sending
+`-H "Host: oxenunity.com"` at oufe.com's Cloudflare edge, expecting the Worker to
+key off the Host header the way its code does. Cloudflare returned **403 at the
+edge** — host/SNI mismatch is rejected before any Worker runs. The check was
+never going to work, and a 403 there says nothing about the Worker. `b2 ls` was
+the honest check and I should have gone there first.
