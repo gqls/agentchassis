@@ -1487,3 +1487,44 @@ same lesson as the range-vs-CTA split in the 2026-07-20 entry, arriving from the
   saved back as templates. Both are `data-runtime-fill="true"` vonc components, which is the vonc
   workstream's own documented landmine ("runtime-fill templates are rendered artefacts") — owned
   there, not filed as a competing bug. The lint reports them so they stay visible.
+
+## Addendum, same session — how to actually make a page re-render, and what did not work
+
+Three things bit, in order, trying to watch the 6 dead controls leave
+`leopardessconsulting.co.uk/who-we-help.html`:
+
+1. **The 049b script's default is assemble-only, and that cannot pick up a template change.**
+   With no `reason` the `page-rerender` workflow takes `else_step -> render_page`, which stitches
+   the **stored** `rendered_html` + chrome. The orchestration completed in ~6 minutes and changed
+   nothing, correctly. The section-level path is `check_rerender_mode -> rerender_sections`
+   (`rerender_page_sections_action.go`), which re-renders every section from stored `content_data`
+   + freshly resolved fields through the CURRENT `html_template`, **with no LLM call**.
+2. **The reason must be `spec.reason`, not a top-level `reason`.** Read from the live step config:
+   `condition = "input_data.spec.reason == 'image_landed' OR … 'section_data_resolved' …"`. I
+   implemented it as a top-level key first, on the strength of the action's own doc comment
+   ("gated by spec.reason") without reading the step. A top-level `reason` is silently ignored —
+   you get assemble-only again and lose a full queue round. `049b_deploy_single_page.sh` now emits
+   `"spec":{"reason":"…"}` and carries the query that proves it.
+3. **Two direct kcat fires carrying an extra `input_data` key produced no `orchestration_states`
+   row at all** in 25+ minutes, while the bare one produced and completed in ~6. `[UNVERIFIED]`
+   whether that is latency or payload rejection — I did not isolate it, and the chassis pod's log
+   carries no line for **any** of the three correlations, including the one that worked, so the
+   evidence would be in the spawned agent pod (which is GC'd). Recorded rather than diagnosed.
+
+**The route that the platform itself uses, and the one to prefer:** insert a `page_rerender`
+`site_work_items` row with the reason in `spec` and let `build-pipeline-trigger` claim it.
+`source` is **NOT NULL** (so is `created_by`) — the insert fails without it.
+
+```sql
+INSERT INTO site_work_items (site_id, item_type, status, priority, source, created_by, summary, spec)
+VALUES ('<site>', 'page_rerender', 'triaged', 1, 'bugfix-023-gate-proof', 'operator:bugfix_023',
+        '<why>', '{"domain":"…","page_id":"…","filename":"x.html","page_name":"x","reason":"section_data_resolved"}'::jsonb);
+```
+
+Then check where you rank with the dispatcher's OWN query (016b §9,
+*"the build dispatcher picks ONE site per tick ordered by `site_id`"*) rather than guessing:
+`SELECT DISTINCT ON (wi.site_id) … ORDER BY wi.site_id, wi.priority ASC LIMIT 1`. Leopardess sorts
+**second** of five, so the item is queued, not starved — `priority` only breaks ties *within* a
+site. At the time of writing `build-pipeline-trigger` was not advancing at all (one
+`agent-build-dispatch-loop` pod Running 20m, one item touched fleet-wide in 10 minutes), which is
+`bugs_open/030`/`029`, not this bug.
