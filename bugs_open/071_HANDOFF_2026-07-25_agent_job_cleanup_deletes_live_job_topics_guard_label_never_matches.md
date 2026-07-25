@@ -213,7 +213,15 @@ step.** Council seats run in-process (zero `awaited_requests` rows), so the
 step died with the pod and nothing resumes it — a first-hand live instance of
 the 003-class fragility (F3 durable timers), observed from the submitter's
 side this time. Round 3 (orch `8da7ea0e`, content identical to round 2)
-resubmitted 13:53Z; verdict lands under the corr above.
+resubmitted 13:53Z: **APPROVED** ("approved with 2 advisory objection(s) —
+none high-severity"; 7 approve, 8 abstained via relevance gating). The two
+advisory objections — namespace-wide `pods delete` on the shared SA, and the
+idle branch being harness-only-verified — are both already carried as open
+items in this file (dedicated-SA residual; idle-window observation). The
+shipping commits (`bc1f12718`, `5540d203e`) predate the verdict
+(advisory-alongside path), so they carry the corr in their messages but no
+`Council-Reviewed:` trailer — the 098 report will list them as unreviewed;
+this paragraph is the join.
 
 **Build-timing note for residual 1:** v1.0.1159 (the 10:36:45Z roll) was
 built ONE MINUTE before `5540d203e` landed (10:37:31Z — the commit stamp
