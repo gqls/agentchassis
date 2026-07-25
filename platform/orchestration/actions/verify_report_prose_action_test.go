@@ -136,6 +136,40 @@ func TestProseGateFormattingToleranceAndContext(t *testing.T) {
 	}
 }
 
+// TestProseGateRejectsUnassessedVendor covers the plain-word half of name
+// fabrication: "Piab" carries no digits, so modelNumberRe cannot see it, and
+// check_claims:false means validate_page_content is not backstopping report
+// pages either. Padding a shortlist with a vendor we never scored is the
+// failure this closes.
+func TestProseGateRejectsUnassessedVendor(t *testing.T) {
+	scoring := realScoring(t, 2.5, 0)
+	prose := proseWith(
+		"The requirement is 200.0 N.",
+		"You might also look at Piab for vacuum options.")
+	v := verifyReportProse(prose, scoring, nil)
+	if len(v) == 0 {
+		t.Fatal("unassessed vendor Piab passed the gate")
+	}
+	if !strings.Contains(strings.Join(v, "|"), "Piab") {
+		t.Errorf("violation should name the vendor: %v", v)
+	}
+
+	// Case must not launder it.
+	lower := proseWith("The requirement is 200.0 N.", "consider piab as well.")
+	if v := verifyReportProse(lower, scoring, nil); len(v) == 0 {
+		t.Error("lower-cased vendor passed the gate")
+	}
+
+	// A vendor that IS in the assessed index must still pass — the list is a
+	// trace requirement, not a ban, and must relax as the index grows.
+	ok := proseWith(
+		"The requirement is 200.0 N.",
+		"The Robotiq 2F-85 publishes 20 to 235 N of gripping force.")
+	if v := verifyReportProse(ok, scoring, nil); len(v) != 0 {
+		t.Errorf("indexed vendor Robotiq rejected: %v", v)
+	}
+}
+
 // --- truncation guard --------------------------------------------------------
 
 // The marker is a SIBLING of the prose path, derived rather than configured so
@@ -164,8 +198,8 @@ func TestHeadroomChartDeterministicAndHonest(t *testing.T) {
 	var cands []assessment
 	remarshal(t, result["candidates"], &cands)
 
-	a := renderHeadroomChart(cands)
-	b := renderHeadroomChart(cands)
+	a, _ := renderHeadroomChart(cands)
+	b, _ := renderHeadroomChart(cands)
 	if a != b {
 		t.Fatal("chart SVG is not byte-stable across runs")
 	}
@@ -175,10 +209,16 @@ func TestHeadroomChartDeterministicAndHonest(t *testing.T) {
 	if strings.Contains(a, "<script") {
 		t.Error("chart must be script-free")
 	}
-	// A candidate with no comparable capacity figure must not get a bar.
+	// A candidate with no comparable capacity figure must not get a bar — and
+	// must be REPORTED as omitted, so a figure lost upstream cannot hide
+	// behind the same silence as one that was never published.
 	zeroHeadroom := []assessment{{Name: "Ghost", Verdict: "Insufficient data", Headroom: 0}}
-	if svg := renderHeadroomChart(zeroHeadroom); svg != "" {
+	svg, omitted := renderHeadroomChart(zeroHeadroom)
+	if svg != "" {
 		t.Error("chart drew a bar for a candidate with no capacity figure")
+	}
+	if len(omitted) != 1 || omitted[0] != "Ghost" {
+		t.Errorf("omission not reported to the caller: %v", omitted)
 	}
 }
 
@@ -200,6 +240,8 @@ func TestRenderReportSection(t *testing.T) {
 		"manufacturer specification",        // provenance anchors
 		"data-component=\"report-dossier\"", // component contract
 		"<svg",                              // the chart made it in
+		"not engineering advice",            // proximate disclaimer, near the top
+		"report-disclaimer",
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("rendered report missing %q", want)

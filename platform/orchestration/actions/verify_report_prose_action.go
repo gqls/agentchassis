@@ -140,6 +140,31 @@ func VerifyReportProseAction(ctx context.Context, params ActionParams) (interfac
 	return map[string]interface{}{"verified": true, "sections": proseSectionCount}, nil
 }
 
+// knownVertexVendors is the industrial gripper/vacuum vendor field as it
+// realistically exists — the names a writer reaches for when it pads a
+// shortlist. It is NOT an allowlist: a name here is a violation UNLESS the
+// scored candidate set (or the fact block / request context) actually contains
+// it, so the check relaxes on its own as the product index grows. Six of these
+// are indexed today; the rest are precisely the fabrication targets.
+//
+// This closes the plain-word half of the name-fabrication gap the council's
+// compliance seat raised at high severity (correlation 7ed137d1): modelNumberRe
+// catches an invented SKU because a SKU carries digits, but "we also considered
+// Piab" carries none and previously passed untouched — and check_claims:false
+// on report pages means validate_page_content's scanner is not backstopping it.
+//
+// What it still does not cover, stated rather than absorbed: a wholly invented
+// vendor name that appears on no list (e.g. "Norgren Robotics"). That residual
+// is left to the writer prompt and is the reason the prompt must forbid naming
+// any vendor absent from the fact block.
+var knownVertexVendors = []string{
+	"Applied Robotics", "ATI Industrial Automation", "Bimba", "Camozzi",
+	"Coval", "Destaco", "Effecto", "Festo", "Gimatic", "Joulin", "Kosmek",
+	"Millibar", "OnRobot", "Piab", "Robotiq", "Röhm", "Schmalz", "Schunk",
+	"SMC", "Soft Robotics", "Sommer-automatic", "Vaccon", "Weiss Robotics",
+	"Zimmer Group",
+}
+
 // truncationMarkerField resolves the collected_data path of the prose step's
 // __truncated marker. An explicit override wins; otherwise the marker is the
 // sibling of prose_field's terminal segment, per markerFieldFor. A prose_field
@@ -229,6 +254,28 @@ func verifyReportProse(prose, scoring map[string]interface{}, contextValues []st
 				violations = append(violations, fmt.Sprintf("%s names model-like token %q not in the candidate set or fact block", key, tok))
 			}
 		}
+
+		// (2b) A vendor from the wider field, named without being assessed.
+		// Digit-free, so the SKU check above cannot see it.
+		for _, vendor := range knownVertexVendors {
+			if !containsFold(text, vendor) {
+				continue
+			}
+			if containsFold(allowedText, vendor) {
+				continue
+			}
+			traced := false
+			for _, n := range candidateNames {
+				if containsFold(n, vendor) {
+					traced = true
+					break
+				}
+			}
+			if !traced {
+				violations = append(violations, fmt.Sprintf(
+					"%s names vendor %q, which is not in the assessed index — the report may only discuss candidates it scored", key, vendor))
+			}
+		}
 	}
 
 	// (3) the honest no-match contract
@@ -253,6 +300,12 @@ func verifyReportProse(prose, scoring map[string]interface{}, contextValues []st
 
 	sort.Strings(violations)
 	return dedupeStrings(violations)
+}
+
+// containsFold is a case-insensitive strings.Contains — a vendor named in
+// lower case is the same fabrication as one named in title case.
+func containsFold(haystack, needle string) bool {
+	return strings.Contains(strings.ToLower(haystack), strings.ToLower(needle))
 }
 
 // numericSet extracts every numeric token from the fact block, normalised.

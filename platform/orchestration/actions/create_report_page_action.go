@@ -244,6 +244,16 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 // ============================================================================
 // Deterministic report rendering. All scoring-derived text is escaped; prose
 // sections were verified upstream and are inserted as HTML.
+//
+// NO Go template engine is used here or in report_charts.go — every byte is
+// built with strings.Builder and fmt.Fprintf. This is deliberate and load
+// bearing: text/template renders a missing field as empty with no error
+// (missingkey=zero), which on this page would silently understate a report
+// whose entire value is "every number traces or the run fails". String
+// building has no such mode — a missing figure is either an explicit
+// "Not published by manufacturer" or a type-checked zero we test for. Keep it
+// that way; introducing a template here reopens that hole (council 7ed137d1,
+// bug_historian: the platform's most recent unpatched root cause).
 // ============================================================================
 
 func renderReportSection(scoring, prose map[string]interface{}) (string, error) {
@@ -252,6 +262,21 @@ func renderReportSection(scoring, prose map[string]interface{}) (string, error) 
 
 	b.WriteString(`<section class="section report-dossier" data-component="report-dossier"><div class="container">`)
 	b.WriteString(`<h1 class="section__title">Gripper Selection &amp; Integration Dossier</h1>`)
+
+	// Proximate disclaimer. Conspicuous and next to the deliverable, not
+	// relegated to a footer or a legal page: this report is machine-generated,
+	// it reasons only over the figures manufacturers publish, and it is
+	// information rather than engineering sign-off. Required by the council's
+	// compliance seat for this page type (correlation 7ed137d1).
+	b.WriteString(`<p class="report-disclaimer" role="note">` +
+		`<strong>Read this first.</strong> This dossier is generated automatically ` +
+		`from manufacturer-published specifications, using the physics shown below. ` +
+		`It is information to speed up your selection — not engineering advice and not a ` +
+		`sign-off. Figures are only as current as the sources cited at the foot of this ` +
+		`page, unpublished figures are marked as such and never estimated, and no ` +
+		`calculation here can see your actual part, surface finish or duty cycle. ` +
+		`Verify every figure against the manufacturer's datasheet and validate on your ` +
+		`own parts before you buy.</p>`)
 
 	// Request echo panel.
 	if req, ok := scoring["request"].(map[string]interface{}); ok {
@@ -302,8 +327,23 @@ func renderReportSection(scoring, prose map[string]interface{}) (string, error) 
 	if len(cands) == 0 {
 		return "", fmt.Errorf("scoring output carries no candidates — refusing to render an empty report")
 	}
-	if svg := renderHeadroomChart(cands); svg != "" {
+	svg, omitted := renderHeadroomChart(cands)
+	if svg != "" {
 		b.WriteString(`<div class="report-chart">` + svg + `</div>`)
+	}
+	// Name what the chart could not plot. A missing bar is honest only if the
+	// reader can see it is missing and why — otherwise a figure lost upstream
+	// is indistinguishable from one the manufacturer never published.
+	if len(omitted) > 0 {
+		b.WriteString(`<p class="report-chart-omissions">Not plotted, because no ` +
+			`comparable capacity figure is published for them: `)
+		for i, name := range omitted {
+			if i > 0 {
+				b.WriteString(`, `)
+			}
+			b.WriteString(esc(name))
+		}
+		b.WriteString(`. Their full assessment is in the cards below.</p>`)
 	}
 
 	// Prose sections (verified upstream by verify_report_prose).

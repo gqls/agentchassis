@@ -16,10 +16,10 @@
 package actions
 
 import (
-	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -146,17 +146,6 @@ func collectOneSite(ctx context.Context, db *sql.DB, log *zap.Logger, s backendS
 		endpoint += "&since=" + url.QueryEscape(since.Time.Add(-2*time.Minute).UTC().Format(time.RFC3339))
 	}
 
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	req.Header.Set("X-Internal-Key", s.statsKey)
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return 0, 0, fmt.Errorf("%s returned %d", s.domain, resp.StatusCode)
-	}
-
 	const upsert = `
 		INSERT INTO intent_events
 		    (engine_event_id, site_id, host, kind, value, ref_host, landing_query, country, event_created_at)
@@ -168,30 +157,32 @@ func collectOneSite(ctx context.Context, db *sql.DB, log *zap.Logger, s backendS
 		sid = s.siteID.String
 	}
 
-	sc := bufio.NewScanner(resp.Body)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for sc.Scan() {
+	feedErr := scanInternalNDJSONFeed(ctx, endpoint, s.statsKey, 30*time.Second, func(line []byte) {
 		var ev collectedEvent
-		if json.Unmarshal(sc.Bytes(), &ev) != nil {
-			continue
+		if json.Unmarshal(line, &ev) != nil {
+			return
 		}
 		if ev.Meta != nil || ev.ID == "" || ev.Host == "" {
-			continue
+			return
 		}
 		scanned++
 		res, execErr := db.ExecContext(ctx, upsert,
 			ev.ID, sid, ev.Host, ev.Kind, ev.Value, ev.RefHost, ev.LandingQuery, ev.Country, ev.CreatedAt)
 		if execErr != nil {
 			log.Warn("intent-collector: upsert failed", zap.String("domain", s.domain), zap.Error(execErr))
-			continue
+			return
 		}
 		if n, _ := res.RowsAffected(); n > 0 {
 			inserted++
 		}
-	}
-	if scErr := sc.Err(); scErr != nil {
+	})
+	if feedErr != nil {
+		var partial *partialStreamError
+		if !errors.As(feedErr, &partial) {
+			return 0, 0, fmt.Errorf("%s: %w", s.domain, feedErr)
+		}
 		// Partial success is fine — next run resumes from the new checkpoint.
-		log.Warn("intent-collector: stream ended early", zap.String("domain", s.domain), zap.Error(scErr))
+		log.Warn("intent-collector: stream ended early", zap.String("domain", s.domain), zap.Error(feedErr))
 	}
 	return inserted, scanned, nil
 }

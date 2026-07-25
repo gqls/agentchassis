@@ -108,10 +108,20 @@ func truncateLabel(s string, max int) string {
 // renderHeadroomChart: capacity/need headroom per candidate, reference lines
 // at 1.0 (bare requirement) and 1.25 (the Marginal threshold the verdicts
 // use). Geometry capped at 3× so one huge gripper doesn't flatten the rest.
-func renderHeadroomChart(cands []assessment) string {
+//
+// Returns the omitted candidate names alongside the SVG. A candidate with no
+// comparable capacity figure gets no bar — correct, because inventing one
+// would be the exact dishonesty this pilot exists to prevent — but a silent
+// skip makes two very different situations look identical: a figure the
+// manufacturer genuinely does not publish, and a figure lost to an upstream
+// fetch or normalisation bug. The caller names the omissions on the page, so
+// the second case is visible to a reader who knows the product (council
+// 7ed137d1, render_guardian + bug_historian: fail loud, not silent).
+func renderHeadroomChart(cands []assessment) (svg string, omitted []string) {
 	var bars []chartBar
 	for _, a := range cands {
 		if a.Headroom <= 0 {
+			omitted = append(omitted, a.Name)
 			continue // no comparable capacity figure — never draw an invented bar
 		}
 		bars = append(bars, chartBar{
@@ -125,5 +135,5 @@ func renderHeadroomChart(cands []assessment) string {
 		"Capacity headroom against your requirement",
 		"Published capacity ÷ computed requirement, per candidate; ≥1.25× clears the marginal band. Bars capped at 3× for scale.",
 		bars, 3.0,
-		map[float64]string{1.0: "requirement (1.0×)", 1.25: "marginal threshold (1.25×)"})
+		map[float64]string{1.0: "requirement (1.0×)", 1.25: "marginal threshold (1.25×)"}), omitted
 }

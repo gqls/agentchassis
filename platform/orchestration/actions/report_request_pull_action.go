@@ -23,12 +23,11 @@
 package actions
 
 import (
-	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"time"
 
@@ -164,17 +163,6 @@ func pullOneIslandSite(ctx context.Context, db *sql.DB, log *zap.Logger, s repor
 		endpoint += "?since=" + url.QueryEscape(since.Time.Add(-2*time.Minute).UTC().Format(time.RFC3339))
 	}
 
-	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-	req.Header.Set("X-Internal-Key", s.pullKey)
-	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
-	if err != nil {
-		return 0, 0, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return 0, 0, fmt.Errorf("%s returned %d", s.domain, resp.StatusCode)
-	}
-
 	// item_key dedup rides idx_swi_dedup (partial unique, non-terminal
 	// statuses); the NOT EXISTS spans ALL statuses so a terminal request is
 	// never resurrected (DESIGN §3 A1).
@@ -188,15 +176,13 @@ func pullOneIslandSite(ctx context.Context, db *sql.DB, log *zap.Logger, s repor
 		    SELECT 1 FROM site_work_items WHERE site_id = $1 AND item_key = $4)
 		ON CONFLICT DO NOTHING`
 
-	sc := bufio.NewScanner(resp.Body)
-	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
-	for sc.Scan() {
+	feedErr := scanInternalNDJSONFeed(ctx, endpoint, s.pullKey, 30*time.Second, func(line []byte) {
 		var r pulledReportRequest
-		if json.Unmarshal(sc.Bytes(), &r) != nil {
-			continue
+		if json.Unmarshal(line, &r) != nil {
+			return
 		}
 		if r.Meta != nil || r.ID == "" || r.Spec == nil {
-			continue
+			return
 		}
 		scanned++
 
@@ -209,7 +195,7 @@ func pullOneIslandSite(ctx context.Context, db *sql.DB, log *zap.Logger, s repor
 		spec["submitted_at"] = r.SubmittedAt
 		specJSON, mErr := json.Marshal(spec)
 		if mErr != nil {
-			continue
+			return
 		}
 
 		res, execErr := db.ExecContext(ctx, insert,
@@ -220,16 +206,21 @@ func pullOneIslandSite(ctx context.Context, db *sql.DB, log *zap.Logger, s repor
 		if execErr != nil {
 			log.Warn("pull_report_requests: insert failed",
 				zap.String("domain", s.domain), zap.String("request_id", r.ID), zap.Error(execErr))
-			continue
+			return
 		}
 		if n, _ := res.RowsAffected(); n > 0 {
 			inserted++
 		}
-	}
-	if scErr := sc.Err(); scErr != nil {
+	})
+	if feedErr != nil {
+		var partial *partialStreamError
+		if !errors.As(feedErr, &partial) {
+			// Transport or status failure: nothing was delivered.
+			return 0, 0, fmt.Errorf("%s: %w", s.domain, feedErr)
+		}
 		// Partial success is fine — the next run resumes from the checkpoint.
 		log.Warn("pull_report_requests: stream ended early",
-			zap.String("domain", s.domain), zap.Error(scErr))
+			zap.String("domain", s.domain), zap.Error(feedErr))
 	}
 	return inserted, scanned, nil
 }
