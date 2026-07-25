@@ -222,3 +222,24 @@ nothing and breaks nothing — it just makes the backlog lie a bit — and how t
 resolve it is a judgement call for whoever owns that check, so I've written down
 the three options rather than picking one. The council verdict, whenever it
 arrives, is advisory and doesn't change any of the above.
+
+**Postscript, same afternoon — the review came back APPROVED, first round.**
+Twelve reviewers, no serious objections. Two asked us to *show* rather than
+*assert* a couple of facts about the code, which is fair.
+
+One reviewer raised a proper concern: that our new check ignores components a
+human has locked, while the original detector doesn't — which would mean a locked
+problem component could let a job pass when it shouldn't. I went and looked. The
+two database queries are **identical, character for character**, and both skip
+locked components. The concern was wrong — but it was wrong because of something
+*we* did: when we quoted the original query as evidence in the submission, we
+shortened it and dropped that very line. The reviewer reasoned perfectly from
+what we showed it. Reviewers can't open the files; they only see what we paste.
+So the rule I'm taking from it is that shortening a quotation in a submission
+isn't tidying, it's making a different claim, and it cost us an objection.
+
+Worth noting the review carries no formal "reviewed" stamp on the commit, and
+can't: the code was committed yesterday and the verdict arrived today, and we
+don't rewrite history. The coverage report will show that commit as unreviewed
+forever. I've written the reason into the bug file so nobody later reads it as
+carelessness.

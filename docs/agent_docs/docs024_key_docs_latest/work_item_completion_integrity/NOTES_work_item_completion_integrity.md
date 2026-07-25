@@ -482,6 +482,28 @@ the evidence above appended (`RESUBMIT_CORR=56c7e177…`). 021 was closed withou
 waiting on it: the gate is advisory, closure rests on the behavioural evidence,
 and no commit carries a `Council-Reviewed:` trailer.
 
+**Verdict landed 17:32 the same afternoon: APPROVED round 1** — 12 reviewers, 4
+abstained, `unreadable: 0`, *"2 advisory objection(s), none high-severity"*. Two
+things from it that this workstream should keep:
+
+- **`bug_historian`'s medium objection is REFUTED, and the submission caused
+  it.** It read the verifier's `pc.locked_at IS NULL` as a scope mismatch against
+  a detector that *"has no such filter"* — a false-positive hole where a locked
+  in-remit component would be excluded. The two queries are **byte-identical**,
+  both filtering `locked_at` (`:100`, `:214`). What misled it was our own
+  `grounded_in`, which quoted the detector SQL abbreviated and dropped that line.
+  **An abbreviated quote in a submission is a different claim, not a shorter
+  one** — reviewers cannot open the file.
+- **`bug_historian`'s other objection is your standing one and it stands**:
+  this fixes one item type while ~68 still complete on the handler's self-report.
+  The answer on record is that coverage is 3 of 77 *by design* — the coverage map
+  is the build-enforced backlog and the held `page_rerender` verifier is why
+  writing them faster than you can scope them is a regression. If that trade ever
+  stops being the right one, it is this workstream's call to change it.
+
+No trailer: `34adb171c` predates its verdict by a day and forward-only forbids an
+amend, so the pair is a permanent `098` false negative (noted in the bug file).
+
 **What is left in this workstream after 021's closure** (none of it blocking):
 the next verifier candidate `undeployed_asset` — read its handler's remit first,
 45 items in 7 days makes it the highest-volume unverified type; `bugs_open/077`;

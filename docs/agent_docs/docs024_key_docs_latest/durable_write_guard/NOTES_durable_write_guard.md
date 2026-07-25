@@ -527,3 +527,36 @@ rather than left inside a closing bug file.
 **Lesson, again:** a figure carried forward from another day's note is a claim,
 not a measurement. Re-run the count before you repeat it — even when you are the
 one who wrote it.
+
+### Council: APPROVED round 1 — and the one medium objection was our own fault
+
+`56c7e177`, 17:32:21 UTC (10 minutes after the resubmission cleared
+`persist_submission`). **approved**, 12 reviewers, 4 abstained, `unreadable: 0`,
+*"approved with 2 advisory objection(s) — none high-severity"*.
+
+**No trailer, deliberately:** the code commit `34adb171c` is a day older than its
+verdict, and forward-only forbids an amend — so this pair is a permanent `098`
+false negative, recorded in the bug file so the coverage gap reads as explained
+rather than unreviewed.
+
+**`bug_historian`'s medium objection is REFUTED, and we manufactured it.** It
+argued the verifier filters `pc.locked_at IS NULL` while the detector — *"quoted
+in grounded_in"* — does not, so a locked in-remit component would be silently
+excluded and the item falsely verified. The two queries are **byte-identical**,
+both carrying `AND pc.locked_at IS NULL` (`:100` and `:214`). The reviewer
+reasoned correctly from evidence *we* gave it: the `grounded_in` entry rendered
+the detector SQL abbreviated, dropping the `locked_at` line.
+
+**Transferable, and it cost a medium objection: an abbreviated quote in
+`grounded_in` is not a shorter quote, it is a DIFFERENT claim.** Reviewers cannot
+open the file; an ellipsis is an implicit assertion that nothing load-bearing was
+elided. Paste the whole predicate. Note the shape — this is the same failure as
+the two wrong calls above (`-c 1`, the 07-24 counts): reasoning confidently from
+a partial view of the evidence. Three times in one session, twice by me and once
+by a reviewer I misled.
+
+The other `bug_historian` objection (*"fixes one item type, ~68 still complete on
+self-report"*) is the standing position and is answered by the design: coverage
+is 3 of 77 deliberately, the coverage map is the build-enforced backlog, and the
+held `page_rerender` verifier is the proof that writing verifiers faster than you
+can scope them to their handler's remit makes things worse.

@@ -136,6 +136,13 @@ re-fired — then *both* messages ran, 10 minutes later, seconds apart. The `-c 
 changed nothing; the consumer was simply wedged. Diagnose in this order, and do
 not re-fire until step 2 says the message is missing.
 
+**Run the script that already answers this** — `scripts/dispatch-queue-depth.sh`
+(added 2026-07-25 by the `bugs_open/030` thread) prints consumer position, queue
+depth and an explicit *"QUEUED, not lost — do NOT re-fire"* verdict. `097` and
+`090` call it automatically; **`091` and `092` do not**, so a probe copied from
+`091` (like this harness) has to run it by hand. The two manual checks below are
+what it automates — keep them for when you need the raw values.
+
 1. **Is the message on the topic?** If it is, the produce worked and the trigger
    is not your problem:
 

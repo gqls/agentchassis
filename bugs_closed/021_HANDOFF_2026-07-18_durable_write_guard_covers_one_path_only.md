@@ -397,6 +397,46 @@ objections get a follow-up commit against `bugs_open/077` or a new file, not a
 reopening of this one. **Closure rests on the behavioural evidence, not on the
 review.**
 
+### The verdict landed 10 minutes later: APPROVED, round 1
+
+`56c7e177`, 2026-07-25 17:32:21 UTC — **approved**, 12 reviewers, 4 abstained,
+**`unreadable: 0`** (the check that matters on the 16-seat gate: abstentions are
+relevance filtering, unreadable would mean a truncated seat voided the round).
+*"approved with 2 advisory objection(s) — none high-severity."*
+
+**Still no trailer, and this is not an oversight.** The platform-code commit is
+`34adb171c`, made 2026-07-24 — **the verdict post-dates its commit by a day**,
+and forward-only means no amend. A trailer can only ever be attached to a
+commit written *after* its verdict, so this pair is a permanent `098` false
+negative. Recorded here so the coverage report's gap is explained rather than
+looking like an unreviewed commit.
+
+**The one medium objection is REFUTED — and we manufactured it ourselves.**
+`bug_historian` objected that the verifier's candidate query filters
+`pc.locked_at IS NULL` while *"the detector's population (quoted in grounded_in)
+has no such filter"*, making a locked in-remit component a silent false-positive
+completion. Checked: the two queries are **byte-identical**, both carrying
+`AND pc.locked_at IS NULL` (`check_hardcoded_section_colors.go:100` and `:214`),
+and the file header records when that filter was added. There is no asymmetry.
+
+What produced the objection is our **own abbreviated evidence quote**: the
+`grounded_in` entry rendered the detector SQL as `rendered_html ~ '…' AND
+rendered_html LIKE '%<style%'`, silently dropping the `locked_at` line. The
+reviewer reasoned correctly from the evidence it was given. **Transferable: a
+shortened quote in `grounded_in` is not a shortened quote, it is a different
+claim** — reviewers cannot open the file, so an ellipsis in the evidence is an
+assertion that nothing important was elided. Quote the whole predicate.
+
+The second `bug_historian` objection — *this fixes one item type while ~68 still
+complete on self-report* — is the standing position, it is correct, and it is
+answered above under "What was deliberately NOT done": coverage is 3 of 77 by
+design, the coverage map is the build-enforced backlog, and the held
+`page_rerender` verifier is the evidence that writing them faster than you can
+scope them makes things worse. Both `editquality` objections (low) ask the plan to
+*show* two codebase claims it asserted — the no-import-cycle claim and the
+`section_edit` `[INFERRED]` classification. Fair; both are true, and the first is
+demonstrated by the shipped code compiling at all.
+
 ## Wrong calls from this case
 
 - *"The kcat stdin race ate my probe message"* — it was queued behind a wedged
