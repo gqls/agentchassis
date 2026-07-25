@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/gqls/agentchassis/internal/tools-api/config"
+	"github.com/gqls/agentchassis/internal/tools-api/handlers"
 	"github.com/gqls/agentchassis/internal/tools-api/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -30,7 +31,12 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 		middleware.InputCapMiddleware(cfg.MaxBodyBytes),
 	)
 
-	_ = apiGroup
+	// /round — POST creates a round row and returns {round_id, provocation}.
+	// OPTIONS is registered explicitly so gin matches the path and runs the
+	// CORS middleware; CORSMiddleware aborts with 204 before the no-op body
+	// is ever reached.
+	apiGroup.POST("/round", handlers.RoundHandler(pool))
+	apiGroup.OPTIONS("/round", func(c *gin.Context) {})
 
 	return r
 }
