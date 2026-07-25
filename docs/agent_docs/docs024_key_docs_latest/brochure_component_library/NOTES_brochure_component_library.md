@@ -1543,3 +1543,43 @@ a third would only have queued more work.
 `orchestration_states` row was NORMAL while the lane was healthy, and ~5 minutes
 from a fresh `page_rerender` item to `claimed`. Anything shorter than that is not
 evidence of failure.
+
+## 2026-07-25 18:35 — CLOSED: every live link resolves. The queued work item did it.
+
+**Final independent verification (live crawl, 3 retries per link, all 7 pages):
+`43 unique targets checked, 0 broken`.** No database claim involved — this is the
+served artefact.
+
+The dispatch lane recovered on its own at ~18:30 and the **queued `page_rerender`
+work item** (`4a7f5520`) went `triaged` → `claimed` → `complete`, publishing
+capabilities. Worth recording precisely: **the route that finally worked was the
+one I could not hurry**, and the two direct dispatches I fired in impatience
+contributed nothing. Waiting was the correct action from ~17:50 onward; I only
+reached it after measuring the stall and finding 030 already owned.
+
+Brief-fidelity findings re-tested against the rebuilt site (016's earlier run, now
+meaningful because the wave is complete):
+
+| finding | verdict now |
+|---|---|
+| self-correction page absent (`958804fa`) | **RESOLVED** — deployed today, 5 sections |
+| model-fine-tuning ≡ council template (`26ae50f9`) | **RESOLVED** — sets now differ (`image-hover-card-grid` vs `swipeable-insight-carousel`) |
+| imagery thin (`722111c4`) | **IMPROVED, not resolved** — was 2 of 27 components with images, now **10 of 43** (23%) |
+| no chart component anywhere (`5501b583`) | **NOT RESOLVED, and structural: zero chart components are registered in the entire fleet** ([UNCHANGED] since the audit) |
+| `platform-log-index` absent (`0ec97996`) | **NOT RESOLVED** — never in the site plan; owner decision pending (publishing internal review records outward is their call, not mine) |
+
+Statuses left as `detected` deliberately: another workstream owns work-item
+completion semantics, and hand-closing an audit's own findings would corrupt its
+accounting. The re-test lives here instead.
+
+**The chart gap is the sharpest remaining brief miss** and it is not
+site-specific: the brief requires "numbers rendered as real, code-generated charts
+from true figures, never an AI-generated picture of a chart", the owner asked for
+"charts and infographics", and **no such component exists to select**. `stat-band`
+renders verified numbers but is not a chart. Prior art to reuse rather than
+duplicate: leopardess **L7** ("the one genuinely-new build", scoped in
+`docs/leopardessconsulting/PLAN_leopardess_rebuild.md`, listed as `[gap]` in
+`REPLICATION_in_chassis.md`), plus `features_open/023` (infographic figures from
+the evidence base). Recommend one shared component, values sourced from the
+evidence base so a chart cannot show an unverified figure — not a new per-site
+build.
