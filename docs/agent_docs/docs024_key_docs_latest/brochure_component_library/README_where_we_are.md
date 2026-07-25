@@ -348,3 +348,68 @@ getting a proper contact-details block so your phone number actually shows, one
 stray link on the council page, and — if you want it — letting the site planner
 choose these new components automatically for future pages, which I've built the
 foundations for but not yet exercised.
+
+---
+
+**Saturday 25 July — all five pages rebuilt through the pipeline, and two useful
+things fell out of it.**
+
+You asked for the feature spec and to carry on with the site. Both are done, and
+the second turned out to be a better story than expected.
+
+All five main pages have now been rebuilt *by the platform itself* rather than by
+me placing things by hand, and every one of them came back carrying its
+interactive component automatically — the carousel on capabilities, the people
+block on about, the swipeable strip on the council page, the hover cards on
+fine-tuning, the counting numbers band on the homepage. That matters more than it
+sounds: it means the components live in the site's own plan now, so the next
+rebuild keeps them. Before this week, a rebuild would have wiped them.
+
+**The rebuild queue kept eating my requests, and I had the reason wrong.** I told
+you earlier that the likely cause was the system only letting one page build per
+site at a time. That was wrong, and I want to correct it plainly. There is a
+housekeeping job that tidies away build requests which have sat untouched for
+48 hours. It decides "untouched for 48 hours" by looking at **how old the request
+row is**, not how long it has actually been waiting. So when I reused an old
+request to ask for a rebuild, the tidy-up job saw a five-day-old row and binned
+it — while the request itself was minutes old. It even stamps the row with
+"stale: triaged 48h+", which is how I eventually caught it: **the answer was
+written on the thing I'd been staring at all along.** I'd been trimming that
+field in my queries to keep the output readable, and trimmed off the explanation.
+Logged as a wrong call, because the lesson is cheap and I paid full price for it.
+
+It then did it again while I was writing the spec — parked a request twelve
+minutes after I made it, labelled "48h+". Irritating, but it's the best possible
+evidence, so it's now in the bug file. The workaround is simple: create a new
+request instead of reusing an old one. That's what I did, and it works.
+
+**Two pages the brief asked for were never in the site's plan at all.** The
+self-correction story — the leopardess example, which your brief calls the
+differentiating trust story — and the decision-record index page. Both have sat
+empty since the site was created, not because anything failed, but because
+nothing ever told the builder what sections those pages should contain. The
+builder actually handled this well: it looked, found nothing to build, said so,
+and stopped in 38 seconds without spending anything on writing. I've now given
+the self-correction page a proper five-section shape and it's building.
+
+**One real visible bug, caught by the fact-checking gate you asked for.** The
+homepage's portfolio panel had a link reading "Visit Site \2192" — a
+copy-and-paste error where a symbol code meant for stylesheets ended up in
+readable text, so visitors saw the raw code instead of an arrow. What's pleasing
+is *how* it surfaced: the new evidence checker flagged "2192" as an unregistered
+number, which is technically the wrong reason — it's not a statistic — but it
+stopped the page and made me look, and there was a genuine defect there. Fixed
+and swept: it appeared exactly once across the whole fleet.
+
+**Still open, and I want your call on one of them.** The em dashes are still
+there — fewer than before, but present — and I've now tried tightening the
+writer's instructions twice. The honest options are a third attempt with a
+worked before-and-after example, or a mechanical pass that simply removes them
+after the writing is done. The second definitely works and costs nothing to run;
+the first is more elegant if it lands. Say which you'd prefer.
+
+Beyond that: the contact-details block so your phone number shows, the
+decision-record page, and a set of dead in-page links on two pages (the writer
+creates "jump to this section" links but nothing creates the sections to jump
+to). That last one is a detector gap rather than a one-off, so it belongs with
+the existing link-checking work rather than being patched by hand here.

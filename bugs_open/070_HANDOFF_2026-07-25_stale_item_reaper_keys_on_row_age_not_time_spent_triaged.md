@@ -163,3 +163,32 @@ Instead of resurrecting the historic row, INSERT a new one:
 This makes candidate 1 (`updated_at`) less urgent for operators — there is a
 working path — but no less correct: the label the reaper writes is false, and it
 writes it onto rows that are actively being worked.
+
+## Candidate 1's risk measurement — run 2026-07-25, INCONCLUSIVE by sample size
+
+The query from Fix candidate 1 returned **0 touched of 1 total**: at any moment
+there is essentially no `triaged` build backlog, because the claimer drains it in
+~2 minutes. So the direct measurement cannot tell you whether a wedged item would
+be kept alive by unrelated writes — there is no population to measure.
+
+The 30-day retrospective, by final status (`touched` = `updated_at` more than a
+minute after `created_at`), for `pipeline='build'`:
+
+```
+complete            174 / 841      needs_human_review   28 / 154
+unresolved           13 /  66      failed               25 /  49
+detected              0 /  45      cancelled            21 /  44
+blocked               0 /  14      triaged               0 /   1
+```
+
+This does **not** answer the question either — those timestamps reflect each
+row's whole life, not its time in `triaged`. Do not read the `complete` row as
+evidence either way.
+
+What can be argued without measurement: an item is wedged in `triaged`
+*precisely because nothing is touching it* — if a handler were writing to the
+row it would not be stuck. So `updated_at` and "time since last activity" should
+coincide for exactly the population the reaper exists to catch. That is a
+reasoned argument, **not a measurement** — mark it as such if you cite it, and
+prefer candidate 2 (`triaged_at`) if the fixing thread wants certainty rather
+than an argument.
