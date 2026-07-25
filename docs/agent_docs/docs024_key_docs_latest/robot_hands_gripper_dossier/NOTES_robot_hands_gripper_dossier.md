@@ -222,3 +222,88 @@ shape with `input_data.work_item_id`.
 2. Seeds 207–210 (207 pre-image OK; 209/210 strictly post-image).
 3. Island service `cmd/gripper-intake/`.
 4. Image roll, then 208–210, then the three induced E2E fixtures per DESIGN §6.
+
+## 2026-07-25b — council round 2 (REVISE again), seeds 207–210, fail_workflow, bug 076
+
+### Round 2 verdict: REVISE (corr 7ed137d1, 17:09Z, ~7 min end to end)
+Round 1's objections were all answered — none of them came back. The new
+objections are on the *shape of the submission* and on going further:
+
+- **editquality MEDIUM — minimality.** The truncation guard was bundled into
+  the round-2 plan while being, in my own words, "not raised by the council but
+  in the same honesty family". Correct objection: it is a separate change and
+  is already a separate commit (`8e8b55818`). It comes OUT of the next
+  submission.
+- **bug_historian MEDIUM — one call site, generic defect.** The truncation
+  guard patches the consumer, not the producer. Asked how many other
+  `execute_llm_prompt` call sites exist and whether they were audited. **I had
+  not asked.** Measured: **118 LLM steps across 58 active agents; 5 agent
+  definitions reference `__truncated` at all.** Filed as `bugs_open/076`
+  rather than fixed here — the blast radius of the obvious fix (fail closed by
+  default) is unknown until someone sizes it. This is the most valuable thing
+  the council has produced in this lane.
+- **guidelines MEDIUM — declared contracts.** Claims a workflow step reading a
+  derived field (`<prose_field>.__truncated`) needs a declared `input_contract`,
+  else the guard silently never fires. [UNVERIFIED — to check before the roll.]
+  Evidence against: `diagnose_council_decide` reads exactly this shape from
+  collected_data and works live. Evidence for: I have not read the validator.
+  **Do not treat the guard as proven until an induced-truncation run fires it.**
+- **tooling_provenance MEDIUM** — `intent_collector` is a live standing pipeline
+  and should carry a travelling doc_notes row recording why `collectOneSite`
+  now delegates. Not yet done.
+- **tooling_provenance + editquality LOW** — the vendor list hardcoded names a
+  data table already backs. **Fixed** (`82b34564d`): `loadKnownVendors` unions
+  every manufacturer in `products` with the curated seed list. The two halves
+  cover opposite gaps — live names become checkable with no code change; the
+  seed half covers vendors we have NOT indexed, which is the actual fabrication
+  risk and cannot come from a query.
+
+### Built this session
+- **`fail_workflow`** (`6b14055d7`), a new core primitive. Found while writing
+  seed 209 by reading what `complete_work_item` actually does rather than
+  assuming: its guard reads `response.status`, so a handler that catches its
+  own failure, tidies up and calls `complete_workflow` reports SUCCESS and gets
+  stamped 'complete' beside the evidence it failed. Cleanup paths had a choice
+  between lying and skipping the cleanup. The report-builder's failure path
+  needs to publish the island sidecar BEFORE ending in failure, so it needed
+  this.
+- **Report CSS inlined** (`5eb433e47`). rerender concatenates stored
+  `rendered_html` and collects no component stylesheets; robot-hands.com's
+  site_specs contain **zero** `report-*` classes, so the dossier — the paid
+  deliverable — would have shipped as unstyled text (bugs_open/027 shape).
+  Two drift guards added because the failure is SILENT: a test that renders a
+  report and asserts every emitted class has a rule (**it caught two real
+  misses on its first run, after I had already eyeballed the list**), and one
+  pinning the verdict→class slugification. My first CSS draft styled
+  `.report-card` while the renderer emits `.match-card`.
+- **Seeds 207–210** (`4b752f5bc`, `034a3eade`), all dry-run against the live DB
+  inside a rolled-back transaction.
+
+### Missteps this session
+5. **Wrote `Council-Reviewed: 7ed137d1` on `8e8b55818` without reading the
+   verdict** — it was REVISE, decided the previous evening. Correction recorded
+   above and in `WRONG_CALLS.md`. The check is one query and belongs BEFORE the
+   trailer.
+6. **Seed 208's first guard was silently broken, twice over.** I asserted that
+   psql renders an unset `:'pull_key'` as a literal string and that the guard
+   would catch it inside a `DO $$ ... $$` block. Both false: psql does **not**
+   interpolate inside dollar-quoted strings (syntax error), and does not
+   interpolate with `-c` at all. Verified against the live DB, then rebuilt on
+   `set_config`/`current_setting` with the echo sent to `/dev/null` so the
+   secret never reaches the terminal or pod logs. **Both failure branches were
+   then tested rather than assumed.**
+7. **Seed 207 used `created_from = 'seed_207'`**, which a CHECK constraint
+   rejects (`manual|generated|adopted|tool|forked`). Caught by the rolled-back
+   dry run — the reason to dry-run every seed rather than reading it over.
+8. Put a `Council-Reviewed: not applicable (docs)` line on the 076 bug commit.
+   Harmless (docs-only, and it does not claim approval) but it is trailer-shaped
+   noise on a report that joins on that key. Don't decorate docs commits with it.
+
+### Next
+1. Resubmit round 3 with the truncation guard SPLIT OUT (editquality), the
+   vendor fix included, and 076 cited as the answer to bug_historian.
+2. Add the intent_collector travelling doc_notes row (tooling_provenance).
+3. Check the `input_contract` question before the roll — if guidelines is right,
+   the truncation guard is a silent no-op.
+4. Island service `cmd/gripper-intake/`; then the image roll, then 207→209→210,
+   then the three induced E2E fixtures (DESIGN §6).
