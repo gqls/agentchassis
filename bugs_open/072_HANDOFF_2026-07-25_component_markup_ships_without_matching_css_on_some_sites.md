@@ -73,6 +73,12 @@ fallbacks — `var(--color-primary, #1e40af)` — so they match whatever palette
 has. That follows the `hero`/`call-to-action` precedent and makes those two components
 correct on every site regardless of what generates `styles.css`.
 
+**Verified on the rendered page, 2026-07-25 ~09:35** (not just the DB row): the live
+`/model-directory.html` now carries a 2,492-char style block with 18 directory rules,
+27 rendered `.model-card` articles, 50 citation links. The directory INSTANCE of this
+bug is closed; the bug stays open for the class — the two unstyled news-card sites and
+whatever the survey hasn't covered.
+
 It is a workaround because it fixes two components, not the class. If the right answer
 is that every self-contained component should carry its own styles, then `latest-news`
 and `news-listing` want the same treatment and the fleet wants a check that a
