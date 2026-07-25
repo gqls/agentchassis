@@ -628,3 +628,53 @@ generalisation of the register's read/publish/discovery legs) came back
 > verdict" says NOT to do — so the real answer is that a verdict arriving
 > after its commit needs a deliberate follow-up commit that names the reviewed
 > SHA, not a trailer of convenience on whatever is next in the queue.
+
+**2026-07-25 — PHASE E ACQUISITION IS LIVE AND HAS REAL DATA.** The
+`adoption-tracker-discovery` scheduled task fired at 09:16:16 and the register
+gained a second kind: **12 `company` entities / 17 current `found` claims**,
+alongside the 27 models. Named organisations, not vendor puff: Klarna,
+JPMorganChase, Uber, Siemens, DHL Supply Chain, BNY, Deutsche Telekom,
+Swisscom, Shopify, GitHub, OpenTable, Port Newark Container Terminal.
+
+The prompt disciplines are visible IN THE DATA, which is the part worth
+recording:
+- **Uber carries both `roi_claimed`** ("27% relative increase in acceptable
+  answers…") **and `roi_basis`** ("Before/after comparison of traditional
+  RAG…") — the two-field split doing its job.
+- **Most carry `roi_claimed` with no basis** — recorded as stated-without-method
+  rather than dropped or dressed up, which was the whole design intent.
+- **Microsoft carries `protocol_adopted: Model Context Protocol (MCP)`** — the
+  protocol half of the owner's brief, arriving from the company query before
+  the dedicated protocol query has even run.
+
+**No image roll was needed for any of this**, exactly as designed in Phase A:
+`verify_and_register_directory_claims` has read `entity_kind` from the
+candidate since Phase B. The publish/read/discovery half (commit `f1dafb6e4`,
+council-approved) is still inert, so this data shows on no site yet — the
+register fills first, deliberately, so the tracker has content on day one of
+the roll instead of waiting a week for its first sweep.
+
+**17/17 verified with zero rejects, and I am treating that as a QUESTION, not
+a result.** My own seed file says an all-verified first run over marketing
+material is less believable than a mixed one. The single
+`directory_citation_unverified` item in the table is from 2026-07-24 and
+belongs to the model lane, so today's run genuinely rejected nothing. Two
+readings — disciplined extraction (the scraped text was in front of the model,
+and the prompt is strict), or a check that is not biting on this path — and a
+happy-path pass cannot tell them apart ([[verify-the-failing-branch]]).
+
+**So: fault injection, on the company path specifically.** Corrupted ONE
+claim's stored quote to a sentence that appears on no page
+(`428c14f5-…`, Klarna `rollout_scope`) and backdated `verified_at` 500 days so
+the sweep considers it due; original row saved to table
+`_fault_injection_20260725` first. Expected: the sweep supersedes it and writes
+a NEW `is_current` row with `status='citation_lost'`. This also exercises
+`adoption-tracker-freshness` — a two-step kind-filtered workflow I wrote today
+that had fired once at 09:15:47 against an empty company register and therefore
+proved nothing. Restore afterwards:
+```sql
+UPDATE directory_claims dc SET citation = f.citation, verified_at = f.verified_at
+FROM _fault_injection_20260725 f WHERE dc.id = f.id;
+-- then delete any citation_lost row the sweep wrote for that (entity_id, field)
+-- and set the restored row is_current = true, superseded_at = NULL.
+```
