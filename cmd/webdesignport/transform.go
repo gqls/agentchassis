@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -166,8 +167,8 @@ func runTransform(sitesDir, portDir, outDir, domain, only string) error {
 		return fmt.Errorf("%d page(s) failed to transform", len(failures))
 	}
 
-	// Images and other shared assets referenced by the ported pages.
-	collectSharedAssets(sitesDir, man, assetSeen)
+	// Images ACTUALLY REFERENCED by the ported pages.
+	collectReferencedImages(sitesDir, outDir, man, assetSeen)
 
 	// Everything under port/site_assets mirrors the published site root: the
 	// compat stylesheet, the vibe-equalizer fix, anything else we author.
@@ -296,6 +297,43 @@ func transformPage(sitesDir string, e CatalogueEntry, ov *Overrides, engine *col
 		}
 	}
 
+	// ---- scripts: harvested from the WHOLE BODY, before the content root ----
+	//
+	// Both sites put their <script> tags after </main>, at body level. The first
+	// version of this took the content root first and only extracted scripts
+	// from inside it, so every tool's engine was silently discarded — 60-odd
+	// interactive pages reduced to static markup, with the transform reporting
+	// 97 pages and 0 warnings. Nothing about the output looked wrong; the pages
+	// were simply dead. Caught by grepping a fragment for <script> rather than
+	// trusting the counts.
+	//
+	// Scripts are pulled out here for a second reason too: the colour sweep must
+	// never see JavaScript. Half these tools generate colours for a living, and
+	// rewriting a canvas fill or a palette seed would break the tool while
+	// looking like a successful reskin.
+	var scripts []scriptTag
+	for _, n := range findAll(body, byAtom(atom.Script)) {
+		st := scriptTag{src: attr(n, "src"), typ: attr(n, "type"), body: textOf2(n)}
+		if attr(n, "defer") != "" {
+			st.defer_ = true
+		}
+		remove(n)
+
+		switch {
+		case st.src == "":
+			engine.noteScriptColours(st.body, rep)
+		case isSupersededSiteScript(st.src):
+			// The old global search engine. The chassis header supplies search
+			// now; carrying this too would put two engines on every page, both
+			// fighting over #globalSearch.
+			continue
+		case isRelative(st.src):
+			st.src = rewriteSiblingSrc(st.src)
+			res.siblings = append(res.siblings, st.src)
+		}
+		scripts = append(scripts, st)
+	}
+
 	// ---- the content root --------------------------------------------------
 	// Site A pages put content in <main>. Site B TOOL pages have no <main> at
 	// all — their layout div sits directly in <body> — so fall back to whatever
@@ -306,16 +344,6 @@ func transformPage(sitesDir string, e CatalogueEntry, ov *Overrides, engine *col
 		contentHTML = renderChildren(contentRoot)
 	} else {
 		contentHTML = renderChildren(body)
-	}
-
-	// ---- pull scripts out so the colour sweep never sees them ---------------
-	scripts, contentHTML := extractScripts(contentHTML)
-	for _, s := range scripts {
-		if s.src == "" {
-			engine.noteScriptColours(s.body, rep)
-		} else if isRelative(s.src) {
-			res.siblings = append(res.siblings, rewriteSiblingSrc(s.src))
-		}
 	}
 
 	// ---- colour sweep: stylesheets, then inline style="" attributes --------
@@ -435,28 +463,13 @@ func (s scriptTag) render() string {
 	return b.String()
 }
 
-// extractScripts removes every <script> from the HTML and returns them in
-// document order. They are re-appended after the colour sweep so that no rule
-// can ever rewrite a literal inside JavaScript.
-func extractScripts(fragment string) ([]scriptTag, string) {
-	root, err := parseFragment(fragment)
-	if err != nil {
-		return nil, fragment
-	}
-	var out []scriptTag
-	for _, n := range findAll(root, byAtom(atom.Script)) {
-		st := scriptTag{
-			src:  attr(n, "src"),
-			typ:  attr(n, "type"),
-			body: textOf2(n),
-		}
-		if attr(n, "defer") != "" {
-			st.defer_ = true
-		}
-		out = append(out, st)
-		remove(n)
-	}
-	return out, renderChildren(root)
+// isSupersededSiteScript identifies scripts the chassis now provides itself.
+// Carrying the old global search engine alongside the header's would put two
+// engines on the page, both bound to #globalSearch.
+func isSupersededSiteScript(src string) bool {
+	s := strings.ToLower(src)
+	return strings.HasSuffix(s, "/assets/js/search.js") ||
+		strings.HasSuffix(s, "/js/main.js")
 }
 
 // rewriteSiblingSrc fixes the one broken relative path in the sources:
@@ -683,29 +696,44 @@ func textOf2(n *html.Node) string {
 	return sb.String()
 }
 
-// collectSharedAssets adds the image trees both sites' pages reference.
-func collectSharedAssets(sitesDir string, man *Manifest, seen map[string]bool) {
-	roots := []struct{ src, dest string }{
-		{"website-design.com/assets/img", "assets/img"},
+// collectReferencedImages publishes only the images the fragments actually use.
+//
+// Walking the whole assets/img tree instead pulled in 22 files, of which 6 are
+// referenced. The other 16 are the ~1MB PNG originals of those same 6 (the
+// pages all use the smaller content/*.jpg versions) and a set of pasteboard
+// sample photos that nothing links — the pasteboard tool works on images you
+// paste into it, and ships none. Publishing them cost several megabytes and a
+// string of API failures for files nobody would ever request.
+func collectReferencedImages(sitesDir, outDir string, man *Manifest, seen map[string]bool) {
+	ref := map[string]bool{}
+	for _, p := range man.Pages {
+		b, err := os.ReadFile(filepath.Join(outDir, p.Fragment))
+		if err != nil {
+			continue
+		}
+		for _, m := range imgRefRe.FindAllString(string(b), -1) {
+			ref[m] = true
+		}
 	}
-	for _, r := range roots {
-		base := filepath.Join(sitesDir, r.src)
-		_ = filepath.Walk(base, func(p string, fi os.FileInfo, err error) error {
-			if err != nil || fi.IsDir() {
-				return nil
-			}
-			rel, _ := filepath.Rel(base, p)
-			dest := path.Join(r.dest, filepath.ToSlash(rel))
-			if seen[dest] {
-				return nil
-			}
-			seen[dest] = true
-			man.Assets = append(man.Assets, ManifestAsset{
-				Source: path.Join(r.src, filepath.ToSlash(rel)),
-				Dest:   dest,
-			})
-			return nil
-		})
+
+	var dests []string
+	for d := range ref {
+		dests = append(dests, d)
+	}
+	sort.Strings(dests)
+
+	for _, dest := range dests {
+		if seen[dest] {
+			continue
+		}
+		src := path.Join("website-design.com", dest)
+		if _, err := os.Stat(filepath.Join(sitesDir, filepath.FromSlash(src))); err != nil {
+			man.Warnings = append(man.Warnings,
+				fmt.Sprintf("referenced image %s not found in the sources", dest))
+			continue
+		}
+		seen[dest] = true
+		man.Assets = append(man.Assets, ManifestAsset{Source: src, Dest: dest})
 	}
 }
 
@@ -727,6 +755,9 @@ func collectPortAssets(portDir string, man *Manifest, seen map[string]bool) {
 		return nil
 	})
 }
+
+// imgRefRe finds image paths as the fragments actually write them.
+var imgRefRe = regexp.MustCompile(`assets/img/[A-Za-z0-9/_.-]+\.(?:jpg|jpeg|png|gif|svg|webp|avif|ico)`)
 
 // ---------------------------------------------------------------------------
 // loaders
