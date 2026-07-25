@@ -160,3 +160,48 @@ written — the retry counter wasn't being read on resent requests, the
 bookkeeping table refused updates instead of taking them over, and a
 chased-and-answered request was being mistaken for a duplicate. All three are
 fixed and written up in the bug file.
+
+---
+
+2026-07-25, later. The review council has now looked at the finished work twice
+and rejected it twice — and both times the veto came from the same single
+reviewer, the guardian, while nearly every other seat approved. It's worth
+being precise about what the guardian is and is not saying. It is not saying
+the fix is wrong: in round two it accepted our technical case point by point —
+the blast radius is now named and mechanically checked, and it agreed the old
+message-delivery code "is the defect, not battle-tested plumbing". Its
+objection is about process and size: a change that rewrites how every agent
+receives and acknowledges messages, across seven files, is in its view an
+architecture change, and architecture changes should go through a dedicated
+review with a staged rollout plan — a review track which, as it happens, we
+don't have. Its fallback suggestion was to ship only the one-line header fix
+now and put everything else through that (not-yet-existing) process. It also
+noted, fairly, that the database migration was already applied and the code
+already committed before the verdict — that followed our own standing rules
+(commit early, apply schema before images), but I understand why it reads as
+presenting a done deal.
+
+Every concrete evidence gap any reviewer raised has now been closed: we proved
+by compiler and by search that the deleted function has no remaining callers
+anywhere, tests included, and that nothing else in the codebase was consuming
+the expired-request queue. Two small tidy-ups were conceded (a config tweak
+shouldn't have ridden the migration; a dead function should be deleted rather
+than ported — noted as a follow-on).
+
+So the decision now sitting with you: the code is committed, the schema is
+live and safe either way, and the images are built-ready but NOT rolled.
+Option one: roll deliberately — git adapter first as a small canary, then the
+chassis, with the fault-injection tests run immediately and image rollback as
+the escape hatch (the schema was designed to tolerate old binaries, so
+rolling back is just re-deploying the previous image). No review stamp on the
+commit, since the council did not approve. Option two: follow the guardian —
+revert everything except the header fix on the shared branch and stand up the
+architecture-review process it wants before shipping the rest; that is real
+churn, and the bug keeps costing us roughly thirty-four stranded jobs a day
+while it happens. Option three, separable from either: create the
+architecture-review track the guardian is asking for, because it is at least
+right that we keep pushing platform-wide changes through a gate designed for
+point fixes. My own view: the technical case is as verified as it can be
+short of running it, the daily damage is real, and I'd take option one with
+the canary sequencing — but a fleet-wide roll against two guardian vetoes is
+your call, not mine, which is why nothing has shipped.
