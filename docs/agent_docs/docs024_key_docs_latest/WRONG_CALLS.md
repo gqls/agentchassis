@@ -2730,3 +2730,109 @@ run fails. I had stamped "reviewed" on the very batch whose review was telling
 me the honesty gate had a hole in it. The objections were worth acting on, and
 acting on them took an hour; claiming they had already been satisfied took
 eight characters.
+
+---
+
+## 2026-07-25 — twice we called it a "borrowed" component; nothing was ever borrowed
+
+**The claim.** `bugs_open/028` was filed (2026-07-19) asserting a mechanism:
+*"Something is falling back to site-level or sibling components when a page has
+none of its own, and that fallback is invisible in the output."* The case title
+itself says **"deploys borrowed components"**. The 2026-07-21 re-scope corrected
+the detail but kept the shape: *"it is a site-level/default hero **applied**
+where no page-specific hero was authored."*
+
+Both are wrong in the same way. **No component is copied, borrowed, or applied
+from anywhere.** Each hero is generated fresh by `page-content-writer`. The
+writer's only page-subject signal is `{{.current_page.title}}`, and on a glossary
+entity-page that title is a single bare term ("Tourbillon"). With no
+`content_direction`, no `meta_description` and an empty `content_brief`, the
+model has essentially no subject, so it writes a site-level hero paraphrased from
+the site's `value_proposition`. 6 of 8 pages fell that way; 2 did not. There is
+no fallback path to find, because the variance is in the model, not in a branch.
+
+**What caught it.** Reading the three `content_data` blobs side by side — a
+broken page, a correct page, and the homepage. If the hero had been *copied* the
+rows would match. They do not: only `headline` matches the homepage; `subheadline`,
+`cta_text`, `hero_url` and `background_image` all differ. A copy cannot produce
+that. Everything after followed from noticing the mismatch.
+
+**The cheap check that would have caught it.** One query, run at filing time:
+
+```sql
+SELECT p.name, jsonb_pretty(pc.content_data)
+FROM page_components pc JOIN pages p ON p.id = pc.page_id
+WHERE pc.slot_name = 'hero' AND p.name IN ('<broken>', '<the page you think it came from>');
+```
+
+**Transferable rule.** **"Borrowed" is a conclusion about provenance, and
+provenance is not visible in a rendered page — only in a field-by-field diff of
+the source rows.** We saw one string appear on two pages and named a mechanism
+(a fallback) to explain it. Two strings matching is equally consistent with
+*generated from shared context*, which is what happened, and that hypothesis
+costs one query to separate from the other. The tell we both walked past: the
+generic hero's headline was not even the *current* homepage headline, which
+already made "copied from the homepage" awkward — the 07-21 note recorded that
+oddity and still reached for a fallback to explain it, rather than letting it
+falsify the family.
+
+**The sting.** The 07-21 re-scope was otherwise a careful, well-grounded piece of
+work — it correctly closed defect 1 against live data, correctly delegated
+defect 2 to `040`, and correctly bounded the blast radius to one site. It
+inherited exactly one thing from the original filing without re-testing it: the
+word "borrowed". A re-scope that re-derives everything else from the live DB is
+the *cheapest* possible place to catch an inherited premise, and it is the place
+we didn't look, because the premise was in the title.
+
+---
+
+## 2026-07-25 — "confirmed live: four terminal improve_tool cycles" (bugs_open/010 b)
+
+**The claim.** `bugs_open/010` recorded, as the live-evidence base for the
+convergence guard: *"Confirmed live 2026-07-20 by the count the guard now runs:
+**four** terminal `improve_tool` cycles against the same criterion (`mobile-fit`)
+on this one tool between 07-17 and 07-18."* It was written in the voice of a
+measurement, next to the query that supposedly produced it.
+
+**What was actually true.** Four is the number of `acceptance-fail` **doc_notes**.
+The guard counts **`site_work_items` rows** under
+`item_key='acceptance_fail:<fn>:<site>'` with `status IN ('complete','failed')`.
+Exactly **one** such row has ever existed for that tool. At `max_fix_cycles=2`
+the guard would have counted **1** on the benchmark and **would not have
+escalated** — on the very case it was built to catch. The mechanism the bug
+describes (the loop repeats unboundedly) was real; the evidence that the fix
+addressed it was not.
+
+**What caught it.** Re-running the guard's own `convergenceAttempts` SQL against
+prod while trying to close the case, rather than re-reading the sentence that
+asserted it. Two queries, four days late.
+
+**The cheap check that would have caught it.** Run the shipped query itself,
+with a positive control, at the moment you claim it confirms something:
+
+```sql
+-- the count as the guard computes it (0 = correctly reset by a later pass)
+SELECT count(*) FROM site_work_items w
+WHERE w.item_key='acceptance_fail:<fn>:<site>' AND w.status IN ('complete','failed')
+  AND w.created_at > COALESCE((SELECT max(created_at) FROM doc_notes
+        WHERE subject_type='tool' AND subject_key='<fn>' AND source='tool-acceptance'
+          AND categories @> '["acceptance-run"]'::jsonb), '-infinity'::timestamptz);
+-- positive control: same query, reset-bound removed. If this is 0 too, the
+-- query matches nothing ever and the first 0 told you nothing.
+```
+
+**Transferable rule.** **A number is only evidence for a guard if it is the
+number the guard actually computes.** Counting notes and counting work items feel
+interchangeable when both are "how many times did this fail" — they are not, and
+here they differ by 4×, across the threshold. When the claim is "the fix would
+have fired", the only admissible evidence is the fix's own predicate, executed,
+**with a positive control** — a bare `0` is equally consistent with "correctly
+reset" and "query is broken", and only the control separates them.
+
+**The sting.** The file was, by then, unusually careful: it had already corrected
+one half of its own diagnosis, disclosed that the escalation branch was
+live-unexercised, and banked a lesson about mistaking a historical count for
+current state. It carried a *number* forward unchecked while re-checking
+everything around it — and that number was the one thing standing between
+"logic is unit-tested" and "confirmed live". Same shape as the entry above:
+the premise nobody re-derives is the one already written down.

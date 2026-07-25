@@ -586,6 +586,7 @@ Categories: acceptance-run`,
 		datahelpers.GetStringField(config, "criteria_field", "doc_context.criteria_json"))
 
 	itemCreated := false
+	itemDeduped := false
 	escalated := false
 	if params.DB != nil && siteID != "" {
 		// The improve_tool spec needs the component; recreated/adopted tools
@@ -691,7 +692,7 @@ Categories: acceptance-run`,
 				spec["page_id"] = pageID
 			}
 			specJSON, _ := json.Marshal(spec)
-			_, err := params.DB.ExecContext(ctx, `
+			res, err := params.DB.ExecContext(ctx, `
 				INSERT INTO site_work_items (
 					site_id, source, pipeline, item_type, severity, summary,
 					priority, handler_agent, status, created_by, spec, item_key, batch_id
@@ -705,10 +706,23 @@ Categories: acceptance-run`,
 				fmt.Sprintf("acceptance_fail:%s:%s", function, siteID),
 				uuid.NewString(),
 			)
-			if err != nil {
+			// ON CONFLICT DO NOTHING returns NO error when it inserts NOTHING:
+			// idx_swi_dedup already holds an open item under this key, so the
+			// verdict queued no work. Deriving "created" from err==nil is the
+			// "trust the status, not the artefact" failure the note below is
+			// written to avoid — the flag must come from rows affected.
+			switch n, raErr := rowsAffected(res, err); {
+			case err != nil:
 				logger.Warn("judge: improve_tool insert failed", zap.Error(err))
-			} else {
+			case raErr != nil:
+				logger.Warn("judge: improve_tool insert rows-affected unavailable — recording as not created",
+					zap.Error(raErr))
+			case n > 0:
 				itemCreated = true
+			default:
+				itemDeduped = true
+				logger.Info("judge: improve_tool NOT created — an item for this key is already open (previous cycle unfinished)",
+					zap.String("function", function))
 			}
 		} else {
 			logger.Info("judge: no content_components row for function — improve_tool item not created (recreated/adopted tool; route manually)",
@@ -729,6 +743,14 @@ Categories: acceptance-run`,
 			attempts, strings.Join(v.FailedIDs, ", "), attempts+1, ordinalSuffix(attempts+1))
 	case itemCreated:
 		fixLine = "improve_tool item created carrying the criteria as acceptance_test"
+	case itemDeduped:
+		// Not a failure: the previous cycle's item is still open, so this verdict
+		// is a repeat of work already queued. Said plainly because the alternative
+		// — the "none could be created" default — reads as a defect and sent a
+		// previous reader looking for a broken insert (bugs_open/010).
+		fixLine = fmt.Sprintf(
+			"no new improve_tool item — one for %s is ALREADY OPEN under this key (the previous fix cycle has not finished); this verdict re-confirms work already queued",
+			strings.Join(v.FailedIDs, ", "))
 	case stuck:
 		fixLine = fmt.Sprintf(
 			"NOT auto-fixed — %d previous improve_tool cycle(s) failed to turn %s green, and the escalation item could NOT be raised (no active content_components row for this function, or the insert failed); route this manually",
@@ -811,6 +833,19 @@ func convergenceAttempts(ctx context.Context, db *sql.DB, function, siteID strin
 		toPGTextArrayLiteral(failedIDs),
 	).Scan(&n)
 	return n, err
+}
+
+// rowsAffected reports how many rows a write actually touched, tolerating the
+// nil Result that accompanies a failed Exec. It exists because every keyed
+// insert here is ON CONFLICT DO NOTHING, which succeeds while inserting zero
+// rows when idx_swi_dedup already holds an open item for the key — so err==nil
+// says the statement ran, NOT that work was queued. Callers that report their
+// outcome in a durable note must branch on this, not on the error alone.
+func rowsAffected(res sql.Result, err error) (int64, error) {
+	if err != nil || res == nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 // ordinalSuffix renders 1st/2nd/3rd/4th for a note that has to read like prose.
@@ -921,7 +956,7 @@ func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.L
 		}
 		specJSON, _ := json.Marshal(spec)
 
-		_, err := params.DB.ExecContext(ctx, `
+		res, err := params.DB.ExecContext(ctx, `
 			INSERT INTO site_work_items (
 				site_id, source, pipeline, item_type, severity, summary,
 				priority, handler_agent, status, created_by, spec, item_key, batch_id
@@ -938,6 +973,14 @@ func routeChromeFailures(ctx context.Context, params ActionParams, logger *zap.L
 		if err != nil {
 			logger.Warn("judge: responsive_fix (site chrome) insert failed",
 				zap.String("component", component), zap.Error(err))
+			continue
+		}
+		// Count rows, not absent errors — this number is quoted verbatim in the
+		// acceptance-fail note ("routed separately as N responsive_fix item(s)"),
+		// and DO NOTHING inserts nothing without erroring (bugs_open/010).
+		if n, raErr := rowsAffected(res, err); raErr != nil || n == 0 {
+			logger.Info("judge: responsive_fix NOT created — an item for this chrome component is already open",
+				zap.String("component", component), zap.String("item_key", itemKey))
 			continue
 		}
 		created++

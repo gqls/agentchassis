@@ -1,5 +1,38 @@
 # HANDOFF — the fix loop does not converge on layout-intrinsic mobile overflow
 
+> **STATUS 2026-07-25 — STAYS OPEN. A third defect was found IN THE GUARD
+> ITSELF, and the "confirmed live" evidence for (b) was miscounted.** Both (a)
+> and (b) remain live and pod-verified on the CURRENT images (chassis
+> v1.0.1159, browser-runner-adapter v1.0.1159 — greps below). What changed
+> today is that the guard's own justification did not survive being re-run.
+>
+> - **CORRECTED — the "four terminal improve_tool cycles" figure was wrong, and
+>   it was the whole live-evidence base for (b).** It is the count of
+>   `acceptance-fail` **doc_notes**, not of the **work items** the guard counts.
+>   Re-running the guard's own query on 2026-07-25 finds exactly **ONE** row that
+>   has ever existed under `acceptance_fail:tool-loot-table-balancer:<site>`
+>   (`ce06e06e`, 07-18 10:38, `complete`). At `max_fix_cycles=2` the guard would
+>   have counted **1** on the benchmark and **would not have escalated** — on the
+>   very case it was built for. "Confirmed live" was never true. Evidence and the
+>   exact queries: §"Defect 3" below. Logged in `WRONG_CALLS.md`.
+> - **NEW defect 3 — the judge reports work as queued that it never queued.**
+>   Both keyed inserts (`improve_tool`, and site-chrome `responsive_fix`) set
+>   their "created" flag from `err == nil` while the statement is
+>   `ON CONFLICT DO NOTHING` — which returns **no error when it inserts nothing**,
+>   because `idx_swi_dedup` already holds an open item for the key. The
+>   acceptance-fail note is the loop's own durable record and was explicitly
+>   rewritten on 07-20 to be written "from the outcome, not the intent" — but the
+>   outcome variable is derived from the wrong signal, so the note can still
+>   assert an `improve_tool` item was created when none was, and can overstate
+>   the chrome count `routed separately as N responsive_fix item(s)`. **FIXED and
+>   committed today; INERT until the next chassis roll**, which is why this case
+>   stays OPEN under the `/bugs_closed/` bar (fixed AND live).
+> - **The escalation branch is STILL live-unexercised** — no `acceptance_stuck`
+>   row has ever existed (`SELECT count(*) … item_type='acceptance_stuck'` = 0,
+>   2026-07-25). Its structural risk is now retired read-only, though: see
+>   §"Verify" §3 for the constraint/arbiter proof. The induced-fault run that
+>   would exercise it end-to-end is specified in §"Verify" §4 and **not yet run**.
+
 > **STATUS 2026-07-21 — both candidates BUILT AND FULLY LIVE; (b)'s escalation
 > branch is live-UNEXERCISED (the benchmark self-resolved before it could fire).**
 > Read the two corrections below before acting on the original account: the
@@ -131,6 +164,30 @@ identical insufficient fix, forever — no escalation, no "we have tried this."
 > (`mobile-fit`) on this one tool between 07-17 and 07-18, and **zero**
 > `acceptance-run` notes — the tool has never once passed Tier 4, and nothing
 > anywhere had noticed the repetition.
+>
+> > **CORRECTED 2026-07-25 — the figure above is wrong and it was load-bearing.**
+> > **Four** is the number of `acceptance-fail` **doc_notes**. The guard does not
+> > count notes; it counts **`site_work_items` rows** under
+> > `item_key='acceptance_fail:<fn>:<site>'` with `status IN ('complete','failed')`.
+> > There has only ever been **ONE** such row for this tool:
+> > ```
+> > SELECT id, status, created_at, spec->'failing_checks'
+> > FROM site_work_items
+> > WHERE item_key='acceptance_fail:tool-loot-table-balancer:e33263f4-74f8-494f-b191-546845dbbddf';
+> > --  ce06e06e-55e1-4ff6-ade2-c1aeaaba1b9d | complete | 2026-07-18 10:38:37 | ["mobile-fit"]   (1 row)
+> > ```
+> > Running the guard's own `convergenceAttempts` SQL verbatim against prod on
+> > 2026-07-25 returns **0** today (the 07-21 12:46 `acceptance-run` pass note
+> > correctly resets the tally) and **1** with only the reset-bound removed — the
+> > positive control that says the query discriminates rather than matching
+> > nothing. So at `max_fix_cycles=2` the benchmark's real history yields **1**,
+> > and the guard **would not have fired** on the case that motivated it.
+> > (The second `mobile-fit` improve_tool row, `216ea5fe`, is another thread's
+> > 024 proof under the hand-written key `improve_tool_024proof_3862f72f`; the
+> > guard scopes to its own key, so it is correctly not counted.)
+> > **What caught it:** re-running the query instead of re-reading the sentence.
+> > The repetition itself was real and is not in question — only the number, and
+> > the claim that the guard had been shown to catch it.
 
 ## Fix candidates
 
@@ -193,6 +250,67 @@ fired on a **delivery** defect (024) while reporting a **fixer** defect. Both
 risks are in the council submission (`submission_010_convergence_guard.json`,
 correlation `eeeccdaa-f14b-49cb-b11f-06e7f053add8`).
 
+## Defect 3 — the judge reports work as queued that it never queued (found 2026-07-25)
+
+**FIXED, committed, INERT until the next chassis roll.**
+
+`ON CONFLICT DO NOTHING` returns **no error when it inserts nothing**. Both keyed
+inserts in `judge_acceptance_results` derived their success flag from `err == nil`:
+
+```go
+_, err := params.DB.ExecContext(ctx, `INSERT INTO site_work_items … ON CONFLICT DO NOTHING`, …)
+if err != nil { logger.Warn(…) } else { itemCreated = true }   // ← true even when 0 rows inserted
+```
+
+`idx_swi_dedup` is `UNIQUE (site_id, item_key) WHERE item_key IS NOT NULL AND
+status NOT IN (<7 terminal statuses>)`, so whenever the previous cycle's item is
+still **open**, a failing verdict inserts nothing — and the judge recorded that
+as a queued fix. Two consequences, both in the loop's own durable record:
+
+- the acceptance-fail note asserts `improve_tool item created carrying the
+  criteria as acceptance_test` when no item exists. This is the exact failure the
+  note was rewritten on 07-20 to prevent — its own comment says the note is
+  "written LAST and from the outcome, not from the intent … a note claiming a fix
+  was queued when the insert missed is the 'trust the status, not the artefact'
+  failure this codebase keeps paying for". The note *was* moved to the outcome;
+  the outcome variable was still computed from the wrong signal;
+- `chromeRouted` (site-chrome `responsive_fix`) counts the same way, so
+  `routed separately as N responsive_fix item(s)` can overstate N.
+
+**Evidence, and its limits — stated because this is where the previous "confirmed
+live" went wrong.** The live asymmetry is real: 4 acceptance-fail notes, 1 work
+item (queries in the CORRECTION above). It is **consistent with** dedup
+suppression but it is **[NOT PROOF] of the current code's behaviour**, because
+the 07-17/07-18 notes were written by *older* code (`f59590e32`) in which the
+`Fix:` line was a **hardcoded literal** printed unconditionally — so those notes
+would have claimed creation no matter what happened. The defect in the **current**
+code is established by **code reading plus the new unit tests**, not by those
+notes. Whether dedup suppression is what actually produced the 1-row/4-note gap
+is **[UNVERIFIED]** — a plausible alternative is that the tool had no
+`content_components` row for the first verdicts (there is a `needs_content_page`
+item for it from 07-17 09:38, and that branch creates no item either).
+
+**Fix** (`platform/orchestration/actions/tool_acceptance_actions.go`): a
+`rowsAffected(res, err)` helper (tolerates the nil `Result` of a failed Exec);
+both call sites branch on rows, not on the absent error; a new `itemDeduped`
+state so the note says plainly *"no new improve_tool item — one for <criteria> is
+ALREADY OPEN under this key (the previous fix cycle has not finished)"* instead
+of falling through to the "none could be created" default, which reads as a
+defect and would send the next reader hunting a broken insert. Tests in
+`tool_acceptance_convergence_test.go`: `TestImproveToolNotReportedCreatedWhenDedupSuppressesInsert`,
+its positive control `TestImproveToolReportedCreatedWhenInsertAffectsARow`, and
+`TestRowsAffectedToleratesFailedExec`. 9/9 in that file pass; the whole
+`platform/orchestration/actions` package passes.
+
+**Note the interaction with (b), which is the reason this matters here.** The
+guard counts rows that this same dedup can prevent from existing. A failing
+verdict that queued nothing is not a deferred cycle — it is a cycle that will
+**never** be counted. That is a second, independent reason the benchmark's four
+failures scored 1. Counting terminal rows only is deliberate and still right
+(§"bounded three ways"); what is **[UNRESOLVED]** is whether the threshold of 2
+is reachable in practice on the cadence real tools fail at. Do not raise the
+threshold or loosen the bounds without measuring that first.
+
 **(c) NOT recommended: hand-fix this one tool.** It would clean the trial site
 but erase the benchmark and prove nothing. The tool was left overflowing on
 purpose. **UPDATE 2026-07-21: the benchmark self-resolved anyway** — not by a
@@ -237,6 +355,52 @@ valid test subject for either candidate; it passes Tier-4 now.
      AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(w.spec->'failing_checks') e
                  WHERE e = ANY(<the criteria failing now>));
    ```
+3. **Structural risk of the never-run escalation INSERT — RETIRED read-only,
+   2026-07-25.** The main hazard in a statement that has never executed is that
+   it cannot execute: a constraint or an ON CONFLICT arbiter mismatch. Checked
+   against the live schema without writing anything:
+   - `site_work_items.item_type` is plain `text` with **no CHECK constraint**, so
+     the new value `acceptance_stuck` is structurally accepted (`\d site_work_items`);
+   - every `NOT NULL` column the statement omits has a default, and the ones it
+     must supply — `site_id`, `source`, `item_type`, `summary`, `created_by`,
+     `pipeline`, `status` — are all supplied literally;
+   - the arbiter `ON CONFLICT (site_id, item_key) WHERE item_key IS NOT NULL AND
+     status NOT IN (…)` interpolates `workItemTerminalStatuses`, which is exactly
+     the 7-element set in `idx_swi_dedup`'s predicate
+     (`complete, failed, verified, rejected, wont_fix, unresolved, cancelled`) —
+     verified element-by-element against `\d site_work_items`. Postgres normalises
+     `NOT IN (list)` to `<> ALL (ARRAY[…])`, the index's form, so it matches; and
+     this same list feeds the fleet-wide `insertWorkItem` path that runs daily,
+     so the arbiter form itself is continuously exercised. No 42P10 risk.
+   - the guard's counting query `convergenceAttempts` was **executed verbatim
+     against prod** (read-only) and returns cleanly, with a positive control —
+     see the CORRECTION above. Before today neither it nor the escalation had
+     ever run in production, because the only acceptance verdict since the guard
+     shipped (2026-07-21 12:46) **passed**, returning at the all-pass branch.
+4. **Induced-fault run to exercise the escalation end-to-end — SPECIFIED, NOT
+   RUN** (blocked 2026-07-25: it needs DB writes). The fleet has still not
+   produced a genuinely-stuck tool, and waiting for one is what has kept this
+   branch unproven for four days. Do not wait — induce it, on the trial site,
+   without touching any live page:
+   - add a criterion that cannot pass to the tool's PLAN `criteria` block
+     (`doc_plans`, `subject_type='tool'`), e.g.
+     `{"id":"convergence-probe","type":"selector_exists","selector":"#doesNotExist"}`.
+     **Supersede** (`is_current=false` on the old row + INSERT a new one, in one
+     transaction — `idx_doc_plans_current` is UNIQUE on `(subject_type,subject_key)
+     WHERE is_current`); restore by reversing, so the original body is never rewritten;
+   - seed **two** rows shaped exactly as the judge writes them: `item_type='improve_tool'`,
+     `item_key='acceptance_fail:<fn>:<site>'`, `status='failed'`,
+     `spec->'failing_checks'=["convergence-probe"]`, `created_at > ` the last
+     `acceptance-run` note for that tool;
+   - fire `087_TRIGGER_tool_acceptance.sh` with `SEND=1 SPEC_FUNCTION=<fn>`.
+     **Expect: an `acceptance_stuck:<fn>:<site>` row at `needs_human_review`
+     carrying `why_escalated`/`fix_cycles_spent=2`, and NO new `improve_tool`.**
+     Because it escalates, nothing is dispatched to tool-improver — no live tool
+     is modified, which is why seeding both prior rows is preferable to letting
+     real cycles create them;
+   - then delete the seeded rows and the escalation row, and restore the PLAN.
+   - **Do NOT use `tool-loot-table-balancer`:** it passes Tier 4 now, and its
+     07-21 `acceptance-run` note resets the tally to 0 anyway.
    - **Deploy check (already done for v1.0.1146):** discriminating pod-grep on a
      string the change CREATED, not one it merely uses:
      `strings /app/agent-chassis | grep -c "is not converging on this defect"`

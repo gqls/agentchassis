@@ -2435,6 +2435,54 @@ before catching it with `cat -A`). Verify escape-bearing edits byte-level: `cat 
 `perl -ne 'print if /\x00/'` — and remember bash CANNOT pass a NUL in $'\x00' (it becomes
 the empty string, so that grep matches every line and proves nothing).
 
+### `ON CONFLICT DO NOTHING` succeeds while inserting nothing — `err == nil` is not "work queued" (2026-07-25)
+
+**Symptom.** A durable record (doc_note, summary, status field, log line) says an item was created
+and the item is not in the table. Row counts are a fraction of the number of events that claim to
+have created one — here 1 work item against 4 verdicts each reporting `improve_tool item created`.
+
+**Mechanism.** `INSERT … ON CONFLICT DO NOTHING` is *not* an error when the conflict fires. It
+returns cleanly, having written zero rows. Any keyed insert guarded by a partial unique index —
+`idx_swi_dedup` is `UNIQUE (site_id, item_key) WHERE item_key IS NOT NULL AND status NOT IN
+(<terminal statuses>)` — silently no-ops for as long as an **open** item holds the key. Code of the
+shape `_, err := Exec(…); if err != nil { warn } else { created = true }` therefore reports the
+statement *ran*, not that work was *queued*, and every consumer downstream of that flag inherits
+the false claim.
+
+**Why it hides.** The dedup is doing its job, so there is nothing broken to find: no error, no log,
+no failed run. It only surfaces when someone counts the rows against the events — and the natural
+proxies (notes, log lines, "cycles") are exactly the things that over-report. It is especially
+corrosive when a *counter* elsewhere reads those same rows: a cycle that was never inserted is not
+a deferred cycle, it is one that can never be counted, so any threshold built on the count is
+quietly unreachable (`bugs_open/010` (b) — the guard's threshold of 2 scored 1 on the four-failure
+case it was built for).
+
+**Fix shape.** Branch on rows affected, never on the absent error, and give the suppressed case its
+own *named* outcome rather than letting it fall through to an error-flavoured default:
+
+```go
+res, err := db.ExecContext(ctx, `INSERT … ON CONFLICT DO NOTHING`, …)
+switch n, raErr := rowsAffected(res, err); {   // helper tolerates the nil Result of a failed Exec
+case err != nil:   /* real failure */
+case raErr != nil: /* unknown — report NOT created */
+case n > 0:        created = true
+default:           deduped = true  // "an item for this key is ALREADY OPEN", said in those words
+}
+```
+
+Saying "already open" plainly matters as much as the flag: the previous default read as *"no item
+could be created"*, which sends the next reader hunting a broken insert that does not exist.
+
+**Where to look for more of it.** Measured 2026-07-25: **43** `ON CONFLICT DO NOTHING` sites across
+`platform/` + `internal/`, of which at least **10 files** discard the `Result` with `_, err :=`
+(`apply_adoption_plan`, `apply_gap_plan`, `create_blog_posts`, `create_tool_component`,
+`deploy_tool`, `plan_sections`, `promote_candidates`, `reconcile_site_plan`,
+`resolve_internal_links`, `tool_admin_handlers`). **[UNTRIAGED]** — a discard is only a *defect*
+where the flag feeds a durable claim or a counter; several of these legitimately do not care
+whether the row was new. Triage before changing any of them; only the two in
+`tool_acceptance_actions.go` were fixed (bugs_open/010). The same trap applies to `DO UPDATE` only
+when its `WHERE` can filter the update out; a bare `DO UPDATE` always affects its row.
+
 ### Intent-bearing columns with a zero-caller enforcement helper — the write side was never gated (2026-07-24)
 
 **Symptom.** A column exists precisely to constrain automation (`page_components.locked_at` —

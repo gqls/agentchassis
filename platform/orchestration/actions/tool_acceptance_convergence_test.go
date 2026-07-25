@@ -79,6 +79,14 @@ func runJudgeFailPath(t *testing.T, config map[string]interface{}, priorAttempts
 // no work item of either kind can be raised.
 func runJudgeFailPathWithComponent(t *testing.T, config map[string]interface{}, priorAttempts int, countErr error, componentID string) judgeRun {
 	t.Helper()
+	return runJudgeFailPathFull(t, config, priorAttempts, countErr, componentID, 1)
+}
+
+// runJudgeFailPathFull additionally controls how many rows the work-item INSERT
+// reports affected. 0 models ON CONFLICT DO NOTHING hitting idx_swi_dedup — the
+// statement succeeds, no error, and NO item is queued (bugs_open/010).
+func runJudgeFailPathFull(t *testing.T, config map[string]interface{}, priorAttempts int, countErr error, componentID string, insertRows int64) judgeRun {
+	t.Helper()
 
 	run := judgeRun{}
 
@@ -117,7 +125,7 @@ func runJudgeFailPathWithComponent(t *testing.T, config map[string]interface{}, 
 				captureArg{got: &run.itemKey}, // $4 item_key
 				sqlmock.AnyArg(),              // $5 batch_id
 			).
-			WillReturnResult(sqlmock.NewResult(1, 1))
+			WillReturnResult(sqlmock.NewResult(1, insertRows))
 	}
 	// 4. the acceptance-fail doc_note — written LAST, from the outcome
 	mock.ExpectQuery("doc_notes").
@@ -334,5 +342,57 @@ func TestConvergenceAttempts_NoFailingChecksCountsZero(t *testing.T) {
 	}
 	if n != 0 {
 		t.Errorf("count = %d, want 0", n)
+	}
+}
+
+// A suppressed insert must NOT be reported as a queued fix. ON CONFLICT DO
+// NOTHING returns no error when idx_swi_dedup already holds an open item for
+// the key, so the judge inserted nothing — and the acceptance-fail note is the
+// loop's own durable record. Deriving the flag from err==nil made that note
+// assert work was queued when none was ("trust the status, not the artefact").
+func TestImproveToolNotReportedCreatedWhenDedupSuppressesInsert(t *testing.T) {
+	run := runJudgeFailPathFull(t, nil, 0, nil, "comp-1", 0)
+
+	if got := run.raisedItemType(); got != "improve_tool" {
+		t.Fatalf("expected the normal improve_tool branch, got %q", got)
+	}
+	if created, _ := run.out["improve_tool_created"].(bool); created {
+		t.Errorf("improve_tool_created must be false when the insert affected 0 rows; out=%v", run.out)
+	}
+	if strings.Contains(run.note, "improve_tool item created") {
+		t.Errorf("note claims an item was created when none was:\n%s", run.note)
+	}
+	if !strings.Contains(run.note, "ALREADY OPEN") {
+		t.Errorf("note must say the previous cycle's item is still open:\n%s", run.note)
+	}
+}
+
+// The positive control for the test above: one row affected is a real queued
+// fix, and must still read as one. Without this, "report nothing created"
+// would pass by never reporting anything.
+func TestImproveToolReportedCreatedWhenInsertAffectsARow(t *testing.T) {
+	run := runJudgeFailPathFull(t, nil, 0, nil, "comp-1", 1)
+
+	if created, _ := run.out["improve_tool_created"].(bool); !created {
+		t.Errorf("improve_tool_created must be true when a row was inserted; out=%v", run.out)
+	}
+	if !strings.Contains(run.note, "improve_tool item created") {
+		t.Errorf("note must record the queued fix:\n%s", run.note)
+	}
+	if strings.Contains(run.note, "ALREADY OPEN") {
+		t.Errorf("note must not claim a dedup suppression that did not happen:\n%s", run.note)
+	}
+}
+
+// rowsAffected must not panic on the nil Result that accompanies a failed Exec,
+// and must surface the original error rather than inventing a count.
+func TestRowsAffectedToleratesFailedExec(t *testing.T) {
+	boom := errors.New("exec failed")
+	n, err := rowsAffected(nil, boom)
+	if !errors.Is(err, boom) {
+		t.Errorf("want the original error back, got %v", err)
+	}
+	if n != 0 {
+		t.Errorf("want 0 rows on a failed exec, got %d", n)
 	}
 }
