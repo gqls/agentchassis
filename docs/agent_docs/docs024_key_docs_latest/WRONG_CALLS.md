@@ -3060,3 +3060,19 @@ have already made it famous.** Cost: one wrong landmine published in two places
 route switch, ~15 minutes of false-negative polling. Family:
 too-early-is-not-absent, window-cannot-contain-the-evidence,
 famous-failure-mode-as-default-diagnosis.
+
+**Follow-up, same day (the sting sharpened).** Correlation `7ed137d1` was
+resubmitted twice more and eventually came back **APPROVED** — so the trailer on
+`8e8b55818` now resolves to a genuine approval. It is still false, and now
+falsely in a way that is harder to see: the round that approved is precisely the
+round that change was **removed from**, at the edit-quality seat's request for
+minimality. The trailer reads as reviewed, resolves to an APPROVED verdict, and
+the verdict is for other code.
+
+**The rule is therefore sharper than "read the verdict before writing the
+trailer".** A correlation id identifies a *submission*, and a submission's
+contents change between rounds. **A trailer is only true if the approved round
+still contained your change.** Re-check the approved plan's edit list, not just
+its decision. (Fixed forward: the change was resubmitted alone as
+`37a32e02-19a7-409a-a74f-9363556bb39e`, with the situation stated in its
+rationale, so its real status resolves by that correlation.)
