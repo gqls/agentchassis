@@ -78,3 +78,51 @@ true of what a paying customer receives today.
 
 Nothing here needed to block the rest of the day's work; the pipeline pages funnel to
 /report.html regardless of which way this lands.
+
+---
+
+## DECISION & BUILD (owner chose B — extend the engine, 2026-07-25)
+
+Owner ruling via AskUserQuestion: **"Extend the engine instead"** — keep the promise, change the
+product. Built the same day; **INERT until the owner builds and deploys the binary** (the tool has
+no CI — RUNBOOK: `GOOS=linux GOARCH=amd64 go build -o idea .`, scp to the box, `systemctl restart
+idea`).
+
+What changed (all in `idea.uk/golang_files/`, suite green, `go vet` clean):
+
+1. **STEP 0 — `runAssess`** (`engine.go`) + `assessPrompt` (`prompts.go`): a web-verified
+   assessment of the thing the customer actually submitted, field-for-field the copy's promise —
+   problem + evidence people have it, signs of demand, who else and how, what people use instead
+   today, defensible/exposed, one specific affordable next step. Same model/tool posture as the
+   verify step (Opus + web_search ×12, xhigh). **The honest refusal is in the schema**:
+   `is_assessable:false` renders a plain "too early to assess honestly" outcome instead of a
+   padded verdict — the copy's "not every idea warrants a report", now enforced rather than
+   implied. Hard-fails like every other step: a report without its headline section is not sent.
+2. **Sources, end to end**: `source{Title,URL}` carried from both the assessment and the verify
+   step (verify's "do not list names" instruction replaced with a separate up-to-3 sources array
+   per candidate, with an explicit never-invent rule; empty is correct when a finding rests on
+   absence). Rendered as **"Check it yourself:"** lists — linked in the HTML email, title+URL in
+   the plain-text — under the assessment and under each advancing idea. "We explain its source so
+   you can check it yourself" is now literally what the customer receives.
+3. **AI use indicated in the report itself** (`reportIntro`): "We use AI to research and draft
+   this report, with live web searches for the checking; a person reviews it before it is sent."
+   Previously only the T&Cs said so.
+4. Report restructured: "Your idea, assessed" leads; the ideation output becomes "Further ideas
+   worth pursuing". Both renderers (text + HTML email) updated symmetrically; tests extended to
+   lock the new sections, the sources, and the too-early outcome.
+5. **Pre-existing test failure fixed in passing**: `TestReviewBeforePayFlow` asserted the pay
+   email contains "pay here" but the copy says "pay £29 here" — failing on wording since the
+   price went into the sentence. Assertion updated to the stable prefix.
+
+Run-cost note for the operator: a run is now 6 model calls, two of them long web-search calls
+(assess + verify), so expect roughly double the previous per-report Claude spend and a longer
+wall-clock; the 15-minute per-call HTTP ceiling already in place covers it.
+
+Remaining copy nuance once deployed: /report.html's description becomes accurate, and it
+UNDERSELLS the product (the report also delivers the further-ideas half, which the page barely
+mentions). A light copy pass to mention it is worthwhile but not urgent — underselling is the
+safe direction.
+
+**Deploy checklist for the owner:** build + scp + restart per RUNBOOK; then
+`grep CONTACT_EMAIL /etc/idea/idea.env` (the stale-address fallback); then run one real report
+end-to-end and check the email carries "Your idea, assessed" + working source links.

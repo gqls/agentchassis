@@ -1839,3 +1839,17 @@ Both guides funnel to /report.html; hub lists them automatically (nav_order 30/4
 **Docs written to this point**: SUMMARY_2026-07-25 (NEW file per the series rule — the 07-18
 summary stands untouched), README_where_we_are entry, this section. RUNBOOK Phase 5 unchanged
 (recipe held for both new guides — slot_name + pages.sections handled in-SQL, no new traps).
+
+**§X.14 addendum — owner ruled: EXTEND THE ENGINE (option B). Built same day, INERT until deploy.**
+The paid tool now does what the page says: new STEP 0 assesses the submitted idea itself
+(web-verified, the copy's six areas, `is_assessable:false` = an honest rendered "too early to
+assess" refusal); sources carried from assess + verify into "Check it yourself:" lists in both
+email formats; AI use disclosed in the report intro, not just the T&Cs. Files:
+`idea.uk/golang_files/engine.go` (+235/-44 across the three), `prompts.go`, `service_test.go`.
+`go build` + `go vet` clean; **full test suite green** — including a pre-existing failure fixed in
+passing (`TestReviewBeforePayFlow` asserted "pay here"; the email says "pay £29 here" — stale
+wording assertion, failing on copy not behaviour). Run cost roughly doubles (6 calls, 2 long
+web-search calls). **Owner deploy checklist** is at the foot of `AUDIT_2026-07-25_paid_tool_vs_copy.md`
+(build/scp/restart + the CONTACT_EMAIL grep + one end-to-end report). Until the binary rolls, the
+live tool keeps its old behaviour and /report.html keeps overselling — the gap is now closed in
+code, not yet in production.

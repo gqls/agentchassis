@@ -43,6 +43,53 @@ const capabilityMenu = `- Knowledge & retrieval: curated/grounded RAG over the r
   generation usefulness; precise image editing. Ask for each: is there a product for
   THIS audience that wasn't possible 18 months ago?`
 
+const assessPrompt = `STEP 0 — ASSESS THE SUBMITTED IDEA ITSELF, before anything else.
+
+The customer has paid for an honest, researched assessment of the specific thing they
+submitted. This step is about THEIR idea — not about generating alternatives (that comes
+later, separately).
+
+What they submitted (may be a single idea, or a description of their business): {submission}
+Who they think it is for: {audience}
+Their notes (may be empty): {notes}
+
+First, decide what you are looking at:
+ - If it reads as a SINGLE IDEA or proposition, assess that idea.
+ - If it reads as a BUSINESS DESCRIPTION with no specific idea in it, say so plainly in
+   "reading", and assess the business's implied proposition instead — what they appear to be
+   offering, to whom.
+ - If it is too vague to assess honestly (a topic of interest rather than a worked-out
+   proposition), set "is_assessable": false and say in "reading" what is missing. Do NOT
+   pad a vague submission into a fake assessment — a plain "this is too early to assess,
+   here is what would make it assessable" is the honest, correct output.
+
+Then research it with the web_search tool. Assert nothing you can check. Cover exactly:
+ 1. problem — what problem this addresses, and whether there is EVIDENCE real people
+    experience it (search for it; say what you found, not what seems plausible).
+ 2. demand_evidence — the strongest concrete signs of demand you could find, or an honest
+    statement that you found none.
+ 3. who_else — who is already addressing this and how (named where the name is the evidence).
+ 4. substitutes_today — what a person who wants this would actually use INSTEAD today,
+    including free or manual workarounds.
+ 5. defensible — where this idea is genuinely defensible.
+ 6. exposed — where it is exposed (easy to copy, dependent on someone else's platform,
+    thin demand, an incumbent one feature away).
+ 7. next_step — ONE specific, affordable action to test real demand before committing more
+    resource. Concrete enough to start this week; plain sentences.
+
+For every checkable claim above, record the source you relied on. Return up to 8 sources —
+real pages you actually used, with usable URLs. If a claim rests on general knowledge rather
+than a page you checked, do not invent a source for it.
+
+Write everything in plain English for a busy, non-technical reader. Short sentences.
+Honest beats encouraging: if the picture is poor, say so and say what would have to change.
+
+Return JSON only:
+{"is_assessable": true|false, "reading": "one or two sentences: what we understood you to be proposing",
+ "problem": "...", "demand_evidence": "...", "who_else": "...", "substitutes_today": "...",
+ "defensible": "...", "exposed": "...", "next_step": "...",
+ "sources": [{"title": "...", "url": "..."}]}`
+
 const audiencePrompt = `STEP 1 — FRAME THE AUDIENCE (and challenge it).
 
 Domain: {domain}
@@ -139,8 +186,14 @@ check. For each candidate, check the claims its premise rests on:
 Use the web_search tool. Then drop any candidate whose premise fails verification.
 
 Write each "findings" in plain English a non-technical reader understands: one or two
-short sentences saying what you checked and what you found. Do not list strings of
-product or vendor names — name one only if that single name is the key evidence.
+short sentences saying what you checked and what you found. Keep the prose clean — do not
+pack it with strings of product or vendor names; name one in the prose only if that single
+name is the key evidence.
+
+SOURCES: separately from the prose, list for each candidate the web pages you actually
+relied on (up to 3 each) as {title, url} pairs, so the reader can check the finding
+themselves. Real pages you used, with usable URLs — never invent or pad this list; an empty
+list is correct when a finding rests on absence of evidence rather than a page.
 
 Domain: {domain}
 Surviving candidates (each has an "id" — echo the SAME id for each):
@@ -148,7 +201,9 @@ Surviving candidates (each has an "id" — echo the SAME id for each):
 
 After searching, return JSON only (no prose outside the JSON):
 {"results": [{"id": "...", "title": "...",
-  "findings": "<1-2 plain sentences: what you checked and what you found>", "premise_holds": true|false}]}`
+  "findings": "<1-2 plain sentences: what you checked and what you found>",
+  "premise_holds": true|false,
+  "sources": [{"title": "...", "url": "..."}]}]}`
 
 const scorePrompt = `STEP 5 — SCORE each candidate whose premise held. Six factors, 1-5, where 5 is
 ALWAYS more attractive / safer. Score honestly; guessing high defeats the point.

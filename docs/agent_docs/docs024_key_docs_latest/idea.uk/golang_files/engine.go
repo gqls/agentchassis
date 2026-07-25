@@ -65,14 +65,42 @@ var httpClient = &http.Client{Timeout: 900 * time.Second}
 type EngineFunc func(domain, audience, assets string) (renderedReport, error)
 
 // ── JSON shapes between steps ────────────────────────────────────────────────
+
+// source is one checkable reference the model actually relied on. Carried into
+// the rendered report so "check it yourself" is true of what the customer
+// receives, not just of our process.
+type source struct {
+	Title string `json:"title"`
+	URL   string `json:"url"`
+}
+
+// assessment is step 0 — the researched assessment of the thing the customer
+// actually submitted. Field-for-field it is the coverage the /report.html copy
+// promises (problem/evidence, who else, substitutes, defensible/exposed, next
+// step); IsAssessable=false is the honest "this is too early to assess" outcome
+// the copy also promises ("Not every idea warrants a report").
+type assessment struct {
+	IsAssessable     bool     `json:"is_assessable"`
+	Reading          string   `json:"reading"`
+	Problem          string   `json:"problem"`
+	DemandEvidence   string   `json:"demand_evidence"`
+	WhoElse          string   `json:"who_else"`
+	SubstitutesToday string   `json:"substitutes_today"`
+	Defensible       string   `json:"defensible"`
+	Exposed          string   `json:"exposed"`
+	NextStep         string   `json:"next_step"`
+	Sources          []source `json:"sources"`
+}
+
 type candidate struct {
-	ID               string `json:"id"`
-	Title            string `json:"title"`
-	Lens             string `json:"lens"`
-	Asset            string `json:"asset"`
-	Capability       string `json:"capability"`
-	BeatsFreeBecause string `json:"beats_free_because"`
-	Findings         string `json:"findings,omitempty"`
+	ID               string   `json:"id"`
+	Title            string   `json:"title"`
+	Lens             string   `json:"lens"`
+	Asset            string   `json:"asset"`
+	Capability       string   `json:"capability"`
+	BeatsFreeBecause string   `json:"beats_free_because"`
+	Findings         string   `json:"findings,omitempty"`
+	Sources          []source `json:"sources,omitempty"`
 }
 
 type scored struct {
@@ -382,8 +410,45 @@ func runAudience(business, audience, assets string) (audienceResult, error) {
 	return aud, nil
 }
 
+// runAssess runs step 0 — the web-verified assessment of the submitted idea
+// itself. Same model + tool posture as the verify step (it is the same kind of
+// work: multi-step inference over search results), and the promise-critical
+// call, so it gets the search budget and xhigh effort.
+func runAssess(submission, audience, notes string) (assessment, error) {
+	var a assessment
+	out, err := callClaudeOpts(callOpts{
+		Model:  verifyModel,
+		System: systemBase,
+		User: fill(assessPrompt, "{submission}", submission, "{audience}", audience,
+			"{notes}", notes),
+		Tools: []map[string]any{
+			{"type": "web_search_20260209", "name": "web_search", "max_uses": envInt("WEB_SEARCH_MAX_USES", 12)},
+		},
+		MaxTokens:   32000,
+		Effort:      "xhigh",
+		CacheSystem: true, // first call in a run; establishes the cache steps 1-5 read
+	})
+	if err != nil {
+		return a, fmt.Errorf("assess step: %w", err)
+	}
+	if err := parseJSON(out, &a); err != nil {
+		return a, fmt.Errorf("assess parse: %w", err)
+	}
+	return a, nil
+}
+
 // ── RunMethod: the pipeline ──────────────────────────────────────────────────
 func RunMethod(domain, audience, assets string) (renderedReport, error) {
+	// STEP 0 — assess the submitted idea itself (the headline promise of the
+	// report page: problem/evidence, who else, substitutes, defensible/exposed,
+	// a next step — with checkable sources). Hard-fail like every other step:
+	// a report without its headline section should not be sent, and the
+	// operator flow can re-run.
+	assess, err := runAssess(domain, audience, assets)
+	if err != nil {
+		return renderedReport{}, err
+	}
+
 	// STEP 1 — audience framing + challenge
 	aud, err := runAudience(domain, audience, assets)
 	if err != nil {
@@ -441,7 +506,7 @@ func RunMethod(domain, audience, assets string) (renderedReport, error) {
 		}
 	}
 	if len(survivors) == 0 {
-		return renderReport(domain, aud.CarriedAudience, aud.WillingnessToPay, nil, nil, nil,
+		return renderReport(domain, aud.CarriedAudience, aud.WillingnessToPay, assess, nil, nil, nil,
 			"No candidate survived the cut."), nil
 	}
 
@@ -471,29 +536,35 @@ func RunMethod(domain, audience, assets string) (renderedReport, error) {
 	}
 	var ver struct {
 		Results []struct {
-			ID           string `json:"id"`
-			Findings     string `json:"findings"`
-			PremiseHolds bool   `json:"premise_holds"`
+			ID           string   `json:"id"`
+			Findings     string   `json:"findings"`
+			PremiseHolds bool     `json:"premise_holds"`
+			Sources      []source `json:"sources"`
 		} `json:"results"`
 	}
 	if err := parseJSON(s4, &ver); err != nil {
 		return renderedReport{}, fmt.Errorf("verify parse: %w", err)
 	}
-	holds := map[string]string{}
+	type verdict struct {
+		findings string
+		sources  []source
+	}
+	holds := map[string]verdict{}
 	for _, r := range ver.Results {
 		if r.PremiseHolds && r.ID != "" {
-			holds[r.ID] = r.Findings
+			holds[r.ID] = verdict{r.Findings, r.Sources}
 		}
 	}
 	var verified []candidate
 	for _, c := range survivors {
-		if f, ok := holds[c.ID]; ok {
-			c.Findings = f
+		if v, ok := holds[c.ID]; ok {
+			c.Findings = v.findings
+			c.Sources = v.sources
 			verified = append(verified, c)
 		}
 	}
 	if len(verified) == 0 {
-		return renderReport(domain, aud.CarriedAudience, aud.WillingnessToPay, nil, nil, nil,
+		return renderReport(domain, aud.CarriedAudience, aud.WillingnessToPay, assess, nil, nil, nil,
 			"No premise survived verification."), nil
 	}
 
@@ -557,7 +628,7 @@ func RunMethod(domain, audience, assets string) (renderedReport, error) {
 			}
 		}
 	}
-	return renderReport(domain, aud.CarriedAudience, aud.WillingnessToPay, advancing, dropped, riskDropped, ""), nil
+	return renderReport(domain, aud.CarriedAudience, aud.WillingnessToPay, assess, advancing, dropped, riskDropped, ""), nil
 }
 
 type renderedReport struct {
@@ -567,10 +638,10 @@ type renderedReport struct {
 
 // renderReport produces both renderings from the same structured result, so the
 // HTML version is built from the data — not re-parsed from the text.
-func renderReport(domain, audience, wtp string, advancing, dropped, riskDropped []scored, note string) renderedReport {
+func renderReport(domain, audience, wtp string, assess assessment, advancing, dropped, riskDropped []scored, note string) renderedReport {
 	return renderedReport{
-		Text: render(domain, audience, wtp, advancing, dropped, riskDropped, note),
-		HTML: renderHTML(domain, audience, wtp, advancing, dropped, riskDropped, note),
+		Text: render(domain, audience, wtp, assess, advancing, dropped, riskDropped, note),
+		HTML: renderHTML(domain, audience, wtp, assess, advancing, dropped, riskDropped, note),
 	}
 }
 
@@ -581,7 +652,7 @@ func renderReport(domain, audience, wtp string, advancing, dropped, riskDropped 
 // styles only (many mail clients drop <style> blocks). All model/user text is
 // HTML-escaped. Its own professional palette + type — deliberately not the
 // landing-page brand — so the report reads like a considered, paid-for document.
-func renderHTML(domain, audience, wtp string, advancing, dropped, riskDropped []scored, note string) string {
+func renderHTML(domain, audience, wtp string, assess assessment, advancing, dropped, riskDropped []scored, note string) string {
 	esc := html.EscapeString
 	const (
 		navy  = "#15243d" // headings, idea titles, labels
@@ -604,6 +675,45 @@ func renderHTML(domain, audience, wtp string, advancing, dropped, riskDropped []
 	sect := func(t string) {
 		fmt.Fprintf(&b, `<div style="font-size:12px;font-weight:bold;letter-spacing:.12em;text-transform:uppercase;color:%s;border-top:1px solid %s;padding-top:18px;margin:26px 0 8px">%s</div>`, navy, line, esc(t))
 	}
+	// srcList renders a "Check it yourself" source list — the concrete delivery
+	// of the report page's "we explain its source so you can check it yourself".
+	srcList := func(srcs []source) {
+		if len(srcs) == 0 {
+			return
+		}
+		fmt.Fprintf(&b, `<p style="font-size:13px;color:%s;margin:8px 0 0"><span style="font-weight:bold;color:%s">Check it yourself:</span></p><ul style="font-size:13px;color:%s;margin:2px 0 0;padding-left:18px">`, muted, navy, muted)
+		for _, s := range srcs {
+			t := s.Title
+			if t == "" {
+				t = s.URL
+			}
+			fmt.Fprintf(&b, `<li style="margin:2px 0"><a href="%s" style="color:%s">%s</a></li>`, esc(s.URL), navy, esc(t))
+		}
+		b.WriteString(`</ul>`)
+	}
+	// ── Part 1: the submitted idea, assessed ────────────────────────────────
+	arow := func(label, val string) {
+		if val == "" {
+			return
+		}
+		fmt.Fprintf(&b, `<p style="margin:0 0 10px;color:%s"><span style="color:%s;font-weight:bold">%s</span> %s</p>`, slate, navy, esc(label), esc(val))
+	}
+	sect("Your idea, assessed")
+	if assess.Reading != "" {
+		fmt.Fprintf(&b, `<p style="margin:0 0 12px;color:%s"><em>%s</em></p>`, muted, esc(assess.Reading))
+	}
+	if !assess.IsAssessable {
+		fmt.Fprintf(&b, `<p style="background:#f6f1e6;border-left:3px solid %s;padding:12px 16px;margin:0 0 12px;color:%s">What you sent us is too early to assess honestly — it reads as an area of interest rather than a worked-out proposition, and padding it into a verdict would not serve you. The note above says what is missing; the free tools on the site are the right next step, and the rest of this report looks at directions worth considering around it.</p>`, gold, slate)
+	} else {
+		arow("The problem, and the evidence people have it:", assess.Problem)
+		arow("Signs of real demand:", assess.DemandEvidence)
+		arow("Who else is addressing it, and how:", assess.WhoElse)
+		arow("What people would use instead today:", assess.SubstitutesToday)
+		arow("Where it is defensible:", assess.Defensible)
+		arow("Where it is exposed:", assess.Exposed)
+		arow("A considered next step:", assess.NextStep)
+	}
+	srcList(assess.Sources)
 	sect("Who it's for")
 	fmt.Fprintf(&b, `<p style="margin:0;color:%s">%s</p>`, slate, esc(audience))
 	sect("Why they'd pay")
@@ -612,10 +722,10 @@ func renderHTML(domain, audience, wtp string, advancing, dropped, riskDropped []
 		fmt.Fprintf(&b, `<p style="background:#f6f1e6;border-left:3px solid %s;padding:12px 16px;margin:16px 0;color:%s">%s</p>`, gold, slate, esc(note))
 	}
 	if len(advancing) == 0 {
-		sect("No idea cleared the bar")
-		fmt.Fprintf(&b, `<p style="margin:0;color:%s">None of the ideas passed both of our main tests — being hard for someone else to copy, and being something enough people would pay for (each needs at least 3 out of 5 on both). That is a real result, not a dead end: it usually means a different audience, a different starting asset, or a different way to charge.</p>`, slate)
+		sect("No further idea cleared the bar")
+		fmt.Fprintf(&b, `<p style="margin:0;color:%s">Beyond the assessment above, none of the further ideas we generated passed both of our main tests — being hard for someone else to copy, and being something enough people would pay for (each needs at least 3 out of 5 on both). That is a real result, not a dead end: it usually means a different audience, a different starting asset, or a different way to charge.</p>`, slate)
 	} else {
-		sect("Ideas worth pursuing (best first)")
+		sect("Further ideas worth pursuing (best first)")
 		for i, x := range advancing {
 			fmt.Fprintf(&b, `<div style="background:%s;border:1px solid %s;border-left:3px solid %s;border-radius:6px;padding:16px 18px;margin:0 0 14px">`, card, line, gold)
 			fmt.Fprintf(&b, `<div style="font-family:%s;font-size:19px;font-weight:bold;color:%s;margin:0 0 4px">%d. %s</div>`, serif, navy, i+1, esc(x.Title))
@@ -635,6 +745,7 @@ func renderHTML(domain, audience, wtp string, advancing, dropped, riskDropped []
 			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">How it scored:</span> out of 5 — hard to copy %d &middot; people will pay %d &middot; easy to build %d &middot; reusable elsewhere %d &middot; built to last %d <span style="color:%s">(%d out of 25 overall)</span></p>`, slate, navy, x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, muted, x.Sum)
 			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">Risk to you:</span> %d/5 %s</p>`, slate, navy, x.Risk, esc(riskNote(x.Risk)))
 			row("A cheap first test:", x.CheapestTest)
+			srcList(x.Sources)
 			b.WriteString(`</div>`)
 		}
 	}
@@ -670,12 +781,19 @@ func renderHTML(domain, audience, wtp string, advancing, dropped, riskDropped []
 const reportRule = "------------------------------------------------------------"
 
 // reportIntro is the plain-English opener so a recipient with a full inbox knows
-// what this email is and what it contains. domain is the business descriptor.
+// what this email is and what it contains. domain is the business-or-idea text
+// the customer submitted. It also carries the report's own AI disclosure — the
+// page promises AI use is "clearly indicated", and the T&Cs alone are not the
+// report the customer actually reads.
 func reportIntro(domain string) string {
-	return "This report is from idea.uk. You asked us to find AI product ideas for " + domain + ". " +
-		"We came up with a wide range of ideas, then checked each one against what already exists and " +
-		"whether people would actually pay for it. Below are the ideas worth pursuing — with what we " +
-		"found and a cheap way to test each one — followed by the ideas we looked at and set aside, and why."
+	return "This report is from idea.uk, about what you sent us: " + domain + ". " +
+		"First we assess the idea you submitted — the problem it addresses, the evidence of demand, " +
+		"who else is out there, where it is defensible and where it is exposed, and a specific next " +
+		"step. Then we go looking for further ideas around it, check each against what already exists " +
+		"and whether people would actually pay, and set out the ones worth pursuing — and the ones we " +
+		"set aside, and why. We use AI to research and draft this report, with live web searches for " +
+		"the checking; a person reviews it before it is sent. Where a finding rests on something we " +
+		"read, the sources are listed under it so you can check them yourself."
 }
 
 func reportContact() string {
@@ -723,23 +841,64 @@ func dropReason(x scored) string {
 	return "We set it aside because " + strings.Join(why, ", and ") + "."
 }
 
-func render(domain, audience, wtp string, advancing, dropped, riskDropped []scored, note string) string {
+func render(domain, audience, wtp string, assess assessment, advancing, dropped, riskDropped []scored, note string) string {
 	var b strings.Builder
+	// srcLines mirrors the HTML "Check it yourself" list for the plain-text part.
+	srcLines := func(prefix string, srcs []source) {
+		if len(srcs) == 0 {
+			return
+		}
+		fmt.Fprintf(&b, "%sCheck it yourself:\n", prefix)
+		for _, s := range srcs {
+			t := s.Title
+			if t == "" {
+				t = s.URL
+			}
+			fmt.Fprintf(&b, "%s - %s — %s\n", prefix, t, s.URL)
+		}
+	}
 	fmt.Fprintf(&b, "IDEA REPORT — %s\n%s\n\n", domain, reportRule)
 	fmt.Fprintf(&b, "%s\n\n", reportIntro(domain))
+	b.WriteString("YOUR IDEA, ASSESSED\n")
+	if assess.Reading != "" {
+		fmt.Fprintf(&b, "(%s)\n\n", assess.Reading)
+	}
+	if !assess.IsAssessable {
+		b.WriteString("What you sent us is too early to assess honestly — it reads as an area of\n" +
+			"interest rather than a worked-out proposition, and padding it into a verdict\n" +
+			"would not serve you. The note above says what is missing; the free tools on the\n" +
+			"site are the right next step, and the rest of this report looks at directions\n" +
+			"worth considering around it.\n")
+	} else {
+		arow := func(label, val string) {
+			if val != "" {
+				fmt.Fprintf(&b, "%s\n   %s\n", label, val)
+			}
+		}
+		arow("The problem, and the evidence people have it:", assess.Problem)
+		arow("Signs of real demand:", assess.DemandEvidence)
+		arow("Who else is addressing it, and how:", assess.WhoElse)
+		arow("What people would use instead today:", assess.SubstitutesToday)
+		arow("Where it is defensible:", assess.Defensible)
+		arow("Where it is exposed:", assess.Exposed)
+		arow("A considered next step:", assess.NextStep)
+	}
+	srcLines("", assess.Sources)
+	b.WriteString("\n")
 	fmt.Fprintf(&b, "WHO IT'S FOR\n%s\n\n", audience)
 	fmt.Fprintf(&b, "WHY THEY'D PAY\n%s\n\n", wtp)
 	if note != "" {
 		fmt.Fprintf(&b, "%s\n\n", note)
 	}
 	if len(advancing) == 0 {
-		b.WriteString("NO IDEA CLEARED THE BAR\n")
-		b.WriteString("None of the ideas passed both of our main tests: being hard for someone else\n" +
-			"to copy, and being something enough people would pay for (each needs at least 3\n" +
-			"out of 5 on both). That is a real result, not a dead end — it usually means a\n" +
-			"different audience, a different starting asset, or a different way to charge.\n\n")
+		b.WriteString("NO FURTHER IDEA CLEARED THE BAR\n")
+		b.WriteString("Beyond the assessment above, none of the further ideas we generated passed both\n" +
+			"of our main tests: being hard for someone else to copy, and being something\n" +
+			"enough people would pay for (each needs at least 3 out of 5 on both). That is a\n" +
+			"real result, not a dead end — it usually means a different audience, a different\n" +
+			"starting asset, or a different way to charge.\n\n")
 	} else {
-		b.WriteString("IDEAS WORTH PURSUING (best first)\n\n")
+		b.WriteString("FURTHER IDEAS WORTH PURSUING (best first)\n\n")
 		for i, x := range advancing {
 			fmt.Fprintf(&b, "%d) %s  [%s]\n", i+1, x.Title, flagLabel(x.Flag))
 			if x.ShortLived {
@@ -754,7 +913,9 @@ func render(domain, audience, wtp string, advancing, dropped, riskDropped []scor
 			fmt.Fprintf(&b, "   How it scored:       out of 5 — hard to copy %d, people will pay %d, easy to build %d, reusable elsewhere %d, built to last %d (%d out of 25 overall).\n",
 				x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, x.Sum)
 			fmt.Fprintf(&b, "   Risk to you:         %d/5 %s\n", x.Risk, riskNote(x.Risk))
-			fmt.Fprintf(&b, "   A cheap first test:  %s\n\n", x.CheapestTest)
+			fmt.Fprintf(&b, "   A cheap first test:  %s\n", x.CheapestTest)
+			srcLines("   ", x.Sources)
+			b.WriteString("\n")
 		}
 	}
 	if len(dropped) > 0 {

@@ -358,7 +358,10 @@ func TestReviewBeforePayFlow(t *testing.T) {
 	if o, _ := app.store.Get(id); o.Status != "awaiting_payment" {
 		t.Fatalf("after approve want awaiting_payment, got %s", o.Status)
 	}
-	if !anySent(sent, "buyer@x.com", "pay here") {
+	// The email wording is "pay £<price> here:" (payLinkText) — the old bare
+	// "pay here" assertion went stale when the price was put into the sentence,
+	// and this test has been failing on wording, not behaviour, ever since.
+	if !anySent(sent, "buyer@x.com", "To go ahead, pay") {
 		t.Fatal("buyer did not get the pay link after approval")
 	}
 
@@ -421,22 +424,57 @@ func TestRenderReadable(t *testing.T) {
 	aud := "Small and mid-size law firms that have plenty of their own documents but no in-house software or AI specialists."
 	wtp := "They would pay because their real problem is turning their own messy, confidential files into something useful, and they cannot safely paste client documents into a public chatbot like ChatGPT."
 
-	out := render(domain, aud, wtp, adv, dropped, riskDropped, "")
+	// The step-0 assessment of the submitted idea — the report's headline
+	// section, with the checkable sources the report page promises.
+	assess := assessment{
+		IsAssessable:     true,
+		Reading:          "A tool that reads solicitors' scanned post and files each letter against the right case.",
+		Problem:          "Firms spend paralegal hours filing scanned post by hand, and misfiled letters cause missed deadlines — several practice-management vendors describe exactly this pain on their own sites.",
+		DemandEvidence:   "Multiple paid products exist for adjacent document-handling problems and law-firm forums discuss the filing burden regularly, which is evidence people pay to reduce it.",
+		WhoElse:          "The big practice-management suites offer generic document upload but nothing that reads and files scanned post automatically.",
+		SubstitutesToday: "A paralegal doing it by hand, or generic OCR software plus manual filing.",
+		Defensible:       "Training on the firm's own filing conventions is the hard-to-copy part.",
+		Exposed:          "The practice-management incumbents could add this as a feature; the firm's data lives in their systems already.",
+		NextStep:         "Ask two firms to let you file one week of their post with a rough prototype and count the errors against their paralegal's.",
+		Sources: []source{
+			{Title: "Example practice-management vendor page", URL: "https://example.com/pm-vendor"},
+			{Title: "Law-firm operations forum thread", URL: "https://example.com/forum-thread"},
+		},
+	}
+	adv[0].Sources = []source{{Title: "Competitor comparison page", URL: "https://example.com/competitors"}}
+
+	out := render(domain, aud, wtp, assess, adv, dropped, riskDropped, "")
 	t.Logf("\n%s", out)
 
 	// Write a standalone, viewable HTML sample of the email (dev convenience;
 	// silently skipped if the outputs dir isn't present, e.g. on the build box).
-	outHTML := renderHTML(domain, aud, wtp, adv, dropped, riskDropped, "")
+	outHTML := renderHTML(domain, aud, wtp, assess, adv, dropped, riskDropped, "")
 	_ = os.WriteFile("/mnt/user-data/outputs/sample_report_email.html",
 		[]byte(`<!doctype html><html><head><meta charset="utf-8"><title>idea.uk sample report email</title></head><body style="margin:0">`+outHTML+`</body></html>`), 0o644)
-	if !strings.Contains(outHTML, "Your idea report") || !strings.Contains(outHTML, "Ideas worth pursuing") {
+	if !strings.Contains(outHTML, "Your idea report") || !strings.Contains(outHTML, "Further ideas worth pursuing") {
 		t.Fatal("HTML report missing expected structure")
 	}
+	for _, want := range []string{"Your idea, assessed", "Check it yourself:", "https://example.com/pm-vendor", "https://example.com/competitors"} {
+		if !strings.Contains(outHTML, want) {
+			t.Fatalf("HTML report missing %q", want)
+		}
+	}
 
-	for _, want := range []string{"IDEA REPORT — ", "This report is from idea.uk", "WHO IT'S FOR", "WHY THEY'D PAY", "IDEAS WORTH PURSUING", "A cheap first test:", "DIDN'T MAKE THE CUT", "SET ASIDE ON RISK"} {
+	for _, want := range []string{"IDEA REPORT — ", "This report is from idea.uk", "YOUR IDEA, ASSESSED",
+		"A considered next step:", "Check it yourself:", "https://example.com/pm-vendor",
+		"WHO IT'S FOR", "WHY THEY'D PAY", "FURTHER IDEAS WORTH PURSUING", "A cheap first test:",
+		"DIDN'T MAKE THE CUT", "SET ASIDE ON RISK", "We use AI to research and draft this report"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("rendered report missing %q", want)
 		}
+	}
+
+	// The too-early outcome must render as an honest refusal, not a padded verdict.
+	early := render(domain, aud, wtp, assessment{IsAssessable: false,
+		Reading: "An interest in doing something with AI for solicitors, with no specific proposition yet."},
+		nil, nil, nil, "No candidate survived the cut.")
+	if !strings.Contains(early, "too early to assess honestly") {
+		t.Fatal("unassessable submission did not render the honest too-early outcome")
 	}
 	for _, bad := range []string{"### ", "**", "- **", " · "} {
 		if strings.Contains(out, bad) {
