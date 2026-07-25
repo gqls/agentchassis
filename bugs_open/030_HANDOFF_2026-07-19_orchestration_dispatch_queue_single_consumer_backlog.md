@@ -930,3 +930,47 @@ review of its own fix.
 - Candidate 4 (lag as a health signal): superseded in practice by candidate 1's
   script; a first-class metric is still worth having and is not blocking.
 - The architectural residual is **not** this case's to close.
+
+## Contributed observation, 2026-07-25 ~18:00 UTC (brochure_component_library thread)
+
+Not a competing diagnosis — I hit a stall while republishing one page and
+measured it before backing off, because it is **pre-roll evidence for candidate 3**
+(the pods are all still `v1.0.1159`, so the lane fix committed today is *not* live
+in what I observed).
+
+| measurement | value |
+|---|---|
+| `triaged` + `pipeline='build'` items, fleet | **99** |
+| …of which belong to `webdesign.co.uk` | **95** (another thread's work) |
+| …belonging to fundamentallyai.com | 1 (mine) |
+| items in `status='claimed'` | **0** — nothing holding a slot |
+| `max(claimed_at)` anywhere | 17:45:22 |
+| items claimed in the preceding 15 min | **0** |
+| `build-pipeline-trigger` `last_triggered_at` | 17:59:58 (every 120s, `last_completed_at` identical) |
+| `agent-build-dispatch-loop` pod | `Completed`, **23 min** old, none since |
+| sites locked (`locked_at`) | none |
+| `agent_error_log`, last 30 min | 1 unrelated `generic/UNKNOWN` |
+
+So the scheduler fires on time and the claim step does nothing: no orphaned
+`claimed` row to wedge `find_dispatchable_site` (029's mechanism), no site lock,
+no error. The only asymmetry is that one site holds 95 of the 99 items — worth
+checking whether a fair-share/round-robin assumption in the dispatch loop turns
+one site's bulk enqueue into a fleet-wide stall, since that would be invisible
+whenever the queue is evenly spread.
+
+Earlier the same afternoon the same lane was healthy: four page-rerender
+dispatches at ~17:05 produced orchestration rows at 17:12–17:13 (~7 min), and
+five queued `page_rerender` work items were claimed within ~5 min each between
+17:21 and 17:26. The degradation is therefore *within* one hour, not a standing
+condition.
+
+**Also worth having in this file, because it cost me an hour of wrong
+conclusions:** dispatch latency of **7–9 minutes** was NORMAL here even while the
+lane was healthy. I read a 2-minute silence as a failed dispatch, twice, and
+published a false "silent ingest failure" landmine before catching it
+(`WRONG_CALLS.md` 2026-07-25). Anyone verifying candidate 3 post-roll should
+establish the healthy baseline latency first, or the same trap is waiting: a
+correct dispatch is indistinguishable from a dropped one for several minutes.
+
+No action requested and nothing changed by me. Owner of this case: read or ignore
+as useful.
