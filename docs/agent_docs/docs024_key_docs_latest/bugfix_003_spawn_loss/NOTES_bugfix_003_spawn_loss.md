@@ -263,3 +263,41 @@ the merits (viable-by-accident, plus the practical fact that the change is
 already committed on the shared branch, so a true split now requires a revert
 commit — that churn decision goes to the owner if the council still prefers
 it). If round 2 rejects: owner decision packet, no roll.
+
+## 2026-07-25 (evening) — kill test run: F2 machinery PASSES, and exposes bugs_open/075
+
+**Test:** chassis pod `7hpxp` deleted 15:25:06 with three organic
+`generic-orchestrate-0725-1524` orchestrations in flight (caught by a DB
+watcher; monitor tracked transitions).
+
+**PASS evidence for F2/F3:** orphaned request `6779e7a6` expired 15:27:29;
+**vet-intel's ticker claimed it at 15:28:01** (`RETRY_TICKER_CLAIMED` — first
+live firing of the ticker path, and cross-SERVICE: any surviving coordinator
+pod is the rescuer, exactly the design). It drove the adapter-action branch
+correctly (deploy_page → re-execute with full payload). The new pod started
+clean; grace-60/preStop were live on the deployment.
+
+**What the test exposed (the real find):** the rescued orchestrations then
+LOOPED — deploy_page re-executed every ~3 min, git adapter succeeding each
+cycle in ~4 s (real GitHub commit each time), response produced, then
+DISCARDED by the ownership check (`processing_node` = the dead pod,
+coordinator.go:269–277; under at-least-once the discard commits the offset —
+permanent). Cap never trips: adapter branch creates a fresh rv=0 request and
+does RetryCount[step]=rv+1 (assignment of 1, not increment). Reaper blind:
+every cycle refreshes last_activity. Filed **bugs_open/075** (3 root causes,
+4 fix candidates, cross-refs the replica-race ANALYSIS doc); pattern added to
+016b §9.
+
+**Containment & outcome:** `processing_node=''` for the two loopers + the
+frozen `update_status` casualty (`026e9fab`); next cycle's responses applied
+and **both orchestrations COMPLETED 15:46:37** — zero work lost. `026e9fab`
+left for F1's >4h reaper (nothing re-drives an EXECUTING_STEP orphan; noted
+in 075). Also found pre-existing orphans (3 tool-auditor pods, 1 July-13 row)
+— left for their workstreams, listed in 075.
+
+**Misstep for the record:** my first read of the loop was "the git adapter is
+wedged — possibly MY consume-port regression" (its log silence looked
+damning). Wrong twice: the silent pod simply doesn't own the partition (two
+replicas, one partition), and per-message logs are Debug-suppressed. The
+group-lag check (lag 0) and the ACTIVE pod's logs cleared the adapter in two
+queries — check the consumer group before accusing the consumer.

@@ -120,12 +120,28 @@ First ~4.5 h live (10:36–15:05 UTC, 2026-07-25):
   completed**; no panics; only 1 request expired in the trailing 90 min
   (vs a steady multi-per-hour bleed before).
 
+**Induced-fault test RUN 2026-07-25 15:25 — PASS on this RFC's machinery,
+and it exposed a pre-existing defect (`bugs_open/075`).** Chassis pod deleted
+mid-`AWAITING_RESPONSES`: the orphaned request expired at 15:27:29 and
+**vet-intel's ticker claimed it 32 s later** (`RETRY_TICKER_CLAIMED` — the
+cross-pod, cross-SERVICE rescue this design promised), driving the correct
+adapter-action re-execution. The re-executed step's responses were then
+discarded forever by the pre-existing ownership check
+(`processing_node` = the dead pod, `coordinator.go:269–277`), producing an
+infinite ~3-min retry loop with a real GitHub commit per cycle — filed as
+075 with three root causes (ownership discard, unreachable adapter retry
+cap, reaper blindness to loops), contained same hour (`processing_node`
+blanked), after which **both affected orchestrations ran to COMPLETED**
+(15:46:37). Verdict for THIS RFC: the delivery/dedupe/retry machinery
+behaved exactly as designed under pod death; 075's fix-1 (ownership
+takeover-by-CAS, copying this RFC's claim pattern) is the follow-on that
+makes the rescue complete end-to-end without manual containment.
+
 Still owed (retires the RFC to IMPLEMENTED):
-- induced-fault campaign: mid-orchestration chassis-pod delete
-  (`retry_version` must increment via a surviving/new pod ~1–2 min after
-  `timeout_at`); child kill mid-handler (lease-expiry redelivery, exactly one
-  applied response);
-- leopardess `ai-readiness-quiz` end-to-end repro (§6 of the bug file);
+- re-run the kill test AFTER 075 fix 1: must complete with at most one retry
+  cycle and no manual containment;
+- leopardess `ai-readiness-quiz` repro: overtaken — built by an intervening
+  thread (deployed, 54,118-byte live page); superseded by the kill test;
 - liveness restart re-test (outstanding from F4);
 - week-later stats: reaper `stale AWAITING_RESPONSES` ≈ 0; expired-never-
   retried population stops growing.
