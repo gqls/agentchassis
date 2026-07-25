@@ -850,6 +850,36 @@ func loadPageComponentByID(ctx context.Context, db *sql.DB, id uuid.UUID) (pageC
 // ALSO: Returns the matched slot_name (COALESCE) so the caller always sees it.
 
 func loadPageComponentBySlot(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, slotName string) (pageComponentRow, error) {
+	row, err := loadPageComponentBySlotRO(ctx, db, siteID, pageName, slotName)
+	if err != nil {
+		return row, err
+	}
+
+	// Backfill: if we matched via fallback, update the slot_name in DB
+	// so future queries use the direct path. Non-blocking — log and continue.
+	if row.SlotName == slotName {
+		// Check if the DB value was actually empty (we COALESCEd it)
+		var dbSlotName sql.NullString
+		db.QueryRowContext(ctx, `SELECT slot_name FROM page_components WHERE id = $1`, row.ID).Scan(&dbSlotName)
+		if !dbSlotName.Valid || dbSlotName.String == "" || dbSlotName.String != slotName {
+			_, _ = db.ExecContext(ctx, `UPDATE page_components SET slot_name = $2 WHERE id = $1`, row.ID, slotName)
+		}
+	}
+
+	return row, nil
+}
+
+// loadPageComponentBySlotRO is loadPageComponentBySlot's matching logic with NO
+// write side-effects — same three-way match (slot_name, component function,
+// plan position), no slot_name backfill.
+//
+// Split out for read-only callers that must not mutate what they are inspecting:
+// revalidate_review_queue sweeps the parked review queue in a dry_run mode whose
+// whole contract is "report, change nothing", and the backfill above would break
+// that. Keeping ONE copy of the match logic is the point — a second hand-rolled
+// slot lookup is precisely the drift this repo keeps paying for (bugs_closed/041,
+// section lookup never normalising).
+func loadPageComponentBySlotRO(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName, slotName string) (pageComponentRow, error) {
 	var row pageComponentRow
 	var componentID sql.NullString
 	var contentDataJSON []byte
@@ -896,17 +926,6 @@ func loadPageComponentBySlot(ctx context.Context, db *sql.DB, siteID uuid.UUID, 
 
 	if len(contentDataJSON) > 0 {
 		json.Unmarshal(contentDataJSON, &row.ContentData)
-	}
-
-	// Backfill: if we matched via fallback, update the slot_name in DB
-	// so future queries use the direct path. Non-blocking — log and continue.
-	if row.SlotName == slotName {
-		// Check if the DB value was actually empty (we COALESCEd it)
-		var dbSlotName sql.NullString
-		db.QueryRowContext(ctx, `SELECT slot_name FROM page_components WHERE id = $1`, row.ID).Scan(&dbSlotName)
-		if !dbSlotName.Valid || dbSlotName.String == "" || dbSlotName.String != slotName {
-			_, _ = db.ExecContext(ctx, `UPDATE page_components SET slot_name = $2 WHERE id = $1`, row.ID, slotName)
-		}
 	}
 
 	return row, nil

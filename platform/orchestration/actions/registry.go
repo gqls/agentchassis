@@ -1298,6 +1298,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Deterministic review-bypass reconciler (no LLM, bugs_open/056 regeneration): scans for pages deployed AFTER a sibling work item parked them at needs_human_review, checks previously-flagged blocker values against the deployed content (dropped vs still-present), writes REVIEW_SUPERSEDED_BY_PASSING_SAVE to agent_error_log and annotates the parked item's result; never blocks, closes nothing, idempotent per pair",
 		IsLocal:     true,
 	},
+	"revalidate_review_queue": {
+		Handler:     RevalidateReviewQueueAction,
+		Category:    "diagnose",
+		Description: "Deterministic drain for the needs_human_review queue (no LLM, bugs_open/033): re-evaluates each parked finding against currently-deployed state; closes the ones that provably no longer hold (resolution_path='auto:revalidated'), stamps the ones that still hold so a human can see they were re-confirmed, and reports the item_types it cannot judge. Closing releases the dedup key, so a wrong close costs one re-raise",
+		IsLocal:     true,
+	},
 
 	// =========================================================================
 	// FEED — content feed ingestion pipeline
