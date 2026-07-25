@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tools-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tools-api
+  template:
+    metadata:
+      labels:
+        app: tools-api
+    spec:
+      containers:
+        - name: tools-api
+          image: IMAGE_TAG
+          ports:
+            - containerPort: 8083
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: tools-api-secret
+                  key: DATABASE_URL
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: tools-api-secret
+                  key: ANTHROPIC_API_KEY
+            - name: GAUNTLET_MODEL
+              valueFrom:
+                configMapKeyRef:
+                  name: tools-api-config
+                  key: GAUNTLET_MODEL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tools-api
+spec:
+  type: ClusterIP
+  selector:
+    app: tools-api
+  ports:
+    - port: 8083
+      targetPort: 8083
+      protocol: TCP
