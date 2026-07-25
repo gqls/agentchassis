@@ -1,0 +1,140 @@
+Write content for the {{.current_section.name}} section of {{.current_page.title}}.
+
+## Language
+Write all output content in the same language as the existing content, brief, and site specs in this prompt. Match the register, idioms, and conventions of that language.
+
+## Voice & Style (how the copy must READ. Follow strictly)
+Derived from a hand-refined house style. These rules outrank any instinct toward "compelling marketing copy".
+
+- One idea per sentence. If a sentence chains two or more ideas with commas or dashes, split it.
+- No em dashes, anywhere, ever. Before returning, scan your draft for the — character; every single one must be rewritten as two sentences or a plain trailing clause. A draft containing an em dash is wrong even if it reads well.
+  The em dash you will actually reach for is NOT a long aside. It is a noun, a dash, then a phrase re-explaining that noun. Two real examples from copy this prompt already produced, with their rewrites:
+    WRONG: "It writes a decision record — a real artefact you can read, not a log entry."
+    RIGHT: "It writes a decision record. You can read it."
+    WRONG: "The output isn't a log entry. It's a decision record — readable, attributable, and kept."
+    RIGHT: "The output is a decision record. It is readable, attributable, and kept."
+  Note what the second rewrite fixes twice: the dash is gone AND the sentence now opens with the fact instead of what the output is not. A colon is an acceptable replacement where a list genuinely follows. A dash never is. Hunt for this appositive shape specifically. It slips through because it does not feel like an aside.
+- Start with the fact. Never open with a negative frame or a manufactured reveal ("It isn't X. It's Y." / "Nothing here is X. One thing is..."). State the fact first, in the order a person would say it out loud; fold any genuine contrast in afterwards.
+- Match word-weight to the claim, in BOTH directions. No grand words for ordinary facts ("truth", "crucial", "transformative"), and no dramatised humility either ("nothing fancy", "surprisingly simple"). That still asks the reader to be impressed. Plain nouns, plain verbs.
+- Never tell the reader something matters. Delete every sentence of the shape "That matters.", "That distinction matters.", "That second part matters.", "This is important." State the fact and move on; if its weight isn't obvious from the fact itself, the fix is a better fact, not a signpost.
+- Cut self-flagging commentary and filler: "crucially", "genuinely", "seamless", "robust", "leverage", "delve", "at its core", "in essence", "what matters here is", "furthermore", "moreover". Don't tell the reader something is important; state it and let placement do the work.
+- Use contractions in ordinary sentences: it's, doesn't, we're, that's.
+- Active voice, "we"/"our" for the company's actions. Never first-person singular.
+- Don't repeat a sentence template for cadence ("Every X does A. Every X does B."). Two same-shaped sentences must be two genuinely different points, or they merge into one.
+- A short landing sentence ("Then it moves on.") is allowed at most once per section, and only where the point is genuinely unexpected. Never as a rhythm habit.
+- Don't over-polish. One slightly blunt, plain phrase left standing reads human; uniform smoothness reads generated.
+- No exclamation points. No hype adjectives in either the grand or the falsely-humble direction.
+
+## Company Context
+Company: {{.render_context.company_name}}
+Industry: {{.render_context.industry}}
+Tone: {{.render_context.tone}}
+Target Audience: {{.render_context.target_audience}}
+Services: {{.reviewed_brief.services}}
+Tagline: {{.render_context.tagline}}
+
+## Official Contact Information (USE ONLY THESE - DO NOT INVENT)
+Email: {{.render_context.email}}
+Phone: {{.render_context.phone}}
+Location: {{.reviewed_brief.headquarters}}
+
+{{if .link_context.link_constraint_text}}
+## Internal Linking
+{{.link_context.link_constraint_text}}
+
+{{end}}
+## Content Direction (from site spec. Follow this closely)
+{{if .site_specs.specs.content_direction}}{{if .site_specs.specs.content_direction.formatted}}
+{{.site_specs.specs.content_direction.formatted}}
+{{end}}{{end}}
+{{if .current_page.content_direction}}## Page-Specific Content Direction (for THIS page - follow closely)
+{{if .current_page.content_direction.instruction}}Instruction: {{.current_page.content_direction.instruction}}
+{{end}}{{if .current_page.content_direction.format}}Format: {{.current_page.content_direction.format}}
+{{end}}{{if .current_page.content_direction.examples}}Examples:
+{{range .current_page.content_direction.examples}}- {{.}}
+{{end}}{{end}}{{if .current_page.content_direction.avoid}}Avoid (do NOT do these):
+{{range .current_page.content_direction.avoid}}- {{.}}
+{{end}}{{end}}{{end}}
+{{if .site_specs.specs.identity.target_audience}}
+Target Audience: {{.site_specs.specs.identity.target_audience}}
+{{end}}
+{{if .site_specs.specs.identity.key_differentiators}}
+Key Differentiators: {{.site_specs.specs.identity.key_differentiators}}
+{{end}}
+{{if .site_specs.specs.design_intent.imagery_direction}}
+Imagery Direction: {{.site_specs.specs.design_intent.imagery_direction}}
+{{end}}
+
+{{if .site_specs.specs.evidence_base}}{{if .site_specs.specs.evidence_base.writer_block}}## Verified Facts (the ONLY numbers and named entities you may assert about this business)
+{{.site_specs.specs.evidence_base.writer_block}}
+
+If a fact you want is not in this list: write the capability WITHOUT the number, or frame it plainly as something we could do. Never approximate, extrapolate, or round a listed number into a different claim. For this site, this list overrides the general no-statistics rule: numbers listed here may be stated with their listed meaning; any other number about the business is forbidden.
+{{end}}{{end}}
+
+{{if .rewrite_guidance}}## Rewrite Guidance (IMPORTANT: incorporate this into the content)
+{{.rewrite_guidance}}
+{{end}}
+
+{{if .current_section.component.content_brief}}## Admin Content Brief (follow these instructions closely)
+{{if .current_section.component.content_brief.purpose}}Brief Purpose: {{.current_section.component.content_brief.purpose}}
+{{end}}{{if .current_section.component.content_brief.tone_direction}}Brief Tone: {{.current_section.component.content_brief.tone_direction}}
+{{end}}{{if .current_section.component.content_brief.section_guidance}}Brief Guidance: {{.current_section.component.content_brief.section_guidance}}
+{{end}}{{end}}
+
+## What To Write
+Write the following fields for the {{.current_section.name}} section. Each field's purpose is described in plain English. Translate the intent into the output language as needed.
+
+{{range .current_section.llm_field_specs}}
+- `{{.name}}` ({{.type}}{{if .required}}, required{{end}}){{if .description}}: {{.description}}{{end}}{{if .item_fields}}. Each item is an object with exactly these fields: {{range $i, $f := .item_fields}}{{if $i}}, {{end}}`{{$f}}`{{end}}{{end}}
+{{end}}
+
+{{if .research_result}}
+## Research Findings
+{{.research_result.response.summary}}
+
+Sources:
+{{range $index, $src := .research_result.response.sources}}
+- [{{$index}}] {{$src.title}} ({{$src.domain}})
+{{end}}
+{{end}}
+
+{{if .existing_content}}{{if .existing_content.has_existing}}
+## EXISTING CONTENT (Recreate Mode)
+This page is being adopted from an existing site. Below is the original content from the page.
+Your task: find the content relevant to this section and adapt it to fit the writing fields listed above.
+
+Prioritise preserving the original meaning and information. Adapt the structure to match the required field names.
+If the existing content does not have material relevant to this section, write fresh content as you normally would.
+
+Original page content:
+{{.existing_content.raw_markdown}}
+{{end}}{{end}}
+
+## Output Format
+Return a JSON object with exactly these keys:
+
+{
+{{range $i, $f := .current_section.llm_field_specs}}{{if $i}},
+{{end}}  "{{$f.name}}": {{if $f.item_fields}}[{ {{range $j, $k := $f.item_fields}}{{if $j}}, {{end}}"{{$k}}": "..."{{end}} }]{{else}}"..."{{end}}{{end}}
+}
+
+## STRICT RULES:
+1. Use the EXACT field names shown in "What To Write" (these are technical identifiers, do not translate them).
+2. Return a JSON object with exactly the keys listed in "What To Write". Do not add any keys not in that list.
+3. Return ONLY the JSON object. No commentary, no markdown wrapper around the JSON.
+4. No placeholder text like [Your Company] or Lorem ipsum, in any language.
+5. Write content that is relevant to this company's industry and services, but do NOT invent specific achievements, metrics, or outcomes that have not actually happened.
+6. Tone: follow the Voice & Style section above; it defines what professional reads like here.
+7. Include source citations [0], [1] if research was provided.
+8. NEVER invent contact information. Use ONLY the email and phone provided in Official Contact Information above.
+9. For fields of type `text`: return a plain string with no HTML wrapping. The template handles paragraph wrapping for these fields.
+10. For fields of type `rich_text` or `content` that contain multiple paragraphs: use proper HTML markup, wrapping each paragraph in <p> tags: <p>Paragraph 1</p><p>Paragraph 2</p>.
+11. If contact email or phone is empty in the brief, do NOT make one up. Omit it or write a generic contact-us link in the output language.
+12. Only create internal links to pages listed in the Internal Linking section above.
+13. NEVER invent fake people, client names, or attributed quotes. If the brief does not include real testimonials, write company philosophy statements instead and leave name/title fields empty.
+14. NEVER invent specific statistics, percentages, or metrics. Never state a count, total, price, rating, or coverage figure you have not been given in THIS prompt (Verified Facts, Research Findings, Admin Content Brief, or Existing Content). This applies with full force to numeric stat fields (field names like stat_1_value): a field being required, or its description asking for a numeric value with example shapes, is NOT permission to invent one. If no given figure fits, return an empty string for that field. An empty stat renders as nothing; an invented stat publishes a false claim on a live site. Describe the type of outcome without fabricating numbers.
+15. NEVER invent fake case studies with named businesses presented as real clients. Describe service categories and typical outcomes instead.
+16. For testimonial sections: write 2-3 statements in the company's own voice about their values, approach, or commitment. These serve as placeholder content the site owner will replace with real testimonials.
+17. For case study sections: describe the types of problems the company solves and the approach they take, without inventing specific clients or results.
+18. It is ALWAYS better to be honest and general than specific and fabricated. A real visitor will trust a general statement of capability more than a fabricated testimonial.
+
