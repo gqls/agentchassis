@@ -319,3 +319,18 @@ myself. Every name under apis.uk (including the bare domain) now quietly answers
 they came from, which country. In a couple of weeks we read the log and see what
 the world still thinks apis.uk is. When your bees homepage exists (other thread),
 we point just the bare domain at it — the sniffer keeps watching everything else.
+
+2026-07-25 (morning): found why the backend builder kept dying, and it was our own
+cleaner. A housekeeping job runs every ten minutes and is supposed to sweep up
+leftover message channels — but only when nothing is running. The check it used
+for "is anything running?" could never say yes (it looked for a label that
+nothing actually wears), so it swept EVERYTHING, every ten minutes, including the
+channels our builder was actively using mid-job. The builder would do its work,
+the reply would be posted to a channel that had just been binned, and the run
+would hang forever. Both of yesterday's failed builder runs died this way — and
+my first explanation (blaming a server restart) was wrong; the restart was just
+nearby in time. The check is fixed and live: the cleaner now genuinely looks at
+what's running (this morning it correctly held off — 39 agents were busy). The
+builder has been re-fired on the same approved plan and is being watched. If it
+gets through all six stages this time, we get the pull request — your review is
+the gate after that.

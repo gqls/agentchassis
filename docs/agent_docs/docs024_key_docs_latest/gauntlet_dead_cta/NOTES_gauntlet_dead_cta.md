@@ -551,3 +551,29 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - Owner intent recorded: apex apis.uk will become a BEES homepage (unrelated
   to the API), built in another thread — apex rides the probe 404 until then;
   swap is one DNS record, wildcard/probe unaffected.
+
+## 2026-07-25 — the implementer's killer found: agent-job-cleanup deletes live job topics (bugs_open/071)
+
+- Re-fire (orch `fbac5548`, 07-24 19:58) died EXACTLY like run 1: s1+s2 committed
+  on `feat/c379f7b7`, then the s2 `stage_commit` response await expired. This time
+  the forensics were airtight: git-adapter log shows the success response PRODUCED
+  20:03:46 — 4s after the request — to the correct topic; awaited row `expired`,
+  `processing_pod` empty. Produced, never consumed.
+- Cause: `agent-job-cleanup` cron (`*/10`) deletes ALL `job.*` topics whenever its
+  guard sees no pods labelled `spawned-by=orchestrator`. **No pod has ever carried
+  that label** — both spawn paths label only the Job, and remote-job-spawner uses
+  a different value. Guard matched zero always; delete-all ran every tick. Filed
+  `bugs_open/071` (071 — the fix commit message says 070; number was taken between
+  commit and filing).
+- > **CORRECTED:** run 1's death was NOT the 16:29:38Z chassis restart (yesterday's
+  > claim, 003 sighting 5). The restart preceded a successful consume at 16:32:25.
+  > Corrected in 003 + WRONG_CALLS (correlation-not-cause; check event times
+  > against every `*/N` schedule before blaming the nearest restart).
+- Guard FIXED & LIVE (commit `9dc99c61c`, cronjob generation 5, config-only):
+  counts active spawned Jobs (both labels) + dynamic-agent pods, fail-safe keep on
+  query error. First fixed run: "Live spawned workload (jobs: 39; pods: 39) —
+  keeping all job topics" — old code would have deleted 88 topics under 39 live
+  agents at that moment.
+- Branch `feat/c379f7b7` deleted (E4), implementer re-fired ONCE at ~08:42 UTC
+  (fire_impl8.sh patient watcher, no auto-refire). Implementer agent_definitions
+  rows already at v1.0.1156 (current prod roll) — no hand-update needed this time.

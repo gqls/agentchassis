@@ -13,6 +13,12 @@ FEATURE_CORR=<approved-corr> ./docs/.../0NN_TRIGGER_feature_implementer_v1.sh
   creation; both mutually die on E4. Treat a missing orchestration row as QUEUED for
   ≥10 min. Patient watcher: `scratchpad/fire_impl6.sh` shape.
 - **GOTCHA:** E4 hard-refuses if `feat/<corr8>` exists — `git push origin --delete feat/<corr8>` first.
+- **GOTCHA (bugs_open/071, fixed 2026-07-25 but know the signature):** a
+  stage_commit await that expires while the COMMIT LANDED on the branch =
+  produced-but-never-consumed response. Killer was `agent-job-cleanup` deleting
+  live `job.*` topics every 10 min (guard label matched zero pods always). If it
+  recurs: `kubectl -n ai-persona-system logs job/agent-job-cleanup-<tick>` must
+  say "Live spawned workload … keeping", NOT "No running spawned pods".
 - **GOTCHA (bugs_open/066):** the implementer runs in a SPAWNED pod using
   `agent_definitions.image_tag` — NOT the chassis deployment's image. After any
   chassis roll that the implementer needs:

@@ -2367,3 +2367,24 @@ one wrong sentence in a delivery report to the owner, one speculative
 explanation of a non-existent blind spot committed to NOTES, and a day in which
 the flagship section the owner asked to be *prominent* was absent from the
 homepage. Family: status-is-not-artefact, measured-mid-flight.
+
+**2026-07-25 — blamed the nearest restart for a mid-run death that a cron on a
+10-minute grid caused.** The first feature-implementer run (2b1a154e) died at an
+s4 `stage_commit` await; I recorded the cause as "minutes after the 16:29:38Z
+chassis restart; git-adapter replicas restarted; response unrecoverable" (bug 003
+sighting 5, commit 442c4b48d) and re-fired on that theory. The re-fire died the
+same way at 20:03 — nowhere near any restart — and THAT forensics showed
+git-adapter producing the response 4s after the request while nobody consumed
+it: the `agent-job-cleanup` cron was deleting every live `job.*` topic each tick,
+because its pod-label guard has never matched anything (`bugs_open/071`). The
+restart theory failed its own timeline (the "killed" consumer consumed
+successfully at 16:32:25, three minutes AFTER the restart) — I never re-checked
+the story against the sequence I already had. **Cheap check, two parts: (1) when
+an event's cause is unknown, put its timestamp against every `*/N` schedule
+running in the cluster (`kubectl get cronjobs`) before accepting the nearest
+dramatic event; (2) a causal story must survive its own timeline — anything the
+"cause" should have broken that demonstrably worked afterwards refutes it.**
+Cost: one wrong durable claim in 003's sighting list (corrected in place), one
+re-fire burned on an unfixed cause, ~4h of implementer progress lost a second
+time. Family: correlation-not-cause, absence-family (the deleted topic left no
+error anywhere — the produce SUCCEEDED into the recreated topic).

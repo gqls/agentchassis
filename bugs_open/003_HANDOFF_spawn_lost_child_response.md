@@ -754,3 +754,25 @@ which is the guard working).
    healthy long-running dedicated-pod agent lost exactly ONE request/response pair
    and hung forever — the at-most-once + process-local-timer signature, mid-workflow
    rather than at spawn. Recovery: branch cleared, patient re-fire.
+
+> **CORRECTED 2026-07-25 (sighting 5's attribution was wrong; mechanism found — see bugs_open/071):**
+> Sighting 5 blamed the 16:29:38Z chassis restart. The restart preceded a
+> *successful* consume at 16:32:25 on the same topic, so it cannot have killed the
+> consumer — temporal correlation, not cause. The real mechanism (caught on the
+> re-fire `fbac5548`, 07-24 20:03, where git-adapter demonstrably PRODUCED the
+> response 4s after the request and nobody consumed it): the **agent-job-cleanup
+> cronjob deleted every live `job.*` topic on its 10-minute tick**, because its
+> "any spawned pods running?" guard queried a label (`spawned-by=orchestrator`)
+> that no pod has ever carried — full case in `bugs_open/071`. Guard fixed & live
+> 2026-07-25 (commit 9dc99c61c; message cites 070 — numbering collision, resolve
+> by slug).
+>
+> **For this bug's owners:** 071 is a *producer* of exactly the failure shape F2/F3
+> exist to survive (lost in-flight response + timer that never fires ⇒ hang). It
+> does NOT replace 003's causes, but some recorded sightings may re-attribute to
+> it — the check is: did the loss window cross a `*/10` tick, and does git-adapter
+> (or the child) log a successful produce that nobody consumed? Sighting 1
+> (experience-planner spawn, corr `4d3d89fa`, wrapper 11:18) is a candidate
+> [INFERRED, unchecked]: a request topic deleted between wrapper-produce and the
+> spawned pod's first consume would present exactly as "no spawned orchestration
+> row, ever". Sightings 2/3 remain latency, not loss.
