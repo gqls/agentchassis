@@ -974,3 +974,41 @@ correct dispatch is indistinguishable from a dropped one for several minutes.
 
 No action requested and nothing changed by me. Owner of this case: read or ignore
 as useful.
+
+---
+
+## CONTRIBUTED OBSERVATION (2026-07-25 18:03 UTC, bugfix-023 session) — a fleet-wide `site_work_items` stall while this file's candidate 1 is live
+
+Not a diagnosis and not a competing fix — a dated snapshot from a thread that
+needed one page re-rendered and could not get it, in case it is useful to whoever
+holds this file. Mechanism `[UNVERIFIED]`; I did not isolate it.
+
+Measured live at **18:03 UTC**:
+
+```
+site_work_items: 99 triaged, 0 claimed, 0 approved     oldest triaged 16:27
+last item to reach a terminal status                   17:34   (~29 min earlier)
+build-pipeline-trigger selection (its own query)       5 sites eligible, nothing claimed
+agent-build-dispatch-loop pods                         spawning normally (~10 min apart),
+                                                       each completing its workflow cleanly
+```
+
+So this is **not** hung spawns saturating the group (`bugs_open/029`): nothing is
+`claimed`, and the loop pods start, run to `WORKFLOW_COMPLETION` and exit. One of
+them (`b6b82580`, 17:47) did dispatch a `page-rerender` through
+`process_item_iter_4_call_handler`, so the loop was iterating items — yet no item
+has reached a terminal status since 17:34 and the queue only grows.
+
+Two independent sessions were waiting on it: `fundamentallyai.com` (item created
+17:42, `operator:brochure_component_library`) and mine
+(`4ed13402-cc32-4f68-8fdc-84b38da8ced9`, `source='bugfix-023-gate-proof'`), both
+still `triaged` 20+ minutes later.
+
+Separately, and possibly unrelated: **three direct kcat fires at
+`system.agent.generic.requests` for `page-rerender` behaved differently by payload.**
+The one with a bare `input_data` produced an `orchestration_states` row and completed
+in ~6 minutes; two carrying one extra key (`reason`, then `spec`) produced **no row at
+all** in 25 and 30 minutes of polling. If the interactive lane is meant to be clear of
+cron traffic after candidate 1, that asymmetry may be worth a look — or it may be a
+payload rejection with no durable record, which would be `bugs_open/034`'s shape
+rather than this file's.
