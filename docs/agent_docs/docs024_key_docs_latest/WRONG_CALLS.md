@@ -2414,3 +2414,34 @@ claim about *clients*, and nothing in that grep looked at a client.
 **Transferable rule.** When a log-derived count is about to be described with a noun that
 implies a person — *subscriber*, *visitor*, *user* — the grep must include whatever column
 distinguishes people from machines, or the noun must change to "requests".
+
+---
+
+## 2026-07-25 — "ratified D4: F2+F3 ship together" (bugfix-003 council submission)
+
+**The claim.** The bug-003 council submission stated as an owner ruling: "owner-ratified
+D4: F2+F3 ship together — either alone is a no-op or worse", and the workstream memory
+carried the same line for five days ("F2/F3 ship TOGETHER").
+
+**What was actually true.** D4 as ratified binds **F3's two halves** to each other (the
+offset-commit fix must ship with the completion-time dedupe): *"F3 ships only together
+with the completion-time dedupe … Either alone is a no-op or worse — 003 §4.4a-bis."*
+It says nothing about F2. Shipping F2+F3 in one roll was the owner's *scope choice* in
+the 2026-07-23 session — a preference, not an interlock. The distinction mattered the
+day the council's guardian proposed splitting the roll: the rebuttal I nearly wrote
+("D4 forbids the split") would have been false, and checking the pre-edit code showed
+F2-without-F3 is in fact mechanically viable (exact-version dedupe match + a swallowed
+unique-violation error fail-open into processing).
+
+**What caught it.** The guardian veto forced a re-read of the PLAN's decision text
+verbatim before drafting the rebuttal.
+
+**The cheap check that would have caught it.** Quote the ruling, don't paraphrase it:
+when citing a numbered decision, paste its actual sentence next to the claim. The
+paraphrase had drifted through three documents (bug file sequencing note → memory →
+submission), each copying the previous, none re-reading D4 itself.
+
+**Transferable rule.** An owner ruling cited from memory is a claim, not a citation.
+Before wielding "ratified DN says X" in an argument — especially against a reviewer —
+open the doc and paste the sentence. If the sentence doesn't contain X, the argument
+changes shape.
