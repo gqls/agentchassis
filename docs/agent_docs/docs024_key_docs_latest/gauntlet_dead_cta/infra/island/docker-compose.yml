@@ -41,7 +41,7 @@ services:
   # mode). CORS comes from the island DB's minimal sites table, NOT an env
   # allowlist (the drafted ALLOWED_ORIGINS never existed in the merged code).
   tools-api:
-    image: docker.io/aqls/tools-api:v1.0.1162
+    image: docker.io/aqls/tools-api:v1.0.1163
     restart: unless-stopped
     environment:
       PORT: "8080"

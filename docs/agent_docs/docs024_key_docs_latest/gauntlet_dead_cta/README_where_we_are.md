@@ -365,3 +365,17 @@ endpoints answer honestly that the engine is offline; (2) the backup pubkey
 paste from before. Also flagged: the provocations data file on vonc still
 contains made-up stats from June — the new front end won't show them and the
 file needs regenerating.
+
+2026-07-25 (~3pm): the AI debate opponent is genuinely live. Once your key was on
+the box, one more bug showed up — our code was never actually telling itself
+which environment variable held the key, so it failed regardless of the key
+being valid (confirmed the key itself worked by calling Anthropic directly).
+Fixed, and now the whole loop works for real: file a position, get a real AI
+counter-argument and challenge back, defend it, get a real AI verdict with
+reasoning. I ran it twice end to end — both times the AI judged "opponent wins"
+against a deliberately thin defence, which is exactly the honest behaviour we
+wanted (not a pushover, not fixed to flatter the user). Both full rounds are
+saved in the island's database with everything filled in. This is the real
+evidence the experience-planning loop needs to design the front end around, so
+that's next, followed by rebuilding the actual gauntlet page against the live
+API. Also: the backup pubkey you pasted in is confirmed working now.

@@ -633,3 +633,37 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   the named placeholder; /position + /defend light up on `compose up -d` after).
   Experience re-fire waits for a REAL LLM round-trip so the plan's liveness
   evidence is whole.
+
+## 2026-07-25 ~15:00 — REAL AI ROUND-TRIP LIVE: owner's key installed, one more gate-invisible bug found+fixed
+
+- Owner created a dedicated Anthropic key (org-level spend limits only — no
+  per-key cap on this tier; Workspace-scoped budgets are the actual mechanism
+  if pursued later, not blocking) and installed it on the island themselves via
+  SSH (key never transited this session). Also pasted the backup pubkey into
+  the MB panel — verified: `backup_pg.sh` now exits 0 (was `Permission denied
+  (publickey)`), rsync leg fully live.
+- First real-key smoke still failed 503 on both /position and /defend. Root
+  cause: `aiservice.NewAnthropicClient` requires `config["api_key_env_var"]`
+  naming the env var to read (no default) — both handlers built the config
+  map with only `{"model": cfg.Model}`, so client creation failed on EVERY
+  call regardless of the key being present or valid. Confirmed the key itself
+  was fine first (direct curl to api.anthropic.com from inside the container
+  succeeded). Fixed both handlers to pass `api_key_env_var: "ANTHROPIC_API_KEY"`
+  (commit 76e9c44d2), image v1.0.1163 shipped to the island.
+- **Full round-trip now genuinely live**: /round → /position (real AI counter-
+  position + challenge) → /defend (real AI verdict + reasons) → all four
+  fields persisted in `gauntlet_rounds`. Two complete rounds verified in the
+  island DB, both with `verdict->>'verdict'` populated ("opponent wins" both
+  times — the AI is not a pushover, which is the honest design intent).
+- One transient 503 seen on the first /defend call, gone on retry with the
+  same round — noted, not investigated further (isolated, not reproducible).
+- **This is the liveness evidence the experience re-plan has been waiting
+  for.** Next: carry it into the 197 compose-decisions channel and re-fire
+  092.
+- Running tally of gate-invisible tools-api defects found by deploy+real-key
+  smoke, none catchable by gofmt/go build/go test: dockerfile go version,
+  GetRound NULL-scan + 404-masking-500, migration 198's invalid ASSERT,
+  Cloudflare eating 502 bodies, missing api_key_env_var. Candidate for the
+  feature-builder's own retro: an LLM-call smoke test at implementer gate
+  time (even a mocked/dry-run client-construction check) would have caught
+  the last one before merge.

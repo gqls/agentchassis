@@ -27,11 +27,9 @@ Access: `ssh root@toolsapisuk.vs.mythic-beasts.com` (key-only).
   rsync mirror to the MB backup account
   `32950_toolsapisuk@backup-sov-a.mythic-beasts.com:tools-api-backups/`, 20GB,
   MB-mirrored to a second UK site). The backup host is **key-only**.
-  **TODO(owner, last step)**: install the island's key in the MB control panel
-  (Backup account → SSH keys): `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMhCipVo2VJ32WuzEZ2qjA/QZ3B7brCYiE1OFjF/Tkhm island-backup@toolsapisuk`
-  Until then the rsync leg fails loudly (verified 2026-07-25: dump+retention
-  fine, rsync `Permission denied (publickey)`) and self-heals once the key is in.
-  Test after: `ssh root@island /opt/island/backup_pg.sh` → exit 0.
+  **DONE (owner, 2026-07-25):** pubkey installed in the MB control panel.
+  Verified: `ssh root@island /opt/island/backup_pg.sh` → exit 0 (was
+  `Permission denied (publickey)` earlier the same day). Backup leg fully live.
 - **cloudflared** 2026.7.3 installed from Cloudflare's apt repo.
   `cloudflared tunnel login` launched; awaiting the owner clicking the
   authorisation URL (in /root/cf_login.log). Cert lands at
@@ -96,20 +94,31 @@ As built (supersedes the checklist that stood here):
    DATABASE_URL to the island PG; GAUNTLET_MODEL claude-sonnet-5). The drafted
    `ALLOWED_ORIGINS` env never existed in the merged code — CORS reads the
    island `sites` table.
-4. **ANTHROPIC_API_KEY: still the explicit placeholder** `PENDING-OWNER-SPEND-
-   CAPPED-KEY` (the service refuses to start on an empty value). /round is fully
-   live; /position + /defend return honest JSON 503 until the owner issues the
-   dedicated key → put it in `/opt/island/.env`, `docker compose up -d tools-api`.
-5. **Three defects found at first smoke, fixed, live** (commits 01e-style on
-   branch 086: dockerfile golang 1.23→1.24; GetRound NULL-scan killed both LLM
-   endpoints + 404-masked-500; LLM-failure 502→503 because **Cloudflare replaces
-   an origin-502 body with its own error page** — JSON only survives as 503).
-   Council corr `64e6112c` (advisory, alongside-commit).
+4. **ANTHROPIC_API_KEY: LIVE 2026-07-25** — owner created a dedicated key
+   (org-level spend limits only on this tier; per-key/Workspace budgets not
+   pursued, not blocking) and installed it on the box themselves via SSH (key
+   never transited any session transcript). `/opt/island/.env` holds the real
+   value.
+5. **Four defects found at first smoke, fixed, live** (commits on branch 086):
+   dockerfile golang 1.23→1.24; GetRound NULL-scan killed both LLM endpoints +
+   404-masked-500; LLM-failure 502→503 because **Cloudflare replaces an
+   origin-502 body with its own error page**; and — found only once a REAL key
+   was in place — `NewAnthropicClient` requires `config["api_key_env_var"]`
+   naming the env var (no default), which both handlers omitted, so client
+   creation failed on every call regardless of the key's validity (commit
+   `76e9c44d2`, image v1.0.1163). Council corr `64e6112c` (advisory).
 6. **Public smoke matrix (2026-07-25, from the internet)**: /round 200 + real
-   provocation + persisted row · real-round /position JSON 503 · missing-round
-   404 · denied-origin 403 · preflight 204 · non-allowlisted path 404.
-7. NEXT: owner key → real /position + /defend round-trip → re-fire the
-   experience plan with full liveness evidence (the parked 092).
+   provocation + persisted row · missing-round 404 · denied-origin 403 ·
+   preflight 204 · non-allowlisted path 404.
+7. **FULL REAL ROUND-TRIP VERIFIED LIVE 2026-07-25 ~15:00**: /round →
+   /position (genuine AI counter-position + challenge) → /defend (genuine AI
+   verdict + reasons), all persisted. Two complete rounds in the island DB,
+   both `verdict->>'verdict' = 'opponent wins'` — honest judging, not a
+   pushover. This is the liveness evidence for the experience re-plan.
+8. **Backup pubkey CONFIRMED working** 2026-07-25 (owner pasted it into the MB
+   panel): `backup_pg.sh` exits 0.
+9. NEXT: carry the liveness evidence into the 197 compose-decisions channel,
+   re-fire the experience plan (092).
    **FLAG:** vonc.com/data/provocations.json carries FABRICATED stats
    ("1,284 Positions Filed", "62% Disagree") which /round passes through in
    `provocation.stats` — P4 front-end must not render them and the data file
