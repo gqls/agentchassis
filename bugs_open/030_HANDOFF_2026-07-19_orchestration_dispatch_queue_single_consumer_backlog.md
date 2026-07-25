@@ -792,3 +792,141 @@ of its items is claimed. A site with frequent short-lived claims (busy
 rerender cycle) can lose most ticks; and among competing sites the lexically
 smallest uuid always wins ties. Left here as a question for this workstream,
 not a diagnosis.
+
+---
+
+# FIX 2026-07-25 (bugfix-030 thread) — candidate 1 LIVE, candidate 3 BUILT; what closes this and what does not
+
+Three changes now stand against this case. Two are live, one is inert until the
+next chassis roll, and the residual belongs to a different workstream. Stated
+plainly so the next thread does not have to reconstruct it.
+
+| | change | state |
+|---|---|---|
+| 2026-07-21 | `scheduled_tasks.interval_seconds` on the two dominant cron jobs | **LIVE**, verified on a busy window (bounded sawtooth, two full drains) |
+| 2026-07-25 | candidate 1 — triggers print the lane depth on publish (`scripts/dispatch-queue-depth.sh`, wired into 090/097), commit `a5a494459` | **LIVE** (shell, no image needed) |
+| 2026-07-25 | candidate 3 — `EXTRA_REQUEST_TOPICS`: the scheduler gets its own lane, commit `f9bc7f45f` | **BUILT, INERT** until image `v1.0.1164` rolls (RUNBOOK R9) |
+| residual | one orchestration at a time *per lane* (the inline synchronous handler) | **owned by `chassis_replica_scaling` P1**, designed, unbuilt |
+
+## The mechanism, re-confirmed live on today's image before anything was changed
+
+```
+2026-07-25 17:04 UTC · pod agent-chassis-774877f4c6-zjh4t · v1.0.1159 (F2/F3 in)
+  orchestration 407cb6b5 · council seats review_compliance -> review_guardian
+  EXECUTING_STEP 9m02s, LLM steps logging throughout (ai_actions.go)
+  LAG on system.agent.generic.requests across those minutes: 8 -> 25
+```
+
+Nothing in this entry's mechanism has aged. What HAS aged is its framing: see
+below.
+
+## NEW FINDING — the 07-21 config fix decayed, and that is why the fix is a lane and not another interval
+
+The 07-21 change was verified working and **is still in place** (health-check 60,
+build-pipeline-trigger 120 — nobody re-seeded over it). It nevertheless no longer
+buys what it bought, because the lane acquired more producers:
+
+| | 2026-07-21 | 2026-07-25 |
+|---|---|---|
+| enabled `scheduled_tasks` targeting the lane | 12 | **21** |
+| nominal cron production (Σ `1/(interval+30)`) | ~1.67/min | **≈2.5/min** |
+
+New arrivals include `diagnose-pipeline-trigger` (60 s) and `claimed-item-timeout`
+(120 s). Every one is individually reasonable; none of their authors could see the
+total. **A rate limit that no component owns is not a limit, it is a coincidence** —
+so tuning intervals decays by construction, and the fix has to change the shape.
+Filed as a transferable pattern in `016b §9` ("A tuning fix to a shared resource
+decays"). [VERIFIED — `SELECT name, interval_seconds FROM scheduled_tasks WHERE
+enabled AND target_topic='system.agent.generic.requests'`, 2026-07-25 17:0x UTC.]
+
+## Candidate 1, as built (and one correction to what this file asked for)
+
+`scripts/dispatch-queue-depth.sh`, called by `090_TRIGGER_needs_diagnosis_v1.sh`
+and `097_TRIGGER_council_review_v1.sh` after they publish. Reports LAG (>0 =
+queued, not lost, do not re-fire), an explicit **fault** call-out when the group
+has no member, consumer liveness from the last `orchestration_states` transition
+rather than the offset (this file's own frozen-offset landmine), and the in-flight
+orchestrations so you can see *what* you are behind.
+
+> **CORRECTION to this file's fix candidate 1 and to the "sharpens candidate 1"
+> section.** Both asked the script to print an **estimated wait** —
+> `~$((LAG * 4 / 3)) min at recent throughput`. That is the very number this file
+> later retracts twice ("CORRECTION OF THIS CORRECTION": *do not quote a figure
+> from this file as a forecast — including mine*). Shipping it would have
+> re-imported the error into the one place every future operator reads. **The
+> script prints no ETA and says so in its output.** Head-of-queue age was dropped
+> too: it costs a kcat pod spawn (~10 s) and is the same forecast wearing a
+> different unit. The in-flight list replaced both.
+
+Working, in situ, on this thread's own council submission:
+
+```
+  QUEUE DEPTH (LAG) : 18
+  Your message was published to the back of this lane, so roughly
+  17 message(s) are ahead of it. It is QUEUED, NOT LOST
+  Consumer liveness: last orchestration step advanced 9s ago.
+  In flight now: generic-orchestrate-0725-1714 | review_prior_art | 171s
+```
+
+## Candidate 3, as built
+
+`EXTRA_REQUEST_TOPICS` (comma-separated) lets a **statically deployed** agent
+consume extra request topics, each with its own goroutine, consumer group and
+offsets; the chassis Deployment sets it to `system.agent.scheduled.requests`, and
+the cron rows' `target_topic` moves there after the roll. Within a lane,
+fetch→process→commit stays strictly serial and in order — per-orchestration
+ordering and `bugs_open/003` F3's commit-after-process semantics are untouched.
+
+- The fetch loop is **extracted and shared** (`consumeRequestLane`), not copied:
+  F3 paid for those semantics and two copies would drift silently.
+- **029's gate is preserved** — `max_concurrent`/`concurrency_group` are evaluated
+  by `cmd/scheduler/main.go` *before* it produces, so which topic it produces to
+  is irrelevant to them. Hung spawns stay capped at 8.
+- **Partitioning is still refused**, unchanged: one-way, and at `replicas: 1` one
+  consumer takes every partition and still blocks.
+- **Two guards, because the failure mode is duplicate execution of every scheduled
+  dispatch**: a lane equal to the main topic is refused; the var is ignored unless
+  the agent's own requests topic is `system.agent.*`. The second exists because
+  spawned pods inherit `envFrom: personae-prod-config` **wholesale**
+  (`spawn_actions.go`) — so **NEVER put `EXTRA_REQUEST_TOPICS` in that ConfigMap**;
+  every live spawned pod would join the lane under its own group.
+- A lane that cannot be created is skipped and logged loudly, never fatal.
+
+**LANDMINE — the rollout order is the risk, not the code.** `target_topic` is a DB
+column and is live immediately, so switching the producers before the consumer
+exists publishes every cron dispatch into a topic nobody reads: silent, and all
+scheduled work stops. Image → verify the lane is genuinely being consumed → *then*
+the UPDATE. Sequence, checks and rollback: RUNBOOK R9 in
+`docs024_key_docs_latest/dispatch_queue_serialisation/`.
+
+## Deliberately NOT built here
+
+Making the handler non-blocking (thin ingest + worker pool) is
+`chassis_replica_scaling`'s **P1**, which that workstream's plan names as *the* fix
+for this bug's latency and gates on two filed diagnosis verdicts. Building it in
+this thread would have been a competing implementation of another workstream's
+designed phase. Lane separation composes with P1 and stands alone without it.
+
+The filed diagnosis of this bug's own root cause (corr
+`78470372-7617-40e4-888c-66cac94006bf`) **never ran** — still queued in the lane it
+was filed about. Left filed. Its claim (inline handler, not partition count) is
+confirmed independently from the source and from the live pod, and no change here
+depends on the verdict.
+
+## Council gate
+
+Submitted 2026-07-25, `SUBMISSION_CORR=f47c2305-a873-459a-83e6-13eb9cb0cf1f`
+(the lane change). At submission the lane was 18 deep — this bug delaying the
+review of its own fix.
+
+## What closes this case
+
+- Candidate 1: **done and live.**
+- Candidate 3: **closes on the roll** (R9), with the two post-roll checks that
+  matter: the interactive lane sits near zero while cron traffic runs on its own
+  lane, and a dispatch fired *while a long cron orchestration is executing* starts
+  promptly rather than after it — this file's own negative test.
+- Candidate 2 (partitioning): **rejected, with reasons**, not outstanding.
+- Candidate 4 (lag as a health signal): superseded in practice by candidate 1's
+  script; a first-class metric is still worth having and is not blocking.
+- The architectural residual is **not** this case's to close.
