@@ -57,7 +57,9 @@ The numbering was assigned by concurrent threads and **collided twice**:
 | `016` | **both** here now: `ssh` ignores `$HOME` (passwd entry); **and** council revise prompts drop reviewer output (closed 2026-07-21) | — |
 | `017` | — | static cutover orphans entry forms **and** unregistered action marked complete (two files, both `017`) |
 | `018` | coverage report hid 90% of commits (stdin theft) — closed 2026-07-21 | idea.uk chrome renders every link empty (still open) |
-| `027`, `028`, `029` | — | two files each in `/bugs_open/` (concurrent-thread collisions of 2026-07-18/19) |
+| `027` | **both** here now: content hero unstyled without a style guide; **and** news pages render no news without JavaScript | — |
+| `028` | **both** here now: avoid-lists inert / banana discards negative prompts (closed 2026-07-20) — cite as **028-avoid-lists**; **and** page-build no-op reported complete + "borrowed" components (closed 2026-07-25) — cite as **028-page-build-noop** | — |
+| `029` | — | **both** still open: hung spawns saturate the dispatch group; **and** tool suggester writes phantom tool links |
 | `040` | failed page build leaves page deployed / partially composed — **040-partial-build**, closed 2026-07-24 (guard live `v1.0.1146`, skip persistence live `v1.0.1155`) | kafka dial timeouts fleet-wide — **040-kafka-dial**, still open (two files, both `040`, both 2026-07-20) |
 | `044` | plan_sections defers an empty-schema component by name heuristic (closed 2026-07-21, live `v1.0.1146`) | no capability inventory / dormant agents undetectable (still open) — two files, both `044`, both filed 2026-07-20 |
 
