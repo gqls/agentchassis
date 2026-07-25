@@ -745,3 +745,31 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   gaps (provocations-archive-loader, tool-arena-interface).
 - Re-fired once — corr `5316e79c-7927-4ea9-bd99-00fb5709a748`. Patient
   watcher running, no auto-refire.
+
+## 2026-07-25 ~16:45 — EXPERIENCE PLAN APPROVED (first ever) — the debate-opponent MVP is designed and council-cleared
+
+- Second re-fire (corr `5316e79c`) converged in ONE round: `approved`,
+  `abstained:0`, `reviewers:5`, `unreadable:0` — the full acceptance bar.
+  4 objections recorded, all medium/low severity, none gating
+  (`decided_by: "approved with 4 advisory objection(s) — none high-severity"`
+  — confirms the platform's severity-gated approval mechanic: only HIGH
+  forces revise, medium/low are advisory-only).
+- `is_current` doc_plans row: 13971 bytes, created 16:40:10. This is the plan
+  to build against for P4.
+- Remaining advisory notes worth carrying into P4 build: journeys wants the
+  "Enter today's Arena" CTA fix given its own journey step; feasibility wants
+  an explicit pre-flight check that tools.apis.uk is reachable before Step 3
+  (reasonable — it's a genuine external dependency); mvp wants
+  tool-arena-interface deferred to LATER rather than attempted this round
+  (Step 4, since its source was never verified); contracts wants 3 more
+  acceptance-criteria gaps closed (deep-link query-string test, two missing
+  selector assertions, non-interactivity check on static archive items).
+- **Sequence that got here, in order**: real backend live (island) → real
+  round-trip proven → 207 (liveness evidence into the compose channel) →
+  escalation after 5 rounds (208 fixed a real reviewer-cap defect found along
+  the way) → 209 (folded the escalation's own named gaps back in) → approved
+  on the very next attempt. The escalation was not wasted work — its output
+  (the round-5 objections) is what made round-1-of-the-second-fire converge.
+- NEXT = P4: rewrite gauntlet-interface (+ provocations-archive-loader per
+  the approved data contract) via section-editor delivery + assemble-only
+  JS republish, against this now-approved plan. P5 acceptance after.
