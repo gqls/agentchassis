@@ -32,6 +32,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Signal workflow completion and notify parent",
 		IsLocal:     true,
 	},
+	"fail_workflow": {
+		Handler:     FailWorkflowAction,
+		Category:    "core",
+		Description: "End a workflow with a deliberate FAILURE verdict, after its own cleanup steps have run — the counterpart to complete_workflow",
+		IsLocal:     true,
+	},
 	"await_response": {
 		Handler:     AwaitResponseAction,
 		Category:    "core",
