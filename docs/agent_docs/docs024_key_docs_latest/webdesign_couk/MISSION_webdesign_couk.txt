@@ -1,0 +1,48 @@
+webdesign.co.uk is a free, no-signup toolbox and learning library for people who design
+and build websites. It is the owner's consolidation of two existing sites he already runs
+(website-design.com and websitedesign.com) into one home. Everything on it runs in the
+visitor's own browser: nothing is uploaded, nothing is stored on a server, no account is
+ever required. That is the whole promise, and it should read as the site's character
+rather than as a marketing claim.
+
+WHAT IT CONTAINS. Roughly sixty-four small single-purpose web tools (colour and contrast
+utilities, CSS and layout generators, image and canvas tools, performance and code
+helpers, security and accessibility checkers, prompt and AI-workflow builders) and around
+thirty plain-English articles explaining the ideas behind them. There is a global search
+box in the header covering every tool and article.
+
+PAGES TO PLAN — READ THIS CAREFULLY. Plan ONLY the home page. Do not plan, propose,
+rebuild or recompose any other page. The tools index, the learn index, the about page and
+the entire library of tool and article pages are hand-authored and will be registered
+separately by their owner; they already exist as finished HTML and must be left alone. A
+plan that invents extra pages will be discarded and re-run, so keep the page list to one.
+
+The home page is a calm dashboard, not a sales page: a short two-column hero (a sentence
+of copy on the left saying what the site is, an image on the right), then a grid of
+featured tool cards, then a grid of guide cards, then a quiet closing call to action
+pointing at /tools/index.html. It links only to /tools/index.html, /learn/index.html and
+/about/index.html — never to a page that does not exist yet.
+
+NAVIGATION. Exactly three items in the header: Tools, Learn, About. No other nav groups.
+
+DESIGN — THESE VALUES ARE FIXED AND MUST NOT BE RE-INVENTED. Warm minimalist, light only.
+Background #f9f8f6 (soft warm pearl). Cards and panels pure white #ffffff. Primary muted
+sage #5c6b5d, hover #4a574b. Secondary sage #8a9a86. Accent soft terracotta #d4a373. Text
+#2b2b2b, never pure black. Muted text #717171. Borders #edece9. Corner radius 12px.
+Shadows soft and warm: rgba(43,43,43,0.04) to rgba(43,43,43,0.08). Cards lift 4px on hover
+with the shadow stepping up one level. The header is sticky and white. Typeface Inter for
+everything readable, Fira Code as a small monospace accent only — never for body text.
+
+There is NO dark mode and there must never be one. Avoid: dark backgrounds of any kind,
+gradients, glassmorphism, neon or saturated startup palettes, cool grey neutrals (every
+neutral here is warm), pure black, sharp corners, heavy borders, auto-advancing carousels
+and autoplaying media.
+
+TONE AND HONESTY. Plain, calm, technical, British English. No hype, no exclamation marks,
+no growth-marketing voice. Do not invent statistics, testimonials, client logos, awards,
+user counts, team members or case studies — there are none, and a fabricated one would
+have to be removed. There is no pricing, no newsletter, no e-commerce and no contact form:
+the site sells nothing and collects nothing.
+
+AUDIENCE. Working designers, front-end developers and technically-minded founders who
+want a specific small tool without installing anything or handing over an email address.
