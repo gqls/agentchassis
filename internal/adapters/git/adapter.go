@@ -136,10 +136,14 @@ func (a *GitAdapter) Run() error {
 			// Continue processing
 		}
 
-		// Try to consume a message
+		// Try to fetch a message
 		// Use a child context with timeout to avoid blocking forever
+		// bugs_open/003 F3: FetchMessage, NOT the old Consume() — Consume
+		// committed the offset on fetch, so a pod death mid-action (e.g. a
+		// git_commit in flight) silently lost the message. The offset is now
+		// committed after processMessage returns, below.
 		consumeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		msg, err := a.consumer.Consume(consumeCtx)
+		msg, err := a.consumer.FetchMessage(consumeCtx)
 		cancel() // Always clean up the context
 
 		// Handle the consume result
@@ -243,6 +247,17 @@ func (a *GitAdapter) Run() error {
 
 			a.processMessage(&msg)
 		}()
+
+		// bugs_open/003 F3: commit AFTER processing, unconditionally — even
+		// after a recovered panic (poison-payload protection; a lost git
+		// action is re-driven by the coordinator's adapter-retry branch).
+		// The guarantee bought is against pod death: an uncommitted offset
+		// means the replacement pod re-fetches and re-executes the action.
+		if err := a.consumer.CommitMessages(context.Background(), msg); err != nil {
+			a.logger.Error("Failed to commit consumed offset",
+				zap.Int64("offset", msg.Offset),
+				zap.Error(err))
+		}
 	}
 }
 
@@ -269,7 +284,7 @@ func (a *GitAdapter) RunSimpleNotUsed() error {
 
 		// Try to get a message (with timeout)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		msg, err := a.consumer.Consume(ctx)
+		msg, err := a.consumer.FetchMessage(ctx)
 		cancel()
 
 		if err != nil {
@@ -279,7 +294,7 @@ func (a *GitAdapter) RunSimpleNotUsed() error {
 				if !errors.Is(err, context.DeadlineExceeded) &&
 					!errors.Is(err, context.Canceled) &&
 					!strings.Contains(err.Error(), "EOF") {
-					a.logger.Warn("Consume error (continuing)", zap.Error(err))
+					a.logger.Warn("Fetch error (continuing)", zap.Error(err))
 					time.Sleep(time.Second)
 				}
 			} else {
@@ -288,8 +303,13 @@ func (a *GitAdapter) RunSimpleNotUsed() error {
 			continue
 		}
 
-		// Process message
+		// Process message, then commit (bugs_open/003 F3 — see Run above)
 		a.processMessage(&msg)
+		if err := a.consumer.CommitMessages(context.Background(), msg); err != nil {
+			a.logger.Error("Failed to commit consumed offset",
+				zap.Int64("offset", msg.Offset),
+				zap.Error(err))
+		}
 	}
 }
 

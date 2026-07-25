@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"runtime"
@@ -465,16 +466,21 @@ func (a *Agent) processRequests() {
 			a.logger.Info("Request processor stopping due to context cancellation")
 			return
 		default:
-			msg, err := a.requestConsumer.Consume(a.ctx)
+			// bugs_open/003 F3: FetchMessage, NOT the old Consume() — Consume
+			// committed the offset on fetch, so a pod death annihilated the
+			// in-flight message (at-most-once). The offset is now committed
+			// via commitConsumed AFTER processMessage returns.
+			msg, err := a.requestConsumer.FetchMessage(a.ctx)
 
 			if err != nil {
 				// Handle timeout specifically
-				if err == context.DeadlineExceeded {
+				if errors.Is(err, context.DeadlineExceeded) {
 					// Don't log, just continue - timeouts are normal
 					continue
 				}
-				if err != context.Canceled {
-					a.logger.Error("Failed to consume request message", zap.Error(err))
+				if !errors.Is(err, context.Canceled) {
+					a.logger.Error("Failed to fetch request message", zap.Error(err))
+					time.Sleep(1 * time.Second) // don't spin on a persistent fetch error
 				}
 				continue
 			}
@@ -483,6 +489,7 @@ func (a *Agent) processRequests() {
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
 				a.logger.Info("Skipping empty requests message")
+				a.commitConsumed(a.requestConsumer, msg, "request") // still advance past it
 				continue
 			}
 
@@ -495,6 +502,9 @@ func (a *Agent) processRequests() {
 
 			// Process the message
 			a.processMessage(msg, "request")
+
+			// Commit AFTER processing (unconditional — see commitConsumed)
+			a.commitConsumed(a.requestConsumer, msg, "request")
 		}
 	}
 }
@@ -525,11 +535,14 @@ func (a *Agent) processResponses() {
 			a.logger.Info("warn: Response processor stopping due to context cancellation")
 			return
 		default:
-			msg, err := a.responseConsumer.Consume(a.ctx)
+			// bugs_open/003 F3: FetchMessage + commit-after-process (see the
+			// request loop above and commitConsumed for the reasoning).
+			msg, err := a.responseConsumer.FetchMessage(a.ctx)
 
 			if err != nil {
-				if err != context.Canceled && err != context.DeadlineExceeded {
-					a.logger.Error("Failed to consume response message", zap.Error(err))
+				if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+					a.logger.Error("Failed to fetch response message", zap.Error(err))
+					time.Sleep(1 * time.Second) // don't spin on a persistent fetch error
 				}
 				continue
 			}
@@ -538,6 +551,7 @@ func (a *Agent) processResponses() {
 			if msg.Value == nil || len(msg.Value) == 0 {
 				// This is a timeout or empty message, skip it
 				a.logger.Info("Fail: Skipping empty response message")
+				a.commitConsumed(a.responseConsumer, msg, "response") // still advance past it
 				continue
 			}
 
@@ -552,7 +566,31 @@ func (a *Agent) processResponses() {
 
 			// Process the message
 			a.processMessage(msg, "response")
+
+			// Commit AFTER processing (unconditional — see commitConsumed)
+			a.commitConsumed(a.responseConsumer, msg, "response")
 		}
+	}
+}
+
+// commitConsumed commits the offset AFTER processMessage has returned —
+// bugs_open/003 F3. The consume loops used to commit on fetch, which made
+// delivery at-most-once: any pod death annihilated the in-flight message. The
+// commit is UNCONDITIONAL on the in-process outcome: handler errors have
+// already routed through handleProcessingError (the parent gets an error
+// response and drives the retry), so redelivering locally would only
+// double-execute and fight the parent's retry. The guarantee bought is
+// against pod death — there the un-run MarkMessageComplete defer leaves an
+// expiring 'processing' lease and the redelivered copy is reprocessed.
+// context.Background() deliberately: the commit must still succeed while
+// a.ctx is being cancelled for shutdown (same choice as server.go).
+func (a *Agent) commitConsumed(c *kafka.Consumer, msg kafka.Message, loop string) {
+	if err := c.CommitMessages(context.Background(), msg); err != nil {
+		a.logger.Error("Failed to commit consumed offset",
+			zap.String("loop", loop),
+			zap.String("topic", msg.Topic),
+			zap.Int64("offset", msg.Offset),
+			zap.Error(err))
 	}
 }
 
@@ -796,20 +834,47 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		zap.String("parent_orch_id", execCtx.ParentOrchestrationID),
 		zap.Int("payload_size", len(msg.Value)))
 
-	// Check for duplicates if stateless
+	// Check for duplicates if stateless — two-phase claim (bugs_open/003 F3):
+	// RecordMessageProcessing claims the row as 'processing' with a lease;
+	// the defer below marks it 'complete' when processing finishes. A crash
+	// between the two leaves an expiring lease, so the redelivered copy (the
+	// offset is now committed after processing) does the work instead of
+	// being dropped as a "duplicate" of work that never happened.
 	if a.isStateless && a.stateRepo != nil {
 		isDuplicate, err := a.stateRepo.HasProcessedMessage(a.ctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID, execCtx.RetryVersion)
 		if err != nil {
 			contextLogger.Error("Failed to check for duplicate", zap.Error(err))
 		} else if isDuplicate {
-			contextLogger.Info("Duplicate message ignored")
+			contextLogger.Info("Duplicate message ignored",
+				zap.Int("retry_version", execCtx.RetryVersion))
 			observability.MessagesDropped.WithLabelValues(a.AgentType, "duplicate").Inc()
 			return
 		}
 
-		// Record processing
-		if err := a.stateRepo.RecordMessageProcessing(a.ctx, execCtx, a.AgentID); err != nil {
+		// Record processing (atomic claim)
+		claimed, err := a.stateRepo.RecordMessageProcessing(a.ctx, execCtx, a.AgentID)
+		if err != nil {
 			contextLogger.Error("Failed to record message processing", zap.Error(err))
+			// Availability over strictness: process anyway (pre-F3 behaviour;
+			// worst case is a duplicate execution, same as before).
+		} else if !claimed {
+			contextLogger.Info("DEDUPE_CLAIM_LOST: message claimed by another worker, dropping",
+				zap.String("request_id", execCtx.RequestID),
+				zap.Int("retry_version", execCtx.RetryVersion))
+			observability.MessagesDropped.WithLabelValues(a.AgentType, "duplicate").Inc()
+			return
+		} else {
+			// Completion half of the claim. A defer, so it runs on EVERY
+			// in-process disposition (success, handled error, validation
+			// drop) — only pod death skips it. Fresh context: this must fire
+			// even when a.ctx is already cancelled for shutdown.
+			defer func() {
+				cctx, ccancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer ccancel()
+				if mErr := a.stateRepo.MarkMessageComplete(cctx, execCtx.CorrelationID, execCtx.RequestID, a.AgentID, execCtx.RetryVersion); mErr != nil {
+					contextLogger.Warn("MARK_COMPLETE_FAILED (lease will expire naturally)", zap.Error(mErr))
+				}
+			}()
 		}
 	}
 

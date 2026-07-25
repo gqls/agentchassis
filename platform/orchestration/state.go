@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gqls/agentchassis/pkg/models"
+	"github.com/gqls/agentchassis/platform/observability"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"github.com/gqls/agentchassis/platform/orchestration/types"
 	"go.uber.org/zap"
@@ -158,24 +160,42 @@ func NewStateRepository(db *sql.DB, logger *zap.Logger) *StateRepository {
 	return &StateRepository{db: db, logger: logger}
 }
 
-// HasProcessedMessage checks if a request has been processed
+// HasProcessedMessage reports whether this message should be treated as a
+// duplicate. bugs_open/003 F3 semantics: a message is a duplicate only if an
+// EQUAL-OR-NEWER retry generation has COMPLETED processing, or another live
+// pod currently holds a processing lease on it. A 'processing' row whose lease
+// has expired is NOT a duplicate — its worker died mid-work, and the
+// redelivered copy is how the work gets done. The same-pod exemption exists
+// because the agentbase and processor dedupe layers both run on one delivery
+// under the same key: the second layer must see the first layer's own live
+// claim as "mine", not as a duplicate.
 func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID, requestID, agentID string, retryVersion int) (bool, error) {
 	if requestID == "" {
-		return false, nil // Can't deduplicate without request_id
+		// No request_id means NO dedupe at all — a redelivery double-executes
+		// with no record anywhere. This used to be silent (bugs_open/003).
+		// Loud, not fatal: still process the message.
+		r.logger.Warn("DEDUPE_SKIPPED_NO_REQUEST_ID: cannot deduplicate, processing anyway",
+			zap.String("correlation_id", correlationID),
+			zap.String("agent_id", agentID))
+		observability.SystemErrors.WithLabelValues("dedupe", "missing_request_id").Inc()
+		return false, nil
 	}
 
-	// Check if THIS specific retry_version has been processed
+	podName := os.Getenv("HOSTNAME")
+
 	query := `
         SELECT EXISTS(
-            SELECT 1 FROM processed_messages 
-            WHERE correlation_id = $1 
-            AND request_id = $2
-            AND agent_id = $3
-            AND retry_version = $4
+            SELECT 1 FROM processed_messages
+            WHERE correlation_id = $1
+              AND request_id = $2
+              AND agent_id = $3
+              AND retry_version >= $4
+              AND ( status = 'complete'
+                 OR (status = 'processing' AND lease_expires_at > NOW() AND processed_by <> $5) )
         )`
 
 	var exists bool
-	err := r.db.QueryRowContext(ctx, query, correlationID, requestID, agentID, retryVersion).Scan(&exists)
+	err := r.db.QueryRowContext(ctx, query, correlationID, requestID, agentID, retryVersion, podName).Scan(&exists)
 	if err != nil {
 		return false, fmt.Errorf("failed to check processed request: %w", err)
 	}
@@ -183,19 +203,45 @@ func (r *StateRepository) HasProcessedMessage(ctx context.Context, correlationID
 	return exists, nil
 }
 
-// RecordMessageProcessing records a request being processed
-func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *types.ExecutionContext, agentID string) error {
+// processedMessageLeaseSeconds returns the processing-lease length. It must
+// comfortably exceed the worst-case handler runtime: an expired lease makes a
+// redelivered copy eligible to take the work over mid-flight, so a too-short
+// lease double-executes long handlers. (A rebalance while the lease is live is
+// instead resolved by the parent's timeout retry, which arrives with a higher
+// retry_version and takes the row over explicitly.)
+func processedMessageLeaseSeconds() int {
+	if v := os.Getenv("PROCESSED_MESSAGES_LEASE_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 900
+}
+
+// RecordMessageProcessing atomically claims the message for processing — the
+// first half of the two-phase dedupe (bugs_open/003 F3). The row is inserted
+// as status='processing' with a lease; MarkMessageComplete flips it to
+// 'complete' after the handler returns. claimed=false means another worker
+// owns an equal-or-newer generation right now: treat as duplicate and drop.
+// The takeover arbiter is processed_messages_unique (correlation, request,
+// agent — WITHOUT retry_version), deliberately: a resend with retry_version+1
+// must take over the previous generation's row, not error against it.
+func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *types.ExecutionContext, agentID string) (bool, error) {
 	if execCtx.RequestID == "" {
-		return nil // Can't record without request_id
+		// Vacuous claim — no dedupe possible; process anyway, loudly
+		// (mirrors HasProcessedMessage; both fire so the WARN survives
+		// whichever path a caller takes).
+		r.logger.Warn("DEDUPE_SKIPPED_NO_REQUEST_ID: recording nothing, processing anyway",
+			zap.String("correlation_id", execCtx.CorrelationID),
+			zap.String("agent_id", agentID))
+		observability.SystemErrors.WithLabelValues("dedupe", "missing_request_id").Inc()
+		return true, nil
 	}
 
 	// Handle empty orchestration_id - we shouldn't have it in real life but when sending my own requests without them then:
 	orchestrationID := execCtx.OrchestrationID
-	//fmt.Printf("DEBUG orch: in RecordMessageProcessing orchestrationID %s\n", orchestrationID)
 	if orchestrationID == "" {
 		orchestrationID = "00000000-0000-0000-0214-000000000010" // NULL UUID orig - 0214
-		// Or just skip recording if no orchestration
-		// return nil
 	}
 
 	processingNode := os.Getenv("HOSTNAME")
@@ -204,13 +250,23 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 	}
 
 	query := `
-        INSERT INTO processed_messages 
-        (message_id, correlation_id, orchestration_id, request_id, agent_id, message_type, processed_at, processed_by, retry_version)
-        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8)
-        ON CONFLICT (correlation_id, request_id, agent_id, retry_version) DO NOTHING
+        INSERT INTO processed_messages
+        (message_id, correlation_id, orchestration_id, request_id, agent_id, message_type, processed_at, processed_by, retry_version, status, lease_expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, 'processing', NOW() + make_interval(secs => $9))
+        ON CONFLICT ON CONSTRAINT processed_messages_unique DO UPDATE
+        SET message_id       = EXCLUDED.message_id,
+            retry_version    = EXCLUDED.retry_version,
+            processed_at     = NOW(),
+            processed_by     = EXCLUDED.processed_by,
+            status           = 'processing',
+            lease_expires_at = EXCLUDED.lease_expires_at
+        WHERE processed_messages.retry_version < EXCLUDED.retry_version
+           OR (processed_messages.status = 'processing'
+               AND (processed_messages.lease_expires_at <= NOW()
+                    OR processed_messages.processed_by = EXCLUDED.processed_by))
     `
 
-	_, err := r.db.ExecContext(ctx, query,
+	res, err := r.db.ExecContext(ctx, query,
 		execCtx.MessageID,
 		execCtx.CorrelationID,
 		orchestrationID,
@@ -218,11 +274,51 @@ func (r *StateRepository) RecordMessageProcessing(ctx context.Context, execCtx *
 		agentID,
 		execCtx.MessageType,
 		processingNode,
-		execCtx.RetryVersion, // NEW
+		execCtx.RetryVersion,
+		processedMessageLeaseSeconds(),
 	)
 
 	if err != nil {
-		return fmt.Errorf("failed to record request processing in state go: %w", err)
+		return false, fmt.Errorf("failed to record request processing in state go: %w", err)
+	}
+
+	rows, err := res.RowsAffected()
+	if err != nil {
+		// Claim outcome unknowable; err on availability (process) — the worst
+		// case is a duplicate execution, the same trade the error path makes.
+		return true, nil
+	}
+
+	return rows == 1, nil
+}
+
+// MarkMessageComplete records that processing finished — the second half of
+// the two-phase dedupe (bugs_open/003 F3). Wired as a defer immediately after
+// a successful claim, so it runs on EVERY in-process disposition (success,
+// handled error, validation drop); only pod death skips it, leaving a
+// 'processing' lease that expires and permits redelivery to do the work.
+// The retry_version guard stops a stale generation's completion clobbering a
+// newer takeover that happened mid-flight.
+func (r *StateRepository) MarkMessageComplete(ctx context.Context, correlationID, requestID, agentID string, retryVersion int) error {
+	if requestID == "" {
+		return nil // nothing was recorded
+	}
+
+	query := `
+        UPDATE processed_messages
+        SET status = 'complete',
+            lease_expires_at = NULL,
+            processed_at = NOW()
+        WHERE correlation_id = $1
+          AND request_id = $2
+          AND agent_id = $3
+          AND retry_version = $4
+          AND status = 'processing'
+    `
+
+	_, err := r.db.ExecContext(ctx, query, correlationID, requestID, agentID, retryVersion)
+	if err != nil {
+		return fmt.Errorf("failed to mark message complete: %w", err)
 	}
 
 	return nil
@@ -1382,17 +1478,21 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 }
 
 // GetAwaitedRequest retrieves an awaited request by request_id
-// Returns nil if not found or already processed
+// Returns nil if not found or already processed.
+// 'retrying' is included (bugs_open/003 F2): a row claimed by the retry
+// driver is still an awaited request — handleRecoverableError re-reads it
+// here for the authoritative retry_version, and filtering it out would send
+// that path to the possibly-stale in-memory fallback.
 func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID string) (*AwaitedRequest, error) {
 	query := `
-		SELECT 
+		SELECT
 			request_id, orchestration_id, correlation_id, step_id, step_name,
 			retry_version, target_agent_id, target_agent_type,
 			responses_topic, requests_topic, sent_at, timeout_at,
 			reply_to_request_id, status, processed_at
 		FROM awaited_requests
 		WHERE request_id = $1
-		  AND status = 'waiting'
+		  AND status IN ('waiting', 'retrying')
 	`
 
 	record := &AwaitedRequest{}
@@ -1467,6 +1567,146 @@ func (r *StateRepository) GetAwaitedRequestWithRetry(ctx context.Context, reques
 		zap.Int("max_retries", maxRetries),
 	)
 	return nil, nil
+}
+
+// scanAwaitedRequestRow scans one awaited_requests row in the canonical column
+// order shared by every claim/get in this file.
+func scanAwaitedRequestRow(scan func(dest ...interface{}) error) (*AwaitedRequest, error) {
+	record := &AwaitedRequest{}
+	var processedAt sql.NullTime
+
+	err := scan(
+		&record.RequestID,
+		&record.OrchestrationID,
+		&record.CorrelationID,
+		&record.StepID,
+		&record.StepName,
+		&record.RetryVersion,
+		&record.TargetAgentID,
+		&record.TargetAgentType,
+		&record.ResponsesTopic,
+		&record.RequestsTopic,
+		&record.SentAt,
+		&record.TimeoutAt,
+		&record.ReplyToRequestID,
+		&record.Status,
+		&processedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if processedAt.Valid {
+		record.ProcessedAt = &processedAt.Time
+	}
+	return record, nil
+}
+
+// ClaimAwaitedRequestForRetry atomically claims ONE timed-out request for the
+// retry driver (bugs_open/003 F2 fast path — the in-process timer). Claims
+// from 'waiting' whose timeout has passed (the timer beat the cleanup sweep)
+// or from 'expired' (the sweep got there first). Clearing processed_at
+// re-opens the late-response path: a response arriving mid-retry hits
+// CLAIM_RECOVERY instead of DUPLICATE_SKIPPED. Returns nil if the row is
+// gone, already answered, or claimed by another actor — exactly one actor
+// drives any given expiry.
+func (r *StateRepository) ClaimAwaitedRequestForRetry(ctx context.Context, requestID, podName string) (*AwaitedRequest, error) {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'retrying',
+		    processing_started_at = NOW(),
+		    processing_pod = $2,
+		    processed_at = NULL
+		WHERE request_id = $1
+		  AND ( (status = 'waiting' AND timeout_at <= NOW()) OR status = 'expired' )
+		RETURNING request_id, orchestration_id, correlation_id, step_id, step_name,
+		          retry_version, target_agent_id, target_agent_type,
+		          responses_topic, requests_topic, sent_at, timeout_at,
+		          reply_to_request_id, status, processed_at
+	`
+
+	record, err := scanAwaitedRequestRow(r.db.QueryRowContext(ctx, query, requestID, podName).Scan)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim awaited request for retry: %w", err)
+	}
+	return record, nil
+}
+
+// ClaimExpiredAwaitedRequestsForRetry atomically claims a batch of expired
+// requests for the durable retry driver (bugs_open/003 F2 — the per-minute
+// ticker in every chassis pod). This is what makes the timeout guarantee
+// survive restarts: the in-process timers die with their pod, the DB rows do
+// not. FOR UPDATE SKIP LOCKED makes concurrent pods cooperate instead of
+// double-driving (the same claim shape site_work_items uses). The join
+// confines claims to orchestrations still AWAITING_RESPONSES, so requests of
+// completed/failed/reaped orchestrations are never resurrected. The two arms:
+// fresh 'expired' rows (processed_at is the expiry stamp; the 60-minute
+// window skips the pre-deploy backlog), and stale 'retrying' rows whose
+// claiming pod died mid-drive (>5 min; a live drive takes seconds).
+func (r *StateRepository) ClaimExpiredAwaitedRequestsForRetry(ctx context.Context, podName string, limit int) ([]*AwaitedRequest, error) {
+	query := `
+		UPDATE awaited_requests ar
+		SET status = 'retrying',
+		    processing_started_at = NOW(),
+		    processing_pod = $1,
+		    processed_at = NULL
+		WHERE ar.request_id IN (
+		    SELECT a.request_id
+		    FROM awaited_requests a
+		    JOIN orchestration_states os ON os.orchestration_id = a.orchestration_id
+		    WHERE os.status = 'AWAITING_RESPONSES'
+		      AND ( (a.status = 'expired'  AND a.processed_at > NOW() - INTERVAL '60 minutes')
+		         OR (a.status = 'retrying' AND a.processing_started_at < NOW() - INTERVAL '5 minutes') )
+		    ORDER BY a.timeout_at
+		    FOR UPDATE OF a SKIP LOCKED
+		    LIMIT $2
+		)
+		RETURNING request_id, orchestration_id, correlation_id, step_id, step_name,
+		          retry_version, target_agent_id, target_agent_type,
+		          responses_topic, requests_topic, sent_at, timeout_at,
+		          reply_to_request_id, status, processed_at
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, podName, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim expired awaited requests: %w", err)
+	}
+	defer rows.Close()
+
+	var claimed []*AwaitedRequest
+	for rows.Next() {
+		record, scanErr := scanAwaitedRequestRow(rows.Scan)
+		if scanErr != nil {
+			return claimed, fmt.Errorf("failed to scan claimed awaited request: %w", scanErr)
+		}
+		claimed = append(claimed, record)
+	}
+	if err := rows.Err(); err != nil {
+		return claimed, fmt.Errorf("failed reading claimed awaited requests: %w", err)
+	}
+	return claimed, nil
+}
+
+// MarkAwaitedRequestFailed terminally releases a claimed row whose retries are
+// exhausted (bugs_open/003 F2). Guarded on 'retrying' so a concurrent
+// completion by a late response is never clobbered. Setting it FIRST — before
+// routing to the error step — is what makes retry exhaustion wedge-proof: no
+// downstream failure can leave the row parked in 'retrying'.
+func (r *StateRepository) MarkAwaitedRequestFailed(ctx context.Context, requestID string) error {
+	query := `
+		UPDATE awaited_requests
+		SET status = 'error',
+		    processed_at = NOW()
+		WHERE request_id = $1
+		  AND status = 'retrying'
+	`
+	_, err := r.db.ExecContext(ctx, query, requestID)
+	if err != nil {
+		return fmt.Errorf("failed to mark awaited request failed: %w", err)
+	}
+	return nil
 }
 
 // CompleteAwaitedRequest marks a claimed request as fully processed
@@ -1560,14 +1800,17 @@ func (r *StateRepository) oldMarkAwaitedRequestProcessed(ctx context.Context, re
 }
 
 // CancelAwaitedRequestsForOrchestration cancels all waiting requests for an orchestration
-// Called when orchestration completes or fails
+// Called when orchestration completes or fails.
+// 'retrying' and 'expired' are swept too (bugs_open/003 F2): once the
+// orchestration is finished, a claimed or expired row must not be resurrected
+// by the retry ticker.
 func (r *StateRepository) CancelAwaitedRequestsForOrchestration(ctx context.Context, orchestrationID string) error {
 	query := `
 		UPDATE awaited_requests
 		SET status = 'cancelled',
 		    processed_at = NOW()
 		WHERE orchestration_id = $1
-		  AND status = 'waiting'
+		  AND status IN ('waiting', 'retrying', 'expired')
 	`
 
 	result, err := r.db.ExecContext(ctx, query, orchestrationID)

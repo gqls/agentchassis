@@ -25,3 +25,28 @@ ALTER TABLE processed_messages ADD COLUMN IF NOT EXISTS retry_version INT DEFAUL
 ALTER TABLE processed_messages DROP CONSTRAINT IF EXISTS processed_messages_pkey;
 ALTER TABLE processed_messages ADD CONSTRAINT processed_messages_pkey
     PRIMARY KEY (correlation_id, request_id, agent_id, retry_version);
+-- ═══════════════════════════════════════════════════════════════════════════
+-- 2026-07-24 — bugs_open/003 F3: two-phase claim columns (mirror of mig 205)
+-- ═══════════════════════════════════════════════════════════════════════════
+-- Dedupe used to record RECEIPT, so a redelivered message whose first copy
+-- died mid-work was dropped as a "duplicate". Rows are now claimed as
+-- 'processing' with a lease and marked 'complete' after the handler returns.
+-- DEFAULT 'complete' preserves receipt-time semantics for old binaries.
+-- Authoritative change: sql_for_agents/205_bug003_awaited_retry_and_processed_lease.sql.
+
+ALTER TABLE processed_messages
+    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'complete';
+ALTER TABLE processed_messages
+    ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'processed_messages_status_check'
+    ) THEN
+        ALTER TABLE processed_messages ADD CONSTRAINT processed_messages_status_check
+            CHECK (status IN ('processing','complete'));
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_processed_messages_processing
+    ON processed_messages (processed_at) WHERE status = 'processing';

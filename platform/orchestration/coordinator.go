@@ -2965,46 +2965,91 @@ func (s *SagaCoordinator) handleUnrecoverableError(ctx context.Context, state *O
 
 }
 
-// handleRequestTimeout handles request timeouts
+// handleRequestTimeout is the FAST PATH for awaited-request timeouts: an
+// in-process timer armed at request-send time, which dies with its pod —
+// bugs_open/003 root cause 3. The per-minute ticker in
+// cleanupExpiredAwaitedRequests is the durable path that survives restarts.
+// Both funnel through an atomic status->'retrying' claim, so exactly one
+// actor drives any given expiry.
 func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestrationID, requestID string, timeoutAt time.Time) {
 	time.Sleep(time.Until(timeoutAt))
 
 	repo := NewStateRepository(s.db, s.logger)
-
-	// Get fresh awaited request from DB (not from state which may be stale)
-	awaited, err := repo.GetAwaitedRequest(ctx, requestID)
-	if err != nil || awaited == nil {
-		return // Already completed or doesn't exist
+	awaited, err := repo.ClaimAwaitedRequestForRetry(ctx, requestID, s.podName)
+	if err != nil {
+		s.logger.Error("TIMEOUT_FAST_PATH_CLAIM_FAILED (retry ticker will recover)",
+			zap.String("request_id", requestID),
+			zap.Error(err))
+		return
+	}
+	if awaited == nil {
+		return // answered, cancelled, or another actor holds the claim
 	}
 
-	// Check retry count from DB
-	if awaited.RetryVersion >= 3 {
-		s.logger.Error("Max retries exceeded",
+	s.retryExpiredAwaitedRequest(ctx, awaited)
+}
+
+// retryExpiredAwaitedRequest drives one timed-out awaited request through
+// retry-or-fail (bugs_open/003 F2). PRECONDITION: the caller holds the row in
+// status='retrying' (ClaimAwaitedRequestForRetry or
+// ClaimExpiredAwaitedRequestsForRetry). Every exit moves the row out of
+// 'retrying' — the resend sets 'waiting' (UpdateAwaitedRequestRetry, inside
+// handleRecoverableError), exhaustion sets 'error', release sets 'processed'
+// — except the state-load failure, which deliberately leaves the claim for
+// the ticker's stale-'retrying' reclaim (>5 min).
+func (s *SagaCoordinator) retryExpiredAwaitedRequest(ctx context.Context, awaited *AwaitedRequest) {
+	requestID := awaited.RequestID
+	orchestrationID := awaited.OrchestrationID
+	repo := NewStateRepository(s.db, s.logger)
+
+	state, err := repo.GetState(ctx, orchestrationID)
+	if err != nil || state == nil {
+		s.logger.Error("RETRY_DRIVER_STATE_LOAD_FAILED (claim left for ticker reclaim)",
 			zap.String("request_id", requestID),
-			zap.Int("retry_version", awaited.RetryVersion))
-		state, _ := repo.GetState(ctx, orchestrationID)
-		if state != nil {
-			// Check if this is a loop iteration with continue_on_error
-			if shouldContinueLoopOnError(state, s.logger) {
-				timeoutMsg := fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion)
-				if err := s.skipToNextLoopIterationForAsync(ctx, state, requestID, timeoutMsg, s.logger); err != nil {
-					s.logger.Error("Failed to skip loop iteration on timeout", zap.Error(err))
-					s.failWorkflow(ctx, state, timeoutMsg)
-				}
-				return
-			}
-			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+			zap.String("orchestration_id", orchestrationID),
+			zap.Error(err))
+		return
+	}
+
+	// The orchestration may have moved on (completed, failed, reaped) between
+	// expiry and claim — release the claim rather than resurrect the request.
+	if state.Status != StatusAwaitingResponses {
+		s.logger.Info("RETRY_DRIVER_RELEASED: orchestration no longer awaiting",
+			zap.String("request_id", requestID),
+			zap.String("orchestration_id", orchestrationID),
+			zap.String("orchestration_status", string(state.Status)))
+		if markErr := repo.MarkAwaitedRequestComplete(ctx, requestID); markErr != nil {
+			s.logger.Warn("Failed to release claimed awaited request",
+				zap.String("request_id", requestID), zap.Error(markErr))
 		}
 		return
 	}
 
-	state, err := repo.GetState(ctx, orchestrationID)
-	if err != nil {
+	// Retry budget exhausted: terminal release FIRST, so no downstream failure
+	// can leave the row parked in 'retrying', then route the failure.
+	if awaited.RetryVersion >= 3 {
+		s.logger.Error("Max retries exceeded",
+			zap.String("request_id", requestID),
+			zap.Int("retry_version", awaited.RetryVersion))
+		if failErr := repo.MarkAwaitedRequestFailed(ctx, requestID); failErr != nil {
+			s.logger.Warn("Failed to mark awaited request failed",
+				zap.String("request_id", requestID), zap.Error(failErr))
+		}
+		// Check if this is a loop iteration with continue_on_error
+		if shouldContinueLoopOnError(state, s.logger) {
+			timeoutMsg := fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion)
+			if err := s.skipToNextLoopIterationForAsync(ctx, state, requestID, timeoutMsg, s.logger); err != nil {
+				s.logger.Error("Failed to skip loop iteration on timeout", zap.Error(err))
+				s.failWorkflow(ctx, state, timeoutMsg)
+			}
+			return
+		}
+		s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
 		return
 	}
 
-	// Check if still waiting
-	if awaited, exists := state.AwaitedRequests[requestID]; exists {
+	// Check if still waiting (per the orchestration's own state)
+	if _, exists := state.AwaitedRequests[requestID]; exists {
 		s.logger.Error("Request timed out",
 			zap.String("request_id", requestID),
 			zap.String("awaited step id", awaited.StepID),
@@ -3087,7 +3132,7 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 						Message:     "Request timed out",
 						Recoverable: true,
 						Details: map[string]interface{}{
-							"timeout_after": timeoutAt.Sub(awaited.TimeoutAt).String(),
+							"timeout_after": time.Since(awaited.TimeoutAt).String(),
 							"retry_count":   awaited.RetryVersion,
 						},
 					},
@@ -3097,6 +3142,15 @@ func (s *SagaCoordinator) handleRequestTimeout(ctx context.Context, orchestratio
 			s.handleRecoverableError(ctx, state, requestID, execCtx, timeoutResponse)
 		} else {
 			s.routeToErrorStepOrFail(ctx, state, awaited.StepName, fmt.Sprintf("Request %s timed out after %d retries", requestID, awaited.RetryVersion))
+		}
+	} else {
+		// The response was already applied to the orchestration's state —
+		// release the claim so the row cannot wedge in 'retrying'.
+		s.logger.Info("RETRY_DRIVER_RELEASED: request no longer in awaited set",
+			zap.String("request_id", requestID))
+		if markErr := repo.MarkAwaitedRequestComplete(ctx, requestID); markErr != nil {
+			s.logger.Warn("Failed to release claimed awaited request",
+				zap.String("request_id", requestID), zap.Error(markErr))
 		}
 	}
 }
@@ -3677,6 +3731,25 @@ func (s *SagaCoordinator) cleanupExpiredAwaitedRequests() {
 			s.logger.Info("Cleaned up expired awaited requests",
 				zap.Int("count", count),
 			)
+		}
+
+		// bugs_open/003 F2: the DURABLE retry driver. The cleanup above has
+		// just marked timed-out 'waiting' rows 'expired'; claim them (plus any
+		// 'retrying' rows whose claiming pod died) and drive each through the
+		// same body the in-process timers use. This is what makes per-workflow
+		// timeouts survive pod restarts: the timers die with their pod, these
+		// rows do not, and any surviving chassis pod becomes the rescuer.
+		claimed, claimErr := repo.ClaimExpiredAwaitedRequestsForRetry(ctx, s.podName, 25)
+		if claimErr != nil {
+			s.logger.Error("RETRY_TICKER_CLAIM_FAILED", zap.Error(claimErr))
+		}
+		for _, awaited := range claimed {
+			s.logger.Info("RETRY_TICKER_CLAIMED expired awaited request",
+				zap.String("request_id", awaited.RequestID),
+				zap.String("orchestration_id", awaited.OrchestrationID),
+				zap.String("step_name", awaited.StepName),
+				zap.Int("retry_version", awaited.RetryVersion))
+			s.retryExpiredAwaitedRequest(ctx, awaited)
 		}
 
 		cancel()

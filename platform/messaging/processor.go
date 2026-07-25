@@ -1290,33 +1290,54 @@ func (p *MessageProcessor) ProcessMessage(ctx context.Context, msg kafka.Message
 	if p.sqlDB != nil {
 		contextLogger.Info("In processor.go 1072 ProcessMessage. p.sqlDB is not nil")
 
-		// Use request_id for deduplication, not message_id
-		if execCtx.RequestID != "" {
-			repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
-			isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
-				execCtx.CorrelationID,
-				execCtx.RequestID,
-				execCtx.ToAgentID,
-				execCtx.RetryVersion,
+		// Use request_id for deduplication, not message_id. Two-phase claim
+		// (bugs_open/003 F3): claim as 'processing' with a lease, mark
+		// 'complete' via the defer when ProcessMessage returns. The old
+		// `if RequestID != ""` gate is gone — an un-dedupable message must be
+		// LOUD (state.go warns and counts it), not silently skipped.
+		// agent_id stays execCtx.ToAgentID: on the chassis path that equals
+		// the agentbase layer's AgentID, and the same-pod lease exemption in
+		// HasProcessedMessage keeps the two layers from tripping each other.
+		repo := orchestration.NewStateRepository(p.sqlDB, p.logger)
+		isDuplicate, checkErr := repo.HasProcessedMessage(ctx,
+			execCtx.CorrelationID,
+			execCtx.RequestID,
+			execCtx.ToAgentID,
+			execCtx.RetryVersion,
+		)
+
+		if checkErr != nil {
+			contextLogger.Error("Failed to check for duplicate request",
+				zap.String("request_id", execCtx.RequestID),
+				zap.Error(checkErr))
+		} else if isDuplicate {
+			contextLogger.Warn("Duplicate request detected and ignored",
+				zap.String("request_id", execCtx.RequestID),
+				zap.String("correlation_id", execCtx.CorrelationID),
+				zap.String("orchestration_id", execCtx.OrchestrationID),
 			)
+			return nil
+		}
 
-			if checkErr != nil {
-				contextLogger.Error("Failed to check for duplicate request",
-					zap.String("request_id", execCtx.RequestID),
-					zap.Error(checkErr))
-			} else if isDuplicate {
-				contextLogger.Warn("Duplicate request detected and ignored",
-					zap.String("request_id", execCtx.RequestID),
-					zap.String("correlation_id", execCtx.CorrelationID),
-					zap.String("orchestration_id", execCtx.OrchestrationID),
-				)
-				return nil
-			}
-
-			// Record this request as processed
-			if err := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID); err != nil {
-				contextLogger.Error("Failed to record request processing -", zap.Error(err))
-			}
+		// Record this request as processed (atomic claim)
+		claimed, recErr := repo.RecordMessageProcessing(ctx, execCtx, execCtx.ToAgentID)
+		if recErr != nil {
+			contextLogger.Error("Failed to record request processing -", zap.Error(recErr))
+			// Availability over strictness: process anyway (pre-F3 behaviour).
+		} else if !claimed {
+			contextLogger.Warn("DEDUPE_CLAIM_LOST: request claimed by another worker, dropping",
+				zap.String("request_id", execCtx.RequestID),
+				zap.Int("retry_version", execCtx.RetryVersion))
+			return nil
+		} else {
+			completeAgentID := execCtx.ToAgentID
+			defer func() {
+				cctx, ccancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer ccancel()
+				if mErr := repo.MarkMessageComplete(cctx, execCtx.CorrelationID, execCtx.RequestID, completeAgentID, execCtx.RetryVersion); mErr != nil {
+					contextLogger.Warn("MARK_COMPLETE_FAILED (lease will expire naturally)", zap.Error(mErr))
+				}
+			}()
 		}
 	}
 

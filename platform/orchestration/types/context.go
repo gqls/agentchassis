@@ -603,11 +603,18 @@ func FromHeaders(headers map[string]string) (*ExecutionContext, error) {
 		ec.IsComplete = headers["is_complete"] == "true"
 		ec.IsError = headers["is_error"] == "true"
 		ec.IsMultipartResponse = headers["is_multipart_response"] == "true"
+	}
 
-		// Parse retry version
-		if retryStr := headers["retry_version"]; retryStr != "" {
-			fmt.Sscanf(retryStr, "%d", &ec.RetryVersion)
-		}
+	// Parse retry version — for ALL message types, not just responses. The
+	// coordinator's timeout resend emits retry_version on REQUEST headers
+	// (RequestHeaders.ToMap), but this parse used to live inside the
+	// response-only block above, so a resent request always reached the target
+	// as retry_version 0 and the dedupe dropped it as a duplicate of the
+	// original — the child neither reprocessed nor re-sent a response, which
+	// made timeout retries useless for the lost-response case (bugs_open/003).
+	// Messages without the header still parse as 0.
+	if retryStr := headers["retry_version"]; retryStr != "" {
+		fmt.Sscanf(retryStr, "%d", &ec.RetryVersion)
 	}
 
 	ec.FunctionalRole = headers["functional_role"]

@@ -70,42 +70,12 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 	}, nil
 }
 
-// Consume fetches the next message from the topic
-func (c *Consumer) Consume(ctx context.Context) (Message, error) {
-	c.logger.Debug("Consume() called, attempting to fetch message")
-
-	// Use a timeout context to prevent infinite blocking
-	fetchCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	msg, err := c.reader.FetchMessage(fetchCtx)
-	if err != nil {
-		if err == context.DeadlineExceeded {
-			// Timeout is normal when no messages available
-			c.logger.Debug("No messages available within timeout")
-			return Message{}, context.DeadlineExceeded
-		}
-		if err != context.Canceled {
-			c.logger.Error("Failed to fetch message",
-				zap.Error(err),
-				zap.String("topic", c.reader.Config().Topic))
-		}
-		return Message{}, err
-	}
-
-	c.logger.Info("Message fetched successfully",
-		zap.String("topic", msg.Topic),
-		zap.Int("partition", msg.Partition),
-		zap.Int64("offset", msg.Offset),
-		zap.Int("size", len(msg.Value)))
-
-	// After successful processing, commit the offset
-	if err := c.reader.CommitMessages(ctx, msg); err != nil {
-		c.logger.Error("Failed to commit message", zap.Error(err))
-	}
-
-	return msg, nil
-}
+// NOTE (bugs_open/003 F3): there used to be a Consume() here that fetched a
+// message and committed its offset BEFORE returning it to the caller —
+// at-most-once delivery wearing an at-least-once comment. Every pod death
+// annihilated whatever was in flight. It is deliberately DELETED, not
+// deprecated: use FetchMessage → process → CommitMessages, like every
+// current caller does.
 
 // FetchMessage fetches the next message from the topic
 // Returns the native kafka.Message type
