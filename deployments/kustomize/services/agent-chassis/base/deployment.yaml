@@ -15,11 +15,20 @@ spec:
         app: agent-chassis
     spec:
       serviceAccountName: ai-persona-app
+      # Shutdown() drains consumers for up to 30s; the default 30s grace killed
+      # the pod mid-drain, and any message in flight was gone under the old
+      # commit-before-process consume (bugs_open/003 F3). 60s lets the drain
+      # finish; preStop stops new fetches racing the SIGTERM handler.
+      terminationGracePeriodSeconds: 60
       imagePullSecrets:
         - name: docker-hub-creds
       containers:
         - name: agent-chassis
           image: docker.io/aqls/agent-chassis:latest # Patched by overlays
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sh", "-c", "sleep 5"]
           ports:
             - containerPort: 8080
           env:
