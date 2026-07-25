@@ -49,7 +49,7 @@ no CSS, no JS, no images, no symlinks.
 
 ### Duplicate-tool check (asked for explicitly, 2026-07-25)
 
-All 64 slugs unique. Read the actual functionality of every near-miss pair before
+All 63 slugs unique (recorded here as 64 on first writing — corrected 2026-07-25 once the catalogue was actually built; see the wrong-calls list below). Read the actual functionality of every near-miss pair before
 concluding — titles alone would have been misleading in both directions:
 
 - `seo-schema` offers Article/Product/FAQ JSON-LD (`generator.js` has
@@ -123,3 +123,115 @@ concluding — titles alone would have been misleading in both directions:
 (`207_experience_gauntlet_api_liveness_evidence.sql`, another thread's, landed
 today). Note two `206_*` files already collide by number. Re-check at commit time
 — seed numbers are taken by whoever commits first.
+
+---
+
+## 2026-07-25 — session 1, the build
+
+### The cascade, leg by leg
+
+Submitted fresh (`SUBMISSION_CORR=85878c43-5b8a-4a49-8256-470b798f3bea`), site row
+`6b49db8e-d447-4467-8277-4f3018af9897`. Legs ran in this order, each released
+through the airlock and read before the next:
+
+| leg | agent | duration |
+|---|---|---|
+| `needs_domain_research` | domain-research-classifier | ~4 min |
+| `needs_vertical_research` | vertical-exemplar-researcher | ~6.5 min |
+| `needs_strategy` | domain-strategist | ~2 min |
+| `needs_briefing` | build-briefing-agent | ~1 min |
+| `needs_site_plan` | build-site-planner | released 16:2x |
+
+**`needs_vertical_research` was a leg the plan did not know about.** It sits
+between the classifier and the strategist, crawls three exemplar sites and
+writes a `vertical_landscape` spec. Released it after reading its workflow —
+it only writes that one aspect and then emits `needs_strategy`, so skipping it
+would have meant hand-emitting the strategist's item.
+
+**The classifier honoured the mission brief better than expected.** It wrote all
+eight palette `reference_values` at exactly the owner's hexes, plus a 12-entry
+`avoid` list, from prose alone. The phase-3 pin was therefore a *hardening*
+rather than a correction — it added the `character`/`guidance` prose blocks that
+webdesign-agent's prompt actually renders, the full typography block, spacing,
+and an explicit `dark_light`.
+
+### Wrong calls, in the order they happened
+
+> **1. The watcher died on its own success path.** `set -o pipefail` plus a
+> `grep` over an *empty* allowlist — the normal state — returned 1 and `set -e`
+> killed the loop seconds after it went active. Fixed with `|| true`. Lesson:
+> the failure mode of a guard script is usually its idle path, not its busy one.
+
+> **2. "A blocked item is excluded from `idx_swi_dedup`."** Wrong, and it was in
+> the approved plan. `blocked` is absent from that index's exclusion list, so a
+> parked item still holds its dedup slot. Caught by reading `\d site_work_items`
+> instead of paraphrasing it. Corrected in PLAN and here.
+
+> **3. Releasing a leg races the watcher.** Append to the allowlist and flip to
+> `triaged` in the same breath and the watcher's UPDATE — built from the
+> allowlist it read at the *top* of that cycle — re-parks the item instantly.
+> `needs_briefing` sat `blocked` with its id sitting in the allowlist, and
+> neither fact explained the other. The procedure now says: append, wait one
+> interval, then flip.
+
+> **4. psql's command tag logged as a park.** `-t -A` still prints `UPDATE 0`,
+> so every idle cycle printed `PARKED UPDATE 0`. Harmless in itself and
+> genuinely dangerous: a real park would have been invisible in the noise.
+
+> **5. Every DOM round-trip added a `<div>`.** `parseFragment` wrapped content in
+> a div (necessary — bare fragments get relocated by HTML tree construction) but
+> returned `renderChildren(body)`, which *includes* the wrapper. Three passes
+> (scripts, styles, links) meant `<div><div><div>` on every page. Exit code 0
+> throughout; only reading a fragment showed it.
+
+> **6. Three tools would have shipped unstyled.** `micro-cms`,
+> `blueprint-compiler` and `vibe-equalizer` keep their CSS in sibling
+> `style.css` files. The transform kept `<style>` blocks and dropped every
+> `<link>`, so their entire skin vanished — and the manifest looked perfect,
+> because nothing else about those pages was wrong. Now inlined, which also puts
+> them through the colour sweep they needed most.
+
+> **7. Two hover states collapsed into their base colour.** `#f4f4f5` and
+> `#e4e4e7` both mapped to `--surface`; so did `#333` and `#555`. The hover
+> simply stopped doing anything. Found by eye on `tool-aspect-ratio`, not by any
+> gate — worth remembering that "0 warnings" measures the rules you wrote, not
+> the ones you should have.
+
+> **8. I invented a statistic while removing invented statistics.** The about
+> page's stat grid had two facts (0 servers, 0kb frameworks) and two
+> measurements nobody has taken for this domain (100 Lighthouse, 0.1s FCP). I
+> replaced the measurements with counts — and hand-typed "64 Tools" when the
+> real number is 63. Counts are now substituted from the catalogue via
+> `{{TOOL_COUNT}}`, so the figure cannot be typed. **Then the substitution ran
+> before the rewrite that introduces the placeholder**, so a literal
+> `{{TOOL_COUNT}}` reached the page. Exit code 0 both times.
+
+> **9. The same 64 was already loose in the live database.** It came from my own
+> mission brief, written before the catalogue existed, and eight specs had
+> repeated it in prose the site will show — `identity.about_us`,
+> `strategy.value_proposition`, the briefing the planner reads. Corrected by
+> supersede+merge before releasing the planner (`SQL_p4_fix_tool_count.sql`), so
+> the home page never opens by advertising a tool that does not exist.
+> **Root cause both times: a count typed by hand rather than derived.**
+
+> **10. The data-modifying-CTE ordering trap.** `SQL_p4` first put the supersede
+> `UPDATE` in a CTE the `INSERT` did not reference. All CTEs see one snapshot and
+> an unreferenced one has no ordering guarantee, so the insert hit
+> `idx_site_specs_current` with the old rows still current. The fix is to make
+> the `INSERT` select **from the `UPDATE`'s own `RETURNING`** — which is exactly
+> what `robot_hands/SQL_2026-07-17_r1b` does, and now it is clear *why* it does.
+
+### Traps for the next person
+
+- **`content_components.name` is NOT NULL with no default.** Every seed example
+  in the docs omits it; the insert fails on it. (Seed 208.)
+- **`build_status='planned'` on an owned page is a mistake.** `write_build_items`
+  sweeps planned pages into the generic pipeline — the one place an owned page
+  must never go. Import writes `'deployed'`.
+- The dispatch queue was fast today: legs started within ~1–5 minutes of release,
+  not the ~29 minutes the runbook warns about. Do not plan around either figure.
+
+### Numbers as they actually are
+
+63 tools, 31 learn pages, 1 about = 95 catalogued; plus 2 generated indexes = 97
+pages; 28 assets; `search.json` 95 entries; `sitemap.xml` 98 URLs.

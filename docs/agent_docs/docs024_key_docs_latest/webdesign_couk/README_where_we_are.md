@@ -62,3 +62,47 @@ letting the next one run. The important moment is pinning the colours before the
 design agent ever runs — that agent invents its own palette if it isn't told
 one, and then re-invents it on every subsequent run, which is how another site of
 yours ended up with its colours changing four times in a day.
+
+---
+
+**2026-07-25 — first build session**
+
+The site now exists in the system and most of the machinery is built. Where things stand:
+
+**The content is converted.** All 95 of your pages have been transformed out of the two old
+sites into the new warm design — 63 tools, 31 articles and the about page — plus two index
+pages that are generated rather than hand-written. Nothing was lost: the tool refuses to
+finish if any page in either source folder is neither converted nor explicitly listed as
+dropped with a reason. The only things dropped are the AI builder you asked to skip, its two
+guide pages (one of which turned out to be a byte-for-byte duplicate of the other with the
+wrong title on it), and an unfinished template page that was never linked from anywhere and
+still had "[Site Name]" in its title.
+
+**Three things that were broken are now fixed.** The vibe equalizer tool works for the first
+time since it shipped — it was loading a file that doesn't exist, so every slider was dead.
+Its Copy button had never had any code behind it either. And four tools and ten articles that
+were live but unreachable are now properly linked, because the new index pages are generated
+from the actual list of pages rather than maintained by hand.
+
+**A number I got wrong, twice.** The old about page claimed a "100 Lighthouse score" and a
+"0.1 second load" — figures nobody has measured for this domain, so I replaced them with
+things that are simply true (no servers, no frameworks, no accounts, and the tool count).
+Then I typed the tool count as 64 when it is actually 63. Worse, that same 64 had come from
+the brief I wrote for the system before I'd counted properly, and it had already spread into
+eight of the site's internal description documents — including the one the page planner
+reads. So the home page would have opened by advertising a tool that doesn't exist. All
+corrected, and the count is now calculated rather than typed, so it can't drift again.
+
+**On the design.** The system read your brief and set the colours correctly by itself, which
+I wasn't expecting — all eight of them exactly as specified. I've pinned them anyway, because
+the design agent invents its own palette whenever it isn't given one in a specific structured
+form, and then re-invents it on every subsequent run.
+
+**What's left.** The site's header, footer and page-frame still need building, then the 95
+pages get loaded in and published. I've deliberately walked the setup through one step at a
+time rather than letting it run, checking what each step decided before allowing the next —
+which is how the wrong tool count got caught before it reached a page.
+
+**One thing that may need you.** The deploy robot needs permission to clear Cloudflare's cache
+for this domain. If it doesn't have it, the only symptom is that changes take a while to show
+up. I'll know on the first publish and will tell you if it needs a click from you.

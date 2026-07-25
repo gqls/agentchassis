@@ -5,7 +5,7 @@ visitor's own browser: nothing is uploaded, nothing is stored on a server, no ac
 ever required. That is the whole promise, and it should read as the site's character
 rather than as a marketing claim.
 
-WHAT IT CONTAINS. Roughly sixty-four small single-purpose web tools (colour and contrast
+WHAT IT CONTAINS. Sixty-three small single-purpose web tools (colour and contrast
 utilities, CSS and layout generators, image and canvas tools, performance and code
 helpers, security and accessibility checkers, prompt and AI-workflow builders) and around
 thirty plain-English articles explaining the ideas behind them. There is a global search
