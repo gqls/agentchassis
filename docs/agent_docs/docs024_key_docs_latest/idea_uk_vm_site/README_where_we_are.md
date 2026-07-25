@@ -1234,3 +1234,32 @@ deadline — those change every fiscal year, and a stale figure looks exactly li
 one — so everything points at the institutions' own sites. Guides section now: patents,
 copyright, funding ways, funding sources. Four real guides where there was an empty heading
 yesterday morning.
+
+## 2026-07-25 (evening) — you chose to extend the tool, and it's built
+
+You decided the tool should grow to match the promise rather than the promise shrink to match
+the tool. That's done, in code, tested — it now needs you to build and deploy it (the short
+checklist is at the bottom of the audit document).
+
+What the report will do once deployed: it **leads with an assessment of the idea the customer
+actually submitted** — the problem and the evidence people really have it, the signs of demand
+found by live web search, who else is out there, what people use instead today, where it's
+defensible and where it's exposed, and one specific, affordable next step. Under it, and under
+every further idea the tool proposes, sits a **"Check it yourself" list of the actual web pages
+the research relied on** — so the "we explain its source so you can check it yourself" sentence
+on the sales page becomes literally true. The report itself now also says plainly that AI did
+the research and drafting and a person reviewed it — previously only the small print said so.
+
+Two honesty details worth knowing. If someone submits something too vague to assess, the report
+says exactly that — "this is too early to assess honestly, here's what's missing" — rather than
+inflating it into a verdict; the sales page always promised that, and now the code enforces it.
+And the research is told it may never invent a source: if a finding rests on general knowledge
+rather than a page it read, the list stays shorter rather than getting padded.
+
+The cost of all this is that each report will use roughly twice the AI spend and take somewhat
+longer to produce — two long research passes instead of one. At £29 with human review per order,
+that's a margin question you may want to look at once you've seen a few real runs.
+
+One bonus from the same session: a test in the tool's own suite had been failing for a while —
+not because the tool was broken, but because the test was checking for an old wording of the
+payment email. Fixed, so the whole suite is green again and a real failure won't hide behind it.
