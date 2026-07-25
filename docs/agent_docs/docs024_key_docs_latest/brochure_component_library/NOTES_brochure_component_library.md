@@ -1500,3 +1500,46 @@ envelope is a fresh `page_rerender` work item; used it for 5 pages, all
 `complete`. Live state now: 6 of 7 pages clean, capabilities republishing (it
 was missed from the first batch — the anchor fix landed after those items were
 created).
+
+## 2026-07-25 18:10 — ONE ITEM OUTSTANDING, and it is blocked outside this workstream
+
+**State: 43 of 44 internal link targets resolve live. The single failure is
+`/capabilities`, referenced 10 times from `capabilities.html` itself.** The
+database is already correct (census returns 0 unresolvable); only the *publish*
+is outstanding. Nothing in this workstream can close it.
+
+**Why it is stuck:** the build dispatch lane stalled fleet-wide at ~17:45.
+Measured 18:00: 99 `triaged` build items (95 of them `webdesign.co.uk`'s bulk
+enqueue), **0** items in `claimed`, **0** claims in the preceding 15 minutes,
+`build-pipeline-trigger` firing on time every 120s, `agent-build-dispatch-loop`
+pod `Completed` 23 min earlier with none since, no site locks, no errors. That is
+`bugs_open/030`, which another thread OWNS and shipped a lane fix for **today**
+(`f9bc7f45f`, IMAGE_TAG v1.0.1164) — and the cluster is still on **v1.0.1159**, so
+what I saw is pre-fix behaviour. Ran `scripts/who-owns.py 030`, confirmed
+ownership, contributed the measurements into their bug file and **backed off
+rather than start a competing diagnosis**.
+
+**To finish it** (any thread, once the lane moves — no re-analysis needed):
+```sql
+-- the queued item is already correct and waiting; just confirm it lands
+SELECT status, claimed_at FROM site_work_items WHERE id::text LIKE '4a7f5520%';
+```
+then verify live, which is the only witness that counts:
+```bash
+curl -s "https://fundamentallyai.com/capabilities.html?cb=$RANDOM" \
+  | grep -cE 'href="/capabilities#'     # 0 = done
+```
+If the item was reaped in the meantime, INSERT a fresh row (see RUNBOOK) — do not
+re-queue the parked one (`bugs_open/070`).
+
+**Two dead ends recorded so the next thread does not repeat them:** no content
+edit helps, because the content is already right and *publishing* is the blocked
+step; and every publish route (049b, the 086 script, `page_rerender` work items,
+`apply_section_edit`) goes through the same dispatch lane, so switching route
+cannot route around a stalled lane. I fired two routes before understanding this;
+a third would only have queued more work.
+
+**Latency baseline for this site, worth keeping:** 7–9 minutes from dispatch to an
+`orchestration_states` row was NORMAL while the lane was healthy, and ~5 minutes
+from a fresh `page_rerender` item to `claimed`. Anything shorter than that is not
+evidence of failure.
