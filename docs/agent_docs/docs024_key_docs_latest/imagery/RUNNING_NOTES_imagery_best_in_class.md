@@ -3086,3 +3086,42 @@ sender" =1 each; both adapter replicas carry UNROUTED_IMAGE_KIND=1; my new
 2f4fc0596 not yet rolled, good negative control). Envelope published ~21:15Z
 (orch name `scratch-011-livefire-211539`); row not yet visible at +2 min —
 queued, not dropped (the 30-min dispatch trap; do NOT resubmit).
+
+### 2026-07-25 — 027 landing gate PASSED; bug CLOSED to bugs_closed/
+
+Continuation of yesterday's session (same thread, overnight pause). What the
+morning found and did:
+
+- **Council verdict on `5e19fd3cb`: APPROVED** (corr `7388a068`, council_report
+  20:45 UTC 07-24). Trap for the log: the latest doc_notes council-gate row was
+  ANOTHER thread's REVISE (corr `45664479`, bugfix-015) — resolve verdicts by
+  correlation in `diagnosis_artifacts`, never by "latest note".
+- **Discovery had emitted 4 needs_imagery items** at 20:46 UTC (the 3 superseded
+  article guide-heroes + a bonus: `tool-matchmatrix` had no hero of its own).
+  They sat `detected` overnight — promotion is a manual gate. Promoted all 4 to
+  `triaged` priority 5 at 08:35 UTC; dispatch picked them up within ~20 min.
+- **Generations 08:56–09:03 UTC**, one per ephemeral `agent-image-generator-*`
+  pod, all `banana/gemini-3-pro-image-preview`, all `active`. NOTE the log
+  location trap: the direction lines are NOT in the long-lived `agent-chassis`
+  pod (generic orchestration only) and NOT in `image-generator-adapter` — they
+  are in the ephemeral spawned `agent-image-generator-*` pods, which garbage-
+  collect quickly. Grep them FAST or lose the evidence.
+- **Delivery proof (adapter-log layer)**: each pod logged
+  `Imagery direction TRUNCATED before generation` (`direction_len:233, cap:200`)
+  then `Prepended imagery direction` `source:"+style_guide"`, `truncated:true`,
+  `direction_preview` = `colour palette: deep charcoal ground, electric blue
+  (#0080FF) flat shapes and linework, light grey s…` — palette survives first,
+  mood tail drops. §4b's palette-first order observed working on real fleet
+  generations for the first time.
+- **D13: PASS ×4** (viewed full-size): flat duotone, charcoal ground, #0080FF +
+  light grey only, no invented accents, no lettering, subjects distinct and
+  click-through-matching. Count: 4 fresh + 3 tool heroes of 07-18 = 7 ≥ 5.
+- **Live pages**: all four JPGs 200 on robot-hands.com (63–116KB, precedent band
+  58–93KB; ≤60KB is the CARD budget and nothing cards these heroes —
+  learning-center.html checked). Three guide pages embed them as hero
+  `background-image`. All four `image_url_404` items marked complete with an
+  evidence note.
+- **CLOSED**: `git mv` → `bugs_closed/027_…`; closure block in the file holds
+  the full evidence chain. Residuals recorded there (truncation-signal
+  persistence, TruncateString sweep, §5(a) latent branch) — follow-ups, not
+  reproductions.

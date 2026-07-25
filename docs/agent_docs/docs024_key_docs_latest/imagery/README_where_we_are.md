@@ -1047,3 +1047,25 @@ glance at before publishing gamesdesign's tool imagery, neither a blocker: four 
 nine stored heroes break their own `avoid` list (bugs_open/028), and nobody ever
 verified whether gamesdesign's game calculators invented data (they're formula-based,
 so almost certainly fine, but the check was never run).
+
+---
+
+**2026-07-25 — you gave the go, the pictures were regenerated, they came out right, and bug 027 is now closed.**
+Yesterday you approved the spend, and this morning it all landed. The three article
+pictures on robot-hands that had been missing were regenerated (plus a fourth the
+system spotted on its own — the MatchMatrix tool page had no picture at all). Every one
+came back in the house style: flat two-tone illustration, dark charcoal background,
+the brand's electric blue with light grey details, no stray colours, no garbled text —
+and each picture actually matches its article (the grip-force one shows a hand and a
+force readout, the payload one shows weights and a calculator, and so on). I checked
+the delivery the strict way — reading the generation logs, not the database — and the
+fix from last week did exactly what it was built to do: robot-hands' picture
+instruction is longer than the limit, and it was the mood words that got trimmed, not
+the colour. The pictures are live on the site now, on their real pages, and the three
+"page points at a missing image" complaints in the queue are cleared. The review panel
+also came back overnight and APPROVED the earlier code change. That was the last thing
+holding bug 027 open, so it has moved to the closed pile. A few small follow-ups are
+noted in the case file (none of them can bring this bug back), and the picture files
+are a touch heavier than the old 60KB card target — but that target was for the little
+card images, these are full-width headers, and they weigh the same as the ones you
+passed last week.

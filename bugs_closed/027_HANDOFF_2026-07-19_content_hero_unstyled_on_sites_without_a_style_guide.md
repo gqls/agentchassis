@@ -5,7 +5,10 @@ rollout was safe to let drain).
 **Severity:** Medium — no data loss, but it spends real image-API credits producing
 output of the exact class that failed the D13 owner gate, and it is armed on three
 sites right now.
-**Status:** OPEN — **§4b's CODE FIX IS NOW LIVE (`1191cecdb` shipped in v1.0.1144).**
+**Status:** CLOSED 2026-07-25 — fixed AND live AND proven on live pages. See the
+closure block below; the OPEN-era status trail is preserved beneath it.
+
+> **Status as of 2026-07-21 (historical):** OPEN — **§4b's CODE FIX IS NOW LIVE (`1191cecdb` shipped in v1.0.1144).**
 > **CORRECTED 2026-07-21:** this line read "INERT UNTIL AN IMAGE ROLL" — the roll has
 > happened. `1191cecdb` is an ancestor of the v1.0.1144 build commit, and v1.0.1144 is
 > the tag on the running `agent-chassis` pod; the WARN marker `Imagery direction
@@ -19,6 +22,76 @@ sites right now.
 > 2026-07-19 (three sites seeded, live immediately); the structural §5(a) fix (option
 > i — exclude, no fleet-default direction invented) is now BUILT 2026-07-21
 > (`5e19fd3cb`), inert until an image roll — see §5(a) below.
+
+> **UPDATE 2026-07-24 (session "bugfix 027", owner-approved spend):** everything above
+> the landing gate is now done and live:
+> - **§5(a) is LIVE** in v1.0.1155, proven by ancestry: the running chassis binary
+>   contains `reconcile_superseded_reviews` (×3) — a string first added by `8fd1e3bfc`
+>   (2026-07-22), a strict descendant of `5e19fd3cb` — with the §4b WARN literal as
+>   positive control (×1) and an absent-string negative control (0). A `content_hero`
+>   grep would prove nothing (§6 / A6.3); the ancestry argument is the honest check.
+>   The changed branch stays latent by design: all four guide sites have overrides, so
+>   it is unit-pinned (`TestDirectionAppliesToKind`), not live-exercised.
+> - **§4b's "third symptom" (avoid lists) was resolved elsewhere** — see the
+>   correction in §4b: it became `bugs_closed/028`, fixed and proven end-to-end.
+> - **The base-voice over-cap remedy is applied**: the three authored guides' root
+>   voices trimmed to 196/189/190 chars (`SQL_2026-07-24_base_voices_under_cap.sql`,
+>   needle-gated, backed up in `site_specs_imagery_guide_backup_20260724`).
+>   robot-hands' base voice (398) and its 233-char content_hero override remain the
+>   owner's, untouched.
+> - **The landing gate is RUNNING this session with the owner's explicit go** (both
+>   spends approved: 3 article guide-heroes regenerated + the queued items drain).
+>   Result recorded below when the generations land.
+> - **Council retro-review of `5e19fd3cb` submitted** (corr `7388a068`), per the
+>   strengthened 2026-07-24 advisory norm; verdict recorded below.
+
+> **CLOSED 2026-07-25 — the landing gate PASSED; every strand is fixed, live and
+> proven on live pages.** Evidence, in the order the bar demands:
+>
+> - **Council verdict: APPROVED.** `diagnosis_artifacts` corr
+>   `7388a068-642c-4662-bdc8-6c5c432ca8c0`, `council_report` decision `approved`,
+>   2026-07-24 20:45 UTC. The closing commit carries the `Council-Reviewed:` trailer.
+>   (Trap dodged for the record: the *latest* `doc_notes` council-gate row at close
+>   time was a DIFFERENT thread's REVISE, corr `45664479` — the bugfix-015 plan.
+>   Verdicts resolve by correlation, never by "latest note".)
+> - **The landing gate** (owner-approved spend, both halves). The 3 superseded
+>   article guide-heroes plus a discovery bonus (`tool-matchmatrix`, a tool page
+>   with no hero) regenerated 08:56–09:03 UTC 2026-07-25 via
+>   `banana/gemini-3-pro-image-preview`, all four `active` in `assets`.
+> - **Direction delivery proven at the ADAPTER-LOG layer, not `origin_prompt`**
+>   (the 028 lesson). Each of the four ephemeral `agent-image-generator-*` pods
+>   logged the pair: `Imagery direction TRUNCATED before generation`
+>   (`direction_len:233, cap:200` — robot-hands' content_hero override, WARN
+>   expected) then `Prepended imagery direction` with `source:"+style_guide"`,
+>   `truncated:true`, and `direction_preview` beginning
+>   `colour palette: deep charcoal ground, electric blue (#0080FF) flat shapes
+>   and linework, light grey s…` — **the palette survives the cut, first; only
+>   the mood tail drops.** §4b observed doing exactly what it was built to do,
+>   on real generations, on the live fleet.
+> - **D13 judgment: PASS on all four** (eyeballed at full size, this session):
+>   flat duotone editorial illustration on the deep-charcoal ground, electric
+>   blue #0080FF with light-grey secondaries only, no invented accent colours,
+>   no lettering artefacts, each subject distinct and click-through-matching
+>   (grip-force hand + dashboard; cycle-time conveyor + cycle arrows; payload
+>   weights + calculator tablet; MatchMatrix arm + gripper grid). Observation
+>   count: 4 fresh under the post-§4b binary + the 3 tool heroes of 07-18 on the
+>   same path = 7 ≥ 5.
+> - **Proven on live pages**: all four JPGs serve 200 on robot-hands.com
+>   (63–116KB deployed, the same band as the passed 07-18 precedent 58–93KB;
+>   the ≤60KB budget is the D8/D13 *card* criterion and no listing page cards
+>   these heroes — checked learning-center.html). The three guide pages embed
+>   them as hero `background-image` (`/guides/tool-grip-force-friction-calculator-guide.html`,
+>   `/guides/tool-gripper-cycle-time-estimator-guide.html`,
+>   `/blog/tool-gripper-payload-calculator-guide.html`).
+> - **The queued symptoms drained**: all four `image_url_404` items (3 detected,
+>   1 failed — pages referencing the never-deployed guide JPGs) marked
+>   `complete` with an evidence note, their referenced images now serving 200.
+> - **Residuals, recorded not smuggled**: (i) truncation signals still live only
+>   in a log line (bug_historian objection, 011-class); (ii) ~30 `TruncateString`
+>   sites still silently cap (016b §9 sweep); (iii) §5(a)'s changed branch stays
+>   latent — every guide site has an override — so it remains unit-pinned
+>   (`TestDirectionAppliesToKind`), not live-exercised. None of these reproduce
+>   THIS defect; they are follow-ups, owned where filed.
 
 > **Fix trail (2026-07-20).** Seven council-gate rounds on correlation `0a07f5ed`
 > (one round voided by bugs 019), final tally **11 approve / 2 object / 4 abstain**
@@ -49,6 +122,8 @@ sites right now.
 > colours-without-prose. Remedy is config (shorten palette glosses — the WARN now
 > names every over-cap site); the three guides I authored get a backed-up
 > needle-gate migration after the roll; robot-hands' base guide is the owner's.
+> *(DONE 2026-07-24: `SQL_2026-07-24_base_voices_under_cap.sql`, 304/352/305 →
+> 196/189/190, needle-gated, backed up; robot-hands untouched.)*
 
 ---
 
@@ -225,6 +300,21 @@ infographics). Whether the Banana path sends `avoid` as a negative prompt at all
 UNVERIFIED and is the next thing to check — if it does not, every `avoid` list in the
 fleet is inert for Banana-routed kinds, which is all the flat kinds.
 
+> **CORRECTED 2026-07-24 — the paragraph above is stale; the check was done, the
+> suspicion was RIGHT, and it is already fixed and closed elsewhere.** The mechanism
+> was filed the same day as its own bug, `avoid_lists_are_inert_banana_discards_
+> negative_prompts` — now **`bugs_closed/028`**: Banana's provider dropped
+> `NegativePrompt` at Debug level, so every `avoid` list in the fleet WAS inert for
+> Banana-routed kinds, exactly as feared. Fixed `32f2d51e2` (2026-07-20), live
+> v1.0.1140, proven end-to-end on a real generation: the provider now folds the
+> negative terms into the positive prompt as an explicit prohibition clause
+> (`internal/adapters/imagegenerator/banana/provider.go:121-134` — the Gemini API has
+> no negative-prompt field; Stability keeps true `Weight: -1.0` conditioning). Two
+> residuals live with 028's closure, not here: verify delivery via the ADAPTER LOG,
+> never `assets.origin_prompt` (the stored prompt is NOT what the model received),
+> and "delivered" ≠ "obeyed" — Gemini honours prohibitions imperfectly, so lettering
+> can still appear.
+
 ## 5. Fix candidates
 
 Two independent fixes; they are not alternatives, they address different halves.
@@ -263,6 +353,10 @@ behaviour fleet-wide.
 > `Council-Reviewed:` trailer on `5e19fd3cb`. Did NOT build option (ii): a real
 > fleet-default flat-illustration voice needs a brand decision (the owner's), and
 > muting the contamination was the requested scope.
+>
+> **LIVE 2026-07-24** in v1.0.1155, by ancestry (see the top-of-file update for the
+> pod evidence and why a `content_hero` grep is not the check). Council retro-review
+> submitted the same day, corr `7388a068` — verdict recorded in the fix trail.
 
 **(b) Per-site — write the three sites an `imagery_style_guide` with a
 `kinds.content_hero` override (config, live immediately, no image roll).** This is what
