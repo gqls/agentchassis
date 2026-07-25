@@ -72,8 +72,10 @@ the signal the human already gave (`locked_at`) is being ignored outright.
 
 ## FIX COMMITTED 2026-07-24 (`82ae5a550` + gofmt sweep `3a309cbeb`) — OPEN until image roll + live behavioural proof
 
-Council gate: submitted 2026-07-24, corr `d2539ca6-ff16-414d-897d-363ebc559df0` (verdict pending at
-commit time; see the docs commit trailer or `doc_notes` categories `council-gate`).
+Council gate: **APPROVED 2026-07-24 20:56 UTC**, corr `d2539ca6-ff16-414d-897d-363ebc559df0`
+("approved with 4 advisory objection(s) — none high-severity", 3 abstained). Trailer carried on the
+follow-up commits `47c2db46a` + docs. Objections and what came of them — see "Council response"
+below; one of them caught a real gap (a new writer landed mid-task) fixed in `47c2db46a`.
 
 **What shipped** — candidates 1 + 3 together, with candidate 2's cheap SQL form used where it fits:
 
@@ -126,6 +128,33 @@ commit time; see the docs commit trailer or `doc_notes` categories `council-gate
 **Residual, spun out:** `site_components` (chrome) has the identical defect — admin lock endpoints
 exist, and NO chrome writer reads the columns. Filed as `/bugs_open/069` (the shared predicate is
 table-generic, so the fix there is mechanical).
+
+**Council response (verdict APPROVED, 4 advisory objections, 2026-07-24):**
+
+- *"Audit-completeness rests on a written claim — verify codebase-wide"* (bug_historian, medium) —
+  **re-verified 2026-07-24 post-verdict, and it caught a real one**: a fresh grep of every
+  `UPDATE/DELETE … page_components` found `create_report_page_action.go` overwriting
+  `rendered_html`+`content_data` by id ungated. It was NOT an audit miss: the file landed
+  (`2849564ec`, 21:07) **nine minutes before the 058 fix commit** (21:16), added by the concurrent
+  gripper-dossier thread after the audit ran. Gated in `47c2db46a` (same pattern as
+  rebuild_blog_listing; the locked branch returns the STORED artefact downstream so
+  validate_page_content checks what will actually serve). Lesson for this repo's concurrency model:
+  a writer audit is stale the moment another session commits — re-grep at commit time, not just at
+  plan time. All other grep hits are metadata-only (build_status/slot_name/position/component_id),
+  already gated, or the exempt human admin surface.
+- *"site_components stamping is scope creep / ambiguous"* (editquality, medium) — deliberate and
+  now documented: site_components is a **different table** (chrome slots) with the same lock
+  columns from the same migration; 058 stamps its admin lock endpoints so new chrome locks carry
+  `lock_type`, but the chrome *writers* are `/bugs_open/069` (kept out to keep this change narrow).
+- *"Extra UPDATEs inside the DELETE+INSERT — partial-crash could leave locked rows deleted"*
+  (editquality, low) — structurally impossible: the DELETE's predicate **excludes** locked rows, so
+  they are never deleted; the per-locked-row UPDATEs only move `position` on rows the DELETE
+  skipped. (There was no single wrapping transaction before this change either — the save already
+  proceeds past a failed DELETE.)
+- *"loadActiveLockedRows failure silently degrades signalling"* (bug_historian, low) — already
+  handled as asked: the preload failure logs Warn (`save_page_sections_action.go:705`), and the
+  DELETE predicate independently protects the rows; only slot-matching (and hence the `remove`
+  signal) is lost in that branch.
 
 **Post-roll verification recipe** (the failing branch, not a pod-grep):
 
