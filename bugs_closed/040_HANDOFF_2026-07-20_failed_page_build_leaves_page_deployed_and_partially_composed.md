@@ -10,12 +10,19 @@
 > cause decomposed — `bugs_closed/041` (bulk), the `on_missing=skip_section` data
 > guard working correctly (now durably recorded), `bugs_open/045` (tool trio,
 > owned there). Council `164058e6` APPROVED. **Residuals, each pointed at its
-> owner, none this defect:** candidate 2 (join `agent_error_log` message onto the
-> failed work item's `error` — small, independent, unowned); ~25 pre-fix short
+> owner, none this defect:** ~25 pre-fix short
 > pages = per-site backfill (041's residual, site owners); the 364-byte
 > `category-listing` shell = `bugs_open/039` residual with its own `empty_section`
 > item; deferral policy (should `needs_human_review` hold the deploy stamp?) =
 > flagged to council, owner-level question, current behaviour unchanged.
+>
+> **CANDIDATE 2 DONE 2026-07-25 (`43002d3a4`), INERT until the next image roll.**
+> The last unowned residual is built: `update_work_item_status` now records the
+> routed step error on the work item when the workflow supplied no literal. See
+> "Candidate 2 — built 2026-07-25" below for the census, the rule and how to
+> verify it live. Council `2cafc4e0` submitted. The case stays CLOSED — this is
+> the reporting half, not the defect; the defect (a partial build stamped
+> `deployed`) has been fixed and live since v1.0.1146.
 
 > **NUMBER COLLISION (2026-07-20, same day):** another thread filed a different
 > `040` (`kafka_dial_timeouts_fleetwide_intermittent`, which cites itself as
@@ -416,6 +423,83 @@ of a different defect, and not by any mechanism that knows this page is incomple
    `complete_work_item_verification.go` is the right home; it exists for saga no-ops of this shape.
 
 Candidate 1 is the structural fix. 2 is cheap and independently worth doing.
+
+## Candidate 2 — BUILT 2026-07-25 (`43002d3a4`), inert until the next image roll
+
+**The reason was never lost — it just was not on the row anyone reads.**
+`update_work_item_status` wrote `site_work_items.error` only from a **literal**
+`error_message` in step config. A literal can only carry a *static* reason, so the two
+steps whose reason is dynamic — `page-build-handler`'s and `image-build-handler`'s
+`mark_item_failed`, reached via `error_step` — configure no literal at all, and the
+column stayed NULL on exactly the path that actually fails.
+
+**Live census 2026-07-25** (both queries run against `clients_db`):
+
+```sql
+SELECT status, count(*) AS items,
+       count(*) FILTER (WHERE error IS NULL OR error='') AS blank
+FROM site_work_items WHERE status IN ('failed','rejected','cancelled') GROUP BY 1;
+-- failed 75 / 21 blank · cancelled 51 / 43 blank · rejected 5 / 0 blank
+
+SELECT count(*) FROM site_work_items swi
+WHERE swi.status='failed' AND COALESCE(swi.error,'')=''
+  AND EXISTS (SELECT 1 FROM agent_error_log ael WHERE ael.work_item_id = swi.id);
+-- 20 of the 21
+```
+
+All 20 are `page-build-handler` / `deploy_page` / `call_agent`, message
+`Request <uuid> timed out after 3 retries` — **this bug's own shape**, most recently
+2026-07-24 16:19Z. The 21st is a `needs_diagnosis` item with no log row at all.
+
+**Why the join was always available:** `routeToErrorStep` (`coordinator.go:3261-3269`)
+sets `collected_data["__step_error"] = {failed_step, message}` **and** writes the same
+message to `agent_error_log`, in that order, in one call. One source, two destinations —
+so reading `__step_error` cannot disagree with the log. `fail_work_item` already prefers
+it (`load_work_item_actions.go:877-883`); `update_work_item_status` never learned the
+same trick, so the two failure-stamping actions disagreed about whether a failed item
+explains itself.
+
+**The rule shipped:** no literal **and** status ≠ `complete` → record
+`__step_error.message`, prefixed `step <failed_step> failed: ` unless it already starts
+with `step `. A configured literal always wins.
+
+- **Why the step name.** The timeout shape does not say *what* timed out; the action-error
+  shape (`step validate_content failed: …`, 58 rows) already does. Prefixing only the
+  former converges on the format the column already uses instead of adding a second one.
+- **Why `complete` is excluded, and why that is load-bearing.** `__step_error` is never
+  cleared once set, so a workflow that recovers from a routed error and *then* stamps the
+  item complete would be handed a stale failure. The fleet census below found exactly one
+  literal-less `complete` step, so this is a live path, not a hypothetical:
+
+```sql
+SELECT COALESCE(s.value->'config'->>'status','complete') AS status,
+       (s.value->'config'->>'error_message' IS NOT NULL) AS has_literal,
+       count(*), string_agg(DISTINCT ad.type, ', ')
+FROM agent_definitions ad,
+     LATERAL jsonb_each(ad.default_config->'workflow'->'steps') AS s(key,value)
+WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL
+  AND s.value->>'action'='update_work_item_status'
+GROUP BY 1,2;
+-- failed             | f | 2 | image-build-handler, page-build-handler   <- the fix
+-- needs_human_review | t | 2 | page-build-handler                        <- literal wins
+-- complete           | f | 1 | image-build-handler                       <- must NOT inherit
+```
+
+**Deliberately NOT done: backfilling the 21 pre-fix rows.** Their `agent_error_log` rows
+are the record. Writing a message onto a row the platform did not write it onto at the
+time manufactures evidence, and this file already carries one correction for reading a
+record's *absence* as a mechanism's absence.
+
+**Verify once live** (the roll makes it active; the test is unit-level so far):
+1. `strings /app/agent-chassis | grep -c "no error_message literal"` → 1 in the running pod.
+2. Wait for a `mark_item_failed` to fire naturally (or induce one), then re-run the blank
+   census above: **the blank count must stop growing.** New `failed` rows should read
+   `step deploy_page failed: Request … timed out after 3 retries`.
+3. Negative control: a `needs_human_review` park must still read its literal
+   (`page-build-handler no-op: …`), not a routed error.
+
+Test: `platform/orchestration/actions/update_work_item_status_error_test.go`, 6 cases,
+fixtures taken from the live shapes above. Council submission `2cafc4e0`.
 
 ## How to verify a fix
 
