@@ -1,7 +1,8 @@
 # RFC 001 — at-least-once delivery, completion-time dedupe, DB-driven retry
 
-**Status: DRAFT — written retroactively; owner decision pending (keep-live vs
-rollback).**
+**Status: RATIFIED (keep-live), owner 2026-07-25 — against the live evidence
+in §7. Moves to IMPLEMENTED when the induced-fault campaign and week-later
+stats land.**
 
 An honest preamble: this RFC documents a redesign that is **already running in
 production**, not one awaiting a green light. The code was built and committed
@@ -143,6 +144,8 @@ Still owed (retires the RFC to IMPLEMENTED):
 - 2026-07-25, owner: architecture-review track created; guardian path chosen
   (revert to context.go-only + review) — **overtaken by events** (v1.0.1159
   ride-along deploy) before execution.
-- 2026-07-25, owner, PENDING: keep the live redesign (ratify this RFC against
-  the live evidence) or roll back to the previous image and re-run this RFC
-  as a true proposal.
+- 2026-07-25, owner: **KEEP LIVE — RFC ratified** against the §7 evidence
+  (19 retries / 7 end-to-end recoveries / 0 stuck claims in the first 4.5 h).
+  No `Council-Reviewed` trailer applies anywhere in this arc — the gate never
+  approved; the trailer is earned, not assumed. The induced-fault campaign
+  runs as this RFC's acceptance evidence.
