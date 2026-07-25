@@ -137,10 +137,25 @@ unreachable by design.
 
 ## 5. Still open — construction against a known design (023 A/B/C/E)
 
-Re-measured live 2026-07-21 (numbers moved since the memory's 2026-07-20 figures — other
-threads gated some anchors and migration 179 dropped some llm urls; use these):
+> **DONE 2026-07-25 — P2.1 and the schema-lint SHIPPED; `bugs_open/023` is CLOSED**
+> (`bugs_closed/023_…`). Migrations **211** (156 anchors / 31 components gated, 7 placeholder
+> anchors repaired in 4 more, 23 `llm+required` URL fields flipped to optional) and **212**
+> (the last hardcoded `#`), plus the standing lint `scripts/check_cta_gates.py` (RUNBOOK
+> **R17**) and the safe mass-edit recipe (**R18**). Live after: **UNGATED 0, llm+required URL
+> fields 0.** What remains below — P1.5, P1.2, the merge-loop inventory — was never part of
+> 023's closure bar; it belongs to the flip round and to `bugs_open/049`.
 
-- **P2.1 — gate the ungated anchors.** **68 ungated / 37 components** (was 75/38 on 07-19).
+> **CORRECTED 2026-07-25: the "68 ungated / 37 components" figure below was wrong when
+> written.** It is an R9 *heuristic* reading, quoted after this directory had already recorded
+> (R9's own correction note) that R9 undercounts by 2.4x because `regexp_matches(…,'g')`
+> returns non-overlapping matches and the greedy prefix eats the previous anchor. The real
+> figure on 2026-07-21 was ~171 ungated / 41 components; on 2026-07-25 it was **173 / 43, of
+> which 156 / 31 were the CTA worklist** (the rest are range-scoped item links). Fixing the
+> tool did not fix the numbers already copied out of it — check figures against the live
+> system before repeating them, even from this directory.
+
+- **P2.1 — gate the ungated anchors.** ~~**68 ungated / 37 components** (was 75/38 on
+  07-19).~~ **SHIPPED 2026-07-25 (migrations 211+212).**
   Wrap CTA anchors in `{{if .x_url}}` so a missing destination renders no button (LNK-005).
   `html_template` is a DB column → live immediately, high blast radius, back up first;
   re-derive the exact list with a real template parse (R9 is a heuristic).
@@ -148,9 +163,13 @@ threads gated some anchors and migration 179 dropped some llm urls; use these):
   contact email with `@`→`.` is fabricated by construction (6 sites share
   `contactforsales.com`). (b) different-TLD: `finetuning.ai` proved the class live — it
   RESOLVES to a third-party page. Both need no network call.
-- **schema-lint — ban `source:llm` on URL fields.** **19 llm-sourced url fields / 4
-  components** live (the memory's "22/6" is now stale — migration 179 reduced it). Each is
-  an instruction to a model to invent a URL it cannot look up.
+- **schema-lint — ban `source:llm` on URL fields.** ~~**19 llm-sourced url fields / 4
+  components** live~~ **SHIPPED 2026-07-25** as *no URL field may be `source:llm` **and**
+  `required:true`* — 23 such fields across 5 components flipped to `required:false`
+  (migration 211), and `scripts/check_cta_gates.py` reports any that return. `source` was
+  deliberately left `llm`: flipping the source with no resolver behind it deletes values that
+  are real today (the `platform-comparison` lesson from 181). Removing the *compulsion* to
+  author a URL, plus a gated anchor, is what kills the fabrication.
 - **P1.2 — build-time pairing check** (`cta_without_destination`): label resolves non-empty,
   URL empty/absent → finding. Ship as WARNING first, drain, then blocker (30→ empty hrefs
   live; a cold blocker fails the fleet's next rebuild — the LNK-009 staging lesson).

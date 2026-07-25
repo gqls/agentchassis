@@ -4007,3 +4007,63 @@ The transferable rules:
 - Ownership-by-pod-name over DB-backed state is a discard generator: the pod
   name is a liveness claim nobody verifies. Takeover-by-CAS (the F2 claim
   pattern) is the in-tree shape that replaces it.
+
+### A transform you can HASH is a transform you can prove — the "obviously right" mass edit is the one worth proving (2026-07-25)
+
+Found closing `bugs_open/023` (CTA label/destination pairing), which needed one
+migration to edit **35 shared, live component templates** — `html_template` is a
+DB column, so the change is live the instant it commits, on a table several
+concurrent sessions write daily.
+
+The edit itself was mechanical: wrap `<a href="{{.x_url}}"> … </a>` in
+`{{if .x_url}} … {{end}}` so an unresolved destination renders no control. The
+SQL was the direct translation of a Python transform that had already been
+audited (insertions only; strip the gates and you get the original back
+byte-for-byte; block-action counts grow by exactly the anchor count):
+
+```sql
+regexp_replace(html_template, '(<a[^>]*href="\{\{\.x\}\}".*?</a>)', '{{if .x}}\1{{end}}', 'g')
+```
+
+It is wrong, and it reads as obviously right. **In POSIX ARE (Postgres), the
+FIRST quantifier fixes the greediness of the whole RE** — per-quantifier
+laziness is a Perl/Python behaviour, not this one. The leading greedy `[^>]*`
+therefore makes `.*?` greedy too, and the match runs from the anchor to the
+**last** `</a>` in the template. Every multi-anchor component would have had its
+entire tail swallowed into one gate. `[^>]*?` is the fix, and it is
+load-bearing, not cosmetic.
+
+What caught it was not review — the statement had been read several times. It
+was a **read-only equivalence check** run before the migration was even written:
+compute the expected result offline, hash it, and ask the database to hash its
+own version of the same transform.
+
+```sql
+SELECT 'comp', md5(regexp_replace(html_template, …)) = '<expected md5>' FROM content_components WHERE name='comp'
+```
+
+21 of 31 came back `f`. After the fix, 31 of 31 `t` — and only then was the
+migration written, with those same md5s embedded as **pre- and post-conditions**
+so a concurrent edit by another session aborts the transaction instead of
+silently producing a template neither session intended.
+
+The transferable rules:
+- **If a bulk edit is deterministic, you can compute its result offline and
+  compare hashes with the engine that will actually perform it.** Do that
+  BEFORE writing the migration. It costs one read-only query per row and it is
+  the only check that tests the engine you are really using, not the one you
+  are thinking in.
+- **Dialect differences do not announce themselves.** Same syntax, same intent,
+  different match. Anything moving between regex engines (Python↔Postgres,
+  RE2↔PCRE, `\b` meaning word-boundary in one and backspace in ARE) needs a
+  behavioural check, not a reading.
+- **Hash-gate shared mutable state both ways.** A `before` hash makes drift a
+  loud abort; an `after` hash makes a partially-applied transform impossible.
+  On a table many sessions write, this is what "safe migration" means — needle
+  presence checks alone cannot express "and nothing else changed".
+- **A tool that emits a distinction beats a corrected number.** The same
+  worklist had already been mis-measured twice by regex heuristics (2.4x
+  undercount; then range-scoped item links counted as CTAs). The durable fix
+  was a real parse that reports the split — and a lint written to report a
+  *different* shape than the migration swept, which found one more defect on
+  its first run.

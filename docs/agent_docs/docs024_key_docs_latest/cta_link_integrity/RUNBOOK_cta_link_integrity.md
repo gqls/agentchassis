@@ -431,3 +431,72 @@ python3 scripts/check_list_empty_states.py
 > before the required-branch, so the empty list always reaches the template. Changing that is
 > `bugs_open/054` fix-candidate 2 — a separate, riskier change (it can mask a real "resolver
 > errored" as "empty"). This runbook entry is only about the template guard.
+
+## R17 — The standing CTA-gate lint (`scripts/check_cta_gates.py`, added 2026-07-25)
+
+```bash
+./scripts/check_cta_gates.py                    # exit 0 clean, 1 findings, 2 no DB
+./scripts/check_cta_gates.py --show-item-links  # also list the range-scoped item links
+./scripts/check_cta_gates.py --json comps.json  # offline, against a dumped library
+```
+
+Reports four shapes, all decidable from template + schema:
+**UNGATED** (`<a href="{{.x_url}}">` with no `{{if}}` on that same field),
+**PLACEHOLDER** (`href="#"`, and the nastier `href="{{if .x}}{{.x}}{{else}}#{{end}}"`),
+**LLM_URL** (a `*_url`/`*_link` field that is `source:llm` **and** `required:true`),
+**NO_VALUE** (a template containing the literal `<no value>` — a render artefact saved
+back as a template).
+
+State 2026-07-25 after migrations 211+212: **UNGATED 0, LLM_URL 0**, PLACEHOLDER 1
+(`image-hover-card-grid`, deliberate — see below), NO_VALUE 2 (`lobby-grid`,
+`provocation-card`, both `data-runtime-fill="true"` vonc components; a different defect
+class, see the vonc workstream's "runtime-fill templates are rendered artefacts" landmine).
+
+> **Gotcha — a non-zero exit is not automatically a regression.** Three residuals are
+> known and deliberate; read them before assuming something broke. The lint is advisory
+> and is NOT wired into pre-commit: `content_components` live only in the DB, so a
+> diff-based linter cannot see them, and a kubectl round-trip has no business blocking a
+> shared commit.
+
+> **Gotcha — `parse_gates.py` and this script hold the same block-stack parse.** Change
+> one, change the other. Two hand-maintained copies of one rule is the drift class this
+> bug's own council reviews for.
+
+## R18 — Mass-editing `html_template` safely (the recipe migration 211 used)
+
+Editing 35 shared, live component templates in one transaction, on a database several
+sessions write daily. The property that makes it safe is that **the migration cannot
+half-apply and cannot apply to a template that has changed since you measured it.**
+
+1. **Dump + parse, never regex-count**: R9b, then `parse_gates.py` — the CTA worklist is
+   the *not-in-`{{range}}`* set.
+2. **Compute the transform offline in Python**, then assert it is *only* insertions:
+   strip the exact gates you added and the result must equal the original byte-for-byte;
+   `{{if|range|with}}` and `{{end}}` counts must each grow by exactly the anchor count.
+3. **Prove the SQL is equivalent to the audited transform, read-only, before writing the
+   migration** — one `SELECT md5(regexp_replace(...)) = '<expected>'` per component:
+
+```bash
+kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -tA -f - < verify.sql   # expect every row t|t
+```
+
+4. **Gate the migration on `md5(html_template)` before AND after**, per component, in a
+   `DO` block. A concurrent edit by another session then aborts the whole transaction
+   instead of silently producing a template neither session intended.
+5. Snapshot every touched row first (`bak_cta_gates_20260725`), and dry-run the whole file
+   with the runner's PROBE (`./scripts/migration/run-migrations.sh`, no `--apply`) — it
+   executes the file verbatim in a doomed transaction, so a CLEAN verdict means every
+   guard and post-condition passed.
+
+> **Gotcha that cost a round and would have silently mangled 21 of 35 templates.** In
+> POSIX ARE (Postgres), **the first quantifier fixes the greediness of the whole RE** —
+> per-quantifier laziness is a Perl/Python behaviour, not this one. So
+> `'<a[^>]*href="\{\{\.x\}\}".*?</a>'` matches from the anchor to the **last** `</a>` in
+> the template, because the leading `[^>]*` is greedy. Writing `[^>]*?` is load-bearing,
+> not cosmetic. Step 3 is what caught it: 21 of 31 md5s mismatched. **A migration that
+> "looks obviously right" is exactly the one to hash-check.**
+
+> **Gotcha — `replace()` replaces every occurrence.** For the exact-needle edits, assert
+> the needle occurs **once** in the template offline first; `ROW_COUNT = 1` only tells you
+> one *row* was touched, not that one *substring* was.

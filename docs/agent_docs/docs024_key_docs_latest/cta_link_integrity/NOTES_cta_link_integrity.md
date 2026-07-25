@@ -1397,3 +1397,93 @@ work; only the stale footer link spelling is wrong.
 **Not overwritten:** the concurrent thread's aao/finetuning page content and its own priority-80
 `page_rerender` items were left untouched. My own staged items (created_by='bugfix-049') were
 marked complete after the direct deploy so they don't re-deploy redundantly when 029 recovers.
+
+---
+
+# 2026-07-25 (bugfix-023 session) — the library-wide sweep, and closing the file
+
+**Goal.** Close `bugs_open/023` on its own scope: criteria 1–3, classes A/B/C/E. Criterion 3 is
+the structural one — *no component in the ACTIVE library can pair a rendered label with an absent
+destination* — so it cannot be met by cleaning pages, only by changing the library.
+
+## What the live measurement said (2026-07-25, not inherited)
+
+R9b + `parse_gates.py` against the live library, 142 active components:
+
+```
+TOTAL href="{{.X}}" anchors : 213
+  GATED   :  40 / 24 components
+  UNGATED : 173 / 43 components
+     inside {{range}} (item links, separate class) :  17 / 13
+     NOT in a range (the CTA worklist)             : 156 / 31
+```
+
+R1 census: **33 `href=""` (5 sites) + 11 bare `#` + 1 fragment.** The empty-href count is UP on
+2026-07-20's 22 — not a regression of the fixes, but new live sites and components arriving in the
+five days since (webdesign.co.uk was built the same day). The fragment is a **false positive**:
+`gauntlet-interface`'s `#gi-rules` resolves to a real `id="gi-rules"` in its own template
+(position 22677). Class D is still extinct.
+
+Live-placed vs dormant, for the CTA worklist: **31 anchors / 14 components placed, 125 / 17
+dormant.** I nearly scoped the migration to the placed set. That would have been wrong twice
+over: criterion 3 says *active library*, and `bugs_open/045` is the case of dormant library stock
+being adopted onto a live page and shipping its frozen defaults. Dormant is not safe, it is
+merely not-yet.
+
+## What shipped
+
+**Migration 211** (applied + ledgered): 156 anchors across 31 components wrapped in
+`{{if .x_url}}`; 7 more placeholder anchors in 4 components the field parse cannot see; 23
+`llm+required` URL fields flipped to `required:false` fleet-wide; 5 new renderer/optional url
+fields for the anchors that had no field at all. **Migration 212**: the last hardcoded `#`.
+**`scripts/check_cta_gates.py`**: the standing lint (R17). Recipe and its traps: R18.
+
+After, live: **UNGATED 0, llm+required URL fields 0.**
+
+## The missteps, which are the point of this file
+
+**1. The regex I was about to ship would have mangled 21 of 35 templates.** I wrote the SQL as
+`regexp_replace(html_template, '(<a[^>]*href="\{\{\.x\}\}".*?</a>)', ...)` — the direct
+translation of the Python transform I had already audited. It is wrong in Postgres: **in POSIX
+ARE the FIRST quantifier fixes the greediness of the entire RE**, so the leading greedy `[^>]*`
+makes `.*?` behave greedily and the match runs to the **last** `</a>` in the template. Every
+multi-anchor component would have had its entire tail swallowed into one gate.
+
+What caught it was not review — I had read the statement several times and it looked obviously
+right. It was a **read-only equivalence check**: compute the expected template in Python, hash it,
+and ask the database to hash its own `regexp_replace` result. 21 of 31 rows came back `f`.
+`[^>]*?` fixed it, 31 of 31 `t`, and only then did the migration get written. **The lesson is not
+"know your regex dialect" — it is that a transform you can hash is one you can prove, and a
+migration that looks obviously right is exactly the one worth proving.**
+
+**2. I classified `info-card-grid`'s live empty hrefs as in scope, then found they were not.**
+The 8 empty hrefs on gaswholesalers + aao come from a component whose anchor is *already gated*
+(`{{if .link_url}}`) — they are **stale rendered_html**, rendered before the gate existed.
+`rendered_html` is a stored artefact; a template fix does not rewrite it. That is why criterion 1
+is stated as *falls and stays fallen **after a rebuild***, and why gating alone cannot move the
+census on a page nobody re-renders.
+
+**3. The HANDOFF carried a stale figure and I nearly built on it.** §5 said "68 ungated / 37
+components" — an R9 heuristic number, quoted *after* the RUNBOOK had already recorded that R9
+undercounts by 2.4x. The real figure that day was ~171. Corrected in place in the HANDOFF with a
+dated note. **A corrected tool does not correct the numbers already copied out of it.**
+
+**4. `archetype-taster-quiz` was invisible to my own worklist.** The field parse only sees
+`href="{{.field}}"`; a literal `href="#"` has no field, so a component whose CTA is hardcoded
+cannot appear in it. I only found it because the lint was written to report a *different* shape
+than the migration swept. Migration 212 exists because the tool emitted the distinction — the
+same lesson as the range-vs-CTA split in the 2026-07-20 entry, arriving from the other direction.
+
+## Deliberate residuals (recorded, not quietly left)
+
+- **`image-hover-card-grid`** — `href="{{if .link_url}}{{.link_url}}{{else}}#{{end}}"` inside
+  `{{range .cards}}`. Its anchor wraps the card's image, title and description, so gating it
+  deletes **content**, not a control. Needs an `{{else}}<div>` restructure. Item-link class.
+- **17 range-scoped item links / 13 components** — the field belongs to the ranged item, fed by a
+  query. Different class, different owner; a blanket "no ungated url anchor" post-condition trips
+  on them and rolls back correct migrations (181's first draft did exactly that).
+- **`lobby-grid` + `provocation-card`** — their `html_template` contains the literal `<no value>`
+  (37 and 13 occurrences) and **no Go template actions at all**: these rows are rendered artefacts
+  saved back as templates. Both are `data-runtime-fill="true"` vonc components, which is the vonc
+  workstream's own documented landmine ("runtime-fill templates are rendered artefacts") — owned
+  there, not filed as a competing bug. The lint reports them so they stay visible.

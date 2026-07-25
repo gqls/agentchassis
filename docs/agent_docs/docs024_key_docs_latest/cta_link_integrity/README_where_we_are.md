@@ -558,3 +558,52 @@ the new page propagated to the cache — but it's there now. So all three legal 
 show a clean "Privacy · Terms", and every one of those links goes to a real page. Nothing left
 in flight on this. The owner-fill list (registration details, and the England-law question) is
 still yours to look at when you have a moment, but the pages are valid and working as they stand.
+
+----
+
+**2026-07-25 — the buttons bug is finished. Here is what closing it actually meant.**
+
+You reported four broken buttons on leopardess on the 19th. Those four were gone within a day.
+What has taken until now is the thing underneath them: **a button's label and its destination
+were two unrelated settings, and nothing in the system ever checked one against the other.** The
+label almost always renders. The destination often does not exist. So the page ships something
+that looks like a button, invites a click, and goes nowhere.
+
+Two earlier rounds fixed this on the four components that happened to be on live pages. The
+problem with stopping there is that our component library has 142 components in it, and the ones
+nobody is using today are exactly the ones the system picks up tomorrow — we have a separate open
+bug (045) that is precisely that: a dormant component being chosen for a page and dragging its
+frozen, wrong labels onto a live site. So "no live page shows this today" was never the finish
+line. The finish line was: **no component in the library can do it at all.**
+
+That is what shipped today. Every button in every active component is now wrapped in a rule that
+says *if there is no destination, do not draw the button.* 156 of them across 31 components, plus
+seven more that were broken in a way my first pass could not even see (they had a `#` — a link to
+nowhere — hardcoded, so there was no destination setting to look at). And separately: **no
+component may now demand that the AI invent a web address.** That demand is what produced the
+worst of the four buttons you found — the URL `leopardess.contactforsales.com`, which is simply
+your own contact email address with the `@` swapped for a dot. The model was told the field was
+required, had nothing to look it up in, and did what anyone would do. 23 such fields across 5
+components are no longer compulsory.
+
+I also left behind a checker (`scripts/check_cta_gates.py`) that reports any of these four faults
+across the whole library in about a second, so the next person does not have to rediscover the
+measurement. It found one more broken button on its very first run, which is now fixed too.
+
+**The mistake worth telling you about.** The database change I wrote to do all this was, on my
+first attempt, subtly wrong — a difference between how two different systems interpret the same
+search pattern would have made it swallow whole chunks of 21 of the 35 component templates. It
+read correctly. I had checked it several times. What caught it was not more reading: it was
+asking the database to compute the change and then comparing its answer, digit by digit, against
+the answer I had computed separately. Twenty-one of thirty-one came back different. Ten minutes,
+and it turned a near-disaster into a footnote. I have written that up as a standing recipe,
+because the general shape — *a change you can prove is a change you should prove, and the one
+that looks obviously right is the one worth proving* — applies well beyond this bug.
+
+**What I have deliberately not done**, and it is written down rather than quietly skipped: three
+things still show up in the checker. One is a card whose entire image and text sit inside the
+link, so removing the link would delete the content rather than the control — it needs a
+different shape of fix. Two are components whose stored "template" is actually a saved snapshot
+of a finished page, which is a different fault altogether and belongs to the vonc workstream that
+already knows about it. None of them is the fault you reported, and none of them is what this bug
+was about.
