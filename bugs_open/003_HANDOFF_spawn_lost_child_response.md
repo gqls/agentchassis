@@ -847,3 +847,16 @@ stands), plus the discriminating pod-greps:** created literals
 `RETRY_TICKER_CLAIMED`, `DEDUPE_CLAIM_LOST`, `MARK_COMPLETE_FAILED`,
 `DEDUPE_SKIPPED_NO_REQUEST_ID`, `TIMEOUT_FAST_PATH_CLAIM_FAILED`; removed
 literal `Consume() called` must grep 0. Both images.
+
+**Council round 1 (2026-07-25): REJECTED — guardian hard veto.** Roll PARKED.
+Guardian wants the roll split (stage 1: migration + context.go + retry driver;
+stage 2: the at-least-once/dedupe rewrite via separate review). The veto also
+caught a wrong call in the submission — "D4 mandates F2+F3 together" is FALSE
+(D4 binds F3's two halves; see WRONG_CALLS.md 2026-07-25). Note stage 1 WOULD
+function under pre-edit dedupe code, but only via an accidental fail-open
+(exact-version seen-check + swallowed unique-violation error). Round 2
+resubmitted same day (trail corr `b896fc22`, evidence + concessions +
+per-service blast radius). NB: the full change is already committed, so any
+session's next chassis/git-adapter build carries it — mixed-fleet-safe by
+design (migration applied first), but hold a deliberate roll until the trail
+resolves. If round 2 rejects: owner decision packet.
