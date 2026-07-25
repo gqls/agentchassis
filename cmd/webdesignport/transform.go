@@ -60,7 +60,7 @@ func runTransform(sitesDir, portDir, outDir, domain, only string) error {
 	man := &Manifest{Domain: domain, Generator: "webdesignport/1"}
 	assetSeen := map[string]bool{}
 
-	entries := append(append([]CatalogueEntry{}, cat.Tools...), cat.Learn...)
+	entries := allEntries(cat)
 	var failures []string
 
 	for _, e := range entries {
@@ -127,6 +127,24 @@ func runTransform(sitesDir, portDir, outDir, domain, only string) error {
 				continue
 			}
 			assetSeen[dest] = true
+
+			// A sibling the source repo does not actually have must be one we
+			// wrote ourselves — vibe-equalizer's state.js, the file whose
+			// absence had that tool throwing on load since it shipped. Resolve
+			// it against port/site_assets, and fail loudly if it is in neither
+			// place, because the alternative is publishing a page whose script
+			// 404s.
+			if _, statErr := os.Stat(filepath.Join(sitesDir, filepath.FromSlash(srcRel))); statErr != nil {
+				generated := filepath.Join(portDir, "site_assets", filepath.FromSlash(dest))
+				if _, gerr := os.Stat(generated); gerr != nil {
+					failures = append(failures, fmt.Sprintf(
+						"%s: references %q, which exists neither in the sources nor in port/site_assets",
+						e.Source, s))
+					continue
+				}
+				man.Assets = append(man.Assets, ManifestAsset{Dest: dest, Generated: true})
+				continue
+			}
 			man.Assets = append(man.Assets, ManifestAsset{Source: srcRel, Dest: dest})
 		}
 
@@ -150,6 +168,18 @@ func runTransform(sitesDir, portDir, outDir, domain, only string) error {
 
 	// Images and other shared assets referenced by the ported pages.
 	collectSharedAssets(sitesDir, man, assetSeen)
+
+	// Everything under port/site_assets mirrors the published site root: the
+	// compat stylesheet, the vibe-equalizer fix, anything else we author.
+	collectPortAssets(portDir, man, assetSeen)
+
+	// The two section indexes, search.json, sitemap.xml, robots.txt and 404.html
+	// are generated from the manifest itself — see generate.go for why.
+	if only == "" {
+		if err := generateAll(cat, man, outDir, domain); err != nil {
+			return fmt.Errorf("generate: %w", err)
+		}
+	}
 
 	sort.Slice(man.Pages, func(i, j int) bool { return man.Pages[i].Name < man.Pages[j].Name })
 	if err := writeJSON(filepath.Join(outDir, "manifest.json"), man); err != nil {
@@ -314,6 +344,20 @@ func transformPage(sitesDir string, e CatalogueEntry, ov *Overrides, engine *col
 		}
 		contentHTML = strings.ReplaceAll(contentHTML, rw.From, rw.To)
 	}
+
+	// ---- counted placeholders ----------------------------------------------
+	// Any figure about the site's own size is substituted from the catalogue,
+	// never typed. Written after a near-miss: the about page's replacement stat
+	// was hand-typed as "64 Tools" when the real count is 63 — an invented
+	// statistic introduced by the very edit that was removing invented
+	// statistics. A number that cannot be typed cannot drift.
+	//
+	// This runs AFTER the rewrites, because a rewrite is what puts the
+	// placeholder there. Running it before left a literal {{TOOL_COUNT}} on the
+	// published page — caught by reading the output rather than the exit code,
+	// which was 0 both times.
+	contentHTML = strings.ReplaceAll(contentHTML, "{{TOOL_COUNT}}", fmt.Sprint(len(cat.Tools)))
+	contentHTML = strings.ReplaceAll(contentHTML, "{{LEARN_COUNT}}", fmt.Sprint(len(cat.Learn)))
 
 	// ---- assemble the fragment ---------------------------------------------
 	var sb strings.Builder
@@ -520,7 +564,7 @@ func sourceSitePath(src string) string {
 // what moves websitedesign.com's /guides/x.html into /learn/<cat>/x.html.
 func buildURLMap(cat *Catalogue) map[string]string {
 	m := map[string]string{}
-	for _, e := range append(append([]CatalogueEntry{}, cat.Tools...), cat.Learn...) {
+	for _, e := range allEntries(cat) {
 		m[sourceSitePath(e.Source)] = e.targetURL()
 		// Also accept the directory form without index.html.
 		if strings.HasSuffix(e.Source, "/index.html") {
@@ -570,11 +614,21 @@ func internalLinks(fragment string) []string {
 // catalogue helpers
 // ---------------------------------------------------------------------------
 
+// allEntries is every catalogued page in one slice: tools, learn, standalone.
+func allEntries(cat *Catalogue) []CatalogueEntry {
+	out := append([]CatalogueEntry{}, cat.Tools...)
+	out = append(out, cat.Learn...)
+	return append(out, cat.Pages...)
+}
+
 func (e CatalogueEntry) isTool() bool {
 	return strings.Contains(e.Source, "/tools/")
 }
 
 func (e CatalogueEntry) targetURL() string {
+	if e.URLOverride != "" {
+		return e.URLOverride
+	}
 	if e.isTool() {
 		return "/tools/" + e.Slug + "/index.html"
 	}
@@ -582,6 +636,9 @@ func (e CatalogueEntry) targetURL() string {
 }
 
 func (e CatalogueEntry) pageType() string {
+	if e.PageTypeOverride != "" {
+		return e.PageTypeOverride
+	}
 	if e.isTool() {
 		return "tool"
 	}
@@ -589,6 +646,9 @@ func (e CatalogueEntry) pageType() string {
 }
 
 func pageNameFor(e CatalogueEntry) string {
+	if e.URLOverride != "" {
+		return e.Slug
+	}
 	if e.isTool() {
 		return "tool-" + e.Slug
 	}
@@ -647,6 +707,25 @@ func collectSharedAssets(sitesDir string, man *Manifest, seen map[string]bool) {
 			return nil
 		})
 	}
+}
+
+// collectPortAssets walks port/site_assets, whose layout mirrors the published
+// site root, and records each file as a generated asset.
+func collectPortAssets(portDir string, man *Manifest, seen map[string]bool) {
+	base := filepath.Join(portDir, "site_assets")
+	_ = filepath.Walk(base, func(p string, fi os.FileInfo, err error) error {
+		if err != nil || fi.IsDir() {
+			return nil
+		}
+		rel, _ := filepath.Rel(base, p)
+		dest := filepath.ToSlash(rel)
+		if seen[dest] {
+			return nil
+		}
+		seen[dest] = true
+		man.Assets = append(man.Assets, ManifestAsset{Dest: dest, Generated: true})
+		return nil
+	})
 }
 
 // ---------------------------------------------------------------------------

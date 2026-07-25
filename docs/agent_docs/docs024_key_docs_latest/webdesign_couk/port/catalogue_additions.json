@@ -203,6 +203,17 @@
     }
   ],
 
+  "_pages_why": "Standalone pages belonging to neither section. The about page is ported from website-design.com, but two of its four statistics are rewritten — see the overrides file.",
+  "pages": [
+    {
+      "source": "website-design.com/about/index.html",
+      "slug": "about", "url": "/about/index.html", "page_type": "content",
+      "label": "About", "category": "About", "qa_tier": 3,
+      "description": "What this site is for, how it is built, and why everything runs in your own browser.",
+      "keywords": ["about", "mission", "philosophy", "static", "privacy"]
+    }
+  ],
+
   "_dropped_why": "Deliberate omissions, recorded so that `harvest` can tell a considered drop from an accidental one — it fails if any source page is neither catalogued nor listed here.",
   "dropped": {
     "websitedesign.com/tools/local-builder/index.html": "The client-side LLM builder the owner asked to skip: downloads an ~800MB Llama model over WebGPU. Dropping it also removes the site's only esm.run dependency and its only WebGPU requirement.",

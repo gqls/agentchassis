@@ -64,6 +64,16 @@
         }
       ]
     },
+    "website-design.com/about/index.html": {
+      "_why": "The about page's stat grid mixes two facts with two measurements. '0 Servers' and '0kb Frontend Frameworks' are true by construction and verifiable (grep confirms not one page on either source site loads an external script). '100 Lighthouse Score' and '0.1s First Content Paint' are measurements nobody has taken for webdesign.co.uk — carrying them over would be exactly the invented statistic the mission brief forbids. They are replaced with two counts that are true and checkable from the manifest.",
+      "rewrites": [
+        { "from": "100", "to": "{{TOOL_COUNT}}", "why": "Lighthouse score nobody measured -> the real tool count, substituted from the catalogue so it cannot be mistyped or go stale. It was first hand-typed as 64; the real number is 63." },
+        { "from": "Lighthouse Score", "to": "Tools, All Free", "why": "see above" },
+        { "from": "0.1s", "to": "0", "why": "First Contentful Paint nobody measured -> accounts required" },
+        { "from": "First Content Paint", "to": "Accounts Required", "why": "see above" },
+        { "from": "(S3 Hosted)", "to": "(object storage)", "why": "it is Backblaze B2 behind Cloudflare, not S3" }
+      ]
+    },
     "websitedesign.com/guides/browser-storage.html": {
       "_why": "Names the Micro-CMS, which we DO port — no rewrite needed. Recorded so the next reader does not go looking."
     }

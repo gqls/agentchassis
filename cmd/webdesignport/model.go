@@ -15,6 +15,8 @@ type Catalogue struct {
 	LearnCategories map[string]string `json:"learn_categories"`
 	Tools           []CatalogueEntry  `json:"tools"`
 	Learn           []CatalogueEntry  `json:"learn"`
+	// Standalone pages (about) that belong to neither section.
+	Pages []CatalogueEntry `json:"pages"`
 }
 
 // CatalogueEntry is one ported page as the indexes and search will present it.
@@ -39,6 +41,10 @@ type CatalogueEntry struct {
 	Keywords []string `json:"keywords,omitempty"`
 	// QATier: 1 = hands-on browser session, 2 = click-through, 3 = scroll check.
 	QATier int `json:"qa_tier"`
+	// URLOverride and PageTypeOverride are for standalone pages (about), which
+	// are neither a tool under /tools/ nor an article under /learn/.
+	URLOverride      string `json:"url,omitempty"`
+	PageTypeOverride string `json:"page_type,omitempty"`
 }
 
 // Overrides carries every per-page exception the transform needs. Data, not code,

@@ -220,3 +220,77 @@
     min-height: 0;
     max-height: none;
 }
+
+/* ---- the generated section indexes ------------------------------------
+   Markup produced by cmd/webdesignport's generate.go. Kept here rather than
+   inlined into the generated HTML so the indexes and the ported pages share
+   one card treatment — an index whose cards drifted from every other card on
+   the site would be the first thing a visitor noticed. */
+.index-intro { margin-bottom: var(--space-lg); max-width: 60ch; }
+.index-intro h1 { font-size: var(--text-h1); font-weight: 800; margin: 0 0 0.5rem; }
+.index-lede { font-size: 1.2rem; color: var(--text-dim); margin: 0; }
+
+.index-section { margin-bottom: var(--space-lg); }
+
+.index-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.index-heading h2 { font-size: 1.5rem; font-weight: 800; margin: 0; }
+
+.index-count {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    background: var(--surface);
+    border-radius: 99px;
+    padding: 0.15rem 0.6rem;
+}
+
+/* The whole card is the link. */
+.index-card {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 1.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.index-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+}
+
+.index-eyebrow {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary);
+    margin-bottom: 0.4rem;
+}
+
+.index-card h3 { font-size: 1.15rem; font-weight: 700; margin: 0 0 0.35rem; }
+
+/* Only the near-duplicate pairs carry a subtitle — it is the line that saves a
+   visitor opening both tools to work out which one they wanted. */
+.index-subtitle {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--primary);
+    margin: 0 0 0.5rem;
+}
+
+.index-desc { font-size: 0.9rem; color: var(--text-dim); margin: 0; }

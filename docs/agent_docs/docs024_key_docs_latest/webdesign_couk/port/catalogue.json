@@ -1419,5 +1419,24 @@
       ],
       "qa_tier": 3
     }
+  ],
+  "pages": [
+    {
+      "source": "website-design.com/about/index.html",
+      "slug": "about",
+      "label": "About",
+      "description": "What this site is for, how it is built, and why everything runs in your own browser.",
+      "category": "About",
+      "keywords": [
+        "about",
+        "mission",
+        "philosophy",
+        "static",
+        "privacy"
+      ],
+      "qa_tier": 3,
+      "url": "/about/index.html",
+      "page_type": "content"
+    }
   ]
 }

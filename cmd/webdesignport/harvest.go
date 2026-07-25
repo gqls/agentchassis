@@ -110,9 +110,10 @@ func runHarvest(sitesDir, portDir string) error {
 	if err != nil {
 		return fmt.Errorf("additions: %w", err)
 	}
-	before := len(cat.Tools) + len(cat.Learn)
+	before := len(cat.Tools) + len(cat.Learn) + len(cat.Pages)
 	cat.Tools = append(cat.Tools, adds.Tools...)
 	cat.Learn = append(cat.Learn, adds.Learn...)
+	cat.Pages = append(cat.Pages, adds.Pages...)
 	for k, v := range adds.LearnCategories {
 		cat.LearnCategories[k] = v
 	}
@@ -136,6 +137,7 @@ func runHarvest(sitesDir, portDir string) error {
 	}
 	overlay(cat.Tools)
 	overlay(cat.Learn)
+	overlay(cat.Pages)
 	for slug := range adds.Overlays {
 		if !applied[slug] {
 			return fmt.Errorf("overlay for %q matched no catalogue entry — "+
@@ -151,7 +153,7 @@ func runHarvest(sitesDir, portDir string) error {
 	if err := assertUniqueSlugs("learn", cat.Learn); err != nil {
 		return err
 	}
-	for _, e := range append(append([]CatalogueEntry{}, cat.Tools...), cat.Learn...) {
+	for _, e := range allEntries(cat) {
 		if e.Label == "" || e.Category == "" || e.Slug == "" || e.Source == "" {
 			return fmt.Errorf("incomplete catalogue entry: %+v", e)
 		}
@@ -162,13 +164,13 @@ func runHarvest(sitesDir, portDir string) error {
 		return err
 	}
 	fmt.Printf("merged %d hand-written additions and %d overlays -> %d pages total\n",
-		len(cat.Tools)+len(cat.Learn)-before, len(adds.Overlays), len(cat.Tools)+len(cat.Learn))
+		len(allEntries(cat))-before, len(adds.Overlays), len(allEntries(cat)))
 	fmt.Printf("wrote %s\n", out)
 
 	// Anything on disk that is neither harvested nor added nor deliberately
 	// dropped is a page we would silently lose. Report it every run.
 	known := map[string]bool{}
-	for _, e := range append(append([]CatalogueEntry{}, cat.Tools...), cat.Learn...) {
+	for _, e := range allEntries(cat) {
 		known[e.Source] = true
 	}
 	var unaccounted []string
@@ -195,6 +197,7 @@ type Additions struct {
 	LearnCategories map[string]string  `json:"learn_categories"`
 	Tools           []CatalogueEntry   `json:"tools"`
 	Learn           []CatalogueEntry   `json:"learn"`
+	Pages           []CatalogueEntry   `json:"pages"`
 	Overlays        map[string]Overlay `json:"overlays"`
 	// Dropped maps a source path to the reason it is not ported. Present so a
 	// deliberate omission is visibly different from an accidental one.
