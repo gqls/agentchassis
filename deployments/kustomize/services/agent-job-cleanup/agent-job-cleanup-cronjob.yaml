@@ -59,12 +59,33 @@ spec:
                   #
                   # Topic format: job.{corrID[:8]}-{orchID[:8]}-{agentType}-{step}.{requests|responses}
                   #
-                  # Strategy (actual, 2026-07-25): all-or-nothing. If ANY spawned
-                  # agent workload is live (active spawned Job or dynamic-agent
-                  # pod), keep every job.* topic; only when nothing spawned is
-                  # live, delete them all. Per-topic age filtering was described
-                  # here before but never implemented — kafka-topics.sh exposes
-                  # no creation time, so the honest rule is the coarse one.
+                  # Strategy (2026-07-25, bugs_open/071 residual 2): two-pass
+                  # tombstone. If ANY spawned agent workload is live (active
+                  # spawned Job or dynamic-agent pod), keep every job.* topic
+                  # AND wipe the tombstone state. On an idle tick, delete ONLY
+                  # topics that were also present (and idle) on the PREVIOUS
+                  # tick, then store the survivors as the new tombstone list.
+                  # Deletion therefore requires two CONSECUTIVE idle ticks
+                  # (~20 min of continuous orphanhood), which protects queued
+                  # work whose Job has not been created yet. kafka-topics.sh
+                  # exposes no topic creation time, so tick-to-tick memory in
+                  # the agent-job-cleanup-state ConfigMap is the only age
+                  # signal available.
+
+                  STATE_NS=ai-persona-system
+                  STATE_CM=agent-job-cleanup-state
+
+                  # Store the given (possibly empty) space-separated topic list
+                  # as the tombstone state. Topic names are alphanumeric/dot/
+                  # hyphen only, so no JSON escaping is needed. Log loudly on
+                  # failure: a failed WIPE means the next idle tick could delete
+                  # a topic one tick early; a failed STORE merely delays
+                  # deletion.
+                  write_state() {
+                    kubectl patch configmap "$STATE_CM" -n "$STATE_NS" --type merge \
+                      -p "{\"data\":{\"idle-tombstones\":\"$1\"}}" >/dev/null \
+                      || echo "ERROR: failed to write tombstone state to configmap $STATE_CM — tombstone clock may be stale"
+                  }
 
                   KAFKA_POD=$(kubectl get pods -n kafka \
                     -l strimzi.io/name=personae-kafka-cluster-kafka \
@@ -72,12 +93,17 @@ spec:
                     -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
 
                   if [ -n "$KAFKA_POD" ]; then
-                    # Get all job.* topics
+                    # Get all job.* topics (newline-separated; topic names
+                    # contain no spaces or glob characters, so word-splitting
+                    # below is safe)
                     ALL_JOB_TOPICS=$(kubectl exec -n kafka "$KAFKA_POD" -- \
                       bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
                       | grep '^job\.')
 
-                    TOPIC_COUNT=$(echo "$ALL_JOB_TOPICS" | grep -c '^job\.' 2>/dev/null || echo 0)
+                    # No "|| echo 0" — grep -c always prints exactly one count
+                    # (0 on no match) but exits 1, so the old fallback appended
+                    # a second line and made this the two-line string "0\n0".
+                    TOPIC_COUNT=$(echo "$ALL_JOB_TOPICS" | grep -c '^job\.')
                     echo "Found $TOPIC_COUNT job topics"
 
                     if [ "$TOPIC_COUNT" -gt 0 ]; then
@@ -104,25 +130,74 @@ spec:
                         | grep -E 'Running|Pending|ContainerCreating') || true
 
                       if [ -z "$JOBS_LIVE" ] && [ -z "$PODS_LIVE" ]; then
-                        # No live spawned workload — safe to delete all job.* topics
-                        echo "No live spawned workload — deleting all $TOPIC_COUNT job topics"
-                        DELETED=0
-                        echo "$ALL_JOB_TOPICS" | while read TOPIC; do
-                          [ -z "$TOPIC" ] && continue
-                          kubectl exec -n kafka "$KAFKA_POD" -- \
-                            bin/kafka-topics.sh --bootstrap-server localhost:9092 \
-                            --delete --topic "$TOPIC" 2>/dev/null && \
-                          DELETED=$((DELETED + 1))
+                        # IDLE tick — two-pass tombstone. If the state read
+                        # fails, delete nothing (fail-safe) but still store so
+                        # the clock runs.
+                        PREV_TOMBSTONES=$(kubectl get configmap "$STATE_CM" -n "$STATE_NS" \
+                          -o jsonpath='{.data.idle-tombstones}') \
+                          || PREV_TOMBSTONES="__READ_FAILED__"
+
+                        if [ "$PREV_TOMBSTONES" = "__READ_FAILED__" ]; then
+                          echo "ERROR: could not read tombstone state from configmap $STATE_CM — deleting nothing this tick"
+                          PREV_TOMBSTONES=""
+                        fi
+
+                        # Intersection via POSIX case-pattern membership.
+                        # for-loops, not "| while read": a piped while runs in
+                        # a subshell and loses counters (the old DELETED
+                        # counter never worked).
+                        DOOMED=""
+                        DOOMED_COUNT=0
+                        for TOPIC in $ALL_JOB_TOPICS; do
+                          case " $PREV_TOMBSTONES " in
+                            *" $TOPIC "*)
+                              DOOMED="$DOOMED $TOPIC"
+                              DOOMED_COUNT=$((DOOMED_COUNT + 1))
+                              ;;
+                          esac
                         done
-                        echo "Deleted job topics"
+
+                        echo "No live spawned workload — $DOOMED_COUNT of $TOPIC_COUNT job topics were already orphaned on the previous tick; deleting those only"
+                        DELETED=0
+                        for TOPIC in $DOOMED; do
+                          if kubectl exec -n kafka "$KAFKA_POD" -- \
+                            bin/kafka-topics.sh --bootstrap-server localhost:9092 \
+                            --delete --topic "$TOPIC" 2>/dev/null; then
+                            DELETED=$((DELETED + 1))
+                          else
+                            echo "WARNING: failed to delete topic $TOPIC"
+                          fi
+                        done
+                        echo "Deleted $DELETED of $DOOMED_COUNT tombstoned job topics"
+
+                        # Surviving job.* topics become the tombstone list for
+                        # the next tick. If the re-list fails we store an empty
+                        # list — that only delays deletion by one tick (safe
+                        # direction).
+                        SURVIVORS=$(kubectl exec -n kafka "$KAFKA_POD" -- \
+                          bin/kafka-topics.sh --bootstrap-server localhost:9092 --list 2>/dev/null \
+                          | grep '^job\.' | tr '\n' ' ')
+                        write_state "$SURVIVORS"
+                        echo "Tombstoned $(echo "$SURVIVORS" | wc -w) job topics for deletion on the next idle tick"
 
                       else
                         echo "Live spawned workload (jobs: $(echo "$JOBS_LIVE" | grep -c .); pods: $(echo "$PODS_LIVE" | grep -c .)) — keeping all job topics"
-                        echo "Topics will be cleaned on a later run when no spawned workload is live"
+                        echo "Topics will be deleted only after two consecutive idle ticks (~20 min) with no spawned workload"
+                        # BUSY tick: reset the tombstone clock — deletion must
+                        # be preceded by two CONSECUTIVE idle ticks.
+                        write_state ""
                       fi
+                    else
+                      # No job.* topics listed (or the listing failed — both
+                      # safe to treat the same): nothing to delete; reset state
+                      # so a stale list never lingers across an observation gap.
+                      write_state ""
                     fi
                   else
                     echo "Warning: No running Kafka pod found, skipping topic cleanup"
+                    # Broker unobservable — reset the clock so "two consecutive
+                    # idle ticks" stays strict across the gap.
+                    write_state ""
                   fi
 
                   # 5. Summary

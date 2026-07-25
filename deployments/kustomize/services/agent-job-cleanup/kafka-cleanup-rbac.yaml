@@ -26,3 +26,49 @@ roleRef:
   kind: Role
   name: kafka-topic-cleanup
   apiGroup: rbac.authorization.k8s.io
+---
+# State for the two-pass tombstone topic cleanup (bugs_open/071
+# residual 2). Pre-created here: resourceNames cannot scope "create",
+# so the CronJob's SA only gets get/update/patch on this named CM.
+# NOTE: re-applying this file resets the tombstone list to empty —
+# harmless, it just delays topic deletion by one tick.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agent-job-cleanup-state
+  namespace: ai-persona-system
+data:
+  idle-tombstones: ""
+---
+# Extra grants for the cleanup CronJob (runs as ai-persona-app).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: agent-job-cleanup-state
+  namespace: ai-persona-system
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    resourceNames: ["agent-job-cleanup-state"]
+    verbs: ["get", "update", "patch"]
+  # Cronjob step 1 deletes Failed pods, but ai-persona-app never had
+  # pods/delete in this namespace — that step has silently failed
+  # since inception (bug 071 secondary finding; `kubectl auth can-i
+  # delete pods --as=...` -> no). Cannot be resourceName-scoped.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: agent-job-cleanup-state
+  namespace: ai-persona-system
+subjects:
+  - kind: ServiceAccount
+    name: ai-persona-app
+    namespace: ai-persona-system
+roleRef:
+  kind: Role
+  name: agent-job-cleanup-state
+  apiGroup: rbac.authorization.k8s.io
