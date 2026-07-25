@@ -58,3 +58,20 @@ it.
    config for diagnose-agent/image-generator.
 5. Verification per the bug file's list (deliberate mid-orchestration roll,
    §6 repro, discriminating pod-grep, week-later reaper stats).
+
+---
+
+> **CORRECTED 2026-07-25 (build session):** three premises in the F2/F3 design
+> above were wrong and would have made retries a no-op if shipped as written —
+> (1) `FromHeaders` parsed `retry_version` only for responses, so a resent
+> request arrived at the child as v0 and was dedupe-dropped; (2)
+> `RecordMessageProcessing`'s ON CONFLICT named the PK (includes
+> retry_version), so a v1 insert errored instead of taking over — the claim
+> targets `ON CONFLICT ON CONSTRAINT processed_messages_unique`; (3)
+> `GetAwaitedRequest` admitted `'waiting'` only and expiry stamps
+> `processed_at`, so a late response to a retried request was
+> DUPLICATE_SKIPPED — claims set `processed_at=NULL`, getter widened to
+> `('waiting','retrying')`. Full detail: bug file 2026-07-25 build record.
+> **Also: the migration is 205, not "180/199"** — numbering raced twice with
+> other workstreams between design and build. Built & committed `fd122fbec`;
+> migration LIVE; awaiting the agent-chassis + git-adapter roll.

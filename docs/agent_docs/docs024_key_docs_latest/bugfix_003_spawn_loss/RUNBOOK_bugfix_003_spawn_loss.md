@@ -149,3 +149,25 @@ first run's `{"status":"ok"}` was the check being wrong, not the pod being fine:
 kubectl -n ai-persona-system exec <pod> -- wget -T 4 -qO- 10.255.255.1:9092   # must time out
 kubectl -n ai-persona-system logs <pod> | grep -c 'i/o timeout'               # must be > 0
 ```
+
+## Committing a file that carries another session's uncommitted hunk (the reverse-apply dance)
+
+Used 2026-07-25 for processor.go, which held a bugs_open/060 WIP hunk calling a
+function that is not in HEAD (their hunk alone would not compile). Pathspec
+commits take the whole working-tree file, so the foreign hunk must be lifted
+out for the seconds around the commit:
+
+```bash
+git diff path/to/file.go > full.patch
+# split full.patch by hunk (@@ headers); save mine.patch + theirs.patch
+git apply -R theirs.patch          # working tree now holds only my change
+grep -c THEIR_SYMBOL path/to/file.go   # must be 0
+git commit path/to/file.go ... -F msg.txt
+git apply theirs.patch             # restore their WIP exactly
+grep -c THEIR_SYMBOL path/to/file.go   # back to pre-dance count
+```
+
+Gotchas: build-verify via the HEAD-archive overlay BEFORE the dance so the
+window stays seconds, not minutes; `git apply --directory` does not work in a
+non-repo overlay — use `patch -p1` there; scratchpad files do NOT survive a
+session boundary, so keep the patches until the commit lands.
