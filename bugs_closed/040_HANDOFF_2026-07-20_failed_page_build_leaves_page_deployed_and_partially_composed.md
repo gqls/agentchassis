@@ -499,7 +499,63 @@ record's *absence* as a mechanism's absence.
    (`page-build-handler no-op: …`), not a routed error.
 
 Test: `platform/orchestration/actions/update_work_item_status_error_test.go`, 6 cases,
-fixtures taken from the live shapes above. Council submission `2cafc4e0`.
+fixtures taken from the live shapes above.
+
+### Council: APPROVED round 1 (`66d77d4d`), 8 seats, 2 medium objections — both answered
+
+> The first submission (`2cafc4e0`) never reached a reviewer: it died at
+> `persist_submission` in 7 seconds because `risks` must be a **string**, not an
+> array, and `operation: "create"` is not in the allowlist (`add` is). I then read
+> "queued" off a broken poll for an hour — see `WRONG_CALLS.md` 2026-07-25 and the
+> `RUNBOOK_council_gate.md` trap bullet. Resubmitted as `66d77d4d`.
+
+**guardian, medium — "the containment claim is empirical; check it, don't take it on
+faith."** Their sharper version of my census: this is a *shared leaf action*, so if any
+other active workflow calls it on a non-`complete` status without a literal and **not**
+via `error_step`, that workflow could inherit a stale `__step_error` from earlier in the
+same run. Run 2026-07-25, over all six edge kinds (`error_step`, `next_step`, `else_step`,
+`then_step`, `on_success`, `on_failure`):
+
+```sql
+-- affected = update_work_item_status steps with NO literal and status <> 'complete'
+-- reachable_via = every edge kind that points at them, fleet-wide
+ image-build-handler | mark_work_item_failed | failed | error_step
+ page-build-handler  | mark_item_failed      | failed | error_step
+(2 rows)
+```
+
+Exactly the two steps, each reachable **only** as an `error_step` target — the condition
+they said would move them to approve. So `__step_error` is set by construction wherever
+the fallback can fire.
+
+**The stronger fix they hinted at, deliberately NOT built:** have `routeToErrorStep`
+record `routed_to: <errorStep>` alongside `failed_step`, and fire the fallback only when
+`ExecutionContext.StepName == __step_error.routed_to`. That makes staleness *structurally*
+impossible instead of *empirically* absent, and would survive a future workflow the census
+cannot see. Not done here because it edits `coordinator.go` — shared plumbing, wider blast
+radius than the defect — and because the shipped code should be the code the council
+approved. **Whoever adds a third such step should build this rather than re-run the
+census.**
+
+**debug_historian, medium — no pod-binary verification stated.** True of the *submission*
+(its risk note said "verification is unit-level so far"); the check was already step 1 of
+"Verify once live" above. Keeping it explicit: verify against the **running pod**, never
+git and never the image tag —
+`strings /app/agent-chassis | grep -c "no error_message literal"` → 1, with
+`grep -c "build is short of its plan"` → 1 as the positive control (the 040 guard, known
+present since v1.0.1146; a discriminating grep needs a string the change *created* plus a
+control that proves the grep works).
+
+**reuse_agent, low — two inline copies of "prefer the routed error over the literal".**
+Fair, and recorded as a follow-up. Worth noting they are not actually identical:
+`fail_work_item` takes the message raw, with no prefix and no status gate, and additionally
+routes on `isAIUnavailable`. A shared helper would have to be parameterised on all three,
+so the extraction is less obviously right than the duplication looks. Owner: whoever next
+touches either action.
+
+**editquality, low — the `step X failed: ` prefix exceeds the minimal fix.** Accurate; kept,
+because the bare timeout shape does not name what timed out, and 58 existing rows already
+use that prefix. Recorded so the choice is visible rather than assumed.
 
 ## How to verify a fix
 
