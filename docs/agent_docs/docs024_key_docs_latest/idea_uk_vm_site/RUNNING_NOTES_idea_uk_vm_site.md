@@ -1853,3 +1853,38 @@ web-search calls). **Owner deploy checklist** is at the foot of `AUDIT_2026-07-2
 (build/scp/restart + the CONTACT_EMAIL grep + one end-to-end report). Until the binary rolls, the
 live tool keeps its old behaviour and /report.html keeps overselling — the gap is now closed in
 code, not yet in production.
+
+### §X.15 — box triage after the owner's deploy + pipeline stages 1–5 built (2026-07-25 evening)
+
+Owner deployed the extended binary and hit three things; all diagnosed, none was the new code:
+
+1. **The deploy itself was FINE.** The mangled output ("181 loaded units… is-active: command not
+   found") was the pasted one-liner splitting at `&&` — read-only SSH confirmed the service
+   restarted 15:11:50 and `/proc/<pid>/exe → /opt/idea/idea` built 15:11. The restart had already
+   succeeded before the error text appeared.
+2. **`at_capacity` on /confirm = five of the owner's own stale test orders** (June 10 – July 17,
+   all aaa@designconsultancy.co.uk: blobber4/bubblefarm/me/2×Antony) holding every slot —
+   `ActiveCount` counts `awaiting_review+awaiting_payment+paid+running` against
+   `MAX_ACTIVE_ORDERS=5` (store.go:109, service.go:411). Fix = hand-edit orders.json to
+   `declined` (RUNBOOK Phase 4c pattern; hand-edit sends NO emails, unlike /decline).
+3. **The CONTACT_EMAIL grep found a real live bug**: TWO assignments in /etc/idea/idea.env
+   (line 29 `idea@contactforsales.com`, line 75 `idea-uk@leopardess.uk`) — and in a systemd
+   EnvironmentFile the LAST wins, so the STALE dead address was the effective one in every
+   report email. Fix = delete line 75. Open owner question: line 29 is `idea@…` but the site DB
+   uses `idea.uk@contactforsales.com` — confirm which mailbox is real.
+
+   **Mutating the box was BLOCKED by the permission classifier** (read-only SSH allowed). Right
+   call — it is the live order store. Exact fix commands (backup → python status-flip of the five
+   ids → sed the env line → start + verify incl. `grep -ac "YOUR IDEA, ASSESSED" /opt/idea/idea`,
+   since the box has no `strings`) handed to the owner in-chat. UNVERIFIED until the owner runs
+   them: capacity should read `{"open":true,"active":0}`.
+
+**STAGES 1–5 BUILT & VERIFIED LIVE** (`sql/p4_13`, locks `p4_14`): creating-ideas / building-it /
+testing-it / user-acceptance / feedback-loops, nav_order 2–6 so the hub reads as the JOURNEY and
+feedback-loops chains into patents, joining the two halves. All five: authored (method not data —
+nothing checkable to fabricate), 3 sections each, rr=3/carried=0, curl-verified (~31KB each, 7
+h3s), locked after the p4_08 derive-guard passed. **All 9 guides now live: 27/27 sections locked,
+both hub listings deriving free.** One render batch quirk: 3 of 5 orchestrations COMPLETED fast,
+2 sat in deploy_page AWAITING_RESPONSES ~10 min under git-adapter backlog — the pages were already
+deployed+live while their orchestrations still showed in-flight; page state, not job state, was
+the truth again.

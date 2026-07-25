@@ -1263,3 +1263,23 @@ that's a margin question you may want to look at once you've seen a few real run
 One bonus from the same session: a test in the tool's own suite had been failing for a while —
 not because the tool was broken, but because the test was checking for an old wording of the
 payment email. Fixed, so the whole suite is green again and a real failure won't hide behind it.
+
+## 2026-07-25 (late) — your deploy checked out, the blockers explained, and the journey is complete
+
+Three findings from your deploy attempt. First: **your deploy worked** — the mangled output was
+just the pasted command splitting in two; the service restarted cleanly at 15:11 running the new
+binary. Second: the "at capacity" error is **five of your own old test orders** (June and mid-July,
+all to your address) sitting in "awaiting review" and "awaiting payment" — the tool counts those
+against its limit of five, so every slot is taken by a ghost. Third: your grep found a real bug —
+the settings file sets CONTACT_EMAIL **twice**, and the second, stale leopardess address is the one
+that wins. So report emails have been carrying a dead reply address. I wasn't permitted to change
+the live box myself (reasonable), so the exact fix commands are in the chat above: back up, release
+the five slots, delete the stale line, restart. One thing to confirm yourself: the surviving line
+says idea@contactforsales.com while the website uses idea.uk@contactforsales.com — check which
+mailbox actually exists.
+
+**And the guide journey is now complete.** Five new guides tonight: creating ideas, building it,
+testing it, user acceptance, and feedback loops. The Guides page now reads as the whole journey in
+order — create → build → test → acceptance → feedback → patents → copyright → funding ways →
+funding sources. Nine guides, every one hand-written, every one locked against automated rewriting,
+and every one funnelling to the £29 report. Two days ago that page was an empty heading.
