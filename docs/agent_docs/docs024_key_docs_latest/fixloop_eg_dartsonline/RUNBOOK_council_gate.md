@@ -187,6 +187,18 @@ fix, v1.0.1149; case CLOSED 2026-07-24), so the norm is reinforced without enfor
   too and treat `complete_invalid` as terminal (the error is in
   `collected_data->'__step_error'`). Cheap pre-check: unmarshal your JSON
   against the struct fields at lines 60–77 of the action file before firing.
+  - **Contributed 2026-07-25 (040-partial-build thread): a THIRD invalid run, same
+    morning, hit independently.** Same two causes in one submission — `risks` as an
+    array, `operation: "create"` — dispatched 08:34, dead at `complete_invalid` by
+    08:34:34, an hour before the bullet above was written. Two threads finding the
+    identical trap within an hour, neither able to warn the other, is the case for
+    validating **client-side in 097** rather than documenting harder: the struct is
+    four fields and the trigger already refuses out-of-scope paths before spending
+    credits, so it has the stage to do it in. Noting, not building — the gate
+    tooling is the council-gate thread's. Second-order trap worth more than the
+    schema itself: a submission that dies this way looks *exactly* like a queued
+    one to any watcher keyed on `diagnosis_artifacts` alone, and I lost an hour to
+    that (`WRONG_CALLS.md`, 2026-07-25).
 
 ## Honest limits (advisory mode)
 
