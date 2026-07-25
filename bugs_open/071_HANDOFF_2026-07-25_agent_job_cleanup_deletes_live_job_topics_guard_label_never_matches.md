@@ -206,8 +206,23 @@ design: `--describe` output carries **no timestamp field**; the cluster is
 with partitions spread across them (sampled topic: brokers 2 and 0) → a
 single-broker `exec` cannot stat all topics' data dirs; offset timestamps are
 message-age, not topic-age (empty topic → no signal). Round 2 resubmitted
-with all checks attached: PENDING at time of writing (verdict lands under the
-corr above).
+with all checks attached — **but its run (orch `92d87be0`) never verdicted: it
+wedged at `review_guardian` EXECUTING_STEP when the single-replica chassis was
+restarted at 10:36:45Z (another session's v1.0.1159 roll), 22 min into the
+step.** Council seats run in-process (zero `awaited_requests` rows), so the
+step died with the pod and nothing resumes it — a first-hand live instance of
+the 003-class fragility (F3 durable timers), observed from the submitter's
+side this time. Round 3 (orch `8da7ea0e`, content identical to round 2)
+resubmitted 13:53Z; verdict lands under the corr above.
+
+**Build-timing note for residual 1:** v1.0.1159 (the 10:36:45Z roll) was
+built ONE MINUTE before `5540d203e` landed (10:37:31Z — the commit stamp
+reads 11:37+01:00, the BST/UTC trap), so the label change is NOT in it:
+verified behaviourally — 18 dynamic-agent pods running, 0 match
+`-l spawned-by`. It rides the next chassis/spawner build after `5540d203e`.
+(A `strings`-on-binary pod-grep cannot verify this change at all: it adds no
+new unique literal — comments don't compile and both label strings pre-exist
+in the Job-labels map. The behavioural check above is THE post-roll check.)
 
 **Remaining open here:**
 1. Image roll carrying residual 1 (owner-gated via bug-003's parked roll).
