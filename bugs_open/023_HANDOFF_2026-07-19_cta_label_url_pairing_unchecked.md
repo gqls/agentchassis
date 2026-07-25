@@ -449,3 +449,91 @@ for. That does not fix it, but it moves the knowledge from "in the file that def
 two-hand-maintained-lists drift this council reviews for — the same trap the gate-roster
 mirror (`099_SYNC_gate_roster.py`) exists to prevent. Whatever emits it should be generated
 from the winner, after the flip.
+
+---
+
+## CONTRIBUTED FINDING (2026-07-25, idea-uk-vm-site session) — a SECOND self-link path, outside `resolve_internal_links`
+
+Filed here rather than as a new bug: `scripts/who-owns.py 023` says this file is owned and
+actively worked, and this is the same family. **Nothing here competes with the flip** — it is a
+different derivation, in the component schema layer, not in `ctaFieldNames`/`chooseCTATargets`.
+
+### What was observed (live, two sites, curl-verified — not inferred)
+
+`guide-list_pre_037` (`9d5e461a-8981-4ecc-b236-05895edfc15d`) renders, **on the guides hub
+itself**:
+
+```html
+<a class="guide-list-cta-btn" href="/guides/index.html">Browse all guides</a>
+```
+
+- gamesdesign.co.uk `/guides/index.html` — self-link (curl-verified 2026-07-25)
+- relojistas.com `/guias/index.html` — self-link (`cta_url=/guias/index.html` on its own hub)
+- idea.uk `/guides/index.html` — self-link, and worse: it sat directly under authored copy
+  promising a £29 report, so the label, the copy and the destination all disagreed.
+
+A dead control (destination = the page you are on) with a label that contradicts the copy beside
+it. Exactly this bug's shape, reached by a route this bug does not currently cover.
+
+### Mechanism — and it is NOT `chooseCTATargets`
+
+`chooseCTATargets` (`resolve_internal_links_action.go:319-350`) already **drops self-links**. This
+CTA never goes near it. It is resolved from the component's own `input_schema`:
+
+| field | source | effect |
+|---|---|---|
+| `cta_url` | `query.section_index_for:guide` | resolves to the guides hub — *the page the component lives on* |
+| `cta_button_label` | `static`, `fallback: 'Browse all guides'` | fallback written unconditionally |
+| `eyebrow_label` | `static`, `fallback: 'Guides'` | fallback written unconditionally |
+
+`queryresolve.section_index_for` has **no self-link guard**, unlike `chooseCTATargets`. So the
+same defect class has two independent derivations and only one of them is guarded — worth knowing
+before the flip declares `ctaFieldNames` the single owner of CTA truth, because it is not.
+
+**The `static`+`fallback` half is arguably nastier and is fully general, not guide-list-specific.**
+`plan_sections_action.go:1556-1562`:
+
+```go
+if source == "renderer" || source == "static" || ... {
+        if fallback != nil {
+                resolvedData[fieldName] = fallback
+        }
+        continue
+}
+```
+
+`resolved_data` merges **LAST**, so a `static` field with a `fallback` is an unconditional
+constant: `content_data` is never consulted. Yet both fields' own `llm_guidance` reads *"Override
+if the site tone prefers a different phrasing / calls for something more specific."* **You cannot
+override it.** The guidance is false, and it is the guidance an author (human or LLM) reads before
+writing the value that then gets silently discarded. **Any schema field with `source: static` and
+a non-null `fallback` is in this state** — worth a fleet sweep; I only checked this component.
+
+Also destructive, not merely presentational: the rerender writes resolved values **back into
+`page_components.content_data`**, so the authored value is gone from the DB after one render, not
+just absent from the HTML. That is what happened to idea.uk's `/report.html` target.
+
+### What I changed, and its blast radius
+
+`idea_uk_vm_site/sql/p4_04_guide_list_cta_overridable.sql` — on the shared component: dropped the
+query `source` from `cta_url` and the `fallback` from `cta_button_label` / `eyebrow_label`.
+`items` **keeps** `query.pages_where_type:guide` (that list must stay derived).
+
+**Verified no-op for the other three instances before writing**: all four already carry those three
+keys in `content_data` with exactly the values the resolver produced, so gamesdesign ×2 and
+relojistas ×1 render byte-identically. Whether *they* should keep a self-linking hub CTA is this
+workstream's call, not mine — I have not changed what they render.
+
+Known consequence, stated up front: a **new** guide-list instance with empty `content_data` now
+renders with no CTA button rather than an auto-filled self-link (the template gates on
+`{{if .cta_url}}`). That is this bug's own principle applied — do not emit a control with no
+authored destination — but it is a behaviour change for future instances, so it belongs in your
+flip's accounting.
+
+### Suggested for this bug's backlog (not done — owned here)
+
+1. Give `queryresolve.section_index_for` the same self-link guard `chooseCTATargets` has: it knows
+   the resolving page in the rerender path (`pageURL` is already threaded to `applyCTARecompute`).
+2. Sweep `input_schema` for `source: 'static' AND fallback IS NOT NULL` and decide per field
+   whether it is a genuine constant or a stolen override — then fix the `llm_guidance` that
+   promises an override that cannot happen.
