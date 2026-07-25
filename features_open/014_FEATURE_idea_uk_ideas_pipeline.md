@@ -93,6 +93,48 @@ rather than fork the funnel design.
 - Content is DERIVED on render (CTA urls, tool lists, page bodies) — the `idea-uk-vm-site`
   landmines apply to any new page/tool (verify against the live page, not the work-item).
 
+## BUILD LOG — increment 1 SHIPPED (2026-07-25): the patents guide
+
+Owner said *"Let's carry on with idea.uk specifically in this thread"*, so stage 6 (patents — his
+lead) was built, not just designed. **`/guides/patents/index.html` is LIVE** (HTTP 200 verified
+2026-07-25 08:42 UTC, 39,214 bytes, full chrome, every CTA funnelling to `/report.html`).
+
+**What this changed structurally, beyond one page:**
+
+- idea.uk had **zero** `page_type='guide'` pages and an **empty guides hub** — the hub's listing
+  component (`content-listing`) reads a STATIC `articles` array with no query source, so it would
+  never have picked up a guide however many were written. Swapped to `guide-list_pre_037`, which
+  sources `items` from `query.pages_where_type:guide`. **Every future guide now lists itself on the
+  hub with no further edit** — that is the reusable half of this increment.
+- The repeatable build path is written up as **RUNBOOK Phase 5** (`idea_uk_vm_site/`): create page
+  + sections with authored `content_data`, direct-fire a `section_data_resolved` page-rerender,
+  verify the LIVE page, backfill `pages.sections`, lock. It deliberately does **not** re-run
+  `build-site-planner` — re-planning to add one page is how built pages get clobbered
+  (`bugs_open/001`, `050`). Three traps documented, including the one that cost a round here
+  (`slot_name` NULL ⇒ renders nothing ⇒ job still reports COMPLETED).
+
+**Content policy set by this increment, and it should hold for the rest of the pipeline.** The body
+is **hand-authored**, not LLM-generated, and the sections are locked. Reason: claims-verification
+**V5** (the citation/evidence gate this feature already names as a dependency) is BUILT BUT INERT,
+and `bugs_open/043` is a live fabricated-content lane. Patents, copyright and funding eligibility
+are exactly the stages where a plausible invention is most costly. A draft error caught pre-ship
+makes the point: it claimed the IPEC *small claims track* makes patent enforcement affordable —
+that track does not hear patent claims at all. **Until V5 is live, stages 6–9 should be authored;
+stages 1–5 (ideate/build/test/UAT/feedback) are lower-stakes and can take generated copy.**
+
+SQL: `idea_uk_vm_site/sql/p4_01` (page+content), `p4_01b` (slot_name fix), `p4_01c`
+(`pages.sections` backfill), `p4_02` (hub swap), `p4_03` (locks). Full record incl. both missteps:
+`idea_uk_vm_site/RUNNING_NOTES §X.12`.
+
+**Remaining in flight at time of writing:** the hub's own re-render is queued behind a stalled
+generic-requests consumer (`bugs_open/029/030`) — the swap is in the DB but the live hub still
+shows the old empty listing until it drains. Verify with `curl`, not the DB.
+
+**Next stages, in the order that follows from this one:** copyright (7) pairs naturally with
+patents and reuses the same authored-content policy; then the funding pair (8 ways, 9 sources).
+The first Tier-1 free tool candidate is a "should you patent this?" checker hanging off this guide
+— still a design question (`013`), not started.
+
 ## Next step (when the owner prioritises this)
 
 Design pass, not build: pick the first 1–2 pipeline stages to instantiate (the **patents**
