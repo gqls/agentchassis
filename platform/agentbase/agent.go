@@ -889,9 +889,11 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 			zap.Error(err),
 			zap.Duration("duration", time.Since(startTime)))
 
-		// Check if this is a validation error
+		// Check if this is a validation error. Needles are shared with the
+		// messaging layer (bugs_open/034: the two lists had drifted, so the same
+		// error could be retried here and dropped one layer down, or vice versa).
 		errMsg := err.Error()
-		if needle := matchedValidationNeedle(errMsg); needle != "" {
+		if needle := messaging.MatchedValidationNeedle(errMsg); needle != "" {
 
 			contextLogger.Warn("Validation error in message processing - not calling handleProcessingError",
 				zap.Error(err),
@@ -927,28 +929,6 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 	}
 }
 
-// validationErrorNeedles are the substrings that agent message-processing
-// treats as a non-retryable validation failure. bugs_open/034 documents that
-// this match is unanchored: "invalid" also matches, e.g., "invalid character
-// 'w' after object key:value pair" from a truncated-LLM parse failure, so a
-// genuine runtime error can be classified here and dropped. Replacing this with
-// a typed sentinel is bugs_open/034 fix candidate 2; until then,
-// recordDroppedValidationError makes every drop queryable and records WHICH
-// needle fired so a misclassification is visible in the row.
-var validationErrorNeedles = []string{"is required", "validation", "invalid"}
-
-// matchedValidationNeedle returns the first validation needle contained in
-// errMsg, or "" if none — preserving the original substring semantics while
-// exposing which needle matched for the durable record.
-func matchedValidationNeedle(errMsg string) string {
-	for _, needle := range validationErrorNeedles {
-		if strings.Contains(errMsg, needle) {
-			return needle
-		}
-	}
-	return ""
-}
-
 // recordDroppedValidationError persists a dropped validation error to
 // agent_error_log so the failure class in bugs_open/034 stops being invisible.
 //
@@ -960,28 +940,20 @@ func matchedValidationNeedle(errMsg string) string {
 // message simply never existed. This writes a queryable, alertable row carrying
 // the correlation_id, message_id and full error text.
 //
+// The needle list and the INSERT both live elsewhere on purpose: the list in
+// platform/messaging (shared with the layer below, which makes the same
+// decision and had drifted to a different list), the INSERT in
+// platform/orchestration (one writer against agent_error_log, not a copy per
+// caller).
+//
 // Best-effort by design, mirroring recordUnknownVerdict (bugs_open/017,
 // c80fffc83): a failure to record must never change the drop decision the caller
 // already made. Severity is 'warning' — a genuine validation error is correctly
 // not retried — but the matched needle is recorded in context because the match
 // is unanchored (bugs_open/034) and may have caught a real runtime failure.
 func (a *Agent) recordDroppedValidationError(execCtx *types.ExecutionContext, messageType, matchedNeedle string, procErr error) {
-	if a.db == nil {
+	if a.db == nil || execCtx == nil || procErr == nil {
 		return
-	}
-
-	contextJSON, _ := json.Marshal(map[string]interface{}{
-		"correlation_id":  execCtx.CorrelationID,
-		"message_id":      execCtx.MessageID,
-		"request_id":      execCtx.RequestID,
-		"client_id":       execCtx.ClientID,
-		"message_type":    messageType,
-		"from_agent_type": execCtx.FromAgentType,
-		"matched_needle":  matchedNeedle,
-		"note":            "message dropped without retry or error response (see bugs_open/034). matched_needle is an unanchored substring — if this is not a genuine validation error, the classification in agent.go caught a real failure.",
-	})
-	if contextJSON == nil {
-		contextJSON = []byte("{}")
 	}
 
 	action := execCtx.Action
@@ -989,27 +961,35 @@ func (a *Agent) recordDroppedValidationError(execCtx *types.ExecutionContext, me
 		action = "process_message"
 	}
 
-	if _, err := a.db.ExecContext(a.ctx, `
-		INSERT INTO agent_error_log (
-			orchestration_id, agent_type, agent_id, pod_name,
-			step_name, action, error_message, error_code, severity, context
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
-	`,
-		execCtx.OrchestrationID,
-		a.AgentType,
-		a.AgentID,
-		a.PodName,
-		execCtx.StepName,
-		action,
-		procErr.Error(),
-		"VALIDATION_ERROR_DROPPED",
-		"warning",
-		string(contextJSON),
-	); err != nil {
-		a.logger.Warn("recordDroppedValidationError: could not persist to agent_error_log (drop decision unaffected)",
-			zap.Error(err),
-			zap.String("correlation_id", execCtx.CorrelationID))
-	}
+	// Detached from a.ctx on purpose: a.ctx is cancelled on shutdown, and a drop
+	// that happens as the pod drains is exactly the one nobody can otherwise see.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	orchestration.LogAgentError(ctx, a.db, a.logger, orchestration.AgentErrorEntry{
+		OrchestrationID: execCtx.OrchestrationID,
+		AgentType:       a.AgentType,
+		AgentID:         a.AgentID,
+		PodName:         a.PodName,
+		StepName:        execCtx.StepName,
+		Action:          action,
+		ErrorMessage:    procErr.Error(),
+		ErrorCode:       "VALIDATION_ERROR_DROPPED",
+		Severity:        "warning",
+		Context: map[string]interface{}{
+			"correlation_id":  execCtx.CorrelationID,
+			"message_id":      execCtx.MessageID,
+			"request_id":      execCtx.RequestID,
+			"client_id":       execCtx.ClientID,
+			"message_type":    messageType,
+			"from_agent_type": execCtx.FromAgentType,
+			"matched_needle":  matchedNeedle,
+			"dropped_at":      "agentbase.processMessage",
+			"retried":         false,
+			"responded":       false,
+			"note":            "message dropped without retry or error response (see bugs_open/034). matched_needle is an unanchored substring — if this is not a genuine validation error, the classification in agent.go caught a real failure.",
+		},
+	})
 }
 
 // handleProcessingError handles errors during message processing

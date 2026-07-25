@@ -11,6 +11,7 @@ package orchestration
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"strings"
 
@@ -39,7 +40,21 @@ type AgentErrorEntry struct {
 // logAgentError writes an error to the agent_error_log table.
 // Best-effort — failures are logged but don't affect the workflow.
 func (s *SagaCoordinator) logAgentError(ctx context.Context, entry AgentErrorEntry) {
-	if s.db == nil {
+	LogAgentError(ctx, s.db, s.logger, entry)
+}
+
+// LogAgentError is the package-level form of logAgentError, for callers that
+// hold a *sql.DB but not a SagaCoordinator — the agentbase and messaging layers
+// both need to persist a dropped message (bugs_open/034) and sit above this
+// package. Exported so there is ONE INSERT against agent_error_log rather than a
+// hand-rolled copy per caller: the column list, the NULLIF-uuid casts and the
+// best-effort contract are easy to get subtly wrong independently, and a third
+// divergent copy is the drift class this codebase keeps paying for.
+//
+// Best-effort by design. A failure to record must never change the disposition
+// the caller has already decided; it warns and returns.
+func LogAgentError(ctx context.Context, db *sql.DB, logger *zap.Logger, entry AgentErrorEntry) {
+	if db == nil {
 		return
 	}
 
@@ -55,7 +70,7 @@ func (s *SagaCoordinator) logAgentError(ctx context.Context, entry AgentErrorEnt
 		contextJSON = []byte("{}")
 	}
 
-	_, err := s.db.ExecContext(ctx, `
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO agent_error_log (
 			site_id, domain, work_item_id, orchestration_id,
 			agent_type, agent_id, pod_name, step_name, action,
@@ -70,8 +85,8 @@ func (s *SagaCoordinator) logAgentError(ctx context.Context, entry AgentErrorEnt
 		entry.AgentType, entry.AgentID, entry.PodName, entry.StepName, entry.Action,
 		entry.ErrorMessage, entry.ErrorCode, entry.Severity, string(contextJSON),
 	)
-	if err != nil {
-		s.logger.Warn("Failed to write to agent_error_log",
+	if err != nil && logger != nil {
+		logger.Warn("Failed to write to agent_error_log",
 			zap.Error(err),
 			zap.String("error_message", entry.ErrorMessage))
 	}

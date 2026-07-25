@@ -543,16 +543,20 @@ func (p *MessageProcessor) handleError(ctx context.Context, msgCtx *MessageConte
 	observability.AgentTasksProcessed.WithLabelValues(p.agentType, msgCtx.ExecutionContext.Action, errorType).Inc()
 
 	// CRITICAL: Check if this is a validation error - DO NOT RETRY THESE
+	// Needles live in validation_drop.go, shared with the agentbase layer, which
+	// makes the same decision (bugs_open/034: the two lists had drifted).
 	errMsg := err.Error()
-	if strings.Contains(errMsg, "is required") ||
-		strings.Contains(errMsg, "validation") ||
-		strings.Contains(errMsg, "invalid") ||
-		strings.Contains(errMsg, "missing") {
+	if needle := MatchedValidationNeedle(errMsg); needle != "" {
 
 		msgCtx.Logger.Warn("Validation error detected - NOT retrying to prevent infinite loop",
 			zap.Error(err),
 			zap.String("message_type", msgCtx.ExecutionContext.MessageType),
+			zap.String("matched_needle", needle),
 			zap.String("correlation_id", msgCtx.ExecutionContext.CorrelationID))
+
+		// bugs_open/034: the drop below is deliberate, but it used to leave no
+		// trace a DB query could find. Persist the drop before returning nil.
+		p.recordDroppedValidationError(msgCtx, needle, err)
 
 		// For validation errors, send an error response but DON'T return the error
 		if domainErr, ok := err.(*errors.DomainError); ok {
