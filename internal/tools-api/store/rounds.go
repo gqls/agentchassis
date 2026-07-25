@@ -70,3 +70,43 @@ func GetRound(
 	r.Verdict = json.RawMessage(verdict)
 	return &r, nil
 }
+
+// UpdateRoundPosition persists the user's position_text and the AI-generated
+// counter (counter_position + challenge) onto an existing round row.
+func UpdateRoundPosition(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	roundID string,
+	positionText string,
+	counter json.RawMessage,
+) error {
+	const q = `
+		UPDATE gauntlet_rounds
+		SET    position_text = $2,
+		       counter      = $3,
+		       updated_at   = now()
+		WHERE  id = $1`
+
+	_, err := pool.Exec(ctx, q, roundID, positionText, []byte(counter))
+	return err
+}
+
+// UpdateRoundVerdict persists the user's defence_text and the AI-generated
+// verdict (verdict + reasons) onto an existing round row.
+func UpdateRoundVerdict(
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	roundID string,
+	defenceText string,
+	verdict json.RawMessage,
+) error {
+	const q = `
+		UPDATE gauntlet_rounds
+		SET    defence_text = $2,
+		       verdict     = $3,
+		       updated_at  = now()
+		WHERE  id = $1`
+
+	_, err := pool.Exec(ctx, q, roundID, defenceText, []byte(verdict))
+	return err
+}

@@ -38,5 +38,15 @@ func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	apiGroup.POST("/round", handlers.RoundHandler(pool))
 	apiGroup.OPTIONS("/round", func(c *gin.Context) {})
 
+	// /position — POST returns {counter_position, challenge} via one LLM call.
+	// OPTIONS is registered explicitly for preflight support.
+	apiGroup.POST("/position", handlers.PositionHandler(pool, cfg))
+	apiGroup.OPTIONS("/position", func(c *gin.Context) {})
+
+	// /defend — POST returns {verdict, reasons} via one LLM call.
+	// OPTIONS is registered explicitly for preflight support.
+	apiGroup.POST("/defend", handlers.DefendHandler(pool, cfg))
+	apiGroup.OPTIONS("/defend", func(c *gin.Context) {})
+
 	return r
 }
