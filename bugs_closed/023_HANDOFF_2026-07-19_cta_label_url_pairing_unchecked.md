@@ -745,6 +745,33 @@ source. None is a control with an absent destination. *(A first pass of this swe
 six as failures because its rule was "no anchors at all with no data". The rule was wrong, not
 the components — a fixed, always-valid href is not this bug's defect.)*
 
+### The end-to-end re-render, and why it does not gate this closure
+
+A live section re-render of `leopardessconsulting.co.uk/who-we-help.html` (the page serving 6 of
+the fleet's 33 `href=""`) was queued to watch those controls disappear through the real pipeline.
+It is **still queued** behind the dispatch backlog — `bugs_open/030`/`029` territory, not this
+bug's. Work item `4ed13402-cc32-4f68-8fdc-84b38da8ced9` (`source='bugfix-023-gate-proof'`,
+`spec.reason='section_data_resolved'`, priority 1) is `triaged` and leopardess sorts **second** in
+the dispatcher's own `DISTINCT ON (site_id) … ORDER BY site_id` selection, so it will be picked;
+`build-pipeline-trigger` was simply not advancing while this was written.
+
+To check it later: `curl -s https://leopardessconsulting.co.uk/who-we-help.html | grep -c 'href=""'`
+— **6 today, expect 0 after that item completes.**
+
+It is deliberately not part of the closure bar. The mechanism is already proven above against the
+platform's own engine on this page's real data, and the property criterion 3 states is about the
+**library**, which is measured directly. Waiting on a queue owned by another open bug is exactly
+the coupling that kept this file un-closeable before (see the 2026-07-20 rewrite of the verify
+criteria).
+
+> **Dispatch observation, mechanism `[UNVERIFIED]`.** Three direct kcat fires of `page-rerender`:
+> the one with a bare `input_data` produced an orchestration and completed in ~6 min; the two
+> carrying an extra key (`reason`, then `spec`) produced **no `orchestration_states` row at all**
+> in 25+ minutes. That may be queue latency and may be payload rejection — I did not isolate it,
+> and the chassis pod's logs carry no line for any of the three correlations (including the one
+> that worked), so the spawned-pod logs are where it would show. **Use the work-item route when
+> the reason matters**; it is the path the platform itself uses.
+
 > **The one thing gating cannot do, stated plainly: it does not rewrite HTML that is already
 > deployed.** `page_components.rendered_html` is a stored artefact. Pre-existing dead controls
 > drain as pages re-render. This is exactly why `info-card-grid`'s 8 live `href=""` persisted on
