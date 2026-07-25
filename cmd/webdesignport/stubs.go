@@ -6,10 +6,6 @@ import "fmt"
 // the chrome being final, whereas transform is repo-local and can be finished
 // and QA'd first.
 
-func runImport(outDir, dsn, domain string, dryRun bool, only string) error {
-	return fmt.Errorf("not implemented yet — phase 6 (blocks on the sites row and final chrome)")
-}
-
 func runVerify(sitesDir, outDir, portDir, domain string) error {
 	return fmt.Errorf("not implemented yet — phase 8")
 }

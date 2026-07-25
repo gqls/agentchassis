@@ -35,9 +35,14 @@
 #
 # RELEASING A LEG (the airlock):
 #   1. echo "<item-uuid>" >> <allowlist file>
-#   2. psql: UPDATE site_work_items SET status='triaged' WHERE id='<item-uuid>';
-#   3. watch orchestration_states (NOT site_work_items.updated_at — bugs_open/035)
-#   4. when it completes, the next leg's item appears and is parked within
+#   2. WAIT one full interval. The loop reads the allowlist ONCE per cycle, so a
+#      flip that lands mid-cycle races the UPDATE built from the previous read
+#      and the item is re-parked instantly. That happened to needs_briefing on
+#      2026-07-25 and cost a confused minute: the allowlist was correct, the
+#      item was blocked, and neither fact explained the other.
+#   3. psql: UPDATE site_work_items SET status='triaged' WHERE id='<item-uuid>';
+#   4. watch orchestration_states (NOT site_work_items.updated_at — bugs_open/035)
+#   5. when it completes, the next leg's item appears and is parked within
 #      INTERVAL seconds. Read what the leg wrote, then release the next one.
 #
 # Usage:
@@ -85,11 +90,15 @@ while true; do
     RETURNING item_type || ' [' || COALESCE(handler_agent,'(no handler)') || '] ' || id;
   " 2>/dev/null || true)"
 
-  if [ -n "$(echo "$FLIPPED" | tr -d '[:space:]')" ]; then
-    while IFS= read -r line; do
-      [ -n "$line" ] && echo "[park $(date -u +%H:%M:%SZ)] PARKED $line"
-    done <<< "$FLIPPED"
-  fi
+  # psql prints its command tag ("UPDATE 0") alongside the RETURNING rows even
+  # under -t -A, so filter it out. Logging it made every idle cycle look like a
+  # park and would have hidden a real one in the noise.
+  while IFS= read -r line; do
+    case "$line" in
+      ""|UPDATE\ [0-9]*) continue ;;
+    esac
+    echo "[park $(date -u +%H:%M:%SZ)] PARKED $line"
+  done <<< "$FLIPPED"
 
   sleep "$INTERVAL"
 done
