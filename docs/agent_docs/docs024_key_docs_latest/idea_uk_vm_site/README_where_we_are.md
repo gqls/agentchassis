@@ -1283,3 +1283,30 @@ testing it, user acceptance, and feedback loops. The Guides page now reads as th
 order — create → build → test → acceptance → feedback → patents → copyright → funding ways →
 funding sources. Nine guides, every one hand-written, every one locked against automated rewriting,
 and every one funnelling to the £29 report. Two days ago that page was an empty heading.
+
+## 2026-07-25 (last entry of the day) — the funding finder and the report page, both done
+
+**The funding-fit finder is live** — https://idea.uk/tools/funding-fit/index.html — and listed on
+the Tools page alongside the others. Seven questions, two minutes, nothing stored. It's built on
+the same principle as the patent checker: the killer questions come first. If the money is really
+for living costs while you work things out, it says the honest thing nobody advertises — almost
+nothing funds that, and knowing it now saves you months of applications. If there's no evidence
+anyone wants the idea yet, it says: buy evidence first, cheaply, here's how. Only past those two
+gates does it map your answers onto actual routes — grants if the work is genuinely novel, angels
+or crowdfunding if you'd sell a share, bank routes if you can carry repayments, customer money if
+none of those fit — with the free front doors (growth hubs, the devolved agencies, the King's
+Trust for under-30s) signposted and a warning about anyone who charges to open free doors.
+
+**And the report page now tells the whole truth in both directions.** Since your decision to
+extend the tool, the page's promises (assessing your idea, sources you can check) are delivered —
+and I've added the part the page never mentioned: that the report also generates further ideas
+around your business, checks them against the live web, ranks the survivors with their own
+sources, and shows you what didn't make the cut and why. Two edits, verified live.
+
+**The Tools page now reads:** Verified Idea Report (£29) · Should you patent it? (free) · Which
+funding route fits? (free) · Free Audience Check. The Guides page carries all nine guides in
+journey order. Everything hand-written is locked; everything that lists is derived and will pick
+up whatever we add next; and every path ends at the report.
+
+Still with you: the three box commands from earlier (release the five stuck test slots, delete the
+stale email line, restart) — then one real end-to-end report to see the new format arrive.
