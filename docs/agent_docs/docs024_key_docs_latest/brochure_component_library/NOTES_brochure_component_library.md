@@ -1290,3 +1290,27 @@ this site: validate_page_content check 8 runs on every future build.
 
 index re-queued (needs_rebuild first) so the stat-band regenerates under the
 gate with the writer_block facts. Source: `sql/evidence_base_fundamentallyai.json`.
+
+## 2026-07-24 — wave-2 friction decoded (partially); SEQUENTIAL works; about PROVEN end-to-end
+
+Two theories REFUTED by evidence (recorded so nobody re-walks them): (1) the
+superseded-review reconciler only touches `status='needs_human_review'`
+(reconcile_superseded_reviews_action.go:96) — my items were triaged; (2) the
+two-strike rule counts terminal ROWS per item_key in 7 days
+(load_work_item_actions.go:1041-79) — these keys each have ONE row (my re-queues
+UPDATE it), 0 terminal rows. Working theory (fits both waves, unproven):
+single-flight per site — claiming one needs_page item parks the sibling triaged
+ones as unresolved. Fallback that WORKS: **sequential** — one page at a time,
+re-queue on completion.
+
+**about rebuilt & VERIFIED — the full plan-driven chain is proven:** 5
+components, `people-feature-block` RESTORED at position 3 straight from
+`site_plan_sections` and filled by the pipeline (no hand-render), leopardess
+story present in 3 components. Plan-level placement → rebuild → component
+survives: the clobber class is closed.
+
+**Backlog note:** operator-driven bulk rebuilds have no paved road — the immune
+mechanisms treat deliberate iteration as recurrence. A first-class "rebuild
+these pages" operation (or an operator flag the rules respect) is the fix.
+Sequential queue: capabilities (now) → multi-agent-review-council →
+model-fine-tuning → index (stat-band under the new evidence-base gate).
