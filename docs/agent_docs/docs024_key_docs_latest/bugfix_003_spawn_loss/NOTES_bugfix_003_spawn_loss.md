@@ -228,3 +228,38 @@ IMAGE_TAG), discriminating pod-greps (`RETRY_TICKER_CLAIMED`,
 mid-orchestration roll test, the child-kill lease test, the leopardess
 `ai-readiness-quiz` repro, the liveness restart re-test, and week-later reaper
 stats.
+
+## 2026-07-25 (later) — council round 1 REJECTED (guardian veto); D4 wrong call caught; round 2 submitted
+
+**Verdict (corr b896fc22, ~7 min after dispatch — no queue):** REJECTED, hard
+veto from guardian. 7 seats approved (reuse, guidelines, tooling_provenance,
+diagnosis_guardian, constitution, mission, prior_art), editquality +
+debug_historian objected, 6 abstained. Guardian's case: 7-file cross-package
+rewrite of the fleet's delivery guarantee = architecture-change territory;
+named alternative = split the roll (stage 1: mig 205 + context.go + a
+ticker-only retry driver; stage 2: the at-least-once/dedupe rewrite via its
+own review). debug_historian's HIGH: the submission stated no post-roll
+pod-verification procedure (it exists in PLAN/bug file — a submission gap, not
+a work gap). **Images NOT rolled; parked pending the verdict.**
+
+**The veto caught a real error of mine:** the submission claimed "ratified D4:
+F2+F3 ship together". D4 verbatim binds **F3's two halves** (offset-commit +
+completion-dedupe), not F2-to-F3 — the one-roll scope was the owner's choice,
+not a ruling. Logged in WRONG_CALLS.md; memory corrected. Checking the
+pre-edit code showed the guardian's stage 1 would in fact FUNCTION — pre-edit
+HasProcessedMessage matches retry_version exactly, so a v1 resend passes, and
+the caller swallows RecordMessageProcessing's unique-violation error and
+processes anyway — but through an accidental fail-open (ERROR log per retry,
+dedupe row stale at v0), and it leaves restart-annihilation unfixed.
+
+**Round 2 submitted** (same trail corr, run f995d99b, orchestration name
+council-gate-095112): edits unchanged; rationale corrects the D4 claim,
+names blast radius per-service (agentbase+messaging link ONLY into
+agent-chassis; 13 kafka importers use untouched surfaces; two images change
+behaviour), replaces the Consume-deletion grep claim with the compile proof,
+quotes the pod-verification + induced-fault procedure verbatim, concedes the
+idle_timeout piggyback and the missing pre-DDL dump, and engages the split on
+the merits (viable-by-accident, plus the practical fact that the change is
+already committed on the shared branch, so a true split now requires a revert
+commit — that churn decision goes to the owner if the council still prefers
+it). If round 2 rejects: owner decision packet, no roll.
