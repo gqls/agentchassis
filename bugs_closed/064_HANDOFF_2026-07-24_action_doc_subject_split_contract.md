@@ -1,9 +1,10 @@
 # 064 — doc-subject split contract: the DB accepts subject types the doc actions reject
 
 Filed 2026-07-24 (session "experience register", found during register design research and
-verified first-hand). Status: **OPEN — fix committed `c9cc95a5a` 2026-07-24, inert until the
-next image roll** (see "Fix taken" below). Severity: low-medium — no data loss, but a seeded
-capability is silently unreachable and one note path silently drops valid subjects.
+verified first-hand). Status: **CLOSED 2026-07-25 — fixed `c9cc95a5a` AND LIVE on
+v1.0.1156, both branches behaviourally verified on the running pod** (see "Live verification"
+below). Severity: low-medium — no data loss, but a seeded capability was silently unreachable
+and one note path silently dropped valid subjects.
 
 ## Mechanism
 
@@ -105,7 +106,32 @@ candidate 1 (preferred) implemented, commit **`c9cc95a5a`**:
   '"pipeline"'` → only hit is `validDocSubjectTypes` itself; the only other subject-type
   comparison grep hit is `page_role_validator.go` (page *roles*, unrelated domain).
 
-**Stays OPEN until live** (fixed-AND-live bar): after the next image roll, verify with the
-discriminating pod-grep (a string the change CREATED, e.g. `unsupported subject_type`, plus a
-positive control) and then the live proof above — a scratch `load_doc_context` with
-`subject_type='action'`, `subject_key='diagnose_build_gate'` returning the 184-seeded plan.
+## Live verification — 2026-07-25, image v1.0.1156 (CLOSED)
+
+Image rolled (pod `agent-chassis-bdd85599c-l8sv2`, deployment image
+`docker.io/aqls/agent-chassis:v1.0.1156`, `c9cc95a5a` confirmed ancestor of HEAD).
+
+1. **Discriminating pod-grep PASSED** — both strings the change CREATED present in the
+   running binary (`strings /app/agent-chassis`): `unsupported subject_type` ×1,
+   `subject_type must be one of` ×1; positive control `persist_diagnosis_note` ×6.
+2. **Positive branch PROVEN live** — scratch one-step agent_definition
+   `scratch-docsubject-064` (sole step `load_doc_context`, config
+   `subject_type='action'`, `subject_key='diagnose_build_gate'`), fired via the kcat
+   `orchestrate` envelope (durable-write-guard 021 harness pattern). Orch `91d550a2`:
+   `complete | COMPLETED`, `collected_data->doc_context_result` = `has_plan: true` with the
+   full 184-seeded PLAN body + 1 note — the exact call that errored at `docResolveSubject`
+   before the fix.
+3. **Negative branch PROVEN live** (per [[verify-the-failing-branch]] — the gate must still
+   reject, not fail open) — same definition flipped to `subject_type='site'`, orch
+   `f74d2442`: `load_docs | FAILED` with the new error verbatim:
+   `load_doc_context: subject_type must be one of 'tool', 'pipeline', 'experience',
+   'action', got "site"`.
+4. **Cleanup verified 0 remaining** — deleted the scratch agent_definition, both
+   orchestration_states, 10 audit rows; `agent_error_log` had no rows for either run
+   (checked by orchestration_id AND by message content), so nothing for the immune-system
+   sweep to mis-triage; the three `action` doc_plans untouched (loader is read-only).
+
+Both consequences 1 and 2 are therefore dead on the live fleet; consequence 3's gate now
+accepts `experience`/`action` and logs distinct reasons (unit-tested; the shared
+`docSubjectGateReason` is the same code path pod-grepped above). Fixed AND live → CLOSED,
+moved to `bugs_closed/`.
