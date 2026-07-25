@@ -667,3 +667,54 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   feature-builder's own retro: an LLM-call smoke test at implementer gate
   time (even a mocked/dry-run client-construction check) would have caught
   the last one before merge.
+
+## 2026-07-25 ~15:40 — liveness evidence carried in; experience re-plan re-fired
+
+- Migration 207 (next free number, verified against both dir+ledger) replaces
+  197's API_BASE placeholder sentence with the concrete verified URL
+  (https://tools.apis.uk) + a compact citation of the real round-trip run
+  earlier this turn (both endpoints, both status codes, the "opponent wins"
+  verdicts, the 503-not-502 note). Probed clean, applied by hand (psql,
+  BEGIN/COMMIT + the migration's own DO-block guards all passed), ledgered via
+  --record-only (the runner's bare --apply would have swept 6 other threads'
+  unrelated pending migrations — 198/203×2/204/206×2 — not touched).
+- Checked for concurrent experience-planner activity before firing: none in
+  the last 3h on this corr/target. Chassis pod ~14min old (past the 300s
+  spawn-drop window).
+- Fired `092_TRIGGER_experience_plan.sh vonc.com vonc-spark-game` — corr
+  `fcdf8e72-30ed-45ed-b01f-a5d6f81e3965`. ONE fire, patient watcher running
+  (no auto-refire). Acceptance bar unchanged from the PLAN doc: only accept
+  `approved` + `abstained:0` + `reviewers:5`; anything else stays
+  REJECTED-do-not-build on `is_current`.
+
+## 2026-07-25 ~16:20-16:40 — round 4 truncation, fixed, then found the run was ALIVE the whole time
+
+- The wrapper orchestration (corr fcdf8e72) went FAILED at ~16:19 with
+  `review_feasibility` truncating (stop_reason=max_tokens, cap=8000, only 1649
+  chars recovered). Diagnosed: all 5 experience-planner reviewer seats share
+  the same 8000 cap and the same structural pattern (extended-thinking model +
+  compact JSON output) as the already-fixed bugs_closed/067 (whole-artifact
+  re-emitters). 067's own addendum flagged this exact risk on reviewer seats
+  and left it unswept. Migration 208 raises all 5 reviewer seats 8000→16000
+  (probed clean, applied by hand, ledgered). Numbering collision with another
+  thread's 208_webdesign_ported_page_component.sql — coexists by filename per
+  established ledger convention.
+- **Before re-firing, checked for a live orchestration and found one**: the
+  SPAWNED planner (orch `437df463`, separate from the dead wrapper) had kept
+  running independently through the wrapper's failure and had already reached
+  round 4's real verdict — a 4th `revise` — while I was mid-diagnosis, using
+  the OLD 8000 cap (it must have retried/tolerated the truncation internally;
+  the platform's aiservice partial-content handling — see anthropic.go's
+  TruncatedError comment re bugs_open/019 — plausibly carried it through).
+  **Did NOT re-fire** — would have raced a live run. Switched to watching
+  `437df463` by orchestration_id instead of the dead wrapper's correlation.
+  This is the immune-system-style self-healing this class of bug depends on;
+  worth noting as a positive data point, not just the failure.
+- 208 stays live regardless: it removes the truncation risk for future
+  rounds/reviewers rather than relying on tolerance-of-partial-content luck
+  every time.
+- Round count so far: 4 REVISE rounds (journeys/feasibility/honesty/mvp/
+  contracts all substantively engaging — real design objections, not process
+  noise; feasibility stopped objecting to the backend after round 3, once 207
+  landed — the liveness-evidence channel is confirmed working). Round 5 now
+  composing.
