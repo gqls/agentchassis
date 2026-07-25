@@ -2566,3 +2566,24 @@ content_data-driven (so nothing wants to regenerate them) rather than by freezin
 as a `doc_note` under `component_locks` and corrected by `p4_08`. More generally: this is the
 second entry today where I described platform behaviour confidently from intent rather than from
 the code — see the queued-vs-dropped-spawn entry above. Both were one grep or one query away.
+
+**2026-07-25 — a pathspec commit of a `git mv` took the new files and left the
+staged deletions, and committed HEAD did not compile for ~50 minutes.** Phase E
+renamed three files (`git mv model_directory_items.go directory_items.go`, etc.).
+A mv stages a delete(old)+add(new) PAIR; my commit named only the new paths, so
+the four old files stayed in HEAD alongside their renamed copies —
+`ModelDirectoryClaim redeclared in this block`, `QueryModelDirectoryEntries
+redeclared` — and any concurrent session running the committed-HEAD image build
+(`make build-<service>`, the fleet default) in that window would have failed at
+compile. Verified by actually building `git archive HEAD` — which is also the
+**cheap check I skipped**: the shared-tree rule I already carry
+([[shared-tree-wont-compile]]) says test against `git archive HEAD` + your files,
+and I built the *working tree* instead, where both halves of the mv are present
+and everything passes. Caught by an end-of-task `git status` sweep noticing four
+staged `D` entries that were "mine" but uncommitted. The trap generalises: **the
+commit-per-task pathspec discipline and `git mv` interact badly** — the pathspec
+must name BOTH sides of every rename (old path and new), exactly as CLAUDE.md's
+"name it twice" rule for `add`+`commit` of new files, one file earlier in the
+same lifecycle. Loud failure, so cheap as these go: a build break announces
+itself, unlike the silent classes this file mostly records. Family:
+rename-is-two-paths, verified-the-wrong-tree.
