@@ -162,16 +162,54 @@ WHERE dc.is_current
 ORDER BY de.slug, dc.field;
 ```
 
-## Direct kcat dispatch — the FULL header set is load-bearing (2026-07-25)
+## Direct kcat dispatch — DID NOT WORK 2026-07-25, cause unknown (read this first)
+
+> **CORRECTED 2026-07-25, ~90 minutes after this section was written.** The
+> heading below used to read "the FULL header set is load-bearing" and the
+> text asserted that a dispatch with only three headers "produces NO
+> orchestration row and NO error" *because* of the missing headers. That was
+> a cause invented to fit one observation, and the next five observations
+> refuted it: **five direct `orchestrate` dispatches between 08:52 and 09:04
+> — one with three headers, four with the full ten — produced ZERO
+> orchestration rows between them.**
+>
+> ```
+> 8537b5b2… rows=0   (nav-updater, 3 headers)
+> 17f8c187… rows=0   (page-rerender, 10 headers)
+> 4e759bc5… rows=0   (nav-updater, 10 headers)
+> 010f7649… rows=0   (adoption-researcher, 10 headers)
+> 547a85a4… rows=0   (adoption-researcher, 10 headers, output not suppressed)
+> ```
+>
+> What is actually established: in that window the chassis was healthy and
+> consuming `system.agent.generic.requests` normally (its log shows
+> orchestrations starting from other producers throughout, e.g. correlation
+> `b01b5d22` at 09:06), the pod had been up since 08:24:37 so the
+> ~300s-after-restart rule did not apply, and **not one of the five
+> correlation ids appears anywhere in the chassis log** — so the messages
+> were not received, rather than received and dropped. Whether kcat produced
+> them at all is [UNVERIFIED]; `kubectl run -i` exits 0 and prints nothing
+> either way, which is why this failed silently five times.
+>
+> The same pattern DID work on 2026-07-24 (corr `03ee816c`, proven), so this
+> is not "direct dispatch never works". **Until someone establishes the
+> cause: use the work-item queue instead** — set an item's `status='triaged'`
+> and let the dispatch loop claim it. That path was verified working in the
+> same window (the nav_drift item and a page-build item were both claimed and
+> run). Treat everything below as a recipe whose delivery you must CONFIRM,
+> not assume: after firing, check for the correlation in
+> `orchestration_states` AND in the chassis log, and if neither shows it in a
+> few minutes, stop and use the queue.
+
+## Direct kcat dispatch — the ten-header recipe (delivery unconfirmed 2026-07-25)
 
 Bypassing the build-dispatch queue (wedged again 2026-07-25: the
 `build-pipeline-trigger` orchestration sat `spawn_dispatch |
 AWAITING_RESPONSES` for 15+ minutes, so nothing was claimed on any site)
-means firing an agent at `system.agent.generic.requests` directly. The trap:
-**a dispatch with only `correlation_id`/`client_id`/`request_id` produces NO
-orchestration row and NO error.** Nothing rejects it, nothing logs it; it
-simply never becomes a run. Ten headers are needed, per
-`cta_link_integrity/scripts/049b_deploy_single_page.sh`:
+means firing an agent at `system.agent.generic.requests` directly. The ten
+headers below are what `cta_link_integrity/scripts/049b_deploy_single_page.sh`
+uses and are the shape to copy; note the correction above — sending them is
+not sufficient, and a dispatch that goes nowhere reports nothing:
 
 ```bash
 dispatch() {   # dispatch <agent_type> <input_data_json> <label>
