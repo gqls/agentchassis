@@ -1,0 +1,242 @@
+{
+  "_why": "The 30 pages no source index links, plus per-entry overlays onto the harvested catalogue. `harvest` merges: harvested cards (51 tools + 13 articles) + these additions + these overlays -> catalogue.json. Labels and descriptions below are the pages' OWN h1 and lede, read from the source, not invented.",
+
+  "learn_categories": {
+    "accessibility": "Accessibility",
+    "algorithms": "Algorithms & Statistics",
+    "communities": "Data & Communities",
+    "marketing": "Search & Marketing",
+    "ai-builders": "AI Builders",
+    "operations": "Running a Site"
+  },
+
+  "tools": [
+    {
+      "source": "website-design.com/tools/clip-path/index.html",
+      "slug": "clip-path", "label": "Clip-Path Builder", "category": "Design & Visuals", "qa_tier": 2,
+      "description": "Crop elements into triangles, hexagons or abstract shards by dragging the points.",
+      "keywords": ["clip-path", "shape", "polygon", "css", "crop", "mask"]
+    },
+    {
+      "source": "website-design.com/tools/cubic-bezier/index.html",
+      "slug": "cubic-bezier", "label": "Cubic Bezier Architect", "category": "Design & Visuals", "qa_tier": 1,
+      "description": "Drag the handles to shape a custom easing curve and make UI motion feel deliberate.",
+      "keywords": ["easing", "bezier", "animation", "timing", "curve", "transition"]
+    },
+    {
+      "source": "website-design.com/tools/magic-outliner/index.html",
+      "slug": "magic-outliner", "label": "Magic Wand Outliner", "category": "Design & Visuals", "qa_tier": 1,
+      "description": "Click any region of a flat image to trace its border with a flood-fill and contour trace.",
+      "keywords": ["outline", "trace", "svg", "map", "flood fill", "contour", "image"]
+    },
+    {
+      "source": "website-design.com/tools/noise-generator/index.html",
+      "slug": "noise-generator", "label": "SVG Noise Generator", "category": "Design & Visuals", "qa_tier": 2,
+      "description": "Generate a sub-1KB feTurbulence filter as a data URI, instead of shipping a 1MB noise PNG.",
+      "keywords": ["noise", "texture", "svg", "grain", "feturbulence", "background"]
+    },
+
+    {
+      "source": "websitedesign.com/tools/blueprint-compiler/index.html",
+      "slug": "blueprint-compiler", "label": "AI Site Blueprint Compiler", "category": "AI, Growth & Algo", "qa_tier": 1,
+      "subtitle": "A sequential prompt deck for building a whole site",
+      "description": "Define the pages and strict parameters an AI builder must follow, then compile them into a phased prompt deck.",
+      "keywords": ["ai", "prompt", "sitemap", "blueprint", "builder", "phased"]
+    },
+    {
+      "source": "websitedesign.com/tools/insight-injector/index.html",
+      "slug": "insight-injector", "label": "Anti-Slop Insight Injector", "category": "AI, Growth & Algo", "qa_tier": 2,
+      "subtitle": "Constrains AI writing before it is generated",
+      "description": "Force AI copy to be built around hard facts, and ban generic LLM vocabulary outright.",
+      "keywords": ["ai", "slop", "copy", "prompt", "facts", "banned words"]
+    },
+    {
+      "source": "websitedesign.com/tools/seo-injector/index.html",
+      "slug": "seo-injector", "label": "JSON-LD SEO Injector", "category": "AI, Growth & Algo", "qa_tier": 2,
+      "subtitle": "LocalBusiness schema, as an AI-builder prompt",
+      "description": "Turn local business details into strict LocalBusiness JSON-LD wrapped in a prompt.",
+      "keywords": ["seo", "schema", "json-ld", "local business", "structured data"]
+    },
+    {
+      "source": "websitedesign.com/tools/monolith-splitter/index.html",
+      "slug": "monolith-splitter", "label": "Monolith Splitter", "category": "Performance & Code", "qa_tier": 2,
+      "subtitle": "Refactor prompts for oversized generated files",
+      "description": "Safely refactor giant AI-generated files into modular components without breaking the logic.",
+      "keywords": ["refactor", "modular", "components", "prompt", "monolith"]
+    },
+    {
+      "source": "websitedesign.com/tools/asset-formatter/index.html",
+      "slug": "asset-formatter", "label": "Asset Dictionary", "category": "Performance & Code", "qa_tier": 2,
+      "description": "Map hosted image URLs to semantic keys so an AI builder stops inventing stock photos.",
+      "keywords": ["assets", "images", "urls", "dictionary", "prompt", "cdn"]
+    },
+    {
+      "source": "websitedesign.com/tools/rls-architect/index.html",
+      "slug": "rls-architect", "label": "Supabase RLS Architect", "category": "Security & Engineering", "qa_tier": 2,
+      "description": "Define row-level security rules for your tables before an AI-built app leaks data.",
+      "keywords": ["supabase", "rls", "security", "postgres", "policy", "database"]
+    },
+    {
+      "source": "websitedesign.com/tools/micro-cms/index.html",
+      "slug": "micro-cms", "label": "Flat-File Micro CMS", "category": "Creative & Workflow", "qa_tier": 1,
+      "description": "Edit a page visually in the browser, with fifty checkpoints of version history. Everything stays in your own browser storage.",
+      "keywords": ["cms", "editor", "indexeddb", "wysiwyg", "versions", "local"]
+    },
+    {
+      "source": "websitedesign.com/tools/vibe-equalizer/index.html",
+      "slug": "vibe-equalizer", "label": "Vibe Equalizer", "category": "Design & Visuals", "qa_tier": 1,
+      "subtitle": "Mood sliders with a live preview",
+      "description": "Move four sliders — mood, density, depth, radius — and watch the CSS variables, shadows and type respond.",
+      "keywords": ["design tokens", "mood", "sliders", "preview", "css variables", "theme"]
+    }
+  ],
+
+  "learn": [
+    {
+      "source": "website-design.com/learn/accessibility/focus-states.html",
+      "slug": "focus-states", "category": "accessibility", "label": "The Invisible Focus", "qa_tier": 3,
+      "description": "Every junior designer eventually asks whether that blue outline can go. Here is why it cannot, and what to do instead.",
+      "keywords": ["focus", "outline", "keyboard", "accessibility", "a11y"]
+    },
+    {
+      "source": "website-design.com/learn/accessibility/touch-targets.html",
+      "slug": "touch-targets", "category": "accessibility", "label": "The 44px Rule", "qa_tier": 3,
+      "description": "We build on laptops with precision trackpads; people use glass screens with thumbs. That gap has a measurable size.",
+      "keywords": ["touch", "target", "mobile", "thumb", "accessibility", "44px"]
+    },
+    {
+      "source": "website-design.com/learn/algorithms/bayesian-theory.html",
+      "slug": "bayesian-theory", "category": "algorithms", "label": "The Bayesian Truth: Why 5.0 < 4.8", "qa_tier": 3,
+      "description": "Sorting by average star rating seems obvious, and it is wrong. What one five-star review actually tells you.",
+      "keywords": ["bayesian", "rating", "average", "ranking", "statistics", "reviews"]
+    },
+    {
+      "source": "website-design.com/learn/algorithms/p-values-explained.html",
+      "slug": "p-values-explained", "category": "algorithms", "label": "Don't Be Fooled by Randomness", "qa_tier": 3,
+      "description": "Conversions went from 5% to 6% after you changed a button. Was it the button, or was it a lucky Tuesday?",
+      "keywords": ["p-value", "significance", "ab testing", "statistics", "randomness"]
+    },
+    {
+      "source": "website-design.com/learn/algorithms/recommendation-math.html",
+      "slug": "recommendation-math", "category": "algorithms", "label": "How Netflix Knows What You Want", "qa_tier": 3,
+      "description": "Recommendation engines do not know whether a song is sad or happy. They know one thing: vectors.",
+      "keywords": ["recommendation", "cosine", "similarity", "vectors", "collaborative filtering"]
+    },
+    {
+      "source": "website-design.com/learn/communities/graph-vs-relational.html",
+      "slug": "graph-vs-relational", "category": "communities", "label": "The Architecture of Connection", "qa_tier": 3,
+      "description": "Relational tables are neat and rigid. When your data is mostly relationships, that rigidity starts to cost you.",
+      "keywords": ["graph", "database", "sql", "relational", "connections", "schema"]
+    },
+    {
+      "source": "website-design.com/learn/data/unicode-gremlins.html",
+      "slug": "unicode-gremlins", "category": "data", "label": "The Invisible Characters Breaking Your Code", "qa_tier": 3,
+      "description": "You paste a snippet that looks perfect and get a SyntaxError. The characters you cannot see are the problem.",
+      "keywords": ["unicode", "invisible", "zero width", "encoding", "paste", "syntax error"]
+    },
+    {
+      "source": "website-design.com/learn/design/ambient-occlusion-css.html",
+      "slug": "ambient-occlusion-css", "category": "design", "label": "Ambient Occlusion in CSS", "qa_tier": 3,
+      "description": "Real shadows are gradients of light deprivation, darkest where an object touches its surface. CSS can say that.",
+      "keywords": ["shadow", "ambient occlusion", "depth", "css", "realism", "light"]
+    },
+    {
+      "source": "website-design.com/learn/design/css-grid-math.html",
+      "slug": "css-grid-math", "category": "design", "label": "Fractional Layouts", "qa_tier": 3,
+      "description": "Percentages broke the moment you added a margin. The fr unit exists because of that arithmetic.",
+      "keywords": ["grid", "fr", "layout", "css", "fractions", "percentage"]
+    },
+    {
+      "source": "website-design.com/learn/marketing/seo-for-llms.html",
+      "slug": "seo-for-llms", "category": "marketing", "label": "Optimizing for LLMs: Beyond Keywords", "qa_tier": 3,
+      "description": "For twenty years we wrote for ten blue links. People now ask a model instead, and it reads differently.",
+      "keywords": ["seo", "llm", "ai search", "keywords", "content", "answers"]
+    },
+
+    {
+      "source": "websitedesign.com/guides/anti-slop.html",
+      "slug": "anti-slop", "category": "ai-builders", "label": "Preventing AI Slop: A Quality Manifesto", "qa_tier": 3,
+      "description": "AI tools are efficient at generating code and equally efficient at generating generic web pollution. A stance on avoiding the second.",
+      "keywords": ["ai", "slop", "quality", "content", "generic", "manifesto"]
+    },
+    {
+      "source": "websitedesign.com/guides/content-first.html",
+      "slug": "content-first", "category": "ai-builders", "label": "The Content-First Strategy for Starter Sites", "qa_tier": 3,
+      "description": "Before complex platforms and dynamic databases you need traffic. Why flat HTML is the smartest foundation for a new site.",
+      "keywords": ["content first", "static", "html", "strategy", "traffic", "starter"]
+    },
+    {
+      "source": "websitedesign.com/guides/v0.html",
+      "slug": "v0", "category": "ai-builders", "label": "Understanding v0 by Vercel", "qa_tier": 3,
+      "description": "A tool built strictly for generating front-end interfaces — a realistic look at how it works and where it fits.",
+      "keywords": ["v0", "vercel", "ai builder", "frontend", "ui", "react"]
+    },
+    {
+      "source": "websitedesign.com/guides/lovable.html",
+      "slug": "lovable", "category": "ai-builders", "label": "Understanding Lovable", "qa_tier": 3,
+      "description": "A full-stack AI platform that builds the interface and the database logic at once. How that actually plays out.",
+      "keywords": ["lovable", "ai builder", "full stack", "database", "generation"]
+    },
+    {
+      "source": "websitedesign.com/guides/bolt.html",
+      "slug": "bolt", "category": "ai-builders", "label": "Understanding Bolt.new", "qa_tier": 3,
+      "description": "A traditional development environment placed inside the browser and paired with an AI assistant. It rewards a different approach.",
+      "keywords": ["bolt", "ai builder", "browser", "ide", "webcontainer"]
+    },
+    {
+      "source": "websitedesign.com/guides/browser-storage.html",
+      "slug": "browser-storage", "category": "operations", "label": "The Realities of Browser Storage", "qa_tier": 3,
+      "description": "Our tools keep your data in your own browser rather than on a server. What that means for backups, limits and losing things.",
+      "keywords": ["indexeddb", "localstorage", "browser", "storage", "backup", "privacy"]
+    },
+    {
+      "source": "websitedesign.com/guides/scaling.html",
+      "slug": "scaling", "category": "operations", "label": "The 70% Wall", "qa_tier": 3,
+      "description": "AI platforms take a prompt to a beautiful, functional application — and then progress slows sharply. Why, and what to do about it.",
+      "keywords": ["scaling", "ai", "mvp", "limits", "maintenance", "70 percent"]
+    },
+    {
+      "source": "websitedesign.com/guides/maintenance.html",
+      "slug": "maintenance", "category": "operations", "label": "The Hidden Cost of AI: Three Maintenance Problems", "qa_tier": 3,
+      "description": "An AI builder optimises for immediate visual feedback, not long-term readability. Maintaining the result is a separate skill.",
+      "keywords": ["maintenance", "technical debt", "ai", "readability", "refactor"]
+    }
+  ],
+
+  "_dropped_why": "Deliberate omissions, recorded so that `harvest` can tell a considered drop from an accidental one — it fails if any source page is neither catalogued nor listed here.",
+  "dropped": {
+    "websitedesign.com/tools/local-builder/index.html": "The client-side LLM builder the owner asked to skip: downloads an ~800MB Llama model over WebGPU. Dropping it also removes the site's only esm.run dependency and its only WebGPU requirement.",
+    "websitedesign.com/guides/local-ai.html": "Documents the skipped local-builder tool — nothing to point at once it is gone.",
+    "websitedesign.com/guides/hosting-economics.html": "Byte-identical to local-ai.html (verified with diff — same title, same h1 'Understanding the Local AI Builder'). The hosting-economics content was never written, so there is nothing here to carry over."
+  },
+
+  "_overlays_why": "Subtitles disambiguate the five near-duplicate pairs identified in PLAN D7 — the pages are genuinely different tools, but their names do not say so. QA tier 1 marks anything with canvas, file upload, clipboard or IndexedDB: those need a real browser session, not a click-through.",
+  "overlays": {
+    "seo-schema":     { "subtitle": "Article, Product and FAQ JSON-LD" },
+    "text-sanitizer": { "subtitle": "Cleans up AI writing after the fact" },
+    "css-variables":  { "subtitle": "Generates a design-token theme file" },
+    "shadow-stacker": { "subtitle": "Manual, layer by layer" },
+    "smooth-shadow":  { "subtitle": "Parametric — set softness and distance" },
+    "prompt-architect":   { "subtitle": "For image prompts" },
+    "logic-architect":    { "subtitle": "For branching prompt trees", "qa_tier": 1 },
+    "prompt-permutator":  { "subtitle": "For permutation matrices" },
+
+    "bg-remover":       { "qa_tier": 1 },
+    "image-optimizer":  { "qa_tier": 1 },
+    "meme-generator":   { "qa_tier": 1 },
+    "favicon-maker":    { "qa_tier": 1 },
+    "animated-favicon": { "qa_tier": 1 },
+    "white-balance":    { "qa_tier": 1 },
+    "mesh-gradient":    { "qa_tier": 1 },
+    "golden-ratio":     { "qa_tier": 1 },
+    "social-card":      { "qa_tier": 1 },
+    "blob-maker":       { "qa_tier": 1 },
+    "pasteboard":       { "qa_tier": 1 },
+    "mind-map":         { "qa_tier": 1 },
+    "smart-contrast":   { "qa_tier": 1 },
+    "text-extractor":   { "qa_tier": 1 },
+    "sri-generator":    { "qa_tier": 1 },
+    "oklch-picker":     { "qa_tier": 1 },
+    "fluid-typography": { "qa_tier": 1 }
+  }
+}

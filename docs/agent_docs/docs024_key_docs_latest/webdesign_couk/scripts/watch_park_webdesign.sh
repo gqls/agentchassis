@@ -70,7 +70,10 @@ echo "[park] site_id=$SITE_ID — parking active"
 
 while true; do
   # Allowlist as a SQL literal list. Empty file => a sentinel that matches nothing.
-  IDS="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$ALLOWLIST" 2>/dev/null | sort -u | sed "s/^/'/;s/$/'/" | paste -sd, -)"
+  # The `|| true` is load-bearing: under `set -o pipefail` a grep that matches
+  # nothing (i.e. an empty allowlist — the normal state) fails the whole pipeline
+  # and `set -e` kills the watcher. That killed the first run on 2026-07-25.
+  IDS="$(grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' "$ALLOWLIST" 2>/dev/null | sort -u | sed "s/^/'/;s/$/'/" | paste -sd, - || true)"
   [ -z "$IDS" ] && IDS="'00000000-0000-0000-0000-000000000000'"
 
   FLIPPED="$("${PSQL[@]}" -c "

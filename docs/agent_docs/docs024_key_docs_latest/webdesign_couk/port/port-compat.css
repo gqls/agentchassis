@@ -1,0 +1,222 @@
+/* ===========================================================================
+   port-compat.css — webdesign.co.uk
+   ---------------------------------------------------------------------------
+   Ported pages keep their own page-local <style> blocks, and those blocks are
+   written against TWO different token vocabularies that no longer exist here:
+   website-design.com's Swiss names (--color-ink, --space-md, --text-h1) and
+   websitedesign.com's warm names (--bg, --primary, --text-dim).
+
+   Rewriting every var() reference across ~94 pages would be thousands of edits
+   with a mistake in every hundredth. Instead this file re-points the old names
+   at the new system in one place, so the transform only has to sweep literal
+   hex colours. If a value here is wrong, it is wrong once.
+
+   Loaded by the site head chrome AFTER the chassis-generated styles.css, so
+   these definitions win. Dark mode is absent on purpose: Site A's
+   prefers-color-scheme block lived in global.css, which is not ported, and the
+   verify gate fails if any fragment reintroduces one.
+   =========================================================================== */
+
+:root {
+    /* ---- the warm system, restated ------------------------------------
+       Restated as literals rather than aliased to the chassis's generated
+       custom properties: the generated names are the composition layer's to
+       change, and a ported page must not silently re-skin when a layout is
+       swapped. These are the owner-fixed values from the design pin. */
+    --bg: #f9f8f6;
+    --bg-panel: #ffffff;
+    --surface: #f3f1ec;
+
+    --primary: #5c6b5d;
+    --primary-hover: #4a574b;
+    --primary-text: #ffffff;
+    --secondary: #8a9a86;
+    --accent: #d4a373;
+
+    --text: #2b2b2b;
+    --text-dim: #717171;
+
+    --border: #edece9;
+    --border-hover: #dbd9d4;
+
+    --shadow-sm: 0 2px 8px rgba(43, 43, 43, 0.04);
+    --shadow-md: 0 4px 16px rgba(43, 43, 43, 0.06);
+    --shadow-lg: 0 12px 32px rgba(43, 43, 43, 0.08);
+
+    --radius: 12px;
+
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    /* ---- port-only tokens ---------------------------------------------
+       Introduced by the colour sweep for things the warm system never named,
+       because the source pages needed them: code blocks, terminal-style
+       output, callouts, and pass/warn/fail verdicts in the checker tools. */
+    --code-bg: #f4f2ee;
+    --code-accent: #4a574b;
+    --callout-bg: #eef1ec;
+    --callout-border: #cfd8cb;
+    --ok: #4a7a4d;
+    --warn: #a8762c;
+    --bad: #a85751;
+    --danger: #a85751;
+
+    /* Verdict backgrounds for the checker tools (contrast, diff, budget,
+       performance). Warm-tinted so a pass/fail banner still reads as a verdict
+       without importing a cool palette back into the page. */
+    --ok-bg: #eaf1e7;
+    --warn-bg: #f7f0e2;
+    --danger-bg: #f7eae8;
+
+    /* ---- website-design.com's Swiss vocabulary ------------------------- */
+    --color-ink: #2b2b2b;
+    --color-paper: #ffffff;
+    --color-accent: #5c6b5d;
+    --color-surface: #f3f1ec;
+    --color-border: #edece9;
+    --shadow-card: 0 2px 8px rgba(43, 43, 43, 0.04);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+
+    /* Its fluid scales are carried verbatim — they are neutral geometry, not
+       part of the Swiss identity, and they are genuinely good. */
+    --space-sm: clamp(0.75rem, 0.7rem + 0.25vw, 1rem);
+    --space-md: clamp(1.25rem, 1.1rem + 0.75vw, 2rem);
+    --space-lg: clamp(2.5rem, 2.2rem + 1.5vw, 4rem);
+    --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+    --text-h1: clamp(2.5rem, 2rem + 2.5vw, 4.5rem);
+    --text-h2: clamp(1.75rem, 1.5rem + 1.25vw, 3rem);
+}
+
+/* ---- the ported section itself ----------------------------------------
+   Each ported page is one <section class="ported-page"> inside chassis chrome.
+   These rules give it the container the old <main class="container"> used to
+   provide, since that wrapper is stripped at transform time. */
+.ported-page {
+    max-width: 1200px;
+    margin-inline: auto;
+    padding: var(--space-lg) var(--space-md);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+}
+
+.ported-page h1,
+.ported-page h2,
+.ported-page h3 {
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+.ported-page h1 { font-weight: 800; }
+
+/* Site A's own utility classes, restated so ported markup keeps working. */
+.ported-page .container { max-width: 1200px; margin-inline: auto; }
+.ported-page .flow > * + * { margin-top: 1em; }
+.ported-page .text-mono { font-family: var(--font-mono); }
+.ported-page .text-accent { color: var(--primary); }
+
+.ported-page .grid-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--space-md);
+}
+
+/* Cards get the warm treatment: 12px radius, warm hairline, and the hover
+   signature from the design pin — 4px lift, one shadow step up, border
+   tinted toward the primary. */
+.ported-page .card,
+.ported-page .article-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    padding: 1.75rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ported-page .card:hover,
+.ported-page .article-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary);
+}
+
+.ported-page .btn,
+.ported-page button.btn {
+    background: var(--primary);
+    color: var(--primary-text);
+    border: none;
+    border-radius: 8px;
+    padding: 0.75em 1.5em;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.ported-page .btn:hover { background: var(--primary-hover); }
+
+.ported-page .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border-hover);
+    border-radius: 8px;
+    padding: 0.75em 1.5em;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.ported-page .btn-outline:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.ported-page a { color: var(--primary); }
+
+.ported-page pre,
+.ported-page code {
+    font-family: var(--font-mono);
+    background: var(--code-bg);
+    border-radius: 8px;
+}
+
+.ported-page pre {
+    padding: 1rem;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+}
+
+.ported-page code { padding: 0.15em 0.4em; }
+.ported-page pre code { padding: 0; background: none; border: none; }
+
+.ported-page input,
+.ported-page select,
+.ported-page textarea {
+    font-family: inherit;
+    color: var(--text);
+    background: var(--bg-panel);
+    border: 1px solid var(--border-hover);
+    border-radius: 8px;
+    padding: 0.6rem 0.75rem;
+}
+
+.ported-page input:focus,
+.ported-page select:focus,
+.ported-page textarea:focus {
+    outline: 2px solid var(--primary);
+    outline-offset: 1px;
+}
+
+/* Several Site B tool pages sized themselves to the viewport on the assumption
+   that they owned the whole page (height: calc(100vh - 100px), and one sets
+   body{overflow:hidden}). Inside chassis chrome that assumption is false, so
+   the fragment must not claim the viewport. */
+.ported-page [class*="tool-layout"],
+.ported-page [class*="app-layout"] {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+}

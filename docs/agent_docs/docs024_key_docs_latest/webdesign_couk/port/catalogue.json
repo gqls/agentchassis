@@ -1,0 +1,1423 @@
+{
+  "tool_categories": [
+    "Creative \u0026 Workflow",
+    "Design \u0026 Visuals",
+    "Performance \u0026 Code",
+    "Security \u0026 Engineering",
+    "Accessibility \u0026 UX",
+    "AI, Growth \u0026 Algo"
+  ],
+  "learn_categories": {
+    "accessibility": "Accessibility",
+    "ai-builders": "AI Builders",
+    "algorithms": "Algorithms \u0026 Statistics",
+    "code": "Code",
+    "communities": "Data \u0026 Communities",
+    "data": "Data",
+    "design": "Design",
+    "marketing": "Search \u0026 Marketing",
+    "operations": "Running a Site",
+    "performance": "Performance",
+    "security": "Security"
+  },
+  "tools": [
+    {
+      "source": "website-design.com/tools/logic-architect/index.html",
+      "slug": "logic-architect",
+      "label": "Logic Architect",
+      "description": "Map out complex prompt structures and export optimized blueprints for LLMs.",
+      "subtitle": "For branching prompt trees",
+      "category": "Creative \u0026 Workflow",
+      "eyebrow": "AI UTILITY",
+      "keywords": [
+        "prompt",
+        "engineering",
+        "mind",
+        "map",
+        "ai",
+        "structure",
+        "logic",
+        "flow"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/pasteboard/index.html",
+      "slug": "pasteboard",
+      "label": "Pasteboard Studio",
+      "description": "Browser-based moodboarding. Paste, drag, and layer images instantly.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "moodboard",
+        "image",
+        "collage",
+        "paste",
+        "images"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/mind-map/index.html",
+      "slug": "mind-map",
+      "label": "Mind Map Studio",
+      "description": "Visual node editor for brainstorming. Auto-layout, drag-and-drop, and export.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "mind-map",
+        "mapping",
+        "thoughts",
+        "thought",
+        "planner"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/oklch-picker/index.html",
+      "slug": "oklch-picker",
+      "label": "OKLCH Color Mixer",
+      "description": "Generate perceptual color palettes with modern CSS.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "oklch",
+        "css",
+        "color",
+        "accessible",
+        "colors"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/golden-ratio/index.html",
+      "slug": "golden-ratio",
+      "label": "Golden Ratio Cropper",
+      "description": "Compose perfect images using the Fibonacci spiral.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "composition",
+        "rule",
+        "of",
+        "thirds",
+        "crop",
+        "tool"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/layout-generator/index.html",
+      "slug": "layout-generator",
+      "label": "Holy Grail Layouts",
+      "description": "Generate responsive CSS Grid code instantly.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "css",
+        "grid",
+        "generator",
+        "layout",
+        "builder"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/css-variables/index.html",
+      "slug": "css-variables",
+      "label": "CSS Architect",
+      "description": "Generate a rigorous :root theme file.",
+      "subtitle": "Generates a design-token theme file",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "css",
+        "variables",
+        "design",
+        "tokens",
+        "theme",
+        "generator"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/meme-generator/index.html",
+      "slug": "meme-generator",
+      "label": "Meme Studio",
+      "description": "Create community assets with Impact font.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "meme",
+        "maker",
+        "impact",
+        "font"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/shadow-stacker/index.html",
+      "slug": "shadow-stacker",
+      "label": "Shadow Stacker",
+      "description": "Layer multiple shadows for hyper-realistic depth.",
+      "subtitle": "Manual, layer by layer",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "layered",
+        "shadows",
+        "box-shadow",
+        "generator",
+        "smooth",
+        "shadow"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/svg-patterns/index.html",
+      "slug": "svg-patterns",
+      "label": "SVG Pattern Engine",
+      "description": "Generate tiny, repeatable background patterns.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "background",
+        "patterns",
+        "svg",
+        "generator",
+        "css",
+        "backgrounds"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/aspect-ratio/index.html",
+      "slug": "aspect-ratio",
+      "label": "Aspect Ratio Calc",
+      "description": "Calculate dimensions for screens and video.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "16:9",
+        "calculator",
+        "dimensions",
+        "screen",
+        "size"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/white-balance/index.html",
+      "slug": "white-balance",
+      "label": "Batch White Balance",
+      "description": "Warm up or cool down a set of images instantly.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "color",
+        "temperature",
+        "tint",
+        "batch",
+        "photo",
+        "editor"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/mesh-gradient/index.html",
+      "slug": "mesh-gradient",
+      "label": "Aurora Mesh",
+      "description": "Generate trendy, moving mesh gradients.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "gradient",
+        "background",
+        "mesh",
+        "wallpaper"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/blob-maker/index.html",
+      "slug": "blob-maker",
+      "label": "Blob Maker",
+      "description": "Create organic SVG shapes.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "svg",
+        "shapes",
+        "blob",
+        "generator"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/fluid-typography/index.html",
+      "slug": "fluid-typography",
+      "label": "Fluid Type Composer",
+      "description": "Generate mathematical clamp() formulas.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "css",
+        "clamp",
+        "font",
+        "size"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/smart-contrast/index.html",
+      "slug": "smart-contrast",
+      "label": "Smart Palette",
+      "description": "Auto-fix accessible color contrast.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "accessibility",
+        "wcag",
+        "color"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/smooth-shadow/index.html",
+      "slug": "smooth-shadow",
+      "label": "Smooth Shadows",
+      "description": "Generate layered ambient occlusion shadows.",
+      "subtitle": "Parametric — set softness and distance",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "box-shadow",
+        "ambient",
+        "occlusion"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/css-filter-playground/index.html",
+      "slug": "css-filter-playground",
+      "label": "CSS Filter Playground",
+      "description": "Visual editor for brightness, blur, and hue.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "css",
+        "filters",
+        "blur",
+        "grayscale"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/grid-generator/index.html",
+      "slug": "grid-generator",
+      "label": "CSS Grid Architect",
+      "description": "Visual layout builder for columns \u0026 gaps.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "css",
+        "grid",
+        "layout",
+        "builder"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/favicon-maker/index.html",
+      "slug": "favicon-maker",
+      "label": "Favicon Maker",
+      "description": "Convert Emojis or Logos to ICO/PNG.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "favicon",
+        "emoji",
+        "icon"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/animated-favicon/index.html",
+      "slug": "animated-favicon",
+      "label": "Animated Favicon",
+      "description": "Create spinning tab icons with JS.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "animation",
+        "tab",
+        "icon"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/parallax-generator/index.html",
+      "slug": "parallax-generator",
+      "label": "Parallax Generator",
+      "description": "Pure CSS 3D scrolling effects.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "3d",
+        "scroll",
+        "perspective"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/bg-remover/index.html",
+      "slug": "bg-remover",
+      "label": "Magic Eraser",
+      "description": "Remove image backgrounds using chroma key logic.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "remove",
+        "background",
+        "transparent",
+        "png",
+        "magic",
+        "wand"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/regex-tester/index.html",
+      "slug": "regex-tester",
+      "label": "Regex X-Ray",
+      "description": "Visualize Regular Expression matches in real-time.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "regex",
+        "tester",
+        "regular",
+        "expression",
+        "pattern",
+        "matching"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/social-card/index.html",
+      "slug": "social-card",
+      "label": "Social Card Generator",
+      "description": "Generate Open Graph meta tags instantly.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "open",
+        "graph",
+        "meta",
+        "tags",
+        "twitter",
+        "card",
+        "preview"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/diff-checker/index.html",
+      "slug": "diff-checker",
+      "label": "Visual Code Diff",
+      "description": "Compare two blocks of code to find changes.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "compare",
+        "code",
+        "text",
+        "difference",
+        "git",
+        "diff"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/performance-budget/index.html",
+      "slug": "performance-budget",
+      "label": "Performance Budget",
+      "description": "Calculate Max JS/CSS size from latency.",
+      "category": "Performance \u0026 Code",
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/image-optimizer/index.html",
+      "slug": "image-optimizer",
+      "label": "Image Optimizer",
+      "description": "Convert PNG to JPG and resize locally.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "compress",
+        "image",
+        "resize",
+        "convert"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/svg-optimizer/index.html",
+      "slug": "svg-optimizer",
+      "label": "SVG Code Stripper",
+      "description": "Remove XML junk to reduce file size.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "minify",
+        "svg",
+        "clean",
+        "code"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/text-extractor/index.html",
+      "slug": "text-extractor",
+      "label": "Text Extractor",
+      "description": "Strip HTML tags to extract pure text content.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "strip",
+        "html",
+        "remove",
+        "tags",
+        "extract",
+        "text"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/html-minifier/index.html",
+      "slug": "html-minifier",
+      "label": "HTML Minifier",
+      "description": "Strip whitespace and comments.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "minify",
+        "html",
+        "remove",
+        "comments"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/head-architect/index.html",
+      "slug": "head-architect",
+      "label": "HTML Head Architect",
+      "description": "Generate SEO tags \u0026 JSON-LD identity.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "meta",
+        "tags",
+        "og",
+        "tags",
+        "json-ld",
+        "generator"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/json-cleaner/index.html",
+      "slug": "json-cleaner",
+      "label": "JSON Cleaner",
+      "description": "Truncate long values to debug logs.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "json",
+        "truncate",
+        "debug",
+        "logs"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/sri-generator/index.html",
+      "slug": "sri-generator",
+      "label": "SRI Hash Generator",
+      "description": "Lock down CDNs with integrity hashes.",
+      "category": "Security \u0026 Engineering",
+      "keywords": [
+        "subresource",
+        "integrity",
+        "cdn",
+        "security",
+        "sha384"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/entropy-meter/index.html",
+      "slug": "entropy-meter",
+      "label": "Password Entropy",
+      "description": "Check password strength physics.",
+      "category": "Security \u0026 Engineering",
+      "keywords": [
+        "password",
+        "strength",
+        "bits",
+        "of",
+        "entropy"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/privacy-redactor/index.html",
+      "slug": "privacy-redactor",
+      "label": "Privacy Redactor",
+      "description": "Scrub PII (Emails/IPs) from logs.",
+      "category": "Security \u0026 Engineering",
+      "keywords": [
+        "scrub",
+        "logs",
+        "hide",
+        "email"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/jwt-inspector/index.html",
+      "slug": "jwt-inspector",
+      "label": "JWT Inspector",
+      "description": "Decode Tokens securely in browser.",
+      "category": "Security \u0026 Engineering",
+      "keywords": [
+        "decode",
+        "jwt",
+        "token"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/csp-builder/index.html",
+      "slug": "csp-builder",
+      "label": "CSP Visual Builder",
+      "description": "Generate strict security headers.",
+      "category": "Security \u0026 Engineering",
+      "keywords": [
+        "content",
+        "security",
+        "policy"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/focus-ring/index.html",
+      "slug": "focus-ring",
+      "label": "Focus Ring Architect",
+      "description": "Generate premium, accessible double-layer focus states.",
+      "category": "Accessibility \u0026 UX",
+      "keywords": [
+        "outline",
+        "focus",
+        "state",
+        "accessible",
+        "design"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/touch-target/index.html",
+      "slug": "touch-target",
+      "label": "Touch Target Simulator",
+      "description": "Visualise 44px hit areas on mobile buttons.",
+      "category": "Accessibility \u0026 UX",
+      "keywords": [
+        "44px",
+        "hit",
+        "area",
+        "mobile",
+        "tap",
+        "target"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/aria-builder/index.html",
+      "slug": "aria-builder",
+      "label": "ARIA Architect",
+      "description": "Wizard to generate semantic labels for icons.",
+      "category": "Accessibility \u0026 UX",
+      "keywords": [
+        "aria-label",
+        "accessibility",
+        "wizard",
+        "screen",
+        "readers"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/markdown-tables/index.html",
+      "slug": "markdown-tables",
+      "label": "Table Architect",
+      "description": "Convert Excel/CSV to Markdown for AI.",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "excel",
+        "to",
+        "markdown",
+        "csv",
+        "to",
+        "table",
+        "llm",
+        "formatting"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/prompt-permutator/index.html",
+      "slug": "prompt-permutator",
+      "label": "Prompt Matrix",
+      "description": "Generate 50+ prompt variations instantly.",
+      "subtitle": "For permutation matrices",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "prompt",
+        "variants",
+        "midjourney",
+        "variables"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/prompt-architect/index.html",
+      "slug": "prompt-architect",
+      "label": "Prompt Architect",
+      "description": "Build better Midjourney prompts.",
+      "subtitle": "For image prompts",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "midjourney",
+        "prompt"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/text-sanitizer/index.html",
+      "slug": "text-sanitizer",
+      "label": "Text Sanitizer",
+      "description": "Remove smart quotes/unicode for AI.",
+      "subtitle": "Cleans up AI writing after the fact",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "clean",
+        "smart",
+        "quotes",
+        "remove",
+        "invisible",
+        "unicode"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/token-calculator/index.html",
+      "slug": "token-calculator",
+      "label": "Token Calculator",
+      "description": "Estimate AI costs (GPT-4/Claude).",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "gpt",
+        "cost",
+        "token",
+        "count"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/seo-schema/index.html",
+      "slug": "seo-schema",
+      "label": "Semantic Schema",
+      "description": "Create JSON-LD markup for SEO.",
+      "subtitle": "Article, Product and FAQ JSON-LD",
+      "category": "AI, Growth \u0026 Algo",
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/ab-test-calculator/index.html",
+      "slug": "ab-test-calculator",
+      "label": "A/B Significance",
+      "description": "Calculate P-Values and Z-Scores.",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "significance",
+        "p-value"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/community-growth/index.html",
+      "slug": "community-growth",
+      "label": "Growth Simulator",
+      "description": "Visualize Viral Coefficient (k) vs Churn.",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "churn",
+        "viral",
+        "k"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/recommender-engine/index.html",
+      "slug": "recommender-engine",
+      "label": "Recommender Engine",
+      "description": "Simulate Cosine Similarity vectors.",
+      "category": "AI, Growth \u0026 Algo",
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/bayesian-rank/index.html",
+      "slug": "bayesian-rank",
+      "label": "Bayesian Ranking",
+      "description": "Fair sorting for star ratings.",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "sorting",
+        "star",
+        "rating"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/clip-path/index.html",
+      "slug": "clip-path",
+      "label": "Clip-Path Builder",
+      "description": "Crop elements into triangles, hexagons or abstract shards by dragging the points.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "clip-path",
+        "shape",
+        "polygon",
+        "css",
+        "crop",
+        "mask"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "website-design.com/tools/cubic-bezier/index.html",
+      "slug": "cubic-bezier",
+      "label": "Cubic Bezier Architect",
+      "description": "Drag the handles to shape a custom easing curve and make UI motion feel deliberate.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "easing",
+        "bezier",
+        "animation",
+        "timing",
+        "curve",
+        "transition"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/magic-outliner/index.html",
+      "slug": "magic-outliner",
+      "label": "Magic Wand Outliner",
+      "description": "Click any region of a flat image to trace its border with a flood-fill and contour trace.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "outline",
+        "trace",
+        "svg",
+        "map",
+        "flood fill",
+        "contour",
+        "image"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "website-design.com/tools/noise-generator/index.html",
+      "slug": "noise-generator",
+      "label": "SVG Noise Generator",
+      "description": "Generate a sub-1KB feTurbulence filter as a data URI, instead of shipping a 1MB noise PNG.",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "noise",
+        "texture",
+        "svg",
+        "grain",
+        "feturbulence",
+        "background"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "websitedesign.com/tools/blueprint-compiler/index.html",
+      "slug": "blueprint-compiler",
+      "label": "AI Site Blueprint Compiler",
+      "description": "Define the pages and strict parameters an AI builder must follow, then compile them into a phased prompt deck.",
+      "subtitle": "A sequential prompt deck for building a whole site",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "ai",
+        "prompt",
+        "sitemap",
+        "blueprint",
+        "builder",
+        "phased"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "websitedesign.com/tools/insight-injector/index.html",
+      "slug": "insight-injector",
+      "label": "Anti-Slop Insight Injector",
+      "description": "Force AI copy to be built around hard facts, and ban generic LLM vocabulary outright.",
+      "subtitle": "Constrains AI writing before it is generated",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "ai",
+        "slop",
+        "copy",
+        "prompt",
+        "facts",
+        "banned words"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "websitedesign.com/tools/seo-injector/index.html",
+      "slug": "seo-injector",
+      "label": "JSON-LD SEO Injector",
+      "description": "Turn local business details into strict LocalBusiness JSON-LD wrapped in a prompt.",
+      "subtitle": "LocalBusiness schema, as an AI-builder prompt",
+      "category": "AI, Growth \u0026 Algo",
+      "keywords": [
+        "seo",
+        "schema",
+        "json-ld",
+        "local business",
+        "structured data"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "websitedesign.com/tools/monolith-splitter/index.html",
+      "slug": "monolith-splitter",
+      "label": "Monolith Splitter",
+      "description": "Safely refactor giant AI-generated files into modular components without breaking the logic.",
+      "subtitle": "Refactor prompts for oversized generated files",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "refactor",
+        "modular",
+        "components",
+        "prompt",
+        "monolith"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "websitedesign.com/tools/asset-formatter/index.html",
+      "slug": "asset-formatter",
+      "label": "Asset Dictionary",
+      "description": "Map hosted image URLs to semantic keys so an AI builder stops inventing stock photos.",
+      "category": "Performance \u0026 Code",
+      "keywords": [
+        "assets",
+        "images",
+        "urls",
+        "dictionary",
+        "prompt",
+        "cdn"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "websitedesign.com/tools/rls-architect/index.html",
+      "slug": "rls-architect",
+      "label": "Supabase RLS Architect",
+      "description": "Define row-level security rules for your tables before an AI-built app leaks data.",
+      "category": "Security \u0026 Engineering",
+      "keywords": [
+        "supabase",
+        "rls",
+        "security",
+        "postgres",
+        "policy",
+        "database"
+      ],
+      "qa_tier": 2
+    },
+    {
+      "source": "websitedesign.com/tools/micro-cms/index.html",
+      "slug": "micro-cms",
+      "label": "Flat-File Micro CMS",
+      "description": "Edit a page visually in the browser, with fifty checkpoints of version history. Everything stays in your own browser storage.",
+      "category": "Creative \u0026 Workflow",
+      "keywords": [
+        "cms",
+        "editor",
+        "indexeddb",
+        "wysiwyg",
+        "versions",
+        "local"
+      ],
+      "qa_tier": 1
+    },
+    {
+      "source": "websitedesign.com/tools/vibe-equalizer/index.html",
+      "slug": "vibe-equalizer",
+      "label": "Vibe Equalizer",
+      "description": "Move four sliders — mood, density, depth, radius — and watch the CSS variables, shadows and type respond.",
+      "subtitle": "Mood sliders with a live preview",
+      "category": "Design \u0026 Visuals",
+      "keywords": [
+        "design tokens",
+        "mood",
+        "sliders",
+        "preview",
+        "css variables",
+        "theme"
+      ],
+      "qa_tier": 1
+    }
+  ],
+  "learn": [
+    {
+      "source": "website-design.com/learn/design/mood-boarding.html",
+      "slug": "mood-boarding",
+      "label": "The Messy Mood Board",
+      "description": "Stop overthinking. Why the secret to faster design workflows is embracing chaos and \"low-fidelity\" pasting.",
+      "category": "design",
+      "eyebrow": "Creative Process",
+      "keywords": [
+        "moodboard",
+        "inspiration",
+        "creative",
+        "process"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/layered-shadows.html",
+      "slug": "layered-shadows",
+      "label": "Beyond Flat Design",
+      "description": "How to use \"Shadow Stacking\" to create hyper-realistic depth that looks expensive, not fake.",
+      "category": "design",
+      "eyebrow": "Visual Engineering",
+      "keywords": [
+        "shadows",
+        "depth",
+        "skeuomorphism",
+        "layered",
+        "box-shadow"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/physics-of-ui.html",
+      "slug": "physics-of-ui",
+      "label": "The Physics of UI",
+      "description": "Why default CSS easing feels \"cheap\" and how to use Cubic Bezier curves to mimic real-world inertia.",
+      "category": "design",
+      "eyebrow": "Motion Physics",
+      "keywords": [
+        "animation",
+        "easing",
+        "cubic-bezier",
+        "micro-interactions"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/digital-grain.html",
+      "slug": "digital-grain",
+      "label": "Digital Grain \u0026 Noise",
+      "description": "Flat design is dead. How to use algorithmic SVG noise to add texture without killing performance.",
+      "category": "design",
+      "eyebrow": "Visuals",
+      "keywords": [
+        "noise",
+        "texture",
+        "svg",
+        "filters",
+        "glassmorphism"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/oklch-colors.html",
+      "slug": "oklch-colors",
+      "label": "The End of Hex Codes",
+      "description": "Why OKLCH is superior to RGB for human perception and accessible theming.",
+      "category": "design",
+      "eyebrow": "Color Theory",
+      "keywords": [
+        "oklch",
+        "vs",
+        "hex",
+        "color",
+        "theory",
+        "css",
+        "color",
+        "4"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/fluid-web-theory.html",
+      "slug": "fluid-web-theory",
+      "label": "Fluid Web Theory",
+      "description": "Why \"breakpoints\" are broken and how to use Linear Interpolation (lerp) for scaling.",
+      "category": "design",
+      "eyebrow": "Responsive Math",
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/svg-patterns.html",
+      "slug": "svg-patterns",
+      "label": "Algorithmic Textures",
+      "description": "Stop using heavy PNGs. Why mathematical SVG patterns scale infinitely for free.",
+      "category": "design",
+      "eyebrow": "Performance",
+      "keywords": [
+        "background",
+        "patterns",
+        "svg",
+        "generator",
+        "css",
+        "backgrounds"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/code/regex-visualized.html",
+      "slug": "regex-visualized",
+      "label": "Taming the Beast",
+      "description": "Regex is a \"write-only\" language. Stop coding blind and learn to visualize your patterns.",
+      "category": "code",
+      "eyebrow": "Code Engineering",
+      "keywords": [
+        "regular",
+        "expressions",
+        "regex",
+        "debugging",
+        "coding",
+        "tools"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/security/cdn-risks.html",
+      "slug": "cdn-risks",
+      "label": "The CDN Trap",
+      "description": "Why loading scripts from Google/Cloudflare is risky without Subresource Integrity (SRI).",
+      "category": "security",
+      "eyebrow": "Supply Chain",
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/security/xss-vulnerability.html",
+      "slug": "xss-vulnerability",
+      "label": "Understanding XSS",
+      "description": "Why 90% of websites are vulnerable to injection and how CSP headers fix it.",
+      "category": "security",
+      "eyebrow": "Browser Sec",
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/data/cors-scraping.html",
+      "slug": "cors-scraping",
+      "label": "Why You Can't Scrape Google",
+      "description": "The Same-Origin Policy explained. Why `fetch()` fails on external sites.",
+      "category": "data",
+      "eyebrow": "Protocols",
+      "keywords": [
+        "cors",
+        "scraping",
+        "fetch",
+        "error",
+        "same-origin",
+        "policy"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/performance/physics-of-latency.html",
+      "slug": "physics-of-latency",
+      "label": "The Physics of Latency",
+      "description": "Why increasing bandwidth does not solve speed issues if RTT is high.",
+      "category": "performance",
+      "eyebrow": "Network Physics",
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/security/entropy-physics.html",
+      "slug": "entropy-physics",
+      "label": "Password Entropy",
+      "description": "The math behind brute-force attacks and why \"CorrectHorseBatteryStaple\" works.",
+      "category": "security",
+      "eyebrow": "Cryptography",
+      "keywords": [
+        "password",
+        "security",
+        "theory"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/accessibility/focus-states.html",
+      "slug": "focus-states",
+      "label": "The Invisible Focus",
+      "description": "Every junior designer eventually asks whether that blue outline can go. Here is why it cannot, and what to do instead.",
+      "category": "accessibility",
+      "keywords": [
+        "focus",
+        "outline",
+        "keyboard",
+        "accessibility",
+        "a11y"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/accessibility/touch-targets.html",
+      "slug": "touch-targets",
+      "label": "The 44px Rule",
+      "description": "We build on laptops with precision trackpads; people use glass screens with thumbs. That gap has a measurable size.",
+      "category": "accessibility",
+      "keywords": [
+        "touch",
+        "target",
+        "mobile",
+        "thumb",
+        "accessibility",
+        "44px"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/algorithms/bayesian-theory.html",
+      "slug": "bayesian-theory",
+      "label": "The Bayesian Truth: Why 5.0 \u003c 4.8",
+      "description": "Sorting by average star rating seems obvious, and it is wrong. What one five-star review actually tells you.",
+      "category": "algorithms",
+      "keywords": [
+        "bayesian",
+        "rating",
+        "average",
+        "ranking",
+        "statistics",
+        "reviews"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/algorithms/p-values-explained.html",
+      "slug": "p-values-explained",
+      "label": "Don't Be Fooled by Randomness",
+      "description": "Conversions went from 5% to 6% after you changed a button. Was it the button, or was it a lucky Tuesday?",
+      "category": "algorithms",
+      "keywords": [
+        "p-value",
+        "significance",
+        "ab testing",
+        "statistics",
+        "randomness"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/algorithms/recommendation-math.html",
+      "slug": "recommendation-math",
+      "label": "How Netflix Knows What You Want",
+      "description": "Recommendation engines do not know whether a song is sad or happy. They know one thing: vectors.",
+      "category": "algorithms",
+      "keywords": [
+        "recommendation",
+        "cosine",
+        "similarity",
+        "vectors",
+        "collaborative filtering"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/communities/graph-vs-relational.html",
+      "slug": "graph-vs-relational",
+      "label": "The Architecture of Connection",
+      "description": "Relational tables are neat and rigid. When your data is mostly relationships, that rigidity starts to cost you.",
+      "category": "communities",
+      "keywords": [
+        "graph",
+        "database",
+        "sql",
+        "relational",
+        "connections",
+        "schema"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/data/unicode-gremlins.html",
+      "slug": "unicode-gremlins",
+      "label": "The Invisible Characters Breaking Your Code",
+      "description": "You paste a snippet that looks perfect and get a SyntaxError. The characters you cannot see are the problem.",
+      "category": "data",
+      "keywords": [
+        "unicode",
+        "invisible",
+        "zero width",
+        "encoding",
+        "paste",
+        "syntax error"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/ambient-occlusion-css.html",
+      "slug": "ambient-occlusion-css",
+      "label": "Ambient Occlusion in CSS",
+      "description": "Real shadows are gradients of light deprivation, darkest where an object touches its surface. CSS can say that.",
+      "category": "design",
+      "keywords": [
+        "shadow",
+        "ambient occlusion",
+        "depth",
+        "css",
+        "realism",
+        "light"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/design/css-grid-math.html",
+      "slug": "css-grid-math",
+      "label": "Fractional Layouts",
+      "description": "Percentages broke the moment you added a margin. The fr unit exists because of that arithmetic.",
+      "category": "design",
+      "keywords": [
+        "grid",
+        "fr",
+        "layout",
+        "css",
+        "fractions",
+        "percentage"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "website-design.com/learn/marketing/seo-for-llms.html",
+      "slug": "seo-for-llms",
+      "label": "Optimizing for LLMs: Beyond Keywords",
+      "description": "For twenty years we wrote for ten blue links. People now ask a model instead, and it reads differently.",
+      "category": "marketing",
+      "keywords": [
+        "seo",
+        "llm",
+        "ai search",
+        "keywords",
+        "content",
+        "answers"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/anti-slop.html",
+      "slug": "anti-slop",
+      "label": "Preventing AI Slop: A Quality Manifesto",
+      "description": "AI tools are efficient at generating code and equally efficient at generating generic web pollution. A stance on avoiding the second.",
+      "category": "ai-builders",
+      "keywords": [
+        "ai",
+        "slop",
+        "quality",
+        "content",
+        "generic",
+        "manifesto"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/content-first.html",
+      "slug": "content-first",
+      "label": "The Content-First Strategy for Starter Sites",
+      "description": "Before complex platforms and dynamic databases you need traffic. Why flat HTML is the smartest foundation for a new site.",
+      "category": "ai-builders",
+      "keywords": [
+        "content first",
+        "static",
+        "html",
+        "strategy",
+        "traffic",
+        "starter"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/v0.html",
+      "slug": "v0",
+      "label": "Understanding v0 by Vercel",
+      "description": "A tool built strictly for generating front-end interfaces — a realistic look at how it works and where it fits.",
+      "category": "ai-builders",
+      "keywords": [
+        "v0",
+        "vercel",
+        "ai builder",
+        "frontend",
+        "ui",
+        "react"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/lovable.html",
+      "slug": "lovable",
+      "label": "Understanding Lovable",
+      "description": "A full-stack AI platform that builds the interface and the database logic at once. How that actually plays out.",
+      "category": "ai-builders",
+      "keywords": [
+        "lovable",
+        "ai builder",
+        "full stack",
+        "database",
+        "generation"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/bolt.html",
+      "slug": "bolt",
+      "label": "Understanding Bolt.new",
+      "description": "A traditional development environment placed inside the browser and paired with an AI assistant. It rewards a different approach.",
+      "category": "ai-builders",
+      "keywords": [
+        "bolt",
+        "ai builder",
+        "browser",
+        "ide",
+        "webcontainer"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/browser-storage.html",
+      "slug": "browser-storage",
+      "label": "The Realities of Browser Storage",
+      "description": "Our tools keep your data in your own browser rather than on a server. What that means for backups, limits and losing things.",
+      "category": "operations",
+      "keywords": [
+        "indexeddb",
+        "localstorage",
+        "browser",
+        "storage",
+        "backup",
+        "privacy"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/scaling.html",
+      "slug": "scaling",
+      "label": "The 70% Wall",
+      "description": "AI platforms take a prompt to a beautiful, functional application — and then progress slows sharply. Why, and what to do about it.",
+      "category": "operations",
+      "keywords": [
+        "scaling",
+        "ai",
+        "mvp",
+        "limits",
+        "maintenance",
+        "70 percent"
+      ],
+      "qa_tier": 3
+    },
+    {
+      "source": "websitedesign.com/guides/maintenance.html",
+      "slug": "maintenance",
+      "label": "The Hidden Cost of AI: Three Maintenance Problems",
+      "description": "An AI builder optimises for immediate visual feedback, not long-term readability. Maintaining the result is a separate skill.",
+      "category": "operations",
+      "keywords": [
+        "maintenance",
+        "technical debt",
+        "ai",
+        "readability",
+        "refactor"
+      ],
+      "qa_tier": 3
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+{
+  "_why": "Per-page exceptions to the transform. Data, not code, so a QA fix is an edit here plus a re-run. Every `rewrites` entry MUST match at least once or the build fails: they encode assumptions about the source prose, and a silent no-op would ship the old wording.",
+
+  "brand_suffix": "| webdesign.co.uk",
+
+  "_strip_why": "The sources copy-paste their chrome inline into every page, hardcoding background:#fff and linking to the old domain. The chassis supplies header, footer and head at assembly, so all of it must come out or every page would carry two headers.",
+  "strip_selectors": [
+    "header",
+    "footer",
+    ".site-header",
+    ".site-footer",
+    ".tool-nav",
+    ".breadcrumb"
+  ],
+
+  "drop": [
+    "websitedesign.com/tools/local-builder/index.html",
+    "websitedesign.com/guides/local-ai.html",
+    "websitedesign.com/guides/hosting-economics.html"
+  ],
+
+  "_forbidden_why": "A surviving link to a page we did not port would be a live 404. Fail the build instead.",
+  "forbidden_refs": [
+    "local-builder",
+    "guides/local-ai",
+    "guides/hosting-economics",
+    "website-design.com",
+    "websitedesign.com",
+    "unpkg.com",
+    "esm.run"
+  ],
+
+  "_link_map_why": "Applied after the generic relative-path resolution, for links the URL map cannot infer.",
+  "link_map": {
+    "/guides/index.html": "/learn/index.html",
+    "/showcase/deconstruction-template.html": "/tools/index.html"
+  },
+
+  "pages": {
+    "websitedesign.com/tools/vibe-equalizer/index.html": {
+      "_why": "Its .tool-nav is chrome EXCEPT for #btn-share, which is the tool's own Share control. Rescue the button before the strip takes the bar with it.",
+      "keep_selectors": ["#btn-share"]
+    },
+    "websitedesign.com/tools/insight-injector/index.html": {
+      "rewrites": [
+        {
+          "from": "Paste this into our Local AI Builder (or v0/Lovable)",
+          "to": "Paste this into your AI builder of choice (v0, Lovable or Bolt)",
+          "why": "the Local AI Builder is not being ported"
+        }
+      ]
+    },
+    "websitedesign.com/guides/content-first.html": {
+      "rewrites": [
+        {
+          "from": "Generating a static HTML site using our Local AI Builder",
+          "to": "Generating a static HTML site using an AI builder",
+          "why": "the Local AI Builder is not being ported. NOTE: first written as 'Generate a static...' and the build refused it — the source says 'Generating'. That refusal is the guard working as designed."
+        },
+        {
+          "from": "Use the Local AI Builder to generate a clean, text-heavy 3-page layout",
+          "to": "Use an AI builder to generate a clean, text-heavy 3-page layout",
+          "why": "the Local AI Builder is not being ported"
+        }
+      ]
+    },
+    "websitedesign.com/guides/browser-storage.html": {
+      "_why": "Names the Micro-CMS, which we DO port — no rewrite needed. Recorded so the next reader does not go looking."
+    }
+  }
+}
