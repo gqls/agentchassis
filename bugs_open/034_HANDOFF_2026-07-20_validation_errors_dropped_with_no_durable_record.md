@@ -156,3 +156,150 @@ and rolled.
   `c80fffc83` — the same defect class, already fixed at one narrow site.
 - `bugs_open/003` — parent-hangs-at-AWAITING_RESPONSES; a *different* cause
   (Kafka broker-2 node network). Fix candidate 3 touches adjacent behaviour.
+
+---
+
+# WORKED 2026-07-25 — candidate 1 done at BOTH sites; one needle list
+
+Commit `15b0a7d96`. Council submission `180d7c68-30d6-4bc9-9050-d5241cc0f3e0`.
+
+## CORRECTION to the section above: there are TWO drop sites, not one
+
+> **CORRECTED 2026-07-25.** This handoff located the defect at a single site,
+> `platform/agentbase/agent.go`. That is where it was *found*, but it is not
+> where it usually *fires*. There is a second, older copy of the same
+> classifier one layer down — `MessageProcessor.handleError`
+> (`platform/messaging/processor.go:541`) — and on the ordinary processing
+> path the message reaches that one FIRST.
+
+The two sites did not agree with each other, in two ways that matter:
+
+| | `agentbase.processMessage` | `messaging.handleError` |
+|---|---|---|
+| needles | `is required`, `validation`, `invalid` | the same **plus `missing`** |
+| after dropping | `return` (no response to parent) | `sendErrorResponse` then **`return nil`** |
+| durable record | yes — added earlier (see below) | **none** |
+
+**`handleError` returning `nil` is the load-bearing detail.** `ProcessMessage`
+hands that `nil` back to `agent.go`, which logs *"Message processed
+successfully"*. So for any error routed through `handleError`, the agentbase
+layer never sees a failure at all — and the recorder that had been added there
+cannot fire. Candidate 1 had been applied to the site that reports the drop,
+not the site that performs it. **[VERIFIED from code; the two classifiers'
+needle lists and the `return nil` are quoted in commit `15b0a7d96`.]**
+
+The needle asymmetry had a real consequence: an error whose only needle was
+`missing` was **dropped without retry by one layer and retried by the other**,
+decided purely by which path the message took to reach the failure. This is the
+dedup-index↔Go-list drift class again — two hand-maintained lists that must be
+identical, and weren't.
+
+## What was already shipped, undocumented
+
+Fix candidate 1 (`agent_error_log` row + `matchedValidationNeedle`) was
+**already in the tree and already live** when this session started. It went in
+under `fe2ba5e52` ("v1.0.1146 - sweep"), an owner sweep commit — no doc, no
+note here, no `Council-Reviewed` trailer. Nothing in `/bugs_open/` or the
+workstream dirs mentioned it (`grep -rn recordDroppedValidationError docs/
+bugs_open/ bugs_closed/ scripts/` → nothing). It is genuinely deployed:
+
+```
+kubectl exec -n ai-persona-system agent-chassis-774877f4c6-zjh4t -- \
+  sh -c 'strings /app/agent-chassis | grep -c VALIDATION_ERROR_DROPPED'   → 1
+  (positive control MARK_COMPLETE_FAILED → 1)
+```
+
+**[VERIFIED live 2026-07-25.]** So the lesson is not "nobody fixed it" — it is
+that a fix landed at one of two sites and no surface said which.
+
+## What this session changed
+
+1. **`messaging.handleError` now records the drop** before returning `nil` —
+   the site that had none. `platform/messaging/validation_drop.go` (new).
+2. **One needle list.** `messaging.ValidationErrorNeedles` +
+   `MatchedValidationNeedle` are now the single source for both layers.
+   Agentbase's private three-needle copy is deleted. Pinned by a test on each
+   side (`TestValidationNeedlesAreTheOnesBothLayersUsed`,
+   `TestAgentbaseUsesSharedValidationNeedles`).
+3. **One `agent_error_log` writer.** `orchestration.LogAgentError` is the
+   exported form of the coordinator's existing `logAgentError`; the
+   hand-rolled INSERT in `agent.go` is gone. It had already drifted — it
+   omitted the `NULLIF(...)::uuid` casts and the `site_id`/`domain`/
+   `work_item_id` columns.
+4. **Both recorders detached from the request context** (5s timeout,
+   `context.Background()`). Agentbase's used `a.ctx`, which is cancelled on
+   shutdown — so a drop during pod drain, exactly the one nobody can otherwise
+   see, would have had its record cancelled with it.
+
+Rows land as `error_code='VALIDATION_ERROR_DROPPED'`, `severity='warning'`,
+with `correlation_id`/`message_id`/`request_id`/`client_id`, `dropped_at`
+(which of the two sites), `retried`, and **`matched_needle`** in `context`.
+
+**The drop/no-retry decision itself is unchanged.** One deliberate behaviour
+change: agentbase now also treats `missing` as non-retryable, adopting the
+shared needle. That direction was chosen because messaging already refuses to
+retry those everywhere else and its own comment says retrying them is an
+infinite loop — the old agentbase behaviour was the anomaly.
+
+## Still open (do NOT read this as closing them)
+
+- **Candidate 2 — substring classification.** NOT done, deliberately. It needs
+  every error construction site audited and would change retry behaviour
+  fleet-wide. The mitigation shipped here is visibility, not correctness:
+  `matched_needle` makes a misclassification a queryable row instead of an
+  invisible one. The hazard is pinned as *passing* test cases — a truncated-LLM
+  parse failure, `pq: invalid connection` and a recovered nil deref all still
+  match on `invalid`.
+- **Candidate 3 — error response to the parent.** NOT done at the agentbase
+  site. (`messaging.handleError` does send one.) Check `bugs_open/003` first.
+- **Candidate 5 — trigger-side `client_id` guard.** NOT done.
+- **Candidate 4 — metric labels.** Effectively moot: the DB row now carries
+  what the counter could not.
+
+## Verification — NOT yet done, and this is the honest gap
+
+Zero `VALIDATION_ERROR_DROPPED` rows exist:
+
+```sql
+SELECT occurred_at, agent_type, error_code, context->>'matched_needle'
+FROM agent_error_log WHERE error_code='VALIDATION_ERROR_DROPPED'
+ORDER BY occurred_at DESC LIMIT 15;   -- (0 rows), 2026-07-25
+```
+
+That is **consistent with, but not proof of, correctness** — no drop occurred
+to record. Both classifier log-lines were absent from a 93-minute window on the
+live pod (`grep -c "not calling handleProcessingError"` → 0;
+`grep -c "NOT retrying to prevent infinite loop"` → 0), so the path simply did
+not fire. A green count here proves deployment, not behaviour.
+
+**What is still owed: an induced fault.** Publish an envelope that fails
+classification and confirm a row appears. Note the original recipe at the top
+of this file names `created_at`; the column is **`occurred_at`**.
+
+> **Which site an induced fault will hit is [INFERRED from code read, not
+> exercised].** With one shared list, any error passing through
+> `handleError` is consumed there. The agentbase branch is reachable only on
+> paths that bypass it — `processWithoutContext` (which returns `process()`'s
+> error raw, `processor.go:1624-1629`) and the `NewMessageContext` failure
+> return. A hand-rolled trigger with malformed headers takes the
+> `processWithoutContext` route, because `types.FromHeaders` failing is what
+> sends it there. Do not restate this as fact until a row proves it.
+
+## Adjacent, UNVERIFIED, not investigated — for whoever picks this up
+
+`sendWorkflowFailureResponse` (`processor.go:523`) routes through
+`sendWorkflowResponse`, which builds every response with
+`Body.Success: true` and `Body.Error: nil` — a workflow **failure** is
+published in a success-shaped envelope with the error text buried in
+`body["error"]`. `grep` found no reader of `Body.Success` in
+`platform/orchestration/`, so this may be harmless. **[UNVERIFIED — I did not
+trace what consumes these responses, and did not file it.]** It is the same
+family as this bug (a failure that does not look like one) but it is a
+separate claim and should be diagnosed, not assumed.
+
+## Status
+
+**OPEN.** Committed at `15b0a7d96`, **inert until the chassis image is rebuilt
+and rolled** — the defect is still reproducible in production until then, which
+is the `/bugs_closed/` bar. Close after: (1) the roll, (2) the induced-fault
+row above, (3) the council verdict on `180d7c68`.

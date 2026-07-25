@@ -2047,6 +2047,41 @@ class already fixed at one narrow site (`c80fffc83`) — when you find one
 you. Category tags: `no-durable-surface`, `substring-classification`,
 `silent-drop`, `absence-is-not-evidence`.
 
+> **ADDENDUM 2026-07-25 (bugs_open/034 worked).** The paragraph above already
+> said "grep for its siblings". The fix that then shipped did not, and that is
+> the instructive part. `agent.go` got the durable record; the sibling one layer
+> down — `MessageProcessor.handleError`, same three needles **plus `missing`** —
+> did not, and it is the copy the ordinary path hits first. Worse, it ends
+> `return nil`, so the layer above logs *"Message processed successfully"* and
+> its brand-new recorder never fires. **The fix was applied to the site that
+> reports the drop, not the site that performs it, and every surface said
+> green.**
+>
+> **Two transferable rules:**
+>
+> 1. **A duplicated classifier is a contract, and duplicated contracts drift
+>    silently.** These two lists differed by one needle (`missing`), so the same
+>    error was dropped-without-retry by one layer and retried by the other,
+>    decided purely by which path it took. Nothing failed loudly. When you find
+>    the same predicate twice, the fix is one exported list plus a lockstep test
+>    — not two careful edits. (Same shape as the dedup-index↔Go-list lockstep and
+>    the council roster's two hand-maintained seats.)
+> 2. **`return nil` on an error path blinds every layer above it.** Before
+>    concluding a handler is reached, check what the layer *below* returns on
+>    that path. A swallowed error is not just unlogged — it actively converts a
+>    failure into a success for everyone upstream, including any recorder you
+>    just added there. Grep the call chain for `return nil` inside `if err`
+>    blocks before trusting that your instrumentation sits where the failures
+>    are.
+>
+> Corollary for verification: after adding a durable record, **zero rows is not
+> a green light.** Confirm the drop path fires at all (grep the classifier's own
+> log line in the pod) before reading an empty table as "no incidents" — see
+> "verify the failing branch", not the happy one.
+>
+> Category tags: `duplicated-classifier-drift`, `return-nil-blinds-upstream`,
+> `fixed-the-reporting-site-not-the-acting-site`, `zero-rows-is-not-proof`.
+
 ### A hard cap that silently discards its input's tail rewrites meaning — and the tail is whatever was composed LAST (2026-07-20)
 
 *Added 2026-07-20 from `bugs_open/027` §4b (imagery style-guide palette truncated
