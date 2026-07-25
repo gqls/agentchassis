@@ -1122,3 +1122,65 @@ lock both pages.
 (what's automatic, what it does and doesn't cover) and then the **funding** pair (ways, then
 sources). There's also the free "should you patent this?" checker we discussed as an option — a
 short questionnaire that gives a steer and then points at the report. Say which you'd like first.
+
+## 2026-07-25 (later) — copyright guide, and the first free tool
+
+You said yes to both, so both are built.
+
+**First, the loose end from this morning closed.** The Guides page button that was pointing at
+itself now correctly says "Get a verified idea report" and goes to the £29 report. Worth noting
+because it also settled the argument with myself: the job I'd assumed was lost had simply been
+queued, and it ran. The system proved me wrong rather than me spotting it.
+
+**The copyright guide** — https://idea.uk/guides/copyright/index.html. It leads on the thing that
+quietly costs small businesses the most money, and which the patents guide gives you no way to
+discover: **if a freelancer made it, they own it.** Paying an invoice does not transfer copyright.
+The designer owns your logo, the developer owns your code, the photographer owns the photos of your
+own product — unless you have a written, signed assignment. Employees are different; their work is
+yours automatically. That one section is worth the page.
+
+The rest covers what copyright actually is (automatic, free, nothing to register in the UK), the
+crucial limit that it protects *what you wrote* and not *what you thought of*, how long it lasts,
+proving what you had and when, licensing and the open-source terms you're already relying on, and
+what to do if someone copies you.
+
+Two things I want to flag about how it's written. On **AI**, it says plainly that the law is
+unsettled — whether AI output is owned by anyone, and whether training on other people's work is
+allowed, are genuinely open questions in the UK right now. It would have been the easiest paragraph
+in the guide to write confidently and wrongly, so it doesn't. And it says copyright **can** use the
+cheap small-claims court route — which is the exact mirror of the mistake I caught in the patents
+guide this morning, where I'd wrongly said patents could. Getting that pair right in both
+directions is the useful result of that near-miss.
+
+**The free checker** — https://idea.uk/tools/patent-check/index.html. Six questions, about two
+minutes, no sign-up, nothing stored, nothing sent anywhere; it all runs in the visitor's browser,
+so it costs us nothing per use. It ends on a plain verdict and then points at the £29 report.
+
+**One design decision I'd like you to know about, because it's the difference between a useful tool
+and a harmful one.** There's an existing quiz component on the estate I could have reused. It works
+by scoring: add up the answers, pick a band. That is the wrong machine for this question. If
+someone has already shown their idea publicly, they have very likely destroyed their own patent
+rights — in the UK there's no grace period — and *nothing else they answer changes that*. A scoring
+quiz would have added up their five good answers and cheerfully told them they looked ready to
+patent. So this one is built differently: it checks the fatal questions first and stops there if it
+finds one, and only scores the remaining commercial judgement if the idea is genuinely still in
+play. Someone who has already published gets a "speak to a patent attorney this week" answer, not a
+score.
+
+It's also honest about the common case. A lot of people will get "a patent is the wrong tool for
+this" — for a business model, an app with no technical angle, or a creative work — and the tool
+tells them what *does* protect it instead, rather than pushing them toward an expensive answer.
+
+**Where that leaves the site.** idea.uk now has two real guides and a free tool, both hubs list
+their contents automatically as we add more, and everything funnels to the paid report. Three
+months ago the Guides page was an empty heading.
+
+**Still finishing:** cross-links between the new pages (so the patents guide offers the checker and
+the copyright guide, rather than each page being a dead end), a re-render of the Tools page so it
+lists the new tool, and locking the written content so no automated pass rewrites it. All three are
+in progress — the box that serves the site pulls updates on a five-minute timer, so there's a wait
+between each step and being able to check it properly.
+
+**Next**, when you want it: the funding pair — the *ways* to fund something, then the actual
+*sources*. That's the other half of what you asked for, and it's the stage where a free tool would
+earn its place again (a "which funding route fits you" finder).

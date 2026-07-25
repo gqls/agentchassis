@@ -26,28 +26,37 @@
 
 BEGIN;
 
+-- SCOPE WIDENED 2026-07-25 (after p4_05/p4_06/p4_07): this now locks everything authored in the
+-- p4_* batch, not just the patents guide — the copyright guide (equally high-stakes legal content)
+-- and the patent-check tool page (whose section carries the gated verdict copy, and whose gating
+-- logic a regeneration pass would flatten). Deliberately NOT locked: the two hubs' derived
+-- listings, which must keep re-resolving as guides and tools are added.
+
 DO $guard$
 DECLARE n int;
 BEGIN
   SELECT count(*) INTO n FROM pages
    WHERE site_id = '1244516d-014d-421c-88c6-090bb1e9552a'
-     AND url IN ('/guides/patents/index.html','/guides/index.html')
+     AND url IN ('/guides/patents/index.html','/guides/copyright/index.html',
+                 '/tools/patent-check/index.html','/guides/index.html')
      AND build_status = 'deployed';
-  IF n <> 2 THEN
-    RAISE EXCEPTION 'ABORT: expected both guide pages deployed, found %. Verify live before locking.', n;
+  IF n <> 4 THEN
+    RAISE EXCEPTION 'ABORT: expected 4 deployed pages, found %. Verify each live before locking.', n;
   END IF;
 END
 $guard$;
 
--- All three authored sections of the guide.
+-- Every authored section of the two guides and the tool page.
 UPDATE page_components pc
 SET locked_at = now(),
-    locked_by = 'idea.uk patents guide (p4_01) — hand-authored UK legal guidance, do not regenerate',
+    locked_by = 'idea.uk ideas-pipeline (features_open/014, p4_01/p4_05/p4_06) — hand-authored UK legal guidance and gated tool copy, do not regenerate',
     lock_type = 'permanent'
 FROM pages p
 WHERE p.id = pc.page_id
   AND p.site_id = '1244516d-014d-421c-88c6-090bb1e9552a'
-  AND p.url = '/guides/patents/index.html';
+  AND p.url IN ('/guides/patents/index.html',
+                '/guides/copyright/index.html',
+                '/tools/patent-check/index.html');
 
 -- The hub's listing copy (the items themselves stay query-resolved and must NOT be frozen —
 -- the lock protects the surrounding copy, not the derived list).
@@ -64,7 +73,8 @@ WHERE p.id = pc.page_id
 INSERT INTO doc_notes (subject_type, subject_key, body, categories, created_at)
 VALUES (
   'pipeline', 'cta_link_integrity',
-  'idea.uk /guides/patents/index.html and /guides/index.html carry EXPLICIT business-intent CTA urls '
+  'idea.uk /guides/patents/index.html, /guides/copyright/index.html, /tools/patent-check/index.html '
+  || 'and /guides/index.html carry EXPLICIT business-intent CTA urls '
   || '(funnel to the paid /report.html tool + /tools.html#audience-check), set by p4_01/p4_02 and locked '
   || 'by p4_03. Do NOT fire a cta_links_stale recompute on these pages: applyCTARecompute would replace '
   || 'them with a content hub. Same standing exception as /index.html (p3_06). The guide body is '

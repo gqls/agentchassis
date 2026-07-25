@@ -1643,3 +1643,85 @@ trust the DB swap as proof the page changed.
 
 **STILL TO DO on this increment:** `sql/p4_03` (lock the authored sections — written, waits on the
 hub being verified live, per its own guard).
+
+### §X.13 — guide 2 (copyright) + idea.uk's first FREE tool (patent checker) (2026-07-25)
+
+Owner, same session: *"yes for copyright and the checker"*. Both built. §X.12's recipe held — no
+new traps, and the two it documented (slot_name, pages.sections) were handled up front in the SQL
+rather than discovered again, which is the whole point of writing them down.
+
+**§X.12 LOOSE END CLOSED FIRST.** The guides-hub CTA rerender that was queued at the end of §X.12
+landed. VERIFIED LIVE: `<a class="guide-list-cta-btn" href="/report.html">Get a verified idea
+report</a>`. Both hub rerenders from that queue ran, **including the one I had called a dropped
+spawn** — so the WRONG_CALLS entry is confirmed correct by the system's own behaviour, not just by
+my re-reading of it.
+
+**GUIDE 2 — `/guides/copyright/index.html`** (`sql/p4_05`, nav_order 20 so it sorts after Patents).
+Hand-authored, same policy. It leads on the thing that actually costs small businesses money and is
+invisible from the patents guide: **a contractor keeps copyright unless there is a written, signed
+assignment** (CDPA 1988 s.90(3)); only employees' work vests in the employer automatically
+(s.11(2)). So the freelancer who built your site owns your site. Two further deliberate choices:
+- The AI section says the law is **UNSETTLED** — whether AI output attracts copyright, who would
+  own it, and whether training on copyright works is lawful — rather than picking a side. Writing a
+  confident answer there is precisely the fabrication the authored-content policy exists to prevent,
+  and it would have been the easiest paragraph in the guide to write wrongly.
+- It states that copyright **can** use the IPEC small claims track. That is the exact counterpart of
+  the error caught in §X.12's draft (which wrongly said patents could). Getting the pair right in
+  both directions is the useful outcome of that correction.
+
+**FIRST FREE TOOL — `/tools/patent-check/index.html`** (`sql/p4_06`), new `patent-check` component
+(`37f2ca9c`). This is idea.uk's first genuine Tier-1 free probe: the existing
+`/tools.html#audience-check` is a pointer at the paid tool's own backend, not a free self-contained
+thing.
+
+**REUSE WAS CHECKED AND REJECTED, with a reason worth keeping.** `ai-readiness-quiz` (`71a636a7`,
+2 live instances) is the obvious candidate — a client-side 5×4 questionnaire with result tiers. It
+is the wrong instrument, and not cosmetically. **It is a sum-score quiz, and patentability is not
+additive.** "Have you already disclosed it publicly?" is close to dispositive on its own — the UK
+has no general grace period — so under a sum, someone who has already published would score well on
+the other five questions and be told they look patent-ready. That is not an imperfect UX; it is
+advice that could cost a reader their rights. Same for subject-matter exclusions: a business method
+is excluded however strong the commercial case.
+
+So `patent-check` is **gated, not scored**: disclosure and subject-matter short-circuit to their own
+outcomes first, and only if both pass does the commercial question (prior art, detectability,
+ability to fund enforcement, shelf life) get scored into three bands. The reasoning is commented in
+the template's own script so a later reader does not "simplify" it back into a sum. (Secondary
+reason reuse would have been awkward: the quiz's `quiz_badge_label` is `source: static` WITH a
+fallback — the p4_04 defect — so the badge would have read "AI Readiness Assessment" on a patent
+checker, unoverridably.)
+
+**Two delivery decisions, both grounded rather than assumed:**
+- **JS inline in `html_template`, not an external `/tools/assets/*.js`.** The quiz references an
+  external asset, which rides the publishing path that produced `bugs_open/041` (chrome JS published
+  but never loaded) and the `js_content`-vs-`js_snippets` trap. An inline `<script>` is part of the
+  rendered section HTML and cannot be published-but-not-loaded. Verified the template parses and
+  executes under `text/template` **before** inserting it (0 `<no value>`, 0 unreplaced actions,
+  `</section>` present so it passes `componentTemplateValid`) — cheaper than finding out via a
+  carried section.
+- **URL `/tools/patent-check/index.html` — checked against nginx first.** idea.uk's box reserves
+  the tool binary's routes by **exact match** (`location = /request` …), with only `/stripe/`,
+  `/internal/` and `/order/` as prefixes. `/tools/` is NOT reserved. Probed live to be sure:
+  `/tools/assets/site-header.js` → 200, `/tools/anything-random/` → 404 (a static miss, not the Go
+  binary). Had `/tools/` been proxied, the page would have been invisible no matter how well it
+  rendered.
+
+Schema fields are all `source: static` with **no fallback** — the shape `p4_04` established is
+required for `content_data` to win. `page_type='tool'` means `/tools.html` lists it automatically
+(`tool-list` sources `query.pages_where_type:tool`), the same self-listing mechanism `p4_02` gave
+the guides hub — so the same ordering constraint applies: ship the page, then re-render the hub.
+
+**RENDER RESULT:** copyright `rr=3/carried=0`, tool `rr=2/carried=0`, both COMPLETED, both
+`build_status='deployed'` with `deployed_at` stamped, and both files confirmed in the git-adapter's
+commit to `vm-sites`. **[UNVERIFIED at time of writing]** both still 404 on the live box — VM
+sitesync is a 5-minute timer, so this is the known lag, not a failure. Waiting for the 200 before
+claiming either is live, and before running `p4_07`/`p4_03`.
+
+**QUEUE NOTE:** these two renders were picked up in under a minute, against ~12 minutes for the
+three fired during the §X.12 stall. Same fire mechanism, same payload shape — the difference is
+entirely consumer backlog. Worth remembering next time a dispatch looks slow: the latency is not a
+property of your message.
+
+**STILL TO DO:** `p4_07` (cross-links: patents guide → checker + → copyright; then re-render
+/tools.html so its derived tool-list picks the new tool up) and `p4_03` (locks, extended to cover
+all four new pages).

@@ -130,10 +130,52 @@ SQL: `idea_uk_vm_site/sql/p4_01` (page+content), `p4_01b` (slot_name fix), `p4_0
 generic-requests consumer (`bugs_open/029/030`) — the swap is in the DB but the live hub still
 shows the old empty listing until it drains. Verify with `curl`, not the DB.
 
-**Next stages, in the order that follows from this one:** copyright (7) pairs naturally with
-patents and reuses the same authored-content policy; then the funding pair (8 ways, 9 sources).
-The first Tier-1 free tool candidate is a "should you patent this?" checker hanging off this guide
-— still a design question (`013`), not started.
+## BUILD LOG — increment 2 SHIPPED (2026-07-25, same day): copyright + the first free tool
+
+Owner: *"yes for copyright and the checker"*. Both built and live.
+
+**Stage 7 — `/guides/copyright/index.html`** (`sql/p4_05`). Hand-authored under the policy above.
+Leads on the highest-value practical fact, which is invisible from the patents guide: **a
+contractor keeps copyright unless there is a written, signed assignment** (CDPA 1988 s.90(3));
+only employees' work vests in the employer automatically (s.11(2)). Says the AI questions
+(ownership of output, lawfulness of training) are **unsettled** rather than picking a side — the
+easiest paragraph in the guide to write confidently and wrongly. Auto-listed on the hub by `p4_02`'s
+derived listing with no edit to the hub, which is increment 1's reusable half paying off first time.
+
+**First Tier-1 free tool — `/tools/patent-check/index.html`** (`sql/p4_06`), new `patent-check`
+component. Six questions, entirely client-side: no LLM, no backend, no data leaves the browser, so
+it costs nothing per use — a genuine Tier-1 probe per `013`, not a Tier-2 utility wearing the label.
+`page_type='tool'` means `/tools.html` lists it automatically via `query.pages_where_type:tool`,
+the same self-listing mechanism as the guides hub.
+
+**The design decision worth carrying into every future tool in this pipeline.** Reuse of the
+existing `ai-readiness-quiz` component was checked and **rejected**: it is a fixed **sum-score**
+quiz, and the questions in this domain are not additive. "Have you already disclosed it publicly?"
+is close to dispositive on its own — no UK grace period — so a sum would let five good answers
+outvote it and tell someone who has already published that they look patent-ready. That is not a
+UX mismatch; it is advice that could cost a reader their rights. `patent-check` is therefore
+**gated, not scored**: disclosure and subject-matter exclusions short-circuit to their own outcomes
+first, and only if both pass does the commercial question get scored into bands.
+
+> **Rule for stages 6–9 tools:** where a single answer can be decisive (a legal deadline, an
+> exclusion, an eligibility bar), the instrument must gate before it scores. A scorecard is only
+> safe when every input is genuinely a matter of degree. This applies directly to the funding-fit
+> finder in stage 8/9 — eligibility criteria are gates, not points.
+
+Second reason reuse failed, worth knowing before reaching for that component again: its
+`quiz_badge_label` is `source: static` with a fallback, which `p4_04` established is
+**unoverridable**, so the badge would have read "AI Readiness Assessment" on a patent checker.
+
+**Delivery notes that generalise:** the tool's JS is **inline in `html_template`**, not an external
+`/tools/assets/*.js`, to stay off the publish-but-never-load path (`bugs_open/041`, the
+`js_content`/`js_snippets` trap) — an inline script is part of the rendered section and cannot be
+published-but-not-loaded. The template was parse+execute tested locally before insert. And the URL
+was checked against idea.uk's nginx first: tool routes are reserved by **exact match** only, so
+`/tools/` is served statically (probed live) — a page under a proxied prefix would have been
+invisible however well it rendered.
+
+**Next stages:** the funding pair — 8 (ways) then 9 (sources) — which is where the gating rule above
+gets its second real test.
 
 ## Next step (when the owner prioritises this)
 
