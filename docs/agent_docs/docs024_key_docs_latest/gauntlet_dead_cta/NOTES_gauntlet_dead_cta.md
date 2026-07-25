@@ -718,3 +718,30 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
   noise; feasibility stopped objecting to the backend after round 3, once 207
   landed — the liveness-evidence channel is confirmed working). Round 5 now
   composing.
+
+## 2026-07-25 ~16:35 — first re-plan ESCALATED after 5 rounds; gaps folded in; re-fired
+
+- The first re-fire (corr fcdf8e72) ran its full internal round cap: 5 REVISE
+  decisions, then `complete_escalated` (COMPLETED) — a DESIGNED circuit
+  breaker (`complete_escalated`'s own description: "the disagreement IS the
+  round-boundary decision menu... do NOT build the current plan"), not a
+  crash. Confirmed migration 208 worked: round 5's review_contracts produced
+  a full, substantive JSON verdict (the `__step_error` field showing another
+  truncation was stale residue from a retry that then succeeded — the platform
+  tolerated the transient failure and moved on).
+- Round-by-round convergence was real: feasibility dropped its "backend
+  doesn't exist" objection entirely after round 3 (207's liveness evidence
+  worked), and by round 5 only 3 narrow, mechanical gaps remained (journeys 1,
+  feasibility 2, contracts 3 — honesty and mvp both APPROVED).
+- Checked whether a bare re-fire would benefit from that history: verified
+  `compose`'s input_fields are only `[experience_context, input_data]` and
+  `load_context`'s query pulls live site state, not council_report/doc_plans
+  history — a fresh fire starts genuinely blind. So instead of re-firing raw,
+  wrote migration 209 folding round 5's three objections directly into the
+  compose Decisions channel: the EXACT verified JSON response shapes for
+  round/position/defend (I have first-hand ground truth — I built and tested
+  this API), the gauntlet-interface enter-button's real simulate-a-round
+  behaviour that needs sequencing to change, and the two named existing-loader
+  gaps (provocations-archive-loader, tool-arena-interface).
+- Re-fired once — corr `5316e79c-7927-4ea9-bd99-00fb5709a748`. Patient
+  watcher running, no auto-refire.
