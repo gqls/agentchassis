@@ -427,3 +427,59 @@ UPDATE scheduled_tasks SET target_agent_type='intent-collection-orchestrator',
 -- verify within ~10 min: rows appear
 SELECT count(*), max(collected_at) FROM intent_events;
 ```
+
+## Legacy-feed forensics (added 2026-07-25)
+
+Answering "is this a subscriber or a crawler?" and "did the fix actually work?".
+
+```bash
+BOX=167.233.33.159
+# Feed outcome by DAY — the query that distinguishes "the fix failed" from
+# "the log window predates the fix". Sort numerically; the obvious sort is
+# alphabetical on "01/Jul", which interleaves months and reads like noise.
+ssh root@$BOX 'zcat -f /var/log/nginx/access.log* | grep external.php \
+  | awk "{split(\$4,d,\":\"); print substr(d[1],2), \$9}" | grep Jul \
+  | sort | uniq -c'
+# relojistas landmark: 404-only until 16 Jul, fix lands 17 Jul, 200s since.
+
+# WHO is asking — the column that turns "requests" into "subscribers", and the
+# one whose omission put a false feature in the plan for two weeks (WRONG_CALLS).
+ssh root@$BOX 'zcat -f /var/log/nginx/access.log* | grep external.php \
+  | awk "\$9==200 || \$9==304" | grep -oE "\"[^\"]*\"$" | sort | uniq -c | sort -rn'
+
+# The strongest available proof of a REAL subscription without real-ip:
+# conditional GETs. A feed reader polls with If-Modified-Since and collects 304s;
+# crawlers essentially never do.
+ssh root@$BOX 'zcat -f /var/log/nginx/access.log* | grep external.php \
+  | awk "\$9==304" | grep -oE "\"[^\"]*\"$" | sort | uniq -c | sort -rn'
+
+# Which URL SHAPES still fail (drives the setup.sh fix list). Scope to the
+# endpoint BEFORE extracting params: a bare "forumids=" grep also matches
+# crawlers walking old thread URLs and inflates the picture.
+ssh root@$BOX 'zcat -f /var/log/nginx/access.log* | grep -E "2[0-5]/Jul" \
+  | grep external.php | awk "\$9==404" | grep -oE "GET /[^ ]*external\.php[^ ]*" \
+  | sed -E "s/=[0-9a-f]{8,}//g; s/=[0-9]+/=N/g" | sort | uniq -c | sort -rn'
+```
+
+**Caveat that applies to every count above:** all client IPs are Cloudflare edge
+addresses until `real_ip_header CF-Connecting-IP` is installed (pending owner run),
+so these count *requests and user-agents*, never distinct people.
+
+### Recovering old vBulletin board names from Wayback
+
+```bash
+curl -s "http://web.archive.org/cdx/search/cdx?url=relojistas.com/forum.php\
+&output=text&fl=timestamp,statuscode&filter=statuscode:200&collapse=timestamp:6&limit=20"
+curl -s -A "Mozilla/5.0" \
+  "http://web.archive.org/web/20150925002629id_/http://www.relojistas.com/forum.php" -o f.html
+iconv -f ISO-8859-1 -t UTF-8 f.html > f.utf8.html          # the page is NOT UTF-8
+LC_ALL=C grep -aoE 'forums/[0-9]+-[^"?]+' f.utf8.html | sort -u
+# ids absent from the index page resolve individually:
+curl -s "http://web.archive.org/cdx/search/cdx?url=relojistas.com/forums/44-*&output=text&fl=original&limit=3"
+```
+
+**TRAP (cost ~15 min):** on the ISO-8859-1 page, plain `grep` in a UTF-8 locale
+decides the file is binary and prints **nothing at all** — no error, no "binary
+file matches", just zero output on a file that visibly contains the strings.
+Always `LC_ALL=C grep -a` on archived pages. The `id_` suffix in the Wayback URL
+is what returns the original bytes rather than the toolbar-injected version.

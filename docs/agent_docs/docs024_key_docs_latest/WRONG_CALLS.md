@@ -2388,3 +2388,29 @@ Cost: one wrong durable claim in 003's sighting list (corrected in place), one
 re-fire burned on an unfixed cause, ~4h of implementer progress lost a second
 time. Family: correlation-not-cause, absence-family (the deleted topic left no
 error anywhere — the produce SUCCEEDED into the recreated topic).
+
+## 2026-07-25 — "we know which boards people subscribed to" (relojistas legacy feeds)
+
+**The claim.** The rebuild manifest recorded `Subscribed variants seen:
+forumids=2,4,13,44,58,78,145,288`, and the handoff promoted it into a planned feature:
+map those boards to topic feeds "so a Rolex-board subscriber gets Rolex news". It sat in
+the plan of record for two weeks and was the last item on the build list.
+
+**What was actually true.** The ids were an unchecked sample (real set: 123 boards), and
+the traffic is ~88% self-identified crawlers — meta-webindexer, Googlebot, DotBot,
+SERanking, plus a scraper spoofing Chrome/30 — with **zero conditional GETs**. The
+genuine subscriber signal sits on the *bare* feed URL (one client, 42 × `304`). There is
+no board subscriber to serve. The named example was wrong too: the Rolex board is id 43
+and is not in the recorded set.
+
+**What caught it.** Going to gather the forumid→board mapping in order to *build* the
+feature, and reading the user-agent column while there.
+
+**The cheap check that would have caught it two weeks earlier.** One extra column in the
+grep that produced the claim: `awk '{print $9, $NF}'` — status and user-agent alongside
+the query string. Counting query strings measures *requests*; the word "subscribed" is a
+claim about *clients*, and nothing in that grep looked at a client.
+
+**Transferable rule.** When a log-derived count is about to be described with a noun that
+implies a person — *subscriber*, *visitor*, *user* — the grep must include whatever column
+distinguishes people from machines, or the noun must change to "requests".

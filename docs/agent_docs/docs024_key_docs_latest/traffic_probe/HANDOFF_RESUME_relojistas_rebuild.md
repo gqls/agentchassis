@@ -62,11 +62,25 @@ rendered every 6h by `content-feed-trigger`; autonomous commits observed. Feed p
 3. **P5.2 — search-that-answers.** The rebuilt homepage has **no search box**, so intent
    capture has been paused since cutover. Plan: engine returns results matched against the
    curated news while still recording the intent event; then re-add the box.
-4. **Per-category legacy feeds (engine).** We know which old boards people subscribed to
-   (`forumids=2,4,13,44,58,78,145,288,…`). Map them to topic feeds so a Rolex-board
-   subscriber gets Rolex news. Needs category feeds rendered first; today all `type=RSS2`
-   variants correctly get the master feed.
-5. **Measure reactivation** — count subscriber 404→200 in the access log (the point of it all).
+4. ~~**Per-category legacy feeds (engine).**~~ **DEFERRED 2026-07-25 — surveyed, and
+   the premise did not survive the survey.** Board-param feed requests are ~88%
+   self-identified crawlers with **zero** conditional GETs; the one client that behaves
+   like a real subscriber (42 × 304) polls the **bare** feed. The old boards people
+   supposedly "subscribed to" were an unchecked sample of 8 from a real set of 123, and
+   most are forum-social boards a news portal cannot fill (Seiko 1 matching item, Louis
+   Erard 0, Sorteos 0). Today all `type=RSS2` variants correctly get the master feed and
+   that is the right answer. Decision, reversal trigger and ready-to-build design:
+   plan §P8; evidence: `EVIDENCE_2026-07-25_legacy_board_feed_demand.md`.
+5. **Measure reactivation** — ~~count subscriber 404→200~~ **DONE 2026-07-25 for the
+   part that is countable.** The legacy feed went 404→200 on **17 July** (0 × 200 before,
+   200s dominant since; 25 Jul: 36 × 200, 0 × 404). Residual failures are ~5/day in
+   exactly three shapes — bare `/external.php` (25), lowercase `?type=rss2` (11, the live
+   conf's hand-edit is case-sensitive), `/ventas/external.php` (4) — **all three already
+   fixed in the pending `setup.sh`**, so the owner's box run has a measurable before/after.
+   Evidence of real subscribers: `FeedFetcher-Google`, `Apache-HttpClient`, empty-UA
+   pollers, and one client doing 42 conditional GETs. **What is still NOT countable:
+   distinct people** — every logged IP is a Cloudflare edge address until CF real-ip
+   lands. That is now the measured blocker on the headline number, not a preference.
 6. **Housekeeping:** stale relojistas copy still in `gqls/sites` + B2 (delete per
    `REPORT_vm_sites_repo_architecture.md` rec 4); `favicon.png` referenced but never
    generated; P0 CF real-ip `setup.sh` re-run still outstanding (setup.sh is no longer on

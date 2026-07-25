@@ -20,6 +20,22 @@ reactivates the domain's still-live subscribers.
   real user subscribed to), **meta-webindexer** (Facebook), **Applebot**, DotBot, and
   many feed-reader UAs. Subscribed variants seen: `forumids=2,4,13,44,58,78,145,288`
   and per-user `cat=…&ppuser=…`. **Every request 404s today.**
+
+  > **CORRECTED 2026-07-25 — the phrase "subscribed variants" was wrong, and it
+  > shaped a planned feature.** Those eight ids were an unchecked *sample* of the
+  > `forumids=` values in the log; the real set is **123 boards**, and — the part
+  > that matters — the board-param requests are **~88% self-identified crawlers**
+  > (meta-webindexer, Googlebot, DotBot, SERanking, plus a scraper spoofing
+  > Chrome/30), with **zero conditional GETs**. Nothing here evidences a *board*
+  > subscription. The genuine subscription signal is on the **bare** feed URL,
+  > where one client polls with `If-Modified-Since` (42 × 304). The cheap check
+  > that would have caught it at the time: read the user-agent column, not just
+  > the query string. Full evidence + method:
+  > `EVIDENCE_2026-07-25_legacy_board_feed_demand.md`. Consequence: per-forumid
+  > category feeds are **deferred, not built** (plan §P8).
+  >
+  > ASSET 1's headline — real subscribers on the bare feed, all 404ing then —
+  > **stands**, and is now confirmed live: 404 until 17 Jul, 200s since.
 - **ASSET 2 — small but real organic intent (the June "human ≈ 0" verdict predates it).**
   Search box captured **9 events, ~8 organic**, over 3.5 weeks from **ES / CL / MX**:
   `Omega seamaster` (CL), `Certina 919` (ES), `Casio shock ga2100` (MX), `Aguja 0.18`

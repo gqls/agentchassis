@@ -452,3 +452,61 @@ Glosario sections are written and behind a fabrication fence, the homepage has n
 the news now works for machines as well as people. The remaining items are the ones we listed
 before — search-that-answers, per-board category feeds, and promoting the Cloudflare real-IP change
 so we can actually count subscribers.
+
+---
+
+**25 July 2026 — I went to build the last feature and found there was nobody to build it for.**
+
+The one thing left on the relojistas list was per-board feeds: the old forum had boards —
+Rolex, Panerai, Seiko, divers, and so on — and people had subscribed to them individually.
+The idea was that someone who followed the Panerai board in 2015 should get Panerai news
+today, at the same web address they never unsubscribed from. It's a lovely idea and it was
+in the plan for a fortnight.
+
+I started by working out which board was which, because we only had numbers. The Wayback
+Machine still has the old forum's front page from 2015, so the numbers turned into names in
+about ten minutes: 41 is Panerai, 43 is Rolex, 44 is Seiko, 216 is divers, and so on — 123
+boards in all, not the eight we had written down.
+
+Then I checked who was actually asking for them, and that's where it fell apart. Nearly nine
+in ten of those requests are crawlers announcing themselves as crawlers — Facebook's indexer,
+Google's, a couple of SEO bots, and one scraper pretending to be a browser from 2013. Not one
+of them behaves the way a feed reader behaves. Real feed readers ask "has this changed since
+last time?", and the server answers "no" without sending anything; we can see that happening
+on our **main** feed forty-two times from one subscriber, and **not once** on any board feed.
+
+So the people we're trying to reach are subscribed to the site, not to the boards. Building
+board feeds would mean building for Googlebot.
+
+There's a second reason, which I'd have hit even if the traffic had been real: we couldn't
+fill most of those boards. The busiest ones are things like legal advice, group buys, "new
+members introduce yourselves", photography, and a pub-chat board — a watch news service has
+nothing to put in them. Across our entire collection of 75 news items there is exactly one
+Seiko story and none at all for Louis Erard. A board feed with nothing in it looks to a
+subscriber exactly like the dead forum we're undoing.
+
+I've written the decision down properly, including what would change my mind — if, once we can
+see real visitor addresses, board requests turn out to have real people behind them, the design
+is worked out and ready to build.
+
+**The good news, which I got by accident while checking the bad news.** I could finally measure
+the thing this whole project exists for. The old feed address returned "not found" to every
+single request until **17 July** — then the fix landed and it's been answering ever since. Today
+it has served 36 requests and failed none. There is at least one genuine returning subscriber in
+there, quietly polling, plus Google's feed fetcher, which only polls feeds a real person asked
+it to.
+
+I also caught myself in a scare and want to record it. I saw over two thousand failures in the
+logs and briefly thought our success figure from Monday had been wrong. It hadn't — those
+failures are all from *before* the 17th, sitting in the same log files. The lesson is that when a
+number seems to contradict something you proved last week, check whether you're measuring across
+the moment you fixed it.
+
+And a genuinely useful leftover: about five requests a day still fail, in three specific shapes —
+one of which is simply someone asking for the feed in lower-case letters, which the hand-typed
+config on the server treats as a different address. All three are already fixed in the script
+waiting for your next server session, so that session now has a number attached to it rather
+than just "tidier".
+
+**What I need from you is unchanged**, and it's still that one server session. Nothing I found
+today adds to it.

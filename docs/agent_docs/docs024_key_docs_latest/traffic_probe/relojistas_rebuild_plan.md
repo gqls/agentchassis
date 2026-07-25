@@ -179,3 +179,56 @@ notes) — they are two ordinary unbuilt pages that will publish as "Artículo" 
 Entrada" and then list *themselves* inside these very indexes. Their disposition must be
 settled before either index is built, or the first thing a visitor sees in the Glosario is
 a page called "Glosario Entrada".
+
+---
+
+## P8. Per-forumid category feeds — DECIDED 2026-07-25: **deferred, not built**
+
+The last unbuilt item on the rebuild list, and the plan of record since the
+manifest (§5 "v2 maps `forumids=44/288/78/145/13/58/4/2` to category feeds once
+per-category news pages exist"). Before building it I went to measure which
+boards to serve. The measurement killed the premise.
+
+**Why deferred** (evidence: `EVIDENCE_2026-07-25_legacy_board_feed_demand.md`):
+
+1. **Nobody real asks for board feeds.** Post-fix (18–25 Jul) there were 793
+   board-param feed requests; ~700 are self-identified crawlers, and **not one
+   is a conditional GET**. The only client that behaves like a subscribed feed
+   reader — 42 × `304 Not Modified` — polls the **bare** feed URL. Building
+   per-board feeds would be building for Googlebot and Facebook's indexer.
+2. **The corpus cannot fill most of them.** Of the 123 boards requested, the
+   heavily-requested ones are forum-social (legal advice, group buys, member
+   intros, photography, off-topic, voting), which a news portal has no content
+   for. Real matches across the whole 75-item corpus: Marcas de relojes 32,
+   Seiko 1, Louis Erard 0, Auténtico/Falso 0, Perdidos y robados 0, Sorteos 0.
+3. **It would make the working path worse.** Today every `type=RSS2` variant
+   serves the master feed — a living feed, 200, cached, no moving parts. Board
+   feeds would either be empty (reads exactly like the dead forum we are
+   undoing) or be the master feed under a board's name, which is a small lie.
+   Either way it inserts the engine into the one path demonstrably serving real
+   subscribers.
+
+**The handoff's framing was wrong on its own terms**: "so a Rolex-board
+subscriber gets Rolex news" — the Rolex board is id **43**, which is not among
+the eight ids the manifest recorded as subscribed, and its traffic is crawler
+traffic like the rest.
+
+**What would reverse this decision** (a real trigger, not a vague "later"):
+after CF real-ip lands in the owner's box run, re-run the §1 method. If
+board-param requests then show **distinct real client IPs** or **conditional
+GETs**, there is a subscriber to serve and the design below is ready to build.
+
+**Design, if the trigger fires** (kept because the survey work is done): serve
+it in the engine, not the chassis — the engine already parses the master
+`feed.xml` (real `pubDate`s, 30 items) and the webroot index for `/buscar`, so
+a board feed is a filter over an already-loaded source, deploys by push with no
+chassis image roll, and needs no new data. Match on title+description text
+(the master feed carries no `<category>`). Mandatory: **never emit an empty
+feed** — matching items first, then top up from the master, with the channel
+description stating plainly that it mixes. nginx would route only board-param
+requests to the engine, keeping `error_page`-fallback to the static master, so
+an engine outage degrades to today's behaviour rather than 502-ing subscribers.
+
+**Not needed after all**: no nginx change for this, so the owner's pending
+`setup.sh` re-run is unaffected — which was the timing argument for doing this
+survey now rather than later.

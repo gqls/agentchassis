@@ -1295,3 +1295,72 @@ cycle.
 > My 2026-07-21 update EDITED `SUMMARY_relojistas_rebuild.md` in place — that predated my
 > noticing the rule and was a violation of it; the old file stays as-is as the 19–21 July
 > read-out, and the series is correct from today.
+
+---
+
+## 2026-07-25 — surveying the last feature killed it; measuring the mission metric instead
+
+Picked up the last unbuilt item (per-forumid category feeds) with a timing argument:
+the owner's box run hasn't happened, so any nginx rewrite the old board addresses need
+could ride the same `setup.sh`. Went to find out which boards to serve. Never got to
+build it, for good reasons.
+
+**Board names recovered from Wayback** (the manifest said they were "recoverable if we
+want an exact map" — they were, in about ten minutes):
+
+- 2 Foro general · 4 Marcas de relojes · 13 Sorteos y concursos · **44 Seiko** ·
+  58 Área de votaciones · 78 Auténtico/Falso · 145 Relojes perdidos y robados ·
+  **288 Louis Erard** — plus 115 more. Full table + method in
+  `EVIDENCE_2026-07-25_legacy_board_feed_demand.md`.
+- **Trap, cost ~15 minutes:** the 2015 page is ISO-8859-1. In a UTF-8 locale `grep`
+  decides it is binary and prints **nothing** — not an error, not a warning, just no
+  matches, on a file that plainly contains the strings. `LC_ALL=C grep -a` + `iconv`.
+  Same family as the NUL-byte/ugrep silent-binary entry already in memory.
+
+**Corpus vs boards** (`content_feed_items`, 75 items, status relevant+review):
+Marcas de relojes 32 · Seiko 1 · Louis Erard 0 · Auténtico/Falso 0 · Perdidos y robados 0
+· Sorteos 0. Most requested boards are forum-social — legal advice, group buys, member
+introductions, photography, off-topic, voting — categories a news portal cannot fill.
+
+**Then the access log, which settled it.** 793 board-param feed requests post-fix:
+meta-webindexer 349, Googlebot 153, a Chrome/30 (2013) scraper 160, SERanking 22,
+DotBot 17 — ~88% named crawlers — and **zero conditional GETs**. Meanwhile the bare
+feed shows **42 × 304 from one Chrome/108 client**: a real reader polling with
+`If-Modified-Since`. Real subscription plumbing (`FeedFetcher-Google`,
+`Apache-HttpClient/4.5.5`, empty-UA pollers) is all on the **bare** URL, never
+board-scoped. Decision recorded in plan §P8: **deferred with a named reversal trigger**,
+design kept because the survey work is done.
+
+**My own wrong turn, mid-investigation.** I first grepped `forumids=` across the whole
+access log instead of scoping to `external.php`, which also sweeps crawlers walking old
+*thread* URLs carrying the same parameter. I reported a "123-board demand distribution"
+off that before re-scoping. Re-scoped it landed on the same 123 boards — which is the
+uncomfortable part: a contaminated method that happens to agree with the clean one
+teaches you nothing and would have gone unnoticed.
+
+**And a false alarm I raised and then closed myself.** Saw `2385 × 404` against
+`external.php` and briefly believed the 97.6%-success figure from 21 Jul was wrong.
+It wasn't: split by day, the feed is **404 until 17 July and 200 from 18 July on** —
+the 404s are the pre-fix history sitting in the same retained log files. Lesson for any
+"the metric contradicts the claim" moment: check whether the window you are measuring
+contains the fix.
+
+```bash
+# the query that resolved it (chronological, not the alphabetical sort I did first)
+zcat -f /var/log/nginx/access.log* | grep external.php \
+  | awk '{split($4,d,":"); print substr(d[1],2), $9}' | grep Jul | sort | uniq -c
+#  16 Jul  404:63   (0 × 200)      <- pre-fix
+#  17 Jul  200:29 404:91           <- fix lands mid-day
+#  25 Jul  200:36 304:3  (0 × 404) <- today
+```
+
+**Residual failures post-fix — ~5/day, and all three already fixed in the pending
+`setup.sh`**: bare `/external.php` with no query (25), lowercase `?type=rss2` (11 — the
+box's surgical hand-edit is case-**sensitive**; the generator's `~*` fixes it), and
+`/ventas/external.php` (4). So the owner's run now has a quantified before/after, which
+is better than the "should be tidier" justification it had this morning.
+
+**Measurement limit, stated because it is the headline number:** every client IP in the
+log is a Cloudflare edge address, so distinct *people* remain uncountable until CF
+real-ip lands in that same run. `[MEASURED]` for request/UA counts above;
+`[UNMEASURED]` for how many humans they represent.
