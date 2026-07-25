@@ -4377,6 +4377,9 @@ func detectNeedsLLMContent(htmlTemplate, inputSchema string) bool {
 //     work_item_id absent. When false, error.
 //   - error_message:      optional literal recorded in the error column so
 //     triage can see why a handler parked the item.
+//     When omitted and the status is not 'complete',
+//     the routed step error (__step_error) is
+//     recorded instead — see below.
 //   - result_fields:      optional map of extra fields to merge into the
 //     row's result JSONB. Values are literals; the
 //     action always adds orchestration_id and step
@@ -4448,6 +4451,46 @@ func UpdateWorkItemStatusAction(ctx context.Context, params ActionParams) (inter
 	// Optional error message — recorded in the error column so triage can see
 	// why a handler parked the item.
 	errorMessage, _ := config["error_message"].(string)
+
+	// Fall back to the REAL step error when the workflow supplied no literal.
+	//
+	// Why (bugs_closed/040-partial-build, candidate 2): a literal only fits a
+	// static reason ("writer skipped this page"). The genuinely failing path —
+	// `mark_item_failed`, reached via error_step — has a *dynamic* reason and so
+	// carries no literal, which left `site_work_items.error` EMPTY on every such
+	// item while the coordinator had already written the real message to
+	// agent_error_log 1s earlier from the very same routeToErrorStep call
+	// (coordinator.go: __step_error and logAgentError are set together). 21 of 75
+	// failed items fleet-wide carried a blank error on 2026-07-25; 20 of those 21
+	// had exactly one agent_error_log row waiting to be joined. Triage looks at
+	// the item, not the log, so the reason was effectively invisible.
+	//
+	// Never for 'complete': __step_error is never cleared once set, so a workflow
+	// that recovers from a routed error and then stamps the item complete would
+	// otherwise be given a stale failure. Fleet census 2026-07-25 — the only
+	// literal-less update_work_item_status steps are 2×'failed'
+	// (page-build-handler, image-build-handler) and 1×'complete'
+	// (image-build-handler); the 2×'needs_human_review' steps carry literals and
+	// are unaffected because a configured literal always wins.
+	if errorMessage == "" && newStatus != "complete" {
+		if stepErr := datahelpers.ExtractNestedFieldString(params.CollectedData, "__step_error.message"); stepErr != "" {
+			errorMessage = stepErr
+			// Name the step unless the message already does. The routed message
+			// has two shapes: "step X failed: …" (action errors) and a bare
+			// "Request <id> timed out after 3 retries" (awaited-request
+			// timeouts), which alone does not say WHAT timed out. Converge on
+			// the prefix the column already uses rather than inventing a
+			// second format.
+			if failedStep := datahelpers.ExtractNestedFieldString(params.CollectedData, "__step_error.failed_step"); failedStep != "" &&
+				!strings.HasPrefix(errorMessage, "step ") {
+				errorMessage = "step " + failedStep + " failed: " + errorMessage
+			}
+			params.Logger.Info("UpdateWorkItemStatusAction: no error_message literal — recording the routed step error",
+				zap.String("work_item_id", workItemIDStr),
+				zap.String("status", newStatus),
+				zap.String("error", errorMessage))
+		}
+	}
 
 	if params.DB == nil {
 		params.Logger.Warn("UpdateWorkItemStatusAction: No database")
