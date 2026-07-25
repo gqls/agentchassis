@@ -562,3 +562,19 @@ is the owner-deferred "periodic" decision). Options: (a) fire `091_TRIGGER_impro
 per site now — proven, but each run is a FULL per-site improvement pass (design+content audits spend
 credits, spawns other work items, as vonc's run did); (b) re-enable improvement-sweep (fleet-wide
 cadence, the deferred decision); (c) leave for organic cycles. Owner call.
+
+### B — 2026-07-25: owner rulings on the two open calls
+
+1. **The 9 remaining dead forms: leave for organic discovery cycles** (option c). No batch 091 runs,
+   improvement-sweep stays disabled. Each site self-heals when discovery next visits it — the loop is
+   proven, the timing is accepted. They can be spot-checked with the affected-sites query in this file;
+   a site still on `#contact` after a discovery cycle has run there IS a signal worth chasing.
+2. **The duplicated guard predicate stays as two test-pinned copies** (`deliverableFormAction` in
+   actions / `contactAddressResolvable` in discovery_checks). This is the human sign-off
+   bug_historian/reuse_agent asked for: the package-boundary constraint is accepted, no shared-package
+   extraction for now. The lockstep comments + parity tests on both sides are the guard; anyone
+   tightening ONE side must change both (the tests pin today's cases only).
+
+B's mechanism is DONE at every layer (fixed, live, council-approved, proven end to end on vonc). B
+stays open only for the 9 pages still serving `#contact` until their organic heal — and A (owner/infra)
+and C (claim-timeout residual) remain their own threads.
