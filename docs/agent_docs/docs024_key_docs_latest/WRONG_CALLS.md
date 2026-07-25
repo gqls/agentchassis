@@ -2500,3 +2500,29 @@ an unverified cause in an operational doc is more dangerous than one in NOTES.
 Corrected in place with the five-row evidence table and an [UNVERIFIED] marker on
 what remains unknown. Family: cause-invented-to-fit-one-observation,
 published-before-tested.
+
+**2026-07-25 — reported a re-verification sweep as "live and proven" when it had
+never processed a single row, and said so to the owner.** The model directory's
+daily citation re-check was described in NOTES as live, and in the owner's log as
+"each one due to be automatically re-checked every day so a stale price can't sit
+there looking authoritative". Measured today: **0 orchestrations had ever carried
+`refresh_directory_claims`, and 0 of 108 claims had ever been re-verified.** The
+task put its workflow inline in `scheduled_tasks.input_data.config.workflow` and
+targeted `generic`, whose own workflow is a single no-op step — so every fire
+created a run, completed instantly, and stamped `last_triggered_at` AND
+`last_completed_at`. What I checked at the time was that the task fired and
+completed. It did. That was never the question. **Cheap check: for any job whose
+output is a row change, count the row change, not the job — one
+`count(*) FILTER (WHERE verified_at > created_at + interval '1 minute')` would
+have shown 0 on day one.** What actually caught it was inducing a fault
+(corrupting a stored quote and waiting for a flip that never came), which I did
+for an unrelated reason — a 17/17 verification score I found implausible. Two
+lessons, and the second is the one I keep re-learning: (1) a config field that is
+ACCEPTED but never READ is indistinguishable from one that works, and the same
+shape is live in another workstream's `evidence-freshness` (filed as
+bugs_open/074 rather than fixed for them); (2) I had the workstream's own memory
+note "verify the failing branch — a green happy path proves DEPLOYMENT not
+CORRECTNESS; induce the fault for anything whose job is to detect one" and did
+not apply it to my own sweep, which is *precisely* a thing whose job is to detect
+a fault. Family: green-status-no-work, checked-the-job-not-the-output,
+own-rule-not-applied-to-own-work.
