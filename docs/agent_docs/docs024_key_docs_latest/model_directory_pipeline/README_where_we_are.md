@@ -196,3 +196,47 @@ otherwise — is to put Model Directory in the footer's resources group,
 alongside News, and rely on the homepage teaser section for prominence. If
 you'd rather it were in the top menu, tell me which of the eight you'd
 sacrifice, or whether you'd rather the menu simply grew to nine.
+
+**2026-07-25, later that morning — a third thing was wrong, and it's the one
+you'd have noticed first.**
+
+The directory page has no styling. None. Every other section on that page —
+the header, the hero, the call-to-action, the footer — ships its own small
+block of CSS with it, and the two directory components I built ship none, so
+the site's stylesheet has no rule matching them anywhere. The model cards are
+rendering as bare text on an otherwise designed page. I only found it because
+I went looking at the page's actual HTML for a different reason. It is fixed
+in the database now — the components carry their own styling, using the
+site's own colour variables so it matches whatever palette a site has — and
+the page needs one re-render to pick it up, which is queued. Worth saying
+that the news section has exactly the same gap fleet-wide; I have not touched
+that, because quietly restyling a live news section on a dozen sites is not a
+change to make as a side effect of something else.
+
+The re-render is queued rather than done because **the queue that hands work
+to builders is stuck again** this morning — the dispatcher has been sitting
+waiting for a reply that never came since 08:36, so nothing has been picked
+up on any site, including the homepage-section job I re-queued earlier. This
+is the known problem another thread owns; I've routed around it for the
+urgent pieces by firing the work at the cluster directly.
+
+Also done while waiting, and this is the second half of your original brief:
+**the adoption tracker's research agent is live.** It went in without needing
+a software deployment, because the part that checks and files claims never
+cared what KIND of thing a claim is about — that was designed in from the
+start precisely so this half would be cheap. Its first research run is going
+now. What it is instructed to do differently from the model directory is the
+interesting bit: a company's claimed result and *how they measured it* are
+recorded as two separate facts, so that "they said 40% and never said how
+they got it" is recorded honestly instead of being either dropped or dressed
+up as a measurement. It is also told that a vendor's page about unnamed
+"customers" is not a fact about anybody, and that a pilot is not a rollout.
+Given how much of this material is marketing, that discipline is most of the
+value.
+
+The supporting platform change — making the directory machinery work for any
+kind of register rather than models only — is written, tested and committed,
+and is with the review council now. It does not reach the live site until the
+next software deployment, which I am deliberately not doing while jobs are
+sitting in a stuck queue: that is exactly how yesterday's homepage job got
+killed.
