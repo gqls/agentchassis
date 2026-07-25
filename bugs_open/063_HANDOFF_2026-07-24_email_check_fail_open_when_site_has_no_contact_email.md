@@ -115,7 +115,12 @@ this week; WRONG_CALLS row added. The two answerable checks R1 surfaced, both ru
   '*_test.go'` → 0 files; the pre-existing trio is claims/contamination/meta.
 
 **R2 resubmitted** same day with final-state sketches (verbatim `git show fb3d5f5ea`
-hunks) + all checks attached (run `5f884438`). Verdict recorded below when it lands.
+hunks) + all checks attached (run `5f884438`). **R2 = APPROVED** (2026-07-24 21:04 UTC,
+12 reviewers, 4 abstained, 0 unreadable; verified in `diagnosis_artifacts`
+`metadata->>'decision'` for corr `7080124b`). Trailer `Council-Reviewed:
+7080124b-716f-45ac-8d42-f24465228b4b` carried on the follow-up docs commit recording
+this verdict (forward-only repo — the fix commit `fb3d5f5ea` predates the verdict and
+is never amended; the 098 report joins on the trailer wherever it appears).
 
 **Follow-up worth its own pass (compliance seat, R1):** 063 is the second member of the
 fail-open-on-missing-config family in validation code (with 026) — audit the OTHER
