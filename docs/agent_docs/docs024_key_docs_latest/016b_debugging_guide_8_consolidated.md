@@ -2916,6 +2916,48 @@ needs a paragraph, the verifier is measuring the wrong contract.
 Category tags: `detector-broader-than-handler`, `verifier-verifies-the-wrong-contract`,
 `false-fail-strands-correct-work`, `share-the-predicate-dont-mirror-it`.
 
+### A schema `source` path and the aspect writer's SHAPE are one contract — and the mismatch withholds the section silently (2026-07-25)
+
+*Added 2026-07-25 from `bugs_open/072`.*
+
+`contact-info`'s `input_schema` sources `site_specs.identity.email` / `.phone` —
+**flat** keys. `domain-research-classifier` writes that aspect with them **nested**
+under `contact.*`. The path resolves to nothing even though the data is right
+there one level down, and because the `email` field carries
+`on_missing: needs_human_review`, the *entire section* is withheld from the build.
+
+What makes it expensive is that nothing says so. `select_sections` returned
+`sections_ready` with 2 of 3 planned sections and **no `sections_skipped` or
+`sections_deferred` key at all**. The page's plan, `pages.sections`, and the
+component row were all correct and consistent; three consecutive builds produced
+two components. The only artefact was a `needs_section_data` work item parked at
+`needs_human_review` that does not name the section.
+
+**The discriminator that settles this class in one query: correlate the rendered
+population against the shape, across the whole fleet.** Here, of 13 deployed
+sites, the 5 with a flat `email` key were *precisely* the 5 where `contact-info`
+had ever rendered; the 8 without had no contact-details block — no exceptions in
+either direction. One site rendered on flat `email` with no flat `phone`, which
+also identifies *which* field does the withholding. A per-site investigation
+would have found "the data is present" and stalled; the fleet correlation names
+the mechanism.
+
+**Cheap checks:**
+1. **A `source` path is a claim about another writer's JSON shape.** Before
+   trusting one, `jsonb_pretty` the aspect it reads and confirm the key sits at
+   the depth the path assumes. `identity.email` and `identity.contact.email` are
+   different contracts, and the default writer emits the second.
+2. **When a planned section is absent, diff planned-vs-ready-vs-skipped.** If the
+   skip lists are *absent* rather than empty, the drop happened somewhere that
+   does not record — treat that as the finding, not as "no skip occurred"
+   (same absence-is-not-evidence trap as the 24h-pruning variant).
+3. **A default-shaped new site is the failing case.** The sites that work here do
+   so because something later added flat keys by hand. Anything verified only on
+   an established site verifies the exception.
+
+Category tags: `path-assumes-a-shape`, `on_missing-withholds-silently`,
+`fleet-correlation-names-the-mechanism`, `default-config-is-the-broken-case`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3004,6 +3046,8 @@ See `/bugs_closed/README.md`.
 | 071 | **`agent-job-cleanup` deleted every live `job.*` Kafka topic on its 10-minute tick** — its "any spawned pods running?" guard queried `-l spawned-by=orchestrator`, a label NO pod has ever carried (both spawn paths label only the Job, and remote-job-spawner uses a *different value*), so the guard matched zero always and the delete-all branch was unconditional. Killed both first feature-implementer runs mid-run (response produced by git-adapter 4s after request, topic already deleted/recreated, never consumed, await expired). A producer of the 003 failure shape; some 003 sightings may re-attribute (check: loss window crosses a `*/10` tick + a logged produce nobody consumed). See §9 *"A guard label no object carries…"* | filed 2026-07-25 (gauntlet/B4), OPEN. Guard **fixed & live same day** (commit `9dc99c61c` — message says 070, numbering collision, resolve by slug): counts active spawned Jobs across BOTH spawner labels + dynamic-agent pods, fail-safe keep on query error; first fixed run kept 88 topics under 39 live agents. Residual: pod-template `spawned-by` labels (Go, inert until roll); topic-age gating; 003 F2/F3 |
 | 070 | **`stale-work-item-reaper` keys on `created_at`, not on time spent in `triaged`** — so any re-queued build item is born eligible and gets parked `unresolved` with a false `[stale: triaged 48h+]` prefix (applied cumulatively, in place, unrecoverably). Invisible in the loader path where the two timestamps coincide; visible the moment an operator re-queues an old row, which is the only way to ask for a rebuild today. Looks intermittent because the 120s claimer normally beats the 3600s reaper — a single re-queue survives, a batch loses systematically while siblings wait behind an in-flight build. See §9 *"A staleness reaper keyed on ROW AGE…"* | filed 2026-07-25 (brochure-component-library session), OPEN. **DB-config only — no image roll.** Candidate 1 = key on `updated_at` (measurement query in-file first: does anything touch a triaged row?); candidate 2 = a real `triaged_at` column; candidate 3 = stop mutating `summary` in place. Prerequisite for `features_open/021`. Verify by INDUCING it with the claimer disabled — a successful re-queue only proves the claimer won the race |
 | 077 | **The `hardcoded_section_colors` DETECTOR files items its own HANDLER cannot fix.** Detector matches any hex background (3/4/6/8-digit, light or dark, inline `style=""` included) in a component carrying a `<style>` tag; the fixer rewrites only dark 6-digit hexes and two-colour `Ndeg` gradients *inside* `<style>` blocks. Live 2026-07-25: 32 components across 8 sites match, **5 of the 8 sites have ZERO inside the remit** (finetuning.uk 8/0, gaswholesalers 6/0, ai-agent-orchestration 4/0, webdesign 2/0, dartsonline 1/0). 8 items sit permanently `unresolved` under a label that means "the handler failed twice" when the handler was never able to succeed. See §9 *"…HANDLER's remit, not the DETECTOR's predicate"* | filed 2026-07-25 on closing `021`, OPEN, **severity LOW**. Explicitly **not churn** — `idx_swi_dedup` bounds it to one open item per site (`detected` is not terminal), the check filed nothing fleet-wide in 7 days, and the handler is not LLM-driven: a legibility defect in the backlog, not a cost defect. Design call, not a patch: narrow the detector (call the transform) / widen the handler / split the type. Test set = the 5 zero-remit sites |
+
+| 072 | **`contact-info` can never render on 8 of 13 live sites.** Its `input_schema` sources `site_specs.identity.email`/`.phone` as FLAT keys; `domain-research-classifier` writes them NESTED under `contact.*`, and `email`'s `on_missing: needs_human_review` withholds the whole section — with **no `sections_skipped`/`sections_deferred` entry**, so three consecutive builds produced 2 of 3 planned components with no error. Fleet discriminator exact, no exceptions either way: the 5 sites with a flat `email` are the 5 where it has ever rendered. The classifier's own shape is the nested one, so **a new site is broken by default**. Owner's phone had been written only to `sites.phone`, which no component reads. See §9 *"A schema `source` path and the aspect writer's SHAPE are one contract"* | filed 2026-07-25 (brochure_component_library). fundamentallyai.com fixed at the DATA level only (flat keys added beside nested, `services` preserved, backup taken; `idx_site_specs_current` forces supersede-before-insert) — phone now live as `tel:`. Contract UNFIXED: candidates = repoint the 4 source paths (verify the resolver handles 3 levels first), or resolver-level `<aspect>.<contact>.<field>` fallback, or make the withholding loud. Backfill of the other 7 sites is partly data-gathering (several have `phone: null`) — do not ship an empty block as a fix |
 
 > **Index gap (noted 2026-07-19, partly closed 2026-07-20):** `025`–`033` exist in
 > `/bugs_open/` but are not all indexed here (`034`–`041` are; `042`–`047` exist and are not), and `027` is already used by **two** different cases. Filed by
