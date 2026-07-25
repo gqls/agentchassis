@@ -101,6 +101,47 @@ fix, v1.0.1149; case CLOSED 2026-07-24), so the norm is reinforced without enfor
   BOTH git and cluster (kubectl) access — a cloud cron agent likely lacks the
   latter; that automation is an owner call.
 
+### Reading a verdict: check `unreadable`, NOT `abstained` (contributed 2026-07-25)
+
+**`abstained` on this council is not a health signal, and treating it as one will
+make every honest approval look broken.** It counts seats the **relevance filter
+skipped** — deliberately, as "not applicable" information. `diagnose_council_decide_action.go:284-307`
+says so in as many words, and keeps `unreadable` separate on purpose: *"an
+abstention is a seat the relevance filter skipped … an unreadable seat is an
+opinion we were owed and lost … conflating them would let a lost opinion read as
+a considered non-objection."*
+
+Confirmed against the last 8 gate rounds: **`reviewers + abstained == 16` in every
+one** (16 = the live seat count), and in 7 of the 8 *every* review present carried
+a verdict — so `abstained` was 4–8 while the number of seats that reviewed-and-declined
+was zero.
+
+| round | decision | reviewers | abstained | reviews in body | carried a verdict |
+|---|---|---|---|---|---|
+| `66d77d4d` | approved | 8 | 8 | 8 | 8 |
+| `c67ecb24` | approved | 12 | 4 | 12 | 12 |
+| `b896fc22` | rejected | 10 | 6 | 10 | **9** ← one real abstention, and `abstained` does not count it |
+
+So the checks that actually mean something:
+
+```sql
+SELECT metadata->>'decision', metadata->>'unreadable',        -- MUST be 0
+       jsonb_array_length(body::jsonb->'reviews') AS in_body,
+       (SELECT count(*) FROM jsonb_array_elements(body::jsonb->'reviews') r
+         WHERE r->>'verdict' IN ('approve','object')) AS voted -- MUST equal in_body
+FROM diagnosis_artifacts
+WHERE kind='council_report' AND correlation_id='<SUBMISSION_CORR>'
+ORDER BY created_at DESC LIMIT 1;
+```
+
+**Do not carry the experience-loop's rule over here.** `RUNBOOK_experience_loop.md`
+(~line 416) says *"an approved verdict is only trustworthy alongside `abstained: 0`"* —
+**correct for that council and wrong for this one.** That council has 4 seats and no
+relevance filter, so an abstention there really is a flaked seat. On the gate,
+`abstained: 0` would mean all 16 seats fired, which happens for the broadest changes
+and says nothing about whether the round was sound. Cost of the confusion: a
+genuinely unanimous 8-seat approval that reads as "every seat abstained".
+
 ### Traps met in real use (2026-07-18, bugs_open/012 submission)
 
 - **On a resubmit, update the `sketch` fields — not just the `rationale`.**
