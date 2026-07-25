@@ -58,7 +58,7 @@ The numbering was assigned by concurrent threads and **collided twice**:
 | `017` | — | static cutover orphans entry forms **and** unregistered action marked complete (two files, both `017`) |
 | `018` | coverage report hid 90% of commits (stdin theft) — closed 2026-07-21 | idea.uk chrome renders every link empty (still open) |
 | `027`, `028`, `029` | — | two files each in `/bugs_open/` (concurrent-thread collisions of 2026-07-18/19) |
-| `040` | — | kafka dial timeouts fleet-wide **and** failed page build leaves page deployed (two files, both `040`, both 2026-07-20) |
+| `040` | failed page build leaves page deployed / partially composed — **040-partial-build**, closed 2026-07-24 (guard live `v1.0.1146`, skip persistence live `v1.0.1155`) | kafka dial timeouts fleet-wide — **040-kafka-dial**, still open (two files, both `040`, both 2026-07-20) |
 | `044` | plan_sections defers an empty-schema component by name heuristic (closed 2026-07-21, live `v1.0.1146`) | no capability inventory / dormant agents undetectable (still open) — two files, both `044`, both filed 2026-07-20 |
 
 A bare reference to `bugs_open/016` or `bugs_open/017` in older docs or code

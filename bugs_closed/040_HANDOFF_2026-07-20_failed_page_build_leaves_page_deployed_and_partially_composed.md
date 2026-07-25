@@ -1,5 +1,22 @@
 # Handoff — a FAILED page build leaves the page `deployed`, partially composed, and invisible to the reconciler
 
+> **STATUS: CLOSED 2026-07-24 — fixed at every layer, LIVE (guard v1.0.1146, skip
+> persistence v1.0.1155), and behaviourally verified end to end on the original
+> page.** dartsonline/index: `deployed`, stamped with the CURRENT plan,
+> `suppressed_sections=["product-grid","testimonials"]`, 4 planned-effective = 4
+> rendered, honest live page; gaswholesalers/index healed the same day via the
+> legacy `site_specs.site_plan` path (`["social_proof"]`, 6=6, stamp NULL-safe).
+> Deploy guard: 4 real pre-fix catches, zero false positives, zero gaps. Drop
+> cause decomposed — `bugs_closed/041` (bulk), the `on_missing=skip_section` data
+> guard working correctly (now durably recorded), `bugs_open/045` (tool trio,
+> owned there). Council `164058e6` APPROVED. **Residuals, each pointed at its
+> owner, none this defect:** candidate 2 (join `agent_error_log` message onto the
+> failed work item's `error` — small, independent, unowned); ~25 pre-fix short
+> pages = per-site backfill (041's residual, site owners); the 364-byte
+> `category-listing` shell = `bugs_open/039` residual with its own `empty_section`
+> item; deferral policy (should `needs_human_review` hold the deploy stamp?) =
+> flagged to council, owner-level question, current behaviour unchanged.
+
 > **NUMBER COLLISION (2026-07-20, same day):** another thread filed a different
 > `040` (`kafka_dial_timeouts_fleetwide_intermittent`, which cites itself as
 > **040-kafka-dial**). Numbers are never reassigned — resolve by slug
