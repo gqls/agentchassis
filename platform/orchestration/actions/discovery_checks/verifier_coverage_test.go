@@ -221,15 +221,27 @@ var itemTypesWithoutVerifiers = map[string]verificationGap{
 	// (page_component by function / page by page_type), handled by the same
 	// content-gap-planner. Not yet enabled (migration 194 pending an image
 	// roll), so genuinely never observed live, not just unrefreshed.
-	"missing_model_directory_section": {catMechanical, "page_component existence by function (model-directory); handler is content-gap-planner, same as missing_news_section; not yet enabled"},
-	"missing_model_directory_page":    {catMechanical, "page existence by page_type (model-directory); handler is content-gap-planner, same as missing_news_page; not yet enabled"},
-	"unrendered_template":             {catMechanical, "[INFERRED] check_integrity; never observed live"},
-	"cross_site_contamination":        {catMechanical, "[INFERRED] check_integrity; never observed live"},
-	"forced_text_colors":              {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
-	"duplicate_palette":               {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
-	"placeholder_contact":             {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
-	"broken_nav_links":                {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
-	"backend_unreachable":             {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
+	"missing_model_directory_section": {catMechanical, "page_component existence by function (model-directory); handler is content-gap-planner, same as missing_news_section; enabled 2026-07-24 (migration 194), has fired and been serviced on ai-agent-orchestration.com"},
+	"missing_model_directory_page":    {catMechanical, "page existence by page_type (model-directory); handler is content-gap-planner, same as missing_news_page; enabled 2026-07-24 (migration 194), has fired and been serviced on ai-agent-orchestration.com"},
+
+	// model_directory_pipeline Phase E (2026-07-25) — the SAME two checks as
+	// the four lines above, instantiated from a different profile
+	// (check_directory.go's directoryCheckProfiles). Not a new mechanism and
+	// not a new shape: existence checks against page_components.function /
+	// pages.page_type, handled by content-gap-planner. Registered but NOT in
+	// completeness-discovery's checks array yet, so never observed live —
+	// which is a statement about the config, not a claim that they work.
+	"missing_adoption_tracker_section": {catMechanical, "page_component existence by function (adoption-tracker); profile sibling of missing_model_directory_section; registered, not yet in the discovery checks array"},
+	"missing_adoption_tracker_page":    {catMechanical, "page existence by page_type (adoption-tracker); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
+	"missing_protocol_tracker_section": {catMechanical, "page_component existence by function (protocol-tracker); profile sibling of missing_model_directory_section; registered, not yet in the discovery checks array"},
+	"missing_protocol_tracker_page":    {catMechanical, "page existence by page_type (protocol-tracker); profile sibling of missing_model_directory_page; registered, not yet in the discovery checks array"},
+	"unrendered_template":              {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"cross_site_contamination":         {catMechanical, "[INFERRED] check_integrity; never observed live"},
+	"forced_text_colors":               {catMechanical, "[INFERRED] check_forced_text_colors — sibling of bugs_open/017's action; never observed live"},
+	"duplicate_palette":                {catMechanical, "[INFERRED] check_duplicate_palette; never observed live"},
+	"placeholder_contact":              {catMechanical, "[INFERRED] check_placeholder_contact; never observed live"},
+	"broken_nav_links":                 {catMechanical, "[INFERRED] check_broken_nav_links; never observed live"},
+	"backend_unreachable":              {catMechanical, "[INFERRED] check_backend_unreachable, which already SELF-CLEARS on a live health probe — a verifier may be redundant here; check before writing one"},
 
 	// ---- creation: "make X exist" ----
 	"needs_page":                 {catCreation, "page existence; 49 of 365 carry page_id"},
@@ -331,6 +343,14 @@ var computedItemTypeSites = map[string]string{
 	"check_phantom_internal_links.go":   "f.IssueType — finding carries its own type",
 	"check_placeholder_image_in_use.go": "mapping.itemType — per-surface mapping table",
 	"check_unfulfilled_image_prompt.go": "itemType — computed from the prompt's surface",
+	// p.SectionItemType / p.PageItemType, one profile per register kind:
+	// missing_{model_directory,adoption_tracker,protocol_tracker}_{section,page}.
+	// Note the scan is NOT blind here by luck — directoryCheckProfiles spells
+	// each type as a literal in a field whose name ends "ItemType:", so
+	// itemTypeLiteralRe picks all six up anyway and they are classified below.
+	// Adding a seventh profile therefore still fails this guard until it is
+	// classified, which is the behaviour we want.
+	"check_directory.go": "p.SectionItemType / p.PageItemType — one profile per register kind (model, company, protocol)",
 }
 
 // TestEveryCheckProducedItemTypeIsClassified is the SENSOR half of the guard.

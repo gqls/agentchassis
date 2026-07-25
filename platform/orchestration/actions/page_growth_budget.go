@@ -26,8 +26,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"sort"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -35,23 +37,45 @@ import (
 // than content. These have their own weekly budget so they don't compete
 // with content pages for growth slots.
 var structuralPageTypes = map[string]bool{
-	"news-index":      true,
-	"blog-index":      true,
-	"sitemap":         true,
-	"privacy":         true,
-	"terms":           true,
-	"error-404":       true,
-	"faq":             true,
-	"search":          true,
-	"tag-index":       true,
-	"category":        true,
-	"model-directory": true,
+	"news-index":       true,
+	"blog-index":       true,
+	"sitemap":          true,
+	"privacy":          true,
+	"terms":            true,
+	"error-404":        true,
+	"faq":              true,
+	"search":           true,
+	"tag-index":        true,
+	"category":         true,
+	"model-directory":  true,
+	"adoption-tracker": true,
+	"protocol-tracker": true,
 }
 
 // isStructuralPageType returns true if the page type is infrastructure
 // rather than content.
 func isStructuralPageType(pageType string) bool {
 	return structuralPageTypes[pageType]
+}
+
+// structuralPageTypeList returns the same vocabulary as a sorted slice, for
+// passing to SQL as a text[] parameter.
+//
+// This exists to KILL a drift risk this file used to carry in a comment:
+// the budget query below repeated the type list twice as SQL literals, so
+// adding a structural page type in the map above and forgetting the SQL
+// meant the Go-side classification and the SQL-side count disagreed
+// silently — a page treated as structural by one and as content by the
+// other. Adding two Phase E types to three hand-maintained copies is exactly
+// the moment that stops being hypothetical, so the copies are gone: the map
+// is now the single source and the query reads from it.
+func structuralPageTypeList() []string {
+	out := make([]string, 0, len(structuralPageTypes))
+	for t := range structuralPageTypes {
+		out = append(out, t)
+	}
+	sort.Strings(out)
+	return out
 }
 
 type GrowthConfig struct {
@@ -100,27 +124,23 @@ func CheckPageGrowthBudget(ctx context.Context, db *sql.DB, siteID uuid.UUID, pa
 	// Structural: page_type IN (news-index, blog-index, privacy, terms, sitemap, etc.)
 	// Content: everything else
 	//
-	// NOTE: this SQL list and structuralPageTypes above are two hand-maintained
-	// copies of the same vocabulary — the same drift risk the council-gate
-	// roster is reviewed for (CLAUDE.md). Add a new structural page type to
-	// BOTH or the Go-side check and the SQL-side count disagree silently.
+	// The structural vocabulary comes from structuralPageTypes (one source,
+	// see structuralPageTypeList) rather than being repeated here as SQL
+	// literals. 'blog-post' is deliberately NOT in that map — it is counted
+	// against the blog budget, and the content bucket is "neither blog nor
+	// structural", so it appears here on its own.
 	var recentContent, recentBlog, recentStructural int
 	db.QueryRowContext(ctx, `
 		SELECT
 			COUNT(*) FILTER (WHERE page_type = 'blog-post'),
-			COUNT(*) FILTER (WHERE page_type IN (
-				'news-index', 'blog-index', 'sitemap', 'privacy', 'terms',
-				'error-404', 'faq', 'search', 'tag-index', 'category', 'model-directory'
-			)),
-			COUNT(*) FILTER (WHERE COALESCE(page_type, 'content') NOT IN (
-				'blog-post', 'news-index', 'blog-index', 'sitemap', 'privacy', 'terms',
-				'error-404', 'faq', 'search', 'tag-index', 'category', 'model-directory'
-			))
+			COUNT(*) FILTER (WHERE page_type = ANY($2::text[])),
+			COUNT(*) FILTER (WHERE COALESCE(page_type, 'content') <> 'blog-post'
+			                   AND NOT (COALESCE(page_type, 'content') = ANY($2::text[])))
 		FROM pages
 		WHERE site_id = $1
 		  AND status IN ('active', 'deployed', 'planned')
 		  AND created_at > NOW() - INTERVAL '7 days'
-	`, siteID).Scan(&recentBlog, &recentStructural, &recentContent)
+	`, siteID, datahelpers.PGTextArrayLiteral(structuralPageTypeList())).Scan(&recentBlog, &recentStructural, &recentContent)
 
 	result := &GrowthBudgetResult{
 		CurrentTotal:     totalPages,

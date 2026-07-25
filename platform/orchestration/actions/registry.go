@@ -649,10 +649,20 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Re-verify is_current directory_claims whose staleness_days has elapsed; supersede into a new current row on any status transition (found/citation_lost/fetch_error), raise stale_directory_claim on any flip away from found",
 		IsLocal:     true,
 	},
+	// Two names, one handler. "render_model_directory" is the name the live
+	// model-directory-publisher workflow was seeded with; "render_directory"
+	// is the general form Phase E's adoption/protocol trackers use, selected
+	// by a `kind` config value that defaults to 'model'.
 	"render_model_directory": {
-		Handler:     RenderModelDirectoryAction,
+		Handler:     RenderDirectoryAction,
 		Category:    "site",
 		Description: "Produce model-directory JSON for git commit from the global directory_entities/directory_claims registry",
+		IsLocal:     true,
+	},
+	"render_directory": {
+		Handler:     RenderDirectoryAction,
+		Category:    "site",
+		Description: "Produce directory JSON (kind: model|company|protocol) for git commit from the global directory_entities/directory_claims registry",
 		IsLocal:     true,
 	},
 	"claim_work_item": {

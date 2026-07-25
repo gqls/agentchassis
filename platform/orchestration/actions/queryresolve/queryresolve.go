@@ -113,6 +113,27 @@ func Resolve(ctx context.Context, db *sql.DB, req QueryRequest, logger *zap.Logg
 		// Same registry, listing depth.
 		return resolveModelDirectoryFull(ctx, db, req.Limit, logger)
 
+	case "adoption_tracker":
+		// Homepage adoption-tracker snippet: organisations adopting AI
+		// agents, with their cited ROI/rollout claims. Same global register
+		// as the model directory, kind='company' — also not site-scoped.
+		return resolveDirectoryKind(ctx, db, "company", req.Limit, 12, logger)
+
+	case "adoption_tracker_full":
+		// Adoption-tracker listing page. Same register, listing depth.
+		return resolveDirectoryKind(ctx, db, "company", req.Limit, 50, logger)
+
+	case "protocol_tracker":
+		// Agentic-communication protocols (MCP and successors) and their
+		// cited uptake. Deliberately a SEPARATE kind rather than a company
+		// attribute: a protocol is adopted BY many companies, so modelling
+		// it as a company field would force one row per pairing and lose
+		// the protocol's own cited facts (spec version, governance, date).
+		return resolveDirectoryKind(ctx, db, "protocol", req.Limit, 12, logger)
+
+	case "protocol_tracker_full":
+		return resolveDirectoryKind(ctx, db, "protocol", req.Limit, 50, logger)
+
 	case "blog_posts":
 		// Article listings (content-listing, blog-listing components declare
 		// `source: "query.blog_posts"`). Fleet convention: articles are pages
