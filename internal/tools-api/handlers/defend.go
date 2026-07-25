@@ -77,7 +77,10 @@ Your task: judge this debate round honestly and even-handedly. A strong defence 
 Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. The object must have exactly these two fields:
 {"verdict":"your verdict here (e.g. user wins, opponent wins, draw)","reasons":"your reasoning here"}`
 
-		client, err := aiservice.NewAnthropicClient(ctx, map[string]interface{}{"model": cfg.Model})
+		client, err := aiservice.NewAnthropicClient(ctx, map[string]interface{}{
+			"model":           cfg.Model,
+			"api_key_env_var": "ANTHROPIC_API_KEY",
+		})
 		if err != nil {
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge unavailable")
 			return

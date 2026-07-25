@@ -71,7 +71,10 @@ Your task: argue a genuine opposing position and pose a direct challenge to the 
 Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. The object must have exactly these two fields:
 {"counter_position":"your opposing argument here","challenge":"your direct challenge question here"}`
 
-		client, err := aiservice.NewAnthropicClient(ctx, map[string]interface{}{"model": cfg.Model})
+		client, err := aiservice.NewAnthropicClient(ctx, map[string]interface{}{
+			"model":           cfg.Model,
+			"api_key_env_var": "ANTHROPIC_API_KEY",
+		})
 		if err != nil {
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent unavailable")
 			return
