@@ -2627,3 +2627,60 @@ above — the record was there, my instrument wasn't), verified-the-wrong-thing.
 subject is *a failure that was durably recorded and simply not shown on the
 surface anyone reads*. The council run recorded its reason in `__step_error`, in
 the same field the fix propagates. I built the fix and then walked into the bug.
+
+---
+
+## 2026-07-25 — I declared two of three regulatory claims "unverified" from a landing page that only lists filenames (vetcomparison.uk session)
+
+**The claim I made.** vetcomparison.uk's homepage news section carries generated
+framing copy asserting the CMA's draft Order contains three remedies: a standard
+price list requirement, a written prescription fee cap, and ownership disclosure
+obligations. Checking this matters more here than anywhere — this site was
+remediated for publishing fabricated content, and unsourced regulatory assertions
+are its exact failure mode. I fetched the gov.uk consultation page, found it
+supported the price list, said nothing about a fee cap amount, and listed no
+ownership document at all, and reported: **"Two of the three claims don't check
+out against the source."**
+
+**What was actually true.** All three are in the Order, plainly:
+Article 7 (Price List), Article 18 — *"imposes maximum fees (also referred to as
+price caps)"*, establishing a Primary and an Additional Prescription Fee Cap — and
+Article 5 (Ownership Information), whose own explanatory text runs to eight
+paragraphs. The generated copy was accurate. My "finding" was an artefact of the
+document I read.
+
+**Why the landing page said otherwise.** It is an index. It renders *document
+titles* — "Draft schedule 1 - price list schedule", "Draft schedule 2 - standard
+written prescription notice" — and no substance. Ownership has no schedule of its
+own because it is an Article, not a schedule, so it is invisible at that altitude.
+I treated an absence in a table of contents as an absence in the law.
+
+**What caught it.** Continuing to the primary source anyway — pulling the eleven
+linked PDFs and running `pdftotext -layout`. Roughly four minutes. Note that the
+first two WebFetch attempts on those same PDFs *also* failed ("heavily
+compressed/encoded... text layers are not clearly readable") — a second plausible
+"I checked and could not confirm" that was still an instrument failure, not a fact.
+Two different tools returned nothing and neither absence was evidence.
+
+**The cheap check that would have caught it.** Ask *what kind of document am I
+reading* before drawing a conclusion from it. A consultation landing page, a
+search-results page, a file listing and an index all answer "does X exist?" with
+"there is no row for X" regardless of the truth. For any claim about the contents
+of a document, **the artefact that settles it is the document.**
+
+**Transferable rule.** **A negative from an index is not a negative about the
+thing indexed** — and the failure escalates rather than resolves when the tool
+also fails, because "fetched, read, not found" and "fetched, unreadable, not
+found" produce the same sentence in your notes. State the artefact you actually
+read next to the claim ("the landing page does not mention X" — not "X is not in
+the Order"). Family: absence-of-evidence, verified-the-wrong-thing — the same
+shape as the 24h-pruned-record and suppressed-stderr entries above, reached
+through a third instrument.
+
+**The sting.** The claim I nearly filed was that a *fabrication-remediated site
+was publishing unsupported regulatory claims* — a serious, credible-sounding
+allegation about the one failure mode this site is watched for. It would have
+been believed. Confidence tracked how *bad* the finding sounded, not how well I
+had checked it, and a bug report is exactly where an unchecked negative does its
+damage. **On this site the unverified-claim discipline applies to my own findings
+about it, not only to its content.**
