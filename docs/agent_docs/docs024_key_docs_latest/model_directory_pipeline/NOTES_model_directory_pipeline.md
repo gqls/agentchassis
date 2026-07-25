@@ -678,3 +678,31 @@ FROM _fault_injection_20260725 f WHERE dc.id = f.id;
 -- then delete any citation_lost row the sweep wrote for that (entity_id, field)
 -- and set the restored row is_current = true, superseded_at = NULL.
 ```
+
+> **CORRECTED 2026-07-25 — the 090 loop REFUTED my nav-gap mechanism, and the
+> refutation is right.** My filed symptom (corr `726c2439`) asserted that
+> reaching `populate_nav_tables` "requires a human to triage" the `nav_drift`
+> item. The loop's evidence: nav_drift items carry `approval_mode='auto'`, and
+> the one prior item that completed (gaswholesalers, 07-17) was triaged,
+> claimed and run **with no human field populated anywhere in its
+> progression** — `created_by='completeness-discovery-agent'`,
+> `approved_by NULL`. There is no human gate. What actually stalled aao's item
+> is the **detected→triaged promotion**: completeness-discovery findings land
+> `status='detected'`, and the sweep that promotes them is deliberately off
+> fleet-wide (owner ruling: per-site on demand) — so on demand-swept sites the
+> promotion happens manually as a *consequence of that ruling*, not because
+> the pipeline lacks a trigger. The write-path half of my filing stands
+> (pages created by the gap pipeline get no `site_nav_items` row until a
+> nav_drift item fires); the mechanism clause was wrong, and it was exactly
+> the confident-structural-claim-from-grep shape CLAUDE.md warns about — I
+> greppped the check and the action and never traced the middle.
+>
+> **Honesty note on contamination:** mid-diagnosis, at 09:07, I manually
+> triaged the very item under study (it then dispatched and completed through
+> the queue on its own — which itself demonstrates the no-human-gate point).
+> The loop's freshest citation therefore shows state I mutated. Its
+> refutation does not rest on that row — the auto-progressed gaswholesalers
+> item is the load-bearing evidence — but a cleaner run would not have had
+> its subject altered underneath it. Cost of the run: one REFUTED verdict
+> against a wrong mechanism BEFORE it reached a bug file or a handoff, which
+> is the loop doing precisely what it is for.
