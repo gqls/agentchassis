@@ -1694,6 +1694,62 @@ rendered artefact, not the status" (§ durable invariants) — the same error, a
 to a queue instead of an artifact. Category tags: `queue-latency`,
 `false-drop-diagnosis`, `wasted-credits`.
 
+> **UPDATE 2026-07-25 — you no longer have to remember to run the lag command.**
+> `090_TRIGGER_needs_diagnosis_v1.sh` and `097_TRIGGER_council_review_v1.sh` now
+> print the lane depth themselves after publishing, via
+> `scripts/dispatch-queue-depth.sh` (~8 s, fail-soft, exits 0 always). Call it
+> from any other dispatcher too. It deliberately prints **no ETA** — see the next
+> entry for why that is the whole point.
+
+### A tuning fix to a shared resource decays, because nothing owns the total (2026-07-25)
+
+**Pattern.** A shared, serial resource is saturated by many independent producers.
+You find the two biggest, halve their rate, and measure a real improvement — the
+backlog goes from diverging to bounded. Four days later it is saturated again, and
+nobody did anything wrong: the producer *count* grew. Measured on
+`system.agent.generic.requests`: enabled `scheduled_tasks` rows targeting that lane
+went **12 → 21** in four days, restoring nominal production to ≈2.5/min, the
+pre-fix figure. Every new job was individually reasonable and none of their authors
+could see the total.
+
+**Why it is a class, not an anecdote.** A tuning fix leaves the *shape* of the
+system alone: the constraint stays global, so its budget is spent by whoever adds
+next, and the fix silently un-does itself. The person who re-saturates it is not
+the person who tuned it, and neither of them is looking at the same number. **A
+rate limit that no component owns is not a limit; it is a coincidence.**
+
+**What to do instead.** Prefer a change of shape to a change of numbers when the
+resource is shared: split the lane (per producer class), or make the constraint
+local so a new producer cannot spend someone else's budget. If you *do* tune, say
+in the bug file what the total was, what would re-break it, and where the number
+lives — a tuning fix without a stated reversal trigger reads as closed and is not.
+Kin: "Survey the premise before building" and § *"Ground every figure against the
+live system"* — a figure carried forward from another doc is exactly how this one
+went stale. Category tags: `shared-resource`, `config-decay`, `capacity`.
+
+### Do not publish an average for a sawtooth — some metrics do not exist (2026-07-20/21)
+
+**Pattern.** A queue drains in bursts: it pins for minutes on one long unit of work,
+then advances many at once. Three threads measured its throughput on one afternoon
+and got **0.21, 2.4 and 0.62 msg/min** — all arithmetically correct, all useless,
+because throughput here is `1/(duration of the unit at the head)` and that ranges
+from milliseconds to >15 minutes. The second thread refuted the first's derivation
+and, in the same document, made the mirror error (it straddled a burst instead of a
+stall) — and worse, used a faulted derivation to overturn a *conclusion* that had
+been right.
+
+**Two transferable rules.** (1) **Faulting a derivation does not entitle you to
+reverse the conclusion** — they are separate claims and need separate evidence.
+(2) **A metric can be well-defined, correctly computed, and still not exist** as a
+property of the system: if the underlying process is non-stationary, an average
+describes no moment and forecasts nothing. A mass balance over one closed window
+with its endpoints stated is legitimate; carrying the same number forward as an ETA
+is not. When a caller wants an ETA and the honest answer is "there isn't one", say
+that — `scripts/dispatch-queue-depth.sh` prints exactly that, in its own output, so
+the lesson survives the thread that learned it. Full trail: `bugs_open/030`
+"CORRECTION OF THIS CORRECTION", `WRONG_CALLS.md` rows 7/8/9. Category tags:
+`measurement`, `non-stationary`, `wrong-statistic`.
+
 ### "A page was rewritten" does not say what rewrote it — attribute by the emitting row, not by the damage (2026-07-19)
 
 **Symptom.** A page you had hand-corrected comes back rewritten, with fabrications
@@ -2805,6 +2861,60 @@ relojistas (`ecf1…`) sat behind webdesign (`6b49…`) and its 107 triaged item
 
 Category tags: `uuid-ordering-is-arbitrary-ordering`, `priority-is-intra-site-only`,
 `reading-a-query-is-not-watching-it-run`, `queue-starvation-vs-queue-latency`.
+
+### A "did the fix work?" check must assert the HANDLER's remit, not the DETECTOR's predicate (2026-07-25)
+
+*Added on closing `bugs_open/021`. Companion to the absent-target entry above —
+that one is about a verifier being too lenient; this one is about it being too
+strict, which fails in a way nobody reports because it looks like diligence.*
+
+**Shape.** A detector files work items on a broad predicate. A handler fixes a
+narrower thing — always narrower, because "find everything suspicious" is cheap
+and "change it safely" is not. Then someone writes a completion-time verifier and
+reaches for the obvious predicate: *re-run the detector*. Every item the handler
+correctly and completely handled now fails verification, burns attempts, and at
+`max_attempts` is stranded in `failed` — the population most damaged is the
+population the system handled BEST.
+
+**Live instance.** `hardcoded_section_colors`: the detector matches any hex
+background in a component carrying a `<style>` tag — light, 3/4/8-digit, inline
+`style=""` attributes included. The handler (`ReplaceHardcodedColors`) rewrites
+only dark 6-digit hexes and two-colour `Ndeg` gradients, and only inside `<style>`
+blocks. Measured on the live fleet 2026-07-25: **32 components across 8 sites**
+match the detector; on 5 of those 8 sites **zero** are inside the handler's remit
+(finetuning.uk 8/0, gaswholesalers.com 6/0, ai-agent-orchestration.com 4/0). A
+detector-predicate verifier would have refused every completion on those sites,
+for ever, while the handler was doing exactly what it was built to do.
+
+**The near-miss that taught it.** A `page_rerender` verifier (1,849 of 4,644
+completions) was written, passed six tests, and was **held** on 2026-07-20 for
+precisely this: the rerender only rewrites CTA fields in `ctaFieldNames`
+components, and a prose misdirect is *deliberately* left for two-strike
+escalation. Six green tests, one wrong question. `WRONG_CALLS.md` 2026-07-20.
+
+**The rule.** Verify the **fixed point of the handler's own transform**, not the
+absence of the detector's signal: *"would the fixer still change anything?"* Where
+the transform is a pure function, share the literal function between handler and
+verifier (home it where both can import it) — then the verdict IS the remit by
+construction and the two cannot drift. Where it is not, write down which subset of
+the detector's population the handler owns, and verify only that.
+
+**What it does NOT fix, and say so out loud.** The verifier stops false
+*completions*; it does nothing about the detector re-filing the out-of-remit
+matches for ever. Handler-correct completions keep churning against a broader
+detector, and narrowing the detector (or widening the handler) is a behaviour
+change belonging to whoever owns the check. A verifier scoped this way is
+honest about a gap the system still has — that is the correct trade, but it is
+a trade, not a fix.
+
+**Generalises to.** Any confirm-the-fix path where discovery and repair were
+written by different people or at different times: lint-and-autofix pairs,
+sweep-and-repair jobs, "N issues found / N issues fixed" dashboards. Ask *"is the
+thing I am re-checking the thing the handler promised to do?"* — if the answer
+needs a paragraph, the verifier is measuring the wrong contract.
+
+Category tags: `detector-broader-than-handler`, `verifier-verifies-the-wrong-contract`,
+`false-fail-strands-correct-work`, `share-the-predicate-dont-mirror-it`.
 
 ## 10. Open bug queue (`/bugs_open/`) — index
 
