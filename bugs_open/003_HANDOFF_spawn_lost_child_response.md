@@ -879,3 +879,23 @@ rounds (053 lesson). Roll PARKED — owner decision packet in
 `bugfix_003_spawn_loss/README_where_we_are.md` (options: canary-sequenced
 roll without trailer / guardian's revert-and-review / create the
 architecture-review track).**
+
+**2026-07-25 afternoon — OVERTAKEN BY EVENTS, then RATIFIED KEEP-LIVE.**
+Before the guardian's revert path could execute, another session's routine
+fleet build (v1.0.1159, deployed 10:36 UTC) carried the committed F2/F3 code
+live — the shared-branch ride-along working exactly as this repo documents.
+Pod-grep confirmed all created literals in the running binary, removed
+literal absent. First ~4.5 h live: 175 awaited requests, 19 retried by the
+new driver, **7 recovered end-to-end** (certain silent losses before), 6
+loud 'error' at the retry cap (previously silent 90-min strandings), 0 stuck
+'retrying', 0 expired leases, 806/806 dedupe claims completed, no panics.
+Owner ruling (after being shown the changed facts): **KEEP LIVE**. The
+architecture-review track now exists
+(`docs/.../architecture_review/PROCESS_architecture_review.md`) and
+**RFC_001** documents this redesign — RATIFIED against the live evidence; it
+moves to IMPLEMENTED when the induced-fault campaign + week-later stats land.
+NO `Council-Reviewed` trailer anywhere in this arc (the gate never approved).
+§6 repro note: `ai-readiness-quiz` was built by an intervening thread
+(deployed, 3 components, live page 54,118 bytes vs the 12,425-byte shell) —
+no longer available as a clean test; the induced-fault campaign carries the
+verification load instead.
