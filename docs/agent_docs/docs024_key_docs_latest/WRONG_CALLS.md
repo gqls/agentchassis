@@ -2836,3 +2836,61 @@ current state. It carried a *number* forward unchecked while re-checking
 everything around it — and that number was the one thing standing between
 "logic is unit-tested" and "confirmed live". Same shape as the entry above:
 the premise nobody re-derives is the one already written down.
+
+---
+
+## 2026-07-25 — "the kcat stdin race ate my probe message" (bugs_open/021 INSTANCE 2). Wrong: queued. **Second time today, same trap.**
+
+**The claim.** Fired a scratch `complete_work_item` probe at
+`system.agent.generic.requests`. Nine minutes later there was no
+`orchestration_states` row, no chassis log line mentioning the agent type, and no
+spawned pod. I concluded the message had never been produced — blaming the
+documented `kubectl run -i` stdin race — added `-c 1` to the kcat invocation and
+re-fired. I then wrote the `-c 1` requirement into the workstream RUNBOOK as a
+standing trap, with a cost figure attached.
+
+**What was actually true.** Both messages were on the topic the entire time — I
+confirmed it by reading the topic tail *after* re-firing, and saw my payload
+twice. Ten minutes later **both** ran, 24 seconds apart, and both behaved
+identically. `-c 1` changed nothing. The generic-requests consumer was wedged:
+`CURRENT-OFFSET` frozen at 104102 while `LAG` climbed 20 → 28, because a
+16-seat council run belonging to another session was executing its LLM steps
+inside the single consumer loop (`bugs_open/030`).
+
+**What caught it.** Counting orchestration rows for all three of my fires and
+finding two where I expected one. The duplicate run is the evidence: had the
+first message really been lost, there would have been nothing to run twice.
+
+**The cheap check that would have caught it.** Read the topic BEFORE re-firing —
+sixty seconds, no credits, and it answers the only question that matters
+(produced or not):
+
+```
+kubectl -n kafka run -i --rm kcat-read-$(date +%s) --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- kcat -C -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests -o -6 -e -q
+```
+Then, if it IS there, `kafka-consumer-groups.sh --describe --group
+generic-requests-group`: a frozen `CURRENT-OFFSET` is the whole answer.
+
+**Why this entry earns its place despite being a duplicate.** It IS the duplicate
+— *"the spawn was dropped" (idea.uk guides-hub rerender). Wrong: it was queued*,
+filed earlier the SAME DAY by another session, which also re-fired and also wrote
+its wrong inference into a runbook as a standing trap. Two threads, one trap, one
+day, neither able to warn the other. Both had a live-fleet symptom (a stalled
+consumer) that is invisible from inside one thread's evidence, and both reached
+for a mechanism they had read about instead of the observation that separates the
+two. **The tally is the argument:** "no row yet" is being read as "dropped"
+often enough that the diagnostic belongs in the trigger scripts — print the
+consumer lag on fire, so the queued case announces itself and nobody has to
+suspect it. That is a small change to shared tooling, noted here rather than
+built, because the trigger scripts are the fixloop/council-gate thread's.
+
+**The second-order sting.** My wrong inference was already written into
+`RUNBOOK_durable_write_guard.md` — with a fabricated-looking cost figure — before
+I disproved it, and it read entirely plausibly. What made it removable was
+finishing the verification instead of stopping at the fix that appeared to work:
+re-firing "worked", and if I had stopped there the RUNBOOK would now teach a
+`-c 1` cargo cult to every thread that follows. **A workaround that coincides
+with the real cause resolving is indistinguishable from a fix** unless you go
+back and check what the original attempt did.

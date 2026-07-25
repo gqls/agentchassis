@@ -2709,6 +2709,103 @@ answer was **printed in the row's own `summary` column**.
 Category tags: `timestamp-does-not-mean-what-it-measures`, `annotation-names-the-mechanism`,
 `race-hides-a-deterministic-bug`, `requeue-vs-recurrence`, `config-not-code`.
 
+### "Borrowed content" is a claim about PROVENANCE, and a rendered page cannot show you provenance (2026-07-25)
+
+*Added 2026-07-25 from `bugs_open/028`, closing the "deploys borrowed components" residual.*
+
+A page titled "Tourbillon" served the site's generic headline. Two separate
+threads, ten weeks apart, described the same mechanism: *something falls back to
+a site-level or sibling component when a page has none of its own.* Both were
+wrong, and the case **title** carried the error forward through a re-scope that
+otherwise re-derived every other claim from the live DB.
+
+**Nothing was copied.** Each hero is generated fresh by `page-content-writer`.
+Its only page-subject signal is `{{.current_page.title}}`, which on a glossary
+entity-page is a single bare term. With no `content_direction`, no
+`meta_description` and an empty `content_brief`, the model has no subject and
+writes a site-level hero paraphrased from the site's `value_proposition`.
+
+**The one query that separates the two hypotheses** — run it at filing time:
+
+```sql
+SELECT p.name, jsonb_pretty(pc.content_data)
+FROM page_components pc JOIN pages p ON p.id = pc.page_id
+WHERE pc.slot_name='hero' AND p.name IN ('<broken>','<page you think it came from>');
+```
+
+A *copy* matches in every field. These matched on `headline` alone;
+`subheadline`, `cta_text`, `hero_url` and `background_image` all differed. That
+is generation from shared context, not a fallback — and no fallback path exists
+to find, which is why looking for one is unbounded work.
+
+**Cheap checks, in order:**
+1. **Diff the source rows field by field before naming a mechanism.** Two pages
+   showing one identical string is equally consistent with "copied" and
+   "generated from the same context". Only the other fields discriminate.
+2. **Find the discriminator inside the failing set, not across the fleet.** 6 of
+   8 glossary pages were wrong and 2 were right, from *identical* inputs — same
+   empty brief, same NULL `content_direction`, same 2-section plan. Identical
+   inputs with divergent outputs means the variance is in the model, not in a
+   branch; stop reading code for a conditional that is not there.
+3. **Survey before believing the containment.** A crude "does the hero headline
+   contain the page title's first word" sweep flagged 8 sites — every one a
+   false positive on inspection (their headlines rephrase rather than repeat).
+   The real discriminator was **bare one-word page titles**, and relojistas'
+   glosario is the only such page set in the fleet. The survey confirmed the
+   containment; it could equally have refuted it, which is the point of running it.
+4. **When the writer needs a subject, `pages.content_direction` is the lever**
+   (wired by `bugs_closed/025`, live v1.0.1146). Do NOT hand-set
+   `page_components.content_brief` instead: `save_page_sections_action.go:604-614`
+   rewrites that column from `page_spec->>'purpose'` on every save, so the very
+   rebuild you trigger clobbers it.
+
+Category tags: `provenance-needs-a-field-diff`, `title-carries-the-error`,
+`identical-inputs-divergent-outputs`, `survey-confirms-or-refutes-containment`.
+
+### The build dispatcher picks ONE site per tick ordered by `site_id`, so cross-site priority does nothing (2026-07-25)
+
+*Added 2026-07-25 while rebuilding 6 relojistas pages for `bugs_open/028`.*
+
+Six items sat at `triaged` for ~25 minutes while builds visibly completed for
+other sites. `build-pipeline-trigger` (120s) selects its target with:
+
+```sql
+SELECT DISTINCT ON (wi.site_id) wi.site_id::text, s.domain
+FROM site_work_items wi JOIN sites s ON s.id = wi.site_id
+WHERE wi.status IN ('triaged','approved') AND wi.attempt_count < wi.max_attempts
+  AND NOT EXISTS (SELECT 1 FROM site_work_items active
+                  WHERE active.site_id = wi.site_id AND active.status='claimed')
+ORDER BY wi.site_id, wi.priority ASC LIMIT 1
+```
+
+**`ORDER BY wi.site_id` first, `LIMIT 1`.** One site per tick, chosen by a UUID.
+`priority` only breaks ties *within* the winning site — setting `priority=5` on
+your item buys you nothing against a site whose `site_id` sorts lower.
+relojistas (`ecf1…`) sat behind webdesign (`6b49…`) and its 107 triaged items.
+
+> **I got this wrong first and it is worth recording:** I read the query and
+> concluded relojistas was starved *permanently*, and went and built a
+> direct-dispatch bypass. It is not permanent — the `NOT EXISTS (… 'claimed')`
+> clause skips any site with an in-flight claim, so higher-id sites do get
+> through in the gaps between lower-id claims. The wait scales with how many
+> lower-id sites hold work; it does not diverge. **Reading a query is not
+> watching it run** — one `SELECT status, claimed_by, claimed_at` would have
+> shown the queue advancing before I wrote a script I did not need.
+
+**Cheap checks, in order:**
+1. `SELECT DISTINCT ON (wi.site_id) …` — run the dispatcher's own query verbatim
+   and see where your site ranks. It answers "am I next" in one shot.
+2. Before concluding "stuck", check `claimed_at` age and look for a live
+   `orchestration_states` row (`current_step`) for the page. A claim three
+   minutes old at `validate_content` is a working pipeline, not a stall.
+3. Only reach for a direct Kafka fire when the queue is genuinely dead. If you
+   do, note the caveat in `049c_build_single_page.sh`: firing direct bypasses
+   the loop's `claim`/`mark_complete`, so a successful build leaves the item
+   `triaged` and it will be rebuilt again later unless you close it by hand.
+
+Category tags: `uuid-ordering-is-arbitrary-ordering`, `priority-is-intra-site-only`,
+`reading-a-query-is-not-watching-it-run`, `queue-starvation-vs-queue-latency`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
