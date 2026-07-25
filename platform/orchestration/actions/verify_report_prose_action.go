@@ -36,6 +36,7 @@ package actions
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"regexp"
 	"sort"
@@ -129,7 +130,8 @@ func VerifyReportProseAction(ctx context.Context, params ActionParams) (interfac
 		}
 	}
 
-	violations := verifyReportProse(prose, scoring, contextValues)
+	violations := verifyReportProse(prose, scoring, contextValues,
+		loadKnownVendors(ctx, params.DB, logger))
 	if len(violations) > 0 {
 		logger.Warn("VerifyReportProseAction: REJECTED", zap.Strings("violations", violations))
 		return nil, fmt.Errorf("report prose failed verification (%d violations): %s",
@@ -140,12 +142,65 @@ func VerifyReportProseAction(ctx context.Context, params ActionParams) (interfac
 	return map[string]interface{}{"verified": true, "sections": proseSectionCount}, nil
 }
 
-// knownVertexVendors is the industrial gripper/vacuum vendor field as it
-// realistically exists — the names a writer reaches for when it pads a
-// shortlist. It is NOT an allowlist: a name here is a violation UNLESS the
-// scored candidate set (or the fact block / request context) actually contains
-// it, so the check relaxes on its own as the product index grows. Six of these
-// are indexed today; the rest are precisely the fabrication targets.
+// loadKnownVendors returns the vendor universe the prose is checked against:
+// every manufacturer the platform has actually indexed, unioned with the
+// curated seed list below.
+//
+// The live half matters because a hardcoded list is a second source of truth
+// that drifts the moment someone adds a product (council 7ed137d1 round 2,
+// tooling_provenance + editquality: "the sketch hardcodes names rather than
+// reading them from an existing vendor/product source"). Sourcing from
+// `products` means a vendor becomes checkable the moment it is indexed
+// ANYWHERE on the platform, with no code change.
+//
+// The curated half is still needed and is not redundant: the whole point is to
+// catch vendors we have NOT indexed, and those by definition do not appear in
+// `products`. The two halves cover opposite gaps.
+//
+// Fail-open on a DB error is deliberate: the seed list still applies, and a
+// transient database problem must not fail an otherwise honest report.
+func loadKnownVendors(ctx context.Context, db *sql.DB, logger *zap.Logger) []string {
+	vendors := append([]string(nil), seedVertexVendors...)
+	if db == nil {
+		return vendors
+	}
+	rows, err := db.QueryContext(ctx, `
+		SELECT DISTINCT specifications->>'manufacturer'
+		FROM products
+		WHERE specifications->>'manufacturer' IS NOT NULL
+		  AND length(trim(specifications->>'manufacturer')) > 2`)
+	if err != nil {
+		logger.Warn("verify_report_prose: could not load indexed manufacturers; falling back to the seed list only",
+			zap.Error(err))
+		return vendors
+	}
+	defer rows.Close()
+
+	seen := make(map[string]bool, len(vendors))
+	for _, v := range vendors {
+		seen[strings.ToLower(v)] = true
+	}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			continue
+		}
+		name = strings.TrimSpace(name)
+		if name == "" || seen[strings.ToLower(name)] {
+			continue
+		}
+		seen[strings.ToLower(name)] = true
+		vendors = append(vendors, name)
+	}
+	return vendors
+}
+
+// seedVertexVendors is the curated half: industrial gripper/vacuum vendors we
+// have NOT indexed — precisely the names a writer reaches for when padding a
+// shortlist, and precisely the ones no query can supply. It is NOT an
+// allowlist: a name here is a violation UNLESS the scored candidate set (or
+// the fact block / request context) actually contains it, so the check relaxes
+// on its own as the index grows.
 //
 // This closes the plain-word half of the name-fabrication gap the council's
 // compliance seat raised at high severity (correlation 7ed137d1): modelNumberRe
@@ -157,7 +212,7 @@ func VerifyReportProseAction(ctx context.Context, params ActionParams) (interfac
 // vendor name that appears on no list (e.g. "Norgren Robotics"). That residual
 // is left to the writer prompt and is the reason the prompt must forbid naming
 // any vendor absent from the fact block.
-var knownVertexVendors = []string{
+var seedVertexVendors = []string{
 	"Applied Robotics", "ATI Industrial Automation", "Bimba", "Camozzi",
 	"Coval", "Destaco", "Effecto", "Festo", "Gimatic", "Joulin", "Kosmek",
 	"Millibar", "OnRobot", "Piab", "Robotiq", "Röhm", "Schmalz", "Schunk",
@@ -186,8 +241,9 @@ func truncationMarkerField(proseField, override string) string {
 var modelNumberRe = regexp.MustCompile(`\b[A-Za-z0-9]*(?:[A-Za-z][0-9]|[0-9][A-Za-z])[A-Za-z0-9]*-[A-Za-z0-9-]+\b`)
 
 // verifyReportProse is the pure core (unit-tested directly). contextValues
-// are request strings (mounting, geometry, budget) the prose may echo.
-func verifyReportProse(prose, scoring map[string]interface{}, contextValues []string) []string {
+// are request strings (mounting, geometry, budget) the prose may echo;
+// knownVendors is the vendor universe from loadKnownVendors.
+func verifyReportProse(prose, scoring map[string]interface{}, contextValues, knownVendors []string) []string {
 	var violations []string
 
 	factBlock, _ := scoring["fact_block"].(string)
@@ -257,7 +313,7 @@ func verifyReportProse(prose, scoring map[string]interface{}, contextValues []st
 
 		// (2b) A vendor from the wider field, named without being assessed.
 		// Digit-free, so the SKU check above cannot see it.
-		for _, vendor := range knownVertexVendors {
+		for _, vendor := range knownVendors {
 			if !containsFold(text, vendor) {
 				continue
 			}

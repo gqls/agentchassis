@@ -40,7 +40,7 @@ func TestProseGatePassesFactBoundProse(t *testing.T) {
 	prose := proseWith(
 		"The friction-grip requirement works out at 200.0 N.",
 		"The Robotiq 2F-85 publishes 20 to 235 N of gripping force and 85 mm of travel.")
-	if v := verifyReportProse(prose, scoring, nil); len(v) != 0 {
+	if v := verifyReportProse(prose, scoring, nil, seedVertexVendors); len(v) != 0 {
 		t.Errorf("clean prose rejected: %v", v)
 	}
 }
@@ -50,7 +50,7 @@ func TestProseGateRejectsInventedNumber(t *testing.T) {
 	prose := proseWith(
 		"The requirement is 200.0 N.",
 		"The Robotiq 2F-85 delivers 999 N of clamping force.") // 999 invented
-	v := verifyReportProse(prose, scoring, nil)
+	v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
 	if len(v) == 0 {
 		t.Fatal("invented number 999 passed the gate")
 	}
@@ -68,7 +68,7 @@ func TestProseGateRejectsInventedSKU(t *testing.T) {
 	prose := proseWith(
 		"The requirement is 200.0 N.",
 		"Consider the Robotiq 2F-140 as an alternative with 140 N of force.")
-	v := verifyReportProse(prose, scoring, nil)
+	v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
 	if len(v) == 0 {
 		t.Fatal("invented SKU 2F-140 passed the gate")
 	}
@@ -85,7 +85,7 @@ func TestProseGateNoMatchContract(t *testing.T) {
 
 	// (a) Summary missing the mandatory sentence -> rejected.
 	prose := proseWith("Unfortunately the options are limited.", "The index was assessed in full.")
-	v := verifyReportProse(prose, scoring, nil)
+	v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
 	if !strings.Contains(strings.Join(v, "|"), "mandatory sentence") {
 		t.Errorf("missing mandatory sentence not flagged: %v", v)
 	}
@@ -94,7 +94,7 @@ func TestProseGateNoMatchContract(t *testing.T) {
 	prose = proseWith(
 		noMatchSentence+" Consider widening the search.",
 		"The Schmalz SGM-HP 50 nearly meets the requirement for your parts.")
-	v = verifyReportProse(prose, scoring, nil)
+	v = verifyReportProse(prose, scoring, nil, seedVertexVendors)
 	if !strings.Contains(strings.Join(v, "|"), "softens") {
 		t.Errorf("softening language not flagged: %v", v)
 	}
@@ -103,7 +103,7 @@ func TestProseGateNoMatchContract(t *testing.T) {
 	prose = proseWith(
 		noMatchSentence+" The closest candidates are shown with the exact shortfalls.",
 		"The Schmalz SGM-HP 50 publishes 385 N with the friction ring; the computed direct-hold requirement is beyond every published figure in this index.")
-	if v := verifyReportProse(prose, scoring, nil); len(v) != 0 {
+	if v := verifyReportProse(prose, scoring, nil, seedVertexVendors); len(v) != 0 {
 		t.Errorf("honest no-match prose rejected: %v", v)
 	}
 }
@@ -112,7 +112,7 @@ func TestProseGateRejectsEmptySection(t *testing.T) {
 	scoring := realScoring(t, 2.5, 54)
 	prose := proseWith("The requirement is 200.0 N.", "Assessment complete.")
 	prose["integration_html"] = "<p>   </p>"
-	v := verifyReportProse(prose, scoring, nil)
+	v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
 	if !strings.Contains(strings.Join(v, "|"), "integration_html is empty") {
 		t.Errorf("empty section not flagged: %v", v)
 	}
@@ -126,13 +126,13 @@ func TestProseGateFormattingToleranceAndContext(t *testing.T) {
 	prose := proseWith(
 		"The Zimmer Group unit publishes 1,520 N.",
 		"Specify an ISO 9409-1-50-4-M6 flange when ordering.")
-	v := verifyReportProse(prose, scoring, []string{"ISO 9409-1-50-4-M6"})
+	v := verifyReportProse(prose, scoring, []string{"ISO 9409-1-50-4-M6"}, seedVertexVendors)
 	if len(v) != 0 {
 		t.Errorf("formatting/context tolerance failed: %v", v)
 	}
 	// Without the context, the mounting digits must be rejected — proving
 	// the context path is what allowed them, not a hole in the gate.
-	if v := verifyReportProse(prose, scoring, nil); len(v) == 0 {
+	if v := verifyReportProse(prose, scoring, nil, seedVertexVendors); len(v) == 0 {
 		t.Error("mounting digits passed without context — the numeric gate has a hole")
 	}
 }
@@ -147,7 +147,7 @@ func TestProseGateRejectsUnassessedVendor(t *testing.T) {
 	prose := proseWith(
 		"The requirement is 200.0 N.",
 		"You might also look at Piab for vacuum options.")
-	v := verifyReportProse(prose, scoring, nil)
+	v := verifyReportProse(prose, scoring, nil, seedVertexVendors)
 	if len(v) == 0 {
 		t.Fatal("unassessed vendor Piab passed the gate")
 	}
@@ -157,7 +157,7 @@ func TestProseGateRejectsUnassessedVendor(t *testing.T) {
 
 	// Case must not launder it.
 	lower := proseWith("The requirement is 200.0 N.", "consider piab as well.")
-	if v := verifyReportProse(lower, scoring, nil); len(v) == 0 {
+	if v := verifyReportProse(lower, scoring, nil, seedVertexVendors); len(v) == 0 {
 		t.Error("lower-cased vendor passed the gate")
 	}
 
@@ -166,8 +166,38 @@ func TestProseGateRejectsUnassessedVendor(t *testing.T) {
 	ok := proseWith(
 		"The requirement is 200.0 N.",
 		"The Robotiq 2F-85 publishes 20 to 235 N of gripping force.")
-	if v := verifyReportProse(ok, scoring, nil); len(v) != 0 {
+	if v := verifyReportProse(ok, scoring, nil, seedVertexVendors); len(v) != 0 {
 		t.Errorf("indexed vendor Robotiq rejected: %v", v)
+	}
+}
+
+// The vendor universe has two halves covering opposite gaps, and neither is
+// redundant: the LIVE half (manufacturers read from products) makes a vendor
+// checkable the moment it is indexed anywhere, with no code change; the SEED
+// half covers vendors we have NOT indexed, which by definition cannot come
+// from that query. Assert the live half independently, since it is the half a
+// hardcoded-list-only implementation would silently lack.
+func TestVendorUniverseUsesLiveNamesToo(t *testing.T) {
+	scoring := realScoring(t, 2.5, 0)
+	prose := proseWith(
+		"The requirement is 200.0 N.",
+		"An Acme Vacuum Systems unit would also serve here.")
+
+	// Absent from both halves, it passes — this is the declared residual: a
+	// wholly novel name on no list is not caught deterministically.
+	if v := verifyReportProse(prose, scoring, nil, seedVertexVendors); len(v) != 0 {
+		t.Fatalf("fixture assumption wrong — the name should be unknown to the seed list: %v", v)
+	}
+
+	// Supplied as an indexed manufacturer (what loadKnownVendors reads out of
+	// products), the same prose must now be rejected.
+	live := append(append([]string(nil), seedVertexVendors...), "Acme Vacuum Systems")
+	v := verifyReportProse(prose, scoring, nil, live)
+	if len(v) == 0 {
+		t.Fatal("a vendor known only from the live product index passed the gate")
+	}
+	if !strings.Contains(strings.Join(v, "|"), "Acme Vacuum Systems") {
+		t.Errorf("violation should name the vendor: %v", v)
 	}
 }
 
