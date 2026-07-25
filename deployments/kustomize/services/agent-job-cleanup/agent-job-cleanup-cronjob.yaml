@@ -59,10 +59,12 @@ spec:
                   #
                   # Topic format: job.{corrID[:8]}-{orchID[:8]}-{agentType}-{step}.{requests|responses}
                   #
-                  # Strategy: collect all orchestration IDs from running spawned pods
-                  # (via ORCHESTRATION_ID env var) and keep topics that match.
-                  # Delete everything else that's older than 1 hour.
-                  # If no running pods, delete all job.* topics.
+                  # Strategy (actual, 2026-07-25): all-or-nothing. If ANY spawned
+                  # agent workload is live (active spawned Job or dynamic-agent
+                  # pod), keep every job.* topic; only when nothing spawned is
+                  # live, delete them all. Per-topic age filtering was described
+                  # here before but never implemented — kafka-topics.sh exposes
+                  # no creation time, so the honest rule is the coarse one.
 
                   KAFKA_POD=$(kubectl get pods -n kafka \
                     -l strimzi.io/name=personae-kafka-cluster-kafka \
@@ -79,15 +81,31 @@ spec:
                     echo "Found $TOPIC_COUNT job topics"
 
                     if [ "$TOPIC_COUNT" -gt 0 ]; then
-                      # Check if any spawned agent pods are running
-                      RUNNING_COUNT=$(kubectl get pods -n ai-persona-system \
-                        -l spawned-by=orchestrator \
-                        --field-selector=status.phase=Running \
-                        --no-headers 2>/dev/null | wc -l)
+                      # Check whether any spawned agent WORKLOAD is live.
+                      #
+                      # CORRECTED 2026-07-25 (bugs_open/070): pods carry NO
+                      # spawned-by label on either spawn path — spawn_actions.go
+                      # and remote-job-spawner both label only the JOB, not the
+                      # pod template. The old check
+                      #   kubectl get pods -l spawned-by=orchestrator
+                      # therefore matched ZERO pods always; every tick took the
+                      # delete-all branch and deleted job.* topics out from under
+                      # running agents (killed two feature-implementer runs on
+                      # 2026-07-24). Jobs DO carry the label on both paths, so
+                      # count active Jobs (covers Pending pods too), plus any
+                      # dynamic-agent pods as belt-and-braces. If the queries
+                      # fail, assume live work and keep the topics (fail-safe).
+                      JOBS_LIVE=$(kubectl get jobs -n ai-persona-system \
+                        -l 'spawned-by in (orchestrator, remote-job-spawner)' \
+                        -o jsonpath='{range .items[?(@.status.active==1)]}{.metadata.name}{"\n"}{end}') \
+                        || JOBS_LIVE="__QUERY_FAILED__"
+                      PODS_LIVE=$(kubectl get pods -n ai-persona-system \
+                        -l app=dynamic-agent --no-headers 2>/dev/null \
+                        | grep -E 'Running|Pending|ContainerCreating') || true
 
-                      if [ "$RUNNING_COUNT" -eq 0 ]; then
-                        # No running spawned pods — safe to delete all job.* topics
-                        echo "No running spawned pods — deleting all $TOPIC_COUNT job topics"
+                      if [ -z "$JOBS_LIVE" ] && [ -z "$PODS_LIVE" ]; then
+                        # No live spawned workload — safe to delete all job.* topics
+                        echo "No live spawned workload — deleting all $TOPIC_COUNT job topics"
                         DELETED=0
                         echo "$ALL_JOB_TOPICS" | while read TOPIC; do
                           [ -z "$TOPIC" ] && continue
@@ -99,26 +117,8 @@ spec:
                         echo "Deleted job topics"
 
                       else
-                        echo "$RUNNING_COUNT spawned pods running — conservative cleanup"
-                        # Get creation timestamps of running jobs to identify which
-                        # correlation IDs are active. Job names contain the agent-id
-                        # but not the correlation-id, so we can't map precisely.
-                        #
-                        # Conservative strategy: keep ALL topics created in the last 2 hours
-                        # by skipping topics whose correlation prefix appears in any
-                        # recent orchestration. Without DB access, use a time heuristic:
-                        # only delete topics in batches, leaving some headroom.
-                        #
-                        # Get the oldest running job's creation time
-                        OLDEST_JOB=$(kubectl get jobs -n ai-persona-system \
-                          -l spawned-by=orchestrator \
-                          -o jsonpath='{range .items[?(@.status.active==1)]}{.metadata.creationTimestamp}{"\n"}{end}' 2>/dev/null \
-                          | sort | head -1)
-
-                        if [ -n "$OLDEST_JOB" ]; then
-                          echo "Oldest running job: $OLDEST_JOB — keeping all topics for safety"
-                          echo "Topics will be cleaned on next run when no pods are active"
-                        fi
+                        echo "Live spawned workload (jobs: $(echo "$JOBS_LIVE" | grep -c .); pods: $(echo "$PODS_LIVE" | grep -c .)) — keeping all job topics"
+                        echo "Topics will be cleaned on a later run when no spawned workload is live"
                       fi
                     fi
                   else
