@@ -481,3 +481,132 @@ timestamp against `created_at`.
 
 Ship: the tool has no CI. `GOOS=linux GOARCH=amd64 go build -o idea .` in
 `docs/.../idea.uk/golang_files/`, `scp` to `/opt/idea/idea.new`, `mv`, `systemctl restart idea`.
+
+---
+
+## Phase 5 — Adding a GUIDE page (the ideas-pipeline build path) — proven 2026-07-25
+
+This is the repeatable recipe for every guide in `features_open/014`. It bypasses
+`build-site-planner` entirely: **never re-plan the site to add one page** — the re-plan path
+recomposes everything and is how built pages get clobbered (`bugs_open/001`, `050`).
+
+### The mechanism, so you can reason about it rather than copy blindly
+
+- A guide is a normal `pages` row: `url='/guides/<slug>/index.html'`, `page_type='guide'`.
+  Fleet-verified shape (gamesdesign.co.uk ×5, relojistas ×4, vetcomparison ×3).
+- **The guides hub populates itself.** `guide-list_pre_037`
+  (`9d5e461a-8981-4ecc-b236-05895edfc15d`) sources `items` from
+  `query.pages_where_type:guide` — `queryresolve.go:81` → `resolvePagesWhereType`. Add a guide
+  page, and the hub lists it on its next render. No edit to the hub.
+- **Eligibility is the gate.** That resolver applies `FetchablePageEligibilitySQL`:
+  `deployed_at IS NOT NULL OR build_status='deployed'`. So a guide only appears once it has
+  actually shipped. Build the guide FIRST, then render the hub.
+- `Generic Text Block` renders `{{.content}}` **unescaped** — authored HTML in `content_data`
+  is safe (verified against the live `/guides/rng-design/index.html` artefact).
+
+### The recipe
+
+```bash
+# 1. Create the page + sections with authored content_data. Template: sql/p4_01_guide_patents.sql
+#    MUST set page_components.slot_name — see the trap below.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db \
+  < docs/.../idea_uk_vm_site/sql/p4_0N_guide_<slug>.sql
+
+# 2. Direct-fire a section_data_resolved rerender (the queue is unreliable — bugs_open/029/030).
+#    NOT the plain 049b assemble-only call: a new page has no rendered_html to assemble.
+#    check_rerender_mode reads input_data.spec.reason, NOT input_data.reason.
+kcat -P -c 1 -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests  ... (headers per sql/../scratchpad fire_patents_guide.sh)
+{"action":"orchestrate","config":{"agent_type":"page-rerender"},
+ "input_data":{"page_id":"<id>","site_id":"1244516d-014d-421c-88c6-090bb1e9552a","domain":"idea.uk",
+   "spec":{"domain":"idea.uk","page_id":"<id>","filename":"guides/<slug>/index.html",
+           "page_name":"guide-<slug>","reason":"section_data_resolved"}}}
+
+# 3. Confirm the sections actually RENDERED (not carried) before believing the job:
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT collected_data->'rerender_sections'->>'rerendered' AS rendered,
+       collected_data->'rerender_sections'->>'carried'    AS carried
+FROM orchestration_states WHERE correlation_id='<CORR>';"
+#    rendered must equal the section count and carried must be 0.
+
+# 4. Verify LIVE, not the DB (VM sitesync lag ~5 min after the git commit):
+curl -s -o /dev/null -w '%{http_code}\n' https://idea.uk/guides/<slug>/index.html
+
+# 5. Backfill pages.sections (the rerender path does NOT write it) — sql/p4_01c.
+# 6. Lock the authored sections — sql/p4_03.
+```
+
+### ⚠ TRAP 1 — `slot_name` NULL renders NOTHING and the job still reports COMPLETED
+
+`rerender_page_sections_action.go:249` looks the component up as **`schemas[s.slotName]`** — keyed
+on `page_components.slot_name`, *not* `component_id` (`loadStoredSections` reads
+`COALESCE(slot_name,'')`). A NULL `slot_name` misses the map and takes the *"component not found,
+carrying stored HTML"* branch at `:251-257`. On a brand-new page the stored HTML is empty, so:
+
+```
+rerender_sections -> {"section_count":3,"rerendered":0,"carried":3}
+render_page       -> {"skipped":true,"reason":"no components found for page"}
+workflow          -> complete_skipped, status COMPLETED     ← green, and the page does not exist
+```
+
+**The key is the component's `function` column, not its `name`.** Verified across the fleet:
+`Generic Text Block` → `generic-text-block`; `hero` → `hero`; `call-to-action` → `call-to-action`.
+Set it from the component itself so it cannot drift:
+
+```sql
+UPDATE page_components pc SET slot_name = cc.function
+FROM content_components cc WHERE cc.id = pc.component_id AND pc.page_id = '<id>';
+```
+
+This cost one wasted round on 2026-07-25 (`sql/p4_01b`). It is the CLAUDE.md/016b
+"trust the rendered artefact, not the status" rule in its purest form: **nothing failed.**
+
+### ⚠ TRAP 2 — the hub's own listing component may be the static one
+
+idea.uk's `/guides/index.html` shipped with `content-listing`
+(`aa3e4b68-bcea-49ca-890a-c111acefa551`), whose `articles` is a **static array** with no query
+source — it had always been empty and would never have picked up a guide page. Swap it to
+`guide-list_pre_037` once (done: `sql/p4_02`), moving `slot_name` **and** `pages.sections` with it.
+Check before assuming a hub self-populates:
+
+```sql
+SELECT pc.slot_name, cc.name, cc.input_schema->'fields'->'items'->>'source'
+FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
+JOIN pages p ON p.id=pc.page_id WHERE p.url='/guides/index.html' AND p.site_id='<site>';
+```
+
+### ⚠ TRAP 3 — "no orchestration row" means QUEUED, not dropped. Check before you re-fire.
+
+The first hub rerender fire produced no orchestration row for ~4 minutes and I re-fired it as a
+lost spawn (`bugs_open/003`). **That was wrong**, and the check that proves it takes one query:
+
+```sql
+-- Is it MY message, or is the whole consumer stalled? Look at everyone's orchestrations.
+SELECT correlation_id, current_step, status, created_at FROM orchestration_states
+WHERE created_at > now() - interval '10 minutes' ORDER BY created_at DESC LIMIT 10;
+```
+
+Zero rows **fleet-wide** since the fire ⇒ the generic-requests consumer is stalled/backed up
+(`bugs_open/029/030`), and every thread's dispatch is waiting, not just yours. Only if *other*
+orchestrations are starting normally while yours never appears do you have a dropped spawn.
+
+Confirm the message actually reached the topic before suspecting anything at all — it is on the
+log whether or not a consumer has taken it:
+
+```bash
+kubectl -n kafka run -i --rm kcat-read-$(date +%s) --image=edenhill/kcat:1.7.1 --restart=Never -- \
+  kcat -C -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests -o -6 -e -q -f '%o %T | %s\n'
+```
+
+Cost of getting this wrong: a duplicate rerender. Harmless here (idempotent — the same
+`section_data_resolved` render twice), but the same reflex against the council gate costs a whole
+duplicate review round. This is `memory/council-queue-latency-trap` and it did not fire in time.
+
+`agent-page-rerender` pods are one-shot Jobs that **idle-shut-down after ~3 minutes**
+(`agentbase/agent.go:1541`, observed `idle_duration 184s`), so "no page-rerender pod running" is
+also not evidence of anything — a new Job is created per dispatch.
+
+Note the *deploy* step also retries: the patents guide was committed to `vm-sites` twice
+(`b253d868`, `b78f70c4`) because the first git-adapter success response was not consumed. Harmless
+— identical content — but it means "two commits" is not evidence of two edits.

@@ -1540,3 +1540,106 @@ header rendered_html carries `/report.html`. VERIFIED LIVE: header `btn-primary`
 `/`, `/about.html`, `/tools.html`, `/report.html`, `/guides/index.html`; the only remaining
 `/contact.html` on the home page is the correct `[Contact]` nav link. **The idea.uk CTA funnel now
 drives to the paid tool end-to-end (body + header).**
+
+### §X.12 — the ideas pipeline starts: idea.uk's FIRST guide (patents) built & LIVE (2026-07-25)
+
+Owner's ask, captured 2026-07-24 as `features_open/014`: idea.uk should grow from "marketing site
++ one paid report" into a **guided journey across the whole life of an idea** — guides and free/paid
+tools from ideate → build → test → UAT → feedback → **patents** → copyright → funding ways → funding
+sources → more. Patents is the owner's explicit lead. Owner then said (this session):
+*"Let's carry on with idea.uk specifically in this thread"* → so this is increment 1, built.
+
+**GROUNDING FIRST — what the site actually had.** Nine pages. `/guides/index.html` served 200 but
+was an EMPTY SHELL: hero + a `content-listing` section rendering **601 bytes** (heading, no cards).
+`/news/index.html` the same. **Zero pages of `page_type='guide'` anywhere on the site.** So this is
+genuinely idea.uk's first guide, not an addition to a library.
+
+**THE MECHANISM (grounded before building, not assumed).**
+- Fleet precedent for the page shape: `/guides/<slug>/index.html`, `page_type='guide'`, hero +
+  Generic Text Block — gamesdesign.co.uk ×5, relojistas ×4, vetcomparison ×3.
+- **The hub populates itself**: `guide-list_pre_037` (`9d5e461a-…`) sources `items` from
+  `query.pages_where_type:guide` → `resolvePagesWhereType` (`queryresolve.go:81`). Verified by
+  reading gamesdesign's stored `content_data`: five resolved item objects, 7,758 bytes rendered.
+- **Eligibility gates it**: that resolver applies `FetchablePageEligibilitySQL` —
+  `deployed_at IS NOT NULL OR build_status='deployed'`. So the guide must SHIP before the hub can
+  list it. Ordering is forced: guide first, hub second.
+- `Generic Text Block` renders `{{.content}}` **unescaped** — verified against the live
+  `/guides/rng-design/index.html` artefact, so authored HTML in `content_data` is safe.
+- Deliberately did **NOT** re-run `build-site-planner` to compose the page (the RUNBOOK Phase 1
+  route). Re-planning to add one page is how built pages get clobbered (`bugs_open/001`, `050`).
+
+**AUTHORED, NOT GENERATED — and why that is a decision, not fussiness.** The body is hand-written
+UK patent guidance. The platform's evidence gate for factual claims (claims-verification **V5**) is
+BUILT BUT INERT, and `bugs_open/043` is a live fabricated-content lane. An LLM pass here would not
+just change tone — it would emit legal assertions with nothing behind them, on a live commercial
+site, under a heading inviting reliance. `sql/p4_01` sets every field of every section so a
+`section_data_resolved` rerender has no reason to escalate to the content writer.
+
+**A CORRECTION MADE WHILE DRAFTING, recorded because it would have shipped.** The first draft said
+the **IPEC small claims track** makes patent enforcement affordable for small businesses. It does
+not — IPEC's small claims track expressly does **not** hear patent, registered design or
+semiconductor topography claims. Corrected before writing to the DB: IPEC *multi-track* (costs and
+damages caps) plus the IPO's non-binding opinions service. Nothing caught this but re-reading my
+own draft against what I actually know; that is not a reliable control, which is the argument for
+V5 rather than against authoring.
+
+**MISSTEP 1 — `slot_name` NULL: rendered nothing, reported COMPLETED.** `p4_01` inserted the three
+sections with `component_id` set and `slot_name` NULL. The rerender ran and the workflow COMPLETED:
+```
+rerender_sections -> {"section_count":3,"rerendered":0,"carried":3}
+render_page       -> {"skipped":true,"reason":"no components found for page"}
+workflow          -> complete_skipped, status COMPLETED
+```
+Cause: `rerender_page_sections_action.go:249` looks components up as **`schemas[s.slotName]`** —
+keyed on `slot_name`, not `component_id` (`loadStoredSections` reads `COALESCE(slot_name,'')`).
+A NULL misses the map and takes the *"component not found, carrying stored HTML"* branch (`:251`);
+on a new page the stored HTML is empty, so assembly found nothing. **The key is the component's
+`function` column, not its `name`** (`Generic Text Block` → `generic-text-block`) — verified across
+the fleet's existing guide pages and idea.uk's own home page. Fixed by `sql/p4_01b`
+(`SET slot_name = cc.function`, so it cannot drift from the lookup key). This is
+"trust the rendered artefact, not the status" in its purest form: **nothing failed.**
+
+**MISSTEP 2 — called a queued dispatch a dropped spawn.** The hub rerender produced no
+`orchestration_states` row for ~4 min; I called it a lost spawn (`bugs_open/003`), re-fired, and
+wrote it into the RUNBOOK as a standing trap. Wrong. The message was on the topic the whole time
+(read at offset 103566), and `orchestration_states` had **zero rows fleet-wide** since 08:45 — the
+generic-requests consumer was stalled (`bugs_open/029/030`), every thread waiting. RUNBOOK TRAP 3
+rewritten to the correct check (*are ANYONE's orchestrations starting?*) and logged in
+`WRONG_CALLS.md`. I already had this note — `memory/council-queue-latency-trap`, written after the
+same mistake against the council gate. It did not fire, because it is filed under "council" and
+this was a page rerender. Also learned in passing: "no `agent-page-rerender` pod running" proves
+nothing — they are one-shot Jobs that idle-shut-down after ~3 min (`agentbase/agent.go:1541`,
+observed `idle_duration 184s`).
+
+**RESULT — /guides/patents/index.html LIVE 2026-07-25 08:42 UTC.** `curl` verified, not job status:
+HTTP 200, 39,214 bytes, `<title>Patents: how to protect an idea in the UK</title>`, h1 + 8 numbered
+h3 sections + the closing CTA, full site chrome (header/footer nav present). Every CTA on the page
+funnels correctly — `/report.html` ×4 (incl. the header "Get Started" from `p3_07`),
+`/tools.html#audience-check` ×1, `/guides/index.html` ×1. Committed to `vm-sites` (`b253d868`, then
+`b78f70c4` — a *deploy-step retry*, identical content, because the first git-adapter success
+response was not consumed; "two commits" is not evidence of two edits). `build_status='deployed'`,
+`deployed_at` stamped 08:40:05.
+
+**RESIDUAL FIXED — `pages.sections` was left `[]`** (`sql/p4_01c`). The rerender path does not write
+it: `save_page_sections` reported `{"sections_found":3,"sections_saved":3}` but that saves
+`page_components.rendered_html`, not the page-level slot list. Every other fleet guide has it,
+populated by the original build path this page bypassed. Not cosmetic: `ListedPageEligibilitySQL`
+requires `jsonb_array_length(sections) > 0` and is the SHARED literal behind both the article
+listing and the imagery sweep, so an empty array makes a deployed page invisible to that whole
+contract — and a future "deployed but no sections" sweep could try to rebuild it, over authored
+legal content. Backfilled to `["hero","generic-text-block","call-to-action"]`.
+
+**HUB SWAP (`sql/p4_02`) — applied to the DB, render PENDING at time of writing.** idea.uk's guides
+hub carried `content-listing` (`aa3e4b68-…`), whose `articles` is a **static array with no query
+source** — it had always been empty and would *never* have picked up a guide page, no matter how
+many were added. That is the derived-vs-static shape of `bugs_open/023` inverted: a listing that
+cannot see the pages it exists to list. Swapped to `guide-list_pre_037`, moving `slot_name`
+**and** `pages.sections` with it (`["hero","content-listing"]` → `["hero","guide-list"]`), with the
+surrounding copy authored and `items` deliberately left unset so it stays query-resolved. Snapshot
+`bak_ideauk_guideshub_20260725`. **[UNVERIFIED at time of writing]** the rerender is queued behind
+the stalled consumer; the hub's `guide-list` section still holds the old 601-byte HTML until it
+runs. Verify with `curl https://idea.uk/guides/index.html` and look for the patents card — do not
+trust the DB swap as proof the page changed.
+
+**STILL TO DO on this increment:** `sql/p4_03` (lock the authored sections — written, waits on the
+hub being verified live, per its own guard).

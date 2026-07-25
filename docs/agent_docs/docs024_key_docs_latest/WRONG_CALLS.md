@@ -2445,3 +2445,36 @@ submission), each copying the previous, none re-reading D4 itself.
 Before wielding "ratified DN says X" in an argument — especially against a reviewer —
 open the doc and paste the sentence. If the sentence doesn't contain X, the argument
 changes shape.
+
+---
+
+## 2026-07-25 — "the spawn was dropped" (idea.uk guides-hub rerender). Wrong: it was queued.
+
+**The claim.** Direct-fired a `page-rerender` for idea.uk's `/guides/index.html` via kcat.
+Four minutes later no `orchestration_states` row existed for the correlation, so I said
+*"the hub rerender spawn was dropped (no orchestration row — the bugs_open/003 shape)"*,
+re-fired it, and wrote it into the workstream RUNBOOK as a standing trap ("the spawn can be
+silently dropped"). Two identical messages were now in flight.
+
+**What was actually true.** The message was on the topic the whole time (confirmed by reading
+`system.agent.generic.requests` at offset 103566). Nothing was dropped — the generic-requests
+consumer was **stalled**: `SELECT ... FROM orchestration_states WHERE created_at > now() -
+interval '10 minutes'` returned **zero rows fleet-wide**, i.e. every thread's dispatch was
+waiting, not just mine (`bugs_open/029/030`).
+
+**What caught it.** Running that fleet-wide query — which I only ran *after* re-firing, while
+hunting for the spawner that was supposedly at fault.
+
+**The cheap check that would have caught it.** One query, before re-firing: *are ANYONE's
+orchestrations starting right now?* Absence of my row is not evidence about my message until
+I know the consumer is otherwise alive. Corollary noticed while chasing this: "no
+`agent-page-rerender` pod is running" proves nothing either — those are one-shot Jobs that
+idle-shut-down after ~3 minutes (`agentbase/agent.go:1541`, observed `idle_duration 184s`).
+
+**Transferable rule.** This is exactly `memory/council-queue-latency-trap`, already written
+down after the same mistake against the council gate — *"no orchestration rows means QUEUED,
+not dropped; check when OTHER orchestrations started before resubmitting"*. Having the note
+did not stop me; the note fires on the word "council", and this was a page rerender. **Absence
+of your row is a claim about the queue, and a claim about the queue needs a query about the
+queue — whatever subsystem you are firing at.** Cost here was one duplicate (idempotent)
+rerender; the same reflex against the council costs a whole duplicate review round.

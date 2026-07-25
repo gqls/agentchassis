@@ -1059,3 +1059,66 @@ already has (the live paid report funnel) so nobody rebuilds it. I've also left 
 AI-tooling-strategy feature (`013`) so that thread knows you now want idea.uk *enhanced*, not just used
 as a reference. I've NOT started designing or building any of it — it's captured as a request, waiting
 on your go and on which stage (patents first, I'd assume) you want to start with.
+
+## 2026-07-25 — the first guide is built and live: patents
+
+You said to carry on with idea.uk in this thread, so I've started building the pipeline itself,
+beginning where you led: patents.
+
+**First, what was actually there.** I looked before building. The site had nine pages, and the
+Guides section was an empty shell — the page loaded, showed a heading saying "Guides", and then
+nothing. Same for News. There was not a single guide page on the site. So this isn't an addition to
+a library; it's the first one.
+
+**Worse, the Guides page could never have filled itself in.** The bit of the page that was supposed
+to list the guides was a component that reads from a fixed, hand-written list — not from the site's
+actual pages. So we could have written twenty guides and that page would still have shown nothing.
+I've swapped it for the component the rest of the estate uses, which asks the database "what guide
+pages exist?" and lists whatever it finds. That means every future guide appears on the hub
+automatically, with no extra work.
+
+**The guide itself: "Patents: how to protect an idea in the UK".** It's live at
+https://idea.uk/guides/patents/index.html — about 2,000 words, eight sections, written plainly. It
+opens with the mistake that actually ruins people, which is telling anyone before you file: in the
+UK there's no grace period, so a pitch without an NDA, a crowdfunding page or a conference talk can
+destroy your own novelty. Then: what a patent really is and the long list of things that can't be
+patented (business methods and software "as such" catch a lot of good ideas); an honest section on
+whether it's worth it at all, given you'd have to fund the lawsuit yourself; how to do a free
+first-look prior-art search; the timeline, and why the twelve-month priority year is the genuinely
+valuable part; what it costs, split into the small official fees and the much larger attorney fees;
+the alternatives, which are frequently the better answer (copyright, registered designs, trade
+marks, plain confidentiality); and who to actually talk to. It ends with a clear statement that it's
+general information, not legal advice, and to see a registered patent attorney.
+
+**I wrote it myself rather than letting the site's AI write it, deliberately.** The platform has a
+half-built system for checking factual claims against evidence, and it isn't switched on yet — and
+we have an open case elsewhere in the estate about AI inventing statistics. Legal guidance, on a
+commercial site, that invites people to rely on it, is the worst possible place to find out that
+something was made up. So it's hand-written, and I'll lock the page so a later automated content
+pass can't quietly rewrite it.
+
+One thing worth telling you because it nearly shipped: my own first draft said the cheap small-claims
+route makes patent enforcement affordable for small businesses. That's wrong — that court's small
+claims track specifically doesn't hear patent cases. I caught it re-reading before it went in, and
+fixed it. I mention it because "I caught it myself this time" is not a system I'd want to rely on,
+and it's the strongest argument for getting the evidence-checking feature finished.
+
+**Two things went wrong on the way, both worth you knowing about.** The first: the page rendered
+absolutely nothing, and the job reported success. A field I'd left blank meant the renderer couldn't
+find the components, so it quietly reused the (empty) previous version and reported "complete". That
+is the recurring shape of trouble here — green status, nothing behind it — and it's why I check the
+actual live page every time rather than the job. The second: when the next job didn't appear, I
+assumed the request had been lost and re-sent it. It hadn't been lost; the whole system's queue was
+stalled and *everybody's* jobs were waiting. Harmless this time (the same render twice), but I'd
+written myself a note about exactly that mistake weeks ago and it didn't stop me, so I've written it
+down again somewhere it'll be found.
+
+**Where that leaves us.** The patents guide is live and correct, and every button on it points at
+the £29 report. The Guides hub is switched over in the database and will show the patents card as
+soon as the stalled queue drains — I'll confirm on the live page rather than assume. After that I'll
+lock both pages.
+
+**Next, unless you'd rather something else:** the natural companions to patents are **copyright**
+(what's automatic, what it does and doesn't cover) and then the **funding** pair (ways, then
+sources). There's also the free "should you patent this?" checker we discussed as an option — a
+short questionnaire that gives a steer and then points at the report. Say which you'd like first.
