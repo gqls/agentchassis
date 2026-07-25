@@ -312,3 +312,12 @@ The wider lesson I'd draw, and I'd rather say it than bury it: for anything
 whose whole job is to *detect* a problem, "it ran and reported success" is not
 evidence it works. Only breaking something on purpose and watching it get
 caught is.
+
+**2026-07-25, 10:35 — the header swap you asked for is live.** The top menu on
+ai-agent-orchestration.com now reads Home · Services · About · Tools ·
+Contact · Case Studies · Blog · **Model Directory**, and Pricing sits at the
+top of the footer's resources group — both verified on the fetched page, not
+just in the database. The last few pages are still picking up the new header
+as their re-renders clear, all on their own. The directory page itself is
+styled, populated with all 27 models and their cited sources, and one click
+from every page on the site.
