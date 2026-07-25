@@ -1184,3 +1184,53 @@ between each step and being able to check it properly.
 **Next**, when you want it: the funding pair — the *ways* to fund something, then the actual
 *sources*. That's the other half of what you asked for, and it's the stage where a free tool would
 earn its place again (a "which funding route fits you" finder).
+
+## 2026-07-25 (afternoon) — your tools-page report, the paid-tool audit, and the funding guides
+
+You reported four things about the Tools page, and all four were real. The two buttons went to
+the contact form because that page's buttons had never been given destinations — same disease as
+the home page had, now cured the same way: "Try the free patent check" goes to the checker,
+everything else goes to the £29 report. The diagram wasn't showing because the page pointed at an
+image file that simply doesn't exist — while a perfectly good illustration made for that page sat
+unused; it's now wired in. And the paid report wasn't in the tool listing because the listing
+only shows pages classed as "tools", and the report page was classed as a "landing page". It's
+now classed as what it is, so it appears in the listing — first, with a proper description.
+
+While in there I found something you hadn't reported and wouldn't have liked: the page claimed
+"**8** tools available free" — there are two — and "data stays on your device — always", which
+isn't true of the audience check (it uses our server) or the paid report. On a site whose whole
+pitch is honesty, an invented statistic is the worst kind of bug. Both now say true things.
+
+**Your bigger question: has the paid tool changed, and does it do what we say?** I read the
+tool's actual source code against the report page's copy. The tool has *not* changed — it is
+what it has always been, and it's genuinely good at it: you tell it about your business, and it
+generates a couple of dozen possible AI product ideas, kills the weak ones using a second
+opinion from a different AI vendor, checks the survivors against the real web (do competitors
+exist, would people pay), scores what's left, and sends a ranked report that includes what
+didn't make the cut and why — with a human reviewing every order first, and an honest "nothing
+cleared the bar" outcome when that's the truth.
+
+But the sales page describes a different product. It says the report is "produced for a single
+idea you submit" — in fact the tool doesn't assess your idea, it finds ideas *for* you. And it
+says "where we cite a figure or a claim, we explain its source so you can check it yourself" —
+the report contains no sources at all; its instructions actually tell the AI *not* to list
+names. The parts about honesty, refusal, human review and the £29 are all true and genuinely
+well built. So the product is real; the promise is misdescribed. The choice is yours: rewrite
+the page to sell what the tool actually is (quick, I can do it today), or extend the tool to
+match the promise — assess the submitted idea and include checkable sources — which is more
+work and needs you to deploy the new version, but is arguably the better product. Or the first
+now and the second later. The full claim-by-claim table is in the audit document.
+
+One small thing from the same reading: if the box's settings file doesn't set a contact
+address, the report emails fall back to the old dead leopardess address — worth a one-line
+check on the box (`grep CONTACT_EMAIL /etc/idea/idea.env`).
+
+**And the funding guides you asked for are live** — the *ways* (the eight shapes money comes
+in, what each really costs, and why most early ideas should take none of them yet) and the
+*sources* (the actual UK map: Innovate UK, the British Business Bank and its start-up loans,
+the Scottish/Welsh/Northern Irish agencies, growth hubs, angels, the King's Trust, and how to
+work the map without losing six months). Neither guide states a single amount, rate or
+deadline — those change every fiscal year, and a stale figure looks exactly like an invented
+one — so everything points at the institutions' own sites. Guides section now: patents,
+copyright, funding ways, funding sources. Four real guides where there was an empty heading
+yesterday morning.

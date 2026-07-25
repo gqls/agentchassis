@@ -1771,3 +1771,71 @@ deriving listings (`guide-list` on the guides hub, `tool-list` on /tools.html) d
 platform behaviour made from intent rather than from the code or a query — the carried section
 (slot_name), the "dropped" spawn, and this lock. Each was one grep or one query away. The code was
 on disk in every case.
+
+### §X.14 — owner's tools-page report: four defects, all confirmed; the paid-tool audit; funding pair built (2026-07-25)
+
+Owner: *"The structured diagram is not showing on the tools.html page. The paid-for tool doesn't
+show on the tool listing. The 'Try the tools' and the 'Browse All Tools' buttons go to the contact
+form... Has the paid-for tool changed? Does it do what we say it does?"* Plus: *"please go ahead"*
+(the funding pair) and *"write up the docs to this point including the summary"*.
+
+**TOOLS-PAGE DIAGNOSES — every one grounded before fixing (`sql/p4_09`):**
+1. *"Try the tools" → /contact.html*: the tools.html hero had `cta_text` but NO `cta_url` — the
+   LNK-007 default. p3_05 fixed exactly this on the home page; this page's sections were never
+   link-resolved. Its secondary CTA had no URL at all, so the second button was gated out.
+2. *"Browse All Tools" → /contact.html*: `tool-list.cta_url` is `query.section_index_for:tool` →
+   nil for idea.uk → default. AND the label is the p4_04 defect again — `source:static` WITH
+   fallback `'Browse All Tools'`, unoverridable. Dropped the fallback (guard-verified no-op: all
+   6 instances across 4 sites carry the value in content_data), then set label+URL to the funnel
+   ("Get a verified idea report" → /report.html) — a "Browse All Tools" button ON the tools page
+   is a self-reference whatever URL it gets.
+3. *The missing diagram*: rendered `<img src="/assets/images/illustration.jpg">` — a file that
+   does not exist (live 404, absent from vm-sites). The site HAS a purpose-made live asset:
+   `/assets/images/illustration-tools.jpg` (assets row `illustration_tools`, HTTP 200). Set
+   `illustration_url` in content_data. CAVEAT flagged in the SQL: the field is
+   `source: site_assets.illustration` and resolved_data merges last — if the resolver re-emits
+   the dead path on rerender, the fix moves upstream. Verify the rendered src, not the DB.
+4. *Paid tool absent from the listing*: `tool-list` items derive from
+   `query.pages_where_type:tool`; /report.html was `page_type='landing'`. Flipped to `'tool'`
+   after checking every consumer: nav untouched (keys in_header/nav_order), eligibility passes,
+   sections-carrying tool pages are legitimate (13/33 fleet-wide), and the CTA resolver treating
+   it as interactive is what this site wants. Also set its EMPTY meta_description (the card would
+   have rendered blank) and gave the audience-check pointer a real nav_label + description.
+5. **UNPROMPTED FIND — a fabricated stat on the live page**: brief-explanation claimed
+   **"8 Tools available free"** (there are 2) and **"Data stays on your device — Always"** (false
+   for the audience check, which posts to the server, and for the paid report). The 043 class, on
+   the page whose pitch is honesty. Corrected to true values; "2" costs us a bump per new tool,
+   which is the price of it being true. tool-list's section_intro also claimed per-card
+   browser/server labels that don't exist, and cta_supporting_text said "Each tool is free" —
+   false the moment the paid report joined the list. Both reworded.
+
+**THE PAID-TOOL AUDIT** (owner's direct question; full table in
+`AUDIT_2026-07-25_paid_tool_vs_copy.md`). Read the actual source (engine.go/prompts.go/
+service.go/billing.go) against the live /report.html copy. **The tool has NOT changed** — it is
+and always was the ideation method v2: generate 12–24 AI-product ideas for the customer's
+business across five lenses → cross-vendor cut → REAL web-search verification → gated scoring
+with a separate operator-risk axis → ranked report incl. "didn't make the cut" and "set aside on
+risk", with human review before every run and honest refusal outcomes ("No idea cleared the
+bar"). **The COPY describes a different product**: "produced for a single idea you submit" (the
+engine has no your-idea input — its own intro says "You asked us to find AI product ideas for
+{domain}") and "where we cite a figure or a claim, we explain its source so you can check it
+yourself" (the report renders findings with NO sources; the verify prompt explicitly suppresses
+names). Delivered honestly: refusal, human review, £29 Stripe, competitor checking, cheap-test
+per idea, AI disclosure in the T&Cs (not in the report itself). Also caught:
+`reportContact()` falls back to the stale `idea-uk@leopardess.uk` unless CONTACT_EMAIL is set on
+the box. Fix direction (copy vs engine vs both) = owner decision, presented.
+
+**FUNDING PAIR BUILT** (`sql/p4_10`, `p4_11` — stages 8+9): /guides/funding-ways/ (the eight
+mechanisms and what each really costs; "get evidence before you get money" as the spine) and
+/guides/funding-sources/ (the durable UK institution map: Innovate UK/UKRI/KTP/Catapults,
+British Business Bank/Start Up Loans, devolved agencies + Growth Hubs, banks, angels/UKBAA, VC,
+crowdfunding classes, King's Trust + social investment, universities). **Figure policy stricter
+than the patents guide**: NO amounts, rates, caps or deadlines anywhere — they go stale within a
+fiscal year and a stale figure is indistinguishable from a fabricated one; every section points
+at the institution's own site. **Institution policy**: durable major bodies only, no individual
+funds/platforms named where a class will do (naming one is an endorsement + a staleness bomb).
+Both guides funnel to /report.html; hub lists them automatically (nav_order 30/40).
+
+**Docs written to this point**: SUMMARY_2026-07-25 (NEW file per the series rule — the 07-18
+summary stands untouched), README_where_we_are entry, this section. RUNBOOK Phase 5 unchanged
+(recipe held for both new guides — slot_name + pages.sections handled in-SQL, no new traps).
