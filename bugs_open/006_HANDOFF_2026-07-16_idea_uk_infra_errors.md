@@ -539,3 +539,26 @@ today's cases only — it cannot catch a future one-sided edit.
 debug_historian's asked-for post-rollout checks were already done this morning (v1.0.1156 pod-grep,
 audit numbers re-derived live). render_guardian's bail-out concern is covered by the behavioural
 watcher: it watches the RENDERED artefact (form action), not the item status.
+
+### B — 2026-07-25: BEHAVIOURAL PROOF COMPLETE — checker→handler auto-heal verified end to end, live
+
+The vonc.com run (improvement-loop corr `5c6cd4d2`) closed the whole chain with **zero human touch**:
+check emitted `page_rerender` @ `detected` (08:57Z) → triage promoted (08:59Z) → build-dispatch-loop
+claimed (10:16Z; the ~80 min at `triaged` was per-site build-slot serialisation behind a
+needs_design_review item + the priority-80 assemble backlog — my item's priority 30 put it next, and
+dispatch ordering is `priority ASC`) → page-rerender completed (10:19Z) → stored form action AND the
+**live page** (`https://vonc.com/contact.html`) now serve
+`action="mailto:vonc@contactforsales.com?subject=vonc.com enquiry"`.
+
+**The failing branch was exercised, not just the happy path**: vonc's `content_data.email` is EMPTY
+(verified live) and `sites.email` holds the address — so before `cc2cff79b` the light re-render had no
+address, `sanitiseFormAction` would have (correctly) refused to fabricate, and the form would have
+stayed dead. The heal therefore went through the new `buildRerenderBaseData` column read. Both council
+guardian checks + render_guardian's artefact-level check (rendered action, not item status) built in.
+
+**B's remaining tail**: 9 sites still serve `#contact` forms; each heals the same way on its next
+discovery cycle. Nothing schedules discovery (improvement-sweep DISABLED since ~2026-05 — re-enabling
+is the owner-deferred "periodic" decision). Options: (a) fire `091_TRIGGER_improvement_loop_single_site.sh`
+per site now — proven, but each run is a FULL per-site improvement pass (design+content audits spend
+credits, spawns other work items, as vonc's run did); (b) re-enable improvement-sweep (fleet-wide
+cadence, the deferred decision); (c) leave for organic cycles. Owner call.
