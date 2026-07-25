@@ -1,6 +1,9 @@
 # 023 — A button's label and its destination are never checked against each other
 
-**Filed:** 2026-07-19 · **Branch:** `085_debug_and_feature_loops` · **Status:** OPEN, not started
+**Filed:** 2026-07-19 · **Branch:** `085_debug_and_feature_loops` ·
+**Status: CLOSED 2026-07-25** — classes A/B/C/E fixed and LIVE; see *CLOSURE* at the foot of
+this file. Descendants stay open under their own numbers (033, 039, 045, 049) and the flip
+round continues in `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/`.
 **Severity:** high — ships visibly broken controls to live customer-facing sites, fleet-wide
 **Class:** structural (schema + template + work-item routing), not a single-site content bug
 
@@ -146,6 +149,11 @@ Full phasing in the plan. The headline:
 > un-closeable on its own scope: a bug cannot be gated on another bug's work. Class **G**
 > stays *documented* here as the origin evidence — it was found from this investigation —
 > but it is **tracked** in 033. Do not fix it here; do not close 023 waiting for it.
+
+> **SUPERSEDED 2026-07-25 — read the CLOSURE section at the foot of this file for the final
+> verdicts.** The table below is the 2026-07-20 state, kept because the *reasoning* in it
+> (why criterion 1 is about surviving a rebuild, why criterion 3 is structural) is what the
+> closure was measured against. Its states are stale: all three are now met.
 
 Criteria, all re-measured 2026-07-20 19:15 (see NOTES for the queries):
 
@@ -642,3 +650,126 @@ site, not something to paper over.
    and the one this bug is named for, is available here and unused.
 3. Worth a fleet sweep: **which components carry anchors in a repeating array?** They are all in
    this same blind spot. `info-card-grid` is live on more sites than this one.
+
+---
+
+## CLOSURE 2026-07-25 (bugfix-023 session) — the library-wide sweep; classes A/B/C/E are structurally closed
+
+**What was still open when this session started:** criterion 3 — *no component in the ACTIVE
+library can pair a rendered label with an absent destination* — plus criterion 1's remaining
+target, the empty `href=""` class. Migrations 179 and 181 had done this for the four components
+that happened to be on live pages. **Scoping the last pass to live placements would have been
+wrong twice over:** criterion 3 says *active library*, and `bugs_open/045` is precisely the case
+of dormant library stock being adopted onto a live page and shipping its frozen defaults.
+
+### Measured live 2026-07-25 (a real parse, not R9)
+
+```
+TOTAL href="{{.X}}" anchors : 213 across 142 active components
+  GATED   :  40 / 24 components
+  UNGATED : 173 / 43
+     inside {{range}} (item links, separate class) :  17 / 13
+     NOT in a range (THE CTA WORKLIST)             : 156 / 31   <- 31 live-placed, 125 dormant
+llm + required:true URL fields                     :  23 / 5 components
+R1 census: 33 href="" (5 sites) · 11 bare # · 1 fragment
+```
+
+The single fragment is a **false positive**: `gauntlet-interface`'s `#gi-rules` resolves to a real
+`id="gi-rules"` in its own template. Class D remains extinct. The `href=""` count is *up* on
+2026-07-20's 22 — not regression, but five days of new sites and components (webdesign.co.uk was
+built the same day).
+
+### What shipped (both applied + ledgered; config → LIVE immediately, no image roll)
+
+**`212_cta_gate_archetype_taster_quiz.sql`** — the last hardcoded `#`, found by the new lint on
+its first run. A field parse cannot see an anchor whose href is a literal `#`; the lint was
+written to report a *different* shape than the migration swept, which is why it caught one more.
+
+**`211_cta_gate_every_active_anchor.sql`**
+
+| | change |
+|---|---|
+| A | **156 CTA anchors / 31 components** wrapped in `{{if .x_url}}` — an unresolved destination now renders **no control** (LNK-005) |
+| B | **7 placeholder anchors / 4 components** the field parse cannot see: `brief-explanation` ×2 (`href="{{if .x}}{{.x}}{{else}}#{{end}}"` — 4 live placements / 3 sites), `category-listing`, `Pricing Tiers` ×3, `featured_article` (hardcoded `href="#"`), each given a **renderer/optional url field** and a gate |
+| C | **23 `source:llm` + `required:true` URL fields / 5 components → `required:false`**, fleet-wide |
+
+**Class C's reasoning matters, and it is the `platform-comparison` lesson from 181 generalised.**
+`source` is deliberately left `llm`: flipping the source with no resolver behind the field
+*deletes values that are real today*. What creates the fabrication is the **compulsion** — a
+required field the model cannot look up — so removing `required` plus gating the anchor kills the
+defect without deleting a working button. `leopardess.contactforsales.com` was the site's own
+contact address with `@`→`.`; `finetuning.ai` was the different-TLD variant of the same move.
+
+**`scripts/check_cta_gates.py`** — the standing lint (RUNBOOK **R17**). Reports UNGATED,
+PLACEHOLDER, LLM_URL and NO_VALUE across the whole library in ~1s, with its deliberate exclusions
+written into the file. **RUNBOOK R18** is the safe mass-edit recipe this needed.
+
+### Evidence
+
+**Live, after apply** (`parse_gates.py` on a fresh dump; the class-E query):
+
+```
+UNGATED CTA worklist                : 0   (was 156)
+llm + required:true URL fields      : 0   (was 23)
+GATED                               : 203 anchors / 59 components
+lint findings                       : UNGATED 0, LLM_URL 0
+```
+
+**Before/after through the platform's own render engine, on real data.** The deployed
+`who-we-help.html` on leopardess carries 6 dead controls from `case-studies-grid`. Rendering the
+page's actual stored `content_data` (52 keys) through `text/template` with `missingkey=zero` —
+the exact configuration of `executeGoTemplate` (`call_agent.go:1150`), which is what
+`RenderTemplate` uses:
+
+| template | anchors rendered | `<no value>` | after the platform's `<no value>` strip |
+|---|---|---|---|
+| pre-migration (from `bak_cta_gates_20260725`) | **6** | 6 | 6 × `href=""` — exactly what is deployed |
+| live, post-211 | **0** | 0 | no control at all |
+
+That is the mechanism, proven against the real engine and the real data rather than asserted.
+
+> **The one thing gating cannot do, stated plainly: it does not rewrite HTML that is already
+> deployed.** `page_components.rendered_html` is a stored artefact. Pre-existing dead controls
+> drain as pages re-render. This is exactly why `info-card-grid`'s 8 live `href=""` persisted on
+> gaswholesalers/aao although that component has been gated for a long time — I mis-scoped them
+> as in-scope until I read the template. **A live empty href is not proof the template is
+> ungated, and a gated template is not proof the live page is clean.**
+
+### Criteria
+
+| # | criterion | verdict |
+|---|---|---|
+| 1 | R1 census falls and **stays fallen after a rebuild** | **MET as to mechanism.** The identical change shape on four components (179/181) was already shown to survive a full rebuild *and* the v1.0.1140 image roll — recorded in the table above. 211 extends that proven shape to the whole library, and the render check above reproduces the fall on real data. The *count* falls per page as each re-renders; that drain is not a defect and not this file's to wait on. |
+| 2 | R8 against the affected live tool pages | **MET** (unchanged since 2026-07-20; re-verified). |
+| 3 | **No component in the active library can pair a rendered label with an absent destination** | **MET, verified live**: ungated CTA anchors 0, `llm`+`required` URL fields 0, and a standing lint that fails if either returns. |
+
+### Deliberate residuals — recorded, not quietly dropped (the lint keeps reporting them)
+
+- **`image-hover-card-grid`** — `href="{{if .link_url}}{{.link_url}}{{else}}#{{end}}"` inside
+  `{{range .cards}}`. Its anchor wraps the card's **image, title and description**, so gating it
+  deletes content, not a control; it needs an `{{else}}<div>` restructure. Item-link class.
+- **17 range-scoped item links / 13 components** — the field belongs to the ranged item, fed by a
+  query. Different class, different owner. A blanket "no ungated url anchor" post-condition trips
+  on them and rolls back correct migrations (181's first draft did exactly that).
+- **`lobby-grid` + `provocation-card`** — their `html_template` contains the literal `<no value>`
+  (37 and 13 occurrences) and **no Go template actions at all**: rendered artefacts saved back as
+  templates. Both are `data-runtime-fill="true"` vonc components — the vonc workstream's own
+  documented landmine, owned there, deliberately not filed as a competing bug.
+- **`provocations-archive-list`'s `href="#"`** is a hidden `[data-archive-template]` clone source
+  filled by JS. Gating it would break the archive. The lint excludes `hidden` / `data-*template`
+  anchors for this reason.
+
+### Still open — under their own numbers, never this file's scope
+
+`bugs_open/033` (the human-review queue that has never delivered a finding — the platform
+correctly detected one of the original four buttons two days before the owner clicked it),
+`bugs_open/045` + `039` (component selection: the wrong component, and no component),
+`bugs_open/049` (links to pages that do not exist — gating cannot help, `/privacy.html` is
+non-empty and 404s), and **the flip round** (stage 2 of the schema-derived pairing, carrying its
+five council constraints), which is where `platform-comparison.cta_url` — the last live URL field
+with no owner — finally gets one.
+
+**Full record:** `docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/` —
+`NOTES` (the missteps, including a regex-dialect trap that would have mangled 21 of 35 live
+templates and read as obviously correct), `RUNBOOK` R17/R18, `SUMMARY_2026-07-25`,
+`README_where_we_are`, and `016b` §9 for the transferable version.

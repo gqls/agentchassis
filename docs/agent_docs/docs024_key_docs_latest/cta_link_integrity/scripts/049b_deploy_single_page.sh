@@ -24,8 +24,13 @@ REQ=$(cat /proc/sys/kernel/random/uuid)
 MSG=$(cat /proc/sys/kernel/random/uuid)
 TS=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+# The conditional reads input_data.spec.reason — NOT a top-level reason. A
+# top-level one is silently ignored and you get the assemble-only branch (cost
+# me a full queue round on 2026-07-25; verified against the live step config:
+#   default_config->'workflow'->'steps'->'check_rerender_mode'->'config'->>'condition'
+#   = "input_data.spec.reason == 'image_landed' OR ... 'section_data_resolved' ...")
 REASON_JSON=""
-[ -n "$REASON" ] && REASON_JSON=",\"reason\":\"$REASON\""
+[ -n "$REASON" ] && REASON_JSON=",\"spec\":{\"reason\":\"$REASON\"}"
 echo "corr=$CORR page=$PAGE_ID domain=$DOMAIN reason=${REASON:-<assemble-only>}"
 kubectl -n kafka run -i --rm "kcat-legal-$(date +%s)" \
   --image=edenhill/kcat:1.7.1 --restart=Never -- \

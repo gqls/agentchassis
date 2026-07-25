@@ -2885,8 +2885,23 @@ for a mechanism they had read about instead of the observation that separates th
 two. **The tally is the argument:** "no row yet" is being read as "dropped"
 often enough that the diagnostic belongs in the trigger scripts — print the
 consumer lag on fire, so the queued case announces itself and nobody has to
-suspect it. That is a small change to shared tooling, noted here rather than
-built, because the trigger scripts are the fixloop/council-gate thread's.
+suspect it.
+
+> **CORRECTED, within the hour, by checking instead of recommending.** That
+> paragraph originally ended *"noted here rather than built, because the trigger
+> scripts are the fixloop thread's"* — a tidy suggestion I had not verified. **It
+> already exists.** `scripts/dispatch-queue-depth.sh` (commit `a5a494459`, filed
+> **the same day** by the `bugs_open/030` thread) prints exactly this — consumer
+> position, `QUEUE DEPTH (LAG)`, and in its own words *"your message is QUEUED. It
+> is not lost. Do NOT re-fire."* — and `097` and `090` already call it on every
+> fire. I did not see it because I copied my probe envelope from **`091`**, which
+> is not wired to it (nor is `092`). So the honest finding is smaller and more
+> useful than the recommendation: **the fix is written, and the trap survives in
+> the un-wired triggers and in every hand-rolled kcat fire copied from them.**
+> Wiring `091`/`092` is one line each; anyone hand-rolling a probe should just run
+> the script. Recommending a build for something already built is the same error
+> as this entry's headline — asserting the state of the world from inside one
+> thread's view.
 
 **The second-order sting.** My wrong inference was already written into
 `RUNBOOK_durable_write_guard.md` — with a fabricated-looking cost figure — before
