@@ -706,3 +706,26 @@ FROM _fault_injection_20260725 f WHERE dc.id = f.id;
 > its subject altered underneath it. Cost of the run: one REFUTED verdict
 > against a wrong mechanism BEFORE it reached a bug file or a handoff, which
 > is the loop doing precisely what it is for.
+
+**2026-07-25 — nav-tier retro-review APPROVED (corr `b7a4903b`, round 1, two
+low + one medium advisory); the checkable objections run, and one refines my
+own claim.**
+- *"Only aao has a directory page"* — confirmed by query: exactly one row
+  fleet-wide, so the tier change alters ranking on no other site today (it
+  keys on page names/types that exist nowhere else).
+- *"aao header candidates = exactly 8"* — my figure was the POST-classification
+  candidate count (after child-URL and never-primary drops), which the
+  submission did not say. The raw `in_header AND active` counts are much
+  higher fleet-wide (gaswholesalers 16, finetuning.uk 16, aao 12), i.e.
+  tier-based truncation is ALREADY active on several sites — which
+  strengthens the case for ranking deliberately, and is exactly why the seat
+  was right to demand the SQL instead of the snapshot sentence.
+- *"No error and no log at truncation"* — half right, and the half that was
+  wrong softens my own severity claim: `populate_nav_tables_action.go:132`
+  shows overflow primary items are APPENDED TO THE UTILITY (footer) GROUP,
+  not dropped from all nav ("Without this, items beyond the limit simply
+  vanish" — the code comments the very hazard). So a demoted directory link
+  would silently fall from header to footer, not vanish. The promotion still
+  silently reverts — the substance stands — but "the link just stops being
+  there" overstated it. No log/WARN exists on the demotion, so the
+  no-logging half was correct.
