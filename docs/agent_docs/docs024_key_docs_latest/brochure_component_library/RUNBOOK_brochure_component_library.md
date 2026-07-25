@@ -69,19 +69,43 @@ in the middle, shift high (+100), insert, bring down (−99). An in-place
 ## Republishing a page after a DIRECT data edit (no content regeneration)
 
 **Do not use `049b_deploy_single_page.sh`.** Its bare `action=orchestrate`
-envelope hits the kubectl-run stdin race and can fail **silently** — no
-orchestration row, no work item, no log. Four calls on 2026-07-25 produced zero
-rows, and a completed link fix sat unpublished.
+**DISPATCH LATENCY IS MINUTES, AND EVERY ROUTE LOOKS DEAD UNTIL IT ISN'T.** This
+is the single most misleading thing in this runbook, so it comes first.
 
-**`scripts/republish_page_086.sh` (the `086` direct-orchestrator envelope,
-`action=process` + inline workflow) DOES work** — verified 2026-07-25 on the
-homepage: orchestration row COMPLETED, live page clean. Budget ~2 minutes for the
-row to appear and don't conclude it failed before then; my first check at +45s
-found nothing and I nearly declared it dead.
+> **CORRECTED 2026-07-25 (same day I wrote the opposite).** I first recorded here
+> that `049b_deploy_single_page.sh` "silently failed to ingest — four calls
+> produced zero rows". **That was wrong.** All four landed:
+> correlations `693bb6a7`, `ffd0856f`, `90767a97`, `7f2d33ad` all have
+> orchestration rows with the right `page_id`, created **17:12–17:13** for
+> dispatches fired around 17:05. I queried at ~17:07 and again at ~17:10, saw
+> nothing, and concluded silent failure. It was **~7 minutes of latency.**
+> The 086 route behaved the same way: dispatched ~17:11, row appeared **17:20:52**
+> (~9 minutes). Neither script is unreliable. My patience was.
 
-**The route that needs no Kafka envelope at all is the work-item queue** — prefer
-it when the queue is draining (check: has anything been claimed in the last ~10
-minutes?), because it leaves a durable, inspectable row:
+So: **budget ~10 minutes before concluding a dispatch failed**, and when you do
+check, get the window right — I then wasted four more polls on a monitor filtering
+`created_at > '18:00'` while the clock read 17:54, which cannot match anything and
+reports exactly like a dead dispatch. Find the row by **payload**, and by a window
+that starts *before* you dispatched:
+
+```sql
+SELECT status, current_step, created_at,
+       initial_request_data->'config'->'workflow'->>'start_step' AS start_step
+FROM orchestration_states
+WHERE initial_request_data->'input_data'->>'page_id' = '<page_id>'
+  AND created_at > '<a few minutes BEFORE you dispatched>'
+ORDER BY created_at DESC LIMIT 3;
+```
+`start_step = 'spawn_rerender'` identifies an 086-script dispatch; a NULL
+`start_step` with your correlation id is a 049b one. That is how to tell which of
+your own attempts actually did the work — without it I credited the 086 script
+for a republish the queued work item may well have done.
+
+**All three routes work.** Prefer the **work-item queue** — it needs no Kafka
+envelope and leaves a durable, inspectable row — unless the queue is backed up
+(measured 98 `triaged` build items fleet-wide at 17:50 on 2026-07-25, which parks
+an operator republish behind everyone else's work; that is when a direct dispatch
+earns its keep):
 
 ```sql
 INSERT INTO site_work_items (
@@ -115,19 +139,30 @@ ORDER BY created_at DESC LIMIT 1;
 The site is **`.html`-based**: `/capabilities` 404s, `/capabilities.html` is 200.
 Extension-less internal hrefs are broken, always.
 
+**Use this form. Do NOT use `href="(/[^"#?]*)"`** — excluding `#` from the
+character class silently drops every anchored href, which is how 21 broken links
+passed a census, a fix and a post-check that all shared the pattern. Capture the
+whole href, *then* strip the fragment:
+
 ```sql
 WITH hrefs AS (
-  SELECT p.name AS page, unnest(regexp_matches(pc.rendered_html, 'href="(/[^"#?]*)"', 'g')) AS href
+  SELECT p.name AS page, unnest(regexp_matches(pc.rendered_html, 'href="(/[^"]*)"', 'g')) AS href
   FROM pages p JOIN sites s ON s.id=p.site_id JOIN page_components pc ON pc.page_id=p.id
   WHERE s.domain='fundamentallyai.com'
+), split AS (
+  SELECT page, href, split_part(split_part(href,'#',1),'?',1) AS path FROM hrefs
 )
-SELECT href, string_agg(DISTINCT page, ', ') AS on_pages, count(*) AS n
-FROM hrefs
-WHERE NOT EXISTS (SELECT 1 FROM pages p2 JOIN sites s2 ON s2.id=p2.site_id
-                  WHERE s2.domain='fundamentallyai.com' AND p2.url = hrefs.href)
-GROUP BY href ORDER BY href;
+SELECT path, count(*) AS n, string_agg(DISTINCT page, ', ') AS on_pages
+FROM split
+WHERE path <> '' AND path !~ '\.(css|js|png|jpg|jpeg|svg|ico|webp)$'
+  AND NOT EXISTS (SELECT 1 FROM pages p2 JOIN sites s2 ON s2.id=p2.site_id
+                  WHERE s2.domain='fundamentallyai.com' AND p2.url = split.path)
+GROUP BY path ORDER BY n DESC;
 ```
-Zero rows = every internal link resolves. **Gotcha in my first version:** I
+Zero rows = every internal link resolves **in the database**. That is not the same
+as on the live site: the served artefact can lag a data fix by however long the
+republish takes, so confirm with a crawl of the served pages (below) before
+reporting anything fixed. **Gotcha in my first version:** I
 filtered the target lookup on `build_status='deployed'`, which mislabelled
 `/contact` as an invented page when `/contact.html` was serving 200 — the page
 row was `needs_rebuild` while the artefact was live. Don't filter on build_status
@@ -175,3 +210,24 @@ repair (14 replacements, post-check included).
   writes nothing (the heredoc is consumed, the `&&` short-circuits). Use absolute
   paths for appends.
 - Backticks inside `git commit -m` execute in bash — use `-F -` with a heredoc.
+
+## Live crawl — the only independent witness
+
+The database says what *should* be served; this says what *is*. Retry before
+condemning: rapid cache-busted requests throttle the origin, and a throttled
+request returns `000` or a spurious `404` that reads exactly like a broken link.
+
+```bash
+for pg in /index.html /capabilities.html /about.html /contact.html \
+          /model-fine-tuning.html /multi-agent-review-council.html \
+          /blog/self-correction-leopardessconsulting.html; do
+  B=$(curl -s --max-time 25 "https://fundamentallyai.com${pg}?cb=$RANDOM")
+  # any internal href WITHOUT .html is broken on this site, anchored or not
+  n=$(echo "$B" | grep -oE 'href="/[a-z-]+(#[a-z-]+)?"' | grep -vE '\.html' | sort -u | tr '\n' ' ')
+  echo "${pg}: ${n:-clean}"
+done
+```
+
+For a full link check, follow every href three times before calling it broken,
+and put `sleep 1` between requests. A tight loop over ~60 links without that
+produced 21 false failures on 2026-07-25.
