@@ -8,6 +8,7 @@ package actions
 
 import (
 	"encoding/json"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -255,6 +256,58 @@ func TestRenderReportSection(t *testing.T) {
 	prose["integration_html"] = ""
 	if _, err := renderReportSection(scoring, prose); err == nil {
 		t.Error("empty prose section rendered without error")
+	}
+}
+
+// TestReportCSSCoversEveryEmittedClass is the drift guard for the styling.
+//
+// rerender_single_page concatenates stored rendered_html and collects no
+// component stylesheets, so a class this renderer emits is styled ONLY if
+// reportDossierCSS carries a rule for it — and an unstyled class fails
+// SILENTLY, as readable-but-wrong output on the page that is the deliverable
+// (bugs_open/027's shape). The first version of this CSS styled ".report-card"
+// while the renderer emitted ".match-card"; nothing failed, it just would have
+// shipped unstyled. Eyeballing does not catch that twice, so assert it.
+func TestReportCSSCoversEveryEmittedClass(t *testing.T) {
+	scoring := realScoring(t, 2.5, 54)
+	prose := proseWith("The requirement is 200.0 N.", "The Robotiq 2F-85 publishes 20 to 235 N.")
+	html, err := renderReportSection(scoring, prose)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Classes owned by the surrounding site chrome, not by this renderer.
+	siteOwned := map[string]bool{
+		"section": true, "container": true, "section__title": true, "report-dossier": true,
+	}
+
+	classAttr := regexp.MustCompile(`class="([^"]*)"`)
+	seen := map[string]bool{}
+	for _, m := range classAttr.FindAllStringSubmatch(html, -1) {
+		for _, cls := range strings.Fields(m[1]) {
+			if siteOwned[cls] || seen[cls] {
+				continue
+			}
+			seen[cls] = true
+			if !strings.Contains(reportDossierCSS, "."+cls) {
+				t.Errorf("class %q is emitted but has no rule in reportDossierCSS — it will render unstyled", cls)
+			}
+		}
+	}
+	if len(seen) < 10 {
+		t.Errorf("only %d classes inspected — the fixture is not exercising the renderer", len(seen))
+	}
+}
+
+// Every verdict the scorer can produce becomes a CSS class via slugification,
+// so a new verdict string silently loses its styling unless the CSS gains a
+// rule. Pin the mapping.
+func TestEveryVerdictSlugHasAStyle(t *testing.T) {
+	for _, verdict := range []string{"Match", "Marginal", "Insufficient data", "No match"} {
+		slug := "verdict-" + strings.ToLower(strings.ReplaceAll(verdict, " ", "-"))
+		if !strings.Contains(reportDossierCSS, "."+slug) {
+			t.Errorf("verdict %q slugs to %q, which has no CSS rule", verdict, slug)
+		}
 	}
 }
 

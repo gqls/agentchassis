@@ -256,11 +256,65 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 // bug_historian: the platform's most recent unpatched root cause).
 // ============================================================================
 
+// reportDossierCSS is inlined into the rendered section, and has to be.
+//
+// rerender_single_page CONCATENATES the stored page_components.rendered_html —
+// it does not render templates and it does not collect component stylesheets,
+// so a class this renderer emits is styled only if the SITE stylesheet already
+// defines it. It does not: checked against robot-hands.com's site_specs on
+// 2026-07-25, zero occurrences of any report-* class. Without this block the
+// dossier ships to a paying visitor as unstyled text — the same failure as
+// bugs_open/027 (content hero unstyled where no style guide defined its
+// classes), on a page that IS the deliverable.
+//
+// Scoped under .report-dossier so it cannot leak into site chrome, and every
+// colour rides a site CSS variable with a plain fallback, so the report picks
+// up each site's palette without this file knowing any site's colours.
+const reportDossierCSS = `<style>
+.report-dossier .report-disclaimer{border-left:4px solid var(--color-accent,#b45309);background:var(--color-surface-alt,#fff8ed);padding:1rem 1.25rem;margin:0 0 2rem;font-size:.95rem;line-height:1.6}
+.report-dossier h2{margin:2.25rem 0 .75rem;font-size:1.25rem}
+.report-dossier .report-request-echo{margin:0 0 2rem}
+.report-dossier .report-formulas{margin:0 0 1.5rem}
+.report-dossier .criteria-table{width:100%;border-collapse:collapse;margin:0 0 1rem}
+.report-dossier .criteria-table th,.report-dossier .criteria-table td{text-align:left;padding:.5rem .75rem;border-bottom:1px solid var(--color-border,#e2e8f0);vertical-align:top}
+.report-dossier .criteria-table th{width:40%;font-weight:600;color:var(--color-text-muted,#475569)}
+.report-dossier .formula-list{list-style:none;padding:0;margin:0}
+.report-dossier .formula-list li{margin:0 0 .5rem}
+.report-dossier .formula-list code{display:block;padding:.6rem .8rem;background:var(--color-surface-alt,#f1f5f9);border-radius:4px;font-size:.9rem;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.report-dossier .report-summary-line{font-size:1.05rem;padding:.9rem 1.1rem;background:var(--color-surface-alt,#f1f5f9);border-radius:4px;margin:1.5rem 0}
+.report-dossier .report-chart{margin:1.5rem 0;overflow-x:auto}
+.report-dossier .report-chart-omissions{font-size:.9rem;color:var(--color-text-muted,#475569);margin:0 0 1.5rem}
+.report-dossier .report-prose{margin:0 0 1.5rem;line-height:1.65}
+.report-dossier .report-cards{margin:2rem 0}
+.report-dossier .match-card{border:1px solid var(--color-border,#e2e8f0);border-left-width:4px;border-radius:6px;padding:1rem 1.25rem;margin:0 0 1rem}
+.report-dossier .match-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem;margin:0 0 .25rem}
+.report-dossier .match-name{font-weight:600;font-size:1.05rem}
+.report-dossier .match-maker{font-size:.85rem;color:var(--color-text-muted,#475569);margin:0 0 .75rem}
+.report-dossier .verdict-badge{display:inline-block;padding:.15rem .6rem;border-radius:999px;font-size:.75rem;font-weight:600;letter-spacing:.02em}
+.report-dossier .verdict-match{border-left-color:#16a34a}
+.report-dossier .verdict-match .verdict-badge{background:#dcfce7;color:#166534}
+.report-dossier .verdict-marginal{border-left-color:#ca8a04}
+.report-dossier .verdict-marginal .verdict-badge{background:#fef9c3;color:#854d0e}
+.report-dossier .verdict-no-match{border-left-color:#dc2626}
+.report-dossier .verdict-no-match .verdict-badge{background:#fee2e2;color:#991b1b}
+.report-dossier .verdict-insufficient-data{border-left-color:#94a3b8}
+.report-dossier .verdict-insufficient-data .verdict-badge{background:#e2e8f0;color:#334155}
+.report-dossier .crit-flag{font-size:.7rem;font-weight:700;padding:.1rem .4rem;border-radius:3px}
+.report-dossier .crit-pass{background:#dcfce7;color:#166534}
+.report-dossier .crit-fail{background:#fee2e2;color:#991b1b}
+.report-dossier .crit-none{color:var(--color-text-muted,#64748b);font-style:italic}
+.report-dossier .conflict-note,.report-dossier .tech-note{font-size:.85rem;color:var(--color-text-muted,#475569);margin:.75rem 0 0;padding-left:.75rem;border-left:2px solid var(--color-border,#e2e8f0)}
+.report-dossier .report-provenance{margin:2.5rem 0 0;padding-top:1.25rem;border-top:1px solid var(--color-border,#e2e8f0);font-size:.85rem;color:var(--color-text-muted,#475569)}
+.report-dossier .report-provenance a{color:inherit}
+@media (max-width:640px){.report-dossier .criteria-table th{width:auto}}
+</style>`
+
 func renderReportSection(scoring, prose map[string]interface{}) (string, error) {
 	esc := html.EscapeString
 	var b strings.Builder
 
 	b.WriteString(`<section class="section report-dossier" data-component="report-dossier"><div class="container">`)
+	b.WriteString(reportDossierCSS)
 	b.WriteString(`<h1 class="section__title">Gripper Selection &amp; Integration Dossier</h1>`)
 
 	// Proximate disclaimer. Conspicuous and next to the deliverable, not
