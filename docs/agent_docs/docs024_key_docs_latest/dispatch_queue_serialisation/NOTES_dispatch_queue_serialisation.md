@@ -475,3 +475,127 @@ drains, measured across a busy 27-minute window with two complete drain cycles. 
 is a real, measured improvement — **not** "030 closed" (the head-of-line stall
 persists, and two drain cycles is indicative, not a week of data), but enough to say
 the lever worked and the direction is right.
+
+---
+
+## 2026-07-25 — both remaining fixes BUILT: publish acknowledgement (live) + a scheduler lane (inert until the roll)
+
+Session "bugfix 030". Picking up the two items the 2026-07-21 summary left: the
+cheap diagnosability win, and the structural lane split. Ownership checked first
+(`scripts/who-owns.py 030` → this workstream, ACTIVE; last workstream commit
+07-21; the 07-24 entry in the case file is another thread contributing evidence
+and explicitly starting no competing fix).
+
+### The mechanism re-confirmed live on the CURRENT image, before touching anything
+
+Not taken from the file — re-measured, because every figure in here has a
+staleness half-life of days.
+
+```
+17:04 UTC, chassis pod agent-chassis-774877f4c6-zjh4t (v1.0.1159, started 15:25)
+  orchestration 407cb6b5 · council seat review_compliance → review_guardian
+  EXECUTING_STEP for 9m02s, updated_at moving (ai_actions.go LLM steps logging)
+  LAG on system.agent.generic.requests over the same minutes: 8 → 25
+```
+
+One orchestration, mid multi-step LLM chain, inline on the consume goroutine,
+with everything else stacking up behind it. That is the entry's mechanism
+verbatim, on today's image, with F2/F3 (bugs_open/003) already in.
+
+Also re-checked: the 07-21 config change is **still live and intact**
+(`ai-endpoint-health-check` 60, `build-pipeline-trigger` 120 — nobody has
+re-seeded over it) and LAG at session start was **8**, i.e. still bounded, not
+diverging. So the config lever held for four days.
+
+**[NEW, and it changes the arithmetic]** The generic lane now has **21 enabled
+scheduled tasks**, up from 12 on 07-21 — including `diagnose-pipeline-trigger`
+at 60 s and `claimed-item-timeout` at 120 s, which did not exist (or were not
+enabled) when I measured. Summing effective periods (`interval + 30` tick, the
+rule this workstream corrected on 07-21) puts nominal cron production back at
+**≈2.5/min**, right back where it was before the 07-21 fix. **The config lever
+does not hold by itself — the lane silently re-fills as tasks are added, because
+nothing owns the total.** That is the argument for the structural split rather
+than another round of interval tuning: tuning decays, a separate lane does not.
+
+### Fix 1 — acknowledge the dispatch on publish (LIVE, commit a5a494459)
+
+`scripts/dispatch-queue-depth.sh`, called by 090 and 097 after they publish.
+Prints: LAG (>0 = queued, not lost, do NOT re-fire), an explicit fault call-out
+when the group has **no member** (that case really is a fault, not a wait),
+consumer liveness from the last `orchestration_states.updated_at` transition
+rather than the offset, and the in-flight orchestrations so the operator can see
+whether something expensive is at the head. ~8 s to run.
+
+**It prints no ETA, deliberately**, and says so in its own output. This
+workstream produced three defensible-and-useless drain rates in one afternoon;
+the script is the place where that lesson had to become mechanical rather than
+remembered.
+
+Proof it works in situ — the tail of my own council submission a few minutes
+later, which is exactly the moment an operator would otherwise start wondering
+whether the dispatch had vanished:
+
+```
+  QUEUE DEPTH (LAG) : 18
+  Your message was published to the back of this lane, so roughly
+  17 message(s) are ahead of it. It is QUEUED, NOT LOST
+  Consumer liveness: last orchestration step advanced 9s ago.
+  In flight now: ... generic-orchestrate-0725-1714 | review_prior_art | 171s
+```
+
+### Fix 2 — a dedicated lane for cron (BUILT, INERT until the roll, commit f9bc7f45f)
+
+`EXTRA_REQUEST_TOPICS` (comma-separated) makes a statically deployed agent
+consume additional request topics, each with **its own goroutine, consumer group
+and offsets**. The chassis deployment sets it to
+`system.agent.scheduled.requests`. Within a lane, fetch→process→commit stays
+strictly serial and in order, so per-orchestration ordering and F3's
+commit-after-process semantics are untouched; across lanes, a 9-minute council
+chain no longer parks cron and vice versa.
+
+Design decisions worth having on the record:
+
+- **The fetch loop is EXTRACTED and SHARED (`consumeRequestLane`), not copied.**
+  Those delivery semantics were paid for by bugs_open/003 F3; two copies would
+  drift, and the drift would be silent.
+- **Partitioning the shared topic is still refused**, for the reason this
+  workstream established: one-way, and with `replicas: 1` one consumer takes
+  every partition and still blocks. Nothing about that changed today.
+- **Concurrency inside the handler is deliberately NOT touched.** Decoupling
+  consumption from execution is `chassis_replica_scaling`'s P1 — designed, not
+  built, and explicitly written up there as *the* fix for 030's latency. Lane
+  separation composes with it and does not compete with it; building P1 here
+  would have been starting a competing implementation of another workstream's
+  designed phase.
+- **Two guards, because the failure mode is duplicate execution of every
+  scheduled dispatch**: a lane equal to the main topic is refused, and the var is
+  ignored unless the agent's own requests topic is `system.agent.*` (i.e. static,
+  not a `job.*` spawn). The second guard exists because spawned pods inherit
+  `envFrom: personae-prod-config` **wholesale** (`spawn_actions.go`), so the var
+  reaching that ConfigMap would put every live spawned pod on the lane under its
+  own group. **NEVER put EXTRA_REQUEST_TOPICS in personae-prod-config.**
+- **A lane that cannot be created is skipped and logged loudly, not fatal.** A
+  crash-looping chassis is worse than a missing lane.
+
+### The rollout order is the risk, not the code
+
+`scheduled_tasks.target_topic` is a DB column — live immediately. So the only way
+to get this wrong is to switch the producers **before** the consumer exists, which
+would publish every cron dispatch into a topic nobody reads: silent, and all
+scheduled work stops. Order is therefore image → verify the lane is really being
+consumed → **then** the UPDATE. RUNBOOK R9 has the exact sequence and the
+rollback.
+
+### Where it stopped this session
+
+Image `v1.0.1164` built from committed HEAD and verified to contain the change
+before pushing (`strings /app/agent-chassis | grep -c "Extra request lane ready"`
+→ 1, with `Starting request processor` → 2 as a positive control). **`docker push`
+is blocked for this session by the tool-permission classifier**, so the roll, the
+`target_topic` switch and the post-fix measurement are handed to the owner as one
+short sequence (RUNBOOK R9). Fix 2 is committed and inert until then — which is
+exactly the state `/bugs_closed/README.md` says must stay OPEN.
+
+Council gate: submitted, `SUBMISSION_CORR=f47c2305-a873-459a-83e6-13eb9cb0cf1f`.
+At submission time the lane was 18 deep, so the verdict is ~30 min out — the bug
+under review delaying the review of its own fix, one more time.

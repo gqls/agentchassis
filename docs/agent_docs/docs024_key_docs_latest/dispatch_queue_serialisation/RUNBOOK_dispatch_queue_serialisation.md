@@ -214,3 +214,110 @@ WHERE name IN ('ai-endpoint-health-check','build-pipeline-trigger');
 ```
 Sample `last_triggered_at` a few times — `build-pipeline-trigger` should now advance
 by ~120 s, not ~60 s.
+
+---
+
+## R9 — Rolling out the scheduler lane (added 2026-07-25) — ORDER IS LOAD-BEARING
+
+The Go side (`EXTRA_REQUEST_TOPICS`, commit `f9bc7f45f`) is inert until an image
+carrying it runs. `scheduled_tasks.target_topic` is a DB column and takes effect
+**immediately**, so switching the producers first would publish every cron
+dispatch into a topic nobody consumes — silent, and all scheduled work stops.
+Image first, verify, then the UPDATE.
+
+**1. Build and push** (`v1.0.1164` is already built locally and verified to
+contain the change; the push was blocked for the session that built it):
+
+```bash
+docker push aqls/agent-chassis:v1.0.1164
+```
+
+**2. Roll the chassis ONLY** — `make deploy-agents` is fleet-wide, do not use it:
+
+```bash
+sed -i 's/newTag:.*/newTag: v1.0.1164/' \
+  deployments/kustomize/services/agent-chassis/overlays/production/uk_001/kustomization.yaml
+kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001
+kubectl -n ai-persona-system rollout status deployment/agent-chassis --timeout=180s
+```
+
+**3. Verify the lane is REALLY being consumed.** Three checks, and all three
+matter — the pod-grep only proves the binary shipped, not that the lane came up:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+
+# a) the change is in the running binary (a string this change CREATED, plus a
+#    positive control so a zero means absence rather than a broken grep)
+kubectl -n ai-persona-system exec $POD -- sh -c \
+  'strings /app/agent-chassis | grep -c "Extra request lane ready"; strings /app/agent-chassis | grep -c "Starting request processor"'
+# expect 1 then 2
+
+# b) the lane consumer actually started in THIS pod
+kubectl -n ai-persona-system logs $POD | grep -E "Extra request lane ready|Starting request processor for extra lane"
+
+# c) Kafka agrees the group exists (it appears once the reader joins)
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --list \
+  | grep generic-requests-group-lane-system-agent-scheduled-requests
+```
+
+If (b) or (c) is empty, **stop** — do not switch any producer. The lane topic
+creation is idempotent but skips-and-logs on failure by design, so an absent lane
+is a logged Error in the pod, not a crash.
+
+**4. Only then, move the cron producers** (live, no roll, reversible):
+
+```sql
+UPDATE scheduled_tasks SET target_topic='system.agent.scheduled.requests', updated_at=now()
+ WHERE enabled AND target_topic='system.agent.generic.requests';
+-- 18 rows as of 2026-07-25; SELECT first, another session may have added tasks
+```
+
+**5. Confirm the split is real** (both lanes, ~10 minutes apart is enough):
+
+```bash
+scripts/dispatch-queue-depth.sh                                        # interactive lane
+scripts/dispatch-queue-depth.sh --topic system.agent.scheduled.requests \
+  --group generic-requests-group-lane-system-agent-scheduled-requests  # cron lane
+```
+Expect: the cron lane carries the traffic and may show depth; the **interactive**
+lane stays near zero, and a dispatch fired while a long cron orchestration runs
+starts promptly instead of behind it. That last one is the test that matters —
+`bugs_open/030` "How to verify a fix", negative test.
+
+**Rollback** (either half, independently):
+
+```sql
+UPDATE scheduled_tasks SET target_topic='system.agent.generic.requests', updated_at=now()
+ WHERE target_topic='system.agent.scheduled.requests';
+```
+and/or remove `EXTRA_REQUEST_TOPICS` from the chassis Deployment and re-apply. The
+lane topic can be left in place empty; it costs nothing.
+
+**Landmine:** `EXTRA_REQUEST_TOPICS` must stay a **direct env var on the chassis
+Deployment**. Spawned agent pods inherit `envFrom: personae-prod-config`
+wholesale, so putting it there would have every live spawned pod join the lane
+under its own consumer group and re-run every scheduled dispatch. `agent.go`
+refuses the var on non-static agents as a backstop; do not lean on the backstop.
+
+---
+
+## R10 — The publish acknowledgement (added 2026-07-25)
+
+```bash
+scripts/dispatch-queue-depth.sh [--topic T] [--group G] [--brief]
+```
+
+Runs in ~8 s, exits 0 always, timeout-wraps every probe: it is called from the
+publish path of `090_TRIGGER_needs_diagnosis_v1.sh` and
+`097_TRIGGER_council_review_v1.sh`, so it must never be able to fail a
+submission. Any other trigger can call it the same way.
+
+It answers **"queued or lost?"** and refuses to answer "how long?" — see R7 and
+the retraction in `bugs_open/030`: this lane has no stable drain rate to quote,
+and printing one would re-import the exact error three threads have already made.
+
+The one case it flags as a genuine fault rather than a wait: **no member in the
+consumer group**. Then nothing is draining the lane at all, and queued work will
+sit there until a consumer joins.

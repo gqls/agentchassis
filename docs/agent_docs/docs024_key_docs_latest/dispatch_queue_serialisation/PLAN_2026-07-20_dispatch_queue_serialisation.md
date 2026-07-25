@@ -85,3 +85,47 @@ council gate.
   partitions lose ordering the state machine may rely on. And it cannot be undone.
 - The ~300 s post-restart drop documented in `CLAUDE.md` is a **separate, real**
   failure; fixing this does not retire it.
+
+---
+
+## Decisions taken 2026-07-25 (and the one deliberately NOT taken)
+
+Phasing above said: candidate 1 first regardless of how step 2 lands, throughput
+as a separate decision. Both halves now resolved.
+
+**Candidate 1 — built and live** (`scripts/dispatch-queue-depth.sh`, wired into
+090/097). One correction to the plan's own wording: it said "print the current
+`LAG` and the head-of-queue age". The head-of-queue age was dropped on purpose —
+reading it costs a kcat pod spawn (~10 s) and it is a proxy for the ETA this
+workstream has retracted twice. What replaced it is strictly better and cheaper:
+the in-flight orchestration list, which shows *what* you are behind rather than
+implying *how long*.
+
+**Candidate 3 — built, inert until the roll** (`EXTRA_REQUEST_TOPICS`). Promoted
+over candidate 2 for the reasons already established (partitioning is one-way and
+buys nothing at `replicas: 1`), and chosen over another round of interval tuning
+because of a new finding: the lane's enabled scheduled tasks went **12 → 21**
+between 07-21 and 07-25, putting nominal cron production back at ≈2.5/min. **A
+tuning fix decays because nothing owns the total; a lane split does not.**
+
+**Step 2 (the filed diagnosis, corr `78470372`) is now moot as a gate.** It never
+started — it is still queued in the lane it was filed about — but the claim it was
+filed to test (inline handler, not partition count) is confirmed twice over from
+the source and from the live pod, and neither change made today depends on the
+verdict. Left filed rather than cancelled: if it ever runs, a REFUTED verdict is
+still worth reading.
+
+**NOT taken: concurrency inside the handler.** `chassis_replica_scaling`'s **P1**
+("decouple consumption from execution") is written up in that workstream as *the*
+fix for this bug's latency, is designed and unbuilt, and its plan explicitly gates
+P1/P2 code on reading two diagnosis verdicts. Building it here would be a
+competing implementation of another workstream's designed phase — the exact
+failure `scripts/who-owns.py` exists to prevent. Lane separation composes with P1
+(more thin lanes, same worker pool) and stands alone without it.
+
+**Consequence for closing 030:** the filed defect — dispatches indistinguishable
+from drops, and a diverging backlog producing 25–36 min waits — is addressed by
+the 07-21 config fix plus these two changes. The **architectural residual** (one
+orchestration at a time per lane) is P1's, and belongs to that workstream's ticket
+rather than to this one. 030 closes on the roll, naming the residual and its
+owner.

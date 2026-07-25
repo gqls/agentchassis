@@ -293,3 +293,63 @@ pulled, verified, and measurably working — the runaway backlog is gone. The tw
 pieces (a separate lane for the scheduler, and making the trigger scripts tell you
 you're queued) are written up and waiting for your steer. Nothing was rebuilt or
 deployed; it's all reversible with one line.
+
+## 2026-07-25 — both remaining pieces built. One needs you to press the button.
+
+Four days on, I came back to finish this. Two things were left: making the trigger
+scripts tell you you're queued, and giving the scheduler its own lane. Both are now
+written. One is already live; the other needs a step I'm not allowed to take.
+
+First, the good news about the last change: **the config fix has held.** The two
+settings I slowed on the 21st are still exactly as I left them, nobody has undone
+them, and the queue at the start of today was eight deep and behaving — bounded, not
+running away. Four days is a much better answer than the half hour I had at the time.
+
+But I found something while checking, and it's the reason I didn't just tune the
+settings again. **The lane has quietly re-filled with new chores.** There were twelve
+scheduled jobs pointed at it when I measured; there are now twenty-one. Nobody did
+anything wrong — people add jobs, and each one looks harmless on its own — but the
+total is back to roughly where it was before my fix, because *nothing in the system
+owns the total*. Tuning intervals decays. That's an argument for changing the shape
+rather than the numbers, so that's what I've done.
+
+**Piece one, live now: the scripts tell you you're queued.** When you fire a review or
+a diagnosis, it now prints how many messages are ahead of you, whether anything is
+actually reading the queue at all, when the system last moved, and what big job you're
+sitting behind. This is the thing that has twice cost real money and time — someone
+sees nothing happening, concludes it was dropped, and fires it again, paying twice.
+It won't guess how long you'll wait, and that's deliberate: this queue genuinely has
+no reliable speed, and three of us have now been confidently wrong about it. It says
+so out loud rather than making something up. I watched it work on my own submission
+an hour ago: "18 in the queue, 17 ahead of you, the system moved 9 seconds ago,
+you're behind a council review that started 171 seconds ago." That is the whole
+problem solved for the price of a shell script.
+
+**Piece two, built but not yet switched on: the scheduler gets its own lane.** The
+housekeeping chores and your interactive work currently share one single-file queue,
+and the chores are the overwhelming majority of it — so your review waits behind
+them. The change lets the system read from two queues at once instead of one, and puts
+the chores in their own. Nothing else about how work runs changes: each queue is still
+strictly one-at-a-time and in order, which is what keeps the machinery correct. What
+changes is that a nine-minute review no longer parks the chores, and a queue full of
+chores no longer parks you.
+
+I re-measured the problem on today's live system before writing any of it, and caught
+it in the act: a council review held the single queue for nine minutes while the
+backlog behind it went from 8 to 25. Same mechanism as originally described, still
+there, on today's build.
+
+**What I need from you.** The code is committed and the image is built and checked,
+but I'm not permitted to publish the image to the registry from this session, so the
+last three steps are yours. They're short and in the runbook (R9): push the image,
+roll the chassis, and then — only after checking the new lane is really being read —
+run one line of SQL to move the chores across. The order matters: if the chores get
+moved first they'd be posting into a queue nobody is reading, and all scheduled work
+would silently stop. Everything is reversible with a single line either way.
+
+**What I'm deliberately not doing.** There's a bigger fix underneath all this —
+letting the system start the next job without waiting for the slow one to finish.
+That's a real change to the heart of the platform, it's already designed in a
+different piece of work (the one about running more than one copy of the chassis), and
+two of us building it separately would be the worst outcome. So I've left it there and
+built the thing that doesn't collide with it.
