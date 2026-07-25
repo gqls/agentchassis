@@ -1,0 +1,42 @@
+{
+  "submitter": "bug010-thread",
+  "rationale": "bugs_open/010 candidate (b) shipped a convergence guard that escalates a non-converging Tier-4 fix loop to needs_human_review. While trying to CLOSE that case I re-ran the guard's own counting query against prod and the case's live-evidence base did not survive: the file claimed 'four terminal improve_tool cycles, confirmed live', but four is the count of acceptance-fail doc_notes, while the guard counts site_work_items rows under item_key='acceptance_fail:<fn>:<site>' with status IN ('complete','failed'). Exactly ONE such row has ever existed for the benchmark tool, so at max_fix_cycles=2 the guard would have counted 1 and would NOT have escalated on the very case it was built for. Chasing why the rows were so much rarer than the failures found a distinct, current defect, which is what this change fixes.\n\nTHE DEFECT: ON CONFLICT DO NOTHING returns no error when it inserts nothing (idx_swi_dedup already holds an OPEN item for the key). Both keyed inserts in judge_acceptance_results derived their 'created' flag from err == nil. So the acceptance-fail doc_note - the loop's own durable record, rewritten on 2026-07-20 specifically to be written 'from the outcome, not the intent' - can assert an improve_tool item was created when none was; and chromeRouted can overstate the note's 'routed separately as N responsive_fix item(s)'. The note was correctly moved to the outcome; the outcome VARIABLE was still computed from the wrong signal.\n\nHONESTY NOTE FOR REVIEWERS, because this case has already been burned once by evidence that read stronger than it was: the live asymmetry (4 acceptance-fail notes vs 1 work item) is CONSISTENT with dedup suppression but is NOT proof of the current code's behaviour - those 07-17/07-18 notes were written by older code (f59590e32) whose 'Fix:' line was a hardcoded literal printed unconditionally. The defect in the CURRENT code is established by code reading plus the new unit tests, not by those notes. Whether dedup is what actually produced the 1-row/4-note gap is UNVERIFIED; a plausible alternative is that the tool had no content_components row for the early verdicts (a needs_content_page item exists for it from 07-17 09:38), a branch that also creates no item. I would rather submit that ambiguity than launder it.\n\nThis code is ALREADY COMMITTED (20dc63716) per the repo's commit-per-task rule; it is inert until the next chassis roll. bugs_open/010 deliberately stays OPEN.",
+  "plan": {
+    "summary": "Report work as queued only when a row was actually inserted: branch on rows affected rather than on the absent error at both ON CONFLICT DO NOTHING sites in judge_acceptance_results, and give the dedup-suppressed case its own named outcome in the durable note.",
+    "edits": [
+      {
+        "file": "platform/orchestration/actions/tool_acceptance_actions.go",
+        "operation": "modify",
+        "rationale": "Adds rowsAffected(res, err) - a helper that tolerates the nil sql.Result accompanying a failed Exec - and rewrites the improve_tool insert's success test from 'err == nil' to a switch on rows affected, with a new itemDeduped state for the zero-row case. Without the nil-Result guard the helper would panic exactly on the error path it exists to serve.",
+        "sketch": "res, err := params.DB.ExecContext(ctx, `INSERT INTO site_work_items ... ON CONFLICT DO NOTHING`, ...)\nswitch n, raErr := rowsAffected(res, err); {\ncase err != nil:   logger.Warn(\"judge: improve_tool insert failed\", zap.Error(err))\ncase raErr != nil: logger.Warn(\"judge: improve_tool insert rows-affected unavailable - recording as not created\", zap.Error(raErr))\ncase n > 0:        itemCreated = true\ndefault:           itemDeduped = true; logger.Info(\"judge: improve_tool NOT created - an item for this key is already open\")\n}\n\nfunc rowsAffected(res sql.Result, err error) (int64, error) {\n    if err != nil || res == nil { return 0, err }\n    return res.RowsAffected()\n}"
+      },
+      {
+        "file": "platform/orchestration/actions/tool_acceptance_actions.go",
+        "operation": "modify",
+        "rationale": "Same defect on the site-chrome path: created++ ran on any non-error, and that count is quoted verbatim in the note as 'routed separately as N responsive_fix item(s)'. Skips the increment when the insert affected no rows, logging the suppression rather than silently miscounting.",
+        "sketch": "if n, raErr := rowsAffected(res, err); raErr != nil || n == 0 {\n    logger.Info(\"judge: responsive_fix NOT created - an item for this chrome component is already open\",\n        zap.String(\"component\", component), zap.String(\"item_key\", itemKey))\n    continue\n}\ncreated++"
+      },
+      {
+        "file": "platform/orchestration/actions/tool_acceptance_actions.go",
+        "operation": "modify",
+        "rationale": "Gives the suppressed case its own line in the acceptance-fail note. Previously it would fall through to the default 'none - no improve_tool item could be created (no active content_components row for this function, or the insert failed); route this manually', which describes a defect and would send the next reader hunting a broken insert. A deduped verdict is not a failure - it is a repeat of work already queued, and the note should say so.",
+        "sketch": "case itemDeduped:\n    fixLine = fmt.Sprintf(\"no new improve_tool item - one for %s is ALREADY OPEN under this key \"+\n        \"(the previous fix cycle has not finished); this verdict re-confirms work already queued\",\n        strings.Join(v.FailedIDs, \", \"))"
+      },
+      {
+        "file": "platform/orchestration/actions/tool_acceptance_convergence_test.go",
+        "operation": "modify",
+        "rationale": "The existing harness hardcoded sqlmock.NewResult(1, 1), so no test could observe a suppressed insert. Parameterises rows-affected (existing callers delegate with 1, unchanged) and adds three tests: the zero-row case must report improve_tool_created=false and a note saying ALREADY OPEN; a positive control at one row that must still report creation - without it 'report nothing created' would pass by never reporting anything; and rowsAffected's nil-Result path.",
+        "sketch": "func runJudgeFailPathFull(t, config, priorAttempts, countErr, componentID string, insertRows int64) judgeRun\n    ... WillReturnResult(sqlmock.NewResult(1, insertRows))\n\nTestImproveToolNotReportedCreatedWhenDedupSuppressesInsert  // insertRows=0\nTestImproveToolReportedCreatedWhenInsertAffectsARow         // insertRows=1, positive control\nTestRowsAffectedToleratesFailedExec                         // nil Result, error preserved"
+      }
+    ],
+    "grounded_in": [
+      "platform/orchestration/actions/tool_acceptance_actions.go (pre-fix): `_, err := params.DB.ExecContext(ctx, ...ON CONFLICT DO NOTHING...)` then `if err != nil { logger.Warn(...) } else { itemCreated = true }`",
+      "The same file's own comment on the note it feeds: 'The note is written LAST and from the outcome, not from the intent: it is the loop's own durable record, and a note claiming a fix was queued when the insert missed is the \"trust the status, not the artefact\" failure this codebase keeps paying for.'",
+      "Live schema: idx_swi_dedup UNIQUE, btree (site_id, item_key) WHERE item_key IS NOT NULL AND (status <> ALL (ARRAY['complete','verified','rejected','wont_fix','failed','unresolved','cancelled']))",
+      "Live prod, 2026-07-25: SELECT id, status FROM site_work_items WHERE item_key='acceptance_fail:tool-loot-table-balancer:e33263f4-74f8-494f-b191-546845dbbddf' returns exactly 1 row (ce06e06e, complete, 2026-07-18 10:38), against 4 acceptance-fail doc_notes for the same tool on 07-17/07-18.",
+      "Live prod, 2026-07-25: the guard's convergenceAttempts SQL run verbatim returns 0 (correctly reset by the 07-21 12:46 acceptance-run pass note) and 1 with only the reset-bound removed - the positive control proving the query discriminates.",
+      "Live prod, 2026-07-25: SELECT count(*) FROM site_work_items WHERE item_type='acceptance_stuck' = 0 - the escalation branch has never run.",
+      "016b section 9 already carries the transferable rule this code violated: 'RowsAffected==0 -> loud skip-result'."
+    ]
+  }
+}
