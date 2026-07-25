@@ -73,8 +73,21 @@ literal-string plumbing is the cause.**
 > plan `9d9c601d`, `ordering=1`), so every render faithfully reproduced it — a plan-content
 > issue, **not** the `bugs_open/001` re-plan-clobber this note guessed (nothing re-planned).
 > Fixed by removing it from the plan itself (+ `pages.sections` + `page_components`, all
-> snapshotted); reconciles can no longer regenerate it. Live page flushes on the next
-> `content-feed-refresh` render (~6 h). Full account: `NOTES_vetcomparison.md` 2026-07-24 entry.
+> snapshotted); reconciles can no longer regenerate it. Full account:
+> `NOTES_vetcomparison.md` 2026-07-24 entry.
+>
+> **CONFIRMED CLOSED 2026-07-25.** Two full renders have since run (07-25 01:49:55 and 13:51:20)
+> and both produced **four** sections, not five — the fix survives a rebuild, which is what the
+> two earlier hand-deletes did not. Live: 42,051 bytes, `filtered-result-grid` = 0.
+> *(One correction to the line above, which I wrote: it did NOT flush on a ~6 h
+> `content-feed-refresh` cycle. That cycle no-ops when there is no news change; it flushed on the
+> next render, ~1 day later.)*
+>
+> ⚠️ **But the same page has a worse, unrelated defect found 07-25: all six links in
+> `info-card-grid` are 404**, plus 3 chrome links to never-built pages = 9 live 404s on the
+> homepage. One fixed (`/guides/cma-compliance` → `.../index.html`); the other five need an owner
+> decision on what should exist. Contributed to `bugs_open/023` (OWNED — do not fork a fix).
+> See `NOTES_vetcomparison.md` 2026-07-25 entry §3.
 The 08:08 render re-materialised all five index components — which (a) brought back the dead
 `filtered-result-grid` I had deleted on 07-19, and (b) stripped every `bug-020` `permanent` lock
 (verified delete-and-recreate: the `hero` row's id changed). **I re-removed the grid today, this

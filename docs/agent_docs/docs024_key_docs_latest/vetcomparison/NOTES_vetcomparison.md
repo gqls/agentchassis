@@ -801,3 +801,67 @@ not worth the risk on this multi-session live site for a cosmetic empty box. Lef
   which LIKE-matches nearly anything — sub-£1 fabrications would false-OK. Re-ran with
   `FM999999990D00`; counts happened to be identical, but the corrected form is the one in
   the RUNBOOK.
+
+### 2026-07-25 — dead grid CONFIRMED gone (two renders); and the homepage's main grid is 100% dead links
+`[VERIFIED live — curl + DB, queries in RUNBOOK]`
+
+**1. The 07-24 plan-level grid fix held.** Two full renders have since run
+(`page_components.updated_at` 07-25 01:49:55 and 13:51:20) and both produced **four** sections,
+not five. Live homepage 42,051 bytes (was 46,656 with the grid); `filtered-result-grid` = 0,
+`No results found` = 0, fabrication markers = 0. Plan / `pages.sections` / `page_components` all
+agree at 4. `SELECT ... WHERE slot_name ILIKE '%filtered%'` returns 0 rows site-wide.
+**This closes the recurrence** — the two prior hand-deletes (07-19, 07-21) were downstream of the
+plan and came back; the plan edit did not. My 07-24 prediction that it would flush on a ~6h
+content-feed cycle was wrong (recorded then); it flushed on the next render, ~1 day.
+
+**2. Renders delete-and-recreate rows.** Comparing `_vetcomparison_bak_20260724_index_pagecomponents`
+to live: `content_data` and `rendered_html` byte-identical, **but `id` differs**. So content is
+carried through an assemble-only render while row identity is destroyed. That is the same
+mechanism the 07-21 handoff recorded for the stripped `bug-020` locks, now confirmed on a second
+component, and it is why `save_page_sections_action.go:498` needs its locked-row carve-out
+(`bugs_open/058`). Consequence for this site: **any DB edit to a component is safe from
+assemble-only renders but not from a full content re-render.**
+
+**3. NEW, and worse than the grid: every link on the homepage's main content grid is a 404.**
+`info-card-grid` has six anchors and all six are dead — `/search`, `/about-pricing`,
+`/about-ownership-disclosure`, `/guides/pet-owner-rights`, `/claim-listing`, `/guides/cma-compliance`.
+Five have no `pages` row at all. The sixth points at a page that **exists and is live** at
+`/guides/cma-compliance/index.html` — a URL-form miss (no directory-index rewrite on this host;
+both `/guides/cma-compliance` and `/guides/cma-compliance/` 404). Three further chrome links point
+at `planned`, never-deployed pages (`/directory/index.html`, `/guides/index.html`,
+`/tools/compliance-deadline-calculator/index.html`) = 9 live 404s on the homepage.
+- The URLs are **authored**, not resolver-derived: no `site_specs` row for this site contains them
+  (all 12 current aspects checked) and `site_plan_sections` carries no content at all. They live
+  only in `page_components.content_data`.
+- `info-card-grid` is **absent from `ctaFieldNames`** and — the real point — its links are
+  `cards[].link_url`, inside a repeating array, which that map's `[2]string` value type cannot
+  address. Not merely unenrolled: **unrepresentable**. Filed as a contributed finding on
+  `bugs_open/023` (OWNED, active — `who-owns.py` checked first; I did not fork a fix).
+- The audit backstop did not catch it either: vetcomparison has **zero** rows of every link/CTA
+  item type across all time, against 188 fleet-wide. `[INFERRED]` the completeness discovery agent
+  has never run against this site's deployed HTML — *not provable*, because `orchestration_states`
+  is pruned at ~24h (the `bugs_open/044` over-flagging trap), so its silence is not evidence.
+- **Fixed one of six** (`/guides/cma-compliance` → `/guides/cma-compliance/index.html`, in
+  `content_data` AND `rendered_html`; snapshot `_vetcomparison_bak_20260725_index_components`).
+  The other five have no destination to point at — an owner decision, and three of those
+  destinations are already sitting in his review queue as the 0-section pages.
+
+**4. Wrong turn, self-caught.** I first read the CMA landing page and concluded two of the three
+remedies named in the site's news subheadline (prescription fee cap, ownership disclosure) were
+unverifiable, because the page lists only document titles. That was reading the wrong artefact.
+Extracting the actual PDFs (`pdftotext -layout`) confirms **all three**: Article 7 Price List,
+Article 18 "imposes maximum fees (also referred to as price caps)" with a Primary and an
+Additional Prescription Fee Cap, Article 5 Ownership Information. The generated copy is accurate.
+**The check that mattered was the primary source, not the landing page.**
+
+**5. The trap in that Order, and it is this site's exact failure mode.** Every figure and date in
+the draft is a **bracketed placeholder**: `'Initial Primary Prescription Fee Cap' means [£21
+inclusive of VAT. This will be adjusted for inflation ... before the Order is made]`, likewise
+`[£12.50]`, and every compliance date reads `[X March 2027]` / `[X December 2026]`. The *relative*
+periods are firm (3/6/9/12 months, Large vs Small businesses); the absolute dates and the amounts
+are not settled until the Order is made. `[VERIFIED]` the live site publishes **none** of them
+(grepped £21 / £12.50 / the four date strings across every live page — 0 hits).
+**Directly decides the `tool-compliance-deadline-calculator` build-or-cancel** in the owner queue:
+it cannot emit absolute deadlines today without asserting dates the CMA has not fixed — which is
+precisely what this site was remediated for. Buildable honestly only as relative periods from a
+"date the Order is made" input.

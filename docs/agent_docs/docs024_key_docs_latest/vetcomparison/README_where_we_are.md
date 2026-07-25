@@ -716,3 +716,58 @@ so they're always auditable. That code is written, tested, and committed, but it
 effect until the next software deploy; until then the scraper runs every 6 hours, so I've left
 a re-check query in the runbook and the sweep should be re-run until the deploy lands. The
 change has also gone to the review council (verdict pending at time of writing).
+
+---
+
+**2026-07-25 — the empty search box is gone for good, but I found something worse on the same page**
+
+The duplicate, permanently-empty search box that kept coming back on the homepage is now
+genuinely gone. It has survived two full page rebuilds since I fixed it, which is the proof I
+was waiting for — the two earlier attempts to remove it were undone by the very next rebuild,
+because they deleted the box without removing it from the site's build instructions. This time I
+removed it from the instructions, so there is nothing left to bring it back. The homepage is now
+about 4KB lighter and shows only the four sections it should.
+
+While checking that, I found a bigger problem on the same page. The homepage's main block of six
+cards — "Search practices by location", "Compare prices before you go", "See who owns your
+practice", and so on — **has six links and every single one is broken.** Anyone clicking any of
+them gets a "page not found". This is the most prominent thing on the page after the search
+itself, and it has been dead the whole time.
+
+Five of the six point at pages that were never built: a search page, a pricing explainer, an
+ownership explainer, a pet-owner-rights guide, and a "claim your listing" page. The sixth points
+at a guide that **does** exist — the CMA compliance guide — but at slightly the wrong address, so
+it 404s too. That last one I have fixed, since there was only one sensible answer. The other five
+I have deliberately left alone, because deciding where they should go is a decision about what
+the site offers, not a typo — and three of those missing pages are already sitting in your review
+queue waiting for exactly that call.
+
+Worth knowing why nobody spotted this: we have an automatic checker that finds broken links, and
+it works — it has flagged 188 of them across six other sites. It has never produced a single
+finding for vetcomparison. I can't prove why (the records that would show it get deleted after 24
+hours), but the checker is reliable enough that if it had run on this page it would have found
+these. So it looks like this site is simply not being checked. I have written all of this up
+against the platform bug that owns broken links, where another session is actively working; I
+have not started a competing fix.
+
+**On the CMA front, the news feed is now doing its job by itself.** The draft Order published on
+21 July has appeared on the homepage automatically, with a link to the real gov.uk consultation.
+I checked the wording our system generated around it against the actual legal documents, and it
+is accurate: the Order really does require published price lists (Article 7), really does cap
+prescription fees (Article 18), and really does require practices to disclose who owns them
+(Article 5). I had initially thought two of those three were unsupported — that was me reading
+the summary page instead of the documents themselves, and I was wrong.
+
+**One thing you should know before we build the compliance deadline calculator.** Every number
+and every date in the draft Order is written in square brackets — `[£21]`, `[£12.50]`,
+`[X March 2027]`. That is the CMA's way of saying "not settled yet"; they are placeholders until
+the Order is actually made. What *is* fixed is the relative timing: 3, 6, 9 or 12 months from the
+Order coming into force, with smaller practices getting longer. So a deadline calculator can
+honestly say "six months after the Order is made" but cannot honestly say "by 31 March 2027" —
+and publishing a specific date as fact is the exact thing this site was cleaned up for. I have
+checked, and none of those provisional figures appear anywhere on the live site today. Worth
+deciding on that basis rather than cancelling the tool outright — it can be built, just not to
+output calendar dates yet.
+
+The two consultation deadlines still need you: the funding one closes **30 July at 23:59** (five
+days), and the substantive one **20 August at 23:59**.

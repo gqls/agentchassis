@@ -537,3 +537,108 @@ flip's accounting.
 2. Sweep `input_schema` for `source: 'static' AND fallback IS NOT NULL` and decide per field
    whether it is a genuine constant or a stolen override — then fix the `llm_guidance` that
    promises an override that cannot happen.
+
+---
+
+## CONTRIBUTED FINDING (2026-07-25, vetcomparison.uk session) — a THIRD derivation: authored links inside a repeating array, which the `[2]string` contract cannot express
+
+Filed here, not as a new bug: `scripts/who-owns.py 023` reports this file OWNED and actively
+worked (34 commits/14d, one the same day). **Nothing here competes with the flip.** It is neither
+`chooseCTATargets` nor `queryresolve.section_index_for` — there is *no resolver in this path at
+all*. It is the bug's literal title case (label and destination never checked against each other)
+reached by authored content, and it is invisible to the gate for a **structural** reason worth
+knowing before the flip declares `ctaFieldNames` the single owner of CTA truth.
+
+### What was observed (live, curl-verified 2026-07-25 — not inferred)
+
+vetcomparison.uk's homepage carries **9 broken internal links**. Six are in one component,
+`info-card-grid` — and they are *every anchor it has*, a 100% dead-link rate on the page's main
+content grid:
+
+| card title | label | `link_url` | live |
+|---|---|---|---|
+| Search practices by location | Search the directory → | `/search` | 404 |
+| Compare prices before you go | Read about pricing → | `/about-pricing` | 404 |
+| See who owns your practice | Read about ownership → | `/about-ownership-disclosure` | 404 |
+| Understand your rights as a pet owner | Read the guide → | `/guides/pet-owner-rights` | 404 |
+| Claim or correct your listing | Claim your listing → | `/claim-listing` | 404 |
+| CMA compliance guides for practices | Read the guides → | `/guides/cma-compliance` | 404 — **page exists** |
+
+Five have no `pages` row at all (phantom). The sixth is a **URL-form** miss: the page exists, is
+`build_status='deployed'` and returns 200 at `/guides/cma-compliance/index.html`. This site's host
+does no directory-index rewrite — `/guides/cma-compliance` and `/guides/cma-compliance/` both 404.
+The remaining 3 of the 9 are chrome links to `planned`/never-deployed pages
+(`/directory/index.html`, `/guides/index.html`, `/tools/compliance-deadline-calculator/index.html`),
+i.e. `049` mechanism 2, not this bug.
+
+### Mechanism — the fields are `cards[].link_url`, not a scalar CTA field
+
+`info-card-grid` is **absent from `ctaFieldNames`** (`resolve_internal_links_action.go:98-105`,
+6 components: hero, call-to-action, archetype-grid, archetype-combinations, gauntlet-cta,
+content-block-about). So neither writer of CTA destinations touches it — not build-time
+`setCTAField`, not repair-time `applyCTARecompute`.
+
+**Adding it to the map would not work, and that is the finding.** The map's value type is
+`[2]string` — a primary/secondary pair of *scalar* field names. This component's destinations live
+one level down, inside a repeating array:
+
+```
+content_data.cards[] -> { title, body, icon, link_label, link_url }
+```
+
+Six links, N-ary, each with its own label. There is no pair of top-level field names that names
+them. **Any component whose links live in a repeating array is not merely unlisted — it is
+unrepresentable in the current contract**, so the flip cannot fix this class by enrolment alone.
+The label/destination pairing this bug is named for is *right there* in each array item
+(`link_label` beside `link_url`) — the data needed to check the pairing exists; nothing reads it.
+
+`[VERIFIED]` The URLs are authored, not derived: no `site_specs` row for this site contains them
+(all 12 current aspects checked), and `site_plan_sections` holds no content at all (structure only
+— `component_name`/`ordering`/styling ids). They persist solely in `page_components.content_data`.
+
+### Why the audit-time backstop did not catch it either
+
+`check_phantom_internal_links` is enabled (`completeness-discovery-agent`'s checks array carries
+`phantom_internal_links`, `misdirected_cta`, `dead_controls`) and its tests cover exactly this
+shape (`/ghost.html`, `/never-built.html`). But:
+
+`[VERIFIED]` **vetcomparison.uk has ZERO rows of every link/CTA item type, across all time.**
+Fleet-wide those types total **188** rows: `cta_names_unknown_destination` 69, `unresolved_cta` 68,
+`needs_internal_links` 25, `phantom_internal_link` 22, `cta_improvement` 4.
+
+Broken down by site for the two destination-validity types only
+(`phantom_internal_link` + `cta_names_unknown_destination`, 91 of those 188 rows), **six sites
+have rows and vetcomparison is not among them**: ai-agent-orchestration 27, robot-hands 20,
+idea.uk 17, leopardess 13, relojistas 7, vonc 7.
+
+`[INFERRED]` — therefore the completeness discovery agent has not run against this site's deployed
+HTML. I could not prove it directly: `orchestration_states` is pruned at ~24h, so its silence is
+not evidence (the over-flagging trap from `bugs_open/044`). The inference rests on the check being
+deterministic over deployed HTML — six phantoms are present right now, so a run would have had to
+produce rows. **If the flip's accounting assumes the audit backstop covers every live site, that
+assumption is worth testing rather than trusting** — a per-site "when did discovery last run"
+figure would settle it, and I did not find one that survives the 24h prune.
+
+### What I changed (site content, not platform — one link of six)
+
+Repointed **only** the card whose destination exists, in `content_data` *and* `rendered_html`:
+`/guides/cma-compliance` → `/guides/cma-compliance/index.html`. Snapshot first
+(`_vetcomparison_bak_20260725_index_components`); card order and all six cards preserved.
+
+**Stated honestly: this is not durable, and it is not a fix for this bug.** Renders
+delete-and-recreate agent-writable rows (`save_page_sections_action.go:498`), so the edit holds
+across an assemble-only render (content_data was byte-identical across the 07-24→07-25 renders,
+though the row id changed) but a full content re-render regenerates the copy and can reproduce the
+old URL. The other five need a destination that does not exist yet — an owner decision on this
+site, not something to paper over.
+
+### Suggested for this bug's backlog (not done — owned here)
+
+1. **The contract, not the enrolment, is the gap**: `ctaFieldNames`'s `[2]string` cannot address
+   `cards[].link_url`. A component-level descriptor that can name a repeating path
+   (e.g. `cards[].link_url` + its sibling `cards[].link_label`) would cover this class; enrolling
+   `info-card-grid` under the present type cannot.
+2. The label/destination pair is co-located per array item — the cheapest possible pairing check,
+   and the one this bug is named for, is available here and unused.
+3. Worth a fleet sweep: **which components carry anchors in a repeating array?** They are all in
+   this same blind spot. `info-card-grid` is live on more sites than this one.
