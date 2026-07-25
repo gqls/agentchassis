@@ -2,21 +2,36 @@
 # republish_page_086.sh <page_id> <site_id> <domain>
 #
 # Assemble-only page rerender via a DIRECT orchestrator envelope (the 086
-# pattern). Use this INSTEAD OF 049b_deploy_single_page.sh: the bare
-# `action=orchestrate` envelope hits the kubectl-run stdin race and can fail
-# silently — no orchestration row, no work item, no log. That happened here on
-# 2026-07-25: four 049b calls for fundamentallyai.com produced zero
-# orchestration rows, so a completed link fix never reached the live pages.
+# pattern: action=process + a full inline workflow).
+#
+# CORRECTED 2026-07-25, same day this script was written: the header first said
+# to use this INSTEAD OF 049b_deploy_single_page.sh because 049b "fails silently
+# — four calls produced zero orchestration rows". That was WRONG. All four 049b
+# dispatches landed; their rows appeared ~7 minutes later (17:12-17:13 for 17:05
+# dispatches) and this script's own first dispatch took ~9 minutes. Both routes
+# work. There is no known reliability difference — only latency, and an operator
+# who checked too early.
+#
+# So: this script is an ALTERNATIVE, useful when the work-item queue is backed up
+# (a queued page_rerender item sits behind every other triaged build item; 98 of
+# them fleet-wide on 2026-07-25). Prefer a fresh `page_rerender` work item when
+# the queue is moving — it needs no Kafka envelope and leaves an inspectable row.
 #
 # Assemble-only = no `reason` stamped, so page-rerender takes the render_page
 # else-branch: it reuses stored content_data/rendered_html (no LLM, no content
 # regeneration) and redeploys the assembled HTML. Safe for a data fix applied
 # directly to page_components.
 #
-# Verify by PAYLOAD, not by the printed correlation id:
-#   SELECT status,current_step FROM orchestration_states
+# Verify by PAYLOAD, not by the printed correlation id, and BUDGET ~10 MINUTES
+# before concluding anything. Use a window that starts BEFORE you dispatched:
+#   SELECT status, current_step, created_at,
+#          initial_request_data->'config'->'workflow'->>'start_step' AS start_step
+#     FROM orchestration_states
 #    WHERE initial_request_data->'input_data'->>'page_id' = '<page_id>'
-#    ORDER BY created_at DESC LIMIT 1;
+#      AND created_at > '<a few minutes before you ran this>'
+#    ORDER BY created_at DESC LIMIT 3;
+# start_step='spawn_rerender' means the row came from THIS script; NULL means it
+# came from 049b or the work-item route.
 set -euo pipefail
 
 PAGE_ID="${1:?page_id required}"

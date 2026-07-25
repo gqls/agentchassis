@@ -68,7 +68,6 @@ in the middle, shift high (+100), insert, bring down (−99). An in-place
 
 ## Republishing a page after a DIRECT data edit (no content regeneration)
 
-**Do not use `049b_deploy_single_page.sh`.** Its bare `action=orchestrate`
 **DISPATCH LATENCY IS MINUTES, AND EVERY ROUTE LOOKS DEAD UNTIL IT ISN'T.** This
 is the single most misleading thing in this runbook, so it comes first.
 

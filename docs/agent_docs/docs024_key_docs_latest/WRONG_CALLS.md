@@ -3032,3 +3032,31 @@ capture `href="(/[^"]*)"`, then `split_part(href,'#',1)` before resolving. Cost:
 one false "fixed" claim to the owner, corrected in the same session, plus a
 second repair pass and republish cycle. Family: shared-blind-spot,
 verification-echoes-the-fix, truncated-your-own-evidence.
+
+**2026-07-25 — wrote "the dispatch failed silently" into a runbook as a landmine,
+from two checks made ~5 minutes too early.** Four `049b_deploy_single_page.sh`
+republish dispatches for fundamentallyai.com showed no `orchestration_states` row
+when I queried at roughly +2 and +5 minutes. There is a documented stdin-race
+failure mode for that envelope (016b §9), so I matched my observation to it,
+declared four silent failures, switched to a different script, and **recorded the
+claim in a new RUNBOOK and in a new script's header as established fact.** All
+four had landed: their rows appeared at 17:12–17:13 for dispatches fired ~17:05,
+each carrying the right `page_id`. The replacement script took ~9 minutes for its
+own first row. **Neither route is unreliable; dispatch latency here is minutes,
+and I had no measurement of what normal looked like before calling it broken.**
+Compounded twice over: I then armed a monitor filtering
+`created_at > '2026-07-25 18:00'` while the clock read **17:54** — a window that
+cannot match anything and reports identically to a dead dispatch, which produced
+four more "no orchestration row" ticks that felt like confirmation; and because I
+never checked `start_step`, I credited the new script for a homepage republish the
+queued work item may equally have done. **Cheap checks: (1) before concluding
+"nothing happened", establish the normal latency — one `SELECT max(created_at)`
+against comparable dispatches would have shown minutes, not seconds; (2) an
+absent row is only evidence if your query window can contain it — print the
+window and the clock together; (3) a known failure mode that MATCHES your symptom
+is a hypothesis, not a diagnosis, and it is at its most dangerous when the docs
+have already made it famous.** Cost: one wrong landmine published in two places
+(both corrected same day, with the correction left visible), one unnecessary
+route switch, ~15 minutes of false-negative polling. Family:
+too-early-is-not-absent, window-cannot-contain-the-evidence,
+famous-failure-mode-as-default-diagnosis.
