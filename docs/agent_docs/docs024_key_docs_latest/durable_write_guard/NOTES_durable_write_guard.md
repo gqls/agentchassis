@@ -394,3 +394,136 @@ because the DB rows are gone.
 **STATUS: INSTANCE 1 is FIXED + LIVE (v1.0.1149) + BEHAVIOURALLY VERIFIED.** The
 021 file stays in `/bugs_open/` ONLY because INSTANCE 2 (not ours) is still open;
 INSTANCE 1 itself is done.
+
+## 2026-07-25 — clearing the INSTANCE 2 residue, and closing 021
+
+Owner pointed this session at 021 with "check other threads are not already
+looking". Coverage check first, all three clear: `who-owns.py 021` names
+`durable_write_guard` (this lane) and `work_item_completion_integrity` (dormant
+since 07-20, and 07-24's work was written INTO their docs, not forked);
+`site_work_items` has no open `needs_diagnosis` or in-flight item touching the
+verifier lane; `git status` shows none of the four INSTANCE 2 files dirty.
+
+### The council verdict we were waiting for never existed
+
+Corr `56c7e177` had no `diagnosis_artifacts` rows at all — which reads exactly
+like "still queued", and is why it sat unchecked overnight. It was not queued.
+The orchestration ran at 21:14:19 UTC on 07-24 and was **dead 6 seconds later**:
+
+```
+current_step=complete_invalid  status=COMPLETED  completed_steps=0 of 42
+collected_data->'__step_error':
+  "step persist_submission failed: failed to execute action
+   diagnose_persist_fix_plan: plan failed validation:
+   edit 3: operation \"create\" not in the allowlist"
+```
+
+The allowlist is `modify | add | remove | config_change` (`allowedFixOperations`,
+`diagnose_persist_fix_plan_action.go:80`); a new file is `add`. **No reviewer ever
+saw the plan.** The RUNBOOK_council_gate now documents this trap — two other
+threads hit the identical pair (`risks` as an array, `operation: "create"`) on
+07-25 and wrote it up hours apart; ours on 07-24 was the earliest instance and
+nobody had it written down yet. Resubmitted 07-25 with that one field corrected
+and the new live evidence appended, `RESUBMIT_CORR=56c7e177…` so the trail
+accumulates.
+
+**Transferable:** a council run with no artifacts is ambiguous between QUEUED and
+INVALID, and the two want opposite responses (wait vs fix-and-refire). Always
+poll `orchestration_states.current_step` alongside, and treat `complete_invalid`
+as terminal.
+
+### INSTANCE 2's verifier is LIVE — and BEHAVIOURALLY VERIFIED
+
+Pod `agent-chassis-774877f4c6-zjh4t`, image **v1.0.1159**: the literal this
+change CREATED (`"no unlocked component carries a colour within the fixer's
+remit"`) present ×1, positive control `tool_birth_truncation_blocked` ×1. So
+`34adb171c` is no longer inert — it rode a roll between 07-24 and now.
+
+Deployment is not correctness ([[verify-the-failing-branch]]), so both branches
+were exercised. The method that made the probe a **discriminator** rather than a
+green happy path: dump the verifier's whole live population (32 components,
+8 sites) and run a **verbatim copy** of `ReplaceHardcodedColors` over it in a
+scratch stdlib-only `go run`, so the expected verdict is known before firing.
+Result — the remit is much narrower than the detector, and on most sites it is
+EMPTY:
+
+| site | detector pop | inside fixer's remit |
+|---|---|---|
+| robot-hands.com | 3 | **3** |
+| gamesdesign.co.uk | 4 | 1 |
+| leopardessconsulting.co.uk | 4 | 1 |
+| finetuning.uk | 8 | **0** |
+| gaswholesalers.com | 6 | **0** |
+| ai-agent-orchestration.com | 4 | **0** |
+| webdesign.co.uk | 2 | **0** |
+| dartsonline.com | 1 | **0** |
+
+That table IS the argument for the 07-24 design decision: a verifier re-running
+the detector's predicate would refuse every completion on 5 of 8 sites for ever.
+
+**NEGATIVE branch (must refuse) — robot-hands.com, 3/3 in remit.** Scratch
+one-step `complete_work_item` orchestration (`7d4257ea`, 17:12:02 UTC):
+`claimed → triaged`, `attempt_count 0 → 1`, and
+
+```
+error:  completion blocked: post-fix verification found the defect still present:
+        3 component(s) still carry colours the fixer's own transform would
+        replace (first: tool-matchmatrix/tool-matchmatrix)
+result: {"_verification": {"status": "defect_persists", "item_type":
+        "hardcoded_section_colors", "detail": "3 component(s) …"}}
+```
+The count and the named component match the locally-computed prediction exactly —
+the probe was graded, not merely observed. A second identical fire (`c26462b8`)
+reproduced it (`attempt_count → 2`).
+
+**POSITIVE branch in PRODUCTION, not a fixture.** Found while censusing
+`_verification` records: `site_work_items 51054090-1b63-431d-aa55-0c6a873ff47a`
+(vonc.com) completed **2026-07-25 10:18:52 by `build-dispatch-loop`** carrying
+`_verification.status=verified`. The gate is being exercised by live dispatch
+traffic, unprompted. **Caveat, stated because it matters:** vonc.com has ZERO
+detector matches, so that pass is trivially true and does NOT discriminate
+remit-from-predicate.
+
+**POSITIVE branch, DISCRIMINATING — finetuning.uk, 8 detector matches / 0 in
+remit** (`5ea236ae`, 17:21:39 UTC). Completion **allowed**: `status=complete`,
+`attempt_count` still **0**, `_verification.status=verified`, detail *"no unlocked
+component carries a colour within the fixer's remit (out-of-remit hexes — light,
+3-digit, inline style attributes — may legitimately remain)"*. This is the whole
+design decision proven on the live binary: eight components that the DETECTOR
+matches, and the gate correctly does not hold the item hostage to them. A verifier
+built the obvious way — re-run the detector — would have refused this completion
+and, at `max_attempts`, stranded it in `failed`.
+
+**Both branches on one image, graded against a prediction, one refusing and one
+passing on the SAME predicate.** That is the bar from [[verify-the-failing-branch]]
+met properly, not a green happy path.
+
+**Cleanup:** 2 work items, 1 scratch `agent_definitions` row, 3
+`orchestration_states` + 21 audit rows deleted; leak check returns 0 on all five
+counts, including `agent_error_log` (which was 0 throughout — this gate refuses
+via the completion path, not via an error row, unlike INSTANCE 1's).
+
+**Containment note worth keeping:** the fixture had to sit on a REAL production
+site, and a refusal releases the claim (`triaged`, `claimed_by` NULL) — so the
+fixture became dispatchable to a live handler on robot-hands.com. Giving it
+`handler_agent='scratch-021-nonexistent-agent'` is what saved it: the dispatch
+loop picked it up **within 5 seconds** and parked it `blocked` ("Handler agent not
+registered: …") instead of running a real colour fix on a real site. Recorded in
+the RUNBOOK; do not run this probe with a plausible handler name.
+
+### The measurement that did NOT hold up
+
+The 07-24 note cited "21 complete / 7 unresolved / 5 failed" for this item type.
+Live today the whole type is **13 real rows** (4 complete, 8 unresolved, 1
+detected). I did not reconcile the difference and I am not going to assert one —
+`site_work_items` rows are known to be pruned, but I have not proved that is what
+happened here, so treat the 07-24 figure as unverifiable rather than wrong.
+`[UNVERIFIED]`. What the fresh count does support is the same conclusion by a
+different route: 8 items sit permanently `unresolved`, and on 5 of the 8 sites in
+the detector's population the handler's remit is EMPTY, so no handler run can
+ever clear them. That is the finding, and it is now filed as `bugs_open/077`
+rather than left inside a closing bug file.
+
+**Lesson, again:** a figure carried forward from another day's note is a claim,
+not a measurement. Re-run the count before you repeat it — even when you are the
+one who wrote it.

@@ -3,7 +3,11 @@
 **Filed:** 2026-07-18, by the thread that built the `bugs_open/012` guard.
 **Severity:** latent, destructive-class. Nothing is currently known to be broken —
 this is the *mechanism* left generic after the instance was fixed.
-**Status:** OPEN. Not an outage. Needs a decision on scope before code.
+**Status:** **CLOSED 2026-07-25 → `/bugs_closed/`.** Both instances are fixed,
+LIVE (chassis v1.0.1159) and behaviourally verified by induced fault, both
+branches, on the live binary. Read the closing section at the bottom for what was
+delivered, what was deliberately NOT done, and where the two residues went
+(`bugs_open/077`, and the coverage map itself).
 
 ---
 
@@ -275,3 +279,142 @@ deleted a component reads as a successful fix.
 - `platform/orchestration/actions/component_write_guard.go` — the shape to reuse.
 - Council report: `diagnosis_artifacts` where
   `correlation_id='e8827490-764a-4c90-b4db-72e358f9be87'` and `kind='council_report'`.
+
+---
+
+# CLOSED 2026-07-25 — both instances fixed, live and behaviourally proven
+
+Closed by the `durable_write_guard` thread on the owner's instruction to finish
+and close this ticket. Coverage checked first and clear: `who-owns.py 021` names
+only this lane and `work_item_completion_integrity` (dormant since 07-20, and
+whose docs this work was written into rather than forked); no open
+`needs_diagnosis` or in-flight work item touches it; none of the four INSTANCE 2
+files were dirty in the shared tree.
+
+## INSTANCE 1 — the birth-write guard
+
+Done on 2026-07-23, unchanged since: `create_tool_component` and
+`store_generated_component` refuse a structurally incomplete LLM artifact at
+BIRTH; fault-injected on the live binary (tail-cut tool refused with
+`tool_birth_truncation_blocked` and nothing persisted; healthy tool passed the
+gate and failed one step later on a deliberately fake site id). Full record in
+the 2026-07-21/23 progress notes above.
+
+**The scope correction is the durable lesson here** and it is why this file's
+original ask was not built: the two surfaces it named — `pages.rendered_*` and
+`page_components.rendered_html` — are **non-exposures** (no Go writer / 0 of 301
+rows; and a deterministic re-render of a guarded, versioned template). The real
+hole was at BIRTH, not at overwrite, so the comparative guard this file imagined
+was the wrong instrument. A bug file's proposed fix is a hypothesis, not a spec.
+
+## INSTANCE 2 — the completion-verification framework
+
+The gap this file described — *"`RegisterVerifier` has been called exactly ONCE …
+~49 item types complete on the handler saga's self-report"* — was diagnosed here
+as authors forgetting. **That was wrong**, and the correction (2026-07-20) is the
+reason the fix works: the contract passed only `(ctx, db, spec, logger)`, and only
+**9** of 5,514 live items carried a `site_id` in their spec, so a site-aggregate
+verifier was *unwritable* however willing the author. `VerifyTarget` now carries
+the identity.
+
+Delivered, all three live:
+
+1. **The widened contract** — `VerifyTarget{ItemID, SiteID, PageID, ItemType, Spec}`.
+2. **The fail-loud coverage guard** — this file's own "suggested shape", built as
+   `verifier_coverage_test.go`: every live item type must be verified or
+   classified (mechanical / creation / judgement / no_target) **with a reason**,
+   or the build fails. It answers the `bug_historian` objection recorded above
+   (don't iterate the check registry — item types are string literals inside each
+   `Run`, and the highest-volume types come from paths with no check at all), so
+   the denominator is live-DB-sourced and refreshed **by UNION, never
+   replacement**. It has already caught two other threads' unclassified types.
+3. **Three registered verifiers** — `empty_section`, `truncated_component`,
+   `hardcoded_section_colors`.
+
+### The closing evidence: both branches, induced, on v1.0.1159
+
+Deployment was confirmed by pod-grep on a literal this change CREATED (plus a
+positive control) — and then, because a pod-grep proves shipping and not firing,
+both branches were induced with a scratch one-step `complete_work_item`
+orchestration. The probe was **graded against a prediction**: a verbatim copy of
+`ReplaceHardcodedColors` was run over the entire live detector population (32
+components, 8 sites) first, so the expected verdict was known before firing.
+
+- **Refuse** — robot-hands.com (3 of 3 matches inside the fixer's remit):
+  `claimed → triaged`, `attempt_count 0 → 1`,
+  `_verification.status=defect_persists`, detail *"3 component(s) still carry
+  colours the fixer's own transform would replace (first:
+  tool-matchmatrix/tool-matchmatrix)"* — count and named component exactly as
+  predicted. Reproduced by a second identical fire.
+- **Pass, discriminating** — finetuning.uk (8 matches, **0** inside the remit):
+  `status=complete`, `attempt_count` still 0, `_verification.status=verified`.
+  This is the false-fail class the design exists to avoid: a verifier re-running
+  the *detector's* predicate would have refused this completion and, at
+  `max_attempts`, stranded a correctly-handled item in `failed`.
+- **Unprompted production pass** — `site_work_items
+  51054090-1b63-431d-aa55-0c6a873ff47a` (vonc.com) completed 2026-07-25 10:18:52
+  by `build-dispatch-loop` carrying `_verification.status=verified`. Live traffic
+  is exercising the gate. *(Caveat: vonc.com has zero detector matches, so that
+  pass is trivially true — it proves the gate runs in production, not that it
+  discriminates. The finetuning.uk probe is the one that proves the latter.)*
+
+All scratch fixtures removed; leak check 0 on all five counts.
+
+## What was deliberately NOT done
+
+- **Coverage is 3 verifiers of 77 item types, and that is the design, not a
+  shortfall.** Every other type carries a recorded classification and reason. A
+  `page_rerender` verifier (1,849 of 4,644 completions) was written, passed six
+  tests and was **held**, because it re-ran the detector's predicate over a whole
+  page while the handler only rewrites CTA fields in `ctaFieldNames` components —
+  it would have stranded correctly-handled items wholesale. Writing verifiers
+  faster than you can scope them to their handler's remit makes things worse, not
+  better. **The coverage map is the backlog**: it names the next candidate
+  (`undeployed_asset`) in-file, and the build breaks if a new check ships without
+  an entry. No separate feature file — a second list would drift from the one the
+  build enforces.
+- **The detector/handler mismatch is a different bug** and is now
+  **`bugs_open/077`**, with today's re-measured numbers. Note it is filed on a
+  *corrected* premise: the 07-24 note called it "churn", and measurement shows
+  `idx_swi_dedup` bounds it to one open item per site — no repeated dispatch, no
+  repeated spend, the handler isn't even LLM-driven. It is a legibility defect (8
+  items parked `unresolved` that no handler could ever clear), not a cost defect.
+
+## The council trail, and why it has no APPROVED verdict attached
+
+The 07-24 submission (`56c7e177`) **never reached a reviewer**: it died at
+`persist_submission` in 6 seconds with `edit 3: operation "create" not in the
+allowlist` (allowlist: `modify | add | remove | config_change`), and wrote no
+artifacts at all — which is indistinguishable from "still queued" if you poll
+`diagnosis_artifacts` alone. Resubmitted 2026-07-25 with that one field corrected
+and the live evidence above appended, `RESUBMIT_CORR=56c7e177…`.
+
+**Closing does not wait on that verdict, and the commits carry no
+`Council-Reviewed:` trailer** — the trailer is earned by an APPROVED verdict
+only, and writing one for a verdict you have not read is its own recorded failure
+(`WRONG_CALLS.md`, 2026-07-25). The gate is advisory; if it comes back REVISE the
+objections get a follow-up commit against `bugs_open/077` or a new file, not a
+reopening of this one. **Closure rests on the behavioural evidence, not on the
+review.**
+
+## Wrong calls from this case
+
+- *"The kcat stdin race ate my probe message"* — it was queued behind a wedged
+  consumer; both fires later ran, 24 seconds apart. The workaround coincided with
+  the real cause resolving, which is indistinguishable from a fix unless you go
+  back and check. Logged in `WRONG_CALLS.md` (second instance of that same trap
+  filed the same day, by a different thread).
+- *"21 complete / 7 unresolved / 5 failed"* (07-24) — the live type is 13 rows
+  today. Not reconciled, so marked `[UNVERIFIED]` rather than corrected; the
+  conclusion it supported was re-derived from fresh counts instead.
+
+## Where the knowledge went
+
+- `016b` §9 — *"A 'did the fix work?' check must assert the HANDLER's remit, not
+  the DETECTOR's predicate"*, with the live remit table and the held-verifier
+  near-miss.
+- `RUNBOOK_durable_write_guard.md` — the scratch one-step probe generalised (it
+  has now exercised two different actions), how to tell a queued dispatch from a
+  lost one, how to contain a fixture that the live fleet can see, and how to
+  compute a probe's expected verdict before firing it.
+- `bugs_open/077` — the detector/handler mismatch.

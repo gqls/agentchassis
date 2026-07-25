@@ -53,6 +53,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
+| **re-derive a figure with the CORRECTED tool — fixing the tool does not fix the numbers already copied out of it** | **1** |
+| **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **4** |
 
@@ -2953,3 +2955,44 @@ were all still there under new row ids, and my own memory notes already said so.
 What caught it was the number being *too* clean: 30/30 is a join bug, not a
 defect signature. The cheap check was to print the page's actual slot list beside
 the wanted slot.
+
+---
+
+## 2026-07-25 — "68 ungated anchors / 37 components" (bugs_open/023 HANDOFF §5): a heuristic reading, quoted as a live re-measurement
+
+**The claim.** The CTA/link-integrity HANDOFF's still-open worklist said, under a heading
+stating all figures were *"re-measured live 2026-07-21"*: **"P2.1 — gate the ungated anchors.
+68 ungated / 37 components (was 75/38 on 07-19)."**
+
+**Why it was false.** That is an **R9** reading — the 60-character-lookback regex whose own
+RUNBOOK entry, corrected the day before, already said it undercounts by **2.4x**, because
+`regexp_matches(…,'g')` returns non-overlapping matches and each match's greedy prefix eats the
+*previous* anchor, so in runs of adjacent anchors (nav lists, footer columns — exactly where CTAs
+cluster) roughly every other anchor is never counted. The true figure on 2026-07-21 was ~171/41.
+On 2026-07-25 the real parse gave **173 ungated / 43 components**, of which **156 / 31** are the
+CTA worklist and 17 are range-scoped item links (a different class).
+
+**What caught it.** Running the parse (R9b / `parse_gates.py`) before scoping the migration, and
+noticing the answer was 2.5x the handoff's. Not a re-read — a re-measurement.
+
+**The cheap check that would have.** Run the corrected tool. The correction and the stale figure
+lived **in the same directory, one file apart**: R9's warning note and R9b were written on
+2026-07-20; the 68/37 line was written on 2026-07-21.
+
+**Why it matters more than one stale figure.** It was in the *still open* section — the part a
+resuming thread executes rather than re-derives — and it under-sized the job by 2.5x. A worklist
+sized that way looks finishable in an afternoon and then does not close the bug. **Fixing a
+measurement tool does not retroactively fix the numbers already copied out of it, and a figure
+inside a "re-measured live" block wears a confidence it has not earned.** The general form is the
+one this file keeps recording: *a number travels; its caveat does not.*
+
+**My own version of the same shape, same session, caught before it reached anything.** I wrote
+the migration's SQL as a direct translation of a Python transform I had already audited
+line-by-line — and believed the two were equivalent because they are character-for-character the
+same regex. They are not: in POSIX ARE the **first** quantifier fixes the greediness of the whole
+expression, so a leading greedy `[^>]*` makes a following `.*?` greedy too, and the anchor match
+ran to the **last** `</a>` in the template. It would have swallowed the tail of 21 of 35 live
+component templates. What caught it was hashing the expected result offline and asking Postgres
+to hash its own — 21 of 31 rows came back `false`. The cheap check is the entry in the tally:
+**prove a transform against the engine that will run it.** Reading it again would not have done
+it; I had read it several times, and it looks obviously right.

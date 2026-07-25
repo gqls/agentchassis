@@ -410,3 +410,79 @@ at time of writing. **Post-roll behavioural check still owed** (the
 verify-the-failing-branch rule): scratch `complete_work_item` on a fixture item —
 dirty site → completion refused and attempt_count+1; clean site → completes with
 `result._verification.resolved=true`. Steps mirror the 021 INSTANCE 1 harness.
+
+---
+
+## 2026-07-25 — the owed behavioural check is DONE, both branches; 021 closed
+
+*(Again written by the bugfix-021 session, not this workstream's owner. Coverage
+re-checked before touching anything: `who-owns.py 021`, the work-item queue and
+`git status` on the four files were all clear. Owner instruction was to finish 021
+and close it, so the INSTANCE 2 residue this file recorded had to be cleared.)*
+
+**The verifier is LIVE** — `34adb171c` rode a roll into chassis **v1.0.1159**
+(pod `agent-chassis-774877f4c6-zjh4t`). Discriminating pod-grep, per MISSTEP 3:
+the created literal *"no unlocked component carries a colour within the fixer's
+remit"* → 1, positive control `tool_birth_truncation_blocked` → 1.
+
+**Both branches induced, and the probe was GRADED, not just observed.** Before
+firing anything, a verbatim copy of `ReplaceHardcodedColors` was run over the
+entire live detector population (32 components, 8 sites) in a scratch stdlib-only
+`go run`, giving an expected answer per site. That turned the test into a
+discriminator pair:
+
+| site | detector pop | inside remit | expected | observed |
+|---|---|---|---|---|
+| robot-hands.com | 3 | 3 | REFUSE | `claimed → triaged`, `attempt_count 0 → 1`, `_verification.status=defect_persists`, *"3 component(s) still carry colours the fixer's own transform would replace (first: tool-matchmatrix/tool-matchmatrix)"* — count and component **as predicted** |
+| finetuning.uk | 8 | **0** | PASS | `status=complete`, `attempt_count` still 0, `_verification.status=verified` |
+
+The second row is MISSTEP 4's lesson closing the loop: eight components that the
+DETECTOR matches, correctly not held against the item. A verifier written the
+obvious way would have refused that completion and, at `max_attempts`, stranded
+it in `failed`.
+
+**Coverage's first unprompted production evidence, and its limit.** Censusing
+`_verification` records turned up `site_work_items
+51054090-1b63-431d-aa55-0c6a873ff47a` (vonc.com), completed **2026-07-25
+10:18:52 by `build-dispatch-loop`** with `status=verified`. That answers the
+07-20 entry's honest gap ("*present and not observed running*") — live traffic is
+exercising the gate now. **But vonc.com has zero detector matches, so that pass
+is trivially true**; it proves the gate runs, not that it discriminates. Stated
+that way here so nobody upgrades it later.
+
+Fleet-wide `_verification` records today: 3 (two of them mine, one real). Still
+tiny, still the expected shape at 3 verifiers.
+
+**Correcting the "churn finding" this file left for you.** It said completions
+churn against a broader detector, re-filing for ever. Measured today, that is not
+happening: `idx_swi_dedup` is unique on `(site_id, item_key)` excluding only
+*terminal* statuses, and `detected` is not terminal — so one open item per site
+blocks any re-file. robot-hands.com has carried a `detected` item since 07-17,
+and a design-discovery sweep ran over that very site on 07-24 20:46 (filing
+`undeployed_asset` ×21, `needs_sprite_css` ×3, `needs_imagery` ×4 from the same
+check list) without filing a new colours item. `hardcoded_section_colors` appears
+**zero** times in 7 days of discovery output fleet-wide, and the handler is not
+LLM-driven. So the real defect is legibility, not cost: **8 items parked
+`unresolved`** — a label meaning "the handler failed twice" — on sites where the
+handler was never able to succeed. Filed as **`bugs_open/077`** with the three
+candidate fixes and the 5 zero-remit sites as the test set. It is a design call
+and it stays yours.
+
+**Also unreconciled, and marked rather than quietly dropped:** this file's 07-24
+counts (21 complete / 7 unresolved / 5 failed) do not match today's live 13 rows
+(4 / 8 / 1). `site_work_items` rows are known to be pruned but I did not prove
+that is what happened, so `[UNVERIFIED]` — the conclusions above were re-derived
+from fresh counts rather than inherited.
+
+**Council trail.** `56c7e177` never reached a reviewer: it died at
+`persist_submission` in 6 seconds with `edit 3: operation "create" not in the
+allowlist` (`modify | add | remove | config_change`), writing no artifacts — which
+looks exactly like "still queued". Resubmitted 07-25 with the field corrected and
+the evidence above appended (`RESUBMIT_CORR=56c7e177…`). 021 was closed without
+waiting on it: the gate is advisory, closure rests on the behavioural evidence,
+and no commit carries a `Council-Reviewed:` trailer.
+
+**What is left in this workstream after 021's closure** (none of it blocking):
+the next verifier candidate `undeployed_asset` — read its handler's remit first,
+45 items in 7 days makes it the highest-volume unverified type; `bugs_open/077`;
+and `submission_A` (`origin_correlation_id`), still unstarted.

@@ -157,3 +157,68 @@ demonstrated to actually fire. The only reason the bug file stays open at all is
 the unrelated second item in it, which belongs to a different workstream. The 8
 already-broken tools remain the separate cleanup job (bug 046). Nothing further
 from me on this unless you want it.
+
+---
+
+**2026-07-25 — you asked me to finish 021 and close it. Done. Three things
+happened that are worth knowing about.**
+
+**First, the review we thought was pending had never happened.** Back on the 24th
+we sent the second half of this work to the reviewer council and recorded it as
+"waiting for a verdict". It wasn't waiting. It had died six seconds after
+starting, on a typo-grade problem: one of the four listed edits said it would
+"create" a file, and the council only accepts the words "modify", "add",
+"remove", or "config change". No reviewer ever saw it. The nasty part is that a
+submission which dies this way looks *exactly* like one that's still queued — in
+both cases there's simply nothing there yet — so it sat overnight looking
+healthy. I've resent it with the one word corrected and the new evidence
+attached. Two other sessions were bitten by the same thing yesterday and wrote it
+up hours apart, which tells me the submission tool should check this before
+spending anything; I've said so where the tool's owners will see it, rather than
+going and changing their script myself.
+
+**Second, the actual test — and this is the part I'd want you to see.** The
+change adds a gate that asks, when a job claims to have fixed hardcoded colours
+on a site, "did it actually?" The obvious way to write that gate is to re-run the
+detector that found the problem. That would have been a quiet disaster, and I can
+now show you why with real numbers rather than an argument. Across the fleet the
+detector currently flags 32 components on 8 sites — but on **five of those eight
+sites, not one of them is something our colour fixer was ever built to change**
+(they're pale colours, short hex codes, colours written directly on the element).
+So a gate built the obvious way would have refused every completion on those five
+sites for ever, retried them twice each, and then filed them as failures — and
+the sites it would have punished hardest are the ones where nothing was wrong.
+
+So I tested it both ways on the live system. On robot-hands.com, where three of
+three flagged components *are* in the fixer's range, the gate **refused** the
+completion, sent the job back for another attempt, and wrote down exactly which
+component it was unhappy about — and it named the right one, which I knew in
+advance because I'd computed the answer first. On finetuning.uk, where eight
+components are flagged and **none** are in the fixer's range, the gate **let it
+through** and recorded why. That pair is the whole point: refusing when it should
+and, just as importantly, not refusing when it shouldn't. I also found the gate
+had already quietly passed a real job on vonc.com at 10:18 this morning, with no
+prompting from me.
+
+**Third, I got something wrong and want to flag it rather than bury it.** When my
+first test message seemed to vanish, I decided a known glitch had eaten it,
+changed the command, and re-sent. That was wrong. Nothing had been eaten — the
+system's single message-reader was jammed for about fifteen minutes behind
+*another* session's big review job, and when it freed up both of my messages ran,
+twenty-four seconds apart. My "fix" fixed nothing; it just happened to coincide
+with the jam clearing. I'd already written it into our runbook as a standing
+trap, complete with a cost figure, before I disproved it. It's now corrected
+there and logged in the fleet-wide list of wrong calls — where it turns out to be
+the *second* entry of that exact shape filed today, by two sessions who couldn't
+warn each other.
+
+**Where that leaves it.** Bug 021 is closed and moved to the closed folder. Both
+halves are live in the current build and both have been demonstrated firing, not
+just shipped. One piece of unfinished business was split out as its own small
+bug (077): the detector and the fixer disagree about what counts as a problem,
+which leaves eight items sitting in the backlog labelled as if a fixer kept
+failing on them when in truth there was never anything for it to do. It costs
+nothing and breaks nothing — it just makes the backlog lie a bit — and how to
+resolve it is a judgement call for whoever owns that check, so I've written down
+the three options rather than picking one. The council verdict, whenever it
+arrives, is advisory and doesn't change any of the above.

@@ -98,3 +98,83 @@ grep -rn "site_components" platform/ --include=*.go | grep -i "INSERT\|UPDATE\|r
 - Verify against the running pod, never git:
   `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "<symbol I CREATED>"'`
   Grep a literal the change CREATED, plus a positive control — not one it merely uses.
+
+## The scratch one-step probe (INSTANCE 1's harness, generalised 2026-07-25)
+
+Exercises ANY `IsLocal` action against the live binary in seconds, with a payload
+you control — the only way to induce a fault the real dispatch path would
+intercept upstream. Used for INSTANCE 1 (`create_tool_component`, 07-23) and
+INSTANCE 2 (`complete_work_item`, 07-25).
+
+1. Seed a one-step `agent_definitions` row (`is_active=true`,
+   `is_snapshot=false`, `image_tag` = the LIVE tag), whose workflow is
+   `{start_step: <your action>, next: complete_workflow}` and whose step config
+   reads its inputs as `"<field>": "input_data.<field>"` — dot paths resolve
+   against `collected_data` (`resolveConfigPath`).
+2. Fire the 091 kcat envelope at `system.agent.generic.requests` with
+   `{"action":"orchestrate","config":{"agent_type":"<scratch type>"},"input_data":{…}}`.
+3. Read the outcome from `orchestration_states` + whatever the action writes.
+4. **Clean up**: the scratch `agent_definitions` row, the `orchestration_states`
+   (+ audit) rows, any `agent_error_log` rows (else the immune-system sweep
+   triages a deliberate test as a real failure), and the fixtures.
+
+**Containing a fixture that the live fleet can see.** A `site_work_items` probe
+fixture has to sit on a REAL site (`site_id` is NOT NULL and the predicate needs
+it), and a completion refusal releases the claim — status `triaged`, `claimed_by`
+NULL — which makes it dispatchable to a real handler on a real production site.
+Give the fixture `handler_agent = '<something>-nonexistent-agent'` and a distinct
+`item_key`: the dispatch loop picked mine up within 5 seconds of the refusal and
+parked it `blocked` ("Handler agent not registered: …") instead of doing anything
+to robot-hands.com. Cheap, and it is the difference between a contained test and
+an unplanned production edit. Delete the fixture as soon as you have read the
+outcome — don't leave it over a break.
+
+**A fired probe with no `orchestration_states` row is almost always QUEUED, not
+lost.** Cost this session ~20 minutes and one wrong inference: nothing happened
+for 9 minutes, so I blamed the `kubectl run -i` stdin race, added `-c 1` and
+re-fired — then *both* messages ran, 10 minutes later, seconds apart. The `-c 1`
+changed nothing; the consumer was simply wedged. Diagnose in this order, and do
+not re-fire until step 2 says the message is missing.
+
+1. **Is the message on the topic?** If it is, the produce worked and the trigger
+   is not your problem:
+
+```
+kubectl -n kafka run -i --rm kcat-read-$(date +%s) --image=edenhill/kcat:1.7.1 \
+  --restart=Never -- kcat -C -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+  -t system.agent.generic.requests -o -6 -e -q
+```
+
+2. **Has the CONSUMER read it?** One consumer, serialised (`bugs_open/030`), so a
+   16-seat council in flight freezes every other dispatch behind it for its whole
+   duration — on 2026-07-25 that was ~15 minutes with `CURRENT-OFFSET` completely
+   frozen and `LAG` climbing:
+
+```
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+  --describe --group generic-requests-group
+```
+A frozen `CURRENT-OFFSET` with rising `LAG` is the stall; it drains on its own.
+(Ignore `liveness-test-throwaway-group` — an abandoned group with permanent lag.)
+
+## Know the expected verdict BEFORE firing a live verifier probe
+
+A probe only discriminates if you know what it *should* say. For INSTANCE 2:
+dump the verifier's population and run a **verbatim copy** of the shipped
+predicate over it locally (stdlib-only `go run` in a scratch dir — do NOT add a
+throwaway test to the shared tree):
+
+```sql
+SELECT row_to_json(t) FROM (
+  SELECT s.domain, p.name AS page, COALESCE(pc.slot_name,'') AS slot,
+         COALESCE(pc.rendered_html,'') AS html
+  FROM page_components pc JOIN pages p ON pc.page_id=p.id JOIN sites s ON s.id=p.site_id
+  WHERE pc.locked_at IS NULL
+    AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
+    AND pc.rendered_html LIKE '%<style%') t;
+```
+`row_to_json` escapes newlines, so each component is exactly one line — a plain
+scanner reads it. This is what turned "fire and see" into a discriminator pair:
+one site where the transform still bites (must REFUSE) and one where the
+detector matches but the transform does not (must PASS).
