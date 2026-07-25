@@ -119,6 +119,23 @@ func init() {
 // for entities of this kind — the "is there anything to show yet" gate a
 // per-site sources check would apply, re-keyed to a global register with no
 // site_id to check.
+//
+// On the `de.status = 'active'` filter (council objection, debug_historian
+// seat, 2026-07-25): the seat was right to demand the column be enumerated
+// before a gate query filters on it — an entity status that LOOKS
+// authoritative but whose semantics were never checked is a documented trap
+// here (the sites.status informational-column case). Enumerated against live
+// data the same day:
+//
+//	SELECT status, kind, count(*) FROM directory_entities GROUP BY 1,2;
+//	active|company|16   active|model|27   active|protocol|4
+//
+// One value, 'active', across all three kinds — so today the filter is a
+// no-op and changes nothing about what this gate counts. It is kept because
+// migration 192 defines the column as active|archived|superseded, and an
+// archived entity's claims must not make a section look publishable. Stated
+// rather than assumed: this is a deliberate no-op-for-now, not a silent
+// behaviour change.
 func directoryHasPublishableData(dctx DiscoveryCheckContext, kind string) (int, error) {
 	var claimCount int
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
