@@ -3076,3 +3076,16 @@ still contained your change.** Re-check the approved plan's edit list, not just
 its decision. (Fixed forward: the change was resubmitted alone as
 `37a32e02-19a7-409a-a74f-9363556bb39e`, with the situation stated in its
 rationale, so its real status resolves by that correlation.)
+
+**Closed out the same day.** `37a32e02` came back **approved** (18:33Z, 12 seats,
+5 advisory objections, none high-severity). So the change is genuinely reviewed
+— under a correlation its own commit does not name. **The permanent artefact of
+this mistake is a commit whose trailer resolves to an approval for other code**,
+and `098` cannot detect it, because both correlations return `approved`. Only
+the NOTES annotation distinguishes them.
+
+Worth recording the shape of the fix as well as the error: the split the
+council forced (one change, one submission) produced a *better* record than the
+bundle would have — every change now resolves to the verdict that actually
+judged it. The bundling was mine, and I resisted the split as bureaucratic
+before doing it.
