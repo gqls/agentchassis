@@ -307,3 +307,55 @@ objections are on the *shape of the submission* and on going further:
    the truncation guard is a silent no-op.
 4. Island service `cmd/gripper-intake/`; then the image roll, then 207→209→210,
    then the three induced E2E fixtures (DESIGN §6).
+
+## 2026-07-25c — batch 2 APPROVED (round 3), and what that verdict does NOT cover
+
+### APPROVED — corr `7ed137d1-361c-4f69-9361-9e4ba1dfa6bf`, 18:03Z
+`approved with 3 advisory objection(s) — none high-severity`. 14 seats ran:
+**11 approve, 3 object (all advisory)**, `abstained: 2`, `unreadable: null`.
+Objecting seats were editquality (2), guardian (2), prior_art_librarian (3) —
+all advisory, none gating. Round 1's compliance HIGH did not return, and
+neither did any other round-1 or round-2 objection.
+
+Three rounds, and the trail is worth reading in order: round 1 found a real
+hole in the honesty gate (plain-word vendor fabrication), round 2 found a real
+hole in my *process* (bundling an unrelated change) and a real hole in the
+*platform* (`bugs_open/076`), round 3 approved. **Every round paid for itself.**
+
+### The trailer on `8e8b55818` is STILL wrong, and now wrong in a subtler way
+> **NOTE 2026-07-25:** `8e8b55818` (the truncation guard) carries
+> `Council-Reviewed: 7ed137d1`. That correlation is now APPROVED — but round 3's
+> approved plan is **precisely the plan the truncation guard was removed from**,
+> at editquality's request. So the trailer now points at a real approval that
+> explicitly **excludes the change it is attached to**. That is worse than a
+> stale claim: it reads as reviewed, resolves to an APPROVED verdict, and the
+> verdict is for other code.
+>
+> Fixed the only way forward-only allows: the truncation guard was submitted on
+> its OWN, **corr `37a32e02-19a7-409a-a74f-9363556bb39e`**, with the whole
+> situation stated in its rationale. Whatever that verdict says is the real
+> status of `8e8b55818`; resolve it by THAT correlation, not the one in the
+> commit.
+>
+> **The transferable rule is sharper than "check the verdict first":** a
+> correlation id identifies a *submission*, and a submission's contents change
+> between rounds. A trailer is only true if the approved round still contained
+> your change.
+
+### Council-Reviewed trailer, going forward in this lane
+Commits `2849564ec`, `b7fd2ef8b`, `5eb433e47`, `82b34564d` predate the verdict
+(advisory-first flow) and carry no trailer — resolvable by corr 7ed137d1, which
+is APPROVED. Later platform commits in this lane may carry
+`Council-Reviewed: 7ed137d1-361c-4f69-9361-9e4ba1dfa6bf`, **but only for code
+the approved round-3 plan actually contained** — which excludes the truncation
+guard, and excludes `fail_workflow` (built after the submission; it needs its
+own round).
+
+### Not covered by any approval yet
+- `fail_workflow` (`6b14055d7`) — a new CORE primitive, built after round 3 was
+  submitted. A core workflow-control action deserves its own review; do not
+  attach 7ed137d1 to it.
+- The report CSS + drift guards (`5eb433e47`) — shipped after the round-3 plan
+  was written, so also outside it.
+- Seeds 207–210 — config, not `platform/`; out of council scope by the
+  client-side rule.
