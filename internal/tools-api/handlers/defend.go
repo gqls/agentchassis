@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/gqls/agentchassis/internal/tools-api/httperr"
 	"github.com/gqls/agentchassis/internal/tools-api/store"
 	"github.com/gqls/agentchassis/platform/aiservice"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,7 +47,14 @@ func DefendHandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {
 
 		round, err := store.GetRound(ctx, pool, req.RoundID)
 		if err != nil {
-			httperr.JSONError(c, http.StatusNotFound, "round not found")
+			// Only a genuinely missing row is a 404 — any other failure
+			// (DB outage, scan defect) must surface as a 500, not be
+			// disguised as the caller's mistake.
+			if errors.Is(err, pgx.ErrNoRows) {
+				httperr.JSONError(c, http.StatusNotFound, "round not found")
+			} else {
+				httperr.JSONError(c, http.StatusInternalServerError, "round lookup failed")
+			}
 			return
 		}
 

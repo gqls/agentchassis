@@ -48,9 +48,14 @@ func GetRound(
 	pool *pgxpool.Pool,
 	roundID string,
 ) (*Round, error) {
+	// COALESCE the text columns: they are NULL on every fresh round and pgx
+	// cannot scan NULL into string — without this, GetRound errored on every
+	// round that had not yet stored a position/defence, which the handlers
+	// then reported as "round not found" (found at first island smoke,
+	// 2026-07-25). The jsonb columns scan into []byte, where NULL is fine.
 	const q = `
 		SELECT id, site_id, provocation, counter, verdict,
-		       position_text, defence_text
+		       COALESCE(position_text, ''), COALESCE(defence_text, '')
 		FROM   gauntlet_rounds
 		WHERE  id = $1`
 
