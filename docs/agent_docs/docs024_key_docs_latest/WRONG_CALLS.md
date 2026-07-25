@@ -2478,3 +2478,25 @@ did not stop me; the note fires on the word "council", and this was a page reren
 of your row is a claim about the queue, and a claim about the queue needs a query about the
 queue — whatever subsystem you are firing at.** Cost here was one duplicate (idempotent)
 rerender; the same reflex against the council costs a whole duplicate review round.
+
+**2026-07-25 — wrote a cause into the RUNBOOK from a single observation, and had
+to correct it 90 minutes later.** A direct kcat dispatch produced no orchestration
+row. It had three headers; the working script in another workstream uses ten. I
+wrote the RUNBOOK entry "the FULL header set is load-bearing — a dispatch with only
+correlation_id/client_id/request_id produces NO orchestration row and NO error",
+stated as mechanism, and committed it. Then I sent four more dispatches WITH all ten
+headers: **all four also produced nothing — 5 of 5, header count irrelevant.** The
+real situation is that direct dispatch was not landing at all that morning while the
+chassis was demonstrably healthy and consuming the same topic from other producers,
+and none of the five correlation ids reached its log — i.e. the messages were never
+received, which the header hypothesis would not explain either. **Cheap check: I had
+the disconfirming test available before I wrote the claim — send one with the full
+set and see.** Instead I ran the experiment after publishing the conclusion, which
+is the wrong order and produced a RUNBOOK that would have sent the next thread
+hunting a header bug that does not exist. What makes this worth logging rather than
+shrugging off: the entry LOOKED like exactly the kind of hard-won gotcha a RUNBOOK
+is for — specific, mechanical, actionable — and that plausibility is precisely why
+an unverified cause in an operational doc is more dangerous than one in NOTES.
+Corrected in place with the five-row evidence table and an [UNVERIFIED] marker on
+what remains unknown. Family: cause-invented-to-fit-one-observation,
+published-before-tested.
