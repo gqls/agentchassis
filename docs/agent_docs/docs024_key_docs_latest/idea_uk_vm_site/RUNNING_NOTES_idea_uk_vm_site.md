@@ -1725,3 +1725,49 @@ property of your message.
 **STILL TO DO:** `p4_07` (cross-links: patents guide → checker + → copyright; then re-render
 /tools.html so its derived tool-list picks the new tool up) and `p4_03` (locks, extended to cover
 all four new pages).
+
+**§X.13 addendum — cross-links, locks, and a lock that was nearly a silent time bomb.**
+
+`p4_07` wired the pages together (patents guide → checker + copyright guide; /tools.html re-rendered
+so its derived `tool-list` picked the new tool up — no content edit, only a render). Both clean
+(`rr=3/carried=0`, `rr=4/carried=0`). VERIFIED LIVE: `/tools.html` carries
+`href="/tools/patent-check/index.html"`, the patents guide carries links to both the checker and the
+copyright guide, and all six pipeline pages return 200.
+
+`p4_03` then locked the authored sections — and here is the misstep, the third of the day and the
+worst of them because it would not have announced itself.
+
+> **CORRECTED 2026-07-25 — `p4_03`'s own comment was FALSE.** It said: *"the items themselves stay
+> query-resolved and must NOT be frozen — the lock protects the surrounding copy, not the derived
+> list."* A lock is applied to the `page_components` **ROW** and cannot separate authored copy from
+> derived items, because both live in that row. `SavePageSectionsAction`
+> (`save_page_sections_action.go:487-534`) preloads actively-locked rows, holds them out of the
+> rebuild DELETE and re-attaches them **verbatim** — the code's own comment is *"Human-locked rows
+> must survive the rebuild with copy AND row identity"*, and it logs *"preserving human-locked
+> section over rebuilt copy (bugs_open/058)"*.
+
+So for about ten minutes the guides hub's `guide-list` was locked, which would have **frozen the
+listing at one card permanently**: every future guide written, deployed and silently never listed,
+each render reporting success. The self-populating listing is the entire reusable contribution of
+increment 1, and locking it would have killed it on the day it was built.
+
+**What caught it was luck, and it is worth being precise about that.** The final sweep showed the
+live hub with one card while two guides existed — legitimately, because copyright shipped ~25
+minutes after the hub's last render. That gap made me ask why. Had I locked before writing a second
+guide, or looked five minutes earlier, one card and one guide would have looked perfect. A frozen
+derivation is indistinguishable from a working one until the data it tracks moves on.
+
+**THE RULE, and it generalises well beyond this page:** *never lock a section whose component
+schema has any `query.*` source.* Locks are for AUTHORED sections only. Protect a deriving section
+by making its authored fields content_data-driven — which `p4_04` had already done here — so
+nothing wants to regenerate them; guard the inputs, not the output. `p4_08` unlocks the hub (with a
+guard that refuses unless the section really does derive) and records the rule as a `doc_note` under
+`component_locks`. Logged in `WRONG_CALLS.md`.
+
+FINAL LOCK STATE — 8 authored sections locked (patents ×3, copyright ×3, patent-check ×2), and both
+deriving listings (`guide-list` on the guides hub, `tool-list` on /tools.html) deliberately free.
+
+**Pattern across the day's three missteps, worth naming:** all three were confident statements about
+platform behaviour made from intent rather than from the code or a query — the carried section
+(slot_name), the "dropped" spawn, and this lock. Each was one grep or one query away. The code was
+on disk in every case.

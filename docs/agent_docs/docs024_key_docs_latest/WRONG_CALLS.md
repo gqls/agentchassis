@@ -2526,3 +2526,43 @@ CORRECTNESS; induce the fault for anything whose job is to detect one" and did
 not apply it to my own sweep, which is *precisely* a thing whose job is to detect
 a fault. Family: green-status-no-work, checked-the-job-not-the-output,
 own-rule-not-applied-to-own-work.
+
+---
+
+## 2026-07-25 — "the lock protects the copy, not the derived list". It freezes the whole row.
+
+**The claim.** Locking idea.uk's guides-hub listing section (`p4_03`), I wrote in the SQL and
+repeated it in the commit message: *"The hub's listing copy (the items themselves stay
+query-resolved and must NOT be frozen — the lock protects the surrounding copy, not the derived
+list)."* Stated as fact, in the artefact that performs the action, with no check.
+
+**What was actually true.** A lock is applied to the `page_components` **row**, and cannot
+distinguish authored copy from derived items because both live in that row.
+`SavePageSectionsAction` (`save_page_sections_action.go:487-534`) preloads actively-locked rows,
+holds them out of the rebuild DELETE and re-attaches them verbatim — the comment in the code reads
+*"Human-locked rows must survive the rebuild with copy AND row identity"*, and it logs *"preserving
+human-locked section over rebuilt copy"*. So the lock freezes the derivation outright.
+
+**What it would have cost.** The guides hub derives its list from
+`query.pages_where_type:guide` — that self-populating listing is the entire reusable contribution
+of the day's work. Locked, it would have kept rendering exactly one card forever: every future
+guide written, deployed, and silently never listed, with each render reporting success. A frozen
+derivation is indistinguishable from a working one until the data it tracks has moved on, which is
+why nothing would have flagged it.
+
+**What caught it.** Luck, in the end-to-end sweep. The copyright guide shipped 25 minutes after the
+hub's last render, so the hub was legitimately one card behind at the moment I looked — and that
+made me ask why. Had I locked before adding a second guide, or looked five minutes earlier, the
+sweep would have shown one card and one guide and looked perfect.
+
+**The cheap check that would have caught it.** Read the code path that honours the lock before
+asserting what the lock does — one grep for `locked` in `save_page_sections_action.go`, which is
+exactly what I did *after* the sweep and which answered it in seconds. The claim was about a
+mechanism, and I had the mechanism on disk.
+
+**Transferable rule.** **Never lock a section whose component schema has any `query.*` source.**
+Locks are for authored content only; protect a deriving section by making its authored fields
+content_data-driven (so nothing wants to regenerate them) rather than by freezing the row. Recorded
+as a `doc_note` under `component_locks` and corrected by `p4_08`. More generally: this is the
+second entry today where I described platform behaviour confidently from intent rather than from
+the code — see the queued-vs-dropped-spawn entry above. Both were one grep or one query away.
