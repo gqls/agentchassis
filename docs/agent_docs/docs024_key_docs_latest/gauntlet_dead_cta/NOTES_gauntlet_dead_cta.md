@@ -577,3 +577,22 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - Branch `feat/c379f7b7` deleted (E4), implementer re-fired ONCE at ~08:42 UTC
   (fire_impl8.sh patient watcher, no auto-refire). Implementer agent_definitions
   rows already at v1.0.1156 (current prod roll) — no hand-update needed this time.
+
+## 2026-07-25 ~09:15 — B4 COMPLETE: first full implementer run → machine PR #3
+
+- Re-fire (orch `af286d2c`, fired 08:37:19, ingest ~7 min) ran ALL SIX stages to
+  green gates, passed the end `test_gate`, and opened **PR #3**
+  (https://github.com/gqls/agentchassis/pull/3): 18 files, +880/−0 — scaffold,
+  dockerfile+kustomize, httperr+CORS, ratelimit+inputcap, rounds store +
+  migration `198_tools_api_gauntlet_rounds.sql` + /round, position+defend via
+  platform/aiservice. Orchestration `COMPLETED|complete`.
+- 071-fix behavioural proof rode along: the run crossed the 08:50/09:00/09:10
+  cleanup ticks; each tick log took the KEEP branch (25/32 live jobs, 86–146
+  topics kept). awaited_requests for the run: **8/8 processed, 0 expired** —
+  including all six stage_commit awaits, the class that died twice on 07-24.
+- Owner's hard gate is next: PR review + merge. NOTE for merge-time: the PR
+  carries CLUSTER kustomize manifests + a clients_db-shaped migration, but the
+  exposure leg pivoted to the ISLAND VM (Route B1) — deployment target and the
+  DB for migration 198 (ISLAND Postgres, not clients_db) need the island
+  session's runbook, not this PR's manifests, at deploy time. Re-check 198 is
+  still a free number at apply time either way.

@@ -334,3 +334,15 @@ what's running (this morning it correctly held off — 39 agents were busy). The
 builder has been re-fired on the same approved plan and is being watched. If it
 gets through all six stages this time, we get the pull request — your review is
 the gate after that.
+
+2026-07-25 (~9.15am): it worked. With the cleaner fixed, the builder ran the whole
+plan end to end for the first time — six stages, each one checked and committed,
+then the final test pass — and opened the pull request for your review. That PR
+(number 3 on the repo) contains the complete debate-opponent backend: the web
+service, its container and deployment files, the database table for game rounds,
+and the three endpoints (get today's provocation, file a position and get the AI's
+counter-attack, defend and get an honest verdict). Nothing ships until you review
+and merge it — that's your gate. One thing to decide at merge time: since the
+public-facing home for this API moved to the standalone island machine, we'll
+deploy it there rather than with the in-repo cluster files, and the game-rounds
+table belongs in the island's own database.

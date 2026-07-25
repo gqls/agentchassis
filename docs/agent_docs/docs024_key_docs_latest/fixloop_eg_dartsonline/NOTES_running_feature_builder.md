@@ -681,3 +681,18 @@ cheap closes — 184-as-edit, attach the registry+verb search output, name the
 owning pipeline, show the needle-gate. Items (1)-(2) are genuine design work; the
 code is committed/live regardless. PATCH_018 + migration 184 stand on their own
 merits (both committed in `de282bddd`) whatever the owner decides on a round 3.
+
+## 2026-07-25 — B4 CLOSED: the implementer's first complete run (contributed by the gauntlet_dead_cta thread)
+
+The never-fired half has now fired and finished. On approved plan corr
+`c379f7b7` (tools-api, 6 stages), run `af286d2c` executed scaffold→PR end to
+end: six gated stage commits, test_gate PASS, **PR #3 opened 09:13Z**
+(18 files, +880/−0, one commit per stage). awaited_requests: 8/8 processed, 0
+expired. The two 07-24 attempts on the same plan died from `bugs_open/071`
+(agent-job-cleanup deleted live job.* topics every 10 min — guard label never
+matched any pod; fixed & live 9dc99c61c), NOT from any implementer defect. The
+B4 shakeout's full fix ledger: bugs 065 (formatGeneratedGo shape, live), 066
+(spawned pods pin agent_definitions.image_tag — deploy-time sync now runs), 067
+(+addendum: designer caps, live), 071, migrations 199/200 (module path,
+plan-paths-are-law), 201/202 (designer caps). Owner's hard gate = the PR merge;
+deployment target pivoted to the island VM (see gauntlet_dead_cta docs).

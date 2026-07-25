@@ -132,7 +132,13 @@ self-evidencing, hence marked hypothesis.
 - A feature-implementer run (8–25 min, guaranteed tick crossings) completes all
   stages without an expired `stage_commit` await: `SELECT status FROM
   awaited_requests WHERE orchestration_id='<run>'` shows no `expired` rows.
-  First live trial fired 08:4x 07-25 on corr `c379f7b7`.
+  **PROVEN 2026-07-25 09:13:** run `af286d2c` (fired 08:37, PR opened 09:13)
+  crossed the 08:50, 09:00 and 09:10 ticks — each tick's log took the keep
+  branch ("Live spawned workload (jobs: 25/32/…) — keeping all job topics") —
+  and finished with 8/8 awaits `processed`, 0 `expired`, all six stage_commits
+  consumed. Same plan, same code path that died twice the day before →
+  machine PR #3. The core mechanism is dead; the case stays OPEN only for the
+  residuals (pod-template labels, topic-age gating).
 - Negative control: with zero spawned jobs/pods, a tick still deletes orphan
   topics (the cleanup's actual job) — verified by the delete-all branch running
   on the 08:20 tick and topics re-listed at 88 by 08:34 (churn + zombies).
