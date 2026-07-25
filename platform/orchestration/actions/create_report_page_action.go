@@ -109,14 +109,14 @@ func CreateReportPageAction(ctx context.Context, params ActionParams) (interface
 		}
 	}
 
-	// --- Shared template component (seed 205) ---
+	// --- Shared template component (seed 207) ---
 	var componentID uuid.UUID
 	err = params.DB.QueryRowContext(ctx, `
 		SELECT id FROM content_components
 		WHERE function = $1 AND is_active = true
 		ORDER BY created_at DESC LIMIT 1`, reportComponentFunction).Scan(&componentID)
 	if err != nil {
-		return nil, fmt.Errorf("report-dossier component not found (seed 205 applied?): %w", err)
+		return nil, fmt.Errorf("report-dossier component not found (seed 207 applied?): %w", err)
 	}
 
 	var siteDomain string
