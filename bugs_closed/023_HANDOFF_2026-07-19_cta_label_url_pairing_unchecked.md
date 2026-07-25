@@ -728,6 +728,23 @@ the exact configuration of `executeGoTemplate` (`call_agent.go:1150`), which is 
 
 That is the mechanism, proven against the real engine and the real data rather than asserted.
 
+**And the same check across all 31 gated components, both ways** — because a gate that removes
+every button is not a fix either. Each template was rendered twice with the platform's engine
+settings: once with **no data** (expect no control) and once with **every gated field populated**
+(expect every control back).
+
+```
+31 of 31 : with fields populated, every gated anchor returns  (2 to 28 anchors each)
+31 of 31 : with no data, zero anchors with an empty href
+```
+
+Six components do emit exactly one anchor with no data, and reading them is the point: five are
+the **site brand link** `<a href="/" class="…-brand">` — a hardcoded root link that always
+resolves — and the sixth is `provocations-archive-list`'s hidden `[data-archive-template]` clone
+source. None is a control with an absent destination. *(A first pass of this sweep flagged all
+six as failures because its rule was "no anchors at all with no data". The rule was wrong, not
+the components — a fixed, always-valid href is not this bug's defect.)*
+
 > **The one thing gating cannot do, stated plainly: it does not rewrite HTML that is already
 > deployed.** `page_components.rendered_html` is a stored artefact. Pre-existing dead controls
 > drain as pages re-render. This is exactly why `info-card-grid`'s 8 live `href=""` persisted on
