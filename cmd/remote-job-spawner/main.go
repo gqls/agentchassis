@@ -397,6 +397,8 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 						"agent-id":        req.AgentID,
 						"client-id":       req.ClientID,
 						"spawner-cluster": clusterID,
+						// bugs_open/071: pod-level copy of the Job's spawned-by label.
+						"spawned-by": "remote-job-spawner",
 					},
 					Annotations: map[string]string{
 						"prometheus.io/scrape": "true",

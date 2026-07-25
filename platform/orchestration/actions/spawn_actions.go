@@ -2736,6 +2736,11 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 						"agent-type": agentDef.Type,
 						"agent-id":   agentID,
 						"client-id":  clientID,
+						// bugs_open/071: pod-level copy of the Job's spawned-by label so pod
+						// selectors can match pods, not just Jobs. Value intentionally differs
+						// from remote-job-spawner's — existing selectors depend on each value;
+						// select both with -l 'spawned-by in (orchestrator, remote-job-spawner)'.
+						"spawned-by": "orchestrator",
 					},
 					Annotations: map[string]string{
 						"prometheus.io/scrape": "true",
