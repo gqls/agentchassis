@@ -758,6 +758,11 @@ the dispatcher's own `DISTINCT ON (site_id) … ORDER BY site_id` selection, so 
 To check it later: `curl -s https://leopardessconsulting.co.uk/who-we-help.html | grep -c 'href=""'`
 — **6 today, expect 0 after that item completes.**
 
+**Final state at 18:22 UTC:** never claimed — `attempt_count=0`, `claimed_at` null, after 20
+minutes of polling. Fleet-wide the queue had **98 triaged / 0 claimed and no item reaching a
+terminal status between 17:42 and 18:22**, so this is a queue that is not running, not a page
+that failed to render. Snapshot contributed to `bugs_open/030`.
+
 It is deliberately not part of the closure bar. The mechanism is already proven above against the
 platform's own engine on this page's real data, and the property criterion 3 states is about the
 **library**, which is measured directly. Waiting on a queue owned by another open bug is exactly

@@ -1012,3 +1012,8 @@ all** in 25 and 30 minutes of polling. If the interactive lane is meant to be cl
 cron traffic after candidate 1, that asymmetry may be worth a look — or it may be a
 payload rejection with no durable record, which would be `bugs_open/034`'s shape
 rather than this file's.
+
+**Extended window, same session — 18:22 UTC.** The stall held: **98 triaged, 0 claimed, no item
+reaching a terminal status between 17:42 and 18:22** (~40 minutes). Both waiting items were still
+`triaged` with `attempt_count=0` and `claimed_at` null — they were never claimed, so no retry or
+attempt cap is involved. Dispatch-loop pods continued to spawn and exit cleanly throughout.
