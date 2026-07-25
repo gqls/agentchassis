@@ -139,3 +139,39 @@ checking that the gate logs a warning — it already does, and that is the bug.
   not resolvability.
 - `bugs_closed/063` — fail-open on missing config, same shape: the protective
   branch is skipped exactly where protection is needed.
+
+## Related defect, same blind spot: nothing validates the FRAGMENT
+
+The gate's phantom-link check (and the post-deploy audit it shares definitions
+with) resolves the **path** and ignores everything after `#`. So a "jump to this
+section" link is never checked at all. Measured 2026-07-25 across all deployed
+pages, fleet-wide:
+
+| site | anchored links | fragment resolves to an `id` |
+|---|---|---|
+| fundamentallyai.com | 21 | **0** |
+| idea.uk | 4 | 1 |
+
+**24 of 25 anchored links in the fleet point at an `id` that does not exist.**
+The cause is a two-sided gap, not a writer bug alone: the content writer emits
+plausible section anchors (`#decision-record`, `#reviewer-seats`, `#approach`),
+and **no section component emits an `id` attribute** for the writer to target. So
+even a well-behaved writer could not produce a working one.
+
+Scale is small, which is why this is recorded here rather than as its own case —
+but the failure rate where the pattern is used is effectively 100%, and it is
+invisible to every existing check. Two of the three fix candidates are cheap:
+
+1. **Extend the check** to resolve fragments against the assembled page's `id`
+   attributes. This is what makes the class visible at all.
+2. **Have section components emit a stable `id`** (the section/component name is
+   the obvious candidate) and pass the page's available anchor list to the writer,
+   the same way the real page list should be passed for paths (candidate 4 above).
+3. Failing both, the writer should not emit fragments at all.
+
+Note the interaction with this bug's main finding: on fundamentallyai.com these
+21 links were *also* extension-less (`/capabilities#approach` on a `.html` site),
+so they returned **404** rather than merely failing to scroll. Repairing the path
+converts them from broken to inert — an improvement, not a fix. They still do
+nothing when clicked, and a dead control is what `bugs_open/023`'s family exists
+to catch.
