@@ -79,23 +79,23 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 
 		client, err := aiservice.NewAnthropicClient(ctx, map[string]interface{}{"model": cfg.Model})
 		if err != nil {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet judge unavailable")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge unavailable")
 			return
 		}
 
 		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{})
 		if err != nil {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet judge unavailable")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge unavailable")
 			return
 		}
 
 		var aiResp defendAIResponse
 		if err := json.Unmarshal([]byte(text), &aiResp); err != nil {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet judge response was invalid")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge response was invalid")
 			return
 		}
 		if strings.TrimSpace(aiResp.Verdict) == "" || strings.TrimSpace(aiResp.Reasons) == "" {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet judge response was invalid")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge response was invalid")
 			return
 		}
 

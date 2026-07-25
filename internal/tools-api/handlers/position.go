@@ -73,23 +73,23 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 
 		client, err := aiservice.NewAnthropicClient(ctx, map[string]interface{}{"model": cfg.Model})
 		if err != nil {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet opponent unavailable")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent unavailable")
 			return
 		}
 
 		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{})
 		if err != nil {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet opponent unavailable")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent unavailable")
 			return
 		}
 
 		var aiResp positionAIResponse
 		if err := json.Unmarshal([]byte(text), &aiResp); err != nil {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet opponent response was invalid")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent response was invalid")
 			return
 		}
 		if strings.TrimSpace(aiResp.CounterPosition) == "" || strings.TrimSpace(aiResp.Challenge) == "" {
-			httperr.JSONError(c, http.StatusBadGateway, "gauntlet opponent response was invalid")
+			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent response was invalid")
 			return
 		}
 
