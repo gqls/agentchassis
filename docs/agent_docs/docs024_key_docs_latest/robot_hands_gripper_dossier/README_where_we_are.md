@@ -34,3 +34,64 @@ conflict-note maths, and the fact block that will keep the report's prose
 honest (the writer may only use numbers from it). Tests all pass, including
 the case where nothing fits and the case where a figure isn't published —
 both must be said plainly, never papered over.
+
+---
+
+**25 July.** The whole cluster-side half of this is now built, tested and
+committed. What's left before a real visitor could use it is the island
+service (the public-facing bit), an image roll, and the end-to-end tests.
+
+The most useful thing that happened today was the review council telling me I
+was wrong, twice, about things that mattered.
+
+The first round came back "revise". The gap it found: my honesty gate could
+catch an invented *number* and an invented *model number*, but not an invented
+*vendor name*. If the writer had padded the shortlist with "you might also look
+at Piab", nothing would have stopped it — the check needs digits to see a name,
+and the general-purpose fabrication scanner is deliberately switched off on
+these pages (it compares against the site's own figures, and every number on a
+report is calculated fresh for that one customer, so it would reject every
+honest report). I'd written that gap down as an accepted limitation. The
+council said, in effect: that's precisely the thing you claim this feature
+does, so don't accept it quietly. It was right. That's now closed, and the
+list of vendors it checks against is read from our own product data, so it
+grows by itself as we index more.
+
+It also caught me copying rather than reusing: my new "pull from the island"
+code was a near line-for-line copy of the code that pulls from the traffic
+probe box. I've now extracted the shared half so it exists once, and moved the
+live traffic-probe code onto it too — which is the riskiest change in the
+batch, since that one is running in production.
+
+The second round found something bigger, and this one is worth your attention.
+When we ask an AI model for a long piece of writing and the answer gets cut off
+at the length limit, the platform *keeps* the half-answer, marks it, and reports
+success — on the reasoning that a marked half-answer is better than a hard
+failure. That's a fair trade, but only if whoever receives it reads the mark.
+The council asked how many places read it. Nobody had checked. The answer:
+**118 places ask a model for something, across 58 agents; 5 read the mark.**
+Two orchestrations are carrying a truncation marker right now. So a cut-off
+answer can quietly become a finished-looking piece of work almost anywhere in
+the system. I've written that up as its own bug (076) rather than bolting a
+patch onto this feature — the obvious fix is to make it fail loudly by default,
+but that would change behaviour in 113 places at once, and nobody has measured
+what would break. That measurement should come first.
+
+I also caught two of my own errors worth recording. I stamped "reviewed by the
+council" on a commit without reading the verdict — it was a "revise", not an
+approval. It's in the permanent history now and I've logged it in the
+wrong-calls file; the check was one query and took thirty seconds when I
+finally ran it. And the report page would have gone out to a paying customer
+completely unstyled: the way these pages are assembled means a component's
+styling has to travel *with* the rendered page, and robot-hands.com has no
+styling for a page type that didn't exist until this week. I've written a test
+that renders a report and checks every single style name is actually defined —
+it found two more I'd missed straight after I'd checked by eye.
+
+Nothing here is live yet. The report pipeline is committed but inert until the
+next image roll, and both scheduled jobs are seeded switched off, on purpose:
+the plan is to prove the builder on a hand-made request first, and only then
+let real visitor requests start flowing.
+
+Still waiting on you for the one thing: the spend-capped API key for the
+island. Everything up to that point can carry on without it.
