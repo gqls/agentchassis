@@ -14,15 +14,23 @@
 //   3. If match_count == 0, the summary must carry the mandatory sentence
 //      verbatim, and no softening/purchase language may appear anywhere.
 //   4. No section may be empty.
+//   5. The prose step must not have recorded a tolerated truncation — a
+//      fragment that parses is still a fragment.
 //
 // Contract mirrors validate_page_content: violation returns (nil, error) so
 // the workflow's error_step routes to the failure path. Offending tokens are
 // in the error text and the log.
 //
 // Config:
-//   - prose_field:   dotted path to the prose object {summary_html,
-//                    candidates_html, integration_html, vendor_questions_html}
-//   - scoring_field: dotted path to score_grippers' output
+//   - prose_field:       dotted path to the prose object {summary_html,
+//                        candidates_html, integration_html,
+//                        vendor_questions_html}
+//   - scoring_field:     dotted path to score_grippers' output
+//   - context_field:     optional; the request row, whose string values the
+//                        prose may legitimately echo
+//   - truncation_field:  optional override for the __truncated marker path
+//                        (default: sibling of prose_field, see
+//                        truncationMarkerField)
 
 package actions
 
@@ -89,6 +97,24 @@ func VerifyReportProseAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("scoring_field %q did not resolve to an object (got %T)", scoringField, scoringRaw)
 	}
 
+	// Truncation guard (bugs_open/012/019 class). ExecuteLLMPromptAction
+	// tolerates a cut response and stamps __truncated as a SIBLING of .result
+	// — the step then SUCCEEDS, so a consumer that ignores the marker cannot
+	// tell a complete dossier from a fragment. A partial that PARSES is still
+	// a partial: prose cut mid-section can close into valid JSON with every
+	// key present and the honest caveats missing, and this gate's numeric
+	// checks would pass it. Refuse it here, where the page is still unwritten.
+	//
+	// Derived from prose_field by default (diagnose_council_decide precedent)
+	// so it cannot drift out of step with it; truncation_field overrides for
+	// a prose path that is not the step result's immediate child.
+	override, _ := config["truncation_field"].(string)
+	if mf := truncationMarkerField(proseField, override); mf != "" {
+		if t, ok := datahelpers.ExtractNestedField(params.CollectedData, mf).(bool); ok && t {
+			return nil, fmt.Errorf("prose step recorded a TRUNCATION at %q — refusing to publish a fragment", mf)
+		}
+	}
+
 	// Optional: the raw request row (load_request output). Its string values
 	// are context the prose may legitimately echo (mounting standard, part
 	// geometry, budget) even though score_grippers never sees them.
@@ -112,6 +138,19 @@ func VerifyReportProseAction(ctx context.Context, params ActionParams) (interfac
 
 	logger.Info("VerifyReportProseAction: prose verified against fact block")
 	return map[string]interface{}{"verified": true, "sections": proseSectionCount}, nil
+}
+
+// truncationMarkerField resolves the collected_data path of the prose step's
+// __truncated marker. An explicit override wins; otherwise the marker is the
+// sibling of prose_field's terminal segment, per markerFieldFor. A prose_field
+// with no parent segment has nowhere to look and yields "" (no guard) — that
+// shape does not occur for an execute_llm_prompt result, whose prose always
+// sits at "<step>.result".
+func truncationMarkerField(proseField, override string) string {
+	if strings.TrimSpace(override) != "" {
+		return strings.TrimSpace(override)
+	}
+	return markerFieldFor(proseField)
 }
 
 // modelNumberRe finds SKU-shaped tokens: a prefix mixing letters and digits

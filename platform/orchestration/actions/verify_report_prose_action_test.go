@@ -136,6 +136,26 @@ func TestProseGateFormattingToleranceAndContext(t *testing.T) {
 	}
 }
 
+// --- truncation guard --------------------------------------------------------
+
+// The marker is a SIBLING of the prose path, derived rather than configured so
+// it cannot drift when prose_field changes. A wrong derivation here fails
+// silently — it simply never finds a marker — so the mapping is asserted
+// directly rather than only through the action.
+func TestTruncationMarkerFieldDerivation(t *testing.T) {
+	cases := []struct{ prose, override, want string }{
+		{"report_prose.result", "", "report_prose.__truncated"},
+		{"report_prose.result", "custom.path", "custom.path"},
+		{"report_prose.result", "  ", "report_prose.__truncated"}, // blank is not an override
+		{"flat", "", ""}, // no parent segment: no marker to find
+	}
+	for _, c := range cases {
+		if got := truncationMarkerField(c.prose, c.override); got != c.want {
+			t.Errorf("truncationMarkerField(%q,%q) = %q, want %q", c.prose, c.override, got, c.want)
+		}
+	}
+}
+
 // --- chart determinism -------------------------------------------------------
 
 func TestHeadroomChartDeterministicAndHonest(t *testing.T) {
