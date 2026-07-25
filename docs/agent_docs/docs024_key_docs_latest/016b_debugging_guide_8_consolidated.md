@@ -3681,3 +3681,37 @@ values in your data, either label it as format-only or expect to.
 the presence-not-fidelity gate that passed these); §9 *"A hard cap that
 silently discards its input's tail rewrites meaning"* (truncation changing
 what a consumer sees); WRONG_CALLS tally on unverified figures.
+
+### A reliability fix turns silent strandings into infinite loops wherever a discard path exists — audit every "ignore and return nil" downstream of a new retry driver (2026-07-25)
+
+Bug-003's F2 gave expired awaited requests a durable, cross-pod retry driver.
+Its own induced-fault test (deliberate chassis-pod kill) then produced two
+orchestrations retrying `deploy_page` every ~3 minutes FOREVER — each cycle
+performing a real GitHub commit — because the response path contains a
+discard: a consumer that loads state and finds `processing_node` naming a
+different pod "ignores" the response (`coordinator.go:269–277`), and a dead
+pod's name matches no living consumer ever again (`bugs_open/075`). Before
+the retry driver existed, that discard produced a silent 90-min strand — bad,
+but bounded. After it, the loop is unbounded AND invisible: every cycle
+refreshes `last_activity`, so the reaper's staleness clause never fires, and
+the adapter-retry branch resets `retry_version` to 0 on each fresh request
+(`RetryCount[step] = rv+1` is an assignment of 1, not an increment), so the
+`>=3` cap is unreachable.
+
+The transferable rules:
+- **Before shipping any driver that re-arms work, enumerate every path that
+  can consume the work's result and throw it away** (`return nil` on a
+  mismatch, "ignoring", "skipping"). Each one is a future infinite loop, with
+  the retry period as its duty cycle and any external side effect repeated
+  per cycle. Under at-least-once consume, a discard is PERMANENT — the offset
+  commits behind it.
+- **A retry cap must be checked against a counter that survives the retry.**
+  If the retry path creates a fresh unit of work (new request_id, rv=0), the
+  cap variable just reset itself. Grep the cap check's operand and ask: does
+  the retry INCREMENT this, or recreate it?
+- **Staleness reapers are blind to loops** — a loop writes progress-shaped
+  timestamps. Bounded-retry accounting, not activity age, is what catches a
+  cycle.
+- Ownership-by-pod-name over DB-backed state is a discard generator: the pod
+  name is a liveness claim nobody verifies. Takeover-by-CAS (the F2 claim
+  pattern) is the in-tree shape that replaces it.
