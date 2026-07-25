@@ -392,6 +392,16 @@ kubectl -n kafka run -i --rm "kcat-diagnose-$(date +%s)" \
 {"action":"orchestrate","config":{"agent_type":"$TARGET_AGENT_TYPE"},"input_data":$INPUT_DATA}
 JSON
 
+# bugs_open/030: the queries below return 0 rows until the dispatch reaches the
+# head of the single generic requests lane — indistinguishable from a drop, and
+# it has already ended one investigation with a TODO. Print the lane depth so
+# nobody re-fires. Advisory and fail-soft; never let it break a dispatch.
+QUEUE_REPORT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel 2>/dev/null || true)/scripts/dispatch-queue-depth.sh"
+if [[ -x "$QUEUE_REPORT" ]]; then
+  echo ""
+  "$QUEUE_REPORT" || true
+fi
+
 cat <<EOF
 
 =========================================

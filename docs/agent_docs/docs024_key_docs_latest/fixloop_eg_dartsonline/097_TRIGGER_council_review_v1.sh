@@ -141,6 +141,16 @@ echo ""
 echo "Submitted. Watch the run:"
 echo "  SELECT new_current_step, new_status, changed_at FROM orchestration_state_audit"
 echo "  WHERE orchestration_id='${ORCHESTRATION_ID}' ORDER BY changed_at;"
+
+# bugs_open/030: that query returns 0 rows until the dispatch reaches the head of
+# the single generic requests lane, which reads as a drop and has twice cost a
+# duplicate paid round. Print the lane depth so nobody re-fires. Advisory and
+# fail-soft — never let it break a submission (hence `|| true` under set -e).
+QUEUE_REPORT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && git rev-parse --show-toplevel 2>/dev/null || true)/scripts/dispatch-queue-depth.sh"
+if [[ -x "$QUEUE_REPORT" ]]; then
+  echo ""
+  "$QUEUE_REPORT" || true
+fi
 echo ""
 echo "The verdict (keyed on the submission correlation):"
 echo "  SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts"
