@@ -1432,3 +1432,71 @@ writer emits anchor hrefs; no component emits section ids. That is a
 generic-detector gap (a phantom-link check that only tests PATHS passes all of
 these), so it belongs with the 023/049 link-integrity family rather than as a
 hand-fix here.
+
+## 2026-07-25 — the owner's phone: a fleet-wide contract mismatch, not a missing edit
+
+**The phone number was never missing — it was stored where nothing reads it.**
+Owner gave `+44 (0) 7934 524 911` on 07-24; it went to `sites.phone`. The
+contact-details component `contact-info` sources
+`site_specs.identity.email/.phone` as **FLAT** keys, while
+`domain-research-classifier` writes them **nested** under `contact.*`. Missing
+`email` carries `on_missing: needs_human_review`, so the entire section was
+withheld — silently, `sections_ready`=2 with **no** `sections_skipped` or
+`sections_deferred` key at all (orchestration `de2da37d`). Three contact builds,
+two components every time.
+
+**Fleet discriminator is exact** (all 13 deployed sites, no exceptions either
+direction): the 5 sites with a flat `email` key are precisely the 5 where
+`contact-info` has ever rendered; the 8 without have no contact-details block.
+idea.uk renders on flat `email` alone with no flat `phone` — consistent with
+`email` being the withholding field. The classifier's own shape is the nested
+one, **so a new site is broken by default**. Filed `bugs_open/072`.
+
+Fixed at the DATA level for this site only (contract untouched): flat `email` +
+`phone` added alongside the nested pair, prior row superseded FIRST —
+`idx_site_specs_current` is UNIQUE `(site_id, aspect) WHERE is_current`, so
+insert-before-supersede dies with 23505 (hit it). Backup
+`bak_site_specs_fai_identity_20260725`, all 6 `services` verified preserved.
+**Rebuild now yields 3 components and the phone is LIVE** on
+`/contact.html` as `tel:+44 (0) 7934 524 911`. (Minor: that `tel:` URI keeps
+spaces and parens — invalid per RFC 3966, tolerated by browsers. Template-level,
+fleet-wide, left alone.)
+
+Also recorded in 072: the work item reported `complete` while the page stayed
+`needs_rebuild` and undeployed — the partial-build guard
+(`v3_site_actions.go:684`) correctly refusing a short build, but the item status
+doesn't reflect it. Reading the item alone says "rebuild succeeded".
+
+## 2026-07-25 — link repair: my check and my fix shared a blind spot, twice
+
+Census found **21 of 22 internal links broken** (`bugs_open/071`). Repaired in
+`rendered_html` + `content_data`, quoted-exact replacement, backup
+`bak_pc_fai_links_20260725`. Post-check: 0 unresolvable. **Then the live sweep
+found 21 MORE.**
+
+> **CORRECTED same day:** my census regex was `href="(/[^"#?]*)"` — it required
+> the closing quote right after the path, so it **excluded every anchored href**
+> (`/capabilities#approach`). My fix used the same quoted-exact form, so it
+> skipped exactly the class my census could not see, and my post-check reported
+> clean because it reused the blind regex. The live crawl is what caught it.
+> Correct form: capture `href="(/[^"]*)"` then `split_part(...,'#',1)` for
+> resolution. Second fix: 21 anchored hrefs → `.html#anchor`.
+
+**Two blind-spot pairs in one day** (this, and the truncated `summary` that hid
+the reaper). Both are now in the RUNBOOK. The pattern worth keeping: *a
+verification that shares code, regex or assumption with the fix cannot falsify
+it* — the live artefact is the only independent witness.
+
+Verification-method trap also hit: hammering the origin with cache-busted
+requests in a tight loop produced `000` and one spurious `404`, i.e.
+**throttling read as broken links**. Re-probed serially: 200 in 0.5s. The final
+sweep retries three times before condemning a link.
+
+Publishing route: **`049b_deploy_single_page.sh` silently failed to ingest** ×4
+(no orchestration row at all — the documented kubectl-run stdin race).
+`scripts/republish_page_086.sh` (new, committed) DOES work — ~2 min to show a
+row, so don't declare it dead at +45s (I nearly did). The route needing no Kafka
+envelope is a fresh `page_rerender` work item; used it for 5 pages, all
+`complete`. Live state now: 6 of 7 pages clean, capabilities republishing (it
+was missed from the first batch — the anchor fix landed after those items were
+created).

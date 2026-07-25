@@ -3011,3 +3011,24 @@ component templates. What caught it was hashing the expected result offline and 
 to hash its own — 21 of 31 rows came back `false`. The cheap check is the entry in the tally:
 **prove a transform against the engine that will run it.** Reading it again would not have done
 it; I had read it several times, and it looks obviously right.
+
+**2026-07-25 — declared a link fix verified using a check that shared the fix's
+own blind spot.** I censused fundamentallyai.com's internal links with
+`regexp_matches(html, 'href="(/[^"#?]*)"')`, found 21 broken of 22, repaired them
+with quoted-exact string replacement, re-ran the census, got **zero remaining**,
+and reported the site's links fixed. The census regex requires the closing quote
+immediately after the path, so it silently **excluded every anchored href** —
+`/capabilities#approach` and 20 siblings. My replacement used the same
+quoted-exact form, so it skipped precisely the class the census could not see,
+and the post-check confirmed success because it reused the blind pattern. A live
+crawl of the served pages found the 21 survivors minutes later. **Cheap check:
+when the fix and its verification share a regex, a query, or an assumption, the
+verification cannot falsify the fix — it can only echo it. Verify against an
+independent witness: the served artefact, not the source you just edited.** This
+is the same day's second instance of the same shape (the other: my `SELECT`s
+truncated `summary` to 50 chars, hiding the `[stale: triaged 48h+]` prefix that
+named the mechanism I then spent two theories guessing at). Correct form here:
+capture `href="(/[^"]*)"`, then `split_part(href,'#',1)` before resolving. Cost:
+one false "fixed" claim to the owner, corrected in the same session, plus a
+second repair pass and republish cycle. Family: shared-blind-spot,
+verification-echoes-the-fix, truncated-your-own-evidence.
