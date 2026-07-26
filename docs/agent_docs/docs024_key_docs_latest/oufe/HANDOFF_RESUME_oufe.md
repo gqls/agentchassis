@@ -6,85 +6,79 @@ only "what state is it in and what do I do next".
 
 ## State at handoff
 
+**Both sites are LIVE.** Latest read-out: `SUMMARY_2026-07-26_oufe.md`.
+
 | Thing | State |
 |---|---|
-| Workstream docs | **Done** — standing five + briefs + disclaimer draft |
-| oxenunity.com page | **Built and in B2**, unreachable at its domain (see owner list) |
-| oufe.com Cloudflare wiring | **Already done** — nothing needed, it serves the moment content lands |
-| oufe.com site row | **Created** — `a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39` |
-| oufe.com evidence_base | **Seeded** — 18 banned patterns, **0 facts** |
-| oufe.com imagery_style_guide | **Seeded** |
-| oufe.com Tier-3 submission | **CONSUMED — cascade running.** corr `e916f41b-a534-4b12-883f-411312ee7ad8`. Both briefs persisted (3,696 / 2,828 chars); `needs_domain_research` triaged |
-| Thames Water evidence (V5) | **Not started** |
-| Waterfall tool | **Authored + arithmetic verified**, insertion SQL prepared, **not applied** |
-| Legal pages | **Not built**; wording drafted, needs owner approval |
+| oxenunity.com | **LIVE** — owner moved the NS; serving via Cloudflare→B2 |
+| oufe.com | **LIVE** — index, about, cases/index, contact. **Zero broken links** (full crawl) |
+| Figure rail | **HELD** — 0 currency / 0 percentages / 0 statistics across ~50KB of generated specs and every live page |
+| evidence_base | seeded, **0 facts**, 18 banned patterns — writers may assert no numbers |
+| Fallibility posture | **LIVE in copy** — the "everything is sourced" promise is gone from every page |
+| Council seat | **mig 223 LIVE** — compliance seat catches overclaimed-reliability + illustration-not-authority; mirrored to council-gate via 099 |
+| Content writers | **mig 223 LIVE** — both carry the never-promise-accuracy rule (verify BOTH, different prompt paths) |
+| grounded-explainer | **mig 224 LIVE, first run exercised 07-26** — generic high-attention lane, cannot publish |
+| Waterfall tool | authored + arithmetic verified + condition-of-use gate; insert SQL prepared, **not applied** |
+| Thames Water dossier | **not started** — needs evidence first |
+| Legal pages | not built; wording drafted, **needs owner approval** |
+| Bugs filed | `bugs_open/094` `095` `096` `097` |
 
-## First thing to check — where the cascade got to
+## First thing to check
 
-```sql
-SELECT ss.aspect, ss.source_agent, ss.is_current
-  FROM site_specs ss JOIN sites s ON s.id=ss.site_id
- WHERE s.domain='oufe.com' ORDER BY ss.created_at;
-
-SELECT wi.item_type, wi.status, wi.handler_agent, LEFT(COALESCE(wi.error,''),100)
-  FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
- WHERE s.domain='oufe.com' ORDER BY wi.priority;
-
-SELECT name, page_type, build_status, jsonb_array_length(sections) AS n_sections
-  FROM pages WHERE site_id=(SELECT id FROM sites WHERE domain='oufe.com');
-```
-Expected order as it fills: `classification` → `strategy` → `briefing` →
-`site_plan` / `design_intent` / `resolved_composition`, then pages.
-
-**If it looks stalled, check the queue before concluding anything:**
 ```bash
-kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
-  bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
-  --describe --group generic-requests-group
+# both sites still serving, and no dead links
+for u in / /about.html /cases/index.html /contact.html; do
+  echo "$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 --retry 3 --retry-all-errors "https://oufe.com$u")  $u"
+done
 ```
-The original submission sat unconsumed for ~28 minutes behind another session's
-20KB council-gate run — a named-cause instance of `bugs_open/030` head-of-line
-blocking, resolved the instant that council completed. **Never re-fire on an
-absent row**; a duplicate queues behind the same blockage and then does the work
-twice. Note also that `processed_messages` is *not* a reliable
-was-it-consumed oracle (it records a narrower path) — consumer-group lag is.
+**Read a `000` as "no answer", never as "not found"** — they mean opposite things,
+and conflating them cost a false report on 07-26.
+
+Any grounded-explainer drafts waiting:
+```sql
+SELECT wi.created_at, wi.summary, jsonb_pretty(wi.spec->'grounding_audit')
+  FROM site_work_items wi JOIN sites s ON s.id=wi.site_id
+ WHERE s.domain='oufe.com' AND wi.item_type='grounded_draft_review'
+ ORDER BY wi.created_at DESC;
+```
+**Read the audit before the draft.** `ungrounded` must be empty. If it is not, cut
+those sentences — do not go looking for a source that agrees with them.
 
 ## Then, in order
 
-1. **Watch the cascade.** classifier → strategist → briefing → planner → pages.
-   Blocker reasons at `validate_page_content` are **not recoverable from the DB** —
-   watch the chassis log live or you will not learn why a page died.
-2. **Turn the news feed off** once `classification` lands: deep-merge
-   `content_features.news_feed.recommended = false` (supersede-then-insert). This
-   is deliberate (PLAN §C7), not an oversight — the classifier will read the site
-   as `finance` and seed generic market-news keywords.
-3. **Thames Water evidence, before any dossier prose.** Fire `evidence-researcher`
-   at the current state of the restructuring (judgments via the National Archives
-   caselaw service, Ofwat publications, company releases). This is **V5's first
-   real end-to-end exercise** — it was activated on v1.0.1140 and its blocker
-   (bug 047) closed, but the smoke run was never repeated. Record what happens
-   either way; a failure here is a platform finding worth more than the facts.
-   Fallback: manual research, hand-authored citation facts.
-4. **Then the dossier content.** V2 gives the writer only the verified facts.
-   Sections with no verified fact say so. Watch `bugs_open/073`: a component with
-   a required stat field plus an honest empty value fails the whole page build —
-   prefer components that do not demand numbers.
-5. **Legal pages** via the migration-182 pattern once the owner approves wording:
+1. **Finish the mechanism explainers** via the grounded lane — the creditor
+   waterfall, and the UK statutory framework. One run each:
+   ```bash
+   ./docs/agent_docs/docs024_key_docs_latest/oufe/TRIGGER_grounded_explainer.sh \
+     oufe.com "<topic>" "<research query>" "<audience>"
+   ```
+   These come **before** any case dossier: they are the part that transfers, and
+   they carry no fabrication risk because mechanism can be taught with openly
+   hypothetical figures.
+2. **Publish each approved draft** — the lane deliberately cannot. Create the page
+   + `page_components` row (`slot_name` MUST equal the component function name —
+   `bugs_open/095`), then `TRIGGER_rerender_page.sh`.
+3. **Thames Water evidence** via `evidence-researcher`, then the dossier. Nothing
+   asserted until the register holds it. Watch `bugs_open/073`: a component with a
+   required stat field plus an honest empty value fails the whole page build.
+4. **Legal pages** via the migration-182 pattern once the owner approves wording:
    hand-written content, `rebuild_policy='owned'` + permanent component lock,
    `rendered_html` written in the same migration. Also defuses `bugs_open/053`.
-6. **The tool**: apply `PREPARED_tool_insert.sql` — but only after the site plan
-   exists, or the reconciler can clobber the page. Read its header first; it
-   carries three landmines in the comments.
+5. **The tool**: apply `PREPARED_tool_insert.sql`. Read its header first — three
+   landmines in the comments, and the acceptance criteria now click the
+   condition-of-use gate before filling anything.
 
 ## Owner list (blocking "live", not blocking building)
 
-1. **Move oxenunity.com to Cloudflare** and bind the portfolio-sites Worker route
-   to `oxenunity.com/*` and `*.oxenunity.com/*`. It is at porkbun today, serving a
-   302 to a parking page. The built page is already in B2 waiting.
-   **oufe.com needs nothing** — already wired, verified.
+1. ~~Move oxenunity.com to Cloudflare~~ — **DONE by the owner 2026-07-26, verified
+   serving.** No infra work outstanding on either domain.
 2. **Approve the disclaimer wording** (`DRAFT_disclaimer_for_owner_approval.md`).
 3. **Confirm the contact email** (`oufe@contactforsales.com` is seeded).
-4. **Respond to the challenge in PLAN §C1** — the owner ruled "radar first, it is
+4. **Decide the audience question (PLAN §7)** — the owner asked whether targeting
+   students is safer. Recommendation: take the honesty posture, keep the audience
+   wider than students. Three options are set out there; the briefs need a
+   revision either way, and pages are being written now.
+5. **Respond to the challenge in PLAN §C1** — the owner ruled "radar first, it is
    lowest risk"; this workstream argues it is the highest risk first move and has
    built the dossier-plus-tool path instead. He has not yet answered that.
 
