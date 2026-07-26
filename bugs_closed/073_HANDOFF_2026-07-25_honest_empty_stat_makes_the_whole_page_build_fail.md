@@ -417,7 +417,67 @@ rounding off:
   `product-hero_pre_037` has **0**. Cosmetic, and only when every stat in the block is
   empty. Left for whoever next touches those two components.
 
-## 4. What was NOT observed: the end-to-end rebuild
+## 4. The end-to-end rebuild — OBSERVED 2026-07-26 19:24Z
+
+> **RESOLVED. This section was written at 18:50Z saying the full-writer run had not been
+> seen. It ran 34 minutes later, and it is exactly the run this file asked for.** The
+> original text is kept below it, because the two dead ends in it (a malformed dispatch and
+> a stalled lane) are the reusable part.
+
+**`b7a61324-b1ea-4518-bba5-e274f5ae5e0d`, ai-agent-orchestration.com, page `index`.**
+The whole chain COMPLETED — `build-dispatch-loop` → `page-build-handler` (`current_step=
+complete`, not `complete_error`) → `page-content-writer` → `internal-link-resolver` →
+`page-rerender`. And the writer's own output at the step that used to kill it,
+**`generated_content_4` — iteration 4, `case-studies-grid` — carried three empty stat
+values.** A sibling run sixty seconds earlier (`7bb79681`) emitted **five** empty stats at
+the same step and its writer also COMPLETED.
+
+```sql
+-- writer runs since 217 went live whose output holds an EMPTY stat value, and their status
+SELECT o.correlation_id, o.owner_agent_type, o.status, e.k AS gc_key,
+       (SELECT count(*) FROM jsonb_each_text(v->'result') f(kk,vv)
+         WHERE kk LIKE '%stat%value%' AND trim(vv)='') AS empty_stats
+FROM orchestration_states o, LATERAL jsonb_each(o.collected_data) e(k,v)
+WHERE e.k LIKE 'generated_content%' AND jsonb_typeof(v->'result')='object'
+  AND o.created_at > '2026-07-26 17:59:00+00'
+  AND EXISTS (SELECT 1 FROM jsonb_each_text(v->'result') f(kk,vv)
+               WHERE kk LIKE '%stat%value%' AND trim(vv)='');
+--  b7a61324  page-content-writer  COMPLETED  generated_content_4  3
+--  7bb79681  page-content-writer  COMPLETED  generated_content_4  5
+--  81efa9cb  page-content-writer  COMPLETED  generated_content_4  1
+```
+
+**And the deployed artefact, which is the half a status cannot witness:**
+
+```sql
+SELECT pc.build_status,
+       pc.rendered_html LIKE '%<strong></strong>%' AS has_empty_strong,
+       (length(pc.rendered_html)-length(replace(pc.rendered_html,'csg-card-stat','')))/13
+         AS csg_stat_occurrences,
+       (SELECT count(*) FROM jsonb_each_text(pc.content_data) e(k,v)
+         WHERE k LIKE 'card%_stat_value' AND trim(v)='') AS empty_stat_values
+FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id
+JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='ai-agent-orchestration.com' AND p.name='index' AND cc.name='case-studies-grid';
+--  deployed | has_empty_strong=f | csg_stat_occurrences=4 | empty_stat_values=3
+```
+
+`csg_stat_occurrences=4` is **2 CSS rules + 2 real spans** — two cards carry a grounded
+figure, three carry none and emit no markup at all, and there is no `<strong></strong>`
+anywhere. That is candidate 1's success condition and candidate 1's failure mode, checked
+together, on a live deployed page.
+
+The same shape is on `/enterprise-reference-deployment.html`: deployed 18:50Z with
+`card5_stat_value` empty and four grounded figures beside it.
+
+**So all three legs are now closed:** the schema no longer refuses the honest empty, the
+template no longer emits the hole where it used to be, and the writer path that could not
+complete has completed with the honest empties in it — end to end, in production, at
+iteration 4.
+
+---
+
+### Original § 4, kept for its dead ends (written 18:50Z, superseded above)
 
 The full-writer run this file asks for **still has not been seen**, and the reason is not
 this bug. An induced case was armed on the real render path and remains queued:
@@ -462,12 +522,18 @@ FROM page_components WHERE id='c4c3d2b4-bdf0-4c4e-827a-f688ed841ce5';
 -- expect empty_strong = f, stat_spans = 4 (five cards, card 3 honestly blank)
 ```
 
-## Why this is closed anyway
+## Why this is closed
 
 The bar is fixed **and** live. The fix is config, it is applied, and every render reads it
-fresh from the DB — there is no inert period and no image roll pending. The mechanism is
-proven dead three independent ways: the writing thread exercised the deployed gate with this
-file's own recorded writer output; this thread proved both templates side by side with a
-positive control; and the schema change is visible in the live rows. What is unobserved is
-whether the *build pipeline runs at all today* — which is `bugs_open/029`, would block any
-page build fixed or not, and is not this bug's to carry.
+fresh from the DB — no inert period, no image roll pending. The mechanism is proven dead
+four independent ways: the writing thread exercised the deployed gate with this file's own
+recorded writer output; this thread rendered both templates side by side with a positive
+control; the schema change is visible in the live rows; and **the full build ran end to end
+at 19:24Z with three empty stat values at iteration 4 and deployed a page carrying none of
+the markup they used to leave behind** (§ 4).
+
+> Closed at 18:50Z with the end-to-end run outstanding, on the reasoning that a hung
+> dispatcher (`bugs_open/029`) would block any page build, fixed or not, and was not this
+> bug's to carry. The run landed at 19:24Z and confirmed it. Recording that here because the
+> judgement was made *before* the evidence, and if it had come back the other way this file
+> should have re-opened.
