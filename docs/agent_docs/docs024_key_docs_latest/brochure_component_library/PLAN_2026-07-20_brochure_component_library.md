@@ -323,3 +323,57 @@ silently fails on this platform, not generic best practice):
   (Afternic parked-page redirect at time of check) and flagged it to the owner
   rather than assuming. Owner confirmed same-session that he does own it —
   recorded above as resolved, not silently overwritten.
+
+## Decisions and corrections landed 2026-07-25/26
+
+**Placement seam DECIDED and PROVEN: `site_plan_sections`, not `page_components`.**
+P2 originally placed components by inserting `page_components` rows directly. That
+survives nothing: a plan-driven rebuild drops instance rows. All five components
+are now placed at plan level, and all five were **restored automatically by the
+pipeline** across five independent rebuilds (about p3, capabilities p2, council p4,
+fine-tuning p4, index p2). Acceptance item 2 (planner prompt) remains the *other*
+half — the planner still does not choose these types on its own, which is
+`features_open/017`. Placement durability and planner selection are separate
+problems; this decision only closes the first.
+
+**Copy path CONFIRMED as the only path (acceptance item 6), and it earned its
+keep.** Every page rebuilt this wave went through content-writer +
+`validate_page_content`. The evidence-base gate stopped the index rebuild on a real
+defect (a CSS escape rendered as visible text, `\2192`), classified for the wrong
+reason. A hand-authored fix would have bypassed the gate entirely and shipped it.
+
+**Acceptance checklist gains item 7 (added from 2026-07-25 findings):**
+7. **Internal links: every `href` resolves as SERVED, checked by crawling the live
+   page — not by a database query, and not by the same pattern used to build or fix
+   them.** This site shipped with 21 of 22 internal links broken. The gate detected
+   every one and discarded the finding (`bugs_open/071`); my own census, repair and
+   post-check then shared one blind regex and agreed with each other while 21
+   anchored links stayed broken. A component that emits an `href` must also emit any
+   `id` it links to, or not emit the fragment (24 of 25 anchors fleet-wide resolve
+   to nothing).
+
+**Chart component: NOT in scope for this site, and NOT to be built here.** The
+brief requires code-generated charts from true figures and none exists anywhere in
+the fleet (`0` registered, confirmed 2026-07-25). Open Decisions #4 already framed
+the stat band as a shared build with leopardess **L7**; the chart is the same
+call, one level up. Recommendation recorded for the owner: **one shared chart
+component, values sourced from the `evidence_base` aspect** so a chart cannot
+structurally display an unverified figure. Prior art to reuse rather than
+duplicate: leopardess L7 (`PLAN_leopardess_rebuild.md`, `[gap]` in
+`REPLICATION_in_chassis.md`) and `features_open/023`.
+
+**Voice: third refinement applied, cause was not the model.** Two forceful
+restatements of the em-dash rule failed. Measured cause: the prompt banning em
+dashes contained **17 of them**, 14 in its own instructional prose including the
+`## Voice & Style` heading; and the rule described long asides while every actual
+failure was an appositive gloss. Both fixed (`sql/README_writer_prompt_v3.md`).
+**Effect UNMEASURED** — config is live but no page has been written since.
+
+**Deliberately NOT done, and why:**
+- `platform-log-index` (the decision-record page) — publishing internal review
+  records outward is an owner call, not a thread's. The self-correction page's
+  "you can ask to see it" is defensible; "something you can read" is the weaker
+  claim if that page never exists.
+- Audit finding statuses left at `detected` after re-testing — another workstream
+  owns work-item completion semantics and hand-closing an audit's own findings
+  would corrupt its accounting. Re-test recorded in NOTES instead.
