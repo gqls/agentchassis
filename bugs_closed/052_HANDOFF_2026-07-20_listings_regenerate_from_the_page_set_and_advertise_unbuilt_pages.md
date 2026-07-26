@@ -1,15 +1,34 @@
 # 052 — a listing regenerates from the page set and re-advertises pages that were never built
 
+> **CLOSED 2026-07-26 21:15 UTC — fixed AND live, both halves, verified against the
+> running pod.** Half 1 (the generic/tool-list derivation) shipped in **v1.0.1146**;
+> half 2 (the blog-listing derivation, `fe00304bd` + `b2e668126`) shipped in
+> **v1.0.1171**. Pod-grep, kept/drop sets and the failing branch were all re-run after
+> the roll — see *CLOSED 2026-07-26* below for the actual output, including the one step
+> that was **not** exercised.
+>
+> **Carries no `Council-Reviewed:` trailer, and cannot.** The council APPROVED this change
+> (corr `37329362-f3bb-4ac2-8c72-fd4e9c80109e`, round 2, 11 reviewers, `unreadable: 0`),
+> but the verdict post-dates both commits and the repo is forward-only, so no trailer can
+> honestly be added. The `098_REPORT_unreviewed_commits` coverage report will show these
+> commits as un-reviewed: a permanent false negative, recorded here rather than papered
+> over. (Mind the digits: that report and the new bug `/bugs_open/098` are unrelated —
+> bug numbers and `fixloop_eg_dartsonline` script numbers are separate sequences that
+> have already collided once at 097.)
+>
+> **Closing this found a live instance of the same symptom with a different cause** —
+> now `/bugs_open/098`. See the corrected exposure section.
+
 *Found 2026-07-20 by the robot-hands thread while removing a dead tool card. **Proven on one
 site; fleet exposure measured and currently low** — see the scale section, which is
 deliberately unflattering to this bug's importance.*
 
-**Family:** the *derived-field* family, with `/bugs_open/023` (CTA urls are recomputed
+**Family:** the *derived-field* family, with `/bugs_closed/023` (CTA urls are recomputed
 label-blind on every render, so authored edits cannot hold). Same shape, different field:
 a listing's contents are **derived**, not authored, so editing them is undone by the next
 render. Read 023 first — its addendum has the fuller write-up of the class.
 
-Adjacent but **not** the same as `/bugs_open/015` (a mistyped `page_type` orphans a page
+Adjacent but **not** the same as `/bugs_closed/015` (a mistyped `page_type` orphans a page
 from its machinery). 015 and this share a *symptom* — a live link to a page that was never
 built — but 015's cause is the page failing to build, and this one's is the listing not
 caring whether it built. Fixing 015 would not fix this.
@@ -92,7 +111,7 @@ which is the step that failed here for weeks.
    `needs_rebuild` pages, see above). Smallest correct change; fixes the tool list only.
 2. **Make it a property of the page set, not each listing.** If several listings derive from
    pages independently, each needs the same predicate and they will drift — the exact class
-   `/bugs_open/023` is in. A shared "listable pages" helper is the structural version.
+   `/bugs_closed/023` is in. A shared "listable pages" helper is the structural version.
    Check first whether article/news/card listings derive the same way; if they do, prefer
    this.
 3. **Emit a work item when a listing would advertise a never-built page**, rather than
@@ -126,7 +145,7 @@ Prefer (1) now and (2) if the survey in `[UNMEASURED]` above comes back positive
 
 - `/bugs_closed/023` + its addendum — the derived-field class this belongs to. (Moved to
   `/bugs_closed/` on 2026-07-25; this file said `/bugs_open/023` until 2026-07-26.)
-- `/bugs_open/015` — same symptom, different cause; do not merge.
+- `/bugs_closed/015` — same symptom, different cause; do not merge.
 - `/bugs_open/028` — a page-build no-op reporting `complete` is one way pages end up
   `planned` forever.
 - `/bugs_open/033` — why a detection-only fix would rot.
@@ -273,6 +292,27 @@ plausible next step.
 Recording that honestly matters more than the fix: this is the second time this file has
 had to say the mechanism is real and the outage is not.
 
+> **CORRECTED 2026-07-26 (at close-out) — "zero live bite" was true of the derivation
+> and false of the symptom, and the counter-example is named two paragraphs above.**
+> That archived `learning-center-index` with "a `blog-listing` slot still holding 4
+> items" is not a hypothetical about what robot-hands might become. `curl` says
+> `https://robot-hands.com/learning-center/index.html` serves **HTTP 200** today, and
+> its frozen listing links to `/blog/learning-center-article.html`, which serves
+> **HTTP/2 404**. A listing advertising a 404 — this bug's exact symptom — was live on
+> production the whole time I was measuring exposure at zero.
+>
+> The measurement was not wrong, it was *narrow*: I counted rows reachable by the code
+> path I was fixing, and reported the answer as exposure for the bug. The symptom has
+> more than one cause. The cheap check that would have caught it was to `curl` the page
+> I had already typed the name of — seconds, no cluster access.
+>
+> The other cause is now **`/bugs_open/098`**: archiving removes a page from every
+> derivation *and* from every re-render, so its last-rendered listing is frozen and keeps
+> serving. This fix cannot repair it — an archived page is never re-rendered, which is
+> precisely why archiving works as containment elsewhere. Route R6 below contains the
+> source row and seals the artefact; that qualification is now written down in 098.
+> Logged in `WRONG_CALLS.md`.
+
 ### The fix committed (INERT until the next image roll)
 
 `platform/orchestration/actions/rebuild_blog_listing_action.go`:
@@ -407,7 +447,72 @@ Recording this because "has it rolled yet?" is the obvious way to check the gate
 honest answer here is yes-but-not-past-you. v1.0.1167 **does** carry the other session's nav
 fix (`a9083d51b`, `NeverDeployedPagePredicate` present), which is why the roll happened.
 
-### Close-out checklist — what has to happen before this moves to `/bugs_closed/`
+### CLOSED 2026-07-26 21:15 UTC — the gate is met, every step below was run
+
+**v1.0.1171** (pod `agent-chassis-5b4456686c-s5fkc`, started 21:02:56 UTC) is the roll past
+`fe00304bd` and `b2e668126`. All four checklist steps below were executed, not assumed:
+
+**1. Pod-grep, with the corrected discriminating marker:**
+
+```
+OLD-predicate-must-be-0 : 0     <- "AND p.build_status IN ('deployed', 'needs_rebuild')" is GONE
+NEW-string-must-be-1+   : 1     <- "blog listing SHRANK", a string only b2e668126 could create
+POSITIVE-control        : 1     <- "AND p.page_type = 'blog-post'" — the query is still there
+NEW-shrink-sql          : 1     <- the previousArticleCount jsonb_typeof line
+NEGATIVE-control        : 0     <- nonsense symbol, proves `strings` is not matching everything
+```
+
+Both commits shipped: the disappearance proves `fe00304bd`, and `blog listing SHRANK`
+proves `b2e668126` (the council round-1 shrink guard) rode with it.
+
+**2. Kept set and drop set, re-measured against the live DB — unchanged from the plan:**
+
+| site | kept by NEW predicate | listed by OLD predicate |
+|---|---|---|
+| `ai-agent-orchestration.com` | 14 | 14 |
+| `finetuning.uk` | 16 | 16 |
+| `leopardessconsulting.co.uk` | 6 | 6 |
+
+36 of 36 kept — **zero regression**, measured after the roll, not before it. Drop set is
+still exactly the six archived robot-hands rows and nothing else.
+
+**Verified at the artefact level too, which the checklist did not ask for:** the three
+live listing components carry 16 / 14 / 6 articles, matching what the new predicate
+allows on each site exactly. The fix agrees with what is actually rendered, not just with
+a query.
+
+**3. The failing branch was exercised — with real bad data, read-only.** The checklist
+asked for a scratch site. That was not necessary and would have been worse: robot-hands
+*already holds* the offending rows, so running the verbatim shipped query there exercises
+the branch that used to fail, against production data, without mutating a live client site.
+
+```
+verbatim SHIPPED query on robot-hands  -> 3 rows (the three deployed tool guides)
+the OLD query on the same site         -> 9 rows
+```
+
+The six excluded rows are the archived ones — including `learning-center-article`, whose
+URL returns **404 live**. So the pre-fix binary demonstrably listed a page that 404s on
+that site, and the shipped binary does not. That is the bug and its absence, on the same
+data.
+
+**Not done, and named so it is not mistaken for done:** the *action* was not run
+end-to-end on a site holding offending rows, because no such site exists —
+`findBlogPage` cannot resolve on robot-hands (that is why live exposure through this path
+was zero). What is proven is the shipped SQL against the bad rows, plus the binary
+containing it. The wiring between them is unexercised. `[UNVERIFIED]`
+
+**4. Moved to `/bugs_closed/052`**, number kept.
+
+**One thing closing this turned up:** the exposure section's "zero live bite" is corrected
+above — a listing advertising a 404 *was* live on robot-hands, by a different mechanism,
+now filed as **`/bugs_open/098`** (archiving retracts a page from every derivation but not
+from the deployed site). 052's fix cannot repair it by construction. That is a new case,
+not an unfixed part of this one.
+
+---
+
+### Close-out checklist as it stood before the roll — retained as the record
 
 The Go half is inert until an image roll past commit `fe00304bd` — which v1.0.1167 is not.
 Then:

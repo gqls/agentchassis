@@ -83,3 +83,33 @@ everything is as useless as one that fires on nothing.
 
 **Induce both faults.** A clean report on a healthy site proves only that the
 check runs.
+
+## Second instance, different site — found 2026-07-26 while closing `bugs_closed/052`
+
+`robot-hands.com/learning-center.html` is live, linked from the site's own
+navigation, and carries five in-body category links that all 404. Verified with
+`curl`, not inferred:
+
+```
+404  https://robot-hands.com/learning-center/calculators
+404  https://robot-hands.com/learning-center/technology-guides
+```
+
+(the other three — `/learning-center/application-guides`,
+`/learning-center/comparisons`, `/learning-center/specification-workflow` — are the
+same shape and were not individually fetched. `[UNVERIFIED]`)
+
+Two things this instance adds to the oufe.com evidence above:
+
+- **It is not confined to one site or one component library.** Same failure, a
+  different site built at a different time, so the missed-nesting cause is
+  platform-wide rather than an oufe-specific component choice.
+- **These links have no `.html` extension**, while every real page on the site is
+  served at `<name>.html`. So the destination was written from the plan's intent
+  rather than from `pages.url` — the same sub-cause as `/cases/thames-water` above,
+  and further evidence for fix candidate 1 (resolve rendered hrefs against
+  `pages.url`) over candidates 2 and 3, which would not catch a link whose *target
+  page exists under a different url*.
+
+Not investigated further here — this file owns the mechanism; recording the instance
+so the fix's verification set includes a second site.
