@@ -297,3 +297,67 @@ func TestExtractStatClaimsIsDeterministic(t *testing.T) {
 		}
 	}
 }
+
+// TestDisplayOrdinalsAreNotQuantities — 01/02/03 as step markers.
+//
+// Both cases below were found on live pages by the fleet sweep that built
+// bugs_open/093's second call site, and both were being reported as published
+// figures with no supporting fact. On a site that HAS registered facts that is
+// `error` severity in the build gate, i.e. a page made unbuildable by its own
+// step numbering — bugs_closed/073's shape on a new trigger.
+func TestDisplayOrdinalsAreNotQuantities(t *testing.T) {
+	got := ExtractStatClaims("process-steps", map[string]interface{}{
+		"step1_number": "01", "step1_label": "Build Arguments, Not Answers",
+		"step2_number": "02", "step2_label": "Know the Archetypes at Your Table",
+		// The control: a real count in the same component must survive, and
+		// so must a bare zero — zero is a count, and an honest one.
+		"stat1_value": "8", "stat1_label": "Archetypes",
+		"stat2_value": "0", "stat2_label": "Open Defects",
+	})
+
+	seen := map[string]bool{}
+	for _, c := range got {
+		seen[c.Value] = true
+	}
+	for _, ordinal := range []string{"01", "02"} {
+		if seen[ordinal] {
+			t.Errorf("display ordinal %q was extracted as a quantitative claim", ordinal)
+		}
+	}
+	for _, real := range []string{"8", "0"} {
+		if !seen[real] {
+			t.Errorf("real count %q was dropped along with the ordinals; claims: %+v", real, got)
+		}
+	}
+}
+
+// TestTypographicRangeIsExcludedLikeAHyphenRange — "8–12 minutes".
+//
+// unitSuffixRe already spells `[-–]`, so typographic dashes were always meant
+// to be in scope; the adjacency test beside it was byte-level and an en-dash
+// is three bytes, so only the hyphen form was ever excluded. Found live on
+// fundamentallyai's llm-cost-calculator ("Read time: 8–12 minutes") on a site
+// with 15 registered facts.
+func TestTypographicRangeIsExcludedLikeAHyphenRange(t *testing.T) {
+	eb := &EvidenceBase{} // empty register: anything examined WILL be flagged
+	for _, value := range []string{"8-12 minutes", "8–12 minutes", "8—12 minutes"} {
+		claims := ExtractStatClaims("article-meta", map[string]interface{}{
+			"read_time_value": value, "read_time_label": "Read time",
+		})
+		if len(claims) != 1 {
+			t.Fatalf("%q: expected one extracted claim, got %+v", value, claims)
+		}
+		if f := eb.ScanStatClaims(claims); len(f) != 0 {
+			t.Errorf("%q was reported as an unregistered business figure: %+v", value, f)
+		}
+	}
+
+	// The control: a plain unsupported figure must still be reported, or this
+	// exclusion has quietly switched the scan off rather than narrowed it.
+	claims := ExtractStatClaims("stat-grid", map[string]interface{}{
+		"stat1_value": "1,267", "stat1_label": "Work Items Completed",
+	})
+	if f := eb.ScanStatClaims(claims); len(f) != 1 {
+		t.Errorf("the negative control stopped firing — exclusion is too wide: %+v", f)
+	}
+}

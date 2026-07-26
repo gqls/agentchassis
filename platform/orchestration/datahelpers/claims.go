@@ -41,6 +41,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/net/html"
 )
@@ -421,12 +422,17 @@ func isExcludedNumber(block string, start, end int) bool {
 		if prev == '$' || prev == 163 || prev == 128 { // '£' and '€' are multibyte; see below
 			return true
 		}
-		// Multibyte currency symbols: check the preceding rune.
+		// Multibyte currency symbols, and multibyte range dashes: check the
+		// preceding rune. The dash cases are here rather than in the byte test
+		// above for the same reason as the currency ones — '–' and '—' are
+		// three bytes, so `prev == '-'` cannot see them.
 		r := []rune(block[maxInt(0, start-3):start])
 		if len(r) > 0 {
 			switch r[len(r)-1] {
 			case '£', '€', '$':
 				return true
+			case '–', '—':
+				return true // the tail of a range: "8–12"
 			}
 		}
 	}
@@ -436,6 +442,27 @@ func isExcludedNumber(block string, start, end int) bool {
 			// Only composite when followed by another digit (so "6-hour" is
 			// handled by the unit rule, not swallowed here).
 			if end+1 < len(block) && block[end+1] >= '0' && block[end+1] <= '9' {
+				return true
+			}
+		}
+		// Same rule for the typographic dashes.
+		//
+		// FOUND BY MEASUREMENT 2026-07-26, building bugs_open/093's second call
+		// site: a live sweep of stored content_data flagged fundamentallyai's
+		// "Read time: 8–12 minutes" as an unregistered business figure, on a
+		// site with 15 registered facts — i.e. at `error` severity in the build
+		// gate, which would have made a deployed page unbuildable for carrying
+		// a reading-time estimate. That is bugs_closed/073's shape on a new
+		// trigger. The hyphen form "8-12 minutes" was already excluded here;
+		// only the en-dash escaped, and unitSuffixRe's own `[-–]` alternative
+		// shows typographic dashes were always meant to be in scope.
+		//
+		// The trade this makes explicit: a range is excluded ENTIRELY, so
+		// "2–3 million users" is no longer examined. That is not new blindness
+		// — "2-3 million users" has always been treated that way — but it is a
+		// real limit, and the honest place to note it is here.
+		if rn, size := utf8.DecodeRuneInString(block[end:]); rn == '–' || rn == '—' {
+			if i := end + size; i < len(block) && block[i] >= '0' && block[i] <= '9' {
 				return true
 			}
 		}

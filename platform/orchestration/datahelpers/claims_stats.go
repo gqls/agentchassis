@@ -176,6 +176,24 @@ var statBlankSentinels = map[string]bool{
 	"": true, "—": true, "–": true, "-": true, "n/a": true, "na": true, "tbc": true, "tbd": true,
 }
 
+// statDisplayOrdinalRe matches a bare zero-padded index: "01", "02", "03".
+//
+// A leading zero is never how a quantity is written — nothing counts "01
+// customers" — so in a stat field this is a step or card marker for display.
+// FOUND BY MEASUREMENT 2026-07-26 while building bugs_open/093's second call
+// site: vonc.com's about page publishes 01/02/03 as step numbers in a process
+// component, and each was extracted as a published figure and reported as
+// unsupported. On a site with registered facts that is `error` severity in the
+// build gate — a page made unbuildable by its own step numbering.
+//
+// Deliberately narrow, and deliberately HERE rather than in claims.go's shared
+// isExcludedNumber: this is a property of a bare stat FIELD VALUE, whereas the
+// exclusions in claims.go reason about a number's position inside a prose
+// block. Widening those to cover this would change what the prose scan sees on
+// every site, for a shape only the stat path produces. Note "0" alone is not
+// matched — zero is a real count, and an honest one (bugs_closed/073).
+var statDisplayOrdinalRe = regexp.MustCompile(`^0\d+$`)
+
 // hasDigit reports whether a value could carry a numeric claim at all.
 func hasDigit(s string) bool {
 	for _, r := range s {
@@ -220,6 +238,9 @@ func ExtractStatClaims(component string, contentData map[string]interface{}) []S
 		value := vals[nk]
 		if statBlankSentinels[strings.ToLower(value)] || !hasDigit(value) {
 			continue
+		}
+		if statDisplayOrdinalRe.MatchString(value) {
+			continue // "01"/"02"/"03" — a display index, not a quantity
 		}
 
 		c := StatClaim{Component: component, ValueKey: norm[nk], Value: value, Pairing: StatUnpaired}
