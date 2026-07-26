@@ -1583,3 +1583,110 @@ duplicate: leopardess **L7** ("the one genuinely-new build", scoped in
 the evidence base). Recommend one shared component, values sourced from the
 evidence base so a chart cannot show an unverified figure — not a new per-site
 build.
+
+## 2026-07-25/26 — Missteps this session, the complete list (the record IS the point)
+
+Same discipline as the 2026-07-22 list above: every one, with what caught it and
+the cheap check. Cross-filed in `WRONG_CALLS.md` where the check-class is
+fleet-wide (tally updated there — 4 increments, 4 new rows; **not updating that
+tally was itself a slip on the first three entries**, exactly what the
+`missteps-need-a-check-not-a-paragraph` memory warns about).
+
+**The single shape behind five of these: I concluded from a check that could not
+see the evidence.** Different costume each time.
+
+1. **[BIG ONE] Built and refuted two theories about parked work items while the
+   row's own `summary` column named the mechanism in plain text.** Read the
+   superseded-review reconciler (predicate is `needs_human_review`, mine were
+   `triaged` — refuted), then the two-strike rule (counts terminal rows; these had
+   none — refuted), then told the owner "single-flight per site" was the surviving
+   theory. The answer was `[stale: triaged 48h+] [stale: triaged 48h+] Build index
+   page (not_built)` — **stored in the row I had been SELECTing all along**, naming
+   the mechanism and that it had fired twice. *Caught by:* finally reading the row
+   untruncated. *Cheap check:* read every column of the row whose fate you are
+   explaining — `summary`, `status`, `attempt_count`, `claimed_at` — before
+   reasoning about which code moved it; and **my own `left(summary,50)` had cut off
+   the answer**. Corollary I also got wrong: I never asked whether the mover was
+   code at all — it was a `scheduled_tasks.pre_query`, so no amount of Go-reading
+   would have found it. → `bugs_open/070`.
+
+2. **[BIG ONE] Declared the links fixed using a check that shared the fix's blind
+   spot.** Censused with `href="(/[^"#?]*)"`, repaired with the same quoted-exact
+   form, re-ran the same census, got zero remaining, and **reported the site's links
+   fixed to the owner**. The pattern cannot see anchored hrefs
+   (`/capabilities#approach`), so 21 survived: the census missed them, the fix
+   skipped them, the post-check confirmed success. *Caught by:* crawling the served
+   pages. *Cheap check:* **a check sharing the fix's regex/query/assumption can only
+   echo it** — verify against an independent witness, the served artefact. Correct
+   form: capture `href="(/[^"]*)"` then `split_part(href,'#',1)`.
+
+3. **[BIG ONE] Declared four dispatches "silently failed to ingest" from checks ~5
+   minutes too early — then published it as a landmine in two new files.** No
+   `orchestration_states` row at +2 and +5 min; there IS a famous kcat/stdin race
+   (`016b` §9) that fits exactly; I matched symptom to famous cause, switched
+   scripts, and wrote the claim into a **new RUNBOOK and a new script's header as
+   fact**. All four had landed — rows at 17:12–13 for 17:05 dispatches. Normal
+   latency here is **7–9 minutes**. *Caught by:* querying the whole window later,
+   looking for something else. *Cheap checks:* establish the healthy baseline before
+   calling a reading abnormal; **a famous failure mode that fits your symptom is a
+   hypothesis, not a diagnosis** — most dangerous precisely because the docs made it
+   famous; and prove a landmine before writing it into a shared doc, because a
+   runbook entry asserts at higher confidence than a note and propagates.
+
+4. **Compounded #3 with a monitor whose window could not contain the evidence.**
+   Filtered `created_at > '2026-07-25 18:00'` while the clock read **17:54** — it
+   can never match, and reports identically to a dead dispatch. Four more
+   "no orchestration row" ticks that felt like confirmation. *Cheap check:* print
+   the window and the clock together; an absent row is only evidence if your query
+   could have contained it.
+
+5. **Never checked `start_step`, so I credited the wrong route for a success.** The
+   homepage republish was attributed to the 086 script when the queued work item may
+   equally have done it. *Cheap check:*
+   `initial_request_data->'config'->'workflow'->>'start_step'` = `spawn_rerender`
+   for an 086 dispatch, NULL for 049b/work-item. Without it you cannot tell which of
+   your own attempts did the work.
+
+6. **Fired two direct dispatches out of impatience while a queued item was
+   pending.** The route I could not hurry is the one that published the last page.
+   Worse, no route could have helped: **every publish path shares the dispatch
+   lane**, which was stalled. *Cheap check:* before switching route, ask whether the
+   routes share the blocked component.
+
+7. **Wrote an em dash into the rule forbidding em dashes**, and it reached the live
+   agent config before I read it back. Reading it back then exposed the real cause
+   of two failed refinements: **the prompt already contained 17**, 14 in its own
+   instructions including the `## Voice & Style` heading. *Cheap check:* after
+   editing an instruction, grep the whole instruction for the thing it prohibits.
+
+8. **Filtered a "does this page exist" lookup on `build_status='deployed'`** and
+   reported `/contact` as an invented target while `/contact.html` served 200 (its
+   row read `needs_rebuild`, its artefact was live). I had recorded this exact trap
+   in `016b` §9 three days earlier. *Cheap check:* existence is a row, not a build
+   state — and one `curl` settles it.
+
+9. **Over-engineered the link-repair SQL before trying the plain form.** Wrote a
+   tangled `CROSS JOIN LATERAL` fold, discarded it, and did it in nested
+   `replace()` calls that were correct first time. No false claim, pure waste —
+   recorded because the reflex is the problem.
+
+10. **`\copy … FROM PROGRAM` with JSON containing newlines** read them as row
+    separators; the `NOT NULL` constraint caught it before any corruption. Fixed
+    with a base64 round-trip (now in `sql/README_writer_prompt_v3.md`). *Cheap
+    check:* a multi-line payload needs an encoding that has no line semantics.
+
+11. **A relative `cd` in the shell tool silently wrote nothing.** `cd X && cat >>
+    f << EOF` — the working directory had already changed from a previous call, so
+    `cd` failed, the `&&` short-circuited, and the heredoc was consumed with no
+    write. *Caught by:* `tail`ing the file. *Cheap check:* absolute paths for
+    appends. (In the RUNBOOK's shell traps.)
+
+12. **Hammered the origin with cache-busted requests and read the throttling as
+    broken links** — `000`s and one spurious `404`. *Cheap check:* retry 3× with a
+    pause before condemning a link; serial re-probe returned 200 in 0.5s.
+
+**What the distribution says for this workstream:** none of these were missing
+information. Every one was available in a field, a window, or a page I could have
+read. The corrective that would have caught the most (1, 2, 4, 8) is a single
+habit: **read the actual artefact, untruncated, with a check that does not share
+its assumptions with what you are checking.**

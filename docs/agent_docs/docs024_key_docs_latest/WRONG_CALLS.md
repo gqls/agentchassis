@@ -32,18 +32,18 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **attach the query to a load-bearing absence claim — "checked" without the check text is a claim about diligence** | **1** |
 | **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
-| wait / query again before calling an absence a failure | 7 |
+| wait / query again before calling an absence a failure | 8 |
 | **grep for the capability before asserting it does not exist** | **4** |
 | **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | 1 |
-| **record the CLOCK beside a reading, never infer it afterwards** | **1** |
+| **record the CLOCK beside a reading, never infer it afterwards** | **2** |
 | **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **4** |
 | **read the SCHEMA before naming a column — a Go map key is not a column** | **2** |
 | **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
 | **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents** | **1** |
-| **check an example you write against the artifact it constrains** | **1** |
+| **check an example you write against the artifact it constrains** | **2** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
 | **grade a probe on the ACTION's own output (`collected_data-><step>`), never on the run's terminal status — a harness that never delivered its payload completes GREEN** | **1** |
@@ -52,7 +52,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
 | **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **2** |
 | **re-read the row AFTER a render, not after your own write** | **2** |
-| **check the column actually means what you are measuring** | **1** |
+| **check the column actually means what you are measuring** | **2** |
 | read the rule before inferring its purpose | 1 |
 | **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, and one copied out of a since-corrected tool keeps the old tool's answer; never let either land in a commit message, council submission or code comment unmeasured** | **2** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
@@ -62,6 +62,10 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 | **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
+| **read the ROW's own annotation before theorising about what moved it — a mechanism that labels its own work has already answered you; and never truncate the field that might carry the answer** | **1** |
+| **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **1** |
+| **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **1** |
+| **prove it before writing it into a SHARED doc — a runbook or landmine entry asserts at higher confidence than a note, and propagates to every later reader** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -3808,3 +3812,33 @@ generalises: **the submission is the artefact under review, not the commit.** An
 leave out reads as an edit you did not make, and a reason you did not write down does not
 exist. The cap is not an excuse — if the plan will not fit in 8 edits, that is information
 about the change's scope, which in this case it was.
+
+**2026-07-25 — wrote an em dash into the rule forbidding em dashes, and shipped it
+live before catching it.** Refining the `page-content-writer` voice prompt, I added
+a worked example teaching the model never to use `—`, and ended my own inserted
+paragraph with one: *"Hunt for this appositive shape specifically — it slips
+through…"*. It was written to the live agent config before I read it back. Trivial
+to fix, and worth logging because of what it revealed one query later: **the prompt
+already contained 17 em dashes**, 14 of them in its own instructional prose
+including the `## Voice & Style (how the copy must READ — follow strictly)`
+heading. So two prior refinements had been telling the model to avoid a character
+while modelling it fourteen times in the most authoritative text in its context —
+which is the actual reason both failed, and I had spent two rounds blaming the
+model. **Cheap check: after editing an instruction, grep the whole instruction for
+the thing it prohibits.** One `count(regexp_matches(prompt,'—','g'))` located a
+cause that two rounds of reasoning had missed. Family:
+instruction-violates-its-own-rule, check-the-example-against-its-constraint.
+
+**2026-07-25 — filtered a "does this page exist" lookup on `build_status`, and
+mislabelled a live page as invented.** My internal-link census resolved each href
+against `pages` with `AND p2.build_status='deployed'`. `/contact` therefore came
+back as an **invented target** — in the same report as nine genuinely invented ones
+— while `/contact.html` was serving **200**, because that page's row read
+`needs_rebuild` while its artefact was live. I had already recorded the general form
+of this trap in `016b` §9 (*"a liveness filter keyed on the PAGE-level build_status
+misses live-serving pages whose flag has drifted"*, 2026-07-22) and reintroduced it
+three days later. **Cheap check: when the question is "does this URL exist", the
+answer is a row's existence, not its build state — and the live probe settles it in
+one `curl`.** Cost: nearly repointing a working link, and one wrong row in a report
+handed to the owner. Family: build_status-is-not-liveness,
+column-does-not-mean-what-you-are-measuring, re-read-your-own-§9.
