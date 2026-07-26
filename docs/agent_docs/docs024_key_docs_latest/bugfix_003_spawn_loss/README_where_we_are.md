@@ -268,3 +268,55 @@ under deliberate failure; one long-hidden defect found, contained and filed;
 and the platform now has the architecture-review process the council was
 asking for. Remaining on this workstream: the health-check restart re-test,
 and the weekly numbers around the 1st of August.
+
+---
+
+**2026-07-26 evening — bug 075 is fixed in code, and the reason it existed is
+worse (and simpler) than we thought.**
+
+I went to fix the guard that threw away those messages and found out something
+about it that changes the story. The guard compares the name of the server
+holding a job against its own name. I had assumed that name was kept up to
+date — that whichever server picked the job up would stamp itself on it. It
+isn't. There is a line of code that looks like it does exactly that, and it has
+never worked: the database write that follows it simply doesn't include that
+column. So the name on every job is the name of the server that first created
+it, however long ago, and nothing has ever changed it. There is still a job in
+the system stamped with a server that died on the 13th of July.
+
+That makes the guard indefensible rather than just unlucky. It cannot tell a
+live server from one that has been gone for a fortnight, because it isn't
+looking at anything live. And a reply only ever arrives at one server, so
+throwing it away because the name doesn't match doesn't hand it to somebody
+else — it destroys it.
+
+So the fix is: take the job over, write down in the log that you did and whose
+it was, and get on with it. The protection people thought that guard was
+providing is already provided properly elsewhere — two servers cannot pick up
+the same reply, because claiming a reply is a single atomic database operation,
+and the job's own record is version-checked on every write. Before removing the
+guard I checked the thing that would have made this dangerous: whether any
+service runs more than one copy of itself and owns jobs. None does.
+
+The second half is the runaway loop itself. The retry counter was being *set*
+to one rather than *increased*, on a counter that was always starting from zero
+— so it read "attempt 1" for ever and the limit of three could never be
+reached. That is now a real count that survives a server dying, which is the
+whole point, since a different server may pick up each attempt. I wrote the
+tests for it with a deliberate trap: one test encodes the OLD broken rule and
+insists it never stops, so if I have fooled myself about what the fix does, the
+test suite says so.
+
+None of this is live yet. It is committed, and it does nothing until the next
+chassis image is built and rolled — the standing rule is that a bug stays open
+until the fix is actually running and has been proven by breaking it on
+purpose. I have written that proof out as a script so whoever rolls can run it:
+it refuses to run against an image that doesn't have the fix, it checks that the
+old code is genuinely gone rather than just that the new code is present, and it
+re-runs the deliberate server-kill test that found this bug in the first place.
+
+Two smaller things I chose not to do: a sweep for jobs owned by dead servers
+(the database has no way of knowing which servers are alive, so that needs
+something built first), and an extra safety net in the cleanup sweep (the bug
+report itself says to do that only after the counter is real, which it now is —
+so it is a follow-up with a trigger written down, not a loose end).

@@ -1,5 +1,14 @@
 # HANDOFF — dead-pod ownership makes responses undeliverable; DB-driven retry then loops forever (with real side effects per cycle)
 
+> **STATUS 2026-07-26: FIXED IN CODE, INERT — the case stays OPEN.** Fixes 1 and 2
+> below are implemented and committed; the Go is dead weight until a chassis image
+> is built past that commit and rolled. The standing bar for `/bugs_closed/` is
+> **fixed AND live**, and "live" here means induced-fault-verified, not
+> pod-grepped. Everything the roll owes is scripted:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_003_spawn_loss/VERIFY_075_post_roll.sh`
+> — it refuses to run against an image that lacks the fix. See **Fix record
+> (2026-07-26)** at the bottom.
+
 **Filed:** 2026-07-25, by the bugfix-003 thread, from a live incident its own
 induced-fault test caused and caught the same hour.
 **Severity:** High — any coordinator pod death strands its active
@@ -107,6 +116,108 @@ choice. Fix 4 could be a scheduled_tasks clause (config-only).
   at the cap with a loud terminal error, not run forever.
 - `SELECT processing_node ... WHERE status NOT IN (terminal) AND
   processing_node NOT IN (<live pods>)` returns 0 after the sweep exists.
+
+## Fix record (2026-07-26, the bugfix-003 thread)
+
+**What shipped (committed, inert until a chassis roll).** Fixes 1 and 2 only.
+Fixes 3 and 4 are deferred with reasons and triggers, below.
+
+### Fix 1 — takeover instead of discard
+
+`SagaCoordinator.ProcessResponse` no longer returns nil on a pod-name mismatch.
+It calls a new `StateRepository.TakeOverOrchestration(ctx, orchID, me, previous)`
+— `UPDATE orchestration_states SET processing_node=$2, updated_at=NOW() WHERE
+orchestration_id=$1 AND processing_node=$3` — logs
+`ORCHESTRATION_TAKEN_OVER` (or `..._RACED` / `..._FAILED`) naming the previous
+holder, and **processes the response either way**. The CAS deliberately does not
+touch `version`, so it cannot collide with `UpdateStateWithVersion`'s optimistic
+lock.
+
+Two findings from this pass justify processing unconditionally, and both are new
+to this file:
+
+- **`processing_node` is write-once at row creation.** `SetExecutingStep`
+  (`state.go`) assigns `state.ProcessingNode = os.Getenv("HOSTNAME")`, but
+  `UpdateStateWithVersion`'s UPDATE column list — `… last_activity = $15,
+  updated_at = $16, owner_agent_id = $17, owner_agent_type = $18,
+  owner_agent_role = $19, version = $20` — **omits `processing_node`**, so that
+  assignment never reaches the database. The gate was therefore comparing
+  against "the pod that created the row", not "the pod driving it", which is why
+  no amount of liveness reasoning could rescue it. A comment now sits at the
+  inert line so the next reader does not trust it.
+- **Discarding is unconditional loss in either consumer-group regime.** A
+  response goes to exactly one member of the group that holds it. Responses are
+  consumed with `GroupID = a.AgentID` (`agentbase/agent.go`) and `AGENT_ID` is
+  `metadata.uid` in every production overlay, i.e. per-pod; under a shared group
+  it is one member of many. Either way the pod holding the message is the only
+  actor that can apply it, and `AgentClient.processResponse` commits the offset
+  the moment `ProcessResponse` returns nil.
+
+Single-processor safety was never coming from the stamp: `ClaimAwaitedRequest`
+is an atomic `UPDATE … WHERE status='waiting' RETURNING` (exactly one actor per
+response) and state writes are version-CAS'd. Deployment fact checked, not
+assumed: **no multi-replica service owns any orchestration row** — all 1,284
+`agent-chassis` rows (replicas 1), single-pod spawned Job agents, and
+business-intel (replicas 1); core-manager (2) and reasoning-agent (3) own none.
+
+### Fix 2 — the adapter retry cap made reachable
+
+New pure helper `nextAdapterRetryAttempt(retryCounts, stepName, retryVersion)`
+takes the HIGHER of the durable per-step counter and the request's own
+`retry_version`, caps at `maxStepRetries = 3`, and returns the attempt number.
+The adapter branch of `handleRecoverableError` now checks the cap **before**
+re-executing, releases the claim terminally (`MarkAwaitedRequestFailed`, a
+SQL-guarded no-op unless the row is `retrying`), and routes through
+`handleUnrecoverableError` so `error_step` handling matches the message path.
+The old `RetryCount[step] = awaited.RetryVersion + 1` becomes
+`RetryCount[step] = attempt` — an increment, not an assignment.
+
+Unit tests: `platform/orchestration/adapter_retry_cap_test.go`, four tests, no
+DB. One of them, `TestOldAssignmentRuleNeverCaps`, is a **negative control**: it
+encodes the replaced rule and asserts it never reaches the cap, so the suite
+cannot quietly pass against code that never worked. All four pass (run in a
+`git archive HEAD` + overlay scratch tree, because the package's pre-existing
+external test file `orchestration_test.go` does not compile at HEAD — a stale
+`NewSagaCoordinator` signature, nothing to do with this change and not edited).
+
+Behaviour changes worth naming: the cap is per step name per orchestration for
+the orchestration's whole life, not per burst; and a step that used to loop
+invisibly now FAILS or routes to `error_step`, so failure counts will rise.
+
+### Council
+
+Submitted to the gate as `SUBMISSION_CORR=4a227ed9-2a99-471b-8329-d0aceb63f28c`
+(6 edits). **No `Council-Reviewed:` trailer on the commit** — the trailer is
+earned by an APPROVED verdict only, and the verdict post-dates the commit, so
+this bug is one of the permanent false negatives in the 098 coverage report.
+Read the verdict with:
+`SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='4a227ed9-2a99-471b-8329-d0aceb63f28c' AND kind='council_report' ORDER BY created_at;`
+
+### Deferred, with triggers
+
+- **Fix 3 (reaper clause for loops)** — this file already sequences it after fix
+  2 ("needs the count from fix 2 to be real first"), and fixes 1+2 remove the
+  driver of the observed loop. **Trigger to file it:** any
+  `execution_metadata->'retry_count'` value above 3 seen in the wild after the
+  roll, or a loop observed with a shape the cap does not cover.
+- **Fix 4 (sweep orchestrations owned by nonexistent pods)** — after fix 1,
+  `AWAITING_RESPONSES` orphans heal on their next response. What remains is a
+  different class: `EXECUTING_STEP` (covered by F1's >4h reaper) and
+  `INITIALIZED` (covered by nothing — the 2026-07-13 row named above is still
+  there). SQL cannot tell a live pod from a dead one without a heartbeat this
+  system does not record, so a real fix needs new infrastructure and should not
+  be guessed at inside the shared `stale-orchestration-reaper` pre_query.
+  **Trigger:** an `INITIALIZED` orphan that matters, or the replicas≥2 work
+  needing a liveness signal anyway.
+- **The CLAIM_RECOVERY hazard is NOT filed as a new bug — it is already owned.**
+  `processResponseClaimWithRetry` resets *any* claimed-but-unprocessed request
+  back to `waiting`, including one claimed milliseconds ago by a live pod. With
+  the ownership gate gone, that path is what would let two pods double-apply one
+  response under a shared group with replicas≥2. It is harmless today (no
+  multi-replica coordinator) and the account for it lives in
+  `docs/agent_docs/docs024_key_docs_latest/chassis_replica_scaling/PLAN_2026-07-20…`,
+  which already documents this exact path. A dated note has been added to that
+  workstream's NOTES rather than forking a second account here.
 
 ## Cross-references
 

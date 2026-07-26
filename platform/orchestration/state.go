@@ -1231,9 +1231,57 @@ func (r *StateRepository) SetExecutingStep(ctx context.Context, orchestrationID 
 
 	state.CurrentlyExecuting = &step
 	state.Status = StatusExecutingStep
+	// INERT, deliberately left visible (bugs_open/075): UpdateStateWithVersion's
+	// UPDATE does not list processing_node among its columns, so this assignment
+	// never reaches the database. Consequence: processing_node records the pod
+	// that CREATED the row, not the pod driving it — which is why an ownership
+	// gate built on it could never distinguish a dead owner from a live one.
+	// The only writer that actually moves the column after creation is
+	// TakeOverOrchestration.
 	state.ProcessingNode = os.Getenv("HOSTNAME")
 
 	return r.UpdateState(ctx, state)
+}
+
+// TakeOverOrchestration re-stamps processing_node from a named previous holder
+// to this pod, returning whether the handover was won (bugs_open/075).
+//
+// WHY. The stamp is written once at row creation and never refreshed (see
+// SetExecutingStep above), so an orchestration whose creating pod has died
+// carries a dead pod's name for ever and no living consumer can ever match it.
+// ProcessResponse used to DISCARD responses on that mismatch, and a discard is
+// permanent: AgentClient.processResponse commits the Kafka offset when
+// ProcessResponse returns nil. Once bug-003's F2 retry driver existed, the
+// stranding stopped being silent and became a ~3-minute loop that re-executed
+// the step for ever, with real external side effects per cycle.
+//
+// The CAS is guarded on the previous holder so the log can name who it was
+// taken from and two pods cannot both claim the same handover. It deliberately
+// leaves `version` alone: this is bookkeeping, not a state transition, and must
+// never collide with UpdateStateWithVersion's optimistic lock. Callers proceed
+// whether or not they win — losing means another live pod took the handover
+// microseconds ago, which is no reason to throw away a response only this pod
+// received.
+func (r *StateRepository) TakeOverOrchestration(ctx context.Context, orchestrationID, newPod, previousPod string) (bool, error) {
+	query := `
+		UPDATE orchestration_states
+		SET processing_node = $2,
+		    updated_at = NOW()
+		WHERE orchestration_id = $1
+		  AND processing_node = $3
+	`
+
+	result, err := r.db.ExecContext(ctx, query, orchestrationID, newPod, previousPod)
+	if err != nil {
+		return false, fmt.Errorf("failed to take over orchestration: %w", err)
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, fmt.Errorf("failed to read takeover result: %w", err)
+	}
+
+	return rows > 0, nil
 }
 
 // ClearExecutingStep clears the currently executing step

@@ -267,13 +267,44 @@ func (s *SagaCoordinator) ProcessResponse(ctx context.Context, execCtx *types.Ex
 		return fmt.Errorf("no state found for orchestration_id=%s", awaitedReq.OrchestrationID)
 	}
 
-	// Additional check: verify this orchestrator owns this orchestration
+	// Ownership: TAKE OVER, never discard (bugs_open/075).
+	//
+	// This used to return nil on a pod-name mismatch, which under at-least-once
+	// consume commits the offset — the response was gone for good. Two facts make
+	// that unconditional loss rather than a safety check: processing_node is
+	// stamped once at row creation and never refreshed (so a dead pod's name
+	// never matches any living consumer again), and a response is delivered to
+	// exactly one member of whichever consumer group holds it — this pod. Since
+	// F2 gave expired requests a durable retry driver, the strand also stopped
+	// being silent: the step was re-executed every ~3 minutes for ever, with real
+	// external side effects (a GitHub commit) per cycle.
+	//
+	// Single-processor safety does not come from this stamp. It comes from
+	// ClaimAwaitedRequest above — exactly one actor claims any given request —
+	// and from UpdateStateWithVersion's optimistic lock. So we re-stamp the row
+	// to ourselves for the audit trail and process the response either way.
 	if state.ProcessingNode != "" && state.ProcessingNode != s.podName {
-		contextLogger.Info("Response for orchestration owned by different pod, ignoring",
-			zap.String("orchestration_id", state.OrchestrationID),
-			zap.String("owner_pod", state.ProcessingNode),
-			zap.String("my_pod", s.podName))
-		return nil
+		previousPod := state.ProcessingNode
+		won, takeErr := repo.TakeOverOrchestration(ctx, state.OrchestrationID, s.podName, previousPod)
+		switch {
+		case takeErr != nil:
+			contextLogger.Error("ORCHESTRATION_TAKEOVER_FAILED: applying the response anyway rather than losing it",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("previous_pod", previousPod),
+				zap.String("my_pod", s.podName),
+				zap.Error(takeErr))
+		case won:
+			contextLogger.Warn("ORCHESTRATION_TAKEN_OVER: driving an orchestration stamped to another pod",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("previous_pod", previousPod),
+				zap.String("my_pod", s.podName))
+		default:
+			contextLogger.Warn("ORCHESTRATION_TAKEOVER_RACED: another pod took the handover first; applying this response anyway",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("previous_pod", previousPod),
+				zap.String("my_pod", s.podName))
+		}
+		state.ProcessingNode = s.podName
 	}
 
 	contextLogger.Info("RESPONSE_MATCHED: Found orchestration for response",
@@ -2676,6 +2707,35 @@ func (s *SagaCoordinator) createContinuationContext(state *OrchestrationState) *
 	}
 }
 
+// maxStepRetries caps how many times one step may be retried inside a single
+// orchestration. The message path enforces it through awaited_requests.retry_version;
+// the adapter-action path (which mints a fresh request per attempt) enforces it
+// through execution_metadata.retry_count — see nextAdapterRetryAttempt.
+const maxStepRetries = 3
+
+// nextAdapterRetryAttempt returns the attempt number a re-execution of stepName
+// would be, and whether the cap has already been reached (bugs_open/075).
+//
+// It takes the HIGHER of the durable per-step counter and the request's own
+// retry_version, so neither counter can be walked round: retry_version leads on
+// the message path (the same request is resent and incremented), the map leads
+// on the adapter path (each attempt is a new request pinned at 0).
+//
+// The defect this replaces: `RetryCount[step] = awaited.RetryVersion + 1` — an
+// assignment, not an increment. Against a fresh adapter request (rv always 0)
+// it wrote 1 on every cycle, so no accumulation ever happened and a genuinely
+// failing adapter step retried for ever.
+func nextAdapterRetryAttempt(retryCounts map[string]int, stepName string, retryVersion int) (attempt int, capped bool) {
+	attempts := retryCounts[stepName]
+	if retryVersion > attempts {
+		attempts = retryVersion
+	}
+	if attempts >= maxStepRetries {
+		return attempts, true
+	}
+	return attempts + 1, false
+}
+
 // handleRecoverableError handles errors that can be retried
 func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *OrchestrationState, requestID string, execCtx *types.ExecutionContext, response types.ResponseMessage) error {
 	s.logger.Warn("Recoverable error received",
@@ -2717,10 +2777,38 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		strings.HasPrefix(awaited.RequestsTopic, "system.adapter")
 
 	if isAdapterAction {
+		// Cap the re-executions BEFORE doing any of them (bugs_open/075). The
+		// retry_version check at the top of this function cannot see an adapter
+		// loop: re-executing the step mints a BRAND NEW awaited request and
+		// createAwaitedRequest hardcodes RetryVersion: 0, so every cycle read 0
+		// and the >= 3 cap was unreachable. The durable counter is
+		// execution_metadata.retry_count, persisted with the state below, so it
+		// survives the pod death F2's retry driver exists to recover from.
+		if state.ExecutionMetadata.RetryCount == nil {
+			state.ExecutionMetadata.RetryCount = make(map[string]int)
+		}
+		attempt, capped := nextAdapterRetryAttempt(state.ExecutionMetadata.RetryCount, awaited.StepName, awaited.RetryVersion)
+		if capped {
+			s.logger.Error("ADAPTER_RETRY_CAP_REACHED: step re-executed the maximum number of times, failing instead of looping",
+				zap.String("request_id", requestID),
+				zap.String("step_name", awaited.StepName),
+				zap.Int("attempts", attempt),
+				zap.Int("max_step_retries", maxStepRetries))
+			// Release the claim terminally first, so no downstream failure can
+			// leave the row parked in 'retrying' — same order as the exhaustion
+			// path in retryExpiredAwaitedRequest. Guarded on 'retrying' in SQL,
+			// so it is a no-op when we arrived here holding a 'processing' claim.
+			if failErr := repo.MarkAwaitedRequestFailed(ctx, requestID); failErr != nil {
+				s.logger.Warn("Failed to mark awaited request failed at the adapter retry cap",
+					zap.String("request_id", requestID), zap.Error(failErr))
+			}
+			return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
+		}
+
 		s.logger.Info("Re-executing adapter action for retry",
 			zap.String("step_name", awaited.StepName),
 			zap.String("request_topic", awaited.RequestsTopic),
-			zap.Int("retry_attempt", awaited.RetryVersion+1))
+			zap.Int("retry_attempt", attempt))
 
 		// Remove the failed awaited request
 		delete(state.AwaitedRequests, requestID)
@@ -2732,11 +2820,11 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 				zap.Error(err))
 		}
 
-		// Track retry count in execution metadata
-		if state.ExecutionMetadata.RetryCount == nil {
-			state.ExecutionMetadata.RetryCount = make(map[string]int)
-		}
-		state.ExecutionMetadata.RetryCount[awaited.StepName] = awaited.RetryVersion + 1
+		// Track retry count in execution metadata. INCREMENT (via the attempt
+		// computed above), never assign: the old line here was
+		// `= awaited.RetryVersion + 1`, which on a fresh rv=0 request wrote 1
+		// every cycle and made the cap unreachable (bugs_open/075).
+		state.ExecutionMetadata.RetryCount[awaited.StepName] = attempt
 
 		// Reset state to re-execute the step
 		state.CurrentStep = awaited.StepName
@@ -2754,7 +2842,7 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 
 		s.logger.Info("Re-executing step after adapter timeout",
 			zap.String("step_name", awaited.StepName),
-			zap.Int("retry_attempt", awaited.RetryVersion+1))
+			zap.Int("retry_attempt", attempt))
 
 		// Continue execution - this will re-run the step action with full context
 		return s.continueExecution(ctx, state, execCtx)

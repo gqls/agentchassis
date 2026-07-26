@@ -73,3 +73,47 @@ Missteps this session, recorded per the rules:
 - First DB probe used `correlation_id LIKE '78470372%'` — `correlation_id` is
   uuid-typed and `LIKE` fails with `operator does not exist: uuid ~~ unknown`.
   Cast `::text` first (RUNBOOK R5).
+
+---
+
+## 2026-07-26 — the ownership discard this PLAN is blocked on is GONE (from the 075 thread)
+
+Contributed by the bugfix-003/075 thread, not by this workstream. Two things
+here change the premises of PLAN §§ on the response path — please re-read them
+before the next step rather than trusting the text as written.
+
+1. **`coordinator.go`'s "owned by different pod, ignoring" discard no longer
+   exists.** It is now a takeover: `StateRepository.TakeOverOrchestration` CASes
+   `processing_node` to the consuming pod (guarded on the previous holder, does
+   not touch `version`), logs `ORCHESTRATION_TAKEN_OVER`, and processes the
+   response **either way**. Committed 2026-07-26, INERT until a chassis roll;
+   case is `bugs_open/075`. The PLAN's "Option A must ship in the same change as
+   the removal of this check" is therefore half-satisfied from the other side:
+   the removal has shipped first, which is safe because the discard destroyed
+   responses on its own (a dead owner's name never matches anything), whereas a
+   shared group without the removal destroys ~(N−1)/N of them.
+
+2. **The PLAN's description of `SetExecutingStep` stamping `ProcessingNode`
+   needs a correction.** That assignment never reached the database:
+   `UpdateStateWithVersion`'s UPDATE column list omits `processing_node`. The
+   column is written at row creation and (now) by `TakeOverOrchestration`, and
+   by nothing else. So the pre-existing wedge described in the PLAN was not
+   "stamped by the executing pod" — it was "stamped by the creating pod, for
+   ever".
+
+**What this hands you, and what it does not.** With the gate gone, the remaining
+double-apply risk under a shared group with replicas≥2 is the one the PLAN
+already names: `processResponseClaimWithRetry`'s CLAIM_RECOVERY resets *any*
+claimed-but-unprocessed request to `waiting`, including one claimed milliseconds
+earlier by a live pod, so two pods can both claim one response. That is now the
+**only** thing standing between this workstream and a shared group, and it is
+deliberately NOT fixed by the 075 change (harmless at replicas=1; fixing it
+blind would have been scope the council could not judge). Suggested shape when
+you get there: guard the reset on staleness for `status='processing'` rows
+(`processing_started_at < NOW() - INTERVAL 'N'`) while keeping the immediate
+reset for `retrying`/`expired`, which F2 relies on for the late-response window.
+
+Checked while doing the above (2026-07-26): **no multi-replica service owns any
+orchestration row today** — all agent-chassis rows (replicas 1), single-pod
+spawned Job agents, business-intel (replicas 1); core-manager (2) and
+reasoning-agent (3) own none.

@@ -171,3 +171,43 @@ Gotchas: build-verify via the HEAD-archive overlay BEFORE the dance so the
 window stays seconds, not minutes; `git apply --directory` does not work in a
 non-repo overlay — use `patch -p1` there; scratchpad files do NOT survive a
 session boundary, so keep the patches until the commit lands.
+
+## R-075a — run the orchestration package's tests when HEAD's own test file won't compile
+
+`go test ./platform/orchestration/` fails at HEAD with
+`not enough arguments in call to orchestration.NewSagaCoordinator` — the
+external test file `orchestration_test.go` is 3-arg against a 4-arg signature.
+Pre-existing and committed; do NOT edit it (it belongs to whoever changed the
+signature). Test in a scratch tree instead:
+
+```bash
+SCRATCH=$SCRATCHPAD/075_tree
+rm -rf "$SCRATCH" && mkdir -p "$SCRATCH"
+git archive HEAD | tar -x -C "$SCRATCH"                     # committed baseline
+cp platform/orchestration/{coordinator.go,state.go,adapter_retry_cap_test.go} \
+   "$SCRATCH/platform/orchestration/"                       # my files on top
+rm -f "$SCRATCH/platform/orchestration/orchestration_test.go"
+cd "$SCRATCH" && go test ./platform/orchestration/ -run 'TestAdapterRetryCap|TestOldAssignmentRule' -v
+```
+
+Gotcha: `go build ./platform/...` in the real tree still works and is worth
+running first — it compiles the package but not the broken test binary, so a
+green build there is NOT evidence the tests ran.
+
+## R-075b — is an active orchestration owned by a pod that no longer exists?
+
+```bash
+LIVE=$(kubectl -n ai-persona-system get pods --no-headers -o custom-columns=:metadata.name | paste -sd"','" -)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
+ "SELECT status, processing_node, count(*), min(last_activity) AS oldest
+  FROM orchestration_states
+  WHERE status NOT IN ('COMPLETED','FAILED','CANCELLED')
+    AND processing_node NOT IN ('$LIVE')
+  GROUP BY 1,2 ORDER BY 3 DESC;"
+```
+
+Gotchas: statuses are UPPERCASE in this table; `processing_node` is the pod that
+CREATED the row (nothing else wrote it before the 075 takeover), so an entry
+here is not evidence that pod ever drove the orchestration. Post-075 the
+`AWAITING_RESPONSES` rows should clear themselves as responses arrive —
+`EXECUTING_STEP` is F1's >4h reaper and `INITIALIZED` is covered by nothing.

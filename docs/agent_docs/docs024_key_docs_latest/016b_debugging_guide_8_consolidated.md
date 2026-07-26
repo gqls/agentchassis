@@ -5321,3 +5321,93 @@ is fine, the pipeline eats it, the status says success.
 before and after your edit, with a deliberately-wrong control to prove the check can fail.
 Asserting "a `<style>` is present in `html_template`" passes in both cases and tells you
 nothing.
+
+---
+
+### A field assigned in memory before an UPDATE that omits its column is a silent no-op — and any gate built on that field is comparing against creation-time data (2026-07-26)
+
+**Symptom.** `orchestration_states.processing_node` was used as an ownership gate:
+`ProcessResponse` discarded any response whose orchestration was stamped to another pod. It
+read like a live-ownership check. It never was one: the column is written once, at row
+creation, and **nothing has ever changed it**. Production still holds an active row stamped
+to a pod that died on 2026-07-13.
+
+**The mechanism.** `SetExecutingStep` does exactly what a reader expects —
+`state.ProcessingNode = os.Getenv("HOSTNAME")` — and then calls `UpdateState`. But
+`UpdateStateWithVersion`'s UPDATE lists its columns explicitly (`… last_activity = $15,
+updated_at = $16, owner_agent_id = $17, …`) and `processing_node` is not among them. The
+assignment mutates a struct that is then discarded. No error, no warning; the field is
+"set" in every log line that prints the struct, and stale in the only place that matters.
+
+**Why it survived so long.** The consequences were attributed elsewhere. Responses vanishing
+after a pod roll looked like a delivery problem (`bugs_open/003`); an unkillable retry loop
+looked like a retry-driver defect (`bugs_open/075`). The actual defect was three lines away
+from the code everyone was reading, in a function nobody had reason to open.
+
+**Transferable rules.**
+1. **Grep the COLUMN LIST, not the callers.** For any field you are about to trust, find the
+   statement that persists it. `grep -n "processing_node" state.go` shows an assignment, a
+   scan, and an INSERT — and it takes reading the UPDATE's column list to notice the write
+   path is missing. (Same shape as `bugs_open/052`'s "grep the columns not the callers".)
+2. **A field a struct sets but a query never writes cannot be a gate.** Whatever the gate
+   thinks it is comparing, it is comparing creation-time data. Ask "when was this value last
+   written, by which statement?" before building a decision on it.
+3. **When you find one, leave the corpse labelled.** The inert assignment stays, with a
+   comment saying it never persists and naming the one function that does write the column.
+   Deleting it silently re-opens the trap for the next reader, who will re-derive the
+   assignment because it "obviously should be there".
+4. **A discard path is a data-loss path unless you can name who else gets the data.** Under
+   at-least-once consumption, "ignore and return nil" commits the offset. If the message
+   reaches exactly one consumer — which is what a consumer group guarantees — then there is
+   no "somebody else"; there is only loss.
+
+---
+
+### A containment flag retracts a row from your MODEL, not from the world — and the intersection of everyone's deliberate exclusions is owned by nobody (2026-07-26)
+
+**Symptom.** A listing on a live page advertises a link that 404s — the exact symptom of
+`bugs_closed/052`, on a site whose 052 defect had just been fixed, verified and closed.
+
+**The mechanism, and why the fix could not touch it.** `pages.status = 'archived'` does two
+things, both correct in isolation:
+
+- it removes the page from every **derivation**, so nothing lists it any more;
+- it removes the page from every **re-render**, so nothing rewrites what it says.
+
+Archive a *post* and future listings stop carrying it. Archive the *page holding the
+listing* — which is what a site cleanup does — and there are no future renders at all. The
+last HTML that page rendered is sealed in, and the deploy never removed the file, so it
+keeps serving. Measured live: `robot-hands.com/learning-center/index.html` returns **200**
+with a `blog-listing` component last written 2026-07-03, linking to a post that returns
+**404**.
+
+The general shape is worth more than the instance. Every repair and derivation path in the
+fleet excludes some population **on purpose** — `bugs_open/081` is the same discovery at a
+different layer (015's retype arm deliberately skips `build_status='deployed'`, so a
+mistyped-and-deployed page matches no arm). Each exclusion is defensible alone. Nothing
+owns their **intersection**, and that set is invisible to every checker precisely because
+every checker was told to skip it.
+
+**`deployed_at IS NOT NULL` means a deploy happened once, not that the page is fetchable.**
+Nothing clears the stamp on archive: the 404 target above carries `deployed_at =
+2026-05-10`. This matters beyond one row, because that predicate is the load-bearing half of
+the shared eligibility constants (`queryresolve.ListedPageEligibilitySQL`,
+`DeployedPageEligibilitySQL`, `FetchablePageEligibilitySQL`) that 052 propagated fleet-wide.
+They are still correct — they pair it with a `status` filter, which is what actually
+excludes the row — but their doc comments justify them on the wrong grounds, so the next
+consumer to reach for `deployed_at IS NOT NULL` **alone** as a fetchability test will admit
+archived pages that 404.
+
+**How to catch this class:**
+
+1. **For any "we contain it by setting flag X", ask what X stops and what it freezes.** A
+   flag that removes a row from the pipeline also removes it from every *repair* the
+   pipeline performs. Containment and repair travel the same road.
+2. **A column recording that an event happened is not a column recording current state.**
+   `deployed_at`, `reviewed_at`, `published_at` — every one of these is history. If a
+   predicate needs "is it true *now*", the timestamp alone cannot answer, and the query that
+   looks right will be wrong only for rows whose state has since changed.
+3. **When you close a bug, fetch one live artefact, not just the rows.** The exposure figure
+   in a bug file is read as "is this biting?", never as "is my code path biting?". A symptom
+   can have more than one cause, and `curl` costs seconds. This instance was found that way
+   and no query would have surfaced it — logged in `WRONG_CALLS.md` the same day.

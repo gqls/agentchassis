@@ -301,3 +301,63 @@ damning). Wrong twice: the silent pod simply doesn't own the partition (two
 replicas, one partition), and per-message logs are Debug-suppressed. The
 group-lag check (lag 0) and the ACTIVE pod's logs cleared the adapter in two
 queries — check the consumer group before accusing the consumer.
+
+---
+
+## 2026-07-26 — 075 fixed in code (fixes 1+2), inert until a roll
+
+**Two findings that changed the shape of the fix**, neither of them in the
+2026-07-25 filing:
+
+1. **`processing_node` is write-once at row creation.** `SetExecutingStep`
+   assigns `state.ProcessingNode = os.Getenv("HOSTNAME")` and then calls
+   `UpdateState` — whose UPDATE column list (`… last_activity = $15,
+   updated_at = $16, owner_agent_id = $17, owner_agent_type = $18,
+   owner_agent_role = $19, version = $20`) **does not include
+   `processing_node`**. The assignment is inert; the column has never recorded
+   "the pod driving this", only "the pod that created the row". That is why the
+   dead pod's name survived F2's cross-service rescue on 07-25, and it kills the
+   idea of making the gate smarter: there is nothing live to compare against.
+2. **Discarding is unconditional loss under BOTH consumer-group regimes.** A
+   response reaches exactly one member of whichever group holds it; the
+   responses consumer uses `GroupID = a.AgentID` and `AGENT_ID` is
+   `metadata.uid` (per pod). So the pod holding the message is the only actor
+   that can ever apply it, and `AgentClient.processResponse` commits the offset
+   as soon as `ProcessResponse` returns nil.
+
+So the fix processes the response **unconditionally** and re-stamps the row
+(`TakeOverOrchestration`, a CAS guarded on the previous holder) purely for the
+audit trail. Safety comes from where it always did: `ClaimAwaitedRequest` (one
+actor per response) and the version CAS in `UpdateStateWithVersion`.
+
+**Checked, not assumed, before removing the gate:** no multi-replica service
+owns an orchestration row. `processing_node` across all 1,547 rows is
+agent-chassis (replicas 1), single-pod spawned Job agents, and business-intel
+(replicas 1). core-manager (2 replicas) and reasoning-agent (3) own none.
+
+**Fix 2** replaces `RetryCount[step] = awaited.RetryVersion + 1` with an
+increment via a pure `nextAdapterRetryAttempt` helper, checked BEFORE
+re-execution. Unit-tested with a **negative control** that encodes the old rule
+and asserts it never caps — 076's vacuous-lockstep lesson applied deliberately.
+
+**Test-run trap:** `go test ./platform/orchestration/` cannot build at HEAD —
+the external test file `orchestration_test.go` calls `NewSagaCoordinator` with
+3 args against a 4-arg signature. Pre-existing, committed, not mine, and NOT
+edited: the new tests were run in a `git archive HEAD` scratch tree with my
+three files overlaid and that file removed. Anyone verifying this should expect
+the same and use the same route.
+
+**Not done, deliberately:** fixes 3 (reaper clause) and 4 (dead-owner sweep) —
+triggers recorded in the bug file. The CLAIM_RECOVERY double-apply hazard is
+recorded in the chassis_replica_scaling NOTES, whose PLAN already owns that
+path; no second bug file.
+
+**Council:** `SUBMISSION_CORR=4a227ed9-2a99-471b-8329-d0aceb63f28c`, 6 edits,
+submitted 2026-07-26 ~21:10Z into a backed-up gate lane (4 older council runs
+still executing). Verdict post-dates the commit → **no trailer, ever**, for
+this commit.
+
+**Owed after the next chassis roll:** `VERIFY_075_post_roll.sh` in this
+directory. It hard-stops if the pod lacks the fix, and its pod-grep asserts the
+REMOVED literal (`owned by different pod`) greps 0 — the marker that the change
+merely uses would be satisfied by any image.
