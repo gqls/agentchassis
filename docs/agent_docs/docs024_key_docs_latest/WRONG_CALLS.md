@@ -3454,3 +3454,27 @@ recipe is code, and untested code that only runs in an emergency is the worst ki
 confident register — "restore the three rows from the snapshots taken below" — with no evidence
 the restore had ever been tried. The snapshots were real; everything I said about *reaching* them
 was wrong.
+
+**2026-07-26 — shipped a three-kind publish chain that published the same kind
+three times, and every step reported success.** The Phase E publisher was
+extended to render model → company → protocol, each step configured
+`{"kind": "company"}` / `{"kind": "protocol"}`. First live run: both new steps
+returned `data/model-directory.json` with `entity_count 39`, and git-adapter
+committed MODEL files under the messages "Update adoption tracker" and "Update
+protocol tracker". Six steps, six successes, one register published three
+times. **Cause was mine and the platform was right:** `ExtractActionInputs`
+treats every string config value as a REFERENCE, never a literal — deliberately,
+and the reason is spelled out in that file's own Strategy 5 comment citing
+`bugs_open/042` (a `max_age_hours: 72` config that agreed with a Go default of
+72, so config and behaviour matched and nothing looked wrong until the value was
+changed to 720 and the render kept behaving like 72). My literal resolved to
+nothing, the field was dropped, and my Go default won in silence. **Cheap check:
+I had read that exact comment block earlier the same day** — it is thirty lines
+above the code I was calling — and still wrote a string literal into step
+config. Reading a warning is not applying it. **The check that actually caught
+it: inspecting the committed FILES (`files` keys + `entity_count`) rather than
+the step statuses** — the artefact, not the report, for the third time in three
+days. Two-line variant worth keeping: when an action takes a selector, assert
+the OUTPUT differs per selector; identical output across two "different" runs is
+the whole signal. Family: read-the-warning-didn't-apply-it,
+status-is-not-artefact, silent-default-wins.
