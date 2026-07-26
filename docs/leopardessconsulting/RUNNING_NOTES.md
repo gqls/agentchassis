@@ -1546,3 +1546,40 @@ migration — but the docs were updated to its standard:
   This is exactly the failure the "ground every figure" rule exists to prevent.
 - **SUMMARY_where_we_are.md rewritten** for the owner in plain prose, including an honest
   account of the image-generation mistake and its correction.
+
+---
+
+## 2026-07-26 — L7 (charts) built elsewhere, as a shared component
+
+Written by the brochure_component_library workstream, into this dir deliberately
+rather than into its own: L7 was scoped here first, and a second chart component
+is exactly the drift the council gate exists to catch.
+
+The owner ruled on 2026-07-26 that the chart is **one shared chassis component**,
+not a per-site build. It is live as `evidence-chart`: a section component whose
+`charts` and `facts` fields resolve from `site_specs.evidence_base`, so the code
+owns the numbers (PLAN §5's D1) and no new diffusion kind appears (D3). Bars are
+drawn in CSS from the real value; the labels and figures are real HTML text, so
+screen readers and the claims gate both see them.
+
+**What leopardess has to do to get charts: add a `charts` key to its own
+evidence base.** Nothing else — no code, no registration, no image roll. The 18
+facts already there include two genuinely chartable pairs
+(`C1-records-verified`/`C1-records-enriched`, `C2-feed-items-collected`/
+`C2-feed-items-scored`). The contract, the traps and a working example are in
+`docs/agent_docs/docs024_key_docs_latest/brochure_component_library/components/evidence-chart/README.md`
+and `sql/evidence_base_charts_2026-07-26.sql`.
+
+Two corrections to PLAN §5 while I was in there, both from reading the tree:
+
+- **go-echarts is not in this codebase**, so the "go-echarts vs static SVG"
+  conflict §5 agonises over does not exist to be resolved. (The gripper-dossier
+  session recorded the same correction on 2026-07-24.)
+- **A dependency-free Go SVG chart emitter already exists** —
+  `platform/orchestration/actions/report_charts.go` (`renderBarChartSVG`),
+  written for the gripper dossier. That is the natural home for §5's "Go emits
+  the static SVG" half if it is ever wanted. It is inert until an image roll,
+  which is why the shared component ships as config instead. One caution found
+  while building: text inside `<svg>` is invisible to the claims gate
+  (`datahelpers/claims.go:137`), so an SVG chart's numbers would leave the
+  verification net that currently covers them.

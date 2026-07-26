@@ -99,7 +99,7 @@ decided inputs.
 | Choosing the permanent logo; stating personal-history claims; setting engagement terms | **[human]** — judgement, correctly not automated |
 | `pinned` respected in the spec write path | **[gap]** — small, optional; only matters if agents might overwrite operator corrections |
 | Favicon + OG-card derivation from the logo | **[gap]** — small; currently manual |
-| Code-rendered data charts (L7) | **[gap]** — the one substantial new capability, already scoped (D1/D3/I4 + PLAN §5) |
+| Code-rendered data charts (L7) | **[chassis, 2026-07-26]** — built as the shared `evidence-chart` component by the brochure_component_library workstream, on the owner's "one shared component" ruling. Honours D1 (the code owns the numbers) and D3 (no new diffusion kind). Values come from `site_specs.evidence_base`, so leopardess needs a `charts` key in its own evidence base and nothing else — its 18 facts already contain chartable pairs (`C1-records-verified`/`C1-records-enriched`, `C2-feed-items-collected`/`C2-feed-items-scored`). Source + contract: `docs/agent_docs/docs024_key_docs_latest/brochure_component_library/components/evidence-chart/README.md`. PLAN §5's go-echarts question is moot — go-echarts does not exist in the tree; the SVG emitter that does (`report_charts.go`) is the later-lift option, not the current one. |
 
 Nothing in this thread's *outcome* depends on a tool the chassis cannot replicate. The
 external tools bought speed on a one-off; the durable artifacts (SQL applied, specs in

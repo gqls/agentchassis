@@ -73,3 +73,47 @@ looking convincing, we will have published a graph whose bars mean nothing — a
 close the loop; built apart, 022 first is the useful order, because a detector with no evidence
 base still catches invented figures, while an evidence base with no detector is back to relying
 on discipline.
+
+---
+
+## 2026-07-26 — R4 now has a working instance; R3 is partly answered by it
+
+Filed by the brochure_component_library workstream, which built the chart R4 names.
+
+**R4's rule now has a component behind it.** `evidence-chart` is registered and
+live fleet-wide: a section component whose values resolve from
+`site_specs.evidence_base` and whose chart definitions name fact ids and never
+restate a value. Bars are CSS-drawn from the real number; the labels and figures
+are real HTML text. First instance is fundamentallyai.com (index + capabilities,
+three charts, seven points). Contract and traps:
+`docs/agent_docs/docs024_key_docs_latest/brochure_component_library/components/evidence-chart/README.md`.
+
+**The design decision this file flagged as the one to make deliberately —
+fail closed or fall back — was taken as FAIL CLOSED.** Both data fields are
+`required` with `on_missing: skip_section`, so a site with no audited series
+renders no chart rather than a model-supplied one. On the fleet's 8-of-13
+evidence-base coverage that means most sites get nothing until they have a
+register, which is the intended pressure.
+
+**Three findings that bear directly on R3, from building it:**
+
+1. **`<svg>` is in `nonAssertionElements`** (`platform/orchestration/datahelpers/claims.go:137`)
+   — text inside an SVG is invisible to the claims gate. So an infographic or
+   chart rendered as SVG **leaves the verification net**, and `022`'s numbers
+   check cannot see it either. This is a structural reason to prefer HTML text
+   over SVG text for any figure, and a required check for anyone building the
+   SVG path.
+2. **The claims gate needs the fact's `context_terms` within ±70 characters** of
+   the number (`claims.go:493`). A generated figure whose caption does not echo
+   the fact's own wording is reported as an unregistered number even when it is
+   perfectly sourced. Prompt assembly under R3 must carry the context terms into
+   the caption, not just the value.
+3. **`refresh_evidence_base` rewrites `value` and `verified_at` but never any
+   display string.** Any R3 prompt that bakes a formatted figure into an image
+   goes stale silently the first time the underlying query moves — an argument
+   for generating from `value` at render time, which a diffusion image cannot do.
+
+R3 itself (assembling infographic *prompts* from the evidence base) is still
+open and unbuilt. What has changed is that the "where do the numbers come from"
+question now has a worked answer to copy, and the boundary R4 draws is no longer
+theoretical: there is a code-rendered chart to point at.
