@@ -208,3 +208,37 @@ pod restart either (pod up 21:02:56Z, dispatch ~21:14:55Z). Cause unresolved —
    `page-build-handler`, `content-reviewer`, `tool-recreation-handler` and `report-builder` do.
    The obvious-looking `TRIGGER_rerender_page.sh` would have run green and tested nothing —
    the "verify the failing branch" trap wearing a convenient disguise.
+
+### Induction attempt 2 (corr `df7437f2`): the gate RAN live — but on a page with no links
+
+```
+current_step  complete_error
+valid         true      warnings 1 (short_content)
+checked_links 0
+links_rewritten 0    links_unlinked 0    link_repairs []
+```
+
+**What this DOES prove.** `links_rewritten` / `links_unlinked` / `link_repairs` are keys that
+exist **only in the new binary** — the pre-fix action's return map has no such fields. Their
+presence in `collected_data` is proof that the new code path executed on a real build in
+production, was reached, and returned without error. That is more than pod-grep gives (a string
+in a binary is not a code path that runs).
+
+**What it does NOT prove, and this is the honest limit.** `checked_links: 0` — the writer
+produced 26 characters and **no anchors at all**, so the repair had nothing to repair. Zero
+repairs on a page with zero links is a null result, not a passing test. It is exactly the shape
+of evidence that is tempting to write up as "verified live" and must not be.
+
+Two incidental findings, both of them the system behaving correctly:
+
+- `save_sections` then refused: *"page learn-design-digital-grain is rebuild_policy=owned
+  (tool/widget)"*. A protective guard doing its job — the page was NOT modified, so the failed
+  run cost nothing. But it means **an `owned` page can never serve as an induction target**: the
+  build cannot complete past validation.
+- A writer returning 26 characters for a real content page is itself suspicious and smells like
+  `bugs_open/087` (page-rebuild writer has no section plan). Not chased — out of scope here, but
+  noted in case someone sees the same shape.
+
+**Attempt 3** targets `dartsonline.com / new-arrivals` (corr `119e1bb7`): `rebuild_policy=generic`
+(so `save_sections` can complete), 2 components carrying anchors, and it is the fix-loop's own
+example site rather than a client's. Selection query in RUNBOOK.
