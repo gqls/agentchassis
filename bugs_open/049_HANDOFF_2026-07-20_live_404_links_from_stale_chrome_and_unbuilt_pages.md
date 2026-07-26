@@ -381,3 +381,53 @@ FROM pages WHERE status='active' GROUP BY 1,2 ORDER BY 1,2;
 Header/footer diffs were taken by extracting `href="/..."` from
 `site_components.rendered_html` and comparing against the nav-table rows for
 `primary` / `primary+utility`.
+
+---
+
+## Contribution from the bugs_open/029 thread, 2026-07-26 — the tool-link subset, measured, and its emitter is now fixed
+
+Not a competing fix — `who-owns.py 049` says this case belongs to
+`cta_link_integrity`, so this is evidence handed over, and the sweep is yours to schedule.
+
+**029 is closed at the emitter** (`/bugs_closed/029_..._tool_suggester_writes_phantom_tool_links.md`):
+tool cross-link items were emitted at suggestion time from a **constructed** URL,
+`/tools/{function}.html`, which matches no page on any of the three shapes this platform produces.
+That step is deleted (migration 211, live) and the emit now happens inside the tool build actions
+using the real `pages.url`. **No new dead tool links can be created**, and none of the 27 emitted
+items is still dispatchable (18 complete, 5 needs_human_review, 4 failed, 0 in triaged/approved).
+
+**What is left is exactly your mechanism 2/3 territory: 9 dead `/tools/*.html` references already
+woven into deployed page HTML — 8 pages, 3 sites, 5 distinct targets.**
+
+```
+finetuning.uk               ai-for-uk-small-business  /tools/tool-ai-time-savings-estimator.html
+gamesdesign.co.uk           game-auto-battler         /tools/tool-wave-encounter-designer.html
+gamesdesign.co.uk           game-economy-simulator    /tools/tool-economy-sink-faucet-balancer.html
+gamesdesign.co.uk           guide-economy-basics      /tools/tool-economy-sink-faucet-balancer.html
+gamesdesign.co.uk           guide-fairness-in-rng     /tools/tool-bayesian-ranking.html
+gamesdesign.co.uk           guide-rng-design          /tools/tool-bayesian-ranking.html
+leopardessconsulting.co.uk  ai-readiness-quiz         /tools/tool-process-automation-scorer.html
+leopardessconsulting.co.uk  who-we-help               /tools/tool-process-automation-scorer.html  (x2)
+```
+
+Two things that should change how it is swept:
+
+1. **Most of these are a href REWRITE, not a build.** `tool-bayesian-ranking` and
+   `tool-process-automation-scorer` exist and are live — at a different URL shape (the emitter
+   kept the `tool-` prefix; the real pages drop it or use `/index.html`). Only
+   `tool-ai-time-savings-estimator`, `tool-wave-encounter-designer` and
+   `tool-economy-sink-faucet-balancer` have no page at all.
+2. **Filter on `\.html` or the scan lies.** `/tools/assets/*.js` references dominate an
+   unfiltered `LIKE '%/tools/%'` scan and never resolve to a `pages` row — they are asset paths,
+   not page links, and counting them makes this look an order of magnitude worse than it is.
+
+```sql
+WITH hrefs AS (
+  SELECT p.site_id, s.domain, p.name AS page,
+         (regexp_matches(pc.rendered_html, '"(/tools/[^"#?]*\.html)"', 'g'))[1] AS href
+  FROM page_components pc JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id
+  WHERE pc.rendered_html LIKE '%/tools/%' AND p.build_status = 'deployed')
+SELECT h.domain, h.page, h.href FROM hrefs h
+LEFT JOIN pages tp ON tp.site_id = h.site_id AND tp.url = h.href
+WHERE tp.url IS NULL ORDER BY 1,2;
+```
