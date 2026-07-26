@@ -3007,7 +3007,7 @@ See `/bugs_closed/README.md`.
 | 023 | A button's label and its destination are unrelated schema fields — nothing checks that a control with text has somewhere to go. Filed from four owner-reported buttons; 51 dead controls / 7 of 11 sites; 84% of library CTA anchors ungated | **CLOSED 2026-07-25 → `bugs_closed/023_…`.** Classes A/B/C/E fixed and LIVE (config, no roll). Migration **211**: 156 ungated CTA anchors / 31 active components gated `{{if .x_url}}`; 7 placeholder anchors (`{{else}}#`, hardcoded `href="#"`) repaired in 4 more with 5 new renderer/optional url fields; **23 `llm`+`required:true` URL fields → `required:false` fleet-wide** (source left `llm` on purpose — flipping it with no resolver deletes live-correct values). Migration **212**: the last hardcoded `#`. Standing lint `scripts/check_cta_gates.py` (RUNBOOK R17); safe mass-edit recipe R18. Live after: **UNGATED 0, llm+required URL fields 0**. Residuals recorded, not dropped: 1 in-range card anchor, 17 item links, 2 saved-render-artefact templates. Descendants stay open: **033** (queue with no consumer), **045**/**039** (component selection), **049** (links to pages that do not exist), and the flip round |
 | 024 | A tool-improver fix is written durably to `content_components.html_template` and **never rendered to the page**. Six defects were diagnosed on the **generic** rerender path, but the real blocker was that that path is **deliberately forbidden for tool pages** (`save_page_sections` ownership guard, migration 164 — every tool page is `rebuild_policy='owned'`). Sanctioned delivery is the `section-editor` (`apply_section_edit`), which delivered the benchmark fix LIVE. Explains `bugs_open/010`'s "non-convergence" — the page never changed | **CLOSED 2026-07-21** (`bugs_closed/024`, fixed & live). Remaining work → `features_open/009` (Option A rewire; generic-path residuals `cdd858402` + candidate 4) |
 | 031 | A wrong entry in the concept register claimed scoped page-rerender "SKIPS pages whose content hash is unchanged". No such code exists and `git log -S` shows it never did — but a council seat quoted it as "the pipeline's own contract" and blocked a correct plan at HIGH severity. Replication was wider than filed: 6 register-file occurrences **plus the live seat prompts** in both `fix-proposer` and `council-gate` rows | **FIXED & LIVE 2026-07-20** — register + sources corrected, live rows patched (`PATCH_render_guardian_031` + 099 sync, verified), citation convention added to docs026 README — **`→ bugs_closed/`** |
-| 029 | `tool-suggester` emits `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool that has no `pages` row — the writer invents the URL, producing an owner-visible 404. Autonomous, and it regenerates human-reviewed copy while doing it. **This is the true cause of the leopardess damage wrongly filed under `001`** | filed 2026-07-19; primary DB evidence, no fix started; check `023` first — likely the same family |
+| 029 | `tool-suggester` emitted `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool page that does not exist. **CORRECTED 2026-07-21: the writer does not invent the URL — the EMITTER fabricates it** (`/tools/{function}.html`) and bakes it into both the instruction and the item's `acceptance_test`; and it is wrong for tools that WERE built, because `pages.url` has three incompatible shapes. 0 of 27 items across 4 sites resolved. **This is the true cause of the leopardess damage wrongly filed under `001`** | **FIXED 2026-07-26 → `/bugs_closed/`.** Emit moved into the two tool BUILD actions using the real `pages.url`, and GATED on the page going live (`depends_on` the open build item; no open item → no emit). Migration 211 deletes the suggester's `create_cross_links` step — **that half is LIVE, so no new phantoms**; the Go half ships on the next chassis roll (built + verified in image v1.0.1166). Pattern in §9. **Existing damage NOT cleaned** (27 items + links already woven into live pages) — separate sweep with `049`; pre-fix rows have `spec->>'tool_page_url'` NULL |
 | 030 | Every top-level dispatch queued behind every other: `system.agent.generic.requests` had one partition and one consumer running each orchestration's consecutive steps **inline**, so a council or build chain held the lane 8-15 min and a dispatch waited 25-36 min — indistinguishable from a drop (two recorded misdiagnoses, one duplicate paid round). The lane was **93% kafka-scheduler** by message header, two cron jobs alone 84%; the interactive dispatches it was filed about were ~6%. | **CLOSED 2026-07-26 → `/bugs_closed/`** — three parts, all live: (1) cron intervals raised 07-21 (bounded the backlog, then **DECAYED** — enabled tasks on the lane went 12 → 21 in four days, see §9 *"A tuning fix to a shared resource decays"*); (2) `scripts/dispatch-queue-depth.sh` wired into 090/097 so a publish reports its own queue depth (prints **no ETA**, deliberately); (3) `EXTRA_REQUEST_TOPICS` — cron moved to `system.agent.scheduled.requests` with its own goroutine/group/offsets (chassis v1.0.1165). **Measured, same submission through the same council one day apart: publish→run 18 min → ~1 s, LAG at publish 18 → 0.** Partitioning REJECTED with reasons (one-way; at `replicas: 1` one consumer takes every partition and still blocks). Residual — still one orchestration at a time *within* a lane — is `chassis_replica_scaling` **P1**, not this case. Landmine: never put `EXTRA_REQUEST_TOPICS` in `personae-prod-config` (spawned pods inherit it wholesale) |
 | 034 *(collision RESOLVED 2026-07-20: the second `034`, slug `replan_rebuilds_every_deployed_page…`, was renumbered to `038` by its own author while both were minutes old — this number is now unambiguous)* | A failed message is classified by **substring** (`"is required"`/`"validation"`/`"invalid"`) and, on a match, returns before `handleProcessingError` — skipping the error response to the waiting parent, the retry, **and any DB write**. Residue is one `zap.Warn` on a pod that rotates in minutes + a counter with no correlation_id. The match is unanchored, so it also eats driver errors, nil derefs and truncated-LLM parse failures. Explains `002` F.2's "accepted, never executed, no error anywhere" (`client_id is required` returns before `getOrCreateState` → zero rows) | filed 2026-07-20; mechanism proven from code, application to F.2's two correlations is hypothesis (evidence rotated away — which is the bug). Fix 1 = the `017`/`c80fffc83` template applied here. Do NOT conflate with `003` |
 | 035 | `site_work_items.updated_at` is not maintained (4,156 of 4,643 complete rows have `updated_at == created_at`; no trigger, one unrelated Go writer) — so a finished job reads as one that never ran. `completed_at` IS reliable | filed 2026-07-20; one-trigger fix candidate |
@@ -4193,3 +4193,66 @@ items of the three covered types had ever reached a terminal status (zero of 70
 `unresolved_cta`), so the recovery path was essentially untested. **A recovery
 mechanism nobody has ever observed working is a design intention, not a safety
 net** — say which one you have.
+
+### A URL you can CONSTRUCT is a contract nobody signed — three writers, three shapes, and the constructor is wrong for all of them (2026-07-26)
+
+Found fixing `bugs_open/029`. `create_tool_cross_link_items.go:142` built a tool
+page's address from the tool's function name:
+
+```go
+toolPageURL := fmt.Sprintf("/tools/%s.html", toolFunction)
+```
+
+and put it into a work item that told the content writer to link to it — and
+into that item's own `acceptance_test`. Fleet sweep: **0 of 27 items across 4
+sites resolved to a real page.** Owner-visible 404 on a live customer site.
+
+**The part worth generalising is not "it guessed too early".** It is that
+`pages.url` has **three writers and three shapes**, none of them derivable from
+the same input:
+
+| writer | input | url |
+|---|---|---|
+| `deploy_tool_action.go` (library fork) | `tool-fuel-cost-estimator` | `/tools/fuel-cost-estimator.html` — **strips** `tool-` |
+| `create_tool_component_action.go` (`CanonicalisePage`) | `tool-process-automation-scorer` | `/tools/process-automation-scorer/index.html` |
+| seeded library rows | `tool-drop-rate-tuner` | `/tools/tool-drop-rate-tuner.html` — **keeps** `tool-` |
+
+So the constructor was wrong even for a tool that **had** been built —
+`tool-process-automation-scorer` was deployed and its cross-link still 404'd.
+That is the discriminating observation, and it is cheap: **take one target that
+definitely exists and check the constructed value against the stored one.** If
+they differ, the constructor is not "racy", it is *wrong*, and no amount of
+sequencing fixes it. If they match, you have tested one shape — go and count how
+many writers there are before concluding.
+
+**The rule.** A value that some other component OWNS and STORES must be read,
+never re-derived, however mechanical the derivation looks. The derivation is a
+copy of a contract that was never written down, and it rots the moment any
+writer changes its mind — silently, because the constructor keeps producing a
+plausible string. `fmt.Sprintf` over an identifier, in code that does not own the
+column, is the shape to distrust.
+
+**Corollary: read-only-if-it-exists changes WHERE the code can live.** Once the
+URL must come from `pages.url`, the emitter cannot run before the row exists —
+so the fix was not "look it up here" but "emit from the two places that just
+wrote the row". A lookup that can find nothing is not a fix, it is the same bug
+with an extra branch.
+
+**And what nothing downstream caught, which is its own pattern.** Three layers
+saw the phantom and none stopped it: the internal-link resolver only handles
+structured **CTA fields**, never in-body prose hrefs; `validate_page_content`
+**does** extract every in-body href and check it against `pages.url` — and files
+a miss as `Severity:"warning"`, which is non-blocking, so the page deploys with
+the 404 on it; the post-deploy phantom-link check has `049`'s coverage gaps.
+**A detector whose finding cannot block and whose queue nobody drains is
+indistinguishable from no detector** (same family as `023`/`033`/`049`).
+
+**One more, from the fix rather than the bug: a deferral is a claim, and the fix
+can invalidate its premise.** The plan deferred "tool page created but never
+deployed → still 404s" to `049` as a broader class. True while the emitter ran at
+suggestion time with no relationship to any build; false the moment the emitter
+moved *into* the build path, where it becomes that code's own failure mode. Ask
+it explicitly: **after this change lands, does the deferred residual still belong
+to the bug I deferred it to?** (Logged in `WRONG_CALLS.md`.) The fix now gates
+each emitted item on the page actually going live — `depends_on` the open build
+item, and if there is no open item, emit nothing.
