@@ -1,3 +1,34 @@
+# ============================================================================
+# NOT APPLIED. THIS FILE HAS NEVER BUILT THE RUNNING DATABASE.
+#
+# The live postgres-clients StatefulSet is built by Terraform:
+#   deployments/terraform/modules/postgres-instance/main.tf
+#   (instantiated in environments/production/uk001/060-databases/main.tf)
+#
+# This file is orphaned: the kustomization.yaml beside it is 0 bytes and no
+# kustomization anywhere in the repo lists it, so no `kubectl apply -k` has
+# ever reached it. Do not read it as the desired state, and do not "reconcile"
+# the live object towards it.
+#
+# It differs from the live object in seven ways, which is how the orphaning was
+# proved (bugs_open/082, 2026-07-26) — every live value matches Terraform:
+#
+#   property           live + terraform            this file
+#   -----------------  --------------------------  -----------------------
+#   serviceName        postgres-clients-headless   postgres-clients
+#   image              pgvector/pgvector:pg15      pg16
+#   containers         postgres                    postgres + exporter
+#   probe command      pg_isready -U … -d …        no -d flag
+#   securityContext    fsGroup/runAsUser 999       absent
+#   password source    envFrom postgres-clients-secret  db-secrets key
+#   storage            100Gi ssd-large             10Gi standard
+#
+# Editing this file changes nothing in the cluster. Reading it as authoritative
+# cost a real diagnosis: bugs_open/082 was first filed as "the live object
+# drifted and lost its resource guarantees", when in fact the live object had
+# never drifted from anything — it faithfully matched a Terraform module that
+# simply never specified resources. Fix that module, not this file.
+# ============================================================================
 apiVersion: v1
 kind: Service
 metadata:

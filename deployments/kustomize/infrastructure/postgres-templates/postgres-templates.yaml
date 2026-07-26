@@ -1,3 +1,17 @@
+# ============================================================================
+# NOT APPLIED. THIS FILE HAS NEVER BUILT THE RUNNING DATABASE.
+#
+# The live postgres-templates StatefulSet is built by Terraform:
+#   deployments/terraform/modules/postgres-instance/main.tf
+#   (instantiated in environments/production/uk001/060-databases/main.tf)
+#
+# Orphaned exactly as its postgres-clients sibling is — the kustomization.yaml
+# beside it is 0 bytes and nothing references it. See the longer note in
+# ../postgres-clients/postgres-clients.yaml and bugs_open/082 for the evidence
+# and for what reading it as authoritative already cost.
+#
+# Editing this file changes nothing in the cluster. Fix the Terraform module.
+# ============================================================================
 apiVersion: v1
 kind: Service
 metadata:
