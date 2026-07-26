@@ -1965,3 +1965,14 @@ genuinely differs).
 > reportContact() fallback (idea-uk@leopardess.uk) is CORRECT, not a bug — the AUDIT side-find
 > reverses. (3) The "stale idea-uk@leopardess.uk in sites.content_data" side-finding stands for
 > the SITE only. Logged in WRONG_CALLS.
+
+**§X.17 addendum — the slot-clear "didn't work": edit-under-a-live-writer (2026-07-26).** Owner
+ran the clear (cleared: 5) but capacity stayed 5/5. Cause, confirmed read-only: the tool loads
+orders.json ONCE at startup (store.go:44 NewStore→ReadFile) and rewrites the WHOLE file from
+memory on every change (store.go:64 persist→WriteFile) — the service had been up since 07-25
+15:11, so the hand-edit never entered memory, and the owner's next test request (requested 60→61)
+persisted memory back over the edit (file mtime 12:40 = the service's own write, the five
+restored). **RULE for the RUNBOOK: never edit /var/lib/idea/orders.json under a running service —
+stop, edit, start.** The original walkthrough's step 1 had the stop; the owner's wrapper script
+skipped it. Corrected single-command sequence (stop→clear→start→verify) issued in-chat. The env
+dedupe (now 1 line, the correct leopardess address) rides the same restart.

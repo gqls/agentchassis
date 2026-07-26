@@ -610,3 +610,12 @@ also not evidence of anything — a new Job is created per dispatch.
 Note the *deploy* step also retries: the patents guide was committed to `vm-sites` twice
 (`b253d868`, `b78f70c4`) because the first git-adapter success response was not consumed. Harmless
 — identical content — but it means "two commits" is not evidence of two edits.
+
+### ⚠ TRAP — never edit orders.json under a running service
+
+`/var/lib/idea/orders.json` is loaded ONCE at startup (`store.go:44`) and rewritten in full from
+memory on every order change (`persist()`, `store.go:64`). An edit made while the service runs
+(a) never reaches the process, and (b) is silently CLOBBERED by the next request that touches the
+store. Observed live 2026-07-26: a slot-clear reported success, then one incoming request
+restored all five cleared statuses. Sequence is always: `systemctl stop idea` → edit → `systemctl
+start idea` → verify via `curl -s http://127.0.0.1:8080/capacity`.
