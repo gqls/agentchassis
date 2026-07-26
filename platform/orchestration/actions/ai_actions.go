@@ -399,9 +399,28 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		// calls as pure failures (council round 2eed453a, three seats).
 		truncErr, isTruncatedCall := aiservice.IsTruncated(err)
 		tolerateTruncation := datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false)
+
+		// The guard's verdict is resolved HERE, before the log line, because the
+		// prefix is a claim about what happened next and opting in is no longer
+		// enough to make it true (bugs_open/076). Deciding the prefix from config
+		// alone wrote "step continued on the partial" onto calls the guard had
+		// just refused — the exact inverse of the misreading the prefix exists to
+		// prevent, and caught by the induced-fault run that verified the guard
+		// rather than by any test. Computed once and reused at the tolerate
+		// branch below, so the log and the behaviour cannot disagree.
+		guardStep, guardedConsumer := "", false
+		if isTruncatedCall && tolerateTruncation {
+			guardStep, guardedConsumer = findTruncationAwareConsumer(
+				params.WorkflowSteps, params.CurrentStep, params.ExecutionContext.StepName)
+		}
+
 		logErrMsg := err.Error()
 		if isTruncatedCall && tolerateTruncation {
-			logErrMsg = "TOLERATED (step continued on the partial): " + logErrMsg
+			if guardedConsumer {
+				logErrMsg = "TOLERATED (step continued on the partial): " + logErrMsg
+			} else {
+				logErrMsg = "REFUSED (bugs_open/076: tolerate_truncation set, but no step in this workflow reads the __truncated marker): " + logErrMsg
+			}
 		}
 
 		// Log the failed call
@@ -459,9 +478,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			// correct trade: an unguarded consumer does not fail, it succeeds
 			// with a half-answer, which is the strictly worse bug this whole
 			// mechanism exists to avoid.
-			guardStep, guarded := findTruncationAwareConsumer(
-				params.WorkflowSteps, params.CurrentStep, params.ExecutionContext.StepName)
-			if !guarded {
+			if !guardedConsumer {
 				params.Logger.Error("LLM response was TRUNCATED and the step sets tolerate_truncation, but NO step in this workflow reads the __truncated marker — refusing to tolerate (bugs_open/076)",
 					zap.String("step_name", params.ExecutionContext.StepName),
 					zap.String("agent_type", params.AgentType),
