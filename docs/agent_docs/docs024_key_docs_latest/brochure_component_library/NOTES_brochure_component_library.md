@@ -1896,3 +1896,33 @@ worst case is the same page rendered twice.
 *Cheap check that settles "stalled or slow" in one minute:* sample the consumer
 position twice. A position that does not move while the lane end grows is a
 stall; a position that advances is latency, and latency here is minutes.
+
+> **CORRECTED 2026-07-26 18:34 — I called it a stall and it is not one.** One
+> sample later the consumer position moved, 105190 → 105191, while the lane end
+> went 105197 → 105201. So it consumes; it consumes **about one message every
+> eight minutes** while the lane grows faster than that. With ten queued ahead,
+> my publish is over an hour away, which *presents* exactly like a stall and is
+> not.
+>
+> **What caught it:** taking one more sample after I had already written the
+> conclusion down. The check I recommended in that very entry — "sample the
+> consumer position twice" — is right, and two samples were not enough; the
+> position was static across four of them and then moved on the fifth.
+>
+> **The better check, and the one I should have used:** compare the *rate* of the
+> consumer against the *rate* of the lane end, over a window long enough to see a
+> single slow message clear. A position that is static for six minutes is
+> consistent with a stall AND with one long-running message being processed, and
+> those need different responses — waiting is right for the second and useless for
+> the first.
+>
+> This is the same shape as this workstream's 2026-07-25 error, which is why it is
+> written out rather than edited away: **a silence read as a failure**. That time I
+> declared four good dispatches dead at +2 minutes. This time I declared a working
+> queue stalled at +6. The tell is identical — concluding from an absence without
+> establishing what the healthy rate looks like.
+>
+> Nothing else in the entry above changes: the repair is still staged and not
+> published, both routes are still queued and idempotent, and re-firing is still
+> the wrong move — more so now, because the lane is genuinely working through a
+> backlog and a duplicate lands behind all of it.
