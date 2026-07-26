@@ -2261,3 +2261,104 @@ is owed against it. The chassis version matters to idea.uk only for *page* build
 **Still open, unchanged from §X.20:** the `running`-order slot leak across a restart (fix named,
 not built); the model generation as a margin lever (owner's call); and the payment leg, which is
 now the single unproven step in the product and is waiting on a human.
+
+### §X.22 — the engine moved to the Claude 5 family, and the model swap alone would have broken it (2026-07-26 late)
+
+Owner: *"update all the outdated models to the most recent."* The engine ran
+`GEN/VERIFY=claude-opus-4-8` and `CRITIQUE/SCORE=claude-sonnet-4-6`
+(`engine.go:26-29`) — one full generation behind. Now `claude-opus-5` /
+`claude-sonnet-5`. **Deployed 21:5x, verified against the live API and the live site.**
+
+Model ids taken from the `claude-api` skill's catalogue, not from memory. That
+mattered: the ids are the *visible* half of the change and the cheap half.
+
+#### The load-bearing half: a swap alone would have 400'd every call
+
+`usesAdaptiveThinking()` was an **allow-list** of models that take adaptive
+thinking (`opus-4-7` / `opus-4-8` / `mythos`). Any model it had never heard of
+fell through to the legacy `thinking:{type:"enabled",budget_tokens:N}` branch —
+and the 5 family rejects that outright. **Induced against the real API before
+changing anything**, using the exact bodies the Go builds:
+
+```
+=== claude-opus-5
+  NEW format (adaptive + effort): 200  stop=end_turn out=4 text='OK'
+  OLD format (budget_tokens)   : 400  "thinking.type.enabled" is not supported for
+                                      this model. Use "thinking.type.adaptive" and
+                                      "output_config.effort"
+=== claude-sonnet-5   — identical on both counts
+```
+
+So the env vars I called "a live lever needing no rebuild" in §X.20 were **not**
+that: changing `GEN_MODEL` on the box alone would have taken the paid product
+down with a 400 on every order. Correcting that here because I wrote it in the
+handoff, NOTES and memory, and it was wrong in the direction that costs money.
+
+**The fix is an inversion, not a patch.** `usesManualThinkingBudget()` is now a
+**deny-list**: only the known-old families get the legacy format, and an
+unrecognised model gets the modern one — because an unknown model is far likelier
+to be newer than older. The old shape turned *every future upgrade* into a
+runtime 400; that class is now closed.
+
+#### The second trap: an omitted field whose meaning changed under us
+
+Two call sites (the free taster `runAudience`, and generate step 2) set no
+`Effort`, so `callClaudeOpts` sent **no `thinking` field at all**. On Opus 4.8
+that meant no thinking. On the 5 family the same omission means thinking runs
+**adaptively by default**, and thinking shares the `max_tokens` cap with the
+answer. Both steps return JSON, so a truncated answer is a parse failure, not a
+short report — the taster (4096 cap) was the exposed one. Both now set `Effort:
+"low"` explicitly with raised caps.
+
+Chose low-effort adaptive over `thinking:{type:"disabled"}` deliberately: the
+migration guidance flags that disabling thinking on Opus 5 can leak `<thinking>`
+tags into the visible response, and these responses are parsed as JSON. Verified
+on the deployed binary — the live taster fragment contains **0** occurrences of
+`thinking`.
+
+Sonnet steps got headroom too: Sonnet 5's tokenizer produces **~30% more tokens
+for the same text** than 4.6, so caps sized against 4.6 can cut equivalent
+output. `max_tokens` is a ceiling, not a reservation — headroom costs nothing
+unless used.
+
+#### Found while there: a CUT completion was being served as a finished one
+
+The response parser never read `stop_reason`. A completion cut at `max_tokens`
+came back HTTP 200, its text parsed, and nothing downstream could tell — the
+exact trap CLAUDE.md names ("`output_tokens == max_tokens` means the completion
+was CUT"). Harmless-ish while nothing thought; materially riskier now that
+thinking competes for the same budget. `max_tokens` and `refusal` now return an
+error instead of persisting a fragment into a customer's report.
+
+Also: the pre-commit twin check flagged `callClaude` as an untouched sibling of
+`callClaudeOpts`. It turned out to have **no callers at all** — its own comment
+claimed it "keeps every existing call site unchanged" and there are none. It
+passes no `Effort`, so it would hit the same trap if revived; documented as
+correct-if-revived rather than deleted.
+
+#### Verification, in order
+
+1. Live API probe of both ids, new format **and** old, before editing (above).
+2. `go vet` clean, full suite green, new `model_wire_format_test.go` — 5 cases
+   including "an unrecognised model must default to adaptive", the regression
+   that motivated the inversion.
+3. Discriminating pod-grep on the deployed binary: `claude-opus-5`=1,
+   `claude-sonnet-5`=1, `claude-opus-4-8`=**0**, `claude-sonnet-4-6`=**0**; and
+   the three earlier fixes (089/090/copy) all still present in the same binary.
+4. **The deployed binary actually calling the new models**: live taster →
+   HTTP 200, 2,587 bytes, 9.1s, coherent output, 0 leaked thinking tags.
+
+Rollback: `/opt/idea/idea.prev-2026-07-26-opus48`. Orders backed up to
+`orders.json.bak-2026-07-26-predeploy4`; 73 orders and the pending unpaid order
+intact across the restart.
+
+#### Cost — [UNMEASURED], and the owner asked about margin
+
+Not claiming a per-report figure: nobody has run a full report on the new models
+yet. What is known rather than guessed: Opus 5 is **$5/$25 per MTok, the same as
+Opus 4.8**; Sonnet 5 is **$3/$15 with an introductory $2/$10 through
+2026-08-31**, so at or below Sonnet 4.6. Pushing the other way: Sonnet 5's
+tokenizer counts ~30% more tokens for the same text, and two steps that
+previously did no thinking now do a little. Net direction is genuinely unknown
+until a real report runs — the `[cache]` log lines carry per-call token counts,
+so the next order measures it for free.
