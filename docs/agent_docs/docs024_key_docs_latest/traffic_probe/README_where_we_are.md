@@ -510,3 +510,43 @@ than just "tidier".
 
 **What I need from you is unchanged**, and it's still that one server session. Nothing I found
 today adds to it.
+
+---
+
+**26 July 2026 — checked everything again before writing you a new read-out, and caught myself
+twice.**
+
+The site is running itself. The feed rebuilt at ten to three this afternoon without anyone
+touching it, thirty items, and the homepage is clean — no invented links, no fabricated email,
+the search box where it should be, and twelve news stories written into the page itself rather
+than fetched by JavaScript. Your server session is still the only thing outstanding: the three
+addresses that need it are still failing exactly as expected, which is the correct answer until
+you run it.
+
+**Two corrections to things I told you, both found by re-checking rather than by anything
+going wrong.**
+
+The first nearly became a false alarm in your inbox. I ran a count of the work the site had
+queued for itself and saw twelve items of the type I fixed last week — dated *after* the fix.
+For a moment that read as "the fix has regressed". It hadn't. When I looked at the rows instead
+of the total, six of them were another session's deliberate repair work on the glossary pages
+(their headlines had borrowed a generic site headline instead of their own), and the rest were
+from before my fix went live. I checked their repair on the live site and it's good — the
+calibre page now says "Calibre: the engine of a watch and how to read it" in Spanish, which is
+exactly right. So: someone else improved your site yesterday, and my fix is holding — it now
+has two days and a lot of cycles behind it rather than the single cycle it had when I called it
+proven.
+
+The second is smaller but I'd rather own it. On Friday I told you two safety rows I'd parked
+had "vanished unexplained". They hadn't vanished at all — I went looking for them under the
+wrong label. They're still sitting there, marked failed, and I've now confirmed properly that
+in that state they can't interfere with anything. The lesson is a bit humbling and worth
+keeping: "it's gone" was a statement about my query, not about the database.
+
+**On the wider machine work**, nothing has changed since yesterday's note: the design is
+settled, your decision that the island should pull rather than be pushed to is recorded as a
+constraint, and the first step is deliberately the free one — prove we can reproduce the
+relojistas box's configuration exactly before we ever apply anything to it.
+
+I've written you a fresh read-out and, more usefully, a detailed handover document so you can
+pick all of this up in a new conversation without me having to reconstruct it.

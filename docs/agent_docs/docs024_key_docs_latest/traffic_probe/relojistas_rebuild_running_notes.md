@@ -1364,3 +1364,79 @@ is better than the "should be tidier" justification it had this morning.
 log is a Cloudflare edge address, so distinct *people* remain uncountable until CF
 real-ip lands in that same run. `[MEASURED]` for request/UA counts above;
 `[UNMEASURED]` for how many humans they represent.
+
+---
+
+## 2026-07-26 — state re-verified live; two corrections to my own record
+
+Re-checked everything before writing a new read-out rather than repeating yesterday's
+figures (the standing rule: ground every figure against the live system).
+
+**Live state, all fetched today:**
+
+```bash
+curl -s https://relojistas.com/feed.xml | grep -c "<item>"        # 30
+curl -s https://relojistas.com/feed.xml | grep -o "<lastBuildDate>[^<]*"
+#   Sun, 26 Jul 2026 13:49:12 +0000        <- pipeline still running on its own
+for u in "external.php?type=RSS2" "external.php?type=rss2" "external.php" "buscar?q=rolex"; do
+  curl -s -o /dev/null -w "%{http_code}\n" "https://relojistas.com/$u"; done
+#   200 / 404 / 404 / 404                  <- owner box session STILL PENDING (as expected)
+```
+
+Homepage: 37,817 bytes, **0 phantom links, 0 mailto, search box present
+(`action="/intent"`), 12 server-rendered `<article>` elements**, headings honest.
+
+**The emitter fix now has a 2-day, many-cycle window** — not the single cycle it had
+when I called it proven on 07-24:
+
+```sql
+SELECT item_type, status, count(*), max(created_at) FROM site_work_items
+WHERE site_id='ecf15e75-…' AND created_at > now() - interval '3 days' GROUP BY 1,2;
+--  page_rerender | complete | 20 | 2026-07-26 13:49:05
+--  needs_page    | complete | 12 | 2026-07-25 17:08:22   <- see below, NOT mine
+--  needs_page    | failed   |  4 | 2026-07-24 10:50:56
+```
+
+Last `source='render_news_section'` needs_page = **2026-07-24 13:45:38**, i.e. before
+v1.0.1155 rolled. Nothing since. The mis-route is dead.
+
+### CORRECTION 1 — the needs_page rows are not a regression, and I nearly reported one
+
+Seeing 12 completed `needs_page` with a timestamp AFTER my fix, my first read was "the
+fix regressed". It had not. Reading the rows instead of the aggregate:
+
+- 6 newest (07-25 17:08) are `source='operator:bugfix_028'` — **another session's**
+  deliberate rebuilds of the glosario pages (hero had borrowed a site-generic headline).
+- The 07-24 pairs are the OLD mis-routed emissions from v1.0.1149, plus my 2 suppressors.
+
+Verified their work landed well, live: `/glosario/calibre.html` →
+*"Calibre: el motor de un reloj y cómo leerlo"*, `/glosario/tourbillon.html` →
+*"Tourbillon: qué es y cómo funciona esta complicación"* — specific Spanish headlines,
+not the borrowed generic. **A GROUP BY is not evidence about a cause**; the `source`
+column was one SELECT away and changed the conclusion completely.
+
+### CORRECTION 2 — the suppressor rows did NOT "vanish unexplained"
+
+On 07-24 I recorded that my two parked suppressor rows had disappeared before the
+guarded DELETE ran, and filed it as an unexplained loose end. Wrong: **they are still
+there, at `status='failed'`.** I had searched for `status='blocked'`, which is what I
+parked them as; something transitioned them (a reaper or claim-timeout is the obvious
+candidate — not chased, because it no longer matters).
+
+They are harmless, and now provably so rather than presumably:
+
+```sql
+SELECT indexdef FROM pg_indexes WHERE indexname='idx_swi_dedup';
+-- … WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified','rejected',
+--   'wont_fix','failed','unresolved','cancelled'])
+```
+
+`failed` is in the terminal set, so the partial unique index does not cover those rows
+and they hold no dedup key. Their key shape (`page_rerender:index`) is also from the old
+namespace; the live emitter uses `page_rerender_<page>_<site>_<reason>`. No interference
+in either direction. **Lesson: "the row vanished" was a claim about a query, not about
+the database** — when a row is missing, re-query without the status filter before
+concluding anything disappeared.
+
+**Corpus:** 72 relevant + 5 review (was 71+4 on 07-25), newest 2026-07-26 07:56 — still
+ingesting. 18 pages deployed.

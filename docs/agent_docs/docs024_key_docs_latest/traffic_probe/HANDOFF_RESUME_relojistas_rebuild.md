@@ -1,5 +1,12 @@
 # HANDOFF — relojistas.com rebuild (fresh-chat entry point)
 
+> **SUPERSEDED as the cold-start door, 2026-07-26 → read
+> [`HANDOFF_2026-07-26_continue_here.md`](HANDOFF_2026-07-26_continue_here.md) first.**
+> That file carries the live-verified state, the single outstanding owner action, the
+> closed-and-do-not-reopen list, and the new `vm_estate` workstream. This file remains
+> accurate as background (coordinates, history, traps) and its task list §4 items 4+5
+> were updated in place on 07-25.
+
 **Written 2026-07-19.** Start a new chat from this file. Everything below was verified
 live at the time of writing, not assumed. Read `CLAUDE.md` at the repo root first — it is
 edited frequently by other threads and its rules bind (pathspec commits, build-from-HEAD,

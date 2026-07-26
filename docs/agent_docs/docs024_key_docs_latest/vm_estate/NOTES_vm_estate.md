@@ -136,3 +136,11 @@ Merge order restated for the record, with the reasoning attached:
    adding more hand-config to migrate later.
 
 First milestone summary written: `SUMMARY_2026-07-25_vm_estate.md`.
+
+## 2026-07-26 — cold-start door
+
+A detailed cross-workstream handoff now exists at
+`traffic_probe/HANDOFF_2026-07-26_continue_here.md` (§5 covers vm_estate). It restates
+the reuse targets, the owner's pull-only ruling, the merge order and the deliberately-free
+next step (P1 describe → P2 render-and-diff against the LIVE relojistas conf, read-only).
+Start there in a fresh chat, then read the PLAN.
