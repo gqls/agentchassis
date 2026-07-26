@@ -57,7 +57,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, and one copied out of a since-corrected tool keeps the old tool's answer; never let either land in a commit message, council submission or code comment unmeasured** | **2** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
-| **confirm the record you are reading is the one that produced the artefact** | **4** |
+| **confirm the record you are reading is the one that produced the artefact** | **5** |
 | **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file; and run any pod-grep marker against the CURRENT binary first — if it passes before the change ships, it is not a test** | **2** |
 | **give an "absence means wait" rule an exit condition — check whether anything NEWER has drained past you before concluding you are merely queued** | **1** |
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
@@ -69,6 +69,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **1** |
 | **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **1** |
 | **prove it before writing it into a SHARED doc — a runbook or landmine entry asserts at higher confidence than a note, and propagates to every later reader** | **1** |
+| **read the step's CONFIG, not its name — `select_sections` selects nothing, and a name-shaped inference can get the right fix candidate rejected** | **1** |
+| **treat a live artefact changing under you mid-investigation as an OWNERSHIP signal — `who-owns.py` reads commits and is blind to an uncommitted session working the same ticket right now** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -4038,3 +4040,57 @@ open, who owns it — has moved on; and state is exactly what a bug file's direc
 here. Adjacent to "a handoff's identity survives, its diagnosis decays" (2026-07-26, gauntlet)
 and to the who-owns rule for existing bugs. Family: stale-context, status-not-in-the-body,
 snapshot-mistaken-for-live.
+
+**2026-07-26 — a mechanism stated as fact, inferred from a definition and an outcome, that
+one query refuted.** `bugs_open/068` (filed 07-24, not by me) said an extraction-time contract
+violation "bypasses the step's `error_step`" and "never reaches that routing", and built a
+whole fix-candidate C around routing extraction failures through `error_step`. Both halves are
+false: the coordinator routes extraction failures like any other step failure
+(`coordinator.go:869`), and the step's `error_step` was declared correctly. What was missing
+was the field — `convertToWorkflowPlan` builds `models.Step` field by field and never copied
+`error_step`, so **no persisted plan has ever carried one**. Candidate C would have "fixed" a
+path that already worked, on a fleet-wide class that would have stayed broken.
+**What caught it:** reading `orchestration_states.workflow_plan` instead of
+`agent_definitions` — one `jsonb_each` over three days of plans: 0 of 14,209 steps carry a
+step-level `error_step`, 1,828 carry the `config.error_step` twin. The 07-24 claim was
+consistent with the definition and with the observed fatality; it was never checked against
+the artefact the runtime consumes.
+**The cheap check:** when a config field appears not to take effect, diff the **materialised**
+artefact against the definition before theorising about the code path that reads it. One query.
+**A second one in the same file, same habit:** "this generation of the writer selects its own
+sections" — inferred from a step named `select_sections`, which is an `extract_fields` over two
+sources and selects nothing. That inference is what got fix candidate A rejected; A was right
+all along (`bugs_open/087`).
+**The class:** a claim about runtime behaviour derived from config plus outcome, written in the
+same voice as a measurement, with a step's *name* doing the work of its config. Family:
+inference-in-the-voice-of-a-finding, read-the-artefact-not-the-source, name-is-not-a-spec.
+
+**2026-07-26 — "this ticket is unowned", written into an approved plan while another session
+was fixing it.** I picked up `bugs_open/078` and ran `scripts/who-owns.py 078` first, as the
+rule says. It returned **OVERALL: OWNED or recently active** — and I reasoned past it: the only
+commits were the filing session's, and that session had closed, so I recorded "no owning
+workstream, the advisory is stale" and planned a full fix. Ninety minutes later, at the moment
+I started implementing, `git log` showed `912ddc1db fix(bugs_closed/078)` — a different session
+had diagnosed, fixed, applied migration `217`, verified and closed it while I was planning.
+Nothing was lost (the re-check caught it before a line was written, and I converted the work
+into an independent verification plus a residual for `bugs_open/033`), but a full plan cycle
+was spent on a ticket that was already being fixed.
+**What caught it:** re-running `git log` at implementation start — CLAUDE.md's "your
+session-start `git status` is a snapshot; re-run it before acting on it", applied to the log.
+**The cheap check I actually skipped, and it was in front of me:** at 17:42 I measured the
+offending NULL-handler row live; at 17:48 I re-queried and it had been **repaired**. I noticed,
+looked up what happened to it, wrote "someone repaired it" — and did not draw the one inference
+that mattered: *someone is working this ticket, right now*. A live artefact changing underneath
+you mid-investigation is an ownership signal, and **the thing that changed names the ticket
+they are on**. `who-owns.py` cannot supply that: it reads commits, and an in-flight session has
+not committed yet. So the advisory was not wrong when it said OWNED — it was merely *early*,
+and I overrode it on the one piece of evidence it could not have.
+**The class:** treating a stale-looking advisory as a false positive, when the live system was
+concurrently emitting the fresh evidence for it. Adjacent to "check whether an existing bug has
+an owning workstream" (existing row) but distinct: that one is a skipped check, this one is a
+check that ran, said the right thing, and was argued away. Family: advisory-overridden-by-
+reasoning, concurrency-invisible-to-git, the-artefact-that-moved-was-the-signal.
+**Worth noting for the next thread:** the same ticket was worked twice by unrelated sessions in
+24 hours (07-25 filing, 07-26 fix) and its *symptom* was repaired by hand three times by three
+different sessions. A hot bug attracts concurrent threads precisely because it is biting
+everyone at once — which is exactly when `who-owns` is least able to see them.

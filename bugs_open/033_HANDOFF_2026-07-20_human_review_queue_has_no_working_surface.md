@@ -567,3 +567,78 @@ not a borderline call. Worth keeping as a fixture.
 **Not touched by this lane.** `scripts/who-owns.py 033` reports this bug as owned and active
 elsewhere, and the drain is built and awaiting an image roll — so this is evidence contributed
 in, not a competing fix. Full context: `bugs_closed/045…`, closure block.
+
+## Contribution from the `bugfix_078` verification pass (2026-07-26) — Retry sends 290 handler-less items somewhere nothing can handle them
+
+Found while verifying `bugs_closed/078` (*a NULL `handler_agent` livelocks the build
+dispatcher*). It lands here because the defect is not the dispatcher's — it is this bug's own
+open question at *"re-enter retry, or stay parked? (Today it does neither.)"*, and the answer
+today turns out to be **neither, loudly, by way of the build queue**.
+
+**The mechanism.** `HandleRetryWorkItem` (`internal/core-manager/admin/site_admin_handlers.go:852`;
+the UPDATE is at `:877`, route `POST /admin/work-items/:item_id/retry` →
+`internal/core-manager/api/server.go:216`) promotes
+`needs_human_review | failed | blocked | unresolved → 'triaged'`, resets `attempt_count = 0`
+and clears `error`. **It never touches `handler_agent`.** (The table at line 79 of this file
+cites `:719` for this handler — stale line number, same function.)
+
+**The population.** Measured live 2026-07-26 18:05:
+
+```sql
+SELECT status, count(*) FILTER (WHERE handler_agent='') AS no_handler, count(*) AS total
+FROM site_work_items WHERE status IN ('needs_human_review','blocked','failed') GROUP BY 1;
+--  needs_human_review | 290 | 375
+--  failed             |   0 |  52
+```
+
+**290 of the 375 parked items have no handler agent, and that is deliberate** — it is how the
+platform spells "a human decides this": `emitLockBlockedChangeItem` (`lock_helpers.go:117`,
+*"whether the lock should yield is a human decision"*), the dead-control emitter, and
+`discovery_checks/check_image_url_404.go:109` (*"HandlerAgent intentionally empty — flag-only"*).
+The count is 290 rather than 169 because migration `217` (2026-07-26 17:56) folded the 121 rows
+that spelled it `NULL` into the 169 that already spelled it `''`; the two were always one state.
+
+**What Retry does to one of them, today (pre-roll).** The row goes `triaged` with an empty
+handler. `find_dispatchable_site` counts it, `LoadWorkItemsAction` loads it (empty string scans
+fine), `ClaimWorkItemAction` claims it — neither of its two guards fires, both are gated on
+`handlerAgent.String != ""` — and `spawn_handler` resolves `agent_type_field:
+current_item.handler_agent` to empty, so `spawn_actions.go:212` returns
+
+```
+configuration extraction failed in spawn actions: agent_type is required
+(provide 'agent_type' or 'agent_type_field')
+```
+
+into the loop's `error_step: mark_failed`. `attempt_count + 1`, back to `triaged`, twice more,
+then `failed` with `error = 'Handler failed'`. **A human-review item has been converted into a
+failed build item in three dispatch cycles, and the recorded reason names the wrong problem.**
+
+**After the next image roll it gets better but not right.** `bugs_closed/078` fix 3 (committed
+`912ddc1db`, inert until the roll) blocks it at claim time on attempt 1 with
+`No handler_agent set — item cannot be routed to any agent` — honest, and one cycle instead of
+three. It still leaves the review queue, and since `blocked` is itself in the retry UPDATE's
+`WHERE`, a human can click Retry again and loop it indefinitely.
+
+**Why this was worth chasing: before `217` this button was a fleet-outage trigger.** 121 of
+those rows carried `handler_agent IS NULL`, and one click reproduced `078` exactly — the row
+counted by the selector, dropped by the loader, the same site re-picked every 120s, **every
+other site's builds stopped**. That is no longer possible (the column is `NOT NULL DEFAULT ''`,
+re-verified live by induced fault). What survives is item-level, which is why it is filed as a
+contribution here and not re-opened as an outage.
+
+**Shape of a fix, offered not built** (this lane owns the decision, and it is partly a product
+question — the plan that produced this note had it as a fourth part and dropped it on the
+who-owns rule):
+
+- Server-side, refuse: add `AND handler_agent <> ''` to the retry UPDATE and, when nothing is
+  affected, distinguish *why* — **409** *"this work item has no handler agent; it needs a
+  decision, not a rebuild"* rather than the current generic **404** *"item not found or not in
+  retryable status"* (`:895`), which is actively misleading here.
+- The dashboard affordance (`App.tsx:1180`, `:651`) arguably should not offer Retry on a
+  handler-less item at all — but that is this lane's design call, not a defect to route.
+- Either way it interacts with `revalidate_review_queue`: whatever the drain decides to do with
+  a parked item, "push it into the build queue with no handler" is not a resolution.
+
+**Not touched by this lane.** `scripts/who-owns.py 033` reports OWNED and ACTIVE
+(`review_queue_drain`, 3 commits/14d, two of them today), so this is evidence contributed in,
+not a competing fix.
