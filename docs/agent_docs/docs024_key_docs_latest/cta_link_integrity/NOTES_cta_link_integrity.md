@@ -1603,3 +1603,136 @@ need new case arms, and relojistas/vetcomparison belong to other active workstre
 had it open mid-refactor (replacing the `deployedOnly bool` with a named `NavVisibility` type, for
 `049` mechanism 2) and **the shared tree did not compile**. Test against `git archive HEAD` with
 your own files overlaid; do not "fix" their file to make it build.
+
+---
+
+# 2026-07-26 (bugfix-049 session) — 049 re-measured, re-rooted, and closed; the biggest remaining defect was in the nav loader, not the audit
+
+## The measurement that changed the shape of the bug
+
+Re-ran the R15 live audit before touching anything, because 049's figures dated from 07-20 and
+the standing rule is to ground a figure against the live system before repeating it. 229 active
+pages across 8 sites, hrefs from the **shipped** markup, all 274 unique targets probed:
+
+```
+312 broken anchor instances (2026-07-20)  ->  118 today, on 59 of 229 pages
+```
+
+**Mechanism 1 (stale chrome / phantom legal links) is closed.** All three sites have fresh
+chrome and real legal pages; `/privacy.html` and `/terms.html` return 200 on aao and
+gaswholesalers, `/terms.html` on finetuning, and all three now have populated `legal` nav groups
+so the 053 fallback no longer applies to them. Two residual instances only (finetuning
+`/privacy.html` on two page files still carrying pre-refresh baked-in chrome).
+
+## The re-rooting, which is the substance of this session
+
+049 filed mechanism 2 as *"a page row exists but was never built — the check passes it
+deliberately"*, i.e. an **audit** gap, and candidate 4 (shipped 07-20) duly taught the audit
+about it. That was right as far as it went and it changed nothing on any live site, because the
+larger half of mechanism 2 is in the **writer**:
+
+`render_site_components_action.go:97,98,113` load nav with `deployedOnly=false` —
+*"runs during build when pages may not be deployed yet"* — so an active nav item pointing at a
+page that has **never been deployed** renders into the chrome of every page on the site. Fleet
+census: **13 such items across 6 sites.** One of them, gaswholesalers' utility item
+`Pricing Framework -> /fuel-pricing-framework.html`, was **28 of the 118** broken instances —
+one per page. vetcomparison's two primary items were 12 more.
+
+**The obvious fix was wrong in both directions, and that is the finding worth carrying.**
+`deployedOnly=true` filters on `build_status = 'deployed'`, which this very bug's addendum had
+already measured as wrong (34/34 `needs_rebuild`-but-deployed-once pages return **200**), and its
+nav-tables form reads `AND (ni.page_id IS NULL OR p.build_status = 'deployed')` — which
+*deliberately keeps* items orphaned to a NULL `page_id` by `ON DELETE SET NULL`, and that is the
+leopardess quartet in the census. So neither setting of that bool was correct, and the fix is
+**convergence on the predicate the audit already used**, not a third one:
+`datahelpers.NeverDeployedPagePredicate`, moved out of `check_phantom_internal_links` with its
+measurement comment intact. The renderer that WRITES links and the audit that FLAGS them now
+decide by one definition. The platform had been flagging links it authored itself.
+
+`deployedOnly bool` became a `NavVisibility` named type deliberately: a bool **rename** does not
+break compilation, so the call sites would not have been re-read. The compiler stopped at eleven
+of them and one — `v3_site_actions.go:953` — was a **second live instance of the same defect**
+that nobody had found.
+
+## Why nothing ever reported any of it — filed as `bugs_open/083`
+
+Two delivery facts, both verified live, both new:
+
+- **`improvement-sweep` is disabled** (`scheduled_tasks.enabled=false`, last triggered
+  **2026-05-02**). It is the only periodic driver of discovery, and coverage follows exactly:
+  finetuning's last discovery item **05-01**, gaswholesalers' **04-25**, vetcomparison **never**
+  — the three worst sites in the audit.
+- **Findings that are written never move.** `phantom_internal_link`: **22 detected, 0 ever
+  complete.** 98 rows sit in `status='detected'` fleet-wide. The dispatch loop filters
+  `status IN ('triaged','approved')`, and the only promoter, `TriageDetectedItemsAction`, lives
+  solely inside the disabled `improvement-loop`.
+
+This is why 049's own candidate-4 detector — built, tested, **live in the running pod** — has
+produced **zero rows, ever**. Detector work keeps shipping and changing nothing. Filed as
+`bugs_open/083`, distinct from `033` (that is `needs_human_review`); the distinction matters
+because `bugs_closed/054` deliberately chose `detected` **over** `needs_human_review` to avoid
+033's unread pile, calling it "a draining pathway". It does not drain.
+
+## The council caught a real hole, and it was a claim I had not personally verified
+
+Submitted the Go change to the gate (corr `623d7bce`). **APPROVED round 1**, 11 reviewers,
+`unreadable:0` (so the round is valid — the abstention trap in the memory note), 4 advisory
+objections, none high-severity.
+
+`bug_historian` objected to my leaving `GetNavigationStructure` on `NavAllItems` on the grounds
+that *"its only live consumer builds LLM prompt context"* was **unverified**, and named it
+"exactly the kind of unverified assumption that produced mechanism 2 in the first place". It was
+right, and I had taken that claim from a design pass without tracing it. Tracing it: all three
+callers serialise into `collected_data` as `db_sync.navigation`, and that **is** read back into
+render contexts — `extractNavItemsForHeader` (`multipage_actions.go:1406`) and
+`v3_site_actions.go:1256` both turn it into `ctx.NavItems`, which ships as header HTML. The
+exposure survived on that path. Fixed, and **pinned with a test**, because the compiler cannot
+catch a revert there: `NavAllItems` is a valid chosen value, not a missed rename.
+
+That is the second time in one session that the *specific* thing I had not checked was the thing
+that was wrong — see the first-build guard below.
+
+## Missteps, which are the point of this file
+
+**1. My own test caught a defect in the first draft of the first-build guard.** The guard read
+"if no nav item survived filtering, degrade to unfiltered". But `loadFetchablePageSet` always
+injects the site root (matching `check_phantom_internal_links`), so on a first build the `Home`
+item **survived**, the guard never fired, and every other item was dropped — a brand-new site
+would have frozen a **one-item header** into its chrome, permanently, because
+`RenderSiteComponentsAction` skips re-rendering once `rendered_html` is non-empty. The guard now
+keys on *the site having no deployed pages*, which is the thing actually being detected, rather
+than on a surviving count that the root injection breaks. Written as a test first, which is the
+only reason it was caught before shipping.
+
+**2. I re-fired a queued dispatch twice, with the rule in my own auto-memory.** Three chrome
+refreshes on gaswholesalers instead of one. `scripts/dispatch-queue-depth.sh` says it outright:
+`QUEUE DEPTH (LAG): 5 … QUEUED, NOT LOST … DO NOT re-fire`. What defeated the rule was a
+**competing mechanism that was real**: postgres was in a liveness-probe restart loop (another
+session has since filed it as `bugs_open/082`) and the chassis had rolled v1.0.1167 seventeen
+minutes earlier, and CLAUDE.md separately warns that dispatches within ~300s of a chassis restart
+are silently dropped. Two documented mechanisms, one identical observation — an absent
+`orchestration_states` row — and I picked by plausibility instead of running the discriminator
+that already existed. Full entry in `WRONG_CALLS.md`; the generalisable rule is *when two known
+mechanisms predict the same observation, run the discriminator before acting.*
+
+**3. A `grounded_in` quote was not byte-exact** and I only found it because I verified the
+submission mechanically before firing (`"// it truthful empty answer"` for
+`"// the truthful empty answer"`). Per this directory's own quote-fidelity note an abbreviated or
+altered quote is a *different claim* and manufactures objections against byte-identical code. The
+check is three lines of Python against the real files and it should be routine — added to the
+RUNBOOK as **R19**.
+
+## What was left deliberately
+
+- **`gaswholesalers.com` and `vetcomparison.uk` nav items deactivated, not built.** Owner chose
+  deactivation: one reversible `UPDATE` per item, `status='inactive'`, with the reason and the
+  backup table recorded in each row's `metadata`. Rows backed up in
+  `bak_049_nav_items_20260726`. The pages keep their rows and can be re-linked the moment they
+  are built.
+- **The other 10 census rows were not touched.** dartsonline and oufe were outside the audited
+  page set and leopardess's four are not rendered into its chrome, so they are not in the
+  measured live-404 set. The Go fix covers them at render time; changing live site data on a
+  defect I had not measured would be the opposite of this directory's own rule.
+- **Mechanism 3 (extension-less + invented targets, ~61 of the 118) transferred to
+  `bugs_open/071`**, which owns that class at the writer/gate, together with the 9 dead tool
+  links `029` had handed to 049. Recorded there with the full per-site measurement.
