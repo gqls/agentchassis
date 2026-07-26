@@ -395,3 +395,35 @@ sharper statement than the workstream's current "~8min stalls", and it is not
 cron-related. The practical consequence for anyone doing live-site work: a page
 fix can be authored, correct, and committed, and still not be visible for half an
 hour, with no failure anywhere to look at.
+
+### Resolved — and a correction to my own reporting
+
+The cases index went live. Full crawl of every live page, every internal link
+followed:
+
+```
+internal links: /about.html  /cases/index.html  /contact.html  /index.html
+  200  /about.html      200  /cases/index.html
+  200  /contact.html    200  /index.html
+```
+**Zero broken links.** From six 404s (including the header's own nav item) to none.
+
+> **CORRECTION to what I reported mid-flight.** I read a run of `404`s on
+> `/cases/index.html` as the page not being deployed, and told the owner the
+> header CTA was dead. Several of those were **`000`, not `404`** — transient
+> curl failures, which I had been collapsing into "not live". The giveaway was a
+> `000` on `/` in the same sweep, a page I already knew was serving. The object
+> was in B2 (`b2 ls b2://portfolio-sites/oufe.com/cases/index.html`) before I
+> said otherwise.
+>
+> Cheap check that would have caught it: `curl --retry 3 --retry-all-errors`, and
+> **treat `000` as "no answer", never as "not found"** — they mean opposite
+> things. A status code of 000 is the absence of a response, so it carries no
+> information about the resource at all.
+
+Also worth noting for the deploy model: `orchestration_states` sat at
+`AWAITING_RESPONSES | deploy_page` while the page was **already live**. The
+git-adapter commits and the GitHub Action syncs to B2 independently of the
+orchestration closing its loop, so **the orchestration status is not the
+liveness oracle** — the object in B2, or a retried curl, is. `pages.deployed_at`
+was still NULL at that point too.
