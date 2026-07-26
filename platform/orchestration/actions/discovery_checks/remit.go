@@ -40,6 +40,20 @@
 // population, no re-file churn, no repeat spend. stale-work-item-reaper only
 // touches status='triaged' AND pipeline='build', so it cannot churn these either.
 //
+// ONE KNOWN EDGE, stated rather than papered over. insertWorkItem's two-strike
+// rule (load_work_item_actions.go:1041) counts prior rows with the same item_key
+// at status 'complete' or 'failed' in the last 7 days, and at two it rewrites the
+// summary to "[unresolved after N attempts] …". A capability_gap cannot be
+// dispatched, so it cannot fail — but a human marking one 'complete' TWICE inside
+// a week would make the third be born under that label, which is precisely the
+// lie this whole change exists to remove. It is not reachable from the platform's
+// own machinery and the summary's closing clause ("capability gap, not a handler
+// failure") survives the prefix, so the contradiction would at least be visible
+// rather than silent. The clean fix is workItem.recurrenceExpected, which
+// WorkItemSpec (registry.go:56) cannot express today; widening that struct is a
+// change to every check's contract and was not worth it for this. If the shape
+// ever shows up in the data, that is the fix.
+//
 // Companion to 016b §9 "A 'did the fix work?' check must assert the HANDLER's
 // remit, not the DETECTOR's predicate" — that entry scoped the VERIFIER to the
 // handler and said in terms that it did nothing about the detector re-filing

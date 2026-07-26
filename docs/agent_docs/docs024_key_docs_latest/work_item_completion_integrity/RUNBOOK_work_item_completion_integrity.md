@@ -131,3 +131,100 @@ fails; run it with `-v` to see coverage by category:
 go test ./platform/orchestration/actions/discovery_checks/ -run TestVerifierCoverage -v
 ```
 
+
+---
+
+## Handler coverage — is every check routing at an agent that exists? (2026-07-26)
+
+```bash
+go test ./platform/orchestration/actions/discovery_checks/ -run TestHandlerCoverage -v
+```
+
+`TestEveryCheckHandlerAgentExistsOrIsADeclaredGap` fails the build; the `IsReported`
+twin never fails and prints the picture. Refresh `knownHandlerAgents` **by UNION,
+never replacement** — same rule as `liveItemTypes`, same reason:
+
+```sql
+SELECT DISTINCT type FROM agent_definitions WHERE deleted_at IS NULL ORDER BY 1;
+```
+
+**Gotcha — a guard nobody has watched fail is not known to work.** The unit probes
+exercise the assertion function against a fabricated world; they do NOT exercise
+the source scan, which is the half that can silently stop matching. Prove the whole
+thing by inducing a real fault and restoring it:
+
+```bash
+sed -i 's/HandlerAgent: "webdesign-agent",/HandlerAgent: "induced-fault-fixer",/' \
+  platform/orchestration/actions/discovery_checks/check_generic_theme.go
+go test ./platform/orchestration/actions/discovery_checks/ -run TestEveryCheckHandlerAgent   # must FAIL, naming the agent
+git checkout platform/orchestration/actions/discovery_checks/check_generic_theme.go
+go test ./platform/orchestration/actions/discovery_checks/ -run TestEveryCheckHandlerAgent   # must PASS
+```
+
+## Does a check file only what its handler can fix? (bugs_open/077)
+
+Measure the remit split for a check before trusting its item counts. Full method in
+`durable_write_guard/RUNBOOK_durable_write_guard.md` §"Know the expected verdict"
+(dump the population with `row_to_json`, run the shipped Go transform over it).
+
+For `hardcoded_section_colors` there is a SQL shortcut, and its limits matter:
+
+```sql
+-- STRICTLY WIDER than ReplaceHardcodedColors on every axis: no <style> boundary,
+-- no trailing terminator, no restriction to the detector's own population.
+SELECT s.domain, count(*) AS detector_matches,
+       count(*) FILTER (
+         WHERE pc.rendered_html ~ 'background(-color)?\s*:\s*#[0-4][0-9a-fA-F]{5}'
+            OR pc.rendered_html ~ 'linear-gradient\s*\(\s*[0-9]+deg\s*,\s*#[0-9a-fA-F]{3,8}\s*,\s*#[0-9a-fA-F]{3,8}\s*\)'
+       ) AS remit_superset
+FROM page_components pc
+JOIN pages p ON pc.page_id = p.id
+JOIN sites s ON s.id = p.site_id
+WHERE pc.locked_at IS NULL
+  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
+  AND pc.rendered_html LIKE '%<style%'
+GROUP BY 1 ORDER BY 2 DESC;
+```
+
+**Gotcha — a superset proves zero; it can NEVER disprove it.** `remit_superset = 0`
+is proof the handler's remit is empty on that site. `remit_superset = 1` proves
+nothing at all — the true remit may still be 0, because the superset deliberately
+matches things the Go transform will not touch. This thread read a `1` as
+contradicting a previous thread's `0` and wrote a "correction" that was itself the
+error (`WRONG_CALLS.md`, 2026-07-26). If you need a non-zero answer, run the Go
+transform; only use this query to establish zeros.
+
+## Turning a capability gap into queued build work
+
+The residue items are the intake for the feature builder, grouped by the agent
+they need:
+
+```sql
+SELECT spec->>'builder_needed' AS builder, spec->>'gap_kind' AS kind,
+       count(*) AS items, count(DISTINCT site_id) AS sites
+FROM site_work_items
+WHERE item_type = 'capability_gap' AND status = 'deferred'
+GROUP BY 1, 2 ORDER BY 3 DESC;
+```
+
+The designer's `check_spec_approved` gate refuses anything without BOTH an
+`owner_approval` and `code_pointers` in the spec. The checks already write
+`code_pointers`; the approval is a human act and stays one:
+
+```sql
+UPDATE site_work_items
+   SET spec = spec || '{"owner_approval": {"approved_by": "<name>", "date": "YYYY-MM-DD"}}'
+ WHERE id = '<work_item_id>';
+```
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_TRIGGER_feature_designer_v1.sh <work_item_id>
+# SAVE the printed FEATURE_CORR — it keys the staged plan and the council artifacts.
+```
+
+**Gotcha — the cheapest gap is not the one with the most items.**
+`forced-text-color-fixer`'s action (`fix_forced_text_colors`) is *already written
+and already registered*; only the `agent_definitions` row is missing. But do not
+seed it and stop: that action bails out entirely below its WCAG contrast floor and
+only rewrites text-element selectors, so seeding it without also partitioning
+`check_forced_text_colors` re-creates `bugs_open/077` under a new item type.
