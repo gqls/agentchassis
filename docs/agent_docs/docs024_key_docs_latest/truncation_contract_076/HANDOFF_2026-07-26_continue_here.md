@@ -5,11 +5,18 @@ what is left of `076`. Every figure below was run live against `clients_db` or
 the running pod on that date — **re-ground them before you rely on them**, they
 go stale within days.
 
-> **Why this directory holds one file and not the standing five.** The case is
-> CLOSED — there is no live workstream to keep a PLAN/NOTES/README/SUMMARY set
-> for, and writing five docs about finished work would be padding. If you pick up
-> **R1** (the only substantial item left), start the five then, in this directory:
-> that *is* a workstream that will outlive one session.
+> **UPDATED 2026-07-26 evening — R1 IS BUILT.** This file is still the cold-start
+> entry, but read it knowing §R1 below is **done**, not pending. Start with:
+> `PLAN_2026-07-26_r1_static_truncation_consumer_check.md` (design + the
+> correction to this file's own R1 brief), `RUNBOOK_…` (every command, with its
+> gotcha), `NOTES_…` (what shipped, and three defects found *in the checks*),
+> `README_where_we_are.md`. The remaining items are R3/R4/R5 plus the reduced
+> R2 — all small, none keeping anything open.
+>
+> **Why this directory used to hold one file and now holds five.** The case was
+> CLOSED, so five docs about finished work would have been padding. R1 turned it
+> back into a workstream, and the five were started at the beginning of it — as
+> the paragraph this replaces asked.
 
 **Read first:** `bugs_closed/076_HANDOFF_2026-07-25_truncated_llm_responses_tolerated_at_113_unguarded_call_sites.md`
 (the case file — the filename keeps its refuted headline so old pointers still
@@ -28,8 +35,10 @@ opt-in and defaulted false (the producer half was fine); the **consumer half was
 enforced by nothing**. `076` added a runtime guard — a producing step now refuses
 to tolerate unless its workflow contains a step that reads the marker — plus a
 durable record of what the consumer then did about it. **The case is CLOSED:
-fixed, live, and proven by inducing the failing branch.** What remains is one
-real follow-on (a static check at seed time) and four small carried items.
+fixed, live, and proven by inducing the failing branch.** The one real follow-on
+— a static check over the config, so a bad seed is caught before any run exists —
+**was built on 2026-07-26 evening** (§R1). What remains is four small carried
+items, none of which reopens anything.
 
 ## 2. State as of 2026-07-26 21:10 UTC — verified, not assumed
 
@@ -63,7 +72,43 @@ count about consumers.
 
 ## 3. THE RESIDUALS
 
-### R1 — the static check at seed time *(the real one; NOT STARTED)*
+### R1 — the static check at seed time *(**BUILT 2026-07-26 evening**)*
+
+> **DONE. What follows is the original brief, kept because its reasoning is still
+> the reasoning — with two corrections it earned.** What shipped:
+>
+> - `scripts/truncation_registry.py` — parses `truncationAwareActions` and
+>   `acceptsTruncatedConfigKey` out of `truncation_guard.go`. **This is the answer
+>   to the landmine below**: no checker holds a copy, and the parser raises rather
+>   than falling back to a remembered list.
+> - `…/fixloop_eg_dartsonline/103_LINT_truncation_consumer.py` — the live-DB lint
+>   (`--verbose`, `--self-test`, `--strict`). Also lists every `accepts_truncated`
+>   declaration as an unverified claim, which is as much of **R2** as is reachable
+>   without a Go change.
+> - `check_truncation_without_reader` in `scripts/pattern-check.py` — commit time,
+>   via `.githooks/pre-commit`. **0 findings over 849 tracked `.sql` files.**
+> - a pointer at the end of `scripts/migration/run-migrations.sh --apply`.
+>
+> **CORRECTION 1 to the brief below.** It proposed the pre-commit layer as
+> catching "a **seed file** introducing the bad config… most config arrives as a
+> committed seed". Measured, all three files in the repo that arm the flag are
+> `jsonb_set` **patches** whose target workflow lives in the DB — a textual check
+> over them can only guess, and on all three the guess is wrong (their targets are
+> guarded). L2 is therefore scoped to files that **embed** a workflow. Building
+> what was written would have flagged three correct files on day one.
+>
+> **CORRECTION 2.** The brief's "realistic shapes" list said a report "blocks
+> nothing" as if that were its weakness. It is the design: `pattern-check.py`'s
+> header records that a blocking check on a shared tree becomes a fleet-wide
+> outage and then gets disabled permanently.
+>
+> **Validation, since the fleet is clean and a clean report proves nothing:** three
+> probes seeded live (no reader / hatch reader / string-valued flag) were flagged,
+> cleared and reported inert respectively, then deleted — exactly the induction the
+> brief below asks for. Full record: `NOTES_…`, `RUNBOOK_…`, and §R1 of the case
+> file.
+
+<details><summary>Original brief (kept for its reasoning)</summary>
 
 **What.** A check over `agent_definitions.default_config` that flags any step
 with `tolerate_truncation: true` whose workflow contains no truncation-aware
@@ -137,9 +182,18 @@ test assert the two agree** — do not leave a second copy.
 the report shows zero offenders today (it should — blast radius was measured zero
 on 2026-07-26 and all 37 tolerating steps sit in guarded workflows).
 
+</details>
+
 ---
 
-### R2 — `accepts_truncated` is trusted, never checked *(subsumed by R1)*
+### R2 — `accepts_truncated` is trusted, never checked *(REDUCED, not closed)*
+
+> **2026-07-26:** R1's lint now **lists** every step declaring the hatch, labelled
+> as an unverified claim, so a wrong or copy-pasted flag is visible to anyone who
+> runs it — proven against a probe that used it. Still **zero** live users. What
+> remains unbuilt is *verification* that a declaring action really reads the
+> marker, which needs a Go-side change and is the one part that would flip the
+> "no council submission" decision. The paragraph below still stands.
 
 `accepts_truncated: true` in a step's config declares "my action handles a
 partial". **Nothing verifies that.** A wrong or copy-pasted flag re-opens the

@@ -705,19 +705,18 @@ exercised by an induced truncation end to end.
 
 What remains:
 
-- **Named next step, from the guardian's medium objection:** a static check over
-  `agent_definitions.default_config` — flag any step with
-  `tolerate_truncation: true` whose workflow has no truncation-aware consumer, at
-  seed/registration time rather than at the moment of truncation. That catches
-  the bad config *before* a run exists, and it is the layer at which
-  `accepts_truncated` could also be validated. This runtime guard is the floor;
-  that would be the ceiling. Not started.
+- ~~**Named next step, from the guardian's medium objection:** a static check over
+  `agent_definitions.default_config`…~~ — **BUILT 2026-07-26 evening, see
+  §R1 below.** Two layers, both advisory, neither at "registration time" because
+  no such moment exists.
 - **[UNVERIFIED]** `accepts_truncated` is trusted, not checked. Nothing confirms
   a step declaring it actually reads the marker. The positive-control probe used
   it on a `complete_workflow` step that reads nothing — which is exactly the
   hole, demonstrated. It is the config hatch's nature (the config lives in the
-  DB, so no Go test can falsify it); the static check above is where it would be
-  validated.
+  DB, so no Go test can falsify it). **Partly addressed by R1:** the live lint
+  now *lists* every step declaring the hatch as an unverified claim, so a wrong
+  or copy-pasted flag is at least visible. Zero live users today, verified;
+  proven visible against a seeded probe that used it.
 - **`truncationMarkerExemptions` is a trust boundary the test cannot police**
   (council `guardian`/`editquality`, both low). It rejects an empty reason, not a
   false one — a future contributor could exempt a real consumer with a
@@ -747,6 +746,60 @@ What remains:
 - `platform/orchestration/orchestration_test.go:171` does not compile at HEAD
   (`NewSagaCoordinator` called with 3 args, needs 4). Pre-existing, another
   workstream's, untouched here — but it means that package's tests do not run.
+
+---
+
+# R1 BUILT, 2026-07-26 evening — the config is now checked before it runs
+
+The guardian asked for a static check "at workflow registration/deploy time".
+**There is no such moment** — CLAUDE.md's own invariant is that DB config is live
+immediately, so a seed arms a live workflow with no build, deploy or restart.
+What shipped instead is two advisory checks that fail in different directions,
+plus a pointer where config actually lands.
+
+| layer | file | catches | blind to |
+|---|---|---|---|
+| **L1** live-DB lint | `docs024_key_docs_latest/fixloop_eg_dartsonline/103_LINT_truncation_consumer.py` | everything in the fleet, however it arrived — seed, `jsonb_set` patch, hand-run `UPDATE` | anything not yet applied; only speaks when run |
+| **L2** commit-time | `check_truncation_without_reader` in `scripts/pattern-check.py` (wired into `.githooks/pre-commit`) | a committed SQL seed that **embeds** a workflow and arms tolerance inside it | anything reaching the DB without a commit |
+| pointer | `scripts/migration/run-migrations.sh` | names applied files touching the flag and prints the L1 command | dry runs (nothing applied) |
+
+Neither blocks. A blocking gate here would let a bad seed take the fleet down and
+needs an owner ruling nobody has asked for.
+
+**No second copy of the registry.** `scripts/truncation_registry.py` parses
+`truncationAwareActions` and `acceptsTruncatedConfigKey` out of
+`truncation_guard.go`; both checks import it. The handoff flagged the hand-copied
+action list as the landmine before anything was built — this is the answer to it,
+and the parser **raises** rather than falling back to a remembered list, because a
+stale list reports a clean fleet that is not clean.
+
+**Why L2 is scoped to files that embed a workflow.** All three files in the repo
+that arm the flag (`sql_for_agents/177`, `PATCH_fix_proposer_021`,
+`PATCH_feature_designer_022`) are `jsonb_set` patches: they name the flag, but the
+workflow lives in the DB, so the file cannot answer the question — and on all
+three the guess would be wrong (their targets are guarded). Measured over the
+corpus: **849 tracked `.sql` files → 0 findings**; the shape it does check is
+common (170 SQL files embed a steps object, 62 with `execute_llm_prompt`).
+
+**Validated by inducing, because the fleet is clean and always has been.** Three
+probes seeded live — tolerance with no reader, tolerance with a hatch reader,
+and a string-valued flag. Flagged / cleared / reported inert respectively,
+`--strict` exit 1; probes deleted, fleet re-verified clean (37/37 guarded, 171
+definitions scanned). L2's seven controls (offender, registry-guarded,
+hatch-guarded, patch-style, string flag, self-certifying producer, nested inner
+workflow) all behaved. The parser was falsified with six mutations of a copied
+tree.
+
+**Two defects found in the checks themselves before they shipped**, both recorded
+in `WRONG_CALLS.md` and the workstream NOTES: `GetBoolField` accepts **only** a
+real bool (a string `"true"` is NOT tolerance — flagging it would have been a
+false positive on already-safe config), and the first roster loader keyed a dict
+by `type`, silently dropping one row of each of the **5 live duplicate types**. A
+third — the parser silently dropping a gofmt-wrapped registry entry — was found by
+a second session that collided on this same residual and stood down.
+
+Workstream docs (the standing five, started at the beginning as the handoff
+required): `docs/agent_docs/docs024_key_docs_latest/truncation_contract_076/`.
 
 ## Related
 

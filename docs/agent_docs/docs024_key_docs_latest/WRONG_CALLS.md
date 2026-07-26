@@ -5192,3 +5192,50 @@ now unambiguous and is not `git log`: it is mtime on the artefacts you are about
 to touch.** That is mechanical, it costs one command, and it is the third time it
 would have paid. Worth automating into the `who-owns.py` output itself — it
 already knows the workstream directory; it could stat it.
+
+---
+
+## 2026-07-26 — three wrong calls while BUILDING a checker (076 R1)
+
+All three were in the checker itself, which is the point: a check that is wrong
+is worse than no check, because its silence reads as evidence.
+
+**1. I stated a mirror of `GetBoolField` without opening it.** `103_LINT`'s first
+draft said its `is_true` "mirrors datahelpers.GetBoolField: a JSON true, or the
+string `"true"`" — and I wrote a *fixture asserting the string form*, which is
+how a guess gets promoted to a test. `data_helpers.go:1570` type-asserts
+`m[key].(bool)` and returns the default on anything else. So a step configured
+`"tolerate_truncation": "true"` gets **no tolerance at all**; flagging it as an
+offender would have been a false positive on config that is already failing
+closed. **The cheap check: open the function you claim to mirror.** Twenty
+seconds. Caught only because writing the fixture sent me to read it.
+
+**2. My scanner silently covered 166 of 171 workflows.** `load_rosters()` keyed a
+dict by agent `type`. Five live types have TWO active rows (`chief-strategist`,
+`content-creator`, `content-creator-contact`, `multipage-website-builder`,
+`site-component-architect`), so one row of each pair was overwritten and never
+scanned — and a duplicate row is exactly where stale or hand-edited config hides.
+Caught because the tool printed its own denominator and it disagreed with a
+`SELECT count(*)` I had run minutes earlier. **The cheap check: make a tool print
+what it scanned, then reconcile that number against the source once.** A tool
+that reports findings but not coverage cannot be checked at all. Same family as
+`bugs_open/098` — every guard excludes a population, and nobody owns the
+intersection — except this exclusion was not even deliberate.
+
+**3. My parser dropped a registry entry with no error** (found by another session,
+reproduced by me before accepting). The entry regex required key, value and comma
+on one line; a `mechanism` string long enough for gofmt to wrap is
+`"part one " +\n\t\t"part two"` and matched nothing. Three entries present, two
+parsed, exit 0. Direction matters: a *missing* reader makes correctly-guarded
+workflows look like offenders, so the lint cries wolf on a clean fleet — the
+failure mode `pattern-check.py`'s own header says is fatal. **The cheap check: a
+parser must compare what it found against what is structurally there** (count the
+keys, compare with the parsed entries) — "it returned something" is not a parse.
+
+**The tally these three add to:** two of the three are the same shape as entries
+already above — a claim stated at full confidence with the one-command check
+skipped (#1), and a coverage denominator nobody reconciled (#2). #2 is the second
+this week where the bug was in *what a tool did not look at* rather than in what
+it concluded. Worth noting that all three were caught by mechanical means —
+a fixture, a printed denominator, another reader — and none by re-reading my own
+code, which I did several times.
