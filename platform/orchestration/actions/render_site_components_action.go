@@ -889,7 +889,7 @@ func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 		FROM pages
 		WHERE site_id = $1
 		  AND status IN ('deployed', 'active')
-		  AND NOT (` + datahelpers.NeverDeployedPagePredicate + `)
+		  AND NOT (`+datahelpers.NeverDeployedPagePredicate+`)
 		  AND name NOT IN ('index', 'about', 'contact', 'privacy', 'terms', 'cookies', '404', 'sitemap', 'faq', 'careers', 'insights', 'blog', 'news')
 		  AND name != 'services'
 		  AND (in_header = true OR in_footer = true)
