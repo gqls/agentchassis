@@ -222,32 +222,41 @@ func checkMissingSiteMetadata(dctx DiscoveryCheckContext, result *CheckResult) {
 		return
 	}
 
-	specJSON, _ := json.Marshal(map[string]interface{}{
-		"check":          "missing_site_metadata",
-		"missing_fields": missing,
-		"derive_from":    "content_data",
-	})
-
 	result.Findings = append(result.Findings, map[string]interface{}{
 		"check":          "missing_site_metadata",
 		"missing_fields": missing,
+		"handler":        "none registered — filed as a capability gap",
 	})
 
-	result.WorkItems = append(result.WorkItems, WorkItemSpec{
-		SiteID:       dctx.SiteID,
-		Source:       "discovery",
-		Pipeline:     "build",
-		ItemType:     "missing_site_metadata",
-		Severity:     "high",
-		Summary:      fmt.Sprintf("Missing site metadata: %s", strings.Join(missing, ", ")),
-		SpecJSON:     string(specJSON),
-		Priority:     3,
-		HandlerAgent: "site-metadata-fixer",
-		Status:       "detected",
-		CreatedBy:    dctx.AgentType,
-		ItemKey:      fmt.Sprintf("missing_metadata_%s", dctx.SiteID),
-		BatchID:      dctx.BatchID,
-	})
+	// This sub-check used to route at HandlerAgent "site-metadata-fixer", which
+	// has never existed — no agent_definitions row, live-checked 2026-07-26. Every
+	// item it filed was destined to be marked 'blocked' at claim
+	// (claim_work_item_action.go:126-168), at severity high and priority 3, i.e.
+	// near the front of the queue. Zero live rows today only because sites have
+	// tended to carry their metadata; the route was dead either way.
+	//
+	// Found by the handler-coverage guard (handler_coverage_test.go) the day it
+	// was written, which is the argument for having it. Same treatment as
+	// check_forced_text_colors: keep the finding, file it as work that needs a
+	// handler built rather than as work a handler will do (bugs_open/077).
+	result.WorkItems = append(result.WorkItems, CapabilityGapItem(dctx, CapabilityGap{
+		Check:         "missing_site_metadata",
+		Pipeline:      "build",
+		BuilderNeeded: "site-metadata-fixer",
+		GapKind:       GapHandlerMissing,
+		Capability: fmt.Sprintf(
+			"populate a site's own metadata (%s) by deriving it from content_data. "+
+				"No agent and no action exist for this yet — unlike forced_text_colors, "+
+				"the transform has to be written, not just seeded.",
+			strings.Join(missing, ", ")),
+		Population: len(missing),
+		Residue:    len(missing),
+		Examples:   []RemitCandidate{{Key: strings.Join(missing, ", ")}},
+		CodePointers: []map[string]string{{
+			"path": "platform/orchestration/actions/discovery_checks/check_component_standards.go",
+			"why":  "checkMissingSiteMetadata — the detector, and the fields it looks for on the sites row",
+		}},
+	}))
 }
 
 // ---------------------------------------------------------------------------

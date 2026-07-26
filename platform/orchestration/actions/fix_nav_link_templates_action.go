@@ -21,9 +21,9 @@ package actions
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/google/uuid"
+	checks "github.com/gqls/agentchassis/platform/orchestration/actions/discovery_checks"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -80,34 +80,18 @@ func FixNavLinkTemplatesAction(ctx context.Context, params ActionParams) (interf
 	}
 
 	// --- Parse patterns from config ---
+	//
+	// The parser, the defaults and the transform below all live in
+	// discovery_checks alongside check_broken_nav_links, which partitions its
+	// findings by whether these patterns would change the template (bugs_open/077).
+	// One copy, so the check cannot credit this handler with a replacement it does
+	// not make. Do not inline a private copy back here.
 	config := params.StepConfig.Config
-	type replacePattern struct {
-		Find    string
-		Replace string
-	}
-
-	var patterns []replacePattern
-
-	if configPatterns, ok := config["patterns"].([]interface{}); ok {
-		for _, p := range configPatterns {
-			if pMap, ok := p.(map[string]interface{}); ok {
-				find, _ := pMap["find"].(string)
-				replace, _ := pMap["replace"].(string)
-				if find != "" {
-					patterns = append(patterns, replacePattern{Find: find, Replace: replace})
-				}
-			}
-		}
-	}
+	patterns := checks.ParseNavLinkPatterns(config)
 
 	// If no patterns configured, use sensible defaults
 	if len(patterns) == 0 {
-		patterns = []replacePattern{
-			{Find: `href="#{{.slug}}"`, Replace: `href="{{.url}}"`},
-			{Find: `href="#{{ .slug }}"`, Replace: `href="{{ .url }}"`},
-			{Find: `href="#{{.name}}"`, Replace: `href="{{.url}}"`},
-			{Find: `href="#{{ .name }}"`, Replace: `href="{{ .url }}"`},
-		}
+		patterns = checks.DefaultNavLinkPatterns
 	}
 
 	logger.Info("FixNavLinkTemplatesAction: Loaded patterns",
@@ -162,16 +146,7 @@ func FixNavLinkTemplatesAction(ctx context.Context, params ActionParams) (interf
 	var details []map[string]interface{}
 
 	for _, st := range templates {
-		newTemplate := st.Template
-		replacementsApplied := 0
-
-		for _, p := range patterns {
-			count := strings.Count(newTemplate, p.Find)
-			if count > 0 {
-				newTemplate = strings.ReplaceAll(newTemplate, p.Find, p.Replace)
-				replacementsApplied += count
-			}
-		}
+		newTemplate, replacementsApplied := checks.ApplyNavLinkPatterns(st.Template, patterns)
 
 		if newTemplate == st.Template {
 			logger.Info("FixNavLinkTemplatesAction: No changes needed",

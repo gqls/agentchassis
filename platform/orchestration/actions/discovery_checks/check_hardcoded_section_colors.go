@@ -4,18 +4,21 @@
 // "hardcoded_section_colors" (bugs_open/021 INSTANCE 2 — first verifier written
 // against the widened VerifyTarget contract).
 //
-// Three pieces that must be read together:
+// Three pieces that must be read together, and ONE population query and ONE
+// remit predicate shared between them:
 //
-//   - The CHECK counts unlocked page_components whose rendered_html carries a
-//     hex background and a <style> block, and files ONE site-aggregate work
-//     item. The spec carries only a count — locating the defect needs
-//     VerifyTarget.SiteID, which is exactly why this item type was unverifiable
-//     under the old spec-only contract (see verifiers.go).
+//   - The CHECK sweeps unlocked page_components whose rendered_html carries a
+//     hex background and a <style> block, then SPLITS that population by the
+//     handler's own transform. The in-remit part becomes the dispatchable
+//     hardcoded_section_colors item, counted honestly; the residue becomes a
+//     capability_gap (see remit.go). The item stays a site-aggregate — locating
+//     the defect needs VerifyTarget.SiteID, which is exactly why this item type
+//     was unverifiable under the old spec-only contract (see verifiers.go).
 //
 //   - ReplaceHardcodedColors is the HANDLER's transform (fix_hardcoded_colors
-//     action, agent color-variable-fixer), homed HERE so the handler and the
-//     verifier share one predicate. actions imports discovery_checks, never the
-//     reverse, so this is the only package both can reach it from.
+//     action, agent color-variable-fixer), homed HERE so the handler, the check
+//     and the verifier share one predicate. actions imports discovery_checks,
+//     never the reverse, so this is the only package all three can reach it from.
 //
 //   - The VERIFIER re-checks at completion time that the handler's transform is
 //     at a FIXED POINT over the detector's population. Deliberately NOT the
@@ -28,6 +31,16 @@
 //     2026-07-20 (WRONG_CALLS.md: read the HANDLER's remit, not the detector's
 //     predicate). "The transform changes nothing" IS the handler's remit, by
 //     construction, so the two cannot drift.
+//
+// CHANGE 2026-07-26 (bugs_open/077): the check partitions. Until now only two of
+// the three pieces honoured the remit — the verifier was scoped to the handler
+// (34adb171c) while detection still asked the wider question, so on sites where
+// the fixer's remit was EMPTY the check filed an item that no handler run could
+// ever clear. Measured that day: 33 components across 9 sites matched, and on
+// four of them (finetuning.uk 8, gaswholesalers.com 6, ai-agent-orchestration.com
+// 4, dartsonline.com 1) the remit was provably zero. Those items parked as
+// 'unresolved' — labelled "[unresolved after 2 attempts]", i.e. blaming a handler
+// that was never able to succeed. Oldest 2026-04-08.
 //
 // CHANGE: Added pc.locked_at IS NULL to skip locked components.
 
@@ -54,31 +67,44 @@ type HardcodedSectionColorsCheck struct{}
 func (c *HardcodedSectionColorsCheck) Name() string { return "hardcoded_section_colors" }
 
 func (c *HardcodedSectionColorsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult, error) {
-	count, err := countHardcodedColorComponents(dctx)
+	population, err := hardcodedColourPopulation(dctx.Ctx, dctx.DB, dctx.SiteID)
 	if err != nil {
 		return nil, err
 	}
-	if count == 0 {
+	if len(population) == 0 {
 		return &CheckResult{}, nil
 	}
 
-	specJSON, _ := json.Marshal(map[string]interface{}{
-		"check":            "hardcoded_section_colors",
-		"components_found": count,
-	})
+	// The split that bugs_open/077 is about. inRemit is what a color-variable-fixer
+	// run can actually clear; residue is what it provably cannot, no matter how
+	// many times it is dispatched.
+	inRemit, residue := PartitionByRemit(population, ReplaceHardcodedColors)
 
-	return &CheckResult{
+	result := &CheckResult{
 		Findings: []map[string]interface{}{{
 			"check":            "hardcoded_section_colors",
-			"components_found": count,
+			"components_found": len(inRemit),
+			"population":       len(population),
+			"out_of_remit":     len(residue),
 		}},
-		WorkItems: []WorkItemSpec{{
-			SiteID:       dctx.SiteID,
-			Source:       "discovery",
-			Pipeline:     "design",
-			ItemType:     "hardcoded_section_colors",
-			Severity:     "medium",
-			Summary:      fmt.Sprintf("Found %d components with hardcoded hex colors in inline styles instead of CSS variables", count),
+	}
+
+	if len(inRemit) > 0 {
+		specJSON, _ := json.Marshal(map[string]interface{}{
+			"check":            "hardcoded_section_colors",
+			"components_found": len(inRemit),
+			"population":       len(population),
+			"out_of_remit":     len(residue),
+		})
+		result.WorkItems = append(result.WorkItems, WorkItemSpec{
+			SiteID:   dctx.SiteID,
+			Source:   "discovery",
+			Pipeline: "design",
+			ItemType: "hardcoded_section_colors",
+			Severity: "medium",
+			Summary: fmt.Sprintf(
+				"Found %d components with hardcoded hex colors the colour fixer can replace with CSS variables",
+				len(inRemit)),
 			SpecJSON:     string(specJSON),
 			Priority:     55,
 			HandlerAgent: "color-variable-fixer",
@@ -86,25 +112,85 @@ func (c *HardcodedSectionColorsCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 			CreatedBy:    dctx.AgentType,
 			ItemKey:      "hardcoded_section_colors",
 			BatchID:      dctx.BatchID,
-		}},
-	}, nil
+		})
+	}
+
+	if len(residue) > 0 {
+		result.WorkItems = append(result.WorkItems, CapabilityGapItem(dctx, CapabilityGap{
+			Check:         "hardcoded_section_colors",
+			Pipeline:      "design",
+			BuilderNeeded: "color-variable-fixer",
+			GapKind:       GapHandlerRemit,
+			Capability: "rewrite hardcoded background colours that ReplaceHardcodedColors leaves alone: " +
+				"light hexes (first nibble 5-f), 3/4/8-digit forms, and hexes in inline style=\"\" attributes " +
+				"rather than <style> blocks. Widening is a design-intent judgement, not a mechanical one — " +
+				"inline styles and light colours are where deliberate design lives, and a wrong rewrite is a " +
+				"visible site regression.",
+			Population:   len(population),
+			Residue:      len(residue),
+			Examples:     residue,
+			CodePointers: hardcodedColourCodePointers,
+		}))
+	}
+
+	return result, nil
 }
 
-func countHardcodedColorComponents(dctx DiscoveryCheckContext) (int, error) {
-	var count int
-	err := dctx.DB.QueryRowContext(dctx.Ctx, `
-		SELECT COUNT(*)
-		FROM page_components pc
-		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1
-		  AND pc.locked_at IS NULL
-		  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
-		  AND pc.rendered_html LIKE '%<style%'
-	`, dctx.SiteID).Scan(&count)
+// hardcodedColourCodePointers scope the eventual build for whoever picks the gap
+// up (the feature designer's spec gate asks for these alongside owner approval).
+var hardcodedColourCodePointers = []map[string]string{
+	{
+		"path": "platform/orchestration/actions/discovery_checks/check_hardcoded_section_colors.go",
+		"why":  "replaceCSSColors holds the three regexes that define the remit; widening happens here",
+	},
+	{
+		"path": "platform/orchestration/actions/discovery_checks/check_hardcoded_section_colors_test.go",
+		"why":  "TestReplaceHardcodedColorsRemit pins the CURRENT remit — its false cases are the ones a widening must flip, deliberately",
+	},
+	{
+		"path": "platform/orchestration/actions/fix_harcoded_colours_action.go",
+		"why":  "the handler that applies the transform; it must keep calling the shared copy, not fork one",
+	},
+}
+
+// hardcodedColourPopulationSQL is the DETECTOR's predicate, written once. The
+// check and the verifier both run it, so the population they reason about cannot
+// drift apart — the failure that made the 2026-07-25 council manufacture an
+// objection against two queries that were in fact byte-identical, and the one
+// that would matter for real if they ever stopped being.
+//
+// Includes the locked_at exemption: a human-locked component must not block
+// completion, and the check would not re-file it either.
+const hardcodedColourPopulationSQL = `
+	SELECT p.name, COALESCE(pc.slot_name, ''), COALESCE(pc.rendered_html, '')
+	FROM page_components pc
+	JOIN pages p ON pc.page_id = p.id
+	WHERE p.site_id = $1
+	  AND pc.locked_at IS NULL
+	  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
+	  AND pc.rendered_html LIKE '%<style%'
+`
+
+// hardcodedColourPopulation returns every component matching the detector's
+// predicate, carrying the rendered_html so the caller can apply the handler's
+// remit in Go. Key is "page/slot" — the identity used in verifier Detail lines
+// and in capability_gap examples.
+func hardcodedColourPopulation(ctx context.Context, db *sql.DB, siteID uuid.UUID) ([]RemitCandidate, error) {
+	rows, err := db.QueryContext(ctx, hardcodedColourPopulationSQL, siteID)
 	if err != nil {
-		return 0, fmt.Errorf("hardcoded color count query failed: %w", err)
+		return nil, fmt.Errorf("hardcoded colour population query failed: %w", err)
 	}
-	return count, nil
+	defer rows.Close()
+
+	var out []RemitCandidate
+	for rows.Next() {
+		var page, slot, html string
+		if err := rows.Scan(&page, &slot, &html); err != nil {
+			return nil, err
+		}
+		out = append(out, RemitCandidate{Key: page + "/" + slot, Body: html})
+	}
+	return out, rows.Err()
 }
 
 // ============================================================================
@@ -181,14 +267,6 @@ func replaceCSSColors(css string) string {
 // Completion-time verifier (item_type "hardcoded_section_colors")
 // ============================================================================
 
-// hardcodedColourCandidate is one component from the DETECTOR's population,
-// carried to the verdict with enough identity for a useful Detail line.
-type hardcodedColourCandidate struct {
-	Page string
-	Slot string
-	HTML string
-}
-
 // VerifyHardcodedSectionColorsResolved re-checks, at completion time, that the
 // color-variable-fixer's transform has nothing left to do on this site. The
 // item is a site-level aggregate (spec carries only a count), so the target's
@@ -199,36 +277,13 @@ func VerifyHardcodedSectionColorsResolved(ctx context.Context, db *sql.DB, targe
 		return VerifyResult{}, fmt.Errorf("hardcoded_section_colors is site-scoped and the target carries no site_id")
 	}
 
-	// The DETECTOR's population — mirrors countHardcodedColorComponents' WHERE,
-	// including the locked_at exemption (a human-locked component must not block
-	// completion; the check would not re-file it either). The handler-remit
-	// filter happens in Go below. Zero rows is unambiguous here, unlike the
-	// single-target verifiers' missing-row case (bugs_open/032): an aggregate
-	// item's defect is "components matching the sweep exist", so an empty sweep
-	// IS the defect gone.
-	rows, err := db.QueryContext(ctx, `
-		SELECT p.name, COALESCE(pc.slot_name, ''), COALESCE(pc.rendered_html, '')
-		FROM page_components pc
-		JOIN pages p ON pc.page_id = p.id
-		WHERE p.site_id = $1
-		  AND pc.locked_at IS NULL
-		  AND pc.rendered_html ~ 'background(-color)?:\s*#[0-9a-fA-F]{3,8}'
-		  AND pc.rendered_html LIKE '%<style%'
-	`, target.SiteID)
+	// The DETECTOR's population, from the same constant the check runs, including
+	// the locked_at exemption. The handler-remit filter happens in Go below. Zero
+	// rows is unambiguous here, unlike the single-target verifiers' missing-row
+	// case (bugs_open/032): an aggregate item's defect is "components matching the
+	// sweep exist", so an empty sweep IS the defect gone.
+	candidates, err := hardcodedColourPopulation(ctx, db, target.SiteID)
 	if err != nil {
-		return VerifyResult{}, err
-	}
-	defer rows.Close()
-
-	var candidates []hardcodedColourCandidate
-	for rows.Next() {
-		var c hardcodedColourCandidate
-		if err := rows.Scan(&c.Page, &c.Slot, &c.HTML); err != nil {
-			return VerifyResult{}, err
-		}
-		candidates = append(candidates, c)
-	}
-	if err := rows.Err(); err != nil {
 		return VerifyResult{}, err
 	}
 
@@ -237,24 +292,17 @@ func VerifyHardcodedSectionColorsResolved(ctx context.Context, db *sql.DB, targe
 
 // hardcodedSectionColoursVerdict applies the HANDLER's remit to the detector's
 // population: a candidate still counts only if ReplaceHardcodedColors would
-// change it. Pure — unit tested.
-func hardcodedSectionColoursVerdict(candidates []hardcodedColourCandidate) VerifyResult {
-	remaining := 0
-	example := ""
-	for _, c := range candidates {
-		if ReplaceHardcodedColors(c.HTML) != c.HTML {
-			remaining++
-			if example == "" {
-				example = c.Page + "/" + c.Slot
-			}
-		}
-	}
-	if remaining > 0 {
+// change it. The same PartitionByRemit the check now files against, so a
+// completion cannot be judged by a different rule than the one that filed the
+// item. Pure — unit tested.
+func hardcodedSectionColoursVerdict(candidates []RemitCandidate) VerifyResult {
+	inRemit, _ := PartitionByRemit(candidates, ReplaceHardcodedColors)
+	if len(inRemit) > 0 {
 		return VerifyResult{
 			Resolved: false,
 			Detail: fmt.Sprintf(
 				"%d component(s) still carry colours the fixer's own transform would replace (first: %s)",
-				remaining, example),
+				len(inRemit), inRemit[0].Key),
 		}
 	}
 	return VerifyResult{
