@@ -24,14 +24,17 @@ import (
 // doc_notes_subject_type_check — a value the DB accepts but a Go gate
 // rejects, or vice versa, is a split contract; move both together.
 // History: 'tool','pipeline' (base schema); +'experience' (migration 163,
-// experience loop); +'action' (migration 184, shared fix-loop actions).
+// experience loop); +'action' (migration 184, shared fix-loop actions);
+// +'experience-pattern' (migration 218, experience register — one travelling
+// doc per register entry, keyed by the pattern name, carrying its direction,
+// provenance and council trail exactly as a tool's does).
 //
 // When adding a subject type, follow the full checklist in
 // docs/agent_docs/docs024_key_docs_latest/experience_register/design/subject_type_addition.md
 // — image BEFORE migration, or the widened CHECK just recreates 184's split.
 // TestValidDocSubjectTypes_LockstepWithMigrationCheck reads the newest
 // migration that sets the CHECK and fails on drift.
-var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action"}
+var validDocSubjectTypes = []string{"tool", "pipeline", "experience", "action", "experience-pattern"}
 
 // isValidDocSubjectType reports membership in validDocSubjectTypes.
 func isValidDocSubjectType(subjectType string) bool {
