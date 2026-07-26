@@ -22,6 +22,17 @@
 > kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "siteHasAnyNavItems"'    # positive control, was 4
 > ```
 > Verified **absent** from v1.0.1167 at close of session, as expected.
+>
+> **LIVE PROOF, 2026-07-26 ~16:45 BST — the whole chain confirmed against the shipped artefact.**
+> `https://gaswholesalers.com/index.html` serves **zero** occurrences of
+> `/fuel-pricing-framework.html`, down from 3. That closes the loop end to end: nav item
+> deactivated + `in_footer` cleared → chrome re-rendered clean → page re-assembled → **dead link
+> gone from the HTML a visitor receives.** Chrome on both sites is clean in all slots
+> (gaswholesalers 15:35, vetcomparison 15:42), and both are now **absent from the R20 census**.
+> The remaining ~37 page files were still re-assembling at close (one queue, ~7 pages per 15
+> min); they carry the old footer until then. That is throughput on a proven-correct fix, not an
+> unfixed defect — re-check with R15, and note `bugs_open/030`'s residual (one job at a time per
+> lane) is what makes it slow.
 > Commits `a9083d51b` · `759cb2b77` · `6e911793c`. Council **APPROVED** `623d7bce`.
 > Rollback for the data changes: `bak_049_nav_items_20260726`, `bak_049_page_navflags_20260726`.
 
