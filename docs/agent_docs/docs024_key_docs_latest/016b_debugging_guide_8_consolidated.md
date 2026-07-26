@@ -3405,6 +3405,49 @@ Category tags: `decoy-source-of-truth`, `plausibility-is-not-provenance`, `drift
 `fingerprint-on-disagreements`, `fix-a-reconciler-will-undo`, `verify-in-the-kernel-with-a-control`,
 `exit-code-is-not-evidence-of-effect`.
 
+### A claim taken before a guard that can bail parks the row in a status nobody owns (`bugs_open/003`, 2026-07-26)
+
+**Shape.** Code takes an exclusive claim — flipping a row into an in-progress
+status — and only *then* does work that can still return early. Each early exit
+returns without releasing the claim. Now ask the question that finds the bug:
+**which sweeper owns the in-progress status?** In `003` the answer was *none*.
+`awaited_requests.status='processing'` was written by the claim, cleared only by
+successful completion, and touched by **no** cleanup path: the expiry function
+took `'waiting'`, the two retry claims took `'expired'` and stale `'retrying'`.
+So an abandoned claim was invisible to every recovery path the platform had, and
+its parent hung with no driver at all. **181 rows**, oldest a month old.
+
+**Why it hides.** The status *looks* transient, so nobody writes a sweeper for
+it, and it never appears in a "stuck" query because everyone greps the waiting
+state. It also survives the fix that was supposed to end exactly this class:
+`003`'s F2 gave expired requests a durable retry driver, and this row could
+never become expired.
+
+**The check, cheap and general.** For every status a table can hold, name the
+writer that moves a row OUT of it. A status with an entry path and no *unhappy*
+exit path is a leak — and if a parent waits on that row, it is a hang.
+`SELECT status, count(*) … GROUP BY status` plus "who clears this one?" would
+have found it in a minute at any point in the preceding month.
+
+**The fix shape that generalises.** Prefer a **sweep on the status** over a
+release at each `return`. Enumerating exits is how the hole opened (an exit
+added later skipped the release, and nobody noticed); a sweep does not have to
+know about exits at all, including ones not yet written. Reuse the timeout the
+codebase already treats as "the holder is dead" — `003` took
+`PROCESSED_MESSAGES_LEASE_SECONDS` rather than inventing a second number — and
+**release into the existing machinery** rather than teaching a new subsystem
+about it: resetting to `'waiting'` let the untouched expire→claim→retry chain do
+all the work, which made the whole fix one SQL clause with no image roll.
+
+Sibling of `075` (*retry drivers turn discard paths into infinite loops*): both
+are cases where a **recovery mechanism meets a path that silently drops its
+subject**, and the recovery makes the drop worse or unreachable rather than
+better. When you add a driver, enumerate every way its subject can leave the
+driver's view.
+
+Category tags: `status-with-no-owner`, `claim-before-a-guard-that-can-bail`,
+`sweep-beats-enumerating-exits`, `release-into-existing-machinery`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3429,7 +3472,7 @@ See `/bugs_closed/README.md`.
 |---|---|---|
 | 001 | Re-planning a site silently discards its built pages' composition | **FIXED & PROVEN LIVE 2026-07-20** (v1.0.1138/1139): preservation set widened to adoption-locked OR `build_status='deployed'` + non-empty-gated composition snap-back + truncation must-keep; migration 173 live; 7 discriminating tests. Two re-plans on dartsonline: run 2 snapped `index` (LLM dropped `category-listing`, added `content-listing`) and `shipping-returns` (LLM added `faq`) back to realised — the SAME `index` that lost sections in run 1 as `needs_rebuild`, protected in run 2 as `deployed`, so the guard keys on status generically. **CLOSED 2026-07-20 → `/bugs_closed/`** — every residual now has an owner: `037` (needs_rebuild boundary), `038` (content regenerated), `039`, `040`, `035`, plus `051` (the "90-day adoption lock" premise was false — `adoption_locked` is a per-SITE first-plan flag, so Pass C2 can only fire on a site's first plan) and `050` (the Pass B emptiness residual — **and 001's prescription for it was UNSAFE**: for a deployed page `sections=[]` means "rendered by another subsystem", true of all 18 such pages fleet-wide, so "take the LLM's sections when realised is empty" would inject layouts onto tool/blog-index pages). Pages still invented, unfixed by design. Never council-reviewed — both rounds voided by `019`. **Its "FRESH EVIDENCE" (leopardess) section is MISATTRIBUTED — that damage is `029`/page-rerender, corrected in-file** |
 | 002 | Errors surfaced but not fixed (multi-error handoff, route individually) | **SIGNED OFF 2026-07-20 — `→ bugs_closed/`.** A routing doc that routed. B was already fixed (`005`); C fixed via SQL 175+176 (two sites, fleet drift 0); D closed — the section had been gone since 07-10, 8 stale items closed; A→`003`, F→`034`; E is an owner decision. **Its two most confident entries were its two wrongest** (A's retracted root cause; D's "needs a targeted repair built" when the mechanism had shipped 5 months earlier) — see §9 `asserted-absence` and two `WRONG_CALLS.md` rows |
-| 003 | Spawned children lose their response; parents hang until reaped. **§3d (2026-07-18): second root cause — the consume loop commits Kafka offsets BEFORE processing (at-most-once), so any restart destroys in-flight work; §4.4 is the at-least-once + rollout fix that unlocks CD** | open |
+| 003 | Spawned children lose their response; parents hang until reaped. **FOUR root causes, found over 11 days by five threads**: (1) Kafka dial flakes → split to `040`; (2) at-most-once consume + receipt-time dedupe (§3d); (3) timeouts driven only by process-local `time.Sleep`, so a roll deletes every pending timer; (4) an abandoned response *claim* is unreachable by every recovery path — `ProcessResponse` claims `'waiting'→'processing'` before it can still bail, and neither the cleanup function nor either F2 claim path takes `'processing'` | **CLOSED 2026-07-26 → `/bugs_closed/`.** F1 (reaper `EXECUTING_STEP` >4h) live 07-20; F2+F3 (durable DB retry + at-least-once consume + two-phase dedupe) live v1.0.1159 via ride-along, owner-RATIFIED via `RFC_001` after **two guardian vetoes — so NO `Council-Reviewed` trailer exists in this arc**; root cause 4 fixed by migration **226**, DB-only and live in minutes. **Symptom extinct, measured against pre-fix history in `orchestration_state_audit`** (`orchestration_states` is pruned to ~13 days and cannot show it): `AWAITING_RESPONSES→FAILED` **91 in the 38.9 h before the roll (2.34/h) → 12 in the 31.3 h after (0.38/h) → 0 on 07-26**; 0 `EXECUTING_STEP` zombies; **30 requests recovered end-to-end at `retry_version ≥ 1`**; abandoned claims **181 → 8**. Root cause 4 proven on the **failing branch**: an 80-min stranded `deploy_page` was released, re-claimed **cross-service** by a business-intel pod, and got a terminal verdict from §3c's in-code max-age check — which can only fire on re-process, which is exactly what the release restores. **F4a liveness restart re-test PASSED** (restartCount 0→1 + the `503` liveness event) — the test that FAILED in July, wedge proven first. **F4b self-crash backstop DROPPED, not deferred** — the probe is proven to do the job. Residuals are other cases, not this one: `075`, `040`, `replicas≥2`; recheck 08-01. See §9 *"a claim taken before a guard that can bail"* |
 | 004 | Landing an image can silently blank an article body | superseded by 005 — **`→ bugs_closed/`** |
 | 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED; re-verified live 2026-07-19 (19/19 healthy, `max_tokens` 8000 survived a re-seed, repair fn in the running pod, zero writer truncation since 07-15) — **`→ bugs_closed/`** |
 | 006 | Three INDEPENDENT idea.uk-era infra errors: **A** runner replica crash-looping, **B** generated contact forms deliver nothing fleet-wide, **C** claim-timeout churn re-runs finished work | **CLOSED 2026-07-26 → `/bugs_closed/`, with two residuals named at the top of the file.** **A**: symptom extinct (both replicas `1/1`, 0 restarts, 0 CrashLoopBackOff in the namespace) but *how* is `[INFERRED]` — the bad node is gone, so "someone fixed its containerd `SystemdCgroup`" and "the node pool rolled" are now indistinguishable; the file carries an explicit reopen trigger on the same `cgroupsPath` error. **B**: filed cause was STALE (nothing ever posted to `/contact`; the real defect was an unvalidated LLM-written `form_action`) — fixed at the render seam, live `v1.0.1149`/`v1.0.1156`, council-approved `8bfcbc68`, proven end to end on vonc with zero human touch; residual = 9 of 12 forms still `#contact` until their organic re-render, by owner ruling 2026-07-25, and `oufe.com` shows a NEW site is now born correct. **C**: the sweep was hand-coding artifact evidence per item type and had 3 of 18 — migration `220` replaces it with ONE branch keyed on the handler's own orchestration (`initial_request_data->'input_data'->>'work_item_id'`, reach measured 100/100); config, live immediately, **verified through the running scheduler with a negative control**, every guard fault-injected. Residual = the *cause* of the lost write is `003`'s. A `stale-orchestration-reaper` hypothesis was REFUTED by measuring handler runtimes (max 8.1 min vs the reaper's 30) — see §9 |

@@ -1,3 +1,52 @@
+> # ✅ CLOSED 2026-07-26 — fixed AND live, all four root causes
+> **Read this box first; the 900 lines below are the working history, in order,
+> and several early sections were later corrected by later ones.**
+>
+> | root cause | fix | state |
+> |---|---|---|
+> | 1. Kafka dial failures (§3a-b) | **split out** — was broker-2-specific, now fleet-wide/intermittent | → `bugs_open/040`, metrics live 07-26 |
+> | 2. At-most-once consume + receipt-time dedupe (§3d) | **F3** — `FetchMessage`→process→`CommitMessages`, two-phase dedupe claim | LIVE v1.0.1159, in v1.0.1171 |
+> | 3. Timeouts driven only by process-local `time.Sleep` (§"THIRD ROOT CAUSE") | **F2** — durable DB-driven retry of expired requests | LIVE v1.0.1159, in v1.0.1171 |
+> | 4. Abandoned response claim unreachable by every recovery path (2026-07-26 §) | **migration 226** — release clause in `cleanup_expired_awaited_requests()` | LIVE 21:17Z, DB-only |
+> | reaper blind to `EXECUTING_STEP` (§4.3) | **F1** — >4h clause | LIVE 2026-07-20 |
+> | health endpoints lied (§4.1) | **F4a** — real Kafka metadata probe + honest `/health`, `/ready` | LIVE, **restart path PROVEN 2026-07-26** |
+>
+> **The symptom is extinct, measured against pre-fix history**
+> (`orchestration_state_audit`; `orchestration_states` is pruned to ~13 days so
+> it cannot show this):
+>
+> | window | `AWAITING_RESPONSES → FAILED` | completions | rate |
+> |---|---|---|---|
+> | pre-roll 07-23 19:44 → 07-25 10:35 (38.9 h) | **91** | 3,119 | 2.34 /h |
+> | post-roll 07-25 10:36 → 07-26 17:53 (31.3 h) | **12** | 2,390 | 0.38 /h |
+> | 07-26, full day post-fix | **0** | 1,114 | — |
+>
+> Plus: 0 `EXECUTING_STEP` zombies; 0 `reaper: stale AWAITING_RESPONSES` in the
+> whole retained window; **30 requests recovered end-to-end at `retry_version ≥ 1`**
+> that would have been silent losses; abandoned claims **181 → 8** (the 8 being
+> genuinely in flight).
+>
+> **What is NOT closed, and where it lives now** — none of it is this case:
+> - `bugs_open/075` — ownership discard + adapter retry cap. **Being fixed by a
+>   concurrent session as this closed** (fix 1 and fix 2 written, uncommitted at
+>   21:10Z). Its `VERIFY_075_post_roll.sh` is owed after the next roll.
+> - `bugs_open/040` — the network flakiness that started this case.
+> - `replicas ≥ 2` — chassis-replica-scaling workstream; blocked on the response
+>   consumer-group race, **unblocked on the ownership side by 075 fix 1**.
+> - `RFC_001` stays **RATIFIED, not IMPLEMENTED**: its remaining criterion is the
+>   kill-test re-run, which is gated on 075 landing, plus the 08-01 stats.
+> - Follow-ons: guarantee `request_id` on every inbound path; an immediate
+>   in-code claim release (optional — see the 07-26 section for why the sweep is
+>   the structural answer); delete `RunSimpleNotUsed`.
+> - **Recheck 2026-08-01** — the week-later numbers this case was closed slightly
+>   ahead of. Query in the RUNBOOK; expect reaper `stale AWAITING_RESPONSES` ≈ 0
+>   and the abandoned-claim population flat rather than growing.
+>
+> **No `Council-Reviewed` trailer exists anywhere in this arc, deliberately** —
+> the gate never returned APPROVED (two guardian vetoes; owner ratified
+> keep-live instead, via `RFC_001`). Do not cite one. Migration 226 is DB
+> config, which the gate refuses client-side by design.
+
 # HANDOFF — spawned child agents lose their response; parent orchestrations hang until reaped
 
 **Purpose.** Start a fresh chat from exactly here to fix this. This is a **platform / infra
@@ -899,3 +948,152 @@ NO `Council-Reviewed` trailer anywhere in this arc (the gate never approved).
 (deployed, 3 components, live page 54,118 bytes vs the 12,425-byte shell) —
 no longer available as a clean test; the induced-fault campaign carries the
 verification load instead.
+
+---
+
+## 2026-07-26 — FOURTH root cause, inside F2 itself: an abandoned response claim is unreachable by every recovery path
+
+Found while auditing F2's live behaviour before closing this case. **This is
+003's own symptom surviving inside 003's own fix**, which is why it is filed
+here rather than as a new number.
+
+**Mechanism.** `ProcessResponse` takes an exclusive claim on the awaited
+request — `'waiting'` → `'processing'` (`coordinator.go:247`,
+`ClaimAwaitedRequest`) — and only *then* does work that can still bail: loading
+the orchestration state (`coordinator.go:261-268`), and, until the concurrent
+075 work landed, the pod-name ownership check. Every one of those early exits
+returned **without releasing the claim**, and nothing anywhere moved a row back
+out of `'processing'`:
+
+| path | what it takes | takes `'processing'`? |
+|---|---|---|
+| `cleanup_expired_awaited_requests()` | `'waiting'` past timeout → `'expired'`; stale `'retrying'` → `'cancelled'`; 7-day delete of terminal rows | **no** |
+| `ClaimAwaitedRequestForRetry` (F2 fast path) | `'waiting'` past timeout, or `'expired'` | **no** |
+| `ClaimExpiredAwaitedRequestsForRetry` (F2 ticker) | `'expired'` <60 min, or `'retrying'` >5 min | **no** |
+
+So the row was invisible to every recovery path the platform has. The parent
+sat in `AWAITING_RESPONSES` with **no retry driver at all** — backstopped only
+by the 90-minute reaper, and not even by that once the orchestration row was
+pruned. `'processing'` was, in practice, a terminal status that nothing owned.
+
+**Measured 2026-07-26 21:15Z, before the fix:** **181** rows parked in
+`'processing'`, oldest claimed **2026-06-26** — a month-old leak that nothing
+would ever have reaped. 176 had lost their orchestration entirely. **Two had a
+live parent still waiting on them:**
+
+| request | step | stranded | claiming pod |
+|---|---|---|---|
+| `ba0051d3-1248-4afb-bf24-f89e77e6cc54` | `deploy_page` | 80 min | `agent-chassis-76745d8f45-tq89k` (dead) |
+| `7e6835ff-bbf5-46b2-83c1-50983b0e5742` | `call_scraper` | 10 min | `business-intel-67cf5cc56b-pvphg` |
+
+Claims cluster at chassis restart times going back to 2026-07-09 — i.e. the
+population grows one restart at a time, and predates F3.
+
+**Fix — migration `226_bug003_release_abandoned_response_claims.sql`, applied
+2026-07-26 21:17Z. DB-only, so it is LIVE IMMEDIATELY with no image roll.** A
+release clause was added to `cleanup_expired_awaited_requests()` — the function
+the 60-second coordinator ticker already calls — resetting `'processing'` rows
+older than 15 minutes (with `processed_at IS NULL`) back to `'waiting'`. It
+runs *first* in the function, so the existing expire clause catches the
+released row on the same tick and hands it to F2. **No new subsystem, no new
+sweeper**: the fix is to make the row visible to the machinery that already
+exists. The 15-minute window is `PROCESSED_MESSAGES_LEASE_SECONDS` (900s), the
+number this codebase already uses for "the holder is dead" — reused rather than
+invented so the two claim layers tell one story.
+
+> **Why no Go change.** An immediate in-code release on each abort path would
+> cut recovery from ≤15 min to ~0. It is deliberately NOT done: a concurrent
+> session held `coordinator.go` with 075's fixes uncommitted, and more
+> importantly the sweep is the *structural* fix — it does not have to enumerate
+> every abort path, present or future, which is exactly how this hole was
+> opened. Recorded as an optional follow-on, not a prerequisite.
+
+**Verified on the failing branch, not a happy path** (all 7 checks in the
+VERIFY twin pass):
+
+- `'processing'` population **181 → 8**, the 8 being claims inside the window,
+  i.e. genuinely in flight. **Negative control passed: nothing inside the
+  window was reset.**
+- The 80-minute `deploy_page` strand was released, re-claimed **cross-service**
+  by a `business-intel` pod, and driven to a terminal verdict. Its audit trail
+  is the mechanism in four rows:
+  `19:52:04 EXECUTING_STEP→AWAITING_RESPONSES` (claim then abandoned; 83
+  minutes of nothing) … `21:15:13.601 AWAITING_RESPONSES→EXECUTING_STEP`
+  (the release put it back in play) … `21:15:13.628 EXECUTING_STEP→FAILED`,
+  error `Orchestration stale — running for 1h50m37s`.
+  That last transition is §3c's in-code max-age check finally firing — and §3c
+  says it "only runs when the orchestration is *re-processed*, and a lost child
+  response never triggers a re-process." **Restoring the re-process is exactly
+  what the release does.**
+- Check 5, the one that matters: **zero `AWAITING_RESPONSES` parents blocked on
+  a dead claim.**
+
+> **Stated honestly — do not over-read that specimen.** `ba0051d3` was 83
+> minutes stranded when released, so the 90-minute reaper would have failed it
+> about 7 minutes later anyway. The fix saved ~7 minutes *on that row*. The
+> durable wins are the other three: (1) the 176-row leak nothing reaps, ever;
+> (2) rows whose parent is not `AWAITING_RESPONSES` are outside the reaper's
+> coverage entirely; (3) a released row reaches **F2's retry driver**, so the
+> outcome becomes a *retry* at ≤15 min rather than a *failure* at 90. A
+> retry-and-recover through this specific path has not yet been observed
+> organically — [UNOBSERVED], and worth checking in the 08-01 pass.
+
+---
+
+## 2026-07-26 — F4a liveness restart re-test: **PASS**. The last unverified claim on this case
+
+Outstanding since 2026-07-20, when the shipped health check **failed** this test
+— a deliberately wedged pod reported `{"status":"ok"}` for six minutes and never
+restarted. Two defects were fixed in `976618dbb` (read `kafka.GetBrokers()` like
+every real client does, not the config file; and require a Kafka METADATA
+round-trip via `Conn.Brokers()`, because a bare TCP connect **succeeds** against
+unroutable addresses in this pod network). That fix has been live for days but
+**the restart path itself was never re-tested** — `[UNVERIFIED]` in every doc
+since.
+
+**Re-run 2026-07-26 21:30Z against v1.0.1171. It passes.**
+
+Setup per the RUNBOOK's two blocking preconditions: dedicated
+`test.liveness.chassis.{requests,responses}` topics and consumer group
+`liveness-test-group-003-0726` (**never** `generic-requests-group` — the same
+group would take work from the live chassis), `KAFKA_BROKERS` **and**
+`SERVICE_INFRASTRUCTURE_KAFKA_BROKERS` both pointed at `10.255.255.1:9092`
+(TEST-NET), `KAFKA_UNHEALTHY_AFTER_SECONDS=60`, production probe shape.
+
+Wedge proven **before** trusting any result, which is the step whose absence
+made the first run's negative meaningless:
+
+- `wget -T 4 10.255.255.1:9092` from inside the pod → **download timed out**
+- pod logged `i/o timeout` (>0)
+- `/health` counted honestly upward (`kafka_last_ok_seconds_ago` rising, never
+  resetting) and **flipped to `503`** at the 60s window — the exact case that
+  returned `{"status":"ok"}` in July
+
+**The pass, which is a RESTART and not a JSON body:**
+
+```
+restartCount            0 → 1 at ~120 s
+Warning  Unhealthy  43s (x4 over 88s)  Liveness probe failed: HTTP probe failed with statuscode: 503
+Normal   Killing    43s                Container agent-chassis failed liveness probe, will be restarted
+Normal   Started    33s (x2 over 2m41s)
+```
+
+Readiness behaved too (`503` throughout). Pod deleted; contamination check
+clean — **0** `orchestration_states` rows and **0** `processed_messages` rows
+carrying the test pod's name, so the July replay incident did not recur.
+
+**Consequence: F4b (the `os.Exit(1)` self-crash backstop, §4.1/F4) is DROPPED,
+not deferred.** It was specified as insurance for the case where probes are
+stale or wrong — which was a live worry precisely because the probes *were*
+wrong in July. They are now demonstrably not: the kubelet restarts a genuinely
+wedged pod in about two minutes without any in-process suicide path. Adding one
+would be a second mechanism for a job now proven done, and a self-crash is the
+riskier of the two (it cannot be tuned or disabled without a roll). If a future
+change makes the probe unreliable, reopen this decision — do not re-derive it.
+
+**Still open, honestly:** the check passes if **ANY** broker answers, so a pod
+that has lost exactly one broker — this case's original §3a signature — still
+reads healthy. Owner ruling 2026-07-26: **keep any-broker**, and give per-broker
+visibility to `bugs_open/040`, which now has live metrics. Requiring all brokers
+would risk restart storms during routine broker rollouts. That question is now
+answered and closed, not carried.
