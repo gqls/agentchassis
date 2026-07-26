@@ -1,7 +1,17 @@
-# Draft standing wording for oufe.com — for owner approval
+# Standing wording for oufe.com
 
-Status: **DRAFT, not applied anywhere.** Nothing below is live. This is not legal
-advice; it is a starting text for the owner to approve, amend, or take to a
+> **APPROVED by the owner, 2026-07-26** — choices and wording, sections A–F.
+> Section G (limitation of liability) was added on his instruction at the same
+> time and is **new text he has not yet seen**, so it is the one part still
+> awaiting a read.
+>
+> **Live now:** B and C (they shipped with the tool build).
+> **Approved, not yet on the site:** A, D, E, F — they need the legal pages
+> building, which is the migration-182 pattern (hand-written content,
+> `rebuild_policy='owned'` + permanent component lock, `rendered_html` written in
+> the same migration, or a later rebuild silently rewrites the legal text).
+
+This is not legal advice; it is text for the owner to approve, amend, or take to a
 solicitor.
 
 Written 2026-07-25. **Rewritten 2026-07-26 on the owner's direction** — see the
@@ -117,6 +127,65 @@ Inherited from the vetcomparison rails:
 
 Needs a real monitored address before publication. Currently seeded:
 `oufe@contactforsales.com`.
+
+## G. Limitation of liability — paid products only (owner instruction, 2026-07-26)
+
+Owner's instruction: cap our liability on anything paid for at **the refund
+only**, i.e. at the fee that was paid for that item.
+
+Proposed clause, for the terms attached to any paid deliverable:
+
+> **Our liability to you.** If something we sell you is wrong, late, or not what
+> we described, tell us and we will refund what you paid for it. **That refund is
+> the limit of what we owe you.** We are not liable for any loss, cost or
+> decision that follows from your use of anything we publish or sell — including
+> lost profit, lost opportunity, or the outcome of any transaction — beyond
+> refunding the fee for the item concerned.
+>
+> Nothing here limits our liability for death or personal injury caused by our
+> negligence, for fraud or fraudulent misrepresentation, or for anything else
+> that cannot lawfully be limited.
+
+### Three things the owner should know about that clause
+
+**1. The cap is only as strong as the refund is real.** A cap at the fee is
+clean and easy to explain precisely because it converts every dispute into "you
+get your money back". That only holds if the refund route is genuinely honoured,
+promptly and without argument. If refunds are slow or contested, the cap stops
+being a fair bargain and starts being the thing a court looks at hardest.
+Practically: the refund promise in F is now load-bearing, not a courtesy.
+
+**2. The cap does nothing for the free content, which is most of the site.**
+Liability capped at "the fee paid" is a cap of zero where no fee was paid — which
+sounds strong and is actually just silence. Protection on the free side comes
+from a different place entirely: the not-advice posture, the proximate
+disclaimers, and the fact that we say plainly we can be wrong. **This is worth
+saying because it is easy to approve a liability cap and feel more covered than
+you are.** The cap addresses only the paid tier, and the paid tier does not exist
+yet.
+
+**3. The carve-out paragraph is not optional decoration.** Certain liabilities
+cannot be excluded or limited by contract, and a clause that tries to exclude
+everything can be read down or struck out entirely — losing you the cap you
+wanted as well as the one you could not have. Keeping the carve-out visible is
+what makes the rest of the clause look reasonable.
+
+> `[UNVERIFIED — for the solicitor]` The specific statutory footing for point 3,
+> whether the buyer is a consumer or a business, which reasonableness or fairness
+> test applies, and whether a fee-capped clause survives it in this context. I
+> have drafted to the shape that is conventional for paid research and to our own
+> recorded position from idea.uk (information-not-advice, liability capped at the
+> fee). **I am not stating the law here** — that is exactly the class of claim
+> this workstream refuses to make from memory, and it would be incoherent to
+> apply that rule to the site's content and not to its own terms.
+
+### Where this sits relative to the rest
+
+G applies **only** to paid items. A, D and E already establish that nothing on
+the site is advice and that we can be wrong, which is what does the work on the
+free side. G is not needed until something is actually for sale — but it should
+be settled **before** the first sale rather than during it, because a liability
+position drafted while a customer is unhappy is drafted badly.
 
 ## On staging the disclaimer through the tool
 
