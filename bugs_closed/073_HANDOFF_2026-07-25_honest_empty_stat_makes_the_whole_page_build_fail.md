@@ -303,6 +303,12 @@ deterministic failure. The dedicated `/model-directory.html` page is live and un
 
 # Verified 2026-07-26 — by the bugfix-073 verification thread
 
+> **Cite the migration by FILENAME.** Two different files claimed number 217 on 2026-07-26:
+> `217_stat_values_optional_and_template_gated.sql` (this fix) and
+> `217_site_work_items_handler_agent_not_null.sql` (`bugs_closed/078`). Both applied, both
+> live, four minutes apart. "Migration 217" is now as ambiguous as a bare bug number —
+> resolve it the same way, by slug.
+
 Independent of the thread that wrote migration 217. Three things were found; two of them
 correct claims in this file, and one is a residual worth naming.
 
