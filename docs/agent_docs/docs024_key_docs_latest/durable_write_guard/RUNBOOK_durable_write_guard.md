@@ -181,6 +181,28 @@ Three cheap defences, all worth having:
   > case disagrees with it.** The `collected_data-><step>` check above is the real
   > one, and it was confirmed against both.
 
+**Cleanup races the consumers your probe woke up — sweep TWICE, minutes apart**
+(contributed 2026-07-26 by the `bugs_open/015` thread). If the action under test
+files a work item, a real handler claims it within seconds and keeps working
+*after* your `DELETE` has run and your leak check has read all-zeros. Two things
+then happen, both invisible at cleanup time:
+
+- **Downstream rows appear on the probe site after you have declared it clean.**
+  Mine: the retype filed a `needs_content_page`, `page-build-handler` built the
+  page, and `internal-link-resolver` wrote two `unresolved_cta` items ~2 minutes
+  post-cleanup — carrying `handler_agent IS NULL`, which is the `bugs_open/078`
+  livelock shape.
+- **You inject a spurious failure into the fleet's error log.** Deleting the page
+  out from under the in-flight handler gave
+  `page-build-handler / update_status: page lookup failed: sql: no rows in result
+  set` — a deliberate-test artefact that the immune-system sweep would triage as a
+  real defect.
+
+So: **delete or cancel the work item FIRST**, give in-flight handlers a minute to
+drain, then delete the fixtures — and re-run the leak check (including
+`agent_error_log` and `page_components`) a few minutes later, not just once
+immediately.
+
 **A fired probe with no `orchestration_states` row is almost always QUEUED, not
 lost.** Cost this session ~20 minutes and one wrong inference: nothing happened
 for 9 minutes, so I blamed the `kubectl run -i` stdin race, added `-c 1` and
