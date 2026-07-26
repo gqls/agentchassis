@@ -915,3 +915,46 @@ and the guard holds regardless.
 **Council trailer.** `ca2cd7535`'s APPROVED verdict (`7cf73cc1`) landed 2026-07-24 20:39:50Z,
 **after** the commit, so it can never carry a `Council-Reviewed:` trailer and 098 will always
 list it as unreviewed. Recorded in the case file, which is the only place the join survives.
+
+### 2026-07-26 — why the site is thin: the data pipeline has been OFF since March
+`[VERIFIED — scheduled_tasks + businesses.last_verified_at]`
+Owner dropped both CMA consultations ("not strong enough yet") and chose all four candidate
+directions. New plan: `PLAN_2026-07-26_site_strength.md`.
+
+**The diagnosis is not "pages are missing".** Filling the nine homepage 404s would make the site
+look complete without making it stronger. The site is thin because nearly everything we hold is
+barred by our own provenance rule:
+- prices: **0 of 762** current rows carry a source URL (unrecoverable — they predate the rule)
+- `group_name`: no evidence trail, and **contradicts `is_independent` on 870 practices** (all 55
+  Medivet, 27 CVS Vets, 34 Vets4Pets flagged "independent")
+- `vet_practice_details`: 2,781 rows (species 2,486, emergency 1,648, accreditations 957) — no
+  source, no as-at date
+- Companies House: 5,798 companies collected, but only **158** matched deterministically
+  (tier1/tier2 ≥0.91); 542 more at 0.50–0.81 by postcode-proximity or LLM — a guess, not a fact
+- none of it is live: the export publishes exactly 6 fields and no ownership/price field, so this
+  is **under-publishing, not mis-publishing**. No correctness emergency.
+
+**Root cause, and it is simple: every vet collection task is disabled and has been since March.**
+`vet-sweep-continue` (last 03-17), `vet-batch-verify` (03-19), `ch-vet-collect` (03-29) — all
+`enabled=false`. `max(last_verified_at)` = 2026-03-18; verified in the last 30 days = **0**. They
+were switched off during the July fabrication remediation, correctly, and everything since has
+been publishing-side work (exporter, adoption, guides, news). **Nobody restarted collection.**
+
+**Two wrong turns, both caught before they cost anything:**
+1. I wrote a plan whose first step was "apply seed 082, it was never applied". Reading the seed to
+   the end shows it **creates the agent then DELETEs it** — *"forget it, we'll use the regex in the
+   verifier"*. Applying it is a no-op; the standalone scraper was deliberately retired. Caught by
+   the seed-037 landmine habit (read the whole seed before applying).
+2. I then assumed the replacement was never built. It was:
+   `StoreBusinessVerification` takes the LLM `registration_number`, else falls back to a
+   **deterministic regex** over the scraped page (`business_intel_actions.go:350-372`;
+   `updateBusinessFields` maps `registration_number` → `company_number_scraped`, line 909).
+   Both readings were "the mechanism is missing"; the truth was "the mechanism is idle".
+
+**The one unknown that sizes everything downstream.** The verification path writes
+`data_observations` *including* a `source_url` column (`business_intel_actions.go:328-334`), yet
+all 2,970 existing rows have it **empty**. So we do not know whether a live run records provenance
+or not. If it does, restarting collection makes the data publishable. If it does not, restarting
+just refreshes unpublishable data and the real fix is a Go change first (council → build → roll).
+**Next action is a ~10-practice pilot to answer exactly that** — not re-enabling the tasks, which
+is one UPDATE and the wrong first move.

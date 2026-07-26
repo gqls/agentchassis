@@ -814,3 +814,53 @@ so the commit can't carry the usual "reviewed" marker and our coverage report wi
 it as unreviewed. It was reviewed; the note is in the case file.
 
 The case has moved to the closed pile.
+
+---
+
+**2026-07-26 — I found why the site is thin, and it is not what I expected**
+
+You said the site isn't strong enough, and dropped the CMA consultation work. Agreed on both, and
+I've stopped all consultation work.
+
+My first instinct was that the site is thin because pages are missing — six dead cards, three
+pages never built. I now think that's the wrong read, and acting on it would have made the site
+*look* finished without making it any more useful.
+
+Here is what's actually going on. Almost everything genuinely useful that we hold, we are not
+allowed to publish under our own rule that nothing goes on the site without a source. The prices:
+762 of them, not one carries a link to where it came from, and that's unrecoverable because they
+pre-date the rule. The ownership information: we have a group name for about 1,100 practices, but
+it has no evidence behind it and it **contradicts itself on 870 of them** — every one of the 55
+Medivet practices, 27 CVS practices and 34 Vets4Pets practices is currently flagged as
+"independent". Publishing that would tell pet owners the exact opposite of the truth, on the one
+subject this site exists to clarify. The practice details we hold — species treated, emergency
+cover, accreditations — are real but undated and unsourced.
+
+None of that is live, I should say plainly. The site publishes six fields per practice and none of
+the problem data. So nothing false is on the site. We are under-publishing, not mis-publishing.
+
+**The reason is that the data pipeline has been switched off since March.** All three collection
+jobs are disabled. Nothing has been verified since 18 March — zero practices in the last thirty
+days. They were turned off during the July clean-up, quite rightly, and everything we've done
+since has been about *publishing* — the exporter, the guides, the news feed. Nobody ever turned
+collection back on. So the site has been serving a four-month-old snapshot, and the reason it
+feels thin is that it is.
+
+The good news is that the machinery is all there and I don't need to build much. The verifier
+already picks up each practice's Companies House registration number straight from its own website
+footer using a plain pattern match — no AI guessing involved, which matters a lot here. That
+number is the key to doing ownership properly, sourced to a company number anyone can check.
+
+Two false starts worth recording, both caught cheaply. I first planned to switch on a scraper I
+thought had never been installed — reading the file to the end showed it installs itself and then
+deletes itself, with a note saying "forget it, we'll use the regex in the verifier". Then I
+assumed that replacement was never written. It was; it's sitting there working, just never run.
+Both times I concluded a part was missing when it was simply idle.
+
+**One thing I need to measure before doing anything else.** When the verifier runs, it's supposed
+to record *where* each fact came from. But all 2,970 records we have show that field empty. So I
+don't yet know whether switching collection back on would give us publishable, sourced data — or
+just fresher unpublishable data. That's the difference between "turn it on" and "fix it first,
+which needs a code change and a deploy". I'm going to run a small pilot over about ten practices
+to find out, rather than restart the whole thing and hope. It's one query's worth of work to
+re-enable and I deliberately haven't.
