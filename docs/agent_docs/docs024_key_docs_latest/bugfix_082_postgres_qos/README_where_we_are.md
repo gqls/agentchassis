@@ -90,3 +90,33 @@ approve it. Until it's cleared, anyone running Terraform on the database
 configuration will be blocked. It's one command and I've set it out at the end
 of my message. My own lesson: don't put a stopwatch on a command that changes
 production, which is the same shape as the bug I was fixing.
+
+---
+
+**2026-07-26, later**
+
+You cleared the lock. Confirmed gone, and worth saying how, because the obvious
+check would have lied.
+
+I'd been inspecting Terraform's state all along with a flag that *disables*
+locking — sensible while the lock was stuck, because it was the only way to read
+state at all. But that same command would have succeeded whether or not the lock
+was still there, so it could never have told me the lock had gone. The real test
+is the plain command with locking left on: it failed before and succeeds now.
+Separately, the lock record itself is back to blank, matching the ten others
+beside it that were never held.
+
+So the flag that let me see past the problem was also the flag that would have
+hidden whether the problem was fixed. Different questions need different
+commands, even when they look like the same command.
+
+**Nothing is outstanding on this bug.** Both databases are live and healthy with
+their CPU floor and their five-second health checks, Terraform agrees the
+cluster matches the configuration, and the lock is released.
+
+The one thing left is a watch item rather than a task. The databases and the AI
+inference service happen to be on different machines right now, which is luck
+rather than design — nothing stops them being put back together. If they ever
+are, and the database starts restarting again, then the floor I gave it wasn't
+enough and the answer is to keep them apart permanently. I've written down
+exactly what to look for so it doesn't have to be rediscovered.

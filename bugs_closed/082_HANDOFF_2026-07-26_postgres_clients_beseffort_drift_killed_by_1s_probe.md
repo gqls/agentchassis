@@ -113,12 +113,16 @@ restart count moves, the floor was insufficient and anti-affinity becomes the fi
 rather than an option. Nothing currently pins them apart — today's separation is
 luck, not a guarantee.
 
-**Open residual for the owner:** a production `terraform apply` was run behind a
-`timeout` which SIGTERMed it. The change landed and state is converged, but it
-left a **stale state lock** (Lease `lock-tfstate-default-tfstate-databases` in
-the `default` namespace, holder `d3e2fc63-c4c6-8586-45af-db70301eb9c1`). Until
-cleared with `terraform force-unlock`, terraform runs against the database config
-are blocked. Does not affect the running databases.
+**Residual — RESOLVED 2026-07-26, no open items.** A production `terraform apply`
+was run behind a `timeout` which SIGTERMed it, leaving a **stale state lock**
+(Lease `lock-tfstate-default-tfstate-databases` in the `default` namespace,
+holder `d3e2fc63-c4c6-8586-45af-db70301eb9c1`). The change itself had landed and
+state was converged; only the lock was orphaned. **Cleared by the owner with
+`terraform force-unlock`.** Verified two ways: `terraform plan` with **default
+locking** now succeeds where it previously failed to acquire — that is the
+discriminating test, since a `-lock=false` plan would have passed either way —
+and the lease's `holderIdentity` is now blank, matching its ten siblings. State
+still reports "No changes. Your infrastructure matches the configuration."
 
 ---
 

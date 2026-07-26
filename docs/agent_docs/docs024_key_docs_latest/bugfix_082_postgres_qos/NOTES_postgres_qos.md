@@ -160,3 +160,34 @@ budget, both live in the kernel). What is NOT proven: that 500m is *enough*
 under a full 8-core ollama run. It is ~1.6 cores of guaranteed share against a
 database that idles at 30m, so the margin is ~50×, but that is arithmetic, not
 observation. Reversal trigger recorded in the PLAN.
+
+## Stale lock cleared — and the check that actually proves it
+
+The owner ran `terraform force-unlock -force d3e2fc63-…`. Cleared.
+
+**The discriminating test is a plan with DEFAULT locking**, not the `-lock=false`
+one I had been using to inspect state:
+
+```
+terraform plan -var-file=terraform.tfvars.secret     # no -lock=false
+→ "No changes. Your infrastructure matches the configuration."
+```
+
+That command previously died on `Error acquiring the state lock`. A
+`-lock=false` plan would have passed **either way** and proved nothing about the
+lock — it was the right tool for reading state while the lock was stuck, and the
+wrong tool for confirming the lock had gone. Two different questions, and the
+flag that answers one silently disables the other.
+
+Second, independent confirmation — the lease holder is now blank, matching the
+ten siblings that were the original staleness control:
+
+```
+kubectl -n default get leases | grep lock-tfstate-default-tfstate-databases
+lock-tfstate-default-tfstate-databases    <blank holder>    363d
+```
+
+**No open residual on 082.** Both databases live and Burstable, state converged,
+lock released. The only forward-looking item is the reversal trigger in the PLAN
+(re-co-scheduling with `ollama-adapter` plus moving restarts), which is a watch
+item, not an open defect.
