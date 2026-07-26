@@ -124,3 +124,64 @@ InputSpec entry) and activate with the image. The Go side also falls back to rea
 Submitted 2026-07-26 13:33 — `SUBMISSION_CORR=745f9dfd-0a08-415b-a0a2-92c96bd30260`. Unusually,
 it started executing within ~14s (no queue wait this time; do not treat that as the norm — the
 documented dispatch latency is ~30 min).
+
+## 2026-07-26 (later) — council round 1: REVISE, and it was worth the round
+
+`745f9dfd` round 1: **13 reviewers, 3 abstained, 0 unreadable, decision REVISE**, gated by
+`bug_historian`. (`abstained` is the relevance filter, not dissent — check `unreadable:0`, which
+it was.) Run time ~9 minutes from dispatch; no queue wait, which is NOT the norm.
+
+Two HIGH-severity objections, and they wanted different things:
+
+- **bug_historian:** the fix closes one *source* of phantom links but leaves the platform's only
+  fail-loud backstop — `validate_page_content`'s in-body href check at `Severity:"warning"`,
+  non-blocking — "as generic and exploitable as before". **Accepted, not absorbed:** promoting it
+  to blocking is a fleet-wide deploy-blocking change that needs measuring first, so it is filed as
+  `bugs_open/079` with four candidates and the 023/033/049 coordination note. Widening this fix to
+  cover it would have been the wrong call twice over (unmeasured, and it would have made a
+  contained bugfix into a fleet behaviour change).
+- **guidelines:** the local `INSERT ... ON CONFLICT` "violates the documented contract for
+  `idx_swi_dedup`: use DELETE+INSERT". **Half right, and I did the useful half.** The DELETE+INSERT
+  rule in 016b is stated about `page_components` ("Only `save_page_sections` writes it
+  (DELETE+INSERT)") — a different table. `site_work_items`' own central helper,
+  `insertWorkItem` (`load_work_item_actions.go:1101-1115`), uses ON CONFLICT with the interpolated
+  terminal list, and a DELETE here would destroy a live non-terminal row's `attempt_count` and
+  `depends_on`. But the seat was right about the *risk* it named — a copied dedup clause at a
+  third call site — so the emitter now inserts **through** `insertWorkItem`, which makes the
+  objection moot and brings two-strike anti-churn for free. Rebutted the rule, took the fix.
+
+Mediums, all actioned:
+
+- **bug_historian** (silent no-ops): every declined emit now writes an `agent_error_log` row
+  (`tool_crosslink_not_emitted:<code>`) via `recordComponentWriteRejection` — the same durable
+  channel the component write guard uses. Deliberately NOT a work item: nothing could action it,
+  which is `bugs_open/077`'s trap (a queue entry whose handler has no remit).
+- **debug_historian** (needle-gate): see the MISSTEP below — this one found a real defect.
+- **tooling_provenance** (travelling docs): migration `212`, three `action`-subject notes, applied
+  and recorded. Its framing needed correcting: `agent` is not a `doc_notes` subject_type (live
+  vocabulary is pipeline 239 / experience 56 / tool 39 / action 4), and there were **0** prior
+  notes or plans for these three subjects to consult.
+- **prior_art_librarian** (is there already a resolver?): `CanonicalisePage` cannot answer this —
+  its own header says *"It does not query the database — naming and URL synthesis are decided
+  purely from the descriptor"*, so it produces one shape and cannot say where an existing page
+  lives. `datahelpers.PageURLSet` answers "is this URL valid", not "which URL is this tool's page".
+- **prior_art_librarian** (has `depends_on` ever gated anything?): fair, and thin — **3** items in
+  production have used it (needs_design behind needs_composition), all 3 complete. So I proved the
+  loader's predicate directly instead, both directions, on synthetic rows in a rolled-back
+  transaction: not selectable while the gate is `triaged`, selectable the moment it is `complete`.
+
+### MISSTEP — I shipped a rollback recipe that would have restored nothing
+
+211's header carried a rollback keyed on `agent_definitions ... WHERE s.is_snapshot AND
+s.snapshot_reason LIKE '211_%'`. **`snapshot_agent()` writes to `agent_definitions_backup`**, and
+`agent_definitions` has no `snapshot_reason` column — so the recipe was a zero-row no-op (and a
+neighbouring query of mine returned 0 rows cleanly, which briefly read as "the snapshots were
+never taken"). Worse, because I applied 211 twice, "newest snapshot wins" — which my first
+corrected draft used — would have restored the **migrated** state and reported success. Both
+sidecars now key on `min(snapshot_taken_at)` with a needle guard. Logged in `WRONG_CALLS.md`;
+commands in RUNBOOK R9. Counted pre-state, recovered: **1** create_cross_links, **0**
+related_pages, 3 rows.
+
+Round 2 resubmitted on the same correlation (`RESUBMIT_CORR=745f9dfd-...`). Image rebuilt at
+v1.0.1166 and pod-grepped in the image: `tool_crosslink_not_emitted` present, the refusal string
+present, positive control present.
