@@ -240,3 +240,34 @@ and it should stay that way. Making the matcher tolerant would silence the detec
 and the tolerance would only hide a live defect. The repair belongs at the writer (your
 candidate 4, `InjectLinkConstraints`, which this session confirms is still defined and never
 called) or in a rewrite pass over stored `rendered_html` — not in the normaliser.
+
+## Sighting, 2026-07-26 — component-card links on fundamentallyai.com (experience_register)
+
+Evidence only; not a competing fix, and no new bug filed — this is your class, both halves of
+it at once. Found by applying a harvested experience contract ("a card's outcome is a real page
+load of its destination") to the components that carry it, then probing what they point at:
+
+```
+https://fundamentallyai.com/capabilities        -> 404      <- all FOUR hero-card-carousel cards
+https://fundamentallyai.com/capabilities.html   -> 200
+#review-council #verification #rapid-delivery #embeddings on capabilities.html -> NONE exist
+image-hover-card-grid (/model-fine-tuning.html): cards -> #evaluation, #review-council -> absent
+```
+
+So each carousel card is dead twice: the **extension-less** class (your 8-target table — this
+site was not in it) *and* the **fragment** blind spot, on one href.
+
+Two things this adds to the picture:
+
+1. **These are component-card links, not nav or chrome.** The 049 handover and the extension-less
+   eight are all `/contact`, `/tools`, `/learning-center` — chrome-shaped targets. A component's
+   own cards are written by a different path (the content writer filling `input_schema` fields),
+   so a repair aimed at chrome links will not reach them.
+2. **The site's own link audit called it sound.** `brochure_component_library` verified
+   fundamentallyai.com on 2026-07-25 by crawling the served pages: 43 unique internal targets,
+   0 broken. An audit that normalises to the `.html` form, or that drops the fragment before
+   probing, reports a clean site while every card on two pages is dead. Whatever the fix is, the
+   **detector** needs to probe the href as written, fragment included.
+
+Owner of this file decides what to do with it; the experience_register workstream is not
+starting a fix. Full context: `experience_register/harvest/HARVEST_02_2026-07-26_brochure_components.md` §4.
