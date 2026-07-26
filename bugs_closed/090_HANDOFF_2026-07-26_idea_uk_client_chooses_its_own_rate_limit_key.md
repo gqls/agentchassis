@@ -3,8 +3,29 @@
 **Filed** 2026-07-26, from the idea.uk VM-site workstream. Found by following
 `bugs_open/089` — the same session, one endpoint apart.
 **Class** spoofable trust boundary / a control that costs money to bypass.
-**Status** OPEN — **fix written, tested and committed; INERT until the tool
-binary is redeployed.** Live on the box now.
+**Status** **CLOSED 2026-07-26 — fixed, deployed and proven live.** Binary
+deployed 18:44 UTC (rollback kept at `/opt/idea/idea.prev-2026-07-26-089only`).
+
+**The live proof is the same request, before and after — one header, two answers:**
+
+```
+# 18:32 UTC, binary WITHOUT the fix
+$ curl -s -H 'X-Forwarded-For: 203.0.113.77' 'https://idea.uk/order/success?o=ord_xff_probe&fake=1'
+Jul 26 18:32:22 … (order "ord_xff_probe", ip 203.0.113.77)        ← the forged address
+
+# 18:45 UTC, binary WITH the fix — identical request, identical header
+$ curl -s -H 'X-Forwarded-For: 203.0.113.77' 'https://idea.uk/order/success?o=ord_xff_probe3&fake=1'
+Jul 26 18:45:44 … (order "ord_xff_probe3", ip 2a02:c7c:f61f:ac00:…) ← my real IPv6 peer
+```
+
+**A near-miss worth recording.** The 18:29 deploy was built before this defect
+existed as a fix — I found 090 at 18:32, *while verifying 089 on the box* — so
+the first deployed binary carried 089 only. Re-running the forged-header probe
+after that deploy still returned `203.0.113.77`, which is the only reason it was
+caught before being written up as shipped. **The deploy that closes a bug is not
+the deploy that happened to precede it.** Discriminating marker for this one:
+`grep -ac "X-Real-IP" /opt/idea/idea` → 1 (0 in both earlier binaries), the
+string literal the fix introduces.
 **Scope** the idea.uk tool only
 (`docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/`). Not chassis code.
 

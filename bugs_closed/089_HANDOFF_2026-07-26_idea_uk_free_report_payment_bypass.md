@@ -2,8 +2,24 @@
 
 **Filed** 2026-07-26, from the idea.uk VM-site workstream.
 **Class** authorisation / test-affordance reachable in production.
-**Status** OPEN — **fix written, tested and committed; INERT until the tool
-binary is rebuilt and deployed to the box.** The bypass is live right now.
+**Status** **CLOSED 2026-07-26 — fixed, deployed and proven live against a real
+order.** Binary deployed 18:29 UTC (rollback kept at `/opt/idea/idea.prev-2026-07-25`).
+
+**The live proof, on the deployed binary, against a genuine order in the exact
+vulnerable state** (`ord_1785090638951163875`, `awaiting_payment`, a £29 Stripe
+`cs_live_` session outstanding and its report already stored — i.e. everything
+the attack needs to pay off):
+
+```
+$ curl -s 'https://idea.uk/order/success?o=ord_1785090638951163875&fake=1'   # from the public internet
+HTTP 200
+order status after the attack: awaiting_payment      # pre-fix this read: delivered
+Jul 26 18:45:44 idea1 idea[109722]: orderSuccess: refused fake=1 payment shortcut
+  under *main.StripeProvider (order "ord_1785090638951163875", ip 2a02:c7c:...)
+```
+
+Not a seeded fixture and not a test double: the real funnel, mid-purchase, hit
+the way a buyer could hit it.
 **Scope** the idea.uk tool only (`docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files/`),
 a standalone stdlib-only Go module. Not chassis code, not fleet-wide.
 
