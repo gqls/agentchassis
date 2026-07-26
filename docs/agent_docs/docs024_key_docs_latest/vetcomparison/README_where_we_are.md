@@ -947,3 +947,37 @@ settings are simply ignored in silence, so the configuration reads like a descri
 happens without being one. I've only checked these four settings on this one step, so I don't know
 how far that goes, but it is the kind of thing that makes people confident about the wrong thing.
 I've recorded it in our log of wrong calls, with the one-line check that would have caught it.
+
+**Later still — the bigger sample, and one thing I got ahead of myself on.**
+
+I ran the same read-only check over 100 practices instead of 25. **About one practice in five
+publishes its company number on its home page — 22 of 100. Looking at terms and privacy pages as
+well takes it to 30 in 100, roughly three in ten.** Please treat those as "about a fifth" and
+"about three in ten"; even at 100 the true figures could reasonably sit a few points either side.
+My earlier one-in-six was from too small a sample, which is why I flagged it at the time.
+
+**The quality is what makes this worth doing.** Sixteen of the twenty distinct companies we found
+match a real veterinary company at Companies House. And here is the striking part: those 30 hits
+are only 20 different companies, because **eight of the hundred practices turned out to be owned by
+the same company, VetPartners.** Three more are CVS. So thirteen of the thirty are three
+corporate groups. That is precisely the picture our records currently get wrong — we have 870
+practices flagged "independent" that also carry a group name — and now it is evidence rather than
+a label, because anyone can look the number up.
+
+**Where I got ahead of myself.** In my correction above I said the one-in-six figure was now
+*exact*. I should not have said that. Besides the sample being small, there is a part of the
+pipeline I hadn't read: our system doesn't fetch these pages the way my test did — it goes through
+a third-party service, and the setting controlling whether that service keeps or discards the
+footer of a page is, because of how the code is written, never actually sent. So the service falls
+back to its own preference, and I don't know what that is. Since company numbers live in footers,
+that could mean the real figure is lower than mine.
+
+I tried to settle it from 2,450 pages we've already fetched that way. The evidence is genuinely
+mixed — three quarters of them kept their footer menus, which suggests footers survive, but none
+contained company-registration wording, which could equally mean the footer was stripped or simply
+that shop product pages don't print one. **So I'm leaving it open rather than guessing**, and I've
+written it at the top of the relevant bug as the first thing to check, because it decides whether
+the fix we're planning would actually work. One real run answers it.
+
+Worth naming the pattern: I'd just been caught over-claiming in one direction, and immediately
+over-claimed in the other. Being corrected about one thing tells you nothing about the next thing.

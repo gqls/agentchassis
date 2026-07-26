@@ -102,11 +102,20 @@ worth doing. This is the first thing to measure, on a handful of practices, befo
 > `SUBMISSION_CORR = e6580fe5-7537-4eba-a3aa-7863ce4dbfc7`.
 >
 > **Step 1's pilot was also run, read-only, and step 4's question is partly answered** — see
-> `NOTES_vetcomparison.md` (2026-07-26 ~22:45). Company-number hit rate on a deterministic 25:
-> **4/25 (16%) homepage-only = what production sees today**, **7/25 (28%) if the scrape also
-> read legal/terms pages**. `[SMALL SAMPLE]` wide intervals; treat as "a sixth" vs "a quarter".
-> **6 of 7 found numbers resolve to a real `ch_vet_companies` row**, two of them exposing true
-> group ownership (VetPartners, CVS) — so P2's evidence chain works when the number is found.
+> `NOTES_vetcomparison.md` (2026-07-26 §2 and §6). Company-number hit rate, deterministic sample
+> of **100** (the 25-run figures of 16%/28% are superseded): **22/100 (22%) homepage-only**,
+> **30/100 (30%) if the scrape also read legal/terms pages** (~95% intervals ~14-31% and ~21-40%).
+> **16 of 20 distinct numbers resolve to a real `ch_vet_companies` row.** The ownership signal is
+> the prize: 30 hits are only 20 companies — **8 of the 100 sampled practices are VetPartners**
+> (`10084952`), 3 are CVS (`03777473`), so 13 of 30 belong to three groups. That is evidenced
+> ownership against P2's 870-practice `is_independent` contradiction.
+>
+> ⚠️ **`[UNSETTLED]` whether production's extraction sees what the probe saw.** Firecrawl's
+> `onlyMainContent` is set to `false` in code but only *sent* when true (`firecrawl.go:77-111`),
+> so with no `scrape_config` the key is omitted and Firecrawl's own default applies. If it strips
+> footers, the real rate is lower and adding page fetches will not help. Ambiguous against 2,452
+> stored samples (75% retain footer nav; 0 contain registration text). **One real verification
+> settles it — do that before implementing `bugs_open/101` candidate 2.**
 >
 > > **CORRECTED within the hour, same session — I first wrote that the 28% was "a config-only
 > > change" by widening `follow_links`. That is FALSE and it is the more important finding.**

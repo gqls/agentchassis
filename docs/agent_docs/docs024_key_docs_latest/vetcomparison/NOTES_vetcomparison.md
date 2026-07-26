@@ -1175,3 +1175,65 @@ UNVERIFIABLE on any workflow-config question.
    against a `date -u` from earlier in the session instead of re-running it, and briefly treated a
    healthy pipeline as a fleet-wide stall. Cheap check: re-run `date -u` in the same command as
    the age calculation, never carry a timestamp forward in your head.
+
+### 6. 100-practice probe — supersedes the 25, and a caveat that unsettles "exact"
+
+Same probe, same deterministic ordering, `LIMIT 100`. **The 25 is a strict prefix of the 100**
+(verified: `head -25 sample100.tsv | cut -f1 | md5sum` == the same over `sample.tsv`), so this
+supersedes §2 rather than sitting beside it.
+
+| arm | 25-sample (§2) | **100-sample (use this)** |
+|---|---|---|
+| homepage only | 4/25 (16%) | **22/100 (22%)** |
+| + legal/terms pages | 7/25 (28%) | **30/100 (30%)** |
+
+91 of 100 reachable (7×403, 2× connection error). Roughly 95% intervals: **22% → ~14-31%**,
+**30% → ~21-40%**. The small-sample warning in §2 earned its keep — the homepage figure moved
+16%→22%, outside any point-estimate reading of it but well inside the stated interval.
+
+**Headroom is real but smaller than the 25 suggested**: +36% relative (22→30), not +75% (4→7).
+Hit locations across the 30: **22 homepage, 5 `/terms`, 2 `/privacy`, 1 `/terms-and-conditions`.**
+
+**Quality holds at scale: 16 of 20 distinct numbers (80%) resolve to a `ch_vet_companies` row**
+(9 of 20 also in `companies_house_data`). Consistent with the small sample's 6/7.
+
+**The ownership signal is stronger than the hit rate suggests — 30 hits are only 20 distinct
+companies:**
+
+| company number | practices in the sample | who |
+|---|---|---|
+| `10084952` | **8** | VETPARTNERS PRACTICES LIMITED |
+| `03777473` | 3 | CVS (UK) LIMITED |
+| `10790375` | 2 | — |
+
+**Eight of the 100 sampled practices are one company.** 13 of the 30 hits (43%) belong to three
+companies. This is exactly the material P2 needs against the 870-practice
+`is_independent`/`group_name` contradiction, and it is *evidenced* — a company number anyone can
+check, not a scraped group label.
+
+> **CORRECTED — my §4 claim that "the 16% is exact, not approximate" was over-stated, on two
+> counts.** The first is trivial: it was 16% on n=25 and is 22% on n=100. The second matters and
+> is still **open**:
+>
+> **I do not know that my probe sees the same text production does.** My probe fetches raw HTML
+> and strips tags. Production goes through the webscrape adapter to **Firecrawl**, and
+> `FirecrawlScrapingProvider.Scrape` sets `onlyMainContent := false` but then only adds the key
+> **when true** (`firecrawl.go:77-111`) — so for a caller passing no `scrape_config` (which the
+> vet verifier does not), the key is **omitted entirely** and Firecrawl applies its own default.
+> If that default strips nav/footer, production sees *less* than my probe did and the real rate is
+> **lower** — and company numbers live in footers, so the difference is not marginal.
+>
+> `[UNSETTLED]` I tried to settle it against 2,452 stored Firecrawl markdown samples
+> (`med_scrape_evidence.markdown_content`): **75% (1,834) retain footer nav text** (privacy
+> policy / terms / cookie), which suggests footers are *not* stripped — but **0 contain
+> company-registration text**, which is equally explained by those being retailer *product* pages
+> that never print one. **Ambiguous; I am not calling it either way.**
+>
+> **The cheap check nobody has run: do one real verification and read what actually came back.**
+> That settles it in one run and it is the *first* thing the fix thread should do, because it
+> decides whether `bugs_open/101`'s candidate 2 (honour `follow_links`) is even sufficient — if
+> extraction is dropping footers, adding page fetches will not help. Recorded in `bugs_open/101`.
+>
+> **The pattern in my own error:** having just been caught over-claiming a config key, I
+> immediately over-claimed in the opposite direction — "exact" — about a pipeline whose last leg I
+> had not read. Correcting one over-claim is not evidence about the next one.

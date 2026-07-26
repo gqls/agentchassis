@@ -61,11 +61,27 @@ on home-page text alone while its config says otherwise.
 
 ## Consequences
 
-1. **Measured cost, vetcomparison.** Company-number extraction runs against the home page only:
-   **4/25 (16%)**. Reading legal/terms pages as the config implies would give **7/25 (28%)** — the
-   three extra hits were on `/privacy`, `/terms` and `/terms-and-conditions`. Note the configured
-   `follow_links` list contains **no legal page**, so even if it were honoured it would not
-   capture these; the list itself is wrong for its purpose.
+1. **Measured cost, vetcomparison** (read-only probe, n=100, deterministic sample). Company-number
+   extraction against the home page only: **22/100 (22%)**. Reading legal/terms pages as the config
+   implies: **30/100 (30%)** — the 8 extra hits were on `/terms` (5), `/privacy` (2) and
+   `/terms-and-conditions` (1). Note the configured `follow_links` list
+   (`fees, prices, about, team, contact, services`) contains **no legal page**, so even if it were
+   honoured it would not capture these; the list itself is wrong for its purpose.
+
+   > ⚠️ **READ THIS BEFORE IMPLEMENTING candidate 2 — it may not be sufficient.**
+   > `[UNSETTLED]` The probe fetched raw HTML. Production goes through Firecrawl, and
+   > `FirecrawlScrapingProvider.Scrape` sets `onlyMainContent := false` then adds the key **only
+   > when true** (`firecrawl.go:77-111`) — so a caller passing no `scrape_config` (the vet verifier
+   > passes none) has the key **omitted**, and Firecrawl applies its own default. **If that default
+   > strips nav/footer, production sees less than the probe did and adding page fetches will not
+   > help**, because company numbers live in footers.
+   > Evidence is ambiguous: of 2,452 stored Firecrawl samples
+   > (`med_scrape_evidence.markdown_content`), **75% retain footer nav text** (suggesting footers
+   > survive) but **0 contain company-registration text** (equally explained by those being
+   > retailer product pages).
+   > **Settle it first, in one run:** do a single real verification and read what came back. If
+   > extraction is dropping footers, the fix is `only_main_content: false` reaching the payload —
+   > note the current code cannot express that, since false means "omit".
 2. **`fallback_url_field` is a silent dead path.** "No website → use the top search result" never
    fires. Moot today (all 3,419 `businesses` rows carry a `website_url`) but it is a trap for
    anyone who assumes the fallback protects them.
