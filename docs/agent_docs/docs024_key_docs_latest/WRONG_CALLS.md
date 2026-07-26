@@ -4017,3 +4017,24 @@ third instance and the first where the shared ground was a **doc comment** rathe
 regex, which is why it did not look like the known pattern. The general form: a check that
 reads the same file it validates will validate itself. Family: vacuous-assertion,
 checker-shares-ground-with-checked, green-without-a-probe.
+
+**2026-07-26 — re-read a bug file's contents from context and never checked it was still
+where I left it.** `bugs_open/064` (the doc-subject split contract) was in my context from a
+session summary, and I wrote a full update into it: pod-grep evidence from today's v1.0.1167
+binary, plus "still not closed — the failing branch needs one live run", plus a plan to fold
+that run into a later change-set. All of it framed around a file that had been **closed and
+moved to `bugs_closed/` the previous day** (commit `eb81de7b5`), after the closing session
+proved both the accepting and the rejecting branch with live orchestration runs on v1.0.1156.
+My "still open" claim was a day stale and would have appeared in a commit and in a plan
+update.
+**What caught it:** the Edit tool refused the path — file does not exist. Nothing I reasoned
+about caught it.
+**The cheap check:** `ls bugs_open/ bugs_closed/ | grep <number>` before writing to a bug
+file — the standing "grep BOTH directories" rule, which I had followed when *filing* 064 and
+skipped when *updating* it. Half a second.
+**The class:** context is a snapshot of contents, not of location or status. A file's body can
+be word-perfect in context while its *state* — which directory it lives in, whether it is
+open, who owns it — has moved on; and state is exactly what a bug file's directory encodes
+here. Adjacent to "a handoff's identity survives, its diagnosis decays" (2026-07-26, gauntlet)
+and to the who-owns rule for existing bugs. Family: stale-context, status-not-in-the-body,
+snapshot-mistaken-for-live.
