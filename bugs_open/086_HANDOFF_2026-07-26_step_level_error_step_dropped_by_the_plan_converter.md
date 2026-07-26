@@ -192,7 +192,17 @@ since — ten weeks of them — has been discarded on the way in. It hid because
   `fatal`. Until that is seen, this is a config change proven at the definition and at the plan
   builder, not yet at the failure it is meant to catch.
 
-## Verification (post-roll — the Go half is not proven live yet)
+## Verification of the Go half (shipped in v1.0.1169 — binary proven, data pending)
+
+- [x] **Binary**: the running chassis carries a string only this change creates —
+      `strings /app/agent-chassis | grep -c "Step declares an error_step that is not in the plan"`
+      = 1, with a pre-existing string as positive control = 1. (The obvious marker, `error_step`
+      itself, is vacuous — it was all over the binary before.)
+- [ ] **Data — still outstanding.** No agent that declares a step-level `error_step` has run since
+      the roll (only `endpoint-health-checker` and `build-pipeline-trigger`, neither of which
+      declares one, so their `0` proves nothing). The discriminating query is below; it needs one
+      run of `page-content-writer`, `image-build-handler`, `page-build-handler`,
+      `content-gap-planner`, `tool-auditor` or `webdesign-agent`.
 
 The obvious pod-grep is vacuous here (the string `error_step` is all over the binary already). The
 discriminating marker is the **data**:

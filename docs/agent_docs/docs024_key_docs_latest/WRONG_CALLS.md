@@ -70,6 +70,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **1** |
 | **prove it before writing it into a SHARED doc — a runbook or landmine entry asserts at higher confidence than a note, and propagates to every later reader** | **1** |
 | **read the step's CONFIG, not its name — `select_sections` selects nothing, and a name-shaped inference can get the right fix candidate rejected** | **1** |
+| **re-check the deployed binary AFTER committing platform code — "inert until a roll" is someone else's decision to make, and in a shared tree it expires without telling you** | **1** |
 | **treat a live artefact changing under you mid-investigation as an OWNERSHIP signal — `who-owns.py` reads commits and is blind to an uncommitted session working the same ticket right now** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
@@ -4132,3 +4133,25 @@ absent, it was dropped — re-fire rather than wait.
 **Tally note.** This is the third entry in the "wrote a mechanism before checking it"
 family, and the second in two days where the missing check was *test the story against the
 case that worked*.
+
+**2026-07-26 — wrote "inert until an image roll" into a commit message, a bug file and a council
+submission, about code that shipped twenty minutes later.** Fixing `bugs_open/086` I committed a
+converter change at 18:02Z and described it, three times, as inert until the owner chose to roll.
+Another thread built and rolled the chassis at ~18:22Z; `make build` takes committed HEAD, so my
+change rode their build into v1.0.1169. The whole risk conversation with the owner — a
+council-vetoed change activating 55 dormant error handlers, ten of which turn a failure into a
+green run — was conducted on the premise that there was a roll's worth of time in hand to audit
+them. There wasn't. The audit happened after they were already armed.
+**What caught it:** a sibling commit in `git log` mentioning "live in v1.0.1169" while I was
+finishing the docs, then a pod-grep for a string my change creates (present, with a positive
+control). Nothing in my own process would have caught it — I had checked the pod at the START of
+the session and never again.
+**The cheap check:** pod-grep for your own new string **after** committing platform code, not only
+before; and treat "inert" as a claim with an expiry, not a property. `kubectl exec <chassis pod> --
+strings /app/agent-chassis | grep -c "<a string only my change creates>"`.
+**The class:** this is a KNOWN landmine in this repo — CLAUDE.md says builds take committed HEAD,
+and a memory entry from the relojistas lane literally reads "committed code rides ANYONE's next
+build". I repeated it anyway, because the *timing* was in another session's hands and my mental
+model had a single owner-controlled roll in it. The general form: a safety property that depends on
+someone else's future action, asserted as if it were mine to hold. Family: shared-tree-timing,
+inert-until-someone-else-decides, known-landmine-repeated.
