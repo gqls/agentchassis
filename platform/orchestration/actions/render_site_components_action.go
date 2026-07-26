@@ -865,6 +865,22 @@ func loadFooterNavItems(ctx context.Context, db *sql.DB, siteID uuid.UUID, maxIt
 // buildServicesHTML queries service-related pages and builds <li> HTML for the footer services column.
 // Looks for pages that represent individual service offerings (excludes structural pages).
 // Falls back to an empty string if no service pages found.
+// buildServicesHTML builds the footer's "Our Services" column.
+//
+// It queries `pages` DIRECTLY rather than going through GetNavItems, which is
+// why the NavVisibility change did not cover it — and it emits <a href> into
+// chrome exactly like the nav does. Found the hard way (bugs_open/049): after the
+// nav fix landed and gaswholesalers' chrome was re-rendered, its footer STILL
+// carried /fuel-pricing-framework.html, because this column had put it back. The
+// legal slot and the quick-links were clean; this one query was the remainder.
+//
+// The lesson worth keeping: "chrome links come from the nav loader" was an
+// assumption, and the census that sized the bug (nav items -> unbuilt pages) could
+// not have found this, because these hrefs are not nav items at all.
+//
+// LIMIT 6 stays inside the query and is correct here BECAUSE the deployment
+// predicate is also in the query — unlike GetNavItems, nothing is dropped after
+// the cap. An empty result renders no column, which is the honest outcome.
 func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {
 	rows, err := db.QueryContext(ctx, `
 		SELECT 
@@ -873,6 +889,7 @@ func buildServicesHTML(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger
 		FROM pages
 		WHERE site_id = $1
 		  AND status IN ('deployed', 'active')
+		  AND NOT (` + datahelpers.NeverDeployedPagePredicate + `)
 		  AND name NOT IN ('index', 'about', 'contact', 'privacy', 'terms', 'cookies', '404', 'sitemap', 'faq', 'careers', 'insights', 'blog', 'news')
 		  AND name != 'services'
 		  AND (in_header = true OR in_footer = true)
