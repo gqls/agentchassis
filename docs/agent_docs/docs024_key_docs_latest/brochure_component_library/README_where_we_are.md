@@ -511,3 +511,66 @@ most convincing place a number can sit, so on a site whose whole pitch is that
 claims are sourced, an invented number in a chart would be the worst possible
 failure. There's already a scoped design for this in the leopardess work, so the
 next session should read that first and coordinate rather than start fresh.
+
+---
+
+## 2026-07-26 (later) — the chart is built and live, and it found three things on the way
+
+**The chart is on the home page.** It shows the relojistas feed going from nothing
+working to about 97% working within a day of relaunch, plus the news pipeline's
+collected-versus-assessed counts and — your call, and you said yes — what our own
+review council actually decides: 108 rounds sent back for revision, 37 approved,
+9 rejected outright. I've checked the live page rather than the database: every
+figure on it matches the register exactly, and the bars are drawn from those same
+numbers rather than from anything anyone typed twice.
+
+**It turned out not to need a code release at all.** The framework can already
+feed a component straight from the verified-facts register, and whatever comes
+from there overwrites whatever the model wrote. So "the model may not supply a
+figure" isn't a rule we're trusting it to follow — there is no route by which a
+model-written number can reach a bar. A chart definition names which facts to
+draw and never repeats a value, so an unverified number has nowhere to live. That
+also means it went live today rather than waiting on the next image build.
+
+**Leopardess gets this free.** It's one component, in the framework, and their
+side now needs nothing but a short list of which of their existing facts to plot.
+I've written that into their own notes, along with two corrections: the charting
+library their plan agonises over isn't actually in our codebase, and a chart
+drawing routine already exists from another piece of work.
+
+### Three things the build turned up, and one is on me
+
+**A gap I'd like to fix later, not now.** I wanted the home page and the
+capabilities page to show *different* charts. They can't yet: nothing tells a
+section which page it's being drawn on, so every chart appears on every page
+carrying the section. Rather than publish the same three charts twice, the
+section is on the home page only. The "which page" information is already sitting
+in the data, unused and correct, so this switches on with a one-line fix when we
+next build an image. Filed as a bug so it doesn't get lost.
+
+**A near miss on your dark site.** I'd styled the chart card with a colour
+variable that reads as standard — and which no theme actually defines. On
+leopardess that would have rendered a white card on a black page. Caught by asking
+the database which variables exist rather than copying what the other components
+do. Two of them have been quietly relying on the same non-existent names for
+weeks; harmless there because it's spacing, not colour.
+
+**This one is my fault and worth stating plainly.** Rebuilding the home page to
+add the chart *reintroduced six broken links* on a page that was verified clean
+yesterday. Four of them point at pages that don't exist at all. They came from the
+model rewriting a card grid, the checker spotted every one and let the page deploy
+anyway because it's classed as a warning, and the repair we did yesterday was
+per-page — so a rebuild simply undid it. I've fixed the six by hand again, but the
+honest read is that "the site is link-sound" describes an artefact, not the site:
+it expires the next time any page is rebuilt. That belongs with the broken-link
+case we already filed, and I've added the evidence there.
+
+### The em-dash question, now measured
+
+These were the first pages written since the third attempt at the voice fix. On
+the home page the em dashes dropped by nearly half; on the capabilities page they
+didn't move at all. Two components account for most of what's left. So: it half
+worked, and I'd rather not spend a fourth round on the site-wide instruction.
+When you want it finished, the cheaper options are a mechanical pass over the
+finished text, or fixing the two specific components that produce most of them.
+Your call; nothing is blocked on it.

@@ -58,7 +58,28 @@ WHERE s.domain='fundamentallyai.com' ORDER BY p.name;
 
 ## 3. Owner decisions
 
-### 3a. CHART COMPONENT — **GREEN-LIT by the owner 2026-07-26. This is the top build task.**
+### 3a. CHART COMPONENT — **BUILT AND LIVE 2026-07-26 (later session). Kept below for the terms it was built under.**
+
+> **STATUS: done.** `evidence-chart` is registered, seeded, placed on the index at
+> plan position 2, and verified on the SERVED page — seven figures, each matching
+> its fact row, geometry drawn from the same values. Config-only, so it needed no
+> image roll and no council run.
+>
+> **Read `components/evidence-chart/README.md` first** — it holds the data
+> contract, six reproduced traps, and the acceptance state. Commands are in the
+> RUNBOOK under "The evidence-chart component".
+>
+> **What is NOT done:** the chart is on the index only. Per-page targeting is
+> blocked by `bugs_open/085` (no page identity reaches a section template, so the
+> `pages` key cannot be honoured and every chart renders on every page carrying
+> the section). The data is already correct for the fix; restoring the
+> capabilities placement is a one-line Go change plus a re-render.
+>
+> Leopardess needs **only** a `charts` key in its own evidence base — no code, no
+> registration, no roll. Recorded in their `REPLICATION_in_chassis.md` and
+> `RUNNING_NOTES.md`.
+
+The original terms, unchanged:
 
 The brief requires "numbers rendered as real, code-generated charts from true
 figures, never an AI-generated picture of a chart"; the owner asked for "charts and
@@ -116,12 +137,28 @@ outward, and in what redacted form. Same call applies to `tool-decision-record`.
 
 ## 4. Next actions, in the agreed order
 
-**(0) BUILD THE CHART COMPONENT — owner green-lit 2026-07-26, §3a above has the
-constraints.** This is now ahead of everything else in this section.
+**(0) ~~BUILD THE CHART COMPONENT~~ — DONE 2026-07-26, see §3a.** What it left
+behind, in priority order:
 
-**(a) Measure the voice fix.** Refinement 3 is LIVE but **UNMEASURED** — config
-applies immediately, no page has been written since. On the next page build, count
-per component and compare to the pre-change baseline:
+- **`bugs_open/085`** (filed by this workstream): no page identity reaches a
+  section template. One line in `BuildRenderContextAction`; needs the next image
+  roll. Fixing it restores the capabilities chart with no data change.
+- **`bugs_open/071` has a fresh instance and a sharper claim**: the index rebuild
+  *authored* six broken links, the gate flagged all six as non-blocking warnings,
+  and the 2026-07-25 repair did not survive the rebuild. "Link-sound" describes an
+  artefact, not the site.
+- **The dark-theme render is unverified** — leopardess has no `charts` key yet, so
+  nothing dark has rendered. Do that check when it does.
+
+**(a) ~~Measure the voice fix~~ — MEASURED 2026-07-26. Mixed.** Like-for-like, on
+the components that existed before and after: **index 11 → 6**, **capabilities
+6 → 6**. Two components (`portfolio-showcase`, `hero-card-carousel`) hold 8 of the
+12 that remain, so a per-component fix now looks better than a fourth site-wide
+prompt round — which the handoff already ruled out without saying so first. The
+owner has the choice (mechanical post-pass vs per-component); nothing is blocked.
+`That X matters` is 1, not 0, on a page not rebuilt this session — pre-existing.
+
+The original instruction, for the next measurement:
 
 ```sql
 SELECT p.name, (length(string_agg(pc.rendered_html,'')) -
@@ -203,6 +240,32 @@ latter publishes `/tools/assets/X.js` but injects no `<script>` tag (`bugs_open/
 class, applies to section components too). Fire `site-asset-renderer` to rebundle,
 and re-fire if a rebundle was queued before your `js_snippets` UPDATE landed.
 
+**L11. `printf … | grep -q` under `set -o pipefail` reports FAILURE ON SUCCESS.**
+`grep -q` exits at the first match, `printf` then takes SIGPIPE and exits 141, and
+pipefail propagates 141. My live verifier reported FAIL for every marker it FOUND
+and PASS for every negated check — a checker that inverts its own result. It had me
+chasing a deploy bug for a page that was correct all along. **Use a here-string:**
+`grep -q PATTERN <<< "$html"`.
+
+**L12. Half the obvious CSS variables are defined by no theme.**
+`--color-surface`, `--spacing-section` and `--container-max-width` do not exist in
+any active `css_themes` row, so anything using them silently renders its fallback —
+which is how a light card ships to a dark site. The real vocabulary is
+`--color-background/-text/-text-muted/-primary/-secondary/-accent/-card-bg/-border`,
+`--border-radius`, `--shadow`, `--spacing-xs…xl`. **Query `css_themes` before using
+a variable**; a `var()` fallback is designed to hide exactly this.
+
+**L13. A full rebuild undoes a per-page link repair, silently.** The index was
+crawled clean on 2026-07-25; a rebuild on 07-26 reintroduced six broken links from
+one component's card links, and the gate deployed them as warnings (`bugs_open/071`).
+Re-verify links after ANY full rebuild — a previous clean crawl says nothing about
+the page you just rebuilt.
+
+**L14. Only 6 components can have their links repaired.** `resolve_internal_links`
+acts on `ctaFieldNames` (`resolve_internal_links_action.go:98`) and its own comment
+says a component missing from that map is "detectable but not repairable".
+`info-card-grid` is missing from it.
+
 **L10. Editing a `site_specs` aspect: supersede BEFORE inserting.**
 `idx_site_specs_current` is UNIQUE `(site_id, aspect) WHERE is_current` — insert
 first and you get 23505. Snapshot the row, `is_current=false` + `superseded_at`,
@@ -217,6 +280,8 @@ then insert.
 | `bugs_open/072` | `contact-info` reads flat `identity` keys the writer nests → 8 of 13 sites can never render a contact block; **new sites broken by default** | platform thread; pick ONE side of the contract, verify the resolver handles 3 levels first |
 | `features_open/021` | operator bulk page rebuild — the road EXISTS and is dormant (`maintenance_queue` + active `maintenance-triage` + `PrepareRebuildDispatchesAction`, **no trigger, 2 rows ever, newest 2026-02-18**) | revive, do not rebuild |
 | `features_open/016–019` | brief-fidelity audit (built+seeded), component adoption, design critic, sweep enrolment | this workstream, in that order |
+| `bugs_open/085` | the render data advertises `current_page` and the build path always supplies it empty, so **no section component can know which page it is on**. One line in `BuildRenderContextAction`; inert until a roll | platform thread; the containment (index-only chart) is already applied |
+| `features_open/023` | R4 now has a working instance; three findings from the build recorded into it, chiefly that **text inside `<svg>` is invisible to the claims gate** | whoever builds the R3 prompt layer |
 
 Also contributed measurements into `bugs_open/030` (owned elsewhere) rather than
 forking its diagnosis.
@@ -247,6 +312,20 @@ parameterised assemble-only republish. `sql/` — `055_seed_allowlist.sql` (+VER
 `page_content_writer_prompt_v3_2026-07-25.txt` + `README_writer_prompt_v3.md`.
 `agents/brief-fidelity-auditor.{config.json,seed.sql}`.
 
+Added 2026-07-26 (later session): `components/evidence-chart/` — the shared chart
+component (`template.html` + `input_schema.json` are the source; `register.sql` and
+`update.sql` are GENERATED, never hand-edited), with `sample_data.json` exercising
+the failing branches and a `README.md` holding the data contract and six traps.
+`scripts/gen_component_register_sql.py` (regenerates both SQL files),
+`scripts/render_component_template.go` (renders the real template against sample
+data and asserts, per page case), `scripts/verify_evidence_chart_live.sh` (checks
+the SERVED page against the register, sharing no logic with it).
+`sql/evidence_base_charts_2026-07-26.sql` (+`_VERIFY`, 8 defect checks;
++`_ROLLBACK`), `sql/planner_prompt_evidence_chart_2026-07-26.sql`,
+`components/placements/index_capabilities_evidence-chart.sql`.
+
 Backup tables (do not drop without checking): `bak_pc_fai_links_20260725`,
+`bak_site_specs_fai_evidence_20260726`, `bak_agent_definitions_sitearch_20260726`,
+`bak_pc_fai_index_links_20260726`, `bak_cc_evidence_chart_pre_update`,
 `bak_cc_portfolio_showcase_20260725`, `bak_site_specs_fai_identity_20260725`,
 `bak_sps_fai_20260724`, `bak_agent_definitions_pcw_20260724/_20260725/_20260725b`.

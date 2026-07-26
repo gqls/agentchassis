@@ -108,12 +108,30 @@ go run ../../scripts/render_component_template.go template.html sample_data.json
 The sample exercises the failing branches on purpose: an excluded page, a
 dangling fact id, a zero value, a round million, and an unreferenced fact.
 
+## Per-page placement is blocked, and the data is already right for the fix
+
+The `pages` key does not work yet — **not** because of this component.
+`bugs_open/085`: no page identity reaches a section template on the build path,
+so the filter always sees an empty `current_page` and shows every chart. The
+section is therefore placed on `index` only, rather than publishing the same
+three charts on two pages. The `pages` key stays in the evidence base, correct
+and unused; fixing 085 turns it on with no data change.
+
 ## Acceptance (PLAN's 7 items)
 
 - [x] 1. Row in `content_components`, `component_level='section'`.
-- [ ] 2. Named in the planner prompt with a selection rule (`site-architect`).
-- [x] 3. CSS on `var(--color-*, <literal>)` throughout, no hardcoded colour.
+- [x] 2. Named in the `site-architect` prompt with a selection rule
+      (`sql/planner_prompt_evidence_chart_2026-07-26.sql`). Whether the planner
+      *chooses* it is `features_open/017` and is not claimed here.
+- [x] 3. CSS on variables the themes actually define, no hardcoded colour.
+      **Light site verified live; the dark case is verified by construction only**
+      — leopardess has no `charts` key yet, so nothing dark has rendered. Do the
+      dark check when it does.
 - [x] 4. No JS asset — nothing to publish, nothing to bundle (deliberate for v1).
 - [x] 5. No `site_plan_imagery` kind.
-- [ ] 6. Copy path is content-writer + `validate_page_content`.
-- [ ] 7. Links verified as served (this component emits no `href` at all).
+- [x] 6. Copy path was content-writer + `validate_page_content` — the section's
+      eyebrow/title/intro were written by the pipeline, never hand-authored.
+- [x] 7. Verified on the SERVED page against the register
+      (`scripts/verify_evidence_chart_live.sh`): all seven figures match their
+      fact rows, geometry drawn from the same values, no ZgotmplZ, no exponent
+      notation. This component emits no `href` of its own.
