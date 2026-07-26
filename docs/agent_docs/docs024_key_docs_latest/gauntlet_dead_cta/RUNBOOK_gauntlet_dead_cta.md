@@ -91,19 +91,59 @@ docker save docker.io/aqls/tools-api:<TAG> | gzip | \
   plus the matrix: denied origin → 403, missing round → 404, real-round
   /position with no key → 503, preflight OPTIONS → 204, `/anything` → 404.
 
-## 6. Experience re-plan re-fire (ONLY after the API answers a smoke POST)
+## 6. Experience re-plan re-fire (ONLY after the API answers a smoke POST) — PROVEN 2026-07-25
 
 ```bash
 ./docs/agent_docs/sql_for_agents/092_TRIGGER_experience_plan.sh vonc.com vonc-spark-game "the Spark daily-provocation game"
 ```
 - FIRST: carry the liveness evidence into the compose decisions block (the 197
   channel) — a small migration replacing the D1-REVISED text's API description with
-  "LIVE, verified <date>: <curl output snippet>" so the feasibility seat can ground it.
+  the real verified URL + a compact citation of an actual round-trip (see 207).
 - Accept only `approved` + `abstained:0` + `reviewers:5`; the current `is_current`
   plan is REJECTED-do-not-build until then.
+- **GOTCHA (real, cost real rounds):** `compose`'s `input_fields` are only
+  `[experience_context, input_data]`, and `load_context`'s query pulls LIVE SITE
+  STATE (pages/components/work items/loader source) — neither reads any prior
+  `council_report` or rejected `doc_plans` history. **A bare re-fire after an
+  escalation starts genuinely blind** and will likely rediscover the same gaps at
+  real cost. If a run escalates (`complete_escalated`, hit `max_rounds` without
+  approval — this is a DESIGNED circuit-breaker, its own description says "the
+  disagreement IS the round-boundary decision menu"), read the last few
+  `council_report` bodies, write a small migration folding the SPECIFIC named
+  objections into the compose Decisions channel (same replace()-on-an-anchor
+  pattern as 197/207; see 209 for a worked example), THEN re-fire. This converged
+  a previously-escalated plan in one round.
+- **GOTCHA (real, found live):** all 5 reviewer seats (`review_journeys`,
+  `review_feasibility`, `review_honesty`, `review_mvp`, `review_contracts`) share
+  ONE `max_tokens` (8000 as of the pre-208 seed) for a compact-JSON-but-reasoning
+  call — a large enough round can truncate any of them mid-verdict
+  (`stop_reason=max_tokens`). Same defect class as `bugs_closed/067` (whole-artifact
+  re-emitters undersized) but on reviewer seats; that bug's own addendum warned
+  reviewers were left unswept. If it recurs, bump all 5 together (see 208), not
+  just the one that failed — check `default_config->'workflow'->'steps'->'review_*'->'config'->'ai_service'->>'max_tokens'` for each.
+- **Applying an owned migration WITHOUT sweeping other threads' pending ones:**
+  `run-migrations.sh` (default) PROBEs every pending file safely, but its
+  `--apply` runs the WHOLE pending batch — including other threads' unreviewed
+  migrations. To apply only your own: probe first (`bash scripts/migration/
+  run-migrations.sh`, no flags — dry-run, confirms your file is clean), then
+  apply it BY HAND (`kubectl … psql -v ON_ERROR_STOP=1 < your_file.sql`, the
+  file's own `BEGIN;`/`COMMIT;` + `DO $$ … RAISE EXCEPTION` guards do the real
+  verification), then ledger it (`bash scripts/migration/run-migrations.sh
+  --record-only <file> --note '<what you verified>'`). Used for 207/208/209 this
+  session, each cleanly, none touching the other threads' concurrently-pending
+  files (198/203×2/204/206×2/208-the-other-one).
+- **Common paren mistake in a `jsonb_set(…, to_jsonb(replace(…)), true)` migration:**
+  `to_jsonb(replace(X, old, new))` needs its OWN closing `)` before the
+  `, true)` that closes `jsonb_set` — writing only one `)` after `$NEW$…$NEW$`
+  closes `replace()` but leaves `to_jsonb()` unclosed, producing `syntax error at
+  or near "WHERE"` at probe time (harmless — the probe transaction rolls back;
+  fix and re-probe). Hit this twice (207, 209) before internalising it.
 
-## 7. Bastion / exposure (P3 — owner tasks then mine)
+## 7. Island exposure (P3 — DONE, supersedes the bastion/WireGuard plan)
 
-See `infra/README_bastion_exposure.md`. Owner: subdomain on apis.uk, bastion VM,
-WireGuard peering. Mine: cloudflared + Caddyfile (fill <SUB>/<WG_*>/<PORT>),
-NetworkPolicy after the service exists; smoke from outside + a denied-origin CORS check.
+The owner-drafted bastion+WireGuard plan (`infra/README_bastion_exposure.md`) was
+never built — a concurrent thread re-decided the route on 2026-07-24 to **Route
+B1, a standalone VM** ("the island"), stronger isolation (production cluster
+appears nowhere in the public path) and already live. As-built runbook + every
+command: `infra/island/RUNBOOK_island.md`. `README_bastion_exposure.md` and the
+WireGuard drafts are historical only — do not build from them.

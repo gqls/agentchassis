@@ -116,3 +116,55 @@ PR → image → migration → deploy · P3 blocked on owner infra tasks
 (infra/README_bastion_exposure.md) · P4 front-end via section-editor +
 assemble-only JS republish · P5 Tier-4 journey acceptance + claimscan +
 dead_controls re-check · P6 docs/close-out.
+
+---
+
+## 2026-07-24/25 — CORRECTIONS to D-D and the phase sequence above (status as of 2026-07-25 evening)
+
+> **CORRECTED: D-D's architecture (in-cluster tools-api behind a bastion +
+> WireGuard) was never built.** A concurrent thread re-decided the exposure
+> route on 2026-07-24: **Route B1, a standalone Mythic Beasts VM ("the
+> island")** — Cloudflare Tunnel → Caddy path-allowlist → tools-api container
+> → the island's OWN Postgres, with the production cluster appearing NOWHERE
+> in the public path (stronger isolation than the bastion draft, and the
+> WireGuard-to-cluster premise was separately refuted — masquerade defeats
+> ipBlock policies). `infra/README_bastion_exposure.md` and the WireGuard
+> drafts are DEAD; as-built truth is `infra/island/RUNBOOK_island.md`. Public
+> URL: `https://tools.apis.uk`. P3's *goal* (a secured public path, no k8s
+> creds exposed) was achieved by a different, better structural route than
+> planned — record the destination reached, not the route drafted.
+
+**Actual status, P0 through the experience re-plan (all DONE as of
+2026-07-25 ~16:45):**
+- P0/P1 (196/197): DONE, as planned.
+- P2 (B4 designer→implementer): DONE. Designer converged corr `c379f7b7`
+  (3 council rounds). Implementer's first-ever complete run (`af286d2c`)
+  produced **PR #3**, merged by the owner 2026-07-25 09:19Z. Cost:
+  the B4 shakeout also surfaced and fixed 5 durable platform bugs
+  (bugs_closed/065/067, bugs_open/071 with residuals, migrations 199-202)
+  — see `fixloop_eg_dartsonline/NOTES_running_feature_builder.md`.
+- Build+deploy: DONE. Image built from the 086 branch (tools-api source
+  carried onto it, verbatim + 5 post-merge fixes found by deploy-and-smoke —
+  none catchable by the implementer's stage gates). Deployed to the island;
+  DB prepped (minimal `sites` table + corrected migration 198, ledgered in
+  `island_migrations`, NOT clients_db).
+- **Real liveness proven** 2026-07-25 ~15:00Z: a full `/round`→`/position`→
+  `/defend` round-trip through the public internet, genuine AI-generated
+  content, two complete rounds persisted with real verdicts ("opponent
+  wins" both times — honest judging, not a pushover).
+- P3 (exposure): DONE via Route B1 (see correction above), not the drafted
+  bastion.
+- Experience re-plan: DONE. Carried the liveness evidence into the
+  planner's compose channel (migration 207); first re-fire ran 5 genuine
+  REVISE rounds then hit its round cap and escalated (a designed circuit
+  breaker — surfaced a real platform defect along the way, reviewer-seat
+  token truncation, fixed in migration 208); folded the escalation's own
+  named objections back into the compose channel (migration 209); second
+  re-fire converged in ONE round. **APPROVED 2026-07-25 ~16:45Z**, full bar
+  (`approved`+`abstained:0`+`reviewers:5`+`unreadable:0`), corr `5316e79c`.
+  `is_current` doc_plan for `vonc-spark-game`, 13971 bytes, is now the build
+  target for P4.
+
+**NEXT = P4** (front-end rebuild against the approved plan) → **P5**
+(Tier-4 journey acceptance + claimscan + dead_controls re-check) → **P6**
+(close-out).
