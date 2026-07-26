@@ -663,9 +663,9 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	// text path here, and the renderer's required-field check then refuses to
 	// ship a blank section rather than silently emptying it. See
 	// json_envelope.go and HANDOFF_2026-07-14_article_body_json_envelope.md.
-	parsedResult, repaired, parseErr := ParseLLMJSON(cleanedResult)
+	parsedResult, provenance, parseErr := ParseLLMJSONWithProvenance(cleanedResult)
 	if parseErr != nil {
-		params.Logger.Warn("LLM response is not parseable JSON — returning as text (a required-content step will fail loud downstream)",
+		params.Logger.Warn("LLM response holds no complete JSON value — returning as text (a required-content step will fail loud downstream)",
 			zap.Error(parseErr),
 			zap.Int("response_len", len(cleanedResult)),
 			zap.String("response_tail", datahelpers.TruncateString(lastRunes(cleanedResult, 80), 80)),
@@ -677,9 +677,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		markTruncated(out, truncationTolerated, truncatedTokens)
 		return out, nil
 	}
-	if repaired {
-		params.Logger.Info("LLM response required JSON repair (unescaped control characters in string values)",
+	if provenance != ProvenanceClean {
+		// Log at Warn, not Info: the model was told to return the object and
+		// nothing else, and did not. The step still succeeds — the answer was
+		// complete — but the prompt that produced it wants fixing, and until
+		// bugs_open/088 this class was invisible because nothing counted it.
+		params.Logger.Warn("LLM response was not a bare JSON value — recovered",
+			zap.String("provenance", provenance),
+			zap.String("agent_type", params.AgentType),
 			zap.String("step_name", params.ExecutionContext.StepName),
+			zap.Int("response_len", len(cleanedResult)),
 		)
 	}
 
@@ -687,8 +694,21 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		"result": parsedResult,
 		"type":   "json",
 	}
+	markEnvelopeRecovered(out, provenance)
 	markTruncated(out, truncationTolerated, truncatedTokens)
 	return out, nil
+}
+
+// markEnvelopeRecovered stamps how a non-clean response was recovered, so a
+// consumer — and a census — can tell a bare answer from one dug out of
+// commentary. Same "__" convention as markTruncated: platform-set, cannot collide
+// with a model's own field names. A clean parse stamps nothing, so the marker's
+// presence is the signal (bugs_open/088).
+func markEnvelopeRecovered(out map[string]interface{}, provenance string) {
+	if provenance == "" || provenance == ProvenanceClean {
+		return
+	}
+	out["__envelope_recovered"] = provenance
 }
 
 // markTruncated stamps a tolerated-truncation marker onto an LLM step result.
