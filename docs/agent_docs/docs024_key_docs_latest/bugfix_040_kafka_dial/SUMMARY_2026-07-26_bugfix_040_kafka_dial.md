@@ -67,6 +67,26 @@ nobody had noticed, a fallback address pointing at a service that has never
 existed, a configuration entry missing its port number, and a retry loop with no
 pause in it.
 
+> **CORRECTED 2026-07-26, later the same day — two paragraphs above are now wrong,
+> and the body is left standing deliberately** (a summary is what we believed at a
+> milestone; overwriting it destroys the only record of how the understanding
+> moved). What changed within hours of writing it:
+>
+> - **"four different and inconsistent connection timeouts nobody had noticed"** —
+>   still true as a description of what was found, but the *fix* for it was
+>   **vetoed by the review council and reverted**. Every connection keeps exactly
+>   the timeout it had; only the counting is new. Unifying them, and choosing a
+>   replacement value from the histogram rather than by guesswork, is deferred to a
+>   separate architecture review. See NOTES and README for why the veto was right.
+> - **"a fallback address pointing at a service that has never existed"** —
+>   singular, and it was **three sites, not one**: `topic_manager.go`,
+>   `spawn_actions.go`, and `agent_handlers.go`. The third is the worst (three
+>   nonexistent brokers with no valid entry at all) and was missed twice, once by
+>   me and once by an enumerating grep I had truncated with `| head`.
+> - Also learned after writing: opening the metrics port is **not sufficient** —
+>   this cluster's Prometheus cannot discover the pods at all without a PodMonitor,
+>   which is now committed and not applied.
+
 ## Where we are now
 
 The code is written, tested and committed, and it is **not live**. It takes effect
