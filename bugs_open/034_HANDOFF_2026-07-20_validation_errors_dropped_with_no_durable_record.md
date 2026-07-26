@@ -297,9 +297,97 @@ trace what consumes these responses, and did not file it.]** It is the same
 family as this bug (a failure that does not look like one) but it is a
 separate claim and should be diagnosed, not assumed.
 
+---
+
+# UPDATE 2026-07-26 — there are FOUR drop sites, and the induced fault found them
+
+## Council: APPROVED
+
+`180d7c68-30d6-4bc9-9050-d5241cc0f3e0` — 7 reviewers, **`unreadable: 0`**
+(the check that matters — `abstained: 9` is the relevance filter, not
+truncation), 2 advisory objections, none high-severity. Answered in
+`56e77a501`. The import-cycle objection was the substantive one and it
+resolves cleanly: `platform/orchestration` imports neither `messaging` nor
+`agentbase`, and the tree builds.
+
+## The induced fault worked — by failing
+
+Publishing a request with no `client_id` (correlation `034induce-1785071937`)
+was *expected* to hit one of the two classifier sites. **It never got near
+them.** It was rejected at `agent.go`'s `ValidateIncomingMessage` gate — the
+first thing any inbound message meets — which published an error envelope and
+returned. Verified:
+
+```sql
+SELECT count(*) FROM agent_error_log WHERE context::text LIKE '%034induce%';  -- 0
+SELECT ... WHERE occurred_at > now() - interval '20 minutes';                 -- (0 rows)
+```
+
+**Zero rows. A live, reproducible instance of this exact bug, at a site
+neither the handoff nor the first fix had touched.** A second induction
+(`message_type=response` with no `in_response_to`) also missed: responses are
+routed to the orchestrator at `processor.go:1498` *before* `ValidateContext`.
+
+Then the sweep the council's `reuse_agent` seat asked for — *"make sure a
+third silent duplicate isn't sitting somewhere neither layer's author
+looked… the plan's own search stopped at the two sites named in the bug
+file"* — turned up a **fourth**.
+
+## The four sites
+
+| # | site | on drop | durable record |
+|---|---|---|---|
+| 1 | `agent.go` `ValidateIncomingMessage` gate | error envelope, `return` — **not even a counter** | **added 2026-07-26** (`94c4ff471`) |
+| 2 | `agent.go` `missing_orchestration_id` | error response + counter, `return` | **added 2026-07-26** (`56e77a501`) |
+| 3 | `messaging.handleError` | `sendErrorResponse` + **`return nil`** | **added 2026-07-26** (`15b0a7d96`) |
+| 4 | `agent.go` substring classifier | `return` — no response to parent | added earlier (`fe2ba5e52`), undocumented |
+
+Sites 1 and 2 sit **ahead of both classifiers**, which is why the original
+handoff never saw them: it reasoned from the classifier inward. Site 1 is the
+one a hand-rolled or malformed trigger actually hits — which is how
+`bugs_open/002` error F came to look like *"accepted, never executed, no error
+anywhere"*.
+
+> **CORRECTED 2026-07-26 — my own earlier claim in this file.** The section
+> above says the reachable route to site 4 is `processWithoutContext`, marked
+> `[INFERRED from code read, not exercised]`. The induced fault shows the
+> marker was doing real work: **the message never reaches `ProcessMessage` at
+> all** when a required header is missing, because site 1 rejects it first.
+> The inference was not wrong about the code, it was wrong about which gate
+> fires first. What caught it: publishing the envelope instead of reading
+> more code.
+
+## Disclosed behaviour change — read this before the roll
+
+The needle unification means **agentbase now drops-without-retry on the
+`missing` needle where it previously retried**. `agentbase.Agent` underlies
+every agent type, so this is a fleet-wide retry-disposition change for that
+error class. It was disclosed in the submission's `risks` and approved on that
+basis; the guardian seat asked for it to be stated plainly rather than folded
+under "the decision is unchanged", so: **it is a deliberate change to retry
+semantics, not just added recording.** The argument for it is that messaging
+already refused to retry those everywhere else and its own comment calls
+retrying them an infinite loop — the old agentbase behaviour was the anomaly.
+
+## Post-roll checklist (owed)
+
+1. Pod-grep the new symbols against the running pod (not git, not the tag):
+   `INCOMING_MESSAGE_REJECTED`, `MISSING_ORCHESTRATION_ID`, with a positive
+   and a negative control.
+2. **Re-run the induced fault** — publish to `system.agent.generic.requests`
+   with `correlation_id`, `orchestration_id`, `message_type=request` and
+   **no `client_id`**; expect one `INCOMING_MESSAGE_REJECTED` row naming
+   `client_id` in `context->'missing_headers'`. (kcat needs `-P -c 1`.)
+   Note the original recipe at the top of this file says `created_at`; the
+   column is **`occurred_at`**.
+3. Watch `INCOMING_MESSAGE_REJECTED` / `VALIDATION_ERROR_DROPPED` volume for
+   the retry-semantics change above.
+
 ## Status
 
-**OPEN.** Committed at `15b0a7d96`, **inert until the chassis image is rebuilt
-and rolled** — the defect is still reproducible in production until then, which
-is the `/bugs_closed/` bar. Close after: (1) the roll, (2) the induced-fault
-row above, (3) the council verdict on `180d7c68`.
+**OPEN.** Sites 3 and 4 are **LIVE in v1.0.1165** (pod-verified 2026-07-26:
+`VALIDATION_ERROR_DROPPED` resolves twice, one literal per recorder, with
+controls). Sites 1 and 2 (`94c4ff471`, `56e77a501`) are **committed and
+inert** — they need one more chassis roll. Close after that roll plus the
+induced-fault row in step 2, which is the first end-to-end proof this bug has
+ever had.

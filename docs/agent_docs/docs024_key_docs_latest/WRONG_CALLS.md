@@ -3207,3 +3207,54 @@ the one holding the partial view; the third time I handed the partial view to a
 reviewer and it failed in exactly the way I had just failed twice. The
 distribution is not about carelessness with process — every one of these was a
 confident inference from evidence that was *present but incomplete*.
+
+---
+
+## 2026-07-26 — `bugs_open/034`: the drop site everyone reasoned toward was not the one that fires
+
+**The claim.** The 034 handoff (2026-07-20) located a whole failure class at one
+site, `platform/agentbase/agent.go:828`, and traced its worked example — a
+trigger omitting `client_id` — through that site: *"The error text contains `is
+required`, so `agent.go:828` swallows it."* A later thread fixed exactly that
+site. I then reasoned from the same starting point, found a **second** classifier
+one layer down, and wrote in the bug file that the reachable route to the
+agentbase site was `processWithoutContext` — marked `[INFERRED from code read,
+not exercised]`.
+
+**What was actually true.** A request with no `client_id` never reaches either
+classifier. It is rejected by `ValidateIncomingMessage` at `agent.go:825`, a gate
+ahead of both, which publishes an error envelope and returns **without even
+incrementing the counter** the later sites increment. A sweep then found a fourth
+site (`missing_orchestration_id`) in the same shape. Four sites; the handoff named
+one; the fix had landed on one; both of the sites a malformed trigger actually
+hits were unfixed and unmentioned.
+
+**What caught it.** Publishing the envelope. The induced fault was expected to
+*confirm* the fix and instead landed somewhere nobody had looked — it produced
+zero rows anywhere in the database, which is the bug's own signature.
+
+Also, independently and *before* the fault was run: the council gate's
+`reuse_agent` seat objected that *"the plan's own search stopped at the two sites
+named in the bug file"* and asked for a sweep for further duplicates. It was
+right, and it was right from reading the plan alone.
+
+**The cheap check that would have caught it.** One grep, before theorising about
+which branch swallows what:
+
+```
+grep -n "MessagesDropped\|return$" platform/agentbase/agent.go | head -40
+# every early return between message receipt and ProcessMessage is a drop site
+```
+
+**Transferable rule.** *When a bug is "there is no durable record", enumerate the
+drop sites BEFORE explaining any one of them.* The failure mode of this bug class
+is that it hides its own instances — so the site you can see is selected for by
+being the one that left a trace, not by being the one that fires. Reasoning
+inward from a symptom finds the classifier; reasoning outward from message
+receipt finds the gates in front of it.
+
+**Second rule, about markers.** The `[INFERRED]` marker did its job. The claim it
+guarded was wrong, a later reader was warned, and the correction cost one
+paragraph instead of a handoff. This is the argument for the marker discipline
+stated positively — the tally in this file is mostly unmarked claims that went
+on to be believed.
