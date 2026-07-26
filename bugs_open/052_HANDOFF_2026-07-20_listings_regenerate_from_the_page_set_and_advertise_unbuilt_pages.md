@@ -366,6 +366,15 @@ The Go half is inert until an image roll past this commit. Then:
 - **Candidate 3 of this file** (emit a work item instead of silently dropping) remains
   unbuilt and still gated on `/bugs_open/033` — nothing consumes `needs_human_review`. The
   new Warn above is the cheap stand-in, not a substitute.
+- **Ruled out, so nobody re-walks them.** Re-running the survey by the column-sweep method
+  (`grep` every Go query against `pages` naming `build_status`/`deployed_at`, then subtract
+  the known callers) turns up two more page queries filtered on `build_status = 'deployed'`:
+  `render_directory_action.go:344` and `render_news_section_html.go:77`. **Neither is this
+  class.** Both are `queue*PageRerenders` helpers answering *"which pages should I queue for
+  re-render"*, not *"which pages may I advertise"* — they emit no links, and an over-strict
+  filter there costs one skipped re-render, which self-corrects. The predicate is arguably
+  still too tight (a `needs_rebuild` page carrying a news listing is skipped), but that is a
+  scheduling question, not a 404 question.
 - `discovery_checks.neverDeployedPredicate` (`check_phantom_internal_links.go:366`) is an
   independent, unexported, negative-form copy of the same predicate. It matches today only
   because a NULL `build_status` makes the disjunct falsy either way. Two literals encoding
