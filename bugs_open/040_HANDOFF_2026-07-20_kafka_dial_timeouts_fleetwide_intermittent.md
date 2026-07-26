@@ -271,6 +271,30 @@ never built — this case now supplies them.** Do not block on the network
 investigation to ship 003's work; equally, do not close this bug because they
 shipped.
 
+## 8b. COVERAGE LIMIT of the new metric — do not read it as fleet-wide
+
+`cmd/agent-chassis` is the **only** binary that serves `/metrics`. Surveyed
+2026-07-26, all 21 `cmd/*` binaries: agent-chassis YES, the other 20 no.
+
+They all import `platform/kafka`, so their dial counters do increment in-process —
+and are then thrown away, because nothing exposes them.
+
+**What the metric therefore covers:** the chassis Deployment **and every spawned
+agent pod** (spawned Jobs run `./agent-chassis`, verified from live pod specs).
+That is deliberately the population 040 is about — the handoff's own §2 shows the
+spawned pods carrying 10–52 errors per 12h while the static chassis Deployment had
+**0** in the same window.
+
+**What it does NOT cover:** the 13 adapter/service Deployments
+(`web-scrape-adapter`, `git-adapter`, `reasoning-agent`, `core-manager`,
+`kafka-scheduler`, `remote-job-spawner`, …). Their dials stay invisible.
+
+So a zero from this metric means "no timeouts **on the chassis and spawned
+agents**", not "none in the fleet". Say it that way when reporting, and cross-check
+the adapters with the §5 log grep until they are wired too. Extending the pattern
+to the other binaries is the obvious follow-up and was deliberately NOT bundled
+here — bundling is what got round 1 vetoed.
+
 ## 9. CLOSE CONDITION (explicit, 2026-07-26)
 
 The changes above are **Go code and are inert until an image roll**. Do not close
@@ -284,7 +308,8 @@ on them.
 3. Baseline it, and cross-check once against the §5 log grep before retiring the
    grep.
 4. **Close when** `sum by (outcome) (increase(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))`
-   is zero fleet-wide — **or**, if non-zero, when the residual is diagnosed
+   is zero **across the chassis and spawned agents** (see §8b — that is not the
+   whole fleet, and the claim must not be written as if it were) — **or**, if non-zero, when the residual is diagnosed
    (the `dns`/`dns_timeout` vs `timeout` split is designed to answer exactly that
    next question: resolution or connect).
 
