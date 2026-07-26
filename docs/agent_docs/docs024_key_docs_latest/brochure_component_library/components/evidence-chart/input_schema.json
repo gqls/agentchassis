@@ -1,0 +1,46 @@
+{
+  "fields": {
+    "charts": {
+      "type": "array",
+      "source": "site_specs.evidence_base.charts",
+      "required": true,
+      "on_missing": "skip_section",
+      "missing_reason": "no chart definitions in this site's evidence_base — a chart with no audited series must not be drawn",
+      "items": {
+        "id": { "type": "text" },
+        "title": { "type": "text" },
+        "caption": { "type": "text" },
+        "unit": { "type": "text" },
+        "max": { "type": "number" },
+        "pages": { "type": "array" },
+        "source_note": { "type": "text" },
+        "points": { "type": "array" }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "source": "site_specs.evidence_base.facts",
+      "required": true,
+      "on_missing": "skip_section",
+      "missing_reason": "no evidence_base facts — the register is the only place a charted figure may come from"
+    },
+    "section_eyebrow": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Short uppercase eyebrow, 2-4 words, e.g. 'Evidenced, not asserted'. Optional."
+    },
+    "section_title": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Short heading for the chart section, under 10 words. Describe what the charts show WITHOUT stating any figure — the figures are rendered by the system from the site's evidence register and must never be written here."
+    },
+    "section_intro": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "One or two plain sentences introducing the charts. NEVER state, round, summarise or preview a number: every figure on this section is drawn by the system from an audited fact row, and a number written here is by definition unverified. Write about what is being measured and why it matters, not how big it is."
+    }
+  }
+}

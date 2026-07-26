@@ -1,0 +1,47 @@
+{
+  "current_page": "index",
+  "section_eyebrow": "Evidenced, not asserted",
+  "section_title": "Numbers we can show you the source for",
+  "section_intro": "Each bar below is drawn from a row in this site's evidence register. The register holds the figure; this section only draws it.",
+  "charts": [
+    {
+      "id": "relojistas-feed-restoration",
+      "title": "A dead site's legacy subscriber feed, before and after relaunch",
+      "caption": "Most of that traffic is search-engine crawlers, and we say so.",
+      "unit": "%",
+      "max": 100,
+      "pages": ["index"],
+      "source_note": "Measured from the site's own request logs; every figure here is a row in this site's evidence register.",
+      "points": [
+        { "fact_id": "F3c-relojistas-baseline-success", "label": "Before relaunch, feed requests succeeding", "tone": "muted" },
+        { "fact_id": "F3-relojistas-feed", "label": "Within 24 hours of relaunch", "tone": "primary" }
+      ]
+    },
+    {
+      "id": "capabilities-only-chart",
+      "title": "A chart that belongs to another page",
+      "unit": "",
+      "max": 100,
+      "pages": ["capabilities"],
+      "points": [
+        { "fact_id": "F3-relojistas-feed", "label": "Should not appear on index", "tone": "primary" }
+      ]
+    },
+    {
+      "id": "unpaged-chart",
+      "title": "A chart with no pages key renders everywhere",
+      "unit": "",
+      "max": 200,
+      "points": [
+        { "fact_id": "FX-does-not-exist", "label": "Dangling reference, renders no row", "tone": "primary" },
+        { "fact_id": "F-round-million", "label": "A round million, the CSS exponent trap", "tone": "accent" }
+      ]
+    }
+  ],
+  "facts": [
+    { "id": "F3-relojistas-feed", "value": 97, "display": "97", "verified_at": "2026-07-16" },
+    { "id": "F3c-relojistas-baseline-success", "value": 0, "display": "0", "verified_at": "2026-07-16" },
+    { "id": "F-round-million", "value": 1000000, "verified_at": "2026-07-26" },
+    { "id": "F1-live-sites", "value": 12, "display": "12", "verified_at": "2026-07-24" }
+  ]
+}
