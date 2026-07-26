@@ -131,3 +131,61 @@ placeholders with nothing published, so the real list is eleven, three of which 
 to check with you or the relevant thread first (the finance site already runs its own
 stricter rule, the vet site has a legal history around published prices, and idea.uk is
 being worked on by someone else right now).
+
+---
+
+### 2026-07-26, evening — the gap the reviewers kept objecting to is now built
+
+Short version: the one thing the review council had refused to let go of is done, it
+found two real problems the moment I pointed it at live data, and one of those problems
+was in code we shipped earlier today.
+
+The objection was this. We built a checker that can look at a page's statistics and ask
+whether the site has any evidence for them. We then wired it into exactly **one** place —
+the point where a page is freshly written. But a page can also be *re-rendered*, which
+takes the figures we already stored and puts them back on the site without a writer
+being involved at all. Nothing checked those. So a made-up number, once stored, would
+reprint itself indefinitely and no part of the system would ever look at it again. The
+council raised that twice and said plainly it was what was blocking approval. It was
+right, and I had filed it as a tracked gap rather than fixing it.
+
+It is now fixed, in the place the council's own reasoning pointed at: not by adding the
+checker to the re-render path — that path is deliberately simple and giving it a new way
+to fail is the exact mistake that made a page unbuildable last week — but by extending
+the **audit that already sweeps the live site** so it looks at the stored figures as well
+as the visible ones. It catches the re-render route, hand edits, and every page that
+predates the checker, all in one place.
+
+**The part I want to flag, because it is the useful bit.** Before shipping it I ran it
+over every page on every site, using the real code rather than a database query that
+approximates it, and then I made myself **read the individual findings instead of the
+total**. The total said 61 figures examined, 21 questionable — fine. Reading them showed
+two things that were plainly not questionable at all: fundamentallyai's cost calculator
+was being flagged for saying "Read time: 8–12 minutes", and vonc.com's about page was
+being flagged for numbering its own steps 01, 02, 03. Neither is a claim about anything.
+
+That matters more than it sounds, because both of those were **already** happening in the
+stricter checker we put live earlier today — where the same finding doesn't raise a note
+for review, it *stops the page building*. So both of those pages were sitting one rebuild
+away from failing, for the crime of estimating a reading time and numbering a list. Both
+are now fixed. I would not have found either by looking at the count.
+
+The check also immediately found something genuinely wrong on vonc.com: the home page
+says there are 8 archetypes and 3 tools live, and the about page says there are 3
+archetypes and 8 tools live. The two numbers are swapped. Nobody had noticed.
+
+**Where this leaves us.** The code is committed and it does nothing until you build an
+image — same as before, and the bug stays open until then. When it does go live, the
+first sweep will raise about nine items for human review across the sites, which is the
+backlog of figures we've published over time with nothing on record to support them.
+That is the intended behaviour rather than a fault, but it is a real pile of work landing
+on a review queue that we already know has no proper screen to work through it.
+
+I have put it back to the review council as round six. I have deliberately **not** marked
+any of these commits as council-approved, because it hasn't approved them yet — that
+label is only honest after a verdict, and the verdict comes after the commit.
+
+Still outstanding from before, unchanged: the evidence registers for the remaining
+publishing sites, and the fact that a number written into a site's *instructions* never
+refreshes itself (leopardess still tells its writer there are 143 agent definitions of
+which 56 are active; the real figure is 175 active).
