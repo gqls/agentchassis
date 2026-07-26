@@ -142,3 +142,52 @@ state.
 2. **Behavioural, the failing branch**: induce a fabricated non-placeholder email on a
    no-email site's page build → expect `invalid_email` error and the build routed to
    review, not deployed. (A green happy path + pod-grep proves deployment, not detection.)
+
+---
+
+## CLOSED 2026-07-26 — fixed AND live on v1.0.1165, both branches induced
+
+**Criterion 1 — deployment.** Pod `agent-chassis-f4d46c88d-p6wqc`, image `v1.0.1165`:
+`strings /app/agent-chassis | grep -c "no registered contact address"` → **1** (a string
+this change CREATED); positive control `placeholder_email` → **1**.
+
+**Criterion 2 — the failing branch, INDUCED** via the scratch one-step probe harness
+(`durable_write_guard/RUNBOOK` — reused as designed): scratch agent_definition
+`scratch-063-email-probe`, sole step `validate_page_content` reading
+`html_field`/`site_id` from `input_data.*`, fired with the 091 kcat `orchestrate`
+envelope. Expected verdicts were written down BEFORE firing (target site's no-email
+status re-verified with the code's exact five-source COALESCE).
+
+- **Probe A — must FLAG** (corr `345b113e`, 2026-07-26 13:14 UTC): gamesdesign.co.uk
+  (`e33263f4`, no email in any of the five sources), HTML asserting a fabricated
+  `hello@gamesdesign-enquiries.co.uk` (text node + mailto). Result: step `validate`
+  FAILED — `content validation failed: 0 blockers, 1 errors` — routed to
+  `complete_error`; `agent_error_log` detail row (`CONTENT_VALIDATION_BLOCKER_DETAIL`,
+  site_id = gamesdesign) carried exactly
+  `{"type":"invalid_email","severity":"error","value":"hello@gamesdesign-enquiries.co.uk",
+  "description":"Email 'hello@gamesdesign-enquiries.co.uk' asserted but the site has no
+  registered contact address — no email may be published"}`. On the pre-fix binary this
+  exact input fell through both branches and passed.
+- **Probe B — must PASS** (corr `8f8c1d7c`): dartsonline.com + its own official
+  `darts@contactforsales.com` → `valid=true, issue_count=0, checked_emails=2`, clean
+  route to `complete`. No false positive on the legitimate case.
+
+**All probe rows were deleted after reading** (1 scratch agent_definitions, 2
+orchestration_states + 13 audit rows, 2 agent_error_log rows; leak check 0/0/0/0 —
+else the immune sweep triages a deliberate probe as a real failure). This section is
+the preserved evidence.
+
+**Scope of what was proven:** the probes prove the DETECTION branch live (error issue +
+step failure) and the non-flagging of a legitimate address. The routed-to-review
+consequence is the consumers' standing handling of a failed validate step — the path
+the mismatch class already exercises in production; not re-proven here.
+
+**Fleet shift since the 07-24 survey** (re-grounded live 2026-07-26): the owner has
+since registered `<site>@contactforsales.com` addresses across the deployed fleet —
+the no-email class is now **1 deployed site** (gamesdesign.co.uk) + 19 internal
+pool/system sites, down from 20/31. The fix still matters: every new site starts
+email-less, which is exactly the state relojistas was in on 07-24.
+
+**Residue: none on this mechanism.** The compliance follow-up (audit the OTHER
+`validate_page_content` checks for the same missing-else fail-open shape) stays open
+as a follow-up recorded above — it is not this bug.
