@@ -4525,3 +4525,66 @@ found only because one bug happened to need one counter.
 be closed until the metric is proven live. `040-kafka-dial` deliberately stayed
 OPEN with an explicit two-step condition (prove scraped, *then* read zero over
 7d), rather than closing on the amplifier fixes that shipped with it.
+
+---
+
+### A census scoped to ONE writer measures that writer, not the surface — and the renderer that writes a link must judge it by the same rule as the audit that flags it (2026-07-26)
+
+From `bugs_open/049`. Two patterns, and they compound.
+
+**1. The writer and the checker disagreed, so the platform flagged links it had authored.**
+`check_phantom_internal_links` knew, with a dated fleet measurement attached, that a page which
+has never been deployed will 404. The chrome renderer that *creates* nav links did not: it
+loaded them with `deployedOnly=false`, so an active nav item pointing at a never-built page
+rendered into the header and footer of **every page on the site**. One such item on
+gaswholesalers was **28 of the 118** live broken anchors — a 404 per page.
+
+The tempting fix — flip the flag to `deployedOnly=true` — was **also wrong**, and the evidence
+that it was wrong was already written down *in the same bug file*:
+
+```
+needs_rebuild AND deployed_at IS NOT NULL   34 pages — 34/34 return HTTP 200
+deployed_at IS NULL                         22 pages — every one tested 404s
+```
+
+A page deployed once keeps serving its old artefact, so `build_status='deployed'` would have
+deleted 34 working links to fix 13 broken ones. Worse, that predicate read
+`(ni.page_id IS NULL OR p.build_status = 'deployed')` — **deliberately keeping** nav items whose
+`page_id` had been NULLed by `ON DELETE SET NULL`, which was 4 of the 13 defects.
+
+> **The rule: when two components answer the same question about the same data, they must share
+> one definition, not two that resemble each other.** The fix moved the predicate to a neutral
+> shared package and had both use it. Both settings of the boolean had been wrong; the correct
+> answer already existed twenty files away, with its measurement, and had simply never been
+> imported. Look for the shared constant *before* inventing a third predicate — and if the
+> detector for a class already exists, its predicate is the specification.
+
+**A bool cannot enforce this; a named type can.** The defect was a `false` at a call site that
+read as harmless. Replacing `deployedOnly bool` with a `NavVisibility` named type made the
+compiler stop at all eleven call sites — surfacing a *second* live instance of the same bug that
+nobody had found. A bool **rename** would have compiled silently and been re-read by nobody.
+Corollary: where a caller must still choose the permissive value, the compiler protects nothing —
+pin that choice with a test, because a valid-but-wrong constant is invisible to it.
+
+**2. The census could not see the defect it was written to count — and said nothing.**
+Sizing the bug by enumerating *nav items whose target is unbuilt* found 13 across 6 sites. After
+the fix shipped and chrome re-rendered, the flagship site's footer **still carried the dead
+link** — because `buildServicesHTML` queries `pages` **directly**, never touching the nav
+loader, and emits `<a href>` into the same footer. Those hrefs are not nav items, so the census
+was structurally incapable of counting them, and its clean result read as coverage.
+
+> **The rule: a census keyed on one writer's data model measures that writer, not the user-visible
+> surface.** If the symptom is "a link on a page", enumerate from the **rendered artefact** and
+> work backwards to the writers, rather than enumerating one writer's inputs and assuming it is
+> the only one. The count that matters is the one taken from what actually ships.
+
+What caught it was re-fetching the live page after the fix instead of concluding from the diff
+that the fix was complete — the same "trust the rendered artefact, not the status" rule as §9's
+metric entry, applied to one's own change. **The most dangerous moment for this class is
+immediately after a fix lands, when the artefact is the only thing that can still contradict
+you.**
+
+**Family:** two-sources-of-truth, permissive-default-that-reads-harmless, census-scoped-to-the-
+wrong-model. Related: the `unbuilt_internal_link` detector for this very class was built, live
+in-pod, and had **never fired** — see `bugs_open/083`, because detection was never the binding
+constraint.
