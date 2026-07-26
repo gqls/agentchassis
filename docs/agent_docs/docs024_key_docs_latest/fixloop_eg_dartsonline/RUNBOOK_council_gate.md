@@ -228,6 +228,23 @@ genuinely unanimous 8-seat approval that reads as "every seat abstained".
   too and treat `complete_invalid` as terminal (the error is in
   `collected_data->'__step_error'`). Cheap pre-check: unmarshal your JSON
   against the struct fields at lines 60–77 of the action file before firing.
+  - **`complete_invalid` does NOT always mean your submission was invalid — read
+    `__step_error.failed_step` before touching the JSON** (contributed 2026-07-26,
+    bugfix-052). A round died there having already run several review seats:
+    `step review_debug_historian failed: … AI endpoint unavailable: provider=anthropic
+    model=claude-sonnet-5 … read: connection reset by peer`. The plan was valid and had
+    passed `persist_submission`; one seat lost its TCP connection and its `error_step`
+    routed the whole round to the terminal. **Resubmit unchanged under `RESUBMIT_CORR`** —
+    editing the JSON would be chasing a fault that is not in it. Distinguish before
+    resubmitting, so the retry is not a guess: a genuine schema death names
+    `persist_submission` and fires **no** reviewers, and a sick endpoint shows up as many
+    failures fleet-wide, not one —
+    `SELECT count(*) FROM orchestration_states WHERE updated_at > NOW() - INTERVAL '2 hours'
+    AND collected_data->>'__step_error' ILIKE '%AI endpoint unavailable%';`
+    returned **1** (mine) while other councils completed normally, so it was transient and
+    the resubmission started within minutes. Note `tolerate_truncation` (bugs_closed/019)
+    cannot cover this: a reset yields no partial output to salvage. Full write-up in that
+    file's 2026-07-26 addendum.
   - **Contributed 2026-07-25 (040-partial-build thread): a THIRD invalid run, same
     morning, hit independently.** Same two causes in one submission — `risks` as an
     array, `operation: "create"` — dispatched 08:34, dead at `complete_invalid` by
