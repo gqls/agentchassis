@@ -15,9 +15,60 @@ that site can ship, whatever it is about.
 > the truth*. Full evidence in **§ Verified 2026-07-26** at the foot of this file. Neither
 > of us re-measured before repeating; the two queries that catch it are in that section.
 
+> **COUNTER-CORRECTION, 2026-07-26, by the bugfix-043 thread (migration 217's author),
+> on measurement. THE CLOSE STANDS — this corrects one supporting claim, not the verdict.**
+>
+> **The 07:52:58Z event was a `page-rerender`, not a build.** `page-rerender` renders from
+> *stored* `content_data` with no LLM in the loop, so it cannot invent anything; it
+> re-published figures that were already stored, invented by a writer pass long before
+> migration 201. Its own record says so — `rerendered=8 carried=0 escalated=false`,
+> correlation `12b1e003-5b81-48e6-80a1-4fccb2e30437`. And across the whole of 2026-07-26
+> up to 18:00, **no `page-build-handler` and no `page-content-writer` ran on this site's
+> `index` at all**; the only `index` build that day was fundamentallyai.com's at 17:48.
+>
+> ```sql
+> -- 1. What actually touched the page at 07:52 — a re-render, and it generated nothing
+> SELECT owner_agent_type, status,
+>        collected_data->'rerender_sections'->>'rerendered' AS rendered,
+>        collected_data->'rerender_sections'->>'carried'    AS carried
+> FROM orchestration_states WHERE correlation_id='12b1e003-5b81-48e6-80a1-4fccb2e30437';
+>
+> -- 2. Did the WRITER run on any index that day, and for which site?
+> SELECT o.created_at, s.domain, o.owner_agent_type, o.status
+> FROM orchestration_states o LEFT JOIN sites s ON s.id=o.site_id
+> WHERE o.created_at::date='2026-07-26'
+>   AND o.owner_agent_type IN ('page-build-handler','page-content-writer')
+> ORDER BY o.created_at;
+> ```
+>
+> **`page_components.build_status='deployed'` with a fresh `updated_at` is not evidence
+> that the writer ran** — the re-render path stamps both. That is the trap, and it is the
+> same shape as the error it was correcting: a status read as proof of an action.
+>
+> On the second leg — "`orchestration_states` holds no `iter_4` gate failure on any day" —
+> the table is missing the rows, not the event. Correlation `55be2497…`, quoted verbatim
+> in this file's own § Why, **no longer exists** in the table, even though it retains back
+> to 2026-07-13. The surviving contemporaneous record is the parked work item's `error`
+> (`34d578b5…`), written by the filing session, which states the mechanism exactly. Absence
+> from a pruned table is not absence of the event.
+>
+> **What the correction got right, and it is the better story:** the filed severity line
+> ("cannot be rebuilt by **any** path") is too strong. The page cannot be rebuilt *by the
+> writer*; it can be *re-rendered* freely, and was, three times that morning. So the
+> fabrication republishes itself indefinitely while the only path that could correct it
+> stays blocked — worse than the filed diagnosis, and now on record. The stat-slot table
+> above is still a valid audit of what the page **is serving**; it is not a record of what
+> was written that morning.
+>
+> Migration 217's header is accurate as written: it says "cannot be rebuilt **by the
+> writer**", scoped deliberately, and was measured before it was written. No change needed.
+
 **Class:** structural — two correct mechanisms in direct conflict, failing closed.
 **Status:** **CLOSED 2026-07-26** — fixed by migration 217 (config-only, live immediately)
 and verified; see § Verified 2026-07-26 for what was and was not observed.
+The close rests on the fix evidence — two threads proved it independently, one with an
+offline pre/post harness plus a control, one against the live schema and template using
+this file's own recorded failing input — **not** on the 07:52 reading corrected above.
 Originally filed OPEN, not started. Cause fully evidenced below (measured, nothing inferred);
 the fix is not local, which is why this is a handoff rather than a patch.
 **Belongs to:** the fabricated-stats lane — `bugs_open/043_…generated_page_copy_invents_
@@ -208,8 +259,23 @@ throughout. Work item `54734027-a910-4d86-9cc1-336f0619fe47` is parked `triaged`
 correlation `8085c770-5011-49c4-a7e4-14035a6ba753` is the direct fire; whoever sees builds
 running again should confirm the rebuild passes
 `process_sections_loop_iter_4_render_section` and that the live page shows no
-`<strong></strong>`. **This file stays OPEN until that is observed** — the mechanism is
-proven dead, the pipeline run is not.
+`<strong></strong>`.
+
+> **RECONCILED 2026-07-26 (same thread, after the file was closed and moved by the
+> bugfix-073 verification thread).** This paragraph originally ended "**this file stays
+> OPEN until that is observed**". I now accept the close, and the reasoning is worth
+> keeping rather than deleting: the *mechanism* is proven dead twice over, independently —
+> once by an offline pre/post harness with a control over all ten components, once against
+> the live schema and template through the deployed `missingRequiredLLMFields` using this
+> file's own recorded failing input. The repo's bar is "fixed AND live", and a config fix
+> is live on apply. What remains unobserved is the **pipeline**, not the fix, and the
+> pipeline is down for an unrelated open bug (`bugs_open/029`) that has nothing to do with
+> this defect. Holding a bug open on someone else's outage would misfile the outage as
+> this bug's residual.
+>
+> The follow-through is real but small, and it belongs to whoever next sees builds
+> running: run the rebuild and confirm it passes iteration 4. If it does not, **re-open
+> this file** — that is the falsifier, stated in advance.
 
 > **Answered 2026-07-26 by the verification thread — and the file is now CLOSED anyway.**
 > The rebuild still has not been observed, for the reason you name: the dispatch hang is
@@ -331,12 +397,24 @@ this bug. An induced case was armed on the real render path and remains queued:
   the site's evidence register; leaving it blank is the honest state. Pre-image in
   `bak_073_verify_20260726_pc`.)
 - `page-rerender` with `spec.reason=section_data_resolved` published to
-  `system.agent.generic.requests` at 18:32Z, correlation
-  **`3f058aa2-985c-4b0d-ac16-790ab9b9b455`** — re-renders every section from stored
-  `content_data` through the CURRENT template with no LLM call, so it exercises the render
-  gate and the template on the deployed code path.
+  `system.agent.generic.requests` — re-renders every section from stored `content_data`
+  through the CURRENT template with no LLM call, so it exercises the render gate and the
+  template on the deployed code path. Correlation
+  **`1032a03a-f81d-4f25-86fa-218b49b98442`**, published 18:45Z.
 
-It has not run. The generic lane consumer sat at offset 105194 with a depth of 10 for the
+> **CORRECTED — the first fire of this was malformed and would have proved nothing.** It
+> went out at 18:32Z as correlation `3f058aa2-985c-4b0d-ac16-790ab9b9b455` following
+> `049b_deploy_single_page.sh`'s own documented recipe, which builds `spec:{reason}` and
+> **no `spec.page_name`** — while `rerender_page_sections` declares `page_name` Required
+> (`rerender_page_sections_action.go:80`). That dispatch fails in under a second with
+> `input extraction failed: missing required fields: [page_name]`, nowhere near the render
+> gate. Five such failures are already in `orchestration_states` today from two other
+> sessions. Working copy:
+> `docs024_key_docs_latest/brochure_component_library/scripts/rerender_page_sections_direct.sh`
+> — use that, not 049b, whenever you pass a reason. If `3f058aa2` ever drains, its
+> `[page_name]` failure is the malformed envelope, **not** this bug.
+
+It has not run. The generic lane consumer sat at offset 105194 with a depth of 10–13 for the
 last 15 minutes of this session (`scripts/dispatch-queue-depth.sh`), which is the same
 fleet-wide dispatch problem recorded under `bugs_open/029` and in the section above.
 
@@ -344,7 +422,7 @@ fleet-wide dispatch problem recorded under `bugs_open/029` and in the section ab
 
 ```sql
 SELECT current_step, status, left(COALESCE(error,''),200)
-FROM orchestration_states WHERE correlation_id='3f058aa2-985c-4b0d-ac16-790ab9b9b455';
+FROM orchestration_states WHERE correlation_id='1032a03a-f81d-4f25-86fa-218b49b98442';
 -- expect COMPLETED. Then:
 SELECT rendered_html LIKE '%<strong></strong>%' AS empty_strong,
        (length(rendered_html)-length(replace(rendered_html,'csg-card-stat','')))/13 AS stat_spans

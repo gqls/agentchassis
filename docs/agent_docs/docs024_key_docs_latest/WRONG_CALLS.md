@@ -4433,3 +4433,52 @@ trying to explain is a warning, not a confirmation.** A theory that fits the res
 fitted to it.
 
 Family: confidence-is-not-a-signal, two-numbers-in-different-files, measure-the-distribution-not-the-threshold, explains-too-much.
+
+---
+
+## 2026-07-26 — a re-render is not a rebuild, and `updated_at` is not a witness (bugs_closed/073)
+
+**The claim.** Another thread, re-verifying `073` before repeating its severity line,
+wrote a correction into the bug file: *"The page rebuilt successfully at 07:52:58Z on
+2026-07-26, all eight sections `deployed`, and it did so **by inventing four of the five
+figures**."* On that reading the filed diagnosis was wrong, and the file was closed.
+
+**What was true.** The 07:52:58Z event was a **`page-rerender`**, not a build.
+`page-rerender` renders from *stored* `content_data` with no LLM in the loop, so it
+cannot invent anything — it re-published figures already stored, invented by a writer
+pass that predates migration 201. Its own record says so: `rerendered=8 carried=0
+escalated=false`. And across the whole day up to 18:00, **no `page-build-handler` and no
+`page-content-writer` ran on that site's `index` at all**; the only `index` build that
+day belonged to a different site entirely.
+
+**What caught it.** Reading the orchestration rows for the window rather than the page
+rows — one query, thirty seconds. The evidence offered for "it built" was
+`page_components.build_status='deployed'` with a fresh `updated_at`, **and the re-render
+path stamps both.**
+
+**The cheap check.** When claiming an agent *ran*, name the agent: query
+`orchestration_states` for `owner_agent_type` in the window. A row in the artefact table
+tells you something *touched* it, never *what*. This is the house rule "trust the
+rendered artefact, not the status" turned around and pointed at the artefact: a fresh
+timestamp is a status too.
+
+**The bit worth remembering.** This was a *correction* that was itself wrong, written by
+a thread doing exactly the right thing — re-measuring a claim before repeating it. The
+instinct was right and the query was one table off. So "re-measure before you repeat" is
+necessary and not sufficient; the follow-on is **measure the thing you are actually
+claiming**. The claim was about an *action* ("it rebuilt", "it invented"), and the
+measurement was of a *state* ("the row says deployed"). A state cannot witness which of
+several paths produced it — and here three paths could have, one of which involves no
+model at all.
+
+Second, smaller: the correction's other leg was *"`orchestration_states` holds no `iter_4`
+gate failure on any day"*, offered as proof the failure never happened. The rows for the
+originally-quoted correlation simply **no longer exist**, though the table retains older
+rows — so absence from a pruned table is not absence of the event. The surviving
+contemporaneous record was the parked work item's `error` text. **Check what the table's
+retention actually is before reading an empty result as a negative.**
+
+Both threads' fix evidence agreed and the close stands; only the supporting claim was
+wrong. Counter-correction recorded in place in `bugs_closed/073`, with the queries.
+
+Family: status-is-not-proof-of-action, absence-in-a-pruned-table-is-not-absence, corrections-need-the-same-bar-as-claims, name-the-agent-not-the-artefact.
