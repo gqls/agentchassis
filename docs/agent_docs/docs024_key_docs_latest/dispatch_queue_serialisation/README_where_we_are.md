@@ -447,3 +447,41 @@ removing one setting from the deployment — seconds, no rebuild, and it's writt
 in the runbook. Nothing is claiming reviewer approval: the change carries no
 "reviewed" stamp, and the rejection is recorded in the bug file rather than tucked
 away here.
+
+## 2026-07-26 (evening) — the veto was lifted: approved on the third round
+
+Following on from the note above: I put the evidence to the reviewers and **the veto
+was withdrawn**. The guarding seat said so in as many words — that the alternative it
+had insisted on was refuted by hard evidence, and it accepted that. The change is now
+formally approved, so nothing here rests on my judgement over theirs. The whole trail
+went revise → rejected → approved on one submission, which is worth knowing: a hard
+rejection here is arguable, but it costs three rounds to argue it, and only evidence
+moves it. Nothing I *said* changed anything; two greps and a read did.
+
+They left two advisory notes and I closed both rather than filing them:
+
+- They asked whether simply running a *second copy* of the chassis would have done the
+  job without touching shared code. I costed it instead of arguing: every chassis copy
+  re-reads the entire replies queue from the very beginning each time it starts, and
+  that queue currently holds **10,905** messages — so a second copy would chew through
+  all of them on every restart, forever, and would also create a second "owner" of
+  jobs, which is the exact thing that stops us running more than one copy today. So
+  "no code changes" would have been the more expensive option, not the cheaper one.
+- They picked up a loose end I had flagged myself — whether any of our action code
+  quietly shares mutable state, which would matter now two things can run at once. I
+  went through all 318 shared values in that package: exactly one is ever written
+  after start-up, it is a logging helper, and nothing in the codebase even calls the
+  function that writes it. Nothing to trip over.
+
+One honest concession stands. When I moved the eighteen chores across, I checked the
+count before and the state after, but I did not use the one SQL clause that would have
+bound the changed rows to the statement itself. I tried to reconstruct it afterwards
+and found I couldn't — the scheduler overwrites the very timestamp I'd have needed
+every time a job runs. Seven of the eighteen still carry my fingerprint; the other
+eleven were overwritten *by running*, which is its own kind of proof they're fine. It
+is fine, and it wasn't rigorous, and the runbook now says do it properly.
+
+I also got two of my own checks wrong before getting them right — one reported 58
+problems that were not problems, the other returned a zero that looked alarming and
+was just a mistyped time window. Both were caught before they went anywhere. That is
+the system working as intended, and I'd rather you saw them than not.
