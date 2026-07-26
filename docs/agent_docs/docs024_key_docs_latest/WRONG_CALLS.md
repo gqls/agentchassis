@@ -5139,3 +5139,56 @@ established either way. Three independent measurements now agree: their Go trans
 `row_to_json` dump, the shipped detector's own partition, and — by not contradicting either —
 my superset. The entry above stands as written; this is the confirmation that the
 "correction" I nearly published would have been the only wrong number in the set.
+
+---
+
+## 2026-07-26 — "no other lane has touched it", stated while another session was four minutes into the same work
+
+**The claim.** Picking up `bugs_closed/076` R1, I ran `scripts/who-owns.py 076`
+as the rule says, got the `truncation_contract_076` workstream ACTIVE with one
+commit (the handoff itself) and no competing lane, cross-checked `git log`, and
+told the user **"Ownership is clear — that directory is this workstream's, and no
+other lane has touched it."** I then wrote a PLAN, a NOTES and a RUNBOOK on that
+basis.
+
+**What was true.** Another session had picked up the same residual off the same
+handoff and had written its PLAN, NOTES and `README_where_we_are` into that
+directory **four minutes before I started writing mine**, and had `scripts/
+truncation_registry.py` on disk before I finished reading the guard. Two
+independent PLANs for R1 existed simultaneously, with different filenames, in one
+directory.
+
+**What caught it.** Not a check — the `Write` tool refusing
+`README_where_we_are.md` as unread. I had listed that directory twenty minutes
+earlier, seen one file, and carried "the directory holds one file" forward as if
+it were still true.
+
+**The cheap check.** `ls -lat` on the workstream directory immediately before
+creating anything in it. Three files with timestamps inside the last five minutes,
+one second of work, before three documents were written instead of after.
+
+**Why `git log` could not have saved it, and this is the new part.** The existing
+practice note says re-run `git log` at implementation start. Here that would have
+returned exactly what it returned at session start, because **the other session
+had committed nothing at all.** Both `who-owns` and the log read commits; a lane
+that is two hours in and pre-commit is invisible to both *by construction*. The
+only signals available were filesystem mtimes and the Write refusal.
+
+**Second, smaller call in the same session.** In that deleted PLAN I wrote that
+`177_council_tolerate_truncation.sql` is *"the only seed that has ever set
+`tolerate_truncation`"*. There are **three** (`177`, `PATCH_fix_proposer_021`,
+`PATCH_feature_designer_022`). My first grep was repo-wide and showed all three;
+I then re-ran it narrowed to `sql_for_agents/` and quoted the narrowed result as
+a repo-wide claim. The design conclusion survived — all three are `jsonb_set`
+patches, so the point about pre-commit checks holds — but the count was wrong and
+would have been quoted onward. **Cheap check: the grep whose result you quote must
+have the scope your sentence claims.** Same family as the aggregate-not-run
+entries above: right conclusion, wrong number, stated at full confidence.
+
+**Standing tally, who-owns-is-blind family:** `bugs_open/078`, `bugs_open/073`,
+and now `076` R1 — three in one day. The first two were caught by a changed row
+and a one-minute-old mtime; this one by a tool refusal. **The recurring check is
+now unambiguous and is not `git log`: it is mtime on the artefacts you are about
+to touch.** That is mechanical, it costs one command, and it is the third time it
+would have paid. Worth automating into the `who-owns.py` output itself — it
+already knows the workstream directory; it could stat it.
