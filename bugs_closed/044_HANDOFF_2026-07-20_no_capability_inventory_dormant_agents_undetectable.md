@@ -2,9 +2,10 @@
 
 **Filed:** 2026-07-20 by the bugfix thread, out of `bugs_closed/002` D.
 **Severity:** latent, diagnostic. Nothing errors. No site reports a failure.
-**Status:** OPEN — the **detector half is BUILT and committed** (inert until the
-next chassis image roll); the `is_active` hygiene half remains an owner decision
-(see §The two halves and §UPDATE below).
+**Status: CLOSED 2026-07-26 — fixed AND live on chassis v1.0.1167.** The
+capability inventory (the core ask) is a live, honest report backed by a
+durable signal. See **§CLOSED** at the bottom. The `is_active` hygiene half
+remains, as always, an explicit owner decision — out of scope for this closure.
 
 > **UPDATE 2026-07-21 — detector half BUILT (dormant_agents_inventory workstream).**
 > Half 1 (the detector) is implemented, tested, and committed; stays OPEN only
@@ -201,3 +202,69 @@ the implementation** — that is the trap that produced the wrong 110.
 - `bugs_open/033` — the consumer-side mirror (work with no worker).
 - Live council seat `review_prior_art` on `fix-proposer` + `council-gate`
   (0 roster drift, verified 2026-07-20) — covers the assertion, not the condition.
+
+## §CLOSED 2026-07-26
+
+**`bugs_open/060` (the blocker) shipped and is live on chassis v1.0.1167** — see
+that bug's own `§CLOSED` for the fix and evidence. This closes 044's core ask:
+the platform now has a live, running, honest inventory of its own capabilities,
+backed by a durable signal instead of the pruned/windowed one this bug
+originally shipped with.
+
+**What changed from the original detector (2026-07-21/22):** the step-fingerprint
+method over `orchestration_states` is retired entirely. The detector
+(`diagnose_dormant_agents_action.go`) now reads `agent_run_stats` directly — no
+more mirrored-agent blind spot (`council-gate` is measurable now; it was the
+canonical unmeasurable case) and no more 24h-window false positives
+(`fix-proposer` was the canonical false positive under the old method — it no
+longer can be, once the tracking window matures).
+
+**Live sweep, same seed, no re-seed needed** (chassis v1.0.1167, 2026-07-26
+15:10 UTC, `dry_run` still `true`):
+```
+Capability inventory (durable run record). Of 163 active non-snapshot agents
+with a workflow, 5 have run at least once since tracking began and 158 have
+never run: 137 past the 14d age floor, 21 too new to flag yet.
+
+What "never run" means here — ... accumulating since 2026-07-26 (0.0 days) ...
+```
+The report correctly states the method (durable run record, not fingerprint),
+correctly states the tracking window as 0.0 days (honest cold start — the table
+was created that day), and correctly **excludes** `council-gate` and
+`endpoint-health-checker` from the never-run list because both had already
+acquired an `agent_run_stats` row by the time of the sweep. This is a clean,
+live, self-consistent proof the rewired detector works exactly as designed.
+
+**Emission stays gated for ~14 days from 2026-07-26, by design, not as a
+residual defect.** `agent_run_stats` is forward-only (no backfill), so the
+window guard correctly refuses to emit "dormant for ≥ 14d" claims until the
+table has actually been tracking for 14 days. This is the documented,
+deliberate cold-start behaviour (`PLAN_2026-07-24_durable_run_record.md`), not
+something left broken by this closure. Whoever next reviews the report after
+~2026-08-09 should see emission un-gate itself with no further code change.
+
+**The 137-past-floor / 21-under-floor numbers in the live report above are
+NOT the same measurement as the original 57** — they cannot be compared
+directly. The new method measures against a table that only started
+accumulating on 2026-07-26, so today every active agent reads as never-run
+until it happens to be dispatched again; that is expected and will settle over
+the coming days/weeks as real traffic runs, not a finding to act on yet.
+
+**Two transient message drops hit during this closure's live verification,
+root-caused to `bugs_open/082`** (a `postgres-clients-0` crash-loop under a
+1s liveness probe, filed the same day by another workstream, unrelated to this
+fix) — not a defect in the detector or the durable-record writer. See 060's
+`§CLOSED` for the log evidence.
+
+**Council review:** submitted and resubmitted twice under
+`SUBMISSION_CORR=2d2748e8-8a60-45a2-8cce-68148af9076e`; both stalled mid-run on
+the same `082` instability (idle audit trail, no error). Advisory only — does
+not block this closure; will be reconciled against commit `baf887a8e` if a
+verdict lands later.
+
+**The `is_active` hygiene half is unchanged from the original write-up and
+stays explicitly out of scope** — an owner judgement call about intent
+(retire vs. paused-by-decision vs. genuinely wired-but-unrouted), not a code
+fix. The live report groups the ~137 into the same four heuristic buckets this
+bug always used (current-generation / legacy-superseded / older-generation /
+paused-workstream) for whoever the owner delegates that triage to next.

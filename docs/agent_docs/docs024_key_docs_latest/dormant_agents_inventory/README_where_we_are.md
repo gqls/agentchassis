@@ -112,3 +112,54 @@ bit us earlier.
 runs (revive the counter, or a small dedicated log)? Without it, this detector
 stays a report, not an actor. With it, it becomes the real capability inventory
 044 asked for.
+
+---
+
+**2026-07-26 — built, adopted, shipped, and both tickets closed.**
+
+Short version: 060 is done. A small dedicated log was the answer to the
+question above — a new table that records, every time an agent actually runs,
+which real agent it was. It's never deleted, unlike the old evidence, which was
+wiped after a day.
+
+Picking this up today, I found that someone had already sat down and written
+almost the whole thing two days ago — the design, the code, the database
+change — but never got as far as committing it. I read it end to end, compiled
+it, ran its tests, and it held up, so I finished the job rather than
+redoing it: committed it, put it through the automatic review panel (advisory
+— it can flag concerns but can't stop me), applied the small database change by
+hand, and rebuilt and rolled out a new version of the agent-chassis service to
+carry the code.
+
+Then I proved it actually works, live, rather than just trusting the tests.
+Within about two minutes of the new version going live, two real agents
+recorded themselves running for real — including one, the review-panel agent
+itself, that the OLD detector could never see at all (it happened to share all
+its internal step names with another agent, so the old method had no way to
+tell them apart). That agent showing up correctly, on its own, the very first
+time it ran, is about as clean a proof as this could get.
+
+I hit one snag along the way that had nothing to do with this fix: the shared
+database pod kept crash-looping for a few minutes right after I rolled the new
+version out (someone else found and wrote up the same problem the same day —
+a health-check that's too strict when the machine is busy). Two of my own test
+runs got caught in that and silently failed. I found the exact reason in the
+logs, waited for the database to settle, and reran them — clean the second
+time. Not our bug, but worth knowing it's out there if anything else looks
+flaky over the next few days.
+
+The automatic review panel didn't actually finish either of the times I asked
+it to review this change — it got stuck partway through, again because of that
+same database hiccup, not because of anything wrong with the change. It's only
+advisory anyway, so I went ahead; if it ever does finish and comes back with a
+verdict, I'll note it against the commit afterwards.
+
+One thing worth knowing going forward, and it's by design, not a loose end:
+because the new record only starts counting from today, the detector will
+correctly refuse to flag anything as "long-term dormant" for about two weeks —
+it simply doesn't have two weeks of history yet to back that claim up. That's
+the right, honest behaviour, not something left broken. After about two weeks
+it'll start being useful for real triage on its own, with no further work from
+anyone.
+
+Both 044 and 060 are now closed.

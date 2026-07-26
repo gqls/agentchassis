@@ -123,3 +123,75 @@ MISSTEP logged (WRONG_CALLS 2026-07-22): on 07-21 I treated the observed 55-day
 it was a transient. The cheap check I skipped: read the cleanup job's retention
 (`SELECT pre_query FROM scheduled_tasks WHERE name='database-cleanup'`) before
 trusting `min(created_at)` as "the window".
+
+## 2026-07-24 — 060 designed and built (uncommitted)
+
+A continuation session designed the durable fix end-to-end
+(`PLAN_2026-07-24_durable_run_record.md`): a new `agent_run_stats` table keyed
+on the RESOLVED real agent type (not a revived `usage_count` — a dedicated
+table stays isolated from the versioned `agent_definitions` row), a writer
+wired into `processor.go`'s `executeWorkflow`, a defensive fallback in
+`ai_actions.go` for the one execution-driving reader of `owner_agent_type`, and
+the detector rewired to read the new table. Diagnosed the `owner_agent_type`
+"generic" problem down to `determineOwnerAgentType` (`coordinator.go`)
+preferring `Sender.AgentType`/env over the real resolved type, and mapped every
+reader of `owner_agent_type` for safety before committing to the change. Left
+uncommitted at end of session — code written, compiled, tested, but not landed.
+
+## 2026-07-26 — adopted, shipped, live-verified; 060 and 044 both CLOSED
+
+Found the 07-24 work sitting uncommitted while picking up 044. Read every
+line, re-compiled and re-ran the tests against fresh `HEAD` (which had moved —
+`coordinator.go`/`context.go`'s half of the `RunAgentType` plumbing had already
+landed separately as a same-file passenger in `3af7b9d8d`, and a different
+session's `034` fix had already carefully committed only its own 12-line hunk
+out of `processor.go`, deliberately leaving the rest of that file's diff — my
+diff — uncommitted rather than sweep it in wholesale; see that session's own
+landmine note). Composed cleanly on top of both. Corrected 060's original
+"verify against `section-editor`" bar — the shipped design is forward-only, no
+backfill, and `section-editor` only runs a few times a year, so gated
+verification on a frequent agent (`fix-proposer`/`page-build-handler`) instead.
+
+Committed (`baf887a8e`), submitted to council review (advisory), applied
+migration 203 by hand + `--record-only` (safe, additive), bumped `IMAGE_TAG` to
+v1.0.1167, built from committed `HEAD`, pushed, and rolled — deliberately via
+the single-service kustomize overlay + a direct `docker push`, **not**
+`make deploy-agents`, which is fleet-wide and would have repointed every other
+agent service at a tag only `agent-chassis` was ever built at.
+
+**Live evidence, in order:**
+- Pod-grep the new binary: `RecordAgentRun`=3, `agent_run_stats`=13,
+  `run_agent_type`=2 (up from a 2-only baseline pre-writer).
+- `agent_run_stats` filled with real traffic within ~2 minutes of the roll:
+  `council-gate` (run_count=1) and `endpoint-health-checker` (run_count=2).
+  `council-gate` is the exact agent the OLD method could never measure (its 099
+  roster mirror has no unique step key) — the strongest available proof the
+  resolution fix works, stronger than waiting on `section-editor`.
+- Fresh generic-dispatched `orchestration_states` rows: `owner_agent_type` now
+  names the real agent (`council-gate`, `endpoint-health-checker`), not
+  `generic`.
+- Live sweep (unchanged seed, `dry_run` still `true`): report correctly names
+  "durable run record" as the method, states a 0.0-day tracking window
+  honestly, and correctly excludes both agents above from the never-run list.
+
+**Two message drops during verification, root-caused, not from this fix.**
+`postgres-clients-0` crash-looped repeatedly right after the roll — a separate,
+already-filed issue (`bugs_open/082`, a 1s liveness probe under CPU contention,
+found independently the same day by another workstream). Chassis logs showed
+the exact mechanism: the message was consumed, `FindByType` failed with
+`SQLSTATE 08P01` mid-lookup, the processor fell back to an invalid synthetic
+workflow, and errored out before ever writing an `orchestration_states` row —
+so "message consumed, no row" without any visible error. Retried once
+`postgres-clients-0` had held stable for 5 consecutive checks; both retries
+completed cleanly. Diagnosed from the pod's own logs, not inferred — see
+`bugs_closed/060`'s `§CLOSED` for the exact log lines.
+
+**Council review submitted 3 times** under one correlation
+(`2d2748e8-8a60-45a2-8cce-68148af9076e`); the first two runs stalled mid-review
+on the same `082` instability (idle audit trail well past any normal review
+duration, no error). Advisory only per CLAUDE.md — did not block closing
+either bug. Will reconcile a `Council-Reviewed` trailer against commit
+`baf887a8e` later if a verdict lands (no trailer was added at commit time;
+forward-only precludes amending).
+
+Both `060` and `044` moved to `bugs_closed/`.
