@@ -3534,3 +3534,67 @@ worse: an over-broad **capability** claim gets caught the first time someone rel
 whereas an over-broad claim that a **safeguard works** is only caught when the safeguard
 was needed and silently did nothing. Family: unchecked-quantifier, two-instances-is-not-
 a-property, containment-assumed-not-verified.
+
+**2026-07-26 — swept a fleet for a rendered element I had only seen on one site, and
+read the resulting silence as a clean bill of health.** Closing `bugs_open/053` (an
+empty `legal` nav group filling the footer's legal slot with every footer page) meant
+checking what each live site actually serves in that slot. I keyed the sweep on
+`<div class="footer-legal">`, taking the element from the markup quoted at the top of
+the case file — which was robot-hands' markup, one site's component. **idea.uk emits
+`<nav class="footer-legal" aria-label="Legal">`.** So idea.uk reported **0 legal links
+while holding 1 active legal nav row**, and I carried that for several steps as a live
+anomaly that might be a regression *caused by the very fix I was closing* — on a site
+belonging to another workstream. Re-measured on the class alone, idea.uk serves
+`/privacy.html`, exactly its one row: a **passing** case, and in fact the third
+regression guard in the closure's evidence.
+**What caught it:** reading the footer component's `html_template` to find out *why*
+the block had not rendered, and seeing `{{if .legal_links}}<nav class="footer-legal"` —
+i.e. going after the mechanism instead of filing the anomaly. It never reached a
+durable doc, but it was three edits away from being written into the case file, 049 and
+016b as a fabricated regression.
+**The cheap check:** when sweeping rendered HTML across a fleet, **match the class,
+never the element** — `grep -A4 'class="footer-legal"'`, not
+`grep '<div class="footer-legal">'`. Component libraries share the class contract and
+vary the wrapper freely; the element is a property of one template, not of the contract.
+**The class:** a filter that is *stricter than the contract* fails silently, and here it
+failed in the **reassuring** direction — it under-counted links when "too many links"
+was the entire symptom, so the artefact of my own pattern looked exactly like the fix
+working. That is the dangerous half. An over-strict filter that under-reports a
+**problem** reads as success and stops the investigation; the same error over-reporting
+would have been caught immediately by the next check. Sibling of the
+`vacuous-verification` entry above — both are tests that pass because they cannot see.
+Family: over-strict-pattern, measurement-artefact, silent-under-report,
+false-clean-in-the-flattering-direction.
+
+---
+
+**2026-07-26 — concluded a guard had become unnecessary because the failure it guards
+against had stopped appearing, and was about to close the case on that basis.** Closing
+`bugs_open/061` (the med scraper's LLM fallback inventing price tables) I gathered every
+green signal there is: full-table fidelity sweep 0 PRICE_ABSENT across 2,577 rows, the
+published data file rebuilt clean, the fix's own counter (`fidelity_skipped`) coming back
+in production run results, and — the one that did the damage — **16 consecutive post-fix
+fallback calls all returning `[]`**. From that I wrote into the plan that the prompt
+hardening had removed the fabrication *at source*, that the guard's drop branch was
+therefore belt-and-braces, and that it **"cannot" be induced live**. I put that in writing,
+in the plan the owner approved, as a stated limitation of the verification.
+**It was wrong on the first attempt.** The induced re-scrape of the original page had the
+model invent three complete variants (£19.25 / £34.99 / £68.75, plus a pack size not on the
+page); the guard dropped all three and stored nothing. The 16 empty responses were *other
+pages* — a sample that never contained the failing case at all.
+**What caught it:** running the induced test anyway, purely because the standing rule says
+a green happy path proves deployment and not correctness. Nothing else would have; every
+other signal I had said "fixed".
+**The cheap check:** before concluding that a guard is redundant, **check whether your
+sample ever contained the case it guards** — 16 calls on pages that were never the failing
+page is not 16 chances for the guard to fire. Restate the claim with the sample named
+("no fabrication on *these* pages") and it stops sounding like a finding.
+**The class:** absence-of-symptom read as removal-of-cause, where the reassuring reading
+also happens to be the one that ends the work. Note the compounding factor — a *layered*
+fix makes this worse, because the upstream layers (window gate, prompt hardening) genuinely
+do suppress the symptom most of the time, so the downstream guard looks idle precisely
+because the layers above it are working. 016b §9 had already written "prompt rules alone
+are hope, not enforcement" for this exact bug, and I was one edit from contradicting a
+pattern this workstream itself had filed.
+Family: absence-as-evidence, unrepresentative-sample, quiet-branch-mistaken-for-dead-branch,
+false-clean-in-the-flattering-direction (sibling of the footer-legal entry above).

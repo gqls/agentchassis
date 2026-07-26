@@ -1528,3 +1528,78 @@ Then check where you rank with the dispatcher's OWN query (016b §9,
 site. At the time of writing `build-pipeline-trigger` was not advancing at all (one
 `agent-build-dispatch-loop` pod Running 20m, one item touched fleet-wide in 10 minutes), which is
 `bugs_open/030`/`029`, not this bug.
+
+---
+
+## 2026-07-26 — `bugs_open/053` CLOSED, residual handed back into `049` (bugfix 53 session)
+
+Not our thread's own work, but it lands in this workstream's lane: `who-owns.py 053` names
+`cta_link_integrity`, so the closure and its evidence are recorded here rather than in a parallel
+account. The measured handover — including the corrections below — is appended to
+`/bugs_open/049` itself, which is where the re-render decision lives.
+
+**053 is closed.** Its Go fix (the `siteHasAnyNavItems` gate that stops the pages-nav fallback
+firing on a truthful empty answer) was already live in v1.0.1146 and is still intact in v1.0.1165;
+what was missing was the live verification the case file demanded. **No code changed in this pass.**
+
+**The wait turned out to be the evidence.** Because the fix could only reach a site when something
+re-rendered its chrome, and re-renders happen piecemeal across the fleet, the image roll became a
+natural discriminator: **8 of 8 sites re-rendered since 2026-07-21 emit exactly their legal nav
+rows — counts of 0, 1 and 2, across three different footer components — and every site still on
+pre-roll chrome emits its footer page set.** robot-hands went from 14 non-legal links to none.
+That is a better control than a same-site before/after, and it argues for *not* re-rendering
+everything at once when a fix is inert until an artefact regenerates.
+
+**Three things in our own files were corrected:**
+
+1. **`gamesdesign.co.uk` was missing from the affected list** in both 049 and 053 (8 non-legal
+   links, chrome 07-20 21:40 — about a minute before gaswholesalers', so almost certainly the same
+   sweep). Five sites still serve the stale legal slot, not four.
+2. **Our "HOLD gaswholesalers" arithmetic has inverted, but the hold's real precondition has not.**
+   The hold was premised on a re-render filling the legal slot with 21 links including
+   `/fuel-pricing-framework.html` (404). gaswholesalers has since gained 2 legal nav rows, so with
+   053 live that slot now resolves to `/privacy.html` + `/terms.html`, both **200** — the very
+   phantoms our candidate 1 removed, since built for real. **But the 404 is an active `utility`
+   nav row**, so it ships from the footer quick-links path regardless: 3 occurrences per page today
+   (2 quick-links + 1 legal slot), 2 after a re-render. Build the page or clear the nav row; that
+   is mechanism 2, and 053 never touched it.
+3. **Our weak two-directional control is now strong.** 053 rightly flagged that leopardess was the
+   only site exercising the nav-tables path, so "post-fix sites look correct" proved little. Three
+   post-roll sites with legal rows now render them correctly — aao (2), finetuning (2), idea.uk (1)
+   — on three different footer components. Relatedly, our note that *"aao's legal row will look odd
+   (16 footer links) until 053 is fixed"* is moot: aao re-rendered 07-25, after the fix, and serves
+   exactly 2.
+
+### MISSTEP — an element-qualified grep under-reported, in the reassuring direction
+
+Sweeping the fleet for the legal slot I keyed on `<div class="footer-legal">`, taking the element
+from the markup quoted in 053. **idea.uk emits `<nav class="footer-legal" aria-label="Legal">`** —
+its `site-footer` component uses a `<nav>`. So idea.uk came back as **0 legal links while holding 1
+legal nav row**, and I spent a while treating it as a possible regression *caused by the fix we
+were closing*. It was not: re-measured on the class alone, idea.uk serves `/privacy.html`, exactly
+its one row, and it is a passing case — the third regression guard.
+
+Caught before it reached a durable doc, but it would have been written down as a fabricated
+regression against our own fix, on another workstream's site. **The check: grep the class, never
+the element.** Components share the class contract and vary the wrapper, and the failure is silent
+*and* flattering — it under-counts links when "too many links" is the whole symptom. Every sweep in
+this workstream's runbook that looks for `.footer-legal` has this exposure. Use:
+
+```bash
+curl -s "https://$d/" | grep -A4 'class="footer-legal"' | grep -o 'href="[^"]*"'
+```
+
+Logged in `WRONG_CALLS.md`; pattern added to 016b §9.
+
+### Also noted, for whoever picks up the re-renders
+
+The owner was asked this session and **chose not to fire them** — clearing the five means
+`rerender-pages` with `refresh_site_components:true` per site, i.e. chrome plus a reassembly and
+redeploy of every page (26–37 commits, a B2 sync and a Cloudflare purge each) on live customer
+sites. `scripts/049_TRIGGER_chrome_refresh.sh` is allowlisted to three domains, so four of the five
+need new case arms, and relojistas/vetcomparison belong to other active workstreams.
+
+**Landmine for anyone editing `nav_tables.go` right now:** at the time of writing, another session
+had it open mid-refactor (replacing the `deployedOnly bool` with a named `NavVisibility` type, for
+`049` mechanism 2) and **the shared tree did not compile**. Test against `git archive HEAD` with
+your own files overlaid; do not "fix" their file to make it build.

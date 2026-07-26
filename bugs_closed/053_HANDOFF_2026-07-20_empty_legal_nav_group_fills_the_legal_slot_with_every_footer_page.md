@@ -1,10 +1,17 @@
 # 053 — an empty `legal` nav group fills the footer's legal slot with every footer page
 
 **Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops`
-**Status:** CODE LIVE in prod **v1.0.1146** (candidate 1, `85d39f9b9`) — but **stays OPEN**: live
-sites still serve the old footer because the output is a cached chrome artefact and nothing has
-re-rendered them yet. Close only when a re-rendered site's `.footer-legal` is verified empty against
-the live page.
+**Status: CLOSED 2026-07-26 — fixed AND live, verified against live pages.** Candidate 1 shipped in
+**v1.0.1146** (`85d39f9b9` + `309f519fc`) and is still intact and running in **v1.0.1165**. The file
+previously said *"close only when a re-rendered site's `.footer-legal` is verified against the live
+page"* — that bar is now met **eight times over**: every site whose chrome has been re-rendered
+since the roll emits exactly its legal nav rows, and none emits the footer page set. See
+*CLOSING RECORD* at the foot of this file for the measurements.
+**Residual — NOT this bug:** five sites still *serve* the old markup from pre-roll cached chrome
+(`dartsonline`, `relojistas`, `vetcomparison`, `gamesdesign`, `gaswholesalers`). That is
+`/bugs_open/049` mechanism 1 verbatim ("the chrome predates its own fix, and nothing re-renders
+chrome"), it is owned by `cta_link_integrity`, and it is handed over in 049's own file — this
+defect cannot recur on any site that renders.
 **Council gate:** `SUBMISSION_CORR=550b9727-730b-44f9-8d37-5c56c2ce6615`, 3 rounds, all REVISE —
 but **substantively approved** (see *Council review* below). R1 found a real gap (fixed, `309f519fc`);
 R2 = 11/12 approve, R3 = only guardian (low). Stopped at R3 on owner ruling (2026-07-22): no
@@ -289,3 +296,203 @@ is recorded for the trail, not as a ship gate (see *Council review* summary abov
   renderer fills from a hardcoded vocabulary and never reads `input_schema`. Third instance of
   "chrome is under-modelled".
 - `/bugs_open/023` — derived fields recomputed on every render, so authored edits cannot hold.
+
+---
+
+# CLOSING RECORD — 2026-07-26, verified live and closed
+
+Closed by the `bugfix 53` session. **No code changed in this pass**; the fix was already committed
+and live. What was missing was the live verification the file itself demanded, and that is now
+done. All figures below were measured at **2026-07-26 14:57–15:10 UTC** and re-grounded twice,
+because chrome re-renders land continuously from other lanes.
+
+## 1. The code is intact at HEAD and running in production
+
+`GetNavItems` (`platform/orchestration/actions/nav_tables.go:51`) still carries the
+`siteHasAnyNavItems` gate, and `siteHasAnyNavItems` is still at `nav_tables.go:362`. A later nav
+commit, `406768958` ("rank the directory registers as tier-2 hubs"), touched
+`nav_tables_fallback_test.go` and `populate_nav_tables_action.go` — **not** `nav_tables.go`. The
+gate has not been disturbed.
+
+Regression suite green **at committed HEAD**, all five cases:
+
+```
+$ git archive HEAD | tar -x -C <tmp> && cd <tmp>
+$ go test ./platform/orchestration/actions/ -run 'GetNavItemsFallbackGate' -v
+--- PASS: TestGetNavItemsFallbackGate
+    nav-table site with no legal items returns empty, no fallback
+    nav-table site with legal items returns them, no gate/fallback
+    pre-nav-table site (no rows) falls back to pages
+    primary-including empty on a nav-table site warns; legal-only empty stays quiet
+    nav tables absent (does not exist) falls back to pages
+ok  github.com/gqls/agentchassis/platform/orchestration/actions
+```
+
+**Run it against `git archive HEAD`, not the working tree.** At the time of closing, another
+session had `nav_tables.go` open mid-refactor and the shared tree did **not** compile — see the
+next paragraph. An in-tree run earlier in this session was also green (and included
+`TestNavPriorityTierRanksDirectoryPagesAsHubs` from commit `406768958`), but the HEAD-archive run
+is the one to trust, because it cannot pick up anyone's uncommitted work.
+See [[shared-tree-wont-compile]].
+
+> **In-flight, uncommitted, 2026-07-26 — another session is refactoring this exact function, and
+> the gate survives it.** `nav_tables.go` in the working tree replaces the `deployedOnly bool`
+> parameter with a named `NavVisibility` type (`NavAllItems` / `NavFetchableOnly`) for
+> **`/bugs_open/049` mechanism 2**, deliberately choosing a new type over a bool rename so the
+> compiler stops at every call site. That work is **[UNCOMMITTED]** and mid-edit (the tree does not
+> build: `getNavItemsFromPagesFallback` is still called with the removed `deployedOnly`), so
+> nothing here asserts what it will finally look like. What matters for this case: **their version
+> preserves the `siteHasAnyNavItems` gate, its comment block and the fail-loud `Warn` intact.** If
+> you are reading this after that lands and the gate is gone, that is a regression of this case,
+> not a refactor — the test above is what catches it.
+
+Pod-grep against the **running** pod (`agent-chassis-f4d46c88d-p6wqc`, image **v1.0.1165**,
+started 2026-07-26T12:06:34Z) — the changed symbol, with a positive control:
+
+```
+$ kubectl exec -n ai-persona-system agent-chassis-f4d46c88d-p6wqc -- sh -c \
+    'strings /app/agent-chassis | grep -c siteHasAnyNavItems'          # -> 4
+$ ... 'strings /app/agent-chassis | grep -c getNavItemsFromPagesFallback'  # -> 6 (control)
+```
+
+## 2. The fleet is a natural experiment, and it comes out clean
+
+The discriminator is each site's **chrome render date** against the **2026-07-21 12:15 UTC** roll of
+v1.0.1146. Nothing else distinguishes these sites. Chrome artefact and live page agree exactly on
+all fourteen, so only one column is shown for both.
+
+| chrome rendered | site | legal nav rows | legal links served | |
+|---|---|---|---|---|
+| 07-06 17:15 | dartsonline.com | 0 | **8** non-legal | pre-roll ✗ |
+| 07-16 13:52 | relojistas.com | 0 | **6** non-legal | pre-roll ✗ |
+| 07-17 22:45 | vetcomparison.uk | 0 | **6** non-legal | pre-roll ✗ |
+| 07-18 11:05 | leopardessconsulting.co.uk | 2 | 2 | pre-roll, correct anyway — see correction 3 |
+| 07-20 21:40 | gamesdesign.co.uk | 0 | **8** non-legal | pre-roll ✗ |
+| 07-20 21:41 | gaswholesalers.com | 2 | **21** non-legal, incl. a live 404 | pre-roll ✗ |
+| **07-21 15:43** | **finetuning.uk** | **2** | **2** — `/privacy-policy.html`, `/terms.html` | **post-roll ✓** |
+| **07-23 16:13** | **idea.uk** | **1** | **1** — `/privacy.html` | **post-roll ✓** |
+| **07-24 15:26** | **fundamentallyai.com** | **0** | **0** | **post-roll ✓** |
+| **07-24 20:45** | **robot-hands.com** | **0** | **0** | **post-roll ✓** |
+| **07-25 09:17** | **vonc.com** | **0** | **0** | **post-roll ✓** |
+| **07-25 09:21** | **ai-agent-orchestration.com** | **2** | **2** — `/privacy.html`, `/terms.html` | **post-roll ✓** |
+| **07-25 17:21** | **webdesign.co.uk** | **0** | **0** | **post-roll ✓** |
+| **07-25 19:42** | **oufe.com** | **0** | **0** | **post-roll ✓** |
+
+**Eight of eight post-roll sites emit exactly their legal nav row count — 0, 1 and 2 all
+represented. Zero fall back to the page set.** robot-hands, the site this case was filed on, went
+from 14 non-legal links to none.
+
+Re-derive either half:
+
+```bash
+# live pages — element-agnostic, see MISSTEP below
+for d in robot-hands.com vonc.com fundamentallyai.com oufe.com webdesign.co.uk \
+         ai-agent-orchestration.com finetuning.uk idea.uk dartsonline.com \
+         gaswholesalers.com gamesdesign.co.uk relojistas.com vetcomparison.uk; do
+  echo -n "$d : "
+  curl -s -m 25 "https://$d/" | grep -A4 'class="footer-legal"' \
+    | grep -o 'href="[^"]*"' | tr '\n' ' '; echo
+done
+```
+```sql
+-- the stored chrome artefact, same answer
+SELECT s.domain, sc.updated_at::timestamp(0) AS chrome_rendered,
+       (SELECT count(*) FILTER (WHERE ng.group_type='legal' AND ni.status='active')
+          FROM site_nav_groups ng JOIN site_nav_items ni ON ni.group_id=ng.id
+         WHERE ng.site_id=s.id) AS legal_nav_rows,
+       (SELECT count(*) FROM regexp_matches(COALESCE(substring(
+            sc.rendered_html FROM 'class="footer-legal"[^>]*>(.*?)</(div|nav)>'),''), '<a ', 'g'))
+         AS legal_links_in_chrome
+FROM site_components sc JOIN sites s ON s.id=sc.site_id
+WHERE sc.slot_name='footer' AND s.domain NOT LIKE 'pool-%' AND s.domain NOT LIKE '%.internal'
+ORDER BY sc.updated_at;
+```
+
+## 3. Verify item 3 answered — the pre-nav-table branch is not dead, and no rendering site exercises it
+
+The file asked for a genuinely pre-nav-table site, and said to *say so* rather than silently delete
+a branch nobody can exercise. Checked: **18 rows in `sites` have zero `site_nav_items`, and every
+one of them is `pool-*.internal` or `system.internal` with ZERO `site_components` rows** — they
+never render chrome at all.
+
+```sql
+SELECT s.domain, count(ni.id) AS nav_items, count(DISTINCT sc.id) AS component_rows
+FROM sites s LEFT JOIN site_nav_items ni ON ni.site_id=s.id
+LEFT JOIN site_components sc ON sc.site_id=s.id
+GROUP BY s.domain HAVING count(ni.id)=0 ORDER BY 3 DESC, 1;   -- 18 rows, component_rows=0 on all
+```
+
+So the fallback branch survives only for a newly-created site in the window before
+`PopulateNavTablesAction` runs. **Keep it.** It is covered by test case 3 (pre-nav-table site) and
+case 5 (tables absent), which is the only way it is exercised today.
+
+## 4. Three of this file's own figures had drifted — corrected
+
+Nav rows and page state are live state; every figure above was re-grounded rather than carried
+forward. Three earlier claims in this file are now wrong:
+
+1. **`gamesdesign.co.uk` was affected and appears nowhere in the *Fleet exposure* list** (8 non-legal
+   links, chrome 07-20 21:40). It was missed at filing and by the 2026-07-21 re-grounding.
+2. **`gaswholesalers.com` has since gained 2 legal nav rows** (it had 0), and its `/privacy.html`
+   and `/terms.html` now both return **200** — they were the phantoms 049 removed. Its *Why it
+   matters beyond cosmetics* section is now stale in an important way; see the 049 handover below.
+3. **The regression guard this file nominated does not prove what it was meant to prove.**
+   Verify item 2 named `leopardessconsulting.co.uk` — but its chrome is from **07-18, pre-roll**, so
+   it has never run the fixed path. Its 2 correct legal links are what the *old* code did for a site
+   that has legal nav rows. The real guards are the three post-roll sites that have legal rows:
+   **ai-agent-orchestration.com (2), finetuning.uk (2), idea.uk (1)** — and they sit on three
+   *different* footer components (`footer-4-column`, `footer-theme-chrome` family, `site-footer`),
+   so the guard holds across templates, not just one.
+
+## 5. MISSTEP — an element-name assumption silently under-reported, and nearly reached this file
+
+My first fleet sweep keyed on `<div class="footer-legal">`, on the strength of the markup quoted at
+the top of this file. **idea.uk emits `<nav class="footer-legal" aria-label="Legal">`** — its
+`site-footer` component uses a `<nav>` element (`{{if .legal_links}}<nav class="footer-legal" …`,
+component `4238e467-25a6-4174-bee0-6fce914398c8`). So idea.uk reported **0 legal links while
+holding 1 legal nav row**, and I spent a while treating it as an anomaly possibly caused by this
+very fix. It is not: re-measured on `class="footer-legal"` alone, idea.uk serves `/privacy.html`,
+exactly its one row, and it is a **passing** post-roll case — the third regression guard, not a
+defect.
+
+Caught before it reached this file, but it would have been written down as "1 nav row, 0 links
+served" — a fabricated regression against our own fix, on a site owned by another workstream.
+
+**The cheap check:** grep the **class**, never the element, when sweeping rendered HTML across a
+fleet — component templates vary the wrapper element even when they share the class contract
+(`div` here, `nav` there). An element-qualified pattern fails **silently and in the safe-looking
+direction**: it reports *fewer* links, which reads as "clean" for exactly the bug where more links
+is the symptom. Logged in `WRONG_CALLS.md`; pattern added to 016b §9.
+
+## 6. Why this closes now, and what explicitly does not
+
+**Closes:** the defect is in the code, the code is fixed, shipped, and proven on eight live sites
+across three footer templates and three distinct legal-row counts. It cannot recur on any site that
+renders. That is the `bugs_closed/README.md` bar — fixed AND live, verified against the running
+system.
+
+**Does not close, and is not this bug:** five sites still *serve* pre-roll markup from
+`site_components.rendered_html`. Chrome only re-renders on explicit trigger, which is
+`/bugs_open/049` mechanism 1 — a case that predates this one, owns the per-site re-render risk
+table and trigger script, and is actively worked by `cta_link_integrity`. Handed over there with
+measurements rather than forked into a second account. **The owner declined to fire the re-renders
+in this session** (2026-07-26): clearing those five means `rerender-pages` with
+`refresh_site_components:true`, which redeploys every page — 26–37 git commits plus a B2 sync and
+Cloudflare purge per site, on live customer sites, and 049 holds that behind an owner gate.
+
+**Candidate 3 (`deployedOnly` for chrome nav) — the deferral is being overtaken as this closes, and
+the reason it was deferred has been vindicated.** This file deferred it because the *correct*
+predicate is `deployed_at IS NULL`, not the `build_status='deployed'` that the old flag emitted, so
+flipping the flag on would have dropped valid links from the 34 fleet pages that sit at
+`needs_rebuild` and serve 200 perfectly well.
+
+As of **2026-07-26** another session is implementing exactly that under **`/bugs_open/049`
+mechanism 2** — `NavVisibility` with `NavAllItems` / `NavFetchableOnly`, resting on a
+`datahelpers.NeverDeployedPagePredicate`, i.e. the `deployed_at` predicate this file said it needed
+rather than the `build_status` one it warned against. That work is **[UNCOMMITTED] and mid-flight**;
+its final shape and its home (049 vs 052) are theirs to settle, not this file's. Do not read this
+paragraph as "candidate 3 is done".
+
+**No `Council-Reviewed:` trailer on the closing commit.** This pass changes no platform code, and
+the fix's own council trail ended at REVISE under the owner ruling recorded above — the trailer is
+earned by an APPROVED verdict only.

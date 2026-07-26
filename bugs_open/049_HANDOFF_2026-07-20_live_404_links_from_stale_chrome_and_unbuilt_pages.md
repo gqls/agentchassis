@@ -431,3 +431,98 @@ SELECT h.domain, h.page, h.href FROM hrefs h
 LEFT JOIN pages tp ON tp.site_id = h.site_id AND tp.url = h.href
 WHERE tp.url IS NULL ORDER BY 1,2;
 ```
+
+---
+
+## Contribution from the bugs_open/053 thread, 2026-07-26 — 053 is CLOSED, and its residual is your mechanism 1
+
+Not a competing fix. `scripts/who-owns.py 053` says this family belongs to `cta_link_integrity`, so
+this is evidence handed over; the re-render decision stays yours. **Nothing was fired** — the owner
+was asked this session and chose not to (see the sequencing note at the end).
+
+**`/bugs_open/053` moved to `/bugs_closed/`.** Its Go fix (the `siteHasAnyNavItems` gate on the
+pages-nav fallback) is live in v1.0.1146 and still intact in **v1.0.1165**, and it is now proven on
+live pages: **eight of eight sites whose chrome has been re-rendered since the 2026-07-21 roll emit
+exactly their legal nav rows.** The defect cannot recur on any site that renders. What is left is
+purely **your mechanism 1** — chrome that predates its own fix, with nothing to re-render it.
+
+### The stale-chrome legal slot, re-grounded 2026-07-26 14:57 UTC
+
+Five sites still serve the pre-roll legal slot. The discriminator is chrome render date vs the roll;
+chrome artefact and live page agree exactly on all of them.
+
+| site | chrome | legal nav rows | legal slot served now | after a re-render |
+|---|---|---|---|---|
+| dartsonline.com | 07-06 17:15 | 0 | 8 non-legal | **empty** |
+| relojistas.com | 07-16 13:52 | 0 | 6 non-legal | **empty** |
+| vetcomparison.uk | 07-17 22:45 | 0 | 6 non-legal | **empty** |
+| gamesdesign.co.uk | 07-20 21:40 | 0 | 8 non-legal | **empty** |
+| gaswholesalers.com | 07-20 21:41 | **2** | 21 non-legal, incl. a 404 | **`/privacy.html` + `/terms.html`, both 200** |
+
+**`gamesdesign.co.uk` is new to this family** — it appears in neither this file nor 053's original
+fleet list. Chrome rendered 07-20 21:40, roughly a minute before gaswholesalers', so it was almost
+certainly the same sweep.
+
+`leopardessconsulting.co.uk` also has pre-roll chrome (07-18) but is *correct*, because it has 2
+legal nav rows — the old code only misbehaved when the group came back empty.
+
+### Correction to this file's per-site table — the gaswholesalers HOLD was right, but its arithmetic has inverted
+
+Your *"What a chrome re-render would ACTUALLY do"* table says **HOLD gaswholesalers**, because a
+re-render *"trades 56 broken anchors for 28 new ones"* — the 28 being
+`/fuel-pricing-framework.html` (404) arriving in the legal slot via the pages fallback. **With 053
+live that specific cost is gone**: gaswholesalers has since gained 2 legal nav rows, so its legal
+slot now resolves from the nav tables to `/privacy.html` + `/terms.html`, and both return **200**
+(re-checked today — they are the very phantoms your candidate 1 removed, since built for real).
+
+**But do not read that as "the hold is lifted", because the 404 does not come only from the legal
+slot.** `/fuel-pricing-framework.html` is an **active `utility` nav row**
+(`build_status='needs_rebuild'`, `deployed_at IS NULL`, live **404** — re-checked today), so it
+ships from the footer quick-links path whether or not 053 is fixed. Measured on the live homepage:
+
+```
+$ curl -s https://gaswholesalers.com/ | grep -c 'href="/fuel-pricing-framework.html"'   # 3
+      2 × footer quick-links / explore   (utility nav row — survives a re-render)
+      1 × legal slot                     (pages fallback — removed by 053)
+```
+
+So a re-render today is a **net improvement** on gaswholesalers rather than a regression: it drops
+the legal-slot instance and adds no new broken target. It does **not** fix the page itself.
+`[INFERRED]` for the all-28-pages extrapolation — one chrome artefact feeds every page, but only
+the homepage was actually fetched, so treat 3→2 *per page* as measured and ×28 as arithmetic.
+
+**The real precondition is unchanged and belongs to you:** build `/fuel-pricing-framework.html` or
+clear its `utility` nav row. Until then the site links a 404 from every page's footer, and that is
+your mechanism 2, not the legal slot.
+
+### Also worth having: two of your control claims are now settled
+
+- Your *"the 2026-06-10 legal-links fix works and has simply never run for three sites"* rested on
+  post-fix sites looking correct, which 053 flagged as weak because leopardess was the only site
+  exercising the nav-tables path. **That control is now strong on its own terms:** three post-roll
+  sites with legal nav rows render them correctly — `ai-agent-orchestration.com` (2),
+  `finetuning.uk` (2), `idea.uk` (1) — on **three different footer components**
+  (`footer-4-column`, `site-footer`, and the `footer-theme-chrome` family).
+- Your line *"aao's legal row will look odd (16 footer links) until 053 is fixed; that is cosmetic"*
+  is now moot: aao re-rendered 07-25, after the fix, and serves exactly 2 legal links.
+
+### One measurement trap, because it will bite this file's sweeps too
+
+Sweeping rendered HTML for the legal slot, **grep the class, never the element.** Footer components
+disagree on the wrapper: `robot-hands` emits `<div class="footer-legal">`, `idea.uk` emits
+`<nav class="footer-legal" aria-label="Legal">`. A `<div class="footer-legal">` pattern silently
+reported idea.uk as **0 legal links while it holds 1 nav row** — and it fails in the
+*reassuring* direction, under-counting links when "too many links" is the whole symptom. Use:
+
+```bash
+curl -s "https://$d/" | grep -A4 'class="footer-legal"' | grep -o 'href="[^"]*"'
+```
+
+### Sequencing, if and when the owner says go
+
+Clearing all five means `rerender-pages` with `refresh_site_components:true` per site — chrome plus
+a reassembly and redeploy of every page, so 26–37 git commits, a B2 sync and a Cloudflare purge
+each. `scripts/049_TRIGGER_chrome_refresh.sh` is domain-allowlisted to `finetuning.uk`,
+`ai-agent-orchestration.com` and `gaswholesalers.com`, so **four of these five need new case arms**,
+and `relojistas.com` / `vetcomparison.uk` are owned by other active workstreams — ask there first.
+On the legal slot alone, every one of the five is a strict improvement.
