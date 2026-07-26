@@ -59,7 +59,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
 | **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file; and run any pod-grep marker against the CURRENT binary first — if it passes before the change ships, it is not a test** | **2** |
-| **give an "absence means wait" rule an exit condition — check whether anything NEWER has drained past you before concluding you are merely queued** | **1** |
+| **give an "absence means wait" rule an exit condition — check whether anything NEWER has drained past you before concluding you are merely queued** | **2** |
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 | **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
@@ -67,11 +67,12 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **enumerate the SIBLING instances before quantifying** — *(existing row above; incremented again 2026-07-26: fixed a phantom broker at the site I tripped over and never grepped for the second one, which the council found)*
 | **read the ROW's own annotation before theorising about what moved it — a mechanism that labels its own work has already answered you; and never truncate the field that might carry the answer** | **1** |
 | **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **1** |
-| **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **1** |
+| **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **2** |
 | **prove it before writing it into a SHARED doc — a runbook or landmine entry asserts at higher confidence than a note, and propagates to every later reader** | **1** |
 | **read the step's CONFIG, not its name — `select_sections` selects nothing, and a name-shaped inference can get the right fix candidate rejected** | **1** |
 | **re-check the deployed binary AFTER committing platform code — "inert until a roll" is someone else's decision to make, and in a shared tree it expires without telling you** | **1** |
 | **treat a live artefact changing under you mid-investigation as an OWNERSHIP signal — `who-owns.py` reads commits and is blind to an uncommitted session working the same ticket right now** | **1** |
+| **measure a SYMPTOM's exposure across every cause, not only the one you are fixing — a bug file's exposure figure is read as "is this biting?", not "is my code path biting?"; and FETCH the live artefact you have already named in your own prose** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -4443,6 +4444,12 @@ supervised work's actual duration, plus a count over the threshold. **A window i
 relative to a measured distribution** — until you have that distribution you have an anecdote about
 two numbers in different config files.
 
+**Tally note.** This increments *"establish the healthy BASELINE … treat a famous failure mode
+that fits your symptom as a hypothesis, not a diagnosis"* to **2**, and the specific check that
+discharges it here is narrower than that row's wording: for any *"timeout X is shorter than the
+work it supervises"* theory, **measure the supervised work's actual duration distribution**. Two
+numbers from two config files are not a mechanism.
+
 **The bit I want to remember.** This one felt *better* than a normal hypothesis, and that was the
 problem. It was mechanism-shaped, it named two real numbers from two real config files, and it
 explained every symptom I had — including the ones I had not gone looking for an explanation for
@@ -4813,3 +4820,105 @@ under you.**
 *shared mutable state read as if it were mine*. Third instance; the cost each time was a wasted or
 near-wasted verification round.
 Family: relative-ref-in-a-durable-artefact, shared-mutable-state-read-as-mine, evidence-fidelity.
+
+---
+
+## 2026-07-26 — `bugs_closed/052` — "live exposure: **zero**", written two paragraphs below the live counter-example, which I had named and never fetched
+
+**The claim I wrote down:** a bug file section headed *"Exposure — real defect, measured
+**zero** live bite today"*, with a table showing 0 offending rows on each of the three sites
+the fixed code path can reach, and the conclusion: *"The gap was latent: reproducible in
+code, not reachable by any live site."* It went into the bug file, the close-out plan and
+the council submission.
+
+**Why it was false:** the bug's symptom is "a listing advertises a page that 404s". I
+measured how many rows *the code path I was fixing* would mis-list — which was a correct
+and useful number — and then reported it as the exposure of **the bug**. A symptom can have
+more than one cause. At the moment I wrote "zero",
+`https://robot-hands.com/learning-center/index.html` was serving **HTTP 200** with a
+frozen listing linking to `/blog/learning-center-article.html`, which serves **HTTP/2
+404**. The exact symptom, live on production, on the very site the bug was found on.
+
+The part that stings: the same paragraph names the artefact. I wrote that robot-hands'
+*"archived `learning-center-index` (a `blog-listing` slot still holding 4 items)"* showed a
+blog page *"was a plausible next step"* — treating a thing I could have fetched in two
+seconds as a hypothetical about the future. I had the row in front of me, in a query I had
+already run, and reasoned about it instead of looking at it.
+
+**What caught it:** running the close-out verification *past the minimum*. The checklist
+asked for kept/drop counts; I also joined the listing artefacts to the pages they advertise,
+saw one robot-hands listing carrying 4 articles where 3 were eligible, and `curl`ed it. So it
+was caught by curiosity during verification, not by any step the checklist required — and it
+is worth saying that a checklist-satisfying close-out would have shipped the false claim.
+
+**The cheap check that would have caught it:** `curl -o /dev/null -w '%{http_code}'` on the
+URL. Seconds, no cluster access, no credentials. Generalised: **before writing an exposure
+figure into a bug file, ask what would have to be true for the symptom to be live by some
+*other* cause — then fetch one artefact and look.** An exposure figure is read by everyone
+downstream as "is this biting customers?", never as "is my patch's code path biting
+customers?", so scoping it silently to your own fix is a misstatement whatever the number's
+provenance.
+
+**A second lesson from the same finding, worth more than the first:** `deployed_at IS NOT
+NULL` does **not** mean a page is fetchable — it means a deploy happened once. The 404 target
+above has `deployed_at = 2026-05-10` stamped and nothing clears it on archive. That column is
+the load-bearing half of the shared eligibility predicates this very bug introduced
+fleet-wide. They remain correct because they pair it with a `status` filter, but their doc
+comments justify them on the wrong grounds, and the next consumer to reach for `deployed_at
+IS NOT NULL` alone will admit archived pages that 404. Filed as `/bugs_open/098`.
+
+**The tally line:** new row. Its nearest neighbours are *prove the artefact is current before
+reasoning from it* (4) and *confirm the record you are reading is the one that produced the
+artefact* (5) — but both of those are about **stale** evidence, and this is not that. The
+evidence was current; I simply never fetched it, because I had already decided what it
+implied. That is a distinct failure and it deserves its own row.
+Family: scoped-a-figure-to-my-own-fix, reasoned-about-an-artefact-instead-of-fetching-it,
+column-means-history-not-current-state.
+
+---
+
+## 2026-07-26 — I reported a council submission as "queued, not dropped". It had been dropped. **Second instance of a row already in the tally.**
+
+**The claim.** My `bugs_open/006` §C submission (corr `9962dd2b-…`) had no `orchestration_states`
+row 9 minutes after publishing. The council runbook has a standing rule for exactly that shape —
+*"a missing orchestration row is almost always latency, not a dropped dispatch — do not retry on
+that evidence (it costs a duplicate round)"* — so I applied it and told the owner it was queued.
+
+**What was true.** It was gone. 2.5 hours later: **zero rows** for that correlation across
+`orchestration_states.collected_data`, `initial_request_data` and `diagnosis_artifacts`. Meanwhile
+another thread's submission, published *after* mine, had run at 20:05Z, re-run at 20:16Z and reached
+`complete_revise`. The lane had drained straight past my slot.
+
+**What caught it.** Looking for a *later* submission that had finished — not re-checking my own row
+for the fourth time, which is precisely what "wait for latency" invites.
+
+**The cheap check.** One query, and it is the only thing that distinguishes the two states:
+```sql
+SELECT status, current_step, created_at,
+       left(collected_data->'input_data'->>'fix_correlation_id',13) AS corr
+FROM orchestration_states WHERE owner_agent_type IN ('council-gate','generic')
+  AND created_at > now() - interval '7 hours' ORDER BY created_at DESC LIMIT 12;
+```
+
+**Why this row is worth more than the incident.** The tally already carried *"give an 'absence means
+wait' rule an exit condition — check whether anything NEWER has drained past you before concluding
+you are merely queued"*, at **1**. This is the **second** instance, by a different thread, against a
+different queue, and I hit it while the rule sat written down in a file I had read. That is the
+tally doing its actual job: **a check that recurs is one worth automating**, and this one is
+mechanical — a rule of the form "absence means wait" is incomplete until it names the observation
+that would falsify it. The runbook bullet has now been given that exit condition rather than another
+retelling.
+
+**The second-order bit.** Ninety seconds after writing *"let the chassis pod clear ~300 s before
+resubmitting"* into that same runbook, I resubmitted at **254 s**. It landed, so nothing broke and
+there would have been no record at all had I not written one. **A rule you break successfully is a
+rule you will break again**, which is the argument for logging the near-miss and not just the hit.
+
+**And a figure that turned out not to be a figure.** That resubmission had its `council-gate` row
+**6 seconds** after publish, against the **29 minutes** measured on 2026-07-20 and against a
+submission earlier the same day that never produced a row at all. So the runbook's "~30 min" is not
+a constant to wait out — it is a reading of queue depth at one moment, and
+`./scripts/dispatch-queue-depth.sh` is the thing to consult before interpreting your own silence.
+
+Family: absence-means-wait-needs-an-exit, queued-and-dropped-are-identical-from-your-own-row,
+rule-broken-successfully, fixed-number-that-is-really-a-load-reading.
