@@ -27,9 +27,14 @@
 > genuinely in flight).
 >
 > **What is NOT closed, and where it lives now** — none of it is this case:
-> - `bugs_open/075` — ownership discard + adapter retry cap. **Being fixed by a
->   concurrent session as this closed** (fix 1 and fix 2 written, uncommitted at
->   21:10Z). Its `VERIFY_075_post_roll.sh` is owed after the next roll.
+> - `bugs_open/075` — ownership discard + adapter retry cap. **Fixed in code by a
+>   concurrent session as this closed — `5bbfe6a3a`, INERT until a chassis roll,
+>   so 075 correctly STAYS OPEN.** Their finding sharpens root cause 4's
+>   neighbourhood and is worth reading: `processing_node` is written ONCE at row
+>   creation and never refreshed (`SetExecutingStep` assigns it in memory but
+>   `UpdateStateWithVersion`'s column list omits it), so the ownership gate was
+>   comparing against the *creating* pod and no liveness test could ever have
+>   rescued it. `VERIFY_075_post_roll.sh` is owed after the next roll.
 > - `bugs_open/040` — the network flakiness that started this case.
 > - `replicas ≥ 2` — chassis-replica-scaling workstream; blocked on the response
 >   consumer-group race, **unblocked on the ownership side by 075 fix 1**.

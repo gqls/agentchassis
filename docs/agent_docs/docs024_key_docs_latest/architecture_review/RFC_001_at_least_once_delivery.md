@@ -146,6 +146,36 @@ Still owed (retires the RFC to IMPLEMENTED):
 - week-later stats: reaper `stale AWAITING_RESPONSES` ≈ 0; expired-never-
   retried population stops growing.
 
+> **UPDATED 2026-07-26 — two of the four are discharged; the RFC stays
+> RATIFIED.** `bugs_open/003` itself is CLOSED (`/bugs_closed/003`), but this
+> RFC does not follow it automatically: the two criteria that remain are the
+> ones that test the redesign under fault, not in steady state.
+>
+> - **Liveness restart re-test — DONE, PASS (2026-07-26 21:30Z, v1.0.1171).**
+>   The July run failed: a wedged pod reported `{"status":"ok"}` for six
+>   minutes. This one, with the wedge proven first (blackhole `wget` timed out,
+>   `i/o timeout` logged, `/health` counting honestly upward then flipping to
+>   `503` at the window), restarted the container: `restartCount` 0→1 at ~120 s
+>   with `Liveness probe failed: HTTP probe failed with statuscode: 503` (x4)
+>   and `failed liveness probe, will be restarted`. Contamination check clean
+>   (0 `orchestration_states`, 0 `processed_messages` rows). **Consequence:
+>   F4b's `os.Exit` self-crash backstop is DROPPED, not deferred** — it existed
+>   as insurance against exactly the probe unreliability that has now been
+>   disproven.
+> - **Week-later stats — PARTIAL, and named.** The 31-hour post-roll window is
+>   measured and strong (`AWAITING_RESPONSES→FAILED` 2.34/h → 0.38/h → 0 on
+>   07-26; 30 end-to-end recoveries at `retry_version ≥ 1`), but 31 hours is not
+>   a week and could be a quiet weekend. **Recheck 2026-08-01**; query in the
+>   003 RUNBOOK. Note the second half of this criterion changed meaning: the
+>   "expired-never-retried population" is no longer the leak to watch —
+>   **abandoned `'processing'` claims were** (181 of them, fixed by migration
+>   226; see the 07-26 section of the 003 case file). Watch that count is flat.
+> - **Kill-test re-run — STILL BLOCKED, unchanged.** Gated on `075` fix 1, which
+>   a concurrent session has written but not yet committed or rolled. This is
+>   the criterion that matters most: it is the only one that exercises the
+>   redesign under a real pod death, and the 07-25 run needed manual containment.
+> - The `ai-readiness-quiz` bullet stays self-cancelled.
+
 ## 8. Open follow-ons (not blocking)
 
 - Guarantee `request_id` on every inbound path (this design makes absence
