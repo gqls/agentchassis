@@ -32,9 +32,9 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **attach the query to a load-bearing absence claim — "checked" without the check text is a claim about diligence** | **1** |
 | **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
-| wait / query again before calling an absence a failure | 6 |
-| **grep for the capability before asserting it does not exist** | **3** |
-| **prove the artefact is current before reasoning from it** | **3** |
+| wait / query again before calling an absence a failure | 7 |
+| **grep for the capability before asserting it does not exist** | **4** |
+| **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | 1 |
 | **record the CLOCK beside a reading, never infer it afterwards** | **1** |
 | **run a census against a known-positive control before reporting the count** | **1** |
@@ -49,7 +49,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
-| **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation** | **1** |
+| **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **2** |
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
@@ -90,6 +90,28 @@ caught it** — the implementing thread hit the wall. That is now twice in this
 file where a REVIEW passed something only implementation could refute, which is
 the honest limit of plan-stage review and an argument for handing a plan over
 sooner rather than polishing it through another round.
+
+**Update 2026-07-25 (bugs_open/021 closure).** Four increments from ONE session,
+no new rows — and the lack of a new row is the finding. *Wait/query before calling
+an absence a failure* (6→7), *grep for the capability before asserting it does not
+exist* (3→4), *prove the artefact is current* (3→4), and *verify a quoted artifact
+is complete* (1→2). Every one is the same underlying act: **a confident inference
+from evidence that was present but incomplete.** Read in sequence they show it
+escalating in blast radius — first I misread an absence (cost: 20 minutes), then I
+recommended building something already built (cost: a wrong runbook entry), then I
+handed an elided SQL quote to twelve reviewers and one of them raised a MEDIUM
+objection against correct code (cost: a manufactured defect on the permanent
+record). Same error, three audiences, widening consequences.
+
+Two things worth noting for the distribution. First, *wait/query before calling an
+absence a failure* is now the second-largest row at 7 and it took **two entries on
+the same day from two threads who could not warn each other** — the strongest
+signal yet that this one should stop being a discipline and start being tooling;
+`scripts/dispatch-queue-depth.sh` (built that day by the 030 thread) is exactly
+that, and the remaining gap is that `091`/`092` do not call it. Second, the
+quoted-artifact row generalises in an uncomfortable direction: it was filed about
+*code* truncating a quote, and its second instance is an *author* abbreviating one
+by hand. The check does not care which; a reviewer cannot tell the difference.
 
 ## Row shape
 
@@ -3118,3 +3140,70 @@ person reachable? does this company still trade?) can never graduate from assump
 repetition inside the docs. Scope-widening is the specific trap: a claim true of X (the site)
 quietly restated about Y (the tool). Fourth entry in three days where the fix was one marker or
 one question at first-write time.
+
+---
+
+## 2026-07-25 — I re-fired yesterday's evidence base without re-checking a line of it (bugs_open/021 INSTANCE 2)
+
+**The claim.** Resubmitting a council submission that had died in validation, I
+treated the payload as "the same plan, one field corrected" and re-fired it with
+its `rationale` and all six `grounded_in` entries carried over verbatim from the
+previous day. Implicitly: *this evidence was true yesterday, so it is true now and
+says what it says.*
+
+**What was actually true — two separate defects in that inherited evidence.**
+
+1. **A stale figure.** One entry read *"Live DB 2026-07-24: hardcoded_section_colors
+   items — complete:21, unresolved:7, failed:5, detected:2"*. Live at resubmission
+   the whole item type was **13 rows** (4/8/0/1). I did not discover this until
+   after the submission was in flight, when I finally re-ran the count for a
+   different purpose. I still cannot reconcile the two, so the old figure is
+   marked `[UNVERIFIED]` rather than corrected — but it went to twelve reviewers
+   as a live measurement.
+2. **An abbreviated quote that changed the claim.** Another entry quoted the
+   detector's SQL as `rendered_html ~ '…' AND rendered_html LIKE '%<style%'`,
+   eliding the `AND pc.locked_at IS NULL` line. The `bug_historian` seat read
+   that, compared it to the verifier's query (which *does* filter `locked_at`),
+   and raised a **MEDIUM** objection about a false-positive hole where a locked
+   in-remit component would be silently excluded. The two queries are
+   **byte-identical** (`check_hardcoded_section_colors.go:100` and `:214`). There
+   is no hole. **We manufactured a medium objection against our own correct code.**
+
+**What caught it.** The objection itself, on a verdict I only read because the
+run happened to finish while I was still working. Had it come back an hour later
+I would have closed the bug with an unexamined medium objection on the record —
+and the stale figure would never have been noticed at all.
+
+**The cheap check that would have caught it.** Re-run every `grounded_in` entry
+against source at resubmission time. Both defects were one command each:
+
+```sql
+-- (1) the figure, re-measured rather than remembered
+SELECT status, count(*) FROM site_work_items
+WHERE item_type='hardcoded_section_colors' GROUP BY 1;
+```
+```
+# (2) the quote, diffed against the file it claims to quote
+sed -n '95,103p;209,217p' platform/orchestration/actions/discovery_checks/check_hardcoded_section_colors.go
+```
+
+**Transferable rule — two, and the second is the new one.**
+
+- *A resubmission is judged standalone, so its evidence must be re-verified
+  standalone.* The runbook already says to carry the full evidence base forward;
+  it does not say the carried evidence is exempt from being true today. Both
+  halves of that are needed.
+- **An abbreviated quote is not a shorter quote, it is a DIFFERENT claim.**
+  Reviewers cannot open files. An ellipsis inside evidence is an implicit
+  assertion that nothing load-bearing was elided — and here the elided line was
+  precisely the one the objection turned on. Paste whole predicates, whole `WHERE`
+  clauses, whole guard conditions. The plan cap is 64KB and submissions rarely
+  reach a tenth of it, so there is no economy being served.
+
+**The sting.** This is the third time in one session I reasoned confidently from
+a partial view of the evidence — the `-c 1` entry above, the "someone should build
+the queue-depth diagnostic" recommendation inside it, and now this. Twice I was
+the one holding the partial view; the third time I handed the partial view to a
+reviewer and it failed in exactly the way I had just failed twice. The
+distribution is not about carelessness with process — every one of these was a
+confident inference from evidence that was *present but incomplete*.

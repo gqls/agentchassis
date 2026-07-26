@@ -125,5 +125,59 @@ separate, evidence is one `section` casualty (unplaced), so lower priority.
 - NOTE (NOTES §misstep): the planned `toolTemplateValid` refactor in
   `plan_sections_action.go` was DROPPED to avoid a same-file passenger (another
   session's 041/044 WIP in that file); cosmetic only, no functional loss.
-- NEXT: owner-sanctioned build + roll, then fault-injection verify; optional
-  advisory council gate.
+- ~~NEXT: owner-sanctioned build + roll, then fault-injection verify; optional
+  advisory council gate.~~ **ALL THREE DONE** — rolled (v1.0.1146→1159),
+  fault-injected 07-23 and again 07-25, council APPROVED r1 on 07-25. Struck
+  rather than deleted so the plan still shows what it was waiting on.
+
+---
+
+## CLOSED 2026-07-25 — scope grew to INSTANCE 2, and the whole bug is now shut
+
+> **CORRECTION to this plan's own framing, line 5.** It says INSTANCE 2 "is OWNED
+> by the `work_item_completion_integrity` thread; not touched here." That held for
+> four days and then stopped being true: that workstream went dormant on 07-20
+> leaving a documented next step, and on 07-24 and 07-25 this lane did the work —
+> **into their docs, never forked.** Ownership did not change; the labour did.
+> Recording it because a plan that still claims "not touched here" would send the
+> next reader to the wrong file for half the outcome.
+
+**Decisions taken at closure, and why:**
+
+1. **Closed on behavioural evidence, not on the council verdict.** The gate is
+   advisory. Both branches were induced on the live binary (v1.0.1159); that is
+   the bar. The verdict (APPROVED r1) landed 10 minutes later and changed nothing
+   — had it come back REVISE, the objections would have become a follow-up commit,
+   not a reopening.
+2. **No `Council-Reviewed:` trailer, deliberately.** `34adb171c` predates its
+   verdict by a day and forward-only forbids an amend, so the pair is a permanent
+   `098` false negative. Written into the bug file so the coverage gap reads as
+   explained rather than careless. *Generalises:* submit before or alongside the
+   commit, never after — a verdict that post-dates its commit can never be joined
+   to it.
+3. **Verifier coverage stays at 3 of 77, by design.** The alternative — write
+   verifiers to raise the number — is the exact regression the held `page_rerender`
+   verifier demonstrated (six passing tests, wrong contract, would have stranded
+   1,849 items). The coverage map is the build-enforced backlog and names its own
+   next candidate. **No separate feature file**: a second list would drift from the
+   one the build enforces.
+4. **The residue was split out, not buried.** `bugs_open/077` — the detector's
+   predicate is wider than its handler's remit. Filed on a *corrected* premise:
+   the 07-24 note called it churn, measurement showed `idx_swi_dedup` bounds it to
+   one open item per site. A design call, explicitly left with the check's owner
+   rather than picked here.
+
+**What this plan got right, and what it got wrong.** Right: the instinct to verify
+the brief's named surfaces against live data before building anything — that
+correction (the two named surfaces are non-exposures) is the single most valuable
+thing in the file, and it saved building a comparative guard at a seam where it
+would have blocked legitimate work. Wrong: the phrase *"INSTANCE 2 … not touched
+here"* aged into a false statement within days, and the "Verify after coding"
+section stopped at Phase 1 — Phase 2's and INSTANCE 2's verification steps were
+never planned here, so when they came due on 07-25 they had to be designed on the
+spot. **A plan's verification section should cover every phase it authorises**,
+not just the one being built that day.
+
+**Full closing record:** `bugs_closed/021_HANDOFF_2026-07-18_…md`, the 2026-07-25
+NOTES entry (including a collected MISSTEPS section), and
+`SUMMARY_2026-07-26_durable_write_guard.md`.

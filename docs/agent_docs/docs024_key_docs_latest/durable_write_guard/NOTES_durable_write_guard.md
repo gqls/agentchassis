@@ -560,3 +560,71 @@ self-report"*) is the standing position and is answered by the design: coverage
 is 3 of 77 deliberately, the coverage map is the build-enforced backlog, and the
 held `page_rerender` verifier is the proof that writing verifiers faster than you
 can scope them to their handler's remit makes things worse.
+
+### MISSTEPS from this session, collected
+
+Written out separately because scattering them through a narrative is how they
+stop being read. Four went wrong, one near-miss went right, and they are all the
+same underlying error, which is the interesting part.
+
+**MISSTEP A — I called a queued message a lost one, "fixed" it, and wrote the
+false fix into a runbook.** Probe fired, nothing after 9 minutes, so I blamed the
+documented `kubectl run -i` stdin race, added `kcat -c 1`, re-fired, and recorded
+`-c 1` in `RUNBOOK_durable_write_guard.md` as a standing requirement **with a cost
+figure attached**. Both messages had been on the topic the whole time; both ran
+ten minutes later, 24 seconds apart. The consumer was wedged behind another
+session's 16-seat council (`bugs_open/030`). *Caught by:* counting orchestration
+rows at cleanup and finding two runs where I expected one — the duplicate is the
+proof, because a lost message cannot run twice. *Cost:* ~20 minutes and, briefly,
+a wrong instruction in a shared doc. **A workaround that coincides with the real
+cause resolving is indistinguishable from a fix unless you go back and check what
+the first attempt actually did.**
+
+**MISSTEP B — inside the correction for A, I recommended building something that
+already existed.** I wrote that the consumer-lag diagnostic "belongs in the
+trigger scripts… noted here rather than built, because they are the fixloop
+thread's". `scripts/dispatch-queue-depth.sh` had been committed **that same day**
+(`a5a494459`) and is already wired into `097` and `090`. I missed it because I
+copied my probe envelope from `091`, which is not wired to it. *Caught by:*
+reading `097`'s output properly instead of skimming past it. The honest finding
+was smaller and more useful than the recommendation — the fix exists, the gap is
+`091`/`092` and every hand-rolled kcat fire copied from them.
+
+**MISSTEP C — I re-fired an inherited evidence base without re-checking a line of
+it.** The resubmitted council payload carried the previous day's `rationale` and
+all six `grounded_in` entries verbatim. Two were defective: a live-DB count that
+no longer reconciled (21/7/5 vs today's 4/8/0), and a detector SQL quote
+abbreviated so that `AND pc.locked_at IS NULL` vanished — which is exactly the
+line `bug_historian` then raised a **MEDIUM** objection about. *Caught by:* the
+objection itself, which I only read because the run finished while I was still at
+the desk. **We manufactured a medium objection against our own correct code, out
+of our own ellipsis.** Full entry in `WRONG_CALLS.md`.
+
+**MISSTEP D — I let a probe fixture reach a live production site, and only the
+containment I had put in for a different reason saved it.** The fixture has to sit
+on a real site (`site_id` is NOT NULL and the predicate needs it), and a refusal
+*releases the claim* — `triaged`, `claimed_by` NULL — making it dispatchable. The
+dispatch loop grabbed it **within 5 seconds**. It parked it `blocked` only because
+I had given it `handler_agent='scratch-021-nonexistent-agent'`. I chose that name
+to keep the row out of handler-filtered queries, not because I had thought through
+the release-on-refusal path. Right outcome, incomplete reasoning — recorded so the
+next person designs the containment deliberately (RUNBOOK §containment).
+
+**NEAR-MISS that went right — I nearly filed a bug on an inherited premise.** The
+07-24 note described this item type as *churning* (complete → re-detect → re-file,
+for ever), and I began drafting `bugs_open/077` around that. Measuring first
+killed it: `idx_swi_dedup` excludes only *terminal* statuses and `detected` is not
+terminal, so one open item per site blocks any re-file; a design-discovery sweep
+ran over robot-hands.com on 07-24 20:46 filing 28 items from the same check list
+and filed **no** colours item; and the type appears zero times in 7 days of
+discovery output fleet-wide. The filed bug is a *legibility* defect, not a cost
+one, and says so. **This is the only one of the five where the check happened
+before the claim rather than after — and it is the only one that cost nothing.**
+
+**The pattern across all of them.** Not sloppiness with process: every one was a
+confident inference from evidence that was **present but incomplete** — an
+absence, a script I hadn't read, a quote I had trimmed, a state transition I
+hadn't traced, a premise I had inherited. The tally in `WRONG_CALLS.md` took four
+increments from this session and **no new row**, which says the class is already
+named and the remedy is not more vigilance but reaching for the command. Three of
+the four had a one-line check available before the claim.

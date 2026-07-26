@@ -116,7 +116,22 @@ INSTANCE 2 (`complete_work_item`, 07-25).
 3. Read the outcome from `orchestration_states` + whatever the action writes.
 4. **Clean up**: the scratch `agent_definitions` row, the `orchestration_states`
    (+ audit) rows, any `agent_error_log` rows (else the immune-system sweep
-   triages a deliberate test as a real failure), and the fixtures.
+   triages a deliberate test as a real failure), and the fixtures. Leak-check with
+   a `UNION ALL` of counts and require **0 on every line** — a single `SELECT` per
+   table invites you to stop after the first one that looks clean.
+
+**Fixture gotchas paid for (2026-07-25), so the first `INSERT` works:**
+- `site_work_items.pipeline` is **NOT NULL** with no default (`design` is a safe
+  value for a design-domain check). `\d site_work_items` before writing the
+  insert — schema first, per CLAUDE.md, and it costs a round trip otherwise.
+- `created_by` is NOT NULL too. Use a distinctive literal
+  (`'scratch-021-check'`) — it is what every cleanup and leak-check query keys on,
+  and it beats trying to remember the UUIDs.
+- Give the fixture its own `item_key`, not the check's real one: `idx_swi_dedup`
+  is UNIQUE on `(site_id, item_key)` for any non-terminal status, so a real open
+  item on that site will otherwise reject your insert with a 23505.
+- Use literal, recognisable UUIDs (`00000021-0000-4000-8000-…`) rather than
+  `gen_random_uuid()`. You will be pasting them into a dozen ad-hoc queries.
 
 **Containing a fixture that the live fleet can see.** A `site_work_items` probe
 fixture has to sit on a REAL site (`site_id` is NOT NULL and the predicate needs

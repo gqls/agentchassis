@@ -508,3 +508,44 @@ amend, so the pair is a permanent `098` false negative (noted in the bug file).
 the next verifier candidate `undeployed_asset` — read its handler's remit first,
 45 items in 7 days makes it the highest-volume unverified type; `bugs_open/077`;
 and `submission_A` (`origin_correlation_id`), still unstarted.
+
+### MISSTEP 6 — I repeated MISSTEP 1, in this file's own lane, five days later
+
+**MISSTEP 1 of this file reads:** *"I called a queued orchestration a dropped one,
+and it cost three council runs."* Filed 2026-07-18, twenty lines from the top,
+with the discriminating query spelled out.
+
+On 2026-07-25, working in this same workstream, I fired a probe, saw no
+`orchestration_states` row after nine minutes, concluded the message had been
+eaten by a known kcat stdin race, changed the command, and re-fired. It had been
+queued the whole time behind another session's 16-seat council. Both messages
+later ran, 24 seconds apart. I then wrote the false cause into
+`RUNBOOK_durable_write_guard.md` as a standing trap, with a cost figure, before
+disproving it. Logged in `WRONG_CALLS.md`, where the row *wait/query again before
+calling an absence a failure* went 6→7 — and a **different** thread had filed the
+identical shape on that same day.
+
+**The uncomfortable part is not the repeat, it is that the prevention existed.**
+The lesson was written down, in the correct file, in the correct workstream, in a
+numbered section titled with the exact error, and I had *read this file* that
+morning to find the owed post-roll check. It did not fire, because I read the file
+for the state it recorded, not for the mistakes it recorded. MISSTEP 1's own
+closing line — *"'no rows yet' is consistent with every hypothesis, so it cannot
+discriminate between them"* — is precisely what I needed and did not recall.
+
+**So the honest conclusion about missteps-in-NOTES as a mechanism:** they are
+excellent as a *record* and weak as a *prevention*, because they are read at
+cold-start for orientation and the reader is looking for status. What actually
+broke the loop this time was neither doc nor discipline: it was
+`scripts/dispatch-queue-depth.sh` (built by the 030 thread the same day), which
+prints the queue depth and an explicit *"QUEUED, not lost — do NOT re-fire"* at
+the moment of firing. **A check that fires where the mistake is made beats a
+paragraph that fires where the mistake is remembered.** The remaining gap is that
+`091`/`092` do not call it, which is how I missed it — I copied my envelope from
+`091`. That is one line each, and it belongs to the fixloop thread; noted, not
+taken.
+
+For this workstream specifically: when the next verifier is written, the analogous
+"check where the mistake is made" is already in place — `verifier_coverage_test.go`
+breaks the build. That is the right shape and worth defending against pressure to
+soften it.
