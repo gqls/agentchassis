@@ -72,6 +72,23 @@ var (
 		Help: "Current consumer lag in messages",
 	}, []string{"topic", "consumer_group", "partition"})
 
+	// bugs_open/040-kafka-dial: until these existed the only way to measure the
+	// intermittent broker dial timeouts was grepping pod logs — and the pods that
+	// flake are ephemeral spawned Jobs whose logs GC before anyone looks. Every
+	// Kafka dial in the fleet now goes through platform/kafka.SharedDialer and
+	// lands here. "outcome" separates a DNS failure from a TCP one, which is the
+	// open question the case turns on.
+	KafkaDialTotal = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "ai_persona_kafka_dial_total",
+		Help: "Kafka broker dial attempts by outcome (ok/timeout/refused/dns/dns_timeout/error)",
+	}, []string{"broker", "outcome"})
+
+	KafkaDialDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name:    "ai_persona_kafka_dial_duration_seconds",
+		Help:    "Kafka broker dial latency, including DNS resolution",
+		Buckets: prometheus.ExponentialBuckets(0.005, 2, 12), // 5ms -> ~20s
+	}, []string{"outcome"})
+
 	// Database metrics
 	DatabaseQueries = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ai_persona_database_queries_total",

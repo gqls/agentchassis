@@ -641,6 +641,11 @@ func (a *Agent) consumeRequestLane(consumer *kafka.Consumer, laneTopic string) {
 					a.logger.Error("Failed to fetch request message",
 						zap.String("lane", laneTopic),
 						zap.Error(err))
+					// bugs_open/040-kafka-dial: this is the PRIMARY request lane and
+					// it counted nothing, so a broker the fleet could not dial showed
+					// up only as log lines in ephemeral pods. server.go's secondary
+					// loop has always incremented this; match it.
+					observability.SystemErrors.WithLabelValues(a.AgentType, "fetch_message").Inc()
 					time.Sleep(1 * time.Second) // don't spin on a persistent fetch error
 				}
 				continue

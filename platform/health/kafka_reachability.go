@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -70,7 +71,11 @@ func NewKafkaReachability(brokers []string, logger *zap.Logger) *KafkaReachabili
 	k := &KafkaReachability{
 		brokers:        brokers,
 		logger:         logger,
-		dialer:         &kafka.Dialer{Timeout: 3 * time.Second, DualStack: true},
+		// bugs_open/040-kafka-dial: instrumented, so a failing probe is counted
+		// like every other dial. The 3s budget stays deliberately shorter than
+		// the data path's — this is a probe, and waiting on a wedged broker is
+		// the opposite of what it is for.
+		dialer:         kafkaplatform.SharedDialerWithTimeout(3 * time.Second),
 		UnhealthyAfter: envSecondsOrDefault("KAFKA_UNHEALTHY_AFTER_SECONDS", 300),
 		ProbeInterval:  envSecondsOrDefault("KAFKA_HEALTH_PROBE_INTERVAL_SECONDS", 30),
 		DialTimeout:    3 * time.Second,

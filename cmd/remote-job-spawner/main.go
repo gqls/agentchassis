@@ -45,6 +45,7 @@ import (
 	"syscall"
 	"time"
 
+	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 
@@ -160,6 +161,9 @@ func main() {
 		MaxBytes:       10e6, // 10MB
 		CommitInterval: time.Second,
 		StartOffset:    kafka.LastOffset,
+		// bugs_open/040-kafka-dial: this reader had no Dialer at all, so it used
+		// kafka-go's 10s default and its dial failures were invisible.
+		Dialer: kafkaplatform.SharedDialer(),
 	})
 	defer reader.Close()
 
@@ -168,6 +172,7 @@ func main() {
 		Addr:         kafka.TCP(strings.Split(kafkaBrokers, ",")...),
 		Balancer:     &kafka.LeastBytes{},
 		BatchTimeout: 10 * time.Millisecond,
+		Transport:    kafkaplatform.SharedTransport(),
 	}
 	defer writer.Close()
 
@@ -194,6 +199,10 @@ func main() {
 				return
 			}
 			logger.Error("Failed to read message", zap.Error(err))
+			// bugs_open/040-kafka-dial: this used to `continue` with no pause, so
+			// a broker that stayed unreachable turned into a hot spin. Every other
+			// consume loop in the fleet backs off 1s here; match them.
+			time.Sleep(1 * time.Second)
 			continue
 		}
 

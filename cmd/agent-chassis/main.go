@@ -18,6 +18,7 @@ import (
 	"github.com/gqls/agentchassis/platform/logger"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -158,6 +159,7 @@ func main() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", kafkaHealth.HandleHealth)
 		mux.HandleFunc("/ready", kafkaHealth.HandleReady)
+		mux.Handle("/metrics", promhttp.Handler())
 
 		appLogger.Info("Starting health check server",
 			zap.String("port", healthPort),
@@ -166,6 +168,35 @@ func main() {
 			appLogger.Fatal("Health server failed", zap.Error(err))
 		}
 	}()
+
+	// bugs_open/040-kafka-dial: nothing in this binary ever served /metrics, yet
+	// every spawned agent pod is annotated prometheus.io/port "9090" +
+	// prometheus.io/path "/metrics" and declares a containerPort named "metrics"
+	// on 9090 (spawn_actions.go). Prometheus has therefore been scraping a closed
+	// port for the life of the fleet: verified 2026-07-26, the server held ZERO
+	// ai_persona_* series, so every counter in platform/observability has been
+	// dead on arrival — including the fetch_message error counter that was
+	// supposed to make broker trouble visible.
+	//
+	// Served on its own listener rather than only on the health port because the
+	// annotation names 9090 and the health port defaults to 8080; a metric on the
+	// wrong port is indistinguishable from no metric at all.
+	metricsPort := os.Getenv("METRICS_PORT")
+	if metricsPort == "" {
+		metricsPort = "9090"
+	}
+	if metricsPort != healthPort {
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			appLogger.Info("Starting metrics server", zap.String("port", metricsPort))
+			if err := http.ListenAndServe(":"+metricsPort, mux); err != nil {
+				// Deliberately not Fatal: losing metrics must not take the agent
+				// down. It is logged loudly so the cause is findable.
+				appLogger.Error("Metrics server failed", zap.Error(err))
+			}
+		}()
+	}
 
 	// Initialize agent with the modified config
 	agent, err := agentbase.New(ctx, cfg, appLogger)

@@ -5,7 +5,9 @@ metadata:
   namespace: ai-persona-system
 data:
   # Kafka configuration
-  kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local"
+  # bugs_open/040-kafka-dial: the port was missing here and present in every
+  # other config in the repo. A broker address with no port does not dial.
+  kafka_brokers: "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
 
   # Database hosts
   clients_db_host: "postgres-clients"
