@@ -592,3 +592,40 @@ Note this also means **the earlier successful run's 14 verified citations
 survived** — they were written to `evidence_base` at the time, and a lost
 orchestration does not roll them back. The register is the durable artefact, not
 the run.
+
+### Run 3 — the lane worked end to end, and the audit earned its place
+
+Corr `cade11a4`. `COMPLETED | complete`. The full chain:
+
+- **19 facts** now in the register (14 from run 1 + 5 more this run), all
+  quote-verified against their live source;
+- draft **7,546 chars**, citing **3 sources**, declaring **3 gaps** honestly;
+- audit verdict **`needs_revision`** with **2 ungrounded sentences** and
+  **0 reliability overclaims**;
+- work item `grounded_draft_review` sitting at `needs_human_review`. The gate
+  fired. Nothing published itself.
+
+**The two catches are the point, so record them verbatim:**
+
+> "Creditors are divided into classes, generally grouped by the similarity of
+> their legal rights against the company."
+> — *no verified fact states this class-grouping principle; it is an unsourced
+> legal generalization presented as fact.*
+
+> "commonly this will be some form of insolvency process, but the statute does not
+> name one"
+> — *an added generalization about typical relevant-alternative outcomes that is
+> not supported by any verified fact — only the bare statutory definition is
+> verified.*
+
+Both are the kind of sentence that is probably true, reads as settled law, and
+would never have been questioned by a reader. **That is exactly the class the lane
+exists to catch**, and a `needs_revision` verdict with two items is the check
+doing its job — not a failure. The auditor also correctly *declined* to flag the
+closing disclaimer, calling it "appropriately modest and not a reliability
+overclaim", so it is discriminating rather than merely strict.
+
+Minor defect noted, not yet fixed: the work item's `summary` rendered as the
+literal string `grounded_draft_review` rather than my `summary_template`, so that
+is not the right config key for `create_work_item`. Cosmetic — the spec payload is
+intact.
