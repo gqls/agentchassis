@@ -165,6 +165,28 @@ the coordinator's preference for it, but not to the converter. Every step-level 
 since — ten weeks of them — has been discarded on the way in. It hid because the symptom is the
 *absence of a rescue*: the run just fails, which looks like an ordinary failure.
 
+## Verification of the LIVE half (seed 219)
+
+- [x] Definition carries both levels, identical: `step_level = config_level = select_sections`,
+      `next_step` and callee untouched (the seed's own post-check).
+- [x] The config path is demonstrably live in plans built **after** the seed: orchestrations
+      created 18:22–18:26Z carry `config.error_step` (e.g. `build-pipeline-trigger`, 2 per plan)
+      while step-level remains 0 everywhere — the Go half is still inert, as expected.
+- [ ] **Outstanding, needs the next writer run** (none since 17:55Z; they run every few hours,
+      driven by page builds): the twin must appear in a fresh `page-content-writer` plan.
+
+  ```sql
+  SELECT created_at, status,
+         workflow_plan->'steps'->'resolve_links'->'config'->>'error_step' AS cfg_error_step
+  FROM orchestration_states WHERE owner_agent_type='page-content-writer'
+  ORDER BY created_at DESC LIMIT 1;   -- want: select_sections
+  ```
+
+  Then the branch itself: the next `resolve_links` timeout must produce a run that continues to
+  `select_sections` with an `agent_error_log` row at `severity='error'` (routed) instead of
+  `fatal`. Until that is seen, this is a config change proven at the definition and at the plan
+  builder, not yet at the failure it is meant to catch.
+
 ## Verification (post-roll — the Go half is not proven live yet)
 
 The obvious pod-grep is vacuous here (the string `error_step` is all over the binary already). The
