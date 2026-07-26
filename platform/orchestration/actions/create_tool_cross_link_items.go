@@ -105,9 +105,16 @@ func toolPageLive(buildStatus string) bool {
 //     link will ever resolve. That is the leopardess failure: the tool was
 //     never built, and the reference shipped anyway.
 //
+// A DECLINED emit is recorded durably, not just logged (agent_error_log via
+// recordCrossLinkSkip). Every path that returns 0 is a cross-link the site was
+// meant to get and did not, and "someone reads the pod logs" is not a
+// surfacing mechanism — the council gate objected to exactly that, and the
+// platform's own history (bugs_open/034) is of silent drops nobody could count.
+//
 // Returns the number of items created. Errors are logged and swallowed per
 // item: cross-linking is a follow-on nicety and must never fail a tool build.
-func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger, req toolCrossLinkRequest) int {
+func emitToolCrossLinkItems(ctx context.Context, params ActionParams, logger *zap.Logger, req toolCrossLinkRequest) int {
+	db := params.DB
 	logger = logger.With(
 		zap.String("tool", req.toolFunction),
 		zap.String("tool_page_url", req.toolPageURL),
@@ -117,13 +124,21 @@ func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger,
 		return 0
 	}
 	if len(req.relatedPages) == 0 {
+		// Not a defect: a suggestion may legitimately name no related pages.
+		// Recorded at 'info' so the count is still visible, since "the LLM
+		// stopped filling the field in" and "there was nothing to link" are
+		// indistinguishable from the outside.
 		logger.Info("emitToolCrossLinkItems: no related_pages on the suggestion, nothing to cross-link")
+		recordCrossLinkSkip(ctx, params, logger, req, "no_related_pages", "info",
+			"suggestion carried no related_pages, so no cross-links were emitted")
 		return 0
 	}
 	if !strings.HasPrefix(req.toolPageURL, "/") {
 		// Never guess. bugs_open/029 is exactly what guessing produced.
 		logger.Warn("emitToolCrossLinkItems: refusing to emit without a real tool page URL",
 			zap.String("received", req.toolPageURL))
+		recordCrossLinkSkip(ctx, params, logger, req, "no_real_tool_page_url", "warning",
+			"caller supplied no absolute tool page URL; refusing to construct one (bugs_open/029)")
 		return 0
 	}
 
@@ -133,10 +148,11 @@ func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger,
 		`SELECT COALESCE(build_status, '') FROM pages WHERE id = $1`, req.toolPageID,
 	).Scan(&buildStatus); err != nil {
 		logger.Warn("emitToolCrossLinkItems: tool page row not readable, skipping", zap.Error(err))
+		recordCrossLinkSkip(ctx, params, logger, req, "tool_page_unreadable", "warning", err.Error())
 		return 0
 	}
 
-	var dependsOn *string
+	var dependsOn []uuid.UUID
 	if !toolPageLive(buildStatus) {
 		var gateID uuid.UUID
 		err := db.QueryRowContext(ctx, fmt.Sprintf(`
@@ -152,10 +168,11 @@ func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger,
 			logger.Info("emitToolCrossLinkItems: tool page is not live and has no open build item — not emitting cross-links",
 				zap.String("build_status", buildStatus),
 				zap.Error(err))
+			recordCrossLinkSkip(ctx, params, logger, req, "tool_page_will_not_go_live", "warning",
+				fmt.Sprintf("tool page build_status=%q and no open needs_content_page item to gate on — cross-links withheld rather than pointed at a page that may never deploy", buildStatus))
 			return 0
 		}
-		gate := "{" + gateID.String() + "}"
-		dependsOn = &gate
+		dependsOn = []uuid.UUID{gateID}
 		logger.Info("emitToolCrossLinkItems: gating cross-links behind the tool page build",
 			zap.String("build_status", buildStatus),
 			zap.String("depends_on", gateID.String()))
@@ -169,6 +186,7 @@ func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger,
 	`, req.siteID)
 	if err != nil {
 		logger.Warn("emitToolCrossLinkItems: failed to load pages", zap.Error(err))
+		recordCrossLinkSkip(ctx, params, logger, req, "page_map_unreadable", "warning", err.Error())
 		return 0
 	}
 	for rows.Next() {
@@ -244,30 +262,47 @@ func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger,
 		// their slot under this key — renaming it now would duplicate them.
 		itemKey := fmt.Sprintf("tool_crosslink:%s:%s:%s", req.toolFunction, pageName, req.siteID)
 
-		// The ON CONFLICT WHERE clause must imply idx_swi_dedup's predicate
-		// (see workItemTerminalStatuses) — a hardcoded stale list here
-		// previously made this insert fail 42P10 and only Warn-log.
-		_, err := db.ExecContext(ctx, fmt.Sprintf(`
-			INSERT INTO site_work_items (
-				site_id, source, pipeline, item_type, severity, summary,
-				spec, page_id, priority, handler_agent, status, created_by,
-				item_key, depends_on
-			) VALUES (
-				$1, $2, 'build', 'content_rewrite', 'low',
-				$3, $4::jsonb, $5, 110, 'page-build-handler', 'triaged', $2,
-				$6, $7::uuid[]
-			) ON CONFLICT (site_id, item_key)
-			  WHERE item_key IS NOT NULL
-			  AND status NOT IN (%s)
-			  DO NOTHING
-		`, sqlInList(workItemTerminalStatuses)),
-			req.siteID, req.emittedBy,
-			fmt.Sprintf("Add %s tool reference to %s page", req.toolName, pageName),
-			string(spec), pageID, itemKey, dependsOn,
-		)
+		// Insert through the CENTRAL helper rather than a local INSERT. This is
+		// the one place the ON CONFLICT clause and workItemTerminalStatuses are
+		// kept in lockstep with idx_swi_dedup (the 42P10 class), and it brings
+		// the two-strike anti-churn with it. The file used to carry its own
+		// copy of that clause; three call sites of a copied dedup rule is
+		// exactly the drift the index/Go-list contract warns about.
+		//
+		// recurrenceExpected stays FALSE (the default): a cross-link is a
+		// detected gap, not a repeatable action request. A completed
+		// predecessor means the reference is already woven, so suppressing the
+		// re-request is correct, and a third attempt should surface as
+		// 'unresolved' rather than churn the writer.
+		pid := pageID
+		inserted, err := withWorkItemTx(ctx, db, logger, workItem{
+			siteID:       req.siteID,
+			source:       req.emittedBy,
+			pipeline:     "build",
+			itemType:     "content_rewrite",
+			severity:     "low",
+			summary:      fmt.Sprintf("Add %s tool reference to %s page", req.toolName, pageName),
+			spec:         string(spec),
+			pageID:       &pid,
+			priority:     110,
+			handlerAgent: "page-build-handler",
+			status:       "triaged",
+			createdBy:    req.emittedBy,
+			itemKey:      itemKey,
+			dependsOn:    dependsOn,
+		})
 		if err != nil {
 			logger.Warn("emitToolCrossLinkItems: failed to create cross-link item",
 				zap.String("page", pageName), zap.Error(err))
+			recordCrossLinkSkip(ctx, params, logger, req, "insert_failed", "warning",
+				fmt.Sprintf("page %s: %v", pageName, err))
+			continue
+		}
+		if !inserted {
+			// Suppressed by dedup or anti-churn — an existing row already
+			// covers this (tool, page). Not a loss, so not recorded.
+			logger.Info("emitToolCrossLinkItems: cross-link already covered by an existing item",
+				zap.String("page", pageName))
 			continue
 		}
 
@@ -278,6 +313,70 @@ func emitToolCrossLinkItems(ctx context.Context, db *sql.DB, logger *zap.Logger,
 	}
 
 	return created
+}
+
+// withWorkItemTx runs insertWorkItem in its own transaction. insertWorkItem
+// takes a *sql.Tx because its callers batch many items; this emitter inserts
+// one at a time from an action that has only a *sql.DB, and a failure here must
+// never roll back the tool build that already succeeded.
+func withWorkItemTx(ctx context.Context, db *sql.DB, logger *zap.Logger, item workItem) (bool, error) {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	inserted, err := insertWorkItem(ctx, tx, item, logger)
+	if err != nil {
+		_ = tx.Rollback()
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return inserted, nil
+}
+
+// recordCrossLinkSkip makes a declined emit COUNTABLE. Every early return in
+// emitToolCrossLinkItems means a page that was meant to reference a tool will
+// not, and a log line is not a record: nothing can query it, nothing ages it,
+// and the fleet has already been bitten by drops that only existed in logs
+// (bugs_open/034). agent_error_log is the platform's existing durable channel
+// for exactly this — same table recordComponentWriteRejection writes to.
+//
+// Deliberately NOT a work item: there is no handler that could action "the
+// cross-link was withheld", and filing an item nobody can close is the
+// bugs_open/077 shape (a queue entry whose handler has no remit).
+func recordCrossLinkSkip(
+	ctx context.Context,
+	params ActionParams,
+	logger *zap.Logger,
+	req toolCrossLinkRequest,
+	code string,
+	severity string,
+	detail string,
+) {
+	recordComponentWriteRejection(
+		ctx, params.DB, logger, params,
+		actionProvenance{
+			AgentType: params.ExecutionContext.Sender.AgentType,
+			StepName:  params.ExecutionContext.StepName,
+			Action:    "emit_tool_cross_link_items",
+		},
+		fmt.Sprintf("tool cross-links not emitted for %s on site %s: %s",
+			req.toolFunction, req.siteID, detail),
+		"tool_crosslink_not_emitted:"+code,
+		severity,
+		map[string]interface{}{
+			"site_id":         req.siteID.String(),
+			"tool_function":   req.toolFunction,
+			"tool_page_url":   req.toolPageURL,
+			"tool_page_id":    req.toolPageID.String(),
+			"related_pages":   req.relatedPages,
+			"emitted_by":      req.emittedBy,
+			"skip_reason":     code,
+			"bug_reference":   "bugs_open/029",
+			"related_pages_n": len(req.relatedPages),
+		},
+	)
 }
 
 // relatedPagesFromSpec reads a suggestion's related_pages, accepting the shapes
@@ -454,7 +553,7 @@ func CreateToolCrossLinkItemsAction(ctx context.Context, params ActionParams) (i
 			continue
 		}
 
-		itemsCreated += emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+		itemsCreated += emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
 			siteID:       siteID,
 			toolFunction: toolFunction,
 			toolName:     toolName,

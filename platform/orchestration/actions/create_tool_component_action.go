@@ -339,7 +339,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// rewrite instruction carries the page's real URL and only runs once the
 	// page is live. This path's URL shape (CanonicalisePage → /tools/x/index.html)
 	// is one of the three that the old suggestion-time constructor got wrong.
-	crossLinksAdded := emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+	crossLinksAdded := emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
 		siteID:       siteID,
 		toolFunction: function,
 		toolName:     displayName,

@@ -212,7 +212,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			// page row, never constructed, and dedup makes the repeat harmless.
 			crossLinks := 0
 			if toolPageID, toolPageURL, found := resolveToolPageURL(ctx, params.DB, siteID, toolFunction); found {
-				crossLinks = emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+				crossLinks = emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
 					siteID:       siteID,
 					toolFunction: toolFunction,
 					toolName:     toolDisplayName,
@@ -417,7 +417,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	// page is live. tool-suggester used to emit these at suggestion time from a
 	// constructed /tools/{function}.html, which matched no page on any of the
 	// three URL shapes this platform produces.
-	crossLinksAdded := emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+	crossLinksAdded := emitToolCrossLinkItems(ctx, params, logger, toolCrossLinkRequest{
 		siteID:       siteID,
 		toolFunction: toolFunction,
 		toolName:     toolDisplayName,
