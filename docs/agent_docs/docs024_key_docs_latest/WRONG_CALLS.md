@@ -4660,3 +4660,43 @@ noticing that a verification habit tuned only to distrust green will still be fo
 that was never really red.
 
 Family: success-shaped-results, non-answer-read-as-verdict, the-checker-is-the-suspect.
+
+---
+
+## 2026-07-26 — I wrote an unfalsifiable pod-grep into a closed bug file as the verification step (bugs_open/049 session)
+
+**The claim I wrote down:** "confirm the code half landed with
+`strings /app/agent-chassis | grep -c "NavFetchableOnly"` — want > 0", published in
+`bugs_closed/049` as *the* instruction for the next reader.
+
+**What was actually true:** `NavFetchableOnly` is a typed integer constant. Go resolves it at
+compile time, so the identifier never appears in the binary. **The grep returns 0 whether or not
+the fix shipped.** Anyone following my instruction after the roll would have concluded the fix was
+still inert — and the file would have been the reason they believed it.
+
+**What caught it:** running my own instruction after the chassis rolled to v1.0.1171 and getting
+`0`, then not believing it — because `applyNavVisibility` (2) and `loadFetchablePageSet` (4), both
+of which my change also created, said the opposite. Two markers for one change disagreed, and only
+then did the reason occur to me.
+
+**The cheap check:** grep the binary for the marker **before** publishing it as the verification
+step. It is the same command; the only difference is running it once against a build you already
+know the answer for. A marker you have never executed is a guess.
+
+**Why this row exists even though the rule was already written down.** `bugs_open/052` records
+this exact class — *"the obvious pod-grep marker is VACUOUS — assert the OLD line disappears"* —
+and it is in the memory index I load every session. I even wrote the phrase "pod-grep a symbol the
+change CREATED, with a positive control" into the bug file **immediately above the broken
+command**. So I had the rule, cited the rule, and still picked a marker that could not fail,
+because I checked the marker against *"did my change create this identifier?"* (yes) rather than
+against *"can this identifier exist in a compiled binary?"* (no).
+
+**The class:** the rule "grep something your change created" is necessary but **not sufficient** —
+it silently assumes the created thing survives compilation. Identifiers that do NOT survive:
+untyped/typed constants, inlined functions, type names, and anything used only in a `const` block.
+What DOES survive: function symbols and string literals. **The generalisable form is not "grep
+what you created" but "grep something that must be OBSERVABLE in the artefact you are grepping",
+and prove it by pairing every positive with a NEGATIVE control** — here, that the old predicate
+`ni.page_id IS NULL OR p.build_status = 'deployed'` had disappeared (0). The negative control is
+the load-bearing half: a positive can pass by accident, an old-line-gone cannot.
+Family: unfalsifiable-green, marker-not-executed-before-publishing, necessary-mistaken-for-sufficient.
