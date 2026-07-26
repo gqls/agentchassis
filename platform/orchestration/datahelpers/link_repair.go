@@ -65,7 +65,7 @@ const runtimeFillMarker = "data-runtime-fill"
 // LinkRepair records one change made to the markup, so the caller can persist a
 // durable account of what the gate did rather than only what it saw.
 type LinkRepair struct {
-	Href    string `json:"href"`              // the href as the writer emitted it
+	Href    string `json:"href"`               // the href as the writer emitted it
 	NewHref string `json:"new_href,omitempty"` // rewrite only
 	Action  string `json:"action"`
 }
