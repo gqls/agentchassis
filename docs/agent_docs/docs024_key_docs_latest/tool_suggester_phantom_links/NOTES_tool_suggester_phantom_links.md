@@ -185,3 +185,46 @@ related_pages, 3 rows.
 Round 2 resubmitted on the same correlation (`RESUBMIT_CORR=745f9dfd-...`). Image rebuilt at
 v1.0.1166 and pod-grepped in the image: `tool_crosslink_not_emitted` present, the refusal string
 present, positive control present.
+
+## 2026-07-26 — rounds 2 and 3 were both voided by an UNREADABLE seat, not by an objection
+
+Round 2: `decided_by: "unreadable reviewer(s): review_guidelines.result"`, `unreadable: ["review_guidelines.result"]`.
+Round 3: same shape, different seat — `review_editquality.result`.
+
+This is the `bugs_closed/019` / `036` class (*"one truncated reviewer voids whole council round"*):
+a lost reviewer output forces `revise` regardless of what the readable seats said. **Read
+`decided_by` before reading the objections** — twice now I would otherwise have concluded the
+plan was being rejected on substance when it was not.
+
+The substance trend across the four rounds, for the record:
+
+| round | approvals | high-severity objections | decided_by |
+|---|---|---|---|
+| 1 | 6 of 13 | 2 (backstop gap, copied dedup clause) | gating objection from bug_historian |
+| 2 | 9 | 0 | unreadable `review_guidelines.result` |
+| 3 | 10 | 0 | unreadable `review_editquality.result` |
+| 4 | — | — | (lean resubmission, in flight) |
+
+**Hypothesis, and why round 4 is deliberately SMALLER instead of fuller.** Round 1 was ~2.8k of
+rationale and lost no seat; rounds 2 and 3 grew to ~3.8k of rationale over a ~17KB plan and each
+lost one. If reviewer prompts carry the submission and the seat's reply is cut at `max_tokens`,
+a bigger submission raises the odds of a truncated reply — which is exactly `019`'s mechanism from
+the other end. So round 4 trims to 2.76k rationale / 11.2KB plan while keeping every answer.
+[UNVERIFIED — n=3, and I have not read the council's prompt assembly.] If round 4 also loses a
+seat, the size hypothesis is dead and it is simply flaky.
+
+### Round-3 objections, all answered before resubmitting
+
+- **reuse_agent — "is there already a tx-wrapped insertWorkItem helper?"** No.
+  `insertWorkItem(ctx, tx, item, logger)` takes a `*sql.Tx` and manages no transaction; all 12
+  call sites open their own (`evidence_citations.go:412-414`, `refresh_evidence_base_action.go:745-747`,
+  `lock_helpers.go:164`, …). `withWorkItemTx` is the first NAMED instance of a shape those sites
+  already inline.
+- **guardian — "who else invokes the two build actions?"** Measured live: exactly two rows —
+  `tool-deployer` → `deploy_tool_to_site`, `tool-generator` → `create_tool_component`. Nothing else.
+- **bug_historian — "audit for other emitters of the same class."** Grepped every
+  `fmt.Sprintf("/…")` in `platform/orchestration/actions/`: every remaining one either **writes**
+  the row carrying that path in the same function (`deploy_tool_action.go:434`,
+  `create_tool_component_action.go:256/355` — all INSERT the page they build the URL for) or is an
+  external API path (`companies_house_*`, `/company/%s`). **No second instance of the class.**
+- **guardian (low)** — 212 relabelled `operation: add`; it only INSERTs `doc_notes`.
