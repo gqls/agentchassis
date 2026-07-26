@@ -122,6 +122,30 @@ echo "EXECUTING_STEP rows are F1's >4h reaper; INITIALIZED rows are covered by"
 echo "nothing yet (bugs_open/075 deferred fix 4)."
 
 echo
+echo "=== 4b. PREMISE RE-CHECK (council corr 4a227ed9, prior_art_librarian + guardian) ==="
+echo "Two premises make the unconditional takeover safe. Neither seat could verify them"
+echo "from inside the council, so they are re-run here every time this script runs."
+echo
+echo "-- (i) no multi-replica service OWNS orchestration rows --"
+kubectl -n "$NS" get deploy --no-headers -o custom-columns=NAME:.metadata.name,READY:.status.readyReplicas \
+  | grep -E "chassis|intel|content-creator|core-manager|reasoning" || true
+$PSQL -c "SELECT split_part(processing_node,'-',1)||'-'||split_part(processing_node,'-',2) AS svc, count(*)
+          FROM orchestration_states GROUP BY 1 ORDER BY 2 DESC LIMIT 8;"
+echo "PASS = every service listed by the census is single-replica (spawned Job agents are"
+echo "       one pod by construction). A multi-replica service appearing here means the"
+echo "       CLAIM_RECOVERY hazard in chassis_replica_scaling/NOTES is now LIVE — read it."
+echo
+echo "-- (ii) nothing but TakeOverOrchestration writes processing_node (run repo-side) --"
+cat <<'PREMISE'
+  grep -rn "processing_node" --include=*.go platform/ internal/ pkg/ cmd/
+  PASS = the only UPDATE assigning it is TakeOverOrchestration. Everything else must be
+         a struct tag, an INSERT column list, a SELECT column list, the labelled inert
+         assignment in SetExecutingStep, or a header round-trip. A second UPDATE writer
+         means two actors move ownership and the audit trail no longer means anything.
+  The disjoint-columns half of this is enforced by state_locks_test.go in `go test`.
+PREMISE
+
+echo
 echo "=== 5. the kill test (bug 003's owed re-run) ==="
 cat <<'KILL'
   Start a real orchestration with an adapter step, wait for AWAITING_RESPONSES,

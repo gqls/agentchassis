@@ -471,3 +471,51 @@ Round 2 resubmitted on the SAME correlation (`RESUBMIT_CORR`), with those
 answers plus the code note reuse_agent asked for (the INVARIANT paragraph on
 `TakeOverOrchestration`: version-CAS owns the workflow fields, pod-name CAS
 owns `processing_node` alone, never both).
+
+### Council rounds 2 and 3 — APPROVED, and what each round actually cost
+
+Trail on one correlation (`4a227ed9`): **revise → revise → approved**
+(21:21Z, 21:29Z, 21:41Z). Round 3 = 8 seats, all approve, no veto, no
+unreadable seat.
+
+**Round 2's gating objection was about my evidence, not my code, and the
+distinction is worth keeping.** editquality raised a HIGH: the sketch never
+showed `RetryCount[step]` being written back, so `nextAdapterRetryAttempt`
+would read 0 for ever and "reproduce the exact defect it replaces, just
+relocated into a helper". That is a devastating objection if true — and the
+code was fine (`coordinator.go:2827`, five lines before the `UpdateState` that
+persists it). What was broken was my submission: the script that extracted the
+sketch took a fixed line count and stopped ~15 lines short of the load-bearing
+line. **A reviewer who cannot open the repo can only judge the sketch, so a
+truncated hunk is a different claim from the code it came from** — the same
+failure family as an abbreviated `grounded_in` quote (WRONG_CALLS, 07-25).
+Round 3 sent the whole region.
+
+**Round 3 attempt 1 never reached a reviewer.** `persist_submission` rejected
+it: *"edit 2: sketch is comment-only"*. The edit was twenty lines of real Go;
+what tripped it was a sentence I had written INSIDE the sketch saying that
+documentation had been folded in — because `noOpEditReason`
+(`diagnose_persist_fix_plan_action.go:308-324`) is a literal `strings.Contains`
+over nine phrases and matches its own description. The run ended at
+`current_step='complete_invalid'` with `status='COMPLETED'`, no seat ran, and no
+`council_report` row was written — so the verdict monitor would have waited for
+ever. Full landmine + the diagnostic query in `RUNBOOK_council_gate.md`; the
+lesson for us is that **`status=COMPLETED` on a gate run is not evidence a
+council ran.**
+
+**What the objections actually improved** (the case for using the gate at all):
+- `state_locks_test.go` exists because the guardian refused to accept an
+  invariant enforced by a comment. It is proven to fail: adding
+  `processing_node` to `UpdateStateWithVersion`'s UPDATE in a scratch tree turns
+  it red.
+- Two premises I had asserted in prose are now re-run by
+  `VERIFY_075_post_roll.sh` §4b every time it is invoked, because
+  prior_art_librarian said plainly that it could not check them from its seat.
+- The `1,547` row count — invented, never queried — was caught by me while
+  answering them, corrected to 1,644 in front of the council, and logged in
+  WRONG_CALLS.
+
+**No trailer, and none is possible**: the APPROVED verdict is 21:41Z and every
+commit in this arc pre-dates it (forward-only, no amends). 098 will list five
+platform commits as un-reviewed; that is a correct, permanent false negative,
+and the correlation is recorded in the bug file instead.

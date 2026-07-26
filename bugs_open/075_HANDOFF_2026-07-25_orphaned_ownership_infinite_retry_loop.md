@@ -234,6 +234,27 @@ low, reuse_agent ×1 low), **no veto**. The guardian's note says explicitly it
   every workflow field, the pod-name CAS owns `processing_node` alone, and
   fields go to one side, never both.
 
+**Round 3 = APPROVED** (2026-07-26 21:41:21Z, 8 seats, all approve, no veto,
+no unreadable seat). The trail on one correlation reads
+`revise → revise → approved`. Four LOW advisory objections survive into the
+approval and are answered here rather than dropped:
+
+- *Guardian: the cap-then-fail path makes a previously-non-terminating case
+  terminate, so failures will appear where loops were.* Intended and named in
+  this file; the 07-25 loop is what it replaces. Watch for a rise in
+  `ADAPTER_RETRY_CAP_REACHED` and FAILED orchestrations after the roll — that
+  is the fix working, not a regression.
+- *Guardian: the takeover is unconditional, which is fine only while
+  replicas=1.* Correct. The residual is the CLAIM_RECOVERY hazard, recorded in
+  `chassis_replica_scaling/NOTES` where the owning PLAN already documents that
+  path.
+- *Prior-art ×2: the "no other writer of processing_node" and "no multi-replica
+  owner" premises cannot be verified from a review seat.* Also correct — so
+  both are now re-run by `VERIFY_075_post_roll.sh` §4b on every invocation
+  (a live replica listing plus the owner census, and the repo-side grep spelled
+  out), and the disjoint-columns half is enforced by `state_locks_test.go` in
+  `go test` rather than by a comment.
+
 **No `Council-Reviewed:` trailer exists or can exist for this work** — the
 trailer is earned by an APPROVED verdict only, and every verdict here
 post-dates commit `5bbfe6a3a`. Expect 098 to list it as un-reviewed; that is a
