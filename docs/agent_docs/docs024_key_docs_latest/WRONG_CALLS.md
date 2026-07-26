@@ -62,6 +62,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 | **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
+| **never read a `| head`-truncated grep as a complete enumeration — the cap is silent and looks identical to "that's all of them"** | **1** |
 | **enumerate the SIBLING instances before quantifying** — *(existing row above; incremented again 2026-07-26: fixed a phantom broker at the site I tripped over and never grepped for the second one, which the council found)*
 | **read the ROW's own annotation before theorising about what moved it — a mechanism that labels its own work has already answered you; and never truncate the field that might carry the answer** | **1** |
 | **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **1** |
@@ -3882,3 +3883,38 @@ per-file. A global find-and-replace assumes uniformity that the original did not
 Note the shape — the mistake and its fix were the *same* mistake, and being mid-way through
 writing a careful revert is exactly when it feels safe to sweep. Family:
 blanket-revert, granularity-mismatch, correction-reintroduces-the-defect.
+
+**2026-07-26 — the enumeration that found the missing sibling was ITSELF truncated, and I
+read the truncation as the answer** (bugfix_040_kafka_dial; immediately after logging the
+entry above about not enumerating siblings).
+
+Having been caught by the council for fixing a phantom broker at one site and not grepping
+for the others, I ran the enumeration — and piped it to `head`:
+
+```bash
+grep -rn "kafka-headless" --include=*.go --include=*.yaml . | head
+```
+
+Ten lines came back. Eight were `deployments/` YAML, two were the Go sites I already knew
+about. I wrote "two sites" into a commit message, a bug file and a council submission.
+There was a **third**: `internal/core-manager/admin/agent_handlers.go:766`, cut off by
+`head`. And it was the worst of the three — a fallback of *three* nonexistent brokers with
+no valid entry at all, so with `KAFKA_BROKERS` unset core-manager had no route to Kafka
+whatsoever, only three consecutive dial timeouts. It also read the wrong env var, making it
+*more* likely than the other two to reach that dead list.
+
+**What caught it:** re-running the same grep without `| head` during a final verification
+pass, for no reason other than wanting the full output on screen.
+**The cheap check:** when a grep is establishing *completeness* — "these are all the
+sites", "nothing else references this" — never pipe it to `head`. If the output is too long
+to read, that is the finding. Use `| wc -l` first, or `sort -u`, but do not cap it. A
+truncated enumeration and a complete one are visually identical, and `head` gives no signal
+that it dropped anything.
+**The class:** the same defect as the entry above it, one meta-level up — a **check that
+silently declares its own scope complete**. I was actively fixing "a fix that didn't
+enumerate its siblings" and the tool I reached for to do the enumerating had a silent cap
+in it. Note this is the *inverse* of the usual truncation trap in this file (an artefact
+truncated on write): here the artefact was fine and the **measurement** was truncated, so
+nothing downstream could have caught it — no length check, no structural check, only
+re-running it. Family: silent-cap, truncated-enumeration-read-as-complete,
+fix-the-instance-not-the-class.
