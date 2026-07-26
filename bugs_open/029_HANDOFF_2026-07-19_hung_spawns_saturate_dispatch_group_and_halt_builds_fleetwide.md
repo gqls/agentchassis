@@ -420,3 +420,11 @@ Two cheap things that would have changed the evening, both outside this bug's re
    not after waiting on it — one `kubectl get pods` command.
 2. The 097 trigger could refuse, or at least warn, when the chassis has been up < ~5
    minutes. It already queries the lane; it does not query the pod.
+
+**Counter-observation, same evening, same thread.** The note above flagged
+`review_editquality` as "a thing to count, not a finding" after two runs froze
+there ~50 minutes apart. A third council run (`c91bb061`, feature-designer) passed
+**through** `review_editquality` cleanly at 21:42 and continued to
+`review_bug_historian`. So the step is not systematically broken, and the
+coincidence-sized sample stays coincidence-sized. Recorded because a hypothesis
+worth writing down is worth writing the disconfirming evidence next to.
