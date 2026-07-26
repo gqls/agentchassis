@@ -1,6 +1,6 @@
 # BUG 071 — agent-job-cleanup deletes LIVE job.* topics: its "any spawned pods running?" guard has never matched a pod
 
-**Filed:** 2026-07-25 · gauntlet_dead_cta / feature-builder B4 shakeout · **OPEN (guard fixed & live; residuals 1+2 SHIPPED 2026-07-25 pm — see §Residuals progress; remaining: image roll for residual 1, idle-window observation for residual 2, 003-family re-attribution)**
+**Filed:** 2026-07-25 · gauntlet_dead_cta / feature-builder B4 shakeout · **OPEN (guard + tombstone fully live-proven 2026-07-26, both branches; residual 1 in v1.0.1165 [INFERRED], behavioural proof = next spawned Job's template label; then remaining: dedicated-SA refactor, 003-family re-attribution)**
 **Severity:** critical — every 10 minutes, the cleanup cronjob deleted every
 `job.*` Kafka topic in the cluster, including request/response topics under
 agents that were mid-run. Long-running spawned agents (feature-implementer,
@@ -177,11 +177,17 @@ failed state read deletes nothing (fail-safe) but still stores. Verified:
 - Live busy-tick run (`cleanup-manual-071r2`, 10:02): 334 topics, keep branch,
   no state-write error. `can-i patch configmaps/agent-job-cleanup-state`
   flipped no→yes; `create configmaps` still no.
-- **Idle branch [UNVERIFIED live]** until an idle window occurs. When one
-  does, the two ticks' logs must show `N of M job topics were already orphaned
-  on the previous tick; deleting those only` → `Tombstoned M ...`, then the
-  intersection deleted on the next tick. Logs TTL fast
-  (`successfulJobsHistoryLimit: 1`, ttl 300s) — catch them live.
+- ~~**Idle branch [UNVERIFIED live]** until an idle window occurs.~~
+  > **VERIFIED LIVE 2026-07-26 ~13:10Z.** The fleet went idle (0 dynamic-agent
+  > pods) and the scheduled tick `agent-job-cleanup-29751190` logged the full
+  > protocol in production: `Found 2 job topics` → `No live spawned workload —
+  > 2 of 2 job topics were already orphaned on the previous tick; deleting
+  > those only` → `Deleted 2 of 2 tombstoned job topics` → `Tombstoned 0 job
+  > topics for deletion on the next idle tick`. So the PREVIOUS idle tick
+  > tombstoned them and this tick deleted them — two consecutive idle
+  > observations, exactly as designed. Negative control holds: orphan cleanup
+  > still happens, one tick later; `job.*` topic count now 0; state CM empty;
+  > no ERROR lines. Both branches of the tombstone are now live-proven.
 
 **New findings fixed en route (same commit):**
 - **Cronjob step 1 has been silently Forbidden since inception**: the SA
@@ -231,6 +237,16 @@ verified behaviourally — 18 dynamic-agent pods running, 0 match
 (A `strings`-on-binary pod-grep cannot verify this change at all: it adds no
 new unique literal — comments don't compile and both label strings pre-exist
 in the Job-labels map. The behavioural check above is THE post-roll check.)
+
+> **UPDATE 2026-07-26 ~13:12Z:** BOTH images rolled to **v1.0.1165** at
+> 12:06Z (chassis AND remote-job-spawner). The label change is in them
+> [INFERRED from build ordering: every build since v1.0.1163 (07-25 pm)
+> postdates `5540d203e`] but not yet behaviourally proven — the fleet is
+> idle, so no spawned Job exists to inspect. Proof closes on the next spawn:
+> `kubectl get jobs -n ai-persona-system -l spawned-by -o
+> jsonpath='{range .items[*]}{.metadata.name}
+> {.spec.template.metadata.labels.spawned-by}{"\n"}{end}'` must show the
+> template label (works even after the pod is gone; Jobs live O(1h) via TTL).
 
 **Remaining open here:**
 1. Image roll carrying residual 1 (owner-gated via bug-003's parked roll).
