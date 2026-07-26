@@ -228,3 +228,34 @@ seat, the size hypothesis is dead and it is simply flaky.
   `create_tool_component_action.go:256/355` — all INSERT the page they build the URL for) or is an
   external API path (`companies_house_*`, `/company/%s`). **No second instance of the class.**
 - **guardian (low)** — 212 relabelled `operation: add`; it only INSERTs `doc_notes`.
+
+## 2026-07-26 — council trail CONCLUDED at round 5: 12 of 14 approve, no trailer claimed
+
+| round | approvals | objections | decided_by |
+|---|---|---|---|
+| 1 | 6 of 13 | 2 HIGH (backstop gap; copied dedup clause) + mediums | gating objection from bug_historian |
+| 2 | 9 | 0 high, 3 medium | **unreadable `review_guidelines.result`** |
+| 3 | 10 | 0 high, 3 medium | **unreadable `review_editquality.result`** |
+| 4 | 9 | 0 high; 3 low hygiene + 2 medium verifiability | gating objection from editquality (LOW only) |
+| 5 | **12 of 14** | **1 LOW** (bug_historian) | **unreadable `review_editquality.result`** |
+
+**Three of five rounds were decided by a lost reviewer output, not by an objection.** `editquality`
+twice, `guidelines` once. That is the `bugs_closed/019` / `036` mechanism and it is worth reporting
+to the council-gate workstream: at 14 seats, a per-seat truncation risk compounds — with a ~10%
+chance per seat, most rounds lose one, and a lost seat is an automatic revise however sound the
+plan. **The size hypothesis is now WEAKENED, not confirmed:** round 4 was lean and clean, round 5
+was the same size and lost a seat anyway. [UNVERIFIED — n=5.]
+
+**Stopping here, deliberately.** The gate is advisory; one run per coherent task is the norm and
+this has had five; and the substantive verdict is unambiguous — 12 of 14 seats approve, the last
+objection is LOW, and `guidelines` (which objected three rounds running about the dedup clause)
+**approved** once the actual `insertWorkItem` statement was quoted at it. **No
+`Council-Reviewed:` trailer is claimed on any commit**, because the trailer is earned by an
+APPROVED verdict only — writing it here would leave a permanent false claim of review, which is
+exactly what `WRONG_CALLS.md` already records someone doing.
+
+Round 5's one remaining objection, answered: *"does any orchestration sit AT `create_cross_links`
+right now?"* — `SELECT count(*) FROM orchestration_states WHERE current_step='create_cross_links'`
+→ **0**. Nothing was parked at the deleted step (it ran inside a single orchestration immediately
+after `create_items_loop`, so the window is seconds wide), and the reviewers' own read-only check
+found no other agent referencing it.
