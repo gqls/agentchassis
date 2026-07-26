@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Models. The cut runs on a DIFFERENT vendor if OPENAI_API_KEY is set
@@ -740,9 +741,9 @@ func renderHTML(domain, audience, wtp string, assess assessment, advancing, drop
 			row := func(label, val string) {
 				fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">%s</span> %s</p>`, slate, navy, esc(label), esc(val))
 			}
-			row("What it's built on:", x.Asset+", using "+x.Capability+".")
+			row("What it's built on:", sentence(x.Asset+", using "+midSentence(x.Capability)))
 			row("What we found:", x.Findings)
-			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">How it scored:</span> out of 5 — hard to copy %d &middot; people will pay %d &middot; easy to build %d &middot; reusable elsewhere %d &middot; built to last %d <span style="color:%s">(%d out of 25 overall)</span></p>`, slate, navy, x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, muted, x.Sum)
+			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">How it scored</span> (each out of 5): hard to copy %d &middot; people will pay %d &middot; easy to build %d &middot; reusable elsewhere %d &middot; built to last %d <span style="color:%s">(%d out of 25 overall)</span></p>`, slate, navy, x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, muted, x.Sum)
 			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">Risk to you:</span> %d/5 %s</p>`, slate, navy, x.Risk, esc(riskNote(x.Risk)))
 			row("A cheap first test:", x.CheapestTest)
 			srcList(x.Sources)
@@ -785,8 +786,49 @@ const reportRule = "------------------------------------------------------------
 // the customer submitted. It also carries the report's own AI disclosure — the
 // page promises AI use is "clearly indicated", and the T&Cs alone are not the
 // report the customer actually reads.
+
+// sentence ends a fragment with exactly one full stop. Customer- and
+// model-supplied text is spliced into our prose, and it may or may not arrive
+// punctuated: the live run of 2026-07-26 rendered "…finding out at the
+// counter.. First we assess", because the submitted description already ended
+// in a full stop and we appended another.
+func sentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if strings.HasSuffix(s, ".") || strings.HasSuffix(s, "!") || strings.HasSuffix(s, "?") {
+		return s
+	}
+	return s + "."
+}
+
+// midSentence lowercases a fragment's first letter so it reads correctly when
+// spliced into the middle of one of our sentences. Model-generated fields
+// arrive sentence-cased — the same live run produced "…, using A form the
+// receptionist fills in about the pet". Acronyms and proper nouns are left
+// alone: only a first word that is Capitalised-then-lowercase is touched.
+func midSentence(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	r := []rune(s)
+	if !unicode.IsUpper(r[0]) {
+		return s
+	}
+	// "AI", "UK", "CMA" — leave anything whose second rune is also upper.
+	if len(r) > 1 && unicode.IsUpper(r[1]) {
+		return s
+	}
+	// A capitalised word that is a known proper noun would be wrong to lower,
+	// but we cannot tell; the fields this is used on are descriptions ("A form
+	// the receptionist fills in"), so the sentence-case reading is the safe one.
+	r[0] = unicode.ToLower(r[0])
+	return string(r)
+}
 func reportIntro(domain string) string {
-	return "This report is from idea.uk, about what you sent us: " + domain + ". " +
+	return "This report is from idea.uk, about what you sent us: " + sentence(domain) + " " +
 		"First we assess the idea you submitted — the problem it addresses, the evidence of demand, " +
 		"who else is out there, where it is defensible and where it is exposed, and a specific next " +
 		"step. Then we go looking for further ideas around it, check each against what already exists " +
@@ -924,9 +966,9 @@ func render(domain, audience, wtp string, assess assessment, advancing, dropped,
 				fmt.Fprintf(&b, "   Heads-up: needs legal and insurance groundwork before building (risk %d/5 — see below).\n", x.Risk)
 			}
 			fmt.Fprintf(&b, "   %s\n", x.BeatsFreeBecause)
-			fmt.Fprintf(&b, "   What it's built on:  %s, using %s.\n", x.Asset, x.Capability)
+			fmt.Fprintf(&b, "   What it's built on:  %s\n", sentence(x.Asset+", using "+midSentence(x.Capability)))
 			fmt.Fprintf(&b, "   What we found:       %s\n", x.Findings)
-			fmt.Fprintf(&b, "   How it scored:       out of 5 — hard to copy %d, people will pay %d, easy to build %d, reusable elsewhere %d, built to last %d (%d out of 25 overall).\n",
+			fmt.Fprintf(&b, "   How it scored:       (each out of 5) hard to copy %d, people will pay %d, easy to build %d, reusable elsewhere %d, built to last %d (%d out of 25 overall).\n",
 				x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, x.Sum)
 			fmt.Fprintf(&b, "   Risk to you:         %d/5 %s\n", x.Risk, riskNote(x.Risk))
 			fmt.Fprintf(&b, "   A cheap first test:  %s\n", x.CheapestTest)
