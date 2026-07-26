@@ -337,6 +337,209 @@ outranks every writer-side rule.
   the writer for all of them going forward, but existing prose was not audited
   fleet-wide.
 
+## Update 2026-07-26 — candidate 1 SHIPPED and LIVE (migration 217); candidate 2+4 BUILT (inert); the checkers were found to be a NO-OP on the three sites that fabricated
+
+Artefacts: `docs/agent_docs/sql_for_agents/217_stat_values_optional_and_template_gated.sql`,
+`docs/agent_docs/sql_for_agents/218_evidence_facts_for_043_sites.sql`,
+`platform/orchestration/datahelpers/claims_stats.go`,
+`platform/orchestration/actions/validate_page_content_stats.go` (+ tests for both).
+
+### The state this session found: migration 201's remedy had frozen the fabrications in place
+
+`bugs_open/073` is the direct consequence of candidate 3 and it had a live cost nobody
+had measured. Rule 14 v2 tells the writer to return an **empty string** when no given
+figure fits. `missingRequiredLLMFields` (`json_envelope.go:204`) counts an empty string
+as a **missing required field** (`isEmptyContentValue`, `:231`), so the render gate
+refuses the section (`v3_site_actions.go:1719`). Measured 2026-07-26:
+**`ai-agent-orchestration.com/index.html` could not be rebuilt by the writer at all, and
+was therefore still serving the pre-201 case-study metrics that 201 existed to correct.**
+The anti-fabrication fix had made the copy unfixable rather than truthful.
+
+So 043 and 073 are one fix, and it is the *structural demand*, not the rule, that had to
+go — exactly what wave-1's post-mortem predicted ("a prohibition without a legal
+alternative loses to a structural demand").
+
+### Migration 217 — candidate 1, config-only, LIVE
+
+Five parts, one transaction:
+
+1. **80 stat fields across 10 components** → `required:false` + `on_missing:skip_field`
+   (`system-stats`, `case-studies-grid`, `content-block-about`, `gauntlet-cta`,
+   `archetype-result-card`, `product-hero`, `bayesian-ranking-hero-tool`,
+   `product-specs`, `platform-comparison`, `tool-guide-intro.read_time_value`).
+2. **46 template gates.** Stat cards gate on their own value; **tables gate the `<tr>`,
+   never the `<td>`** (a hidden cell under a fixed `<thead>` shifts every later column
+   left); the four wrappers carrying a border or margin (`.about-stats`,
+   `.gauntlet-stats`, `.arc-stats`, `.stats-grid`) also gate the container, or a
+   fully-empty block renders as rules over nothing.
+3. **The invention seeds removed** from those fields' `llm_guidance` — every
+   `e.g. '99.99', '2.4M', '150'` exemplar (043 recorded the writer copying that exact
+   `2.4M` shape to produce `2,400+`), plus `gauntlet-cta`'s "compelling" and
+   `content-block-about`'s "memorable, credibility-building number", which ask the writer
+   to persuade rather than report.
+4. **`component-creator` gained a NUMERIC FIELDS RULE**, modelled on its existing IMAGE
+   FIELDS RULE. **Without this, 217 is a one-time cleanup** — the next generated
+   component ships required numeric fields with example shapes and re-seeds the class.
+5. **The writer prompt names the optional case out loud** (`{{else}}, optional — return
+   "" if you have nothing true to put here`) instead of leaving it as silence.
+
+**The bug-026 truncation tripwire stays armed** and a post-condition asserts it: all ten
+components keep ≥3 required `source:llm` prose fields, so a truncated response still
+hard-fails the render. Only the numeric fields were relaxed, enumerated explicitly —
+never pattern-matched, because `%stat%` also catches `availability_status` and
+`empty_state_label`/`empty_state_message` on unrelated components.
+
+**Safety argument, verified rather than asserted**: a `required:true` field can never
+currently hold an empty value *because the gate refuses to render the section*, so no
+deployed page depends on the relaxed constraint. Checked across every live placement of
+the ten components: **zero** empty-or-absent required llm fields. The migration's own
+guards then caught two of my errors during dry-run — a miscounted needle total, and an
+over-broad post-condition regex that flagged `archetype_description`, a prose field the
+migration deliberately leaves required.
+
+### Proven against the live config with 073's own recorded input
+
+The fleet build pipeline was down at verification time (see the blocker below), so the
+fix was exercised directly: the **live** `case-studies-grid` schema and template, the
+deployed `missingRequiredLLMFields`, and the **exact** writer output 073 recorded from
+orchestration `55be2497` (`card1_stat_value: "0"`, cards 2–5 empty):
+
+```
+RENDER GATE: stat fields reported missing = []          (was: [card2..card5_stat_value] -> page build dead)
+RENDER:      empty <strong></strong> = 0  |  csg-card-stat spans emitted = 1
+```
+
+and on live `system-stats`: all four empty → gate passes, the bordered grid does not
+render at all, the headline survives; two of four → exactly two cards; all four present →
+four cards, no template residue (the no-op case).
+
+### Candidate 2 + 4 BUILT — and why the existing scanner never caught any of this
+
+**The claims engine has scanned for unregistered numbers since 2026-07-16 and never
+caught one of these fabrications.** Two independent reasons, both now pinned by tests:
+
+1. **`extractAssertions` splits a stat card in half.** `div` is in
+   `assertionBlockElements` (`claims.go:147`), and a stat card puts the value and its
+   label in *sibling divs*. The number's block is the bare string `"170"`, so
+   `claimWindow` holds no label text, `businessClaimContextRe` cannot match, and the
+   candidate is dropped before `numberSupported` is ever consulted.
+   **The corpus hid this**: `TestCorpusB3`'s stat fixture uses `<span>`, which is inline,
+   so its value and label land in one block and the scan appears to work.
+2. **`businessClaimContextRe` is a prose gate** and does not match "Gripper Models
+   Indexed", "Actuation Technologies", "Takes Filed Today" or "PRD Accuracy Gap" — about
+   half of this bug's documented labels. So the new scan deliberately does **not** apply
+   it: a field named `stat1_value` is a published quantitative claim by construction.
+
+Candidate 4 is only implementable on `content_data` at all — from rendered HTML
+`2,400+%` is one string, and nothing can tell whether the `%` was authored or leaked from
+the schema's static `fallback`.
+
+Shape: two new files reusing `claims.go`'s helpers with **zero edits to it**, plus 13
+lines in `validate_page_content.go` (check 9, two toggles). No new action, no new
+`item_type`, so no `verifier_coverage_test.go` obligation, and the
+`error → mark_needs_review → needs_human_review` routing is inherited whole. Pairing
+refuses rather than guesses. Severity rule: **`error` must mean "a machine checked this
+and it failed", never "we could not check this"** — so no-facts and unpaired both warn.
+**Go half is INERT until the next image roll.**
+
+### The finding that mattered most: the checkers were switched off on the sites that fabricated
+
+`ParseEvidenceBase` returns nil when a row has no `facts[]` **and** no `banned_claims[]`.
+The rows seeded on 07-24 for this bug's own four sites carry **only a `writer_block`**. So
+both consumers — `validate_page_content` check 8 and `check_unverified_claims`, each
+gated on `eb != nil` — have been **silent no-ops on robot-hands, gamesdesign and
+ai-agent-orchestration since the day they were "protected"**. The writer_block half
+worked (the prompt template reads it straight from `site_specs`, not via
+`ParseEvidenceBase`), which is exactly why the writer stopped inventing while the
+checkers stayed blind. vonc and oufe were never affected — their migration-166-era
+`banned_claims` make them parse non-nil.
+
+Migration **218** seeds real `facts[]` for the three. Every figure was re-derived live
+first, per this lane's hard rail (a fact comes from a query or an owner attestation,
+never from transcribing site copy — that copy is what may be fabricated). **Almost none
+still held:**
+
+| claim | writer_block (07-24) | live (07-26) |
+|---|---|---|
+| active agent definitions | 170 | **175** |
+| distinct agent types | 165 | **174** |
+| live sites | 13 | **14** |
+| work items completed | 1,267 | **1,051** ← *went DOWN* |
+| orchestrations per day | 1,699 | **1,834** |
+| robot-hands spec figures | 39 | **59** |
+
+Two consequences worth carrying forward:
+
+- **A frozen snapshot is not evidence — it is a fact with an expiry nobody wrote down.**
+  Every fact in 218 carries `source.sql`, the query that *defines* its meaning, so
+  `refresh_evidence_base` can keep it current.
+- **"Work items completed" is not monotonic.** The ledger is reaped, so a
+  cumulative-sounding achievement stat can fall. Registered with tolerance `gte` so the
+  audit flags the overstatement `aao/index` publishes today rather than blessing it.
+
+Trap recorded: `writer_block_managed` was deliberately **left off**. `composeWriterBlock`
+(`refresh_evidence_base_action.go:566`) emits only NUMBERS / CAPABILITIES / NAMED
+ENTITIES — it has **no NEVER-STATE section**, so turning management on would silently
+delete the "NOT TRACKED, NEVER STATE" lists, which are the half of these blocks that
+stops the writer inventing a whole new *category* of figure.
+
+### Live residuals found this session, NOT fixed (both need a re-render)
+
+- **`ai-agent-orchestration.com/enterprise-reference-deployment.html`** (HTTP 200, live)
+  still serves the poisoned-spec figures wave-2d corrected on `index` only: *"70+ agents
+  in concurrent production / 8 departments running isolated agent groups / 30+ agent
+  types under full audit coverage"*. Component last written **2026-05-01**; the page was
+  never in the 07-24 sweep.
+- **`aao/index`** publishes `1,267` work items against a live `1,051`.
+
+### Also confirmed clear
+
+**`finetuning.uk/about` — the one named open per-site residual — is already fixed**
+(2026-07-24 16:33). "Clients Served 11+ / Satisfaction Rate 100% / Awards Won 0" is now
+"UK-Based / Services Offered 11 / Vendor-Neutral". No action needed.
+
+### Spec-aspect drift, swept fleet-wide (wave-2d's parting lesson)
+
+Hard figures still live as *instructions* in `briefing`/`identity`/`site_plan`: aao
+("over 70 specialised AI agents organised into 8 departments", "30+ agent types" — both
+true-but-conservative) and **leopardess `identity`: "It holds 143 agent definitions, of
+which 56 are active"** — live count today is **175 active**, so that spec is stale by 32
+and the writer is told to follow it. Nothing refreshes a spec;
+`refresh_evidence_base` refreshes only the evidence base. Unfixed.
+
+### Blocker on end-to-end verification (NOT this bug)
+
+The full-writer rebuild of `aao/index` could not be run. Since ~18:02 UTC on 2026-07-26
+**every** `build-pipeline-trigger` hangs at `spawn_dispatch`/`AWAITING_RESPONSES` and
+never spawns a child — `bugs_open/029`'s signature, fleet-wide, affecting all sites and
+all sessions. A direct kcat fire of `page-build-handler`, bypassing the dispatcher
+entirely, also produced no orchestration row. Other lanes (council-gate,
+endpoint-health-checker, evidence-freshness) complete normally throughout, which is what
+makes it easy to misread as "my page is stuck". **The build pipeline is down, not this
+fix.** Work item `54734027-a910-4d86-9cc1-336f0619fe47` is parked `triaged` for whoever
+picks this up; correlation `8085c770-5011-49c4-a7e4-14035a6ba753` is the direct fire.
+
+### Still open on this bug
+
+- **The Go audit (candidates 2+4) is committed but INERT until the next image roll.**
+  Verify then with `strings /app/agent-chassis | grep -c stat_unit_impossible` against the
+  running pod, never git.
+- **The two live residuals above**, both blocked on a re-render.
+- **Evidence registers for the remaining publishing sites** (owner's instruction, this
+  session): webdesign.co.uk (98 live pages), finetuning.uk (41), gaswholesalers.com (28),
+  idea.uk (20), vetcomparison.uk (5), dartsonline.com (4), plus `facts[]` for vonc and
+  oufe. The 17 `pool-*.internal` rows have zero deployed pages and need none. Three want
+  their owning thread consulted rather than a unilateral seed: **oufe** already runs a
+  "no figure outside the evidence register" rail, **vetcomparison** carries a legal record
+  from published fabricated prices, **idea.uk** is owned by another session.
+- **Spec-aspect numeric drift** (above) — a number in a spec is an instruction, and
+  nothing keeps it fresh.
+- **043's point (c), partial blanking**, is deliberately NOT implemented: it cannot be
+  detected from the extracted claim list because blank sentinels are dropped by design,
+  and a check that can never fire is worse than none — it reads as coverage. It needs its
+  own function over the raw `content_data`.
+- Prose numbers outside stat fields were still not audited fleet-wide.
+
 ## Related
 
 - `/bugs_open/020` — the tool-recreation fabrication. Same family, different path. Fix both.

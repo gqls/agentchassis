@@ -125,6 +125,80 @@ Then fetch the live page and confirm no card shows an empty metric slot
 (`<strong></strong>`), which is the failure mode candidate 1 introduces if the template
 half is forgotten.
 
+## FIXED 2026-07-26 — migration 217, config-only, live immediately
+
+`docs/agent_docs/sql_for_agents/217_stat_values_optional_and_template_gated.sql`.
+Candidate 1 as written above, generalised from `case-studies-grid` to the whole class,
+plus the two things that would otherwise have let it straight back in.
+
+**The survey this file asked for was run first**, and it is wider than one component:
+**80 `required:true, source:llm` numeric value fields across 10 active components** —
+`system-stats` (12), `case-studies-grid` (10), `platform-comparison` (20),
+`product-specs` (16), `archetype-result-card` (6), `bayesian-ranking-hero-tool` (6),
+`content-block-about` (3), `gauntlet-cta` (3), `product-hero` (3),
+`tool-guide-intro.read_time_value` (1). All relaxed to `required:false` +
+`on_missing:skip_field`, with 46 template gates.
+
+Three refinements to this file's candidate 1, each from measurement:
+
+- **Tables gate the `<tr>`, never the `<td>`.** `platform-comparison` and `product-specs`
+  render cells under a fixed `<thead>`; hiding one cell shifts every later column left.
+  The row's identity field (`rowN_feature`, `spec_N_name`) decides whether the row renders
+  at all.
+- **Bordered wrappers need their own gate.** `.about-stats` carries `border-top` *and*
+  `border-bottom` with `1.5rem 0` padding; `.gauntlet-stats` and `.arc-stats` carry
+  `border-top` + padding; `.stats-grid` carries a 3rem margin. A fully-empty block would
+  otherwise render as rules over nothing. `content-block-about` has 14 live placements —
+  the largest blast radius in the set.
+- **The field descriptions had to go too.** Relaxing `required` is not enough while
+  `stat1_value`'s own `llm_guidance` still says *"e.g. '99.99', '2.4M', '150'"* — 043
+  recorded the writer copying that exact `2.4M` shape. All such exemplars stripped, and
+  `component-creator` gained a NUMERIC FIELDS RULE so the next generated component cannot
+  re-seed the class.
+
+**Not a fail-open.** This file's concern was that the gate exists for a reason (bug 026,
+nine silently blanked article bodies). Every one of the ten components keeps ≥3 required
+`source:llm` **prose** fields — `section_headline`, `section_intro`, `body_text`, card
+titles/excerpts/client names, spec category labels, column headers — and a post-condition
+in the migration asserts it. A truncated response still hard-fails the render. Only the
+numeric fields moved, enumerated explicitly rather than pattern-matched (`%stat%` also
+catches `availability_status` and `empty_state_label` on unrelated components).
+
+### Verified with this file's own recorded data
+
+The full-writer rebuild this file asks for could **not** be run — see the blocker below —
+so the fix was exercised directly against the **live** schema and template using the
+deployed `missingRequiredLLMFields` and the **exact** writer output recorded above from
+orchestration `55be2497` (`card1_stat_value: "0"`, cards 2–5 empty):
+
+```
+RENDER GATE: stat fields reported missing = []
+             (before: [card2_stat_value … card5_stat_value] → iteration 4 dies → item failed)
+RENDER:      empty <strong></strong> = 0   |   csg-card-stat spans emitted = 1
+```
+
+One span, because card 1 has a real value and cards 2–5 honestly have none — which is the
+truthful presentation this file argued for. The `<strong></strong>` count is 0, which is
+the failure mode candidate 1 introduces if the template half is forgotten.
+
+On live `system-stats`: all four stats empty → gate passes, the bordered grid does not
+render at all, the section headline survives; two of four → exactly two cards; all four
+present → four cards with no template residue (the no-op case).
+
+### Still outstanding
+
+**The end-to-end rebuild has not been observed.** Since ~18:02 UTC on 2026-07-26 every
+`build-pipeline-trigger` hangs at `spawn_dispatch`/`AWAITING_RESPONSES` without spawning a
+child — `bugs_open/029`'s signature, fleet-wide, affecting every site and session. A
+direct kcat fire of `page-build-handler` bypassing the dispatcher also produced no
+orchestration row, while council-gate and the health checkers completed normally
+throughout. Work item `54734027-a910-4d86-9cc1-336f0619fe47` is parked `triaged` and
+correlation `8085c770-5011-49c4-a7e4-14035a6ba753` is the direct fire; whoever sees builds
+running again should confirm the rebuild passes
+`process_sections_loop_iter_4_render_section` and that the live page shows no
+`<strong></strong>`. **This file stays OPEN until that is observed** — the mechanism is
+proven dead, the pipeline run is not.
+
 ## What it is currently blocking
 
 The owner asked for a prominent AI model directory on ai-agent-orchestration.com. The
