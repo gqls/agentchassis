@@ -160,3 +160,31 @@ as a marked correction rather than quietly deleted.
   human queue. That is `bugs_open/033` / the `review_queue_drain` lane's remit
   (`revalidate_review_queue` built, inert until a roll). Cited there as evidence,
   not fixed here — `scripts/who-owns.py` says 033 is active elsewhere.
+
+### Where this closure's commits actually are — the trail is SPLIT, by accident
+
+The case commit is `8feb5dd27` (`close(045): …`), seven files, verified clean against
+the commit-scope block: the moved case file, the four standing-five docs,
+`features_open/017` and the `bugs_open/033` contribution.
+
+**But the two 016b entries and the WRONG_CALLS entry are NOT in it.** `016b` and
+`WRONG_CALLS.md` are fleet-wide append-only ledgers that several sessions write at
+once, and a pathspec commit takes the working tree **whole-file** — so there was no
+way to commit my entries without also taking another thread's uncommitted `052` work
+sitting in both files. I prepared a second commit that disclosed exactly that. Between
+the check and the commit, **that thread committed first** (`fe00304bd`,
+`fix(bugs_open/052): blog listing derivation carries the build-state floor`) and swept
+my three entries in with theirs — the mirror of the case CLAUDE.md warns about, from
+the receiving end. Nothing was lost and forward-only holds, so it was left alone.
+
+**Consequence worth knowing:** `git log` for the §9 *"a negative assertion over an
+unguarded fetch is vacuous"* entry, the §10 `045` CLOSED row, and the WRONG_CALLS row
+all resolve to a commit titled about **052**. Anyone bisecting or running the `098`
+coverage join on this closure will find the doc trail under two messages, one of which
+does not mention 045. Hence this paragraph.
+
+**The transferable bit:** for the two shared ledgers specifically, the window between
+"I checked the file" and "I committed the file" is where this happens, and it is not
+closable — the fix is not tighter timing but *writing down where your entry landed*,
+because the commit message will not say. Do not attempt to re-add a swept entry: it is
+already in HEAD, and a second copy is the real damage.
