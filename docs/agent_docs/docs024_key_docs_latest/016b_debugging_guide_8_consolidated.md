@@ -4824,3 +4824,54 @@ fault is not only about whether the code fails correctly — it is about reading
 what the failure WROTE.** Resolve a verdict once and reuse the variable; a log
 line and a behaviour computed separately from the same inputs will eventually
 disagree.
+
+### A test affordance selected by REQUEST DATA is a production authorisation hole
+
+**Symptom.** A production endpoint skips a real-world step — payment, auth, rate
+limiting, email — when the caller supplies a magic query parameter, header or
+body field. Everything looks correct in review, because the branch is plainly
+labelled as a local-testing convenience and nobody meant it to be reachable.
+
+**The instance** (`bugs_open/089`, idea.uk, 2026-07-26). The £29 report tool's
+`/order/success` handler honoured `?fake=1` by moving an order from
+`awaiting_payment` to `paid` and delivering the report. The shortcut existed for
+`FakeProvider`, the no-Stripe local provider, and the type is even commented
+*"local/testing only — NEVER in production"*. But the handler tested the query
+parameter and never asked which provider was configured, so it worked identically
+under `StripeProvider`. The order id is not secret from the buyer — Stripe's
+`cancel_url` hands it to them on a cancelled checkout — so any real buyer was one
+URL edit away from taking the product unpaid.
+
+**Diagnose.** Grep for branches whose condition comes from the request and whose
+body skips something a real user must otherwise do:
+```bash
+grep -rnE 'Query\(\)\.Get\("(fake|test|debug|skip|dev|bypass|mock)' --include='*.go' .
+grep -rnE 'Header\.Get\("X-(Test|Debug|Skip|Mock)' --include='*.go' .
+```
+Then, for each hit, ask the only question that matters: **can the caller supply
+this?** If yes, it is live in production regardless of what the comment says.
+
+**Root cause.** The guard was placed on data the attacker controls. Intent was
+recorded in a comment; nothing implemented it.
+
+**Fix.** Gate on something the caller cannot supply — the configured
+implementation, a build tag, or a startup flag that production sets. A type
+assertion is usually the cheapest and is self-documenting:
+```go
+_, providerIsFake := a.provider.(*FakeProvider)
+if providerIsFake && r.URL.Query().Get("fake") != "" { ... }
+```
+Log the refusal when the shortcut is attempted under the real implementation: an
+attempt is a signal, and silence here looks identical to nobody trying.
+
+**Test it by inducing the fault, in both directions.** A test that only asserts
+"the real provider refuses" passes trivially against code that deleted the
+feature. Assert both arms: refused under production config, still working under
+the test config. Run the assertion against the pre-fix source — copy the module
+to a scratch dir and `git show HEAD:<file>` over it — so you have watched it fail
+before you trust it passing.
+
+**Generalises to.** Any "escape hatch for testing" reachable over the network:
+`?admin=1`, `X-Skip-Auth`, a body field that suppresses email sending, a debug
+route registered unconditionally. The pattern is not payment-specific; payment is
+just where it is easiest to price.

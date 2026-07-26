@@ -604,7 +604,19 @@ func (a *App) internalRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) orderSuccess(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("fake") != "" { // FakeProvider local-test shortcut
+	// `fake=1` marks an order paid with no money having changed hands. It exists
+	// ONLY for FakeProvider's local end-to-end test, so it is gated on the
+	// provider actually BEING FakeProvider. Ungated it is a free-report bypass in
+	// production: this handler serves Stripe's success_url, and the matching
+	// cancel_url discloses the order id to the buyer, so anyone who starts a real
+	// checkout and cancels can re-enter here with &fake=1 and be delivered the
+	// report unpaid. Under Stripe the signed webhook is the only source of truth.
+	_, providerIsFake := a.provider.(*FakeProvider)
+	if r.URL.Query().Get("fake") != "" && !providerIsFake {
+		log.Printf("orderSuccess: refused fake=1 payment shortcut under %T (order %q, ip %s)",
+			a.provider, r.URL.Query().Get("o"), clientIP(r))
+	}
+	if providerIsFake && r.URL.Query().Get("fake") != "" {
 		id := r.URL.Query().Get("o")
 		if o, ok := a.store.Get(id); ok && o.Status == "awaiting_payment" {
 			a.store.Update(id, func(o *Order) { o.Status = "paid" })
