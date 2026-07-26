@@ -526,3 +526,176 @@ each. `scripts/049_TRIGGER_chrome_refresh.sh` is domain-allowlisted to `finetuni
 `ai-agent-orchestration.com` and `gaswholesalers.com`, so **four of these five need new case arms**,
 and `relojistas.com` / `vetcomparison.uk` are owned by other active workstreams — ask there first.
 On the legal slot alone, every one of the five is a strict improvement.
+
+---
+
+# CLOSED 2026-07-26 (bugfix-049 session) — re-measured, mechanism 2 re-rooted and fixed, mechanism 3 transferred
+
+**Status: CLOSED.** Mechanism 1 is resolved and live-verified. Mechanism 2's cause was found to
+be in the chrome nav loader rather than the audit, and is fixed at both levels (live data now,
+code at the next image roll). Mechanism 3 is transferred to `bugs_open/071`, which owns that class.
+Read the three corrections below before quoting anything from the older sections.
+
+## The live re-measurement (2026-07-26, RUNBOOK R15 method — nothing here is inherited)
+
+229 active pages across 8 sites fetched over HTTPS, hrefs taken from the **shipped** markup, all
+274 unique targets probed:
+
+```
+2026-07-20   312 broken anchor instances · 117 of 180 pages · 68 unique 404 targets
+2026-07-26   118 broken anchor instances ·  59 of 229 pages · 65 unique 404 targets
+```
+
+| site | broken instances | 2026-07-20 |
+|---|---|---|
+| gaswholesalers.com | 33 | 87 |
+| robot-hands.com | 26 | 26 |
+| vetcomparison.uk | 23 | 15 |
+| finetuning.uk | 12 | 93 |
+| leopardessconsulting.co.uk | 10 | 10 |
+| gamesdesign.co.uk | 6 | — |
+| ai-agent-orchestration.com | 6 | 79 |
+| idea.uk | 2 | 2 |
+
+## Mechanism 1 — RESOLVED and live-verified
+
+`/privacy.html` **200** on aao and gaswholesalers; `/terms.html` **200** on aao, gaswholesalers
+and finetuning; finetuning's real policy at `/privacy-policy.html` **200**. All three sites now
+have populated `legal` nav groups (2 items each), so `bugs_open/053`'s pages-fallback no longer
+applies to any of them. Residual: **2 instances** of `/privacy.html` on finetuning, from two page
+files that still carry pre-refresh baked-in chrome — the URL spelling never existed there, and the
+fix is a page re-render, not a code change.
+
+## Mechanism 2 — CORRECTION: the larger half was in the WRITER, not the audit
+
+> **CORRECTED 2026-07-26.** This file framed mechanism 2 as *"a page row exists but was never
+> built — the check passes it deliberately"*, i.e. an audit gap, and candidate 4 duly taught the
+> audit about it on 07-20. That was correct and it changed nothing live, because the bigger half
+> is that **chrome WRITES these links in the first place**.
+
+`render_site_components_action.go:97,98,113` loaded nav with `deployedOnly=false`, justified as
+*"runs during build when pages may not be deployed yet"*. So an active nav item whose target has
+**never been deployed** renders into the chrome of every page on the site. Census (RUNBOOK R20) —
+**13 items across 6 sites**:
+
+```
+gaswholesalers.com  utility  Pricing Framework  /fuel-pricing-framework.html   needs_rebuild, never deployed
+vetcomparison.uk    primary  Find a Practice    /directory/index.html          planned, never deployed
+vetcomparison.uk    primary  Guides             /guides/index.html             planned, never deployed
+dartsonline.com     primary  Brands/Guides/Sale/Shop                           planned / needs_rebuild
+oufe.com            primary  Cases/Contact                                     planned / needs_rebuild
+leopardess          utility  4 tool items                                      NO pages row at all
+```
+
+The gaswholesalers item alone was **28 of the 118** broken instances — one per page. It is this
+file's own mechanism-2 example, and it was never a content link: it is a **nav item**.
+
+> **CORRECTION 3 — neither setting of `deployedOnly` was correct, so candidate 4's sibling fix
+> for chrome could not have been "pass true".** `deployedOnly=true` filters on
+> `build_status = 'deployed'` (`nav_tables.go:188`, `:277`) — the predicate this file's own
+> Correction 2 measured as wrong (34/34 `needs_rebuild`-but-deployed-once pages return **200**).
+> It would have deleted 34 working links to fix 13 broken ones. Worse, its nav-tables form reads
+> `AND (ni.page_id IS NULL OR p.build_status = 'deployed')`, which **deliberately keeps** items
+> orphaned to a NULL `page_id` by `ON DELETE SET NULL` — the leopardess quartet above.
+
+**The fix is convergence, not a third predicate.** The measured-correct rule already existed in
+`check_phantom_internal_links`; it moved to `datahelpers.NeverDeployedPagePredicate` with its
+measurement comment intact, and the nav loader now uses it. The renderer that WRITES links and
+the audit that FLAGS them decide by one definition — the platform had been flagging links it
+authored itself. `deployedOnly bool` became a `NavVisibility` named type so the compiler stopped
+at every call site (a bool *rename* would not have), which surfaced a **second live instance** at
+`v3_site_actions.go:953` that nobody had found, and — after a council objection — a **third** via
+`GetNavigationStructure` → `db_sync.navigation` → `extractNavItemsForHeader` / `ctx.NavItems`.
+
+Commits `a9083d51b`, `759cb2b77`. Council gate **APPROVED** round 1, correlation
+`623d7bce-e63f-4b0f-abe6-ef875e066678` (11 reviewers, `unreadable:0`, 4 advisory objections, none
+high-severity).
+
+> **The Go half is INERT until the chassis image is rebuilt and rolled.** Confirm it landed by
+> pod-grep on a symbol the change CREATED, with a positive control:
+> ```
+> kubectl exec -n ai-persona-system <pod> -- sh -c \
+>   'strings /app/agent-chassis | grep -c "NavFetchableOnly"'      # want > 0
+> kubectl exec -n ai-persona-system <pod> -- sh -c \
+>   'strings /app/agent-chassis | grep -c "siteHasAnyNavItems"'    # positive control, was 4
+> ```
+> Verified **not** in v1.0.1167 (0 vs control 4) at close of session, as expected.
+
+**Live remediation (owner's choice: deactivate rather than build).** The three nav items behind
+the 40 measured live instances were set `status='inactive'` by explicit id, each carrying its
+reason and backup pointer in `metadata`. Rows preserved in **`bak_049_nav_items_20260726`**; the
+pages keep their rows and can be re-linked the moment they are built. The other 10 census rows
+were deliberately **not** touched — dartsonline and oufe were outside the audited page set and
+leopardess's four are not rendered into its chrome, so they are not in the measured live-404 set,
+and the Go fix covers them at render time.
+
+### A FOURTH writer, found by verifying the artefact rather than the code
+
+> **This is the most transferable thing in this file.** After the NavVisibility fix landed and
+> gaswholesalers' chrome was re-rendered, its footer **still** carried
+> `/fuel-pricing-framework.html`. The legal slot was clean (2 real legal links, no 053 fallback)
+> and the quick-links were clean — but the **"Our Services" column** had put it back.
+
+`buildServicesHTML` (`render_site_components_action.go:868`) queries `pages` **directly**:
+
+```sql
+FROM pages WHERE site_id = $1 AND status IN ('deployed','active')
+  AND (in_header = true OR in_footer = true) ... LIMIT 6
+```
+
+It never goes through `GetNavItems`, so nothing in the NavVisibility change touched it — and it
+emits `<a href>` into chrome exactly as the nav does. `status IN ('deployed','active')` is
+`pages.status`, the row lifecycle; there was no deployment predicate at all.
+
+**Why the census could not have found it.** The R20 census enumerates *nav items* whose target is
+unbuilt. These hrefs are **not nav items** — they are pages selected by a flag. A census scoped to
+one writer measures that writer, not the surface. The only thing that would have caught this is
+what did: re-reading the **rendered artefact** after the fix, instead of concluding from the code
+that the fix was complete. That is this directory's own R8 rule, earning its place again.
+
+Fixed in `6e911793c` (predicate added to the query; `LIMIT 6` correctly stays *inside* it, because
+here the filter is in the query too and nothing is dropped after the cap). Live remediation:
+`in_footer` cleared on that one page, backed up in `bak_049_page_navflags_20260726`. The other
+never-deployed-but-flagged pages were deliberately left alone — aao's `/adoption-tracker.html`
+and `/protocol-tracker.html` are the model-directory workstream's **in-flight** pages, and
+switching off another thread's work-in-progress to tidy a census is exactly the kind of
+cross-thread damage `who-owns.py` exists to prevent.
+
+## Mechanism 3 — TRANSFERRED to `bugs_open/071`
+
+The extension-less and invented-target links (~61 of the remaining 118) are 071's class — a
+build-time gate that detects every one of them and discards the finding. The full per-site
+measurement, the 8 targets that only need `.html` appending, and the 9 dead `/tools/*.html` links
+`029` handed to this file are all recorded there now. Also recorded there: `NormalizePagePath`
+must **not** be made `.html`-tolerant, because `/contact` genuinely 404s — tolerance would hide a
+live defect rather than fix one.
+
+## Why none of it was ever reported — filed as `bugs_open/083`
+
+- **`improvement-sweep` is disabled** (`enabled=false`, last triggered **2026-05-02**), the only
+  periodic driver of discovery. Coverage follows exactly: finetuning's last discovery item
+  **05-01**, gaswholesalers' **04-25**, vetcomparison **never** — the three worst sites here.
+- **`phantom_internal_link`: 22 detected, 0 ever complete.** 98 rows sit in `status='detected'`
+  fleet-wide; the dispatch loop only sees `triaged`/`approved`, and the sole promoter runs inside
+  the disabled `improvement-loop`.
+
+This is why **candidate 4's `unbuilt_internal_link` detector — built, tested, live in the running
+pod — has never produced a single row.** Detection was never the binding constraint.
+
+## Against this file's own verify criteria
+
+1. **`/privacy.html` and `/terms.html` return 200 or are absent from the shipped footer on all
+   three sites** — **MET** (200 on aao + gaswholesalers; finetuning serves `/terms.html` 200 and
+   links its real `/privacy-policy.html`).
+2. **Zero broken anchors on the three sites** — **NOT met, and correctly so**: what remains on
+   them is mechanism 3, which is `071`'s defect, not this one. Closing 049 on 071's scope would
+   have been closing it on someone else's work.
+3. **Stays at zero after the next chrome render** — this is what the Go fix guarantees
+   structurally, and it is the criterion candidate 3 was really asking for.
+
+> **Known residual at close:** the gaswholesalers chrome re-render that propagates the nav
+> deactivation into the shipped pages was still **queued** behind two unrelated long-running
+> orchestrations (`bugs_open/029`/`030`, single-partition lane). The DB change is done and
+> correct; the live pages carry the old footer until that drains. Re-check with R15 and
+> `scripts/dispatch-queue-depth.sh`. This is propagation latency on a completed fix, not an
+> unfixed defect — but it is stated rather than glossed.
