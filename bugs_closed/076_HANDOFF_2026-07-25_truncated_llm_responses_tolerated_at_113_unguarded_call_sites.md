@@ -493,25 +493,37 @@ Fire with the `095_TRIGGER` envelope on `system.agent.generic.requests`,
 > neither survived. What is established is only that a dispatch can silently fail
 > to become an orchestration and that re-firing is cheap.
 >
-> The reusable part is the **exit test**, which does not depend on knowing the
-> cause: *has anything newer drained past me?* Newer rows completing while yours
-> is still absent means **dropped**, not queued — so re-fire instead of waiting.
-> Same rule `bugs_open/052` recorded for a vanished council dispatch.
+> **I then guessed a third time, and was wrong again — so the honest answer is
+> that I never established this, and the useful lesson is about the guessing.**
+> I applied `bugs_open/052`'s exit test (*has anything newer drained past me?*),
+> concluded my council resubmission had been dropped, and re-fired it twice. It
+> had not been dropped. It landed **5m37s** after publication, at `18:35:57`.
 >
-> **The comparator must be on YOUR lane, and I got that wrong too.** My first
-> run of this test compared against `endpoint-health-checker` and
-> `build-pipeline-trigger` — both of which `bugs_closed/030` moved onto their
-> **own** cron topic (`EXTRA_REQUEST_TOPICS`). They prove nothing about the
-> generic lane. Exclude them:
+> Two things made the test misfire in my hands, and both are worth knowing
+> because the test itself is sound:
+> - **The comparator must be on YOUR lane.** I first compared against
+>   `endpoint-health-checker` and `build-pipeline-trigger`, which
+>   `bugs_closed/030` moved onto their **own** cron topic
+>   (`EXTRA_REQUEST_TOPICS`). They drain regardless of the generic lane, so they
+>   can never be evidence about it.
+> - **The comparator must have been PUBLISHED AFTER your message.** My second
+>   attempt did filter to `council-gate`, but the run I saw advancing had started
+>   *before* I fired. A queue that is FIFO makes "an older job is progressing"
+>   entirely compatible with "mine is still waiting".
+>
 > ```sql
+> -- both corrections applied
 > SELECT created_at, owner_agent_type, current_step, status
 > FROM orchestration_states
-> WHERE created_at > '<the moment you published>'
+> WHERE created_at > '<the moment you published>'      -- published AFTER you
 >   AND owner_agent_type NOT IN ('endpoint-health-checker','build-pipeline-trigger')
 > ORDER BY created_at DESC;
 > ```
-> Done properly it was decisive: other `council-gate` runs started and advanced
-> while mine never appeared, so the dispatch really was dropped.
+>
+> **The operational rule, with no mechanism attached: budget ~6 minutes on this
+> lane before concluding anything.** Every one of my three explanations was tidy,
+> confident and wrong within twenty minutes, and the cost of each was a duplicate
+> dispatch. Waiting would have cost nothing.
 
 ---
 

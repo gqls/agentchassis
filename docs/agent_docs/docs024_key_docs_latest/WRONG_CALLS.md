@@ -4130,9 +4130,22 @@ both refutations and asserts only the **exit test**, which does not depend on kn
 *has anything newer drained past me?* If newer orchestrations are completing while yours is
 absent, it was dropped — re-fire rather than wait.
 
+**A THIRD wrong call on the same question, twenty minutes later.** Having been refuted twice
+on *why* a dispatch vanished, I then concluded — via `bugs_open/052`'s own exit test — that a
+council resubmission had been **dropped**, and re-fired it twice. It had not been dropped. It
+landed **5m37s** after publication. Two ways I misapplied a sound test: the comparator was on
+the **cron lane** (`bugs_closed/030` gave those their own topic, so they drain regardless), and
+then it was a run **published before mine** — on a FIFO queue, "an older job is progressing" is
+entirely compatible with "mine is still waiting". The comparator must be on your lane AND
+published after you.
+
 **Tally note.** This is the third entry in the "wrote a mechanism before checking it"
 family, and the second in two days where the missing check was *test the story against the
-case that worked*.
+case that worked*. Within this single entry the same error recurred three times in under
+half an hour, each time with a *different* tidy explanation — which is the actual finding.
+The failure mode is not any one bad theory; it is **theorising at all about a system whose
+normal latency I had not measured first**. Each guess cost a duplicate dispatch; waiting
+~6 minutes would have cost nothing and answered it.
 
 **2026-07-26 — wrote "inert until an image roll" into a commit message, a bug file and a council
 submission, about code that shipped twenty minutes later.** Fixing `bugs_open/086` I committed a
@@ -4267,3 +4280,45 @@ looks in a handoff, the more likely another session is already doing it.
 was steered onto that leg. A duplicate that happened to land on the one untested branch is not
 a vindication of the process that produced it.
 Family: shared-mutable-state, snapshot-went-stale, check-before-firing-not-at-start, coordination.
+
+## 2026-07-26 — a two-day-old "deterministic, cannot be rebuilt by any path" was carried into a fix's own header, and the page had rebuilt that morning (bugs_open/073)
+
+**The claim.** `bugs_open/073` was filed 07-25 with: "`/index.html` on ai-agent-orchestration.com
+**cannot currently be rebuilt by any path**. Every attempt dies at the same section" and, of the
+two observed failures, "deterministic, not a flake." Both statements were true when written and
+correctly evidenced — two failed runs, named correlations. On 07-26 the claim was repeated,
+unchanged, into the WHY block of the migration that fixes it: "measured 2026-07-26, …cannot be
+rebuilt by the writer at all… and is therefore STILL SERVING the pre-201 case-study metrics."
+
+**What was actually true.** The page rebuilt at **07:52:58Z that morning** — all eight sections
+`deployed`, fresh `content_data` — hours before "measured 2026-07-26" was written. And it had
+rebuilt by **inventing four of its five figures**, none of them in the site's own evidence
+register. So the page was not serving pre-201 metrics; it was serving brand-new post-201 ones.
+
+**What caught it.** Reading `page_components.updated_at` for the page before believing the
+severity line — the first query anyone would run to see the current state, and neither of us ran
+it. The second confirmation was free: `orchestration_states` retains 13 days and holds **no**
+`iter_4` gate failure on any day, so the "every attempt dies" claim had no surviving evidence at
+all in the window that would have to contain it.
+
+**The cheap check.** Two queries, both on the page you are about to describe as unbuildable:
+
+```sql
+SELECT build_status, updated_at FROM page_components WHERE page_id=…;   -- did it build recently?
+SELECT count(*) FROM orchestration_states WHERE error LIKE '%missing required content field%';
+```
+
+**Why it matters more than a stale figure.** The correction is not "the page did build" — it is
+that **the failure was conditional on the model telling the truth**, which is a strictly worse
+bug than the deterministic one filed, and the deterministic framing hid it. A failure selected by
+a model's choice is intermittent by construction; two observations can never establish
+determinism for one, and "observed twice" reads like evidence of exactly that.
+
+**The bit I want to remember.** CLAUDE.md already says to ground every figure against the live
+system before repeating it from another doc. I did that for figures and not for a *state* claim
+("cannot be rebuilt"), because a state claim reads like a fact about the system rather than a
+measurement with a timestamp. It is a measurement with a timestamp. So is "still broken", "still
+blocked", "still serving X" — every one of them ages, and each is load-bearing in exactly the
+document where nobody re-checks it.
+
+Family: staleness-carried-forward, state-claims-are-measurements-too, two-observations-are-not-determinism, ground-before-repeating.
