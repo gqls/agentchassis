@@ -96,3 +96,78 @@ content_data (it replaced my 171/8/14/1,284 restore with the LISTED 170/13/17/
 1,267 snapshots) — exactly what the block licenses ("dated snapshots up to a
 listed live count are fine"). On writer-path pages the evidence_base IS the
 source of truth; keep IT current, not the content_data.
+
+## 2026-07-26 — candidate 1 shipped (mig 217), candidate 2+4 built (mig 218 + Go), and three things I got wrong on the way
+
+Session artefacts:
+- `../../sql_for_agents/217_stat_values_optional_and_template_gated.sql` — candidate 1,
+  applied + ledger-recorded. 80 fields / 46 template gates / 10 components, plus the
+  `component-creator` NUMERIC FIELDS RULE and the writer-prompt optional marker.
+- `../../sql_for_agents/218_evidence_facts_for_043_sites.sql` — real `facts[]` for
+  robot-hands, gamesdesign, ai-agent-orchestration. Applied.
+- `platform/orchestration/datahelpers/claims_stats.go` +
+  `platform/orchestration/actions/validate_page_content_stats.go` (+ tests) — candidates
+  2 and 4. Committed, **INERT until the next image roll**.
+- Council gate submission `569241fb-dd8d-4bcf-b382-234dfca1365c`.
+
+**MISSTEPS, which are the point of this file.**
+
+1. **I nearly shipped a check that could never fire.** I wrote a
+   `stat_partial_blanking` lint (043's point (c) — a block where the unsourceable stats
+   were blanked to an em dash and the rest left reads as *checked* while carrying a
+   surviving invention) into `LintStatUnits`. It takes `[]StatClaim`, and
+   `ExtractStatClaims` drops blank sentinels by design, so the blanked stats never reach
+   it: the check was structurally incapable of firing. Caught only by re-reading my own
+   code before running it. Deleted rather than shipped, with the reason written where the
+   function would have been. **A detector that cannot fire is worse than none — it reads
+   as coverage.** That is the same failure shape as the finding below, which is why it is
+   worth the paragraph.
+
+2. **Two of my assertions were caught by the migration's own guards, not by me.** The
+   dry-run failed twice before it passed: first on a miscounted needle total (I wrote 41,
+   it is 46), then on a post-condition regex `_(value|description)$` that flagged
+   `archetype_description` — a prose field the migration deliberately leaves required.
+   The second is exactly the over-broad-predicate mistake the migration's own header
+   warns about for the `WHERE` clause, made in the assertion instead. Both are arguments
+   for writing the guard before the change, not after.
+
+3. **My test premise was wrong, not the code.** `TestStatFieldPairing`'s "ambiguous
+   anchor" case used `row2_note` as the second candidate, expecting `unpaired`. It
+   resolved to `anchor` — correctly, because `note` is a detail-role token and role
+   tokens are excluded from label candidates by design. Fixed the test, not the code, and
+   said so in a comment so the next reader does not "fix" it back.
+
+**The finding that changes how this lane should be read.** Both claims checkers have been
+**silent no-ops on robot-hands, gamesdesign and ai-agent-orchestration since 07-24** —
+the day we "protected" them. `ParseEvidenceBase` returns nil when a row carries no
+`facts[]` and no `banned_claims[]`, and the rows this lane seeded are `writer_block`-only.
+The writer_block half worked (the prompt template reads it straight from `site_specs`,
+never through `ParseEvidenceBase`), so the *writer* stopped inventing while the
+*checkers* stayed blind — and every verification in the 07-24 entry above was of the
+writer, not the checkers, so nothing contradicted it. **Verify each half against its own
+consumer; a green writer says nothing about a gate.**
+
+**Every stored figure was stale when re-derived** (07-26 vs the 07-24 writer_blocks):
+agent definitions 170→175, agent types 165→174, live sites 13→14, orchestrations/day
+1,699→1,834, robot-hands spec figures 39→59, and **work items completed 1,267→1,051 —
+downwards**, because the ledger is reaped. A cumulative-sounding achievement stat that
+can fall is misleading at any value; it is now registered with tolerance `gte` so the
+audit flags the overstatement `aao/index` is publishing rather than blessing it. This is
+why 218's facts all carry `source.sql`: a frozen snapshot is a fact with an expiry nobody
+wrote down.
+
+**Trap for whoever touches evidence registers next:** do NOT set
+`writer_block_managed: true`. `composeWriterBlock` emits only NUMBERS / CAPABILITIES /
+NAMED ENTITIES — it has no NEVER-STATE section, so managed regeneration silently deletes
+the "NOT TRACKED, NEVER STATE" lists, which are the half that stops the writer inventing
+a whole new *category* of figure.
+
+**Verification was blocked, and it matters how.** The full-writer rebuild of `aao/index`
+could not be run: since ~18:02 every `build-pipeline-trigger` hangs at
+`spawn_dispatch`/`AWAITING_RESPONSES` without spawning a child (bugs_open/029's
+signature, fleet-wide), and a direct kcat fire of `page-build-handler` bypassing the
+dispatcher produced no orchestration row either, while council-gate and the health
+checkers completed normally throughout. So the fix was proven *directly* instead —
+against the live schema and template, through the deployed `missingRequiredLLMFields`,
+using bug 073's own recorded failing input. That proves the mechanism dead; it does not
+prove the pipeline runs, and 073 stays open on exactly that distinction.
