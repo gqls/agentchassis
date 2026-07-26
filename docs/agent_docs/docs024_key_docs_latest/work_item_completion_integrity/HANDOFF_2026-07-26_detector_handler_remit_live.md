@@ -145,6 +145,47 @@ Migration `222` (applied, snapshotted, verified) tells the designer the rule.
 step. The reason lives ONLY in `collected_data->>'__step_error'`. Anything keyed on
 `error` reports that run as clean.
 
+### The retry: council APPROVED — `FEATURE_CORR c91bb061-250e-4a1a-819f-78c625733956`
+
+`decision: approved`, **5 reviewers, abstained 0, unreadable 0**,
+`decided_by: "approved with 3 advisory objection(s) — none high-severity"`. The
+zero-unreadable matters: an approval carried by seats that could not read the plan
+is not an approval, and this one was not that.
+
+The persisted plan, one file per stage, build gate on each:
+
+| stage | file | introduces |
+|---|---|---|
+| s1 | `check_hardcoded_section_colors.go` | `BuildPaletteColorMap`, `paletteColorMap` |
+| s2 | `check_hardcoded_section_colors_test.go` | `TestBuildPaletteColorMap_UnmatchedHexStaysUnmapped` |
+| s3 | `fix_harcoded_colours_action.go` | `loadSitePaletteForColorFix` |
+
+The council explicitly validated the spec framing: *"the deliberate exclusion of
+#eee, semantic tints, and inline style=\"\" correctly honors the spec's 'open
+questions for design, not assumptions' framing"*. That is the enriched-spec
+technique paying off twice — once in the plan, once in the review.
+
+**READ THE MEDIUM OBJECTION BEFORE FIRING THE IMPLEMENTER.** `editquality`:
+
+> *"s1's 'gate: build:true' claim of independent buildability is not actually
+> satisfiable unless the plan specifies a backward-compatible mechanism … As
+> written, s1, s2, and s3 look like they must land together to compile, which
+> contradicts the plan's own stage-independence claim."*
+
+That is a concrete prediction of failure, not a style note: if `replaceCSSColors`'s
+signature changes in s1 while the test file and the handler call site are still on
+the old one, **s1 fails its own build gate and the implementer run dies at stage 1**.
+The objection names the fix — a variadic/optional parameter, or a separate entry
+point defaulting to the old behaviour when no palette is supplied. Either resolve
+that first (resubmit under `RESUBMIT_CORR` with the mechanism named), or fire
+knowing stage 1 is the likely failure point. The per-stage build gate makes that
+failure safe and visible, but it is not free.
+
+**This APPROVED verdict does NOT entitle any commit in this workstream to a
+`Council-Reviewed:` trailer.** It reviewed the *feature designer's plan* for
+widening the colour fixer — not the `077` code. `077`'s own council never returned
+a verdict (see the case file). Do not conflate them.
+
 ---
 
 ## READ THIS BEFORE YOU FIRE ANY kcat DISPATCH — it cost four lost runs
