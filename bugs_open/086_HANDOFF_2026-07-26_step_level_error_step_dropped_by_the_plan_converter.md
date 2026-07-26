@@ -1,10 +1,15 @@
 # 086 — the plan converter drops step-level `error_step`, so 55 declared error handlers have never once run
 
 **Filed:** 2026-07-26 · **By:** the `bugs_open/068` thread (068's real mechanism turned out to be this)
-**Status:** OPEN — two fixes, one live, one pending a roll:
- · **LIVE now**: the contained config twin for the diagnosed step (seed `219`, applied 2026-07-26)
- · **INERT**: the fleet-wide Go fix, committed `dca5649b3`, live at the next chassis image roll —
-   **council VETOED, owner overruled 2026-07-26 after re-measuring the blast radius** (below)
+**Status:** OPEN — **both halves are now LIVE, and the Go half shipped sooner than anyone chose**:
+ · **LIVE**: the contained config twin for the diagnosed step (seed `219`, applied 2026-07-26)
+ · **LIVE in v1.0.1169**: the fleet-wide Go fix, committed `dca5649b3` at 18:02Z — another thread
+   built and rolled the chassis at ~18:22Z, and `make build` takes committed HEAD, so it rode
+   their build. Pod-verified: `strings /app/agent-chassis | grep -c "Step declares an error_step
+   that is not in the plan"` = 1 (a string only this change creates), positive control also 1.
+   **Council VETOED it; the owner overruled that on the measurement (below) believing it was
+   inert until a roll — it was already 20 minutes from shipping.** The 55 handlers are armed now.
+   Residual: the ten `→ complete` handlers were still unaudited when they went live.
 **Severity:** High for anything that declares a non-fatal step and gets a fatal one instead;
 the measured instance (`page-content-writer.resolve_links`) has killed **32 of 32** runs that hit it.
 
@@ -255,10 +260,32 @@ question went to him with the blast radius re-measured, and the answer (2026-07-
 55 belong to agents that have not run in three days). The veto's shape was right; the measurement
 says the exposure is small and the benefit concrete.
 
-**Still to do before the roll, and it is cheap:** the ten `→ complete` handlers remain unaudited.
-They have not fired in 30 days, so nothing is burning, but each should be read and — if `complete`
-is not honestly what the author meant — repointed at a failure step. That is a config edit, live
-immediately, no roll needed. Do it while the Go half is still inert.
+**The ten `→ complete` handlers: audited and DISABLED (seed `220`, applied 2026-07-26).** The
+window to do this before the roll did not exist — the roll had already happened. Read in full:
+
+| agent · step | what `complete` means on failure | read |
+|---|---|---|
+| spec-updater · apply_update | the update it exists to apply is skipped, run reports success | swallows the job |
+| content-gap-planner · apply_plan | plan never applied | swallows the job |
+| site-adoption-agent · write_design_intent | intent never written | swallows the job |
+| blog-content-planner · create_post_pages | no pages created | swallows the job |
+| webdesign-agent · fork_theme | no theme forked | swallows the job |
+| content-gap-planner · plan_gaps | nothing planned → apply skipped | borderline |
+| site-adoption-agent · generate_design_intent | nothing generated → write skipped | borderline |
+| image-build-handler · mark_work_item_complete | status write failed, build finishes | defensible |
+| image-build-handler · flag_rebuild | rebuild flag unset, build finishes | defensible |
+| tool-improver · note_refusal | refusal note not appended | defensible |
+
+All ten end at a `complete` step whose action is `complete_workflow`, so the orchestration would
+finish GREEN. **Owner ruling: disable all ten**, including the defensible three. Seed `220` renames
+the key `error_step` → `error_step_disabled_086` on exactly those steps — the converter reads only
+`error_step`, so the declaration is inert but stays visible and greppable rather than deleted, and
+the REVERT is a rename back. `snapshot_agent()` taken for all 8 agents first. Post-checks: **0**
+still routing to `complete`, **10** recorded, **45** other handlers intact.
+
+That restores the loud-failure behaviour these ten steps have actually had for the last ten weeks.
+**Per-handler review is still owed** — each author declared `complete` for a reason, and a couple
+(the bookkeeping three) are probably right. Re-enable individually by renaming the key back.
 
 **No `Council-Reviewed:` trailer**, and there cannot be one: the verdict is REJECTED, and it
 post-dates `dca5649b3` regardless. `dca5649b3` will list as un-reviewed in the 098 report —
