@@ -723,10 +723,21 @@ What remains:
   false one — a future contributor could exempt a real consumer with a
   plausible-sounding rationale and the test would pass. Smaller surface than what
   it replaced, not zero.
-- **[UNVERIFIED]** Nothing downstream was checked for keying on
-  `severity`+`error_code` combinations that `TRUNCATION_DEGRADED_REVIEW` might
-  disturb (council `guardian`, low). `warning` was chosen so an `error`-escalating
-  consumer is untouched, but the fleet check was not run.
+- ~~**[UNVERIFIED]** downstream keying on `severity`+`error_code`~~ — **CHECKED
+  2026-07-26 21:10, and it is clear.** Two Go readers exist:
+  `reconcile_superseded_reviews_action.go:215` filters
+  `error_code = 'CONTENT_VALIDATION_BLOCKER_DETAIL' AND site_id = $1`, so it
+  cannot match these rows on either predicate (they carry a different code and
+  leave `site_id` NULL); `diagnose_load_runtime_action.go:267` reads
+  **generically** with no `error_code` filter and renders the rows into a
+  diagnosis bundle as text — additive, and arguably useful. On the DB side, three
+  active definitions match both `agent_error_log` and `severity`
+  (`council-gate`, `fix-proposer`, `feature-designer`) but the match is
+  coincidental: `agent_error_log` appears in their reviewers' **schema hint** and
+  `severity` is their objections' own `low|medium|high` field. Nothing keys on
+  `agent_error_log.severity`. The one real effect: a `diagnose_load_runtime`
+  bundle gathered with a NULL `site_id` will now include these rows in its
+  context.
 - **[UNVERIFIED]** Whether the guard's floor is ever *too* low in practice — it
   asks whether the workflow has **a** reader, not whether the fragment reaches
   one. A workflow with a guarded consumer on a branch the truncated value never
