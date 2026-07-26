@@ -769,3 +769,41 @@ Next when items land: triage the two PAGE items ONLY. The two SECTION items
 stay `detected` deliberately — a homepage section needs an index rebuild, which
 bugs_open/073 makes deterministically fatal on aao; a triaged section item
 would burn its three attempts against a known wall.
+
+> **DEFECT FOUND AND FIXED SAME HOUR, 2026-07-26 — the extended publisher
+> published the model register three times.** First live run of the three-kind
+> chain (14:24): `adoption_render_result.files` and
+> `protocol_render_result.files` both = `["data/model-directory.json",
+> "data/model-directory-full.json"]`, `entity_count 39` each (12 snippet + 27
+> full = the model register), and git-adapter committed those under
+> `Update adoption tracker` / `Update protocol tracker`. All six steps
+> reported success.
+>
+> **Cause (mine).** `ExtractActionInputs` treats string config values as
+> REFERENCES, never literals — by design, so a broken reference cannot pass as
+> a working literal (`action_inputs.go` Strategy 5, citing `bugs_open/042`).
+> `"kind": "company"` resolved to nothing → field dropped → the Go default
+> `"model"` won silently.
+>
+> **Blast radius, measured not assumed:** exactly ONE run
+> (`SELECT count(*) FROM orchestration_states WHERE workflow_plan::text LIKE
+> '%render_adoption_json%'` → 1). The CONTENT committed was correct
+> model-directory data, byte-identical to what the model step had just
+> committed, so **nothing wrong was published to the site** — the damage is two
+> redundant commits carrying misleading messages in the `sites` repo history.
+> Stated precisely because "the publisher was broken" would overstate it.
+>
+> **Fixed two ways:** (1) live workflow reverted to the model-only chain from
+> its own snapshot, immediately, so the 6-hourly cycle stops making those
+> commits; (2) `render_directory` now reads `kind` as a literal from its own
+> step config when the value is in the CLOSED profile set — a profile name can
+> never be a reference, so this cannot mask wiring bugs, and a typo falls
+> through to the unknown-kind refusal. Regression test covers all six cases
+> including the typo. Inert until an image roll; the chain gets re-extended
+> then, and the first run must be checked by its FILES, not its statuses.
+>
+> **The check that caught it** was reading the committed `files` map rather
+> than the step statuses — the artefact-not-the-status rule for the third time
+> in three days. Generalisable one-liner for any action taking a selector:
+> **assert the OUTPUT differs per selector**; identical output from two
+> supposedly-different runs is the entire signal.
