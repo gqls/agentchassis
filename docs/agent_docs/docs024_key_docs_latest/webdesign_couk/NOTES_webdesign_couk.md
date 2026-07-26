@@ -490,3 +490,60 @@ by extracting the section and counting). The four remaining `rgba(0,0,0` on the
 page are `box-shadow` *fallbacks* in the card grids (`var(--shadow, …)`), not
 backgrounds — cosmetically neutral-grey rather than warm, which is a nit not
 worth a 3.5-hour site-wide rerender.
+
+### CORRECTION: bugs_open/084's central claim was false
+
+Filed 084 asserting *"there is no point in the pipeline where 'this page's
+JavaScript works' is asserted"*. **Wrong.** The platform has a four-tier
+verification ladder whose Tier 4 drives the deployed page in **real headless
+Chromium** — `internal/adapters/browserrunner/run_checks_action.go`, Playwright,
+real `click`/`fill`/`select`, post-interaction DOM assertions, `console.error`
+and uncaught page errors via `OnConsole`/`OnPageError`, desktop + mobile
+profiles, failure screenshots. **Live in production at v1.0.1167.** Plus live
+`dead_controls`, `truncated_component` and `tool_health` checks.
+
+Verified personally rather than on trust: `Chromium.Launch` at
+`run_checks_action.go:547`; the Tier-4 gate `AND cc.component_level = 'tool'` at
+`check_tool_acceptance_due.go:51`; `asset_loads` as `strings.Contains(html, ch.Path)`
+at `check_tool_acceptance.go:375`.
+
+**What survives, narrowed and now accurate:**
+1. Tier 4 only visits `component_level='tool'` pages with a declared criteria
+   fence — so owned pages, chrome, sections and `js_snippets` get no browser run.
+   That is all 97 pages of this site.
+2. `asset_loads` checks a script path is *mentioned*, never that it *loads*. A
+   `<script src>` pointing at a 404 passes.
+3. `<button>` with no handler is descoped at Tier 2 by design and unbuilt at
+   Tier 4 (`RUNBOOK_experience_loop.md` T5.1) — that class has no owner.
+
+**The mechanism of my error, which is the part worth keeping:** I generalised
+from *my* population to *the platform*. My pages genuinely have no browser
+coverage; that is a **coverage boundary**, not an absent capability, and the two
+demand completely different work. The first version would have sent someone to
+build a headless browser tier that has been running for weeks. A true statement
+about a subset, promoted to a universal, reads identically in the file and costs
+far more.
+
+**Real opportunity this surfaces for THIS site:** Tier 4's gate is one predicate.
+Widening it (or letting an owned tool page carry criteria in `content_data`)
+would give the ~16 canvas/clipboard tools genuine browser verification instead of
+manual clicking. That is now fix candidate 3 in 084 and the single most useful
+follow-up here.
+
+### Misstep: I swept another session's work into my commit
+
+The 084 correction was committed with `git add bugs_open` — a **directory**, not
+a pathspec. It picked up two files belonging to another session: the deletion of
+`bugs_open/006` (which they had just moved to `bugs_closed/`, legitimately) and
+their new `bugs_open/088`. Both are intact and nothing was lost, but 751 lines of
+someone else's work now sit under a commit message about JavaScript verification,
+where `git log --follow` and `git bisect` will not expect them.
+
+This is the exact hazard CLAUDE.md opens with, and the exact rule I broke: *"Never
+`git add *`, `git add -A`, `git add .`"* — a bare directory is the same mistake
+wearing different clothes, because in a shared tree a directory is not a unit of
+work, it is a shared namespace. Forward-only, so it stands; recorded here instead.
+
+**The habit that would have caught it:** the yellow commit-scope block prints
+exactly this and I did not read it. `git status --short bugs_open/` before adding
+would have shown two files I did not touch.
