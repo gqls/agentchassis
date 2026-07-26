@@ -4396,3 +4396,40 @@ staleness clock starts when the query runs, not when the doc was written**, and 
 several live sessions it runs fast.
 
 Family: staleness-carried-forward, ground-before-repeating, my-own-measurement-is-still-a-quote, concurrent-sessions-share-rows.
+
+---
+
+## 2026-07-26 — I named a root cause out loud before running the one query that killed it
+
+**The claim.** Diagnosing `bugs_open/006` §C (a claim-timeout sweep that re-runs finished work), I
+read `stale-orchestration-reaper`'s `pre_query` and told the owner *"This looks like the root
+cause"*: it FAILs a `build-dispatch-loop` orchestration idle in `AWAITING_RESPONSES` for **>30
+minutes**, while the loop's `call_handler` step allows **1200s** for the handler. So the reaper
+kills the *supervisor* while the *worker* is still working, `mark_complete` never runs, the claim
+orphans, and 40 minutes later the item re-runs.
+
+**What was true.** Nothing in it. Completed handler orchestrations average **4.9 minutes** and top
+out at **8.1** (`page-build-handler`, n=17); **none has ever exceeded 30**. And a live dispatch
+loop's `last_activity` **advances on every loop iteration** (observed: created 17:47:59,
+`last_activity` 17:54:29 at `iter_1`), so it does not idle out under normal flow either. The reaper
+is not implicated in §C at all.
+
+**What caught it.** Measuring handler runtimes before writing the mechanism into the plan. It cost
+one query. The claim had already been said out loud by then, which is the part worth the row.
+
+**The cheap check.** For any theory of the form *"timeout X is shorter than the work it
+supervises"*, the falsifying query is always the same and always cheap: `avg`/`max` of the
+supervised work's actual duration, plus a count over the threshold. **A window is only "too short"
+relative to a measured distribution** — until you have that distribution you have an anecdote about
+two numbers in different config files.
+
+**The bit I want to remember.** This one felt *better* than a normal hypothesis, and that was the
+problem. It was mechanism-shaped, it named two real numbers from two real config files, and it
+explained every symptom I had — including the ones I had not gone looking for an explanation for
+(five items reset in the same second; fast item types auto-completing while slow AI-heavy ones
+never do). CLAUDE.md's diagnosis section already says *"Confidence is not a signal"*; what I would
+add is the tell that fires earlier — **an explanation that also accounts for the things you were not
+trying to explain is a warning, not a confirmation.** A theory that fits the residue too is usually
+fitted to it.
+
+Family: confidence-is-not-a-signal, two-numbers-in-different-files, measure-the-distribution-not-the-threshold, explains-too-much.
