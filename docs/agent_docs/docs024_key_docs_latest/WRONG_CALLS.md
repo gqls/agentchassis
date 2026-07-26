@@ -3258,3 +3258,63 @@ guarded was wrong, a later reader was warned, and the correction cost one
 paragraph instead of a handoff. This is the argument for the marker discipline
 stated positively — the tally in this file is mostly unmarked claims that went
 on to be believed.
+
+---
+
+## 2026-07-25 — "a wrong auto-close costs one re-raise, it cannot lose a finding" (`bugs_open/033`). Caught by the council gate before it shipped.
+
+**The claim.** The whole safety case for letting a sweep auto-close human-review
+items: *"Every terminal status is excluded from the `idx_swi_dedup` predicate, so
+closing an item RELEASES ITS DEDUP KEY. If a 'resolved' verdict is wrong, the next
+run of the check that produced the item raises it again, fresh and correctly
+dated. A wrong close costs one re-raise; it cannot lose a finding."* Written into
+the action's file header, the commit message, the bug file and the council
+submission — in the same voice as the measured claims around it.
+
+**What was actually true.** Half of it. The producers do insert with
+`ON CONFLICT DO NOTHING` on a deterministic `item_key`, so a terminal row does
+not block a re-raise — that part holds. But *"the next run of the check"*
+smuggles in an assumption never checked: **there is no next run on a schedule.**
+All three producers fire on a page build or a discovery pass over that site.
+A page that is never rebuilt again never re-raises, and a wrong close on such a
+page is a permanent silent loss. And the path is almost entirely untested:
+
+```
+unresolved_cta          : 70 rows, ALL still needs_human_review — not one has EVER gone terminal
+required_fields_missing : 45 parked + 1 complete
+needs_section_data      : 45 parked + 7 complete
+```
+
+**8 items in the platform's history.** I had asserted a recovery mechanism that
+has essentially never run.
+
+**What caught it.** The council gate — `bug_historian`, medium severity, in an
+otherwise APPROVED verdict: *"the entire safety case for auto-closing rests on an
+unverified assumption … The plan's own risks section admits this … but ships
+without confirming it."* It also named the class: a mechanism that silently
+discards something while trusting an external invariant nobody verified.
+
+**The cheap check that would have caught it.** Two queries, both under a minute.
+*Has anything of this type ever gone terminal?* and *when a key did go terminal,
+did it come back?* I ran neither. Worse, my first attempt at the second one —
+"do these keys ever recur?" → 0 rows — is **uninterpretable**: nearly every row
+of these types is still open, so the dedup index would have suppressed a second
+row regardless. Absence of duplicates was never going to be evidence either way,
+and I nearly read it as reassurance.
+
+**Why this one is worth the entry even though it was caught.** It was caught by a
+reviewer, not by me, and it was the single load-bearing claim in the change — the
+one sentence that made auto-closing acceptable at all. Everything around it was
+measured and cited: 321 of 370 stale, the leopardess ghost proof, 0 of 45 for the
+existing action. **This one had no query and nothing in the prose said so.** That
+is exactly the asymmetry the CLAUDE.md marker rule (`[INFERRED]`/`[UNMEASURED]`)
+exists to break, and I applied the markers nowhere — least of all to my strongest
+claim, which is where they are worth most. A durable claim with no evidence and
+no marker, sitting in a paragraph of well-cited ones, inherits their credibility
+for free.
+
+**Also worth recording: the fix was fine.** The audit trail
+(`result.revalidation` + `resolution_path='auto:revalidated'`) already made every
+close individually identifiable and reversible, which holds unconditionally. The
+defect was in the *argument*, not the code — and an over-strong argument for a
+sound mechanism is still the thing that gets a future thread to skip a check.

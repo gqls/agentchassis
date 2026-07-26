@@ -36,9 +36,35 @@
 //
 //	Every terminal status is excluded from the idx_swi_dedup predicate, so
 //	closing an item RELEASES ITS DEDUP KEY. If a 'resolved' verdict is wrong,
-//	the next run of the check that produced the item raises it again, fresh and
-//	correctly dated. A wrong close costs one re-raise; it cannot lose a finding.
-//	That is what makes this a reversible sweep rather than a bulk delete.
+//	the producing check raises it again, fresh and correctly dated. A wrong
+//	close costs one re-raise; it cannot lose a finding. That is what makes this
+//	a reversible sweep rather than a bulk delete.
+//
+//	> QUALIFIED 2026-07-25 after the council gate (corr ccba9c51, bug_historian,
+//	> medium) pressed on this claim — correctly: it was asserted, not measured,
+//	> and it is the whole safety case. Verified since, and it does NOT hold
+//	> unconditionally.
+//	>
+//	> All three producers re-insert with ON CONFLICT DO NOTHING on a
+//	> deterministic item_key, so a terminal row does not block a re-raise
+//	> (resolve_internal_links_action.go:257 for unresolved_cta; plan_sections'
+//	> createDeferredItems for needs_section_data; RunDiscoveryChecks ->
+//	> insertWorkItem for required_fields_missing). What does NOT hold is
+//	> "the check will run again": all three fire on a PAGE BUILD or a discovery
+//	> pass over that site, not on a timer. A page that is never rebuilt never
+//	> re-raises, and a wrong close on such a page IS a silent loss.
+//	>
+//	> Also worth knowing before trusting the re-raise: across the platform's
+//	> whole history only 8 items of these three types have EVER reached a
+//	> terminal status (7 needs_section_data + 1 required_fields_missing; zero of
+//	> the 70 unresolved_cta rows). So the re-raise path has essentially never
+//	> been exercised for these types. Treat it as reasoned, not observed.
+//	>
+//	> The mitigation that does hold unconditionally is the audit trail: every
+//	> close records the exact fields it judged populated in result.revalidation
+//	> and stamps resolution_path='auto:revalidated', so a wrong close is
+//	> individually identifiable and reversible by SQL (see the RUNBOOK) whether
+//	> or not anything re-raises.
 //
 //	The asymmetry is deliberate: 'resolved' demands POSITIVE evidence that the
 //	finding no longer holds. Every ambiguity resolves to 'unknown' and stays

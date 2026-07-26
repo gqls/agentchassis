@@ -169,3 +169,148 @@ on each run and **hide genuinely superseded pairs from the other sweep**. So the
 non-closing path deliberately does not touch `updated_at`; the timestamp lives in
 `result.revalidation.at`. Two sweeps over one table, and the second one's write
 would have silently blinded the first.
+
+---
+
+## Turn 2 — 2026-07-25 evening: council APPROVED, and the objection that was right
+
+**Verdict: APPROVED**, corr `ccba9c51-9bd5-4f1f-840c-ddd9e84a7bbe`. 13 reviewers,
+3 abstained, **`unreadable: 0`** (the check that matters — "abstained" on the
+16-seat gate counts relevance-filtered seats, so it is not the signal). Two
+`object` verdicts, both medium, neither architecture-blocking.
+
+### Objection 1 (bug_historian, medium) — RIGHT, and it hit the load-bearing claim
+
+> *"The entire safety case for auto-closing … rests on an unverified assumption:
+> that the checks which originally produced [these item types] actually re-run …
+> The plan's own risks section admits this … but ships without confirming it."*
+
+I had written the re-raise property as fact in the file header, the commit
+message and the bug file. It was reasoned from the `idx_swi_dedup` predicate, not
+measured. Checked properly afterwards, and **it does not hold unconditionally**:
+
+```sql
+SELECT item_type, count(*) FROM (
+  SELECT site_id, item_key, item_type FROM site_work_items WHERE item_key IS NOT NULL
+  GROUP BY 1,2,3 HAVING count(*) > 1) t
+WHERE item_type IN ('unresolved_cta','required_fields_missing','needs_section_data')
+GROUP BY 1;
+--  (0 rows)
+```
+
+Zero recurrence for all three. **That result is itself ambiguous** and I nearly
+misread it a second time: almost every row of these types is still OPEN, so the
+dedup index would have blocked a second row regardless — absence of duplicates
+proves nothing either way. The discriminating query is how many have ever gone
+terminal at all:
+
+```
+unresolved_cta          : 70 rows, ALL needs_human_review — not one, ever
+required_fields_missing : 45 parked + 1 complete
+needs_section_data      : 45 parked + 7 complete
+```
+
+**8 items in the platform's entire history.** The re-raise path has essentially
+never been exercised for these types.
+
+What I could verify by reading the producers: all three insert with
+`ON CONFLICT DO NOTHING` on a deterministic `item_key`
+(`resolve_internal_links_action.go:257`; `plan_sections`' `createDeferredItems`;
+`RunDiscoveryChecks` → `insertWorkItem`), so a terminal row genuinely does not
+block a re-raise. What is NOT true is "the check will run again": all three fire
+on a **page build** or a discovery pass over that site, never on a timer. **A
+page that is never rebuilt again never re-raises, and a wrong close on such a
+page is a silent loss.**
+
+Corrected in the action's header (`> QUALIFIED 2026-07-25 …`), in the PLAN, and
+in `bugs_open/033`. The mitigation that holds unconditionally — and which the
+reviewer named — is the audit trail: every close records the exact fields it
+judged populated in `result.revalidation` plus
+`resolution_path='auto:revalidated'`, so a wrong close is individually
+identifiable and reversible whether or not anything re-raises.
+
+**Why this is worth the space.** The claim was written in the same confident
+voice as the measured ones — 321-of-370, the leopardess ghost proof, 0-of-45 —
+all of which came with a query. This one did not, and nothing in the prose
+distinguished them. That asymmetry is precisely what the CLAUDE.md marker rule
+(`[INFERRED]`/`[UNMEASURED]`) exists for, and I did not apply it to my own
+strongest claim. The council caught what I would have shipped.
+
+### Objection 2 (guardian, medium) — checked, and it clears
+
+> *"loadPageComponentBySlot is described as shared machinery, but the plan only
+> names one existing caller … confirm there are no other callers across other
+> pipelines that also depend on the backfill side-effect."*
+
+```
+$ grep -rn "loadPageComponentBySlot(" --include=*.go platform/ internal/ cmd/ | grep -v "func loadPage"
+platform/orchestration/actions/section_editor_actions.go:131:  pcRow, err = loadPageComponentBySlot(...)
+```
+
+**Exactly one caller** (`LoadEditContextAction`), and it still calls the
+backfilling version — the split is behaviour-preserving for it. The guardian said
+this would escalate to a blast-radius problem if another caller relied on the
+backfill happening on every read; there is no other caller.
+
+### Advisory (guardian low + guidelines) — invocation path
+
+Both asked how this actually runs. Answer: `seed_review_queue_revalidator.sql`
+seeds `diagnosis-review-queue-revalidator` with `dry_run=true`, fired manually by
+`TRIGGER_revalidate_review_queue_v1.sh` — same shape as
+`diagnosis-superseded-reviews`. It was invisible to the council because the gate
+refuses `docs/` paths client-side, so the seed could not be in the submission.
+Worth knowing for future submissions: **a code+seed change is only ever half
+visible to the gate.**
+
+### Advisory (editquality low) — `required_fields_missing` spec shape
+
+Fair on the evidence as submitted; the shape WAS measured, I just did not quote
+it. `spec.missing_fields` is an array of strings (`["headline"]`), confirmed
+against live rows on ai-agent-orchestration.com and pinned in
+`liveRequiredFieldsSpec` in the test file.
+
+### Note taken, not actioned (reuse_agent)
+
+> *"this is now the second sweep-with-verdict pattern against site_work_items
+> (alongside reconcile_superseded_reviews) and a third partially-related one
+> (insertWorkItem's dedup ON CONFLICT) … nobody has yet unified 'sweep produces
+> evidence' vs 'sweep closes' vs 'insert dedups' into one documented family."*
+
+Correct, and deliberately not forced here. Recorded so it does not silently
+become three inconsistent things.
+
+### OWNER RULING, 2026-07-25 — D1 and D2 answered together
+
+Asked to decide what to do with the 78 machine failures parked in the queue, the
+owner rejected the framing of all four options offered:
+
+> *"they all should be able to be answered by the framework. the email is correct
+> but if it isn't there shouldn't be a placeholder on the site, the content
+> should be rewritten, the data should be collected via search etc etc"*
+
+This is stronger than D2 as filed and it answers D1 as well: **`needs_human_review`
+should not be where machine work goes to die, and the framework — not a person —
+should resolve every one of these classes.** It also reframes 033: the queue's
+real fix is that it should not fill, not that it should be drainable.
+
+Seams identified (all **DB config — live immediately, no image build**):
+
+| agent.step | mechanism | parks |
+|---|---|---|
+| `page-build-handler.mark_needs_review` | `fail_work_item` + `status_override: needs_human_review` | 51 (content failed validation) |
+| `page-build-handler.mark_no_ready_sections` | `update_work_item_status` + `status: needs_human_review` | 27 (nothing ready to build) |
+| `page-build-handler.mark_writer_skipped` | same | (same family) |
+| `tool-improver` | own `status_override` | — |
+
+`validate_content` routes its `error_step` to `mark_needs_review`, and there is
+**no rewrite-retry path in the workflow at all** — the step list goes
+`validate_content` → `mark_needs_review` → `complete_error`. So honouring the
+ruling for the 51 means building one, not re-pointing a step.
+
+**NOT changed this session, deliberately.** Re-pointing those steps live would
+change every page build fleet-wide, immediately, on my own reading of a one-line
+ruling — and the obvious naive version (send failures back to `triaged`) risks a
+build loop, rebuilding and re-failing the same page on the same blocker while
+burning credits. That is a design piece with its own diagnosis and council round.
+Recorded here and in `bugs_open/033` as the next work, with the seams named so
+nobody has to find them again.

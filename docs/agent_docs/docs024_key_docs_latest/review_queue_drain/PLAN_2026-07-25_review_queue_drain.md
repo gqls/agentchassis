@@ -120,10 +120,33 @@ the original finding against currently-deployed state. Three verdicts:
 
 Every terminal status is excluded from the `idx_swi_dedup` predicate. So closing
 an item **releases its dedup key**: if the finding is in fact still true, the
-next run of the check that produced it raises it again, fresh. A wrong `resolved`
-verdict costs one re-raise, not a lost finding. This is what makes the drain a
-reversible operation rather than a bulk delete, and it is why the sweep is
-allowed to be wrong.
+producing check raises it again, fresh. A wrong `resolved` verdict costs one
+re-raise, not a lost finding. This is what makes the drain a reversible
+operation rather than a bulk delete, and it is why the sweep is allowed to be
+wrong.
+
+> **QUALIFIED 2026-07-25 — the council gate was right to press on this, and the
+> claim above is weaker than it was written.** (corr `ccba9c51`, `bug_historian`,
+> medium: *"the entire safety case … rests on an unverified assumption"*.) It was
+> reasoned from the index predicate, not measured. Verified afterwards:
+>
+> - **What holds.** All three producers insert with `ON CONFLICT DO NOTHING` on a
+>   deterministic `item_key` (`resolve_internal_links_action.go:257`;
+>   `plan_sections`' `createDeferredItems`; `RunDiscoveryChecks` →
+>   `insertWorkItem`), so a terminal row genuinely does not block a re-raise.
+> - **What does NOT hold.** "The check will run again." All three fire on a **page
+>   build** or a discovery pass over that site — never on a timer. A page that is
+>   never rebuilt again never re-raises, and a wrong close on such a page **is** a
+>   silent loss.
+> - **How untested this path is:** across the platform's entire history only **8**
+>   items of these three types have ever reached a terminal status (7
+>   `needs_section_data`, 1 `required_fields_missing`, and **zero** of the 70
+>   `unresolved_cta`). The re-raise has essentially never been exercised here.
+>
+> The mitigation that holds unconditionally is the audit trail: every close
+> records the fields it judged populated in `result.revalidation` and stamps
+> `resolution_path='auto:revalidated'`, so a wrong close is individually
+> identifiable and reversible by SQL whether or not anything re-raises.
 
 The asymmetry is deliberate: `resolved` requires **positive** evidence that the
 finding no longer holds. Anything ambiguous is `unknown` and stays queued.

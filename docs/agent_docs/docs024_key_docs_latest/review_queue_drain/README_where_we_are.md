@@ -66,3 +66,61 @@ to do with the ~78 items that are actually machine failures parked in the human
 queue by mistake, and whether we ever record *who* made a decision (the handlers
 have no login attached to them, so that one is an authentication decision, not a
 one-line fix).
+
+---
+
+## 2026-07-25, later — the council caught something, and you changed the shape of the job
+
+Two things happened after I wrote the above.
+
+**The review council approved the drain, but one reviewer caught a real problem
+in my reasoning and was right.** I had said the sweep is safe to let run
+unattended because if it closes something wrongly, the original check will just
+raise it again — closing an item releases the lock that was stopping that. I
+wrote that as a fact. It was not; I had worked it out from how the database index
+is defined rather than checking it.
+
+Checked properly: half of it holds and half of it does not. The checks genuinely
+can raise a finding again — nothing blocks them. But they only run when a page is
+rebuilt or when a site gets a discovery pass. They do not run on a timer. So for
+a page that never gets rebuilt again, a wrong close would be a quiet loss, not a
+one-cycle inconvenience. Worth knowing too: in the whole history of the platform
+only 8 items of these three kinds have ever been closed at all, so that
+re-raise path has barely been exercised.
+
+I have corrected it everywhere I claimed it. The safety net that does hold no
+matter what is the paper trail — every close records exactly what it checked and
+what it found, so a bad one can be found and undone. That was always there; it
+just is not what I had been leaning on.
+
+The reason I am writing this at length is that the wrong claim read exactly like
+the right ones. The 321-of-370, the leopardess example, the "that existing fix
+would clear zero items" — those all came with a query attached. This one did not,
+and nothing in how I wrote it up told you which was which.
+
+**And your answer on the 78 stuck items changed the job.** I offered you four
+ways to tidy them up and you rejected all four: the framework should be able to
+answer every one of them. If the email is a placeholder, the placeholder should
+not be on the site. If the content failed a quality check, rewrite the content.
+If data is missing, go and find it.
+
+That is a bigger and better answer than the question I asked, and it means this
+bug is not really "the queue needs a drain" — it is "the queue should not be
+filling". I have found the exact places where it fills: three configuration lines
+in the page builder that send failures to the human queue instead of dealing with
+them, and one in the tool improver. All four are database configuration, which
+means they take effect immediately with no rebuild.
+
+I have not changed them. Two reasons, and I would rather say them than quietly
+act. First, those lines are in the main page-building pipeline for every site, so
+changing them takes effect everywhere the moment I press return — that is a
+bigger step than the image roll you just told me to hold off on. Second, the
+obvious change is wrong: simply sending failures back to be retried would have
+the same page rebuild and fail on the same problem over and over, spending money
+each time, because the retry counter is not being incremented either. Doing this
+properly means giving the builder a way to rewrite content in response to what
+the checker complained about, and that deserves its own design pass.
+
+So: the drain is built, reviewed and committed, waiting on the next build. The
+bigger job you have just described is written up with the four exact places it
+needs to happen, ready to start.

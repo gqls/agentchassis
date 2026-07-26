@@ -481,3 +481,56 @@ change CREATED:
 kubectl exec -n ai-persona-system <chassis-pod> -- \
   sh -c 'strings /app/agent-chassis | grep -c "auto:revalidated"'
 ```
+
+---
+
+# OWNER RULING 2026-07-25 — D1 and D2 are answered, and they reframe this bug
+
+Asked to choose what to do with the 78 machine failures parked in this queue, the
+owner rejected the framing of every option offered:
+
+> *"they all should be able to be answered by the framework. the email is correct
+> but if it isn't there shouldn't be a placeholder on the site, the content
+> should be rewritten, the data should be collected via search etc etc"*
+
+That is stronger than D2 as filed, and it answers D1 with it. **`needs_human_review`
+is not where machine work goes to die; the framework — not a person — should
+resolve every one of these classes.** Concretely, per the three flavours the 78
+split into:
+
+| flavour | n | what the framework should do |
+|---|---|---|
+| A — content failed a quality check (placeholder email, unsupported claim, contamination) | 51 | **rewrite the content**, addressing the blocker; do not park |
+| B — page build had nothing to build (all sections deferred for missing data) | 27 | **resolve the data**, then rebuild |
+| C — "requires real data that cannot be auto-generated" (leadership team, pricing) | 2 | **collect it via search/research** |
+
+So this bug's real fix is not that the queue should be drainable — it is that the
+queue should not fill. The drain shipped above remains correct and necessary
+(the ghosts still need clearing, and a revalidator IS the framework answering
+rather than a human), but it is now the smaller half.
+
+## The seams — all DB config, live immediately, no image build
+
+| agent.step | mechanism | parks |
+|---|---|---|
+| `page-build-handler.mark_needs_review` | `fail_work_item` + `status_override: needs_human_review` | flavour A (51) |
+| `page-build-handler.mark_no_ready_sections` | `update_work_item_status` + `status: needs_human_review` | flavour B (27) |
+| `page-build-handler.mark_writer_skipped` | same | same family |
+| `tool-improver` | its own `status_override` | — |
+
+`validate_content` routes `error_step` → `mark_needs_review`, and the workflow has
+**no rewrite-retry path at all**: the step list runs `validate_content` →
+`mark_needs_review` → `complete_error`. Honouring the ruling for flavour A means
+building one, not re-pointing a step.
+
+## Why it was NOT changed in the same session
+
+Re-pointing those steps is a **live** change to the main build pipeline, fleet-wide
+and immediate — arguably more consequential than an image roll — made on one
+thread's reading of a one-line ruling. And the naive version (send failures back
+to `triaged`) risks a build loop: the same page rebuilding and re-failing on the
+same blocker, burning credits. `FailWorkItemAction`'s override branch also does
+not increment `attempt_count`, so nothing would stop it.
+
+That is a design piece with its own diagnosis and council round. It is the next
+work on this bug, and the seams above mean nobody has to find them again.
