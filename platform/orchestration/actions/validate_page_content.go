@@ -192,6 +192,8 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	checkLinks := configBoolOrDefault(config, "check_internal_links", true)
 	checkEmails := configBoolOrDefault(config, "check_emails", true)
 	checkClaims := configBoolOrDefault(config, "check_claims", true)
+	checkStatClaims := configBoolOrDefault(config, "check_stat_claims", true)
+	checkStatUnits := configBoolOrDefault(config, "check_stat_units", true)
 
 	// ── Run all checks ──
 	var issues []ValidationIssue
@@ -245,6 +247,17 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 				issues = append(issues, checkUnregisteredNumbers(blocks, eb)...)
 			}
 		}
+	}
+
+	// 9. Stat fields vs evidence base, over content_data rather than rendered
+	//    HTML (bugs_open/043 candidates 2 and 4). Check 8 cannot see a stat
+	//    card: the value and its label are separate block elements, so the
+	//    number's claim window is the bare figure. See
+	//    validate_page_content_stats.go and datahelpers/claims_stats.go.
+	//    Silent no-op for callers whose workflow produces no sections_metadata.
+	if checkStatClaims || checkStatUnits {
+		issues = append(issues, runStatChecks(ctx, params.DB, params.CollectedData,
+			config, siteIDStr, checkStatClaims, checkStatUnits, logger)...)
 	}
 
 	// ── Categorise results ──
