@@ -384,14 +384,16 @@ The Go half is inert until an image roll past this commit. Then:
 
 ### Notes for adjacent cases
 
-- **`/bugs_open/053` candidate 3** deferred itself explicitly onto this bug: *"its correct
-  predicate is `deployed_at IS NULL` … that predicate fix is `/bugs_open/052`; candidate 3
-  should ride it, not this."* **The predicate now exists and is live** —
-  `queryresolve.FetchablePageEligibilitySQL`. 053 can proceed. Deliberately NOT done here:
-  `nav_tables.go`'s `deployedOnly` flag still emits `build_status = 'deployed'` in two
-  places (`:188`, `:277`), and all six chrome call sites pass `deployedOnly=false`, so
-  chrome applies no build-state filter at all today. Flipping that is a fleet-wide chrome
-  change with 053's own verification list attached; it belongs to 053, not to this file.
+- **`/bugs_open/053` candidate 3 — DONE, by another session, on the same day.** It had
+  deferred itself explicitly onto this bug: *"its correct predicate is `deployed_at IS NULL`
+  … that predicate fix is `/bugs_open/052`; candidate 3 should ride it, not this."* I left it
+  alone deliberately — `who-owns` and a mid-session compile break both showed another thread
+  had `nav_tables.go` open — and they landed it as `a9083d51b` a few hours later. Worth
+  recording that the hand-off worked: the deferral named the predicate, the predicate got
+  built here, and the other lane picked it up without the two of us colliding or duplicating.
+  Their change replaced the bool `deployedOnly` with a `NavVisibility` type, moved the filter
+  out of SQL into `applyNavVisibility`/`loadFetchablePageSet`, and dropped a `LIMIT` that had
+  been capping before filtering. **Do not re-plan candidate 3 from this file.**
 - **Candidate 3 of this file** (emit a work item instead of silently dropping) remains
   unbuilt and still gated on `/bugs_open/033` — nothing consumes `needs_human_review`. The
   new Warn above is the cheap stand-in, not a substitute.
@@ -404,7 +406,49 @@ The Go half is inert until an image roll past this commit. Then:
   filter there costs one skipped re-render, which self-corrects. The predicate is arguably
   still too tight (a `needs_rebuild` page carrying a news listing is skipped), but that is a
   scheduling question, not a 404 question.
-- `discovery_checks.neverDeployedPredicate` (`check_phantom_internal_links.go:366`) is an
-  independent, unexported, negative-form copy of the same predicate. It matches today only
-  because a NULL `build_status` makes the disjunct falsy either way. Two literals encoding
-  one rule is the same drift risk this bug is about; worth consolidating, not urgent.
+- ~~`discovery_checks.neverDeployedPredicate` is an independent, unexported, negative-form
+  copy of the same predicate… worth consolidating, not urgent.~~
+  > **CORRECTED 2026-07-26, same day, hours later — another session consolidated it while
+  > this was being written.** Commit `a9083d51b` ("chrome must not link a page that was
+  > never built") promoted that unexported literal to
+  > **`datahelpers.NeverDeployedPagePredicate`** (`datahelpers/links.go:210`) and pointed
+  > both `check_phantom_internal_links.go` and the new `loadFetchablePageSet` in
+  > `nav_tables.go` at it. That commit is also **`/bugs_open/053` fix candidate 3 landing** —
+  > and it used the right predicate, not the `build_status = 'deployed'` one that would have
+  > delisted 31 working pages.
+
+  So the fleet now has **two exported constants encoding one rule, in opposite polarity**:
+
+  | constant | form | alias |
+  |---|---|---|
+  | `queryresolve.FetchablePageEligibilitySQL` | `AND (p.deployed_at IS NOT NULL OR p.build_status = 'deployed')` | requires `p` |
+  | `datahelpers.NeverDeployedPagePredicate` | `deployed_at IS NULL AND COALESCE(build_status, '') <> 'deployed'` | unaliased |
+
+  **They are equivalent — genuinely, not accidentally.** My earlier note here guessed they
+  matched "only because a NULL `build_status` makes the disjunct falsy either way", which
+  implied a latent divergence. Working the NULL case through both forms shows there is none:
+  with `build_status` NULL and `deployed_at` NULL the positive form gives `FALSE OR NULL`,
+  falsy in a `WHERE`, so the page is excluded, and the negated form gives
+  `NOT(TRUE AND TRUE)`, also excluded; with `deployed_at` stamped both include. Same answer
+  in every combination.
+
+  Checked against live data too — zero disagreements across all 425 pages:
+
+  ```sql
+  SELECT count(*) FROM pages p
+  WHERE (p.deployed_at IS NOT NULL OR p.build_status = 'deployed')
+     IS DISTINCT FROM
+        NOT (p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed');
+  -- 0
+  ```
+
+  **That query is weaker evidence than it looks and should not be the argument**, which is
+  why the reasoning above is: `build_status` is never NULL on any live page (only `deployed`
+  357, `needs_rebuild` 41, `planned` 27), so the one input that could distinguish the two
+  forms does not occur in production. The census confirms they agree on today's population;
+  only the case analysis shows they must agree on any population.
+
+  Remaining risk is therefore drift, not a present defect: two constants that must stay
+  logical negations, in packages that do not import each other, with nothing asserting the
+  relationship. A test that pins `NOT(one) == other` over a table of build_status/deployed_at
+  combinations would close it. Not urgent, and no longer two *copies* — that part is fixed.
