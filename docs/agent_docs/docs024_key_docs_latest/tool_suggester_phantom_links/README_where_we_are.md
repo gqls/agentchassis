@@ -79,3 +79,50 @@ Two things are done as of today:
 
 Still deliberately not done, same as before: the 27 already-broken links on live pages are not
 cleaned up by this — that's a separate sweep to line up with bug 049.
+
+---
+
+## 2026-07-26 (afternoon) — the reviewer panel sent it back, and it was right to
+
+I put the fix through the automated reviewer panel before calling it done. It came back **revise**,
+and the round was worth having, so here is what it said and what I did about it.
+
+Thirteen reviewers looked at it. Nine were happy. Two raised something serious.
+
+**The first serious one is a fair criticism of the whole shape of the fix.** It said, in effect:
+you have closed the one place that was inventing bad links, but the platform's actual last line of
+defence — the check that looks at every link on a page before it publishes and *does* spot ones
+that go nowhere — files what it finds as a "warning" and publishes the page anyway. So any *other*
+source of a dead link still sails straight through. That is entirely true, and it is a bigger
+problem than the one I was sent to fix. I have not quietly folded it into this change, because
+making that check block publication is a fleet-wide decision that could stop pages shipping for a
+reason nobody has measured yet. I have written it up as its own bug (079) with four options and a
+"measure before you choose" warning, and it is named in the original bug file so it can't be lost.
+
+**The second was about a housekeeping rule** — that I had copied a database de-duplication rule
+into my new code instead of calling the shared helper that owns it. The reviewer's stated reason
+was wrong (it cited a rule that belongs to a different table, and I said so with the file
+reference), but the *risk* it pointed at was real, so I made the change anyway: the new code now
+goes through the platform's central helper, which means there is one copy of that rule instead of
+two, and I get its "don't keep retrying the same thing" protection for free.
+
+**One reviewer's objection turned into finding a genuine mistake of mine.** It asked why the
+database change didn't have a separate, tested rollback file. Writing that file made me actually
+run the rollback query — and it didn't work. The rollback recipe I'd written into the migration
+was looking in the wrong table entirely, so it would have quietly restored nothing. Worse, because
+I'd run the migration twice, the "obvious" fix (take the most recent backup) would have restored
+the *already-changed* state and reported success. Both are fixed, and both are written down in the
+wrong-calls log, because "we have a backup" is exactly the kind of thing you only discover is
+false when you need it.
+
+I also went back and answered, with evidence rather than argument, three things the reviewers were
+right to be sceptical about: what happens to a held-back link instruction if the tool page never
+goes live (it is cleaned up automatically after 48 hours — I read the cleanup job's actual rule),
+who ever reads the new "this was skipped, here's why" records (the diagnosis system pulls them in
+whenever anyone investigates that site; they're deleted after 30 days), and whether the currently
+running server really is the old version (yes — I checked the running process, not the version
+label, which is the trap the house rules warn about).
+
+Round two came back "revise" again, but not on the substance: one reviewer's answer was lost in
+transit, which automatically fails the round. On the substance it had gone from six approvals to
+nine, with nothing serious left. Round three is with them now.
