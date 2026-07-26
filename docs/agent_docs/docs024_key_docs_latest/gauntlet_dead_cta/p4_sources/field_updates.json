@@ -1,0 +1,63 @@
+{
+  "eyebrow_label": "Today's Round",
+  "hero_title_plain": "Enter the",
+  "hero_title_accent": "Gauntlet",
+  "hero_subtitle": "One provocation. Twenty minutes. An AI opponent that argues the other side, and a judge that says who held up.",
+
+  "panel_active_label": "Today's Provocation",
+  "difficulty_badge_label": "No round yet",
+  "challenge_intro": "Take a position on this and an AI opponent will argue against it. You have twenty minutes to file a position, answer its challenge, and take a verdict.",
+  "status_initial": "No round started yet. Press Enter the Gauntlet — or just file a position below — to start your clock.",
+
+  "cta_enter_label": "Enter the Gauntlet",
+  "cta_preview_label": "How it works",
+
+  "objective_1": "File a position on today's provocation",
+  "objective_2": "Send a defence against the opponent's challenge",
+  "objective_3": "Take the verdict before the clock runs out",
+  "progress_label": "Round Progress",
+
+  "position_step_title": "1 · Your position",
+  "position_step_hint": "State where you stand on the provocation above. A sentence or two is plenty — the opponent argues against whatever you commit to.",
+  "position_placeholder": "I think the opposite, because…",
+  "position_submit_label": "File Position",
+
+  "opponent_title": "The opponent answers",
+  "opponent_challenge_label": "Its challenge to you",
+
+  "defence_step_title": "2 · Your defence",
+  "defence_step_hint": "Answer the challenge directly. The judge reads the whole round, so take on the strongest point against you rather than restating your position.",
+  "defence_placeholder": "That challenge misses because…",
+  "defence_submit_label": "Send Defence",
+
+  "verdict_title": "The verdict",
+
+  "timer_label": "Time Remaining",
+  "timer_initial_display": "20:00",
+  "timer_sublabel": "Starts when your round does",
+
+  "rules_title": "How the Gauntlet works",
+  "rule_1": "Read today's provocation and file a position on it. That starts your twenty-minute clock.",
+  "rule_2": "An AI opponent writes a counter-position and puts one challenge back to you.",
+  "rule_3": "Answer the challenge. A judge reads the whole round and returns a verdict with its reasons.",
+  "rules_footnote": "No sign-up and no account. Your text is sent to the debate engine so the opponent and the judge can read it back.",
+
+  "challenge_title": "",
+  "challenge_description": "",
+  "challenge_number_prefix": "",
+  "timer_start_label": "",
+  "timer_reset_label": "",
+  "leaderboard_title": "",
+  "leaderboard_live_label": "",
+  "reward_label": "",
+  "reward_value": "",
+  "reward_description": "",
+  "stat_competitors_label": "",
+  "stat_competitors_initial": "",
+  "stat_completed_label": "",
+  "stat_completed_initial": "",
+  "stat_streak_label": "",
+  "stat_streak_initial": "",
+  "stat_winrate_label": "",
+  "stat_winrate_initial": ""
+}

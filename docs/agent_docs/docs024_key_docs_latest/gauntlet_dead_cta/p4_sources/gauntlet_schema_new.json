@@ -1,0 +1,223 @@
+{
+  "fields": {
+    "eyebrow_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Small badge above the heading. Names what this page is today. E.g. \"Today's Round\".",
+      "fallback": "Today's Round"
+    },
+    "hero_title_plain": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "First part of the page heading, before the accent word.",
+      "fallback": "Enter the"
+    },
+    "hero_title_accent": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "The accent (coloured) word ending the heading.",
+      "fallback": "Gauntlet"
+    },
+    "hero_subtitle": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "One or two sentences describing what actually happens here: one provocation, a twenty-minute clock, an AI opponent, a judged verdict. Do not promise leaderboards, ranks, scores or other participants — none exist."
+    },
+    "panel_active_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label on the provocation panel header.",
+      "fallback": "Today's Provocation"
+    },
+    "difficulty_badge_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Initial round-state badge text before a round starts. Replaced at runtime by the live round state.",
+      "fallback": "No round yet"
+    },
+    "challenge_intro": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Short static explanation, shown under the provocation, of what pressing the button does. Must match the real flow: file a position, the opponent challenges it, a judge returns a verdict, twenty minutes."
+    },
+    "status_initial": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "The status line before anything has happened. Must say plainly that no round has started and how to start one. This element is also the honest channel for offline and error messages at runtime, so keep it neutral."
+    },
+    "cta_enter_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label of the button that starts a real round.",
+      "fallback": "Enter the Gauntlet"
+    },
+    "cta_preview_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label of the secondary link to the rules card.",
+      "fallback": "How it works"
+    },
+    "objective_1": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "The first of three objectives. It is completed ONLY when the /position call returns, so it must describe exactly that: filing a position. Never write an objective the visitor cannot complete through the three real steps."
+    },
+    "objective_2": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "The second objective, completed ONLY when the /defend call returns: sending a defence."
+    },
+    "objective_3": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "The third objective, completed ONLY when a verdict arrives with time still on the clock. Describe that, not a rank or a prize."
+    },
+    "progress_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label beside the progress percentage. The percentage means completed objectives out of three — never a score or a win rate.",
+      "fallback": "Round Progress"
+    },
+    "position_step_title": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Heading of the first input step.",
+      "fallback": "1 · Your position"
+    },
+    "position_step_hint": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "One or two sentences telling the visitor what to write as their position."
+    },
+    "position_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Placeholder text inside the position textarea.",
+      "fallback": "I think the opposite, because…"
+    },
+    "position_submit_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label of the button that sends the position to the opponent.",
+      "fallback": "File Position"
+    },
+    "opponent_title": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Heading of the block holding the opponent's counter-position and challenge.",
+      "fallback": "The opponent answers"
+    },
+    "opponent_challenge_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Small label above the opponent's challenge question.",
+      "fallback": "Its challenge to you"
+    },
+    "defence_step_title": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Heading of the second input step.",
+      "fallback": "2 · Your defence"
+    },
+    "defence_step_hint": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "One or two sentences telling the visitor how to answer the opponent's challenge."
+    },
+    "defence_placeholder": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Placeholder text inside the defence textarea.",
+      "fallback": "That challenge misses because…"
+    },
+    "defence_submit_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label of the button that sends the defence to the judge.",
+      "fallback": "Send Defence"
+    },
+    "verdict_title": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Heading of the verdict block.",
+      "fallback": "The verdict"
+    },
+    "timer_label": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Label above the countdown.",
+      "fallback": "Time Remaining"
+    },
+    "timer_initial_display": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Clock reading before a round starts. Must match the real round length of twenty minutes.",
+      "fallback": "20:00"
+    },
+    "timer_sublabel": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Small line under the countdown. The clock starts only when a round starts.",
+      "fallback": "Starts when your round does"
+    },
+    "rules_title": {
+      "type": "text",
+      "source": "static",
+      "required": false,
+      "llm_guidance": "Heading of the rules card.",
+      "fallback": "How the Gauntlet works"
+    },
+    "rule_1": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "Rule one. Describe the real first step: read the provocation, file a position, the clock starts."
+    },
+    "rule_2": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "Rule two. Describe what the AI opponent actually returns: a counter-position and one challenge."
+    },
+    "rule_3": {
+      "type": "text",
+      "source": "llm",
+      "required": true,
+      "llm_guidance": "Rule three. Describe the judged verdict with reasons."
+    },
+    "rules_footnote": {
+      "type": "text",
+      "source": "llm",
+      "required": false,
+      "llm_guidance": "Closing line of the rules card. State honestly what happens to the visitor's text. There is no sign-up, no account, no score kept and no leaderboard — do not imply any of them exist."
+    }
+  }
+}
