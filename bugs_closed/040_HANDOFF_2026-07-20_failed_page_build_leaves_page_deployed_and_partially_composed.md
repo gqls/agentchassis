@@ -16,6 +16,18 @@
 > item; deferral policy (should `needs_human_review` hold the deploy stamp?) =
 > flagged to council, owner-level question, current behaviour unchanged.
 >
+> **CANDIDATE 2 IS LIVE 2026-07-26 (v1.0.1170, re-confirmed v1.0.1171) — but its
+> BEHAVIOUR IS NOT YET INDUCED.** Pod-grep is discriminating and passes
+> (`no error_message literal` → 1, control `build is short of its plan` → 1, negative
+> → 0). No work item has been stamped `failed` by `mark_item_failed` since the roll,
+> so the flat blank-error census is **absence of traffic, not evidence** — do not read
+> it as verification. An induced-fault probe is built and ready but has failed to
+> dispatch five times for reasons unrelated to this fix.
+> **CONTINUE HERE →**
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_040_partial_build/HANDOFF_2026-07-26_continue_here.md`
+> (probe IDs, the fire command, what has been ruled out, next hypotheses, cleanup SQL).
+> A verification debt, not a defect; nothing is blocked on it.
+
 > **CANDIDATE 2 DONE 2026-07-25 (`43002d3a4`), INERT until the next image roll.**
 > The last unowned residual is built: `update_work_item_status` now records the
 > routed step error on the work item when the workflow supplied no literal. See
