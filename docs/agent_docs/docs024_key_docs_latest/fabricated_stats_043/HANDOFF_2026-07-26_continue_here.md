@@ -1,0 +1,132 @@
+# HANDOFF — fabricated-stats lane (bug 043), 2026-07-26 evening
+
+**Read this first, then `bugs_closed/043_…generated_page_copy_invents_quantitative_claims.md`.**
+Resolve `043` **by slug** — the other `043` is the diagnosis route-hang.
+
+Nothing here is blocked or half-finished. The bug is closed and proven. This document
+exists because the session ran long, and because three things are *owed* rather than
+broken.
+
+---
+
+## 1. State in one paragraph
+
+Bug 043 (generated page copy invents statistics) is **CLOSED and live**, all four fix
+candidates shipped, and the chain is proven end-to-end on production traffic. Bug 073
+(the honest-empty-stat build failure) is **CLOSED** on the same fix. The chassis is at
+**v1.0.1171**, pod-verified as carrying every Go change including the two made after the
+council review. One follow-on gap is tracked as **`bugs_open/093`**. The council gate
+verdict is **REVISE at round 5** and **no `Council-Reviewed:` trailer exists anywhere in
+this lane** — deliberately.
+
+## 2. What shipped, and where it lives
+
+| artefact | what it does | state |
+|---|---|---|
+| `sql_for_agents/217_stat_values_optional_and_template_gated.sql` | candidate 1: 80 stat fields optional across 10 components, 46 `{{if}}` template gates, `e.g. '2.4M'` invention seeds stripped, `component-creator` NUMERIC FIELDS RULE, writer prompt names the optional case | **live**, config |
+| `sql_for_agents/218_evidence_facts_for_043_sites.sql` | real `facts[]` for robot-hands, gamesdesign, ai-agent-orchestration | **live**, config |
+| `sql_for_agents/219_page_build_declares_sections_metadata.sql` | `require_sections_metadata` on page-build-handler | **live**, config |
+| `sql_for_agents/219b_content_reviewer_declares_sections_metadata.sql` | same on content-reviewer (dormancy is not closure) | **live**, config |
+| `datahelpers/claims_stats.go` | candidates 2+4: `StatClaim`, `ExtractStatClaims`, `ScanStatClaims`, `LintStatUnits` | **live** in v1.0.1171 |
+| `actions/validate_page_content_stats.go` | check 9 in the build gate, + the `stat_audit_unavailable` warning | **live** in v1.0.1171 |
+| `fabricated_stats_043/SQL_2026-07-26_aao_enterprise_reference_deployment.sql` | de-fabricated the live residual the 07-24 sweep missed | applied; **page needs a re-render to publish it** |
+| `fabricated_stats_043/SQL_2026-07-26b_writer_block_volatile_figures.sql` | removed falling figures from aao's prose block | **live**, config |
+
+**Pod verification (the house rule — never git):**
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'stat_audit_unavailable'"
+# 1  — discriminating marker: a string THIS change created
+```
+
+## 3. The three things owed
+
+**(a) `bugs_open/093` — the re-render path is unguarded.** The stat audit is generic but
+has one call site (the build gate). The re-render path renders stored `content_data` with
+no audit, so a persisted junk suffix would republish for ever. **Live exposure is nil by
+measurement** (the fleet-wide suffix sweep returns five rows, all legitimate tool units),
+but the structure is real. **The council raised this at HIGH in round 1 and again in round
+5, and said plainly that deferring it is what blocks approval.** Its candidate (1) — extend
+`discovery_checks/check_unverified_claims.go` to sweep `content_data`, reusing the
+`claims_unverified` item type so there is no `verifier_coverage_test.go` obligation — is
+the shape to build. This was deferred as a judgement, not an oversight: new feature work on
+live production code at the end of a long session is worse than a tracked gap at zero
+exposure.
+
+**(b) Evidence registers for the remaining publishing sites.** Owner asked for all of them.
+Done: robot-hands, gamesdesign, ai-agent-orchestration (mig 218) + the pre-existing
+leopardess / relojistas / fundamentallyai. **Outstanding:** webdesign.co.uk (98 live pages),
+finetuning.uk (41), gaswholesalers.com (28), idea.uk (20), vetcomparison.uk (5),
+dartsonline.com (4), plus `facts[]` for vonc and oufe. The 17 `pool-*.internal` rows have
+zero deployed pages and need none. **Three want their owning thread consulted first:** oufe
+runs a stricter no-figures rail, vetcomparison carries a legal record from published
+fabricated prices, idea.uk is owned elsewhere.
+
+**(c) Spec-aspect numeric drift.** A number in a `briefing`/`identity`/`site_plan` spec is
+an *instruction* to the writer and nothing refreshes it. leopardess `identity` says "143
+agent definitions, of which 56 are active"; live is **175 active**. Wave-2d's parting
+lesson, still unfixed, now measured fleet-wide.
+
+Smaller: `aao/enterprise-reference-deployment` needs a re-render to publish its corrected
+stats; `043`'s point (c) (partial blanking) is deliberately unimplemented and needs its own
+function over raw `content_data`.
+
+## 4. The council trail — read before resubmitting
+
+Submission correlation **`569241fb-dd8d-4bcf-b382-234dfca1365c`**, five rounds, ending
+**REVISE**. Resubmit on the same correlation so the trail accumulates:
+`RESUBMIT_CORR=569241fb-… ./…/097_TRIGGER_council_review_v1.sh <submission.json>`
+
+Two things a resubmitter must know:
+
+1. **Migration `219b` answers round 5's MEDIUM and has never been put to the gate** — it
+   was applied after the last submission. So the *current* state is better than the last
+   verdict reflects.
+2. **Expect the HIGH to stand until 093's candidate (1) is built.** The council said so
+   twice, escalating. Do not resubmit hoping prose will settle it; it already refused that.
+
+**Every objection it raised was correct.** Round 1 found two real defects in code that was
+already live. Rounds 2–4 found my *description* overstating sound engineering — stale
+sketches, a remediation claimed as done that was neither done nor necessary, and "both
+objections answered in code" when one was coded and one filed. Round 5 returned to
+substance.
+
+## 5. Landmines — each of these cost this lane real time
+
+- **`ParseEvidenceBase` returns nil when a row has no `facts[]` AND no `banned_claims[]`.**
+  A `writer_block`-only row therefore switches **both** claims checkers off silently, while
+  the writer_block keeps working (the prompt reads `site_specs` directly). That is how three
+  sites were "protected" for two days with the checkers blind. **Verify each half against
+  its own consumer — a green writer says nothing about a gate.**
+- **Never set `writer_block_managed: true`.** `composeWriterBlock` emits only NUMBERS /
+  CAPABILITIES / NAMED ENTITIES — no NEVER-STATE section — so managed regeneration silently
+  deletes the ban lists.
+- **A figure may live in the writer's prose block only if it CANNOT FALL.** Facts
+  auto-refresh; a hand-managed block does not. A rolling-window or reaped figure will drift
+  out of support and the gate will correctly reject the page. This bit me the same evening
+  (1834 → 1790).
+- **A page-rerender is NOT a rebuild**, though it stamps `page_components.updated_at` and
+  `build_status`. Query `orchestration_states.owner_agent_type` for the window when claiming
+  an agent ran. A fresh timestamp witnesses a touch, not an author.
+- **`%stat%` is not a safe field predicate** — it also catches `availability_status` and
+  `empty_state_label`. Enumerate.
+- **`NULL || jsonb` is NULL**, and `jsonb_set(x, path, NULL)` returns NULL, so a merge-patch
+  on a renamed field nulls the component's whole `input_schema`. Guard with
+  `AND input_schema #> path IS NOT NULL`.
+- **Gate a table's `<tr>`, never its `<td>`** — hiding a cell under a fixed `<thead>` shifts
+  every later column left.
+- **A shell `until [ "$(query)" -lt N ]` loop exits when the query fails**, because
+  `[ "" -lt N ]` is a usage error and `until` reads non-zero as satisfied. Bind, default,
+  and require non-empty. This nearly made me report a verdict that did not exist.
+
+## 6. Where the rest of the record is
+
+- `bugs_closed/043_…` — the account of record, including § Final verification and § Post-close
+  deployment note.
+- `bugs_closed/073_…` — closed by another thread on this fix; carries a correction and a
+  counter-correction worth reading as a worked example.
+- `bugs_open/093_…` — the tracked gap, with the council's escalation quoted.
+- `NOTES_fabricated_stats_043.md` — the technical log, including three missteps.
+- `README_where_we_are.md` — the owner's plain-prose history of the evening.
+- `WRONG_CALLS.md` — four entries from this session, of which the one worth reading is
+  *"three consecutive council rounds caught my prose overstating sound code"*.
