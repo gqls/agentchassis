@@ -4,8 +4,19 @@
 prompted by a council objection (seat `bug_historian`, correlation
 `7ed137d1-361c-4f69-9361-9e4ba1dfa6bf`, round 2) that asked the one question I
 had not: *how many other call sites have this exposure?*
-**Status:** OPEN, not started. Filed as a case, deliberately NOT fixed inside
-the feature batch that found it.
+**Status:** FIXED IN CODE, **INERT until the next image roll** — so still OPEN
+per the `/bugs_closed/` bar (fixed AND live). Fix: `platform/orchestration/
+actions/truncation_guard.go`.
+
+> **CORRECTED 2026-07-26 — the title and the headline measurement are both
+> wrong, and the correction matters more than the fix.** There are not 113
+> unguarded call sites. Those 113 steps **do not tolerate truncation at all** —
+> they already fail closed, because `tolerate_truncation` is opt-in and defaults
+> to false (`ai_actions.go:401`). Fix candidate 1 below was therefore **already
+> built before this case was filed**. The measurement that produced "5 of 58"
+> tested the wrong property (see *The measurement was of the wrong thing*).
+> The real defect is narrower and still real: the opt-in was **unpoliced**.
+> Caught by reading the producer before fixing it.
 
 ---
 
@@ -137,6 +148,154 @@ Induce the fault, do not trust a green path (`verify-the-failing-branch`): set
 cut, and confirm (a) the step fails or is recorded, per the chosen candidate,
 and (b) no downstream artefact is written from the fragment. A run that
 succeeds proves only that the happy path still works.
+
+---
+
+# FIX, 2026-07-26 — police the opt-in
+
+## The measurement was of the wrong thing
+
+Every figure below is live, run 2026-07-26 against `clients_db`.
+
+**1. `tolerate_truncation` is opt-in and defaults false.** The mechanism section
+above quotes `markTruncated(out, truncationTolerated, ...)` as if it always
+fires. It does not: `markTruncated` returns immediately unless `tolerated` is
+true, and `truncationTolerated` is only ever set inside
+`if isTruncatedCall && tolerateTruncation`, where
+
+```go
+tolerateTruncation := datahelpers.GetBoolField(params.StepConfig.Config, "tolerate_truncation", false)
+```
+
+So a step that says nothing **fails closed today**. Candidate 1 was already the
+behaviour. What the live config actually shows:
+
+```sql
+SELECT count(*) AS total_llm_steps,
+       count(*) FILTER (WHERE COALESCE(v->'config'->>'tolerate_truncation','false')='true') AS tolerating
+FROM agent_definitions d, jsonb_each(d.default_config->'workflow'->'steps') AS e(k,v)
+WHERE d.is_active AND COALESCE(d.is_snapshot,false)=false AND d.deleted_at IS NULL
+  AND v->>'action'='execute_llm_prompt';
+--  118 | 37
+```
+
+**37 of 118, not 113 of 118.** The other 81 have no exposure to guard.
+
+**2. "Definitions that mention `__truncated`" is a false-negative test.** The
+`LIKE '%__truncated%'` query counted 5 because `council-gate` and `fix-proposer`
+happen to name the marker in config text. `feature-designer` does not — and is
+guarded anyway, because its guard is in **Go**: `diagnose_council_decide` derives
+the marker path from the reviewer field (`markerFieldFor`:
+`review_x.result` → `review_x.__truncated`). Config mention is neither necessary
+nor sufficient, so the "5 of 58" ratio measures nothing about guarding.
+
+Where the 37 tolerating steps actually live, and what consumes them:
+
+| agent | tolerating steps | decide step's action | guarded |
+|---|---|---|---|
+| `council-gate` | 16 | `diagnose_council_decide` | yes |
+| `fix-proposer` | 16 | `diagnose_council_decide` | yes |
+| `feature-designer` | 5 | `diagnose_council_decide` | yes |
+
+**Every tolerating step in the fleet is consumed by a guarded action.** The
+observed-harm figure the file left `[UNMEASURED]` is therefore: none reaching an
+unguarded consumer.
+
+**3. The marker does survive into `collected_data`** — which the gripper thread
+had flagged as unproven ("the truncation guard is a silent no-op" was the worry):
+
+```sql
+SELECT jsonb_object_keys(collected_data->'review_editquality'), count(*) ...
+--  result: 25 | type: 25 | __truncated: 7 | __truncated_output_tokens: 7
+```
+
+7 live orchestrations carry the marker. The delivery half is proven; note this
+proves the marker ARRIVES, not that the consumer's degrade path was exercised.
+
+**4. Candidate 3 is already built producer-side.** `llm_call_log` rows carry a
+`TOLERATED (step continued on the partial):` prefix — 29 real rows, most recent
+2026-07-26 16:21. That is durable and queryable, unlike the `orchestration_states`
+copy the file's sizing query uses (pruned at 24h).
+
+## So what was actually broken
+
+The producer half fails closed; the consumer half was enforced by **nothing**.
+Both existing guards were hand-built after an incident. Any step could set
+`tolerate_truncation: true` in a workflow where nothing reads the marker, and no
+test, seed check or report would say so. The exposure was **latent, not active** —
+which is precisely why it would have been found the expensive way.
+
+## The fix
+
+`platform/orchestration/actions/truncation_guard.go`. Before keeping a partial,
+`ExecuteLLMPromptAction` now checks that the workflow contains a step that reads
+the marker; if not it **refuses to tolerate** and returns the loud failure the
+step would have had before opting in.
+
+- `truncationAwareActions` — one registry naming each action whose code reads
+  `__truncated`, with its mechanism, replacing "grep and hope".
+- `accepts_truncated: true` — per-step config escape hatch for actions too
+  generic for the Go registry to speak for.
+- `ActionParams.WorkflowSteps` — the plan, plumbed from the coordinator (its only
+  production construction site), so a producing step can see its own workflow.
+- The producing step cannot certify itself.
+
+**Candidate 2 was considered and rejected on evidence.** Gating on "does this
+step reference the truncated field" needs reference-detection across prompt
+templates and config paths; a textual scan against live config matched **28**
+"consumers" in the council agents alone, nearly all spurious. A gate built on it
+would fail closed on sound workflows. So the guard asks whether the workflow has
+**a** guarded consumer, not whether the fragment reaches it: **a floor, not a
+proof**, stated as such in the code.
+
+**Blast radius: zero.** The live mirror of the guard's own predicate:
+
+```sql
+-- has_guarded_consumer, per tolerating agent
+council-gate | t     feature-designer | t     fix-proposer | t
+```
+
+## MISSTEP, recorded — the lockstep test was vacuous on its first write
+
+`TestTruncationAwareActionsReadTheMarker` scans the package for a file that both
+names a registered action and reads `__truncated`. It passed a deliberate
+falsification probe (a bogus `render_page_html` entry) **because
+`truncation_guard.go` itself contains both** — the registry file satisfied its own
+check, so any name added would have passed forever.
+
+Caught by running the probe rather than trusting the green. Fixed by excluding
+the registry's own file; re-probed, and it now fails with the right message.
+This is the `WRONG_CALLS.md` "a check sharing the fix's regex cannot falsify it"
+pattern, third recorded instance — **run the probe, every time.**
+
+## How to verify after the roll
+
+Deployment (the symbol is new, so this is discriminating — it cannot pass
+pre-roll):
+
+```bash
+kubectl exec -n ai-persona-system <pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "no step in this workflow consumes the __truncated marker"'
+```
+
+Correctness needs the **failing** branch induced, not a green council: seed a
+throwaway agent with one `execute_llm_prompt` step carrying
+`tolerate_truncation: true`, `max_tokens: 16`, and **no** guarded consumer, then
+confirm the step fails with the bugs_open/076 message and writes no artefact. A
+passing council proves only that the 37 guarded steps still work — which is the
+regression check, not the proof.
+
+## Residual (not fixed here)
+
+- **[UNVERIFIED]** No induced-truncation run has yet exercised
+  `diagnose_council_decide`'s degrade path end to end. The marker's arrival is
+  proven; the consumer's reaction is not.
+- The consumer's degradation is logged with `zap.Warn`, which dies with its pod.
+  `llm_call_log` records that the producer tolerated, nothing durably records
+  that a consumer degraded. The `recordUnknownVerdict` precedent applies.
+- `platform/orchestration/orchestration_test.go:171` does not compile at HEAD
+  (`NewSagaCoordinator` called with 3 args, needs 4). Pre-existing, another
+  workstream's, untouched here — but it means that package's tests do not run.
 
 ## Related
 

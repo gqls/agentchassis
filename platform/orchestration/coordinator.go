@@ -1465,6 +1465,10 @@ func buildActionParams(ctx context.Context, execCtx *types.ExecutionContext, sta
 		Tracer:          coordinator.tracer,
 		AgentType:       state.OwnerAgentType,
 		CurrentStep:     state.CurrentStep,
+		// The whole plan, not just this step: an action that tolerates a partial
+		// result has to know whether anything downstream guards it
+		// (bugs_open/076, findTruncationAwareConsumer).
+		WorkflowSteps: state.WorkflowPlan.Steps,
 	}
 }
 

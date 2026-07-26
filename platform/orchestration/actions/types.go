@@ -57,6 +57,15 @@ type ActionParams struct {
 	Tracer           types.MessageTracer // interface
 	AgentType        string
 	CurrentStep      string
+
+	// WorkflowSteps is the running plan's step map, so an action can reason
+	// about the workflow it sits in rather than only about itself. Added for
+	// bugs_open/076: tolerating a truncated LLM response is only safe if some
+	// step downstream reads the __truncated marker, and the producing step
+	// cannot know that from StepConfig alone. Populated by the coordinator,
+	// which is the only production caller; an empty map means "plan unknown"
+	// and truncation tolerance fails closed on it.
+	WorkflowSteps map[string]models.Step
 }
 
 // AgentDefinition represents an agent's configuration from the database

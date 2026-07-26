@@ -3994,3 +3994,26 @@ the opposite direction: that row is "waited too long because absence means queue
 is "gave up too early because absence means dropped". Same ambiguity, opposite conclusions,
 and in both cases the resolving evidence was a timestamp comparison nobody ran.
 Family: absence-is-ambiguous, false-concurrency, counts-without-timestamps.
+
+**2026-07-26 — wrote a lockstep test that could not fail, and nearly shipped it as the
+guard's proof.** Fixing `bugs_open/076` I added `truncationAwareActions`, a registry naming
+each action whose code reads the `__truncated` marker, plus
+`TestTruncationAwareActionsReadTheMarker` to hold registry and code in lockstep: it scans the
+package for a non-test file that both names a registered action and reads `"__truncated"`.
+The test passed. It would have passed for **any** name, forever — `truncation_guard.go`, the
+file holding the registry, names `__truncated` in its own doc comment, so every entry
+satisfied the check simply by being declared. The test asserted that I had written the
+registry, not that the guard existed.
+**What caught it:** running a falsification probe instead of trusting green — inserting a
+deliberately bogus `"render_page_html"` entry and requiring the test to FAIL. It passed, which
+is the whole finding. Excluding the registry's own file from the scan made it fail with the
+right message; restoring the real registry made it pass again.
+**The cheap check:** after writing any check, break the thing it checks and watch it fail.
+Ten seconds. Without it a green test is evidence of nothing — and this one would have been
+cited in a bug file as proof the guard was held in place.
+**The class:** the checker and the checked sharing ground. Already recorded twice in the
+brochure-component lane as "a check sharing the fix's regex can't falsify it"; this is the
+third instance and the first where the shared ground was a **doc comment** rather than a
+regex, which is why it did not look like the known pattern. The general form: a check that
+reads the same file it validates will validate itself. Family: vacuous-assertion,
+checker-shares-ground-with-checked, green-without-a-probe.

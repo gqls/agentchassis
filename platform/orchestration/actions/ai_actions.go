@@ -446,12 +446,39 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 		// llm_call_log row above stays success=false, keeping the forensic trail
 		// the case file's own diagnostic queries rely on.
 		if isTruncatedCall && tolerateTruncation {
+			// The marker is only HALF the contract, and until bugs_open/076 the
+			// other half was enforced by nothing: tolerating is safe only where a
+			// consumer reads __truncated, yet any step could set
+			// tolerate_truncation: true and be believed. Check the workflow
+			// actually contains a reader before keeping the fragment, so a new
+			// call site is safe by omission rather than by vigilance — the same
+			// inversion that already makes tolerance itself opt-in.
+			//
+			// Refusing here costs the run the partial and returns the loud
+			// failure the step would have had before it opted in. That is the
+			// correct trade: an unguarded consumer does not fail, it succeeds
+			// with a half-answer, which is the strictly worse bug this whole
+			// mechanism exists to avoid.
+			guardStep, guarded := findTruncationAwareConsumer(
+				params.WorkflowSteps, params.CurrentStep, params.ExecutionContext.StepName)
+			if !guarded {
+				params.Logger.Error("LLM response was TRUNCATED and the step sets tolerate_truncation, but NO step in this workflow reads the __truncated marker — refusing to tolerate (bugs_open/076)",
+					zap.String("step_name", params.ExecutionContext.StepName),
+					zap.String("agent_type", params.AgentType),
+					zap.Int("output_tokens", truncErr.OutputTokens),
+					zap.Int("workflow_steps", len(params.WorkflowSteps)),
+				)
+				return nil, fmt.Errorf("step %q sets tolerate_truncation but no step in this workflow consumes the __truncated marker, so a partial response would be indistinguishable from a complete one (bugs_open/076): raise max_tokens, drop tolerate_truncation, or give the consuming step accepts_truncated: true once it handles a partial: %w",
+					params.ExecutionContext.StepName, err)
+			}
+
 			truncationTolerated = true
 			truncatedTokens = truncErr.OutputTokens
 			result = truncErr.Partial
 
 			params.Logger.Warn("LLM response was TRUNCATED — tolerating per step config; downstream must treat this result as partial",
 				zap.String("step_name", params.ExecutionContext.StepName),
+				zap.String("guarded_by", guardStep),
 				zap.String("reason", truncErr.Reason),
 				zap.Int("output_tokens", truncErr.OutputTokens),
 				zap.Int("partial_chars", len(truncErr.Partial)),
