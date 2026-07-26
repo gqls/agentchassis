@@ -274,3 +274,38 @@ tidy-up of the three misleading items in the backlog has to wait until after tha
 actually works, including the deliberately awkward one where we prove the scanner
 still *does* file work on a site that has real fixable problems, are written out
 at the bottom of the closed bug file.
+
+---
+
+**2026-07-26, later — it's live, and the tidy-up is done.**
+
+A new build went out (v1.0.1171) and the change is running. I checked it the
+careful way rather than the flattering way: instead of looking for the new wording
+and being pleased to find it, I checked that the *old* wording has disappeared from
+the running program. It has. The old sentence that used to go into the backlog —
+the one that blamed a fixer for failing — cannot be produced any more.
+
+With that confirmed, and only then, I ran the database tidy-up. Order mattered:
+doing it the other way round would have let the old scanner immediately re-create
+the three misleading entries. It changed exactly the three we predicted, and left
+alone the sites that do have real fixable problems, which was the property worth
+having.
+
+Then the real test. On finetuning.uk — a site where the scanner sees eight problems
+and the fixer can repair none of them — the system now files one entry that says so
+plainly, marked as needing a new capability, assigned to nobody, and not queued for
+anyone to attempt. It filed no work for the fixer at all. That is exactly right, and
+it is the first time the backlog has told the truth about that site since April.
+
+One thing is still outstanding and I want to be straight about it: I have not yet
+watched the *other* half work on a live site — a site where there IS something the
+fixer can mend, where it should file real work AND a capability note side by side. A
+good result on a site with nothing to fix looks identical to a scanner that has
+stopped working altogether, which is why that second test exists. It's pinned by
+automated tests; it isn't yet pinned by the fleet. A run is in flight.
+
+A small operational note, because it cost time twice today: dispatches sent shortly
+after a new build goes out can vanish without a trace — no error, no record,
+nothing. It happened to a review submission earlier and to one of these test runs.
+The fix is a five-second check of when the system last restarted, *before* sending
+anything, rather than waiting twenty minutes and then investigating.

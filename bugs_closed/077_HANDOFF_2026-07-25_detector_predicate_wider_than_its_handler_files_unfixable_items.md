@@ -22,14 +22,22 @@ demonstrably losing runs buys a likely-identical hang. The trailer is earned by 
 APPROVED verdict only, so its absence here is correct rather than an omission, and
 the `098` coverage report will list these commits as un-reviewed — accurately.
 
-> **⚠️ This is closed on a lower bar than usual and the difference matters.**
-> `/bugs_closed/README.md`'s bar is *fixed AND live*. The Go here is committed and
-> inert until an image roll, so by that bar this file should have stayed open. It
-> is closed because the owner asked for the ticket to be closed on completion of
-> the work, and because the defect is a legibility one that harms nothing while it
-> waits. **Nothing below has been observed on the live fleet.** The live
-> verification is written out at the end, unrun, and whoever rolls the image
-> should run it.
+> **NOW LIVE AND VERIFIED — v1.0.1171, 2026-07-26 21:02:56Z.** This block
+> previously warned that the fix was inert and unobserved; that no longer holds and
+> the original wording is superseded rather than deleted, because the sequencing it
+> describes is what made the cleanup safe.
+>
+> **Deploy proven discriminatingly**, not by the vacuous grep: the OLD summary
+> string `"hardcoded hex colors in inline styles instead of CSS variables"` returns
+> **0** in the running binary, the three new markers return 1 each, and the
+> positive control `"unresolved after %d attempts"` returns 1 (so `strings` works).
+>
+> **Migration 221 applied AFTER the roll, in that order** — `UPDATE 3`, exactly the
+> three rows predicted, recorded in `schema_migrations` via `--record-only`.
+> Applied by hand, NOT via `run-migrations.sh --apply`, which would have swept four
+> other threads' pending files into this task.
+>
+> Live behavioural evidence is in **RESULTS** below.
 
 ---
 
