@@ -560,10 +560,86 @@ makes it easy to misread as "my page is stuck". **The build pipeline is down, no
 fix.** Work item `54734027-a910-4d86-9cc1-336f0619fe47` is parked `triaged` for whoever
 picks this up; correlation `8085c770-5011-49c4-a7e4-14035a6ba753` is the direct fire.
 
+> **SUPERSEDED the same evening — the stall cleared and the rebuild ran.** See the update
+> immediately below: correlation `81efa9cb-a501-4bbb-b27a-a12d2aa68089` at 19:06–19:10
+> passed iteration 4. The direct fire above (`8085c770…`) did eventually start at 18:44 and
+> then died at `spawn_content_writer` with "timed out after 3 retries" — a postgres restart
+> at ~18:52, not this fix.
+
+### Update, same evening (19:07–19:20) — the Go half went LIVE, the rebuild PASSED iteration 4, and check 9 caught a drift I had just created
+
+Three things landed after the sections above were written. All measured.
+
+**1. The image was rolled to `v1.0.1170` by another session, so candidates 2+4 are LIVE,
+not inert.** Every line above saying "inert until the next image roll" is superseded.
+
+**2. The end-to-end rebuild ran and got PAST iteration 4** — the verification both this
+file and `073` asked for, now observed rather than argued. Correlation
+`81efa9cb-a501-4bbb-b27a-a12d2aa68089`, 19:06–19:10. The writer produced all eight sections
+(`generated_content_0` … `generated_content_7`), including **`generated_content_4`, the
+`case-studies-grid` iteration that killed the build deterministically on 07-24 and 07-25**.
+What it wrote into the five previously-fatal slots:
+
+| slot | value | label |
+|---|---|---|
+| card1 | `1,834` | Orchestrations in 24 hrs |
+| card2 | `14` | Live sites in production |
+| card3 | *(empty)* | *(empty)* |
+| card4 | `175` | Active agent definitions |
+| card5 | `17` | Backend services |
+
+Against what that component was serving before — `4 days` / `<10 min` / `8+` / `1,267` /
+`100%`, invented per-case-study outcome metrics — **four of the five are now figures
+registered in migration 218 hours earlier, and the fifth is honestly blank.** That is
+candidates 1 and 3 working together as designed: a legal way to say "I have no figure",
+and a register of true ones to reach for instead. First live exercise of 218's registers,
+consumed within the hour.
+
+**3. Check 9 fired on real traffic and was right — about a defect I had introduced that
+afternoon.** The build stopped at `validate_content`, 0 blockers / 3 errors, all the same
+figure:
+
+```
+unregistered_number  1,834  claims       "…Platform 1,834 Orchestrations in 24 hrs"
+unregistered_stat    1834   stat_claims  system-stats.stat2_value
+unregistered_stat    1,834  stat_claims  case-studies-grid.card1_stat_value
+```
+
+The two `unregistered_stat` rows are check 9 — the new content_data lane — reporting
+`component.field` locations on its first live run. The `unregistered_number` is check 8,
+active on this site for the first time because 218 finally gave it facts to compare against.
+
+**Why it fired is the useful part.** 218 gave each fact a `source.sql` so
+`refresh_evidence_base` keeps it current, and deliberately left `writer_block` hand-managed
+(managed regeneration would delete the NEVER-STATE list). At 18:34 the refresher re-ran
+`aao-orchestrations`' SQL; the rolling 24-hour window had moved and rows had been pruned,
+so the **fact fell 1834 → 1790**. The prose block still said "1,834". At 19:07 the writer
+did exactly as instructed and wrote 1,834; at 19:10 the gate, reading the fresh fact,
+rejected it — `1834 > 1790` fails tolerance `gte`. **The gate was right, and the page was
+correctly stopped from deploying.**
+
+But the cause is mine: **hand-managed prose plus auto-refreshed facts guarantees drift for
+any fact whose value can FALL**, and it would have fired on every refresh cycle thereafter.
+Fixed in `SQL_2026-07-26b_writer_block_volatile_figures.sql`, deliberately narrower than the
+problem:
+
+- **Monotonic-ish counts keep their dated snapshot** (active agent definitions, distinct
+  agent types, live sites, backend services). They only grow, so a snapshot stays ≤ the
+  live fact and `gte` keeps supporting it — and they are what produced the good result above.
+- **Windowed and reaped metrics lose their absolute figure**: orchestrations-per-day rolls,
+  work-items-completed is reaped (1,267 → 1,051 → lower). Both now carry a qualitative form
+  the writer can still use ("over a thousand orchestrations a day") plus an explicit
+  instruction not to state an exact figure.
+
+**Transferable rule: a figure may live in the writer's prose block only if it cannot fall.**
+Anything windowed, reaped or otherwise non-monotonic must be qualitative there and numeric
+only in the register.
+
 ### Still open on this bug
 
-- **The Go audit (candidates 2+4) is committed but INERT until the next image roll.**
-  Verify then with `strings /app/agent-chassis | grep -c stat_unit_impossible` against the
+- ~~**The Go audit (candidates 2+4) is committed but INERT until the next image roll.**~~
+  **Superseded — LIVE in `v1.0.1170` and exercised on real traffic (above).**
+  Verify with `strings /app/agent-chassis | grep -c stat_unit_impossible` against the
   running pod, never git.
 - **The two live residuals above**, both blocked on a re-render.
 - **Evidence registers for the remaining publishing sites** (owner's instruction, this
