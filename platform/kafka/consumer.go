@@ -48,7 +48,7 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		// bugs_open/040-kafka-dial: was an inline 10s dialer. Now the shared
 		// instrumented one, so consumer dials are counted and share the
 		// producer's timeout instead of silently disagreeing with it.
-		Dialer: SharedDialer(),
+		Dialer:            SharedDialer(),
 		SessionTimeout:    sessionTimeout,
 		RebalanceTimeout:  rebalanceTimeout,
 		HeartbeatInterval: heartbeatInterval,

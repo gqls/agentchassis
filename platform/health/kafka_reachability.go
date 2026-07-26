@@ -69,8 +69,8 @@ type KafkaReachability struct {
 // reported "ok" for a pod that could not reach its brokers at all.
 func NewKafkaReachability(brokers []string, logger *zap.Logger) *KafkaReachability {
 	k := &KafkaReachability{
-		brokers:        brokers,
-		logger:         logger,
+		brokers: brokers,
+		logger:  logger,
 		// bugs_open/040-kafka-dial: instrumented, so a failing probe is counted
 		// like every other dial. The 3s budget stays deliberately shorter than
 		// the data path's — this is a probe, and waiting on a wedged broker is
