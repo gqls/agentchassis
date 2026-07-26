@@ -2025,3 +2025,27 @@ a HARDCODED `idea-uk@leopardess.uk` fallback, bypassing the config and the Opera
 the rest of the service uses. Folded into the same deploy: reportContact now takes the address from
 config (ContactEmail → OperatorEmail), so **OPERATOR_EMAIL is the single source of truth** and the
 CONTACT_EMAIL line can simply be deleted.
+
+**§X.18 addendum — owner ran it; and the lock gate is now LIVE (2026-07-26 13:19).** Verified
+read-only: orders now `{requested:60, expired:5, declined:4, delivered:3}` — the five cold slots
+released using the `expired` status (not `declined`, as intended), service restarted 13:19:38,
+`CONTACT_EMAIL` lines now **0**, `/capacity` → `{"active":0,"max":5,"open":true}`. The site banner
+correspondingly renders nothing (open:true → silent by design). Note the removal of CONTACT_EMAIL
+is correct against BOTH binaries: today's deployed one falls back to the hardcoded
+`idea-uk@leopardess.uk`, and the queued one resolves it from `OPERATOR_EMAIL`.
+
+> **CORRECTED 2026-07-26:** several entries in this file and in `p4_03`'s header say
+> `bugs_open/058` (the component lock gate) is "committed but NOT YET LIVE, so lock enforcement is
+> incomplete". **It is now CLOSED & LIVE on v1.0.1165** (closed by another session today,
+> induced-fault proven). Consequences for this workstream: (a) the 27 locked authored sections are
+> genuinely protected now, not just annotated; (b) the p4_08 rule — never lock a section with a
+> `query.*` source — stops being theoretical and becomes load-bearing, since a locked derived
+> listing would now really freeze; (c) editing any locked page from here needs an unlock first.
+
+**Docs written for the handoff (2026-07-26):** `SUMMARY_2026-07-26b` (second today — justified:
+the morning's summary said the remainder was "four pasted commands", and the capacity work turned
+out to be a design gap plus a second deploy, so "where we are now" genuinely differs), and
+`HANDOFF_RESUME_idea_uk_vm_site.md` rewritten with a current ▶ START HERE block (the 07-22 block
+demoted to "PREVIOUS STATE", kept for history — the same supersede pattern the RUNBOOK uses). The
+handoff leads with the one outstanding proof: **no report has yet been received in the new
+format.**

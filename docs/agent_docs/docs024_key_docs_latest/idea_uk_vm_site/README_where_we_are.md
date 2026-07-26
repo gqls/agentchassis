@@ -1334,3 +1334,28 @@ because the last line in the settings file wins, the tool has been using the rig
 whole time — nothing was ever mis-sent. The only real tidy-up is deleting the *other* line (the
 contactforsales one), so nobody later "fixes the duplicate" by deleting the wrong half. The
 corrected command is in the chat; everything else in the walkthrough stands.
+
+## 2026-07-26 (evening) — you cleared it, and here's the handover
+
+Confirmed from here: the queue is open again (nothing active, five slots free), the five old test
+orders are marked "expired" rather than declined so your records stay honest, and the duplicate
+email setting is gone. All good.
+
+Two things I've written up so you can pick this up in a fresh chat whenever you like. There's a
+new summary (SUMMARY_2026-07-26b) explaining why this morning's "just four commands left" turned
+out to be a real design gap — the tool had no way to release an order that went cold, which is why
+clearing by hand kept failing. And the resume handoff is rewritten so it opens with today's state
+instead of last Tuesday's; the old text is kept underneath.
+
+The handoff leads with the one thing genuinely outstanding: **nobody has yet received a report in
+the new format.** Everything is built and deployed for it, but until you run one real order all
+the way through — submit, confirm, read the draft, approve, pay — the biggest change of the week
+is unproven. That's the first thing I'd do.
+
+Behind it sits a second deploy that's written and tested but not on the box: automatic expiry of
+cold orders, so the queue can never silently close itself again. Build-and-copy commands are in
+the handoff.
+
+One useful thing landed today from elsewhere in the estate: the platform's page-locking now
+actually enforces. All the guide and tool text we wrote is genuinely protected from being
+rewritten by an automated pass — which it wasn't, quite, until this afternoon.

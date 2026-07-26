@@ -1,6 +1,133 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-22
+> ## ▶ START HERE — state as of 2026-07-26 (supersedes everything below)
+>
+> **The content pipeline is BUILT AND LIVE. The box is healthy. One proof is outstanding: nobody
+> has yet received a report in the new format.** That end-to-end run is the single most valuable
+> next action — see "DO THIS FIRST".
+
+### What idea.uk is, today (all curl-verified 2026-07-26)
+
+| | |
+|---|---|
+| **Guides** | 9, live, in journey order on a self-populating hub: creating-ideas → building-it → testing-it → user-acceptance → feedback-loops → patents → copyright → funding-ways → funding-sources |
+| **Tools** | 4 cards on `/tools.html`: the £29 Verified Idea Report · "Should you patent it?" (free) · "Which funding route fits?" (free) · Free Audience Check |
+| **Paid tool** | Extended and DEPLOYED (binary built 07-25 15:11): the report now leads with an assessment of the submitted idea, carries "Check it yourself" source links, discloses AI use in the report itself, and renders an honest "too early to assess" outcome |
+| **Box** | `116.203.204.115`, service `idea` restarted 07-26 13:19, queue **open (0/5)**, `OPERATOR_EMAIL=idea-uk@leopardess.uk`, no `CONTACT_EMAIL` line (correct — see §Email) |
+| **Locks** | 27 authored sections locked; both hub listings deliberately unlocked so they keep deriving |
+
+Site id `1244516d-014d-421c-88c6-090bb1e9552a`. SQL applied this arc: `sql/p4_01`…`p4_19`.
+
+### DO THIS FIRST — prove the new report format end to end
+
+Nothing else in this workstream is worth as much. Steps, in order:
+
+1. Submit a real idea at **https://idea.uk/report.html** (the assessment step researches whatever
+   goes in "The business or idea", so give it something concrete).
+2. Operator email arrives → click **confirm**. Expect **20–30 minutes** now: two long web-search
+   passes, not one. (Cost note: ~2× the previous Claude spend per report — an open owner question.)
+3. The **draft to review** is the moment of truth. It must open with **"Your idea, assessed"**
+   (problem + evidence, demand signals, who else, substitutes, defensible/exposed, next step),
+   carry working **"Check it yourself"** source links, and state in the intro that AI researched
+   it with a person reviewing.
+4. **Approve** → pay link → £29 → delivery. Check the delivered email's reply address is
+   `idea-uk@leopardess.uk`.
+
+If the draft does NOT lead with "Your idea, assessed", the binary is older than 07-25 15:11 —
+check with `grep -ac "YOUR IDEA, ASSESSED" /opt/idea/idea` (the box has **no `strings`**).
+
+### SECOND: a deploy is written, tested and waiting
+
+Committed, `go build`/`go vet` clean, full suite green — **inert until the owner builds and
+deploys** (the tool has no CI). Contents:
+
+- **Automatic order expiry** — `Store.ExpireStale` + `App.sweepStale()` at startup, hourly, and
+  before `/capacity` answers. `STALE_REVIEW_DAYS` (14) / `STALE_PAYMENT_DAYS` (7); `0` disables.
+  New terminal status **`expired`**, distinct from `declined`, retaining the row.
+- **`OPERATOR_EMAIL` as single source of truth** — `reportContact()` no longer reads an env var
+  directly with a hardcoded fallback; it is wired from config at `NewApp`.
+- Tests: `expire_stale_test.go` (3 cases: releases the right ones only, CreatedAt fallback for
+  legacy rows, disabled thresholds are a no-op).
+
+```bash
+cd docs/agent_docs/docs024_key_docs_latest/idea.uk/golang_files
+GOOS=linux GOARCH=amd64 go build -o idea .
+scp idea root@116.203.204.115:/opt/idea/idea.new
+ssh root@116.203.204.115 'systemctl stop idea; mv /opt/idea/idea.new /opt/idea/idea; systemctl start idea; sleep 2; systemctl is-active idea; curl -s http://127.0.0.1:8080/capacity'
+```
+
+### THE TRAPS — read these before touching anything
+
+1. **NEVER edit `/var/lib/idea/orders.json` under a running service.** It is read ONCE at startup
+   and rewritten wholesale from memory on every order change. An edit while running is invisible
+   to the process AND gets clobbered by the next request. Cost two failed attempts on 07-26.
+   Always: `systemctl stop idea` → edit → `systemctl start idea` → `curl /capacity`.
+   Corollary: **`systemctl start` on an already-active unit is a no-op** — use `restart`, or
+   stop-then-start. This is what made the second attempt look like the first had failed.
+2. **Never lock a section whose component schema has a `query.*` source.** Locks are row-granular;
+   `SavePageSectionsAction` re-attaches locked rows verbatim, so locking a derived listing freezes
+   it while every render still reports success. Nearly killed the self-populating guides hub on
+   07-25. Every lock script since carries a guard that refuses. **This now bites for real**:
+   `bugs_open/058` (the lock gate) went CLOSED & LIVE on **v1.0.1165** today — locks are enforced,
+   so editing a locked page means unlocking first.
+3. **`page_components.slot_name` must equal `content_components.function`** — the renderer keys
+   its component lookup on `slot_name`, not `component_id`. NULL ⇒ every section is "carried"
+   ⇒ nothing renders ⇒ **the job still reports COMPLETED**. See RUNBOOK Phase 5.
+4. **`pages.sections` is not written by the rerender path** — backfill it, or the page is invisible
+   to `ListedPageEligibilitySQL` and the imagery sweep.
+5. **"No orchestration row" means QUEUED, not dropped.** Check whether *anyone's* orchestrations
+   are starting before re-firing. Latency ranged from <1 min to ~12 min this week.
+6. **Verify against the live page by curl, never the job status or the DB.** VM sitesync is a
+   5-minute timer on top of the render. Every "verified" claim in these docs names the curl.
+7. **A schema field with `source: static` AND a `fallback` is UNOVERRIDABLE** — the fallback is
+   written into resolved_data unconditionally and resolved_data merges last. Hit twice
+   (`guide-list`, `tool-list`); both fixed by dropping the fallback after verifying no-op.
+
+### Email — settled, do not re-litigate
+
+`OPERATOR_EMAIL=idea-uk@leopardess.uk` is **correct for the tool**. The site and the tool
+deliberately use different addresses; an earlier claim that leopardess was "stale" was a site fact
+wrongly widened to the tool (logged in `WRONG_CALLS.md`). The `CONTACT_EMAIL` line has been
+removed and that is right: today's binary falls back to the correct hardcoded address, and the
+queued deploy makes it resolve from `OPERATOR_EMAIL` properly.
+
+### Open decisions for the owner
+
+- **Margin**: each report now makes 6 model calls including two long web-search passes — roughly
+  double the previous spend, at the same £29. Worth revisiting after a few real runs.
+- **Ceiling**: `MAX_ACTIVE_ORDERS=5` is a deliberate throttle on spend and operator attention.
+  Once the funnel produces real volume, is 5 still right?
+- **Report copy** now *undersells* slightly (it mentions both halves but the further-ideas half
+  briefly). Safe direction; revisit only if conversion suggests it.
+
+### Optional housekeeping, no urgency
+
+- ~60 spam `requested` rows from 2026-06-11 (the "elBd" injection strings) still sit in
+  orders.json. They hold no slots. The /request hardening (honeypot, timing, limiter) went live
+  with the 07-25 deploy, so the flood should not recur.
+- Two SES custom MAIL-FROM DNS records outstanding since 07-18 (deliverability, not blocking).
+
+### Where the record lives
+
+- `RUNNING_NOTES_idea_uk_vm_site.md` §X.12–§X.18 — the technical log for this arc, including every
+  misstep and correction.
+- `README_where_we_are.md` — the plain-prose owner log.
+- `SUMMARY_2026-07-25` → `SUMMARY_2026-07-26` → `SUMMARY_2026-07-26b` — how the understanding moved.
+- `AUDIT_2026-07-25_paid_tool_vs_copy.md` — what the paid tool does vs what the page claimed, the
+  owner's ruling, and what was built.
+- `RUNBOOK_idea_uk_vm_site.md` **Phase 5** — the repeatable recipe for adding a guide or tool.
+- `features_open/014` — the pipeline vision and its build log; `015` — the fleet-wide ladder.
+
+### If you are adding the next guide or tool
+
+Follow RUNBOOK Phase 5 verbatim; it is now proven ten times. The hubs list new pages
+automatically (`query.pages_where_type:guide|tool`) — no hub edit needed, just a re-render after
+the page ships. Content policy from `014`: stages 6–9 (patents/copyright/funding) stay
+hand-authored until claims-verification V5 is live; stages 1–5 may take generated copy. Any new
+tool where one answer can be decisive must **gate before it scores** — see both existing finders.
+
+
+> ## ▶ PREVIOUS STATE (2026-07-22) — superseded by the block above, kept for history
 >
 > **The migration is DONE and LIVE, and `/bugs_open/018` (the broken chrome) is FIXED AND VERIFIED
 > LIVE.** idea.uk now serves the chassis static site with full navigable chrome and a working free
