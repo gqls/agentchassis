@@ -7,6 +7,37 @@
 > format — evidence below). **The top job is now the second deploy** (automatic order expiry), so
 > the queue can never silently close itself again.
 
+> ## ⚠️ CONCURRENT-SESSION NOTICE — added 2026-07-26 18:45 UTC (session "idea.uk vm site 6")
+>
+> **1. THE SECOND DEPLOY IS DONE.** I built and deployed at **18:29 UTC**, before reading this
+> block — I was working from the 15:34 version of this file and did not see the 15:57 rewrite.
+> `/opt/idea/idea` now carries the expiry work **plus two security fixes found today**
+> (`bugs_open/089`, `bugs_open/090` — both were live). Old binary kept at
+> `/opt/idea/idea.prev-2026-07-25`; orders backed up to
+> `/var/lib/idea/orders.json.bak-2026-07-26-predeploy`. Verified after restart: unit active,
+> `{"active":0,"max":5,"open":true}`, all 72 orders intact, `grep -ac "refused fake=1"` = 1 in the
+> new binary and 0 in the old. **Do not deploy it again** — check
+> `grep -ac "refused fake=1" /opt/idea/idea` first (1 = my build is live).
+>
+> **2. AN ENGINE RUN IS IN FLIGHT** — `ord_1785090638951163875`, started 18:31 UTC, expect the
+> draft ~18:55–19:05 UTC. **Do not `systemctl restart idea` until it lands.** Fulfilment is an
+> in-memory goroutine: a restart strands the order in `running`, and `ExpireStale` deliberately
+> skips `running`, so the slot leaks permanently and only a hand-edit frees it. (That is a real
+> residual of the expiry design — see the note at the end of this block.)
+>
+> **3. THIS RUN IS PARTLY DUPLICATIVE AND I OWN THAT.** The 12:40 run already proved the report
+> FORMAT; I fired a second one before the 15:57 rewrite reached me. It is not wasted — the 12:40
+> order was **declined**, so `approve → pay link → Stripe payment → delivery` has still never run
+> in production. This one is being taken through exactly that leg, which is the only part of the
+> chain still unproven. Logged in `WRONG_CALLS.md`.
+>
+> **4. Residual worth someone's attention:** `ExpireStale` sweeps `awaiting_review` and
+> `awaiting_payment` but skips `running` — correct while a run is genuinely in flight, wrong after
+> a restart, because no goroutine survives one. An order left `running` by a restart holds a slot
+> for ever, which is the exact failure the expiry work was written to end. Cheap fix: at startup
+> (before the first sweep), any order still `running` cannot be, so reset it to `requested` or
+> `expired`. NOT built — deliberately out of scope while a run was in flight.
+
 ### What idea.uk is, today (all curl-verified 2026-07-26)
 
 | | |
