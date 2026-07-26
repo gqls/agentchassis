@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -755,18 +754,26 @@ func isValidAgentType(agentType string) bool {
 	return len(agentType) >= 3 && len(agentType) <= 50
 }
 
+// bugs_open/040-kafka-dial: the third and worst instance of the phantom-broker
+// defect. This fallback named kafka-0/1/2.kafka-headless:9092 — three hosts that
+// do not exist. Strimzi's headless service is personae-kafka-cluster-kafka-brokers;
+// the only kafka-headless manifest in the repo belongs to a hand-rolled Kafka
+// StatefulSet that no kustomization references, and no such Service exists in the
+// live cluster. So with KAFKA_BROKERS unset this returned a list on which every
+// entry could only burn a full dial timeout — not a degraded path, no path at all.
+//
+// It also read only KAFKA_BROKERS, missing SERVICE_INFRASTRUCTURE_KAFKA_BROKERS,
+// which is the variable spawned pods actually receive — so it reached that dead
+// fallback more readily than the other two sites did. kafka.GetBrokers() is the
+// existing helper for precisely this and checks both, in the right order.
 func (h *AgentHandlers) getKafkaBrokers() []string {
-	// Try to get from environment first
-	if brokersEnv := os.Getenv("KAFKA_BROKERS"); brokersEnv != "" {
-		return strings.Split(brokersEnv, ",")
+	if brokers := kafka.GetBrokers(); len(brokers) > 0 {
+		return brokers
 	}
 
-	// Default to standard Kubernetes service names
-	return []string{
-		"kafka-0.kafka-headless:9092",
-		"kafka-1.kafka-headless:9092",
-		"kafka-2.kafka-headless:9092",
-	}
+	// Fully qualified so it resolves on the first query rather than walking the
+	// pods' ndots:5 search path.
+	return []string{"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"}
 }
 
 func (h *AgentHandlers) getExpectedTopicsForAgent(agentType string) []string {
