@@ -3345,6 +3345,66 @@ Category tags: `per-type-check-that-should-be-generic`, `recovery-parity-not-cor
 `config-string-has-no-compiler`, `guard-must-not-restate-the-fix`,
 `retention-shorter-than-window`.
 
+### "The live object has DRIFTED from its manifest" — ask first whether anything APPLIES that manifest (2026-07-26)
+
+`bugs_closed/082`. A database ran BestEffort with `resources: {}` while a checked-in manifest
+plainly specified `requests: cpu 500m`. That reads as drift, and the filed diagnosis said so:
+*"the live StatefulSet has drifted from the checked-in manifest, and the drift removed every
+resource guarantee"*, with a prescribed `kubectl patch` framed as *"reconciliation, not a new
+design — the reviewed desired state has said this since day one"*.
+
+Nothing had ever applied that manifest. Its sibling `kustomization.yaml` was **0 bytes** and no
+kustomization in the repo listed it. The live object came from a **Terraform module** that had
+never specified `resources`. The database was not demoted to BestEffort — it was **born** there.
+
+**The tell, and it is general: drift SUBTRACTS, it does not ADD.** The filing had already noticed
+that the live probe carried `-d clients_db` which the manifest did not, and filed it as *"the same
+drift, visible twice"*. A live object cannot invent a command-line argument its manifest never
+contained. **One unexplained addition is the signature of a different source**, and it is worth
+more than any number of matching fields — shared properties are consistent with both candidates,
+so only the disagreements carry information.
+
+**The check** — before asking "has it drifted?", ask "does anything apply this?":
+
+```bash
+ls -la deployments/kustomize/infrastructure/*/kustomization.yaml    # 0 bytes = orphaned
+grep -rn "<object-name>" --include="kustomization.yaml" deployments/ # no hits = nobody applies it
+```
+
+Then, if two candidates remain, **fingerprint on properties where they DISAGREE**. Here seven
+disagreed (serviceName, image tag, container count, probe args, securityContext, envFrom source,
+PVC class/size) and the live object matched Terraform on all seven.
+
+**Why it is worth a rule.** A decoy's danger scales with its *plausibility*: this manifest was
+well-formed, checked in since the initial commit, correctly named, and its resource block was
+sensible — which is exactly why it read as authoritative rather than as dead code. **"It looks
+right" cannot be the test; provenance is** — not what a file says, but whether anything reads it.
+Note also the failure mode of acting on it: the prescribed patch would have been correct for about
+a minute and then silently reverted by the next `terraform apply`. **A fix a reconciler will undo
+is worse than no fix**, because it converts a reproducible bug into an intermittent one.
+
+This repo had *three* files named for that one database and **two were dead** — the orphaned
+kustomize manifest, and one that `scripts/deploy-system.sh` still applies and **which does not
+exist**. Assume the same until you have checked.
+
+Two adjacent rules from the same case, both cheap:
+
+- **Verify in the kernel, not from the spec.** A spec field records what was *asked for*. Read the
+  cgroup: `cpu.max`/`memory.max` inside the container matched the declared limits to the byte,
+  which is self-evidencing. `cpu.weight` is meaningless alone, so it needs a **positive control** —
+  a still-BestEffort pod read `1` (the kernel minimum) against our `59`. Do not substitute
+  arithmetic for the control: the documented shares→weight formula predicted ~20 and the runtime
+  produced 59.
+- **Never bound a mutating command with a timeout.** `timeout 500 terraform apply` returned exit
+  **143** — the timeout SIGTERMed a production apply mid-roll, leaving a stale state lock that
+  blocks every later run. **An exit code tells you nothing about whether the mutation happened**;
+  verify the live object and the persisted state *separately*, since neither is inferable from the
+  other or from the status.
+
+Category tags: `decoy-source-of-truth`, `plausibility-is-not-provenance`, `drift-subtracts-never-adds`,
+`fingerprint-on-disagreements`, `fix-a-reconciler-will-undo`, `verify-in-the-kernel-with-a-control`,
+`exit-code-is-not-evidence-of-effect`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
