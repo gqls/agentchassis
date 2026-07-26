@@ -924,3 +924,26 @@ page for each one.
 immediate); get the code change reviewed that records where each fact came from; then crawl at
 scale, once a crawl can produce something we're allowed to publish. I've put the provenance
 finding through the diagnosis review before treating it as settled, rather than after.
+
+**Correction, an hour later the same evening — and it matters more than the thing it corrects.**
+
+I told you above that getting from one-in-six to one-in-four was a free settings change. **That
+was wrong, and I should have checked before saying it.** I looked at the settings on that step and
+read them as instructions; they aren't. The setting that says "also look at the fees, prices,
+about, team, contact and services pages" **is not read by the software at all**. Nor is the one
+saying "fetch up to three pages", nor the one saying "if the practice has no website, use the top
+search result". The code that does the fetching looks at exactly one address and asks for one
+page, and quietly ignores the rest of the settings.
+
+So two things change. First, the one-in-six figure is *exactly* right rather than cautious — the
+home page is genuinely all the system ever looks at. Second, getting to one-in-four is a code
+change, not a settings tweak, so it should be done in the same batch as the "record where each
+fact came from" fix: one review, one build, one deployment, rather than pretending there's a quick
+win to grab first.
+
+**The wider point is the worrying one.** That step is written to look like a six-page crawl with a
+sensible fallback. It is a single page fetch. Nothing anywhere flags the difference — unused
+settings are simply ignored in silence, so the configuration reads like a description of what
+happens without being one. I've only checked these four settings on this one step, so I don't know
+how far that goes, but it is the kind of thing that makes people confident about the wrong thing.
+I've recorded it in our log of wrong calls, with the one-line check that would have caught it.

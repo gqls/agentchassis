@@ -1065,3 +1065,45 @@ Business Directory"* → `directory.lancashiretelegraph.co.uk`. Same family as t
 rows the RUNBOOK flags. `[UNMEASURED]` — I have not counted how many of the 3,419 are directory
 listings rather than practices; the sample suggests it is worth counting before P3 builds a page
 per practice.
+
+### 4. `> **CORRECTED same session, ~23:15 BST** — my own §2 "config-only win" was wrong
+
+Above (§2) I wrote that widening `scrape_website.config.follow_links` to include legal pages was
+"a DB config change: live immediately, no build, no roll". **That is false.** I recommended a
+config change without checking that the config key is read.
+
+```
+grep -rn "follow_links" --include=*.go .   # -> no hits, anywhere in the repo
+grep -rn "extract_mode\|fallback_url_field" --include=*.go .   # -> no hits
+```
+
+`WebscrapeAction` (`webscrape_actions.go:27-147`) reads only `url_field`, `url`, `action`,
+`upload_results` and `scrape_config`, resolves **one** URL, and dispatches it to the webscrape
+adapter. So **four of the six keys on that step do nothing**:
+
+| key on `scrape_website` | reads as | actually |
+|---|---|---|
+| `max_pages: 3` | fetch up to 3 pages | inert — one page |
+| `follow_links: [fees, prices, about, team, contact, services]` | follow six link types | inert |
+| `extract_mode: "text"` | text extraction mode | inert |
+| `fallback_url_field: "search_results.results.0.url"` | no website → use top search hit | inert |
+
+**What this changes:**
+1. **The 16% is exact, not approximate.** My PROD arm fetched the homepage only — which is
+   precisely what production does. I had described it as a "conservative lower bound"; it is the
+   actual figure.
+2. **28% is not free.** It needs a Go change (teach `scrape_web` to honour `max_pages`/
+   `follow_links`) or additional explicit scrape steps in the workflow. It should therefore be
+   **bundled with the provenance fix** — one council round, one build, one roll — rather than
+   sequenced as a quick win beforehand.
+3. **`fallback_url_field` is a silent dead path.** The intended "practice has no website → scrape
+   the top search result" never fires. Moot for now (all 3,419 rows carry a `website_url`) but it
+   is a trap for anyone who assumes the fallback protects them.
+
+**This is a second structural finding, not just my error:** a step whose config reads like a
+six-page crawl with a search fallback, and is a single GET. Nothing warns — unknown config keys
+are silently ignored, so the config is documentation that cannot go stale-checked. `[INFERRED]`
+that this class is fleet-wide; I have only verified these four keys on this one step.
+
+**Cheap check that would have caught it:** grep the key in the Go source before calling a config
+change a win. One command. Logged in `WRONG_CALLS.md`.

@@ -5239,3 +5239,45 @@ this week where the bug was in *what a tool did not look at* rather than in what
 it concluded. Worth noting that all three were caught by mechanical means —
 a fixture, a printed denominator, another reader — and none by re-reading my own
 code, which I did several times.
+
+---
+
+## 2026-07-26 — I recommended a config change without checking the config key is read (vetcomparison P1)
+
+**The claim.** Having measured that widening the vet verifier's scrape to legal/terms pages would
+lift the company-number hit rate from 4/25 to 7/25, I wrote — in `NOTES_vetcomparison.md`, in
+`README_where_we_are.md`, in a `PLAN` correction block and in a **commit message** (`096276f90`)
+— that this was *"a config-only win"*, *"a DB config change: live immediately, no build, no
+roll"*. I named the exact key: `scrape_website.config.follow_links`.
+
+**What was true.** `follow_links` is not read by any Go code in this repository. Nor are three
+other keys on the same step: `max_pages`, `extract_mode`, `fallback_url_field`. `WebscrapeAction`
+(`webscrape_actions.go:27-147`) honours `url_field`, `url`, `action`, `upload_results` and
+`scrape_config`, resolves **one** URL and dispatches it. The step is written to read like a
+six-page crawl with a search-result fallback and is a single homepage GET.
+
+**What caught it.** Not review — I had already committed. I went looking for *how* `max_pages: 3`
+would interact with a longer `follow_links` list (would extra paths displace the useful ones?),
+which meant finding the implementation. The grep that answered that question returned no hits at
+all, which was not the answer I was looking for. **I was saved by asking a follow-up question
+about the mechanism, not by checking the claim.** Had `max_pages` not made me curious, the false
+claim would have stood in four documents and a commit.
+
+**The cheap check.** One command, before calling any config change a win:
+`grep -rn "<the_key>" --include=*.go .` — if the key is not read, the change is not a change.
+Cost: seconds. It is the same check as "read the whole seed before applying it" (the seed-037
+landmine, which this workstream already had written down) pointed at config keys instead of SQL.
+
+**Why this shape recurs.** Config that is *read* and config that is merely *present* are
+indistinguishable by inspection — unknown keys are silently ignored, so a stale or aspirational
+key looks exactly like a live one, and it reads as documentation of behaviour while being
+evidence of nothing. This is the same family as the inert-layer entries already in this file: the
+artefact exists, so the capability is assumed. **Direction of error matters here** — it made me
+*understate* the cost of a fix (a "free" tweak that is actually council + build + roll), which is
+the direction that gets a fix scheduled as trivial and then found to be a deploy.
+
+**Tally note.** This is another instance of the file's most common row: *a durable claim written
+at full confidence with the one-command check skipped*. The variant worth flagging is that the
+claim was about **config being live immediately** — the repo's own CLAUDE.md advertises "DB config
+is live immediately; prefer it" as the fast path, and that advice quietly assumes the key is
+wired. The fast path is only fast if something reads it.

@@ -103,12 +103,28 @@ worth doing. This is the first thing to measure, on a handful of practices, befo
 >
 > **Step 1's pilot was also run, read-only, and step 4's question is partly answered** — see
 > `NOTES_vetcomparison.md` (2026-07-26 ~22:45). Company-number hit rate on a deterministic 25:
-> **4/25 (16%) homepage-only = what production sees today**, **7/25 (28%) if `follow_links`
-> is widened to legal/terms pages** — a config-only change, since the current list
-> (`fees, prices, about, team, contact, services`) contains no legal page. `[SMALL SAMPLE]`
-> wide intervals; treat as "a sixth" vs "a quarter". **6 of 7 found numbers resolve to a real
-> `ch_vet_companies` row**, two of them exposing true group ownership (VetPartners, CVS) — so
-> P2's evidence chain works when the number is found.
+> **4/25 (16%) homepage-only = what production sees today**, **7/25 (28%) if the scrape also
+> read legal/terms pages**. `[SMALL SAMPLE]` wide intervals; treat as "a sixth" vs "a quarter".
+> **6 of 7 found numbers resolve to a real `ch_vet_companies` row**, two of them exposing true
+> group ownership (VetPartners, CVS) — so P2's evidence chain works when the number is found.
+>
+> > **CORRECTED within the hour, same session — I first wrote that the 28% was "a config-only
+> > change" by widening `follow_links`. That is FALSE and it is the more important finding.**
+> > `follow_links` **is not read by any Go code in this repo** (`grep -rn follow_links --include=*.go`
+> > → no hits). `WebscrapeAction` (`webscrape_actions.go:27-147`) honours only `url_field` /
+> > `url` / `action` / `upload_results` / `scrape_config`, and dispatches **exactly one URL** to
+> > the webscrape adapter. So **four of the six keys on the `scrape_website` step are inert**:
+> > `max_pages: 3`, `follow_links: [fees, prices, about, team, contact, services]`,
+> > `extract_mode: "text"` and `fallback_url_field: "search_results.results.0.url"`.
+> > The step reads as a six-page crawl with a search-result fallback; it is a single homepage GET.
+> >
+> > Consequences: (a) the **16% is exact**, not an approximation — homepage-only *is* production;
+> > (b) reaching 28% needs a Go change or extra workflow steps, so it should be **bundled with
+> > the provenance fix** into one council round, one build, one roll — not treated as a free win;
+> > (c) `fallback_url_field` being dead means the intended "no website → use the top search
+> > result" path silently never runs (moot today: all 3,419 rows have a `website_url`).
+> > **The cheap check that would have caught it before I wrote it: grep the config key in the Go
+> > source before calling any config change a win.** Logged in `WRONG_CALLS.md`.
 
 ---
 
