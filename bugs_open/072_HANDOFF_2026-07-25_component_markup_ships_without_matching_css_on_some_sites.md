@@ -6,8 +6,14 @@ components first and then found the same shape in the news feed's.
 unstyled markup on an otherwise designed page.
 **Class:** structural (a component's markup and the CSS it depends on are produced by
 different mechanisms, and nothing checks they both arrived).
-**Status:** OPEN, cause NOT diagnosed. The measurement below is solid; the explanation
-is not attempted here.
+**Status:** OPEN. **Cause DIAGNOSED 2026-07-26 and the fix committed — but not yet live**,
+so this stays open (the `/bugs_closed/` bar is fixed AND live). See "Diagnosis" and
+"What has been done" at the bottom; everything above them is the original filing and is
+unchanged except where marked.
+
+> **CORRECTED 2026-07-26:** this line used to read *"cause NOT diagnosed"*. It is now
+> diagnosed. The measurement below held on re-measurement — every figure reproduced
+> exactly, 24 hours later.
 
 ---
 
@@ -56,13 +62,19 @@ done
   come from the theme.
 
 **NOT established — do not repeat these as fact:**
-- [UNKNOWN] where the 11 `news-card` rules on gaswholesalers/robot-hands/idea.uk came
-  from. A per-site CSS write, a design pass, or a session doing it by hand are all
-  candidates; none has been checked.
-- [UNKNOWN] whether the two unstyled sites ever had the rules and lost them, or never
-  had them.
-- [UNKNOWN] how many other component families this affects. Only `news-card` was
-  surveyed; `.model-card` was the case that started it, and the survey stopped there.
+- ~~[UNKNOWN] where the 11 `news-card` rules on gaswholesalers/robot-hands/idea.uk came
+  from.~~ **ANSWERED 2026-07-26:** from `css_snippets`, appended into `styles.css` by
+  `render_css_from_spec`. See Diagnosis below.
+- ~~[UNKNOWN] whether the two unstyled sites ever had the rules and lost them, or never
+  had them.~~ **ANSWERED 2026-07-26: never had them.** Neither stylesheet has ever
+  contained a component snippet of any kind.
+- ~~[UNKNOWN] how many other component families this affects.~~ **SURVEYED 2026-07-26:**
+  of the 94 component functions in use on active pages, **86 already carry their own
+  `<style>` block** in `html_template`; the 8 that do not are `generic-text-block`,
+  `latest-news`, `faq`, `news-listing`, `content-listing`, `category-listing`,
+  `ported-page`, `pricing`. Only `latest-news` and `news-listing` of those have a
+  `css_snippets` row, i.e. only they depend on the frozen stylesheet. Query in the
+  workstream RUNBOOK.
 
 ## The workaround already applied (and why it is not the fix)
 
@@ -117,3 +129,113 @@ of anything (`trust the rendered artefact, not the status`, 016b).
 - Owning workstream for the news half: the news-feed pooling / content-feed workstream.
   Filed here rather than routed at them directly because the cause is unknown and the
   measurement is what is worth having.
+  > **NOTE 2026-07-26:** that workstream is parked behind an owner gate (last commit
+  > 2026-07-20, "everything downstream parked, on purpose"), so nobody was going to pick
+  > this up there. Taken by the `bugfix_072_component_css` workstream instead.
+
+---
+
+# Diagnosis (2026-07-26)
+
+**A site's `assets/css/styles.css` is a whole-file artefact written ONLY by a
+webdesign-agent design run, and nothing ever re-renders it. It is frozen at the moment
+of that run, while the site's component set keeps changing underneath it.**
+
+`RenderCSSFromSpecAction` (`platform/orchestration/actions/render_css_from_spec_action.go:76`)
+renders the layout template, then appends the `css_snippets` whose `applies_to` overlaps
+the site's component list **at that instant** (`loadComponentCSSSnippets`, `:586`), then
+the `--section-*` defaults, then the token aliases. Page rerender never touches the
+stylesheet. So a component added after the last design run has markup on the page and its
+CSS written nowhere.
+
+Evidence, all measured:
+
+- `css_snippets` holds exactly two rows carrying `.news-card`/`.news-list-item`:
+  `Latest News Grid` (`applies_to ["latest-news"]`) and `News Listing Page`
+  (`["news-listing"]`). Both `applies_to` values are correctly populated — this
+  **refutes** the natural hypothesis that an empty `applies_to` was the cause.
+- Both unstyled stylesheets contain **zero** component snippets of any kind — no
+  `fade-in-up`, no `responsive-grid`, and no `/* === Component-specific styles === */`
+  block at all. Both styled ones carry that block with every matching snippet. So this
+  was never about the news snippet specifically; those two stylesheets never received
+  any component CSS.
+- Last commit touching each stylesheet (`~/projects/sites`): ai-agent-orchestration
+  **2026-05-02** (`52242272`), relojistas **2026-07-16** (`593fbec6`), gaswholesalers
+  2026-05-18 (`382c8096`), robot-hands 2026-07-20 (`6f316b90`).
+- ai-agent-orchestration's `index.html` first carried `news-card` on **2026-07-21**
+  (`e4c4a895`) — **80 days after** its stylesheet was written. relojistas gained
+  `latest-news` on its homepage **2026-07-26**; the 2026-07-25 checkout of its
+  `index.html` has no `news-card`. In both cases the stylesheet predates its own markup.
+- The zero-snippet shape matches the pre-2026-05-16 code path: `loadPagesWithComponents`
+  returned empty (wrong `pages.status` filter), so `all_component_functions` was an empty
+  **non-nil** array; `extractCSSComponents` (`:493`) falls back only when the value is
+  `nil`; `loadComponentCSSSnippets` early-returns `""` on a zero-length list. Recorded at
+  `design_actions.go:340-345` and in
+  `docs/agent_docs/docs024_key_docs_latest/js_snippets_news_gaswholesalers/FOCUS_visual_pipeline_css_and_component_lists.md`.
+
+**[INFERRED, not measured]** relojistas' own immediate cause. Its `orchestration_states`
+rows for the 2026-07-16 run are pruned, so whether that run hit the empty-list path or
+simply had no matching component yet cannot be checked. The class-level cause does not
+depend on which.
+
+**Why the obvious repair is wrong:** re-running webdesign-agent to regenerate the
+stylesheet re-rolls the site palette (the `generic_theme` colour-churn problem). Fixing
+CSS that way would restyle two live customer sites.
+
+## What has been done (commit `7821ad7f5`, 2026-07-26)
+
+1. **`collectComponentCSS` / `injectComponentCSS`** (`rerender_single_page_action.go`) —
+   the matching `css_snippets` are now collected at **page assembly** time and injected
+   before `</head>`, so whatever assembles the page also styles it and the two cannot
+   drift apart. Wired into **both** assembly paths: `assemblePage` and the bulk
+   `rerenderSinglePage` (`rerender_pages_actions.go`), because otherwise a bulk rerender
+   would strip the CSS back off a page the single-page path had just styled. It skips any
+   component whose stored `rendered_html` already carries its own `<style>`, per component
+   function, so the component-owned pattern and this injection never both ship the rules.
+2. **Empty-list hardening** (`render_css_from_spec_action.go`) — an empty component list
+   now resolves from the DB via `loadSiteComponentFunctionsForJS` (the helper the JS
+   sibling action already calls for exactly this case) and warns, instead of silently
+   writing a stylesheet with no component CSS.
+3. **Migration `222_news_components_carry_their_own_css.sql` — APPLIED and recorded.**
+   `latest-news` and `news-listing` now carry their own `<style>`, copied from the
+   `css_snippets` row at apply time so the three already-styled sites are byte-identical
+   and see **no visual change**. This brings them in line with the 86-of-94 house rule.
+
+**Council:** submission `75d1a2af-afb8-492d-9587-4aa13bc440a2`.
+
+## What is still outstanding — why this is still OPEN
+
+- **The Go half is inert until the next image roll.** Nothing about the two failing sites
+  has changed yet.
+- **Migration 222 is live in the DB but invisible on every site**, because
+  `rerender_single_page` concatenates stored `page_components.rendered_html` and does not
+  re-render templates. "The component was updated" is not evidence of anything.
+- **No page was re-rendered and no live site was touched** — the owner's call was to let
+  the fix reach the sites on the next roll rather than hand-repair two live sites.
+
+### Verify after the roll
+
+First prove the code is live — pod-grep a string the change **created**:
+
+```bash
+kubectl exec -n ai-persona-system <chassis-pod> -- \
+  sh -c 'strings /app/agent-chassis | grep -c "data-component-css"'
+```
+
+Then re-render `index` on ai-agent-orchestration.com and relojistas.com, and measure the
+rendered pages:
+
+```bash
+for d in ai-agent-orchestration.com relojistas.com gaswholesalers.com robot-hands.com; do
+  html=$(curl -s "https://$d/"); css=$(curl -s "https://$d/assets/css/styles.css")
+  printf '%-28s uses=%s css_rules=%s inline=%s\n' "$d" \
+    "$(printf '%s' "$html" | grep -c 'class="news-card"')" \
+    "$(printf '%s' "$css"  | grep -c 'news-card')" \
+    "$(printf '%s' "$html" | grep -c 'news-card {')"
+done
+```
+
+Pass = every row with `uses>0` has `css_rules>0` **or** `inline>0`, **and** gaswholesalers
+and robot-hands are unchanged. That control is what proves this added styling rather than
+restyling live customer sites — without it a green result is not distinguishable from
+having overwritten three sites' news design.
