@@ -3513,6 +3513,62 @@ A test suite cannot find a premise it shares. Only real data can.
 Category tags: `shared-predicate-second-caller`, `exclusion-lists-fail-open`,
 `byte-level-test-multibyte-input`, `read-the-findings-not-the-count`.
 
+### A field is populated from the LLM's own output, so it can never be evidence — and config keys nothing reads look identical to config keys something reads
+
+Two patterns from one step, found 2026-07-26 (`bugs_open/100`, `bugs_open/101`).
+
+**Pattern A — provenance taken from the model that produced the facts.**
+`business_intel.data_observations` exists to record *where* a fact came from. All 2,970
+rows had an empty `source_url`, which reads like an intermittent population bug. It is
+not intermittent: `StoreBusinessVerificationAction` reads `source_type/source_name/
+source_url` out of `verResult` — **the LLM's own returned object** — while the prompt
+requests six sections and none of them is a source field, and the step that *did* the
+fetching writes to `scraped_data`, which is not in the writer's `input_fields`. The
+component that knows the URL is not connected to the component that records it.
+
+The decisive check was not reading more code. `raw_data` is `json.Marshal(verResult)`,
+so **its keys are the object's keys**:
+```sql
+SELECT count(*), count(*) FILTER (WHERE raw_data ? 'source_url') FROM ...;  -- 2970, 0
+```
+Absent, not blank — which discriminates "never supplied" from "supplied empty", and no
+amount of staring at the INSERT would have.
+
+**How to catch this class:**
+1. **For any field that is supposed to be evidence, ask which component computed it.**
+   If the answer is "the model", it is a claim about evidence, not evidence — and the
+   fix is never "add it to the prompt". Provenance must be recorded by whatever performed
+   the fetch. Adding it to the prompt makes the column populated and the problem worse,
+   because it now *looks* sourced.
+2. **When a column is empty everywhere, check whether the KEY is absent rather than the
+   value empty.** Absent means nobody ever supplied it — a wiring question. Empty means
+   somebody supplied nothing — a runtime question. These have completely different causes
+   and the column alone cannot tell them apart.
+3. **Verify such a fix with a discriminating second column**, e.g.
+   `raw_data ? 'source_url' AS llm_claimed_it`, which must stay **false** while
+   `source_url` becomes non-empty. A populated column alone cannot show *who* populated it.
+
+**Pattern B — silently ignored config keys.**
+The same step declared `max_pages: 3`, `follow_links: [...6 link types...]`,
+`extract_mode` and `fallback_url_field`. `WebscrapeAction` reads **none of them** — it
+resolves one URL and fetches one page. Unknown keys are silently dropped, so a stale or
+aspirational key is indistinguishable by inspection from a live one, and the config reads
+as a description of behaviour while being evidence of nothing. Two live agents carry these
+keys; a `fallback_url_field` path that looks like a safety net has never once run.
+
+**How to catch this class:**
+4. **Before calling any config change a win, grep the key in the Go source:**
+   `grep -rn "<the_key>" --include=*.go .` — if nothing reads it, the change is not a
+   change. This is the seed-037 "read the whole seed" habit pointed at config keys, and it
+   is one command. Note the direction of the error: it makes a fix look *cheaper* than it
+   is (a "free config tweak" that is really council + build + roll), which is the direction
+   that gets work scheduled as trivial and then discovered to be a deploy.
+5. **"DB config is live immediately" silently assumes the key is wired.** The fast path is
+   only fast if something reads it.
+
+Category tags: `provenance-from-the-model`, `absent-key-vs-empty-value`,
+`silently-ignored-config-keys`, `grep-the-key-before-calling-it-config`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3614,6 +3670,9 @@ See `/bugs_closed/README.md`.
 
 | 052 | **A listing re-derived from the page set on every render carried no build-state floor**, so pages that were never built (404) and pages deliberately `archived` were re-advertised — and an authored deletion from `content_data->'items'` was undone by the next render (the `bugs_closed/023` derived-field family). Two derivations had it: the generic/tool-list path, and `rebuild_blog_listing_action.go`, which had **no `status` filter at all** and so defeated archiving, the containment route the bug itself recommends | **CLOSED 2026-07-26 → `/bugs_closed/`**. Half 1 live in **v1.0.1146** (`fe2ba5e52`, `queryresolve.FetchablePageEligibilitySQL`); half 2 live in **v1.0.1171** (`fe00304bd` + `b2e668126`). Pod-verified by the *disappearance* of the old predicate plus a positive control; kept set 14/16/6 unchanged (36 of 36), drop set exactly 6 archived robot-hands rows; failing branch exercised on real bad data (9 → 3). Council **APPROVED** (corr `37329362`) but the verdict post-dates the commits, so **no trailer is possible** — a permanent `098_REPORT` false negative, stated in the file. Closing it found a live instance of the same symptom by a different cause → `098` |
 | 098 | **Archiving a page retracts it from every derivation but not from the deployed site.** `status='archived'` correctly removes a page from listings *and* from re-rendering — so the last HTML it rendered is frozen and keeps serving. Archive the page holding a listing (what a site cleanup does) and no future render can ever correct it. **Live:** `robot-hands.com/learning-center/index.html` serves **200** with a `blog-listing` last written 2026-07-03 linking to a post that serves **404**. Second finding, more transferable: **`deployed_at IS NOT NULL` means a deploy happened once, not that the page is fetchable** — nothing clears the stamp on archive, and that column is the load-bearing half of the shared eligibility predicates `052` propagated fleet-wide | filed 2026-07-26 while closing `052`, whose fix **cannot** repair it by construction. Scale: 12 archived-but-once-deployed pages fleet-wide (10 leopardess, 2 robot-hands); **exactly one** carries a listing artefact. Severity low today — the URL is not in the live nav and the sitemap has zero entries — but nothing in the platform can repair or even detect it. Candidate 1 (reconciling deploy) is the only one that closes the door; candidate 2 (clear `deployed_at` on archive) is the one that protects the predicate family. Same shape as `081` at a different layer: each exclusion is deliberate, and their **intersection** is owned by nobody |
+
+| 100 | **The verification write path cannot record provenance — it reads the source URL from the LLM.** `StoreBusinessVerificationAction` takes `source_type/source_name/source_url` from `verResult` (the model's own returned object), but the `vet-practice-verifier` prompt requests six sections and none is a source field, and `store_results.input_fields` excludes `scraped_data` — so the URL actually fetched can never reach the writer. Observed, not inferred: `raw_data` **is** `json.Marshal(verResult)`, and **0 of 2,970** rows carry a `source_url` or `source_type` key (absent, not blank). Same three reads feed `insertPrice`/`insertMedicinePrice`, so the per-price provenance the RUNBOOK requires before re-enabling `vet-batch-verify` is currently unmeetable. **The fix is NOT to add it to the prompt** — that makes provenance a model claim about its own evidence, the class this site was remediated for. Diagnosis loop returned **UNVERIFIABLE** (bundle truncated before the prompt; no runtime trace since collection stopped in March) — it corroborated both structural halves it could reach and refuted nothing | **OPEN, unowned, filed 2026-07-26.** Blocks vetcomparison P1/P2. Go change → council → build → roll; bundle with `101` |
+| 101 | **`scrape_web` silently ignores four config keys, so two live workflows describe a crawl they never perform.** `WebscrapeAction` reads only `url_field`/`url`/`action`/`upload_results`/`scrape_config` and fetches **one** page; `max_pages`, `follow_links`, `extract_mode` and `fallback_url_field` are read by **no Go code in the repo**. Affects `vet-practice-verifier` and `domain-research-classifier` (another workstream's — it classifies on home-page text alone while its config says otherwise). Measured cost: company-number extraction 4/25 (16%) home-page-only vs 7/25 (28%) if legal/terms pages were read — and the configured `follow_links` list contains no legal page, so it is wrong for its purpose even if honoured. `fallback_url_field` is a silent dead path. **High misleading-power**: it produced a false "config-only win" claim in a commit message within an hour of being read | **OPEN, unowned, filed 2026-07-26.** Cheap check for the class: `grep -rn "<key>" --include=*.go .` before calling any config change a win |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the

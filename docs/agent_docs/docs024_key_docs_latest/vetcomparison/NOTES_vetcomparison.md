@@ -1107,3 +1107,71 @@ that this class is fleet-wide; I have only verified these four keys on this one 
 
 **Cheap check that would have caught it:** grep the key in the Go source before calling a config
 change a win. One command. Logged in `WRONG_CALLS.md`.
+
+### 5. Diagnosis-loop verdict: **UNVERIFIABLE** (not refuted) — and where the artifacts actually live
+
+Filed `e6580fe5-7537-4eba-a3aa-7863ce4dbfc7` at 21:46; verdict back by ~21:55. **Outcome:
+`UNVERIFIABLE`.** It did not refute the mechanism — it ran out of evidence reach. Its own two
+citations corroborate the structural halves it *could* see:
+
+- `static` — `sourceURL, _ := verResult["source_url"].(string)` in
+  `StoreBusinessVerificationAction`
+- `state` — `"store_results": {... "input_fields": ["business_id","verification_result","task_id"]}`
+  on `vet-practice-verifier`
+
+**What it said it still needed, verbatim:** *"(1) the extract_and_reconcile step's full
+prompt/output_schema — the bundle's data_request returned the workflow steps JSON but it was
+truncated before reaching extract_and_reconcile … (2) actual rows from
+business_intel.data_observations … showing source_url/raw_data lacking a URL."* It also noted
+*"no llm_call_log rows for the named agent types"* — no runtime trace of this workflow executing,
+which is consistent with collection having been off since March.
+
+**Both gaps are closed by evidence already in §1 above, gathered independently before the verdict
+returned** — and its two `data_requests` are, near enough, the two queries I had already run:
+
+1. **The prompt.** Read in full from `agent_definitions.default_config->'workflow'->'steps'->
+   'extract_and_reconcile'->'config'->'prompt_template'`. It requests six sections — `business`,
+   `vet_details`, `vet_staff`, `prices`, `confidence_score`, `extraction_notes`. No source field.
+2. **The rows.** `0 of 2,970` `data_observations` rows carry a `source_url` **or** `source_type`
+   key in `raw_data` — and `raw_data` *is* `json.Marshal(verResult)`, so that is the object itself,
+   not the column.
+
+So: **treat the mechanism as established by direct evidence, and the loop's verdict as neither
+support nor contradiction.** It is recorded here as UNVERIFIABLE rather than upgraded — the honest
+reading is that the loop's bundle truncated before the decisive artefact, which is a limitation of
+the harness, not evidence about the claim. `[NOTE]` the truncation is itself worth someone's
+attention: a bundle that silently stops short of the step under investigation will return
+UNVERIFIABLE on any workflow-config question.
+
+> **LANDMINE — the verdict is NOT under your `SUBMISSION_CORR`.** The 090 script prints your
+> correlation id and tells you to query `orchestration_states` / `diagnosis_artifacts` by it. A
+> **`diagnose-dispatch-loop`** now claims the intake, runs the diagnosis under **its own**
+> correlation, and marks your `site_work_items` row `complete`. So the symptoms of success and of
+> a dropped dispatch look identical if you only query your own id: no orchestration row, no
+> artifacts, work item closed. Mine ran under `38394a85-9af5-47bb-9be5-8a3dea301ab8`. Find it by
+> time and shape, not by your id:
+> ```sql
+> SELECT correlation_id, orchestration_name, status, created_at FROM orchestration_states
+> WHERE (orchestration_name ILIKE '%diagnos%' OR collected_data ? 'verdict')
+>   AND created_at > NOW() - INTERVAL '2 hours' ORDER BY created_at DESC;
+> ```
+> The 090 script's own comment — *"closing it by hand until a diagnose dispatch loop exists"* — is
+> stale: the loop exists now and closes the item for you.
+
+**Two of my own missteps in getting here, both wasted time rather than credits:**
+1. **I suspected a kcat drop and nearly re-dispatched.** My memory carries a strong warning that
+   the shipped triggers' `kubectl run -i --rm | kcat -P` pattern silently drops messages, and
+   CLAUDE.md warns equally strongly that a missing orchestration row is *latency*, not a drop, and
+   that retrying costs a duplicate round. I resolved it by **reading the topic** rather than
+   choosing a prior: the message was present, well-formed, 883 bytes. No duplicate round spent.
+   (It appeared **twice** — unexplained; at-least-once producer retry is the obvious candidate.
+   `[UNVERIFIED]`, and harmless here, but worth knowing if a diagnosis ever runs twice.)
+2. **My first topic-read was vacuous and I nearly believed it.** `kubectl run -q` is not a valid
+   flag; with `2>/dev/null` the pod never ran and the grep returned `0` — indistinguishable from
+   "my message is absent". Caught only because I had printed a **positive control in the same
+   command** (`messages read: 0 <-- must be > 0`). This is the third time that habit has paid;
+   without it I would have "confirmed" a drop that had not happened and re-dispatched.
+3. **I misread the clock and thought the run was 50 minutes stalled when it was 8.** I compared
+   against a `date -u` from earlier in the session instead of re-running it, and briefly treated a
+   healthy pipeline as a fleet-wide stall. Cheap check: re-run `date -u` in the same command as
+   the age calculation, never carry a timestamp forward in your head.
