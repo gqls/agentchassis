@@ -4583,3 +4583,42 @@ wrong loudly. Whenever a wait, a check or a sweep can *fail to run*, ask what it
 then — and make that answer different from the one it gives when it ran and found nothing.
 
 Family: absence-reads-as-success, silence-is-not-a-pass, verify-the-failing-branch, my-own-tooling-has-the-bug-I-am-fixing.
+
+---
+
+## 2026-07-26 — three consecutive council rounds caught my PROSE overstating sound code (bugs_closed/043, submission 569241fb)
+
+**The claim.** Not one claim — a pattern, which is why it is worth a row of its own. Across
+three review rounds on the same submission, every gating objection was about how I
+*described* the change, never about the change:
+
+| round | what I wrote | what was true |
+|---|---|---|
+| 1 | *"the re-render path does not run this gate"* — in my own risks block | Accurate, and I closed `043` without filing it. The seat gated on the gap being named but untracked. Fair. |
+| 2 | edit 2's rationale still said *"returns nil silently"*, sketch still showed the single-return signature | The fix was real and committed; I had updated the narrative and left the edit describing the defect it removed. The council reviews the plan, not the repo — from where it sits, the fix did not exist. |
+| 2 | *"plus a one-off `LintStatUnits` sweep to clear the persisted junk suffixes"* | Not done, and not mine to claim — it is a candidate in `093`. Measured afterwards: the sweep returns five rows, all legitimate tool units, so it is also **unnecessary**. |
+| 3 | *"both round-1 objections are ANSWERED IN CODE, not argued away"* | One was coded. The other was *filed*. Claiming parity between coded and filed is overclaiming. |
+
+**What was true throughout.** The engineering was sound from round 1 and did not change on
+its merits — the two code fixes that did land were prompted by objections and were correct.
+What kept failing review was the account of it.
+
+**What caught it.** The council, three times running. Nothing in my own process did, because
+I was checking the code against the objections and not the prose against the code.
+
+**The cheap check.** After writing any status sentence containing *both*, *all*, *fixed*, or
+*answered*, ask of each element separately: **coded, filed, or measured?** Those are three
+different states and only the first is "fixed". A sentence that covers two of them with one
+verb is the tell. Same for a plan document: when the narrative changes, the artefact it
+describes must change in the same commit, or the two drift and the reader believes the more
+flattering one.
+
+**The bit worth remembering.** This lane exists because generated copy overstates what the
+data supports. I spent the day fixing that mechanism and then, in the same hours, overstated
+my own work to a reviewer three times — while the underlying engineering was honest each
+time. **The failure mode does not need an LLM; it needs a summary.** Anything that
+compresses work into a sentence — a commit subject, a status line, a handoff, a plan
+preamble — is where the drift enters, and it is invisible from inside because the summary
+always feels like a fair reading of what you just did.
+
+Family: overclaiming-in-summary, coded-vs-filed-vs-measured, narrative-drifts-from-artefact, the-tally-is-the-point.
