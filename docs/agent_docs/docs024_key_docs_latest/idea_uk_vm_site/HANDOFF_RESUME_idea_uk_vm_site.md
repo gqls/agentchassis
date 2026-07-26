@@ -37,6 +37,8 @@
 > grep -ac "X-Real-IP"        /opt/idea/idea   # 090  → 1
 > grep -ac "(each out of 5)"  /opt/idea/idea   # copy → 2
 > grep -ac "YOUR IDEA, ASSESSED" /opt/idea/idea # 07-25 engine work → 1
+> grep -ac "claude-opus-5"    /opt/idea/idea   # 5-family models → 1
+> grep -ac "claude-opus-4-8"  /opt/idea/idea   # the models it replaced → 0
 > ```
 >
 > **Why each fix carries its own marker, and this is the lesson of the evening:** the 18:29 deploy
@@ -69,9 +71,25 @@
 >    the order `running` and leaks its slot **permanently** — the exact failure the expiry work was
 >    written to end. Fix: at startup, before the first sweep, reset any `running` order. Not built —
 >    only safe to write when nothing is running, and something ran all evening.
-> 2. **Margin lever, owner's call:** the engine still runs `claude-opus-4-8` / `claude-sonnet-4-6`
->    (`engine.go:26-29`) — a generation behind, and all four are plain env vars needing no rebuild.
->    Untouched: which model writes the paid product is a business decision.
+> 2. ~~**Margin lever, owner's call:** the engine still runs `claude-opus-4-8` / `claude-sonnet-4-6`~~
+>    **DONE 2026-07-26 — the engine is on `claude-opus-5` / `claude-sonnet-5`, deployed and
+>    verified** (NOTES §X.22). **And a correction to what this line used to say:** it called the four
+>    model env vars "a lever needing no rebuild". They were not. The Go picked the thinking wire
+>    format from an allow-list of adaptive-thinking models, so any model it had not heard of got the
+>    legacy `budget_tokens` format — which the 5 family rejects. Setting `GEN_MODEL=claude-opus-5` on
+>    the box alone would have returned **400 on every call** and taken the paid product down. Proven
+>    against the live API before changing anything:
+>
+>    ```
+>    claude-opus-5   OLD format (budget_tokens)   : 400 "thinking.type.enabled" is not supported
+>    claude-opus-5   NEW format (adaptive+effort) : 200 stop=end_turn
+>    ```
+>
+>    The selector is now a deny-list, so an unrecognised (newer) model gets the modern format and a
+>    future upgrade cannot fail this way. **Cost is [UNMEASURED]** — Opus 5 is the same price as
+>    Opus 4.8 and Sonnet 5 is at or below Sonnet 4.6 (intro rate to 2026-08-31), but Sonnet 5's
+>    tokenizer counts ~30% more tokens for the same text and two steps now do a little thinking that
+>    did none before. The next real order measures it: the `[cache]` log lines carry token counts.
 > 3. **Refuted, do not re-litigate:** the standing "real-client-IP in nginx — idea.uk is behind
 >    Cloudflare" item. It is **not**: Hetzner nameservers, A record straight to `116.203.204.115`,
 >    no `cf-ray`. No `set_real_ip_from` is needed; the defect was in the Go, and is fixed.
