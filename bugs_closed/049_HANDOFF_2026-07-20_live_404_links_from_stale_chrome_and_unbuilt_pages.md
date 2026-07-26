@@ -42,6 +42,36 @@
 > clears mechanism 1's residue, mechanism 2's nav link, **and** `bugs_open/053`'s fallback, and it
 > meets this file's verify criterion 2 (zero broken anchor instances) for the pages that have
 > re-rendered. The rest of the site inherits the identical chrome as its queue drains.
+>
+> ## FULL POST-DRAIN AUDIT, 2026-07-26 ~17:30 BST — both queues drained, both sites re-audited
+>
+> All 41 active pages on the two remediated sites re-fetched, every internal href re-probed:
+>
+> ```
+>                     broken anchor instances        unique 404 targets
+> gaswholesalers.com        33  ->  6                      6
+> vetcomparison.uk          23  ->  5                      5
+>                      TOTAL 56  -> 11                     11
+> ```
+>
+> **Every one of the 40 nav/chrome-driven instances is gone.** The 11 that remain are
+> `bugs_open/071`'s class, without exception — extension-less hrefs on a `.html` fleet
+> (`/contact`, `/delivery`, `/eligibility`, `/pricing`, `/products`, `/search`, `/claim-listing`,
+> `/about-pricing`, `/about-ownership-disclosure`, `/guides/pet-owner-rights`) plus the one item
+> below. Not one of them is this bug's mechanism.
+>
+> **One page missed the refresh and it is worth recording**, because "the queue drained" is not
+> the same as "every page re-rendered": `gaswholesalers.com/wholesale-pricing-explained.html` was
+> still serving the **entire pre-fix footer** (old quick-links AND old services column) after its
+> own `page_rerender` item had reported `complete`. 1 stale page of 30. Re-queued individually via
+> the platform's own route (a `site_work_items` row with `priority=1`).
+> **Check the artefact per page, not the queue's aggregate status** — a `complete` item is not
+> proof the file changed, which is this bug's own landmine turned on its own fix.
+>
+> **A false negative I nearly recorded as a fact:** my first context grep for the link used
+> `grep -oE '.{120}fuel...{60}'`, which silently matches nothing when the string sits fewer than
+> 120 characters from a line start — so it reported the page CLEAN while a plain `grep -c` said
+> **2**. A fixed-width context window is a filter, not a search; count first, contextualise second.
 > Commits `a9083d51b` · `759cb2b77` · `6e911793c`. Council **APPROVED** `623d7bce`.
 > Rollback for the data changes: `bak_049_nav_items_20260726`, `bak_049_page_navflags_20260726`.
 
