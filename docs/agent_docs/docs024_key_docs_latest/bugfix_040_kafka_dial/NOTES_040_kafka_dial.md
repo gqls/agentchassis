@@ -270,3 +270,71 @@ exactly like a fixed bug. **The same trap, one level up, twice in one day.**
 missing half (repo only, not applied). Selector verified against all three live
 pod shapes; keyed on `app` not `spawned-by` because the two spawn paths stamp
 different `spawned-by` values but the same `app`.
+
+### Round 2: REVISE — and the gate found a bug I had missed
+
+`decided_by: gating objection from editquality`. **8 of 11 seats approved**, and
+the guardian moved **veto → object**. So the round-1 rewrite landed.
+
+**The gate found a real second instance, and that is the most useful thing it has
+done on this case.** Chasing `editquality`'s "the broker-list change is functional,
+not instrumentation" objection, I looked for siblings and found the same phantom
+entry `kafka-0.kafka-headless.kafka:9092` in
+`spawn_actions.go:1019` — the fallback list **every spawned agent inherits**. I
+had fixed the site I tripped over and never enumerated the others.
+`WRONG_CALLS.md` already carries a tally row for exactly this ("enumerate the
+SIBLING instances before quantifying") and I still did it.
+
+Its neighbour went too: `personae-kafka-cluster-kafka-bootstrap.kafka:9092` is the
+same host as the FQDN entry directly above it, merely unqualified — so it walks
+the whole ndots:5 search path to arrive at a name already in the list.
+
+Claim precision also corrected. I had written "no such Service exists". A
+`kafka-headless` manifest **does** exist in-repo
+(`deployments/kustomize/infrastructure/kafka/kafka.yaml`, a hand-rolled Kafka
+StatefulSet) — it is just referenced by no kustomization and never applied, and no
+such Service exists in the live cluster. Both checks now recorded rather than
+asserted:
+
+```
+grep -rn 'infrastructure/kafka' --include=kustomization.yaml deployments/   -> empty
+kubectl get svc -A | grep -i headless                                        -> empty
+```
+
+**I introduced a behaviour change while claiming I had made none.** Guardian
+MEDIUM, and correct. Threading the caller's `ctx` into `topic_manager`'s dials
+looked like a free improvement. It is not: six of those eight sites previously
+called bare `kafka.Dial`, which uses `context.Background()`, so with a real ctx
+any caller holding a deadline shorter than 10s silently gets a shorter dial.
+That is precisely the class round 1 was vetoed for, reintroduced at smaller scale
+in the round that was supposed to remove it.
+
+> **MISSTEP 4, and the reverting of it nearly became MISSTEP 5.** My first fix was
+> a blanket replace of `ctx` → `context.Background()` across all eight sites. But
+> `WaitForTopic` and `WaitForTopicOld` **always** used `ctx` — blanket-reverting
+> them would have been the identical error mirrored. **The check:** diff each site
+> against the pre-change blob individually rather than trusting a global replace.
+> Final state verified site-by-site: 6 background, 2 ctx, all eight targets
+> identical to `95df64d63^`.
+
+Checks the seats asked for, all answered by running them rather than arguing:
+
+- `NewMetricsServer` callers: **zero** besides the one this change adds. So
+  rewriting `Start()` cannot break an existing contract.
+- `kafka.Writer{}` sites: **exactly two** (producer.go, remote-job-spawner) and
+  **both** now use `ProducerTransport` — the pool moves wholesale rather than
+  splitting, which was the guardian's LOW.
+- Complete dial-site enumeration: consumer, producer, topic_manager ×8,
+  kafka_reachability, remote-job-spawner reader+writer. That is all of them.
+
+**And the gating objection was, again, an edit I dropped for the 8-edit cap** —
+the health probe this time, `consumer.go` last time. Twice now, same cause. Round
+3 lists the health probe explicitly and adds a **"NOT LISTED AS EDITS (8-edit cap)"**
+section naming every remaining file, because the real lesson is not "remember the
+cap" but **"if the plan does not fit in 8 edits, say which ones are missing"**.
+An edit left out reads as an edit not made, and that has now cost two rounds.
+
+Round 3 also drops the blanket "zero behaviour change" framing. Four small,
+deliberate, separately-justified behaviour changes do ride along, and they are now
+enumerated in the summary instead of being discoverable only inside individual
+edit rationales.
