@@ -220,6 +220,40 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			}
 		}
 
+		// A workflow authored INSIDE input_data cannot be delivered, and used to
+		// be discarded in silence (bugs_open/074). fireTrigger builds the
+		// message `config` from this row's COLUMNS, so a workflow written at
+		// input_data.config.workflow lands at body.input_data.config.workflow —
+		// one level below the only place the chassis reads it
+		// (processor.go selectWorkflow, Priority 1: body.config.workflow). The
+		// target agent's own workflow then runs instead; for `generic` that is a
+		// single complete_workflow no-op, so the task fired, stamped BOTH
+		// timestamps, created a COMPLETED orchestration and did nothing. One
+		// task sat like that for three months.
+		//
+		// Refuse rather than fire: manufacturing a green orchestration for work
+		// that was never dispatched is the actual harm here. Stamp the
+		// timestamps anyway so the row rotates to the back of its group's queue
+		// instead of re-winning the only slot every tick (bugs_open/048), and
+		// claim no slot — nothing is running.
+		//
+		// A CHECK constraint (migration 217) refuses this shape at the moment it
+		// is authored, so in a healthy database this branch is unreachable. It
+		// stays because a constraint can be dropped and an old row restored, and
+		// because a discard should be visible where it happens.
+		if startStep, carriesWorkflow := discardedInlineWorkflow(inputData); carriesWorkflow {
+			logger.Warn("Refusing to fire: task carries a workflow the scheduler cannot deliver",
+				zap.String("task", task.Name),
+				zap.String("target_agent_type", task.TargetAgentType),
+				zap.String("ignored_start_step", startStep),
+				zap.String("remedy", "move the workflow into an agent_definitions row and point target_agent_type at it; input_data is the payload only"))
+			if err := stampCompleted(ctx, db, task.ID); err != nil {
+				logger.Warn("Failed to update timestamps",
+					zap.String("task", task.Name), zap.Error(err))
+			}
+			continue
+		}
+
 		// The task has real work to do — claim the concurrency slot now, so
 		// other tasks in this group later in the same tick respect
 		// max_concurrent. Nothing above this point claimed it: a no-op or an
@@ -260,6 +294,44 @@ func runTick(ctx context.Context, db *sql.DB, producer kafka.Producer, logger *z
 			zap.String("agent_type", task.TargetAgentType),
 			zap.String("topic", task.TargetTopic))
 	}
+}
+
+// discardedInlineWorkflow reports whether a task's input_data carries a workflow
+// at input_data.config.workflow, and returns that workflow's start_step for the
+// log. Presence is decided structurally, not by shape: a malformed workflow (a
+// string, a number, an object with no start_step) is discarded just as silently
+// as a well-formed one, so it must be reported just as loudly. start_step is
+// best-effort and comes back empty when it cannot be read.
+//
+// This is deliberately the ONLY key the scheduler inspects inside input_data.
+// bugs_closed/054 settled that this column is the payload and that fireTrigger
+// must not reach into it — reading a payload field to decide behaviour is how a
+// legitimate field named `config`/`action`/`input_data` gets silently eaten.
+// Detecting one known-undeliverable shape in order to refuse it is not that:
+// nothing here changes what is sent, and the field is never consumed.
+func discardedInlineWorkflow(inputData json.RawMessage) (startStep string, found bool) {
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(inputData, &body); err != nil {
+		return "", false
+	}
+	rawConfig, ok := body["config"]
+	if !ok {
+		return "", false
+	}
+	var config map[string]json.RawMessage
+	if err := json.Unmarshal(rawConfig, &config); err != nil {
+		return "", false
+	}
+	rawWorkflow, ok := config["workflow"]
+	if !ok {
+		return "", false
+	}
+	var workflow struct {
+		StartStep string `json:"start_step"`
+	}
+	// Best-effort: a workflow we cannot parse is still a workflow we cannot deliver.
+	_ = json.Unmarshal(rawWorkflow, &workflow)
+	return workflow.StartStep, true
 }
 
 // stampCompleted records that a task ran to completion this tick by advancing
