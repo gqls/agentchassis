@@ -505,3 +505,55 @@ afterwards.
 The pattern across all four is the same and worth naming: **each was a case where
 something returned a success-shaped result** — `UPDATE 1`, `COMPLETED`, a status
 code that was not a status code — and I read the shape rather than the substance.
+
+### First live run of the grounded lane — and what it caught about itself
+
+Corr `8896cc75`. The acquisition half worked on the first attempt:
+**14 citations machine-verified**, mostly from **legislation.gov.uk** itself —
+s901F(1)'s 75%-in-value majority, s901G, both cram-down conditions, the statutory
+definition of the *relevant alternative*, Part 26A's insertion by CIGA 2020, plus
+the Adler Court of Appeal outcome and Re Nasmyth. Exactly the load-bearing
+conditions a reader could get wrong, quoted from the instrument rather than from
+commentary about it.
+
+**That is also V5 completing end to end for the first time.** It was activated
+2026-07-20 and had never finished a successful run; the workstream inherited it as
+"live but never exercised". It is now exercised: 14 candidates proposed,
+14 re-fetched and confirmed, 0 discarded.
+
+Then two defects, and the second one is the more interesting.
+
+**The composer never saw the facts.** `verify_and_register_citations` returns a
+receipt — `{"registered": ["CIT-a7f91f88754d560", …]}` — and my prompt
+interpolated that, so the writer received a list of opaque identifiers with no
+content. **And it behaved correctly**: `sources_used: []`, and a `gaps` list naming
+as unverifiable precisely the facts that had just been registered — "the statutory
+majority required for a class to be treated as approving a plan", "the precise
+legal definition of the no worse off test", "whether cross-class cramdown is
+available at all".
+
+> **This is the design working, and it is worth dwelling on.** A writer starved of
+> facts produced honest gaps instead of confident law. The bug cost one run. The
+> alternative failure mode — a writer that fills the gap from memory — costs a
+> wrong statement of statute on a live page, and would have read completely
+> plausibly. **Making the unsafe path impossible matters more than making the
+> happy path smooth**, and here the unsafe path simply was not available.
+
+**The audit destroyed the work it was auditing.** `audit_grounding` hit its
+6000-token cap (`stop_reason=max_tokens … 0 chars recovered`) and, having no
+`error_step`, failed the whole orchestration — taking a 6,397-character draft with
+it, recoverable only by hand out of `collected_data`.
+
+That is CLAUDE.md's `output_tokens == max_tokens means the completion was CUT`
+rule meeting a new surface: not an artifact truncated into the database, but a
+**verification step whose truncation took a good draft down with it**. The
+durable principle, now in migration 225: **a check that fails must not destroy the
+thing it was checking.** The audit now routes its own failure to the review item,
+flagged unaudited so a human reads it *more* carefully — the same discipline as
+tool-generator's doc steps, which carry `error_step: complete` so a docs failure
+can never fail tool creation.
+
+Migration 225 fixes all three: a `load_evidence` step reads the register back so
+the composer and the auditor both see the claims themselves; the audit cap goes to
+12000 and its prompt asks only for problems rather than an enumeration; and the
+audit can no longer fail the run.
