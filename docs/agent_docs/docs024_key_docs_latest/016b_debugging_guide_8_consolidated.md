@@ -4588,3 +4588,53 @@ you.**
 wrong-model. Related: the `unbuilt_internal_link` detector for this very class was built, live
 in-pod, and had **never fired** — see `bugs_open/083`, because detection was never the binding
 constraint.
+
+### An observability path has THREE independent layers, each failing silently and identically — serving the metric is the easy third of it (2026-07-26)
+
+Follow-on to the entry above, proven live the same day. Having found that nothing in
+the fleet served `/metrics`, I shipped the listener, watched it roll, confirmed the
+port open — and Prometheus still collected **nothing**. Two more layers underneath,
+and the point is that **all three produce the same symptom: a number reading zero.**
+
+| layer | how it failed here | how to test it |
+|---|---|---|
+| 1. **Exposition** — does the process serve it? | `NewMetricsServer` had zero callers; the binary built a mux with only `/health` + `/ready` | `kubectl exec <pod> -- wget -qO- localhost:<port>/metrics` |
+| 2. **Discovery** — is Prometheus told to look? | operator-driven cluster; **0 PodMonitors**, `additionalScrapeConfigs: None`. The `prometheus.io/*` pod annotations are the *plain-Prometheus* convention and are **inert** under the operator | `/api/v1/targets?state=any` — does your pod appear at all? |
+| 3. **Reachability** — can it actually connect? | `default-deny-ingress` plus an `allow-monitoring` rule that matched nothing | exec into the *Prometheus* pod and curl the target pod's IP |
+
+Layer 3 is the one worth internalising, because the intent was **legible and
+correct**. The rule already named port 9090 — someone wrote it for exactly this
+scrape. It had never matched a packet, for two independent reasons, either
+sufficient alone:
+
+- `from: [{podSelector: {...}}]` with **no `namespaceSelector`** means "pods with
+  these labels **in the policy's own namespace**". Prometheus was in `monitoring`.
+- the label it selected on (`app: prometheus`) **does not exist** on the pod;
+  kube-prometheus-stack sets `app.kubernetes.io/name: prometheus`.
+
+**A NetworkPolicy that selects nothing is indistinguishable from one that is never
+exercised.** There is no error, no event, no log — the packets simply stop.
+
+**The triangulation that identified it in one step**, rather than guessing between
+application / CNI / policy — vary the source namespace *and* the port together:
+
+```
+from the target's own namespace : pod:8080 OK    pod:9090 OK
+from the monitoring namespace   : pod:8080 OK    pod:9090 TIMES OUT
+```
+
+Same-namespace fine ⇒ not the app, not the pod network. Other port fine from the
+same source ⇒ not routing. Only a port-and-source-scoped rule fits. **Two variables,
+four cells; a single-cell test would have been consistent with all three causes.**
+
+**The generalisable rule:** when a metric, probe, webhook or scrape reads empty,
+"the endpoint works" is one third of an answer. Walk exposition → discovery →
+reachability explicitly, and **verify each layer with its own command**, because
+they are indistinguishable from the outside and each one silently swallows the
+evidence for the others. Note the compounding shape here: three separate teams-worth
+of correct intent — counters written, pods annotated, firewall port named — and
+every one of them inert. Legible intent is not evidence of a working path.
+
+Payoff for doing all three: Prometheus went **0 → 16 `ai_persona_*` series**, and
+the fifteen that were not this case's counter had been computed and discarded for
+the life of the fleet.
