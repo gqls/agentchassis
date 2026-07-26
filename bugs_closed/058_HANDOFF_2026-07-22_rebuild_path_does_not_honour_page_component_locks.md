@@ -156,7 +156,44 @@ table-generic, so the fix there is mechanical).
   DELETE predicate independently protects the rows; only slot-matching (and hence the `remove`
   signal) is lost in that branch.
 
-**Post-roll verification recipe** (the failing branch, not a pod-grep):
+## CLOSED 2026-07-26 — LIVE BEHAVIOURAL PROOF on v1.0.1165 (induced fault, failing branch exercised)
+
+Image roll landed (pod `agent-chassis-f4d46c88d-p6wqc`, `v1.0.1165`, started 12:06 UTC).
+Deployment check first: discriminating pod-grep found all strings the fix CREATED
+(`lock_blocked_change` ×2, `stored report kept` from `47c2db46a`, `locked-row preload failed`)
+plus a positive control.
+
+**Probe** (scratch one-step harness per `durable_write_guard/RUNBOOK`, agent
+`scratch-058-lockgate` → `save_page_sections`, fired 13:16 UTC via the 091 kcat envelope,
+orch `68c01eb9`, COMPLETED in <1s): scratch page `probe-058-lockgate` on dartsonline with a
+`lock_type='permanent'` row (`locked_by='058-verify'`) and an unlocked sibling; the payload
+carried fresh copy for BOTH slots.
+
+**All three recipe assertions held** (branch exercised = the save-path overwrite block +
+emitter; the other writers' gates share the same predicate, proven at SQL level by
+`lock_gate_test.go`):
+
+1. Locked row `6b36a91d…`: id, `md5(rendered_html)` (`7770e75c…`) and `updated_at`
+   (`13:15:40.80047`) **all unchanged** after the rebuild — the fresh copy was discarded.
+2. Unlocked sibling: old row deleted, **new row written** with the fresh copy
+   (`f7c9049a…`, `build_status='deployed'`) — the gate does not stop legitimate writes.
+3. Exactly one `site_work_items` row: `item_type='lock_blocked_change'`,
+   `item_key='lock_blocked_change:probe-058-lockgate:probe-locked-hero'`,
+   `status='needs_human_review'`, no handler_agent, `blocked_action='overwrite'`,
+   `source='save_page_sections'`, `locked_by='058-verify'`.
+
+Chassis log confirms the exact branch:
+`"SavePageSectionsAction: preserving human-locked section over rebuilt copy (bugs_open/058)"`
+(`save_page_sections_action.go:526`, orch `68c01eb9`).
+
+Cleanup verified to zero: probe page + 2 pc rows + 2 history snapshots, the work item, 7
+orchestration audit rows + state, and the scratch agent all deleted; no `agent_error_log` rows.
+
+Residual: chrome half (`site_components`) is `/bugs_open/069` — separate bug, not a residual
+of this one.
+
+**Post-roll verification recipe** (the failing branch, not a pod-grep — this is the recipe
+the proof above followed):
 
 1. On a scratch page: `UPDATE page_components SET locked_at=now(), locked_by='058-verify',
    lock_type='permanent' WHERE id='<pc>';` — note `rendered_html` md5 + `updated_at`.
