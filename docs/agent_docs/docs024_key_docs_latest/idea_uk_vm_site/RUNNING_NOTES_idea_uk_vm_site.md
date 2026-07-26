@@ -1933,3 +1933,22 @@ unescaped, 0 unreplaced actions. page_type='tool' → /tools.html lists it at na
 
 idea.uk now: 9 guides + 3 free-ish tools (2 client-side finders + the audience-check taster) +
 the paid report, everything cross-funnelled, all authored surfaces locked, all listings derived.
+
+### §X.17 — box state re-checked: the three fixes have NOT been run yet (2026-07-26)
+
+Owner re-ran the CONTACT_EMAIL grep and asked for a walkthrough. Verified read-only before
+writing it: `curl https://idea.uk/capacity` → `{"active":5,"max":5,"open":false}` (the five
+stale test orders still hold every slot); orders.json status counts unchanged (60 requested /
+4 awaiting_review / 1 awaiting_payment); `grep -c CONTACT_EMAIL /etc/idea/idea.env` → 2 (both
+lines still present, stale one still winning); no `.bak.*` files exist. So NONE of yesterday's
+three fixes has run — the walkthrough starts from the backup step. Full owner-facing walkthrough
+issued in-chat (backup → release the 5 slots → email fix with the idea@-vs-idea.uk@ decision →
+restart + verify → one end-to-end report). Noted in passing: yesterday's binary deploy also took
+the /request spam hardening live (honeypot + timing + limiter were in the source tree since
+07-17 but never deployed until now), so the two optional items left on the box are the old spam
+rows in orders.json (~50 garbage 'requested' entries, cosmetic) and the two SES custom-MAIL-FROM
+DNS records (outstanding since 07-18).
+
+Docs to this point: SUMMARY_2026-07-26 written (new file — the pipeline-complete milestone;
+07-25's summary predates stages 1–5, both tools and the engine extension, so "where we are now"
+genuinely differs).

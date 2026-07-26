@@ -1310,3 +1310,17 @@ up whatever we add next; and every path ends at the report.
 
 Still with you: the three box commands from earlier (release the five stuck test slots, delete the
 stale email line, restart) — then one real end-to-end report to see the new format arrive.
+
+## 2026-07-26 — where things stand, and the last chores on the box
+
+The site itself is done and verified — nine guides, the two free finders, the audience check and
+the paid report, all cross-linked, all funnelling to the £29 report. A fresh summary of the whole
+journey is in SUMMARY_2026-07-26.
+
+On the box, I checked this morning: none of yesterday's three fixes has gone through yet — the
+capacity endpoint still says five of five slots taken (your old test orders), and the settings
+file still has the contact address twice with the dead one winning. The exact steps are in the
+chat: back up, release the five slots, fix the email line (deciding which contactforsales
+address is the real mailbox), restart, then order one real report to see the new format arrive.
+One nice side effect already banked: yesterday's deploy also took the anti-spam hardening live —
+it had been sitting finished in the source since mid-July waiting for exactly this rebuild.
