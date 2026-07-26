@@ -118,6 +118,20 @@ func runTransform(sitesDir, portDir, outDir, domain, only string) error {
 			continue
 		}
 
+		// SCRIPT PARITY. Every script the source page had must be accounted for
+		// in the fragment, either carried or deliberately excluded.
+		//
+		// This gate exists because its absence cost the whole port once: the
+		// transform took its content root before extracting scripts, so every
+		// tool's engine was dropped and 60-odd interactive pages became static
+		// markup — while the run reported "97 pages, 0 warnings". Counts cannot
+		// see this. Only a comparison against the source can, so the comparison
+		// is now mandatory rather than something to remember to grep for.
+		if err := checkScriptParity(sitesDir, e, p); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", e.Source, err))
+			continue
+		}
+
 		man.Pages = append(man.Pages, mp)
 
 		// Sibling assets (a tool's own engine JS) travel with the page.
@@ -754,6 +768,58 @@ func collectPortAssets(portDir string, man *Manifest, seen map[string]bool) {
 		man.Assets = append(man.Assets, ManifestAsset{Dest: dest, Generated: true})
 		return nil
 	})
+}
+
+// checkScriptParity refuses to emit a fragment that has lost JavaScript.
+//
+// It counts the <script> elements in the SOURCE page, subtracts the ones we
+// deliberately do not carry (the site-wide engines the chassis now supplies),
+// and requires the fragment to hold the rest. Both an inline script and a
+// src-loaded one count.
+//
+// It fails on a shortfall rather than warning, because a warning is exactly
+// what the original failure produced: nothing looked wrong, the tools were
+// simply dead, and the only way to notice was to open a page in a browser.
+func checkScriptParity(sitesDir string, e CatalogueEntry, p *pageResult) error {
+	doc, err := parseFile(filepath.Join(sitesDir, e.Source))
+	if err != nil {
+		return fmt.Errorf("re-reading source for the script-parity check: %w", err)
+	}
+	body := findFirst(doc, byAtom(atom.Body))
+	if body == nil {
+		return nil
+	}
+
+	expected := 0
+	for _, n := range findAll(body, byAtom(atom.Script)) {
+		src := attr(n, "src")
+		if src != "" && isSupersededSiteScript(src) {
+			continue // the chassis header supplies this one
+		}
+		if src == "" && strings.TrimSpace(textOf2(n)) == "" {
+			continue // an empty <script></script> carries nothing
+		}
+		expected++
+	}
+
+	got := len(findAll(mustParseFragment(p.html), byAtom(atom.Script)))
+	if got < expected {
+		return fmt.Errorf(
+			"script parity: source has %d script(s) to carry, fragment has %d. "+
+				"JavaScript is being dropped — this page's tool would ship dead",
+			expected, got)
+	}
+	return nil
+}
+
+func mustParseFragment(fragment string) *html.Node {
+	root, err := parseFragment(fragment)
+	if err != nil {
+		// An unparseable fragment yields an empty tree, so the parity check
+		// reports a shortfall rather than passing by accident.
+		return &html.Node{Type: html.DocumentNode}
+	}
+	return root
 }
 
 // imgRefRe finds image paths as the fragments actually write them.
