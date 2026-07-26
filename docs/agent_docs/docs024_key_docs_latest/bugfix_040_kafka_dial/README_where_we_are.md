@@ -157,3 +157,66 @@ invisible for now. Wiring them up is the obvious next job, and I've deliberately
 not bundled it in, since bundling is exactly what got the first version rejected.
 
 The revised version is back with the council now.
+
+## 2026-07-26, evening — it's live, and it needed three fixes rather than one
+
+Your build went out and the counting code is running. I checked it properly rather
+than trusting the version number — and that mattered, because **the version number
+didn't change**. Still v1.0.1167, same as before. The only way to know whether the
+new code was actually in there was to look inside the running container, which I
+did, with a control check either side to prove the method wasn't lying to me. It's
+there.
+
+Then the part worth telling you about. The metrics port was open — and the
+monitoring system still collected **nothing**. There were two more layers
+underneath, and each one on its own produces exactly the same symptom: a number
+that reads zero.
+
+**Second layer:** the monitoring system had never been told to look at our
+services. It only watches things it's explicitly pointed at, and nothing pointed it
+at us. I'd already written that piece; I switched it on. Six targets appeared
+immediately — and every one of them failed.
+
+**Third layer, and this is the one I'd frame:** the cluster's firewall rules were
+blocking it. There is a rule, written some time ago, whose entire purpose is to let
+the monitoring system read metrics — **it even names the correct port**. Somebody
+sat down and wrote that rule intending exactly what I was trying to do. It has never
+worked, for two independent reasons: it looks for the monitoring system in the wrong
+place, and it identifies it by a name it doesn't go by. Either mistake alone means
+it matches nothing at all.
+
+I found it by testing rather than guessing: from inside our own services the metrics
+port answers fine; from the monitoring system it times out; a different port answers
+from both. That combination can only be a firewall rule. Fixed it narrowly — one
+port, one source, nothing else opened — and kept a copy of the old rule.
+
+**It works now.** Six of six targets healthy, and the monitoring database went from
+**zero** of our metrics to sixteen. Not just the new one either: how many tasks each
+agent processes, how many messages, how many workflows start, whether agents are
+healthy. All of those were being counted and thrown away, for as long as the system
+has existed. They're being recorded now.
+
+**The first real measurement:** 240 Kafka connections, **every single one
+successful**, and the slowest 1% completing in **28 milliseconds**.
+
+Two things follow from that, and they point opposite ways, so I want to be careful.
+
+**It does not mean the bug is fixed**, and I'd resist reading it that way. Twenty
+minutes is not a week, and the original evidence had the always-on service showing
+zero errors in exactly the same window where the temporary workers showed dozens. A
+clean short sample from a quiet system is precisely what this fault looks like when
+it isn't happening. Concluding "fixed" from it would be the same mistake this whole
+investigation has been about.
+
+**But it does settle the argument I got wrong earlier.** I'd wanted to cut the
+give-up time from ten seconds to five, and the review council blocked me for
+guessing. Now there's data: normal connections finish in 28 milliseconds against a
+ten-second limit — about **360 times** the headroom. So the stall isn't ordinary
+slowness drifting into the limit; it's a distinct, rare event. When we do change
+that setting we'll pick the number from the measurements. The council's block cost
+two rounds and bought a decision made on evidence instead of instinct.
+
+What's left: let it run a week. If no failures appear, the case closes. If some do,
+the counter will say whether the stall is in the name lookup or the connection
+itself — and that single fact points at either DNS or the network fabric, which is
+the fork nobody has been able to get past.
