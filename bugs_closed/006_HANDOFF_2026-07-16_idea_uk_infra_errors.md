@@ -750,6 +750,54 @@ measuring handler runtimes before writing the claim down, rather than after.
 
 Council submission `SUBMISSION_CORR=9962dd2b-886e-47a3-92b1-6b4a4b968886` — **DROPPED, see below.**
 
+### C — COUNCIL APPROVED, round 1 (corr `5e3531f4-2815-4d4b-8328-b47ee877ddd4`)
+
+**13 reviewers, 3 abstained (relevance-filtered), `unreadable: 0`** — so no truncated reviewer
+voided the round, which is the `bugs_closed/019` trap and the reason to read the counts rather than
+the headline. Approved with **2 advisory objections, none high-severity**. Trailer added on the
+commit recording this.
+
+**The objection with real force (bug_historian, MEDIUM) — and it is right about something.** The
+new branch completes on orchestration status alone, with no check that the artifact is present or
+correct, for every item type except the 3 with a Go verifier. Its argument against my parity
+defence: *"parity with a write path that has the SAME exposure does not make the exposure safe."*
+
+I accept the half of that which holds, and it is worth stating precisely because my own risk section
+did not put it this way: **before this change, an orphaned item of those 15 types was RESET and
+re-run, and a re-run can repair a bad artifact. Now it is completed, so that accidental repair no
+longer happens.** The change therefore trades redundant work for a repair that sometimes occurred by
+accident. That is a real trade and it was not named in the submission.
+
+What I do *not* accept is the volume framing (*"at higher volume than that write path alone would
+ever exercise"*). The sweep fires only on claims whose completion write was **lost** — 84 in 14 days
+against every normal completion in the same period. It is a strict subset, not an amplifier.
+
+**Why the trade is still the right way round**, stated so a future reader can disagree with the
+reasoning rather than guess at it:
+- the item was orphaned by a **lost message**, not by a bad artifact — the re-run's inputs are
+  identical, so its repair value is incidental, not designed;
+- a genuinely broken artifact is re-detected independently by the discovery checks, which is the
+  actual repair path and does not depend on a claim happening to time out;
+- and 11 items in 14 days reached `failed`/`unresolved` **with the work done**, which is the cost of
+  the old behaviour and is not incidental at all.
+
+**The council's "missing" note asks for a fail-loud signal** when the branch completes something
+whose content is actually broken. Not built — but the material for it is already in place, because
+the branch writes its own marker, so the population is queryable rather than invisible:
+```sql
+SELECT item_type, count(*) FROM site_work_items
+WHERE error = 'Auto-completed: handler orchestration completed after claim' GROUP BY 1;
+```
+Recorded as an advisory follow-up rather than done here: it is a detector, and detectors on this
+platform belong in `discovery_checks` with their own verifier and item type, which is a separate
+reviewed change and not something to bolt onto a closure.
+
+**The LOW objections, both fair, both already known:** the lockstep test's regex is fragile to
+reformatting the `NOT IN (...)` clause across lines (acknowledged in the submission; it fails
+loudly, not silently); and the test pins the exclusion list to the *registered* verifiers without
+shrinking the ~97 item types that have no verifier at all — which is `bugs_open/021`'s coverage
+backlog, explicitly out of scope here and named in `verifier_coverage_test.go`'s own header.
+
 ### C — RE-VERIFIED AFTER THE 2026-07-26 21:03Z CHASSIS ROLL
 
 A roll is exactly when a config-only fix can be silently undone, because a chassis deploy can

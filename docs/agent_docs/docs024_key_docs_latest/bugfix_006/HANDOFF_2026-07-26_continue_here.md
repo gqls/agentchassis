@@ -13,9 +13,25 @@ technical record and states both residuals at the top.
 |---|---|---|
 | **A** runner replica crash-loop | **RESOLVED** — symptom extinct, *how* is `[INFERRED]` | no. Reopen trigger written into the file |
 | **B** contact forms deliver nothing | **FIXED, LIVE, PROVEN** — 3 of 12 healed | no. 9 heal organically, owner ruling 07-25 |
-| **C** claim-timeout churn | **FIXED & LIVE** — migration `220`, config, survived the 21:03Z roll | **only the advisory council verdict** |
+| **C** claim-timeout churn | **FIXED & LIVE** — migration `220`, config, survived the 21:03Z roll | **no — council APPROVED round 1, trailer added** |
 
-**The one thing to check first in a new chat:**
+## Nothing is owed. The workstream is finished.
+
+Council **APPROVED** round 1, corr `5e3531f4-2815-4d4b-8328-b47ee877ddd4`: 13 reviewers, 3
+abstained (relevance-filtered), **`unreadable: 0`** (so the `019` void-a-round trap is cleared), 2
+advisory objections, none high-severity. Trailer `Council-Reviewed: 5e3531f4-…` is on commit
+`{TRAILER_COMMIT}`.
+
+**The one advisory objection worth a successor's attention** (bug_historian, MEDIUM) is answered in
+the bug file, not dismissed: the branch completes on orchestration status with no artifact check,
+so the accidental repair that a re-run sometimes performed no longer happens. The trade is argued
+there explicitly — disagree with the reasoning if you like, but it is written down. The council's
+"missing" item (a fail-loud signal for an auto-completed-but-broken item) is **not built**; the
+population is queryable via the branch's own marker, and a real detector belongs in
+`discovery_checks` as its own reviewed change.
+
+<details>
+<summary>How the verdict was checked (kept for the method, not because anything is pending)</summary>
 
 ```sql
 SELECT created_at, metadata->>'decision', metadata->>'decided_by'
@@ -40,8 +56,11 @@ ORDER BY created_at;
   WHERE collected_data->'input_data'->>'fix_correlation_id' = '5e3531f4-2815-4d4b-8328-b47ee877ddd4';
   ```
 
-**Nothing else is owed.** If the verdict is APPROVED and the trailer is added, this workstream is
-finished.
+**Read the counts, not the headline.** `metadata` carries `reviewers`/`abstained`/`unreadable`; a
+non-zero `unreadable` voids the round (`bugs_closed/019`) however confident the decision string
+reads.
+
+</details>
 
 ---
 
