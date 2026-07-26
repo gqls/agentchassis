@@ -76,3 +76,55 @@ styling rather than quietly restyling three customers' sites.
 The change has also gone to the reviewer council. It was queued behind eleven other jobs
 when I submitted, so the verdict will take a while; that is normal and does not mean
 anything went wrong.
+
+---
+
+## 2026-07-26, later — it is live, and the bug is closed
+
+A fresh chassis build went out (v1.0.1171) with the code fix in it. I checked it was
+genuinely in the running container rather than just in git — grepped the binary for a
+phrase that only exists because of this change, plus a phrase that existed before it and a
+phrase that exists nowhere, so a false pass would have shown up. All three behaved.
+
+Then I re-rendered the two broken homepages and measured all four sites. Both broken sites
+now render styled news cards. The two that already worked are unchanged — I checked that
+properly rather than assuming it: the styling now sitting inside their pages is a
+byte-for-byte match with what their stylesheet already served. So we added the missing
+paint; we did not repaint anyone.
+
+That was the whole test, and it passed, so **the bug is closed** and the file has moved to
+the closed folder.
+
+Two things I want to be straight about.
+
+**The first is that the half of the fix that actually did the work was the simpler half.**
+The two news components now carry their own styling, and that is what showed up on the
+pages. The cleverer half — the page assembler collecting styles as it builds — deliberately
+did nothing, because it checks whether a component already carries its own styles and
+stands aside if so. That is exactly what it was built to do, but it does mean it is
+installed rather than proven in the wild. So I proved it a different way: I ran its
+database query by hand, twice — once against the world as it is (it correctly found nothing
+to add) and once against a simulated page from before today's change (it correctly produced
+the 3,355 characters that were missing for eighty days). Both directions behave. It is a
+safety net, and the net is real, but nothing has fallen into it yet.
+
+**The second is a mistake I made and got away with.** I intended to fire the light kind of
+page refresh, the one that just restitches what is already stored. The script's
+documentation says you get that by passing no reason. I passed an empty reason, which is
+not the same thing — in shell, an empty argument counts as absent, so it quietly selected
+the *heavy* refresh instead, which re-renders every section on the page. On two live
+customer sites.
+
+Nothing was harmed: that script has a guard that refuses to run when a page has missing
+content, precisely because the heavy path would otherwise regenerate the text, and both
+pages were clean. But that was luck, not care. Worse, the heavier path is what carried the
+fix onto the page — so the mistake was rewarded, which is the sort that repeats. I have
+written it up in the standing wrong-calls log and put the warning in the runbook next to
+the command.
+
+One loose end: the change was sent to the reviewer council hours ago and no verdict ever
+came back. There is no trace of it in the system at all, which looks like the request was
+lost rather than merely slow. I have not resubmitted, because "no rows" is also what a
+queued job looks like and our own guidance says not to spend the credits twice on that
+evidence. The practical effect is that both commits are honestly marked as un-reviewed
+rather than carrying a review stamp they did not earn.

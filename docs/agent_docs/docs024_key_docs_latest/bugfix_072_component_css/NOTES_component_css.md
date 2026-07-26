@@ -126,3 +126,86 @@ come from `git archive HEAD`, so it cannot reach an image unless they commit it.
 **072 stays OPEN.** The Go half is inert until an image roll; the migration is live in the
 DB but invisible until sections are re-rendered; no page was re-rendered and no live site
 was touched, on the owner's decision.
+
+---
+
+## 2026-07-26 — session 2: verified live on chassis v1.0.1171, 072 CLOSED
+
+Fresh build deployed. Pod-grepped four strings the change **created**, plus a positive
+control (pre-existing `collectJSAssets: found JS asset` → 1) and a negative control
+(`data-component-css-NOTREAL` → 0). All correct; the code is live.
+
+### MISSTEP 4 — I fired a heavier re-render than I intended, on two live sites
+
+I meant to run **assemble-only**, which stitches stored `rendered_html` and is the branch
+that exercises my injection. `TRIGGER_rerender_page.sh` documents "No reason ->
+assemble-only", so I passed `""` as the third argument. The script does:
+
+```bash
+REASON="${3:-section_data_resolved}"
+```
+
+`${3:-word}` substitutes the default when the parameter is unset **or null** — an empty
+string counts. Verified after the fact:
+
+```
+$ f(){ echo "REASON=[${3:-section_data_resolved}]"; }; f index example.com ""
+REASON=[section_data_resolved]
+```
+
+So both pages got a full section re-render from `content_data` through the current
+templates, not an assemble-only stitch. **To get assemble-only you must omit the argument
+entirely, and the script as written makes that impossible if you pass a placeholder.**
+
+No harm done — the script's own guard checks for NULL `content_data` before running and
+both pages were clean (0 NULLs), so no copy was regenerated. And it is the reason the fix
+reached the pages at all: `section_data_resolved` is exactly the path that picks up
+migration 222's template change. But I did not choose that; I got it by accident and only
+noticed because the evidence did not match my expectation.
+
+**What caught it:** `page_components.updated_at` moved to 21:16 on both pages. An
+assemble-only run does not touch those rows. The number contradicted the story, so I
+checked the story.
+
+### The result, and being straight about which half did the work
+
+All four sites now carry the news CSS; the two broken ones are fixed. But the styling
+arrived via **migration 222**, not via my assembly-time injection — which correctly
+**stood down**, because its dedup sees that every matching component now ships its own
+`<style>`. `data-component-css` appears on none of the four pages.
+
+That is the designed outcome and it is also a gap in the evidence: the injection is
+deployed and **unexercised in production**. Pod-grep proves deployment, not correctness. So
+I ran the exact query the Go code runs against the live DB, both arms, for
+ai-agent-orchestration's index page:
+
+- as-is → **0 rows** (dedup suppresses everything, nothing double-shipped)
+- with `ships_own_css` forced false → **`Latest News Grid` (3,355 bytes)**, `fade-in-up`,
+  `responsive-grid` — precisely the CSS that was missing for 80 days
+
+Both arms behave. That is as close to exercising the branch as production allows without
+manufacturing a broken page.
+
+### The control that made the close safe
+
+gaswholesalers and robot-hands gained an inline copy of rules they already served from
+`styles.css`. Compared them: the inline news block is a **byte-identical prefix** of the
+stylesheet copy (3,194 normalised chars). The apparent extra tail is the `call-to-action`
+component's own style block, which was always there — my first extraction regex swept up
+every inline `<style>` on the page, not just the news one, and briefly made two identical
+things look different. Read the diff before believing it.
+
+### Two loose ends recorded rather than chased
+
+- **The council submission never produced a verdict.** No orchestration row carries the
+  correlation ~2.5h after dispatch; no artifacts. Looks like a lost dispatch rather than
+  latency (other council runs completed in the window), but the runbook says that is not
+  grounds to resubmit on this evidence. **No `Council-Reviewed:` trailer on either commit**,
+  which is correct — the trailer is earned by APPROVED only.
+- **Both rerender orchestrations sat at `deploy_page` / `AWAITING_RESPONSES` while the
+  pages were live.** The artefact shipped, the response was never recorded. Same family as
+  bugs_open/003. "Trust the rendered artefact, not the status" cut in my favour here, but
+  it is the same defect either way.
+
+**072 moved to `/bugs_closed/`** — fixed and live, verified on the rendered pages with the
+control holding.

@@ -6,10 +6,11 @@ components first and then found the same shape in the news feed's.
 unstyled markup on an otherwise designed page.
 **Class:** structural (a component's markup and the CSS it depends on are produced by
 different mechanisms, and nothing checks they both arrived).
-**Status:** OPEN. **Cause DIAGNOSED 2026-07-26 and the fix committed — but not yet live**,
-so this stays open (the `/bugs_closed/` bar is fixed AND live). See "Diagnosis" and
-"What has been done" at the bottom; everything above them is the original filing and is
-unchanged except where marked.
+**Status:** **CLOSED 2026-07-26 — fixed AND live, verified on the rendered pages.**
+All four sites emitting `.news-card` now have matching rules; the two that were unstyled
+are styled, and the two that were already styled are byte-identical (the control). Cause
+diagnosed the same day. See "Diagnosis", "What has been done" and "Verified live" at the
+bottom; everything above them is the original filing, unchanged except where marked.
 
 > **CORRECTED 2026-07-26:** this line used to read *"cause NOT diagnosed"*. It is now
 > diagnosed. The measurement below held on re-measurement — every figure reproduced
@@ -203,39 +204,72 @@ CSS that way would restyle two live customer sites.
 
 **Council:** submission `75d1a2af-afb8-492d-9587-4aa13bc440a2`.
 
-## What is still outstanding — why this is still OPEN
+## Verified live — 2026-07-26, chassis `v1.0.1171`
 
-- **The Go half is inert until the next image roll.** Nothing about the two failing sites
-  has changed yet.
-- **Migration 222 is live in the DB but invisible on every site**, because
-  `rerender_single_page` concatenates stored `page_components.rendered_html` and does not
-  re-render templates. "The component was updated" is not evidence of anything.
-- **No page was re-rendered and no live site was touched** — the owner's call was to let
-  the fix reach the sites on the next roll rather than hand-repair two live sites.
+**Code is in the running pod.** Grepped strings the change *created*, with controls:
 
-### Verify after the roll
+| needle | count | |
+|---|---|---|
+| `data-component-css` | 2 | new marker ✓ |
+| `collectComponentCSS` | 6 | new symbol ✓ |
+| `resolved from the DB` | 1 | new warn text ✓ |
+| `collectJSAssets: found JS asset` | 1 | positive control (pre-existing) ✓ |
+| `data-component-css-NOTREAL` | 0 | negative control ✓ |
 
-First prove the code is live — pod-grep a string the change **created**:
+**The rendered pages** (`index` re-rendered on the two failing sites; the other two
+untouched by this thread):
 
-```bash
-kubectl exec -n ai-persona-system <chassis-pod> -- \
-  sh -c 'strings /app/agent-chassis | grep -c "data-component-css"'
-```
+| site | uses `.news-card` | rules in styles.css | inline | verdict |
+|---|---|---|---|---|
+| ai-agent-orchestration.com | 6 | 0 | **11** | **STYLED** (was UNSTYLED) |
+| relojistas.com | 6 | 0 | **11** | **STYLED** (was UNSTYLED) |
+| gaswholesalers.com | 6 | 11 | 11 | styled (control) |
+| robot-hands.com | 6 | 11 | 11 | styled (control) |
 
-Then re-render `index` on ai-agent-orchestration.com and relojistas.com, and measure the
-rendered pages:
+**The control holds.** On robot-hands the news block now present inline is a **byte-identical
+prefix** of the copy already in `styles.css` (3,194 normalised chars, exact match; the
+apparent "extra" is the `call-to-action` component's own style block, which was always
+there). So the two already-working sites gained a duplicate of rules they already served —
+no visual change. This is the check that distinguishes "added the missing CSS" from
+"restyled three customers' sites", and it passes.
 
-```bash
-for d in ai-agent-orchestration.com relojistas.com gaswholesalers.com robot-hands.com; do
-  html=$(curl -s "https://$d/"); css=$(curl -s "https://$d/assets/css/styles.css")
-  printf '%-28s uses=%s css_rules=%s inline=%s\n' "$d" \
-    "$(printf '%s' "$html" | grep -c 'class="news-card"')" \
-    "$(printf '%s' "$css"  | grep -c 'news-card')" \
-    "$(printf '%s' "$html" | grep -c 'news-card {')"
-done
-```
+### Which half of the fix actually did it — and the half that correctly stood down
 
-Pass = every row with `uses>0` has `css_rules>0` **or** `inline>0`, **and** gaswholesalers
-and robot-hands are unchanged. That control is what proves this added styling rather than
-restyling live customer sites — without it a green result is not distinguishable from
-having overwritten three sites' news design.
+The styling reached the pages via **migration 222** (the component's own `<style>`),
+carried into `page_components.rendered_html` by a section re-render. The **assembly-time
+injection did not fire, by design**: its dedup sees that every matching component now ships
+its own CSS. `data-component-css` appears on none of the four pages, which is the correct
+outcome, not a failure.
+
+That means the injection is deployed but **not exercised in production**, so it was
+verified directly instead — the exact query the Go code runs, both arms, against the live
+DB for ai-agent-orchestration's index page:
+
+- **as it stands** → 0 rows. Dedup suppresses everything; nothing is double-shipped.
+- **with `ships_own_css` forced false** (i.e. a page built before migration 222) →
+  `Latest News Grid` (3,355 bytes), `fade-in-up`, `responsive-grid`. Exactly the CSS that
+  was missing.
+
+So the safety net is live and demonstrably supplies the right bytes on the branch it
+exists for. Unit tests cover the placement contract and were checked non-vacuous by
+induced fault (moving the insertion index one position fails two of them).
+
+## Residual — small, named, not blocking
+
+- **Council submission `75d1a2af-afb8-492d-9587-4aa13bc440a2` never produced a verdict.**
+  No `orchestration_states` row carries the correlation ~2.5h after dispatch and no
+  `diagnosis_artifacts` row exists. Queue depth was 12 at submit time and several other
+  council runs completed in the window, so this looks like a lost dispatch rather than
+  latency — but per the runbook that is not grounds to resubmit on this evidence alone.
+  **The commits therefore carry NO `Council-Reviewed:` trailer** (the trailer is earned by
+  an APPROVED verdict only) and will list as un-reviewed in the 098 report. That is
+  correct, not an oversight.
+- **Both page-rerender orchestrations sat at `deploy_page` / `AWAITING_RESPONSES`** while
+  the pages were, in fact, deployed and live. The artefact shipped; the response was never
+  recorded. Same family as `bugs_open/003`. Noted, not chased — "trust the rendered
+  artefact, not the status" cuts both ways.
+- The `applies_to` granularity problem (`FOCUS_visual_pipeline_css_and_component_lists.md`
+  Cause 2) is untouched and still real: ~17 of 21 snippets are keyed on generic terms
+  (`card`, `cta`) that match no real component name, so they have never shipped anywhere.
+  That makes sites plainer than intended; it does not make markup ship unstyled, so it is
+  not this bug.

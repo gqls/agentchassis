@@ -124,3 +124,41 @@ kubectl exec -n ai-persona-system <chassis-pod> -- \
 
 **Gotcha:** grep a string the change **created**. Grepping `news-card` or `css_snippets`
 would hit pre-existing code and pass before the roll.
+
+## Re-render one page — and the argument that does not do what it says
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/oufe/TRIGGER_rerender_page.sh <page_name> <domain> [reason]
+```
+
+**Gotcha, and it is a live-site one.** The header says "No reason -> assemble-only", but the
+code is `REASON="${3:-section_data_resolved}"`. `${3:-word}` substitutes the default when the
+argument is unset **or empty**, so passing `""` to mean "none" silently selects
+`section_data_resolved` — a full re-render of every section through the current templates.
+**Omit the argument entirely; there is no way to pass "assemble-only" explicitly.** Verify
+which branch you got afterwards: an assemble-only run does **not** move
+`page_components.updated_at`.
+
+**Gotcha:** the script refuses if any section on the page has NULL `content_data`, because a
+`section_data_resolved` re-render would escalate the page to the content writer and
+regenerate the copy. Check first:
+
+```sql
+SELECT slot_name, content_data IS NULL FROM page_components WHERE page_id='...';
+```
+
+**Gotcha:** no spawn within ~300s of a chassis pod (re)start — it is silently dropped.
+
+```bash
+START=$(kubectl -n ai-persona-system get pod <pod> -o jsonpath='{.status.startTime}')
+S=$(date -u -d "$START" +%s); echo "age $(( $(date -u +%s) - S ))s"
+```
+
+## Verify the injection when the dedup correctly suppresses it
+
+After migration 222 every in-use component that matches a snippet ships its own `<style>`,
+so `collectComponentCSS` returns nothing and `data-component-css` appears on no page. That
+is the designed outcome, and it means the branch is unexercised in production. Test the
+query directly instead, both arms — as-is (expect 0 rows) and with `ships_own_css` forced
+`false` (expect `Latest News Grid`, `fade-in-up`, `responsive-grid`). The query is in
+`rerender_single_page_action.go`; run it verbatim against a real `page_id`.
