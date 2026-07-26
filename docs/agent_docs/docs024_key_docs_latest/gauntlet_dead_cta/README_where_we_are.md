@@ -396,3 +396,78 @@ converged immediately, with only minor advisory notes left (nothing that blocks
 building). The approved plan now exists as a record in the database, ready to
 build against. Next: rewrite the actual gauntlet page against this plan, so
 visitors get the real debate flow instead of what's there now.
+
+---
+
+**2026-07-26 (afternoon) — the page is built and proven, but I could not put it
+live: the production database fell over underneath me.**
+
+Two things happened today. The good one first.
+
+I rebuilt the Gauntlet page against the approved plan, and it genuinely works.
+Not "the buttons exist" — I ran the real thing in a real browser against the
+real backend, twice over (desktop and phone-sized), and watched it go all the
+way through: press the button, today's provocation appears and a twenty-minute
+clock starts; type a position, and about ten seconds later the AI opponent
+writes a counter-argument and puts a specific question back to you; answer it,
+and a judge reads the whole exchange and returns a verdict with its reasons. In
+my test run the verdict was "opponent wins", which is the right kind of answer
+for a thing that is supposed to be hard. Sixty-five checks passed, none failed.
+The archive page passed thirty-one out of thirty-one — you can now click a
+provocation and read the full case for it, at a web address you can share, and
+the one entry that has no case written yet is visibly not clickable rather than
+being a button that does nothing.
+
+I also fixed the data file you flagged. The made-up numbers are gone — the
+"1,284 positions filed", the "62% disagree", the countdown that had been frozen
+at "3h 12m" since June. Nothing in this system counts participants, so nothing
+now claims to. Where a number appears it is something true by construction: the
+clock is twenty minutes, there are three objectives, there is one verdict. I
+went slightly beyond what the plan asked and rewrote the Arena copy too, because
+it was advertising "six rooms live right now" with individual closing times, and
+those rooms have never existed.
+
+Now the bad one. Partway through putting all this live, the shared production
+database started crash-looping and it is still doing it as I write. It is not
+broken — that is the frustrating part. The database is perfectly healthy and
+answers questions instantly if you reach it directly. What is happening is that
+Kubernetes runs a one-second health check on it, and something else on the same
+machine (an AI model doing an eight-minute piece of CPU work) is using all eight
+processor cores. The database gets no guaranteed share of that machine, so the
+one-second check times out, and Kubernetes concludes the database is dead and
+kills it. Then it does it again. Seven times so far.
+
+The reason it has no guaranteed share is a genuine mistake on our side, and it
+has been there a long time: our own configuration file *does* reserve CPU and
+memory for the database, and has since the very first commit — but the thing
+actually running in the cluster does not have those reservations. The live
+system quietly drifted from what we wrote down, and nobody noticed until
+something else got greedy enough to expose it.
+
+**I have not touched it.** It is shared infrastructure that every session and
+every automated agent depends on, and fixing it means restarting the database
+deliberately. That felt like your call, not mine, so I have written the whole
+thing up with the evidence and the exact one-line command in
+`bugs_open/082`. My honest read is that the fix is low-risk and would end the
+outage — it just puts back what our own config already says — but it is your
+production database and you should be the one to say go.
+
+So where that leaves the Gauntlet: everything is built, tested and saved. The
+new page and the new archive behaviour are written into the database and are
+sitting there ready. What is missing is the last step that publishes them, and
+that step runs through the very system that is currently cut off from the
+database. Nothing is half-finished and nothing is at risk — the live site is
+still serving the old version, exactly as it was this morning, and the corrected
+data file is already live. The moment the database is stable, publishing is
+about fifteen minutes of work, and then I can run the formal acceptance pass.
+
+One thing worth telling you now rather than at the end, because it changes what
+"passed" will mean: two of the approved plan's own acceptance tests cannot pass,
+and it is our test harness at fault, not the page. The harness clicks a button,
+waits three-tenths of a second, and checks whether the answer has arrived. But
+these answers come from an AI and take eight to eighteen seconds. So the tests
+will report failure on a page that is working correctly. I could make them pass
+by having the page print a fake "thinking..." message that the test would accept
+— and I am not going to do that, because then the test would also pass with the
+AI switched off entirely, which defeats the whole point. I will fix the harness
+or rewrite those two tests to check something honest.
