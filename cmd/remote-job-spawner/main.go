@@ -161,9 +161,9 @@ func main() {
 		MaxBytes:       10e6, // 10MB
 		CommitInterval: time.Second,
 		StartOffset:    kafka.LastOffset,
-		// bugs_open/040-kafka-dial: this reader had no Dialer at all, so it used
-		// kafka-go's 10s default and its dial failures were invisible.
-		Dialer: kafkaplatform.SharedDialer(),
+		// bugs_open/040-kafka-dial: no Dialer at all here meant kafka-go's
+		// DefaultDialer. Same 10s budget, now counted.
+		Dialer: kafkaplatform.InstrumentedDialer(10 * time.Second),
 	})
 	defer reader.Close()
 
@@ -172,7 +172,7 @@ func main() {
 		Addr:         kafka.TCP(strings.Split(kafkaBrokers, ",")...),
 		Balancer:     &kafka.LeastBytes{},
 		BatchTimeout: 10 * time.Millisecond,
-		Transport:    kafkaplatform.SharedTransport(),
+		Transport:    kafkaplatform.ProducerTransport(),
 	}
 	defer writer.Close()
 

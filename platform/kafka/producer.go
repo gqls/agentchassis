@@ -48,11 +48,12 @@ func NewProducerWithValidator(brokers []string, logger *zap.Logger, validator Me
 		RequiredAcks: kafka.RequireAll,
 		Async:        false,
 		WriteTimeout: 10 * time.Second,
-		// bugs_open/040-kafka-dial: leaving Transport nil fell through to
-		// kafka-go's DefaultTransport, whose dial timeout is 3s — so the
-		// producer and the consumer had been dialling the same brokers on
-		// different budgets, and neither was counted.
-		Transport: SharedTransport(),
+		// bugs_open/040-kafka-dial: nil Transport fell through to kafka-go's
+		// DefaultTransport, so producer dials were never counted. This one is
+		// byte-for-byte DefaultTransport's settings plus an instrumented Dial —
+		// same 3s dial, same 30s IdleTimeout, same 6s MetadataTTL, same shared
+		// pool. Retuning any of it is a separate, reviewed change.
+		Transport: ProducerTransport(),
 	}
 
 	logger.Info("Kafka producer created", zap.Strings("brokers", brokers))

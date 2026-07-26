@@ -45,10 +45,10 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		MaxBytes:       10e6,              // 10MB
 		CommitInterval: 0,                 // Manual commit
 		StartOffset:    kafka.FirstOffset, // Start from beginning if no offset stored
-		// bugs_open/040-kafka-dial: was an inline 10s dialer. Now the shared
-		// instrumented one, so consumer dials are counted and share the
-		// producer's timeout instead of silently disagreeing with it.
-		Dialer:            SharedDialer(),
+		// bugs_open/040-kafka-dial: same 10s budget as before, now counted.
+		// The timeout is passed explicitly and deliberately unchanged — see the
+		// scope note in dialer.go.
+		Dialer:            InstrumentedDialer(10 * time.Second),
 		SessionTimeout:    sessionTimeout,
 		RebalanceTimeout:  rebalanceTimeout,
 		HeartbeatInterval: heartbeatInterval,

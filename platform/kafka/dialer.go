@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"net"
-	"sync"
 	"syscall"
 	"time"
 
@@ -13,20 +12,30 @@ import (
 	"github.com/segmentio/kafka-go"
 )
 
-// bugs_open/040-kafka-dial. Before this file the fleet had four independent and
-// mutually inconsistent dial configurations: the consumer dialled with a 10s
-// timeout, the producer with 3s (kafka-go's DefaultTransport, because Transport
-// was left nil), the topic manager with 10s (bare kafka.Dial -> DefaultDialer)
-// and the health probe with 3s. None was configurable and none was counted, so
-// the one bug that spans all of them could not be measured.
+// bugs_open/040-kafka-dial. Every Kafka dial in the fleet is counted here.
 //
-// Everything that opens a connection to a broker now goes through here.
-
-// defaultDialTimeout replaces kafka-go's 10s. 040 §4.6: a dial that cannot
-// complete in 10s on an in-cluster network is pathological regardless of cause,
-// and a long timeout converts a lost SYN into a stalled orchestration. Failing
-// sooner and retrying is strictly better than hanging.
-const defaultDialTimeout = 5 * time.Second
+// SCOPE — read before adding anything to this file.
+//
+// This is instrumentation ONLY. It deliberately changes no timeout, no pool
+// setting, and no dial behaviour of any kind. Each call site keeps the exact
+// budget it had before, which is why the constructors below take a timeout
+// rather than choosing one.
+//
+// The first version of this change did more: it unified the fleet's four
+// divergent dial configurations behind one shared dialer, dropped the default
+// timeout from 10s to 5s, and raised the producer's IdleTimeout 30s→5m and
+// MetadataTTL 6s→30s. The council gate vetoed that (guardian, HIGH, round 1,
+// corr 7abe1a57) and was right to: those are behaviour changes to shared
+// messaging plumbing and to failover reactivity across every pipeline, bundled
+// into what was presented as a metrics change. Nothing measured them; they were
+// argued from a bug-file remark and from the Java client's defaults.
+//
+// The consolidation is not abandoned, it is SEQUENCED. Once these counters have
+// shipped, `ai_persona_kafka_dial_duration_seconds` says what the real dial
+// latency distribution is, and a timeout can be chosen from that rather than
+// from an opinion. That is a separate change and needs an architecture review.
+//
+// So: if you are about to add a default here, you are writing part 2. Don't.
 
 // Dial outcomes. dns and dns_timeout are kept apart from timeout deliberately:
 // 040's residual flake is unexplained, and whether the stall is in resolution or
@@ -39,14 +48,6 @@ const (
 	dialOutcomeDNSTimeout = "dns_timeout"
 	dialOutcomeError      = "error"
 )
-
-// DialTimeout is the broker dial budget. KAFKA_DIAL_TIMEOUT is read as a whole
-// number of SECONDS, not a Go duration string — envDurationOrDefault (consumer.go)
-// is shared with KAFKA_SESSION_TIMEOUT and friends, and a value like "5s" parses
-// as malformed and silently falls back to the default.
-func DialTimeout() time.Duration {
-	return envDurationOrDefault("KAFKA_DIAL_TIMEOUT", defaultDialTimeout)
-}
 
 // classifyDialErr maps a dial error onto a bounded metric label.
 func classifyDialErr(err error) string {
@@ -110,58 +111,56 @@ func instrumentedDialFunc(base *net.Dialer) func(context.Context, string, string
 	}
 }
 
-func newNetDialer(timeout time.Duration) *net.Dialer {
-	return &net.Dialer{
-		Timeout:   timeout,
-		DualStack: true,
-		KeepAlive: 30 * time.Second,
-	}
-}
-
-var (
-	sharedDialerOnce    sync.Once
-	sharedDialer        *kafka.Dialer
-	sharedTransportOnce sync.Once
-	sharedTransport     *kafka.Transport
-)
-
-// SharedDialer is the fleet's single consumer/admin dialer.
-func SharedDialer() *kafka.Dialer {
-	sharedDialerOnce.Do(func() {
-		sharedDialer = SharedDialerWithTimeout(DialTimeout())
-	})
-	return sharedDialer
-}
-
-// SharedDialerWithTimeout builds an instrumented dialer with a caller-chosen
-// budget. Used by the health probe, which deliberately keeps a shorter one than
-// the data path so a wedged broker is noticed rather than waited on.
-func SharedDialerWithTimeout(timeout time.Duration) *kafka.Dialer {
+// InstrumentedDialer returns a kafka.Dialer that counts its dials and is
+// otherwise identical to what the caller had before.
+//
+// The caller passes its OWN existing timeout — there is no default here on
+// purpose (see the scope note at the top of this file). DualStack matches both
+// kafka-go's DefaultDialer and the previous inline dialers.
+func InstrumentedDialer(timeout time.Duration) *kafka.Dialer {
 	return &kafka.Dialer{
 		Timeout: timeout,
-		// kafka-go ignores DualStack, KeepAlive, LocalAddr and FallbackDelay once
-		// DialFunc is set (see the DialFunc doc comment in dialer.go), so the
-		// inner net.Dialer below is where they actually take effect.
-		DialFunc: instrumentedDialFunc(newNetDialer(timeout)),
+		// kafka-go ignores DualStack, KeepAlive, LocalAddr and FallbackDelay
+		// once DialFunc is set (see the DialFunc doc comment in its dialer.go),
+		// so the inner net.Dialer below is where they actually take effect.
+		DialFunc: instrumentedDialFunc(&net.Dialer{
+			Timeout:   timeout,
+			DualStack: true,
+		}),
 	}
 }
 
-// SharedTransport is the producer-side equivalent, and is a singleton because a
-// kafka.Transport owns the per-broker connection pool — one per process means
-// producers share connections instead of each keeping its own set.
-func SharedTransport() *kafka.Transport {
-	sharedTransportOnce.Do(func() {
-		timeout := DialTimeout()
-		sharedTransport = &kafka.Transport{
-			Dial:        instrumentedDialFunc(newNetDialer(timeout)),
-			DialTimeout: timeout,
-			// kafka-go defaults these to 30s and 6s. Both are aggressive enough
-			// that a low-traffic agent re-dials almost every time it produces,
-			// which is pure dial volume on a path 040 shows is not always
-			// reliable. The Java client's equivalent metadata age is 300s.
-			IdleTimeout: envDurationOrDefault("KAFKA_IDLE_TIMEOUT", 5*time.Minute),
-			MetadataTTL: envDurationOrDefault("KAFKA_METADATA_TTL", 30*time.Second),
-		}
-	})
-	return sharedTransport
+// defaultDialerTimeout is kafka-go's package-level DefaultDialer timeout
+// (dialer.go: `Timeout: 10 * time.Second, DualStack: true`). Sites that used the
+// bare kafka.Dial/kafka.DialContext helpers were getting this, so they pass it
+// explicitly now and their behaviour is unchanged.
+const defaultDialerTimeout = 10 * time.Second
+
+// producerTransport instruments the producer's dials while reproducing
+// kafka-go's DefaultTransport EXACTLY in every other respect.
+//
+// Package-level, and shared by every Writer, because that is what the previous
+// behaviour was: a nil Writer.Transport falls through to kafka-go's
+// package-level DefaultTransport, so all Writers in a process already shared one
+// connection pool. Giving each Writer its own Transport would split that pool —
+// a behaviour change, and not the one this file is for.
+//
+// Every value below is copied from kafka-go v0.4.47 transport.go and must stay
+// copied. Retuning them is part 2.
+//
+//	Dial:        (&net.Dialer{Timeout: 3s, DualStack: true}).DialContext  (:126-131)
+//	DialTimeout: 5s   (:191-196)
+//	IdleTimeout: 30s  (:198-203)
+//	MetadataTTL: 6s   (:205-210)
+var producerTransport = &kafka.Transport{
+	Dial: instrumentedDialFunc(&net.Dialer{
+		Timeout:   3 * time.Second,
+		DualStack: true,
+	}),
+	DialTimeout: 5 * time.Second,
+	IdleTimeout: 30 * time.Second,
+	MetadataTTL: 6 * time.Second,
 }
+
+// ProducerTransport is the instrumented stand-in for kafka-go's DefaultTransport.
+func ProducerTransport() *kafka.Transport { return producerTransport }

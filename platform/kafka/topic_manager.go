@@ -114,7 +114,7 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 	// Try to create the topic using each broker
 	var lastErr error
 	for _, broker := range validBrokers {
-		conn, err := SharedDialer().DialContext(context.Background(), "tcp", broker)
+		conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(context.Background(), "tcp", broker)
 		if err != nil {
 			lastErr = fmt.Errorf("failed to connect to broker %s: %w", broker, err)
 			continue
@@ -172,7 +172,7 @@ func (tm *TopicManager) CreateTopic(ctx context.Context, topic TopicDefinition) 
 		return fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := SharedDialer().DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
 	if err != nil {
 		return fmt.Errorf("failed to connect to controller: %w", err)
 	}
@@ -235,7 +235,7 @@ func (tm *TopicManager) TopicExists(ctx context.Context, topicName string) (bool
 		return false, fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := SharedDialer().DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
 	if err != nil {
 		return false, fmt.Errorf("failed to connect to Kafka: %w", err)
 	}
@@ -262,7 +262,7 @@ func (tm *TopicManager) TopicExists(ctx context.Context, topicName string) (bool
 // getController finds the current Kafka controller
 func (tm *TopicManager) getController(ctx context.Context) (string, error) {
 	for _, broker := range tm.brokers {
-		conn, err := SharedDialer().DialContext(ctx, "tcp", broker)
+		conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", broker)
 		if err != nil {
 			tm.logger.Warn("Failed to connect to broker",
 				zap.String("broker", broker),
@@ -436,7 +436,7 @@ func (tm *TopicManager) DeleteTopic(ctx context.Context, topicName string) error
 		return fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := SharedDialer().DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
 	if err != nil {
 		return fmt.Errorf("failed to connect to controller: %w", err)
 	}
@@ -462,7 +462,7 @@ func (tm *TopicManager) ListTopics(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := SharedDialer().DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kafka: %w", err)
 	}
@@ -576,7 +576,7 @@ func sanitizeTopicPart(s string) string {
 }
 
 func (tm *TopicManager) WaitForTopicOld(ctx context.Context, topic string, logger *zap.Logger) error {
-	conn, err := SharedDialer().DialContext(ctx, "tcp", tm.brokers[0])
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", tm.brokers[0])
 	if err != nil {
 		return err
 	}
@@ -604,7 +604,7 @@ func (tm *TopicManager) WaitForTopic(ctx context.Context, topic string, logger *
 
 		// Check ALL brokers — topic must be propagated to all before it's safe to produce.
 		for _, brokerAddr := range tm.brokers {
-			conn, err := SharedDialer().DialContext(ctx, "tcp", brokerAddr)
+			conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", brokerAddr)
 			if err != nil {
 				logger.Warn("Could not connect to broker to verify topic, will retry",
 					zap.String("broker", brokerAddr),

@@ -107,36 +107,6 @@ func TestClassifyDialErrUnwraps(t *testing.T) {
 	}
 }
 
-func TestDialTimeoutEnvOverride(t *testing.T) {
-	cases := []struct {
-		name string
-		set  bool
-		val  string
-		want time.Duration
-	}{
-		{"unset uses default", false, "", defaultDialTimeout},
-		{"seconds as integer", true, "12", 12 * time.Second},
-		{"empty falls back", true, "", defaultDialTimeout},
-		// The trap worth pinning: envDurationOrDefault parses SECONDS, so a Go
-		// duration string is malformed and silently yields the default. If that
-		// ever changes to accept "8s", this test should be the thing that says so.
-		{"go duration string is malformed", true, "8s", defaultDialTimeout},
-		{"garbage falls back", true, "not-a-number", defaultDialTimeout},
-	}
-
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			os.Unsetenv("KAFKA_DIAL_TIMEOUT")
-			if tc.set {
-				t.Setenv("KAFKA_DIAL_TIMEOUT", tc.val)
-			}
-			if got := DialTimeout(); got != tc.want {
-				t.Errorf("DialTimeout() = %v, want %v", got, tc.want)
-			}
-		})
-	}
-}
-
 func TestBrokerLabelStripsPort(t *testing.T) {
 	cases := map[string]string{
 		"personae-kafka-cluster-combined-pool-prod-0.personae-kafka-cluster-kafka-brokers.kafka.svc:9092": "personae-kafka-cluster-combined-pool-prod-0.personae-kafka-cluster-kafka-brokers.kafka.svc",
@@ -164,7 +134,7 @@ func TestInstrumentedDialRecordsTimeout(t *testing.T) {
 
 	before := dialCount(t, "203.0.113.1", outcome)
 
-	dial := instrumentedDialFunc(newNetDialer(50 * time.Millisecond))
+	dial := instrumentedDialFunc(&net.Dialer{Timeout: 50 * time.Millisecond, DualStack: true})
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -204,7 +174,7 @@ func TestInstrumentedDialRecordsSuccess(t *testing.T) {
 	host, _, _ := net.SplitHostPort(ln.Addr().String())
 	before := dialCount(t, host, dialOutcomeOK)
 
-	dial := instrumentedDialFunc(newNetDialer(2 * time.Second))
+	dial := instrumentedDialFunc(&net.Dialer{Timeout: 2 * time.Second, DualStack: true})
 	conn, err := dial(context.Background(), "tcp", ln.Addr().String())
 	if err != nil {
 		t.Fatalf("dial to local listener failed: %v", err)
@@ -217,14 +187,45 @@ func TestInstrumentedDialRecordsSuccess(t *testing.T) {
 	}
 }
 
-// SharedTransport owns the producer's connection pool; if it were rebuilt per
-// call every producer would keep its own pool, which is the churn this change
-// exists to remove.
-func TestSharedTransportIsSingleton(t *testing.T) {
-	if SharedTransport() != SharedTransport() {
-		t.Error("SharedTransport returned distinct instances; the connection pool would not be shared")
+// The council vetoed round 1 for changing shared-messaging defaults inside what
+// was framed as an instrumentation change. This pins the promise that replaced
+// it: ProducerTransport must reproduce kafka-go's DefaultTransport EXACTLY, and
+// differ only by having an instrumented Dial. If someone retunes these, they are
+// writing part 2 and this test should stop them doing it by accident.
+func TestProducerTransportMatchesKafkaGoDefaults(t *testing.T) {
+	tr := ProducerTransport()
+	// Values from kafka-go v0.4.47 transport.go:191-210.
+	if tr.DialTimeout != 5*time.Second {
+		t.Errorf("DialTimeout = %v, want kafka-go default 5s", tr.DialTimeout)
 	}
-	if SharedDialer() != SharedDialer() {
-		t.Error("SharedDialer returned distinct instances")
+	if tr.IdleTimeout != 30*time.Second {
+		t.Errorf("IdleTimeout = %v, want kafka-go default 30s", tr.IdleTimeout)
+	}
+	if tr.MetadataTTL != 6*time.Second {
+		t.Errorf("MetadataTTL = %v, want kafka-go default 6s", tr.MetadataTTL)
+	}
+	if tr.Dial == nil {
+		t.Error("Dial is nil — producer dials would not be counted")
+	}
+	// Shared, as a nil Transport was: all Writers in a process used kafka-go's
+	// package-level DefaultTransport, so they shared one connection pool.
+	if ProducerTransport() != tr {
+		t.Error("ProducerTransport returned distinct instances; the pool would be split per Writer")
+	}
+}
+
+// Each call site must keep the budget it had before this change.
+func TestInstrumentedDialerPreservesCallerTimeout(t *testing.T) {
+	for _, want := range []time.Duration{3 * time.Second, defaultDialerTimeout} {
+		d := InstrumentedDialer(want)
+		if d.Timeout != want {
+			t.Errorf("InstrumentedDialer(%v).Timeout = %v", want, d.Timeout)
+		}
+		if d.DialFunc == nil {
+			t.Errorf("InstrumentedDialer(%v).DialFunc is nil — dials would not be counted", want)
+		}
+	}
+	if defaultDialerTimeout != 10*time.Second {
+		t.Errorf("defaultDialerTimeout = %v, want kafka-go DefaultDialer's 10s", defaultDialerTimeout)
 	}
 }

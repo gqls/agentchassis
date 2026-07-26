@@ -75,9 +75,9 @@ var (
 	// bugs_open/040-kafka-dial: until these existed the only way to measure the
 	// intermittent broker dial timeouts was grepping pod logs — and the pods that
 	// flake are ephemeral spawned Jobs whose logs GC before anyone looks. Every
-	// Kafka dial in the fleet now goes through platform/kafka.SharedDialer and
-	// lands here. "outcome" separates a DNS failure from a TCP one, which is the
-	// open question the case turns on.
+	// Kafka dial in the fleet now goes through platform/kafka.InstrumentedDialer
+	// and lands here. "outcome" separates a DNS failure from a TCP one, which is
+	// the open question the case turns on.
 	KafkaDialTotal = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "ai_persona_kafka_dial_total",
 		Help: "Kafka broker dial attempts by outcome (ok/timeout/refused/dns/dns_timeout/error)",
@@ -207,15 +207,29 @@ func NewMetricsServer(port string) *MetricsServer {
 	return &MetricsServer{port: port}
 }
 
-// Start starts the metrics HTTP server
+// Start serves /metrics on the configured port. It blocks.
+//
+// bugs_open/040-kafka-dial: this had no callers anywhere, which is half of why
+// the fleet has never exposed a single application metric. It was fixed rather
+// than bypassed — a second hand-rolled metrics server beside a dead one is the
+// "two paths for one job" outcome, so this is now the only path and cmd/
+// binaries call it.
+//
+// Two things had to change before it was safe to call:
+//
+//  1. It registered on the GLOBAL http.DefaultServeMux (`http.Handle` + a nil
+//     handler) rather than its own. That is process-global state, and
+//     http.Handle PANICS on a duplicate pattern — so two callers, or one caller
+//     plus anything else touching the default mux, would take the process down.
+//  2. It also served a HARDCODED-200 /health. That is exactly the defect
+//     bugs_open/003 §4.1 was filed about and that health.KafkaReachability
+//     exists to replace: a pod that could not reach any broker reported healthy
+//     for ever and was never rescheduled. A metrics server has no business
+//     answering liveness, so it no longer does.
 func (m *MetricsServer) Start() error {
-	http.Handle("/metrics", promhttp.Handler())
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
-	})
-
-	return http.ListenAndServe(":"+m.port, nil)
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	return http.ListenAndServe(":"+m.port, mux)
 }
 
 // WorkflowTimer helps track workflow execution time

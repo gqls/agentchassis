@@ -16,6 +16,7 @@ import (
 	"github.com/gqls/agentchassis/platform/health"
 	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/gqls/agentchassis/platform/logger"
+	"github.com/gqls/agentchassis/platform/observability"
 	_ "github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -181,16 +182,20 @@ func main() {
 	// Served on its own listener rather than only on the health port because the
 	// annotation names 9090 and the health port defaults to 8080; a metric on the
 	// wrong port is indistinguishable from no metric at all.
+	// Served via observability.MetricsServer rather than a second hand-rolled
+	// mux here: that type existed for exactly this job and had no callers, and
+	// standing up a rival beside it is how a platform ends up with two ways to
+	// do one thing (council objection, round 1, corr 7abe1a57). It was fixed to
+	// use its own mux and to stop serving a hardcoded-200 /health before being
+	// called — see its doc comment.
 	metricsPort := os.Getenv("METRICS_PORT")
 	if metricsPort == "" {
 		metricsPort = "9090"
 	}
 	if metricsPort != healthPort {
 		go func() {
-			mux := http.NewServeMux()
-			mux.Handle("/metrics", promhttp.Handler())
 			appLogger.Info("Starting metrics server", zap.String("port", metricsPort))
-			if err := http.ListenAndServe(":"+metricsPort, mux); err != nil {
+			if err := observability.NewMetricsServer(metricsPort).Start(); err != nil {
 				// Deliberately not Fatal: losing metrics must not take the agent
 				// down. It is logged loudly so the cause is findable.
 				appLogger.Error("Metrics server failed", zap.Error(err))
