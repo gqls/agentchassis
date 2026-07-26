@@ -317,6 +317,45 @@ the adapters with the §5 log grep until they are wired too. Extending the patte
 to the other binaries is the obvious follow-up and was deliberately NOT bundled
 here — bundling is what got round 1 vetoed.
 
+## 8d. Council trail (advisory) — three rounds, no trailer
+
+Correlation `7abe1a57-e3db-4b71-9e3a-744fbf8c24b1`, all three rounds under it:
+
+| round | decision | `decided_by` |
+|---|---|---|
+| 1 | **REJECTED** | hard veto from `guardian` (2× HIGH) |
+| 2 | **REVISE** | gating objection from `editquality` |
+| 3 | **REVISE** | ⚠ `unreadable reviewer(s): review_editquality.result` |
+
+**Round 3's REVISE was a dead seat, not an objection** — on substance it was 6
+approve / 2 object, with the guardian down from a hard veto to one MEDIUM and two
+LOWs it filed "rather than blocking". Read `decided_by` before the decision; the
+same harness failure killed 3 of `bugs_closed/029`'s 5 rounds.
+
+**There is no `Council-Reviewed:` trailer on any commit and none may be added** —
+it is earned by an APPROVED verdict only, and on a REVISE it would be a permanent
+false claim of review. The `098` coverage report will therefore list this work as
+un-reviewed for ever. That is a known, accepted false negative; this table is the
+record instead.
+
+What the gate actually bought, which is the reason to keep using it:
+
+- **Vetoed a fleet-wide dial-timeout cut** (10s→5s) plus producer `IdleTimeout`
+  30s→5m and `MetadataTTL` 6s→30s, all of which I had argued from a remark in this
+  very file and from another library's defaults — while building the instrument
+  that would have measured them. All reverted; sequenced behind the histogram.
+- **Forced the reuse question** on `observability.NewMetricsServer`, which turned
+  out to serve a hardcoded-200 `/health` — the `bugs_open/003 §4.1` defect, one
+  call away from being reintroduced.
+- **Its sibling-enumeration objection led to two more phantom-broker sites**, one
+  of which left core-manager with no route to Kafka at all (§6).
+
+Two objections stand unanswered by code, deliberately, because neither needs a code
+change: the guardian's note that my *plan* contradicted itself about the producer
+pool (the code is correct — both `kafka.Writer{}` sites carry `ProducerTransport`,
+verified at HEAD), and `prior_art`'s request for a runnable enumeration query
+(now RUNBOOK §8c).
+
 ## 9. CLOSE CONDITION (explicit, 2026-07-26)
 
 The changes above are **Go code and are inert until an image roll**. Do not close
