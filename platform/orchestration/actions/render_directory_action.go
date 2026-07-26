@@ -157,10 +157,35 @@ func RenderDirectoryAction(ctx context.Context, params ActionParams) (interface{
 	maxItems := inputs.GetInt("max_items", 12)
 	fullMaxItems := inputs.GetInt("full_max_items", 50)
 
+	// Which register kind to publish.
+	//
+	// THE TRAP THIS CODE EXISTS TO AVOID (paid for in production 2026-07-26):
+	// ExtractActionInputs treats every STRING config value as a REFERENCE to
+	// resolve against collected_data, never as a literal — deliberately, so a
+	// broken reference cannot masquerade as a working literal
+	// (action_inputs.go Strategy 5, and the bugs_open/042 case it cites). So a
+	// step configured `"kind": "company"` resolves nothing, the field is
+	// dropped, and the Go default silently wins. The first live run of the
+	// three-kind publish chain therefore published the MODEL register three
+	// times, under commit messages that said "Update adoption tracker" and
+	// "Update protocol tracker".
+	//
+	// The fix is not to make the generic resolver take string literals — that
+	// would reintroduce exactly the masking it was written to prevent. It is
+	// for this action to read its OWN step config for a value from a CLOSED
+	// set. A profile name cannot be confused with a reference: references are
+	// dotted paths or collected_data keys, and no profile name is either. An
+	// unrecognised value falls through to the reference path and then to the
+	// unknown-kind refusal below, so a typo still fails loudly.
+	kind := strings.TrimSpace(inputs.Get("kind"))
+	if raw, ok := params.StepConfig.Config["kind"].(string); ok {
+		if _, known := directoryPublishProfiles[strings.TrimSpace(raw)]; known {
+			kind = strings.TrimSpace(raw)
+		}
+	}
 	// Absent kind means 'model' — the workflows seeded before Phase E existed
 	// pass no kind at all, and they must keep publishing exactly what they
 	// published yesterday.
-	kind := strings.TrimSpace(inputs.Get("kind"))
 	if kind == "" {
 		kind = "model"
 	}

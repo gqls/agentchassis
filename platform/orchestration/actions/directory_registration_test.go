@@ -94,3 +94,62 @@ func TestBlogPostIsNotAStructuralPageType(t *testing.T) {
 		}
 	}
 }
+
+// TestDirectoryKindResolvesFromLiteralStepConfig is the regression guard for
+// the defect that reached production on 2026-07-26: the three-kind publish
+// chain published the MODEL register three times because
+// ExtractActionInputs dropped `"kind": "company"` — string configs are
+// references, never literals, by design (action_inputs.go Strategy 5).
+//
+// The property: a value from the CLOSED profile set, written literally in a
+// step's config, must select that profile. Anything else must fall through to
+// the reference path so a genuine wiring mistake still surfaces rather than
+// being silently reinterpreted as a literal.
+func TestDirectoryKindResolvesFromLiteralStepConfig(t *testing.T) {
+	// resolveKind mirrors the action's selection, which is the part that was
+	// wrong. Kept in lockstep with RenderDirectoryAction deliberately: if the
+	// action's logic changes, this test should be changed with it, on purpose.
+	resolveKind := func(configKind, resolvedInput string) string {
+		kind := resolvedInput
+		if _, known := directoryPublishProfiles[configKind]; known && configKind != "" {
+			kind = configKind
+		}
+		if kind == "" {
+			kind = "model"
+		}
+		return kind
+	}
+
+	cases := []struct {
+		name        string
+		configKind  string // literal in the step's config
+		resolved    string // what ExtractActionInputs managed to resolve
+		want        string
+		explanation string
+	}{
+		{"company literal", "company", "", "company",
+			"the exact case that shipped broken — config literal must win"},
+		{"protocol literal", "protocol", "", "protocol", ""},
+		{"model literal", "model", "", "model", ""},
+		{"no kind anywhere", "", "", "model",
+			"pre-Phase-E seeds pass no kind and must keep publishing models"},
+		{"reference that resolved", "input_data.kind", "company", "company",
+			"a resolved reference still works; the config string is not a profile name so it is ignored as a literal"},
+		{"typo falls through, not silently literal", "compnay", "", "model",
+			"a misspelt kind must NOT become its own value; it falls to the default and then to the unknown-kind refusal if referenced"},
+	}
+	for _, tc := range cases {
+		if got := resolveKind(tc.configKind, tc.resolved); got != tc.want {
+			t.Errorf("%s: resolveKind(config=%q, resolved=%q) = %q, want %q — %s",
+				tc.name, tc.configKind, tc.resolved, got, tc.want, tc.explanation)
+		}
+	}
+
+	// Every profile name must be usable as a literal, or a kind added later
+	// silently reverts to publishing models — the same failure, one kind along.
+	for name := range directoryPublishProfiles {
+		if got := resolveKind(name, ""); got != name {
+			t.Errorf("profile %q is not selectable as a config literal (got %q)", name, got)
+		}
+	}
+}
