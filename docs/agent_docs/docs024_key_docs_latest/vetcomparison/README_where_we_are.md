@@ -771,3 +771,46 @@ output calendar dates yet.
 
 The two consultation deadlines still need you: the funding one closes **30 July at 23:59** (five
 days), and the substantive one **20 August at 23:59**.
+
+---
+
+**26 July — the invented-prices bug is closed, and it very nearly closed on a false premise.**
+
+You'll remember the medicine price scraper was caught making prices up: when its normal parser
+found nothing on a page, it handed the text to a small local AI model and asked it to find
+prices, and the model — shown a page with no prices on it — invented a plausible-looking table
+instead of saying "none". Two of those invented prices were published on the site. We tracked
+down 212 of them in total, took them out, and wrote a guard: before any price is saved, the
+system now checks that the price actually appears in the page text it keeps as proof. If it
+doesn't, the price is thrown away and the refusal is logged.
+
+That guard was written two days ago but was sitting in code, not yet running. Today I found it
+had in fact shipped in the meantime and has been running on every scrape since. All the checks
+were green: every one of the 2,577 prices we have ever stored can be found in its own evidence,
+the published data file has been rebuilt without the two bad prices, and — this is the bit that
+misled me — the AI fallback had been asked to extract prices sixteen times since the fix and had
+returned "nothing found" every single time. I concluded from that the model had stopped making
+things up, so the guard was really just a belt-and-braces measure, and there was nothing left to
+test.
+
+**I tested it anyway, and the model made prices up on the first try.** I forced the scraper to
+revisit the exact page that caused the original problem. It found no prices by normal means,
+handed the text to the AI, and the AI invented three products — £19.25, £34.99 and £68.75,
+including a pack size that does not exist on that page. The guard caught all three and stored
+nothing. None of those figures appear anywhere in the page we captured, while the page's two
+real prices do — so the guard threw out exactly the right things.
+
+So the honest position is the opposite of what I was about to write down: **the guard is not a
+backstop, it is the thing doing the work.** The sixteen empty answers were other pages, not a
+cured model. It is also worth knowing the model invents *different* numbers each time — it
+didn't repeat July's fabrications — which is why we never delete data by matching a known bad
+price, only by checking the evidence.
+
+Two smaller things for the record. The AI call took eight and a quarter minutes, which is slow
+enough that one awkward page eats most of a scraping run; no wrong data comes out of it, but it
+caps how much we can scrape and is worth measuring before anyone turns the batch size up. And
+the review council did approve this fix, but its verdict arrived after the commit was written,
+so the commit can't carry the usual "reviewed" marker and our coverage report will always show
+it as unreviewed. It was reviewed; the note is in the case file.
+
+The case has moved to the closed pile.

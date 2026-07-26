@@ -1,10 +1,89 @@
 # 061 — med scrape can store a price that does not appear in its own retained evidence
 
 **Filed 2026-07-23** while verifying the med-pipeline revival (vetcomparison workstream,
-session "bugfix 054"). **Status: OPEN — mechanism CONFIRMED 2026-07-24 (session "bugfix 061
-med scrape"), fix BUILT + tested, data remediated; stays open until the fix is live in a
-rolled image.** The defect class is exactly what the provenance policy exists to prevent:
-a published figure whose retained evidence does not contain it.
+session "bugfix 054"). Mechanism CONFIRMED 2026-07-24 (session "bugfix 061 med scrape"),
+fix built + tested, data remediated. **Status: CLOSED 2026-07-26 (session "bugfix 61") —
+fixed AND live in `v1.0.1165`, the guard PROVEN on the real fault by an induced re-scrape
+of the page that caused the bug.** The defect class is exactly what the provenance policy
+exists to prevent: a published figure whose retained evidence does not contain it.
+
+## CLOSE RECORD — 2026-07-26
+
+### The induced test: the guard caught a live fabrication, on the original page
+
+`UPDATE med_retailer_listings SET last_scraped_at=NULL` on listing
+`0b50fd2d-a129-4edd-85a0-75843181fe0c` (`https://www.petdrugsonline.co.uk/advocate`, the
+category page that fabricated on 07-23) puts it at the head of the next batch
+(`loadMedListingsForScrape` orders `last_scraped_at ASC NULLS FIRST`), then
+`UPDATE scheduled_tasks SET last_triggered_at=NULL WHERE name='med-scrape-prices'`.
+Result, worker `agent-med-price-collector-eb928d3a-fmrph` at **2026-07-26 15:01:07Z**:
+
+| stage | what happened |
+|---|---|
+| regex parse | 0 variants (correct — category page) |
+| £-window gate | **passed** — the truncated window does hold a `£`, so the fallback fired |
+| LLM (`llm_call_log` `baa8b777`, latency **495,177 ms**) | returned **3 fabricated variants**: `19.25`, `34.99`, `68.75`, an invented TVP `36.75`, and a newly invented size `"Medium Dogs 25kg Pack of 3"` |
+| **fidelity guard** | **dropped all 3** — 3 × `MedScrapePrices: fidelity guard dropped variant — price absent from scraped markdown`, each `collection_method=scrape_llm` |
+| stored | **0 snapshots.** Evidence row records `variants_found=3, prices_stored=0` — the drop is visible in the DB row itself |
+
+The guard was **right, not merely strict**: `19.25`, `34.99`, `68.75` and `36.75` appear
+**nowhere** in the 9,256-char evidence markdown, while the page's real prices `17.75` and
+`29.75` are both present. Pre-fix, those three rows would have been stored as
+`collection_method='scrape'` and published to vetcomparison.uk.
+
+> **CORRECTION — the premise this session started from was wrong, and it mattered.**
+> Before inducing, I had observed all 16 post-fix LLM fallback calls returning `[]` and
+> concluded the prompt hardening had stopped the fabrication at source, so the guard's drop
+> branch was belt-and-braces and **could not be exercised live**. The induced run refuted
+> that within one scrape: the model still invents a complete price table for this page.
+> **The guard is load-bearing, not defence-in-depth** — it is the only thing standing
+> between this page and three more published fabrications. What caught it: running the
+> induced test anyway instead of closing on the green happy path. Logged in `WRONG_CALLS.md`.
+
+### Live-deployment proof
+
+- Deployed image `v1.0.1165` on agent-chassis **and** business-intel; all 8 `med-*`
+  `agent_definitions.image_tag` = `v1.0.1165` (spawned workers use the def tag, not the
+  deployment image).
+- Pod-grep of the **spawned worker's own binary** — strings the fix CREATED, all ×1:
+  `fidelity guard dropped variant`, `never copy its values`,
+  `never estimate, recall, or compute`; positive control `MedScrapePrices` ×23.
+- Production run 12:01 the same day returned
+  `{"scraped":15,"variants_stored":26,"failed":5,"fidelity_skipped":0}` — `fidelity_skipped`
+  is a field this fix introduced, so the guarded path runs on every scrape, not just the
+  induced one.
+
+### Data state
+
+- **Full-table fidelity sweep: 2,577 OK / 0 PRICE_ABSENT / 0 UNCHECKABLE** (every snapshot
+  ever taken, checked against its own same-run evidence).
+- Published `medicine-prices.json` re-exported 2026-07-25 12:31Z with
+  `skipped_missing_provenance: 0` and **no `17.95` / `29.95`** — the two fabrications that
+  reached the live site are gone from it.
+- `business_intel.med_price_snapshots_quarantine_061` (212 rows) is **deliberately
+  retained** as the reversible record of the remediation. It is not stray; do not drop it.
+- Unit tests green from a clean `git archive HEAD`: `TestMedPriceLiteralInMarkdown`
+  (12 subtests) + the four `TestMedFilterVariantsByEvidence_*` cases including
+  `_FabricatedDropped`, the exact Advocate regression shape.
+
+### Council trailer — a permanent 098 false negative, by construction
+
+Fix commit `ca2cd7535` (2026-07-24). The council verdict for
+`SUBMISSION_CORR=7cf73cc1-1f14-4ca0-9feb-2a90fa4bfd83` came back **APPROVED** at
+2026-07-24 20:39:50Z — i.e. **after** the commit was written, so that commit can never
+carry a `Council-Reviewed:` trailer. The 098 coverage report will therefore always list
+`ca2cd7535` as unreviewed. It was reviewed and approved; the trailer is simply unreachable
+for a verdict that post-dates its commit. Recorded here because that is the only place the
+join can be made by hand.
+
+### Residual — recorded, not fixed, no data harm
+
+**[OBSERVED, one sample]** the fallback LLM call on this page took **495 s (8m15s)** inside
+the scrape's serial per-listing loop. The batch is 20 listings every 6 hours, so a single
+fallback page can consume most of a run (this run had processed ~4 listings by the 10-minute
+mark). No fidelity or provenance consequence — the guard holds regardless — but it is a
+throughput ceiling worth a measurement before anyone raises `batch_size`. Not filed as a bug:
+one sample, and no incorrect data results.
 
 > **CORRECTED 2026-07-24 — blast radius was 212 rows, not 2.** The "2 of 10 fresh rows"
 > below was true of that run only. A same-run-evidence fidelity sweep over the whole table
@@ -88,7 +167,7 @@ capture date), not parse *fidelity*, so both rows published to
    retailer strategies; a variant-block regex may pair a size label with a price from an
    adjacent block.
 
-## Fix — BUILT 2026-07-24, unit-tested, awaiting image roll
+## Fix — built 2026-07-24; **LIVE in v1.0.1165, proven on the real fault 2026-07-26** (see Close record)
 
 All in `platform/orchestration/actions/vet_med_price_scrape_action.go` (+ new
 `vet_med_price_scrape_action_test.go`); fix candidate 1 from the original filing, plus
@@ -140,19 +219,26 @@ All 212 fabricated rows copied to **`business_intel.med_price_snapshots_quaranti
   of the 8 window values. The live medicine-prices.json still carries the two Advocate
   fabrications until the next `med-export-json` run (48h cadence) rebuilds it clean.
 
-Sweep query: vetcomparison `RUNBOOK_vetcomparison.md` §Med retailer pipeline
-(fidelity sweep). **Interim until the image rolls**: `med-scrape-prices` runs 6-hourly and
-can still fabricate — re-run the sweep and quarantine-delete any new PRICE_ABSENT rows.
+Sweep query: vetcomparison `RUNBOOK_vetcomparison.md` §Fidelity sweep.
+> **CORRECTED 2026-07-26:** this section used to carry an interim instruction — *"until the
+> image rolls, `med-scrape-prices` runs 6-hourly and can still fabricate, so re-run the
+> sweep"*. That window closed when `v1.0.1165` shipped the guard. The sweep is now a
+> standing audit, not a stopgap.
 
-## How to verify the fix live (post-roll)
+## How the fix was verified live — DONE 2026-07-26
+
+All three steps below were carried out; results in the Close record at the top.
 
 1. Pod-grep a string the change CREATED, not one it uses: `fidelity guard dropped variant`
-   + a positive control.
+   + a positive control. ✅ — and on the **spawned worker's** binary, not just the
+   deployment, since workers run `agent_definitions.image_tag`.
 2. Re-scrape the Advocate listing (stalest-first; `UPDATE ... last_scraped_at=NULL` on the
    listing) and assert: any stored snapshot's price appears in its own evidence markdown;
    the category-page case yields skip + Warn + `fidelity_skipped` > 0, not stored rows.
+   ✅ — the LLM fabricated 3 variants and the guard dropped all 3, storing nothing.
 3. Confirm new LLM-path rows (if any legitimate ones occur) carry
-   `collection_method='scrape_llm'`.
+   `collection_method='scrape_llm'`. ✅ — visible on the dropped variants' Warn lines; no
+   legitimate LLM-path row has occurred yet, so no stored row carries the label so far.
 
 ## Related
 

@@ -865,3 +865,53 @@ are not settled until the Order is made. `[VERIFIED]` the live site publishes **
 it cannot emit absolute deadlines today without asserting dates the CMA has not fixed — which is
 precisely what this site was remediated for. Buildable honestly only as relative periods from a
 "date the Order is made" input.
+
+### 2026-07-26 — bugs_open/061 CLOSED: the guard caught a live fabrication (session "bugfix 61")
+
+Picked up 061 to fix it and found there was no code left to write — `ca2cd7535` had shipped
+in `v1.0.1165` at some point after it was committed, so the case was only open because
+nobody had checked. Deployment proof, taken from the **spawned worker's own binary** rather
+than the deployment (med workers run `agent_definitions.image_tag`, all 8 = `v1.0.1165`):
+`fidelity guard dropped variant` ×1, `never copy its values` ×1,
+`never estimate, recall, or compute` ×1, positive control `MedScrapePrices` ×23. The 12:01
+production run returned `{"scraped":15,"variants_stored":26,"failed":5,"fidelity_skipped":0}`
+— `fidelity_skipped` is a field the fix introduced, so the guarded path runs every scrape.
+
+**MISSTEP, and it is the whole point of this entry.** I had all the green evidence — full-table
+sweep 0 PRICE_ABSENT, live JSON re-exported clean, and **16 consecutive post-fix LLM fallback
+calls returning `[]`** — and I wrote in the plan that the prompt hardening had removed the
+fabrication at source, so the guard's drop branch was belt-and-braces and *could not be
+exercised live*. I ran the induced test anyway, only because the standing rule says a green
+happy path proves deployment and not correctness.
+
+**It fabricated on the first run.** Induced re-scrape of listing
+`0b50fd2d` (`petdrugsonline.co.uk/advocate`, the original page), worker
+`agent-med-price-collector-eb928d3a-fmrph`, 15:01:07Z:
+
+- regex → 0 variants (correct, category page); £-window gate → **passed**, fallback fired;
+- `llm_call_log` `baa8b777`, latency **495,177 ms**, returned three invented variants:
+  `{"Large Cats 80mg/8mg (4kg-8kg)", 19.25, tvp 36.75}`, `{"Small Dogs 10kg Pack of 3", 34.99}`,
+  `{"Medium Dogs 25kg Pack of 3", 68.75}` — a size label that is not on the page at all;
+- 3 × `MedScrapePrices: fidelity guard dropped variant — price absent from scraped markdown`,
+  each `collection_method=scrape_llm`; **0 snapshots stored**; evidence row
+  `variants_found=3, prices_stored=0`.
+
+The guard was right rather than merely strict: `19.25` / `34.99` / `68.75` / `36.75` appear
+nowhere in the 9,256-char evidence, while the page's real `17.75` and `29.75` are both present.
+Note the invented values **differ from July's** (17.95/29.95) — the model hallucinates afresh
+each time rather than repeating, which is why "we've seen the fabricated values" is never a
+purge criterion. Full-table sweep after: **2,577 OK / 0 PRICE_ABSENT**.
+
+So the correction: **the guard is load-bearing, not defence-in-depth**, and the 16 `[]`
+responses were other pages, not evidence of a cured model. 016b §9 had already said "prompt
+rules alone are hope, not enforcement" — I nearly contradicted a pattern this workstream
+itself filed. Logged in `WRONG_CALLS.md`.
+
+**[OBSERVED, one sample] Throughput ceiling, no data harm.** That fallback call blocked the
+per-listing loop for 8m15s; the batch is 20 listings 6-hourly and this run had managed ~4 by
+the 10-minute mark. Worth measuring before anyone raises `batch_size`. Not filed — one sample,
+and the guard holds regardless.
+
+**Council trailer.** `ca2cd7535`'s APPROVED verdict (`7cf73cc1`) landed 2026-07-24 20:39:50Z,
+**after** the commit, so it can never carry a `Council-Reviewed:` trailer and 098 will always
+list it as unreviewed. Recorded in the case file, which is the only place the join survives.

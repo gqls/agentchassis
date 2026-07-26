@@ -219,15 +219,22 @@ hard 14-day freshness window makes exporting stale data structurally impossible)
 - Site surface: data files only. The medicine pages/calculator rebuild is a SEPARATE task
   (bug-020 class: a rebuilt tool must not invent data).
 
-### Fidelity sweep — stored price must appear in its own evidence (bugs_open/061)
+### Fidelity sweep — stored price must appear in its own evidence (bugs_closed/061)
 
 The LLM fallback fabricated 212 snapshots over two eras (all quarantined in
-`med_price_snapshots_quarantine_061`, 2026-07-24). **Until the parse-fidelity guard is
-live in a rolled image, re-run this after scrape activity** and quarantine-delete any
-PRICE_ABSENT rows (pattern: bugs_open/061 §Remediation). Gotchas baked in: pair snapshot
-to SAME-RUN evidence (gap ≤120s, nearest `created_at`); use `FM999999990D00` — the
-zero-less `FM999999D00` renders 0.42 as `.42` and false-OKs sub-£1 fabrications; strip
-commas from the markdown, not the price.
+`med_price_snapshots_quarantine_061`, 2026-07-24 — **retained deliberately**, it is the
+reversible record; do not drop it).
+
+> **UPDATED 2026-07-26 — the guard is LIVE (`v1.0.1165`), so this is a standing audit, not
+> a stopgap.** It used to read *"until the parse-fidelity guard is live in a rolled image,
+> re-run this after scrape activity"*. Now the write path refuses a price absent from its
+> own evidence, so a PRICE_ABSENT row should be **impossible** — which is exactly why the
+> sweep is still worth running: a hit now means the guard has a hole, not that the LLM
+> misbehaved. Last run 2026-07-26: **2,577 OK / 0 PRICE_ABSENT / 0 UNCHECKABLE.**
+
+Gotchas baked in: pair snapshot to SAME-RUN evidence (gap ≤120s, nearest `created_at`);
+use `FM999999990D00` — the zero-less `FM999999D00` renders 0.42 as `.42` and false-OKs
+sub-£1 fabrications; strip commas from the markdown, not the price.
 
 ```sql
 WITH snaps AS (
@@ -257,5 +264,21 @@ ORDER BY s.collected_at DESC;
   size/price variants%'`) at a timestamp matching the snapshot to the second.
 - **Never purge by price value** — 19 genuine £17.48 rows exist alongside the 79
   example-echo fabrications; only the evidence check separates them.
-- Post-roll, LLM-extracted rows carry `collection_method='scrape_llm'` (guard-verified);
-  regex rows stay `'scrape'`.
+- LLM-extracted rows carry `collection_method='scrape_llm'`; regex rows stay `'scrape'`.
+- **To re-prove the guard on a live fabrication** (how it was verified 2026-07-26 — the
+  Advocate category page still makes the model invent a whole price table, so this is a
+  repeatable fault, not a one-off):
+
+  ```sql
+  UPDATE business_intel.med_retailer_listings SET last_scraped_at = NULL
+  WHERE id = '0b50fd2d-a129-4edd-85a0-75843181fe0c';   -- petdrugsonline /advocate
+  UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name = 'med-scrape-prices';
+  ```
+
+  `loadMedListingsForScrape` orders `last_scraped_at ASC NULLS FIRST`, so nulling it puts
+  the listing at the head of the next batch — necessary, because 247 of 305 listings are
+  stale and the April-era backlog is ahead of anything scraped this month. **Budget ~10
+  minutes, not 5**: the fallback call to the local CPU Mistral measured **495 s** on its
+  own. Then assert `variants_found > prices_stored` on the new `med_scrape_evidence` row
+  and grep the spawned worker's log for `fidelity guard dropped variant` — capture that pod's
+  logs while it lives, the pod is ephemeral and GC'd shortly after.
