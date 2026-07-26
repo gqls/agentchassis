@@ -7,7 +7,11 @@ and the failure is at iteration 0 so nothing downstream runs. Frequency is the o
 *How often* below).
 **Class:** contract — a COMPLETE, well-formed response is discarded because it is followed by more
 text, and the discard is indistinguishable from a truncation.
-**Status:** OPEN, not fixed. Cause fully evidenced and both fix candidates tested below.
+**Status:** **HALF LIVE, half inert — 2026-07-26.** The prompt half is applied and verified
+(`227_writer_returns_the_object_and_nothing_else.sql`, config-only, live on apply). The
+platform half is committed (`282fd2feb`) and **INERT until the next chassis roll**. Stays
+OPEN until the Go half is live and a recovery has been observed. See
+**§ What shipped** below, which supersedes the fix candidates.
 
 **Not `bugs_open/076`** (truncated responses tolerated at unguarded call sites): nothing here is
 truncated. The model returned a complete JSON object, then commentary, then a second complete JSON
@@ -170,6 +174,60 @@ Whichever is taken, the error message at `v3_site_actions.go:1731` should stop a
    one — the one without the em dash. A fix that recovers the first is a regression dressed as a fix.
 3. Assert the truncation control still fails: the same payload with its last ~120 bytes removed must
    still be rejected.
+
+## What shipped, 2026-07-26 — and the three rules the corpus killed
+
+The fix candidates above were written from one incident. Before implementing, the whole
+class was measured against **`llm_call_log`, 44,232 rows back to 2026-03-25** — a corpus
+four months deep that is not pruned, unlike `orchestration_states`. 5,844 of those responses
+carry a `{` and are not a clean single object; **today's parser rejects 647 of them.**
+
+The measurement changed the design three times. Each rule below looked obvious, and the
+corpus refuted it:
+
+| rule that looked right | what the corpus said |
+|---|---|
+| "take the last complete top-level value" | The scanner that finds them **walked into a truncated array** and reported each surviving element as a top-level value — 19 in one live response. It would have returned a single array element in place of a cut document. **That is bug 026 exactly.** The scanner now stops at a failed decode and never descends into it. |
+| "when there are several values, take the last" | Of the 26 such responses only **4** are the same answer re-emitted. **17 are different objects** — a writer answering for several sections at once: `{headline,subheadline}`, then `{content,heading}`, then `{headline,subheadline,testimonials}`. Taking the last would have handed a hero section a testimonials object and reported success. Multi-value is now refused unless every value is an object with an **identical key set**. |
+| "recover the fenced block" | An unguarded version recovered 93 responses — but **59 of them began with a markdown heading**, and every one belonged to `experience-planner` / `tool-generator` / `generic`, agents whose steps *ask* for markdown containing a fenced JSON block (`"Output the whole plan as markdown … the ```criteria fence … <!-- END EXPERIENCE_PLAN -->"`). Recovering the fence would have replaced a whole plan with one of its own sub-blocks. Markdown documents are now left alone. |
+
+**Net effect, measured over the same corpus: 647 rejected → 613.** The 34 recovered are all
+`page-content-writer` (33) and `component-creator` (1) — the agents actually asked for a bare
+object. **The 613 still rejected hold no complete value at all.** The truncation guard cannot
+be weakened by this change, because tier 3 only ever returns a value that decoded
+*completely*, and refuses when anything after it still opens another one.
+
+### The two halves
+
+1. **Prompt — `227_writer_returns_the_object_and_nothing_else.sql`, LIVE on apply.**
+   `page-content-writer`'s Output Format now opens with *"Your entire reply must be the JSON
+   object and nothing else… If you want to revise a draft, revise it before you write the JSON
+   out"*, and the Voice & Style em-dash rule changed from *"Before returning, scan your
+   draft…"* to *"Do this check silently as you compose, never in the reply itself…"* — that
+   phrasing is what invited the narration in the first place. Anchor-verified, snapshotted,
+   and the DO block asserts migration 201's rule 14 survived the edit.
+2. **Platform — `282fd2feb`, INERT until the roll.** `ParseLLMJSON` becomes a wrapper over
+   `ParseLLMJSONWithProvenance`, which adds tier 3 (`extractCompleteJSONValue`). Every
+   recovery is stamped `__envelope_recovered` on the step output — the `markTruncated`
+   convention — and logged at Warn, because **nothing counted this class, which is why it
+   survived four months**.
+
+Negative tests carry the load and were checked for vacuousness: disabling the tail guard
+makes `TestRecoveryNeverSalvagesTruncation` fail on the "complete object then a truncated
+second" case. `json_envelope_recovery_test.go`.
+
+### What is left to verify after the next roll
+
+```sql
+-- recoveries in the wild, by agent and kind
+SELECT agent_type, step_name, count(*)
+FROM orchestration_states o, LATERAL jsonb_each(o.collected_data) e(k,v)
+WHERE v ? '__envelope_recovered' GROUP BY 1,2 ORDER BY 3 DESC;
+```
+
+Expect the count to be LOW and falling if migration 227 is working — the prompt half should
+stop most of them being emitted at all, and the Go half is the net under it. A rising count
+with `provenance=reemitted_value` means the prompt change did not take.
 
 ## Related
 
