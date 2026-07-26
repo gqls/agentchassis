@@ -319,3 +319,38 @@ Check the depth rather than assuming either number:
 **One page builds at a time in this lane.** Both rebuilds were queued together;
 the second stayed `triaged` until the first finished. That is the known residual
 of 030 (one job at a time per lane), not a dropped dispatch.
+
+## Re-rendering a page after a TEMPLATE or content_data change (no LLM)
+
+Two different things are called "re-render" and only one of them picks up a
+component template change:
+
+| what you changed | what you need | how |
+|---|---|---|
+| nothing (just republish) | assemble-only: stitches STORED rendered_html | `049b_deploy_single_page.sh <page_id> <site_id> <domain>` |
+| a component's `html_template`, or a section's `content_data` | the `rerender_sections` pre-pass: every section re-rendered from stored `content_data` through the CURRENT template, no LLM | `scripts/rerender_page_sections_direct.sh <page_id> <site_id> <domain> <page_name>` |
+
+**`049b` with its 4th argument does not work** — it builds `spec` as
+`{"reason": …}` and the agent reads `page_name` from `input_data.spec.page_name`,
+which `rerender_page_sections` declares Required. Every such dispatch fails in
+under a second with `missing required fields: [page_name]`. Confirmed on two of
+our dispatches and two from another session on a different site. The script above
+is the corrected form; the 049b owner has a note with the one-line fix.
+
+**Before firing the reason path, check for NULL `content_data`** — if any section
+has none, the whole page escalates to the content writer and the copy IS
+regenerated:
+
+```sql
+SELECT slot_name, content_data IS NULL AS null_cd FROM page_components WHERE page_id='<id>';
+```
+
+**The work-item route was NOT usable on 2026-07-26**, and the reason is not
+established: `build-pipeline-trigger` selected fundamentallyai.com on three
+consecutive runs (18:12, 18:15, 18:17), reached `spawn_dispatch`, sat in
+`AWAITING_RESPONSES`, and the two `page_rerender` rows stayed `triaged` for 15+
+minutes with no child orchestration. Only 3 build items were queued fleet-wide and
+our site had the lowest `site_id`, which is what that trigger's
+`ORDER BY wi.site_id … LIMIT 1` selects on — so it was being picked, not starved.
+[UNDIAGNOSED] Recorded because a future thread will otherwise read the silence as
+"the queue is backed up", which the depth said it was not.
