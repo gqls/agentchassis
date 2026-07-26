@@ -1379,3 +1379,87 @@ a problem yet; both are worth a look once there's real volume.
 
 The one job left on the box is the second deploy — automatic expiry of cold orders, so the queue
 can never quietly close itself the way it did this morning. Commands are in the handoff.
+
+## 2026-07-26 (evening) — the deploy is done, and on the way I found two ways the tool was losing money
+
+Short version: the second deploy is on the box. While preparing it I read through the tool's code
+properly and found two live faults, both now fixed and both proven fixed against the real running
+service. Neither had bitten us yet. One of them would have, sooner or later, and it would have
+looked like nothing at all.
+
+**The first one: someone could have taken the £29 report without paying.**
+
+There is a shortcut in the code so we can test a purchase end-to-end locally without Stripe. You
+add `fake=1` to a web address and the order is marked paid. The intention was always that this
+only works in local testing — the code even says so in a comment, in capitals. But nobody had
+made the code *check*. It looked at the web address, saw `fake=1`, and marked the order paid. On
+the live site. With real Stripe running.
+
+The reason this matters more than it first sounds: the order number isn't a secret from the
+buyer. When someone starts a real payment and then clicks "cancel", Stripe sends them back to a
+page on our site with their own order number in the address. So a customer who paid attention for
+ten seconds could have gone back, added `fake=1`, and been sent the report for nothing. No
+hacking, no guessing — one visible address and one word.
+
+It's fixed: the shortcut now only works when the fake payment system is actually the one running,
+which it never is in production. And an attempt is written to the log, so if anyone does try it,
+we'll see it. I proved the fix on the live service against a genuine order that was sitting
+mid-purchase — I ran the attack myself, from the outside, and the order stayed unpaid.
+
+**The second one: anyone could pretend to be a different visitor.**
+
+The free "audience check" on the site does a real AI call every time someone uses it, and it
+costs us a couple of pence each time. To stop that being abused, we limit each visitor to three
+goes an hour. The limit works by looking at the visitor's internet address.
+
+Except we were reading that address from a piece of information the visitor is allowed to write
+themselves. I sent a request claiming to come from an address that cannot possibly exist, and the
+service dutifully wrote it down as mine. Which means the three-an-hour limit was never really
+three an hour: change the claimed address each time and you get as many free AI calls as you
+like, at our expense. The same wrong reading was being stored against every order — and we'd been
+storing it specifically so we could block troublemakers later, which would not have worked.
+
+Also fixed, also proven live: the same request that fooled it an hour ago now correctly records
+my real address.
+
+**About that end-to-end test you asked for.**
+
+You'd already done it. Another session ran a full report at lunchtime and updated the handover
+notes at 15:57 to say so — but I'd read that document at 15:34 and never looked at it again, so I
+asked you a question about proving something that was already proven, and then started a second
+report run. That's my mistake, and I've written it up properly where we keep such things. The
+check that would have caught it takes two seconds and I didn't do it.
+
+It wasn't wasted, but that's luck rather than judgement: your lunchtime order was *declined* at
+the end, so the payment half of the chain — approve, send the pay link, take the money, deliver —
+had still never actually run. This one is being taken through exactly that.
+
+**So there is one thing waiting for you.** There's an email at your usual address with a Stripe
+link for £29. Paying it is the last untested step in the whole product. It's real money on a real
+card (you'd be paying yourself, less Stripe's fee of about a pound), so it's your call — but
+until someone does it, "customer pays and receives the report" remains the one part of idea.uk
+that has never happened.
+
+**On the report itself.** It's good. The vet price-comparison idea I submitted came back with a
+genuinely honest assessment: it told the submitter the market is about to be flooded by a free
+government comparison service, that a dozen private rivals already exist, and that the sensible
+move is a £50–£100 test in one town before writing any software. That is exactly the tone the
+sales page promises and it would have been very easy for it to flatter instead. Sources are real
+and checkable. It took nine and a half minutes, not the twenty to thirty we'd been expecting.
+
+Three small copy faults did show up in it — a doubled full stop, a scoring line that reads "out
+of 5" with the number missing, and a sentence that reads "using A form the receptionist fills
+in". All three are now fixed in the code, and they'll take effect at the next deploy. They only
+turned up because someone read the actual report rather than checking that the job succeeded.
+
+**One thing I'd flag for the margin question you raised.** The report engine is still pointed at
+last generation's AI models. They're set in a config file, so changing them needs no rebuild at
+all — but which model writes your paid product is your decision, not mine, so I've left it alone
+and noted it.
+
+**And one gap I found but deliberately didn't fix.** The new automatic expiry releases orders
+that are stuck waiting for us or waiting for a customer's payment. It doesn't release one that
+was mid-report when the service restarted — and since the report runs in memory, a restart always
+strands one. That's the same "slot lost forever" problem we just fixed, by a different door. The
+fix is small but it's only safe to write when nothing is running, and something was running all
+evening.
