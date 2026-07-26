@@ -4966,6 +4966,48 @@ Family: unfalsifiable-check-reads-as-a-pass, positive-control-in-the-same-comman
 zero-means-three-different-things, who-owns-reads-commits-not-working-trees,
 the-tool-that-refuses-a-stale-write-is-the-guard.
 
+---
+
+## 2026-07-26 — I closed a bug on the word "extinct", from a day that had six hours left (bug 003)
+
+**The claim.** In the CLOSED box of `bugs_closed/003`, in the 016b index row, and in the
+commit message: *"0 on 07-26"* and **"the symptom is extinct"**.
+
+**What was actually true.** I ran the count at **17:53**. The next
+`AWAITING_RESPONSES → FAILED` landed at **17:56** — three minutes later — and three more
+followed by 20:55. The real post-fix figure is **0.46/h against a pre-fix 2.24/h: a ~80%
+reduction, not extinction.** I found it myself, an hour after publishing, only because I ran
+one last sanity query before writing the summary.
+
+**Two distinct errors, and the second is the more dangerous.**
+
+1. **A same-day count is a partial count.** "0 today" at 17:53 is a statement about 74% of a
+   day, written in the present perfect. The fix is trivial: say *"0 as at 17:53Z"*, or use a
+   closed window that has actually closed.
+2. **`orchestration_state_audit` is pruned too — about 66 hours.** Between my two
+   measurements, four hours apart, the pre-roll window shrank from **38.9 h / 91 events** to
+   **31.2 h / 70**. I had already noted that `orchestration_states` keeps ~13 days and
+   congratulated myself on finding a table that reached further back. It reaches back less.
+   **The before-picture was evaporating while I wrote about it**, and neither figure can ever
+   be reproduced.
+
+**The checks.** Record a **rate**, not a count — a rate survives the window shrinking, a count
+silently becomes a different measurement. **Take the baseline the moment you realise you will
+need one**, because on this platform every history table is on a retention clock and the
+pre-fix world is the part that expires first. And treat *extinct*, *never*, *always* as
+claims requiring a closed window, not an impression from a quiet afternoon.
+
+**Why it did not change the verdict, stated so the correction is not read as bigger than it
+is.** 003 closes on four root causes being fixed and live, each verified independently —
+not on this statistic. An 80% rate reduction with a known, named, still-inert residual
+(`075`) supports the same conclusion the wrong number did. **That is exactly why the error
+was easy to make: it agreed with everything else.** A figure that confirms what you already
+believe gets checked least, which is the argument for checking it most.
+
+Family: partial-day-counted-as-a-whole-day, the-baseline-table-is-also-on-a-retention-clock,
+record-a-rate-not-a-count, extinct-needs-a-closed-window,
+the-figure-that-agrees-with-you-gets-checked-least.
+
 ### 2026-07-26 — bugfix_077 — "the council submission died in the ~300s post-restart window"
 
 **Asserted:** that a council submission which vanished without an orchestration row was

@@ -11,20 +11,41 @@
 > | reaper blind to `EXECUTING_STEP` (§4.3) | **F1** — >4h clause | LIVE 2026-07-20 |
 > | health endpoints lied (§4.1) | **F4a** — real Kafka metadata probe + honest `/health`, `/ready` | LIVE, **restart path PROVEN 2026-07-26** |
 >
-> **The symptom is extinct, measured against pre-fix history**
+> **The symptom is down ~80%, measured against pre-fix history**
 > (`orchestration_state_audit`; `orchestration_states` is pruned to ~13 days so
 > it cannot show this):
 >
 > | window | `AWAITING_RESPONSES → FAILED` | completions | rate |
 > |---|---|---|---|
-> | pre-roll 07-23 19:44 → 07-25 10:35 (38.9 h) | **91** | 3,119 | 2.34 /h |
-> | post-roll 07-25 10:36 → 07-26 17:53 (31.3 h) | **12** | 2,390 | 0.38 /h |
-> | 07-26, full day post-fix | **0** | 1,114 | — |
+> | pre-roll, 31.2 h to 2026-07-25 10:35 | **70** | 2,655 | 2.24 /h |
+> | post-roll, 34.9 h to 2026-07-26 22:00 | **16** | 2,710 | **0.46 /h** |
+>
+> > **CORRECTED 2026-07-26 22:05Z, within an hour of writing it.** The first
+> > version of this box said **"0 on 07-26"** and called the symptom *extinct*.
+> > Both were wrong, and each for a separate reason worth carrying:
+> >
+> > 1. **I measured a day that had six hours left in it.** The figure was taken
+> >    at 17:53; the first `AWAITING_RESPONSES → FAILED` of the day landed at
+> >    **17:56**, three minutes later, and three more followed (18:53, 20:55 ×2).
+> >    A same-day count is a partial count — say "as at HH:MM", or use a closed
+> >    window.
+> > 2. **`orchestration_state_audit` is pruned too, ~66 h.** The pre-roll window
+> >    shrank from 38.9 h/91 events to 31.2 h/70 in the four hours between the
+> >    two measurements. So **the before-picture is actively evaporating** and
+> >    these numbers cannot be reproduced later — which is the argument for
+> >    recording rate (/h) rather than counts, and for taking the baseline the
+> >    moment you realise you need one. Both tables now agree on one thing: this
+> >    platform keeps roughly two to thirteen days of history, and any
+> >    before/after claim older than that is unfalsifiable.
+> >
+> > The honest claim is **a ~80% reduction in rate, not extinction** — and the
+> > residual 16 are expected to include `075`'s ownership discard, whose fix is
+> > committed but INERT until the next roll. Re-measure on **2026-08-01**.
 >
 > Plus: 0 `EXECUTING_STEP` zombies; 0 `reaper: stale AWAITING_RESPONSES` in the
 > whole retained window; **30 requests recovered end-to-end at `retry_version ≥ 1`**
-> that would have been silent losses; abandoned claims **181 → 8** (the 8 being
-> genuinely in flight).
+> that would have been silent losses; abandoned claims **181 → 0 stale** (only
+> genuinely in-flight ones remain).
 >
 > **What is NOT closed, and where it lives now** — none of it is this case:
 > - `bugs_open/075` — ownership discard + adapter retry cap. **Fixed in code by a
