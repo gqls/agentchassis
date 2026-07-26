@@ -240,6 +240,34 @@ kubectl -n kafka logs -f deployment/strimzi-cluster-operator -n strimzi | grep -
 
 Baseline the dial metric **before** and after, or the change cannot be judged.
 
+## 8c. Reproducible enumerations (asserted absence needs a command)
+
+The council's prior-art seat objected — correctly — that the "complete enumeration
+of Kafka dial sites" claim shipped without a runnable query, unlike the other two
+checks in the same submission. Absence claims need the command attached. These are
+the three, and **none of them is piped to `head`** (see §7's trap: a capped
+enumeration is indistinguishable from a complete one, and that is how a third
+phantom-broker site was nearly missed).
+
+```bash
+# Every Kafka dial site in the repo. Expect: consumer.go (NewReader),
+# producer.go (Writer), topic_manager.go x8, kafka_reachability.go (probe),
+# remote-job-spawner (reader + writer). Anything else under test/ is test-only.
+grep -rn "kafka\.NewReader\|kafka\.Dial(\|kafka\.DialContext(\|kafka\.Writer{\|kafka\.DialLeader" \
+  --include=*.go . | grep -v "_test\|/test/"
+
+# Anything still on kafka-go's DefaultTransport (nil Transport). Expect: none —
+# both Writer sites must carry a Transport, or the connection pool is split.
+grep -rn -A6 "kafka\.Writer{" --include=*.go . | grep -v "_test\|/test/" \
+  | grep -E "Writer\{|Transport"
+
+# Callers of the metrics server. Expect exactly one (cmd/agent-chassis).
+grep -rn "NewMetricsServer" --include=*.go .
+
+# Phantom broker literals. Expect only comments.
+grep -rn "kafka-headless" --include=*.go .
+```
+
 ## 9. Council submission
 
 ```bash
@@ -248,6 +276,22 @@ Baseline the dial metric **before** and after, or the change cannot be judged.
 ```
 
 Submission for this case: correlation `7abe1a57-e3db-4b71-9e3a-744fbf8c24b1`.
+Three rounds, all under that one correlation: **REJECTED** (guardian hard veto) ->
+**REVISE** (gating objection) -> **REVISE** (an *unreadable* seat, not an objection).
+
+**Read `decided_by` before reading the decision.** Round 3's REVISE was
+`decided_by: unreadable reviewer(s): review_editquality.result` — the gating seat
+died mid-run. On the substance that round was 6 approve / 2 object, with the
+guardian down from a hard veto to one MEDIUM and two LOWs it explicitly filed
+"rather than blocking". A REVISE caused by a dead seat is a harness failure and
+says nothing about the change; treating it as a verdict would be reading noise as
+signal. (Same landmine as `bugs_closed/029`: 3 of its 5 rounds died this way.)
+
+**No `Council-Reviewed:` trailer is on any of these commits, and none may be
+added.** The trailer is earned by an APPROVED verdict only; on a REVISE it would
+be a permanent false claim of review. The 098 coverage report will therefore list
+this work as un-reviewed for ever, which is a known and accepted false negative —
+the verdict trail is recorded here instead.
 
 **Gotcha: verify every `grounded_in` quote is byte-exact before firing.**
 Reviewers cannot open files, so a trimmed quote is a different claim and draws
