@@ -748,7 +748,40 @@ measuring handler runtimes before writing the claim down, rather than after.
 |---|---|
 | `d61b3ace1` | migration 220 + its ROLLBACK twin + the lockstep test |
 
-Council submission `SUBMISSION_CORR=9962dd2b-886e-47a3-92b1-6b4a4b968886`.
+Council submission `SUBMISSION_CORR=9962dd2b-886e-47a3-92b1-6b4a4b968886` — **DROPPED, see below.**
+
+### C — RE-VERIFIED AFTER THE 2026-07-26 21:03Z CHASSIS ROLL
+
+A roll is exactly when a config-only fix can be silently undone, because a chassis deploy can
+re-seed DB config (the known re-seed-clobber landmine). Checked immediately after:
+
+| check | result |
+|---|---|
+| `pre_query LIKE '%completed_by_orchestration%'` | `t` — the generic branch is still there |
+| `pre_query LIKE '%completed_by_evidence%'` | `t` — the artifact fallbacks retained |
+| `pre_query LIKE '%truncated_component%'` | `t` — the verifier exclusion intact |
+| `length(pre_query)` | **6131**, byte-identical to what migration 220 wrote |
+| `enabled` / `interval_seconds` | `t` / `120` |
+
+And the **new scheduler binary** runs it — not merely the same config surviving:
+`kafka-scheduler-69c76d58fb-6ggj7` logs `"Pre-query task completed (no message fired)","task":"claimed-item-timeout"` at 21:05:42Z, with `last_triggered_at` advancing to match. The log line
+comes from `scheduler/main.go:272`, where the pre-roll pod emitted the same message from `:238` —
+a different binary reading the same row, which is the discriminating detail. **§C is live on the
+new image.**
+
+> **CORRECTED 2026-07-26 — I called the council submission "queued, not dropped". It was dropped.**
+> At 18:44Z, with no `orchestration_states` row for the submission, I applied the runbook's
+> standing rule (*"a missing orchestration row is almost always latency, not a dropped dispatch —
+> do not retry on that evidence"*) and reported it as queued. **Falsified at 21:05Z:** another
+> thread's submission `569241fb`, published *after* mine, ran at 20:05Z and again at 20:16Z and
+> reached `complete_revise` — so the lane drained past my slot. A search for my correlation across
+> `orchestration_states.collected_data`, `initial_request_data` and `diagnosis_artifacts` returns
+> **zero rows anywhere**: no run, no artifacts, no trace.
+> **What caught it:** looking for a *later* submission that had completed, rather than re-checking
+> my own row again. **The cheap check that generalises:** the runbook's rule is sound but it has no
+> expiry — "queued" and "dropped" look identical until something published *after* you finishes.
+> That is the discriminator, and it costs one query. Resubmitted (see below); the advisory verdict
+> does not gate the fix, which is live and behaviourally proven either way.
 
 ### What C does NOT do
 

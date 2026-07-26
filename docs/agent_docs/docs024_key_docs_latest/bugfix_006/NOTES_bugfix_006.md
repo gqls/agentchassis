@@ -196,3 +196,76 @@ CLAUDE.md describes actually happening**: committing per task narrowly stops *me
 *others*' work; it does not stop a session running `git add -A` from sweeping mine. The practical
 consequence for a `git mv`: the two halves can be separated by another thread, so check
 `git log -- <old path>` before assuming your move failed.
+
+---
+
+## 2026-07-26 later — the chassis rolled, and one of my two claims did not survive contact
+
+### 220 survived the roll, and the NEW binary runs it
+
+A chassis roll is the moment a config-only fix can be silently undone, because a deploy can
+re-seed DB config. Checked within two minutes of `agent-chassis-5b4456686c-s5fkc` coming up:
+`pre_query` still carries all three markers and is **6131 bytes — byte-identical** to what
+migration 220 wrote.
+
+The stronger check is that the **new scheduler binary** runs it, not just that the row survived:
+`kafka-scheduler-69c76d58fb-6ggj7` logged `"Pre-query task completed (no message fired)"` for
+`claimed-item-timeout` at 21:05:42Z from **`scheduler/main.go:272`** — the pre-roll pod emitted the
+identical message from **`:238`**. Different binary, same row, still working. *The line number is
+the discriminator*; the message text alone would have proved nothing about which build produced it.
+
+### MISSTEP — I reported the council submission as queued. It had been dropped.
+
+At 18:44Z my submission had no `orchestration_states` row. The council runbook has a standing rule
+for exactly that shape: *"a missing orchestration row is almost always latency, not a dropped
+dispatch — do not retry on that evidence (it costs a duplicate round)."* I applied it and told the
+owner "still QUEUED — latency, not a drop."
+
+**Wrong.** At 21:05Z, 2.5 hours later: another thread's submission `569241fb`, published *after*
+mine, had run at 20:05Z, re-run at 20:16Z and reached `complete_revise`. The lane had drained past
+my slot. Searching my correlation across `orchestration_states.collected_data`,
+`initial_request_data` and `diagnosis_artifacts` returns **zero rows anywhere**.
+
+**What caught it:** looking for a *later* submission that had finished — not re-checking my own row
+for the fourth time, which is what "wait for latency" invites you to do.
+
+**Why the rule misled me, which is the transferable part.** The runbook's rule is correct and was
+written to stop a specific expensive error (resubmitting into a queue, paying twice). But it has
+**no expiry condition attached**, so it reads as "never treat a missing row as a drop" when it
+means "not *yet*". Queued and dropped are observationally identical from your own row alone — the
+discriminator is **something published after you completing**, and it costs one query:
+
+```sql
+SELECT status, current_step, created_at,
+       left(collected_data->'input_data'->>'fix_correlation_id',13) AS corr
+FROM orchestration_states WHERE owner_agent_type IN ('council-gate','generic')
+  AND created_at > now() - interval '7 hours' ORDER BY created_at DESC LIMIT 12;
+```
+
+Added to `RUNBOOK_bugfix_006.md`. **Cause of the drop not established** — the publish was at
+~18:35Z and the chassis pod of the time was ~1h old, so the ~300s post-restart spawn-drop window
+does not explain it. That puts it in `bugs_open/003`'s territory (spawn/dispatch loss), which is
+not this case's to chase; recorded rather than diagnosed. **[UNDIAGNOSED]**
+
+**Resubmitting deliberately, not reflexively:** the lane is demonstrably moving, and I waited for
+the new chassis pod to clear ~300s first (a spawn within that window is silently dropped — the
+one drop cause I *can* rule out by construction).
+
+### MISSTEP, immediately after documenting the rule: I published inside the 300 s window
+
+Having just written *"before resubmitting, let the chassis pod clear ~300 s since (re)start"* into
+the RUNBOOK, I resubmitted at **21:07:10Z** with the pod at **4m14s = 254 s**. Inside the window I
+had written down ninety seconds earlier.
+
+It landed — `council-gate` row at 21:07:16Z, six seconds after publish, `review_editquality` within
+the minute. **That is getting away with it, not being right**, and it is exactly how a rule like
+this erodes: the violation is invisible when it works, so the only record is a note like this one.
+The rule stands; I broke it.
+
+**What the landing did teach, which is worth more than the misstep costs:** publish→run-start was
+**6 seconds** here, against the **29 minutes** measured on 2026-07-20 and against a submission at
+18:35Z the same day that never produced a row at all. So the runbook's "~30 min, a missing row is
+latency" is not a constant — **it is a reading of queue depth at one moment**. At 18:35Z the lane
+had council runs from 15:02Z still executing; at 21:07Z it was empty. `./scripts/dispatch-queue-depth.sh`
+is the thing to read *before* interpreting your own silence, and both fixed numbers should be
+distrusted equally.

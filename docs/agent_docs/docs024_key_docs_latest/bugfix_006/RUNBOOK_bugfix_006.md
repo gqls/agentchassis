@@ -194,8 +194,33 @@ production database*, so delete them in the same session that created them.
   SELECT status, current_step FROM orchestration_states
   WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
   ```
-- **No row at all means QUEUED, not dropped.** Budget ~30 minutes. Do not resubmit — it costs a
-  duplicate round.
+- **"No row means QUEUED, not dropped" is true — but it has no expiry, and that is a trap.**
+  The rule exists to stop you resubmitting into a queue and paying twice, and it is right for the
+  first half-hour. It is **not** right for ever: on 2026-07-26 a submission at 18:35Z still had no
+  row at 21:05Z, and a *later* one from another thread had by then run twice and reached
+  `complete_revise`. Mine was dropped — zero rows across `orchestration_states.collected_data`,
+  `initial_request_data` and `diagnosis_artifacts`.
+  **Queued and dropped are observationally identical from your own row.** The discriminator is
+  whether anything published *after* you has finished, and it costs one query:
+  ```sql
+  SELECT status, current_step, created_at,
+         left(collected_data->'input_data'->>'fix_correlation_id',13) AS corr
+  FROM orchestration_states WHERE owner_agent_type IN ('council-gate','generic')
+    AND created_at > now() - interval '7 hours' ORDER BY created_at DESC LIMIT 12;
+  ```
+  If a later submission has completed and yours has left no trace anywhere, it is gone —
+  resubmit. Re-checking your own row a fourth time cannot tell you this.
+- **Publish→run-start is load-dependent, so do not swap one fixed number for another.** The
+  runbook's ~30 minutes was measured 2026-07-20 under load and is a real figure. But the
+  2026-07-26 resubmission had its `council-gate` row **6 seconds** after publish and was at
+  `review_editquality` within the minute, while a submission earlier the same day (18:35Z, behind
+  runs still executing from 15:02Z) never produced a row at all. So neither "6 seconds" nor "30
+  minutes" is the rule — **the queue depth is**, and you can read it directly:
+  `./scripts/dispatch-queue-depth.sh`. Check the depth *before* you interpret your own silence.
+- **Before resubmitting, let the chassis pod clear ~300 s since (re)start.** A spawn inside that
+  window is silently dropped, so publishing into it manufactures the very outcome you are
+  retrying. It is also the one drop cause you can rule out by construction rather than by
+  investigation.
 - Quote fidelity in `grounded_in` is load-bearing: reviewers cannot open the file, so an
   abbreviated quote is a **different claim**. A trimmed SQL `WHERE` once manufactured a MEDIUM
   objection against byte-identical queries.
