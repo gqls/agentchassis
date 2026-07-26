@@ -6,8 +6,9 @@
 > (`bugs_closed/README.md` duplicate-numbers table). Cite this case as
 > **040-kafka-dial**.
 
-**Filed:** 2026-07-20 ("bugfix 003" thread) · **Status:** **OPEN** — instrumented
-2026-07-26, root cause NOT established, changes INERT until an image roll
+**Filed:** 2026-07-20 ("bugfix 003" thread) · **Status:** **OPEN** — instrumentation
+**LIVE and COLLECTING 2026-07-26** (v1.0.1167 + PodMonitor + NetworkPolicy fix, all
+applied); root cause still NOT established; awaiting 7 days of metric
 **Class:** was filed as cluster network infrastructure. **Reclassified 2026-07-26:**
 the infrastructure hypotheses are refuted; what is proven is an *observability*
 defect that made the bug unmeasurable. See §2.
@@ -356,16 +357,79 @@ pool (the code is correct — both `kafka.Writer{}` sites carry `ProducerTranspo
 verified at HEAD), and `prior_art`'s request for a runnable enumeration query
 (now RUNBOOK §8c).
 
+## 8e. LIVE VERIFICATION 2026-07-26 — the metric works, and it took THREE fixes
+
+The chassis rolled (`v1.0.1167`, pod started 17:11:30Z). **Note the tag did not
+change**, so the tag proves nothing — only the pod-grep does.
+
+**Step 1 — is the code live?** Yes, with both controls:
+
+```
+strings /app/agent-chassis | grep -c ai_persona_kafka_dial_total              -> 1   (mine)
+strings /app/agent-chassis | grep -c ai_persona_kafka_messages_produced_total -> 1   (positive control)
+strings /app/agent-chassis | grep -c ai_persona_kafka_dial_nonexistent_xyz    -> 0   (negative control)
+wget -qO- http://localhost:9090/metrics                                        -> SERVES
+```
+
+Spawned agent pods carry it too (`app=dynamic-agent`, all on v1.0.1167).
+
+**Step 2 — was it collected? No, and it took two more fixes.** Serving the port was
+necessary and not remotely sufficient. Three layers, each of which alone produces
+exactly the same symptom — a metric reading zero:
+
+| # | layer | state before | fix |
+|---|---|---|---|
+| 1 | nothing served `/metrics` | port closed fleet-wide, forever | listener in `cmd/agent-chassis` (this roll) |
+| 2 | Prometheus had no way to discover the pods | operator-driven, 0 PodMonitors; `prometheus.io/*` annotations inert | `podmonitor.yaml`, **APPLIED** |
+| 3 | `allow-monitoring` NetworkPolicy matched nothing | every scrape `context deadline exceeded` | source selector fixed, **APPLIED** |
+
+Layer 3 is the sharpest of the three. The policy already named **port 9090** — the
+intent was unambiguous and someone wrote it deliberately — but its `from:` was a
+bare `podSelector` (meaning *this* namespace, not `monitoring`) matching a label
+(`app: prometheus`) the pod does not carry (it is `app.kubernetes.io/name`). Either
+defect alone makes it select nothing. Discriminating evidence:
+
+```
+from ai-persona-system  -> curl pod:8080/health  OK    curl pod:9090/metrics  OK
+from monitoring         -> curl pod:8080         OK    curl pod:9090          TIMES OUT
+```
+
+Result: targets went **0 UP / 6 DOWN → 6 UP / 0 DOWN**, and Prometheus went from
+**0 `ai_persona_*` series to 16**. Not just this case's metric — `agent_tasks_processed`,
+`messages_processed`, `workflows_started`, `agent_health` and the rest all came
+alive. They had been incremented and discarded since the day they were written.
+
+**Step 3 — the first fleet-wide dial baseline ever taken** (~20 min, 6 pods):
+
+```
+sum by (outcome) (ai_persona_kafka_dial_total)   -> ok = 240      (timeout = 0, dns = 0, error = 0)
+histogram_quantile(0.99, ...dial_duration...)    -> 0.0279  (27.9 ms)
+by broker: prod-0 = 20, prod-1 = 21, prod-2 = 24, bootstrap = 175
+```
+
+**240 dials, 100% `ok`, p99 27.9ms.** Label cardinality is the designed 4 series.
+
+> **This is a baseline, NOT grounds to close.** 20 minutes is not 7 days, and the
+> handoff's own evidence had the *static* Deployment at **0** errors in a window
+> where spawned pods carried 10–52 — so a clean short sample from a mostly-static
+> fleet is exactly what this bug looks like when it is not currently firing.
+
+**What it does settle:** the deferred timeout question now has data. **p99 is 27.9ms
+against a 10s budget — roughly 360×.** Whatever the intermittent stall is, it is not
+the normal distribution creeping up on the limit; it is a distinct, rare event. Part
+2 can choose a timeout from this histogram instead of from an opinion, which is
+precisely what the council's veto preserved.
+
 ## 9. CLOSE CONDITION (explicit, 2026-07-26)
 
 The changes above are **Go code and are inert until an image roll**. Do not close
 on them.
 
-1. Roll an image carrying `ai_persona_kafka_dial_total`. Verify against the running
-   pod, grepping a string the change **creates** plus an absent control string
-   (RUNBOOK §3).
-2. **Prove the metric is scraped** (RUNBOOK §2). A zero before this step means
-   nothing.
+1. ~~Roll an image carrying `ai_persona_kafka_dial_total`; verify against the
+   running pod with controls.~~ **DONE 2026-07-26** — §8e step 1.
+2. ~~**Prove the metric is scraped.**~~ **DONE 2026-07-26** — §8e step 2. Took two
+   further fixes (PodMonitor + NetworkPolicy), both applied. 16 `ai_persona_*`
+   series now in Prometheus, up from zero.
 3. Baseline it, and cross-check once against the §5 log grep before retiring the
    grep.
 4. **Close when** `sum by (outcome) (increase(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))`
