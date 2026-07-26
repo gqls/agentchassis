@@ -46,6 +46,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check an example you write against the artifact it constrains** | **1** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
+| **grade a probe on the ACTION's own output (`collected_data-><step>`), never on the run's terminal status — a harness that never delivered its payload completes GREEN** | **1** |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
@@ -3357,3 +3358,99 @@ actually hold?* Both under a minute.
 itself invalidates**. Deferrals and "out of scope" notes are where this lives,
 because they are written once, in the plan, and inherited by every later reader
 as settled.
+
+---
+
+## 2026-07-26 — bugs_open/015: a live probe that "passed" without ever running the code under test
+
+**The claim I was one step from writing.** Closing 015 required inducing the
+`retype_existing` refusal branch — proving that a plan naming a page *outside*
+the authorising candidate set is refused and mutates nothing. I fired the scratch
+one-step probe, polled until `orchestration_states.status` was terminal, got
+`current_step=complete, status=COMPLETED`, and queried the fixtures: both pages
+still `section-index`, both `sections` still `[]`, `updated_at` unchanged. Every
+signal I had said *the fail-closed guard held*. The next line in the bug file
+would have been "refusal branch verified live".
+
+**Why it was wrong.** The action never ran. `kcat -P` publishes **one message per
+line of stdin**, and I had built `input_data` with a multi-line heredoc, so the
+payload was fragmented; `-c 1` then sent only the first fragment — invalid JSON.
+The chassis did not fail visibly. It created an `orchestration_states` row under
+my `orchestration_id` with `input_data: null`, a fallback no-op `agent_config`
+("No-op — scheduled task pre_query already did the work"), **its own**
+`orchestration_name` in place of mine, and marked it `COMPLETED`. The fixtures
+were untouched because nothing had touched them. A refusal that works and an
+action that never executes are **identical** in every field I had looked at.
+
+**What caught it.** Wanting the action's return value verbatim for the bug file,
+so I opened `collected_data->'do_retype'` — and it was empty. The step key was
+absent entirely, which is impossible if the step had run. Then
+`orchestration_name` read `generic-orchestrate-0726-1342` rather than the
+`scratch015-refusal-…` I set, which confirmed the message had never parsed.
+
+**The cheap check that would have caught it.** **Grade a probe on what the ACTION
+returned — `collected_data-><step name>` — never on the run's terminal status.**
+The step key's absence is the discriminator, and it costs one more column in the
+poll I was already running. Two supporting checks, equally cheap: assert the
+payload is exactly one line before firing (`wc -l` = 0), and assert the
+`orchestration_name` that came back is the one you set.
+
+**The class.** A **false green from a harness, not from the system under test** —
+the most expensive shape, because the whole point of the probe was to be the
+evidence. Note it defeats the standing rule it looks like it should obey: "induce
+the fault, don't trust the happy path" was followed exactly — I *did* induce the
+refusal branch — and the induction silently didn't happen. So "I tested the
+failing branch" is not sufficient; **"I have the failing branch's own output in
+front of me" is.** Second-order damage worth knowing: a cleanup keyed on
+`orchestration_name LIKE 'scratch…%'` misses the row the fallback left behind,
+so clean up by `orchestration_id`. Defences contributed back into the harness
+runbook (`durable_write_guard/RUNBOOK_durable_write_guard.md`), which is where
+the next session will copy the probe from.
+
+---
+
+## 2026-07-26 — bugs_open/029: I shipped a rollback recipe that would have restored nothing, and it read as reassurance
+
+**The claim.** Migration `211_tool_crosslink_emit_at_build.sql` opened with three
+`snapshot_agent(...)` calls and a header that said, in as many words:
+
+```sql
+-- ROLLBACK: restore the three rows from the snapshots taken below, e.g.
+--   UPDATE agent_definitions a SET default_config = s.default_config
+--   FROM agent_definitions s
+--   WHERE a.type = s.type AND a.is_active AND s.is_snapshot
+--     AND s.snapshot_reason LIKE '211_tool_crosslink_emit_at_build%';
+```
+
+Committed, applied, recorded. Two independent defects in four lines:
+
+1. **`snapshot_agent(type, reason)` does not write to `agent_definitions`.** It writes to
+   `agent_definitions_backup`. The subquery matches **zero rows**, so the UPDATE is a silent
+   no-op — the exact failure a rollback must not have.
+2. **`agent_definitions` has no `snapshot_reason` column at all**, so that particular statement
+   would have errored rather than no-op'd. (The error is the *lucky* case. A neighbouring query
+   I wrote against `agent_definitions WHERE is_snapshot` returned 0 rows cleanly and read as
+   *"the safety net was never taken"* — I briefly believed the migration had run without a
+   backup.)
+
+**And a third, found while fixing those two:** I applied 211 **twice** (re-ran it to read output
+that had scrolled past). So there are two snapshot sets, and the second is the state *after* the
+first apply. A rollback taking the newest — which my corrected draft did — restores the
+**migrated** config and reports success. It has to be `min(snapshot_taken_at)`, plus a guard that
+the chosen set actually contains the thing being rolled back.
+
+**What caught it.** The council gate's `debug_historian` seat, objecting that 211 had
+"backup + guard but not the pre-mutation counted-needle assertion or separate verify/rollback
+artifacts the lore requires". Writing the separate `_ROLLBACK.sql` it asked for is what made me
+*run* the snapshot query. Had the objection not landed, the recipe would have sat in an applied
+migration looking like a safety net until someone needed one.
+
+**The cheap check that would have caught it.** Run the rollback's own SELECT — not the UPDATE, the
+SELECT inside it — at the moment you write it, and assert the row count. Ten seconds. A rollback
+recipe is code, and untested code that only runs in an emergency is the worst kind.
+
+**The class.** A **safety net asserted rather than exercised**. Same shape as the entry above it
+(a recovery mechanism nobody had ever observed working), and the tell is identical: prose in the
+confident register — "restore the three rows from the snapshots taken below" — with no evidence
+the restore had ever been tried. The snapshots were real; everything I said about *reaching* them
+was wrong.
