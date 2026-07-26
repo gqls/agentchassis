@@ -59,6 +59,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **4** |
 | **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file** | **1** |
+| **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
+| **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -3624,3 +3626,103 @@ current and only one was ever measured. Note this is not the usual staleness fai
 number drifting slightly — the direction of travel had reversed, so the stale figure did not
 merely understate, it argued the opposite case. Family: figure-inherits-its-source-date,
 stale-premise-carried-forward, unre-groundable-host.
+
+**2026-07-26 — was one edit from "fixing" a DNS problem in the direction that makes it
+worse, and one commit from shipping a metric into a void and reading its silence as
+success** (bugfix_040_kafka_dial).
+
+Two near-misses on one bug, both caught by a check rather than by noticing.
+
+**(a) The knob that goes the wrong way.** `bugs_open/040-kafka-dial`'s brokers advertise
+a **three-dot** name (`...kafka.svc`, no `.cluster.local`). Pods run `ndots:5`, so every
+Kafka connection walks three NXDOMAIN rounds before the one that works — measured at
+**73% of all cluster DNS (384,392 of 525,152 responses in 24h)**. The obvious fix is
+"ndots:5 is too high, lower it", and I had it in a draft plan. It is **strictly worse**:
+the name genuinely needs `cluster.local` appended, so at `ndots:2` the resolver tries it
+absolute (NXDOMAIN) **and then still** walks all three search domains — **four rounds
+instead of three**.
+**What caught it:** writing out the resolver's actual attempt order for that specific
+name, rather than reasoning from what `ndots` means in general.
+**The cheap check:** enumerate the literal sequence of lookups for the exact input, before
+and after, and count them. Fifteen seconds, and it inverts the answer.
+**The class:** a tuning knob whose semantics are symmetric ("try absolute vs try search
+first") but whose *cost* is asymmetric, because one branch can succeed and the other
+cannot. Reasoning about the knob's meaning is not reasoning about the outcome. Family:
+plausible-inversion, mechanism-understood-outcome-not-computed.
+
+**(b) The metric that would have gone nowhere.** The whole point of the change was to make
+040 measurable: add `ai_persona_kafka_dial_total`, then read it. Before committing I
+checked the counter would actually be *collected*. It would not: nothing in the fleet had
+ever served `/metrics` — `observability.NewMetricsServer` had **zero callers**,
+`cmd/agent-chassis/main.go` built a mux with only `/health` and `/ready`, and the live
+Prometheus held **zero `ai_persona_*` series** despite every spawned pod being annotated
+`prometheus.io/port: "9090"` + `path: /metrics`. Dozens of actively-maintained counters,
+dead since written.
+Had I not checked, the sequence was: ship the metric → roll → query it → read zero →
+report the flake rate as nil. **Every step of that is what "verified with a metric" looks
+like**, and the conclusion would have been fabricated.
+**What caught it:** my own plan's "positive control before trusting a zero" step, written
+because of the `verify-the-failing-branch` rule. It earned its place on first use.
+**The cheap check:** ask the monitoring server for the whole metric namespace (not for your
+new series) before believing any reading from it; and put a test in the suite that induces
+the failure and asserts the counter moves, reading it back through
+`prometheus.DefaultGatherer.Gather()` — the registry the HTTP handler serves — not off the
+collector, which passes even when nothing is reachable.
+**The class:** sibling of *"pair a negative assertion with a positive control"* one row up,
+but the failure is a whole level higher — there the fetch was real and the string absent;
+here the **channel itself** was never connected, so no assertion made through it could ever
+have been false. An unscraped metric, an unwired counter, and a genuinely fixed bug are
+byte-identical, and the metric is the *most* convincing of the three. Family:
+absence-as-evidence, unproven-channel, unfalsifiable-green.
+
+**Note the shape both share with the dominant class above:** neither was a process lapse.
+Both were mechanisms I believed I understood well enough not to compute. The tally rows are
+"compute the specific case" and "prove the channel", not "be more careful".
+
+---
+
+## 2026-07-26 — I re-fired a queued dispatch twice, having the rule in memory (bugs_open/049 session)
+
+**The claim I acted on:** "no `orchestration_states` row after several minutes = the message
+was dropped, fire it again." I fired the same gaswholesalers chrome refresh **three times**
+(14:58, ~15:14, ~15:20).
+
+**What was actually true:** all three were **queued and none was lost.**
+`system.agent.generic.requests` has **one partition**, the chassis drains it one job at a
+time, and three long council runs were in flight ahead of me — one of them my own council
+submission, fired 13 minutes after my first chrome refresh. `scripts/dispatch-queue-depth.sh`
+said so in as many words: `QUEUE DEPTH (LAG): 5 … It is QUEUED, NOT LOST: an absent
+orchestration_states row means 'not started yet'. DO NOT re-fire — a duplicate spends the
+same LLM credits and lands even further back in this same lane.`
+
+**What caught it:** running that script — which exists *because of this exact failure* and
+prints the instruction I had just disobeyed, twice.
+
+**The cheap check:** run `scripts/dispatch-queue-depth.sh` **before** the second fire. It
+takes seconds, needs no reasoning, and answers the only question at issue.
+
+**Why this row is worth writing even though the rule was already written down.** It was not
+merely written down somewhere — it was in my own auto-memory
+(`council-queue-latency-trap`: *"no orchestration rows = QUEUED (~16-30 min), not dropped —
+don't resubmit"*), which loads every thread, and it is in CLAUDE.md's council section. I had
+read both. What defeated them was a **plausible competing explanation**: postgres was in a
+liveness-probe restart loop and the chassis had rolled a new image 17 minutes earlier, and
+CLAUDE.md separately says *"No orchestration dispatch within ~300s of a chassis pod (re)start
+— the spawn is silently dropped."* So I had a specific, documented, genuinely-occurring
+mechanism that predicted exactly the symptom I saw. It was not the cause.
+
+**The class, and it is the interesting part:** the trap is not "I forgot the rule". It is
+that **two documented mechanisms produce an identical observation — an absent orchestration
+row — and only one is distinguishable, cheaply, by a tool that already exists.** Real
+corroborating evidence for the wrong theory (the pod really had just rolled; postgres really
+was flapping) makes the wrong theory *more* attractive, not less. Confidence rose with each
+piece of true-but-irrelevant evidence.
+The rule that generalises is not "remember the landmine" but **"when two known mechanisms
+predict the same observation, run the discriminator before acting — never pick by
+plausibility."** Family: identical-observation-two-causes, corroboration-of-the-wrong-theory,
+tool-exists-and-was-not-run.
+
+**The cost was real, not notional:** three chrome refreshes on a live customer site instead
+of one, each fanning out to ~31 `page_rerender` items with a git commit, B2 sync and
+Cloudflare purge apiece — and the trigger script's own header warns "Three at once floods the
+queue." I did to one site exactly what it tells you not to do across three.
