@@ -46,9 +46,32 @@ import (
 )
 
 // defaultSectionsMetadataField is where CompilePageSectionsAction's per-section
-// content_data arrives in collected data. Absent for callers of this gate whose
-// workflow does not produce sections (tool-recreation, report-builder,
-// content-reviewer) — those must no-op silently, not error.
+// content_data arrives in collected data.
+//
+// THE CALLERS OF THIS GATE, measured 2026-07-26 rather than assumed — an earlier
+// version of this comment named "tool-recreation, report-builder and
+// content-reviewer" as bare-HTML callers, and a council objection asked for the
+// premise to be checked. It was wrong twice:
+//
+//		SELECT ad.type, k, v->'config'->>'html_field'
+//		FROM agent_definitions ad, LATERAL jsonb_each(ad.default_config->'workflow'->'steps') e(k,v)
+//		WHERE COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL AND ad.is_active
+//		  AND v->>'action' = 'validate_page_content';
+//
+//		page-build-handler      validate_content  page_content.response.page_html
+//		tool-recreation-handler validate_tool     completeness_check.clean_html
+//		content-reviewer        validate_content  (default)
+//
+//	  - page-build-handler is the only caller that has ever actually run this gate
+//	    over section-built pages, and it declares require_sections_metadata.
+//	  - tool-recreation-handler validates a tool HTML blob, not sections. Correct
+//	    to leave undeclared.
+//	  - content-reviewer is configured but DORMANT — zero runs in the retained
+//	    orchestration window. It uses the DEFAULT html field, i.e. the same
+//	    page_content path, so if it is ever enabled over section-built pages it
+//	    will need the declaration too, or the silent-skip ambiguity returns there.
+//	  - "report-builder" does not exist as an agent type at all. It was in the
+//	    old comment because it was repeated from a summary without being checked.
 const defaultSectionsMetadataField = "page_content.response.sections_metadata"
 
 // collectStatClaims walks sections_metadata and lifts the stat claims out of
@@ -201,9 +224,9 @@ func runStatChecks(
 
 	// "Could not check" must not look like "checked and found nothing".
 	//
-	// This gate has four callers and only one of them builds sections
-	// (page-build-handler); tool-recreation, report-builder and content-reviewer
-	// pass a bare HTML blob and must stay silent. So the expectation is
+	// This gate has three configured callers and only one of them has ever run
+	// over section-built pages (page-build-handler) — see the measured table at
+	// defaultSectionsMetadataField. So the expectation is
 	// DECLARED per step rather than guessed from the payload shape — a
 	// heuristic here would either false-positive on the other three or go quiet
 	// on the one that matters. page-build-handler's validate_content step sets
