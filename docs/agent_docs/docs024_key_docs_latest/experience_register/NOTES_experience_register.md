@@ -199,3 +199,49 @@ appended to 071, no new bug filed**, per the grep-before-filing and who-owns rul
 - Nearly recorded `stat-band` as interaction-free by carrying my own 07-24 taxonomy line
   forward. It has the most interesting behaviour of the five. The line was written from the
   component list, not from the component.
+
+## 2026-07-26 (evening) — P2a BUILT: the substrate + the validator
+
+Owner's sequence (harvest brochure → build P2) reached the build. Commit **`2f220f261`**,
+4 files, 973 insertions. **Inert**: Go needs an image roll, and migration 218 is deliberately
+**NOT applied**.
+
+**What shipped**
+- `docs/agent_docs/sql_for_agents/218_experience_register_substrate.sql` — `experience_patterns`,
+  `site_experiences`, `experience_invariants`, and `'experience-pattern'` added to both doc
+  subject CHECKs. Idempotent throughout. Seeds the two invariants (with their sightings as
+  evidence); seeds **no entries** — the first rows must be ones the validator accepted, or the
+  register has no proof its own contract holds.
+- `platform/orchestration/actions/doc_subjects_common.go` — `+"experience-pattern"`. One string.
+- `platform/orchestration/actions/experience_criteria.go` — `ValidateExperienceCriteria`: parse,
+  placeholder closure (template AND contract), no absolute URL / no unbound site value, no
+  `-EDIT` ids, and the tier-capability check. A check beyond the platform is **deferred with its
+  reason**, never dropped and never counted as a pass.
+- `platform/orchestration/actions/experience_criteria_test.go` — behaviour tests pinned to the
+  harvested templates + the capability lockstep test.
+
+**Falsification probes run BEFORE committing** (the standing rule: break the thing the check
+checks and watch it fail):
+- Migration lockstep: removed `experience-pattern` from the Go list → FAIL naming
+  `218_experience_register_substrate.sql` and listing both sets. Restored → pass.
+- Capability lockstep, **both directions**: added a type the checkers lack → FAIL "table says
+  \"selector_visible\" is Tier 2 but …check_tool_acceptance.go does not implement it"; removed
+  `no_console_errors` from the table → FAIL "the browser runner implements
+  \"no_console_errors\" but the validator's table does not know it". Restored → pass.
+
+**A third thing my own criteria doc had wrong**, found while writing the capability table from
+source: Tier 4 also implements **`no_console_errors`** (7 types in total, not 6). And Tier 2's
+`expect` struct carries only `Selector` — **`text_matches` is silently ignored at Tier 2**, so a
+text assertion is anchor-confirmed there and only really asserted in a browser.
+
+**Council gate**: submitted corr **`f4610451-6bff-45d0-8d18-6f25d26640cd`** (4 edits, 5
+byte-verified `grounded_in` quotes — each checked to appear verbatim in its file before
+submission, per the quote-fidelity lesson). Verdict pending; queue depth was 8 at submission.
+**No `Council-Reviewed:` trailer is possible on `2f220f261`** — the verdict post-dates the
+commit, so 098 will list it as unreviewed by design. Recording it here is the substitute.
+
+**Deliberately NOT done, and why**
+- No write path or bind path yet — the next slice. The validator has to exist first, since the
+  register's first rows are meant to be ones it accepted.
+- The migration is not applied. Image before migration, or the widened CHECK recreates 184's
+  split exactly.

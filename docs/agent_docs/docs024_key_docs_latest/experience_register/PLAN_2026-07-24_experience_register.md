@@ -260,7 +260,18 @@ unbound links; bindings make its job mechanical where they exist.
 
 - **P1 (done this session)**: this doc set; `design/` draft artifacts (nothing applied);
   bugs_open/064 filed; memory + commits.
-- **P2 (owner go required)**: the real change-set, ONE coherent council-gate submission:
+- **P2a — BUILT 2026-07-26, commit `2f220f261`, INERT.** Migration 218 (three tables +
+  `experience-pattern` subject type; **not applied** — image before migration) + the one-line
+  Go vocabulary entry + `ValidateExperienceCriteria` and its tests, including a capability
+  lockstep test that reads the two checkers' own switch statements (probed by induced fault in
+  both directions). Council gate corr `f4610451-6bff-45d0-8d18-6f25d26640cd`, verdict
+  post-dates the commit so no trailer is possible — see NOTES.
+  **Remaining for P2**: the write path (`write_experience_pattern`, validating on the way in),
+  the bind path (`bind_site_experience` with bind-time closure + anchor checks), and the first
+  consumer — running a site's bound criteria and flipping `bound → verified` /
+  `approved → proven`. Then the planner side (`experience_brief` in `plan_site`, bindings after
+  `sync_pages`, the reconcile guard, selection scoring).
+- **P2 (original scope, for reference)**: the real change-set, ONE coherent council-gate submission:
   migration (both tables + subject_type, per `design/subject_type_addition.md` — fixes 064 in
   passing), write-time criteria validation, `experience_brief` consumption in `plan_site`,
   bindings after `sync_pages`, reconcile guard, selection wiring.
