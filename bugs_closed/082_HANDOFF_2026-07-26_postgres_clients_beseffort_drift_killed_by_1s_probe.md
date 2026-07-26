@@ -2,7 +2,127 @@
 
 **Filed:** 2026-07-26 · **By:** gauntlet_dead_cta (P4 front-end rebuild) — hit it
 mid-delivery, did not cause it · **Severity:** HIGH — fleet-wide outage while it
-lasts · **Status:** OPEN, NOT FIXED, nothing applied
+lasts · **Status:** **CLOSED 2026-07-26 — FIXED AND LIVE on both databases**
+(commit `0f87d30c8`, applied by terraform)
+
+> **CLOSING NOTE — the title of this file is wrong and is kept only so the
+> number resolves.** There was no "drift". See §0. The mechanism below (§1, §2
+> Fault B, §3, §5) was exact and is what made the fix quick; the *location* of
+> the cause was not.
+>
+> Workstream docs:
+> `docs/agent_docs/docs024_key_docs_latest/bugfix_082_postgres_qos/`
+
+---
+
+## 0. CORRECTION 2026-07-26 — Fault A is REFUTED. There was no drift.
+
+**The claim:** §2 Fault A said the live StatefulSet *"has drifted from the
+checked-in manifest, and the drift removed every resource guarantee"*, citing
+`deployments/kustomize/infrastructure/postgres-clients/postgres-clients.yaml`,
+and §6.1 prescribed restoring that block as *"reconciliation, not a new design —
+the reviewed desired state has said this since day one"*.
+
+**Why it is false:** that manifest has never been applied to anything. The
+`kustomization.yaml` beside it is **0 bytes** and no kustomization in the repo
+lists it (all six `infrastructure/*/kustomization.yaml` are 0 bytes). The live
+object is built by **`deployments/terraform/modules/postgres-instance/main.tf`**,
+instantiated at `environments/production/uk001/060-databases/main.tf`. That
+module never specified `resources`. The database was not demoted to BestEffort —
+it was **born** BestEffort at cluster build and had never been anything else.
+
+The live object matches Terraform on **all seven** properties where the two
+candidate sources disagree:
+
+| property | live + terraform | the orphaned manifest |
+|---|---|---|
+| serviceName | `postgres-clients-headless` | `postgres-clients` |
+| image | `pgvector/pgvector:pg15` | pg16 |
+| containers | `postgres` | postgres + exporter |
+| probe command | `pg_isready -U … -d …` | no `-d` flag |
+| securityContext | fsGroup/runAsUser 999 | absent |
+| password source | `envFrom postgres-clients-secret` | `db-secrets` secretKeyRef |
+| storage | 100Gi ssd-large | 10Gi standard |
+
+**What caught it:** this file's own evidence. §2 notes *"the live probe also
+carries `-d clients_db`, which the manifest does not — the same drift, visible
+twice."* That is not drift twice. **A live object cannot invent a command-line
+argument its manifest never contained.** Drift subtracts; it does not add. One
+unexplained *addition* is the signature of a different source.
+
+**Why the correction mattered practically:** §6.1's `kubectl patch` would have
+been correct for about a minute and then silently reverted by the next
+`terraform apply` — leaving an intermittent bug and a manifest still lying to
+the next reader.
+
+**Cheap check for next time:** before asking *"has the live object drifted from
+this file?"*, ask **"does anything apply this file?"**
+`ls -la deployments/kustomize/infrastructure/*/kustomization.yaml` (0 bytes =
+orphaned) and `grep -rn "<name>" --include="kustomization.yaml" deployments/`
+(no hits = nobody applies it). Logged in `WRONG_CALLS.md`.
+
+**Related decoy, NOT fixed here:** `scripts/deploy-system.sh:129` runs
+`kubectl apply -f k8s/postgres-clients.yaml` — **that file does not exist**.
+Three files in this repo are named for this database and two are dead. Left
+alone as out of scope; recorded so it is not rediscovered as a mystery.
+
+## 0b. What was actually fixed, and how it was verified
+
+Both faults live in the Terraform module, so one edit fixed **both** databases —
+`postgres-templates` had the identical defect and nobody had noticed, because it
+is colder and had never been co-scheduled with a noisy neighbour.
+
+- `resources`: requests `500m` / `512Mi`, limits `2000m` / `2Gi`, via four new
+  module variables **with defaults**, so a future instance cannot silently be
+  BestEffort again.
+- `timeout_seconds: 5` on both probes (was the inherited 1s default).
+- `failure_threshold: 3 → 6` on both. The readiness change was **not** in §6:
+  `replicas = 1`, so there is no second backend to fail over to — dropping the
+  only endpoint converts "slow" into "no such host" fleet-wide, which is exactly
+  the `notReadyAddresses` symptom in §1.
+
+Not council-reviewed: `deployments/` is outside the gate's scope
+(`platform/`, `internal/`, `pkg/`) and `097` refuses it client-side.
+
+**Verified in the kernel, not from the spec** — inside the running container:
+`cpu.max = 200000 100000` (exactly 2 CPUs) and `memory.max = 2147483648`
+(exactly 2 GiB) match the declared limits to the byte. `cpu.weight` measured
+against a **positive control** — a still-BestEffort pod in another namespace:
+
+```
+BestEffort control (kafka/kcat-cgate-…) : cpu.weight = 1    (kernel minimum)
+postgres-clients-0                      : cpu.weight = 59
+```
+
+**59× the contended CPU share, measured.** (Do not derive this from a shares
+formula — the documented conversion predicts ~20 and this runtime produced 59.)
+`terraform plan` afterwards: *"No changes. Your infrastructure matches the
+configuration."* `ai-persona-system` now has **zero BestEffort pods**; all 65
+are Burstable.
+
+**[UNVERIFIED] — not proven under contention.** §7 warned that verifying during
+a quiet period proves nothing. Both databases rescheduled **off** the ollama node
+during the roll, so they are no longer co-tenants and the node is quiet. What is
+proven: the structural cause is gone. What is not: that 500m is *sufficient*
+under a full 8-core inference run (it is ~1.6 guaranteed cores against a database
+idling at 30m — arithmetic, not observation).
+
+**Anti-affinity (§6.3) deliberately deferred, with a reversal trigger:** if
+`postgres-clients-0` is ever again co-scheduled with `ollama-adapter` **and** its
+restart count moves, the floor was insufficient and anti-affinity becomes the fix
+rather than an option. Nothing currently pins them apart — today's separation is
+luck, not a guarantee.
+
+**Open residual for the owner:** a production `terraform apply` was run behind a
+`timeout` which SIGTERMed it. The change landed and state is converged, but it
+left a **stale state lock** (Lease `lock-tfstate-default-tfstate-databases` in
+the `default` namespace, holder `d3e2fc63-c4c6-8586-45af-db70301eb9c1`). Until
+cleared with `terraform force-unlock`, terraform runs against the database config
+are blocked. Does not affect the running databases.
+
+---
+
+## The original filing follows, unaltered except where marked.
 
 > **I did not patch production.** The remedy below touches shared infrastructure
 > that every session and every agent depends on, and the trigger (a neighbour pod
@@ -50,6 +170,10 @@ alive|194
 Postgres was using **30m CPU and 32Mi RSS** when it was killed for being unhealthy.
 
 ## 2. Root cause — two faults, both in our own manifests
+
+> **REFUTED 2026-07-26 — see §0.** Fault A below is wrong. Nothing has ever
+> applied that manifest; the live object is built by Terraform and never had
+> resources to lose. Fault B (the 1s probe) and the trigger are correct.
 
 **Fault A — the live StatefulSet has drifted from the checked-in manifest, and the
 drift removed every resource guarantee.**
@@ -141,6 +265,14 @@ section-editor agent, which reaches the database through the Service.
   which calls Anthropic directly and never touches ollama or this cluster.
 
 ## 6. Fix candidates, safest first
+
+> **SUPERSEDED 2026-07-26 — do NOT run candidate 1 as written.** The premise
+> ("the reviewed desired state") is refuted in §0, and a `kubectl patch` here is
+> reverted by the next `terraform apply`. The fix went into the Terraform module
+> instead; §0b records what shipped. Candidate 2 was adopted (and extended to
+> readiness), 3 deferred with a trigger, 4 answered: nothing had drifted, but
+> nothing reconciles these manifests either — two of the three files named for
+> this database are dead.
 
 1. **Restore the resource block the manifest already specifies** (reconciliation,
    not a new design — the reviewed desired state has said this since day one):
