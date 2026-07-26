@@ -3318,3 +3318,42 @@ for free.
 close individually identifiable and reversible, which holds unconditionally. The
 defect was in the *argument*, not the code — and an over-strong argument for a
 sound mechanism is still the thing that gets a future thread to skip a check.
+
+---
+
+## 2026-07-26 — bugs_open/029: a residual deferred to another bug on a reason that stopped being true the moment the fix landed
+
+**The claim.** The 07-21 PLAN for the phantom-tool-links fix listed under
+*Residuals (deliberately out of scope)*: *"Tool page created (`planned`) but its
+content build never deploys → link still 404s. That is `049` mechanism 2
+(planned-but-unbuilt page linked), a broader class, not this emitter's defect."*
+Written as a scoping decision, in the same confident register as the rest of the
+plan, and carried forward into the bug file.
+
+**Why it was wrong.** It was true of the code *as it stood* — an emitter running
+at suggestion time has no relationship to any build, so a page that never
+deploys is somebody else's class. The whole point of the fix is to move the
+emitter **into** the build path. After that move the same residual is this
+code's own remaining failure mode, and it reproduces precisely the damage the
+bug is about: a live page carrying a reference to a tool page that never goes
+live. That is the leopardess 404, arriving by a second route.
+
+**What caught it.** Re-reading the plan while implementing, against a query I
+happened to run for a different reason: `needs_content_page` statuses fleet-wide
+are **19 needs_human_review / 13 complete / 1 unresolved**. A "residual" that
+fires on the majority of tool pages is not a residual. The fix now gates each
+emitted item behind the tool page actually going live (`depends_on` the open
+build item; no open item → emit nothing).
+
+**The cheap check that would have caught it at planning time.** One question,
+asked of every deferral: *after this change lands, does the deferred residual
+still belong to the bug I am deferring it to?* A scoping decision is made
+against the code as it is and then survives into a world where the code is
+different — nothing re-tests it, because a deferral reads like a boundary rather
+than a claim. And one query: *how often does the precondition of the residual
+actually hold?* Both under a minute.
+
+**The class.** Not a false measurement — a **judgement whose premise the fix
+itself invalidates**. Deferrals and "out of scope" notes are where this lives,
+because they are written once, in the plan, and inherited by every later reader
+as settled.
