@@ -41,8 +41,12 @@ import (
 // ============================================================================
 
 var CreateToolComponentInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id", "html_content", "function", "display_name"},
-	Optional:   []string{"description", "category"},
+	Required: []string{"site_id", "html_content", "function", "display_name"},
+	// related_pages: the add_tool item's own suggestion field. Read here so the
+	// tool's cross-link items can be emitted from THIS path, which knows the
+	// page's real URL, instead of at suggestion time where it can only be
+	// guessed (bugs_open/029).
+	Optional:   []string{"description", "category", "related_pages"},
 	Defaults:   map[string]interface{}{"category": "interactive"},
 	Deprecated: map[string]string{},
 }
@@ -330,6 +334,22 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		logger.Warn("CreateToolComponentAction: Failed to create tool content work item (non-fatal)", zap.Error(err))
 	}
 
+	// --- Cross-link the tool from its related pages (bugs_open/029) ---
+	// Emitted HERE, after the page row and its content build item exist, so the
+	// rewrite instruction carries the page's real URL and only runs once the
+	// page is live. This path's URL shape (CanonicalisePage → /tools/x/index.html)
+	// is one of the three that the old suggestion-time constructor got wrong.
+	crossLinksAdded := emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+		siteID:       siteID,
+		toolFunction: function,
+		toolName:     displayName,
+		toolDesc:     description,
+		toolPageID:   pageID,
+		toolPageURL:  pageURL,
+		relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
+		emittedBy:    "tool-generator",
+	})
+
 	// --- Create companion guide page ---
 	guideName := pageName + "-guide"
 	guideURL := fmt.Sprintf("/guides/%s.html", guideName)
@@ -410,14 +430,15 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 		zap.String("function", function))
 
 	return map[string]interface{}{
-		"component_id":   componentID.String(),
-		"page_id":        pageID.String(),
-		"page_url":       pageURL,
-		"function":       function,
-		"display_name":   displayName,
-		"guide_url":      guideURL,
-		"needs_rerender": true,
-		"generated":      true,
+		"component_id":      componentID.String(),
+		"page_id":           pageID.String(),
+		"page_url":          pageURL,
+		"function":          function,
+		"display_name":      displayName,
+		"guide_url":         guideURL,
+		"needs_rerender":    true,
+		"generated":         true,
+		"cross_links_added": crossLinksAdded,
 	}, nil
 }
 

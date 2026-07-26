@@ -49,8 +49,12 @@ import (
 // ============================================================================
 
 var DeployToolToSiteInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id", "tool_component_id"},
-	Optional:   []string{"page_name", "page_title"},
+	Required: []string{"site_id", "tool_component_id"},
+	// related_pages: the add_tool item's own suggestion field. Read here so the
+	// tool's cross-link items can be emitted from THIS path, which knows the
+	// page's real URL, instead of at suggestion time where it can only be
+	// guessed (bugs_open/029).
+	Optional:   []string{"page_name", "page_title", "related_pages"},
 	Defaults:   map[string]interface{}{},
 	Deprecated: map[string]string{},
 }
@@ -201,12 +205,32 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		if deployedPageID.Valid {
 			logger.Info("DeployToolToSiteAction: Tool already fully deployed",
 				zap.String("fork_id", forkID.String()))
+
+			// Cross-links are emitted even on this early return: re-running the
+			// deployer is the supported way to backfill them for a tool that was
+			// deployed before bugs_open/029 was fixed. The URL is read from the
+			// page row, never constructed, and dedup makes the repeat harmless.
+			crossLinks := 0
+			if toolPageID, toolPageURL, found := resolveToolPageURL(ctx, params.DB, siteID, toolFunction); found {
+				crossLinks = emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+					siteID:       siteID,
+					toolFunction: toolFunction,
+					toolName:     toolDisplayName,
+					toolDesc:     toolDescription.String,
+					toolPageID:   toolPageID,
+					toolPageURL:  toolPageURL,
+					relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
+					emittedBy:    "tool-deployer",
+				})
+			}
+
 			return map[string]interface{}{
-				"site_id":          siteIDStr,
-				"tool_function":    toolFunction,
-				"already_deployed": true,
-				"fork_id":          forkID.String(),
-				"needs_rerender":   false,
+				"site_id":           siteIDStr,
+				"tool_function":     toolFunction,
+				"already_deployed":  true,
+				"fork_id":           forkID.String(),
+				"needs_rerender":    false,
+				"cross_links_added": crossLinks,
 			}, nil
 		}
 
@@ -387,6 +411,23 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		logger.Warn("DeployToolToSiteAction: Failed to create tool content work item (non-fatal)", zap.Error(err))
 	}
 
+	// --- 6b. Cross-link the tool from its related pages (bugs_open/029) ---
+	// Emitted HERE, after the page row and its content build item exist, so the
+	// rewrite instruction carries the page's real URL and only runs once the
+	// page is live. tool-suggester used to emit these at suggestion time from a
+	// constructed /tools/{function}.html, which matched no page on any of the
+	// three URL shapes this platform produces.
+	crossLinksAdded := emitToolCrossLinkItems(ctx, params.DB, logger, toolCrossLinkRequest{
+		siteID:       siteID,
+		toolFunction: toolFunction,
+		toolName:     toolDisplayName,
+		toolDesc:     toolDescription.String,
+		toolPageID:   pageID,
+		toolPageURL:  pageURL,
+		relatedPages: relatedPagesFromInputs(inputs, params.CollectedData),
+		emittedBy:    "tool-deployer",
+	})
+
 	// --- 7. Create companion guide article ---
 	// A blog-post that explains the concept in depth and links to the tool.
 	guideName := pageName + "-guide"
@@ -480,6 +521,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		"guide_url":         guideURL,
 		"already_deployed":  false,
 		"needs_rerender":    true,
+		"cross_links_added": crossLinksAdded,
 	}, nil
 }
 
