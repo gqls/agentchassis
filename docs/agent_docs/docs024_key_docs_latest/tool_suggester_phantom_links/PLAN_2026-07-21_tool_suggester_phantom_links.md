@@ -77,3 +77,48 @@ build + roll + verify against a live tool suggestion. Commit per task, narrow pa
 - **P3** — build chassis image, bump tag, roll, verify against a fresh tool suggestion:
   the emitted `content_rewrite` carries a URL equal to the tool page's real `pages.url`.
 - **P4** — existing-damage sweep decision (coordinate with 049 owner).
+
+---
+
+## Update 2026-07-26 — P1 done, P2 submitted, config half live
+
+Phasing now reads:
+
+- **P0** — diagnosis recorded. Done 2026-07-21.
+- **P1** — shared helper + build-path emit + `create_cross_links` removed. **Done 2026-07-26**
+  (Go: `create_tool_cross_link_items.go`, `deploy_tool_action.go`,
+  `create_tool_component_action.go`; config: `211_tool_crosslink_emit_at_build.sql`, applied and
+  recorded — renumbered from 210 after another thread took that number).
+- **P2** — council gate. Submitted 2026-07-26, `SUBMISSION_CORR=745f9dfd-0a08-415b-a0a2-92c96bd30260`.
+- **P3** — build + roll + verify against a fresh tool build. **Outstanding.** The Go half is
+  inert until then; the config half is live now.
+- **P4** — existing-damage sweep (27 items). Unchanged: out of scope here, coordinate with 049.
+
+> **CORRECTION 2026-07-26 to §Residuals — "tool page created but never deployed" is NOT deferred
+> to 049 after all; it is gated here.** The original reasoning was that a planned-but-unbuilt page
+> is 049's broad class. That holds while the emitter runs at suggestion time, when it has no
+> relationship to any build. Once the emitter moves INTO the build path, the same residual becomes
+> this emitter's own remaining failure mode, and it reproduces the exact damage this bug is about:
+> a live page referencing a tool page that never goes live. The fleet makes it likely rather than
+> theoretical — 19 of 33 live `needs_content_page` items are parked in `needs_human_review`.
+>
+> So `emitToolCrossLinkItems` gates: emit immediately if the tool page is already
+> `deployed`/`needs_rebuild`; otherwise attach `depends_on` = the open `needs_content_page` item
+> for that page; if there is no open item (or it has failed terminally), emit nothing. This is the
+> loader's existing mechanism (`load_work_item_actions.go:562-571`), not new machinery.
+>
+> **What this costs, stated plainly:** a tool page whose content build never completes now leaves
+> cross-link items parked in `triaged` forever rather than writing a dead link. Parked items age
+> and may be picked up by the stale-item reaper (`bugs_open/070`). That is the intended direction —
+> the alternative is the bug.
+
+Two smaller decisions taken while implementing:
+
+- **The suggestion-time action is kept registered, not deleted.** A workflow naming an
+  unregistered action is invalid at runtime (`bugs_closed/017`), and config can be restored from a
+  stale backup (this thread already caught `k8s/bk_agent_definitions_backup.sql` being stale on
+  07-21). So the action survives as a fail-safe: it resolves the tool to a real page and emits
+  nothing when there is none. It can never fabricate again, wherever it is invoked from.
+- **`deploy_tool_to_site` emits on its already-deployed early return too**, resolving the URL from
+  the page row. That makes re-running the deployer the supported way to backfill cross-links for a
+  tool deployed before this fix — useful for P4 — and dedup makes the repeat harmless.

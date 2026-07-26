@@ -84,3 +84,61 @@ kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
 ```
 Then trigger a fresh tool suggestion on a test site and assert the emitted `content_rewrite`
 carries a URL equal to the tool page's real `pages.url` (R1 shows a non-NULL match).
+
+---
+
+## R6 — the sweep AFTER the fix (2026-07-26): key on item_key, not source
+
+R1 keys on `source='tool-suggester'` and reconstructs the URL itself. Both stop being right once
+the fix ships: the emitter is now the build agent (`source` = `tool-deployer`/`tool-generator`),
+and the URL is in the spec rather than derivable. Key on the item_key namespace, which is stable
+across both eras, and join on the spec's own URL:
+
+```sql
+SELECT s.domain, swi.status, swi.created_at::date, swi.source,
+       swi.spec->>'tool_function' AS tool_function,
+       swi.spec->>'tool_page_url' AS spec_url,
+       p.url AS matched_page_url, p.build_status,
+       swi.depends_on
+FROM site_work_items swi
+JOIN sites s ON s.id = swi.site_id
+LEFT JOIN pages p ON p.site_id = swi.site_id AND p.url = swi.spec->>'tool_page_url'
+WHERE swi.item_key LIKE 'tool_crosslink:%'
+ORDER BY swi.created_at DESC;
+```
+
+- Rows with `spec_url` NULL are pre-fix rows — the existing damage (27 as of 2026-07-25).
+- Rows created after the image roll must have `matched_page_url` non-NULL. One that doesn't is a
+  regression, not a residual.
+- `depends_on` non-NULL is expected on a tool whose page was still `planned` at emit time.
+
+## R7 — applying a migration when other threads have files pending
+
+`run-migrations.sh --apply` applies **every** pending file in the directory, other threads'
+included (9 were pending on 2026-07-26). To apply only your own:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/NNN_x.sql
+./scripts/migration/run-migrations.sh --record-only NNN_x.sql --note "why it went out of band"
+```
+
+Read the apply output with `| head -25` (the NOTICEs and the COMMIT are at the top; the
+verification SELECTs at the bottom will fill your screen and hide them). Do NOT re-run the file
+to see output you missed — an idempotent migration re-runs cleanly but duplicates its `doc_notes`
+row and takes a second set of snapshots.
+
+## R8 — is the fix live? (post-roll)
+
+```bash
+# 1. the binary carries the new emitter (a string the CHANGE created, plus a control)
+kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "emitToolCrossLinkItems: refusing to emit without a real tool page URL"'   # expect >=1
+kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
+  'strings /app/agent-chassis | grep -c "CreateToolCrossLinkItemsAction: Starting"'                                # control, expect >=1
+
+# 2. config half (live since 2026-07-26, independent of the image)
+#    create_cross_links absent, create_items_loop -> complete, related_pages wired on both builds
+```
+Then trigger a tool build on a test site and check R6: the new row's `spec_url` must equal the
+tool page's `pages.url`.

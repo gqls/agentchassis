@@ -45,3 +45,37 @@ Two things this fix deliberately does NOT do, so nobody expects them:
   I'll line up with the related "broken links" bug (049).
 - If a tool page gets created but its build later fails, a link to it could still 404 — but
   that's a different, broader bug (049 again), not this one.
+
+---
+
+## 2026-07-26 — the fix is written and the emitter has been switched off in production
+
+Picked this back up. Nobody else had touched it in the four days since (checked the commit log
+and the ownership tool), and the bug had quietly got bigger: 27 broken links now instead of 24,
+on four sites instead of three. Still not one of them points at a real page.
+
+What I've built is what the plan said: the instructions to "mention this tool on that page" are
+now written by the part of the system that *builds* the tool, at the moment it builds it, using
+the address it has just created. Nothing guesses an address any more. Where the old code
+constructed one from the tool's name, the new code simply refuses to write an instruction at all
+unless it has been handed a real address.
+
+I also added something the plan had left out, because on reflection it's the difference between
+"the address is correct" and "the link works". A tool page is created before its content is
+written, so for a while it exists but isn't published. If that content step never finishes — and
+on the current fleet a lot of them are sitting waiting for a human to look at them — the link
+would be permanently dead, which is exactly the leopardess damage arriving by a new route. So
+each "mention this tool" instruction is now held back until the tool page has actually gone
+live, using the system's own existing dependency mechanism. If the tool page never goes live,
+the mention is never written. No link is a non-event; a dead link is the bug.
+
+Two things are done as of today:
+
+- **The old emitter is switched off in production.** A config change (migration 211) deletes the
+  step that was writing these instructions at suggestion time, so no new broken links can be
+  created from now on, regardless of when the new code ships. That took effect immediately.
+- **The code is written and compiles**, and I've put it in front of the automated reviewer panel.
+  It only takes effect once a new chassis image is built and rolled out, which is the next step.
+
+Still deliberately not done, same as before: the 27 already-broken links on live pages are not
+cleaned up by this — that's a separate sweep to line up with bug 049.

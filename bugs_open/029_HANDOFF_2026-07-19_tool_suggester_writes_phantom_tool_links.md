@@ -212,3 +212,71 @@ mechanism 2 (planned-but-unbuilt page linked), a broader class, not this emitter
 
 Existing damage (the 24 items + their woven links on live pages) is **not** cleaned up by the
 emitter fix — that is a separate sweep, coordinated with `049`.
+
+---
+
+# FIXED 2026-07-26 (bugfix-029 session) — emitter moved to the tool BUILD paths, config half live, Go half awaiting the next image
+
+## What changed
+
+**Go (`platform/orchestration/actions/`)** — the URL is never constructed again:
+
+- `create_tool_cross_link_items.go` — `:142`'s `fmt.Sprintf("/tools/%s.html", toolFunction)` is
+  gone. The file now holds `emitToolCrossLinkItems`, a shared emitter that **takes** the tool
+  page's real `pages.url` and refuses to emit if handed anything that is not an absolute path,
+  plus `resolveToolPageURL` (reads the URL via `page_components → content_components.function`,
+  falling back to `pages.name`; both READ `pages.url`).
+- `deploy_tool_action.go` / `create_tool_component_action.go` — call the emitter after the page
+  row and its `needs_content_page` item exist, with the `pageURL` they just wrote and
+  `related_pages` from the `add_tool` spec (new optional action input). `deploy_tool_to_site`
+  also emits on its already-deployed early return, so **re-running the deployer is the supported
+  way to backfill cross-links** for a tool deployed before this fix.
+- The suggestion-time action is **kept registered and made fail-safe** rather than deleted: an
+  unregistered action named in config invalidates a workflow (`bugs_closed/017`), and config can
+  come back from a stale backup. It now resolves a real page and emits nothing when there is
+  none — it cannot fabricate from anywhere.
+
+**Config (`211_tool_crosslink_emit_at_build.sql`, applied + recorded 2026-07-26)** — deletes
+tool-suggester's `create_cross_links` step (`create_items_loop → complete`) and wires
+`related_pages` into both build steps. **This half is LIVE now**, so no new phantom items can be
+created regardless of when the image ships. Parts 2/3 are inert on the deployed binary and
+activate with it; the Go side also reads `input_data.spec.related_pages` directly, so the halves
+can roll in either order.
+
+## Beyond the diagnosis: the items are GATED on the tool page going live
+
+The "VERIFIED + SHARPENED" section above deferred *"tool page created (`planned`) but its content
+build never deploys → link still 404s"* to `049`. **That deferral is withdrawn for this emitter.**
+It is 049's class only while the emitter runs at suggestion time with no relationship to any
+build; once the emitter sits inside the build path, it is this code's own remaining failure mode,
+and it reproduces exactly the damage this bug is about. It is also not rare: 19 of 33 live
+`needs_content_page` items are parked in `needs_human_review`.
+
+So `emitToolCrossLinkItems` emits immediately only when the tool page is already
+`deployed`/`needs_rebuild`; otherwise it attaches `depends_on` = the open `needs_content_page`
+item for that page, and if there is no open item (or it failed terminally) it emits **nothing**.
+The loader already enforces this (`load_work_item_actions.go:562-571`: an item is selected only
+when every `depends_on` row is `complete`/`verified`). **Cost, stated:** a tool page whose content
+build never completes leaves cross-link items parked in `triaged` instead of writing a dead link;
+parked items age and may be swept by `bugs_open/070`. That is the intended direction.
+
+## Evidence re-grounded 2026-07-25 (the 07-21 figures were stale, and the bug had grown)
+
+R1 re-run: **27 items across 4 sites** (was 24 / 3 — fundamentallyai.com joined), **0 of 27
+resolve**. The emitter kept firing for the four days between diagnosis and fix.
+
+## How to verify (post-roll) — RUNBOOK R6/R8
+
+1. Pod-grep a string the change CREATED, with a control:
+   `strings /app/agent-chassis | grep -c "emitToolCrossLinkItems: refusing to emit without a real tool page URL"`.
+2. Trigger a tool build on a test site; the new `tool_crosslink:%` row's `spec->>'tool_page_url'`
+   must equal that tool page's `pages.url` (R6 joins on exactly that).
+3. Config half is checkable now, independent of the image: `create_cross_links` absent,
+   `create_items_loop.next_step='complete'`, `related_pages` wired on both build steps.
+
+## Still open, deliberately — NOT closed by this fix
+
+**The existing damage.** 27 items and the links already woven into live pages
+(leopardessconsulting.co.uk `/services.html` among them) are untouched by an emitter fix. That is
+a content sweep to coordinate with `049`. Pre-fix rows are identifiable by
+`item_key LIKE 'tool_crosslink:%' AND spec->>'tool_page_url' IS NULL`.
