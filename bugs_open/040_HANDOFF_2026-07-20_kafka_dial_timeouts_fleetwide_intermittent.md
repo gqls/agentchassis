@@ -53,8 +53,10 @@ broker-2. A static route fix would chase a moving target.
 Every query is in `RUNBOOK_040_kafka_dial.md` §6. Re-run them before suspecting
 any of these again — they were true on 2026-07-26, not for ever.
 
-**§4.6 is the one that held** and has been acted on: the dial timeout was 10s and
-is now 5s, env-tunable.
+**§4.6 is the one that held** — but see the CORRECTION in §6: the timeout cut it
+argued for was proposed, vetoed by the council gate, and **reverted**. §4.6 is a
+remark in a bug file, not a measurement, and the histogram this change ships is
+what will actually settle the right value.
 
 ### The one event captured in full
 
@@ -71,7 +73,7 @@ core-manager-7b6cd994b6-2z2bs   started 12:01:21Z
 
 T+60s from pod start; **10.32s** elapsed — exactly kafka-go's `DefaultDialer` 10s,
 so it waited the whole budget; the retry then succeeded in **0.67s**. One event in
-~2h of uptime. Brief, self-healing, costs 10s (now 5s) each time.
+~2h of uptime. Brief, self-healing, and it costs the full 10s each time.
 
 ## 3. ROOT CAUSE: not established. Here is why, and it is the actual finding
 
@@ -153,8 +155,9 @@ evidence channel. That, not the network, is what has been fixed.
    though note the brokers have no resource floor at all (§6), so this could
    become true under load even though it is not true now.
 6. **Kafka client dial timeout is 10s** — a dial that cannot complete in 10s on an
-   in-cluster network is pathological regardless of cause. **ACTED ON:** now 5s,
-   `KAFKA_DIAL_TIMEOUT` (whole seconds).
+   in-cluster network is pathological regardless of cause. **PROPOSED, VETOED,
+   REVERTED — still 10s.** See the CORRECTION in §6. This remains the most
+   plausible lead, and the histogram is what should choose the replacement value.
 
 ## 5. Repro of the original count
 
@@ -169,8 +172,9 @@ None of these is claimed to be the cause. Each made the fault worse or hid it.
 
 - **Four inconsistent, uncounted dial configurations** — consumer 10s (explicit),
   producer **3s** (`Transport` left nil → kafka-go `DefaultTransport`), topic
-  manager 10s × 8 sites (bare `kafka.Dial`), health probe 3s. None configurable.
-  Collapsed into `platform/kafka/dialer.go`.
+  manager 10s × 8 sites (bare `kafka.Dial`), health probe 3s. **All four are now
+  COUNTED and all four keep exactly the budget they had** — see the CORRECTION
+  below. They are not yet unified.
 - **`/metrics` never served** — now on the health mux *and* on `METRICS_PORT`
   (9090), the port the annotations already advertise.
 - **Phantom fallback broker** `kafka-0.kafka-headless.kafka:9092` in
@@ -180,8 +184,31 @@ None of these is claimed to be the cause. Each made the fault worse or hid it.
 - **`kafka_brokers` with no port** in `deployments/kustomize/base/configmap-common.yaml`.
 - **Hot spin** in `cmd/remote-job-spawner/main.go` — read errors `continue`d with
   no pause. Now the standard 1s backoff.
-- **Producer connection churn** — kafka-go's `IdleTimeout` 30s / `MetadataTTL` 6s
-  made low-traffic agents re-dial almost every produce. Now 5m / 30s.
+- ~~**Producer connection churn** — `IdleTimeout` 30s / `MetadataTTL` 6s made
+  low-traffic agents re-dial almost every produce.~~ **REVERTED, still 30s / 6s.**
+  Real, but retuning it changes failover reactivity fleet-wide and no measurement
+  chose the new values. See the CORRECTION below.
+
+> **CORRECTED 2026-07-26, same day — the council gate REJECTED the first version
+> of this fix (hard veto from `guardian`, 2× HIGH, corr `7abe1a57`) and it was
+> right.** The change as first written also cut the dial timeout **10s → 5s for
+> every process in the fleet** and raised the producer's `IdleTimeout` 30s → 5m
+> and `MetadataTTL` 6s → 30s. Those are behaviour changes to shared messaging
+> plumbing and to failover reactivity across every pipeline, bundled into what was
+> presented as instrumentation — and both were argued from a remark in this file
+> and from the Java client's defaults, **not from measurement**, while building
+> the instrument that would have measured them.
+>
+> **All of it is reverted.** `InstrumentedDialer(timeout)` takes the caller's own
+> existing budget and the package has **no default at all**; `ProducerTransport`
+> reproduces kafka-go's `DefaultTransport` byte-for-byte (3s dial / 5s DialTimeout
+> / 30s IdleTimeout / 6s MetadataTTL) and stays package-level because a nil
+> `Transport` already shared one pool per process. A test pins those three values.
+>
+> **Sequenced, not abandoned.** Once the counters ship,
+> `ai_persona_kafka_dial_duration_seconds` says what the real dial latency
+> distribution is, and a timeout can be chosen from that. That is part 2 and needs
+> the architecture review the guardian asked for. Logged in `WRONG_CALLS.md`.
 
 ### The DNS search-path tax — real, large, and NOT the cause
 
