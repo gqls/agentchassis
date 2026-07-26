@@ -114,6 +114,26 @@ the improvement loop being on.
 given the site's real page list and told to link only within it. This is the
 upstream cause of 11 of the 21 broken links, and it recurs on every new page.
 
+> **MEASURED 2026-07-26 by the `bugs_open/079` thread — this candidate is not a
+> build, it is a repair.** The machinery already exists and already runs:
+> `page-content-writer`'s workflow calls `prepare_link_context` before the writer
+> step, and the prompt template interpolates its `link_constraint_text` under a
+> `{{if}}` guard. It is fed nothing. `PrepareLinkContextAction` looks for its page
+> list at `db_sync.pages` plus three fallbacks, and **none of the four exists in
+> that workflow's `collected_data`** — so it returns an empty list, the constraint
+> text is `""`, the `{{if}}` elides the whole "## Internal Linking" block, and the
+> model is unconstrained. Live: **20 of 20 recent writer runs recorded
+> `page_count: 0`**, a 100% failure rate.
+>
+> Filed in full as **`bugs_open/090`**, with two traps for whoever takes it:
+> `InjectLinkConstraints` is dead duplicate code and must NOT be wired (it would
+> give the platform two implementations of the same prompt block), and
+> `prepare_link_context` synthesises `"/" + name + ".html"` rather than reading
+> `pages.url`, which would hand the writer plausible-but-wrong addresses.
+>
+> Left with 071 rather than taken, because 090 is prevention and this file owns
+> the writer-side class. `who-owns.py` puts it here.
+
 **Candidate 5 (do not skip): fix the comment.** A policy comment that justifies a
 fail-open by naming a downstream repairer must say what happens when that
 repairer is off. This one has been read by at least two threads as "handled".

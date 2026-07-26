@@ -4182,3 +4182,42 @@ claim about the whole, reads identically in the file and is far more expensive.
 the grep that establishes it, or say "I did not check". Universal negatives are the one claim
 shape where absence of evidence gets written down as evidence of absence.
 Family: universal-negative-unchecked, generalising-from-own-population, grep-before-you-file.
+
+---
+
+## 2026-07-26 — I read a probe's output as "4 of my tests are vacuous" when 4 of them had never run
+
+**The claim:** while fixing `bugs_open/079` I ran the induced-fault probe on my own new
+tests — stub `RepairPageLinks` to a no-op, expect every repair assertion to fail. It reported
+**4 failures out of 8** repair tests. I wrote that down as "4 tests are vacuous" and started
+hunting for what was weak about them.
+
+**Why it was wrong:** those four tests never executed. An unguarded `repairs[0]` on an empty
+slice **panicked the test binary**, and every test declared after it in the file was skipped
+in silence. `go test` without `-v` prints nothing for a passing test and nothing for a test
+that never ran — the two are indistinguishable in the default output, so a run that did a
+third of the work looked exactly like a run that did all of it.
+
+**What caught it:** distrusting my own reading enough to re-run with `-v` before acting on
+it. The `=== RUN` lines stopped dead after the fourth test. Nothing else would have shown it
+— the exit status, the FAIL count and the summary line were all consistent with my wrong
+story.
+
+**The cheap check:** `go test -v` and count `=== RUN`, not `--- FAIL`. Two seconds. Or, at
+authoring time, never write `slice[i]` in a test without a `len()` guard that calls
+`t.Fatalf` — which is the actual fix and costs nothing.
+
+**The mechanism of the error, which is the transferable part:** I was already doing the right
+thing. The probe is the good habit, the one CLAUDE.md and half this file keep arguing for, and
+I ran it unprompted. Then I mis-read its output in the direction of my existing belief ("these
+tests are probably weak") and nearly acted on the mis-reading by rewriting four sound tests.
+**A verification step is not self-verifying.** Running the check earns you nothing if you
+accept the first interpretation of its result that fits what you already suspected — and a
+probe's output is *least* trustworthy precisely when it runs against deliberately broken code,
+which is the only time you ever look at it.
+
+**Rule of thumb this earns:** when a probe's result is *partially* what you expected, that
+partiality is itself a finding to explain, not a fact to interpret. "Some of it failed" has at
+least two causes — weak assertions, or a run that stopped early — and they demand opposite
+work.
+Family: verification-not-self-verifying, misread-in-direction-of-prior-belief, default-output-hides-the-gap.
