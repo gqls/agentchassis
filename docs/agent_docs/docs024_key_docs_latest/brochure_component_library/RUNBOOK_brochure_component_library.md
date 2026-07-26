@@ -230,3 +230,92 @@ done
 For a full link check, follow every href three times before calling it broken,
 and put `sleep 1` between requests. A tight loop over ~60 links without that
 produced 21 false failures on 2026-07-25.
+
+---
+
+## The evidence-chart component (added 2026-07-26)
+
+**Edit the source, never the SQL.** `register.sql` is generated, and a hand-edit
+silently diverges from the template the harness tested:
+
+```bash
+B=docs/agent_docs/docs024_key_docs_latest/brochure_component_library
+python3 $B/scripts/gen_component_register_sql.py $B/components/evidence-chart
+```
+
+**Validate the template before it goes near the DB**, for every page case,
+including the ones that should render nothing:
+
+```bash
+for p in index capabilities ""; do
+  go run $B/scripts/render_component_template.go \
+      $B/components/evidence-chart/template.html \
+      $B/components/evidence-chart/sample_data.json "$p"
+done
+```
+
+The sample data deliberately contains the awkward cases: a chart belonging to
+another page, a dangling `fact_id`, a zero value, a round million (which prints
+as `1e+06` under Go's default float formatting and is invalid CSS), and a fact
+nothing references. **Add a row to the sample for any case you add to the
+template** — the one defect that reached the DB this session was a fact-sourced
+denominator whose use site still read the old variable, and the harness caught it
+only because the sample exercised that path.
+
+**Check the register after any evidence_base edit** (eight defect checks, none of
+which share the seed's logic; all should return zero rows):
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db < $B/sql/evidence_base_charts_2026-07-26_VERIFY.sql
+```
+
+**Check the live pages against the register** (not against the template):
+
+```bash
+$B/scripts/verify_evidence_chart_live.sh fundamentallyai.com index capabilities
+```
+
+### Traps specific to this component
+
+- **A charted fact's `value` must be a JSON number.** `html/template` CSS-filters
+  a string under `printf "%.4f"` to `ZgotmplZ`, which kills the bar silently.
+- **A SQL-sourced fact must not carry `display`.** `refresh_evidence_base`
+  rewrites `value` and `verified_at` but never `display`, so it drifts.
+- **A point label must contain one of its fact's `context_terms`**, or the claims
+  gate reports our own charted figure as an unregistered number (it reads a
+  ±70-character window, and block elements delimit it).
+- **Never chart a `tolerance: gte` fact** — those say "state a FLOOR, never the
+  exact number", and a bar states it exactly.
+- **Text inside `<svg>` is invisible to the claims gate** (`claims.go:137`). This
+  component keeps figures in HTML text for that reason; anything that later moves
+  them into SVG has to replace that check.
+
+## Queueing a rebuild: the dedup slot is occupied more often than you think
+
+`idx_swi_dedup` is UNIQUE `(site_id, item_key)` WHERE status is **not** in
+(`complete`, `verified`, `rejected`, `wont_fix`, `failed`, `unresolved`,
+`cancelled`). **`needs_human_review` is not in that list**, so a page whose old
+`needs_page` row was parked for review still holds the slot, and the RUNBOOK's
+copy-INSERT recipe above dies on a unique violation.
+
+Give the fresh row its **own key** — the handler reads `spec.page_name`, not the
+key:
+
+```sql
+item_key = 'needs_page:<page>:<what-changed>-<yyyymmdd>'
+```
+
+**Measured 2026-07-26: queued 17:45:36, claimed 17:48:00 — 2m24s.** That is much
+faster than the 7-9 minutes this runbook records above, because `bugs_open/030`
+(cron sharing the dispatch lane) was closed the same day. The old figure is left
+in place deliberately: it was true when written, and the lane can back up again.
+Check the depth rather than assuming either number:
+
+```bash
+./scripts/dispatch-queue-depth.sh
+```
+
+**One page builds at a time in this lane.** Both rebuilds were queued together;
+the second stayed `triaged` until the first finished. That is the known residual
+of 030 (one job at a time per lane), not a dropped dispatch.

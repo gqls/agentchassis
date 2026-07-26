@@ -1,6 +1,15 @@
 <style>
+  /* Colour vocabulary checked against the live css_themes rather than assumed:
+     --color-background / --color-text / --color-text-muted / --color-primary /
+     --color-secondary / --color-accent / --color-card-bg / --color-border /
+     --border-radius are the names the themes actually define (including the
+     dark one). --color-surface, --spacing-section and --container-max-width are
+     defined by NO theme, so anything resting on them renders its fallback on
+     every site — which is how a light card ends up on a dark page. Where no
+     variable exists, the fallback is a neutral translucent grey that reads
+     correctly on light and dark alike, never a light literal. */
   .evidence-chart {
-    padding: var(--spacing-section, 4.5rem 2rem);
+    padding: var(--spacing-xl, 4.5rem) var(--spacing-lg, 2rem);
     background: var(--color-background, #ffffff);
     color: var(--color-text, #1a1a1a);
   }
@@ -39,8 +48,8 @@
   .evidence-chart__figure {
     margin: 0;
     padding: 1.5rem 1.5rem 1.25rem;
-    background: var(--color-surface, var(--color-background-alt, #f6f7f9));
-    border: 1px solid color-mix(in srgb, var(--color-text, #1a1a1a) 12%, transparent);
+    background: var(--color-card-bg, rgba(127, 127, 127, 0.08));
+    border: 1px solid var(--color-border, rgba(127, 127, 127, 0.28));
     border-radius: var(--border-radius, 10px);
   }
   .evidence-chart__figcaption {
@@ -68,7 +77,7 @@
     padding: 0.55rem 0;
   }
   .evidence-chart__row + .evidence-chart__row {
-    border-top: 1px solid color-mix(in srgb, var(--color-text, #1a1a1a) 8%, transparent);
+    border-top: 1px solid var(--color-border, rgba(127, 127, 127, 0.22));
   }
   .evidence-chart__label {
     font-size: 0.9375rem;
@@ -78,7 +87,7 @@
     display: block;
     height: 1.35rem;
     border-radius: 3px;
-    background: color-mix(in srgb, var(--color-text, #1a1a1a) 8%, transparent);
+    background: rgba(127, 127, 127, 0.22);
     overflow: hidden;
   }
   /* Geometry is computed by the browser from the real value: --v is the
@@ -93,7 +102,7 @@
     background: var(--color-primary, #1e40af);
   }
   .evidence-chart__bar--muted {
-    background: color-mix(in srgb, var(--color-text, #1a1a1a) 32%, transparent);
+    background: var(--color-secondary, rgba(127, 127, 127, 0.6));
   }
   .evidence-chart__bar--accent {
     background: var(--color-accent, var(--color-secondary, #0f766e));
@@ -113,7 +122,7 @@
   .evidence-chart__source {
     margin: 1.1rem 0 0;
     padding-top: 0.85rem;
-    border-top: 1px solid color-mix(in srgb, var(--color-text, #1a1a1a) 12%, transparent);
+    border-top: 1px solid var(--color-border, rgba(127, 127, 127, 0.28));
     font-size: 0.8125rem;
     line-height: 1.5;
     color: var(--color-text-muted, #555);

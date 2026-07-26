@@ -1690,3 +1690,161 @@ information. Every one was available in a field, a window, or a page I could hav
 read. The corrective that would have caught the most (1, 2, 4, 8) is a single
 habit: **read the actual artefact, untruncated, with a check that does not share
 its assumptions with what you are checking.**
+
+---
+
+## 2026-07-26 (later session) — building the chart component
+
+Owner green-lit the chart (handoff §3a). Decisions taken with the owner at the
+start of this session, before any code: **config now, Go later** for the route;
+**all three** candidate charts rather than one; **both pages** (index and
+capabilities).
+
+### Why the config route was available at all
+
+The handoff assumed a chart needed a Go build. It does not. `plan_sections_action.go:399`
+(`resolve`) → `:478` (`resolveSpecPath`) → `:509` (`navigateMap`) already resolves
+`source: "site_specs.<aspect>.<path>"` for any component field, and resolved data
+**beats LLM content at render time**. So "the LLM may not supply figures" stops
+being a prompt instruction and becomes a property of the pipeline: the values are
+system-resolved and overwrite whatever the writer wrote.
+
+The Go prior art is real but already inert — `platform/orchestration/actions/report_charts.go`
+(`renderBarChartSVG`, committed 2026-07-24 for the gripper dossier) is waiting on
+an image roll like everything else Go-side. Reuse it for the later lift; it was
+right not to fork it now.
+
+### The data contract, and the one rule that shapes everything
+
+`charts` holds ids, labels, order, prose and a scale constant. `facts` holds the
+values. A chart definition **names fact ids and never restates a value** — so
+there is nowhere for an unverified number to live. Where a denominator is itself
+a measured quantity it comes from `max_fact_id`, not a literal.
+
+That rule immediately bit, and correctly: the register holds F3b, *"100% failure
+before relaunch"*. A success-rate chart therefore had no baseline to draw —
+deriving `0` in the chart definition would have been exactly the invented figure
+the design exists to prevent. Fixed by recording the baseline as its own fact
+(F3c, same source, same measurement, stated as a success rate).
+
+### Traps found by testing rather than by reasoning
+
+1. **A round million renders as `1e+06`.** JSONB numbers arrive as `float64`, and
+   `{{.value}}` prints via `%v` (i.e. `%g`). In the bar geometry that is invalid
+   CSS; as visible text it is nonsense. Geometry now uses `printf "%.4f"`, the
+   visible fallback `printf "%.10g"`. **Found by putting a round million in the
+   sample data on purpose**, not by reading the template.
+2. **`html/template` neutralises a hostile value in a `style` attribute**
+   (`ZgotmplZ`) — proven, so the data layer cannot inject CSS. The same filter
+   rejects a *string*-typed value under `%.4f`, so a charted fact's `value` must
+   be a JSON number. VERIFY check 3 enforces it.
+3. **`<svg>` is in `nonAssertionElements`** (`datahelpers/claims.go:137`): text
+   inside an SVG is **invisible to the claims gate**. Keeping the figures in real
+   HTML text is what keeps them checkable. This is now the first thing the later
+   Go-SVG lift has to solve, and it is written into the component README so it is
+   not rediscovered.
+4. **The claims gate reads a ±70-character window** and needs one of the fact's
+   `context_terms` inside it (`claims.go:493`), with block elements delimiting
+   the window. So a point label must carry its fact's own wording or the gate
+   reports **our own charted figure** as an unregistered number. VERIFY check 6.
+5. **`refresh_evidence_base` rewrites `value` and `verified_at` but never
+   `display`.** A hand-written `display` on a SQL-sourced fact would therefore
+   drift away from the bar beside it as the query result moved. Rule: SQL-sourced
+   facts carry no `display`. VERIFY check 5.
+
+### MISSTEP — and the check that caught it
+
+Adding `max_fact_id` support, I introduced the `$max` variable and **left the use
+site reading `$c.max`**. Every fact-sourced denominator rendered `--m:ZgotmplZ`,
+i.e. a dead bar. Nothing about the diff looked wrong; the harness caught it on
+the next run because the sample data exercises that path.
+
+*Cheap check, and the general form of it:* **the sample data must contain the
+case you are adding, not just the case you already had.** The three template
+mechanics that could silently fail (exponent formatting, CSS filtering, the
+fact join) are each represented by a deliberately awkward row in
+`components/evidence-chart/sample_data.json`, and the harness asserts on them
+rather than printing output for a human to skim.
+
+### CORRECTION to an existing fact
+
+F3/F3b carried `verified_at: 2026-07-16` and a source of "measured 2026-07-16".
+**That date cannot be true**: the relojistas cutover was on the 17th, the first
+full day of data was the 18th, and the measurement was written up on the 19th
+(`traffic_probe/README_where_we_are.md`, "## 2026-07-19 — the reactivation number
+is in"). Corrected to 2026-07-19 in the seed, with the source pointed at the
+document that holds the measurement. It matters here more than usual because
+**the chart renders the verified date on the page**.
+
+### The em-dash baseline recorded in the handoff no longer matches
+
+Handoff next-action (a) records the 2026-07-25 baseline as index 6, capabilities 6.
+Measured immediately before this rebuild: **index 11**, capabilities 6, about 8,
+fine-tuning 5, council 2. So index has moved since that baseline was written
+(the index was rebuilt after it). The comparison below therefore uses **today's
+pre-rebuild numbers**, not the handoff's, and I have not overwritten the earlier
+figure — a baseline that turns out to be stale is itself worth seeing.
+
+### The CSS variables everyone copies do not all exist
+
+Acceptance item 3 says "CSS consumes `var(--section-*, var(--color-*))`, never
+hardcodes colour — verified against a dark-section AND a light-section site".
+Checking that properly meant asking what the themes actually define:
+
+```sql
+SELECT name, (SELECT string_agg(DISTINCT m[1], ', ' ORDER BY m[1])
+              FROM regexp_matches(css_content, '(--[a-z0-9-]+)\s*:', 'g') AS m)
+FROM css_themes WHERE is_active;
+```
+
+**`--color-surface`, `--spacing-section` and `--container-max-width` are defined
+by NO active theme.** I had used the first of those for the chart card, so its
+fallback — a light grey — would have rendered on *every* site including the dark
+one. A light card on a dark page, from a rule that reads as theme-aware.
+
+The vocabulary that does exist, on both `default` and `leopardess-dark-gold`:
+`--color-background`, `--color-text`, `--color-text-muted`, `--color-primary`,
+`--color-secondary`, `--color-accent`, `--color-card-bg`, `--color-border`,
+`--border-radius`, `--shadow`, `--spacing-xs…xl`. Switched to those, and where
+no variable exists the fallback is now a **neutral translucent grey** rather than
+a light literal, so it reads correctly on either background.
+
+Worth noting `stat-band` also references `--spacing-section` and
+`--container-max-width`; it has always been rendering their fallbacks. Harmless
+there (spacing and width, not colour), but the same reflex produced a real defect
+here.
+
+*Cheap check, and it is one query:* before using a CSS variable, confirm a theme
+defines it. A `var()` fallback makes an undefined variable invisible — that is
+the point of the fallback, and also why the mistake never announces itself.
+
+### The voice fix, measured at last — mixed, and not a clean win
+
+Handoff next-action (a): refinement 3 was live but unmeasured. These rebuilds are
+the first page writes since, so the measurement came free.
+
+Like-for-like, counting only the components that existed before and after:
+
+| page | before | after | note |
+|---|---|---|---|
+| index (the 7 pre-existing sections) | 11 | **6** | portfolio-showcase alone accounts for 4 of the 6 |
+| capabilities | 6 | **6** | unchanged; hero-card-carousel alone accounts for 4 |
+
+Index as a whole reads 8 after the rebuild, but that includes the **new**
+evidence-chart section contributing 2 — one of them in the LLM-written intro
+("…where it stands today — not what we project it will do"). Comparing whole-page
+totals would have flattered the result on one page and hidden the new section's
+contribution; per component is the only honest cut.
+
+**So: a real drop on one page, none on the other.** Per the handoff's own
+instruction, that is not grounds for a fourth prompt round — the alternative
+already offered to the owner is a mechanical post-pass, and this is the
+measurement that should decide it. Note the concentration: two components
+(`portfolio-showcase`, `hero-card-carousel`) hold 8 of the 12 remaining em dashes
+across both pages, which is a strong hint that a **per-component** fix would beat
+another site-wide prompt edit.
+
+`That X matters`: **1 instance**, not 0 — on `self-correction-leopardessconsulting`,
+which was NOT rebuilt in this session, so it is pre-existing rather than a new
+regression. The handoff records "was 0", which was presumably scoped to the pages
+it rebuilt; leaving both figures visible rather than overwriting either.

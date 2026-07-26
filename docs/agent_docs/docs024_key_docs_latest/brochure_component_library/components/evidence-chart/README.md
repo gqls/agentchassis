@@ -54,6 +54,16 @@ site with no evidence base gets no chart, not an invented one.
    leave the gate's view.
 5. **Dangling `fact_id` draws nothing** — no bar, no row, no invented value.
    The VERIFY script makes it impossible rather than relying on the silence.
+6. **Half the CSS variable names in the obvious vocabulary do not exist.**
+   Checked against live `css_themes`: `--color-surface`, `--spacing-section` and
+   `--container-max-width` are defined by **no** theme, so anything resting on
+   them always renders its fallback — which is how a light card lands on a dark
+   page. The names the themes really define are `--color-background`,
+   `--color-text`, `--color-text-muted`, `--color-primary`, `--color-secondary`,
+   `--color-accent`, `--color-card-bg`, `--color-border`, `--border-radius`,
+   `--shadow`, `--spacing-xs…xl`. This component uses those, and where no
+   variable exists its fallback is a neutral translucent grey that reads on
+   light and dark alike rather than a light literal.
 
 ## Per-page selection
 
