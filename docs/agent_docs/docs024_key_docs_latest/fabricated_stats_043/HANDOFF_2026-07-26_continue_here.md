@@ -41,6 +41,11 @@ kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | 
 
 ## 3. The three things owed
 
+> **UPDATE 2026-07-26 later — (a) is BUILT, (c) is MEASURED. Read § 7 at the foot of this
+> file before acting on the three items below.** (a)'s candidate (1) is committed in
+> `72effdbca` and **inert until the next chassis roll**, so `093` stays OPEN; (c) is now
+> measured across twelve sites rather than the one instance named here. (b) is untouched.
+
 **(a) `bugs_open/093` — the re-render path is unguarded.** The stat audit is generic but
 has one call site (the build gate). The re-render path renders stored `content_data` with
 no audit, so a persisted junk suffix would republish for ever. **Live exposure is nil by
@@ -130,3 +135,54 @@ substance.
 - `README_where_we_are.md` — the owner's plain-prose history of the evening.
 - `WRONG_CALLS.md` — four entries from this session, of which the one worth reading is
   *"three consecutive council rounds caught my prose overstating sound code"*.
+
+---
+
+## 7. Update, 2026-07-26 later — what the next thread actually picks up
+
+**(a) is BUILT.** `bugs_open/093` candidate (1) — the stat audit's second call site — is
+committed in `72effdbca`, with candidate (3) measured and found to need nothing. Read the
+"Update 2026-07-26 (later)" section in `bugs_open/093` for the full account. It **stays
+OPEN**: the code is inert until the next chassis roll, and the bar is *fixed AND live*.
+
+Three things carry forward from it:
+
+1. **The roll, then the verification.** Do **not** grade it on a green build — the build
+   path is the one that already works. `093` § "How to verify a fix" is explicit: re-render
+   a page **without** a writer pass and confirm the finding is raised.
+2. **Council round 6 was submitted** on the same correlation
+   `569241fb-dd8d-4bcf-b382-234dfca1365c`, answering the HIGH that had blocked rounds 1–5.
+   **No `Council-Reviewed:` trailer is on any commit in this lane, and that is correct** —
+   the trailer is earned by an APPROVED verdict only.
+   > **Landmine for whoever chases that verdict:** the `097` trigger still publishes via
+   > `printf | kubectl run -i --rm … kcat -P`, the pattern that silently drops messages
+   > with exit 0 and a printed correlation id. A missing orchestration row is *usually*
+   > queue latency (~16–30 min, and the lane had a visible backlog at submit time) — so do
+   > not retry on that evidence alone, it costs a duplicate round — but do not assume the
+   > publish landed either. Confirm by payload:
+   > `SELECT correlation_id, current_step, status FROM orchestration_states WHERE
+   >  collected_data->'input_data'->>'fix_correlation_id' = '569241fb-…';`
+3. **Expect ~9 human-review items on the first live sweep**, across the sites, all
+   HITL-terminal. That is the intended backlog of unsupported published figures, not a
+   fault — but it lands on the queue `bugs_open/033` says has no working surface.
+
+**(b) is UNTOUCHED.** The evidence registers for the remaining publishing sites are exactly
+as § 3(b) describes them. One thing to know that was not known when that was written: with
+(a) live, adding a register **row** to a site now switches the stat scan ON for it. A row
+carrying real `facts[]` is what you want. A `writer_block`-only row will report every figure
+on the site at `low` with the gap named — which is the designed behaviour and not a
+regression, but it means (b) is no longer free of consequences on the review queue.
+
+**(c) is MEASURED, and it is twelve sites, not one.** The leopardess instance named in
+§ 3(c) is not the worst. `ai-agent-orchestration.com`'s writer instructions are internally
+contradictory — `identity` and `briefing` say **"Over 70 specialised AI agents organised
+into 8 departments"** in one place and **"30+ agent types"** in another, while live is
+**176 active agent definitions**. And "organised into 8 departments" is the same family as
+the claim audited out of leopardess as a fabrication: here it sits in the instruction that
+tells a writer to say it. The query and the full extract are in
+`NOTES_fabricated_stats_043.md`.
+
+**[UNRESOLVED — needs an owner ruling, not a query]** "specialised AI agents", "agent types"
+and rows in `agent_definitions` are three different units. Which one the sites should claim
+is an editorial decision about what the business says it is; it cannot be looked up, and
+picking one silently would be exactly the failure this whole lane exists to stop.
