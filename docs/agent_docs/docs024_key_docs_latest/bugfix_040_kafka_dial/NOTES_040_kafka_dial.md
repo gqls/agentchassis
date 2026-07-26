@@ -397,3 +397,66 @@ already well past that, and the gate has more than earned its keep on this case:
 earned by APPROVED only; on a REVISE it is a permanent false claim of review. The
 098 report will list this work as un-reviewed for ever — a known, accepted false
 negative, with the trail recorded here instead.
+
+### 2026-07-26 evening — LIVE. Three inert layers, not one.
+
+The chassis rolled and the code is live (pod-grep with both controls, §8e of the
+bug file). **The tag did not change** — still `v1.0.1167` — so the tag was worthless
+as evidence and only the pod-grep settled it. Worth remembering: a same-tag rebuild
+is explicitly a documented trap in CLAUDE.md, and this is what it looks like in
+practice.
+
+Then the interesting part. `/metrics` was open and Prometheus still collected
+**nothing**. Two more layers underneath:
+
+**Layer 2 — no discovery.** No PodMonitor existed; the operator ignores
+`prometheus.io/*` annotations. Applied `podmonitor.yaml`. Targets appeared
+immediately — 6 of them, all **DOWN**, `context deadline exceeded`.
+
+**Layer 3 — the NetworkPolicy, and this one is the sharpest.** `allow-monitoring`
+already named **port 9090**. Somebody wrote that rule intending exactly this scrape.
+It has never matched a single packet, for two independent reasons:
+
+- `from: [podSelector: {app: prometheus}]` with **no `namespaceSelector`** means
+  "pods in *this* namespace" — Prometheus is in `monitoring`.
+- `app: prometheus` **is not a label the pod has**; kube-prometheus-stack sets
+  `app.kubernetes.io/name: prometheus`.
+
+Either alone selects nothing. The discriminating test — and the reason I didn't
+guess:
+
+```
+from ai-persona-system : pod:8080/health OK   pod:9090/metrics OK
+from monitoring        : pod:8080        OK   pod:9090         TIMES OUT
+```
+
+Same-namespace fine, cross-namespace blocked, other port fine. That triangulates to
+policy, not to pod networking and not to the application.
+
+> **The pattern of this entire case, stated once: three separate layers, each of
+> which alone produces a metric reading zero, and all three had legible intent.**
+> The counters were written. The port was annotated. The firewall named the port.
+> Every one of them was inert, and none of them could be distinguished from "the
+> thing being measured is fine". That is why the bug survived six days of being
+> unworked and why I nearly shipped a fix that changed nothing.
+
+**Result:** targets 0 UP/6 DOWN → **6 UP/0 DOWN**; Prometheus **0 → 16
+`ai_persona_*` series**. Not only mine — `agent_tasks_processed`,
+`messages_processed`, `workflows_started`, `agent_health`. Years of counters,
+incremented and thrown away, now landing.
+
+**First fleet-wide dial baseline: 240 dials, 100% `ok`, p99 27.9ms**, spread
+20/21/24 across the brokers with 175 to bootstrap.
+
+Two things follow, and they pull in opposite directions:
+
+1. **It does not close the case.** 20 minutes is not 7 days, and the handoff's own
+   table has the *static* Deployment at **0** in a window where spawned pods carried
+   10–52. A clean short sample from a mostly-idle fleet is exactly what this bug
+   looks like when it is not firing. Reading this as "fixed" would be the same
+   absence-as-evidence error the whole case is about.
+2. **It settles the deferred timeout question with data.** p99 27.9ms against a 10s
+   budget is ~360×. So the stall is not the distribution creeping toward the limit —
+   it is a distinct, rare event. Part 2 can now pick a timeout from the histogram
+   rather than from a remark in a bug file, which is exactly what the council's veto
+   was protecting. The veto cost two rounds and bought a decision made on evidence.
