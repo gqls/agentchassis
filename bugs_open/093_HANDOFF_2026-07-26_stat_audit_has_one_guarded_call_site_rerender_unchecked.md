@@ -251,3 +251,30 @@ byte-level dash test silently mismatches. Added to `016b` §9.
   *detect*. So does `043`'s point (c) — a partially-blanked stat block reads as CHECKED
   while carrying a surviving invention, and it needs its own function over raw
   `content_data`, because `ExtractStatClaims` drops blank sentinels by design.
+
+### The pod-grep marker for this change — and the vacuous one to avoid
+
+The obvious marker is **vacuous here, by construction**. The new code deliberately mirrors
+check 9's wording (that parity is the point), so the phrase you would naturally reach for
+already exists in the live binary and greps `1` before anything has shipped:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+# ✗ VACUOUS — matches the ALREADY-LIVE check 9 string, not this change
+kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'no machine-readable facts\[\]'"
+```
+
+Use a string only this change creates, with a **negative and a positive control** — the
+positive control is what proves the grep itself works and that you are reading the binary
+you think you are:
+
+```bash
+# ✓ NEW code only — 0 before the roll, 1 after
+kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'turn this into a check rather than a list'"
+kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'scanStoredStatClaims'"
+# ✓ POSITIVE CONTROL — check 9's old wording, live since v1.0.1171, must stay 1
+kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'turn this into a gate'"
+```
+
+Measured on `v1.0.1171` at 21:44 on 2026-07-26: `0`, `0`, `1` — i.e. this change is
+confirmed **not** live, which is the state this file records.
