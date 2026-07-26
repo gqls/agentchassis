@@ -599,3 +599,129 @@ exactly the state `/bugs_closed/README.md` says must stay OPEN.
 Council gate: submitted, `SUBMISSION_CORR=f47c2305-a873-459a-83e6-13eb9cb0cf1f`.
 At submission time the lane was 18 deep, so the verdict is ~30 min out — the bug
 under review delaying the review of its own fix, one more time.
+
+## 2026-07-26 — the lane is ARMED and the latency is gone: publish→start 1 s (was ~18 min for the same submission yesterday)
+
+The owner pushed a chassis image overnight; production is on **v1.0.1165**, which
+carries the lane code, and the Deployment carries
+`EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests`.
+
+**Verified before arming anything** (R9 step 3, all three checks):
+
+```
+strings /app/agent-chassis | grep -c "Extra request lane ready"   -> 1
+strings /app/agent-chassis | grep -c "Starting request processor" -> 2   (positive control)
+kafka-topics.sh --describe --topic system.agent.scheduled.requests
+  -> PartitionCount 1, RF 3, compression.type=snappy, cleanup.policy=delete,
+     retention.ms=604800000, max.message.bytes=5242880
+kafka-consumer-groups.sh --list | grep lane
+  -> generic-requests-group-lane-system-agent-scheduled-requests   (member: the chassis pod)
+```
+
+The topic's config entries are `TopicManager.CreateTopic`'s own — i.e. **the lane
+topic was created by the new code path**, not by hand and not by broker
+auto-create. That is the self-provisioning claim, observed rather than asserted.
+(The pod log lines were already rotated out of the retained window by the time I
+looked — the chassis is verbose enough that a 70-minute-old startup line is gone.
+The Kafka group + the topic's config fingerprint carried the proof instead.)
+
+**Armed** (R9 step 4): `UPDATE scheduled_tasks ... WHERE enabled AND
+target_topic='system.agent.generic.requests'` → **UPDATE 18**.
+
+### Before/after, same submission through the same council
+
+| | round 1 (2026-07-25, shared lane) | round 2b (2026-07-26, split lanes) |
+|---|---|---|
+| LAG at publish | **18** | **0** (then 1 = my own message) |
+| publish → `orchestration_states` row | ~18 min (17:15 → fix_plan artifact 17:33:06) | **~1 s** (13:26:33 → 13:26:34) |
+| state at first look | not yet created | already `review_editquality` |
+
+Both lanes at LAG 0 ten minutes after the switch, with the scheduled lane
+consuming what it receives (`CURRENT-OFFSET 2 / LOG-END 2`) and cron work
+completing on it — `generic-orchestrate-0726-1322` and `-1323`, 90 s apart, which
+is the health-check's `interval 60 + 30 s tick` effective period exactly. So cron
+still runs, on its own lane, and the interactive lane is empty when an operator
+arrives at it. **That is the fix, measured on both sides.**
+
+### The council round 1 came back REVISE — and every objection was answerable by looking
+
+Gating objection from `guardian`, plus two from `prior_art_librarian`; five seats
+approved (`editquality`, `reuse_agent`, `debug_historian`, `constitution`,
+`mission`). What the checks found:
+
+- **"Was the zero-code alternative considered — a second chassis Deployment
+  pointed at the new topic via `REQUESTS_TOPIC`?"** Fair, and I had not ruled it
+  out. Ruled out now in code: the **response** consumer's group is `a.AgentID`
+  (per pod), so every chassis process receives every response, and
+  `ProcessResponse` (coordinator.go:271-277) discards any response whose
+  `state.ProcessingNode != s.podName`. That pair is exactly what
+  `chassis_replica_scaling` documents as the reason `replicas: 1` is pinned and
+  what `bugs_open/075` shows biting; `NewConsumer` also sets
+  `StartOffset: FirstOffset`, so each new per-pod group replays the whole
+  responses topic on every start. A second Deployment buys lane isolation by
+  creating a second ownership domain in the configuration already ruled unsafe.
+  One process, two lanes keeps one response consumer and one ownership domain.
+- **"You did not name the blast radius of editing the shared loop."** Partly
+  conceded, partly corrected: `grep -rl "platform/agentbase" --include=*.go cmd/`
+  → **`cmd/agent-chassis` only**. No fleet-wide redeploy of the other backend
+  services; the adapters do not link agentbase. It IS true the chassis image is
+  what spawned pods run, and there the change is inert by construction.
+- **"The new intra-process concurrency should be checked in code, not asserted by
+  analogy."** The right objection, and the answer is that it is not new:
+  `handleCompleteResponse` calls `continueExecution` at **coordinator.go:2307**,
+  so the response goroutine already executes local actions inline concurrently
+  with the request goroutine — same `executeStep → executeAction` path. Handlers
+  are plain funcs from `GlobalActionRegistry`, a package map with three read sites
+  and **zero runtime writes**; `SagaCoordinator`'s only mutable field is
+  mutex-guarded; `*sql.DB` and `*kafka.Writer` are concurrency-safe by contract
+  and `SetValidator` has no callers.
+- **"The P1-is-unbuilt claim has no evidence."** Correct — it was the one absence
+  claim I asserted from reading a doc. Evidence now: `git log` for
+  `chassis_replica_scaling/` returns **2 commits, both docs, both 2026-07-20**, and
+  P1's named machinery (intake persist + claim-worker pool) has no counterpart in
+  the tree.
+- **"`agent_definitions.topics` may already drive multi-topic subscription —
+  dormant machinery?"** Checked: the column is a flat three-key map
+  `{process,response,error}` of **singular** legacy templates
+  (`system.agent.{type}.process`), identical in every row, and the only reader of a
+  topics config (`bootstrap.go:110`) looks for keys `requests`/`responses` — which
+  that map does not contain. Inert for subscription; nothing to extend.
+
+### MISSTEP — a hypothesis I generated, then refuted, instead of shipping it as a risk
+
+Working through the guardian's concurrency objection I convinced myself lane
+separation had introduced a **new** hazard: serialisation used to make it
+impossible for a reaper/takeover message to be processed *while* another
+orchestration sat mid-inline-step with a stale `last_activity`; with two lanes it
+becomes possible, so could a live orchestration now be reaped or taken over?
+
+Refuted twice over by reading rather than reasoning:
+- the stuck-step takeover (`coordinator.go:713`, `StuckOrchestrationTimeout = 5m`)
+  fires only on a **second dispatch carrying the same `orchestration_id`**. Lane
+  separation creates none — every cron dispatch carries its own id.
+- `stale-orchestration-reaper` does its work in the **scheduler's `pre_query`**,
+  never on the chassis lane at all (its dispatched workflow is a single
+  `complete_workflow` no-op), and it only touches `AWAITING_RESPONSES` at 30/90-minute
+  thresholds — never `EXECUTING_STEP`.
+
+Recording it because the hypothesis was plausible, specific, and wrong, and
+because it is the shape of thing that gets written into a handoff as a "risk" and
+then believed. Cost of checking: two queries.
+
+### MISSTEP 2 — the resubmission was refused in 6 seconds, and the validator was right
+
+Round 2's first attempt (orch `ba2a015f`) died at `persist_submission`:
+
+```
+plan failed validation: edit 2: sketch declares no code change — a fix plan
+proposes changes, not observations; drop the edit or make it real
+```
+
+I had turned an **answer to an objection** into a fake edit ("concurrency safety
+evidence (no edit)", sketch: "no code change — evidence only"). Answers belong in
+the `rationale`, which is what reviewers judge the plan against; the `edits` array
+is for changes. Round 2b keeps round 1's real hunks verbatim and carries the
+answers in the rationale. **Trap worth knowing: the gate refuses
+observation-shaped edits, and it does so before spending a single reviewer call —
+6 seconds, no credits.** It also, incidentally, produced another latency
+datapoint: created 13:24:02, invalid 13:24:08.
