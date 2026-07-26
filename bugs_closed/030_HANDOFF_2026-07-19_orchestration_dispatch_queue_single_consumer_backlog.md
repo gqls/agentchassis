@@ -1247,3 +1247,59 @@ because the timestamps you would reconstruct from are the producer's to overwrit
 > and returned **0**, which reads alarming. The `UPDATE` ran at **13:21:31** — the
 > window was simply wrong. Verified before writing it down, which is the only
 > reason it is a footnote and not a false finding in this file.
+
+---
+
+## CONTRIBUTED OBSERVATION (2026-07-26 ~18:30–21:04 UTC, bugfix-040-candidate-2 session) — the same lane STOPPED, which is a different signature from this case
+
+**Not a reopen — the owning thread's call.** Contributing the measurement because it
+happened on this lane hours after this case closed, and because six other threads were
+affected without being able to see why.
+
+**What was seen.** `generic-requests-group` on `system.agent.generic.requests` sat at a
+**frozen `CURRENT-OFFSET` of 105196 with LAG 13 for over 20 minutes**, sampled five
+times. Throughout, the chassis pod was alive and busy (≈2,300 log lines / 2 min, 50
+`ProcessMessage` in that window), and the lane this case created —
+`generic-requests-group-lane-system-agent-scheduled-requests` — sat at **lag 0** the
+whole time, which is why cron work kept running and the stall was invisible from the
+usual "are orchestrations being created?" check.
+
+**It was not one thread's traffic.** Read off the topic at offsets 105196–105208:
+
+```
+105196 18:30:05 council-gate        105202 18:36:58 scratch-cand2-probe
+105197 18:32:40 scratch-cand2-probe  105203 18:38:42 council-gate
+105198 18:32:53 page-rerender       105204 18:40:24 scratch-cand2-probe
+105199 18:33:32 council-gate        105205 18:40:36 council-gate
+105200 18:34:15 council-gate        105206 18:41:04 scratch-069-chromelock
+105201 18:35:36 council-gate        105207 18:44:34 council-gate
+                                    105208 18:45:11 page-rerender
+```
+
+**Six council submissions** from other sessions, **two `page-rerender`s** (real site
+work), and another thread's scratch probe. Every one of those sessions was watching for
+an orchestration row that could not arrive.
+
+**Timeline.** The stall began ~18:30 — **before** the 18:35:07Z roll to v1.0.1170. The
+fresh pod joined the group, took partition 0, and consumed **nothing further**; the
+committed offset it resumed from never moved. It cleared on its own by 21:04
+(105196 → 105247, lag 0), across the 21:02:56Z roll to v1.0.1171.
+
+**Why this is a different shape from this case, not a regression of it.** 030 was *slow
+but progressing* — one partition, one consumer, in-order, ~18–36 min. This was
+*stopped*: 13 messages, zero progress, 20+ minutes, while the same pod processed other
+topics normally. The lane split shipped here is what makes the distinction visible at
+all — cron ran on its own lane throughout, so the failure was isolated to the
+interactive lane instead of taking everything down with it.
+
+**Diagnostic worth adding to "The one command".** A large lag and a **frozen** offset
+are different diseases, and one reading cannot tell them apart — **sample twice, 30 s
+apart**. A moving `CURRENT-OFFSET` with a big lag is this case (queue). A frozen
+`CURRENT-OFFSET` is not.
+
+**Not investigated further** (this session's task was elsewhere, and the condition
+cleared): whether the consumer was blocked, starved by the responses topic, or wedged on
+a specific message. At the time there were **8,824 open `awaited_requests` rows** and the
+pod's dominant log line was `ClaimAwaitedRequest: status before claim attempt` (290 in
+2 min) — offered as a lead, `[UNVERIFIED]` as a cause. Only 5 orchestrations were
+`AWAITING_RESPONSES`, so it was **not** in-flight-work backpressure.
