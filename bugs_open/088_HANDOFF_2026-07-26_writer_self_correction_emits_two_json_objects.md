@@ -216,6 +216,12 @@ Negative tests carry the load and were checked for vacuousness: disabling the ta
 makes `TestRecoveryNeverSalvagesTruncation` fail on the "complete object then a truncated
 second" case. `json_envelope_recovery_test.go`.
 
+**Council gate:** submitted 2026-07-26 21:4xZ, `SUBMISSION_CORR=c2d3e477-ffe1-4bd9-b33c-e6918c2659da`.
+Verdict: `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE
+correlation_id='c2d3e477-ffe1-4bd9-b33c-e6918c2659da' AND kind='council_report' ORDER BY created_at;`
+No `Council-Reviewed:` trailer on `282fd2feb` — the verdict post-dates the commit, so one can
+never honestly be added (see the trailer-discipline rule); this line is the pointer instead.
+
 ### What is left to verify after the next roll
 
 ```sql
