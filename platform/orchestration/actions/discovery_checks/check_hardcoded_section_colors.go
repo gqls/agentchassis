@@ -121,11 +121,26 @@ func (c *HardcodedSectionColorsCheck) Run(dctx DiscoveryCheckContext) (*CheckRes
 			Pipeline:      "design",
 			BuilderNeeded: "color-variable-fixer",
 			GapKind:       GapHandlerRemit,
-			Capability: "rewrite hardcoded background colours that ReplaceHardcodedColors leaves alone: " +
-				"light hexes (first nibble 5-f), 3/4/8-digit forms, and hexes in inline style=\"\" attributes " +
-				"rather than <style> blocks. Widening is a design-intent judgement, not a mechanical one — " +
-				"inline styles and light colours are where deliberate design lives, and a wrong rewrite is a " +
-				"visible site regression.",
+			// CORRECTED 2026-07-26 after measuring the residue rather than inferring it.
+			// This used to read "rewrite the hex forms ReplaceHardcodedColors leaves
+			// alone: light hexes, 3/4/8-digit forms, inline style attributes" — true as
+			// a description and MISLEADING as a brief, because it frames the fix as
+			// "match more patterns". On the first site measured (finetuning.uk) the
+			// residue was 100% light SURFACE colour — #fff x6, #f8f9fa x5, #e0e0e0 x3,
+			// tints #fef2f2/#ecfdf5, one 3-digit #eee — and not one dark fill missed on
+			// a technicality. Widening the regexes alone would map every white card to
+			// var(--color-primary) and repaint it in the brand colour.
+			Capability: "the fixer has a TWO-WORD VOCABULARY: ReplaceHardcodedColors maps everything it " +
+				"touches to var(--color-primary)/var(--color-secondary), which is only correct for DARK BRAND " +
+				"FILLS — that, not its regexes, is what makes its remit narrow. The residue is light surface " +
+				"colour and semantic tints, so widening the patterns without widening the TARGETS would repaint " +
+				"white cards in the brand colour. What is wanted is a colour->variable mapping derived from the " +
+				"site's own palette: style_collections.color_palette already names background and background_alt, " +
+				"and the platform already emits --color-background/--color-surface/--color-surface-alt/" +
+				"--color-border/--color-white. Deriving the map from data is also what makes widening safe. " +
+				"Open questions, not assumptions: whether a bare #fff is worth variabilising; whether semantic " +
+				"tints need palette entries that do not yet exist; whether inline style=\"\" attributes come " +
+				"into scope at all.",
 			Population:   len(population),
 			Residue:      len(residue),
 			Examples:     residue,
