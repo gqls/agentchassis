@@ -4290,10 +4290,29 @@ correctly evidenced — two failed runs, named correlations. On 07-26 the claim 
 unchanged, into the WHY block of the migration that fixes it: "measured 2026-07-26, …cannot be
 rebuilt by the writer at all… and is therefore STILL SERVING the pre-201 case-study metrics."
 
-**What was actually true.** The page rebuilt at **07:52:58Z that morning** — all eight sections
-`deployed`, fresh `content_data` — hours before "measured 2026-07-26" was written. And it had
-rebuilt by **inventing four of its five figures**, none of them in the site's own evidence
-register. So the page was not serving pre-201 metrics; it was serving brand-new post-201 ones.
+**What was actually true.** All eight sections were re-stamped `deployed` at **07:52:58Z that
+morning**, hours before "measured 2026-07-26" was written — so "cannot be rebuilt by ANY path"
+was too strong: the page is re-rendered freely and often.
+
+> **CORRECTED the same day — my correction was itself wrong on its central claim.** I wrote
+> that the page "rebuilt… by inventing four of its five figures". The 07:52 event was a
+> **`page-rerender`**, which renders from stored `content_data` with **no model in the loop**;
+> it re-published fabrications written long before 201. Nothing was invented that morning.
+> What caught it: the migration's author queried `orchestration_states` for
+> `owner_agent_type` in that window — no `page-content-writer` ran on that page at all — while
+> my evidence was `build_status='deployed'` with a fresh `updated_at`, **and the re-render
+> path stamps both.** Their full entry is below, under *"a re-render is not a rebuild"*; the
+> honest version of the finding is theirs: the page cannot be rebuilt by the **writer** while
+> it can be re-rendered freely, so **the fabrication republishes itself indefinitely while the
+> only path that could correct it stays blocked.** Worse than either version, and now on
+> record.
+>
+> **My specific mechanical error, which is the reusable part:** I read `min(created_at)` on
+> `orchestration_states` (07-13) as evidence the table still held 07-24/07-25, and concluded
+> the absent failure rows meant an absent event. The per-day histogram: **1 row from 07-13, 4
+> from 07-24, 539 from 07-25, 1,215 from 07-26.** Retention is a heavy prune with a long tail.
+> **The oldest row is not a retention floor — `GROUP BY date_trunc('day', …)` before reading
+> an empty result as a negative.**
 
 **What caught it.** Reading `page_components.updated_at` for the page before believing the
 severity line — the first query anyone would run to see the current state, and neither of us ran
@@ -4308,11 +4327,12 @@ SELECT build_status, updated_at FROM page_components WHERE page_id=…;   -- did
 SELECT count(*) FROM orchestration_states WHERE error LIKE '%missing required content field%';
 ```
 
-**Why it matters more than a stale figure.** The correction is not "the page did build" — it is
-that **the failure was conditional on the model telling the truth**, which is a strictly worse
-bug than the deterministic one filed, and the deterministic framing hid it. A failure selected by
-a model's choice is intermittent by construction; two observations can never establish
-determinism for one, and "observed twice" reads like evidence of exactly that.
+**Why it matters more than a stale figure.** The surviving point is that **the failure was
+conditional on the model telling the truth** — pre-201 it invented and the page built, post-201
+it declined and the build died — which is a strictly worse bug than the deterministic one filed,
+and the deterministic framing hid it. A failure selected by a model's choice is intermittent by
+construction; two observations can never establish determinism for one, and "observed twice"
+reads like evidence of exactly that.
 
 **The bit I want to remember.** CLAUDE.md already says to ground every figure against the live
 system before repeating it from another doc. I did that for figures and not for a *state* claim
@@ -4521,3 +4541,45 @@ verification that returns the answer you expected deserves one more question: co
 query return that answer even if I were wrong?**
 
 Family: verification-order-unevidenced, tautological-check, my-own-measurement-is-still-a-quote, backup-as-falsifier.
+
+---
+
+## 2026-07-26 — my poll loop reported a verdict that did not exist, because an erroring test reads as "condition met"
+
+**The claim.** Waiting on a second council verdict, I armed:
+
+```bash
+until [ "$(psql -tAc 'SELECT count(*) … kind=council_report')" -lt 2 ]; do sleep 60; done
+echo "ROUND 2 VERDICT: $(psql -tAc '… ORDER BY created_at DESC LIMIT 1')"
+```
+
+It fired within minutes and printed `ROUND 2 VERDICT: revise`. Round 2 was still running.
+
+**What was true.** A transient `kubectl exec` failure returned an **empty string**, so the
+test became `[ "" -lt 2 ]`, which is a *usage error* in `test` — non-zero exit — and `until`
+treats non-zero as "condition satisfied, stop looping". The loop exited on the failure, and
+the follow-up query then returned the only report that existed: **round one's**. The verdict
+I nearly reported as a judgement on my fixes was a judgement on the code before them.
+
+**What caught it.** The objections were byte-identical to round one's, *and quoted plan text
+my revision had deleted* — "documented to 'return nil silently'", "the plan's own risks
+section names an unaddressed gap", both of which round two no longer said. Checking the
+artifact rows then showed one `council_report`, not two, and the round-2 run still at
+`review_constitution`.
+
+**The cheap check.** Never let an empty result reach a numeric test. Bind it, default it,
+and require it to be non-empty:
+
+```bash
+until c=$(psql … 2>/dev/null | tr -d ' '); [ -n "$c" ] && [ "$c" -ge 2 ] 2>/dev/null; do sleep 60; done
+```
+
+**The bit worth remembering.** This is the same defect I had spent the afternoon fixing, in
+my own tooling, within the hour. The council's medium objection against my change was that a
+skipped check produced silence indistinguishable from a clean pass; **my watcher turned a
+failed query into a completed wait.** In both cases the absent case and the success case
+share an exit path, and in both the failure is invisible precisely because nothing goes
+wrong loudly. Whenever a wait, a check or a sweep can *fail to run*, ask what it returns
+then — and make that answer different from the one it gives when it ran and found nothing.
+
+Family: absence-reads-as-success, silence-is-not-a-pass, verify-the-failing-branch, my-own-tooling-has-the-bug-I-am-fixing.
