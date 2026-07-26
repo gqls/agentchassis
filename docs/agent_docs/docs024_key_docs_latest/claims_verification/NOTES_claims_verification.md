@@ -505,3 +505,44 @@ not manual but part of the chassis' capability". Spec'd
 - V5 smoke therefore PENDING the adapter image: re-run per RUNBOOK §7 with
   {site_id, domain, research_query}; expect the gaswholesalers register to be
   created by its first verified facts.
+
+## 2026-07-26 — V4's freshness sweep is LIVE, and had never run once (bugs_closed/074, another thread)
+
+Left by the bugs_open/074 session. **Your `evidence-freshness` task had never executed its
+sweep.** It carried its workflow inline at `input_data.config.workflow` — a shape the scheduler
+cannot deliver (it builds the message `config` from the row's columns, so the workflow landed a
+level below the only reader), so `generic`'s one-step no-op ran instead and every fire stamped
+both timestamps and did nothing. The check that shows it, and that no timestamp can fake:
+
+```sql
+SELECT count(*) FROM orchestration_states WHERE workflow_plan::text LIKE '%refresh_evidence_base%';
+--  0 for the whole life of the task; 3 after the repair
+```
+
+**Repaired the way model_directory repaired the identical shape:** a new `evidence-freshness`
+`agent_definitions` row now carries the workflow verbatim, the task points at it, `input_data` is
+`{}`. `SEED_evidence_freshness_scheduled_task.sql` in this directory has been rewritten to match,
+so a re-seed cannot reintroduce it, and migration `217` now refuses the shape with a CHECK
+constraint.
+
+**First real pass, staged behind a `dry_run: true` pass first** (it rewrites `writer_block` on
+sites other threads are actively working): 8 sites swept, 24 sql-sourced facts, 0 errors, **3 new
+`site_specs` revisions** as `evidence-refresher` with `pinned` preserved, and **3 `stale_evidence`
+items** raised for human review — fundamentallyai (3 facts), ai-agent-orchestration (3),
+leopardess (1). All genuine: council round counts +1, live sites 12→14, orchestrations/day down.
+
+**Then an induced fault**, because a green pass proves deployment and not detection: one leopardess
+fact set to 9,370 against a live 937 came back `drifted` with the right detail, and the number
+re-synced itself.
+
+**Two things for you:**
+
+1. **`bugs_open/091`** — found by that induced fault. While an earlier `stale_evidence` item is
+   open, a second, *different* drift is dropped by the work-item dedup (`ON CONFLICT … DO NOTHING`
+   on `stale_evidence:<site_id>`) and the run still reports `work_item_created: true`, because
+   `createStaleEvidenceItem` throws away the `inserted` bool it is handed. The contained half of
+   the fix (propagate `inserted`) is yours; the shared-helper half belongs to
+   work_item_completion_integrity. Not touched here.
+2. **The sweep supersedes the spec** (`is_current=false` + INSERT, `refresh_evidence_base_action.go:669-693`)
+   and now runs **daily**. Any code or session holding a `site_specs.id` for an evidence base must
+   re-SELECT the current row before writing, or the write lands on a dead revision.

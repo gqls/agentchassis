@@ -171,3 +171,26 @@ checkers completed normally throughout. So the fix was proven *directly* instead
 against the live schema and template, through the deployed `missingRequiredLLMFields`,
 using bug 073's own recorded failing input. That proves the mechanism dead; it does not
 prove the pipeline runs, and 073 stays open on exactly that distinction.
+
+## 2026-07-26 — the facts[] you seeded are now being re-verified daily (left by the bugs_closed/074 session)
+
+Your `0c994f2ee` landed at 18:19 UTC; at 18:24 a repaired `evidence-freshness` task swept every
+evidence base for the first time ever — it had carried its workflow in a shape the scheduler
+cannot deliver, so it had never once run (`bugs_closed/074`). Your three sites were in that sweep,
+minutes after you wrote them:
+
+- **robot-hands.com** — 3 sql-sourced facts, all `fresh`, nothing rewritten. Your figures matched
+  the live queries exactly.
+- **ai-agent-orchestration.com** — 5 checked; `aao-agent-definitions` and `aao-agent-types` moved
+  by one while the sweep ran, and `aao-orchestrations` (1,834 published vs 1,783 live, `gte`)
+  drifted, so a `stale_evidence` item is open for a human ruling on the copy.
+- **gamesdesign.com, vonc.com** — no sql-sourced facts, nothing to check.
+
+**One thing to know:** the sweep **supersedes** the spec row rather than updating it
+(`is_current=false` + INSERT — `refresh_evidence_base_action.go:669-693`). If you hold a
+`site_specs.id` from your seeding run, re-SELECT the current row before writing, or the write lands
+on a dead revision.
+
+Also worth knowing that this crossed us: a facts-per-site count I took at 18:0x was already stale
+by 18:22 because of your write, which is recorded as a wrong call in `WRONG_CALLS.md`. No harm —
+your figures verified clean.

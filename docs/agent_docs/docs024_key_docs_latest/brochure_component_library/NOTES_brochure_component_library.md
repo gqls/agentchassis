@@ -1926,3 +1926,25 @@ stall; a position that advances is latency, and latency here is minutes.
 > published, both routes are still queued and idempotent, and re-firing is still
 > the wrong move — more so now, because the lane is genuinely working through a
 > backlog and a duplicate lands behind all of it.
+
+## 2026-07-26 — fundamentallyai's evidence register is now swept daily (left by the bugs_closed/074 session)
+
+Your register was written at 17:35 today; at 18:24 a repaired `evidence-freshness` task swept it
+for the first time. Two things that matter for the chart component, which draws its figures from
+this register:
+
+- **The spec row you wrote is no longer current.** The sweep **supersedes** rather than updates
+  (`is_current=false` + INSERT a new revision — `refresh_evidence_base_action.go:669-693`), so a
+  held `site_specs.id` now points at a dead revision. Re-SELECT the current row before any further
+  write. Your content is intact: 7 sql-sourced facts checked, 4 re-synced to their own queries,
+  `writer_block` regenerated from your `writer_line` templates (the words are yours; only the
+  numbers moved), nothing removed.
+- **Three of your facts drifted outside tolerance and now have a `stale_evidence` item**
+  (`needs_human_review`): `F11-council-rounds-revise` 108→109, `F12-council-rounds-approved`
+  37→38, `F13-council-rounds-rejected` 9→10 — all `exact` tolerance on counts that move every time
+  a council runs. The register's numbers were re-synced automatically; what needs a ruling is the
+  published **copy** quoting them. Worth considering whether those three want a floor wording
+  ("more than N") like `F1-live-sites` has, since they will drift again by tomorrow.
+
+This ran because `bugs_closed/074` was fixed: the task had carried its workflow in a shape the
+scheduler cannot deliver and had therefore never run at all.

@@ -61,14 +61,49 @@ Created by migration `066_kafka_scheduler.sql`.
 | `interval_seconds` | INT | How often to trigger (seconds) |
 | `target_agent_type` | TEXT | Agent type to include in the trigger message body |
 | `target_topic` | TEXT | Kafka topic to publish to (default: `system.agent.generic.requests`) |
-| `input_data` | JSONB | Static input data merged into the message body |
+| `input_data` | JSONB | **The payload only** — see "What belongs in `input_data`" below. Merged into the message body's `input_data` field, never into its envelope |
 | `pre_query` | TEXT | Optional SQL query run before each trigger (see below) |
 | `concurrency_group` | TEXT | Tasks sharing a group respect `max_concurrent` across the group |
 | `max_concurrent` | INT | Max in-flight tasks in this group (default: 1) |
 | `enabled` | BOOLEAN | Toggle without deleting |
 | `last_triggered_at` | TIMESTAMPTZ | Set by scheduler after each trigger |
-| `last_completed_at` | TIMESTAMPTZ | Reserved for future use (agents can update this on completion) |
+| `last_completed_at` | TIMESTAMPTZ | **Not reserved, and not proof of work.** The scheduler stamps it alongside `last_triggered_at` the moment the message is published (and on a no-op pre-query, so the row rotates rather than pinning its group — `bugs_open/048`). Both advancing means "a message went out", never "the work happened" — that distinction is the whole of `bugs_open/074` |
 | `timeout_seconds` | INT | How long a task is considered "in-flight" for concurrency counting |
+
+---
+
+## What belongs in `input_data` — and what cannot go there
+
+`input_data` is the **payload**. The scheduler builds the message envelope itself, out of the
+row's *columns*:
+
+```json
+{"action": "orchestrate",
+ "config": {"agent_type": "<target_agent_type>"},
+ "input_data": <the input_data column, verbatim>}
+```
+
+So anything you write at `input_data.action`, `input_data.config` or `input_data.input_data`
+arrives one level too deep for the code that reads those names. Two cases have cost real time:
+
+- **A whole message envelope as the payload** (`bugs_closed/054`): the real fields end up at
+  `input_data.input_data.*` and the action sees no `domain`. Correct payloads look like
+  `{"batch_size": 20, "vertical_slug": "veterinary"}` — no `action`, `config` or `input_data` key
+  at the top level.
+- **A workflow inline** (`bugs_open/074`): the chassis *does* honour an inline workflow, but only
+  at `body.config.workflow`, and a scheduled task cannot put anything there. Such a workflow is
+  undeliverable, and the target agent's own workflow runs instead — for `generic`, a single
+  `complete_workflow` no-op, so the task fires, stamps both timestamps, and does nothing at all.
+  One task sat like that for three months. **Migration `217` now refuses the shape with a CHECK
+  constraint**, and the scheduler refuses to fire such a task rather than manufacture a green
+  orchestration for work it never dispatched.
+
+**A workflow's home is an `agent_definitions` row**, where it is versioned, snapshotted and
+discoverable; the task points `target_agent_type` at it. Worked examples:
+`bugfix_074_inline_workflow/SEED_evidence_freshness_agent.sql` and
+`model_directory_pipeline/SEED_directory_freshness_agent.sql`.
+
+**Adding a schedule is still just an INSERT** — this is the one shape it must not have.
 
 ---
 
