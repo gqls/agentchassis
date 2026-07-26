@@ -50,7 +50,10 @@ than chasing pointers through other sessions' work.
 
 ## ⚠️ Duplicate numbers exist — check the slug, not just the number
 
-The numbering was assigned by concurrent threads and **collided twice**:
+The numbering was assigned by concurrent threads and has collided repeatedly —
+**nine numbers so far**, listed below. (This line read "collided twice" until
+2026-07-26; it was written when that was true and the table outgrew it. If you
+are adding a row, update the count too.)
 
 | number | this directory | still in `/bugs_open/` |
 |---|---|---|
@@ -61,6 +64,7 @@ The numbering was assigned by concurrent threads and **collided twice**:
 | `028` | **both** here now: avoid-lists inert / banana discards negative prompts (closed 2026-07-20) — cite as **028-avoid-lists**; **and** page-build no-op reported complete + "borrowed" components (closed 2026-07-25) — cite as **028-page-build-noop** | — |
 | `029` | — | **both** still open: hung spawns saturate the dispatch group; **and** tool suggester writes phantom tool links |
 | `040` | failed page build leaves page deployed / partially composed — **040-partial-build**, closed 2026-07-24 (guard live `v1.0.1146`, skip persistence live `v1.0.1155`) | kafka dial timeouts fleet-wide — **040-kafka-dial**, still open (two files, both `040`, both 2026-07-20) |
+| `043` | diagnosis runs hang at the `route` step — **043-route-hang**, closed 2026-07-26 (resolver budget live `v1.0.1165`, migration 191 applied, root fix = `003` F2/F3 live `v1.0.1159`) | generated page copy invents quantitative claims — **043-fabricated-stats**, still open (two files, both `043`, both filed 2026-07-20) |
 | `044` | plan_sections defers an empty-schema component by name heuristic (closed 2026-07-21, live `v1.0.1146`) | no capability inventory / dormant agents undetectable (still open) — two files, both `044`, both filed 2026-07-20 |
 
 A bare reference to `bugs_open/016` or `bugs_open/017` in older docs or code
@@ -84,6 +88,7 @@ numbers are cited in commit messages and Go comments.
 | 031 | A stale register entry asserts a content-hash rerender skip that never existed, blocking correct plans | corrected in all 6 places, including the live council seat prompts |
 | 032 | The completion verifier reads a DELETED component as a successful fix | conservative floor (error, not verdict) shipped; **re-verified in the running pod** 2026-07-20 |
 | 018 | Council coverage report (`098_…sh`) hid 90% of in-scope commits — `kubectl exec -i` stole the read loop's stdin | shell fix (live on commit): `-i` dropped, dual-id (correlation OR run) resolution, EVIDENCE-GONE bucket, first-token trailer parse; **verified against live DB + git** 2026-07-21 (full-DB count == raw `git log`; approved run-id → REVIEWED). The *idea.uk* `018` is a different case, still open. |
+| 043 | Diagnosis runs hang at the `route` step, so the loop returns no verdicts — **043-route-hang** | hardening live in `v1.0.1165` (**re-verified in the running pod**, and in the spawned-pod image pin, which is where `route` runs); migration 191 resource bump still applied; root cause was the `003` spawn-loss class, whose F2/F3 fix is live in `v1.0.1159` and owner-ratified. Symptom extinct: zero failed/stranded diagnoses since 2026-07-20 across five days of burst load. Trigger never pinned — closure is extinction + owned root fix, said so in the file. The *fabricated-stats* `043` is a different case, still open. |
 
 Note `002` is also filed here as a routing document rather than a fixed defect —
 its A–C legs are done and it points at the owners of the rest. Read it before

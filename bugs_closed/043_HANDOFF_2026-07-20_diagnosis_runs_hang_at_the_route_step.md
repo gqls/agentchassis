@@ -1,5 +1,10 @@
 # 043 — diagnosis runs hang at the `route` step, so the loop returns no verdicts
 
+> **CLOSED 2026-07-26 — fixed AND live. Moved to `/bugs_closed/`. See the closure
+> section at the foot of this file for the evidence.** Resolve this case **by slug**:
+> the number `043` is also used by the unrelated `043_…_generated_page_copy_invents_
+> quantitative_claims.md`, which remains OPEN in `/bugs_open/`.
+
 **Filed 2026-07-20** (vetcomparison thread). **Status: OPEN.**
 **Cause NOT determined** — this is an observation file. Deliberately not filed *into* the
 diagnosis loop, because the diagnosis loop is the thing that is stalling; filing there would be
@@ -206,3 +211,137 @@ pod on a 256Mi request was a disproportionately likely victim. Its row now carri
 requests bump to **cpu 250m / memory 512Mi** (limits unchanged at 500m/1Gi — memory peak ~150Mi, and
 OOM was ruled out). The spawner reads `resources` at spawn time, so this is **live on the next
 diagnose run — no image roll**. This reduces exposure; it is NOT the root fix (still `003`'s F2/F3).
+
+---
+
+# CLOSED 2026-07-26 — fixed AND live (bugfix-043-route-hang thread)
+
+Everything this case was waiting on is now live in production, and the symptom is extinct on
+every durable record the platform keeps. Closing on **extinction in practice plus an owned,
+live root fix** — not on a pinned eviction trigger, which was never obtained (see "What this
+closure does NOT claim").
+
+## 1. The `route` hardening is live — and live *where `route` actually runs*
+
+The resolver budget was committed 2026-07-21 (`2c82cf804`) and was inert pending a roll. It has
+since shipped. Pod-grep of the running chassis binary for two strings the fix itself **created**
+(a discriminating grep, not one the pre-fix code also contained):
+
+```
+$ kubectl -n ai-persona-system get pods -l app=agent-chassis \
+    -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.spec.containers[0].image}{"\n"}{end}'
+agent-chassis-f4d46c88d-p6wqc	docker.io/aqls/agent-chassis:v1.0.1165
+
+$ kubectl -n ai-persona-system exec agent-chassis-f4d46c88d-p6wqc -- sh -c \
+    'strings /app/agent-chassis | grep -c "resolver_budget_seconds";
+     strings /app/agent-chassis | grep -c "resolver_embedding_timeout_seconds"'
+1
+1
+```
+
+**The `bugs_open/066` trap was checked explicitly, and it is clear here.** `route` does not run in
+the deployment pod — it runs in the per-run ephemeral `agent-diagnose-agent-*` Job pod, whose image
+comes from the agent's own row, not from the Deployment. Under `066` that pin routinely lags a roll,
+which would have made the pod-grep above a **false green** for this case. It does not, because the
+row is current:
+
+```sql
+SELECT type, image_repository, image_tag FROM agent_definitions
+WHERE type='diagnose-agent' AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+-- diagnose-agent | docker.io/aqls/agent-chassis | v1.0.1165
+```
+
+Same tag as the deployment, so the spawned pods that execute `route` carry the budget. (`066`
+itself stays open — the class is real; this row simply happens to be current.)
+
+## 2. Migration 191 is still applied
+
+```sql
+SELECT type, resources->'requests' AS requests, resources->'limits' AS limits
+FROM agent_definitions WHERE type='diagnose-agent'
+  AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+-- diagnose-agent | {"cpu": "250m", "memory": "512Mi"} | {"cpu": "500m", "memory": "1Gi"}
+```
+
+Verified 2026-07-26, i.e. it has survived every re-seed since 07-22.
+
+## 3. The root fix — `bugs_open/003` F2/F3 — is live and owner-ratified
+
+`003`'s at-least-once consume + DB-driven retry driver went live in **v1.0.1159** (2026-07-25,
+carried by another session's fleet build) and the owner ruled **KEEP LIVE** against the live
+evidence: first ~4.5 h showed 175 awaited requests, 19 retried, **7 recovered end-to-end** that
+would previously have been silent losses, 6 loud `error` at the retry cap replacing silent 90-min
+strandings, 0 stuck `retrying`, 806/806 dedupe claims completed. That is the mechanism this case
+was strand-ing on, now fixed at the class level by its owning lane. The redesign is documented as
+`RFC_001` in the architecture-review track.
+
+## 4. The symptom is extinct
+
+The three independent records all agree, and none of them shows a `route` hang after 2026-07-20.
+
+**Diagnosis intake — zero stranded:**
+
+```sql
+SELECT status, count(*), max(created_at)::date AS latest
+FROM site_work_items WHERE item_type='needs_diagnosis' GROUP BY status;
+-- cancelled |  4 | 2026-07-20
+-- complete  | 21 | 2026-07-25
+-- failed    |  5 | 2026-07-20
+```
+
+Every `failed` and `cancelled` row dates to **2026-07-20 or earlier** — this bug's own window.
+Nothing has failed since. Critically there are **zero `awaiting_diagnosis` rows**: the state this
+case documented as the secondary damage (a dead run leaves its intake stuck `awaiting_diagnosis`,
+which then makes the 090 trigger refuse a refile as a duplicate) does not exist anywhere.
+
+**Throughput at the load that used to kill runs** — `diagnosis_artifacts` by day, 07-21 → 07-26:
+bundles 2 / 27 / 0 / 28 / 20 / –, with `fix_plan` and `council_report` rows every single day
+including today. The 07-19/20 deaths clustered in bursts of 13 concurrent diagnoses; 07-22, 07-24
+and 07-25 each ran that scale or more without a single strand.
+
+**The discriminator itself, on the surviving rows.** `orchestration_states` is pruned at ~24 h, so
+only two diagnose runs are retained — but they answer the exact question this case turned on. The
+hung runs were identified by a populated `verdict.result` with **no `route` key in
+`collected_data` at all** (the action started and never produced its result map). Both surviving
+runs have it:
+
+```sql
+SELECT substring(correlation_id::text,1,8) AS corr, status, current_step,
+       collected_data ? 'route' AS route_saved, collected_data ? 'verdict' AS verdict_saved,
+       created_at, updated_at
+FROM orchestration_states WHERE workflow_plan->'steps' ? 'route' ORDER BY created_at;
+-- c19ed5b2 | COMPLETED | complete | t | t | 2026-07-25 17:13:04 | 2026-07-25 17:55:55
+-- 4ab9473b | COMPLETED | complete | t | t | 2026-07-25 17:14:22 | 2026-07-25 17:49:07
+```
+
+Both `route_saved = t`, both COMPLETED, and both ran **35–42 minutes** — i.e. long multi-iteration
+marathons of exactly the shape that used to die 8–36 s into `route`. A concurrent check found
+**0 non-COMPLETED rows** carrying a `route` step.
+
+## 5. What this closure does NOT claim
+
+- **The exact instruction that killed the pods was never pinned.** The "What is NOT pinned" section
+  above stands: node/kubelet eviction vs. Job/container restart vs. spot reclaim was never
+  distinguished, and no induced mid-`route` kill was run **in this lane**. The `003` lane's
+  controlled kill test (2026-07-25) proved cross-pod rescue on the adjacent `AWAITING_RESPONSES`
+  branch, not on a mid-`EXECUTING_STEP` `route` death specifically.
+- So the honest closure is: the hardening is live, the exposure is reduced, the strand mechanism is
+  fixed at the class level by its owner, and the symptom has not recurred across five days of
+  normal and burst load. Not: "we watched the trigger and eliminated it."
+- **If it recurs**, the cheapest first move is still the live reproduction described above — burst
+  a set of diagnoses and catch a pod dying at `route` with `kubectl get pod -o yaml`
+  (`status.reason` / `containerStatuses[].lastState`), `kubectl get events`, and the exit code —
+  and it should be reported into `003`, not refiled here.
+
+## 6. Residuals, and who owns them
+
+Both belong to the `003` lane; **do not fork them here**:
+
+- **`bugs_open/075`** — a dead coordinator's `processing_node` makes responses permanently
+  undeliverable, and post-F2 the retry driver then loops forever with real side effects. Found by
+  `003`'s own kill test, contained the same hour, fix mapped.
+- **The kill-test re-run and F4 liveness re-test** owed by `003` after `075` lands.
+
+`bugs_open/066` (spawned pods pin stale image tags) is checked-and-clear for diagnose-agent today
+but remains open as a class — anyone verifying a future `route` fix must re-check the agent row,
+not just the deployment pod, or the pod-grep is a false green.
