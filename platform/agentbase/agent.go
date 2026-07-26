@@ -843,6 +843,14 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		a.producer.Produce(context.Background(),
 			parentResponsesTopic, errorHeaders, msg.Key, bodyBytes)
 
+		// bugs_open/034: this is the FIRST gate an inbound message meets, and it
+		// dropped with no durable trace whatsoever — not even the MessagesDropped
+		// counter the two later drop sites at least increment. Proven by induced
+		// fault 2026-07-26 (a request published with no client_id header): an
+		// error response went out, the message was acked, and agent_error_log
+		// stayed empty. Record it, then drop exactly as before.
+		a.recordRejectedIncomingMessage(headers, messageType)
+
 		return
 	}
 
@@ -1090,6 +1098,73 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 		observability.MessagesProcessed.WithLabelValues(a.AgentType, messageType).Inc()
 		observability.MessageProcessingDuration.WithLabelValues(a.AgentType, messageType).Observe(time.Since(startTime).Seconds())
 	}
+}
+
+// requiredIncomingHeaders mirrors validation.Validator.ValidateIncomingMessage.
+// Named here only so the durable record can say WHICH field was missing — the
+// validator itself returns a bare bool, so the reason is otherwise lost the
+// moment the message is dropped.
+var requiredIncomingHeaders = []string{"client_id", "correlation_id", "orchestration_id"}
+
+// recordRejectedIncomingMessage persists a message rejected by the inbound
+// header gate (bugs_open/034, third drop site).
+//
+// This gate is the first thing a malformed message meets and was the least
+// visible of the three: the two later sites at least increment
+// observability.MessagesDropped, this one did nothing but publish an error
+// envelope and return. An induced fault on 2026-07-26 — a request with no
+// client_id header — produced an error response, an acked message, and zero
+// rows anywhere in the database.
+//
+// It records which required header was absent, because ValidateIncomingMessage
+// returns only a bool and the log line it writes is on a pod that rotates
+// within minutes. Best-effort and detached, like the other recorders: this must
+// never change the rejection the caller already decided.
+func (a *Agent) recordRejectedIncomingMessage(headers map[string]string, messageType string) {
+	if a.db == nil {
+		return
+	}
+
+	missing := make([]string, 0, len(requiredIncomingHeaders))
+	for _, field := range requiredIncomingHeaders {
+		if headers[field] == "" {
+			missing = append(missing, field)
+		}
+	}
+
+	action := headers["action"]
+	if action == "" {
+		action = "process_message"
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	orchestration.LogAgentError(ctx, a.db, a.logger, orchestration.AgentErrorEntry{
+		OrchestrationID: headers["orchestration_id"],
+		AgentType:       a.AgentType,
+		AgentID:         a.AgentID,
+		PodName:         a.PodName,
+		StepName:        headers["step_name"],
+		Action:          action,
+		ErrorMessage: fmt.Sprintf("incoming message rejected: missing required header(s): %s",
+			strings.Join(missing, ", ")),
+		ErrorCode: "INCOMING_MESSAGE_REJECTED",
+		Severity:  "warning",
+		Context: map[string]interface{}{
+			"correlation_id":  headers["correlation_id"],
+			"message_id":      headers["message_id"],
+			"request_id":      headers["request_id"],
+			"client_id":       headers["client_id"],
+			"message_type":    messageType,
+			"from_agent_type": headers["from_agent_type"],
+			"missing_headers": missing,
+			"dropped_at":      "agentbase.processMessage/ValidateIncomingMessage",
+			"retried":         false,
+			"error_response":  true,
+			"note":            "rejected by the inbound header gate before any orchestration exists, so there is no orchestration_states row to find either (see bugs_open/034).",
+		},
+	})
 }
 
 // recordDroppedValidationError persists a dropped validation error to
