@@ -175,3 +175,68 @@ so they returned **404** rather than merely failing to scroll. Repairing the pat
 converts them from broken to inert — an improvement, not a fix. They still do
 nothing when clicked, and a dead control is what `bugs_open/023`'s family exists
 to catch.
+
+---
+
+# Transferred in from `bugs_open/049`, 2026-07-26 — the fleet-wide measurement of this class
+
+`049` (stale chrome + unbuilt-page links) closed on its own two mechanisms. Its **third**
+mechanism is this bug's class, so it is handed over here rather than left in a closed file.
+This is evidence, not a competing fix — `who-owns.py` puts the class with you.
+
+## The live measurement
+
+229 active pages across 8 sites fetched over HTTPS, every internal href extracted from the
+**shipped** markup, all 274 unique targets probed (the RUNBOOK R15 method in
+`cta_link_integrity/`, script `scripts/live_link_audit.sh`):
+
+```
+3,949 internal anchor instances · 274 unique targets · 65 return 404 · 3 return 301 (fine)
+118 broken anchor instances on 59 of 229 pages
+```
+
+**Of those 118, roughly 61 are this bug's class** — the remainder were 049's own chrome/nav
+mechanism (40, now fixed) and residual stale artefacts. Classified against the `pages` table:
+
+| class | targets | what it needs |
+|---|---|---|
+| **href omits `.html`, target EXISTS and is live** | 8 | a href rewrite — the target is already 200 |
+| **invented target, no `pages` row in any form** | ~48 | the writer named a page nobody planned |
+| target exists but was never built | 4 | 049's `unbuilt_internal_link`, already detected |
+
+The extension-less eight, each confirmed 200 at the `.html` form:
+
+```
+ai-agent-orchestration.com  /contact                     -> /contact.html
+finetuning.uk               /contact                     -> /contact.html
+finetuning.uk               /tools                       -> /tools.html
+finetuning.uk               /tools/llm-cost-calculator   -> /tools/llm-cost-calculator.html
+gaswholesalers.com          /contact                     -> /contact.html
+leopardessconsulting.co.uk  /tools/llm-cost-calculator   -> /tools/llm-cost-calculator.html
+robot-hands.com             /learning-center             -> /learning-center.html
+robot-hands.com             /matchmatrix                 -> /matchmatrix.html
+```
+
+The invented ones cluster hard by site, which is the tell that they come from one writing run:
+`ai-agent-orchestration.com` and `finetuning.uk` have 5 fabricated `/case-studies/*.html` each;
+`leopardessconsulting.co.uk` has 6 fabricated `/services/*.html`; `robot-hands.com` has 14 under
+`/learning-center/*` and `/matchmatrix/*`.
+
+## Also transferred: the 9 dead `/tools/*.html` links from `bugs_closed/029`
+
+`029` closed at the emitter (migration 211 — no NEW dead tool links can be created) and handed
+its **existing** damage to 049. It is the same class as yours, so it comes here with the rest:
+9 references in deployed page HTML, 8 pages, 3 sites, 5 distinct targets. Two of the five
+(`tool-bayesian-ranking`, `tool-process-automation-scorer`) **exist at a different URL shape**,
+so they are href rewrites; three have no page at all. The re-derivation query and the
+`\.html`-filter trap (asset paths under `/tools/` dominate an unfiltered scan) are recorded in
+`bugs_closed/049`'s handover section.
+
+## One finding that bears on your fix candidates
+
+`NormalizePagePath` (`datahelpers/links.go`) deliberately does **not** strip or append `.html`,
+and it should stay that way. Making the matcher tolerant would silence the detector on
+`/contact` — but `/contact` genuinely returns **404** on these sites, so the detector is right
+and the tolerance would only hide a live defect. The repair belongs at the writer (your
+candidate 4, `InjectLinkConstraints`, which this session confirms is still defined and never
+called) or in a rewrite pass over stored `rendered_html` — not in the normaliser.
