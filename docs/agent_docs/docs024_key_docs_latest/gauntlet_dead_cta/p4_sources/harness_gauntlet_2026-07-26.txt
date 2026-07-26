@@ -1,0 +1,77 @@
+
+=== profile: desktop (1366x900) ===
+127.0.0.1 - - [26/Jul/2026 15:48:12] "GET /test.html HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:48:12] "GET /tools/assets/gauntlet-interface.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:48:12] "GET /data/provocations.json HTTP/1.1" 200 -
+PASS  selector_exists [data-gi-enter-btn]
+PASS  selector_exists [data-gi-status]
+PASS  selector_exists [data-gi-challenge-body]
+PASS  selector_exists [data-gi-position-input]
+PASS  selector_exists [data-gi-position-submit]
+PASS  selector_exists [data-gi-opponent-position]
+PASS  selector_exists [data-gi-opponent-challenge]
+PASS  selector_exists [data-gi-defence-input]
+PASS  selector_exists [data-gi-defence-submit]
+PASS  selector_exists [data-gi-verdict]
+PASS  selector_exists [data-gi-verdict-reasons]
+PASS  selector_exists [data-gi-pct]
+PASS  selector_exists [data-gi-obj]
+PASS  selector_exists [data-gi-timer]
+PASS  no dead anchors in the section — found []
+PASS  provocation pre-rendered from the feed — 326 chars
+PASS  progress starts at 0%
+PASS  no objective pre-marked
+PASS  clock not started
+PASS  round_starts: state badge goes live
+PASS  round_starts: challenge body populated — 326 chars
+PASS  round_starts: clock is running — reads 19:59
+PASS  round_starts: still no objective marked
+PASS  position_flow: opponent counter-position is real AI text — 885 chars
+PASS  position_flow: opponent challenge populated — 345 chars
+PASS  position_flow: exactly one objective marked — count=1
+PASS  position_flow: progress reads 33% — 33% Complete
+PASS  defend_flow: verdict populated — opponent wins
+PASS  defend_flow: verdict reasons populated — 816 chars
+PASS  defend_flow: all three objectives marked — count=3
+PASS  defend_flow: progress reads 100% — 100% Complete
+PASS  no horizontal overflow — overflow 0px, widest {'t': 'DIV.gi-container', 'w': 1200}
+
+=== profile: mobile (390x844) ===
+127.0.0.1 - - [26/Jul/2026 15:48:36] "GET /test.html HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:48:36] "GET /tools/assets/gauntlet-interface.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:48:36] "GET /data/provocations.json HTTP/1.1" 200 -
+PASS  selector_exists [data-gi-enter-btn]
+PASS  selector_exists [data-gi-status]
+PASS  selector_exists [data-gi-challenge-body]
+PASS  selector_exists [data-gi-position-input]
+PASS  selector_exists [data-gi-position-submit]
+PASS  selector_exists [data-gi-opponent-position]
+PASS  selector_exists [data-gi-opponent-challenge]
+PASS  selector_exists [data-gi-defence-input]
+PASS  selector_exists [data-gi-defence-submit]
+PASS  selector_exists [data-gi-verdict]
+PASS  selector_exists [data-gi-verdict-reasons]
+PASS  selector_exists [data-gi-pct]
+PASS  selector_exists [data-gi-obj]
+PASS  selector_exists [data-gi-timer]
+PASS  no dead anchors in the section — found []
+PASS  provocation pre-rendered from the feed — 326 chars
+PASS  progress starts at 0%
+PASS  no objective pre-marked
+PASS  clock not started
+PASS  round_starts: state badge goes live
+PASS  round_starts: challenge body populated — 326 chars
+PASS  round_starts: clock is running — reads 19:59
+PASS  round_starts: still no objective marked
+PASS  position_flow: opponent counter-position is real AI text — 1254 chars
+PASS  position_flow: opponent challenge populated — 261 chars
+PASS  position_flow: exactly one objective marked — count=1
+PASS  position_flow: progress reads 33% — 33% Complete
+PASS  defend_flow: verdict populated — opponent wins
+PASS  defend_flow: verdict reasons populated — 1112 chars
+PASS  defend_flow: all three objectives marked — count=3
+PASS  defend_flow: progress reads 100% — 100% Complete
+PASS  no horizontal overflow — overflow 0px, widest {'t': 'DIV.gi-container', 'w': 358}
+PASS  no console errors
+
+65 passed, 0 failed

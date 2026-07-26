@@ -1,0 +1,65 @@
+
+=== profile: desktop (1366x900) ===
+127.0.0.1 - - [26/Jul/2026 15:51:54] "GET /provocations_index.html HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:54] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:54] "GET /assets/css/styles.css HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:54] "GET /assets/js/snippets.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:54] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:54] "GET /assets/images/logo.jpg HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:54] "GET /data/provocations.json HTTP/1.1" 200 -
+PASS  archive_list_exists
+PASS  archive_detail_region_exists
+PASS  archive_linked_item_exists — count=7
+PASS  archive_static_item_exists — count=1
+PASS  static entry has no href and no tabindex — {'href': None, 'tabindex': None}
+PASS  no dead anchors in the archive section — found []
+PASS  detail region empty before opening — ''
+PASS  archive_open_detail_populates — 655 chars
+PASS  detail carries the entry title
+PASS  URL updated to ?entry=<slug> — http://127.0.0.1:8749/provocations_index.html?entry=ai-never-funny-on-purpose
+PASS  no full page reload (pushState)
+127.0.0.1 - - [26/Jul/2026 15:51:55] "GET /provocations_index.html?entry=ai-never-funny-on-purpose HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:55] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:55] "GET /assets/css/styles.css HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:55] "GET /assets/js/snippets.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:55] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:55] "GET /assets/images/logo.jpg HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:55] "GET /data/provocations.json HTTP/1.1" 200 -
+PASS  deep link pre-populates on direct load — 655 chars
+PASS  close hides the detail
+PASS  close clears the query string — http://127.0.0.1:8749/provocations_index.html
+PASS  no horizontal overflow — overflow 0px
+
+=== profile: mobile (390x844) ===
+127.0.0.1 - - [26/Jul/2026 15:51:56] "GET /provocations_index.html HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:56] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:56] "GET /assets/css/styles.css HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:56] "GET /assets/js/snippets.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:56] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:56] "GET /assets/images/logo.jpg HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:56] "GET /data/provocations.json HTTP/1.1" 200 -
+PASS  archive_list_exists
+PASS  archive_detail_region_exists
+PASS  archive_linked_item_exists — count=7
+PASS  archive_static_item_exists — count=1
+PASS  static entry has no href and no tabindex — {'href': None, 'tabindex': None}
+PASS  no dead anchors in the archive section — found []
+PASS  detail region empty before opening — ''
+PASS  archive_open_detail_populates — 655 chars
+PASS  detail carries the entry title
+PASS  URL updated to ?entry=<slug> — http://127.0.0.1:8749/provocations_index.html?entry=ai-never-funny-on-purpose
+PASS  no full page reload (pushState)
+127.0.0.1 - - [26/Jul/2026 15:51:57] "GET /provocations_index.html?entry=ai-never-funny-on-purpose HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:57] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:57] "GET /assets/css/styles.css HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:57] "GET /assets/js/snippets.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jul/2026 15:51:57] code 404, message File not found
+127.0.0.1 - - [26/Jul/2026 15:51:57] "GET /assets/images/logo.jpg HTTP/1.1" 404 -
+127.0.0.1 - - [26/Jul/2026 15:51:57] "GET /data/provocations.json HTTP/1.1" 200 -
+PASS  deep link pre-populates on direct load — 655 chars
+PASS  close hides the detail
+PASS  close clears the query string — http://127.0.0.1:8749/provocations_index.html
+PASS  no horizontal overflow — overflow 0px
+PASS  no console errors
+
+31 passed, 0 failed

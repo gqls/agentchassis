@@ -1,0 +1,81 @@
+
+=== LIVE desktop (1366x900) ===
+PASS  gauntlet_page_ok — HTTP 200
+PASS  exists [data-gi-enter-btn]
+PASS  exists [data-gi-status]
+PASS  exists [data-gi-challenge-body]
+PASS  exists [data-gi-position-input]
+PASS  exists [data-gi-position-submit]
+PASS  exists [data-gi-opponent-position]
+PASS  exists [data-gi-opponent-challenge]
+PASS  exists [data-gi-defence-input]
+PASS  exists [data-gi-defence-submit]
+PASS  exists [data-gi-verdict]
+PASS  exists [data-gi-verdict-reasons]
+PASS  exists [data-gi-pct]
+PASS  no fabricated stats on the page
+PASS  no dead anchors in the tool
+PASS  C.1 round starts against the live API
+PASS  C.1 challenge body populated
+PASS  C.1 clock running — 19:59
+      (attempt 1 did not return: The AI opponent is offline — try again later. Nothing was lost; your text is still here.)
+PASS  C.2 real AI counter-position
+PASS  C.2 opponent challenge populated
+PASS  C.2 exactly one objective marked
+PASS  C.3 verdict returned — opponent wins
+PASS  C.3 verdict reasons populated
+PASS  C.3 all three objectives marked
+PASS  C.3 progress reads 100%
+PASS  gauntlet no horizontal overflow
+PASS  archive_page_ok — HTTP 200
+PASS  archive_list_exists
+PASS  archive linked/static split — linked=7 static=1
+PASS  archive_detail_region_exists
+PASS  detail empty before opening
+PASS  B.1 detail populates on click
+PASS  B.1 URL deep-links — https://vonc.com/provocations/index.html?entry=ai-never-funny-on-purpose
+PASS  B.2 deep link works on direct load
+PASS  B.3 static entry not interactive
+PASS  archive no horizontal overflow
+
+=== LIVE mobile (390x844) ===
+PASS  gauntlet_page_ok — HTTP 200
+PASS  exists [data-gi-enter-btn]
+PASS  exists [data-gi-status]
+PASS  exists [data-gi-challenge-body]
+PASS  exists [data-gi-position-input]
+PASS  exists [data-gi-position-submit]
+PASS  exists [data-gi-opponent-position]
+PASS  exists [data-gi-opponent-challenge]
+PASS  exists [data-gi-defence-input]
+PASS  exists [data-gi-defence-submit]
+PASS  exists [data-gi-verdict]
+PASS  exists [data-gi-verdict-reasons]
+PASS  exists [data-gi-pct]
+PASS  no fabricated stats on the page
+PASS  no dead anchors in the tool
+PASS  C.1 round starts against the live API
+PASS  C.1 challenge body populated
+PASS  C.1 clock running — 19:59
+      (attempt 1 did not return: The AI opponent is offline — try again later. Nothing was lost; your text is still here.)
+PASS  C.2 real AI counter-position
+PASS  C.2 opponent challenge populated
+PASS  C.2 exactly one objective marked
+PASS  C.3 verdict returned — opponent wins
+PASS  C.3 verdict reasons populated
+PASS  C.3 all three objectives marked
+PASS  C.3 progress reads 100%
+PASS  gauntlet no horizontal overflow
+PASS  archive_page_ok — HTTP 200
+PASS  archive_list_exists
+PASS  archive linked/static split — linked=7 static=1
+PASS  archive_detail_region_exists
+PASS  detail empty before opening
+PASS  B.1 detail populates on click
+PASS  B.1 URL deep-links — https://vonc.com/provocations/index.html?entry=ai-never-funny-on-purpose
+PASS  B.2 deep link works on direct load
+PASS  B.3 static entry not interactive
+PASS  archive no horizontal overflow
+FAIL  no console errors — Failed to load resource: the server responded with a status of 503 () | Failed to load resource: the server responded with a status of 503 ()
+
+72 passed, 1 failed
