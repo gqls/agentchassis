@@ -1,5 +1,26 @@
 # Handoff — tool-suggester makes pages link to tools that do not exist
 
+> **CLOSED 2026-07-26 → `/bugs_closed/`.** Read this status line before anything below it.
+>
+> - **The defect is dead in production NOW.** Migration `211` (applied + recorded 2026-07-26)
+>   deleted the step that emitted these items at suggestion time, so **no new phantom tool link
+>   can be created**, independently of any image roll. None of the 27 already-emitted items is
+>   still dispatchable (18 complete / 5 needs_human_review / 4 failed, **0** in
+>   triaged/approved/in_progress), so the queue cannot produce more either.
+> - **The REPLACEMENT — cross-linking that works — is inert until the next chassis roll.** The Go
+>   half is committed and built into image `v1.0.1166`; the running pod was verified still on the
+>   old binary (pod-grep, not the image_tag column). Post-roll check: RUNBOOK R8 + §"How to verify".
+> - **Not closed by this fix, deliberately, and each has an owner:** the 9 dead `/tools/*.html`
+>   links already woven into 8 deployed pages → handed to `bugs_open/049`'s owning workstream with
+>   the census; the platform's warning-only in-body link check → filed as `bugs_open/079`.
+> - **No `Council-Reviewed:` trailer is claimed on any commit.** 12 of 14 seats approved at round
+>   5 with one LOW objection, but 3 of the 5 rounds were decided by a lost reviewer output rather
+>   than by any objection, so the run never converted to APPROVED. The trailer is earned by an
+>   APPROVED verdict only.
+>
+> Workstream docs: `docs/agent_docs/docs024_key_docs_latest/tool_suggester_phantom_links/`
+> (SUMMARY_2026-07-26 is the read-out; NOTES has the missteps; RUNBOOK R6–R10 the commands).
+
 **Filed 2026-07-19.** Owner-visible: a visitor clicked a link on leopardessconsulting.co.uk and
 got a blank 404. Found while fixing `/bugs_open/001`, which had this damage attributed to it
 in error — see the correction in that file. **This is the bug that actually caused it.**
