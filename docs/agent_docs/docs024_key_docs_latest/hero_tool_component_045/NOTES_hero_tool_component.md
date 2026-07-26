@@ -81,3 +81,82 @@
 ### Pattern recorded
 - Added the transferable pattern to 016b §9 ("A generic section name resolves to a
   product-specific component") including the rerender-does-not-re-select landmine.
+
+## 2026-07-26 — the proof landed on its own; case CLOSED
+
+### The 07-21 deferral was right, and the platform produced the evidence
+
+On 07-21 this lane declined to force a full site build (per-site, real credits,
+collision risk with sessions live on both named sites) and predicted the artefact
+proof would arrive when the platform drained its own `needs_rebuild` queue. **It
+arrived on 2026-07-25 02:08 UTC** — but from a page this file never named.
+
+`fundamentallyai.com/llm-cost-calculator` was built through the real path. All four
+of its `page_components` rows carry `created_at == updated_at` at that instant,
+which is the discriminator that matters: those rows were **written** by that build,
+so `plan_sections` → `SelectComponentByType` genuinely re-ran. `hero-tool` resolved
+to `0bf81196-…`, the generic component. Live: 200, 70,162 B, **0** Bayesian strings,
+headline *"Compare LLM provider costs before you commit"*.
+
+Two design intentions were confirmed by what the hero did **not** emit. Styles
+stripped, the whole section is 615 bytes: **zero anchors** — CTAs are gated
+`{{if .x_url}}` and no url was supplied, so the degraded state is a missing button
+rather than a dead one — and **zero trust stats**, the optional anti-fabrication
+gate declining to invent figures. Both are easy to claim from a template and only
+observable in a real render.
+
+Fleet sweep on `rendered_html ~* '(Start Ranking Free|Calculate Rankings|Try the
+Bayesian Ranker)'` returns **one row, fleet-wide**: `gamesdesign.co.uk/bayesian-ranking`,
+where it is correct. The supersede-don't-delete call from 07-21 holds up.
+
+### MISSTEP — the runbook's definitive live test was a false green, and I nearly closed on it
+
+The RUNBOOK's final check (written by this lane on 07-21) was:
+
+```bash
+curl -s https://finetuning.uk/tools/ai-agent-roi-estimator/ | grep -ciE '…Bayesian'  # expect 0
+```
+
+**That URL 404s.** The fleet serves `/tools/<name>.html`; the trailing-slash form
+returns a 304-byte B2 error JSON, which contains no Bayesian strings, so the command
+prints `0` and the check *passes against a page that does not exist*. It would have
+printed `0` before the fix, after it, and against a misspelled hostname — nothing
+about it was ever conditional on the thing it claimed to test.
+
+What caught it: curling with `-w '%{http_code}'` out of habit while collecting
+closure evidence, and noticing a 404 sitting beside a "clean" result. The runbook
+does not tell you to do that. This was luck, not method.
+
+**The class, which is the transferable part:** a negative assertion is satisfied by
+*nothing existing*, so every way of breaking the check itself yields "pass". Same
+shape as `ON CONFLICT DO NOTHING` returning `err == nil` having inserted nothing.
+The fix is a positive control over the same fetch — `data-component="hero-tool"`
+must be present — which returns 1 on the real page and 0 on the 404, verified both
+directions before writing it into the runbook. Recorded in 016b §9 and
+`WRONG_CALLS.md`; the runbook command is corrected in place with the old one shown
+as a marked correction rather than quietly deleted.
+
+### What is deliberately NOT claimed in the closure
+
+- The two pages this case named have **still not rebuilt**. Both are clean live
+  today and can now only select the generic component, but closure rests on one real
+  rebuild plus a deterministic selector, not on all three pages. Said so in the file.
+- The proof page was a **fresh** tool page, never Bayesian-damaged — so "a damaged
+  page rebuilds clean" was not exercised. There is no mechanism behind that
+  distinction (the Bayesian row is no longer a `hero-tool` candidate at all), but it
+  was not measured, so it is not asserted.
+
+### Residuals handed on, not dropped
+
+- **Candidate 4** (build-time selection-sanity check) was to ride with `bugs_open/039`;
+  039 has since closed, leaving it homeless. Contributed into
+  `features_open/017` (component-adoption check) — 017 is already the mechanical,
+  no-LLM health report over `content_components`, and candidate 4 is its inverse
+  (a dormant component is *never* selected; this is a section name whose *only*
+  candidate is product-specific). Contributed in rather than forked.
+- **Two stale review-queue items** (`11dd56f1…`, `ba28ba8d…`) still name
+  `bayesian-ranking-hero-tool` CTAs on leopardess pages that no longer request a
+  hero-tool and hold no such placement — an extinct defect still sitting in the
+  human queue. That is `bugs_open/033` / the `review_queue_drain` lane's remit
+  (`revalidate_review_queue` built, inert until a roll). Cited there as evidence,
+  not fixed here — `scripts/who-owns.py` says 033 is active elsewhere.

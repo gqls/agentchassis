@@ -534,3 +534,36 @@ not increment `attempt_count`, so nothing would stop it.
 
 That is a design piece with its own diagnosis and council round. It is the next
 work on this bug, and the seams above mean nobody has to find them again.
+
+---
+
+## Contribution from the `hero_tool_component_045` workstream (2026-07-26) — two ghosts, with a named extinct cause
+
+Closing `bugs_closed/045` (a tool hero hard-wired to a Bayesian ranker) left two items in
+this queue that are worth naming here, because they are a clean, fully-diagnosed instance of
+the ghost class this bug's drain exists to clear — not a guess that they are stale:
+
+```sql
+-- both needs_human_review since 2026-07-17
+--   11dd56f1-4be6-403e-bbdd-a662b485ec66  CTA "Start Ranking Free" on ai-agent-roi-estimator
+--   ba28ba8d-c46c-4731-964d-30a08e424fd5  CTA "Start Ranking Free" on llm-cost-calculator
+-- both on leopardessconsulting.co.uk, both naming component bayesian-ranking-hero-tool
+```
+
+**Why they are provably extinct, not merely old.** Three independent conditions, each checked
+2026-07-26: (1) neither page's `pages.sections` requests a hero-tool at all any more — they
+read `["tool-<name>", "tool-cta"]`, the 023 cleanup having stripped it; (2) neither page holds
+any `page_components` row for that component; (3) fleet-wide, the component
+`7cd0408b-5614-4d80-9fe9-9ecddd8ee110` has **exactly one** placement anywhere, on
+`gamesdesign.co.uk/bayesian-ranking`, where it is correct. The CTA these items complain about
+cannot be rendered by either page by any path.
+
+**Why that is useful to this bug rather than just tidy.** These two are an easy, unambiguous
+test case for `revalidate_review_queue` — the detector's predicate is re-checkable from config
+alone, with no judgement call and no live-page fetch, and the right answer is known in advance.
+If the revalidator does not retire these two when it rolls, that is a defect in the revalidator,
+not a borderline call. Worth keeping as a fixture.
+
+**Not touched by this lane.** `scripts/who-owns.py 033` reports this bug as owned and active
+elsewhere, and the drain is built and awaiting an image roll — so this is evidence contributed
+in, not a competing fix. Full context: `bugs_closed/045…`, closure block.

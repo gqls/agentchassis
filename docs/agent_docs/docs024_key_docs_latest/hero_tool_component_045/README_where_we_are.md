@@ -46,3 +46,54 @@ gamesdesign page. That changed how careful I had to be with the retire step
 it come out clean — a rebuild is the exact thing that used to "arm" the bug, so a
 clean rebuild is the definitive test. The two affected pages are already queued
 for rebuild.
+
+---
+
+**2026-07-26 — the proof turned up by itself, and the bug is now closed.**
+
+Back on the 21st I decided not to force a rebuild to prove the fix. Rebuilding is
+done a whole site at a time, it costs real money, and two other people were working
+on the two sites in question. The bet was that the platform would get round to
+those pages on its own and hand us the proof for free.
+
+It did, though not from the page I was watching. On the 25th the platform built a
+**different** tool page — the LLM cost calculator on fundamentallyai.com — and that
+build went through the full path that chooses components. It picked the neutral
+banner. The live page has none of the old Bayesian wording on it and the headline
+reads "Compare LLM provider costs before you commit", which is the page talking
+about itself rather than about somebody else's product. That is exactly what this
+bug was about, so the bug is closed.
+
+Two smaller things came out well. The new banner shows **no buttons at all** on that
+page, which is the behaviour we wanted: buttons only appear when there's a real page
+to send someone to, so the worst case is a missing button rather than a dead one.
+And it showed **no statistics**, because we made those optional rather than let a
+writer invent numbers to fill a slot.
+
+I also checked the whole fleet for the old Bayesian wording. It survives in exactly
+one place — the gamesdesign ranking page, where it is correct — and nowhere else.
+
+**One thing I got wrong, and it nearly slipped through.** The instructions I wrote
+on the 21st for checking the live page had the wrong web address in them: a slash on
+the end instead of ".html". That address doesn't exist, so the site returns a small
+error page. The check was "count the Bayesian words on this page, expect zero" — and
+an error page has zero Bayesian words on it, so **the check passed on a page that
+wasn't there.** It would have passed before the fix too. I only noticed because I
+happened to ask for the status code and saw a 404 sitting next to a clean result.
+
+The lesson is a general one and I've written it up for everyone: if you're checking
+that something bad is *absent*, that check also passes when the page is missing,
+when you typo the address, or when your search pattern is wrong. So always pair it
+with something that must be *present* — I now also check the page contains the
+banner's own tag, which correctly returns "yes" on the real page and "no" on the
+broken address. The instructions are fixed, with the old version left visible and
+marked as wrong rather than quietly deleted.
+
+**What's left over.** One idea from the original bug never got built: an automatic
+warning when the only component available for a generic request is a product-specific
+one — the thing that would have caught this bug on day one. It was meant to be built
+alongside a related bug which has since been closed, so I've handed it to the
+existing "which components never get used" feature note, where it fits naturally.
+Separately, two items are still sitting in the human review queue complaining about
+Bayesian buttons on pages that no longer have them; that queue's clean-up is somebody
+else's active job, so I've pointed it out to them rather than reaching into it.

@@ -1,10 +1,103 @@
 # 045 — the library's only tool-hero component is hard-wired to a Bayesian ranker, so every tool page that asks for one gets the wrong product's vocabulary
 
 **Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops`
-**Status:** OPEN — **FIX APPLIED & LIVE** (migration `183_generic_hero_tool_component.sql`,
-2026-07-21); held open only pending the rebuild-based proof (a rebuild is what arms this bug).
-**Severity:** medium-high — **armed on 2 live pages right now** (both `needs_rebuild`); latent
-across 37 tool pages / 10 sites
+**Status:** **CLOSED 2026-07-26 — fixed, live, and proven at the artefact level by a real
+rebuild.** Fix applied 2026-07-21 (migration `183_generic_hero_tool_component.sql`, DB config,
+live immediately, no image roll); the rebuild proof it was held open for landed unprompted on
+2026-07-25. Closure evidence below.
+**Severity when open:** medium-high — armed on 2 live pages; latent across 37 tool pages / 10 sites
+
+---
+
+## CLOSURE — 2026-07-26 (workstream `hero_tool_component_045`)
+
+The case was held open for one thing: **an artefact-level rebuild proof.** A rebuild is what
+arms this bug, and `page_rerender` does not re-select components, so only a full build path
+(`get_pages_to_build` → `plan_sections` → `SelectComponentByType`) could prove the fix. On
+2026-07-21 this lane deliberately did **not** force one (per-site, costs credits, would collide
+with other sessions live on both named sites) and recorded that the proof would land naturally
+when the platform drained its own `needs_rebuild` queue. **It did.**
+
+### The proof — `fundamentallyai.com/llm-cost-calculator`, built 2026-07-25 02:08 UTC
+
+Not a page this file named, and not a repair: a **fresh tool page** built through the real path,
+which is exactly the latent-fleet case (37 tool pages). Selection genuinely re-ran — all four
+`page_components` rows carry `created_at == updated_at` at that instant, the discriminator that
+separates a real build from a rerender:
+
+```sql
+SELECT pc.slot_name, pc.component_id::text, pc.created_at = pc.updated_at AS fresh_select,
+       (pc.rendered_html ~* '(Bayesian|Ranking Free|Calculate Rankings)') AS has_bayes
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='fundamentallyai.com' AND p.name='llm-cost-calculator';
+--  hero-tool | 0bf81196-e4e7-430b-bd5d-1585703678ae | t | f     ← the generic component
+```
+
+The live artefact (200, 70,162 B) greps **0** Bayesian strings and carries a headline about the
+page's own subject. The whole rendered hero, styles stripped, is 615 bytes:
+
+```html
+<section class="hero-tool-section" data-component="hero-tool"><div class="htl-container">
+<span class="htl-badge">Free calculator</span>
+<h1 class="htl-headline">Compare LLM provider costs before you commit</h1>
+<p class="htl-subheadline">Token pricing varies significantly across providers…</p>
+</div></section>
+```
+
+**Two design guarantees held, visible in that markup:** it emits **zero anchors** — the CTAs are
+gated `{{if .x_url}}` and no url was supplied, so the failure mode is a missing button, never a
+dead one (LNK-005 by construction, `023` class H) — and **zero trust stats**, the optional
+anti-fabrication gate (`043` class) declining to invent figures.
+
+### The supersede was safe — fleet-wide, one placement, on the one page where it is right
+
+```sql
+SELECT s.domain, p.name, pc.slot_name FROM page_components pc
+JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE pc.rendered_html ~* '(Start Ranking Free|Calculate Rankings|Try the Bayesian Ranker)';
+--  gamesdesign.co.uk | bayesian-ranking | bayesian-ranking-hero-tool     ← the only row, fleet-wide
+```
+
+`gamesdesign.co.uk/bayesian-ranking` is still deployed with its Bayesian hero at position 1 and
+still serves that vocabulary live — correct there, and the reason retiring had to be a supersede
+rather than a delete. **No live page anywhere renders the Bayesian vocabulary from any other slot.**
+
+**One known, accepted consequence — re-verified 2026-07-26.** gamesdesign keeps that hero only
+while it is not rebuilt. Its `pages.sections` asks for the **generic** `"hero-tool"` (the
+`bayesian-ranking-hero-tool` you see in `page_components.slot_name` is the *component's function*,
+not the requested section name — 023 R2), so on any rebuild it will now resolve to the generic
+component like every other tool page. That is the trade this lane took on 2026-07-21 and it still
+looks right: the page's actual ranking calculator is a **separate** `tool-bayesian-ranking` section
+at position 3 and is untouched, so the page loses a product-specific banner and gains one written
+for its own subject. Recorded because the page is `deployed` today and its appearance *will* change
+when it next builds — that is expected, not a regression.
+
+### What this closure does NOT prove — stated so nobody infers more than was measured
+
+- The two pages this file named (`finetuning.uk/ai-agent-roi-estimator`,
+  `ai-agent-orchestration.com/agent-complexity-estimator`) **have not rebuilt.** Both are still
+  `needs_rebuild`, both are clean live today (200, 0 Bayesian strings), and both can now only
+  select the generic component. Closure rests on one real rebuild plus a deterministic selector
+  (sole candidate, no score threshold), not on all three pages.
+- The proof page was never Bayesian-damaged, so "a previously-damaged page rebuilds clean" was
+  not exercised. There is no mechanism behind that distinction — the Bayesian row is no longer a
+  candidate for `hero-tool` at all — but it was not measured, so it is not claimed.
+
+**If you see either named page rebuild**, run the query above against it and append the result
+here; that is a free strengthening of this closure, not a reopening condition.
+
+### Residuals — owned elsewhere, do not start a competing fix
+
+- **Fix candidate 4** (build-time selection-sanity check) was never built. Its intended sibling
+  `039` has since closed, so it had no home; handed to **`features_open/017`**
+  (component-adoption check) on 2026-07-26 as a dated contribution — 017 is already the
+  mechanical no-LLM health report over `content_components`, and candidate 4 is its inverse.
+- **Two stale review-queue items** (`11dd56f1…`, `ba28ba8d…`, both `needs_human_review` since
+  2026-07-17) still name `"Start Ranking Free" … (bayesian-ranking-hero-tool)` on
+  `leopardessconsulting.co.uk` pages whose `sections` no longer request a hero-tool and which
+  hold no such placement. **They describe an extinct defect.** They belong to `bugs_open/033` /
+  the `review_queue_drain` lane, whose `revalidate_review_queue` is built and inert until an
+  image roll — cite them there as evidence for it, not here.
 
 ---
 
@@ -153,6 +246,13 @@ were never (re)built after the 023 cleanup — not because anything prevents it.
 - **A rebuild is what arms this**, so "the page looks fine" is not evidence the bug is
   absent. Both pages above look fine today and are still armed.
 - `slot_name` resolves via `content_components.function`, not `.name` (023 R2).
+- **The "expect 0 Bayesian strings" live check passes on a 404** (found 2026-07-26 while
+  closing this). This file's own verification URLs are `/tools/<name>.html`, **not**
+  `/tools/<name>/` — the trailing-slash form returns a 304-byte B2 error JSON, which of
+  course contains no Bayesian strings, so `curl | grep -c` reports `0` and the check
+  "passes" against a page that does not exist. Any negative assertion over an unguarded
+  fetch is vacuous by construction: assert `-w '%{http_code}'` first, or assert a positive
+  marker the page must contain. See 016b §9 and `WRONG_CALLS.md`.
 
 ## Related
 

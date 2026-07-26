@@ -72,19 +72,38 @@ WHERE owner_agent_type IN ('page-build-handler','page-content-writer')
 
 ## Verify a rebuilt hero is generic (the definitive test)
 ```sql
--- placement should now be the generic component, no Bayesian strings
+-- placement should now be the generic component, no Bayesian strings.
+-- created_at = updated_at is the DISCRIMINATOR: it means these rows were WRITTEN by
+-- this build, i.e. selection genuinely re-ran. A page_rerender re-assembles stored
+-- page_components and never re-selects, so without this you cannot tell the two apart.
 SELECT pc.slot_name, pc.component_id::text,
+       pc.created_at = pc.updated_at AS fresh_select,
        (pc.rendered_html ~* '(Bayesian|Ranking Free|Calculate Rankings)') AS has_bayes
 FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
 WHERE s.domain='finetuning.uk' AND p.name='ai-agent-roi-estimator'
   AND pc.slot_name IN ('hero-tool');
--- expect: component_id=0bf81196-... , has_bayes=false
+-- expect: component_id=0bf81196-... , fresh_select=t , has_bayes=false
 ```
-Then the LIVE page (trust the rendered artefact, not the DB row):
+
+Then the LIVE page (trust the rendered artefact, not the DB row).
+
+> ⚠️ **CORRECTED 2026-07-26 — the command that was here was a false green.** It fetched
+> `https://finetuning.uk/tools/ai-agent-roi-estimator/` (trailing slash). **That URL 404s**
+> — the fleet serves `/tools/<name>.html` — and the 404 body is a 304-byte B2 error JSON
+> with no Bayesian strings in it, so `grep -c` printed `0` and the check "passed" against a
+> page that does not exist. **A negative assertion over an unguarded fetch is vacuous:** it
+> passes on a 404, a typo, a wrong host and an empty file. Take the URL from `pages.url`,
+> never from a doc. 016b §9 + `WRONG_CALLS.md` 2026-07-26.
+
 ```bash
-curl -s https://finetuning.uk/tools/ai-agent-roi-estimator/ | \
-  grep -ciE 'Start Ranking Free|Calculate Rankings|Bayesian'   # expect 0
+# Fetch ONCE, then assert the negative AND a positive control over the same body.
+URL=https://fundamentallyai.com/tools/llm-cost-calculator.html   # from pages.url
+curl -s -o /tmp/hero.html -w 'status=%{http_code} bytes=%{size_download}\n' "$URL"
+grep -ciE 'Start Ranking Free|Calculate Rankings|Bayesian' /tmp/hero.html  # expect 0
+grep -c 'data-component="hero-tool"' /tmp/hero.html                        # expect 1 (control)
 ```
+The control line is the load-bearing half: if the URL, the host or the regex is wrong it
+returns 0 and the check fails loudly, instead of the absence being reported as success.
 
 ## Rollback
 ```sql
