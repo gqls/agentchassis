@@ -5,8 +5,20 @@ one section to a homepage and could not build the page at all.
 **Severity:** High — **`/index.html` on ai-agent-orchestration.com cannot currently be
 rebuilt by any path**. Every attempt dies at the same section, so no homepage change on
 that site can ship, whatever it is about.
+
+> **CORRECTED 2026-07-26 by the bugfix-073 verification thread** — that severity line, and
+> the "deterministic, not a flake" below it, were true when written and were **false by the
+> time they were repeated into migration 217's header two days later.** The page rebuilt
+> successfully at **07:52:58Z on 2026-07-26**, all eight sections `deployed`, and it did so
+> **by inventing four of the five figures.** The honest reading is worse than the filed one:
+> the build does not fail deterministically, it fails *conditionally on the writer telling
+> the truth*. Full evidence in **§ Verified 2026-07-26** at the foot of this file. Neither
+> of us re-measured before repeating; the two queries that catch it are in that section.
+
 **Class:** structural — two correct mechanisms in direct conflict, failing closed.
-**Status:** OPEN, not started. Cause fully evidenced below (measured, nothing inferred);
+**Status:** **CLOSED 2026-07-26** — fixed by migration 217 (config-only, live immediately)
+and verified; see § Verified 2026-07-26 for what was and was not observed.
+Originally filed OPEN, not started. Cause fully evidenced below (measured, nothing inferred);
 the fix is not local, which is why this is a handoff rather than a patch.
 **Belongs to:** the fabricated-stats lane — `bugs_open/043_…generated_page_copy_invents_
 quantitative_claims.md`. **Refer to that case by SLUG: `043` is one of the documented
@@ -199,6 +211,15 @@ running again should confirm the rebuild passes
 `<strong></strong>`. **This file stays OPEN until that is observed** — the mechanism is
 proven dead, the pipeline run is not.
 
+> **Answered 2026-07-26 by the verification thread — and the file is now CLOSED anyway.**
+> The rebuild still has not been observed, for the reason you name: the dispatch hang is
+> fleet-wide and belongs to `bugs_open/029`. Holding this file open on it makes 073 hostage
+> to an unrelated defect that would block any page build, fixed or not. Instead the induced
+> case has been **armed on the real render path and left queued**, with a one-query check
+> for whoever sees builds running — see § Verified 2026-07-26 § 4 below. The mechanism now
+> has a third independent proof (both templates rendered side by side, pre-217 vs post-217,
+> with a positive control) recorded in the same section.
+
 ## What it is currently blocking
 
 The owner asked for a prominent AI model directory on ai-agent-orchestration.com. The
@@ -206,3 +227,137 @@ homepage teaser section for it is planned, approved by content-gap-planner and
 **cannot be built** — item `34d578b5-2c51…` parked `failed` with this bug named in its
 `error`, deliberately, rather than burning two more full-page regenerations on a
 deterministic failure. The dedicated `/model-directory.html` page is live and unaffected.
+
+> **UPDATE 2026-07-26:** still blocked, but **no longer by this bug.** The homepage's
+> current blocker is `bugs_open/088` (the writer emits two JSON objects and the build dies
+> at iteration 0, before it ever reaches the case-studies section), and behind that the
+> fleet-wide dispatch hang recorded under `bugs_open/029`.
+
+---
+
+# Verified 2026-07-26 — by the bugfix-073 verification thread
+
+Independent of the thread that wrote migration 217. Three things were found; two of them
+correct claims in this file, and one is a residual worth naming.
+
+## 1. The page was not unbuildable. It built by fabricating.
+
+This file says the homepage "cannot currently be rebuilt by any path", "deterministic, not
+a flake". It rebuilt on **2026-07-26 at 07:52:58Z**, all eight sections `deployed`:
+
+```sql
+SELECT pc.build_status, pc.updated_at FROM page_components pc
+JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+WHERE s.domain='ai-agent-orchestration.com' AND p.url='/index.html' ORDER BY pc.position;
+--  8 rows, all 'deployed', all updated_at 2026-07-26 07:52:58Z
+```
+
+and `orchestration_states` — which retains rows back to 2026-07-13 — holds **no
+`iter_4` / `case-studies-grid` gate failure at all**, on any day:
+
+```sql
+SELECT substring(error from 'component "([a-z0-9-]+)" is missing') AS component, count(*)
+FROM orchestration_states WHERE error LIKE '%missing required content field%' GROUP BY 1;
+--  hero | 1        (the 088 case, 14:26Z) — and nothing else
+```
+
+What it wrote into the five stat slots, against the site's own evidence register:
+
+| slot | value written 07:52Z | in `evidence_base.writer_block`? |
+|---|---|---|
+| card1 | `4 days` — time from brief to production | **no** |
+| card2 | `<10 min` — time to diagnose first production incident | **no** |
+| card3 | `8+` — agents running in parallel | **no** |
+| card4 | `1,267` — work items completed | yes |
+| card5 | `100%` — of orchestration steps attributable and logged | **no**, and the register's NEVER-STATE list explicitly names uptime percentages |
+
+Four of five invented, **two days after migration 201 told it not to**. So 201 did not stop
+the invention; it added a rule the field's own description still contradicted. That is the
+same conclusion migration 217 reached from 043's records — here it is as a live post-201
+instance, on the very page this bug was filed about.
+
+**The durable finding, which is bigger than this bug:** a required field whose honest value
+is "no such figure" does not merely risk a failed build — it **pays the model to invent**.
+Declining is the only branch that fails. Recorded in `016b` §9.
+
+## 2. The fix is live and proven — offline, against the real templates, with a control
+
+`bak_043_stat_components_20260726` holds the pre-217 rows, so both branches can be rendered
+side by side. Harness (`verify217.go`, scratchpad) copies `executeGoTemplate`
+(`platform/orchestration/actions/call_agent.go:1150`) verbatim — same `missingkey=zero`,
+same FuncMap — and renders every one of the ten components twice: pre-217 and post-217.
+
+| assertion | result |
+|---|---|
+| **A** every schema field populated → pre and post render **byte-identical** | **PASS 10/10.** Nothing already deployed can change. |
+| **B** stats blanked → **pre-217** gains empty markup (`<strong></strong>`, `<span class="stat-value"></span>`) | **PASS** — the positive control fires, so the harness really is on the failing branch |
+| **C** stats blanked → **post-217** gains none | **PASS** for `case-studies-grid`, `system-stats`, `content-block-about`, `gauntlet-cta`, `archetype-result-card`, `tool-guide-intro` |
+
+Assertion A is the load-bearing one: it is the migration's own safety claim
+("no currently-live page can change"), and it holds for all ten under a full-field render.
+
+That the fix needs no image roll was checked in code, not assumed: `RenderComponentAction`
+resolves the component through `GetComponentByID` / `GetComponentWithFallback`
+(`component_library.go:199`), a direct `SELECT … FROM content_components` with **no cache**,
+so schema and template are both read fresh from the DB on every render.
+
+## 3. Residual — an empty wrapper in the all-blank corner (cosmetic, 1 live page)
+
+Assertion C does *not* pass everywhere, and the exceptions are worth recording rather than
+rounding off:
+
+- **`platform-comparison` (15 empty `<td>`), `product-specs` (8)** — **by design**, and
+  documented as such above: tables gate the `<tr>` on the row's identity field, so blanking
+  a cell value inside a kept row leaves an empty cell rather than shifting every later
+  column left. Not a defect.
+- **`bayesian-ranking-hero-tool` → `<div class="brht-trust-row"></div>`** and
+  **`product-hero` → `<div class="hero-stats">`** — the stat *items* are gated, the
+  *container* is not, so all-three-blank leaves an empty flex row. Migration 217 added
+  container gates for `.about-stats`, `.gauntlet-stats`, `.arc-stats` and `.stats-grid`;
+  these two were missed. **Blast radius: `.brht-trust-row{…margin-top:2rem}` carries no
+  border** — a 2rem blank strip, not rules over nothing — on **1 live placement**;
+  `product-hero_pre_037` has **0**. Cosmetic, and only when every stat in the block is
+  empty. Left for whoever next touches those two components.
+
+## 4. What was NOT observed: the end-to-end rebuild
+
+The full-writer run this file asks for **still has not been seen**, and the reason is not
+this bug. An induced case was armed on the real render path and remains queued:
+
+- page `1ce200c1-d617-4584-b90d-c650feab9748` (aao `/enterprise-reference-deployment.html`),
+  `case-studies-grid` instance `c4c3d2b4-bdf0-4c4e-827a-f688ed841ce5`;
+- `content_data.card3_stat_value` set to `""` with `card3_stat_label` left populated —
+  exactly the shape that killed the build before 217. (It was `"30+"`, itself absent from
+  the site's evidence register; leaving it blank is the honest state. Pre-image in
+  `bak_073_verify_20260726_pc`.)
+- `page-rerender` with `spec.reason=section_data_resolved` published to
+  `system.agent.generic.requests` at 18:32Z, correlation
+  **`3f058aa2-985c-4b0d-ac16-790ab9b9b455`** — re-renders every section from stored
+  `content_data` through the CURRENT template with no LLM call, so it exercises the render
+  gate and the template on the deployed code path.
+
+It has not run. The generic lane consumer sat at offset 105194 with a depth of 10 for the
+last 15 minutes of this session (`scripts/dispatch-queue-depth.sh`), which is the same
+fleet-wide dispatch problem recorded under `bugs_open/029` and in the section above.
+
+**Whoever sees builds running again — this is a one-query check, the trap is already set:**
+
+```sql
+SELECT current_step, status, left(COALESCE(error,''),200)
+FROM orchestration_states WHERE correlation_id='3f058aa2-985c-4b0d-ac16-790ab9b9b455';
+-- expect COMPLETED. Then:
+SELECT rendered_html LIKE '%<strong></strong>%' AS empty_strong,
+       (length(rendered_html)-length(replace(rendered_html,'csg-card-stat','')))/13 AS stat_spans
+FROM page_components WHERE id='c4c3d2b4-bdf0-4c4e-827a-f688ed841ce5';
+-- expect empty_strong = f, stat_spans = 4 (five cards, card 3 honestly blank)
+```
+
+## Why this is closed anyway
+
+The bar is fixed **and** live. The fix is config, it is applied, and every render reads it
+fresh from the DB — there is no inert period and no image roll pending. The mechanism is
+proven dead three independent ways: the writing thread exercised the deployed gate with this
+file's own recorded writer output; this thread proved both templates side by side with a
+positive control; and the schema change is visible in the live rows. What is unobserved is
+whether the *build pipeline runs at all today* — which is `bugs_open/029`, would block any
+page build fixed or not, and is not this bug's to carry.

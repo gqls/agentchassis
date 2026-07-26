@@ -4322,3 +4322,77 @@ blocked", "still serving X" — every one of them ages, and each is load-bearing
 document where nobody re-checks it.
 
 Family: staleness-carried-forward, state-claims-are-measurements-too, two-observations-are-not-determinism, ground-before-repeating.
+
+### 2026-07-26 — bugfix_077 — "my wider SQL predicate contradicts 077's remit table, so their figures need correcting"
+
+**Asserted:** that `bugs_open/077`'s measured table was wrong about webdesign.co.uk.
+Their table gave it 2 detector matches and **0** inside the fixer's remit. I measured the
+same site with a SQL predicate and got **1**, wrote "CORRECTION to 077's own table" into the
+plan the owner approved, and committed that wording into migration `221`'s header.
+
+**Actually:** the two numbers cannot contradict each other, because they are not measuring
+the same thing and I had said so myself three paragraphs earlier in the same file. Their
+column was computed by running the **real Go transform** over each component. Mine is a
+deliberate **over-approximation** of that transform — no `<style>` boundary, no
+trailing-terminator requirement — chosen precisely so that a reading of zero is proof. A
+superset of 1 around a true value of 0 is exactly what a superset is for. **A superset can
+prove zero; it can never disprove it.** The only true statement was about my own method's
+limits: SQL alone cannot show webdesign.co.uk is zero, so the migration conservatively
+skips it. That is a limitation of my instrument, not an error in their measurement.
+
+**Caught by:** re-reading my own justification for the predicate while drafting the
+closed-bug file — the sentence "it can only ever be conservative: a site whose remit is
+genuinely empty might be skipped, but a site with fixable work can never be retired" is the
+refutation of the correction, and I had written it myself, deliberately, an hour earlier.
+Nothing external caught it.
+
+**The cheap check that would have caught it:** before writing "X's figure is wrong", ask
+**what would have to be true for both numbers to be right at once** — one question, ten
+seconds. For two measurements of the same population by different instruments the answer is
+almost always "nothing is wrong; the instruments differ", and the direction of the
+difference here was one I had *designed in on purpose*.
+
+**Cost:** a corrected comment in `221` before it was applied, and this entry. Nothing
+reached the bug file — but the false correction WAS in the plan the owner approved and in a
+committed migration header, i.e. it had already escaped my own head into shared state.
+
+**Why it is worth a row:** the failure mode is specific and repeatable — *an
+over-approximation used as evidence against the precise measurement it was built to bound*.
+It is seductive because the method really was more rigorous in the direction it was designed
+for, which makes it feel authoritative in the other direction too. Related: the standing
+`[UNVERIFIED]` marker rule, and the 2026-07-25 entry in this file where an abbreviated quote
+manufactured an objection against byte-identical queries — both are the same shape, a
+comparison made between two things that were never comparable.
+
+Family: instrument-mismatch, superset-proves-zero-not-nonzero, correcting-someone-who-was-right,
+what-would-make-both-true.
+
+---
+
+## 2026-07-26 — I wrote a figure into a working doc from a query I had run *minutes* earlier, and another session had already changed the rows
+
+**The claim.** Sizing the blast radius of turning on a never-run evidence sweep (`bugs_closed/074`),
+I wrote into NOTES: *"Eight sites hold an `evidence_base` spec; **three** hold facts"*, with the
+per-site counts. I had measured it myself, that session, with a query in the file.
+
+**What was true.** **Four** sites held sql-sourced facts — 24 of them, not the ~16 I described.
+Between my query and my sentence, the `043` lane wrote `facts[]` into three of those very rows
+(`site_specs.updated_at` on robot-hands = 18:19:06 UTC; their commit `0c994f2ee` at 18:19:29).
+Two sessions in the same rows, minutes apart, exactly as CLAUDE.md says to expect.
+
+**What caught it.** Not a re-check — the **sweep's own report**, which listed four sites with
+facts. If I had not staged the run behind a `dry_run` pass I would have had no independent count
+to disagree with me, and the wrong figure would have gone into a closed bug file as measured fact.
+
+**The cheap check.** Re-run the count in the same breath as writing the number down. Not "did I
+measure this?" but "did I measure this *since the last thing I did*?" — in this tree, minutes are
+long enough for a figure to rot.
+
+**The bit I want to remember.** The existing rule is "ground every figure against the live system
+before repeating it **from another doc**". That framing let me off, because the figure was *mine*
+and *from this session* — so it did not feel carried forward. It was: a measurement I took at
+18:0x and quoted at 18:10 is a quote from a document, and the document is my own scrollback. **The
+staleness clock starts when the query runs, not when the doc was written**, and in a tree with
+several live sessions it runs fast.
+
+Family: staleness-carried-forward, ground-before-repeating, my-own-measurement-is-still-a-quote, concurrent-sessions-share-rows.

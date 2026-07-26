@@ -3068,6 +3068,88 @@ needs a paragraph, the verifier is measuring the wrong contract.
 Category tags: `detector-broader-than-handler`, `verifier-verifies-the-wrong-contract`,
 `false-fail-strands-correct-work`, `share-the-predicate-dont-mirror-it`.
 
+### A detector must PARTITION its population by the handler's remit, and file the residue as a capability gap (2026-07-26)
+
+*The other half of the entry immediately above, which closed `bugs_open/021` and
+said in terms that it did not fix this: "the verifier stops false completions; it
+does nothing about the detector re-filing the out-of-remit matches for ever …
+narrowing the detector (or widening the handler) is a behaviour change belonging
+to whoever owns the check." Added on closing `bugs_open/077`, which is that
+residue.*
+
+**Shape.** A detector's predicate is wider than its handler's transform — always
+wider, because "find everything suspicious" is cheap and "change it safely" is
+not. Scope the verifier to the handler and completions stop lying. The DETECTOR
+still files the whole population. On any target where the handler's remit is
+empty, the item is dispatched, the handler no-ops, and the two-strike rule parks
+it with a label that blames the handler: `[unresolved after 2 attempts]`. Nobody
+reads that as "correctly unfixable" — and `unresolved` is the status the whole
+fleet uses to mean "needs investigation", so a population of correct-but-unfixable
+items devalues it for every other type.
+
+**Live instance.** `hardcoded_section_colors`, measured 2026-07-26: 33 components
+across 9 sites in the detector's population, and a remit of **provably zero** on
+four of them (finetuning.uk 8, gaswholesalers.com 6, ai-agent-orchestration.com 4,
+dartsonline.com 1). Oldest such row 2026-04-08 — the backlog had been lying about
+those sites for three and a half months, in a status that means the opposite.
+
+**The rule.** *A check that files work must file only what its handler can do —
+and must not throw away the rest.* Partition the population by the handler's own
+LITERAL transform, then file two things: the in-remit part as the normal
+dispatchable item with an honest count, and the residue as a **capability gap**.
+
+**Use the machinery that already exists.** `item_type='capability_gap'`,
+`status='deferred'` is the platform's existing durable "I found work I have no
+handler for" — emitted since long before by `WriteBuildItemsAction` for page types
+whose builders do not exist, already classified in the build-enforced coverage
+guard, already read as a ROADMAP view by `diagnose_triage_action` and the fixloop
+digest. So the residue becomes queued capability work by machinery that is already
+there, and no 78th item type is invented. Make it undispatchable **twice**:
+`deferred` is in neither dispatch filter, and an empty `handler_agent` means a row
+that somehow reached claim is blocked rather than handed to a fixer that cannot
+fix it. It is bounded for free — `deferred` is not in `workItemTerminalStatuses`,
+so `idx_swi_dedup` holds one open row per site per check.
+
+**THE DEGENERATE CASE IS THE COMMON ONE, and nothing was looking for it.** A remit
+of zero because the handler agent *does not exist*. Two were live in
+`discovery_checks` on the day this was written, and neither had ever been noticed:
+`forced-text-color-fixer` (check enabled, one live match waiting) and
+`site-metadata-fixer` (severity high, priority 3 — near the front of the queue).
+Every item they filed was destined for `blocked` at claim, after occupying a dedup
+slot. Nothing in Go, in config, or in any test connected `HandlerAgent: "x"` to
+"does x exist?". `handler_coverage_test.go` now fails the build on it.
+
+**Read the remit from where it actually lives — it is not always in Go.**
+`nav-link-fixer`'s find/replace patterns are seeded in `agent_definitions` and
+OVERRIDE the action's Go defaults entirely; the live row carried **three** where
+the Go list declares **four**. A check partitioning on the source would credit the
+handler with a replacement it does not make — the same defect one level down, and
+invisible to any test that only reads the repository.
+
+**And the artefact the handler edits is not always the one the detector read.**
+`broken_nav_links` detects on rendered `site_components`; its handler rewrites
+`content_components.html_template`. "Is this fixable?" is a question about the
+template, so that is what the partition must be applied to. Partitioning on the
+detected artefact would answer a different question confidently.
+
+**Cleaning up the rows already filed.** Retire, do not delete: `wont_fix` is the
+existing terminal spelling of "no fix is possible", and it frees the dedup slot so
+the corrected detector can file the honest gap. Select the targets with a
+predicate **strictly wider than the handler's transform on every axis** — then a
+count of zero is proof rather than inference, and the cleanup can only ever be
+conservative. Note what that buys and what it does not: *a superset can prove
+zero; it can never disprove it.* Sequence it AFTER the roll — freeing the slot
+while the old detector is still deployed lets it re-file the same dishonest item.
+
+**Generalises to.** Any find-then-fix pair: lint-and-autofix, sweep-and-repair,
+scanner-and-remediator, "N issues found / N issues fixed" dashboards. Two
+questions, and the second is the one nobody asks: *"can the thing I am routing at
+fix what I am routing to it?"* and *"does the thing I am routing at exist?"*
+
+Category tags: `detector-broader-than-handler`, `file-only-what-the-handler-can-do`,
+`residue-is-a-capability-gap-not-a-failure`, `handler-that-does-not-exist`,
+`remit-lives-in-config-too`, `a-superset-proves-zero-not-nonzero`.
+
 ### A schema `source` path and the aspect writer's SHAPE are one contract — and the mismatch withholds the section silently (2026-07-25)
 
 *Added 2026-07-25 from `bugs_open/072`.*
@@ -3353,7 +3435,7 @@ See `/bugs_closed/README.md`.
 
 | 071 | **`agent-job-cleanup` deleted every live `job.*` Kafka topic on its 10-minute tick** — its "any spawned pods running?" guard queried `-l spawned-by=orchestrator`, a label NO pod has ever carried (both spawn paths label only the Job, and remote-job-spawner uses a *different value*), so the guard matched zero always and the delete-all branch was unconditional. Killed both first feature-implementer runs mid-run (response produced by git-adapter 4s after request, topic already deleted/recreated, never consumed, await expired). A producer of the 003 failure shape; some 003 sightings may re-attribute (check: loss window crosses a `*/10` tick + a logged produce nobody consumed). See §9 *"A guard label no object carries…"* | filed 2026-07-25 (gauntlet/B4), **CLOSED 2026-07-26 → `/bugs_closed/`** — all three fixes verified LIVE: guard (`9dc99c61c` same day — message says 070, numbering collision, resolve by slug; counts active spawned Jobs across BOTH spawner labels + dynamic-agent pods, fail-safe keep); two-pass tombstone (`bc1f12718`, idle-tick deletion needs 2 CONSECUTIVE idle ticks, state CM `agent-job-cleanup-state` — idle branch observed deleting 2-of-2 live 07-26); pod-template `spawned-by` labels (`5540d203e`, in v1.0.1165 — first pod in platform history matched `-l spawned-by` 07-26 13:35Z). Bonus finds fixed: cronjob step 1 was silently Forbidden forever (RBAC + induced-fault proof); `grep -c \|\| echo 0` two-line count; piped-while lost counter. Council `d0fcf7ef` APPROVED r3. Carried non-blocking: remote-spawner path label [INFERRED same build]; dedicated-SA hardening; 003 re-attribution stays with 003 |
 | 070 | **`stale-work-item-reaper` keys on `created_at`, not on time spent in `triaged`** — so any re-queued build item is born eligible and gets parked `unresolved` with a false `[stale: triaged 48h+]` prefix (applied cumulatively, in place, unrecoverably). Invisible in the loader path where the two timestamps coincide; visible the moment an operator re-queues an old row, which is the only way to ask for a rebuild today. Looks intermittent because the 120s claimer normally beats the 3600s reaper — a single re-queue survives, a batch loses systematically while siblings wait behind an in-flight build. See §9 *"A staleness reaper keyed on ROW AGE…"* | filed 2026-07-25 (brochure-component-library session), OPEN. **DB-config only — no image roll.** Candidate 1 = key on `updated_at` (measurement query in-file first: does anything touch a triaged row?); candidate 2 = a real `triaged_at` column; candidate 3 = stop mutating `summary` in place. Prerequisite for `features_open/021`. Verify by INDUCING it with the claimer disabled — a successful re-queue only proves the claimer won the race |
-| 077 | **The `hardcoded_section_colors` DETECTOR files items its own HANDLER cannot fix.** Detector matches any hex background (3/4/6/8-digit, light or dark, inline `style=""` included) in a component carrying a `<style>` tag; the fixer rewrites only dark 6-digit hexes and two-colour `Ndeg` gradients *inside* `<style>` blocks. Live 2026-07-25: 32 components across 8 sites match, **5 of the 8 sites have ZERO inside the remit** (finetuning.uk 8/0, gaswholesalers 6/0, ai-agent-orchestration 4/0, webdesign 2/0, dartsonline 1/0). 8 items sit permanently `unresolved` under a label that means "the handler failed twice" when the handler was never able to succeed. See §9 *"…HANDLER's remit, not the DETECTOR's predicate"* | filed 2026-07-25 on closing `021`, OPEN, **severity LOW**. Explicitly **not churn** — `idx_swi_dedup` bounds it to one open item per site (`detected` is not terminal), the check filed nothing fleet-wide in 7 days, and the handler is not LLM-driven: a legibility defect in the backlog, not a cost defect. Design call, not a patch: narrow the detector (call the transform) / widen the handler / split the type. Test set = the 5 zero-remit sites |
+| 077 | **The `hardcoded_section_colors` DETECTOR files items its own HANDLER cannot fix.** Detector matches any hex background (3/4/6/8-digit, light or dark, inline `style=""` included) in a component carrying a `<style>` tag; the fixer rewrites only dark 6-digit hexes and two-colour `Ndeg` gradients *inside* `<style>` blocks. Live 2026-07-25: 32 components across 8 sites match, **5 of the 8 sites have ZERO inside the remit** (finetuning.uk 8/0, gaswholesalers 6/0, ai-agent-orchestration 4/0, webdesign 2/0, dartsonline 1/0). 8 items sit permanently `unresolved` under a label that means "the handler failed twice" when the handler was never able to succeed. See §9 *"…HANDLER's remit, not the DETECTOR's predicate"* | **CLOSED 2026-07-26 → `/bugs_closed/`.** Owner ruled: keep the wide detection, SPLIT the output, queue the handler work. Checks now partition their population by the handler's own literal transform — in-remit becomes the dispatchable item with an honest count, the residue becomes a `capability_gap` (`status='deferred'`, empty `handler_agent`; undispatchable twice over, bounded to one open row per site by `idx_swi_dedup`, and already read as a roadmap view by `diagnose_triage_action` + the fixloop digest, so **no 78th item type**). Shared seam = `discovery_checks/remit.go`. **Three more instances fixed, two found by the new guard on the day it was written**: `forced_text_colors` → `forced-text-color-fixer` and `missing_site_metadata` → `site-metadata-fixer`, **neither agent has ever existed** (both items were destined for `blocked` at claim; the second at severity high, priority 3); `broken_nav_links` partitions on the TEMPLATE its handler edits, not the rendered html it detects on, and reads the LIVE seeded patterns because the remit is partly DB config (3 seeded vs 4 in Go). `handler_coverage_test.go` now fails the build on any check routing at an agent that is neither live nor a declared gap — proven non-vacuous by an induced fault. Migration `221` retires the 3 lying rows, selecting sites by a predicate strictly wider than the transform on every axis (so zero is proof) — **apply AFTER the roll**, or the old detector re-files. See §9 *"A detector must PARTITION its population by the handler's remit"* |
 | 078 | **One work item with `handler_agent IS NULL` silently livelocks the build dispatcher fleet-wide.** `find_dispatchable_site` counts the row (it checks only status/attempt_count); `LoadWorkItemsAction` scans `handler_agent` into a plain `string` (`load_work_item_actions.go:609`), so SQL NULL fails the scan and the row is dropped by a `continue` behind a `Warn` (`:624`). The loop returns `item_count: 0`, claims nothing, and the 120s trigger re-picks **the same site** forever. Because selection is `ORDER BY wi.site_id … LIMIT 1`, a NULL-handler row on a **low-`site_id`** site starves every site above it. Live 2026-07-25: one hand-written `page_rerender` row on leopardess (lowest site_id; 680 of 681 siblings carry `page-rerender`) stopped **all** fleet builds for ~45 min while `webdesign` held 95 triaged items — dispatch orchestrations COMPLETING every ~20s having done nothing. Opposite signature to `029` (hung/`AWAITING_RESPONSES`) | filed 2026-07-25 while closing `028-page-build-noop`. **RECURRED 2026-07-26** — a different session made the identical omission on `gaswholesalers.com` (again the lowest site_id): 42 min of zero completions fleet-wide, trigger picking that one site every tick, `item_count: 0` every run; setting the handler moved it to `1` and the queue drained. **CLOSED 2026-07-26, LIVE: migration `217` made the column `NOT NULL DEFAULT ''`, so the state is unrepresentable** — an omitted column now yields the already-safe `''`, an explicit NULL is rejected at insert time. Go defence-in-depth (`sql.NullString` scan + loud drop logging; unroutable item blocked at claim) inert until the roll. Candidate 2 (`find_dispatchable_site`) deliberately NOT applied — that query is owned by the `029` dispatch-gate lane, and is redundant post-`217`. **Residual handed to `029`:** the selector ignores `depends_on` while the loader enforces it — same livelock, different predicate, `[UNOBSERVED]` (0 rows today) |
 
 | 072 | **`contact-info` can never render on 8 of 13 live sites.** Its `input_schema` sources `site_specs.identity.email`/`.phone` as FLAT keys; `domain-research-classifier` writes them NESTED under `contact.*`, and `email`'s `on_missing: needs_human_review` withholds the whole section — with **no `sections_skipped`/`sections_deferred` entry**, so three consecutive builds produced 2 of 3 planned components with no error. Fleet discriminator exact, no exceptions either way: the 5 sites with a flat `email` are the 5 where it has ever rendered. The classifier's own shape is the nested one, so **a new site is broken by default**. Owner's phone had been written only to `sites.phone`, which no component reads. See §9 *"A schema `source` path and the aspect writer's SHAPE are one contract"* | filed 2026-07-25 (brochure_component_library). fundamentallyai.com fixed at the DATA level only (flat keys added beside nested, `services` preserved, backup taken; `idx_site_specs_current` forces supersede-before-insert) — phone now live as `tel:`. Contract UNFIXED: candidates = repoint the 4 source paths (verify the resolver handles 3 levels first), or resolver-level `<aspect>.<contact>.<field>` fallback, or make the withholding loud. Backfill of the other 7 sites is partly data-gathering (several have `phone: null`) — do not ship an empty block as a fix |
@@ -5018,3 +5100,50 @@ go red are the ones that did, and that the run executed everything it claimed to
 is only as good as your reading of its output, and the default output is designed for the
 happy path. Cross-ref: `bugs_open/079` NOTES, where this cost a wrong diagnosis of four of
 my own tests.
+
+### A required field whose honest value is "we have no such figure" does not risk a failed build — it PAYS the model to invent (2026-07-26)
+
+`bugs_open/073`, and the general shape is worth more than the case. The setup was two
+correct mechanisms in a chain:
+
+- migration 201 told `page-content-writer` that a required numeric field is not permission
+  to invent, and that the honest answer when no sourced figure exists is an **empty string**;
+- the render gate (`missingRequiredLLMFields`, `json_envelope.go:204`) treats an empty
+  **required** `source:"llm"` field as a missing one and refuses the section;
+- one refused section fails the whole page build, all eight sections of it.
+
+Both are right on their own terms, and the file was filed as "the honest answer is now
+unrepresentable — the page cannot be built." That framing understates it, and the
+understatement is the transferable part.
+
+**The two outcomes are not "honest page" vs "no page". They are "no page" vs "page with an
+invented number".** The model meets a required field, no data, and a rule saying do not
+invent. Only one of the two ways it can resolve that produces a page. The pipeline is
+therefore *selecting for confabulation*, and it does so silently: the run that fabricates
+completes, logs nothing unusual, and deploys.
+
+Measured on ai-agent-orchestration.com's homepage. On 07-24 and 07-25 the writer returned
+empties and the build died at iteration 4 — that is the bug as filed. On **07-26 at 07:52Z
+the same section built**, and it built because four of its five figures were invented:
+`4 days`, `<10 min`, `8+`, `100%` — none in the site's `evidence_base.writer_block`, and the
+register's NEVER-STATE list explicitly names uptime percentages. Only `1,267` was real. Same
+prompt, same anti-fabrication rule, opposite outcomes, selected by whether the model told
+the truth.
+
+**What to look for.** Any `required: true` field where "there is no such number" is a
+legitimate answer. The tell is not the flag on its own — it is the flag **plus a field
+description carrying example values**. `stat1_value`'s own `llm_guidance` said *"e.g.
+'99.99', '2.4M', '150'"*, and 043 recorded the writer emitting `2,400+` — literally the
+`2.4M` shape. Relaxing `required` while leaving that description in place fixes the build
+and leaves the incentive: **read the description, not just the flag.**
+
+**The cheap diagnostic, before you reach for a mechanism.** Ask whether declining is the
+only branch that fails. If a model can satisfy a contract by inventing and cannot satisfy it
+by abstaining, the contract is the defect — not the model, and not the guard that caught it.
+
+**And the reason it looked deterministic for two days:** a failure that depends on the
+model's choice is intermittent by construction. The bug file said "deterministic, not a
+flake" from two observations, and that claim was repeated into the fix's own header two days
+later without re-measuring. Two queries falsify it in seconds — `page_components.updated_at`
+on the page, and `orchestration_states` filtered on the gate's error string. Ground a
+staleness-prone claim before you repeat it, especially when you are repeating your own.
