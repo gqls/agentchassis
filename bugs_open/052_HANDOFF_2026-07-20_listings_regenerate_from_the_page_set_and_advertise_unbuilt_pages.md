@@ -325,6 +325,35 @@ learning-center-post                  needs_rebuild archived  deployed_at NULL
 news-post                             needs_rebuild archived  deployed_at NULL
 ```
 
+### Re-grounded 2026-07-26 — the ADDENDUM's table has moved, and I had already repeated it
+
+> **CORRECTION.** The commit message and the first draft of the code comment repeated the
+> addendum's *"four pages are `needs_rebuild` and never deployed"* straight from this file.
+> It was measured on 2026-07-20 and it is **stale six days later.** Re-measured against the
+> live DB:
+
+| population | 2026-07-20 (addendum) | **2026-07-26** |
+|---|---|---|
+| `planned`, never deployed | 18 | **27** |
+| `needs_rebuild`, never deployed | 4 | **10** |
+| `needs_rebuild`, deployed once | 34 | **31** |
+| `deployed`, never stamped | 1 | **1** (`idea.uk`, unchanged) |
+
+The mechanism is untouched — the predicate is still right, and the disjunct still earns its
+place. What moved is the size of the population it protects against, and it **more than
+doubled in six days**, which is the opposite of the "small and shrinking" impression the
+original scale section gives.
+
+Five of those ten are the robot-hands blog posts this fix drops, so they are the same rows,
+counted from the other end. The other five (`dartsonline` ×3, `gaswholesalers`, `oufe`) are
+`status='active'` and not blog posts, so they are reachable by other listings and belong to
+`/bugs_open/049`'s lane, not this one.
+
+The code comment now states the mechanism and **deliberately carries no count**, because a
+figure baked into a Go comment cannot be re-grounded and will be wrong within the week.
+Logged as the general lesson: a figure copied from a sibling doc inherits its measurement
+date, not today's.
+
 ### Council gate
 
 Submitted 2026-07-26, `SUBMISSION_CORR = 37329362-f3bb-4ac2-8c72-fd4e9c80109e`

@@ -45,11 +45,15 @@
 //
 // v3 changes (2026-07-26, bugs_open/052):
 //   - The v2 widening above was right about the symptom and wrong about the
-//     test. `needs_rebuild` does not mean "still serves" — 4 fleet pages are
-//     `needs_rebuild` AND never deployed, and they 404. build_status alone
-//     cannot answer "will this URL serve"; `deployed_at` can. The query now
-//     carries the shared floor instead of a hand-written build_status list —
-//     see blogPostsQuery.
+//     test. `needs_rebuild` does not mean "still serves": a page carries that
+//     flag whether it was deployed once and later flagged (it keeps serving
+//     its old artefact) or was never deployed at all (it 404s). build_status
+//     cannot tell those apart; `deployed_at` can. The query now carries the
+//     shared floor instead of a hand-written build_status list — see
+//     blogPostsQuery. Deliberately no count here: that population is live
+//     state and moves (10 on 2026-07-26, 4 six days earlier), so a number
+//     baked into a comment is wrong within the week — measure it if you need
+//     it, don't quote this.
 //   - Both findBlogPage strategies gained a `status` filter. They had none, so
 //     an archived blog-index page could be selected as the listing target.
 
