@@ -321,3 +321,44 @@ just in the database. The last few pages are still picking up the new header
 as their re-renders clear, all on their own. The directory page itself is
 styled, populated with all 27 models and their cited sources, and one click
 from every page on the site.
+
+**2026-07-26 — the second half of what you asked for in the first place is
+live on the site.**
+
+Two new pages, both built by the machinery rather than by hand:
+
+- **ai-agent-orchestration.com/adoption-tracker.html** — fifteen named
+  organisations actually running AI agents (Klarna, JPMorgan, Uber, Siemens,
+  DHL, BNY, Deutsche Telekom, Swisscom, Shopify, GitHub and more), each claim
+  carrying a link to the page that proves it. Where a company said how it
+  measured its result, that is recorded separately from the result itself —
+  so "they claimed 27% and here is the before/after test they ran" reads
+  differently from "they claimed 40% and never said how", which is exactly the
+  distinction that makes this worth publishing.
+- **ai-agent-orchestration.com/protocol-tracker.html** — the four agent
+  communication protocols that matter right now: Anthropic's MCP, Google's
+  A2A, IBM's ACP and ANP, with who stewards each, what shape it is, and when
+  it appeared.
+
+Both are in the site's footer navigation; the Model Directory keeps the top-menu
+slot you gave it.
+
+**Two things I found by looking at the actual pages rather than the "success"
+reports, which is becoming the theme of this week.** The adoption tracker's
+*first card* was a university research paper — a survey of 306 practitioners —
+sitting among the companies as though it were one. Its facts were real and
+properly sourced; it simply is not an organisation deploying agents, which is
+what that page promises. I've retired it from the list (kept, not destroyed)
+and taught the researcher the distinction it was missing. And both new pages
+had been created without being added to any menu — the same gap the model
+directory hit last week — so I rebuilt the navigation.
+
+One correction: I told you Pricing would sit first in the footer group. It is
+third, behind the two new trackers. The reason is a rule I didn't know until I
+looked: pages pushed out of the full top menu jump to the front of the footer
+list rather than taking their normal place in it. Both readings satisfy what
+you asked for, so I've left it — but say the word and Pricing goes first.
+
+**Still blocked, unchanged:** the homepage teaser sections for all three
+registers, behind the case-study statistics problem (bug 073). The pages
+themselves are unaffected.
