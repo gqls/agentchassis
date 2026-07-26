@@ -1,13 +1,31 @@
-> # ✅ CLOSED 2026-07-26 — read this box before anything below it
+> # ✅ CLOSED 2026-07-26 — FIXED AND LIVE, both halves. Read this box first.
 >
-> **The live defect is fixed and verified against the shipped artefact; the
-> RECURRENCE-PREVENTION half is Go code that is INERT until the next chassis image roll.**
+> **UPDATED 21:10 BST: the Go half is now LIVE in `v1.0.1171` and pod-verified.** The box below
+> originally recorded a deliberate owner-authorised deviation from `bugs_closed/README.md`'s
+> "fixed AND live" bar, because the code was committed but inert. **That deviation no longer
+> applies** — a chassis build shipped and the case now meets the normal bar on both halves.
+> The history is left visible rather than edited away.
 >
-> This is a **deliberate, owner-authorised deviation** from `bugs_closed/README.md`'s bar
-> ("a fix that is committed but inert until the next image roll STAYS in `/bugs_open/`").
-> The owner was shown that tension explicitly and chose to close on the live data fix. It is
-> flagged here rather than quietly broken, because a reader who finds this case in
-> `bugs_closed/` is entitled to know which half shipped.
+> ## ⚠️ CORRECTION — the pod-grep marker this file first gave you was VACUOUS
+>
+> This file originally told you to grep the pod for **`NavFetchableOnly`**. **That is worthless
+> and would have read as "not deployed" forever.** `NavFetchableOnly` is a typed integer
+> constant; Go resolves it at compile time, so the *name* never appears in the binary. Grepping
+> it returns 0 whether or not the fix shipped — an unfalsifiable check, the exact class
+> `bugs_open/052` records ("the obvious pod-grep marker is VACUOUS").
+>
+> **Use function names and string literals, and assert the OLD line DISAPPEARS:**
+> ```
+> POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+> # positive — symbols the change CREATED
+> kubectl -n ai-persona-system exec $POD -- sh -c 'strings /app/agent-chassis | grep -c "applyNavVisibility"'                                  # 2
+> kubectl -n ai-persona-system exec $POD -- sh -c 'strings /app/agent-chassis | grep -c "loadFetchablePageSet"'                                # 4
+> kubectl -n ai-persona-system exec $POD -- sh -c 'strings /app/agent-chassis | grep -c "dropped nav items whose target page has never been deployed"'  # 1
+> # NEGATIVE control — the wrong predicate must be GONE. This is the discriminating one.
+> kubectl -n ai-persona-system exec $POD -- sh -c "strings /app/agent-chassis | grep -c \"ni.page_id IS NULL OR p.build_status = 'deployed'\""     # 0
+> ```
+> Measured on **v1.0.1171**: `2 · 4 · 1 · 0`. The old predicate is absent and the new machinery
+> present, so the change is in the running binary — not merely tagged.
 >
 > **What IS live now (no image needed):** the three nav items pointing at never-built pages are
 > deactivated, the `in_footer`/`in_header` flags feeding the footer's services column are
@@ -21,7 +39,7 @@
 > kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "NavFetchableOnly"'      # want > 0
 > kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "siteHasAnyNavItems"'    # positive control, was 4
 > ```
-> Verified **absent** from v1.0.1167 at close of session, as expected.
+> (Was verified **absent** from v1.0.1167 earlier the same day, before the roll.)
 >
 > **LIVE PROOF, 2026-07-26 ~16:45 BST — the whole chain confirmed against the shipped artefact.**
 > `https://gaswholesalers.com/index.html` serves **zero** occurrences of
