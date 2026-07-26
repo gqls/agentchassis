@@ -1047,3 +1047,103 @@ payload-shaped: two fires with *identical* `spec`-carrying payloads behaved diff
 (one produced no row for ~15 min then completed; the other landed). Both eventually ran. It
 looks like consumer latency under load rather than rejection, so **do not re-fire on a
 missing row as evidence** — that was going to be my conclusion too until the row appeared.
+
+---
+
+# CLOSED 2026-07-26 — the lane is split, armed, and measured: publish→start 1 s (was ~18 min for the same submission the day before)
+
+> **Status: CLOSED & LIVE.** Chassis **v1.0.1165** carries the lane consumer;
+> `EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests` is on the running
+> Deployment; the 18 enabled cron rows' `target_topic` was switched at
+> 2026-07-26 13:2x UTC. Moved to `/bugs_closed/`.
+
+## Verified live before arming anything (RUNBOOK R9 step 3)
+
+```
+strings /app/agent-chassis | grep -c "Extra request lane ready"   -> 1
+strings /app/agent-chassis | grep -c "Starting request processor" -> 2   (positive control)
+
+kafka-topics.sh --describe --topic system.agent.scheduled.requests
+  -> PartitionCount 1, ReplicationFactor 3,
+     compression.type=snappy, cleanup.policy=delete,
+     retention.ms=604800000, max.message.bytes=5242880
+
+kafka-consumer-groups.sh --list
+  -> generic-requests-group-lane-system-agent-scheduled-requests
+     (member: agent-chassis-f4d46c88d-p6wqc)
+```
+
+Those topic settings are `TopicManager.CreateTopic`'s own, so **the lane topic was
+created by the new code path** — self-provisioning observed, not asserted. The
+pod's startup log lines had already rotated out of the retained window (the chassis
+is that verbose), so the Kafka group plus the topic's config fingerprint carried the
+proof instead.
+
+## The measurement that closes the case
+
+Same submission, same council, one day apart — the only difference is which lane
+it landed in:
+
+| | 2026-07-25, shared lane | 2026-07-26, split lanes |
+|---|---|---|
+| LAG at publish | **18** | **0** |
+| publish → `orchestration_states` row | **~18 min** (17:15 → 17:33:06) | **~1 s** (13:26:33 → 13:26:34) |
+| state at first look | not created yet | already `review_editquality` |
+
+**The negative test this file asked for** ("fire a trigger while several other
+orchestrations are running and confirm it starts promptly") is satisfied by the
+same run: cron work was live on its own lane throughout, and both lanes sat at
+LAG 0 ten minutes later.
+
+**Cron still runs, on its own lane** — `generic-requests-group-lane-…` at
+`CURRENT-OFFSET 6 / LOG-END 6 / LAG 0`, with `generic-orchestrate-0726-1322` and
+`-1323` completing 90 s apart, which is `ai-endpoint-health-check`'s
+`interval 60 + 30 s tick` effective period exactly. Nothing was dropped or
+stalled by the move.
+
+## What each candidate came to
+
+| candidate | outcome |
+|---|---|
+| 1 — acknowledge on publish | **DONE, live** (`scripts/dispatch-queue-depth.sh`, wired into 090/097). Prints no ETA, by design — see the correction above |
+| 2 — partition the topic + scale the group | **REJECTED, with reasons**: one-way, and at `replicas: 1` one consumer takes every partition and still blocks. Not outstanding |
+| 3 — separate lanes for long-running work | **DONE, live** — `EXTRA_REQUEST_TOPICS`, cron on `system.agent.scheduled.requests` |
+| 4 — lag as a health signal | superseded in practice by candidate 1's script; a first-class metric is still worth having and blocks nothing |
+
+## The residual, and who owns it
+
+**Within a lane, processing is still strictly serial** — one orchestration at a
+time, because `processMessage` runs the orchestration's consecutive local steps
+inline. So a long run still delays the next dispatch *on its own lane*. That is
+the inline synchronous handler, and it is **`chassis_replica_scaling`'s P1**
+("decouple consumption from execution"), which that workstream's plan names as the
+fix and gates on its own review. Designed, unbuilt (verified 2026-07-26: 2 commits
+in that workstream, both docs). **This case does not stay open on another
+workstream's phase** — lane separation composes with P1 and stands alone without it.
+
+The filed diagnosis of this bug's own root cause (corr
+`78470372-7617-40e4-888c-66cac94006bf`) **never ran** — it was queued in the lane
+it was about, which is its own comment on the bug. Left filed, not cancelled. Its
+claim was independently confirmed from the source and from the live pod, and no
+change here depended on the verdict.
+
+## Landmines that outlive this case
+
+- **NEVER put `EXTRA_REQUEST_TOPICS` in `personae-prod-config`.** Spawned pods
+  inherit that ConfigMap wholesale (`spawn_actions.go` `EnvFrom`), so every live
+  spawned pod would drain the lane under its own consumer group and re-run every
+  scheduled dispatch. `agent.go` refuses the var on non-static agents as a
+  backstop; do not lean on the backstop.
+- **Rollout order is the risk, not the code.** `scheduled_tasks.target_topic` is a
+  DB column and is live immediately: switch producers ONLY after the lane is
+  verified consuming, or all scheduled work silently stops. RUNBOOK R9; rollback is
+  the inverse `UPDATE`.
+- **A consumer group with no member is a genuine fault**, unlike a non-zero LAG.
+  `scripts/dispatch-queue-depth.sh` distinguishes them; that distinction is the
+  whole point of the script.
+- **Adding scheduled tasks re-fills a lane silently.** 12 → 21 in four days is what
+  decayed the 07-21 tuning fix. If the *scheduled* lane ever becomes the problem,
+  the answer is another lane or a producer that owns its own budget — not another
+  round of intervals. Pattern filed in `016b §9`.
+- The ~300 s post-restart drop documented in `CLAUDE.md` is **still a separate,
+  real failure**. Closing this does not retire that rule.
