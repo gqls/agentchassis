@@ -61,6 +61,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file** | **1** |
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
+| **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -3759,3 +3760,51 @@ that something was flagged, not evidence that it is still broken — and a
 detector that reads static markup cannot see a runtime-filled component. Verify
 the defect before you plan around it, especially when planning around it is what
 makes the task risky.
+
+**2026-07-26 — wrote the counter-argument to my own change, put it in the risks section,
+and shipped it anyway; the council caught what I had already spotted**
+(bugfix_040_kafka_dial, council corr `7abe1a57`, guardian hard veto, 2× HIGH).
+
+Instrumenting `bugs_open/040-kafka-dial` I also unified the fleet's four divergent Kafka
+dial configurations, cut the default dial timeout **10s → 5s fleet-wide**, and raised the
+producer's `IdleTimeout` 30s → 5m and `MetadataTTL` 6s → 30s. The guardian vetoed it:
+behaviour changes to shared messaging plumbing and to failover reactivity across every
+pipeline, bundled into what I had framed as a metrics change.
+
+**The damning part is that I had already made the argument against it, in writing, in the
+submission itself.** My own `risks` field said the timeout cut *"makes it fail sooner
+rather than hang… if the residual flake turns out to be a genuine multi-second-but-
+recoverable path"*. I wrote that, called it a trade-off, and submitted. My justifications
+were a **remark in a bug file** (§4.6 "10s is pathological") and **"the Java client's
+default is 300s"** — an opinion and an appeal to another product's defaults. Neither is a
+measurement, and the whole point of the change was that **nothing about this path had ever
+been measured**. I was tuning a constant blind while building the instrument that would
+have told me what to set it to.
+
+**What caught it:** the council gate, on a submission I nearly did not send because the
+change "was only instrumentation".
+**The cheap check:** read your own `risks` section back before submitting and ask which
+entries describe *this* change rather than the world. A risk that says "this change could
+make X worse" is not a disclosure — it is the reviewer's objection, pre-written. Split
+that part out. A second, near-free check: for every constant you are changing, name the
+measurement that chose the new value. "A doc said so" and "another library does" are both
+absent measurements wearing a citation.
+**The class:** scope creep laundered through a legitimate change. The instrumentation was
+sound and needed, which made the behaviour changes riding along feel like part of the same
+tidy-up. Note the ordering error too — the change that would *produce* the evidence and the
+change that *consumes* it went in together, so the tuning could not possibly be evidence-
+based. **Sequencing was available and free**: ship the counters, read the histogram, then
+choose the timeout. The veto did not cost a round, it improved the change.
+Family: behaviour-change-bundled-into-instrumentation, constant-tuned-without-measurement,
+self-refuting-risk-section, evidence-and-consumer-shipped-together.
+
+**Two smaller ones from the same review, both about the submission rather than the code:**
+`editquality` flagged `consumer.go` as un-rewired — it *was* rewired in the commit, but I
+hit the 8-edit cap and dropped it from the plan while still quoting its pre-change state in
+`grounded_in`. And `reuse_agent` objected that I bypassed `observability.NewMetricsServer`
+having cited its zero callers as the defect, without saying why. Both correct **from what
+the reviewers could see**. The standing lesson (already a row above, about trimmed quotes)
+generalises: **the submission is the artefact under review, not the commit.** An edit you
+leave out reads as an edit you did not make, and a reason you did not write down does not
+exist. The cap is not an excuse — if the plan will not fit in 8 edits, that is information
+about the change's scope, which in this case it was.
