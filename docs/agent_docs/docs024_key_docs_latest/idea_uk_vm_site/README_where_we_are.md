@@ -1324,3 +1324,13 @@ chat: back up, release the five slots, fix the email line (deciding which contac
 address is the real mailbox), restart, then order one real report to see the new format arrive.
 One nice side effect already banked: yesterday's deploy also took the anti-spam hardening live —
 it had been sitting finished in the source since mid-July waiting for exactly this rebuild.
+
+## 2026-07-26 (correction) — the leopardess address is the right one for the tool
+
+You've told me idea-uk@leopardess.uk is the correct address for the tool — I had it backwards. I'd
+carried "leopardess is old" over from the website work, where you chose a contactforsales address,
+and assumed the tool should match. They're deliberately different. The comfortable consequence:
+because the last line in the settings file wins, the tool has been using the right address the
+whole time — nothing was ever mis-sent. The only real tidy-up is deleting the *other* line (the
+contactforsales one), so nobody later "fixes the duplicate" by deleting the wrong half. The
+corrected command is in the chat; everything else in the walkthrough stands.

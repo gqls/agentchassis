@@ -1952,3 +1952,16 @@ DNS records (outstanding since 07-18).
 Docs to this point: SUMMARY_2026-07-26 written (new file — the pipeline-complete milestone;
 07-25's summary predates stages 1–5, both tools and the engine extension, so "where we are now"
 genuinely differs).
+
+> **CORRECTED 2026-07-26 (owner): `idea-uk@leopardess.uk` is the CORRECT address for the tool —
+> not stale.** §X.14/X.15/X.17 and the AUDIT doc called it "the stale/dead address"; that was
+> carried over from the SITE contact-email work (where the owner chose a contactforsales
+> address) and stated as fact for the TOOL without evidence the mailbox was dead. The two are
+> deliberately different addresses. Consequences: (1) since the LAST EnvironmentFile line wins,
+> the tool's effective CONTACT_EMAIL was leopardess — i.e. **already correct all along**; the
+> only real defect is a confusing inert duplicate (line 29, contactforsales), and the fix is to
+> delete THAT line, the opposite of what the 07-25 walkthrough said — both of its step-3 options
+> would have set the wrong address, caught by the owner before running. (2) engine.go's
+> reportContact() fallback (idea-uk@leopardess.uk) is CORRECT, not a bug — the AUDIT side-find
+> reverses. (3) The "stale idea-uk@leopardess.uk in sites.content_data" side-finding stands for
+> the SITE only. Logged in WRONG_CALLS.

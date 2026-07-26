@@ -126,3 +126,12 @@ safe direction.
 **Deploy checklist for the owner:** build + scp + restart per RUNBOOK; then
 `grep CONTACT_EMAIL /etc/idea/idea.env` (the stale-address fallback); then run one real report
 end-to-end and check the email carries "Your idea, assessed" + working source links.
+
+---
+
+> **CORRECTED 2026-07-26 (owner):** the "Also found while auditing" note above is WRONG about
+> the address being stale — `idea-uk@leopardess.uk` **is the tool's correct contact address**
+> (the site and the tool deliberately use different addresses). The engine fallback is therefore
+> correct as written, and since the last EnvironmentFile line wins, the deployed tool's
+> effective address was correct all along. The only env defect is the inert duplicate
+> `CONTACT_EMAIL=idea@contactforsales.com` line, which should be the one deleted.

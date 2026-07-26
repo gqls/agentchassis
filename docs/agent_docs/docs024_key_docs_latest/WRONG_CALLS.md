@@ -3089,3 +3089,32 @@ council forced (one change, one submission) produced a *better* record than the
 bundle would have — every change now resolves to the verdict that actually
 judged it. The bundling was mine, and I resisted the split as bureaucratic
 before doing it.
+
+---
+
+## 2026-07-26 — "idea-uk@leopardess.uk is stale/dead" (idea.uk tool). Wrong: it is the tool's correct address.
+
+**The claim.** Across §X.14–X.17, the paid-tool AUDIT doc and two owner walkthroughs, I called
+`idea-uk@leopardess.uk` "the stale/dead address", flagged the engine's fallback to it as a bug,
+and issued a fix whose both variants would have removed it from the box's env file.
+
+**What was actually true.** Owner: it is the CORRECT contact address for the tool. The site and
+the tool deliberately use different addresses. And because the last EnvironmentFile line wins,
+the deployed tool's effective address was correct the entire time — the only defect was an inert
+duplicate line, and the right fix deletes the OTHER line.
+
+**What caught it.** The owner, before running the command. Had they pasted my step 3 as written,
+a correct production setting would have been silently replaced with a wrong one, under a
+walkthrough that said "fix".
+
+**The cheap check that would have caught it.** The claim wasn't derivable from the repo at all —
+whether a mailbox is real is owner knowledge. The available check was to mark it: the memory
+note that spawned this says "stale … in sites.content_data" — a SITE claim. I widened it to the
+tool and stated it as fact. `[ASSUMED — owner to confirm]` at first mention would have surfaced
+it a day earlier and kept it out of the fix commands.
+
+**Transferable rule.** A fact about the world outside the system (is this mailbox alive? is this
+person reachable? does this company still trade?) can never graduate from assumption to fact by
+repetition inside the docs. Scope-widening is the specific trap: a claim true of X (the site)
+quietly restated about Y (the tool). Fourth entry in three days where the fix was one marker or
+one question at first-write time.
