@@ -515,3 +515,55 @@ Then:
   logical negations, in packages that do not import each other, with nothing asserting the
   relationship. A test that pins `NOT(one) == other` over a table of build_status/deployed_at
   combinations would close it. Not urgent, and no longer two *copies* — that part is fixed.
+
+---
+
+## COUNCIL ROUND 1 — REVISE, and it found a real gap (2026-07-26)
+
+`unreadable: 0`, 10 reviewers, 6 abstained (relevance-filtered) — so this was a verdict on the
+merits, not a lost-seat artefact. `reuse_agent` and `improvement_guardian` approved;
+`editquality`, `bug_historian` and `guardian` objected. **No `Council-Reviewed:` trailer**: a
+REVISE does not earn one, and claiming otherwise leaves a permanent false record.
+
+**The objection worth the whole round — `bug_historian`, MEDIUM.** My empty-result guard fired
+only on TOTAL collapse. A partial erosion — 16 posts becoming 10 — returned `rebuilt: true`
+with no log, no warning and no work item. That is **the same no-error-no-warning signature as
+the bug being fixed**, reintroduced by the fix's own stricter predicate. I had reasoned about
+the all-or-nothing case and not the gradient, and the reviewer was right that the gradient is
+the likelier failure.
+
+Fixed in commit `b2e668126`: `previousArticleCount()` reads the existing component's article
+count before the rebuild, and any shrink logs a Warn with previous/new/dropped. Returns **-1**
+rather than 0 for "no previous set", so a first build is not misread as a shrink from nothing.
+Cause-agnostic on purpose — it catches the empty-`sections` case the seat raised as a future
+risk, and equally a post deleted, archived or retyped upstream. **Warn, never a refusal:** the
+new set is correct by construction, and refusing to write it would leave the known-stale
+listing serving instead, which is strictly worse.
+
+**Three objections were already answered by the reviewers' own read-only checks**, which is the
+gate's most useful property — the council runs the query it wants rather than asking you to:
+
+| objection | the council's own check | outcome |
+|---|---|---|
+| `editquality`: `status IN ('active','deployed')` may exclude an unaccounted live status | distinct `pages.status` on blog-post rows, fleet-wide | `active 62, archived 6` — **no third value exists**, so nothing legitimate can be excluded |
+| `guardian`: blast radius unconfirmed — more than one pipeline may dispatch this action | agent/workflow steps referencing the action | exactly one row, `rerender-pages`; companion check for other pipelines returned **zero rows** |
+| `editquality`/`guardian`: is the measured drop set really six archived rows? | before/after kept-counts per site | identical on all ten sites carrying blog posts; robot-hands alone changes, **9 → 3** |
+
+That last check is worth keeping: it covers **ten** sites with blog-post pages, where my own
+measurement covered only the three with a *resolvable* blog page. Same conclusion, wider base.
+
+**Two scope objections I answered rather than conceded**, both from `editquality`:
+
+- *Edit 2 (the `findBlogPage` status filters) is an uncited addition.* Fair as stated, and
+  keeping it: those two queries select the PAGE the listing is written onto, with the identical
+  omission in the identical file. An archived `blog-index` page was a valid rebuild target, and
+  Strategy 2 does not merely read it — it executes `UPDATE pages SET page_type = 'blog-index'`,
+  so it would stamp an archived row. Splitting it out ships a fix that stops advertising
+  archived posts while still writing the listing onto an archived page.
+- *Edit 3 (Info→Warn) mitigates a risk the fix introduces, not the diagnosed bug.* An accurate
+  description, and the reason to keep it: a fix that can silently produce the bug's own
+  end-state — a stale listing advertising what it should not — while reporting success is not
+  finished. Round 2's shrink guard is the same argument carried to the partial case.
+
+Round 2 submitted on the same correlation so the trail accumulates. Councils have **no
+cross-round memory**, so round 2 restates the full evidence base rather than referring back.
