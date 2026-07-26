@@ -27,11 +27,14 @@
 >   the chrome count `routed separately as N responsive_fix item(s)`. **FIXED and
 >   committed today; INERT until the next chassis roll**, which is why this case
 >   stays OPEN under the `/bugs_closed/` bar (fixed AND live).
-> - **The escalation branch is STILL live-unexercised** — no `acceptance_stuck`
->   row has ever existed (`SELECT count(*) … item_type='acceptance_stuck'` = 0,
->   2026-07-25). Its structural risk is now retired read-only, though: see
->   §"Verify" §3 for the constraint/arbiter proof. The induced-fault run that
->   would exercise it end-to-end is specified in §"Verify" §4 and **not yet run**.
+> - **The escalation branch is PROVEN LIVE — 2026-07-26, first time ever**, by an
+>   induced fault rather than by waiting for the fleet. It raised
+>   `acceptance_stuck:tool-drop-rate-tuner:<site>` at `needs_human_review`
+>   (handler `human-review`, priority 20) carrying `fix_cycles_spent: 2` and the
+>   full `why_escalated`, and raised **NO** third `improve_tool`. The note's
+>   escalation line rendered correctly too ("…instead of a 3rd identical
+>   attempt"). Full method, evidence and revert: §"Verify" §4. All test state was
+>   reverted in the same session. **This retires the last open question on (b).**
 
 > **STATUS 2026-07-21 — both candidates BUILT AND FULLY LIVE; (b)'s escalation
 > branch is live-UNEXERCISED (the benchmark self-resolved before it could fire).**
@@ -302,6 +305,40 @@ its positive control `TestImproveToolReportedCreatedWhenInsertAffectsARow`, and
 `TestRowsAffectedToleratesFailedExec`. 9/9 in that file pass; the whole
 `platform/orchestration/actions` package passes.
 
+**Council: APPROVED round 1** — corr `a5b0eb25-ae09-4755-b818-c2259e4f322b`,
+2026-07-25 18:13, "approved with 3 advisory objection(s) — none high-severity"
+(13 seats, abstained 4, `unreadable: null`). **The trailer could not be carried**:
+the verdict post-dates the commit (`20dc63716`) and this repo is forward-only, so
+the 098 report will bucket it as un-reviewed — a known false negative, not a
+missing review. Dispositions, all checked rather than waved through:
+
+- *editquality (low): confirm the guarded `created` counter is the `chromeRouted`
+  the diagnosis named.* **Confirmed** — `chromeRouted := routeChromeFailures(…)`
+  (line ~520) and that function's `return created` (line ~991) are one value.
+- *reuse_agent (low): show a search was done for an existing rows-affected
+  helper before adding one.* **Done** —
+  `grep -rniE "func +[a-z]*rowsaffected" platform/ internal/ pkg/` returns only
+  the new one. None existed.
+- *bug_historian (medium): the anti-pattern is not shown to be unique to this
+  file; `idx_swi_dedup` is shared, so audit other call sites before calling it
+  closed.* **Partly done, and the objection is right.** Measured: **43**
+  `ON CONFLICT DO NOTHING` sites, **10 files** discarding the `Result` — listed
+  and marked `[UNTRIAGED]` in 016b §9. Only the two here were fixed; a discard is
+  a defect only where the flag feeds a durable claim or a counter, and triaging
+  the other ten is a separate task, not this bugfix.
+- *guidelines (medium): the platform's WORK-ITEM DEDUP convention says
+  "use DELETE+INSERT, not ON CONFLICT" — the fix leaves the banned pattern in
+  place without flagging it as scoped-out.* **Accepted as deferred scope, stated
+  here rather than silently.** `ON CONFLICT` is in fact the fleet-wide norm for
+  `site_work_items` (43 sites), including `insertWorkItem` itself, so migrating
+  one insert would make it the outlier; the reviewer's own note says that if so,
+  "the rule is stale/aspirational". Not migrated. **The drift risk the rule
+  guards is real but currently retired** — see §"Verify" §3, where the Go
+  terminal-status list was checked element-by-element against the live index.
+- *guardian (low): rule out consumers pattern-matching on the note's `Fix:` text.*
+  **[UNVERIFIED]** — the guard itself counts `site_work_items` rows, not note
+  text, and no other consumer was found, but this was not exhaustively searched.
+
 **Note the interaction with (b), which is the reason this matters here.** The
 guard counts rows that this same dedup can prevent from existing. A failing
 verdict that queued nothing is not a deferred cycle — it is a cycle that will
@@ -377,11 +414,39 @@ valid test subject for either candidate; it passes Tier-4 now.
      see the CORRECTION above. Before today neither it nor the escalation had
      ever run in production, because the only acceptance verdict since the guard
      shipped (2026-07-21 12:46) **passed**, returning at the all-pass branch.
-4. **Induced-fault run to exercise the escalation end-to-end — SPECIFIED, NOT
-   RUN** (blocked 2026-07-25: it needs DB writes). The fleet has still not
-   produced a genuinely-stuck tool, and waiting for one is what has kept this
-   branch unproven for four days. Do not wait — induce it, on the trial site,
-   without touching any live page:
+4. **Induced-fault run to exercise the escalation end-to-end — RUN 2026-07-26,
+   PASSED.** Correlation `044059b4-67e7-49b6-84b2-7ddd34c4795b`, orchestration
+   `ee6b451b`, against chassis **v1.0.1159**. The fleet had still not produced a
+   genuinely-stuck tool, and waiting for one is what kept this branch unproven
+   for five days — so it was induced, on the trial site, without touching any
+   live page. **Observed:**
+
+   ```
+   item_type        | acceptance_stuck
+   item_key         | acceptance_stuck:tool-drop-rate-tuner:e33263f4-74f8-494f-b191-546845dbbddf
+   status           | needs_human_review      handler_agent | human-review    priority | 20
+   spec.fix_cycles_spent | 2
+   spec.why_escalated    | "2 improve_tool cycle(s) since the last passing Tier-4 verdict left
+                            convergence-probe still failing; the one-shot fixer is not converging
+                            on this defect"
+   ```
+   and **no new `improve_tool` row** (the only rows under
+   `acceptance_fail:tool-drop-rate-tuner:…` remain the two `cancelled` ones from
+   07-12/07-16). The acceptance-fail note took the escalation `fixLine`:
+   *"NOT auto-fixed — 2 previous improve_tool cycle(s) failed to turn
+   convergence-probe green, so this is escalated to human review
+   (acceptance_stuck) instead of a 3rd identical attempt"* — which also exercises
+   `ordinalSuffix`. The tool's own 9 real checks **passed** in the same run; only
+   the injected probe failed, so nothing about this tool regressed.
+
+   **All test state was reverted in the same session** and verified zero:
+   seeded rows, the escalation row, the synthetic acceptance-fail note (removed
+   so no future `tool-improver` hunts a phantom selector — `load_doc_context`
+   feeds the latest 10 NOTES to it), and the PLAN (restored to `fd7c8af9`, 3046
+   bytes, `is_current=true`, `superseded_at` NULL). An accurate
+   `["verification"]` note was left on the tool in its place.
+
+   **The method, for the next time a never-run branch needs proving:**
    - add a criterion that cannot pass to the tool's PLAN `criteria` block
      (`doc_plans`, `subject_type='tool'`), e.g.
      `{"id":"convergence-probe","type":"selector_exists","selector":"#doesNotExist"}`.
