@@ -227,3 +227,14 @@ its fixer will now decline — the `bugs_open/077` shape, bounded by the two-str
 `checkUnlinkedSiteComponents` (whose handler this change made refuse) and
 `check_unverified_claims` filter today. The clean fix is one exported canonical predicate, which
 needs the `actions`/`discovery_checks` import direction resolved — a separate, fleet-wide change.
+
+### Owed: one council round 2 (advisory, does not affect the closure)
+
+Round 2 was **not** submitted. The objections are all answered above — one of them in code
+(`d9e7ef7cb`) — but the submission JSON had to be rebuilt from scratch after the session scratchpad
+was cleared, and the gate is advisory while the fix is already live and proven. If a thread wants to
+close the loop: resubmit with `RESUBMIT_CORR=75dff4cd-e822-4b88-bd98-d989ef32bc90` so the trail
+accumulates, using the answers in "Council" above verbatim as the added rationale, and add the
+lockstep test as an eighth edit. Note the standing trap: **a trailer is earned by APPROVED only**, so
+these commits correctly carry none, and the `098` coverage report will list them as un-reviewed by
+design.
