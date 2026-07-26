@@ -219,6 +219,10 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 		})
 	}
 
+	// How many articles the listing carried BEFORE this rebuild. Read for the
+	// shrink check below; -1 means "no previous set to compare against".
+	previousCount := previousArticleCount(ctx, params.DB, existingComponentID, logger)
+
 	if len(articles) == 0 {
 		// An empty set leaves any EXISTING listing untouched, so the page keeps
 		// advertising whatever it advertised before. That is the safe choice —
@@ -232,6 +236,7 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 				zap.String("blog_page", blogPageName),
 				zap.String("slot_name", slotName),
 				zap.String("component_id", existingComponentID.String()),
+				zap.Int("previous_article_count", previousCount),
 			)
 		} else {
 			logger.Info("RebuildBlogListingAction: No blog posts found")
@@ -240,6 +245,31 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 			"rebuilt": false,
 			"reason":  "no blog posts",
 		}, nil
+	}
+
+	// A listing that shrinks is the failure mode this action cannot see from
+	// its own success: the rebuild reports `rebuilt: true` either way, and
+	// posts simply stop appearing. Guarding only the all-zero case above would
+	// miss every partial erosion (16 posts -> 10), which is the same
+	// no-error-no-warning signature as the bug this fix closes. The eligibility
+	// floor is the plausible cause — ListedPageEligibilitySQL additionally
+	// requires non-empty `sections`, so a deployed post that lands in that
+	// state drops out silently — but the check is deliberately cause-agnostic:
+	// a post deleted, archived or retyped upstream shows up here too, and all
+	// of those are worth a line in the log.
+	//
+	// Warn only, never a refusal: the new set is the correct one by
+	// construction, and refusing to write it would leave the KNOWN-stale
+	// listing serving instead. This makes the shrink visible, it does not
+	// second-guess it.
+	if previousCount > len(articles) {
+		logger.Warn("RebuildBlogListingAction: blog listing SHRANK — fewer posts are eligible than the listing previously carried",
+			zap.String("blog_page", blogPageName),
+			zap.String("slot_name", slotName),
+			zap.Int("previous_article_count", previousCount),
+			zap.Int("new_article_count", len(articles)),
+			zap.Int("dropped", previousCount-len(articles)),
+		)
 	}
 
 	// ── Load component template ─────────────────────────────────────────
@@ -414,6 +444,36 @@ func findBlogPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap
 	}
 
 	return blogPageID, blogPageName, nil
+}
+
+// previousArticleCount returns how many articles the existing listing component
+// carries, or -1 when there is nothing to compare against (no component yet, or
+// the row cannot be read). -1 rather than 0 so a genuinely empty previous set is
+// distinguishable from an absent one — 0 would make every first build look like
+// a shrink from nothing.
+//
+// Failure is deliberately quiet and non-fatal: this feeds a diagnostic warning,
+// so a malformed content_data must not stop the rebuild it is only commenting
+// on. jsonb_array_length would ERROR on an object-shaped value, hence the
+// jsonb_typeof guard — the same guard, for the same reason, as
+// queryresolve.ListedPageEligibilitySQL.
+func previousArticleCount(ctx context.Context, db *sql.DB, componentID uuid.UUID, logger *zap.Logger) int {
+	if componentID == uuid.Nil {
+		return -1
+	}
+	var n int
+	err := db.QueryRowContext(ctx, `
+		SELECT COALESCE(
+		         CASE WHEN jsonb_typeof(content_data->'articles') = 'array'
+		              THEN jsonb_array_length(content_data->'articles') END, -1)
+		FROM page_components WHERE id = $1
+	`, componentID).Scan(&n)
+	if err != nil {
+		logger.Debug("previousArticleCount: could not read previous listing size",
+			zap.String("component_id", componentID.String()), zap.Error(err))
+		return -1
+	}
+	return n
 }
 
 // findBlogListingSlot checks existing page_components for the blog-index page
