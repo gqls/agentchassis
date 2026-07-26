@@ -416,6 +416,22 @@ on the first row and is refuted by the second.
 > §"Re-running this". They were `is_active` agent definitions in the live
 > database, and leaving them would be leaving two loaded guns in the fleet.
 
+## The regression check: the 37 guarded steps still work
+
+The induced fault proves the guard refuses. It says nothing about whether the
+councils the mechanism exists for still function — and those are exactly the 37
+steps that opt into tolerance. Two live `council-gate` rounds reached a verdict
+on the new binary:
+
+```
+18:03:45 | complete_rejected | COMPLETED   (corr 88ef6d08)
+18:08:39 | complete_revise   | COMPLETED   (corr 11a36278)
+```
+
+Neither is mine; both are other threads' submissions, which makes them better
+evidence than a run I controlled. A guard that had broken the guarded path would
+have shown up here as `complete_invalid` or a stalled review step.
+
 ## A defect the induced fault found in this very fix
 
 `llm_call_log` recorded the REFUSED call as **`TOLERATED (step continued on the
@@ -478,14 +494,24 @@ Fire with the `095_TRIGGER` envelope on `system.agent.generic.requests`,
 > to become an orchestration and that re-firing is cheap.
 >
 > The reusable part is the **exit test**, which does not depend on knowing the
-> cause: *has anything newer drained past me?*
+> cause: *has anything newer drained past me?* Newer rows completing while yours
+> is still absent means **dropped**, not queued — so re-fire instead of waiting.
+> Same rule `bugs_open/052` recorded for a vanished council dispatch.
+>
+> **The comparator must be on YOUR lane, and I got that wrong too.** My first
+> run of this test compared against `endpoint-health-checker` and
+> `build-pipeline-trigger` — both of which `bugs_closed/030` moved onto their
+> **own** cron topic (`EXTRA_REQUEST_TOPICS`). They prove nothing about the
+> generic lane. Exclude them:
 > ```sql
-> SELECT created_at, owner_agent_type, status FROM orchestration_states
-> WHERE created_at > '<the moment you published>' ORDER BY created_at DESC;
+> SELECT created_at, owner_agent_type, current_step, status
+> FROM orchestration_states
+> WHERE created_at > '<the moment you published>'
+>   AND owner_agent_type NOT IN ('endpoint-health-checker','build-pipeline-trigger')
+> ORDER BY created_at DESC;
 > ```
-> Newer rows completing while yours is still absent means **dropped**, not
-> queued — so re-fire instead of waiting. That is the same rule `bugs_open/052`
-> recorded for a vanished council dispatch.
+> Done properly it was decisive: other `council-gate` runs started and advanced
+> while mine never appeared, so the dispatch really was dropped.
 
 ---
 
@@ -539,13 +565,34 @@ Why not `orchestration.LogAgentError`, the one exported insert: package `actions
 is imported **by** `platform/orchestration`, so using it is an import cycle. The
 six existing hand-rolled inserts in this package exist for that reason.
 
-Query it:
+Query it (note `occurred_at`, **not** `created_at` — that column trap has cost
+other lanes a round):
 ```sql
-SELECT created_at, context->>'review_field', context->>'branch',
+SELECT occurred_at, context->>'review_field', context->>'branch',
        context->>'council_decision'
 FROM agent_error_log WHERE error_code = 'TRUNCATION_DEGRADED_REVIEW'
-ORDER BY created_at DESC;
+ORDER BY occurred_at DESC;
 ```
+
+### It fired twice from natural traffic within 20 minutes of going live
+
+```
+18:08:27 | review_prior_art.result  | salvaged_from_invalid_json | rejected
+18:15:11 | review_editquality.result| salvaged_from_invalid_json | revise
+```
+
+Two real council seats, in two different rounds, cut mid-JSON and recovered by
+`salvageTruncatedReview` — each one an opinion that **gated a live verdict while
+carrying only the objections that arrived before the cut**. One of those rounds
+ended `rejected`, the other `revise`.
+
+This closes the file's own `[UNVERIFIED]` residual ("no induced-truncation run
+has exercised `diagnose_council_decide`'s degrade path end to end") by something
+better than an induced run: **two unforced ones, in production, inside twenty
+minutes.** It also sizes the thing that was invisible. At roughly six an hour,
+this had been happening continuously and the only trace was a `zap.Warn` in a pod
+log that is discarded on every rollout — which is exactly why "we have never seen
+it happen" was never evidence that it did not.
 
 ## 2. The registry can no longer underclaim silently
 
