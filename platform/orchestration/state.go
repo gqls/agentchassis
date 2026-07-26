@@ -1258,7 +1258,17 @@ func (r *StateRepository) SetExecutingStep(ctx context.Context, orchestrationID 
 // The CAS is guarded on the previous holder so the log can name who it was
 // taken from and two pods cannot both claim the same handover. It deliberately
 // leaves `version` alone: this is bookkeeping, not a state transition, and must
-// never collide with UpdateStateWithVersion's optimistic lock. Callers proceed
+// never collide with UpdateStateWithVersion's optimistic lock.
+//
+// INVARIANT — orchestration_states now has TWO guarded-update mechanisms, and
+// they must never both govern the same column. UpdateStateWithVersion's
+// version-CAS owns every workflow field (status, current_step, collected_data,
+// awaited_requests, …); this pod-name CAS owns processing_node and nothing
+// else. If a future change makes either write the other's columns, the two
+// locks start racing on one field and neither is authoritative — so add fields
+// to one side, never to both (council objection, corr 4a227ed9, reuse_agent).
+//
+// Callers proceed
 // whether or not they win — losing means another live pod took the handover
 // microseconds ago, which is no reason to throw away a response only this pod
 // received.

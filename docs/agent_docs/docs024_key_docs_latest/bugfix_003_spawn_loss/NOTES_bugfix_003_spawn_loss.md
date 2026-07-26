@@ -429,3 +429,45 @@ ownership-discard path. That reasoning still holds — but 075 fix-1 is being
 delivered by the other session, not by me. The owner's condition is met by two
 threads rather than one; it is NOT quietly dropped. Their work must land before
 the kill-test re-run means anything.
+
+### Council round 1 (REVISE) — what it caught, and one misstep of mine
+
+Verdict: **REVISE**, `decided_by = "unreadable reviewer(s):
+review_editquality.result"`. So the decision was **mechanical** — a lost seat
+forces REVISE whatever the content says (`bugs_closed/019`'s class, still
+live). Read seats: 4 approve (constitution, mission, debug_historian,
+prior_art_librarian), 2 object (guardian medium×2 + low, reuse_agent low), no
+veto; the guardian's own note says it "clears to approve next round" if two
+questions are answered. **Read `decided_by` before you read the decision** —
+without it I would have gone looking for a substantive rejection that was not
+there.
+
+**My misstep, and it was a real one.** The submission asserted, in the same
+document, "no multi-replica coordinator exists, so the takeover is safe" and
+"F2's ticker already drives other pods' orchestrations across SERVICES". Both
+are true. Together, unqualified, they read as a contradiction, and the guardian
+correctly refused to let a safety argument rest on them. The distinction I had
+in my head but never wrote down: **who OWNS (creates) a row** — agent-chassis,
+spawned Job agents, business-intel, all single-pod — versus **who may DRIVE
+one** — any pod running the per-minute ticker, in any service, because
+`ClaimExpiredAwaitedRequestsForRetry` claims by request, not by owner. Writing
+only the conclusion and not the verb is how a sound argument reads as an
+unsound one. Cheap check that would have caught it: read your own risks section
+back against your own blast-radius claim and ask whether they use the same verb.
+
+**Two absence claims the reviewers made me actually verify** (both had been
+inferred, not checked — the `[INFERRED]` marker would have been honest):
+- *No existing takeover/re-stamp helper.* True: no UPDATE anywhere in
+  `platform/ internal/ pkg/ cmd/` writes `processing_node`. Only two INSERTs,
+  two SELECTs, a struct tag, the inert assignment, and a header round-trip.
+- *No pod-liveness surface to gate a takeover on.* True: `sendHeartbeats()` is
+  a spawned CHILD → PARENT Kafka message, no-ops when `ParentAgentID` is empty
+  (so Deployment pods never send one) and is never persisted; the only
+  pod-shaped columns in the public schema are `agent_error_log.pod_name` and
+  `awaited_requests.processing_pod`. This is why the takeover is unconditional
+  rather than liveness-gated, and why fix 4 cannot be done in SQL today.
+
+Round 2 resubmitted on the SAME correlation (`RESUBMIT_CORR`), with those
+answers plus the code note reuse_agent asked for (the INVARIANT paragraph on
+`TakeOverOrchestration`: version-CAS owns the workflow fields, pod-name CAS
+owns `processing_node` alone, never both).

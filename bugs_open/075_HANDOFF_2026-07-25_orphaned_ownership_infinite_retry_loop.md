@@ -186,12 +186,59 @@ invisibly now FAILS or routes to `error_step`, so failure counts will rise.
 
 ### Council
 
-Submitted to the gate as `SUBMISSION_CORR=4a227ed9-2a99-471b-8329-d0aceb63f28c`
-(6 edits). **No `Council-Reviewed:` trailer on the commit** — the trailer is
-earned by an APPROVED verdict only, and the verdict post-dates the commit, so
-this bug is one of the permanent false negatives in the 098 coverage report.
-Read the verdict with:
-`SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts WHERE correlation_id='4a227ed9-2a99-471b-8329-d0aceb63f28c' AND kind='council_report' ORDER BY created_at;`
+`SUBMISSION_CORR=4a227ed9-2a99-471b-8329-d0aceb63f28c` (6 edits).
+
+**Round 1 = REVISE, and the decision was mechanical**: `decided_by` reads
+*"unreadable reviewer(s): review_editquality.result"* — one seat's output was
+lost, which forces REVISE regardless of content (the `bugs_closed/019` class).
+Of the seats that were read: **4 approved** (constitution, mission,
+debug_historian, prior_art_librarian), **2 objected** (guardian ×2 medium + 1
+low, reuse_agent ×1 low), **no veto**. The guardian's note says explicitly it
+"clears to approve next round" if the two questions are answered.
+
+**Round 2 answers each objection with a check that was run, not an argument:**
+
+- *Guardian: "no multi-replica coordinator" is in tension with "F2 drives
+  orchestrations across services".* Both true — they are different verbs, and
+  the round-1 submission conflated them. **Owns/creates rows:** agent-chassis
+  (replicas 1), single-pod spawned Job agents, business-intel (replicas 1) —
+  the census over all 1,547 rows returns only those. **May drive a row:** any
+  pod running the per-minute ticker, in any service, because
+  `ClaimExpiredAwaitedRequestsForRetry` claims by request, not by owner —
+  proven cross-service on 07-25 (vet-intel's ticker, `RETRY_TICKER_CLAIMED`
+  15:28:01). So pod-name ownership is **already** not respected by the retry
+  driver; this change makes the response path agree with the driver.
+- *Guardian: was a higher-layer fix rejected or never considered?* Rejected,
+  three variants: quarantining stale-stamped responses upstream still destroys
+  them (the loss IS the defect); fixing it in the retry driver cannot work
+  because the driver neither created the stamp nor can repair it (pre-F2 the
+  same discard was a silent 90-minute strand); the F1 reaper is structurally
+  blind because every loop cycle refreshes `last_activity`.
+- *Prior-art / reuse: does a takeover or re-stamp helper already exist?* No.
+  Every Go occurrence of `processing_node` is a struct tag, two INSERT column
+  lists, two SELECT column lists, the inert `SetExecutingStep` assignment, and
+  a header round-trip. **No UPDATE writes it anywhere** in `platform/`,
+  `internal/`, `pkg/`, `cmd/` — `TakeOverOrchestration` is the first. The live
+  evidence agrees: after F2's cross-service rescue the column still read the
+  dead pod's name.
+- *Prior-art: verify the absence of a liveness mechanism before deferring fix
+  4.* Verified both sides. Go has `sendHeartbeats()`, but it is a spawned
+  CHILD messaging its PARENT over Kafka, returns immediately when
+  `ParentAgentID` is empty (a Deployment pod like the chassis never sends
+  one), and nothing persists it. In the DB the only pod-shaped columns in the
+  whole public schema are `agent_error_log.pod_name` and
+  `awaited_requests.processing_pod`; neither answers "is pod X alive now". The
+  fix-4 deferral rests on a **checked** absence.
+- *Reuse: note in code that the two locks must never govern one field.* Added
+  as an INVARIANT paragraph on `TakeOverOrchestration`: the version-CAS owns
+  every workflow field, the pod-name CAS owns `processing_node` alone, and
+  fields go to one side, never both.
+
+**No `Council-Reviewed:` trailer exists or can exist for this work** — the
+trailer is earned by an APPROVED verdict only, and every verdict here
+post-dates commit `5bbfe6a3a`. Expect 098 to list it as un-reviewed; that is a
+permanent, correct false negative. Read the trail with:
+`SELECT created_at, metadata->>'decision', metadata->>'decided_by' FROM diagnosis_artifacts WHERE correlation_id='4a227ed9-2a99-471b-8329-d0aceb63f28c' AND kind='council_report' ORDER BY created_at;`
 
 ### Deferred, with triggers
 
