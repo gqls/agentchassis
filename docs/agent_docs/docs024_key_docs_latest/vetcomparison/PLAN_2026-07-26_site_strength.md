@@ -83,6 +83,33 @@ URL, restarting the pipeline refreshes the data but leaves it exactly as unpubli
 today** — and the fix becomes a Go change (council gate, image build, roll) before any restart is
 worth doing. This is the first thing to measure, on a handful of practices, before anything else.
 
+> **ANSWERED 2026-07-26 ~22:45 BST (session "bugfix 061") — and neither of the two hypotheses
+> above was the cause.** `source_url` is **structurally guaranteed empty**; no live pilot was
+> needed to establish it. The writer reads `source_type/source_name/source_url` out of
+> `verResult` — the **LLM's own output object** (`business_intel_actions.go:322-324`, with
+> `verResult := extracted["verification_result"]` at line 180). The `extract_and_reconcile`
+> prompt requests six sections (`business`, `vet_details`, `vet_staff`, `prices`,
+> `confidence_score`, `extraction_notes`) and **no source field**. And `store_results`'
+> `input_fields` are `["business_id","verification_result","task_id"]` — **`scraped_data` is
+> excluded**, so the URL `scrape_web` actually fetched cannot reach the writer at all.
+> Empirically: `raw_data` *is* `json.Marshal(verResult)`, and **0 of 2,970 rows carry a
+> `source_url` or `source_type` key** — the fields are absent, not blank.
+>
+> **So the branch is decided: "Provenance empty → Go change before any restart."** Note the fix
+> must **not** be "ask the LLM for the source URL" — that makes provenance a model claim, the
+> exact class this site was remediated for. Thread the fetched URL through instead.
+> Mechanism filed to the diagnosis loop before being asserted:
+> `SUBMISSION_CORR = e6580fe5-7537-4eba-a3aa-7863ce4dbfc7`.
+>
+> **Step 1's pilot was also run, read-only, and step 4's question is partly answered** — see
+> `NOTES_vetcomparison.md` (2026-07-26 ~22:45). Company-number hit rate on a deterministic 25:
+> **4/25 (16%) homepage-only = what production sees today**, **7/25 (28%) if `follow_links`
+> is widened to legal/terms pages** — a config-only change, since the current list
+> (`fees, prices, about, team, contact, services`) contains no legal page. `[SMALL SAMPLE]`
+> wide intervals; treat as "a sixth" vs "a quarter". **6 of 7 found numbers resolve to a real
+> `ch_vet_companies` row**, two of them exposing true group ownership (VetPartners, CVS) — so
+> P2's evidence chain works when the number is found.
+
 ---
 
 ## Phases

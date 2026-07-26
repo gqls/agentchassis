@@ -864,3 +864,63 @@ just fresher unpublishable data. That's the difference between "turn it on" and 
 which needs a code change and a deploy". I'm going to run a small pilot over about ten practices
 to find out, rather than restart the whole thing and hope. It's one query's worth of work to
 re-enable and I deliberately haven't.
+
+---
+
+**2026-07-26, later that evening.** I picked up where the last note left off, with the one thing
+that needed measuring before anything else: does the verifier record *where* each fact came from?
+
+**It doesn't, and it can't — and I could show that without running anything at real practices.**
+The verifier asks the AI for six things: the business details, practice details, staff, prices, a
+confidence score and some notes. It never asks it where the information came from. But the part of
+the code that saves the results goes looking for a "source URL" *in the AI's answer* — a field
+nobody ever asked the AI to produce. So it's always blank. Meanwhile the part of the system that
+actually fetched the page, and therefore genuinely knows the address, isn't connected to the part
+that saves the record. The knowledge exists; the wiring doesn't.
+
+I checked that against all 2,970 records we hold and not one of them contains that field at all —
+not empty, simply absent. So this isn't a setting that got missed or something that broke; the
+information was never on its way in the first place.
+
+**Worth saying plainly what the fix is not.** The obvious-looking repair is to add "and tell us
+where you found it" to the AI's instructions. That would be a bad mistake on this site of all
+sites. It would mean the AI *telling us* what its evidence was — a claim about evidence rather
+than evidence — and that is exactly the thing we spent July cleaning up. The right fix is to hand
+the saving code the address the fetcher already used. That is a genuine code change, so it needs
+review, a build and a deploy before any large crawl is worth doing.
+
+**On the crawl you approved: I have the hit rate you asked for, and I got it without touching
+anybody's records.** Running the real verifier over 25 practices would have written a batch of
+AI-extracted, unsourced facts over their current entries just to learn a percentage. Instead I
+wrote a small probe using the *exact same* pattern-matching code the live system uses, pointed it
+at 25 practices chosen at random, and had it only read.
+
+**About one in six practices publishes its company number on its home page** — 4 of 25. **Widening
+the search to terms and privacy pages takes it to about one in four** — 7 of 25. That second
+number matters because it costs nothing: it's a settings change, live the moment it's made, no
+deployment. Right now the verifier looks at pages called "fees", "prices", "about", "team",
+"contact" and "services" — and not one of those is the legal page where a British company normally
+prints its registration number. Three of my seven hits were on exactly those missed pages.
+
+Please treat both figures as "roughly a sixth" and "roughly a quarter" rather than precise: 25 is
+a small sample and the true numbers could reasonably be a fair bit either side. Now the probe
+exists, running it over a few hundred is cheap if you want firmer ground.
+
+**The quality of what we find is excellent, which is the encouraging part.** Six of the seven
+numbers matched a real veterinary company at Companies House. And two of them immediately told us
+something we currently have wrong: Heywood Veterinary Centre is owned by VetPartners, and Animed
+in Whitstable by CVS — both sourced to a company number anyone can look up. That is precisely the
+evidence needed to fix the ownership mess where 870 practices are flagged "independent" while also
+carrying a group name. So when the pattern match does fire, it is worth a great deal; the question
+is only how often it fires.
+
+**One thing I noticed by accident.** One of my 25 "practices" isn't a practice at all — it's a
+listing on the Lancashire Telegraph's business directory. That's the same problem as the 176
+entries pointing at a site called wheree.com. I haven't counted how many of our 3,419 entries are
+directory pages rather than real practices, but it's worth counting before we start building a
+page for each one.
+
+**What I'd suggest next**, in order: make the settings change to look at legal pages (free,
+immediate); get the code change reviewed that records where each fact came from; then crawl at
+scale, once a crawl can produce something we're allowed to publish. I've put the provenance
+finding through the diagnosis review before treating it as settled, rather than after.

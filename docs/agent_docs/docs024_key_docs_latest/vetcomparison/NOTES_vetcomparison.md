@@ -958,3 +958,110 @@ or not. If it does, restarting collection makes the data publishable. If it does
 just refreshes unpublishable data and the real fix is a Go change first (council → build → roll).
 **Next action is a ~10-practice pilot to answer exactly that** — not re-enabling the tasks, which
 is one UPDATE and the wrong first move.
+
+---
+
+## 2026-07-26 ~22:45 BST — P1 answered WITHOUT a live crawl, and the hit rate measured read-only
+
+Session "bugfix 061", continuing from `HANDOFF_2026-07-26_continue_here.md`.
+
+### 1. The provenance unknown is ANSWERED — and it did not need the pilot
+
+The previous entry (above) says *"we do not know whether a live run records provenance"* and
+proposes a ~10-practice live pilot to find out. **It is answerable statically, and the answer is
+that `source_url` is structurally guaranteed empty.** Three independent artefacts agree:
+
+- **The writer reads provenance from the LLM's own output.**
+  `StoreBusinessVerificationAction` sets `sourceType/sourceName/sourceURL` from
+  `verResult["source_type"|"source_name"|"source_url"]` (`business_intel_actions.go:322-324`),
+  where `verResult := extracted["verification_result"]` (line 180).
+- **The prompt never asks for them.** `vet-practice-verifier`'s `extract_and_reconcile` step
+  requests exactly six sections — `business`, `vet_details`, `vet_staff`, `prices`,
+  `confidence_score`, `extraction_notes`. There is no source/provenance field in the prompt.
+- **The real fetched URL never reaches the writer.** The step wiring, read from
+  `default_config->'workflow'->'steps'`:
+  `search_practice→search_results` → `scrape_website→scraped_data` → `prepare_context→
+  extraction_context` → `extract_and_reconcile→verification_result` → `store_results`.
+  `store_results.config.input_fields` is `["business_id","verification_result","task_id"]` —
+  **`scraped_data` is not in it**, so the URL `scrape_web` actually fetched is unreachable from
+  the writer even though `scrape_website.config.url_field` names it deterministically.
+
+**Empirical confirmation, which is the strongest of the three** — `raw_data` *is*
+`json.Marshal(verResult)`, so its keys are the object's keys:
+
+```sql
+SELECT count(*) AS total,
+       count(*) FILTER (WHERE raw_data ? 'source_url')  AS has_source_url_key,
+       count(*) FILTER (WHERE raw_data ? 'source_type') AS has_source_type_key
+FROM business_intel.data_observations;
+--  total | has_source_url_key | has_source_type_key
+--   2970 |                  0 |                   0
+```
+The key set present across all 2,970 rows is exactly the prompt's six sections plus LLM
+improvisation (`opening_hours` 43, `services` 14, `branches` 5, …). So this is **not** "the column
+was added later" and **not** "`sourceURL` resolves empty at runtime" — the two hypotheses the plan
+offered. It is a contract mismatch: the writer reads three fields the producer is never asked to
+emit, and the component that *does* know the URL is not wired to the writer.
+
+**The fix is NOT "ask the LLM for the source URL."** On this site of all sites, an LLM-asserted
+provenance string is a fabrication surface — it would be a model claim about evidence, which is
+precisely the class this site was remediated for. The fix is to pass `scraped_data` into
+`store_results` and record the URL actually fetched. `input_fields` is config (live immediately),
+but the writer must also be taught to read it — **so a Go change is required**: council → build →
+roll, exactly the slower branch the plan reserved for this answer.
+
+**Filed to the diagnosis loop before asserting it** (CLAUDE.md: spend it *before* you assert):
+`SUBMISSION_CORR = e6580fe5-7537-4eba-a3aa-7863ce4dbfc7`. Verdict pending at time of writing —
+**if it refutes any of the above, correct this entry in place and say so.**
+
+### 2. Company-number hit rate — measured, read-only, nothing written
+
+The owner asked for a pilot on ~25 with the hit rate reported. **I did not run the live verifier
+to get it.** Running it would have written LLM-extracted, unsourced facts over 25 practices'
+current rows to obtain a number that a read-only probe gives for free. Instead: a Go probe
+(`scratchpad/pilot/probe.go`) that copies `companyRegNumberPatterns` and the footer-first strategy
+**verbatim** from `business_intel_actions.go:1543-1603`, over a deterministic sample
+(`ORDER BY md5(id::text) LIMIT 25` of active, non-opted-out, verified practices with a website).
+No DB writes, no LLM, no fabrication surface. Polite: 1 req/s, 15s timeout, identifying UA.
+
+| arm | what it models | result |
+|---|---|---|
+| **PROD** — homepage only | what the live verifier sees today | **4 / 25 (16%)** |
+| **HEADROOM** — + `/terms`, `/privacy`, `/legal`, … | if `follow_links` were widened | **7 / 25 (28%)** |
+
+22 of 25 reachable (1×403, 2× connection error).
+
+**`[SMALL SAMPLE]` 25 is a small n and these rates carry wide intervals** (16% is roughly 5–36%;
+28% roughly 12–49%). Treat them as "roughly a sixth today, roughly a quarter achievable", not as
+point estimates. A larger sample is cheap now the probe exists.
+
+**The headroom finding is a config-only win.** `scrape_website.config.follow_links` is
+`[fees, prices, about, team, contact, services]` — **not one of those is a legal/terms page**,
+which is where UK companies most often print a registration number. Three of the seven hits came
+from `/privacy`, `/terms`, `/terms-and-conditions`. Widening that list is a DB config change:
+live immediately, no build, no roll.
+
+**Found numbers are high quality — 6 of 7 resolve to a real CH vet company:**
+
+| number | `ch_vet_companies` | found on |
+|---|---|---|
+| 10084952 | VETPARTNERS PRACTICES LIMITED | homepage |
+| 03777473 | CVS (UK) LIMITED | homepage |
+| 07674796 | HENLEY VETS LIMITED | homepage |
+| 10687455 | *(no CH match)* | homepage |
+| 05185406 | DNA VETCARE LTD | `/privacy` |
+| 05886364 | ARK VETS LIMITED | `/terms` |
+| 06798554 | LANGFORD VETERINARY SERVICES LIMITED | `/terms-and-conditions` |
+
+**This is the P2 unlock showing itself.** Two of the seven immediately expose true group ownership
+— Heywood Veterinary Centre → VetPartners, Animed Whitstable → CVS (UK) — sourced to a company
+number anyone can check, which is exactly what the 870-practice `is_independent`/`group_name`
+contradiction needs. When the regex fires it is worth a lot; the constraint is how often it fires.
+
+### 3. Incidental data-quality finding
+
+1 of the 25 sampled "practices" is **not a practice**: *"Vets in Blackburn - Lancashire Telegraph
+Business Directory"* → `directory.lancashiretelegraph.co.uk`. Same family as the 176 `wheree.com`
+rows the RUNBOOK flags. `[UNMEASURED]` — I have not counted how many of the 3,419 are directory
+listings rather than practices; the sample suggests it is worth counting before P3 builds a page
+per practice.
