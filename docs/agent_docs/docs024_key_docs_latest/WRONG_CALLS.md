@@ -5323,3 +5323,84 @@ here **the check had been run and written down**, in the same file, by me. The v
 digression is never re-read as evidence for the main problem. Worth a habit: when a document
 contains both an unexplained failure and an unrelated infrastructure fault in the same window,
 those are the same paragraph until proven otherwise.
+
+---
+
+## 2026-07-26 — I corrected an over-claim and over-claimed in the opposite direction in the same breath (vetcomparison P1, second entry this session)
+
+**The claim.** Having just corrected "config-only win" (entry above), the correction itself
+asserted: *"the 16% is exact, not approximate — homepage-only **is** production."* Written into
+NOTES, README, a PLAN block and commit `9d35f719a`.
+
+**What was true.** Two things, and the second is the real one.
+1. It was 16% on n=25 and **22% on n=100**. A point estimate from 25 samples was never "exact".
+2. **I had not read the last leg of the pipeline.** My probe fetched raw HTML and stripped tags.
+   Production goes through the webscrape adapter to **Firecrawl**, whose `onlyMainContent` is set
+   `false` in code but **only added to the payload when true** (`firecrawl.go:77-111`) — so a
+   caller passing no `scrape_config` (the vet verifier passes none) has the key omitted and
+   Firecrawl applies its own default. If that default strips footers, production sees **less**
+   than my probe, and company numbers live in footers. I asserted equivalence between my probe and
+   production having read only the two components nearest me.
+
+**What caught it.** Checking whether widening `follow_links` would even help — which meant
+following the request one hop further than I had. The same shape as the previous entry: the error
+surfaced from a *follow-up question about the mechanism*, not from re-reading the claim. Both times
+the claim read fine on re-reading; it was only wrong against something I had not opened.
+
+**Resolution: I left it UNSETTLED rather than guessing.** 2,452 stored Firecrawl samples split
+ambiguously — 75% retain footer nav (suggesting footers survive), 0 contain registration text
+(equally explained by page type). It is recorded as `[UNSETTLED]` with the one-run check that
+answers it, at the top of `bugs_open/101` where it gates the fix. **Not-knowing, written down
+where the decision is made, is a legitimate output** — the failure mode was never uncertainty, it
+was uncertainty dressed as a finding.
+
+**Why this one is worth the tally.** The two entries are minutes apart and opposite in direction:
+first I made a fix sound cheaper than it was, then I made a measurement sound firmer than it was.
+**Having just been corrected is not evidence about the next claim** — if anything it primes a
+confident-sounding correction, because a correction reads as the careful, chastened version. The
+cheap check is unchanged and mechanical: *for any claim of the form "X is what production does",
+name every component between you and production, and say which ones you have opened.* I had opened
+two of three.
+
+## 2026-07-26 — I told the owner the council had no pre-build review point, while three rosters ran and two fired before any code existed
+
+**The claim.** Asked whether we had ever discussed an architecture council member, I researched
+the council gate, read the guardian's charter and the RFC track, and then argued in chat that a
+forward-looking architecture seat *could not* live at the council at all: *"the council reviews a
+plan that already exists — by then the shape is decided, so an architecture seat there can only
+ever say no. The forward half has to be asked before a plan exists."* I built a design proposal on
+top of that, whose central move was that the seam for a pre-plan review did not exist and the RFC
+track had to supply it.
+
+**What was true.** The owner corrected it mid-turn in one line: *"the council is also used in
+advance of the build too - and the diagnosis loop."* Three council rosters exist, at three
+lifecycle points, and two of them fire before any code is written:
+`experience-planner` (seats: journeys, contracts, honesty, **feasibility**, **mvp**) at plan
+composition; `feature-designer` (guardian, editquality, bug_historian, guidelines, reuse_agent)
+at design time from an owner-approved capability spec; `fix-proposer`/`council-gate` (16 seats) at
+edit-plan time. The seam I said was missing is where the guardian *already sits*. Worse for the
+claim: `feasibility` and `mvp` are forward-looking seats that already do a version of the job I
+was arguing had nowhere to live.
+
+**What caught it.** The owner, from memory of his own platform. Not a check I ran.
+
+**The cheap check.** One query, widened by one clause from the one I actually ran:
+`SELECT type, key FROM agent_definitions d, jsonb_object_keys(d.default_config->'workflow'->'steps') key WHERE key LIKE 'review_%';`
+— i.e. **list the seats across ALL agent types, not just the one named `council-gate`**. Cost:
+one query, five seconds. I ran the `type='council-gate'` version four times while researching.
+
+**Why this shape recurs.** The search term was the answer's name. "Council" resolved to the agent
+literally called `council-gate`, and once that returned a rich, coherent 16-seat structure it read
+as *the* council rather than *a* council — a complete-looking answer stops the search. The
+platform's own vocabulary made this easy: CLAUDE.md documents "the council gate" in the singular,
+so the singular was never questioned. Note the direction of error: it made me propose **building**
+a review point that already existed, which is the reuse failure the `reuse_agent` seat exists to
+catch — I made it while reading that seat's own charter.
+
+**Tally note.** A new variant for this file. The common row is *a durable claim with the
+one-command check skipped*; the recent one is *the check was run and written down but not joined
+up*. This is a third: **the check WAS run, correctly, and its scope silently defined the
+conclusion.** `WHERE type='council-gate'` is not a wrong query, it is a narrow one, and a narrow
+query returns a confident answer about a small world with nothing in the result to indicate the
+world was small. Worth a habit: when a query filters by a name you took from the question, run it
+once without that filter before building on the result.
