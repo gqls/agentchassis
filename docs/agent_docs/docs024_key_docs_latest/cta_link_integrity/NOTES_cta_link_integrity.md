@@ -1736,3 +1736,46 @@ RUNBOOK as **R19**.
 - **Mechanism 3 (extension-less + invented targets, ~61 of the 118) transferred to
   `bugs_open/071`**, which owns that class at the writer/gate, together with the 9 dead tool
   links `029` had handed to 049. Recorded there with the full per-site measurement.
+
+---
+
+## 2026-07-26 (from the brochure_component_library workstream) — `049b_deploy_single_page.sh` fails whenever you use its documented reason flag
+
+Left here rather than edited into your script, because the script is yours.
+
+**`049b` with a REASON always fails, in under a second.** Its header documents the
+4th argument as the way to take the `rerender_sections` pre-pass ("every section
+re-rendered from its stored `content_data` … through the CURRENT html_template").
+But the spec it builds is `{"reason": "..."}` only, and the live `page-rerender`
+agent wires the step as:
+
+```json
+"rerender_sections": {"action": "rerender_page_sections", "config": {
+    "reason":         "input_data.spec.reason",
+    "page_name":      "input_data.spec.page_name",
+    "target_site_id": "input_data.site_id"}}
+```
+
+with `rerender_page_sections` declaring `Required: [target_site_id, page_name]`
+(`rerender_page_sections_action.go:80`). No `spec.page_name` → immediate:
+
+```
+step rerender_sections failed: failed to execute action rerender_page_sections:
+input extraction failed: missing required fields: [page_name]
+```
+
+**Measured 2026-07-26:** both of my dispatches failed this way, and so did two
+from a different session on webdesign.co.uk at 17:53 (same error, same step,
+different site and different source) — so it is the envelope, not the site or the
+caller. The assemble-only form (no reason) is unaffected, which is presumably why
+this has survived: the documented *upgrade path* is the broken one.
+
+One-line fix if you want it: include `page_name` in the spec, i.e.
+`REASON_JSON=",\"spec\":{\"reason\":\"$REASON\",\"page_name\":\"$PAGE_NAME\"}"`
+with a 5th argument. I did not edit your file; a corrected copy that I am using is
+`docs/agent_docs/docs024_key_docs_latest/brochure_component_library/scripts/rerender_page_sections_direct.sh`,
+and it is fine by me if you take it and delete mine.
+
+Same gap in `brochure_component_library/scripts/republish_page_086.sh`: its
+`input_mapping` carries domain/site_id/page_id only, so it cannot take the
+reason path either. That one is mine to fix.
