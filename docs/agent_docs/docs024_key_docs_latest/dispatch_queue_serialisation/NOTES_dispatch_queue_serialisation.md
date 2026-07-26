@@ -802,3 +802,44 @@ trailer is earned by APPROVED only — and the veto is recorded in the case file
 closing section and put to the owner as a decision they may reverse with one
 `UPDATE`. Contesting a veto with evidence is the loop working, not a bypass; if the
 owner sides with the guardian, the rollback is the runbook's and costs seconds.
+
+### Council round 3: APPROVED — the veto stood down, and three advisories closed by check
+
+`approved with 2 advisory objection(s) — none high-severity`, `abstained: 6`,
+`unreadable: none`. The guardian's own words: *"The round-2 veto's named
+higher-layer alternative is refuted by hard evidence … — accepted."*
+
+**REVISE → REJECTED → APPROVED on one correlation
+(`f47c2305-a873-459a-83e6-13eb9cb0cf1f`).** The transferable bit: **a hard veto is
+contestable with evidence, but it costs rounds** — three here, ~7 minutes of seats
+each plus queueing. What moved it was not argument but two greps and a read: the
+scheduler has no Kubernetes capability at all, and a `job.*` topic only exists
+because the chassis spawned a pod for it.
+
+Three advisories, each closed by a check rather than a preference:
+
+1. **The other deployment-layer alternative, costed.** Round 3 asked about a second
+   `agent-chassis` Deployment (unmodified image, own group, `REQUESTS_TOPIC` on the
+   scheduled lane) — "zero lines of `platform/agentbase`". Measured cost:
+   `system.agent.generic.responses` stands at offset **10,905**, and every chassis
+   process consumes it under a **per-pod** group with `StartOffset: FirstOffset`, so
+   a second Deployment replays all 10,905 responses through `processMessage` on
+   **every pod start**, plus it creates a second **ownership domain**
+   (`ProcessResponse`'s discard at coordinator.go:271 — the thing that pins
+   `replicas: 1`, and `bugs_open/075`). Zero lines of Go ≠ cheaper.
+2. **My own open residual, closed.** 318 package-level vars under
+   `platform/orchestration/actions/`; exactly **one** runtime write outside a
+   declaration (`registry.go:1940 deprecationLogger = logger`, startup-only, setter
+   has **no callers** so it is always nil in prod). No action handler mutates shared
+   state. **MISSTEP: my first pass reported 58** — it counted declarations inside
+   `var (...)` blocks. A check whose failure mode is a false positive still has to
+   be verified before its number is quoted.
+3. **The needle-gate gap: conceded, and irrecoverable.** I tried to bind the 18
+   changed rows to my `UPDATE` after the fact via `updated_at` — impossible, because
+   `cmd/scheduler/main.go:273` re-stamps `updated_at = NOW()` on every fire. Only
+   **7 of 18** still carry my statement's `13:21:31` stamp (the ones that have not
+   fired since); the other 11 were re-stamped by the scheduler, which is at least
+   independent proof they fire. **`RETURNING` has no substitute on a
+   producer-touched table** → RUNBOOK R9 step 4a. **MISSTEP: my first binding query
+   used a 13:22–13:24 window and returned 0**, which reads alarming; the `UPDATE`
+   ran at 13:21:31 and the window was simply wrong. Checked before writing it down.

@@ -341,3 +341,26 @@ SELECT name, interval_seconds AS iv,
 short-interval task means the lane is not being drained — check the group has a
 member before anything else (`scripts/dispatch-queue-depth.sh` calls that out
 explicitly, because an empty group is a fault while a non-zero LAG is not).
+
+### R9 step 4a — use `RETURNING` on the producer-touched table (learned the hard way, 2026-07-26)
+
+When you fire the `target_topic` switch, write it as:
+
+```sql
+UPDATE scheduled_tasks SET target_topic='system.agent.scheduled.requests', updated_at=now()
+ WHERE enabled AND target_topic='system.agent.generic.requests'
+ RETURNING id, name, interval_seconds;
+```
+
+I ran it without `RETURNING` and tried to reconstruct which rows changed afterwards
+from `updated_at`. **You cannot**: `cmd/scheduler/main.go:273` re-stamps
+`updated_at = NOW()` on **every fire** (`UPDATE scheduled_tasks SET
+last_triggered_at = NOW(), last_completed_at = NOW(), updated_at = NOW()`), so the
+witness column belongs to the producer, not to you. Fifteen minutes later only 7 of
+18 rows still carried my statement's timestamp — the long-interval ones that had not
+fired yet.
+
+Generalises beyond this table: **on any table a live producer writes to, a
+count-before plus a select-after is not decisive, and `RETURNING` has no
+substitute.** A concurrent writer can hide behind a matching row count. Take the
+count as a gate, but bind the rows with `RETURNING` in the same statement.
