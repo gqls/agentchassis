@@ -61,49 +61,62 @@ item_type      | status   | handler_agent | gap_kind      | builder             
 capability_gap | deferred | (empty)       | handler_remit | color-variable-fixer | 8   | 8
 ```
 
-## NOT proven — and this is the honest gap
-
-**The in-remit arm has not been observed live.** A green result on a zero-remit
-site is indistinguishable from a check that has stopped filing anything at all,
-which is exactly why the case file demands a positive control. It is pinned by
-unit tests (`TestHardcodedColourPartitionIsWhatGetsFiled`) but not by the fleet.
-
-**Do not use robot-hands.com for it.** Its `hardcoded_section_colors` row is
-`status='detected'`, which is *not* terminal, so it still occupies the
-`idx_swi_dedup` slot and any new insert is silently suppressed by
-`ON CONFLICT DO NOTHING`. You would observe nothing and learn nothing.
-
-**Use leopardessconsulting.co.uk** (`4851f6fc-71cf-4160-a270-e03d6d3e0732`) — its
-rows are `unresolved`, which IS terminal, so the slot is free; population is 4 and
-`077`'s table (computed with the real Go transform) says **1 in remit, 3 out**. It
-therefore exercises BOTH arms in one run. The prediction to grade against:
+**4. The POSITIVE CONTROL — the load-bearing one — passed.**
+leopardessconsulting.co.uk (`4851f6fc-71cf-4160-a270-e03d6d3e0732`), population 4.
+Both arms fired in one run:
 
 ```
-hardcoded_section_colors | detected | components_found=1 | population=4 | out_of_remit=3
-capability_gap           | deferred | residue=3          | population=4
+item_type                | status   | handler              | found | pop | out_of_remit | gap_kind
+hardcoded_section_colors | detected | color-variable-fixer | 1     | 4   | 3            |
+capability_gap           | deferred | (EMPTY)              |       | 4   | 3            | handler_remit
 ```
 
-A run was fired at 21:08:13Z (`corr 239dc62e-e9b7-4445-8c75-5056eeb43a5b`) and had
-produced no orchestration row after ~90s. **Check before re-firing** — a missing
-row is usually queue latency, and re-firing costs a duplicate run:
+The arithmetic closes — **1 + 3 = 4**, nothing dropped — and `1 of 4` reproduces
+the case file's original table (leopardess: 4 matches, 1 in remit), computed weeks
+earlier by a different method (the Go transform over a `row_to_json` dump). Two
+independent measurements, same answer.
 
-```bash
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c \
- "SELECT status, current_step FROM orchestration_states WHERE correlation_id='239dc62e-e9b7-4445-8c75-5056eeb43a5b';"
-```
-
-To fire it (parameterised copy of `scripts/initial_messages/290_design_discovery/081_…sh`):
-
-```bash
-./fire_discovery.sh 4851f6fc-71cf-4160-a270-e03d6d3e0732 leopardessconsulting.co.uk
-```
-
-The script body is in the case file's verification section; it is a plain kcat
-publish to `system.agent.generic.requests` with `agent_type=design-discovery-agent`.
+**Why not robot-hands.com:** its row is `status='detected'`, which is NOT terminal,
+so it still holds the `idx_swi_dedup` slot and any insert is silently suppressed by
+`ON CONFLICT DO NOTHING`. It would have looked like a failure and proved nothing.
+leopardess's rows are `unresolved` — terminal — so its slot was free.
 
 > Firing discovery files items at `status='detected'`, and per `bugs_open/083`
-> nothing promotes those today. So this verification spends no dispatch credits —
-> which is the one useful side effect of 083 still being open.
+> nothing promotes those today. So this verification spent no dispatch credits —
+> the one useful side effect of 083 still being open.
+
+## The verification is COMPLETE. Nothing about 077 is outstanding.
+
+---
+
+## READ THIS BEFORE YOU FIRE ANY kcat DISPATCH — it cost four lost runs
+
+`kubectl -n kafka run -i --rm … kcat -P` **silently produces nothing, most of the
+time.** Measured here 2026-07-26: **four of five publishes vanished** — no
+orchestration row, no chassis log line for the correlation, `exit 0`, and the
+wrapper cheerfully printing a correlation id and "pod deleted" exactly as it does
+on success. `kubectl run -i` attaches stdin asynchronously; if the container
+reaches `kcat -P -c 1` first it sees EOF, produces nothing and exits clean.
+
+**This affects the shipped triggers**, including
+`097_TRIGGER_council_review_v1.sh:121` and
+`scripts/initial_messages/290_design_discovery/081_…sh`. It is the likeliest
+explanation for this thread's "vanished" council round, which I had wrongly
+attributed to the ~300s post-restart window (`WRONG_CALLS.md`, 2026-07-26).
+
+**The fix is one line: put the payload in the container COMMAND, not on stdin, and
+make it confirm itself.**
+
+```bash
+kubectl -n kafka run "kcat-$(date +%s)-$RANDOM" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach=true --quiet \
+  --command -- sh -c "printf '%s' '<JSON>' | kcat -P -b <broker> -t <topic> \
+  -H correlation_id=<uuid> ... && echo PUBLISH_OK"
+```
+
+Every publish after adding `PUBLISH_OK` landed first time. A working copy is at
+`fire_discovery2.sh` in this thread's scratchpad; it is worth promoting into
+`scripts/` and worth fixing in the triggers themselves.
 
 ## Council: NO VERDICT, and no trailer. Do not "fix" this by adding one.
 

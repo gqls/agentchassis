@@ -10,9 +10,24 @@ SEQUENCING).
 
 **Council: NO VERDICT, and therefore NO `Council-Reviewed:` trailer on any commit
 here.** Submission `346500db-89ca-47f3-bc5a-e1c099d6f4f8` was fired twice and
-never returned one. Round 1 vanished with no orchestration row at all, published
-2–4 minutes after a chassis pod restart (`startTime 18:35:07Z`) — CLAUDE.md's
-documented ~300s drop window, which the 097 trigger does not warn about. Round 2
+never returned one. Round 1 vanished with no orchestration row at all.
+
+> **CORRECTED 2026-07-26 21:20 — I named a cause before isolating it, and I now
+> think it was the wrong one.** This said round 1 died in CLAUDE.md's ~300s
+> post-restart drop window, because it was published 2–4 minutes after
+> `startTime 18:35:07Z` and the timing fit. Later that evening, five
+> `kubectl -n kafka run -i --rm … kcat -P` publishes were fired nowhere near a
+> restart and **four of the five silently produced nothing** — no orchestration
+> row, no chassis log line for the correlation, `exit 0`, and a cheerful
+> correlation id printed either way. The `097` council trigger uses that same
+> pattern (`097…sh:121`). So a lost publish is at least as well supported as the
+> restart window, and it is the one with direct evidence. Both stay candidates;
+> neither is established. The distinguishing check costs nothing and I skipped it:
+> **make the publisher confirm itself** — put the payload in the container COMMAND
+> instead of on stdin, and echo a marker on success. Doing that made the next
+> publish land first time, and every one after it.
+
+Round 2
 landed ("Lane is clear, LAG 1"), started at 19:23:14, and **froze one second
 later** at `review_editquality` with `awaited_steps = []` and no error. A
 different correlation started after it and completed twice while it sat there, so
@@ -37,7 +52,39 @@ the `098` coverage report will list these commits as un-reviewed — accurately.
 > Applied by hand, NOT via `run-migrations.sh --apply`, which would have swept four
 > other threads' pending files into this task.
 >
-> Live behavioural evidence is in **RESULTS** below.
+> **RESULTS — both arms proven on the live fleet, 2026-07-26.**
+>
+> **Negative arm — finetuning.uk** (8 detector matches, 0 in remit). One row, and
+> it is the honest one:
+>
+> ```
+> item_type      | status   | handler_agent | gap_kind      | builder              | pop | residue
+> capability_gap | deferred | (empty)       | handler_remit | color-variable-fixer | 8   | 8
+> ```
+> No dispatchable item at all. First time that site's backlog has been truthful
+> since 2026-04-08.
+>
+> **POSITIVE CONTROL — leopardessconsulting.co.uk** (population 4). This is the
+> load-bearing one: a green result on a zero-remit site is indistinguishable from a
+> check that has stopped filing anything. Both arms fired, on one site, in one run:
+>
+> ```
+> item_type                | status   | handler              | found | pop | out_of_remit | gap_kind
+> hardcoded_section_colors | detected | color-variable-fixer | 1     | 4   | 3            |
+> capability_gap           | deferred | (EMPTY)              |       | 4   | 3            | handler_remit
+> ```
+>
+> The arithmetic closes — **1 in remit + 3 residue = 4 population**, nothing
+> dropped — and `1 of 4` reproduces this file's own original table (leopardess:
+> 4 matches, 1 inside remit) which was computed weeks earlier by a different
+> method, running the Go transform over a `row_to_json` dump. Two independent
+> measurements, same answer.
+>
+> Robot-hands.com was deliberately NOT used as the control: its
+> `hardcoded_section_colors` row is `status='detected'`, which is **not** terminal,
+> so it still occupies the `idx_swi_dedup` slot and any insert would have been
+> silently suppressed by `ON CONFLICT DO NOTHING`. It would have looked like a
+> failure and proved nothing.
 
 ---
 

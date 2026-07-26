@@ -4922,3 +4922,49 @@ a constant to wait out — it is a reading of queue depth at one moment, and
 
 Family: absence-means-wait-needs-an-exit, queued-and-dropped-are-identical-from-your-own-row,
 rule-broken-successfully, fixed-number-that-is-really-a-load-reading.
+
+### 2026-07-26 — bugfix_077 — "the council submission died in the ~300s post-restart window"
+
+**Asserted:** that a council submission which vanished without an orchestration row was
+eaten by CLAUDE.md's documented "no dispatch within ~300s of a chassis pod (re)start" rule.
+The pod's `startTime` was 18:35:07Z and I had published 2–4 minutes later, so the timing fit
+a mechanism that is genuinely real and genuinely documented. I wrote it into the closed bug
+file, into a fresh instance on `bugs_open/029`, into a memory topic file, and into the
+session summary — four places, stated as the cause.
+
+**Actually:** later the same evening I fired five `kubectl -n kafka run -i --rm … kcat -P`
+publishes at a chassis that had been up for 10–20 minutes, nowhere near a restart. **Four of
+the five silently produced nothing** — no orchestration row, no chassis log line matching the
+correlation, `exit 0`, and the wrapper printing a correlation id and "pod deleted" exactly as
+it does on success. The `097` council trigger publishes the same way
+(`097_TRIGGER_council_review_v1.sh:121` — `printf '%s\n' "$PAYLOAD" | kubectl -n kafka run -i
+--rm … kcat -P`). So "the publish never happened" explains the vanished round at least as
+well as the restart window does, and it is the one I have direct evidence for. I have not
+established either; what I got wrong was writing one of them down as settled.
+
+**Caught by:** chasing a different bug entirely. Three dispatches to leopardess vanished
+while one to finetuning had worked, so I started building a site-specific theory — then ran
+the A/B (fire both, same minute) and **both** failed, which killed the site theory and moved
+the fault to the publisher. The A/B was luck as much as method: I ran it to test the wrong
+hypothesis.
+
+**The cheap check that would have caught it:** **make the publisher confirm itself.** Put the
+payload in the container COMMAND rather than on stdin and append `&& echo PUBLISH_OK`. One
+line. `kubectl run -i` attaches stdin asynchronously; if the container reaches `kcat -P -c 1`
+first it sees EOF, produces nothing, exits 0, and `--rm` tidies away the evidence. With the
+marker, the very next publish landed first time — and so did every one after it.
+
+**Cost:** four lost dispatches (~25 minutes), a wrong cause propagated into four documents,
+and a near-miss on a site-specific theory I would have written up if the A/B had gone the
+other way.
+
+**The transferable part, and why it is worse than an ordinary wrong call:** the timing
+coincided with a real, documented failure mode, so the evidence felt confirmatory rather than
+merely consistent. A documented mechanism you already believe in is the easiest thing in the
+world to over-fit a single observation to — and "no rows" is consistent with *every*
+hypothesis, which is exactly the trap already recorded in `016b` §9 ("A queued orchestration
+is indistinguishable from a dropped one"). The fix is not more inference. It is instrumenting
+the step that has no receipt.
+
+Family: named-the-cause-before-isolating-it, silent-failure-with-exit-0, no-receipt-no-claim,
+documented-mechanism-overfit.
