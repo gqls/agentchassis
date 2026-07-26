@@ -326,3 +326,52 @@ audit** too, not only the build gate — `check_unverified_claims` returned earl
 with `facts=0`). Same defect, second consumer, found by going and looking at the
 consumer rather than trusting that the earlier fix had covered the class.
 `TestWriterBlockOnlyRowStillAuditsStats` now fails loudly if that nil contract moves.
+
+### Same session — owed item (c) measured fleet-wide, and it is worse than the one known instance
+
+The handoff carried one example (leopardess `identity`: "143 agent definitions, of which
+56 are active"). Swept all writer-facing aspects instead:
+
+```sql
+SELECT s.domain, ss.aspect, m[1]
+FROM site_specs ss JOIN sites s ON s.id=ss.site_id,
+LATERAL regexp_matches(ss.data::text, '([^",]{0,58}[0-9][0-9,\.]*\+?[^",]{0,32})', 'g') m
+WHERE ss.is_current AND ss.aspect IN ('briefing','identity','site_plan','strategy','positioning')
+  AND m[1] ~ '[0-9]{2,}' AND m[1] !~ '(19|20)[0-9]{2}-[0-9]{2}' AND m[1] !~ '^[0-9a-f-]{8,}$';
+```
+
+> **Misstep, caught in the same minute:** my first version selected
+> `count(*) AS numeric_mentions` grouped by (domain, aspect) and returned **1 for all 43
+> rows** — because it was counting *spec rows*, of which there is exactly one current per
+> pair, not numeric mentions. It looked like a clean finding ("every site has exactly one
+> numeric claim") and it was an artefact of the GROUP BY. Same family as the parked
+> `relojistas` landmine: *a GROUP BY total is not evidence about a cause*. Extract the
+> matches, then look at them.
+
+**The finding.** `ai-agent-orchestration.com`'s writer instructions are internally
+contradictory, verbatim from `identity` and `briefing`:
+
+```
+Over 70 specialised AI agents organised into 8 departments — Strategy, Res…
+we operate over 70 specialised AI agents organised into 8 departments — coordinating …
+The framework now coordinates 30+ agent types on Kubernetes and Kafka, …
+30+ agent types in production. Workflow definitions hot-swap…
+```
+
+70+ and 30+ in the same instruction set, and **"organised into 8 departments" is the same
+family as the claim audited out of leopardess as a fabrication** — the one that
+`check_unverified_claims` was originally built to catch after it was found alive on an
+orphan page weeks later. Here it is not on a page: it is in the *instruction* telling the
+writer to say it. Every one of these figures is a rail that regenerates the claim.
+
+Live, checked the same minute:
+```sql
+SELECT count(*) FILTER (WHERE is_active), count(*) FROM agent_definitions
+WHERE COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;   -- 176 active, 181 total
+```
+
+So neither figure is right and they cannot both be right. **[UNRESOLVED — needs an owner
+ruling, not a query]:** "specialised AI agents", "agent types" and `agent_definitions` rows
+are three different units, and picking one is an editorial decision about what the site
+claims to be, not a fact I can look up. Left unfixed deliberately; the measurement is here
+so the next thread starts from twelve sites rather than one.
