@@ -9,21 +9,43 @@
 
 > ## ⚠️ CONCURRENT-SESSION NOTICE — added 2026-07-26 18:45 UTC (session "idea.uk vm site 6")
 >
-> **1. THE SECOND DEPLOY IS DONE.** I built and deployed at **18:29 UTC**, before reading this
-> block — I was working from the 15:34 version of this file and did not see the 15:57 rewrite.
-> `/opt/idea/idea` now carries the expiry work **plus two security fixes found today**
-> (`bugs_open/089`, `bugs_open/090` — both were live). Old binary kept at
-> `/opt/idea/idea.prev-2026-07-25`; orders backed up to
-> `/var/lib/idea/orders.json.bak-2026-07-26-predeploy`. Verified after restart: unit active,
-> `{"active":0,"max":5,"open":true}`, all 72 orders intact, `grep -ac "refused fake=1"` = 1 in the
-> new binary and 0 in the old. **Do not deploy it again** — check
-> `grep -ac "refused fake=1" /opt/idea/idea` first (1 = my build is live).
+> **1. THE SECOND DEPLOY IS DONE — TWICE.** I built and deployed at **18:29 UTC**, before reading
+> this block: I was working from the 15:34 version of this file and did not see the 15:57 rewrite.
+> That binary carried the expiry work plus `bugs_closed/089`. A **second deploy at 18:44 UTC**
+> added `bugs_closed/090`, which did not exist as a fix at 18:29 — I found it at 18:32 *while
+> verifying 089 on the box*.
 >
-> **2. AN ENGINE RUN IS IN FLIGHT** — `ord_1785090638951163875`, started 18:31 UTC, expect the
-> draft ~18:55–19:05 UTC. **Do not `systemctl restart idea` until it lands.** Fulfilment is an
-> in-memory goroutine: a restart strands the order in `running`, and `ExpireStale` deliberately
-> skips `running`, so the slot leaks permanently and only a hand-edit frees it. (That is a real
-> residual of the expiry design — see the note at the end of this block.)
+> **That near-miss is the useful part**: re-probing after the 18:29 deploy still returned the
+> forged address, which is the only reason 090 was not written up as shipped when it was not.
+> **The deploy that closes a bug is not the deploy that happened to precede it.** So check the
+> marker each fix introduces, never the fact that "a deploy happened":
+>
+> ```bash
+> grep -ac "refused fake=1" /opt/idea/idea   # 089 → 1
+> grep -ac "X-Real-IP"      /opt/idea/idea   # 090 → 1   (0 in BOTH earlier binaries)
+> ```
+>
+> Rollbacks kept: `/opt/idea/idea.prev-2026-07-25` (pre-everything) and
+> `/opt/idea/idea.prev-2026-07-26-089only`. Orders backed up before each
+> (`orders.json.bak-2026-07-26-predeploy`, `…-predeploy2`). Verified after both restarts: unit
+> active, queue answering, all orders intact.
+>
+> **Not yet deployed:** three copy defects in the report renderer, fixed and committed after the
+> above (doubled full stop, a score line reading "out of 5 —" with no number, a sentence-cased
+> field spliced mid-sentence). They run at engine time, so they need a deploy to take effect but
+> nothing is urgent about them — let them ride the next one.
+>
+> **2. ~~AN ENGINE RUN IS IN FLIGHT~~ — LANDED 18:40 UTC, restarting is safe again.**
+> `ord_1785090638951163875` ran in **9.5 minutes** (18:31:13 → 18:40:46, 10,166 chars), not the
+> 20–30 this file predicted. It is now `awaiting_payment` with a live Stripe `cs_live_` session
+> and **is waiting on the owner to pay £29** — that is the last leg of the chain, and the only
+> one that has still never run in production. The order survived a second restart intact
+> (status, report and session id all verified after it).
+>
+> **The warning was real while it stood**, and the reason it stood is worth keeping: fulfilment is
+> an in-memory goroutine, so a restart strands an order in `running`, and `ExpireStale`
+> deliberately skips `running` — the slot then leaks permanently and only a hand-edit frees it.
+> See item 4.
 >
 > **3. THIS RUN IS PARTLY DUPLICATIVE AND I OWN THAT.** The 12:40 run already proved the report
 > FORMAT; I fired a second one before the 15:57 rewrite reached me. It is not wasted — the 12:40
