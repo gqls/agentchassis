@@ -153,13 +153,33 @@ that six other sites use).
 
 | # | item | notes |
 |---|---|---|
-| 1 | **Browser QA of the tier-1 tools** (~16 pages) | canvas / file / clipboard / IndexedDB tools need a real browser: `micro-cms`, `bg-remover`, `image-optimizer`, `meme-generator`, `favicon-maker`, `animated-favicon`, `white-balance`, `mesh-gradient`, `golden-ratio`, `social-card`, `blob-maker`, `pasteboard`, `mind-map`, `logic-architect`, `vibe-equalizer`, `blueprint-compiler`. Tiers are in the manifest (`qa_tier`). |
+| 1 | **Browser QA of the tier-1 tools** (~16 pages) — *but see below first* | canvas / file / clipboard / IndexedDB tools need a real browser: `micro-cms`, `bg-remover`, `image-optimizer`, `meme-generator`, `favicon-maker`, `animated-favicon`, `white-balance`, `mesh-gradient`, `golden-ratio`, `social-card`, `blob-maker`, `pasteboard`, `mind-map`, `logic-architect`, `vibe-equalizer`, `blueprint-compiler`. Tiers are in the manifest (`qa_tier`). |
 | 2 | ~~Confirm the hero swap landed~~ | **DONE 2026-07-26.** Live and verified: two-column, light, both CTAs, zero dark overlay in the hero section. Note the mechanism in NOTES — no rerender path re-renders a section whose COMPONENT changed; the template had to be executed directly. |
 | 3 | **`webdesignport verify` is still a stub** | The gates exist as ad-hoc greps in NOTES/RUNBOOK. Worth implementing: structural diff, colour gates, link closure, live 200s. |
 | 4 | **`[OWNER-CHECK]` Cloudflare purge token** | Confirm the deploy Action's `CF_API_TOKEN` can see this zone. Symptom of failure is only a stale cache; check for a null `ZONE_ID` in the Action log. |
-| 5 | **`bugs_open/084`** | The platform-wide gap: nothing asserts that a published page's JavaScript works. Recommends a live script-integrity sweep. |
+| 5 | **`bugs_open/084`** (rewritten 2026-07-26) | **A browser-verification tier already exists and is live** — Tier 4 drives the deployed page in real headless Chromium (`internal/adapters/browserrunner/`, v1.0.1167): real clicks, post-interaction assertions, console-error capture. My first version of 084 wrongly claimed nothing did this. The real gap is *coverage*: Tier 4 gates on `component_level='tool'` + a criteria fence, so **none of this site's 97 owned pages is ever browser-tested**; and `asset_loads` checks a script path is *mentioned*, never that it *loads*. |
 | 6 | **Council review** | The platform-code footprint here is `cmd/` and docs only, so the gate is not required. If any `platform/` change emerges from 084, it should go through. |
 | 7 | **Old domains** | `website-design.com` and `websitedesign.com` are untouched and still live. Owner deferred the redirect/canonical decision. |
+
+---
+
+## The best available next move
+
+**Wire the ported tools into the existing Tier-4 browser runner instead of
+clicking them by hand.** The machinery is built, live and proven
+(`internal/adapters/browserrunner/run_checks_action.go`, v1.0.1167 — Playwright
+Chromium, real `fill`/`click`/`select`, post-interaction DOM assertions,
+`console.error` capture, desktop + mobile). It simply never looks at pages like
+ours, because `check_tool_acceptance_due.go:51` gates on
+`cc.component_level = 'tool'` and ours are `'section'`.
+
+Widening that predicate — or letting an owned page carry acceptance criteria in
+`content_data` — converts open item 1 from ~16 manual browser sessions into a
+recurring automated check, and would cover the whole fleet's owned pages at the
+same time. See `bugs_open/084` fix candidate 3.
+
+Read `travelling_docs/OVERVIEW_self_verifying_tools.md` (the Tier 0/1/2/4 ladder)
+before touching any of it. **Do not build a browser tier — there is one.**
 
 ---
 
