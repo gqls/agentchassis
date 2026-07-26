@@ -789,3 +789,202 @@ by hand:
 - Commit `b498df16b` (502→503 for the Cloudflare body-eating gotcha) was
   submitted as part of the FIRST bundle (64e6112c) alongside 258444df1 — same
   APPROVED verdict covers it.
+
+## 2026-07-26 — P4 front-end rebuild: sources built and PROVEN, delivery blocked by a prod DB outage
+
+### Pre-flight: three of the handoff's premises had gone stale, in our favour
+
+Re-verified before building, and the handoff's own step list shrank as a result:
+
+- **`today.primary_cta.url` was ALREADY correct** in the live feed
+  (`/tools/gauntlet/index.html`), and `provocation-card-loader` already sets
+  both CTA hrefs from the feed at runtime. So the handoff's **Step 1 collapsed
+  into Step 0** — no edit to the homepage was needed at all, which sidesteps
+  the `rebuild_policy='generic'` clobber landmine entirely rather than managing
+  it. The open `cta_names_unknown_destination` item is a *static-shell* scan of
+  a runtime-filled component, not a live defect.
+- **The "Enter today's Arena" CTA already points at `/tools/arena/index.html`.**
+  Council advisory 1 asked us to fix a misdirection that no longer exists;
+  what it needs is a verification journey, not an edit.
+- **`tool-arena-interface` has a 38.6 KB `html_template` but `js_content IS
+  NULL`.** The "Loading… DAY 0" is template text that no JS was ever written to
+  fill. So Step 4's source gate is satisfiable — there is nothing to port,
+  only something to write.
+
+Also confirmed fresh: approved plan still `is_current` (13971 B, 2026-07-25
+16:40:10Z), all five component functions are vonc-only (so the globally-scoped
+`js_snippets` edit cannot leak to another site), and no concurrent session had
+work in flight on any of the four pages.
+
+### Step 0 — the feed, DONE AND LIVE
+
+`vonc.com/data/provocations.json` regenerated and published to `gqls/sites` via
+the GitHub contents API (the `webdesign_publish_assets.sh` route), commit
+`0044cc7007062c1abbcaa14a78df21627ea4b7e6`, 9,797 bytes. Verified live and
+verified *through the API*:
+
+```
+$ curl -s -X POST https://tools.apis.uk/api/v1/tools/gauntlet/round \
+    -H 'Origin: https://vonc.com' -d '{}'
+headline: Nobody actually <em>wants</em> a personalised internet.
+stats:    [20:00 On the Clock] [3 Objectives] [1 AI Verdict]
+```
+
+**The fabrication rail we settled on**, recorded because it decided every stat
+in the file: no participation metric exists anywhere in this system, so none
+appears. Every `stat` is now either a fact true by construction of the game
+(the 20-minute clock, the three objectives, the one verdict) or is dropped
+outright. That removed `1,284 Positions Filed`, `3h 12m Until Close`, `62%
+Disagree` from `today.stats`, and the invented counts from all 8
+`archive.entries[].stat` and all 6 `arena.cards[].stat`.
+
+**Deliberate scope extension, flagged:** the approved plan says `arena{}` is
+"not touched except verified present". We rewrote its copy anyway, because the
+old text advertised "Six rooms are *live* right now" with per-room closing
+times — rooms that do not exist — and all 14 archive/card URLs pointed
+self-referentially back at `/provocations/index.html`. Leaving known
+fabrications in a file we were rewriting was not defensible. The *shape* is
+byte-compatible with `lobby-grid-loader`, so Journey D is unaffected.
+
+**One entry deliberately has no `detail_body`** (28 Jun, group chats). Journey
+B.3 requires a non-openable row to exist, and the honest way to have one is an
+entry whose case genuinely has not been written yet — not a manufactured gap.
+
+### The thing that changed the design: measured API latency
+
+```
+position: 8.3 / 9.2 / 10.7 / 16.0 / 16.1 s
+defend:   11.0 / 12.3 / 12.7 / 13.8 / 17.9 s
+```
+
+A full round is **20–35 seconds of waiting**. So the JS shows a running
+elapsed-second counter during every wait rather than a spinner, because at 15
+seconds a silent spinner reads as a hang.
+
+> **This also means two of the approved plan's own acceptance criteria cannot
+> pass as written**, and that is a finding about our harness, not about the
+> build. `browserrunner/run_checks_action.go:200` sets `stepDelay = 300ms`
+> between an interaction step and its assertion. `gauntlet_position_flow` and
+> `gauntlet_defend_flow` assert on AI output ~300 ms after the click, against
+> calls measured at 8–18 s. They will fail on a correct implementation. P5 must
+> either extend the runner with a wait/poll or replace those two checks with
+> ones that assert what is true at 300 ms; it must NOT be "fixed" by making the
+> UI paint optimistic placeholder text, which would make the check pass with the
+> engine switched off.
+
+### `/defend` is intermittently 503 — recorded, not diagnosed
+
+2 failures in 13 calls (~15%), both at ~25 s, both `{"error":"gauntlet judge
+unavailable"}`; a third attempt on the same round then succeeded, and a later
+run of 5 fresh rounds went 5/5. **Cause is not determinable from outside**:
+`internal/tools-api/handlers/defend.go:90-93` turns any `GenerateText` error
+into a 503 and **discards the error entirely** — no log line, and gin's request
+log shows nothing on the island either. [UNVERIFIED] the leading candidate is
+`aiservice/anthropic.go:209` returning a non-nil `TruncatedError` on
+`stop_reason=max_tokens` (default `max_tokens: 2048`, and `defend.go:89` passes
+empty options), which `defend.go` cannot distinguish from a real failure — but
+the one successful response measured only ~373 output tokens, so that theory
+does not fit the timing well and is NOT asserted. The actionable half is the
+diagnosability gap: log the error before returning the 503.
+
+The front-end handles it honestly either way — that is exactly what Journey
+C.1's 503 path is for.
+
+### Sources built, and PROVEN before delivery
+
+Everything below is committed under `p4_sources/`, with the pre-change DB rows
+in `p4_sources/backups/`.
+
+**gauntlet-interface** — new `html_template` (23,474 B), `js_content`
+(15,368 B), `input_schema` (7,905 B). Three real fetches; the clock starts only
+on a `/round` 200; objectives are marked *only* as side-effects of API
+responses and the manual-toggle handler is gone; objective 3 is awarded only if
+`remaining > 0` when the verdict lands. Dead CSS for the long-removed
+leaderboard and stats bar deleted. The 043 residue (`12,847`, `94,210`, `38%`
+win rate, `7`-day streak) is gone from `input_schema` and blanked in
+`content_data`.
+
+Two design calls worth recording:
+- **The provocation is rendered before a round starts**, from the same feed the
+  `/round` endpoint serves verbatim, so you can read what you would be arguing
+  before committing to a clock. The panel is clearly not-live until `/round`
+  returns; Journey C.1 still holds because the API response then overwrites it.
+- **Filing a position starts the round if none is running.** "File Your
+  Position" is the homepage CTA, so that control must never be inert. It is one
+  extra ~0.5 s `/round` call, not a shortcut past it.
+
+**provocations-archive-loader** — 11,461 B. Reads `detail_body`/`slug`,
+`--linked` vs `--static`, builds a deep-linkable `.provocations-archive__detail`
+region with its own scoped `<style>` (the component template has no slot for
+one and we were not editing that template this round), `pushState` on open,
+`?entry=<slug>` parsed on direct load, `popstate` handled.
+
+**Both were driven end-to-end in Chromium against the real API and the real
+live archive page before anything was delivered** (`p4_sources/drive_*.py`,
+logs alongside):
+
+```
+gauntlet:  65 passed, 0 failed   (desktop + mobile, real AI round-trip to a
+                                  verdict — "opponent wins", 3/3 objectives,
+                                  100% Complete, no overflow, no console errors)
+archive:   31 passed, 0 failed   (desktop + mobile)
+```
+
+Two real defects were caught by that harness and fixed **before** delivery,
+neither of which a selector-existence check would have found:
+
+1. **A closed detail region still read as populated.** `innerText` on a
+   `display:none` element falls back to `textContent`, so a pre-built "Close"
+   button made the region test as non-empty — meaning the acceptance check
+   `archive_open_detail_populates` would have passed *without anything having
+   been opened*. Fixed by building the region's contents on open and emptying
+   it on close.
+2. **The hidden clone-source kept the template's `href="#"`** — a dead control
+   sitting in the DOM of the very page whose dead controls this workstream
+   exists to remove. Now stripped.
+
+### MISSTEP — the local harness lied twice before it told the truth
+
+- First run: every API call failed. Cause was **not** the component: Playwright
+  cannot re-stamp a CORS *preflight*, so the browser's `OPTIONS` went out with
+  the localhost origin and the API refused it. Fixed by proxying the call
+  server-side with the real origin.
+- Second run: still 403, now `error code: 1010` — that is **Cloudflare**
+  refusing a bare `Python-urllib` fingerprint, not the API's own origin check
+  (`{"error":"origin not allowed"}`). Passing a browser User-Agent fixed it.
+  Worth knowing generally: a 403 from `tools.apis.uk` has two quite different
+  senders, and only one of them is ours.
+
+### BLOCKED — production Postgres crash-looped mid-delivery → `bugs_open/082`
+
+The DB rows are written (both components updated and verified in place), but
+the **section-editor delivery could not be dispatched**. `postgres-clients-0`
+went into a restart loop: liveness probe `pg_isready ... timed out after 1s`,
+6 restarts, and the Service left holding `notReadyAddresses` only — so every
+in-cluster client was cut off while the database itself was answering queries
+normally over `kubectl exec`.
+
+Cause (filed with evidence as `bugs_open/082`): the live StatefulSet has
+`resources={}` — **BestEffort** — although
+`deployments/kustomize/infrastructure/postgres-clients/postgres-clients.yaml:60-66`
+has specified `500m`/`512Mi` since the initial commit. The live object has
+drifted from its own manifest. A co-tenant (`ollama-adapter`, `limits.cpu: 8`
+on an 8-core node) pinned the node at 106%, the starved BestEffort container
+could not fork `pg_isready` inside 1 second, and kubelet killed a healthy
+database. **Not patched — shared prod infra, remedy written up for the owner.**
+
+The dispatch fired at ~15:02 (corr `ade4f100-e95b-4a88-b643-ab0a448914b6`) and
+produced no orchestration row. The chassis pod had itself restarted at
+14:57:24Z, putting the fire inside the ~300 s post-restart window where spawns
+are silently dropped — so this is a drop, not the usual queue latency. Not
+re-fired blind: waited the full 10 minutes first, per the RUNBOOK.
+
+**State at the end of this session — nothing is half-applied:**
+- Step 0 feed: **LIVE and verified through the API.**
+- `content_components` (gauntlet) and `js_snippets` (archive loader): **written
+  and verified in the DB**, inert until delivered. This is the normal
+  DB-ahead-of-page state this workstream's delivery model produces.
+- Live pages: still serving the OLD gauntlet JS and the OLD archive loader.
+- Owed: re-fire the section edit, `republish_gauntlet_js.sh`, reset
+  `pc.build_status` to `'deployed'`, republish the snippets bundle
+  (`083_trigger-asset-renderer-vonc.sh`), then Step 4 and P5.
