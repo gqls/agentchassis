@@ -33,6 +33,15 @@
 > min); they carry the old footer until then. That is throughput on a proven-correct fix, not an
 > unfixed defect — re-check with R15, and note `bugs_open/030`'s residual (one job at a time per
 > lane) is what makes it slow.
+>
+> **Stronger still — the first fully re-rendered page has ZERO broken links.** Every internal
+> anchor on `https://gaswholesalers.com/index.html` was probed: **19 links, 19 × HTTP 200, no
+> 404s of any mechanism.** Its `.footer-legal` slot now carries exactly two links —
+> `Privacy Policy → /privacy.html` and `Terms of Service → /terms.html`, both 200 — in place of
+> the 21-link pages-table fallback it served this morning. So on this page the fix simultaneously
+> clears mechanism 1's residue, mechanism 2's nav link, **and** `bugs_open/053`'s fallback, and it
+> meets this file's verify criterion 2 (zero broken anchor instances) for the pages that have
+> re-rendered. The rest of the site inherits the identical chrome as its queue drains.
 > Commits `a9083d51b` · `759cb2b77` · `6e911793c`. Council **APPROVED** `623d7bce`.
 > Rollback for the data changes: `bak_049_nav_items_20260726`, `bak_049_page_navflags_20260726`.
 
