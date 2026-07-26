@@ -92,10 +92,16 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	// Load navigation for header/footer
 	/*	navItems := loadNavItems(ctx, params.DB, siteID, 6, params.Logger)
 		footerNavItems := loadFooterNavItems(ctx, params.DB, siteID, 10, params.Logger)*/
-	// deployedOnly=false: runs during build when pages may not be deployed yet.
+	// NavFetchableOnly: everything loaded here becomes an <a href> in the chrome
+	// that ships on EVERY page of the site, so a nav item whose target was never
+	// built is a site-wide 404 (bugs_open/049 mechanism 2 — one gaswholesalers
+	// utility item accounted for 28 broken anchors). The old argument here was
+	// `false`, justified as "runs during build when pages may not be deployed
+	// yet"; that case is now handled inside GetNavItems, which serves the
+	// unfiltered nav and warns rather than ever emptying the chrome.
 	// maxItems=0: no limit — PopulateNavTablesAction controls primary group membership.
-	navItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, false, 0, params.Logger)
-	footerNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, false, 0, params.Logger)
+	navItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, NavFetchableOnly, 0, params.Logger)
+	footerNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, NavFetchableOnly, 0, params.Logger)
 
 	// Build render context
 	year := fmt.Sprintf("%d", time.Now().Year())
@@ -110,7 +116,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	// Utility items are pages that overflowed from primary or were classified
 	// as secondary (FAQ, Approach, Insights etc). They belong in footer nav
 	// but not the header. Legal items (privacy, terms) get their own footer section.
-	quickLinksItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility}, false, 0, params.Logger)
+	quickLinksItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary, NavGroupUtility}, NavFetchableOnly, 0, params.Logger)
 	quickLinksHTML := buildNavItemsHTML(quickLinksItems)
 
 	// Build services HTML for footer "Our Services" column
@@ -185,7 +191,7 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 	// necessarily exist, so it produced phantom links. Now: only pages that
 	// actually exist appear; if none, the list is empty and the footer renders
 	// no legal links.
-	legalNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupLegal}, false, 0, params.Logger)
+	legalNavItems := GetNavItems(ctx, params.DB, siteID, []string{NavGroupLegal}, NavFetchableOnly, 0, params.Logger)
 	legalLinks := make([]map[string]interface{}, 0, len(legalNavItems))
 	for _, item := range legalNavItems {
 		legalLinks = append(legalLinks, map[string]interface{}{

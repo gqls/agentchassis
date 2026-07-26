@@ -1707,10 +1707,12 @@ func InjectHeader(ctx context.Context, db interface{}, html string, siteID uuid.
 	// Update nav items from deployed pages (not cached db_sync)
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
 		/*headerNav := GetHeaderNavFromPages(ctx, sqlDB, siteID, 6, logger)*/
-		// deployedOnly=true: only show actually deployed pages.
+		// NavFetchableOnly: this nav is injected into shipped page HTML. It was
+		// `true` (deployedOnly), which meant the same intent but filtered on
+		// build_status — dropping pages that are needs_rebuild yet still serving.
 		// maxItems=0: no limit here â€” PopulateNavTablesAction already controls
 		// which pages go into the primary group vs utility.
-		headerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary}, true, 0, logger)
+		headerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary}, NavFetchableOnly, 0, logger)
 		if len(headerNav) > 0 {
 			renderCtx.NavItems = headerNav
 			logger.Debug("InjectHeader: Updated nav from deployed pages",
@@ -1755,7 +1757,7 @@ func InjectFooter(ctx context.Context, db interface{}, html string, siteID uuid.
 	// Footer includes legal pages (privacy, terms) that may not be in header
 	if sqlDB, ok := db.(*sql.DB); ok && siteID != uuid.Nil {
 		/*footerNav := GetFooterNavFromPages(ctx, sqlDB, siteID, logger)*/
-		footerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, true, 0, logger)
+		footerNav := GetNavItems(ctx, sqlDB, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, NavFetchableOnly, 0, logger)
 		if len(footerNav) > 0 {
 			renderCtx.FooterNavItems = footerNav
 			logger.Debug("InjectFooter: Updated nav from deployed pages",

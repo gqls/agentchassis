@@ -460,8 +460,8 @@ func buildRenderContextFromDB(
 	}
 
 	// 4. Load navigation
-	navItems := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary}, true, 0, logger)
-	footerNavItems := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, true, 0, logger)
+	navItems := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary}, NavFetchableOnly, 0, logger)
+	footerNavItems := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary, NavGroupUtility, NavGroupLegal}, NavFetchableOnly, 0, logger)
 
 	// 5. Derive page-specific fields
 	currentPage := ""

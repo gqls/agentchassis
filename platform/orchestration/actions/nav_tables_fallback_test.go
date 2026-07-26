@@ -52,7 +52,7 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 			sqlmock.NewRows([]string{"exists"}).AddRow(true)) // site has other nav rows
 		// No ExpectQuery("FROM pages") — the fallback must NOT run.
 
-		got := GetNavItems(ctx, db, siteID, []string{NavGroupLegal}, false, 0, logger)
+		got := GetNavItems(ctx, db, siteID, []string{NavGroupLegal}, NavAllItems, 0, logger)
 		if len(got) != 0 {
 			t.Fatalf("expected 0 legal items, got %d: %+v", len(got), got)
 		}
@@ -69,7 +69,7 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 			navRows("Privacy", "/privacy.html", "Terms", "/terms.html"))
 		// No EXISTS gate, no pages fallback expected.
 
-		got := GetNavItems(ctx, db, siteID, []string{NavGroupLegal}, false, 0, logger)
+		got := GetNavItems(ctx, db, siteID, []string{NavGroupLegal}, NavAllItems, 0, logger)
 		if len(got) != 2 || got[0].Label != "Privacy" || got[1].URL != "/terms.html" {
 			t.Fatalf("expected the 2 real legal items, got %+v", got)
 		}
@@ -88,7 +88,7 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 		mock.ExpectQuery("FROM pages").WillReturnRows(
 			navRows("Home", "/index.html", "About", "/about.html"))
 
-		got := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary}, false, 0, logger)
+		got := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary}, NavAllItems, 0, logger)
 		if len(got) != 2 {
 			t.Fatalf("expected 2 fallback items, got %d: %+v", len(got), got)
 		}
@@ -109,7 +109,7 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 			mock.ExpectQuery("FROM site_nav_items ni").WillReturnRows(navRows()) // 0 rows for the group
 			mock.ExpectQuery("SELECT EXISTS").WillReturnRows(
 				sqlmock.NewRows([]string{"exists"}).AddRow(true)) // site has nav rows elsewhere
-			got := GetNavItems(ctx, db, siteID, groups, false, 0, zap.New(core))
+			got := GetNavItems(ctx, db, siteID, groups, NavAllItems, 0, zap.New(core))
 			if len(got) != 0 {
 				t.Fatalf("groups %v: expected empty, got %+v", groups, got)
 			}
@@ -144,7 +144,7 @@ func TestGetNavItemsFallbackGate(t *testing.T) {
 		mock.ExpectQuery("FROM pages").WillReturnRows(
 			navRows("Home", "/index.html"))
 
-		got := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary}, false, 0, logger)
+		got := GetNavItems(ctx, db, siteID, []string{NavGroupPrimary}, NavAllItems, 0, logger)
 		if len(got) != 1 {
 			t.Fatalf("expected 1 fallback item, got %d: %+v", len(got), got)
 		}

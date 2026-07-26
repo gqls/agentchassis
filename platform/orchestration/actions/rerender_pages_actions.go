@@ -166,8 +166,11 @@ func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interfac
 	// Build navigation items from DB (deployed pages only)
 	// This ensures nav matches actual deployed pages, not planned pages
 	/*dbNav := rerenderGetHeaderNavFromDB(ctx, params.DB, siteID, 6, params.Logger)*/
-	// deployedOnly=true for rerender.
-	dbNav := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, true, 6, params.Logger)
+	// NavFetchableOnly for rerender — this nav is baked into the page files.
+	// The cap of 6 is now applied AFTER filtering, so it means six usable items;
+	// under the old SQL LIMIT an unfetchable item inside the first six silently
+	// shortened the header.
+	dbNav := GetNavItems(ctx, params.DB, siteID, []string{NavGroupPrimary}, NavFetchableOnly, 6, params.Logger)
 	if len(dbNav) > 0 {
 		baseRenderCtx.NavItems = dbNav
 	} else {

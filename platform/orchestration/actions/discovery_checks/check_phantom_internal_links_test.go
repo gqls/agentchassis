@@ -1,6 +1,7 @@
 package discovery_checks
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -138,17 +139,28 @@ func TestUnbuiltLookupUsesSharedNormalisation(t *testing.T) {
 	}
 }
 
-// The predicate is deployed_at IS NULL, not build_status <> 'deployed'. Measured
-// 2026-07-20: 34 of 34 needs_rebuild-but-once-deployed pages return 200, so
-// keying on build_status alone would have been wrong about 34 of the 56 rows it
-// selects. This asserts the SQL still says so — the constant is the contract.
-func TestNeverDeployedPredicateKeysOnDeployedAt(t *testing.T) {
-	if !strings.Contains(neverDeployedPredicate, "deployed_at IS NULL") {
-		t.Fatalf("predicate must key on deployed_at IS NULL, got %q", neverDeployedPredicate)
+// This check must judge "would a link to this page 404" by the SAME rule the
+// chrome renderer uses when it WRITES nav links, or the platform flags links it
+// authored itself — which is exactly what bugs_open/049 mechanism 2 was. The
+// predicate moved to datahelpers on 2026-07-26 so both share one definition;
+// what is worth pinning here is that this check still uses the shared one rather
+// than reintroducing a local copy that can drift.
+//
+// The predicate's own content is pinned in datahelpers/links_deployment_test.go.
+func TestPhantomCheckUsesTheSharedNeverDeployedPredicate(t *testing.T) {
+	if !strings.Contains(datahelpers.NeverDeployedPagePredicate, "deployed_at IS NULL") {
+		t.Fatalf("shared predicate must key on deployed_at IS NULL, got %q",
+			datahelpers.NeverDeployedPagePredicate)
 	}
-	// A page once deployed and later flagged needs_rebuild still serves its old
-	// artefact; selecting it would produce false positives on live pages.
-	if strings.Contains(neverDeployedPredicate, "'needs_rebuild'") {
-		t.Errorf("predicate must not single out needs_rebuild, got %q", neverDeployedPredicate)
+
+	src, err := os.ReadFile("check_phantom_internal_links.go")
+	if err != nil {
+		t.Fatalf("read source: %v", err)
+	}
+	if !strings.Contains(string(src), "datahelpers.NeverDeployedPagePredicate") {
+		t.Error("check must build its query from datahelpers.NeverDeployedPagePredicate")
+	}
+	if strings.Contains(string(src), "const neverDeployedPredicate") {
+		t.Error("a local copy of the predicate has come back; it will drift from the renderer's")
 	}
 }

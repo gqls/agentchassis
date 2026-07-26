@@ -180,6 +180,35 @@ func NormalizePagePath(href string) string {
 	return p
 }
 
+// NeverDeployedPagePredicate is the SQL for "this page has never shipped, so a
+// link to it is a live 404". It answers in SQL the question PageURLSet answers
+// in Go, which is why it lives beside it: the renderer that WRITES links and the
+// audit that FLAGS them must agree, or the platform reports links it authored.
+//
+// It is `deployed_at IS NULL`, NOT `build_status <> 'deployed'`. Measured across
+// the fleet on 2026-07-20 against live HTTP:
+//
+//	needs_rebuild AND deployed_at IS NOT NULL   34 pages — 34/34 return 200
+//	deployed_at IS NULL                         22 pages — every one tested 404s
+//
+// A page deployed once and later flagged needs_rebuild keeps serving its old
+// artefact. Flagging on build_status alone would have been wrong about 34 of the
+// 56 rows it selects. The discriminating pair, same build_status, opposite
+// outcome:
+//
+//	gaswholesalers /fuel-pricing-framework.html  needs_rebuild  deployed_at NULL  -> 404
+//	aao            /tools.html                   needs_rebuild  deployed_at set   -> 200
+//
+// `build_status <> 'deployed'` is retained as a second conjunct only to exclude
+// the one fleet row that is 'deployed' yet never stamped (idea.uk — a
+// bugs_open/040 shape, and it serves 200). See bugs_open/049 Correction 2 and
+// bugs_open/052's addendum, which needs this same predicate.
+//
+// The column names are UNQUALIFIED, so this is valid only in a query whose FROM
+// is `pages` with no ambiguous alias. A joined query needs a qualified variant;
+// nobody has needed one yet.
+const NeverDeployedPagePredicate = `deployed_at IS NULL AND COALESCE(build_status, '') <> 'deployed'`
+
 // PageURLSet is a normalised set of real page URLs for membership tests.
 type PageURLSet map[string]bool
 

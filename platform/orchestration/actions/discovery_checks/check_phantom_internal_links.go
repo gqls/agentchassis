@@ -342,35 +342,18 @@ type sitePageTargets struct {
 	unbuilt map[string]string
 }
 
-// neverDeployedPredicate is the SQL for "this page has never shipped, so a link
-// to it is a live 404".
-//
-// It is `deployed_at IS NULL`, NOT `build_status <> 'deployed'`. Measured across
-// the fleet on 2026-07-20 against live HTTP:
-//
-//	needs_rebuild AND deployed_at IS NOT NULL   34 pages — 34/34 return 200
-//	deployed_at IS NULL                         22 pages — every one tested 404s
-//
-// A page deployed once and later flagged needs_rebuild keeps serving its old
-// artefact. Flagging on build_status alone would have been wrong about 34 of the
-// 56 rows it selects. The discriminating pair, same build_status, opposite
-// outcome:
-//
-//	gaswholesalers /fuel-pricing-framework.html  needs_rebuild  deployed_at NULL  -> 404
-//	aao            /tools.html                   needs_rebuild  deployed_at set   -> 200
-//
-// `build_status <> 'deployed'` is retained as a second conjunct only to exclude
-// the one fleet row that is 'deployed' yet never stamped (idea.uk — a
-// bugs_open/040 shape, and it serves 200). See bugs_open/049 Correction 2 and
-// bugs_open/052's addendum, which needs this same predicate.
-const neverDeployedPredicate = `deployed_at IS NULL AND COALESCE(build_status, '') <> 'deployed'`
+// The "never shipped, so a link to it is a live 404" predicate moved to
+// datahelpers.NeverDeployedPagePredicate on 2026-07-26, with its measurement
+// rationale, so the chrome renderer can decide by the same rule this audit
+// judges by. Chrome was writing nav links to never-deployed pages while this
+// check flagged them — bugs_open/049 mechanism 2.
 
 // loadSitePageTargets builds the normalised set of real page targets for the
 // site, using the same page selection and normalisation as the deploy gate, and
 // alongside it the never-deployed subset.
 func loadSitePageTargets(dctx DiscoveryCheckContext) (sitePageTargets, error) {
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
-		SELECT url, id::text, (`+neverDeployedPredicate+`) AS never_deployed
+		SELECT url, id::text, (`+datahelpers.NeverDeployedPagePredicate+`) AS never_deployed
 		FROM pages
 		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
 	`, dctx.SiteID)

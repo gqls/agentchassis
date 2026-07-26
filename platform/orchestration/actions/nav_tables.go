@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
@@ -33,6 +34,34 @@ const (
 	NavGroupLegal   = "legal"
 	NavGroupUtility = "utility"
 	NavGroupContent = "content"
+)
+
+// NavVisibility says what a caller intends to do with the items it gets back.
+//
+// It replaced a `deployedOnly bool` on 2026-07-26 (bugs_open/049 mechanism 2).
+// Deliberately a named type and not a bool: the defect was a `false` at three
+// chrome call sites that read as harmless, and a bool RENAME does not break
+// compilation, so nobody would have re-read them. A new type makes the compiler
+// stop at every call site, which is the structural half of the fix — the
+// predicate is only the arithmetic half.
+//
+// Both former settings of that bool were wrong. `false` shipped links to pages
+// that had never been built (a 404 on every page of the site); `true` filtered
+// on `build_status = 'deployed'`, which is measured wrong for the 34 fleet pages
+// that are needs_rebuild but still serve their old artefact. See
+// datahelpers.NeverDeployedPagePredicate for that measurement.
+type NavVisibility int
+
+const (
+	// NavAllItems returns every active item regardless of whether its target
+	// exists yet. For planning and prompt context, where a page about to be
+	// built SHOULD appear — telling a writer the page does not exist is worse
+	// than naming one that is coming.
+	NavAllItems NavVisibility = iota
+
+	// NavFetchableOnly drops items whose target would 404. For anything that
+	// becomes an <a href> in shipped HTML.
+	NavFetchableOnly
 )
 
 // ---------------------------------------------------------------------------
@@ -46,14 +75,20 @@ const (
 //   - header callers pass: []string{"primary"}
 //   - footer callers pass: []string{"primary", "utility", "legal"}
 //
-// deployedOnly: if true, only items whose linked page has build_status='deployed'
-// maxItems:     0 means no limit
+// visibility: NavFetchableOnly for anything that ships as an <a href>;
+//
+//	NavAllItems for planning/prompt context. See NavVisibility.
+//
+// maxItems:   0 means no limit. Applied AFTER the visibility filter, so it means
+//
+//	"N usable items" — a SQL LIMIT would cap first and then lose more
+//	to filtering, silently returning a short nav.
 func GetNavItems(
 	ctx context.Context,
 	db *sql.DB,
 	siteID uuid.UUID,
 	groupTypes []string,
-	deployedOnly bool,
+	visibility NavVisibility,
 	maxItems int,
 	logger *zap.Logger,
 ) []NavItem {
@@ -62,9 +97,9 @@ func GetNavItems(
 		return []NavItem{}
 	}
 
-	items := getNavItemsFromTables(ctx, db, siteID, groupTypes, deployedOnly, maxItems, logger)
+	items := getNavItemsFromTables(ctx, db, siteID, groupTypes, logger)
 	if len(items) > 0 {
-		return items
+		return applyNavVisibility(ctx, db, siteID, items, visibility, groupTypes, maxItems, logger)
 	}
 
 	// An empty result from the nav tables is ambiguous: it can mean "this site
@@ -110,7 +145,143 @@ func GetNavItems(
 		zap.String("site_id", siteID.String()),
 		zap.Strings("group_types", groupTypes),
 	)
-	return getNavItemsFromPagesFallback(ctx, db, siteID, groupTypes, deployedOnly, maxItems, logger)
+	fallback := getNavItemsFromPagesFallback(ctx, db, siteID, groupTypes, logger)
+	return applyNavVisibility(ctx, db, siteID, fallback, visibility, groupTypes, maxItems, logger)
+}
+
+// applyNavVisibility drops items whose target would 404, then caps to maxItems.
+// It runs on BOTH source paths (nav tables and pages fallback) so there is one
+// filter and one safety net rather than two that can drift.
+//
+// The invariant is: filtering can SHRINK a nav, never EMPTY one. Three cases
+// depend on it, and the loud/quiet split mirrors the one just above for empty
+// groups — fail loud for the anomalous case, stay quiet for the expected one:
+//
+//   - First build: nothing is deployed yet, so every item is unfetchable. Serve
+//     the unfiltered nav (identical to the old deployedOnly=false behaviour) and
+//     Warn. This matters because RenderSiteComponentsAction's idempotence gate
+//     skips re-rendering once rendered_html is non-empty, so a nav emptied at
+//     first build would persist indefinitely.
+//   - Partial: the real defect — some targets exist, some never shipped. Drop
+//     the dead ones and name them.
+//   - Loader failure: never let an infrastructure error empty a site's chrome.
+//
+// Judging the URL rather than page_id is deliberate. The URL is what ships;
+// page_id is metadata that goes NULL on ON DELETE SET NULL (016_nav_tables.sql),
+// which is exactly how a nav item outlives its page — and the old
+// `ni.page_id IS NULL OR ...` predicate KEPT those. Matching on URL through
+// PageURLSet also means this loader and check_phantom_internal_links agree on
+// "same target" by one implementation, not two that resemble each other.
+func applyNavVisibility(
+	ctx context.Context,
+	db *sql.DB,
+	siteID uuid.UUID,
+	items []NavItem,
+	visibility NavVisibility,
+	groupTypes []string,
+	maxItems int,
+	logger *zap.Logger,
+) []NavItem {
+	if visibility == NavFetchableOnly && len(items) > 0 {
+		fetchable, deployedPages, err := loadFetchablePageSet(ctx, db, siteID)
+		switch {
+		case err != nil:
+			logger.Warn("GetNavItems: fetchable-page lookup failed; serving the UNFILTERED nav rather than risk empty chrome",
+				zap.String("site_id", siteID.String()),
+				zap.Strings("group_types", groupTypes),
+				zap.Error(err),
+			)
+		case deployedPages == 0:
+			// The site has not deployed a single page, so "never deployed" is
+			// true of everything and carries no signal — this is a first build,
+			// not a site full of dead links. Filtering here would freeze a
+			// near-empty nav into the chrome (the idempotence gate means it may
+			// never be re-rendered). Note this cannot be detected from the
+			// surviving-item count: loadFetchablePageSet always injects the site
+			// root, so a "Home" item survives even when nothing is deployed, and
+			// the rest would be silently dropped.
+			logger.Warn("GetNavItems: site has NO deployed pages — serving the UNFILTERED nav (expected during a first build, anomalous on an established site)",
+				zap.String("site_id", siteID.String()),
+				zap.Strings("group_types", groupTypes),
+				zap.Int("items", len(items)),
+			)
+		default:
+			kept := make([]NavItem, 0, len(items))
+			var dropped []string
+			for _, item := range items {
+				// Only page links can 404 against the pages table. External
+				// links, mailto and in-page anchors are out of scope.
+				if datahelpers.ClassifyLinkScope(item.URL) != datahelpers.LinkScopePage ||
+					fetchable.Contains(item.URL) {
+					kept = append(kept, item)
+					continue
+				}
+				dropped = append(dropped, item.URL)
+			}
+
+			if len(kept) == 0 {
+				// Belt and braces alongside the deployedPages==0 branch: the
+				// site HAS deployed pages, yet not one nav item points at them.
+				// That is a broken nav rather than a young one, and empty chrome
+				// helps nobody.
+				logger.Warn("GetNavItems: EVERY nav item's target is unfetchable on a site that HAS deployed pages — serving the UNFILTERED nav rather than empty chrome",
+					zap.String("site_id", siteID.String()),
+					zap.Strings("group_types", groupTypes),
+					zap.Int("items", len(items)),
+				)
+			} else {
+				if len(dropped) > 0 {
+					logger.Warn("GetNavItems: dropped nav items whose target page has never been deployed (would 404 on every page)",
+						zap.String("site_id", siteID.String()),
+						zap.Strings("group_types", groupTypes),
+						zap.Strings("dropped_urls", dropped),
+					)
+				}
+				items = kept
+			}
+		}
+	}
+
+	if maxItems > 0 && len(items) > maxItems {
+		items = items[:maxItems]
+	}
+	return items
+}
+
+// loadFetchablePageSet returns the site's page URLs that would actually serve —
+// every non-deleted page except those that have never been deployed — together
+// with the count of REAL rows behind it.
+//
+// The count is returned separately because the set is not a proxy for it: the
+// site root is always injected (matching check_phantom_internal_links), so the
+// set is never empty and cannot tell a first build from an established site.
+func loadFetchablePageSet(ctx context.Context, db *sql.DB, siteID uuid.UUID) (datahelpers.PageURLSet, int, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT url
+		FROM pages
+		WHERE site_id = $1
+		  AND status NOT IN ('deleted', 'archived')
+		  AND NOT (`+datahelpers.NeverDeployedPagePredicate+`)
+	`, siteID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("fetchable pages query failed: %w", err)
+	}
+	defer rows.Close()
+
+	urls := []string{"/", "/index.html"}
+	deployedPages := 0
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			continue
+		}
+		urls = append(urls, url)
+		deployedPages++
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("fetchable pages iteration failed: %w", err)
+	}
+	return datahelpers.NewPageURLSet(urls), deployedPages, nil
 }
 
 // GetNavigationStructure returns *NavigationStructure for callers that
@@ -125,7 +296,12 @@ func GetNavigationStructure(
 ) (*NavigationStructure, error) {
 	groupTypes := navTypeToGroupTypes(navType)
 
-	items := GetNavItems(ctx, db, siteID, groupTypes, false, 0, logger)
+	// NavAllItems, deliberately. The only live consumer of this structure is
+	// extractSitemapInfo, which builds LLM PROMPT context — at planning time the
+	// intended sitemap should include pages that are about to be built, because
+	// telling a writer those pages do not exist is worse than naming one that is
+	// coming. Nothing here becomes an <a href> directly.
+	items := GetNavItems(ctx, db, siteID, groupTypes, NavAllItems, 0, logger)
 
 	nav := &NavigationStructure{
 		Items: make([]NavigationItem, len(items)),
@@ -148,8 +324,6 @@ func getNavItemsFromTables(
 	db *sql.DB,
 	siteID uuid.UUID,
 	groupTypes []string,
-	deployedOnly bool,
-	maxItems int,
 	logger *zap.Logger,
 ) []NavItem {
 	if len(groupTypes) == 0 {
@@ -173,27 +347,18 @@ func getNavItemsFromTables(
 		FROM site_nav_items ni
 		JOIN site_nav_groups ng ON ni.group_id = ng.id`)
 
-	if deployedOnly {
-		qb.WriteString(`
-		LEFT JOIN pages p ON ni.page_id = p.id`)
-	}
-
 	fmt.Fprintf(&qb, `
 		WHERE ni.site_id = $1
 		  AND ng.group_type IN (%s)
 		  AND ni.status = 'active'`, inClause)
 
-	if deployedOnly {
-		qb.WriteString(`
-		  AND (ni.page_id IS NULL OR p.build_status = 'deployed')`)
-	}
-
+	// No deployment predicate here any more, and no LIMIT. Both moved to
+	// applyNavVisibility: the old `ni.page_id IS NULL OR p.build_status =
+	// 'deployed'` was wrong twice over (it kept items orphaned to a NULL
+	// page_id, and it dropped pages that are needs_rebuild but still serving),
+	// and a SQL LIMIT capped before filtering, so a nav could come back short.
 	qb.WriteString(`
 		ORDER BY ng.position ASC, ni.position ASC`)
-
-	if maxItems > 0 {
-		fmt.Fprintf(&qb, "\n		LIMIT %d", maxItems)
-	}
 
 	rows, err := db.QueryContext(ctx, qb.String(), args...)
 	if err != nil {
@@ -236,8 +401,6 @@ func getNavItemsFromPagesFallback(
 	db *sql.DB,
 	siteID uuid.UUID,
 	groupTypes []string,
-	deployedOnly bool,
-	maxItems int,
 	logger *zap.Logger,
 ) []NavItem {
 	isHeaderOnly := len(groupTypes) == 1 && groupTypes[0] == NavGroupPrimary
@@ -272,10 +435,9 @@ func getNavItemsFromPagesFallback(
 	qb.WriteString(`
 		  AND status IN ('deployed', 'active')`)
 
-	if deployedOnly {
-		qb.WriteString(`
-		  AND build_status = 'deployed'`)
-	}
+	// That is pages.status (the row's lifecycle), a different column from
+	// build_status. The build_status filter that used to sit here moved to
+	// applyNavVisibility — see getNavItemsFromTables for why.
 
 	if isHeaderOnly {
 		qb.WriteString(`
@@ -298,9 +460,8 @@ func getNavItemsFromPagesFallback(
 			END`)
 	}
 
-	if maxItems > 0 {
-		fmt.Fprintf(&qb, "\n		LIMIT %d", maxItems)
-	}
+	// No LIMIT — applyNavVisibility caps after filtering, so maxItems means
+	// "N usable items".
 
 	rows, err := db.QueryContext(ctx, qb.String(), args...)
 	if err != nil {
