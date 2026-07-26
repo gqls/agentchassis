@@ -405,3 +405,45 @@ The deeper limitation (the system still does one job at a time within each queue
 real, is written up, and belongs to the other piece of work that already owns it. So I
 am closing this one and naming that as its successor rather than leaving a ticket open
 on somebody else's job.
+
+## 2026-07-26 (later) — the reviewers vetoed the change. Here is the argument, and a decision for you.
+
+I should tell you this straight: the second review round came back not just "revise"
+but **rejected** — a hard veto from the seat whose job is to guard against
+unnecessary changes to the core of the platform. The change is live and working, so
+you should know what the objection is and that you can reverse it in seconds.
+
+**The objection is not that the change is wrong.** Nobody found a bug in it. The
+argument is about *where* it was made: it edits the central chassis code that every
+one of our agent processes is built from, and the guarding seat's standing
+instruction is to insist that a fix be made at a higher, safer layer if one exists.
+Six of the seats approved; that one seat vetoed on principle.
+
+**It named the higher-layer alternative it wanted, and I checked: it isn't there.**
+The suggestion was to have the scheduler hand its chores to their own throwaway
+worker at the moment it schedules them, which would leave the shared code untouched.
+But the scheduler literally cannot do that — it has no ability to start a worker at
+all; the only thing it knows how to do is post a message. Starting workers is done by
+the chassis, which means a chore would have to travel through the very queue we are
+trying to get it out of first. So building that alternative would mean teaching the
+scheduler a whole new capability, duplicating machinery we already have, for a
+bigger change than the one being objected to — not a smaller one.
+
+I also corrected one factual premise: the veto says this code is what "every agent
+runs". Only the chassis programme is built from it — the other services aren't — and
+on the spawned worker pods the new code is switched off twice over.
+
+The one objection with real teeth was: "if you get the start-up and shut-down of
+these extra readers wrong, it breaks every chassis pod." Fair. I audited exactly the
+three failure shapes it named — a reader left open, a thread never waited for, a
+mismatched counter — and all three are handled. That was worth being asked.
+
+**So where does that leave us?** I have submitted a third round with the evidence,
+and I have left the change running, because the measured alternative is going back to
+half-hour waits. But this is a judgement call about how conservative we want to be
+with the core, and that is yours, not mine. If you side with the reviewer, the
+reversal is one line of SQL to send the chores back to the shared queue, plus
+removing one setting from the deployment — seconds, no rebuild, and it's written down
+in the runbook. Nothing is claiming reviewer approval: the change carries no
+"reviewed" stamp, and the rejection is recorded in the bug file rather than tucked
+away here.
