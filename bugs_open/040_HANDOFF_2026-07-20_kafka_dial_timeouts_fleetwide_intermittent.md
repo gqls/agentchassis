@@ -1,19 +1,32 @@
 # 040 — Kafka dial i/o timeouts are fleet-wide and intermittent: all three brokers, at least four of five nodes
 
 > **NUMBER COLLISION (2026-07-20, same day):** another thread filed a different
-> `040` (`failed_page_build_leaves_page_deployed_and_partially_composed`).
-> Numbers are never reassigned — resolve by slug (`bugs_closed/README.md`
-> duplicate-numbers table). Cite this case as **040-kafka-dial**.
+> `040` (`failed_page_build_leaves_page_deployed_and_partially_composed`, now in
+> `/bugs_closed/`). Numbers are never reassigned — resolve by slug
+> (`bugs_closed/README.md` duplicate-numbers table). Cite this case as
+> **040-kafka-dial**.
 
-**Filed:** 2026-07-20 ("bugfix 003" thread) · **Status:** OPEN, not started
-**Class:** cluster network infrastructure. NOT a chassis code bug — split out of
-`bugs_open/003` per its fix plan, which deliberately excludes the network layer.
-**Severity:** medium on its own; multiplied by `bugs_open/003`'s platform gaps
-(at-most-once consume, process-local timeout timers), each transient flake can
-strand an orchestration for 30–90 min or permanently. Once 003's F2–F4 ship,
-this degrades to visible retries — that is the intended division of labour.
+**Filed:** 2026-07-20 ("bugfix 003" thread) · **Status:** **OPEN** — instrumented
+2026-07-26, root cause NOT established, changes INERT until an image roll
+**Class:** was filed as cluster network infrastructure. **Reclassified 2026-07-26:**
+the infrastructure hypotheses are refuted; what is proven is an *observability*
+defect that made the bug unmeasurable. See §2.
+**Severity:** medium on its own; multiplied by `bugs_open/003`'s platform gaps.
+**Workstream:** `docs/agent_docs/docs024_key_docs_latest/bugfix_040_kafka_dial/`
 
 ---
+
+## 0. Read this first (2026-07-26)
+
+Two things will save you the budget this case has already burned twice.
+
+1. **Do not work §4 top-to-bottom.** Five of its six diagnostics point at causes
+   that measurement rules out. The refutation table is §2. §4 is kept below for
+   the record, annotated.
+2. **A zero from the new metric is not evidence of anything until you have proven
+   the metric is scraped.** Until 2026-07-26 nothing in the fleet served
+   `/metrics` at all — the live Prometheus held **zero** `ai_persona_*` series.
+   `RUNBOOK_040_kafka_dial.md` §2 is the check. Do it first.
 
 ## 1. What changed since 003 §3a/§3b was written (2026-07-15)
 
@@ -22,79 +35,203 @@ forever on `dial tcp 10.20.99.93:9092: i/o timeout` (broker-2 only), while pods
 on other nodes were clean — a static node→broker route failure.
 
 **That signature no longer reproduces.** Verified 2026-07-20 (~11:30Z, 12h log
-window): dial timeouts now hit **all three brokers**, from **at least four of
-the five nodes**, at low intermittent rates — and **broker-0 dominates**, not
+window): dial timeouts hit **all three brokers**, from **at least four of the
+five nodes**, at low intermittent rates — and **broker-0 dominated**, not
 broker-2. A static route fix would chase a moving target.
 
-## 2. Evidence (2026-07-20, `--since=12h`, counts of `dial tcp <ip>:9092: i/o timeout`)
+## 2. Refuted hypotheses (measured 2026-07-26 — do not re-walk these)
 
-Broker topology (unchanged, all `Running` 22 days):
+| Hypothesis | §4 ref | Measured 2026-07-26 | Verdict |
+|---|---|---|---|
+| conntrack exhaustion / SNAT port pressure | 4.3 | 1,021 of 262,144; 28-day max 113,891 | **REFUTED** |
+| listen-queue overflow | 4.3 | `TcpExt_ListenOverflows` increase **0**, all 5 nodes, 8 consecutive days | **REFUTED** |
+| broker request-handler saturation / GC | 4.5 | brokers at 60m/62m/65m CPU; node CPU 1–4% | **REFUTED** |
+| node packet pressure | — | `node_softnet_dropped_total` **0** over 28d; CPU steal <0.5% | **REFUTED** |
+| CoreDNS too slow | — | p99 request duration **2.69ms**; 0 panics | **REFUTED** |
+| client-side DNS stalls | — | 1,200 probe lookups, 3 pods on 3 nodes: **0 stalls ≥2s** | **NOT REPRODUCED** |
 
-| broker | pod IP | node |
-|---|---|---|
-| combined-pool-prod-0 | 10.20.161.217 | prod-instance-17744590808031336 |
-| combined-pool-prod-1 | 10.20.0.21 | prod-instance-17722135234001149 |
-| combined-pool-prod-2 | 10.20.99.93 | prod-instance-17735924839006832 |
+Every query is in `RUNBOOK_040_kafka_dial.md` §6. Re-run them before suspecting
+any of these again — they were true on 2026-07-26, not for ever.
 
-Per-pod dial-error counts by target broker:
+**§4.6 is the one that held** and has been acted on: the dial timeout was 10s and
+is now 5s, env-tunable.
 
-| pod | node | b-0 (.217) | b-1 (.21) | b-2 (.93) |
-|---|---|---|---|---|
-| agent-build-dispatch-loop-3458d71d | …37536833 | 8 | 2 | 2 |
-| agent-image-build-handler-537ecc0b | …90808031336 | 18 | 2 | 34 |
-| agent-image-build-handler-47376bc9 | …35234001149 | 28 | 0 | 2 |
+### The one event captured in full
 
-Totals across 8 sampled agent pods ranged 10–52 errors/pod/12h; the static
-`agent-chassis` Deployment pod had 0 in the same window. Note the second row:
-that pod runs **on broker-0's own node** and still times out dialling broker-0
-(pod-network path, so this does not exonerate the fabric — but it does implicate
-more than inter-node links).
+```
+core-manager-7b6cd994b6-2z2bs   started 12:01:21Z
+12:02:10.825Z  Creating topics for agent build-dispatch-loop
+12:02:21.146Z  Failed to create topic system.agent.build-dispatch-loop.errors
+               failed to connect to controller: failed to dial: failed to open
+               connection to personae-kafka-cluster-combined-pool-prod-0.
+               personae-kafka-cluster-kafka-brokers.kafka.svc:9092:
+               dial tcp 10.20.161.217:9092: i/o timeout
+12:02:21.820Z  Successfully created all topics for agent   topic_count 4
+```
 
-Repro of the count:
+T+60s from pod start; **10.32s** elapsed — exactly kafka-go's `DefaultDialer` 10s,
+so it waited the whole budget; the retry then succeeded in **0.67s**. One event in
+~2h of uptime. Brief, self-healing, costs 10s (now 5s) each time.
+
+## 3. ROOT CAUSE: not established. Here is why, and it is the actual finding
+
+**The bug was unmeasurable, and that is now fixed.**
+
+- **No Kafka dial metric existed anywhere.** Bug 003's F4 counters were planned
+  and never built.
+- **The primary request lane counted nothing.** `platform/agentbase/agent.go`
+  logged, slept 1s, continued — forever. `server.go`'s *secondary* loop had always
+  incremented `SystemErrors{error_type="fetch_message"}`; the primary never did.
+- **§4.1's method cannot produce a durable baseline.** It says grep pod logs, but
+  the pods that flake are ephemeral spawned Jobs whose logs GC quickly.
+- **And the finding that reframes the case: nothing in the fleet had ever served
+  `/metrics`.** `observability.NewMetricsServer` has zero callers.
+  `cmd/agent-chassis/main.go` built its own mux with only `/health` and `/ready`.
+  Yet `spawn_actions.go` annotates every spawned pod `prometheus.io/port: "9090"`
+  + `prometheus.io/path: /metrics` and declares a matching containerPort.
+  **Prometheus has been scraping a closed port for the life of the fleet** —
+  confirmed by querying the live server for metric names: **zero `ai_persona_*`
+  series.** Every counter in `platform/observability` has been dead since written.
+
+**Proven from the live pod, not just from Prometheus** (`agent-chassis-5645cb45d6-kpxtq`,
+image `v1.0.1167`, 2026-07-26 — with both controls, so the method is not the
+thing being tested):
+
+```
+strings /app/agent-chassis | grep -c ai_persona_kafka_messages_produced_total  -> 1   (positive control)
+strings /app/agent-chassis | grep -c ai_persona_kafka_dial_nonexistent_xyz     -> 0   (negative control)
+wget -qO- http://localhost:9090/metrics  -> wget: can't connect to remote host: Connection refused
+```
+
+The metric strings **are** compiled into the shipped binary. The port the pod is
+annotated for is **closed**. That is the whole defect in three lines: the counters
+exist, are maintained, and are unreachable.
+
+So this case could never have been closed on evidence, because there was no
+evidence channel. That, not the network, is what has been fixed.
+
+## 4. Original diagnostics (kept for the record — see §2 before using)
+
+1. ~~**Baseline the rate** via the §5 grep across all agent pods.~~ **Superseded:**
+   use `ai_persona_kafka_dial_total` (RUNBOOK §1). The grep is unreliable — see the
+   uptime trap in §7 below.
+2. **Node-pinned probes** (003 §5a pattern): busybox `nc -vz <broker-ip> 9092`
+   pinned to each node in turn, N attempts, record the failure rate. **Still
+   unexercised and still worth doing** — this is the most promising untried lead.
+3. ~~**Conntrack pressure.**~~ REFUTED, §2.
+4. **CNI + kubelet logs** on the worst node in the same minute as a logged dial
+   timeout. **Still untried.** Calico is the CNI (`calico-node`, 5 nodes).
+5. ~~**Broker side:** request-handler saturation / GC pauses.~~ REFUTED, §2 —
+   though note the brokers have no resource floor at all (§6), so this could
+   become true under load even though it is not true now.
+6. **Kafka client dial timeout is 10s** — a dial that cannot complete in 10s on an
+   in-cluster network is pathological regardless of cause. **ACTED ON:** now 5s,
+   `KAFKA_DIAL_TIMEOUT` (whole seconds).
+
+## 5. Repro of the original count
+
 ```bash
 kubectl -n ai-persona-system logs --since=12h --tail=3000 <pod> \
   | grep 'i/o timeout' | grep -o 'dial tcp [0-9.]*:9092' | sort | uniq -c
 ```
 
-## 3. What this is NOT
+## 6. Amplifiers found and removed (2026-07-26, commit `95df64d63`)
 
-- **Not a broker outage** — all three broker pods healthy, 22 days uptime.
-- **Not the 003 §3a permanent wedge** (currently): sampled pods recover and
-  produce/consume between flakes. The permanent-wedge state remains possible if
-  a pod's luck runs bad, which is why 003 F4's fail-fast/self-crash matters.
-- **Not consumer-group queueing** — that is `bugs_open/030` (one partition, one
-  consumer, ~25–36 min dispatch latency). If your orchestration row is missing,
-  read 030 before concluding drops.
-- **Not the build-halt mechanism** — that is `bugs_open/029` (hung spawns
-  saturate the dispatch concurrency group); this bug is one of the ways spawns
-  come to hang.
+None of these is claimed to be the cause. Each made the fault worse or hid it.
 
-## 4. Diagnostics for whoever picks this up
+- **Four inconsistent, uncounted dial configurations** — consumer 10s (explicit),
+  producer **3s** (`Transport` left nil → kafka-go `DefaultTransport`), topic
+  manager 10s × 8 sites (bare `kafka.Dial`), health probe 3s. None configurable.
+  Collapsed into `platform/kafka/dialer.go`.
+- **`/metrics` never served** — now on the health mux *and* on `METRICS_PORT`
+  (9090), the port the annotations already advertise.
+- **Phantom fallback broker** `kafka-0.kafka-headless.kafka:9092` in
+  `topic_manager.go` — **no such Service** (Strimzi's headless service is
+  `personae-kafka-cluster-kafka-brokers`). Could only burn a dial timeout before
+  failing. Removed; remaining bootstrap default fully-qualified.
+- **`kafka_brokers` with no port** in `deployments/kustomize/base/configmap-common.yaml`.
+- **Hot spin** in `cmd/remote-job-spawner/main.go` — read errors `continue`d with
+  no pause. Now the standard 1s backoff.
+- **Producer connection churn** — kafka-go's `IdleTimeout` 30s / `MetadataTTL` 6s
+  made low-traffic agents re-dial almost every produce. Now 5m / 30s.
 
-1. **Baseline the rate** before and after any change — the §2 grep across all
-   agent pods, same window, is the metric. (003 F4 adds Prometheus counters for
-   consumer dial errors; once that ships, use those instead of log-grepping.)
-2. **Node-pinned probes** (003 §5a pattern): busybox `nc -vz <broker-ip> 9092`
-   pinned to each node in turn, N attempts, record the failure rate — is it
-   uniform per node or skewed?
-3. **Conntrack pressure**: `conntrack -S` / `node_nf_conntrack_entries` vs
-   limit on each node; dial timeouts that come and go under load smell of
-   table exhaustion or SNAT port pressure.
-4. **CNI + kubelet logs** on the worst node in the same minute as a logged
-   dial timeout.
-5. **Broker side**: request-handler saturation / GC pauses on broker-0
-   (`kafka.network:type=RequestChannel` metrics via the Strimzi metrics
-   ConfigMap if enabled) — brokers too busy to accept connections produce
-   exactly this client signature.
-6. Kafka client dial timeout is 10s (`platform/kafka/consumer.go:49`) — a
-   dial that cannot complete in 10s on an in-cluster network is pathological
-   regardless of cause.
+### The DNS search-path tax — real, large, and NOT the cause
 
-## 5. Relationship to 003 (read this before "fixing" anything here)
+Brokers advertise (live, from the broker's `/tmp/strimzi.properties`):
 
-003's F2 (DB-driven retry), F3 (at-least-once + completion dedupe) and F4
-(honest health, self-crash, drain) are what convert this bug from
-"silently strands work" to "causes visible retries". Do not block on the
-network investigation to ship those; equally, do not close this bug because
-they shipped — the flake rate is still an infrastructure defect, it just
-stops being an outage class.
+```
+PLAIN-9092://personae-kafka-cluster-combined-pool-prod-0.personae-kafka-cluster-kafka-brokers.kafka.svc:9092
+```
+
+**Three dots**, no `.cluster.local`. Pods run `ndots:5` with a three-domain search
+path, so every post-bootstrap connection walks three NXDOMAIN rounds before the
+one that works, doubled by the parallel AAAA. Measured over 24h: **384,392
+NXDOMAIN of 525,152 responses (73%)**, A:AAAA exactly 1:1, ≈**7.5 queries per
+useful answer** (predicted 8 for this name shape).
+
+> **[MEASURED] This is a volume problem, not a latency problem, and not the
+> cure.** CoreDNS p99 is 2.69ms; 1,200 probes showed no stalls; 300 short-name vs
+> 300 FQDN lookups both finished under 1s. It triples packet count and therefore
+> exposure to loss. It has **not** been shown to fix the timeouts. Do not write it
+> up as the fix.
+
+> **TRAP — do NOT lower `ndots`.** It is the obvious move and it is strictly
+> worse: the name genuinely needs `cluster.local` appended, so at `ndots:2` the
+> resolver tries it absolute (NXDOMAIN) **and then still** walks all three search
+> domains — four rounds instead of three. The fix is broker-side `advertisedHost`
+> with the FQDN. Documented in
+> `deployments/terraform/modules/kafka-cluster/templates/kafka-cluster-cr-prod.yaml.tpl`,
+> **NOT APPLIED** (rolls the cluster). Logged in `WRONG_CALLS.md`.
+
+### Broker has no resource floor — corrected in the repo, NOT APPLIED
+
+Live: container `resources: {}` and `KAFKA_HEAP_OPTS=-Xms128M` with **no `-Xmx`**,
+so max heap falls back to the JVM default of ~¼ of node RAM (~15GB on these
+nodes). RSS is 4.8GB while idle, so latent rather than active — but the brokers
+have **no scheduling guarantee at all** and are eviction-ranked with best-effort
+workloads. Corrected in `templates/kafka-nodepool.yaml.tpl` using the figures
+already in this module's unreferenced `config/kafka-nodepool-cr-prod.yaml`.
+**Not applied** — `terraform apply` is unsafe here (checked-in state is `serial: 1`,
+zero resources); use the `kubectl patch` in RUNBOOK §8.
+
+## 7. Traps for whoever picks this up
+
+- **Normalise log counts by pod uptime.** A `--since=12h` sweep on 2026-07-26
+  looked almost clean, but every pod had restarted ~100 minutes earlier, so the
+  real window was 1.7h. Pull `.status.startTime` first. A window longer than the
+  pod's age silently understates the rate.
+- **Brokers live in namespace `kafka`, not `ai-persona-system`.**
+- **busybox `date +%s%N` returns 0** — nanosecond timing in these images silently
+  yields all-zero results. Time at second granularity.
+- **`go build ./platform/...` may fail on another session's WIP.** Overlay your
+  files onto `git archive HEAD` (RUNBOOK §7). This caught a real compile error of
+  mine that the broken tree was masking.
+
+## 8. Relationship to 003 (read before "fixing" anything here)
+
+003's F2 (DB-driven retry), F3 (at-least-once + completion dedupe) and F4 (honest
+health, self-crash, drain) are what convert this bug from "silently strands work"
+to "causes visible retries". F2+F3 shipped in v1.0.1159. **F4's dial counters were
+never built — this case now supplies them.** Do not block on the network
+investigation to ship 003's work; equally, do not close this bug because they
+shipped.
+
+## 9. CLOSE CONDITION (explicit, 2026-07-26)
+
+The changes above are **Go code and are inert until an image roll**. Do not close
+on them.
+
+1. Roll an image carrying `ai_persona_kafka_dial_total`. Verify against the running
+   pod, grepping a string the change **creates** plus an absent control string
+   (RUNBOOK §3).
+2. **Prove the metric is scraped** (RUNBOOK §2). A zero before this step means
+   nothing.
+3. Baseline it, and cross-check once against the §5 log grep before retiring the
+   grep.
+4. **Close when** `sum by (outcome) (increase(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))`
+   is zero fleet-wide — **or**, if non-zero, when the residual is diagnosed
+   (the `dns`/`dns_timeout` vs `timeout` split is designed to answer exactly that
+   next question: resolution or connect).
+
+Per handoff §8 and the owner's ruling of 2026-07-26, amplifier fixes alone are
+**not** grounds to close.

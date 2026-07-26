@@ -1,0 +1,107 @@
+# Where we are — Kafka dial timeouts (040-kafka-dial)
+
+Plain-prose log, append-only, newest at the bottom.
+
+---
+
+## 2026-07-26
+
+Picked up bug 040 — the one about Kafka connections intermittently timing out
+all over the cluster. First thing: checked nobody else was on it. The number 040
+is used by two different bugs, and the other one is owned by an active thread, so
+that needed care. The one I want was untouched.
+
+Then I went and measured the cluster instead of reading about it, and most of what
+the bug file told me to look at turned out to be a dead end. The bug file was
+written six days ago and suggested the likely culprits were connection-tracking
+tables filling up, or the Kafka brokers being too busy to answer. Neither is true
+now. The brokers are close to idle — about 6% of one CPU each. The connection
+tracking table is at 1,021 entries out of 262,144, and its highest point in the
+last four weeks was still less than half full. The kernel counter that would show
+connections being dropped because a queue was full reads zero on every machine,
+every day for the last eight days. So I've written all of that down as ruled out,
+because otherwise the next person spends their whole time re-checking it.
+
+I did catch the fault happening once, and it's worth describing because it's the
+clearest look anyone's had at it. One service started up, tried to create its
+Kafka topics sixty seconds later, and hung for **ten and a third seconds** before
+giving up — and ten seconds is exactly the built-in giving-up time, so it waited
+the maximum. Then it immediately tried again and succeeded in under a second. So
+whatever this is, it's brief, it's self-healing, and it costs ten seconds each
+time it happens.
+
+Chasing that, I found something real about how the cluster looks up names. Every
+Kafka connection has to translate a broker's name into an address, and the name
+the brokers hand out is *slightly* too short. Because of a standard Kubernetes
+setting, that means the lookup fails three times before it succeeds on the fourth
+attempt — every single time, forever. The numbers back it up: **73% of all name
+lookups in the entire cluster are failures**, 384,392 out of 525,152 in a day. The
+cluster is doing about seven and a half lookups to get one useful answer.
+
+**But I want to be straight about this, because I nearly overclaimed it.** I had
+that looking like the cause, and then I tested it properly and it isn't. The name
+server answers in under three milliseconds. I ran twelve hundred lookups from
+three different machines and not one of them was slow. I timed the short name
+against the correct long name and both finished in under a second. So the wasted
+lookups are real waste — three times as much network traffic as we need, and
+therefore three times as many chances for a packet to go missing — but they are
+not what's causing the ten-second hangs. Fixing it makes the system tidier and
+less exposed. It is not the cure, and I'm not going to write it up as one.
+
+I also nearly made a mistake worth recording. The obvious fix for the name problem
+is to change the setting that causes it. I worked through what would actually
+happen and it makes things **worse** — four failed lookups instead of three. The
+real fix is to have the brokers hand out their full name. I've written that into
+the configuration files with the reasoning attached, but I have **not** applied it,
+because doing so restarts all three Kafka brokers and that's your call.
+
+**Then I found the thing that changes the whole picture.** I was about to add a
+counter so we could finally measure how often this happens, and I thought I'd
+better check the counter would actually be collected. It wouldn't have been.
+**Nothing in this system has ever reported any metrics at all.** There's a whole
+file of counters written and maintained, the monitoring system is configured to
+collect them, every worker is labelled telling the monitor where to look — and
+nobody ever opened the door. The monitor has been knocking on a closed port since
+the day the fleet was built. I confirmed it directly: there are zero application
+metrics in the monitoring database.
+
+That's why this bug has been so hard to pin down. It isn't subtle. It's that we
+have never been able to see it. The bug file even instructs the next person to
+measure the rate by reading logs out of the worker pods — but those workers are
+temporary, and their logs are deleted before anyone can look. So the one
+instruction for measuring it describes something that can't be done.
+
+So I've changed the shape of the job. Rather than guess at a cause, I've made it
+measurable and cleared out the things making it worse:
+
+- All Kafka connections now go through one piece of code that counts every attempt
+  and how long it took, and separates "the name lookup stalled" from "the
+  connection stalled" — which is precisely the question we can't currently answer.
+- Metrics are now actually served, on the port the system has been claiming to
+  serve them on all along. This is the biggest single win here and it was an
+  accident.
+- Four genuine defects fixed on the way past: connections were using four
+  different and inconsistent timeouts (one path 3 seconds, another 10, nobody had
+  noticed); one fallback address pointed at a service that doesn't exist and never
+  did, so it could only ever waste ten seconds before failing; one configuration
+  entry was missing its port number entirely; and one loop retried without pausing,
+  so an unreachable broker would spin the processor flat out.
+- Timeouts cut from 10 seconds to 5, and made adjustable without a rebuild.
+
+**One thing I want to flag, because you asked me to close this bug and I haven't.**
+Three reasons. The project's own rule is that a bug only moves to closed when it's
+fixed *and* live — and everything I've written is Go code, which does nothing
+until the next image is built. More importantly, I have not found the root cause;
+I've found what it isn't, plus a set of things making it worse. And the bug file
+itself says, in as many words, don't close this just because supporting fixes
+shipped. So I've left it open and written a precise test for when it *can* close:
+once the new counter is live, if it shows no timeouts across a week, it's done.
+
+The other thing I should say plainly: **when that counter first goes live and reads
+zero, that is not good news yet.** A counter nobody collects reads zero too. I've
+put the check for that at the top of the runbook, and written a test that
+deliberately fails a connection to prove the counter moves — because I came within
+one step of shipping a metric into a void and then reading the silence as success.
+
+Waiting on the review council now, and then on your next build. Nothing here goes
+live until that build happens.
