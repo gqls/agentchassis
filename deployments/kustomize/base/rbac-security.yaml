@@ -133,15 +133,37 @@ kind: NetworkPolicy
 metadata:
   name: allow-monitoring
   namespace: ai-persona-system
+  annotations:
+    # bugs_open/040-kafka-dial: this rule never matched anything. TWO defects,
+    # both silent — a NetworkPolicy that selects nothing looks identical to one
+    # that is simply never exercised.
+    #
+    #  1. `from: [podSelector: ...]` with NO namespaceSelector means "pods with
+    #     these labels IN THIS NAMESPACE" (ai-persona-system). Prometheus runs in
+    #     `monitoring`, so it was never in scope.
+    #  2. The label `app: prometheus` does not exist on the Prometheus pod. The
+    #     kube-prometheus-stack chart sets `app.kubernetes.io/name: prometheus`.
+    #
+    # So with default-deny-ingress in force, every scrape of port 9090 from
+    # monitoring timed out — verified 2026-07-26: same-namespace curl to a pod's
+    # :9090 succeeds, the identical curl from the monitoring namespace times out.
+    # Port 9090 was correct all along; only the source selector was wrong, which
+    # is why the intent is legible but has never once worked.
+    bugs.agentchassis/040-kafka-dial: "fixed source selector; port 9090 unchanged"
 spec:
   podSelector: {}
   policyTypes:
     - Ingress
   ingress:
+    # namespaceSelector AND podSelector in the SAME list element intersect, so
+    # this stays tight: only Prometheus pods, only from `monitoring`, only 9090.
     - from:
-        - podSelector:
+        - namespaceSelector:
             matchLabels:
-              app: prometheus
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
       ports:
         - protocol: TCP
           port: 9090
