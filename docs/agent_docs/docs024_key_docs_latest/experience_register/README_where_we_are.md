@@ -47,3 +47,53 @@ One genuine bug was found during the research and filed (064): a previous change
 database accept a new kind of travelling document that the code still refuses to read or
 write — so those documents exist but are unreachable. Our build will fix that in passing,
 and it taught us the checklist of every place that must change together.
+
+---
+
+**2026-07-26 — the gate lifted, and the first four experiences are on paper.**
+
+The thing we were waiting for happened: the vonc gauntlet went live end to end. A visitor can
+read today's provocation, start a real twenty-minute round against a live AI opponent, file a
+position, get a written counter-argument back, defend it, and receive a judged verdict — all
+against a real backend on a real domain. That was the condition we set for starting the
+harvest, so the harvest started today.
+
+I checked the site myself rather than taking the other session's word for it: both pages
+answer 200, the data feed the pages read is byte-for-byte the one in the repo, and the
+JavaScript that drives the archive is genuinely in the file the live site serves. The
+journeys were verified in a real browser by the session that built them — 72 checks of 73,
+the one failure being the backend occasionally erroring, which is filed separately as its own
+bug and does not touch anything we took.
+
+Four experiences came out of it. Two are about single components: *a list built from a data
+feed, where whether a row is clickable is decided by the data and not by the template*, and
+*a call-to-action whose words and whose destination live in the same record*. Two are
+journeys: *click a teaser and the full piece opens in place at a web address you can share*,
+and *a timed exchange with a remote engine where nothing on screen changes unless the engine
+really answered*.
+
+The most interesting number of the day: all four of those components have been used exactly
+once each, on this one site. The components don't repeat — but the rules above already do. One
+of them we harvested from two different components on the same site. That is the whole
+argument for the register, and it is now evidence rather than a hunch.
+
+Harvesting also corrected our own design in ten places, which is exactly why we insisted on
+harvesting from something real instead of authoring a catalogue from a textbook. Three worth
+telling you about. First, our design could only describe things a visitor can click; the most
+valuable rule in the live code is the opposite — *a row with nothing behind it must not be
+clickable at all* — and we had nowhere to put it. Second, we had named this first pattern
+"teaser → detail → related links", and the real thing has no "related links" step; we had
+invented a leg that nobody built. Third, and most awkward: four of the rules that make these
+experiences worth having **cannot be tested by our own testing machinery at all**. It cannot
+ask whether a link is dead, it cannot follow a link to see whether the promised page exists,
+it cannot check that a region is empty, and it cannot wait for anything slower than a third of
+a second — while the AI in the gauntlet takes eight to twenty-three seconds to reply. That
+last one means the approved plan for the gauntlet contains two tests that would fail a
+perfectly good page. The fix is to the testing machinery, never to the page — making the page
+paint fake text would make those tests pass with the engine switched off.
+
+So where that leaves us. The design is now written from something that exists rather than
+something imagined, and it is better for it. The build of the register itself — the table, the
+planner hook, the validation — is still waiting on your go, and it is the next thing. One
+piece of good news there: a bug we filed on Friday (064) has been fixed by another session and
+is now live in the running system, which makes our build a little smaller than it was.

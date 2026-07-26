@@ -45,13 +45,25 @@ extracted, not invented):
 
 ## Level 3 — micro-journey candidates (HARVEST-PENDING)
 
+> **CORRECTED 2026-07-26 — pattern #1's name and shape were both wrong.** It was written here
+> as `teaser-detail-related`, with a third leg of "related links and tools" out of the detail.
+> The live implementation has **no such leg**: the detail region holds the case and a close
+> control, and the onward links live in the feed's `today`/`arena` CTAs — harvested separately
+> as `CC-002 feed-promised-cta`. Renamed `teaser-detail-deeplink`, and the deep-linkable URL
+> (the part that was NOT anticipated here) turns out to be its defining property. This is the
+> harvest-only rule paying for itself on its first use: authored top-down, the register's
+> first entry would have carried a leg nobody has built. Also note the primitive: the detail
+> opens **in place** (`reveal`), not by navigation — with an address change but no page load,
+> a case the level-1 vocabulary had no way to express (HARVEST_01 §3.8, new `self-state`
+> destination role).
+
 | candidate name | aka | shape | source to harvest from |
 |---|---|---|---|
-| `teaser-detail-related` | master-detail, content-scent trail | card/teaser → `reveal` summary → `navigate` entity-page → related links (navigate: content/tool) | **pattern #1**: vonc provocations journey, after the pilot is live end to end (owner ruling: wait for tools-api) |
+| `teaser-detail-deeplink` **(HARVESTED 2026-07-26)** | master-detail, drill-down, progressive disclosure | teaser row → `reveal` full case in place + address gains `?<param>=<key>` → `dismiss` restores both | **pattern #1, done**: vonc provocations archive, live. Entry: `harvest/entries/MJ-001_teaser-detail-deeplink.json`; its component half is `CC-001 feed-driven-teaser-list` |
 | `hub-spoke-index` | hub-and-spoke | section-index page → navigate child pages → navigate back/sideways | live `parent_section` hubs |
 | `search-results-detail` | search / faceted find | submit query → filter/sort results → navigate detail | news/feed sites (relojistas-class) |
 | `stepped-funnel` | wizard | step through stages → submit → navigate paid/deliverable page | idea.uk report funnel (NOTE: that site is another session's workstream — harvest = read-only observation of the live pattern, coordinate before deeper extraction) |
-| `tool-participation-loop` | — | submit input → play round → reveal verdict → navigate onward | vonc arena/gauntlet, post-pilot |
+| `timed-remote-challenge-loop` **(HARVESTED 2026-07-26)** | challenge–response loop, turn-based tool session | `submit` → real remote response → `reveal` generated reply; clock and progress markers advance ONLY on a 200 | **done**: vonc gauntlet against tools.apis.uk, live. Entry: `harvest/entries/MJ-002_timed-remote-challenge-loop.json`. Was listed here as `tool-participation-loop` with a `play` primitive — the live loop has no `play`; the clock is a consequence of a response, not a control the visitor operates |
 
 ## Level 4 — site journeys/funnels
 

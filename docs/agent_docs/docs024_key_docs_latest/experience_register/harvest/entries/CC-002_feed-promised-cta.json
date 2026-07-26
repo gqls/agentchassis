@@ -1,0 +1,71 @@
+{
+  "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
+  "_harvested": "2026-07-26 from the live vonc.com feed-driven CTAs — provocation-card (today.primary_cta / secondary_cta) and lobby-grid (arena.cards[].url). Two different components, one clause: harvested because that repetition is the register's whole claim.",
+
+  "name": "feed-promised-cta",
+  "kind": "component-contract",
+  "display_name": "A call to action whose label and destination come from the same record",
+  "aka": ["promise ledger entry", "linked CTA"],
+  "description": "The label a visitor reads and the place the control takes them are one fact, carried together in one record, and the destination must resolve to a live page whose role matches what the label promises.",
+
+  "primitives": ["navigate"],
+  "section_types": ["{{binding.section_type}}"],
+  "destination_roles": [{ "role": "{{binding.destination_role}}", "of": "{{binding.destination_of}}" }],
+  "funnel_stage": "consideration",
+  "suitable_site_types": ["content", "interactive-platform", "news", "corporate"],
+
+  "contract": [
+    {
+      "control_role": "promised_cta",
+      "primitive": "navigate",
+      "outcome": "a real page load of the destination named in the same record as the label; the destination page is live and of the promised role, and it delivers what the label said it would",
+      "must_not": ["resolve to '#'", "resolve to an empty href", "be rendered at all when the record has no destination"],
+      "why": "a component that declares a button's label and its URL as two unrelated schema fields, with nothing expressing that a label implies a destination, is bugs_open/023's root cause stated exactly. Binding label and destination in one record is the smallest structural answer.",
+      "evidence": "provocations.json today.primary_cta{label,url} + secondary_cta{label,url}; arena.cards[]{title,url}; EXPERIENCE_PLAN 'vonc-spark-game' §2 promise ledger, which states the same rule per CTA in prose"
+    }
+  ],
+
+  "_SCHEMA_DELTA": "data_contract / degraded_states are fields the draft DDL does not have — see HARVEST_01 §3.",
+
+  "data_contract": {
+    "source": "{{binding.feed_path}}",
+    "required_together": ["label", "url"],
+    "absence_semantics": "a record with a label but no destination MUST NOT render a control — the CTA is omitted, never pointed at '#'",
+    "prohibition": "no number rendered beside a CTA unless it is true by construction (vonc: '20:00 on the clock', '3 objectives', '1 verdict' replaced a fabricated participation count)"
+  },
+
+  "degraded_states": [
+    {
+      "when": "the feed is unavailable",
+      "outcome": "the built HTML's own CTA content stands (build-time content is not overwritten by a failed fetch); no empty button appears"
+    }
+  ],
+
+  "binding_schema": {
+    "cta_selector": { "type": "selector" },
+    "section": { "type": "selector" },
+    "section_type": { "type": "section_type" },
+    "feed_path": { "type": "asset_path" },
+    "destination_page": { "type": "page", "role": "{{binding.destination_role}}" },
+    "destination_role": { "type": "value" },
+    "destination_of": { "type": "value" }
+  },
+
+  "criteria_template": {
+    "profiles": ["desktop", "mobile"],
+    "container": "{{binding.section}}",
+    "checks": [
+      { "id": "cta_exists", "type": "selector_exists", "selector": "{{binding.cta_selector}}" },
+      { "id": "feed_loads", "type": "asset_loads", "path": "{{binding.feed_path}}" },
+      { "id": "cta_has_real_destination", "type": "attribute_matches",
+        "selector": "{{binding.cta_selector}}", "attribute": "href", "not_matches": "^(#|\\s*)$",
+        "_unsupported": "no attribute assertion exists; today this is only reachable through the separate dead-control sweep, after the page is built (HARVEST_01 §3.2)" },
+      { "id": "destination_is_live", "type": "page_status_ok", "url": "{{binding.destination_page.url}}",
+        "_unsupported": "page_status_ok has no url parameter — it asserts the page under test only, so 'the promise is kept' cannot be checked from the promising page (HARVEST_01 §3.3)" }
+    ]
+  },
+
+  "status": "draft",
+  "source": "harvest",
+  "harvested_from": "vonc.com provocation-card (6163ff14-9f94-4962-aa19-d2718eabdeb1) and lobby-grid (9304f14d-e19b-4ce1-b3fd-f6a315aec6ed), live 2026-07-26."
+}

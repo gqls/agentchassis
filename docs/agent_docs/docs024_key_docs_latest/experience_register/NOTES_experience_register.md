@@ -79,3 +79,80 @@ viable product; harvest waits for it).
 
 Artifacts written this session: PLAN, RUNBOOK, this file, README_where_we_are, design/ (4
 draft artifacts, nothing applied), bugs_open/064, 016b §9 pattern entry, memory pointer.
+
+---
+
+## 2026-07-26 — the vonc gate lifted; first harvest done
+
+**Gate check, first-hand (not trusting the other session's log):**
+- `GET https://vonc.com/provocations/index.html` → 200, 23,670 B.
+- `GET https://vonc.com/data/provocations.json` → 200, 9,797 B, `diff -q` **byte-identical**
+  to `gauntlet_dead_cta/p4_sources/provocations.json`.
+- Live page carries `data-component="provocations-archive-list"` + `data-archive-template`.
+- Live `/assets/js/snippets.js` (22,475 B) contains the loader by **discriminating** strings
+  (ones the loader creates, not uses): `provocations-archive-detail-style` ×1,
+  `__item--linked` ×1, `__item--static` ×2, `entriesBySlug` ×3.
+- Journeys themselves: the owning session's browser run, 72/73 desktop+mobile
+  (`p4_sources/verify_live_2026-07-26.txt`); the 1 failure is upstream 503s = `bugs_open/083`.
+
+**Component grounding (live DB):** `provocations-archive-list` `70d6662a` (quality 100),
+`gauntlet-interface` `5da50747` (100), `provocation-card` `6163ff14` (50), `lobby-grid`
+`9304f14d` (50) — **all four `usage_count = 0`**. Bespoke components; the clauses repeat, the
+components do not. That is the register's case in one number.
+
+**Harvested:** four draft entries in `harvest/entries/` — `CC-001 feed-driven-teaser-list`,
+`MJ-001 teaser-detail-deeplink`, `CC-002 feed-promised-cta`, `MJ-002
+timed-remote-challenge-loop`. Full record + the ten design corrections they forced:
+`harvest/HARVEST_01_2026-07-26_vonc_provocations.md`.
+
+**Criteria vocabulary, read from source (not assumed):**
+`check_tool_acceptance.go:343-380` → `selector_exists`, `selector_count`, `interaction`,
+`asset_loads`, `page_status_ok`. `run_checks_action.go:374-467` adds `no_horizontal_overflow`
+at Tier 4; steps are `fill|click|select` only (`:772-776`); `runInteraction` (`:493`) asserts
+straight after the last step with `stepDelay = 300ms` (`:199`), `settleDelay = 2s`,
+`runDeadline = 120s`; `expect` is `{selector, text_matches}`.
+
+> **CORRECTED 2026-07-26 (my own artifact, caught by harvest):**
+> `design/criteria_template_schema_v1.md` listed schema v0's types and said "no new check-type
+> invention beyond `journey`". Both parts were wrong. It **missed
+> `no_horizontal_overflow`** (Tier-4 only), and four separate extensions turn out to be
+> load-bearing, not optional: attribute assertions, a navigation step + cross-page status,
+> an empty-region assertion, and waits/ordering/retries. Caught by trying to write the
+> criteria for two real, live patterns and finding the clauses that matter unassertable.
+
+> **CORRECTED 2026-07-26:** `design/taxonomy_seed.md` named pattern #1
+> `teaser-detail-related` with a third "related links and tools" leg. **The live
+> implementation has no such leg** — the onward links live in the feed's `today`/`arena` CTAs
+> (harvested separately as `CC-002`). Renamed `teaser-detail-deeplink`. First time the
+> bottom-up rule paid for itself: authored top-down, the register's first entry would have
+> carried a leg no implementation has.
+
+**064 — CLOSED, and my first reading of it was stale.** I pod-grepped the running chassis
+(`agent-chassis-5785dd5c85-jff28`, image **v1.0.1167**, started 2026-07-26T17:11:30Z):
+`unsupported subject_type` ×1 (the string the fix CREATED), `validDocSubjectTypes` ×1,
+`no explicit subject` ×1 (the *other*, deliberately distinct skip reason — both present is
+the correct post-fix state), `experience-pattern` ×0 (correctly not added — that is P2's),
+positive control `write_doc_plan` ×7. I then wrote that the failing branch still needed a
+live run and folded it into P2.
+
+> **CORRECTED, same session, before committing:** the file is not in `bugs_open/` at all —
+> `bugs_closed/064…`, commit `eb81de7b5`, **closed 2026-07-25 on image v1.0.1156**, a day
+> before the pod I grepped. The closing session proved BOTH branches live: a scratch
+> one-step `load_doc_context` with `subject_type='action'`/`diagnose_build_gate` returned the
+> 184-seeded PLAN (orch `91d550a2`), and the negative branch with `subject_type='site'`
+> failed with the new error verbatim (orch `f74d2442`), then cleaned up every scratch row.
+> **What caught it:** the Edit tool refused the path. **The cheap check I skipped:** the bug
+> file was in my context from a summary, and I re-read the *content* without re-checking the
+> *location* — `ls bugs_open/ bugs_closed/ | grep 064` costs nothing and is the standing
+> "grep BOTH directories" rule I had already been told. Nothing downstream was wrong (my
+> P2-shrink conclusion holds and is if anything stronger), but the claim "not closed" would
+> have shipped in a commit. Logged in WRONG_CALLS.
+
+**Missteps / near-misses this session**
+- Nearly wrote the harvest's openable/inert clause into BOTH the component contract and the
+  journey. Caught while writing `MJ-001`: two accounts of one clause is the drift class this
+  workstream keeps filing bugs about. Resolved by the composition rule (HARVEST_01 §3.6) —
+  render-time properties live in the component contract; the journey references them.
+- First draft of `MJ-001` carried `ai-never-funny-on-purpose` as a literal in the criteria.
+  That is the `bugs_open/045` static-fallback mistake in a new place: the openable set changes
+  with the feed. It is now a binding (`sample_item_key`), resolved at bind time.

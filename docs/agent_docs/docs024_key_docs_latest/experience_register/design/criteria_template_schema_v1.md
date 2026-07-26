@@ -1,5 +1,35 @@
 # Criteria template schema v1 — design artifact (P2)
 
+> **CORRECTED 2026-07-26 by HARVEST 01 — read this before the body below.**
+> Writing criteria for two real live patterns falsified two things in this file.
+>
+> 1. **The v0 inventory below is incomplete**: Tier 4 also supports
+>    `no_horizontal_overflow` (`internal/adapters/browserrunner/run_checks_action.go:422`),
+>    and interaction steps are limited to `fill | click | select` (`:772-776`).
+> 2. **"Non-goal: no new check-type invention beyond `journey`" is wrong.** Four extensions
+>    are load-bearing, not optional — without them the clauses that make a pattern worth
+>    registering cannot be asserted at all:
+>    - **attribute assertions** (`attribute_absent`, `attribute_matches`) — the
+>      anti-dead-control clause (*this row has no `href`, no `tabindex`*) is unassertable
+>      today, which is precisely `bugs_open/023`'s class;
+>    - **a navigation step + cross-page status** (`goto`, `page_status_ok` with a URL) —
+>      without them a deep link cannot be checked and a promised destination cannot be
+>      followed;
+>    - **an empty/absent assertion** — `expect` fails when a selector is *absent* and has no
+>      "must be empty"; the `innerText`-on-`display:none` trap makes this a real false pass;
+>    - **waits, ordering and retries** (`expect_within_ms`, `after`, `retries`) —
+>      `stepDelay = 300ms` (`:199`) versus live AI calls at **8–23 s**.
+> 3. **Write-time validation needs a third rule**: parse + placeholder closure **+ a
+>    tier-capability check**. The gauntlet's criteria parse perfectly, were council-approved,
+>    and still cannot be executed correctly. Unexecutable checks must be marked `deferred`
+>    when written, not discovered at run time.
+>
+> Evidence and the full ten corrections: `harvest/HARVEST_01_2026-07-26_vonc_provocations.md`
+> §§3.2–3.5, 3.11. The extensions belong to `check_tool_acceptance.go` /
+> `run_checks_action.go` — a **separate change-set with separate owners**; the browser-runner
+> half overlaps `gauntlet_dead_cta` P5. P2 ships templates that mark those checks
+> `_unsupported` rather than quietly omitting them.
+
 Formalises the acceptance-test side of register entries (owner ruling 2026-07-24).
 Extends the existing criteria schema v0 (`check_tool_acceptance.go:276-298` structs;
 check types `selector_exists`, `selector_count`, `interaction`, `asset_loads`,

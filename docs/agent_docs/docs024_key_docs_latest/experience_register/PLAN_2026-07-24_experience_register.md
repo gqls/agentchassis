@@ -1,8 +1,44 @@
 # PLAN — experience register
 
-**Status: DESIGN DECIDED (owner rulings 2026-07-24). Build NOT started.**
-Phase 1 (this doc set + draft artifacts + bug filing) done this session; Phase 2 (platform
-code) gated on owner go; harvest gated on the vonc pilot (owner ruling: wait for tools-api).
+**Status (2026-07-26): DESIGN DECIDED and now CORRECTED BY CONTACT WITH A LIVE
+IMPLEMENTATION. P1 done. P3's first harvest done. P2 (platform code) still gated on owner
+go.**
+
+> **UPDATE 2026-07-26 — the vonc gate is LIFTED and the first harvest is in.**
+> The pilot went live end to end on 2026-07-26 (real round → real AI counter → real judged
+> verdict, against `tools.apis.uk`; 72/73 verified in a browser on the deployed pages by the
+> owning session). I re-verified the artefacts this workstream actually consumes rather than
+> trusting that log — see NOTES 2026-07-26 for the four discriminating checks.
+>
+> **Four entries harvested** into `harvest/entries/` (`CC-001 feed-driven-teaser-list`,
+> `MJ-001 teaser-detail-deeplink`, `CC-002 feed-promised-cta`, `MJ-002
+> timed-remote-challenge-loop`), with the full record and evidence in
+> `harvest/HARVEST_01_2026-07-26_vonc_provocations.md`.
+>
+> **The harvest corrected this design in ten places** (HARVEST_01 §3). The five structural
+> ones are now in the draft DDL, marked and dated: `states` (a contract must be able to say
+> what is NOT a control — §3.1), `data_contract` (§3.9), `degraded_states` (§3.7),
+> `entry_points` (§3.8), `requires_component_contract` (§3.6), plus the `self-state`
+> destination-role kind. Two artifacts carry visible corrections to claims I made on 07-24:
+> `criteria_template_schema_v1.md` ("no new check types" — wrong, four are load-bearing) and
+> `taxonomy_seed.md` (pattern #1's name and its invented third leg).
+>
+> **The hardest finding, and a real dependency**: four of the clauses that make these
+> patterns worth registering **cannot be asserted by the platform's criteria today** —
+> attribute presence/shape, navigation + cross-page status, empty-region, and
+> waits/ordering/retries (HARVEST_01 §§3.2–3.5, read from source). One consequence is already
+> live: the council-APPROVED gauntlet EXPERIENCE_PLAN contains two checks that would fail a
+> correct page, because the runner asserts 300 ms after a click while the AI takes 8–23 s.
+> Those extensions are a **separate change-set with separate owners** (the browser-runner half
+> overlaps `gauntlet_dead_cta` P5) — P2 marks such checks `_unsupported` in its templates
+> rather than quietly dropping them.
+>
+> **P2 also shrank**: **064 is CLOSED** (`bugs_closed/064…`, commit `eb81de7b5`) — the
+> single-sourced `validDocSubjectTypes` went live on v1.0.1156 on 2026-07-25 and the closing
+> session proved both the accepting and the rejecting branch with live orchestration runs. I
+> re-confirmed the strings in today's v1.0.1167 binary. So the subject-type work is **one Go
+> list entry plus the migration**, with a migration-lockstep test already failing the build if
+> the two drift.
 
 Session: "experience register". Related workstreams: `experience_loop/` (per-site plans —
 level 4 of this design, unchanged), `travelling_docs/` (the substrate we build on),
@@ -206,12 +242,15 @@ unbound links; bindings make its job mechanical where they exist.
   migration (both tables + subject_type, per `design/subject_type_addition.md` — fixes 064 in
   passing), write-time criteria validation, `experience_brief` consumption in `plan_site`,
   bindings after `sync_pages`, reconcile guard, selection wiring.
-- **P3 (gated on the vonc pilot — owner ruling: wait for tools-api)**: harvest. Pattern #1 =
-  the provocations teaser→detail→related journey, extracted from the proven live pilot;
-  then the brochure components' `behaviour.js` contracts. Pilot critical path (owned by
-  gauntlet_dead_cta session): implementer emits valid tools-api code → owner merges PR →
-  owner's 4 infra tasks (subdomain, bastion VM, WireGuard peering, Cloudflare tunnel) →
-  smoke-POST → re-fire 092 → session-driven T4 build.
+- **P3 — FIRST SLICE DONE 2026-07-26** (the gate lifted; the pilot's critical path completed
+  on 07-25/26: PR #3 merged, island VM + Cloudflare tunnel live instead of the planned
+  bastion/WireGuard route, EXPERIENCE_PLAN approved, P4 front-end live). Harvested: four
+  entries from the live provocations + gauntlet journeys — `HARVEST_01`. **Remaining P3**:
+  the brochure components' `behaviour.js` contracts (`brochure_component_library/`, 5
+  components at PLAN level), and the level-3 candidates still marked HARVEST-PENDING in
+  `design/taxonomy_seed.md`. Note the sequencing lesson: harvesting BEFORE building the table
+  is what caught the ten design errors, so keep the next slice ahead of P2 too where it is
+  cheap.
 - **P4**: first bound site end to end; Tier-2 intent checks live. Tier-4 journey acceptance
   arrives with T5.1 (separate image, separate thread).
 

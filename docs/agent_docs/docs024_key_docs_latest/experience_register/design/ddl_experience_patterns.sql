@@ -31,6 +31,10 @@ CREATE TABLE experience_patterns (
     destination_roles jsonb NOT NULL DEFAULT '[]'::jsonb,
         -- e.g. [{"role":"entity-page","of":"card.entity"},{"role":"tool","of":"topic"}]
         -- roles reuse the existing page_type/role vocabulary; NEVER concrete URLs
+        -- ADDED 2026-07-26 (HARVEST 01 §3.8): the role kind 'self-state' with
+        -- {"addressable":true} — a destination is not always another page. The
+        -- first harvested journey's destination is a state of the SAME page,
+        -- reached by a URL parameter; binding that to a page id would be a lie.
     funnel_stage text CHECK (funnel_stage IN ('awareness','consideration','conversion')),
         -- vocabulary adopted from the superseded site_flows/flow_pages schema
     suitable_site_types jsonb NOT NULL DEFAULT '[]'::jsonb,
@@ -43,6 +47,30 @@ CREATE TABLE experience_patterns (
         --   "destination_role":{"role":"entity-page","of":"card.entity"}},
         --  {"control_role":"read-more","primitive":"reveal",
         --   "outcome":"summary expands in place; control label toggles"}]
+
+    -- ---- ADDED 2026-07-26 by HARVEST 01 (each forced by a live implementation
+    -- ---- the 2026-07-24 design could not express; see harvest/HARVEST_01 §3) ----
+    states jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- §3.1 — clauses that are NOT triggers, above all the negative one:
+        -- [{"state_role":"list_item_not_openable","condition":"record has no body",
+        --   "must_not":["carry an href","carry a tabindex","carry a handler"]}]
+        -- The contract-as-trigger-list could only describe things a visitor can
+        -- click; "this must not be a control" is the clause bugs_open/023 is about.
+    data_contract jsonb NOT NULL DEFAULT '{}'::jsonb,
+        -- §3.9 — the shape of data the pattern's honesty depends on, and what the
+        -- ABSENCE of an optional field means (degrade, never a dead link). The
+        -- council's own EXPERIENCE_PLAN template has this section; the register
+        -- had nothing for it.
+    degraded_states jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- §3.7 — what a visitor sees when the feed/engine is absent, and what must
+        -- NOT change (no progress marked, no clock started, no invented content).
+        -- A failure path is where dishonesty enters a page.
+    entry_points jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- §3.8 — states reachable by URL rather than by a control (deep links).
+    requires_component_contract jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- §3.6 — a micro-journey names the component contracts it stands on and
+        -- does NOT restate their clauses (two accounts of one clause is the drift
+        -- class this workstream keeps filing bugs about).
 
     -- Acceptance side (design/criteria_template_schema_v1.md):
     binding_schema jsonb NOT NULL DEFAULT '{}'::jsonb,

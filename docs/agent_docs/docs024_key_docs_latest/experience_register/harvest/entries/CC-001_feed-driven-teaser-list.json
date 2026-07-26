@@ -1,0 +1,102 @@
+{
+  "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
+  "_harvested": "2026-07-26 from the live vonc.com provocations archive; component row grounded in the DB (content_components 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37, section_type 'provocations-archive-list', quality_score 100, usage_count 0).",
+
+  "name": "feed-driven-teaser-list",
+  "kind": "component-contract",
+  "display_name": "Teaser list rendered from a data feed, with an honest openable/inert split",
+  "aka": ["list view", "index list", "card list"],
+  "description": "A list whose rows are cloned from a hidden template and filled from a feed. Whether a row is a control is decided by the DATA, not by the template: a row whose record carries the linked content becomes a real link; a row whose record does not is stripped of the template's placeholder href and left out of the tab order.",
+
+  "primitives": [],
+  "section_types": ["{{binding.section_type}}"],
+  "destination_roles": [],
+  "funnel_stage": "consideration",
+  "suitable_site_types": ["content", "news", "interactive-platform"],
+
+  "contract": [
+    {
+      "control_role": "list_item_openable",
+      "primitive": "activate",
+      "outcome": "the row is a real control: it carries a genuine href and remains keyboard-reachable; what activation DOES is the referencing journey's clause, not this component's",
+      "note": "this component contract stops at 'is a control / is not a control'. The behaviour behind the control belongs to a micro-journey entry that requires this contract (here: teaser-detail-deeplink).",
+      "evidence": "archive_loader_new.js --linked branch (sets href + click binding)"
+    }
+  ],
+
+  "_SCHEMA_DELTA": "states / data_contract / degraded_states are fields the draft DDL does not have — see HARVEST_01 §3.",
+
+  "states": [
+    {
+      "state_role": "list_item_not_openable",
+      "condition": "the row's feed record lacks the field the linked content lives in",
+      "must_not": ["carry an href", "carry a tabindex", "carry an activation handler"],
+      "outcome": "the row shows its teaser text and is visibly not offered as openable",
+      "why": "the template ships a placeholder href='#'. Cloning it for a row with nowhere to go MANUFACTURES a dead control — the defect class this workstream exists to stop (bugs_open/023; the 2026-07-22 gauntlet correction). Stripping it is not cosmetic: it is the contract.",
+      "evidence": "archive_loader_new.js --static branch removes href AND tabindex; live check B.3; feed carries 7 openable + 1 inert, so the split is exercised by real data"
+    },
+    {
+      "state_role": "template_row",
+      "condition": "always",
+      "must": ["stay hidden", "have its own href removed before any clone is appended"],
+      "why": "the un-cloned template is itself markup on the page; left with href='#' it is a dead control that no visitor can see but every sweep can find",
+      "evidence": "archive_loader_new.js: tmpl.removeAttribute(\"href\") before the clone loop"
+    },
+    {
+      "state_role": "empty_list",
+      "condition": "zero rows rendered",
+      "outcome": "the empty-state line remains visible; it is hidden only after at least one row renders"
+    }
+  ],
+
+  "data_contract": {
+    "source": "{{binding.feed_path}}",
+    "required_per_row": ["title"],
+    "optional_per_row": ["date", "teaser", "stat", "key"],
+    "controls_openability": "{{binding.openable_field}}",
+    "cap": "{{binding.max_rows}}",
+    "absence_semantics": "a missing optional field hides its slot rather than rendering an orphan separator — vonc: the stat dot is hidden when the entry has no stat, because there are no invented participation numbers any more",
+    "evidence": "archive_loader_new.js setText()/stat branch; provocations.json"
+  },
+
+  "degraded_states": [
+    {
+      "when": "feed missing, non-200 or malformed",
+      "outcome": "the shell and the empty state are left exactly as built — no half-populated rows, no invented error UI",
+      "evidence": "archive_loader_new.js fetch().catch()"
+    }
+  ],
+
+  "binding_schema": {
+    "list_section": { "type": "selector" },
+    "list_container": { "type": "selector" },
+    "item_template": { "type": "selector" },
+    "item_openable_selector": { "type": "selector" },
+    "item_static_selector": { "type": "selector" },
+    "empty_state_selector": { "type": "selector" },
+    "section_type": { "type": "section_type" },
+    "feed_path": { "type": "asset_path" },
+    "openable_field": { "type": "value" },
+    "max_rows": { "type": "value" }
+  },
+
+  "criteria_template": {
+    "profiles": ["desktop", "mobile"],
+    "container": "{{binding.list_section}}",
+    "checks": [
+      { "id": "list_exists", "type": "selector_exists", "selector": "{{binding.list_container}}" },
+      { "id": "feed_loads", "type": "asset_loads", "path": "{{binding.feed_path}}" },
+      { "id": "rows_rendered", "type": "selector_count", "selector": "{{binding.list_container}} > *", "min": 1 },
+      { "id": "no_dead_row_hrefs", "type": "attribute_absent",
+        "selector": "{{binding.item_static_selector}}", "attributes": ["href", "tabindex"],
+        "_unsupported": "no attribute assertion exists today (HARVEST_01 §3.2)" },
+      { "id": "template_row_not_a_control", "type": "attribute_absent",
+        "selector": "{{binding.item_template}}", "attributes": ["href"],
+        "_unsupported": "same gap; this one is invisible to a human reviewer, which is exactly why it wants a machine check" }
+    ]
+  },
+
+  "status": "draft",
+  "source": "harvest",
+  "harvested_from": "vonc.com provocations-archive-list (component 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37) + provocations-archive-loader js_snippet, live 2026-07-26."
+}

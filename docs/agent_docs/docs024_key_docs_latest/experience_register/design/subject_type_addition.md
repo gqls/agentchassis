@@ -10,7 +10,13 @@
 > add `"experience-pattern"` to `validDocSubjectTypes`, ship the migration (item 2), and
 > keep the image-before-migration order (item 6 unchanged; item 4 unchanged). If the P2
 > migration file lands without the Go entry, the lockstep test fails the build gate by
-> design. Inert until the next image roll; 064 stays in `bugs_open/` until the live proof.
+> design.
+>
+> **UPDATE 2026-07-26: 064 is CLOSED** — `bugs_closed/064…`, commit `eb81de7b5`. The fix went
+> live on chassis v1.0.1156 (2026-07-25) and the closing session proved both branches with
+> live runs: `subject_type='action'` now returns the 184-seeded PLAN, and an invalid type
+> fails with the new error verbatim. Re-confirmed in today's v1.0.1167 binary. Nothing in this
+> checklist is waiting on it any longer.
 
 The subject_type contract currently has **four enforcement points**, and every addition so
 far has missed at least one (bugs_open/064): migration 163 (+`experience`) moved the DB
