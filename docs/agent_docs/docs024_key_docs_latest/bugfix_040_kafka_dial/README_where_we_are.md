@@ -105,3 +105,55 @@ one step of shipping a metric into a void and then reading the silence as succes
 
 Waiting on the review council now, and then on your next build. Nothing here goes
 live until that build happens.
+
+## 2026-07-26, later — the review council knocked it back, and it was right to
+
+The review council rejected the first version. I want to write down why, because
+the objection was a good one and I'd made the mistake in plain sight.
+
+Along with the counting, I had also **changed three settings across the whole
+fleet**: how long every service waits before giving up on a Kafka connection
+(cut from ten seconds to five), and two settings controlling how long producers
+hold connections open and how often they refresh their view of the cluster. The
+council's guardian blocked it: those are behaviour changes to shared messaging
+plumbing, affecting every pipeline we run, smuggled into something I'd described
+as "just adding a counter".
+
+The embarrassing part is that **I'd already written the argument against it
+myself**, in the submission's own risks section — I noted the shorter timeout
+would make things fail faster instead of waiting, which is only an improvement if
+the waiting was pointless, and I didn't know that. And my justification for the
+new numbers was a remark in the bug file and "the Java library uses a different
+default". Neither is a measurement. I was picking numbers by guesswork *while
+building the very instrument that would tell me the right ones*.
+
+So all three are reverted. Every connection now keeps exactly the timeout it had;
+the only thing that changed is that they're counted. The tidy-up isn't abandoned,
+it's just in the right order now: ship the measurement, look at what the real
+timings are, then choose. That needs a separate architecture review, which is
+what the guardian asked for.
+
+The council also caught that I'd built a new metrics server when the project
+already had one that nothing was using — fair, and I hadn't explained why. When I
+looked, that existing one turned out to be unusable as written: it would have
+re-introduced a fake "everything's fine" health check that we deliberately removed
+last week, and it registers itself in a way that crashes the process if anything
+else does the same. So neither calling it nor ignoring it was right — I fixed it
+and then called it, so there's one way to do this rather than two.
+
+**And I found one more thing that would have sunk the whole fix.** Opening the
+metrics port isn't enough on this cluster. The monitoring system here only looks
+at things it's been explicitly told to look at, and nothing had ever told it to
+look at our services — the labels on our workers use an older convention this
+setup ignores entirely. So even with the port open, still nothing would have been
+collected, and the resulting zero would have looked exactly like a fixed bug.
+That's the same trap as before, one level up, twice in one day. The missing piece
+is written and committed but not switched on; it goes live with the next build.
+
+One honest limitation, now written into the case file: the counter covers the main
+agent program and every temporary worker it spawns — which is the group this bug
+actually affects — but **not** the thirteen other services. Their connections stay
+invisible for now. Wiring them up is the obvious next job, and I've deliberately
+not bundled it in, since bundling is exactly what got the first version rejected.
+
+The revised version is back with the council now.
