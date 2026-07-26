@@ -70,6 +70,12 @@ func MatchedValidationNeedle(errMsg string) string {
 // 'warning' — a genuine validation error is correctly not retried — but the
 // matched needle travels in the context because the match is unanchored and may
 // have caught a real runtime failure.
+//
+// This and agentbase's identically-named method are deliberately two thin
+// wrappers over ONE writer (orchestration.LogAgentError), not two
+// implementations: they exist separately only because the two layers reach their
+// db/logger/context through different structs. Change the row shape in
+// LogAgentError; do not fork the wrappers (council 180d7c68, reuse seat).
 func (p *MessageProcessor) recordDroppedValidationError(msgCtx *MessageContext, matchedNeedle string, procErr error) {
 	db := p.sqlDB
 	if db == nil {

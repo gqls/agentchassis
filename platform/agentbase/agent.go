@@ -845,11 +845,17 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 		// bugs_open/034: this is the FIRST gate an inbound message meets, and it
 		// dropped with no durable trace whatsoever — not even the MessagesDropped
-		// counter the two later drop sites at least increment. Proven by induced
+		// counter the later drop sites at least increment. Proven by induced
 		// fault 2026-07-26 (a request published with no client_id header): an
 		// error response went out, the message was acked, and agent_error_log
 		// stayed empty. Record it, then drop exactly as before.
-		a.recordRejectedIncomingMessage(headers, messageType)
+		missingHeaders := make([]string, 0, len(requiredIncomingHeaders))
+		for _, field := range requiredIncomingHeaders {
+			if headers[field] == "" {
+				missingHeaders = append(missingHeaders, field)
+			}
+		}
+		a.recordRejectedIncomingMessage(headers, messageType, "INCOMING_MESSAGE_REJECTED", missingHeaders)
 
 		return
 	}
@@ -978,6 +984,13 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 
 		// Mark message as processed despite the error to prevent infinite retry
 		observability.MessagesDropped.WithLabelValues(a.AgentType, "missing_orchestration_id").Inc()
+
+		// bugs_open/034 (fourth drop site). Reached only when the header gate
+		// above let the message through without an orchestration_id, so it is
+		// defensive today — which is exactly why it needs a row rather than a
+		// counter: if it ever does fire, the counter cannot name the message and
+		// nobody will be watching a metric for a branch believed unreachable.
+		a.recordRejectedIncomingMessage(headers, messageType, "MISSING_ORCHESTRATION_ID", []string{"orchestration_id"})
 		return
 	}
 
@@ -1106,30 +1119,28 @@ func (a *Agent) processMessage(msg kafka.Message, messageType string) {
 // moment the message is dropped.
 var requiredIncomingHeaders = []string{"client_id", "correlation_id", "orchestration_id"}
 
-// recordRejectedIncomingMessage persists a message rejected by the inbound
-// header gate (bugs_open/034, third drop site).
+// recordRejectedIncomingMessage persists a message rejected by one of the
+// pre-processing gates (bugs_open/034, drop sites three and four).
 //
-// This gate is the first thing a malformed message meets and was the least
-// visible of the three: the two later sites at least increment
-// observability.MessagesDropped, this one did nothing but publish an error
-// envelope and return. An induced fault on 2026-07-26 — a request with no
-// client_id header — produced an error response, an acked message, and zero
-// rows anywhere in the database.
+// These gates sit ahead of both substring classifiers and were the least
+// visible of the four: the header gate did not even increment
+// observability.MessagesDropped, it published an error envelope and returned.
+// An induced fault on 2026-07-26 — a request with no client_id header —
+// produced an error response, an acked message, and zero rows anywhere in the
+// database.
 //
-// It records which required header was absent, because ValidateIncomingMessage
+// It records WHICH required header was absent, because ValidateIncomingMessage
 // returns only a bool and the log line it writes is on a pod that rotates
 // within minutes. Best-effort and detached, like the other recorders: this must
 // never change the rejection the caller already decided.
-func (a *Agent) recordRejectedIncomingMessage(headers map[string]string, messageType string) {
+//
+// Like recordDroppedValidationError, this is a thin wrapper that only reshapes
+// arguments for orchestration.LogAgentError — the single writer against
+// agent_error_log. If you need to change how the row is written, change
+// LogAgentError; do not fork this wrapper.
+func (a *Agent) recordRejectedIncomingMessage(headers map[string]string, messageType, errorCode string, missing []string) {
 	if a.db == nil {
 		return
-	}
-
-	missing := make([]string, 0, len(requiredIncomingHeaders))
-	for _, field := range requiredIncomingHeaders {
-		if headers[field] == "" {
-			missing = append(missing, field)
-		}
 	}
 
 	action := headers["action"]
@@ -1149,7 +1160,7 @@ func (a *Agent) recordRejectedIncomingMessage(headers map[string]string, message
 		Action:          action,
 		ErrorMessage: fmt.Sprintf("incoming message rejected: missing required header(s): %s",
 			strings.Join(missing, ", ")),
-		ErrorCode: "INCOMING_MESSAGE_REJECTED",
+		ErrorCode: errorCode,
 		Severity:  "warning",
 		Context: map[string]interface{}{
 			"correlation_id":  headers["correlation_id"],
@@ -1189,6 +1200,12 @@ func (a *Agent) recordRejectedIncomingMessage(headers map[string]string, message
 // already made. Severity is 'warning' — a genuine validation error is correctly
 // not retried — but the matched needle is recorded in context because the match
 // is unanchored (bugs_open/034) and may have caught a real runtime failure.
+//
+// This and messaging's identically-named method are deliberately two thin
+// wrappers over ONE writer (orchestration.LogAgentError), not two
+// implementations: they exist separately only because the two layers reach
+// their db/logger/context through different structs. Change the row shape in
+// LogAgentError; do not fork the wrappers (council 180d7c68, reuse seat).
 func (a *Agent) recordDroppedValidationError(execCtx *types.ExecutionContext, messageType, matchedNeedle string, procErr error) {
 	if a.db == nil || execCtx == nil || procErr == nil {
 		return
