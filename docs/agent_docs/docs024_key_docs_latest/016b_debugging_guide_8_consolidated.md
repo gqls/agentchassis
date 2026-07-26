@@ -4094,6 +4094,18 @@ Two mechanisms compound:
   extraction failures through error_step — is `bugs_open/068` candidate C,
   untaken.)
 
+  > **CORRECTED 2026-07-26 — this bullet is wrong, and the correction is the more useful
+  > finding.** Extraction failures reach the routing like any other step failure
+  > (`coordinator.go:869` → `routeToErrorStepOrFail`). What is missing is the FIELD:
+  > `convertToWorkflowPlan` builds `models.Step` field by field and never copied
+  > `error_step`, so **no persisted plan has ever carried one** — 0 of 14,209 plan steps
+  > over three days, vs 1,828 carrying the `config.error_step` twin, which survives only
+  > because the whole config map is copied wholesale. 55 declared handlers across 19 agents
+  > are inert; all 32 `resolve_links` failures ever logged are `fatal`, 30 of them resolver
+  > timeouts. `bugs_open/086`; fix `dca5649b3`, inert until an image roll. The bullet was
+  > inferred from the definition plus the outcome; one query against
+  > `orchestration_states.workflow_plan` would have refuted it.
+
 Diagnosis technique that settled it: **compare the callers at RUNTIME, not in
 config** — `orchestration_states.initial_request_data->'input_data'` keys of a
 FAILED child vs a COMPLETED one names the missing field and the caller in two
@@ -4116,9 +4128,50 @@ WHERE ad.is_active AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS
                 AND tgt.input_contract->'required' ? rtrim(m.key,'?'));
 ```
 
-**Related:** `bugs_open/068` (the case); `bugs_closed/054` query-list contract
-(the empty-but-present sibling: a non-nil empty list defeats `required`; this
-entry is the absent-key form); dedup-index↔Go-list lockstep (the drift class).
+**Related:** `bugs_closed/068` (the case, CLOSED 2026-07-26 with the fix verified on the
+failing branch); `bugs_closed/054` query-list contract (the empty-but-present sibling: a
+non-nil empty list defeats `required`; this entry is the absent-key form);
+dedup-index↔Go-list lockstep (the drift class).
+
+### A field in an agent definition is only live if the plan converter copies it — read the plan, not the definition (2026-07-26)
+
+The coordinator does not execute `agent_definitions`. It executes
+`orchestration_states.workflow_plan`, built by `convertToWorkflowPlan`
+(`platform/messaging/processor.go`) — which constructs `models.Step` **field by field**:
+`action`, `description`, `next_step`, `output_field`, `topic`, `config`, `dependencies`.
+Anything else in the definition's step object is dropped on the floor, silently, forever.
+`error_step` was in that gap since the field existed (`bugs_open/086`).
+
+Why it hid so well: `config.error_step` **works**, because the whole `config` map is copied
+wholesale and `routeToErrorStepOrFail` has a config-level fallback. So the feature demonstrably
+functions — in 1,828 persisted steps — while the step-level form it prefers has never once
+been delivered. Both forms appear all over the definitions; only one of them runs.
+
+The discriminating query — persisted plans, one number, no interpretation:
+
+```sql
+SELECT count(*) AS steps,
+       count(*) FILTER (WHERE value ? '<field>')           AS step_level,
+       count(*) FILTER (WHERE value->'config' ? '<field>') AS config_level
+FROM (SELECT workflow_plan FROM orchestration_states
+      WHERE created_at > NOW() - INTERVAL '3 days') o,
+     jsonb_each(o.workflow_plan->'steps');
+```
+
+Censused live 2026-07-26: of the other struct fields the converter omits
+(`store_memory`, `sub_tasks`, `target_agent_type`, `timeout`), **zero definitions use any of
+them**, so `error_step` was the only live instance — but the gap reopens the moment someone
+adds a field to `models.Step` and not to the converter. Same class as the dedup-index↔Go-list
+lockstep: a hand-maintained list beside a struct that grows.
+
+**The generalisation, which is the point:** *config that is declared, read back correctly from
+the DB, and never executed, looks identical to config that works — until you measure the
+artefact the runtime actually consumes.* This is the same shape as tool fixes that never
+render (`bugs_closed/024`) and numeric step config that never reaches actions
+(`bugs_closed/042`).
+
+**Related:** `bugs_open/086` (the case + the 55-handler census + the blast radius of turning
+them on); `bugs_closed/068` (how it was found); `bugs_closed/042`.
 
 ### An indexed snapshot read by a correctness check is a silent freshness dependency
 
@@ -4698,3 +4751,76 @@ every one of them inert. Legible intent is not evidence of a working path.
 Payoff for doing all three: Prometheus went **0 → 16 `ai_persona_*` series**, and
 the fifteen that were not this case's counter had been computed and discarded for
 the life of the fleet.
+
+### A contract with two halves fails closed on the half you wrote and is enforced by nothing on the half you rely on (2026-07-26)
+
+**Symptom.** `ExecuteLLMPromptAction` may keep a response the model cut at
+`max_tokens`, stamping `__truncated` beside the result rather than failing. The
+producer half of that bargain was correct and defensive: tolerance is opt-in per
+step, `tolerate_truncation` defaults false, so a step that says nothing fails
+closed. The consumer half — *tolerating is safe only if something downstream
+reads the marker* — was enforced by *nothing at all*. Both guards that existed
+had been hand-built after an incident, one per burn (`bugs_closed/019`, then the
+gripper dossier). Any step could set `tolerate_truncation: true` in a workflow
+where nothing read the marker and ship a confident fragment, and no test, seed
+check or report would say so.
+
+**The general shape.** When a mechanism's safety depends on *someone else*
+behaving correctly, the half you can see gets the care and the half you depend on
+gets a comment. Comments do not fail builds. Look for it wherever a doc comment
+says some variant of *"callers must…"*, *"only safe if the consumer…"*, *"the
+marker is the whole point"* — that sentence is the specification of a check that
+does not exist. Same family as `bugs_open/021` (durable write guard covers one
+path only) and the `missingkey=zero` cases: a generic behaviour that fails
+silently, patched at whichever call site last got burned.
+
+**The fix that generalises.** Make the producing side *ask* whether a consumer
+exists, and refuse otherwise — turning a convention into a runtime precondition,
+so a new call site is safe by omission rather than by vigilance. Two properties
+made it affordable here:
+
+- **A registry whose values are mechanisms, not labels.** `truncationAwareActions`
+  maps each action to *how* it reads the marker, so a reviewer can check the claim
+  without grepping — and a **lockstep test in both directions** holds it to the
+  code: registered names must have a real reader (forward), and every reader must
+  be registered or exempt with a stated reason (inverse). The inverse is the one
+  people forget, and it is the one that stops the registry silently underclaiming.
+- **State the FLOOR in the code.** This guard asks whether the workflow contains
+  *a* reader, not whether the fragment reaches it. Deciding the latter needs
+  reference-detection across prompt templates and config paths; measured against
+  live config, a textual scan matched 28 "consumers" in the council agents alone,
+  nearly all spurious, and a gate built on it would have failed closed on sound
+  workflows. A floor that says so is honest and useful; a floor that presents as
+  a proof is the next bug.
+
+**Three traps, each of which cost a round.**
+
+1. **The measurement can test the wrong property.** The case was filed as "113
+   unguarded call sites" from a query counting definitions that *mention* the
+   marker in config text — but one guarded agent's guard is in **Go**, so config
+   mention is neither necessary nor sufficient. The real number was 37 exposed
+   steps, all of them already guarded. **Read the producer before believing a
+   count about consumers.**
+2. **A checker that shares ground with the checked cannot falsify it.** The first
+   lockstep test scanned the package for a file naming both the action and the
+   marker — and the registry's own file names the marker *in its doc comment*, so
+   every entry validated itself. A deliberately bogus entry passed. Third recorded
+   instance of this shape, first where the shared ground was prose rather than a
+   regex — which is why it did not look like the known pattern.
+3. **Two markers one underscore apart.** The same package writes `"__truncated__"`
+   for an oversized Kafka response — unrelated mechanism, and `strings.Contains`
+   matches it as a substring. Any scan over marker names has to distinguish them
+   or it will both demand exemptions for innocent files and credit the wrong
+   handler as a consumer.
+
+**And the part that only inducing the fault could find.** After the guard was
+live, unit-tested, council-approved and confirmed by pod-grep, the induced
+failing run's `llm_call_log` row still read `TOLERATED (step continued on the
+partial):` — because that prefix was chosen from step config *before* the guard
+ran, and opting in had stopped being sufficient to make the claim true. The
+forensic record was asserting the exact opposite of what happened, and it was the
+inverse of the misreading the prefix had been added to prevent. **Inducing the
+fault is not only about whether the code fails correctly — it is about reading
+what the failure WROTE.** Resolve a verdict once and reuse the variable; a log
+line and a behaviour computed separately from the same inputs will eventually
+disagree.

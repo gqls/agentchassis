@@ -4094,3 +4094,41 @@ reasoning, concurrency-invisible-to-git, the-artefact-that-moved-was-the-signal.
 24 hours (07-25 filing, 07-26 fix) and its *symptom* was repaired by hand three times by three
 different sessions. A hot bug attracts concurrent threads precisely because it is biting
 everyone at once — which is exactly when `who-owns` is least able to see them.
+
+---
+
+## 2026-07-26 — I wrote two confident causes for a vanished dispatch, and both were refuted within twenty minutes (bugs_open/076)
+
+**The claim(s), in order.** Two kcat dispatches for the 076 induced-fault probe never became
+orchestrations. I wrote into the bug file, as fact, that the cause was a UUID `client_id` where
+the working trigger uses `demo_client`. Then, when that failed, I wrote that it was the ~300s
+post-restart drop rule.
+
+**What caught them.** The first: the successful re-fire used **the same UUID `client_id`** — it
+was in my own shell history, in the command I had just run. The second: the third probe was
+fired at **T+100s** on a freshly rolled pod, comfortably inside the window I had blamed, and it
+landed in seconds.
+
+**The cheap check that would have caught both:** *does my explanation also explain the case that
+WORKED?* Both stories were built by staring at the failure and ignoring the success sitting
+beside it. A cause that does not discriminate between the failing run and the passing one is not
+a cause — it is a coincidence with a narrative. This is the same discipline as the positive
+control I had *just* insisted on for the guard itself (an unguarded probe that fails proves
+nothing without a guarded probe that passes) — I applied it rigorously to the code under test
+and not at all to my own diagnosis in the same hour.
+
+**The class:** explaining a failure without testing the explanation against the neighbouring
+success. Also: writing a mechanism into a durable doc while it was still a hypothesis, with no
+`[UNVERIFIED]` marker — which is precisely what CLAUDE.md's "mark the UNVERIFIED ones too" rule
+exists to stop, and typing the marker would have been enough to make me go and check.
+
+**What it cost, and what it did not.** Nothing but the correction, because the claims were about
+my own test harness rather than about the platform. Had either reached a handoff as "how
+dispatch works", it would have cost every thread that then believed it. The file now records
+both refutations and asserts only the **exit test**, which does not depend on knowing the cause:
+*has anything newer drained past me?* If newer orchestrations are completing while yours is
+absent, it was dropped — re-fire rather than wait.
+
+**Tally note.** This is the third entry in the "wrote a mechanism before checking it"
+family, and the second in two days where the missing check was *test the story against the
+case that worked*.
