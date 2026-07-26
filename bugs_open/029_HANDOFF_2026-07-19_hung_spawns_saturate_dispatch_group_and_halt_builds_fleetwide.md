@@ -356,3 +356,67 @@ protection. Logged in `WRONG_CALLS.md`.
 *Independent diagnosis-loop verification of this correction was offered but not run — the
 model is grounded on current-HEAD code + live queries (all cited above) and is corroborated
 by three independent reproductions; the durable fix (003 F2/F3) is unchanged either way.*
+
+---
+
+## Fresh instance, 2026-07-26 19:23–19:54 UTC — contributed by the bugfix_077 thread
+
+Not a new diagnosis and not a competing fix (`who-owns.py 029` → dispatch_queue_serialisation).
+Recording it here because it is a **council-gate** instance rather than a build one, and
+because the discriminator is unusually clean.
+
+A council submission (`fix_correlation_id 346500db-89ca-47f3-bc5a-e1c099d6f4f8`,
+orchestration `5c6e4fa1-0b84-4211-bcd1-8271df8539f7`) reached the first review step and
+stopped dead:
+
+```
+created_at 19:23:14.548 | updated_at 19:23:15.295 | status EXECUTING_STEP
+current_step / currently_executing = review_editquality
+awaited_steps = []        error = NULL
+```
+
+Frozen for **31 minutes and counting** — one second of life, then nothing. Note
+`awaited_steps` is EMPTY while `currently_executing` is set: the row is holding the step
+lock with nothing recorded as outstanding, so a reaper keyed on awaited responses has
+nothing to key on.
+
+**The discriminator — this is not queue latency.** A *different* correlation
+(`569241fb`) started **after** mine at 19:27:52 and had **COMPLETED twice** by 19:49:07,
+and was on a third round at 19:51. The fleet advanced 10 orchestrations in the five
+minutes before this was written. So the lane was healthy throughout, and one run in it
+was simply lost.
+
+**It is not a singleton, and the step repeats.** Fleet-wide at 19:54, seven orchestrations
+were frozen >20 min mid-step — and **two of them at `review_editquality`**: mine, and
+`f4610451` from 18:34:11 (also alive for 7 seconds, then frozen). Same step, ~50 minutes
+apart, different submissions.
+
+```sql
+SELECT current_step, count(*) FROM orchestration_states
+WHERE status IN ('EXECUTING_STEP','AWAITING_RESPONSES')
+  AND updated_at < now() - interval '20 minutes'
+GROUP BY 1 ORDER BY 2 DESC;
+--  review_editquality 2 | call_content_writer 1 | call_dispatch 1
+--  complete 1 | review_debug_historian 1 | review_reuse_agent 1
+```
+
+**Whether `review_editquality` is special is UNTESTED** — two hits in one evening is a
+coincidence-sized sample, and it is also the *first* review seat every submission reaches,
+so it gets the most attempts. Flagging it as a thing to count, not a finding.
+
+**What this cost, and the thread-level lesson.** This was the *second* lost dispatch for
+one change in one evening. The first vanished with **no row at all**, published 2–4 minutes
+after a chassis pod restart (`startTime 18:35:07Z`) — CLAUDE.md's documented ~300s drop
+window, which nothing in the 097 trigger warns about: it prints a correlation id and a
+cheerful lane-depth report either way. The resubmission landed instantly ("Lane is clear,
+LAG 1") and then hung here instead. **A third round was not fired** — spending another
+full council into a lane that is demonstrably losing runs buys a likely-identical hang, so
+`bugs_closed/077` records that no verdict was ever returned and carries **no
+`Council-Reviewed:` trailer** (the trailer is earned by an APPROVED verdict only).
+
+Two cheap things that would have changed the evening, both outside this bug's remit:
+
+1. **Check the chassis pod's `startTime` BEFORE publishing anything that spends credits**,
+   not after waiting on it — one `kubectl get pods` command.
+2. The 097 trigger could refuse, or at least warn, when the chassis has been up < ~5
+   minutes. It already queries the lane; it does not query the pod.

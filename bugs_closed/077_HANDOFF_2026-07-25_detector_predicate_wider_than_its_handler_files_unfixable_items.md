@@ -6,7 +6,21 @@ INSTANCE 2 rather than left inside a closing file.
 permanent, bounded population of work items that misdescribe reality.
 **Status:** **CLOSED 2026-07-26** — code committed `ce4adfac4`, INERT until the
 next chassis roll; migration `221` written and deliberately NOT applied (see
-SEQUENCING). Council submission `346500db-89ca-47f3-bc5a-e1c099d6f4f8`.
+SEQUENCING).
+
+**Council: NO VERDICT, and therefore NO `Council-Reviewed:` trailer on any commit
+here.** Submission `346500db-89ca-47f3-bc5a-e1c099d6f4f8` was fired twice and
+never returned one. Round 1 vanished with no orchestration row at all, published
+2–4 minutes after a chassis pod restart (`startTime 18:35:07Z`) — CLAUDE.md's
+documented ~300s drop window, which the 097 trigger does not warn about. Round 2
+landed ("Lane is clear, LAG 1"), started at 19:23:14, and **froze one second
+later** at `review_editquality` with `awaited_steps = []` and no error. A
+different correlation started after it and completed twice while it sat there, so
+the lane was healthy — this is `bugs_open/029`, and the instance is recorded in
+that file. A third round was not fired: another full council into a lane that is
+demonstrably losing runs buys a likely-identical hang. The trailer is earned by an
+APPROVED verdict only, so its absence here is correct rather than an omission, and
+the `098` coverage report will list these commits as un-reviewed — accurately.
 
 > **⚠️ This is closed on a lower bar than usual and the difference matters.**
 > `/bugs_closed/README.md`'s bar is *fixed AND live*. The Go here is committed and
