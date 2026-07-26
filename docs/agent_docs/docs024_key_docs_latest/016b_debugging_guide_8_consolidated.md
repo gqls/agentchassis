@@ -3431,7 +3431,8 @@ See `/bugs_closed/README.md`.
 | 065 | `formatGeneratedGo` asserts bare-string file bodies while its ONLY caller (`validateImplementation`) emits GitCommitData `{content, encoding}` entries — the feature-implementer could never ship a single `.go` file (first .go stage of every run died at commit-prep, `.sql` stages sailed through because the formatter skips non-.go). Each half unit-tested with its OWN fixture shape; B4's first fire was their first joint execution. See §9 *"Two halves of one contract, each green in isolation"* | **CLOSED 2026-07-24 → `/bugs_closed/`** same day: accept-both + real-chain regression test (`430ed5c18`), council APPROVED corr `6bf3806f`, live v1.0.1155, behaviourally proven round 7 (first implementer Go commit ever) |
 | 066 | **Spawned agent pods pin stale image tags — a chassis deploy never reaches them, and the deployment pod-grep is a FALSE GREEN for them.** Spawn-class agents (repo-cloning: fix-proposer, feature-implementer, …) take `agent_definitions.image_repository/image_tag`; nothing updates those rows on deploy. Census 2026-07-24: **168 active chassis-image rows pinned v1.0.1151** after v1.0.1155 rolled; verified harm = implementer round 6 failing on a fixed bug, on a 4-tags-old binary, minutes after a green deployment pod-grep | filed 2026-07-24, OPEN. Interim rule: for spawn-class fixes, UPDATE the agent's image_tag (snapshot first) + verify the SPAWNED pod's image. Fix candidates: deploy-time row sync / single-authority tag indirection / advisory drift check |
 | 067 | feature-designer's `repropose` step capped `max_tokens` at 16000 while full staged plans run ~26k chars — **every council REVISE cycle died at repropose**, so the designer could only ever ship round-1 approvals and council feedback was structurally unusable. On the pre-decode image this was a silent 4h hang-then-FAIL with no error (07-23); on the current image a clean named cap error (07-24). Same class as the experience-loop's compose death (seed 176): a whole-artifact re-emitter sized for something smaller | **CLOSED 2026-07-24 → `/bugs_closed/`**: migration 201 (16000→32000, matches compose), config-only, live. Behavioural proof = the next completed revise cycle; not yet exercised at close |
-| 069 | **`site_components` (chrome) writers ignore the same lock columns 058 fixed for page sections** — admin locks a header/footer slot, but `fix_component_template` (×4 UPDATE sites), `render_site_components:665` and `link_site_components:145` overwrite unconditionally. Confirmed by 058's writer audit; long shadow because chrome re-renders rarely | filed 2026-07-24 out of 058, OPEN. Fix is mechanical: reuse `pageComponentAgentWritableSQL` (table-generic) + `emitLockBlockedChangeItem` with `surface:"site_component"`; 058's admin-handler edit already stamps `lock_type` on both tables |
+| 069 | **`site_components` (chrome) writers ignored the same lock columns 058 fixed for page sections** — admin locks a header/footer/head slot, but `fix_component_template` (×4), `render_site_components` (×2) and `link_site_components` overwrote it unconditionally; the linker's upsert NULLs `rendered_html`, so it ERASED the locked artefact rather than replacing it. The bug file's own "that INSERT is birth-only" was **wrong** — it is `ON CONFLICT … DO UPDATE SET component_id`, which repoints a locked slot at a GENERIC default template, and it discarded both its error and its result | **CLOSED 2026-07-26 → `/bugs_closed/`, induced-fault-proven LIVE on v1.0.1171** (`05bcb3586` + `d9e7ef7cb`). Shared predicate on every write; pre-check placed **below** the `!force` idempotence exit (above it, every ordinary build of a site with a locked slot would file an item claiming a writer "wanted to change this" for a call that was never going to write — so the gate only bites on `force_rerender: true`, 4 of 6 live agents); zero-row store that is NOT locked now fails LOUD, closing a pre-existing silent-success path. Probe: locked slot's md5 AND `updated_at` unchanged, unlocked sibling rewritten 41→3429 bytes, **a locked slot with `component_id IS NULL` no longer repointed by the generic-default fallback** (the case 058 could not have), 2 `lock_blocked_change` items at `needs_human_review`, no handler, `surface=site_component`. Council **REVISE** — but `decided_by` was *"unreadable reviewer(s)"*, a harness fault: 10 of 12 approved, no veto, so NO trailer was earned. The one objection that earned code: the predicate hand-copied into `discovery_checks` (which cannot import package `actions`) had nothing pinning it to the helper — now a lockstep test built FROM the helper, proven non-vacuous by flipping `'timed'`→`'review'` and watching it fail. Residual: the other chrome detectors still lack a lock filter (077 shape) |
+| 088 | **A snapshot revert silently destroyed every component lock on the site** — `revert_site_to_snapshot` DELETEs `page_components` + `site_components` and re-INSERTs from the snapshot with **no lock columns in either INSERT**, and `take_site_snapshot` captured only chrome `locked_at/locked_by` (nothing at all for page components), so the `pre_revert` safety snapshot had the same hole. 39 real locked page-component rows exposed; it silently disarmed 058's and 069's gates. Found by 069's writer audit — from `pg_get_functiondef`, because the repo's `sql_for_tables/*.sql` copies have DRIFTED and disagree with the live bodies | **CLOSED 2026-07-26 → `/bugs_closed/`, LIVE on apply** (migration 219, built by transforming the live bodies with every substitution asserted to match exactly once). Rule chosen over restore-as-captured: **a revert restores CONTENT; it never locks or unlocks anything** — replaying the snapshot's lock state would silently release a lock added after the snapshot, the same defect in different clothes. Applied by hand + `--record-only`, because the runner's `--apply` would have swept up 8 other threads' pending files. Verified by induced fault inside one transaction ending in **ROLLBACK** (real deployed functions, real schema, nothing committed, nothing to clean up), with a **control**: the oldest pre-219 snapshot has no `lock_type` key, so the test could discriminate. Locks taken both BEFORE and AFTER the snapshot survived, type and expiry intact |
 
 | 071 | **`agent-job-cleanup` deleted every live `job.*` Kafka topic on its 10-minute tick** — its "any spawned pods running?" guard queried `-l spawned-by=orchestrator`, a label NO pod has ever carried (both spawn paths label only the Job, and remote-job-spawner uses a *different value*), so the guard matched zero always and the delete-all branch was unconditional. Killed both first feature-implementer runs mid-run (response produced by git-adapter 4s after request, topic already deleted/recreated, never consumed, await expired). A producer of the 003 failure shape; some 003 sightings may re-attribute (check: loss window crosses a `*/10` tick + a logged produce nobody consumed). See §9 *"A guard label no object carries…"* | filed 2026-07-25 (gauntlet/B4), **CLOSED 2026-07-26 → `/bugs_closed/`** — all three fixes verified LIVE: guard (`9dc99c61c` same day — message says 070, numbering collision, resolve by slug; counts active spawned Jobs across BOTH spawner labels + dynamic-agent pods, fail-safe keep); two-pass tombstone (`bc1f12718`, idle-tick deletion needs 2 CONSECUTIVE idle ticks, state CM `agent-job-cleanup-state` — idle branch observed deleting 2-of-2 live 07-26); pod-template `spawned-by` labels (`5540d203e`, in v1.0.1165 — first pod in platform history matched `-l spawned-by` 07-26 13:35Z). Bonus finds fixed: cronjob step 1 was silently Forbidden forever (RBAC + induced-fault proof); `grep -c \|\| echo 0` two-line count; piped-while lost counter. Council `d0fcf7ef` APPROVED r3. Carried non-blocking: remote-spawner path label [INFERRED same build]; dedicated-SA hardening; 003 re-attribution stays with 003 |
 | 070 | **`stale-work-item-reaper` keys on `created_at`, not on time spent in `triaged`** — so any re-queued build item is born eligible and gets parked `unresolved` with a false `[stale: triaged 48h+]` prefix (applied cumulatively, in place, unrecoverably). Invisible in the loader path where the two timestamps coincide; visible the moment an operator re-queues an old row, which is the only way to ask for a rebuild today. Looks intermittent because the 120s claimer normally beats the 3600s reaper — a single re-queue survives, a batch loses systematically while siblings wait behind an in-flight build. See §9 *"A staleness reaper keyed on ROW AGE…"* | filed 2026-07-25 (brochure-component-library session), OPEN. **DB-config only — no image roll.** Candidate 1 = key on `updated_at` (measurement query in-file first: does anything touch a triaged row?); candidate 2 = a real `triaged_at` column; candidate 3 = stop mutating `summary` in place. Prerequisite for `features_open/021`. Verify by INDUCING it with the claimer disabled — a successful re-queue only proves the claimer won the race |
@@ -5150,13 +5151,30 @@ invent. Only one of the two ways it can resolve that produces a page. The pipeli
 therefore *selecting for confabulation*, and it does so silently: the run that fabricates
 completes, logs nothing unusual, and deploys.
 
-Measured on ai-agent-orchestration.com's homepage. On 07-24 and 07-25 the writer returned
-empties and the build died at iteration 4 — that is the bug as filed. On **07-26 at 07:52Z
-the same section built**, and it built because four of its five figures were invented:
-`4 days`, `<10 min`, `8+`, `100%` — none in the site's `evidence_base.writer_block`, and the
-register's NEVER-STATE list explicitly names uptime percentages. Only `1,267` was real. Same
-prompt, same anti-fabrication rule, opposite outcomes, selected by whether the model told
-the truth.
+On ai-agent-orchestration.com's homepage: **before** migration 201 the writer invented a
+number, the field was satisfied, and the page built. **After** 201 it returned empties, and
+the build died at iteration 4 — twice, 07-24 and 07-25. Same prompt, same component,
+opposite outcomes, selected by whether the model told the truth.
+
+> **CORRECTED 2026-07-26, same day, by the thread that wrote migration 217.** This entry
+> first cited a third data point — that the page "rebuilt at 07:52Z by inventing four of its
+> five figures" — and that was wrong. The 07:52 event was a **`page-rerender`**, which
+> renders from *stored* `content_data` with no model in the loop; it re-published
+> fabrications written long before 201. I had read `page_components.build_status='deployed'`
+> with a fresh `updated_at` as proof a writer ran, and **the re-render path stamps both**.
+> The pattern above survives the correction because it never rested on that run — but the
+> correction adds something worse, and true: **the page can be re-rendered freely and cannot
+> be rebuilt by the writer, so the fabrication republishes itself indefinitely while the only
+> path that could correct it stays blocked.**
+>
+> A second, cheaper lesson from the same mistake. I supported it with "`orchestration_states`
+> holds no such failure on any day, and it retains rows back to 07-13" — using
+> **`min(created_at)` as a proxy for completeness**. The per-day histogram says 1 row
+> survives from 07-13, 4 from 07-24, 539 from 07-25, 1,215 from 07-26. Retention is a heavy
+> prune with a long tail, so the oldest row tells you nothing about whether the window you
+> care about is intact. **`GROUP BY date_trunc('day', …)` before reading an empty result as a
+> negative** — it costs one query and it is the difference between "it did not happen" and
+> "the row is gone".
 
 **What to look for.** Any `required: true` field where "there is no such number" is a
 legitimate answer. The tell is not the flag on its own — it is the flag **plus a field
@@ -5169,12 +5187,12 @@ and leaves the incentive: **read the description, not just the flag.**
 only branch that fails. If a model can satisfy a contract by inventing and cannot satisfy it
 by abstaining, the contract is the defect — not the model, and not the guard that caught it.
 
-**And the reason it looked deterministic for two days:** a failure that depends on the
-model's choice is intermittent by construction. The bug file said "deterministic, not a
-flake" from two observations, and that claim was repeated into the fix's own header two days
-later without re-measuring. Two queries falsify it in seconds — `page_components.updated_at`
-on the page, and `orchestration_states` filtered on the gate's error string. Ground a
-staleness-prone claim before you repeat it, especially when you are repeating your own.
+**And on "deterministic, not a flake":** a failure that depends on the model's choice is
+intermittent by construction, so two observations cannot establish determinism for it. The
+filed severity line went further — "cannot be rebuilt by **any** path" — and that is the part
+that is actually wrong: the page cannot be rebuilt by the *writer*, and can be re-rendered
+freely. Scope a severity claim to the path you measured, and re-measure before repeating it
+into a second document; the fix's own header repeated it two days later.
 
 ### A whole-file artefact regenerated by ONE agent's run is frozen at that run — and nothing in the platform is watching the gap widen (2026-07-26)
 

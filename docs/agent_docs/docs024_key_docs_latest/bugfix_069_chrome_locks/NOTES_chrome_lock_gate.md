@@ -88,3 +88,76 @@ Read from the live function bodies, because the repo's `.sql` copies are stale:
 files and got the capture set wrong (it said no lock columns are captured at all); the live
 definition disagrees. Recorded because the correction is the useful part: **read `pg_get_functiondef`,
 not `docs/agent_docs/sql_for_tables/*.sql` — the files have drifted.**
+
+## 2026-07-26 evening — shipped, rolled, proven; and three things that went wrong on the way
+
+**Shipped:** `05bcb3586` (the gate, 7 files), `d9e7ef7cb` (the lockstep test), `cc42407c1` (the tag
+bump), plus `65864966a` for the snapshot half (`088` + migration 219).
+
+### Misstep 3 — I built the image, and the tag had already moved twice under me
+
+Planned to build `v1.0.1168`. By the time I got there the makefile said `v1.0.1169`, because another
+thread had built 1168 *and* 1169 in the interim — and 1169 was built from `499a08398`, the **parent**
+of my commit, so it did not contain the gate. Built `v1.0.1170` instead.
+**The check that catches this:** `git log --oneline -1 -- makefile` and `docker images` before
+assuming the tag in front of you is yours. A tag that exists is not a tag that contains your change.
+
+### Misstep 4 — `HEAD~1` stopped meaning "before my fix" while I was using it
+
+Extracted the council submission's `grounded_in` quotes with `git show HEAD~1:<file>`. Another
+session committed between the extraction and the check, so `HEAD~1` silently became **my own
+commit** and the quotes would have shown the POST-fix code as evidence of the pre-fix defect. Caught
+by re-reading one quote and noticing it lacked the line I had added. Re-extracted against the
+explicit SHA `499a08398`.
+**The check:** in a shared tree, never cite `HEAD~1` — resolve `git rev-parse <mycommit>^` once and
+use that literal SHA in the citation itself.
+
+### Misstep 5 — the first live probe was eaten by another thread's roll
+
+Fired the probe at 18:41 and it sat queued behind ~12 messages (one council-gate run was 47 minutes
+in). While it waited, another session rolled the chassis to `v1.0.1171` at 21:02 — and the queued
+message was gone: no `orchestration_states` row, ever. The `dispatch-queue-depth.sh` verdict
+("QUEUED, not lost — do NOT re-fire") was *correct advice at the time* and still ended in a lost
+message, because it cannot see a roll that happens later.
+**The check, which is the exit test `bugfix_052` already wrote down:** "absence means queued" needs
+*"has anything newer drained past me"* — and now also **"has the consumer restarted since I
+published"**. Re-fired against 1171 and it ran in under 5 seconds.
+Secondary note: the re-fire went out at 21:07:09, which was **253s** after the pod started — inside
+the ~300s window where a dispatch is meant to be dropped. It ran anyway. So that landmine is about
+the *spawn* path, not the generic orchestrate lane; do not treat the 300s rule as covering both.
+
+### The proof
+
+Deployment first, then the fault. Pod-grep on `agent-chassis-5b4456686c-s5fkc` (v1.0.1171) found all
+five literals the fix creates, a positive control, and a zero for a negative control. Then three
+scratch chrome slots on dartsonline (none of them a real slot) and a forced re-render:
+
+- locked, component-backed → md5 **and** `updated_at` unchanged;
+- unlocked sibling → rewritten, 41 → 3429 bytes;
+- locked with `component_id IS NULL` → **still NULL**, so the generic-default fallback no longer
+  repoints a locked slot (the case 058 could not have);
+- `locked_slots_preserved: ["probe-069-locked","site-footer"]`, and exactly two
+  `lock_blocked_change` items at `needs_human_review` with no handler and
+  `surface=site_component`.
+
+Cleanup: items first, then fixtures; leak check 0 on every line, dartsonline's 3 real chrome rows
+untouched.
+
+**What the probe did NOT prove** (recorded because the omission is invisible otherwise): both items
+came out `severity=medium`, since the `high` branch keys on the literal slot names `header`/`footer`
+and the probe used scratch names deliberately. `link_site_components` and the four
+`fix_component_template` paths were not driven live either. Those rest on the shared predicate plus
+their sqlmock cases.
+
+### Council round 1 — REVISE, and why that is not a rejection
+
+Corr `75dff4cd-e822-4b88-bd98-d989ef32bc90`. `decided_by: "unreadable reviewer(s):
+review_editquality.result"` — the verdict was decided by a seat that failed to produce a readable
+result, not by an objection. 10 of 12 approved; two mediums, no veto. Read `decided_by` **before**
+reading the decision, exactly as the 029 thread found.
+
+The one objection that earned code: debug_historian, that the hand-copied predicate in
+`discovery_checks` shipped with nothing pinning it to the shared helper. Now
+`TestDiscoveryChromeLockFilterMatchesSharedPredicate`, and I checked it can actually fail — flipping
+`'timed'` to `'review'` in the detector made it fail, restoring made it pass. A lockstep test nobody
+has ever seen fail is a claim, not a guard.

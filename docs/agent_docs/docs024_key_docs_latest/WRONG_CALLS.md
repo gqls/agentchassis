@@ -4700,3 +4700,116 @@ and prove it by pairing every positive with a NEGATIVE control** — here, that 
 `ni.page_id IS NULL OR p.build_status = 'deployed'` had disappeared (0). The negative control is
 the load-bearing half: a positive can pass by accident, an old-line-gone cannot.
 Family: unfalsifiable-green, marker-not-executed-before-publishing, necessary-mistaken-for-sufficient.
+
+---
+
+## 2026-07-26 — "the live object has DRIFTED from its manifest" — when nothing had ever applied that manifest
+
+**The claim** (`bugs_open/082`, Fault A, written by the filing thread and believed by me for the
+first twenty minutes): the `postgres-clients` StatefulSet *"has drifted from the checked-in
+manifest, and the drift removed every resource guarantee"* — citing
+`deployments/kustomize/infrastructure/postgres-clients/postgres-clients.yaml:60-66`, which does
+specify `requests: cpu 500m`, against a live object showing `resources: {}`. The prescribed fix
+was to reconcile the live object back towards that file, *"reconciliation, not a new design — the
+reviewed desired state has said this since day one"*.
+
+**Why it was false:** that manifest has never been applied to anything. The `kustomization.yaml`
+beside it is **0 bytes**, and no kustomization anywhere in the repo lists it. The live object is
+built by `deployments/terraform/modules/postgres-instance/main.tf`, which never specified
+`resources` at all. The database was not demoted to BestEffort — it was **born** BestEffort at
+cluster build and had never been anything else. There was no drift, no "reviewed desired state",
+and nothing to reconcile towards.
+
+**What caught it:** the filing's own evidence, on a second read. It noted in passing that *"the
+live probe also carries `-d clients_db`, which the manifest does not — the same drift, visible
+twice."* That is not drift twice. A live object **cannot invent a command-line argument its
+manifest never contained**. Drift subtracts; it does not add. One unexplained *addition* is the
+signature of a different source. Grepping for `-d clients_db` found the Terraform module in about
+a minute, and fingerprinting then showed the live object matching Terraform on **all seven**
+properties where the two candidate sources disagree (serviceName, image tag, container count,
+probe args, securityContext, envFrom, PVC class/size).
+
+**The cheap check:** before asking *"has the live object drifted from this file?"*, ask **"does
+anything apply this file?"** Two commands, seconds each:
+
+```bash
+ls -la deployments/kustomize/infrastructure/*/kustomization.yaml     # 0 bytes = orphaned
+grep -rn "<name>" --include="kustomization.yaml" deployments/        # no hits = nobody applies it
+```
+
+**The class — and why it is nastier than an ordinary wrong guess.** A file that *looks* like the
+desired state carries authority it has not earned, and the authority scales with how *reasonable*
+the file is. This manifest was well-formed, checked in since the initial commit, correctly named,
+and its resource block was sensible — which is exactly why it read as "the reviewed desired state"
+rather than as dead code. **Plausibility is what makes a decoy dangerous, so "it looks right"
+cannot be the test.** Provenance is: not what a file says, but whether anything reads it.
+
+The cost was avoided rather than paid, but it was one step away. The prescribed `kubectl patch`
+would have worked for about a minute and been silently reverted by the next `terraform apply` —
+and the misleading file would still be sitting there, now with a successful-looking fix in its
+history, for the next reader. **A fix that a reconciler will undo is worse than no fix**, because
+it converts a reproducible bug into an intermittent one.
+
+Note the repo has *three* files named for this database and **two are dead**: the orphaned
+kustomize manifest, and `k8s/postgres-clients.yaml`, which `scripts/deploy-system.sh:129` still
+applies and **which does not exist**. Both orphans now carry NOT APPLIED headers with a
+live-vs-file table; the deploy-script reference is recorded in the bug file.
+Family: decoy-source-of-truth, plausibility-mistaken-for-provenance, drift-that-adds-is-not-drift.
+
+---
+
+## 2026-07-26 — putting a stopwatch on a production `terraform apply`
+
+**The mistake** (mine, same session): ran `timeout 500 terraform apply` against the production
+databases in the background. It returned **exit 143 / "Terminated"** — my own timeout had SIGTERMed
+terraform partway through a StatefulSet roll that includes a Cinder volume detach/attach.
+
+**What it cost:** nothing durable, by luck. The SIGTERM landed *after* the state write, so the
+change had applied and `terraform plan` afterwards said "No changes". But it left a **stale state
+lock** held by a dead process, which blocks every subsequent terraform run against that
+configuration — including other sessions' — and clearing it needs owner approval.
+
+**The check that would have caught it:** ask what the *slowest* path through the command is before
+choosing the timeout. A pod roll plus volume detach/attach plus postgres start is minutes, not
+seconds. More simply: **never bound a command that mutates production by a timer.** Background it
+with no timeout, or run it in the foreground and wait.
+
+**The generalisable half:** for a mutating command, **the exit code tells you nothing about
+whether the mutation happened.** 143 means "I was killed", not "nothing changed". So verify the
+live object and the persisted state *separately and explicitly* — here, the StatefulSet spec via
+`kubectl` and convergence via `terraform plan -lock=false`. Neither is inferable from the other,
+and neither is inferable from the exit status.
+
+There is an irony worth keeping: the bug being fixed was *a one-second timeout killing a healthy
+process that was merely slow*. I then killed a healthy terraform run that was merely slow. Same
+shape, one layer up.
+Family: timeout-kills-the-healthy-slow-thing, exit-code-is-not-evidence-of-effect, orphaned-lock.
+
+---
+
+## 2026-07-26 — `bugs_open/069` — I cited `HEAD~1` as "the pre-fix state" in a shared tree, and it stopped being that mid-task
+
+**The claim I wrote down:** a council submission whose `grounded_in` evidence quotes were each
+labelled *"lines N-M at `HEAD~1` (pre-fix)"*, extracted with `git show HEAD~1:<file>`.
+
+**Why it was false (or was about to be):** `HEAD~1` is a *moving* reference in a tree several
+sessions commit to. When I extracted the quotes, `HEAD` was my own commit, so `HEAD~1` was correct.
+Minutes later another session committed, `HEAD` became theirs, and `HEAD~1` became **my own fix**. Any
+re-extraction — or any reviewer trying to reproduce the citation — would have been handed the
+POST-fix code as evidence of the pre-fix defect. The reviewers cannot open files, so the quotes are
+all they have; a quote that shows the fix already present destroys the very claim it is offered for.
+
+**What caught it:** re-reading one quote and noticing the line I had *added* was absent — i.e. luck
+plus a habit of re-reading evidence, not a check.
+
+**The cheap check that would have caught it:** resolve the SHA **once**, at extraction time, and put
+the literal SHA in the citation: `PRE=$(git rev-parse --short <mycommit>^)` and cite
+`"at commit 499a08398 (pre-fix)"`. Never cite a relative ref (`HEAD~1`, `HEAD^`, `@{1}`) in any
+durable artefact in this repo — a bug file, a council submission, a handoff. The rule generalises:
+**a relative reference is a claim about the state of the tree at read time, and this tree changes
+under you.**
+
+**The tally line:** this is the same family as the 07-16 image-tag and 07-26 makefile surprises —
+*shared mutable state read as if it were mine*. Third instance; the cost each time was a wasted or
+near-wasted verification round.
+Family: relative-ref-in-a-durable-artefact, shared-mutable-state-read-as-mine, evidence-fidelity.
