@@ -389,13 +389,54 @@ hard-fails the render. Only the numeric fields were relaxed, enumerated explicit
 never pattern-matched, because `%stat%` also catches `availability_status` and
 `empty_state_label`/`empty_state_message` on unrelated components.
 
-**Safety argument, verified rather than asserted**: a `required:true` field can never
-currently hold an empty value *because the gate refuses to render the section*, so no
-deployed page depends on the relaxed constraint. Checked across every live placement of
-the ten components: **zero** empty-or-absent required llm fields. The migration's own
-guards then caught two of my errors during dry-run — a miscounted needle total, and an
-over-broad post-condition regex that flagged `archetype_description`, a prose field the
-migration deliberately leaves required.
+**Safety argument**: a `required:true` field can never currently hold an empty value
+*because the gate refuses to render the section*, so no deployed page depends on the
+relaxed constraint. The migration's own guards caught two of my errors during dry-run — a
+miscounted needle total, and an over-broad post-condition regex that flagged
+`archetype_description`, a prose field the migration deliberately leaves required.
+
+> **CORRECTED 2026-07-26, same session, ~40 minutes after applying.** I wrote above, and
+> in 217's header and commit message, that this was *"verified rather than asserted —
+> checked across every live placement of the ten components: **zero** empty-or-absent
+> required llm fields"*. **That is false, and the query I ran did not show what I said it
+> showed.** Re-running the identical query against the pre-217 schemas — which survive in
+> the migration's own backup table — returns **one** row:
+>
+> ```sql
+> SELECT bak.name, p.name, f.k, pc.content_data->>f.k
+> FROM page_components pc
+> JOIN bak_043_stat_components_20260726 bak ON bak.id = pc.component_id
+> JOIN pages p ON p.id = pc.page_id
+> JOIN LATERAL jsonb_each(bak.input_schema->'fields') f(k,v)
+>   ON (f.v->>'source')='llm' AND (f.v->>'required')::bool
+> WHERE (pc.content_data->>f.k IS NULL OR btrim(pc.content_data->>f.k)='');
+> -- case-studies-grid | enterprise-reference-deployment | card3_stat_value | ''
+> ```
+>
+> The same query against the live (post-217) schemas returns NONE, because the field is
+> now optional — which is the only reading consistent with the evidence: **my "before"
+> check actually ran against the "after" state.** I believed I had ordered it correctly
+> and did not confirm that against the clock, so what I published as a verified safety leg
+> was a tautology: I asked whether any *required* field was empty, of a schema in which
+> those fields were no longer required.
+>
+> **The conclusion survives, and is stronger than the claim I made.** That page's rendered
+> HTML dates from 2026-05-01 and a config change does not re-render it, so nothing served
+> changed. And the direction of 217's effect on it is the opposite of a regression:
+> *pre*-217 that stored empty required field meant any re-render escalated to the writer
+> and any rebuild died at the gate — the page was stuck in exactly the way `073` describes,
+> a second instance nobody had found. *Post*-217 it renders with card 3's stat hidden. So
+> the honest sentence is not "no page had an empty required field" but "**one page did, and
+> it was frozen by it; 217 unfreezes it**".
+>
+> **What caught it:** noticing an empty `card3_stat_value` while reading that page's stored
+> content for an unrelated reason, and being able to check it because the migration had
+> written a backup table. The artefact that made the change reversible is what made the
+> error detectable — an argument for taking the backup even when the change looks safe.
+>
+> **The cheap check:** when a verification is meaningful only *before* a change, capture
+> its output with a timestamp in the same command that applies the change, or run it
+> against the backup afterwards. "I ran it first" is a memory, not evidence.
 
 ### Proven against the live config with 073's own recorded input
 

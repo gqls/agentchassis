@@ -4482,3 +4482,42 @@ Both threads' fix evidence agreed and the close stands; only the supporting clai
 wrong. Counter-correction recorded in place in `bugs_closed/073`, with the queries.
 
 Family: status-is-not-proof-of-action, absence-in-a-pruned-table-is-not-absence, corrections-need-the-same-bar-as-claims, name-the-agent-not-the-artefact.
+
+---
+
+## 2026-07-26 — "I checked it before applying" was a memory, not evidence (bugs_open/043, migration 217)
+
+**The claim.** Migration 217 relaxes 80 `required` stat fields. Its safety argument is
+that no deployed page can depend on the constraint, because the render gate has never let
+an empty required value through. I wrote, in the bug file, the migration header *and* the
+commit message: *"verified rather than asserted — checked across every live placement of
+the ten components: **zero** empty-or-absent required llm fields."*
+
+**What was true.** There was **one**: `case-studies-grid` on
+`enterprise-reference-deployment`, `card3_stat_value = ''`. The identical query re-run
+against the pre-217 schemas returns it; against the post-217 schemas it returns nothing,
+because the field is no longer required. **My "before" check ran against the "after"
+state.** I asked whether any *required* field was empty, of a schema in which those fields
+had already stopped being required — a tautology that answers NONE no matter what the data
+holds.
+
+**What caught it.** Reading that page's stored content for an unrelated reason, spotting
+the empty value, and being able to test the counterfactual because **the migration had
+written a backup table**. Without `bak_043_stat_components_20260726` the pre-change state
+was gone and the claim would have stood unfalsifiable in a closed bug file.
+
+**The cheap check.** When a verification is only meaningful *before* a change, either
+capture its output inside the same transaction/command that applies the change, or re-run
+it against the backup afterwards. Ordering you remember is not ordering you evidenced —
+and in a session with dry-runs, rollbacks and retries interleaved, the order you remember
+is exactly the thing most likely to be wrong.
+
+**The bit worth remembering.** The conclusion survived; only the evidence was fake. That
+is the dangerous shape, because nothing downstream misbehaves and there is no failure to
+investigate. Worse, the true state was *more* interesting than the claim: that one page was
+**frozen by the very defect `073` describes** — a second instance nobody had found — and
+217 unfreezes it. Asserting "zero" cost me the finding as well as the accuracy. **A
+verification that returns the answer you expected deserves one more question: could this
+query return that answer even if I were wrong?**
+
+Family: verification-order-unevidenced, tautological-check, my-own-measurement-is-still-a-quote, backup-as-falsifier.
