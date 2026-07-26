@@ -2765,6 +2765,76 @@ answer was **printed in the row's own `summary` column**.
 Category tags: `timestamp-does-not-mean-what-it-measures`, `annotation-names-the-mechanism`,
 `race-hides-a-deterministic-bug`, `requeue-vs-recurrence`, `config-not-code`.
 
+### An `updated_at` maintained by convention is a timestamp that LIES — and it lies in the decisive direction (2026-07-26)
+
+*Added 2026-07-26 from `bugs_closed/035`, fixed with one trigger (migration 216).*
+
+`site_work_items.updated_at` had a `DEFAULT now()`, no trigger, and only *some*
+writers setting it by hand. An item could be created, claimed, processed and
+completed with `updated_at` still equal to `created_at` — 86% of complete rows.
+
+**The direction of the lie is what costs money.** A stale `updated_at` does not
+read as "unknown", it reads as *"nothing has touched this since I inserted it"* —
+i.e. as a **dropped dispatch**, whose documented remedy is a resubmit and a
+credit spend. Combined with a genuinely-common "still queued" state (`030`) the
+wrong conclusion is entirely plausible, which is why it was believed.
+
+**A column maintained by convention decays, and the decay is invisible.** When
+this was filed there was *one* stray writer; six days later **six** paths set
+`updated_at = NOW()` explicitly and the two **primary** status-transition writers
+still did not (`claim_work_item_action.go:97`, `CompleteWorkItemAction` at
+`load_work_item_actions.go:802`). Nothing regressed — the convention was never
+enforceable, and every new writer is a fresh coin-flip. This is the same shape as
+the dedup-index/Go-list lockstep and the schema-CHECK-plus-code-gates entries:
+**two things that must agree with no mechanism making them agree.**
+
+**Cheap checks, in order:**
+1. **Before trusting any `updated_at`, ask what maintains it** —
+   `SELECT tgname FROM pg_trigger WHERE tgrelid='<table>'::regclass AND NOT tgisinternal;`
+   plus a grep for `SET updated_at` on that table. If the answer is "several
+   writers remember to", the column's *agreement* with reality is a coincidence
+   per row, so a single row proves nothing either way.
+2. **Before adding the trigger, grep for a READER, not just writers.** A column
+   that starts moving can change which rows an age-based sweeper considers stale —
+   check Go, the frontends (`.tsx` — Go-only greps miss them), `scripts/`, and
+   **DB config** (`scheduled_tasks.pre_query`, `agent_definitions`), plus
+   `pg_indexes` for the column. Here there was no reader anywhere, which is what
+   made the fix a one-liner; had there been, it would have been a behaviour change
+   wearing a hygiene fix's clothes. Beware the grep's false hits: three sweepers
+   matched `updated_at` but read it on *other* tables.
+3. **Check for the existing function before writing one.** `public.set_updated_at()`
+   already backed `trg_<table>_updated_at` on five tables; the case file had
+   sketched a brand-new `touch_updated_at()`. Two names for one behaviour is the
+   drift class this guide is full of.
+4. **Do NOT backfill.** `completed_at` already carried the truth for historical
+   rows; inventing an `updated_at` for the rest fabricates timestamps. For the same
+   reason, do not test the trigger by no-op-writing a real historical row — that
+   stamps today onto it. Insert and delete your own probe row inside the migration's
+   transaction, so it is never visible to another session and never survives.
+
+**The trap that makes a WORKING trigger look dead:** `now()`/`NOW()`/
+`CURRENT_TIMESTAMP` are fixed for the **whole transaction**. A probe row inserted
+and updated inside one transaction takes the identical timestamp from its
+`DEFAULT now()` and from the trigger's `NEW.updated_at = NOW()`, so the assertion
+`updated_at > created_at` **fails on a perfectly working trigger**. Backdate the
+probe (`now() - interval '1 hour'`) so the trigger's write is the only thing that
+can move the column — or use `clock_timestamp()`, which is not transaction-fixed.
+This also means the fleet's `updated_at` can never exceed `created_at` for a row
+born and modified in one transaction, so such rows are *permanently*
+indistinguishable from untouched ones.
+
+**And the corollary for verifying it:** a green organic row only proves the
+trigger if that row's writer is one of the ones that *doesn't* set `updated_at`
+itself. Confirm which path wrote it (`handled_by` here) before calling it proven —
+otherwise you have verified the writers that were already correct. The row that
+proved this one had been claimed **pre**-trigger (`updated_at` frozen) and
+completed **post**-trigger via `CompleteWorkItemAction`, so it carried the
+before-and-after in one row.
+
+Category tags: `timestamp-does-not-mean-what-it-measures`, `maintained-by-convention-decays`,
+`stale-timestamp-reads-as-dropped-work`, `now-is-transaction-fixed`, `check-for-a-reader-before-changing-a-column`,
+`reuse-the-existing-function`.
+
 ### "Borrowed content" is a claim about PROVENANCE, and a rendered page cannot show you provenance (2026-07-25)
 
 *Added 2026-07-25 from `bugs_open/028`, closing the "deploys borrowed components" residual.*
@@ -3010,7 +3080,7 @@ See `/bugs_closed/README.md`.
 | 029 | `tool-suggester` emitted `content_rewrite` items at SUGGESTION time telling the writer to "weave a natural reference" to a tool page that does not exist. **CORRECTED 2026-07-21: the writer does not invent the URL — the EMITTER fabricates it** (`/tools/{function}.html`) and bakes it into both the instruction and the item's `acceptance_test`; and it is wrong for tools that WERE built, because `pages.url` has three incompatible shapes. 0 of 27 items across 4 sites resolved. **This is the true cause of the leopardess damage wrongly filed under `001`** | **FIXED 2026-07-26 → `/bugs_closed/`.** Emit moved into the two tool BUILD actions using the real `pages.url`, and GATED on the page going live (`depends_on` the open build item; no open item → no emit). Migration 211 deletes the suggester's `create_cross_links` step — **that half is LIVE, so no new phantoms**; the Go half ships on the next chassis roll (built + verified in image v1.0.1166). Pattern in §9. **Existing damage NOT cleaned** (27 items + links already woven into live pages) — separate sweep with `049`; pre-fix rows have `spec->>'tool_page_url'` NULL |
 | 030 | Every top-level dispatch queued behind every other: `system.agent.generic.requests` had one partition and one consumer running each orchestration's consecutive steps **inline**, so a council or build chain held the lane 8-15 min and a dispatch waited 25-36 min — indistinguishable from a drop (two recorded misdiagnoses, one duplicate paid round). The lane was **93% kafka-scheduler** by message header, two cron jobs alone 84%; the interactive dispatches it was filed about were ~6%. | **CLOSED 2026-07-26 → `/bugs_closed/`** — three parts, all live: (1) cron intervals raised 07-21 (bounded the backlog, then **DECAYED** — enabled tasks on the lane went 12 → 21 in four days, see §9 *"A tuning fix to a shared resource decays"*); (2) `scripts/dispatch-queue-depth.sh` wired into 090/097 so a publish reports its own queue depth (prints **no ETA**, deliberately); (3) `EXTRA_REQUEST_TOPICS` — cron moved to `system.agent.scheduled.requests` with its own goroutine/group/offsets (chassis v1.0.1165). **Measured, same submission through the same council one day apart: publish→run 18 min → ~1 s, LAG at publish 18 → 0.** Partitioning REJECTED with reasons (one-way; at `replicas: 1` one consumer takes every partition and still blocks). Residual — still one orchestration at a time *within* a lane — is `chassis_replica_scaling` **P1**, not this case. Landmine: never put `EXTRA_REQUEST_TOPICS` in `personae-prod-config` (spawned pods inherit it wholesale) |
 | 034 *(collision RESOLVED 2026-07-20: the second `034`, slug `replan_rebuilds_every_deployed_page…`, was renumbered to `038` by its own author while both were minutes old — this number is now unambiguous)* | A failed message is classified by **substring** (`"is required"`/`"validation"`/`"invalid"`) and, on a match, returns before `handleProcessingError` — skipping the error response to the waiting parent, the retry, **and any DB write**. Residue is one `zap.Warn` on a pod that rotates in minutes + a counter with no correlation_id. The match is unanchored, so it also eats driver errors, nil derefs and truncated-LLM parse failures. Explains `002` F.2's "accepted, never executed, no error anywhere" (`client_id is required` returns before `getOrCreateState` → zero rows) | filed 2026-07-20; mechanism proven from code, application to F.2's two correlations is hypothesis (evidence rotated away — which is the bug). Fix 1 = the `017`/`c80fffc83` template applied here. Do NOT conflate with `003` |
-| 035 | `site_work_items.updated_at` is not maintained (4,156 of 4,643 complete rows have `updated_at == created_at`; no trigger, one unrelated Go writer) — so a finished job reads as one that never ran. `completed_at` IS reliable | filed 2026-07-20; one-trigger fix candidate |
+| 035 *(a bare "035" is AMBIGUOUS — §9's "the 035 §1.5 bool trap" and "the 003/035-envelope family" mean `035_adapter_guide.md`, not this bug. Resolve by slug)* | `site_work_items.updated_at` is not maintained (no trigger; the two primary status-transition writers — `claim_work_item_action.go:97`, `CompleteWorkItemAction` at `load_work_item_actions.go:802` — set no `updated_at`) — so a finished job reads as one that never ran, and the documented remedy for a dropped dispatch is a resubmit, i.e. a credit spend. `completed_at` IS reliable | **CLOSED 2026-07-26 → `/bugs_closed/`** — fix candidate 1 (the trigger), live via migration `216_site_work_items_touch_updated_at.sql`. **DB-only, so nothing inert.** Reused the existing `public.set_updated_at()` (already backing `trg_<table>_updated_at` on 5 tables) rather than the case file's new `touch_updated_at()`. Filed figures had gone stale (table is pruned): re-measured **134 of 941, 86% wrong**, defect unchanged. Proven on the **failing branch** by an organic `page_rerender` spanning the fix — claimed pre-trigger (`updated_at` frozen at `created_at`), completed post-trigger via `CompleteWorkItemAction`, `updated_at == completed_at` to the microsecond. No reader of the column exists anywhere (Go/`.tsx`/scripts/DB config), no index uses it, so no sweeper changed which rows it treats as stale. **No backfill, by design.** Landmine in §9: `now()` is fixed per transaction, so an in-txn trigger probe must be **backdated** or it reads as a dead trigger |
 | 036 | A reviewer emitting `"edit": "<free text>"` where the struct wants `int` voids the whole council round at `council_decide` — after every seat has run and been paid for. **Not `019`**: the JSON is complete and VALID, so the truncation salvage cannot help. 3 of 5 `council_decide` voids in 14 days, all naming the same seat | **CLOSED 2026-07-20 → `/bugs_closed/`** — fixed (`58f5a6bb6` + `ab158c32a`) and VERIFIED LIVE on v1.0.1140 by **forced reproduction**: a scratch-council seat emitted `"edit": "edit 1 (comment-only change to…)"` and the round reached `complete_revise` with a `council_report` written and `unreadable 0`, where the same shape previously gave `complete_invalid` + no report. The report round-trips a string and an int side by side. All 3 live payloads had been plan-level *prose*, so `json.Number` (the case file's own candidate) would have parsed NONE of them. Residual: candidate (2)'s `salvageMistypedReview` is unit-proven only — the guardian seat refused to self-corrupt, correctly. Shared by **5 pipelines**, not one |
 | 037 | A page flagged `needs_rebuild` is outside `001`'s guard, so a re-plan takes the LLM's composition — dartsonline `index` lost `differentiators` + `content-listing`. May be fix step 4's intended escape hatch; filed so the boundary is decided, not inherited. 34 pages currently `needs_rebuild` | filed 2026-07-20; decision needed |
 | 038 | A re-plan rebuilds EVERY deployed page and regenerates its content — `decideEmit` needs `built_from_plan_version == planID`, and a re-plan changes `planID` for the whole site, so `skip_built` never fires after the first plan (`pages_skipped_built: 0` measured). `001` secures structure; this is copy | filed 2026-07-20; measured live, no fix started |
