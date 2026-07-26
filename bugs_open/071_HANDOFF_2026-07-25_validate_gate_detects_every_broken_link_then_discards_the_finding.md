@@ -271,3 +271,55 @@ Two things this adds to the picture:
 
 Owner of this file decides what to do with it; the experience_register workstream is not
 starting a fix. Full context: `experience_register/harvest/HARVEST_02_2026-07-26_brochure_components.md` §4.
+
+---
+
+## 2026-07-26 — a fresh instance, and this time the platform authored the links itself
+
+Same workstream, new evidence. A **full rebuild of fundamentallyai.com's index**
+(queued to add a chart section) rewrote the page copy and introduced **six broken
+internal links**, on a page that had been crawled clean the day before —
+43 targets, 0 broken.
+
+```
+/about → 404   /capabilities → 404   /delivery → 404
+/how-it-works → 404   /integrations → 404   /verification → 404
+```
+
+All six came from ONE component, `info-card-grid`, in its `cards[].link_url`.
+Four name pages that do not exist on this site at all.
+
+**The gate saw all six.** `validate_page_content` classifies a link with no
+matching page as `phantom_link` with `Severity: "warning"`
+(`validate_page_content.go:598-613`), and the comment beside it says why:
+
+> Policy: a missing internal target is loud but NON-blocking — the improvement
+> loop resolves it; a missing link is not a deploy stopper.
+
+The improvement loop is off. So the page deployed with six links the platform had
+just detected as broken, in the same run that wrote them.
+
+**Both halves of the href problem are visible in one place here:**
+
+1. `/delivery`, `/how-it-works`, `/integrations`, `/verification` — true phantoms,
+   no `pages` row at any status.
+2. `/about`, `/capabilities` — real pages, wrong form. `NormalizePagePath`
+   (`datahelpers/links.go:169`) strips only a trailing `index.html`, so `/about`
+   normalises to `/about` while the set member built from `pages.url` normalises
+   to `/about.html`. They do not match, so these are flagged too — correctly, and
+   just as ignorably.
+
+**The part that is new, and worth more than the instance:** the 2026-07-25 link
+repair was applied per page, to stored content. **A full rebuild silently undoes
+it.** "The site is link-sound" is therefore a statement about an artefact, not a
+property of the site — it expires the next time any page is rebuilt. That is an
+argument for fixing this in the write path rather than by repairing pages.
+
+Also relevant to the fix: `resolve_internal_links` **cannot** repair this
+component. Its `ctaFieldNames` map (`resolve_internal_links_action.go:98`) lists
+six components and `info-card-grid` is not among them; the comment states the
+consequence exactly — "a button-bearing component missing from this set is
+detectable but not repairable — its findings can only escalate to human review."
+
+Repaired by hand again (`bak_pc_fai_index_links_20260726`), which is the third
+time this class has been repaired per-page on this one site.
