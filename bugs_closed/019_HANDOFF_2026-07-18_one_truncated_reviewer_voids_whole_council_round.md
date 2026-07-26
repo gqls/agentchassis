@@ -805,3 +805,48 @@ are the always-on ones that carry the most weight. The raise-vs-void decision is
 therefore only half-settled: void is fixed, the ceiling is not. On the numbers
 here, sizing against edit-quality and guardian rather than the average means
 ~12,000–16,000, not 10,000.
+
+---
+
+## ADDENDUM 2026-07-26 (bugfix-052 session) — a THIRD path to `complete_invalid`, not in the table above
+
+**Not reopening this case and not proposing a fix** — the truncation mechanism this file
+documents is fixed and the fix held. Adding an observed route the "Reached from" table does
+not list, because that table is what a thread consults to interpret a `complete_invalid`, and
+a submitter hitting this one will read the table, find only two rows, and conclude their
+submission was malformed when it was not.
+
+A council-gate round (`SUBMISSION_CORR 37329362-f3bb-4ac2-8c72-fd4e9c80109e`,
+orchestration `a94a3af7-5a6c-432e-a526-dd457911a150`) died at `complete_invalid` having
+already run several review seats. The error:
+
+```
+step review_debug_historian failed: failed to execute action execute_llm_prompt:
+AI endpoint unavailable: provider=anthropic model=claude-sonnet-5 endpoint=<nil>:
+failed to execute request: Post "https://api.anthropic.com/v1/messages":
+read tcp 10.20.31.40:54680->160.79.104.10:443: read: connection reset by peer
+```
+
+So the row to add is:
+
+| Reached from | Meaning | What to do |
+|---|---|---|
+| a `review_*` step, `__step_error.message` containing **`AI endpoint unavailable`** | **Transport failure on one seat.** Your submission was valid — it passed `persist_submission` and earlier seats reviewed it | Nothing to fix in the plan. Resubmit under `RESUBMIT_CORR`; it is transient |
+
+**Why `tolerate_truncation` does not cover this, which is the substantive point.** This file's
+fix works by preserving the partial output (`TruncatedError` carries the text; the step records
+`__truncated` and succeeds). A connection reset produces **no partial at all** — there is
+nothing to salvage — so the seat fails hard and its `error_step` routes the round to the
+terminal exactly as truncation used to. The remedy shape here would be a retry on transport
+errors, or treating an unreachable seat the way a relevance-filtered seat is already treated,
+rather than anything in the salvage family. The general property this file names in its
+fix-candidate discussion — *one seat's failure should not void the reviews that already
+succeeded* — is therefore only closed for the truncation cause, not for the class.
+
+**Evidence it is genuinely transient, not a sick endpoint** (checked before resubmitting, so
+the resubmission was not a guess): exactly **one** AI-endpoint failure fleet-wide in the
+preceding two hours — this one — while other council rounds in the same window completed
+normally with `complete_approved`, `complete_revise` and `complete_rejected` verdicts. The
+resubmission was picked up within minutes.
+
+Cost of the round: the seats that had already run were discarded and re-run from scratch.
