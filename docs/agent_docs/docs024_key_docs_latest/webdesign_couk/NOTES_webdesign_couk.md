@@ -425,3 +425,68 @@ Every one of these was checked with `curl`, not inferred:
 | chrome on a tool page (header markup, search box, nav) | present |
 | old Swiss blue `#0055ff` anywhere | 0 |
 | all 12 generated images incl. `hero-home.jpg` | 200 |
+
+### Swapping a section's COMPONENT is not something any rerender path handles
+
+Landed the two-column hero, and hit a genuinely non-obvious platform behaviour
+worth writing down.
+
+Repointing `page_components.component_id` at a different component changes which
+template the section *should* use — but **no rerender path regenerates the HTML**:
+
+- **assemble-only** (`page_rerender` with no `reason`) republishes the stored
+  `rendered_html` verbatim. It happily re-published the old dark hero.
+- **`reason='section_data_resolved'`** takes the `rerender_page_sections` branch,
+  which **re-resolves `query.*` data fields**. Our hero has none, so it ran,
+  completed successfully, and correctly changed nothing.
+- **`page-build-handler`** would re-render — but it also re-runs `plan_sections`,
+  which could re-select the very component we are trying to replace.
+
+So the rerender family assumes *data* changed, never that the *template* did.
+The gap is real: there is no "this section's component changed, re-render it"
+signal.
+
+**What I did**: executed the component's `text/template` over its stored
+`content_data` (with `missingkey=zero`, as the platform does) and wrote the
+result to `rendered_html`, then fired an assemble-only rerender to publish.
+
+**Why that is not the "never hand-write rendered_html" anti-pattern**: that rule
+exists to stop *dynamic* data being baked into HTML instead of flowing through a
+query resolver. This component has no `query.*` fields at all — it is a pure
+template over static content_data — so executing it produces exactly what
+`RenderComponentAction` would, byte for byte. The one-off refused to write unless
+the output contained `wd-hero-inner` and contained no `rgba(0,0,0`/`hero-ink`,
+and it honoured the lock predicate.
+
+**If this recurs often it deserves a proper fix** — a rerender reason like
+`component_swapped` that re-renders a section from its current template. Worth a
+`bugs_open` entry if a second workstream hits it.
+
+### The second dispatch stall — and this one WAS real, for a known reason
+
+While publishing the hero, an item sat `triaged` for 26 minutes with **zero
+items claimed fleet-wide in 15 minutes** and only 2 queued in total. That is a
+different evidence pattern from yesterday's false alarm, and it had a cause:
+**the chassis pod had restarted 30 minutes earlier** (another session rolled the
+image). This is `bugs_open/029`'s documented post-roll signature — the dispatch
+pool saturates after every chassis roll.
+
+The distinguishing check, worth keeping:
+```sql
+SELECT count(*) FROM site_work_items WHERE claimed_at > now() - interval '15 minutes';
+```
+```bash
+kubectl -n ai-persona-system get pods | grep agent-chassis   # AGE column
+```
+Zero claims fleet-wide **plus** a young pod is a real stall. Your own items
+queued behind siblings while other work drains is not. Yesterday I had the
+second and called it the first.
+
+### Live end state, 2026-07-26 (after the hero fix)
+
+`/` → 200, two-column hero present (`wd-hero-inner` ×3), hero image, both CTA
+buttons, header chrome. **Zero dark overlay inside the hero section** (verified
+by extracting the section and counting). The four remaining `rgba(0,0,0` on the
+page are `box-shadow` *fallbacks* in the card grids (`var(--shadow, …)`), not
+backgrounds — cosmetically neutral-grey rather than warm, which is a nit not
+worth a 3.5-hour site-wide rerender.
