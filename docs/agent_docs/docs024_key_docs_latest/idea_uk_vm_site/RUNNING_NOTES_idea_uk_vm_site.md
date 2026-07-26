@@ -2086,3 +2086,144 @@ Docs updated: HANDOFF "DO THIS FIRST" replaced with the evidence and the deploy 
 job; SUMMARY_2026-07-26b carries a visible dated UPDATE on its "unproven" paragraph (corrected in
 place per the working-docs rule, not overwritten, and no 26c written — the milestone is the one
 26b already anticipated).
+
+### §X.20 — two live security defects in the paid tool, the second deploy, and a stale-handoff misstep (2026-07-26 evening, session "idea.uk vm site 6")
+
+**Read §X.19 first.** This session started from the **15:34** version of the handoff, which still
+carried "DO THIS FIRST — prove the new report format end to end". §X.19's session rewrote that
+file at **15:57**. I did not re-read it, so the first half of this entry is work done against a
+state that had already moved. The misstep is written up at the end and in `WRONG_CALLS.md`; the
+findings below stand on their own evidence and are unaffected by it.
+
+#### 1. `bugs_open/089` — the £29 report could be taken without paying
+
+Found while reading `service.go` to work out which legs of the funnel I could drive myself.
+
+`orderSuccess` honoured a local-test shortcut on the strength of a **query parameter alone**:
+
+```go
+if r.URL.Query().Get("fake") != "" { // FakeProvider local-test shortcut
+```
+
+It moves an order `awaiting_payment → paid` and delivers. The shortcut exists for `FakeProvider`
+(`billing.go:134` builds exactly that URL so a local run needs no Stripe keys) and the type is
+commented *"local/testing only — NEVER in production"* — but the handler never asked which
+provider was configured. The box runs Stripe:
+
+```
+$ curl -s http://127.0.0.1:8080/health
+{"auto_deliver":false,"ok":true,"price_gbp":29,"provider":"*main.StripeProvider"}
+```
+
+**Reachable by an ordinary buyer, which is what makes it real rather than theoretical.**
+`CreateCheckout` hands Stripe both URLs with the order id embedded (`billing.go:53-54`), so
+cancelling a real checkout redirects the buyer to `/order/cancel?o=<their id>` — the id is
+disclosed to the one person with a motive. Then `/order/success?o=<id>&fake=1` delivers.
+
+Fixed by gating on a type assertion the caller cannot influence, plus a refusal log line.
+**Induced against pre-fix source** (scratch copy of the module + `git show HEAD:…/service.go`):
+
+```
+payment_bypass_test.go:75: PAYMENT BYPASS: status moved to "delivered" under StripeProvider;
+  want it held at awaiting_payment
+```
+
+`delivered`, not merely `paid` — under `ReviewBeforePay` the stored report is emailed in the same
+request. Nothing was lost to it: of 72 orders, 3 are `delivered` and none by this path.
+
+#### 2. `bugs_open/090` — a visitor could choose the IP it was rate-limited as
+
+Found while proving 089's fix on the live box, one endpoint later.
+
+`clientIP` took the **first** `X-Forwarded-For` entry, commented *"first entry is the original
+client"*. True of the internet; false of this deployment. nginx forwards with
+`$proxy_add_x_forwarded_for` (`snippets/proxy_tool.conf:13`), which **appends** the real peer — so
+the first entry is precisely the part a caller writes for itself. Proven against production:
+
+```
+$ curl -s -H 'X-Forwarded-For: 203.0.113.77' 'https://idea.uk/order/success?o=ord_xff_probe&fake=1'
+Jul 26 18:32:22 idea1 idea[106548]: orderSuccess: refused fake=1 payment shortcut under
+  *main.StripeProvider (order "ord_xff_probe", ip 203.0.113.77)
+```
+
+`203.0.113.77` is TEST-NET-3 — it can never be a real client. That key drives the taster limiter
+(3/hour — **the only bound on LLM spend at a free, unauthenticated endpoint costing ~£0.02 a
+call**), the intake limiter, and the IP stored on every order to seed a future block list.
+
+Bounded by nginx's own `limit_req_zone $binary_remote_addr … rate=10r/s`, which keys on the real
+peer and is **not** spoofable — so the box cannot be flooded off the network. But 10r/s is a flood
+limit, not a spend limit: the control protecting *money* is the one that failed.
+
+Fixed: believe forwarding headers only from a loopback/private peer (the tool port is firewalled —
+`ufw` allows only OpenSSH/80/443, and `curl http://116.203.204.115:8080/health` from outside times
+out), then take `X-Real-IP` (set with `proxy_set_header`, so replaced not merged) else the
+**rightmost** XFF entry. `net.SplitHostPort` replaces `LastIndexByte(addr, ':')`, which returned
+IPv6 peers wrapped in brackets — the live shape, since this session's own order came from IPv6.
+
+**The part worth keeping:** `request_hardening_test.go:51` asserted the defect verbatim —
+`want IP 203.0.113.7 (first XFF entry)` — and had passed every run since July. The spoofable
+behaviour was not missed by the tests, it was **pinned in place by one**. Corrected with a dated
+note, not deleted. A green suite says behaviour is *intended*; it never says it is *safe*.
+
+#### 3. A standing open item, refuted rather than done
+
+The handoff carried *"Real-client-IP in nginx — idea.uk is behind Cloudflare, so nginx would see
+Cloudflare's IP"*. **It is not behind Cloudflare.** `dig NS idea.uk` → Hetzner nameservers;
+`dig +short idea.uk` → `116.203.204.115` (the box itself); `curl -sI https://idea.uk/` → no
+`cf-ray`, `server: nginx/1.28.3 (Ubuntu)`. No `set_real_ip_from` is needed and none should be
+added. The premise was false and the real defect was in the Go, three files away.
+
+#### 4. The second deploy — done, with the two fixes riding along
+
+18:29 UTC. `systemctl stop` → old binary kept as `/opt/idea/idea.prev-2026-07-25` → new binary →
+`start`. Orders backed up first (`orders.json.bak-2026-07-26-predeploy`). After restart: unit
+active; `{"active":0,"max":5,"open":true}`; **all 72 orders intact** (60 requested / 5 expired /
+4 declined / 3 delivered); discriminating pod-grep — `grep -ac "refused fake=1"` = **1** in the new
+binary, **0** in `idea.prev-2026-07-25`, and `"YOUR IDEA, ASSESSED"` = 1 in both (positive control
+for the 07-25 work). Refusal proven live on the deployed binary, not just in tests.
+
+First boot swept nothing, as predicted: `ExpireStale` only touches `awaiting_review` and
+`awaiting_payment`, and there were none.
+
+#### 5. Residual found in the expiry design, NOT built
+
+`ExpireStale` skips `running` — right while a run is genuinely in flight, wrong after a restart,
+because fulfilment is an in-memory goroutine and none survives one. An order left `running` by a
+restart therefore holds a slot **for ever**, which is the exact failure the expiry work was
+written to end. Cheap fix: at startup, before the first sweep, any order still `running` cannot
+be — reset it to `requested` or `expired`. Deliberately not built: a run was in flight and this
+change is only correct if it never touches a live one.
+
+#### 6. Observation for the margin question
+
+The engine runs `GEN_MODEL=claude-opus-4-8`, `CRITIQUE_MODEL=claude-sonnet-4-6`,
+`VERIFY_MODEL=claude-opus-4-8`, `SCORE_MODEL=claude-sonnet-4-6` (`engine.go:26-29`) — a full model
+generation behind, and all four are plain env vars, so changing them needs no rebuild. That is a
+live lever on both halves of the open margin question. **Not changed** — model choice is the
+owner's call and trades cost against quality on the product's core output. `[cut]` in the logs is
+a critique-step label, not a truncation marker; no call came back at its `max_tokens`.
+
+#### 7. MISSTEP — I acted for two hours on a handoff that had been rewritten under me
+
+I read `HANDOFF_RESUME` at 15:34. §X.19's session replaced its "DO THIS FIRST" block at 15:57 with
+proof that the format run had already happened at 12:40. I never re-read it, so I: put a question
+to the owner premised on a state that no longer held, and fired a second production engine run at
+~2× the old per-report spend.
+
+What caught it was opening this file to append and finding §X.19 already there. Nothing in my own
+work would ever have shown it — my order ran, the engine logged normally, every check passed.
+
+The check that would have caught it costs two seconds: `ls -la` the workstream directory, or
+`git log --oneline -5`, **immediately before an expensive action** rather than once at session
+start. The mtimes read 15:57/15:58 against the 15:33–15:35 I had listed an hour earlier.
+
+CLAUDE.md already says a session-start snapshot goes stale within minutes. I apply that to `git
+status` before committing and had never applied it to **the handoff itself**, which is shared
+mutable state in exactly the same way. A doc reads like a fact about the world; it is a message
+from a session that may still be typing. And the more valuable a "next action" looks in a handoff,
+the likelier another session is already doing it.
+
+Salvage, which is luck and not design: the 12:40 order was **declined**, so
+`approve → pay link → payment → delivery` had never run in production. This run is being taken
+through exactly that leg. Written up in `WRONG_CALLS.md`; a coordination block is at the top of
+the handoff so §X.19's session does not redeploy into the in-flight run.
