@@ -29,9 +29,9 @@
     },
     {
       "id": "unpaged-chart",
-      "title": "A chart with no pages key renders everywhere",
+      "title": "A chart with no pages key renders everywhere, and takes its denominator from a fact",
       "unit": "",
-      "max": 200,
+      "max_fact_id": "F-round-million",
       "points": [
         { "fact_id": "FX-does-not-exist", "label": "Dangling reference, renders no row", "tone": "primary" },
         { "fact_id": "F-round-million", "label": "A round million, the CSS exponent trap", "tone": "accent" }

@@ -70,7 +70,9 @@ rendering an empty section. Both `index` and `index.html` forms match.
   "id": "relojistas-feed-restoration",   // stable; becomes data-chart="…"
   "title": "…", "caption": "…",          // prose, no figures
   "unit": "%",                           // suffix appended to every value
-  "max": 100,                            // geometry denominator; >= every value
+  "max": 100,                            // scale constant only (e.g. 100 for a %)
+  "max_fact_id": "F9-…",                 // PREFERRED: denominator from a fact row,
+                                         // so no business figure sits in a definition
   "pages": ["index"],                    // optional
   "source_note": "…",                    // prose, no figures
   "points": [{ "fact_id": "F3-…", "label": "…", "tone": "primary|muted|accent" }]

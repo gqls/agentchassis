@@ -170,6 +170,13 @@ VALUES (
         {{- end -}}
       {{- end -}}
       {{if $show}}
+      {{- /* The denominator: a scale constant (max, e.g. 100 for a percentage)
+             or, preferred, another fact (max_fact_id) so a business figure is
+             never restated inside a chart definition. */ -}}
+      {{- $max := $c.max -}}
+      {{- if $c.max_fact_id -}}
+        {{- range $f := $facts}}{{if eq $f.id $c.max_fact_id}}{{$max = $f.value}}{{end}}{{end -}}
+      {{- end -}}
       <figure class="evidence-chart__figure" data-chart="{{$c.id}}">
         <figcaption class="evidence-chart__figcaption">
           <span class="evidence-chart__chart-title">{{$c.title}}</span>
@@ -181,7 +188,7 @@ VALUES (
             {{- if eq $f.id $pid}}
         <div class="evidence-chart__row">
           <span class="evidence-chart__label">{{$p.label}}</span>
-          <span class="evidence-chart__track" aria-hidden="true"><span class="evidence-chart__bar{{if eq $p.tone "muted"}} evidence-chart__bar--muted{{else if eq $p.tone "accent"}} evidence-chart__bar--accent{{end}}" style="--v:{{printf "%.4f" $f.value}};--m:{{printf "%.4f" $c.max}}"></span></span>
+          <span class="evidence-chart__track" aria-hidden="true"><span class="evidence-chart__bar{{if eq $p.tone "muted"}} evidence-chart__bar--muted{{else if eq $p.tone "accent"}} evidence-chart__bar--accent{{end}}" style="--v:{{printf "%.4f" $f.value}};--m:{{printf "%.4f" $max}}"></span></span>
           <span class="evidence-chart__value">{{if $f.display}}{{$f.display}}{{else}}{{printf "%.10g" $f.value}}{{end}}{{$c.unit}}</span>
           <span class="evidence-chart__verified">verified {{$f.verified_at}}</span>
         </div>
