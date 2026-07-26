@@ -285,6 +285,56 @@ confirm the step fails with the bugs_open/076 message and writes no artefact. A
 passing council proves only that the 37 guarded steps still work — which is the
 regression check, not the proof.
 
+## Council — APPROVED, round 1
+
+`SUBMISSION_CORR=470678f4-5149-4c96-b6a8-fa0185c88426`, 2026-07-26.
+**APPROVED on round 1 with 4 advisory objections, none high-severity;
+`unreadable:0`, `abstained:4`** (read `unreadable` first — an approval standing
+beside an unreadable seat is downgraded automatically, so `approved` here means
+every relevant seat was actually read).
+
+**No `Council-Reviewed:` trailer is possible on the code commits.** The verdict
+post-dates `4208e7f41` and `37a4e7b9a`, and forward-only forbids the amend that
+would add it. This is therefore a **permanent `098` false negative** — recorded
+here so nobody re-investigates the gap. The correlation above is the audit link.
+
+### The objections, and what was done with them
+
+- **editquality (low) — "as written this doesn't compile"**: `err` is undeclared
+  in the `fmt.Errorf`'s scope, only `truncErr` is. **REFUTED, and the objection
+  is sound reasoning from what it could see.** `err` is declared at
+  `ai_actions.go:377` (`result, err := aiClient.GenerateText(...)`) and the whole
+  truncation branch sits inside the `if err != nil {` that opens on 378, so the
+  `%w` arg is correct and `go build ./platform/orchestration/actions/` is clean.
+  The sketch showed the branch without its enclosing scope. **The lesson is
+  about submissions, not this code**: a sketch cropped above its scope invites a
+  correct-looking compile objection — the same class as the quote-fidelity trap.
+- **bug_historian (medium) — `accepts_truncated` is an unpoliced
+  self-declaration.** ACCEPTED as a real residual (it was named in the
+  submission's own risks). A wrong or copy-pasted flag re-opens the exposure for
+  that workflow, and nothing catches it. The Go registry is falsifiable by test;
+  the config hatch is not, because the config lives in the DB. Left in, listed
+  below as residual.
+- **guardian (medium) — was a higher layer ruled out?** i.e. a static check over
+  `agent_definitions.default_config` at registration/deploy time instead of
+  plumbing the step map through the runtime dispatch struct. **A fair hit: the
+  submission never discussed this axis, only the rejected candidate 2.** It is
+  the better long-term shape — it would catch the bad config before a run exists
+  rather than at the moment of truncation — and it is genuinely additional work,
+  not a rewrite of this. Recorded as the named next step.
+- **debug_historian (medium) — deployment confirmation unspecified.** Correct
+  about the submission; the *case file* already carries the pod-grep and the
+  induced-fault test (see "How to verify after the roll"). Gap was in the
+  submission's risks section, not the plan.
+- **bug_historian (low) — the registry can underclaim.** A future action that
+  reads `__truncated` but is never registered is invisible to the guard. True,
+  and it fails **loud** in that case (the safe direction): the workflow refuses
+  to tolerate rather than silently accepting a fragment.
+- **guardian (low) — `ActionParams` is a shared contract.** The field is purely
+  additive and read only by `ExecuteLLMPromptAction`; the coordinator is the sole
+  production construction site, verified against every `ActionParams{}` literal
+  in the repo (all others are tests or `cmd/`).
+
 ## Residual (not fixed here)
 
 - **[UNVERIFIED]** No induced-truncation run has yet exercised
@@ -293,6 +343,15 @@ regression check, not the proof.
 - The consumer's degradation is logged with `zap.Warn`, which dies with its pod.
   `llm_call_log` records that the producer tolerated, nothing durably records
   that a consumer degraded. The `recordUnknownVerdict` precedent applies.
+- **Named next step, from the guardian's medium objection:** a static check over
+  `agent_definitions.default_config` — flag any step with
+  `tolerate_truncation: true` whose workflow has no truncation-aware consumer, at
+  seed/registration time rather than at the moment of truncation. That catches
+  the bad config *before* a run exists, and it is the layer at which
+  `accepts_truncated` could also be validated. This runtime guard is the floor;
+  that would be the ceiling. Not started.
+- **[UNVERIFIED]** `accepts_truncated` is trusted, not checked. Nothing confirms
+  a step declaring it actually reads the marker.
 - `platform/orchestration/orchestration_test.go:171` does not compile at HEAD
   (`NewSagaCoordinator` called with 3 args, needs 4). Pre-existing, another
   workstream's, untouched here — but it means that package's tests do not run.
