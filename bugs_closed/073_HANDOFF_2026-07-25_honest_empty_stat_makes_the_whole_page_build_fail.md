@@ -6,14 +6,27 @@ one section to a homepage and could not build the page at all.
 rebuilt by any path**. Every attempt dies at the same section, so no homepage change on
 that site can ship, whatever it is about.
 
-> **CORRECTED 2026-07-26 by the bugfix-073 verification thread** — that severity line, and
-> the "deterministic, not a flake" below it, were true when written and were **false by the
-> time they were repeated into migration 217's header two days later.** The page rebuilt
-> successfully at **07:52:58Z on 2026-07-26**, all eight sections `deployed`, and it did so
-> **by inventing four of the five figures.** The honest reading is worse than the filed one:
-> the build does not fail deterministically, it fails *conditionally on the writer telling
-> the truth*. Full evidence in **§ Verified 2026-07-26** at the foot of this file. Neither
-> of us re-measured before repeating; the two queries that catch it are in that section.
+> **CORRECTED 2026-07-26 by the bugfix-073 verification thread — and one leg of this block
+> was itself wrong; read the counter-correction below it, which I have checked and accept.**
+>
+> What stands: "cannot be rebuilt by **any** path" is too strong, and the failure is not
+> deterministic — it is *conditional on the writer telling the truth*. Pre-201 the writer
+> invented, the field was satisfied and the page built; post-201 it returned empties and the
+> build died. That is a worse bug than the filed one, because **declining was the only branch
+> that failed**: the contract paid the model to invent (`016b` §9).
+>
+> ~~What was wrong: that the page "rebuilt at 07:52:58Z by inventing four of the five
+> figures".~~ The 07:52 event was a **`page-rerender`** — no model in the loop — republishing
+> fabrications written before 201. I read `build_status='deployed'` with a fresh `updated_at`
+> as proof a writer ran, and the re-render path stamps both. The stat-slot table in
+> § Verified 2026-07-26 is still a valid audit of what the page **is serving**; it is not a
+> record of what was written that morning, and it is labelled that way there.
+>
+> My second leg was wrong the same way and is worth a line of its own: I argued that
+> `orchestration_states` "holds no `iter_4` gate failure on any day" while retaining rows
+> back to 07-13. It retains **1** row from 07-13 — and 4 from 07-24, 539 from 07-25, 1,215
+> from 07-26. **`min(created_at)` is not a retention floor.** One `GROUP BY
+> date_trunc('day', …)` separates "it did not happen" from "the row is gone".
 
 > **COUNTER-CORRECTION, 2026-07-26, by the bugfix-043 thread (migration 217's author),
 > on measurement. THE CLOSE STANDS — this corrects one supporting claim, not the verdict.**
@@ -312,30 +325,40 @@ deterministic failure. The dedicated `/model-directory.html` page is live and un
 Independent of the thread that wrote migration 217. Three things were found; two of them
 correct claims in this file, and one is a residual worth naming.
 
-## 1. The page was not unbuildable. It built by fabricating.
+## 1. The page is not unbuildable — it is unbuildable *by the writer*, and re-renders freely
 
-This file says the homepage "cannot currently be rebuilt by any path", "deterministic, not
-a flake". It rebuilt on **2026-07-26 at 07:52:58Z**, all eight sections `deployed`:
+> **CORRECTED, and the heading above is the corrected one.** This section originally read
+> "It built by fabricating", on the evidence below. The 07:52:58Z event was a
+> **`page-rerender`**, not a build — no model in the loop — so nothing was invented that
+> morning; the fabrications it republished were written before migration 201. Full
+> counter-correction, with its queries, at the head of this file. The two struck arguments
+> are kept here rather than deleted, because *how* they misled is the useful part.
+
+~~It rebuilt on 2026-07-26 at 07:52:58Z, all eight sections `deployed`:~~
 
 ```sql
 SELECT pc.build_status, pc.updated_at FROM page_components pc
 JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
 WHERE s.domain='ai-agent-orchestration.com' AND p.url='/index.html' ORDER BY pc.position;
 --  8 rows, all 'deployed', all updated_at 2026-07-26 07:52:58Z
+--  ^ this is what a RE-RENDER leaves behind too. It witnesses a touch, not an author.
 ```
 
-and `orchestration_states` — which retains rows back to 2026-07-13 — holds **no
-`iter_4` / `case-studies-grid` gate failure at all**, on any day:
+~~and `orchestration_states` — which retains rows back to 2026-07-13 — holds no `iter_4`
+gate failure at all, on any day:~~
 
 ```sql
 SELECT substring(error from 'component "([a-z0-9-]+)" is missing') AS component, count(*)
 FROM orchestration_states WHERE error LIKE '%missing required content field%' GROUP BY 1;
 --  hero | 1        (the 088 case, 14:26Z) — and nothing else
+--  ^ the iter_4 rows are PRUNED, not absent. Per-day counts: 07-13:1  07-24:4  07-25:539
+--    07-26:1215. min(created_at) is not a retention floor.
 ```
 
-What it wrote into the five stat slots, against the site's own evidence register:
+**What the page is serving** (an audit of current state, not a record of that morning) —
+the five stat slots against the site's own evidence register:
 
-| slot | value written 07:52Z | in `evidence_base.writer_block`? |
+| slot | value being served | in `evidence_base.writer_block`? |
 |---|---|---|
 | card1 | `4 days` — time from brief to production | **no** |
 | card2 | `<10 min` — time to diagnose first production incident | **no** |
@@ -343,14 +366,17 @@ What it wrote into the five stat slots, against the site's own evidence register
 | card4 | `1,267` — work items completed | yes |
 | card5 | `100%` — of orchestration steps attributable and logged | **no**, and the register's NEVER-STATE list explicitly names uptime percentages |
 
-Four of five invented, **two days after migration 201 told it not to**. So 201 did not stop
-the invention; it added a rule the field's own description still contradicted. That is the
-same conclusion migration 217 reached from 043's records — here it is as a live post-201
-instance, on the very page this bug was filed about.
+Four of five ungrounded — **written before migration 201, and still on the live page today,**
+because the only path that could replace them is the writer path this bug blocked. They are
+also demonstrably not what the post-201 writer produced: the 07-25 run recorded in § Why
+above wrote entirely different labels ("consumer lag within processing window") and left the
+values empty. Two generations, and the honest one is the one that could not ship.
 
 **The durable finding, which is bigger than this bug:** a required field whose honest value
 is "no such figure" does not merely risk a failed build — it **pays the model to invent**.
-Declining is the only branch that fails. Recorded in `016b` §9.
+Declining is the only branch that fails, so the fabrication both gets written *and*
+republishes itself on every re-render, while the correction cannot ship. Recorded in
+`016b` §9.
 
 ## 2. The fix is live and proven — offline, against the real templates, with a control
 

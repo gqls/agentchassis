@@ -28,7 +28,17 @@ refusing to render an empty section (likely LLM truncation or an unparseable res
 ```
 
 Live run, 2026-07-26 14:26:27Z, correlation `d9fd6ed2-28e7-4af2-a49a-a749d71bccd3`,
-site `2a8ebf9c-20a2-4c39-b191-840b012371da` (ai-agent-orchestration.com), `/index.html`.
+site `2a8ebf9c-20a2-4c39-b191-840b012371da` (ai-agent-orchestration.com).
+
+> **CORRECTED within the hour of filing:** the page was **`model-directory`, not
+> `/index.html`.** I read the site id off the failed row and assumed the page, instead of
+> reading `initial_request_data->'input_data'->>'page_name'` on the `page-build-handler`
+> parent — which says `model-directory` plainly, alongside
+> `spec.reason=section_data_resolved` and `source=render_directory`. The defect is
+> page-independent (it is in the response, not the page), so nothing else in this file
+> changes; but "it blocks the homepage" was wrong, and the homepage's own state is a
+> separate question. `page-build-handler` recorded `complete_error` and COMPLETED while its
+> writer child FAILED — worth knowing when you search for the blast radius by status.
 
 The parenthetical is right about "unparseable" and wrong about the cause, which is why this went
 unnoticed: the error blames truncation, and nobody re-read the payload.
@@ -165,7 +175,7 @@ Whichever is taken, the error message at `v3_site_actions.go:1731` should stop a
 
 - `bugs_open/076` — truncated responses tolerated at unguarded call sites. Different mechanism; this
   one is not truncated. They share the raw-text envelope as the place where evidence goes to die.
-- `bugs_open/073` (the honest-empty stat) — same gate, same page, different cause. 073's fix
-  (migration 217) is live; this is what still blocks that homepage.
+- `bugs_open/073` (the honest-empty stat) — same gate, same site, different cause and
+  different page. 073's fix (`217_stat_values_optional_and_template_gated.sql`) is live.
 - `bugs_closed/005` / bug 026 — why the gate exists at all, and the property fix candidate B must not
   break.
