@@ -725,3 +725,80 @@ answers in the rationale. **Trap worth knowing: the gate refuses
 observation-shaped edits, and it does so before spending a single reviewer call —
 6 seconds, no credits.** It also, incidentally, produced another latency
 datapoint: created 13:24:02, invalid 13:24:08.
+
+### Council round 2b: REJECTED — a hard guardian veto, naming no defect
+
+`abstained: 7`, `unreadable: none` (so not the truncation class). Six seats
+approved (`editquality`, `reuse_agent`, `guidelines`, `tooling_provenance`,
+`constitution`, `mission`); `debug_historian` and `prior_art_librarian` objected;
+**`guardian` vetoed**. Its four objections are one argument repeated across the four
+touched sites: adding lane-plurality to `Agent`, provisioning N consumer groups in
+`setupConsumers`, generalising `processRequests` into `consumeRequestLane`, and
+starting/stopping a variable number of goroutines in `Run`/`Shutdown` are
+*foundational plumbing* edits, and the stability preference says rule out a
+higher-layer fix first.
+
+**It names exactly one such alternative, and it does not exist.** "Routing
+scheduled/cron dispatch through the existing per-job spawn mechanism
+(`job.<id>.requests` + generated consumer group, per `spawn_actions.go` ~2389) …
+keeps the change entirely in the scheduler's dispatch decision and never touches
+`platform/agentbase`'s shared consumption loop at all." Checked:
+
+```
+grep -rn "kubernetes|k8s.io|BatchV1|CreateJob|clientset" cmd/scheduler/*.go   -> NOTHING
+cmd/scheduler/main.go:454   return producer.Produce(ctx, task.TargetTopic, headers, []byte(reqID), bodyBytes)
+```
+
+The scheduler can publish a message and nothing else. And a `job.*` topic exists
+only because `spawn_actions` created it for a pod it spawned — and `spawn_actions`
+runs **inside the chassis**, as an action of an orchestration, which must first be
+dispatched through the very lane under discussion. So the named path would require
+building pod-spawning (client-go, RBAC, pod template, topic create/cleanup,
+lifecycle) into a service that today only knows how to publish, and would stand up
+a second implementation of spawning in the fleet. **That is a larger, lower-level
+change than the one vetoed, not a higher-layer one.**
+
+One measured correction to the veto's premise: it calls `agent.go` "the load-bearing
+chassis every static agent and every spawned job pod runs". `grep -rl
+"platform/agentbase" --include=*.go cmd/` → **`cmd/agent-chassis` only** — the
+adapters and other backend services do not link it. Spawned job pods *do* run the
+chassis image, and there the code is inert twice over (the var is absent from a
+spawn's explicit env list, and the static-agent guard refuses it anyway).
+
+**The one objection with production consequences, audited rather than argued.**
+Guardian OBJ 5 named three concrete defect shapes in the lifecycle change — leaked
+consumer, goroutine never joined on partial startup failure, `wg` mismatch. Audited
+in the code as shipped:
+
+- a lane whose `CreateTopic` or `NewConsumer` fails is never appended, so nothing to
+  leak; every appended lane is closed in `Shutdown` (agent.go:1509);
+- `Run` pairs `a.wg.Add(1)` with `defer a.wg.Done()` **inside** each lane closure
+  (agent.go:540-547) — no mismatch, and the loop takes an indexed copy so there is
+  no capture hazard;
+- a partial `setupConsumers` failure returns before `Run`, and the process exits on
+  it, so there is no half-started lane set to join.
+
+Clean, but it was the right thing to ask for.
+
+`debug_historian` (medium) wanted a needle-gate on the production `UPDATE`. Partly
+conceded: a pre-count **was** run immediately before (`SELECT count(*) … WHERE
+enabled AND target_topic='system.agent.generic.requests'` → **18**), the statement
+returned exactly `UPDATE 18`, and the post-state was verified by listing all 18
+names grouped by `target_topic`. What was genuinely missing is a `RETURNING` clause
+and a dump — the baseline/result pairing is now written into R9 and the case file so
+it is auditable rather than narrated.
+
+`prior_art_librarian` (high) asked that a human re-run the pod checks *before* the
+SQL fired. That is the order they were run in (R9 step 3 → step 4); the seat has no
+tier that can see a running pod, so it flagged per procedure, which is correct
+behaviour on its part.
+
+**What I am doing with a veto that names no defect.** The gate is advisory by
+design; it records a verdict and cannot block. The change is live, measured on both
+sides, and the alternative the veto asks for would be bigger. So: round 3 submitted
+with the check folded in (`RESUBMIT_CORR` keeps the trail on one correlation), the
+change stays live, **no `Council-Reviewed:` trailer is claimed anywhere** — that
+trailer is earned by APPROVED only — and the veto is recorded in the case file's
+closing section and put to the owner as a decision they may reverse with one
+`UPDATE`. Contesting a veto with evidence is the loop working, not a bypass; if the
+owner sides with the guardian, the rollback is the runbook's and costs seconds.
