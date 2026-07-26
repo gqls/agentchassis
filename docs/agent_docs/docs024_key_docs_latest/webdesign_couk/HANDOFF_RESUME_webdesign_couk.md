@@ -154,7 +154,7 @@ that six other sites use).
 | # | item | notes |
 |---|---|---|
 | 1 | **Browser QA of the tier-1 tools** (~16 pages) | canvas / file / clipboard / IndexedDB tools need a real browser: `micro-cms`, `bg-remover`, `image-optimizer`, `meme-generator`, `favicon-maker`, `animated-favicon`, `white-balance`, `mesh-gradient`, `golden-ratio`, `social-card`, `blob-maker`, `pasteboard`, `mind-map`, `logic-architect`, `vibe-equalizer`, `blueprint-compiler`. Tiers are in the manifest (`qa_tier`). |
-| 2 | **Confirm the hero swap landed** | `SQL_p6` applied and a re-render queued 2026-07-26; confirm the live home page is two-column and light. |
+| 2 | ~~Confirm the hero swap landed~~ | **DONE 2026-07-26.** Live and verified: two-column, light, both CTAs, zero dark overlay in the hero section. Note the mechanism in NOTES — no rerender path re-renders a section whose COMPONENT changed; the template had to be executed directly. |
 | 3 | **`webdesignport verify` is still a stub** | The gates exist as ad-hoc greps in NOTES/RUNBOOK. Worth implementing: structural diff, colour gates, link closure, live 200s. |
 | 4 | **`[OWNER-CHECK]` Cloudflare purge token** | Confirm the deploy Action's `CF_API_TOKEN` can see this zone. Symptom of failure is only a stale cache; check for a null `ZONE_ID` in the Action log. |
 | 5 | **`bugs_open/084`** | The platform-wide gap: nothing asserts that a published page's JavaScript works. Recommends a live script-integrity sweep. |
