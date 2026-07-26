@@ -1,3 +1,18 @@
+> **CLOSED 2026-07-26 — this handoff is now HISTORY, not an entry point.**
+> All three sections are answered and the case has moved to
+> `bugs_closed/006_HANDOFF_2026-07-16_idea_uk_infra_errors.md`, which carries the closure evidence
+> and the two named residuals. Current read-out:
+> `SUMMARY_2026-07-26_bugfix_006_closed.md`. Design behind §C:
+> `PLAN_2026-07-26_claim_timeout_generic_evidence.md`. Commands: `RUNBOOK_bugfix_006.md`.
+> Missteps: `NOTES_bugfix_006.md`.
+>
+> **What in the text below has gone stale:** the "one thing to check first" (that council verdict
+> landed — REVISE, resolved, and a later submission was APPROVED as `8bfcbc68`); B's three
+> follow-ups are all done; **A resolved on its own**; and **C is fixed and live** via migration
+> `220`, so its "residual worth fixing" is no longer open. The §C figures quoted below (42
+> timeouts / 0 auto-completions) are the 07-20 measurement — re-measured 07-26 as 27/0 for
+> `needs_page` and 84/14 fleet-wide. Left unedited: it is the record of what was believed then.
+
 # HANDOFF — bugfix 006 (start a new chat here)
 
 **Session:** "bugfix 006", 2026-07-20 → 2026-07-21. **Cold-start entry point.**
