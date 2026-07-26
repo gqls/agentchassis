@@ -147,3 +147,73 @@ B1, a standalone VM** ("the island"), stronger isolation (production cluster
 appears nowhere in the public path) and already live. As-built runbook + every
 command: `infra/island/RUNBOOK_island.md`. `README_bastion_exposure.md` and the
 WireGuard drafts are historical only — do not build from them.
+
+## 8. P4 front-end delivery — the full sequence, with what bit (2026-07-26)
+
+Sources, harnesses and the pre-change backups all live in `p4_sources/`.
+
+```bash
+SC=docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/p4_sources
+
+# 0. Feed. Regenerate + publish to the deploy repo (NOT the DB — there is no
+#    provocations table; the file is committed into gqls/sites and synced to B2).
+python3 $SC/build_provocations.py > provocations.json
+SHA=$(gh api repos/gqls/sites/contents/vonc.com/data/provocations.json --jq '.sha')
+# PUT with {message, content:<base64>, sha}; payload on STDIN via `gh api --input -`
+#   (argv blows ARG_MAX on anything large — see scripts/webdesign_publish_assets.sh)
+
+# 1. Component rows. Dollar-quoted, wrapped in BEGIN/COMMIT with a DO $$ guard
+#    that RAISEs unless the new markers are present — a silent no-op UPDATE is
+#    otherwise indistinguishable from success.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 < update_gauntlet.sql
+
+# 2. Deliver the section (generalised; takes the component + a field_updates file)
+./docs/.../scripts/deliver_section_edit.sh <page_component_id> <field_updates.json>
+
+# 3. apply_section_edit does NOT republish js_content — assemble-only rerender:
+./docs/.../scripts/republish_gauntlet_js.sh
+
+# 4. section-editor leaves pc.build_status='approved' — put it back:
+UPDATE page_components SET build_status='deployed' WHERE id='1048b344-...';
+
+# 5. Snippets bundle (the archive loader ships in assets/js/snippets.js, a
+#    DIFFERENT pipeline from the component's tools/assets/<function>.js):
+./scripts/initial_messages/210_vonc_trigger/083_trigger-asset-renderer-vonc.sh
+```
+
+- **GOTCHA (cost a dispatch, 2026-07-26):** a spawn fired within ~300 s of a
+  chassis pod restart is silently dropped — no orchestration row, no error. The
+  chassis had restarted at 14:57:24Z because the DB was crash-looping
+  (`bugs_open/082`); the 15:02 dispatch produced nothing. **Before blaming queue
+  latency, check the chassis pod's `startedAt`** — that distinguishes "dropped"
+  from "queued", and only one of them is safe to re-fire:
+  `kubectl -n ai-persona-system get pod -l app=agent-chassis -o jsonpath='{.items[0].status.containerStatuses[0].state.running.startedAt}'`
+- **GOTCHA:** `git add` of a workstream `build/` directory is silently refused —
+  the repo's `.gitignore` catches `build` anywhere. Name it something else
+  (`p4_sources/`); `git check-ignore -v <path>` tells you before you commit.
+
+## 9. Driving a component end-to-end locally before delivering it
+
+`p4_sources/drive_gauntlet.py` and `drive_archive.py` (python venv + playwright
+chromium; `pip install` needs `python3 -m venv` — the system python is
+PEP-668-managed and refuses). They render the real template with the real
+`field_updates`, serve the real JS at the path the live page uses, and drive it
+in Chromium against the LIVE API. This caught two defects that no
+selector-existence check would have: a closed detail region reading as
+populated, and a dead `href="#"` left on the hidden clone-source.
+
+- **GOTCHA:** the browser's CORS **preflight** cannot be re-stamped by Playwright
+  routing, so a localhost page gets 403 on `OPTIONS`. Proxy the call
+  server-side with `Origin: https://vonc.com` and fulfil the route.
+- **GOTCHA:** a 403 from `tools.apis.uk` has TWO different senders. The API's own
+  is `{"error":"origin not allowed"}`; Cloudflare's is the plain-text
+  `error code: 1010`, which it returns for a bare `Python-urllib` fingerprint.
+  Send a browser `User-Agent` from any script that calls the API.
+- **GOTCHA (shapes an acceptance run):** `browserrunner/run_checks_action.go:200`
+  waits `stepDelay = 300ms` between an interaction step and its assertion, and
+  `Text()` is Playwright `InnerText()`. Two consequences: (a) any check asserting
+  on AI output will fail, because `/position` and `/defend` measure 8–18 s; and
+  (b) `innerText` on a `display:none` element falls back to `textContent`, so a
+  hidden-but-populated region reads as non-empty and a check can pass without the
+  interaction having done anything.
