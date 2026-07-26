@@ -58,7 +58,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **4** |
-| **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file** | **1** |
+| **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file; and run any pod-grep marker against the CURRENT binary first — if it passes before the change ships, it is not a test** | **2** |
+| **give an "absence means wait" rule an exit condition — check whether anything NEWER has drained past you before concluding you are merely queued** | **1** |
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 | **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
@@ -3918,3 +3919,48 @@ truncated on write): here the artefact was fine and the **measurement** was trun
 nothing downstream could have caught it — no length check, no structural check, only
 re-running it. Family: silent-cap, truncated-enumeration-read-as-complete,
 fix-the-instance-not-the-class.
+
+**2026-07-26 — wrote a post-roll verification into a bug file's close-out checklist using a
+string my change does not create. Second vacuous-verification incident logged today, by a
+different thread, from a different angle — that pairing is the entry's whole point.**
+Closing out `bugs_open/052` I specified `strings /app/agent-chassis | grep -c "p.status IN
+('active', 'deployed')"` as the proof the fix had shipped. That fragment already occurs **4
+times** in `v1.0.1167`, an image built *before* the fix was committed — other queries use it.
+The check passes unconditionally, forever.
+**What caught it:** running it against the current pod while checking something else, and
+getting `4` where `0` was expected. Not review — accident, again.
+**The cheap check:** run the pod-grep against the CURRENT (pre-fix) binary before writing it
+down. Expected-fail now, expected-pass later; if it passes today it is not a test. A
+second-order trap specific to SQL: `strings` splits on newlines, so a multi-line Go SQL const
+is *not* one searchable blob — you can only match a single line, which is why the durable
+marker here had to be the **disappearance** of the old predicate line plus a positive control
+that the query still exists at all.
+**Why it earns a row next to the 045 entry above rather than folding into it:** that one was a
+*negative* assertion passing on a 404; this one is a *positive* assertion passing on a
+pre-existing string. Opposite polarity, same root — the check's pass state was never
+distinguishable from its do-nothing state, and in both cases habit caught it, not process.
+Two independent instances in one day is the argument for automating it: a pre-commit that
+extracts pod-grep markers from changed docs and asserts they currently return zero is
+mechanical, and the tally row below is now at 2. Family: vacuous-verification,
+false-green, marker-not-created-by-the-change.
+
+**2026-07-26 — treated a vanished council dispatch as latency for 62 minutes because the
+standing rule says to.** The house rule (`[[council-queue-latency-trap]]`, and `CLAUDE.md`)
+is that a missing `orchestration_states` row means queued, ~16–30 min, and that resubmitting
+on that evidence wastes a round. It is a good default and it was wrong here: the submission
+left **no trace anywhere**, two *newer* submissions overtook and completed it, the consumer
+was demonstrably live, and the chassis had **rolled 8 minutes before the publish**. The rule
+protects against resubmitting too eagerly; it offers nothing for deciding when waiting has
+become the mistake.
+**What caught it:** the monitor timing out at an hour and forcing a second look — otherwise I
+would still be waiting.
+**The cheap check:** before concluding "queued", ask whether anything *newer* has finished.
+`SELECT min(created_at), count(*) FROM orchestration_states WHERE workflow_plan::text ILIKE
+'%council_decide%' GROUP BY fix_correlation_id` answers it in one query: a later submission
+that completed while yours has no row at all is not a queue, and the pod's `startTime`
+compared against your publish time names the likely cause.
+**The class:** a rule of the form "absence means X, don't act" has no expiry, so it silently
+converts into "wait forever". Any such rule needs a stated bound and a distinguishing test for
+the other branch — the useful version is *"absence means queued **unless** something newer has
+drained past you"*. Family: default-with-no-exit-condition, absence-is-ambiguous,
+rule-outlived-its-window.
