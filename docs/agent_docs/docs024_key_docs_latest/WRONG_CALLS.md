@@ -54,7 +54,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **1** |
 | read the rule before inferring its purpose | 1 |
-| **re-derive a figure with the CORRECTED tool — fixing the tool does not fix the numbers already copied out of it** | **1** |
+| **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, and one copied out of a since-corrected tool keeps the old tool's answer; never let either land in a commit message, council submission or code comment unmeasured** | **2** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **4** |
@@ -3598,3 +3598,29 @@ are hope, not enforcement" for this exact bug, and I was one edit from contradic
 pattern this workstream itself had filed.
 Family: absence-as-evidence, unrepresentative-sample, quiet-branch-mistaken-for-dead-branch,
 false-clean-in-the-flattering-direction (sibling of the footer-legal entry above).
+
+**2026-07-26 — repeated a sibling doc's six-day-old count into a permanent commit message
+and a live council submission, having read the rule against doing exactly that.** Fixing
+`bugs_open/052` I quoted its own addendum — *"four fleet pages are `needs_rebuild` AND never
+deployed"* — in a Go comment, a commit message and a council `rationale`. The predicate that
+figure justifies is correct and unaffected; the figure was not. Re-measured the same
+afternoon: **10, not 4**, with `planned`-never-deployed up 18 → 27 over the same six days.
+The population had **more than doubled**, which inverts the impression the file's *"Scale —
+measured, and smaller than it looks"* section gives, and I had propagated the shrinking
+version into the most permanent artefact available.
+**What caught it:** deciding, after committing, to re-ground the figure because
+`CLAUDE.md` says to — *"Ground every figure against the live system before repeating it from
+another doc"*. So the rule worked, but only on a second pass, and only because I went back;
+nothing in the first pass flagged it, and the commit message is now unfixable (forward-only).
+**The cheap check:** one `GROUP BY build_status, (deployed_at IS NOT NULL)` — about fifteen
+seconds — **before** the figure enters a commit message, a council submission, or a code
+comment, since those three are exactly the artefacts you cannot re-ground later. A code
+comment is the worst host for a live count: it has no measurement date, no way to re-derive,
+and it will be read as current for years. State the mechanism there and put the number, with
+its date, in the doc.
+**The class:** a figure copied between documents silently inherits the **older** measurement
+date while acquiring the **newer** document's apparent freshness. Both docs then read as
+current and only one was ever measured. Note this is not the usual staleness failure of a
+number drifting slightly — the direction of travel had reversed, so the stale figure did not
+merely understate, it argued the opposite case. Family: figure-inherits-its-source-date,
+stale-premise-carried-forward, unre-groundable-host.
