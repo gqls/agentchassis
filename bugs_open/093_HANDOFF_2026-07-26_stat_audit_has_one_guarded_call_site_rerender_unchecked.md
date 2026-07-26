@@ -142,3 +142,112 @@ answers that round's MEDIUM, was applied *after* the last submission and has nev
 to the gate. A thread picking this up can resubmit on correlation
 `569241fb-dd8d-4bcf-b382-234dfca1365c` — but should expect the HIGH objection to stand
 until this file's candidate (1) is actually built, because the council said so twice.
+
+---
+
+## Update 2026-07-26 (later) — candidate (1) is BUILT and candidate (3) needed nothing
+
+**Still OPEN, deliberately.** The code is committed (`72effdbca`) and **inert until the next
+chassis roll**; the bar in CLAUDE.md is *fixed AND live*, and until the image ships the
+defect is still reproducible. Do not close it on the commit.
+
+### What was built — candidate (1), as this file recommended
+
+`platform/orchestration/actions/discovery_checks/check_unverified_claims_stats.go` (new)
+plus the wiring in `check_unverified_claims.go`. Stored `content_data` is now audited
+alongside `rendered_html`, on **both** `page_components` and `site_components`, reusing the
+existing `claims_unverified` item type — so `verifier_coverage_test.go` has nothing to say,
+exactly as this file predicted.
+
+Candidate (2) was **not** taken, for the reason in § "Why it is not simply…": the re-render
+path was chosen for having no failure surface, and giving it one — over content it did not
+author — is `bugs_closed/073`'s defect, not a fix for it.
+
+**Two scopes, because the two scans need different things.** This is the part to review:
+
+| scan | needs a register? | predicate |
+|---|---|---|
+| `LintStatUnits` | no — compares a component against **itself** | runs **fleet-wide**, as it already does in the build gate |
+| `ScanStatClaims` | yes | the site_specs **row EXISTS** — *not* `ParseEvidenceBase` returning non-nil |
+
+The second row is this lane's central landmine made structural. `ParseEvidenceBase` returns
+nil for a row holding only a `writer_block`, so any consumer keying on nil switches itself
+**off** on a site that explicitly opted **in** — which is how three sites sat "protected"
+for two days with both checkers blind. A row with no `facts[]` now grades **low** with the
+gap named in the finding's own `reason`, because a severity must never mean *"we could not
+check this"*. `TestWriterBlockOnlyRowStillAuditsStats` fails loudly if that nil contract
+ever changes, rather than passing on a premise that has moved.
+
+The fleet-wide scope of the unit lint is not decoration: **finetuning.uk (3 stat fields, 2
+pages) and idea.uk (2 fields, 1 page) have no `evidence_base` row at all**, so gating it on
+opt-in would have left them unaudited on *both* paths.
+
+### Candidate (3) — measured, and there was nothing to clear
+
+> **The prediction in this file held exactly.** The fleet-wide sweep of every persisted
+> `*_suffix`/`_unit`/`_units` value returns **five rows, all legitimate tool units**
+> (leopardess ROI estimator: "employees", "hrs / week per person", "per hour", "time saved";
+> robot-hands cycle-time: "seconds per cycle"). None appears in `statDimensionalSuffixes`,
+> so `LintStatUnits` is silent on all five. **No UPDATE was needed and none was made.**
+
+### The measurement, run with the SHIPPING code — not a SQL approximation of it
+
+A throwaway harness ran `ExtractStatClaims` + `LintStatUnits` + `ScanStatClaims` over every
+unlocked `page_components.content_data` row in production, with each site's real
+`evidence_base`. This matters: a SQL predicate can count fields, but only the extractor
+decides what pairs with what and what is dropped.
+
+```
+components with stat claims: 24      pages affected: 18
+stat claims extracted: 61            unit-lint findings: 0
+register findings: 21   (across 9 pages)
+```
+
+So the first live run raises **9 work items**, all HITL-terminal. `vonc.com` alone accounts
+for 14 of the 21 findings, all at `low`, purely because it registered `banned_claims` but no
+`facts` — and its own output is worth reading, because two of them **contradict each other**:
+`index` publishes "Archetypes 8" / "Tools Live 3" while `about` publishes "Archetypes 3" /
+"Tools Live 8". The check found a real defect on its first pass.
+
+### Two live defects this sweep found in code that had ALREADY shipped
+
+Both were reaching the **build gate at `error` severity** on sites with registered facts —
+i.e. both would make a deployed page unbuildable, which is `bugs_closed/073`'s shape on a
+new trigger. Both are fixed in the same commit; both are strictly **narrowing**, so neither
+can create a finding, only remove one.
+
+1. **A typographic range escaped the composite-token exclusion the hyphen form has always
+   had.** `unitSuffixRe` three lines above already spells `[-–]`, so typographic dashes were
+   plainly meant to be in scope — but the adjacency test beside it is **byte-level**, and an
+   en-dash is three bytes, so `next == '-'` cannot see it. Live instance:
+   fundamentallyai.com (15 registered facts) publishes `Read time: 8–12 minutes`.
+   *The trade, stated because it is real:* a range is now excluded **entirely**, so
+   "2–3 million users" is no longer examined. That is not NEW blindness — "2-3 million
+   users" has always been treated that way — but it is a coverage limit.
+2. **Zero-padded display ordinals** (`01`, `02`, `03`) were extracted as published figures.
+   vonc.com's about page numbers its process steps that way. Fixed in `ExtractStatClaims`,
+   **not** in the shared `isExcludedNumber`, because it is a property of a bare stat *field
+   value* whereas those exclusions reason about a number's position inside a *prose block* —
+   widening them would change what the prose scan sees on every site for a shape only the
+   stat path can produce. `0` alone is deliberately still a claim: zero is a real count, and
+   an honest one, which is the whole subject of `073`.
+
+**The transferable pattern behind both** — a shared predicate written for one input shape,
+reused on another. `isExcludedNumber`'s rules were written to reason about a number's
+position inside a prose block; `ScanStatClaims` hands it a bare field value as the "block",
+so "list ordinal at block start" can never fire (it requires a following `.` or `)`) and the
+byte-level dash test silently mismatches. Added to `016b` §9.
+
+### What is still owed on this file
+
+- **The roll**, then the verification in § "How to verify a fix" — re-render a page
+  **without** a writer pass and confirm the finding is raised. A green build proves nothing
+  here; the build path is the one that already works.
+- **Council round 6**, submitted on correlation `569241fb-dd8d-4bcf-b382-234dfca1365c`.
+  **No `Council-Reviewed:` trailer exists on `72effdbca`, and that is correct** — the
+  trailer is earned by an APPROVED verdict only, and a verdict that post-dates its commit
+  can never carry one.
+- Candidate (2) remains unbuilt and remains the only thing that would *prevent* rather than
+  *detect*. So does `043`'s point (c) — a partially-blanked stat block reads as CHECKED
+  while carrying a surviving invention, and it needs its own function over raw
+  `content_data`, because `ExtractStatClaims` drops blank sentinels by design.
