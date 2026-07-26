@@ -29,6 +29,12 @@ var (
 	reHTMLEntities = regexp.MustCompile(`&[a-zA-Z#0-9]+;`)
 	reWhitespace   = regexp.MustCompile(`\s+`)
 
+	// reHeadClose matches the closing </head> tag, case-insensitively, so
+	// injectComponentCSS can place the component <style> block after the
+	// stylesheet <link>. Stored head components are hand-authored and their
+	// casing is not guaranteed.
+	reHeadClose = regexp.MustCompile(`(?i)</head>`)
+
 	// reRuntimeFill matches the data-runtime-fill marker on a section that is
 	// intentionally empty at build time and populated client-side by a loader
 	// (e.g. the daily provocation card). Such sections must NOT be dropped by
@@ -196,6 +202,110 @@ func collectJSAssets(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 	return assets
 }
 
+// componentCSSMarker identifies the injected block. Also the idempotency
+// guard: a head that already carries the marker is left alone, so an
+// assembly path that runs twice cannot stack duplicate blocks.
+const componentCSSMarker = `data-component-css="1"`
+
+// collectComponentCSS returns a <style> block holding the css_snippets that
+// apply to this page's components, or "" when none apply.
+//
+// Why this exists (bugs_open/072): a site's assets/css/styles.css is written
+// ONLY by a webdesign-agent design run, and it carries the css_snippets that
+// matched the site's component list AT THAT INSTANT. Nothing re-renders it
+// when the site later gains a component, so a page can ship markup whose CSS
+// was never written — measured on 2 of the 5 sites emitting .news-card, one
+// of them 80 days after its stylesheet was last generated. Collecting the
+// snippets HERE puts a component's CSS on the same path as its markup, so
+// the two cannot drift apart: whatever assembles the page also styles it.
+//
+// Deliberately excludes any component whose stored rendered_html already
+// carries its own <style> block. 86 of the 94 component functions in use
+// ship their own CSS in html_template (the house pattern), and for those the
+// snippet would be a second copy of the same rules. The exclusion is per
+// component function, so one self-styling component on a page does not
+// suppress the snippet another component on that page still needs.
+func collectComponentCSS(ctx context.Context, db *sql.DB, pageID string, logger *zap.Logger) string {
+	rows, err := db.QueryContext(ctx, `
+		WITH page_funcs AS (
+			SELECT cc.function AS fn,
+			       bool_or(COALESCE(pc.rendered_html, '') LIKE '%<style%') AS ships_own_css
+			FROM page_components pc
+			JOIN content_components cc ON cc.id = pc.component_id
+			WHERE pc.page_id = $1
+			  AND cc.function IS NOT NULL
+			  AND cc.function != ''
+			GROUP BY cc.function
+		)
+		SELECT s.name, s.css_content
+		FROM css_snippets s
+		WHERE jsonb_typeof(s.applies_to) = 'array'
+		  AND EXISTS (
+		    SELECT 1
+		    FROM jsonb_array_elements_text(s.applies_to) AS a(elem)
+		    JOIN page_funcs f ON f.fn = a.elem
+		    WHERE NOT f.ships_own_css
+		  )
+		ORDER BY s.name
+	`, pageID)
+	if err != nil {
+		// Warn, never fail the assembly: a page that ships slightly
+		// under-styled is better than a page that does not ship. The
+		// jsonb_typeof guard above keeps one malformed applies_to row from
+		// taking the query down for every page on the fleet.
+		logger.Warn("collectComponentCSS: query failed", zap.Error(err))
+		return ""
+	}
+	defer rows.Close()
+
+	var css strings.Builder
+	var names []string
+	for rows.Next() {
+		var name, cssContent string
+		if err := rows.Scan(&name, &cssContent); err != nil {
+			continue
+		}
+		if strings.TrimSpace(cssContent) == "" {
+			continue
+		}
+		css.WriteString("\n/* component css_snippet: " + name + " */\n")
+		css.WriteString(cssContent)
+		names = append(names, name)
+	}
+
+	if css.Len() == 0 {
+		return ""
+	}
+
+	logger.Info("collectComponentCSS: injecting component snippets",
+		zap.String("page_id", pageID),
+		zap.Strings("snippets", names),
+		zap.Int("css_length", css.Len()))
+
+	return "<style " + componentCSSMarker + ">" + css.String() + "\n</style>\n"
+}
+
+// injectComponentCSS places the block immediately before </head>, so it
+// follows the <link> to the site stylesheet in document order. That ordering
+// is load-bearing: where a site's frozen styles.css already holds an older
+// copy of the same snippet, the fresher copy from css_snippets is the one
+// that wins the tie.
+//
+// A head with no </head> (a truncated or hand-written component) still gets
+// the block, prepended, rather than silently losing it.
+func injectComponentCSS(headHTML, cssBlock string) string {
+	if cssBlock == "" {
+		return headHTML
+	}
+	if strings.Contains(headHTML, componentCSSMarker) {
+		return headHTML
+	}
+	if loc := reHeadClose.FindStringIndex(headHTML); loc != nil {
+		return headHTML[:loc[0]] + cssBlock + headHTML[loc[0]:]
+	}
+	return cssBlock + headHTML
+}
+
 // getPageInfo loads page metadata including site and area
 func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, error) {
 	var p PageInfo
@@ -300,6 +410,12 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 				fmt.Sprintf(`content="%s">`, page.MetaDesc), 1)
 		}
 	}
+
+	// 5b. Inject the CSS for this page's components (bugs_open/072). The site
+	// stylesheet is frozen at the last design run, so a component added since
+	// then has markup on the page and no rules anywhere; this puts its CSS on
+	// the same path as its markup.
+	head = injectComponentCSS(head, collectComponentCSS(ctx, db, page.ID.String(), logger))
 
 	// 6. Assemble
 	var html strings.Builder

@@ -47,6 +47,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
@@ -146,6 +147,29 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 	// data (separate concern from palette/typography — these drive
 	// per-section iteration, not colour selection).
 	components := extractCSSComponents(params.CollectedData, logger)
+
+	// 5b. An EMPTY list is not the same as a missing one, and only the
+	// missing case has a fallback: extractCSSComponents returns defaults
+	// when the field is nil, but an empty non-nil array passes straight
+	// through, and loadComponentCSSSnippets early-returns "" on a
+	// zero-length list. A stylesheet then ships with NO component CSS at
+	// all and nothing says so — which is how ai-agent-orchestration.com
+	// got a styles.css containing not one snippet (bugs_open/072); its
+	// news cards have been bare ever since, because nothing re-renders a
+	// site stylesheet once it is written.
+	//
+	// Resolve from the DB instead, exactly as the JS sibling already does
+	// (loadSiteComponentFunctionsForJS, render_js_snippets_for_site_action.go).
+	if len(components) == 0 {
+		if siteUUID, err := uuid.Parse(siteID); err == nil {
+			components = loadSiteComponentFunctionsForJS(ctx, params.DB, siteUUID, logger)
+		}
+		logger.Warn("RenderCSSFromSpecAction: component list was empty — resolved from the DB. "+
+			"An empty list would have written a stylesheet with no component CSS (bugs_open/072).",
+			zap.String("site_id", siteID),
+			zap.Int("recovered_components", len(components)))
+	}
+
 	darkSections := queryDarkSectionsForCSS(ctx, params.DB, components, logger)
 	sectionStyles := buildCSSsectionStyles(components, darkSections)
 

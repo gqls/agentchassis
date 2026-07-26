@@ -509,6 +509,12 @@ func rerenderSinglePage(ctx context.Context, db *sql.DB, page RerenderPageInfo, 
 		return nil, fmt.Errorf("no section content found for page %s", page.Name)
 	}
 
+	// CSS for this page's components (bugs_open/072). This bulk path deploys
+	// independently of RerenderSinglePageAction, so it needs its own call —
+	// without it a bulk rerender would strip the component CSS back off a page
+	// the single-page path had just styled. Same asymmetry as the JS note below.
+	componentCSS := collectComponentCSS(ctx, db, page.ID, logger)
+
 	// Build the complete page
 	var html strings.Builder
 
@@ -532,18 +538,20 @@ func rerenderSinglePage(ctx context.Context, db *sql.DB, page RerenderPageInfo, 
 			renderedHead = strings.Replace(renderedHead, "</head>",
 				fmt.Sprintf(`    <meta name="description" content="%s">`+"\n</head>", page.MetaDesc), 1)
 		}
-		html.WriteString(renderedHead)
+		html.WriteString(injectComponentCSS(renderedHead, componentCSS))
 	} else {
 		// Fallback head with essential elements
-		html.WriteString("<head>\n")
-		html.WriteString("    <meta charset=\"UTF-8\">\n")
-		html.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
-		html.WriteString(fmt.Sprintf("    <title>%s</title>\n", page.Title))
+		var fallbackHead strings.Builder
+		fallbackHead.WriteString("<head>\n")
+		fallbackHead.WriteString("    <meta charset=\"UTF-8\">\n")
+		fallbackHead.WriteString("    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
+		fallbackHead.WriteString(fmt.Sprintf("    <title>%s</title>\n", page.Title))
 		if page.MetaDesc != "" {
-			html.WriteString(fmt.Sprintf("    <meta name=\"description\" content=\"%s\">\n", page.MetaDesc))
+			fallbackHead.WriteString(fmt.Sprintf("    <meta name=\"description\" content=\"%s\">\n", page.MetaDesc))
 		}
-		html.WriteString("    <link rel=\"stylesheet\" href=\"/assets/css/styles.css\">\n")
-		html.WriteString("</head>\n")
+		fallbackHead.WriteString("    <link rel=\"stylesheet\" href=\"/assets/css/styles.css\">\n")
+		fallbackHead.WriteString("</head>\n")
+		html.WriteString(injectComponentCSS(fallbackHead.String(), componentCSS))
 	}
 
 	html.WriteString("<body>\n")
