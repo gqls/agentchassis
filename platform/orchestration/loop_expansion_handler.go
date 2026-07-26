@@ -126,6 +126,21 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			)
 
 			// =====================================================
+			// Carry the step-level error_step, under the same rule
+			// prefixConfigStepReferences applies to config.error_step:
+			// prefix it only when it names a substep of THIS loop; an
+			// external target (mark_item_failed, complete_error, ...)
+			// passes through untouched. Deliberately not
+			// resolveIterationNextStep — an error handler is not a chain
+			// link, so it must not roll over to the loop's _complete step
+			// on the last iteration (bugs_open/085).
+			// =====================================================
+			injectedStep.ErrorStep = substep.ErrorStep
+			if validSubstepSet[substep.ErrorStep] {
+				injectedStep.ErrorStep = fmt.Sprintf("%s_iter_%d_%s", loopName, iterIdx, substep.ErrorStep)
+			}
+
+			// =====================================================
 			// Also prefix config fields that reference other steps
 			// This handles conditionals (then_step, else_step) and other step refs
 			// =====================================================

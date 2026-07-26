@@ -426,6 +426,11 @@ func (p *MessageProcessor) convertToWorkflowPlan(workflowConfig map[string]inter
 					Action:      p.getStringValue(stepMap, "action"),
 					Description: p.getStringValue(stepMap, "description"),
 					NextStep:    p.getStringValue(stepMap, "next_step"),
+					// error_step is the step-level twin of config.error_step, and
+					// routeToErrorStepOrFail prefers it. Omitting it here made every
+					// step-level declaration inert fleet-wide — the plan the
+					// coordinator reads never carried the field (bugs_open/085).
+					ErrorStep:   p.getStringValue(stepMap, "error_step"),
 					OutputField: p.getStringValue(stepMap, "output_field"),
 					Topic:       p.getStringValue(stepMap, "topic"),
 				}
@@ -449,9 +454,28 @@ func (p *MessageProcessor) convertToWorkflowPlan(workflowConfig map[string]inter
 					zap.String("step_name", stepName),
 					zap.String("action", step.Action),
 					zap.String("next_step", step.NextStep),
+					zap.String("error_step", step.ErrorStep),
 					zap.String("output_field outputField", step.OutputField),
 				)
 			}
+		}
+	}
+
+	// An error_step naming a step that is not in the plan is not fatal — the
+	// coordinator routes to it and then fails with "step not found", i.e. the
+	// pre-fix behaviour with a more confusing message. Warn so a typo is visible
+	// at plan-build time rather than only when the step happens to fail.
+	// Loop substeps are expanded later (their names gain an iteration prefix),
+	// so only top-level targets can be checked here.
+	for stepName, step := range plan.Steps {
+		if step.ErrorStep == "" {
+			continue
+		}
+		if _, exists := plan.Steps[step.ErrorStep]; !exists {
+			p.logger.Warn("Step declares an error_step that is not in the plan",
+				zap.String("step_name", stepName),
+				zap.String("error_step", step.ErrorStep),
+			)
 		}
 	}
 
