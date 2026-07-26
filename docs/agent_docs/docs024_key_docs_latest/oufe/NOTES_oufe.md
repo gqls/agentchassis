@@ -319,3 +319,79 @@ footer heading **"Our Services"**, on a site with nothing to sell and a roadmap
 brief that explicitly said nothing may offer or imply a purchase. Both are
 commercial-shaped furniture that the component templates supply by default.
 Neither is dishonest exactly, but both are wrong for this site.
+
+---
+
+## 2026-07-26 (later) — the honesty rule made generic; homepage and chrome repaired
+
+**The compliance council seat now looks for this class** (owner direction).
+Migration 223 adds two contracts to `review_compliance`:
+
+- **OVERCLAIMED RELIABILITY** — a promise about our own accuracy is a claim like
+  any other, and it is the one class every scanner misses. Seat prompt names the
+  four phrases oufe actually shipped, and requires the honest posture instead.
+- **ILLUSTRATION, NOT AUTHORITY** — lead with mechanism; a real named case is
+  clearly-marked illustration, "a possibly inaccurate case study", not a
+  definitive account; a tool must say it can be wrong, and the caveat belongs
+  inside the result so it survives a screenshot.
+
+Judge clauses (e) and (f) added, and the seat is explicitly asked to **suggest**
+the honest wording rather than only name the fault — the owner's ask.
+
+Seated on `fix-proposer` and mirrored with `099_SYNC_gate_roster.py --apply`, per
+CLAUDE.md (never hand-patch the gate). The mirror reported drift ==
+`['review_compliance']` exactly, 16 seats both sides, routing OK, snapshot taken.
+**Verified afterwards that each roster kept its OWN context block** (fix-proposer:
+diagnosis; council-gate: rationale) — that swap is precisely what a hand-patch
+would have destroyed.
+
+A matching `STRICT RULE — NEVER PROMISE ACCURACY YOU CANNOT GUARANTEE` went to
+both content writers, so the rule shapes copy at generation and not only at
+review. **Trap:** the two writers keep their prompt at *different paths* —
+`page-content-writer` under `process_sections_loop.sub_workflow.steps
+.generate_content`, `content-writer` at the shallower `steps.generate_content`.
+The first UPDATE silently matched only one. Verify BOTH, by type.
+
+### Homepage and chrome repaired
+
+Six broken links down to one. Rather than invent destinations, the fix uses the
+templates' own fail-closed behaviour: `info-card-grid` wraps its anchor in
+`{{if .link_url}}`, so a card with no url renders as plain text. Cards for
+unwritten pages now say they are being written. Removed `Get Started` (header)
+and `Our Services` (footer) — default commercial shapes on a site that sells
+nothing.
+
+The two `unresolved_cta` items turned out to be labels with no `*_url`: hero and
+call-to-action both gate on `{{if and .cta_text .cta_url}}`, so those buttons had
+been rendering as **nothing at all**. Now pointed at pages that exist.
+
+### Two rendering landmines, both paid for
+
+1. **`049b_deploy_single_page.sh`'s `section_data_resolved` branch cannot work.**
+   It sends `{page_id, site_id, domain}`; `rerender_page_sections` requires
+   `target_site_id` and `page_name`. Both oufe re-renders FAILED with
+   `missing required fields: [page_name]`. Its assemble-only branch never touches
+   that action, which is why the gap survived — it only bites on the branch you
+   need after editing content_data. Replaced locally by `TRIGGER_rerender_page.sh`.
+   **Belongs to the cta_link_integrity workstream to fix at source.**
+2. **`slot_name` must equal the component's function name, not `'main'`.** On
+   every working page `slot_name` matches the entry in `pages.sections`. My
+   hand-inserted cases-index row used `'main'`, matched no section, rendered
+   nothing — and the run reported **`COMPLETED | complete_skipped`**. A
+   success-shaped non-event. The known trap is a NULL slot_name; a *wrong* one
+   fails identically and just as quietly. Also: a page still at
+   `build_status='planned'` is skipped regardless.
+
+### bugs_open/030 head-of-line blocking, second instance in two days
+
+The re-render queued behind offset 105214 — **another session's council-gate
+submission**, exactly as on 07-25 (that one was offset 104102). Consumer wedged,
+lag climbing, while 24 orchestrations from other paths completed normally in the
+same window.
+
+Two instances, two days, same named cause: **a large council-gate run stalls
+every unrelated message behind it on `system.agent.generic.requests`.** That is a
+sharper statement than the workstream's current "~8min stalls", and it is not
+cron-related. The practical consequence for anyone doing live-site work: a page
+fix can be authored, correct, and committed, and still not be visible for half an
+hour, with no failure anywhere to look at.

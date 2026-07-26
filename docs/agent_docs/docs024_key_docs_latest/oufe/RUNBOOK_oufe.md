@@ -224,7 +224,49 @@ hand, one call per pass.
 
 ---
 
-## 8. Tool acceptance (Tier 4)
+## 8. Editing live copy, and re-rendering one page
+
+`content_data` edits alone change nothing a visitor sees: the assemble stitches
+the **stored `rendered_html`**. To make an authored edit stick you must re-render
+the sections from content_data.
+
+```bash
+./docs/agent_docs/docs024_key_docs_latest/oufe/TRIGGER_rerender_page.sh <page_name> <domain> [reason]
+```
+Default reason `section_data_resolved` re-renders every section from stored
+content_data through the current template with **no LLM call**.
+
+**Gotchas, all of them paid for on 2026-07-26:**
+
+- **`049b_deploy_single_page.sh`'s `section_data_resolved` branch is broken.** It
+  sends `{page_id, site_id, domain}`, but `rerender_page_sections` declares
+  `Required: []string{"target_site_id", "page_name"}`
+  (`rerender_page_sections_action.go:80`) and nothing derives `page_name` from
+  `page_id`. You get:
+  `step rerender_sections failed: ... missing required fields: [page_name]`.
+  Its assemble-only branch never touches that action, which is why the gap
+  survived — it only bites on the branch you need after editing content_data.
+  The trigger above supplies `page_name`.
+- **`slot_name` must be the component's function name, not `'main'`.** On every
+  working page, `page_components.slot_name` equals the entry in `pages.sections`
+  (`hero-about`, `about-content`, `generic-text-block`). A hand-inserted row with
+  `slot_name='main'` matches no section, renders nothing, and the run reports
+  **`COMPLETED | complete_skipped`** — a success-shaped non-event. The adjacent
+  known trap is a NULL slot_name; a *wrong* one fails the same silent way.
+  Symptom to check first: `page_components.rendered_html` still NULL and
+  `rerender_single_page` returning `skipped: true, reason: "no components found
+  for page"` (`rerender_single_page_action.go:105-118`).
+- **A page at `build_status='planned'` is skipped too.** Set `needs_rebuild`
+  before re-rendering a page that was never built.
+- **Never re-render chrome with `refresh_site_components` after hand-editing it** —
+  that regenerates header/footer from the template and discards the edit. Chrome
+  lives in `site_components.rendered_html`; `pages.rendered_header/footer` were
+  NULL on this site, so the masters are the only place to patch.
+- Check for NULL `content_data` on ANY section first: one NULL escalates the whole
+  page to the content writer and **regenerates the copy**, silently discarding
+  authored text. The trigger refuses up front on this.
+
+## 9. Tool acceptance (Tier 4)
 
 The sweep `tool_acceptance_due` raises an `acceptance_run` item per active tool
 with a deployed page and current criteria; `tool-acceptance-agent` drives headless
