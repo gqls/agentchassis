@@ -4221,3 +4221,49 @@ partiality is itself a finding to explain, not a fact to interpret. "Some of it 
 least two causes — weak assertions, or a run that stopped early — and they demand opposite
 work.
 Family: verification-not-self-verifying, misread-in-direction-of-prior-belief, default-output-hides-the-gap.
+
+---
+
+## 2026-07-26 — I ran a £-costing production job off a handoff that had been rewritten 23 minutes after I read it
+
+**The claim:** the idea.uk handoff's "▶ START HERE" said, in bold, that nobody had yet
+received a report in the new format and that proving it end to end was "the single most
+valuable next action". I put that to the owner, got "full order, end to end", submitted a real
+order against the live site and started the engine — six model calls, two long web-search
+passes, roughly double the old per-report spend.
+
+**Why it was wrong:** it had already been done. A concurrent session and the owner ran it at
+**12:40 the same day** (`ord_1785069609860726188`, 13,227 chars, every new-format marker
+verified), and at **15:57** that session rewrote the same handoff to say so — replacing the
+"DO THIS FIRST" block with the evidence and promoting the deploy to top job. I had read the
+file at **15:34**. Everything I did after that was reasoned from a snapshot that no longer
+existed, including a question to the owner that misdescribed the state of his own product.
+
+**What caught it:** opening `RUNNING_NOTES` to append my session log and finding it already
+ended with an entry proving the thing I was in the middle of proving. Nothing about my own
+work would have revealed it — my order ran, the engine logged normally, every check passed.
+
+**The cheap check:** `ls -la` the workstream dir, or `git log --oneline -5`, **immediately
+before an expensive or irreversible action** — not once at session start. Two seconds. The
+mtimes were 15:57/15:58 against the 15:33–15:35 I had listed an hour earlier, and the change
+was visible in a single line of output.
+
+**The mechanism, which is the transferable part:** CLAUDE.md already says "your session-start
+`git status` is a snapshot; it goes stale within minutes", and I know it — I re-check before
+*committing*. What I had never internalised is that **the handoff document is shared mutable
+state too**, and it goes stale in exactly the same way and for the same reason. A doc feels
+like a fact about the world; it is a message from a session that may still be typing. The
+staleness window here was 23 minutes and it spanned the most consequential decision in the
+session.
+
+**The asymmetry that makes this worth a rule:** re-reading costs two seconds and the action it
+guards cost real money, a duplicated production job, and a question to the owner premised on a
+false state. Anything with an outward-facing or billable consequence deserves a fresh read of
+the doc that authorised it, *at the moment of firing* — because the more valuable a next action
+looks in a handoff, the more likely another session is already doing it.
+
+**Not a total loss, and that is luck, not design:** the 12:40 order was *declined*, so
+`approve → pay link → payment → delivery` had still never run in production. My duplicate run
+was steered onto that leg. A duplicate that happened to land on the one untested branch is not
+a vindication of the process that produced it.
+Family: shared-mutable-state, snapshot-went-stale, check-before-firing-not-at-start, coordination.
