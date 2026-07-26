@@ -429,6 +429,98 @@ func TestEveryCheckProducedItemTypeIsClassified(t *testing.T) {
 		len(seen), len(files), len(computedItemTypeSites))
 }
 
+// claimTimeoutMigrationGlob locates the migration that owns the claim-timeout
+// sweep's exclusion list. Globbed rather than hardcoded so a renumber (this
+// repo's migration numbers collide often — 016, 017, 027, 028, 029, 040, 043,
+// 044, 217 all have two files) does not silently disarm the guard.
+const claimTimeoutMigrationGlob = "../../../../docs/agent_docs/sql_for_agents/*_claimed_item_timeout_generic_evidence.sql"
+
+// claimTimeoutExclusionRe pulls the item_type exclusion list out of that
+// migration's pre_query.
+var claimTimeoutExclusionRe = regexp.MustCompile(`item_type NOT IN \(([^)]*)\)`)
+
+// TestRegisteredVerifiersMatchClaimTimeoutExclusion pins the two halves of one
+// contract: the Go verifier registry, and the item types the `claimed-item-timeout`
+// sweep refuses to auto-complete.
+//
+// WHY THIS EXISTS. CompleteWorkItemAction consults a verifier before stamping
+// 'complete', and a verifier can BLOCK completion — that is the bugs_open/017
+// and /021 completion-lie guard. bugs_open/006 §C added a generic branch to the
+// sweep that auto-completes a claim whose handler orchestration reached
+// COMPLETED, for every item type, because 15 of 18 types had no evidence test at
+// all and were re-running finished work. SQL cannot call a Go verifier, so that
+// branch excludes the item types that have one.
+//
+// The failure mode this guards is silent and one-sided: register a fourth
+// verifier, leave the SQL alone, and the sweep will auto-complete an item the
+// verifier would have blocked — with no caller to notice, because a sweep has
+// none. Two hand-maintained lists that must stay identical is the exact drift
+// class this repo keeps paying for, so it is pinned rather than trusted.
+//
+// It reads the migration file directly instead of comparing against a third
+// literal copy here: a guard whose own copy can drift is not a guard.
+func TestRegisteredVerifiersMatchClaimTimeoutExclusion(t *testing.T) {
+	matches, err := filepath.Glob(claimTimeoutMigrationGlob)
+	if err != nil {
+		t.Fatalf("glob %s: %v", claimTimeoutMigrationGlob, err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("expected exactly 1 claim-timeout migration matching %s, found %d (%v).\n"+
+			"If it was renamed, fix claimTimeoutMigrationGlob — this guard is inert until you do.",
+			claimTimeoutMigrationGlob, len(matches), matches)
+	}
+
+	src, err := os.ReadFile(matches[0])
+	if err != nil {
+		t.Fatalf("read %s: %v", matches[0], err)
+	}
+
+	found := claimTimeoutExclusionRe.FindSubmatch(src)
+	if found == nil {
+		t.Fatalf("no `item_type NOT IN (...)` exclusion list found in %s.\n"+
+			"Either the sweep no longer excludes verifier-backed item types — in which case it can now\n"+
+			"auto-complete an item its verifier would have blocked — or the SQL was reshaped and this\n"+
+			"guard went vacuous. Both need a human.", matches[0])
+	}
+
+	excluded := map[string]bool{}
+	for _, raw := range strings.Split(string(found[1]), ",") {
+		itemType := strings.Trim(strings.TrimSpace(raw), "'")
+		if itemType != "" {
+			excluded[itemType] = true
+		}
+	}
+
+	registered := map[string]bool{}
+	for _, itemType := range RegisteredVerifierItemTypes() {
+		registered[itemType] = true
+	}
+	if len(registered) == 0 {
+		t.Fatal("zero verifiers registered — either init() ordering broke or the registry moved; " +
+			"this guard is comparing two empty sets and proving nothing")
+	}
+
+	for itemType := range registered {
+		if !excluded[itemType] {
+			t.Errorf("item_type %q HAS a Go verifier but is NOT excluded in %s.\n"+
+				"The claimed-item-timeout sweep will auto-complete it on handler-orchestration evidence alone,\n"+
+				"bypassing the verifier that can block completion (bugs_open/017, /021).\n"+
+				"Add %q to the `item_type NOT IN (...)` list in that migration and apply it.",
+				itemType, filepath.Base(matches[0]), itemType)
+		}
+	}
+
+	for itemType := range excluded {
+		if !registered[itemType] {
+			t.Errorf("item_type %q is excluded from the claim-timeout sweep in %s but has NO verifier.\n"+
+				"Nothing can ever prove its completion, so it falls through to the 40-minute reset forever —\n"+
+				"the churn bugs_open/006 §C was filed about. Remove it from the exclusion list, or register\n"+
+				"the verifier its exclusion implies.",
+				itemType, filepath.Base(matches[0]))
+		}
+	}
+}
+
 // TestVerifierCoverageIsReported prints the coverage picture so a reader sees
 // the shape of the gap rather than only its violations. Never fails.
 func TestVerifierCoverageIsReported(t *testing.T) {
