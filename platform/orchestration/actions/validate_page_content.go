@@ -7,7 +7,11 @@
 //   1. Placeholder text — "To be added", "Lorem ipsum", "[insert", etc.
 //   2. Unrendered templates — {{.field}}, {{range}}, {{if}}
 //   3. Cross-site contamination — wrong domain/company name in content
-//   4. Broken internal links — hrefs pointing to non-existent pages
+//   4. Broken internal links — hrefs pointing to non-existent pages. These are
+//      REPAIRED here rather than merely reported (bugs_open/079): a target that
+//      exists at its .html form has its href rewritten to the stored pages.url;
+//      anything else has the <a> removed and its text kept. Opt out per call
+//      with repair_internal_links:false.
 //   5. Hallucinated emails — email addresses that don't match site's contact
 //   6. Content length — suspiciously short content
 //   7. LLM meta-commentary — model prose about its own task/inability
@@ -25,14 +29,27 @@
 //      <code> sample is not an assertion). See SPEC_claims_verification.
 //
 // Returns:
-//   - valid: bool (false if any blockers found)
-//   - clean_html: HTML with stray comments stripped (for save_sections)
+//   - valid: bool (false if any blockers or errors found)
+//   - clean_html: HTML with stray comments stripped AND dead internal links
+//     repaired — this is what save_sections persists, so a repair here is what
+//     ships
 //   - issues: array of issues with category, severity, detail
 //   - blocker/warning/error counts
+//   - links_rewritten / links_unlinked / link_repairs: what the repair pass did
 //
-// Blockers (prevent deployment): placeholder, template, contamination
-// Errors (prevent deployment): broken_link, invalid_email
-// Warnings (logged only): short_content
+// Blockers (prevent deployment): placeholder, template, contamination,
+//	meta-commentary, banned claim, placeholder email
+//
+// Errors (prevent deployment): invalid/unregistered email, unregistered number
+//
+// Warnings (do NOT prevent deployment): short_content, and the link findings —
+// which are warnings BECAUSE the repair pass has already removed the defect from
+// clean_html, not because a dead link is acceptable. See validateInternalLinks.
+//
+// CORRECTED 2026-07-26: this legend previously read "Errors (prevent
+// deployment): broken_link" and had never been true — broken_link has always
+// been filed at warning severity, and warnings have never been counted by
+// `valid`. That gap between the documented and actual policy is bugs_open/079.
 //
 // Registration:
 //   "validate_page_content": {
@@ -192,6 +209,13 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	checkLinks := configBoolOrDefault(config, "check_internal_links", true)
 	checkEmails := configBoolOrDefault(config, "check_emails", true)
 	checkClaims := configBoolOrDefault(config, "check_claims", true)
+	// repair_internal_links is the reversal lever for bugs_open/079's fleet-wide
+	// content change. It defaults ON — an off-by-default repair would be inert
+	// and the bug would still be live — but DB config is live-immediately, so
+	// the behaviour can be withdrawn fleet-wide without waiting for an image
+	// roll. Repair is additionally gated on check_internal_links: the repair
+	// acts on what that check found, so it cannot run without it.
+	repairLinks := configBoolOrDefault(config, "repair_internal_links", true)
 	checkStatClaims := configBoolOrDefault(config, "check_stat_claims", true)
 	checkStatUnits := configBoolOrDefault(config, "check_stat_units", true)
 
@@ -218,10 +242,20 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 		issues = append(issues, checkDomainContamination(htmlStr, domain, companyName, allowedRefs)...)
 	}
 
-	// 4. Broken internal links
+	// 4. Broken internal links.
+	// The page set is loaded ONCE here and reused by the repair pass below, so
+	// detection and repair can never disagree about what a real page is.
+	// pageIndexOK false means the query failed — in that case we neither flag
+	// nor repair. Flagging against a half-loaded set produces a phantom warning
+	// for every link on the page; repairing against one would strip them all.
+	var pageIndex datahelpers.PageURLIndex
+	pageIndexOK := false
 	if checkLinks && params.DB != nil && siteIDStr != "" {
 		if siteID, err := uuid.Parse(siteIDStr); err == nil {
-			issues = append(issues, validateInternalLinks(ctx, params.DB, htmlStr, siteID, logger)...)
+			pageIndex, pageIndexOK = loadValidPagePaths(ctx, params.DB, siteID, logger)
+			if pageIndexOK {
+				issues = append(issues, validateInternalLinks(htmlStr, pageIndex)...)
+			}
 		}
 	}
 
@@ -278,20 +312,6 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 
 	valid := blockerCount == 0 && errorCount == 0
 
-	// Build issues list for output
-	issuesMaps := make([]map[string]string, len(issues))
-	for i, issue := range issues {
-		issuesMaps[i] = map[string]string{
-			"type":        issue.Type,
-			"category":    issue.Category,
-			"severity":    issue.Severity,
-			"location":    issue.Location,
-			"value":       issue.Value,
-			"expected":    issue.Expected,
-			"description": issue.Description,
-		}
-	}
-
 	logger.Info("ValidatePageContentAction: complete",
 		zap.Bool("valid", valid),
 		zap.Int("blockers", blockerCount),
@@ -328,17 +348,109 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	doubleNewline := regexp.MustCompile(`\n\s*\n\s*\n`)
 	cleanHTML = doubleNewline.ReplaceAllString(cleanHTML, "\n\n")
 
+	// ── Repair the dead internal links check 4 just found (bugs_open/079) ──
+	// Deliberately AFTER every check has run against the original htmlStr, so
+	// no other check's input is changed by this pass; and against cleanHTML, so
+	// the repair lands in the string save_sections actually persists.
+	var repairs []datahelpers.LinkRepair
+	if repairLinks && pageIndexOK {
+		cleanHTML, repairs = datahelpers.RepairPageLinks(cleanHTML, pageIndex)
+	}
+	rewritten, unlinked := countLinkRepairs(repairs)
+	annotateLinkRepairs(issues, repairs)
+
+	if len(repairs) > 0 {
+		logger.Info("ValidatePageContentAction: repaired dead internal links",
+			zap.Int("rewritten", rewritten),
+			zap.Int("unlinked", unlinked),
+			zap.String("domain", domain))
+		// A pod log line is not a record. Persist what we DID, not only what we
+		// saw — bugs_open/071 gap 3: on the success path this action wrote
+		// nothing durable, and collected_data is pruned at ~24h.
+		writeLinkRepairLog(ctx, params, siteIDStr, domain, repairs, rewritten, unlinked, logger)
+	}
+
+	// Build issues list for output — after the repair pass, so each link issue
+	// carries what was done about it, not just that it was seen.
+	issuesMaps := make([]map[string]string, len(issues))
+	for i, issue := range issues {
+		issuesMaps[i] = map[string]string{
+			"type":        issue.Type,
+			"category":    issue.Category,
+			"severity":    issue.Severity,
+			"location":    issue.Location,
+			"value":       issue.Value,
+			"expected":    issue.Expected,
+			"description": issue.Description,
+		}
+	}
+
+	repairMaps := make([]map[string]string, 0, len(repairs))
+	for _, r := range repairs {
+		repairMaps = append(repairMaps, map[string]string{
+			"href":     r.Href,
+			"new_href": r.NewHref,
+			"action":   r.Action,
+		})
+	}
+
 	return map[string]interface{}{
-		"valid":          valid,
-		"clean_html":     cleanHTML,
-		"blockers":       blockerCount,
-		"errors":         errorCount,
-		"warnings":       warningCount,
-		"issue_count":    len(issues),
-		"issues":         issuesMaps,
-		"checked_links":  countInternalLinks(htmlStr),
-		"checked_emails": countEmailAddresses(htmlStr),
+		"valid":           valid,
+		"clean_html":      cleanHTML,
+		"blockers":        blockerCount,
+		"errors":          errorCount,
+		"warnings":        warningCount,
+		"issue_count":     len(issues),
+		"issues":          issuesMaps,
+		"checked_links":   countInternalLinks(htmlStr),
+		"checked_emails":  countEmailAddresses(htmlStr),
+		"links_rewritten": rewritten,
+		"links_unlinked":  unlinked,
+		"link_repairs":    repairMaps,
 	}, nil
+}
+
+// countLinkRepairs splits the repair list by action.
+func countLinkRepairs(repairs []datahelpers.LinkRepair) (rewritten, unlinked int) {
+	for _, r := range repairs {
+		switch r.Action {
+		case datahelpers.LinkRepairRewrite:
+			rewritten++
+		case datahelpers.LinkRepairUnlink:
+			unlinked++
+		}
+	}
+	return rewritten, unlinked
+}
+
+// annotateLinkRepairs records on each link issue what the repair pass did about
+// it. Type and Severity are deliberately UNCHANGED: bugs_open/071's evidence
+// trail and the post-deploy audit both key on "phantom_link", and a fix that
+// renames the finding would silently empty every query that looks for it.
+func annotateLinkRepairs(issues []ValidationIssue, repairs []datahelpers.LinkRepair) {
+	if len(repairs) == 0 {
+		return
+	}
+	byHref := make(map[string]datahelpers.LinkRepair, len(repairs))
+	for _, r := range repairs {
+		byHref[r.Href] = r
+	}
+	for i := range issues {
+		if issues[i].Category != "link" {
+			continue
+		}
+		r, ok := byHref[issues[i].Value]
+		if !ok {
+			continue
+		}
+		switch r.Action {
+		case datahelpers.LinkRepairRewrite:
+			issues[i].Expected = r.NewHref
+			issues[i].Description += fmt.Sprintf(" — href rewritten to %s before save", r.NewHref)
+		case datahelpers.LinkRepairUnlink:
+			issues[i].Description += " — link removed before save, anchor text kept"
+		}
+	}
 }
 
 // ============================================================================
@@ -439,6 +551,99 @@ func writeValidationFailureLog(
 	logger.Info("ValidatePageContentAction: wrote structured failure log",
 		zap.Int("blocker_count", blockerCount),
 		zap.Int("error_count", errorCount))
+}
+
+// linkRepairErrorCode is DELIBERATELY distinct from validationDetailErrorCode.
+// The two rows answer different questions — "why did this build fail" versus
+// "what did the gate change on a build that succeeded" — and existing queries
+// filtering on the blocker code must keep returning exactly what they returned
+// before this change.
+const linkRepairErrorCode = "CONTENT_LINK_REPAIR_DETAIL"
+
+// writeLinkRepairLog persists what the repair pass DID, on the success path.
+//
+// bugs_open/071 gap 3: a page whose only findings were warnings wrote nothing
+// durable at all. The issue list survived solely in collected_data, which
+// database-cleanup prunes at ~24h, and in one pod-log line carrying the COUNT
+// but not the hrefs — so a day later, the fact that the platform knew about
+// eight specific broken links was unrecoverable.
+//
+// This writes a work RECORD, not a work ITEM, and that is a deliberate choice.
+// A site_work_items row would promise a repair that nothing performs:
+// bugs_open/083 measured phantom_internal_link detected 22 times and fixed zero
+// times ever, because the only thing that promotes 'detected' rows lives in the
+// disabled improvement-sweep; and bugs_open/077 warns specifically against
+// filing items whose handler has no remit. The link is already repaired by the
+// time this runs — what is owed is an auditable account, not a queue entry.
+//
+// Best-effort, like its sibling: a logging failure must never fail a build whose
+// content is already correct.
+func writeLinkRepairLog(
+	ctx context.Context,
+	params ActionParams,
+	siteIDStr string,
+	domain string,
+	repairs []datahelpers.LinkRepair,
+	rewritten, unlinked int,
+	logger *zap.Logger,
+) {
+	if params.DB == nil || len(repairs) == 0 {
+		return
+	}
+
+	repairMaps := make([]map[string]string, 0, len(repairs))
+	for _, r := range repairs {
+		repairMaps = append(repairMaps, map[string]string{
+			"href":     r.Href,
+			"new_href": r.NewHref,
+			"action":   r.Action,
+		})
+	}
+
+	contextData := map[string]interface{}{
+		"rewritten": rewritten,
+		"unlinked":  unlinked,
+		"repairs":   repairMaps,
+		"page_name": datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
+		"page_url":  datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.url"),
+	}
+	contextJSON, err := json.Marshal(contextData)
+	if err != nil {
+		logger.Warn("ValidatePageContentAction: failed to marshal link repair context", zap.Error(err))
+		return
+	}
+
+	var siteIDArg interface{}
+	if siteIDStr != "" {
+		if id, err := uuid.Parse(siteIDStr); err == nil {
+			siteIDArg = id
+		}
+	}
+
+	_, err = params.DB.ExecContext(ctx, `
+		INSERT INTO agent_error_log
+		    (site_id, domain, agent_type, step_name, action,
+		     error_message, error_code, severity, context)
+		VALUES ($1, NULLIF($2, ''), $3, $4, $5, $6, $7, 'warning', $8::jsonb)
+	`,
+		siteIDArg,
+		domain,
+		"page-build-handler", // best-effort; the action runs under this agent
+		"validate_content",
+		"validate_page_content",
+		fmt.Sprintf("Repaired %d dead internal link(s) before save: %d href(s) rewritten, %d link(s) removed; see context.repairs",
+			len(repairs), rewritten, unlinked),
+		linkRepairErrorCode,
+		string(contextJSON),
+	)
+	if err != nil {
+		logger.Warn("ValidatePageContentAction: failed to write link repair log", zap.Error(err))
+		return
+	}
+
+	logger.Info("ValidatePageContentAction: wrote link repair log",
+		zap.Int("rewritten", rewritten),
+		zap.Int("unlinked", unlinked))
 }
 
 // ============================================================================
@@ -575,10 +780,8 @@ func checkDomainContamination(html string, expectedDomain string, expectedCompan
 // Check 4: Broken internal links (from existing code)
 // ============================================================================
 
-func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID uuid.UUID, logger *zap.Logger) []ValidationIssue {
+func validateInternalLinks(html string, validPages datahelpers.PageURLIndex) []ValidationIssue {
 	var issues []ValidationIssue
-
-	validPages := loadValidPagePaths(ctx, db, siteID, logger)
 
 	// Href extraction, scope classification and page-path normalisation are the
 	// shared datahelpers definitions — the same ones the post-deploy audit
@@ -588,7 +791,7 @@ func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID 
 		switch datahelpers.ClassifyLinkScope(href) {
 		case datahelpers.LinkScopeEmpty:
 			// An empty href renders as a dead link/button (e.g. an unpopulated
-			// "Browse All X" CTA). Loud but non-blocking.
+			// "Browse All X" CTA). Non-blocking — see the policy note below.
 			issues = append(issues, ValidationIssue{
 				Type:        "empty_internal_href",
 				Category:    "link",
@@ -597,10 +800,27 @@ func validateInternalLinks(ctx context.Context, db *sql.DB, html string, siteID 
 				Description: "Empty href — link/button has no destination",
 			})
 		case datahelpers.LinkScopePage:
-			// Policy: a missing internal target is loud but NON-blocking — the
-			// improvement loop resolves it; a missing link is not a deploy
-			// stopper. We flag only true phantoms: an href with no pages row at
-			// all. Planned-but-unbuilt pages have a row (status not
+			// POLICY (rewritten 2026-07-26, bugs_open/079 + 071 candidate 5).
+			//
+			// A missing internal target is filed at WARNING, so it does not
+			// stop the deploy. That is now true for a different reason than it
+			// used to be: RepairPageLinks removes the defect from clean_html
+			// before save_sections persists it, so what ships has no dead link
+			// in it. The finding is recorded, not deferred.
+			//
+			// The previous justification — "the improvement loop resolves it" —
+			// was FALSE for the whole time it was relied on. That loop has been
+			// off since 2026-05 (bugs_open/083: this exact item type was
+			// detected 22 times and fixed zero times, ever), so the fail-open
+			// deferred to a repairer that does not run, and the page shipped a
+			// 404. Two threads read that comment as "handled".
+			//
+			// If repair_internal_links is turned OFF, warning severity reverts
+			// to meaning exactly what it used to: the dead link ships and
+			// nothing downstream fixes it. Turn it off only knowing that.
+			//
+			// We flag only true phantoms: an href with no pages row at all.
+			// Planned-but-unbuilt pages have a row (status not
 			// deleted/archived) and are tolerated silently.
 			if !validPages.Contains(href) {
 				issues = append(issues, ValidationIssue{
@@ -848,35 +1068,59 @@ func checkTextLength(html string) []ValidationIssue {
 // DB helpers (from existing code)
 // ============================================================================
 
-// loadValidPagePaths returns the set of real page targets for the site.
-// Return type is datahelpers.PageURLSet (was map[string]bool): membership is now
-// tested via the shared NormalizePagePath, so the many hand-built url variants
-// the old map carried are no longer needed — one normal form covers them.
-func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) datahelpers.PageURLSet {
+// loadValidPagePaths returns the real page targets for the site, indexed by
+// normalised path so a repair can hand back the URL the database actually
+// stores. Membership is tested via the shared NormalizePagePath, so the many
+// hand-built url variants the old map carried are no longer needed — one normal
+// form covers them.
+//
+// The bool is "this set is TRUSTWORTHY", and it is load-bearing. This function
+// used to swallow a query failure and return an empty set, which was survivable
+// while the only consequence was a spurious warning per link. It is not
+// survivable now: an empty set means every link on the page is a phantom, and
+// the repair pass would strip the lot. It also now checks rows.Err(), because a
+// mid-iteration failure silently TRUNCATES the set — a partial page list is the
+// same hazard wearing a disguise, and it would unlink only some of the page's
+// links, which is harder to notice than losing all of them.
+func loadValidPagePaths(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) (datahelpers.PageURLIndex, bool) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT url FROM pages
 		WHERE site_id = $1 AND status NOT IN ('deleted', 'archived')
 	`, siteID)
 	if err != nil {
-		logger.Warn("Failed to load pages for validation", zap.Error(err))
-		return datahelpers.NewPageURLSet(nil)
+		logger.Warn("Failed to load pages for validation — link check and repair SKIPPED",
+			zap.Error(err))
+		return nil, false
 	}
 	defer rows.Close()
 
 	var urls []string
 	for rows.Next() {
-		var url string
+		// pages.url is nullable. A NULL is not a link target and not evidence
+		// that the list is truncated, so it is skipped rather than treated as a
+		// load failure — otherwise one malformed row anywhere on a site would
+		// disable link checking for that whole site.
+		var url sql.NullString
 		if err := rows.Scan(&url); err != nil {
-			continue
+			logger.Warn("Failed to scan page url — link check and repair SKIPPED",
+				zap.Error(err))
+			return nil, false
 		}
-		urls = append(urls, url)
+		if url.Valid && url.String != "" {
+			urls = append(urls, url.String)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		logger.Warn("Page list truncated by a row error — link check and repair SKIPPED",
+			zap.Error(err))
+		return nil, false
 	}
 	urls = append(urls, "/", "/index.html") // site root is always valid
 
 	logger.Info("ValidatePageContentAction: loaded valid pages",
 		zap.Int("page_count", len(urls)))
 
-	return datahelpers.NewPageURLSet(urls)
+	return datahelpers.NewPageURLIndex(urls), true
 }
 
 func loadSiteContactEmail(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {
