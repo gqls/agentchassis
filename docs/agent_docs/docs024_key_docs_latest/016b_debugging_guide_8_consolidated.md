@@ -2472,6 +2472,44 @@ assembler's visible-content filter alongside the rebuild's own filter. Category 
 `duplicated-judgement`, `one-site-fixed-sibling-heuristic`, `explicit-marker-over-proxy`,
 `latent-until-new-input`.
 
+**ADDED 2026-07-26 (`bugs_open/052`) — the sharper variant: extracting the shared predicate
+is what makes the remaining copy invisible.** Above, the fix was applied at one site and a
+sibling kept a heuristic. Here the fix did the *structurally right* thing — it created an
+exported constant, `queryresolve.FetchablePageEligibilitySQL`, gave it a long doc comment
+citing the bug by number, wired three derivations onto it and pinned it with a unit test —
+and a fourth derivation, written earlier and never migrated, kept the original defect.
+`rebuild_blog_listing_action.go` still selected on its own hand-written
+`build_status IN ('deployed','needs_rebuild')`, which is precisely the naive predicate the
+bug's own addendum had measured as wrong.
+
+The failure mode is specific and worth naming: **a shared helper does not propagate itself,
+and its existence is evidence *against* looking further.** The bug file's fix candidate 2
+said the structural fix was "a shared listable-pages helper". That helper was built. Anyone
+checking would find a well-documented shared predicate, tests, and three adopting call
+sites, and reasonably conclude the case was closed — the file was never even updated to say
+the fix had shipped, so it read as untouched for five days while production had it.
+
+**The tell to grep for.** Not "who calls the helper" — that finds the sites already fixed.
+Grep for the **columns the helper reasons about**, fleet-wide, and subtract the callers:
+here, every query naming `build_status` or `deployed_at` against `pages`. What is left is
+either a deliberate exception or an unmigrated copy, and both need a comment saying which.
+That sweep also turned up `discovery_checks.neverDeployedPredicate` — an unexported,
+negative-form third encoding of the same rule, currently agreeing with the constant only by
+accident (a NULL `build_status` makes both disjuncts falsy).
+
+Two corollaries, both paid for here:
+
+- **A latent copy still costs.** The blog-listing gap had measured-zero live exposure (the
+  11 mis-listed rows were all on a site whose blog page the action cannot resolve), so no
+  sweep, no failure row and no user report would ever have surfaced it. Only reading the
+  code did. "Nothing is failing" is not evidence the class is closed.
+- **The unmigrated copy can be worse than the original.** This one had *no* `status` filter
+  at all, so it listed `archived` pages — defeating the archiving route the bug file itself
+  recommends as containment. The original defect at least respected archiving.
+
+Category tags: `helper-built-copy-unmigrated`, `shared-constant-does-not-propagate`,
+`grep-the-columns-not-the-callers`, `latent-copy-zero-exposure`.
+
 ### A NUL byte anywhere in marshalled state kills the whole jsonb persist (22P05) — and silently, the run
 
 **Symptom.** An orchestration dies at a step whose own work succeeded; the stored result says
@@ -3051,6 +3089,45 @@ the mechanism.
 Category tags: `path-assumes-a-shape`, `on_missing-withholds-silently`,
 `fleet-correlation-names-the-mechanism`, `default-config-is-the-broken-case`.
 
+### A "the bad string is gone" check passes on a 404 — a negative assertion over an unguarded fetch is vacuous (2026-07-26)
+
+*Added 2026-07-26 while closing `bugs_closed/045`, whose own RUNBOOK carried the bug.*
+
+The definitive live test for 045 was written as:
+
+```bash
+curl -s https://finetuning.uk/tools/ai-agent-roi-estimator/ | \
+  grep -ciE 'Start Ranking Free|Calculate Rankings|Bayesian'   # expect 0
+```
+
+That URL 404s — the fleet serves `/tools/<name>.html`, not `/tools/<name>/`. The 404 body is a
+304-byte B2 error JSON. It contains no Bayesian strings, so the command prints `0`, the check
+"passes", and a case closes on a page that **does not exist**. The absence was real and entirely
+meaningless.
+
+**The general shape: a check that asserts the ABSENCE of something cannot distinguish "fixed"
+from "not there", "not built", "renamed", "misspelled regex", or "wrong host".** Every failure
+mode of the *check itself* produces the passing answer. This is the mirror of
+`ON CONFLICT DO NOTHING` succeeding while inserting nothing, and of "zero rows is not a green
+light" above: in all three, the success signal is also what you get from doing nothing at all.
+A positive assertion has the opposite bias — if the fetch, the path or the regex is wrong, it
+fails, and you go and look.
+
+**Cheap checks, in order of preference:**
+1. **Pair every negative with a positive over the same fetch.** Fetch once to a file, then assert
+   both: the bad string is absent **and** a marker that page must contain is present
+   (`data-component="hero-tool"`, the expected `<h1>`). One command, no extra round trip, and it
+   cannot pass on an error body.
+2. **Guard the status.** `curl -s -o body -w '%{http_code}'` and refuse to grade anything that is
+   not 200. Never pipe `curl` straight into `grep` for a negative assertion.
+3. **Sanity-check the size.** A 304-byte "page" is not a page. A byte count in the expectation
+   (`70,162 B`) catches the whole class for free and costs nothing to record.
+4. **Verify the URL against the row, not against the doc.** `pages.url` is authoritative; a URL
+   retyped into a runbook is a claim that goes stale the day a route convention changes.
+
+Category tags: `absence-is-not-evidence`, `vacuous-verification`, `false-green`,
+`negative-assertion-needs-a-positive-control`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3115,7 +3192,7 @@ See `/bugs_closed/README.md`.
 
 | 060 | **No durable record of which agents have ever run.** `agent_definitions.usage_count` is unmaintained — **0 for all 162 active agents** incl. `fix-proposer`/`section-editor`/`generic` (the column is even SELECTed by `FindByType` but never incremented). The only run-history substrate, `orchestration_states`, is pruned **hourly at 24h** by `database-cleanup` (`DELETE … status IN (COMPLETED,FAILED) AND updated_at < now()-24h`); `orchestration_state_audit` is ~2 days. So the LIFETIME "has this ever run" question — the exact one answered wrong for `section-editor` (3 lifetime runs, declared nonexistent) — cannot be answered at all. Blocks `044`'s detector from reliable emission (its window guard gates it off until this is fixed) | filed 2026-07-22 out of `044`. Fix candidates: revive `usage_count`+`last_ran_at` in the completion path (crux = resolving the real `agent_type` past the `generic` attribution), or a long-retention `agent_run_log`. Forward-only |
 
-| 045 | The active library contains **exactly one** component able to serve a generic `hero-tool` section, and it is hard-wired to a Bayesian ranker — 14 `source:static` fallbacks (`Start Ranking Free`, `Calculate Rankings`, `Try the Bayesian Ranker`) that `content_data` cannot override. So every tool page asking for a tool hero gets another product's vocabulary. **Not a planner defect** — the plan asked for `hero-tool` and that was correct; the library is missing the component. Sibling of `039` (same selector: that one resolves to *nothing*, this one to the *wrong* thing) | filed 2026-07-20, split out of `023` class F. **Armed on 2 live pages** (`finetuning.uk/ai-agent-roi-estimator`, `ai-agent-orchestration.com/agent-complexity-estimator`) — both `needs_rebuild` with `hero-tool` still in `pages.sections`, clean today only because they have not been rebuilt. Fix = build a generic gated tool hero; **do NOT delete the `_pre_037` row**, it is the sole active row for its function |
+| 045 | The active library contained **exactly one** component able to serve a generic `hero-tool` section, and it was hard-wired to a Bayesian ranker — 14 `source:static` fallbacks (`Start Ranking Free`, `Calculate Rankings`, `Try the Bayesian Ranker`) that `content_data` cannot override. So every tool page asking for a tool hero got another product's vocabulary. **Not a planner defect** — the plan asked for `hero-tool` and that was correct; the library was missing the component. Sibling of `039` (same selector: that one resolves to *nothing*, this one to the *wrong* thing) | **CLOSED 2026-07-26 → `bugs_closed/045_…`.** Fix live since 2026-07-21 (migration **183**, DB config, no image roll): a generic `hero-tool` component (all labels `llm`, CTAs gated `{{if .x_url}}`, trust stats optional) plus the Bayesian row **superseded, not deleted** (`section_type` → `bayesian-ranking-hero-tool`, still active — it is the sole active row for its function and is correctly placed on `gamesdesign.co.uk/bayesian-ranking`). Held open for an artefact-level rebuild proof, since **a rebuild is what arms this** and `page_rerender` does not re-select. **That proof landed unprompted 2026-07-25**: `fundamentallyai.com/llm-cost-calculator` built through the real path (all 4 `page_components` rows `created_at == updated_at` — the discriminator for a genuine re-selection), `hero-tool` → the generic component, live page 200/70,162 B, **0** Bayesian strings, page-appropriate headline, **zero anchors emitted** (gating held → a missing button, never a dead one) and **zero trust stats** (anti-fabrication gate held). Fleet sweep: exactly **one** placement of the Bayesian vocabulary anywhere, on the one page where it is right. Not claimed: the two originally-named pages have still not rebuilt (both clean live, both can now only select the generic), and the proof page was fresh rather than repaired — closure rests on one real rebuild plus a deterministic selector (sole candidate, no score threshold). Candidate 4 (build-time selection-sanity check) unbuilt, handed to `features_open/017`. **Its RUNBOOK's own live check was a false green** — see the §9 entry on negative assertions passing on a 404 |
 
 | 041 | Section lookup (`loadSectionComponents`, `v3_site_actions.go:3353`) resolves by name then by function and **never normalises**, while a sibling path (`:3730`) does — so a `snake_case` section (`call_to_action`) matches nothing, `plan_sections` Path 3 raises a `needs_new_component` for a component that **already exists** as `call-to-action`, and the page deploys without the section. 10 such items, 4 sites, since 2026-05-18, all `failed`. Explains the BULK of 040's fleet sweep (`call_to_action` ×14, `hero` ×6, vs only 4 legitimate `skip_section`) | filed 2026-07-20; cause proven from code + live rows, no fix started |
 | 047 | Every `batch_scrape` rejected as "Empty URL" before its own handler (guard preceded the action switch) — research-agent's scrape lane + V5 acquisition dead, disguised as await-timeouts | **CLOSED & LIVE v1.0.1145 (2026-07-21)** — fix `8d9d9051a`, moved to `/bugs_closed/`. Verified behaviourally (pure reordering, no pod-grep symbol): a `verify047` batch_scrape smoke reached `handleBatchScrape` and succeeded, no "Empty URL" |

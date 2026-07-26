@@ -40,7 +40,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **4** |
 | **read the SCHEMA before naming a column — a Go map key is not a column** | **2** |
-| **check a SIBLING instance before calling a defect "generic"/fleet-wide** | **1** |
+| **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
 | **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents** | **1** |
 | **check an example you write against the artifact it constrains** | **1** |
@@ -58,6 +58,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **4** |
+| **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -3478,3 +3479,58 @@ days. Two-line variant worth keeping: when an action takes a selector, assert
 the OUTPUT differs per selector; identical output across two "different" runs is
 the whole signal. Family: read-the-warning-didn't-apply-it,
 status-is-not-artefact, silent-default-wins.
+
+**2026-07-26 — wrote a live-verification command that could only ever return the
+passing answer, and it sat in a RUNBOOK for five days as the case's definitive
+test.** Closing `bugs_closed/045` (a tool hero hard-wired to a Bayesian ranker),
+the runbook's final proof was
+`curl -s https://finetuning.uk/tools/ai-agent-roi-estimator/ | grep -ciE '…Bayesian'  # expect 0`.
+The URL 404s — the fleet serves `/tools/<name>.html`, not `/tools/<name>/` — and
+the 404 body is a 304-byte B2 error JSON containing, naturally, no Bayesian
+strings. So the command prints `0` and the check passes **against a page that
+does not exist**. Nothing about it was conditional on the fix; it would have
+printed `0` before the fix, after it, and against a typo'd hostname.
+**What caught it:** curling with `-w '%{http_code}'` out of ordinary caution
+while gathering closure evidence, and noticing a 404 next to a "clean" result.
+Pure luck of habit — the runbook does not tell you to. **The cheap check:** never
+pipe `curl` straight into `grep` for a negative assertion. Fetch once to a file,
+then assert **both** the bad string's absence and a positive marker the page must
+contain (`data-component="hero-tool"`, the expected `<h1>`); the positive half
+fails loudly on every failure mode of the check itself. Guarding the status, or
+just recording the expected byte count, kills the same class for free.
+**The class — and why it earns a row rather than a shrug:** a negative assertion
+is *satisfied by nothing existing*, so every way the check can be broken produces
+"pass". This is the same shape as `ON CONFLICT DO NOTHING` returning `err == nil`
+while inserting nothing, and "zero rows is not a green light" — three entries now
+where the success signal is indistinguishable from having done nothing at all.
+The general rule those three want: **when an assertion's pass state is also its
+do-nothing state, it needs a positive control or it is not a test.** Family:
+vacuous-verification, absence-is-not-evidence, false-green. Pattern in 016b §9.
+
+**2026-07-26 — asserted "the listings demonstrably respect archived" from the two
+listing paths I had looked at, and a third did not.** `bugs_open/052`'s containment
+section (written 2026-07-20) recommends `pages.status='archived'` as the house route
+for a dead page, "which the listings demonstrably respect", citing real evidence: R6
+archived six dead article rows and the hub then listed exactly the three real guides.
+That evidence is sound and the conclusion still overreached. **"The listings"** was a
+claim about every derivation of the page set; what had been demonstrated was two of
+them. `rebuild_blog_listing_action.go` selects blog posts with **no `status` filter at
+all**, so archiving a post does not delist it there — the containment the file
+recommends fails on that path, and fails *silently*, since a listing that keeps showing
+an archived page looks exactly like one that was never archived.
+**What caught it:** running the file's own `[UNMEASURED]` survey — it had explicitly
+flagged that only the tool list was traced — and grepping every query against `pages`
+in listing code rather than only the ones the fix touched. Six days after filing.
+**The cheap check:** when a containment route is recommended in a durable doc, grep for
+**every** consumer of the column it relies on (`grep -rn "page_type = 'blog-post'\|FROM
+pages p" --include=*.go`) and confirm each one honours it. Two confirmations do not
+make a fleet-wide property; the word "demonstrably" should have been the prompt to
+count how many paths were actually demonstrated.
+**The class:** this is the quantifier failing quietly. "The listings respect X" and "the
+listings I checked respect X" are written identically and read identically, and only the
+first is falsifiable by a path you never opened. Same family as the 016b §9 entry on a
+sibling call site keeping the defect — but note the asymmetry that makes *this* direction
+worse: an over-broad **capability** claim gets caught the first time someone relies on it,
+whereas an over-broad claim that a **safeguard works** is only caught when the safeguard
+was needed and silently did nothing. Family: unchecked-quantifier, two-instances-is-not-
+a-property, containment-assumed-not-verified.

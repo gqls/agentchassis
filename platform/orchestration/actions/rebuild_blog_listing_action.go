@@ -42,6 +42,16 @@
 //     build_status IN ('deployed','needs_rebuild'). Posts with needs_rebuild
 //     are already in git with valid content — they just have pending rerender
 //     items. Excluding them left the listing empty.
+//
+// v3 changes (2026-07-26, bugs_open/052):
+//   - The v2 widening above was right about the symptom and wrong about the
+//     test. `needs_rebuild` does not mean "still serves" — 4 fleet pages are
+//     `needs_rebuild` AND never deployed, and they 404. build_status alone
+//     cannot answer "will this URL serve"; `deployed_at` can. The query now
+//     carries the shared floor instead of a hand-written build_status list —
+//     see blogPostsQuery.
+//   - Both findBlogPage strategies gained a `status` filter. They had none, so
+//     an archived blog-index page could be selected as the listing target.
 
 package actions
 
@@ -57,9 +67,46 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/gqls/agentchassis/platform/orchestration/actions/queryresolve"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
+
+// blogPostsQuery selects the posts this listing advertises.
+//
+// The floor is queryresolve.ListedPageEligibilitySQL — the SAME constant
+// queryresolve's own `blog_posts` source uses — because this action and that
+// resolver both derive the article set for the same blog page and must not
+// disagree about it. Two hand-maintained copies of one predicate is the
+// drift class bugs_closed/023 documents; sharing the constant is what stops
+// it recurring here.
+//
+// Why the floor at all (bugs_open/052): a listing regenerated from the page
+// set must never advertise a page that would 404. The previous predicate,
+// `build_status IN ('deployed','needs_rebuild')`, admitted two populations it
+// should not have — pages that are `needs_rebuild` but were never deployed
+// (they 404), and, because there was no `status` filter at all, pages that had
+// been deliberately `archived`. That second gap defeated archiving, which is
+// the containment route the fleet relies on for a dead page.
+//
+// Alias contract: `p` for pages, as the shared constants require.
+const blogPostsQuery = `
+		SELECT p.id, p.name, p.url, p.title,
+		       COALESCE(p.meta_description, ''),
+		       p.created_at,
+		       COALESCE(
+		           (SELECT SUM(LENGTH(COALESCE(pc.rendered_html, '')))
+		            FROM page_components pc
+		            WHERE pc.page_id = p.id
+		              AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')),
+		           0
+		       ) as content_length
+		FROM pages p
+		WHERE p.site_id = $1
+		  AND p.page_type = 'blog-post'
+		  AND p.status IN ('active', 'deployed')` + queryresolve.ListedPageEligibilitySQL + `
+		ORDER BY p.created_at DESC
+	`
 
 var RebuildBlogListingInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
@@ -128,26 +175,7 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	)
 
 	// ── Load blog posts ─────────────────────────────────────────────────
-	// Include needs_rebuild: these posts are already in git with valid
-	// content — they just have pending rerender items. Excluding them
-	// left the listing empty for sites where a bulk rerender was queued.
-	rows, err := params.DB.QueryContext(ctx, `
-		SELECT p.id, p.name, p.url, p.title,
-		       COALESCE(p.meta_description, ''),
-		       p.created_at,
-		       COALESCE(
-		           (SELECT SUM(LENGTH(COALESCE(pc.rendered_html, '')))
-		            FROM page_components pc
-		            WHERE pc.page_id = p.id
-		              AND COALESCE(pc.slot_name, '') NOT IN ('header', 'footer', 'head')),
-		           0
-		       ) as content_length
-		FROM pages p
-		WHERE p.site_id = $1
-		  AND p.page_type = 'blog-post'
-		  AND p.build_status IN ('deployed', 'needs_rebuild')
-		ORDER BY p.created_at DESC
-	`, siteID)
+	rows, err := params.DB.QueryContext(ctx, blogPostsQuery, siteID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query blog posts: %w", err)
 	}
@@ -188,7 +216,22 @@ func RebuildBlogListingAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	if len(articles) == 0 {
-		logger.Info("RebuildBlogListingAction: No blog posts found")
+		// An empty set leaves any EXISTING listing untouched, so the page keeps
+		// advertising whatever it advertised before. That is the safe choice —
+		// blanking a live listing on a transient empty read would be worse —
+		// but it is not a no-op, so say so loudly when there is a component
+		// standing: the eligibility floor above can newly empty a set that used
+		// to fill, and the stale listing is then the thing serving the 404s
+		// this fix exists to stop (bugs_open/052).
+		if existingComponentID != uuid.Nil {
+			logger.Warn("RebuildBlogListingAction: no eligible blog posts, but a listing component exists — it keeps its previous contents and may now be stale",
+				zap.String("blog_page", blogPageName),
+				zap.String("slot_name", slotName),
+				zap.String("component_id", existingComponentID.String()),
+			)
+		} else {
+			logger.Info("RebuildBlogListingAction: No blog posts found")
+		}
 		return map[string]interface{}{
 			"rebuilt": false,
 			"reason":  "no blog posts",
@@ -317,10 +360,14 @@ func findBlogPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap
 	var blogPageID uuid.UUID
 	var blogPageName string
 
-	// Strategy 1: canonical page_type
+	// Strategy 1: canonical page_type.
+	// The status filter is load-bearing (bugs_open/052): without it an archived
+	// blog-index page is a valid listing target, so the action would rebuild a
+	// listing on a page the site has deliberately retired.
 	err := db.QueryRowContext(ctx, `
 		SELECT id, name FROM pages
 		WHERE site_id = $1 AND page_type = 'blog-index'
+		  AND status IN ('active', 'deployed')
 		LIMIT 1
 	`, siteID).Scan(&blogPageID, &blogPageName)
 
@@ -331,10 +378,13 @@ func findBlogPage(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap
 		return uuid.Nil, "", fmt.Errorf("failed to query blog-index page: %w", err)
 	}
 
-	// Strategy 2: page named 'blog' created as content type
+	// Strategy 2: page named 'blog' created as content type.
+	// Same status filter, and here it also guards a WRITE: on a hit this
+	// strategy stamps page_type='blog-index' onto the row it found.
 	err = db.QueryRowContext(ctx, `
 		SELECT id, name FROM pages
 		WHERE site_id = $1 AND name = 'blog' AND page_type = 'content'
+		  AND status IN ('active', 'deployed')
 		LIMIT 1
 	`, siteID).Scan(&blogPageID, &blogPageName)
 
