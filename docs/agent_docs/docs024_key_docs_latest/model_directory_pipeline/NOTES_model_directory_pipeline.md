@@ -807,3 +807,49 @@ would burn its three attempts against a known wall.
 > in three days. Generalisable one-liner for any action taking a selector:
 > **assert the OUTPUT differs per selector**; identical output from two
 > supposedly-different runs is the entire signal.
+
+**2026-07-26 — PHASE E IS LIVE ON THE SITE. Both tracker pages built by the
+pipeline, verified on the rendered artefact.**
+
+- `/adoption-tracker.html` — 15 organisation cards, 28 citation links
+- `/protocol-tracker.html` — 4 protocols (MCP/ACP/A2A/ANP), 10 citation links
+- Both `deployed`, both carrying their own `<style>` block (7 style blocks
+  each, `adoption-card {` present — the 072 lesson held), composition chosen by
+  content-gap-planner unprompted: `hero → *-tracker-listing → call-to-action`,
+  the same shape it chose for the model directory.
+
+**Two defects the RENDERED PAGES exposed that no status would have:**
+
+1. **A research paper was the tracker's first card.** "MAP Study (UC Berkeley
+   et al.)" — 306 practitioners surveyed, "85% of interviewed teams build
+   in-house" filed as that entity's `agent_framework`. Correctly cited to
+   arXiv and correctly verified; entirely the wrong SHAPE for a register that
+   promises *which organisations are deploying agents*. My researcher prompt's
+   rule 3 ("generic market statistics are not adoption facts") covers
+   forecasts but not a study presented as an entity. Fixed both ends:
+   entity `status='archived'` (not deleted — the claims stay intact for a
+   possible future `kind='research'`), and a new prompt rule 3a, "A STUDY IS
+   NOT A DEPLOYER", naming this exact miss. Page re-rendered: 16 → 15 cards,
+   `MAP Study` count 0 on the live page.
+2. **Both new pages were in NO nav group** — zero `site_nav_items` rows, the
+   same write-path gap the model directory hit (the half of the 726c2439
+   diagnosis that survived refutation). Rebuilt via a nav_drift item.
+
+**Nav after the rebuild — and a small correction to what I told the owner.**
+Model Directory holds its header slot (primary position 7) exactly as ruled.
+But I said Pricing would be "first in the footer group"; it is **third**. The
+mechanism: `populate_nav_tables_action.go:136` PREPENDS primary-nav overflow to
+the utility group (`utilityPages = append(overflowPages, utilityPages...)`), so
+the two trackers — which are `in_header=true` with `nav_order` 100 and
+therefore overflow — land ahead of everything ordered by nav_order. Not worth
+re-jigging (both readings satisfy "into the bottom nav"), but the claim as
+stated was wrong and the ordering rule is worth knowing: **footer order is not
+simply nav_order — header overflow jumps the queue.**
+
+Final live layout:
+```
+header : Home · Services · About · Tools · Contact · Case Studies · Blog · Model Directory
+footer : Protocol Tracker · Adoption Tracker · Pricing · ROI Estimator · LLM Cost
+         Calculator · AI Readiness Quiz · News · Stack Architecture · Our Framework ·
+         Reference Deployment
+```
