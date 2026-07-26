@@ -46,6 +46,7 @@ USAGE:
     scripts/pattern-check.py --commit <sha>  # audit ONE past commit in isolation
     scripts/pattern-check.py --ref HEAD~5    # audit a range, for measuring
 """
+import json
 import os
 import re
 import subprocess
@@ -399,6 +400,114 @@ def check_append_only_docs(files, ref, findings):
                 ))
 
 
+# ── truncation tolerance with no reader (bugs_closed/076, residual R1) ──────
+# A step may set `tolerate_truncation: true` to KEEP an LLM response the model cut
+# at max_tokens instead of failing. That is only sound while some other step in the
+# same workflow READS the `__truncated` marker — otherwise the step succeeds and a
+# fragment is indistinguishable from a complete answer. The shipped guard enforces
+# it at RUN time, which means the bad config is only discovered in production, by
+# failing that run. This is the same predicate applied to a seed, at the moment the
+# author can still fix it for free.
+#
+# SCOPED TO FILES THAT CAN ACTUALLY ANSWER, and this is the whole design. All three
+# files in the repo that arm the flag today (sql_for_agents/177, and the two
+# fixloop PATCH_ files) are `jsonb_set` patches: they name the flag and the target
+# steps, but the WORKFLOW they patch lives in the database, so nothing in the file
+# says whether a reader exists — and on all three the guess would be WRONG (their
+# targets are guarded by diagnose_council_decide). So this only reads a `"steps"`
+# object EMBEDDED in the file, where the answer is present. Measured 2026-07-26:
+# 170 SQL files under docs/ embed a steps object, 62 of them contain
+# execute_llm_prompt, and ZERO arm tolerance — the check fires 0 times on the whole
+# corpus, and its true-positive case is the bug's next instance.
+#
+# The live-fleet half is 103_LINT_truncation_consumer.py, which resolves the real
+# workflow and therefore catches the patch-style and hand-run-UPDATE paths this
+# cannot. Both read the reader registry out of the Go source; neither holds a copy.
+STEPS_OBJECT = re.compile(r'"steps"\s*:\s*\{')
+LLM_ACTION = "execute_llm_prompt"
+
+
+def _balanced_object(text, start):
+    """The JSON object beginning at text[start] == '{', string-aware. Returns None
+    if it never closes (a truncated or non-JSON block — skipped, never guessed at)."""
+    depth, in_str, esc = 0, False, False
+    for i in range(start, len(text)):
+        ch = text[i]
+        if in_str:
+            if esc:
+                esc = False
+            elif ch == "\\":
+                esc = True
+            elif ch == '"':
+                in_str = False
+        elif ch == '"':
+            in_str = True
+        elif ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return None
+
+
+def _is_true(v):
+    """Mirrors datahelpers.GetBoolField: a real bool and nothing else. A string
+    "true" is read as FALSE by Go, so such a step is not tolerating anything."""
+    return v is True
+
+
+def check_truncation_without_reader(files, ref, findings):
+    """bugs_closed/076 — a seeded workflow that tolerates a cut response, unread."""
+    sql = [p for p in files if p.endswith(".sql")]
+    if not sql:
+        return
+    # Imported lazily and inside the per-check try/except in main(): if the Go
+    # registry ever becomes unparseable this check announces itself as skipped
+    # rather than silently checking against a remembered list.
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from truncation_registry import accepts_truncated_key, truncation_aware_actions
+    readers, hatch = set(truncation_aware_actions()), accepts_truncated_key()
+
+    for path in sql:
+        content = file_content(path, ref)
+        if "tolerate_truncation" not in content:
+            continue
+        for m in STEPS_OBJECT.finditer(content):
+            block = _balanced_object(content, m.end() - 1)
+            if not block or "tolerate_truncation" not in block:
+                continue
+            try:                                   # the JSON sits in a SQL literal
+                steps = json.loads(block.replace("''", "'"))
+            except (json.JSONDecodeError, ValueError):
+                continue                           # unparseable: 103_LINT still sees it live
+            if not isinstance(steps, dict):
+                continue
+            guards = {
+                n for n, s in steps.items()
+                if isinstance(s, dict) and (s.get("action") in readers
+                                            or _is_true((s.get("config") or {}).get(hatch)))
+            }
+            for name, step in steps.items():
+                if not isinstance(step, dict) or step.get("action") != LLM_ACTION:
+                    continue
+                if not _is_true((step.get("config") or {}).get("tolerate_truncation")):
+                    continue
+                if guards - {name}:                # a step cannot certify its own cut
+                    continue
+                findings.append((
+                    "truncation-tolerance-no-reader", path,
+                    f"step {BOLD}{name}{RESET} sets tolerate_truncation, but no step in that "
+                    f"workflow reads the __truncated marker",
+                    "bugs_closed/076 — the step then SUCCEEDS on a fragment and nothing "
+                    "downstream can tell it from a complete answer. The runtime guard will "
+                    f"fail this step's run when a response is actually cut. Fix one of: raise "
+                    f"max_tokens; drop tolerate_truncation; or set {hatch}: true on the step "
+                    "that genuinely handles a partial. Patch-style seeds (jsonb_set) are not "
+                    "checked here — run 103_LINT_truncation_consumer.py against the live fleet.",
+                ))
+
+
 def main():
     ref = None
     if "--commit" in sys.argv:                      # audit ONE commit in isolation
@@ -412,7 +521,8 @@ def main():
 
     findings = []
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
-                  check_unguarded_migration_insert, check_append_only_docs):
+                  check_unguarded_migration_insert, check_append_only_docs,
+                  check_truncation_without_reader):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

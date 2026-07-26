@@ -360,6 +360,10 @@ fi
 # probing run is not purely read-only (locks + rolled-back execution).
 declare -A PROBE_V=() PROBE_D=()
 SKIPPED=()
+# Files this run applied that touch the truncation contract (bugs_closed/076 R1).
+# Collected so the pointer at the end names them; see the note by that pointer for
+# why this is a pointer and not a check.
+TRUNC_TOUCHED=()
 if [ "$PROBE" = "1" ]; then
   echo ""
   echo "Probe (each pending file executed in a doomed transaction, rolled back; --no-probe skips):"
@@ -450,11 +454,34 @@ for f in "${PENDING[@]}"; do
                   VALUES ('$(sql_lit "$f")', '$SUM', 'run-migrations.sh', NULL)
                   ON CONFLICT (filename) DO NOTHING;" >/dev/null
   echo "== $f recorded"
+  if grep -q 'tolerate_truncation\|accepts_truncated' "$MIGRATIONS_DIR/$f" 2>/dev/null; then
+    TRUNC_TOUCHED+=("$f")
+  fi
 done
 if [ ${#SKIPPED[@]} -gt 0 ]; then
   echo ""
   echo "Skipped as likely-already-applied — each stays PENDING until verified and recorded:"
   printf '  %s\n' "${SKIPPED[@]}"
+fi
+# Truncation contract pointer (bugs_closed/076 R1). A step may only KEEP an LLM
+# response the model cut at max_tokens where another step in ITS workflow reads the
+# __truncated marker; otherwise a fragment is indistinguishable from a complete
+# answer. The runtime guard only says so when a response is ACTUALLY cut, in
+# production, by failing that run.
+#
+# A POINTER, NOT A CHECK, deliberately. The offending config usually arrives here
+# as a jsonb_set patch (all three files in the repo that arm the flag are patches),
+# and a patch names the flag but not the workflow — so nothing this script can read
+# from the FILE settles it. The live lint resolves the real workflow in one
+# read-only command; this just says "now is the moment". Running it from here was
+# rejected: it would put a python + kubectl dependency in the middle of an apply
+# that has already committed, and a failure there would read as a migration failure.
+if [ ${#TRUNC_TOUCHED[@]} -gt 0 ]; then
+  echo ""
+  echo "Applied file(s) touching the truncation contract (bugs_closed/076):"
+  printf '  %s\n' "${TRUNC_TOUCHED[@]}"
+  echo "  Confirm every tolerating step still sits in a workflow that reads the marker:"
+  echo "    python3 docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/103_LINT_truncation_consumer.py"
 fi
 echo ""
 echo "Done."
