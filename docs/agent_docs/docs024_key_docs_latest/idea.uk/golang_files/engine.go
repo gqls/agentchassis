@@ -22,13 +22,20 @@ import (
 
 // Models. The cut runs on a DIFFERENT vendor if OPENAI_API_KEY is set
 // (genuine cross-vendor critique), else a different Anthropic model.
-// Strings verified against docs.claude.com (May 2026); override via env.
+// Strings verified against the current model catalogue (2026-07-26); override
+// via env. Moved off Opus 4.8 / Sonnet 4.6 to the 5 family on that date — see
+// usesManualThinkingBudget below, which had to change with them: the 5 family
+// REJECTS the manual thinking budget the 4.6-and-older wire format uses, so a
+// model swap on its own would have 400'd every call.
 var (
-	genModel      = env("GEN_MODEL", "claude-opus-4-8")
-	critiqueModel = env("CRITIQUE_MODEL", "claude-sonnet-4-6")
-	verifyModel   = env("VERIFY_MODEL", "claude-opus-4-8")
-	scoreModel    = env("SCORE_MODEL", "claude-sonnet-4-6")
-	openAIModel   = env("OPENAI_CRITIQUE_MODEL", "gpt-4o")
+	genModel      = env("GEN_MODEL", "claude-opus-5")
+	critiqueModel = env("CRITIQUE_MODEL", "claude-sonnet-5")
+	verifyModel   = env("VERIFY_MODEL", "claude-opus-5")
+	scoreModel    = env("SCORE_MODEL", "claude-sonnet-5")
+	// Cross-vendor cut only; dormant unless OPENAI_API_KEY is set. Deliberately
+	// NOT updated alongside the Anthropic models — it is a different vendor's
+	// catalogue and nothing here has verified a current id for it.
+	openAIModel = env("OPENAI_CRITIQUE_MODEL", "gpt-4o")
 )
 
 func env(k, def string) string {
@@ -127,12 +134,16 @@ type scored struct {
 // fields are optional. Defaults preserve the simple-string-system / no-thinking
 // behaviour the engine had before extended thinking and prompt caching landed.
 //
-//   - Effort "" disables thinking. Otherwise one of low|medium|high|xhigh|max.
+//   - Effort one of low|medium|high|xhigh|max. Every call site sets it.
+//     Effort "" sends NO thinking field, which is no longer the same as "no
+//     thinking": on Opus 4.8 an omitted field meant thinking off, but on the 5
+//     family it means thinking runs adaptively by default. Leave it set.
 //     The wire format DIFFERS BY MODEL (this bit us — see debugging guide §0):
-//     Opus 4.7/4.8 and Mythos use adaptive thinking (thinking:{type:adaptive}
+//     Opus 4.7+ and the 5 family use adaptive thinking (thinking:{type:adaptive}
 //   - output_config:{effort}); they 400 on manual budgets. Sonnet 4.6 and
 //     older use manual extended thinking (thinking:{type:enabled,budget_tokens}).
-//     callClaudeOpts picks the right one based on the model string.
+//     callClaudeOpts picks via usesManualThinkingBudget, a deny-list, so an
+//     unrecognised (newer) model gets the modern format rather than a 400.
 //   - CacheSystem = true wraps the system prompt as a single content block with
 //     cache_control: ephemeral, so the system text becomes a cache hit on
 //     subsequent calls within the same TTL (5 min). One run makes 5 calls in
@@ -147,15 +158,36 @@ type callOpts struct {
 	CacheSystem bool
 }
 
-// usesAdaptiveThinking reports whether a model takes adaptive thinking +
-// output_config.effort (true) rather than manual thinking budgets (false).
-// Opus 4.7, Opus 4.8, and Mythos dropped manual budgets; Sonnet 4.6 and older
-// still take them. Matching on substrings keeps this working across the
-// dated/aliased forms of the same model id.
-func usesAdaptiveThinking(model string) bool {
-	return strings.Contains(model, "opus-4-7") ||
-		strings.Contains(model, "opus-4-8") ||
-		strings.Contains(model, "mythos")
+// legacyManualBudgetModels are the model families that still take the OLD
+// thinking wire format, thinking:{type:"enabled",budget_tokens:N}. Everything
+// from Opus 4.7 onwards — including the whole 5 family — rejects it with a 400
+// and takes thinking:{type:"adaptive"} + output_config.effort instead.
+//
+// Matching on substrings keeps this working across the dated/aliased forms of
+// the same id ("claude-sonnet-4-6", "claude-sonnet-4-5-20250929", …).
+var legacyManualBudgetModels = []string{
+	"opus-4-6", "opus-4-5", "opus-4-1", "opus-4-0",
+	"sonnet-4-6", "sonnet-4-5", "sonnet-4-0", "sonnet-3",
+	"haiku",
+}
+
+// usesManualThinkingBudget reports whether a model needs the legacy manual
+// budget. It is deliberately a DENY-LIST, and that inversion is the point.
+//
+// This function used to be an allow-list of models that take adaptive thinking
+// (opus-4-7 / opus-4-8 / mythos), so any model it had never heard of fell
+// through to the manual-budget branch. That is backwards: a newer model is
+// exactly the case that rejects manual budgets, so the old shape turned every
+// future upgrade into a 400 at runtime — which is precisely what the 2026-07-26
+// move to the 5 family would have hit. Unknown models now get the modern
+// format, and only the known-old list gets the legacy one.
+func usesManualThinkingBudget(model string) bool {
+	for _, legacy := range legacyManualBudgetModels {
+		if strings.Contains(model, legacy) {
+			return true
+		}
+	}
+	return false
 }
 
 // effortToBudget maps an effort level to a manual thinking budget (tokens), for
@@ -201,12 +233,16 @@ func callClaudeOpts(o callOpts) (string, error) {
 		body["tools"] = o.Tools
 	}
 	// Thinking — wire format depends on the model family.
+	//
+	// Effort is now set at EVERY call site on purpose. It used to be optional,
+	// and an empty Effort meant "send no thinking field at all" — which on
+	// Opus 4.8 meant no thinking. On the 5 family the same omission means
+	// thinking runs ADAPTIVELY by default, and thinking shares the max_tokens
+	// cap with the answer, so the silent effect of upgrading would have been
+	// longer, more expensive calls that can truncate mid-answer. Being explicit
+	// keeps the behaviour a decision rather than a default that moved under us.
 	if o.Effort != "" {
-		if usesAdaptiveThinking(o.Model) {
-			// Opus 4.7/4.8/Mythos: adaptive thinking + effort. Manual budgets 400.
-			body["thinking"] = map[string]any{"type": "adaptive"}
-			body["output_config"] = map[string]any{"effort": o.Effort}
-		} else {
+		if usesManualThinkingBudget(o.Model) {
 			// Sonnet 4.6 and older: manual budget. Must be >=1024 and < max_tokens,
 			// leaving room for the actual output.
 			b := effortToBudget(o.Effort)
@@ -221,6 +257,11 @@ func callClaudeOpts(o callOpts) (string, error) {
 				"budget_tokens": b,
 				"display":       "omitted", // we never surface thinking; skip the wire cost
 			}
+		} else {
+			// Opus 4.7+ and the whole 5 family: adaptive thinking + effort.
+			// A manual budget is a 400 here.
+			body["thinking"] = map[string]any{"type": "adaptive"}
+			body["output_config"] = map[string]any{"effort": o.Effort}
 		}
 	}
 	raw, _ := json.Marshal(body)
@@ -242,7 +283,8 @@ func callClaudeOpts(o callOpts) (string, error) {
 			Type string `json:"type"`
 			Text string `json:"text"`
 		} `json:"content"`
-		Usage struct {
+		StopReason string `json:"stop_reason"`
+		Usage      struct {
 			InputTokens              int `json:"input_tokens"`
 			OutputTokens             int `json:"output_tokens"`
 			CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
@@ -251,6 +293,22 @@ func callClaudeOpts(o callOpts) (string, error) {
 	}
 	if err := json.Unmarshal(b, &out); err != nil {
 		return "", err
+	}
+	// A CUT completion is not a short one — it is a fragment that looks like an
+	// answer. HTTP is 200, the text parses, and nothing downstream can tell.
+	// This matters more since the move to the 5 family: thinking is on by
+	// default there and shares the max_tokens cap with the answer, so the same
+	// prompt that fitted comfortably before can now run out of room. Fail loudly
+	// instead of persisting half a report.
+	if out.StopReason == "max_tokens" {
+		return "", fmt.Errorf("anthropic %s: response CUT at max_tokens=%d (output=%d) — "+
+			"raise MaxTokens for this step or lower its effort; the partial answer was discarded",
+			o.Model, o.MaxTokens, out.Usage.OutputTokens)
+	}
+	// A refusal is a successful HTTP 200 with no usable content. Surfacing it as
+	// an error keeps it out of a customer's report.
+	if out.StopReason == "refusal" {
+		return "", fmt.Errorf("anthropic %s: request declined by safety classifiers (stop_reason=refusal)", o.Model)
 	}
 	// Log the cache hit rate so the operator can see caching actually working
 	// when it should. Cache reads come "for free" at 10% of the input rate.
@@ -327,10 +385,14 @@ func critique(user string) (string, error) {
 	}
 	fmt.Fprintf(os.Stderr, "[cut] same-vendor: Anthropic (%s) with extended thinking\n", critiqueModel)
 	return callClaudeOpts(callOpts{
-		Model:       critiqueModel,
-		System:      systemBase,
-		User:        user,
-		MaxTokens:   12000,
+		Model:  critiqueModel,
+		System: systemBase,
+		User:   user,
+		// Raised 12000→16000 with the move to Sonnet 5: its tokenizer produces
+		// ~30% more tokens for the same text than Sonnet 4.6, so a cap sized
+		// against 4.6 can cut equivalent output. max_tokens is a ceiling, not a
+		// reservation — headroom costs nothing unless it is used.
+		MaxTokens:   16000,
 		Effort:      "high", // critique is reasoning-heavy; budget pays off here
 		CacheSystem: true,
 	})
@@ -396,10 +458,17 @@ type audienceResult struct {
 func runAudience(business, audience, assets string) (audienceResult, error) {
 	var aud audienceResult
 	out, err := callClaudeOpts(callOpts{
-		Model:       genModel,
-		System:      systemBase,
-		User:        fill(audiencePrompt, "{domain}", business, "{audience}", audience, "{assets}", assets),
-		MaxTokens:   4096,
+		Model:  genModel,
+		System: systemBase,
+		User:   fill(audiencePrompt, "{domain}", business, "{audience}", audience, "{assets}", assets),
+		// Was 4096 with no Effort, i.e. no thinking at all. On the 5 family that
+		// omission would silently mean adaptive thinking sharing this cap with
+		// the answer — and this step returns JSON, so a truncated answer is a
+		// parse error, not a short report. Explicit low effort keeps the step
+		// cheap (it is also the free taster, ~£0.02 a call) and the raised cap
+		// leaves room for thinking + the JSON.
+		MaxTokens:   8000,
+		Effort:      "low",
 		CacheSystem: true, // first call in a run; subsequent steps will hit the cache
 	})
 	if err != nil {
@@ -463,7 +532,10 @@ func RunMethod(domain, audience, assets string) (renderedReport, error) {
 		System: systemBase,
 		User: fill(generatePrompt, "{domain}", domain, "{audience}", aud.CarriedAudience,
 			"{wtp}", aud.WillingnessToPay, "{assets}", assets, "{capabilities}", capabilityMenu),
-		MaxTokens:   8000,
+		// Same reasoning as the audience step: was 8000 with no Effort. Explicit
+		// low effort + headroom now that thinking shares the cap.
+		MaxTokens:   16000,
+		Effort:      "low",
 		CacheSystem: true,
 	})
 	if err != nil {
@@ -578,7 +650,7 @@ func RunMethod(domain, audience, assets string) (renderedReport, error) {
 		Model:       scoreModel,
 		System:      systemBase,
 		User:        fill(scorePrompt, "{verified_json}", string(verJSON)),
-		MaxTokens:   10000,
+		MaxTokens:   12000, // +Sonnet 5 tokenizer headroom (see the critique step)
 		Effort:      "medium",
 		CacheSystem: true,
 	})
