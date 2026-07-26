@@ -1848,3 +1848,51 @@ another site-wide prompt edit.
 which was NOT rebuilt in this session, so it is pre-existing rather than a new
 regression. The handoff records "was 0", which was presumably scoped to the pages
 it rebuilt; leaving both figures visible rather than overwriting either.
+
+### The last step did not publish: the generic dispatch lane stopped consuming
+
+**State at 18:32 UTC, left honest rather than tidy.** The link repair and the CSS
+correction are applied in the database and are NOT on the served page, because
+nothing has published since ~18:19.
+
+Measured, not inferred:
+
+| time (UTC) | consumer position | lane end | LAG |
+|---|---|---|---|
+| 18:26 | 105190 | 105195 | 5 |
+| 18:31 | 105190 | 105197 | 7 |
+| 18:32 | 105190 | 105197 | 7 |
+
+The consumer position has not moved in six minutes while the lane kept growing.
+Everything queued behind it is queued, not lost — including my two `page_rerender`
+work items (triaged since 18:08) and two `kcat` dispatches (18:22).
+
+**What is established:**
+- The chassis pod restarted at **18:16:52** (another session rolled v1.0.1169).
+- The lane was working *after* that restart: two dispatches at 18:19:29 and
+  18:19:44 produced orchestration rows within a second (they failed, on the
+  `page_name` defect — but they were consumed).
+- It stopped consuming somewhere between **18:19:44 and 18:22:15**.
+- Six `agent-build-dispatch-loop` pods are alive simultaneously (13m, 10m, 8m,
+  5m, 3m, 41s old), and `build-pipeline-trigger` runs at 18:12/18:15/18:17/18:25
+  all selected fundamentallyai.com, reached `spawn_dispatch`, and sat in
+  `AWAITING_RESPONSES`.
+
+**What is NOT established — do not repeat these as fact:**
+- [UNKNOWN] whether the roll caused it. The 300s post-restart drop window closed
+  at 18:21:52, and my dispatches at 18:22:15 are *outside* it by 23 seconds, so
+  the documented rule does not explain them.
+- [UNKNOWN] whether the accumulating dispatch-loop pods are a symptom or a cause.
+- [UNKNOWN] whether this is `bugs_closed/030`'s mechanism returning. **030 was
+  closed today** and its fix was about *cron* sharing this lane; this is the
+  generic lane itself. Filing against a closed case on this evidence would be
+  forking a diagnosis, so I have not.
+
+**Why I did not re-fire, and nobody should:** the depth script says it plainly —
+a duplicate lands further back in the same lane. Both routes are already queued
+and will publish when the consumer resumes; the repair is idempotent, so the
+worst case is the same page rendered twice.
+
+*Cheap check that settles "stalled or slow" in one minute:* sample the consumer
+position twice. A position that does not move while the lane end grows is a
+stall; a position that advances is latency, and latency here is minutes.
