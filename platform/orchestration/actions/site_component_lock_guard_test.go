@@ -3,6 +3,7 @@ package actions
 import (
 	"context"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -44,6 +45,28 @@ func TestSiteComponentAgentWritablePredicateQualified(t *testing.T) {
 		if !strings.Contains(q, want) {
 			t.Errorf("qualified predicate missing %q: %s", want, q)
 		}
+	}
+}
+
+func TestDiscoveryChromeLockFilterMatchesSharedPredicate(t *testing.T) {
+	// checkUnlinkedSiteComponents hand-copies this predicate, because
+	// discovery_checks cannot import package actions (the dependency runs the
+	// other way). A hand-copy that silently drifts from the shared helper is
+	// the exact failure this repo keeps paying for — the hard/soft rule in
+	// lock_helpers.go already had to be corrected once (058) — so the two
+	// artefacts are pinned to each other here. This test is not vacuous: it
+	// builds the expected text FROM the helper and looks for it in a file the
+	// helper cannot influence, so a change to either side fails it.
+	const sibling = "discovery_checks/check_component_standards.go"
+	src, err := os.ReadFile(sibling)
+	if err != nil {
+		t.Fatalf("cannot read %s: %v", sibling, err)
+	}
+	want := pageComponentAgentWritableSQL("sc.")
+	if !strings.Contains(string(src), want) {
+		t.Fatalf("%s no longer contains the shared lock predicate.\nexpected verbatim: %s\n"+
+			"Detector and writer must agree: the detector files unlinked-chrome work that "+
+			"link_site_components now refuses on locked slots.", sibling, want)
 	}
 }
 

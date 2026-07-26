@@ -62,17 +62,22 @@ func checkUnlinkedSiteComponents(dctx DiscoveryCheckContext, result *CheckResult
 	// the locked artefact). Raising the item anyway would file work no fixer
 	// can apply — the bugs_open/077 shape. The predicate is written out rather
 	// than shared because pageComponentAgentWritableSQL is unexported in
-	// package actions and this package cannot see it; it is the same expression
-	// (a timed lock past its expiry does not block automation), and the
-	// precedent is check_unverified_claims.go's chrome query.
+	// package actions and this package cannot import it (actions imports
+	// discovery_checks, so the dependency cannot run the other way).
+	//
+	// KEEP THE NEXT LINE BYTE-IDENTICAL to pageComponentAgentWritableSQL("sc.").
+	// TestDiscoveryChromeLockFilterMatchesSharedPredicate (package actions)
+	// reads this file and fails if the two drift — the hard/soft rule in that
+	// helper has already had to be corrected once (058), and a hand-copied
+	// predicate that silently disagrees is precisely the drift this repo keeps
+	// paying for.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT sc.slot_name
 		FROM site_components sc
 		WHERE sc.site_id = $1
 		  AND sc.slot_name IN ('header', 'footer', 'head')
 		  AND sc.component_id IS NULL
-		  AND (sc.locked_at IS NULL
-		       OR (sc.lock_type = 'timed' AND sc.lock_expires_at IS NOT NULL AND sc.lock_expires_at < NOW()))
+		  AND (sc.locked_at IS NULL OR (sc.lock_type = 'timed' AND sc.lock_expires_at IS NOT NULL AND sc.lock_expires_at < NOW()))
 	`, dctx.SiteID)
 	if err != nil {
 		dctx.Logger.Warn("checkUnlinkedSiteComponents: query failed", zap.Error(err))
