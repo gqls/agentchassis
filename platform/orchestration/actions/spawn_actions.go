@@ -1012,11 +1012,23 @@ func getConfiguredKafkaBrokers(logger *zap.Logger) []string {
 		}
 	}
 
-	// Fallback to default brokers
+	// Fallback to default brokers.
+	//
+	// bugs_open/040-kafka-dial: this list used to carry two more entries, and the
+	// council gate found this second instance after the same defect was fixed in
+	// topic_manager.go — enumerate the siblings, don't fix the one you tripped over.
+	//
+	//   "kafka-0.kafka-headless.kafka:9092"          — no such Service. Strimzi's
+	//     headless service is personae-kafka-cluster-kafka-brokers; the only
+	//     kafka-headless manifest in the repo belongs to a hand-rolled Kafka
+	//     StatefulSet that no kustomization references, and no such Service exists
+	//     in the live cluster. It could never connect — only burn a dial timeout.
+	//   "personae-kafka-cluster-kafka-bootstrap.kafka:9092" — the same host as the
+	//     first entry, just unqualified. Two dots is under the pods' ndots:5, so it
+	//     walks the whole search path before resolving to what entry one already
+	//     names. Redundant on success, and slower on the way there.
 	defaultBrokers := []string{
 		"personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092",
-		"personae-kafka-cluster-kafka-bootstrap.kafka:9092",
-		"kafka-0.kafka-headless.kafka:9092",
 	}
 
 	logger.Warn("No Kafka brokers configured, using defaults",

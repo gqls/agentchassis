@@ -94,11 +94,17 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 	// If no valid brokers provided, use defaults.
 	//
 	// bugs_open/040-kafka-dial: this list used to carry a second entry,
-	// "kafka-0.kafka-headless.kafka:9092". No such Service exists — Strimzi's
-	// headless service is personae-kafka-cluster-kafka-brokers — so that entry
-	// could never connect; it could only burn a full dial timeout on its way to
-	// failing. Removed rather than corrected: the bootstrap Service already
-	// fronts all three brokers, so a second entry adds nothing.
+	// "kafka-0.kafka-headless.kafka:9092". No such Service exists in the live
+	// cluster — Strimzi's headless service is personae-kafka-cluster-kafka-brokers.
+	// A kafka-headless manifest DOES exist in the repo
+	// (deployments/kustomize/infrastructure/kafka/kafka.yaml), but it belongs to a
+	// hand-rolled Kafka StatefulSet that no kustomization references, so it is
+	// never applied. Either way the entry could never connect; it could only burn
+	// a full dial timeout on its way to failing. Removed rather than corrected:
+	// the bootstrap Service already fronts all three brokers.
+	//
+	// The same phantom entry existed in spawn_actions.go's broker fallback and is
+	// fixed there too — found by the council gate, not by me.
 	//
 	// The remaining default is fully qualified on purpose. The short form
 	// (".kafka:9092", two dots) sits under the pods' ndots:5, so the resolver
@@ -165,6 +171,19 @@ func CreateJobTopic(brokers []string, topicName string, partitions int) error {
 }
 
 // CreateTopic creates a single topic if it doesn't exist
+// NOTE (bugs_open/040-kafka-dial): the dials below deliberately pass
+// context.Background(), not the ctx these functions receive, even though
+// threading the real ctx would be better engineering.
+//
+// These sites previously called the bare kafka.Dial helper, which uses
+// context.Background() internally. Threading the caller's ctx would mean any
+// caller whose ctx carries a deadline shorter than the 10s dial budget silently
+// gets a shorter dial — a behaviour change to a dial path, in a change whose
+// whole claim is that it changes no dial behaviour. The council gate flagged
+// exactly that (guardian, round 2), and it was right.
+//
+// Threading ctx properly belongs with the dial-config consolidation in part 2,
+// where the budget change is the point rather than a side effect.
 func (tm *TopicManager) CreateTopic(ctx context.Context, topic TopicDefinition) error {
 	// Create a controller connection
 	controller, err := tm.getController(ctx)
@@ -172,7 +191,7 @@ func (tm *TopicManager) CreateTopic(ctx context.Context, topic TopicDefinition) 
 		return fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(context.Background(), "tcp", controller)
 	if err != nil {
 		return fmt.Errorf("failed to connect to controller: %w", err)
 	}
@@ -235,7 +254,7 @@ func (tm *TopicManager) TopicExists(ctx context.Context, topicName string) (bool
 		return false, fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(context.Background(), "tcp", controller)
 	if err != nil {
 		return false, fmt.Errorf("failed to connect to Kafka: %w", err)
 	}
@@ -262,7 +281,7 @@ func (tm *TopicManager) TopicExists(ctx context.Context, topicName string) (bool
 // getController finds the current Kafka controller
 func (tm *TopicManager) getController(ctx context.Context) (string, error) {
 	for _, broker := range tm.brokers {
-		conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", broker)
+		conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(context.Background(), "tcp", broker)
 		if err != nil {
 			tm.logger.Warn("Failed to connect to broker",
 				zap.String("broker", broker),
@@ -436,7 +455,7 @@ func (tm *TopicManager) DeleteTopic(ctx context.Context, topicName string) error
 		return fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(context.Background(), "tcp", controller)
 	if err != nil {
 		return fmt.Errorf("failed to connect to controller: %w", err)
 	}
@@ -462,7 +481,7 @@ func (tm *TopicManager) ListTopics(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("failed to get controller: %w", err)
 	}
 
-	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(ctx, "tcp", controller)
+	conn, err := InstrumentedDialer(defaultDialerTimeout).DialContext(context.Background(), "tcp", controller)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Kafka: %w", err)
 	}
