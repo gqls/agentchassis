@@ -628,6 +628,57 @@ file). Adding a reader now forces a decision instead of permitting an omission.
 > `readsLLMTruncationMarker` strips it; a probe with the naive form was run and
 > produced exactly that false demand, so the stripping is load-bearing.
 
+## Council on the residuals — APPROVED, round 1
+
+`SUBMISSION_CORR=1535e2ac-2d5d-4a9c-8093-38a81dbcd472`. **APPROVED**, round 1,
+12 reviewers, `unreadable: 0`, 2 advisory objections, none high-severity. As with
+the first submission, **no `Council-Reviewed:` trailer is possible** — the verdict
+post-dates `0657143b5` and `c640a8642`, and forward-only forbids the amend. The
+correlation above is the audit link.
+
+**`prior_art` (medium) — "is this DORMANT-MACHINERY rather than a gap? Check the
+six existing hand-rolled inserts first."** The best objection of the round, and
+it named exactly the check the submission should have carried. Answered
+empirically, not asserted:
+
+| file | its `error_code` | what it records |
+|---|---|---|
+| `complete_work_item_verification.go` | `UNKNOWN_HANDLER_VERDICT` | an unrecognised handler status |
+| `plan_sections_action.go` | `SKIP_PERSISTENCE_FAILED` | a skip that did not persist |
+| `reconcile_superseded_reviews_action.go` | `REVIEW_SUPERSEDED_BY_PASSING_SAVE` | a superseded review |
+| `component_write_guard.go` | — | a component write below the size floor |
+| `store_generated_component_action.go` | — | structurally broken generated template |
+| `validate_page_content.go` | — | a page list truncated by a row error |
+
+Four of the six *do* mention "truncat", which is why the objection was worth
+answering rather than waving away — but every one is a **different truncation**:
+a component write shrinking (`bugs_open/012`'s family), unclosed `<style>` tags
+from a token limit, a row-error-truncated page list. None reads the `__truncated`
+marker; none sits in the council path. `plan_sections_action.go:965` even says so
+explicitly — *"the marker is the wrong truncation signal in BOTH directions
+there"*. And decisively: `git show 0657143b5^:…/diagnose_council_decide_action.go
+| grep -c agent_error_log` returns **0**. Not dormant machinery; a real gap.
+
+**`guardian` (low) — does anything downstream key on `severity`+`error_code`
+combinations that a new code could misfire?** Fair, and the reason this is
+`warning` rather than `error`: degrading is correct behaviour, so a consumer that
+escalates on `error` is untouched. The immune-system sweep reads the table
+generically. Recorded as the fleet check that was not run.
+
+**`guardian` / `editquality` (low) — `truncationMarkerExemptions` is itself a
+hand-maintained map, and the test rejects an empty reason but not a *wrong* one.**
+Both correct and both accepted: this pushes the maintenance surface down one
+level rather than removing it. It is a materially smaller surface (three entries,
+each with a stated reason, in the same package as the thing it exempts, and a
+rename shows up as an unexplained new reader rather than silently passing) — but
+it is not zero, and a plausible-sounding false rationale would pass. Listed as
+residual.
+
+**`prior_art` (low) — was an inverse lockstep already provided elsewhere (a
+generator, a linter, a second table-driven test)?** No; the package has one
+lockstep test and it ran in the forward direction only. Same class of check as
+the medium above, and the honest answer is that neither was run before building.
+
 ## Every check here was falsified before it was believed
 
 The lesson this case already paid for once (the vacuous lockstep, §MISSTEP) was
@@ -667,6 +718,15 @@ What remains:
   hole, demonstrated. It is the config hatch's nature (the config lives in the
   DB, so no Go test can falsify it); the static check above is where it would be
   validated.
+- **`truncationMarkerExemptions` is a trust boundary the test cannot police**
+  (council `guardian`/`editquality`, both low). It rejects an empty reason, not a
+  false one — a future contributor could exempt a real consumer with a
+  plausible-sounding rationale and the test would pass. Smaller surface than what
+  it replaced, not zero.
+- **[UNVERIFIED]** Nothing downstream was checked for keying on
+  `severity`+`error_code` combinations that `TRUNCATION_DEGRADED_REVIEW` might
+  disturb (council `guardian`, low). `warning` was chosen so an `error`-escalating
+  consumer is untouched, but the fleet check was not run.
 - **[UNVERIFIED]** Whether the guard's floor is ever *too* low in practice — it
   asks whether the workflow has **a** reader, not whether the fragment reaches
   one. A workflow with a guarded consumer on a branch the truncated value never
