@@ -4622,3 +4622,41 @@ preamble — is where the drift enters, and it is invisible from inside because 
 always feels like a fair reading of what you just did.
 
 Family: overclaiming-in-summary, coded-vs-filed-vs-measured, narrative-drifts-from-artefact, the-tally-is-the-point.
+
+---
+
+## 2026-07-26 — I reported a live page as broken off a status code that was not a status code
+
+**The claim.** Working oufe.com, I told the owner in writing that the header CTA was dead and
+that a page I had just authored had failed to deploy. Both were false. The page was serving,
+and the object had been in B2 before I said otherwise.
+
+**What actually happened.** My verification loop collected `curl -o /dev/null -w '%{http_code}'`
+and I read the results as a list of HTTP statuses. Several were **`000`**, which is not an
+HTTP status at all — it is curl's way of saying *no response was obtained*. I folded them in
+with the 404s and reported "not live".
+
+**What caught it.** A content grep in the same sweep succeeded — the page's own phrases came
+back — while the status column still said `000`. Those two cannot both be true, and the
+contradiction is what made me look.
+
+**What should have caught it earlier.** The same sweep returned `000` for `/`, a page I had
+verified as serving minutes before. **A checker that reports a known-good target as failing is
+telling you about itself, not about the target**, and I had that evidence on screen and read
+past it.
+
+**The cheap check.** `curl --retry 3 --retry-all-errors`, and treat the three-digit field as
+*tri-state*, never binary: **2xx = it is there, 4xx/5xx = it answered and said no, `000` = it
+never answered.** The third carries no information about the resource whatsoever. Any loop
+that branches on `[ "$code" = "200" ]` silently converts "I could not reach it" into "it is
+broken".
+
+**The bit worth remembering.** This is the success-shaped-result family again, arriving from
+the other side. The day's other three missteps were all *false positives* — `UPDATE 1`,
+`COMPLETED`, `complete_skipped` — things that looked like success and were not. This one was a
+**false negative**: a non-answer that looked like a verdict. In both directions the error is
+the same, reading the **shape** of a result rather than its **substance**, and it is worth
+noticing that a verification habit tuned only to distrust green will still be fooled by a red
+that was never really red.
+
+Family: success-shaped-results, non-answer-read-as-verdict, the-checker-is-the-suspect.
