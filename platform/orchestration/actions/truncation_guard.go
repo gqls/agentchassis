@@ -35,7 +35,7 @@ import (
 // The value is the mechanism, so a reviewer can check the claim without grepping.
 var truncationAwareActions = map[string]string{
 	"diagnose_council_decide": "markerFieldFor -> review.Degraded; an approve cannot stand beside an unreadable seat (bugs_closed/019)",
-	"verify_report_prose":     "truncationFieldFor -> refuses to pass prose built from a cut response (gripper dossier, 8e8b55818)",
+	"verify_report_prose":     "truncationMarkerField -> errors \"refusing to publish a fragment\" before the page is written (gripper dossier, 8e8b55818)",
 }
 
 // acceptsTruncatedConfigKey lets a step declare in CONFIG that its action handles
