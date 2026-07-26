@@ -773,3 +773,19 @@ machinery, feature-builder implementer, backend/API path for static tools). Plan
 - NEXT = P4: rewrite gauntlet-interface (+ provocations-archive-loader per
   the approved data contract) via section-editor delivery + assemble-only
   JS republish, against this now-approved plan. P5 acceptance after.
+
+## 2026-07-26 — belated council-verdict reconciliation (both APPROVED, no trailer)
+
+Checked back on the two council submissions fired 2026-07-25 and never followed
+up: both came back **APPROVED**, but the fix commits predate the verdict (fired
+alongside-commit, the accepted norm) and never got a `Council-Reviewed:`
+trailer added afterward — forward-only rules out amending to add one now.
+Recording the mapping here so the 098 report / a future reader can reconcile
+by hand:
+- corr `64e6112c-09e6-4a33-8033-207398a3789a` → APPROVED (2026-07-25 14:06) →
+  covers commit `258444df1` (GetRound NULL-scan + 404-masks-500 + 198 ASSERT).
+- corr `70c8893b-5579-421a-9df9-a5da8b6c279f` → APPROVED (2026-07-25 15:33) →
+  covers commit `76e9c44d2` (missing `api_key_env_var`).
+- Commit `b498df16b` (502→503 for the Cloudflare body-eating gotcha) was
+  submitted as part of the FIRST bundle (64e6112c) alongside 258444df1 — same
+  APPROVED verdict covers it.
