@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// TestParseSubstepsCarriesErrorStep pins the third drop site of bugs_open/085.
+// TestParseSubstepsCarriesErrorStep pins the third drop site of bugs_open/086.
 // parseSubsteps builds models.Step field by field exactly as
 // convertToWorkflowPlan does, so a substep's step-level error_step never reached
 // loop expansion. No agent definition declares one today (censused live: 0 of

@@ -429,7 +429,7 @@ func (p *MessageProcessor) convertToWorkflowPlan(workflowConfig map[string]inter
 					// error_step is the step-level twin of config.error_step, and
 					// routeToErrorStepOrFail prefers it. Omitting it here made every
 					// step-level declaration inert fleet-wide — the plan the
-					// coordinator reads never carried the field (bugs_open/085).
+					// coordinator reads never carried the field (bugs_open/086).
 					ErrorStep:   p.getStringValue(stepMap, "error_step"),
 					OutputField: p.getStringValue(stepMap, "output_field"),
 					Topic:       p.getStringValue(stepMap, "topic"),

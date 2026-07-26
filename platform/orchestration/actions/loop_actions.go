@@ -627,7 +627,7 @@ func parseSubsteps(substepsConfig map[string]interface{}, startStep string, logg
 			NextStep:    getStringValue(stepMap, "next_step"),
 			// Same omission as convertToWorkflowPlan carried into loop substeps:
 			// without this a substep's error_step never reaches the expanded plan
-			// (bugs_open/085). Expansion prefixes it per iteration.
+			// (bugs_open/086). Expansion prefixes it per iteration.
 			ErrorStep:   getStringValue(stepMap, "error_step"),
 			OutputField: getStringValue(stepMap, "output_field"),
 			Topic:       getStringValue(stepMap, "topic"),

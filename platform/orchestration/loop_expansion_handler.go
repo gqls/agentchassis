@@ -133,7 +133,7 @@ func (s *SagaCoordinator) handleLoopExpansion(
 			// passes through untouched. Deliberately not
 			// resolveIterationNextStep — an error handler is not a chain
 			// link, so it must not roll over to the loop's _complete step
-			// on the last iteration (bugs_open/085).
+			// on the last iteration (bugs_open/086).
 			// =====================================================
 			injectedStep.ErrorStep = substep.ErrorStep
 			if validSubstepSet[substep.ErrorStep] {

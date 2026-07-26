@@ -8,7 +8,7 @@ import (
 )
 
 // TestConvertToWorkflowPlanCarriesErrorStep pins the field that was missing
-// (bugs_open/085). convertToWorkflowPlan builds models.Step field by field, so a
+// (bugs_open/086). convertToWorkflowPlan builds models.Step field by field, so a
 // step-level key it does not name is silently dropped — and the coordinator's
 // routeToErrorStepOrFail reads step.ErrorStep from the PERSISTED plan, not from
 // agent_definitions. The measured effect of the omission: 0 of 14,209 persisted

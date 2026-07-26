@@ -8,7 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// TestLoopExpansionCarriesErrorStep pins the loop half of bugs_open/085.
+// TestLoopExpansionCarriesErrorStep pins the loop half of bugs_open/086.
 //
 // Two rules, and they are different:
 //   - an error_step naming a substep of THIS loop must gain the iteration
