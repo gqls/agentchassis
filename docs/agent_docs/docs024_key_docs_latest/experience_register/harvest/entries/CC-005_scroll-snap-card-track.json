@@ -1,0 +1,63 @@
+{
+  "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
+  "_harvested": "2026-07-26 from fundamentallyai.com/multi-agent-review-council.html (live, HTTP 200) — component swipeable-insight-carousel. CSS-only; no JavaScript at all.",
+
+  "name": "scroll-snap-card-track",
+  "kind": "component-contract",
+  "display_name": "A swipeable track of text cards, with no JavaScript behind it",
+  "aka": ["scroller", "horizontal card list", "swipe row"],
+  "description": "Cards laid out in a horizontally scrolling track that snaps to each card. Swiping, trackpad scrolling and tabbing through the cards' own links all move it; nothing is scripted.",
+
+  "primitives": ["step", "navigate"],
+  "section_types": ["{{binding.section_type}}"],
+  "destination_roles": [{ "role": "{{binding.card_destination_role}}", "of": "card.entity" }],
+  "funnel_stage": "consideration",
+  "suitable_site_types": ["corporate", "content", "portfolio"],
+
+  "requires_invariant": ["no-inert-control"],
+
+  "contract": [
+    { "control_role": "track", "primitive": "step",
+      "outcome": "the track scrolls horizontally and settles aligned to a card edge (scroll-snap x mandatory) — the visitor is never left between two cards",
+      "actor": "visitor gesture (swipe / trackpad / shift-scroll) or the browser's own focus scrolling",
+      "evidence": "shipped page CSS: overflow-x auto + scroll-snap-type x mandatory + scroll-snap-align start; verified present in the live HTML" },
+    { "control_role": "card_link", "primitive": "navigate",
+      "outcome": "a real page load of that card's destination, with a visible focus ring when reached by keyboard",
+      "destination_role": "{{binding.card_destination_role}}",
+      "evidence": "live page: 2 cards carry links (one external site, one mailto); the rest carry none" }
+  ],
+
+  "states": [
+    { "state_role": "card_without_destination", "condition": "the card record has no link URL",
+      "outcome": "no anchor is rendered at all — the card is a piece of text, not a control that goes nowhere",
+      "why": "`no-inert-control`, FOURTH independent sighting and the first at TEMPLATE level (`{{if .link_url}}`): three different authors, three different mechanisms, one rule. That is the case for naming it once in the register rather than rediscovering it per component.",
+      "evidence": "template conditional; live page renders links on 2 of its cards only" },
+    { "state_role": "swipe_hint", "condition": "always", "outcome": "the \"Swipe or scroll →\" hint is decorative and is hidden from assistive technology (aria-hidden), because it describes a pointer gesture that is not how a screen-reader user moves through the track" }
+  ],
+
+  "degraded_states": [
+    { "when": "no JS", "outcome": "unchanged — there is none to fail" }
+  ],
+
+  "binding_schema": {
+    "section": { "type": "selector" }, "section_type": { "type": "section_type" },
+    "track": { "type": "selector" }, "card": { "type": "selector" },
+    "card_link": { "type": "selector" }, "card_destination_role": { "type": "value" }
+  },
+
+  "criteria_template": {
+    "profiles": ["desktop", "mobile"],
+    "container": "{{binding.section}}",
+    "checks": [
+      { "id": "track_exists", "type": "selector_exists", "selector": "{{binding.track}}" },
+      { "id": "cards_exist", "type": "selector_count", "selector": "{{binding.card}}", "min": 2 },
+      { "id": "links_have_real_destinations", "type": "attribute_matches", "selector": "{{binding.card_link}}", "attribute": "href", "not_matches": "^(#|\\s*)$",
+        "_unsupported": "no attribute assertion (HARVEST_01 §3.2)" },
+      { "id": "no_overflow", "type": "no_horizontal_overflow", "profiles": ["mobile"], "tier": 4,
+        "note": "a horizontally scrolling track must NOT make the PAGE scroll horizontally — the two are different, and this check distinguishes them by container" }
+    ]
+  },
+
+  "status": "draft", "source": "harvest",
+  "harvested_from": "fundamentallyai.com/multi-agent-review-council.html (live 2026-07-26); source at brochure_component_library/components/swipeable-insight-carousel/."
+}

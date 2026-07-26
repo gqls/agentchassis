@@ -72,6 +72,20 @@ CREATE TABLE experience_patterns (
         -- does NOT restate their clauses (two accounts of one clause is the drift
         -- class this workstream keeps filing bugs about).
 
+    -- ---- ADDED 2026-07-26 by HARVEST 02 (brochure components) ----
+    automatic_triggers jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- HARVEST_02 §3.1 — behaviour whose actor is NOT the visitor: viewport
+        -- intersection (count-up on scroll-into-view), system preference
+        -- (prefers-reduced-motion), focus movement (auto-advance yielding),
+        -- the visitor's own scrolling. Contract, not decoration — it is what
+        -- makes a component polite — and `contract` assumes a control.
+    requires_invariant jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- HARVEST_02 §2 — names of experience_invariants this entry is bound by.
+        -- Referenced, never restated: six independent implementations of ONE rule
+        -- ("a control that cannot do anything must not be presented") were found
+        -- across two sites and five authors. Copying the clause into each entry
+        -- would industrialise the drift instead of ending it.
+
     -- Acceptance side (design/criteria_template_schema_v1.md):
     binding_schema jsonb NOT NULL DEFAULT '{}'::jsonb,
         -- declared placeholders a fork must bind, e.g.
@@ -146,3 +160,37 @@ CREATE INDEX idx_site_experiences_site ON site_experiences (site_id, status);
 --    handler owns it (candidate: the experience loop's needs_experience_replan
 --    once T5.2 routing exists; Tier-2-only until then).
 -- ----------------------------------------------------------------------------
+
+-- ============================================================================
+-- experience_invariants — ADDED 2026-07-26 by HARVEST 02 §2.
+-- Clauses that hold across many patterns, stored ONCE and referenced by name
+-- from experience_patterns.requires_invariant. Seeded from sightings, never
+-- authored speculatively: an invariant earns its row by having been implemented
+-- independently more than once.
+-- ============================================================================
+CREATE TABLE experience_invariants (
+    name text PRIMARY KEY,              -- e.g. 'no-inert-control'
+    clause text NOT NULL,               -- the rule, one sentence, testable
+    rationale text NOT NULL,            -- why it exists / what breaks without it
+    sightings jsonb NOT NULL DEFAULT '[]'::jsonb,
+        -- [{"where":"vonc provocations archive","mechanism":"JS strips href+tabindex",
+        --   "evidence":"archive_loader_new.js --static branch"}]
+        -- The COUNT is the argument: 6 independent implementations of
+        -- no-inert-control across 2 sites is what makes it an invariant rather
+        -- than one component's opinion.
+    status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','approved')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Seed (drafts — the pattern council approves them alongside the first entries
+-- that reference them):
+--   no-inert-control
+--     clause: a control that cannot do anything must not be presented as one —
+--             no placeholder href, no tab stop, no rendered button.
+--     sightings: 6 (HARVEST_02 §2 table)
+--   pointer-behaviour-has-a-keyboard-equal
+--     clause: any state a pointer can reach (hover reveal, drag, swipe) is
+--             reachable by keyboard, with the same observable outcome.
+--     sightings: 2 (image-hover-card-grid :hover/:focus-visible pairs;
+--                hero-card-carousel ArrowLeft/ArrowRight)

@@ -97,3 +97,46 @@ something imagined, and it is better for it. The build of the register itself �
 planner hook, the validation — is still waiting on your go, and it is the next thing. One
 piece of good news there: a bug we filed on Friday (064) has been fixed by another session and
 is now live in the running system, which makes our build a little smaller than it was.
+
+---
+
+**2026-07-26 (later) — the brochure components, and a rule we keep re-inventing.**
+
+You chose to harvest the brochure set before building the register itself, and it earned its
+place. Five more experiences, taken from the five components on fundamentallyai.com — the card
+carousel, the hover-reveal image grid, the swipeable text track, the counting statistics band,
+and the illustrated statement block. Each one checked on its own live page rather than in the
+repository.
+
+The important thing that came out of it is not a component at all. It is a rule that six
+different pieces of code implement independently, in five different ways: **a control that
+cannot do anything must not be presented as a control.** The archive strips the link from a row
+with no article behind it. The call-to-action isn't rendered when there is nowhere to go. The
+carousel hides its arrows when there is only one card, and never draws a pause button when
+there is nothing rotating. Two templates simply don't emit a link when no address was supplied.
+Five authors, none of them talking to each other, all arriving at the same rule.
+
+That changes the design. Rules like this should be written down once and *referred to* by each
+experience, not copied into each one — copying is exactly how you end up with six slightly
+different versions of the same idea, which is the problem we are trying to solve rather than a
+way to solve it. So the register gains a short list of named invariants alongside the
+experiences themselves.
+
+There is also a live problem, found by taking one of these experiences seriously. The carousel's
+rule says a card takes you to a real page. So I checked where the four cards on the capabilities
+page actually point — and all four are dead twice over: the address they use returns "not
+found", and the place on the page they are aiming at doesn't exist either. The hover-grid cards
+on another page are the same. This is already a known bug belonging to another thread, so I
+added the evidence there rather than starting a competing fix. But note what it shows: the site
+passed its own link check on Friday with "43 targets, none broken", because that check tidies
+the address before testing it and ignores the part after the "#". The experience says what the
+card was *supposed* to reach; that is what turns "is this link right?" from someone's judgement
+into a check that runs.
+
+Two things I got wrong today and caught before they went anywhere, since they are the useful
+part of a log: I nearly reported an accessibility fault in someone else's component from a
+careless search (the component is correct — I searched for the wrong thing), and I nearly
+carried forward my own note that the statistics band has no behaviour, when in fact it has the
+most careful behaviour of the five.
+
+Next is the register's own build, which is what you green-lit the sequence for.

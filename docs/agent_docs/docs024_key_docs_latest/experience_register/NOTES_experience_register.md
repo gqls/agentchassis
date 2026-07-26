@@ -156,3 +156,46 @@ live run and folded it into P2.
 - First draft of `MJ-001` carried `ai-never-funny-on-purpose` as a literal in the criteria.
   That is the `bugs_open/045` static-fallback mistake in a new place: the openable set changes
   with the feed. It is now a binding (`sample_item_key`), resolved at bind time.
+
+## 2026-07-26 (later) — HARVEST 02, the brochure component library
+
+Owner ruled the brochure set be harvested BEFORE building P2 (my recommendation, on the
+grounds that harvesting 4 entries had already changed the schema five ways). Justified: it
+changed it again, structurally.
+
+**Live verification — all five components, one per page, fetched this session:**
+
+| component | page | HTTP | proof |
+|---|---|---|---|
+| hero-card-carousel | /capabilities.html | 200 | 4 slides, `data-hcc-autoplay="false"`, `[data-hcc-live]` present, **zero** `[data-hcc-pause]` |
+| image-hover-card-grid | /model-fine-tuning.html | 200 | 4 `:focus-visible` rules in the shipped CSS |
+| swipeable-insight-carousel | /multi-agent-review-council.html | 200 | `scroll-snap-type` present; links on 2 cards only |
+| stat-band | /index.html | 200 | 4 `[data-countup]`, each with the authored value on `aria-label` |
+| people-feature-block | /about.html | 200 | exactly one anchor |
+
+Served bundle `/assets/js/snippets.js` (7,614 B) carries both behaviours by created strings:
+`data-hcc-track` ×1, `__statBandInit` ×2, the literal `Card " + (current + 1)` ×1,
+`data-countup` ×1.
+
+**The finding: one invariant, six sightings.** `no-inert-control` — see HARVEST_02 §2 for the
+table. Five different authors, five different mechanisms, one rule. P2 gains an
+`experience_invariants` table + `requires_invariant`; second invariant already visible
+(`pointer-behaviour-has-a-keyboard-equal`).
+
+**A harvested clause found a live defect.** Probing `CC-003`'s destination clause:
+`/capabilities` → **404** (all four carousel cards link there), and none of the four fragments
+exists on `/capabilities.html` either; the hover grid's cards point at absent fragments on a
+live page. Checked `bugs_open/` first — it is `071`'s class (extension-less + fragment blind
+spot), already owned and actively worked, with a hand-over from 049 the same day. **Evidence
+appended to 071, no new bug filed**, per the grep-before-filing and who-owns rules.
+
+**Missteps this session (second batch)**
+- Grepped the live page for `:focus-within` and concluded the hover reveal was pointer-only —
+  wrong pseudo-class. The component uses `:focus-visible`, correctly paired with `:hover` on
+  every rule. Caught by reading the component source before writing the entry, which is the
+  standing "read the function before changing it" rule applied to CSS. **Had I written the
+  entry from the grep, the register's first accessibility clause would have been a fabricated
+  defect report about someone else's component.**
+- Nearly recorded `stat-band` as interaction-free by carrying my own 07-24 taxonomy line
+  forward. It has the most interesting behaviour of the five. The line was written from the
+  component list, not from the component.

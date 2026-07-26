@@ -31,17 +31,32 @@ the one addition (evidence/reference links leaving the site). No new page-type t
 invented; if a pattern needs a role no page_type expresses, that is a planner-vocabulary
 conversation first.
 
-## Level 2 — component-contract candidates (HARVEST-PENDING)
+## Level 2 — component contracts (HARVESTED 2026-07-26, all five live-verified)
 
-From the brochure component library (`behaviour.js` exists per component — the contract is
-extracted, not invented):
-- `hero-card-carousel` — step (swipe/arrows), navigate (card → destination role per card)
-- `swipeable-insight-carousel` — step, reveal
-- `image-hover-card-grid` — reveal (hover state), navigate (`link_url` per card — today
-  `source: llm`, regenerated per build; the binding replaces the guess)
-- `people-feature-block` — reveal / navigate (profile)
-- (`stat-band` has no interaction — a contract recording "none" is still worth an entry:
-  it makes "this component is inert by design" checkable, the anti-hollow rule inverted)
+From the brochure component library, extracted from the sources AND confirmed on the deployed
+pages of fundamentallyai.com (one component per page) — `harvest/HARVEST_02`:
+
+| entry | component | live page | primitives |
+|---|---|---|---|
+| `CC-003 arrow-and-swipe-card-carousel` | `hero-card-carousel` | /capabilities.html | step, play, navigate |
+| `CC-004 hover-reveal-card-grid` | `image-hover-card-grid` | /model-fine-tuning.html | reveal, navigate |
+| `CC-005 scroll-snap-card-track` | `swipeable-insight-carousel` | /multi-agent-review-council.html | step, navigate |
+| `CC-006 count-up-stat-band` | `stat-band` | /index.html | play (viewport-triggered) |
+| `CC-007 illustrated-statement-block` | `people-feature-block` | /about.html | navigate (at most one) |
+
+> **CORRECTED 2026-07-26 — `stat-band` was listed here as the example of a component with NO
+> interaction.** It ships a count-up animation triggered by scrolling into view, with an
+> honesty rule worth registering on its own: it never invents digits, it counts only to a value
+> already rendered from authored data, and the true figure stays on the accessible name so
+> assistive technology never hears the intermediate fakes. The "inert by design" slot passes to
+> `CC-007 people-feature-block`, which genuinely has nothing — and that contract is still worth
+> an entry, because "correct and inert" is otherwise indistinguishable from "unfinished".
+
+**Also corrected: `play` is not always a control.** The vocabulary below defines `play` as
+"start/pause a time-based behaviour", which fits the carousel's pause button but not the
+count-up, which has no control at all — its actor is the viewport. Triggers therefore carry an
+**actor** (visitor / viewport / system preference / focus movement / page lifecycle), and the
+non-visitor ones live in `automatic_triggers`, not `contract` (HARVEST_02 §3.1).
 
 ## Level 3 — micro-journey candidates (HARVEST-PENDING)
 

@@ -1,0 +1,60 @@
+{
+  "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
+  "_harvested": "2026-07-26 from fundamentallyai.com/about.html (live, HTTP 200) — component people-feature-block.",
+
+  "name": "illustrated-statement-block",
+  "kind": "component-contract",
+  "display_name": "An illustration beside a statement, with at most one link",
+  "aka": ["feature block", "media-and-text", "split panel"],
+  "description": "A two-column block: an illustration on one side, a statement on the other, sides reversible. It has no behaviour, and recording that is the point.",
+
+  "primitives": ["navigate"],
+  "section_types": ["{{binding.section_type}}"],
+  "destination_roles": [{ "role": "{{binding.link_destination_role}}", "of": "topic" }],
+  "funnel_stage": "consideration",
+  "suitable_site_types": ["corporate", "content", "portfolio"],
+
+  "requires_invariant": ["no-inert-control"],
+
+  "contract": [
+    { "control_role": "statement_link", "primitive": "navigate",
+      "outcome": "a real page load of the stated destination",
+      "destination_role": "{{binding.link_destination_role}}",
+      "exists_only_when": "the block's record carries a link URL",
+      "evidence": "template `{{if .link_url}}`; live about.html renders exactly one link (an external site)" }
+  ],
+
+  "states": [
+    { "state_role": "no_other_interaction", "condition": "always",
+      "outcome": "nothing else in this block responds to a click, hover or key — the image is not a link, the statement is not expandable, the layout reversal is an author setting and not a control",
+      "why": "**a contract that records 'inert by design' is worth an entry.** Without it, 'this component does nothing when clicked' is indistinguishable from 'this component's behaviour was never built', and the dead-control sweeps cannot tell them apart either. It is the inverse of the hollow-placeholder rule and it makes inertness checkable.",
+      "evidence": "the whole template contains one anchor and one hover rule (an underline on that anchor)" }
+  ],
+
+  "degraded_states": [
+    { "when": "no JS", "outcome": "unchanged — there is none" },
+    { "when": "the illustration fails to load", "outcome": "the statement is the content and stands alone; the image is decoration in the layout sense" }
+  ],
+
+  "binding_schema": {
+    "section": { "type": "selector" }, "section_type": { "type": "section_type" },
+    "statement": { "type": "selector" }, "link": { "type": "selector" },
+    "link_destination_role": { "type": "value" }
+  },
+
+  "criteria_template": {
+    "profiles": ["desktop", "mobile"],
+    "container": "{{binding.section}}",
+    "checks": [
+      { "id": "statement_present", "type": "interaction", "steps": [], "expect": { "selector": "{{binding.statement}}", "text_matches": "\\S" } },
+      { "id": "link_if_present_is_real", "type": "attribute_matches", "selector": "{{binding.link}}", "attribute": "href", "not_matches": "^(#|\\s*)$",
+        "_unsupported": "no attribute assertion (HARVEST_01 §3.2)" },
+      { "id": "nothing_else_is_a_control", "type": "selector_count",
+        "selector": "{{binding.section}} a:not({{binding.link}}), {{binding.section}} button", "equals": 0,
+        "_unsupported": "zero-count assertions do not exist — so 'inert by design' cannot be distinguished from 'unfinished' by any automated check we have (HARVEST_02 §3.4)" }
+    ]
+  },
+
+  "status": "draft", "source": "harvest",
+  "harvested_from": "fundamentallyai.com/about.html (live 2026-07-26); source at brochure_component_library/components/people-feature-block/."
+}

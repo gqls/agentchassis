@@ -1,0 +1,93 @@
+{
+  "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
+  "_harvested": "2026-07-26 from fundamentallyai.com/capabilities.html (live, HTTP 200) — component hero-card-carousel, behaviour in the served /assets/js/snippets.js (markers data-hcc-track, data-hcc-autoplay, and the literal announcement string). Source of truth for the DB row: brochure_component_library/components/hero-card-carousel/.",
+
+  "name": "arrow-and-swipe-card-carousel",
+  "kind": "component-contract",
+  "display_name": "Card carousel: arrows always, swipe natively, auto-advance only if asked",
+  "aka": ["carousel", "slider", "content rotator"],
+  "description": "A horizontally scrolling track of cards. Native scroll-snap does the swiping, so it works with no JavaScript at all; JavaScript adds arrow controls, keyboard stepping, and an optional auto-advance that yields to the visitor.",
+
+  "primitives": ["step", "play", "navigate"],
+  "section_types": ["{{binding.section_type}}"],
+  "destination_roles": [{ "role": "{{binding.card_destination_role}}", "of": "card.entity" }],
+  "funnel_stage": "awareness",
+  "suitable_site_types": ["corporate", "content", "portfolio"],
+
+  "requires_invariant": ["no-inert-control"],
+
+  "contract": [
+    { "control_role": "next_arrow", "primitive": "step",
+      "outcome": "the track scrolls to the following card AND a live region announces its position (\"Card N of M\") — the announcement is the outcome, not decoration",
+      "evidence": "behaviour.js goTo(current+1, true); live page carries one [data-hcc-live] region with aria-live" },
+    { "control_role": "previous_arrow", "primitive": "step", "outcome": "as above, in reverse; wraps at the ends" },
+    { "control_role": "keyboard_arrows", "primitive": "step",
+      "outcome": "ArrowRight/ArrowLeft on the carousel do exactly what the arrow controls do, with the same announcement",
+      "why": "a control that only responds to a pointer is not a control for everyone; keyboard equivalence is contract, not polish" },
+    { "control_role": "pause_toggle", "primitive": "play",
+      "outcome": "auto-advance stops and the control's accessible name flips to its inverse (\"Start automatic rotation\" ↔ \"Pause automatic rotation\") — the state is announced, not just drawn",
+      "exists_only_when": "auto-advance is enabled",
+      "evidence": "behaviour.js pauseBtn branch is inside `if (autoplay …)`; the LIVE page has data-hcc-autoplay=\"false\" and ships no [data-hcc-pause] element at all — the contract observed in production" },
+    { "control_role": "card", "primitive": "navigate",
+      "outcome": "a real page load of the card's own destination",
+      "destination_role": "{{binding.card_destination_role}}",
+      "see": "harvest/HARVEST_02 §4 — on the live page every card's destination is currently dead (bugs_open/071's class). The clause is right; the site is wrong, which is the point of declaring it." }
+  ],
+
+  "automatic_triggers": [
+    { "actor": "viewport", "when": "the carousel scrolls out of view (IntersectionObserver, 0.25)", "outcome": "auto-advance suspends; it resumes on return", "why": "a rotation nobody can see burns battery and moves content under a returning visitor" },
+    { "actor": "pointer/focus", "when": "the visitor hovers or focuses anything inside", "outcome": "auto-advance suspends until they leave — reading is never interrupted by the component moving" },
+    { "actor": "system preference", "when": "prefers-reduced-motion is set", "outcome": "auto-advance never starts and scrolling is instant rather than smooth" },
+    { "actor": "scroll", "when": "the visitor swipes/scrolls the track directly", "outcome": "the component re-derives which card is current (120 ms after the scroll settles) so the next arrow press continues from where the visitor is, not from where the code last was" }
+  ],
+
+  "states": [
+    { "state_role": "single_card", "condition": "fewer than two cards", "outcome": "every control (arrows, pause) is hidden",
+      "why": "a control that cannot change anything must not be presented — the `no-inert-control` invariant, third independent sighting",
+      "evidence": "behaviour.js slides.length < 2 branch" }
+  ],
+
+  "degraded_states": [
+    { "when": "the JS bundle fails to load or is blocked", "outcome": "the track still scrolls and snaps natively, every card is still a real link, and the arrows (which are the only JS-dependent part) simply do nothing visible",
+      "why": "the behaviour is an enhancement over a working component, not the component itself",
+      "evidence": "scroll-snap lives in the template's CSS; behaviour.js only binds controls" },
+    { "when": "the behaviour script is included more than once (it ships in a site-wide bundle)", "outcome": "initialisation must be idempotent — one set of handlers, one timer", "note": "hero-card-carousel guards by scoping to its own root and re-querying; stat-band guards with an explicit flag (CC-006). Two different mechanisms for one requirement — a register clause makes it a decision rather than an accident." }
+  ],
+
+  "binding_schema": {
+    "section": { "type": "selector" }, "section_type": { "type": "section_type" },
+    "track": { "type": "selector" }, "slide": { "type": "selector" },
+    "prev_control": { "type": "selector" }, "next_control": { "type": "selector" },
+    "pause_control": { "type": "selector", "optional_when": "autoplay is off" },
+    "live_region": { "type": "selector" },
+    "card_link": { "type": "selector" },
+    "card_destination_role": { "type": "value" },
+    "autoplay": { "type": "value", "default": "false" }
+  },
+
+  "criteria_template": {
+    "profiles": ["desktop", "mobile"],
+    "container": "{{binding.section}}",
+    "checks": [
+      { "id": "track_exists", "type": "selector_exists", "selector": "{{binding.track}}" },
+      { "id": "at_least_two_cards", "type": "selector_count", "selector": "{{binding.slide}}", "min": 2 },
+      { "id": "arrows_exist", "type": "selector_exists", "selector": "{{binding.next_control}}" },
+      { "id": "live_region_exists", "type": "selector_exists", "selector": "{{binding.live_region}}" },
+      { "id": "next_announces_position", "type": "interaction", "tier": 4,
+        "steps": [{ "action": "click", "selector": "{{binding.next_control}}" }],
+        "expect": { "selector": "{{binding.live_region}}", "text_matches": "\\d+\\s+of\\s+\\d+" } },
+      { "id": "cards_have_real_destinations", "type": "attribute_matches",
+        "selector": "{{binding.card_link}}", "attribute": "href", "not_matches": "^(#|\\s*)$",
+        "_unsupported": "no attribute assertion (HARVEST_01 §3.2)" },
+      { "id": "card_destinations_resolve", "type": "page_status_ok", "url": "each {{binding.card_link}} href",
+        "_unsupported": "page_status_ok takes no URL (HARVEST_01 §3.3) — this is the check that would have caught four dead cards on the live page today" },
+      { "id": "pause_control_absent_when_autoplay_off", "type": "selector_count",
+        "selector": "{{binding.pause_control}}", "equals": 0, "when": "{{binding.autoplay}} == false",
+        "_unsupported": "neither zero-count assertions nor conditional checks exist" },
+      { "id": "no_overflow", "type": "no_horizontal_overflow", "profiles": ["mobile"], "tier": 4 }
+    ]
+  },
+
+  "status": "draft", "source": "harvest",
+  "harvested_from": "fundamentallyai.com/capabilities.html (live 2026-07-26, 4 cards, autoplay off, no pause control shipped); source at brochure_component_library/components/hero-card-carousel/."
+}

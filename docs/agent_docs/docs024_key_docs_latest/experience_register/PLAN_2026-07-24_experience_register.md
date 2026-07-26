@@ -33,6 +33,28 @@ go.**
 > overlaps `gauntlet_dead_cta` P5) — P2 marks such checks `_unsupported` in its templates
 > rather than quietly dropping them.
 >
+> **HARVEST 02 — the brochure set, same day (owner ruling: harvest before P2).** Five more
+> entries (`CC-003`…`CC-007`), all five components live-verified one per page on
+> fundamentallyai.com. The reasoning for going second was that a *different kind* of component
+> might change the schema again — it did, once and importantly:
+> **invariants are first-class.** One rule — *a control that cannot do anything must not be
+> presented as one* — turned up in **six independent implementations across two sites and five
+> authors** (JS stripping an href, a CTA omitted, carousel arrows hidden under two cards, a
+> pause control never emitted, and two template conditionals). Restating it per entry would
+> industrialise the drift instead of ending it, so P2 gains an `experience_invariants` table
+> and a `requires_invariant` reference. Also new: `automatic_triggers` (behaviour whose actor is
+> the viewport, a system preference or focus movement, not the visitor), accessibility outcomes
+> stay *inside* the contract, and two more criteria gaps (zero-count and scoped negation — so
+> "inert by design" is currently unassertable). Full record: `harvest/HARVEST_02`.
+>
+> **Applying a harvested clause found a live defect.** `CC-003` says a card's outcome is a real
+> page load of its destination, so I probed the destinations: all four carousel cards on the
+> live capabilities page point at an extension-less path that 404s *and* a fragment that does
+> not exist; the hover grid's cards reach a live page and an absent fragment. Not filed — it is
+> `bugs_open/071`'s class exactly — evidence contributed there, with the two things it adds
+> (these are component-card links, not chrome; and the site's own audit called it sound because
+> it drops fragments).
+>
 > **P2 also shrank**: **064 is CLOSED** (`bugs_closed/064…`, commit `eb81de7b5`) — the
 > single-sourced `validDocSubjectTypes` went live on v1.0.1156 on 2026-07-25 and the closing
 > session proved both the accepting and the rejecting branch with live orchestration runs. I
