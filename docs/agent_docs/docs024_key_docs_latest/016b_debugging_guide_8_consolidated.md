@@ -3209,6 +3209,60 @@ wait for a third.
 Category tags: `two-spellings-one-state`, `silent-continue-livelock`,
 `selector-loader-disagreement`, `schema-default-beats-a-rule`, `one-row-fleet-outage`.
 
+---
+
+### A sweep that hand-codes per-type evidence is usually re-deriving something already recorded once
+
+*(`bugs_open/006` §C, closed 2026-07-26 — migration `220`.)*
+
+`claimed-item-timeout` is the fleet's only self-heal for a claim whose handler finished
+but whose completion write was lost. It decided "did this actually succeed?" with a
+hand-written artifact test **per `item_type`** — and had three, for eighteen types.
+Everything else fell through to a 40-minute reset **even when its work had succeeded**:
+84 timeouts against 14 auto-completions over 14 days, `needs_page` at 27 and 0.
+
+1. **The evidence was already there, once, generically.** Every dispatched item's id is
+   passed into its handler by `call_handler.input_mapping`, so the handler's own
+   orchestration row carries it at `initial_request_data->'input_data'->>'work_item_id'`.
+   One branch keyed on that covers every item type — present and future — and made the
+   fifteen missing per-type tests unnecessary rather than overdue. **When you find
+   yourself about to write the fourth case of a per-type check, look for the thing the
+   platform already writes on every path.**
+2. **A recovery mechanism's standard is PARITY with the write it replaces, not
+   correctness.** The tempting instinct is to make the sweep *smarter* than the lost
+   `complete_work_item` call. That is wrong: anything stricter than the write it stands
+   in for leaves finished work re-running, which is the defect. Reproduce the lost write;
+   put quality judgement where the write is, not in the recovery.
+3. **But find the one place parity is unsafe, and exclude exactly that.** Completion is
+   not unconditional — a per-item-type verifier can *block* it (`017`/`021`). SQL cannot
+   call a Go verifier, so those item types are excluded. That is a hardcoded list twinned
+   with `RegisterVerifier()` calls, and the drift is **silent and one-sided**: add a
+   verifier, forget the SQL, and the sweep bypasses it with no caller to notice. The
+   lockstep test **reads the migration file** and extracts its list — a guard holding its
+   own third copy of the contract can drift with the thing it guards, and then it is not
+   a guard.
+4. **A `pre_query` is executable code with no compiler.** It is a SQL string in a text
+   column; nothing validates it at write time, and the scheduler runs it every 120s. A
+   typo would silently kill the fleet's only claim self-heal while `enabled`,
+   `last_triggered_at` and the logs all still read healthy. So the migration `PREPARE`s
+   the stored string (parses and plans, executes nothing) **and** runs the real stored
+   `pre_query` against a probe pair. Do not verify a `pre_query` by re-stating its
+   predicate in the guard — a check sharing the fix's own expression cannot falsify it.
+5. **Measure runtimes before blaming a reaper.** The attractive theory here was that
+   `stale-orchestration-reaper` (which FAILs a dispatch loop idle >30 min) was killing
+   supervisors while their handlers still worked. **Refuted:** handler orchestrations
+   average 4.9 min, max 8.1, none over 30 — and a dispatch loop's `last_activity` advances
+   per loop iteration, so it does not idle out. A window is only too short relative to a
+   measured distribution.
+6. **Retention decides whether your evidence exists when you look.** `orchestration_states`
+   is purged at ~2 days. Measuring link coverage over 36 hours gave 212/298 and looked like
+   a coverage hole; over 6 hours it was 100/100. **Pick a measurement window shorter than
+   the retention of the thing you are measuring**, or you will diagnose a purge as a defect.
+
+Category tags: `per-type-check-that-should-be-generic`, `recovery-parity-not-correctness`,
+`config-string-has-no-compiler`, `guard-must-not-restate-the-fix`,
+`retention-shorter-than-window`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -4920,3 +4974,47 @@ anti-spam hardening it undermined. A green suite is evidence that behaviour is
 *intended*, never that it is *safe*. When a security fix makes a test fail, read
 that test as a statement of what someone once believed, and correct it in place
 with a dated note rather than deleting it.
+
+### A panic in one Go test silently disables every test declared after it — and the default output makes a third of a run look like all of it (2026-07-26)
+
+**Symptom.** You induce a fault to check your tests can actually fail, and the run reports
+*fewer* failures than there are relevant tests. The obvious reading — "those other tests are
+vacuous, they pass either way" — is wrong and expensive, because it sends you rewriting
+tests that were fine.
+
+**Diagnose.** Re-run with `-v` and count `=== RUN` lines, not `--- FAIL` lines:
+```bash
+go test ./path/ -run TestThing -count=1 -v 2>&1 | grep -cE '^=== RUN'   # tests that STARTED
+go test ./path/ -run TestThing -count=1    2>&1 | grep -cE '^--- FAIL'  # tests that FAILED
+```
+If the first number is lower than the number of matching test functions, the binary died
+part-way. `go test` without `-v` prints nothing for a passing test **and nothing for a test
+that never ran**, so the two are indistinguishable in the default output.
+
+**Root cause.** An unguarded index into a slice the code under test produced:
+```go
+got, repairs := RepairPageLinks(in, ix)
+if repairs[0].NewHref != "/x" { ... }     // panics when the fault makes repairs empty
+```
+A panic aborts the whole test *binary*, not just that test function. Every test declared
+after it in the file is skipped in silence. The failure mode only appears when the code is
+broken — i.e. exactly during the probe you are relying on to tell you the truth.
+
+**Fix.** Any `slice[i]` in a test needs a length check that stops the test, not one that
+lets it fall through:
+```go
+if len(repairs) != 1 {
+    t.Fatalf("want 1 repair, got %+v", repairs)   // Fatalf, not Errorf — Errorf keeps going
+}
+if repairs[0].NewHref != "/x" { ... }
+```
+`t.Errorf` followed by an index is the same bug: it records the failure and then panics
+anyway.
+
+**The part worth stealing.** This is a second-order version of the rule everyone already
+knows ("a green suite proves nothing until you have watched it go red"). Watching it go red
+is necessary but not sufficient — you also have to check that the tests you *expected* to
+go red are the ones that did, and that the run executed everything it claimed to. The probe
+is only as good as your reading of its output, and the default output is designed for the
+happy path. Cross-ref: `bugs_open/079` NOTES, where this cost a wrong diagnosis of four of
+my own tests.

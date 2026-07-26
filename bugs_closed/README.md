@@ -88,22 +88,34 @@ numbers are cited in commit messages and Go comments.
 | 031 | A stale register entry asserts a content-hash rerender skip that never existed, blocking correct plans | corrected in all 6 places, including the live council seat prompts |
 | 032 | The completion verifier reads a DELETED component as a successful fix | conservative floor (error, not verdict) shipped; **re-verified in the running pod** 2026-07-20 |
 | 018 | Council coverage report (`098_…sh`) hid 90% of in-scope commits — `kubectl exec -i` stole the read loop's stdin | shell fix (live on commit): `-i` dropped, dual-id (correlation OR run) resolution, EVIDENCE-GONE bucket, first-token trailer parse; **verified against live DB + git** 2026-07-21 (full-DB count == raw `git log`; approved run-id → REVIEWED). The *idea.uk* `018` is a different case, still open. |
+| 006 | Three independent idea.uk-era infra errors: **A** runner replica crash-looping, **B** generated contact forms deliver nothing fleet-wide, **C** claim-timeout churn re-runs finished work | all three closed 2026-07-26, **with two residuals stated in the file**. **A**: symptom extinct — both replicas `1/1`, 0 restarts, no CrashLoopBackOff in the namespace; *how* it was resolved is `[INFERRED]` (the bad node is gone, so "fixed" and "replaced" are indistinguishable now) and the file says to reopen on the same cgroupsPath error. **B**: fixed, live `v1.0.1149`/`v1.0.1156`, council-approved, proven end to end on vonc with zero human touch; residual = 9 of 12 forms still serving `#contact` until their organic re-render, by owner ruling 2026-07-25. **C**: migration `220` gives the sweep one generic completion-evidence branch (the handler's own orchestration), replacing a per-item-type artifact test that covered 3 of 18; config, so live immediately — **verified through the running scheduler, positive case and negative control**, every guard fault-injected. Residual = the *cause* of the lost write is `003`'s, not this case's. |
 | 043 | Diagnosis runs hang at the `route` step, so the loop returns no verdicts — **043-route-hang** | hardening live in `v1.0.1165` (**re-verified in the running pod**, and in the spawned-pod image pin, which is where `route` runs); migration 191 resource bump still applied; root cause was the `003` spawn-loss class, whose F2/F3 fix is live in `v1.0.1159` and owner-ratified. Symptom extinct: zero failed/stranded diagnoses since 2026-07-20 across five days of burst load. Trigger never pinned — closure is extinction + owned root fix, said so in the file. The *fabricated-stats* `043` is a different case, still open. |
 
 Note `002` is also filed here as a routing document rather than a fixed defect —
 its A–C legs are done and it points at the owners of the rest. Read it before
 assuming everything it describes is closed.
 
-Closure evidence lives inside each case file. `005`, `008`, `012`, `013` and
-`032` were independently verified against the live system by the thread that
+Closure evidence lives inside each case file. `005`, `006`, `008`, `012`, `013`
+and `032` were independently verified against the live system by the thread that
 moved them (`008`/`013`/`032` by grepping the running pod's binary on
-2026-07-20); the others rest on their filing thread's own verification.
+2026-07-20; `006` §C by planting a positive and a negative probe and letting the
+**production scheduler** sweep them); the others rest on their filing thread's
+own verification.
 
 **`032` closed with a known residual, deliberately.** Its stronger fix — treat
 absence as *deletion* when the page still expects the component — was left to the
 owning thread. A case can close on its safe floor while a better answer stays
 open; say so in the file, as `032` does, rather than letting the floor read as
 the finished shape.
+
+`006` closed the same way on 2026-07-26, with **two** residuals named at the top
+of its file rather than buried: 9 live contact forms awaiting an organic
+re-render (§B, an owner ruling, not an oversight), and the *cause* of the lost
+completion write (§C) belonging to `003` rather than to `006`. Note the third
+thing it does that `032` did not: **§A closed on an extinct symptom whose
+resolution is `[INFERRED]`**, with an explicit reopen trigger written into the
+file. Symptom-extinction is a legitimate closure — `043` closed that way too —
+but only when the file says which part was never actually established.
 
 ## Still the rules
 
