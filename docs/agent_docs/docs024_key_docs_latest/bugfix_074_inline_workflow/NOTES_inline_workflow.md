@@ -192,3 +192,19 @@ fix.
 The test was falsified before being trusted: blinding the detector (`if !ok` → `if true`) makes
 three subtests fail, and they pass again on restore. A detector test that cannot fail is the same
 class of defect as the bug it is testing for.
+
+## 2026-07-26 19:45 — two afterwards
+
+**The §9 amendment landed after all.** It was parked in a standalone file because another session
+had 98 uncommitted lines in `016b` and a pathspec cannot exclude a same-file passenger. They
+committed (`7891b2ee1` era), the file went clean, and the amendment went straight into the
+existing 074 entry — which already recommended the fix pattern this session took. The parked file
+is deleted; nothing is owed. **Waiting for the passenger to leave cost about an hour and no work.**
+
+**Three migrations are numbered 217 today.** Mine, plus `217_site_work_items_handler_agent_not_null`
+and `217_stat_values_optional_and_template_gated` (bugs 073's fix, applied 17:59Z — an hour before
+mine). 218 and 219 are duplicated too. Not fatal: the runner's ledger keys on **filename**, so each
+is recorded and replayed independently, and the three are unrelated so order does not matter. But
+picking "max + 1" from a directory listing is a race in this tree, and the repo already carries
+duplicate 208/210/211/212. **If ordering ever matters for your migration, do not trust the number
+— check what else is pending first.**

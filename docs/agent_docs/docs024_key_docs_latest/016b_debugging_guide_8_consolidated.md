@@ -4411,9 +4411,37 @@ you never wrote it. **Prefer designs that REFUSE unknown or unreadable config
 over ones that ignore it**; where refusal is too strong, a WARN naming the
 task turns months of silence into one grep.
 
-Case: `bugs_open/074`. Fix pattern: move the workflow to where the runtime
-actually reads it (an `agent_definitions` row) rather than making the ignored
-field work.
+Case: `bugs_closed/074` (closed 2026-07-26). Fix pattern: move the workflow to
+where the runtime actually reads it (an `agent_definitions` row) rather than
+making the ignored field work.
+
+> **AMENDED 2026-07-26 on closing it — two things this entry did not have.**
+>
+> **The receiving end DID support the field; the sending end could not express
+> it.** As written, this entry reads "inline workflows are unsupported". They are
+> not: the chassis honours one at `body.config.workflow` (`processor.go`
+> `selectWorkflow`, Priority 1, taken ahead of group discovery), and 58 live
+> orchestrations arrive that way from `DispatchFeedSourcesAction`. What no
+> scheduled task can do is *reach* that field — the scheduler **builds** `config`
+> itself from the row's columns and nests the whole `input_data` column beneath
+> it, so the author's workflow lands at `body.input_data.config.workflow`, one
+> level below the only reader. **When a config key appears unsupported, find who
+> constructs the envelope before concluding the feature is missing: the two ends
+> can disagree about depth while each looks correct in isolation.** Reading the
+> reader first is what turned the fix from *lift the field* into *refuse the
+> shape* — the field is supported, just not from there, and `bugs_closed/054` had
+> already ruled that the sender must not reach into the payload to fix it.
+>
+> **Refuse at authorship, not at use.** The WARN above went in, and it is the
+> weaker half. The load-bearing fix is a `CHECK` constraint (migration `217`,
+> `scheduled_tasks_no_inline_workflow`): live the moment it is applied, no image
+> roll, and it fails the INSERT that *creates* the trap rather than the run that
+> inherits it nightly. It also makes the runtime warning unreachable in a healthy
+> database, which is the right relationship between the two — **a guard that
+> fires where the mistake is made beats one that fires where the mistake is
+> felt.**
+>
+> Category tags: `envelope-owner-buries-payload-config`, `constraint-at-authorship`.
 
 ### An extraction fallback that inherits the primary path's provenance label can fabricate — and nothing downstream can tell (2026-07-24)
 

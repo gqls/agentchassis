@@ -69,8 +69,8 @@ Three things are owed, all named where they will be looked for:
    confirms it — a string the change created, with a control.
 2. **091**, for the work-item and claims-verification owners: the contained half is one line (stop
    reporting a write that did not happen); the fleet-wide half needs care.
-3. **Two additions to the debugging guide's existing entry for this case** — that the receiving end
-   did support the field while the sending end could not express it, and that refusing at
-   authorship beats warning at use. They are written and waiting, unpasted only because another
-   session has uncommitted work in that file and a same-file passenger cannot be left out of a
-   commit.
+3. ~~**Two additions to the debugging guide's existing entry for this case**~~ — **done, an hour
+   after this was written.** The other session's uncommitted work in that file landed, the
+   same-file passenger left, and the amendment went in: the receiving end did support the field
+   while the sending end could not express it, and refusing at authorship beats warning at use.
+   Waiting cost an hour and no work.

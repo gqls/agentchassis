@@ -218,10 +218,10 @@ gap in the `098` coverage report.
   spec (`is_current=false` + INSERT). Any thread holding a `site_specs.id` for an evidence base
   must re-SELECT the current row before writing. Flagged to claims_verification and to the
   brochure/043 lanes in their own notes.
-- `016b` §9 **already carries an entry for this case** (written by the filing session), and its
-  recommended fix pattern is the one taken. Two additions to it — "the receiving end DID support
-  the field, the sending end could not express it", and "refuse at authorship, not at use" — plus
-  the `bugs_open/074` → `bugs_closed/074` pointer correction, are written and waiting in
-  `bugfix_074_inline_workflow/PATTERN_for_016b_section9.md`. Not pasted in because another session
-  has 98 uncommitted lines in that file, and a same-file passenger cannot be excluded by a
-  pathspec.
+- **`016b` §9 — done.** It already carried an entry for this case (written by the filing session)
+  whose recommended fix pattern is the one taken; it is now amended with the two things it did not
+  have — "the receiving end DID support the field, the sending end could not express it", and
+  "refuse at authorship, not at use" — and its pointer corrected to `bugs_closed/074`. The
+  amendment waited about an hour: another session had 98 uncommitted lines in that file, and a
+  same-file passenger cannot be excluded by a pathspec, so it was parked in the workstream dir
+  until they committed. Nothing is owed.
