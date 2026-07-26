@@ -353,3 +353,55 @@ That's a real change to the heart of the platform, it's already designed in a
 different piece of work (the one about running more than one copy of the chassis), and
 two of us building it separately would be the worst outcome. So I've left it there and
 built the thing that doesn't collide with it.
+
+## 2026-07-26 — switched on, and the wait is gone: one second instead of eighteen minutes
+
+You pushed the new chassis overnight, so this morning I could finish the job. Here is
+what happened, plainly.
+
+First I checked the new image was really running and that the second queue had
+actually come up — not just that the code shipped. It had: the new queue exists, the
+system created it itself on start-up (I could tell because it carries exactly the
+settings our own code sets, so nothing created it by accident), and the chassis is
+signed up to read it. Only then did I move the chores across, which is one line of
+SQL and takes effect immediately. Eighteen scheduled jobs moved.
+
+**Then the test that matters.** I sent the same review submission through the same
+council as yesterday, and compared:
+
+- Yesterday, sharing one queue: eighteen messages ahead of it, and it took about
+  **eighteen minutes** before it even started.
+- Today, with the chores on their own queue: **nothing** ahead of it, and it started
+  in **about one second**. By the time I looked, it was already being reviewed.
+
+Both queues are empty. The chores are still running — I watched two of them come
+through the new queue ninety seconds apart, which is exactly their schedule — so
+nothing was dropped or stalled by the move. That is the whole of what this bug was
+about: an operator's job no longer waits behind the housekeeping.
+
+**The review of the change itself came back "revise" the first time**, which is worth
+telling you about because the objections were good ones. The reviewers asked three
+things I had not answered properly: had I considered simply running a second copy of
+the chassis instead of changing code (cheaper-looking, but it turns out that is exactly
+the configuration another piece of work has already found to be unsafe — it would
+create a second "owner" of the same jobs); had I said out loud how much of the fleet
+this touches (I checked: only the chassis programme uses this code, not the other
+services); and had I actually *checked* in the code, rather than argued by analogy,
+that doing two things at once is safe here (I had argued; now I have checked — the
+system already does two things at once on a different path, and the pieces involved
+hold no shared state). I answered all of it and resubmitted.
+
+Two things I got wrong today, for the record. I talked myself into a specific new
+danger — that a clean-up job could now wrongly kill a job that was still working —
+and then found it was impossible for two separate reasons. It took two queries to
+check and I nearly wrote it down as a risk instead. And my first resubmission was
+rejected in six seconds because I had dressed up an *answer* as if it were a *change*;
+the system quite correctly told me a plan proposes changes, not observations. Both
+cheap, both the kind of thing that gets expensive if it goes into a handoff unchecked.
+
+Where that leaves the bug: the original complaint — jobs waiting half an hour with no
+way to tell a wait from a failure — is now fixed, live, and measured on both sides.
+The deeper limitation (the system still does one job at a time within each queue) is
+real, is written up, and belongs to the other piece of work that already owns it. So I
+am closing this one and naming that as its successor rather than leaving a ticket open
+on somebody else's job.
