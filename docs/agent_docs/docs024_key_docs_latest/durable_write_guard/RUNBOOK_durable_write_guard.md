@@ -144,6 +144,43 @@ to robot-hands.com. Cheap, and it is the difference between a contained test and
 an unplanned production edit. Delete the fixture as soon as you have read the
 outcome — don't leave it over a break.
 
+**The payload MUST be ONE line — `kcat -P` publishes one message PER LINE, and a
+fragmented payload fails GREEN** (contributed 2026-07-26 by the `bugs_open/015`
+thread, which lost a probe round to it). A pretty-printed or heredoc-wrapped JSON
+`input_data` is published as several messages; with `-c 1` only the *first*
+fragment is sent, which is invalid JSON. The chassis does **not** error visibly:
+it creates an `orchestration_states` row carrying your `orchestration_id`, with
+`input_data: null`, a fallback no-op `agent_config` ("No-op — scheduled task
+pre_query already did the work"), **its own `orchestration_name`** (yours is
+discarded), and marks it `COMPLETED`. So a poll keyed on *"is there a terminal
+row for my orchestration_id"* returns success, the fixtures are untouched — and
+that reads exactly like a probe whose refusal branch worked correctly. It is
+indistinguishable from a real pass unless you open `collected_data`.
+
+Three cheap defences, all worth having:
+- Build the payload with `jq -cn …` and assert it is one line before firing
+  (`[ "$(printf '%s' "$PAYLOAD" | wc -l)" -eq 0 ]`).
+- **Grade the probe on `collected_data-><your step name>`, never on
+  `status='COMPLETED'`.** The step key is absent entirely when the action never
+  ran; that absence is the discriminator.
+- **Clean up by `orchestration_id`, never by `orchestration_name`.** The chassis
+  assigns its own `generic-orchestrate-MMDD-HHMM` name and discards the one you
+  set in the header, so a name-keyed cleanup
+  (`WHERE orchestration_name LIKE 'scratch…%'`) matches NOTHING and silently
+  leaves every probe row behind. `orchestration_id` is the header that survives.
+
+  > **CORRECTED within the hour, 2026-07-26.** I first wrote this bullet as "if
+  > the chassis replaced your `orchestration_name`, your message did not parse" —
+  > i.e. offered the name as a discriminator for the fragmented-payload failure.
+  > **That is wrong.** The very next probe parsed perfectly, ran the action and
+  > returned its result, and its name was *also* replaced
+  > (`generic-orchestrate-0726-1359`). The name is replaced unconditionally, so it
+  > separates nothing. Caught by reading the field on a known-GOOD run instead of
+  > only on the known-bad one — which is the general lesson: **a discriminator
+  > claimed from the failing case alone is not a discriminator until the passing
+  > case disagrees with it.** The `collected_data-><step>` check above is the real
+  > one, and it was confirmed against both.
+
 **A fired probe with no `orchestration_states` row is almost always QUEUED, not
 lost.** Cost this session ~20 minutes and one wrong inference: nothing happened
 for 9 minutes, so I blamed the `kubectl run -i` stdin race, added `-c 1` and

@@ -267,3 +267,206 @@ the `new_page` arm; a synthetic stranded row exercises the retype arm).
 
 Case stays OPEN until the image rolls, both migrations apply, and the branch
 check above passes.
+
+---
+
+## CLOSED 2026-07-26 — all three activation steps done, both branches induced live
+
+The three conditions the section above set are met. Evidence for each, inline.
+
+### 1. Image rolled and pod-verified
+
+Pod `agent-chassis-774877f4c6-zjh4t`, image
+`docker.io/aqls/agent-chassis:v1.0.1159`:
+
+| grep | count |
+|---|---|
+| `isTypedIndexRole` (created by this change) | 1 |
+| `applyRetypeExisting` (created by this change) | 4 |
+| `stranded nav page list capped` (positive control, v1.0.1144) | 1 |
+| `zzz_never_exists` (negative control) | 0 |
+
+### 2. Both migrations applied and recorded
+
+Applied by hand (the runner's `--apply` would have swept four other threads'
+pending files), then recorded with `--record-only`:
+
+- `206_planner_news_index_page_type.sql` — anchor pre-check returned `1|1`,
+  `UPDATE 1`, post-conditions `has_news_index_row=t, has_news_rule=t,
+  old_row_gone=t`.
+- `206_content_gap_planner_retype_approach.sql` — the md5 gate
+  `c86623bec9455d745e9e6e03119d6ba5` still matched the live template exactly, so
+  no thread had touched the prompt since capture; `UPDATE 1`, `has_approach_e=t,
+  has_schema_entry=t`.
+
+**Escape-integrity check on the result** (the `\n` in migration 1 are JSON
+escapes inside a `::text` splice, a known trap): the live `plan_site`
+prompt_template holds **259 real newlines and zero literal backslash
+characters**, and `News listing rule:` begins after a genuine blank line. The
+gap-planner template likewise holds zero literal backslashes.
+> A first attempt at this check used `LIKE '%\\n%'` and returned a meaningless
+> `true` — **`LIKE` treats backslash as an escape character**, so that pattern
+> matches the ordinary JSON escape. Counting `chr(92)` occurrences in the
+> extracted *value* is the check that discriminates.
+
+### 3. Branch check — PASSED, both arms, against the live binary
+
+The retype arm cannot occur naturally: `ai-agent-orchestration.com` is the only
+site with `separate_page=true` and no `news-index` page, and its stranded-candidate
+set is empty (so it would take the `new_page` arm). The arm was therefore
+**induced deliberately**, using the scratch one-step probe harness from
+`durable_write_guard/RUNBOOK_durable_write_guard.md`, on
+`pool-travel-leisure.internal` — `status='pool'`, 0 pages, never deployed, and a
+`.internal` domain, so a build could not reach the public internet. Owner
+approved the contained induction.
+
+Fixtures: two identically-stranded pages (`actualidad-index`, `servicios-index`;
+nav-visible, `sections=[]`, `build_status='planned'`) and one `missing_news_page`
+item whose spec authorised **only** `actualidad-index`.
+
+| arm | probe | result |
+|---|---|---|
+| **Refusal** (the failing branch) | plan names `servicios-index`, which the spec does NOT list | `applied=false`, reason `page "servicios-index" is not in retype_candidates [actualidad-index] — refusing to re-type a page the check did not identify as stranded`. **Both** pages unchanged (`updated_at` still the fixture timestamp), no work item filed, original item untouched. |
+| **Happy path** | plan names `actualidad-index` | `applied=true, from_type=section-index, to_type=news-index`. Page flipped to `news-index` with sections `["hero","news-listing","call-to-action"]` — the type-keyed archetype, not the name heuristic. Control page `servicios-index` still `section-index`/`[]`. `needs_content_page` item filed for `page-build-handler` carrying `retyped_from=section-index`. Original item → `complete`, `handled_by=content-gap-planner`. |
+
+The control page is what makes this a discriminator rather than a green light:
+the same run that re-typed one stranded page left an equally-stranded one alone,
+because only one was in the authorising set.
+
+> **The completion leg needed a second run, and the reason is worth recording.**
+> On the first happy-path probe the originating item stayed `detected`.
+> That is not a defect: `markOriginalComplete` updates
+> `WHERE status IN ('triaged','claimed')`, and my fixture had bypassed the
+> dispatcher that would normally have triaged it. Re-running from `triaged`
+> completed it correctly. A fixture in a status the real pipeline never presents
+> silently skips the code you meant to test.
+
+All probe artefacts removed afterwards (fixtures, scratch agent, 4
+`orchestration_states` + 25 audit rows, error-log rows); leak check returned
+**0 on all seven lines**.
+
+### Tests re-run on current clean HEAD
+
+`git archive HEAD` with no overlay (all files committed): `datahelpers`,
+`actions`, `discovery_checks`, `queryresolve` all `ok`. The nine 015 tests pass,
+including one subtest per flattening rule.
+> **CORRECTION to the 2026-07-24 entry above:** it recorded a *pre-existing*
+> `discovery_checks` verifier-coverage failure on pure HEAD
+> (`backend_entry_orphaned`/`contact_form_undeliverable` lacking verifiers).
+> That is **gone** — another thread's `bugs_closed/021` INSTANCE 2 work added the
+> missing verifiers. The suite is clean on pure HEAD now.
+
+### Council trail — ADVISORY, and it never reached APPROVED
+
+Two rounds on `SUBMISSION_CORR=45664479-31bd-4065-b89e-a7a09f9cabf1`, both
+**REVISE**. No `Council-Reviewed:` trailer is claimed anywhere: per the standing
+rule the trailer is earned by an APPROVED verdict only, and the code commit
+(`55402bc5e`) shipped before either verdict in any case, so the `098` join is a
+miss for this change regardless.
+
+**Round 2 is not a sound verdict: `unreadable: 1`.** The lost seat was
+`editquality` — the one seat whose single round-1 objection had been answered.
+`reviewers(11) + abstained(4) = 15`, not the 16 a healthy round shows. Per the
+gate runbook's own check (`unreadable` MUST be 0) this round lost an opinion we
+were owed; it is the `bugs_closed/019` shape.
+
+The round-2 objections are non-blocking in substance and are recorded here
+because two of them are **owner decisions, not defects**:
+
+- **`guardian`** — *"much stronger resubmission… not vetoing"*. Asked that the
+  adoption-LLM surface be filed as its own follow-up rather than block this edit.
+- **`bug_historian`** — *"I don't think this rises to a blocking architectural
+  concern"*. **Owner decision requested:** whether to require a generic fail-loud
+  *"a role was flattened, and here is what got flattened"* log as a follow-up work
+  item, on the argument that without it the next occurrence — under a different
+  role name — is again found only after content is silently lost. This is a fair
+  point and is NOT addressed by this fix.
+- **`prior_art_librarian`** — *"if they come back clean, approve outright on next
+  pass"*. Its check: the "no execution path exists" claim had been verified only
+  inside `content-gap-planner`'s own file, not platform-wide. **Check run, clean:**
+  across `platform/ internal/ pkg/` exactly two writers of `pages.page_type` exist
+  — `apply_gap_plan_action.go:592` (this change) and
+  `rebuild_blog_listing_action.go:350` (`SET page_type = 'blog-index'`, hardwired
+  to the blog case). There was no dormant re-typer to reuse.
+
+### Blast-radius homework (round-1 guardian objection), answered
+
+- `ValidateRoles`: exactly two non-test callers, `site_db_actions.go:276` and
+  `write_site_plan_action.go:246` — both planner persist paths, inside the quartet
+  the submission named.
+- `CanonicalisePage`: six non-test call sites in five files, **three outside** the
+  quartet — `create_tool_component_action.go:246` (`Role: "tool"` literal, so the
+  new branch is unreachable), `check_tool_recreation_needed.go:251` (result used
+  only as a map key), `apply_adoption_plan_action.go:446` and `:759` (`rawType`
+  from the adoption LLM).
+- Decisive fact: **zero active agent definitions contain the string `news-index`
+  or `news_index`** [VERIFIED 2026-07-26], so no LLM surface — adoption included —
+  could emit that role before migration 206. And `isSectionIndexRole` already
+  contained `blog-index`, so a `news-index` emission yields the **same name and
+  URL** a `blog-index` emission already yielded; only `page_type` differs, which
+  is the whole fix. **No new name/URL shape enters any pipeline.**
+
+### Residuals — all recorded; ONE of them has a live instance
+
+0. **`bugs_open/081` (filed today) — THE IMPORTANT ONE. A *deployed* mistyped page
+   has no repair path, and there is a live instance looping.** This fix covers the
+   *stranded* case (never-deployed, sectionless) and the *newly-planned* case. It
+   does **not** cover a page that is mistyped and already deployed:
+   `findStrandedNavPages` excludes `build_status='deployed'` (correctly — that
+   clause is the 2026-07-20 correction above), so no candidate is offered; and the
+   `new_page` fallback's `ON CONFLICT (site_id, name) DO UPDATE` sets `title`,
+   `sections`, `updated_at` but **not `page_type`**
+   (`apply_gap_plan_action.go:394-404`), so it overwrites a live page's content and
+   leaves the mistype in place. The check then fires again next sweep.
+   **Live:** `ai-agent-orchestration.com` `/news.html` is `page_type='content'`,
+   deployed, with a `detected` `missing_news_page` item whose `spec.page_name` is
+   `news` — the existing row's name, so the `ON CONFLICT` branch is the one that
+   fires. A previous item for the same check went `unresolved` on 2026-05-01, so
+   this has been looping ~3 months. `idea.uk` `/news/index.html` is the second
+   instance (`section-index`, deployed).
+   > **This corrects the scope claim in the 2026-07-20 section above.** That section
+   > concluded "zero rows … so this is a guard against recurrence, not a repair of
+   > live damage". That was true *of the stranded predicate* and false as a
+   > statement about the bug class: the predicate never asked whether a **deployed**
+   > page was already occupying the role under the wrong type — and on the one site
+   > it measured, one was. The measurement was sound; the question was too narrow.
+
+1. **`bugs_open/080` (filed today)** — `applyNewPage` bypasses `CanonicalisePage`
+   (`url := "/" + pageName + ".html"`, `apply_gap_plan_action.go:355`), so the
+   gap-planner and planner surfaces disagree on a page's name/URL.
+   Pre-existing and identical for `blog-index`; this change neither creates nor
+   widens it. Live example: `gaswholesalers.com`/`robot-hands.com` hold
+   `news` at `/news.html` where the planner would canonicalise to
+   `news-index` at `/news/index.html`.
+2. **"At most one `news-index` per site" is assumed but not enforced.**
+   `render_news_section_action.go:213-217` selects the listing page with
+   `LIMIT 1` and **no `ORDER BY`**, so two would make the choice arbitrary. Rule 1b
+   deliberately stops correcting an explicit `news-index`, so the only guard is
+   the prompt wording ("plan exactly ONE news listing page"). Live state is one
+   per site on all three sites that have one [VERIFIED 2026-07-26]. Cheap
+   structural guard if it ever bites: a partial unique index on `(site_id)
+   WHERE page_type='news-index'`.
+3. **`isTypedIndexRole` stays narrow** (`news-index` only). `entity-directory`
+   has the same exposure with no observed incident; `blog-index` cannot join
+   because `normaliseRole` collapses it earlier and
+   `rebuild_blog_listing_action.go:326` auto-repairs that case downstream.
+   Widening is one line per role — the cost of waiting for evidence is small,
+   the cost of trusting every flavoured index role today is that sloppy
+   emissions stop being corrected.
+4. **Owner decision owed** on `bug_historian`'s generic flattening log (above).
+
+**Closing bar met, and what it does and does not mean.** The defect this file
+names — `ValidateRoles` deterministically flattening an explicit `news-index` to
+`section-index`, orphaning the page from `render_news_section`,
+`MissingNewsPageCheck` and `page-build-handler` at once — is fixed in code that is
+live, its config half is applied, and both arms of the new executor have been
+induced and observed against the running binary. That is the root cause as finally
+diagnosed, and it is closed.
+
+**It is not the whole class.** Residual 0 (`bugs_open/081`) is the deployed-mistyped
+half, with a live looping instance, and it is a genuinely different mechanism — a
+pre-existing wrong row that no repair path covers — rather than unfinished work on
+this one. It is filed with full evidence rather than left inside a closed file
+where nobody would look. Read `081` before assuming this class is retired.
+
+Moving to `/bugs_closed/`.
