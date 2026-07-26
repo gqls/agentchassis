@@ -82,8 +82,20 @@ join can be made by hand.
 the scrape's serial per-listing loop. The batch is 20 listings every 6 hours, so a single
 fallback page can consume most of a run (this run had processed ~4 listings by the 10-minute
 mark). No fidelity or provenance consequence — the guard holds regardless — but it is a
-throughput ceiling worth a measurement before anyone raises `batch_size`. Not filed as a bug:
-one sample, and no incorrect data results.
+throughput ceiling worth a measurement before anyone raises `batch_size`.
+
+> **UPGRADED 2026-07-26 — this is not merely a throughput note.** I originally recorded the
+> 495 s as slowness with no consequence. Measured afterwards in Prometheus: that call drove
+> `ollama-adapter` to **7.75 of the node's 8 cores** and node CPU from 3.9 % to **100 %** for
+> its whole duration — and `postgres-clients-0` was a co-tenant of that node with no CPU
+> reservation and a 1-second `pg_isready` liveness probe. The kubelet killed a healthy database,
+> the Service lost its only endpoint, and the fleet lost its DB; our own collector logged
+> `Database ping failed` eleven times running. **This scrape was a trigger for the fleet-wide
+> outage in `bugs_closed/082`**, twice in twelve minutes. 082's structural cause is now fixed
+> (both databases Burstable), so the same burn should no longer take the database down — but the
+> load itself is unchanged and recurs 6-hourly. Full evidence, and a procedure that reproduces
+> the contention on demand, are in `bugs_closed/082` §8. What caught it: the owner asking me to
+> explain an error I had waved past as unrelated.
 
 > **CORRECTED 2026-07-24 — blast radius was 212 rows, not 2.** The "2 of 10 fresh rows"
 > below was true of that run only. A same-run-evidence fidelity sweep over the whole table

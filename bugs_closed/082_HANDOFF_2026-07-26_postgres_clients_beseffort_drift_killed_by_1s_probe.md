@@ -315,3 +315,70 @@ Ready `true`, QoS `Burstable`, and a populated `addresses` (not
 loaded** — verifying during a quiet period proves nothing, because the bug only
 appears under contention. Re-check `kubectl top node` to confirm the neighbour is
 still hot when you call it fixed.
+
+---
+
+## 8. POST-CLOSE ADDENDUM 2026-07-26 — the trigger has a NAME, a CADENCE, and a switch
+
+Added by session "bugfix 61" (owner-authorised) while closing `bugs_closed/061`. **Nothing
+here contradicts the analysis above** — §5's trigger account is exact, including the 7743m
+measurement. This adds only what drives ollama hot, how often, and **how to make it happen on
+demand**, which is what §7 says you need and what the `[UNVERIFIED]` 500m residual lacks.
+
+### What was actually running
+
+The load is the **med-price scraper's LLM fallback** (`bugs_closed/061`, vetcomparison). When
+its regex parser finds no prices it sends the page to `ollama-adapter` for extraction. One such
+call on 2026-07-26 ran **495 seconds** — and it is a *scheduled* job (`med-scrape-prices`, every
+**21,600 s / 6 h**, batch of 20 listings), so this is a recurring, predictable load, not a
+one-off. The fallback fires on retailer *category* pages, of which the batch contains several.
+
+Measured from Prometheus across the incident window (node `prod-instance-17735925437536833`,
+8 cores):
+
+| time (UTC) | node CPU | `ollama-adapter` |
+|---|---|---|
+| 14:53 | 3.9 % | 0.04 cores |
+| 14:55 | 40.5 % | 1.89 |
+| 14:57 | **100.0 %** | **7.75** |
+| 14:59 | **100.0 %** | 6.39 |
+| 15:01 | 99.7 % | **7.70** |
+| 15:03 | 4.1 % | 0.00 |
+
+`kube_pod_info{pod="ollama-adapter-57f5679794-8tw9b"}` at 14:57 → node
+`prod-instance-17735925437536833`, i.e. **co-tenant with `postgres-clients-0` at the time**
+(measured, not inferred — the pods are unpinned, so this was luck, as §"Anti-affinity" says).
+
+**Third-party confirmation of the blast radius:** an unrelated pod, the spawned
+`agent-med-price-collector`, logged `Database ping failed: driver: bad connection` **every 30 s
+from 14:55:04 to 15:00:04** — eleven consecutive health ticks — plus
+`RETRY_TICKER_CLAIM_FAILED` and a failed awaited-request cleanup. This file's own quoted
+postgres line, `14:56:59 database system is ready to accept connections`, falls inside that
+window. **It fired twice in twelve minutes:** a second burn at 15:05–15:07 (ollama back to
+15.6→7.8 cores) matches the second restart (terminated 15:05:35, container up 15:07:05).
+
+### This makes your `[UNVERIFIED]` testable — a contention switch
+
+§7 warns that verifying during a quiet period proves nothing, and the residual says 500m is
+"arithmetic, not observation" against a full 8-core inference run. **You can now produce that
+run deliberately**, ~8 minutes of ~7.75 cores, without touching ollama:
+
+```sql
+UPDATE business_intel.med_retailer_listings SET last_scraped_at = NULL
+WHERE id = '0b50fd2d-a129-4edd-85a0-75843181fe0c';   -- petdrugsonline /advocate (category page)
+UPDATE scheduled_tasks SET last_triggered_at = NULL WHERE name = 'med-scrape-prices';
+```
+
+The listing loader orders `last_scraped_at ASC NULLS FIRST`, so this puts the fallback-triggering
+page at the head of the next batch. Watch `kubectl top node` and `postgres-clients-0`'s restart
+count. **Caveat:** the two databases were rescheduled off the ollama node during the roll, so
+today this only reproduces contention if something puts them back together — which is precisely
+the reversal trigger already recorded above.
+
+### Measurement trap, recorded because it cost me a wrong number
+
+`sum(rate(container_cpu_usage_seconds_total{pod=~"..."}[2m]))` **double-counts**: the series set
+includes both per-container samples and a pod-level cgroup total (empty `container` label). That
+gave me **15.4 cores on an 8-core node** — an impossible figure I nearly wrote into this file.
+Always filter `container!=""`. The corrected 7.75 agrees with §5's independent `kubectl top`
+reading of 7743m, which is what caught it.
