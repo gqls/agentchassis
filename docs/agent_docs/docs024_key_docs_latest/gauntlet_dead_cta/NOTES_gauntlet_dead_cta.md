@@ -988,3 +988,41 @@ re-fired blind: waited the full 10 minutes first, per the RUNBOOK.
 - Owed: re-fire the section edit, `republish_gauntlet_js.sh`, reset
   `pc.build_status` to `'deployed'`, republish the snippets bundle
   (`083_trigger-asset-renderer-vonc.sh`), then Step 4 and P5.
+
+### P4 post-delivery checks, and one measurement for 049's owner
+
+- **`claimscan`: CLEAN — `0 finding(s) across 49 component(s)`** on the whole of
+  vonc.com, run with the platform's own engine against the live rendered HTML:
+  ```
+  go run ./cmd/claimscan -evidence vonc_evidence.json -components vonc_components.tsv
+  ```
+  Note the column: the evidence base is `site_specs.data`, **not** `content_data`
+  (that column does not exist on `site_specs`) — the header comment in
+  `cmd/claimscan/main.go` is right, my first query was not.
+- **Dead controls on `tool-gauntlet`: none open.** The two live `dead_control`
+  items are on `index (brief-explanation)` ("Get Started"/"Learn More" → `#`),
+  which the approved plan explicitly puts out of scope. `verify_live.py` also
+  asserts zero empty/`#` anchors inside the tool container on the deployed page.
+  The platform's own detector has **not** been re-fired against the rebuilt page
+  — that needs a design-discovery dispatch and is left for P5.
+- Closed as genuinely resolved: `needs_experience_plan` (plan approved 07-25) and
+  the `cta_names_unknown_destination` on `index (provocation-card)` (Journey A
+  verified live: both hrefs real, primary lands on a working Gauntlet).
+
+**Measurement for `bugs_open/049`'s owner — not filed there, that lane is
+actively owned (commits within the hour) and its file is dirty in the tree.**
+A successful assemble-only rerender does **not** clear a page's
+`needs_rebuild` flag:
+
+```
+tool-gauntlet | build_status=needs_rebuild | deployed_at=2026-07-15 21:55:35 | updated_at=2026-07-26 15:10:13
+```
+
+The rerender ran at 15:10 today, deployed the page (new HTML and new JS are
+live and verified), and touched `updated_at` — but left `build_status` at
+`needs_rebuild` and `deployed_at` eleven days stale. So the page-level flag is
+not merely stale from an old build; it is **not being maintained by the path
+that actually deploys the page**. That is why `owned_page_review` ("tool-gauntlet
+is not_built") and `incomplete_page_group` have both been sitting open since
+mid-July on a page that has served 200 throughout, and it is the same mechanism
+that made P1's `check_dead_controls` fix necessary. Left for 049 to act on.
