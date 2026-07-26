@@ -796,11 +796,27 @@ func reportIntro(domain string) string {
 		"read, the sources are listed under it so you can check them yourself."
 }
 
-func reportContact() string {
-	if e := os.Getenv("CONTACT_EMAIL"); e != "" {
-		return e
+// reportContact is the address the report tells the reader to write to.
+//
+// It is set ONCE at startup from config so OPERATOR_EMAIL is the single source
+// of truth: previously this read CONTACT_EMAIL straight from os.Getenv with a
+// hardcoded fallback, bypassing both the config and the ContactEmail →
+// OperatorEmail fallback the rest of the service uses (contactEmail(),
+// service.go). That meant the report could address a different mailbox from
+// every other email the service sends, and the duplicate CONTACT_EMAIL line on
+// the box (2026-07-26) made which one win a matter of file ordering.
+var reportContactAddr = "idea-uk@leopardess.uk" // last-resort default; overwritten by SetReportContact
+
+// SetReportContact wires the resolved address in at startup. Called from NewApp
+// so both the report and the rest of the service agree.
+func SetReportContact(addr string) {
+	if addr != "" {
+		reportContactAddr = addr
 	}
-	return "idea-uk@leopardess.uk"
+}
+
+func reportContact() string {
+	return reportContactAddr
 }
 
 // reportCTA invites the reader to hire us to build one of the ideas.

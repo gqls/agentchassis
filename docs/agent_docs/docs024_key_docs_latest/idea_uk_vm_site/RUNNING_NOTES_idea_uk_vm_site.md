@@ -1976,3 +1976,52 @@ restored). **RULE for the RUNBOOK: never edit /var/lib/idea/orders.json under a 
 stop, edit, start.** The original walkthrough's step 1 had the stop; the owner's wrapper script
 skipped it. Corrected single-command sequence (stop→clear→start→verify) issued in-chat. The env
 dedupe (now 1 line, the correct leopardess address) rides the same restart.
+
+### §X.18 — capacity: the root cause, the durable fix, and the site notice (2026-07-26)
+
+Owner: *"think hard about how to clear these declined orders… we want to keep them on record, and
+if the queue of real orders is full then we want to state that on the site."* Plus a correction on
+the env var.
+
+**WHY THE OWNER'S `systemctl start` DID NOTHING.** `start` on an already-active unit is a no-op —
+the service has been up since 07-25 15:11:50 throughout. So the clear never entered memory and the
+next request persisted memory back over the file (the §X.17 addendum trap, second occurrence in
+one day). It needs `restart` (or stop→edit→start). Verified: file shows the five slot-holders
+restored, mtime 12:40 = the service's own write.
+
+**ROOT CAUSE, stated properly.** `ActiveCount` counts awaiting_review/awaiting_payment/paid/running
+against `MaxActive` and **nothing ever aged anything out**. With MaxActive=5, five orders nobody
+progressed closed the service to new work permanently, and the only remedy was hand-editing a file
+the running process owns. That is a design gap, not an operational slip — hence a code fix, not a
+better runbook entry.
+
+**THE FIX (code, tests green, inert until the owner's next deploy):**
+- `Store.ExpireStale(reviewAge, paymentAge, now)` — releases cold slots, returns what it released.
+- New terminal status **`expired`, deliberately distinct from `declined`**: declined = the operator
+  looked and said no; expired = it went cold and was released. Filing an abandoned order as a
+  judgement we made would corrupt the owner's own record, which is exactly what "keep them on
+  record" is asking us to protect. Both keep the row; neither deletes anything.
+- Two separate ages because the waits differ in kind: `STALE_REVIEW_DAYS` (default 14 — waiting on
+  US) and `STALE_PAYMENT_DAYS` (default 7 — waiting on the customer). `0` disables either.
+- `App.sweepStale()` runs at startup, hourly, **and before /capacity answers** — so the number the
+  site publishes can never be inflated by a six-week-old order.
+- Never touches `running`/`paid`/terminal rows; falls back to CreatedAt for rows predating
+  UpdatedAt; idempotent. 3 tests (`expire_stale_test.go`) lock all of it.
+
+**THE SITE NOTICE (`sql/p4_19`) — LIVE TODAY, no deploy.** Banner on the report form, fed by the
+existing public `/capacity`. **Copy says "there will be a wait", never "you cannot order"** — and
+that is correctness, not tone: the capacity gate is on the operator's `/confirm`, not on
+`/request`, so visitors can always submit and being full only blocks *starting*. Disabling the
+form would misdescribe the system and bin real demand. Fail-open three ways (fetch error,
+malformed JSON, `open:true` → render nothing); JS-disabled visitors see exactly today's page; we
+deliberately never advertise "slots available".
+
+**ENV CORRECTION (owner).** `OPERATOR_EMAIL` and `CONTACT_EMAIL` are different settings, both real:
+OPERATOR_EMAIL (main.go:30) = where operator mail goes; CONTACT_EMAIL (main.go:31) = the public
+support address, and `contactEmail()` (service.go:719-725) already falls back to OperatorEmail when
+it is unset. So the owner is right that OPERATOR_EMAIL is the one that must be correct — and it is.
+The one wart is `engine.go reportContact()` reading `CONTACT_EMAIL` **directly from os.Getenv** with
+a HARDCODED `idea-uk@leopardess.uk` fallback, bypassing the config and the OperatorEmail fallback
+the rest of the service uses. Folded into the same deploy: reportContact now takes the address from
+config (ContactEmail → OperatorEmail), so **OPERATOR_EMAIL is the single source of truth** and the
+CONTACT_EMAIL line can simply be deleted.

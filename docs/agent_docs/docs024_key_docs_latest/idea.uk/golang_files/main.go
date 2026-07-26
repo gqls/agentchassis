@@ -13,6 +13,8 @@ import (
 
 func loadConfig() Config {
 	maxActive, _ := strconv.Atoi(env("MAX_ACTIVE_ORDERS", "8"))
+	staleReview, _ := strconv.Atoi(env("STALE_REVIEW_DAYS", "14"))
+	stalePayment, _ := strconv.Atoi(env("STALE_PAYMENT_DAYS", "7"))
 	price, _ := strconv.Atoi(env("REPORT_PRICE_GBP", "199"))
 	pub := env("PUBLIC_BASE_URL", "http://localhost:8080")
 	var origins []string
@@ -22,16 +24,18 @@ func loadConfig() Config {
 		}
 	}
 	return Config{
-		PriceGBP:        price,
-		AutoDeliver:     strings.ToLower(os.Getenv("AUTO_DELIVER")) == "true",
-		ReviewBeforePay: strings.ToLower(env("REVIEW_BEFORE_PAY", "true")) == "true",
-		PublicBaseURL:   pub,
-		InternalAPIKey:  os.Getenv("INTERNAL_API_KEY"),
-		OperatorEmail:   env("OPERATOR_EMAIL", "ops@idea.uk"),
-		ContactEmail:    env("CONTACT_EMAIL", ""),
-		Slots:           env("MONTH_SLOTS", ""),
-		MaxActive:       maxActive,
-		AllowedOrigins:  origins,
+		PriceGBP:         price,
+		AutoDeliver:      strings.ToLower(os.Getenv("AUTO_DELIVER")) == "true",
+		ReviewBeforePay:  strings.ToLower(env("REVIEW_BEFORE_PAY", "true")) == "true",
+		PublicBaseURL:    pub,
+		InternalAPIKey:   os.Getenv("INTERNAL_API_KEY"),
+		OperatorEmail:    env("OPERATOR_EMAIL", "ops@idea.uk"),
+		ContactEmail:     env("CONTACT_EMAIL", ""),
+		Slots:            env("MONTH_SLOTS", ""),
+		MaxActive:        maxActive,
+		StaleReviewDays:  staleReview,
+		StalePaymentDays: stalePayment,
+		AllowedOrigins:   origins,
 	}
 }
 
@@ -61,6 +65,10 @@ func main() {
 		log.Fatal(err)
 	}
 	app := NewApp(cfg, store, makeProvider(cfg))
+	// Release slots held by cold orders — at startup and hourly thereafter.
+	// Without this, ActiveCount only ever grows and the service quietly closes
+	// itself to new work (exactly what happened on 2026-07-26).
+	app.StartSweeper()
 	addr := ":" + env("PORT", "8080")
 	log.Printf("idea.uk service on %s (review_before_pay=%v, auto_deliver=%v, price=£%d)", addr, cfg.ReviewBeforePay, cfg.AutoDeliver, cfg.PriceGBP)
 	log.Fatal(http.ListenAndServe(addr, app.routes()))

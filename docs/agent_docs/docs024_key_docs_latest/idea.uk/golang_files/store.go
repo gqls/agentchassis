@@ -14,6 +14,12 @@ import (
 // Order lifecycle: requested → (declined | awaiting_payment) → paid → running
 //
 //	→ (awaiting_review | delivered | failed)
+//
+// Terminal statuses that release a capacity slot: delivered, declined, failed,
+// and `expired`. `expired` is deliberately DISTINCT from `declined`: declined
+// means the operator looked and said no; expired means the order went cold and
+// was released automatically. Keeping them apart keeps the record honest — an
+// abandoned order must not be filed as a judgement we made.
 type Order struct {
 	ID                string    `json:"id"`
 	Name              string    `json:"name"`
@@ -120,6 +126,63 @@ func (s *Store) ActiveCount() int {
 }
 
 // MarkEventSeen returns true if the event was already processed (idempotency).
+// ExpireStale releases capacity slots held by orders that have gone cold, and
+// returns what it released (id + previous status) for logging.
+//
+// Why this exists: ActiveCount counts awaiting_review/awaiting_payment against
+// MaxActive, and NOTHING ever aged those out — an order the operator never got
+// to, or a customer who never paid, held a slot permanently. With MaxActive at
+// 5 that silently closed the service to new work, and the only remedy was
+// hand-editing this file, which is itself a trap (the store is read once at
+// startup and rewritten wholesale from memory, so an edit under a running
+// service is both invisible and doomed to be clobbered).
+//
+// The two ages are separate on purpose: an unreviewed order is waiting on US,
+// so it gets longer; an unpaid one is waiting on the customer, and a stale
+// checkout is abandoned much sooner in practice.
+//
+// Idempotent, safe to call on a ticker, and never touches a terminal order or
+// one that is mid-run.
+func (s *Store) ExpireStale(reviewAge, paymentAge time.Duration, now time.Time) []ExpiredOrder {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []ExpiredOrder
+	for _, o := range s.Orders {
+		var age time.Duration
+		switch o.Status {
+		case "awaiting_review":
+			age = reviewAge
+		case "awaiting_payment":
+			age = paymentAge
+		default:
+			continue // requested/paid/running/terminal — not ours to expire
+		}
+		// UpdatedAt is when it entered this state; fall back to CreatedAt for
+		// rows written before UpdatedAt was maintained.
+		ref := o.UpdatedAt
+		if ref.IsZero() {
+			ref = o.CreatedAt
+		}
+		if ref.IsZero() || now.Sub(ref) < age {
+			continue
+		}
+		out = append(out, ExpiredOrder{ID: o.ID, WasStatus: o.Status, Age: now.Sub(ref)})
+		o.Status = "expired"
+		o.UpdatedAt = now
+	}
+	if len(out) > 0 {
+		s.persist()
+	}
+	return out
+}
+
+// ExpiredOrder is one released slot, for the operator log.
+type ExpiredOrder struct {
+	ID        string
+	WasStatus string
+	Age       time.Duration
+}
+
 func (s *Store) MarkEventSeen(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

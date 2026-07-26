@@ -46,7 +46,11 @@ type Config struct {
 	ContactEmail    string // public-facing support address shown on pages
 	Slots           string // header capacity phrase, e.g. "a limited number of" or "5"
 	MaxActive       int
-	AllowedOrigins  []string
+	// Slot-release ages. A slot held by an order nobody has moved is released
+	// automatically after these many days (see Store.ExpireStale). 0 disables.
+	StaleReviewDays  int
+	StalePaymentDays int
+	AllowedOrigins   []string
 }
 
 type App struct {
@@ -64,6 +68,14 @@ type App struct {
 }
 
 func NewApp(cfg Config, store *Store, p Provider) *App {
+	// One source of truth for the public address: ContactEmail if set, else
+	// OperatorEmail (contactEmail() below), shared with the report renderer.
+	SetReportContact(func() string {
+		if cfg.ContactEmail != "" {
+			return cfg.ContactEmail
+		}
+		return cfg.OperatorEmail
+	}())
 	contact := cfg.ContactEmail
 	if contact == "" {
 		contact = cfg.OperatorEmail
@@ -283,8 +295,49 @@ func (a *App) health(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) capacity(w http.ResponseWriter, r *http.Request) {
+	// Sweep first so the number we publish is never inflated by cold orders —
+	// otherwise the site could tell visitors we are full because of an order
+	// abandoned six weeks ago.
+	a.sweepStale()
 	n := a.store.ActiveCount()
+	// `open` refers to STARTING work, not to taking requests: /request always
+	// accepts (the capacity gate is on the operator's /confirm). The site copy
+	// must say "there will be a wait", never "you cannot order" — see the
+	// report-request-form banner.
 	writeJSON(w, 200, map[string]any{"open": n < a.cfg.MaxActive, "active": n, "max": a.cfg.MaxActive})
+}
+
+// sweepStale releases slots held by cold orders and logs what it released.
+// Called at startup, hourly, and before publishing capacity.
+func (a *App) sweepStale() {
+	if a.cfg.StaleReviewDays <= 0 && a.cfg.StalePaymentDays <= 0 {
+		return
+	}
+	rev := time.Duration(a.cfg.StaleReviewDays) * 24 * time.Hour
+	pay := time.Duration(a.cfg.StalePaymentDays) * 24 * time.Hour
+	if a.cfg.StaleReviewDays <= 0 {
+		rev = 1 << 62
+	}
+	if a.cfg.StalePaymentDays <= 0 {
+		pay = 1 << 62
+	}
+	for _, e := range a.store.ExpireStale(rev, pay, time.Now().UTC()) {
+		log.Printf("sweep: released slot — order %s was %s, untouched for %d days → expired",
+			e.ID, e.WasStatus, int(e.Age.Hours()/24))
+	}
+}
+
+// StartSweeper runs the staleness sweep now and then hourly for the process
+// lifetime. Hourly is ample for a day-scale threshold and costs nothing.
+func (a *App) StartSweeper() {
+	a.sweepStale()
+	go func() {
+		t := time.NewTicker(time.Hour)
+		defer t.Stop()
+		for range t.C {
+			a.sweepStale()
+		}
+	}()
 }
 
 func (a *App) subscribe(w http.ResponseWriter, r *http.Request) {
