@@ -3448,6 +3448,71 @@ driver's view.
 Category tags: `status-with-no-owner`, `claim-before-a-guard-that-can-bail`,
 `sweep-beats-enumerating-exits`, `release-into-existing-machinery`.
 
+### A shared predicate written for one INPUT SHAPE, reused on another, fails silently in the direction of false positives (`bugs_open/093`, 2026-07-26)
+
+**Symptom.** A deterministic check that is trusted enough to gate a build starts
+reporting things that are obviously fine — a reading-time estimate, a step
+number — while its unit tests all pass. Nobody notices, because the check's
+findings route to human review and a human dismisses them one at a time.
+
+**Diagnose.** Ask what SHAPE of input each predicate was written against, and
+what shape it is now being handed. The two are not the same the moment a scan
+engine gets a second caller. In this instance `datahelpers.isExcludedNumber`
+takes `(block string, start, end int)` and every rule in it reasons about a
+number's POSITION INSIDE A PROSE BLOCK:
+
+```go
+// List ordinal at block start: "1. Volume of Repeatable Work Items".
+if start == 0 && end < len(block) && (block[end] == '.' || block[end] == ')') {
+	return true
+}
+// Label-prefixed ordinal: "Band 3", "Tier 2".
+if labelPrefixRe.MatchString(block[:start]) { return true }
+```
+
+`ScanStatClaims` — the second caller, added later — passes a bare **field
+value** as the "block". So `block[:start]` is always empty and the label rule
+can never fire; the list-ordinal rule requires a following `.` or `)` that a
+bare value never has; and `"01"` arrives as a whole block with nothing around it
+to disqualify it. Every one of those rules is *correct* and *dead*.
+
+**Root cause.** Two of them, and the second is the one worth remembering:
+
+1. **Dead rules.** Position-relative predicates evaluate against a window that no
+   longer exists. They do not error — they return `false`, which means "this IS a
+   business claim", so a dead exclusion becomes a false positive rather than a
+   miss. **An exclusion list fails OPEN.**
+2. **Encoding mismatch inside a rule that already knew better.** The adjacency
+   test is byte-level (`next == '-'`), but the regex three lines below it in the
+   same file already spells `[-–]` — the author knew typographic dashes occur.
+   An en-dash is three bytes, so `8–12` was examined where `8-12` was excluded.
+   Live instance: `Read time: 8–12 minutes` reported as an unregistered business
+   figure on a site with 15 registered facts, i.e. at `error` severity.
+
+**Fix.** Put the rule where the shape lives. The dash fix belongs in the shared
+`isExcludedNumber` (it is genuinely about prose adjacency, and the file's own
+regex proves the intent). The ordinal fix belongs in `ExtractStatClaims`, local
+to the stat path, because it is a property of a bare field value — widening the
+prose exclusions to cover it would change what the prose scan sees on every site
+for a shape only the stat path can produce. **Resist the pull to fix both in the
+shared function**; that is how one caller's edge case becomes every caller's
+behaviour.
+
+**How to find your own instances.** Any `datahelpers` scan function with more
+than one caller is a candidate. Grep for the callers, then ask of each: does this
+caller construct the argument the way the original one did? A cheap and very
+effective test is to run the engine over LIVE data and read the output — not
+count it. Both defects here were invisible in aggregate (`61 stat claims, 21
+findings`) and obvious the moment the individual findings were printed with
+their snippets.
+
+**Why the checks did not catch it.** Because the tests were written by the same
+person, from the same mental model, using the shape the first caller produces.
+A test suite cannot find a premise it shares. Only real data can.
+
+Category tags: `shared-predicate-second-caller`, `exclusion-lists-fail-open`,
+`byte-level-test-multibyte-input`, `read-the-findings-not-the-count`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
