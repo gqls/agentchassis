@@ -1,0 +1,74 @@
+# bugs_open/040-kafka-dial — THE OTHER HALF OF THE METRICS FIX. NOT YET APPLIED.
+#
+# Opening a /metrics port is necessary but NOT sufficient in this cluster, and
+# the difference is easy to miss.
+#
+# Every spawned agent pod carries `prometheus.io/scrape: "true"`,
+# `prometheus.io/port: "9090"`, `prometheus.io/path: /metrics`
+# (platform/orchestration/actions/spawn_actions.go). Those annotations are the
+# plain-Prometheus `kubernetes_sd_configs` convention — and **this cluster does
+# not run plain Prometheus.** It runs the prometheus-operator
+# (kube-prometheus-stack), which discovers targets ONLY through label-selected
+# PodMonitor / ServiceMonitor / ScrapeConfig CRs. Verified 2026-07-26:
+#
+#   spec.podMonitorSelector    = {matchLabels: {release: kube-prometheus-stack}}
+#   spec.additionalScrapeConfigs = None
+#   kubectl get podmonitors -A  -> 0
+#   kubectl get scrapeconfigs -A -> 0
+#
+# So the annotations are inert. They have never caused a single scrape, which is
+# the second reason the fleet has never had application metrics — the first being
+# that nothing served the port at all (fixed in cmd/agent-chassis/main.go).
+#
+# The `release: kube-prometheus-stack` label below is NOT decoration: it is what
+# podMonitorSelector matches. Without it this object is ignored silently, exactly
+# like the annotations.
+#
+# NOT APPLIED. Apply it alongside the image roll that carries the /metrics
+# listener. Applying it BEFORE that roll is a legitimate pre-flight — the target
+# will appear and read DOWN, which confirms discovery works while proving the
+# port is still closed. Nothing alerts on that here (Alertmanager has been
+# unschedulable for 362 days, unbound PVC).
+#
+#   kubectl apply -f deployments/kustomize/services/agent-chassis/base/podmonitor.yaml
+#   # then, to confirm discovery rather than assume it:
+#   kubectl -n monitoring exec prometheus-kube-prometheus-stack-prometheus-0 -c prometheus \
+#     -- wget -qO- 'http://localhost:9090/api/v1/targets?state=any' \
+#   | python3 -c "import json,sys;[print(t['labels'].get('pod'), t['health']) for t in json.load(sys.stdin)['data']['activeTargets'] if 'agent' in str(t['labels'])]"
+#
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: agent-chassis
+  namespace: ai-persona-system
+  labels:
+    # Matched by spec.podMonitorSelector. Do not remove.
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - ai-persona-system
+  selector:
+    matchExpressions:
+      # Verified against live pods 2026-07-26. Selecting on `app` rather than
+      # `spawned-by` on purpose: the two spawn paths stamp DIFFERENT spawned-by
+      # values (orchestrator vs remote-job-spawner, bugs_open/071) but the SAME
+      # app value, so `app` covers both with one term and cannot drift apart.
+      #   static Deployment            -> app=agent-chassis
+      #   spawn_actions.go:2735        -> app=dynamic-agent
+      #   remote-job-spawner main.go:387,404 -> app=dynamic-agent
+      - key: app
+        operator: In
+        values:
+          - agent-chassis
+          - dynamic-agent
+  podMetricsEndpoints:
+    # By port NUMBER, not name: spawned pods declare a container port named
+    # "metrics" (spawn_actions.go) but the static Deployment declares only 8080
+    # and no name, so a name-based endpoint would silently miss it.
+    - targetPort: 9090
+      path: /metrics
+      interval: 30s
+      # Ephemeral agent Jobs can be shorter-lived than the interval; a missed
+      # scrape on a short pod is expected and is not evidence of a closed port.
+      scrapeTimeout: 10s

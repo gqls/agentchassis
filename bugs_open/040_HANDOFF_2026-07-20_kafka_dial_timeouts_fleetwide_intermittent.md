@@ -107,6 +107,34 @@ The metric strings **are** compiled into the shipped binary. The port the pod is
 annotated for is **closed**. That is the whole defect in three lines: the counters
 exist, are maintained, and are unreachable.
 
+### …and there is a SECOND layer. The annotations were never going to work either
+
+Opening the port is necessary but **not sufficient**, and this nearly slipped
+past. Every spawned pod carries `prometheus.io/scrape: "true"` +
+`prometheus.io/port: "9090"` — but that is the **plain-Prometheus
+`kubernetes_sd_configs` convention, and this cluster does not run plain
+Prometheus.** It runs the prometheus-operator (kube-prometheus-stack), which
+discovers targets **only** through label-selected CRs. Verified 2026-07-26:
+
+```
+spec.podMonitorSelector      = {matchLabels: {release: kube-prometheus-stack}}
+spec.additionalScrapeConfigs = None
+kubectl get podmonitors -A   -> 0
+kubectl get scrapeconfigs -A -> 0
+```
+
+**So the annotations are inert and have never caused a single scrape.** Had only
+the listener shipped, `/metrics` would have been open and still unscraped, and the
+resulting zero would have looked exactly like a fixed bug — the same trap one
+level up.
+
+The missing half is committed as
+`deployments/kustomize/services/agent-chassis/base/podmonitor.yaml`
+(**NOT APPLIED**; selector verified against all three live pod shapes; the
+`release: kube-prometheus-stack` label is what makes it visible at all). Apply it
+with the roll — or before, as a pre-flight: the target will appear and read DOWN,
+which confirms discovery works while the port is still closed.
+
 So this case could never have been closed on evidence, because there was no
 evidence channel. That, not the network, is what has been fixed.
 

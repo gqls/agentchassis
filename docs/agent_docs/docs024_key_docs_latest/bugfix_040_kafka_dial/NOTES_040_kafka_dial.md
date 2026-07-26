@@ -180,3 +180,93 @@ in history, just under someone else's message. Noted in my own commit rather tha
 attempting any history surgery. The lesson is the one already written down and
 which I still got wrong: **commit each piece the moment it is coherent**, not after
 writing five documents.
+
+### The council REJECTED round 1, and it was right
+
+Hard veto from `guardian`, 2× HIGH. Verdict `rejected`, `abstained: 8`,
+`unreadable: none` — so the decision was made on a full reading, not a dead seat.
+
+**The two HIGH objections, both correct:**
+
+1. The shared dialer lowered the default dial timeout **10s → 5s for every
+   process in the fleet**. That is a behaviour change to shared messaging
+   plumbing, not instrumentation, "bundled into a metrics PR".
+2. Routing the producer through `SharedTransport` changed `IdleTimeout` 30s → 5m
+   and `MetadataTTL` 6s → 30s **for every producer simultaneously** — "a real
+   change to failover reactivity across all sites/pipelines".
+
+I had justified both. Badly. The timeout from a *remark in the bug file* (§4.6),
+the TTLs from *"the Java client's default is 300s"*. Neither is measurement, and
+my own risks section had already admitted the timeout cut "makes it fail sooner
+rather than hang" if the residual flake is multi-second-but-recoverable. I wrote
+the counter-argument to my own change and shipped it anyway.
+
+The guardian's alternative was better than arguing: **split it.** Land the
+non-behaviour-changing half now — counters wrapped around the *existing*
+per-call-site dialers, changing no default — and send the consolidation to
+architecture review. Done. `SharedDialer`/`SharedTransport` are gone;
+`InstrumentedDialer(timeout)` takes the caller's own budget and the package has
+**no default at all**, so it cannot change anyone's behaviour. `ProducerTransport`
+reproduces kafka-go's `DefaultTransport` byte-for-byte (3s/5s/30s/6s) and stays
+package-level because a nil `Transport` *already* shared one pool per process —
+a per-Writer Transport would have split it, which is itself a behaviour change I
+nearly made while trying to make none.
+
+This is strictly better than what I had, and not only for safety: choosing 5s
+today would have been guesswork. Once the histogram exists the timeout can be
+picked from the actual latency distribution. **The veto improved the change.**
+
+**The reuse objection (editquality + reuse_agent, MEDIUM) — right in process,
+wrong in conclusion, and the right answer was a third thing.** They said: you
+cite "`observability.NewMetricsServer` has zero callers" as the defect, then
+build a second metrics server beside it instead of calling it. Fair — I never
+said why. On inspection it disqualified itself:
+
+```go
+func (m *MetricsServer) Start() error {
+	http.Handle("/metrics", promhttp.Handler())   // GLOBAL DefaultServeMux — panics on duplicate
+	http.HandleFunc("/health", ...)               // HARDCODED 200
+	return http.ListenAndServe(":"+m.port, nil)
+}
+```
+
+That `/health` is *precisely* the `bugs_open/003 §4.1` defect —
+`kafka_reachability.go`'s own doc comment says pods "pointing at hardcoded-200
+endpoints... reported healthy forever and w[ere] never rescheduled". So calling
+it as written would have re-introduced a bug we deliberately fixed. But building
+a rival was also wrong. **Fixed it and called it**: own mux, no fake `/health`,
+one path, dead code revived rather than duplicated.
+
+**`editquality` flagged `consumer.go` as missing.** The code had it all along —
+I hit the 8-edit cap and dropped it from the *plan* while still quoting its
+pre-change state in `grounded_in`. Reviewers only see the sketch, so from where
+they sat the objection was correct. My error, and the same class as the trimmed
+quotes: **the submission is the artefact under review, not the commit.**
+
+**`prior_art_librarian` (MEDIUM)** asked that "nothing serves /metrics" be
+confirmed from a running pod rather than taken on my word. Reasonable, and I'd
+already done it by then — recorded above with both controls.
+
+Round 2 resubmitted under the same correlation with `RESUBMIT_CORR`.
+
+### One more thing found after round 1, and it would have sunk the whole fix
+
+Opening the port is **necessary but not sufficient**. This cluster runs the
+prometheus-operator, which discovers targets **only** via label-selected CRs:
+
+```
+spec.podMonitorSelector      = {matchLabels: {release: kube-prometheus-stack}}
+spec.additionalScrapeConfigs = None
+podmonitors: 0    scrapeconfigs: 0
+```
+
+So the `prometheus.io/scrape` annotations on every spawned pod are the **plain-
+Prometheus convention and this is not plain Prometheus** — they are inert and
+have never caused a single scrape. Had only the listener shipped, `/metrics`
+would have been open and *still* unscraped, and the zero would have looked
+exactly like a fixed bug. **The same trap, one level up, twice in one day.**
+
+`deployments/kustomize/services/agent-chassis/base/podmonitor.yaml` is the
+missing half (repo only, not applied). Selector verified against all three live
+pod shapes; keyed on `app` not `spawned-by` because the two spawn paths stamp
+different `spawned-by` values but the same `app`.
