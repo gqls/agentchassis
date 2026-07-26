@@ -325,6 +325,21 @@ learning-center-post                  needs_rebuild archived  deployed_at NULL
 news-post                             needs_rebuild archived  deployed_at NULL
 ```
 
+### Council gate
+
+Submitted 2026-07-26, `SUBMISSION_CORR = 37329362-f3bb-4ac2-8c72-fd4e9c80109e`
+(commit `fe00304bd`). The verdict **post-dates the commit**, so that commit can never
+carry a `Council-Reviewed:` trailer honestly and will show as un-reviewed in the 098
+coverage report — a permanent false negative, recorded here rather than papered over.
+The trailer is earned by an APPROVED verdict only; a REVISE recorded as reviewed would
+be a durable false claim.
+
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='37329362-f3bb-4ac2-8c72-fd4e9c80109e' AND kind='council_report'
+ORDER BY created_at;
+```
+
 ### Close-out checklist — what has to happen before this moves to `/bugs_closed/`
 
 The Go half is inert until an image roll past this commit. Then:
