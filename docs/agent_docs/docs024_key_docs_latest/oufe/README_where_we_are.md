@@ -128,3 +128,105 @@ its own claims against the source document, and a track record of catching and
 publishing our own errors. On a site about who is telling the truth about a
 balance sheet, "every figure here links to the document it came from" might be the
 actual product, not the hygiene. Worth thinking about as positioning.
+
+---
+
+## 2026-07-26 — oxenunity is live, and you were right to kill my slogan
+
+**oxenunity.com is up.** Your nameserver change went through and the page is
+serving properly. If you look at it and still see the old parking redirect, that's
+your own machine holding a cached answer for a few hours — I checked it against
+the real thing and it's live.
+
+**On the line I suggested yesterday — you were right and I was wrong.** I proposed
+"every figure here links to the document it came from" as the positioning. That's
+a promise about our reliability, and it doesn't survive being looked at properly.
+A citation tells you where something came from. It doesn't tell you we read the
+source correctly, or picked the right bit of it, or that the source itself is
+right — and it does nothing at all about the model writing a convincing sentence
+around a real link, which is exactly the failure we've actually had. It's a claim
+we can't keep.
+
+What replaces it is the opposite, and I think it's stronger: **we make mistakes,
+the tools can be wrong, the sources can be wrong, and our reading of them can be
+wrong — and we cite everything anyway, so you can check us.** The citation stops
+being a warrant that we're right and becomes the instrument you catch us with.
+That's a claim we can keep every day, and in a field where everyone sounds certain,
+being the one publication that says plainly where it can fail is a genuine
+position rather than an apology.
+
+**The tool now makes you agree before you can use it.** You asked whether the
+disclaimer could be a condition of use — it can, and it now is. You get a panel
+saying the model can give you a wrong answer, that it's a simplification, and that
+every result should be treated as a possibly inaccurate worked example. The tool
+itself doesn't appear until you click through it. It asks again on every visit,
+because I deliberately don't remember your answer — no cookie, nothing stored,
+which also keeps the "nothing you type leaves your browser" claim literally true.
+
+One thing I'd push back on gently: you floated putting warnings at several stages
+through the tool. I'd keep it to the one gate, because repeated warnings get
+click-blind within about two uses, and a warning nobody reads is weaker in
+practice — and probably in law — than a single one someone had to act on. What I
+did instead is put a short caveat line *inside the results*, so if someone
+screenshots the output into a deck, the caveat travels with it. That felt like the
+gap that actually mattered.
+
+**On aiming at students — the safety instinct is dead right, but I don't think
+you need to narrow the audience to get it, and narrowing costs a lot.**
+
+Here's the thing I found when I worked it through. Almost all the *risk* on this
+site comes from one specific act: stating live facts about real named companies.
+Almost all the *value* comes from something different: explaining the mechanism —
+how new money leapfrogs existing lenders, how a majority binds a dissenting
+minority, what a court has to be satisfied of.
+
+Those two are separable, and that's the useful bit. You can teach the entire
+mechanism using numbers that are openly made up, and made-up numbers can't be
+wrong about anybody. "Suppose senior debt of six billion" is completely accurate,
+teaches the whole lesson, and carries no exposure whatsoever. The danger lives in
+the illustration, not in the teaching.
+
+So the safest version of this site isn't "aim at students" — it's **lead with
+mechanism, and treat real live cases as clearly-marked illustration.**
+
+And the "treat this as a possibly inaccurate case study" posture you want costs
+nothing with a professional audience, because professionals already expect it.
+Every legal update and broker note says check this before you act. A restructuring
+lawyer wouldn't dream of relying on someone else's summary of a judgment without
+opening the judgment. So we can take your whole honesty posture without moving the
+audience an inch.
+
+What narrowing to students would cost is the money. The plan to sell deal packs at
+a few hundred pounds rests entirely on a reader with an expense account. Students
+have no budget and no procurement. Choosing students as *the* audience is choosing
+to make this free indefinitely — which is a perfectly reasonable choice, but it
+should be a decision you make, not a side effect of a safety decision.
+
+**What I'd recommend instead:** take the honesty posture completely; reframe the
+site as teaching material rather than a research product, which is what makes that
+honesty coherent instead of apologetic (a case study is *supposed* to be a thing
+you interrogate; a research report saying "this might be wrong" is just a bad
+research report); and define the audience as anyone learning how this works —
+students, trainees, early-career professionals, and people in adjacent seats like
+the corporate lawyer trying to understand what the credit team is doing. Bigger
+than students, same needs, and it contains people who can pay.
+
+It also quietly improves the Thames Water piece. It stops trying to be the
+definitive account of Thames Water — which we can't win against services with real
+reporters, and which is the risky claim anyway — and becomes a live case to test
+your understanding against. Here's the mechanism, here's a real fight where it's
+being argued, here's what the documents say, here's our reading, check it. That's
+a claim we can actually keep.
+
+One possible source of money that survives all of this: training material for
+trainees and graduates inside law firms and advisory shops. Same content, and the
+buyer has a budget. I want to flag clearly that I have no evidence for that — no
+conversations, no pricing, nothing. It's a direction worth testing, not a plan,
+and I'd rather say so than have it harden into a fact by being written down
+confidently.
+
+**So the decision I need from you** is which of those three you want: my version
+above, or students proper as the target, or keep the mid-market professional as
+primary. The site is mid-build right now, so this is the cheapest moment it will
+ever be to change — the briefs would need a revision either way, and pages haven't
+been written yet.

@@ -34,6 +34,48 @@
     color: var(--color-text-muted, #475569);
   }
 
+  /* Condition of use. The tool body is not usable until acknowledged, and the
+     acknowledgement is per page load — nothing is stored, so the claim that
+     this tool persists nothing stays true. */
+  .rw-gate {
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--color-border, #d8dde5);
+    border-left: 3px solid var(--color-primary, #1e3a5f);
+    border-radius: 4px;
+    background: var(--color-surface-alt, rgba(30, 58, 95, 0.04));
+  }
+
+  .rw-gate h3 { margin: 0 0 0.6rem 0; font-size: 1rem; color: var(--color-primary, #0f172a); }
+  .rw-gate p { margin: 0 0 0.7rem 0; font-size: 0.9rem; line-height: 1.6; }
+
+  .rw-accept {
+    margin-top: 0.3rem;
+    padding: 0.6rem 1.2rem;
+    font: inherit;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--color-surface, #fff);
+    background: var(--color-primary, #1e3a5f);
+    border: 1px solid var(--color-primary, #1e3a5f);
+    border-radius: 4px;
+  }
+  .rw-accept:hover { opacity: 0.9; }
+
+  .rw-body[hidden] { display: none; }
+
+  /* Travels with a screenshot: the caveat sits inside the result, because a
+     result gets pasted into a deck and the surrounding page does not go with it. */
+  .rw-output-caveat {
+    margin: 0 0 0.9rem 0;
+    padding: 0.5rem 0.7rem;
+    border: 1px dashed var(--color-border, #d8dde5);
+    border-radius: 3px;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    color: var(--color-text-muted, #475569);
+  }
+
   .rw-grid { display: grid; grid-template-columns: 1fr; gap: 1.75rem; }
   @media (min-width: 720px) { .rw-grid { grid-template-columns: 300px 1fr; } }
 
@@ -168,11 +210,30 @@
     which one class is partly paid and everything beneath it receives nothing.
   </p>
 
+  <div class="rw-gate" id="rw-gate">
+    <h3>Before you use this tool</h3>
+    <p>
+      <strong>This model can give you a wrong answer.</strong> It applies one arithmetic
+      rule to the numbers you type. Real outcomes turn on security, guarantees, structural
+      subordination, intercompany claims, contingent liabilities and contested valuation
+      evidence — none of which it models. Any figures it starts with are illustrative, and
+      may be out of date or simply wrong.
+    </p>
+    <p>
+      Treat every result as <strong>a possibly inaccurate worked example</strong>, useful
+      for understanding how the mechanism behaves and not as a statement about any real
+      company or any real decision. Please do not rely on it.
+    </p>
+    <button type="button" class="rw-accept" id="rw-accept">I understand this tool can be wrong</button>
+  </div>
+
+  <div class="rw-body" id="rw-body" hidden>
+
   <p class="rw-illustrative">
     <strong>The figures below are illustrative defaults, not any company's real capital
     structure.</strong> Change them to whatever you are working on. Everything is
     calculated in your browser: nothing you type is transmitted anywhere, and nothing is
-    stored.
+    stored — including this acknowledgement, which is why you will see it again next time.
   </p>
 
   <div class="rw-grid">
@@ -245,6 +306,11 @@
     </div>
 
     <div class="rw-output">
+      <p class="rw-output-caveat">
+        Illustrative worked example, from figures you entered. Simplified, may be wrong,
+        not advice. oufe.com
+      </p>
+
       <div class="rw-stack" id="rw-stack" aria-live="polite"></div>
 
       <div class="rw-verdict" id="rw-verdict">
@@ -257,13 +323,17 @@
   </div>
 
   <p class="rw-note">
-    <strong>What this is.</strong> A deterministic arithmetic model of a strict priority
-    waterfall, provided to explain a mechanism. It assumes one pool of value, one order of
-    priority, and no structural subordination, intercompany claims, security packages,
-    guarantees or contingent liabilities — all of which decide real cases and none of which
-    are modelled here. It is educational scenario modelling. It is not investment advice,
-    not a recommendation, not a valuation, and not a prediction about any company.
+    <strong>What this is, and how it can be wrong.</strong> A deterministic arithmetic
+    model of a strict priority waterfall, provided to explain a mechanism. It assumes one
+    pool of value, one order of priority, and no structural subordination, intercompany
+    claims, security packages, guarantees or contingent liabilities — all of which decide
+    real cases and none of which are modelled here. So it can be arithmetically right and
+    still describe a case wrongly. It is educational scenario modelling: not investment
+    advice, not a recommendation, not a valuation, and not a prediction about any company.
+    Please do not rely on it.
   </p>
+
+  </div><!-- /rw-body -->
 </div>
 
 <script>
@@ -463,6 +533,18 @@
   bindPair(haircut, haircutSlider);
   [sup, senior, junior, sub].forEach(function (n) { n.addEventListener('input', recalc); });
   supOn.addEventListener('change', recalc);
+
+  // Condition of use. Deliberately NOT remembered: no localStorage, no cookie,
+  // so the "nothing is stored" claim above stays literally true and each visit
+  // re-consents. The acceptance criteria click this first — which also means a
+  // broken gate fails the check rather than silently locking the tool.
+  var gate = el('rw-gate'), body = el('rw-body'), accept = el('rw-accept');
+  accept.addEventListener('click', function () {
+    gate.hidden = true;
+    gate.style.display = 'none';
+    body.hidden = false;
+    recalc();
+  });
 
   resetBtn.addEventListener('click', function () {
     ev.value = DEFAULTS.ev; evSlider.value = DEFAULTS.ev;

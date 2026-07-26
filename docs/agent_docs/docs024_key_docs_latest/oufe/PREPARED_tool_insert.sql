@@ -159,10 +159,12 @@ tag (bugs_open/041 class), so extracting the JS would silently kill the tool.
     {"id":"status","type":"page_status_ok"},
     {"id":"mobile-fit","type":"no_horizontal_overflow","profiles":["mobile"]},
     {"id":"high-ev-covers-all","type":"interaction",
-     "steps":[{"action":"fill","selector":"#rw-ev","value":"15000"}],
+     "steps":[{"action":"click","selector":"#rw-accept"},
+              {"action":"fill","selector":"#rw-ev","value":"15000"}],
      "expect":{"selector":"#rw-break-class","text_matches":"All classes covered"}},
     {"id":"zero-ev-breaks-at-top","type":"interaction",
-     "steps":[{"action":"fill","selector":"#rw-ev","value":"0"}],
+     "steps":[{"action":"click","selector":"#rw-accept"},
+              {"action":"fill","selector":"#rw-ev","value":"0"}],
      "expect":{"selector":"#rw-break-class","text_matches":"New money"}}
   ]
 }
@@ -170,10 +172,15 @@ tag (bugs_open/041 class), so extracting the JS would silently kill the tool.
 
 The two interaction checks assert the arithmetic actually runs, at opposite ends
 of the range: with enough value every claim is covered, and with none the break
-is at the very top of the stack. A tool whose JS failed to execute would keep
-its initial verdict text and fail both. Deliberately NO `asset_loads` check —
-that criterion asserts a JS-extraction path that was designed and never built,
-and failed every tool on its first sweep (TL-016).
+is at the very top of the stack. A tool whose JS failed to execute would keep its
+initial verdict text and fail both. Deliberately NO `asset_loads` check — that
+criterion asserts a JS-extraction path that was designed and never built, and
+failed every tool on its first sweep (TL-016).
+
+**Both interaction checks must click `#rw-accept` first**, because the tool body
+is hidden behind the condition-of-use gate and a hidden input cannot be filled.
+This is a feature, not a workaround: a broken gate now fails acceptance rather
+than silently making the tool unusable while every structural check still passes.
 
 Selectors are copied from the shipped template, not invented.
 $plan$,
