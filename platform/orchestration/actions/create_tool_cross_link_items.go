@@ -82,6 +82,23 @@ type toolCrossLinkRequest struct {
 // arriving by a second route.
 var crossLinkFailedStatuses = []string{"failed", "rejected", "cancelled", "wont_fix", "unresolved"}
 
+// HOW LONG CAN A GATED ITEM PARK? 48 hours, not forever — checked, not assumed.
+// The stale-work-item-reaper (scheduled_tasks, hourly) runs:
+//
+//	UPDATE site_work_items SET status='unresolved', summary='[stale: triaged 48h+] '||summary
+//	WHERE status='triaged' AND pipeline='build'
+//	  AND created_at < NOW() - INTERVAL '48 hours' AND claimed_at IS NULL
+//
+// A gated cross-link matches every clause (it cannot be claimed while its
+// dependency is open), so it is swept 48h after emission. For THIS emitter that
+// interaction is the right one and bounds the risk: the item leaves 'triaged'
+// so it can never dispatch late against a page that still isn't live, and
+// 'unresolved' is in workItemTerminalStatuses, so the dedup slot is released
+// and a later redeploy can emit a fresh one. The only wart is the label, which
+// says "triaged 48h+" when it means "row 48h old" — that is bugs_open/070's
+// defect, not this one's, and it is cosmetic here because the row genuinely was
+// triaged the whole time.
+
 // toolPageLive reports whether a page's build_status means the URL is already
 // served. needs_rebuild counts: the page was deployed and is queued for a
 // refresh, so the link resolves today.
@@ -345,6 +362,14 @@ func withWorkItemTx(ctx context.Context, db *sql.DB, logger *zap.Logger, item wo
 // Deliberately NOT a work item: there is no handler that could action "the
 // cross-link was withheld", and filing an item nobody can close is the
 // bugs_open/077 shape (a queue entry whose handler has no remit).
+//
+// WHO READS THESE ROWS, precisely (the council asked; "someone will query it"
+// is not an answer): diagnose_load_runtime_action.go:267 pulls agent_error_log
+// into the bundle for EVERY diagnosis run on the site, so a thread diagnosing
+// the site sees them without knowing to look. There is no push alert — the only
+// scheduled task touching this table is database-cleanup, which deletes
+// unresolved rows after 30 days. So: durable, pulled into diagnosis, aged out
+// at 30d. RUNBOOK R10 has the standing query.
 func recordCrossLinkSkip(
 	ctx context.Context,
 	params ActionParams,

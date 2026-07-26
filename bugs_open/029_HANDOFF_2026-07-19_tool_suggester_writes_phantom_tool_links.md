@@ -322,3 +322,36 @@ checked 2026-07-26). So the queue cannot produce new damage even before the imag
 `/tools/assets/*.js` hits in the same scan are **not** this bug — they are asset paths, not page
 links, and they resolve as files rather than `pages` rows. Filter on `\.html` as above or they
 will dominate the result and look like a fleet-wide catastrophe.
+
+## Three questions the council raised and this thread answered with evidence (2026-07-26)
+
+**1. Does a gated cross-link park forever?** No — **48 hours**, bounded by machinery that already
+exists. The stale-work-item-reaper's live predicate is
+`status='triaged' AND pipeline='build' AND created_at < NOW() - INTERVAL '48 hours' AND
+claimed_at IS NULL`; a gated item matches every clause, because it cannot be claimed while its
+dependency is open. The interaction is the *right* one here: the item leaves `triaged` so it can
+never dispatch late against a page that still isn't live, and `unresolved` is terminal, so the
+dedup slot is released and a later redeploy can emit a fresh one. The label it writes
+(`[stale: triaged 48h+]`) is `bugs_open/070`'s defect, and is cosmetically wrong-but-harmless
+here since the row really was triaged throughout.
+
+**2. Who reads the durable skip records?** `diagnose_load_runtime_action.go:267` pulls
+`agent_error_log` into the bundle for **every diagnosis run on that site**, so a thread diagnosing
+the site sees them without knowing to look. There is no push alert; the only scheduled task
+touching the table is `database-cleanup`, which deletes unresolved rows after **30 days**. Stated
+plainly rather than claimed as monitoring: durable, pulled into diagnosis, aged out at 30d.
+Standing query in RUNBOOK R10.
+
+**3. Was the deployed binary really pre-fix when migration 211 was applied?** Yes — verified
+against the **running pod**, not the `image_tag` column (the documented trap):
+
+```
+kubectl exec -n ai-persona-system agent-chassis-f4d46c88d-p6wqc -- sh -c 'strings /app/agent-chassis | grep -c …'
+  emitToolCrossLinkItems              → 0     (the new emitter is NOT deployed)
+  tool_crosslink_not_emitted          → 0     (nor the durable skip record)
+  CreateToolCrossLinkItemsAction      → 12    (positive control — the action IS there)
+  tools/%s.html                       → 1     (the OLD fabrication is still in the running binary)
+```
+
+That is what makes the ordering claim true: parts 2/3 of migration 211 are inert on this binary,
+and part 1 — deleting the step — is what stops the fabrication *now*.
