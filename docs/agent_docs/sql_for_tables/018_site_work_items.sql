@@ -38,7 +38,13 @@ CREATE TABLE IF NOT EXISTS site_work_items (
 -- 'monitor', 'ignore'
     suggested_action TEXT,                   -- 'build_page', 'rewrite_section', etc.
     priority INTEGER DEFAULT 100,            -- lower number = higher priority
-    handler_agent TEXT,                      -- which agent type processes this
+-- which agent type processes this. NOT NULL DEFAULT '' since migration 217
+-- (bugs_closed/078): nullable, one hand-written INSERT that omitted this column
+-- livelocked the fleet build dispatcher — find_dispatchable_site counted the
+-- row while LoadWorkItemsAction dropped it on a failed scan, so the trigger
+-- re-picked the same site every 120s forever. '' is the safe spelling of "no
+-- handler" (flag-only / human-review items) and was already the majority one.
+    handler_agent TEXT NOT NULL DEFAULT '',
 
 -- Lifecycle
     status TEXT NOT NULL DEFAULT 'detected', -- 'detected', 'triaged', 'approved',

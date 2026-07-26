@@ -132,6 +132,40 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 		SELECT handler_agent FROM site_work_items WHERE id = $1
 	`, itemID).Scan(&handlerAgent)
 
+	// No handler at all is the degenerate case of "handler not registered", and
+	// it takes the same exit: an item nothing can route is blocked here, on its
+	// first claim, rather than dispatched to a spawn_agent that must fail.
+	// Without this it reaches spawn_handler with an empty agent_type_field,
+	// fails into the loop's error_step, and is recorded as the generic
+	// "Handler failed" — three attempts spent, and an error message that names
+	// the wrong problem. 'blocked' is also the honest state: feasibility-recheck
+	// promotes only where EXISTS(agent_definitions WHERE type = handler_agent),
+	// and no agent type is the empty string, so this cannot become a retry loop.
+	// Reachable via '' since migration 217 made the column NOT NULL DEFAULT ''
+	// (bugs_closed/078); the !Valid arm covers a NULL from any pre-217 replica.
+	if !handlerAgent.Valid || handlerAgent.String == "" {
+		params.DB.ExecContext(ctx, `
+			UPDATE site_work_items
+			SET status = 'blocked',
+			    claimed_at = NULL,
+			    claimed_by = NULL,
+			    error = 'No handler_agent set — item cannot be routed to any agent',
+			    updated_at = NOW()
+			WHERE id = $1
+		`, itemID)
+
+		logger.Warn("ClaimWorkItemAction: work item has no handler_agent, item blocked",
+			zap.String("item_id", claimedItemID))
+
+		return map[string]interface{}{
+			"claimed":       false,
+			"work_item_id":  claimedItemID,
+			"blocked":       true,
+			"handler_agent": "",
+			"reason":        "handler_not_set",
+		}, nil
+	}
+
 	if handlerAgent.Valid && handlerAgent.String != "" {
 		var handlerExists bool
 		params.DB.QueryRowContext(ctx, `

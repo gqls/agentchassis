@@ -1,7 +1,18 @@
 # 078 — a single work item with `handler_agent IS NULL` silently livelocks the fleet build dispatcher
 
 **Filed 2026-07-25** (bugfix-028 session, found while trying to rebuild one relojistas page).
-**Status: OPEN.** Fleet-wide outage class, and cheap to cause: **one hand-written `INSERT`
+**Status: CLOSED 2026-07-26 — fixed and LIVE.** The column is now `NOT NULL DEFAULT ''`
+(migration `217`, applied and recorded), so the state this case describes **cannot be
+represented any more**. See "Resolution" at the foot of this file.
+
+**It recurred before it was fixed.** Filed 07-25 against `leopardessconsulting.co.uk`;
+on 07-26 a *different* session made the identical hand-written `INSERT` against
+`gaswholesalers.com` and took the fleet down again for 42 minutes. Two independent
+sessions, one day apart, same one-column omission. That recurrence is the whole
+argument for closing the door in the schema rather than asking operators to remember
+a column.
+
+Fleet-wide outage class, and cheap to cause: **one hand-written `INSERT`
 that omits `handler_agent` stops builds on every site.**
 
 Related but NOT the same as `bugs_open/029` (*hung spawns saturate the dispatch group*).
@@ -183,3 +194,139 @@ tested. The negative results above are measured, not inferred.
   rebuilt because of this stall.
 - `016b` §9 *"The build dispatcher picks ONE site per tick ordered by `site_id`"* — the
   ordering fact that turns one bad row into a fleet outage.
+
+---
+
+# Resolution — 2026-07-26 (bugfix_078 session)
+
+## The second occurrence, measured
+
+I picked this ticket up and found **the fleet already down again**, by the same
+mechanism, caused by a session unrelated to the first:
+
+| | measurement (live, 2026-07-26) |
+|---|---|
+| offending row | `709f0338-8b5a-443d-9bf0-ce11d0b9418e` on `gaswholesalers.com`, `page_rerender`, `triaged`, `handler_agent IS NULL`, `created_by = operator:bugfix_049`, created 16:42:41 |
+| ordering | `gaswholesalers` `5fe15466…` sorts **below** `webdesign.co.uk` `6b49db8e…`, so it was picked first every tick |
+| trigger | selected `gaswholesalers.com` at 17:32, 17:35, 17:37, 17:40, 17:42 — **every** tick |
+| loop | `item_count: 0`, `has_items: false` on **every** run |
+| throughput | last completion **17:00:32**, found at 17:42 — **42 minutes of zero completions fleet-wide**, 2 sites holding `triaged` work, 0 claims |
+
+**Causal proof, before/after on the live system.** Setting that one row's handler
+(`page-rerender`, the value 704 of its 705 siblings carry, registered and active) moved
+`build-dispatch-loop` from `item_count: 0, 0, 0` to **`1`** at 17:45:30, with a
+completion landing immediately and `webdesign.co.uk` — starved throughout — claimed and
+building by 17:55. Nothing else was changed.
+
+`operator:bugfix_049` — that was your row, repaired the same way the 07-25 one was, to
+restore its evident intent. Nothing else about it was touched.
+
+## What was fixed
+
+**1. Migration `217_site_work_items_handler_agent_not_null.sql` — the durable close,
+LIVE (applied out of band, `--record-only` in the ledger).**
+
+```sql
+UPDATE site_work_items SET handler_agent = '' WHERE handler_agent IS NULL;  -- 129 rows
+ALTER TABLE site_work_items
+  ALTER COLUMN handler_agent SET DEFAULT '',
+  ALTER COLUMN handler_agent SET NOT NULL;
+```
+
+This is what closes the case, and it needed no image roll. `''` and NULL were already
+two spellings of one deliberate state ("no handler" — flag-only / human-review items,
+`check_image_url_404.go:109`, `lock_helpers.go:117`,
+`render_site_components_action.go:693`); 169 rows already used `''` against 121 using
+NULL. **Only NULL is fatal, and the whole outage turns on that asymmetry:** `''` scans
+fine, so the item *loads*, gets *claimed*, and the site is then mutex'd by its own
+claimed row — every other site keeps building. NULL is dropped before any of that can
+happen.
+
+*Safety, each checked live before applying:* the 129 rewritten rows were all
+`needs_human_review` (121) or `complete` (8) — **zero** `triaged`/`approved`, so the
+backfill could not change what the dispatcher sees. And **no writer emits an explicit
+NULL**: `insertWorkItem` passes a Go `string`, and the three paths that actually created
+the NULL rows (`resolve_internal_links_action.go:257`, `plan_sections_action.go:1862`,
+`reconcile_site_plan_action.go:255`) **omit the column from the INSERT entirely** — so
+they pick up the new default and keep working untouched. That is the point: the fix
+lands without editing a single one of them.
+
+**2. `load_work_item_actions.go` — never silently drop a row. [INERT until the next roll]**
+`handler_agent` now scans into `sql.NullString`; the drop path logs at `Error` (not
+`Warn`) naming the site, counts drops, surfaces `rows_dropped` in the action's output,
+and raises an explicit `LIVELOCK RISK` error when every candidate row was dropped. This
+also covers a scan failure on *any* column, not just this one.
+
+**3. `claim_work_item_action.go` — an unroutable item is blocked, not dispatched.
+[INERT until the next roll]** An empty/NULL handler is the degenerate case of "handler
+not registered" and now takes that same existing exit (`blocked`, claim released, clear
+error), instead of reaching `spawn_agent` and failing three times under a message that
+names the wrong problem — see the induced-fault evidence below.
+
+## Verification — both branches induced live, not inferred
+
+| test | result |
+|---|---|
+| **A.** The outage's own INSERT shape (column omitted), on a site | lands `handler_agent = ''`, `is_null = f` — **the fatal state is unrepresentable** |
+| **B.** An INSERT writing an explicit `NULL` | **rejected at insert time**: `null value in column "handler_agent" … violates not-null constraint`. Fails loudly against its author instead of silently against the fleet |
+| **C.** Arm a `''` row `triaged` on `pool-savings-investing.internal` — the **globally lowest `site_id`**, i.e. the exact worst case that starved the fleet twice | trigger selected it 17:57:44; `build-dispatch-loop` returned **`item_count: 1`** (pre-fix this was `0`), the row was **claimed** at 17:58:02 — so the site self-mutexes and others proceed — and the failure landed on **its own `attempt_count` (0→1)**, bounded by `max_attempts` in both the selector's and the loader's SQL |
+
+Test C is the acceptance test the case file asked for, and it passed on the worst-case
+site rather than a convenient one. Migration `217` additionally carries an in-transaction
+probe that re-runs test A and `RAISE EXCEPTION`s if the default ever stops working, so a
+future re-application cannot quietly regress it.
+
+Test C also *justifies* fix 3: the recorded failure was
+
+```
+spawn_agent: configuration extraction failed … agent_type is required
+(provide 'agent_type' or 'agent_type_field')
+```
+
+which blames the step's configuration — the field *is* provided, it just resolves to
+empty. Nothing in that message says "this work item has no handler". After the roll it
+is blocked on attempt 1 with `No handler_agent set — item cannot be routed to any agent`.
+
+**Not yet verified, and stated as such:** fixes 2 and 3 are Go and are **inert until the
+next image roll**. They are defence-in-depth behind the migration, which is what actually
+extinguishes the defect. Post-roll marker (assert the *new* string appears — the old
+behaviour left no string to disappear):
+`kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "LIVELOCK RISK"'`
+
+## Deliberately NOT done: fix candidate 2
+
+Candidate 2 (add `handler_agent IS NOT NULL` to `find_dispatchable_site`) was **not**
+applied. Another live session owns that query — its migration
+`213_dispatch_gate_matches_dispatcher.sql` (`bugs_open/029`, uncommitted and unapplied
+in the tree at the time of writing) rewrites it wholesale. Editing the same JSONB path
+underneath a concurrent thread is exactly the collision CLAUDE.md warns about, and after
+`217` the clause is redundant: the column can no longer be NULL.
+
+## Handed on, not fixed here: the same livelock has a second door
+
+`find_dispatchable_site` does **not** check `depends_on`; the loader **does**
+(`load_work_item_actions.go:562-571`). So a site whose only `triaged` item is
+dependency-blocked is selected forever and loads nothing — **identical mechanism, and
+this fix does not touch it.** The `bugfix_029` dispatch-gate PLAN lists this as its
+watchdog's "KNOWN BENIGN CASE"; it is not benign, it is this bug with a different
+predicate.
+
+**[UNOBSERVED] today** — 0 `triaged`/`approved` rows carry `depends_on` (3 rows ever
+have). Recorded for the owning lane rather than fixed in it.
+
+## The undiagnosed "second cause" — transferred, not solved
+
+> **CORRECTED/RESOLVED 2026-07-26:** the caution above ("the queue still had not drained
+> as of 18:31 … do not read this case as *queue stall explained*") was right to be
+> written and is now discharged **by transfer, not by proof.** The `bugfix_029`
+> dispatch-gate thread has since measured, live, that the trigger's gate `pre_query` and
+> `find_dispatchable_site` **disagree**: the gate ignores the claimed-item mutex the
+> dispatcher enforces, so it reported 2 pending sites while the dispatcher could dispatch
+> nothing, and the trigger fired every 120s onto `complete_idle`. That is the same
+> "trigger fires and produces nothing" symptom recorded here at 18:23–18:31, and it is
+> their fix (migration `213`), not this one. **[INFERRED]** — I did not reproduce the
+> 07-25 window, and I am not asserting the two are the same event; I am naming where the
+> evidence now lives so this case does not stay open on another lane's work.
+
+The NULL mechanism itself **is** proven, fixed, and extinguished — twice reproduced,
+once by induced fault after the fix.

@@ -597,6 +597,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 
 	var workItems []interface{}
 	handlerSet := make(map[string]bool)
+	droppedRows := 0
 
 	for rows.Next() {
 		var (
@@ -606,12 +607,19 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			specJSON                   []byte
 			pageID                     *uuid.UUID
 			priority                   int
-			handlerAgent, status       string
+			status                     string
 			itemKey                    *string
 			batchID                    *uuid.UUID
 			attemptCount               int
 			approvalMode               string
 		)
+		// Nullable in the schema until migration 217 (bugs_closed/078) gave it
+		// NOT NULL DEFAULT ''. Scanned as NullString regardless: a plain string
+		// here turned one NULL row into a fleet-wide build outage twice in 24
+		// hours, because the failed scan dropped the row via the `continue`
+		// below while find_dispatchable_site still counted it — so the trigger
+		// re-picked the same site every 120s forever. Never re-tighten this.
+		var handlerAgent sql.NullString
 
 		err := rows.Scan(
 			&id, &wiSiteID, &source, &pipeline, &itemType,
@@ -620,7 +628,16 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			&batchID, &attemptCount, &approvalMode,
 		)
 		if err != nil {
-			logger.Warn("LoadWorkItemsAction: scan error", zap.Error(err))
+			// Error, not Warn: this branch drops a row that the site selector
+			// has ALREADY counted as dispatchable, so the loop can complete
+			// having claimed nothing while the row stays 'triaged'. A Warn
+			// inside a `continue` is invisible at fleet scale (bugs_closed/078).
+			droppedRows++
+			logger.Error("LoadWorkItemsAction: work item row DROPPED on scan error — "+
+				"site was selected as dispatchable but this item cannot be loaded",
+				zap.Error(err),
+				zap.String("site_id", siteID.String()),
+			)
 			continue
 		}
 
@@ -645,7 +662,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 			"summary":       summary,
 			"spec":          specData,
 			"priority":      priority,
-			"handler_agent": handlerAgent,
+			"handler_agent": handlerAgent.String, // "" when NULL — see the scan note above
 			"status":        status,
 			"attempt_count": attemptCount,
 			"approval_mode": approvalMode,
@@ -662,7 +679,7 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		}
 
 		workItems = append(workItems, item)
-		handlerSet[handlerAgent] = true
+		handlerSet[handlerAgent.String] = true
 	}
 
 	var agents []string
@@ -672,8 +689,22 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 
 	logger.Info("LoadWorkItemsAction: Complete",
 		zap.Int("items_loaded", len(workItems)),
+		zap.Int("rows_dropped", droppedRows),
 		zap.Strings("handler_agents", agents),
 	)
+
+	// Loading nothing while dropping rows is the livelock signature of
+	// bugs_closed/078: the site was selected as dispatchable, the loop claims
+	// nothing, the rows stay 'triaged', and the trigger re-picks this same site
+	// on the next tick. Say so once, loudly, rather than leaving it to be found
+	// by hand 22 minutes into an outage.
+	if droppedRows > 0 && len(workItems) == 0 {
+		logger.Error("LoadWorkItemsAction: LIVELOCK RISK — every candidate row was dropped, "+
+			"so this site will be re-selected indefinitely with nothing to dispatch",
+			zap.String("site_id", siteID.String()),
+			zap.Int("rows_dropped", droppedRows),
+		)
+	}
 
 	// first_item: convenience field for single-item dispatch (avoids array indexing)
 	var firstItem interface{}
@@ -687,6 +718,10 @@ func LoadWorkItemsAction(ctx context.Context, params ActionParams) (interface{},
 		"has_items":      len(workItems) > 0,
 		"handler_agents": agents,
 		"first_item":     firstItem,
+		// Surfaced into collected_data so "the selector called this site
+		// dispatchable and the loader loaded nothing" is answerable from the
+		// orchestration row, instead of only from pod logs that have rotated.
+		"rows_dropped": droppedRows,
 	}, nil
 }
 

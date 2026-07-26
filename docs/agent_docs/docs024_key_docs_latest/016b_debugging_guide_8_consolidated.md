@@ -3149,6 +3149,66 @@ fails, and you go and look.
 Category tags: `absence-is-not-evidence`, `vacuous-verification`, `false-green`,
 `negative-assertion-needs-a-positive-control`.
 
+### A nullable column + a hand-written `INSERT` is a fleet-outage primitive — the cure is a `DEFAULT`, not a rule
+
+`bugs_closed/078` (filed 2026-07-25, **recurred 2026-07-26**, closed the same day).
+`site_work_items.handler_agent` was `TEXT` — nullable, no default. One hand-written
+`INSERT` that simply **omitted the column** stopped builds on every site in the fleet,
+twice in 24 hours, caused by two sessions who had never spoken to each other.
+
+**The mechanism is a disagreement between two queries about which rows exist:**
+the site selector (`find_dispatchable_site`) counted the row — it filters on
+status/attempt_count and says nothing about `handler_agent`. The item loader
+(`LoadWorkItemsAction`) scanned that column into a plain Go `string`, so SQL NULL failed
+the scan and the row was dropped by a `continue` behind a `Warn`. The loop therefore
+completed having claimed nothing, the row stayed `triaged`, and 120 s later the trigger
+picked **the same site** again. Forever.
+
+**The transferable parts:**
+
+1. **A silent `continue` on a scan error is a livelock generator whenever something
+   upstream has already counted that row.** The drop is invisible (a `Warn` inside a
+   loop, at fleet scale), and the *selector* never learns its choice was refused. Log
+   the drop at `Error`, count it, and return the count in the action's output — "the
+   selector called this site dispatchable and the loader loaded nothing" must be
+   answerable from the orchestration row, not from pod logs that have rotated.
+2. **Two spellings of one state, where one is fatal and one is safe, is the bug.** Here
+   `''` and NULL both meant "no handler" (a legitimate flag-only state) — 169 rows used
+   `''`, 121 used NULL. `''` scans fine, so the item *loads*, gets *claimed*, and the
+   site is then mutex'd by its own claimed row while every other site keeps building.
+   NULL is dropped before any of that. **The entire difference between one failed item
+   and a total fleet stop was load-vs-silent-drop.** Collapse the spellings; don't
+   document the difference.
+3. **Fix it with a `DEFAULT`, because the Go path was never the one at fault.** Every Go
+   writer already passed a `string` (`''` at worst); the NULL rows came only from paths
+   that omitted the column. `SET DEFAULT '' , SET NOT NULL` converted every
+   column-omitting `INSERT` — Go **and** hand-written — to the safe value **without
+   editing a single caller**, and made the explicitly-NULL insert fail loudly at insert
+   time against its own author. It is live immediately, with no image roll, which is the
+   other reason to prefer the schema: a Go guard is inert until the next build.
+4. **Check who legitimately uses the "bad" value before constraining it.** The 129 NULL
+   rows here were all `needs_human_review`/`complete` — never dispatchable — so the
+   backfill provably could not change what the dispatcher sees. Had any been `triaged`,
+   the same `ALTER` would have silently armed them.
+5. **`ORDER BY <uuid> LIMIT 1` turns one bad row into a fleet outage.** The dispatcher
+   picks one site per tick ordered by `site_id`, so a poisoned row on a *low* `site_id`
+   starves every site sorting above it. Both occurrences landed on the lowest-sorting
+   site because that is the only place the symptom is total rather than invisible.
+6. **Guard the migration with the fault itself.** `217` ends with a probe that runs the
+   outage's own `INSERT` shape inside the transaction and `RAISE EXCEPTION`s unless it
+   yields `''`. Asserting the catalogue flags (`attnotnull`, `pg_attrdef`) would only
+   prove the DDL parsed; the probe proves the defect is extinct, and keeps proving it.
+
+**And the general point about recurrence:** this was filed with a correct diagnosis, an
+accurate case file, and an explicit "why it is so easy to cause" section — and it
+happened again the next day anyway, because the fix candidate that would have closed the
+door was listed third. **When a case file says "operators must remember X", that is a
+schema defect wearing a documentation costume.** The recurrence is the evidence; don't
+wait for a third.
+
+Category tags: `two-spellings-one-state`, `silent-continue-livelock`,
+`selector-loader-disagreement`, `schema-default-beats-a-rule`, `one-row-fleet-outage`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3240,7 +3300,7 @@ See `/bugs_closed/README.md`.
 | 071 | **`agent-job-cleanup` deleted every live `job.*` Kafka topic on its 10-minute tick** — its "any spawned pods running?" guard queried `-l spawned-by=orchestrator`, a label NO pod has ever carried (both spawn paths label only the Job, and remote-job-spawner uses a *different value*), so the guard matched zero always and the delete-all branch was unconditional. Killed both first feature-implementer runs mid-run (response produced by git-adapter 4s after request, topic already deleted/recreated, never consumed, await expired). A producer of the 003 failure shape; some 003 sightings may re-attribute (check: loss window crosses a `*/10` tick + a logged produce nobody consumed). See §9 *"A guard label no object carries…"* | filed 2026-07-25 (gauntlet/B4), **CLOSED 2026-07-26 → `/bugs_closed/`** — all three fixes verified LIVE: guard (`9dc99c61c` same day — message says 070, numbering collision, resolve by slug; counts active spawned Jobs across BOTH spawner labels + dynamic-agent pods, fail-safe keep); two-pass tombstone (`bc1f12718`, idle-tick deletion needs 2 CONSECUTIVE idle ticks, state CM `agent-job-cleanup-state` — idle branch observed deleting 2-of-2 live 07-26); pod-template `spawned-by` labels (`5540d203e`, in v1.0.1165 — first pod in platform history matched `-l spawned-by` 07-26 13:35Z). Bonus finds fixed: cronjob step 1 was silently Forbidden forever (RBAC + induced-fault proof); `grep -c \|\| echo 0` two-line count; piped-while lost counter. Council `d0fcf7ef` APPROVED r3. Carried non-blocking: remote-spawner path label [INFERRED same build]; dedicated-SA hardening; 003 re-attribution stays with 003 |
 | 070 | **`stale-work-item-reaper` keys on `created_at`, not on time spent in `triaged`** — so any re-queued build item is born eligible and gets parked `unresolved` with a false `[stale: triaged 48h+]` prefix (applied cumulatively, in place, unrecoverably). Invisible in the loader path where the two timestamps coincide; visible the moment an operator re-queues an old row, which is the only way to ask for a rebuild today. Looks intermittent because the 120s claimer normally beats the 3600s reaper — a single re-queue survives, a batch loses systematically while siblings wait behind an in-flight build. See §9 *"A staleness reaper keyed on ROW AGE…"* | filed 2026-07-25 (brochure-component-library session), OPEN. **DB-config only — no image roll.** Candidate 1 = key on `updated_at` (measurement query in-file first: does anything touch a triaged row?); candidate 2 = a real `triaged_at` column; candidate 3 = stop mutating `summary` in place. Prerequisite for `features_open/021`. Verify by INDUCING it with the claimer disabled — a successful re-queue only proves the claimer won the race |
 | 077 | **The `hardcoded_section_colors` DETECTOR files items its own HANDLER cannot fix.** Detector matches any hex background (3/4/6/8-digit, light or dark, inline `style=""` included) in a component carrying a `<style>` tag; the fixer rewrites only dark 6-digit hexes and two-colour `Ndeg` gradients *inside* `<style>` blocks. Live 2026-07-25: 32 components across 8 sites match, **5 of the 8 sites have ZERO inside the remit** (finetuning.uk 8/0, gaswholesalers 6/0, ai-agent-orchestration 4/0, webdesign 2/0, dartsonline 1/0). 8 items sit permanently `unresolved` under a label that means "the handler failed twice" when the handler was never able to succeed. See §9 *"…HANDLER's remit, not the DETECTOR's predicate"* | filed 2026-07-25 on closing `021`, OPEN, **severity LOW**. Explicitly **not churn** — `idx_swi_dedup` bounds it to one open item per site (`detected` is not terminal), the check filed nothing fleet-wide in 7 days, and the handler is not LLM-driven: a legibility defect in the backlog, not a cost defect. Design call, not a patch: narrow the detector (call the transform) / widen the handler / split the type. Test set = the 5 zero-remit sites |
-| 078 | **One work item with `handler_agent IS NULL` silently livelocks the build dispatcher fleet-wide.** `find_dispatchable_site` counts the row (it checks only status/attempt_count); `LoadWorkItemsAction` scans `handler_agent` into a plain `string` (`load_work_item_actions.go:609`), so SQL NULL fails the scan and the row is dropped by a `continue` behind a `Warn` (`:624`). The loop returns `item_count: 0`, claims nothing, and the 120s trigger re-picks **the same site** forever. Because selection is `ORDER BY wi.site_id … LIMIT 1`, a NULL-handler row on a **low-`site_id`** site starves every site above it. Live 2026-07-25: one hand-written `page_rerender` row on leopardess (lowest site_id; 680 of 681 siblings carry `page-rerender`) stopped **all** fleet builds for ~45 min while `webdesign` held 95 triaged items — dispatch orchestrations COMPLETING every ~20s having done nothing. Opposite signature to `029` (hung/`AWAITING_RESPONSES`) | filed 2026-07-25 while closing `028-page-build-noop`, OPEN. Offending row repaired (handler set, reversible). **Fix 1+2:** scan into `sql.NullString`, AND add `handler_agent IS NOT NULL` to `find_dispatchable_site` (config, live immediately); then `SET NOT NULL` as the durable close. **Caution: the repair did NOT drain the queue** — a second, undiagnosed cause remains `[UNVERIFIED]`; do not read 078 as "stall explained" |
+| 078 | **One work item with `handler_agent IS NULL` silently livelocks the build dispatcher fleet-wide.** `find_dispatchable_site` counts the row (it checks only status/attempt_count); `LoadWorkItemsAction` scans `handler_agent` into a plain `string` (`load_work_item_actions.go:609`), so SQL NULL fails the scan and the row is dropped by a `continue` behind a `Warn` (`:624`). The loop returns `item_count: 0`, claims nothing, and the 120s trigger re-picks **the same site** forever. Because selection is `ORDER BY wi.site_id … LIMIT 1`, a NULL-handler row on a **low-`site_id`** site starves every site above it. Live 2026-07-25: one hand-written `page_rerender` row on leopardess (lowest site_id; 680 of 681 siblings carry `page-rerender`) stopped **all** fleet builds for ~45 min while `webdesign` held 95 triaged items — dispatch orchestrations COMPLETING every ~20s having done nothing. Opposite signature to `029` (hung/`AWAITING_RESPONSES`) | filed 2026-07-25 while closing `028-page-build-noop`. **RECURRED 2026-07-26** — a different session made the identical omission on `gaswholesalers.com` (again the lowest site_id): 42 min of zero completions fleet-wide, trigger picking that one site every tick, `item_count: 0` every run; setting the handler moved it to `1` and the queue drained. **CLOSED 2026-07-26, LIVE: migration `217` made the column `NOT NULL DEFAULT ''`, so the state is unrepresentable** — an omitted column now yields the already-safe `''`, an explicit NULL is rejected at insert time. Go defence-in-depth (`sql.NullString` scan + loud drop logging; unroutable item blocked at claim) inert until the roll. Candidate 2 (`find_dispatchable_site`) deliberately NOT applied — that query is owned by the `029` dispatch-gate lane, and is redundant post-`217`. **Residual handed to `029`:** the selector ignores `depends_on` while the loader enforces it — same livelock, different predicate, `[UNOBSERVED]` (0 rows today) |
 
 | 072 | **`contact-info` can never render on 8 of 13 live sites.** Its `input_schema` sources `site_specs.identity.email`/`.phone` as FLAT keys; `domain-research-classifier` writes them NESTED under `contact.*`, and `email`'s `on_missing: needs_human_review` withholds the whole section — with **no `sections_skipped`/`sections_deferred` entry**, so three consecutive builds produced 2 of 3 planned components with no error. Fleet discriminator exact, no exceptions either way: the 5 sites with a flat `email` are the 5 where it has ever rendered. The classifier's own shape is the nested one, so **a new site is broken by default**. Owner's phone had been written only to `sites.phone`, which no component reads. See §9 *"A schema `source` path and the aspect writer's SHAPE are one contract"* | filed 2026-07-25 (brochure_component_library). fundamentallyai.com fixed at the DATA level only (flat keys added beside nested, `services` preserved, backup taken; `idx_site_specs_current` forces supersede-before-insert) — phone now live as `tel:`. Contract UNFIXED: candidates = repoint the 4 source paths (verify the resolver handles 3 levels first), or resolver-level `<aspect>.<contact>.<field>` fallback, or make the withholding loud. Backfill of the other 7 sites is partly data-gathering (several have `phone: null`) — do not ship an empty block as a fix |
 
