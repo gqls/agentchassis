@@ -280,3 +280,45 @@ resolve**. The emitter kept firing for the four days between diagnosis and fix.
 (leopardessconsulting.co.uk `/services.html` among them) are untouched by an emitter fix. That is
 a content sweep to coordinate with `049`. Pre-fix rows are identifiable by
 `item_key LIKE 'tool_crosslink:%' AND spec->>'tool_page_url' IS NULL`.
+
+## The existing damage, measured 2026-07-26 (for the 049 sweep — NOT fixed here)
+
+Two separate things, and only the first is this bug's:
+
+**1. Dead tool links in deployed page HTML — 9 references, 8 pages, 3 sites, 5 distinct dead
+targets.** Every one has the `tool-` prefix the emitter kept and the real page does not:
+
+```
+finetuning.uk               ai-for-uk-small-business  /tools/tool-ai-time-savings-estimator.html
+gamesdesign.co.uk           game-auto-battler         /tools/tool-wave-encounter-designer.html
+gamesdesign.co.uk           game-economy-simulator    /tools/tool-economy-sink-faucet-balancer.html
+gamesdesign.co.uk           guide-economy-basics      /tools/tool-economy-sink-faucet-balancer.html
+gamesdesign.co.uk           guide-fairness-in-rng     /tools/tool-bayesian-ranking.html
+gamesdesign.co.uk           guide-rng-design          /tools/tool-bayesian-ranking.html
+leopardessconsulting.co.uk  ai-readiness-quiz         /tools/tool-process-automation-scorer.html
+leopardessconsulting.co.uk  who-we-help               /tools/tool-process-automation-scorer.html  (x2)
+```
+
+```sql
+WITH hrefs AS (
+  SELECT p.site_id, s.domain, p.name AS page,
+         (regexp_matches(pc.rendered_html, '"(/tools/[^"#?]*\.html)"', 'g'))[1] AS href
+  FROM page_components pc JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id
+  WHERE pc.rendered_html LIKE '%/tools/%' AND p.build_status = 'deployed')
+SELECT h.domain, h.page, h.href FROM hrefs h
+LEFT JOIN pages tp ON tp.site_id = h.site_id AND tp.url = h.href
+WHERE tp.url IS NULL ORDER BY 1,2;
+```
+
+Note `tool-bayesian-ranking` and `tool-process-automation-scorer` **were built** — the pages
+exist at other URLs. So most of this damage is repairable by rewriting the href, not by building
+anything. The `/services.html` link named at the top of this file is no longer among them (that
+page has been rebuilt since), which is why the census is the authority here, not the 07-19 prose.
+
+**2. The 27 work items.** None can fire again: 18 `complete`, 5 `needs_human_review`, 4 `failed`,
+and **0 dispatchable** (`status IN ('triaged','approved','in_progress')` returns no rows,
+checked 2026-07-26). So the queue cannot produce new damage even before the image ships.
+
+`/tools/assets/*.js` hits in the same scan are **not** this bug — they are asset paths, not page
+links, and they resolve as files rather than `pages` rows. Filter on `\.html` as above or they
+will dominate the result and look like a fleet-wide catastrophe.
