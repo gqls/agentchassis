@@ -85,6 +85,28 @@ the `098` coverage report will list these commits as un-reviewed — accurately.
 > so it still occupies the `idx_swi_dedup` slot and any insert would have been
 > silently suppressed by `ON CONFLICT DO NOTHING`. It would have looked like a
 > failure and proved nothing.
+>
+> **THIRD arm — `handler_missing`, on webdesign.co.uk.** The two runs above both
+> exercise `handler_remit`; the missing-agent branch had never been observed. It
+> has now:
+>
+> ```
+> item_type      | status   | handler | gap_kind        | builder                 | pop | residue
+> capability_gap | deferred | (EMPTY) | handler_missing | forced-text-color-fixer | 1   | 1
+> capability_gap | deferred | (EMPTY) | handler_remit   | color-variable-fixer    | 2   | 2
+> ```
+>
+> And **no `forced_text_colors` item was filed** — which is the whole point. Before
+> this change that site would have filed work routed at an agent that has never
+> existed, destined for `blocked` at claim after taking a dedup slot. Every new code
+> path in this fix is now fleet-proven: residue-only, both-arms, and missing-handler.
+>
+> **It also settles this file's own webdesign.co.uk figure.** The shipped transform
+> reports `2 of 2` out of remit — a true remit of **0**, exactly as the table below
+> says. My over-approximating SQL returned 1 for that site and I briefly wrote that
+> up as a correction to this file; it was not one, and could never have been (a
+> superset proves zero, never non-zero). Logged in `WRONG_CALLS.md` 2026-07-26 and
+> now closed there by this measurement.
 
 ---
 

@@ -5130,3 +5130,12 @@ population table carried forward unchecked — three now. The recurring check is
 identical: **the aggregate you are about to quote must be the aggregate you
 actually ran.** Family: fabricated-precision, aggregate-not-run,
 right-conclusion-wrong-number.
+
+**RESOLVED 2026-07-26, by the shipped code rather than by argument.** Discovery ran on
+webdesign.co.uk with the partitioning check live: it filed a `capability_gap` with
+`population=2, residue=2` — i.e. a true remit of **0**, precisely what `bugs_open/077`'s
+table said and what my over-approximating SQL (which returned 1) could never have
+established either way. Three independent measurements now agree: their Go transform over a
+`row_to_json` dump, the shipped detector's own partition, and — by not contradicting either —
+my superset. The entry above stands as written; this is the confirmation that the
+"correction" I nearly published would have been the only wrong number in the set.
