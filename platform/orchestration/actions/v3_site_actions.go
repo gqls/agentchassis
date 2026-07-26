@@ -951,9 +951,9 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 				renderCtx.SiteID = siteUUID
 				/*nav, _ := getNavigationFromDB(ctx, params.DB, siteUUID, "header", params.Logger)*/
 				// NavFetchableOnly: this nav goes into renderCtx and is rendered into
-			// page HTML, so it was a second live instance of bugs_open/049's
-			// mechanism 2 alongside the chrome renderer.
-			headerNav := GetNavItems(ctx, params.DB, siteUUID, []string{NavGroupPrimary}, NavFetchableOnly, 0, params.Logger)
+				// page HTML, so it was a second live instance of bugs_open/049's
+				// mechanism 2 alongside the chrome renderer.
+				headerNav := GetNavItems(ctx, params.DB, siteUUID, []string{NavGroupPrimary}, NavFetchableOnly, 0, params.Logger)
 				if len(headerNav) > 0 {
 					renderCtx.NavItems = headerNav
 				}
