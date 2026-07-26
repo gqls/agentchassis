@@ -233,3 +233,89 @@ Also proven end to end while waiting: the oxenunity object in B2 is
 **byte-identical** to the source file (2,767 bytes, `diff -q` clean). So authoring
 → commit → Action → B2 works for this workstream; what remains for that domain is
 purely DNS.
+
+---
+
+## 2026-07-26 — both sites live; the site made a promise we had just retired
+
+**oxenunity.com is live.** The owner moved the nameservers; the `.com` delegation
+now points at the same `alexis`/`leah.ns.cloudflare.com` pair as oufe.com and the
+page serves HTTP 200. **Misstep:** my first check said the NS were still porkbun
+and I nearly reported it as not done — that was my own resolver holding a cached
+answer. Query the TLD (`dig +norec @a.gtld-servers.net <domain> NS`) and the
+target nameservers directly; a local `dig +short NS` tells you what your resolver
+remembers, not what the internet is delegating.
+
+**oufe.com is live.** The cascade completed overnight: identity → classification →
+content_direction → design_intent → vertical_landscape → strategy → briefing →
+resolved_composition → site plan → pages → imagery. `index` and `about` are
+deployed and serving; `cases-index` and `thames-water` are parked at
+`needs_human_review` ("not_built"), which is the 149 fix working as designed
+rather than a silent no-op.
+
+**The Tier-3 roadmap held exactly.** Five pages planned, and they are the five I
+specified — index, about, cases-index, thames-water, contact. No invented extras.
+That is the roadmap-brief authority doing its job, and it is worth recording
+because the default outcome is a plausible twenty-page site.
+
+**The figure rail held completely.** Scanned all current generated specs (~50KB of
+identity/content_direction/strategy/briefing/classification) and both live pages:
+**zero currency amounts, zero percentages, zero thousands-separated numbers.**
+Keeping every figure out of the briefs prevented the 043 spec-poisoning class
+outright. The about page even says, unprompted, "We're new. We have no readership
+figures to cite and no track record to invoke" — the mission brief's honesty
+instruction propagated into the voice.
+
+### But: the copy adopted the exact promise the owner had just struck
+
+The owner struck "every figure here links to the document it came from" that
+morning. The site, written the night before, had independently arrived at a
+*stronger* version of it and put it in six places:
+
+> "Every factual claim is sourced to a named, dated primary document."
+> "A claim without a named, dated source does not appear here."
+> "If we can't trace a number to a document we hold, it doesn't appear here."
+> "This discipline is not a disclaimer. It's the method."
+
+That is a promise of infallibility of process, and we cannot keep it. Fixed in
+`FIX_2026-07-26_fallibility_copy.sql` across six blocks on the two live pages,
+plus the tools paragraph, which described the tools as "scenario illustrators"
+that "do not produce valuations or predictions" but **never said they can be
+wrong** — which was the owner's specific instruction.
+
+**The finding worth keeping: the claims machinery could never have caught this,
+and it is not a bug that it didn't.** Every layer we have — banned patterns, the
+writer whitelist, the number scan, V5 citations — polices *claims about third
+parties*, principally numbers. This was a claim about **us**, and a qualitative
+one. **A promise of infallibility is a different failure class from an invented
+figure, and nothing in the estate looks for it.** On a site whose whole positioning
+is epistemic honesty, that is the class most worth watching, and it is the class
+with no automation behind it. Human reading is the only control.
+
+Method note for the fix: `content_data` edits alone do not change the page —
+`rerenderLoadSections` stitches the STORED `rendered_html`. The
+`section_data_resolved` reason on `049b_deploy_single_page.sh` re-renders every
+section from stored content_data through the current template with no LLM call,
+which is what makes an authored copy edit stick. Its documented gotcha was checked
+first: **any section with NULL content_data escalates the whole page to the
+content writer and regenerates the copy** — all seven sections here were non-NULL.
+
+### Live-site defects found, not yet fixed
+
+Every content link on the homepage is broken. `/cases`, `/cases/index.html`,
+`/cases/thames-water`, `/tools`, `/framework`, `/restructuring-plan`,
+`/creditor-waterfall` — all 404, including the header's own **Cases** nav item.
+The homepage advertises six sections that do not exist, which is the
+`bugs_open/052` class (listings re-advertising pages never built).
+
+The platform caught part of this itself: two `unresolved_cta` items are already
+parked at `needs_human_review` for the hero and call-to-action secondary CTAs. It
+did **not** flag the six info-card links or the Cases nav item, which is a real
+coverage gap in CTA integrity worth reporting to that workstream — the cards are
+anchors with resolvable-looking hrefs to pages that were planned but never built.
+
+Also live: a **"Get Started"** header CTA pointing at `/contact.html`, and a
+footer heading **"Our Services"**, on a site with nothing to sell and a roadmap
+brief that explicitly said nothing may offer or imply a purchase. Both are
+commercial-shaped furniture that the component templates supply by default.
+Neither is dishonest exactly, but both are wrong for this site.
