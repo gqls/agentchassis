@@ -500,3 +500,89 @@ kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
 > **Gotcha — `replace()` replaces every occurrence.** For the exact-needle edits, assert
 > the needle occurs **once** in the template offline first; `ROW_COUNT = 1` only tells you
 > one *row* was touched, not that one *substring* was.
+
+---
+
+## R19 — Verify a council submission's `grounded_in` quotes are byte-exact (before firing)
+
+An abbreviated or re-typed quote is a **different claim**. This directory already records a case
+where a trimmed SQL `WHERE` manufactured a MEDIUM objection against byte-identical queries. On
+2026-07-26 one of sixteen quotes was wrong (`"// it truthful empty answer"` for
+`"// the truthful empty answer"`) — typed from memory rather than copied. Three lines of Python
+catch it, and the check costs nothing next to a wasted council round.
+
+Quote the **pre-change** version of any file your own edit has since rewritten, or the quote will
+not match anything:
+
+```bash
+python3 - <<'PY'
+import json, subprocess
+SUB='docs/agent_docs/docs024_key_docs_latest/<ws>/<submission>.json'
+sub=json.load(open(SUB))
+files=[]
+# pre-change versions: <commit>^:<path> for anything your edit already touched
+for ref,path in [('<your-commit>^','platform/orchestration/actions/nav_tables.go')]:
+    files.append(subprocess.run(['git','show',f'{ref}:{path}'],capture_output=True,text=True).stdout)
+# plus current files you did NOT change
+files.append(open('docs/agent_docs/sql_for_tables/016_nav_tables.sql').read())
+corpus="\n".join(files)
+bad=[q for q in sub['plan']['grounded_in'] if q not in corpus]
+print(f"{len(sub['plan']['grounded_in'])} quotes, {len(bad)} NOT byte-exact")
+for b in bad: print("  MISS:",repr(b))
+PY
+```
+
+> **Gotcha — leading whitespace.** The test is a substring match, so a quote may omit leading
+> tabs and still pass; it must not alter anything *within* the quoted span.
+
+---
+
+## R20 — Census: nav items that point at a page which will 404 (`bugs_open/049` mechanism 2)
+
+The query behind the fix. Finds active nav items whose target has **never been deployed**, or
+which have no `pages` row at all. Both classes render into chrome on every page of the site.
+
+```sql
+SELECT s.domain, ng.group_type, ni.label, ni.url, COALESCE(p.build_status,'NO PAGE ROW')
+FROM site_nav_items ni
+JOIN site_nav_groups ng ON ng.id = ni.group_id
+JOIN sites s            ON s.id  = ni.site_id
+LEFT JOIN pages p       ON p.id  = ni.page_id
+WHERE ni.status = 'active'
+  AND (p.id IS NULL OR (p.deployed_at IS NULL AND COALESCE(p.build_status,'') <> 'deployed'))
+ORDER BY 1,2,3;
+```
+
+> **Gotcha — the predicate is `deployed_at IS NULL`, never `build_status <> 'deployed'`.**
+> Measured 2026-07-20: 34 of 34 `needs_rebuild`-but-deployed-once pages return **200**, because a
+> page deployed once keeps serving its old artefact. Keying on `build_status` false-flags all 34.
+> This is the same constant the platform now uses in code —
+> `datahelpers.NeverDeployedPagePredicate`.
+
+> **Gotcha — `p.id IS NULL` is a real class, not a join artefact.** `site_nav_items.page_id` is
+> `REFERENCES pages(id) ON DELETE SET NULL`, so deleting a page leaves an **active nav item with
+> a live URL and no page**. 4 of the 13 rows found on 2026-07-26 were this. Any fix keyed on
+> `page_id` misses them entirely — which is why the shipped filter matches on **URL**.
+
+> **Gotcha — a fresh census is not a live audit.** These rows only 404 in the wild once the
+> chrome that carries them has been rendered *and* the pages re-assembled. Confirm against R15.
+
+---
+
+## R21 — Is my dispatch lost, or just queued? (run this BEFORE re-firing anything)
+
+```bash
+./scripts/dispatch-queue-depth.sh
+```
+
+`system.agent.generic.requests` has **one partition** and the chassis drains it one job at a
+time, so a single long council run in front of you delays everything behind it. An absent
+`orchestration_states` row means **"not started yet"**, not "dropped".
+
+> **Gotcha — two documented mechanisms produce the identical observation, and only this one is
+> cheap to test.** CLAUDE.md warns that a dispatch within ~300s of a chassis pod restart *is*
+> silently dropped. On 2026-07-26 both were true at once — the chassis had just rolled v1.0.1167
+> and postgres was in a probe restart loop (`bugs_open/082`) — and picking the *dropped* theory by
+> plausibility cost three chrome refreshes on a live customer site where the script had already
+> printed `QUEUED, NOT LOST … DO NOT re-fire`. Run the discriminator, do not reason about which
+> mechanism feels more likely. Full entry in `WRONG_CALLS.md`.
