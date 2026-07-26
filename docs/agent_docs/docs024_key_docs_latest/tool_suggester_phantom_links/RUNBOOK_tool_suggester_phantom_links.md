@@ -142,3 +142,53 @@ kubectl exec -n ai-persona-system <chassis-pod> -- sh -c \
 ```
 Then trigger a tool build on a test site and check R6: the new row's `spec_url` must equal the
 tool page's `pages.url`.
+
+## R9 — snapshot_agent() writes somewhere you will not look, and a double-apply makes "newest" wrong
+
+Both traps cost time on 2026-07-26 while writing 211's rollback sidecar. Either one alone makes a
+rollback silently do nothing.
+
+1. **`snapshot_agent(type, reason)` inserts into `agent_definitions_backup`**, not into
+   `agent_definitions` with `is_snapshot = true`. Querying `agent_definitions WHERE is_snapshot`
+   for your snapshot returns **0 rows and no error** — which reads exactly like "the migration's
+   safety net was never taken". It was. There are two overloads and only the 2-arg one records
+   `snapshot_reason` / `snapshot_taken_at`; `agent_definitions` has no `snapshot_reason` column at
+   all, so a query naming it errors rather than returning nothing (that error is the good case).
+
+```sql
+SELECT type, snapshot_reason, snapshot_taken_at
+FROM agent_definitions_backup
+WHERE snapshot_reason LIKE '211_%' ORDER BY snapshot_taken_at, type;
+```
+
+2. **If the migration was applied twice, the NEWEST snapshot set is not the pre-state** — it is
+   the state after the first apply. A rollback keyed on `max(snapshot_taken_at)` restores the
+   migrated config and reports success. Key on `min(snapshot_taken_at)`, and guard on the needle
+   itself:
+
+```sql
+IF NOT EXISTS (SELECT 1 FROM agent_definitions_backup
+               WHERE snapshot_reason LIKE '211_%' AND snapshot_taken_at = pre_ts
+                 AND type = 'tool-suggester'
+                 AND default_config #> '{workflow,steps,create_cross_links}' IS NOT NULL)
+THEN RAISE EXCEPTION 'not the pre-state — restoring it would be a no-op dressed as a rollback';
+```
+
+The counted needle-gate, recovered from those snapshots after the fact
+(`211_..._VERIFY.sql` §1): **1** row with `create_cross_links`, **0** with `related_pages`, 3 rows.
+
+## R10 — did the cross-link emitter DECLINE to emit, and why?
+
+Declined emits are durable now, not log-only:
+
+```sql
+SELECT occurred_at, error_code, severity, left(error_message,140), context->>'tool_function'
+FROM agent_error_log
+WHERE error_code LIKE 'tool_crosslink_not_emitted%'
+ORDER BY occurred_at DESC LIMIT 20;
+```
+Codes: `no_related_pages` (info — the suggestion named none), `no_real_tool_page_url`,
+`tool_page_unreadable`, `tool_page_will_not_go_live` (the gate declined — the tool page is not
+live and has no open build item), `page_map_unreadable`, `insert_failed`.
+Empty output means every emit succeeded, **not** that the emitter never ran — check
+`cross_links_added` in the action result for that.
