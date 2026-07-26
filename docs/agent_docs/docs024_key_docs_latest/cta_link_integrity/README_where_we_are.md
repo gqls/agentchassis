@@ -607,3 +607,86 @@ different shape of fix. Two are components whose stored "template" is actually a
 of a finished page, which is a different fault altogether and belongs to the vonc workstream that
 already knows about it. None of them is the fault you reported, and none of them is what this bug
 was about.
+
+---
+
+## 2026-07-26 — bug 049 finished, and the biggest thing left was not where the file said it was
+
+**The short version.** Broken links across the live sites are down from 312 to 118 since 20 July.
+The legal-links problem that started this — every page of three sites carrying a dead "Privacy
+Policy" and "Terms" link — is gone. What I fixed today was the largest thing still standing, and
+it turned out to be a different fault from the one the bug file described.
+
+**First, I re-measured rather than trusting the file.** The numbers in it were six days old. I
+fetched all 229 live pages across eight sites, pulled every internal link out of what is actually
+being served, and tried all 274 destinations. That gave a current picture instead of a remembered
+one, and it moved the target: two of the three original problems were essentially solved already.
+
+**What was actually broken.** The site menus were being built from a list of pages that included
+pages **which have never been built**. A menu link goes into the header and footer of *every*
+page on a site, so one bad menu entry becomes a broken link on every single page. Gas Wholesalers
+had exactly one such entry — a "Pricing Framework" page that was planned back in May and never
+built — and that one entry accounted for **28 of the 118 broken links**. Vetcomparison had two
+more, worth another 12. Across the whole estate there were 13 such menu entries on 6 sites.
+
+**Why the obvious fix would have made things worse, which is the interesting part.** There was
+already a setting to say "only show pages that are deployed". Turning it on would have been a
+mistake: it judges a page by a status flag, and 34 pages across the fleet carry a flag saying
+"needs rebuilding" while still serving perfectly well — a page that was published once keeps
+serving its old version until it is replaced. So that setting would have **deleted 34 working
+menu links to fix 13 broken ones**. The only thing that reliably predicts a dead link is "this
+page has never been published, ever" — and the platform already knew that rule, because the
+*checker* that finds broken links uses it. The renderer that creates the links and the checker
+that flags them were using different rules. I made them share one. The platform had been
+reporting links it had written itself.
+
+**A note on how the change was made.** The old setting was a simple true/false, and a
+true/false is easy to leave wrong because nothing forces you to look at it again. I replaced it
+with something the compiler cannot ignore, which meant it stopped at all eleven places in the
+code that use this menu list — and one of those turned out to be a *second* place with exactly
+the same bug that nobody had found.
+
+**Two things caught me out, and both were caught by something other than my own reading.**
+
+The first was my own test. I had written a safeguard so that a brand-new site — where nothing is
+published yet, so every link looks "unpublished" — would not end up with an empty menu. The
+safeguard was wrong, and the test proved it: because the site's home page is always treated as
+valid, "Home" survived, the safeguard never triggered, and a new site would have been left with a
+one-item menu frozen in place permanently. Rewriting it to ask the right question — "has this
+site published anything at all?" — fixed it before it could ever ship.
+
+The second was the review council. It approved the change, but one reviewer objected that I had
+left one code path alone on the strength of a claim I had not personally checked — and said, in
+effect, that this is exactly the kind of unchecked assumption that caused the original bug. It
+was right. I traced it properly and the path did feed real page headers, so the fault survived
+there. That is now fixed too, with a test, because in that one spot the compiler *cannot* catch
+someone undoing it.
+
+**Something I got wrong, and it cost you real work.** When I asked the system to rebuild the Gas
+Wholesalers menus, nothing appeared to happen, so I asked again. And again. There is a script
+whose entire purpose is to tell you whether your request is lost or merely waiting in a queue,
+and it says in plain words "do not re-fire". I did not run it until the third time. My requests
+were queued the whole time, behind two long jobs belonging to other sessions. The result is that
+that site will get its pages rebuilt three times instead of once. Nothing is damaged, but it is
+wasted work on a live customer site, and the reason I want to record it is that I *knew* the rule
+— what defeated it was that there was a second, genuine explanation available (the system had
+just been restarted, and the database was unstable at that moment) which predicted exactly the
+same symptom. Two possible causes, one identical symptom, and one of them testable in seconds. I
+guessed instead of testing.
+
+**Where it stands.** The code fix is written, reviewed, approved and committed, but it does not
+take effect until someone next rebuilds the platform image — that is the normal way changes ship
+here, and I have recorded how to confirm it landed. The live fix, which needed no rebuild, was to
+switch off the three menu entries pointing at unbuilt pages; those pages still exist and can be
+put back in the menu the moment they are actually built. At the time of writing the menu rebuild
+for Gas Wholesalers is still sitting in the queue behind other work.
+
+**One thing I found that I think matters more than this bug.** The platform has been *detecting*
+these broken links correctly for months, and doing nothing about it. Findings get written down
+with a status that no part of the system ever picks up: the one job that promotes them into the
+work queue only runs inside a scheduled task that has been switched off since 2 May. Ninety-eight
+findings are sitting there. Broken-link findings specifically: 22 detected, **0 ever fixed, ever**.
+That is also why a detector built for this very bug six days ago has never once fired. I have
+written it up separately as bug 083. Switching that scheduled task back on is your call, not
+mine — it would set fixing agents running across every site and spend credits, and something
+turned it off deliberately in May.
