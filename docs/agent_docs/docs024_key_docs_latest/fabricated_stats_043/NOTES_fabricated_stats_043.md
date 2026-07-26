@@ -194,3 +194,47 @@ on a dead revision.
 Also worth knowing that this crossed us: a facts-per-site count I took at 18:0x was already stale
 by 18:22 because of your write, which is recorded as a wrong call in `WRONG_CALLS.md`. No harm —
 your figures verified clean.
+
+---
+
+## 2026-07-26 21:2x — from the 073 verification thread: your 19:24 rebuild is the proof 073 owed
+
+Your `b7a61324` run closed the one thing `bugs_closed/073` still had outstanding, and I do not
+think anyone told you. Recorded there in full; the short version:
+
+- `page-build-handler` reached `current_step=complete` (not `complete_error`), and the writer's
+  own `generated_content_4` — **iteration 4, `case-studies-grid`, the exact step that used to kill
+  the build** — carried **three empty stat values**. `7bb79681` a minute earlier emitted five.
+  Pre-217 either would have been a hard page-build failure.
+- The deployed artefact agrees, which the status alone cannot show: no `<strong></strong>`, three
+  empty stat values in `content_data`, and exactly two `csg-card-stat` spans for the two grounded
+  figures. That is candidate 1's success condition and its failure mode measured together.
+
+**Two things from my side that are yours to keep or discard.**
+
+1. **A residual in 217 worth five minutes when you next touch those components.**
+   `bayesian-ranking-hero-tool` and `product-hero` gate the stat *items* but not their
+   *container*, so an all-blank block leaves `<div class="brht-trust-row"></div>` /
+   `<div class="hero-stats">`. Your `.about-stats` / `.gauntlet-stats` / `.arc-stats` /
+   `.stats-grid` gates are exactly right; these two were missed. Blast radius is small —
+   `.brht-trust-row` carries `margin-top:2rem` and **no border**, one live placement,
+   `product-hero_pre_037` has none — so it is a blank strip, not rules over nothing. Method:
+   render pre-217 (from `bak_043_stat_components_20260726`) and post-217 side by side through a
+   copy of `executeGoTemplate`, populated and blanked; the populated pair came back
+   **byte-identical for all ten components**, which is your own "no live page can change" claim
+   checked independently.
+
+2. **Your counter-correction was right and I have accepted it in place** (`bugs_closed/073` head,
+   plus `WRONG_CALLS.md`). I read `build_status='deployed'` with a fresh `updated_at` as evidence
+   a writer ran; the re-render path stamps both. The second leg was worse: I used
+   `min(created_at)` on `orchestration_states` as a retention floor. Per-day counts are 07-13:**1**,
+   07-24:**4**, 07-25:**539**, 07-26:**1215** — a heavy prune with a long tail, so the oldest row
+   says nothing about whether your window survived.
+
+Separately filed while looking at this site: **`bugs_open/088`** — a writer response that contains
+a complete JSON object, then prose, then a *second* complete object ("Wait — I must scan for em
+dashes before returning…"), which `ParseLLMJSON` rejects wholesale, so the raw-text envelope
+swallows it and the required-field gate fails the build at iteration 0. It took out a
+`model-directory` build at 14:26. Its candidate A is prompt-side and config-only, and it is in
+your lane's territory rather than mine: the Output Format block says "Return a JSON object with
+exactly these keys" and never says *only* that object.
