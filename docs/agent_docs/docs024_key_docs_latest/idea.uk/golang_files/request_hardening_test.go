@@ -48,8 +48,14 @@ func TestRequestHardening(t *testing.T) {
 		for _, v := range app.store.Orders {
 			o = v
 		}
-		if o.IP != "203.0.113.7" {
-			t.Errorf("want IP 203.0.113.7 (first XFF entry), got %q", o.IP)
+		// CORRECTED 2026-07-26 (bugs_open/090). This assertion used to read
+		// `want IP 203.0.113.7 (first XFF entry)` — it asserted the defect. The
+		// first XFF entry is whatever the CALLER wrote; nginx appends the real
+		// peer, so the trustworthy value is the LAST one. Under the old rule any
+		// visitor could pick the address recorded against their order and the key
+		// their rate limit was counted under. See client_ip_test.go.
+		if o.IP != "10.0.0.1" {
+			t.Errorf("want IP 10.0.0.1 (the peer nginx appended, not the caller's claim), got %q", o.IP)
 		}
 		if len(*sent) != 1 {
 			t.Errorf("want 1 operator email, got %d", len(*sent))

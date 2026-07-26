@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -109,22 +110,50 @@ func (rl *rateLimiter) allow(ip string) (bool, time.Duration) {
 	return true, 0
 }
 
-// clientIP extracts a stable per-client key. Trusts X-Forwarded-For when
-// present (the service is expected to sit behind a TLS-terminating proxy in
-// production). Falls back to RemoteAddr's host part.
+// clientIP extracts a stable per-client key that THE CLIENT CANNOT CHOOSE.
+//
+// This used to trust the FIRST X-Forwarded-For entry — which is precisely the
+// part a caller writes for themselves. Our nginx forwards with
+// `$proxy_add_x_forwarded_for`, which APPENDS the real peer to whatever
+// arrived, so a request carrying `X-Forwarded-For: 203.0.113.77` reached the
+// service as `203.0.113.77, <real ip>` and was keyed on the invented address.
+// Proven against production on 2026-07-26 (bugs_open/090): the refusal log
+// recorded 203.0.113.77 verbatim. That defeats both per-IP limiters — the
+// taster's, which is the only thing bounding real LLM spend on a free endpoint,
+// and the intake form's — and poisons the IP stored on every order, which was
+// captured expressly to seed a future block list.
+//
+// Two rules, in order:
+//
+//  1. Forwarding headers are only believed from a peer that is actually our own
+//     proxy (loopback or private). The tool port is firewalled to 22/80/443 so
+//     in production every request arrives from nginx at 127.0.0.1 — but a
+//     direct caller's headers are just user input and are ignored outright.
+//  2. Within those headers, take the value OUR proxy wrote: X-Real-IP (set with
+//     proxy_set_header, so a client-supplied one is replaced), else the
+//     RIGHTMOST X-Forwarded-For entry (the hop nginx appended), never the first.
 func clientIP(r *http.Request) string {
+	host := r.RemoteAddr
+	if h, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		host = h
+	}
+	peer := net.ParseIP(host)
+	if peer == nil || !(peer.IsLoopback() || peer.IsPrivate()) {
+		return host // not from our proxy: believe nothing it claims
+	}
+	if xr := strings.TrimSpace(r.Header.Get("X-Real-IP")); xr != "" {
+		return xr
+	}
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// XFF is comma-separated; first entry is the original client.
-		if i := strings.IndexByte(xff, ','); i > 0 {
-			return strings.TrimSpace(xff[:i])
+		if i := strings.LastIndexByte(xff, ','); i >= 0 {
+			if last := strings.TrimSpace(xff[i+1:]); last != "" {
+				return last
+			}
+		} else if only := strings.TrimSpace(xff); only != "" {
+			return only
 		}
-		return strings.TrimSpace(xff)
 	}
-	addr := r.RemoteAddr
-	if i := strings.LastIndexByte(addr, ':'); i > 0 {
-		return addr[:i]
-	}
-	return addr
+	return host
 }
 
 // ── handler ──────────────────────────────────────────────────────────────────

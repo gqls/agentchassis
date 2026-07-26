@@ -3236,7 +3236,7 @@ See `/bugs_closed/README.md`.
 | 003 | Spawned children lose their response; parents hang until reaped. **§3d (2026-07-18): second root cause — the consume loop commits Kafka offsets BEFORE processing (at-most-once), so any restart destroys in-flight work; §4.4 is the at-least-once + rollout fix that unlocks CD** | open |
 | 004 | Landing an image can silently blank an article body | superseded by 005 — **`→ bugs_closed/`** |
 | 005 | Article-body blanking — root cause LLM truncation (`max_tokens`) | FIXED; re-verified live 2026-07-19 (19/19 healthy, `max_tokens` 8000 survived a re-seed, repair fn in the running pod, zero writer truncation since 07-15) — **`→ bugs_closed/`** |
-| 006 | Three idea.uk infra errors (runner cgroup, dead contact endpoint, …) | open |
+| 006 | Three INDEPENDENT idea.uk-era infra errors: **A** runner replica crash-looping, **B** generated contact forms deliver nothing fleet-wide, **C** claim-timeout churn re-runs finished work | **CLOSED 2026-07-26 → `/bugs_closed/`, with two residuals named at the top of the file.** **A**: symptom extinct (both replicas `1/1`, 0 restarts, 0 CrashLoopBackOff in the namespace) but *how* is `[INFERRED]` — the bad node is gone, so "someone fixed its containerd `SystemdCgroup`" and "the node pool rolled" are now indistinguishable; the file carries an explicit reopen trigger on the same `cgroupsPath` error. **B**: filed cause was STALE (nothing ever posted to `/contact`; the real defect was an unvalidated LLM-written `form_action`) — fixed at the render seam, live `v1.0.1149`/`v1.0.1156`, council-approved `8bfcbc68`, proven end to end on vonc with zero human touch; residual = 9 of 12 forms still `#contact` until their organic re-render, by owner ruling 2026-07-25, and `oufe.com` shows a NEW site is now born correct. **C**: the sweep was hand-coding artifact evidence per item type and had 3 of 18 — migration `220` replaces it with ONE branch keyed on the handler's own orchestration (`initial_request_data->'input_data'->>'work_item_id'`, reach measured 100/100); config, live immediately, **verified through the running scheduler with a negative control**, every guard fault-injected. Residual = the *cause* of the lost write is `003`'s. A `stale-orchestration-reaper` hypothesis was REFUTED by measuring handler runtimes (max 8.1 min vs the reaper's 30) — see §9 |
 | 007 | Applied-but-unrecorded migrations block the runner | **CLOSED 2026-07-25 (owner ruling) → `/bugs_closed/`** — full tooling live (shell, no image needed): `--record-only`, idempotency lint, and the poisoned-commit PROBE (2026-07-24: every pending file executed verbatim in a doomed transaction; guard-RAISE `/already/i` → `--apply` SKIPS without recording; first live catch `202` same day). Class C (raw 23505) halts by design — measured 2026-07-25: six files ever, ONE halt ever (151) — now pre-execution with table+key named, plus a commit-time `pattern-check.py` advisory so the class goes extinct at the source. Rule outlives closure: dry-run per session AND after every roll; verify artifacts before recording |
 | 008 | `GenerateText` never decodes `stop_reason` — a truncation returned as success, a refusal as "no text content in response (had 1 blocks)" | **CLOSED 2026-07-20 → `/bugs_closed/`** — all 5 items live in the 18:58 BST image, pod-verified (`model declined to answer` → 1). Items 1–4 in `f32b208e5` (both providers, plus `TruncatedError` carrying the partial — the transport half of `019`); item 5 + the provider-parity CI guard in `45e90acbb` |
 | 009 | Root `ai_service` SHADOWS the step block (dead per-step config) | **CLOSED 2026-07-24 → `/bugs_closed/`** — per-key step-wins overlay (`resolveAIServiceConfig` via `MergeInputData`, `4b11f223e`/`119e14071`) + present-but-empty required-key guard (`32f1a56a3`, council round 2) live since ~07-21; verified v1.0.1155 pod-grep (all 3 created literals) AND live traffic (`feed-triage` 31 calls at its step's 8192, dead config until this fix). The §4 sweep stays deliberately undone: all 16 capped-at-2048 agents are dormant (§7a) — a reference list for whoever revives one, not a work queue |
@@ -4875,3 +4875,48 @@ before you trust it passing.
 `?admin=1`, `X-Skip-Auth`, a body field that suppresses email sending, a debug
 route registered unconditionally. The pattern is not payment-specific; payment is
 just where it is easiest to price.
+
+### `X-Forwarded-For`'s "first entry is the client" is true of the internet and false of your deployment
+
+**Symptom.** A per-IP control — rate limit, block list, audit field, geo rule —
+is trivially bypassed, and the addresses it records are fiction. Nothing looks
+wrong: the code follows the documented XFF convention, and a comment says so.
+
+**The instance** (`bugs_open/090`, idea.uk, 2026-07-26). `clientIP` returned the
+**first** `X-Forwarded-For` entry, commented *"first entry is the original
+client"*. nginx forwards with `$proxy_add_x_forwarded_for`, which **appends** the
+real peer to whatever arrived — so `curl -H 'X-Forwarded-For: 203.0.113.77'`
+produced `203.0.113.77, <real ip>` and the service metered, logged and stored the
+forged half. Proven in production: the log line came back reading
+`ip 203.0.113.77`, a TEST-NET-3 address that can never be a client. The bypassed
+limiter was the only bound on LLM spend at a free, unauthenticated endpoint.
+
+**The rule.** With exactly one trusted proxy that appends, the first XFF entry is
+the only part an attacker controls and the **last** is the only part you can
+trust. More generally: count the hops you actually operate and take the entry
+that many from the right; everything to the left of your own infrastructure is
+user input.
+
+**Diagnose.** Ask what your proxy does to the header, then prove it end to end:
+```bash
+grep -rn 'proxy_set_header X-\(Real-IP\|Forwarded-For\)' /etc/nginx/   # append or replace?
+#   $proxy_add_x_forwarded_for  -> APPENDS ("<arrived>, <peer>")
+#   X-Real-IP $remote_addr      -> REPLACES (a client-supplied one is discarded)
+curl -H 'X-Forwarded-For: 203.0.113.77' https://<site>/<endpoint-that-logs-ip>
+# then read the log. If 203.0.113.77 comes back, every per-IP control is decorative.
+```
+Use a TEST-NET address (`192.0.2.0/24`, `198.51.100.0/24`, `203.0.113.0/24`) —
+it can never be legitimate, so the result is unambiguous.
+
+**Fix.** Gate before you believe: only honour forwarding headers when the peer
+(`RemoteAddr`) is your own proxy — loopback or private — then prefer `X-Real-IP`
+(replaced, so unforgeable) and otherwise take the RIGHTMOST XFF entry. Use
+`net.SplitHostPort`, not `LastIndexByte(addr, ':')`, or IPv6 peers arrive wrapped
+in brackets and key differently from the same address seen elsewhere.
+
+**The part worth stealing.** The vulnerable behaviour was **pinned by a passing
+test** — `want IP 203.0.113.7 (first XFF entry)` — written alongside the
+anti-spam hardening it undermined. A green suite is evidence that behaviour is
+*intended*, never that it is *safe*. When a security fix makes a test fail, read
+that test as a statement of what someone once believed, and correct it in place
+with a dated note rather than deleting it.
