@@ -1,4 +1,4 @@
-# 090 — the page writer is never told which pages exist, on every run
+# 092 — the page writer is never told which pages exist, on every run
 
 **Filed:** 2026-07-26, while fixing `bugs_open/079` (the deploy gate detected dead in-body
 links and published them anyway).
