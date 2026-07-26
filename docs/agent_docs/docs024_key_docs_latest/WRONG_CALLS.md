@@ -4155,3 +4155,30 @@ build". I repeated it anyway, because the *timing* was in another session's hand
 model had a single owner-controlled roll in it. The general form: a safety property that depends on
 someone else's future action, asserted as if it were mine to hold. Family: shared-tree-timing,
 inert-until-someone-else-decides, known-landmine-repeated.
+
+**2026-07-26 — filed a bug asserting a universal negative that a single grep would have
+refuted.** `bugs_open/084` originally claimed *"There is no point in the pipeline where 'this
+page's JavaScript works' is asserted. Every check we have is a check of presence… none is a
+check of integrity."* The platform has a four-tier verification ladder whose top tier drives
+the deployed page in **real headless Chromium** (`playwright-go`), performs `fill`/`click`/
+`select`, asserts post-interaction DOM state, and captures `console.error` plus uncaught page
+errors — live in production at **v1.0.1167**, made continuous by the `tool_acceptance_due`
+discovery check, and documented under a heading that literally reads *"Does it actually work
+in a browser?"*. Plus a live `dead_controls` detector, a `truncated_component` check for
+unterminated `<script>`, and a `tool_health` check that fails a tool with no script at all.
+**What caught it:** the owner asking "consult the docs for where we have built mechanisms to
+check whether the JS functions — how does this compare to your diagnosis?" One question.
+**The cheap check:** the one CLAUDE.md already mandates — *"Grep before you file"*. `grep -ri
+"dead_control\|browser-runner\|acceptance" docs/ platform/` returns the ladder in seconds. I
+had even read a memory line naming the dead-controls detector as live, and filed anyway.
+**The mechanism of the error, which is the transferable part:** I generalised from *my*
+population to *the platform*. My pages (owned, ported, `component_level='section'`) genuinely
+get no browser coverage — Tier 4 gates on `cc.component_level = 'tool'` plus a declared
+criteria fence. That is a **coverage boundary**, not an absent capability, and the two demand
+completely different work: the first version would have sent someone to build a headless
+browser tier that has been running for weeks. A true statement about a subset, promoted to a
+claim about the whole, reads identically in the file and is far more expensive.
+**Rule of thumb this earns:** a bug report whose central claim is "nothing does X" must cite
+the grep that establishes it, or say "I did not check". Universal negatives are the one claim
+shape where absence of evidence gets written down as evidence of absence.
+Family: universal-negative-unchecked, generalising-from-own-population, grep-before-you-file.
