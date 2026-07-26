@@ -4,6 +4,22 @@
 `bugs_closed/040_HANDOFF_2026-07-20_failed_page_build_leaves_page_deployed_and_partially_composed.md`
 holds the full history, this holds only **what is owed and how to finish it**.
 
+> **CORRECTED 2026-07-26 22:00 UTC — §4's "UNSOLVED PROBLEM" was never a defect, and
+> §5 of this same document contains the answer.** The five publishes were not dropped:
+> `generic-requests-group` was stalled at a frozen committed offset of **105196**, and
+> §5's own backlog dump lists the probe messages queued at **105197, 105202 and 105204**
+> — immediately behind the stall. When the lane cleared they were consumed and ran
+> normally. **The probe completed at 21:16:09 and 21:16:16 UTC, one minute after this
+> handoff was written**, and both assertions passed. None of §4's three hypotheses were
+> needed; the agent-definition row was fine all along.
+>
+> **Owed items 1 and 3 are therefore DISCHARGED** — see the case file's
+> "VERIFIED LIVE 2026-07-26 21:16Z" section and `NOTES_040_partial_build.md`. Owed item 2
+> needed a new probe (see the correction in §3). The cheap check that would have saved
+> five attempts and three hypotheses: **when a dispatch looks eaten, re-read the outcome
+> table before theorising about the cause — a stalled queue and a dropped message are
+> indistinguishable from the publisher's side.** Logged in `WRONG_CALLS.md`.
+
 ---
 
 ## 1. Where it stands in one paragraph
@@ -77,51 +93,100 @@ say so) is exercised only by the awaited-request-timeout shape, which needs a re
 `call_agent` timeout. It is unit-tested and is pure string logic; mark it
 `[UNVERIFIED LIVE]` rather than claiming it.
 
-## 4. The probe harness that is already built (and its unsolved problem)
+> **UPDATED 2026-07-26 22:00 UTC — items 1 and 3 are now DISCHARGED; item 2 is not, and
+> history cannot discharge it.**
+>
+> Items 1 and 3 both passed on the 21:16Z run (case file, "VERIFIED LIVE"). This
+> paragraph's `[UNVERIFIED LIVE]` on the prefix branch **stands, and is now positively
+> confirmed as the right call**: the run's `__step_error.message` already read
+> `step boom failed: …`, so `HasPrefix(errorMessage, "step ")` was true and the prefix
+> was correctly skipped. I briefly claimed the opposite from the work item's text before
+> checking — **the output of a prefix-if-absent branch is indistinguishable from the
+> output of no branch at all**, so read `collected_data->'__step_error'` in
+> `orchestration_states`, never the work item, to tell them apart.
+>
+> **Item 2 needs an induced run, not a census.** The only live rows carrying the literal
+> (`page-build-handler no-op: no sections ready to build …`, 4 rows) were all written
+> **before** the roll that made the fallback live (v1.0.1170, 18:35Z). They prove a
+> literal was written when nothing competed with it — not that a literal still wins now
+> that a fallback exists and `__step_error` is set. The harness below has been extended
+> with **PROBE B** for exactly this.
 
-A scratch agent + two scratch work items exist in the live DB, ready to use. They test
-**owed items 1 and 3 in a single run** — the `mark_complete` step deliberately runs
-*after* `boom` has set `__step_error`, which is exactly the staleness the `complete`
-exclusion guards against.
+## 4. The probe harness — WORKS, and now covers all three owed items
+
+**It was never broken.** See the correction at the top: the five "failed" publishes were
+queued behind a stalled consumer and ran fine when it cleared. The harness is good; the
+only thing that ever went wrong was reading a stalled queue as a dropped message.
+
+Extended 2026-07-26 22:00Z with **PROBE B**, so one run now tests all three owed items.
 
 | thing | value |
 |---|---|
 | agent type | `scratch-cand2-probe` (`agent_definitions`, `is_active=true`) |
 | PROBE A item (must end `failed` + non-blank error) | `d418240c-f88f-480a-85c8-b328c901b7f5` |
+| PROBE B item (must end `needs_human_review` + the **literal**) | `b0b0b0b0-1111-4222-8333-444444444444` |
 | PROBE C item (must end `complete` + error still BLANK) | `1b001fec-8e4e-4e4d-b6d3-2eb17d9e4c4c` |
 | item_type | `scratch_cand2_probe` — no handler, so the dispatch loop cannot pick them up |
 | site | dartsonline.com (`5fe8785b-223d-41a3-88ee-c07187622381`) |
 
 Workflow: `boom` (deliberate error — `update_work_item_status` with a `work_item_id_field`
 that resolves to nothing and `skip_if_missing:false`) → `error_step: mark_failed`
-(status `failed`, **no** literal) → `mark_complete` (status `complete`, **no** literal,
-with `__step_error` still set) → `done`.
+(status `failed`, **no** literal) → `mark_park` (status `needs_human_review`, **with** a
+literal) → `mark_complete` (status `complete`, **no** literal) → `done`. Every step after
+`boom` runs with `__step_error` set, which is the whole point: A must inherit it, B must
+ignore it in favour of its literal, C must ignore it because it is a `complete`.
 
-**Fire it with:**
+**Reset before each run** — `attempt_count` is not reset by the workflow and `max_attempts`
+will eventually refuse:
+
+```sql
+UPDATE site_work_items SET status='detected', error='', attempt_count=0, result=NULL, max_attempts=9
+ WHERE item_type='scratch_cand2_probe';
+```
+
+**Fire it with** (`setup` + `fire` scripts are reproduced in `RUNBOOK_040_cand2_probe.md`):
 
 ```bash
 CORR=$(uuidgen); ORCH=$(uuidgen)
-PAYLOAD=$(jq -c -n '{action:"orchestrate",config:{agent_type:"scratch-cand2-probe"},
-  input_data:{item_a:"d418240c-f88f-480a-85c8-b328c901b7f5",
-              item_c:"1b001fec-8e4e-4e4d-b6d3-2eb17d9e4c4c"}}')
-printf '%s\n' "$PAYLOAD" | kubectl -n kafka run -i --rm "kcat-cand2-$(date +%s)" \
-  --image=edenhill/kcat:1.7.1 --restart=Never -- \
-  kcat -P -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
-  -H "correlation_id=$CORR" -H "request_id=$(uuidgen)" -H "message_id=$(uuidgen)" \
-  -H "orchestration_id=$ORCH" -H "orchestration_name=cand2-probe" \
-  -H "step_name=start" -H "client_id=demo_client" -H "message_type=request" \
-  -H "action=orchestrate" -H "from_agent_type=user" -H "from_agent_id=cli" \
-  -H "responses_topic=system.agent.generic.responses"
+PAYLOAD='{"action":"orchestrate","config":{"agent_type":"scratch-cand2-probe"},"input_data":{"item_a":"d418240c-f88f-480a-85c8-b328c901b7f5","item_b":"b0b0b0b0-1111-4222-8333-444444444444","item_c":"1b001fec-8e4e-4e4d-b6d3-2eb17d9e4c4c"}}'
+kubectl -n kafka run "kcat-cand2-$(date +%s)" --rm --restart=Never \
+  --image=edenhill/kcat:1.7.1 --attach --quiet --command -- \
+  sh -c "printf '%s' '$PAYLOAD' | kcat -P -c 1 \
+    -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
+    -t system.agent.generic.requests \
+    -H correlation_id=$CORR -H request_id=$(uuidgen) -H message_id=$(uuidgen) \
+    -H orchestration_id=$ORCH -H orchestration_name=cand2-probe \
+    -H step_name=start -H client_id=demo_client -H message_type=request \
+    -H action=orchestrate -H from_agent_type=user -H from_agent_id=cli \
+    -H responses_topic=system.agent.generic.responses && echo PUBLISH_OK"
 ```
+
+> **Two publish traps, both silent, both defeated by the same discipline.** The original
+> form above (`printf | kubectl run -i --rm ... -- kcat -P`) exits 0 having published
+> nothing. Replacing it with `-- sh -c '…'` fails differently: the image's **entrypoint is
+> kcat**, so `sh -c …` arrives as kcat *arguments* and you get the usage text and
+> `-b <broker,..> missing`. `--command` is what replaces the entrypoint.
+> **Put the payload in the container command and make the container print `PUBLISH_OK`** —
+> a publish with no positive confirmation is not evidence of a publish. Then confirm the
+> offset it landed at before concluding anything:
+> `kcat -C ... -p 0 -o <offset> -c 8 -e -f '%o %T %h\n'`.
 
 Assert:
 
 ```sql
-SELECT item_key, status, attempt_count, COALESCE(NULLIF(error,''),'<<BLANK>>')
-FROM site_work_items WHERE item_type='scratch_cand2_probe' ORDER BY item_key;
--- scratch_cand2:a -> failed   | step boom failed: …   <- the fix firing
--- scratch_cand2:c -> complete | <<BLANK>>             <- the exclusion holding
+SELECT summary, status, COALESCE(NULLIF(error,''),'<<BLANK>>')
+FROM site_work_items WHERE item_type='scratch_cand2_probe' ORDER BY summary;
+-- PROBE A -> failed             | step boom failed: …        <- the fix firing
+-- PROBE B -> needs_human_review | cand2 probe literal: …     <- the literal winning
+-- PROBE C -> complete           | <<BLANK>>                  <- the exclusion holding
+```
+
+And to tell the prefix branch apart from the plain copy — the work item alone **cannot**:
+
+```sql
+SELECT collected_data->'__step_error'->>'failed_step',
+       collected_data->'__step_error'->>'message'
+FROM orchestration_states WHERE orchestration_id = '<the ORCH you published>';
 ```
 
 ### THE UNSOLVED PROBLEM — read before re-firing

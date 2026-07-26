@@ -513,6 +513,64 @@ record's *absence* as a mechanism's absence.
 Test: `platform/orchestration/actions/update_work_item_status_error_test.go`, 6 cases,
 fixtures taken from the live shapes above.
 
+### VERIFIED LIVE 2026-07-26 21:16Z — induced through a scratch workflow
+
+Steps 1 and 2 above are **discharged**, on v1.0.1171, pod `agent-chassis-5b4456686c-s5fkc`.
+A scratch agent (`scratch-cand2-probe`) runs `boom` — an `update_work_item_status` whose
+`work_item_id_field` resolves to nothing with `skip_if_missing:false` — routed by
+`error_step` to a literal-less `mark_failed`, then to a literal-less `mark_complete`
+while `__step_error` is **still set**. Both arms in one run:
+
+```sql
+SELECT item_key, status, COALESCE(NULLIF(error,''),'<<BLANK>>') FROM site_work_items
+WHERE item_type='scratch_cand2_probe';
+-- scratch_cand2:a | failed   | step boom failed: failed to execute action
+--                              update_work_item_status: work_item_id not found at
+--                              input_data.does_not_exist and skip_if_missing=false
+-- scratch_cand2:c | complete | <<BLANK>>
+```
+
+Orchestrations `2fe04703-df0d-4cd3-bac2-90f5eca44dce` and
+`a0257bd3-8a6b-4709-9798-54194fa8b701`, both `COMPLETED` at step `done`.
+
+- **The fallback fires** — pre-fix `scratch_cand2:a` would have been blank, because
+  `mark_failed` configures no literal and the literal was the only writer.
+- **The `complete` exclusion holds** — `scratch_cand2:c` ran *after* `__step_error` was
+  set and still recorded nothing. This is the guardian's staleness concern, exercised
+  rather than argued: without the `newStatus != "complete"` guard it would have inherited
+  `boom`'s failure.
+
+**The `step X failed: ` prefix branch is still `[UNVERIFIED LIVE]`.** It did *not* fire
+here, and the item's text is misleading about that — the stored
+`collected_data->'__step_error'->>'message'` **already** read
+`step boom failed: failed to execute action …`, so `HasPrefix(errorMessage, "step ")` was
+true and the prefix was correctly skipped; the fallback copied the message verbatim. That
+confirms the design note above (action errors already carry the prefix) and narrows what
+is left to the bare awaited-request-timeout shape, which needs a real `call_agent`
+timeout. **Read `__step_error` in `orchestration_states`, not the work item, to tell the
+two apart — the output of a prefix-if-absent branch is indistinguishable from the output
+of no branch at all.**
+
+Deployment re-confirmed with both controls in one command (a grep for your own new
+literal is unfalsifiable without a positive control beside it):
+
+```
+"no error_message literal"        -> 1   # created by this change
+"build is short of its plan"      -> 1   # positive control, 040 guard, live since v1.0.1146
+"candidate two placeholder xyzzy" -> 0   # negative control
+```
+
+Step 3 (the literal-wins control) needed its own induced run — the four live rows that
+carry `page-build-handler no-op: …` all predate the roll, so they prove a literal was
+written when no fallback existed, which is not the question. See
+`docs/agent_docs/docs024_key_docs_latest/bugfix_040_partial_build/NOTES_040_partial_build.md`.
+
+> **The handoff's "unsolved" dispatch problem was never a defect.** Five publishes looked
+> dropped because `generic-requests-group` was stalled at a frozen offset of 105196; the
+> handoff's own §5 lists the probe messages queued at 105197/105202/105204, immediately
+> behind it. They ran normally when the lane cleared. When a dispatch looks eaten, check
+> the *outcome* table before theorising about the cause.
+
 ### Council: APPROVED round 1 (`66d77d4d`), 8 seats, 2 medium objections — both answered
 
 > The first submission (`2cafc4e0`) never reached a reviewer: it died at

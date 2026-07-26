@@ -5281,3 +5281,45 @@ at full confidence with the one-command check skipped*. The variant worth flaggi
 claim was about **config being live immediately** — the repo's own CLAUDE.md advertises "DB config
 is live immediately; prefer it" as the fast path, and that advice quietly assumes the key is
 wired. The fast path is only fast if something reads it.
+
+## 2026-07-26 — I read a stalled queue as a dropped dispatch, and the handoff I wrote already disproved it (bugs_closed/040 candidate 2)
+
+**The claim.** In `bugfix_040_partial_build/HANDOFF_2026-07-26_continue_here.md` §4, under a
+heading in capitals — **"THE UNSOLVED PROBLEM — read before re-firing"** — I wrote that five
+publishes of a scratch probe had produced **zero** `orchestration_states` rows, tabulated six
+hypotheses ruled out "each by a check", and left the next session three more to work through
+starting with a column-by-column diff of the agent row against a known-working one. The framing
+was that something about the agent definition was silently rejecting the dispatch.
+
+**What was true.** Nothing was rejecting anything. The messages were sitting in the topic behind
+a **stalled consumer**, and they ran normally the moment it cleared — at **21:16:09 and
+21:16:16 UTC, one minute after I wrote the handoff saying they never would**. Both assertions
+passed on that run. The agent definition was correct from the first attempt.
+
+**What caught it.** The next session opening the handoff and, before working the hypothesis list,
+running the one query that asks what actually happened rather than why it didn't:
+`SELECT status, error FROM site_work_items WHERE item_type='scratch_cand2_probe'` — which came
+back `failed` with the routed error and `complete` with a blank, i.e. the experiment had already
+succeeded.
+
+**The cheap check.** *Re-read the outcome table before theorising about the cause.* One SELECT
+against the thing the experiment was supposed to change. Cost: one query, three seconds. It would
+have replaced five re-fires, six ruled-out hypotheses and a section of hand-off debt with a line
+saying "passed".
+
+**Why this shape recurs, and the part that stings.** §5 of the *same document* diagnoses the
+stall, names the frozen committed offset (**105196**), and prints the backlog — in which my own
+probe messages are sitting at offsets **105197, 105202 and 105204**, immediately behind it. I had
+the evidence, formatted, two sections below the problem it solved. The failure was not missing
+information; it was **not joining two findings inside one document** because I had already
+committed to a frame ("the dispatch is being dropped") and §5 was filed under a different story
+("found on the way — an unrelated lane stall"). A frozen queue and an eaten message are
+indistinguishable from the publisher's side, so the frame was never tested — every subsequent
+check was aimed inside it.
+
+**Tally note.** Distinct from the file's most common row (a claim written with the check skipped):
+here **the check had been run and written down**, in the same file, by me. The variant to watch is
+**a section headed "found on the way"** — incidental findings get filed as digressions, and a
+digression is never re-read as evidence for the main problem. Worth a habit: when a document
+contains both an unexplained failure and an unrelated infrastructure fault in the same window,
+those are the same paragraph until proven otherwise.
