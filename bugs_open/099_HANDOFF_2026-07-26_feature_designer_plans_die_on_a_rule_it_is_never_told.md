@@ -124,10 +124,32 @@ replace did not bite** — a silent no-op would otherwise leave the bug in place
 while reporting success. `reframe` and `repropose` were checked and carry no copy
 of the caps rule, so there is no second edit to keep in lockstep.
 
+**VERIFIED on the failing branch, same day.** The identical submission (work item
+`7b89fb35`) was re-fired after the migration as
+`FEATURE_CORR c91bb061-250e-4a1a-819f-78c625733956`. It cleared `persist_plan` and
+**wrote a `fix_plan` artifact** — the exact discriminating test this file specifies
+below, and the thing that did not exist on the first run. The plan it persisted is
+three stages:
+
+```
+s1  Derive a palette-based color map inside the existing color-matching machinery
+s2  Flip the pinned remit test cases the widening is supposed to flip, and prove
+    non-matches stay unmapped
+s3  Wire the handler to fetch the site's palette into the same shared function
+```
+
+Note s2: the designer read the code_pointer warning that
+`check_hardcoded_section_colors_test.go`'s `withinRemit: false` fixtures pin the
+CURRENT remit and are the ones a widening must deliberately flip — and made that a
+gated stage of its own rather than quietly editing the test to pass. Which is also
+evidence for the other half of the lesson: the plan is only as good as the spec's
+`code_pointers`, and those come from whoever files the gap.
+
 **This is still only candidate 1, and it only lowers the rate.** Candidate 2 —
 routing a `persist_plan` validation failure back into `repropose` instead of
 discarding a completed design — remains the durable fix and is **not done**. The
-bug stays OPEN for it.
+bug stays OPEN for it. A designer that hits any *other* validator rule still loses
+its design silently, and there are a dozen more rules in that validator.
 
 **For the feature-builder workstream:** this is a live config change to your agent,
 made from outside your lane. It is snapshotted and reversible (rollback in the

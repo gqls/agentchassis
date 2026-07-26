@@ -85,7 +85,65 @@ leopardess's rows are `unresolved` — terminal — so its slot was free.
 > nothing promotes those today. So this verification spent no dispatch credits —
 > the one useful side effect of 083 still being open.
 
+**5. The `handler_missing` arm — the last unexercised path — proven on
+webdesign.co.uk.** Both runs above exercise `handler_remit` only.
+
+```
+item_type      | status   | handler | gap_kind        | builder                 | pop | residue
+capability_gap | deferred | (EMPTY) | handler_missing | forced-text-color-fixer | 1   | 1
+capability_gap | deferred | (EMPTY) | handler_remit   | color-variable-fixer    | 2   | 2
+```
+
+**No `forced_text_colors` item was filed**, which is the point: before this change
+that site filed work routed at an agent that has never existed. All three new code
+paths are now fleet-proven — residue-only, both-arms, missing-handler.
+
 ## The verification is COMPLETE. Nothing about 077 is outstanding.
+
+---
+
+## What happened when the first capability gap went through the designer's gate
+
+The owner instructed this thread to drive a gap through the feature builder. Work
+item `7b89fb35` (finetuning.uk, 8/8 residue) was stamped with `owner_approval` and
+fired at `feature-designer`.
+
+**Do not re-derive the spec from scratch if you resubmit — enrich it the same way,
+because it demonstrably worked.** Before firing I measured what the residue actually
+*is* rather than trusting my own `capability` string. Every out-of-remit colour was
+a LIGHT SURFACE colour (`#fff` ×6, `#f8f9fa` ×5, `#e0e0e0` ×3, tints `#fef2f2`,
+`#ecfdf5`, one `#eee`) — not one dark fill missed on a technicality. So the naive
+reading of the gap ("teach the fixer more hex patterns") would have mapped every
+white card to `var(--color-primary)` and repainted it in the brand colour on every
+site. The real limit is that the transform knows exactly TWO targets, and the
+vocabulary to fix it already exists on both sides: `style_collections.color_palette`
+already names `background` (`#ffffff`) and `background_alt` (`#f8f9fa`), and the
+platform already emits `--color-background`, `--color-surface`, `--color-surface-alt`,
+`--color-border`, `--color-white`.
+
+That measured evidence plus **three open questions posed AS questions** went into
+the work item's spec. The designer's own risk note came back:
+
+> *"The plan deliberately answers none of the spec's three open design questions
+> … it only claims the two cases the evidence explicitly supports … a reviewer
+> should reject any stage that widens further than that without an owner decision
+> on those questions."*
+
+The brief steered it. That is the transferable bit: **a capability_gap spec that
+carries a measured histogram and named open questions produces a conservative plan;
+one that carries a plausible-sounding description produces the naive one.**
+
+**Then it died on `bugs_open/099`** — `persist_plan` refuses a stage in which one
+file appears twice, and the designer's prompt never states that rule, so a
+completed good design was discarded with `orchestration_states.error` NULL.
+Migration `222` (applied, snapshotted, verified) tells the designer the rule.
+**099 stays OPEN** for its durable half: route the validation failure into
+`repropose` instead of discarding the design.
+
+**Landmine, and it is general:** a run that fails a step can have
+`error` NULL, `final_result` NULL, and status `COMPLETED` at a `complete_refused`
+step. The reason lives ONLY in `collected_data->>'__step_error'`. Anything keyed on
+`error` reports that run as clean.
 
 ---
 
