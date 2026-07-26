@@ -146,4 +146,40 @@ Phase 1 is ~80% of the work and runs parallel with 2–5.
 
 ## Corrections
 
-*(none yet — corrections to this plan get appended here, dated, never edited away)*
+*(corrections are appended above, dated, never edited away)*
+
+## Corrections
+
+> **CORRECTED 2026-07-26 — "blocked on dispatch" was wrong.** At the end of
+> session 1 I recorded that the 98 page assemblies would not dispatch and called
+> it the `bugs_open/003` spawn-loss class. There was no bug. First claim came
+> 20m40s after the items were created (documented latency); all 98 completed in
+> 3h28m at ~2.1 min each, which is what single-flight-per-site costs. I gave up
+> 8 minutes early, and my "imagery is completing concurrently" evidence was the
+> tail of work claimed *before* the page items existed. Full account in NOTES and
+> `WRONG_CALLS.md`.
+>
+> **Planning consequence:** a site-wide rerender of ~100 pages is a **3.5-hour**
+> operation that shows nothing for the first 20 minutes. Phase 7 should have said
+> so. Anyone repeating this should queue it and walk away.
+
+> **CORRECTED 2026-07-26 — D1's claim that the pin protects the design is too
+> broad.** The pin governs colour *values* and it held flawlessly: every colour
+> in the committed `styles.css` is a pinned one. It does **not** govern which
+> *component* the planner selects, and a component can carry darkness of its own
+> — the generic `hero` paints `rgba(0,0,0,0.5)` over its background image
+> regardless of palette. `design_intent.avoid` is prose the planner's component
+> choice never reads.
+>
+> So the honest statement of what a pin buys is: **right palette, guaranteed;
+> right furniture, not guaranteed.** Reviewing the planner's *composition* (which
+> the airlock made possible) is a separate and equally necessary step — and it is
+> the step I did not do, because I checked the page LIST against the brief and
+> not the SECTION list. Fixed by `SQL_p6` (per-site two-column hero).
+
+> **CORRECTED 2026-07-26 — the tool count.** The brief and D7 said "~64 tools".
+> The real figure is **63** (55 from website-design.com + 8 from
+> websitedesign.com, the 9th being the skipped LLM builder). The wrong number
+> originated in this plan, reached eight live specs, and was corrected by
+> `SQL_p4` before the planner could write it into page copy. Counts are now
+> substituted from the catalogue (`{{TOOL_COUNT}}`) rather than typed.

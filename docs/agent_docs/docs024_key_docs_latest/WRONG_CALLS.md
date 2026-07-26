@@ -3964,3 +3964,33 @@ converts into "wait forever". Any such rule needs a stated bound and a distingui
 the other branch — the useful version is *"absence means queued **unless** something newer has
 drained past you"*. Family: default-with-no-exit-condition, absence-is-ambiguous,
 rule-outlived-its-window.
+
+**2026-07-26 — diagnosed a working queue as a spawn-loss bug, from the tail of unrelated
+work.** 98 `page_rerender` items sat `triaged` with `attempt_count=0` while `needs_imagery`
+items on the same site kept completing. I concluded the `page-rerender` agent specifically
+was not receiving spawns — `bugs_open/003` class — and wrote that into a commit and a NOTES
+section. It was wrong in every part. The queue was fine: first claim came **20m40s** after
+the items were created (the documented ~20–30 min latency), then all 98 completed over 3h28m
+at ~2.1 min each, which is simply what single-flight-per-site costs for 98 pages. By morning
+every page was live.
+**The specific error is more instructive than the delay.** My evidence for "page_rerender is
+uniquely broken" was that imagery was completing *concurrently*. It was not. Every imagery
+item I watched finish had been **claimed at 17:04–17:16, before the page items existed**; I
+was watching the tail of work already in flight. Imagery then stopped dead at 17:18 and did
+not resume until 20:40:38 — **18 seconds after the last page_rerender completed**. The two
+never overlapped for a moment. My own priority change had worked exactly as intended and
+starved imagery completely; I read the pre-emption I had just caused as evidence of a fault.
+**What caught it:** walking away. The queue drained overnight and the site was fully live.
+**The cheap check:** compare `claimed_at` of the "still progressing" items against
+`created_at` of the "stuck" ones. `SELECT item_type, min(claimed_at), max(completed_at) FROM
+site_work_items WHERE site_id=... GROUP BY 1` answers it in one query — items claimed before
+yours existed are not evidence of anything about yours. And `attempt_count=0` means *not yet
+tried*, which is indistinguishable from *never will be* until the documented latency window
+has actually elapsed. I gave up **8 minutes** before the first claim.
+**The class:** concurrency inferred from two things being observed in the same minute, when
+one was already in flight. Timestamps distinguish them and I did not look at timestamps —
+I looked at counts changing. Also a second instance of the family directly above it, from
+the opposite direction: that row is "waited too long because absence means queued"; this one
+is "gave up too early because absence means dropped". Same ambiguity, opposite conclusions,
+and in both cases the resolving evidence was a timestamp comparison nobody ran.
+Family: absence-is-ambiguous, false-concurrency, counts-without-timestamps.

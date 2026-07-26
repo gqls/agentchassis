@@ -238,7 +238,7 @@ pages; 28 assets; `search.json` 95 entries; `sitemap.xml` 98 URLs.
 
 ---
 
-## 2026-07-25 — session 1, end state (BLOCKED on dispatch)
+## 2026-07-25 — session 1, end state (I called this BLOCKED. It was not — see the correction at the foot of this file.)
 
 ### Live and verified
 
@@ -294,3 +294,134 @@ assemble with no further action. Nothing needs re-importing.
   its job; the chosen component simply is not the one the brief describes.
   Needs either a different section component or a recompose of that one section.
 - 8 of 12 `needs_imagery` items still queued.
+
+---
+
+## 2026-07-26 — session 2
+
+> ### CORRECTED: the section above is wrong. There was no dispatch bug.
+>
+> Yesterday I wrote that 98 `page_rerender` items "will not dispatch", called it
+> the `bugs_open/003` spawn-loss signature, and committed that claim. **Every
+> part of it was wrong.** The queue was working normally the whole time.
+>
+> What actually happened, measured this morning:
+>
+> | | |
+> |---|---|
+> | items created | 17:12:22 |
+> | **first claim** | **17:33:03 — 20m40s later** |
+> | last completion | 20:40:20 |
+> | total for 98 pages | **3h28m**, ~2.1 min each |
+>
+> The 20-minute wait is the platform's documented publish→run-start latency.
+> The 3.5 hours is simply what single-flight-per-site costs for 98 pages.
+> **I gave up 8 minutes before the first claim.** By morning every page was live.
+>
+> **The reasoning error matters more than the delay.** My evidence that
+> `page-rerender` was *specifically* broken was that `needs_imagery` items on the
+> same site were completing while the page items were not — apparent
+> concurrency, therefore a page-rerender-specific fault. They were never
+> concurrent. Every imagery item I watched finish had been **claimed at
+> 17:04–17:16, before the page items existed at 17:12** — I was watching the tail
+> of work already in flight. Imagery then stopped dead at 17:18:54 and did not
+> resume until **20:40:38, eighteen seconds after the last page finished**.
+>
+> So the priority change I had made minutes earlier (`page_rerender` → 5,
+> imagery → 90) had worked *perfectly*, pre-empting imagery entirely for three
+> and a half hours. **I read the starvation I had deliberately caused as
+> evidence of a bug.**
+>
+> **The cheap check that would have settled it in one query:**
+> ```sql
+> SELECT item_type, min(claimed_at), max(completed_at)
+> FROM site_work_items WHERE site_id = '<site>' GROUP BY 1;
+> ```
+> Items claimed *before yours existed* say nothing about yours. And
+> `attempt_count = 0` means *not yet tried*, which is indistinguishable from
+> *never will be* until the documented latency window has actually elapsed.
+> CLAUDE.md says this in as many words — "a missing orchestration row is almost
+> always latency, not a dropped dispatch — do not retry on that evidence" — and I
+> both ignored it and paid the predicted cost: a duplicate direct dispatch for
+> `tools-index`. (Harmless, as it happens: the importer keys the instance on
+> `(page_id, slot_name)`, so `tools-index` still has exactly one component.)
+>
+> Logged fleet-wide in `WRONG_CALLS.md`. Note it sits directly beneath a row from
+> the *opposite* failure — waiting 62 minutes because "absence means queued".
+> Same ambiguity, opposite conclusions, and in both cases the resolving evidence
+> was a timestamp comparison nobody ran.
+
+### The real operational finding
+
+Not a bug, but worth knowing before anyone plans a big rerender:
+
+- **A site-wide rerender of ~98 pages takes about 3.5 hours** and shows *no*
+  progress at all for the first ~20 minutes. Both numbers are normal.
+- **Priority is absolute across item types on a site.** Setting `page_rerender`
+  to 5 starved priority-90 imagery for the full 3.5 hours. That is correct
+  behaviour and useful — but if you want two kinds of work interleaved, do not
+  separate their priorities.
+- `rerender-pages` dispatched fine by direct kcat while `page-rerender` appeared
+  not to. That asymmetry was also an artefact: `rerender-pages` was picked
+  up promptly because it went in when the site's queue was near-empty; the
+  page items went in behind 98 siblings.
+
+### The hero: right palette, wrong furniture
+
+The published home page carried a full-bleed hero painting
+`linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6))` over a background image with
+`--hero-ink: #fff`. Dark — against both the brief ("two-column hero, copy left,
+image right") and `design_intent.avoid` ("Dark backgrounds of any kind").
+
+**The palette pin was not at fault and could not have prevented it.** The pin
+governs colour *values*, and it held perfectly — every colour in the committed
+`styles.css` is a pinned one. The darkness was a literal `rgba()` baked into the
+chosen component's own template, drawn from no palette at all. `design_intent.avoid`
+is prose; the planner's component *selection* does not consult it.
+
+That is a real gap worth stating plainly: **we can pin what colours a site uses,
+but not which components it picks, and a component can carry its own darkness.**
+
+Fixed with a per-site `webdesign-couk-hero` (`SQL_p6`), reproducing
+websitedesign.com's own hero: 1fr/1fr grid, 4rem gap, copy left, 4:3 image right
+at 12px radius with the large soft shadow, collapsing to one column and 16:9
+under 900px. Forked rather than editing the shared `hero`, which six other sites
+use. Its verify block fails if the template ever regains `rgba(0,0,0` or
+`hero-ink`.
+
+Also fixed while there: the old instance had `cta_text` and `secondary_cta` but
+**no URLs**, so the previous template gated both buttons away and the hero shipped
+with an empty action row. Both now point at pages that exist.
+
+### The JavaScript loss, made impossible to repeat
+
+`checkScriptParity` (`cmd/webdesignport/transform.go`) now counts scripts in the
+source, subtracts the site-wide engines the chassis supplies, and **refuses** to
+emit a fragment holding fewer. It fails rather than warns, because a warning is
+precisely what the original failure produced.
+
+**Proven by inducing the fault, not by watching it pass.** Re-introducing the
+original defect in a scratch build produced **60 `script parity` failures** — one
+per tool that would have shipped dead. A gate only ever seen passing has not
+been tested; it has been observed not complaining.
+
+The platform-wide version of this gap is filed as **`bugs_open/084`**: nothing
+anywhere asserts that a published page's JavaScript works. Every check we have
+tests *presence* (a row exists, a file exists, a status is `complete`); none
+tests *integrity*. JS is uniquely exposed because its absence changes nothing
+visible until a human clicks something.
+
+### End state, verified live 2026-07-26
+
+Every one of these was checked with `curl`, not inferred:
+
+| check | result |
+|---|---|
+| `/`, `/tools/index.html`, `/learn/index.html`, `/about/index.html` | 200 |
+| sample tool + article pages | 200 |
+| tool engine JS (`/tools/bayesian-rank/bayes.js`) | 200 |
+| header JS (`/tools/assets/webdesign-couk-header.js`) | 200 |
+| `port-compat.css`, `search.json`, `sitemap.xml`, `robots.txt` | 200 |
+| chrome on a tool page (header markup, search box, nav) | present |
+| old Swiss blue `#0055ff` anywhere | 0 |
+| all 12 generated images incl. `hero-home.jpg` | 200 |

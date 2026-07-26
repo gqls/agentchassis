@@ -106,3 +106,62 @@ which is how the wrong tool count got caught before it reached a page.
 **One thing that may need you.** The deploy robot needs permission to clear Cloudflare's cache
 for this domain. If it doesn't have it, the only symptom is that changes take a while to show
 up. I'll know on the first publish and will tell you if it needs a click from you.
+
+---
+
+**2026-07-26 — it's live, and I was wrong about the hold-up**
+
+The site is up. Every page works: the home page, the tools index, the learn index, the about
+page, and all 94 tool and article pages underneath them. The search box works, the tools have
+their JavaScript, the colours are yours.
+
+**The thing I got wrong.** Yesterday I told you the last step was blocked by a platform bug
+and that 98 "publish this page" jobs would never run. That was wrong, and it was wrong in a
+way worth explaining because it's the kind of mistake that wastes a lot of somebody's time.
+
+The queue was working the whole time. It simply takes about twenty minutes before the first
+job is picked up, and then roughly two minutes per page — so about three and a half hours for
+98 pages. I gave up eight minutes before the first one started.
+
+Worse than the impatience was my reasoning. I said "look, the image-generation jobs are
+finishing but the page jobs never are — so something specific to page publishing is broken."
+They weren't finishing at the same time. The image jobs I was watching had been picked up
+*before* the page jobs even existed; I was watching the tail end of earlier work. And the
+moment those finished, image work stopped completely for three and a half hours and only
+resumed eighteen seconds after the last page was published. Which is exactly what should have
+happened, because I had just told the system to prioritise pages over images. **I mistook the
+queue obeying my own instruction for the queue being broken.** One query comparing timestamps
+would have shown me that. I looked at counts going up and down instead.
+
+I've written that up properly in the project's shared log of wrong calls, because the entry
+immediately above mine is someone making the opposite mistake — waiting an hour for something
+that really had vanished. Same ambiguity, opposite conclusions, and in both cases the answer
+was a timestamp nobody checked.
+
+**The hero is fixed.** You were right to flag it. It was a full-width dark banner with a
+photo behind it, which is the opposite of what you asked for and what your own design rules
+forbid. It's now the two-column layout from your brief: words on the left, image on the right,
+stacking on a phone.
+
+Worth being precise about why it happened, because it isn't the failure it looks like. The
+colour pin did its job perfectly — every colour on the site is one of yours. But pinning
+colours doesn't control which *building blocks* the system picks, and the block it chose had
+darkness painted into it directly rather than drawn from your palette. Right paint, wrong
+furniture. I checked that the planner only built the one page I asked for, and didn't check
+what that page was made of. That's on me and it's now noted as a step to always do.
+
+**The JavaScript problem can't happen again.** The bug where every tool's code was being
+silently thrown away is now caught by a check that refuses to build at all if any page loses
+its scripts. I proved it works by deliberately reintroducing the original bug — it produced
+60 errors, one for each tool that would have shipped broken. A safety check you've only ever
+seen pass isn't tested; it's just quiet.
+
+I've also filed that as a wider issue for the platform, because the same blind spot exists
+elsewhere: nothing anywhere checks that a published page's JavaScript actually works. Every
+check we have asks "does this exist" rather than "does this function", and broken JavaScript
+looks completely normal until someone clicks something.
+
+**Still open, and none of it urgent:** the tools that need hands-on testing in a real browser
+(the ones that use your camera roll, canvas or clipboard) haven't been clicked through yet —
+that's about sixteen pages. And the deploy robot's permission to clear Cloudflare's cache
+still hasn't been confirmed; the only symptom would be changes taking a while to appear.
