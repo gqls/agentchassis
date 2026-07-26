@@ -1,64 +1,91 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-26 (supersedes everything below)
+> ## ▶ START HERE — state as of 2026-07-26 21:15 UTC (supersedes everything below)
 >
-> **The content pipeline is BUILT AND LIVE, the box is healthy, and the extended report is now
-> PROVEN END TO END** (2026-07-26: owner submitted, received and reviewed a real report in the new
-> format — evidence below). **The top job is now the second deploy** (automatic order expiry), so
-> the queue can never silently close itself again.
-
-> ## ⚠️ CONCURRENT-SESSION NOTICE — added 2026-07-26 18:45 UTC (session "idea.uk vm site 6")
+> **The site is complete, the box is healthy, the report format is proven, and every queued deploy
+> has shipped.** Three deploys went out this evening: the automatic order expiry that this file
+> used to call the top job, plus two security fixes found while preparing it, plus three copy
+> fixes found by reading a real report.
 >
-> **1. THE SECOND DEPLOY IS DONE — TWICE.** I built and deployed at **18:29 UTC**, before reading
-> this block: I was working from the 15:34 version of this file and did not see the 15:57 rewrite.
-> That binary carried the expiry work plus `bugs_closed/089`. A **second deploy at 18:44 UTC**
-> added `bugs_closed/090`, which did not exist as a fix at 18:29 — I found it at 18:32 *while
-> verifying 089 on the box*.
+> **THE ONE THING OUTSTANDING IS A HUMAN ACTION — and it is the last unproven step in the whole
+> product.** `ord_1785090638951163875` sits in `awaiting_payment` with a live Stripe
+> `cs_live_a1j7o8uz…` session; a pay link is in the owner's inbox at `aaa@designconsultancy.co.uk`.
+> **Nobody has ever paid for a report and received one.** The 12:40 run proved the *format* and was
+> then declined, so `approve → pay → webhook → delivery` has still never executed in production.
+> Stripe is in **live mode** (`rk_live_`), so this is a real £29 (owner paying himself, less ~£1.15
+> of Stripe fee). If it is no longer wanted, `/decline` releases the slot at no charge.
 >
-> **That near-miss is the useful part**: re-probing after the 18:29 deploy still returned the
-> forged address, which is the only reason 090 was not written up as shipped when it was not.
-> **The deploy that closes a bug is not the deploy that happened to precede it.** So check the
-> marker each fix introduces, never the fact that "a deploy happened":
+> ### The two security defects — both were live, both are fixed, deployed and proven
+>
+> Neither had been exploited. Both were found by reading the code to plan the expiry deploy, not by
+> any alarm — nothing in the platform would ever have reported either.
+>
+> | | |
+> |---|---|
+> | **`bugs_closed/089`** | **The £29 report could be taken without paying.** `/order/success` honoured `?fake=1` on a query parameter alone, marking an order paid and delivering. The shortcut exists for `FakeProvider` and the type is commented *"NEVER in production"* — the handler simply never checked which provider was configured, and the box runs Stripe. Reachable by an ordinary buyer: `CreateCheckout` gives Stripe a `cancel_url` carrying the order id, so cancelling a real checkout discloses it. |
+> | **`bugs_closed/090`** | **A visitor could choose the IP it was rate-limited as.** `clientIP` took the FIRST `X-Forwarded-For` entry; our nginx uses `$proxy_add_x_forwarded_for`, which *appends* the real peer — so entry 1 is the part the caller writes. That key drives the free taster's 3/hour limit, which is the only bound on LLM spend at an unauthenticated endpoint that costs ~£0.02 a call. |
+>
+> Both were **induced live, not argued**: 089 against a genuine `awaiting_payment` order with a
+> real `cs_live_` session (held; pre-fix it reached `delivered`), and 090 by sending
+> `X-Forwarded-For: 203.0.113.77` — logged verbatim as that address before the fix, and as the real
+> IPv6 peer after it.
+>
+> ### Verify what is on the box — per-fix markers, never "a deploy happened"
 >
 > ```bash
-> grep -ac "refused fake=1" /opt/idea/idea   # 089 → 1
-> grep -ac "X-Real-IP"      /opt/idea/idea   # 090 → 1   (0 in BOTH earlier binaries)
+> grep -ac "refused fake=1"   /opt/idea/idea   # 089  → 1
+> grep -ac "X-Real-IP"        /opt/idea/idea   # 090  → 1
+> grep -ac "(each out of 5)"  /opt/idea/idea   # copy → 2
+> grep -ac "YOUR IDEA, ASSESSED" /opt/idea/idea # 07-25 engine work → 1
 > ```
 >
-> Rollbacks kept: `/opt/idea/idea.prev-2026-07-25` (pre-everything) and
-> `/opt/idea/idea.prev-2026-07-26-089only`. Orders backed up before each
-> (`orders.json.bak-2026-07-26-predeploy`, `…-predeploy2`). Verified after both restarts: unit
-> active, queue answering, all orders intact.
+> **Why each fix carries its own marker, and this is the lesson of the evening:** the 18:29 deploy
+> could not have contained 090 — that defect was *found at 18:32, while verifying 089 on the box* —
+> so a second deploy was needed at 18:44 and a third at 21:10 for the copy fixes. Only re-running
+> the probe after the first deploy revealed that 090 was still live. **The deploy that closes a bug
+> is not the deploy that happened to precede it.** All four markers verified present 21:12 UTC, and
+> both attacks re-run against the final binary and refused.
 >
-> **Not yet deployed:** three copy defects in the report renderer, fixed and committed after the
-> above (doubled full stop, a score line reading "out of 5 —" with no number, a sentence-cased
-> field spliced mid-sentence). They run at engine time, so they need a deploy to take effect but
-> nothing is urgent about them — let them ride the next one.
+> Rollbacks kept, newest last: `idea.prev-2026-07-25` · `idea.prev-2026-07-26-089only` ·
+> `idea.prev-2026-07-26-089-090`. Orders backed up before each deploy
+> (`orders.json.bak-2026-07-26-predeploy`, `…2`, `…3`). 73 orders intact throughout; the pending
+> order kept its status, its 10,109-char report and its Stripe session across two restarts.
 >
-> **2. ~~AN ENGINE RUN IS IN FLIGHT~~ — LANDED 18:40 UTC, restarting is safe again.**
-> `ord_1785090638951163875` ran in **9.5 minutes** (18:31:13 → 18:40:46, 10,166 chars), not the
-> 20–30 this file predicted. It is now `awaiting_payment` with a live Stripe `cs_live_` session
-> and **is waiting on the owner to pay £29** — that is the last leg of the chain, and the only
-> one that has still never run in production. The order survived a second restart intact
-> (status, report and session id all verified after it).
+> ### What the run told us that the format proof could not
 >
-> **The warning was real while it stood**, and the reason it stood is worth keeping: fulfilment is
-> an in-memory goroutine, so a restart strands an order in `running`, and `ExpireStale`
-> deliberately skips `running` — the slot then leaks permanently and only a hand-edit frees it.
-> See item 4.
+> - **9.5 minutes**, not the 20–30 this file predicted (18:31:13 → 18:40:46).
+> - **The report is good, and honest where it costs it**: submitted a vet price-comparison idea, and
+>   it told the submitter a free government comparison service is coming, that a dozen rivals exist,
+>   and to spend £50–£100 testing one town before writing any software. Real, checkable sources.
+> - **Three copy defects, visible only by reading the artefact** — a doubled full stop, a score line
+>   reading "out of 5 —" with no number (literal text in *both* renderers), and a sentence-cased
+>   field spliced mid-sentence ("using A form the receptionist fills in"). Fixed, deployed 21:10.
+>   Checking that the job succeeded would never have found any of them.
 >
-> **3. THIS RUN IS PARTLY DUPLICATIVE AND I OWN THAT.** The 12:40 run already proved the report
-> FORMAT; I fired a second one before the 15:57 rewrite reached me. It is not wasted — the 12:40
-> order was **declined**, so `approve → pay link → Stripe payment → delivery` has still never run
-> in production. This one is being taken through exactly that leg, which is the only part of the
-> chain still unproven. Logged in `WRONG_CALLS.md`.
+> ### Open, and deliberately not done
 >
-> **4. Residual worth someone's attention:** `ExpireStale` sweeps `awaiting_review` and
-> `awaiting_payment` but skips `running` — correct while a run is genuinely in flight, wrong after
-> a restart, because no goroutine survives one. An order left `running` by a restart holds a slot
-> for ever, which is the exact failure the expiry work was written to end. Cheap fix: at startup
-> (before the first sweep), any order still `running` cannot be, so reset it to `requested` or
-> `expired`. NOT built — deliberately out of scope while a run was in flight.
+> 1. **`ExpireStale` skips `running`.** Correct while a run is genuinely in flight; wrong after a
+>    restart, because fulfilment is an in-memory goroutine and none survives one. A restart strands
+>    the order `running` and leaks its slot **permanently** — the exact failure the expiry work was
+>    written to end. Fix: at startup, before the first sweep, reset any `running` order. Not built —
+>    only safe to write when nothing is running, and something ran all evening.
+> 2. **Margin lever, owner's call:** the engine still runs `claude-opus-4-8` / `claude-sonnet-4-6`
+>    (`engine.go:26-29`) — a generation behind, and all four are plain env vars needing no rebuild.
+>    Untouched: which model writes the paid product is a business decision.
+> 3. **Refuted, do not re-litigate:** the standing "real-client-IP in nginx — idea.uk is behind
+>    Cloudflare" item. It is **not**: Hetzner nameservers, A record straight to `116.203.204.115`,
+>    no `cf-ray`. No `set_real_ip_from` is needed; the defect was in the Go, and is fixed.
+>
+> ### A coordination note worth keeping
+>
+> This session worked for two hours from the **15:34** version of this file after another session
+> rewrote its "▶ START HERE" at **15:57** to record that the format run had already happened. The
+> result: a question to the owner premised on a dead state, and a duplicate production run at ~2×
+> the old per-report spend. It landed on the one untested leg by luck, not judgement.
+> `ls -la` on this directory, or `git log --oneline -5`, costs two seconds and would have caught it.
+> **Do that immediately before any expensive or outward-facing action, not once at session start** —
+> and note the perverse incentive: the more valuable a "next action" looks in a handoff, the likelier
+> another session is already doing it. Written up in `WRONG_CALLS.md` and NOTES §X.20.
 
 ### What idea.uk is, today (all curl-verified 2026-07-26)
 
@@ -66,8 +93,8 @@
 |---|---|
 | **Guides** | 9, live, in journey order on a self-populating hub: creating-ideas → building-it → testing-it → user-acceptance → feedback-loops → patents → copyright → funding-ways → funding-sources |
 | **Tools** | 4 cards on `/tools.html`: the £29 Verified Idea Report · "Should you patent it?" (free) · "Which funding route fits?" (free) · Free Audience Check |
-| **Paid tool** | Extended and DEPLOYED (binary built 07-25 15:11): the report now leads with an assessment of the submitted idea, carries "Check it yourself" source links, discloses AI use in the report itself, and renders an honest "too early to assess" outcome |
-| **Box** | `116.203.204.115`, service `idea` restarted 07-26 13:19, queue **open (0/5)**, `OPERATOR_EMAIL=idea-uk@leopardess.uk`, no `CONTACT_EMAIL` line (correct — see §Email) |
+| **Paid tool** | Extended and DEPLOYED: the report leads with an assessment of the submitted idea, carries "Check it yourself" source links, discloses AI use in the report itself, and renders an honest "too early to assess" outcome. **Binary superseded 07-26 21:10** — now also carries auto-expiry, `bugs_closed/089`, `bugs_closed/090` and three copy fixes (markers in ▶ START HERE) |
+| **Box** | `116.203.204.115`, service `idea` restarted **07-26 21:10**, queue open **(1/5 — the slot is the unpaid order)**, `OPERATOR_EMAIL=idea-uk@leopardess.uk`, no `CONTACT_EMAIL` line (correct — see §Email) |
 | **Locks** | 27 authored sections locked; both hub listings deliberately unlocked so they keep deriving |
 
 Site id `1244516d-014d-421c-88c6-090bb1e9552a`. SQL applied this arc: `sql/p4_01`…`p4_19`.

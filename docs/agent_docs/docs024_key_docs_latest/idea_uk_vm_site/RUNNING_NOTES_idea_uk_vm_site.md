@@ -2227,3 +2227,37 @@ Salvage, which is luck and not design: the 12:40 order was **declined**, so
 `approve → pay link → payment → delivery` had never run in production. This run is being taken
 through exactly that leg. Written up in `WRONG_CALLS.md`; a coordination block is at the top of
 the handoff so §X.19's session does not redeploy into the in-flight run.
+
+### §X.21 — third deploy: the copy fixes are live; all four markers verified (2026-07-26 21:10 UTC)
+
+Built from the committed tree, deployed 21:10, verified 21:12. Discriminating marker for this one
+is `(each out of 5)` — **2** in the new binary (text renderer + HTML renderer), **0** in the
+running one before it.
+
+All four markers present together on the deployed binary, which is the check that matters — a new
+build is not evidence that it kept the previous build's fixes:
+
+```
+089 refused fake=1    : 1
+090 X-Real-IP         : 1
+copy (each out of 5)  : 2
+07-25 YOUR IDEA, ASSESSED : 1
+```
+
+Both attacks re-run against this binary and refused: the forged `X-Forwarded-For: 203.0.113.77`
+logged as my real IPv6 peer, and the bypass against the real `awaiting_payment` order held it at
+`awaiting_payment`. Order intact across the restart — status, 10,109-char report, `cs_live_`
+session, 73 orders.
+
+Rollback chain now three deep: `idea.prev-2026-07-25` → `idea.prev-2026-07-26-089only` →
+`idea.prev-2026-07-26-089-090`. Orders backed up before each (`…predeploy`, `…2`, `…3`).
+
+**Note on the fresh chassis build (v1.0.1171, deployed this evening): it is irrelevant to this
+tool.** The £29 tool is a standalone stdlib-only Go module on the Hetzner box with its own build
+and deploy path (`go build` → `scp` → `systemctl`), no CI and no chassis coupling. Nothing this
+workstream shipped tonight was chassis code, so nothing was inert awaiting that roll and nothing
+is owed against it. The chassis version matters to idea.uk only for *page* builds and renders.
+
+**Still open, unchanged from §X.20:** the `running`-order slot leak across a restart (fix named,
+not built); the model generation as a margin lever (owner's call); and the payment leg, which is
+now the single unproven step in the product and is waiting on a human.
