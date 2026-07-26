@@ -326,9 +326,16 @@ func callClaudeOpts(o callOpts) (string, error) {
 	return sb.String(), nil
 }
 
-// callClaude is the simple form. New code should use callClaudeOpts directly
-// when it needs thinking or caching; leaving this in keeps every existing call
-// site unchanged.
+// callClaude is the simple form. It currently has NO CALLERS — the comment here
+// used to say it "keeps every existing call site unchanged", and there are none
+// left. It is kept as the convenience wrapper for a future caller.
+//
+// ⚠️ If you revive it, set Effort. It passes none, which sends no thinking field
+// — and on the 5 family that means adaptive thinking runs by DEFAULT and shares
+// the max_tokens cap with the answer, so a caller sized for a bare completion
+// can truncate. That is the same trap the audience and generate steps hit in the
+// 2026-07-26 model migration; they now set Effort explicitly. Prefer
+// callClaudeOpts directly so the choice is visible at the call site.
 func callClaude(model, system, user string, tools []map[string]any, maxTokens int) (string, error) {
 	return callClaudeOpts(callOpts{
 		Model: model, System: system, User: user, Tools: tools, MaxTokens: maxTokens,
