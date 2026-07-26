@@ -567,3 +567,54 @@ measurement covered only the three with a *resolvable* blog page. Same conclusio
 
 Round 2 submitted on the same correlation so the trail accumulates. Councils have **no
 cross-round memory**, so round 2 restates the full evidence base rather than referring back.
+
+## COUNCIL ROUND 2 — **APPROVED** (2026-07-26 16:37 UTC)
+
+`{"decision": "approved", "reviewers": 11, "abstained": 5, "unreadable": 0}` —
+`SUBMISSION_CORR 37329362-f3bb-4ac2-8c72-fd4e9c80109e`, orchestration
+`0113ca63-a52e-4ee0-934a-759d11a461c2`. Eight seats approved outright
+(editquality — which had objected in round 1 — plus reuse_agent, guardian,
+improvement_guardian, render_guardian, debug_historian, constitution, mission,
+prior_art_librarian).
+
+**No `Council-Reviewed:` trailer exists and none can be added.** The verdict post-dates the
+code commits (`fe00304bd`, `b2e668126`) and this repo is forward-only — no amends. So the
+`098` coverage report will list both as un-reviewed. That is a **permanent false negative**,
+recorded here because the trailer is the only thing that makes the commit↔verdict join exact,
+and a reader of `098` alone would conclude this shipped unreviewed. It did not.
+
+### Four residual objections survived the approval — none blocking, all real
+
+The decision rule weighs severity, so an APPROVED verdict can still carry objections. Logging
+them so they are not lost in the verdict:
+
+1. **`bug_historian`, MEDIUM — the shrink guard is local to this action.** Correct, and the
+   honest scope statement is that it detects content-count regression *for the blog listing
+   only*. Every other listing derivation still has no equivalent: a `queryresolve`-driven
+   tool or guide list that silently halves has no signal at all. This is the seat's round-1
+   objection generalised, and it is the strongest remaining thread in this bug's family —
+   arguably the shape of fix candidate 3, which has never been built and is still gated on
+   `/bugs_open/033` having no consumer for `needs_human_review`.
+2. **`tooling_provenance`, MEDIUM — five edits to a step inside a registered pipeline
+   (`rerender-pages`, `agent_definitions f5fdea39-…`) with no mention of loading or writing
+   the agent definition or a contextkit bundle.** Worth stating plainly for the next reader:
+   this change is **Go only**. It touches no `agent_definitions` row, no seed, no migration —
+   the action's registration and workflow wiring are unchanged, which is exactly why it is
+   inert until an image roll rather than live-immediately.
+3. **`reuse_agent`, LOW — `previousArticleCount` was written without stated evidence that an
+   existing regression/diff-detection mechanism was searched for first.** Procedurally
+   correct: I did not search before writing it. Searching afterwards found the nearest
+   neighbour, `componentRegressionIssues` (`component_write_guard.go:185`), and it is **not**
+   reusable here — different table (`content_components.html_template` vs
+   `page_components.content_data`), different failure (a truncated LLM generation vs a
+   deliberately tightened predicate), and critically the opposite response: it **refuses** the
+   write, whereas this shrink is legitimate and *must* be persisted. Right outcome, reached
+   the wrong way round; the check should have preceded the code.
+4. **`prior_art_librarian`, LOW — round 2's rationale repeatedly argues "the council's own
+   checks in round 1 confirmed X", which a round-2 reviewer cannot verify.** The sharpest
+   methodological point of the whole trail. Councils have **no cross-round memory**, so
+   citing a previous round's answered checks is, to the seats reading it, an unsourced claim
+   about a conversation they were not in. It was partly mitigated by pasting the actual result
+   rows into `grounded_in` (`status | count / active 62 / archived 6`, and the single
+   `rerender-pages` row) rather than only describing them — **paste the data, never cite the
+   round.** Worth carrying to any future resubmission.
