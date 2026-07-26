@@ -47,10 +47,15 @@
 --   robot-hands.com             detected     3       left alone
 --   gamesdesign.co.uk           complete     2       already terminal
 --
--- So: 3 rows. CORRECTION to the figures in bugs_open/077's own table, which listed
--- webdesign.co.uk and dartsonline.com among the zero-remit sites: both have
--- detector matches but carry NO work item, so neither appears here; and
--- webdesign.co.uk is not provably zero under this wider predicate anyway.
+-- So: 3 rows. NOT a correction to bugs_open/077's own table, and an earlier draft
+-- of this comment wrongly said it was. That table lists webdesign.co.uk and
+-- dartsonline.com as zero-remit, computed by running the REAL Go transform; this
+-- predicate is a deliberate OVER-approximation of it, so a superset count of 1
+-- against a true remit of 0 is entirely consistent and contradicts nothing. Two
+-- separate reasons neither site appears above: both carry detector matches but NO
+-- work item, so there is nothing here to retire; and webdesign.co.uk cannot be
+-- shown zero by SQL alone, which is a limit of THIS method, not an error in
+-- theirs. A superset can prove zero; it can never disprove it.
 --
 -- WHY 'wont_fix' AND NOT DELETE
 -- -----------------------------

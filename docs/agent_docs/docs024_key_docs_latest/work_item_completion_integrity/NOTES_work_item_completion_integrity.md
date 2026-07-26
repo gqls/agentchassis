@@ -549,3 +549,66 @@ For this workstream specifically: when the next verifier is written, the analogo
 "check where the mistake is made" is already in place — `verifier_coverage_test.go`
 breaks the build. That is the right shape and worth defending against pressure to
 soften it.
+
+---
+
+## 2026-07-26 — `bugs_open/077` closed: the detector half of the remit pattern
+
+Picked up by a bugfix thread on the owner's instruction, not by this workstream —
+but it lands squarely in this workstream's territory (`NOTES:507-510` listed `077`
+as one of three things left here), so the account goes here rather than into a
+fourth parallel directory. Code `ce4adfac4`, INERT until the next roll; council
+`346500db-89ca-47f3-bc5a-e1c099d6f4f8`.
+
+**The decision.** The owner ruled against narrowing the detector: keep the wide
+predicate, **split** what it produces, and **queue** the missing handler
+capability. So a check now partitions its population by the handler's own literal
+transform — in-remit becomes the dispatchable item with an honest count, residue
+becomes a `capability_gap`.
+
+**The part worth this workstream's attention: it needed no new item type.**
+`capability_gap` / `status='deferred'` already existed as the platform's durable
+"found work I have no handler for", already classified in *our* coverage guard
+(`verifier_coverage_test.go:278`, `catJudgement`), already read as a roadmap view
+by `diagnose_triage_action` and the fixloop digest. The standing objection to
+`077`'s candidate C — "adds a type to a registry that already carries 77" — turned
+out not to apply, because the type was already there and already counted. Worth
+remembering the next time a design looks like it needs a new item type: check
+whether the platform already says the thing in a status you had not read.
+
+**What the coverage guard's own shape bought, one level over.** Copying
+`verifier_coverage_test.go`'s sensor/ratchet split into a handler guard took about
+an hour, and it went red on its first run against two checks routing at agents
+that **have never existed** — `forced-text-color-fixer` (check enabled, one live
+match waiting) and `site-metadata-fixer` (severity high, priority 3). Both would
+have gone `blocked` at claim after occupying a dedup slot. Nothing had connected
+`HandlerAgent: "x"` to "does x exist?" in Go, in config, or in any test. That is
+the same argument this workstream already makes for the verifier map — *the map is
+the backlog* — holding at a second altitude.
+
+### MISSTEPS
+
+1. **I nearly published a false correction to another thread's measurement.** My
+   SQL remit predicate is a deliberate over-approximation of the Go transform; it
+   returned 1 for webdesign.co.uk where `077`'s table (computed with the real
+   transform) says 0. I wrote "CORRECTION to 077's table" into the approved plan
+   and into migration `221`'s header before noticing that a superset of 1 around a
+   true 0 is *exactly what a superset is for*, and that I had written the sentence
+   refuting it — "it can only ever be conservative" — an hour earlier in the same
+   file. Corrected in `221`; logged in `WRONG_CALLS.md`. The check that would have
+   caught it in ten seconds: **what would have to be true for both numbers to be
+   right at once?**
+
+2. **The guard's first version had a hole where it claimed cover.** It scanned for
+   `HandlerAgent: "literal"` only, so my own new check — which names its handler
+   once as a package constant and reuses it for the live-config lookup — was
+   invisible to it. It reported the file as "computed at runtime" and would have
+   passed once declared. Resolving package-level string constants was six lines;
+   the alternative was writing the agent name twice, which is the drift the guard
+   exists to prevent, in miniature.
+
+3. **A guard nobody has watched fail is not known to work** (`bugs_open/076`'s
+   vacuous lockstep test). Unit probes against a fabricated world are not enough,
+   because they test the assertion function and not the scan. So: a bogus agent
+   name was inserted into `check_generic_theme.go`, the guard went red with the
+   right message, and it went green again on restore — `git diff --stat` clean.

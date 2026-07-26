@@ -230,3 +230,47 @@ change in parallel; one open question left for this workstream — the detector
 and fixer disagree about scope, so these items will keep being re-detected even
 when handled correctly, and deciding which side moves is a design call, not a
 bug fix.
+
+---
+
+**2026-07-26 — the open question above has been answered.**
+
+The last entry ended with "the detector and fixer disagree about scope … deciding
+which side moves is a design call, not a bug fix". The owner has made that call,
+and the answer was neither of the two sides we had framed.
+
+We had been arguing about whether to make the scanner look for less or the fixer
+do more. The owner's answer was: the scanner is right to see everything, the fixer
+is right to be careful, and the mistake was never the disagreement — it was that
+the scanner threw all of it into one pile and labelled the pile "someone will fix
+this". So it now sorts. What the fixer can genuinely repair goes to the fixer, with
+a truthful count. Everything else goes onto a list of *things we can see and
+cannot yet mend*, which is a different kind of item entirely and one the system
+already had a name for. Nobody is dispatched at it; it reads as a request for a
+new capability, which is what it is.
+
+The nice part is that the list is not new. The platform has been quietly keeping
+one since long before — for pages whose builders don't exist yet — and there was
+already something that reads it and turns it into a roadmap. We just weren't
+putting anything on it.
+
+Two things fell out of this that were worse than the bug we set out to fix. While
+writing a check that every scanner routes work at a fixer that actually exists, it
+immediately found two that don't — one of them for a problem marked "high" and put
+near the front of the queue. Those items were never going to be picked up by
+anyone; they'd have been marked "blocked" the moment something tried. That check
+now fails the build, so there won't be a third.
+
+And one thing we got wrong and caught: this thread wrote down that the previous
+thread's numbers needed correcting. They didn't. We had measured the same thing
+with a blunter instrument, on purpose, and then read the blunter answer as a
+contradiction. It's written up in the wrong-calls file, because the shape of it —
+using a rough measurement to argue against a precise one — is the sort of thing
+that will happen again.
+
+Nothing here is live yet. The code goes out with the next image build, and the
+tidy-up of the three misleading items in the backlog has to wait until after that
+(doing it first would let the old scanner re-create them). The steps to check it
+actually works, including the deliberately awkward one where we prove the scanner
+still *does* file work on a site that has real fixable problems, are written out
+at the bottom of the closed bug file.
