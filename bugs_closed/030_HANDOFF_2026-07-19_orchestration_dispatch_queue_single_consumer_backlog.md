@@ -1303,3 +1303,105 @@ a specific message. At the time there were **8,824 open `awaited_requests` rows*
 pod's dominant log line was `ClaimAwaitedRequest: status before claim attempt` (290 in
 2 min) — offered as a lead, `[UNVERIFIED]` as a cause. Only 5 orchestrations were
 `AWAITING_RESPONSES`, so it was **not** in-flight-work backpressure.
+
+## CONTRIBUTED OBSERVATION, part 2 (2026-07-26 21:40–22:00 UTC, same session, next day's shift) — ANSWERED: it was **wedged on a specific message**, and the frozen offset is a symptom, not the disease
+
+**This answers the `[UNVERIFIED]` question left immediately above, and corrects the
+"different signature" framing of part 1.** The lane did not *stop*. It was **held open by
+one message whose orchestration never finished**, because the consumer commits only after
+processing returns.
+
+**The mechanism, verified in code** — `consumeRequestLane`,
+`platform/agentbase/agent.go:620-676`:
+
+```go
+msg, err := consumer.FetchMessage(a.ctx)   // one message
+a.processMessage(msg, "request")           // SYNCHRONOUS — no goroutine
+a.commitConsumed(consumer, msg, "request") // commit AFTER processing
+```
+
+Single-threaded, in-order, commit-after-process — and **deliberately so**: the comment
+above it records that this replaced a `Consume()` that committed on fetch, for
+`bugs_open/003` F3 (at-most-once lost the in-flight message on a pod death). The fix was
+right; this is its cost. **`processMessage` does not return until the orchestration it
+started yields, so the lane runs at the speed of the slowest orchestration at its head —
+and stops entirely if that orchestration never yields.**
+
+**Observed live, 2026-07-26, sampling the head orchestration and the committed offset
+together every ~30 s.** The head message (offset 105272) was a `council-gate` run,
+orchestration `f5c5d809-a230-4ea1-932a-ad3419b40894`:
+
+```
+21:53:58  head_orch = EXECUTING_STEP | review_debug_historian   consumer_offset = 105272
+21:54:29  head_orch = EXECUTING_STEP | review_guardian          consumer_offset = 105272
+21:55:00  head_orch = EXECUTING_STEP | review_guardian          consumer_offset = 105272
+21:55:36  head_orch = COMPLETED      | complete_revise          consumer_offset = 105274
+```
+
+The offset did not move for the whole run and advanced **within 36 s of that
+orchestration reaching a terminal status**. That is the causal link, not a correlation:
+the lane is gated on the head orchestration completing.
+
+**Which retro-explains part 1's 2h34m "stall" exactly.** Offset **105196** — the frozen
+one — read back off the topic is `orchestration_name=council-gate-192958`,
+`orchestration_id=53d5005f-4c38-4256-99a5-ef07e2dbe9bb`. That row is still in
+`orchestration_states` today:
+
+```sql
+SELECT status, current_step, created_at, updated_at
+FROM orchestration_states WHERE orchestration_id='53d5005f-4c38-4256-99a5-ef07e2dbe9bb';
+-- EXECUTING_STEP | review_debug_historian | 18:44:58.59+00 | 18:51:21.31+00
+```
+
+It was picked up at **18:44:58** (itself 15 min behind the queue), ran ~6.5 min through
+the council seats, and **stopped updating at 18:51:21 — still `EXECUTING_STEP`, never
+terminal, and still so hours later.** The committed offset stayed at 105196 from that
+moment until the **21:02:56Z roll** to v1.0.1171 forced a fresh consumer to re-consume.
+That is the whole 2h11m, and it is why it "cleared on its own" at 21:04 — it did not
+clear on its own, **the roll cleared it**.
+
+So part 1's distinction ("030 was slow-but-progressing; this was stopped") is really one
+disease with two severities: **a slow head message throttles the lane; a wedged head
+message stops it until the next pod roll.** Both are the single-partition in-order lane
+this case is about.
+
+**Corrected diagnostic — a frozen `CURRENT-OFFSET` is NOT sufficient to conclude a stall.**
+Part 1's "sample twice, 30 s apart" is necessary but not sufficient: a healthy consumer
+running a 10-minute council at its head looks identical. Read the **head message's**
+`orchestration_id` off the topic and ask whether its orchestration is alive:
+
+```bash
+# head message = CURRENT-OFFSET itself (CURRENT-OFFSET is the NEXT offset to consume)
+kcat -C -b <broker> -t system.agent.generic.requests -p 0 -o <CURRENT-OFFSET> -c 1 -e -f '%o %T %h\n'
+```
+```sql
+SELECT status, current_step, updated_at, now()-updated_at AS idle
+FROM orchestration_states WHERE orchestration_id='<from the header>';
+```
+
+- `EXECUTING_STEP` with small, **shrinking** `idle` → busy, not stuck. Wait; do not re-fire.
+- `EXECUTING_STEP` with `idle` growing past a few minutes → **wedged head message.** This
+  is the condition that ate 2h34m and six threads' submissions.
+- no row at all → the message was never picked up; then look for a genuine consumer fault.
+
+**Scope, measured — this is rare but not a one-off.** Fleet census 2026-07-26 21:55Z,
+`EXECUTING_STEP` with `updated_at` older than 20 minutes: **5 rows**, at
+`review_editquality` ×2, `review_debug_historian`, `review_reuse_agent`, `extract_claims`
+— i.e. all at `call_agent`-style council review steps, and two of the five stamped within
+seconds of a known pod roll (18:34:18 vs the 18:35:07Z roll; 21:02:53 vs the 21:02:56Z
+roll). Against 1,566 `COMPLETED` in 24 h, so the wedge rate is low — but **each one costs
+the whole interactive lane until the next roll**, which is why the blast radius is out of
+all proportion to the rate.
+
+**What I am NOT claiming** — *why* those orchestrations wedge. Two of five line up with a
+pod roll (the roll killed them mid-step), and the other three do not; the recovery-path
+gap for abandoned in-flight work is `bugs_open/003`'s territory, not something this
+session investigated. `[UNVERIFIED]` as a cause. What **is** established is the coupling:
+**one wedged orchestration = one dead dispatch lane**, and nothing recovers it but a roll.
+
+**Not a reopen — the owning thread's call**, per `who-owns.py` (this workstream is ACTIVE,
+21 commits/14d). Contributed rather than filed separately because it is the answer to a
+question this file already asked. The obvious mitigations (a watchdog that fails an
+orchestration idle in `EXECUTING_STEP` past a threshold; or decoupling commit from
+orchestration completion without giving back 003 F3's at-least-once guarantee) are design
+calls that belong to whoever owns this lane.
