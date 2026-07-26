@@ -138,7 +138,7 @@ func TestCollectStatClaimsFromSectionsMetadata(t *testing.T) {
 		},
 	}
 
-	claims := collectStatClaims(collected, defaultSectionsMetadataField, logger)
+	claims, _ := collectStatClaims(collected, defaultSectionsMetadataField, logger)
 	if len(claims) != 2 {
 		t.Fatalf("expected 2 claims across the two sections, got %d: %+v", len(claims), claims)
 	}
@@ -164,7 +164,7 @@ func TestStatChecksNoOpWithoutSectionsMetadata(t *testing.T) {
 		"wrong type": {"page_content": map[string]interface{}{"response": map[string]interface{}{"sections_metadata": "not-a-list"}}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := collectStatClaims(collected, defaultSectionsMetadataField, logger); len(got) != 0 {
+			if got, _ := collectStatClaims(collected, defaultSectionsMetadataField, logger); len(got) != 0 {
 				t.Fatalf("expected no claims, got %+v", got)
 			}
 			if got := runStatChecks(nil, nil, collected, nil, "", true, true, logger); len(got) != 0 {
@@ -217,5 +217,40 @@ func TestStatChecksHonourConfiguredField(t *testing.T) {
 	config := map[string]interface{}{"sections_metadata_field": "elsewhere"}
 	if got := runStatChecks(nil, nil, collected, config, "", false, true, logger); len(got) != 1 {
 		t.Fatalf("expected the configured field to be read, got %+v", got)
+	}
+}
+
+// TestStatAuditUnavailableIsNotSilence answers the council's medium objection
+// (2026-07-26, bug_historian): a bare nil made "checked, nothing to audit"
+// indistinguishable from "could not check". On a step that DECLARES it builds
+// sections, an absent sections_metadata must surface as a warning that says so.
+func TestStatAuditUnavailableIsNotSilence(t *testing.T) {
+	logger := zap.NewNop()
+	// A page-build-shaped payload that lost its sections metadata.
+	collected := map[string]interface{}{
+		"page_content": map[string]interface{}{
+			"response": map[string]interface{}{"page_html": "<p>hi</p>"},
+		},
+	}
+	cfg := map[string]interface{}{"require_sections_metadata": true}
+
+	got := runStatChecks(nil, nil, collected, cfg, "", true, true, logger)
+	if len(got) != 1 {
+		t.Fatalf("expected one unavailable warning, got %+v", got)
+	}
+	if got[0].Type != "stat_audit_unavailable" || got[0].Severity != "warning" {
+		t.Errorf("want stat_audit_unavailable/warning, got %s/%s", got[0].Type, got[0].Severity)
+	}
+	if !strings.Contains(got[0].Description, "NOT checked") {
+		t.Errorf("the warning must say the figures were not checked, got %q", got[0].Description)
+	}
+	// It must warn, never block — a missing input is not a content defect.
+	if got[0].Severity == "error" || got[0].Severity == "blocker" {
+		t.Error("an unavailable audit must not stop a deploy")
+	}
+
+	// And the other three callers, which do not declare it, stay silent.
+	if got := runStatChecks(nil, nil, collected, nil, "", true, true, logger); len(got) != 0 {
+		t.Fatalf("a step that does not declare sections must stay silent, got %+v", got)
 	}
 }

@@ -52,19 +52,25 @@ import (
 const defaultSectionsMetadataField = "page_content.response.sections_metadata"
 
 // collectStatClaims walks sections_metadata and lifts the stat claims out of
-// every section's content_data. Returns nil when the field is absent or holds
-// nothing usable.
-func collectStatClaims(collected map[string]interface{}, metaField string, logger *zap.Logger) []datahelpers.StatClaim {
+// every section's content_data.
+//
+// The bool reports whether the metadata was USABLE, which is not the same as
+// whether any claims came back. Council objection (2026-07-26, bug_historian,
+// medium): returning a bare nil made "checked, no figures to audit"
+// indistinguishable from "could not check" — the exact shape this whole bug is
+// about, and a violation of this file's own severity rule. The caller turns an
+// unusable-but-expected source into a warning; see requireSectionsMetadata.
+func collectStatClaims(collected map[string]interface{}, metaField string, logger *zap.Logger) ([]datahelpers.StatClaim, bool) {
 	raw := datahelpers.ExtractNestedField(collected, metaField)
 	if raw == nil {
-		return nil
+		return nil, false
 	}
 	sections, ok := raw.([]interface{})
 	if !ok {
 		logger.Debug("validate_page_content: sections_metadata is not a list — skipping the stat audit",
 			zap.String("field", metaField),
 			zap.String("type", fmt.Sprintf("%T", raw)))
-		return nil
+		return nil, false
 	}
 
 	var claims []datahelpers.StatClaim
@@ -86,7 +92,7 @@ func collectStatClaims(collected map[string]interface{}, metaField string, logge
 		}
 		claims = append(claims, datahelpers.ExtractStatClaims(component, cd)...)
 	}
-	return claims
+	return claims, true
 }
 
 // loadEvidenceBaseForStats reports both the parsed evidence base and whether
@@ -191,7 +197,32 @@ func runStatChecks(
 		metaField = mf
 	}
 
-	claims := collectStatClaims(collected, metaField, logger)
+	claims, usable := collectStatClaims(collected, metaField, logger)
+
+	// "Could not check" must not look like "checked and found nothing".
+	//
+	// This gate has four callers and only one of them builds sections
+	// (page-build-handler); tool-recreation, report-builder and content-reviewer
+	// pass a bare HTML blob and must stay silent. So the expectation is
+	// DECLARED per step rather than guessed from the payload shape — a
+	// heuristic here would either false-positive on the other three or go quiet
+	// on the one that matters. page-build-handler's validate_content step sets
+	// require_sections_metadata:true (migration 219).
+	if !usable {
+		if configBoolOrDefault(config, "require_sections_metadata", false) {
+			logger.Warn("validate_page_content: stat audit could not run — sections_metadata absent on a step that declares it",
+				zap.String("field", metaField))
+			return []ValidationIssue{{
+				Type:        "stat_audit_unavailable",
+				Category:    "stat_claims",
+				Severity:    "warning",
+				Location:    metaField,
+				Description: "the stat audit could not run: this step declares require_sections_metadata but no usable sections_metadata arrived, so the page's figures were NOT checked. This is not a clean pass — find out why the section metadata is missing.",
+			}}
+		}
+		return nil
+	}
+
 	if len(claims) == 0 {
 		return nil
 	}
