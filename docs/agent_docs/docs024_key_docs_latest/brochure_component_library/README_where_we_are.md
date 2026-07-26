@@ -463,3 +463,51 @@ republishing as I write, and I'm running a final sweep that visits every page an
 tries every link three times before calling it broken — because I also learned
 today that hammering the site with rapid requests makes it refuse connections,
 which looks exactly like a broken link if you only ask once.
+
+---
+
+**Sunday 26 July — the site is verified sound, and you've green-lit the chart.**
+
+Wrapping up with a proper handoff so this can continue in a fresh chat.
+`HANDOFF_2026-07-26_continue_here.md` is the new starting point; the old one is
+marked superseded so nobody cold-starts from a description of a site that wasn't
+live yet.
+
+The link fix is now genuinely confirmed: every internal link on all seven pages,
+followed on the live site, three attempts each — **43 targets, none broken.** It
+had been twenty-one of twenty-two. The last page published itself while I was
+writing notes, via the queued request rather than either of the two direct
+attempts I'd fired impatiently. Waiting was the right answer for the last half
+hour and I got there late.
+
+**On the decision-record page you asked about.** It's the page your brief calls for
+to back up the strongest claim on the site — that every substantial change is
+independently reviewed before it ships, with a real record. Right now the site
+asserts that and offers nothing to look at, which is the one kind of gap this site
+can't afford.
+
+What it would show is real, and I checked rather than assumed: **156 review
+decisions** recorded since 17 July, **41 changes** whose commit carries the
+reviewer's verdict as a signed-off line, and a spread that includes **seven sent
+back for revision, two vetoed outright, one escalated and one thrown out as
+invalid** alongside nine approvals. That mix is the point. A review record showing
+only approvals reads as marketing; one showing what got rejected reads as a review
+record. It's the same argument as the leopardess self-correction story, but with
+volume behind it.
+
+The reason I haven't built it is that it isn't a technical decision. Publishing it
+means putting our internal objection text and the reviewers' own criticisms of our
+work on a public website. That's yours to weigh — you may want it whole, or
+summarised, or with the objection text redacted to verdicts and dates only. Any of
+those three works technically. Until you decide, the honest options are to build it
+or to soften the sentence that currently promises it.
+
+**The chart component: noted as green-lit and it's now the top build task in the
+handoff.** Two things I've locked in so it doesn't drift. It gets built once, in
+the framework, so leopardess can use it too rather than us building a second one.
+And the numbers come from the verified-facts register, not from the model — the
+model can choose labels and ordering, but it cannot supply a figure. A chart is the
+most convincing place a number can sit, so on a site whose whole pitch is that
+claims are sourced, an invented number in a chart would be the worst possible
+failure. There's already a scoped design for this in the leopardess work, so the
+next session should read that first and coordinate rather than start fresh.
