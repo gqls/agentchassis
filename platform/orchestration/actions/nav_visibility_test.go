@@ -251,6 +251,36 @@ func TestGetNavItemsFetchableVisibility(t *testing.T) {
 		}
 	})
 
+	// GetNavigationStructure must filter too. The first draft of this fix left it
+	// on NavAllItems, reasoning that its only consumer built LLM prompt context.
+	// The council gate's bug_historian seat objected that the claim was unverified
+	// — "exactly the kind of unverified assumption that produced mechanism 2 in
+	// the first place" — and tracing the consumers proved it right: all three
+	// callers serialise into collected_data as db_sync.navigation, which
+	// extractNavItemsForHeader and v3_site_actions read back into a render
+	// context and ship as header HTML. Reverting this to NavAllItems reopens the
+	// bug on that path, and the compiler will NOT catch it, because NavAllItems
+	// is a valid chosen value rather than a missed rename. Hence this test.
+	t.Run("GetNavigationStructure filters, because db_sync.navigation is rendered", func(t *testing.T) {
+		db, mock := newMockDB(t)
+		logger := zap.NewNop()
+
+		mock.ExpectQuery("FROM site_nav_items ni").WillReturnRows(
+			navRows("Home", "/index.html", "Ghost", "/ghost.html"))
+		mock.ExpectQuery(fetchableQuery).WillReturnRows(pageRows("/index.html"))
+
+		nav, err := GetNavigationStructure(ctx, db, siteID, "header", logger)
+		if err != nil {
+			t.Fatalf("GetNavigationStructure: %v", err)
+		}
+		if len(nav.Items) != 1 || nav.Items[0].URL != "/index.html" {
+			t.Fatalf("expected the unbuilt item filtered out, got %+v", nav.Items)
+		}
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	// The /bugs_open/053 gate and this filter must compose: a pre-nav-table
 	// site takes the pages fallback AND still gets its dead links filtered.
 	t.Run("pages fallback is filtered too", func(t *testing.T) {

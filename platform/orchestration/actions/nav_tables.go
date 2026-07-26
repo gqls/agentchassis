@@ -296,12 +296,25 @@ func GetNavigationStructure(
 ) (*NavigationStructure, error) {
 	groupTypes := navTypeToGroupTypes(navType)
 
-	// NavAllItems, deliberately. The only live consumer of this structure is
-	// extractSitemapInfo, which builds LLM PROMPT context — at planning time the
-	// intended sitemap should include pages that are about to be built, because
-	// telling a writer those pages do not exist is worse than naming one that is
-	// coming. Nothing here becomes an <a href> directly.
-	items := GetNavItems(ctx, db, siteID, groupTypes, NavAllItems, 0, logger)
+	// NavFetchableOnly.
+	//
+	// CORRECTED 2026-07-26, before this shipped: the first draft used NavAllItems
+	// on the reasoning that the only live consumer of this structure is
+	// extractSitemapInfo, which builds LLM prompt context. That was wrong, and
+	// the council gate's bug_historian seat caught it — flagging it as "exactly
+	// the kind of unverified assumption that produced mechanism 2 in the first
+	// place". Tracing the consumers proved the objection right: all three callers
+	// (maintenance_actions.go, site_db_actions.go x2) serialise this into
+	// collected_data as db_sync.navigation, and that IS read back into render
+	// contexts — extractNavItemsForHeader (multipage_actions.go) and
+	// v3_site_actions.go's db_sync branch both turn it into ctx.NavItems, which
+	// ships as header HTML.
+	//
+	// So the same structure feeds both a prompt and a page. Where the two
+	// disagree, shipping a 404 is worse than omitting a not-yet-built page from a
+	// writer's context, so it is filtered. The first-build case is handled inside
+	// GetNavItems, which degrades rather than emptying.
+	items := GetNavItems(ctx, db, siteID, groupTypes, NavFetchableOnly, 0, logger)
 
 	nav := &NavigationStructure{
 		Items: make([]NavigationItem, len(items)),
