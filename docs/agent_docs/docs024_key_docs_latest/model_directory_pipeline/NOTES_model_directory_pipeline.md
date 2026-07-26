@@ -729,3 +729,43 @@ own claim.**
   silently reverts — the substance stands — but "the link just stops being
   there" overstated it. No log/WARN exists on the demotion, so the
   no-logging half was correct.
+
+---
+
+**2026-07-26 — PHASE E SITE ACTIVATION (image arrived via another session's
+roll).** Overnight sweep: publish leg healthy (JSON refreshed 08:24), aao's 35
+header re-renders fully drained, freshness sweep fired 09:30 with 0 re-verified
+— correct, nothing is due yet (youngest staleness window is 30 days and the
+register is four days old; the mechanism itself was fault-proven on 07-25).
+Chassis now v1.0.1165 — several rolls since `f1dafb6e4`, and the discriminating
+pod-grep says Phase E's read/publish/discovery legs are LIVE (created-strings
+present, controls clean).
+
+Activation, in order, each verified before the next:
+1. **Migration 215** (checks 25→29, the four tracker check names) — applied +
+   ledger-recorded (`schema_migrations` keys on `filename`, not version — the
+   first INSERT failed on a column that doesn't exist; read the schema, then
+   write).
+2. **Four components seeded** (adoption-tracker ×2, protocol-tracker ×2), all
+   `section`-level, dual-layer, createElement/textContent, and — 072 applied —
+   every one carries its OWN `<style>` block. Caught my own seed repeating the
+   072 class on dry-run: the protocol snippet originally said "styles shared
+   with adoption-card (the listing carries the block)" — shared-by-co-location
+   is exactly how a component renders bare the day it lands on a page alone.
+   Fixed before apply.
+3. **aao opted in**: classification superseded (SELECTed first), new current
+   row adds `adoption_tracker` + `protocol_tracker` {recommended, separate_page};
+   siblings news_feed/model_directory verified carried.
+4. **Publisher extended** to a 7-step chain (model→company→protocol, each
+   render+commit pair; git_commit reads ONE files_field so chaining beats
+   merging). Snapshot v2 taken first — and `agent_definitions` has a
+   (type,version) unique key, so a snapshot INSERT must claim max(version)+1;
+   the bare copy collided.
+5. **Discovery dispatched** via a ONE-SHOT scheduled task (scheduler fireTrigger
+   is the dispatch path that demonstrably works; direct kcat was 0/5 on 07-25)
+   — fired 13:39:48, watcher on the items.
+
+Next when items land: triage the two PAGE items ONLY. The two SECTION items
+stay `detected` deliberately — a homepage section needs an index rebuild, which
+bugs_open/073 makes deterministically fatal on aao; a triaged section item
+would burn its three attempts against a known wall.
