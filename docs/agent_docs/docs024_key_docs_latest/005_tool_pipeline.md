@@ -9,12 +9,22 @@ Tool suggestion, generation, deployment, cross-linking, and content integration.
 The complete tool pipeline works end-to-end autonomously:
 
 ```
-check_missing_tools → evaluate_tools → tool-suggester (LLM + routing + cross-linking)
-  → tool-generator / tool-deployer (component + page + nav + guide)
-  → create_cross_links (content_rewrite items for related pages)
+check_missing_tools → evaluate_tools → tool-suggester (LLM + routing; related_pages travel
+                                                       on the add_tool item spec)
+  → tool-generator / tool-deployer (component + page + nav + guide
+                                    + cross-link content_rewrite items, using the page's
+                                      REAL url and gated on it going live)
   → build-dispatch-loop → page-build-handler → page-content-writer (with rewrite_guidance)
   → page-rerender → deployed with tool references in HTML
 ```
+
+> **CORRECTED 2026-07-26 (bugs_open/029).** This flow used to show a `create_cross_links`
+> step on tool-suggester, emitting the cross-link items at SUGGESTION time. That step is
+> deleted (migration 211) because it constructed the tool page's URL as
+> `/tools/{function}.html` — a URL the platform never produces consistently (three shapes
+> exist), and one that cannot be looked up before the page row is created. **0 of 27 items
+> emitted that way resolved to a real page.** The emit now happens inside the two build
+> actions, which hold the `pages.url` they just wrote.
 
 All deployed sites have tools. Tool links land in content pages via cross-linking. Novel tool generation, library forking, companion guides, nav entries, and content rewriting all work without manual intervention.
 
@@ -27,7 +37,8 @@ All deployed sites have tools. Tool links land in content pages via cross-linkin
 | Migration | What it does |
 |-----------|-------------|
 | 070 | tool-suggester routing: `check_is_library` conditional routes library tools to tool-deployer, novel tools to tool-generator |
-| 071 | tool-suggester cross-linking: `related_pages` in LLM schema, instruction 6, `create_cross_links` step after `create_items_loop` |
+| 071 | tool-suggester cross-linking: `related_pages` in LLM schema, instruction 6, `create_cross_links` step after `create_items_loop` — **the step is REMOVED by 211**; `related_pages` in the schema stays and is what the build path reads |
+| 211 | bugs_open/029: delete `create_cross_links`; wire `related_pages` into `deploy_tool`/`save_tool` so the BUILD emits the cross-links with the real URL |
 | 072 | Rewrite guidance threading: `rewrite_guidance?` in page-build-handler input_mapping, `rewrite_guidance` in page-content-writer's nested prompt |
 | 073 | Tightened `created_from` constraint: removed `'tool-generator'`, migrated rows to `'generated'` |
 | — | content-quality-auditor: fixed `check_empty_pages` GROUP BY (added `p.id`) |
@@ -39,7 +50,7 @@ All deployed sites have tools. Tool links land in content pages via cross-linkin
 |--------|------|---------|
 | `deploy_tool_to_site` | `deploy_tool_action.go` | Fork library tool, create page + content sections + companion guide |
 | `create_tool_component` | `create_tool_component_action.go` | Novel tool from LLM HTML: component, page, page_component (rendered_html at position 2), nav entry, content work items, companion guide |
-| `create_tool_cross_link_items` | `create_tool_cross_link_items.go` | Create `content_rewrite` items for related pages. Includes `page_name` in spec (for dispatch loop mapping). Filters out `tool-` prefixed pages. |
+| `create_tool_cross_link_items` | `create_tool_cross_link_items.go` | **No longer the emitter (bugs_open/029).** Holds `emitToolCrossLinkItems`, called by the two build actions with the tool page's real `pages.url`. The action itself is kept registered but fail-safe: it resolves the tool to a real page and emits nothing when there is none, so a stale config naming it cannot fabricate. |
 | `update_component_html` | `update_component_html_action.go` | Update tool HTML with optional version snapshot |
 
 ### Discovery Checks
@@ -55,7 +66,7 @@ All deployed sites have tools. Tool links land in content pages via cross-linkin
 
 ### Cross-Linking Flow
 
-tool-suggester's LLM now returns `related_pages` per suggestion (1-3 page names). After `create_items_loop`, the `create_cross_links` step calls `create_tool_cross_link_items`, which:
+tool-suggester's LLM returns `related_pages` per suggestion (1-3 page names), which travel on the `add_tool` work item spec. The **build** action for that tool (`deploy_tool_to_site` or `create_tool_component`) then calls `emitToolCrossLinkItems`, which:
 
 1. Loads page map (name → ID) for the site
 2. Iterates suggestions, extracts `related_pages` arrays
@@ -63,6 +74,12 @@ tool-suggester's LLM now returns `related_pages` per suggestion (1-3 page names)
 4. Creates `content_rewrite` work items with `page_name` in spec and `suggestion` containing natural-language guidance for the content writer
 5. Dedup via `item_key = tool_crosslink:{function}:{page}:{site}`
 6. Priority 110 (low urgency — cross-links are additive, not blocking)
+7. **Takes the tool page's real `pages.url`** — never constructs one — and refuses to emit if
+   handed anything that is not an absolute path
+8. **Gates on the page going live**: emits immediately only when the tool page is
+   `deployed`/`needs_rebuild`; otherwise `depends_on` = the open `needs_content_page` item for
+   that page. No open item (or a terminally failed one) → nothing is emitted. A tool page that
+   never deploys therefore leaves parked items rather than a live 404.
 
 ### Rewrite Guidance Threading
 
