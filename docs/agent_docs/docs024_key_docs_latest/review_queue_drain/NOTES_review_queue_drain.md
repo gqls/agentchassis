@@ -314,3 +314,31 @@ build loop, rebuilding and re-failing the same page on the same blocker while
 burning credits. That is a design piece with its own diagnosis and council round.
 Recorded here and in `bugs_open/033` as the next work, with the seams named so
 nobody has to find them again.
+
+### Diagnosis run c19ed5b2 — completed, produced NO verdict
+
+Filed at 17:06 to grade the structural claim about `ON CONFLICT DO NOTHING`
+leaving no record of a re-confirmed finding. The intake item went `complete` at
+17:48 with no error, and the run wrote **5 bundles and zero verdict artifacts**:
+
+```sql
+SELECT kind, count(*) FROM diagnosis_artifacts
+WHERE correlation_id='c19ed5b2-6d53-492a-af91-e78e175591d5' GROUP BY 1;
+--  bundle | 5
+```
+
+Last bundle: `symbol_count: 2, symbols_in_scope: 2, truncated: false` — so it
+resolved both symbols I pointed it at and had the code in hand; it simply never
+graded. Same family as `bugs_open/043` (diagnosis runs that complete without a
+verdict). **No verdict is not a refutation and not a confirmation** — the claim
+was ungraded, and saying "the loop agreed" would be exactly the kind of
+unearned-confidence move this thread has already logged once today.
+
+What settled it instead was reading the producers directly, which I had to do
+anyway to answer the council's `bug_historian` objection: `insertWorkItem`
+returns `ok=false` on a dedup conflict and `RunDiscoveryChecksAction` adds that
+to a local `skipped` counter and nothing else (`discovery_checks.go:166`) — no
+column, no jsonb key, no log row on the item. So the claim holds, **verified by
+reading, not by the loop.** Cost of the run: one queue slot and ~40 minutes, for
+nothing. Worth knowing before reaching for it on a claim you can settle by
+opening two files.
