@@ -459,3 +459,59 @@ the verdict that actually judged it.
 primitive) and the report CSS + drift guards (`5eb433e47`). Both were built
 after the round-3 plan was written. A core workflow-control action in
 particular should get its own round before anyone attaches a trailer to it.
+
+## 2026-07-26 — coherence check (owner asked): the island half was about to fork the estate
+
+Owner asked how this integrates with the other site tools and the plans for
+them. Checked rather than reasoned about, and it caught a live collision.
+
+**The finding.** The DESIGN's island half is 48 hours stale. It was written
+when the island held only Postgres + Caddy; **tools-api shipped 2026-07-25**
+and is live as `docker.io/aqls/tools-api:v1.0.1163`.
+- `internal/tools-api/api/server.go:23` → routes mount at
+  **`/api/v1/tools/<tool>`** — a namespace built for MULTIPLE tools.
+- `internal/tools-api/store/sites.go` → CORS resolves per request against the
+  island's own `sites` table: **multi-site by design**, not gauntlet-specific.
+- Shared `RateLimitMiddleware` + `InputCapMiddleware` + one pgx pool + one
+  Anthropic key already exist there.
+- Island `Caddyfile` forwards **`/api/v1/tools/*` and nothing else**.
+
+**So `cmd/gripper-intake/` as a second service was wrong**, and would have been
+the *fourth* VM fork — the `vm_estate` PLAN independently warns: *"A third
+divergence is being born in the island's compose/Caddyfile. Left alone this
+becomes four."* Two threads reached that conclusion from opposite directions.
+
+**Already-committed defect, found by this check:** seed 208 sets
+`base_url = https://tools.apis.uk/api/gripper/v1`. The island Caddy allowlist
+would **404** that path, so `pull_report_requests` would fail every tick with a
+`returned 404` per site. Not applied yet → nothing broken in production, but
+the committed value is wrong. Corrected target:
+`https://tools.apis.uk/api/v1/tools/gripper`.
+[UNVERIFIED: not re-tested end to end — the island route does not exist yet.]
+
+**What survives unchanged:** everything in DESIGN §2 that describes BEHAVIOUR
+(chat contract, honeypot + timing gates, status-sidecar polling, degraded mode,
+retention, "email never leaves the island"). Behaviour ports into a route
+group; only the packaging was wrong.
+
+**What tools-api genuinely lacks** and must GAIN rather than have forked around
+it: an SMTP mailer (it has none; only idea.uk's VM app has a working one in the
+whole estate), the report-status poller, and the `/requests` pull endpoint.
+
+**The wider coherence picture** (for `README_where_we_are`): 30 Tier-1 tools
+live across 10 sites, all client-side, no backend. The dossier is the first
+Tier-3 and composes robot-hands' own Tier-1 physics server-side — that is the
+funnel working as designed. The real scaling risk is `score_grippers`: it is
+**site-specific Go**, and a Tier-3 per site that each needs bespoke Go does not
+reach 1,000 sites. The request→work→email-a-link journey now exists in idea.uk's
+VM app and is being rebuilt here — the third implementation — which is exactly
+what the **experience register** exists to stop, and the gauntlet became its
+first harvest today. The dossier should be its second.
+
+### Next (revised)
+1. **Do not write `cmd/gripper-intake/`.** Build `/api/v1/tools/gripper` in
+   `internal/tools-api/handlers/` instead; re-seed 208's base_url.
+2. Coordinate with the gauntlet thread before touching tools-api — they own it
+   and have `bugs_open/083` open against its error handling.
+3. Everything cluster-side is unaffected and still stands (approved, committed,
+   inert until the roll).

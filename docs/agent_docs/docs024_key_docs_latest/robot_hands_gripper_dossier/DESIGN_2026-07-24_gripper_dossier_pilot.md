@@ -23,7 +23,49 @@ the public never touches the cluster.
 
 ## 2. Island + site half
 
-**Service** `cmd/gripper-intake/` (flat package main, idea.uk shape):
+> ### **CORRECTED 2026-07-26 — DO NOT BUILD `cmd/gripper-intake/` AS A SEPARATE SERVICE.**
+>
+> This section was written 2026-07-24, when the island held only Postgres +
+> Caddy and no engine. **The engine shipped 2026-07-25.** Verified live today:
+> - `cmd/tools-api/` + `internal/tools-api/` are **already in this repo**, live
+>   on the island as `docker.io/aqls/tools-api:v1.0.1163`.
+> - `internal/tools-api/api/server.go:23` mounts at **`/api/v1/tools/<tool>`**
+>   (`…/gauntlet` today) — a namespace built for MULTIPLE tools — with CORS
+>   resolved per request from the island's own `sites` table (multi-SITE by
+>   design), shared rate-limit + body-cap middleware, and one Postgres pool.
+> - The island Caddyfile forwards **`/api/v1/tools/*` and nothing else**:
+>   *"everything else 404"*.
+>
+> **Two consequences, one already committed and wrong:**
+> 1. A second service (own DB `gripper_intake`, own Anthropic key, own rate
+>    limiter, own CORS, own Caddy route `/api/gripper/*` → :8090) would
+>    duplicate every piece of infrastructure tools-api already provides, on a
+>    1-core/2GB VM. The `vm_estate` thread independently warns the estate is
+>    already two divergent forks with *"a third divergence being born in the
+>    island's compose/Caddyfile. Left alone this becomes four."* This is that
+>    fourth.
+> 2. **Seed 208 (committed) sets `base_url` to
+>    `https://tools.apis.uk/api/gripper/v1` — a path the island's Caddy
+>    allowlist would 404**, so the pull would fail on every tick. NOT yet
+>    applied, so nothing is broken; the committed value is simply wrong.
+>
+> **Corrected shape:** the intake is a route group **`/api/v1/tools/gripper`
+> inside the existing tools-api**, sharing its sites/CORS table, rate limiting,
+> body cap, Postgres and Anthropic key. `base_url` →
+> `https://tools.apis.uk/api/v1/tools/gripper`.
+>
+> **What is genuinely NOT in tools-api yet** — add it THERE, do not fork:
+> (a) an SMTP mailer (tools-api has none; the only working reference in the
+> estate is idea.uk's VM app); (b) the report-status poller; (c) the
+> `/requests` pull endpoint the cluster reads. `GAUNTLET_MODEL` should
+> generalise to per-tool model config as part of this.
+>
+> The rest of this section (chat contract, honeypot/timing gates, status
+> polling, degraded mode, retention) stands — it describes BEHAVIOUR, which
+> ports unchanged into a tools-api route group.
+
+**Service** ~~`cmd/gripper-intake/`~~ **(SUPERSEDED — see the correction above;
+build as a `tools-api` route group)** (flat package main, idea.uk shape):
 main / service (mux, handlers, CORS) / chat (raw Anthropic client, system
 prompt, structured-output schema, spec merge, caps) / store (guarded status
 transitions `UPDATE … WHERE status=$expected`) / ratelimit (banded per-IP,
