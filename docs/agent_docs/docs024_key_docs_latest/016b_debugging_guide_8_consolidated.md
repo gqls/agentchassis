@@ -4114,3 +4114,82 @@ The transferable rules:
   was a real parse that reports the split — and a lint written to report a
   *different* shape than the migration swept, which found one more defect on
   its first run.
+
+### A finding that outlives the state it describes is indistinguishable from a live one — a queue with no re-validation cannot be worked, however visible you make it (2026-07-25)
+
+Found closing the drain half of `bugs_open/033`. That bug's first act was a
+visibility fix: `HandleListWorkItems` capped reads at 50 rows and the dashboard
+filtered that window client-side, so a 208-item review queue reported itself as
+**empty**. Fixed and deployed 2026-07-20, plus VPN access so the surface was
+genuinely reachable.
+
+Five days later: the queue had grown from 303 to **370** and **not one item had
+ever been actioned** — `approved_by` NULL on all 5,600+ rows, no row carrying
+`result->>'resolved_by'='admin'`. Making the backlog visible changed nothing,
+which is the interesting part: the obvious follow-up ("build a better UI", "add
+bulk actions") would also have changed nothing.
+
+**The measurement that explains it.** 321 of the 370 parked items describe a page
+that has been REDEPLOYED since the item was filed:
+
+```sql
+SELECT count(*) FILTER (WHERE EXISTS (
+  SELECT 1 FROM pages p
+  WHERE p.site_id=w.site_id AND p.name = w.spec->>'page_name'
+    AND p.deployed_at IS NOT NULL AND p.deployed_at > w.created_at))
+FROM site_work_items w WHERE w.status='needs_human_review';
+```
+
+Proven on one page rather than argued: `leopardessconsulting.co.uk/how-we-work`
+carried two `unresolved_cta` items parked 07-10 saying its hero and CTA had no
+destination for `cta_url`/`secondary_cta_url`; the page redeployed 07-18 with
+every one of those fields populated. Both items still sat in the queue saying
+otherwise.
+
+**Why nothing could tell.** Findings are written by discovery checks through
+`insertWorkItem`, which inserts `ON CONFLICT (site_id, item_key) … DO NOTHING`,
+and `RunDiscoveryChecksAction` adds a suppressed insert to a local `skipped`
+counter and nothing else. So when a check runs again and **re-confirms** a
+still-open finding, no column, no jsonb key and no log row on that item changes.
+A re-confirmed finding and an abandoned one are byte-identical. The dedup key
+that stops duplicate rows also destroys the only signal that would say "still
+true".
+
+**The transferable shape.** Any queue of *findings about mutable state* needs one
+of two things or it is unworkable regardless of its UI:
+
+- a **re-validation pass** that re-derives each finding from current state and
+  either closes it or re-stamps it; or
+- a **re-confirmation heartbeat** on the row, so suppression by dedup leaves a
+  trace instead of silence.
+
+Without either, item age tells you nothing, the count tells you nothing, and the
+rational response to opening the queue is to close it again. Note the failure is
+invisible to every check that normally catches things: nothing errors, no status
+is wrong, every row is well-formed, and the producers are all behaving correctly.
+
+**Two traps met while building the re-validation pass, both worth their own line.**
+
+1. **Do not key re-validation on a stored `component_id`.**
+   `page_components.id` is not stable across re-renders. Keyed on
+   `spec->>'component_id'`, 30 of 30 parked `needs_section_data` items and 11 of
+   45 `required_fields_missing` items resolve to a component that no longer
+   exists — which reads as "the target was deleted" when the section is right
+   there under a new row id. Key on `(page_name, slot_name)`. **The tell was the
+   number being too clean:** 30/30 is a join bug, not a defect signature.
+2. **`content_data IS NULL` does not mean the slot is gone.** The row exists and
+   renders from a template, a DERIVED source or a static fallback (31 of 45
+   `required_fields_missing`). `content_data` cannot answer the question for
+   those, so the honest verdict is `unknown` — not `resolved`.
+
+**And the argument, not just the code, needs evidence.** The safety case for
+auto-closing was: closing releases the dedup key, so a wrong close costs one
+re-raise and can never lose a finding. The council gate objected that this was
+asserted rather than measured, and it was right. Checking it: the producers do
+re-insert on a released key, but they fire on a **page build** or a discovery
+pass, never on a timer — so a page never rebuilt again never re-raises, and a
+wrong close there IS a silent loss. Across the platform's whole history only 8
+items of the three covered types had ever reached a terminal status (zero of 70
+`unresolved_cta`), so the recovery path was essentially untested. **A recovery
+mechanism nobody has ever observed working is a design intention, not a safety
+net** — say which one you have.
