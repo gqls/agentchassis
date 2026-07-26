@@ -1,6 +1,19 @@
 # BUG 071 — agent-job-cleanup deletes LIVE job.* topics: its "any spawned pods running?" guard has never matched a pod
 
-**Filed:** 2026-07-25 · gauntlet_dead_cta / feature-builder B4 shakeout · **OPEN (guard + tombstone fully live-proven 2026-07-26, both branches; residual 1 in v1.0.1165 [INFERRED], behavioural proof = next spawned Job's template label; then remaining: dedicated-SA refactor, 003-family re-attribution)**
+**Filed:** 2026-07-25 · gauntlet_dead_cta / feature-builder B4 shakeout ·
+**CLOSED 2026-07-26 ~13:36Z — every shipped fix verified live.** Guard
+live-proven 07-25; tombstone live-proven BOTH branches 07-26 (idle tick
+deleted 2-of-2 on the second consecutive idle observation); pod-template
+label live-proven 07-26 13:35Z: Job `agent-code-indexer-9cc5be96` (spawned by
+chassis v1.0.1165) carries `spawned-by: orchestrator` in its pod template and
+its running pod is the FIRST in the platform's history to match
+`kubectl get pods -l spawned-by`. Council trail `d0fcf7ef` APPROVED (round 3).
+Non-blocking notes carried below: remote-job-spawner path label is
+[INFERRED, same v1.0.1165 build] until a remote spawn is observed
+(check: that Job's `.spec.template.metadata.labels.spawned-by` =
+`remote-job-spawner`); dedicated-SA least-privilege refactor is recorded
+hardening, not a reproduction path; 003-family re-attribution stays with
+bugs_open/003.
 **Severity:** critical — every 10 minutes, the cleanup cronjob deleted every
 `job.*` Kafka topic in the cluster, including request/response topics under
 agents that were mid-run. Long-running spawned agents (feature-implementer,
