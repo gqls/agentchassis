@@ -3,9 +3,10 @@
 > ## ▶ START HERE — state as of 2026-07-26 21:15 UTC (supersedes everything below)
 >
 > **The site is complete, the box is healthy, the report format is proven, and every queued deploy
-> has shipped.** Three deploys went out this evening: the automatic order expiry that this file
+> has shipped.** Four deploys went out this evening: the automatic order expiry that this file
 > used to call the top job, plus two security fixes found while preparing it, plus three copy
-> fixes found by reading a real report.
+> fixes found by reading a real report, plus the move of the report engine onto the Claude 5
+> family (`claude-opus-5` / `claude-sonnet-5` — see Open item 2, which is now done).
 >
 > **THE ONE THING OUTSTANDING IS A HUMAN ACTION — and it is the last unproven step in the whole
 > product.** `ord_1785090638951163875` sits in `awaiting_payment` with a live Stripe
@@ -49,9 +50,10 @@
 > both attacks re-run against the final binary and refused.
 >
 > Rollbacks kept, newest last: `idea.prev-2026-07-25` · `idea.prev-2026-07-26-089only` ·
-> `idea.prev-2026-07-26-089-090`. Orders backed up before each deploy
-> (`orders.json.bak-2026-07-26-predeploy`, `…2`, `…3`). 73 orders intact throughout; the pending
-> order kept its status, its 10,109-char report and its Stripe session across two restarts.
+> `idea.prev-2026-07-26-089-090` · `idea.prev-2026-07-26-opus48` (the last pre-5-family binary).
+> Orders backed up before each deploy (`orders.json.bak-2026-07-26-predeploy`, `…2`, `…3`, `…4`).
+> 73 orders intact throughout; the pending order kept its status, its 10,109-char report and its
+> Stripe session across every restart.
 >
 > ### What the run told us that the format proof could not
 >
