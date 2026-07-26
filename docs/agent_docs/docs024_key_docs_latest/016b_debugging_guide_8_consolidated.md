@@ -5165,6 +5165,36 @@ what the failure WROTE.** Resolve a verdict once and reuse the variable; a log
 line and a behaviour computed separately from the same inputs will eventually
 disagree.
 
+**APPENDED 2026-07-26 evening — the runtime precondition is the floor, and the
+same predicate over the CONFIG is nearly free.** A guard that refuses at the
+moment of truncation only speaks in production, by failing a run; the bad config
+can sit in the fleet for weeks first. The identical question — *does this
+workflow contain a reader?* — asked of `agent_definitions` catches it before any
+run exists. Three things that generalise to any such pair:
+
+- **There may be no "registration time" to hook.** DB config is live the instant
+  it is written: no build, no deploy, no restart. So the static layer is a check
+  someone (or something) *runs*, not a gate config passes through. Wire it where
+  config actually lands — here, a pointer at the end of the migration runner and
+  a check at commit time — and accept that it is advisory.
+- **A static checker must read the registry from the SOURCE, never copy it.** The
+  obvious query hard-codes the action names; that copy does not fail loudly when
+  it falls behind, it reports a clean fleet that is not clean. Parse the Go, and
+  make the parser *raise* rather than fall back to a remembered list. Note the
+  asymmetry: for the runtime guard a missing registry entry fails closed, but for
+  a checker it produces FALSE offenders on correct workflows — the direction that
+  gets checks disabled.
+- **A file-level static check can only judge what the file contains.** All three
+  seeds that arm this flag are `jsonb_set` patches whose target workflow lives in
+  the DB; a textual check over them would have flagged three correct files on day
+  one. Scope the commit-time check to files that embed the workflow, and let the
+  live lint own the rest.
+
+And the verification trap this class carries: **on a healthy fleet the static
+check prints "clean", which is exactly what a completely broken one prints.**
+Fixtures and an *induced* offender (seeded, flagged, deleted) are the evidence; a
+clean run is not. Instance and both checks: `bugs_closed/076` §R1.
+
 ### A test affordance selected by REQUEST DATA is a production authorisation hole
 
 **Symptom.** A production endpoint skips a real-world step — payment, auth, rate
