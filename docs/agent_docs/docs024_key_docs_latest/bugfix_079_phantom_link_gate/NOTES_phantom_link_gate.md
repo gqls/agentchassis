@@ -160,3 +160,51 @@ multi-session hazard this repo has a whole handoff about.
    `bugs_closed/README.md` already lists doubled numbers as a standing trap. **Checking a
    number is free is not the same as reserving it**; on a busy day the check is stale before
    you finish writing the file. Cheap to undo at 67 seconds old, permanent if left.
+
+## 2026-07-26 21:1x–21:3xZ — LIVE in v1.0.1171; first induction attempt died before reaching the code
+
+Another session's build rolled `v1.0.1171` and it carries this fix. Pod-grep against the
+baseline recorded above — this is the discriminating pair, not a bare grep:
+
+| string | pre-roll (v1.0.1170) | post-roll (v1.0.1171) |
+|---|---|---|
+| `CONTENT_LINK_REPAIR_DETAIL` (new) | 0 | **1** |
+| `repair_internal_links` (new) | 0 | **1** |
+| `link check and repair SKIPPED` (new) | 0 | **3** |
+| `CONTENT_VALIDATION_BLOCKER_DETAIL` (control) | 2 | 2 |
+
+**A marker I nearly used and did not:** "the old policy comment `improvement loop resolves it` is
+gone" reads 0 on both binaries — **comments are not compiled into the binary**, so it can never be
+anything but 0 and proves nothing whatsoever. It is the same vacuous-marker shape already logged
+against `052`. Only compiled strings — error codes, config keys, log messages — discriminate.
+
+### The induction, attempt 1: FAILED before it reached the gate
+
+Dispatched `page-build-handler` for `webdesign.co.uk / learn-design-digital-grain`
+(corr `a1dfbf68`). Result:
+
+```
+FAILED | spawn_content_writer | Request 295ff5da-… timed out after 3 retries
+```
+
+It never got as far as `validate_content`, so **it proves nothing about the fix either way** —
+neither that it works nor that it does not. Recording it because a failed run that never reached
+your code is the easiest thing in the world to quietly discount, and the temptation is to treat
+"no contradiction" as "confirmation".
+
+Checked whether it was systemic before retrying rather than assuming: **1** spawn timeout
+fleet-wide in 2 hours (mine), 8 orchestrations in flight. So not saturation. Not within 300s of a
+pod restart either (pod up 21:02:56Z, dispatch ~21:14:55Z). Cause unresolved — plausibly the
+`bugs_open/003` spawn-loss class. Retried as corr `df7437f2`.
+
+### Two route findings worth keeping
+
+1. **The work-item dispatcher is PER-SITE** — `load_work_item_actions.go:559`,
+   `WHERE wi.site_id = $1 AND wi.status IN ('triaged','approved')`. A `triaged` row therefore sits
+   untouched indefinitely until something triggers *that site's* build pipeline. Inserting a work
+   item is not dispatching it. To exercise one page, publish to `page-build-handler` directly by
+   kcat (envelope in the RUNBOOK).
+2. **`page-rebuild` and `page-rerender` do NOT call `validate_page_content`.** Only
+   `page-build-handler`, `content-reviewer`, `tool-recreation-handler` and `report-builder` do.
+   The obvious-looking `TRIGGER_rerender_page.sh` would have run green and tested nothing —
+   the "verify the failing branch" trap wearing a convenient disguise.
