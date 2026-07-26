@@ -1,6 +1,7 @@
 # 030 — Every orchestration dispatch queues behind every other: one partition, one consumer, ~25–36 min latency
 
-**Filed:** 2026-07-19 · **Branch:** `085_debug_and_feature_loops` · **Status:** OPEN, not started
+**Filed:** 2026-07-19 · **Branch:** `085_debug_and_feature_loops` · **Status: CLOSED & LIVE 2026-07-26** (see the closing section at the foot of this file)
+> **Closed on measured behaviour, over a contested council verdict — read both.** The defect is fixed and live: publish→run went from ~18 min to ~1 s for the same submission through the same council one day apart, and cron still runs on its own lane. The *implementation* carries a **guardian VETO** (round 2b, corr `f47c2305`): no defect was found, the objection is that the fix edits foundational chassis plumbing when a higher-layer fix should be ruled out first — and the one alternative it named was checked and does not exist (`cmd/scheduler` has no Kubernetes capability at all; a `job.*` topic is only consumed by a pod the chassis spawns). **No `Council-Reviewed:` trailer is claimed on any commit here.** If the owner prefers the layering argument, the reversal is one `UPDATE` plus removing one env var — seconds, no rebuild, RUNBOOK R9.
 **Severity:** medium-high — not a data-corruption bug; it is a **latency and diagnosability** bug that
 wastes sessions' time, has already caused at least two threads to misdiagnose a delay as a failure,
 and gets worse the more sessions work concurrently.
