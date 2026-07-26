@@ -117,3 +117,46 @@ Now returns `(index, ok)`; both detection and repair are skipped when not ok. A 
 `pages.url` is skipped rather than treated as a load failure — checked the live data first
 (0 NULLs across 408 active pages today), but the column is nullable, and treating one
 malformed row as "list untrustworthy" would disable link checking for that whole site.
+
+## 2026-07-26 — committed, submitted, NOT live; and two multi-session collisions
+
+Committed `43f254be5` (code + tests + docs; scope report clean, 7 files, no passengers) and
+`31d8ac7dc` (gofmt — the pre-commit pattern check caught a struct-tag misalignment that the
+build gate would have rejected in CI).
+
+Council submitted: **`SUBMISSION_CORR = 97904892-5c09-4782-aeda-37dd944abdfc`**. All six
+`grounded_in` quotes machine-verified byte-identical against the pre-fix file (`git show
+f804b84ed:…`) before submitting — a trimmed quote manufactured a false MEDIUM objection on a
+previous run, and reviewers cannot open the file to check. No orchestration row after 15
+minutes; that is the documented queue latency, **not** a dropped dispatch. Not resubmitting.
+
+**Live state, measured not assumed.** The chassis pod runs `v1.0.1170`, built by another
+session while I worked, and it does **not** carry this fix:
+
+```
+strings /app/agent-chassis | grep -c "CONTENT_LINK_REPAIR_DETAIL"     -> 0   (my new string)
+strings /app/agent-chassis | grep -c "CONTENT_VALIDATION_BLOCKER_DETAIL" -> 2   (positive control)
+strings /app/agent-chassis | grep -c "repair_internal_links"          -> 0   (my new config key)
+```
+
+That is a *discriminating* pre-state, which is the point of running it before the roll: the
+control proves the grep works, and the two zeros prove the fix is absent. Post-roll the same
+three commands must read ≥1, ≥1, ≥1. **079 therefore stays OPEN** — the bar is fixed AND
+live, and the defect is still reproducible in production until an image ships.
+
+Build held: the owner reported another thread mid-deploy, and racing on `IMAGE_TAG` is the
+multi-session hazard this repo has a whole handoff about.
+
+### Two collisions, both while this task was in flight
+
+1. **My `016b` §9 append was swept into another session's commit** (`d5988a8ed`, a
+   `bugs_open/006` closure) before I could commit it. Nothing lost, forward-only holds. This
+   is precisely the case CLAUDE.md documents — commit-per-task stops *me* sweeping *others*,
+   and cannot stop a session running `git add -A` from sweeping *me*. The only real defence
+   is committing sooner, and I had a ~4-minute window open.
+2. **Number collision on a fresh bug file.** I checked, found 090 free, wrote the file — and
+   another session filed *their* 090 sixty-seven seconds before my commit landed. Renumbered
+   mine to `092` (`cf2cafcdd`) rather than leave a sixth doubled number in a scheme where
+   `bugs_closed/README.md` already lists doubled numbers as a standing trap. **Checking a
+   number is free is not the same as reserving it**; on a busy day the check is stale before
+   you finish writing the file. Cheap to undo at 67 seconds old, permanent if left.
