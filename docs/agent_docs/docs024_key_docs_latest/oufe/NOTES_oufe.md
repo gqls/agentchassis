@@ -557,3 +557,38 @@ Migration 225 fixes all three: a `load_evidence` step reads the register back so
 the composer and the auditor both see the claims themselves; the audit cap goes to
 12000 and its prompt asks only for problems rather than an enumeration; and the
 audit can no longer fail the run.
+
+### Run 2 died to a chassis roll — a clean instance of bugs_open/003
+
+Corr `2363dbb7` froze at `extract_claims` and never moved again. The timing
+settles it without ambiguity:
+
+```
+orchestration last updated : 2026-07-26 21:02:53.988+00
+new chassis pod started    : 2026-07-26 21:02:56Z   (5b4456686c, replacing 76745d8f45)
+```
+Another session rolled the image ~3 seconds after my run entered its first LLM
+step. The in-flight awaited response died with the old pod — **bugs_open/003
+spawn loss**, not a defect in the lane.
+
+Worth recording as an operational fact rather than a grievance: on a shared
+cluster, any multi-minute orchestration is exposed to any other session's deploy,
+and there is no signal at the time. The symptom is a step whose `updated_at`
+simply stops. **`now() - updated_at` against pod `startTime` is the two-line
+diagnosis**, and it is much faster than reading logs:
+
+```sql
+SELECT current_step, now()-updated_at AS since_update
+  FROM orchestration_states WHERE correlation_id='<corr>'::uuid;
+```
+```bash
+kubectl -n ai-persona-system get pod -l app=agent-chassis \
+  -o jsonpath='{.items[*].status.startTime}'
+```
+A `since_update` that exceeds the pod's age means the work predates the pod that
+would have to finish it. Re-fire; nothing is recoverable.
+
+Note this also means **the earlier successful run's 14 verified citations
+survived** — they were written to `evidence_base` at the time, and a lost
+orchestration does not roll them back. The register is the durable artefact, not
+the run.
