@@ -1,4 +1,5 @@
 # Comprehensive Makefile for Agent-Managed Microservices
+# date; make release redeploy-agents  ENVIRONMENT=production REGION=uk001; date
 
 # Load environment variables from .env file
 include .env
@@ -13,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1164
+IMAGE_TAG ?= v1.0.1166
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
