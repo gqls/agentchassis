@@ -427,3 +427,81 @@ git-adapter commits and the GitHub Action syncs to B2 independently of the
 orchestration closing its loop, so **the orchestration status is not the
 liveness oracle** — the object in B2, or a retried curl, is. `pages.deployed_at`
 was still NULL at that point too.
+
+---
+
+## 2026-07-26 (evening) — the generic high-attention lane, and the bugs it grew out of
+
+**Four platform defects filed** rather than left in this workstream's notes,
+because none of them is oufe-specific and all four will bite the next site:
+
+| bug | what |
+|---|---|
+| `bugs_open/094` | `049b_deploy_single_page.sh`'s `section_data_resolved` branch cannot work — omits `page_name`, required at `rerender_page_sections_action.go:80` |
+| `bugs_open/095` | a **wrong** `slot_name` renders nothing and reports `COMPLETED \| complete_skipped` |
+| `bugs_open/096` | residual of the closed 030: cron got its own lane, the generic lane is still strictly serial, so a long council run blocks everything |
+| `bugs_open/097` | CTA integrity misses `content_data.cards[*].link_url` — six broken links incl. a nav item shipped while two were correctly caught |
+
+On 096: 030 is genuinely fixed and its close is sound — cron latency went from
+~18 min to ~1 s. What I saw is the part that fix did not cover, and filing it as
+a residual rather than reopening 030 keeps that distinction honest.
+
+On 097 the sharpest detail is that **two of the six broken links had targets that
+existed** — `/cases/thames-water` and `/cases`, whose real urls are
+`/blog/thames-water.html` and `/cases/index.html`. The cards were written from the
+plan's intent rather than from the page record. So "does a page with this name
+exist" is not a sufficient check; it has to resolve against `pages.url`.
+
+### The grounded-explainer lane (migration 224)
+
+The owner asked for the mechanism explainers to be research-grounded and truthful,
+and for that to be **generic across domains** via a workflow that deliberately
+calls for increased attention.
+
+The design decision worth recording: **"be careful" in a prompt is not a control.**
+Every step removes a way to be careless instead —
+
+- facts arrive by search, never by recall;
+- each candidate must carry a verbatim quote from one named source;
+- `verify_and_register_citations` re-fetches every url and discards any claim
+  whose quote is not literally present (**the model proposes, the fetcher
+  disposes**);
+- the composer sees only the survivors, and is told explicitly what it may not
+  assert — legal conditions, thresholds, definitions, facts about real named
+  organisations — while being left free to explain mechanism and to use openly
+  hypothetical figures, which cannot be wrong about anybody;
+- an **independent** audit re-reads the draft against the same verified set and
+  lists every sentence it cannot trace, and separately flags any claim that the
+  page is accurate/verified/authoritative;
+- the run terminates at `needs_human_review`. **There is no config flag that
+  makes it publish.**
+
+That last one is load-bearing. An automated content lane that *can* publish will
+eventually publish something wrong unattended; one that cannot, cannot. It is the
+only property in the list that does not depend on a model behaving well.
+
+Steps 2–6 are the proven V5 acquisition chain copied wholesale rather than
+reinvented, so facts it registers stay V2-usable by writers and V4-refreshed
+afterwards.
+
+### Missteps this session
+
+- **I reported the header CTA as dead off a run of curl `000`s**, having collapsed
+  them into "404". `000` is the absence of a response and says nothing about the
+  resource; the giveaway I walked past was a `000` on `/`, a page I already knew
+  was serving. Corrected to the owner in the same turn. Check:
+  `curl --retry 3 --retry-all-errors`, and never treat `000` as `404`.
+- **`agent_definitions` has no `name` column** — it is `display_name`. The insert
+  failed on it. I had written the column list from the shape of the
+  evidence-researcher seed without reading the actual schema, which is precisely
+  the "schema first: `\d <table>` before writing SQL" rule in CLAUDE.md.
+- **The two content writers keep their prompts at different paths**, so my first
+  fleet-rule UPDATE silently covered only one of them. `UPDATE 1` looked like
+  success. Verify by type, not by rowcount.
+- Earlier in the day: patching `content_data` without re-rendering (the assemble
+  stitches stored `rendered_html`), and a `slot_name` of `'main'` that matched no
+  section. Both now in the RUNBOOK.
+
+The pattern across all four is the same and worth naming: **each was a case where
+something returned a success-shaped result** — `UPDATE 1`, `COMPLETED`, a status
+code that was not a status code — and I read the shape rather than the substance.
