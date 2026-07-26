@@ -128,9 +128,22 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 	// and mark as 'blocked' — the feasibility-recheck scheduled task
 	// will promote it back to 'triaged' when the handler is deployed.
 	var handlerAgent sql.NullString
-	params.DB.QueryRowContext(ctx, `
+	handlerLookupErr := params.DB.QueryRowContext(ctx, `
 		SELECT handler_agent FROM site_work_items WHERE id = $1
 	`, itemID).Scan(&handlerAgent)
+
+	// The lookup error is now captured rather than discarded, because the
+	// no-handler branch below cannot otherwise tell "this item has no handler"
+	// from "we failed to read it". A transient DB error would leave handlerAgent
+	// zero-valued and blocking on that would park a perfectly routable item.
+	// On a read failure, log and fall through to the pre-existing behaviour
+	// (skip the handler checks, let the item dispatch) — the same outcome this
+	// code has always had when the read failed silently.
+	if handlerLookupErr != nil {
+		logger.Warn("ClaimWorkItemAction: could not read handler_agent, skipping handler checks",
+			zap.String("item_id", claimedItemID),
+			zap.Error(handlerLookupErr))
+	}
 
 	// No handler at all is the degenerate case of "handler not registered", and
 	// it takes the same exit: an item nothing can route is blocked here, on its
@@ -143,7 +156,7 @@ func ClaimWorkItemAction(ctx context.Context, params ActionParams) (interface{},
 	// and no agent type is the empty string, so this cannot become a retry loop.
 	// Reachable via '' since migration 217 made the column NOT NULL DEFAULT ''
 	// (bugs_closed/078); the !Valid arm covers a NULL from any pre-217 replica.
-	if !handlerAgent.Valid || handlerAgent.String == "" {
+	if handlerLookupErr == nil && (!handlerAgent.Valid || handlerAgent.String == "") {
 		params.DB.ExecContext(ctx, `
 			UPDATE site_work_items
 			SET status = 'blocked',

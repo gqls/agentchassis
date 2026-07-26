@@ -116,6 +116,19 @@ instance of that, because the cost lands on every other site rather than on your
 
 Recommend **1 + 2 together** (defence at both ends), then 3 as the durable close.
 
+> **CORRECTED 2026-07-26 — this ordering was wrong, and the cost was a second fleet
+> outage.** Candidate **3 was the whole fix**: it is config-level, live-immediately (no
+> image roll), and it makes the bad state *unrepresentable* rather than survivable.
+> Listing it last read as its priority, so nobody applied it, and the next day an
+> unrelated session made the identical `INSERT` and took the fleet down again for 42
+> minutes. Candidate 1 is worth having and shipped here — but it is containment, not the
+> cure, and it is inert until an image roll. Candidate 2 turned out to be **unnecessary**
+> once 3 was applied (no NULL can exist), and it was owned by a concurrent thread anyway.
+> **Order fix candidates by which one closes the door, not by which is smallest** — and
+> when a case file finds itself writing "operators must remember X", that is a schema
+> defect wearing a documentation costume. What caught it: the bug recurring while I was
+> reading this very file.
+
 ## Interim repair applied (2026-07-25 18:2x)
 
 I set the one offending row's handler to the value 680 of its 681 siblings carry:
@@ -330,3 +343,70 @@ have). Recorded for the owning lane rather than fixed in it.
 
 The NULL mechanism itself **is** proven, fixed, and extinguished — twice reproduced,
 once by induced fault after the fix.
+
+## Independently re-verified by a second session (2026-07-26 18:06)
+
+A different thread was researching this same ticket in parallel and reached the commit
+above only after it landed. Rather than duplicate the fix, it re-ran the acceptance
+tests from scratch against the live DB. **All four branches confirmed, none taken on
+trust** — every probe inside `BEGIN … ROLLBACK`, nothing persisted:
+
+| branch | result |
+|---|---|
+| `INSERT … status='triaged', handler_agent NULL` (explicit NULL) | rejected, `23502 null value in column "handler_agent" … violates not-null constraint` |
+| `INSERT` **omitting** the column — the shape that caused both outages | row created with `handler_agent = ''`, `is_null = f`, `status = triaged` |
+| `UPDATE … SET handler_agent = NULL` on a live `needs_human_review` row | rejected, same `23502` |
+| catalogue | `information_schema.columns` → `is_nullable = NO`, `column_default = ''::text`; `count(*) WHERE handler_agent IS NULL` = **0** fleet-wide |
+
+`schema_migrations` carries `217_site_work_items_handler_agent_not_null.sql` applied
+2026-07-26 17:56:25. The fleet was draining normally at the time of the check
+(completions after 17:45, one `triaged` row moving with a real handler).
+
+**Worth knowing for the ledger:** two *different* files were applied as `217` that
+afternoon — this one at 17:56 and `217_stat_values_optional_and_template_gated.sql`
+(`bugs_open/043`) at 17:59. Both are recorded, so nothing is lost, but the migration
+numbering is not a mutex and a number seen free in the tree can be taken minutes later.
+
+The second session's own planned fix — a partial `CHECK (status NOT IN
+('triaged','approved') OR handler_agent IS NOT NULL)` — is **recorded as rejected, and
+the reasoning is the useful part.** It would have been *worse*: it leaves the column
+nullable, so it closes only the dispatchable window rather than the representation, and
+it would have rejected the omitted-column `INSERT` outright — breaking
+`resolve_internal_links_action.go:257`, `plan_sections_action.go:1862` and
+`reconcile_site_plan_action.go:255`, which legitimately omit the column. `DEFAULT ''`
+lets those three keep working untouched *and* extinguishes the state. A constraint that
+rejects is not automatically safer than a default that normalises.
+
+## Residual, contributed to its owning lane rather than fixed here
+
+`217` closed the fleet-outage class. It did **not** close the *supported* path that
+creates a handler-less dispatchable item: the admin dashboard's **Retry** button
+(`HandleRetryWorkItem`, `internal/core-manager/admin/site_admin_handlers.go:852`, UPDATE
+at `:877`) promotes `needs_human_review → triaged` and never touches `handler_agent`.
+**290 of 375 `needs_human_review` rows carry `handler_agent = ''`** (measured 18:05, after
+217's backfill folded 121 NULLs into the 169 already spelling it `''`), and they are
+handler-less *by design*.
+
+Before `217` that button was a fleet-outage trigger with 121 rounds in the chamber — one
+click on any of those rows reproduced this case exactly. **After `217` it is item-level**:
+the row loads, is claimed, and burns three attempts at `spawn_agent` before landing on
+`failed`. Recorded in full in **`bugs_open/033`** (§ *Contribution from the bugfix_078
+verification pass*), which owns the review queue and already carries the open design
+question this belongs to. `scripts/who-owns.py 033` reports it OWNED and ACTIVE, so it is
+evidence contributed in, not a competing fix.
+
+## Council gate
+
+Submitted after the commit: `SUBMISSION_CORR = 11a36278-a30b-4452-a42f-51707cc283b9`.
+
+**No `Council-Reviewed:` trailer is possible on the fix commit (`912ddc1db`), whatever the
+verdict** — the submission post-dates it, and the repo is forward-only (no amends). The
+`098` coverage report will therefore list that commit as un-reviewed. That is a **known,
+permanent false negative**, recorded here rather than papered over: a trailer is earned by
+an APPROVED verdict that existed *before* the commit, and writing one after the fact would
+be a false claim of review. The verdict is recorded below instead, keyed on the
+correlation, which is the join the report cannot make automatically.
+
+Verdict: *(pending at time of writing — the council lane had 7 orchestrations queued ahead
+of this submission; per the RUNBOOK a missing orchestration row is latency, not a dropped
+dispatch, so do not resubmit on that evidence)*.
