@@ -2049,3 +2049,40 @@ out to be a design gap plus a second deploy, so "where we are now" genuinely dif
 demoted to "PREVIOUS STATE", kept for history — the same supersede pattern the RUNBOOK uses). The
 handoff leads with the one outstanding proof: **no report has yet been received in the new
 format.**
+
+### §X.19 — the extended report is PROVEN IN PRODUCTION (2026-07-26)
+
+The week's last open item, closed. Owner submitted a real idea, confirmed it, received the draft,
+judged it good, and declined it — the correct way to close a test without self-charging (declined
+is terminal, releases the slot, and emails the requester politely at no cost).
+
+**Verified against the STORED REPORT, not the owner's impression** — the discipline this workstream
+has needed all week. `ord_1785069609860726188`, created 12:40, decided 13:39; report 13,227 chars
+text / 20,207 chars HTML:
+
+| marker | |
+|---|---|
+| `YOUR IDEA, ASSESSED` (text) + `Your idea, assessed` (HTML) | ✅ |
+| `Check it yourself` source lists | ✅ — **16 http links in the HTML** |
+| `A considered next step` | ✅ |
+| `We use AI to research…` — disclosure in the REPORT, not only the T&Cs | ✅ |
+| `FURTHER IDEAS WORTH PURSUING` — the ideation half, retitled | ✅ |
+| old intro `"You asked us to find AI product ideas for…"` | ✅ **ABSENT** |
+
+`too early to assess` absent — CORRECT, the submission was assessable. That branch stays
+test-covered only (`service_test.go`); a deliberately vague submission would give the live proof
+if ever wanted.
+
+**So the whole chain is proven end to end**: request → operator confirm → step-0 web-verified
+assessment → cross-vendor cut → verify with sources → score → draft → operator decision. The
+07-25 engine work (assessment, sources, AI disclosure, honest-refusal branch) is delivering to
+real customers, and `AUDIT_2026-07-25_paid_tool_vs_copy.md`'s two NOT-DELIVERED rows are now
+DELIVERED.
+
+Two things to watch on the next few real runs, both flagged to the owner: wall-clock (two long
+web-search passes now) and spend (~2× per report at the same £29).
+
+Docs updated: HANDOFF "DO THIS FIRST" replaced with the evidence and the deploy promoted to top
+job; SUMMARY_2026-07-26b carries a visible dated UPDATE on its "unproven" paragraph (corrected in
+place per the working-docs rule, not overwritten, and no 26c written — the milestone is the one
+26b already anticipated).

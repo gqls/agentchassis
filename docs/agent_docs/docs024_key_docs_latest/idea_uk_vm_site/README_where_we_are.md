@@ -1359,3 +1359,23 @@ the handoff.
 One useful thing landed today from elsewhere in the estate: the platform's page-locking now
 actually enforces. All the guide and tool text we wrote is genuinely protected from being
 rewritten by an automated pass — which it wasn't, quite, until this afternoon.
+
+## 2026-07-26 (late) — it works, and it's proven
+
+You ran a real one through and said the report was good. I checked the stored copy rather than
+take that at face value, because "looks right" has fooled us more than once this week — and it
+holds up properly: about 13,000 words' worth of report, opening with the assessment of your actual
+idea, sixteen source links you can click and check, the AI disclosure in the report itself, and no
+trace of the old opening line. Declining it was the right way to close the test — it releases the
+slot, costs nothing, and sends a polite note.
+
+So the biggest change of the week is no longer a claim, it's a delivered artefact. The two
+promises on the sales page that were false a day ago — assessing the idea you actually sent, and
+sources you can check yourself — are now true of what a paying customer receives.
+
+Two things worth keeping an eye on across the next few real orders: how long they take (two
+research passes now, not one) and what they cost us (roughly double, at the same £29). Neither is
+a problem yet; both are worth a look once there's real volume.
+
+The one job left on the box is the second deploy — automatic expiry of cold orders, so the queue
+can never quietly close itself the way it did this morning. Commands are in the handoff.

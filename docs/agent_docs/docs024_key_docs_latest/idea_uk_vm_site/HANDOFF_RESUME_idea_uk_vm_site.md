@@ -2,9 +2,10 @@
 
 > ## ▶ START HERE — state as of 2026-07-26 (supersedes everything below)
 >
-> **The content pipeline is BUILT AND LIVE. The box is healthy. One proof is outstanding: nobody
-> has yet received a report in the new format.** That end-to-end run is the single most valuable
-> next action — see "DO THIS FIRST".
+> **The content pipeline is BUILT AND LIVE, the box is healthy, and the extended report is now
+> PROVEN END TO END** (2026-07-26: owner submitted, received and reviewed a real report in the new
+> format — evidence below). **The top job is now the second deploy** (automatic order expiry), so
+> the queue can never silently close itself again.
 
 ### What idea.uk is, today (all curl-verified 2026-07-26)
 
@@ -18,25 +19,33 @@
 
 Site id `1244516d-014d-421c-88c6-090bb1e9552a`. SQL applied this arc: `sql/p4_01`…`p4_19`.
 
-### DO THIS FIRST — prove the new report format end to end
+### ✅ DONE 2026-07-26 — the new report format is PROVEN in production
 
-Nothing else in this workstream is worth as much. Steps, in order:
+Owner submitted a real idea, confirmed it, received the draft, judged it good, and declined it
+(declining is the right way to close a test without self-charging; it releases the slot and emails
+the requester politely at no cost).
 
-1. Submit a real idea at **https://idea.uk/report.html** (the assessment step researches whatever
-   goes in "The business or idea", so give it something concrete).
-2. Operator email arrives → click **confirm**. Expect **20–30 minutes** now: two long web-search
-   passes, not one. (Cost note: ~2× the previous Claude spend per report — an open owner question.)
-3. The **draft to review** is the moment of truth. It must open with **"Your idea, assessed"**
-   (problem + evidence, demand signals, who else, substitutes, defensible/exposed, next step),
-   carry working **"Check it yourself"** source links, and state in the intro that AI researched
-   it with a person reviewing.
-4. **Approve** → pay link → £29 → delivery. Check the delivered email's reply address is
-   `idea-uk@leopardess.uk`.
+Verified from the stored order, not from impression — `ord_1785069609860726188`, 13,227 chars of
+text / 20,207 of HTML, every new-format marker present and the old-format giveaway absent:
 
-If the draft does NOT lead with "Your idea, assessed", the binary is older than 07-25 15:11 —
-check with `grep -ac "YOUR IDEA, ASSESSED" /opt/idea/idea` (the box has **no `strings`**).
+| Marker | |
+|---|---|
+| `YOUR IDEA, ASSESSED` / `Your idea, assessed` (text + HTML) | ✅ |
+| `Check it yourself` source lists | ✅ — 16 links in the HTML |
+| `A considered next step` | ✅ |
+| `We use AI to research…` (disclosure in the report, not just the T&Cs) | ✅ |
+| `FURTHER IDEAS WORTH PURSUING` (ideation half, retitled) | ✅ |
+| Old intro `"You asked us to find AI product ideas for…"` | ✅ **absent** |
 
-### SECOND: a deploy is written, tested and waiting
+`too early to assess` did not appear — correct, the submitted idea was assessable. That branch is
+covered by tests (`service_test.go`), not by this run; a deliberately vague submission would
+exercise it if you ever want the live proof.
+
+**So the whole chain works**: request → operator confirm → step-0 assessment with live web search
+→ cross-vendor cut → verify → score → draft to operator → decision. Two things worth watching on
+the next few real runs: wall-clock (two long search passes now) and spend (~2× per report).
+
+### TOP JOB NOW — a deploy is written, tested and waiting
 
 Committed, `go build`/`go vet` clean, full suite green — **inert until the owner builds and
 deploys** (the tool has no CI). Contents:

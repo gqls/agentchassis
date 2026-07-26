@@ -60,13 +60,19 @@ the extended report format.
 the new format.** The end-to-end run — submit, confirm, review the draft, approve, pay, delivery
 — has not happened. Until it does, the biggest change of the week is unproven in production.
 
+> **UPDATED later the same day:** it happened. The owner submitted a real idea, received the draft,
+> judged it good, and declined it to close the test without self-charging. Verified against the
+> stored report rather than impression: 13,227 chars of text / 20,207 of HTML, leading with "Your
+> idea, assessed", carrying "Check it yourself" source links (16 in the HTML), disclosing AI use in
+> the report itself, and with the old format's opening line absent. **The extended report is proven
+> in production.** What remains is the second deploy (automatic order expiry).
+
 **A second deploy is also queued**: the automatic expiry, the address fix and the capacity sweep
 are written and tested but not yet on the box.
 
 ## Where we're going
 
-In order: run one real report end-to-end and confirm the new format arrives with its sources;
-deploy the second batch so the queue never silently closes again; then the pipeline grows
+In order: deploy the second batch so the queue never silently closes again; then the pipeline grows
 sideways — more tools where a stage earns one, and the empty News section. Two open questions for
 the owner sit behind those: the margin (each report now costs roughly double the AI spend), and
 whether five simultaneous orders is still the right ceiling once the funnel starts working.
