@@ -121,3 +121,24 @@ A green build proves nothing here — **the build path is the one that already w
   on one site is not the fleet sweep.
 - `bugs_closed/073` — where the re-render-vs-rebuild distinction was measured, after one
   thread mistook a re-render for a build and another corrected it.
+
+---
+
+## Update 2026-07-26 (post-close) — the sibling fixes are now live; this gap is unchanged
+
+`v1.0.1171` rolled after the parent case closed and carries the council's round-1 MEDIUM
+fix plus the `require_sections_metadata` reader (pod-verified; markers listed in
+`bugs_closed/043` § Post-close deployment note). Both `page-build-handler` and
+`content-reviewer` now declare the key and the binary reads it, so a *skipped* audit is
+visible.
+
+**None of that touches this bug.** The re-render path still renders stored `content_data`
+with no stat audit at all — there is nothing to skip, because the check is never reached.
+Live exposure remains nil by measurement (the fleet-wide suffix sweep: five rows, all
+legitimate tool units), and the structural gap remains open.
+
+Also unchanged: the council trail ends at **round 5 / REVISE**. Migration `219b`, which
+answers that round's MEDIUM, was applied *after* the last submission and has never been put
+to the gate. A thread picking this up can resubmit on correlation
+`569241fb-dd8d-4bcf-b382-234dfca1365c` — but should expect the HIGH objection to stand
+until this file's candidate (1) is actually built, because the council said so twice.

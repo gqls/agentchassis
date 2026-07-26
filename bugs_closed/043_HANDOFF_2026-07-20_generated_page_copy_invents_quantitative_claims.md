@@ -775,3 +775,38 @@ The fleet sweep. This is one page on one site. The residuals listed in the statu
 the head of this file — registers for the remaining publishing sites, spec-aspect drift,
 prose numbers outside stat fields — are untouched by this run and are why they are carried
 forward as follow-on rather than deleted.
+
+---
+
+## Post-close deployment note — v1.0.1171, 2026-07-26 ~20:4x
+
+This case closed while `v1.0.1170` was running, which carried candidates 2+4 but **not**
+the two fixes made afterwards in response to the council gate (they were committed after
+that image was cut). A fresh build has since rolled. Verified against the **running pod**,
+never git:
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | grep -c 'stat_audit_unavailable'"
+```
+
+| marker | count | what it proves |
+|---|---|---|
+| `stat_audit_unavailable` | 1 | the round-1 MEDIUM fix (a skipped audit is no longer silent) is **live** |
+| `require_sections_metadata` | 2 | the binary now READS the key migrations 219/219b declare |
+| `stat_unit_impossible` | 1 | candidate 4 still present (positive control) |
+| `unregistered_stat` | 2 | candidate 2 still present (positive control) |
+
+`stat_audit_unavailable` is the discriminating marker — it is a string this change
+**created**, so its presence cannot be explained by anything that was already there. The
+other three are controls.
+
+**So the stack is now coherent for the first time**: config declares the expectation
+(`219` on page-build-handler, `219b` on content-reviewer), and the binary reads it. Before
+this roll the declarations were inert — harmless, but the warning could not fire.
+
+**Not yet exercised.** The warning path has been deployed, not observed: firing it needs a
+build where `sections_metadata` fails to arrive, which is not safely inducible on demand.
+It is a warning, so it cannot block a deploy either way. Whoever next sees a page build
+lose its section metadata should confirm a `stat_audit_unavailable` finding appears rather
+than silence — that is the falsifier, stated in advance.
