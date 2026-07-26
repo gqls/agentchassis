@@ -4923,6 +4923,49 @@ a constant to wait out — it is a reading of queue depth at one moment, and
 Family: absence-means-wait-needs-an-exit, queued-and-dropped-are-identical-from-your-own-row,
 rule-broken-successfully, fixed-number-that-is-really-a-load-reading.
 
+---
+
+## 2026-07-26 — I ran a pod-grep against a path with no binary in it, and 0 looked like a pass (bug 003)
+
+**The claim I was about to make.** That `git-adapter` v1.0.1167 carried bug 003's F3 change,
+evidenced by `strings /app/git-adapter | grep -c 'Consume() called'` returning **0** — the
+removed literal being gone is the discriminating marker this repo insists on.
+
+**Why it was worthless.** There is no binary at `/app/` in that image. `/app` holds only
+`configs/`. The process runs `./git-adapter` from cwd `/root`, which is `drwx------ root` and
+unreadable as `appuser`. So the grep read nothing, and `grep -c` on nothing is 0 — the same
+answer as success.
+
+**What caught it** — and it was luck-adjacent, so the lesson is to make it not be. I had put
+positive controls in the same loop: `FetchMessage`, `CommitMessages`, `HandleGitCommit`.
+**All three also returned 0**, and they must be in that binary. Three impossible zeros is what
+exposed the path, not any suspicion about the fix.
+
+**The cheap check.** *In the same command*, grep a string that MUST be present. A
+removed-literal grep on its own is **structurally unfalsifiable**: 0 means "the fix shipped"
+and "I pointed at nothing" and "the container has no shell utilities", and you cannot tell
+which. Add `readlink -f /proc/1/exe` or `ls -la` on the path before believing any count.
+
+**Standing tally — this is the THIRD vacuous pod-grep logged, and they are not the same
+mistake twice.** `052`: grepped a marker the change merely *used*, so any image passed.
+`049`: published an unfalsifiable pod-grep as a bug file verification step. This one: correct
+marker, correct discriminating direction, **wrong path**. The class survives each specific
+fix because the failure is always "the command could not have returned anything else", and
+each time it wears a different costume. **The general form of the guard is a positive control
+in the same breath as the assertion** — not a better choice of literal, which is what the
+last two entries concluded and which was evidently not enough.
+
+**Second, smaller call the same session.** `scripts/who-owns.py 075` said this workstream
+owned 075, so I planned to build its fix. Another session had already written it, uncommitted
+and invisible to a tool that reads commits. What stopped me was the **Edit tool refusing a
+stale write** — a `cat >>` or `sed -i` would have clobbered a live fix silently. That is the
+argument for CLAUDE.md's Write/Edit preference stated as a near-miss rather than a rule, and
+it is the second time the who-owns blind spot has cost a plan cycle (078 was the first).
+
+Family: unfalsifiable-check-reads-as-a-pass, positive-control-in-the-same-command,
+zero-means-three-different-things, who-owns-reads-commits-not-working-trees,
+the-tool-that-refuses-a-stale-write-is-the-guard.
+
 ### 2026-07-26 — bugfix_077 — "the council submission died in the ~300s post-restart window"
 
 **Asserted:** that a council submission which vanished without an orchestration row was
@@ -4968,3 +5011,44 @@ the step that has no receipt.
 
 Family: named-the-cause-before-isolating-it, silent-failure-with-exit-0, no-receipt-no-claim,
 documented-mechanism-overfit.
+
+---
+
+## 2026-07-26 — "I ran assemble-only" — I ran a full section re-render, on two live sites
+
+**The claim:** that the two page-rerenders I fired at ai-agent-orchestration.com and
+relojistas.com were **assemble-only** — the cheap branch that stitches stored
+`rendered_html` and cannot pick up a template change. I said so to myself while choosing
+the command, and it was the whole reason I judged the dispatch safe.
+
+**What was actually true:** both ran `section_data_resolved`, re-rendering every section
+from `content_data` through the current templates.
+`docs024/oufe/TRIGGER_rerender_page.sh` reads `REASON="${3:-section_data_resolved}"`. Its
+header documents "No reason -> assemble-only", so I passed `""`. But `${3:-word}`
+substitutes the default when the parameter is unset **or null** — an empty string is null.
+Passing a placeholder to mean "none" selected the heaviest branch on offer.
+
+**What caught it:** the evidence contradicted the story. `page_components.updated_at` moved
+to 21:16 on both pages, and an assemble-only run does not touch those rows. I had expected
+the injected `data-component-css` marker on the page and found the component's own style
+block instead.
+
+**The cheap check that would have:** one line, before dispatching —
+`bash -c 'f(){ echo "${3:-DEFAULT}"; }; f a b ""'` — or simply reading the line of the
+script I was about to run. I read its 35-line header and not its parameter defaults.
+
+**Cost:** none, by luck rather than judgement. The script's own guard refuses when any
+section has NULL `content_data` (which would escalate to the content writer and regenerate
+copy); both pages happened to be clean, so nothing was rewritten. Had either carried a NULL
+I would have silently regenerated authored copy on a live customer site. The heavier branch
+also happened to be the one that made the fix visible, which is the most dangerous kind of
+accident: it rewarded the mistake.
+
+**The transferable part:** `${VAR:-default}` and `${VAR-default}` are different operators,
+and every "pass empty to mean none" idiom silently picks the default under the first one. A
+script whose *documentation* says "no reason" and whose *code* says `:-` cannot express
+"no reason" as an argument at all — the only way to get it is to omit the parameter. When a
+flag's absence and its emptiness must differ, the script has to use `${3-...}` or an
+explicit `[ $# -ge 3 ]`, and the caller cannot tell which from the header comment.
+
+Family: read-the-header-not-the-code, empty-is-not-unset, rewarded-by-luck.

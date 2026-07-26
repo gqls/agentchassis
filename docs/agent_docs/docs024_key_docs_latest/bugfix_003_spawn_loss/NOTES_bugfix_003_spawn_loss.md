@@ -361,3 +361,71 @@ this commit.
 directory. It hard-stops if the pod lacks the fix, and its pod-grep asserts the
 REMOVED literal (`owned by different pod`) greps 0 — the marker that the change
 merely uses would be satisfied by any image.
+
+---
+
+## 2026-07-26 evening — the fourth root cause, and two missteps worth more than the fix
+
+**Set out to close the case; found it was not closeable yet.** The headline
+evidence was good: from `orchestration_state_audit` (the only table with
+pre-fix history — `orchestration_states` is pruned to ~13 days),
+`AWAITING_RESPONSES → FAILED` ran **91 in the 38.9 h before the roll (2.34/h)**
+and **12 in the 31.3 h after (0.38/h)**, with **zero on 07-26**. Zero
+`EXECUTING_STEP` zombies. 30 requests recovered end-to-end at `retry_version ≥ 1`.
+
+Then the audit of F2's own live behaviour turned up **181 rows parked in
+`awaited_requests.status='processing'`** — a status NOTHING owns. Full mechanism
+and fix in the case file's 2026-07-26 section; migration 226, DB-only, live
+immediately. Two of the 181 had a live parent still waiting.
+
+### MISSTEP 1 — I published a pod-grep that could not have failed
+
+Verifying F3 in the git-adapter image, I ran
+`strings /app/git-adapter | grep -c 'Consume() called'` and got **0**, which is
+the "removed literal is gone" result I wanted. It was **vacuous**: there is no
+binary at `/app/` in that image at all. The positive controls gave it away —
+`FetchMessage`, `CommitMessages` and `HandleGitCommit` *also* returned 0, and
+they must be present. The binary is at `/root/git-adapter`, unreadable as
+`appuser`, so the check cannot be done that way at all; it needs a local
+`docker run --entrypoint sh` against the image.
+
+**The check that catches it costs one line: grep a string that MUST be there in
+the same command.** A removed-literal grep alone is unfalsifiable — 0 is both
+"the fix shipped" and "I pointed at nothing". Logged to WRONG_CALLS; this is the
+same family as `052`'s vacuous marker and `049`'s, which is now three.
+
+### MISSTEP 2 — `who-owns.py` said I owned 075, and I nearly wrote over a live fix
+
+`scripts/who-owns.py 075` resolved cleanly to this workstream, so the plan
+included building 075 fix 1 myself. When the first `Edit` to `coordinator.go`
+bounced with "file has been modified since read", the diff showed **another
+session had already written 075 fix 1 AND fix 2** — uncommitted, and better than
+my sketch (they apply the response even when the CAS is lost, on the grounds
+that only this pod received it; I would have released and dropped it).
+
+**who-owns reads COMMITS, so a session mid-fix is invisible to it** — the
+already-recorded landmine, hit again. What actually caught it was the Edit tool
+refusing a stale write. **A `cat >>` or a shell redirect would have silently
+clobbered them**, which is precisely why CLAUDE.md prefers Write/Edit.
+Re-scoped: I took only the abandoned-claim half, which their change does not
+address, and put it entirely in SQL so it shares no file with them.
+
+### The consequence for the fix's shape — the accidental improvement
+
+Being locked out of `coordinator.go` forced the fix into
+`cleanup_expired_awaited_requests()`, and that is the **better** design: the
+sweep does not have to enumerate every abort path, present or future, whereas
+an in-code release at each `return` is exactly the pattern that opened the hole
+(one exit was added later and nobody noticed it skipped the release). It is also
+DB-only, so it went live in minutes instead of waiting on a roll. Worth
+remembering that the constraint produced the structural answer and my own plan
+had the patch.
+
+### Scope note recorded against the owner's ruling
+
+The owner's answer to "how far before closing" was **003 gap + 075 fix-1**,
+chosen because the 003 gap alone would cause duplicate child runs on the
+ownership-discard path. That reasoning still holds — but 075 fix-1 is being
+delivered by the other session, not by me. The owner's condition is met by two
+threads rather than one; it is NOT quietly dropped. Their work must land before
+the kill-test re-run means anything.

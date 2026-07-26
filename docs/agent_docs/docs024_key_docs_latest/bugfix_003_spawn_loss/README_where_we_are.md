@@ -320,3 +320,75 @@ Two smaller things I chose not to do: a sweep for jobs owned by dead servers
 something built first), and an extra safety net in the cleanup sweep (the bug
 report itself says to do that only after the counter is real, which it now is —
 so it is a follow-up with a trigger written down, not a loose end).
+
+---
+
+## 26 July, evening — closed it, but only after finding a fourth fault inside our own fix
+
+I sat down to close this case and could not, which turned out to be the useful
+part of the evening.
+
+The headline numbers were good and I want to put them down plainly, because they
+are the answer to "did any of this work". Jobs that died waiting for an answer
+they never got: **2.34 an hour** in the day and a half before the fix went live,
+**0.38 an hour** in the day and a half after, and **none at all** on the 26th
+across 1,114 completed jobs. Thirty jobs rescued themselves that would previously
+have vanished quietly. I had to get those from a history table rather than the
+obvious one, because the obvious one only keeps about thirteen days and the
+before-picture had already been deleted.
+
+Then I looked at how the retry system was actually behaving rather than whether
+it existed, and found the fourth fault. When an answer comes back, the code
+"claims" it first so that two servers can't both act on it. Only afterwards does
+it do things that can fail. If one of those failed, **the claim was never handed
+back**, and — this is the bit that matters — nothing anywhere in the system knew
+how to release one. The record sat in a state no cleanup job had ever been told
+about. Every recovery path we have looks at other states. So the waiting job
+waited for ever, and our own retry system, built specifically to end that, could
+not see it.
+
+There were 181 of these sitting in the database, the oldest from 26 June. Two had
+a live job still waiting on them. One of those was a web page that would never
+have been published.
+
+The fix is one clause in the cleanup routine that already runs every minute, so
+it was live in minutes with no software release. The count went 181 to 8, and
+the 8 are answers being processed right now. The stranded page-publish job was
+picked up by a completely different service and finally got a straight answer.
+
+**Two things went wrong today that I want on the record more than the fix.**
+
+The first: I verified the sister service by checking that some old code had
+disappeared from it, got the answer I wanted, and it was meaningless — I was
+looking at a path with no program in it at all. What saved me was that I had also
+checked for three things that *had* to be there, and all three came back missing
+too. Three impossible answers is what exposed it. On its own, "the old code is
+gone" is a check that cannot fail, and this is the third time we have logged a
+version of that mistake.
+
+The second: our own tool for "is anyone else working on this?" told me nobody
+was, so I started writing a fix. Another session had already written it — better
+than mine — but hadn't committed yet, and the tool only sees committed work. What
+stopped me overwriting them was the editor refusing to write to a file that had
+changed under me. A blunter command would have destroyed their work silently.
+
+That second one changed the shape of the fix for the better, oddly. Being locked
+out of the file they were holding forced my fix into the database routine instead
+of the program code, and that is the more robust answer: it doesn't have to know
+about every way the code can bail out, including ones nobody has written yet —
+which is exactly how this hole got opened in the first place.
+
+I also re-ran the health-check test that failed so embarrassingly on the 20th,
+when a deliberately broken server reported itself perfectly healthy for six
+minutes. This time it reported itself broken and **the platform restarted it**,
+about two minutes in. That is the behaviour we have been claiming for six days
+without ever having proved. It also let me delete a piece of planned work: we
+were going to teach servers to kill themselves when stuck, purely as insurance
+against the health check being wrong. It isn't wrong. I'd rather have one
+mechanism that is proven than two where the second exists because we didn't trust
+the first.
+
+So: closed and moved. What's left belongs to other cases and is written down in
+them, not left floating here. **One date to keep — 1 August**, a week after the
+main fix, to check the numbers hold and that I didn't just catch a quiet weekend.
+Nothing needs a decision from you.
