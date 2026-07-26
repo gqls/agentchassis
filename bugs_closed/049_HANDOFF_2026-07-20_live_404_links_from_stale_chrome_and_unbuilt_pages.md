@@ -1,3 +1,30 @@
+> # ✅ CLOSED 2026-07-26 — read this box before anything below it
+>
+> **The live defect is fixed and verified against the shipped artefact; the
+> RECURRENCE-PREVENTION half is Go code that is INERT until the next chassis image roll.**
+>
+> This is a **deliberate, owner-authorised deviation** from `bugs_closed/README.md`'s bar
+> ("a fix that is committed but inert until the next image roll STAYS in `/bugs_open/`").
+> The owner was shown that tension explicitly and chose to close on the live data fix. It is
+> flagged here rather than quietly broken, because a reader who finds this case in
+> `bugs_closed/` is entitled to know which half shipped.
+>
+> **What IS live now (no image needed):** the three nav items pointing at never-built pages are
+> deactivated, the `in_footer`/`in_header` flags feeding the footer's services column are
+> cleared, and the chrome on both affected sites has been re-rendered and verified clean.
+> **What is NOT live until a roll:** the code that stops chrome ever emitting such a link again.
+> Until then the defect remains *reproducible* — a new nav item or footer flag pointing at an
+> unbuilt page would recreate it.
+>
+> **Confirm the code half landed, later:**
+> ```
+> kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "NavFetchableOnly"'      # want > 0
+> kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "siteHasAnyNavItems"'    # positive control, was 4
+> ```
+> Verified **absent** from v1.0.1167 at close of session, as expected.
+> Commits `a9083d51b` · `759cb2b77` · `6e911793c`. Council **APPROVED** `623d7bce`.
+> Rollback for the data changes: `bak_049_nav_items_20260726`, `bak_049_page_navflags_20260726`.
+
 # 049 — 312 live broken links across 7 sites: chrome that predates its own fix, and links to pages that were never built
 
 **Filed:** 2026-07-20 · **Branch:** `085_debug_and_feature_loops` · **Status:** OPEN, not started

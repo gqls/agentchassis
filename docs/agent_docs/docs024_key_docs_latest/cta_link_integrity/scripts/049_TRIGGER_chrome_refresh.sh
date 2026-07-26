@@ -36,6 +36,11 @@ case "$DOMAIN" in
   finetuning.uk)              SITE_ID="1368e337-dd1d-4799-bbb3-8221a1b79bcc" ;;
   ai-agent-orchestration.com) SITE_ID="2a8ebf9c-20a2-4c39-b191-840b012371da" ;;
   gaswholesalers.com)         SITE_ID="5fe15466-4e2e-4ff2-981e-98c1b7074002" ;;
+  # Added 2026-07-26 (049 mechanism-2 remediation), site_id read from `sites`, not guessed.
+  # Two of its primary nav items pointed at never-deployed pages (/directory/index.html,
+  # /guides/index.html) and 404'd on all 10 pages; deactivated, so this re-render is what
+  # takes them out of the shipped chrome.
+  vetcomparison.uk)           SITE_ID="72b9e3a6-872f-4528-a6d6-7f205ea60f4d" ;;
   *) echo "unknown domain: $DOMAIN (add its site_id deliberately, do not guess)" >&2; exit 2 ;;
 esac
 
