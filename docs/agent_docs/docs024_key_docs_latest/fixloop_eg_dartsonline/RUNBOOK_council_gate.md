@@ -311,3 +311,47 @@ whole live fleet as of 2026-07-21 (`--all-families` adds a noisier general audit
   `PILOT_reuse_agent_reviewer.md` is seat #4 awaiting sign-off.
 - Multi-session coordination workstream — commit-per-task + build-from-ref;
   the `Council-Reviewed:` trailer composes with those rules.
+
+## LANDMINE — the no-op detector matches PHRASES in your sketch, including your own prose about the sketch (2026-07-26)
+
+A round-3 resubmission (corr `4a227ed9`) was rejected server-side with
+`step persist_submission failed: … plan failed validation: edit 2: sketch is
+comment-only — a fix plan proposes changes, not observations; drop the edit or
+make it real`. The edit was not a comment-only edit: its sketch opened with
+`+func (r *StateRepository) TakeOverOrchestration(...)`, twenty lines of real
+Go. What tripped it was a sentence I had written INSIDE the sketch explaining
+that I had folded a documentation edit into this one — the sentence contained
+the words "comment-only".
+
+`noOpEditReason` (`platform/orchestration/actions/diagnose_persist_fix_plan_action.go:308-324`)
+is a literal `strings.Contains` over the lower-cased sketch. Any occurrence
+anywhere in the sketch rejects the whole plan:
+
+  "no code change" · "no change required" · "no change is required" ·
+  "no change needed" · "no change is needed" · "clarifying note" ·
+  "clarifying comment" · "add a comment" · "comment-only"
+
+**So: never use those phrases in sketch prose** — describe folded documentation
+in the `rationale` instead (the rationale is not scanned), or say "documentation
+attached to this edit". The check's own header says "over-blocking a real edit
+is worse than letting the council catch a subtle no-op"; this is exactly the
+over-block it warns against, so treat the phrase list as a keyword blocklist,
+not as a judgement about your edit.
+
+**How it fails, which is the expensive part.** The 097 trigger prints a
+correlation and exits 0 — publication succeeded. The rejection happens later,
+inside the run, and surfaces only as `current_step = complete_invalid`,
+`status = COMPLETED` on the orchestration, with the reason in
+`collected_data->'__step_error'->>'message'`. No council seat runs, no
+`council_report` row is written, and nothing tells you unless you look. A
+verdict monitor keyed on "a new council_report row appears" waits for ever.
+Watch for the invalid ending too:
+
+```sql
+SELECT current_step, status, collected_data->'__step_error'->>'message'
+FROM orchestration_states WHERE orchestration_id = '<RUN_ORCH_ID>';
+```
+
+The 097 script prints `RUN_ORCH_ID` — save it alongside `SUBMISSION_CORR`, it
+is the only handle on this failure mode. Cost of the lesson: one full
+round-trip through a backed-up gate lane.
