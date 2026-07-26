@@ -1,7 +1,9 @@
 # 030 — Every orchestration dispatch queues behind every other: one partition, one consumer, ~25–36 min latency
 
 **Filed:** 2026-07-19 · **Branch:** `085_debug_and_feature_loops` · **Status: CLOSED & LIVE 2026-07-26** (see the closing section at the foot of this file)
-> **Closed on measured behaviour, over a contested council verdict — read both.** The defect is fixed and live: publish→run went from ~18 min to ~1 s for the same submission through the same council one day apart, and cron still runs on its own lane. The *implementation* carries a **guardian VETO** (round 2b, corr `f47c2305`): no defect was found, the objection is that the fix edits foundational chassis plumbing when a higher-layer fix should be ruled out first — and the one alternative it named was checked and does not exist (`cmd/scheduler` has no Kubernetes capability at all; a `job.*` topic is only consumed by a pod the chassis spawns). **No `Council-Reviewed:` trailer is claimed on any commit here.** If the owner prefers the layering argument, the reversal is one `UPDATE` plus removing one env var — seconds, no rebuild, RUNBOOK R9.
+> **APPROVED by the council on round 3 (2026-07-26 13:59 UTC) — the round-2b veto was contested with evidence and stood down: *"the round-2 veto's named higher-layer alternative is refuted by hard evidence — accepted"* (guardian, round 3). `Council-Reviewed: f47c2305-a873-459a-83e6-13eb9cb0cf1f`.** The paragraph below is left exactly as written when the veto was live, because how the verdict moved is part of the record.
+>
+> **Closed on measured behaviour, over a then-contested council verdict — read both.** The defect is fixed and live: publish→run went from ~18 min to ~1 s for the same submission through the same council one day apart, and cron still runs on its own lane. The *implementation* carries a **guardian VETO** (round 2b, corr `f47c2305`): no defect was found, the objection is that the fix edits foundational chassis plumbing when a higher-layer fix should be ruled out first — and the one alternative it named was checked and does not exist (`cmd/scheduler` has no Kubernetes capability at all; a `job.*` topic is only consumed by a pod the chassis spawns). **No `Council-Reviewed:` trailer is claimed on any commit here.** If the owner prefers the layering argument, the reversal is one `UPDATE` plus removing one env var — seconds, no rebuild, RUNBOOK R9.
 **Severity:** medium-high — not a data-corruption bug; it is a **latency and diagnosability** bug that
 wastes sessions' time, has already caused at least two threads to misdiagnose a delay as a failure,
 and gets worse the more sessions work concurrently.
@@ -1169,3 +1171,79 @@ change here depended on the verdict.
   round of intervals. Pattern filed in `016b §9`.
 - The ~300 s post-restart drop documented in `CLAUDE.md` is **still a separate,
   real failure**. Closing this does not retire that rule.
+
+
+---
+
+## Council round 3, 2026-07-26 — APPROVED, and the three advisories closed by check
+
+`decision: approved`, `decided_by: approved with 2 advisory objection(s) — none
+high-severity`, `abstained: 6`, `unreadable: none`. **The guardian stood its veto
+down**: *"The round-2 veto's named higher-layer alternative is refuted by hard
+evidence (scheduler has no k8s capability; `job.<id>.requests` only exists via
+`spawn_actions`, which itself dispatches through this same lane) — accepted."*
+
+The trail: **REVISE → REJECTED (hard veto) → APPROVED**, all on corr
+`f47c2305-a873-459a-83e6-13eb9cb0cf1f`. A veto is contestable with evidence — but
+budget three rounds for it.
+
+### Advisory 1 (guardian, medium) — the OTHER deployment-layer alternative, closed with a number
+
+Round 3 asked about a shape round 2 had not costed: a **second `agent-chassis`
+Deployment**, unmodified image, its own group, `REQUESTS_TOPIC` pointed at the
+scheduled lane — "touching zero lines of `platform/agentbase`". Closed with
+evidence, not preference:
+
+- `setupConsumers` gives the **response** consumer the group `a.AgentID` (the pod
+  uid), so every chassis process receives every response, and `NewConsumer` sets
+  `StartOffset: kafka.FirstOffset` (`consumer.go:47`).
+- `system.agent.generic.responses` currently stands at offset **10,905**
+  (`kafka-get-offsets.sh`). So a second Deployment **replays all 10,905 responses
+  through `processMessage` on every pod start, for every pod, forever** — each one
+  loading state and being discarded by `ProcessResponse`'s ownership check
+  (`coordinator.go:271`).
+- That check is also the second cost: a second Deployment is a second **ownership
+  domain**, which is what pins `replicas: 1` today and what `bugs_open/075`
+  (orphaned ownership → infinite retry) is about.
+
+"Zero lines of Go" is not the same as "cheaper": that option costs a
+10,905-message replay per pod start plus a second ownership domain, against ~90
+lines that keep one response consumer and one owner.
+
+### Advisory 2 (guardian, low) — the residual I flagged myself, now closed
+
+I had left open "whether any action handler mutates a package-level value I did not
+catch". Enumerated: **318 package-level vars** under
+`platform/orchestration/actions/`, and exactly **one** runtime write outside a
+declaration — `registry.go:1940 deprecationLogger = logger`, in
+`SetDeprecationLogger`, documented "set once at startup" and with **no callers
+anywhere in the tree** (so it is always nil in production). Everything else is a
+spec / regexp / lookup-map literal initialised at load and read-only thereafter.
+**No action handler mutates shared state**, so the added per-lane concurrency has
+nothing to race against here.
+
+> Method note: the first pass of this check reported **58** writes and was wrong —
+> it counted declarations *inside* `var (...)` blocks. Excluding those block ranges
+> gives 1. A check whose failure mode is a false positive still has to be verified
+> before its number is quoted.
+
+### Advisory 3 (debug_historian, medium) — the needle-gate gap is REAL and cannot be closed retroactively
+
+Conceded in full, and the reason is sharper than "documented after the fact". I
+tried to bind the 18 changed rows to my statement post-hoc via `updated_at`, which
+is what a `RETURNING` clause would have done at the time. It cannot be done:
+**`cmd/scheduler/main.go:273` re-stamps `updated_at = NOW()` on every fire**, so
+the witness column is overwritten by the producer itself.
+
+What survives: **7 of 18 rows still carry the exact stamp
+`2026-07-26 13:21:31+00`** (my `UPDATE`) — the long-interval tasks that have not
+fired since. The other 11 have been re-stamped by the scheduler, which is itself
+independent evidence they are firing. That is enough to be confident, and it is
+**not** the artifact the discipline asks for. The lesson generalises and is now in
+RUNBOOK R9: **on any table a producer touches, `RETURNING` is irreplaceable,
+because the timestamps you would reconstruct from are the producer's to overwrite.**
+
+> Also caught while doing this: my first binding query used a 13:22–13:24 window
+> and returned **0**, which reads alarming. The `UPDATE` ran at **13:21:31** — the
+> window was simply wrong. Verified before writing it down, which is the only
+> reason it is a footnote and not a false finding in this file.
