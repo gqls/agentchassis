@@ -62,6 +62,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
 | **write out the actual resolution/lookup order for the SPECIFIC input before tuning the knob that governs it — the obvious direction can be strictly worse** | **1** |
 | **when you write a counter-argument to your own change in its risks section, that is the change failing review, not a disclosure — split it out before shipping** | **1** |
+| **enumerate the SIBLING instances before quantifying** — *(existing row above; incremented again 2026-07-26: fixed a phantom broker at the site I tripped over and never grepped for the second one, which the council found)*
 | **read the ROW's own annotation before theorising about what moved it — a mechanism that labels its own work has already answered you; and never truncate the field that might carry the answer** | **1** |
 | **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **1** |
 | **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **1** |
@@ -3842,3 +3843,42 @@ answer is a row's existence, not its build state — and the live probe settles 
 one `curl`.** Cost: nearly repointing a working link, and one wrong row in a report
 handed to the owner. Family: build_status-is-not-liveness,
 column-does-not-mean-what-you-are-measuring, re-read-your-own-§9.
+
+**2026-07-26 — fixed the phantom broker at the site I tripped over, never grepped for the
+second one; and "reverting a behaviour change" nearly became its own behaviour change**
+(bugfix_040_kafka_dial, council round 2, REVISE).
+
+**(a) The sibling I did not enumerate.** `topic_manager.go`'s fallback broker list
+contained `kafka-0.kafka-headless.kafka:9092` — a host that cannot resolve, so it could
+only ever burn a full dial timeout before failing over. I removed it and moved on. The
+identical entry was also in `spawn_actions.go:1019`, the fallback list **every spawned
+agent inherits**, and I never looked. The council's editquality seat found it by pushing
+on a different objection entirely.
+**What caught it:** the gate, indirectly — nothing in my own process did.
+**The cheap check:** `grep -rn "<the exact bad literal>"` before writing the fix comment.
+One command. The literal string was right there in the line I was deleting.
+**The class:** this file already has a tally row for it — *"enumerate the SIBLING instances
+before quantifying"*, previously logged twice. This is the third. The row is not landing
+because it reads as being about *counting* ("before quantifying"); the failure here was not
+a miscount but a **fix that silently declared itself complete**. A defect found by reading
+one file is a hypothesis about a pattern, and the grep that tests it costs nothing.
+Family: fix-the-instance-not-the-class, unenumerated-siblings.
+
+**(b) The mirrored error, caught one step before committing.** Round 2 correctly flagged
+that I had threaded the caller's `ctx` into `topic_manager`'s eight dial sites while
+claiming the change altered no dial behaviour — six of them previously used bare
+`kafka.Dial` (i.e. `context.Background()`), so a caller holding a sub-10s deadline would
+silently have got a shorter dial. Fair. My fix was a **blanket** replace of `ctx` →
+`context.Background()` across all eight. But two of them (`WaitForTopic`,
+`WaitForTopicOld`) had **always** used `ctx` — so the blanket revert would have introduced
+the same class of change in the opposite direction, inside the commit whose entire purpose
+was removing it.
+**What caught it:** diffing each site against the pre-change blob instead of trusting the
+replace — `git show <base>:<file> | grep -n "kafka.Dial"` showed six `Dial(` and two
+`DialContext(ctx`.
+**The cheap check:** when reverting to "how it was", the baseline is **per-site**, not
+per-file. A global find-and-replace assumes uniformity that the original did not have.
+**The class:** a correction applied at coarser granularity than the thing it corrects.
+Note the shape — the mistake and its fix were the *same* mistake, and being mid-way through
+writing a careful revert is exactly when it feels safe to sweep. Family:
+blanket-revert, granularity-mismatch, correction-reintroduces-the-defect.
