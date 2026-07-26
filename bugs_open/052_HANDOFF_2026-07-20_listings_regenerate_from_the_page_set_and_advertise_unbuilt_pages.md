@@ -369,12 +369,75 @@ WHERE correlation_id='37329362-f3bb-4ac2-8c72-fd4e9c80109e' AND kind='council_re
 ORDER BY created_at;
 ```
 
+**That first submission was DROPPED, not queued — and the standing advice says not to conclude
+that.** The house rule (and `[[council-queue-latency-trap]]`) is that a missing
+`orchestration_states` row means latency, ~16–30 minutes, and that resubmitting on that
+evidence costs a duplicate round. Correct as a default, and it did not hold here. What
+justified overriding it, after 62 minutes:
+
+- **No trace anywhere** — not in `orchestration_states` by correlation *or* by payload
+  substring, not in `diagnosis_artifacts`, not in `doc_notes`. A submission that dies invalid
+  still writes a row (`complete_invalid`); this wrote nothing at all.
+- **Two later NEW submissions overtook it and finished.** `623d7bce` first ran 15:11 and
+  `7abe1a57` first ran 15:19, both after this one was published at ~15:05, and both completed.
+  A FIFO queue does not do that.
+- **The consumer was live throughout** (`dispatch-queue-depth.sh`: "last orchestration step
+  advanced 1s ago"; 18 orchestrations started in the preceding seven minutes).
+- **The chassis had rolled at 14:57**, ~8 minutes before the publish. That is outside the
+  documented ~300s post-restart drop window, but the window is approximate and a consumer-group
+  rebalance is the obvious mechanism. **This is the load-bearing clue, and the one to check
+  first next time**: a dispatch that vanishes without trace, near a roll, is the shape.
+
+Watch the BST/UTC gap while doing this arithmetic — `git log` prints `+0100` and the DB prints
+UTC, so the commit at "16:03:34 +0100" is 15:03:34 to every query here. Reading them as the
+same clock makes a 62-minute-old submission look 2 minutes old.
+
+Resubmitted (see below). The original correlation is kept in the record because a future
+`098` run will find neither.
+
+### A roll happened, and it does NOT contain this fix — do not read v1.0.1167 as the gate
+
+The chassis rolled **v1.0.1165 → v1.0.1167 at 14:57 UTC on 2026-07-26**, about six minutes
+*before* this fix was committed (`fe00304bd`, 15:03 UTC). So a roll has occurred and the
+close-out gate is still **not** met. Confirmed against the running pod
+`agent-chassis-5645cb45d6-kpxtq`: the old predicate line
+`AND p.build_status IN ('deployed', 'needs_rebuild')` is still present (count 1).
+
+Recording this because "has it rolled yet?" is the obvious way to check the gate, and the
+honest answer here is yes-but-not-past-you. v1.0.1167 **does** carry the other session's nav
+fix (`a9083d51b`, `NeverDeployedPagePredicate` present), which is why the roll happened.
+
 ### Close-out checklist — what has to happen before this moves to `/bugs_closed/`
 
-The Go half is inert until an image roll past this commit. Then:
+The Go half is inert until an image roll past commit `fe00304bd` — which v1.0.1167 is not.
+Then:
 
-1. Pod-grep a string the change creates, with a positive control:
-   `strings /app/agent-chassis | grep -c "p.status IN ('active', 'deployed')"`
+1. Pod-grep — **and not with the marker this checklist first named.**
+
+   > **CORRECTED 2026-07-26.** This step originally said to grep
+   > `p.status IN ('active', 'deployed')`. That is a string my change **uses**, not one it
+   > **created**: it already occurs **4 times** in `v1.0.1167`, an image built *before* the
+   > fix was committed. It would have passed on day one and every day after, proving nothing —
+   > the vacuous-verification class logged in `WRONG_CALLS.md` the same day. Caught by running
+   > it against the current pod out of habit and getting `4` where `0` was expected.
+   >
+   > Note also that `strings` splits on newlines, so a multi-line SQL const does **not** appear
+   > as one searchable blob — you cannot grep the distinctive *combination* of lines, only an
+   > individual line. That is why the discriminating test here has to be the disappearance of
+   > the old line.
+
+   The old predicate is a single line unique to this query, so its **absence** is the signal,
+   paired with a positive control that fails loudly if the query vanished for any other reason:
+
+   ```sh
+   POD=$(kubectl get pods -n ai-persona-system -l app=agent-chassis -o name | head -1 | cut -d/ -f2)
+   # must become 0 (it is 1 in v1.0.1167):
+   kubectl exec -n ai-persona-system $POD -- sh -c \
+     "strings /app/agent-chassis | grep -c \"AND p.build_status IN ('deployed', 'needs_rebuild')\""
+   # positive control, must stay >=1 — proves the query is still in the binary at all:
+   kubectl exec -n ai-persona-system $POD -- sh -c \
+     "strings /app/agent-chassis | grep -c \"AND p.page_type = 'blog-post'\""
+   ```
 2. Re-run the two queries above; kept set must still be 14/16/6, drop set still those six.
 3. Ideally exercise the failing branch rather than the happy path: give a scratch site a
    `blog-index` page plus one archived and one never-deployed `blog-post`, run
