@@ -289,6 +289,12 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 	// were owed and lost, which is the absence of information. Conflating them
 	// would let a lost opinion read as a considered non-objection.
 	var unreadable []string
+	// Seats damaged by a TRUNCATION specifically, accumulated for the durable
+	// record written after the decision (bugs_open/076 residual). Separate from
+	// `unreadable` because the two overlap without coinciding: a truncation can
+	// be salvaged (readable, but degraded) or fatal (unreadable), and an
+	// unreadable seat can have causes that have nothing to do with truncation.
+	var truncationDamage []truncationDegradation
 	for _, field := range reviewFields {
 		raw := datahelpers.ExtractNestedField(params.CollectedData, field)
 		if raw == nil {
@@ -336,6 +342,10 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 						zap.String("field", field),
 						zap.String("recovered_verdict", salvaged.Verdict),
 						zap.Int("objections_recovered", len(salvaged.Objections)))
+					truncationDamage = append(truncationDamage, truncationDegradation{
+						Field: field, Reviewer: salvaged.Reviewer, Verdict: salvaged.Verdict,
+						Objections: len(salvaged.Objections), Branch: "salvaged_from_invalid_json",
+					})
 					reviews = append(reviews, salvaged)
 					continue
 				}
@@ -344,6 +354,9 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 					zap.String("field", field),
 					zap.Int("bytes", len(rb)),
 					zap.Error(err))
+				truncationDamage = append(truncationDamage, truncationDegradation{
+					Field: field, Branch: "unsalvageable_invalid_json",
+				})
 				continue
 			}
 			// SCHEMA SLIP (bugs_open/036). The JSON is complete and well-formed but
@@ -403,6 +416,10 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 				logger.Warn("diagnose_council_decide: review parsed cleanly but the step recorded a TRUNCATION — marking degraded; trailing objections may be missing",
 					zap.String("field", field),
 					zap.String("verdict", rv.Verdict))
+				truncationDamage = append(truncationDamage, truncationDegradation{
+					Field: field, Reviewer: rv.Reviewer, Verdict: rv.Verdict,
+					Objections: len(rv.Objections), Branch: "producer_marker",
+				})
 			}
 		}
 		reviews = append(reviews, rv)
@@ -460,6 +477,10 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 	); err != nil {
 		return nil, fmt.Errorf("persist council report: %w", err)
 	}
+
+	// Deliberately AFTER the report insert: the decision is already durable, so a
+	// failure to record the damage cannot cost a decided council.
+	recordTruncationDegradation(ctx, params, corr, decision, truncationDamage, logger)
 
 	// The revise loop's counter IS the council_report count for THIS PROPOSER
 	// RUN — one per round, just written, so this reflects the current round.
@@ -521,6 +542,93 @@ func DiagnoseCouncilDecideAction(ctx context.Context, params ActionParams) (inte
 		"should_revise":  shouldRevise,
 		"should_reframe": shouldReframe,
 	}, nil
+}
+
+// truncationDegradation is one seat whose opinion was damaged by a TRUNCATION —
+// recovered from a partial, or lost outright. Collected during the review loop
+// and written after the decision by recordTruncationDegradation.
+type truncationDegradation struct {
+	Field      string
+	Reviewer   string
+	Verdict    string
+	Objections int
+	// Branch names HOW the truncation presented, because the three cases carry
+	// different amounts of loss and are worth telling apart in the data:
+	//   producer_marker            — parsed cleanly; the producing step stamped
+	//                                __truncated, so trailing objections may be gone
+	//   salvaged_from_invalid_json — JSON was cut mid-structure and closed by hand
+	//   unsalvageable_invalid_json — cut too early to recover; the seat is lost
+	Branch string
+}
+
+// recordTruncationDegradation persists, per damaged seat, the fact that a
+// consumer DEGRADED on a truncated response — to agent_error_log, where the
+// immune-system sweep and the dashboards already look.
+//
+// WHY THIS EXISTS (bugs_open/076 residual). The tolerate-and-mark contract has
+// two halves and only one of them was durable. The PRODUCER half is recorded
+// permanently: ExecuteLLMPromptAction writes an llm_call_log row prefixed
+// "TOLERATED (step continued on the partial):". The CONSUMER half — what this
+// action then did about it — existed only as a zap.Warn, and a pod log dies with
+// its pod (the same argument that put recordUnknownVerdict in
+// complete_work_item_verification.go, council objection bug_historian
+// 2026-07-18). So "has a consumer ever actually degraded?" was unanswerable from
+// data, which is a poor position for a mechanism whose entire purpose is to make
+// an invisible failure visible. The orchestration_states copy of the marker is
+// not a substitute: it is pruned at 24h, so a zero there is not evidence of never.
+//
+// Severity is 'warning', not 'error': degrading is the CORRECT behaviour here and
+// the round is sound. What needs a human eventually is the pattern — a seat that
+// truncates repeatedly wants a higher max_tokens, not a nightly salvage.
+//
+// Scope is truncation only. The schema-slip salvage (bugs_closed/036) shares this
+// loop but is a different defect with a different remedy, and folding it in would
+// make the error_code mean two things.
+//
+// Best-effort by design, like every other durable-record helper in this package:
+// a failure to record must never change a decision already made and already
+// persisted. It warns and returns.
+func recordTruncationDegradation(ctx context.Context, params ActionParams, corr, decision string, damage []truncationDegradation, logger *zap.Logger) {
+	if len(damage) == 0 || params.DB == nil {
+		return
+	}
+
+	for _, d := range damage {
+		contextJSON, _ := json.Marshal(map[string]interface{}{
+			"correlation_id":       corr,
+			"review_field":         d.Field,
+			"reviewer":             d.Reviewer,
+			"recovered_verdict":    d.Verdict,
+			"objections_recovered": d.Objections,
+			"branch":               d.Branch,
+			"council_decision":     decision,
+		})
+		if contextJSON == nil {
+			contextJSON = []byte("{}")
+		}
+
+		if _, err := params.DB.ExecContext(ctx, `
+			INSERT INTO agent_error_log (
+				orchestration_id, agent_type, agent_id, pod_name,
+				step_name, action, error_message, error_code, severity, context
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb)
+		`,
+			nullIfEmpty(params.ExecutionContext.OrchestrationID),
+			params.ExecutionContext.Sender.AgentType,
+			params.ExecutionContext.Sender.AgentID,
+			params.ExecutionContext.Sender.PodName,
+			params.ExecutionContext.StepName,
+			"diagnose_council_decide",
+			"council seat '"+d.Field+"' was damaged by a TRUNCATED response ("+d.Branch+") — the opinion counted here is partial or lost",
+			"TRUNCATION_DEGRADED_REVIEW",
+			"warning",
+			string(contextJSON),
+		); err != nil {
+			logger.Warn("recordTruncationDegradation: could not persist to agent_error_log (the decision is unaffected)",
+				zap.String("field", d.Field),
+				zap.Error(err))
+		}
+	}
 }
 
 // applyCouncilCaps maps the raw council decision onto the loop's routing flags.

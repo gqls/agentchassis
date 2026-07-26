@@ -155,3 +155,99 @@ func TestTruncationAwareActionsReadTheMarker(t *testing.T) {
 		}
 	}
 }
+
+// truncationMarkerExemptions names the non-test files that mention the LLM
+// truncation marker WITHOUT consuming one. Each value is the reason, because an
+// exemption with no reason is just a silenced test.
+var truncationMarkerExemptions = map[string]string{
+	"ai_actions.go":       "the PRODUCER: markTruncated STAMPS the marker and the guard refuses to; it never reads one back",
+	"types.go":            "documentation only: the ActionParams.WorkflowSteps comment explains why the plan is plumbed",
+	"truncation_guard.go": "the registry itself — excluded from the forward scan for the same reason it is excluded here",
+}
+
+// readsLLMTruncationMarker reports whether a source file refers to the LLM
+// truncation marker "__truncated".
+//
+// The stripping is load-bearing, not tidiness. This package contains a SECOND,
+// unrelated marker one underscore away: workflow_actions.go's
+// truncatedResponseStub writes "__truncated__" for a Kafka response that
+// exceeded max_response_bytes — a different mechanism, a different remedy, and
+// nothing to do with an LLM cut at max_tokens. A naive strings.Contains matches
+// it as a substring, so a scan without this would demand an exemption for a file
+// that never touches the LLM contract, and — worse in the other direction —
+// would let a future action be credited as a truncation-aware consumer because
+// it handles response-size stubs. TestTheTwoTruncationMarkersAreNotConfused
+// pins that distinction.
+func readsLLMTruncationMarker(text string) bool {
+	return strings.Contains(strings.ReplaceAll(text, "__truncated__", ""), "__truncated")
+}
+
+// The INVERSE lockstep, and the one the council actually asked for (seat
+// bug_historian, corr 470678f4, edit 0, low): the forward test above holds
+// registered names to real readers, but nothing forced a NEW reader to be
+// registered. A future action that reads __truncated and is never added to
+// truncationAwareActions is invisible to the guard — which fails in the safe
+// direction (workflows using it are refused rather than waved through), but it
+// means the registry can silently UNDERCLAIM its coverage, and silent is the
+// property this whole case exists to remove.
+//
+// So: every non-test file in this package that reads the marker must either
+// implement a registered action or be exempt with a stated reason. Adding a
+// reader now forces a decision instead of allowing an omission.
+func TestEveryMarkerReaderIsRegisteredOrExempt(t *testing.T) {
+	entries, err := os.ReadDir(".")
+	if err != nil {
+		t.Fatalf("read package dir: %v", err)
+	}
+
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".go") || strings.HasSuffix(name, "_test.go") {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Clean(name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		text := string(body)
+		if !readsLLMTruncationMarker(text) {
+			continue
+		}
+		if reason, exempt := truncationMarkerExemptions[name]; exempt {
+			if strings.TrimSpace(reason) == "" {
+				t.Errorf("%s is exempt from the truncation-reader check with no reason recorded", name)
+			}
+			continue
+		}
+
+		var registered bool
+		for action := range truncationAwareActions {
+			if strings.Contains(text, action) {
+				registered = true
+				break
+			}
+		}
+		if !registered {
+			t.Errorf("%s reads the \"__truncated\" marker but implements no action in truncationAwareActions.\n"+
+				"A consumer the registry does not know about cannot be found by findTruncationAwareConsumer, so every workflow relying on it is refused (safe) while the registry claims less coverage than it has (silent).\n"+
+				"Either register the action it implements, or add it to truncationMarkerExemptions with the reason it is not a consumer.", name)
+		}
+	}
+}
+
+// The two markers in this package are one underscore apart and mean unrelated
+// things. Pinned separately from the scan above so that a change to either
+// mechanism fails HERE, where the distinction is explained, rather than as a
+// puzzling exemption demand somewhere else.
+func TestTheTwoTruncationMarkersAreNotConfused(t *testing.T) {
+	if readsLLMTruncationMarker(`stub := map[string]interface{}{"__truncated__": true}`) {
+		t.Error("the response-size stub marker \"__truncated__\" was read as the LLM truncation marker")
+	}
+	if !readsLLMTruncationMarker(`if out["__truncated"] == true {`) {
+		t.Error("the LLM truncation marker was not recognised")
+	}
+	// Both in one file — the case the ReplaceAll must not swallow.
+	if !readsLLMTruncationMarker(`a["__truncated__"] = true; b := m["__truncated"]`) {
+		t.Error("a file using BOTH markers must still count as an LLM-marker reader")
+	}
+}
