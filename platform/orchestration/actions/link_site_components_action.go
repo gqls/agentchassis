@@ -125,6 +125,7 @@ func LinkSiteComponentsAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	linked := 0
+	lockedSlots := []string{}
 	for slot, compID := range slotMapping {
 		if !compID.Valid {
 			logger.Warn("No component found for slot",
@@ -140,17 +141,39 @@ func LinkSiteComponentsAction(ctx context.Context, params ActionParams) (interfa
 			continue
 		}
 
-		// Upsert: create site_components row if missing, update component_id if wrong
-		result, err := params.DB.ExecContext(ctx, `
-			INSERT INTO site_components (site_id, slot_name, component_id, build_status, rendered_html)
-			VALUES ($1, $2, $3, 'pending', NULL)
-			ON CONFLICT (site_id, slot_name) DO UPDATE SET
-				component_id = EXCLUDED.component_id,
-				rendered_html = NULL,
-				build_status = 'pending',
-				updated_at = NOW()
-			WHERE site_components.component_id IS DISTINCT FROM EXCLUDED.component_id
-		`, siteID, slot, compUUID)
+		// Human lock gate (bugs_open/069). Unlike every other writer in this
+		// family the pre-check here is LOAD-BEARING, not advisory: the upsert's
+		// own WHERE means "0 rows affected" is the NORMAL, expected outcome
+		// (the slot already points at the right component), so RowsAffected
+		// cannot tell "nothing to do" from "a lock refused me". Only a read of
+		// the row before the write can. Do not "simplify" this away.
+		//
+		// It matters more here than anywhere else in this fix: the DO UPDATE
+		// arm sets rendered_html = NULL, so an ungated relink does not
+		// overwrite a locked human artefact — it ERASES it.
+		lock, lockErr := CheckSiteComponentLock(ctx, params.DB, siteID, slot, logger)
+		if lockErr != nil {
+			logger.Warn("link_site_components: chrome lock check failed — relying on the guarded upsert",
+				zap.String("slot", slot), zap.Error(lockErr))
+		} else if lock.RowExists && lock.ComponentID.Valid && lock.ComponentID.UUID == compUUID {
+			// Already linked correctly: no write was pending, so a lock blocks
+			// nothing and there is nothing to report.
+			continue
+		} else if lock.IsLocked {
+			logger.Warn("link_site_components: refusing to relink human-locked chrome slot (bugs_open/069)",
+				zap.String("slot", slot),
+				zap.String("locked_by", lock.LockedBy),
+				zap.String("wanted_component_id", compID.String),
+			)
+			emitChromeLockBlockedChangeItem(ctx, params.DB, siteID, slot, lock,
+				"relink", "link_site_components", logger)
+			lockedSlots = append(lockedSlots, slot)
+			continue
+		}
+
+		// Upsert: create the site_components row if missing, update
+		// component_id if wrong. Guarded — see relinkSiteComponent.
+		changed, err := relinkSiteComponent(ctx, params.DB, siteID, slot, compUUID)
 		if err != nil {
 			logger.Warn("Failed to link site component",
 				zap.String("slot", slot),
@@ -158,8 +181,7 @@ func LinkSiteComponentsAction(ctx context.Context, params ActionParams) (interfa
 			continue
 		}
 
-		rows, _ := result.RowsAffected()
-		if rows > 0 {
+		if changed {
 			linked++
 			logger.Info("Linked site component",
 				zap.String("slot", slot),
@@ -170,10 +192,12 @@ func LinkSiteComponentsAction(ctx context.Context, params ActionParams) (interfa
 	logger.Info("LinkSiteComponentsAction: Complete",
 		zap.String("site_id", siteIDStr),
 		zap.Int("linked", linked),
+		zap.Strings("locked_slots_skipped", lockedSlots),
 	)
 
 	return map[string]interface{}{
-		"linked":  linked,
-		"site_id": siteIDStr,
+		"linked":               linked,
+		"site_id":              siteIDStr,
+		"locked_slots_skipped": lockedSlots,
 	}, nil
 }

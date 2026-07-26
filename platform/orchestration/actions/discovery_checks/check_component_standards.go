@@ -56,12 +56,23 @@ func (c *ComponentStandardsCheck) Run(dctx DiscoveryCheckContext) (*CheckResult,
 // ---------------------------------------------------------------------------
 
 func checkUnlinkedSiteComponents(dctx DiscoveryCheckContext, result *CheckResult) {
+	// The lock filter keeps this detector honest about its own handler: since
+	// bugs_open/069, link_site_components REFUSES to relink a human-locked
+	// chrome slot (its upsert NULLs rendered_html, so an ungated relink erases
+	// the locked artefact). Raising the item anyway would file work no fixer
+	// can apply — the bugs_open/077 shape. The predicate is written out rather
+	// than shared because pageComponentAgentWritableSQL is unexported in
+	// package actions and this package cannot see it; it is the same expression
+	// (a timed lock past its expiry does not block automation), and the
+	// precedent is check_unverified_claims.go's chrome query.
 	rows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT sc.slot_name
 		FROM site_components sc
 		WHERE sc.site_id = $1
 		  AND sc.slot_name IN ('header', 'footer', 'head')
 		  AND sc.component_id IS NULL
+		  AND (sc.locked_at IS NULL
+		       OR (sc.lock_type = 'timed' AND sc.lock_expires_at IS NOT NULL AND sc.lock_expires_at < NOW()))
 	`, dctx.SiteID)
 	if err != nil {
 		dctx.Logger.Warn("checkUnlinkedSiteComponents: query failed", zap.Error(err))

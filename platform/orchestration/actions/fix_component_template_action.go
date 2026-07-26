@@ -40,6 +40,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -48,6 +49,68 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
+
+// chromeFixLockSkip is the shared lock gate for every fix_type in this file
+// that rewrites site_components.rendered_html (bugs_open/069). It returns a
+// skip-RESULT when the slot carries an active human lock, or nil to proceed.
+//
+// The result speaks this file's existing vocabulary: fixed:false plus
+// action:"needs_review", which is what stops the dispatch loop recording the
+// work item as done. Without it the handler reports success, discovery
+// re-detects the same defect, and the two-strike rule parks the item
+// 'unresolved' two cycles later — a silent skip traded for a mislabelled one.
+//
+// A check failure is non-fatal: the writes below carry the lock predicate
+// themselves, so enforcement never depends on this read.
+func chromeFixLockSkip(ctx context.Context, params ActionParams, siteID uuid.UUID,
+	slot, fixType string, logger *zap.Logger) map[string]interface{} {
+
+	lock, err := CheckSiteComponentLock(ctx, params.DB, siteID, slot, logger)
+	if err != nil {
+		logger.Warn("fix_component_template: chrome lock check failed — relying on the guarded update",
+			zap.String("slot", slot), zap.Error(err))
+		return nil
+	}
+	if !lock.IsLocked {
+		return nil
+	}
+
+	logger.Warn("fix_component_template: refusing to patch human-locked chrome slot (bugs_open/069)",
+		zap.String("slot", slot),
+		zap.String("fix_type", fixType),
+		zap.String("locked_by", lock.LockedBy),
+	)
+	emitChromeLockBlockedChangeItem(ctx, params.DB, siteID, slot, lock,
+		"overwrite", "fix_component_template", logger)
+
+	return map[string]interface{}{
+		"fixed":     false,
+		"locked":    true,
+		"action":    "needs_review",
+		"fix_type":  fixType,
+		"slot_name": slot,
+		"reason": fmt.Sprintf("chrome slot %q is locked by %q — automated fix refused; "+
+			"unlock via the admin dashboard to apply it", slot, lock.LockedBy),
+	}
+}
+
+// chromeFixLockRefused handles a guarded write that matched no row. Almost
+// always the lock arrived between the pre-check and the write; if the re-check
+// disagrees the row was deleted concurrently, which is still not a success.
+func chromeFixLockRefused(ctx context.Context, params ActionParams, siteID uuid.UUID,
+	slot, fixType string, logger *zap.Logger) map[string]interface{} {
+
+	if skip := chromeFixLockSkip(ctx, params, siteID, slot, fixType, logger); skip != nil {
+		return skip
+	}
+	return map[string]interface{}{
+		"fixed":     false,
+		"action":    "needs_review",
+		"fix_type":  fixType,
+		"slot_name": slot,
+		"reason":    fmt.Sprintf("chrome slot %q matched no row at write time — locked or removed concurrently", slot),
+	}
+}
 
 var FixComponentTemplateInputSpec = datahelpers.ActionInputSpec{
 	Required:   []string{"site_id"},
@@ -224,6 +287,10 @@ func fixInjectNavFlexCSS(ctx context.Context, params ActionParams, siteID uuid.U
 		slotName = s
 	}
 
+	if skip := chromeFixLockSkip(ctx, params, siteID, slotName, "inject_nav_flex_css", logger); skip != nil {
+		return skip, nil
+	}
+
 	var html string
 	err := params.DB.QueryRowContext(ctx, `
 		SELECT COALESCE(rendered_html, '') FROM site_components
@@ -272,11 +339,10 @@ func fixInjectNavFlexCSS(ctx context.Context, params ActionParams, siteID uuid.U
 		html = html + navCSS
 	}
 
-	_, err = params.DB.ExecContext(ctx, `
-		UPDATE site_components SET rendered_html = $1, updated_at = NOW()
-		WHERE site_id = $2 AND slot_name = $3
-	`, html, siteID, slotName)
-	if err != nil {
+	if err := setSiteComponentHTML(ctx, params.DB, siteID, slotName, html); err != nil {
+		if errors.Is(err, errSiteComponentLocked) {
+			return chromeFixLockRefused(ctx, params, siteID, slotName, "inject_nav_flex_css", logger), nil
+		}
 		return nil, fmt.Errorf("failed to update %s: %w", slotName, err)
 	}
 
@@ -388,6 +454,20 @@ func fixChromeOverflow(ctx context.Context, params ActionParams, siteID uuid.UUI
 		return nil, fmt.Errorf("chrome_overflow_fix: load %s slot: %w", slot, err)
 	}
 
+	// Human lock state for THIS site's slot (bugs_open/069). It deliberately
+	// does NOT stop the shared template patch below — a shared CSS defect still
+	// deserves the shared fix, and the other sites on that template need it —
+	// but it does stop this action claiming the fix reaches THIS site, because
+	// the re-render that would deploy it is now refused. Reporting
+	// fixed:true/durable:true there would be exactly the "reports success and
+	// closes the finding" failure this function's own header warns about.
+	chromeLock, lockErr := CheckSiteComponentLock(ctx, params.DB, siteID, slot, logger)
+	if lockErr != nil {
+		logger.Warn("chrome_overflow_fix: chrome lock check failed — relying on the guarded update",
+			zap.String("slot", slot), zap.Error(lockErr))
+		chromeLock = &SiteComponentLockStatus{}
+	}
+
 	if componentID.Valid && componentID.String != "" {
 		var template string
 		if err := params.DB.QueryRowContext(ctx, `
@@ -424,12 +504,25 @@ func fixChromeOverflow(ctx context.Context, params ActionParams, siteID uuid.UUI
 			zap.String("slot", slot), zap.String("selector", selector),
 			zap.String("component_id", componentID.String), zap.Int("shared_sites", sharedSites))
 
-		return map[string]interface{}{
+		result := map[string]interface{}{
 			"fixed": true, "fix_type": "chrome_overflow_fix", "slot_name": slot,
 			"overflow_selector": selector, "layer": "content_component",
 			"component_id": componentID.String, "shared_sites": sharedSites,
 			"detail": fmt.Sprintf("injected a mobile media query into the %s template (shared by %d site(s)) so %s wraps; a rerender deploys it and survives refresh", slot, sharedSites, selector),
-		}, nil
+		}
+		if chromeLock.IsLocked {
+			logger.Warn("chrome_overflow_fix: template patched, but THIS site's slot is human-locked — it will not reach this site until unlocked (bugs_open/069)",
+				zap.String("slot", slot), zap.String("locked_by", chromeLock.LockedBy))
+			emitChromeLockBlockedChangeItem(ctx, params.DB, siteID, slot, chromeLock,
+				"rerender", "fix_component_template", logger)
+			result["site_slot_locked"] = true
+			result["durable_for_this_site"] = false
+			result["action"] = "needs_review"
+			result["detail"] = fmt.Sprintf("%s — but this site's %s slot is locked by %q, so the "+
+				"re-render that would deploy it is refused; the other %d site(s) on this template still get the fix",
+				result["detail"], slot, chromeLock.LockedBy, sharedSites-1)
+		}
+		return result, nil
 	}
 
 	// No backing component (inline/legacy slot): patch rendered_html as the only
@@ -448,10 +541,13 @@ func fixChromeOverflow(ctx context.Context, params ActionParams, siteID uuid.UUI
 			"reason": "already patched for this selector",
 		}, nil
 	}
-	if _, err := params.DB.ExecContext(ctx, `
-		UPDATE site_components SET rendered_html = rendered_html || $3, updated_at = now()
-		WHERE site_id = $1 AND slot_name = $2
-	`, siteID, slot, overflowCSS); err != nil {
+	if skip := chromeFixLockSkip(ctx, params, siteID, slot, "chrome_overflow_fix", logger); skip != nil {
+		return skip, nil
+	}
+	if err := appendSiteComponentHTML(ctx, params.DB, siteID, slot, overflowCSS); err != nil {
+		if errors.Is(err, errSiteComponentLocked) {
+			return chromeFixLockRefused(ctx, params, siteID, slot, "chrome_overflow_fix", logger), nil
+		}
 		return nil, fmt.Errorf("chrome_overflow_fix: update %s rendered_html: %w", slot, err)
 	}
 	logger.Warn("chrome_overflow_fix: no backing component — patched rendered_html (TRANSIENT; a refresh will wipe it)",
@@ -469,6 +565,10 @@ func fixInjectResponsiveCSS(ctx context.Context, params ActionParams, siteID uui
 	slotName := "header"
 	if s := datahelpers.ExtractNestedFieldString(params.CollectedData, "input_data.spec.slot_name"); s != "" {
 		slotName = s
+	}
+
+	if skip := chromeFixLockSkip(ctx, params, siteID, slotName, "responsive_fix", logger); skip != nil {
+		return skip, nil
 	}
 
 	var html string
@@ -524,11 +624,10 @@ func fixInjectResponsiveCSS(ctx context.Context, params ActionParams, siteID uui
 		html = html + responsiveCSS
 	}
 
-	_, err = params.DB.ExecContext(ctx, `
-		UPDATE site_components SET rendered_html = $1, updated_at = NOW()
-		WHERE site_id = $2 AND slot_name = $3
-	`, html, siteID, slotName)
-	if err != nil {
+	if err := setSiteComponentHTML(ctx, params.DB, siteID, slotName, html); err != nil {
+		if errors.Is(err, errSiteComponentLocked) {
+			return chromeFixLockRefused(ctx, params, siteID, slotName, "responsive_fix", logger), nil
+		}
 		return nil, fmt.Errorf("failed to update %s: %w", slotName, err)
 	}
 
@@ -558,6 +657,10 @@ func fixRemoveElement(ctx context.Context, params ActionParams, siteID uuid.UUID
 	}
 	if pattern == "" {
 		return nil, fmt.Errorf("pattern is required for remove_element")
+	}
+
+	if skip := chromeFixLockSkip(ctx, params, siteID, slotName, "remove_element", logger); skip != nil {
+		return skip, nil
 	}
 
 	var html string
@@ -594,11 +697,10 @@ func fixRemoveElement(ctx context.Context, params ActionParams, siteID uuid.UUID
 		return map[string]interface{}{"fixed": false, "reason": "regex didn't match"}, nil
 	}
 
-	_, err = params.DB.ExecContext(ctx, `
-		UPDATE site_components SET rendered_html = $1, updated_at = NOW()
-		WHERE site_id = $2 AND slot_name = $3
-	`, html, siteID, slotName)
-	if err != nil {
+	if err := setSiteComponentHTML(ctx, params.DB, siteID, slotName, html); err != nil {
+		if errors.Is(err, errSiteComponentLocked) {
+			return chromeFixLockRefused(ctx, params, siteID, slotName, "remove_element", logger), nil
+		}
 		return nil, fmt.Errorf("failed to update %s: %w", slotName, err)
 	}
 

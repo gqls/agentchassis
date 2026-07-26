@@ -277,20 +277,29 @@ func RenderSiteComponentsAction(ctx context.Context, params ActionParams) (inter
 
 	// Render each slot
 	rendered := make(map[string]bool)
+	lockedSlots := []string{}
 	for _, slot := range slots {
-		success := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, params.Logger)
+		success, locked := renderAndStoreSiteComponent(ctx, params.DB, siteID, slot, renderCtx, forceRerender, params.Logger)
 		rendered[slot] = success
+		if locked {
+			lockedSlots = append(lockedSlots, slot)
+		}
 	}
 
 	params.Logger.Info("RenderSiteComponentsAction: Complete",
 		zap.Any("rendered", rendered),
+		zap.Strings("locked_slots_preserved", lockedSlots),
 	)
 
+	// locked_slots_preserved reports human locks that refused a re-render
+	// (bugs_open/069), mirroring save_page_sections' locked_sections_preserved.
+	// It is NOT a failure: each one has filed a lock_blocked_change item.
 	return map[string]interface{}{
-		"success":  true,
-		"site_id":  siteIDStr,
-		"domain":   siteData.Domain,
-		"rendered": rendered,
+		"success":                true,
+		"site_id":                siteIDStr,
+		"domain":                 siteData.Domain,
+		"rendered":               rendered,
+		"locked_slots_preserved": lockedSlots,
 	}, nil
 }
 
@@ -469,14 +478,14 @@ func renderAndStoreSiteComponent(
 	renderCtx *RenderContext,
 	force bool,
 	logger *zap.Logger,
-) bool {
+) (bool, bool) {
 	// Check if already rendered (unless force)
 	if !force {
 		var exists bool
 		db.QueryRowContext(ctx, `
 			SELECT EXISTS(
-				SELECT 1 FROM site_components 
-				WHERE site_id = $1 AND slot_name = $2 
+				SELECT 1 FROM site_components
+				WHERE site_id = $1 AND slot_name = $2
 				AND rendered_html IS NOT NULL AND rendered_html != ''
 			)
 		`, siteID, slot).Scan(&exists)
@@ -484,8 +493,35 @@ func renderAndStoreSiteComponent(
 		if exists {
 			logger.Debug("Site component already rendered, skipping",
 				zap.String("slot", slot))
-			return true
+			return true, false
 		}
+	}
+
+	// Human lock gate (bugs_open/069). DELIBERATELY below the !force check
+	// above: that path already no-ops on a populated slot, so checking earlier
+	// would file a "a writer wanted to change this" item for a call that was
+	// never going to write. Everything after this point writes — the fallback
+	// below repoints component_id at a GENERIC default template, and the render
+	// at the end replaces rendered_html outright — so one bail here covers both.
+	//
+	// A check failure is non-fatal: the guarded statements below carry the lock
+	// predicate themselves, so enforcement does not depend on this read.
+	if lock, lockErr := CheckSiteComponentLock(ctx, db, siteID, slot, logger); lockErr != nil {
+		logger.Warn("renderAndStoreSiteComponent: chrome lock check failed — relying on the guarded writes",
+			zap.String("slot", slot), zap.Error(lockErr))
+	} else if lock.IsLocked {
+		logger.Warn("renderAndStoreSiteComponent: refusing to re-render human-locked chrome slot (bugs_open/069)",
+			zap.String("slot", slot),
+			zap.String("locked_by", lock.LockedBy),
+			zap.String("lock_type", lock.LockType),
+			zap.Bool("artefact_empty", !lock.HasHTML),
+		)
+		emitChromeLockBlockedChangeItem(ctx, db, siteID, slot, lock,
+			"overwrite", "render_site_components", logger)
+		// ok reports whether the slot still SERVES chrome, which is what the
+		// caller's map means. A lock over a populated slot is a success from
+		// the page's point of view; a lock over an empty one is not.
+		return lock.HasHTML, true
 	}
 
 	// Get component template + its declared input_schema. The schema is what
@@ -524,15 +560,25 @@ func renderAndStoreSiteComponent(
 			logger.Warn("No component found for slot",
 				zap.String("slot", slot),
 				zap.Error(err))
-			return false
+			return false, false
 		}
 
-		// Insert the component assignment
-		db.ExecContext(ctx, `
+		// Insert the component assignment. The DO UPDATE arm repoints an
+		// EXISTING row at this generic default, so it carries the lock
+		// predicate (bugs_open/069) — qualified, because bare column names in
+		// an ON CONFLICT ... WHERE are ambiguous against EXCLUDED. The INSERT
+		// arm needs no gate: a row that does not exist yet cannot be locked.
+		// The error was previously discarded outright, which made a failed
+		// assignment look like a successful render.
+		if _, execErr := db.ExecContext(ctx, `
 			INSERT INTO site_components (site_id, slot_name, component_id, build_status)
 			VALUES ($1, $2, $3, 'pending')
 			ON CONFLICT (site_id, slot_name) DO UPDATE SET component_id = $3
-		`, siteID, slot, componentID)
+			WHERE `+pageComponentAgentWritableSQL("site_components.")+`
+		`, siteID, slot, componentID); execErr != nil {
+			logger.Warn("Failed to assign default component to slot",
+				zap.String("slot", slot), zap.Error(execErr))
+		}
 	}
 
 	// Schema-driven fill (bugs_open/018). renderCtx.ContentData above is a FIXED
@@ -644,7 +690,7 @@ func renderAndStoreSiteComponent(
 	if renderedHTML == "" {
 		logger.Warn("Template rendered to empty string",
 			zap.String("slot", slot))
-		return false
+		return false, false
 	}
 
 	// Phase I1 (G8): inject favicon + Open Graph tags into <head>. Head
@@ -666,25 +712,45 @@ func renderAndStoreSiteComponent(
 		renderedHTML = injectBrandHeadTags(renderedHTML, renderCtx, spriteCount > 0, logger)
 	}
 
-	// Store the rendered HTML
-	_, err = db.ExecContext(ctx, `
-		UPDATE site_components 
+	// Store the rendered HTML. The lock predicate makes the refusal race-free
+	// (bugs_open/069) — the pre-check above is for the message and to save the
+	// work, this is the enforcement.
+	res, err := db.ExecContext(ctx, `
+		UPDATE site_components
 		SET rendered_html = $1, build_status = 'rendered', updated_at = now()
-		WHERE site_id = $2 AND slot_name = $3
+		WHERE site_id = $2 AND slot_name = $3 AND `+pageComponentAgentWritableSQL("")+`
 	`, renderedHTML, siteID, slot)
 
 	if err != nil {
 		logger.Error("Failed to store rendered component",
 			zap.String("slot", slot),
 			zap.Error(err))
-		return false
+		return false, false
+	}
+
+	// Zero rows means the row is locked or gone. Before this gate the result
+	// was discarded entirely, so a store that wrote nothing still logged
+	// "rendered and stored" and reported success — the two cases must not be
+	// folded together now that one of them is legitimate.
+	if n, raErr := res.RowsAffected(); raErr == nil && n == 0 {
+		lock, lockErr := CheckSiteComponentLock(ctx, db, siteID, slot, logger)
+		if lockErr == nil && lock.IsLocked {
+			logger.Warn("Chrome slot locked between check and store — render discarded (bugs_open/069)",
+				zap.String("slot", slot), zap.String("locked_by", lock.LockedBy))
+			emitChromeLockBlockedChangeItem(ctx, db, siteID, slot, lock,
+				"overwrite", "render_site_components", logger)
+			return lock.HasHTML, true
+		}
+		logger.Error("Failed to store rendered component: no row matched",
+			zap.String("slot", slot), zap.String("site_id", siteID.String()))
+		return false, false
 	}
 
 	logger.Info("Site component rendered and stored",
 		zap.String("slot", slot),
 		zap.Int("html_length", len(renderedHTML)))
 
-	return true
+	return true, false
 }
 
 // emitChromeDeadControlItem files ONE work item when a site-chrome component

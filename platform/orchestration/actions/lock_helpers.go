@@ -9,6 +9,11 @@
 // predicates (TOCTOU-free), and CheckComponentLock when they need the lock's
 // details for reporting.
 //
+// The CHROME half (site_components: header/footer/head, bugs_open/069) lives in
+// site_component_lock_guard.go and shares this file's predicate, its hard/soft
+// classifier (classifyComponentLock) and its work-item plumbing
+// (emitLockBlockedChange).
+//
 // Lock semantics come from the applied 053/115 schema migration
 // (docs/agent_docs/sql_for_agents/115_locks.sql) and lock_policy.go: a row is
 // agent-writable iff it carries no lock, or only a timed lock whose expiry has
@@ -71,6 +76,23 @@ func CheckComponentLock(ctx context.Context, db *sql.DB, componentID uuid.UUID, 
 		return nil, err
 	}
 
+	return classifyComponentLock(lockedAt, lockedBy, lockType, lockExpiresAt, agentWritable), nil
+}
+
+// classifyComponentLock turns the five columns every lock-bearing table shares
+// into a ComponentLockStatus. Pure — the caller does its own SELECT (the tables
+// differ in how you address a row: page_components by id, site_components by
+// site_id+slot_name) and hands the scanned values here, so the hard/soft rule
+// below can never drift between surfaces.
+//
+// Hard = never auto-expires; only a human unlock releases it. lock_type is the
+// classifier (lock_policy.go, permanent <=> human). A locked row with no
+// lock_type predates the policy stamp — treat as hard, conservatively. (The old
+// locked_by IN ('admin',...) switch misclassified every live lock: real rows
+// carry free-text reasons in locked_by, e.g. '182_legal_pages'.)
+func classifyComponentLock(lockedAt sql.NullTime, lockedBy, lockType sql.NullString,
+	lockExpiresAt sql.NullTime, agentWritable bool) *ComponentLockStatus {
+
 	status := &ComponentLockStatus{
 		IsLocked: lockedAt.Valid && !agentWritable,
 		LockedBy: lockedBy.String,
@@ -82,17 +104,10 @@ func CheckComponentLock(ctx context.Context, db *sql.DB, componentID uuid.UUID, 
 	if lockExpiresAt.Valid {
 		status.LockExpiresAt = &lockExpiresAt.Time
 	}
-
-	// Hard = never auto-expires; only a human unlock releases it. lock_type is
-	// the classifier (lock_policy.go, permanent <=> human). A locked row with
-	// no lock_type predates the policy stamp — treat as hard, conservatively.
-	// (The old locked_by IN ('admin',...) switch misclassified every live lock:
-	// real rows carry free-text reasons in locked_by, e.g. '182_legal_pages'.)
 	if status.IsLocked {
 		status.IsHard = IsHardLockType(status.LockType) || status.LockType == ""
 	}
-
-	return status, nil
+	return status
 }
 
 // CheckPageHasHardLocks counts components on a page carrying a hard (human)
@@ -129,61 +144,114 @@ func emitLockBlockedChangeItem(ctx context.Context, db *sql.DB, siteID uuid.UUID
 	pageID, componentID *uuid.UUID, pageName, slotName, lockedBy, lockType,
 	blockedAction, sourceAction string, logger *zap.Logger) {
 
-	spec := map[string]interface{}{
-		"surface":        "page_component",
-		"page_name":      pageName,
-		"slot_name":      slotName,
-		"locked_by":      lockedBy,
-		"lock_type":      lockType,
-		"blocked_action": blockedAction,
-		"source":         sourceAction,
-		"fix": "A human lock on this section blocked an automated change; the " +
+	emitLockBlockedChange(ctx, db, lockBlockedChange{
+		siteID:        siteID,
+		pageID:        pageID,
+		componentID:   componentID,
+		surface:       "page_component",
+		slotName:      slotName,
+		lockedBy:      lockedBy,
+		lockType:      lockType,
+		blockedAction: blockedAction,
+		sourceAction:  sourceAction,
+		itemKey:       fmt.Sprintf("lock_blocked_change:%s:%s", pageName, slotName),
+		summary: fmt.Sprintf("Lock held: %s wanted to %s locked section %q on page %q (locked by: %s)",
+			sourceAction, blockedAction, slotName, pageName, lockedBy),
+		fixText: "A human lock on this section blocked an automated change; the " +
 			"locked copy was preserved (bugs_open/058). Decide: keep the lock (the " +
 			"planned change stays unapplied — no action needed), or unlock via the " +
 			"admin dashboard and re-run the change if the section should follow " +
 			"the plan again.",
+		extraSpec: map[string]interface{}{"page_name": pageName},
+	}, logger)
+}
+
+// lockBlockedChange carries everything that DIFFERS between the surfaces a lock
+// can block. What is shared — and therefore lives in emitLockBlockedChange
+// below — is the plumbing: the idx_swi_dedup-matched ON CONFLICT via
+// insertWorkItem, the no-handler_agent routing, the 250-char summary cap, and
+// log-never-return. The prose is not shared: "section on page X" is meaningless
+// for a site-wide chrome slot, and the consequence a human needs to read
+// differs (stale nav across every page, versus one unchanged section).
+//
+// severity defaults to "medium" when empty.
+type lockBlockedChange struct {
+	siteID        uuid.UUID
+	pageID        *uuid.UUID
+	componentID   *uuid.UUID
+	surface       string // page_component | site_component
+	slotName      string
+	lockedBy      string
+	lockType      string
+	blockedAction string // overwrite | remove | edit | relink | rerender
+	sourceAction  string
+	severity      string
+	itemKey       string
+	summary       string
+	fixText       string
+	extraSpec     map[string]interface{}
+}
+
+// emitLockBlockedChange is the shared body behind emitLockBlockedChangeItem
+// (page sections, bugs_open/058) and emitChromeLockBlockedChangeItem (site
+// chrome, bugs_open/069).
+func emitLockBlockedChange(ctx context.Context, db *sql.DB, c lockBlockedChange, logger *zap.Logger) {
+	spec := map[string]interface{}{
+		"surface":        c.surface,
+		"slot_name":      c.slotName,
+		"locked_by":      c.lockedBy,
+		"lock_type":      c.lockType,
+		"blocked_action": c.blockedAction,
+		"source":         c.sourceAction,
+		"fix":            c.fixText,
 	}
-	if componentID != nil {
-		spec["component_id"] = componentID.String()
+	if c.componentID != nil {
+		spec["component_id"] = c.componentID.String()
+	}
+	for k, v := range c.extraSpec {
+		spec[k] = v
 	}
 	specJSON, _ := json.Marshal(spec)
 
-	summary := fmt.Sprintf("Lock held: %s wanted to %s locked section %q on page %q (locked by: %s)",
-		sourceAction, blockedAction, slotName, pageName, lockedBy)
+	summary := c.summary
 	if len(summary) > 250 {
 		summary = summary[:247] + "..."
 	}
-	itemKey := fmt.Sprintf("lock_blocked_change:%s:%s", pageName, slotName)
+
+	severity := c.severity
+	if severity == "" {
+		severity = "medium"
+	}
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		logger.Warn("emitLockBlockedChangeItem: begin tx failed",
-			zap.String("slot", slotName), zap.Error(err))
+		logger.Warn("emitLockBlockedChange: begin tx failed",
+			zap.String("surface", c.surface), zap.String("slot", c.slotName), zap.Error(err))
 		return
 	}
 	_, err = insertWorkItem(ctx, tx, workItem{
-		siteID:      siteID,
-		pageID:      pageID,
-		componentID: componentID,
-		source:      sourceAction,
+		siteID:      c.siteID,
+		pageID:      c.pageID,
+		componentID: c.componentID,
+		source:      c.sourceAction,
 		pipeline:    "build",
 		itemType:    "lock_blocked_change",
-		severity:    "medium",
+		severity:    severity,
 		summary:     summary,
 		spec:        string(specJSON),
 		priority:    30,
 		status:      "needs_human_review",
-		createdBy:   sourceAction,
-		itemKey:     itemKey,
+		createdBy:   c.sourceAction,
+		itemKey:     c.itemKey,
 	}, logger)
 	if err != nil {
 		_ = tx.Rollback()
-		logger.Warn("emitLockBlockedChangeItem: insert failed",
-			zap.String("slot", slotName), zap.Error(err))
+		logger.Warn("emitLockBlockedChange: insert failed",
+			zap.String("surface", c.surface), zap.String("slot", c.slotName), zap.Error(err))
 		return
 	}
 	if err := tx.Commit(); err != nil {
-		logger.Warn("emitLockBlockedChangeItem: commit failed",
-			zap.String("slot", slotName), zap.Error(err))
+		logger.Warn("emitLockBlockedChange: commit failed",
+			zap.String("surface", c.surface), zap.String("slot", c.slotName), zap.Error(err))
 	}
 }
