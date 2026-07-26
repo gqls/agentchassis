@@ -245,11 +245,43 @@ func (d *AgentDefinitionDiscovery) FindByCapabilities(ctx context.Context, capab
 // UpdateUsageCount increments the usage count for an agent definition
 func (d *AgentDefinitionDiscovery) UpdateUsageCount(ctx context.Context, agentType string) error {
 	_, err := d.db.ExecContext(ctx, `
-		UPDATE agent_definitions 
+		UPDATE agent_definitions
 		SET usage_count = COALESCE(usage_count, 0) + 1,
 		    updated_at = NOW()
 		WHERE type = $1
 	`, agentType)
+	return err
+}
+
+// RecordAgentRun records that an orchestration for agentType has STARTED, in the
+// durable agent_run_stats table (bugs_open/060). A "start" means work was routed
+// to the agent — exactly the signal the dormant-agents detector (bugs_open/044)
+// needs, and unlike orchestration_states this table is not pruned. Keyed on the
+// RESOLVED real agent type (never the dispatch-path 'generic'), so it also has no
+// mirrored-agent blind spot.
+//
+// Best-effort by design: callers invoke it fire-and-forget with a detached
+// context. A dropped write is harmless — the next run re-sets last_ran_at and the
+// count is advisory. agentType is written verbatim; a non-agent value (e.g. a
+// legacy group name) simply never matches an agent_definitions.type and is
+// ignored by the detector. Empty agentType is a no-op.
+func RecordAgentRun(ctx context.Context, db *sql.DB, agentType, orchestrationID string) error {
+	if db == nil || agentType == "" {
+		return nil
+	}
+	var orchID interface{}
+	if orchestrationID != "" {
+		orchID = orchestrationID
+	}
+	_, err := db.ExecContext(ctx, `
+		INSERT INTO agent_run_stats (agent_type, run_count, first_ran_at, last_ran_at, last_orchestration_id)
+		VALUES ($1, 1, now(), now(), $2::uuid)
+		ON CONFLICT (agent_type) DO UPDATE
+		SET run_count             = agent_run_stats.run_count + 1,
+		    last_ran_at           = now(),
+		    last_orchestration_id = COALESCE(EXCLUDED.last_orchestration_id, agent_run_stats.last_orchestration_id),
+		    updated_at            = now()
+	`, agentType, orchID)
 	return err
 }
 

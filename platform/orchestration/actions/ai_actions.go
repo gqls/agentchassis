@@ -195,10 +195,24 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 		agentDef, err := loadAgentDefinitionForAction(ctx, params.DB, params.AgentType)
 		if err != nil {
-			params.Logger.Error("Failed to load agent definition",
+			// Defensive fallback (bugs_open/060): now that owner_agent_type (→
+			// params.AgentType) records the REAL resolved agent type rather than
+			// always 'generic', an abnormal value (a legacy group name, or a type
+			// with no active row) could fail this load where 'generic' used to
+			// succeed. Fall back to 'generic' rather than hard-failing the action —
+			// the config we actually need may still arrive via CollectedData below.
+			params.Logger.Warn("Failed to load agent definition by owner type; falling back to generic",
 				zap.String("agent_type", params.AgentType),
 				zap.Error(err))
-			return nil, fmt.Errorf("failed to load agent definition: %w", err)
+			if params.AgentType != "generic" {
+				if genDef, gerr := loadAgentDefinitionForAction(ctx, params.DB, "generic"); gerr == nil {
+					agentDef = genDef
+					err = nil
+				}
+			}
+			if err != nil {
+				return nil, fmt.Errorf("failed to load agent definition: %w", err)
+			}
 		}
 
 		agentConfig = agentDef.DefaultConfig

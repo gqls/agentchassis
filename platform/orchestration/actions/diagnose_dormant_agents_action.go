@@ -7,42 +7,41 @@
 // errors nowhere, so a capability can quietly go unused for months until a
 // thread declares it missing (bugs_closed/002 D: section-editor, shipped, 3
 // production runs, declared nonexistent through a handoff and two sign-offs).
-// The platform had no inventory of its own capabilities and no detector for
-// unused ones; this is that detector.
+//
+// SIGNAL (rewired 2026-07-24, bugs_open/060). The durable per-agent run record
+// `agent_run_stats` — upserted at every orchestration START on the RESOLVED real
+// agent type, and NOT pruned. An active agent with NO `agent_run_stats` row has
+// never run since tracking began. This replaces the earlier step-fingerprint
+// method over `orchestration_states` (which is pruned hourly at 24h, so it
+// over-flagged constantly — fix-proposer read as dormant because its runs were
+// pruned). Because the record keys on the actual dispatched type, it also has NO
+// mirrored-agent blind spot (council-gate is recorded as itself if it runs) and
+// no council/subtree false-negatives.
 //
 // DELIBERATELY DETERMINISTIC: no LLM. It measures; it never diagnoses and never
 // fixes. Per sweep it:
-//   - computes, by the STEP-FINGERPRINT method (a workflow step key belonging
-//     to exactly ONE agent), which active non-snapshot agents have NEVER been
-//     observed running in any orchestration_states.workflow_plan. owner_agent_
-//     type is NOT usable (95k+ rows carry 'generic', the dispatch path not the
-//     agent — the trap that produced the wrong "110", WRONG_CALLS 2026-07-20);
-//   - applies an AGE FLOOR so a freshly-seeded agent that simply has not had a
-//     chance to run yet is not flagged (evidence-researcher, seeded the day the
-//     bug was filed, is new — not dormant);
-//   - leaves the MIRRORED-AGENT BLIND SPOT unflagged by construction: an agent
-//     with no step key unique to it (e.g. council-gate, whose 099 roster mirror
-//     copies fix-proposer's steps verbatim) is unmeasurable this way, so it can
-//     never enter the never-observed set. Those agents are listed in the report,
-//     never emitted. (orchestration_name was evaluated as a second signal and
-//     REJECTED: it is 'generic-orchestrate-<ts>', it does not name the agent.)
+//   - finds active non-snapshot agents with a workflow that have NO row in
+//     agent_run_stats (never run since tracking began);
+//   - applies an AGE FLOOR so a freshly-seeded agent that has not had a chance to
+//     run yet is reported but not emitted;
+//   - applies a WINDOW GUARD: "dormant for >= floor days" cannot be substantiated
+//     until we have been TRACKING for at least the floor. The tracking window is
+//     `now - min(first_ran_at)` and it GROWS (agent_run_stats is not pruned), so
+//     emission un-gates itself once the record is old enough — the honest handling
+//     of the forward-only cold start;
 //   - emits ONE inert dormant_agent item per past-floor never-run agent
-//     (status='dormant', pipeline='maintenance', unclaimable — nothing
-//     dispatches it; a human triages wire/retire/paused), capped, deduped by
-//     item_key via ON CONFLICT DO NOTHING;
-//   - closes its own items ('complete') once the agent is observed to have run;
+//     (status='dormant', pipeline='maintenance', unclaimable — nothing dispatches
+//     it; a human triages wire/retire/paused), capped, deduped by ON CONFLICT;
+//   - closes its own items ('complete') once the agent is observed to have run
+//     (an agent_run_stats row appears);
 //   - writes one doc_note per sweep (categories dormant-agents+fixloop) — the
-//     inventory artifact, which is the thing that makes a capability discoverable
-//     before it is declared missing.
+//     inventory artifact that makes a capability discoverable before it is
+//     declared missing.
 //
-// KNOWN LIMITATION, stated honestly in the report: "never observed" means "no
-// unique top-level workflow step seen in the RETAINED orchestration history"
-// (orchestration_states is not kept forever). An agent that ran only before the
-// window, or that runs only via a council/subtree path whose steps never surface
-// as top-level plan keys (feature-designer is one — its own workflow has never
-// run as an orchestration; its council approval went through other machinery),
-// reads as never-observed. That is why this ships as a REPORT for human triage,
-// not an auto-fix, and why the raw count is grouped, never asserted as "N bugs".
+// COLD START (stated honestly in the report): agent_run_stats is forward-only —
+// it cannot know pre-deploy history. Right after deploy it is nearly empty, so
+// "no row" is weak until it has accumulated >= the age floor. The window guard
+// handles exactly this: it emits nothing until the tracking window >= the floor.
 //
 // Manual-trigger, ships dry_run=true (owner: more awareness before autonomy).
 package actions
@@ -66,12 +65,9 @@ import (
 // triage's needs_diagnosis items do.
 const dormantSource = "diagnosis-dormant-agents"
 
-// dormantAgent is one never-observed active agent, with the evidence that
-// makes the finding checkable.
+// dormantAgent is one active agent that has never run since tracking began.
 type dormantAgent struct {
 	Type         string    // agent_definitions.type
-	SampleStep   string    // one of its unique fingerprint steps (evidence)
-	UniqueSteps  int       // how many step keys are unique to this agent
 	ActiveRows   int       // active non-snapshot rows for this type (>1 is a hygiene flag)
 	AgeDays      float64   // now() - min(created_at) across its active rows
 	FirstCreated time.Time // min(created_at) — when the capability first existed
@@ -115,23 +111,18 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 		dryRun = d
 	}
 
-	// Gather: the never-observed set + the summary stats + the blind-spot list +
-	// the retention window (for the report's honesty note).
-	never, err := dormantGatherNeverObserved(ctx, params.DB)
+	// Gather: never-run agents + the summary stats + the tracking window.
+	never, err := dormantGatherNeverRun(ctx, params.DB)
 	if err != nil {
-		return nil, fmt.Errorf("gather never-observed: %w", err)
+		return nil, fmt.Errorf("gather never-run: %w", err)
 	}
 	stats, err := dormantGatherStats(ctx, params.DB)
 	if err != nil {
 		return nil, fmt.Errorf("gather stats: %w", err)
 	}
-	blindSpot, err := dormantGatherBlindSpot(ctx, params.DB)
+	trackingSince, err := dormantTrackingSince(ctx, params.DB)
 	if err != nil {
-		return nil, fmt.Errorf("gather blind spot: %w", err)
-	}
-	oldestObserved, err := dormantOldestObservedRun(ctx, params.DB)
-	if err != nil {
-		return nil, fmt.Errorf("gather retention window: %w", err)
+		return nil, fmt.Errorf("gather tracking window: %w", err)
 	}
 
 	// Split by the age floor: only past-floor agents are eligible to EMIT; the
@@ -141,29 +132,22 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 
 	now := time.Now().UTC()
 
-	// WINDOW GUARD (added 2026-07-22, live-verified). "never observed" is only as
-	// strong as the retained history. orchestration_states is pruned HOURLY by the
-	// database-cleanup task (DELETE where status IN COMPLETED/FAILED and updated_at
-	// < now()-24h), so the observation window is typically ~1-2 days — far shorter
-	// than any sane age floor. Under a short window a still-ACTIVE agent that
-	// merely has not run inside the window reads as never-observed (fix-proposer is
-	// the canonical false positive: run many times, but its runs were pruned). So:
-	// NEVER emit unless the window is at least as long as the age floor, i.e. long
-	// enough to substantiate "dormant for >= floor days". The report is always
-	// written and states the window; only the item writes are gated. (There is no
-	// durable per-agent run record to fall back on — usage_count is unmaintained,
-	// 0 for every agent including known-live ones; see the report + bugs_open/044.)
+	// WINDOW GUARD. "never run" is only as strong as how long we have been
+	// tracking. agent_run_stats is forward-only, so right after deploy the window
+	// is ~0 and every agent looks never-run. Do NOT emit until the tracking window
+	// (now - min(first_ran_at)) is at least the age floor — long enough that "has
+	// not run in >= floor days" is substantiable. The window GROWS (the table is
+	// not pruned), so emission un-gates itself over time. The report always writes.
 	windowDays := 0.0
-	if !oldestObserved.IsZero() {
-		windowDays = now.Sub(oldestObserved).Hours() / 24.0
+	if !trackingSince.IsZero() {
+		windowDays = now.Sub(trackingSince).Hours() / 24.0
 	}
-	windowSufficient := !oldestObserved.IsZero() && windowDays >= float64(ageFloor)
+	windowSufficient := !trackingSince.IsZero() && windowDays >= float64(ageFloor)
 
 	// Emit (live only, AND only when the window supports the claim): one item per
 	// past-floor agent, newest-first so the freshest genuinely-unused capabilities
 	// surface before the legacy backlog, capped, deduped by ON CONFLICT
-	// (status='dormant' is inside idx_swi_dedup, so ON CONFLICT dedups cleanly —
-	// unlike silent-check's 'failed' items).
+	// (status='dormant' is inside idx_swi_dedup, so ON CONFLICT dedups cleanly).
 	created, deduped, capped := 0, 0, 0
 	var emittedKeys []string
 	if !dryRun && windowSufficient {
@@ -187,9 +171,8 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 	}
 
 	// Close-out: any of our still-dormant items whose agent is no longer in the
-	// never-observed set (it ran, or was deactivated/deleted) gets honestly
-	// completed. Being non-'dormant', a completed row never blocks a future
-	// re-emission if the agent somehow reads dormant again.
+	// never-run set (it ran, or was deactivated/deleted) gets honestly completed.
+	// Being non-'dormant', a completed row never blocks a future re-emission.
 	stillDormant := map[string]bool{}
 	for _, a := range never {
 		stillDormant[a.Type] = true
@@ -202,7 +185,7 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 		}
 	}
 
-	report := renderDormantAgents(now, ageFloor, stats, past, under, blindSpot, oldestObserved,
+	report := renderDormantAgents(now, ageFloor, stats, past, under, trackingSince,
 		windowDays, windowSufficient, created, deduped, capped, maxEmit, closed, dryRun)
 
 	noteID, nerr := insertDocNote(ctx, params.DB, "pipeline", "diagnose", "",
@@ -213,9 +196,8 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 
 	logger.Info("diagnose_dormant_agents: swept",
 		zap.Int("active_with_workflow", stats.ActiveWithWorkflow),
-		zap.Int("measurable", stats.Measurable),
-		zap.Int("blind_spot", stats.BlindSpot),
-		zap.Int("never_observed", len(never)),
+		zap.Int("ran", stats.Ran),
+		zap.Int("never_run", len(never)),
 		zap.Int("past_floor", len(past)),
 		zap.Int("under_floor", len(under)),
 		zap.Int("emitted", created),
@@ -231,9 +213,8 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 	return map[string]interface{}{
 		"report":               report,
 		"active_with_workflow": stats.ActiveWithWorkflow,
-		"measurable":           stats.Measurable,
-		"blind_spot":           stats.BlindSpot,
-		"never_observed":       len(never),
+		"ran":                  stats.Ran,
+		"never_run":            len(never),
 		"past_floor":           len(past),
 		"under_floor":          len(under),
 		"window_days":          windowDays,
@@ -250,64 +231,32 @@ func DiagnoseDormantAgentsAction(ctx context.Context, params ActionParams) (inte
 // dormantStats holds the sweep's headline counts.
 type dormantStats struct {
 	ActiveWithWorkflow int // active non-snapshot agents with a workflow
-	Measurable         int // …with ≥1 unique fingerprint step
-	BlindSpot          int // …with NO unique step (unmeasurable this way)
+	Ran                int // …that have an agent_run_stats row (ran at least once since tracking began)
 }
 
-// dormantObservedCTE / dormantAgentStepsCTE / dormantFingerprintsCTE are the
-// shared building blocks of the fingerprint method, kept as one source of truth
-// so the gather and the stats queries cannot drift apart.
-const dormantObservedCTE = `
-	observed_steps AS (
-		SELECT DISTINCT jsonb_object_keys(workflow_plan->'steps') AS step
-		FROM orchestration_states
-		WHERE workflow_plan ? 'steps'
-		  AND jsonb_typeof(workflow_plan->'steps') = 'object'
-	)`
-
-const dormantAgentStepsCTE = `
-	agent_steps AS (
-		SELECT a.type, jsonb_object_keys(a.default_config#>'{workflow,steps}') AS step
+// dormantActiveAgentsCTE — active non-snapshot agents with a workflow. Shared by
+// the gather and stats queries so they cannot drift apart. Collapses the
+// >1-active-row (is_active hygiene) duplicates by type.
+const dormantActiveAgentsCTE = `
+	active_agents AS (
+		SELECT a.type,
+		       count(*) AS active_rows,
+		       min(a.created_at) AS first_created
 		FROM agent_definitions a
 		WHERE a.is_active AND a.deleted_at IS NULL AND COALESCE(a.is_snapshot,false)=false
 		  AND jsonb_typeof(a.default_config#>'{workflow,steps}') = 'object'
+		GROUP BY a.type
 	)`
 
-// fingerprints: step keys unique to exactly ONE agent type.
-const dormantFingerprintsCTE = `
-	fingerprints AS (
-		SELECT step, min(type) AS type FROM agent_steps
-		GROUP BY step HAVING count(DISTINCT type) = 1
-	)`
-
-// dormantGatherNeverObserved returns the measurable agents whose unique
-// fingerprint steps were NEVER observed as a top-level step in any orchestration
-// plan, with the evidence and age needed to report and (past the floor) emit.
-func dormantGatherNeverObserved(ctx context.Context, db *sql.DB) ([]dormantAgent, error) {
+// dormantGatherNeverRun returns active agents with NO agent_run_stats row.
+func dormantGatherNeverRun(ctx context.Context, db *sql.DB) ([]dormantAgent, error) {
 	query := `
-	WITH` + dormantObservedCTE + `,` + dormantAgentStepsCTE + `,` + dormantFingerprintsCTE + `,
-	agent_fp AS (
-		SELECT f.type,
-		       count(*) AS unique_steps,
-		       count(*) FILTER (WHERE f.step IN (SELECT step FROM observed_steps)) AS observed_unique,
-		       min(f.step) AS sample_step
-		FROM fingerprints f
-		GROUP BY f.type
-	),
-	never AS (
-		SELECT type, unique_steps, sample_step
-		FROM agent_fp
-		WHERE observed_unique = 0
-	)
-	SELECT n.type, n.sample_step, n.unique_steps,
-	       count(a.*) AS active_rows,
-	       min(a.created_at) AS first_created,
-	       round(extract(epoch FROM (now() - min(a.created_at))) / 86400.0, 1) AS age_days
-	FROM never n
-	JOIN agent_definitions a ON a.type = n.type
-	  AND a.is_active AND a.deleted_at IS NULL AND COALESCE(a.is_snapshot,false)=false
-	GROUP BY n.type, n.sample_step, n.unique_steps
-	ORDER BY age_days DESC, n.type`
+	WITH` + dormantActiveAgentsCTE + `
+	SELECT aa.type, aa.active_rows, aa.first_created,
+	       round(extract(epoch FROM (now() - aa.first_created)) / 86400.0, 1) AS age_days
+	FROM active_agents aa
+	WHERE NOT EXISTS (SELECT 1 FROM agent_run_stats s WHERE s.agent_type = aa.type)
+	ORDER BY age_days DESC, aa.type`
 	rows, err := db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
@@ -316,7 +265,7 @@ func dormantGatherNeverObserved(ctx context.Context, db *sql.DB) ([]dormantAgent
 	var out []dormantAgent
 	for rows.Next() {
 		var a dormantAgent
-		if err := rows.Scan(&a.Type, &a.SampleStep, &a.UniqueSteps, &a.ActiveRows, &a.FirstCreated, &a.AgeDays); err != nil {
+		if err := rows.Scan(&a.Type, &a.ActiveRows, &a.FirstCreated, &a.AgeDays); err != nil {
 			return nil, err
 		}
 		out = append(out, a)
@@ -324,50 +273,25 @@ func dormantGatherNeverObserved(ctx context.Context, db *sql.DB) ([]dormantAgent
 	return out, rows.Err()
 }
 
-// dormantGatherStats returns the three headline counts.
+// dormantGatherStats returns the headline counts.
 func dormantGatherStats(ctx context.Context, db *sql.DB) (dormantStats, error) {
 	var s dormantStats
 	query := `
-	WITH` + dormantAgentStepsCTE + `,` + dormantFingerprintsCTE + `
+	WITH` + dormantActiveAgentsCTE + `
 	SELECT
-		(SELECT count(DISTINCT type) FROM agent_steps) AS active_with_workflow,
-		(SELECT count(DISTINCT type) FROM fingerprints) AS measurable,
-		(SELECT count(DISTINCT type) FROM agent_steps
-		  WHERE type NOT IN (SELECT type FROM fingerprints)) AS blind_spot`
-	err := db.QueryRowContext(ctx, query).Scan(&s.ActiveWithWorkflow, &s.Measurable, &s.BlindSpot)
+		(SELECT count(*) FROM active_agents) AS active_with_workflow,
+		(SELECT count(*) FROM active_agents aa
+		  WHERE EXISTS (SELECT 1 FROM agent_run_stats s WHERE s.agent_type = aa.type)) AS ran`
+	err := db.QueryRowContext(ctx, query).Scan(&s.ActiveWithWorkflow, &s.Ran)
 	return s, err
 }
 
-// dormantGatherBlindSpot lists the active agents with NO unique step key — the
-// ones this method cannot measure and therefore never flags. Reported so the
-// blind spot is visible, not silent.
-func dormantGatherBlindSpot(ctx context.Context, db *sql.DB) ([]string, error) {
-	query := `
-	WITH` + dormantAgentStepsCTE + `,` + dormantFingerprintsCTE + `
-	SELECT DISTINCT type FROM agent_steps
-	WHERE type NOT IN (SELECT type FROM fingerprints)
-	ORDER BY type`
-	rows, err := db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []string
-	for rows.Next() {
-		var t string
-		if err := rows.Scan(&t); err != nil {
-			return nil, err
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
-
-// dormantOldestObservedRun returns the oldest orchestration in the retained
-// history — the honest lower bound of "never observed since ...".
-func dormantOldestObservedRun(ctx context.Context, db *sql.DB) (time.Time, error) {
+// dormantTrackingSince returns the oldest first_ran_at — how long the durable
+// record has been accumulating (the honest lower bound of "never run since ...").
+// Zero when agent_run_stats is empty (nothing recorded yet).
+func dormantTrackingSince(ctx context.Context, db *sql.DB) (time.Time, error) {
 	var t sql.NullTime
-	err := db.QueryRowContext(ctx, `SELECT min(created_at) FROM orchestration_states`).Scan(&t)
+	err := db.QueryRowContext(ctx, `SELECT min(first_ran_at) FROM agent_run_stats`).Scan(&t)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -377,7 +301,7 @@ func dormantOldestObservedRun(ctx context.Context, db *sql.DB) (time.Time, error
 	return t.Time.UTC(), nil
 }
 
-// dormantPartition splits the never-observed set into agents past the age floor
+// dormantPartition splits the never-run set into agents past the age floor
 // (eligible to emit) and under it (reported only). Pure — tested.
 func dormantPartition(agents []dormantAgent, floorDays float64) (past, under []dormantAgent) {
 	for _, a := range agents {
@@ -411,21 +335,19 @@ func dormantItemKey(agentType string) string {
 }
 
 func dormantSummary(a dormantAgent) string {
-	return fmt.Sprintf("DORMANT: agent %q is active but its workflow has never been observed running (age %.0fd; %d unique step(s), e.g. %q). Human triage: wire it, retire it, or record it as paused.",
-		a.Type, a.AgeDays, a.UniqueSteps, a.SampleStep)
+	return fmt.Sprintf("DORMANT: agent %q is active but has never run since tracking began (age %.0fd, no agent_run_stats row). Human triage: wire it, retire it, or record it as paused.",
+		a.Type, a.AgeDays)
 }
 
 func dormantSpecJSON(a dormantAgent, ageFloor int) string {
 	b, _ := json.Marshal(map[string]interface{}{
 		"agent_type":    a.Type,
-		"sample_step":   a.SampleStep,
-		"unique_steps":  a.UniqueSteps,
 		"active_rows":   a.ActiveRows,
 		"age_days":      a.AgeDays,
 		"first_created": a.FirstCreated.UTC().Format(time.RFC3339),
 		"age_floor":     ageFloor,
-		"method":        "step-fingerprint: an active non-snapshot agent none of whose unique workflow step keys appears as a top-level orchestration_states.workflow_plan step; owner_agent_type is NOT used",
-		"caveat":        "never-observed = never seen in RETAINED orchestration history; may miss council/subtree execution — triage before acting",
+		"method":        "durable run record: an active non-snapshot agent with NO row in agent_run_stats (never run since tracking began); owner_agent_type / orchestration_states are NOT used (the latter is pruned at 24h)",
+		"caveat":        "never-run = never recorded since agent_run_stats began accumulating (forward-only); triage before acting",
 		"source":        dormantSource,
 	})
 	return string(b)
@@ -433,8 +355,8 @@ func dormantSpecJSON(a dormantAgent, ageFloor int) string {
 
 // dormantInsertItem writes one never-run agent as an INERT dormant_agent item
 // anchored to system.internal. status='dormant' is inside idx_swi_dedup, so
-// ON CONFLICT DO NOTHING dedups a re-sweep cleanly. pipeline='maintenance' and
-// a non-triaged/approved status mean nothing claims or dispatches it — it is a
+// ON CONFLICT DO NOTHING dedups a re-sweep cleanly. pipeline='maintenance' and a
+// non-triaged/approved status mean nothing claims or dispatches it — it is a
 // human-triage signal, not queued work. Returns true only on a fresh insert.
 func dormantInsertItem(ctx context.Context, db *sql.DB, a dormantAgent, ageFloor int) (bool, error) {
 	res, err := db.ExecContext(ctx, `
@@ -454,8 +376,8 @@ func dormantInsertItem(ctx context.Context, db *sql.DB, a dormantAgent, ageFloor
 	return n > 0, nil
 }
 
-// dormantCloseResolved completes any of our still-'dormant' items whose agent
-// is no longer in the never-observed set (it ran, or was deactivated/deleted).
+// dormantCloseResolved completes any of our still-'dormant' items whose agent is
+// no longer in the never-run set (it ran, or was deactivated/deleted).
 func dormantCloseResolved(ctx context.Context, db *sql.DB, stillDormant map[string]bool) (int, error) {
 	rows, err := db.QueryContext(ctx, `
 		SELECT id::text, COALESCE(spec->>'agent_type','') AS agent_type
@@ -485,7 +407,7 @@ func dormantCloseResolved(ctx context.Context, db *sql.DB, stillDormant map[stri
 		res, err := db.ExecContext(ctx, `
 			UPDATE site_work_items
 			SET status = 'complete', completed_at = now(), updated_at = now(),
-			    error = COALESCE(error,'') || ' [dormant-agents: agent has since been observed running (or was deactivated); closed]'
+			    error = COALESCE(error,'') || ' [dormant-agents: agent has since run (or was deactivated); closed]'
 			WHERE id = $1::uuid AND status = 'dormant' AND created_by = $2`, r.id, dormantSource)
 		if err != nil {
 			return closed, err
@@ -498,10 +420,10 @@ func dormantCloseResolved(ctx context.Context, db *sql.DB, stillDormant map[stri
 }
 
 // dormantEra is a REPORT-ONLY, [HEURISTIC] label to make the inventory readable
-// — it groups a never-run agent by a coarse guess at why. It is deliberately
-// not used for any emit/close decision, because "paused by decision" vs
-// "retired but still active" vs "current capability that never fired" is a
-// judgement call the detector cannot make; the seed-date + name are only hints.
+// — it groups a never-run agent by a coarse guess at why. It is deliberately not
+// used for any emit/close decision, because "paused by decision" vs "retired but
+// still active" vs "current capability that never fired" is a judgement call the
+// detector cannot make; the seed-date + name are only hints.
 func dormantEra(a dormantAgent) string {
 	name := a.Type
 	switch {
@@ -522,7 +444,7 @@ func dormantEra(a dormantAgent) string {
 
 // renderDormantAgents is pure — tested. The owner-readable inventory artifact.
 func renderDormantAgents(now time.Time, ageFloor int, stats dormantStats,
-	past, under []dormantAgent, blind []string, oldestObserved time.Time,
+	past, under []dormantAgent, trackingSince time.Time,
 	windowDays float64, windowSufficient bool,
 	created, deduped, capped, maxEmit, closed int, dryRun bool) string {
 	var b strings.Builder
@@ -530,17 +452,19 @@ func renderDormantAgents(now time.Time, ageFloor int, stats dormantStats,
 	if dryRun {
 		b.WriteString("_DRY RUN — findings below are report-only this sweep: NO dormant_agent items were written, none were closed._\n\n")
 	} else if !windowSufficient {
-		fmt.Fprintf(&b, "> ⚠ **WINDOW TOO SHORT — NO items emitted this sweep (report only).** The retained orchestration history is only **%.1f days** deep, shorter than the %dd age floor, so \"dormant for ≥ %dd\" cannot be substantiated and emitting would flood false positives. `orchestration_states` is pruned hourly (`database-cleanup`: COMPLETED/FAILED older than 24h are DELETEd), and there is no durable per-agent run record to fall back on (`usage_count` is unmaintained — 0 for every agent, including known-live ones like `fix-proposer`). Emission stays gated until the window ≥ the floor. See the retention note below and `bugs_open/044`.\n\n",
+		fmt.Fprintf(&b, "> ⚠ **WINDOW TOO SHORT — NO items emitted this sweep (report only).** The durable run record has only been accumulating for **%.1f days**, shorter than the %dd age floor, so \"dormant for ≥ %dd\" cannot be substantiated yet and emitting would flood false positives. `agent_run_stats` is forward-only (it cannot know pre-deploy history); the window GROWS, so emission un-gates itself once tracking ≥ the floor. See `bugs_open/060`.\n\n",
 			windowDays, ageFloor, ageFloor)
 	}
 
-	fmt.Fprintf(&b, "**Capability inventory (fingerprint method).** Of **%d** active non-snapshot agents with a workflow, **%d** are measurable (have ≥1 step key unique to them) and **%d** are in the mirrored-agent blind spot (no unique step — unmeasurable this way, never flagged). Of the measurable, **%d** have never been observed running in the retained window: **%d** past the %dd age floor, **%d** too new to flag yet.\n\n",
-		stats.ActiveWithWorkflow, stats.Measurable, stats.BlindSpot,
-		len(past)+len(under), len(past), ageFloor, len(under))
+	neverRun := len(past) + len(under)
+	fmt.Fprintf(&b, "**Capability inventory (durable run record).** Of **%d** active non-snapshot agents with a workflow, **%d** have run at least once since tracking began and **%d** have never run: **%d** past the %dd age floor, **%d** too new to flag yet.\n\n",
+		stats.ActiveWithWorkflow, stats.Ran, neverRun, len(past), ageFloor, len(under))
 
-	if !oldestObserved.IsZero() {
-		fmt.Fprintf(&b, "> **What \"never observed\" means here — READ THIS before acting.** It means \"no unique top-level workflow step seen in the RETAINED orchestration history\", which is only **%.1f days** deep (oldest surviving run **%s**), because `orchestration_states` is pruned hourly at a 24h retention. **This is a RECENT-ACTIVITY signal, not a lifetime one** — an agent that ran before the window, runs less often than the window, or runs only via a council/subtree path whose steps never surface as top-level plan keys, all read as never-observed. `fix-proposer` (run many times) is flagged here purely because its runs were pruned. So this is an inventory for HUMAN TRIAGE, never an assertion that an agent has never run. A reliable lifetime signal needs a durable run record the platform does not currently keep (`bugs_open/044` follow-on).\n\n",
-			windowDays, oldestObserved.Format("2006-01-02"))
+	if !trackingSince.IsZero() {
+		fmt.Fprintf(&b, "> **What \"never run\" means here — READ THIS before acting.** It means \"no row in `agent_run_stats`\", which has been accumulating since **%s** (**%.1f days**). The record is written at every orchestration start on the resolved real agent type, and it is NOT pruned — so unlike the old step-fingerprint method it has no mirrored-agent blind spot and no 24h-window false positives. But it is FORWARD-ONLY: it cannot see runs from before tracking began, so an agent that last ran pre-deploy reads as never-run until the window matures. Triage before acting.\n\n",
+			trackingSince.Format("2006-01-02"), windowDays)
+	} else {
+		b.WriteString("> **No runs recorded yet** — `agent_run_stats` is empty (tracking has just begun, or no orchestration has started since deploy). Every active agent therefore reads as never-run; this is the cold start, not a fleet-wide outage. Emission is gated until the window matures.\n\n")
 	}
 
 	writeGroup := func(title string, agents []dormantAgent) {
@@ -567,28 +491,14 @@ func renderDormantAgents(now time.Time, ageFloor int, stats dormantStats,
 				if a.ActiveRows > 1 {
 					dup = fmt.Sprintf(" ⚠ %d active rows (shadowed duplicates — is_active hygiene)", a.ActiveRows)
 				}
-				fmt.Fprintf(&b, "- `%s` — age %.0fd, %d unique step(s) (e.g. `%s`)%s\n", a.Type, a.AgeDays, a.UniqueSteps, a.SampleStep, dup)
+				fmt.Fprintf(&b, "- `%s` — age %.0fd%s\n", a.Type, a.AgeDays, dup)
 			}
 			b.WriteString("\n")
 		}
 	}
 
-	writeGroup(fmt.Sprintf("Never observed, past the age floor (%dd)", ageFloor), past)
-	writeGroup("Never observed, too new to flag (under the age floor)", under)
-
-	// The mirrored-agent blind spot: listed, never flagged. A reader must see
-	// that these are unmeasured (council-gate, whose 099 mirror copies
-	// fix-proposer's steps), not silently assumed to be running.
-	fmt.Fprintf(&b, "## Mirrored-agent blind spot — %d agent(s) unmeasurable by this method\n\n", len(blind))
-	if len(blind) == 0 {
-		b.WriteString("None.\n\n")
-	} else {
-		b.WriteString("_No step key is unique to these agents (their steps are shared/mirrored), so the fingerprint method cannot tell whether they run. They are NEVER flagged as dormant — a second signal would be needed to measure them (orchestration_name was evaluated and rejected: it does not name the agent)._\n\n")
-		for _, t := range blind {
-			fmt.Fprintf(&b, "- `%s`\n", t)
-		}
-		b.WriteString("\n")
-	}
+	writeGroup(fmt.Sprintf("Never run, past the age floor (%dd)", ageFloor), past)
+	writeGroup("Never run, too new to flag (under the age floor)", under)
 
 	if !dryRun {
 		fmt.Fprintf(&b, "## Bookkeeping\n\nEmitted %d, deduped (already open) %d, capped %d (cap=%d); closed as resolved %d.\n",
@@ -599,6 +509,6 @@ func renderDormantAgents(now time.Time, ageFloor int, stats dormantStats,
 		b.WriteString("\n")
 	}
 
-	b.WriteString("---\n_Deterministic capability inventory: SQL-gathered, Go-rendered, no model. `owner_agent_type` is deliberately NOT used (95k+ rows carry 'generic'). Findings emit as INERT `dormant_agent` items (status='dormant', pipeline='maintenance', unclaimable) anchored to system.internal; a human decides wire / retire / paused. The mirrored-agent blind spot is never flagged. bugs_open/044._\n")
+	b.WriteString("---\n_Deterministic capability inventory: SQL-gathered, Go-rendered, no model. Signal = the durable `agent_run_stats` record (a row per agent type, upserted at orchestration start on the resolved real type, not pruned). Findings emit as INERT `dormant_agent` items (status='dormant', pipeline='maintenance', unclaimable) anchored to system.internal; a human decides wire / retire / paused. bugs_open/044 + 060._\n")
 	return b.String()
 }

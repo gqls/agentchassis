@@ -9,8 +9,7 @@ import (
 
 // The dormant-agents checker's pure functions are safety-relevant: an unstable
 // item_key would flood site_work_items on every sweep, and an off-by-one age
-// floor would flag freshly-seeded agents that simply have not run yet (the
-// evidence-researcher false-positive the bug warns about). Test the real
+// floor would flag freshly-seeded agents that have not run yet. Test the real
 // functions.
 
 func TestDormantItemKeyStableAndPerAgent(t *testing.T) {
@@ -73,13 +72,13 @@ func TestDormantEmitOrderYoungestFirst(t *testing.T) {
 }
 
 func TestDormantSpecJSONShape(t *testing.T) {
-	a := dormantAgent{Type: "nav-link-fixer", SampleStep: "fix_nav", UniqueSteps: 3, ActiveRows: 1, AgeDays: 145.2, FirstCreated: time.Unix(1740000000, 0)}
+	a := dormantAgent{Type: "nav-link-fixer", ActiveRows: 1, AgeDays: 145.2, FirstCreated: time.Unix(1740000000, 0)}
 	s := dormantSpecJSON(a, 14)
 	var m map[string]interface{}
 	if err := json.Unmarshal([]byte(s), &m); err != nil {
 		t.Fatalf("spec not valid JSON: %v", err)
 	}
-	for _, k := range []string{"agent_type", "sample_step", "unique_steps", "age_days", "first_created", "method", "caveat", "source"} {
+	for _, k := range []string{"agent_type", "active_rows", "age_days", "first_created", "method", "caveat", "source"} {
 		if _, ok := m[k]; !ok {
 			t.Fatalf("spec missing key %q: %s", k, s)
 		}
@@ -87,25 +86,26 @@ func TestDormantSpecJSONShape(t *testing.T) {
 	if m["agent_type"] != "nav-link-fixer" {
 		t.Fatalf("agent_type wrong: %v", m["agent_type"])
 	}
-	// The method note must state owner_agent_type is NOT used — the trap this bug warns about.
-	if ms, _ := m["method"].(string); !strings.Contains(ms, "owner_agent_type") {
-		t.Fatalf("method note must name the owner_agent_type trap: %s", ms)
+	// The method note must name the durable substrate and disclaim owner_agent_type / orchestration_states.
+	ms, _ := m["method"].(string)
+	if !strings.Contains(ms, "agent_run_stats") || !strings.Contains(ms, "owner_agent_type") {
+		t.Fatalf("method note must name agent_run_stats and disclaim owner_agent_type: %s", ms)
 	}
 }
 
-// The report is the discoverability artifact — it must state the retention
-// caveat (so a reader never treats "never observed" as "never ran ever") and
-// must show every group so nothing is hidden.
+// The report is the discoverability artifact — it must state the tracking window
+// (so a reader never treats "never run" as "never ran ever") and show every
+// group so nothing is hidden.
 func TestRenderDormantAgentsHonestAndComplete(t *testing.T) {
-	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
-	oldest := time.Date(2026, 5, 28, 0, 0, 0, 0, time.UTC)
-	stats := dormantStats{ActiveWithWorkflow: 155, Measurable: 123, BlindSpot: 32}
-	past := []dormantAgent{{Type: "nav-link-fixer", SampleStep: "fix_nav", UniqueSteps: 3, ActiveRows: 1, AgeDays: 145}}
-	under := []dormantAgent{{Type: "feature-implementer", SampleStep: "implement", UniqueSteps: 2, ActiveRows: 1, AgeDays: 3.9}}
+	now := time.Date(2026, 8, 20, 12, 0, 0, 0, time.UTC)
+	trackingSince := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC) // ~27d window
+	stats := dormantStats{ActiveWithWorkflow: 160, Ran: 130}
+	past := []dormantAgent{{Type: "nav-link-fixer", ActiveRows: 1, AgeDays: 145}}
+	under := []dormantAgent{{Type: "feature-implementer", ActiveRows: 1, AgeDays: 3.9}}
 
-	// dry run (window comfortably sufficient)
-	r := renderDormantAgents(now, 14, stats, past, under, nil, oldest, 54.0, true, 0, 0, 0, 10, 0, true)
-	for _, want := range []string{"DRY RUN", "nav-link-fixer", "feature-implementer", "never observed", "2026-05-28", "owner_agent_type"} {
+	// dry run
+	r := renderDormantAgents(now, 14, stats, past, under, trackingSince, 27.0, true, 0, 0, 0, 10, 0, true)
+	for _, want := range []string{"DRY RUN", "nav-link-fixer", "feature-implementer", "never run", "agent_run_stats", "2026-07-24"} {
 		if !strings.Contains(r, want) {
 			t.Fatalf("report missing %q:\n%s", want, r)
 		}
@@ -115,7 +115,7 @@ func TestRenderDormantAgentsHonestAndComplete(t *testing.T) {
 	}
 
 	// live run, window sufficient
-	r2 := renderDormantAgents(now, 14, stats, past, under, nil, oldest, 54.0, true, 1, 0, 0, 10, 2, false)
+	r2 := renderDormantAgents(now, 14, stats, past, under, trackingSince, 27.0, true, 1, 0, 0, 10, 2, false)
 	if !strings.Contains(r2, "## Bookkeeping") {
 		t.Fatalf("live run must print bookkeeping:\n%s", r2)
 	}
@@ -124,36 +124,47 @@ func TestRenderDormantAgentsHonestAndComplete(t *testing.T) {
 	}
 }
 
-// The window guard is the correctness fix for the aggressive 24h prune of
-// orchestration_states: a live sweep whose observation window is shorter than
-// the age floor must emit NOTHING and say so loudly, so flipping dry_run off
-// after a prune cannot flood false positives (fix-proposer et al.).
+// The window guard is the correctness fix for the forward-only cold start: a
+// live sweep whose tracking window is shorter than the age floor must emit
+// NOTHING and say so loudly, so flipping dry_run off right after deploy cannot
+// flood false positives.
 func TestRenderDormantAgentsWindowTooShortBanner(t *testing.T) {
-	now := time.Date(2026, 7, 22, 15, 0, 0, 0, time.UTC)
-	oldest := time.Date(2026, 7, 13, 0, 0, 0, 0, time.UTC) // ~9d window
-	past := []dormantAgent{{Type: "fix-proposer", SampleStep: "check_confirmed", UniqueSteps: 5, ActiveRows: 1, AgeDays: 145}}
+	now := time.Date(2026, 7, 26, 15, 0, 0, 0, time.UTC)
+	trackingSince := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC) // ~2d window
+	past := []dormantAgent{{Type: "fix-proposer", ActiveRows: 1, AgeDays: 145}}
 
-	// live sweep, window (9d) < floor (14d): must show the banner and emit nothing.
-	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, oldest, 9.0, false, 0, 0, 0, 10, 0, false)
+	// live sweep, window (2d) < floor (14d): must show the banner and emit nothing.
+	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, trackingSince, 2.0, false, 0, 0, 0, 10, 0, false)
 	if !strings.Contains(r, "WINDOW TOO SHORT") {
 		t.Fatalf("live sweep with insufficient window must show the guard banner:\n%s", r)
 	}
-	if !strings.Contains(r, "usage_count") {
-		t.Fatal("banner must name the missing durable substrate (usage_count)")
+	if !strings.Contains(r, "agent_run_stats") {
+		t.Fatal("banner must name the durable substrate (agent_run_stats)")
 	}
 	// window sufficient: no banner.
-	r2 := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, oldest, 30.0, true, 0, 0, 0, 10, 0, false)
+	r2 := renderDormantAgents(now, 14, dormantStats{}, past, nil, trackingSince, 30.0, true, 0, 0, 0, 10, 0, false)
 	if strings.Contains(r2, "WINDOW TOO SHORT") {
 		t.Fatal("a sufficient window must NOT show the too-short banner")
+	}
+}
+
+// The empty-table cold start must be reported as such, not as a fleet outage.
+func TestRenderDormantAgentsEmptyTrackingTable(t *testing.T) {
+	now := time.Date(2026, 7, 24, 15, 0, 0, 0, time.UTC)
+	past := []dormantAgent{{Type: "fix-proposer", ActiveRows: 1, AgeDays: 145}}
+	r := renderDormantAgents(now, 14, dormantStats{ActiveWithWorkflow: 160, Ran: 0}, past, nil, time.Time{}, 0.0, false, 0, 0, 0, 10, 0, true)
+	if !strings.Contains(r, "No runs recorded yet") {
+		t.Fatalf("empty tracking table must be reported as the cold start:\n%s", r)
 	}
 }
 
 // A type with more than one active row is the is_active-hygiene shadowing case;
 // the report must surface it rather than silently collapse it.
 func TestRenderDormantAgentsFlagsDuplicateActiveRows(t *testing.T) {
-	now := time.Date(2026, 7, 21, 12, 0, 0, 0, time.UTC)
-	past := []dormantAgent{{Type: "chief-strategist", SampleStep: "strategise", UniqueSteps: 1, ActiveRows: 2, AgeDays: 245}}
-	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, nil, time.Time{}, 0.0, false, 0, 0, 0, 10, 0, true)
+	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
+	trackingSince := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	past := []dormantAgent{{Type: "chief-strategist", ActiveRows: 2, AgeDays: 245}}
+	r := renderDormantAgents(now, 14, dormantStats{}, past, nil, trackingSince, 53.0, true, 0, 0, 0, 10, 0, true)
 	if !strings.Contains(r, "2 active rows") {
 		t.Fatalf("report must flag duplicate active rows:\n%s", r)
 	}

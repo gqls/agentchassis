@@ -1734,6 +1734,39 @@ func (p *MessageProcessor) executeWorkflow(ctx context.Context, msgCtx *MessageC
 		msgCtx.ExecutionContext.FromAgentType = p.agentType
 	}
 
+	// Resolve the REAL agent type whose workflow is about to run. On the generic
+	// dispatch path (scheduled tasks, manual triggers) p.agentType is 'generic'
+	// but the message names the target in config.agent_type — the same value
+	// selectWorkflow used to load this workflow. On a dedicated pod there is no
+	// config.agent_type and p.agentType IS the real type. (bugs_open/060)
+	resolvedAgentType := p.agentType
+	if len(msgCtx.Message.Value) > 0 {
+		var msgBody map[string]interface{}
+		if err := json.Unmarshal(msgCtx.Message.Value, &msgBody); err == nil {
+			if gt, _ := p.extractGroupInfo(msgBody); gt != "" {
+				resolvedAgentType = gt
+			}
+		}
+	}
+	// Carry it to the coordinator so owner_agent_type records the real agent, not
+	// the dispatch-path 'generic'.
+	msgCtx.ExecutionContext.RunAgentType = resolvedAgentType
+
+	// Durable run record (bugs_open/060): best-effort, fire-and-forget on a
+	// detached context so it never blocks or fails the request. A start means work
+	// was routed to this agent — the exact signal the dormant detector needs, and
+	// this table (unlike orchestration_states) is not pruned.
+	if db := p.db; db != nil && resolvedAgentType != "" {
+		orchID := msgCtx.ExecutionContext.OrchestrationID
+		go func(agentType, oid string) {
+			rctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := discovery.RecordAgentRun(rctx, db, agentType, oid); err != nil {
+				p.logger.Debug("RecordAgentRun failed (best-effort)", zap.String("agent_type", agentType), zap.Error(err))
+			}
+		}(resolvedAgentType, orchID)
+	}
+
 	// Convert ExecutionContext to headers for orchestrator
 	headers := msgCtx.ExecutionContext.ToHeaders()
 	// fmt.Fprintf(os.Stderr, "DEBUG uuid: processor.executeWorkflow small e printf - headers: %+v\n", headers)
