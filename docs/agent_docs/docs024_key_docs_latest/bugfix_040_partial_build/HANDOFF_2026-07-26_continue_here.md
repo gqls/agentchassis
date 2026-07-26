@@ -1,5 +1,29 @@
 # HANDOFF — bugs_closed/040-partial-build, candidate 2: LIVE but behaviour NOT yet induced
 
+> # ⛔ CLOSED 2026-07-26 22:05 UTC — NOTHING IS OWED. Do not work this document.
+>
+> **All three owed verifications are discharged**, on v1.0.1171, by induced fault. The
+> scratch harness has been deleted from the live DB. Candidate 2 — and therefore
+> `bugs_closed/040` in full — carries **no verification debt**.
+>
+> | owed | result |
+> |---|---|
+> | 1. the fallback fires | ✅ `failed` + `step boom failed: …` (was blank pre-fix) |
+> | 2. a configured literal still wins | ✅ `needs_human_review` + its own literal, with `__step_error` set |
+> | 3. `complete` must not inherit | ✅ `complete` + error still **BLANK** |
+>
+> The one branch still `[UNVERIFIED LIVE]` is the `step X failed: ` **prefix**, and that is
+> correct and expected: two independent runs confirm the action-error shape already
+> arrives prefixed, so only the bare awaited-request-timeout shape could exercise it.
+>
+> **Read instead:** the case file's "VERIFIED LIVE 2026-07-26 21:16Z" section,
+> `NOTES_040_partial_build.md` (full record incl. missteps), `RUNBOOK_040_cand2_probe.md`
+> (reproducible procedure), `README_where_we_are.md` (plain prose).
+>
+> **The rest of this file is kept for its record of how the episode went wrong, not as
+> instructions.** In particular §4's "UNSOLVED PROBLEM" was never a defect — see the
+> correction immediately below.
+
 **Written 2026-07-26 21:15 UTC.** Read this first; the case file
 `bugs_closed/040_HANDOFF_2026-07-20_failed_page_build_leaves_page_deployed_and_partially_composed.md`
 holds the full history, this holds only **what is owed and how to finish it**.
@@ -112,13 +136,17 @@ say so) is exercised only by the awaited-request-timeout shape, which needs a re
 > that a fallback exists and `__step_error` is set. The harness below has been extended
 > with **PROBE B** for exactly this.
 
-## 4. The probe harness — WORKS, and now covers all three owed items
+## 4. The probe harness — WORKED, all three arms passed, now DELETED
 
 **It was never broken.** See the correction at the top: the five "failed" publishes were
 queued behind a stalled consumer and ran fine when it cleared. The harness is good; the
 only thing that ever went wrong was reading a stalled queue as a dropped message.
 
-Extended 2026-07-26 22:00Z with **PROBE B**, so one run now tests all three owed items.
+Extended 2026-07-26 22:00Z with **PROBE B**, so one run tested all three owed items — and
+all three passed (orchestration `e5907364-7dfa-44be-8f45-9ed85da32df4`). **The scratch
+agent and its three work items have since been deleted from the live DB**, so the ids
+below no longer resolve; they are kept because the *shape* is the reusable part. To run it
+again, recreate from `RUNBOOK_040_cand2_probe.md`, which is the maintained copy.
 
 | thing | value |
 |---|---|

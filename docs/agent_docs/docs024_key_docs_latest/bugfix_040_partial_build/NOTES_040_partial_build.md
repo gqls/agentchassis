@@ -155,6 +155,30 @@ This is a *distinct* trap from the known `kubectl run -i --rm | kcat -P` one (wh
 the container command and make the container print `PUBLISH_OK`** — a publish with no
 positive confirmation is not evidence of a publish. Second attempt printed `PUBLISH_OK`.
 
+### Owed item 2 — the literal wins: VERIFIED LIVE, 22:00Z
+
+The extended probe ran (orchestration `e5907364-7dfa-44be-8f45-9ed85da32df4`, `COMPLETED`
+at `done`). All three arms in one run:
+
+```
+PROBE A | failed             | step boom failed: failed to execute action update_work_item_status:
+                               work_item_id not found at input_data.does_not_exist and skip_if_missing=false
+PROBE B | needs_human_review | cand2 probe literal: this park reason was configured, not routed
+PROBE C | complete           | <<BLANK>>
+```
+
+**B is the one this run was for.** It executed *after* `boom`, so `__step_error` was set —
+the same `collected_data` shows `failed_step: boom` and the full routed message — and it
+still recorded **its own literal**. The `errorMessage == ""` guard holds: a configured
+literal is never overwritten by the fallback. A and C reproduced their earlier results.
+
+The prefix branch was **again correctly skipped** — `__step_error.message` already started
+`step boom failed: `, so `HasPrefix` was true. Two independent runs now agree that the
+action-error shape arrives pre-prefixed, which is what the code comment claims. The
+branch remains `[UNVERIFIED LIVE]` for the bare awaited-request-timeout shape only.
+
+**All three owed items are now discharged.** Candidate 2 carries no verification debt.
+
 ### Ruled out on the way — the 175 blank `needs_human_review` parks are NOT this defect
 
 The 3-day census showed 182 `needs_human_review` items, 175 with a blank `error` — 8×
@@ -178,6 +202,35 @@ items were **created** as `needs_human_review` by detectors and never transition
 action at all. Their reason lives in `summary`/`spec`; `error` is for a *failure* reason,
 and a detection is not a failure. No bug, no residual — recorded so the next reader does
 not re-open the same question.
+
+### The case file's "the blank count must stop growing" is NOT dischargeable by census
+
+Step 2 of "Verify once live" says to re-run the blank census and confirm the count stops
+growing. It cannot do that job, for two independent reasons — recorded so nobody spends
+time on it:
+
+```sql
+-- 2026-07-26 22:00Z, against the 2026-07-25 baseline in the case file
+--            2026-07-25          2026-07-26
+-- failed     75 / 21 blank       52 / 14 blank
+-- cancelled  51 / 43 blank       52 / 43 blank
+-- rejected    5 /  0 blank        5 /  0 blank
+
+SELECT count(*), count(*) FILTER (WHERE COALESCE(error,'')='') FROM site_work_items
+WHERE status='failed' AND updated_at > '2026-07-26 18:35:07+00';   -- the roll
+-- 0 | 0
+```
+
+1. **The population shrinks.** `failed` went 75 → 52 items between the baseline and now,
+   so the blank count fell 21 → 14 without a single new item being written. A count that
+   goes *down* cannot demonstrate "stopped growing" — the denominator moved. Same trap as
+   the retention-clock landmine in `bugs_open/003`: **record a rate, not a count**, and
+   take the baseline at the moment you need it.
+2. **There is no traffic to measure.** **Zero** `failed` items have been stamped by any
+   real handler since the 18:35:07Z roll that made the fix live. The census is quiet
+   because nothing has run, not because the fix is working. That is exactly what the
+   handoff said and it is still true — which is precisely why the induced probe, not the
+   census, is the thing that discharges this.
 
 ### Lane health during this session
 

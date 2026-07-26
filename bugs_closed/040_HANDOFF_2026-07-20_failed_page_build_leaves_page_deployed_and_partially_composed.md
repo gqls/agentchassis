@@ -560,10 +560,36 @@ literal is unfalsifiable without a positive control beside it):
 "candidate two placeholder xyzzy" -> 0   # negative control
 ```
 
-Step 3 (the literal-wins control) needed its own induced run — the four live rows that
-carry `page-build-handler no-op: …` all predate the roll, so they prove a literal was
-written when no fallback existed, which is not the question. See
-`docs/agent_docs/docs024_key_docs_latest/bugfix_040_partial_build/NOTES_040_partial_build.md`.
+**Step 3 (the literal-wins control) — VERIFIED LIVE 2026-07-26 22:00Z.** It needed its own
+induced run: the four live rows carrying `page-build-handler no-op: …` all predate the
+roll, so they prove a literal was written when no fallback existed, which is not the
+question. The probe was extended with a **PROBE B** arm — a `needs_human_review` step
+*with* a literal, spliced in after `boom` so it executes while `__step_error` is set —
+and all three arms passed in one run (orchestration
+`e5907364-7dfa-44be-8f45-9ed85da32df4`, `COMPLETED` at `done`):
+
+```
+PROBE A | failed             | step boom failed: failed to execute action update_work_item_status: …
+PROBE B | needs_human_review | cand2 probe literal: this park reason was configured, not routed
+PROBE C | complete           | <<BLANK>>
+```
+
+B recorded its own literal with the routed error sitting in the same `collected_data`
+(`__step_error.failed_step = boom`), so the `errorMessage == ""` guard holds: **a
+configured literal is never overwritten.** The prefix branch was again correctly skipped.
+
+**All three owed verifications are discharged. Candidate 2 carries no verification debt.**
+Scratch harness (`scratch-cand2-probe` + three `scratch_cand2_probe` items) deleted.
+Full record:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_040_partial_build/NOTES_040_partial_build.md`;
+reproducible procedure in `RUNBOOK_040_cand2_probe.md`.
+
+**One check in this list cannot be discharged as written.** Step 2's "the blank count must
+stop growing" is not measurable: the `failed` population *shrank* 75 → 52 items between
+the 07-25 baseline and 07-26 (blank 21 → 14) without a single new item, and **zero**
+`failed` items have been stamped by a real handler since the roll. A falling count cannot
+show "stopped growing", and a quiet census is absence of traffic. Record a **rate**, not a
+count — or do what was done here and induce the path.
 
 > **The handoff's "unsolved" dispatch problem was never a defect.** Five publishes looked
 > dropped because `generic-requests-group` was stalled at a frozen offset of 105196; the

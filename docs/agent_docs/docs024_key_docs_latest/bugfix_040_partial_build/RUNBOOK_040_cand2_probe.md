@@ -3,6 +3,15 @@
 Every command here had to be got right once. The gotcha is attached to the command;
 when one changes, change it **here**, not in your scrollback.
 
+> **The harness was run to completion on 2026-07-26 22:00Z (all three arms passed) and
+> then DELETED** — §8's cleanup has been executed, so the agent type and item ids below do
+> not currently exist. This runbook is the recipe for **recreating** it. §2 onwards assume
+> you have re-seeded `scratch-cand2-probe` and its three items first; the workflow shape is
+> in the case file and in `NOTES_040_partial_build.md`.
+>
+> §3 (publish traps), §5 (is the lane stuck or busy?) and §7 (pod-grep with controls) are
+> **general-purpose** — they apply to any cluster dispatch, not just this probe.
+
 Case file: `bugs_closed/040_HANDOFF_2026-07-20_failed_page_build_leaves_page_deployed_and_partially_composed.md`
 
 ---

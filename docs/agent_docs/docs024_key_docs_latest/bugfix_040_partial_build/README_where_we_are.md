@@ -105,3 +105,34 @@ notices a job has stopped making progress. A watchdog that gave up on a job idle
 fifteen minutes would turn "the whole system is mysteriously frozen for two hours" into "one
 submission failed and can be retried". That's a design call for the owning workstream, not
 something to bolt on from here.
+
+## 2026-07-26, 22:05 — done, and the last check was the interesting one
+
+The final run went through and all three checks passed. Bug 040 is now finished in full,
+with nothing left owed.
+
+The third check was the one I'd expected to be a formality and it turned out to be the one
+worth doing. The question was: when a job sets its *own* failure reason, does the new
+automatic reason overwrite it? To test that properly you need a job that has *already*
+failed once — so the automatic reason is sitting there, loaded and ready — and then a step
+that supplies its own wording. If the guard were wrong, the specific human-written reason
+would be silently replaced by a generic one, and you would never notice, because both look
+like perfectly good text in the box. It held: the job kept its own words.
+
+I couldn't have answered that from the existing data, and it's worth saying why, because
+it's a trap that will come up again. There *are* examples on the system of jobs carrying
+their own reason — but every one of them was written before the change went live. They
+prove a reason was written when there was nothing competing with it. That's a different
+question, and answering the easy version would have looked exactly like answering the hard
+one.
+
+Same shape as a second thing I hit: the written-down way to check this fix was "watch the
+count of blank failure reasons stop going up". That can't work. The count went *down*
+between yesterday and today — from 21 to 14 — not because anything was fixed but because
+old records age out, so the pool it's measured against keeps shrinking. And separately,
+not a single real job has failed since the fix went live, so the count is quiet because
+nothing has happened, not because something is working. Both of those would have read as
+success. Deliberately breaking something and watching it, which is what we did, is the only
+version of this that answers the question.
+
+I've cleaned up the test fixtures I created on the live system — nothing left behind.
