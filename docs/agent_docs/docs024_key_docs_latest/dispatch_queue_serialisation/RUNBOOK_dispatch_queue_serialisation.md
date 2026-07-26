@@ -321,3 +321,23 @@ and printing one would re-import the exact error three threads have already made
 The one case it flags as a genuine fault rather than a wait: **no member in the
 consumer group**. Then nothing is draining the lane at all, and queued work will
 sit there until a consumer joins.
+
+### R9 step 6 — the starvation check (run it after ANY change to a lane's producers)
+
+Two messages arriving proves the lane works; it does not prove nothing was
+stranded. Judge every task against **its own** interval:
+
+```sql
+SELECT name, interval_seconds AS iv,
+       EXTRACT(EPOCH FROM (now()-last_triggered_at))::int AS since_s,
+       CASE WHEN EXTRACT(EPOCH FROM (now()-last_triggered_at)) > interval_seconds + 90
+            THEN 'OVERDUE' ELSE 'ok' END AS state
+  FROM scheduled_tasks WHERE enabled AND target_topic='system.agent.scheduled.requests'
+ ORDER BY interval_seconds;
+```
+
+`+ 90` allows the universal `interval + TICK` offset plus a tick of slack. Measured
+2026-07-26, ~15 min after the switch: **18 rows, 18 `ok`**. Anything `OVERDUE` on a
+short-interval task means the lane is not being drained — check the group has a
+member before anything else (`scripts/dispatch-queue-depth.sh` calls that out
+explicitly, because an empty group is a fault while a non-zero LAG is not).

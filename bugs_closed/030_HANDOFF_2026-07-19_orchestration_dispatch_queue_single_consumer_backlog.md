@@ -1102,6 +1102,27 @@ LAG 0 ten minutes later.
 `interval 60 + 30 s tick` effective period exactly. Nothing was dropped or
 stalled by the move.
 
+## The decisive "did the move break scheduled work?" check — 18/18 firing
+
+Watching two health checks come through was suggestive; this is the check that
+settles it. Every moved task, ~15 minutes after the switch, with its own interval
+as the yardstick (a task is late only relative to `interval + one tick`):
+
+```sql
+SELECT name, interval_seconds AS iv,
+       EXTRACT(EPOCH FROM (now()-last_triggered_at))::int AS since_s,
+       CASE WHEN EXTRACT(EPOCH FROM (now()-last_triggered_at)) > interval_seconds + 90
+            THEN 'OVERDUE' ELSE 'ok' END AS state
+  FROM scheduled_tasks WHERE enabled AND target_topic='system.agent.scheduled.requests'
+ ORDER BY interval_seconds;
+```
+
+**18 rows, 18 `ok`, zero `OVERDUE`** — from `ai-endpoint-health-check` (71 s since
+last fire, interval 60) through to the weekly discovery jobs. Nothing was stranded
+by pointing the producers at a new topic. Run this after any change to the lane's
+producers; a starved task is the failure this switch could plausibly have caused,
+and it is cheap to falsify.
+
 ## What each candidate came to
 
 | candidate | outcome |
