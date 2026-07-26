@@ -3,7 +3,7 @@
 **Supersedes `HANDOFF_2026-07-21_bugfix_006_start_here.md`**, which is history and carries its own
 CLOSED banner. Read this one.
 
-## TL;DR — the case is CLOSED; one advisory loose end is in flight
+## TL;DR — the case is CLOSED and nothing is outstanding
 
 `006` was three independent errors (A/B/C). All three are answered and the file has moved to
 **`bugs_closed/006_HANDOFF_2026-07-16_idea_uk_infra_errors.md`**, which is the authoritative
@@ -20,7 +20,7 @@ technical record and states both residuals at the top.
 Council **APPROVED** round 1, corr `5e3531f4-2815-4d4b-8328-b47ee877ddd4`: 13 reviewers, 3
 abstained (relevance-filtered), **`unreadable: 0`** (so the `019` void-a-round trap is cleared), 2
 advisory objections, none high-severity. Trailer `Council-Reviewed: 5e3531f4-…` is on commit
-`{TRAILER_COMMIT}`.
+`16999d664`.
 
 **The one advisory objection worth a successor's attention** (bug_historian, MEDIUM) is answered in
 the bug file, not dismissed: the branch completes on orchestration status with no artifact check,
@@ -99,8 +99,11 @@ Design docs: `PLAN_2026-07-26_claim_timeout_generic_evidence.md`. Commands and g
 | `7891b2ee1` | the standing five + closing summary |
 | `810b1a95b` | `WRONG_CALLS.md` row |
 | `c4f3e4f6f` | post-roll re-verification + the dropped-submission correction |
+| `dd627c4cf` | this handoff |
+| `16999d664` | council APPROVED recorded + the objection answered — **carries the trailer** |
 
-No trailer on any of them yet — none has been earned.
+The trailer is on `16999d664` only, which is correct: it is earned by the APPROVED verdict, and the
+verdict post-dates every earlier commit. Do not back-fill it onto the others.
 
 ## Watch, don't work
 
