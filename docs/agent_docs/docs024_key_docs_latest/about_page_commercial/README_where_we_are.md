@@ -60,3 +60,34 @@ will pick our block up with no further work.
 
 So: design done, block built, pilot armed, one pre-existing platform bug found
 and filed — waiting on the diagnosis verdict before the last step.
+
+## 2026-07-26 — the platform bug is fixed, the pilot had already landed, and there is one more bug behind it
+
+Written by the thread that took `bugs_open/068` (the platform fault this pilot tripped over),
+not by this workstream — appended here because it changes what you'd find if you came back to it.
+
+Three things, in order of how much they matter to you.
+
+**The block is already live, and has been since the evening of the 24th.** The pilot did not
+stay stuck. About an hour after the failed rebuild, the ordinary build pipeline picked the page
+up and rebuilt it the normal way — all seven of its parts were written in the same second, the
+commercial block among them. So finetuning.uk's about page carries "Built by
+fundamentallyai.com" today, with the for-sale and advertise lines correctly hidden. The last
+entry here says we were waiting on the fix before the block could appear; that was true when it
+was written and stopped being true a few hours later, by a route nobody was watching.
+
+**The platform fault you filed is fixed and now proven.** The contract change that was applied
+on the 24th was never actually exercised, because nothing ran the rebuild path again. Today I
+re-armed your page, fired your trigger script, and watched it: the step that used to kill every
+rebuild now passes. Your page was not harmed — same content, same block, and I put its status
+back the way I found it. `068` is closed.
+
+**But the rebuild path still does not finish.** One step further on, it dies again, for an
+unrelated reason: the "rebuild one page" machinery hands the writer no plan of what sections to
+write, and nothing in the writer can work that out for itself. Filed as `bugs_open/087` with
+three ways to fix it, one of which is a small config change. Until someone takes that, the way
+to rebuild a single page is the ordinary pipeline — flag the page and let the dispatcher do it,
+which is exactly what happened to your page on the 24th.
+
+So: nothing is owed to this workstream to get the block on that page — it is there. What is
+still open is the rebuild *trigger* you scripted against, and that now has its own bug file.
