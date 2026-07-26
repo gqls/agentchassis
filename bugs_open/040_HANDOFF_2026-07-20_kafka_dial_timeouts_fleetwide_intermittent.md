@@ -177,10 +177,32 @@ None of these is claimed to be the cause. Each made the fault worse or hid it.
   below. They are not yet unified.
 - **`/metrics` never served** — now on the health mux *and* on `METRICS_PORT`
   (9090), the port the annotations already advertise.
-- **Phantom fallback broker** `kafka-0.kafka-headless.kafka:9092` in
-  `topic_manager.go` — **no such Service** (Strimzi's headless service is
-  `personae-kafka-cluster-kafka-brokers`). Could only burn a dial timeout before
-  failing. Removed; remaining bootstrap default fully-qualified.
+- **Phantom fallback brokers at THREE sites** — `kafka-*.kafka-headless*:9092`
+  names no Service that exists. Strimzi's headless service is
+  `personae-kafka-cluster-kafka-brokers`; the only `kafka-headless` manifest in the
+  repo (`deployments/kustomize/infrastructure/kafka/kafka.yaml`) belongs to a
+  hand-rolled StatefulSet that **no kustomization references**, and
+  `kubectl get svc -A | grep headless` is empty. Every such entry could only burn a
+  full dial timeout before failing over. All three fixed, each fully-qualified:
+
+  | site | what it had | how it was found |
+  |---|---|---|
+  | `platform/kafka/topic_manager.go` | 1 phantom + 1 unqualified duplicate | reading the file |
+  | `platform/orchestration/actions/spawn_actions.go:1019` | 1 phantom + 1 unqualified duplicate | **the council gate** |
+  | `internal/core-manager/admin/agent_handlers.go:766` | **3 phantoms, no valid entry at all** | an untruncated re-grep |
+
+  The third is the worst and was nearly missed twice. With `KAFKA_BROKERS` unset,
+  core-manager had **no route to Kafka whatsoever** — three consecutive dial
+  timeouts and then failure. It also read only `KAFKA_BROKERS`, missing
+  `SERVICE_INFRASTRUCTURE_KAFKA_BROKERS` (the variable spawned pods receive), so it
+  reached that dead list more readily than the other two. It now uses
+  `kafka.GetBrokers()`, the existing helper that checks both in the right order.
+
+  > **Method note worth more than the fix:** site 2 was found only because the
+  > council asked "did you enumerate the siblings?", and site 3 only because the
+  > grep I ran to answer that was piped to `head` and silently truncated at 10
+  > lines. **A capped enumeration is indistinguishable from a complete one.** If you
+  > are establishing "these are all the sites", do not pipe to `head`.
 - **`kafka_brokers` with no port** in `deployments/kustomize/base/configmap-common.yaml`.
 - **Hot spin** in `cmd/remote-job-spawner/main.go` — read errors `continue`d with
   no pause. Now the standard 1s backoff.
