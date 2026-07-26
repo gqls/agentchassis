@@ -3726,3 +3726,36 @@ tool-exists-and-was-not-run.
 of one, each fanning out to ~31 `page_rerender` items with a git commit, B2 sync and
 Cloudflare purge apiece — and the trigger script's own header warns "Three at once floods the
 queue." I did to one site exactly what it tells you not to do across three.
+
+## 2026-07-26 — gauntlet_dead_cta (P4): "the handoff says the CTA is broken, so it's broken"
+
+**The claim:** the handoff and the PLAN both had Step 1 as "fix the homepage
+provocation-card CTAs", with a whole risk paragraph about the homepage being
+`rebuild_policy='generic'` and the danger of a concurrent rebuild clobbering the
+edit. I was one command away from editing the homepage on that basis.
+
+**What was actually true:** `today.primary_cta.url` was already
+`/tools/gauntlet/index.html`, and `provocation-card-loader` already sets both
+hrefs from the feed at runtime. There was nothing to fix and no reason to touch
+the homepage at all. The open `cta_names_unknown_destination` work item that
+started it is a scan of the *static shell* of a component that is filled at
+runtime — it never saw the real hrefs.
+
+**What caught it:** re-reading the live feed and the loader's source before
+building, rather than trusting the handoff's summary of them. Two more of the
+same session's premises fell the same way: the "Enter today's Arena" CTA that a
+council advisory asked us to re-point already pointed at the right page, and
+`tool-arena-interface` turned out to have a 38 KB template with `js_content IS
+NULL` rather than the unknown-source risk the plan had gated on.
+
+**The cheap check that would have:** one `curl` of the feed and one `SELECT` of
+the loader — under a minute, against a document that had been written 90 minutes
+earlier by a thread with full context.
+
+**The transferable bit:** a handoff's *identity* section (ids, rows, paths) is
+usually still true; its *diagnosis* section decays fastest, because it was
+written before anyone re-checked the thing it describes. A work item is evidence
+that something was flagged, not evidence that it is still broken — and a
+detector that reads static markup cannot see a runtime-filled component. Verify
+the defect before you plan around it, especially when planning around it is what
+makes the task risky.
