@@ -338,3 +338,62 @@ Round 3 also drops the blanket "zero behaviour change" framing. Four small,
 deliberate, separately-justified behaviour changes do ride along, and they are now
 enumerated in the summary instead of being discoverable only inside individual
 edit rationales.
+
+### Round 3: REVISE — but by a DEAD SEAT, not an objection. Stopping here.
+
+```
+decision: revise
+decided_by: unreadable reviewer(s): review_editquality.result
+abstained: 7
+```
+
+**Read `decided_by` before reading the decision.** The gating seat died mid-run; it
+did not object. On substance round 3 was **6 approve / 2 object**:
+
+| seat | round 1 | round 3 |
+|---|---|---|
+| guardian | **hard veto** (2× HIGH) | object — 1 MEDIUM, 2 LOW ("noting for the record rather than blocking") |
+| reuse_agent | object (MEDIUM) | **approve** |
+| editquality | object (gating) | **unreadable — died** |
+| prior_art_librarian | approve (2 LOW) | object (1 MEDIUM) |
+| constitution, mission, render_guardian, debug_historian, tooling_provenance | approve | approve |
+
+Same landmine as `bugs_closed/029`, where 3 of 5 rounds died this way. A REVISE
+caused by a dead seat is harness noise; treating it as a verdict is reading noise
+as signal.
+
+**The guardian's one MEDIUM was right, and it is the third submission-fidelity
+error in three rounds.** I claimed in `risks` and in a `grounded_in` check that
+"both Writer sites move onto ProducerTransport wholesale, nothing left behind" —
+while having moved `remote-job-spawner` into the NOT-LISTED-AS-EDITS section to fit
+the 8-edit cap. So *as the plan reads*, only producer.go moves and the pool splits;
+my safety argument contradicted my own edit list. **The code is fine** — verified at
+HEAD, both `kafka.Writer{}` sites carry `ProducerTransport()`, and there are only
+two. But the reviewers judge the plan, and the plan said two different things.
+
+Three rounds, three variants of the same mistake: round 1 dropped `consumer.go`,
+round 2 dropped `kafka_reachability.go`, round 3 kept a claim whose supporting edit
+had been moved out. **The cap was never the problem — describing the code rather
+than the submission was.**
+
+`prior_art_librarian`'s MEDIUM was also fair: the "complete enumeration of Kafka
+dial sites" claim shipped without a runnable query, while the two sibling checks in
+the same submission each had one. Textbook asserted-absence. All four enumerations
+are now in RUNBOOK §8c, none of them piped to `head`.
+
+**Decision: stop at three rounds.** Neither remaining objection needs a code
+change — one is a plan/code contradiction where the code is correct, the other is
+"show your grep". Both are now recorded in the docs where the next thread will
+actually read them. CLAUDE.md's guidance is one run per coherent task; three is
+already well past that, and the gate has more than earned its keep on this case:
+
+- it vetoed a fleet-wide timeout change I had argued for from an opinion,
+- it forced the reuse question that turned up a hardcoded-200 `/health` waiting to
+  be reintroduced,
+- and its sibling-enumeration objection led to **two more phantom-broker sites**,
+  one of which left core-manager with no route to Kafka at all.
+
+**No `Council-Reviewed:` trailer on any commit, and none may be added.** It is
+earned by APPROVED only; on a REVISE it is a permanent false claim of review. The
+098 report will list this work as un-reviewed for ever — a known, accepted false
+negative, with the trail recorded here instead.
