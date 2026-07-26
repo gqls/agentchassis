@@ -238,3 +238,91 @@ swallows it and the required-field gate fails the build at iteration 0. It took 
 `model-directory` build at 14:26. Its candidate A is prompt-side and config-only, and it is in
 your lane's territory rather than mine: the Output Format block says "Return a JSON object with
 exactly these keys" and never says *only* that object.
+
+---
+
+## 2026-07-26, later — building `bugs_open/093`'s second call site (candidate 1 + 3)
+
+Picked up from `HANDOFF_2026-07-26_continue_here.md` § 3(a). Committed `72effdbca`
+(code + tests), `a2e1be054` (093), `38f169ace` (016b §9). **No `Council-Reviewed:`
+trailer on any of them** — round 6 was submitted, not decided, and a verdict that
+post-dates its commit can never carry one.
+
+### Candidate (3) first, because it was cheap and it sized the rest
+
+The fleet sweep this file's parent predicted would find nothing, found nothing:
+
+```sql
+SELECT s.domain, p.name, cc.name, e.k, e.v
+FROM page_components pc JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id
+LEFT JOIN content_components cc ON cc.id=pc.component_id,
+LATERAL jsonb_each_text(pc.content_data) e(k,v)
+WHERE (e.k ~ '_suffix$' OR e.k ~ '_unit$' OR e.k ~ '_units$') AND e.v <> '' ORDER BY 1,2,3;
+```
+Five rows, all legitimate tool units, none in `statDimensionalSuffixes`. **No UPDATE
+was made.** A candidate that turns out to be a no-op is still worth running — it is
+what made the exposure claim in the new file's header a measurement rather than a hope.
+
+> **Gotcha, cost ~2 minutes:** `page_components` has **no `component_name` column**.
+> The component's name lives in `content_components.name` via `pc.component_id`, so
+> every one of these sweeps needs a `LEFT JOIN`. Schema first, as always.
+
+### The misstep worth recording: I nearly shipped the exposure number from SQL
+
+I had `64 stat value fields / 18 pages` from a `LATERAL jsonb_each_text` predicate and
+was about to write it into the new file's header as the measured exposure. That number
+is **not** what the check will see. SQL counts *fields matching a regex*;
+`ExtractStatClaims` decides what is a claim — it pairs values to labels, drops blank
+sentinels, drops values with no digits at all, and (now) drops display ordinals. The
+two agree here only by luck.
+
+So I built a throwaway harness outside the repo (a `go.mod` with a `replace` at the
+working tree) that runs the **shipping** functions over a base64 TSV export of every
+unlocked `content_data` row, with each site's real `evidence_base` loaded through
+`ParseEvidenceBase`. That is the number in the header, and it is reproducible.
+
+**And it immediately paid for itself**, which is the actual lesson: printing the
+individual findings *with their snippets* — rather than counting them — showed two
+false-positive classes that no aggregate would ever have revealed. See below. Reading
+the count would have told me everything was fine.
+
+### Two defects in code this lane had ALREADY shipped
+
+Both live-reachable at `error` severity in the build gate, on sites with facts:
+
+```
+STAT fundamentallyai.com llm-cost-calculator unregistered_stat medium 8–12 minutes | Read time: 8–12 minutes
+STAT vonc.com            about               unregistered_stat low    01           | Build Arguments, Not Answers 01
+```
+
+1. `isExcludedNumber`'s adjacency test is **byte-level** (`next == '-'`) and an en-dash
+   is three bytes — while `unitSuffixRe`, three lines below it in the same file,
+   already spells `[-–]`. So the author knew; only the byte test didn't. Fixed there,
+   because it is genuinely about prose adjacency.
+2. `01`/`02`/`03` step markers extracted as published figures. Fixed in
+   `ExtractStatClaims`, **not** in the shared `isExcludedNumber` — it is a property of
+   a bare field value, not of a number's position in a prose block, and widening the
+   shared exclusions would change the prose scan on every site for a shape only the
+   stat path produces.
+
+Sweep after both: `61 claims / 21 findings / 9 pages` (from `64 / 25`). Pattern written
+up as `016b` §9 *"A shared predicate written for one INPUT SHAPE, reused on another,
+fails silently in the direction of false positives"* — the general form being that **an
+exclusion list fails OPEN**: a dead exclusion returns `false`, which means "yes, this IS
+a claim".
+
+### A real defect the new check found on its first pass
+
+vonc.com publishes **contradictory** figures: `index` says "Archetypes 8" / "Tools Live
+3"; `about` says "Archetypes 3" / "Tools Live 8" — swapped. Both at `low` severity only
+because vonc registered `banned_claims` but no `facts`, which is exactly the
+row-exists-but-empty case the grading is designed to name rather than hide.
+
+### Landmine confirmed, not just inherited
+
+`ParseEvidenceBase` returning nil for a `writer_block`-only row bites the **post-deploy
+audit** too, not only the build gate — `check_unverified_claims` returned early on
+`eb == nil` and would have skipped **vonc.com's 14 stat claims entirely** (it has a row,
+with `facts=0`). Same defect, second consumer, found by going and looking at the
+consumer rather than trusting that the earlier fix had covered the class.
+`TestWriterBlockOnlyRowStillAuditsStats` now fails loudly if that nil contract moves.
