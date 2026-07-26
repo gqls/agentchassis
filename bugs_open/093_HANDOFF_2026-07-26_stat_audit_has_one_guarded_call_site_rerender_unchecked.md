@@ -10,6 +10,35 @@ call site while the others stay open.
 
 **Status:** OPEN, not started. Cause is structural and fully known — this is a scope gap,
 not a mystery, so there is nothing to diagnose.
+
+> **THE COUNCIL ESCALATED THIS, TWICE, AND WILL NOT APPROVE THE PARENT CHANGE WHILE IT IS
+> DEFERRED.** Submission `569241fb` ran five rounds. Round 1 raised this at **high**; by
+> round 5, after every other objection had been answered, it came back at **high** again and
+> sharper: *"the gap itself is the exact documented pattern this council exists to catch, and
+> it is being deferred rather than closed."* It named the family explicitly — the same shape
+> as the `missingkey=zero` case (one guarded call site, root behaviour unpatched, every other
+> call site retaining identical exposure) and as the rebuild path silently dropping content
+> the regression guard never saw.
+>
+> It also accepted, in the same breath, that deferral is *defensible* on the measurement: a
+> read-only sweep of every persisted `*_suffix`/`_unit`/`_units` value fleet-wide returns
+> **five rows, all legitimate tool units** (leopardess ROI estimator: "employees", "hrs /
+> week per person", "per hour", "time saved"; robot-hands cycle-time: "seconds per cycle").
+> None is a junk placeholder — the `%`/`ms` instances `043` recorded were cleared on
+> 2026-07-22 — and `LintStatUnits` would be silent on all five, since none carries a
+> magnitude-marker value and none of those words is in its dimensional-suffix map.
+>
+> **So: live exposure today is nil, and the structural gap is real.** Those are both true and
+> the second is why this file exists. Whoever picks it up should know the review verdict is
+> already written — closing this is what unblocks an APPROVED verdict on the parent, and
+> candidate (1) below is the shape the council's own reasoning points at.
+>
+> **Deliberately NOT done in the parent change**, and the reason is a judgement rather than an
+> oversight: implementing the discovery-check extension is new feature work on live production
+> code, and it was reached at the end of a long session after the parent bug was already
+> closed on independent end-to-end evidence. Hasty work here would be a worse outcome than a
+> tracked gap with a measured exposure of zero. The parent (`bugs_closed/043`) does not depend
+> on it.
 **Belongs to:** the fabricated-stats lane, `bugs_closed/043_…generated_page_copy_invents_
 quantitative_claims.md` (resolve **by slug** — `043` is one of the ambiguous numbers).
 
