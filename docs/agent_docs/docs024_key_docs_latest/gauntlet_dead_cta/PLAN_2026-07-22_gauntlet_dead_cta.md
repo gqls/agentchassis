@@ -168,3 +168,66 @@ dead_controls re-check · P6 docs/close-out.
 **NEXT = P4** (front-end rebuild against the approved plan) → **P5**
 (Tier-4 journey acceptance + claimscan + dead_controls re-check) → **P6**
 (close-out).
+
+---
+
+## CORRECTIONS + decisions, 2026-07-26 (P4 delivered)
+
+**P4 is DONE and LIVE.** Steps 0, 1, 2 and 3 are complete and verified against
+the deployed pages (72 of 73 checks, desktop + mobile — the one failure is
+upstream, `bugs_open/083`). Three corrections to the plan as it stood:
+
+> **CORRECTED — Step 1 did not need doing.** The plan and the handoff both
+> treated the homepage provocation-card CTAs as broken. They were not: the feed
+> already carried a correct `today.primary_cta.url`, and `provocation-card-loader`
+> already sets both hrefs at runtime. Step 1 collapsed into Step 0, which means
+> **the homepage was never edited** — so the `rebuild_policy='generic'` clobber
+> risk that both documents spend paragraphs managing was avoided outright rather
+> than mitigated. Journey A was verified live instead, and the
+> `cta_names_unknown_destination` item it came from is closed. *What caught it:
+> re-reading the live feed and the loader source before building, rather than
+> trusting the handoff's summary of them.*
+
+> **CORRECTED — council advisory 1 was already obsolete when it was written.**
+> It asks for the "Enter today's Arena" CTA on provocations-index to be
+> re-pointed at `/tools/arena/index.html`. It already points there. What that CTA
+> actually needs is for the arena page to *deliver* — see the deferral below.
+
+**Step 4 (tool-arena-interface) is DEFERRED to LATER, explicitly**, per the
+plan's own §4 gate and the council mvp seat's advisory (defer outright rather
+than attempt conditionally). The gate's precondition is now satisfied — the
+source has been pulled and read — so this is a decision on the evidence, not on
+its absence:
+
+- `html_template` is 38,705 B; **`js_content` IS NULL**. The permanent
+  "Loading…" at line 578 (`<div class="provocation-text" id="provocation-text">`)
+  is template text that no JS was ever written to fill.
+- Mount points are `id`-based, not `data-`-based, and are clean and sufficient:
+  `#provocation-text`, `#provocation-day`, `#provocation-date-label`,
+  `#take-input`, `#take-submit-btn`, `#your-take-display`, `#your-take-text`,
+  `#floor-takes`, `#refile-btn`, `#char-count-label`, `#remix-root`,
+  `#take-block`.
+- The template carries its own inline `<script>` holding a **hardcoded
+  provocation array** (`day: "Round 01"` …) meant to be selected by day-of-year.
+- **Why defer rather than do it:** wiring the display to the feed is easy, but
+  the page's real substance is a "take" submission flow (`#take-submit-btn`,
+  `#floor-takes`) with **nothing behind it**. Making the text load while leaving
+  submission going nowhere would replace a visibly-broken page with a
+  convincingly-broken one — precisely the failure mode this workstream exists to
+  remove. It needs its own scoping round.
+- **One contained defect located while reading, for whoever picks it up:**
+  `.reaction-chip.active[data-reaction="Delusional"]` sets `background`,
+  `border-color` *and* `color` all to `var(--color-primary)`, so the active chip
+  is invisible. The three sibling rules each use a distinct accent colour; only
+  this one is wrong. It is the open `improve_tool` work item.
+
+**P5 acceptance cannot run as specified, and that is a harness defect.**
+`browserrunner/run_checks_action.go:200` waits `stepDelay = 300ms` between an
+interaction step and its assertion. `gauntlet_position_flow` and
+`gauntlet_defend_flow` assert on AI output measured at 8–23 s, so they would fail
+a correct page. Two acceptable routes: extend the runner with a wait/poll
+(`criteriaExpect` would need a timeout field), or replace those two checks with
+assertions that are true at 300 ms. **Not acceptable:** making the page paint
+optimistic placeholder text to satisfy them — that would make the checks pass
+with the engine switched off. Meanwhile the journeys ARE verified, by
+`p4_sources/verify_live.py` driving the deployed pages in Chromium.
