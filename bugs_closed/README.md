@@ -66,6 +66,7 @@ are adding a row, update the count too.)
 | `040` | failed page build leaves page deployed / partially composed — **040-partial-build**, closed 2026-07-24 (guard live `v1.0.1146`, skip persistence live `v1.0.1155`) | kafka dial timeouts fleet-wide — **040-kafka-dial**, still open (two files, both `040`, both 2026-07-20) |
 | `043` | diagnosis runs hang at the `route` step — **043-route-hang**, closed 2026-07-26 (resolver budget live `v1.0.1165`, migration 191 applied, root fix = `003` F2/F3 live `v1.0.1159`) | generated page copy invents quantitative claims — **043-fabricated-stats**, still open (two files, both `043`, both filed 2026-07-20) |
 | `044` | plan_sections defers an empty-schema component by name heuristic (closed 2026-07-21, live `v1.0.1146`) | no capability inventory / dormant agents undetectable (still open) — two files, both `044`, both filed 2026-07-20 |
+| `088` | snapshot revert destroys every component lock — **088-snapshot-lock-wipe**, closed 2026-07-26 (migration 219, live on apply) | writer self-correction emits two JSON objects — **088-two-json-objects**, still open (two files, both `088`, both filed 2026-07-26 within hours of each other by concurrent sessions; the number was free when each was checked) |
 
 A bare reference to `bugs_open/016` or `bugs_open/017` in older docs or code
 comments is therefore **ambiguous** — resolve it by the slug or the described
@@ -76,6 +77,8 @@ numbers are cited in commit messages and Go comments.
 
 | # | case | closed because |
 |---|---|---|
+| 069 | Site chrome (`site_components`) writers ignored the human lock columns | fixed and live `v1.0.1170`, re-verified `v1.0.1171`; induced-fault proven — locked slot's md5 AND `updated_at` unchanged, unlocked sibling rewritten, a locked slot with `component_id IS NULL` no longer repointed by the generic-default fallback |
+| 088 *(slug `snapshot_revert_destroys_component_locks`; a second `088` exists in `/bugs_open/`, slug `writer_self_correction…` — cite this one as **088-snapshot-lock-wipe**)* | A snapshot revert deleted and re-inserted both component tables with no lock columns, silently disarming the 058 and 069 gates | fixed and live on apply (migration 219); proven by induced fault inside a rolled-back transaction, with a control showing a pre-219 snapshot lacks the key |
 | 004 | Landing an image can silently blank an article body | superseded by `005`, which found the real root cause |
 | 005 | Article-body blanking — root cause is LLM truncation (`max_tokens`) | fix deployed v1.0.1126; re-verified live 2026-07-19 (19/19 healthy, config survived a re-seed, repair fn present in the running pod) |
 | 014 | VM-site artefacts silently deploy to the default `sites` repo | both causes fixed (v1.0.1126 + pin removal) |

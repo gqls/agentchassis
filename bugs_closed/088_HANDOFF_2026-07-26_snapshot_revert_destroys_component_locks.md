@@ -4,8 +4,13 @@
 component lock gate). It is **not** a chrome defect: it hits `page_components` the same way, so it
 belongs to neither `058` nor `069`, and it is fixed in the database rather than in Go.
 
-> **Numbering note:** first drafted as `085`; `085`, `086` and `087` were taken by other sessions
-> between the audit and the filing. This file is `088`.
+> **Numbering note — this number is AMBIGUOUS, resolve by slug.** First drafted as `085`; `085`,
+> `086` and `087` were taken by other sessions between the audit and the filing, so this became
+> `088` — and a concurrent session filed a *different* `088` hours later
+> (`bugs_open/088_HANDOFF_2026-07-26_writer_self_correction_emits_two_json_objects.md`). Both
+> numbers were free when each thread checked. Cite this one as **088-snapshot-lock-wipe**. Not
+> renumbered, per `/bugs_closed/README.md`: the number is already cited in migration 219's header,
+> in `016b` §10 and in commit messages, and renumbering would break those.
 
 ## The defect
 
