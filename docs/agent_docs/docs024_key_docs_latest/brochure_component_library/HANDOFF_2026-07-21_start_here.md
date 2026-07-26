@@ -1,3 +1,7 @@
+> **SUPERSEDED 2026-07-26 — start at `HANDOFF_2026-07-26_continue_here.md`.**
+> This file predates the site going live and describes two blockers that are
+> both closed. Kept for the record, not for cold-starting.
+
 # HANDOFF — brochure component library / fundamentallyai.com (2026-07-21)
 
 **This is the cold-start entry point. Open a new thread from here.** Read this

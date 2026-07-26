@@ -377,3 +377,30 @@ failure was an appositive gloss. Both fixed (`sql/README_writer_prompt_v3.md`).
 - Audit finding statuses left at `detected` after re-testing — another workstream
   owns work-item completion semantics and hand-closing an audit's own findings
   would corrupt its accounting. Re-test recorded in NOTES instead.
+
+## Owner decision 2026-07-26: chart component GREEN-LIT
+
+Supersedes the "NOT in scope for this site" line above — the owner green-lit the
+chart component on 2026-07-26. Terms as recommended and now decided:
+
+- **One shared chassis component**, serving fundamentallyai.com and leopardess
+  (this resolves Open Decisions #4 the same way for charts as for the stat band).
+- **Values sourced from the `evidence_base` aspect.** The LLM may supply labels,
+  framing and ordering; it must not supply figures. A chart is the most persuasive
+  place a number can sit, so on a site whose pitch is that claims are sourced, an
+  unverified figure in a chart is the worst available failure.
+- **Code-rendered** (inline SVG/CSS), never a generated image of a chart, no
+  runtime chart library.
+- **Reuse leopardess L7** (already scoped there as "the one genuinely-new build")
+  and `features_open/023`. Coordinate with that workstream before building — two
+  chart components is precisely the drift the council gate exists to catch.
+- All 7 acceptance-checklist items apply, and item 2 is the one that has bitten
+  this workstream five times already: if the component is not named in the
+  build-site-planner / site-architect prompt, the planner will never select it.
+
+Still open with the owner: the decision-record page (`platform-log-index`). Its
+content would be real — 156 council-gate decision notes since 2026-07-17, 41
+commits carrying a `Council-Reviewed:` trailer, and a verdict mix that includes 7
+revise / 2 guardian vetoes / 1 escalated / 1 invalid alongside 9 approvals. The
+outstanding judgement is editorial and reputational, not technical: whether
+internal objection text and seat names go outward, and in what redacted form.
