@@ -202,7 +202,7 @@ low, reuse_agent ×1 low), **no veto**. The guardian's note says explicitly it
   orchestrations across services".* Both true — they are different verbs, and
   the round-1 submission conflated them. **Owns/creates rows:** agent-chassis
   (replicas 1), single-pod spawned Job agents, business-intel (replicas 1) —
-  the census over all 1,547 rows returns only those. **May drive a row:** any
+  the census over all 1,644 rows returns only those (1,282 agent-chassis, 5 business-intel, the rest spawned single-pod Job agents; 378 distinct pod names). **May drive a row:** any
   pod running the per-minute ticker, in any service, because
   `ClaimExpiredAwaitedRequestsForRetry` claims by request, not by owner —
   proven cross-service on 07-25 (vet-intel's ticker, `RETRY_TICKER_CLAIMED`

@@ -5052,3 +5052,39 @@ flag's absence and its emptiness must differ, the script has to use `${3-...}` o
 explicit `[ $# -ge 3 ]`, and the caller cannot tell which from the header comment.
 
 Family: read-the-header-not-the-code, empty-is-not-unset, rewarded-by-luck.
+
+---
+
+## 2026-07-26 — I published a row count I never counted (bugs_open/075 council submission)
+
+**The claim.** In the round-2 council rationale, and in two docs, I wrote that
+`processing_node` "across all **1,547** rows" resolves only to single-pod
+services. The census was real and the conclusion was right. The number was not:
+I had run a `GROUP BY` census, read the per-service counts, and then wrote a
+total I had never asked for. The true total, queried afterwards, is **1,644**
+(1,282 agent-chassis, 5 business-intel, the rest spawned single-pod Job agents,
+378 distinct pod names).
+
+**What caught it.** Adding up the per-service counts in my own earlier output —
+after the submission had gone out. Nothing in the system would have: a wrong
+total inside a correct conclusion never fails a query, and the council cannot
+open the database to check it.
+
+**The cheap check.** `SELECT count(*)` is one line, and a GROUP BY census does
+not contain its own total. If a number is worth quoting to a reviewer, it is
+worth a query of its own; if it is not worth a query, quote the shape ("every
+row resolves to a single-pod service") and leave the number out.
+
+**Why this one matters more than it looks.** The figure was load-bearing
+rhetoric in a safety argument — "we checked ALL 1,547 rows" is precisely the
+kind of specificity that makes a reviewer stop checking. Inventing precision to
+sound thorough is worse than saying "the census returned only single-pod
+services", because it converts a verified claim into an unverifiable one while
+making it read as more verified.
+
+**Standing tally, uncounted-figure family:** this is the same shape as the 040
+"240 dials / 7 days" call (a 20-minute window quoted as a week) and the 052
+population table carried forward unchecked — three now. The recurring check is
+identical: **the aggregate you are about to quote must be the aggregate you
+actually ran.** Family: fabricated-precision, aggregate-not-run,
+right-conclusion-wrong-number.

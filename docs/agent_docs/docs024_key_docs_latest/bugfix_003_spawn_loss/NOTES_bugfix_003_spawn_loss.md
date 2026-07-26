@@ -331,7 +331,7 @@ audit trail. Safety comes from where it always did: `ClaimAwaitedRequest` (one
 actor per response) and the version CAS in `UpdateStateWithVersion`.
 
 **Checked, not assumed, before removing the gate:** no multi-replica service
-owns an orchestration row. `processing_node` across all 1,547 rows is
+owns an orchestration row. `processing_node` across all 1,644 rows (checked 2026-07-26; the "1,547" an earlier draft of this entry carried was never computed — see WRONG_CALLS) is
 agent-chassis (replicas 1), single-pod spawned Job agents, and business-intel
 (replicas 1). core-manager (2 replicas) and reasoning-agent (3) own none.
 
