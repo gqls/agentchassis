@@ -136,3 +136,55 @@ back to you with real figures attached, rather than the way it was put on the 24
 with no numbers on either side.
 
 Still blocked on the cluster login before any of that can run.
+
+## 2026-07-27 (evening) — it works. Blog and social are on Gemini pro, and the tweet that used to come back empty now comes back written
+
+The new build went out, and I can tell you the fix is real rather than
+theoretical.
+
+First I checked the running pods actually contain the new code rather than
+trusting the version number — both the chassis and the content-creator service are
+on v1.0.1173, and I grepped five separate phrases that only exist because of this
+change out of the live binaries. All five present. I also checked two phrases that
+should have *disappeared*, and they had. (One of my three "should be absent" checks
+was useless, because I picked a phrase that exists elsewhere in the codebase
+anyway — I've noted that so nobody repeats it.)
+
+Then I switched the blog-and-social agent over to Gemini pro and put two real jobs
+through it.
+
+The first was the one that mattered: a tweet, at the exact setting that returned
+**nothing at all** on the 24th. It came back with a proper 264-character tweet.
+The second was a long blog post — 1,292 words, nothing cut off, thirty-five
+seconds. So the thing we concluded Gemini couldn't do, it does, and the reason it
+couldn't before was us.
+
+One small bonus that confirms a second fix: the cost figure now comes back at
+Gemini's rate rather than silently using Claude's. That's a detail, but it means
+the cost numbers we look at from here are about the model we're actually calling.
+
+**What's left, and why I've stopped short of it.** The page-copy writer — the one
+that writes the sites, and the one that has never actually run on Gemini — is a
+change to the live database rather than a config file, and my tooling declined to
+make that write. That's a sensible guard, so rather than argue with it I've written
+the statement out in full as a script you can run in one command. It's in the
+workstream folder as `P6_FLIP_page_content_writer.sql`. It backs the row up first,
+refuses to proceed if another session has edited the row since I read it, and —
+this is the important bit — it checks its own work afterwards and undoes itself if
+anything is wrong.
+
+**Writing that script caught a mistake of mine that would have been genuinely
+expensive.** My original instructions for this step replaced the whole settings
+block with the three provider lines. The writer's output limit — 8,000 tokens —
+lives inside that same block, so replacing it would have silently dropped the limit
+to the default of 2,048. Less than a third. Nothing would have looked wrong: the
+switch would have "worked", and then page sections would have started coming back
+cut short some days later, and I'd have gone hunting in completely the wrong place.
+I only caught it because I read the row before writing to it. The script now
+preserves everything it isn't deliberately changing, and refuses to commit unless
+the 8,000 is still there afterwards.
+
+So: run that script when you're ready, then rebuild a single page and read the copy
+before letting it near the whole estate. That last step is the real test of the
+thing you actually asked about — whether Gemini writes well enough — and it's the
+one question none of today's work answers.

@@ -41,9 +41,23 @@ data:
       topic: "system.agent.content-creator.process"
       kafka_consumer_group: "content-creator-agent-group"
       ai_service:
-        provider: "anthropic"
-        model: "claude-sonnet-5"
-        api_key_env_var: "ANTHROPIC_API_KEY"
+        # Second attempt at Gemini (bugs_open/107; the first was reverted
+        # 2026-07-24 by 4dd5d6378 because our client passed Anthropic-sized
+        # max_tokens straight into Gemini's TOTAL output ceiling, starving the
+        # answer). Owner chose the pro tier for quality / provider diversity.
+        #
+        # A floating pointer, not a pinned snapshot, on purpose: Google closes
+        # pinned GENERATIONS to newly-issued keys, and gemini-2.5-pro still 404s
+        # for this key (re-verified 2026-07-27). NewGeminiClient refuses the
+        # known-dead pins at construction.
+        #
+        # No thinking knob set: the reserve (default 8192, measured) is what makes
+        # the call work, and neither knob CAPS thinking — they only reduce it. Add
+        # thinking_level: "low" here if cost needs trimming, and re-measure with
+        # scripts/gemini-probe.sh rather than guessing.
+        provider: "gemini"
+        model: "gemini-pro-latest"
+        api_key_env_var: "GEMINI_API_KEY"
       metrics:
         enabled: true
         fail_silently: true

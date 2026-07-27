@@ -382,3 +382,77 @@ round-9 approval, already recorded in `016b` §8.2. The verdict is real and its
 correlation is recorded here, in `bugs_open/107` and in the PLAN; the join is just
 not machine-exact. **A trailer added by a later commit would be worse** — it would
 attach the approval to code the council never saw.
+
+## 2026-07-27 — P3 verified, P5 PROVEN IN PRODUCTION, P6 blocked on a permission
+
+**P3 — both images live.** `v1.0.1173`, rolled 13:45:31Z (chassis) and 13:45:35Z
+(content-creator). Pod-grep on `agent-chassis-5f85dff548-8d2tq`, five strings this
+change CREATED, all → 1: `thinking consumed the entire output ceiling`,
+`__sent_visible_budget_tokens`, `__usage_thinking_tokens`, `deliberately no
+default`, `You can only set only one of thinking budget`. Negative controls: the
+old format string `no text content in response (finishReason=%q)` → **0**, and an
+invented string → 0. Content-creator's own binary: same positives, plus
+`gemini-flash-lite-latest` → 1 with the old `gemini-2.5-flash":` key → **0**,
+which proves the cost-table re-key shipped too.
+
+> **My third negative control was worthless and I nearly reported it as one.**
+> I grepped `datahelpers.GetIntField` expecting 0 and got 1 — but that symbol
+> exists all over the tree and is in the binary regardless of my change, so it
+> could never have discriminated. A negative control has to be a string that is
+> absent *because of* the change. The old format string was the valid one.
+
+**P5 — content-creator flipped to `gemini`/`gemini-pro-latest` and PROVEN.**
+Configmap edited in git, `kubectl apply`'d, deployment restarted; live values
+re-read (`provider: "gemini"`, `model: "gemini-pro-latest"`,
+`api_key_env_var: "GEMINI_API_KEY"`). New pod started clean with **0 restarts** —
+which is itself evidence the new construction validation passed (model present,
+not a retired pin, no double knob).
+
+Two real generations through Kafka, both on `gemini-pro-latest`:
+
+| tier | request | result |
+|---|---|---|
+| `max_tokens: 100` (twitter) | `generate_social_media` | **264 chars of real tweet**, 66 tokens, 12.6s |
+| `max_tokens: 6000` (long) | `generate_blog_post` | **8,726 chars / 1,292 words**, 2,181 tokens, 35.4s, no truncation |
+
+**The 100-token tier is the whole point: on 2026-07-24 that exact tier returned
+ZERO characters. It now returns a publishable tweet.** The defect is fixed end to
+end in production, not just in a test.
+
+`estimated_cost` came back `0.00066` for 66 tokens — i.e. 0.010/1000, the
+`gemini-pro-latest` rate. Before the re-key it would have silently used the Claude
+fallback of 0.003. So that fix is live and observable too.
+
+**Two frictions worth recording for whoever fires the next one:**
+- The first publish was rejected with `'fuel_budget' header not found` — an
+  `-H fuel_budget=100000` header is required and is not in the payload schema.
+  The message reached `handleMessage` and errored to
+  `system.agent.content-creator.errors`; it did **not** vanish.
+- `Agent instance not found, using default configuration` is expected for an
+  ad-hoc probe (a random `agent_instance_id` has no DB row). It means
+  `GetDefaultConfig` supplied the tiers, so these runs exercised the shipped
+  defaults, which is what we wanted.
+
+**P6 — NOT DONE, blocked on a permission, not on knowledge.** The `UPDATE` to the
+live `agent_definitions` row was refused by the tool-permission classifier. The
+statement is written, reviewed and ready as
+`P6_FLIP_page_content_writer.sql` in this directory, with a transaction and a
+`DO $$` block that RAISEs (rolling back) unless all four post-conditions hold.
+Backup `bak_agent_definitions_pcw_20260727` is already created.
+
+> **Writing that script found a bug in my own RUNBOOK §7 that would have quietly
+> cut the writer's budget by 4x.** The original SQL replaced the whole `ai_service`
+> object with `{"provider","model","api_key_env_var"}`. **`max_tokens: 8000` lives
+> inside that same block** — so the replace would have dropped it and
+> `NewGeminiClient` would have fallen back to its 2048 default. Invisible in the
+> diff; it would have surfaced days later as truncated page sections, and I would
+> have gone looking at the reserve. Caught by reading the row before writing it:
+> a query for the *step's* `max_tokens` returned NULL, because the key is one level
+> in. **`jsonb_set` with a literal object is a REPLACE, not a merge** — use `||`
+> on the existing object whenever the block has siblings you did not enumerate.
+> Corrected in the RUNBOOK, and the script asserts `max_tokens = 8000` after the
+> write rather than trusting it.
+
+Also noted: the writer row's `updated_at` was `13:44:56.343485+00` — the
+architecture-review seat's re-seed, minutes before I read it. The guard is not
+theoretical on this row.

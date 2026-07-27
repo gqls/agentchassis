@@ -11,8 +11,8 @@ Point the two content-producing agents at Gemini instead of Claude:
 
 | agent | what it writes | where its provider is configured | live now |
 |---|---|---|---|
-| `content-creator-agent` | blog posts, social content | kustomize configmap (`configmap-content-creator.yaml`) — a k8s service | `anthropic` / `claude-sonnet-5` |
-| `page-content-writer` | the site page sections (the copy on every site we publish) | `agent_definitions` row, `generate_content` step's `ai_service` | `anthropic` / `claude-sonnet-4-6` |
+| `content-creator-agent` | blog posts, social content | kustomize configmap (`configmap-content-creator.yaml`) — a k8s service | **`gemini` / `gemini-pro-latest` since 2026-07-27, proven on two real generations** |
+| `page-content-writer` | the site page sections (the copy on every site we publish) | `agent_definitions` row — the `generate_content` step **nested in `process_sections_loop.config.sub_workflow`** | `anthropic` / `claude-sonnet-4-6` — **P6, still to flip** |
 
 This was attempted on 2026-07-23/24 and reversed. This plan exists because the
 reversal was correct on the evidence available at the time **and the evidence was
@@ -206,22 +206,39 @@ tested. The probe produces the evidence; the pick stays an owner decision.
 
 - **P1 — client fix.** `platform/aiservice/gemini.go` + tests + probe script.
   **DONE 2026-07-27**, committed, `go test ./platform/aiservice/` green.
-- **P2 — council review.** Platform-code change, so it goes through the gate
-  (advisory, ~30 min). **NOT DONE.**
-- **P3 — ship it.** Bump `IMAGE_TAG`, `make build-agent-chassis` +
-  `build-content-creator-agent`, push, deploy, verify against the running pod.
-  Both agents need it: the writer runs in the chassis, content-creator is its own
-  service. **NOT DONE — blocked, see below.**
-- **P4 — probe the live key.** `scripts/gemini-probe.sh --from-pod <model>`.
-  Produces the model shortlist, the tier table and the reserve figure.
-  **NOT DONE — blocked.**
-- **P5 — flip content-creator** (configmap, live immediately once the image
-  carries P1) and generate one real blog post through Kafka. Compare against a
-  Claude baseline. **NOT DONE.**
-- **P6 — flip `page-content-writer`** (DB, guarded on `updated_at`, backup table
-  first — the `bak_agent_definitions_pcw_20260724` pattern from 07-24) and
-  rebuild **one** page. Read the copy against the Voice & Style rules before any
-  site-wide rewrite. **NOT DONE.**
+- **P2 — council review. DONE 2026-07-27: APPROVED round 1**, corr
+  `a1a5cf20-a70d-48c3-8fda-842d2a91b651` (10 reviewers, 6 filtered,
+  `unreadable: 0`, 4 advisory objections, none high-severity). Three objections
+  changed something; two became `features_open/025`. No `Council-Reviewed:`
+  trailer is possible — the verdict post-dates the commits and the tree is
+  forward-only, so `098` reads UNREVIEWED (known false negative, `016b` §8.2).
+- **P3 — ship it. DONE 2026-07-27.** Both images at `v1.0.1173`, rolled 13:45Z.
+  Pod-grep verified on both binaries: 5 created strings present, 2 valid negative
+  controls at 0. (A third "control" I tried was worthless — see NOTES.)
+- **P4 — probe the live key. DONE 2026-07-27.** Tier tables, model reachability
+  and the thinking-knob matrix are in NOTES. It falsified my own knob claim and
+  turned the 8192 reserve from a guess into a measurement.
+- **P5 — flip content-creator. DONE AND PROVEN 2026-07-27.** Configmap flipped to
+  `gemini`/`gemini-pro-latest`, applied, restarted, live values re-read. Two real
+  Kafka generations: **264 chars of tweet at the 100-token tier that returned ZERO
+  on 07-24**, and an 8,726-char / 1,292-word blog post with no truncation. Cost
+  metadata now resolves at the Gemini rate rather than the Claude fallback.
+- **P6 — flip `page-content-writer`. NOT DONE — blocked on a permission, not on
+  knowledge.** The live `UPDATE` was refused by the tool-permission classifier.
+  Ready to run as `P6_FLIP_page_content_writer.sql` in this directory:
+  transactional, guarded on `updated_at`, merges with `||` (see below), and RAISEs
+  to roll back unless provider, model, `max_tokens: 8000` and the Voice & Style
+  block all verify afterwards. Backup `bak_agent_definitions_pcw_20260727` exists.
+  **Then rebuild ONE page and READ the copy** before any site-wide rewrite.
+
+> **CORRECTION 2026-07-27 — P6's SQL, as first written in the RUNBOOK, would have
+> quietly cut the writer's output budget by 4x.** It replaced the whole
+> `ai_service` object; `max_tokens: 8000` lives *inside* that block, so the replace
+> would have dropped it and the client would have fallen back to its 2048 default —
+> invisible in the diff, surfacing later as truncated sections, and it would have
+> sent me back to the reserve looking for the cause. `jsonb_set` with a literal
+> object is a REPLACE, not a merge. Fixed to `||`, and the script now asserts
+> `max_tokens = 8000` after writing rather than trusting it.
 
 P5 and P6 are independent and reversible in either order. P6 is the one that
 matters commercially — it writes the sites — and it is the one with no evidence
@@ -229,11 +246,14 @@ at all, so it should not be skipped on the strength of a P5 result.
 
 ## Blocked on
 
-**Cluster credentials.** `kubectl` returns `Unauthorized` in this session
-(context `personae-uk001-prod-agent-chassis-cluster`), so P3–P6 cannot start:
-no image roll, no pod verification, and no access to `GEMINI_API_KEY`, which
-lives only in the cluster secret (`personae-default-secrets`) — there is no
-local copy. Everything up to and including the probe script is done and waiting.
+**One permission.** P6's `UPDATE` to the live `agent_definitions` row was refused
+by the tool-permission classifier. Nothing else is blocked: cluster credentials
+were restored mid-session, and P2–P5 all completed. The statement is written and
+self-verifying in `P6_FLIP_page_content_writer.sql`; it needs a human to run it,
+or the permission granted.
+
+> The earlier blocker recorded here — `kubectl` returning `Unauthorized`, which
+> stopped P3–P6 — was **cleared 2026-07-27** when the owner restored credentials.
 
 ## Open question for the owner
 

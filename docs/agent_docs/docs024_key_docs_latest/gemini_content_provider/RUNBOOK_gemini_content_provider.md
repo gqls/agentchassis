@@ -188,28 +188,55 @@ CREATE TABLE bak_agent_definitions_pcw_20260727 AS
 SELECT * FROM agent_definitions WHERE type = 'page-content-writer';
 
 -- 2. patch the STEP block, guarded on updated_at so a concurrent session's
---    write cannot be silently overwritten. Several threads touch this row.
+--    write cannot be silently overwritten. Several threads touch this row (it
+--    was written at 13:44:56 on 2026-07-27 by the architecture-review re-seed).
 --    Substitute the updated_at you read in §0. NOTE the nested path — the
 --    shorter one you might guess at silently no-ops (see the correction in §0).
-UPDATE agent_definitions
+--
+--    MERGE with `||` onto the existing ai_service object. Do NOT replace it.
+UPDATE agent_definitions a
 SET default_config = jsonb_set(
-      default_config,
+      a.default_config,
       '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,ai_service}',
-      '{"provider":"gemini","model":"gemini-pro-latest","api_key_env_var":"GEMINI_API_KEY"}'::jsonb),
+      (a.default_config->'workflow'->'steps'->'process_sections_loop'->'config'
+        ->'sub_workflow'->'steps'->'generate_content'->'config'->'ai_service')
+      || '{"provider":"gemini","model":"gemini-pro-latest","api_key_env_var":"GEMINI_API_KEY"}'::jsonb),
     updated_at = now()
-WHERE type = 'page-content-writer'
-  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
-  AND updated_at = '<the updated_at you read>';
+WHERE a.type = 'page-content-writer'
+  AND a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND a.updated_at = '<the updated_at you read>';
 -- expect UPDATE 1. UPDATE 0 means someone else wrote the row — re-read, do not retry blind.
--- Then RE-READ with §0's query: jsonb_set on a path whose parent does not exist
--- is a SILENT NO-OP that still reports UPDATE 1. The row count proves the guard
--- held, not that the value landed.
 
--- 3. confirm the Voice & Style block survived (it is separate from the provider
---    and must NOT be lost in a provider change)
-SELECT default_config->'workflow'->'steps'->'generate_content'->'config'->>'prompt_template' LIKE '%Voice & Style%'
-FROM agent_definitions WHERE type = 'page-content-writer' AND is_active;
+
+-- 3. RE-READ. Two independent reasons the row count is not proof:
+--    (a) jsonb_set on a path whose parent does not exist is a SILENT NO-OP that
+--        still reports UPDATE 1;
+--    (b) a wholesale replace would have dropped sibling keys (see below).
+--    Also confirms the Voice & Style block survived — it is separate from the
+--    provider and must NOT be lost in a provider change.
+SELECT v->'config'->'ai_service'                       AS ai_service_now,
+       (v->'config'->>'prompt_template') LIKE '%Voice & Style%' AS style_block_intact,
+       length(v->'config'->>'prompt_template')         AS tmpl_chars
+FROM agent_definitions a,
+     jsonb_each(a.default_config->'workflow'->'steps'->'process_sections_loop'
+                ->'config'->'sub_workflow'->'steps') AS e(k,v)
+WHERE a.type='page-content-writer' AND a.is_active
+  AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND e.k='generate_content';
+-- ai_service_now MUST still contain max_tokens: 8000.
 ```
+
+> **CORRECTED 2026-07-27 — this section would have quietly halved the writer's
+> budget.** The first version replaced the whole `ai_service` object with
+> `{"provider","model","api_key_env_var"}`. **`max_tokens: 8000` lives inside that
+> same block**, so the replace would have dropped it, and `NewGeminiClient` would
+> have fallen back to the client's 2048 default — a 4x cut to the writer's output
+> budget, invisible in the diff, presenting later as truncated page sections.
+> Caught by reading the row before writing it: `step_max_tokens` came back NULL
+> from a query looking at the step config, because the key is one level in, under
+> `ai_service`. **`jsonb_set` with a literal object is a REPLACE, not a merge** —
+> use `||` on the existing object whenever the block you are patching has siblings
+> you did not enumerate.
 
 Then rebuild **one** page and read the copy. Rollback is the backup table, or
 just re-point provider/model to `anthropic` / `claude-sonnet-4-6`.
