@@ -3,6 +3,14 @@
 **Written 2026-07-26.** Read this first, then `NOTES_webdesign_couk.md` for the
 misstep log. Everything below was verified live, not inferred.
 
+> **PHASE 2 STARTS HERE →
+> [`HANDOFF_2026-07-27_phase2_uk_authority.md`](HANDOFF_2026-07-27_phase2_uk_authority.md)**
+> The owner's 2026-07-27 direction: UK focus, copy rewrite ordered by popularity,
+> third-party UK tool directory, renewed AI focus, a news section, added
+> gradually over a month. **It opens with the one thing that must be decided
+> first — we have no popularity data at all, and the site is one day old.**
+> This document remains the reference for how the site is BUILT.
+
 ---
 
 ## In one paragraph

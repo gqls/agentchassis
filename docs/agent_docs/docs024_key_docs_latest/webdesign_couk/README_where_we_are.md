@@ -165,3 +165,55 @@ looks completely normal until someone clicks something.
 (the ones that use your camera roll, canvas or clipboard) haven't been clicked through yet —
 that's about sixteen pages. And the deploy robot's permission to clear Cloudflare's cache
 still hasn't been confirmed; the only symptom would be changes taking a while to appear.
+
+---
+
+**2026-07-27 — answering the duplication question, and what Phase 2 needs from you**
+
+You asked whether your two sites duplicate each other. **They barely touch, and I should
+correct something I said yesterday** — I wrote that "the same content now sits on three
+domains", which was loose. What's actually true: the two old sites don't overlap; the new one
+overlaps both, because it's their union.
+
+The evidence: not one shared article subject. website-design.com writes engineering and maths
+deep dives — the physics of UI, the end of hex codes, ambient occlusion in CSS, why you can't
+scrape Google. websitedesign.com writes exclusively about AI website builders — v0, Lovable,
+Bolt, AI slop, the 70% wall. No file on either site is byte-identical to any file on the
+other. All 63 tool names are unique. Five pairs of tools sound similar and I read the code of
+each: they're genuinely different jobs. The only real duplicate was *inside* websitedesign.com
+— one guide was a byte-for-byte copy of another with the wrong title on it, and that's gone.
+
+There's a useful consequence in that. The merge gave you a genuinely complementary library:
+craft and visual depth from one site, current AI-builder practice from the other. Your
+"renewed focus on AI" isn't a new direction — it's half of what you already own, currently
+buried by the ordering.
+
+**The one thing I need from you before I can do what you asked.** You want the tools and
+guides ordered by popularity. **We have no popularity data at all.** The site is one day old,
+it's served from storage behind Cloudflare so there are no server logs, and there's no
+analytics beacon on it. I could invent a plausible ordering and present it as popularity, but
+that's precisely the mistake this project already made twice with the tool count, and I'd
+rather not make it a third time.
+
+What I'd suggest: let me add Cloudflare's free analytics now — it's about ten minutes and one
+line in the page template — and meanwhile order things by explicit editorial judgement,
+labelled as such, with a note to revisit once there's a month of real data. And a question:
+do you have Google Search Console on either of the old domains? That would give real search
+and click data for this exact content, which is the best proxy going and costs nothing to look
+at.
+
+The good news is that reordering is cheap by design. The index pages are generated from a list
+rather than hand-written, so reordering the entire site is an edit to that list and a re-run —
+not a rewrite. The same is true of adding tools and articles, which is what "adding rather
+than removing" needs.
+
+**Two more things I found rather than built.** You want a news section — one already exists in
+the platform, with the components and a refresh job that runs every six hours. It's parked
+behind a deliberate gate that says don't switch it on without your say-so, which you've now
+given, so it's a configuration job rather than a build. And there's existing machinery for
+curated directories that the UK third-party tools idea should probably use.
+
+Everything's written up in a Phase 2 handoff so you can pick this up in a fresh chat. It opens
+with the popularity question and lists four decisions I need from you — including one I think
+matters more than it sounds: you've described two different audiences, designers who want a
+tool and people who want web design *done*. Those want quite different things from a homepage.
