@@ -7726,3 +7726,152 @@ authored it.
 
 Family: narrow-filter-defines-the-conclusion, sample-is-not-the-population,
 a-default-is-a-decision.
+
+---
+
+## 2026-07-27 — "This plan fixes routing and content" — a submission's rationale describing work that was not in its own edits array (council HIGH objection)
+
+**The claim, written into a council submission and judged against:** the rationale
+of `18fe4035` opened by naming three defects — unrouted lanes, `review_prior_art`
+missing from `code_check_fields`, and declarations-only `content` — and then stated
+**"This plan fixes routing and content."**
+
+**It was false, and the council caught it as its only HIGH objection.**
+`bug_historian`, verbatim: *"nothing in the edits array touches
+agent_definitions.task_workflow … or code_check_fields … Only the content-side
+defect is actually edited. Defect (1) … is left fully exploitable after this plan
+ships."* It went further and named the consequence I had missed: *"The council's ONLY
+forward-fitness voice (review_architecture, per the D9 ruling this plan itself
+cites) runs on feature-designer — the exact lane left unrouted."* My own plan cited
+the ruling that made its omission matter.
+
+**Caught by:** the council gate, not by me — on a submission I had pre-flighted for
+quote fidelity, JSON schema and scope, and still shipped with a rationale describing
+work that was not in it.
+
+**The cheap check that would have caught it:** read the rationale's verbs against the
+edits array as a checklist — *fixes routing* → which edit? *fixes content* → which
+edit? One pass, mechanical. **A rationale is not a summary of the problem, it is a
+claim about the edits, and the council judges the plan AGAINST it** — so any verb in
+it that no edit implements is a defect I authored, not context I supplied.
+
+**Cost:** one council round. Answered by *shipping* the routing half rather than
+arguing it away, so the round produced a real change; but the round was spent on my
+own overclaim, and a reviewer's attention on it is attention not spent on the design.
+
+Family: rationale-claimed-work-not-in-the-edits, my-own-citation-indicted-me,
+the-verbs-are-the-checklist.
+
+---
+
+## 2026-07-27 — "CREATE INDEX CONCURRENTLY, to be safe" — caution copied from big-table habit onto a 4,535-row table, where it was strictly worse
+
+**The claim, written into a council submission as a design choice:** the migration
+sketch used `CREATE INDEX CONCURRENTLY IF NOT EXISTS` for the new trigram index,
+with the risk list noting it "must not run inside a transaction — the migration
+runner should be checked for that". I wrote the caveat and **did not do the check**,
+then shipped the plan with the unresolved question in it.
+
+**It was wrong twice over, and both seats that objected were right.**
+(a) The migration runner's **dry-run probe deliberately wraps the file in a poisoned
+transaction** (`run-migrations.sh:129-139`) to prove the file reaches its own COMMIT —
+so `CONCURRENTLY` would have **failed the probe** even though it would work on apply,
+i.e. the safe-looking choice breaks the safety mechanism. (b) `code_symbols` holds
+**4,535 rows**: a plain index build is milliseconds and its brief lock is irrelevant.
+`CONCURRENTLY` bought nothing and cost the file its conventional, guarded,
+probe-clean shape — 86 of 92 live migrations carry their own BEGIN/COMMIT.
+
+**Caught by:** `guardian` and `debug_historian`, independently, in the same round.
+
+**The cheap check that would have caught it:** `SELECT count(*)` on the table I was
+indexing — a number I had **already queried twice that session** for other reasons
+and did not connect. **`CONCURRENTLY` is a size-dependent choice, and I never asked
+the size.** Corollary worth keeping: when a risk list says "X should be checked",
+that is a note to *me*, not to the reviewer — shipping it unresolved converts my
+homework into their objection.
+
+**Cost:** none realised. Fixed in round 2; the migration is now conventional.
+
+Family: caution-without-measuring, the-safe-looking-option-broke-the-safety-check,
+i-had-already-run-the-query-that-answered-it,
+an-unresolved-risk-note-is-unfinished-work.
+
+---
+
+## 2026-07-27 — "reuse doesn't fit here" — rejecting a shared function, then hand-writing a copy explicitly built to match its convention
+
+**The claim, written into a council submission:** that
+`internal/analysis.ReadSymbolBody` could not be reused by the indexer because "that
+function needs an analyser Output plus a checked-out root … which is the bundle
+assembler's problem, not the indexer's". I then specified a new `sliceLines(fileLines,
+start, end)` in the indexer, with the sketch comment *"matching
+analysis.ReadSymbolBody's convention"*.
+
+**The rejection was false, and my own sketch comment was the proof.**
+`reuse_agent`, verbatim: *"the plan itself concedes the two functions must stay
+behaviorally identical, which is exactly the condition under which a shared helper …
+is the correct fix, not two hand-synced implementations."* The interface mismatch was
+real but irrelevant — it argued against reusing *that signature*, not against
+extracting the primitive underneath it. Worse, `symbolbody.go`'s own header **already
+asked for this**: *"this is intended as the ONE slicer … collapse it onto this
+function."* I quoted that file's line numbers in the submission and did not read its
+header.
+
+**Caught by:** the reuse seat, on the strength of a comment I wrote myself.
+
+**The cheap check that would have caught it:** if the justification for a new
+function contains the phrase *"matching <existing function>'s convention"*, the
+correct edit is to extract the shared part — the sentence is the diagnosis. More
+generally: **an interface mismatch is an argument against a call, never against a
+primitive.** Ask what the smaller shared thing is before writing the second copy.
+
+**Cost:** none realised — round 2 extracts `analysis.SliceLines` and both callers use
+it, which is a better change than the one I proposed.
+
+Family: rejected-reuse-then-cloned-the-behaviour,
+my-own-comment-was-the-refutation, read-the-header-of-the-file-you-cite,
+interface-mismatch-argues-against-the-call-not-the-primitive.
+
+---
+
+## 2026-07-27 — "the bug file says mirror it onto the gate, so mirror it" — a fix candidate read as licence, with the deliberate reason one file away (NEAR MISS)
+
+**The claim, nearly acted on:** implementing the routing fix, `bugs_open/108`
+candidate 5 reads *"Either mirror `code_lookup` onto the gate, or stop `prior_art`
+promising an answer there."* I read that as licence to add the step to all three
+lanes, which is the obvious reading and would have been a live config change to the
+busiest council in the fleet (36 runs/day).
+
+**It would have been wrong.** `099_SYNC_gate_roster.py:24-29` states the exclusion
+and its reason: `code_lookup`/`repropose` *"serve the blind reproposer, which the
+gate has no equivalent of (its authors read the objections themselves)."* The gate
+has no reproposer for the results to feed. The same reason is what **includes**
+`feature-designer` — that lane *does* have a blind reproposer — so one principle
+produced both answers, and only reading it revealed that.
+
+**Caught by:** opening the file the bug cited, before acting on the bug's
+recommendation. Nothing prompted it beyond the number `:24-29` sitting in the case
+file unread.
+
+**The cheap check that would have caught it:** a bug file's fix candidates are
+**hypotheses written by someone who may not have read the thing they propose
+changing** — including when that someone is me, earlier the same day. Before acting
+on a candidate that removes an asymmetry, find out whether the asymmetry was
+*chosen*: `grep -n "not mirror\|deliberately\|no equivalent" <the mirroring script>`.
+An asymmetry with a comment explaining it is a decision; one without is a bug.
+
+**Cost:** none — caught before acting. Logged because the failure mode is a "fix"
+that deletes a deliberate design decision, which is expensive precisely because the
+diff looks like tidying and the bug file appears to authorise it.
+
+Family: fix-candidate-read-as-licence,
+an-explained-asymmetry-is-a-decision-not-a-defect,
+the-reason-was-one-file-away, my-own-earlier-writeup-was-the-thing-misleading-me.
+
+> **Pattern across the four above, worth more than any one of them.** Three were
+> caught by the **council gate** and one by reading a file before acting. None was
+> caught by thinking harder about the plan, and all four were in a submission I had
+> already pre-flighted for quote fidelity, schema and scope. That is the
+> architecture-seat workstream's own thesis arriving as evidence against its author:
+> a reviewer with the written record in front of it caught what its author, who wrote
+> that record the same day, did not.
