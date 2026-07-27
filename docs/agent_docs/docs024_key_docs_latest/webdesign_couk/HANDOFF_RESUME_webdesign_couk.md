@@ -159,7 +159,8 @@ that six other sites use).
 | 4 | **`[OWNER-CHECK]` Cloudflare purge token** | Confirm the deploy Action's `CF_API_TOKEN` can see this zone. Symptom of failure is only a stale cache; check for a null `ZONE_ID` in the Action log. |
 | 5 | **`bugs_open/084`** (rewritten 2026-07-26) | **A browser-verification tier already exists and is live** — Tier 4 drives the deployed page in real headless Chromium (`internal/adapters/browserrunner/`, v1.0.1167): real clicks, post-interaction assertions, console-error capture. My first version of 084 wrongly claimed nothing did this. The real gap is *coverage*: Tier 4 gates on `component_level='tool'` + a criteria fence, so **none of this site's 97 owned pages is ever browser-tested**; and `asset_loads` checks a script path is *mentioned*, never that it *loads*. |
 | 6 | **Council review** | The platform-code footprint here is `cmd/` and docs only, so the gate is not required. If any `platform/` change emerges from 084, it should go through. |
-| 7 | **Old domains** | `website-design.com` and `websitedesign.com` are untouched and still live. Owner deferred the redirect/canonical decision. |
+| 7 | **12 `undeployed_asset` items** (new 2026-07-27) | The immune system claims the generated images were never deployed. **All 12 return 200** (`/assets/images/hero-home.jpg` etc.), so this is either a detector false positive or a DB deploy flag never set. Establish which — do not guess. |
+| 8 | **Old domains** | `website-design.com` and `websitedesign.com` are untouched and still live. Owner deferred the redirect/canonical decision. |
 
 ---
 
