@@ -5,6 +5,12 @@ Written 2026-07-26 after the owner asked whether we had discussed an
 architecture council member before, and asked for the choices and proposed
 decisions in one place.
 
+**Updated 2026-07-27.** Owner ruled **D7(a): the veto survives**; D7(b) (should
+the guardian weigh benefit?) left open, and the argument *against* narrowing it
+is now recorded alongside my inclination. The owner also asked whether the
+council looks at the missteps — it does not and cannot, which is new **D8** and
+changes what D1/D2/§6 would have to build.
+
 Named `DECISIONS_open_for_owner_*` rather than `SUMMARY_*` deliberately: the
 content is choices awaiting a ruling, which is the shape of
 `fixloop_eg_dartsonline/DECISIONS_open_for_owner_2026-07-18.md`, not the
@@ -302,19 +308,100 @@ author can always argue it. It still beats no criterion.
 
 ---
 
-### D7 — Open: does the veto survive, and is clause (d) narrowed?
+### D7 — The veto, and whether the guardian weighs benefit
 
-**Not proposed — genuinely the owner's call.** Two sub-questions:
+Two sub-questions. **(a) is now ruled; (b) remains open.**
 
-- **(a)** Given three overturns in two days, should the guardian's veto become a
-  strong objection that escalates, rather than a block? The counter: the veto is
-  what *caused* the RFC track to exist, so it has already earned its keep once.
-- **(b)** If a forward seat is added, should clause (d) be narrowed so the
-  guardian stops being asked to weigh **benefit** — which it does badly and
-  which is not its remit — and judges blast radius and contract-breakage only?
+- **(a) — RULED, owner 2026-07-27: THE VETO SURVIVES.** The question put was
+  whether three overturns in two days meant the veto should become a strong
+  objection that escalates rather than a block. It does not. The veto stays a
+  hard block. (Supporting argument on the record: the veto is what *caused* the
+  RFC track to exist, so it has already earned its keep once.)
+- **(b) — OPEN, owner undecided 2026-07-27.** If a forward seat is added, should
+  clause (d) be narrowed so the guardian stops being asked to weigh **benefit** —
+  which it has no instrument to measure — and judges blast radius and
+  contract-breakage only?
 
-My inclination is (b) yes, (a) no: keep the veto, remove the benefit judgement
-from the seat that cannot measure benefit, and let the forward seat supply it.
+**My inclination on (b) stays yes**, and D8 below strengthens it: the guardian
+is not merely un-instrumented for benefit, it is un-instrumented for *history*
+too. But (b) is genuinely load-bearing and the owner is right to hold it — see
+the argument against, which I had not made properly:
+
+**Against narrowing (b).** Blast radius and benefit are not separable in
+practice. "Is this worth the risk" is the question a veto *answers*; a seat
+judging blast radius alone would have to veto every wide change, which is
+strictly more conservative than today, not less. Narrowing (b) only works if
+the forward seat actually exists and is read — so **(b) should not be decided
+before D5, and cannot be implemented before D1/D2.** It is downstream of both.
+
+---
+
+### D8 — NEW: give the council a misstep corpus, or accept that it has none
+
+**Discovered 2026-07-27, prompted by the owner asking directly: does the council
+look at the missteps? It does not, and it structurally cannot.** Three
+independent blocks, each verified:
+
+| tier | what it can reach | verified by |
+|---|---|---|
+| `code_checks` | **Go only — 4,535 symbols, 0 markdown** | `SELECT ... FROM code_symbols GROUP BY path suffix` |
+| `code_checks` | `WRONG_CALLS.md` specifically: **0 rows** | `SELECT count(*) FROM code_symbols WHERE path ILIKE '%WRONG_CALLS%'` |
+| SQL `checks` | ten tables only — `pages, sites, site_plans, site_plan_pages, site_work_items, content_components, page_components, agent_definitions, diagnosis_artifacts, agent_error_log` | `load_schema_hint.config.query` |
+
+Consequences, in ascending order of seriousness:
+
+1. **`WRONG_CALLS.md`, `/bugs_open/`, `/bugs_closed/` and every working doc are
+   invisible to every seat.** The entire written record of how we get things
+   wrong cannot be consulted by the system built to catch us getting things
+   wrong.
+2. **`doc_notes` is not in the schema hint** — so the council cannot read *its
+   own verdicts*, which is where every past objection, veto and guardian
+   containment note is written. Each run starts with no memory of any previous
+   run. Worse, the prompts warn that a check against a table outside the hint
+   "fails and wastes the round", so a seat that tries is penalised.
+3. **The `bug_historian`'s "documented history" is seven narrative items
+   hard-coded into its prompt template** — a hand-written constant ending
+   "MOST RECENT: Go's template engine…". The seat named *historian* holds a
+   frozen list, not a corpus. It goes stale silently, and nothing in its output
+   distinguishes "no matching history" from "history exists but is not in my
+   prompt".
+
+**Why this belongs in this file rather than a bug.** It changes the proposal:
+
+- **A forward architecture seat would inherit exactly this blindness.** Judging
+  "sufficient for anticipated plans" needs a corpus even more than "has this
+  failed before" does. Building D1/D2 without D8 produces a seat that reasons
+  from its prompt, confidently, about a roadmap it cannot read.
+- **It supplies the mechanism §6 was missing.** §6 said the seat needs a single
+  roadmap artefact. D8 says *where it must live*: one of the ten hinted tables,
+  or the prompt itself. **A roadmap in markdown is unreadable to the reviewer**,
+  so "write a roadmap doc" would not have worked.
+- **It weakens the case for D3.** An advisory seat trained to spot repeats,
+  which cannot see the record of repeats, is close to decorative.
+
+**Options, cheapest first.** *(All [UNMEASURED] for cost; none built.)*
+
+- **D8a — add `doc_notes` to the schema hint.** One-line config change, live
+  immediately, no image. Gives every seat its own verdict history. Risk: seats
+  spend rounds querying it; the hint doubles as a budget.
+- **D8b — index markdown into `code_symbols`** (or a sibling table) so
+  `code_checks` reaches `WRONG_CALLS.md`, `bugs_open/`, `bugs_closed/`. Larger;
+  needs whatever builds that index. Highest value per §1–3 above.
+- **D8c — replace the `bug_historian`'s hard-coded seven with a query.** Depends
+  on D8a or D8b. Until then the list should at least carry the date it was
+  written, so staleness is visible.
+- **D8d — do nothing, but say so.** Record in `PROCESS_architecture_review.md`
+  that the council reviews *plans against prompts*, not plans against history,
+  and that the misstep corpus is a **human** instrument. Honest, and cheap.
+
+**My recommendation: D8a now** (one line, immediate, and it is the seat's own
+memory), **D8c's date-stamp now** (seconds, makes staleness visible), and
+**D8b sized but deferred until D5 says whether any of this is worth staffing.**
+
+**Against.** Every option here widens what the council can query, and the
+prompts are already long; more corpus may mean more rounds, and round count is
+what makes the gate cost ~30 minutes. D8d is a legitimate answer if the corpus
+is judged a human instrument by design.
 
 ---
 
