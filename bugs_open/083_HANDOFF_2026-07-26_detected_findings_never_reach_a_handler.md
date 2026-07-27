@@ -157,3 +157,40 @@ triage that follows it.
 - `bugs_open/071` — the build-time gate that detects broken links then discards them. Same
   fail-silent shape one stage earlier.
 - `bugs_open/077` / `078` — handler-side hazards that fix candidates 1 and 2 must clear first.
+
+---
+
+## Corroborating instance, 2026-07-27 — the claims sweep is downstream of this too
+
+Contributed from the oufe.com workstream; not a competing diagnosis, and no fix
+attempted here.
+
+`check_unverified_claims` — the post-deploy half of the claims layer, which scans
+**stored `rendered_html` of live pages** and raises `claims_unverified` at
+severity high — is reachable only via `quality-discovery-agent`, which is
+dispatched only by `improvement-loop`, which is driven only by the
+`improvement-sweep` scheduled task recorded here as **disabled since
+2026-05-02**.
+
+Consequence worth adding to this file's impact section: **the estate's only
+automatic detector of published-content drift has effectively never run.** It is
+not broken and it is not unwired — it has no cadence.
+
+Observed on oufe.com 2026-07-26: a page shipped four promises of the site's own
+infallibility and stayed live until a human read it. Had the site been armed with
+patterns (`sql_for_agents/226`, and see `bugs_open/104` for why only 5 of 15 sites
+are), the build gate would have blocked it — but for anything that reaches
+production by another route, or drifts afterwards, this sweep is the only net, and
+it is not in the water.
+
+Two things that make the silence hard to notice, both relevant to this bug's
+"findings never reach a handler" framing:
+
+- every finding in this family terminates at `needs_human_review` with an **empty
+  handler by design** (`check_unverified_claims.go:135-150`) — so "no handler" is
+  correct behaviour here, and the queue surface (`bugs_open/033`) is what makes it
+  actionable or not;
+- the sibling that *does* have a fleet cadence, `evidence-freshness` / V4
+  (`refresh_evidence_base_action.go:172-199`), sweeps every site with a register
+  daily — which makes the claims layer *look* actively swept when only its
+  fact-refresh half is.
