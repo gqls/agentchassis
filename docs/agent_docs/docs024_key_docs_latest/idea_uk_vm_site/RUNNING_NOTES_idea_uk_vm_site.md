@@ -2551,3 +2551,96 @@ and ~9.5 minutes — to exercise a path that is presently unreachable.
 - My sandbox clock read ~73 min behind the box on first contact and then self-corrected. The box is
   `Etc/UTC`, NTP-synced, and was right throughout; nothing here depended on it. **Trust the box's
   clock, not the sandbox's**, when comparing timestamps.
+
+### §X.25 — the cost measurement: a partial number, and two checks that only LOOKED like they passed (2026-07-27)
+
+Owner authorised one full engine run to measure per-report cost on the 5 family and confirm the
+copy fixes reach a rendered artefact. Run via `idea internal` (the authenticated no-order, no-billing
+path) against one of our own domains, launched detached with env sourced from `/etc/idea/idea.env`;
+recipe now in the RUNBOOK. **rc=0, 445 s (7 m 25 s), 11,347-char report.**
+
+#### The models are compiled-in, not env — checked before spending
+
+`/etc/idea/idea.env` has **no** `GEN_MODEL`/`CRITIQUE_MODEL`/`VERIFY_MODEL`/`SCORE_MODEL` line, so
+the run used `engine.go`'s defaults — `claude-opus-5` (gen/verify/assess), `claude-sonnet-5`
+(critique/score). That matches the binary markers, so this measures what a real order costs.
+
+#### The cost number is a FLOOR, not a total — the usage log is conditional
+
+Only **two** `[cache]` lines were emitted, both `claude-opus-5`:
+
+```
+[cache] claude-opus-5: created=23905 read=122295 input=1132 output=9012
+[cache] claude-opus-5: created=13128 read=48970 input=776  output=3549
+```
+
+`engine.go:315` only logs usage when `CacheReadInputTokens > 0 || CacheCreationInputTokens > 0`. All
+six call sites set `CacheSystem: true`, but a call whose system prompt falls under the cacheable
+minimum (**512 tokens on Opus 5, 1024 on Sonnet 5**) caches nothing and therefore reports nothing.
+The two Sonnet steps (critique — its `[cut] same-vendor: Anthropic (claude-sonnet-5)` line did
+appear — and score) produced no usage line at all. **So their tokens are invisible, and no amount of
+reading this log will recover them.**
+
+Costed at the rates from the `claude-api` skill (Opus 5 $5 in / $25 out; 5-minute-TTL cache write
+1.25× input = $6.25, cache read 0.1× = $0.50 — the engine sets plain `ephemeral` with no `ttl`):
+
+| | tokens | $/M | cost |
+|---|---:|---:|---:|
+| cache write | 37,033 | 6.25 | 0.2315 |
+| cache read | 171,265 | 0.50 | 0.0856 |
+| input | 1,908 | 5.00 | 0.0095 |
+| output | 12,561 | 25.00 | 0.3140 |
+| **measured floor** | | | **$0.641** |
+
+**The bound is the useful part, and it survives the gap.** The two measured calls are the expensive
+ones (Opus at `xhigh`, 32k `MaxTokens`); the unmeasured ones are Sonnet, on a cheaper model at lower
+caps. Even if the missing calls cost as much again, the report stays **under ~$1.30 — under 4% of a
+£29 sale.** Margin is not the risk here, and that conclusion does not depend on the missing data.
+**[UNMEASURED]** remains the honest label for the exact total.
+
+#### The Sonnet intro rate has an expiry, and it is close
+
+Sonnet 5 is on an introductory $2/$10 per MTok through **2026-08-31**, reverting to $3/$15 — a 50%
+rise on the critique+score half of the bill. Immaterial at these volumes, but the margin decision
+should not be made on a rate that expires in five weeks.
+
+#### The part that matters more: TWO of the three copy checks were VACUOUS
+
+First read of the artefact looked like a clean pass — all three defects absent, every format marker
+present. It is not a pass. Two of the three defects **could not have appeared in this run
+regardless of whether the fix works**:
+
+- **Doubled full stop** — the defect fires when the *submitted text already ends in a full stop* and
+  the template appends another. My submission ended `…what things should cost` with **no trailing
+  stop**, so the doubling had nothing to double. Absence proves nothing.
+- **Score line reading "out of 5 —"** — the report hit `NO FURTHER IDEA CLEARED THE BAR`, so **no
+  idea was scored and the score block never rendered at all**. The fix marker `(each out of 5)` is
+  absent for the same reason. Checking for the defect in a section that does not exist is not a check.
+
+> **So: the three copy fixes are STILL UNPROVEN in a rendered artefact.** The 21:10 deploy on 07-26
+> put them in the binary (marker verified), and the unit tests cover them, but no report has yet been
+> produced that exercises them. To prove them, submit an idea whose text **ends in a full stop** and
+> which is strong enough that at least one further idea clears the bar.
+
+This is [[verify-the-failing-branch]] a third time, and it is worth naming why it keeps recurring:
+the failing branch here isn't a code path I control, it's a property of the *input*. A green result
+from an input that cannot trigger the fault is indistinguishable from a real pass unless you go
+back and ask "could this input have produced the bug?" — which is the question I nearly skipped.
+
+#### What the run DID prove, live
+
+- **The honest-refusal branch of the ideation half runs in production.** `NO FURTHER IDEA CLEARED
+  THE BAR` is the engine declining to pad the report with weak ideas — previously test-covered only.
+- The assessment half is good and unflattering where it costs us: told the submitter the demand is
+  on the *seller* side, that a dozen UK agencies give the same advice away free as lead bait
+  ("proof that nobody can charge for it"), and cited UK Business Forums threads and named
+  directories with real prices. Sources are checkable.
+- **445 s vs the 570 s (9.5 min) of the 07-26 order** — but different submission and a short-circuited
+  ideation half, so this is **not** a like-for-like latency comparison and must not be quoted as one.
+
+#### Owed: make the usage log unconditional
+
+One line in `engine.go` — log `Usage` on every call, not only on cache activity — turns cost from
+"partially observable when caching happens" into a permanent per-order fact, for real customer
+orders as well as test runs. Not built this session: it needs a 6th deploy and the owner has not
+asked for one. **Until it ships, every cost figure for this product is a floor.**

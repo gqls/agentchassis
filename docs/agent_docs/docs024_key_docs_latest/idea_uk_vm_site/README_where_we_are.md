@@ -1581,3 +1581,54 @@ correct. Proving it live would mean paying for a real report to test a path we c
 reach, which isn't worth it.
 
 Nothing is outstanding on this now. The News section is still the empty one.
+
+---
+
+**27 July, later — we measured what a report costs, and I nearly reported a false pass on the copy
+fixes.**
+
+You asked me to run the engine once to find out what a report actually costs us now that it's on the
+newer AI models. It ran in seven and a half minutes and produced a good report. Two findings, and
+the second is the one I'd want you to read.
+
+**On cost: it's small, and that answer is safe even though the measurement is incomplete.** The
+engine only records its own usage when a particular caching optimisation kicks in, and on this run it
+kicked in for two of the calls but not the others — so I can see part of the bill, not all of it.
+What I can see is about 64 cents. The calls I can't see are on the cheaper of the two models, doing
+less work, so even if they cost as much again the whole report is under about a pound and thirty —
+against a £29 sale. **The margin question is settled well enough to stop worrying about it**, even
+though I can't give you the exact figure. I'd rather say that plainly than quote a precise number I'd
+have had to invent half of.
+
+One caveat with a date on it: the cheaper model is on an introductory price that ends on **31
+August**, after which that part of the bill goes up by half. It doesn't change the picture at these
+volumes, but I didn't want the margin decision resting on a price with an expiry date.
+
+**On the copy fixes: I almost told you they were proven, and they aren't.** The report came back with
+all three of the writing faults absent and every marker I was looking for present. That reads like a
+clean pass. It isn't one. Two of those three faults *couldn't have appeared in this run whatever the
+state of the code* — the doubled full stop only happens when the submitted text itself ends in a full
+stop, and mine didn't; and the broken score line lives in a section that never got written this time,
+because the engine decided none of the further ideas it found were good enough to include. Looking
+for a fault in a paragraph that doesn't exist isn't a check.
+
+So the three copy fixes are in the running software and covered by tests, but **still not proven in a
+real report**. To settle it properly, someone needs to submit an idea whose description ends in a
+full stop and which is strong enough that the engine finds at least one further idea worth keeping.
+
+This is the third time on this project that a green result has turned out to be a test that couldn't
+have failed. It keeps happening because the thing that has to go wrong isn't in our code — it's in
+the input. A pass from an input that can't trigger the bug looks exactly like a real pass unless you
+stop and ask whether it could ever have gone the other way.
+
+**What the run did prove**, and this is genuinely new: the engine's honest refusal works in
+production. It searched for further ideas around the one submitted, judged none of them good enough,
+and said so in the report rather than padding it out. We'd only ever seen that in tests. And the
+assessment it did write was unflattering in the way we want — it told the submitter that the people
+willing to pay here are the designers, not the buyers, and that a dozen agencies already give the
+same advice away free, which is itself proof nobody can charge for it.
+
+**One thing worth fixing while it's fresh:** a one-line change would make the engine record its own
+cost on every call instead of only sometimes. That would turn "what does a report cost" from
+something I have to go and measure into a number that's simply there on every real customer order.
+It needs another deployment, so I haven't done it — say the word.
