@@ -1,5 +1,11 @@
 # HANDOFF — a whole class of message failures is dropped with no durable record, no error response, and no retry
 
+> **STATUS 2026-07-27: CLOSED.** All four drop sites are live in the running
+> binary and **both formerly-inert sites were exercised by induced fault on
+> v1.0.1174** — the first end-to-end proof this bug has had. See
+> **"CLOSURE 2026-07-27"** at the foot of this file for the two inductions and
+> their rows.
+
 **Created 2026-07-20** while working `bugs_open/002` error **F** (on-demand
 discovery dispatch: envelope accepted, nothing runs). F's own suspects were
 both wrong; this is what the code actually says. **Severity: fleet-wide,
@@ -385,9 +391,81 @@ retrying them an infinite loop — the old agentbase behaviour was the anomaly.
 
 ## Status
 
+> **SUPERSEDED 2026-07-27 — see "CLOSURE" below. This paragraph is left standing
+> because the condition it set is exactly the one that was then met.**
+
 **OPEN.** Sites 3 and 4 are **LIVE in v1.0.1165** (pod-verified 2026-07-26:
 `VALIDATION_ERROR_DROPPED` resolves twice, one literal per recorder, with
 controls). Sites 1 and 2 (`94c4ff471`, `56e77a501`) are **committed and
 inert** — they need one more chassis roll. Close after that roll plus the
 induced-fault row in step 2, which is the first end-to-end proof this bug has
 ever had.
+
+---
+
+# CLOSURE 2026-07-27 — the roll happened and BOTH inert sites were induced
+
+**The roll.** The fleet moved to `v1.0.1174` at **15:11:15Z**; the chassis
+binary in the running pod is dated **14:58 UTC** and the last Go-touching
+commit before it is `e96d42226` at **14:52:33 UTC**, so `94c4ff471` and
+`56e77a501` are both in the image. (Compared in UTC deliberately — this machine
+is BST, `git log` prints BST and `kubectl` prints UTC, and a naive comparison
+makes live fixes look un-shipped.)
+
+**Step 1 — pod-grep, `agent-chassis-5994dc6d6c-pt8v9`, `v1.0.1174`**, via
+`VERIFY_034_post_roll.sh`:
+
+```
+INCOMING_MESSAGE_REJECTED                          1
+MISSING_ORCHESTRATION_ID                           1
+VALIDATION_ERROR_DROPPED                           2
+agentbase.processMessage/ValidateIncomingMessage   1
+messaging.handleError                              1
+MARK_COMPLETE_FAILED                               1   (positive control)
+zzz_not_a_real_symbol_034                          0   (negative control)
+```
+
+**Step 2 — site 1 induced** (`correlation_id 034verify-1785167669`, a request
+with no `client_id`). One row, and it is the right row:
+
+```
+occurred_at 2026-07-27 15:54:36.151+00 | agent_type generic
+error_code  INCOMING_MESSAGE_REJECTED  | severity warning
+error       incoming message rejected: missing required header(s): client_id
+missing     ["client_id"]
+site        agentbase.processMessage/ValidateIncomingMessage
+```
+
+**Step 2b — site 2 induced** (`correlation_id 034site2-1785167717`, a request
+carrying `client_id` but no `orchestration_id`). Also one row:
+
+```
+occurred_at 2026-07-27 15:55:24.232+00 | error_code INCOMING_MESSAGE_REJECTED
+error       incoming message rejected: missing required header(s): orchestration_id
+missing     ["orchestration_id"]
+site        agentbase.processMessage/ValidateIncomingMessage
+```
+
+Both are the **failing branch**, not a happy path: pre-fix each of these
+published an error envelope, acked the message, and wrote nothing. Zero rows was
+the pre-fix result and is what `bugs_open/002` error F spent two days looking at.
+
+**All four sites now accounted for:** 1 and 2 induced above on v1.0.1174; 3 and
+4 pod-verified live in v1.0.1165 on 2026-07-26.
+
+## Residual — carried forward, NOT closed by this
+
+These were never part of this bug's fix and are unchanged. Do not read the
+closure as covering them:
+
+- **Candidate 2 (substring classification)** — still not done. `matched_needle`
+  makes a misclassification queryable, not correct.
+- **Candidate 3 (error response to the parent) at the agentbase site**, and
+  **candidate 5 (trigger-side `client_id` guard)** — still not done.
+- **The disclosed retry-semantics change** (agentbase now drops-without-retry on
+  the `missing` needle) is live fleet-wide as of this roll. Post-roll checklist
+  step 3 — watch `INCOMING_MESSAGE_REJECTED` / `VALIDATION_ERROR_DROPPED` volume
+  — is a **standing watch**, not a closure gate. Baseline at closure: the only
+  rows in the table for these codes are the two induced above.
+- **`sendWorkflowFailureResponse` publishing failures in success-shaped
+  envelopes** (§"Adjacent, UNVERIFIED") — still `[UNVERIFIED]`, still unfiled.
