@@ -246,3 +246,52 @@ two different routes, and only one route was updated"** — a Deployment's `envF
 and a spawner's hand-built env list are two separate provisioning paths for the
 same secret, and a change to the secret satisfies neither automatically. Testing
 the standalone service tells you nothing about the spawned one.
+
+---
+
+## COUNCIL: round 1 REVISE (harness), round 2 **APPROVED** — corr `dfa6205e-b10e-440c-b251-5d791fdeb718`
+
+**Round 2 verdict, 2026-07-27 18:49:19 UTC: `approved`, `unreadable=0`,
+"approved with 2 advisory objection(s) — none high-severity".** The two medium
+objections from round 1 both flipped on the seats that raised them:
+`reuse_agent` object → **approve**, `tooling_provenance` object → **approve**.
+
+**The approval attaches to the plan that was actually committed** — checked,
+because a later approval can attach to a materially different plan and the 098
+report cannot tell. The approved `fix_plan` names exactly four edits:
+`platform/agentenv/provider_keys.go` (add), `spawn_actions.go` (modify),
+`cmd/remote-job-spawner/main.go` (modify), `provider_keys_test.go` (add) — the
+same four files, same operations, as commit `6b5509ee3`.
+
+**Round 1 was not a judgement on the plan** and is not recorded as one: it was
+`decided_by: unreadable reviewer(s): review_guardian.result` against eight
+approvals and no veto, because the guardian's JSON closed a bracket early. Filed
+separately as `bugs_open/119`.
+
+### Advisory objections that survive the approval — read before the next roll
+
+- **guardian [medium] — the widening is real.** *"Consolidating the allow-list
+  gives cmd/remote-job-spawner GROK_API_KEY it never had."* Deliberate, and
+  disclosed in the submission's own risks, but it IS a permission widening on the
+  remote path. It is currently unexercised (no agent definition uses remote
+  dispatch), and the remote spawner is a separate image that has not been rebuilt,
+  so nothing has changed in production yet. **Whoever rolls remote-job-spawner
+  owns that decision** — it is the one behavioural change in the refactor.
+- **prior_art_librarian [medium] — unverifiable at that tier, not wrong.** The
+  seat could not check the claim that `doc_plans`/`doc_notes` held no prior row,
+  because those tables are not in the schema available to it. The rows are real
+  and now exist: `subject_type='action'`, `subject_key='spawn_agent'`, one plan
+  (the durable SHARED CONTRACT) and one note (the incident + why the GROK
+  asymmetry existed and was removed). Cite them directly rather than the claim.
+- **prior_art_librarian [low]** — the "only 3 files reference `corev1.EnvVar`"
+  completeness claim is a point-in-time content check, so it goes stale; re-run it
+  before assuming no fourth pod-env builder has appeared.
+- **guardian [low]** — `spawn_actions.go` has been deflected to a higher layer
+  four times in this council's history. This round was judged a legitimate dedup
+  rather than a deflection, but the pattern is worth knowing before the next edit
+  to that file.
+
+**Still true and unchanged by the approval:** candidate 3 (refuse at config time
+an `api_key_env_var` the target pod cannot receive) is undone, and it remains the
+fix that makes this class unrepresentable. `agentenv.ProviderKeyNames` exists to
+make it cheap to write.
