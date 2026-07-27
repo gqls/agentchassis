@@ -215,3 +215,32 @@ shape of this bug seen from outside.
 
 Candidate 1 (an `EXTRA_REQUEST_TOPICS` lane for council/diagnosis dispatches,
 exactly as 030 did for cron) remains unapplied. It is config.
+
+
+## Applying the fix — two hazards found before doing it (2026-07-27)
+
+The manifest change is committed (`e88852825`) and deliberately **not applied**.
+Two things to get right, both discovered by checking rather than by trying.
+
+**1. Do NOT `kubectl apply -k` the overlay.** Sixteen files under `deployments/`
+are modified and uncommitted by other sessions right now, mostly `kustomization.yaml`
+image-tag bumps. Applying the overlay would ship every one of them to production
+alongside this env var. Use a targeted edit instead:
+
+```bash
+kubectl -n ai-persona-system set env deploy/agent-chassis \
+  EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests,system.agent.council-gate.requests
+```
+Current live value, for the rollback: `system.agent.scheduled.requests`.
+
+**2. Wait on WHAT is running, not on how much.** "Wait for an idle chassis" is
+circular — the congestion this bug describes is what keeps it busy, so it is never
+idle. The distinction that matters is cost of loss: a page render or dispatch loop
+killed by the roll re-fires for nothing, while a council or diagnosis round costs
+money and an afternoon. Gate on no `review_*`/`gate_*`/`verdict`/`route` step being
+in flight, and cheap work can be running.
+
+**Ordering, restated because it is easy to get backwards** (`agent.go:429-432`):
+roll first, confirm `system.agent.council-gate.requests` has a consumer, and only
+then point `097_TRIGGER_council_review_v1.sh` at it. A producer aimed at an
+unconsumed topic piles messages up where nothing will ever run them.
