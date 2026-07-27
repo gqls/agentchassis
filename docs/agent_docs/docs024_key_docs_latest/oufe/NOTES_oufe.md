@@ -718,3 +718,93 @@ mechanically check is prose."**
 
 A new register would have been the third thing in this estate to model the same
 idea.
+
+---
+
+## 2026-07-27 — the owner read the site and it fails on four counts
+
+He put it plainly: the text is AI-sounding, the case isn't written, there are no
+tools, and the design is the same site the platform has produced before. All four
+are right. Recorded here in his order.
+
+### The voice
+
+He asked me to find the earlier discussion about voice rather than invent a new
+one. It's `travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md`,
+built 2026-07-17 by comparing AI copy against a hand-edited rewrite he judged
+better, then refined across three rounds of him critiquing the prompt's own
+output. Rule 3 is the one he named this morning: say what a thing is before you
+say what it isn't.
+
+Measured before touching anything. The homepage carried 3 em dashes and 7
+negative-frame constructions. The about page carried 3, 19, and 6 sentences
+opening "It is…" or "It does…".
+
+**`page-content-writer` already had rule 3.** It didn't work. The rule was one
+block inside a 12.5 KB prompt that also carries the schema, the section spec, the
+research findings and four other rule sets, and a rule competing with that much
+context loses. `content-writer` had no style guidance at all.
+
+Two things worth separating. Some of the worst copy on the about page was **mine**,
+hand-written during the 07-26 fallibility rewrite: "That does not make us right."
+opens on a negative, and "A citation shows you our source. It does not prove that
+we read it properly." is a contrastive pair saying one thing twice. I wrote the
+guidance about plain prose into the mission brief and then broke it myself.
+
+Fixed three ways, on his directive that the writer should default to this voice:
+migration 228 puts the house voice into both writers as the default, deferring to
+a site's own `voice` spec where one exists; the oufe copy is rewritten across six
+blocks; and `check_voice_tells` is armed on oufe, which was enabled on **1 of 15
+sites**. Writing a rule and checking it are different jobs, and this week keeps
+teaching that.
+
+### The tools
+
+There were none, and that was my error rather than the framework's. I wrote
+`PREPARED_tool_insert.sql` on 07-25, deliberately did not apply it because the
+site plan didn't exist yet, and then never went back. The file even says "NOT YET
+APPLIED" at the top. Applied today.
+
+Two traps on the way in, both mine:
+- `\set tmpl \`cat …\`` inside `kubectl exec` runs **in the pod**, where the repo
+  isn't mounted. The template has to be inlined host-side.
+- My inlining replaced **both** occurrences of the placeholder, including one
+  inside a header comment, so the 20 KB template broke out of the comment block
+  and psql tried to execute CSS. Replace the value line, not the token.
+
+The page then refused to render because its section had NULL `content_data` — my
+own guard in `TRIGGER_rerender_page.sh`, doing exactly what it was written to do.
+A standalone tool has no template fields, so `{}` is right and NULL is not.
+
+### The spec
+
+Against the roadmap brief: index, about, cases-index and contact are deployed.
+**`thames-water` is still `planned` with zero sections** — the case he says isn't
+written, and it isn't. The tool page now exists and is rendering.
+
+So the site matches the spec on page *inventory* and fails it on *content*: the
+flagship case is an empty shell, and the cases index honestly says so, which is
+the least bad version of being wrong.
+
+### The design
+
+Filed as `bugs_open/107`. The palette is not the problem — oufe has its own style
+collection. The sameness is in the section composition:
+
+```
+ai-agent-orchestration  hero › system-stats › features › differentiators › case-studies-grid › departments-grid › latest-news › call-to-action
+finetuning.uk           hero › features › differentiators › case-studies-grid › departments-grid › call-to-action
+fundamentallyai.com     hero › stat-band › evidence-chart › differentiators › features › info-card-grid › portfolio-showcase › call-to-action
+robot-hands.com         hero › features › brief-explanation › tool-list › latest-news › call-to-action
+oufe.com                hero › brief-explanation › info-card-grid › call-to-action
+```
+
+Hero first, call-to-action last, interchangeable card furniture between. A gripper
+manufacturer, a consultancy, a fine-tuning service and a restructuring publication
+all land on the same page. Nothing in the planning loop represents *what kind of
+publication this is* as a constraint on shape, so the shape defaults to the
+commonest arrangement in the component library, which is a brochure.
+
+oufe wants a reading order and got a conversion funnel. The "Get Started" button
+and "Our Services" footer group I removed earlier in the week were the same cause
+showing up in the chrome.
