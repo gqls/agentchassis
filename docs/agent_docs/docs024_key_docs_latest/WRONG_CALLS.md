@@ -8069,3 +8069,51 @@ shell hook beat a sixteen-seat council to the architectural point.
 Family: presence-is-not-position, a-comment-naming-a-defect-is-not-a-mitigation,
 built-the-mechanism-before-asking-what-the-word-meant,
 the-second-guard-caught-the-first-guard's-blind-spot.
+
+---
+
+## 2026-07-27 — I called a settled convention "a decision for the owner", twice, in a bug file and a commit message
+
+**Thread:** bugs thread (bugs_open sweep). **Claim:** in `bugs_open/080` and in the
+commit that closed its code half, I wrote that robot-hands.com's two live news pages
+were *"a live-site data decision for the owner, not a code fix"* and that *"which row
+survives is yours"*.
+
+**What it actually was.** Decided, shipped, and council-approved weeks earlier. The
+section-index family convention in `page_canonical.go` (doc 029 Phase 0, extended by
+`bugs_closed/015`) fixes the shape as `(name=<section>-index, url=/<section>/index.html,
+page_type=<flavour>)`. `bugs_closed/015` names it "the family's stated design" and
+`relojistas.com` is the live worked example. The relojistas running notes even record the
+same repair being chosen deliberately: *"re-type noticias-index → news-index and drive
+the build onto it (keep the Spanish /noticias URL + nav), rather than let gap-planner
+mint an English /news.html."*
+
+**What caught it.** The owner, saying it had been discussed extensively and telling me to
+go and find it. Nothing in my own process would have.
+
+**The cheap check that would have.** `grep -rn "index.html" docs/…/029_site_plan_and_reconciler*`
+— thirty seconds. Or simply reading the header of the file my own fix called into:
+`page_canonical.go` states the convention in its first twenty lines, and I had read that
+file, quoted it in a council submission, and still did not connect it to the question of
+which row wins.
+
+**Why this is its own family and not just "grep first".** The rule I broke is not
+"research before you assert". I DID research: I read the helper, quoted its header
+verbatim as evidence, and measured the live rows. What I failed to do was notice that
+**the convention I was citing as the FIX already answered the question I was calling
+open.** The evidence for the decision was inside the evidence I had already gathered.
+
+Deferring to the owner *feels* like the safe, humble move, which is exactly what makes it
+dangerous: an unnecessary escalation looks like diligence and costs nothing visible. But
+it pushes work back to the one person who cannot delegate it, it stalls a repair that was
+already authorised, and — worst — it puts "undecided" into the durable record of a
+question that was decided, so the next thread inherits a live decision as an open one.
+**A false "this needs a ruling" is a documentation defect with the same shape as a false
+finding.**
+
+**Tally.** *The answer is often inside the evidence you already collected* — new.
+*Escalation is not free and is not neutral* — new, and worth watching for: I should be
+able to say WHY a question is the owner's (it trades off money, taste, or risk he owns)
+rather than defaulting to escalation whenever a change touches a live site.
+
+Family: escalated-a-decision-that-was-already-made, the-answer-was-in-the-evidence-I-had.

@@ -6,8 +6,52 @@
 > `strings /app/agent-chassis | grep -c "failed canonicalisation"` → **3**.
 > The creation-side divergence is closed. **This case stays OPEN for its residual:**
 > robot-hands.com still serves BOTH `/news.html` and `/news/index.html`, one orphaned
-> from the nav, and webdesign.co.uk's `news` row still collides on its next plan. Which
-> row survives is a live-site data decision for the owner, not a code fix.
+> from the nav, and webdesign.co.uk's `news` row still collides on its next plan.
+>
+> > **CORRECTION 2026-07-27 (owner): "which row survives" is NOT an open question.**
+> > I wrote that it was a decision for the owner. It has already been decided, at
+> > length, and I should have found it before saying so. The decided shape is the
+> > **section-index family convention**, and it is not a preference — it is shipped,
+> > council-approved code:
+> >
+> > - `page_canonical.go` (doc 029 Phase 0, extended by `bugs_closed/015`):
+> >   `news-index` joins the section-index family, so the planner shape
+> >   `{news-index, noticias}` canonicalises to
+> >   **`(name=<section>-index, url=/<section>/index.html, page_type=news-index)`** —
+> >   the flavour preserved as `page_type`, which is "the family's stated design".
+> > - Doc 029's own table: `section-index (section="tools")` → `tools-index` at
+> >   `/tools/index.html`.
+> > - The relojistas precedent, decided in its running notes and now live: *"re-type
+> >   `noticias-index` → `news-index` and drive the build onto it (keep the Spanish
+> >   `/noticias` URL + nav), rather than let gap-planner mint an English
+> >   `/news.html`."*
+> >
+> > **`relojistas.com` is the only site in the fleet that matches it**, measured
+> > 2026-07-27: `noticias-index` | `/noticias/index.html` | `news-index`.
+> >
+> > | site | name | url | page_type | vs the decision |
+> > |---|---|---|---|---|
+> > | relojistas.com | `noticias-index` | `/noticias/index.html` | `news-index` | ✅ canonical |
+> > | robot-hands.com | `news-index` | `/news/index.html` | `section-index` | name+url ✅, **type wrong** |
+> > | robot-hands.com | `news` | `/news.html` | `news-index` | type ✅, **the duplicate** |
+> > | idea.uk | `news-index` | `/news/index.html` | `section-index` | name+url ✅, **type wrong** |
+> > | gaswholesalers.com | `news` | `/news.html` | `news-index` | type ✅, name+url wrong |
+> > | ai-agent-orchestration.com | `news` | `/news.html` | `content` | **both wrong** (`bugs_open/081`'s ~3-month loop) |
+> > | webdesign.co.uk | `news` | `/news/index.html` | `news-index` | url+type ✅, name wrong, still `planned` |
+> >
+> > **So for robot-hands the answer is determined:** keep `news-index` at
+> > `/news/index.html` (canonical name and URL, and the row the live nav already
+> > points at), **re-type it `section-index` → `news-index`** so `render_news_section`
+> > gates on it, and retire `/news.html`. That is not a new judgement — it is the
+> > relojistas repair applied to the same shape.
+> >
+> > **What is genuinely still open is the EXECUTION, not the decision**, and it is
+> > `bugs_open/081`'s: a *deployed* mistyped page has no repair path, because 015's
+> > retype arm requires `build_status <> 'deployed'`. Both robot-hands rows are
+> > deployed. So this is blocked on 081's candidate 2, not on a ruling.
+> >
+> > *The cheap check I skipped:* grep the docs for the convention before calling a
+> > settled convention an open decision. `page_canonical.go`'s own header states it.
 >
 > **Still owed:** the induced proof — dispatch a gap plan with `page_type: "news-index"`
 > and confirm the row lands canonical. The unit tests exercise that branch; production
