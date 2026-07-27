@@ -375,3 +375,84 @@ ruling, not a query]:** "specialised AI agents", "agent types" and `agent_defini
 are three different units, and picking one is an editorial decision about what the site
 claims to be, not a fact I can look up. Left unfixed deliberately; the measurement is here
 so the next thread starts from twelve sites rather than one.
+
+---
+
+## 2026-07-27 — council ROUND 6 verdict: REVISE, and the change is now LIVE in v1.0.1172
+
+**The submission landed** (so the `kcat` publish worked this time): run
+`162ab5aa-f620-4bdc-a98a-61743e9400bb`, published ~21:40, started **21:46**, verdict
+**21:55**. Publish→start was ~6 minutes, not the ~30 the runbook warns about — the lane was
+quieter than it looked.
+
+`decided_by: "gating objection from prior_art_librarian"`, `abstained: 5`,
+**`unreadable: ["review_editquality.result"]`**.
+
+> **Read `unreadable` before reading the verdict.** One seat's result did not parse, so this
+> REVISE was decided by a council that was a seat short — the same harness defect this lane
+> has hit before. It does not make the objections wrong; it does mean "the council decided"
+> is a weaker statement than it looks.
+
+**Five seats APPROVED** (improvement_guardian, render_guardian, debug_historian,
+constitution, mission). Five objected. No veto — no guardian REJECT.
+
+### The gating objection is not "you are wrong", it is "I cannot check you"
+
+`prior_art_librarian` (medium): *"site_specs is not in the exposed Schema section, so this
+seat cannot verify those load-bearing claims at all — they are asserted via a self-run
+'LIVE MEASUREMENT' with no attached check this council can execute. Flagging as
+unverifiable-from-here rather than false."*
+
+That is a fair hit and a cheap fix: **attach the queries, not the results.** Same seat
+notes the fundamentallyai and vonc instances *are* checkable against `page_components.
+content_data` (schema-visible) and I simply did not attach the lookups.
+
+### `guardian` stated its approval condition outright — and it is now satisfied
+
+*"Once the code_checks come back showing `isExcludedNumber`/`ExtractStatClaims`/
+`loadEvidenceBaseForCheck` have only the callers claimed … I'd move to approve. If a third
+consumer of either datahelpers function turns up, that changes this from 'two named
+pipelines, both acknowledged' to an unaudited blast radius and I'd revisit toward veto."*
+
+Run 2026-07-27, `grep -rn '\bSYM(' --include=*.go` minus definitions and `_test.go`:
+
+| symbol | callers | closed? |
+|---|---|---|
+| `isExcludedNumber` | `claims.go:365` (prose scan), `claims_stats.go:319` (stat scan) | **yes — exactly the two pipelines claimed** |
+| `ExtractStatClaims` | `validate_page_content_stats.go:116` (check 9), `check_unverified_claims_stats.go:90` (new) | **yes** |
+| `loadEvidenceBaseForCheck` | `check_unverified_claims.go:74` only | **yes — the signature change breaks nothing** |
+| `ParseEvidenceBase` | `validate_page_content.go:976`, `validate_page_content_stats.go:143`, `check_unverified_claims.go:237`, `cmd/claimscan/main.go:54` | **FOUR — one more than the submission named** |
+
+**The fourth consumer is the interesting one, and it is NOT a fourth instance of the
+landmine.** `validate_page_content.go:976` (`loadEvidenceBase`, feeding check 8's prose
+scan) returns nil for a `writer_block`-only row, and its own comment says so: *"or when the
+row exists but holds nothing scannable."* For check 8 that is **correct**: the prose scan
+compares against `banned_claims` and `facts`, so with neither there is genuinely nothing to
+scan against, and running it would flag every number in every paragraph fleet-wide.
+
+> The landmine bites only where a scan **has something to say without a register** — the
+> stat path, where a figure's structural position in the schema makes it a claim by
+> construction, plus the unit lint, which needs no register at all. That is the precise
+> boundary, and I had not stated it. `cmd/claimscan` exits 2 on nil, which is also correct
+> for an operator CLI.
+
+### The two objections that ask for actual changes
+
+- `reuse_agent` (medium): does check 9 already have an equivalent severity mapping that
+  should live once in `datahelpers`? **Partly right.** The two are different in *kind* —
+  check 9's grades decide whether a **build fails** (`error`/`warning`), mine decide **queue
+  priority** (`high`/`medium`/`low`) — but they encode the same underlying judgement
+  (impossible-unit worst, cannot-verify least) in two places, so they can drift. A shared
+  helper returning an abstract rank, mapped per caller, is the honest fix. **[NOT DONE]**
+- `compliance` (medium): *"keep 'no facts registered' findings out of 'low' by giving them a
+  distinct status like 'unverifiable' rather than a severity rung, so the review queue can't
+  confuse 'checked and minor' with 'could not check'."* **This is right and it is better
+  than what I shipped** — I stated the principle ("a severity must never mean we could not
+  check this") and then encoded that exact meaning as a severity rung anyway. **[NOT DONE]**
+- `compliance` + `constitution` + `render_guardian` + `bug_historian` all independently say
+  the `isExcludedNumber` dash edit should have been **split into its own change**. Four
+  seats, unprompted, on the one edit I flagged as most likely to warrant it. Noted for next
+  time: if you predict a reviewer will want an edit split out, split it before submitting.
+
+**Owed:** round 7 with the caller table above attached as checks, the check-8 boundary
+stated, and ideally the two code changes above. No `Council-Reviewed:` trailer until then.
