@@ -343,3 +343,40 @@ detectable but not repairable — its findings can only escalate to human review
 
 Repaired by hand again (`bak_pc_fai_index_links_20260726`), which is the third
 time this class has been repaired per-page on this one site.
+
+### CORRECTED 2026-07-27 — it was sixteen, not six, and my own check hid the other ten
+
+The entry above says the index rebuild introduced **six** broken links and implies
+the capabilities rebuild introduced none. **Both halves are wrong.**
+
+The capabilities rebuild introduced **ten more**, all of the form
+`href="/capabilities#review-council"` — extension-less *with a fragment* — split
+4 in `hero-card-carousel` and 6 in `info-card-grid`. Sixteen in total across the
+two pages I rebuilt.
+
+**What hid them is the finding.** My per-component check was
+
+```sql
+regexp_matches(pc.rendered_html, 'href="(/[^"#?]*)"', 'g')
+```
+
+which **excludes every href containing `#`** — the exact anchor-blind pattern this
+workstream recorded as landmine L2 the day before, after it hid 21 broken links
+through a census, a repair and a post-check that all agreed with each other. I
+read that landmine, wrote it into a handoff, and then used the pattern.
+
+The live crawl caught it because it captures `href="(/[^"]*)"` and *then* strips
+the fragment with `split_part(...,'#',1)`. That is the whole difference.
+
+**Why this belongs in 071 rather than only in a workstream note:** it is direct
+evidence for the second half of this case — that nothing validates the fragment.
+All six distinct targets (`#review-council`, `#verification`, `#embeddings`,
+`#rapid-delivery`, `#production`, `#decision-record`) resolve to **zero** `id`
+attributes on the served page, so even repaired to `/capabilities.html#…` they
+jump nowhere. The paths are repaired (`bak_pc_fai_cap_links_20260727`); the dead
+fragments are left, because making them mean something requires the components to
+emit ids, which is this case's to decide.
+
+**The tally that matters for the fix:** on two rebuilt pages the writer produced
+16 broken internal links, the gate detected all 16 as non-blocking warnings, and
+every one of them shipped.
