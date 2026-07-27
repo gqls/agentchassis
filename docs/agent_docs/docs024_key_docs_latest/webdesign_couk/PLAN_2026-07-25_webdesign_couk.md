@@ -183,3 +183,62 @@ Phase 1 is ~80% of the work and runs parallel with 2–5.
 > originated in this plan, reached eight live specs, and was corrected by
 > `SQL_p4` before the planner could write it into page copy. Counts are now
 > substituted from the catalogue (`{{TOOL_COUNT}}`) rather than typed.
+
+---
+
+# Phase 2 decisions (owner, 2026-07-27)
+
+Answers to the three open questions the Phase 2 handoff left. All three are the
+owner's rulings, recorded with the reasoning that surrounded them so a later
+thread can tell a decision from a default.
+
+### D10 — Two audiences, FULLY SEPARATED
+
+The owner chose the more expensive option deliberately: **a parallel track for
+buyers** — its own index, its own nav entry, its own copy register — rather than
+the cheaper "one signposted buyer section" I recommended, or deferring until
+analytics show who arrives.
+
+**What this means for the work.** It roughly **doubles the W2 copy effort**, and
+it changes W2 from "rewrite 98 pages" into "rewrite 98 practitioner pages **and**
+design a second track from nothing". The buyer track has no existing content to
+improve — every page of it is new. That is a content plan in its own right and it
+should be planned before it is written, not discovered page by page.
+
+**Why the recommendation was overruled, and why that is right:** my case for one
+entry point was that it is reversible and cheap. The owner's brief says the site
+should serve people who *want* web design, and a single section inside a tool
+library addresses them as an afterthought — which is exactly the positioning
+failure the brief is trying to fix. A separated track is the only version that
+actually answers the brief.
+
+**Consequence to carry:** the two tracks must not blur. A practitioner page that
+starts selling, or a buyer page that assumes CSS knowledge, is the failure mode.
+The register differs as much as the content does.
+
+### D11 — Directory is EDITORIAL ONLY, never affiliate
+
+Published inclusion criteria; **no paid or affiliate placement, ever**; the about
+page's promise that the site sells nothing and collects nothing **stands
+unchanged**.
+
+This closes W4's commercial rail permanently rather than leaving it open: any
+future proposal to monetise a pointer is now a reversal of a recorded decision,
+not a fresh judgement call. It also means the inclusion bar must be written and
+published **before** the first pointer ships — an un-criteria'd directory becomes
+link-farm-shaped very quickly, and the criteria are what make it worth reading.
+
+### D12 — News CURATES, it does not report
+
+The news section fetches, triages for relevance and presents with a UK slant —
+which is what the existing pipeline already does. **No original journalism.**
+
+Two reasons beyond cost. First, original reporting multiplies the factual-claims
+surface, and this project has shipped invented statistics **twice** (D7's tool
+count; the earlier `{{TOOL_COUNT}}` case) — the hard rail against typed figures
+exists because of it. Second, curation is running today; reporting is a new
+capability with its own review burden.
+
+**Consequence:** any original commentary we do write must be **visibly separated**
+from fetched items, or the distinction collapses in the reader's eye and we have
+de facto become a publisher of claims we did not check.
