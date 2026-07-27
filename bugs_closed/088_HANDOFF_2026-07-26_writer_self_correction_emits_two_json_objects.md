@@ -7,11 +7,12 @@ and the failure is at iteration 0 so nothing downstream runs. Frequency is the o
 *How often* below).
 **Class:** contract — a COMPLETE, well-formed response is discarded because it is followed by more
 text, and the discard is indistinguishable from a truncation.
-**Status:** **HALF LIVE, half inert — 2026-07-26.** The prompt half is applied and verified
-(`227_writer_returns_the_object_and_nothing_else.sql`, config-only, live on apply). The
-platform half is committed (`282fd2feb`) and **INERT until the next chassis roll**. Stays
-OPEN until the Go half is live and a recovery has been observed. See
-**§ What shipped** below, which supersedes the fix candidates.
+**Status:** **CLOSED 2026-07-27 — both halves live, and the failing branch induced in
+production.** Prompt half: `227_writer_returns_the_object_and_nothing_else.sql`, live on
+apply 2026-07-26. Platform half: `282fd2feb`, live in **v1.0.1172**, verified against the
+running pod and then **induced** — see § Verified live. Council **APPROVED** round 1
+(`c2d3e477`); its five advisory objections are answered in § Council below, two of them by
+changing the code. See **§ What shipped**, which supersedes the fix candidates.
 
 **Not `bugs_open/076`** (truncated responses tolerated at unguarded call sites): nothing here is
 truncated. The model returned a complete JSON object, then commentary, then a second complete JSON
@@ -222,7 +223,74 @@ correlation_id='c2d3e477-ffe1-4bd9-b33c-e6918c2659da' AND kind='council_report' 
 No `Council-Reviewed:` trailer on `282fd2feb` — the verdict post-dates the commit, so one can
 never honestly be added (see the trailer-discipline rule); this line is the pointer instead.
 
-### What is left to verify after the next roll
+## Verified live, 2026-07-27
+
+**1. Deployed** — against the running pod, not the tag, and asserting the OLD line is gone
+rather than only that the new one is present (a same-tag rebuild ships a stale binary, and a
+new-string-only grep passes on one):
+
+```
+kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c "<s>"'
+  __envelope_recovered              = 1   (new)
+  reemitted_value                   = 1   (new)
+  holds no complete JSON value      = 1   (new)
+  is not parseable JSON             = 0   (OLD line, must be gone — this is the discriminator)
+  refusing to render an empty section = 2 (positive control)
+```
+
+**2. Induced** — a green pipeline proves deployment, not correctness, so the failing branch
+was made to happen. A one-step inline workflow (`config.workflow`, the affordance
+`bugs_closed/074` documents) asked a model to return a JSON object *and then write a sentence
+after it* — 088's shape, on the real code path, touching no live site:
+
+```
+correlation 71cad083-c53d-4153-9d32-a918e2f4bc21     status COMPLETED
+llm_call_log.response_text:
+    {"ok": true, "note": "probe"}
+    This is a simple JSON object confirming successful processing of your probe request.
+collected_data.probe_result:
+    type                  = json                      (before the fix: "text")
+    __envelope_recovered  = prose_around              (the marker fired)
+    result                = {"ok": true, "note": "probe"}
+```
+
+Before this change that response was discarded into a raw-text envelope and any
+required-content step downstream died. The `reemitted_value` branch — 088's own two-object
+shape — is not induced live (it needs a model to correct itself out loud on demand); it is
+covered by `TestRecoversSelfCorrectedReemission`, which runs the **real stored payload** from
+`d9fd6ed2` and asserts the recovered headline is the corrected one.
+
+**Trap for the next person:** the first induction attempt FAILED with `provider not specified
+in ai_service`. An inline `config.workflow` does not inherit an agent row's root `ai_service`
+block — spell out `provider`/`model`/`api_key_env_var` in the inline step, or the probe dies
+before it reaches the LLM and tells you nothing.
+
+## Council — APPROVED, and what its objections changed
+
+`c2d3e477-ffe1-4bd9-b33c-e6918c2659da`, round 1, 10 reviewers, `abstained:6`,
+**`unreadable:0`**, "approved with 5 advisory objection(s) — none high-severity".
+
+| seat | objection | outcome |
+|---|---|---|
+| edit-quality, bug-historian (medium) | The wrapper's `repaired` bool silently widens to mean "any tier fired", changing behaviour for anyone branching on it | **Code changed** (`ad122909b`). `repaired` keeps its original meaning. Exposure was nil — `grep -rn "ParseLLMJSON("` finds only tests now — but a flag whose meaning depends on which tiers exist is a trap for the next caller. |
+| prior-art-librarian (medium) | "nothing counted this class" is an absence claim with no lookup; `agent_error_log` exists | **Checked, claim survives**: 1,333 rows ever, **0** match this class. The right challenge, and it made an asserted claim a measured one. |
+| bug-historian, reuse-agent (medium) | Is `extractContentWithFallbacks` a second independent parser — the two-parallel-paths pattern? | **Checked, does not apply.** It does no JSON parsing at all; it walks candidate *paths* in already-parsed `collected_data`. |
+| guardian (low) | `strings.HasPrefix(s, "#")` is narrow — could a heading further in slip past? | **Checked, guard left narrow.** Of the 34 responses recovered, **zero** contain a markdown heading anywhere. A heuristic that fires on no observed input is a liability; the count and the trigger for widening it are recorded at the code. |
+| debug-historian (missing) | No stated pod-verification of the deploy | **Done** — see § Verified live, including the old-line-absent discriminator. |
+
+**No `Council-Reviewed:` trailer exists on any commit here, deliberately.** The verdict
+(22:00:32Z) post-dates the implementation commit `282fd2feb`, so that one can never honestly
+carry it. `ad122909b` post-dates the verdict and could have, and does not — my slip, and
+forward-only means it stays that way. The `098` coverage report will therefore list this work
+as unreviewed; it was reviewed, and this paragraph is the join.
+
+**One finding handed on rather than kept:** the `llm_reliability` seat noted that
+`GenerateText` still does not decode `stop_reason`, so both the pre-existing `markTruncated`
+heuristic and this fix's tail guard are reading text *shape* rather than the authoritative
+field. That is a real standing gap, it belongs to `bugs_open/076`'s lane, and this change does
+not make it worse.
+
+### Monitoring after the roll
 
 ```sql
 -- recoveries in the wild, by agent and kind
