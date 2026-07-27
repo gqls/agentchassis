@@ -8,6 +8,7 @@ package actions
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -97,23 +98,52 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 	)
 
 	// Assemble the page from stored components
-	html, err := assemblePage(ctx, params.DB, pageInfo, params.Logger)
+	html, assembly, err := assemblePage(ctx, params.DB, pageInfo, params.Logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to assemble page: %w", err)
 	}
 
 	if html == "" {
-		params.Logger.Warn("RerenderSinglePageAction: No content, skipping",
-			zap.String("page_name", pageInfo.Name))
+		// bugs_open/095. Every empty assembly used to return the same
+		// skipped=true, and page-rerender's check_skipped conditional routes
+		// that to complete_skipped — a terminal step whose name contains
+		// "complete" and whose status is COMPLETED. A page whose components
+		// all failed to render was therefore indistinguishable from a page
+		// that legitimately had nothing to build: rendered_html stayed NULL,
+		// build_status never advanced, nothing deployed, and no error was
+		// recorded anywhere.
+		//
+		// Split the two. Component rows that exist and contribute nothing is
+		// a defect and fails the step; no component rows at all is a page
+		// that has not been built yet and is still a legitimate skip.
+		if assembly.assembledToNothingDespiteComponents() {
+			return nil, fmt.Errorf(
+				"page %q has %d component row(s) and assembled to nothing — %s",
+				pageInfo.Name, assembly.ComponentRows, assembly.describe())
+		}
+
+		// Legitimate skip — but name what the page wanted, so the outcome is
+		// attributable instead of a bare "no components found".
+		reason := "page has no component rows"
+		if len(assembly.PlannedSections) > 0 {
+			reason = fmt.Sprintf("page has no component rows yet, but plans %d section(s): %v",
+				len(assembly.PlannedSections), assembly.PlannedSections)
+		}
+		params.Logger.Warn("RerenderSinglePageAction: nothing to assemble, skipping",
+			zap.String("page_name", pageInfo.Name),
+			zap.String("reason", reason),
+			zap.Strings("planned_sections", assembly.PlannedSections))
 		return map[string]interface{}{
-			"success":   false,
-			"skipped":   true,
-			"reason":    "no components found for page",
-			"html":      "",
-			"domain":    pageInfo.Domain,
-			"filename":  pageInfo.Filename,
-			"page_id":   pageIDStr,
-			"page_name": pageInfo.Name,
+			"success":          false,
+			"skipped":          true,
+			"reason":           reason,
+			"planned_sections": assembly.PlannedSections,
+			"component_rows":   assembly.ComponentRows,
+			"html":             "",
+			"domain":           pageInfo.Domain,
+			"filename":         pageInfo.Filename,
+			"page_id":          pageIDStr,
+			"page_name":        pageInfo.Name,
 		}, nil
 	}
 
@@ -349,7 +379,7 @@ func getPageInfo(ctx context.Context, db *sql.DB, pageID uuid.UUID) (*PageInfo, 
 }
 
 // assemblePage combines site/area/page components into full HTML
-func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.Logger) (string, error) {
+func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.Logger) (string, pageAssembly, error) {
 	// 1. Get site-level components
 	siteComponents, err := getSiteComponents(ctx, db, page.SiteID)
 	if err != nil {
@@ -366,7 +396,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	}
 
 	// 3. Get page sections
-	sections, err := getPageSections(ctx, db, page.ID, logger)
+	sections, assembly, err := getPageSections(ctx, db, page.ID, logger)
 	if err != nil {
 		logger.Warn("Failed to load page sections", zap.Error(err))
 	}
@@ -375,17 +405,24 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	// header + empty <main> + footer. siteComponents being non-empty is
 	// expected on every page (header/footer/head live at site level), so
 	// it isn't a useful signal here; sections is what determines whether
-	// this page has anything to say. The caller (RerenderSinglePageAction)
-	// converts an empty return into skipped=true, which the page-rerender
-	// workflow's check_skipped conditional routes to complete_skipped so
-	// neither git_commit nor update_page_status runs.
+	// this page has anything to say.
+	//
+	// The caller decides what an empty assembly MEANS — see pageAssembly. It
+	// is returned alongside so the caller can tell a page that has nothing to
+	// build from one whose components all failed to contribute; this function
+	// deliberately does not make that judgement, because the section editor
+	// and the re-renderer answer it differently.
 	if len(sections) == 0 {
-		logger.Info("assemblePage: page has no sections, skipping",
+		logger.Info("assemblePage: page assembled to nothing",
 			zap.String("page_name", page.Name),
 			zap.String("page_id", page.ID.String()),
 			zap.Int("site_components", len(siteComponents)),
+			zap.Int("component_rows", assembly.ComponentRows),
+			zap.Strings("planned_sections", assembly.PlannedSections),
+			zap.Strings("unrendered_slots", assembly.UnrenderedSlots),
+			zap.Strings("blank_slots", assembly.BlankSlots),
 		)
-		return "", nil
+		return "", assembly, nil
 	}
 
 	// 4. Resolve components (area overrides site)
@@ -446,7 +483,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 		zap.Int("sections_length", len(sections)),
 	)
 
-	return html.String(), nil
+	return html.String(), assembly, nil
 }
 
 // getSiteComponents loads site-level components (header, footer, head)
@@ -499,34 +536,96 @@ func getAreaComponents(ctx context.Context, db *sql.DB, areaID uuid.UUID) (map[s
 	return components, nil
 }
 
+// pageAssembly records what the assembler actually saw, so that an EMPTY
+// assembly can explain itself (bugs_open/095).
+//
+// An empty assembled page is ambiguous, and that ambiguity is the bug. Two
+// states produce the identical empty string:
+//
+//   - the page has no component rows at all — nothing has been built yet.
+//     Skipping is correct.
+//   - the page HAS component rows and not one of them reached the output,
+//     because none carries usable rendered_html or every one was dropped as
+//     visually empty. That is a defect, and skipping it reports a page that
+//     silently vanished as a success.
+//
+// Before this type existed both returned `skipped: true, reason: "no
+// components found for page"`, which page-rerender's check_skipped
+// conditional routes to complete_skipped — a terminal step whose name
+// contains "complete" and whose status is COMPLETED. So the second case was
+// shaped exactly like a success and left no error anywhere: not on the
+// orchestration, not on the work item, not on the page row.
+type pageAssembly struct {
+	ComponentRows   int      // page_components rows for this page, unfiltered
+	Contributed     int      // rows whose HTML reached the assembled output
+	UnrenderedSlots []string // rows whose rendered_html is NULL or empty
+	BlankSlots      []string // rows dropped as having no visible content
+	PlannedSections []string // pages.sections — what the page says it wants
+}
+
+// assembledToNothingDespiteComponents is the defect shape: rows exist, none
+// contributed. A page with no rows at all is a legitimate skip and is
+// deliberately excluded — measured 2026-07-27, 17 active pages fleet-wide have
+// planned sections and zero component rows (5 of them never built), and
+// failing those would convert a correct no-op into a fleet-wide error.
+func (a pageAssembly) assembledToNothingDespiteComponents() bool {
+	return a.Contributed == 0 && a.ComponentRows > 0
+}
+
+// describe renders the two lists the operator needs and cannot otherwise see:
+// what the page wanted, and what it actually had.
+func (a pageAssembly) describe() string {
+	return fmt.Sprintf("planned sections %v; %d component row(s), %d contributed; unrendered slots %v; blank slots %v",
+		a.PlannedSections, a.ComponentRows, a.Contributed, a.UnrenderedSlots, a.BlankSlots)
+}
+
 // getPageSections loads and concatenates page sections in order,
 // filtering out sections whose rendered_html has no visible text content.
 // Empty sections (e.g. a hero with <h1></h1>, a CTA with no copy) produce
 // blank space on the live site, so they're excluded from assembly and
-// logged. The pre-filter that already lives in the SQL (rendered_html
-// IS NOT NULL AND != ”) only catches the totally-empty case; this
-// catches the visually-empty case as well.
-func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, error) {
+// logged.
+//
+// The SQL no longer pre-filters on rendered_html (bugs_open/095): the rows it
+// used to discard are exactly the evidence needed to tell "nothing built yet"
+// from "everything failed to build", so they are now read and counted, and
+// filtered here instead. The assembled output is unchanged.
+func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *zap.Logger) (string, pageAssembly, error) {
+	var diag pageAssembly
+
+	// What the page says it wants. Read separately from the component rows so
+	// a page with sections planned and no rows at all is still describable.
+	var sectionsJSON []byte
+	if err := db.QueryRowContext(ctx,
+		`SELECT COALESCE(sections, '[]'::jsonb) FROM pages WHERE id = $1`, pageID,
+	).Scan(&sectionsJSON); err == nil {
+		_ = json.Unmarshal(sectionsJSON, &diag.PlannedSections)
+	}
+
 	rows, err := db.QueryContext(ctx, `
 		SELECT COALESCE(rendered_html, ''), COALESCE(slot_name, '')
 		FROM page_components
 		WHERE page_id = $1
-		  AND rendered_html IS NOT NULL
-		  AND rendered_html != ''
 		ORDER BY position ASC
 	`, pageID)
 	if err != nil {
-		return "", err
+		return "", diag, err
 	}
 	defer rows.Close()
 
 	var sections strings.Builder
 	sectionIdx := 0
-	skipped := 0
-	var droppedSlots []string
 	for rows.Next() {
 		var html, slotName string
 		if err := rows.Scan(&html, &slotName); err != nil {
+			continue
+		}
+		diag.ComponentRows++
+
+		if html == "" {
+			// Never rendered. This is the row shape behind bugs_open/095: a
+			// component row that looks deliberate — correct component, correct
+			// position — but that nothing ever populated.
+			diag.UnrenderedSlots = append(diag.UnrenderedSlots, slotName)
 			continue
 		}
 		if !sectionHasVisibleContent(html) {
@@ -542,26 +641,27 @@ func getPageSections(ctx context.Context, db *sql.DB, pageID uuid.UUID, logger *
 				zap.Int("section_index", sectionIdx),
 				zap.Int("html_length", len(html)),
 			)
-			droppedSlots = append(droppedSlots, slotName)
-			skipped++
+			diag.BlankSlots = append(diag.BlankSlots, slotName)
 			sectionIdx++
 			continue
 		}
 		sections.WriteString(html)
 		sections.WriteString("\n")
+		diag.Contributed++
 		sectionIdx++
 	}
 
-	if skipped > 0 {
-		logger.Warn("getPageSections: filtered empty sections from assembled page",
+	if len(diag.BlankSlots) > 0 || len(diag.UnrenderedSlots) > 0 {
+		logger.Warn("getPageSections: filtered sections from assembled page",
 			zap.String("page_id", pageID.String()),
-			zap.Int("skipped", skipped),
-			zap.Int("kept", sectionIdx-skipped),
-			zap.Strings("dropped_slots", droppedSlots),
+			zap.Int("component_rows", diag.ComponentRows),
+			zap.Int("contributed", diag.Contributed),
+			zap.Strings("blank_slots", diag.BlankSlots),
+			zap.Strings("unrendered_slots", diag.UnrenderedSlots),
 		)
 	}
 
-	return sections.String(), nil
+	return sections.String(), diag, nil
 }
 
 // sectionHasVisibleContent reports whether the given rendered HTML should be kept in the

@@ -378,9 +378,30 @@ func ApplySectionEditAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("failed to load page info for reassembly: %w", err)
 	}
 
-	fullHTML, err := assemblePage(ctx, params.DB, pageInfo, logger)
+	fullHTML, assembly, err := assemblePage(ctx, params.DB, pageInfo, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reassemble page: %w", err)
+	}
+
+	// bugs_open/095, same class one surface over: this path returned
+	// success=true with html="" if reassembly produced nothing — i.e. it would
+	// report that a section edit had been applied while handing the deployer an
+	// empty page.
+	//
+	// It uses the SAME discriminator as the re-renderer rather than failing on
+	// any empty reassembly. The first version of this fix failed
+	// unconditionally, on the reasoning that a section of this page has just
+	// been edited so its components necessarily exist. Two council seats
+	// objected at medium severity that this was asserted rather than evidenced,
+	// and that an error with no escape hatch is a sharper change than the
+	// re-render side, which keeps a legitimate-skip branch. They were right:
+	// where the two surfaces agree on the rule, the rule is the thing that has
+	// been reviewed. And it costs nothing here — the edit target IS a component
+	// row, so ComponentRows > 0 holds whenever the edit actually happened.
+	if fullHTML == "" && assembly.assembledToNothingDespiteComponents() {
+		return nil, fmt.Errorf(
+			"page %q reassembled to nothing after the section edit — %s",
+			pageInfo.Name, assembly.describe())
 	}
 
 	domain, _ := pageData["domain"].(string)
