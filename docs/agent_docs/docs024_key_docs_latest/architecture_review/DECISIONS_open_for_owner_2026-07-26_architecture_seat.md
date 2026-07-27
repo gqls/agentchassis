@@ -1,15 +1,47 @@
 # Decisions open for the owner — an architecture seat / process
 
-**Status: DRAFT — proposals only. Nothing built, no config or code changed.**
-Written 2026-07-26 after the owner asked whether we had discussed an
+**Status: MOSTLY BUILT AND LIVE as of 2026-07-27.** This file began as proposals;
+do not read the header of any section as current state without checking its own
+status line. Current state in prose:
+`SUMMARY_2026-07-27b_architecture_seat_built.md`.
+
+| decision | state |
+|---|---|
+| D1 forward seat argues the forward side only | BUILT |
+| D2 seated at `feature-designer` (design stage) | **LIVE** |
+| D3 advisory, no veto, routes to the RFC track | **LIVE** (twice corrected — see the seat script) |
+| D4 mechanical RFC trigger from the staged diff | **LIVE** in `scripts/commit-scope-report.sh` |
+| D5 measure ossification first | **RUN — confirmed** |
+| D6 name the asymmetric bar | not done |
+| D7(a) does the veto survive | **RULED: yes** (owner) |
+| D7(b) should the guardian weigh benefit | **OPEN** — now answerable by evidence |
+| D8a′ council reads its own minutes | **LIVE** on all three councils |
+| D8e-1 generated case index for the historians | **LIVE** |
+
+**Written 2026-07-26** after the owner asked whether we had discussed an
 architecture council member before, and asked for the choices and proposed
 decisions in one place.
 
-**Updated 2026-07-27.** Owner ruled **D7(a): the veto survives**; D7(b) (should
-the guardian weigh benefit?) left open, and the argument *against* narrowing it
-is now recorded alongside my inclination. The owner also asked whether the
-council looks at the missteps — it does not and cannot, which is new **D8** and
-changes what D1/D2/§6 would have to build.
+**Updated 2026-07-27.** Owner ruled **D7(a): the veto survives**; D7(b) left open,
+with the argument *against* narrowing it now recorded alongside my inclination.
+The owner also asked whether the council looks at the missteps, which became
+**D8** — and then pointed at the concept register, which caught a defect that
+would have broken the feature-build lane (see the seat script's second correction).
+
+**Baseline for judging all of this, captured 2026-07-27 before any post-change
+council ran** (`scripts/council-adoption-report.sh`):
+
+| seat | reviews | invoked stability pref. | cited precedent |
+|---|---|---|---|
+| guardian | 205 | 87 | **3** |
+| bug_historian | 139 | — | 37 cited a source |
+| debug_historian | 173 | — | 19 cited a source |
+| architecture | 0 | — | — |
+
+**3 of 87 is the number to beat.** That is how often the seat that most needs its
+own history actually referred to it, while invoking the very preference that needs
+it. *(An earlier run of the report said 4; the query carried stray literals that
+matched spuriously. Corrected here — the committed script gives 3.)*
 
 Named `DECISIONS_open_for_owner_*` rather than `SUMMARY_*` deliberately: the
 content is choices awaiting a ruling, which is the shape of
