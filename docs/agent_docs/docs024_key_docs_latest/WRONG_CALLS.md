@@ -7458,3 +7458,101 @@ verify-the-failing-branch for input-driven faults. *A grep that asserts absence 
 
 Family: verify-the-failing-branch, a-green-result-from-an-input-that-cannot-fail,
 absence-assertions-exit-non-zero.
+
+---
+
+## 2026-07-27 — every misstep this week had a designed interceptor, and I used none of them
+
+The owner's observation, and it reframes the whole week: *"these are what the
+diagnose loop and council and architect council are all designed to intercept."*
+
+He is right, and it is worse than a list of individual errors. The platform
+already contains a machine for each of the mistakes below. Every one was
+available, none was reached for, and in each case the reason was that the mistake
+did not feel like the kind of thing that needed one.
+
+### The four, and the interceptor each one walked past
+
+**1. "Nothing in the estate looks for this" — the diagnosis loop.**
+I asserted a structural property of the platform (a whole class of claim is
+invisible to every scanner) from one function's documented limit, and wrote it
+into a live council seat. CLAUDE.md's rule is not ambiguous: file a diagnosis
+**before** committing to a root cause whenever the claim is durable, and it names
+this exact case — *"a mechanism, a structural property of the platform, a cause
+that lives outside the symptom."* Debug directly only when the fix is local and
+self-evidencing.
+
+Mine was neither. It was a claim about four subsystems, and it reached other
+sessions' standing instructions. **A REFUTED verdict costs one run; this cost a
+migration, a mirror, five documents and an afternoon of building on it.** The
+loop would have refuted it by reading the function I skipped — which is precisely
+its documented behaviour, the 9.5-minute refutation of the two-rerender-paths
+claim.
+
+**2. "Build a promise register" — the reuse seat on the council.**
+I proposed new machinery for something the estate already models three ways
+(`evidence_base` with its unused `kind: capability`, the EXPERIENCE_PLAN's promise
+ledger, CTA integrity's label-implies-a-destination). The council has a
+`review_reuse_agent` seat whose **founding incident is a session reinventing a
+trigger+triage SQL pair that already existed.** That seat exists for this exact
+error, and the proposal never went in front of it.
+
+The owner intercepted it manually instead, with "we have existing functionality —
+look hard at what exists." That is a human doing a seat's job.
+
+**3. Migration 223 — the council gate.**
+It changed a live reviewing agent's standing instructions and carried a false
+premise in its contract text. It was DB config rather than `platform/`, so the
+gate's stated scope did not compel a submission. But the *content* was a durable
+claim about what the platform guarantees, which is exactly what a compliance seat
+reads for — and I was editing that seat while making the error it catches.
+
+**4. `slot_name='main'` and the AI voice — no loop, and that is the finding.**
+Bug 095 was filed and my own prepared SQL still carried the defect. Rule 3 was in
+the writer prompt and the copy still broke it. Neither is a reasoning failure a
+council would catch, because neither involved a decision. They are artefacts that
+already existed when the rule arrived.
+
+### The pattern the owner named, stated plainly
+
+**Three interceptors exist. All three are opt-in, and all three are opted into by
+the person about to make the mistake.** The diagnosis loop is filed by the thread
+that thinks it already knows the cause. The council is submitted to by the thread
+that thinks its plan is sound. Nothing routes work to them; confidence is the
+gate, and confidence is exactly what is broken in the moment they are needed.
+
+CLAUDE.md already says this, in the correction dated 2026-07-19: *"Confidence is
+not a signal. The wrong claim felt obvious; that is exactly why 'obvious' cannot
+be the gate. Full context is no protection, because the failure mode is not
+missing information — it is not looking."* I read that file at the start of the
+session and then did the thing it warns about, twice.
+
+### The cheap checks, in the order they would have fired
+
+- **Before writing "nothing/never/no X in the estate":** that is a universal
+  negative about a large system. File the diagnosis, or read the source of every
+  mechanism you are about to name. My sentence named four and I had read one.
+- **Before proposing anything new:** grep the spec's open-questions section, not
+  just `bugs_open/` and `features_open/`. The answer to this week's design
+  question had been written down, with a proposal and a trigger, and was sitting
+  in `SPEC_claims_verification.md:250-252` the whole time.
+- **Before applying a prepared file:** re-read it against bugs filed *since* it
+  was written. Mine predated the bug that describes its defect by one day.
+- **After shipping copy:** count the tells in the rendered output. The rule being
+  in the prompt is not evidence the output followed it, and measuring took one
+  command.
+
+### The structural point, which outlives these four
+
+Filing a rule changes nothing that already exists. The estate now has: a writer
+rule the existing copy broke, a bug report the existing SQL broke, a register that
+went stale with no watcher, and a deferral that became policy because its trigger
+had no watcher. **Every one of those is a rule without a sweep.**
+
+The interceptors have the same shape one level up. A loop nobody is routed to is a
+rule without a sweep. Making them non-optional — even just for claims of a named
+class, like "no X exists in the platform" — is the difference between machinery
+that exists and machinery that fires.
+
+Family: interceptor-existed-and-was-not-used, confidence-is-the-gate-and-should-not-be,
+rule-without-a-sweep, universal-negative-from-local-evidence.
