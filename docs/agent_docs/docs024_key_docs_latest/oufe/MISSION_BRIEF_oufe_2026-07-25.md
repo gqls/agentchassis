@@ -20,18 +20,20 @@ particular: restructuring plans under Part 26A of the Companies Act, cross-class
 cramdown, schemes of arrangement, and the special administration regime that sits
 behind regulated utilities.
 
-The audience is anyone learning how this actually works. Students and trainees,
-analysts early in their careers, and practitioners in adjacent seats who need the
-mechanism rather than the headline: the corporate lawyer working out what the
-credit team is doing, the fund operations person, the adviser at a boutique firm.
-They are financially literate or willing to become so, and sceptical of marketing
-language. They do not have a six-figure terminal subscription. They are not served
-by the trade press, which reports outcomes without mechanism, or by the
-institutional data services, which cost more than their firm will approve.
+The audience is the working mid-market professional. Restructuring advisers at
+boutique firms, corporate finance and insolvency lawyers, private credit analysts,
+family offices, and analysts early in their careers at those same firms. They are
+financially literate, sceptical of marketing language, and short of time. They do
+not have a six-figure terminal subscription, and they are not served by the trade
+press, which reports outcomes without mechanism.
 
-We are not writing for the large funds. They already buy the expensive services
-and are not short of information, and we should not write as though we compete
-with them on that ground.
+Write for someone who already works in or around this field. Assume they know the
+vocabulary. Do not teach from first principles and do not explain what a creditor
+is. This is a serious professional publication, not a study aid.
+
+We are not writing for the large funds either. They already buy the expensive
+services and are not short of information, and we should not write as though we
+compete with them on that ground.
 
 What this site offers is mechanism and clarity rather than more information. Take
 a live corporate battle and explain, in a form a reader can absorb quickly, what the documents permit, who ranks ahead of whom, who is being pushed
@@ -44,7 +46,7 @@ Tone: precise, unshowy, and confident about mechanism rather than about outcomes
 Explain jargon the first time it appears and then use it properly, because the
 reader wants to learn the real vocabulary, not a simplified one. Never breathless,
 never promotional, and never in the register of a trading newsletter. Assume the
-reader is clever and new to this.
+reader is clever, informed, and short of time.
 
 Positioning against the alternatives should be honest and specific: the
 institutional data services carry more raw information than we ever will, and we

@@ -65,12 +65,17 @@ around that skeleton or fixes it.
 
 Both in `DECISIONS_2026-07-26_oufe.md`.
 
-**O1 — the audience. ANSWERED 2026-07-27.** The owner chose "anyone learning how
-this works": students, trainees, early-career analysts, and practitioners in
-adjacent seats. Not narrowed to students (which would have made the site free
-indefinitely), not narrowed to mid-market professionals. Applied to
-`identity.target_audience`, to a new `audience` aspect (`audience.v1` — the site
-had none), and to the mission brief. **Content is no longer blocked on this.**
+**O1 — the audience. ANSWERED 2026-07-27, then REVERSED the same day.** The owner
+first chose "anyone learning how this works", then changed his mind: **the
+audience is the mid-market professional, as originally planned. Students are out
+of scope and get their own domain.** His words: *"This can be a serious site."*
+Applied to `identity.target_audience`, the `audience` aspect (`audience.v1`,
+`sophistication: institutional`), and the mission brief. **Content is unblocked.**
+
+The consequence to carry into the writing: the honesty posture now has to work in
+a professional register. "A possibly inaccurate case study" reads naturally to a
+student and reads like hedging to a partner, so that framing belongs in the
+disclaimers rather than in the body copy.
 
 **O6 — the radar ordering.** He ruled "direction 3 first, lowest risk"; this
 workstream argued it is the highest risk available and built the dossier-plus-tool

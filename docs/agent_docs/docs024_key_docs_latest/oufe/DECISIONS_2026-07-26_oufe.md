@@ -20,7 +20,8 @@ the open list can be read in one sitting. Companion to
 | D8 | Tools must say they can give a wrong answer; acknowledgement is a condition of use | 07-26 |
 | D9 | Disclaimer sections A–F approved | 07-26 |
 | D10 | Paid products: liability capped at the refund | 07-26 (wording drafted, §G) |
-| D11 | Audience = **anyone learning how this works** (students, trainees, early-career, adjacent practitioners) — not narrowed to students, not narrowed to mid-market professionals | 07-27 |
+| D11 | ~~Audience = anyone learning how this works~~ — **REVERSED the same day, see D12** | 07-27 |
+| D12 | Audience = **the mid-market professional**, per the original plan. Students are explicitly out of scope and belong on a separate domain. "This can be a serious site." | 07-27 |
 
 ---
 
@@ -30,10 +31,22 @@ Ordered by what blocks the most work.
 
 ### O1 — The audience question ⟵ **DECIDED 2026-07-27: option (a)**
 
-> **The owner chose (a): audience is "anyone learning how this works".** Applied
-> the same day to `site_specs.identity.target_audience` and to a new `audience`
-> aspect (`audience.v1`), which the site did not previously have. The mission
-> brief is revised to match. Original reasoning kept below.
+> **DECIDED, then REVERSED, both on 2026-07-27.** The owner first chose (a),
+> "anyone learning how this works". Within the hour he reversed it: **keep the
+> original mid-market professional target; students get their own domain.** His
+> words: *"This can be a serious site."*
+>
+> Both are recorded because the reversal carries information the first answer
+> does not. Widening the audience was defensible on safety grounds and the owner
+> weighed it and rejected it, which means **the honesty posture has to be carried
+> in a professional register rather than a teaching one.** That is a harder
+> writing problem than either option alone: "treat this as a possibly inaccurate
+> case study" reads naturally to a student and reads like hedging to a partner.
+> The disclaimer work is where that tension gets resolved, not the copy.
+>
+> Applied to `identity.target_audience`, the `audience` aspect (`audience.v1`,
+> now `sophistication: institutional`, students explicitly `out_of_scope`), and
+> the mission brief. Original reasoning kept below for the record.
 
 
 The owner asked whether targeting **students** would be safer. Recommendation
