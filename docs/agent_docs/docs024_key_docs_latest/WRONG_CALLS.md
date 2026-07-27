@@ -48,7 +48,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **bound the BEHAVIOUR, not the function — "X has exactly one caller" is true and does not answer "what else does this job without calling X"; a verified scoping claim closes the question hardest** | **1** |
 | **check an example you write against the artifact it constrains** | **2** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
-| grep the index before filing | 1 |
+| **grep the index before filing — and hardest when a human is waiting, because their report went to more than one session** | **2** |
 | **grade a probe on the ACTION's own output (`collected_data-><step>`), never on the run's terminal status — a harness that never delivered its payload completes GREEN** | **1** |
 | **check whether an existing bug has an owning workstream before routing work to it** | **1** |
 | **read before write — never `cat >` a file you did not create** | **1** |
@@ -7024,3 +7024,48 @@ work by writing `content_data`.
 
 Family: the-default-fires-upstream-of-the-guard, i-had-already-read-the-line,
 the-DB-looked-right-and-the-page-did-not.
+
+---
+
+## 2026-07-27 — I investigated the owner's design report and filed a duplicate of two bugs my own workstream had already filed
+
+**Where:** `bugs_open/110` → renumbered `112` → renumbered `115`, filed within about
+forty minutes of the owner's report, before grepping `/bugs_open/`.
+
+**The claim:** that the palette divergence and the thin imagery were undiagnosed, and
+needed a new case file.
+
+**Why it is false:** a sibling thread **in this same workstream**, working from the same
+owner report, had already filed `bugs_open/113` (the layout's light literals fill the
+slots the generated palette never supplies) and `bugs_open/114` (21 generated images
+live and serving, 3 referenced), plus `features_open/026` and a working
+`scripts/render_audit.py`. Their measurement is strictly better than mine: headless
+Chromium, every visible text node, background composited through transparent ancestors —
+**101 WCAG-AA failures across five pages**. I had computed six ratios by hand from the
+declared variables and would have missed anything involving transparency or inheritance.
+
+**What caught it:** a filename collision. I went to commit and found another `110`
+already there, then `111`, then `112` — and only while resolving that did I read the
+neighbouring files and discover 113 and 114 were mine-in-all-but-authorship.
+
+**The cheap check that would have caught it:** `ls bugs_open/ | tail -20` — three
+seconds, and it is written in CLAUDE.md as "grep before you file", in this workstream's
+own memory, and in the standing docs I had read that morning. I skipped it because the
+owner had asked a direct question and filing felt like progress. **Urgency from a human
+is exactly when the dedup check gets skipped, and exactly when several threads are most
+likely to be looking at the same thing** — the owner's report went to more than one
+session.
+
+**Second, smaller, and its own lesson:** my free-number check was
+`ls bugs_open/${n}_* bugs_closed/${n}_*`, which exits non-zero when **either** glob
+misses — so it reported 112 free while `bugs_open/112_*` existed, and I renamed onto an
+occupied number. *A multi-argument `ls` is not a per-argument existence test.* Build the
+used-set once and test membership.
+
+**Cost:** low and self-inflicted — two renames and a rewritten file, no wrong
+information published. The duplicate never reached the owner because I re-measured
+before answering, which is the only thing that went right here.
+
+**Tally:** "grep the index before filing" 1→2.
+
+Family: urgency-suppresses-the-dedup-check, the-shell-test-that-tests-something-else.
