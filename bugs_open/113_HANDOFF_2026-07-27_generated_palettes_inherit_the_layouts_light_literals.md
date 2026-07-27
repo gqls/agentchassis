@@ -119,6 +119,29 @@ The four light palettes with no `card_bg` (idea.uk, relojistas.com, vetcompariso
 webdesign.co.uk) are **fine** — the literals suit them, which is why the fix is scoped
 to dark backgrounds.
 
+### Confirmed on three other live sites by rendering them, not by arithmetic
+
+The counts above are computed from palette values. This is the same question asked of
+the served pages, and it agrees — **60 further failures on three homepages alone**:
+
+```
+$ scripts/render_audit.py --quiet https://vonc.com/index.html \
+      https://dartsonline.com/index.html https://oufe.com/index.html
+   vonc.com/index.html        contrast=33
+   dartsonline.com/index.html contrast=13   h-overflow
+   oufe.com/index.html        contrast=14
+```
+
+These are homepages only; fundamentallyai.com's 101 came from five pages, so the
+per-site totals here are floors rather than totals. **dartsonline.com also scrolls
+horizontally at 390px**, which is a separate defect this run happened to catch and
+which is not otherwise filed.
+
+Each of these sites is owned by another workstream. **Do not repaint them from here** —
+`scripts/who-owns.py` first, then contribute the measurement into their thread. The
+renderer fix repairs them the next time their stylesheet is rendered, which for most
+of them will not happen on its own (`bugs_closed/072`: a stylesheet is written once).
+
 > **A stylesheet is written once and never regenerated** (`bugs_closed/072`), so a
 > site already carrying the defect keeps it until something rewrites its
 > `styles.css`. That cuts both ways: the fleet is not silently repaired by the roll
