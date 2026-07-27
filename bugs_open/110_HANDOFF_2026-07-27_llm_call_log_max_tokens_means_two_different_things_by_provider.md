@@ -9,6 +9,29 @@ repair the schema cannot support
 
 ---
 
+> **UPDATED 2026-07-27 (triage sweep, post-roll) — candidate 1 is LIVE, and it
+> made its window with room to spare.** The fleet rolled to **v1.0.1174** at 15:11
+> UTC, carrying `443c7e9fd`. Verified on the running pod by the discriminating pair
+> the commit message specified — the rename is the only way to tell a pre-110
+> binary from a post-110 one:
+>
+> | marker | expected | `agent-chassis-5994dc6d6c-pt8v9` |
+> |---|---|---|
+> | `__sent_wire_max_output_tokens` (created by candidate 1) | > 0 | **1** |
+> | `__sent_visible_budget_tokens` (existed only pre-110) | 0 | **0** |
+>
+> **The race was won:** `SELECT count(*) FROM llm_call_log WHERE provider='gemini'`
+> is still **0**, so the column has never carried a wrong value and the "rows that
+> have to be explained to anyone who reads them later" do not exist. The
+> `max_tokens = 16192` rows this file warned about were never written.
+>
+> **This stays OPEN on two counts.** (1) Candidate 1 is verified **in the binary
+> only**. Its own "How to verify" step 1 needs a `provider='gemini'` row showing
+> `max_tokens = 8000`, and none can exist until `bugs_open/112` is fixed — spawned
+> pods get no `GEMINI_API_KEY`, so the writer cannot call Gemini at all. (2)
+> Consequence 2 is untouched: the four `__` fields still reach no column, so
+> thinking cost remains unmeasurable in any query. That is candidate 2, a migration.
+
 ## Why this is a bug and not a feature request
 
 `features_open/025` recorded this as "teach the heuristic about the split" — a

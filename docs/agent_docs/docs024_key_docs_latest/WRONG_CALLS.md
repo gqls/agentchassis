@@ -6929,3 +6929,55 @@ consumes it.
 Family: writes-the-field-is-not-reads-the-field,
 narrow-filter-defines-the-conclusion,
 a-verification-recipe-is-a-claim-in-a-checklist-costume.
+
+---
+
+## 2026-07-27 — "bugs_open/029 has halted every build since 19 July" (gemini_content_provider)
+
+**The claim.** That the Gemini workstream's last acceptance test (P7: build one
+page and read the copy) was blocked by `bugs_open/029`, which had "halted every
+build fleet-wide since 19 July". Written into `bugs_open/107`, into the
+workstream handoff, and into two commit messages (`bfbbb7cfa`, `5bd32602a`) — all
+of which then told the next thread to go and wait on somebody else's bug.
+
+**Why it was false.** `build-dispatch-loop` had **62 COMPLETED orchestrations on
+07-26 and 30 on 07-27**; its only CANCELLED rows were two on 07-24. Page builds
+were completing throughout — `ai-agent-orchestration.com/model-directory`
+COMPLETED at 02:27, 08:27 and 14:27 on 07-27. The claim was already false on the
+day it was written, not overtaken by events.
+
+**What caught it.** A triage sweep that listed pods before querying anything.
+`agent-build-dispatch-loop-*` pods were visibly Running and Completed minutes
+old, which is impossible if the loop has been dead for eight days.
+
+**The cheap check that would have caught it:** one unfiltered group-by.
+`SELECT date_trunc('day',created_at)::date, status, count(*) FROM
+orchestration_states WHERE owner_agent_type='build-dispatch-loop' GROUP BY 1,2
+ORDER BY 1 DESC;` — three rows, and it contradicts the claim outright. I had
+looked only for *my own* work item's row, found it unclaimed, and reached for the
+first open bug whose title matched the shape of what I was seeing.
+
+**The second, worse omission: I cited a bug without reading its corrections.**
+`029`'s own file carries a CORRECTED DIAGNOSIS from `23e58e1bf` (07-21, six days
+earlier) stating that the trigger is **an image roll** — a transient window after
+each deploy, not a standing outage. Everything I needed to not make this claim
+was inside the file I was citing.
+
+**Cost.** A handoff, a bug file and two commits pointing the next thread at an
+unrelated, actively-owned bug; and — the expensive part — it stopped me looking.
+Because I "knew" why P7 could not run, I never asked whether the writer could
+reach Gemini at all. It cannot: spawned pods are never given `GEMINI_API_KEY`
+(`bugs_open/112`, filed from this sweep). The wrong blocker concealed the real
+one for the rest of the session.
+
+**Generalisable form.** *An open bug whose title matches your symptom is a
+hypothesis, not a diagnosis — and its own file will often already refute it.*
+Before adopting another case as your blocker: (a) read its corrections, not just
+its headline, and (b) verify its stated effect is happening **now**, with a query
+that could come back negative. A bug file is a claim written on a date; the
+effect it describes may be transient, fixed, or have been mis-scoped from the
+start. Adopting one as your blocker is also the cheapest possible way to stop
+investigating, which is what makes it dangerous rather than merely untidy.
+
+Family: narrow-filter-defines-the-conclusion, prior-art-search-goes-stale,
+verify-the-failing-branch.

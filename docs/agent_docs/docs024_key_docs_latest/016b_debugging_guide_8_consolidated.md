@@ -3668,6 +3668,52 @@ Category tags: `same-name-different-definition`, `the-attribution-jumped-a-layer
 `decode-the-whole-usage-block`, `unknown-model-is-a-newer-model`,
 `a-confident-negative-stops-the-re-run`.
 
+### One credential, two provisioning routes — and only one gets updated
+
+*Filed from `bugs_open/112`, 2026-07-27. Sibling of the `same-name-different-definition`
+entry above: same workstream, one layer further out.*
+
+A secret reaches a long-running **Deployment** and a **spawned agent pod** by two
+entirely separate mechanisms, and adding a key to the secret satisfies neither
+automatically:
+
+- a Deployment picks up everything in the secret via `envFrom: secretRef:
+  personae-default-secrets` — add a key, it appears, no code change;
+- a **spawned** pod's env is an **explicit allow-list built in Go**
+  (`platform/orchestration/actions/spawn_actions.go`), naming each var
+  individually. A key not written into that list does not exist for any spawned
+  agent, however correct the secret is.
+
+So `content-creator-agent` (a standalone Deployment, with its own kustomize patch)
+worked on Gemini on the first try, while `page-content-writer` (spawned, same
+cluster, same secret, same binary, same image tag) could never call Gemini at all.
+Both were "switched to Gemini" in the same session by the same person.
+
+**Why it is invisible.** Every local check passes. The secret has the key. The
+config names the right `api_key_env_var`. The binary contains the client. The pod
+runs the current image. The pod-grep is green. Nothing is stale and nothing is
+misconfigured — the value simply never enters that process's environment, and the
+only artefact that shows it is a run, which may be hours away on a schedule.
+
+**Checks, in the order that costs least:**
+1. `grep -rn "<VAR>" --include=*.go` — if the only hits are inside the client that
+   *reads* it, nothing **provisions** it. That is the whole diagnosis, in one grep.
+2. Exec a **spawned** pod (`agent-<type>-<id>-*`), never the service Deployment:
+   `sh -c 'echo ${#<VAR>}'`. The Deployment usually has the var and therefore proves
+   nothing — checking it is the trap, because it returns a reassuring answer.
+3. Establish which class your agent is *before* trusting a sibling's success:
+   `orchestration_states.collected_data->'__execution_context__'->'sender'->>'pod_name'`.
+   A `agent-*-*` pod name means spawned, means allow-list.
+
+**Generalisable form.** *"It works for agent A" transfers to agent B only if A and B
+obtain the resource by the same route.* Deployment-vs-spawned is the sharpest split
+in this platform, and it silently governs env vars, secrets and image tags alike
+(cf. `bugs_open/066`, the same pod class pinning stale images). Ask **how** the
+working one gets it, not **whether** it works.
+
+Category tags: `two-provisioning-routes-one-secret`, `deployment-is-not-spawned`,
+`a-green-pod-grep-is-not-a-live-path`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

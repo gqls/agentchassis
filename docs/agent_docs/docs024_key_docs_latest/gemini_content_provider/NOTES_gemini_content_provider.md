@@ -731,3 +731,127 @@ rates are not** — trust the 10x, not the pounds.
 `appendOutputInstructions`; a real section carries more context and may think longer,
 not less. And "better prose" is not decidable by any of these counters — ten samples
 are in the JSON for a human read.
+
+---
+
+## 2026-07-27, triage sweep after the v1.0.1174 roll — the blocker was never 029
+
+Fleet rolled to **v1.0.1174 at 15:11 UTC**. Chassis binary built 14:58 UTC; last Go
+commit before it `e96d42226` at 14:52 UTC, so every commit of the 107/110 work is in
+the running image. (Clock trap: this box is BST, `kubectl` is UTC. All times here UTC.)
+
+### What is now verified live, against pods rather than git
+
+| check | evidence |
+|---|---|
+| 107 client fix in the binary | `agent-chassis-5994dc6d6c-pt8v9`: `grep -c "thinking consumed the entire output ceiling"` → **1** |
+| negative control | pre-fix format string `no text content in response (finishReason=%q)` → **0** |
+| 110 candidate 1 in the binary | `__sent_wire_max_output_tokens` → **1**, `__sent_visible_budget_tokens` → **0** (the rename is the only pre/post discriminator) |
+| images | `agent-chassis` and `content-creator-agent` both `v1.0.1174` |
+| P6 flip | writer step = `{"model": "gemini-pro-latest", "provider": "gemini", "max_tokens": 8000, "api_key_env_var": "GEMINI_API_KEY"}` — the 8000 survived |
+| no shadowing `ai_service` | exactly ONE `ai_service` in the whole `page-content-writer` definition; root and `config` both ABSENT (the `bugs_closed/009` shape, checked not assumed) |
+| Gemini calls ever made through the chassis | `SELECT count(*) FROM llm_call_log WHERE provider='gemini'` → **0** |
+
+### MISSTEP, mine, and it sent the previous session's handoff at the wrong bug
+
+I wrote (in the handoff, in `107`, and in commits `bfbbb7cfa` / `5bd32602a`) that
+**`bugs_open/029` had halted every build since 19 July** and that P7 was blocked by it.
+**That was false, and it was already false when written.**
+
+```sql
+SELECT date_trunc('day',created_at)::date AS day, status, count(*)
+FROM orchestration_states WHERE owner_agent_type='build-dispatch-loop'
+GROUP BY 1,2 ORDER BY 1 DESC;
+--  2026-07-27 | COMPLETED | 30
+--  2026-07-26 | COMPLETED | 62
+--  2026-07-24 | CANCELLED |  2
+```
+
+One query, and it contradicts the claim outright. Page builds were completing too:
+`ai-agent-orchestration.com/model-directory` COMPLETED at 02:27, 08:27 and 14:27 on
+07-27. And `029`'s own corrected diagnosis (`23e58e1bf`, filed 07-21, six days before
+I cited it) already said the trigger is **an image roll** — a transient window, not a
+standing outage. I cited a bug's headline without reading its correction.
+
+**What the `grip-styles` run actually did.** It was claimed and it ran, 15:46 UTC, in
+`agent-page-build-handler-8bf4fb08-8hfvq`:
+
+```
+spec_sections : {"count": 0, "source": "none", "sections": []}
+plan_sections : {"reason": "no sections to plan", "ready_count": 0}
+check_has_ready_sections : {"condition_met": false, "next_step_override": "mark_no_ready_sections"}
+mark_no_ready_sections   : {"status": "needs_human_review"}
+```
+
+dartsonline has **no `site_plan` aspect** in `site_specs` (its aspects are audience,
+briefing, classification, content_direction, design_intent, identity,
+resolved_composition, strategy, submission, vertical_landscape) and
+`pages.sections` for `grip-styles` is `[]`. `load_page_sections_from_spec` reads the
+first and falls back to the second, so it found nothing. **A bad target, not a broken
+pipeline.** Note `orchestration_states.error` was NULL and `status` was `COMPLETED` —
+the failure is only visible in `collected_data`, exactly as the "`COMPLETED` with
+`error` NULL" trap warns.
+
+Not `bugs_open/087` either: 087 is the `page-rebuild` path and explicitly records
+`page-build-handler` as unaffected. I checked before reaching for it.
+
+### The real blocker, found by asking one more question — filed as `bugs_open/112`
+
+Having established the pipeline works, I went looking for what would happen at the
+next build, and checked whether the chassis could even reach Gemini. The main pod can:
+
+```
+agent-chassis-5994dc6d6c-pt8v9 : GEMINI_API_KEY PRESENT len=53
+```
+
+But `page-content-writer` does not run there. It runs in its **own spawned pod**
+(`orchestration_states` → `__execution_context__.sender.pod_name` →
+`agent-page-content-writer-47953cd4-k8bmn`, and four more). And a live spawned pod says:
+
+```
+agent-build-dispatch-loop-b62d9c1a-pnnt9 | v1.0.1174 | GEMINI ABSENT
+```
+
+Its env list: `ANTHROPIC_API_KEY`, `GROK_API_KEY`, `FIRECRAWL_API_KEY`, ... and no
+Gemini. Cause is in Go, not config — `platform/orchestration/actions/spawn_actions.go`
+:2440-2518 builds the spawned pod env as an **explicit allow-list**, injecting
+`ANTHROPIC_API_KEY` and `GROK_API_KEY` by name from `personae-default-secrets`. There
+is no `GEMINI_API_KEY` block. `grep -rn "GEMINI_API_KEY" --include=*.go` returns
+**two hits in the whole tree**, both inside `platform/aiservice/gemini.go` (a comment
+and an error string).
+
+The secret itself is fine — `personae-default-secrets` does contain `GEMINI_API_KEY`.
+The main Deployment picks it up via `envFrom: secretRef`; spawned pods do not use that
+`secretRef` at all. **Two provisioning routes for one credential, and only one was
+updated.** `content-creator-agent` is a standalone Deployment with its own explicit
+`GEMINI_API_KEY` patch, which is precisely why P5 passed and P6 cannot.
+
+`gemini.go:157-160` fails loudly (`API key environment variable 'GEMINI_API_KEY' is
+not set or empty`), and `generate_content` has **no `error_step`**, so the failure
+takes the whole page build with it.
+
+### Time-sensitive, because the flip is already armed
+
+`scheduled_tasks`: `model-directory-publish` → `model-directory-trigger`,
+`interval_seconds=21600`, enabled, `last_triggered_at` 07-27 14:25 UTC, so **next due
+~20:25 UTC**. That build ran fine at 14:27 on `claude-sonnet-4-6` (71
+`page-content-writer` rows in `llm_call_log`, step names
+`process_sections_loop_iter_N_generate_content`) — seven minutes before the P6 flip
+landed at 14:34. The next one will hit Gemini, and `112`.
+
+So P6 did not just fail to get verified; it **armed a fleet-wide page-build failure**
+that has not fired yet only because no build has reached the writer since. Either fix
+`112` or revert the writer's `ai_service` to anthropic before ~20:25 UTC.
+
+**[UNVERIFIED] and worth stating:** I did not induce the failure. The prediction is
+read off the code path and the pod environment, not observed. The 20:25 build will
+settle it either way, and that is a cheap observation to make rather than a risk to run.
+
+### One thing the cost data already said
+
+Independently of `112`, the 5x2 comparison above found Gemini spends ~1,815 thinking
+tokens per section against Claude's zero — roughly **10x the billable output tokens**,
+at 2.7x latency, on an agent that runs per section across the whole estate. If the
+owner's answer to that is "not worth it", then `112` need never be fixed for this
+workstream's sake and the writer simply stays on Claude. That is an owner call, and it
+is now the *first* question, not the last one.

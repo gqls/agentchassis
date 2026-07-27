@@ -188,3 +188,71 @@ So: run that script when you're ready, then rebuild a single page and read the c
 before letting it near the whole estate. That last step is the real test of the
 thing you actually asked about — whether Gemini writes well enough — and it's the
 one question none of today's work answers.
+
+---
+
+**2026-07-27, later the same day — I was wrong about what was blocking us, and the
+real answer is both simpler and more urgent.**
+
+Earlier today I told you the last step was blocked by a separate fleet-wide fault
+that had stopped all site builds since the 19th. That was wrong, and I should have
+caught it: the builds had not stopped. They had been running all along, including
+three the same day. I took the headline of another bug report and repeated it
+without reading the correction that had been added to that same report six days
+earlier, which said the fault is a brief window after a software update, not a
+standing outage. One database query would have shown me sixty-two successful runs
+the day before. I have recorded that properly as a wrong call.
+
+The test page I queued did run, about half an hour ago. It failed, but for a dull
+reason: that particular page had never been given a list of sections to write, so
+there was nothing for the writer to write. Bad choice of target on my part, nothing
+more.
+
+**The real problem is something nobody had spotted, and it is the reason none of
+this could ever have worked.** The two pieces of software we switched to Gemini get
+their Google API key by two completely different routes. The social-content writer
+runs as a permanent service with the key handed to it directly, which is why that
+half worked and produced real posts. The page writer is different: it is started up
+on demand as a short-lived worker, and those workers are given their credentials
+from a hand-written list in our code. That list has the Anthropic key and the Grok
+key on it. It has never had the Gemini key. The key itself is sitting there in our
+secret store, perfectly fine. It simply never gets handed to the worker that now
+needs it.
+
+So the page writer cannot talk to Gemini at all. Not badly, not expensively. At all.
+
+**This needs a decision from you today, and there is a clock on it.** The switch to
+Gemini is already live in the database, and the site that rebuilds itself
+automatically every six hours is next due at about half past eight this evening. When
+it runs, the writer will reach for a key that is not there, and because that step has
+no fallback, the whole page build will fail. Nothing is damaged and nothing is
+published wrongly, but it will fail, and it will keep failing every six hours until
+someone changes something.
+
+There are two ways to go, and they are genuinely different decisions:
+
+**Put the key on the list.** It is a small, obvious code change of about ten lines,
+sitting right next to the two keys already there. It needs a rebuild and a restart to
+take effect, so it will not be done before this evening's run. I have written it up
+as a proper bug report so whoever picks it up has the evidence.
+
+**Or turn the page writer back to Claude for now.** That is a database change, it
+takes effect immediately, and it removes the clock entirely. Nothing we built today
+is lost or wasted by doing this: the underlying fix that started this whole
+investigation, the one that stopped us starving Gemini of room to answer, is built,
+reviewed, shipped and confirmed running in production. Only the *choice of model* for
+the page writer would go back.
+
+**And there is a reason to think the second option is the right one anyway.** The
+model comparison I ran this afternoon, before any of this came up, found that Gemini
+spends around ten times as many billable tokens per section as Claude, because it
+thinks at length before answering and we pay for that thinking. The page writer runs
+once per section, on every page, across the whole estate. So the honest summary of
+today is that we proved the mechanism works and we proved Gemini writes to our house
+style at least as well as Claude does, and separately we found that it would cost
+roughly ten times as much to use it for the job that matters most. That is a
+commercial question rather than a technical one, and it is yours.
+
+My recommendation: revert the page writer to Claude today to stop the clock, keep the
+key fix on the list as a small job so the option stays open, and treat "is Gemini
+worth ten times the cost for page copy" as the real question we now have to answer.

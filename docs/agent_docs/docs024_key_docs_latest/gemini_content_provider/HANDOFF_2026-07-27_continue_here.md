@@ -38,7 +38,41 @@ nominates.
 `bugs_open/107` stays **OPEN** until P6/P7 land, per the "fixed AND live with no
 residual" bar.
 
+> # CORRECTED 2026-07-27 (triage sweep, after the v1.0.1174 roll) — READ THIS BEFORE THE REST
+>
+> **Two things in this handoff below are wrong, and one big thing is missing.**
+>
+> 1. **`bugs_open/029` is NOT the blocker, and the "halted every build since 19
+>    July" claim is false.** `build-dispatch-loop` completed 62 orchestrations on
+>    07-26 and 30 on 07-27. Page builds completed all through 07-26/27. The
+>    `grip-styles` item **was claimed and did run**, at 15:46 UTC.
+> 2. **It failed on a bad target, not a broken pipeline.** `load_spec_sections`
+>    returned `{"count": 0, "source": "none"}`: dartsonline has no `site_plan`
+>    aspect in `site_specs`, and `pages.sections` for `grip-styles` is `[]`. Zero
+>    sections, so the handler routed to `mark_no_ready_sections` and set the work
+>    item to `needs_human_review`. (Not `bugs_open/087` either — that is the
+>    `page-rebuild` path; this was `page-build-handler`.)
+> 3. **THE ACTUAL BLOCKER IS NEW: `bugs_open/112`.** Spawned agent pods are never
+>    given `GEMINI_API_KEY`. `page-content-writer` runs in a spawned pod, and
+>    `spawn_actions.go:2440-2518` builds their env as an explicit allow-list with
+>    `ANTHROPIC_API_KEY` and `GROK_API_KEY` and no Gemini key.
+>    `content-creator-agent` is a standalone Deployment with its own key patch —
+>    **that is the whole reason P5 passed and P6 cannot.**
+>
+> **P6/P7 are therefore live-but-armed-to-fail, and this is time-sensitive.** The
+> flip is in the DB, `generate_content` has **no `error_step`**, and the scheduled
+> `model-directory-publish` fires every 6h (last 14:25 UTC, **next ~20:25 UTC**).
+> When it fires, every section fails at client construction and the page build
+> fails with it. Either fix `112` or revert the writer to anthropic first.
+>
+> **What IS confirmed live and verified** (running pods, v1.0.1174, not git): the
+> 107 client fix (positive grep 1, negative control 0), the 110 candidate-1 rename
+> (`__sent_wire_max_output_tokens` 1, `__sent_visible_budget_tokens` 0), and the P6
+> row itself with `max_tokens: 8000` intact and no shadowing `ai_service`.
+
 ## BLOCKED, and not by us: `bugs_open/029` has halted every build since 19 July
+
+> **The heading and section below are superseded — see the correction above.**
 
 **P7's page build cannot run.** Queued `dartsonline/grip-styles` (planned, never
 deployed) as a proper `needs_page` build item on 2026-07-27. It was never claimed.

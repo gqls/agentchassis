@@ -154,6 +154,41 @@ still OPEN) has stopped `build-dispatch-loop` since 19 July. A properly queued
 `needs_page` item for `dartsonline/grip-styles` was detected and never claimed. This
 predates this bug by eight days and is unrelated to the provider switch.
 
+> **CORRECTED 2026-07-27 (triage sweep, after the v1.0.1174 roll at 15:11 UTC) —
+> the paragraph above is FALSE in its central claim, and was already false when
+> written.** `build-dispatch-loop` had **62 COMPLETED orchestrations on 07-26 and
+> 30 on 07-27**; its only CANCELLED rows are two on 07-24, none since. Page builds
+> completed throughout (`ai-agent-orchestration.com/model-directory` at 07-27
+> 02:27, 08:27 and **14:27**, all `COMPLETED`). "Halted every build since 19 July"
+> was never true — `029`'s own corrected diagnosis (`23e58e1bf`, 07-21) says the
+> trigger is **an image roll**, i.e. a transient window, not a standing outage.
+>
+> What actually happened: the `grip-styles` item **was** claimed and **did** run,
+> at 15:46 UTC, in `agent-page-build-handler-8bf4fb08-8hfvq`. It failed for a
+> completely different reason — `load_spec_sections` returned
+> `{"count": 0, "source": "none"}` because dartsonline has **no `site_plan` aspect
+> in `site_specs`** and `pages.sections` for `grip-styles` is `[]`. With zero
+> sections, `plan_sections` had nothing to plan, `check_has_ready_sections` went
+> false, and the handler routed to `mark_no_ready_sections`, setting the work item
+> to `needs_human_review`. That is a bad *target*, not a broken pipeline. **This is
+> also not `bugs_open/087`** — 087 is the `page-rebuild` path; this ran the
+> `page-build-handler` path, which 087 explicitly records as unaffected.
+>
+> **What caught it:** listing pods before querying, then asking the DB for the
+> orchestration history unfiltered rather than for the one row the claim was about.
+> **The cheap check that would have:** `SELECT date_trunc('day',created_at)::date,
+> status, count(*) FROM orchestration_states WHERE
+> owner_agent_type='build-dispatch-loop' GROUP BY 1,2` — one query, and it
+> contradicts the claim outright. Logged in `WRONG_CALLS.md`.
+
+> **THE REAL BLOCKER, found 2026-07-27: `bugs_open/112`.** Spawned agent pods are
+> never given `GEMINI_API_KEY`. `page-content-writer` runs in a spawned pod
+> (`agent-page-content-writer-*`), and `spawn_actions.go:2440-2518` builds their env
+> as an explicit allow-list holding `ANTHROPIC_API_KEY` and `GROK_API_KEY` and no
+> Gemini key. `content-creator-agent` is a standalone Deployment with its own
+> `GEMINI_API_KEY` patch, which is why P5 passed and P6 cannot. So P7 was never
+> going to run, for a reason nothing in this file had identified.
+
 The model-side risks were verified directly instead: the writer's real 12,570-char
 prompt at its real 8000 budget returns valid unfenced JSON with all required keys,
 `finishReason=STOP`, 1,576 thinking tokens.
@@ -165,6 +200,33 @@ defect is fully reproducible: flipping any `ai_service` to Gemini today
 reproduces 07-24 exactly. Two images are needed —
 `page-content-writer` runs inside the chassis, `content-creator-agent` is its own
 service.
+
+> **UPDATED 2026-07-27 (triage sweep) — the roll happened; the reason this stays
+> open has changed.** Fleet rolled to **v1.0.1174** at 15:11 UTC (chassis binary
+> built 14:58 UTC; last Go commit before it `e96d42226` at 14:52 UTC, so every
+> commit of this fix is in it). Verified on the running pods, not on git:
+>
+> | check | pod | result |
+> |---|---|---|
+> | positive, a string this fix created | `agent-chassis-5994dc6d6c-pt8v9` | `grep -c "thinking consumed the entire output ceiling"` → **1** |
+> | negative control, the pre-fix format string | same | `grep -c "no text content in response (finishReason=%q)"` → **0** |
+> | image | `agent-chassis` / `content-creator-agent` | both `v1.0.1174` |
+>
+> P6 is also **DONE and live**: `page-content-writer`'s writer step reads
+> `{"model": "gemini-pro-latest", "provider": "gemini", "max_tokens": 8000,
+> "api_key_env_var": "GEMINI_API_KEY"}`. The `max_tokens: 8000` survived, which is
+> what a `jsonb_set` replace would have destroyed. Checked for the
+> `bugs_closed/009` root-shadowing shape too: `page-content-writer` has **exactly
+> one** `ai_service` block in the whole definition, and no root or `config` level
+> one.
+>
+> **So the code half of 107 is fixed, live and verified.** It stays OPEN for one
+> reason only: **the fix has never executed.** `SELECT count(*) FROM llm_call_log
+> WHERE provider='gemini'` is **0** — no Gemini call has ever traversed the chassis
+> path, because of `bugs_open/112`. A pod-grep proves the code is in the binary,
+> never that it is on the feature's path. Close this when a `provider='gemini'` row
+> exists for `agent_type='page-content-writer'` and a human has read the copy it
+> produced.
 
 ## How to verify
 
