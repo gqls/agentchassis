@@ -240,3 +240,83 @@ sweep being off is no longer only a backlog, it is now a silent tax on shipped w
 **Fix candidate 4's caution stands and applies here as well** — do not flip the sweep on
 without first checking that the handlers for the top item types have a real remit
 (`bugs_open/077`), or 158 rows move from `detected` to `failed` and the tax is unchanged.
+
+---
+
+## 2026-07-27 — fleet-wide measurement, contributed (brochure_component_library thread)
+
+**Contributing measurements, not forking a diagnosis** — `who-owns.py 083` says OWNED,
+and `bugs_open/115` (mine, same day) is a *symptom* of this file's mechanism, not a
+rival account. What follows is the scale, which I could not find quantified here.
+
+I arrived from the other end: the owner reported a live site looked wrong, and it turned
+out our own brief-fidelity audit had filed three correct findings about it **three days
+earlier** that nobody ever read, because nothing consumes that item type. That is one
+item type. The fleet number is much larger.
+
+### Every non-terminal work item, split by whether it can EVER be actioned
+
+```sql
+SELECT CASE WHEN handler_agent IS NULL OR handler_agent = '' THEN 'no handler named'
+            WHEN NOT EXISTS (SELECT 1 FROM agent_definitions ad
+                              WHERE ad.type = wi.handler_agent AND ad.is_active
+                                AND COALESCE(ad.is_snapshot,false)=false AND ad.deleted_at IS NULL)
+                 THEN 'handler named but NOT REGISTERED'
+            ELSE 'has a live handler' END AS routing,
+       count(*), count(DISTINCT item_type)
+  FROM site_work_items wi
+ WHERE status NOT IN ('complete','verified','rejected','wont_fix','failed','unresolved','cancelled')
+ GROUP BY 1;
+```
+
+| routing | items | item types |
+|---|---|---|
+| **no handler named** | **298** | 13 |
+| has a live handler | 238 | 25 |
+| **handler named but NOT REGISTERED** (`bugs_closed/077`'s exact shape) | **9** | 5 |
+
+The 9 all name **`human-review`**, which is not a registered agent. Same mechanism as
+077's `forced-text-color-fixer`: filed, unclaimable, invisible.
+
+### The 298, by type — and NOT all of them are defects
+
+| item_type | items | oldest (days) | sites |
+|---|---|---|---|
+| `cta_names_unknown_destination` | 70 | 13 | 6 |
+| `unresolved_cta` | 70 | 35 | 7 |
+| `required_fields_missing` | 45 | 13 | 5 |
+| **`needs_section_data`** | **44** | **135** | **10** |
+| `voice_tells` | 25 | 10 | 1 |
+| `image_source_unsatisfiable` | 17 | 10 | 1 |
+| `owned_page_review` | 6 | 10 | 4 |
+| `dead_control` | 6 | 10 | 2 |
+| `capability_gap` | 5 | 4 | 4 |
+| `image_url_404` | 5 | 1 | 1 |
+| others (3 types) | 5 | ≤12 | — |
+
+> **The honest caveat, and it matters for how this file is read: `capability_gap` is
+> SUPPOSED to have no handler.** It is the platform's deliberate "found work nobody can
+> action", read as a roadmap. So "no handler" is not automatically a defect and the
+> headline number must not be quoted as 298 broken things. Subtracting it gives **293**
+> — but the right subtraction is per type, and deciding which of the other twelve are
+> deliberate is exactly the work this bug needs and I have not done it.
+
+`needs_section_data` is the one I would look at first regardless: **44 items, 10 sites,
+oldest 135 days.** Whatever it detects, it has been detecting it since March.
+
+### Why this compounds rather than merely accumulating
+
+A detector whose output nobody drains is not neutral — it is **actively misleading**,
+because `detected` reads like a live state and behaves like a grave. Three of these rows
+described a live commercial site accurately and the site was described as sound in its
+own handoff for three days, by me, while they sat there.
+
+### One candidate this file may not have
+
+**A routing audit, run on a cadence, not a new handler for each type.** The query above
+is the whole detector: any item type whose rows sit non-terminal with no live handler is
+a *routing* defect by construction, independent of what the type means. It generalises
+past every instance — 077, 115 and this file are three sightings of one thing, and the
+fix that makes the next one visible is cheaper than the fix that drains this batch.
+
+Contributed rather than acted on: the drain itself is this file's owner's call.
