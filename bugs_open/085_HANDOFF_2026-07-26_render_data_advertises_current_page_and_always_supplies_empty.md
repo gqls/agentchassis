@@ -298,3 +298,56 @@ race.
 > `index` completes on v1.0.1174, run the step-2 query and assert **one** chart
 > (`relojistas-feed-restoration`), not three. Then steps 3 and 4. The query is already
 > known to fail pre-fix, so it discriminates.
+
+---
+
+## 2026-07-27 (evening) — BOTH PATHS VERIFIED LIVE. The proof was a version boundary, not a test I ran.
+
+**The scoped path now filters correctly on the live site.** `index` carries exactly one
+chart — `relojistas-feed-restoration`, the only one declared `pages: ["index"]` — where
+it carried three this afternoon. Register unchanged (still 3 charts, 2 marked
+`capabilities`), component template unchanged (`updated_at 2026-07-26 17:41`),
+`content_data` still supplies all 3 charts to the template. **The template filtered
+them; nothing else could have.**
+
+The verification is stronger than the test I was about to run, because it is a natural
+before/after across a roll with every other variable held constant:
+
+| time (UTC) | image | path | reason | result |
+|---|---|---|---|---|
+| 14:08 | v1.0.1173 | scoped | `section_data_resolved` | **3 charts** — the defect |
+| 14:18 | — | *second fix committed* | | |
+| 15:11 | **v1.0.1174** | *fleet roll — carries it* | | |
+| 16:04 | v1.0.1174 | scoped | `section_data_resolved` | **1 chart** — fixed |
+| 18:00 | v1.0.1175 | | | |
+
+Same agent, same path, same reason, same page, same data. The only difference is the
+binary.
+
+> **CORRECTED — and I nearly published the opposite.** I read the 16:04 result while
+> believing the pod had gone v1.0.1173 → v1.0.1175, because v1.0.1175 was what I saw
+> when I looked at 18:14. On that assumption the 16:04 run was a same-binary,
+> same-path contradiction of my own 14:08 measurement, and I spent four queries
+> hunting a mechanism that did not exist — checking whether the register had been
+> edited, whether `content_data` had gained the key, whether the resolver injected it,
+> whether `sites.content_data` carried it. All refuted, correctly, and all irrelevant.
+> **There was an intermediate roll: v1.0.1174 at 15:11:15Z**, recorded in
+> `bugs_open/066`'s own dated correction, which I had not read.
+>
+> *The check:* **an image tag observed now does not tell you what was running then.**
+> Before comparing two runs, establish the image for EACH from its own timestamp —
+> roll history, not the current pod. This is the same family as "confirm the record
+> you are reading is the one that produced the artefact", one level out: I confirmed
+> the artefact and assumed the runtime.
+
+Also settled, and it is why the two measurements looked contradictory at first: the
+`page-rerender` agent takes **either** path depending on `spec.reason`. With
+`image_landed` / `section_data_resolved` it runs the scoped `rerender_page_sections`
+pre-pass (the one that was broken); otherwise it takes the assemble/full re-render
+route, which has always set `CurrentPage` (`rerender_pages_actions.go:190`). **One
+agent, two paths, one of which was broken** — so "page-rerender works" and
+"page-rerender is broken" were both true this afternoon depending on the reason.
+Anyone testing this must state the reason they dispatched with.
+
+**Still owed:** restore the `capabilities` placement and confirm it carries the **two**
+charts declared for it, and induce the empty case. Neither is blocked.
