@@ -1,5 +1,9 @@
 # Register — dynamic-applications
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 12 concepts, consolidated from 36 raw extractions (the cluster input file contains
 the entire dynamic-applications block set duplicated exactly twice — 18 unique raw
 blocks appearing twice each — plus further cross-unit duplication of the same

@@ -1,4 +1,9 @@
 # Register — link-management
+
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 22 concepts, consolidated from 56 raw extractions (28 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U05, U21, U23, U24d, U24f, U25.
 
 ### LNK-001 — link_registry as first-class link index + planned links-orchestrator family

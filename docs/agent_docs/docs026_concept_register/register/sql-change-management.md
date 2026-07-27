@@ -1,5 +1,9 @@
 # Register — new:sql-change-management
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 1 raw extraction across units U03.
 
 ### SQLC-001 — SQL needle-gate surgery pattern (guarded, idempotent, reversible DB edits)

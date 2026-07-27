@@ -1,5 +1,9 @@
 # Register — build-pipeline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 15 concepts, consolidated from 17 raw extractions across units U14, U15, U18, U21.
 Absorbed categories: new:site-build-pipeline, new:site-build-orchestration-generations
 (their raw material described the same builder-lineage territory as new:build-pipeline

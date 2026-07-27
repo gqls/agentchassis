@@ -1,5 +1,9 @@
 # Register — workflow-authoring
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 1 raw extraction across unit U21. No duplicates
 found within this category's raw material (this new category surfaced a single
 raw block from the whole cluster). Note: material about workflow-authoring

@@ -1,5 +1,9 @@
 # Register — new:migration-governance
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 1 raw extraction across units U12.
 
 ### MIGG-001 — Proposed migration runner/ledger for hand-applied agent-def changes (never built)

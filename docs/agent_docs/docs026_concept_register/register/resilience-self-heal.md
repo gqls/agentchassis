@@ -1,5 +1,9 @@
 # Register — new:resilience-self-heal
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 2 concepts, consolidated from 2 raw extractions across units U12.
 
 ### RSH-001 — Dual-signal self-heal on missing spec dependency

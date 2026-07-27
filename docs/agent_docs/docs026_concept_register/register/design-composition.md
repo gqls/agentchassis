@@ -1,5 +1,9 @@
 # Register — design-composition
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 80 concepts, consolidated from 105 unique raw extractions across units
 U01, U02, U03, U04, U05, U07, U09, U10, U12, U13, U17a, U18, U19, U20, U21,
 U22, U23, U24a, U25.

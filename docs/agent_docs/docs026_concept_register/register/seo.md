@@ -1,5 +1,9 @@
 # Register — seo
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 2 raw extractions across unit U21. (The cluster input file contained this category's raw block twice, back-to-back and byte-identical; merged into one entry below.)
 
 ### SEO-001 — SEO content agent

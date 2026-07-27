@@ -1,5 +1,9 @@
 # Register — page-build-pipeline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 24 concepts, consolidated from 29 raw extractions across units U03, U05, U23.
 
 ### PBP-001 — Rebuild vs rerender semantics and stale-render fossilisation

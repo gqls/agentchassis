@@ -1,5 +1,9 @@
 # Register — documentation-system
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 66 concepts, consolidated from 81 raw extractions (each doubled by an input-file
 duplication artifact, so 162 raw headers collapsed to 81 before merging) across
 units U01, U03, U04, U05, U06, U07, U08, U10, U11, U12, U13, U14, U15, U16, U17a,

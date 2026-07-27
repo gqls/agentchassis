@@ -1,5 +1,9 @@
 # Register — rag-retrieval
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 2 raw extractions across units U18_sql_for_agents, U19_sql_tables_components.
 
 Note on source material: the assigned cluster input file contained this entire category duplicated byte-for-byte exactly twice (a mechanical bucketing artifact, verified via diff). Counts and merges below are computed on the de-duplicated set of 2 real raw blocks, which turned out to describe the same table from two different SQL-doc directories (each with their own independent 001-numbering, hence the apparently conflicting migration numbers below — not a real conflict).

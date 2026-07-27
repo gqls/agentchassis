@@ -1,5 +1,9 @@
 # Register — affiliate-commerce
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 (absorbed affiliate-and-products — the two assigned categories describe the same real-world capability: the platform's affiliate/first-party-product commerce layer, viewed from the schema side and the resolver/gap-status side respectively. Merging them per the consolidation instructions' category-merge rule.)
 
 1 concept, consolidated from 4 raw extractions across units U19 (affiliate-and-products), U10 (affiliate-commerce). (The cluster input file contained each category's raw blocks twice, back-to-back and byte-identical — i.e. 2 raw blocks per category, 1 distinct concept per category — and the two categories' single distinct concepts describe the same commerce layer from two angles: U19 documents the schema, U10 documents the vision and the fact that the schema's resolver is unpopulated. Merged into one entry.)

@@ -1,5 +1,9 @@
 # Register — work-item-integrity
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 7 concepts, consolidated from 9 raw extractions across units U05, U09.
 
 ### WII-001 — Silent-completion failure family ("work reports success but doesn't happen")

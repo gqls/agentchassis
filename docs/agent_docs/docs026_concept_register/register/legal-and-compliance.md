@@ -1,5 +1,9 @@
 # Register — legal-and-compliance
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 (absorbed legal-liability — the two assigned categories describe the same real-world concept: idea.uk's liability posture and the live legal pages it produced. Merging them per the consolidation instructions' category-merge rule.)
 
 1 concept, consolidated from 4 raw extractions across units U04 (legal-liability), U24e (legal-and-compliance). (The cluster input file contained each category's raw blocks twice, back-to-back and byte-identical — i.e. 2 raw blocks per category, 1 distinct concept per category — and the two categories' single distinct concepts describe the same underlying liability work from two angles: U04 gives the fuller risk-analysis/T&Cs framework, U24e gives the shipped-pages angle. Merged into one entry.)

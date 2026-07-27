@@ -1,4 +1,9 @@
 # Register — context-pack-tooling
+
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 3 concepts, consolidated from 6 raw extractions across units U05, U06, U09, U24d,
 U24f. This category was thinly seeded at extraction time (only 1 raw block was
 natively tagged NEW:context-pack-tooling); the other raw blocks were reassigned

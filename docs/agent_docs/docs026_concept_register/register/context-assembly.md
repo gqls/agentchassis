@@ -1,4 +1,9 @@
 # Register — context-assembly
+
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 23 concepts, consolidated from 25 raw extractions across units U12, U14, U16, U17b,
 U18, U19 (all tagged NEW:context-assembly, plus a handful of diagnosis-loop-tagged
 raw blocks from U14/U18/U19 that describe the same production retrieval/assembly

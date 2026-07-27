@@ -1,5 +1,9 @@
 # Register — payments
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 8 concepts, consolidated from 24 raw extractions across units U04, U13, U22, U24e. (The cluster input file contained this category's raw blocks twice, back-to-back and byte-identical, in addition to genuine cross-unit duplication — both kinds are merged below. Several pairs of raw concepts describing the same underlying Stripe/billing design from different units were merged into single entries: idea.uk's proven Stripe implementation was independently extracted by U04 and U24e; the chassis-wide "client_entitlements cache" plan was independently extracted by U04 and U24e; and the standalone "webhook-as-only-source-of-truth" design principle (U13) was folded into the chassis-wide plan entry it motivates. A "Commercial model + entitlement seams" synthesis from U22 that restated the entitlement-gate design was folded into PAY-003 as an additional detail rather than kept as a separate entry.)
 
 ### PAY-001 — Stripe webhook-as-truth payments pattern (idea.uk implementation)

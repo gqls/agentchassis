@@ -1,5 +1,9 @@
 # Register — locks
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 6 concepts, consolidated from 18 raw extractions across units U01_docs024_numbered_core, U02_docs024_focus_handoff, U05_content_quality_linking, U09_adoption, U10_imagery, U17a_docs019_archive_discussions_and_main, U18_sql_for_agents, U19_sql_tables_components, U23_docs_root_vonc, U25_leopardess_social.
 
 Note on source material: the assigned cluster input file contained this entire category duplicated byte-for-byte exactly twice (a mechanical bucketing artifact, verified via diff). Counts and merges below are computed on the de-duplicated set of 18 real raw blocks. Locks is the most cross-cutting category in this cluster — nearly every raw block turned out to describe some facet of the same handful of underlying mechanisms, so the merge rate here is intentionally the heaviest in the register.

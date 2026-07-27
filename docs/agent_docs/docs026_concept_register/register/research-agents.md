@@ -1,5 +1,9 @@
 # Register — research-agents
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 7 concepts, consolidated from 20 raw extractions (10 unique blocks, each
 appearing twice due to exact whole-block duplication in the cluster input file)
 across units U14, U15, U16, U18, U19, U21, U22, U24c, U24e, U26.

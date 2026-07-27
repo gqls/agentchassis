@@ -1,5 +1,9 @@
 # Register — social-media
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 13 concepts, consolidated from 26 raw extractions (13 unique blocks, each
 appearing twice due to exact whole-block duplication in the cluster input file)
 across unit U25. No conceptual merges were needed within this category — each

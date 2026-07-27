@@ -1,5 +1,9 @@
 # Register — org-framework
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 2 raw extractions (1 unique block, present twice
 in the source cluster file due to mechanical duplication in the input), from
 unit U21.

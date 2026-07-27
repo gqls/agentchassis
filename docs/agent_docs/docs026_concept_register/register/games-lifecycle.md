@@ -1,5 +1,9 @@
 # Register — games-lifecycle
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 1 raw extraction across unit U13.
 
 ### GML-001 — Games quality lifecycle parity (new game_health / game-auditor / game-behavioral-tester / game-improver)

@@ -1,5 +1,9 @@
 # Register — action-build-pipeline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 1 raw extraction across unit U22. Note: despite the
 name overlap with the site-building "build pipeline" concepts elsewhere in this
 cluster (register/build-pipeline.md, register/site-plan-and-reconciler.md), this

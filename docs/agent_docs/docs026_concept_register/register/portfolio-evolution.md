@@ -1,5 +1,9 @@
 # Register — portfolio-evolution
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 3 concepts, consolidated from 6 raw extractions across units U20, U21. (The cluster input file contained this category's raw blocks twice, back-to-back and byte-identical; each pair is merged into one entry below. The three entries are closely related sub-parts of one larger 2026-era strategy — the founding 4-phase engine (PEV-003) and its two named phases/mechanisms (PEV-001, PEV-002) — kept as separate entries because each is independently named and cited, but cross-referenced.)
 
 ### PEV-001 — Pragmatic Evolution model (explore/exploit portfolio cohorts)

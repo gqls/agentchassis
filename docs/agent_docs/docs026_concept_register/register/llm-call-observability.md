@@ -1,5 +1,9 @@
 # Register — llm-call-observability
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 4 concepts, consolidated from 5 raw extractions (one exact duplicate pair
 collapsed) across unit U13.
 

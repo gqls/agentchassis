@@ -1,5 +1,9 @@
 # Register — business-intel-collection
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 1 concept, consolidated from 2 raw extractions (1 unique block, appearing twice
 due to exact whole-block duplication in the cluster input file) across unit U19.
 

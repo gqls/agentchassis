@@ -1,5 +1,9 @@
 # Register — contracts-and-standards
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 57 concepts, consolidated from 78 raw extractions across units U01_docs024_numbered_core, U02_docs024_focus_handoff, U03_idea_uk_section_data, U04_idea_uk, U09_adoption, U10_imagery, U12_docs024_archives, U13_docs024_small_dirs, U15_docs019_running_notes, U16_docs019_design_plans, U17a_docs019_archive_discussions_and_main, U18_sql_for_agents, U19_sql_tables_components, U21_legacy_docs_b, U23_docs_root_vonc, U24a_docs_archive_classic_and_docs024_misc, U24b_docs_archive_finetuning, U24c_docs_archive_traffic_probe, U24f_docs_archive_remaining_small, U25_leopardess_social.
 
 Note on source material: the assigned cluster input file (`.clusters/contracts-standards-locks.md`) contained the entire raw block set duplicated byte-for-byte exactly twice (a mechanical bucketing artifact, verified via diff — not independent re-extraction). Counts and merges below are computed on the de-duplicated set of 78 real raw blocks.

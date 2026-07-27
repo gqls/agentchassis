@@ -1,5 +1,9 @@
 # Register — work-dispatch
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 13 concepts, consolidated from 18 raw extractions across units U01, U02, U09.
 Absorbed categories: new:dispatch-pipeline, new:work-item-system (their raw material
 was largely re-derivations of the same dispatch-chain/state-machine/two-strike facts

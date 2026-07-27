@@ -1,5 +1,9 @@
 # Register — tool-library
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 23 concepts, consolidated from 26 raw extractions across units U01, U02, U05, U08, U09, U12, U16, U17a, U18, U19, U20, U23, U24c, U25, plus one concept (TLIB-001) absorbing a duplicate entry originally tagged tool-lifecycle in unit U19.
 
 ### TLIB-001 — Fork-on-deploy tool ownership model

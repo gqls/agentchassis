@@ -1,5 +1,9 @@
 # Register — improvement-loop
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 49 concepts, consolidated from 62 raw extractions across units U01, U02, U03, U05, U07, U09, U10, U11, U12, U17a, U18, U19, U21, U22, U24a, U24b, U24d, U25.
 
 ### IMP-001 — QA three-layer architecture + concrete audit agent hierarchy

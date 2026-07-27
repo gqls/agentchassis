@@ -1,5 +1,9 @@
 # Register — scheduler-and-tasks
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 22 concepts, consolidated from 52 raw extractions (26 unique blocks, each present
 twice in the source cluster file due to mechanical duplication in the input) across
 units U01, U02, U03, U05, U11, U12, U13, U17a, U19, U24b, U24c, U24d.

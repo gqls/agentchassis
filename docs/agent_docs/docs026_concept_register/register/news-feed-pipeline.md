@@ -1,5 +1,9 @@
 # Register — news-feed-pipeline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 19 concepts, consolidated from 44 raw extractions (22 unique blocks, each duplicated
 once in the source cluster file) across units U01, U02, U10, U12, U13, U17a, U18,
 U19, U21, U23.

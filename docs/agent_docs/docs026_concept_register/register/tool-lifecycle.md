@@ -1,5 +1,9 @@
 # Register — tool-lifecycle
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 30 concepts, consolidated from 51 raw extractions across units U01, U04, U05, U08, U09, U12, U13, U14, U15, U17a, U18, U19, U23, U24a, U25. One concept (fork-on-deploy tool ownership model) was cross-merged into register/tool-library.md's equivalent entry (TLIB-001) since it is the same mechanism described from a different angle — noted here and there.
 
 ### TL-001 — Tool widget clobber hazard (interactive content silently destroyed by content rebuild)

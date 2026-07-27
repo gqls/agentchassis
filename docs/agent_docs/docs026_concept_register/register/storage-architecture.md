@@ -1,5 +1,9 @@
 # Register — storage-architecture
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 9 concepts, consolidated from 22 raw extractions (11 unique blocks, each duplicated
 once in the source cluster file) across units U01_docs024_numbered_core,
 U06_finetuning, U18_sql_for_agents, U24b_docs_archive_finetuning,

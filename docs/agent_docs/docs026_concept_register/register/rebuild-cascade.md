@@ -1,5 +1,9 @@
 # Register — rebuild-cascade
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 7 concepts, consolidated from 7 raw extractions across unit U07 (no internal
 duplication found; all seven are distinct facets of the same component-regen →
 rerender-propagation investigation).

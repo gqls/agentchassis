@@ -1,5 +1,9 @@
 # Register — autonomous-build-operate
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 6 concepts, consolidated from 12 raw extractions across unit U24f (each of the 6 distinct
 blocks appeared byte-identically twice within the cluster input file — treated as duplicate
 copies of one extraction, not independent corroboration). All sourced from an archived

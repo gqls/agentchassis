@@ -1,5 +1,9 @@
 # Register — llm-quality-testing
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 5 concepts, consolidated from 5 raw extractions across units U01, U02, U17a,
 U18, U24b. No exact duplicates within this category's raw material, though
 LQT-001 overlaps substantially with a model-infrastructure raw block ("Model

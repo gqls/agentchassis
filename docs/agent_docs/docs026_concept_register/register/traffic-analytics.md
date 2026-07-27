@@ -1,5 +1,9 @@
 # Register — traffic-analytics
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 21 concepts, consolidated from 58 raw extractions (29 unique blocks, each duplicated
 once in the source cluster file) across units U05, U11, U18, U24c.
 

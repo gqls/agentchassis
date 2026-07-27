@@ -1,5 +1,9 @@
 # Register — claims-verification
 
+> **covers-through: 2026-07-27** · written 2026-07-27 from first-hand code/DB reads, never part of the extraction.
+> Everything else dates from the 2026-07-13 extraction freeze — absence
+> here is not evidence of absence in the platform. See `bugs_open/106`.
+
 12 concepts. **NOT from the 2026-07-13 extraction** — this whole subsystem shipped
 after extraction froze (its first plan is dated 2026-07-16), so none of it was
 ever in the register. Added 2026-07-27 from the oufe.com workstream, grounded in

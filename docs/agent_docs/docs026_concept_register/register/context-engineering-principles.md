@@ -1,4 +1,9 @@
 # Register — context-engineering-principles
+
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 6 concepts, consolidated from 8 raw extractions across units U14, U15, U16, U24f
 (the 2 raw blocks natively tagged NEW:context-engineering-principles, plus doctrine
 -level entries reassigned here from the diagnosis-loop bucket as the closer fit —

@@ -1,5 +1,9 @@
 # Register — investigation-discipline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 2 concepts, consolidated from 4 raw extractions across unit U13 (each of the 2 distinct blocks
 appeared byte-identically twice within the cluster input file — treated as duplicate copies of
 one extraction, not independent corroboration).

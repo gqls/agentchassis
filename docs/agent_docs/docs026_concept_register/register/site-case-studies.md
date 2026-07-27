@@ -1,5 +1,9 @@
 # Register — site-case-studies
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 18 concepts, consolidated from 36 raw extractions (the cluster input file contains
 the entire site-case-studies block set duplicated exactly twice — 18 unique raw
 blocks appearing twice each, with no further cross-unit duplication found) across

@@ -1,5 +1,9 @@
 # Register — persona-architecture
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 2 concepts, consolidated from 4 raw extractions (2 unique blocks, each present
 twice in the source cluster file due to mechanical duplication in the input),
 all from unit U21.

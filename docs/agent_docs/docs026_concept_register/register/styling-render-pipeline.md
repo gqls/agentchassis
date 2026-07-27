@@ -1,4 +1,9 @@
 # Register — styling-render-pipeline
+
+> **covers-through: 2026-07-16** · STY-049 added 2026-07-16 (post-freeze hand-patch).
+> Everything else dates from the 2026-07-13 extraction freeze — absence
+> here is not evidence of absence in the platform. See `bugs_open/106`.
+
 48 concepts, consolidated from 120 raw extractions (60 unique blocks, each mechanically duplicated once in the cluster input — see consolidator note below) across units U01, U02, U03, U07, U08, U09, U13, U18, U19, U20, U21, U22, U23, U24c, U25.
 
 > Consolidator note: the cluster input file `styling-nav-links.md` contains its entire content twice back-to-back (every one of 102 raw concept blocks across all three categories appears byte-identically twice — a mechanical file-doubling, not independent-unit re-extraction). That duplication was collapsed first without comment. The 48 entries below reflect a *second*, genuine layer of dedup: real cases where two different extraction units (e.g. U03 and U07, both reading the scheme-to-components thread from different doc snapshots) independently produced blocks describing the same mechanism.

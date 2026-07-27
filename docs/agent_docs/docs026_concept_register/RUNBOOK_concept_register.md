@@ -20,6 +20,28 @@ command yourself by prefixing it with `!` at the prompt.
 
 ## A. Standing rituals
 
+### A0. Before concluding "the platform has no X" — check the register's reach FIRST
+
+```bash
+./102_CHECK_register_coverage.py          # new drift only (quiet on a good day)
+./102_CHECK_register_coverage.py --all    # the whole uncovered backlog
+```
+
+**Read the `covers-through:` stamp at the top of any file you rely on.** Most say
+**2026-07-13** — the extraction freeze. A subsystem that shipped after that date
+may be absent from its file *entirely*, so **absence from the register is not
+evidence of absence in the platform.** Three subsystems have already been found
+missing this way (fixloop, model-directory, claims-verification), each by
+coincidence.
+
+When you add a register entry, remove its line from `102_coverage_ratchet.txt` —
+the report then stays quiet about it. A name on the ratchet is **accepted
+backlog, not a resolved problem**.
+
+`--strict` exits 1 on new drift, for a hook or CI. The default is advisory and
+exits 0 even when it finds things: breadth of uncovered work is a backlog, and a
+check that blocks on a backlog gets switched off within a week.
+
 ### A1. Before trusting any register entry for a real decision
 The register's `status` column is a **documentary signal**, even after stage 2
 verified all 1,627 concepts — verification found a ~7.6% error rate, so most

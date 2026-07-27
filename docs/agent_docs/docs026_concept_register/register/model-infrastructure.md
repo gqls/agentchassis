@@ -1,5 +1,9 @@
 # Register — model-infrastructure
 
+> **covers-through: 2026-07-17** · MDL-038/039 added 2026-07-17 (post-freeze hand-patch).
+> Everything else dates from the 2026-07-13 extraction freeze — absence
+> here is not evidence of absence in the platform. See `bugs_open/106`.
+
 39 concepts (37 from stage 1 + 2 added 2026-07-17, MDL-038/039, found by the
 fix-loop's own first real-case run), consolidated from 53 raw extractions
 across units U01, U02, U06,

@@ -1,5 +1,9 @@
 # Register — fix-loop
 
+> **covers-through: 2026-07-16** · FIX-051/052/053 added 2026-07-16 (post-freeze hand-patch).
+> Everything else dates from the 2026-07-13 extraction freeze — absence
+> here is not evidence of absence in the platform. See `bugs_open/106`.
+
 53 concepts (50 from stage 1 consolidation + 3 added 2026-07-16 for the
 triage/escalation subsystem that shipped after extraction froze — FIX-051/052/053),
 consolidated from 123 raw extractions across units U08, U13, U14, U15, U16

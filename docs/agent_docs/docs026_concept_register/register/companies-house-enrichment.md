@@ -1,5 +1,9 @@
 # Register — companies-house-enrichment
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 4 concepts, consolidated from 10 raw extractions (5 unique blocks, each appearing
 twice due to exact whole-block duplication in the cluster input file) across units
 U01, U18, U19, U24f.

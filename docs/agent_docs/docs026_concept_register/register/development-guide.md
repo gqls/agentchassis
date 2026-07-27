@@ -1,5 +1,9 @@
 # Register — development-guide
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 87 concepts, consolidated from 113 raw extractions across units U01, U02, U03,
 U04, U05, U06, U07, U08, U09, U10, U12, U13, U14, U15, U16, U17a, U17b, U18,
 U19, U20, U21, U22, U23, U24c, U24f, U26. Note on the raw cluster input file:

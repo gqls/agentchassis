@@ -1,5 +1,9 @@
 # Register — database-and-infrastructure
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 24 concepts, consolidated from 34 raw extractions across units U01, U02, U03, U04,
 U08, U10, U12, U13, U15, U17a, U17b, U18, U19, U20, U21, U23, U24b, U24c, U24f, U25,
 U26.

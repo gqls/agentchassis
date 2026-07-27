@@ -1,5 +1,9 @@
 # Register — site-spec-and-classifier
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 22 concepts, consolidated from 60 raw extractions (the cluster input file contains
 the entire site-spec-and-classifier block set duplicated exactly twice — 30 unique
 raw blocks appearing twice each — plus further cross-unit duplication of the same

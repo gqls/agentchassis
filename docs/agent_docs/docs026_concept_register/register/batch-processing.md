@@ -1,5 +1,9 @@
 # Register — batch-processing
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 4 concepts, consolidated from 12 raw extractions (6 unique blocks, each present
 twice in the source cluster file due to mechanical duplication in the input)
 across units U01, U12, U17a, U19.

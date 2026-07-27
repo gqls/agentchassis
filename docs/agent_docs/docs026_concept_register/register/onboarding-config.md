@@ -1,5 +1,9 @@
 # Register — onboarding-config
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 22 concepts, consolidated from 50 raw extractions (25 unique blocks, each present
 twice in the source cluster file due to mechanical duplication in the input) across
 units U01, U15, U16, U17a, U18, U20, U21.

@@ -1,5 +1,9 @@
 # Register — adapters
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 16 concepts, consolidated from 50 raw extractions (25 unique blocks, each duplicated
 once in the source cluster file) across units U01_docs024_numbered_core,
 U06_finetuning, U08_travelling_docs, U12_docs024_archives, U13_docs024_small_dirs,

@@ -1,5 +1,9 @@
 # Register — adoption-pipeline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 36 concepts, consolidated from 106 raw extractions (the cluster input file contains
 the entire adoption-pipeline block set duplicated exactly twice — 53 unique raw
 blocks appearing twice each — plus further cross-unit duplication of the same

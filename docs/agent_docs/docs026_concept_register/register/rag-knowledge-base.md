@@ -1,5 +1,9 @@
 # Register — rag-knowledge-base
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 6 concepts, consolidated from 6 raw extractions across units U22, U25. No
 duplicates found within this category's raw material (each raw block covered a
 distinct facet: the store, the two actions, the best-practices doctrine, the

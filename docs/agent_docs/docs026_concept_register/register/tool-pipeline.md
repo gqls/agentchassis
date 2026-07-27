@@ -1,5 +1,9 @@
 # Register — tool-pipeline
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 7 concepts, consolidated from 9 raw extractions across units U01, U02, U08, U10, U14, U15, U17a, U18.
 
 ### TP-001 — Tool pipeline end-to-end (suggest → route → generate/fork → cross-link → rewrite → improve → audit)

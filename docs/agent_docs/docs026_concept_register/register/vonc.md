@@ -1,5 +1,9 @@
 # Register — vonc
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 10 concepts, consolidated from 22 raw extractions (11 unique blocks, each
 appearing twice due to exact whole-block duplication in the cluster input file)
 across units U23, U25.

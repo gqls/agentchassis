@@ -1,5 +1,9 @@
 # Register — deployment-github
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 5 concepts, consolidated from 26 raw extractions (13 unique blocks, each duplicated
 once in the source cluster file) across units U01_docs024_numbered_core,
 U03_idea_uk_section_data, U05_content_quality_linking, U09_adoption,

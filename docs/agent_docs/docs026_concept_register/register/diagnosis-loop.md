@@ -1,4 +1,9 @@
 # Register — diagnosis-loop
+
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 41 concepts, consolidated from 130 raw extractions across units U03, U05, U06, U08,
 U09, U12, U13, U14, U15, U16, U17b, U18, U19, U23, U24c, U24f, U25.
 

@@ -1,5 +1,9 @@
 # Register — imagery
 
+> **covers-through: 2026-07-13** · extraction freeze.
+> Subsystems that shipped after this date may be absent from this file
+> **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
+
 64 concepts, consolidated from 92 raw extractions across units U01, U02, U03, U05, U09, U10, U18, U19, U20, U21, U22, U23, U24a, U25.
 
 > Note on source duplication: the cluster input file for this unit contained the *entire* raw block set duplicated verbatim (same `SOURCE` tags, byte-identical text, appearing twice back-to-back) — a mechanical artefact of cluster assembly, not two independent extractions. Those exact duplicate pairs were collapsed before any semantic merging; the raw-block counts below and in the final report treat each such pair as one raw block. Genuine cross-unit duplication (the same mechanism independently described by 2-6 different extraction units) is heavy on this topic as expected and is merged per-concept below.
