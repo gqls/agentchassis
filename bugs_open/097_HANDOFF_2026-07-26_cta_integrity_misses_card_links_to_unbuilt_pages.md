@@ -214,3 +214,19 @@ damage. Neither needs a diagnosis run; the cause is fully known.
 > `discovery_checks/check_phantom_internal_links.go` and `datahelpers/link_repair.go`
 > (`RepairPageLinks`) was on the path for that build, and why the hrefs survived it.
 > **No code was written for this bug pending that answer.**
+>
+> > **BLOCKED 2026-07-27 21:55 — both diagnosis attempts are dead, and the cause is
+> > `bugs_open/029`.**
+> >
+> > - **Attempt 1** (`3002a141`, fired 19:04) produced three evidence bundles and stopped
+> >   at **19:25:10**. I killed it myself by rolling the chassis at 19:22 — logged in
+> >   `WRONG_CALLS.md`, my fault, not this bug's.
+> > - **Attempt 2** (`e1aa4695`, fired 20:47) **FAILED** at `spawn_diagnoser` 20:55:21:
+> >   *"Request 01a36f8c-b85a-4e1a-9bec-a556a7f78ef3 timed out after 3 retries"*. Its
+> >   worker pod came up at 20:48:27Z and has idled ever since, logging only "No activity
+> >   for 5 minutes" — a live hung spawn. Full timeline contributed to `bugs_open/029`,
+> >   and the pod deliberately left running there as a specimen.
+> >
+> > So the mechanism question this file needs answered — **which of the three mechanisms
+> > was actually on the 07-25 build path** — is unanswered and cannot be asked again until
+> > 029 lets a diagnoser run. Do not pick between fix candidates 1/2/3 before it is.
