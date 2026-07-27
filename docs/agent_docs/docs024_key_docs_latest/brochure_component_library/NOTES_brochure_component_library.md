@@ -2242,3 +2242,55 @@ asks it.
   git-adapter dispatch my permissions refused. One command, `scripts/` in the workstream.
 - Go renderer fix committed `3096a55a6`, council `f17b0a77-15e2-48ef-ba3e-9030ab4e0d8e`,
   inert until the next roll.
+
+## 2026-07-27 (evening) — the palette repair landed, and repairing it broke one page
+
+**Sequence, all measured on the served artefacts.**
+
+1. Chassis rolled twice while I was not looking: **v1.0.1174 at 15:11Z**, **v1.0.1175 at
+   18:00Z**. Both 085 fixes pod-grepped present with a negative control.
+2. **085 verified end to end**, both paths. The proof is the 1174 boundary: index carried
+   3 charts at 14:08 on v1.0.1173 and 1 chart at 16:04 on v1.0.1174, same agent, same
+   `spec.reason`, same page, register and template unchanged. See the bug file.
+3. The palette fix (`113`) was **in the binary and not on the site** — `styles.css` is
+   only ever written by a `webdesign-agent` run (`bugs_closed/072`). Queued a fresh
+   `needs_design` item (`e2255d82`); complete at 18:37. Card titles **1.21 → 13.19:1**,
+   eyebrows **1.11 → 8.30:1**, `--color-primary` finally `#86ADDE` as pinned.
+4. `render_audit.py`: **0 contrast failures across 8 of 9 deployed pages**, from ~101.
+
+### What the repair broke, and it is the more interesting half
+
+`/tools/llm-cost-calculator.html` went **clean → 4 failures**. `--color-primary` flipped
+from near-black to light blue, and two components ink themselves **white over it**:
+`.calc-btn` (`tool-llm-cost-calculator`) and the `--section-*` block in `hero-tool`.
+White on `#0E1B2E` is 17:1; on `#86ADDE` it is **2.32:1**.
+
+The platform had already derived the right answer — `--color-primary-text` is now
+`#071019` — and both components hard-coded `#fff` instead. Repaired at data level with
+behaviour-preserving fallbacks (`var(--color-primary-text, <original>)`), backups
+`bak_cc_toolcalc_20260727` / `bak_cc_herotool_20260727`, re-rendered, **verified 4 → 0**.
+
+*Cheap check that generalises:* **run the render audit BEFORE and AFTER a palette
+change.** Every "after" number on this site improved and one page still regressed; only
+the paired run shows both. Contributed to `113`, whose owner owns the mechanism — three
+other sites carry the identical `#fff` literal and are a sweep, not four hand edits.
+
+### Two of my own errors this evening, both cheap and both instructive
+
+- **I probed pages by `pages.name` and concluded four were 404.** They live at
+  `/blog/…`, `/guides/…`, `/tools/…` — the `url` column says so. *Build a URL list from
+  `pages.url`, never from the name.* I had already reasoned about `.html` suffixes and
+  still assumed a flat namespace.
+- **I nearly published a false contradiction** by assuming one roll where there were
+  two. An image tag read *now* does not describe what ran *then*.
+
+### Left open, deliberately
+
+`/assets/images/hero.jpg` 404s on the calculator page, rendered by `tool-guide-intro`
+with a correct, brief-compliant alt (*"Line illustration of a cost comparison table…
+rendered in navy"*). No hero exists for that page under any naming convention
+(`hero-llm-cost-calculator`, `hero-tools`, `hero-calculator`, `hero` — all 404), while
+every other page has its `hero-<page>.jpg`. **The asset was specified and never
+generated** — `bugs_open/114`'s family. Deleting the reference would destroy a correct
+illustration request, so the repair is to generate the asset, not to remove the intent.
+Left for a deliberate imagery run.
