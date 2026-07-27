@@ -902,3 +902,50 @@ paragraph 180 will not be found and the run will not say so. Chunking is the rea
 answer and needs a loop this workflow does not have.
 
 Re-run fired as corr `a07edd25`.
+
+### The sweep I kept saying was missing, finally written
+
+After wiring the house voice into `page-content-writer` and `content-writer`
+(mig 228), then `grounded-explainer` (mig 230), I counted:
+
+```
+with_voice | total
+         3 |    26
+```
+
+Three of twenty-six prose producers. Each of the three was patched by hand
+because it was the one in front of me at the time — and I wrote "the rule
+existed and the artefact carried on regardless" into 230's own commit message
+while doing exactly that for the third time.
+
+`SWEEP_house_voice_coverage.py` finds every reader-facing prose producer, locates
+its prompt wherever it lives (the paths genuinely differ: `generate_content`,
+`generate_hero_content`, `generate_about_content`, `generate_draft`, some nested
+under `process_sections_loop.sub_workflow`), and appends the block once.
+Idempotent, so the count is the report and a re-run is a no-op. It deliberately
+skips classifiers, planners, reviewers and extractors: a voice instruction on a
+JSON-emitting prompt is noise at best.
+
+Result: **7 of 15** genuine candidates now carry it, and re-running finds nothing.
+
+**A finding the sweep surfaced that I would not have looked for.** Seven
+`content-creator-*` agents (cta, features, testimonials, contact, and the bare
+`content-creator`) have exactly one step, `execute_llm_prompt`, whose config
+contains **only `input_fields` and no `prompt_template` at all**. So either the
+action supplies a default prompt, or these agents cannot produce anything. Left
+alone here — there is nothing to append to — but it belongs with the
+dormant-agents work (`bugs_open/044`). Also note some types have **two active
+rows**, which the sweep's `LIMIT 1` papers over and which nothing else seems to
+police.
+
+This is the fourth instance of the week's recurring shape, and the first time the
+answer has been a sweep rather than another hand-patch:
+
+| the rule | what already existed and ignored it |
+|---|---|
+| extraction froze 07-13 | 51 workstreams shipped after it, nothing noticed |
+| "revisit at two sites" | reached eight, nothing re-read it |
+| `bugs_open/095` filed | prepared SQL still carried the defect next day |
+| house voice in the writer | live copy still broke it; 23 writers never had it |
+
+**Writing a rule is the cheap half. The sweep is the half that changes anything.**
