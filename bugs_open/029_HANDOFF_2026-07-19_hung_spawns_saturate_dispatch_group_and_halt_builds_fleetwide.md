@@ -667,3 +667,54 @@ Manual recovery used, in case it is useful as a stopgap: mark the hung row
 `status='FAILED'`, then reset the work item to its queued status with `claimed_by=NULL,
 claimed_at=NULL, attempt_count=0`. The lane re-claims on the next tick — and here it then
 ran through cleanly, so the reset is a working stopgap for a single hang.
+
+---
+
+## Fresh instance 2026-07-27 (bugs thread) — a diagnose-orchestrator spawn, with a clean timeline and the pod still up
+
+Contributed as evidence, not a competing fix. This one is unusually well-timed because I
+fired it myself and know exactly when, and the hung pod is **still running** as of writing,
+so it can be inspected live rather than reconstructed.
+
+**Timeline, all from the cluster:**
+
+```
+20:47:04   I fire 090_TRIGGER_needs_diagnosis (corr e1aa4695-2b36-4361-8d57-a1b5fc09d56f)
+20:48:27Z  pod agent-diagnose-orchestrator-f26bf2fb-g2sz6 STARTS  (image v1.0.1179)
+20:55:21   orchestration_states corr=e1aa4695 -> current_step=spawn_diagnoser, status=FAILED
+           error: "Request 01a36f8c-b85a-4e1a-9bec-a556a7f78ef3 timed out after 3 retries"
+21:51:03   the pod is STILL RUNNING, 0 restarts, having logged nothing but:
+           "No activity for 5 minutes" every 30s since it came up
+```
+
+**So the pod came up and the work never reached it.** This is not a pod that crashed or
+was never created — it is a healthy, stateless worker that idled from birth while its
+requester timed out and gave up. 63 minutes later it is still there, still idle, still
+holding whatever slot it occupies.
+
+**What this instance rules OUT, given the file's existing theories:**
+
+- **Not the ~300s-after-chassis-restart rule.** The chassis rolled at 20:26:08Z; this
+  spawn is 22 minutes later, well clear.
+- **Not a stale image.** The pod runs `v1.0.1179`, the same tag the chassis Deployment
+  runs — so `bugs_open/066`'s spawn-image path is working correctly here.
+- **Not a general spawn failure.** In the same window `agent-page-rerender` pods and
+  `agent-build-dispatch-loop` pods were spawning, working and exiting normally (I ran 17
+  page re-renders through them at 20:0x–20:3x, all COMPLETED). Whatever this is, it is
+  specific to the request reaching the spawned worker, not to spawning as such.
+
+**A second, earlier failure the same evening** (`site_work_items` `needs_diagnosis`,
+created 20:06:46) also went `failed`, and my FIRST diagnosis run on this same symptom died
+mid-flight when I rolled the chassis at 19:22 — that one is my own fault and is logged in
+`WRONG_CALLS.md`, not evidence for this bug.
+
+**Live inspection, while it lasts:**
+```
+kubectl -n ai-persona-system logs agent-diagnose-orchestrator-f26bf2fb-g2sz6 --tail=5
+kubectl -n ai-persona-system get pod agent-diagnose-orchestrator-f26bf2fb-g2sz6 -o yaml
+```
+I have deliberately NOT deleted it or applied the manual recovery above, so that whoever
+owns this bug gets a live specimen rather than my description of one.
+
+**Consequence for another case:** this is what is blocking `bugs_open/097`'s diagnosis
+run. Two attempts, both dead, so 097's mechanism question stays unanswered.
