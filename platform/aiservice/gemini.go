@@ -304,18 +304,27 @@ func (c *GeminiClient) GenerateText(ctx context.Context, prompt string, options 
 	}
 
 	if options != nil {
-		// __sent_max_tokens records what was actually PUT ON THE WIRE, matching
-		// anthropic.go, so llm_call_log stays comparable across providers.
-		// __sent_visible_budget_tokens records the caller's ask.
+		// __sent_max_tokens carries the caller's VISIBLE-text budget, not the
+		// inflated wire ceiling — deliberately, and this is a reversal.
 		//
-		// Consequence worth knowing: llm_call_log's "output_tokens ==
-		// max_tokens means the completion was CUT" heuristic goes quiet for a
-		// thinking model, because visible output is compared against a total
-		// that includes the thinking reserve. That heuristic was always a proxy
-		// for the finish reason, and this client returns a *TruncatedError on
-		// finishReason=MAX_TOKENS directly, which is the authoritative signal.
-		options["__sent_max_tokens"] = totalBudget
-		options["__sent_visible_budget_tokens"] = visibleBudget
+		// It was first written as the wire value, on the reasoning that the field
+		// name says "sent". That was wrong at the layer that matters:
+		// `__sent_max_tokens` is the sole feed for `llm_call_log.max_tokens`
+		// (ai_actions.go), a column anthropic.go and ollama.go fill with the
+		// caller's answer-budget. Putting the reserve-inflated total there gives
+		// ONE column two meanings split by provider — which is the very defect
+		// this file exists to fix ("the same parameter name on two providers is
+		// not the same parameter"), reproduced one layer up in our own telemetry.
+		// See bugs_open/110. Cross-provider comparability of a shared column beats
+		// local fidelity of one field name.
+		//
+		// The wire total is kept below for whoever needs it, but note it is
+		// currently PERSISTED NOWHERE: llm_call_log has no column for it, and
+		// nothing outside this package reads these keys. That is 110 candidate 2
+		// (a migration), and until it lands, thinking cost is visible only in the
+		// truncation error — not in any query.
+		options["__sent_max_tokens"] = visibleBudget
+		options["__sent_wire_max_output_tokens"] = totalBudget
 		options["__sent_thinking_reserve_tokens"] = totalBudget - visibleBudget
 	}
 

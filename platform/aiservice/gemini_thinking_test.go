@@ -94,11 +94,19 @@ func TestGeminiReservesOutputBudgetForThinking(t *testing.T) {
 	if got != want {
 		t.Errorf("maxOutputTokens = %d, want %d — the caller's 100 tokens are a VISIBLE-text budget, and on a thinking model thinking is spent from the same ceiling first. Sending 100 is what produced zero text on 2026-07-24", got, want)
 	}
-	if options["__sent_visible_budget_tokens"] != 100 {
-		t.Errorf("__sent_visible_budget_tokens = %v, want 100 — the caller's ask must stay legible in llm_call_log alongside what was sent", options["__sent_visible_budget_tokens"])
+	// __sent_max_tokens is the SOLE feed for llm_call_log.max_tokens, a column
+	// anthropic.go and ollama.go fill with the caller's answer-budget. It must
+	// carry the same meaning here or that one column means two different things
+	// depending on provider (bugs_open/110) — and the platform-wide
+	// "output_tokens == max_tokens means CUT" rule silently stops applying.
+	if options["__sent_max_tokens"] != 100 {
+		t.Errorf("__sent_max_tokens = %v, want 100 (the caller's VISIBLE budget). Logging the reserve-inflated total here gives llm_call_log.max_tokens a provider-dependent meaning — the exact defect this file fixes, one layer up", options["__sent_max_tokens"])
 	}
-	if options["__sent_max_tokens"] != want {
-		t.Errorf("__sent_max_tokens = %v, want %d (what actually went on the wire, matching anthropic.go)", options["__sent_max_tokens"], want)
+	if options["__sent_wire_max_output_tokens"] != want {
+		t.Errorf("__sent_wire_max_output_tokens = %v, want %d — the wire ceiling must still be recoverable for diagnosis", options["__sent_wire_max_output_tokens"], want)
+	}
+	if options["__sent_thinking_reserve_tokens"] != defaultGeminiThinkingReserve {
+		t.Errorf("__sent_thinking_reserve_tokens = %v, want %d", options["__sent_thinking_reserve_tokens"], defaultGeminiThinkingReserve)
 	}
 }
 

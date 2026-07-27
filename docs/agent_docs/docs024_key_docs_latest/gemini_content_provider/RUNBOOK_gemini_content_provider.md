@@ -141,6 +141,13 @@ could not produce:
 ```bash
 kubectl exec -n ai-persona-system "$POD" -- sh -c \
   'strings /app/agent-chassis | grep -c "thinking_reserve_tokens"'   # expect >0
+
+# For a build AFTER 2026-07-27 14:xx, also grep the 110 candidate-1 rename —
+# it is the only way to tell a pre-110 binary from a post-110 one:
+kubectl exec -n ai-persona-system "$POD" -- sh -c \
+  'strings /app/agent-chassis | grep -c "__sent_wire_max_output_tokens"'      # expect >0 post-110
+kubectl exec -n ai-persona-system "$POD" -- sh -c \
+  'strings /app/agent-chassis | grep -c "__sent_visible_budget_tokens"'       # expect 0 post-110
 ```
 
 A Go *comment* is not in the binary, and a typed constant may not be either —
@@ -148,24 +155,42 @@ grep a string literal the code actually formats.
 
 ## 5. Prove the reserve reached the wire (not just that the binary shipped)
 
-The point of the fix is a bigger `maxOutputTokens`. `llm_call_log` records it:
+The point of the fix is a bigger `maxOutputTokens`. **`llm_call_log` does not
+record that**, and the column names below are not what I first wrote here.
 
 ```sql
-SELECT created_at, model, provider,
-       sent_max_tokens, usage_output_tokens, error
+-- The real column names are max_tokens / output_tokens (\d llm_call_log).
+SELECT created_at, model, provider, max_tokens, output_tokens, success, error_message
 FROM llm_call_log
 WHERE provider = 'gemini'
 ORDER BY created_at DESC LIMIT 20;
 ```
 
-`sent_max_tokens` is now what actually went on the wire (caller's budget +
-reserve), and the caller's own ask is written back separately as
-`__sent_visible_budget_tokens`. **Consequence to know:** the
-"`output_tokens == max_tokens` means the completion was CUT" rule goes quiet for
-a thinking model, because visible output is being compared against a total that
-includes the reserve. That rule was always a proxy for the finish reason; the
-client now returns a typed `*TruncatedError` on `finishReason=MAX_TOKENS`
-directly, which is authoritative. **Check the errors, not the arithmetic.**
+> **CORRECTED 2026-07-27 — twice, and the second correction is `bugs_open/110`.**
+> This section originally named columns `sent_max_tokens` and
+> `usage_output_tokens`. **Neither exists** — the table has `max_tokens` and
+> `output_tokens`. It also said the caller's ask "is written back separately as
+> `__sent_visible_budget_tokens`", implying that was queryable. **It was not
+> persisted at all**: that key, and `__usage_thinking_tokens`,
+> `__usage_total_tokens` and `__sent_thinking_reserve_tokens`, have **no reader
+> outside `platform/aiservice/`** and no column to land in. Filed as `110`, which
+> also carries the fix for the worse half: `max_tokens` was being fed the
+> reserve-inflated total, giving one column two provider-dependent meanings.
+
+**Current contract, after `110` candidate 1** (in code, **inert until the next
+chassis roll** — v1.0.1173 still logs the inflated total):
+
+- `llm_call_log.max_tokens` = the caller's **visible-text budget**, the same
+  meaning as for `anthropic`/`ollama`. For `page-content-writer` that is **8000**,
+  not 16192. If you see 16192 on a Gemini row, that row predates the roll.
+- The wire ceiling is in `__sent_wire_max_output_tokens` and thinking is in
+  `__usage_thinking_tokens` — **both in-process only, persisted nowhere** until
+  `110` candidate 2's migration.
+- **Check the errors, not the arithmetic.** For a thinking model
+  `output_tokens == max_tokens` cannot express truncation, because visible output
+  may legitimately exceed the caller's budget (the API ceiling is the inflated
+  total). A real Gemini cut arrives as `success = false` with an `error_message`
+  naming thinking. That is the authoritative signal.
 
 ## 6. Flip content-creator (P5)
 

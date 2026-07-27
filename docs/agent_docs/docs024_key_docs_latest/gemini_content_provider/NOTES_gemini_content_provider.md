@@ -456,3 +456,69 @@ Backup `bak_agent_definitions_pcw_20260727` is already created.
 Also noted: the writer row's `updated_at` was `13:44:56.343485+00` — the
 architecture-review seat's re-seed, minutes before I read it. The guard is not
 theoretical on this row.
+
+## 2026-07-27 — the owner's question turned a "feature" into a regression of mine (110)
+
+Owner asked whether the truncation-detection problem needed its own bug listing.
+Answer: **yes**, and reading the schema instead of my own intent showed why it is a
+**regression I introduced**, not a gap we never filled. Filed `bugs_open/110`.
+
+**Fact 1 — `llm_call_log.max_tokens` was about to carry two meanings.** It is fed
+solely from `options["__sent_max_tokens"]` (`ai_actions.go:390-392` →
+`llm_call_logger.go`). `anthropic.go:118` and `ollama.go:101` set that to the
+caller's answer-budget. `gemini.go` set it to the caller's budget **plus the 8192
+reserve**. One column, two definitions, split by provider — **which is precisely
+107's own finding, reproduced one layer up by the fix for it.** Each layer reads
+correctly on its own: `__sent_max_tokens` genuinely *did* record what was sent.
+That is why the shape recurs, and why "I just fixed this class" is no protection.
+
+**Fact 2 — `features_open/025` item (b) proposed a repair the schema cannot
+support.** It said to compare `usage_output_tokens` against
+`sent_visible_budget_tokens`. **Neither column exists** — the table has
+`max_tokens` and `output_tokens`. I had written both names from memory of my own
+field names, never checked against `\d llm_call_log`, and the RUNBOOK carried the
+same two invented names. Superseded by 110; item (a) stands.
+
+**Fact 3 — an overclaim, mine, in a committed bug file and a council submission.**
+`107`, corr `a1a5cf20` and three commit messages say this change makes thinking
+tokens *"visible to logging"* / *"surfaced"*. **Half true, and the false half is
+the load-bearing one.** All four new fields —
+`__sent_visible_budget_tokens`, `__sent_thinking_reserve_tokens`,
+`__usage_thinking_tokens`, `__usage_total_tokens` — have **no reader outside
+`platform/aiservice/`** (grep) and no column to land in. Thinking is visible in the
+*error message* and the in-process options map, and **nowhere a query can reach**.
+`016b` §9's *"a field is only as live as its LAST reader"*; same shape as `101`'s
+inert `scrape_web` keys.
+
+**Why nobody caught it, including a ten-seat council one of whose seats discussed
+these exact fields:** *"writes the field"* and *"the field is readable"* look
+identical in a diff. The reviewers could see the write. Nothing in the submission
+showed the absent reader, and I did not think to look. **The check is one grep of
+the field name with your own package excluded** — the same check `101` earned for
+config keys, applied to telemetry fields.
+
+**Timing, and it is lucky rather than clever.** `llm_call_log` today:
+`anthropic 43,586 · ollama 808 · gemini 0`. Zero because **`content-creator` does
+not write to that table at all** — only `platform/orchestration/actions/*` does —
+so P5's two proven generations logged nothing there. The first Gemini row arrives
+when `page-content-writer` runs on Gemini, i.e. **the moment P6 lands**. So the
+window to fix this before any wrong row exists was still open when the owner asked
+the question.
+
+**Candidate 1 applied** (`__sent_max_tokens` = the caller's visible budget;
+wire total moved to `__sent_wire_max_output_tokens`, still unpersisted). Three
+lines, no migration, tests updated to assert the *meaning* rather than the number.
+**It inverts a decision I made deliberately in `8a2b5dea0`**, where I argued the
+field name says "sent" so it should carry the wire value — I optimised for one
+field's local honesty and broke the cross-provider comparability of the column the
+platform-wide truncation rule depends on. Cross-provider meaning wins in a column
+called `max_tokens`.
+
+> **It is INERT until the next chassis roll.** v1.0.1173 still logs the inflated
+> total, so if P6 runs before that roll, its first rows carry `max_tokens = 16192`
+> where the caller asked 8000. Those rows are identifiable —
+> `provider='gemini' AND max_tokens = 16192` — and are recorded here so nobody
+> later reads them as a mystery. **I am not holding P6 for it:** the owner's actual
+> question is whether Gemini writes acceptably, and delaying that to protect a
+> telemetry column whose wrong rows are self-identifying would be the wrong
+> priority. Stated so it is a decision, not an oversight.
