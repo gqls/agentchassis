@@ -474,6 +474,49 @@ Decode with XOR against the first byte before believing it — that is how the
 homepage's `relojistas@contactforsales.com` and an **empty** footer anchor
 (`<a href="/cdn-cgi/l/email-protection#07"></a>`) became visible.
 
+### Same day, proven by accident: you cannot REMOVE a CTA, and trying makes it worse
+
+Acting on the owner's ruling that relojistas has no contact route, I tried to retire two
+self-referential hero CTAs ("read the latest news" *on* the news index, "explore the
+glossary" *on* the glossary index) the obvious way — **deleting `cta_text` from
+`content_data`**, relying on the template's own guard `{{if and .cta_text .cta_url}}` to
+omit the anchor.
+
+The pages re-rendered as:
+
+```html
+<a href="/contact.html" class="btn btn-primary">Get Started</a>
+```
+
+**English "Get Started" pointing at a 404, on a Spanish site** — strictly worse than the
+Spanish-text-on-a-dead-link it replaced. `component_library.go` had refilled *both* fields
+from its defaults (`cta_text` → `"Get Started"`, `cta_url` → `"/contact.html"`), and the
+refilled pair then **satisfied the template's guard**.
+
+This is the mechanism stated as sharply as it can be:
+
+1. The component's guard is correct and would have omitted the button.
+2. The default fires **upstream of the guard**, so it doesn't just supply a bad value — it
+   **manufactures the very condition the guard tests for**.
+3. Therefore *"leave the field empty"* is not an available way to say "no CTA here". The
+   absence of a CTA is **unrepresentable** in `content_data`; only a non-empty, valid
+   destination suppresses the phantom.
+
+**What this does to the fix candidates.** It rules out the cheap repair outright: no
+data-side cleanup — not this one, not `resolve_internal_links`, not a per-page hand-repair —
+can express "no button", because every one of them works by writing `content_data`. The
+only fix that closes the door is at the default itself: **emit no anchor rather than a
+guessed one** (drop the `cta_url`/`cta_text` defaults, or make them empty strings so the
+existing guards do their job). Note the fleet-wide consequence to survey first: any page
+today relying on the default to produce a *working* button on a site that happens to have
+`/contact.html` would lose it — which is the correct outcome, but it is a visible change and
+should be counted before it ships.
+
+Worked around here by giving both heroes real destinations, since the site thread cannot
+change the default. That is a workaround, not a fix: **every hero on every site must now
+carry an explicit `cta_url` forever**, and any that doesn't is one render away from an
+English button pointing at a 404.
+
 ---
 
 ## Triage 2026-07-27, post-roll (v1.0.1174) — THIS FILE'S TITLE IS NO LONGER TRUE, and three named residues are
