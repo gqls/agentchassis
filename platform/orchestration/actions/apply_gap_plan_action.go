@@ -287,11 +287,43 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		return nil, fmt.Errorf("new_page plan missing or invalid")
 	}
 
-	pageName, _ := newPlan["name"].(string)
-	if pageName == "" {
+	pageNameRaw, _ := newPlan["name"].(string)
+	if pageNameRaw == "" {
 		return nil, fmt.Errorf("new_page.name is required")
 	}
-	pageName = strings.ToLower(strings.ReplaceAll(pageName, " ", "-"))
+	pageTypeRaw, _ := newPlan["page_type"].(string)
+
+	// Canonicalise name / url / page_type through the shared helper, so this
+	// surface produces the same identity as the planner
+	// (write_site_plan_action.go), adoption (apply_adoption_plan_action.go) and
+	// the tool path (create_tool_component_action.go) for the same logical page
+	// — doc 029 Phase 0, bugs_open/080.
+	//
+	// Before this, new_page lowercased the LLM's name and synthesised
+	// "/<name>.html" by hand, so a gap-planned news listing became
+	// name="news" url="/news.html" while every other surface produced
+	// name="news-index" url="/news/index.html". Because the INSERT below
+	// upserts ON CONFLICT (site_id, name), a disagreeing name does not
+	// conflict — it inserts a SECOND row. robot-hands.com carries both, live
+	// and both serving 200, one of them orphaned from the nav.
+	//
+	// For the common content case CanonicalisePage returns exactly what the
+	// hand-rolled code produced (name=slug, url=/<slug>.html, type=content),
+	// so only the typed roles — the section-index family, tool/guide/game,
+	// blog-post, entity-page, and the home/index collapse — change shape.
+	pageName, url, pageType := datahelpers.CanonicalisePage(datahelpers.PageDescriptor{
+		Role: pageTypeRaw,
+		Slug: pageNameRaw,
+	})
+	if pageName == "" {
+		return nil, fmt.Errorf("new_page name %q (page_type %q) failed canonicalisation", pageNameRaw, pageTypeRaw)
+	}
+	if pageName != strings.ToLower(strings.ReplaceAll(pageNameRaw, " ", "-")) {
+		logger.Info("applyNewPage: canonicalised page identity",
+			zap.String("raw_name", pageNameRaw), zap.String("raw_page_type", pageTypeRaw),
+			zap.String("page_name", pageName), zap.String("url", url),
+			zap.String("page_type", pageType))
+	}
 
 	title, _ := newPlan["title"].(string)
 	if title == "" {
@@ -299,11 +331,6 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		if domain != "" {
 			title = title + " | " + domain
 		}
-	}
-
-	pageType, _ := newPlan["page_type"].(string)
-	if pageType == "" {
-		pageType = "content"
 	}
 
 	purpose, _ := newPlan["purpose"].(string)
@@ -353,7 +380,7 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		inFooter = inf
 	}
 
-	url := "/" + pageName + ".html"
+	// url comes from CanonicalisePage above — it is no longer synthesised here.
 
 	// Check page growth budget
 	budget, budgetErr := CheckPageGrowthBudget(ctx, db, siteID, pageType, logger)
