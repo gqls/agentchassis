@@ -5813,3 +5813,61 @@ bulk text edit, read the output rather than counting it, and grade the result wi
 was not written for this change. Where one exists already — a gate, a lint, a banned-claims list —
 use *that*, not a fresh assertion of your own.
 Family: post-condition-shares-the-authors-model, cascading-replace-feeds-itself, census-of-what-i-already-noticed, read-the-output-not-the-count.
+
+## 2026-07-27 — I invented a verdict vocabulary for a council seat without reading the decider, and staged it for the owner to run
+
+**The claim.** Building the new `review_architecture` seat for `feature-designer`, I
+asserted two things in the script's own docstring and in its assertions: (a) the seat is
+advisory **because it is absent from `council_decide.hard_veto_from`**; and (b) its verdict
+vocabulary should be `point_fix | needs_rfc | insufficient`, because "its output is an RFC
+trigger, not an approve/object". I verified the wiring carefully — chain sound, no orphaned
+steps, `review_fields` updated, guardian still sole veto-holder — wrote a rollback path, and
+handed the owner a script to push it to live config.
+
+**What was true.** Both were wrong, and the second was serious.
+`platform/orchestration/actions/diagnose_council_decide_action.go`:
+- `:13-14` — **any** reviewer's veto rejects the round; `hard_veto_from` "only changes the
+  audit label, not the outcome". Absence from that list buys nothing. What makes a seat
+  advisory is that its prompt never offers `veto`.
+- `:160` — `councilVerdicts = {"approve","object","veto"}`, and nothing else.
+- `:397` — an unrecognised verdict is recorded **UNREADABLE**.
+- `:446` — a decision of `approved` carrying any unreadable seat is **downgraded to revise**.
+
+So the seat would have been unreadable on *every* run, forcing every `feature-designer`
+council round to revise, exhaust `max_rounds: 3`, and fail — **breaking the feature-build
+lane it was added to help, silently, on every invocation.** The wiring I checked so carefully
+was all correct; the payload it carried was inert-then-fatal.
+
+**What caught it.** The owner, mid-build, saying "please be aware of the concept register
+too". Reading it, `docs026_concept_register/PILOT_bug_historian_reviewer.md` §2 states the
+veto semantics in plain prose — *"the council's decision code treats any reviewer's `veto` as
+an automatic rejection regardless of `hard_veto_from` (verified directly in
+diagnose_council_decide_action.go:236-238)"* — written down in July, by the thread that seated
+the previous reviewer, for exactly this reason. That sent me to the code, where the verdict-map
+problem was four lines away.
+
+**The cheap check.** *Read the consumer before designing the payload.* One grep before writing
+a line of prompt: `grep -n "Verdict\|councilVerdicts" platform/orchestration/actions/diagnose_council_decide_action.go`.
+Cost: seconds. It is the same discipline as "schema first: `\d <table>` before writing SQL",
+which this repo's CLAUDE.md already mandates — I applied it to the database and not to the
+Go contract, though a verdict string is every bit as much a schema.
+
+**Why this shape recurs, and the part worth keeping.** I was in *build* mode, and the design
+question ("what should this seat say?") felt like a **prompt-authoring** problem — creative,
+mine to decide — when it was actually an **interface-conformance** problem with an existing
+answer. Prompt text feels like prose, so it escapes the checks we apply to code; but a prompt
+that names an output contract IS code, and its contract is enforced somewhere by a `map[string]bool`.
+Note also the direction of error: every safety check I *did* run (step set unchanged, chain
+sound, no new veto-holder) was about not breaking the **structure**, and all of them passed.
+None of them could see that the **content** was invalid. A green structural check on a
+semantically broken payload reads exactly like success.
+
+**Tally note.** This is the fourth distinct variant in this file. The classic row is *a claim
+with the check skipped*; then *the check was run and written down but not joined up*; then
+*the check was run correctly and its narrow scope defined the conclusion*; this one is **the
+check was never conceived, because the artefact didn't look like the kind of thing that has a
+contract.** Two entries in two days now share a root: the answer already existed in our own
+written record (`PILOT_bug_historian_reviewer.md` here, the pre-build councils on 07-26) and
+was not read. That is the tally line worth watching — and it is precisely the gap the
+historians' index built this session is meant to close, which is either encouraging or ironic
+depending on the hour.
