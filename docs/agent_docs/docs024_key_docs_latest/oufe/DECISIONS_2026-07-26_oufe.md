@@ -203,6 +203,52 @@ second site needs it.
 
 ---
 
+## Part 2b — Platform decisions arising from the 07-27 correction
+
+These are new since the register was written, and they are the owner's because
+each changes behaviour beyond this site.
+
+### O11 — Make the universal claim patterns fleet-wide? ⟵ `bugs_open/104`
+
+Only **5 of 15** live sites carry a single banned-claim pattern; the ten without
+include vetcomparison.uk and idea.uk. A lesson learned on one site cannot reach
+another, and every new site is born unarmed.
+
+- **(a) Recommended** — mirror `globalTellPhrases()` into the claims parser: a
+  universal set unioned with each site's own. Small, precedented, one roll.
+  Residual: still only applies to sites that have a register at all.
+- **(b)** (a) plus apply the universal set even without a register, like the
+  meta-commentary gate. Closes it completely and protects a brand-new site on its
+  first build — but it changes what every build can block, so it wants a council
+  round and a dry-run count of what it would have fired on before switching on.
+- **(c)** Keep arming sites by hand. Zero risk, and it is the state that produced
+  the bug.
+
+**Note this is a due decision, not a new one**: it was deferred "until two sites
+have evidence bases" and there are now eight.
+
+### O12 — Give the live-page sweep a cadence? ⟵ `bugs_open/083` (detected-findings slug)
+
+The only automatic detector of drift on published content is reachable solely
+through a scheduled task disabled since 2026-05-02. Re-enabling it also re-arms
+fleet-wide automatic fixing, which is why it is an owner call and not a config
+tweak. Recommendation: **do not simply re-enable** — the narrower move is a
+dedicated schedule for the claims sweep alone, so detection resumes without
+restoring auto-repair.
+
+### O13 — What to do with the unused `kind` field? ⟵ `bugs_open/105`
+
+The register defines metric/capability/entity/attestation and nothing reads it.
+
+- **(a) Recommended** — validate it on parse now (a few lines, removes a trap
+  where a typo silently means nothing), then use `capability` + the existing
+  daily sweep as the home for promise-keeping, rather than building a register.
+- **(b)** Delete the field. Legitimate — better an absent contract than a
+  decorative one — and it records the decision instead of leaving ambiguity.
+
+This is the concrete answer to O4's promise question, so deciding O13 largely
+decides O4.
+
 ## Part 3 — One consequence for another workstream
 
 `features_open/014` records that idea.uk's stages 6–9 (patents, copyright,
