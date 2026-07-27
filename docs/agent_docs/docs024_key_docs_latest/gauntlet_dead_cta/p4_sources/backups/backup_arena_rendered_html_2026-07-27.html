@@ -1,0 +1,1128 @@
+<style>
+  :root {
+    --color-primary: #e63946;
+    --color-secondary: #1d3557;
+    --color-accent: #f4a261;
+    --color-background: var(--color-primary);
+    --color-surface: #1a1a1a;
+    --color-text: #f0f0f0;
+    --color-text-muted: #888;
+    --color-border: #2e2e2e;
+    --color-success: #4caf50;
+    --color-warning: #f0c040;
+    --color-info: #4a9eff;
+    --color-cursed: #bf5fff;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .tool-container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 3rem;
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: 'Georgia', serif;
+    min-height: 100vh;
+  }
+
+  .tool-container h2 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-primary);
+    margin-bottom: 0.25rem;
+    font-family: 'Arial Black', 'Arial', sans-serif;
+    text-transform: uppercase;
+  }
+
+  .tool-description {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    margin-bottom: 2rem;
+    font-family: 'Arial', sans-serif;
+  }
+
+  /* === SECTION HEADERS === */
+  .section-label {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--color-primary);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+  }
+
+  /* === SECTION 1: PROVOCATION === */
+  .provocation-block {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-primary);
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+
+  .provocation-text {
+    font-size: 1.35rem;
+    line-height: 1.4;
+    font-weight: 700;
+    color: var(--color-text);
+    letter-spacing: -0.01em;
+  }
+
+  .provocation-meta {
+    margin-top: 0.75rem;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .provocation-day {
+    background: var(--color-primary);
+    color: var(--color-text);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.5rem;
+    font-family: 'Arial', sans-serif;
+  }
+
+  /* === SECTION 2: FILE YOUR TAKE === */
+  .take-block {
+    margin-bottom: 2rem;
+  }
+
+  .take-block fieldset {
+    border: 1px solid var(--color-border);
+    padding: 1.25rem;
+    background: var(--color-surface);
+  }
+
+  .take-block legend {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    padding: 0 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .take-block label {
+    display: block;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .take-textarea {
+    width: 100%;
+    min-height: 110px;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    font-family: 'Georgia', serif;
+    font-size: 1rem;
+    padding: 0.75rem;
+    resize: vertical;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .take-textarea:focus {
+    border-color: var(--color-primary);
+  }
+
+  .take-textarea::placeholder {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .take-submit-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    background: var(--color-primary);
+    color: var(--color-text);
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-family: 'Arial Black', 'Arial', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    min-height: 44px;
+    transition: opacity 0.15s;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    padding: 0.75rem 1rem;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    min-height: 44px;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--color-text-muted);
+    color: var(--color-text);
+  }
+
+  .char-count {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    font-family: 'Arial', sans-serif;
+    margin-left: auto;
+  }
+
+  .char-count.over {
+    color: var(--color-primary);
+  }
+
+  /* === YOUR TAKE DISPLAY === */
+  .your-take-display {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-accent);
+    padding: 1rem 1.25rem;
+    display: none;
+    margin-top: 1rem;
+  }
+
+  .your-take-display.visible {
+    display: block;
+  }
+
+  .your-take-badge {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-accent);
+    margin-bottom: 0.5rem;
+  }
+
+  .your-take-text {
+    font-size: 0.95rem;
+    line-height: 1.55;
+    color: var(--color-text);
+  }
+
+  .your-take-actions {
+    margin-top: 0.75rem;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* === SECTION 3: THE FLOOR === */
+  .floor-block {
+    margin-bottom: 2rem;
+  }
+
+  .floor-takes {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .floor-take-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 1rem 1.25rem;
+    transition: border-color 0.15s;
+  }
+
+  .floor-take-card:hover {
+    border-color: var(--color-text-muted);
+  }
+
+  .floor-take-handle {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: 0.05em;
+    margin-bottom: 0.4rem;
+    text-transform: uppercase;
+  }
+
+  .floor-take-text {
+    font-size: 0.92rem;
+    line-height: 1.55;
+    color: var(--color-text);
+    margin-bottom: 0.85rem;
+  }
+
+  .reactions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: var(--color-background);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-family: 'Arial', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 0.35rem 0.65rem;
+    cursor: pointer;
+    min-height: 34px;
+    transition: all 0.12s;
+    user-select: none;
+    border-radius: 2px;
+  }
+
+  .reaction-chip:hover {
+    border-color: var(--color-text-muted);
+    color: var(--color-text);
+  }
+
+  .reaction-chip.active {
+    color: var(--color-text);
+  }
+
+  .reaction-chip.active[data-reaction="Genius"] {
+    background: var(--color-primary);
+    border-color: var(--color-success);
+    color: var(--color-success);
+  }
+
+  .reaction-chip.active[data-reaction="Delusional"] {
+    background: var(--color-primary);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+  }
+
+  .reaction-chip.active[data-reaction="Suspicious"] {
+    background: var(--color-primary);
+    border-color: var(--color-warning);
+    color: var(--color-warning);
+  }
+
+  .reaction-chip.active[data-reaction="Based"] {
+    background: var(--color-primary);
+    border-color: var(--color-info);
+    color: var(--color-info);
+  }
+
+  .reaction-chip.active[data-reaction="Cursed"] {
+    background: var(--color-primary);
+    border-color: var(--color-cursed);
+    color: var(--color-cursed);
+  }
+
+  .reaction-count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    min-width: 1ch;
+  }
+
+  /* === SECTION 4: REMIX CHAIN === */
+  .remix-block {
+    margin-bottom: 2rem;
+  }
+
+  .remix-chain-intro {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+    line-height: 1.5;
+  }
+
+  .remix-root {
+    position: relative;
+  }
+
+  .remix-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    padding: 0.9rem 1.1rem;
+    position: relative;
+  }
+
+  .remix-card-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .remix-handle {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .remix-badge {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.4rem;
+    border-radius: 2px;
+  }
+
+  .remix-badge.origin {
+    background: var(--color-primary);
+    color: var(--color-text);
+  }
+
+  .remix-badge.remix {
+    background: transparent;
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .remix-badge.remix2 {
+    background: transparent;
+    border: 1px solid var(--color-text-muted);
+    color: var(--color-text-muted);
+  }
+
+  .remix-text {
+    font-size: 0.88rem;
+    line-height: 1.5;
+    color: var(--color-text);
+  }
+
+  .remix-credit {
+    margin-top: 0.5rem;
+    font-family: 'Arial', sans-serif;
+    font-size: 0.65rem;
+    color: var(--color-text-muted);
+  }
+
+  .remix-credit span {
+    color: var(--color-accent);
+  }
+
+  .remix-children {
+    margin-left: 1.5rem;
+    padding-left: 1rem;
+    border-left: 2px solid var(--color-border);
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .remix-connector {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: var(--color-accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .remix-connector::before {
+    content: '↳';
+    font-size: 0.75rem;
+  }
+
+  /* === FOOTER === */
+  .arena-footer {
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .arena-footer p {
+    font-family: 'Arial', sans-serif;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+  }
+
+  .arena-footer a {
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .arena-footer a:hover {
+    text-decoration: underline;
+  }
+
+  .pulse-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--color-primary);
+    border-radius: 50%;
+    margin-right: 0.4rem;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* === DIVIDER === */
+  .section-gap {
+    height: 1px;
+    background: var(--color-border);
+    margin: 2rem 0;
+  }
+
+  /* === EMPTY STATE === */
+  .empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--color-text-muted);
+    font-family: 'Arial', sans-serif;
+    font-size: 0.8rem;
+    border: 1px dashed var(--color-border);
+  }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 480px) {
+    .tool-container {
+      padding: 1rem 0.85rem 2.5rem;
+    }
+
+    .tool-container h2 {
+      font-size: 1.5rem;
+    }
+
+    .provocation-text {
+      font-size: 1.1rem;
+    }
+
+    .reactions-row {
+      gap: 0.3rem;
+    }
+
+    .reaction-chip {
+      font-size: 0.65rem;
+      padding: 0.3rem 0.5rem;
+    }
+
+    .remix-children {
+      margin-left: 0.75rem;
+      padding-left: 0.75rem;
+    }
+  }
+</style>
+
+<div class="tool-container">
+  <h2>The Arena</h2>
+  <p class="tool-description">Sharpest response wins. File your take, react to others, watch ideas mutate.</p>
+
+  <!-- SECTION 1: TODAY'S PROVOCATION -->
+  <div class="section-label">Today's Provocation</div>
+  <div class="provocation-block">
+    <div class="provocation-text" id="provocation-text">Loading…</div>
+    <div class="provocation-meta">
+      <span class="provocation-day" id="provocation-day">Day 0</span>
+      <span id="provocation-date-label"></span>
+    </div>
+  </div>
+
+  <!-- SECTION 2: FILE YOUR TAKE -->
+  <div class="section-label">File Your Take</div>
+  <div class="take-block" id="take-block">
+    <fieldset>
+      <legend>Your position</legend>
+      <label for="take-input">State your argument. No hedging. No "it depends".</label>
+      <textarea
+        class="take-textarea"
+        id="take-input"
+        name="take-input"
+        maxlength="400"
+        placeholder="Make it hurt or make it sing — either way, make it count."
+        aria-describedby="char-count-label"
+      ></textarea>
+      <div class="take-submit-row">
+        <button class="btn-primary" id="take-submit-btn" type="button">Drop It</button>
+        <span class="char-count" id="char-count-label">0 / 400</span>
+      </div>
+    </fieldset>
+    <div class="your-take-display" id="your-take-display" aria-live="polite">
+      <div class="your-take-badge">✔ Your take is on the floor</div>
+      <div class="your-take-text" id="your-take-text"></div>
+      <div class="your-take-actions">
+        <button class="btn-secondary" id="refile-btn" type="button">Re-file</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-gap"></div>
+
+  <!-- SECTION 3: THE FLOOR -->
+  <div class="section-label">The Floor</div>
+  <div class="floor-block">
+    <div class="floor-takes" id="floor-takes" role="list">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <div class="section-gap"></div>
+
+  <!-- SECTION 4: REMIX CHAIN -->
+  <div class="section-label">Remix Chain</div>
+  <div class="remix-block">
+    <p class="remix-chain-intro">One take. Two mutations. Credit flows through the chain — this is how arguments evolve on Spark.</p>
+    <div class="remix-root" id="remix-root">
+      <!-- injected by JS -->
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="arena-footer">
+    <p><span class="pulse-dot"></span>This is open-floor mode. Head-to-head duels and live argument rooms are coming — enter <a href="/tools/gauntlet/index.html">the Gauntlet</a> for the full daily game.</p>
+  </div>
+</div>
+
+<script>
+/* === tool-doc ===
+function: tool-arena-interface
+purpose: Delivers a fully client-side competitive opinion arena where visitors read a daily rotating provocation, file a personal take persisted in localStorage, react to embedded sample takes with one of five labelled reaction chips whose counts are also persisted, and view a visual remix chain illustrating how arguments build on each other.
+behaviour:
+  - No external network calls; all data is embedded literals or localStorage
+  - Provocation is selected deterministically by day-of-year index modulo total provocations count, changing each calendar day
+  - Take text is stored and retrieved from localStorage keyed by provocation index
+  - Reaction counts stored in localStorage keyed by provocation index and take id; one active reaction per take per visitor, switchable
+  - Character limit of 400 enforced on textarea; submission blocked if empty or over limit
+  - Remix chain is static illustrative content per provocation, not user-generated
+inputs: Visitor types a take in the textarea, taps "Drop It" or "Re-file", and taps reaction chips on floor takes
+outputs: Rendered provocation heading, persisted take display, floor take cards with live reaction counts, and an illustrative nested remix chain
+=== /tool-doc === */
+
+(function () {
+  /* ---- DATA ---- */
+  const PROVOCATIONS = [
+    {
+      text: "AI art is just expensive plagiarism — defend or destroy.",
+      day: "Round 01"
+    },
+    {
+      text: "Authenticity is the most overrated concept in modern culture. Fight me.",
+      day: "Round 02"
+    },
+    {
+      text: "Social media didn't polarise us — it just made the pre-existing ugliness impossible to ignore.",
+      day: "Round 03"
+    },
+    {
+      text: "Every 'anti-hustle' influencer is selling a more expensive version of hustle culture.",
+      day: "Round 04"
+    },
+    {
+      text: "Streaming killed the album era and replaced it with nothing — unpopular truth or wrong take?",
+      day: "Round 05"
+    }
+  ];
+
+  const REACTIONS = ["Genius", "Delusional", "Suspicious", "Based", "Cursed"];
+
+  const REACTION_EMOJI = {
+    Genius: "🧠",
+    Delusional: "🌀",
+    Suspicious: "👁",
+    Based: "🔩",
+    Cursed: "💀"
+  };
+
+  /* Floor takes per provocation index */
+  const FLOOR_TAKES = [
+    [
+      { id: "p0t0", handle: "@synthetix", text: "Calling AI art plagiarism is like calling a camera plagiarism of painting. The tool changed, the intent didn't. Cope.", seed: { Genius: 12, Delusional: 41, Suspicious: 5, Based: 9, Cursed: 3 } },
+      { id: "p0t1", handle: "@inkblot_vera", text: "The real crime is that 40 years of scraped artist work built these models and not one of those artists saw a cent. That's not inspiration — that's extraction.", seed: { Genius: 58, Delusional: 4, Suspicious: 12, Based: 33, Cursed: 6 } },
+      { id: "p0t2", handle: "@loud_ratio", text: "Anyone arguing about 'real art' is just gate-keeping aesthetics because their guild is under threat. Art doesn't care who made it.", seed: { Genius: 8, Delusional: 22, Suspicious: 19, Based: 6, Cursed: 4 } },
+      { id: "p0t3", handle: "@moralsystem", text: "The expensive plagiarism framing is almost right but wrong for the wrong reasons. The issue is power, not process.", seed: { Genius: 27, Delusional: 3, Suspicious: 9, Based: 14, Cursed: 1 } },
+      { id: "p0t4", handle: "@3am_take_factory", text: "Both sides are having the wrong argument. The question isn't authorship — it's what we actually lose when craft becomes frictionless.", seed: { Genius: 39, Delusional: 2, Suspicious: 6, Based: 21, Cursed: 2 } }
+    ],
+    [
+      { id: "p1t0", handle: "@contrarian_ms", text: "Authenticity as a concept was invented to sell you things. Buy artisanal bread, keep a journal, attend your trauma — all packaging.", seed: { Genius: 21, Delusional: 9, Suspicious: 13, Based: 17, Cursed: 5 } },
+      { id: "p1t1", handle: "@quiethours_", text: "Performed authenticity is cringe, yes. But the alternative — pure strategic self-curation — produces people who are unliveable with. Something real has to be in there.", seed: { Genius: 30, Delusional: 4, Suspicious: 6, Based: 15, Cursed: 1 } },
+      { id: "p1t2", handle: "@flux_argument", text: "The word has been destroyed by brand marketing. Retire it and nobody loses anything.", seed: { Genius: 10, Delusional: 6, Suspicious: 4, Based: 22, Cursed: 3 } },
+      { id: "p1t3", handle: "@deepfield99", text: "Overrated ≠ useless. Authenticity in relationships, not content creation, still matters enormously and people keep conflating them.", seed: { Genius: 24, Delusional: 2, Suspicious: 5, Based: 11, Cursed: 0 } },
+      { id: "p1t4", handle: "@hardleft_take", text: "If the concept can be used to sell $80 candles it was never doing the philosophical work people thought it was.", seed: { Genius: 14, Delusional: 8, Suspicious: 10, Based: 9, Cursed: 2 } }
+    ],
+    [
+      { id: "p2t0", handle: "@fracture_line", text: "The 'it was always this bad' argument is comfort food for tech people who built the amplifiers. Magnitude matters.", seed: { Genius: 33, Delusional: 5, Suspicious: 14, Based: 19, Cursed: 3 } },
+      { id: "p2t1", handle: "@historical_recv", text: "Pre-internet communities were perfectly capable of organised hatred. The timeline is too convenient. The platforms are not the root cause.", seed: { Genius: 18, Delusional: 12, Suspicious: 7, Based: 10, Cursed: 4 } },
+      { id: "p2t2", handle: "@signal_ratio", text: "Both can be true: ugliness pre-existed AND algorithmic amplification made it structurally inescapable. The scale change creates a category change.", seed: { Genius: 41, Delusional: 1, Suspicious: 3, Based: 16, Cursed: 0 } },
+      { id: "p2t3", handle: "@coldreads", text: "What changed was accountability evaporation. People always had the thoughts — they didn't always have plausible deniability at mass scale.", seed: { Genius: 29, Delusional: 2, Suspicious: 9, Based: 13, Cursed: 1 } },
+      { id: "p2t4", handle: "@archive_take", text: "The 'it was always this way' argument conveniently arrives right when the people who built the pipes need regulatory cover.", seed: { Genius: 22, Delusional: 6, Suspicious: 25, Based: 8, Cursed: 5 } }
+    ],
+    [
+      { id: "p3t0", handle: "@softlaunch_", text: "Correct. Rest as resistance is a $900 course waiting to happen. Every aesthetic has a product attached within six months.", seed: { Genius: 26, Delusional: 4, Suspicious: 10, Based: 20, Cursed: 3 } },
+      { id: "p3t1", handle: "@hard_disagree", text: "Bad take. The anti-hustle people at least shifted the Overton window on burnout. Criticising the monetisation ≠ dismissing the critique.", seed: { Genius: 19, Delusional: 8, Suspicious: 5, Based: 14, Cursed: 1 } },
+      { id: "p3t2", handle: "@position_zero", text: "The reveal is always in the DM funnel. Follow the click-through and you'll find the exact thing they said they were against.", seed: { Genius: 31, Delusional: 3, Suspicious: 18, Based: 12, Cursed: 4 } },
+      { id: "p3t3", handle: "@meta_layer", text: "The form consumes the content every time. The medium is the grind.", seed: { Genius: 15, Delusional: 5, Suspicious: 4, Based: 9, Cursed: 2 } },
+      { id: "p3t4", handle: "@cold_open", text: "Fair point but incomplete — the structural critique of overwork still holds even if the messengers are compromised.", seed: { Genius: 20, Delusional: 1, Suspicious: 3, Based: 11, Cursed: 0 } },
+      { id: "p3t5", handle: "@morning_dispatch", text: "If your self-care routine requires a spreadsheet you have not escaped productivity culture, you've rebranded it.", seed: { Genius: 28, Delusional: 2, Suspicious: 6, Based: 17, Cursed: 3 } }
+    ],
+    [
+      { id: "p4t0", handle: "@vinyl_argument", text: "Streaming killed the album and replaced it with the playlist. That's not nothing — it's an entirely different art form. The question is whether it's worse.", seed: { Genius: 24, Delusional: 3, Suspicious: 5, Based: 13, Cursed: 1 } },
+      { id: "p4t1", handle: "@skip_intro", text: "The album era was mostly filler tracks protecting three singles. Good riddance, honestly.", seed: { Genius: 11, Delusional: 14, Suspicious: 6, Based: 8, Cursed: 2 } },
+      { id: "p4t2", handle: "@listen_twice", text: "The real casualty is the B-side — the weird experiments that needed commercial protection. Now everything has to perform on its own from day one.", seed: { Genius: 35, Delusional: 1, Suspicious: 4, Based: 19, Cursed: 0 } },
+      { id: "p4t3", handle: "@format_wars", text: "Albums are fine. The ones who cared still make them. This is nostalgia dressed as criticism.", seed: { Genius: 9, Delusional: 17, Suspicious: 3, Based: 6, Cursed: 2 } },
+      { id: "p4t4", handle: "@deep_cut_", text: "The loss is curatorial intention. Tracklists were arguments. Now a 'body of work' is whatever Spotify bundles.", seed: { Genius: 30, Delusional: 2, Suspicious: 5, Based: 16, Cursed: 1 } }
+    ]
+  ];
+
+  /* Remix chain per provocation index (static illustrative) */
+  const REMIX_CHAINS = [
+    {
+      origin: { handle: "@inkblot_vera", badge: "Origin", text: "40 years of scraped artist work built these models and not one of those artists saw a cent." },
+      remix1: { handle: "@moralsystem", badge: "Remix", text: "The labour extraction argument is real but incomplete — what do we do about art schools that also don't pay the artists they study? Same logic, no outrage.", credit: "Remixing @inkblot_vera's take" },
+      remix2: { handle: "@3am_take_factory", badge: "Remix²", text: "Both miss it. Art schools operate inside a social contract AI companies explicitly voided. The outrage gap is a consent gap.", credit: "Remixing @moralsystem + @inkblot_vera" }
+    },
+    {
+      origin: { handle: "@contrarian_ms", badge: "Origin", text: "Authenticity as a concept was invented to sell you things." },
+      remix1: { handle: "@deepfield99", badge: "Remix", text: "Invented to sell things ≠ only capable of selling things. That's like saying language was invented to deceive, therefore all speech is manipulation.", credit: "Remixing @contrarian_ms's take" },
+      remix2: { handle: "@flux_argument", badge: "Remix²", text: "The word can be rehabilitated in private contexts but it's done in public discourse. Two different conversations collapsed into one label.", credit: "Remixing @deepfield99 + @contrarian_ms" }
+    },
+    {
+      origin: { handle: "@fracture_line", badge: "Origin", text: "The 'it was always this bad' argument is comfort food for tech people who built the amplifiers." },
+      remix1: { handle: "@signal_ratio", badge: "Remix", text: "Fair accusation but it proves too much — every upstream cause can be deflected with 'you have skin in the game.' Where does that logic bottom out?", credit: "Remixing @fracture_line's take" },
+      remix2: { handle: "@coldreads", badge: "Remix²", text: "It bottoms out at evidence. Check the motive, then check the argument on its own terms. The origin doesn't falsify the claim.", credit: "Remixing @signal_ratio + @fracture_line" }
+    },
+    {
+      origin: { handle: "@position_zero", badge: "Origin", text: "The reveal is always in the DM funnel. Follow the click-through and you'll find the exact thing they said they were against." },
+      remix1: { handle: "@meta_layer", badge: "Remix", text: "The funnel critique is airtight for creators but doesn't touch the actual burnout data underneath the movement.", credit: "Remixing @position_zero's take" },
+      remix2: { handle: "@morning_dispatch", badge: "Remix²", text: "Separate the messenger's grift from the message's merit — the data survives even when the influencer doesn't.", credit: "Remixing @meta_layer + @position_zero" }
+    },
+    {
+      origin: { handle: "@vinyl_argument", badge: "Origin", text: "Streaming killed the album and replaced it with the playlist. That's not nothing — it's an entirely different art form." },
+      remix1: { handle: "@listen_twice", badge: "Remix", text: "The real casualty is the B-side — the weird experiments that needed commercial protection to exist at all.", credit: "Remixing @vinyl_argument's take" },
+      remix2: { handle: "@deep_cut_", badge: "Remix²", text: "Curatorial intention is the actual loss. Tracklists were arguments; bundles are just inventory.", credit: "Remixing @listen_twice + @vinyl_argument" }
+    }
+  ];
+
+  /* ---- STATE / STORAGE HELPERS ---- */
+  const STORAGE_TAKE_PREFIX = "arena_take_v1_";
+  const STORAGE_REACTION_PREFIX = "arena_reaction_v1_";
+
+  function getDayOfYearIndex() {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 0);
+    const diff = now - start;
+    const oneDay = 1000 * 60 * 60 * 24;
+    const dayOfYear = Math.floor(diff / oneDay);
+    return dayOfYear % PROVOCATIONS.length;
+  }
+
+  function safeGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function safeSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      /* storage unavailable, fail silently */
+    }
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  /* ---- APP INIT ---- */
+  const provIndex = getDayOfYearIndex();
+  const provocation = PROVOCATIONS[provIndex];
+  const floorTakes = FLOOR_TAKES[provIndex] || FLOOR_TAKES[0];
+  const remixChain = REMIX_CHAINS[provIndex] || REMIX_CHAINS[0];
+
+  const takeStorageKey = STORAGE_TAKE_PREFIX + provIndex;
+
+  /* Elements */
+  const provocationTextEl = document.getElementById("provocation-text");
+  const provocationDayEl = document.getElementById("provocation-day");
+  const provocationDateEl = document.getElementById("provocation-date-label");
+  const takeInput = document.getElementById("take-input");
+  const takeSubmitBtn = document.getElementById("take-submit-btn");
+  const charCountLabel = document.getElementById("char-count-label");
+  const yourTakeDisplay = document.getElementById("your-take-display");
+  const yourTakeText = document.getElementById("your-take-text");
+  const refileBtn = document.getElementById("refile-btn");
+  const takeFieldset = document.querySelector(".take-block fieldset");
+  const floorTakesEl = document.getElementById("floor-takes");
+  const remixRootEl = document.getElementById("remix-root");
+
+  /* --- Render Provocation --- */
+  function renderProvocation() {
+    provocationTextEl.textContent = provocation.text;
+    provocationDayEl.textContent = provocation.day;
+    const dateStr = new Date().toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+    provocationDateEl.textContent = dateStr;
+  }
+
+  /* --- Char Count --- */
+  function updateCharCount() {
+    const len = takeInput.value.length;
+    charCountLabel.textContent = len + " / 400";
+    if (len > 400) {
+      charCountLabel.classList.add("over");
+    } else {
+      charCountLabel.classList.remove("over");
+    }
+  }
+
+  /* --- Your Take Persistence --- */
+  function showYourTake(text) {
+    yourTakeText.textContent = text;
+    yourTakeDisplay.classList.add("visible");
+    takeFieldset.style.display = "none";
+  }
+
+  function hideYourTake() {
+    yourTakeDisplay.classList.remove("visible");
+    takeFieldset.style.display = "";
+  }
+
+  function loadSavedTake() {
+    const saved = safeGet(takeStorageKey);
+    if (saved) {
+      showYourTake(saved);
+    } else {
+      hideYourTake();
+    }
+  }
+
+  function submitTake() {
+    const text = takeInput.value.trim();
+    if (!text) {
+      takeInput.focus();
+      return;
+    }
+    if (text.length > 400) {
+      return;
+    }
+    safeSet(takeStorageKey, text);
+    showYourTake(text);
+  }
+
+  function refileTake() {
+    const saved = safeGet(takeStorageKey);
+    takeInput.value = saved || "";
+    updateCharCount();
+    hideYourTake();
+    takeInput.focus();
+  }
+
+  /* --- Floor Takes / Reactions --- */
+  function reactionStorageKey(takeId) {
+    return STORAGE_REACTION_PREFIX + provIndex + "_" + takeId;
+  }
+
+  function getReactionState(takeId) {
+    const raw = safeGet(reactionStorageKey(takeId));
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function setReactionState(takeId, state) {
+    safeSet(reactionStorageKey(takeId), JSON.stringify(state));
+  }
+
+  function getCounts(take) {
+    const state = getReactionState(take.id);
+    const counts = Object.assign({}, take.seed);
+    if (state && state.counts) {
+      REACTIONS.forEach(function (r) {
+        if (typeof state.counts[r] === "number") {
+          counts[r] = state.counts[r];
+        }
+      });
+    }
+    return counts;
+  }
+
+  function getActiveReaction(take) {
+    const state = getReactionState(take.id);
+    return state ? state.active : null;
+  }
+
+  function renderFloorTakes() {
+    floorTakesEl.innerHTML = "";
+
+    if (!floorTakes.length) {
+      const empty = document.createElement("div");
+      empty.className = "empty-state";
+      empty.textContent = "The floor is empty. Be the first to file a take.";
+      floorTakesEl.appendChild(empty);
+      return;
+    }
+
+    floorTakes.forEach(function (take) {
+      const card = document.createElement("div");
+      card.className = "floor-take-card";
+      card.setAttribute("role", "listitem");
+
+      const handle = document.createElement("div");
+      handle.className = "floor-take-handle";
+      handle.textContent = take.handle;
+
+      const text = document.createElement("div");
+      text.className = "floor-take-text";
+      text.textContent = take.text;
+
+      const reactionsRow = document.createElement("div");
+      reactionsRow.className = "reactions-row";
+
+      const counts = getCounts(take);
+      const active = getActiveReaction(take);
+
+      REACTIONS.forEach(function (reaction) {
+        const chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "reaction-chip" + (active === reaction ? " active" : "");
+        chip.setAttribute("data-reaction", reaction);
+        chip.setAttribute("data-take-id", take.id);
+        chip.setAttribute("aria-pressed", active === reaction ? "true" : "false");
+
+        const emoji = document.createElement("span");
+        emoji.textContent = REACTION_EMOJI[reaction] || "";
+
+        const label = document.createElement("span");
+        label.textContent = reaction;
+
+        const countEl = document.createElement("span");
+        countEl.className = "reaction-count";
+        countEl.textContent = counts[reaction] != null ? counts[reaction] : 0;
+
+        chip.appendChild(emoji);
+        chip.appendChild(label);
+        chip.appendChild(countEl);
+
+        chip.addEventListener("click", function () {
+          handleReactionClick(take, reaction);
+        });
+
+        reactionsRow.appendChild(chip);
+      });
+
+      card.appendChild(handle);
+      card.appendChild(text);
+      card.appendChild(reactionsRow);
+      floorTakesEl.appendChild(card);
+    });
+  }
+
+  function handleReactionClick(take, reaction) {
+    const state = getReactionState(take.id) || { active: null, counts: Object.assign({}, take.seed) };
+    const counts = Object.assign({}, take.seed, state.counts || {});
+
+    if (state.active === reaction) {
+      /* toggle off */
+      counts[reaction] = Math.max(0, (counts[reaction] || 0) - 1);
+      state.active = null;
+    } else {
+      if (state.active) {
+        counts[state.active] = Math.max(0, (counts[state.active] || 0) - 1);
+      }
+      counts[reaction] = (counts[reaction] || 0) + 1;
+      state.active = reaction;
+    }
+
+    state.counts = counts;
+    setReactionState(take.id, state);
+    renderFloorTakes();
+  }
+
+  /* --- Remix Chain --- */
+  function renderRemixChain() {
+    remixRootEl.innerHTML = "";
+
+    const originCard = document.createElement("div");
+    originCard.className = "remix-card";
+
+    const originMeta = document.createElement("div");
+    originMeta.className = "remix-card-meta";
+    const originHandle = document.createElement("span");
+    originHandle.className = "remix-handle";
+    originHandle.textContent = remixChain.origin.handle;
+    const originBadge = document.createElement("span");
+    originBadge.className = "remix-badge origin";
+    originBadge.textContent = remixChain.origin.badge;
+    originMeta.appendChild(originHandle);
+    originMeta.appendChild(originBadge);
+
+    const originText = document.createElement("div");
+    originText.className = "remix-text";
+    originText.textContent = remixChain.origin.text;
+
+    originCard.appendChild(originMeta);
+    originCard.appendChild(originText);
+
+    const children = document.createElement("div");
+    children.className = "remix-children";
+
+    /* Remix 1 */
+    const remix1Wrap = document.createElement("div");
+    const connector1 = document.createElement("div");
+    connector1.className = "remix-connector";
+    connector1.textContent = "Mutation 1";
+    const remix1Card = document.createElement("div");
+    remix1Card.className = "remix-card";
+
+    const remix1Meta = document.createElement("div");
+    remix1Meta.className = "remix-card-meta";
+    const remix1Handle = document.createElement("span");
+    remix1Handle.className = "remix-handle";
+    remix1Handle.textContent = remixChain.remix1.handle;
+    const remix1Badge = document.createElement("span");
+    remix1Badge.className = "remix-badge remix";
+    remix1Badge.textContent = remixChain.remix1.badge;
+    remix1Meta.appendChild(remix1Handle);
+    remix1Meta.appendChild(remix1Badge);
+
+    const remix1Text = document.createElement("div");
+    remix1Text.className = "remix-text";
+    remix1Text.textContent = remixChain.remix1.text;
+
+    const remix1Credit = document.createElement("div");
+    remix1Credit.className = "remix-credit";
+    remix1Credit.innerHTML = "Credit: <span>" + escapeHtml(remixChain.remix1.credit) + "</span>";
+
+    remix1Card.appendChild(remix1Meta);
+    remix1Card.appendChild(remix1Text);
+    remix1Card.appendChild(remix1Credit);
+
+    remix1Wrap.appendChild(connector1);
+    remix1Wrap.appendChild(remix1Card);
+
+    /* Remix 2 nested inside remix 1 */
+    const remix2Children = document.createElement("div");
+    remix2Children.className = "remix-children";
+
+    const remix2Wrap = document.createElement("div");
+    const connector2 = document.createElement("div");
+    connector2.className = "remix-connector";
+    connector2.textContent = "Mutation 2";
+    const remix2Card = document.createElement("div");
+    remix2Card.className = "remix-card";
+
+    const remix2Meta = document.createElement("div");
+    remix2Meta.className = "remix-card-meta";
+    const remix2Handle = document.createElement("span");
+    remix2Handle.className = "remix-handle";
+    remix2Handle.textContent = remixChain.remix2.handle;
+    const remix2Badge = document.createElement("span");
+    remix2Badge.className = "remix-badge remix2";
+    remix2Badge.textContent = remixChain.remix2.badge;
+    remix2Meta.appendChild(remix2Handle);
+    remix2Meta.appendChild(remix2Badge);
+
+    const remix2Text = document.createElement("div");
+    remix2Text.className = "remix-text";
+    remix2Text.textContent = remixChain.remix2.text;
+
+    const remix2Credit = document.createElement("div");
+    remix2Credit.className = "remix-credit";
+    remix2Credit.innerHTML = "Credit: <span>" + escapeHtml(remixChain.remix2.credit) + "</span>";
+
+    remix2Card.appendChild(remix2Meta);
+    remix2Card.appendChild(remix2Text);
+    remix2Card.appendChild(remix2Credit);
+
+    remix2Wrap.appendChild(connector2);
+    remix2Wrap.appendChild(remix2Card);
+
+    remix2Children.appendChild(remix2Wrap);
+    remix1Card.appendChild(remix2Children);
+
+    children.appendChild(remix1Wrap);
+    originCard.appendChild(children);
+
+    remixRootEl.appendChild(originCard);
+  }
+
+  /* --- Event Wiring --- */
+  takeInput.addEventListener("input", updateCharCount);
+  takeSubmitBtn.addEventListener("click", submitTake);
+  refileBtn.addEventListener("click", refileTake);
+
+  /* --- Init --- */
+  renderProvocation();
+  updateCharCount();
+  loadSavedTake();
+  renderFloorTakes();
+  renderRemixChain();
+})();
+</script>
