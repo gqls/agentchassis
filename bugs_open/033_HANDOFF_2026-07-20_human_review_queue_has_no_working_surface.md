@@ -902,3 +902,78 @@ denominator, not 57 of 382.
 **Still not flipped to live.** `dry_run` remains `true` and that decision stays
 with `review_queue_drain` / the owner. Everything above is a dry-run projection;
 `closed = 0` and no `site_work_items` row has been touched.
+
+---
+
+## 🟢 LIVE RUN — the drain has actually drained. 382 → 325, 2026-07-27 20:11 UTC
+
+Flipped `dry_run` false on the owner's instruction and fired.
+Orchestration `be1d36f8-3609-4bc0-a99f-2096b9343505`, run 20:10:41 → 20:11:04 UTC
+(23 seconds). Snapshot `4242a5c0` taken before the flip.
+
+```
+scanned 382   resolved 57   still_holds 30   unknown 295   closed 57   dry_run false
+```
+
+**Verified against the ROWS, not the payload** — `complete` on an orchestration is
+not proof the work happened, which is most of what this file is about:
+
+| check | before | after |
+|---|---|---|
+| `status='needs_human_review'` | **382** | **325** |
+| rows with `resolution_path LIKE 'auto:revalidated%'` | **0** | **57** |
+| rows with any `resolution_path` | 4 (all hand-written owner rulings) | 61 |
+
+All 57 closed rows: `status='complete'`, `completed_at` populated,
+`resolution_path='auto:revalidated'`. By type — `unresolved_cta` 44,
+`required_fields_missing` 11, `needs_section_data` 2 — **exactly** the dry run's
+projection, so the write path did what the read path predicted.
+
+**This is the first time anything automated has ever closed an item in this
+table.** Before today the column had four values in it, all typed by hand.
+
+**The closes are reversible, and that is checked rather than assumed.** The seed
+argues a close releases the dedup key so the originating check re-raises anything
+still true. Confirmed against the live index:
+
+```
+CREATE UNIQUE INDEX idx_swi_dedup ON site_work_items (site_id, item_key)
+  WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified',
+    'rejected','wont_fix','failed','unresolved','cancelled'])
+```
+
+`complete` is in the excluded set, so a wrong close costs one re-raise; it cannot
+lose a finding.
+
+### THIS DOES NOT CLOSE 033 — three things are untouched
+
+1. **325 items remain**, of which **223 are uncovered types** the revalidator has
+   no verdict for (largest: `cta_names_unknown_destination` 70, excluded on
+   purpose — `cta_link_integrity` owns it).
+2. **72 items are of a COVERED type and still unjudgeable**: `component has no
+   content_data` 32, `no deployed component matches` 25, `spec.missing names no
+   fields` 15. That is the revalidator's real internal limit and it is where v2
+   effort belongs.
+3. **The owner's 2026-07-25 reframing — "the queue should not fill" — is entirely
+   unaddressed.** The drain treats the symptom. Nothing yet stops items arriving
+   faster than they are worked; the queue grew 375 → 382 over the two days this
+   was being built.
+
+### ⚠️ `dry_run` IS NOW `false` AND STAYS THAT WAY
+
+There is no scheduled task for `diagnosis-review-queue-revalidator` — it is
+manual-trigger only, so nothing fires it on a clock. But
+`TRIGGER_revalidate_review_queue_v1.sh` now **closes items** rather than
+simulating, for whoever runs it next. Restore simulation with:
+
+```sql
+UPDATE agent_definitions SET default_config = jsonb_set(default_config,
+  '{workflow,steps,sweep,config,dry_run}', 'true'::jsonb, false)
+WHERE type='diagnosis-review-queue-revalidator' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+Set the **scalar at the leaf path**, as above. A `jsonb_set` writing a literal
+object at `{...,sweep,config}` would silently drop the `max_items` sibling and
+revert the cap to its default of 50 — which would quietly sweep only the oldest
+items, the exact skew that made the first dry run look useless.
