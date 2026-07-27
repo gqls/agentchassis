@@ -87,9 +87,33 @@ deleted from `vm-sites`** (`c74fe58`) — archiving alone leaves it serving (`bu
 derived from `pages` — archiving does not touch it; contributed to 098). Hero CTAs on
 `index`/`noticias-index`/`glosario-index` given real destinations; `identity.contact.phone`
 cleared (an inherited `+34` number from the dead forum); the `needs_section_data` request
-for a business email closed `wont_fix`. Footer contact column now gated on having contents
-(`footer-theme-chrome`, owner-approved fleet change — filed as `bugs_open/111`, backup
-`bak_footer_theme_chrome_20260727`).
+for a business email closed `wont_fix`.
+
+**VERIFIED LIVE 2026-07-27 17:45 — 18 of 18 pages, and a full probe of every internal link:**
+
+```
+18 pages: 0 href="/contacto.html"   0 href="/contact.html"   0 hero "Get Started"
+/contacto.html -> 404 ;  feed.xml still 30 items
+every internal target probed -> only 2 non-200, BOTH pre-existing and unrelated:
+   404 /assets/images/favicon.png   (long-known gap)
+   301 /guias/mantenimiento          (harmless redirect)
+```
+
+**Getting the footer to change needed a SITE-CHROME rebuild, not a page re-render** — chrome
+is a stored artefact (`site_components.rendered_html`), frozen here since 07-16, used verbatim
+by `assemblePage`. Trigger: a `nav_drift` work item handled by `nav-updater`
+(→ `render_site_components`). See `bugs_open/117`. **Then re-render the pages.**
+
+**The contact column is GATED but still renders, correctly** — `sites.email` holds
+`relojistas@contactforsales.com` (a 13-site house convention; NOT
+`site_specs.identity.contact`, which is null). The gate correctly dropped the empty phone
+line. **OWNER DECISION OPEN:** that address is a contact route on a site ruled to have none —
+but it is a *sales* address on a domain that is for sale, and clearing it edits a fleet
+convention. `bugs_open/111`'s "8 sites show an empty block" claim is **refuted** (corrected
+in place). Gate applied to BOTH `footer-theme-chrome` and `footer-4-column` because chrome
+selection has no `is_active` filter and picks alphabetically — the deactivated
+`footer-4-column` is what actually renders fleet-wide (`bugs_open/118`). Backups:
+`bak_footer_theme_chrome_20260727`, `bak_footer_4column_20260727`.
 
 **Two traps burned in, both worth more than the task:**
 
