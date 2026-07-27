@@ -32,8 +32,11 @@ func TestMetaDescriptionLooksInternal(t *testing.T) {
 		{"the hand-fixed Arena copy, live now", "Read today's provocation, browse the archive, " +
 			"then take a position into the Gauntlet and defend it against an AI opponent " +
 			"on a twenty-minute clock.", false},
-		{"the guide-page composed line", "A practical guide to LLM Cost Calculator — what it " +
-			"means, how it works, and how to use our interactive llm cost calculator.", false},
+		{"the guide-page composed line", "A practical guide to LLM Cost Calculator: what it " +
+			"means, how it works, and how to use the interactive llm cost calculator.", false},
+		{"the tool composed line, house voice", "An interactive Fuel Cost Estimator, free to run " +
+			"in the browser. The companion guide sets out the method behind it, so you can " +
+			"check the working.", false},
 		{"ordinary marketing copy", "Compare wholesale fuel prices across UK suppliers and " +
 			"forecast your monthly spend.", false},
 		{"exactly at the length limit", stringOfLength(maxPublicMetaDescription), false},

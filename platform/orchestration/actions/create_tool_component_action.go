@@ -265,7 +265,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	// how bugs_open/093 and bugs_open/112 each shipped half a fix.
 	toolMeta, metaReplaced := datahelpers.PublicMetaDescription(
 		description,
-		composedToolMetaDescription(displayName, category),
+		composedToolMetaDescription(displayName),
 	)
 	if metaReplaced {
 		logger.Warn("CreateToolComponentAction: tool description rejected as a build brief, composed copy used instead",

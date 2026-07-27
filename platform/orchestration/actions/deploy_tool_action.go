@@ -323,7 +323,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 	// path introduced by the fix for a silent-content problem.
 	toolMeta, metaReplaced := datahelpers.PublicMetaDescription(
 		toolDescription.String,
-		composedToolMetaDescription(toolDisplayName, toolCategory),
+		composedToolMetaDescription(toolDisplayName),
 	)
 	if metaReplaced {
 		logger.Warn("DeployToolToSiteAction: tool description rejected as a build brief, composed copy used instead",
@@ -563,20 +563,38 @@ func domainSlug(domain string) string {
 // The register deliberately matches the companion guide page's long-standing
 // composed line: plain, specific, and true of every tool — the visitor uses it in
 // the browser and there is always a guide.
-func composedToolMetaDescription(displayName, category string) string {
-	name := strings.TrimSpace(strings.TrimPrefix(displayName, "UK "))
+// Rewritten 2026-07-27 against the house voice, which went live the same evening
+// (`voice_style_block` in agent_default_configs; see platform/voicestyle and
+// bugs_open/121). The first version read "Use our free interactive X in your
+// browser — a Y tool, with a companion guide explaining how it works" and broke
+// three of those rules at once: an em dash, which the block bans outright and
+// without exception; "free interactive", which is word-weight the claim has not
+// earned; and "explaining how it works", the vague gesture the block asks you to
+// replace with the named action. It also gave the reader no reason to care,
+// which the block calls out directly.
+//
+// The wording is IDENTICAL to the backfill that repaired the 17 live rows
+// (sql_for_agents/242). Two registers for one sentence is the drift this whole
+// area keeps producing; if this line changes, change that file with it.
+//
+// The `category` argument is gone rather than left unread. It only fed the
+// em-dash branch, and a parameter that survives as decoration is exactly the
+// trap bugs_open/105 was filed about.
+func composedToolMetaDescription(displayName string) string {
+	// Strip a nav suffix if one rides along. display_name is usually clean, but
+	// the sibling backfill had to strip " | Tools" from pages.title, and the two
+	// should not disagree about what a tool is called.
+	name := displayName
+	if i := strings.Index(name, "|"); i >= 0 {
+		name = name[:i]
+	}
+	name = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(name), "UK "))
 	if name == "" {
 		return ""
 	}
-	lower := strings.ToLower(name)
-	if category != "" && !strings.EqualFold(category, "interactive") {
-		return fmt.Sprintf(
-			"Use our free %s in your browser — a %s tool, with a companion guide explaining how it works.",
-			lower, strings.ToLower(strings.TrimSpace(category)))
-	}
 	return fmt.Sprintf(
-		"Use our free interactive %s in your browser, with a companion guide explaining how it works.",
-		lower)
+		"An interactive %s, free to run in the browser. The companion guide sets out "+
+			"the method behind it, so you can check the working.", name)
 }
 
 // composedGuideMetaDescription is the companion guide page's description.
@@ -589,8 +607,18 @@ func composedToolMetaDescription(displayName, category string) string {
 // it was duplicated. Extracting it means this change removes an existing
 // duplication instead of adding a third copy of the idea.
 func composedGuideMetaDescription(displayName string) string {
+	// The em dash this used to carry is now a house-voice violation ("no em
+	// dashes, anywhere, ever"). A colon is explicitly allowed where a list
+	// genuinely follows, and one does. "our" drops out as marketing weight the
+	// sentence does not need.
+	//
+	// This only governs guide pages created FROM NOW ON. 26 live guide pages
+	// across 9 sites still carry the em-dash wording, and 40 live meta
+	// descriptions contain an em dash in total — recorded in bugs_open/103, not
+	// rewritten here: that is the voice thread's estate-wide call, not a side
+	// effect of a tool-page fix.
 	return fmt.Sprintf(
-		"A practical guide to %s — what it means, how it works, and how to use our interactive %s.",
+		"A practical guide to %s: what it means, how it works, and how to use the interactive %s.",
 		strings.TrimPrefix(displayName, "UK "),
 		strings.ToLower(displayName))
 }
