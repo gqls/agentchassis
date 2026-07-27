@@ -689,8 +689,15 @@ func (a *Agent) estimateCost(tokens int, model string) float64 {
 		"claude-3-5-sonnet-20241022": 0.003,
 		"claude-3-opus-20240229":     0.015,
 		"claude-sonnet-5":            0.003,
-		"gemini-2.5-flash":           0.001,
-		"gemini-2.5-pro":             0.010,
+		// The Gemini entries were keyed on pinned 2.5 snapshots that this
+		// platform's API key can no longer reach at all (NewGeminiClient refuses
+		// them), so they could never match and every Gemini call silently
+		// costed at the Claude fallback rate below. Keyed on the floating
+		// pointers that are actually configurable.
+		// [UNVERIFIED] rates carried over from the 2.5 generation — check
+		// against Google's current price list before quoting these anywhere.
+		"gemini-flash-lite-latest": 0.001,
+		"gemini-pro-latest":        0.010,
 	}
 
 	rate, ok := costPerThousand[model]
