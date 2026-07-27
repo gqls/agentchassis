@@ -772,3 +772,78 @@ success:** the seeded row carries `image_tag = v1.0.1174` while the chassis runs
 runs the image its SPAWNER runs, and that was confirmed live today on a different
 bug — but if this sweep behaves like an older binary, that row is the first place
 to look.
+
+### The dry run came back — and the batch it drew is NOT representative
+
+Orchestration `90212e3d-d06e-41f0-9c5f-e4deb1d4855f`, `COMPLETED @ complete`,
+18:50 UTC. **It ran, and its self-reporting is honest** — `uncovered_types` is
+populated exactly as the seed's header promises, so the gap is reported rather
+than read as "nothing to drain".
+
+```
+scanned         50      (capped_at 50 — max_items)
+resolved         2
+still_holds      2
+unknown         46
+closed           0      (dry_run: true — nothing was written)
+uncovered_types  {"content_rewrite": 16, "needs_content_page": 11, "empty_section": 3}
+```
+
+Why the 46 unknowns:
+
+| reason | n |
+|---|---|
+| no revalidator registered for this `item_type` | 30 |
+| no deployed component matches `page/slot` | 8 |
+| `spec.missing` names no fields, so there is nothing to re-check | 5 |
+| component carries no `content_data`; it renders from another source | 3 |
+
+**DO NOT read "2 resolved out of 50" as a 4% drain rate — I nearly did, and it
+would have been wrong.** The batch is skewed. Its 50 items were
+`needs_section_data` 20, `content_rewrite` 16, `needs_content_page` 11,
+`empty_section` 3 — and **zero `unresolved_cta`, zero `required_fields_missing`**,
+which are two of the three types v1 actually covers and together account for
+**115 items (30%) of the queue**. The sweep never saw them.
+
+So the seed's "expect roughly 51 resolved" is **neither confirmed nor refuted by
+this run**. It remains untested against the population it was written for.
+
+Queue composition, measured now (n=381):
+
+| item_type | n | % | covered by v1? |
+|---|---|---|---|
+| `cta_names_unknown_destination` | 70 | 18.4 | no — deliberately excluded, `cta_link_integrity` owns it |
+| `unresolved_cta` | 70 | 18.4 | **yes** — unseen by this run |
+| `required_fields_missing` | 45 | 11.8 | **yes** — unseen by this run |
+| `needs_section_data` | 44 | 11.5 | **yes** — the only covered type this run touched |
+| `needs_page` | 31 | 8.1 | no |
+| `content_rewrite` | 26 | 6.8 | no |
+| `voice_tells` | 25 | 6.6 | no |
+| `needs_content_page` | 19 | 5.0 | no |
+| `image_source_unsatisfiable` | 17 | 4.5 | no |
+
+**159 of 381 (42%) are of a covered type; 222 are not.**
+
+**Next action, before anyone flips `dry_run` false:** re-run the sweep so it
+actually reaches `unresolved_cta` and `required_fields_missing` — raise
+`max_items` past 381, or order the scan so the covered types are sampled. Judging
+the drain on this run alone would either condemn it or bless it on the strength
+of a batch that excluded two thirds of what it can handle.
+
+**RUNBOOK correction — the trigger prints the wrong query.**
+`TRIGGER_revalidate_review_queue_v1.sh` tells you to read
+
+```sql
+SELECT jsonb_pretty(collected_data->'complete'->'result'->'response') ...
+```
+
+which returns **empty**. The sweep step's `output_field` is `revalidation_result`,
+so the payload is at:
+
+```sql
+SELECT jsonb_pretty(collected_data->'revalidation_result')
+FROM orchestration_states WHERE orchestration_id='<orch>';
+```
+
+An empty result from the printed query looks exactly like "the sweep did nothing",
+which is the same false-negative shape this bug is otherwise about.
