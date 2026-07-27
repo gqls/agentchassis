@@ -647,7 +647,7 @@ recency — the failure mode is a peer that arrived *after* you looked.
 ### 8b. D8 is worse than stated — the Go tier is broken too, not merely narrow
 
 §5 D8 records that `code_checks` reaches "Go only — 4,535 symbols, 0 markdown."
-Both halves of that sentence understate it. Filed as `bugs_open/107`:
+Both halves of that sentence understate it. Filed as `bugs_open/108`:
 
 - **`content` never contains function bodies.** `composeSymbolContent`
   (`code_symbols_actions.go:336-352`) builds it from `kind+symbol+signature+doc+path`.
@@ -669,7 +669,7 @@ Both halves of that sentence understate it. Filed as `bugs_open/107`:
 D8b (index markdown) both assume the Go tier works and only the corpus is missing.
 It does not work. **A forward architecture seat built on this index would inherit an
 instrument that manufactures absence in the direction that approves the plan.**
-`bugs_open/107` candidate 2 (index bodies from the `[line_start, line_end]` span
+`bugs_open/108` candidate 2 (index bodies from the `[line_start, line_end]` span
 already stored) also settles D8b's schema question as a side effect.
 
 ### 8c. Evidence bearing on D1 and D3 — do *not* seat duplicate-capability

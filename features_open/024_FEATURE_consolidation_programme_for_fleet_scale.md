@@ -7,7 +7,7 @@ bundled. Two items have a live consumer waiting; one is a recommended **won't-do
 after a near-miss: a design proposed a second public API on the island VM one day
 before `cmd/tools-api` shipped there doing exactly that, multi-tool and multi-site.
 Caught by the owner asking an integration question — no mechanism caught it.
-Incident: `WRONG_CALLS.md` 2026-07-27. Mechanism findings: `bugs_open/107` and
+Incident: `WRONG_CALLS.md` 2026-07-27. Mechanism findings: `bugs_open/108` and
 `architecture_review/DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` §8.
 
 **The doctrine this programme applies** (offered for ratification):

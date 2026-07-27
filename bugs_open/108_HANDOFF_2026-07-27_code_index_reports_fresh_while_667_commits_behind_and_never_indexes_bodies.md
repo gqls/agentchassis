@@ -1,4 +1,4 @@
-# 107 — the code index reports FRESH while 667 commits behind, and never indexes function bodies
+# 108 — the code index reports FRESH while 667 commits behind, and never indexes function bodies
 
 **Filed 2026-07-27.** Status: OPEN, unowned.
 Two compounding defects in `code_symbols`, the index behind every code-shaped
