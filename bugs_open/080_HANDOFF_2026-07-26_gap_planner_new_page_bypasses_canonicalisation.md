@@ -1,4 +1,52 @@
-# 080 — `content-gap-planner`'s `new_page` bypasses `CanonicalisePage`, so two creation surfaces disagree on a page's name and URL (OPEN)
+# 080 — `content-gap-planner`'s `new_page` bypasses `CanonicalisePage`, so two creation surfaces disagree on a page's name and URL (FIXED IN CODE, INERT UNTIL THE NEXT CHASSIS ROLL)
+
+> ## STATUS 2026-07-27 — candidate 1 applied, council APPROVED, **not yet live**
+>
+> **Fix:** `9759687d1` — `applyNewPage` now takes (name, url, page_type) from
+> `datahelpers.CanonicalisePage`, and the hand-rolled `url := "/" + pageName + ".html"`
+> is deleted. An identity that cannot be canonicalised is refused instead of writing a
+> page named `""` at `/.html`.
+>
+> **Council:** APPROVED at round 1, correlation `1cc2baab-333f-4169-812b-6161b81a13f0`
+> (11 reviewers, 5 abstained, 0 unreadable, 1 medium + 2 low advisory objections, no veto).
+>
+> **This case stays OPEN until a chassis image ships it**, per the CLAUDE.md bar
+> (fixed AND live) — Go is inert until the image rolls, so the defect is still
+> reproducible in production right now. The fleet was on v1.0.1175 at 18:02 UTC,
+> which predates this commit.
+>
+> **Verify after the roll** — pod-grep a string this change CREATED, not a symbol
+> that existed before:
+> ```
+> kubectl exec -n ai-persona-system <chassis pod> -- \
+>   sh -c 'strings /app/agent-chassis | grep -c "failed canonicalisation"'
+> ```
+> Then make the failing case happen: dispatch a gap plan whose `new_page` carries
+> `page_type: "news-index"` on a site with no news listing, and confirm the row lands
+> as `news-index` at `/news/index.html` — not `news` at `/news.html`.
+>
+> ### Two corrections to this file, from doing the work
+>
+> 1. **"Two surfaces" undercounts.** There are **four** canonicalising CREATION call
+>    sites, not one: `write_site_plan_action.go:276` (planner),
+>    `site_db_actions.go:281` (reconciler), `apply_adoption_plan_action.go:446`
+>    (adoption) and `create_tool_component_action.go:250` (tools) — plus two
+>    read-only lookups that are not creation surfaces at all
+>    (`apply_adoption_plan_action.go:759`, `check_tool_recreation_needed.go:251`).
+>    The gap-planner was the fifth creation surface. My own council submission
+>    repeated the "fourth" framing and the guardian seat caught it.
+> 2. **The dedup-window risk is negligible, measured.** In-flight
+>    `gap_plan_new_%` work items are **5**, all `needs_human_review`, so no item is
+>    waiting to be re-keyed by the changed `item_key` shape.
+>
+> ### What this fix deliberately does NOT do — still an owner call
+>
+> The existing divergent rows are untouched. Re-measured 2026-07-27:
+> robot-hands.com still carries **both** `news` (`/news.html`) and `news-index`
+> (`/news/index.html`), both deployed and active, the nav pointing only at the
+> latter. **webdesign.co.uk** holds `news` at `/news/index.html` — canonical URL,
+> non-canonical name, still `planned`, so it collides on its next plan. Which row
+> survives, and whether the other 301s, is a live-site content decision.
 
 **Found:** 2026-07-26, while doing the council gate's blast-radius homework for
 `bugs_closed/015`. **Not** caused by 015's fix — it predates it and is identical
