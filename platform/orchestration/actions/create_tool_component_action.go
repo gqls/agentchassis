@@ -257,12 +257,29 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 	}
 	pageTitle := fmt.Sprintf("%s | %s", displayName, navSection)
 
+	// bugs_open/103, SECOND CALL SITE. The bug file names only
+	// deploy_tool_action.go:341, but this action creates tool pages too and bound
+	// the same `description` — the tool's BUILD BRIEF — into the public
+	// meta_description. Found by grepping for the other writers of the column
+	// rather than trusting the filed call site; a second unguarded call site is
+	// how bugs_open/093 and bugs_open/112 each shipped half a fix.
+	toolMeta, metaReplaced := datahelpers.PublicMetaDescription(
+		description,
+		composedToolMetaDescription(displayName, category),
+	)
+	if metaReplaced {
+		logger.Warn("CreateToolComponentAction: tool description rejected as a build brief, composed copy used instead",
+			zap.String("function", function),
+			zap.Int("rejected_length", len(description)),
+			zap.String("published", toolMeta))
+	}
+
 	_, err = params.DB.ExecContext(ctx, `
 		INSERT INTO pages (
 			id, site_id, name, url, title,
 			page_type, status, build_status, nav_order, meta_description
 		) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6)
-	`, pageID, siteID, pageName, pageURL, pageTitle, description)
+	`, pageID, siteID, pageName, pageURL, pageTitle, toolMeta)
 	if err != nil {
 		// If page creation fails, clean up the component
 		params.DB.ExecContext(ctx, `DELETE FROM content_components WHERE id = $1`, componentID)
@@ -373,9 +390,7 @@ func CreateToolComponentAction(ctx context.Context, params ActionParams) (interf
 			updated_at = NOW()
 		RETURNING id
 	`, siteID, guideName, guideURL, guideTitle,
-		fmt.Sprintf("A practical guide to %s — what it means, how it works, and how to use our interactive %s.",
-			strings.TrimPrefix(displayName, "UK "),
-			strings.ToLower(displayName)),
+		composedGuideMetaDescription(displayName),
 	).Scan(&guidePageID)
 
 	if err != nil {

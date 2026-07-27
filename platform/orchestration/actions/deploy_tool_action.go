@@ -317,6 +317,21 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		toolFunction,
 	)
 
+	// bugs_open/103. The tool's own description is the BUILD BRIEF, so it is
+	// checked before it can reach a public column, and a rejection is LOGGED —
+	// the council objected, correctly, that a silent swap is a new silent-drop
+	// path introduced by the fix for a silent-content problem.
+	toolMeta, metaReplaced := datahelpers.PublicMetaDescription(
+		toolDescription.String,
+		composedToolMetaDescription(toolDisplayName, toolCategory),
+	)
+	if metaReplaced {
+		logger.Warn("DeployToolToSiteAction: tool description rejected as a build brief, composed copy used instead",
+			zap.String("tool_function", toolFunction),
+			zap.Int("rejected_length", len(toolDescription.String)),
+			zap.String("published", toolMeta))
+	}
+
 	var pageID uuid.UUID
 	err = params.DB.QueryRowContext(ctx, `
 		INSERT INTO pages (
@@ -338,7 +353,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 		RETURNING id
 	`, siteID, pageName, pageURL, pageTitle,
 		navSection+" / "+toolDisplayName, maxNavOrder+1, inHeader, inFooter,
-		toolDescription.String, sectionsJSON,
+		toolMeta, sectionsJSON,
 	).Scan(&pageID)
 	if err != nil {
 		return nil, fmt.Errorf("create tool page: %w", err)
@@ -452,9 +467,7 @@ func DeployToolToSiteAction(ctx context.Context, params ActionParams) (interface
 			updated_at = NOW()
 		RETURNING id
 	`, siteID, guideName, guideURL, guideTitle,
-		fmt.Sprintf("A practical guide to %s — what it means, how it works, and how to use our interactive %s.",
-			strings.TrimPrefix(toolDisplayName, "UK "),
-			strings.ToLower(toolDisplayName)),
+		composedGuideMetaDescription(toolDisplayName),
 	).Scan(&guidePageID)
 
 	if err != nil {
@@ -536,4 +549,48 @@ func domainSlug(domain string) string {
 		return "site"
 	}
 	return strings.ReplaceAll(domain, ".", "-")
+}
+
+// composedToolMetaDescription builds the visitor-facing description for a tool
+// page when the tool's own `description` cannot be published (bugs_open/103).
+//
+// It is shared by the two surfaces that create tool pages — DeployToolToSiteAction
+// and CreateToolComponentAction — because they had the SAME defect and the bug
+// file only named one of them. A second, unguarded call site is how this platform
+// has repeatedly shipped half a fix (bugs_open/093, bugs_open/112), so the copy
+// lives in one function rather than being written out twice.
+//
+// The register deliberately matches the companion guide page's long-standing
+// composed line: plain, specific, and true of every tool — the visitor uses it in
+// the browser and there is always a guide.
+func composedToolMetaDescription(displayName, category string) string {
+	name := strings.TrimSpace(strings.TrimPrefix(displayName, "UK "))
+	if name == "" {
+		return ""
+	}
+	lower := strings.ToLower(name)
+	if category != "" && !strings.EqualFold(category, "interactive") {
+		return fmt.Sprintf(
+			"Use our free %s in your browser — a %s tool, with a companion guide explaining how it works.",
+			lower, strings.ToLower(strings.TrimSpace(category)))
+	}
+	return fmt.Sprintf(
+		"Use our free interactive %s in your browser, with a companion guide explaining how it works.",
+		lower)
+}
+
+// composedGuideMetaDescription is the companion guide page's description.
+//
+// It was inline `fmt.Sprintf` in BOTH deploy_tool_action.go and
+// create_tool_component_action.go — the same sentence written out twice. The
+// council's reuse_agent and prior_art_librarian seats both objected that
+// composedToolMetaDescription "mirrors" this logic rather than reusing it, and
+// asked whether the guide composer was already a callable function. It was not;
+// it was duplicated. Extracting it means this change removes an existing
+// duplication instead of adding a third copy of the idea.
+func composedGuideMetaDescription(displayName string) string {
+	return fmt.Sprintf(
+		"A practical guide to %s — what it means, how it works, and how to use our interactive %s.",
+		strings.TrimPrefix(displayName, "UK "),
+		strings.ToLower(displayName))
 }
