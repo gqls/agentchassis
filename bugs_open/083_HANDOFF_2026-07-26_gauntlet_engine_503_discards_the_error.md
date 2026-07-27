@@ -303,3 +303,54 @@ them — a trailer asserted ahead of its verdict is a permanent false claim.
 
 **083 REMAINS OPEN.** Approval is not deployment: the island has not been rebuilt,
 so every line of this is still inert, and `/bugs_closed/`'s bar is fixed AND live.
+
+---
+
+## 8. OWNER RULING 2026-07-27 — advisory 1 CLOSED: fingerprint, not text
+
+The council's one item it said it could not close itself (guardian/medium) has
+been ruled on: **the failure log records the SHAPE of an unusable response, never
+its text.** Commit `1e2762809`.
+
+**What decided it.** The excerpt was capped at 300 characters, and
+`bugs_closed/088`'s shape is *"a complete JSON object, then commentary, then a
+second complete JSON object"* — a complete judge verdict with real reasons runs
+past 300 chars on its own, so **the second object starts ~1,500 chars in and the
+excerpt could never see it.** The excerpt could not detect the case that
+justified it. That turned a trade-off into no trade-off at all.
+
+`aiservice.Fingerprint` (new, `platform/aiservice/fingerprint.go`) reports:
+
+```
+chars=1834 first=L fence=yes objects=2 parses=false keys=[]
+```
+
+which answers every question the excerpt was there for — prose wrapper
+(`first` ≠ `{`), markdown fence, **double JSON (`objects=2`)**, empty completion,
+parsed-but-empty-fields — while emitting no model or visitor text at all. Its
+object scanner is string- and escape-aware; a brace inside a quoted reason would
+otherwise miscount, and the count is the whole point.
+
+**Automated, so it stops depending on a reviewer noticing.**
+`scripts/pattern-check.py` gains `check_logged_model_output` (8th check;
+advisory, runs in `.githooks/pre-commit`). It flags a log sink passing an
+unwrapped payload identifier inside any package that calls `GenerateText`.
+
+> **MISSTEP, recorded because the check itself nearly shipped useless.** The
+> first version gated on *the file* containing `GenerateText` and was
+> **VACUOUS**: the LLM call lives in `defend.go`, the log sink in its sibling
+> `ailog.go`, so it scanned nothing and reported clean. **A check that reports
+> clean and a check that is not running look identical.** Caught only by a
+> positive control — auditing `a37a2037c`, the commit that introduced the raw
+> excerpt, and demanding a finding. Now gated on the package and verified three
+> ways: **flags `a37a2037c` `ailog.go:72`; silent on the fingerprint version;
+> 0 findings fleet-wide.**
+
+### Remaining advisories
+
+- guardian/low (log rotation) — **CLOSED**, `max-size: 10m`/`max-file: 3`.
+- debug_historian/medium (`sites.status` blast-radius claim) — **corrected in
+  place and marked [UNVERIFIED]**; enumeration owed at rebuild.
+- debug_historian/low (precedent check) — **CLOSED**, run and concordant.
+
+**083 still OPEN**: the island has not been rebuilt, so all of this is inert.
