@@ -275,3 +275,65 @@ go test ./platform/aiservice/ -run Gemini -v
 `TestEveryProviderDecodesItsStopSignal` (in `stop_signal_test.go`) is the
 structural CI guard: any type in `platform/aiservice` with a `GenerateText`
 method must reference `TruncatedError` in its own file.
+
+## 9. Apply ONE migration without sweeping other threads' pending files
+
+`scripts/migration/run-migrations.sh --apply` applies **every** pending file in
+`docs/agent_docs/sql_for_agents/`, in order. On a shared tree that queue routinely
+holds other sessions' work — it held **eight** when `245` went in — and there is no
+single-file flag. `MIGRATIONS_DIR` is overridable, which is the safe route:
+
+```bash
+SB=/tmp/.../mig245 && mkdir -p "$SB"
+cp docs/agent_docs/sql_for_agents/245_llm_call_log_thinking_telemetry.sql "$SB/"
+
+MIGRATIONS_DIR="$SB" ./scripts/migration/run-migrations.sh           # dry run — expect "Pending (1)"
+MIGRATIONS_DIR="$SB" ./scripts/migration/run-migrations.sh --apply   # applies AND records in schema_migrations
+```
+
+You keep the runner's own machinery — the doomed-transaction probe, ordering, and the
+`schema_migrations` ledger entry — while touching only your file. **Do not** apply by
+hand with `psql` instead: that skips the ledger, and an unrecorded migration shows as
+`pending` forever to every later thread's dry run.
+
+**Still run the full dry run first** (no `MIGRATIONS_DIR`). It is the check
+`bugs_open/007` asks every thread to make, and it is how you find out your file
+number collides or that a guard elsewhere has started failing.
+
+## 10. Read the Gemini cost, after `110` candidate 2 rolls
+
+```sql
+-- per-call: what we asked for, what we sent, what thinking actually cost
+SELECT created_at, agent_type, step_name,
+       max_tokens              AS asked_visible,
+       wire_max_output_tokens  AS sent_wire,
+       thinking_reserve_tokens AS reserve,
+       output_tokens           AS visible_out,
+       thinking_tokens,          -- billed as output; usually the bulk of the cost
+       total_output_tokens
+FROM llm_call_log
+WHERE provider = 'gemini'
+ORDER BY created_at DESC LIMIT 20;
+
+-- the number the owner actually asked for: thinking spend by agent
+SELECT agent_type,
+       count(*)                          AS calls,
+       sum(thinking_tokens)              AS thinking_total,
+       round(avg(thinking_tokens))       AS thinking_avg,
+       sum(output_tokens)                AS visible_total
+FROM llm_call_log
+WHERE provider = 'gemini' AND created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY thinking_total DESC NULLS LAST;
+```
+
+**Traps.**
+
+- **NULL ≠ 0.** anthropic and ollama rows carry NULL in all four columns because they
+  report none of this. `sum()` skips NULLs, but `avg()` over a mixed set silently
+  answers about Gemini only — filter on `provider` explicitly rather than trusting the
+  aggregate to have done it.
+- **A NULL on a *Gemini* row means the binary predates the roll**, not that thinking
+  was free. Check the pod image before reading a zero-ish week as a cheap week.
+- **`thinking_tokens = 0` is a real value** and deliberately distinguishable from NULL
+  (see migration 245's header). Do not `COALESCE(...,0)` — that throws away the one
+  distinction the column was built to preserve.

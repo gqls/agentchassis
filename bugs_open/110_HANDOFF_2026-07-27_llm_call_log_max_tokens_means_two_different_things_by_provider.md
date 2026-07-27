@@ -153,6 +153,47 @@ honest in the meantime, so this is not urgent.
 Gemini".** A rule that means something different per provider is worse than either
 version of it, and that is precisely the defect being fixed.
 
+## Candidate 2 BUILT 2026-07-27 evening — migration applied, Go committed and INERT
+
+Commit `ca4071c82`; migration `docs/agent_docs/sql_for_agents/245_llm_call_log_thinking_telemetry.sql`
+**applied and verified live** (four nullable integer columns present on `llm_call_log`).
+Council gate submitted, corr `913a86e0-8847-4346-b688-5decfcb8e312`.
+**The Go half is inert until the next chassis image roll, so this bug stays OPEN.**
+
+**Two deliberate deviations from the candidate as filed above, both recorded in the
+migration header so they are not silently absorbed:**
+
+1. **`visible_budget_tokens` was NOT added.** That value is already
+   `llm_call_log.max_tokens` — candidate 1 made `__sent_max_tokens` its sole feed
+   precisely so the column carries the caller's answer-budget for every provider.
+   Adding it would give **one meaning two column names**, which is this file's own
+   defect reproduced a third time. `wire_max_output_tokens` went in instead: the
+   genuinely unpersisted sent-side value. **The key name this file gives for it,
+   `__sent_visible_budget_tokens`, does not exist in `gemini.go`** — grepped as a
+   negative control, 0 hits, against the four real keys at 1 hit each. The four
+   that exist are `__sent_wire_max_output_tokens`, `__sent_thinking_reserve_tokens`,
+   `__usage_thinking_tokens`, `__usage_total_tokens`.
+
+2. **The four params bypass `nullIfZero()`**, which every other int in
+   `LLMCallLogParams` uses. It maps `0 → NULL`, which would collapse *"a thinking
+   model that spent no thinking"* into *"this provider has no thinking"* — the
+   empty-vs-absent confusion **this bug is itself an instance of**. They are
+   `interface{}`, nil only when the option key was absent, so a reported 0 survives
+   as 0 and anthropic/ollama rows are honestly NULL.
+
+**Read on the FAILURE path as well as the success path**, which is the valuable half:
+`gemini.go` sets the usage keys inside `if options != nil` **before** it inspects
+`finishReason`, so a call cut short by thinking still carries the count explaining
+why. A failed row with `thinking_tokens` ≈ `wire_max_output_tokens` is the starvation
+signature — readable **without** the arithmetic on `output_tokens` that this file's
+§"Consequence 1" shows cannot express truncation for a thinking model. `107` was
+misdiagnosed as an incapable model precisely because that number was invisible.
+
+**Candidate 1 is confirmed LIVE**, which several docs still deny. The first Gemini
+rows ever recorded (2026-07-27 20:09, `page-content-writer` building
+`dartsonline/sale`) log `max_tokens = 8000`, not the reserve-inflated 16192 — item 1
+of §"How to verify" below, passed.
+
 ## How to verify
 
 1. **Candidate 1 landed:** after a Gemini call through the orchestration path,

@@ -1297,3 +1297,89 @@ been live and correct from 20:10:21.
 
 Cheap check that caught it: **probe an untouched peer before believing a bug.** Logged
 to `WRONG_CALLS.md`.
+
+---
+
+## 2026-07-27, ~22:45–23:05 UTC — `110` candidate 2: thinking cost is now a column
+
+Owner asked for this directly after P7 ("yes please go ahead with 110"). Commit
+`ca4071c82`; migration `245_llm_call_log_thinking_telemetry.sql` **applied and
+verified live**; council corr `913a86e0-8847-4346-b688-5decfcb8e312`.
+
+### What was actually missing
+
+`gemini.go` computes four values and writes them into the options map. **No reader
+outside `platform/aiservice/`** — they reached no column and no query. Thinking bills
+as output and the writer runs once per section across the estate, so the one number
+that drives the cost decision could not be selected. `016b` §9: *a field is only as
+live as its LAST reader.*
+
+### The bug file's own column list was stale, and checking it changed the design
+
+`110` names `visible_budget_tokens` as one of the four to add. **It is already
+`max_tokens`** — candidate 1 made `__sent_max_tokens` its sole feed so the column
+means the caller's answer-budget for every provider. Adding it would give one meaning
+two column names: **the defect 110 exists to close, reproduced a third time inside
+the fix for it.** Added `wire_max_output_tokens` instead.
+
+The bug file's key name for it is wrong too. Grepped, with the stale name as a
+**negative control**:
+
+```
+__sent_wire_max_output_tokens      written_by_gemini=1 read_by_logger=1
+__sent_thinking_reserve_tokens     written_by_gemini=1 read_by_logger=1
+__usage_thinking_tokens            written_by_gemini=1 read_by_logger=1
+__usage_total_tokens               written_by_gemini=1 read_by_logger=1
+negative control __sent_visible_budget_tokens: 0
+```
+
+**Why the control mattered here specifically:** my test asserts these literals, and I
+wrote both the test and the fixture. A test I author asserting a key I chose proves
+nothing about `gemini.go` — that is the *"I tested a shape against a fixture I wrote"*
+trap. The grep is the only thing in this change that actually pins the contract, and
+there is no compiler check on it: a typo yields nil, which is **indistinguishable from
+a provider that reports nothing**, so the column would sit quietly NULL forever.
+
+### The one real design decision: NOT using the package's own helper
+
+Every other int in `LLMCallLogParams` goes through `nullIfZero()`. Using it here would
+map `0 → NULL` and collapse *"a thinking model that spent no thinking"* into *"this
+provider has no thinking"* — **the empty-vs-absent confusion this bug is an instance
+of**, and precisely what migration 243's header warns about one table over. So the four
+params are `interface{}`, nil **only** when the key was absent. A reported 0 survives
+as 0; anthropic/ollama rows are honestly NULL.
+
+### Read on the failure path too — the valuable half
+
+`gemini.go` sets the usage keys **before** it inspects `finishReason`, so a call cut
+short by thinking still carries the count explaining why. A failed row with
+`thinking_tokens` ≈ `wire_max_output_tokens` is the **starvation signature**, readable
+without the `output_tokens` arithmetic that 110 §"Consequence 1" shows cannot express
+truncation for a thinking model. 107 was misdiagnosed as an incapable model exactly
+because this number was invisible. [VERIFIED by reading gemini.go:404–411 against the
+`RefusalError`/`finishReason` checks that follow it.]
+
+### Applying one migration without sweeping eight others
+
+`run-migrations.sh --apply` applies **all** pending files, and the queue held eight
+belonging to other threads (229, 230, 234, 235, 236, 240, 241, 242). There is no
+single-file flag. `MIGRATIONS_DIR` **is** overridable, so:
+
+```bash
+SB=<scratch>/mig245; mkdir -p $SB
+cp docs/agent_docs/sql_for_agents/245_*.sql $SB/
+MIGRATIONS_DIR=$SB ./scripts/migration/run-migrations.sh          # dry run: 1 pending
+MIGRATIONS_DIR=$SB ./scripts/migration/run-migrations.sh --apply  # applies + records
+```
+
+This keeps the runner's own safety machinery (doomed-transaction probe, ordering,
+`schema_migrations` ledger) while touching only my file. **Added to the RUNBOOK.**
+
+### Still owed
+
+**The Go half is INERT until the next chassis roll, so `110` stays OPEN.** Until then
+every new column is NULL on every row — honest, because the data genuinely was not
+captured, and **no backfill is possible**: the values were never persisted anywhere to
+backfill from. Post-roll check is item 3 of the bug's own §"How to verify": the four
+columns non-NULL on a Gemini row, `thinking_tokens` in the 2,764–2,878 range measured
+for the writer's real prompt.
