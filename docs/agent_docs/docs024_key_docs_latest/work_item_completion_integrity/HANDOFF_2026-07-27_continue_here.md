@@ -113,6 +113,68 @@ close, and the remainder is explicitly parked on owner decisions about `#fff`,
 semantic tints (`#fef2f2`, `#ecfdf5` — no palette entries exist for them) and inline
 `style=""` attributes.
 
+## THE DECISION WAITING ON THE OWNER (as of round 3)
+
+Three designer rounds, all APPROVED, all `5 reviewers / abstained 0 / unreadable 0`.
+Objections: round 1 **3**, round 2 **3**, round 3 **2**. Converging, not converged.
+
+```
+round 1  c91bb061   3 objections   medium: signature change breaks stage independence
+round 2  1a9feed2   3 objections   medium: SAME failure moved compile-time -> test-time
+                                   medium x3: verifier call site not migrated
+round 3  b604f92d   2 objections   test-coupling FIXED (s1 gate build+test, fixture flip
+                                   pulled into s1); verifier STILL unresolved
+```
+
+**Round 3 fixed the test-coupling properly**: `s1 [build=true test=true]` editing
+`check_hardcoded_section_colors.go` AND `check_hardcoded_section_colors_test.go` —
+two files, one edit each, so still inside the `222` rule. Two stages, not three.
+
+**What remains is one thing, and it is `bugs_closed/077` about to be re-created by
+its own fix.** The plan gives `PartitionByRemit` a variadic optional palette
+parameter and argues:
+
+> *"old 1-arg call sites (including VerifyHardcodedSectionColorsResolved …) still
+> compile unchanged and, receiving no palette, fall back to exactly today's
+> classification, **so no divergence is introduced**"*
+
+That defines divergence away rather than removing it. The CHECK passes a palette
+and calls `#f8f9fa` within-remit; the VERIFIER passes none and calls the same
+component outside-remit. Two answers about one component — which is 077's shape
+exactly. The concrete failure: if the handler does NOT fix the colour, the verifier
+sees the component, classifies it out-of-remit, and returns `Resolved: true`,
+marking the item verified while the work is undone. It bites precisely in the case
+the verifier exists for, and looks fine whenever the handler succeeds (the
+component drops out of the population), so a green test will not show it.
+
+Three reviewers said the same independently — and `edit-quality` found the part I
+missed:
+
+> *"The plan's risks section asserts 'VerifyHardcodedSectionColorsResolved is not on
+> any code_pointer in this spec, so it cannot be edited directly' — but the spec's
+> fifth code_pointer …"*
+
+**The designer's stated reason for not fixing it is factually wrong.** The verifier
+lives in `check_hardcoded_section_colors.go`, which is code_pointer #1 AND #5 AND
+**a file s1 already edits**. So the fix is small and in-scope: have
+`hardcodedSectionColoursVerdict` pass the same derived palette.
+
+**Options, with a recommendation.**
+
+1. **RECOMMENDED — one narrowly-scoped round 4** saying only: *the verifier IS on an
+   editable path (pointer #1 and #5) and s1 already edits that file; update
+   `hardcodedSectionColoursVerdict` to pass the derived palette so both ends
+   classify identically. Change nothing else.* The remaining objection is a factual
+   error, not a design disagreement, so this should close in one pass.
+2. Accept round 3 and fire the implementer, with the verifier divergence recorded as
+   a known defect to fix immediately afterwards. Cheaper now, ships a known 077
+   recurrence.
+3. Stop; the plan is on record and can be picked up any time.
+
+**A fourth round was NOT fired without asking**, because this thread said it would
+stop rather than iterate indefinitely, and because three rounds of "approved with
+advisory objections" suggests that is the steady state rather than a failure.
+
 ## Landmines this thread paid for (all filed, none theoretical)
 
 - **`kubectl run -i --rm | kcat -P` silently publishes NOTHING, ~4 times in 5** —
