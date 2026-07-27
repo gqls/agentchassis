@@ -164,3 +164,53 @@ unlink rather than repoint — the 404 dies, the intended destination is still l
 instead be implemented where this file said — at the CTA check — so the finding is *reported*
 as well as repaired. Then a rebuild of `robot-hands.com/learning-center.html` clears the live
 damage. Neither needs a diagnosis run; the cause is fully known.
+
+> ## CORRECTION 2026-07-27 (bugs thread) — **"the cause is fully known" does not survive one query, and a diagnosis run is now filed**
+>
+> The line directly above says no diagnosis run is needed. Two measurements taken while
+> picking this up say otherwise, and they are the reason a run was spent:
+>
+> **1. The page was REBUILT AND DEPLOYED on 2026-07-25, and kept its 404s.**
+>
+> ```
+>      domain      |      name       | build_status | deployed_at
+> -----------------+-----------------+--------------+------------
+>  robot-hands.com | learning-center | deployed     | 2026-07-25
+>  robot-hands.com | matchmatrix     | deployed     | 2026-07-24
+> ```
+>
+> This is not a stale page that predates the fixes. It went through a build after
+> `bugs_open/079`'s `RepairPageLinks` was described as "live and firing at the build gate",
+> and the six unresolvable hrefs were neither rewritten, nor unlinked, nor reported. The
+> triage above reasoned that the live damage persists because "a write-path repair does not
+> reach a deployed page" — true in general, but **it does not explain this page**, which was
+> written after the repair existed.
+>
+> **2. robot-hands.com has ZERO `phantom_internal_link` findings, ever.**
+>
+> ```sql
+> SELECT s.domain, swi.item_type, swi.status, count(*)
+> FROM site_work_items swi JOIN sites s ON s.id=swi.site_id
+> WHERE swi.item_type IN ('phantom_internal_link','unresolved_cta','misdirected_cta')
+> GROUP BY 1,2,3;
+> --  robot-hands.com | unresolved_cta | needs_human_review | 3   (07-03..07-06)
+> --  ...and no phantom_internal_link row for this domain at all
+> ```
+>
+> Five other domains DO carry `phantom_internal_link` rows (ai-agent-orchestration 7,
+> idea.uk 9, relojistas 5, vonc 1), so the check is not globally dead — it just never
+> produced a finding here. The newest such row fleet-wide is **2026-07-24**, one day BEFORE
+> this page's deploy.
+>
+> **Why this matters for the fix.** This file's candidates all assume the gap is the
+> *detector's field enumeration* (`ctaFieldNames` not walking arrays). That may still be
+> true, but three mechanisms claim to cover this page and it passed all three, and nobody
+> has established which was actually on the build path for the 07-25 deploy. Choosing
+> between candidates 1/2/3 before knowing that is choosing a fix for a mechanism that may
+> not be the one that failed — the failure mode CLAUDE.md's 2026-07-19 correction is about.
+>
+> **Diagnosis run filed:** correlation `3002a141-cb3d-42f2-b4d6-a288177d06b5`, asking which
+> of `resolve_internal_links_action.go` (`ctaFieldNames`),
+> `discovery_checks/check_phantom_internal_links.go` and `datahelpers/link_repair.go`
+> (`RepairPageLinks`) was on the path for that build, and why the hrefs survived it.
+> **No code was written for this bug pending that answer.**
