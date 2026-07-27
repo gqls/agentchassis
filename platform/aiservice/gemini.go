@@ -14,9 +14,13 @@
 // Optional keys, all defaulted (see the constructor):
 //
 //	"thinking_reserve_tokens": 8192          // output budget reserved for thinking
-//	"thinking_level": "low"                  // Gemini 3.x knob  ) at most
-//	"thinking_budget_tokens": 512            // Gemini 2.5 knob  ) one of these
+//	"thinking_level": "low"                  // cost lever ) at most one — Gemini
+//	"thinking_budget_tokens": 512            // cost lever ) refuses both together
 //	"embedding_model": "text-embedding-004"
+//
+// A thinking knob only makes a call cheaper; the reserve is what makes it work.
+// Neither knob caps thinking (measured 2026-07-27), so do not treat one as a
+// substitute for the reserve.
 package aiservice
 
 import (
@@ -50,6 +54,19 @@ const geminiAPIBase = "https://generativelanguage.googleapis.com/v1beta/models"
 // produced — so provisioning it generously costs nothing when the model thinks
 // briefly, and is the difference between an answer and an empty string when it
 // does not.
+//
+// 8192 is measured, not guessed (2026-07-27, gemini-pro-latest → gemini-3.1-pro-
+// preview, against the REAL 12,570-char page-content-writer prompt): thinking
+// came to 2,764 and 2,878 tokens on two runs, so the default carries ~3x
+// headroom. On a trivial prompt it is 786–1,145. Two figures worth keeping:
+//   - Thinking EXPANDS to fill a small ceiling. At maxOutputTokens=100 it spent
+//     92 and left 4 tokens of text; at 500 it spent 477 and left 19. That is the
+//     2026-07-24 failure, reproduced exactly.
+//   - Neither thinking knob caps it (see the struct fields), so the reserve is
+//     not made redundant by configuring one.
+//
+// Re-measure with scripts/gemini-probe.sh if the prompts grow materially: this
+// is a property of prompt complexity, not a constant.
 const defaultGeminiThinkingReserve = 8192
 
 // geminiNonThinkingModels are the model families known NOT to spend output
@@ -91,12 +108,19 @@ type GeminiClient struct {
 	// thinkingReserve is added to the caller's max_tokens when the model thinks.
 	thinkingReserve int
 	// thinkingLevel / thinkingBudget carry an explicit operator override for how
-	// much the model may think. At most one is set. Both are left empty by
-	// default: the two generations take DIFFERENT knobs (2.5 takes an integer
-	// thinkingBudget, 3.x takes a thinkingLevel string and rejects the integer
-	// with a 400), and guessing wrong fails every call, so the default is to
-	// send neither and let the reserve absorb whatever the model chooses to
-	// spend.
+	// much the model may think. Google accepts either but refuses both together
+	// ("You can only set only one of thinking budget and thinking level"),
+	// so at most one is set.
+	//
+	// Both default to empty, and NEITHER removes the need for the reserve:
+	// measured on gemini-pro-latest 2026-07-27, thinkingBudget is a soft target
+	// the model overshoots freely — 128 requested produced 483 thinking tokens,
+	// 32768 requested produced 783. It reduces thinking substantially (2,764 →
+	// ~940 on the real page-writer prompt) but bounds nothing. thinkingLevel
+	// behaves the same way (2,764 → ~1,080 at "low").
+	//
+	// So these are a COST lever, not a correctness one. The reserve is what makes
+	// the call work; a knob only makes it cheaper.
 	thinkingLevel  string
 	thinkingBudget *int
 
@@ -172,7 +196,10 @@ func NewGeminiClient(ctx context.Context, config map[string]interface{}) (*Gemin
 	levelRaw, hasLevel := config["thinking_level"]
 	budgetRaw, hasBudget := config["thinking_budget_tokens"]
 	if hasLevel && levelRaw != nil && hasBudget && budgetRaw != nil {
-		return nil, fmt.Errorf("ai_service sets both thinking_level and thinking_budget_tokens - they are the same control on two different Gemini generations (3.x takes thinking_level, 2.5 takes thinking_budget_tokens) and sending both is a 400; set the one your model accepts")
+		// Google's own words, verified 2026-07-27: "You can only set only one of
+		// thinking budget and thinking level." Caught here so it is a startup
+		// error rather than a 400 on every generation.
+		return nil, fmt.Errorf("ai_service sets both thinking_level and thinking_budget_tokens - Gemini accepts either but refuses both together (\"You can only set only one of thinking budget and thinking level\"); set one")
 	}
 	if hasLevel && levelRaw != nil {
 		level, ok := levelRaw.(string)

@@ -114,24 +114,42 @@ echo "# THINK_TOK you see here, with headroom. It is a ceiling, not a purchase."
 # ── 3. Which thinking knob is accepted ───────────────────────────────────────
 echo
 echo "=== $MODEL — thinking knobs ==="
+#
+# The thinkingConfig argument MUST be valid JSON, not jq syntax: `--argjson`
+# parses it as JSON, so unquoted keys (`{thinkingConfig:{...}}`) fail. The first
+# version of this script got that wrong, jq emitted nothing, curl sent an empty
+# body, and all three knobs came back "REJECTED: contents is not specified" —
+# a self-inflicted result that reads exactly like the API refusing the knob.
+# Hence the guard below: a request that fails to BUILD is reported as a probe
+# fault, never as a verdict about the model.
 probe_knob() {
   local label="$1" cfg="$2"
-  local resp
+  local body resp
+  if ! body=$(jq -n --arg p "$PROMPT" --argjson tc "$cfg" \
+        '{contents:[{role:"user",parts:[{text:$p}]}],generationConfig:({maxOutputTokens:2048}+$tc)}' 2>&1); then
+    printf '  %-34s PROBE FAULT (request not built, NOT a verdict): %s\n' "$label" "${body:0:70}"
+    return
+  fi
   resp=$(curl -sS -H "x-goog-api-key: $GEMINI_API_KEY" -H 'Content-Type: application/json' \
-    -X POST "$API_BASE/$MODEL:generateContent" \
-    -d "$(jq -n --arg p "$PROMPT" --argjson tc "$cfg" \
-          '{contents:[{role:"user",parts:[{text:$p}]}],generationConfig:({maxOutputTokens:2048}+$tc)}')")
+    -X POST "$API_BASE/$MODEL:generateContent" -d "$body")
   if err=$(jq -er '.error.message' <<<"$resp" 2>/dev/null); then
-    printf '  %-34s REJECTED: %s\n' "$label" "${err:0:90}"
+    if [[ "$err" == *"contents is not specified"* ]]; then
+      printf '  %-34s PROBE FAULT (empty body sent, NOT a verdict)\n' "$label"
+    else
+      printf '  %-34s REJECTED: %s\n' "$label" "${err:0:90}"
+    fi
   else
-    printf '  %-34s ACCEPTED (thinking=%s tokens, visible=%s)\n' "$label" \
+    printf '  %-34s ACCEPTED (thinking=%s tokens, visible=%s, finish=%s)\n' "$label" \
       "$(jq -r '.usageMetadata.thoughtsTokenCount // 0' <<<"$resp")" \
-      "$(jq -r '.usageMetadata.candidatesTokenCount // 0' <<<"$resp")"
+      "$(jq -r '.usageMetadata.candidatesTokenCount // 0' <<<"$resp")" \
+      "$(jq -r '.candidates[0].finishReason // "-"' <<<"$resp")"
   fi
 }
-probe_knob 'thinkingConfig.thinkingLevel="low"'  '{thinkingConfig:{thinkingLevel:"low"}}'
-probe_knob 'thinkingConfig.thinkingBudget=0'     '{thinkingConfig:{thinkingBudget:0}}'
-probe_knob 'thinkingConfig.thinkingBudget=512'   '{thinkingConfig:{thinkingBudget:512}}'
+probe_knob 'thinkingConfig.thinkingLevel="low"'    '{"thinkingConfig":{"thinkingLevel":"low"}}'
+probe_knob 'thinkingConfig.thinkingLevel="high"'   '{"thinkingConfig":{"thinkingLevel":"high"}}'
+probe_knob 'thinkingConfig.thinkingBudget=0'       '{"thinkingConfig":{"thinkingBudget":0}}'
+probe_knob 'thinkingConfig.thinkingBudget=512'     '{"thinkingConfig":{"thinkingBudget":512}}'
+probe_knob 'thinkingConfig.thinkingBudget=-1(auto)' '{"thinkingConfig":{"thinkingBudget":-1}}'
 
 echo
 echo "# Set the ACCEPTED one in ai_service (thinking_level / thinking_budget_tokens)."
