@@ -278,3 +278,50 @@ kubectl -n ai-persona-system exec "$POD" -- sh -c "strings /app/agent-chassis | 
 
 Measured on `v1.0.1171` at 21:44 on 2026-07-26: `0`, `0`, `1` — i.e. this change is
 confirmed **not** live, which is the state this file records.
+
+---
+
+## Update 2026-07-27 — LIVE in v1.0.1172, and the re-render path is TWO paths, not one
+
+**The fix is live.** Pod-verified on `v1.0.1172` with a discriminating marker and a positive
+control (see § "The pod-grep marker" above): `turn this into a check rather than a list` → 1,
+`scanStoredStatClaims` → 2, control `turn this into a gate` → 1.
+
+**But this file's own framing was too simple, and I found out by using the path.** It says the
+re-render path "renders from stored `content_data`". That is true of one of its two modes. The
+`page-rerender` agent branches first:
+
+```
+check_rerender_mode:
+  condition: input_data.spec.reason == 'image_landed'
+          OR input_data.spec.reason == 'section_data_resolved'
+          OR input_data.spec.reason == 'cta_links_stale'
+  then_step: rerender_sections   -- re-renders each section FROM content_data
+  else_step: render_page         -- ASSEMBLE-ONLY: reuses the stored section HTML
+```
+
+`else_step` — the default for **any unrecognised reason** — never reads `content_data` at all.
+It re-assembles the page from each component's previously-rendered HTML, deploys it, and
+reports `COMPLETED`. Observed directly on 2026-07-27: a page whose stored content had been
+corrected was re-published still carrying the old figure, with a `complete` work item and a
+`COMPLETED` orchestration. The tell was `page_components.updated_at` holding the timestamp of
+the *content edit* rather than of the render.
+
+**What this does and does not mean for this bug.**
+
+- It is **not** a coverage hole today. The post-deploy audit reads `rendered_html` as well as
+  `content_data`, so an assemble-only republish of stale HTML is still scanned — by the older
+  half of the check, on the surface that actually shipped.
+- It **is** a correction to the mental model this file sold, and the correction matters for
+  anyone extending the work: *the audited artefact and the published artefact are not always
+  the same object.* A fix aimed only at `content_data` can be bypassed by a publish path that
+  never consults it.
+- It sharpens candidate (2). A stat lint on the re-render path would have to sit **after the
+  mode branch**, or on the render output, or it will simply not run on the assemble-only
+  half — which is the same one-guarded-call-site shape this bug is about, one level in.
+
+**Practical note for whoever verifies this bug**, because it cost three attempts today: to
+exercise the section path you must set `spec.reason` to one of the three recognised values.
+`spec.reason` looks like free-text provenance and is control flow; vary `item_key` for dedup,
+never the reason. And insert work items as `status='triaged'`, not `'detected'` — `detected`
+is a queue with no consumer (`bugs_open/083`).
