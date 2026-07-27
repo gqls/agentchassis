@@ -508,6 +508,87 @@ def check_truncation_without_reader(files, ref, findings):
                 ))
 
 
+
+
+# A log sink: anything that writes to stdout/stderr or a logger.
+LOG_SINK = re.compile(
+    r"\b(?:log\.(?:Printf|Println|Print|Fatalf|Fatal)"
+    r"|logger\.(?:Info|Warn|Error|Debug|Infof|Warnf|Errorf)"
+    r"|fmt\.(?:Printf|Println|Fprintf))\s*\(")
+# Identifiers that carry a model/user payload rather than a fact about one.
+PAYLOAD_NAME = re.compile(r"\b(text|body|completion|response|raw|content|output|prompt|partial)\b", re.I)
+# Wrapping the value in one of these emits a derived FACT, not the content.
+SAFE_WRAPPERS = ("Fingerprint(", "TopLevelJSONObjects(", "len(", "IsTruncated(",
+                 "utf8.RuneCountInString(", "Itoa(")
+
+
+def check_logged_model_output(files, ref, findings):
+    """bugs_open/083 + council corr e004fd81 — logging an LLM response verbatim.
+
+    An LLM response echoes its prompt back, and on a debate, chat or support
+    endpoint that prompt contains what the VISITOR wrote. Logging the response
+    therefore publishes user-derived text to anyone who can read the container's
+    logs. That is a content decision, not a code-review one — it took a whole
+    council round to surface once (guardian, 2026-07-27: "cannot be closed by
+    this council alone").
+
+    It is usually the WEAKER diagnostic too. Every question an unusable
+    completion raises is structural — prose wrapper? markdown fence? two
+    objects? empty? — and a capped excerpt answers them worse than a fingerprint
+    does: bugs_closed/088's second JSON object begins ~1,500 chars in, past any
+    sane cap, so an excerpt cannot see the very case it exists for.
+
+    Gated on the PACKAGE, not the file: the LLM call and the log sink usually
+    live in sibling files (handlers/defend.go calls GenerateText, handlers/ailog.go
+    does the logging). A file-level gate makes this check silently vacuous — the
+    first version of it was, and only a positive control caught that.
+    """
+    go = [f for f in files if f.endswith(".go") and not f.endswith("_test.go")]
+    if not go:
+        return
+
+    # Which directories are LLM-adjacent? Ask git, not the changed set, so a
+    # commit touching only the logging file is still checked.
+    llm_dirs = set()
+    for path in go:
+        d = os.path.dirname(path)
+        if d in llm_dirs:
+            continue
+        for sibling in sh("git", "ls-files", os.path.join(d, "*.go")).splitlines():
+            if "GenerateText" in file_content(sibling, ref):
+                llm_dirs.add(d)
+                break
+
+    for path in go:
+        if os.path.dirname(path) not in llm_dirs:
+            continue
+        lines = file_content(path, ref).split("\n")
+        for i, line in enumerate(lines):
+            if not LOG_SINK.search(line):
+                continue
+            stmt, depth = "", 0
+            for l in lines[i:i + 6]:               # a log call often wraps
+                stmt += l
+                depth += l.count("(") - l.count(")")
+                if depth <= 0:
+                    break
+
+            probe = stmt
+            for w in SAFE_WRAPPERS:                # drop derived-fact calls
+                probe = re.sub(re.escape(w) + r"[^()]*\)", "", probe)
+
+            m = PAYLOAD_NAME.search(probe.split(",", 1)[-1])   # skip the format string
+            if not m:
+                continue
+            findings.append((
+                "logged-model-output", f"{path}:{i + 1}",
+                f"log call passes {BOLD}{m.group(0)}{RESET} unwrapped, in a package that calls GenerateText",
+                "an LLM response echoes the prompt back, so this can publish what the VISITOR "
+                "wrote; prefer aiservice.Fingerprint(v) — it answers the shape questions without "
+                "the text, and catches the two-object case a capped excerpt structurally cannot",
+            ))
+            break                                   # one finding per file is enough to act on
+
 def main():
     ref = None
     if "--commit" in sys.argv:                      # audit ONE commit in isolation
@@ -522,7 +603,7 @@ def main():
     findings = []
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
                   check_unguarded_migration_insert, check_append_only_docs,
-                  check_truncation_without_reader):
+                  check_truncation_without_reader, check_logged_model_output):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

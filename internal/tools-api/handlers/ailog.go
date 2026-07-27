@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"log"
-	"strconv"
 
 	"github.com/gqls/agentchassis/platform/aiservice"
 )
@@ -34,11 +33,6 @@ import (
 // cmd/tools-api/main.go, so `docker compose logs tools-api` on the island picks
 // it up with no new dependency or transport.
 
-// maxLoggedBody caps how much of an unusable model response is echoed into the
-// log. Enough to see the shape (a prose wrapper, a markdown fence, a second JSON
-// object) without spilling a whole completion into stdout on every failure.
-const maxLoggedBody = 300
-
 // logAIFailure records why an LLM call failed, immediately before the handler
 // returns 503.
 //
@@ -60,14 +54,6 @@ func logAIFailure(endpoint, stage, roundID string, err error) {
 	log.Printf("gauntlet/%s: %s FAILED round_id=%s err=%v", endpoint, stage, roundID, err)
 }
 
-// logAIBadResponse records a response that arrived intact but could not be used
-// — malformed JSON, or valid JSON with the required fields empty.
-//
-// The body snippet is the point: "unparseable" alone does not distinguish a
-// model that wrapped its JSON in prose from one that returned two objects
-// (the bugs_closed/088 class) from a genuinely empty completion, and those have
-// different fixes. Without it this branch is as opaque as the one 083 was filed
-// about.
 // logInternalFailure records a non-LLM server-side failure — a DB lookup, a
 // persist, a marshal — immediately before the handler returns 5xx.
 //
@@ -84,17 +70,24 @@ func logInternalFailure(endpoint, stage, roundID string, err error) {
 	log.Printf("gauntlet/%s: %s FAILED round_id=%s err=%v", endpoint, stage, roundID, err)
 }
 
+// logAIBadResponse records a response that arrived intact but could not be used
+// — malformed JSON, or valid JSON with the required fields empty.
+//
+// It records the response's SHAPE, never its text. "Unparseable" alone cannot
+// distinguish a model that wrapped its JSON in prose from one that emitted two
+// objects (the bugs_closed/088 class) from a genuinely empty completion, and
+// those have different fixes — but every one of those questions is structural,
+// so aiservice.Fingerprint answers all of them without reproducing a single
+// character of what the model wrote, or of what the visitor wrote and the model
+// quoted back.
+//
+// This deliberately supersedes an earlier capped-excerpt version. Council corr
+// e004fd81 approved the fix but recorded that logging model text "cannot be
+// closed by this council alone"; the owner ruled for a fingerprint on
+// 2026-07-27. It is also strictly MORE diagnostic than the excerpt was: a
+// 300-char cap could never reveal 088's second object, which begins ~1,500
+// chars in, so the excerpt could not detect the case that justified it.
 func logAIBadResponse(endpoint, reason, roundID, body string) {
-	log.Printf("gauntlet/%s: response UNUSABLE round_id=%s reason=%s body_chars=%s body=%q",
-		endpoint, roundID, reason, strconv.Itoa(len(body)), snippet(body))
-}
-
-func snippet(s string) string {
-	if len(s) <= maxLoggedBody {
-		return s
-	}
-	// Byte slice is deliberate and safe here: this value is only ever written to
-	// a log with %q, which escapes an incomplete trailing rune rather than
-	// emitting invalid UTF-8.
-	return s[:maxLoggedBody] + "…[truncated for log]"
+	log.Printf("gauntlet/%s: response UNUSABLE round_id=%s reason=%s %s",
+		endpoint, roundID, reason, aiservice.Fingerprint(body))
 }

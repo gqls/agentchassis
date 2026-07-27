@@ -91,36 +91,42 @@ func TestLogAIFailure_FindsTruncationThroughWrapping(t *testing.T) {
 }
 
 // "Unparseable" alone cannot distinguish a prose wrapper from a second JSON
-// object from an empty completion, and those have different fixes — so the body
-// snippet is load-bearing, not decoration.
-func TestLogAIBadResponse_IncludesTheOffendingBody(t *testing.T) {
+// object from an empty completion, and those have different fixes — so the log
+// must still answer those questions. It now does so STRUCTURALLY: the owner
+// ruled on 2026-07-27 (council corr e004fd81, guardian's deferred item) that no
+// model text is logged, because on these endpoints the model quotes the
+// visitor's own argument back.
+func TestLogAIBadResponse_AnswersTheShapeQuestions(t *testing.T) {
 	body := "Sure! Here is the JSON you asked for:\n```json\n{\"verdict\":\"user wins\"}\n```"
 
 	out := captureLog(func() {
 		logAIBadResponse("defend", "json_unmarshal: invalid character 'S'", "round-789", body)
 	})
 
-	for _, want := range []string{"UNUSABLE", "round-789", "json_unmarshal", "Here is the JSON"} {
+	for _, want := range []string{"UNUSABLE", "round-789", "json_unmarshal",
+		"first=S", "fence=yes", "objects=1", "parses=false"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("bad-response log missing %q\ngot: %s", want, out)
 		}
 	}
 }
 
-func TestLogAIBadResponse_CapsAVeryLongBody(t *testing.T) {
-	body := strings.Repeat("x", maxLoggedBody*3)
+// The property the ruling turns on: content must not reach the log, however
+// long or short the response is.
+func TestLogAIBadResponse_EmitsNoModelOrVisitorText(t *testing.T) {
+	body := "Reflecting on your claim that privacy is already over, I would say " +
+		"the stronger objection is that consent was never meaningfully given."
 
 	out := captureLog(func() { logAIBadResponse("position", "empty fields", "r2", body) })
 
-	if !strings.Contains(out, "truncated for log") {
-		t.Errorf("an oversized body must be capped\ngot %d chars", len(out))
+	for _, leaked := range []string{"privacy", "consent", "objection", "your claim"} {
+		if strings.Contains(out, leaked) {
+			t.Errorf("log leaked response content %q\ngot: %s", leaked, out)
+		}
 	}
-	if len(out) > maxLoggedBody*2 {
-		t.Errorf("capped line is still too long: %d chars", len(out))
-	}
-	// The true length must survive the cap, or the log understates what arrived.
-	if !strings.Contains(out, "body_chars="+fmt.Sprint(len(body))) {
-		t.Errorf("capped line must still report the ORIGINAL body length\ngot: %s", out)
+	// It must still report the true size, or the log understates what arrived.
+	if !strings.Contains(out, "chars="+fmt.Sprint(len(body))) {
+		t.Errorf("log must report the original length\ngot: %s", out)
 	}
 }
 
@@ -138,11 +144,5 @@ func TestLogInternalFailure_RecordsTheCause(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("internal-failure log missing %q\ngot: %s", want, out)
 		}
-	}
-}
-
-func TestSnippet_LeavesAShortBodyIntact(t *testing.T) {
-	if got := snippet("short"); got != "short" {
-		t.Errorf("snippet altered a short body: %q", got)
 	}
 }
