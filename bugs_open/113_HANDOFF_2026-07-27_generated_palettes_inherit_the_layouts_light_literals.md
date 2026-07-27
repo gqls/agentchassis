@@ -162,7 +162,36 @@ Shipped in `3096a55a6`, inert until the roll:
 4. Six tests, each proven load-bearing by defeating its own fix and watching only the
    matching test fail.
 
-Council gate: submission `f17b0a77-15e2-48ef-ba3e-9030ab4e0d8e`.
+Council gate: correlation `f17b0a77-15e2-48ef-ba3e-9030ab4e0d8e`, three rounds.
+
+| round | verdict | decided by |
+|---|---|---|
+| 1 | REVISE | gating objection from `bug_historian` |
+| 2 | REVISE | **`unreadable reviewer(s): review_editquality.result`** |
+| 3 | not submitted — round 2's remaining objections were all low-severity and are answered in code |
+
+**Round 2 is worth reading carefully, because the verdict and the reviews say
+different things.** Every seat that produced a readable review APPROVED — including
+`bug_historian`, which had gated round 1, and `guardian`, `reuse_agent`, `guidelines`,
+`tooling_provenance`, `improvement_guardian`, `render_guardian`, `debug_historian`,
+`constitution`, `mission` and `prior_art_librarian`. The `revise` came from one seat's
+output being unparseable, not from an objection. **There is therefore no APPROVED
+verdict and no commit here carries a `Council-Reviewed:` trailer** — `unreadable: 1` is
+exactly the field the trailer discipline says to check, and "everyone who spoke agreed"
+is not the same as approval.
+
+What round 1 changed in the code (the gating objection was right twice):
+a derivation whose source slot is missing used to no-op silently into the same light
+literal, and the derivation table patched an enumerated slot set while
+`{{palette "X" "<literal>"}}` is generic. Both now warn; `warnLightLiteralsOnDarkSite`
+reports the 60+ uncovered slot names rather than guessing values for them.
+
+What round 2 changed: `bug_historian` and `guardian` independently noticed that the new
+scanner recognises one spelling of the helper call and would silently report nothing on
+any other — the same shape again, one level up. Verified that raw `{{palette`
+occurrences equal strict matches in all 18 active layouts, then made the scanner compare
+those two counts itself and warn on divergence, because the verification is a fact about
+today.
 
 ## Ordering of the candidates — why the derivation comes first
 
