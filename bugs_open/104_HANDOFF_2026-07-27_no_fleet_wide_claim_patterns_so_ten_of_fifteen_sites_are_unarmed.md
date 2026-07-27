@@ -127,3 +127,52 @@ useless as one that fires on nothing.**
   post-deploy sweep that would catch drift effectively never runs.
 - `docs024_key_docs_latest/WRONG_CALLS.md` 2026-07-26 — how a wrong belief about
   this engine's reach nearly produced a redundant subsystem.
+
+---
+
+## Triage 2026-07-27, later the same day — the title figure has already moved: 8 unarmed, not 10
+
+Verification sweep, not a fix. **Re-run the § Measurement query before quoting this file** —
+it drifted within hours of being written, which is itself the point.
+
+```
+ oufe.com 28 · leopardessconsulting.co.uk 19 · ai-agent-orchestration.com 10 ·
+ vonc.com 9 · relojistas.com 9 · fundamentallyai.com 6 · finetuning.uk 3
+ gaswholesalers.com 0 · robot-hands.com 0 · gamesdesign.co.uk 0 · idea.uk 0 ·
+ vetcomparison.uk 0 · system.internal 0 · dartsonline.com 0 · webdesign.co.uk 0
+```
+
+**7 of 15 armed** (was 5): ai-agent-orchestration.com gained 10 and finetuning.uk gained 3,
+by hand, since this was filed. `site_specs` now holds **9** current `evidence_base` rows.
+
+Nothing about the defect changed — and the drift is the argument for candidate 1, not
+against it. Two sites were armed by somebody remembering, one at a time, which is precisely
+the state § "Fix candidates" says produces the bug. **The two named worst cases are still at
+zero: vetcomparison.uk and idea.uk** — the site that published fabricated prices for 3,124
+named practices, and the only site taking real money.
+
+### The filed decision, located and quoted verbatim (this file's § "already filed" is correct)
+
+`claims_verification/SPEC_claims_verification.md` § 10 "Open questions for the owner", q2:
+
+> "Should `banned_claims` be fleet-shareable (some patterns are universal: "Awards Won",
+> invented-client shapes) or strictly per-site? Proposal: per-site only until two sites have
+> evidence bases."
+
+Restated in `PLAN_2026-07-16_claims_verification.md` under what is deliberately not built:
+
+> "**No fleet-wide banned list.** Per-site until at least two sites have evidence bases
+> (spec open question 2, unchanged)."
+
+**The precondition is a number and the number is 9.** So this is not a technical decision
+waiting on evidence — it is an **owner call on a deferral whose own trigger has fired**, and
+nothing watches it. Nobody needs to re-derive the design; candidate 1 (mirror
+`globalTellPhrases`) is precedented one directory away.
+
+### One thing that changes how much candidate 1 buys today
+
+The post-deploy half of this layer does not run at all — `check_unverified_claims` is
+reachable only through `improvement-sweep`, disabled since 2026-05-02
+(`bugs_open/083`; `claims_unverified` has **0** live rows and **1** ever, from 2026-07-17).
+So arming a site fleet-wide arms its **build gate** and nothing else. That is still the
+half that matters for new copy, and it should be said plainly when the value is estimated.

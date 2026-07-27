@@ -325,3 +325,50 @@ exercise the section path you must set `spec.reason` to one of the three recogni
 `spec.reason` looks like free-text provenance and is control flow; vary `item_key` for dedup,
 never the reason. And insert work items as `status='triaged'`, not `'detected'` — `detected`
 is a queue with no consumer (`bugs_open/083`).
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — the fix is live and has NEVER RUN. The blocker is 083, not the roll.
+
+This file's "what is still owed" list says **the roll**. The roll has happened and it does
+not help, because candidate (1) was built into a check that nothing schedules.
+
+**The chain, each link measured today, not inferred:**
+
+```sql
+-- 1. the check is enabled on a live agent
+SELECT default_config->'workflow'->'steps'->'run_checks'->'config'->'checks'
+FROM agent_definitions WHERE type='quality-discovery-agent'
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- ["broken_nav_links","placeholder_contact","generic_theme","unverified_claims","voice_tells"]
+
+-- 2. the ONLY thing that fires that agent is improvement-loop <- improvement-sweep
+SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE name='improvement-sweep';
+-- improvement-sweep | f | 2026-05-02 10:11:07+00
+
+-- 3. so the item type this check raises has fired ONCE, EVER, ten days ago
+SELECT count(*) FROM site_work_items          WHERE item_type='claims_unverified';  -- 0
+SELECT count(*) FROM site_work_items_archive  WHERE item_type='claims_unverified';  -- 1
+--   2026-07-17 19:43 | complete | "Unverified claims on llm-cost-calculator: 1 banned claim(s)…"
+```
+
+That single archived row predates this change by nine days, so **the code shipped in
+`v1.0.1172` has not executed once.** Its own §"How to verify a fix" — re-render a page
+without a writer pass, confirm the finding is raised — **cannot be satisfied** while
+`improvement-sweep` is off, because the finding has no runner.
+
+Pod-grep re-confirmed on `agent-chassis-5994dc6d6c-pt8v9` (v1.0.1174): discriminating
+markers `turn this into a check rather than a list` → 1 and `scanStoredStatClaims` → 2,
+positive control `turn this into a gate` → 1. **The binary is right and the cadence is
+missing** — which is exactly the failure shape this file was filed to catch, one level out:
+a mechanism made correct and then guarded behind something that never runs.
+
+**Consequence for whoever picks this up:** 093 is not a code task any more. It is blocked on
+`bugs_open/083` candidate 1 or 2 (re-enable the sweep, or give triage/discovery its own
+cadence). Do not spend a chassis roll on it. The 21 register findings and 9 work items this
+file predicts from the first live run are all still owed — including the vonc.com
+self-contradiction it found in the dry harness (`index`: "Archetypes 8 / Tools Live 3" vs
+`about`: "Archetypes 3 / Tools Live 8"), which no automated pass has raised to this day.
+
+**[UNVERIFIED]** whether the assemble-only re-render branch documented above would change
+this: it would not — both branches are audited only post-deploy, by the same unscheduled check.

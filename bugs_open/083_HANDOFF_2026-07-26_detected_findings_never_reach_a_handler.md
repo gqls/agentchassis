@@ -194,3 +194,49 @@ Two things that make the silence hard to notice, both relevant to this bug's
   (`refresh_evidence_base_action.go:172-199`), sweeps every site with a register
   daily — which makes the claims layer *look* actively swept when only its
   fact-refresh half is.
+
+---
+
+## Re-measured 2026-07-27, post-roll (v1.0.1174) — the pile grew 61% in one day, and it is now stranding shipped code
+
+Verification sweep, not a fix. Nothing here contradicts the diagnosis above; it sharpens
+the cost and adds one consequence the original filing could not have seen.
+
+**The sweep is still off and the pile is still filling:**
+
+```sql
+SELECT name, enabled, last_triggered_at FROM scheduled_tasks WHERE name='improvement-sweep';
+-- improvement-sweep | f | 2026-05-02 10:11:07+00      (unchanged)
+
+SELECT min(created_at) AS oldest, count(*) FROM site_work_items WHERE status='detected';
+-- 2026-07-14 15:08:03+00 | 158
+```
+
+**98 → 158 in one day** (this file's own figure was measured 2026-07-26). The oldest row is
+unchanged at 2026-07-14, so nothing drained — 60 arrived on top. Top types now:
+`undeployed_asset` 35, `page_rerender` 28, `phantom_internal_link` 18, `needs_rerender` 13,
+`needs_imagery` 10, `empty_internal_href` 7. `phantom_internal_link` still stands at **18
+detected, 0 complete, lifetime** — unchanged, so the count is not the growth driver; the
+growth is elsewhere and broad.
+
+Note `75df951c9` (migration 233) already inserts *re-render* items as `triaged` rather than
+`detected`. That is a correct local mitigation and it does not touch this bug: it changes
+what one producer writes, while the missing consumer stays missing for the other twenty item
+types.
+
+**The new consequence: this bug now strands code that has already shipped.**
+`bugs_open/093`'s fix (a stored-`content_data` stat audit, built into
+`check_unverified_claims`) is **live in the running binary and has never executed**, because
+that check is reachable only via `quality-discovery-agent` ← `improvement-loop` ←
+`improvement-sweep`. Measured: `claims_unverified` has **0** rows live and **1** in
+`site_work_items_archive`, dated 2026-07-17 — nine days before the fix shipped.
+
+This is the second-order effect in § "Detector work ships and changes nothing", except the
+first example (`unbuilt_internal_link`) was a detector nobody had swept a site for. This one
+is a fix built *deliberately* to close a council-escalated gap, reviewed over six rounds, and
+it cannot fire. **When estimating the value of fix candidate 1 or 2, count that too**: the
+sweep being off is no longer only a backlog, it is now a silent tax on shipped work.
+
+**Fix candidate 4's caution stands and applies here as well** — do not flip the sweep on
+without first checking that the handlers for the top item types have a real remit
+(`bugs_open/077`), or 158 rows move from `detected` to `failed` and the tax is unchanged.

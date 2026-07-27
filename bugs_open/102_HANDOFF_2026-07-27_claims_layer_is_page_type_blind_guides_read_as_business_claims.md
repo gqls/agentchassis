@@ -117,3 +117,36 @@ webdesign.co.uk a real register, run the audit, and assert **both** directions:
   cheap enough to run fleet-wide.
 - `bugs_open/033` — the review queue with no working surface, which is what turns 15 false
   positives from an annoyance into a reason not to enable the check at all.
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — unchanged, and the blocking claim is confirmed live
+
+Verification sweep, not a fix. Nothing to diagnose here and nothing has moved.
+
+**The structural signal is still unread.** `page_type` / `PageType` appears **nowhere** in
+`datahelpers/claims.go` or `discovery_checks/check_unverified_claims.go` — grep returns no
+matches. Confirmed against the running image: no Go commits after `e96d42226`, which is in
+`v1.0.1174`.
+
+**The premise "live exposure today is nil" is confirmed, and so is the blockage.**
+webdesign.co.uk still carries **zero** `banned_claims` and has no `evidence_base` row:
+
+```sql
+SELECT s.domain, jsonb_array_length(COALESCE(ss.data->'banned_claims','[]'::jsonb))
+FROM sites s LEFT JOIN site_specs ss ON ss.site_id=s.id AND ss.aspect='evidence_base' AND ss.is_current
+WHERE s.domain='webdesign.co.uk';   -- webdesign.co.uk | 0
+```
+
+So the estate's largest site is unprotected for exactly the reason this file gives, and the
+owed item (b) of the fabricated-stats lane still cannot be done for it. That makes 102 a
+**precondition of `bugs_open/104`'s coverage work**, not a parallel concern: arming
+webdesign.co.uk before this lands would fire 15 correct-copy findings into
+`needs_human_review`, which has no surface (`bugs_open/033`) — the exact "trains a human to
+dismiss its findings" failure § "Why this matters" warns about.
+
+One sizing note for candidate 1: the prose scan runs at the **build gate**, which is live, so
+the fix has real effect immediately on roll — unlike the post-deploy half, which does not run
+at all (`bugs_open/083`). The § "How to verify a fix" negative control (a deliberately false
+figure on a non-guide page must still be raised) is therefore exercisable on the build path
+without waiting for any sweep.

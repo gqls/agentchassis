@@ -139,3 +139,56 @@ interpolates is what is missing.
   given the site's real page list and told to link only within it." That candidate assumed
   the machinery needed building. It does not: it exists, it runs, and it is fed nothing.
 - `bugs_closed/029` — cite the real `pages.url`, never a constructed one. See trap 2.
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — still 100%, and candidate 2 is now RULED OUT
+
+Verification sweep, not a fix. The diagnosis above holds unchanged.
+
+**Re-measured live**, same query as § Evidence:
+
+```
+ runs | zero_pages |            latest
+------+------------+-------------------------------
+   16 |         16 | 2026-07-27 14:27:31+00
+```
+
+Still **100%**, and the latest failing run is from today. The denominator fell 20 → 16 only
+because `orchestration_states` is on a retention clock — that is a shrinking window, not
+improvement. No code has moved: `prepare_link_context_action.go` and `link_constraints.go`
+have no commits since 2026-03-28, and `InjectLinkConstraints` still has **zero call sites**
+(trap 1 intact — do not wire it).
+
+### The new finding: fix candidate 2 cannot work, so this needs a chassis roll
+
+Candidate 2 is "populate `db_sync.pages` on this path so the configured field resolves" —
+attractive because config is live immediately and needs no image. **There is nothing on that
+orchestration to point the field at.** Every top-level key of the latest writer run was
+inspected for a page list:
+
+```sql
+SELECT k, jsonb_typeof(v), left(v::text,120) FROM orchestration_states o,
+LATERAL jsonb_each(o.collected_data) e(k,v)
+WHERE o.collected_data ? 'link_context' AND (k ILIKE '%page%' OR v::text ILIKE '%"url"%')
+  AND o.created_at = (SELECT max(created_at) FROM orchestration_states WHERE collected_data ? 'link_context');
+```
+
+The hits are page **HTML** (`compile_page`, `page_content`, `complete`), render context, and
+section plans. `input_data.site_plan` is present and is literally `{}`. There is no array of
+pages anywhere on the run, so repointing `pages_field` has no valid target and would fail the
+same silent way.
+
+**Therefore candidate 1 (have the action query the DB) is the only real option**, and this bug
+is a Go change → council gate → image roll, not a config tweak. Size accordingly: it is one
+query in `PrepareLinkContextAction` (it already holds `params.DB` and a `site_id`, and
+`loadValidPagePaths` is the query to copy), plus deleting the trap-2 URL synthesis so it emits
+stored `pages.url`. Small diff, real blast radius — the writer's prompt grows a section it has
+not carried in living memory, on every site.
+
+**Worth knowing before sizing the value:** `bugs_open/079`'s deploy-gate repair is now live
+and exercised in production (`agent_error_log` error_code `CONTENT_LINK_REPAIR_DETAIL`,
+dartsonline.com 2026-07-27, 1 rewrite + 1 unlink in one build). So invented links are being
+*removed* before they ship. That lowers the urgency and does not remove the case: an unlinked
+phantom is a paragraph that lost its link, which is still a worse page than one whose writer
+was told what exists.

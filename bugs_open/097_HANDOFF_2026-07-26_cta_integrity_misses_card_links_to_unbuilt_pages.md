@@ -113,3 +113,54 @@ Two things this instance adds to the oufe.com evidence above:
 
 Not investigated further here — this file owns the mechanism; recording the instance
 so the fix's verification set includes a second site.
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — oufe is clean, robot-hands is not, and the detector gap is untouched
+
+Verification sweep, not a fix. Both instances re-probed live over HTTPS.
+
+**oufe.com's six are gone.** The homepage now emits only resolvable targets —
+`/about.html`, `/cases/index.html`, `/contact.html`, `/index.html` (200 confirmed on the
+two checked). `/restructuring-plan`, `/creditor-waterfall`, `/cases/thames-water`,
+`/tools`, `/framework` and bare `/cases` are all absent from the served markup.
+
+**robot-hands.com's are all still live, and there is a sixth this file missed.** Every one
+individually probed, so the `[UNVERIFIED]` marker on three of them above is now discharged:
+
+```
+404  /learning-center/calculators            404  /learning-center/comparisons
+404  /learning-center/technology-guides      404  /learning-center/specification-workflow
+404  /learning-center/application-guides     404  /matchmatrix/methodology     <- NEW
+```
+
+`/matchmatrix/methodology` is the same shape from a different hub, and note the site *does*
+serve `/matchmatrix-methodology.html` (200) — so it is the "target exists at a different
+url" sub-class, not a pure phantom. That strengthens fix candidate 1 over 2 and 3 again.
+
+### What changed underneath this bug, and what did not
+
+`bugs_open/079`'s `RepairPageLinks` is now live and firing at the build gate
+(`validate_page_content.go:356`), and it resolves **every** internal `<a href>` in the
+assembled page against `pages.url` — which is literally this file's fix candidate 1, arriving
+from another lane and at a different stage. On the numbers above it would have handled
+oufe's six: bare `/cases` normalises to `/cases/index.html` and **rewrites**; the four true
+phantoms **unlink**. `/cases/thames-water` (real page at `/blog/thames-water.html`) would
+unlink rather than repoint — the 404 dies, the intended destination is still lost.
+
+**Two reasons this file stays OPEN:**
+
+1. **The detector is unchanged.** `ctaFieldNames`
+   (`resolve_internal_links_action.go:98-105`) still lists six components, still has no
+   `info-card-grid`, and nothing walks arrays in `content_data` — grep for `link_url` in that
+   action returns nothing. So `unresolved_cta` still misses exactly what it missed, and the
+   only thing now catching the class is a *repair* at a later stage that silently deletes the
+   link instead of reporting it. Detection and repair are not substitutes.
+2. **A write-path repair does not reach a deployed page.** robot-hands' six have been live
+   since before the fix and will stay live until that page is rebuilt. There is no sweep that
+   would find them (`bugs_open/083`: `improvement-sweep` off since 2026-05).
+
+**Sharpest next action:** decide whether candidate 1 is now redundant at the gate and should
+instead be implemented where this file said — at the CTA check — so the finding is *reported*
+as well as repaired. Then a rebuild of `robot-hands.com/learning-center.html` clears the live
+damage. Neither needs a diagnosis run; the cause is fully known.

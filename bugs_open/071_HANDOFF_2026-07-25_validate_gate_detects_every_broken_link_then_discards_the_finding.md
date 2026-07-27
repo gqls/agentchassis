@@ -473,3 +473,59 @@ mailto into `/cdn-cgi/l/email-protection#<hex>`. A "0 emails" pass is vacuous.
 Decode with XOR against the first byte before believing it — that is how the
 homepage's `relojistas@contactforsales.com` and an **empty** footer anchor
 (`<a href="/cdn-cgi/l/email-protection#07"></a>`) became visible.
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — THIS FILE'S TITLE IS NO LONGER TRUE, and three named residues are
+
+Verification sweep, not a fix. The fleet rolled to `v1.0.1174` at 15:11 UTC; the last
+Go commit in that image is `e96d42226` (14:52 UTC), and there are **no Go commits after
+it**, so the tree and the binary agree on everything below.
+
+### What is now fixed, live AND exercised in production
+
+The headline mechanism — *detect, then discard, then ship the 404* — is gone on the
+in-body writer path. `bugs_open/079`'s `RepairPageLinks` runs at the same gate, after
+every check, and rewrites-or-unlinks before `save_sections` persists
+(`validate_page_content.go:356-371`). Candidate 1 (persist the finding) and candidate 5
+(fix the lying comment) both landed with it — the policy comment at `:803-822` now
+states the real reason and names what happens if `repair_internal_links` is turned off.
+
+**Not inferred from the diff — the durable record this file asked for exists, with both
+arms firing in one real build:**
+
+```sql
+SELECT domain, occurred_at, error_message FROM agent_error_log
+WHERE error_code='CONTENT_LINK_REPAIR_DETAIL';
+-- dartsonline.com | 2026-07-27 12:23:23+00 |
+--   Repaired 2 dead internal link(s) before save: 1 href(s) rewritten, 1 link(s) removed
+```
+
+Pod-grep on `agent-chassis-5994dc6d6c-pt8v9` (v1.0.1174):
+`link removed before save, anchor text kept` → 1, `href rewritten to` → 1.
+
+### What is left, and it is not the same bug
+
+1. **The fragment blind spot — unfixed, and now acknowledged in the code itself.**
+   `link_repair.go:117-119` says it outright: *"Whether that fragment resolves to a real
+   id is a separate, known gap … Repairing the path turns those from 404 into inert,
+   which is an improvement, not a fix."* Nothing emits section `id`s; nothing checks
+   fragments. This half of the file is untouched.
+2. **The renderer-default class (relojistas) — unfixed in code.** All three hardcoded
+   `"/contact.html"` defaults are still in `component_library.go` (`:769`, `:822`,
+   `:894`), and they fire *downstream* of the gate, so no amount of repair at
+   `validate_page_content` reaches them. **The live symptom has moved, not resolved**:
+   relojistas.com's homepage no longer renders `/contact.html`, it renders
+   `/contacto.html` — which returns **404 as well** (probed 2026-07-27; `/contact.html`
+   404 too). That CTA is the brochure/traffic_probe lane's; the *default* is this file's.
+3. **A repair is a write-path fix, so already-deployed pages keep their damage.** Live
+   2026-07-27: `robot-hands.com/learning-center.html` still serves six 404s — see the
+   triage note appended to `bugs_open/097`, which owns that instance.
+
+### Triage recommendation (not executed — this file is actively worked by the CTA lane)
+
+This file now bundles one **closed** mechanism with three open ones, which is the shape
+that makes a bug file un-closable forever. Recommend: close 071 on the evidence above and
+re-file the fragment gap as its own case (the renderer-default belongs with it or with
+`component_library.go`'s owner). Left undone deliberately — filing new numbers from a
+sweep is how `083` and `090` collided, and the owning lane should pick the split.

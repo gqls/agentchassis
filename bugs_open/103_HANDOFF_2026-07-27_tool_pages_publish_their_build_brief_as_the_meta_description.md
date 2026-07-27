@@ -157,3 +157,44 @@ hardcoded `FLOOR_TAKES` array, with take-submission writing only to
 `localStorage`. That is the `gauntlet_dead_cta` workstream's business and is
 tracked in its PLAN, not here. This bug is only the meta-description leak, which
 is fleet-wide and independent of it.
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — the worst row was hand-fixed; the other 15 and the cause are untouched
+
+Census re-run exactly as §1 instructs (do not trust the old table):
+
+```
+ pages | sites
+-------+-------
+    15 |     5
+```
+
+**16 → 15 / 6 → 5.** The single row that left is the vonc.com Arena — repaired by hand,
+not by code. It now carries 147 characters of real copy and serves it:
+
+```
+curl -s https://vonc.com/tools/arena/index.html | grep -o '<meta name="description"[^>]*>'
+-- content="Read today's provocation, browse the archive, then take a position into the
+--          Gauntlet and defend it against an AI opponent on a twenty-minute clock."
+```
+
+The remaining 15 are the same rows this file listed, now topping out at 637 chars
+(`leopardessconsulting.co.uk/tool-process-automation-scorer`), across leopardess,
+ai-agent-orchestration, finetuning, fundamentallyai and gaswholesalers. Several duplicate
+across sites (`llm-cost-calculator` × 4, `ai-agent-roi-estimator` × 3) — one component's
+brief, published on every site that deployed it.
+
+**The cause is exactly as filed.** `deploy_tool_action.go:341` still binds
+`toolDescription.String` into `meta_description`, the `ON CONFLICT … DO UPDATE SET` at
+`:333-337` still omits the column, and the correct composed pattern still sits ~110 lines
+below at `:455`. No commits have touched the file. Confirmed against the running image:
+there are no Go commits after `e96d42226`, which is in `v1.0.1174`.
+
+**Quick-win assessment (this file was flagged for one).** It is *not* a sub-hour job, and
+the reason is §3: candidate (2) is a two-line `fmt.Sprintf` swap, but shipping it alone
+changes **nothing on the web** — the conflict clause means no redeploy repairs a live row.
+The honest shape is: 15-row backfill (SQL, live immediately, ~20 min, fixes what the public
+sees today) **plus** the code change (council gate + chassis roll, hours, stops the 16th).
+The backfill is the quick win and it can be done first and independently. Compose from
+`display_name` + category as candidate 3 says — do not truncate the brief.

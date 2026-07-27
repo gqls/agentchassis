@@ -87,3 +87,37 @@ typed the wrong thing yet.
   — *"A promise ledger the platform cannot mechanically check is prose."* The
   EXPERIENCE_PLAN has had a promise ledger since 167 and it has never been
   mechanically checked, for the same reason.
+
+---
+
+## Triage 2026-07-27, post-roll (v1.0.1174) — re-checked from the READER side, still zero
+
+Verification sweep, not a fix. This file asserts an absence, and the standing rule is that
+"writes the field ≠ reads the field" cuts both ways — an absence claim needs the reader
+search, not the writer's declaration. Re-run across every consumer of the register:
+
+```
+grep -n "\.Kind" platform/orchestration/datahelpers/claims.go \
+                 platform/orchestration/actions/discovery_checks/check_unverified_claims.go \
+                 platform/orchestration/actions/validate_page_content*.go \
+                 platform/orchestration/actions/refresh_evidence_base_action.go
+-- (no matches)
+```
+
+**Zero readers in the entire claims path**, including the two consumers that shipped since
+this was filed (`check_unverified_claims_stats.go`, the `v1.0.1172` stat audit). Confirmed
+against the running image: no Go commits exist after `e96d42226`, which is in `v1.0.1174`,
+so the tree and the binary agree.
+
+**Sizing.** Candidate 1 (validate on parse, default absent → `metric`) is genuinely small —
+a few lines in `ParseEvidenceBase` — but it is a `platform/` change, so it is council gate +
+chassis roll, and it will **reject registers that parse today**. Nine sites now hold a
+current `evidence_base` row; audit their `kind` values before making unknown ones fatal, or
+a strictness fix becomes a fleet-wide parse failure. That check is a single query and
+belongs in the plan, not after it.
+
+**Do not bundle it with candidate 2.** Candidate 2 (distinct V4 treatment for
+`capability`/`attestation`) is the one with the design question in it, and V4 —
+`evidence-freshness` — is the *only* half of this layer with a live cadence
+(`bugs_open/083`: its sibling post-deploy sweep has not run since 2026-05), so it is the one
+place a mistake here reaches production daily.
