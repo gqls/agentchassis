@@ -71,7 +71,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **never read a `| head`-truncated grep as a complete enumeration — the cap is silent and looks identical to "that's all of them"** | **1** |
 | **enumerate the SIBLING instances before quantifying** — *(existing row above; incremented again 2026-07-26: fixed a phantom broker at the site I tripped over and never grepped for the second one, which the council found)*
 | **read the ROW's own annotation before theorising about what moved it — a mechanism that labels its own work has already answered you; and never truncate the field that might carry the answer** | **1** |
-| **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **1** |
+| **verify with an INDEPENDENT witness — a check that shares the fix's regex, query or assumption can only echo it, never falsify it** | **2** |
 | **establish the healthy BASELINE before calling a reading abnormal — and treat a famous failure mode that fits your symptom as a hypothesis, not a diagnosis** | **2** |
 | **prove it before writing it into a SHARED doc — a runbook or landmine entry asserts at higher confidence than a note, and propagates to every later reader** | **1** |
 | **read the step's CONFIG, not its name — `select_sections` selects nothing, and a name-shaped inference can get the right fix candidate rejected** | **1** |
@@ -5637,3 +5637,28 @@ to it. A file that documents its own contract in its first 150 lines is telling 
 **Cost:** two malformed entries for a day, reformatted here, and one tally left un-incremented
 — which is the part that actually mattered, because a tally row that never reaches 2 never
 gets automated.
+
+### 2026-07-27 — brochure_component_library — "only the index rebuild broke links; capabilities is clean"
+**Asserted:** that my page rebuilds introduced six broken links, all on the index,
+and that the capabilities page came through clean. Written into `bugs_open/071`, a
+summary, the owner's log and a commit message.
+**Actually:** sixteen, across both pages. The capabilities rebuild produced ten
+more — `href="/capabilities#review-council"` and five siblings, extension-less
+*with a fragment*, 4 in `hero-card-carousel` and 6 in `info-card-grid`. All ten
+404 as served.
+**Caught by:** the live crawl in my own verifier, which captures
+`href="(/[^"]*)"` and strips the fragment afterwards. The DB check I had trusted
+used `href="(/[^"#?]*)"`, which **excludes every href containing `#`** — the exact
+anchor-blind pattern this workstream recorded as landmine L2 the previous day,
+after it hid 21 broken links behind a census, a repair and a post-check that all
+agreed with one another. I read that landmine, wrote it into a handoff section I
+authored, and then used the pattern in the next query I typed.
+**The cheap check that would have caught it:** never let a character class decide
+what counts as a link. Capture the whole `href` and normalise afterwards — the
+fragment is data, not a delimiter. More generally: when a landmine names a
+specific pattern as dangerous, grep your own new queries for that pattern before
+trusting their output.
+**Cost:** ten broken links live on the capabilities page for a day, a false
+"clean" recorded in four places including a bug file other threads read, and a
+correction pass across all of them. The gate had detected all sixteen and shipped
+them as warnings, so nothing else was going to catch it.
