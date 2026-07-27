@@ -1,5 +1,24 @@
 # HANDOFF — gauntlet_dead_cta after P4 went live (2026-07-26 evening)
 
+> **UPDATE 2026-07-27 — §3 items 3 and 4 are DONE; items 1 and 2 stand unchanged.**
+> Latest state: `SUMMARY_2026-07-27_gauntlet_dead_cta.md`. In short:
+> - **item 4 (the Arena) is LIVE and its premise here was wrong.** It was not a
+>   page whose mount points never filled — it was a fully fabricated community
+>   (~26 invented users with handles, invented vote tallies, invented remix
+>   chains, a take box writing to `localStorage`). Scoped down honestly per owner
+>   ruling; 90/90 browser checks on the deployed page. Delivery differs from §4/§8
+>   and is written up as **RUNBOOK §10** — no template vars, so `apply_section_edit`
+>   does not apply, and `rerender_single_page` assembles from
+>   `page_components.rendered_html`, not `html_template`.
+> - **item 3 is done**: `claimscan` returns 0 findings across all 49 components.
+>   The `improve_tool` chip item is resolved `wont_fix` (subject removed).
+> - **A chassis roll does NOT help items 1 or 2.** Verified 2026-07-27 on
+>   v1.0.1172: `browserrunner` has had no commits since 07-25 (`stepDelay` still
+>   300 ms), and 083's engine is on the island VM, outside the cluster entirely.
+> - **New, unrelated to this stream: `bugs_open/103`** — 16 tool pages across 6
+>   sites publish their build brief as the public meta description. The Arena's
+>   is corrected; the code fix and the other 15 are open.
+
 **Supersedes `HANDOFF_2026-07-26_gauntlet_p4_frontend_rebuild.md`**, which was
 written before P4 and whose Steps 0–3 are now done. Keep it for its API contract
 (§6) and its landmine list (§7) — both still accurate — but **do not work from
