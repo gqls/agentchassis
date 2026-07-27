@@ -126,6 +126,22 @@ runs per section across the whole estate.
 
 ## WHAT WAS DONE — candidate 1, both spawners (2026-07-27, `b3f19ac96`)
 
+> **Council gate: submitted 2026-07-27 ~18:13 UTC, `SUBMISSION_CORR =
+> dfa6205e-b10e-440c-b251-5d791fdeb718`.** Submitted AFTER shipping, which is
+> stated plainly in the rationale — the change was racing the 20:25 tick. The
+> submission asks the council specifically to rule on the thing I overrode: the
+> bug file ranks blanket `envFrom: secretRef` FIRST on door-closing grounds and I
+> declined it on a least-privilege argument. If the council disagrees, that is
+> the finding worth having.
+>
+> Verdict: `SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+> WHERE correlation_id='dfa6205e-b10e-440c-b251-5d791fdeb718' AND
+> kind='council_report' ORDER BY created_at;`
+> **Only an APPROVED verdict earns a `Council-Reviewed:` trailer, and it is
+> earned per round — re-read `decided_by` before claiming it.** The deployed
+> commits carry no trailer and will list in the 098 report as un-reviewed until
+> one is earned; that is accurate, not an oversight.
+
 **Owner's instruction was to fix it in Go, not to revert the flip.** So the
 interim mitigation above was deliberately NOT taken, and the flip stands.
 
