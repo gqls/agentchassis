@@ -1,6 +1,14 @@
 # 112 — Spawned agent pods are never given `GEMINI_API_KEY`, so `page-content-writer` on Gemini fails at construction, and every page build with it
 
 **Filed** 2026-07-27 by the `gemini_content_provider` workstream (triage sweep) ·
+> **VERIFIED LIVE 2026-07-27 by the gemini_content_provider thread.** The fix is in
+> the running chassis at **v1.0.1177**: `strings /app/agent-chassis | grep -c
+> ProviderKeyEnv` → 1, and `agentenv` → 3, so `platform/agentenv` is compiled in and
+> spawned pods now receive `GEMINI_API_KEY`. **`page-content-writer` can reach Gemini.**
+> Note the obvious grep is VACUOUS here: `GEMINI_API_KEY` itself returns 2 on a binary
+> that predates the fix, because `gemini.go`'s error string contains it. Grep the
+> package symbol, not the key name. This owner should close it.
+>
 **Status** **OPEN — FIXED IN CODE, INERT UNTIL BUILT AND ROLLED** (`b3f19ac96`,
 2026-07-27, on the owner's instruction to fix it in Go rather than revert the
 flip) · **Severity** HIGH and **armed but not yet fired** —

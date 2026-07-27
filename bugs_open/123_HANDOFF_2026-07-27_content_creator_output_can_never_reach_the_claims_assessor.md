@@ -80,10 +80,14 @@ survivable; together they mean a content producer that no audit surface can see.
 
 I have not established that content-creator output is currently published anywhere.
 It returns text on a Kafka topic; whether a caller publishes it is a property of the
-caller, and I did not trace them. **That question should be answered before
-anything else here** — it decides whether this is urgent or merely important, and
-it is a cheap check (grep the consumers of
-`system.agent.content-creator.responses`).
+caller, and I did not trace them. **Partly answered 2026-07-27:** no dedicated consumer subscribes to
+`system.agent.content-creator.responses`, but the generic orchestration
+awaited-response machinery reads it (`platform/orchestration/helpers.go`, via
+`awaited.ResponsesTopic`). So the text **does** flow back into orchestration state,
+and what happens to it there is workflow-defined. **What remains untraced is which
+workflows call content-creator, and what they do with the returned text.** That is
+the step that decides whether this is urgent or merely important, and it is still
+cheap.
 
 ## Fix candidates, ordered by what closes the door
 
