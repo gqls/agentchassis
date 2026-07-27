@@ -1158,6 +1158,18 @@ reverted it to `anthropic/claude-sonnet-4-6` to align, guarded on updated_at,
 style_block=true). Net state: the model experiment is off; the PROMPT change
 stands and is live.
 
+> **CORRECTED 2026-07-27 (by the gemini_content_provider thread):** `fb6d6ad44`
+> did **not** revert the content-creator service — it contains no configmap
+> change at all (17 `kustomization.yaml` image-tag bumps, the makefile, two
+> docs). In git the content-creator provider was reverted only by `4dd5d6378`,
+> at 17:11 — **twelve minutes after** this writer revert at 16:59. So the trigger
+> was the owner's instruction quoted above, not that sweep. Net state ended the
+> same and nothing was harmed; it matters only because a reader would go to
+> `fb6d6ad44` looking for the provider decision and find image tags. Caught by
+> `git log -p` on the configmap alone: exactly two commits ever changed the
+> provider, `7b27edfa9` in and `4dd5d6378` out. **A sweep commit's subject
+> describes the sweep's intent, not its contents.**
+
 The queued `about` rebuild never ran under Gemini (still triaged behind the
 backlog) — so the one-page test is now exactly the clean experiment: **Claude +
 new voice prompt vs the Claude + old prompt baseline** (about_copy_before.txt).

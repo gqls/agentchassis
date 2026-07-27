@@ -3569,6 +3569,73 @@ keys; a `fallback_url_field` path that looks like a safety net has never once ru
 Category tags: `provenance-from-the-model`, `absent-key-vs-empty-value`,
 `silently-ignored-config-keys`, `grep-the-key-before-calling-it-config`.
 
+### The same parameter name on two providers is not the same parameter — a request we mis-sized was diagnosed as a model that cannot write (`bugs_open/107`, 2026-07-24 → 07-27)
+
+**Symptom.** Switching the content agents from Anthropic to Gemini produced almost
+no text: **zero** visible characters at the 100-token tier, ~85 characters at the
+500-token tier, `finishReason=MAX_TOKENS` on both. Verified against the live API,
+not inferred. The investigating thread concluded the model thinks by default,
+thinking cannot be disabled, and therefore the pro tier is unusable at our
+budgets — the only working Gemini model being a clear quality step down. The owner
+was offered that trade, declined it, and the whole switch was reversed.
+
+**Cause.** Gemini's `maxOutputTokens` is a **total output ceiling with thinking
+spent from it first**. Anthropic's `max_tokens`, with extended thinking off (how
+every agent here runs), is *entirely* visible text. Every `max_tokens` value in
+this platform was sized against the second definition and passed verbatim into the
+first: `platform/aiservice/gemini.go` set
+`generationConfig["maxOutputTokens"] = maxTokens` and the word "thinking" appeared
+nowhere in the file. So the twitter tier asked a thinking model to fit its
+reasoning *and* a tweet into 100 tokens. **Zero visible text was the arithmetic
+working correctly.** The observation was sound; the attribution jumped one layer,
+from *the request we sent* to *the model's capability*.
+
+**The general shape: a parameter name that ports between providers, whose
+DEFINITION does not.** The name survives the port, so the config reads correct at
+every layer and no type checker, test or reviewer sees a mismatch — the number is
+a valid number for both APIs and means different things. This is the same family
+as *"a field the backend has no parameter for gets accepted and discarded"* above,
+one step worse: there, the field reached nothing; here it reaches something that
+interprets it differently, so the failure arrives as plausible-but-wrong *output*
+rather than as no effect.
+
+**Two things made it survive as a model verdict.**
+1. **The diagnostic figure was in the response and we threw it away.** Our decoder
+   read `usageMetadata.candidatesTokenCount` and never `thoughtsTokenCount`, so
+   the tokens doing the damage were invisible above the transport. One field, and
+   "thinking spent 500 of the 500 tokens I allowed" is unmissable.
+2. **The error message described the wrong candidate cause.** It said only
+   `finishReason=MAX_TOKENS` — indistinguishable from a prompt that simply wanted
+   to write more, which is the reading that points at the model.
+
+**How to catch this class.**
+1. **Before attributing a bad output to a model, diff what you SENT against what
+   that provider's parameter means.** Read the provider's definition of every
+   parameter you port, not just its name. Shared names across vendors are a
+   naming convention, not a contract.
+2. **Decode the whole usage block, not the field you already had a use for.** A
+   provider reports the resource it consumed on your behalf; a decoder that skips
+   it makes the consumption unattributable at every layer above.
+3. **When a knob is generation-specific, send nothing by default.** Gemini 2.5
+   takes an integer `thinkingBudget`, 3.x takes a `thinkingLevel` string and 400s
+   on the integer (that 400 is what "cannot be disabled" was read off). Guessing
+   fails 100% of calls. Provision headroom instead — a ceiling is not a purchase,
+   and the provider bills what it produces.
+4. **Assume an unrecognised model is a NEWER one (deny-list, not allow-list).**
+   Every Gemini generation since 2.5 thinks by default, so an allow-list of
+   "models that think" under-provisions each new model on the day it ships — and
+   under-provisioning presents as bad copy, not as an error.
+5. **A confident negative result stops the re-run — so state what it measured.**
+   The reversal closed the question for three days. Every measurement was of a
+   starved budget, and the half that mattered commercially (the page-copy writer)
+   was never exercised at all: flipped and reverted six minutes later, its test
+   rebuild still queued. *"Gemini writes badly"* and *"we asked Gemini for 100
+   tokens of thinking-plus-tweet"* license opposite next actions.
+
+Category tags: `same-name-different-definition`, `the-attribution-jumped-a-layer`,
+`decode-the-whole-usage-block`, `unknown-model-is-a-newer-model`,
+`a-confident-negative-stops-the-re-run`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3675,6 +3742,7 @@ See `/bugs_closed/README.md`.
 | 101 | **`scrape_web` silently ignores four config keys, so two live workflows describe a crawl they never perform.** `WebscrapeAction` reads only `url_field`/`url`/`action`/`upload_results`/`scrape_config` and fetches **one** page; `max_pages`, `follow_links`, `extract_mode` and `fallback_url_field` are read by **no Go code in the repo**. Affects `vet-practice-verifier` and `domain-research-classifier` (another workstream's — it classifies on home-page text alone while its config says otherwise). Measured cost: company-number extraction 4/25 (16%) home-page-only vs 7/25 (28%) if legal/terms pages were read — and the configured `follow_links` list contains no legal page, so it is wrong for its purpose even if honoured. `fallback_url_field` is a silent dead path. **High misleading-power**: it produced a false "config-only win" claim in a commit message within an hour of being read | **OPEN, unowned, filed 2026-07-26.** Cheap check for the class: `grep -rn "<key>" --include=*.go .` before calling any config change a win |
 
 | 102 | **The claims layer is `page_type`-blind, so a guide's worked example is indistinguishable from a business claim.** Its only prose precision control is `businessClaimContextRe`, a LEXICAL gate; `check_unverified_claims.go` joins `pages` but reads only `p.name`, and neither scan ever receives a page type. Measured with the real scanner against an empty register: webdesign.co.uk raises **15** number claims and **all 15 are false positives**, every one a worked example (`100 concurrent users`, `random 502 Bad Gateway errors`, `Try rating Sci-Fi '5'`) on **six pages sharing one `page_type='guide'`**. The separating signal is already in the schema and is simply not read. Mirror of `043`'s own sound argument that a `stat*_value` field is a claim BY CONSTRUCTION — structural position replacing a lexical gate: **page type is structural position too**, one level up | **OPEN, filed 2026-07-27** by the fabricated-stats lane while doing owed item (b). **It BLOCKS that item**: the estate's largest site cannot be given a register without raising 15 correct-copy review items into a queue (`033`) with no working surface, so it stays unprotected. False positives are the expensive direction here — a checker that cries wolf on a teaching site trains a human to dismiss it on the same site's real claims. Prefer candidate 1 (pass `page_type` into the scan; skip PROSE on guides, keep scanning STAT FIELDS) |
+| 107 | **The Gemini client starves thinking models of output budget — and the starvation was diagnosed as a model that cannot write.** Gemini's `maxOutputTokens` is a TOTAL output ceiling with thinking spent from it first; Anthropic's `max_tokens` (extended thinking off, how every agent here runs) is entirely visible text. Every `max_tokens` here was sized against the second and passed verbatim into the first — `gemini.go` set `maxOutputTokens = maxTokens` and never mentioned thinking. Live-measured 07-24: **zero** visible characters at the 100-token tier, ~85 at 500, both `MAX_TOKENS`. Read as "pro thinks and cannot be stopped, so pro is unusable", the fleet switch to Gemini was reversed (`4dd5d6378`, `5db6a929f`) and the owner declined a quality step-down that may not have been necessary. Two same-file decisions hid it: the decoder read `candidatesTokenCount` and dropped `thoughtsTokenCount`, and the error said only `finishReason=MAX_TOKENS`. Third, independent defect: the parts loop concatenated `thought:true` reasoning into the answer | **FIXED IN CODE 2026-07-27, INERT until the roll → stays OPEN.** Reserve (`max_tokens` + 8192) · no `thinkingConfig` unless configured (2.5 and 3.x knobs are incompatible; the wrong one is the 400 that "cannot be disabled" was read off) · unknown model assumed to think (deny-list) · thinking tokens surfaced · dead pins refused at construction. **Needs BOTH images** (writer is in the chassis, content-creator is its own service). **Not claimed: that Gemini writes acceptably** — the tests prove the numbers, not the copy, and the page-copy writer has NEVER been exercised on Gemini. Probe first: `scripts/gemini-probe.sh --from-pod <model>` |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the

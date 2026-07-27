@@ -6031,3 +6031,57 @@ sweeps, both wrong, both caught by running the command:
 Family: absence-was-true-when-I-looked-and-nothing-re-looks,
 the-decision-lived-where-no-mechanism-reads, index-manufactures-false-absence,
 a-sweep's-figure-is-an-unmeasured-figure.
+
+### 2026-07-24 — gemini provider — a starved token budget diagnosed as a model that cannot write
+
+**Asserted** (`4dd5d6378`, and acted on): `gemini-pro-latest` "has mandatory
+thinking that cannot be disabled … and eats a large, variable share of
+maxOutputTokens before any visible text", therefore the pro tier is unusable at
+our budgets and the only working Gemini option is `gemini-flash-lite-latest`,
+"a real quality step down". The owner was presented with that trade, declined it,
+and the whole provider switch was reversed.
+
+**What was actually true.** Three-quarters of it. Thinking *was* consuming the
+budget — a budget **we never provisioned**. Gemini's `maxOutputTokens` is a TOTAL
+output ceiling with thinking spent from it first; every `max_tokens` in this
+platform was sized against Anthropic, where the whole cap is visible text.
+`platform/aiservice/gemini.go` passed the caller's number through verbatim (old
+line 86) and the word "thinking" appeared nowhere in the file. So the 100-token
+tier asked a thinking model to fit its reasoning *and* a tweet into 100 tokens.
+Zero visible text was the arithmetic working. The observation was sound; the
+attribution jumped one layer — from *our client's request* to *the model's
+capability* — and a provider decision was made on it.
+
+**Caught by:** reading `gemini.go` three days later, while reconstructing why the
+switch was reversed. Nothing re-looked in between, because the reversal had
+closed the question.
+
+**The cheap check that would have caught it:** the response already carried
+`usageMetadata.thoughtsTokenCount` — our decoder read `candidatesTokenCount` and
+dropped it. One field, and "thinking spent 500 of the 500 tokens I allowed"
+becomes unmissable. Generally: **before attributing a bad output to the model,
+diff what you SENT against what that provider's parameter means.** A parameter
+name shared across two providers is not a shared definition, and Anthropic's
+`max_tokens` and Gemini's `maxOutputTokens` differ precisely in whether thinking
+comes out of it.
+
+**Cost:** the provider decision was reversed on incomplete evidence and the
+Gemini experiment lost three days. Worse, nothing was learned about what it was
+meant to test: every measurement was of a starved budget, and the
+`page-content-writer` half — the agent that writes our actual site copy — was
+never exercised on Gemini at all (reverted six minutes after the flip, its test
+rebuild still queued). A confident negative result that measured the wrong thing
+is more expensive than no result, because it stops anyone re-running it.
+
+**Smaller miss, same family, caught the same day:**
+- *"The switch-back was fleet-level (sweep `fb6d6ad44` … reverted the
+  content-creator service)"* (`5db6a929f`, brochure NOTES). `fb6d6ad44` contains
+  no configmap change — 17 image-tag bumps, the makefile, two docs. The
+  content-creator provider was reverted by `4dd5d6378`, twelve minutes *after*
+  the commit citing it. Harmless to the outcome; it sends the next reader to a
+  sweep for a decision that isn't in it. *Check: `git log -p -- <the one file>`,
+  not the sweep's subject line. A sweep's message describes its intent, not its
+  contents.*
+
+Family: the-attribution-jumped-a-layer, a-sweep's-message-is-not-its-contents,
+a-confident-negative-stops-the-re-run.
