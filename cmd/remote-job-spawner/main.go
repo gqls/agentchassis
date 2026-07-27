@@ -45,6 +45,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gqls/agentchassis/platform/agentenv"
 	kafkaplatform "github.com/gqls/agentchassis/platform/kafka"
 	"github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -365,29 +366,22 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 		envList = append(envList, corev1.EnvVar{Name: ev.Name, Value: ev.Value})
 	}
 
-	// Add secrets — these must exist in the cluster's namespace.
+	// Provider API keys come from the SHARED allow-list in platform/agentenv, the
+	// same one the chassis spawner reads. Do not re-list them here: these two
+	// spawners each hand-maintained their own copy until 2026-07-27 and they had
+	// drifted (this one was missing GROK, both were missing GEMINI), which is
+	// bugs_open/112. Add a provider in agentenv and both spawners get it.
+	envList = append(envList, agentenv.ProviderKeyEnv()...)
+
+	// Add the remaining secrets — these must exist in the cluster's namespace.
 	// NOTE: replicate these secrets to any remote cluster:
 	//   personae-platform-secrets (DB passwords, bootstrap key)
-	//   personae-default-secrets  (ANTHROPIC_API_KEY, GEMINI_API_KEY)
-	//
-	// This is the remote twin of the allow-list in
-	// platform/orchestration/actions/spawn_actions.go — see the long note there
-	// (bugs_open/112). Same rule: a provider named by an agent definition's
-	// `ai_service.api_key_env_var` must appear here or the client fails at
-	// construction. GEMINI_API_KEY was added 2026-07-27 alongside the chassis
-	// fix so the two spawners cannot drift again.
-	//
-	// KNOWN GAP, deliberately left: GROK_API_KEY is in the chassis allow-list and
-	// not here. It is not added blind — no agent definition currently uses remote
-	// dispatch at all (0 rows, checked 2026-07-27), so this whole path is latent
-	// and the right moment to reconcile it is when something first uses it.
+	//   personae-default-secrets  (every provider key in agentenv.ProviderKeyNames)
 	envList = append(envList, []corev1.EnvVar{
 		secretEnvVar("CLIENTS_DB_PASSWORD", "personae-platform-secrets", "CLIENTS_DB_PASSWORD"),
 		secretEnvVar("PGPASSWORD", "personae-platform-secrets", "CLIENTS_DB_PASSWORD"),
 		secretEnvVar("TEMPLATES_DB_PASSWORD", "personae-platform-secrets", "TEMPLATES_DB_PASSWORD"),
 		secretEnvVar("AUTH_DB_PASSWORD", "personae-platform-secrets", "AUTH_DB_PASSWORD"),
-		secretEnvVar("ANTHROPIC_API_KEY", "personae-default-secrets", "ANTHROPIC_API_KEY"),
-		secretEnvVar("GEMINI_API_KEY", "personae-default-secrets", "GEMINI_API_KEY"),
 		secretEnvVar("AGENT_BOOTSTRAP_KEY", "personae-platform-secrets", "agent-bootstrap-key"),
 	}...)
 
