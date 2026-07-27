@@ -217,3 +217,85 @@ populated, and a dead `href="#"` left on the hidden clone-source.
   (b) `innerText` on a `display:none` element falls back to `textContent`, so a
   hidden-but-populated region reads as non-empty and a check can pass without the
   interaction having done anything.
+
+## 10. Delivering a component that has NO template variables (the Arena path, proven 2026-07-27)
+
+The §4/§8 path (`apply_section_edit` + `field_updates`) **does not work here** and
+will refuse you: the Arena's `html_template` has zero `{{ }}` variables and its
+`page_components.content_data` is `{}`. `deliver_section_edit.sh` rejects an empty
+field_updates object by design. Use this instead.
+
+**The load-bearing fact:** `rerender_single_page` assembles the page from
+**`page_components.rendered_html`** (`rerender_single_page_action.go:163, 232, 511`),
+*not* from `content_components.html_template`. Write only the template and the
+live page will not change; write only `rendered_html` and the component library
+silently diverges from what is served. **Write both, in one transaction.**
+
+```bash
+# 1. Back up BOTH columns byte-exactly. base64 through the wire so nothing is
+#    mangled; psql -A -t alone will not preserve an arbitrary HTML blob.
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -c \
+ "SELECT encode(convert_to(html_template,'UTF8'),'base64') FROM content_components WHERE id='<cc_id>';" \
+ | tr -d '\n' | base64 -d > backups/backup_<name>_$(date +%F).html
+
+# 2. CHECK THE BYTES. A backup taken while Postgres is crash-looping comes back
+#    EMPTY and looks like a success. Compare against octet_length, NOT length:
+#    length() counts CHARACTERS, so a UTF-8 blob reports fewer than its bytes
+#    (the Arena: 38,632 chars / 38,704 bytes — both correct, neither is corruption).
+wc -c backups/backup_<name>_*.html
+```
+
+```bash
+# 3. Write both columns in ONE transaction, base64 so quoting cannot bite.
+B64=$(base64 -w0 new_component.html)
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -c "
+BEGIN;
+UPDATE content_components SET html_template = convert_from(decode('${B64}','base64'),'UTF8'), updated_at=NOW() WHERE id='<cc_id>';
+UPDATE page_components  SET rendered_html = convert_from(decode('${B64}','base64'),'UTF8'), updated_at=NOW() WHERE id='<pc_id>';
+COMMIT;"
+```
+
+```bash
+# 4. Fire the assemble-only rerender. rerender_single_page_action.go has NO
+#    rebuild_policy check, so this is safe on an `owned` page — unlike a generic
+#    rerender, which is hard-refused (bugs_closed/024).
+./docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/scripts/rerender_arena_vonc.sh
+```
+
+**Gotchas, each of which cost time:**
+
+- **Keep `<style>` ahead of `<script>`** in the template. A `<style>` block placed
+  after the script is silently deleted (`bugfix 072`).
+- **Do not reuse `210_vonc_trigger/085_*.sh` as a publish template.** It uses
+  `kubectl run -i --rm … -- kcat -P <<JSON`, which races stdin attachment: kcat
+  sees EOF, publishes NOTHING and exits 0. `scripts/rerender_arena_vonc.sh` has
+  the hardened form (payload in the container COMMAND, `--command` to beat the
+  kcat ENTRYPOINT, `&& echo PUBLISH_OK`).
+- **A missing orchestration row is not a dropped dispatch.** The discriminating
+  check is consumer lag, not elapsed time:
+  ```bash
+  kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+    bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 \
+    --describe --group generic-requests-group
+  ```
+  Non-zero LAG with a consumer attached = **queued, do not re-fire**. Measured
+  2026-07-27: lag 2, row appeared 4.5 min later, behind a `review_guardian` run.
+- **Do not read "orchestrations are completing" as "the lane is moving".**
+  `check_endpoint_health` runs every ~90s on its own lane (since 030 closed) and
+  will happily show COMPLETED rows while the generic request lane is blocked.
+- **This path DOES maintain `pages.deployed_at` and `build_status`** (Arena:
+  both `deployed`, stamped 13:08:55). That is a difference from the
+  `apply_section_edit` path, which left `tool-gauntlet` at `needs_rebuild` with an
+  11-day-stale `deployed_at` — so do not generalise one to the other.
+
+**Verify on the served page, never the row**, and always with a negative control:
+
+```bash
+curl -s -A 'Mozilla/5.0 … Chrome/126.0.0.0 …' "https://<domain>/<path>?cb=$(date +%s)" -o live.html
+grep -c 'THING_THAT_MUST_BE_GONE' live.html   # expect 0
+grep -c 'THING_THAT_MUST_REMAIN' live.html    # expect >0, else the zeros above are vacuous
+```
+
+A browser UA is required: Cloudflare 403s a bare `Python-urllib`/curl-default
+fingerprint with plain-text `error code: 1010`, which is NOT the origin check.
+This applies to `vonc.com` itself, not just `tools.apis.uk`.

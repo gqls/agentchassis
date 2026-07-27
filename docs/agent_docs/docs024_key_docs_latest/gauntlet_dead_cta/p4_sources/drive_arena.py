@@ -24,6 +24,12 @@ import urllib.request
 HERE = pathlib.Path(__file__).parent
 PORT = 8759
 FEED_URL = "https://vonc.com/data/provocations.json"
+LIVE_URL = "https://vonc.com/tools/arena/index.html"
+
+# Mutable so run() can target either the local harness or the DEPLOYED page.
+# --live drives the real page through the real CDN, which is the only way the
+# published artefact gets tested rather than the source that was meant to become it.
+TARGET = ["http://127.0.0.1:%d/index.html" % PORT]
 
 DESKTOP = {"name": "desktop", "viewport": {"width": 1280, "height": 900}}
 MOBILE = {"name": "mobile", "viewport": {"width": 390, "height": 844}}
@@ -100,7 +106,7 @@ def run(page, feed, profile, results):
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
 
-    page.goto("http://127.0.0.1:%d/index.html" % PORT, wait_until="networkidle")
+    page.goto(TARGET[0], wait_until="networkidle")
     page.wait_for_timeout(600)
 
     html = page.content()
@@ -114,10 +120,15 @@ def run(page, feed, profile, results):
           NEGATIVE_CONTROL in html,
           "grep is live" if NEGATIVE_CONTROL in html else "HARNESS BROKEN - all absences vacuous")
 
-    # no @handle-shaped strings at all in visible text
-    body_text = page.inner_text("body")
-    handles = re.findall(r"@[a-z0-9_]{3,}", body_text, re.I)
-    check("no @handles in visible text", not handles, ", ".join(handles[:5]))
+    # Scoped to .tool-container, NOT body: on the deployed page the site chrome
+    # legitimately contains an email address (vonc@contactforsales.com) and a
+    # mobile-nav <button>. Asserting over the whole page would fail a correct
+    # component for things it does not own. The claim under test is "this
+    # component invents no users and changes no state", so scope it to this
+    # component. Verified 2026-07-27: 0 of each inside the container.
+    comp_text = page.inner_text(".tool-container")
+    handles = re.findall(r"@[a-z0-9_]{3,}", comp_text, re.I)
+    check("no @handles in the component", not handles, ", ".join(handles[:5]))
 
     # ---- the provocation is the REAL one ------------------------------------
     today = feed["today"]
@@ -159,10 +170,12 @@ def run(page, feed, profile, results):
               "label=%r" % label)
 
     check("no textarea (take box removed)",
-          page.query_selector("textarea") is None)
-    check("no button elements (only links remain)",
-          len(page.query_selector_all("button")) == 0,
-          "%d found" % len(page.query_selector_all("button")))
+          page.query_selector(".tool-container textarea") is None)
+    # Scoped for the same reason as the @handle check above — the site's
+    # mobile-menu toggle is a real control and not this component's.
+    comp_buttons = page.query_selector_all(".tool-container button")
+    check("no buttons in the component (only links remain)",
+          len(comp_buttons) == 0, "%d found" % len(comp_buttons))
 
     # ---- the lobby ----------------------------------------------------------
     cards = page.query_selector_all(".lobby-card")
@@ -209,7 +222,7 @@ def run_offline(page, results):
 
     page.route("**/data/provocations.json",
                lambda route: route.fulfill(status=503, body="upstream down"))
-    page.goto("http://127.0.0.1:%d/index.html" % PORT, wait_until="networkidle")
+    page.goto(TARGET[0], wait_until="networkidle")
     page.wait_for_timeout(800)
 
     prov = page.inner_text("[data-arena-provocation]").strip()
@@ -230,16 +243,23 @@ def main():
     feed_src = FEED_URL
     if "--feed" in sys.argv:
         feed_src = sys.argv[sys.argv.index("--feed") + 1]
+    live = "--live" in sys.argv
 
     feed = load_feed(feed_src)
-    template = (HERE / "arena_new.html").read_text()
 
-    root = HERE / "_harness"
-    (root / "data").mkdir(parents=True, exist_ok=True)
-    (root / "index.html").write_text(build_page(template))
-    (root / "data" / "provocations.json").write_text(json.dumps(feed))
-
-    httpd = serve(root)
+    httpd = None
+    if live:
+        # cache-bust: the CDN will happily serve the pre-delivery page otherwise,
+        # and a stale 200 looks exactly like a successful deploy.
+        TARGET[0] = LIVE_URL + "?cb=%d" % len(json.dumps(feed))
+        print("driving DEPLOYED page: %s" % TARGET[0])
+    else:
+        template = (HERE / "arena_new.html").read_text()
+        root = HERE / "_harness"
+        (root / "data").mkdir(parents=True, exist_ok=True)
+        (root / "index.html").write_text(build_page(template))
+        (root / "data" / "provocations.json").write_text(json.dumps(feed))
+        httpd = serve(root)
     results = []
     try:
         from playwright.sync_api import sync_playwright
@@ -256,8 +276,9 @@ def main():
             ctx.close()
             browser.close()
     finally:
-        httpd.shutdown()
-        httpd.server_close()  # shutdown() stops serving; it does NOT free the port
+        if httpd is not None:
+            httpd.shutdown()
+            httpd.server_close()  # shutdown() stops serving; it does NOT free the port
 
     passed = [r for r in results if r[2]]
     failed = [r for r in results if not r[2]]

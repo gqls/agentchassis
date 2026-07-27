@@ -1026,3 +1026,128 @@ that actually deploys the page**. That is why `owned_page_review` ("tool-gauntle
 is not_built") and `incomplete_page_group` have both been sitting open since
 mid-July on a page that has served 200 throughout, and it is the same mechanism
 that made P1's `check_dead_controls` fix necessary. Left for 049 to act on.
+
+## 2026-07-27 — Step 4: the Arena scope-down (after the v1.0.1172 roll)
+
+### What the roll actually changed for this site: nothing
+
+Checked before planning anything around it, because the previous handoff's
+premises decayed within 90 minutes and that is now a standing lesson here:
+
+- `internal/adapters/browserrunner/` — **zero commits since 2026-07-25**;
+  `stepDelay = 300 * time.Millisecond` still at `run_checks_action.go:199`. **P5
+  remains blocked exactly as before.** A roll was never going to fix it: nobody
+  had written the change.
+- `bugs_open/083`'s engine is `tools-api` on the **island VM**. A chassis roll
+  cannot touch it. [VERIFIED — `tools-api` runs under docker compose on
+  toolsapisuk.vs.mythic-beasts.com, not in the cluster]
+- Live pages survived intact: gauntlet/archive/homepage all 200, gauntlet JS
+  still 16,334 B carrying `tools.apis.uk`, feed still 0 fabricated strings.
+
+What the roll DID bring is fleet-wide, not ours: **077 is live** — `capability_gap`
+returns 10 hits in the running binary and 5 rows exist fleet-wide.
+
+### MISSTEP (caught before acting): I nearly "fixed" a flag that is inert
+
+I was one command from `UPDATE pages SET build_status='deployed'` on
+`tool-gauntlet` to clear the stale `needs_rebuild` I measured yesterday. Reading
+`bugs_closed/049`'s closing analysis stopped it:
+
+| population | n | live result |
+|---|---|---|
+| `needs_rebuild` AND `deployed_at IS NOT NULL` | 34 | **34/34 return 200** |
+
+`tool-gauntlet` is in that bucket. Combined with P1's own fix (dead-control
+liveness moved to `pc.build_status`), `bugs_closed/037`'s
+`realisedPageCompositionIsPreserved` guard, and `rebuild_policy='owned'` blocking
+a generic rerender, the flag **cannot currently cost anything**. Hand-editing one
+row of a known 34-row population that 049 deliberately routed around would have
+been noise dressed as diligence.
+**LESSON: "this data is wrong" is not sufficient reason to write. Ask what the
+wrong data is an input TO, and check whether that consumer still reads it.**
+
+### The Arena was worse than this workstream had recorded
+
+The old plan's Step 4 assumed the defect was "`js_content IS NULL`, so the mount
+points never fill" — i.e. an *absence*. That premise was wrong. The template
+carries a complete inline app, and what it renders is fabricated:
+
+- `FLOOR_TAKES` — ~26 invented users with handles (`@synthetix`, `@inkblot_vera`,
+  `@3am_take_factory`…), each with an invented reaction tally
+  (`seed: { Genius: 12, Delusional: 41, … }`). Reaction chips incremented those
+  fabricated bases in `localStorage`.
+- `REMIX_CHAINS` — invented "mutations" with handles, badges and `Credit:` lines.
+- `PROVOCATIONS` — a hardcoded 5-element array indexed by day-of-year, so the
+  Arena **drifted from the real feed** the Gauntlet, archive and homepage share.
+- the take box wrote to `localStorage` and nowhere else.
+
+The previous session deferred this on the reasoning that shipping the display
+would trade "a visibly broken page for a convincingly broken one". The evidence
+**inverts** that: it was already the convincing kind. Recorded because the
+deferral was correct in caution and wrong in premise, and the difference only
+showed up on reading the served source rather than the DB column lengths.
+
+Owner ruling 2026-07-27: **scope it down honestly**, no new backend.
+
+### Delivery differs from the Gauntlet's path — this is the load-bearing bit
+
+- The Arena has **no `{{ }}` template variables** and **empty `content_data`**, so
+  `apply_section_edit` / `field_updates` does not apply at all. `deliver_section_edit.sh`
+  would refuse it (it rejects empty objects, by design).
+- `rerender_single_page` assembles from **`page_components.rendered_html`**
+  (`rerender_single_page_action.go:163,232,511`), **not** from
+  `content_components.html_template`. Both must be written or the library and the
+  live page silently diverge. Done in ONE transaction for exactly that reason.
+- `rerender_single_page_action.go` contains **no `rebuild_policy` check**, so an
+  assemble-only rerender is safe on an `owned` page — unlike a generic rerender,
+  which is hard-refused (`bugs_closed/024`).
+
+### Three things the local harness caught in my own work
+
+`drive_arena.py`, 90 checks across desktop + mobile + an induced feed 503:
+
+1. **My JS comment named the removed identifiers** (`FLOOR_TAKES`, `localStorage`)
+   to explain what had gone — and that left those strings in the *served HTML*,
+   where a scanner cannot tell a comment from live code. The comment now describes
+   the removal in prose and points at these NOTES for the identifiers.
+   **A fabrication grep does not read for intent.**
+2. **`inner_text()` returns text-transformed text.** `.provocation-day` and
+   `.btn-primary` carry `text-transform: uppercase`, so asserting
+   `inner_text() == "Today's Provocation"` failed against a DOM that was correct
+   ("TODAY'S PROVOCATION" is what renders). Switched those assertions to
+   `text_content()`. This is the same class as browser-runner's `Text()` =
+   `InnerText()` trap — **an assertion on rendered text can fail a correct page.**
+3. **`allow_reuse_address` set on the instance does nothing** — it is read during
+   `server_bind()`, so it must be on the class; and `shutdown()` does not free the
+   port, `server_close()` does. Cost one EADDRINUSE re-run.
+
+The harness also carries a **negative control** (`lobby-card` must be PRESENT).
+Without it every "absent: X" check would pass vacuously if the grep broke.
+
+### Cloudflare 403, again
+
+`urllib` fetching `https://vonc.com/data/provocations.json` returned **403** —
+the plain-text `error code: 1010` non-browser-fingerprint rejection, not an origin
+check. Same landmine as the API last session, now hit on the *site* too. Fixed
+with a browser `User-Agent`. Recorded because I had written this down and still
+lost a cycle to it: **the note said "from any script", and I read it as being
+about `tools.apis.uk`.**
+
+### Dispatch
+
+Publish landed (`PUBLISH_OK`, hardened kcat form — payload in the container
+COMMAND, `--command` to beat the ENTRYPOINT). No orchestration row after ~5 min.
+**Did NOT re-fire.** The discriminating check is consumer lag, not elapsed time:
+
+```
+generic-requests-group  system.agent.generic.requests  0  105316  105318  LAG=2
+```
+
+Lag 2 with the consumer attached = **queued, not eaten**. A `review_guardian`
+council run was occupying the head of the lane from 13:00:47.
+
+> **CORRECTED, same session:** I first read "orchestrations completing every
+> minute" as "the lane is healthy". Those were `check_endpoint_health` cron rows
+> — a 90-second heartbeat that got its own lane when 030 closed. **A busy cron
+> lane says nothing about the generic request lane.** Caught by looking at what
+> the completing rows actually were instead of counting them.

@@ -471,3 +471,70 @@ by having the page print a fake "thinking..." message that the test would accept
 — and I am not going to do that, because then the test would also pass with the
 AI switched off entirely, which defeats the whole point. I will fix the harness
 or rewrite those two tests to check something honest.
+
+---
+
+## 2026-07-27 — the Arena, and what a new chassis build did and didn't do
+
+A new chassis build went to production this morning. The first question was
+whether it unblocked anything here, and the honest answer is no. The two things
+this site was waiting on were the acceptance harness and the debate engine's
+intermittent failures. The harness code hasn't been touched since the 25th — the
+three-tenths-of-a-second wait is still there, because nobody had written the fix
+yet, and a new build can't ship a change that doesn't exist. The engine runs on
+the separate little server we rented, not in the cluster at all, so a cluster
+build can't reach it. I checked both rather than assuming, and I checked the
+live pages still worked afterwards. They do.
+
+So I went looking for what actually was next, and found something worse than we
+had on record.
+
+The Arena page — the one we'd deliberately left alone — was not, as we thought,
+a page that failed to load. It was a page that loaded beautifully and was almost
+entirely invented. Twenty-six fictional people with usernames, posting opinions
+they never wrote, each with a made-up count of how many others had voted their
+take "Genius" or "Delusional". Underneath that, a "remix chain" showing invented
+arguments evolving through invented contributors, with credit attributed to
+people who don't exist. The daily provocation was a hardcoded list of five,
+rotating by the day of the year, so it had quietly drifted away from the real one
+the rest of the site shows. And the box inviting you to file your take saved it
+to your own browser and nothing else — nobody would ever see it.
+
+The previous session had put this off on the grounds that fixing the display
+would turn a visibly broken page into a convincingly broken one. Reading the
+actual source inverts that: it was *already* the convincing kind. That's the
+worse of the two, because nothing on the page tells you.
+
+You chose to scope it down honestly rather than build a real backend for it, and
+that is what has shipped. The invented people, their votes, and the remix chains
+are gone. The provocation now comes from the same file the homepage, the Gauntlet
+and the archive read, so it can't drift again. The take box is gone and in its
+place is a real link into the Gauntlet, where there is an actual AI opponent that
+answers back. Where the fake community used to be, the page now lists the six
+real provocations that genuinely exist, each linking to its own page.
+
+I tested it in a real browser ninety times over — desktop and phone, and once
+with the data file deliberately broken to check it fails honestly rather than
+sitting on "Loading" forever. All ninety pass, both against my local copy and
+against the real page after it went live.
+
+Two things worth mentioning because they nearly went wrong. First, I was one
+command away from "correcting" a stale flag on the Gauntlet page, until I read
+the closing notes of another workstream and found they'd measured thirty-four
+pages in exactly that state, all serving perfectly, and had deliberately decided
+to leave them. Wrong-looking data isn't reason enough to change it; you have to
+ask what still reads it. Second, my own test caught me writing the names of the
+deleted fake-user variables into a code comment explaining what I'd removed —
+which would have left those words sitting in the published page, where an
+automated scanner can't tell an explanation from the real thing.
+
+Separately, I found and wrote up a fault that isn't ours alone: sixteen tool
+pages across six different sites are publishing their own build instructions as
+the description search engines show. The Arena's was the worst of them — it told
+Google the page had "no fetch calls, no backend". I've corrected that one page as
+part of this work and filed the rest as a bug, because the code that causes it
+needs a proper fix and the other fifteen need repairing.
+
+What's left here is unchanged and honest: the engine still fails now and then and
+still throws away the reason, and the acceptance harness still needs fixing
+before it can test a page that waits ten seconds for an answer.
