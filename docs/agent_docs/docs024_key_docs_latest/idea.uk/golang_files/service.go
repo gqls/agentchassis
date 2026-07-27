@@ -327,9 +327,45 @@ func (a *App) sweepStale() {
 	}
 }
 
-// StartSweeper runs the staleness sweep now and then hourly for the process
-// lifetime. Hourly is ample for a day-scale threshold and costs nothing.
+// recoverInterrupted rescues orders whose fulfilment goroutine died with the
+// previous process, and tells the operator. See Store.RecoverInterrupted for
+// why a restart strands them and how each one is routed.
+//
+// Startup only, and it must run BEFORE the first sweep so /capacity can never
+// publish a slot count inflated by a run that no longer exists.
+func (a *App) recoverInterrupted() {
+	rec := a.store.RecoverInterrupted(time.Now().UTC())
+	if len(rec) == 0 {
+		return
+	}
+	var lines []string
+	for _, r := range rec {
+		id := r.ID // bound for the closure below
+		if r.Resume {
+			log.Printf("recover: order %s was interrupted mid-run and is PAID → back to paid, re-running the engine", id)
+			lines = append(lines, id+" — paid, so the report is being regenerated now. Nothing for you to do.")
+			a.dispatch(func() { a.fulfil(id) })
+			continue
+		}
+		log.Printf("recover: order %s was interrupted mid-run and was never billed → back to requested, slot released", id)
+		lines = append(lines, id+" — nothing was charged and its slot is free. Re-confirm it from the original operator email to run it again.")
+	}
+	a.deliver(a.cfg.OperatorEmail,
+		fmt.Sprintf("[idea.uk] %d order(s) recovered after a restart", len(rec)),
+		"The service restarted while these orders were mid-report, so their runs were lost:\n\n"+
+			strings.Join(lines, "\n")+
+			"\n\nThis is expected after a deploy. No capacity slot is stuck.")
+}
+
+// StartSweeper recovers interrupted runs, then runs the staleness sweep now and
+// hourly for the process lifetime. Hourly is ample for a day-scale threshold and
+// costs nothing.
+//
+// Recovery lives here rather than in main.go on purpose: "recover before the
+// first sweep" is an ordering invariant, and keeping both halves in one function
+// means it cannot be broken by rearranging the caller.
 func (a *App) StartSweeper() {
+	a.recoverInterrupted()
 	a.sweepStale()
 	go func() {
 		t := time.NewTicker(time.Hour)

@@ -125,7 +125,6 @@ func (s *Store) ActiveCount() int {
 	return n
 }
 
-// MarkEventSeen returns true if the event was already processed (idempotency).
 // ExpireStale releases capacity slots held by orders that have gone cold, and
 // returns what it released (id + previous status) for logging.
 //
@@ -183,6 +182,68 @@ type ExpiredOrder struct {
 	Age       time.Duration
 }
 
+// RecoverInterrupted puts orders left `running` by a process that stopped
+// mid-fulfilment back into a state the service can act on, and returns them so
+// the caller can log, notify and resume.
+//
+// Why this is needed on top of ExpireStale: fulfilment is an in-memory
+// goroutine, so NOTHING survives a restart — and a deploy is a restart. The
+// order is left `running`, which ActiveCount charges against MaxActive and
+// which ExpireStale deliberately skips, because from inside the store a dead
+// run and a live one are indistinguishable. The slot is then held FOREVER with
+// no path back — the very failure the staleness sweep was written to end,
+// reached through a different door. Note that resetting to just any non-running
+// status would not be enough: ExpireStale also skips `requested` and `paid`, so
+// the target has to be one that either frees the slot or is genuinely re-run.
+//
+// Only safe to call before serving traffic, when no run can be in flight. A
+// process cannot inherit another's goroutines, so at startup every `running`
+// order is by definition abandoned — which is what makes this decidable here
+// and nowhere else.
+//
+// Where each order goes depends on whether the buyer has been asked for money,
+// and ProviderSessionID answers that exactly: it is written only by
+// sendPayLink, at the moment a checkout is created.
+//
+//   - Never billed (review-before-pay, killed between /confirm and the draft):
+//     back to `requested`. That frees the slot — ActiveCount does not count
+//     `requested` — and it is re-startable through the operator's existing
+//     /confirm link, which accepts exactly that status. Nothing durable is
+//     lost, because a report is only stored on completion.
+//   - Billed and paid (charge-first, killed after the webhook): back to `paid`
+//     and re-run, because they have paid and we owe them the report. Sending a
+//     paid order back to `requested` would re-issue a pay link and charge them
+//     twice, so this discriminator is load-bearing, not a nicety.
+func (s *Store) RecoverInterrupted(now time.Time) []RecoveredOrder {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []RecoveredOrder
+	for _, o := range s.Orders {
+		if o.Status != "running" {
+			continue
+		}
+		r := RecoveredOrder{ID: o.ID, Status: "requested"}
+		if o.ProviderSessionID != "" {
+			r.Status, r.Resume = "paid", true
+		}
+		o.Status = r.Status
+		o.UpdatedAt = now
+		out = append(out, r)
+	}
+	if len(out) > 0 {
+		s.persist()
+	}
+	return out
+}
+
+// RecoveredOrder is one order rescued from a run that died with its process.
+type RecoveredOrder struct {
+	ID     string
+	Status string // where it was put back to: "requested" or "paid"
+	Resume bool   // true when the buyer has paid and fulfilment must re-run
+}
+
+// MarkEventSeen returns true if the event was already processed (idempotency).
 func (s *Store) MarkEventSeen(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()

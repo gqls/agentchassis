@@ -65,9 +65,11 @@ func main() {
 		log.Fatal(err)
 	}
 	app := NewApp(cfg, store, makeProvider(cfg))
-	// Release slots held by cold orders — at startup and hourly thereafter.
-	// Without this, ActiveCount only ever grows and the service quietly closes
-	// itself to new work (exactly what happened on 2026-07-26).
+	// Recover runs abandoned by the previous process, then release slots held by
+	// cold orders — at startup and hourly thereafter. Without this, ActiveCount
+	// only ever grows and the service quietly closes itself to new work (exactly
+	// what happened on 2026-07-26). Both halves are inside StartSweeper because
+	// recovery has to happen before the first sweep.
 	app.StartSweeper()
 	addr := ":" + env("PORT", "8080")
 	log.Printf("idea.uk service on %s (review_before_pay=%v, auto_deliver=%v, price=£%d)", addr, cfg.ReviewBeforePay, cfg.AutoDeliver, cfg.PriceGBP)
