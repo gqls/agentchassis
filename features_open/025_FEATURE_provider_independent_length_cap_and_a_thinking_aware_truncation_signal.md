@@ -48,28 +48,23 @@ guardian asked and I only partly answered: **which callers enforce their own
 truncation after the call, and which rely on `max_tokens`?** I confirmed
 `estimateCost`'s blast radius (one call site, `agent.go:299`) but not this.
 
-## (b) `llm_call_log`'s truncation heuristic goes quiet for thinking models
+## (b) `llm_call_log`'s truncation heuristic — **SUPERSEDED by `bugs_open/110`**
 
-The standing rule — `output_tokens == max_tokens` means the completion was CUT —
-compares visible output against a total that now includes the reserve, so it will
-**silently under-report truncation** for Gemini. Raised by llm-reliability, which
-also noted the mitigation is real: the client returns a typed `*TruncatedError` on
-`finishReason=MAX_TOKENS`, and `__usage_thinking_tokens` /
-`__usage_total_tokens` / `__sent_visible_budget_tokens` are all recorded, so no
-data is lost — only the arithmetic shortcut breaks.
+> **MOVED 2026-07-27.** This section proposed *"teach the heuristic the split —
+> compare `usage_output_tokens` against `sent_visible_budget_tokens` when it is
+> present."* **There is no such column.** `llm_call_log` has only `max_tokens` and
+> `output_tokens`, so the repair needs a migration and cannot be a query tweak.
+> And the problem is worse than a quiet heuristic: `max_tokens` is fed from
+> `__sent_max_tokens`, which for Gemini is the **inflated total**, so the column is
+> about to carry two provider-dependent meanings — a defect with a wrong output,
+> which belongs in `/bugs_open/`, not here. The four `__usage_*`/`__sent_*` fields
+> I claimed made thinking "visible to logging" have **no reader at all**.
+>
+> **Read `bugs_open/110`.** It carries the evidence, the ordered fix candidates
+> (candidate 1 needs no migration and should land *before* 107's P6, while
+> `llm_call_log` still has zero Gemini rows), and the correction of the overclaim.
 
-Its actual point is about **ownership**: *"This should be called out to whoever
-owns that heuristic/dashboard, not just noted in code comments."* That is what
-this file is for. Two options:
-1. Teach the heuristic the split — compare `usage_output_tokens` against
-   `sent_visible_budget_tokens` when it is present, falling back to
-   `sent_max_tokens`. Small, and keeps every existing query working.
-2. Retire the heuristic in favour of the typed error, which is authoritative and
-   provider-independent. Bigger, and needs whoever reads the dashboards.
-
-Option 1 first. Note the rule is quoted in `CLAUDE.md` and in `016b`, so both need
-a line if the semantics change — a rule that silently means something different
-per provider is worse than either version of it.
+Item (a) above still stands and is unaffected.
 
 ## Not in scope
 

@@ -96,10 +96,24 @@ API — asserted from the documented response shape, fixed defensively.
 3. **Deny-list polarity.** Only `flash-lite` and `embedding` are treated as
    non-thinking; an unrecognised model is assumed to think, because an
    unfamiliar Gemini name is almost always a newer one.
-4. **Thinking made visible.** `thoughtsTokenCount` / `totalTokenCount` decoded and
+4. **Thinking decoded.** `thoughtsTokenCount` / `totalTokenCount` decoded and
    written back as `__usage_thinking_tokens` / `__usage_total_tokens`.
    `__usage_output_tokens` stays **visible** tokens so the field means the same
    thing across providers.
+
+   > **CORRECTED 2026-07-27 — this said "Thinking made visible", and that was an
+   > overclaim.** Thinking is visible in the **error message** and in the
+   > in-process options map. It is **NOT persisted**: `__usage_thinking_tokens`,
+   > `__usage_total_tokens`, `__sent_visible_budget_tokens` and
+   > `__sent_thinking_reserve_tokens` have **no reader outside
+   > `platform/aiservice/`** (verified by grep) and `llm_call_log` has no columns
+   > for them, so no query, dashboard or diagnosis bundle can see them. Worse,
+   > `llm_call_log.max_tokens` is fed from `__sent_max_tokens`, which for Gemini is
+   > the **inflated total** — so that column is about to mean two different things
+   > by provider. **Filed as `bugs_open/110`**, which supersedes
+   > `features_open/025` item (b). Nobody caught the overclaim — including a
+   > ten-seat council, one seat of which discussed these exact fields — because
+   > *"writes the field"* and *"the field is readable"* look identical in a diff.
 5. **The truncation message names the consumer**, and says which setting to raise
    when visible output is 0 and thinking is non-zero.
 6. **`thought: true` parts dropped** from the answer.
