@@ -1,12 +1,34 @@
 #!/usr/bin/env python3
 """build-historian-index.py — generate the council historians' case index.
 
-WHY THIS EXISTS. The `bug_historian` seat's "documented history" was seven
-narrative items hand-typed into its prompt, frozen at whenever someone wrote
-them. Meanwhile the real corpus — the debugging guides, the bug files, and
-WRONG_CALLS.md — is ~3.3 MB across 124 files and, being markdown, is invisible
-to every seat (`code_symbols` is Go-only; measured 2026-07-27: 4,535 symbols,
-0 markdown). So the seats reason about history from a stale constant.
+WHY THIS EXISTS — and what it is NOT.
+
+  CORRECTED 2026-07-27, after the owner pointed at docs026_concept_register.
+  An earlier draft of this file called the bug historian's seven examples "seven
+  narrative items hand-typed into its prompt, frozen at whenever someone wrote
+  them". That is unfair and factually wrong. Per
+  docs026_concept_register/PILOT_bug_historian_reviewer.md §1 and §3, those seven
+  were CHOSEN — by counting which concepts in the concept register are most often
+  independently rediscovered across the project's documentation history, the
+  strongest available signal — and deliberately kept narrow: "not the whole
+  register... This keeps the pilot small, concrete, and reviewable; broadening the
+  curated corpus is future work once this seat proves useful."
+  So the seven are a curated depth sample with a documented rationale, and this
+  script is the sanctioned future work, not a correction of someone's laziness.
+  It is therefore ADDITIVE: the seven and their THE PATTERN synthesis stay exactly
+  where they are; the generated index is spliced in alongside them.
+
+What is genuinely missing is BREADTH. The corpus — the debugging guides, the bug
+files, and WRONG_CALLS.md — is ~3.3 MB across 124 files and, being markdown, is
+invisible to every seat (`code_symbols` is Go-only; measured 2026-07-27: 4,535
+symbols, 0 markdown). So a shape outside the curated seven cannot be recognised at
+all, however well documented it is elsewhere.
+
+HONEST LIMITATION [UNPRINCIPLED SELECTION]: this index takes every heading, ranked
+by nothing. The register's rediscovery-frequency signal is the principled selector
+and is not used here — doing so would mean reading the register's own concept
+files (docs026_concept_register/register/, 3.0 MB) and ranking. That is the better
+version of this script and is deliberately deferred, not overlooked.
 
 The corpus cannot be inlined. But its HEADINGS can: every entry in 016b §9,
 016, and WRONG_CALLS is already a one-line dated assertion — "A mistyped

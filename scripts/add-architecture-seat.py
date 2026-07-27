@@ -17,9 +17,32 @@ D2: it sits on feature-designer, not the fix gate. That is the earliest point
 platform code takes shape, and the place where the guardian currently sits with
 the fewest counterweights — four colleagues, none of them looking forward.
 
-D3: advisory, NO veto. It is deliberately absent from hard_veto_from. Its output
-is an RFC trigger (needs_rfc / point_fix), not an approve/object, so it cannot
-deadlock against the guardian; two veto-holders would make the gate unpassable.
+D3: advisory, NO veto — and the mechanism for that is NOT the hard_veto_from list.
+
+  CORRECTED 2026-07-27, before this ever ran. The first draft asserted the seat
+  was advisory because it is absent from `council_decide.hard_veto_from`, and gave
+  it the verdict vocabulary point_fix|needs_rfc|insufficient. Both were wrong, and
+  the second would have broken the feature-build lane outright:
+
+    * `diagnose_council_decide_action.go:13-14` — ANY reviewer's veto rejects the
+      round; `hard_veto_from` only changes the audit label. Absence from that list
+      buys nothing. What actually makes a seat advisory is that its prompt never
+      offers `veto` — the same reasoning already written down for the bug historian
+      in docs026_concept_register/PILOT_bug_historian_reviewer.md §2.
+    * `:160` recognises exactly {approve, object, veto}. `:397` records anything
+      else UNREADABLE, and `:446` downgrades any would-be approval that has an
+      unreadable seat to REVISE. So the invented vocabulary would have forced every
+      feature-designer round to revise, exhaust max_rounds=3, and fail — a seat that
+      breaks the lane it was added to help.
+
+  Caught by the owner pointing at the concept register, whose pilot doc states the
+  veto behaviour plainly. The cheap check skipped: read the decider before inventing
+  a verdict vocabulary for it.
+
+So: verdict is approve|object, never veto. The forward argument is carried by
+objection SEVERITY (high gates a round, low/medium are recorded but advisory) and
+by a separate `architecture_signal` field that routes to the RFC track without
+touching the decision.
 
 D5 is why it exists at all: measured 2026-07-27, coordinator.go/ProcessResponse
 was deflected upward by six distinct submissions in seven days while the file
@@ -80,15 +103,34 @@ JUDGE, in this order:
     returning is evidence the higher-layer fixes are NOT holding — say so, because
     the guardian cannot see its own history unless someone names it.
 
-YOUR VERDICT IS A ROUTING DECISION, NOT AN OBJECTION:
-- "point_fix"  — constrained; the existing design carries it; proceed normally.
-- "needs_rfc"  — this is an architecture change, whether or not it is dressed as a
-                 fix. Say which trigger condition it meets. This does NOT block:
-                 it says the change deserves an RFC in the architecture-review track
-                 (architecture_review/PROCESS_architecture_review.md), with blast
-                 radius, staged rollout and rollback written down.
-- "insufficient" — the plan is fine but the architecture underneath it is not, and
-                 you want that on the record even though this plan should proceed.
+YOUR VERDICT VOCABULARY IS "approve" OR "object". NEVER "veto".
+
+The council's decider recognises exactly three verdicts, and treats ANY reviewer's
+veto as an outright rejection regardless of which seats are nominally the veto
+holders. So a veto from you would make you a second gatekeeper, which is precisely
+what this seat must not be — the guardian holds the block; you hold the argument.
+Anything outside approve/object is recorded as UNREADABLE and downgrades the whole
+round to revise, so it is not an option either.
+
+Severity is what carries your meaning, because HIGH gates a round and low/medium
+are advisory-but-recorded:
+- "approve" — the existing design carries this work. The most common correct answer.
+- "object", severity MEDIUM — this is an architecture change whether or not it is
+  dressed as a fix, OR the architecture underneath is insufficient even though the
+  plan itself should proceed. Recorded and returned to the author without blocking.
+  Set `architecture_signal` to say which of the two you mean.
+- "object", severity HIGH — reserve this. Use it only when proceeding would make
+  the architecture materially harder to change later: a contract about to be
+  depended on, a workaround about to be built on top of a workaround. This DOES
+  force a revise round, so spend it rarely and say exactly what becomes irreversible.
+
+`architecture_signal` is your routing field and does not affect the decision:
+- "point_fix"    — constrained; proceed normally.
+- "needs_rfc"    — meets the architecture-review trigger test; deserves an RFC
+                   (architecture_review/PROCESS_architecture_review.md) with blast
+                   radius, staged rollout and rollback written down.
+- "insufficient" — the plan is fine, the architecture under it is not, and you want
+                   that on the record.
 
 Be concrete or be quiet. An unevidenced "we should redesign this" is worse than
 silence — it spends the one voice arguing for change on nothing. If the contained
@@ -122,7 +164,7 @@ Treat an empty result as "no precedent found", NOT as "this is novel".
 {{.plan_persisted.plan_json}}
 
 ## Output — ONLY this JSON
-{"reviewer": "architecture", "verdict": "point_fix|needs_rfc|insufficient", "trigger": "which trigger condition, or null", "future_load": "the specific coming work you judged against", "cost_of_not_changing": "...", "deflection_count": "n or unknown", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "checks": [{"sql": "SELECT ...", "why": "..."}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "..."}], "notes": "..."}
+{"reviewer": "architecture", "verdict": "approve|object", "architecture_signal": "point_fix|needs_rfc|insufficient", "trigger": "which trigger condition, or null", "future_load": "the specific coming work you judged against", "cost_of_not_changing": "...", "deflection_count": "n or unknown", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "checks": [{"sql": "SELECT ...", "why": "..."}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "..."}], "notes": "..."}
 
 CODE QUESTIONS (code_checks): when your verdict hinges on a fact about the CODEBASE
 — does another implementation exist, which files carry symbol X, does anything still
@@ -180,8 +222,15 @@ def main():
         fields.insert(fields.index("review_guardian.result"), f"{SEAT}.result")
     dec["review_fields"] = fields
 
+    # What actually makes this seat advisory is that its prompt never offers a
+    # veto, and that every verdict it CAN emit is one the decider recognises.
+    # hard_veto_from is only an audit label (diagnose_council_decide_action.go:13),
+    # so asserting on it would be theatre. Assert the two things that bite:
     veto = dec.get("hard_veto_from", [])
-    assert "architecture" not in veto, "the architecture seat must NEVER hold a veto (D3)"
+    assert '"verdict": "approve|object"' in PROMPT, \
+        "prompt must offer ONLY approve|object — an unrecognised verdict is read " \
+        "as UNREADABLE and downgrades the round to revise (decide action :160/:397/:446)"
+    assert "NEVER \"veto\"" in PROMPT, "the seat must be told explicitly never to veto (D3)"
 
     print(f"chain:  review_guidelines -> {SEAT} -> {steps[SEAT]['next_step']}"
           f"   (was review_guidelines -> {old_next})")
