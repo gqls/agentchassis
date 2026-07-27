@@ -1,11 +1,25 @@
 # 112 — Spawned agent pods are never given `GEMINI_API_KEY`, so `page-content-writer` on Gemini fails at construction, and every page build with it
 
 **Filed** 2026-07-27 by the `gemini_content_provider` workstream (triage sweep) ·
-**Status** OPEN, unowned · **Severity** HIGH and **armed but not yet fired** —
+**Status** **OPEN — FIXED IN CODE, INERT UNTIL BUILT AND ROLLED** (`b3f19ac96`,
+2026-07-27, on the owner's instruction to fix it in Go rather than revert the
+flip) · **Severity** HIGH and **armed but not yet fired** —
 the first build that will hit it is the scheduled `model-directory-publish` at
 **~20:25 UTC 2026-07-27** · **Blocks** `bugs_open/107` P7 and the verification of
 `bugs_open/110` candidate 1 · **Not** a Gemini client bug: `platform/aiservice/gemini.go`
 is correct and live
+
+> **THE FIX DOES NOT UN-ARM 20:25 ON ITS OWN.** Go is inert until an image is
+> rebuilt and rolled. If `v1.0.1175` is not live before 20:25:16 UTC, the
+> scheduled publish still hits the missing key. Three ways to be safe, in
+> increasing order of what they cost: roll before 20:25; disable the
+> `model-directory-publish` scheduled task for one tick; or revert the writer to
+> Claude in the DB (config, live immediately). **This case stays OPEN until a
+> Gemini call is pod-verified on the spawned path** — a pod-grep of the binary
+> would prove only that the code shipped, never that a spawned pod received the
+> key. The acceptance test is `SELECT count(*) FROM llm_call_log WHERE
+> provider='gemini'` going non-zero, or the env var read directly off a live
+> spawned pod.
 
 ---
 
@@ -109,6 +123,42 @@ is reverted. The workstream's own cost data (NOTES, 5x2 run comparison) independ
 argues for that anyway: Gemini spends ~1,815 thinking tokens per section against
 Claude's zero, roughly **10x the billable output tokens** per section, and the writer
 runs per section across the whole estate.
+
+## WHAT WAS DONE — candidate 1, both spawners (2026-07-27, `b3f19ac96`)
+
+**Owner's instruction was to fix it in Go, not to revert the flip.** So the
+interim mitigation above was deliberately NOT taken, and the flip stands.
+
+- `platform/orchestration/actions/spawn_actions.go` — `GEMINI_API_KEY` block
+  added next to `GROK_API_KEY`, sourced from `personae-default-secrets`.
+- `cmd/remote-job-spawner/main.go` — **a second spawner with the same allow-list
+  shape, found while fixing the first.** It builds its env "same structure as
+  `spawnAgentKubernetesJobFromDefinition`" and spawns an arbitrary
+  `req.AgentType`, so it carries the identical defect. It had `ANTHROPIC_API_KEY`
+  only — not even Grok. Gemini added. It is a **separate service with its own
+  image**, so it needs its own build and roll.
+  **Latent, not live:** no agent definition uses remote dispatch
+  (`SELECT count(*) FROM agent_definitions WHERE default_config::text LIKE
+  '%remote%' AND is_active` → 0, 2026-07-27), so nothing is failing there today.
+  `GROK_API_KEY` is still absent from it, left deliberately with the reason in
+  the comment rather than adding keys blind to a path nothing uses.
+
+**Candidate 2 (blanket `envFrom: secretRef`) was considered and declined.** It is
+the one that makes the bad state unrepresentable, and on the door-closing
+ordering it should win — but the allow-list turns out to be *deliberate*, not an
+oversight. The GitHub token immediately below it is scoped to repo-cloning agents
+only, with a comment saying so. A blanket `secretRef` would hand all twelve
+provider keys in `personae-default-secrets` to every spawned agent pod and
+silently undo that boundary. Kept the allow-list; wrote the two-place rule into
+the code instead, where the next person adding a provider will be standing.
+**Candidate 3 (refuse the flip at config time) remains the real structural fix
+and is untouched** — it is what would have turned this outage into a refused
+config, and it is still worth doing.
+
+**Not verified, and cannot be from a commit:** that a spawned pod actually
+receives the key. That needs the roll, then verify step 1 below. A pod-grep of
+the chassis binary would be VACUOUS here — the failure is in what the *spawned*
+pod's env contains, not in what the chassis binary knows.
 
 ## How to verify a fix
 
