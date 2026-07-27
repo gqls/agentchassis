@@ -1,10 +1,37 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-26 22:45 UTC, re-verified 2026-07-27 (supersedes everything below)
+> ## ▶ START HERE — state as of 2026-07-27 11:13 UTC (supersedes everything below)
 >
-> *Re-checked on the morning of the 27th against the box, not from these notes: service active,
-> queue `{"active":1,"max":5,"open":true}`, the pending order still `awaiting_payment` (last touched
-> 26 July 18:43), 73 orders, no overnight activity in the journal. Nothing below has moved.*
+> # 🎉 idea.uk HAS SOLD AND DELIVERED ITS FIRST REPORT.
+>
+> **2026-07-27 11:13:13 UTC — `ord_1785090638951163875` is `delivered`.** The owner paid the £29,
+> Stripe's signed webhook landed, the report was emailed, and the capacity slot released itself.
+> **Every link in the chain has now run in production**: request → operator confirm → engine →
+> draft → approve → pay link → **real card payment → webhook → delivery → slot freed**. Until this
+> moment the business end of the product had never executed; that sentence is now retired.
+>
+> Verified from the box and the access log, not from the fact that someone said so:
+>
+> ```
+> order   : status=delivered  updated=2026-07-27T11:13:13Z  session=cs_live_a1j7o8uz…
+> capacity: {"active":0,"max":5,"open":true}      ← slot released automatically
+> journal : email to aaa@designconsultancy.co.uk sent: "Your idea.uk report"
+> nginx   : POST /stripe/webhook  200  from 3.130.192.231  "Stripe/1.0 (+…/docs/webhooks)"
+>           GET  /order/success?o=ord_1785090638951163875  ← referred from checkout.stripe.com,
+>                                                            and note: NO `fake=1`
+> ```
+>
+> **That last line is worth keeping.** The genuine Stripe redirect does not use the `fake=1`
+> shortcut, so removing it (`bugs_closed/089`) demonstrably did not break the real payment path —
+> the fear you would reasonably have when deleting something the checkout appears to touch. The
+> same access log shows my three `&fake=1` attack probes returning 200 without ever progressing the
+> order. Attack refused and real payment accepted, in one file.
+>
+> **Caveat on what was actually delivered:** the report was generated at 18:40 on 26 July, so it
+> predates both the three copy fixes (deployed 21:10) and the move to the Claude 5 family
+> (deployed ~21:55). The customer's copy therefore still contains the doubled full stop and the
+> "out of 5 —" line — verified, not assumed. **The next order is the first report on the new models
+> and the first with the copy fixes**, and it is also the first that will measure per-report cost.
 >
 > **The site is complete, the box is healthy, the report format is proven, and every queued deploy
 > has shipped.** Four deploys went out this evening: the automatic order expiry that this file
@@ -12,13 +39,12 @@
 > fixes found by reading a real report, plus the move of the report engine onto the Claude 5
 > family (`claude-opus-5` / `claude-sonnet-5` — see Open item 2, which is now done).
 >
-> **THE ONE THING OUTSTANDING IS A HUMAN ACTION — and it is the last unproven step in the whole
-> product.** `ord_1785090638951163875` sits in `awaiting_payment` with a live Stripe
-> `cs_live_a1j7o8uz…` session; a pay link is in the owner's inbox at `aaa@designconsultancy.co.uk`.
-> **Nobody has ever paid for a report and received one.** The 12:40 run proved the *format* and was
-> then declined, so `approve → pay → webhook → delivery` has still never executed in production.
-> Stripe is in **live mode** (`rk_live_`), so this is a real £29 (owner paying himself, less ~£1.15
-> of Stripe fee). If it is no longer wanted, `/decline` releases the slot at no charge.
+> ~~**THE ONE THING OUTSTANDING IS A HUMAN ACTION**~~ — **DONE 2026-07-27 11:13, see the top of this
+> block.** Kept here rather than deleted because the shape of the gap is the useful part: the 12:40
+> run on 26 July proved the report *format* and was then declined, which left
+> `approve → pay → webhook → delivery` unexecuted even though everything looked finished. A product
+> can be complete, verified and demonstrably working and still have never once done the thing it
+> exists to do. **The next site to be declared done gets asked this question first.**
 >
 > ### The two security defects — both were live, both are fixed, deployed and proven
 >
