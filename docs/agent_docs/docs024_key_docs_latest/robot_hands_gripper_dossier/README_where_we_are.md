@@ -95,3 +95,100 @@ let real visitor requests start flowing.
 
 Still waiting on you for the one thing: the spend-capped API key for the
 island. Everything up to that point can carry on without it.
+
+---
+
+## 27 July — you caught something no machine did, and the reason why turned out to matter more
+
+You asked how the dossier would fit with the other tools before carrying on.
+That question found a real problem. I had designed the visitor-facing half of
+this as a new service on the island machine — its own database, its own AI key,
+its own rate limiter, its own web address. One day after I wrote that, another
+thread put `tools-api` on that same machine: a shared public API built from the
+start to serve many tools across many sites, with all four of those things
+already in it. Mine would have been a second copy of the lot, on a box with one
+processor and 2GB of memory. There was also a wrong web address already
+committed, which the machine would have rejected on every attempt, quietly,
+forever.
+
+Nothing caught it. No hook, no council, no check. You did, two days later.
+
+What I want to tell you is that the reason is more interesting than the mistake.
+I did search for something like this before designing it, on the 24th, and the
+search was **right** — `tools-api` genuinely did not exist that day. The problem
+is that nothing ever looks again. Every review we have judges a proposal against
+a snapshot of the world, and this codebase moves fast enough that a design
+document outlives the world it was written in. That is the actual failure, and
+it is not fixed by being more careful.
+
+Chasing it turned up three things, all of which I checked myself.
+
+The first is that the decision lived in a document, and our review machinery
+refuses to read documents. That refusal is deliberate and sensible — reviewing
+every design doc would cost real money, and we wrote 72 of them this month. But
+it means a document that decides to build a new service is refused by the one
+thing that would have argued with it.
+
+The second is that we already have a council member whose entire job is asking
+"does this already exist?" It asks its questions about the code into thin air:
+the step that answers them was deliberately left off that council, on the
+reasoning that the author will go and look. The whole reason that seat exists is
+that authors don't look.
+
+The third is the one I'd actually fix. The search index that member relies on
+records what our functions are *called* but never what they *do* — names and
+signatures only, never the contents. So a search for a web address, a table
+name, or any piece of text inside a function comes back empty, and the member
+whose job is checking claims that something doesn't exist is being handed
+made-up emptiness. Its own worked example, written in the documentation, cannot
+work. I've filed that.
+
+You asked whether the answer is a council member, the diagnosis loop, or the
+architecture council. My honest answer is none of the three. A council member is
+the wrong tool because "does this exist" is a question a search can settle, and
+we already have two members holding that job — they need their instrument
+repaired, not company. The diagnosis loop genuinely cannot do it; it is built to
+narrow onto one bug and refuses to widen. And the architecture council already
+exists — there's a thread on it that you were ruling on today. I've added our
+measurements to it rather than starting a fourth thing, which would have been
+funny in a bad way.
+
+What I'd actually build is small. A document that proposes a new program gets
+told which programs already exist. I ran it against the last 1,500 commits of
+real history: it fires about once in 150, which is normal for our checks, and it
+fires on the exact commit that opened this workstream — two days before you
+asked. More to the point, it is free, so it runs *again* every time the document
+is touched, and on the 25th and 26th it would have printed `tools-api` in that
+list, newly arrived. That repetition is the whole value. No council re-reads
+itself for free two days later.
+
+One sentence I'd like you to rule on, because it settles a lot of arguments
+cheaply: **divergence is allowed when it is parameterised and forbidden when it
+is copied.** A second way of doing something is fine if it's a row in a table;
+it's not fine if it's a second copy of the code. There's a lovely example of the
+rule being broken — two exports of essentially the same thing sit ten lines apart
+in the same file, one of them explicitly labelled "nothing site-specific may be
+hardcoded here", and nobody noticed.
+
+On scale, the number that matters: nine of our 296 pieces of pipeline machinery
+exist for two sites out of a thousand, and five of those nine shipped in one
+week. That is the thing that doesn't reach 1,600 domains — not the cluster, not
+the hosting. A paid product per site that each needs its own hand-written code
+is a staircase we can't climb. We already do this correctly elsewhere, for
+company data, where a new industry is a row in a table rather than new code.
+
+You've said finish the pilot first and generalise after, which I think is right
+— prove the shape works on one site before paying to abstract it from a single
+example. I've also put together a consolidation list, and the most useful thing
+on it may be the item I'm recommending we *don't* do: eight copies of the same
+small health-check server look like the tidiest possible win, and they turn out
+not to be identical at all, so merging them is eight risky changes to the thing
+that tells Kubernetes our services are alive, for no benefit whatsoever at any
+number of domains. I'd rather close that one off as "won't do" than leave it
+sitting there looking available.
+
+The genuinely missing capability, and it surprised me: we cannot send email.
+Not anywhere in the code we actually build and deploy. The only working mailer
+in the estate lives in idea.uk's box, outside the build. Everything that emails
+a customer a link — including this dossier — depends on that being fixed once,
+properly, rather than copied a third time.

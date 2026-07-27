@@ -515,3 +515,129 @@ first harvest today. The dossier should be its second.
    and have `bugs_open/083` open against its error handling.
 3. Everything cluster-side is unaffected and still stands (approved, committed,
    inert until the roll).
+
+---
+
+## 2026-07-27 — chasing WHY nothing caught the near-miss; three verified findings
+
+The owner asked for the missteps to be recorded and for a plan to regulate this
+class of divergence. Chasing the cause produced more than the near-miss did.
+
+**The failure class, stated precisely.** Not "I failed to check for prior art."
+I checked on 2026-07-24 and the check was **exhaustive and correct** —
+`cmd/tools-api` did not exist in the tree that day. Had the design gone to the
+council on the 24th, `reuse_agent` and `prior_art_librarian` would have found
+nothing and approved, correctly, on the evidence. **The class is a fact that was
+true at review time and false at build time**, and nothing in the platform
+re-validates a decision after the world moves.
+
+**Finding 1 — the decision lived in a medium no mechanism reads.**
+`097_TRIGGER_council_review_v1.sh:53` sets `SCOPE_RE='^(platform|internal|pkg)/'`
+and refuses docs client-side. Sound for credits (72 DESIGN/PLAN/SPEC docs were
+created in `docs024_key_docs_latest` in July alone). Consequence: *a design
+document that decides to build a new service is refused by the only mechanism
+that would object to it.*
+
+**Finding 2 — `prior_art` asks code questions into a void on the gate.** The seat
+emits `code_checks` and its prompt promises they are *"answered from the
+code_symbols index next round"*
+(`0NN_fix_proposer_v20_prior_art_librarian.sql:51,61,73`). But
+`0NN_council_gate.sql:40-45` records that the `code_lookup` step is **deliberately
+not mirrored** onto the gate, justified as *"its authors are code-capable sessions
+who read the objections themselves."* Confirmed in `099_SYNC_gate_roster.py:28`.
+That justification assumes the author will look — and the reason the seat exists
+is that authors don't. In my case I *had* looked, two days early.
+
+**Finding 3 — the index behind that seat manufactures false absence.** This is
+the real defect and it is filed separately.
+
+```go
+// composeSymbolContent builds the searchable text (embedded AND trigram-matched):
+// kind + symbol + signature + doc + path.
+```
+`platform/orchestration/actions/code_symbols_actions.go:336-352`. **Function
+bodies are never indexed** — they are read on demand by `ReadSymbolBody`
+(`internal/analysis/symbolbody.go:31`), which the indexer never calls. So a
+`content` check for any route, registry key, table name or string literal returns
+zero rows, and the seat reads zero rows as absence. The contract documented at
+`diagnose_code_lookup_action.go:29-31` says `content` matches *"symbol source
+bodies"*; it does not. Its own example, `"%stop_reason%"`, is a literal that only
+ever appears in a body — **the documented example cannot work.**
+
+### The check, measured before proposing it
+
+Predicate: a **staged** `.md` adds a line naming a `cmd/<x>/` that does not exist
+in `cmd/`. Simulated over real history, added lines only:
+
+```
+git show --format= --unified=0 --diff-filter=AM <sha> -- '*.md'   # added lines
+commits scanned: 1500  firing: 10  rate: 0.67%   (window 2026-07-19 → 07-27)
+  12fa24e6b 07-24 docs(gripper-dossier): pilot workstream opened -> gripper-intake
+  e9fb8a174 07-25 · ce97c8bca 07-25 · 79fd07caa 07-26           -> gripper-intake
+  9658d3921 / af07067df / fc0652ce8 / d7b8f34d9  07-20          -> assembler
+```
+0.67% is inside `pattern-check.py`'s accepted band (SUMMARY 2.0%, README 0.7%).
+
+**The property that matters is not the first fire.** On 07-24 the peer list would
+not have contained `tools-api` and I would have been right to proceed. It is that
+the check is free and idempotent, so it **re-fires on 07-25 and 07-26 with
+`cmd/tools-api` newly present in the peer list**. No council re-runs itself for
+free two days later. Hence: print peers annotated by recency, because the failure
+mode is a peer that arrived *after* you looked.
+
+> **CORRECTED — two sub-agent figures I nearly wrote down.** A sweep reported "8
+> byte-identical `StartHealthServer` copies"; hashing the bodies gives **8 distinct
+> hashes serving 1–3 endpoints each**, which flips that item from cheapest win to
+> active trap (eight behavioural migrations on live liveness probes for zero
+> benefit at any domain count). A second reported the doc detector firing "4 times
+> in 1,614 docs"; a whole-tree scan actually fires on **~190**, almost all archived
+> copies naming the retired `cmd/bundle` — the staged-diff figure above is the real
+> one. Caught by running both commands. **A sweep's figure carries no measurement
+> date and no method; treat it exactly like a figure copied from a sibling doc.**
+
+### Answering the owner's actual question
+
+*"Is it a council member, the diagnosis loop, or the architecture council?"* —
+**none of the three.**
+
+- **A council seat is the wrong instrument.** "Does this already exist?" is a
+  factual question, and `pattern-check.py`'s founding doctrine is *"spend the LLM
+  council on judgement, not on what a string comparison can settle."* Two seats
+  already hold this remit; they need their instrument fixed, not company.
+- **The diagnosis loop structurally cannot.** Verdicts are only
+  CONFIRMED/REFUTED/UNVERIFIABLE; a CONFIRMED needs both a static *and* a runtime
+  citation; the loop halts on `scope-not-narrowing`. A survey for duplicates
+  widens scope by definition and can never confirm.
+- **The architecture council already exists and is mid-flight in another thread.**
+  `architecture_review/PROCESS_architecture_review.md` (RFC track, owner as
+  authority, one RFC ratified) plus
+  `DECISIONS_open_for_owner_2026-07-26_architecture_seat.md`, updated **today**
+  with the owner's D7(a) ruling and a new D8. **Do not fork it.** Our measurements
+  settle their D4 (`[UNMEASURED]`) and extend their D8: the corpus problem is
+  worse than stated, because the Go index is itself body-blind.
+
+Owner ruling this session: this thread builds the check and feeds them the
+evidence; they keep the seat question.
+
+### Doctrine proposed (one sentence, for the owner to ratify)
+
+> **Divergence is allowed when it is parameterised and forbidden when it is
+> copied.** A second implementation is fine as a row in a table or a profile; it
+> is not fine as a second copy of the code.
+
+Generalises `vm_estate`'s *"merge the generator, not the trust boundary"*. Worked
+example, and it is a good one: `med_export_json` (`registry.go:1691`) sits **ten
+lines above** `directory_export_json` (`:1701`), whose own header reads *"nothing
+site-specific may be hardcoded here."* Both registered, both live, nobody saw it.
+
+### The scale arithmetic, for the record
+
+296 registry entries, 25 category strings against 10 declared, `site` alone = 107.
+**9 of the 296 exist for 2 of ~1,000 sites, and 5 of those shipped in one week.**
+A per-site action is a per-site entry in Go source needing a rebuild and a
+redeploy — at 1,600 domains that couples site count to binary size. The pattern
+that already does this correctly is `CHVerticalProfile`
+(`companies_house_vertical_profiles.go`): a config table, not Go per vertical.
+
+Owner ruling this session: **finish the pilot as-is, generalise after.** Prove the
+Tier-3 shape end to end on one site before paying to abstract it from one example.
