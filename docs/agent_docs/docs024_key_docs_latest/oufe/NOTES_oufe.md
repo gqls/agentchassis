@@ -629,3 +629,92 @@ Minor defect noted, not yet fixed: the work item's `summary` rendered as the
 literal string `grounded_draft_review` rather than my `summary_template`, so that
 is not the right config key for `create_work_item`. Cosmetic — the spec payload is
 intact.
+
+---
+
+## 2026-07-27 — the owner refused the answer, and the answer was wrong
+
+He read the O4 recommendation — build a live sweep, open a promise register — and
+pushed back: *"we have existing functionality that double checks claims, and we
+have the council. Please look hard at our existing documentation and solutions."*
+
+He was right, and the research took ten minutes.
+
+### The misstep, stated plainly
+
+**I claimed the overclaim class was invisible to every scanner we own. It was
+never invisible.** `ScanBannedClaims` (`datahelpers/claims.go:284-325`) is a bare
+case-insensitive regex over prose blocks. No number extraction, no
+`businessClaimContextRe`, no `isExcludedNumber` — those gate only
+`ScanUnregisteredNumbers` (`claims.go:365,369`). It matches whatever patterns a
+site is given, about anyone, numeric or not. Live registers already carried purely
+qualitative patterns: `leaderboard`, `live now`, `price target`, `years of
+experience`.
+
+Arming oufe took **one UPDATE and no image roll** (mig 226) and bought a
+build-time **blocker** plus a **high**-severity post-deploy finding. Ten patterns,
+tested both ways: 10/10 fabrication shapes blocked including all four phrases the
+site actually shipped, 13/13 legitimate sentences pass — including the honest
+replacement copy and the approved disclaimer's own wording.
+
+### How the error got in, which is the useful part
+
+**A limitation about one component bled into its neighbour.** Earlier the same day
+I established, correctly and with evidence, that `ScanUnregisteredNumbers` is inert
+on finance prose. That is true and it is written up accurately. Then
+*"the number scanner cannot see this"* quietly became *"the scanner cannot see
+this"* — and I never opened the sibling function twelve lines away. Thirty seconds
+of reading would have stopped an afternoon of building on it.
+
+**I wrote a universal negative from local evidence.** "Nothing in the estate looks
+for this" is a claim about the whole estate. My sentence named four mechanisms; I
+had read the source of exactly one. The tell was in the sentence itself.
+
+**The answer was already filed.** `SPEC_claims_verification.md:250-252` poses this
+precise question — should `banned_claims` be fleet-shareable, *"some patterns are
+universal"* — and defers it: *"per-site only until two sites have evidence bases"*.
+Written when n=1. There are now 8. **The decision was due, not new**, and I never
+grepped the spec for my own problem before declaring the platform had no answer to
+it.
+
+### Where it did damage
+
+Not just a note. It went into **the standing instructions of a live reviewing
+agent**: migration 223 told the compliance seat *"no scanner will catch this, so
+this seat is the only control."* A reviewer told it is the only control will
+substitute for a mechanism instead of asking for one. Corrected in mig 227 and
+mirrored to both rosters; the false premise is also corrected inline in 223's
+header, in the SUMMARY, and in O4, with the original reasoning kept visible.
+
+**The content of the error is the failure the seat exists to catch** — a
+confident, unverified claim about what our system guarantees, written by the person
+building the overclaim detector. That is worth sitting with rather than tidying
+away.
+
+### What was actually missing
+
+Reach, not capability. **5 of 15 live sites carry a single banned pattern.** The
+ten without include **vetcomparison.uk** — the site of the fabricated-prices
+incident — and **idea.uk**, which takes real money. There is no way to define a
+pattern set once for the fleet, and `globalTellPhrases()`
+(`voicetells.go:121-137`, unioned with the per-site list at `:109`) shows exactly
+how the sibling engine already solves that.
+
+And a second reach problem, separately owned: `check_unverified_claims` runs only
+under `quality-discovery-agent` → `improvement-loop` → `improvement-sweep`, which
+has been **disabled since 2026-05-02** (`bugs_open/083`). The post-deploy check
+exists and effectively never runs.
+
+### The promise question, corrected too
+
+`evidence_base` already declares `kind: metric | capability | entity | attestation`
+and `source: sql | artifact | attested_by`, and V4 already re-runs sql-sourced
+facts daily across the fleet. **`Kind` is declared in the struct and read
+nowhere.** A promise is a `capability` fact whose source is the mechanism that
+keeps it — the slot was cut and never used. Meanwhile EXPERIENCE_PLAN §2 is
+*literally called a promise ledger*, and the experience-register harvest already
+recorded the sharpest line on it: **"A promise ledger the platform cannot
+mechanically check is prose."**
+
+A new register would have been the third thing in this estate to model the same
+idea.
