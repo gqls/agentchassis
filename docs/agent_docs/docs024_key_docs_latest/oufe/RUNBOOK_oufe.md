@@ -266,6 +266,52 @@ content_data through the current template with **no LLM call**.
   page to the content writer and **regenerates the copy**, silently discarding
   authored text. The trigger refuses up front on this.
 
+## 8b. Rendering an OWNED page (every tool page is one)
+
+`TRIGGER_rerender_page.sh` defaults to `section_data_resolved`, which runs
+`save_page_sections`. That action **hard-refuses an owned page**:
+
+```
+step save_sections failed: page tool-recovery-waterfall is rebuild_policy=owned
+(tool/widget-owned): a generic section save would clobber it. Use
+apply_section_edit for targeted edits or the tool pipeline for rebuilds.
+Refusing to overwrite.
+```
+
+The guard is right — the action DELETEs and reinserts `page_components`, which is
+the TL-001 clobber — and **every tool page is `rebuild_policy='owned'`**, set at
+creation. So the path documented in §8 for publishing a copy edit can never
+publish a tool.
+
+For a standalone tool the render is the identity function: the component is
+`render_mode='template'` with no `{{ }}` placeholders and a NULL `input_schema`,
+so the rendered HTML is the template. Populate it directly, then assemble-only:
+
+```sql
+UPDATE page_components pc
+   SET rendered_html = cc.html_template, build_status='deployed'
+  FROM pages p, content_components cc
+ WHERE p.id = pc.page_id AND cc.id = pc.component_id
+   AND p.site_id = (SELECT id FROM sites WHERE domain='<domain>')
+   AND p.name = '<tool-name>'
+   AND cc.html_template NOT LIKE '%{{%';   -- refuse if it DOES have placeholders
+```
+```bash
+# assemble-only: no reason argument, so it takes the render_page branch and
+# never calls save_page_sections
+./docs/agent_docs/docs024_key_docs_latest/cta_link_integrity/scripts/049b_deploy_single_page.sh \
+  <page_id> <site_id> <domain>
+```
+
+The `NOT LIKE '%{{%'` guard matters. If the template *does* carry placeholders,
+copying it verbatim ships `{{ .field }}` to a reader, so that case needs the tool
+pipeline rather than this shortcut.
+
+**Two other things that bit here before this worked:** `slot_name` must equal the
+component function name and must also appear in `pages.sections`
+(`bugs_open/095` — the prepared insert carried `'main'`), and a section with NULL
+`content_data` makes the trigger refuse, so a standalone tool wants `{}`.
+
 ## 9. Tool acceptance (Tier 4)
 
 The sweep `tool_acceptance_due` raises an `acceptance_run` item per active tool
