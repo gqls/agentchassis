@@ -3,7 +3,66 @@
 **Filed:** 2026-07-27 · **By:** gauntlet_dead_cta (found while surveying vonc.com's
 Arena after the v1.0.1172 roll) · **Severity:** MEDIUM — public-facing on 16 live
 pages across 6 sites; one of them tells search engines the page has no backend ·
-**Status:** OPEN, not fixed
+**Status:** OPEN — code fix written and submitted to the council 2026-07-27; the
+backfill is staged and **deliberately not applied**
+
+> ## Two corrections from taking this on, 2026-07-27 (bugs thread)
+>
+> ### 1. There is a SECOND call site, and this file names only one
+>
+> `create_tool_component_action.go:261-265` also creates a tool page and bound the same
+> `description` into `meta_description`:
+>
+> ```go
+> INSERT INTO pages (
+>     id, site_id, name, url, title,
+>     page_type, status, build_status, nav_order, meta_description
+> ) VALUES ($1, $2, $3, $4, $5, 'tool', 'active', 'planned', 200, $6)
+> `, pageID, siteID, pageName, pageURL, pageTitle, description)
+> ```
+>
+> Found by grepping every writer of the column rather than trusting the filed call site.
+> Fixing only `deploy_tool_action.go:341` would have left the class live on this path and
+> **looked complete in review** — the exact shape of `bugs_open/093` (one guarded call
+> site, rerender unchecked) and `bugs_open/112` (the second spawner).
+>
+> ### 2. The live count is 17, not 15 — this file's census undercounts
+>
+> §1's census uses `length > 400`. At **320** — the threshold the fix uses, chosen to sit
+> clear of both populations — two more genuine briefs appear:
+>
+> | site | page | len | starts |
+> |---|---|---|---|
+> | gaswholesalers.com | `tool-fuel-cost-estimator` | 352 | "Allows fleet managers and fuel buyers to input weekly/monthly volume (gallons or litres)…" |
+> | gamesdesign.co.uk | `tool-damage-formula-designer` | 390 | "Lets designers define a damage formula (flat, multiplicative, diminishing returns scaling)…" |
+>
+> Both were read individually, not inferred from the length: they are in the
+> "Allows/Lets the user do X" register of a specification, not visitor-facing copy. So the
+> repair set is **17 rows across 6 sites**, not 15 across 5.
+>
+> ### What was built
+>
+> - `datahelpers.PublicMetaDescription` / `MetaDescriptionLooksInternal` — one gate
+>   between a string held internally and the text a search engine prints. It refuses a
+>   brief-shaped **fallback** too, returning empty, so the escape hatch cannot
+>   reintroduce the defect.
+> - Both call sites routed through it, with a shared `composedToolMetaDescription` in the
+>   register the companion guide page has always used.
+> - Tests use the **real leaked string** as the internal fixture and the hand-fixed Arena
+>   copy now live as the public one.
+>
+> ### What was deliberately NOT done
+>
+> - **The backfill is staged, not applied**: `docs/agent_docs/sql_for_agents/240_backfill_103_tool_meta_descriptions.sql`.
+>   Dry-run verified (17 rows / 6 sites, negative control returns 1). It rewrites public
+>   copy on six client sites, so it is an owner call. **§3 of this file still holds — the
+>   code fix alone changes nothing on the web.**
+> - **`meta_description` was NOT added to the tool page's `ON CONFLICT … DO UPDATE SET`**,
+>   which would have made redeploys self-healing. vonc.com's Arena description was
+>   repaired **by hand**; adding the column would clobber that hand-written copy with the
+>   generic composed line on the next deploy. A conditional update — overwrite only when
+>   the existing value is itself brief-shaped — is the obvious next step and deserves its
+>   own review rather than riding along.
 
 ## 1. Symptom
 
