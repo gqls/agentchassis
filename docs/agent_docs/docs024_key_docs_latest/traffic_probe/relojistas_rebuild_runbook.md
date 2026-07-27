@@ -402,7 +402,14 @@ scp docs/agent_docs/docs024_key_docs_latest/traffic_probe/deploy_setup/vm-deploy
 
 # 1. re-run (regenerates nginx conf incl. /buscar, /events, /external.php +
 #    variants, writes /etc/nginx/conf.d/cloudflare-realip.conf, reloads nginx)
-DOMAINS="relojistas.com" LETSENCRYPT_EMAIL=<real> MODE=full bash /root/setup.sh
+DOMAINS="relojistas.com" LETSENCRYPT_EMAIL=<real> DEPLOY_USER=deploy MODE=full bash /root/setup.sh
+#    ^^^^^^^^^^^^^^^^^^ DEPLOY_USER IS NOT OPTIONAL. Omit it and WEBROOT_OWNER falls
+#    through to www-data:www-data (setup.sh:65-70), the webroot is chowned away from
+#    `deploy`, and the vm-sites GitHub Action dies on EVERY deploy:
+#        rsync: mkstemp ".../.feed.xml.XXXX" failed: Permission denied (13)  exit 23
+#    Done exactly that on 2026-07-27. Repair: chown -R deploy:www-data /var/www/vm-sites
+#    Setting it also installs the /usr/local/sbin/site-engine-deploy sudo hook, which is
+#    how the engine binary is MEANT to be swapped (no root needed) — see setup.sh:438-451.
 #    sanity: nginx -t ran inside; then
 curl -s -o /dev/null -w '%{http_code}\n' 'https://relojistas.com/external.php?type=RSS2'   # 200 (survived)
 curl -s -o /dev/null -w '%{http_code}\n' 'https://relojistas.com/external.php?type=rss2'   # 200/302 (variant fixed)

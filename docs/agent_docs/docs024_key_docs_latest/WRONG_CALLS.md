@@ -8355,3 +8355,62 @@ undefined variable in a sketch is neither.
 
 Family: wrote-it-down-before-i-checked-it, the-seed-is-not-the-system,
 approval-is-not-implementability.
+
+---
+
+## 2026-07-27 — ran a provisioning script from the section that omitted a required parameter, and broke the site's deploy pipeline
+
+**What I did:** ran the relojistas box convergence exactly as the runbook's **§P5.2** gives it:
+
+```bash
+DOMAINS="relojistas.com" LETSENCRYPT_EMAIL=<real> MODE=full bash /root/setup.sh
+```
+
+**What the same runbook says at line 43**, in its header block:
+
+```bash
+LETSENCRYPT_EMAIL=you@your-real-domain.tld DEPLOY_USER=deploy bash /tmp/setup.sh
+```
+
+`DEPLOY_USER` is load-bearing (`setup.sh:65-70`):
+
+```bash
+WEBROOT_OWNER="${WEBROOT_OWNER:-${DEPLOY_USER:+$DEPLOY_USER:www-data}}"
+WEBROOT_OWNER="${WEBROOT_OWNER:-www-data:www-data}"     # ← the fallthrough I took
+```
+
+Without it the webroot is chowned to `www-data:www-data`, and **every vm-sites GitHub Action
+deploy fails**:
+
+```
+rsync: mkstemp "/var/www/vm-sites/relojistas.com/.feed.xml.VAsIfL" failed: Permission denied (13)
+rsync error: some files/attrs were not transferred (code 23)
+```
+
+The news pipeline could not publish. Repaired with `chown -R deploy:www-data /var/www/vm-sites`,
+verified by actually writing as `deploy` and reading as `www-data` rather than by re-reading the
+`ls` output.
+
+**What caught it:** the owner pasting the Action's failure. **Nothing I ran would have.** I
+verified the site (200s), the endpoints, the feed and the real-ip change — every check I chose
+was a *read* of the public site, and the thing I broke was a *write* by a third party. The site
+looked perfect precisely because the last successful deploy was still sitting there.
+
+**The cheap check that would have caught it:** after any change to a directory a CI job writes
+into, **write to it as that user** — `sudo -u deploy touch <dir>/.probe`. Ten seconds. More
+generally: *when you change ownership or permissions, the verification is an attempted write by
+the identity that lost access, never a read by yours.*
+
+**And the reason it happened at all:** I read the runbook's §P5.2 and ran it. The header block
+40 lines earlier had the fuller command. **A runbook with two invocations of the same script is
+a runbook with one wrong one** — I took the nearer one because it was under the heading that
+matched my task. Fixed in place: §P5.2 now carries `DEPLOY_USER=deploy` and a comment naming
+this failure, so the two agree.
+
+**Bonus cost, still unpaid:** setting `DEPLOY_USER` also installs
+`/usr/local/sbin/site-engine-deploy` and its sudoers entry (`setup.sh:438-451`) — which is the
+*intended* no-root route for swapping the engine binary, and exactly the operation that was
+subsequently blocked. Dropping the parameter removed the sanctioned path to the next step.
+
+Family: two-invocations-one-is-wrong, i-verified-reads-and-broke-a-write,
+the-site-looked-fine-because-the-last-good-deploy-was-still-there.
