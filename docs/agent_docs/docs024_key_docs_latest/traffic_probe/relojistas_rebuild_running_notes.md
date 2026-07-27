@@ -1700,7 +1700,36 @@ one thing that guarantees the default fires.* Contributed to 071 (`8228fb748`) a
 strongest available argument for fixing the default rather than the data — no data-side
 repair can express "no button", because they all work by writing `content_data`.
 
-### The chrome chase — three wrong mechanisms before the right one, and what each cost
+### 2026-07-27 (3) — owner: clear the address too; and the favicon finally exists
+
+**`sites.email` cleared for relojistas ONLY.** The owner's answer to the open question below
+was "clear it". `relojistas@contactforsales.com` is gone from
+`sites.email` (backup `bak_reloj_sites_email_20260727`); `site_specs.identity.contact` was
+already null for both email and phone. **The 13-site house convention is otherwise untouched —
+12 sites still carry theirs**, verified by count immediately after the update. With both
+fields empty, `footer-4-column`'s new `{{if or .email .phone}}` gate should omit the contact
+column entirely, which is the first time that gate has been exercised for the purpose it was
+added for. Requires a chrome rebuild (`nav_drift` #3) then page re-renders — see 117.
+
+**Favicon added** — the last broken internal reference on the site. All 19 pages have carried
+`<link rel="icon">` and `<link rel="apple-touch-icon">` pointing at
+`/assets/images/favicon.png` since launch, and it has 404'd the whole time (recorded as a
+"minor gap" on 07-17 and never closed).
+
+Built from the site's own `logo.jpg` rather than invented: the wordmark's **gear glyph, which
+replaces the "o" in "Relojistas"** — the only part of a wordmark that survives at 16px. Method,
+because it took three passes and the first two are the instructive ones:
+
+1. *Crop the gear from the logo's dark half* → carried the neighbouring `l` and `j` into frame.
+2. *Tighten to the gear's bounding box, paste on a brand-dark square* → clean, but a **visible
+   seam**: the pasted JPEG's background is not quite the canvas colour.
+3. *(used)* Take the crop's **luminance as a mask** — the gear is cream on near-black, so the
+   shape *is* the luminance — apply a levels curve (`<80 → 0`, `>165 → 255`, ramp between so
+   antialiasing survives), and composite brand cream through it onto solid `#20201e`. No seam,
+   and it thresholds away the JPEG texture at the same time.
+
+180×180 so one file serves both references. Verified legible at 32px before shipping, which is
+the only size that actually matters. Pushed to vm-sites `e72bd7b`.
 
 Removing the contact route left **54 dead links** (18 pages × 3 footer links to the retired
 `/contacto.html`). Getting them off took four attempts, and the first three were confidently
