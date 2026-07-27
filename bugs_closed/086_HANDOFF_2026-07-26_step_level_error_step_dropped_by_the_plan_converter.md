@@ -1,7 +1,15 @@
 # 086 — the plan converter drops step-level `error_step`, so 55 declared error handlers have never once run
 
 **Filed:** 2026-07-26 · **By:** the `bugs_open/068` thread (068's real mechanism turned out to be this)
-**Status:** OPEN — **both halves are now LIVE, and the Go half shipped sooner than anyone chose**:
+
+> **STATUS 2026-07-27: CLOSED.** The outstanding item was never the binary — it was
+> **data**: no agent declaring a step-level `error_step` had run since the fix, so the
+> converter was proven in `strings` and nowhere else. It has now run, and the persisted
+> plans show a clean 0 → 10 step across the roll boundary. The ten `→ complete` handlers
+> were audited and disabled on 2026-07-26 (seed `220`) and are verified still disabled.
+> See **"CLOSURE 2026-07-27"** at the foot.
+
+**Status (as filed 2026-07-26):** OPEN — **both halves are now LIVE, and the Go half shipped sooner than anyone chose**:
  · **LIVE**: the contained config twin for the diagnosed step (seed `219`, applied 2026-07-26)
  · **LIVE in v1.0.1169**: the fleet-wide Go fix, committed `dca5649b3` at 18:02Z — another thread
    built and rolled the chassis at ~18:22Z, and `make build` takes committed HEAD, so it rode
@@ -312,3 +320,62 @@ names it too. The general shape: *a hand-maintained field list next to a struct 
 corrected in `bugs_closed/068`), `bugs_open/087` (the next defect on the same rebuild path),
 `bugs_closed/042` (numeric step config never reaching actions — same family: config that looks
 declared and is not delivered).
+
+---
+
+# CLOSURE 2026-07-27 — the data verification, with a roll-boundary control
+
+The file's own discriminating measurement was *"a fresh `page-content-writer` run must
+show >0"* — i.e. **read `orchestration_states.workflow_plan`, never `agent_definitions`**.
+That box is now ticked, on `page-build-handler` (which declares exactly 10 step-level
+`error_step`s) rather than the writer, because it is what actually ran.
+
+**The control is the point — this is a before/after across the v1.0.1169 roll (~18:22Z
+2026-07-26), on one agent, in the persisted artefact:**
+
+```
+page-build-handler, step-level error_step count in its own workflow_plan
+  2026-07-26 15:30:55Z   0     <- pre-roll
+  2026-07-26 15:36:06Z   0
+  2026-07-26 15:46:33Z   0
+  2026-07-26 17:48:13Z   0
+  2026-07-26 17:54:29Z   0
+  ---- v1.0.1169 rolls ~18:22Z ----
+  2026-07-26 18:44:14Z  10     <- post-roll
+  2026-07-26 19:06:46Z  10
+  ... every plan since ...
+  2026-07-27 15:46:06Z  10     (orch 5ad72a12, COMPLETED, on v1.0.1174)
+```
+
+Fleet-wide since the v1.0.1174 roll (15:11:15Z): **208 steps, 10 step-level, 33
+config-level.** The pre-fix figure in this file was **0 step-level out of 14,209**. The
+converter carries the field.
+
+**Seeds re-verified live, not assumed:**
+
+- `219_writer_resolve_links_config_error_step.sql` — applied `2026-07-26 18:23:50Z`.
+- `220_disable_error_step_to_complete_handlers.sql` — applied `2026-07-26 18:32:46Z`.
+- Current definition census: **10** steps carry `error_step_disabled_086`, **53** still
+  carry a live `error_step`. Matches the seed's own post-check (10 disabled, 45 other
+  handlers intact, plus the 8 that were already config-twinned).
+
+**What is NOT claimed here, and why it does not hold the case open.** No step-level
+`error_step` has been *observed routing* in the wild yet. The nearest live routing —
+`build-pipeline-trigger`'s `spawn_dispatch → complete_idle`, firing repeatedly on
+2026-07-27 — is **config-level**, checked against the definition rather than assumed, so
+it is **not** evidence for this fix. That check is worth recording because the row looks
+identical either way: `COMPLETED / complete_idle`, `error` NULL, the failure only in
+`collected_data.__step_error`.
+
+The bar for `/bugs_closed/` is *fixed AND live*. The defect was **"the converter discards
+the field"**, and the discarding has stopped — proven in the persisted plan, at the roll
+boundary, on the agent this file names. Observing a routed step-level handler is a
+**standing watch on the blast radius**, not a remaining instance of the defect. Watch for
+a rise in `severity='error'` (routed) rows displacing `fatal` ones, and in orchestrations
+carrying `collected_data.__step_error` — per the guardian's surviving advisory objection,
+that rise **is the fix working**.
+
+**Per-handler review of the ten disabled handlers is still owed** (unchanged from above) —
+each author declared `complete` for a reason and the three bookkeeping ones are probably
+right. Re-enable individually by renaming `error_step_disabled_086` back. That is a config
+decision, not a defect.
