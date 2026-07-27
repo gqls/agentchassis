@@ -51,6 +51,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    # Bounded logs (added 2026-07-27, council corr e004fd81 advisory, guardian/low).
+    # The bugs_open/083 fix attaches gin.Logger(), so this service went from
+    # near-silent to one line PER REQUEST plus a line per failure. Compose's
+    # default json-file driver is UNBOUNDED, so that change alone could fill the
+    # island's disk over time — and a full disk takes Postgres down with it, on a
+    # VM whose whole job is to be independently reachable. 10MB x 3 keeps roughly
+    # the recent window the RUNBOOK's `logs --since 30m` queries actually read.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 volumes:
   pgdata:

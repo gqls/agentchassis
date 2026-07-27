@@ -233,3 +233,72 @@ and it was redone.)
   then a burst to be sampled.
 - **So this bug stays OPEN.** Per `/bugs_closed/README.md` the bar is fixed AND
   live; a fix committed but inert until a rebuild does not meet it.
+
+---
+
+## 7. COUNCIL: round 1 REVISE → round 2 APPROVED (corr `e004fd81-5126-45c0-b580-635a28187995`)
+
+**Round 1 — REVISE**, `decided_by: gating objection from editquality` (8 reviews:
+6 approve, 2 object). Note the metadata read `"abstained": 8` of `"reviewers": 8`,
+which is **not** what it looks like — it is the filtered-seat counting artefact,
+not eight abstentions. Read the `reviews` array in `body`, never the counters.
+
+**The gating objection was worth more than its literal claim.** editquality said
+only that it could not tell an abridged sketch from missing work. The code *was*
+complete for the AI paths — but checking properly showed **my stated count of
+"seven" was wrong (it was nine)**, and auditing every error return then exposed
+**seven further discarded errors on the 500 paths** that nobody had flagged. A
+reviewer who could not see the diff still roughly doubled the fix's coverage.
+Final: **16 of 16 5xx fault paths logged; 6 of 6 4xx caller paths deliberately not.**
+
+**Round 2 — APPROVED**, "with 2 advisory objection(s) — none high-severity"
+(9 reviewers: 7 approve, 2 object, advisory only). Commit
+`f6a1e1a` carries the `Council-Reviewed:` trailer; the three earlier commits
+cannot, because the verdict post-dates them.
+
+### The four advisories, and what was done about each
+
+1. **guardian [medium] — the logged snippet needs a HUMAN, not this council.**
+   `logAIBadResponse` writes a 300-char-capped extract of live model output, which
+   on some failure shapes echoes the visitor's own argument text. Guardian
+   explicitly says *"the plan itself flags this as needing human sign-off rather
+   than code review and does not resolve it — that is the right call, but it means
+   this item cannot be closed by this council alone."*
+   **STATUS: OPEN, awaiting an owner ruling.** If the answer is no, the snippet
+   reduces to a shape summary (length + first byte), at the cost of no longer
+   distinguishing a prose wrapper from a double-JSON emission — which is the one
+   thing it exists to do.
+
+2. **guardian [low] — unbounded log driver.** Correct, and it was a risk *this
+   change created*: attaching `gin.Logger()` took the service from near-silent to
+   a line per request, into compose's unbounded `json-file` default, on a VM where
+   a full disk takes Postgres down with it. **FIXED, not deferred** —
+   `infra/island/docker-compose.yml` now pins `max-size: 10m`, `max-file: 3`.
+
+3. **debug_historian [medium] — I overstated the blast-radius answer.**
+   My claim that "no un-allowlisted origin can reach /round" rests on
+   `store/sites.go:34`: `SELECT id, domain FROM sites WHERE status = 'deployed'
+   AND domain = $1`. That is **exactly the documented `sites.status` trap** —
+   status is informational elsewhere in this platform, and blast radius should not
+   be scoped by it without enumerating the real values first.
+   > **CORRECTED:** the claim stands only as far as *"CORS filters by
+   > `status='deployed'` on the island's own `sites` table"*. Whether that table
+   > contains anything besides vonc is **[UNVERIFIED]** — the island DB is not
+   > reachable from the cluster. **Owed at rebuild time, when SSH is open anyway:**
+   > `docker compose exec -T postgres psql -U tools_api -d tools_api -c "SELECT domain, status FROM sites;"`
+
+4. **debug_historian [low] — no precedent check.** Fair; run now.
+   Nine prior `council_report` rows touch this surface, all this workstream's own
+   build rounds (`70c8893b`, `64e6112c`, `cff7ff61`, `c379f7b7` …). **Concordant,
+   not contradictory** — none litigated the error-discard pattern or reached a
+   different conclusion on it; they reviewed the service being built, not how it
+   reports failure. Query for the next person:
+   ```sql
+   SELECT created_at::date, correlation_id, metadata->>'decision'
+   FROM diagnosis_artifacts WHERE kind='council_report'
+     AND (body::text ILIKE '%tools-api%' OR body::text ILIKE '%defend.go%')
+   ORDER BY created_at DESC;
+   ```
+
+**083 REMAINS OPEN.** Approval is not deployment: the island has not been rebuilt,
+so every line of this is still inert, and `/bugs_closed/`'s bar is fixed AND live.
