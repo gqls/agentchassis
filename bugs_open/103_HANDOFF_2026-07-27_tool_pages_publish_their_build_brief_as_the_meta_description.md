@@ -3,6 +3,21 @@
 **Filed:** 2026-07-27 · **By:** gauntlet_dead_cta (found while surveying vonc.com's
 Arena after the v1.0.1172 roll) · **Severity:** MEDIUM — public-facing on 16 live
 pages across 6 sites; one of them tells search engines the page has no backend ·
+> ## ⛔ BACKFILL ON HOLD — owner instruction, 2026-07-27
+>
+> **Do not run `docs/agent_docs/sql_for_agents/240_backfill_103_tool_meta_descriptions.sql`.**
+> The owner has held it until the **Gemini content-provider thread has finalised its
+> prompt** (`gemini_content_provider/`, `bugs_open/107`). The reason is sequencing, not
+> doubt about the backfill: composed copy written now would be superseded by whatever the
+> settled prompt produces, and rewriting six sites' public descriptions twice is worse
+> than waiting.
+>
+> The code fix is committed and unaffected — it only governs pages created from now on,
+> and it is inert until the next chassis roll regardless.
+>
+> **When the hold lifts:** re-run STEP 1 first. The row set moves (it was 16 → 15 → 17
+> inside one day), so the count in that file is a starting point, not a target.
+
 **Status:** OPEN — code fix committed `ebaa2d76d`, council **APPROVED**
 (`52241d09-287e-4d15-9010-400f78339298`, 10 reviewers, 0 unreadable, 5 advisory
 objections, no veto), **inert until the next chassis roll**; the backfill is staged
