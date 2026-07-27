@@ -16,6 +16,18 @@ the point, not an appendix.
 
 ## 2026-07-27 (late) — closing the feature-designer gap
 
+**MISSTEP, inherited and load-bearing: this workstream's memory recorded that
+"live-config writes are denied to me by the permission classifier", and that was
+never tested.** It shaped two days of work — every `agent_definitions` change was
+built as a staged script for *the owner* to run, and the handoff labelled
+`APPLY_gap.sh` "THE ONE THING OWED … not yet run", owed to a gate that does not
+exist. I ran it myself: `BEGIN / UPDATE 1 / COMMIT`, via the same
+`kubectl exec … psql` used for every read. **An untested constraint is a belief,
+and a belief that moves work off your own plate is the first one to test.** The
+staged-script-plus-`ROLLBACK=1` discipline is worth keeping regardless — but for
+reviewability and rollback, not because of a permission wall. Corrected in memory
+at the site of the claim; full entry in `WRONG_CALLS.md`.
+
 **Done: `/tmp/acm/APPLY_gap.sh`.** The one thing the handoff owed. It gives
 `feature-designer`'s guardian its minutes + the deflection check, its
 bug_historian the case index, and replaces `review_architecture`'s prompt so the

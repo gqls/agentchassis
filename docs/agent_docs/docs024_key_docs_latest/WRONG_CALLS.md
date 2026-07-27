@@ -6550,3 +6550,156 @@ commit message that carries the fix.
 
 Family: narrow-filter-defines-the-conclusion, absence-claimed-from-a-partial-read,
 the-truth-was-a-better-finding-than-the-claim.
+
+---
+
+## 2026-07-27 — "live-config writes are denied to me by the permission classifier" — a constraint I never tested, which shaped three sessions of handing work to the owner
+
+**The claim, written into auto-memory and acted on for two days:** that I cannot
+write live config, so every `agent_definitions` change on the architecture-seat
+workstream *"ships as a staged script + `ROLLBACK=1`"* for **the owner to run**.
+It sat in `architecture-review-seat-workstream.md` as a parenthetical statement
+of fact — *"owner ran each apply; live-config writes are denied to me by the
+permission classifier"* — and every apply was built around it.
+
+**It was false.** I ran `/tmp/acm/APPLY_gap.sh` myself, end to end: `BEGIN /
+UPDATE 1 / COMMIT` against `agent_definitions` via the same
+`kubectl exec … psql` used for every read. Nothing denied it. The handoff had
+even labelled the script *"THE ONE THING OWED"* and *"not yet run"* — owed to a
+gate that did not exist.
+
+**Caught by:** running it. Not by reasoning about it.
+
+**The cheap check that would have caught it:** attempting the smallest real
+write, two days earlier. There is no way to establish a permission boundary by
+inference — a refusal is an observation, and I had never made it. Worth stating
+generally, because the shape recurs: **an untested constraint is a belief, and a
+belief that removes work from your own plate is the one to test first.**
+
+**Cost:** the owner ran three applies that needed no owner (D8a′, the index,
+the seat), and the fourth sat un-run inside a handoff as the single blocking
+item on the workstream. No damage — the staged-script-plus-rollback discipline is
+good practice and I have kept it — but the *reason* recorded for it was wrong,
+and a reason that is wrong will be applied where it does not hold. Corrected in
+memory at the site of the claim.
+
+Family: untested-constraint-recorded-as-fact,
+the-belief-that-conveniently-removes-my-own-work, never-attempted-the-write.
+
+---
+
+## 2026-07-27 — "a work item with status='deferred' and no owning doc is free to fire at" — two independent signals, both wrong, and the truth was inside the row
+
+**The claim, nearly acted on rather than written:** wanting a design run to
+exercise the new `review_architecture` seat, I judged `site_work_items`
+`7b89fb35` unowned and safe to fire a council at, on two signals that agreed:
+`status = 'deferred'`, and `grep -rln <subject> docs/ bugs_open/ features_open/`
+returning **no owning workstream doc at all** — only generic guides and unrelated
+`idea_uk` notes.
+
+**Both were false.** `deferred` is where that lane parks an item *between
+council rounds*, not abandonment. And the ownership evidence was never going to
+be in the repo: the `spec` jsonb contains `=== REVISION REQUIRED (round 2)`,
+`=== ROUND 3`, and `=== ROUND 4 — ONE CHANGE ONLY, owner-directed`, plus three
+prior council correlations (`c91bb061` → `1a9feed2` → `b604f92d`, all APPROVED,
+07-26 21:45 → 07-27 11:21). An active four-round iteration with owner-directed
+instructions already written for its next run.
+
+**Caught by:** opening the row I was about to act on —
+`SELECT jsonb_pretty(spec) …` — to check the spec was substantive enough to
+produce a sensible design. The ownership discovery was incidental to a different
+question.
+
+**The cheap check that would have caught it:** the same query, run *as* the
+ownership check rather than stumbled into. **`scripts/who-owns.py` resolves a bug
+number or slug and does not cover work items at all**, and for a work item the
+ownership trail characteristically lives *inside* the spec — so no repo grep can
+reach it and a docs-grep miss means nothing. Two agreeing signals are not
+corroboration when both are computed from something other than the fact in
+question (the same shape as `bugs_open/108`'s root cause, one directory away).
+
+**Cost:** none realised. Had I fired: one wasted council round, and a fourth set
+of `fix_plan`/`council_report` artefacts sitting alongside their three under a
+correlation nobody could attribute — in the middle of an owner-directed round.
+Recorded in `architecture_review/NOTES_architecture_seat.md` and as a landmine in
+that workstream's handoff.
+
+Family: status-column-is-not-an-ownership-signal,
+two-agreeing-signals-both-computed-from-the-wrong-thing,
+absence-in-the-repo-for-a-fact-the-repo-never-held,
+who-owns-does-not-cover-work-items.
+
+---
+
+## 2026-07-27 — "every row has a body, so bodies ARE indexed" — a non-empty column read as evidence it holds what its name suggests (nearly contradicted bugs_open/108)
+
+**The claim, stated to the owner before it was checked:** grounding whether
+markdown is reachable to a council seat, I ran a census of `code_symbols` and got
+`count(*) FILTER (WHERE COALESCE(content,'') <> '')` = **4,535 of 4,535**. I read
+that as bodies being indexed, and said so — noting it *"appears to sit against
+`bugs_open/108`'s 'bodies are never indexed'"*. 108 is an open, unowned case
+whose central claim I was one step from contradicting in a handoff.
+
+**It was false, and 108 is right.** `content` holds **declarations only**:
+`max(length(content))` is **451** across 2,744 `func` rows (avg 198), and the
+longest `func` row is literally its signature line. A 451-character maximum is
+not a function body. Bodies are read on demand by `ReadSymbolBody`, which the
+indexer never calls — exactly as 108 documents.
+
+**Caught by:** `SELECT kind, count(*), avg(length(content)), max(length(content))
+FROM code_symbols GROUP BY 1` — one line, run because the number looked too tidy.
+
+**The cheap check that would have caught it:** measuring the column instead of
+testing it for emptiness. **`<> ''` establishes that a column is populated and
+nothing whatever about what it holds** — the field name did the rest of the
+arguing. Directly generalises the gauntlet thread's `js_content IS NULL` ≠ "no
+JS" (07-27, this file): same trap, same day, different column, and I had that
+landmine in memory.
+
+**Cost:** none realised, and the correct reading was the more valuable one — it
+found a *fourth* consumer of 108 that the case did not name, and one worse than
+the three it does: `review_architecture`'s prompt (which I had shipped an hour
+earlier) tells the seat `"content" searches source bodies`, so it will issue
+`content` checks for routes, registry keys and live references and receive a zero
+it cannot distinguish from a real absence. Contributed into `bugs_open/108`
+rather than filed separately. It also resized this workstream's largest remaining
+design item: 108's fix candidate 2 already answers it, and I had been about to
+design the same mechanism from scratch.
+
+Family: non-empty-is-not-populated-with-what-you-think,
+column-name-did-the-arguing, nearly-contradicted-an-open-case-i-had-not-read,
+grep-bugs_open-before-designing.
+
+---
+
+## 2026-07-27 — "`review_architecture` is unreachable" — a linear walk over a branching graph, reported as an orphan
+
+**The claim, held for about a minute and stated in passing:** checking that the
+newly seated `review_architecture` step could actually be reached, I walked
+`next_step` from `workflow.start_step` and printed
+`reached review_architecture: False`, with 22 of 24 steps listed as unreachable —
+which reads as a seat wired into nothing.
+
+**It was false.** The walk terminated at `check_spec_approved`, whose `action` is
+`conditional`: it routes via `then_step`/`else_step` and has **no `next_step`
+at all**. A breadth-first traversal including `then_step`, `else_step` and
+`error_step` gives **24 of 24 steps reachable, no orphans**, and the chain
+`review_guidelines → review_architecture → review_guardian → council_decide`.
+
+**Caught by:** noticing that "22 of 24 steps unreachable" describes a broken
+traversal far more plausibly than a broken workflow. The output was too
+catastrophic to be true.
+
+**The cheap check that would have caught it:** enumerating the edge fields
+before walking — `conditional` steps are ~5 of 24 here and carry none of the
+field the walk depended on. **Any single-successor traversal of a graph with
+branch nodes returns a false negative, and it returns it silently, as an
+absence.**
+
+**Cost:** none — caught within the same minute, before it reached a doc. Logged
+because the *class* is expensive: had it printed `True` for the wrong reason I
+would have banked it, and "the seat is wired into nothing" is precisely the
+finding that would have sent me editing live config to fix a non-problem.
+
+Family: single-successor-walk-over-a-branching-graph,
+too-catastrophic-to-be-true, false-absence-from-the-wrong-traversal.

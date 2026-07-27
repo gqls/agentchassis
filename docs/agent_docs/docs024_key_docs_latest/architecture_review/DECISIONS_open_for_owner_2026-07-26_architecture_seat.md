@@ -12,11 +12,22 @@ status line. Current state in prose:
 | D3 advisory, no veto, routes to the RFC track | **LIVE** (twice corrected — see the seat script) |
 | D4 mechanical RFC trigger from the staged diff | **LIVE** in `scripts/commit-scope-report.sh` |
 | D5 measure ossification first | **RUN — confirmed** |
-| D6 name the asymmetric bar | not done |
+| D6 name the asymmetric bar | **DONE 07-27** — `PROCESS_architecture_review.md` |
 | D7(a) does the veto survive | **RULED: yes** (owner) |
-| D7(b) should the guardian weigh benefit | **OPEN** — now answerable by evidence |
+| **D7(b) should the guardian weigh benefit** | **⇦ THE ONE DECISION OPEN FOR THE OWNER.** My recommendation **REVERSED 07-27 late**: do **not** narrow it — defer, with a named reversal trigger (see D7) |
 | D8a′ council reads its own minutes | **LIVE** on all three councils |
 | D8e-1 generated case index for the historians | **LIVE** |
+| D9 does the FIX lane need the forward seat too | **NEW 07-27, arose from evidence.** Recommend DEFER, do not seat a second copy; countable reversal trigger named |
+
+**The owner's decision, in one line:** D7(b) — *should the guardian keep being
+asked to weigh **benefit**, or be narrowed to blast radius and contract-breakage
+only?* Everything else on this workstream is built, live, or deferred behind a
+named trigger. My advice has **changed** since this file last put it to you, and
+the argument for the change is inside D7; the short version is that the guardian's
+failure looks like **ignorance rather than remit**, and we have now fixed the
+ignorance, so narrowing the remit would be the wrong repair — and an irreversible
+one. It is also **safe to leave open**: nothing is blocked on it and no code waits
+on the answer.
 
 **Written 2026-07-26** after the owner asked whether we had discussed an
 architecture council member before, and asked for the choices and proposed
@@ -417,6 +428,84 @@ strictly more conservative than today, not less. Narrowing (b) only works if
 the forward seat actually exists and is read — so **(b) should not be decided
 before D5, and cannot be implemented before D1/D2.** It is downstream of both.
 
+> **UPDATED 2026-07-27 late — my inclination has REVERSED, on first evidence.
+> Recommendation is now: do NOT narrow (b) yet. Defer, with the reversal trigger
+> named below.**
+>
+> The argument for narrowing was that the guardian has no instrument for benefit
+> and had been overturned on every escalation. The first post-cutover council
+> (14:18:19, `b64141e5`) supplies the first evidence of how it behaves *with* an
+> instrument, and it undercuts that argument. Given its own deflection history,
+> the guardian invoked the stability preference and then reasoned its way **out**
+> of deflecting, unprompted:
+>
+> > *"The recurrence across three rounds is evidence of a genuinely scattered
+> > defect (multiple independent RenderContext producers), **not** evidence that
+> > this fix belongs at a higher layer … so that preference does not bite here."*
+>
+> That is the exact judgement D5 measured it failing to make six times on
+> `ProcessResponse`. **So the observed failure mode was ignorance, not remit** —
+> it kept deflecting because it could not see that it had already deflected, and
+> the fix for that was the minutes, which are now live. Narrowing a remit is the
+> wrong repair for a missing instrument, and it is irreversible in the direction
+> that matters: a blast-radius-only seat cannot recover the judgement above even
+> when it is right.
+>
+> **Reversal trigger — the condition under which narrowing IS justified.** Re-run
+> `scripts/council-adoption-report.sh` once there are **≥20 post-cutover guardian
+> reviews that invoke the stability preference**, and narrow (b) if BOTH hold:
+> (i) precedent-citation stays near the 6-of-90 (~7%) baseline, i.e. the minutes
+> changed nothing; and (ii) deflections still recur on the same core sites
+> (`coordinator.go`/`ProcessResponse`, `spawn_actions.go`). If instead citation
+> rises and recurrence falls, the instrument fixed it and clause (d) should stand
+> unchanged.
+>
+> **Two honest caveats on this reversal.** `n = 1` — one review, and it approved,
+> so it was never a hard case. And §2 of the report scored that very review
+> `cited_precedent = 0`, because the metric counts a precedent *citation* and this
+> one reasoned about recurrence without quoting a past report: **the metric
+> undercounts the behaviour I am citing as evidence.** Fix the metric before
+> reading trigger condition (i), or it will read as "the minutes changed nothing"
+> when they did.
+
+---
+
+### D9 — NEW, arose from evidence 2026-07-27: does the FIX lane need the forward seat too?
+
+**Not a proposal — a question the evidence opened, recorded so it is not lost.**
+D1/D2/D3 deliberately placed `review_architecture` on `feature-designer` only
+(design time, before code exists). On the same 14:18 council — a **fix-lane** run,
+which has no architecture seat — `bug_historian` opened its note:
+
+> *"**Architecture-level concern for a human:** this bug class … has now needed
+> three council rounds to chase down instances empirically … Recommend a human
+> confirm whether a single shared render-context-builder refactor … is on the
+> roadmap, versus continuing to fix drop points one live-test at a time."*
+
+A seat not commissioned for forward fitness made a forward-fitness judgement, on
+the lane with no home for one, and escalated it to a human because nothing there
+owns it. That is the D2 gap reappearing one lane down.
+
+**My recommendation: DEFER, and do not seat a second copy.** Three reasons, two
+of them already on the record here:
+- §8c's doctrine — reserve the seat budget for genuine judgement, and do not add
+  a seat where the remit is already held or the instrument is the problem.
+- Cost: the gate is relevance-gated, but a 17th seat fires on every submission
+  whose paths match it, on the highest-volume lane (36 runs/day vs
+  `feature-designer`'s ~3).
+- **The seat we already have has said nothing yet** (0 reviews — see the rate
+  limit below). Staffing a second copy of an unmeasured seat is exactly the
+  mistake D5 was built to prevent.
+
+**Reversal trigger:** if the fix lane produces ≥3 more architecture-level
+escalations routed to "a human" from seats not commissioned for them, the remit
+is unowned in practice and D9 should be decided rather than deferred. Countable —
+`body ILIKE '%rchitecture-level concern%'` over `council_report` — so this does
+not need a judgement call to re-open.
+
+**`[UNMEASURED]`:** one instance, noticed by reading, not counted. The count above
+is the check, and it has not been run.
+
 ---
 
 ### D8 — NEW: give the council a misstep corpus, or accept that it has none
@@ -611,6 +700,25 @@ what makes the gate cost ~30 minutes. D8d is a legitimate answer if the corpus
 is judged a human instrument by design.
 
 ---
+
+### D9 — landmines as a footprinted corpus — DRAFTED BY ANOTHER THREAD, awaiting your fold-in
+
+**Not written by this thread.** Session *"bugfix 61"* drafted it 2026-07-27 at the
+owner's direction and deliberately did not edit this document beyond this pointer,
+because it was being actively edited at the time. Full text:
+`architecture_review/PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`.
+
+In one line: **D8's defect has a second symptom.** Knowledge that cannot be queried
+must be broadcast, so landmines pile into the auto-loaded `MEMORY.md` — measured at 76
+entries / mean 223 chars, compacted twice inside one hour on 07-26 and re-inflated past
+its starting size in 46 minutes. The proposal reuses `doc_notes` (370 rows, already
+carrying landmine-shaped categories such as `do-not-lock-derived`) keyed on the guarded
+path/symbol, and revives **D8a's original "add `doc_notes` to the schema hint"** — which
+D8a′ superseded only for the *minutes* case, leaving the landmine case open. It is
+explicit that delivery to a *session* (as opposed to a seat) is unsolved, and that
+draining `MEMORY.md` before that is built would remove protection we have today.
+Distinct from `bugs_open/108`, which fixes the *code* index; this is the prose corpus
+`code_checks` will never cover by design.
 
 ## 6. Dependency this proposal has
 
