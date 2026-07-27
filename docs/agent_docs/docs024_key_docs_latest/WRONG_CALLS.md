@@ -5716,3 +5716,41 @@ class has none.
 
 Family: dormant-capability-is-invisible-to-grep, absence-of-references-is-ambiguous,
 read-the-spec-not-just-the-code, deferral-without-a-watcher-is-a-decision.
+
+---
+
+## 2026-07-26/27 — I said the council submission was "queued, not dropped". It was dropped.
+
+**The claim:** my council submission (`97904892`) had no orchestration row an hour after
+submitting. I told the owner this was "the documented queue latency, **not** a dropped dispatch",
+and declined to resubmit, citing the standing rule that a missing orchestration row is almost
+always latency and retrying costs a duplicate round.
+
+**Why it was wrong:** thirteen hours later there was still no row and no artifact — while **676
+orchestrations were created fleet-wide** in that same window. The lane was draining the whole
+time. It was a drop.
+
+**What caught it:** coming back the next day and, before repeating the claim, asking what *else*
+had run. Nothing else would have caught it — the submission's own row stayed absent in exactly
+the way a queued message's row stays absent.
+
+**The cheap check:** one query, `SELECT count(*) FROM orchestration_states WHERE created_at >
+'<dispatch time>'`. If that number is large, your message is not queued behind anything. Seconds,
+and I could have run it at the one-hour mark instead of the thirteen-hour mark.
+
+**The mechanism of the error, which is the transferable part:** the standing rule is *correct* —
+a missing row usually IS latency, and resubmitting on that evidence usually IS a wasted round. I
+applied a true heuristic without ever asking what would distinguish it from its opposite. "Absent
+because queued" and "absent because dropped" produce **identical evidence at the site you are
+looking at**; they differ only in a place I never looked, which is whether the queue is moving.
+A heuristic that cannot fail is not a heuristic, it is a habit — and this one had a one-query
+falsifier available the entire time.
+
+Compounding it: the same session had *already* logged the near-identical `bugfix_006` finding
+("the council submission was DROPPED, not queued"). I had the counterexample in my own memory
+index and still reached for the general rule.
+
+**Rule of thumb this earns:** before explaining an absence with latency, measure the throughput
+of the thing you claim is slow. An absence is evidence about a *system*, never about your own
+item alone.
+Family: heuristic-applied-without-a-falsifier, absence-has-two-causes, ignored-my-own-counterexample.

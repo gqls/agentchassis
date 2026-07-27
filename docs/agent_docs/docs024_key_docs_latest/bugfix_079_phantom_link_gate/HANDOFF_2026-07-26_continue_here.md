@@ -1,4 +1,11 @@
-# HANDOFF — bugs_open/079 phantom link gate — COLD START HERE
+# HANDOFF — 079 phantom link gate — **CLOSED 2026-07-27**
+
+> **This case is CLOSED.** Fix live in `v1.0.1171` and PROVEN end to end on that binary
+> (`checked_links 3 · rewritten 1 · unlinked 1`; the invented target unlinked with its text
+> intact, `/contact` rewritten to the stored `/contact.html`, valid and external links
+> untouched; `agent_error_log` row `CONTENT_LINK_REPAIR_DETAIL` carries both hrefs). File moved
+> to `bugs_closed/`. Kept for the method and the landmines — **the live work is now
+> `bugs_open/092`**, the upstream cause.
 
 **Written 2026-07-26 ~21:30Z.** Read this first, then `NOTES_phantom_link_gate.md` (missteps),
 then `RUNBOOK_phantom_link_gate.md` (the commands).
@@ -20,12 +27,22 @@ live in `v1.0.1171`**: the gate now repairs the link in `clean_html` — rewrite
 | Code | `43f254be5` (fix + tests + docs), `31d8ac7dc` (gofmt) |
 | Live | **YES — `v1.0.1171`**, pod-grep verified against a pre-roll baseline |
 | Unit tests | 13 cases, green, **induced-fault probed** (8/8 fail when stubbed) |
-| End-to-end induction | **OWED** — dispatched, was still queued |
-| Council | submitted `97904892-5c09-4782-aeda-37dd944abdfc`; **never got an orchestration row** in 1h40m. No trailer, and none is now possible |
-| `bugs_open/079` | still in `bugs_open/`, with a FIXED banner naming the residual |
+| End-to-end induction | **DONE 2026-07-27** — both arms exercised live, owner-approved |
+| Council | `97904892-…` **DROPPED, not queued** — zero rows after 13h while 676 orchestrations ran. No trailer, none possible |
+| `079` | **CLOSED**, in `bugs_closed/` |
 | `bugs_open/092` | NEW, filed by this thread — the upstream cause |
 
-## THE ONE THING OWED — finish the induction
+## HOW THE INDUCTION WAS DONE (kept — it took four attempts)
+
+A crafted dispatch only materialises if the agent type has a **live pod**. An inline
+`config.workflow` and a freshly-seeded agent type both vanished with no orchestration row and no
+error. What worked: point `content-reviewer`'s `validate_content` step `html_field` at
+`input_data.page_html` (owner-approved, ~2 min, restored and **byte-compared** against a
+pre-patch snapshot), then dispatch the crafted HTML. No natural induction was ever available —
+5 real builds ran the new code with `checked_links: 0` because the writer emits no anchors at
+all (`bugs_open/092`).
+
+## SUPERSEDED — the original "one thing owed"
 
 A `page-build-handler` run was dispatched and had not started:
 
