@@ -5404,3 +5404,73 @@ conclusion.** `WHERE type='council-gate'` is not a wrong query, it is a narrow o
 query returns a confident answer about a small world with nothing in the result to indicate the
 world was small. Worth a habit: when a query filters by a name you took from the question, run it
 once without that filter before building on the result.
+
+---
+
+## 2026-07-26 — I wrote "no scanner can catch this" into a live council seat, and it was false
+
+**The claim.** Having found a site publishing a promise of its own infallibility, I
+concluded the class was structurally invisible to the platform and wrote that into
+migration 223 — into the *contract text* of the compliance council seat and again
+into its judge clause:
+
+> "it is the one class every scanner misses … invisible to all of them"
+> "remember no scanner will catch this, so this seat is the only control"
+
+I repeated it in a bug-adjacent workstream note, a milestone summary, a decisions
+register, a memory file, and two commit messages, and I built a design
+recommendation on top of it.
+
+**What is actually true.** `ScanBannedClaims`
+(`platform/orchestration/datahelpers/claims.go:284-325`) is a bare
+case-insensitive regex over prose blocks. It contains no number extraction, no
+`businessClaimContextRe`, no `isExcludedNumber` — those gate only
+`ScanUnregisteredNumbers` (`claims.go:365,369`). It catches whatever patterns a
+site has been given, about anyone, numeric or not. Live registers already carried
+purely qualitative patterns — `leaderboard`, `live now`, `price target`, `years of
+experience`. **The capability had been there the whole time. No pattern for this
+class had ever been written on any site, and there is still no way to write one
+once for the fleet.** Coverage gap, not capability gap. Arming it took one UPDATE
+and no image roll, and bought a build-time *blocker* plus a high-severity
+post-deploy finding.
+
+**What caught it.** The owner. He read the proposal, said *"we have existing
+functionality that double checks claims, and we have the council — look hard at
+our existing documentation and solutions"*, and would not take the new-machinery
+answer. Research then took ten minutes and the crux was one function body.
+
+**What should have caught it earlier — the check I skipped.** I had *already read
+the limitation that misled me*. Earlier the same day I correctly established that
+`ScanUnregisteredNumbers` is inert on finance prose, and wrote it up accurately.
+Then I let "the number scanner cannot see this" become "the scanner cannot see
+this", and never opened the sibling function twelve lines away. **A limitation
+established about one component does not transfer to the component next to it, and
+the cheap check is to read the function you are about to write off** — thirty
+seconds, and I spent an afternoon building on the assumption instead.
+
+There was also a documented answer I never looked for.
+`SPEC_claims_verification.md:250-252` records this exact open question — *"Should
+`banned_claims` be fleet-shareable (some patterns are universal) … Proposal:
+per-site only until two sites have evidence bases"* — deferred when n=1, and its
+precondition lapsed long ago at n=8. **Grep the spec for your problem before
+concluding the platform has no answer to it.**
+
+**Why this one is worse than an ordinary wrong call.** It is not a status line or
+a handoff sentence — it went into the **standing instructions of a live reviewing
+agent**, where it would have shaped every future compliance verdict by telling the
+seat it was the only control and inviting it to substitute for a mechanism instead
+of asking for one. And the content of the error is precisely the failure the seat
+exists to catch: **a confident, unverified claim about what our system guarantees,
+written by the person building the overclaim detector.** Corrected in migration 227
+and mirrored to both rosters.
+
+**The bit worth remembering.** "Nothing in the estate does X" is a claim about the
+whole estate, and it is enormous — far larger than the evidence I had, which was
+one component's documented limit and my own failure to find a pattern. **A
+universal negative about a large system needs a search, not an inference**, and the
+tell that I had not done one is that my sentence named four mechanisms and I had
+read the source of exactly one of them. When you catch yourself writing *nothing*,
+*never*, *no*, or *the only*, that is the sentence to go and disprove.
+
+Family: universal-negative-from-local-evidence, limitation-bled-across-components,
+the-spec-already-answered-it, overclaiming-while-building-the-overclaim-detector.
