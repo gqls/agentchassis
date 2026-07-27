@@ -70,6 +70,7 @@
 > grep -ac "YOUR IDEA, ASSESSED" /opt/idea/idea # 07-25 engine work → 1
 > grep -ac "claude-opus-5"    /opt/idea/idea   # 5-family models → 1
 > grep -ac "claude-opus-4-8"  /opt/idea/idea   # the models it replaced → 0
+> grep -ac "recovered after a restart" /opt/idea/idea  # 07-27 slot-leak recovery → 1
 > ```
 >
 > **Why each fix carries its own marker, and this is the lesson of the evening:** the 18:29 deploy
@@ -98,11 +99,24 @@
 >
 > ### Open, and deliberately not done
 >
-> 1. **`ExpireStale` skips `running`.** Correct while a run is genuinely in flight; wrong after a
->    restart, because fulfilment is an in-memory goroutine and none survives one. A restart strands
->    the order `running` and leaks its slot **permanently** — the exact failure the expiry work was
->    written to end. Fix: at startup, before the first sweep, reset any `running` order. Not built —
->    only safe to write when nothing is running, and something ran all evening.
+> 1. ~~**`ExpireStale` skips `running`.**~~ **DONE 2026-07-27 12:48 — fixed, deployed (5th deploy) and
+>    INDUCED LIVE** (`5c3081e3f`, NOTES §X.24). Built once the box was idle, which was the
+>    precondition. `Store.RecoverInterrupted` runs at startup — the only place the question is
+>    decidable, since a process cannot inherit another's goroutines, so every `running` order there
+>    is by definition abandoned. `ExpireStale` still refuses to touch `running`, deliberately: on an
+>    hourly ticker it cannot tell a live 20-minute run from a dead one.
+>    **Two corrections to what this item used to propose** — it said "reset any `running` order",
+>    and that would have cost money. (a) A **paid** buyer must NOT go back to `requested`: under
+>    charge-first, payment precedes the engine, so `/confirm` would issue a second pay link and
+>    charge them twice. (b) Resetting to just any status fixes nothing — `ExpireStale` skips
+>    `requested` and `paid` as well, so the target must either free the slot or be genuinely re-run.
+>    `ProviderSessionID` (written only by `sendPayLink`) discriminates exactly: unbilled →
+>    `requested`, slot freed, re-startable from the operator's existing `/confirm` link; paid →
+>    `paid` and re-run, slot correctly retained.
+>    Proof is the induction, not the deploy: a spam row was stranded `running` on the live box and
+>    came back `requested` with the operator emailed, leaving the order distribution identical
+>    (73; 60/5/4/4). The **paid branch is [UNPROVEN LIVE]** — under `review_before_pay=true` it is
+>    unreachable in production, so it is tested only.
 > 2. ~~**Margin lever, owner's call:** the engine still runs `claude-opus-4-8` / `claude-sonnet-4-6`~~
 >    **DONE 2026-07-26 — the engine is on `claude-opus-5` / `claude-sonnet-5`, deployed and
 >    verified** (NOTES §X.22). **And a correction to what this line used to say:** it called the four
@@ -144,7 +158,7 @@
 | **Guides** | 9, live, in journey order on a self-populating hub: creating-ideas → building-it → testing-it → user-acceptance → feedback-loops → patents → copyright → funding-ways → funding-sources |
 | **Tools** | 4 cards on `/tools.html`: the £29 Verified Idea Report · "Should you patent it?" (free) · "Which funding route fits?" (free) · Free Audience Check |
 | **Paid tool** | Extended and DEPLOYED: the report leads with an assessment of the submitted idea, carries "Check it yourself" source links, discloses AI use in the report itself, and renders an honest "too early to assess" outcome. **Binary superseded 07-26 21:10** — now also carries auto-expiry, `bugs_closed/089`, `bugs_closed/090` and three copy fixes (markers in ▶ START HERE) |
-| **Box** | `116.203.204.115`, service `idea` restarted **07-26 21:10**, queue open **(1/5 — the slot is the unpaid order)**, `OPERATOR_EMAIL=idea-uk@leopardess.uk`, no `CONTACT_EMAIL` line (correct — see §Email) |
+| **Box** | `116.203.204.115`, service `idea` restarted **07-27 12:48** (5th deploy — the slot-leak recovery), queue **open, 0/5** (the first sale delivered and released its slot), 73 orders, `OPERATOR_EMAIL=idea-uk@leopardess.uk`, no `CONTACT_EMAIL` line (correct — see §Email) |
 | **Locks** | 27 authored sections locked; both hub listings deliberately unlocked so they keep deriving |
 
 Site id `1244516d-014d-421c-88c6-090bb1e9552a`. SQL applied this arc: `sql/p4_01`…`p4_19`.

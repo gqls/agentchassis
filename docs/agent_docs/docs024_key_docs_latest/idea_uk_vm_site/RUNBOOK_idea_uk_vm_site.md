@@ -619,3 +619,49 @@ memory on every order change (`persist()`, `store.go:64`). An edit made while th
 store. Observed live 2026-07-26: a slot-clear reported success, then one incoming request
 restored all five cleared statuses. Sequence is always: `systemctl stop idea` → edit → `systemctl
 start idea` → verify via `curl -s http://127.0.0.1:8080/capacity`.
+
+### Proving a STARTUP-ONLY behaviour — induce it, because a clean deploy exercises nothing
+
+Added 2026-07-27 (NOTES §X.24). Startup-only code (the interrupted-run recovery) does **not** run
+on a healthy deploy: with nothing stranded there is nothing to recover, the log stays silent, and
+every check passes without a line of the new code executing. That is a green happy path proving
+deployment, not correctness. Induce the state deliberately, on a row that costs nothing — one of
+the ~60 June spam `requested` rows.
+
+The trap above is what makes this safe: the edit MUST happen with the service stopped, or it is
+both invisible and clobbered.
+
+```bash
+ssh root@116.203.204.115 '
+set -e
+systemctl stop idea
+cp /var/lib/idea/orders.json /var/lib/idea/orders.json.bak-$(date +%F)-preinduce
+python3 - <<"PY"
+import json
+p = "/var/lib/idea/orders.json"
+d = json.load(open(p)); o = d["orders"]
+# a spam row: requested, never billed, harmless — and it returns to this exact status
+pick = [k for k, v in sorted(o.items())
+        if v["status"] == "requested" and not v.get("provider_session_id")][0]
+print("INDUCING on:", pick)
+o[pick]["status"] = "running"
+json.dump(d, open(p, "w"), indent=2)
+PY
+systemctl start idea
+curl -s --retry 15 --retry-delay 1 --retry-connrefused http://127.0.0.1:8080/capacity'
+```
+
+Then read the proof from the journal, not from the exit status:
+
+```bash
+ssh root@116.203.204.115 'journalctl -u idea --since "-3 min" --no-pager | grep -i recover'
+# → recover: order ord_… was interrupted mid-run and was never billed → back to requested, slot released
+# → email to idea-uk@leopardess.uk sent: "[idea.uk] 1 order(s) recovered after a restart"
+```
+
+**Two gotchas.** (1) Use `curl --retry … --retry-connrefused` rather than a sleep — the service
+needs a moment to bind and a fixed sleep is either flaky or slow. (2) Confirm the induction was
+**reversible** by re-counting statuses afterwards; it should match exactly what you started with
+(73; 60 requested / 5 expired / 4 delivered / 4 declined). If it does not, you induced on the wrong
+row. Note this sends a real email to the operator address — expected, and worth saying out loud so
+it is not mistaken for a live incident.

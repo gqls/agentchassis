@@ -2194,6 +2194,14 @@ written to end. Cheap fix: at startup, before the first sweep, any order still `
 be — reset it to `requested` or `expired`. Deliberately not built: a run was in flight and this
 change is only correct if it never touches a live one.
 
+> **CORRECTED 2026-07-27 (§X.24) — the diagnosis held, the proposed fix had a money bug.**
+> "Reset it to `requested` or `expired`" is wrong for a buyer who has **paid**: under charge-first
+> the payment lands before the engine runs, so `requested` lets `/confirm` issue a second pay link
+> and charge them twice, and `expired` bins a paid-for report. It also would not have worked —
+> `ExpireStale` skips `requested` and `paid` too, so an undiscriminating reset just renames the
+> leak. Built instead with `ProviderSessionID` (written only by `sendPayLink`) as the
+> paid/unbilled discriminator. Fixed, deployed and induced live — see §X.24.
+
 #### 6. Observation for the margin question
 
 The engine runs `GEN_MODEL=claude-opus-4-8`, `CRITIQUE_MODEL=claude-sonnet-4-6`,
@@ -2421,3 +2429,125 @@ The standing line "nobody has ever paid for a report and received one" is gone. 
 finished. **A product can be complete, verified, and demonstrably working and still never have done
 the thing it exists to do.** The question to ask of the next site declared done is not "does it
 work" but "has the transaction at the end of it ever completed once".
+
+### §X.24 — the `running` slot leak is fixed, deployed and induced live (2026-07-27, session "idea.uk vm 7")
+
+The last open item from §X.20 §5. Built now because the precondition finally held: the box was
+idle (`{"active":0,...}`, `RUNNING NOW: []`), and this change is only correct if it can never touch
+a live run.
+
+#### The defect, stated precisely
+
+Fulfilment is an in-memory goroutine (`App.dispatch`), so no run survives a restart — **and a
+deploy is a restart** (there were four on 26 July alone). The order is left `running`, which
+`ActiveCount` charges against `MaxActive` and which `ExpireStale` deliberately skips, because from
+inside the store a dead run and a live one are indistinguishable. The slot was then held **for
+ever**, with no path back — the exact failure the expiry work was written to end, reached through a
+different door.
+
+That restraint in `ExpireStale` is **correct and must stay**: on an hourly ticker in a live process
+it cannot tell a genuine 20-minute run from an abandoned one, and expiring a live run would destroy
+a report the customer is owed. So the release has to come from the one place where the question is
+decidable — startup, where a process cannot inherit another's goroutines, so every `running` order
+is *by definition* abandoned.
+
+#### A correction to the fix §X.20 §5 proposed — it had a money bug
+
+> §X.20 §5 said: *"reset it to `requested` or `expired`."* **Both are wrong for a buyer who has
+> paid**, and the note did not distinguish them.
+
+Under charge-first (`REVIEW_BEFORE_PAY=false`) payment lands *before* the engine runs
+(webhook → `paid` → `fulfil` → `running`). Sending such an order back to `requested` would let
+`/confirm` issue a **second pay link and charge them twice**; `expired` would silently bin a report
+someone had paid for. The same shape as `089`/`090`: a plausible one-line fix that quietly costs
+money.
+
+Two further things the original note missed:
+
+- **"Any non-running status" does not fix it.** `ExpireStale` also skips `requested` *and* `paid`
+  (`default: continue`), so a careless reset just renames the leak. The target has to either free
+  the slot or be genuinely re-executed.
+- **The discriminator already exists.** `ProviderSessionID` is written in exactly one place —
+  `sendPayLink`, `service.go:235` — at the moment a checkout is created. So it answers "has this
+  buyer been asked for money" exactly, per order, with no config guessing.
+
+Final design (`Store.RecoverInterrupted`):
+
+| stranded `running` order | goes to | why |
+|---|---|---|
+| no `ProviderSessionID` — never billed | `requested` | frees the slot (`ActiveCount` ignores `requested`) and is re-startable through the operator's **existing** `/confirm` link, which accepts precisely that status. Nothing durable is lost: a report is only stored on completion |
+| has `ProviderSessionID` — paid | `paid`, and re-run | they paid, we owe them the report. Keeps its slot, which is correct |
+
+Wired at the top of `StartSweeper`, **not** in `main.go`: "recover before the first sweep" is an
+ordering invariant, and keeping both halves in one function means it cannot be broken by
+rearranging the caller.
+
+#### Tests, including a negative control
+
+`recover_interrupted_test.go`, 6 cases. Two worth naming:
+
+- The first pins **the leak itself** — that `ExpireStale` must *not* expire a running order, even
+  at 99 days — so the fix cannot later be "simplified" into the sweep, where it would kill live
+  runs.
+- The wiring test leaves the expiry thresholds **disabled** on purpose: recovery must not inherit
+  the sweep's opt-out. An operator who turns expiry off has not asked us to leak slots on restart.
+
+**Checked against a negative control before trusting it.** With `a.recoverInterrupted()` unwired,
+`TestStartSweeperRecoversInterruptedRuns` fails with `paid order not re-run on startup: status
+"running"`; rewired, green. Restored by reversing the exact edit rather than copying a backup file
+over `service.go`, and confirmed byte-identical — a whole-file restore could have clobbered a
+concurrent session's edit.
+
+#### Fifth deploy (2026-07-27 12:48 UTC), and the marker discipline
+
+Commit `5c3081e3f`, tree clean at build time so the binary is exactly `HEAD`. Backups first:
+`orders.json.bak-2026-07-27-predeploy`, rollback binary `idea.prev-2026-07-27-pre-recover`.
+
+```
+                          old binary   new binary
+"recovered after a restart"      0            1     ← discriminates
+"refused fake=1"    (089)        1            1     ← positive control
+"X-Real-IP"         (090)        1            1     ← positive control
+"claude-opus-5"                  1            1     ← positive control
+```
+
+73 orders intact (60 requested / 5 expired / 4 delivered / 4 declined), unit active,
+`review_before_pay=true, auto_deliver=false, price=£29`.
+
+#### The part that actually proves it: induced live
+
+A deploy with nothing stranded exercises **none** of this — the first boot logged no recovery,
+correctly, and that is a green happy path proving deployment, not correctness. So the fault was
+induced on the live box against a June spam row (`requested`, no session id, nobody cares):
+service stopped → status set to `running` → started.
+
+```
+recover: order ord_1780668917992469761 was interrupted mid-run and was never billed
+         → back to requested, slot released
+email to idea-uk@leopardess.uk sent: "[idea.uk] 1 order(s) recovered after a restart"
+```
+
+Afterwards: status `requested`, `running: []`, and the distribution **identical to before the
+induction** (73; 60/5/4/4) — fully reversible, the spam row is exactly where it started. The
+operator address received one real test email; that is the notification working, not a fault.
+
+Edited only with the service **stopped**, per the standing trap: `orders.json` is read once at
+startup and rewritten wholesale from memory, so an edit under a running service is both invisible
+and doomed.
+
+#### What is NOT proven live, stated because the tests are green either way
+
+The **paid branch** (`running` + session id → `paid` + re-run) is **[UNPROVEN LIVE]** — covered by
+unit tests only. Two reasons, and the first is the honest one: under the live config
+(`review_before_pay=true`) `running` only ever occurs at `/confirm`, *before* any checkout exists,
+so that branch **cannot currently be reached in production at all**. It is defensive correctness
+for the documented charge-first config. Proving it live would also mean a real engine run — money
+and ~9.5 minutes — to exercise a path that is presently unreachable.
+
+#### Minor
+
+- A `MarkEventSeen` doc comment had been orphaned above `ExpireStale` in `store.go`, so the file
+  read as if it documented the wrong function. Moved back; noted in the commit.
+- My sandbox clock read ~73 min behind the box on first contact and then self-corrected. The box is
+  `Etc/UTC`, NTP-synced, and was right throughout; nothing here depended on it. **Trust the box's
+  clock, not the sandbox's**, when comparing timestamps.

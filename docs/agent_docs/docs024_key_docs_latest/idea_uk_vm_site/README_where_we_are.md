@@ -1539,3 +1539,45 @@ So: the product works, end to end, with real money. What's left is smaller — a
 mid-report still holds its slot forever, which is the same bug we fixed yesterday arriving through
 a different door, and the News section is still empty. Neither is urgent. The thing that was
 genuinely unknown yesterday is now known.
+
+---
+
+**27 July, early afternoon — the interrupted-order bug is fixed, and it was nastier than the note
+about it suggested.**
+
+That last loose end is now closed, deployed and tested on the live box. The problem, in plain
+terms: when the report engine is working on an order and the service restarts — which happens every
+single time we deploy — the work is lost, because it only ever existed in memory. The order was
+left marked "running", and nothing would ever clear that. It permanently occupied one of the five
+slots. Five interrupted reports and idea.uk would have quietly stopped accepting work, with no way
+out except hand-editing a file on the server.
+
+**The fix I'd written down yesterday would have cost us money.** Yesterday's note said: at startup,
+just reset anything still marked "running". That's fine if the customer hasn't paid. But there's a
+second way the site can be configured — take the money first, then write the report — and under
+that setup the payment has already gone through by the time the report starts. Resetting one of
+those to "not yet started" would send the customer a *second* payment link. We'd have charged them
+twice for one report. The other suggestion, marking it "expired", would have quietly thrown away a
+report someone had paid for.
+
+So the fix now asks one question about each stranded order: has this person been sent a payment
+link? The answer is already recorded, in exactly one place, so there's no guessing. Nobody's been
+billed — put it back to "waiting for me to confirm", which frees the slot and lets you restart it
+from the same email you already have. They've paid — put it back to "paid" and just re-run the
+report, because we owe them one. It also emails you a note saying which orders were recovered and
+that there's nothing for you to do.
+
+**I didn't trust the deploy to prove it.** Deploying and seeing the service come up healthy proves
+almost nothing here, because with no interrupted orders sitting around, none of the new code
+actually runs. So I deliberately broke it: I took one of the old June spam entries, marked it
+"running" by hand, and restarted. The log shows it being recovered and your operator address being
+emailed — that email is real, and it's a test, so ignore it. Afterwards the spam entry was back
+exactly where it started and all 73 orders were untouched.
+
+One honest gap: the paid-customer branch is only proven by tests, not on the live site. That's
+because with the site set up the way it is now — report first, payment after — that situation
+can't actually arise. It's there so that if we ever switch to taking payment first, it's already
+correct. Proving it live would mean paying for a real report to test a path we can't currently
+reach, which isn't worth it.
+
+Nothing is outstanding on this now. The News section is still the empty one.
