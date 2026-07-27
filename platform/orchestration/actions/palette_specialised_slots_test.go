@@ -244,3 +244,31 @@ func TestLightSiteIsNotWarnedAboutItsOwnLiterals(t *testing.T) {
 		t.Errorf("a light site was warned about literals chosen for it: %v", logs.All())
 	}
 }
+
+// TestUnparsablePaletteCallIsReported — council f17b0a77 round 2, raised by
+// bug_historian AND guardian independently: the scanner knows one spelling of
+// the helper call, so a layout written differently would match nothing and
+// report nothing, which is the same silent fall-through the round is closing.
+// Verified separately that all 18 active layouts parse cleanly today; this is
+// the guard for when that stops being true.
+func TestUnparsablePaletteCallIsReported(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+	// Second call uses single quotes — a shape the strict pattern rejects.
+	layout := `--a: {{palette "card_bg" "#ffffff"}}; --b: {{palette 'badge_bg' '#f7fafc'}};`
+	warnLightLiteralsOnDarkSite(layout, map[string]string{"background": "#080E1C"}, zap.New(core))
+
+	var reported bool
+	for _, e := range logs.All() {
+		if strings.Contains(e.Message, "cannot parse") {
+			reported = true
+			for _, f := range e.Context {
+				if f.Key == "unparsed" && fmt.Sprint(f.Integer) != "1" {
+					t.Errorf("expected 1 unparsed call, got %v", f.Integer)
+				}
+			}
+		}
+	}
+	if !reported {
+		t.Error("a palette declaration the scanner could not parse was passed over in silence")
+	}
+}

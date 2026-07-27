@@ -42,6 +42,7 @@ package actions
 import (
 	"regexp"
 	"sort"
+	"strings"
 
 	"go.uber.org/zap"
 )
@@ -195,9 +196,32 @@ func warnLightLiteralsOnDarkSite(layoutTemplate string, palette map[string]strin
 		covered[d.name] = struct{}{}
 	}
 
+	// Council f17b0a77 round 2, raised independently by bug_historian and
+	// guardian: this scanner recognises ONE spelling of the helper call, so a
+	// layout written with different whitespace, quoting, argument order or a
+	// computed fallback would match nothing and report nothing — "a second
+	// silent-fallthrough of the same shape this round is trying to eliminate".
+	//
+	// Verified 2026-07-27 that the strict pattern matches every call in all 18
+	// active layouts (raw `{{palette` occurrences == regexp matches, per
+	// layout: 25/25, 24/24, 23/23, 22/22 ×4, 21/21 ×2, 20/20 ×2, 19/19, 18/18
+	// ×2, 17/17 ×4). That is true today and is exactly the kind of fact that
+	// stops being true quietly, so it is asserted here rather than trusted:
+	// a template whose declarations this scanner cannot parse says so.
+	rawCalls := strings.Count(layoutTemplate, "{{palette") + strings.Count(layoutTemplate, "{{ palette")
+	matches := paletteHelperCall.FindAllStringSubmatch(layoutTemplate, -1)
+	if rawCalls > len(matches) {
+		logger.Warn("layout declares palette slots in a form this scanner cannot parse — "+
+			"the unparsed ones are NOT covered by the light-literal check below, and a slot "+
+			"nobody checks is how the original defect survived",
+			zap.Int("palette_calls_found", rawCalls),
+			zap.Int("parsed", len(matches)),
+			zap.Int("unparsed", rawCalls-len(matches)))
+	}
+
 	seen := make(map[string]struct{})
 	offenders := make([]string, 0)
-	for _, m := range paletteHelperCall.FindAllStringSubmatch(layoutTemplate, -1) {
+	for _, m := range matches {
 		slot, fallback := m[1], m[2]
 		if _, dup := seen[slot]; dup {
 			continue
