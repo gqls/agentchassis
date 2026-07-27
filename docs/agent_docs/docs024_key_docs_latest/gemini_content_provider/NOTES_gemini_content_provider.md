@@ -250,3 +250,44 @@ be quoted as such: the template's placeholders were filled with
 returned 2 characters with `finishReason=STOP` — almost certainly an empty JSON
 object, and exactly the sort of number that would become "Gemini writes nothing"
 if lifted out of context. The **thinking** figures are the usable output here.
+
+## 2026-07-27 — council gate fired (P2)
+
+**`SUBMISSION_CORR = a1a5cf20-a70d-48c3-8fda-842d2a91b651`** (council-gate,
+5 edits: the three `gemini.go` areas, content-creator's cost table, the test
+file). Queued behind one in-flight run (`council-gate-orchestrate-0727-1309`, at
+`review_reuse_agent`); consumer live, last step advanced 16s before submission.
+Do NOT re-fire — a duplicate spends the same credits and lands further back in the
+same lane.
+
+Verdict:
+```sql
+SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
+WHERE correlation_id='a1a5cf20-a70d-48c3-8fda-842d2a91b651' AND kind='council_report'
+ORDER BY created_at;
+```
+
+**Three defects in my own submission, caught by assertions I put in the builder
+rather than by reading it back.** Worth recording because the submission is the
+only view the reviewers get, and all three would have cost a round:
+
+1. **One edit's `sketch` was EMPTY (0 chars).** My hunk selector matched patterns
+   against diff hunk *headers* (`@@ … @@`), which carry only line numbers and the
+   enclosing function — so a hunk whose *body* contained the change was never
+   selected. Reviewers judge the sketch; an empty one draws confident objections
+   about code they cannot see (the recorded failure in the gate RUNBOOK). Now
+   matches hunk BODIES and **asserts non-empty before submitting**.
+2. **A quote attributed to the wrong source.** I cited *"The queued `about`
+   rebuild never ran under Gemini (still triaged behind the backlog)"* as commit
+   `5db6a929f`'s message. It is not in that message — it is in the brochure NOTES
+   file that commit *added*. Caught by asserting the quote appears in the text it
+   is attributed to. **A quote that is verbatim-but-mis-sourced is still a false
+   citation**, and reviewers cannot open files to check.
+3. **Two quotes silently joined across line breaks.** Commit messages wrap, so
+   `404 "no longer available\n   to new users"` is not the string I pasted.
+   Grepping for the joined form returned 0 — which is how I found it. Quotes now
+   preserve the wrapping and say they do.
+
+The cheap check behind all three: **build the submission with a script that
+asserts, rather than assembling it by hand and proof-reading.** Proof-reading
+found none of these; three `assert`s found all three in one run.
