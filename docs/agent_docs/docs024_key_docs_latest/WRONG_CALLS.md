@@ -6306,3 +6306,52 @@ written the warning.
 Family: a-refusal-is-about-the-value-not-the-parameter,
 probe-fault-masquerading-as-a-verdict, NULL-means-absent-or-means-wrong-path,
 wrote-the-warning-and-then-did-it.
+
+---
+
+## 2026-07-27 — "the Arena's problem is that nothing fills it" (gauntlet_dead_cta)
+
+**The claim.** Written into `PLAN_2026-07-22`'s Step 4 and repeated in
+`HANDOFF_2026-07-26_gauntlet_p4_frontend_rebuild.md`: *"Arena
+(`tool-arena-interface`) has a 38.6 KB `html_template` but `js_content IS NULL` —
+the 'Loading… DAY 0' is template text no JS ever fills."* The step was then
+deferred on reasoning built entirely on that premise — that shipping a loader
+would trade "a visibly broken page for a convincingly broken one".
+
+**What was true.** The page had a complete inline application inside the
+template, and it rendered ~26 invented users with handles (`@synthetix`,
+`@inkblot_vera`, …), invented reaction tallies (`seed: { Genius: 12, Delusional:
+41, … }`), invented "remix chains" crediting invented contributors, and a take
+box writing to `localStorage`. The defect was not an ABSENCE of behaviour, it was
+FABRICATED behaviour — the worst class this workstream exists to remove, sitting
+in the one place we had decided not to look.
+
+**What caught it.** Reading the served page source. Nothing more than that.
+
+**The cheap check that would have.** `js_content IS NULL` was read as "this
+component has no JavaScript". It means "this component has no JS **in the
+js_content column**" — and this template ships its script inline, which is a
+different storage location, not a different fact about the page. **One `grep -c
+'<script'` on the template would have refuted it.** The query answered the
+question it was asked; the question was the wrong one.
+
+**Cost.** Two days of the fabrication sitting live after the rest of the site was
+cleaned, and a deferral decision made on an inverted premise — we deferred to
+avoid *creating* a convincing fake, while the convincing fake was already served.
+
+**Same session, corrected within minutes:** I read a screen of `COMPLETED`
+orchestration rows as "the dispatch lane is healthy" while waiting on a publish.
+They were all `check_endpoint_health` — a 90-second cron that got its **own lane**
+when `030` closed, so it says nothing whatsoever about the generic request lane.
+*Check: read what the rows ARE, not how many there are.* The real discriminator
+was consumer lag (`LAG=2`, consumer attached ⇒ queued, not eaten).
+
+**A near-miss worth the entry because it was caught BEFORE acting:** I was one
+command from `UPDATE pages SET build_status='deployed'` to clear a stale
+`needs_rebuild` on `tool-gauntlet`. `bugs_closed/049`'s closing analysis had
+already measured that population — **34 pages, 34/34 serving 200** — and routed
+around it deliberately. *Check: before correcting wrong-looking data, ask what
+still READS it; three separate guards had already made this flag inert.*
+
+Family: the-column-is-not-the-concept, counted-the-rows-instead-of-reading-them,
+wrong-looking-data-is-not-load-bearing-data.
