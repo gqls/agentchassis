@@ -16,18 +16,42 @@ grep -A4 'ai_service:' deployments/kustomize/services/content-creator-agent/over
 
 ```sql
 -- page-content-writer — a chassis agent definition, provider in the DB.
--- Root ai_service is SHADOWED per-key by the step block (bugs_closed/009), so
--- read the STEP, not just the root.
-SELECT default_config->'workflow'->'steps'->'generate_content'->'config'->'ai_service' AS step_ai_service,
-       default_config->'ai_service'                                                   AS root_ai_service,
-       updated_at
-FROM agent_definitions
-WHERE type = 'page-content-writer'
-  AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+-- The step is NESTED INSIDE the loop's sub_workflow. Verified 2026-07-27.
+SELECT v->'config'->'ai_service'            AS step_ai_service,
+       (v->'config'->>'max_tokens')         AS step_max_tokens,
+       length(v->'config'->>'prompt_template') AS tmpl_chars,
+       a.updated_at
+FROM agent_definitions a,
+     jsonb_each(a.default_config->'workflow'->'steps'->'process_sections_loop'
+                ->'config'->'sub_workflow'->'steps') AS e(k,v)
+WHERE a.type = 'page-content-writer'
+  AND a.is_active AND COALESCE(a.is_snapshot,false)=false AND a.deleted_at IS NULL
+  AND e.k = 'generate_content';
 ```
 
-**Gotcha:** the writer's provider lives on the `generate_content` step inside
-`process_sections_loop`. Patching the root block alone changes nothing.
+> **CORRECTED 2026-07-27.** This section first gave the path as
+> `workflow → steps → generate_content → config → ai_service`. **That returns all
+> NULLs** — `generate_content` is not a top-level step. The real path is
+> `workflow → steps → process_sections_loop → config → sub_workflow → steps →
+> generate_content`. Caught by running it: four NULL columns and no error, because
+> a wrong `->` path in Postgres yields NULL rather than failing. **A jsonb path
+> that returns NULL has not told you the value is absent — it may have told you
+> the path is wrong.** Found the real one by walking down from
+> `jsonb_object_keys`, then `jsonb_each` over `steps` (it is an OBJECT keyed by
+> step name, not an array — `jsonb_array_elements` errors with "cannot extract
+> elements from an object").
+
+**Gotchas.**
+- `default_config->'workflow'->'steps'` is an **object**, not an array. Use
+  `jsonb_each`, not `jsonb_array_elements`.
+- The writer's own budget is **`max_tokens: 8000`** on that step — not one of
+  content-creator's 100/1200/3000/6000 tiers. That matters: 8000 is roomy enough
+  that the 07-24 starvation may never have bitten the writer at all (see NOTES).
+- Root `ai_service` is shadowed per-key by the step block
+  (`bugs_closed/009`), so patching the root alone changes nothing.
+- The prompt template on that step is **12,570 chars** and growing — it was
+  described as 7.8K in another workstream's notes. Re-measure rather than
+  quoting; the reserve is sized off prompt complexity.
 
 ## 1. Probe the live key — do this BEFORE choosing a model
 
@@ -165,17 +189,21 @@ SELECT * FROM agent_definitions WHERE type = 'page-content-writer';
 
 -- 2. patch the STEP block, guarded on updated_at so a concurrent session's
 --    write cannot be silently overwritten. Several threads touch this row.
---    Substitute the updated_at you read in §0.
+--    Substitute the updated_at you read in §0. NOTE the nested path — the
+--    shorter one you might guess at silently no-ops (see the correction in §0).
 UPDATE agent_definitions
 SET default_config = jsonb_set(
       default_config,
-      '{workflow,steps,generate_content,config,ai_service}',
+      '{workflow,steps,process_sections_loop,config,sub_workflow,steps,generate_content,config,ai_service}',
       '{"provider":"gemini","model":"gemini-pro-latest","api_key_env_var":"GEMINI_API_KEY"}'::jsonb),
     updated_at = now()
 WHERE type = 'page-content-writer'
   AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
   AND updated_at = '<the updated_at you read>';
 -- expect UPDATE 1. UPDATE 0 means someone else wrote the row — re-read, do not retry blind.
+-- Then RE-READ with §0's query: jsonb_set on a path whose parent does not exist
+-- is a SILENT NO-OP that still reports UPDATE 1. The row count proves the guard
+-- held, not that the value landed.
 
 -- 3. confirm the Voice & Style block survived (it is separate from the provider
 --    and must NOT be lost in a provider change)

@@ -3616,11 +3616,23 @@ rather than as no effect.
 2. **Decode the whole usage block, not the field you already had a use for.** A
    provider reports the resource it consumed on your behalf; a decoder that skips
    it makes the consumption unattributable at every layer above.
-3. **When a knob is generation-specific, send nothing by default.** Gemini 2.5
-   takes an integer `thinkingBudget`, 3.x takes a `thinkingLevel` string and 400s
-   on the integer (that 400 is what "cannot be disabled" was read off). Guessing
-   fails 100% of calls. Provision headroom instead — a ceiling is not a purchase,
-   and the provider bills what it produces.
+3. **Provision headroom rather than reaching for a suppression knob.** A ceiling
+   is not a purchase — the provider bills what it produces — so headroom is nearly
+   free, and it works without your having to be right about the knob.
+   > **CORRECTED 2026-07-27.** This point first read: *"Gemini 2.5 takes an integer
+   > `thinkingBudget`, 3.x takes a `thinkingLevel` string and 400s on the integer."*
+   > Measured: on `gemini-pro-latest` **both** knobs are accepted, and only
+   > `thinkingBudget: 0` is refused ("Budget 0 is invalid. This model only works in
+   > thinking mode"). That was **my** generalisation from one rejected value — an
+   > instance of the very pattern this entry is about, committed while writing the
+   > entry about it. The durable finding is different and better: **neither knob
+   > CAPS thinking.** `thinkingBudget` is a soft target the model overshoots (128 →
+   > 483 spent; 32768 → 783); it reduces thinking (2,764 → ~940 on a real 12.5K
+   > prompt) but bounds nothing. So a knob is a **cost lever, not a correctness
+   > one**, and headroom is not made redundant by setting one.
+   > *Check: before generalising from a rejected parameter value, try three more
+   > values of the same parameter.* A refusal tells you about the VALUE; only the
+   > neighbours tell you about the parameter.
 4. **Assume an unrecognised model is a NEWER one (deny-list, not allow-list).**
    Every Gemini generation since 2.5 thinks by default, so an allow-list of
    "models that think" under-provisions each new model on the day it ships — and
@@ -5685,3 +5697,69 @@ archived pages that 404.
    in a bug file is read as "is this biting?", never as "is my code path biting?". A symptom
    can have more than one cause, and `curl` costs seconds. This instance was found that way
    and no query would have surfaced it — logged in `WRONG_CALLS.md` the same day.
+
+### A value "passed in" can be dropped at every hop of one journey — assert the SERIALISED form, not the struct (2026-07-27)
+
+`bugs_open/085`. The render data handed to every section component advertises a
+`current_page` key. On the page-build path it was always empty, so no component could
+know which page it was on. The bug file — written from the code, by someone who had read
+the right function — called the fix **one line**. It was three, and the two it missed
+were on the same journey as the one it found.
+
+The value's route is: workflow config supplies the page record → `BuildRenderContextAction`
+merges its sources into a `RenderContext` → `renderCtxToMap` serialises that struct into
+`collected_data` → the next step's `mergeIntoRenderContext` reconstitutes a struct from
+the map → one of two renderers turns the struct into template data. Five hops, four
+functions, and the value was dropped at three of them:
+
+1. the source merge is an **allowlist** of branding fields, so the page's name was passed
+   in and discarded;
+2. the **serialiser did not emit the key at all**, so a correctly-set field would still
+   not have crossed the step boundary;
+3. the reconstitution did not restore it into the struct — its catch-all put it in
+   `ContentData`, which the html/template renderer honours and the regex-fallback
+   renderer explicitly does not (`contextToMap` skips any `ContentData` key the base map
+   already holds, and the base map held the empty field).
+
+**Each of the three reads as complete when you are looking at it.** An allowlist looks
+deliberate. A serialiser that omits one of twenty fields looks like the field is not
+needed. A catch-all looks like it catches all. Fixing only (1) — the filed one-liner —
+leaves the template still empty and looks exactly like a fix that did not work, which is
+the most expensive way to be wrong: the next thread concludes the diagnosis was bad.
+
+**What caught it was querying the serialised form.** The struct is invisible at runtime;
+the map is a jsonb column:
+
+```sql
+SELECT collected_data ? 'render_context'                 AS has_rc,      -- t   (positive control)
+       collected_data->'render_context'->>'domain'       AS rc_domain,   -- populated
+       collected_data->'render_context' ? 'current_page' AS rc_has_cp    -- FALSE, every row
+  FROM orchestration_states WHERE COALESCE(owner_agent_type,'') = 'page-content-writer'
+ ORDER BY created_at DESC LIMIT 6;
+```
+
+`? 'current_page'` returning **false** — the key absent, not empty — is what points at the
+serialiser rather than the producer. `->>'current_page' IS NULL` cannot tell those apart,
+and would have been read as "the producer set it empty", which is the wrong function.
+
+**How to catch this class:**
+
+1. **Follow the value, don't read the function.** When a field is "available but empty",
+   list every hop it makes between where it enters and where it is read, and check each
+   one. The number of hops is usually larger than the mental model, because struct →
+   map → struct conversions do not look like hops.
+2. **Distinguish absent from empty at every serialisation boundary.** `? 'key'` (or the
+   language's equivalent) localises the fault to a specific hop; a NULL/empty read does
+   not, and quietly accuses the wrong function.
+3. **Test the whole chain, not each function.** Three green unit tests are exactly what
+   this defect would produce. The regression that has value walks producer → serialiser →
+   reconstitution → both renderers, and fails with a different message at each hop.
+4. **Two renderers, one value.** Where a fallback path exists (here, regex substitution
+   when template execution errors), a fix that satisfies only the primary path passes
+   every normal test and reverts silently the first time the fallback fires. Prove the
+   asymmetry rather than assuming it: measured here as
+   `html/template -> "capabilities"`, `regex fallback -> ""`, from the same context.
+5. **Key names in a config-assembled envelope are data, not code.** The proposed fix read
+   `.name`; the live payloads use `name` on one envelope and `page_name` on two others,
+   and one carries both. Survey the shapes in the DB before writing the accessor — the
+   struct will not tell you, because the struct is not what builds the envelope.

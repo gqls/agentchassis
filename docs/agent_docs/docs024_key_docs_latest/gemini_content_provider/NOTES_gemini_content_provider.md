@@ -130,3 +130,123 @@ assert the truncation message names thinking as the consumer.
 pod verification, probe, both flips) cannot start. `GEMINI_API_KEY` exists only
 in the cluster secret — there is no local copy, so the probe cannot be run from
 here either. Everything up to the probe is done and waiting on credentials.
+
+## 2026-07-27 (later) — cluster auth restored; P4 probe RUN, and it corrected me twice
+
+Owner restored `kubectl` and asked for the probe + the council gate.
+
+**Model reachability, re-verified today** (not carried over from 07-24). Key read
+from pod `content-creator-agent-84564dfb67-vjq5g`:
+
+| model | result |
+|---|---|
+| `gemini-2.5-pro` | **404** "no longer available to new users" |
+| `gemini-2.5-flash` | **404** "no longer available to new users" |
+| `gemini-3-pro-preview` | **404** "no longer available" (retired outright, different message) |
+| `gemini-3.1-pro-preview` | OK |
+| `gemini-pro-latest` | OK (→ 3.1-pro-preview) |
+
+**The listing advertises models the key cannot call.** `models?pageSize=200`
+returns 42 `generateContent` models including `gemini-2.5-pro` and
+`gemini-3-pro-preview`, both of which 404. So the probe's own warning was right
+and worth keeping: **a model appearing in the listing is not evidence the key can
+reach it.** The `geminiRetiredPins` construction guard is therefore correct, and
+correct *today*, not just on 07-24.
+
+**Tier table, `gemini-pro-latest`, trivial prompt** — the 07-24 failure
+reproduced exactly:
+
+| max_tokens | finish | visible tok | thinking tok | chars |
+|---|---|---|---|---|
+| 100 | MAX_TOKENS | 4 | 92 | 23 |
+| 500 | MAX_TOKENS | 19 | 477 | 107 |
+| 1200 | STOP | 38 | 1145 | 224 |
+| 3000 | STOP | 37 | 888 | 213 |
+| 6000 | STOP | 44 | 786 | 228 |
+
+**Thinking expands to fill a small ceiling** (92 of 100, 477 of 500) and settles
+at ~800–1,150 once the ceiling is comfortable. That is the mechanism, measured.
+
+**Tier table on the REAL 12,570-char writer prompt** (placeholders filled), which
+is the figure that sizes the reserve:
+
+| config | max_tokens | thinking tok | visible tok |
+|---|---|---|---|
+| none | 8000 | **2,764** | 99 |
+| none | 3000 | **2,878** | 103 |
+| `thinkingLevel: low` | 8000 | 1,080 | 57 |
+| `thinkingBudget: 512` | 8000 | 940 | 55 |
+
+So the 8192 default carries ~3x headroom on the real workload. **It is now
+measured rather than chosen** — recorded in the constant's comment.
+
+> **CORRECTED 2026-07-27 — my own claim, falsified by the probe.** PLAN D2, the
+> NOTES entry above, the `016b` §9 pattern and the commit message all said the two
+> generations take *incompatible* knobs: "3.x takes a `thinkingLevel` string and
+> rejects the integer with a 400". **False.** On `gemini-pro-latest`:
+> `thinkingBudget: 512` → **ACCEPTED**; `128` → ACCEPTED; `32768` → ACCEPTED;
+> `thinkingLevel: "low"`/`"high"` → ACCEPTED. Only `thinkingBudget: 0` is
+> rejected, and its message says exactly why: *"Budget 0 is invalid. This model
+> only works in thinking mode."*
+> The 07-24 observation was right and narrow (that one value 400s). **The
+> generalisation was mine**, built from a single rejected value, and it is the same
+> error shape as the one this whole workstream exists to correct — reasoning from
+> one refusal to a structural claim without testing the neighbours. Cheap check
+> that caught it: three more values of the same parameter, ~30 seconds.
+> No harm done to the code: the client sends neither knob by default precisely so
+> this inference was never load-bearing. The comments asserting it are corrected.
+
+**And a second correction, this one to the guard's rationale rather than the
+guard.** Sending both knobs together IS refused — *"You can only set only one of
+thinking budget and thinking level"* — so the mutual-exclusion check is right. But
+my stated reason for it (two generations, two knobs) was wrong. Right check, wrong
+why, which is a worse state than it looks: it would have survived any review that
+read the reason instead of testing the behaviour.
+
+**The finding that actually changes the plan: neither knob CAPS thinking.**
+`thinkingBudget` is a soft target the model overshoots freely — 128 requested →
+483 spent; 512 → 903/940; 32768 → 783. It reduces thinking substantially (2,764 →
+~940 on the real prompt) but bounds nothing. So a knob is a **cost lever, not a
+correctness one**: it cannot replace the reserve, and any plan that says "just set
+thinkingBudget and drop the reserve" is wrong.
+
+**A probe fault I nearly reported as a finding.** The first knob run printed all
+three knobs as `REJECTED: contents is not specified`. That was my script: `jq
+--argjson` was fed jq syntax (`{thinkingConfig:{thinkingLevel:"low"}}`, unquoted
+keys) instead of JSON, so jq emitted nothing, curl posted an empty body, and the
+API complained about the *missing prompt* — which reads exactly like the API
+refusing the knob. **A malformed request and a refused parameter produce the same
+shape of "no".** Fixed, and the script now reports a request that fails to BUILD
+as `PROBE FAULT (NOT a verdict)` rather than letting it masquerade as one. Had I
+believed it, I would have "confirmed" my own falsified claim with my own bug.
+
+**Path correction, found by running it.** RUNBOOK §0's original query for the
+writer's provider returned four NULL columns and no error: `generate_content` is
+not a top-level step. Real path:
+`workflow → steps → process_sections_loop → config → sub_workflow → steps →
+generate_content → config → ai_service`. **A jsonb `->` path that returns NULL has
+not told you the value is absent — it may have told you the path is wrong**, and
+the two are indistinguishable without walking the keys. Also: `steps` is an
+*object* keyed by step name, so `jsonb_array_elements` errors ("cannot extract
+elements from an object") while `jsonb_each` works.
+
+**Two live facts about the writer that change the framing:**
+1. Its step budget is **`max_tokens: 8000`**, not one of content-creator's
+   100/1200/3000/6000 tiers. At 8,000 with thinking around 2,800 there is room to
+   spare — so `[INFERRED, from a context-stripped probe]` the 07-24 starvation
+   probably would **not** have bitten the writer. The starvation is a
+   *small-tier* defect, and content-creator's twitter/short tiers are where it
+   lived. For the writer the fix is insurance plus the thinking-token visibility
+   and the thought-part filter. Marked INFERRED because a real run carries site
+   specs, brief, existing content and link context — a far bigger prompt than the
+   12.7K template alone, and thinking scales with prompt complexity.
+2. Its prompt template is **12,570 chars**, not the 7.8K recorded in the brochure
+   NOTES. Grown since. Re-measure rather than quoting.
+
+**Visible-output figures from these probes are NOT quality evidence** and must not
+be quoted as such: the template's placeholders were filled with
+"(context omitted for probe)", so the model had nothing real to write about. The
+55–103 visible-token counts measure that, not its writing. One run at tier 3000
+returned 2 characters with `finishReason=STOP` — almost certainly an empty JSON
+object, and exactly the sort of number that would become "Gemini writes nothing"
+if lifted out of context. The **thinking** figures are the usable output here.

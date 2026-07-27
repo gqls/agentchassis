@@ -6253,3 +6253,56 @@ which is harder to notice because the transcript shows a query.
 
 Family: absence-is-not-evidence-in-either-direction, the-poll-that-cannot-see-failure,
 a-narrow-projection-defines-the-answer.
+
+### 2026-07-27 — gemini provider — generalised a parameter's behaviour from ONE rejected value, while writing the guide entry about that exact error
+
+**Asserted**, in four places at once (`gemini.go` comments, PLAN D2, `016b` §9,
+commit `8a2b5dea0`'s message): that Gemini's two thinking knobs are
+generation-specific and mutually incompatible — *"2.5 takes an integer
+`thinkingBudget`, 3.x takes a `thinkingLevel` string and rejects the integer with
+a 400"*. Built entirely from one datum in someone else's commit message
+(`thinkingBudget: 0` → 400 on 07-24) plus a plausible story about API generations.
+
+**What was actually true.** On `gemini-pro-latest`, `thinkingBudget` at 128, 512
+and 32768 are **all accepted**, as are `thinkingLevel` "low" and "high". Only the
+value **0** is refused, and the API says why in the message nobody re-read:
+*"Budget 0 is invalid. This model only works in thinking mode."* The original
+observation was correct and narrow. The generalisation from it was mine.
+
+**Caught by:** the probe I wrote for exactly this purpose, ~30 seconds after
+finally running it against the live key. Three extra values of the same parameter.
+
+**The cheap check that would have caught it:** *before generalising from a
+rejected parameter value, try three more values of the same parameter.* **A
+refusal tells you about the VALUE; only its neighbours tell you about the
+PARAMETER.** I had the datum for three days and never varied it.
+
+**Cost:** none realised — the client sends neither knob by default, so the false
+belief was never load-bearing in code, and the corrected finding is strictly more
+useful. But the shape is worth the entry: I wrote this claim into the same commit
+as a `016b` §9 pattern titled *"the attribution jumped a layer"*, and it is the
+same jump — from one observation to a structural rule — made while documenting the
+danger of making it. Confidence is not a signal, and neither is having just
+written the warning.
+
+**Two smaller ones the same run, both caught by executing rather than reading:**
+- **My own probe script reported three PROBE FAULTS as API verdicts.** `jq
+  --argjson` was fed jq syntax (unquoted keys) instead of JSON, so jq emitted
+  nothing, curl posted an empty body, and the API's complaint about the *missing
+  prompt* printed under the label "REJECTED" for each knob — which would have
+  "confirmed" the false claim above with my own bug. **A malformed request and a
+  refused parameter produce the same shape of "no".** Fixed to label a
+  request that fails to BUILD as a fault, never a verdict. *Check: assert the
+  request was constructed before believing what came back.*
+- **RUNBOOK §0's jsonb path for the writer's provider was wrong and returned four
+  NULLs, no error.** `generate_content` is nested in
+  `process_sections_loop.config.sub_workflow.steps`, not top-level. **A `->` path
+  that returns NULL has not told you the value is absent — it may have told you
+  the path is wrong**, and nothing distinguishes the two. Compounding trap now in
+  the RUNBOOK: `jsonb_set` on a path whose parent is missing is a **silent no-op
+  that still reports `UPDATE 1`**, so the row count proves the guard held, not
+  that the value landed. *Check: re-read the value after writing it.*
+
+Family: a-refusal-is-about-the-value-not-the-parameter,
+probe-fault-masquerading-as-a-verdict, NULL-means-absent-or-means-wrong-path,
+wrote-the-warning-and-then-did-it.

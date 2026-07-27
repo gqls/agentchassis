@@ -105,13 +105,33 @@ exactly. *(Landed 2026-07-27, see NOTES.)*
 **D2 — Reserve budget rather than fight thinking.** The client now sends
 `maxOutputTokens = caller's max_tokens + thinking_reserve` (default 8192) for any
 model assumed to think. This deliberately does **not** depend on getting a
-thinking-suppression knob right: the two Gemini generations take different and
-mutually incompatible knobs (2.5 an integer `thinkingBudget`, 3.x a
-`thinkingLevel` string that rejects the integer with a 400 — which is exactly the
-400 seen on 07-24), and guessing wrong fails every call. So by default the client
-sends **no** `thinkingConfig` at all and lets the reserve absorb whatever the
-model spends. Both knobs are available as opt-in config once the probe says which
-one this model accepts.
+thinking-suppression knob right, so by default the client sends **no**
+`thinkingConfig` at all and lets the reserve absorb whatever the model spends.
+Both knobs are available as opt-in config.
+
+> **CORRECTED 2026-07-27 by the P4 probe — the reason given here was wrong.**
+> This decision originally justified itself with: *"the two Gemini generations
+> take different and mutually incompatible knobs (2.5 an integer `thinkingBudget`,
+> 3.x a `thinkingLevel` string that rejects the integer with a 400 — which is
+> exactly the 400 seen on 07-24)"*. **Measured against `gemini-pro-latest`:
+> `thinkingBudget` at 128, 512 and 32768 are all ACCEPTED, as are `thinkingLevel`
+> "low" and "high".** Only `thinkingBudget: 0` is refused, and its message says
+> why: *"Budget 0 is invalid. This model only works in thinking mode."* The 07-24
+> observation was correct and narrow; **the generalisation to "the integer is the
+> wrong generation's knob" was mine, drawn from one rejected value without testing
+> its neighbours** — the same error shape this workstream exists to correct. Three
+> more values, ~30 seconds, would have caught it.
+>
+> **The decision survives on better grounds, and they are stronger.** Measured the
+> same day: **neither knob CAPS thinking.** `thinkingBudget` is a soft target the
+> model overshoots freely (128 → 483 spent, 512 → 903/940, 32768 → 783); it
+> reduces thinking materially (2,764 → ~940 on the real writer prompt) but bounds
+> nothing. `thinkingLevel: "low"` behaves the same (2,764 → ~1,080). So a knob is a
+> **cost lever, not a correctness one** — it cannot substitute for the reserve, and
+> any later plan proposing "set `thinkingBudget` and drop the reserve" is wrong.
+> Sending both together *is* refused, so the mutual-exclusion guard stays — but on
+> Google's own rule ("You can only set only one of thinking budget and thinking
+> level"), not on the generational story.
 
 *Accepted trade, stated plainly:* for a thinking model `maxOutputTokens` can no
 longer serve as a visible-length cap. Length has to be instructed in the prompt.
