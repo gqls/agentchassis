@@ -1,5 +1,24 @@
 # Snapshot — active threads and where we are, 2026-07-27 ~20:00 BST (19:00 UTC)
 
+> **SUPERSEDED 2026-07-27 22:00 UTC — this file has been folded into
+> `OPEN_THREADS_RESTART_LIST.md`. Read that instead.** Everything here that was
+> still true at 22:00 is now in the list itself, marked as a refresh; keeping two
+> documents current is how they drift apart.
+>
+> **Kept, not deleted, because two things in it did not survive the evening and
+> the record of that is worth more than the file's currency:**
+> - Its §2 said the estate-wide writer failure was closed by `v1.0.1175`. That was
+>   right, and the bug went on to close formally at 21:54 after acceptance tests on
+>   the real path — but the fleet is now on **`v1.0.1179`**, four rolls later, so
+>   the version number here is already wrong.
+> - Its §4 listed the 103 lane's uncommitted Go as work in flight. **That lane
+>   committed, backfilled, verified 17 pages on the served HTML and closed the bug**
+>   the same evening. An uncommitted tree is a snapshot of a moment, not a state.
+>
+> **Still accurate and still useful:** the numbering-collision trace (110 → 112 →
+> 113), the staged-deletion analysis, and the point that `who-owns.py` cannot see a
+> session with an uncommitted tree.
+
 **Why this file exists.** The owner expected the machine to crash (suspected memory
 leak) and asked for the state to be written down before it did. A crash does not
 destroy the working tree or the repo — it destroys *conversation context*, i.e. who
