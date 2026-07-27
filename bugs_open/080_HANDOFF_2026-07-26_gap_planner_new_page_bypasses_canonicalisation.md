@@ -1,6 +1,17 @@
-# 080 — `content-gap-planner`'s `new_page` bypasses `CanonicalisePage`, so two creation surfaces disagree on a page's name and URL (FIXED IN CODE, INERT UNTIL THE NEXT CHASSIS ROLL)
+# 080 — `content-gap-planner`'s `new_page` bypasses `CanonicalisePage`, so two creation surfaces disagree on a page's name and URL (FIX LIVE on v1.0.1177 — OPEN for the duplicate rows it does not repair)
 
-> ## STATUS 2026-07-27 — candidate 1 applied, council APPROVED, **not yet live**
+> ## STATUS 2026-07-27 — candidate 1 applied, council APPROVED, **LIVE on v1.0.1177**
+>
+> **Rolled 19:22:02Z.** Verified in the running pod, not the tag:
+> `strings /app/agent-chassis | grep -c "failed canonicalisation"` → **3**.
+> The creation-side divergence is closed. **This case stays OPEN for its residual:**
+> robot-hands.com still serves BOTH `/news.html` and `/news/index.html`, one orphaned
+> from the nav, and webdesign.co.uk's `news` row still collides on its next plan. Which
+> row survives is a live-site data decision for the owner, not a code fix.
+>
+> **Still owed:** the induced proof — dispatch a gap plan with `page_type: "news-index"`
+> and confirm the row lands canonical. The unit tests exercise that branch; production
+> has not.
 >
 > **Fix:** `9759687d1` — `applyNewPage` now takes (name, url, page_type) from
 > `datahelpers.CanonicalisePage`, and the hand-rolled `url := "/" + pageName + ".html"`
@@ -10,20 +21,9 @@
 > **Council:** APPROVED at round 1, correlation `1cc2baab-333f-4169-812b-6161b81a13f0`
 > (11 reviewers, 5 abstained, 0 unreadable, 1 medium + 2 low advisory objections, no veto).
 >
-> **This case stays OPEN until a chassis image ships it**, per the CLAUDE.md bar
-> (fixed AND live) — Go is inert until the image rolls, so the defect is still
-> reproducible in production right now. The fleet was on v1.0.1175 at 18:02 UTC,
-> which predates this commit.
->
-> **Verify after the roll** — pod-grep a string this change CREATED, not a symbol
-> that existed before:
-> ```
-> kubectl exec -n ai-persona-system <chassis pod> -- \
->   sh -c 'strings /app/agent-chassis | grep -c "failed canonicalisation"'
-> ```
-> Then make the failing case happen: dispatch a gap plan whose `new_page` carries
-> `page_type: "news-index"` on a site with no news listing, and confirm the row lands
-> as `news-index` at `/news/index.html` — not `news` at `/news.html`.
+> ~~This case stays OPEN until a chassis image ships it~~ — **shipped 2026-07-27
+> 19:22:02Z on v1.0.1177 and verified in the running pod.** It stays open only for
+> the duplicate rows above, which no code change repairs.
 >
 > ### Two corrections to this file, from doing the work
 >

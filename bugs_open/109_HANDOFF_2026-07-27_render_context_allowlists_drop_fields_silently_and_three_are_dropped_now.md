@@ -15,7 +15,10 @@ another, with no relationship between them that anything checks).
 **Status:** **OPEN — 1 of the 4 maps closed** (`595c1f499`, council-approved, inert until
 the next chassis roll). See the box below for what is left.
 
-> ## STATUS 2026-07-27 — the SERIALISE map is derived; the other three are not
+> ## STATUS 2026-07-27 — the SERIALISE map is derived and **LIVE on v1.0.1177**; the other three are not
+>
+> **Rolled 19:22:02Z.** Verified in the running pod:
+> `grep -c "genuinely dropped, tracked in bugs_open/109"` → **3**.
 >
 > **Done (`595c1f499`, council `d8517d30-c691-4e4d-9647-b17a51324cd3`, APPROVED, 10
 > reviewers, 0 unreadable, 5 advisory objections, no veto).** `renderCtxToMap`'s scalar

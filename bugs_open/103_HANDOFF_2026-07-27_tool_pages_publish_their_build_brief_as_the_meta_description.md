@@ -18,7 +18,8 @@ pages across 6 sites; one of them tells search engines the page has no backend �
 > **When the hold lifts:** re-run STEP 1 first. The row set moves (it was 16 → 15 → 17
 > inside one day), so the count in that file is a starting point, not a target.
 
-**Status:** OPEN — code fix committed `ebaa2d76d`, council **APPROVED**
+**Status:** OPEN — code fix **LIVE on v1.0.1177** (rolled 19:22:02Z; running-pod grep
+`"rejected as a build brief"` → 2), council **APPROVED**
 (`52241d09-287e-4d15-9010-400f78339298`, 10 reviewers, 0 unreadable, 5 advisory
 objections, no veto), **inert until the next chassis roll**; the backfill is staged
 and **deliberately not applied**. §3 of this file still holds — the code fix alone

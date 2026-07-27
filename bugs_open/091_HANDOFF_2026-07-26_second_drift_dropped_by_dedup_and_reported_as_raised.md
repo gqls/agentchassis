@@ -11,7 +11,10 @@ absent-record — which is the class `074` itself belongs to.
 `027a8f9e3`, council APPROVED (`a5b70424-b2b5-4d58-aa61-978e8bcf1234`, 11 reviewers,
 0 unreadable, 3 advisory objections), inert until the next chassis roll.
 
-> ## STATUS 2026-07-27 (bugs thread) — the report is honest; the finding is still dropped
+> ## STATUS 2026-07-27 (bugs thread) — the report is honest **and LIVE on v1.0.1177**; the finding is still dropped
+>
+> **Rolled 19:22:02Z.** Verified in the running pod:
+> `grep -c "an open stale_evidence item already"` → **1**.
 >
 > **Candidate 2 applied, and it turned out to be three sites rather than one.**
 > `createStaleEvidenceItem` now returns `(bool, error)` and the caller sets
