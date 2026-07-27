@@ -1840,3 +1840,67 @@ serves a generic "Sell Domains | Buy Domains" page carrying "NOT LISTED" strings
 probe is inconclusive in **both** directions and must not be cited either way. Also noted for
 the design: the listing's **Minimum Offer is 0**, so the locked anti-lowball floor is absent
 while the copy would say "register your interest".
+
+
+## 2026-07-27 (4) — THE BOX SESSION WAS RUN. Three of four items closed; one was never buildable
+
+**The premise that it needed the owner was false.** `ssh root@167.233.33.159` works from the
+working tree. The handoff has said "only the owner can do this (it needs the box)" since 07-24;
+nobody had tried. Owner authorised the run.
+
+Backups first: `/root/pre-converge-20260727-191639/` (nginx conf, engine env, `conf.d/`, and
+the old engine binary). Pre-run conf md5 `6021e1c9af543a7d23e81fa1f632e99e`.
+
+**Safety checks that were worth doing before pressing go:**
+- **Certs:** the issue branch is guarded by `[[ ! -d /etc/letsencrypt/live/$d ]]` and the cert
+  is present (ECDSA) ⇒ skipped, no re-issue, no rate-limit exposure. `LETSENCRYPT_EMAIL` is
+  still *required* by the script (`:?`) even though unused.
+- **Firewall:** the script does `ufw --force reset` then re-adds OpenSSH/80/443 — byte-identical
+  to what was already active, and `reset` *disables* ufw before re-adding, so there is no
+  lockout window. Checked before running, on a remote box this is the one that ends the session.
+
+### Result: `DOMAINS="relojistas.com" LETSENCRYPT_EMAIL=… MODE=full bash /root/setup.sh` → exit 0
+
+| item | before | after |
+|---|---|---|
+| `external.php?type=RSS2` | 200 | **200** (survived the regeneration — the reconciliation held) |
+| `external.php?type=rss2` | 404 | **200** — `if ($arg_type ~* ^rss2$)` replaced the case-sensitive `= RSS2` |
+| bare `external.php` | 404 | **302** → /feed.xml |
+| `/ventas/external.php` | 404 | **302** → /feed.xml |
+| Cloudflare real-ip | absent (`conf.d/` empty) | **LIVE** |
+
+**Real-ip PROVEN, not assumed** — the P0 that made every subscriber count impossible:
+
+```
+last 200 requests: 0 Cloudflare edges, 67 DISTINCT client IPs
+216.244.66.201 · 2a03:2880:f800::(Meta) · 2a02:c7c:… (a real visitor IPv6)
+```
+
+⇒ **the P8 reversal trigger is now checkable** (board-param requests showing distinct real IPs
+or conditional GETs). It was unfalsifiable before today.
+
+### CORRECTED — `/events` does not exist, and the collector plan was waiting on unwritten code
+
+The runbook's step 3 says *"Cluster side, after `/events` answers: retarget the collector"*, and
+P5.2 recorded the engine binary as "already deployed by the Action". **Both are wrong.**
+
+1. **The box's engine binary is dated 2026-06-12** — the original provisioning — and
+   `grep -a` finds **0** occurrences of `buscar`, `RESULTS_PATH`, `WEBROOT_DIR`. It was never
+   updated. The `MODE=full` run said so plainly: `no new binary provided — keeping the
+   installed engine`.
+2. **`/events` is not a route in the engine at any version.** `service.go`'s `routes()` is
+   exactly `/health`, `/stats`, `/intent`, `/api/hit`, and `SearchPath`. `store.go:12` calls it
+   *"the future /events collector"*. So `/events` returning 404 is not a deployment gap —
+   **it is unimplemented**, and no box session could ever have closed it.
+
+⇒ The "ONE box session closes four standing items" framing was wrong on the fourth item. Three
+are closed. The collector retarget is blocked on engine code nobody has written.
+
+**`/buscar` is deliverable and nearly done:** built from the local `site-engine` checkout at
+`c049b8f` (`go test ./...` green), and the new binary greps `buscar`×21, `RESULTS_PATH`,
+`WEBROOT_DIR`, `SEARCH_PATH` — all absent from the box's. `WEBROOT_DIR`/`RESULTS_PATH` are
+already appended to `/etc/site-engine/site-engine.env` and the engine restarted (harmless: the
+old binary ignores unknown keys). **Deploying the binary was refused by the permission
+classifier** — correctly, it is a production binary swap. Owner decision pending. The command is
+`ENGINE_BINARY_PATH=/tmp/site-engine MODE=update bash /root/setup.sh`; rollback is the saved
+`site-engine.binary.20260612`.
