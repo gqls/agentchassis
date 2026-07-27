@@ -6452,3 +6452,50 @@ control that passed.
 
 Family: whole-object-write-deletes-the-siblings,
 NULL-means-absent-or-means-wrong-path, a-control-that-cannot-fail-is-not-a-control.
+
+### 2026-07-27 — gemini — "makes thinking tokens visible to logging", when nothing reads the fields
+
+**Asserted**, in `bugs_open/107`, in a council submission (corr `a1a5cf20`) and in
+three commit messages: that the fix *"makes thinking tokens visible to logging"* /
+*"Thinking made visible"* / *"thinking tokens surfaced"*.
+
+**What was actually true.** Half of it, and the false half was the load-bearing
+one. The client writes `__usage_thinking_tokens`, `__usage_total_tokens`,
+`__sent_visible_budget_tokens` and `__sent_thinking_reserve_tokens` into the
+options map. **None has any reader outside `platform/aiservice/`**, and
+`llm_call_log` has no columns for them. So thinking is visible in the *error
+message* and in an in-process map, and **nowhere a query, dashboard or diagnosis
+bundle can reach**. Worse, `llm_call_log.max_tokens` is fed from
+`__sent_max_tokens`, which I had set to the reserve-inflated total — giving one
+column two provider-dependent meanings, i.e. **the same defect class the fix was
+written to close, reproduced one layer up by the fix.** Filed `bugs_open/110`.
+
+**Caught by:** the owner asking whether the truncation-detection problem needed its
+own bug listing. Answering it honestly meant reading `\d llm_call_log`, which I had
+never done — I had written column names (`sent_max_tokens`,
+`usage_output_tokens`) from memory of my own **field** names, into the RUNBOOK and
+into `features_open/025`. Neither column exists.
+
+**The cheap check that would have caught it:** `grep -rn "__your_field" --include=*.go .`
+**with your own package excluded.** One command. This is the check `bugs_open/101`
+already earned for config keys — *"grep the key before calling it a win"* — and it
+applies identically to telemetry fields. I had that landmine in memory, recorded
+against config keys, and did not transfer it to a field I had just added.
+
+**Why review did not catch it either, which is the transferable part:** a ten-seat
+council approved this, and the **llm-reliability seat discussed these exact
+fields** — noting the raw data "isn't lost" because they are "recorded separately".
+It read the write and inferred the read. **"Writes the field" and "the field is
+readable" are indistinguishable in a diff**, so no reviewer can catch this class
+from a submission alone; only a grep of the whole tree can. If you claim a field is
+observable, put the reader's file:line in the claim, or say it is unpersisted.
+
+**Cost:** none realised — the fix is real, and 110 candidate 1 (three lines, no
+migration) landed while `llm_call_log` still had **zero** Gemini rows, so no wrong
+row was ever written. That timing was luck: content-creator does not log to that
+table, so P5's proven generations wrote nothing there, and the first Gemini row
+would only have appeared at P6.
+
+Family: writes-the-field-is-not-reads-the-field,
+column-names-from-memory-of-my-own-field-names,
+the-fix-reproduced-the-defect-it-fixed.
