@@ -116,6 +116,31 @@ Until 241 is applied, `page-content-writer` still holds a literal copy — so th
 duplication is halved, not closed. It cannot be applied until the chassis roll, and
 `bugs_open/112` (spawned pods get no `GEMINI_API_KEY`) is waiting on the same roll.
 
+## The commit hook caught what the seat did not
+
+Committing the fix printed:
+
+```
+── architecture signal ──
+   • migration + platform code in one commit — needs a staged rollout order
+   ↳ this meets the RFC trigger test. If it is a point fix, carry on.
+     If it changes a shared contract, write an RFC first
+```
+
+It is right, and I should answer it rather than wave it through: injecting
+`{{.voice_style}}` into the template data of **every** `execute_llm_prompt` **does**
+change a shared contract. Every prompt in the platform gains a name it did not have,
+and any template that already used `voice_style` for something else would now be
+shadowed (none does — checked). The staged rollout it warns about is exactly the
+240-now / 241-after-the-roll split, which is why 241 is written and unapplied.
+
+**Note what this says about the seat.** A ~20-line advisory shell hook, running
+locally in under a second, produced the correct architectural observation about this
+change. The 16-seat council did not, because the seat that would have has never
+fired. **Deterministic triggers caught what a rate-limited LLM seat could not** — and
+the hook fired on *every* commit, needing no owner-approved spec and no roster slot.
+Worth weighing before adding more seats.
+
 ## For the architecture-seat thread
 
 This is a live worked example for that workstream, not a complaint. The seat's own
