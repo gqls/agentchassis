@@ -3,8 +3,10 @@ package contentcreator
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/gqls/agentchassis/platform/voicestyle"
 	"net/http"
 	"strings"
 	"time"
@@ -448,7 +450,7 @@ func (a *Agent) buildEnhancedContentPrompt(req RequestPayload, memories []models
 	// not just site pages. Until now it existed only in page-content-writer's
 	// prompt_template — 2,330 of 2,341 content LLM calls in 30 days — so blog and
 	// social copy has been written with no house style at all.
-	if block := a.voiceStyleBlock(config); block != "" {
+	if block := a.voiceStyleBlock(a.ctx); block != "" {
 		prompt.WriteString("\n## Voice & Style (how the copy must READ. Follow strictly)\n")
 		prompt.WriteString(block)
 		prompt.WriteString("\n")
@@ -460,58 +462,36 @@ func (a *Agent) buildEnhancedContentPrompt(req RequestPayload, memories []models
 	return prompt.String()
 }
 
-// voiceStyleBlock returns the house voice rules to append to a generation prompt.
+// voiceStyleBlock returns the house voice rules for this generation.
 //
-// Resolution, in order:
-//   - core_logic.voice_style_block present and non-empty → use it (per-agent override)
-//   - core_logic.voice_style_block present and EMPTY     → no block (explicit opt-out)
-//   - absent                                             → defaultVoiceStyleBlock
+// The rules are NOT stored here. They live in exactly one place — the
+// `voice_style_block` row of `agent_default_configs` — and this reads them from
+// there. A Go const briefly held a second copy on 2026-07-27; that was the
+// defect in bugs_open/121 and it is gone.
 //
-// The empty-string case is deliberately distinct from absent. "Unless overridden"
-// needs a way to say *off*, and an absent key cannot express that — the same
-// present-but-empty distinction bugs_closed/009 had to add a guard for.
-func (a *Agent) voiceStyleBlock(config *models.AgentConfig) string {
-	if config != nil && config.CoreLogic != nil {
-		if raw, present := config.CoreLogic["voice_style_block"]; present {
-			s, ok := raw.(string)
-			if !ok {
-				// A non-string here is a config error, not a request for the
-				// default: fall back loudly rather than silently substituting.
-				a.logger.Warn("core_logic.voice_style_block is not a string; using the platform default",
-					zap.String("got_type", fmt.Sprintf("%T", raw)))
-				return defaultVoiceStyleBlock
-			}
-			return s // "" means explicitly off
+// The override the owner asked for is request-level, not a config switch: a
+// request that carries its own instructions in `req.Data.Prompt` has them
+// rendered into the prompt, and the block itself states that explicit request
+// instructions outrank it.
+//
+// An unavailable block degrades to "no house voice", never to a failed
+// generation. Losing the voice on one post is recoverable; failing every
+// content build is not.
+func (a *Agent) voiceStyleBlock(ctx context.Context) string {
+	block, ok := voicestyle.Get(ctx, func(c context.Context) (string, error) {
+		if a.db == nil {
+			return "", fmt.Errorf("no database handle")
 		}
+		var t sql.NullString
+		err := a.db.QueryRow(c, voicestyle.SQL).Scan(&t)
+		return t.String, err
+	})
+	if !ok {
+		a.logger.Warn("house voice block unavailable; generating without it",
+			zap.String("config_name", voicestyle.ConfigName))
 	}
-	return defaultVoiceStyleBlock
+	return block
 }
-
-// defaultVoiceStyleBlock is the house voice, distilled from the owner-refined
-// de-AI-ify prompt (travelling_docs/pitch_pdf_source/REVERSE_ENGINEERED_STYLE_PROMPT_v3.md).
-//
-// v4, 2026-07-27. The first rule was rewritten this day, and the rewrite is the
-// point: the previous wording ("One idea per sentence. If a sentence chains two or
-// more ideas with commas or dashes, split it.") forbade the sentence the owner
-// actually wanted and produced a staccato fact-list. Measured on gemini-pro-latest,
-// 5 runs, same prompt and material: 422 → 637 chars, 7.6 → 12.1 mean words per
-// sentence, em dashes still 0, negative frames still 0.
-//
-// [KNOWN DUPLICATION] page-content-writer holds its own copy of these rules inside
-// its prompt_template in the DB. Two hand-maintained copies of one contract is the
-// drift class this repo keeps filing bugs about — see features_open/026 for the
-// single-source proposal. Until that lands, change BOTH or neither.
-const defaultVoiceStyleBlock = `These rules outrank any instinct toward "compelling marketing copy".
-
-- One idea per sentence, USUALLY. A sentence may carry two ideas when they are genuinely one thought and a conjunction joins them: "chaining models together is easy for a single demo, but getting them to recover from errors takes months". What this rule bans is the three-clause pile-up and the comma-spliced list, not the word "but". Vary sentence length on purpose. A run of short declaratives in a row reads like a specification being read aloud, which is a worse fault than the one this rule was written to prevent.
-- No em dashes, anywhere, ever. Rewrite every one as two sentences or a plain trailing clause. The shape you will actually reach for is a noun, a dash, then a phrase re-explaining that noun; hunt for that specifically, because it does not feel like an aside. A colon is acceptable where a list genuinely follows. A dash never is.
-- Start with the fact. Never open with a negative frame or a manufactured reveal ("It isn't X. It's Y." / "Not assistants. Not chatbots."). State the fact first, in the order a person would say it out loud, and fold any genuine contrast in afterwards.
-- Match word-weight to the claim, in BOTH directions. No grand words for ordinary facts, and no dramatised humility either.
-- Say why it matters, not just what is true. At least one sentence should give the reader a reason to care that they could not have guessed from the facts alone. Write like someone with a point of view who has done this work, not like a specification being read out.
-- Do not always reach for the most obvious word. Where two words are equally accurate, take the less predictable one, as long as it is still plain English and still the honest word. This is not licence to reach for a grander word: that breaks the word-weight rule above. Reach for a more specific one.
-- Do not restate your opening in different words. If two sentences make the same point with different vocabulary, delete one.
-- Use contractions in ordinary sentences. Cut self-flagging filler (crucially, seamless, robust, leverage, delve). No exclamation marks.
-- Leave one slightly blunt or plain phrase standing rather than smoothing every sentence to the same register.`
 
 // Helper methods for prompt building
 func (a *Agent) getContentTypeDescription(contentType string) string {

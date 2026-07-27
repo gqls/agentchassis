@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/gqls/agentchassis/platform/voicestyle"
 	"strings"
 	"time"
 
@@ -294,6 +295,26 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 
 	extractedData := extractDataForAiAgent(params)
 	templateData := extractedData.(map[string]interface{})
+
+	// The house voice, injected for EVERY prompt template rather than pasted
+	// into each one. A template opts in by writing {{.voice_style}}; one that
+	// does not mention it is unaffected. Single source: bugs_open/121.
+	//
+	// Deliberately does not overwrite a value the step already supplied — a
+	// caller that computed its own voice_style outranks the platform default,
+	// which is the request-level override the owner asked for.
+	if _, already := templateData["voice_style"]; !already {
+		if block, ok := voicestyle.Get(ctx, func(ctx context.Context) (string, error) {
+			if params.DB == nil {
+				return "", sql.ErrConnDone
+			}
+			var t sql.NullString
+			err := params.DB.QueryRowContext(ctx, voicestyle.SQL).Scan(&t)
+			return t.String, err
+		}); ok {
+			templateData["voice_style"] = block
+		}
+	}
 
 	validateTemplateData(templateData, params.StepConfig.Config, params.Logger)
 

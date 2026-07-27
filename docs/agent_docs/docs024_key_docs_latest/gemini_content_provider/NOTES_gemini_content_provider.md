@@ -1018,3 +1018,75 @@ deliberately distinct from absent, because "unless overridden" needs a way to sa
 harness, not a real section with `site_specs`/`brief`/`link_context` loaded. And
 `bugs_open/112` still blocks the writer from reaching Gemini in a spawned pod until
 that image rolls.
+
+## 2026-07-27 — the duplication FIXED, refiled as bugs_open/121, and three corrections from the owner
+
+Owner: file 026 as a **bug** the architecture council should have caught; the
+override I built is not what was meant; the example wording is poor; **one place
+for the prompt, and not in Go.** Then: fix it.
+
+**Refiled as `bugs_open/121`, `features_open/026` deleted.** It is a defect with a
+wrong output (two voices on one estate), not something we want to build.
+
+**The architecture seat has never reviewed anything.** Measured:
+`SELECT count(*) ... FROM diagnosis_artifacts WHERE kind='council_report'` filtered
+for the seat → **0 mentions, 0 reviews**, across every report ever written. It is
+seeded and live, but its own handoff records why it is silent: rate-limited on
+owner-approved specs, both owned by other threads. So my duplication went through a
+ten-seat council on `a1a5cf20` with `unreadable: 0` and the one seat whose remit is
+"two things that must stay identical" was not among them. **A seat that has never
+fired is not coverage — it is worse than an absent seat, because the roster counts
+it.**
+
+**Four missteps, mine, recorded in 121 in full:**
+1. **I created the duplicate inside the commit message warning about duplication.**
+   `d39995125` says *"I CREATED A SECOND COPY OF THE RULES AND FILED IT RATHER THAN
+   HIDING IT"* — I saw it, described it accurately, and shipped it anyway behind a
+   `[KNOWN DUPLICATION]` comment. **A comment naming a defect is not a mitigation.**
+   It felt responsible, which is exactly why it was the wrong call.
+2. **I filed it as a feature**, which put a defect in the queue nobody treats as
+   urgent.
+3. **I invented an override the owner never asked for** — a `voice_style_block`
+   config switch with a present-but-empty opt-out, and a paragraph defending the
+   empty-vs-absent distinction. The owner meant *"a request has its own prompt in
+   the request"*. I designed against an imagined requirement and then justified it.
+   **Cheap check: when a directive contains a word like "override", ask what it
+   means before building the mechanism.**
+4. **I put prose in Go.** Prompt text a non-engineer may want to edit does not
+   belong somewhere that needs a compile and a fleet roll.
+
+**The fix, applied:**
+- **Migration 240 (APPLIED)** — canonical block in `agent_default_configs`,
+  `config_name='voice_style_block'`, **2,499 chars**, guard verified: refuses if the
+  text is implausibly short or contains an em dash (the rule teaching its own
+  opposite).
+- **`platform/voicestyle`** — reader + 60s cache, **no text**. Takes a fetcher
+  closure because the chassis holds `*sql.DB` and content-creator holds a
+  `pgxpool.Pool`. An unavailable block degrades to "no house voice", never to a
+  failed generation: losing the voice on one page is recoverable, failing every
+  content build is not.
+- **Chassis** — injects `{{.voice_style}}` into the template data of *every*
+  `execute_llm_prompt`, so any prompt opts in by naming it, and does **not**
+  overwrite a value a step already supplied. That is the request-level override the
+  owner actually meant.
+- **content-creator** — reads the same row; the Go const is deleted.
+- **Migration 241 (WRITTEN, NOT APPLIED)** — swaps page-content-writer's literal for
+  the placeholder.
+
+> **241's gate is not ceremonial, and this is the trap worth carrying.** The prompt
+> renderer is `missingkey=zero`. An unresolved `{{.voice_style}}` renders as
+> **nothing** — no error, no log line. Applying 241 before the chassis carries the
+> injection would silently delete the house voice from every page build, and the
+> only symptom would be that the writing got worse. The file carries the two
+> pod-greps that must pass first.
+
+**Wording fixes in the canonical text:** the example now reads *"building them to
+recover from errors"* rather than *"getting them to recover"*, and the underlying
+point is promoted to its own rule — *"Name the action, not a vague gesture at it."*
+The owner thought this one was unfixable by prompt and suggested leaving it; it was
+worth fixing anyway, because **a rule's own example is the strongest signal in a
+style prompt** — it is the thing the model imitates most directly, so a vague
+example teaches vagueness.
+
+**Still owed:** 241 after the roll; then rebuild one page and READ it, because a
+blanked placeholder and a working one look identical until you read the output.
