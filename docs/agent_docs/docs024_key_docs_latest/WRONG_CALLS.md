@@ -5474,3 +5474,47 @@ read the source of exactly one of them. When you catch yourself writing *nothing
 
 Family: universal-negative-from-local-evidence, limitation-bled-across-components,
 the-spec-already-answered-it, overclaiming-while-building-the-overclaim-detector.
+
+---
+
+## 2026-07-26 — I corrected an over-claim and over-claimed in the opposite direction in the same breath (vetcomparison P1, second entry this session)
+
+**The claim.** Having just corrected "config-only win" (entry above), the correction itself
+asserted: *"the 16% is exact, not approximate — homepage-only **is** production."* Written into
+NOTES, README, a PLAN block and commit `9d35f719a`.
+
+**What was true.** Two things, and the second is the real one.
+1. It was 16% on n=25 and **22% on n=100**. A point estimate from 25 samples was never "exact".
+2. **I had not read the last leg of the pipeline.** My probe fetched raw HTML and stripped tags.
+   Production goes through the webscrape adapter to **Firecrawl**, whose `onlyMainContent` is set
+   `false` in code but **only added to the payload when true** (`firecrawl.go:77-111`) — so a
+   caller passing no `scrape_config` (the vet verifier passes none) has the key omitted and
+   Firecrawl applies its own default. If that default strips footers, production sees **less**
+   than my probe, and company numbers live in footers. I asserted equivalence between my probe and
+   production having read only the two components nearest me.
+
+**What caught it.** Checking whether widening `follow_links` would even help — which meant
+following the request one hop further than I had. The same shape as the previous entry: the error
+surfaced from a *follow-up question about the mechanism*, not from re-reading the claim. Both times
+the claim read fine on re-reading; it was only wrong against something I had not opened.
+
+**Resolution: left UNSETTLED rather than guessed.** 2,452 stored Firecrawl samples split
+ambiguously — 75% retain footer nav (suggesting footers survive), 0 contain registration text
+(equally explained by page type). Recorded as `[UNSETTLED]` with the one-run check that answers
+it, at the top of `bugs_open/101` where it gates the fix. **Not-knowing, written where the
+decision is made, is a legitimate output** — the failure mode was never uncertainty, it was
+uncertainty dressed as a finding.
+
+**Why this one is worth the tally.** The two entries are minutes apart and opposite in direction:
+first I made a fix sound cheaper than it was, then I made a measurement sound firmer than it was.
+**Having just been corrected is not evidence about the next claim** — if anything it primes a
+confident-sounding correction, because a correction reads as the careful, chastened version. Cheap
+check, mechanical: *for any claim of the form "X is what production does", name every component
+between you and production and say which ones you have opened.* I had opened two of three.
+
+**Operational footnote — this entry had to be written twice.** The first append was **clobbered by
+a concurrent session** between my `cat >>` and my `git commit` (the commit reported "no changes
+added"; the file had meanwhile grown 360,070 → 373,398 bytes from other threads). Nothing was
+recoverable from the index because the append never reached it. **Append-then-commit-later is not
+safe in this tree; append and commit in the same command.** CLAUDE.md's rule that your uncommitted
+work is not safe is not hypothetical — this is a same-file passenger case, which no hook can catch.
