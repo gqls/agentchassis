@@ -39,7 +39,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **record the CLOCK beside a reading, never infer it afterwards** | **2** |
 | **run a census against a known-positive control before reporting the count** | **1** |
 | **look at the real values before designing for the assumed ones** | **4** |
-| **read the SCHEMA before naming a column — a Go map key is not a column** | **2** |
+| **read the SCHEMA before naming a column — a Go map key is not a column, and a CHECK constraint's allowed set is not guessable from the column name** | **3** |
 | **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
 | **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents** | **1** |
@@ -54,7 +54,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **2** |
 | read the rule before inferring its purpose | 1 |
-| **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, and one copied out of a since-corrected tool keeps the old tool's answer; never let either land in a commit message, council submission or code comment unmeasured** | **2** |
+| **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **4** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
@@ -78,6 +78,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-check the deployed binary AFTER committing platform code — "inert until a roll" is someone else's decision to make, and in a shared tree it expires without telling you** | **1** |
 | **treat a live artefact changing under you mid-investigation as an OWNERSHIP signal — `who-owns.py` reads commits and is blind to an uncommitted session working the same ticket right now** | **1** |
 | **measure a SYMPTOM's exposure across every cause, not only the one you are fixing — a bug file's exposure figure is read as "is this biting?", not "is my code path biting?"; and FETCH the live artefact you have already named in your own prose** | **1** |
+| **RE-RUN the prior-art search when the design outlives it — an absence is true only at the moment you looked, and a peer built the next day is invisible to a search you already did. A search is a reading, not a property.** | **1** |
+| **read `decided_by` before writing a `Council-Reviewed:` trailer — and again if the submission went to another round, because a later APPROVAL can attach to a materially DIFFERENT plan and the coverage report cannot tell** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -5911,3 +5913,121 @@ over an unchanged page. Every time, the aggregate reported success and the indiv
 disagreed. Every time, the fix was to check against something **not written by the same hand as
 the change** — a negative control, an independent checker, a timestamp set by someone else.
 Family: invented-a-value-for-a-field-that-is-control-flow, status-is-a-claim-artefact-is-evidence, aggregate-agrees-artefact-does-not.
+
+---
+
+## 2026-07-27 — I searched for prior art, found none, was right, and was wrong two days later
+
+**The claim:** that the gripper dossier's public half needed a new service,
+`cmd/gripper-intake/`, on the island VM — its own database, own Anthropic key, own
+rate limiter, own CORS, own Caddy route. Written into
+`robot_hands_gripper_dossier/DESIGN_2026-07-24_gripper_dossier_pilot.md` and
+committed on 2026-07-24 (`12fa24e6b`).
+
+**Why it was wrong.** On 2026-07-25 — the next day — the gauntlet thread shipped
+`cmd/tools-api` + `internal/tools-api/` onto that same box: a **multi-tool,
+multi-site** public API at `/api/v1/tools/gauntlet`, resolving CORS per request
+from the island's own `sites` table, with a shared rate limiter, a shared input cap
+and one key. Built multi-tool from day one. My service was a second copy of all of
+it, on a 1-core/2GB VM. Worse, seed 208 was committed pointing at
+`https://tools.apis.uk/api/gripper/v1` — outside the island Caddy allowlist
+(`/api/v1/tools/*` only), so the pull would have 404'd on every tick forever.
+
+**What caught it: the owner asking "how will this integrate with our other
+tools?"** Not a hook, not a council, not a lint. Two days late, and only because a
+human asked an integration question nobody had been assigned to ask.
+
+**The mechanism, and it is not the one it looks like.** This is not "I failed to
+check for prior art." I did check. On 2026-07-24 the check was **exhaustive and
+correct** — `cmd/tools-api` did not exist in the tree. Had I submitted the design to
+the council that day, the `reuse_agent` and `prior_art_librarian` seats would have
+found nothing and approved, correctly, on the evidence.
+
+> **The failure class is a fact that was true at review time and false at build
+> time.** Every review mechanism we own is a one-shot evaluation of a submission
+> against a snapshot. Nothing in the platform re-validates a decision after the
+> world moves, and in a repo running ~1,500 commits a week the world moves inside
+> the life of a single design document.
+
+**Three structural findings, each verified, that follow from it:**
+
+1. **The decision lived in a medium no mechanism reads.** `097_TRIGGER_council_review_v1.sh:53`
+   sets `SCOPE_RE='^(platform|internal|pkg)/'` and refuses docs client-side — a
+   sound rule for credits, and it means *a design document that decides to build a
+   new service is refused by the only mechanism that would object to it.*
+2. **The seat that holds this remit is asking questions into a void.**
+   `prior_art_librarian` emits `code_checks` whose prompt promises they are
+   *"answered from the code_symbols index next round"*
+   (`0NN_fix_proposer_v20_prior_art_librarian.sql:51,61`). On the gate the
+   `code_lookup` step is **deliberately not mirrored** (`0NN_council_gate.sql:40`),
+   so on the gate that promise cannot be kept.
+3. **The index behind it manufactures false absence.** `composeSymbolContent`
+   (`platform/orchestration/actions/code_symbols_actions.go:336-352`) builds the
+   searchable text from `kind + symbol + signature + doc + path`. **Function bodies
+   are never indexed** — they are read on demand by `ReadSymbolBody`
+   (`internal/analysis/symbolbody.go:31`), which the indexer never calls. So a
+   `content` check for any route, registry key, table name or string literal returns
+   zero rows, and the seat whose entire charter is policing **absence claims** reads
+   zero rows as absence. The documented example in
+   `diagnose_code_lookup_action.go:29-31` is `"%stop_reason%"` — a string literal
+   that only ever appears in a body. *The documented example cannot work.* Filed.
+
+**The cheap check that would have caught it, and it is measured.** A staged `.md`
+that adds a line naming a `cmd/<x>/` which does not exist in `cmd/`. Simulated over
+1,500 commits of real history (added lines only, `--diff-filter=AM -- '*.md'`):
+
+```
+commits scanned: 1500  firing: 10  rate: 0.67%
+  12fa24e6b 2026-07-24 docs(gripper-dossier): pilot workstream opened  -> ['gripper-intake']
+  e9fb8a174 2026-07-25 docs(gripper dossier NOTES): REVISE answered     -> ['gripper-intake']
+  ce97c8bca 2026-07-25 docs(gripper dossier NOTES): round 2 REVISE      -> ['gripper-intake']
+  79fd07caa 2026-07-26 docs(gripper dossier): CORRECTION                -> ['gripper-intake']
+  … 4 further fires, all 'assembler' (concept-register), 2026-07-20
+```
+
+0.67% sits inside the band `pattern-check.py` already accepts (SUMMARY 2.0%,
+README 0.7%). **It fires on 07-24, the day the doc was written.** But the property
+that matters is not the first fire — on 07-24 the peer list would not have
+contained `tools-api` and I would have been right to proceed. It is that **the
+check is free and idempotent, so it re-runs on 07-25 and 07-26 with `cmd/tools-api`
+newly present in the peer list.** No council re-runs itself for free two days
+later. That is the whole argument for a grep over a seat here.
+
+**Two figures I nearly repeated without measuring**, both handed to me by sub-agent
+sweeps, both wrong, both caught by running the command:
+- *"8 byte-identical `StartHealthServer` copies."* They are **8 distinct bodies**
+  serving 1–3 endpoints each. This flipped the recommendation: consolidating them is
+  eight behavioural migrations on live liveness probes for zero benefit at any
+  domain count — an item that looks like the tidiest win on the list and is a trap.
+- *"The doc detector fires 4 times in 1,614 docs."* A whole-tree scan fires on
+  ~190, almost all archived copies naming the retired `cmd/bundle`. The real figure
+  is the staged-diff one above. A sweep's number carries no measurement date and no
+  method; treat it exactly like a figure copied from a sibling doc.
+
+**Smaller misses the same session,** each with its one-line check:
+- Wrote `Council-Reviewed: 7ed137d1` without reading the verdict — it was REVISE.
+  It then got *subtler*: `7ed137d1` was later APPROVED in round 3, but round 3's
+  plan is the one the truncation guard had been **removed** from, so the trailer now
+  resolves to a genuine approval **for different code**, and `098` cannot detect it
+  (both correlations return `approved`). Fixed forward by resubmitting the guard
+  alone (`37a32e02`, APPROVED). A memory file recorded this exact mistake six days
+  earlier and did not stop me. *Check: read `decided_by`, and re-read it per round.*
+- Asserted psql renders an unset `:'pull_key'` as a literal, and that `:'var'`
+  interpolates inside `DO $$ … $$`. **Both false**, verified live — syntax error in
+  both cases, and `-c` does no interpolation at all. Rebuilt on
+  `set_config`/`current_setting`. *Check: run the two-line psql case.*
+- `created_from='seed_207'` rejected by a CHECK constraint
+  (`manual|generated|adopted|tool|forked`). Caught by a rolled-back dry run — the
+  practice worked. *Check: `\d` before INSERT.*
+- The report page would have shipped **unstyled**: the renderer emits `report-*`
+  classes and robot-hands.com defines none. My first CSS draft then styled
+  `.report-card` while the renderer emits `.match-card`, and the drift-guard test I
+  wrote caught two more (`report-request-echo`, `report-formulas`) *after* I had
+  eyeballed the list. *Check: generate the class list from the renderer; never read
+  it off the page.*
+- `Council-Reviewed: not applicable (docs)` on a docs commit — harmless, but
+  trailer-shaped noise in a field `098` parses.
+
+Family: absence-was-true-when-I-looked-and-nothing-re-looks,
+the-decision-lived-where-no-mechanism-reads, index-manufactures-false-absence,
+a-sweep's-figure-is-an-unmeasured-figure.
