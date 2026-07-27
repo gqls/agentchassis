@@ -365,3 +365,39 @@ the other half, and it's sitting with the council for review now.
 
 So: the question now reaches the index. Making the index able to answer it is the
 piece under review.
+
+## 2026-07-27 (late evening) — the council approved it, on the third try
+
+Round 3 came back **APPROVED** — "approved with 4 advisory objections, none
+high-severity". Twelve reviewers voted. The one that had raised the serious objection
+last round now approves.
+
+It took three rounds and every one of them made the plan better, which is worth saying
+plainly because it's the argument for the whole gate. Round 1 caught that my rationale
+claimed to fix something the plan didn't touch. Round 2 caught that a function I
+proposed to build already existed — forty lines below a line I'd cited twice. Round 3
+approved, and its remaining advisory notes still found two things I'd asserted rather
+than checked, both of which turned out to be real when I went and looked:
+
+- The migration number I'd claimed was free **isn't any more** — another session took
+  it in the time between submitting and being approved. The reviewer had flagged that
+  "it's the next free number" was an assertion no database query could verify, and it
+  was proved right within the hour.
+- The verification script I wrote to catch the plan's most dangerous failure **would
+  itself have failed to run** — a wrong type cast. The reviewer flagged that I'd
+  asserted the hash formula rather than checking it. Checking it took one query, and
+  the formula is right but my expression was wrong.
+
+Both are now written into the handoff for whoever builds it, rather than quietly
+edited into the approved plan — the approval attached to what was actually submitted,
+and I don't want the record to drift from that.
+
+**Where this leaves things.** The plan is approved but not built: it's a schema change
+plus code, so it needs a rebuild and a deploy, which makes it the first thing on this
+workstream that isn't just configuration. Everything else that shipped today was
+config and is already live.
+
+I've written a fresh cold-start handoff so this can be picked up in a new session
+without reading the whole evening back. The previous one is marked superseded rather
+than replaced — its landmine list is still the best part of it, and the corrections
+inside it are a record of how we got things wrong, which is worth more than a tidy file.

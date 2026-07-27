@@ -64,8 +64,74 @@ architecture seat. `content` lookups still return nothing useful until layer 1 s
 
 ## 4. What is open, in order
 
-1. **The council verdict on layer 1.** `SUBMISSION_CORR=18fe4035-4fa6-4079-ab44-8541d6e58944`.
-   Rounds 1 and 2 were REVISE; **round 3 was in flight at ~19:45**. Check it first:
+1. ## ✅ **LAYER 1 IS APPROVED — build it. This is the next job.**
+
+   `SUBMISSION_CORR=18fe4035-4fa6-4079-ab44-8541d6e58944`. Round 1 REVISE → round 2
+   REVISE → **round 3 APPROVED 2026-07-27 19:49:36**, `decided_by` = *"approved with 4
+   advisory objection(s) — none high-severity"*. 12 seats voted; `prior_art_librarian`,
+   which raised the round-2 HIGH, **approves**. The approved plan is committed at
+   `architecture_review/SUBMISSION_2026-07-27_code_tier_lookup.json` — **left exactly as
+   approved; do not edit it**, so the artifact keeps matching the verdict.
+
+   **The trailer is EARNED but not yet spent.** `Council-Reviewed: 18fe4035-4fa6-4079-ab44-8541d6e58944`
+   belongs on the **implementation** commit, not on a docs commit — that trailer is what
+   makes the 098 coverage report's commit↔verdict join exact, so putting it on prose
+   would make the join lie.
+
+   ### TWO CORRECTIONS FOUND *AFTER* APPROVAL — apply them when implementing
+
+   Both were advisory objections that turned out to be concretely right when checked.
+   They are recorded here rather than edited into the approved JSON, because the
+   approval attached to the plan as submitted.
+
+   - **The migration number 241 IS NOW TAKEN — use 242.** Another session committed
+     `241_page_writer_uses_voice_placeholder.sql` between submission and approval.
+     `guardian` flagged (low) that "241 is the next free number" was asserted, not
+     checkable from SQL — **vindicated inside the hour.** Re-run
+     `ls docs/agent_docs/sql_for_agents/*.sql | xargs -n1 basename | grep -oE '^[0-9]+' | sort -n | tail -1`
+     immediately before writing the file; this is a shared sequence and it moves.
+   - **The VERIFY script's hash expression as written is WRONG and would ERROR.**
+     `content::bytea` fails with *"invalid input syntax for type bytea"* — that cast
+     parses the text as a bytea literal. The correct expression, and the mechanism is
+     now **verified live: 4,535 of 4,535 rows match, 0 mismatches**:
+     ```sql
+     content_hash = encode(sha256(convert_to(content,'UTF8')),'hex')
+     ```
+     `editquality` objected (medium) that the formula was asserted rather than verified
+     against the live schema. It was right, and the concrete defect is a cast.
+
+   ### The other advisory objections, worth carrying into the build
+
+   - **`bug_historian` (medium): check the error.** The row-builder sketch has
+     `body, err := analysis.SliceLines(...)` and never shows `err` handled. On error
+     Go's zero value gives `body = ""` — which is precisely the empty-vs-NULL confusion
+     the column was designed to avoid. **On error, leave `body` NULL, do not write `""`.**
+   - **`guardian` (low): gate the merge on an `EXPLAIN`.** An `OR` across two
+     trigram-indexed columns may use neither and fall back to a seq scan. Cheap to be
+     wrong about at 4,535 rows, but if `EXPLAIN` shows a seq scan, prefer one index on
+     `(COALESCE(body,'') || ' ' || content)`.
+   - **`guardian` (low): the excerpt must be taken AROUND THE MATCH**, not from the head
+     of the body, or a match deep in a long function returns a useless prefix. The
+     sketch only showed the banner text, not the excerpt change.
+   - **`editquality` (low): the contract-comment edit is comment-only** and legitimate
+     only because the body-search edit makes the described behaviour true. Don't let it
+     read as a fix in its own right.
+   - **`bug_historian` (medium), restated and still owed:** council-gate's verdict note
+     cannot distinguish "searched, found nothing" from "nobody ran the query". Deferred
+     to `bugs_open/108` deliberately — see §5 — but it is a **live exposure of the same
+     mechanism** this plan fixes for two of three lanes, not background.
+
+   **After building:** image, roll, then verify against the **running pod**
+   (`strings /app/agent-chassis | grep -c 'idx_code_symbols_body_trgm'` with a negative
+   control) — never git, never the image tag. Then run the reindex and the VERIFY file
+   both before and after. Then write the `doc_notes` entries the plan promised (the
+   trail for `index_code_symbols` and `diagnose_code_lookup` **already exists** — I
+   created it 19:38, 0 rows before — so **extend** it, do not start a second one).
+
+   ---
+
+   *(Original wording of this item, kept because it is the general procedure:)*
+   Check it first:
    ```sql
    SELECT created_at, metadata->>'decision' FROM diagnosis_artifacts
    WHERE correlation_id='18fe4035-4fa6-4079-ab44-8541d6e58944' AND kind='council_report'
