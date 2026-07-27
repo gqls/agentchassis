@@ -519,3 +519,30 @@ heuristic", avoided by luck of a shared signature.
   alongside a `FROM code_symbols` read: both renderers *do* still call it on
   unchanged lines, and I added a second provenance line beside it. **I should
   have said so in the commit message, which is what that check asks for.**
+
+### Pre-measured, so the post-roll numbers have something to be checked against
+
+Ran the **exact** path `index_code_symbols` will take — `AnalyseWithExclude(root,
+["docs/"])` then `SliceLines` per symbol — over this working tree, as a scratch
+test inside `internal/analysis` (the package is `internal/`, so an external
+`go run` is refused; the file was deleted in the same command).
+
+```
+files=594  symbols=4917  sliced=4917  file_read_errors=0  slice_errors=0
+body bytes: min=13  median=457  p95=4184  max=26215  total=5.35MB
+biggest: platform/orchestration/actions/ai_actions.go :: ExecuteLLMPromptAction
+```
+
+**Zero slice errors across 4,917 symbols** — the analyser's spans and
+`SliceLines`' inclusive 1-indexed convention agree on real code, which is the one
+thing that could have made the whole change produce garbage rather than nothing.
+
+**The column costs ~5.35 MB.** That settles the size question I had deliberately
+refused to assert: the trigram index over it is the larger cost, and both are
+unremarkable. The biggest single body is 26 KB, and the 400-char excerpt cap plus
+the 40-row cap bound what can reach a prompt regardless of that.
+
+`4,917` local vs `4,535` indexed is commit drift, not a discrepancy — the index
+mirrors the last **pushed** ref (last refreshed 13:36 UTC), this is the working
+tree. **Expect the post-reindex count to be neither number**, and do not read a
+difference as a fault.

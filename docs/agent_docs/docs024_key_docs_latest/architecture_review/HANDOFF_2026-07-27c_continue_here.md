@@ -86,10 +86,15 @@ Measured on the local images: `1179` → 1/1/0/0, `1177` → 0/0/1/0.
    bodies: if it still seq-scans and the cost is material, switch the predicate to
    a single expression index on `(COALESCE(body,'') || ' ' || content)`. If it is
    fast, say so with the number and leave the OR alone.
-6. **Record the real `max(length(body))`.** I have asserted nothing about body
-   size and neither should you until it is measured — the excerpt cap (400 chars)
-   and row cap (40) bound what reaches a prompt regardless, so this is about index
-   size, not prompt safety.
+6. **Compare against the PRE-MEASUREMENT** (this is what it is for). The exact
+   slicing path was run over the working tree before the roll:
+   `files=594 symbols=4917 sliced=4917 file_read_errors=0 slice_errors=0`,
+   `body bytes: min=13 median=457 p95=4184 max=26215 total=5.35MB`, biggest is
+   `ai_actions.go :: ExecuteLLMPromptAction`. **Zero slice errors on 4,917 real
+   symbols**, so if the live run shows slice errors, the cause is the pod's
+   checkout, not the convention. Expect the live count to match **neither** 4,917
+   nor 4,535 — the index mirrors the last PUSHED ref and this was the working
+   tree; a difference is drift, not a fault.
 
 ## 3. What layer 1 actually changed, in one place
 
