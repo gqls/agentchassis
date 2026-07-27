@@ -60,6 +60,29 @@ WHERE s.domain='fundamentallyai.com' ORDER BY p.name;
 
 ### 3a. CHART COMPONENT — **BUILT AND LIVE 2026-07-26 (later session). Kept below for the terms it was built under.**
 
+> **VERIFIED AGAIN 2026-07-27 after the queue drained.** Live crawl of all 9
+> deployed pages, capturing `href="(/[^"]*)"` and stripping the fragment
+> AFTERWARDS (never `[^"#?]` — see the correction below): **11 unique internal
+> targets, 1 broken**, and the one is `/assets/images/favicon.png`, which is
+> referenced by the shared `head` chrome and **has never existed at any path**
+> (`/favicon.ico`, `/assets/images/favicon.ico` all 404 too). Pre-existing, not
+> from this work; favicon/OG derivation is the imagery workstream's tracked gap.
+>
+> **The chart self-refreshed and the page followed.** Seeded at 108/37/9 on the
+> 26th; `refresh_evidence_base` re-ran the queries overnight and the register and
+> the live page now both read **110/38/10**. Nobody retyped a number. This is the
+> first observation that "a SQL-sourced fact must carry no `display`" earns its
+> keep — a hand-written display would now disagree with its own bar.
+>
+> **CORRECTION, and it is the important line here: the rebuilds broke SIXTEEN
+> links, not six.** Capabilities carried ten more, all `/capabilities#…` —
+> extension-less *with a fragment* — which my DB check could not see because it
+> used `href="(/[^"#?]*)"`, the anchor-blind pattern landmine L2 names, in a
+> handoff section I had written that morning. Repaired
+> (`bak_pc_fai_cap_links_20260727`); the dead fragments are left to `bugs_open/071`,
+> where the corrected count and the evidence now live. Logged in `WRONG_CALLS.md`
+> ("independent witness" row now at 2).
+>
 > **STATUS: done.** `evidence-chart` is registered, seeded, placed on the index at
 > plan position 2, and verified on the SERVED page — seven figures, each matching
 > its fact row, geometry drawn from the same values. Config-only, so it needed no
