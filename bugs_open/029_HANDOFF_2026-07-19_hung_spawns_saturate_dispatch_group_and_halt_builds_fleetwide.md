@@ -428,3 +428,75 @@ there ~50 minutes apart. A third council run (`c91bb061`, feature-designer) pass
 `review_bug_historian`. So the step is not systematically broken, and the
 coincidence-sized sample stays coincidence-sized. Recorded because a hypothesis
 worth writing down is worth writing the disconfirming evidence next to.
+
+---
+
+## Fresh instance, 2026-07-27 13:49–14:07 UTC — contributed by the webdesign_couk thread
+
+**Not a new diagnosis and not a competing fix** — this file is owned and six council
+rounds deep. Contributed because it is a clean, dated reproduction of the corrected
+mechanism (§"CORRECTED DIAGNOSIS": roll-adjacent, bug 003's blast radius), in a
+pipeline this file has not yet recorded it in: **content feed ingestion**, not builds.
+
+**The roll-adjacency is the whole point.**
+
+```
+agent-chassis-5f85dff548-8d2tq   startTime = 2026-07-27T13:45:31Z   restarts=0
+scheduled_tasks.content-feed-refresh  fired at 13:49:09   <- 218 s after the roll
+```
+
+The tick landed **3 m 38 s** after the chassis came up — inside the ~300 s window this
+file and CLAUDE.md both warn about. All ten dispatched sources across two sites then
+hung at the spawn handshake and died on the retry bound:
+
+```sql
+SELECT current_step, status, left(error,60), (updated_at-created_at) AS elapsed
+  FROM orchestration_states
+ WHERE collected_data->'input_data' ? 'source_id' AND created_at > now()-interval '45 min';
+-- spawn_ingester | FAILED | Request <id> timed out after 3 retries | ~00:08:07   (x5, webdesign.co.uk)
+-- spawn_ingester | FAILED | Request <id> timed out after 3 retries |             (x1, vetcomparison.uk)
+```
+
+Two sites, two unrelated threads, one tick, **zero** `content_feed_items` ingested.
+Consistent ~8 min to failure (3 retries × ~2 min), so the retry bound works — it just
+converts a silent hang into a logged loss.
+
+**What made this cheap to attribute rather than expensive to misdiagnose.** My site's
+feed had *just* been armed that hour (`SQL_p9`), so the obvious reading was "my change
+is wrong". The discriminating check was one query — **the same tick, on a site I had
+never touched**:
+
+```sql
+SELECT s.domain, count(*) FILTER (WHERE os.status='FAILED') FROM orchestration_states os
+  JOIN sites s ON s.id::text = os.collected_data->'input_data'->>'site_id' ...
+-- vetcomparison.uk | 1      <- not mine, same tick, same failure
+-- webdesign.co.uk  | 5
+```
+
+A new thread meeting this class will almost always meet it while suspecting its own
+change. **Check a site you did not touch in the same tick before reading anything else.**
+
+**Also visible from three days of ingestion history**, and offered as corroboration for
+the "degraded after a roll" claim rather than as a finding of its own:
+
+```sql
+SELECT date_trunc('hour', created_at), s.domain, count(*) FROM content_feed_items ...
+-- items land ONLY in the 07:xx and 19:xx–20:xx hours, across 3 days, 4 sites
+```
+
+The task's interval is 6 h, so ticks fall at ~01:49 / 07:49 / 13:49 / 19:49 — yet **only
+two of the four ever produce items.** Cause is unrelated to this bug and benign:
+`UpdateSourceTimestamps` sets `next_fetch_at = NOW() + fetch_interval` at *ingestion*,
+minutes after the trigger, while the next tick is `last_triggered_at + interval` — so a
+fetched source comes due **just after** the following tick and misses it (measured
+2026-07-27: by **37 seconds** on ai-agent-orchestration.com). Effective cadence is
+therefore ~12 h, not the configured 6 h. Noted here only because it means **the 13:49
+tick is structurally the quiet one**, which is why a roll at 13:45 took out a tick that
+carried only the two newly-armed/never-fetched sites and no established ones.
+
+**Recovery taken (site-local, nothing touched outside webdesign.co.uk):** the dispatcher
+optimistically pushes `next_fetch_at = now()+6h` at dispatch
+(`dispatch_feed_sources_action.go:271`), so the five failed sources were sitting at
+19:58 — **9 minutes past** the 19:49 tick, which would have deferred them to 01:49 by
+the same staggering mechanism. Reset to NULL (always-due), guarded on
+`last_fetched_at IS NULL` so a success could not have been clobbered.
