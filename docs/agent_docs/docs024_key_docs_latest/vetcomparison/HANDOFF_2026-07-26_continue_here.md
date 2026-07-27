@@ -1,4 +1,18 @@
-# vetcomparison.uk — CONTINUE HERE (2026-07-26 22:10 BST)
+# vetcomparison.uk — CONTINUE HERE (2026-07-26 22:10 BST, post-roll update 2026-07-27)
+
+> **POST-ROLL RE-VERIFIED 2026-07-27 — `v1.0.1172`, 061 still good, nothing owed on it.**
+> A fresh chassis build rolled overnight. Re-checked because a roll is exactly when a live fix
+> can silently revert:
+> - deployments `agent-chassis` + `business-intel` = `v1.0.1172`; all `med-*`
+>   `agent_definitions.image_tag` = `v1.0.1172`, so spawned workers get it too.
+> - pod-grep of the NEW binary: `fidelity guard dropped variant` 1, `never copy its values` 1,
+>   `scrape_llm` 1, positive control `MedScrapePrices` 23, **negative control 0**.
+> - Scrapes have run since (latest snapshot 2026-07-27 09:20Z, 35 new rows). Full-table
+>   fidelity sweep: **2,618 OK / 0 PRICE_ABSENT / 0 UNCHECKABLE.** 0 guard drops since the
+>   roll — the fallback simply has not produced anything storable, which is the normal state.
+>
+> **`bugs_closed/061` is DONE — do not reopen it.** Everything in §5/§6 below stands as
+> written. What remains in this workstream (§1–§4) is not 061 and is mostly another session's.
 
 Cold-start entry point for the next session. Written by session "bugfix 61" after closing
 `bugs_closed/061`. Read this, then `PLAN_2026-07-26_site_strength.md` (the direction, written

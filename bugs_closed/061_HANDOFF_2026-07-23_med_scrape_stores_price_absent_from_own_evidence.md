@@ -262,3 +262,23 @@ All three steps below were carried out; results in the Close record at the top.
   hygiene pass = owner call (deactivate + path-filter in discovery; note the export does
   NOT filter on `med_retailer_listings.is_active`, only `med_retailers.is_active`, so
   deactivating a listing alone does not stop its recent snapshots exporting for 14 days).
+
+---
+
+## Post-roll re-verification — 2026-07-27, `v1.0.1172`
+
+A fresh chassis build rolled overnight; re-checked because a roll is when a live fix can
+silently revert (and because the *deployed* tag moving is not evidence about the *worker*, which
+runs `agent_definitions.image_tag`).
+
+- `agent-chassis` and `business-intel` deployments both `v1.0.1172`; all `med-*` agent
+  definitions `v1.0.1172`.
+- Pod-grep of the new binary: `fidelity guard dropped variant` 1, `never copy its values` 1,
+  `scrape_llm` 1, positive control `MedScrapePrices` 23, **negative control 0**.
+- Scrapes have run since the roll (latest snapshot 2026-07-27 09:20:11Z, 35 new rows).
+  **Full-table fidelity sweep: 2,618 OK / 0 PRICE_ABSENT / 0 UNCHECKABLE.**
+- 0 guard drops since the roll — the fallback has produced nothing storable in that window.
+  **That is the normal state and NOT evidence the guard is idle**; see the correction in the
+  Close record, where exactly this reading was wrong.
+
+**Case remains CLOSED. Nothing owed.**
