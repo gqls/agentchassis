@@ -64,11 +64,17 @@ wrote a promise of infallibility — *"a claim without a named, dated source doe
 not appear here"* — hours after the owner had struck a weaker version of exactly
 that line. It was live on two pages before we caught it.
 
-Nothing in the estate could have caught it, and that is the finding. Every
-verification layer we own polices claims about *other people*, and nearly all of
-them numeric. A qualitative promise about *our own* accuracy is a different class
-of claim, invisible to all of it, and the only control that worked was a person
-reading the page.
+Nothing caught it but a person reading the page — and my first account of *why*
+was wrong in an instructive way.
+
+> **CORRECTED 2026-07-27.** I concluded the class was structurally invisible to
+> every check we own. It is not. The banned-claim scanner is an ordinary text
+> search over prose and would have caught all four phrases — **if anyone had ever
+> written a pattern for this class on any site, which nobody had.** Only five of
+> our fifteen live sites carry a single such pattern at all, and there is no way
+> to write one once for the whole fleet. The gap was reach, not capability. The
+> owner caught the error by refusing the build-something-new answer and telling
+> me to look harder at what already exists.
 
 So we made the lesson permanent in three places. The copy now says we cite
 everything **so you can check us**, and that we can still be wrong — a source can

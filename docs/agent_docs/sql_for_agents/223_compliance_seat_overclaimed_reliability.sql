@@ -17,13 +17,26 @@
 --   and it does nothing whatever about a model writing a plausible sentence
 --   around a perfectly real link — the failure this estate has actually suffered.
 --
---   NOTHING IN THE ESTATE LOOKS FOR THIS, and that is not an oversight in any one
---   component. Every layer we have — banned_claims, ScanUnregisteredNumbers, the
---   evidence_base whitelist, V5 citation re-verification — polices claims about
---   THIRD PARTIES, and almost all of them numeric. A promise about OUR OWN
---   accuracy is a claim about US, and a qualitative one. It is a different
---   failure class, it is invisible to every scanner, and the only control that
---   caught it was a human reading the live page.
+--   >>> CORRECTED 2026-07-26 (see migration 227, which fixes the seat prompt;
+--   >>> WRONG_CALLS carries the full entry). The paragraph that stood here said
+--   >>> "NOTHING IN THE ESTATE LOOKS FOR THIS … invisible to every scanner".
+--   >>> **That was false.** `ScanBannedClaims` (claims.go:284-325) is a bare
+--   >>> case-insensitive regex over prose blocks; `businessClaimContextRe` and
+--   >>> `isExcludedNumber` gate only `ScanUnregisteredNumbers` (claims.go:365,
+--   >>> 369). It catches whatever patterns a site is given, numeric or not —
+--   >>> live registers already carry "leaderboard", "live now", "price target".
+--   >>>
+--   >>> The true statement: the class had never had a pattern written for it on
+--   >>> ANY site, and there is still no mechanism to define one once for the
+--   >>> fleet. Only 5 of 15 live sites carry a single banned_claims pattern.
+--   >>> COVERAGE gap, not capability gap. Arming oufe took one UPDATE and no
+--   >>> image roll (migration 226) and bought a build BLOCKER plus a
+--   >>> high-severity post-deploy finding.
+--   >>>
+--   >>> What remains true, and is why this seat still earns its place: a human
+--   >>> reading the page was the only thing that caught it, because no site was
+--   >>> armed. The seat covers the sites nobody has armed — which is most of
+--   >>> them.
 --
 --   So it goes where a human-equivalent reader already sits: the compliance seat.
 --
