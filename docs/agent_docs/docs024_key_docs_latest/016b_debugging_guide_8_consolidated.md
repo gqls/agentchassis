@@ -5885,3 +5885,116 @@ entirely on which question you brought.
    up front, the gap would have been obvious while the plan was still being written.
 4. **A rerun of the same grep with a different question is nearly free.** The cost here
    was a whole council round and an image roll; the check was thirty seconds.
+
+### A fleet-wide make target assumes EVERY service was built at `IMAGE_TAG` — rolling one service with `deploy-agents` breaks the other thirteen (2026-07-27)
+
+**The trap.** You built and pushed **one** service at a new tag — the ordinary
+case for a point fix. The obvious next command is the one the makefile offers:
+
+```
+make push-backend     # docker push <registry>/<svc>:$(IMAGE_TAG)  x14
+make deploy-agents    # sed newTag: $(IMAGE_TAG) into every service overlay, kubectl apply -k each
+```
+
+Both iterate the **whole backend estate** at `$(IMAGE_TAG)`. If only
+`agent-chassis` exists at `v1.0.1175`, then `push-backend` fails partway on the
+first image that was never built, and `deploy-agents` — worse, because it does
+not fail — rewrites `newTag` for all fourteen overlays and applies them, pointing
+thirteen live Deployments at an image that does not exist in the registry.
+**Result: fleet-wide `ImagePullBackOff` on services you never touched, caused by
+a command whose name suggests it deploys agents.**
+
+Nothing warns you. The `sed` succeeds, `kubectl apply` succeeds (the Deployment
+object is valid), and the failure appears asynchronously as pods fail to pull.
+
+**What to do instead** — apply the single overlay:
+
+```
+# edit ONLY that service's overlay newTag, then:
+kubectl apply -k deployments/kustomize/services/<svc>/overlays/production/uk_001
+kubectl -n ai-persona-system rollout status deploy/<svc> --timeout=300s
+```
+
+**How to know before you fire it:** read the target. `deploy-agents` is a flat
+list of per-service `sed` + `apply` blocks with no argument and no filter — there
+is no `deploy-agents SERVICE=x`. `push-backend` is fourteen literal `docker push`
+lines. Neither takes a service.
+
+**Generalisation worth keeping.** `IMAGE_TAG` is a **global** in this makefile,
+but a build is **per-service**. Every target that reads `IMAGE_TAG` without
+building assumes the tag is universal, and that assumption is false the moment
+you build one service — which is the normal case, not the exception. Treat any
+fleet-wide target as safe only immediately after a fleet-wide build.
+
+Sibling of the `bugs_open/066` family (§10): there too, the damage came from a
+deploy path acting on rows/services beyond the one in hand. Same shape — an
+operation scoped wider than the change that motivated it.
+
+### An agent's result lives at its step's `output_field`, and a runbook's printed query can point somewhere else — the empty read looks exactly like "it did nothing" (2026-07-27)
+
+**Symptom.** An orchestration reaches `COMPLETED @ complete`. You run the query
+the trigger script itself printed, and get **nothing**:
+
+```sql
+SELECT jsonb_pretty(collected_data->'complete'->'result'->'response')
+FROM orchestration_states WHERE orchestration_id='<orch>';   -- empty
+```
+
+**This is the single most misleading result in the system**, because "completed
+but produced nothing" is a real and common failure (§ zero planned sections
+treated as success; `complete` is not proof the work happened). So the empty read
+is *plausible as a finding* and gets written down as one.
+
+**Cause.** The payload is written to the key named by the step's `output_field`,
+at the TOP level of `collected_data` — not under the terminal step. For
+`revalidate_review_queue` the step declares `"output_field": "revalidation_result"`,
+so the data was at `collected_data->'revalidation_result'` with 50 items in it,
+while the documented path returned empty.
+
+**The check, which costs one query:**
+
+```sql
+SELECT jsonb_object_keys(collected_data) FROM orchestration_states WHERE orchestration_id='<orch>';
+-- then read the key that matches the step's output_field
+SELECT default_config->'workflow'->'steps'->'<step>'->>'output_field'
+FROM agent_definitions WHERE type='<agent-type>';
+```
+
+**Why the runbook drifts.** A trigger script's printed query is authored once,
+against whatever the workflow looked like that day, and nothing re-checks it when
+a step's `output_field` is renamed or a step is inserted before `complete`. It is
+a claim with no test, sitting in the one place you are most likely to trust it.
+**Treat a printed verification query as documentation, not as an oracle** — and
+when it returns empty, distrust the query before you distrust the run.
+
+### Verifying a `strings` pod-grep: anchor with `^...$` and it returns 0 for everything, including code that is definitely there (2026-07-27)
+
+Recorded because the natural response to the false 0 is to **rebuild and re-roll**
+— a wasted tag, push and fleet restart chasing a bug that is in the grep.
+
+```
+strings /app/agent-chassis | grep -c "^GEMINI_API_KEY$"    -> 0    # reads as "not shipped"
+strings /app/agent-chassis | grep -c "^ANTHROPIC_API_KEY$" -> 0    # ...but this HAS been there for months
+strings /app/agent-chassis | grep -c "GEMINI_API_KEY"      -> 2    # the truth
+```
+
+Go string constants are emitted into a shared string table, so `strings` prints
+them as substrings of longer lines. A whole-line anchor can essentially never
+match a Go constant. The same silent-zero applies to `-w`, to a locale mismatch,
+and to non-UTF-8 input (see the `grep goes silent on non-UTF-8` note).
+
+**The rule this makes concrete:** the existing guidance is to grep a marker your
+change CREATED plus a negative control that must return 0. That is necessary and
+**not sufficient** — it validates your choice of marker, not your grep's syntax.
+**Add a positive control: a string you KNOW is in that binary. If it returns 0,
+the instrument is broken, not the image.** Three greps, one command:
+
+```
+kubectl exec -n ai-persona-system <pod> -- sh -c '
+for s in "<string your change created>" "<string known present for months>" "<same + NOTREAL>"; do
+  printf "%-40s -> " "$s"; strings /app/agent-chassis | grep -c "$s"; done'
+```
+
+Best of all, run it against the **old image too** — a count that moves across the
+roll boundary (here 1 → 2) is proof the delta is yours, where a bare presence
+check would have said "yes" on both.
