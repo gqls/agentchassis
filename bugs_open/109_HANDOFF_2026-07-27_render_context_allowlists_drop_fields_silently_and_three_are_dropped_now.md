@@ -12,7 +12,60 @@ The objection was accepted. This file is the tracked follow-up it asked for.
 complaint. It is a defect factory rather than a defect.
 **Class:** structural (a contract advertised in one place and honoured by an allowlist in
 another, with no relationship between them that anything checks).
-**Status:** OPEN, unowned. Not started.
+**Status:** **OPEN — 1 of the 4 maps closed** (`595c1f499`, council-approved, inert until
+the next chassis roll). See the box below for what is left.
+
+> ## STATUS 2026-07-27 — the SERIALISE map is derived; the other three are not
+>
+> **Done (`595c1f499`, council `d8517d30-c691-4e4d-9647-b17a51324cd3`, APPROVED, 10
+> reviewers, 0 unreadable, 5 advisory objections, no veto).** `renderCtxToMap`'s scalar
+> half is now **derived from `RenderContext`'s json tags** rather than hand-listed, so
+> the default for a new field is *serialised* and an omission must be written into
+> `renderContextUnserialised` **with a reason**. That is candidate 1, applied to one of
+> the four maps.
+>
+> The refactor is **behaviour-preserving today** — the serialised key set is identical,
+> and `TestRenderCtxToMapDerivationIsBehaviourPreserving` transcribes the old literal
+> and asserts both directions, so a future change that adds or drops a key is reported
+> rather than discovered. Three fields also gained json tags they never had
+> (`Industry`, `Tone`, `TargetAudience`, `Services`); without them the struct was not a
+> complete declaration of anything.
+>
+> The test's **duplicate copy** of the omission list is gone — it now derives from the
+> same map. Two lists that must agree with nothing checking that they do is the same
+> drift class as the defect itself.
+>
+> ### Still open — this is why the case is not closed
+>
+> Candidate 1 asked for **all four** maps. Three remain hand-maintained and carry the
+> identical defect: `mergeIntoRenderContextEnhanced` (build), `mergeIntoRenderContext`
+> (restore), `contextToInterfaceMap` (render). The council's `editquality` and
+> `guardian` seats both said so explicitly, and `guardian` said in terms that 109
+> should stay open rather than be closed on this step. The commit for this fix drew the
+> `untouched-twin` advisory for exactly that reason, which is expected and recorded.
+>
+> **`theme_css` / `title` / `description` are still dropped**, deliberately. Reading
+> their writers is what settled it: `Title` and `Description` are written **per page**
+> (`rerender_pages_actions.go:191-192`, `multipage_actions.go:94-99`), so serialising
+> them from a *site-level* context would bleed one page's title onto every page — the
+> opposite of the per-page behaviour `current_page` needed. Each needs its producer
+> decided; that is a behaviour change, not a mechanism fix.
+>
+> ### Two facts checked for the council, worth keeping
+>
+> - **`RenderContext` is marshalled nowhere**, and is embedded in no other struct. The
+>   json tags were inert documentation before this change, which is what makes
+>   promoting them to the authoritative declaration free.
+> - **`renderCtxToMap` has exactly one production caller** — `BuildRenderContextAction`
+>   (`v3_site_actions.go:1026`). Every other reference is a test.
+>
+> ### New failure mode this introduces, and its guard
+>
+> Deriving from tags means a **duplicate** tag silently collides (map insertion
+> overwrites) and a **typo'd** tag silently becomes a key nothing reads.
+> `TestRenderContextJSONTagsAreUnique` catches the first. The second is caught from the
+> other side by the existing contract test. This is a narrower silent-failure surface
+> than the one removed, but it is not zero and should not be described as such.
 
 ---
 
