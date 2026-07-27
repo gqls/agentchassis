@@ -7,7 +7,53 @@ re-raises), but for as long as the item is open: the durable record names the *w
 the run's own report says a record was created when none was.
 **Class:** detected-then-discarded (`bugs_open/071`, `083`) crossed with green-report-for-an-
 absent-record — which is the class `074` itself belongs to.
-**Status:** OPEN, diagnosed with evidence, **not fixed** — the fix belongs to owners, see below.
+**Status:** **OPEN — candidate 2 done, candidates 1 and 3 still owed.** Committed
+`027a8f9e3`, council APPROVED (`a5b70424-b2b5-4d58-aa61-978e8bcf1234`, 11 reviewers,
+0 unreadable, 3 advisory objections), inert until the next chassis roll.
+
+> ## STATUS 2026-07-27 (bugs thread) — the report is honest; the finding is still dropped
+>
+> **Candidate 2 applied, and it turned out to be three sites rather than one.**
+> `createStaleEvidenceItem` now returns `(bool, error)` and the caller sets
+> `WorkItemCreated` from what was actually inserted, plus a Warn naming this bug when
+> drift is found and the open item still describes the earlier drift.
+>
+> **Two more sites of the identical shape, which this file does not name:**
+> `apply_gap_plan_action.go` hardcodes `"item_created": true` in **both** its
+> `new_page` and `retype_existing` arms, over an `INSERT … ON CONFLICT DO NOTHING`,
+> having discarded the `sql.Result` that knows. Found by grepping every *reporter of a
+> creation* rather than only the filed call site — the same discipline that turned up
+> the second call site in `bugs_open/103`.
+>
+> **Nothing branches on these fields**, checked before changing them: no `conditional`
+> step in any active `agent_definition` references `item_created`. The six definitions
+> that mention it declare it as an `output_field` on the **different**
+> `create_work_item` action.
+>
+> ### Still owed — deliberately not done here
+>
+> - **Candidate 1** (`ON CONFLICT … DO UPDATE` behind a `refreshOnConflict` opt-in).
+>   The second drift is still dropped; the run now says so instead of claiming
+>   otherwise. This changes a helper every detector in the fleet calls and is
+>   `work_item_completion_integrity`'s remit, exactly as this file says.
+> - **Two findings raised by council reviewers**, both for that same workstream:
+>   the `guidelines` seat notes `apply_gap_plan`'s `ON CONFLICT DO NOTHING` against
+>   `site_work_items` is itself a **WORK-ITEM DEDUP rule violation** (the rule mandates
+>   DELETE+INSERT); and `reuse_agent` asks whether those two raw INSERTs should route
+>   through `insertWorkItem` and inherit its dedup semantics and its boolean rather
+>   than a new helper. Both are probably right and both are refactors with real blast
+>   radius, not reporting fixes.
+>
+> ### After the roll
+>
+> ```
+> kubectl exec -n ai-persona-system <chassis pod> -- \
+>   sh -c 'strings /app/agent-chassis | grep -c "an open stale_evidence item already"'
+> ```
+> Then induce it as this file prescribes — corrupt a second sql-sourced fact on a site
+> that already has an OPEN `stale_evidence` item — and require `work_item_created` to
+> read **false**. A clean sweep proves nothing: the happy path reported true both
+> before and after.
 
 ---
 
