@@ -113,7 +113,52 @@ close, and the remainder is explicitly parked on owner decisions about `#fff`,
 semantic tints (`#fef2f2`, `#ecfdf5` — no palette entries exist for them) and inline
 `style=""` attributes.
 
-## THE DECISION WAITING ON THE OWNER (as of round 3)
+## ROUND 4 — the blocker is resolved. The plan is ready.
+
+`FEATURE_CORR b5097ade-93a7-4e92-bd14-fafbdb2f2680` — **approved, 5 reviewers,
+abstained 0, unreadable 0, "1 advisory objection — none high-severity"**, verdicts
+**4 approve / 1 object**. Objection trend across the series: **3 → 3 → 2 → 1**.
+
+**The 077-recurrence is fixed, and fixed the right way.** The plan now edits the
+verifier in the same file and stage:
+
+> *"`VerifyHardcodedSectionColorsResolved -> hardcodedSectionColoursVerdict ->
+> PartitionByRemit` is edited IN THIS SAME FILE to call `DeriveColorVariableMap`
+> using the `db` and `target.SiteID` it already holds, and thread that palette into
+> `PartitionByRemit`…"*
+
+And it went further than the directive asked: `s1`'s expected symbols include
+**`TestVerifierMatchesCheckClassification`** — the "both ends agree" property turned
+into a build-enforced test rather than an argument in a risks section. That is the
+same shape as this repo's other lockstep guards, and it is what stops a future
+thread quietly reintroducing the divergence. `s2` also gained `test=true`.
+
+**What remains is a different and lesser class** — consequences of the DB read the
+directive introduced, not the original defect:
+
+| reviewer | sev | concern |
+|---|---|---|
+| bug_historian | med | check and verifier now read `color_palette` independently at different times; the plan covers the happy path but not what happens if the two reads disagree (palette edited in between) |
+| guardian | med | the verify path's I/O profile changes; no caching/batching commitment |
+| bug_historian | low | if `DeriveColorVariableMap` returns an EMPTY map (null `style_collection_id`, or keys absent) the handler still mutates `rendered_html` — silent no-op territory |
+| reuse_agent | low | no code_pointer names where the `--color-*` emission logic lives, so `DeriveColorVariableMap` may duplicate existing mapping logic |
+
+None is high-severity; all are the sort of thing the per-stage build gates and the
+PR review surface. **The transient-disagreement one is arguably correct behaviour**
+(a verifier should judge against current state), and the empty-map one is worth
+holding as an explicit check when reading the PR.
+
+**RECOMMENDATION: this is ready for the implementer, on the owner's word.** Four
+rounds, converging objections, the structural defect closed and test-pinned. A
+fifth round would be tidying.
+
+**Pre-flight before firing `feature-implementer`** (from the feature-builder
+workstream, not optional): `bugs_open/066` — spawned agent pods pin stale image
+tags, so census the image tag before the fire; the merged PR #3 code is NOT in this
+working tree (fetch first); and the run refuses a pre-existing `feat/<short-corr>`
+branch, which is deliberate.
+
+## THE EARLIER DECISION POINT (as of round 3) — superseded by round 4 above, kept for the trail
 
 Three designer rounds, all APPROVED, all `5 reviewers / abstained 0 / unreadable 0`.
 Objections: round 1 **3**, round 2 **3**, round 3 **2**. Converging, not converged.
