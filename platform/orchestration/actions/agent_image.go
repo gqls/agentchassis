@@ -111,13 +111,27 @@ var (
 // cluster, RBAC denied, API slow), the agent definition's own values are used,
 // which is exactly the pre-066 behaviour.
 func resolveAgentImage(ctx context.Context, agentDef *AgentDefinition, logger *zap.Logger) ResolvedAgentImage {
-	resolved := chooseAgentImage(selfPodImages(ctx, logger), agentDef)
+	selfImages := selfPodImages(ctx, logger)
+	resolved := chooseAgentImage(selfImages, agentDef)
 
 	fields := []zap.Field{
 		zap.String("agent_type", agentDef.Type),
 		zap.String("image", resolved.Ref()),
 		zap.String("image_source", resolved.Source),
 	}
+
+	// Council gate 3e146ef2, guardian objection (low): falling back to the row
+	// when we DID know our own image is a quiet reversion to the bug this fixes
+	// — invisible when it happens. It is legitimate for an agent that runs a
+	// different image, and a registry-host spelling that fails to normalise
+	// looks identical from here, so say which images were considered.
+	if resolved.Source == imageSourceDefinition && len(selfImages) > 0 {
+		logger.Warn("Spawn image came from the agent_definitions row: none of this pod's images matched the row's repository (expected for a deliberately different image; a registry-host spelling mismatch would look the same)",
+			append(fields, zap.String("row_repository", agentDef.ImageRepository),
+				zap.Strings("self_images", selfImages))...)
+		return resolved
+	}
+
 	if resolved.DriftedFrom != "" {
 		// Not an error — this is the bug being corrected in flight. It is a
 		// warning because the row is now known to be wrong, and the censuses
@@ -272,13 +286,21 @@ func lookupSelfPodImages(ctx context.Context) ([]string, error) {
 		return nil, err
 	}
 
-	// A pod's hostname is its name unless a manifest overrides it, and nothing
-	// here does. This avoids depending on a POD_NAME env var that a future
-	// manifest could omit — the same failure mode that left AGENT_IMAGE_TAG
-	// stale for a thousand versions.
-	podName, err := os.Hostname()
-	if err != nil {
-		return nil, err
+	// POD_NAME first, because that is the house convention (agentbase/agent.go,
+	// the imagegenerator/analyser/browserrunner adapters all read it) and it is
+	// the only correct answer if a manifest ever sets an explicit `hostname:`.
+	// It is NOT set on the chassis Deployment today — verified in the running
+	// pod 2026-07-27, POD_NAME and POD_NAMESPACE both unset — so the hostname
+	// fallback is the live path, and it must stay: a resolver that depended on
+	// an env var a manifest can omit is the same failure mode that left
+	// AGENT_IMAGE_TAG stale for a thousand versions.
+	podName := strings.TrimSpace(os.Getenv("POD_NAME"))
+	if podName == "" {
+		var err error
+		podName, err = os.Hostname()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	lookupCtx, cancel := context.WithTimeout(ctx, selfImageLookupTimeout)

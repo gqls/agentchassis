@@ -69,25 +69,46 @@ echo
 # pin_image_tag is the deliberate opt-out and is matched EXACTLY as the Go
 # resolver matches it (a JSON boolean true, not the string "true"), so a pin
 # means one thing in both places.
+#
+# is_active / status are deliberately NOT in the scope. Enumerated 2026-07-27
+# before trusting the blast radius (the sites.status lesson — count by the
+# column before assuming it means nothing): 105 experimental+active,
+# 70 active+active, 5 experimental+inactive = the 180 rows in scope. `status` is
+# informational here — both values are live agents — and the 5 inactive rows are
+# INCLUDED on purpose: an inactive row can be reactivated, and leaving it on an
+# ancient tag would re-open 066 for exactly that row.
+#
+# The values below are passed to psql as BOUND VARIABLES (-v … referenced as
+# :'name'), not spliced into the SQL text. They come from a trusted deploy
+# pipeline, but "SCHEMA FIRST, PARAMETERISED ALWAYS" is written without that
+# exception, and psql's own quoting is more reliable than ours anyway.
+# (Council gate 3e146ef2, constitution seat, medium.)
 SQL_WHERE="deleted_at IS NULL
       AND COALESCE(is_snapshot, false) = false
-      AND image_repository = '$IMAGE_REPO'
+      AND image_repository = :'img_repo'
       AND COALESCE(default_config->'pin_image_tag', 'false'::jsonb) <> 'true'::jsonb"
 
 if [ "$DRY_RUN" = "1" ]; then
     echo "DRY_RUN=1 — nothing will be written."
+    # Must be fed on STDIN, not with -c: psql performs :'var' interpolation only
+    # on input it lexes (stdin/-f), and silently sends a -c string as-is, so the
+    # parameterised form fails with `syntax error at or near ":"`. Verified both
+    # ways 2026-07-27.
     kubectl -n "$NAMESPACE" exec -i postgres-clients-0 -- \
-        psql -U clients_user -d clients_db -c "
+        psql -U clients_user -d clients_db \
+        -v img_repo="$IMAGE_REPO" -v img_tag="$IMAGE_TAG" <<EOF
 SELECT
   count(*)                                                                   AS in_scope,
-  count(*) FILTER (WHERE COALESCE(image_tag,'') <> '$IMAGE_TAG')             AS would_change,
-  count(*) FILTER (WHERE COALESCE(image_tag,'')  = '$IMAGE_TAG')             AS already_correct
-FROM agent_definitions WHERE $SQL_WHERE;"
+  count(*) FILTER (WHERE COALESCE(image_tag,'') <> :'img_tag')               AS would_change,
+  count(*) FILTER (WHERE COALESCE(image_tag,'')  = :'img_tag')               AS already_correct
+FROM agent_definitions WHERE $SQL_WHERE;
+EOF
     exit $?
 fi
 
 kubectl -n "$NAMESPACE" exec -i postgres-clients-0 -- \
-    psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 <<EOF
+    psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
+    -v img_repo="$IMAGE_REPO" -v img_tag="$IMAGE_TAG" <<EOF
 \\set ON_ERROR_STOP on
 
 -- Before: what the rows say now.
@@ -96,10 +117,10 @@ FROM agent_definitions WHERE $SQL_WHERE
 GROUP BY 1 ORDER BY 2 DESC;
 
 UPDATE agent_definitions
-SET image_tag = '$IMAGE_TAG',
+SET image_tag = :'img_tag',
     updated_at = NOW()
 WHERE $SQL_WHERE
-  AND COALESCE(image_tag,'') <> '$IMAGE_TAG';
+  AND COALESCE(image_tag,'') <> :'img_tag';
 
 -- Rows deliberately left alone, so the exclusions are visible rather than implied.
 SELECT 'pinned'       AS left_alone, count(*) FROM agent_definitions
@@ -111,7 +132,7 @@ SELECT 'soft-deleted', count(*) FROM agent_definitions WHERE deleted_at IS NOT N
 UNION ALL
 SELECT 'other image', count(*) FROM agent_definitions
   WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false) = false
-    AND image_repository IS DISTINCT FROM '$IMAGE_REPO';
+    AND image_repository IS DISTINCT FROM :'img_repo';
 
 -- After: this must be a single row at the deployed tag.
 SELECT COALESCE(image_tag,'(null)') AS tag_after, count(*)

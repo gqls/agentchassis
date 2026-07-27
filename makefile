@@ -522,11 +522,13 @@ deploy-090-monitoring: ## Deploy monitoring stack
 deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) with image updates
 	@echo "$(GREEN)Deploying 100-bootstrap-agents...$(NC)"
 	@echo "$(YELLOW)First updating agent definitions with current image...$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
-		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW() \
-		 WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false) = false \
-		   AND COALESCE(default_config->'pin_image_tag','false'::jsonb) <> 'true'::jsonb; \
-		 SELECT COUNT(*) as updated_count FROM agent_definitions;" || true
+	@printf "%s\n" \
+		"UPDATE agent_definitions SET image_repository = :'img_repo', image_tag = :'img_tag', updated_at = NOW()" \
+		" WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false) = false" \
+		"   AND COALESCE(default_config->'pin_image_tag','false'::jsonb) <> 'true'::jsonb;" \
+		"SELECT COUNT(*) as updated_count FROM agent_definitions;" \
+	| KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- \
+		psql -U clients_user -d clients_db -v img_repo="$(REGISTRY)/agent-chassis" -v img_tag="$(IMAGE_TAG)" || true
 	@cd $(TERRAFORM_DIR)/100-bootstrap-agents && \
 		if [ -f terraform.tfvars.secret ]; then \
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
