@@ -617,3 +617,58 @@ worse than no test, because it produces confidence.
 
 None of this changes what I need from you — the box session is still the one thing. But the
 homepage button is the kind of fault I would rather you heard from me than found yourself.
+
+---
+
+**Monday 27 July, later.** You asked for two things: no "contact us" on relojistas, and the
+about page brought into line with the new commercial guidelines — the domain-for-sale line
+pointing at Afternic. The first is done. The second is prepared and deliberately parked, and
+I want to explain why rather than just leave it undone.
+
+**On the contact side, it turned out there were four of them, and every one was already
+broken.** There was a whole Contacto page, linked from the footer of every page, whose form
+submitted to nowhere at all — the form's target was a link back to the same page, so anyone
+who wrote to us had their message silently discarded while the page said "we read every
+message". There was the dead homepage button from this morning. There was an empty "Contact"
+heading in the footer of all nineteen pages, sitting over a blank space. And there was a
+standing request in the system, open since the 16th, asking someone to supply a business email
+address for the site — which was never going to be answered.
+
+All four are gone. The Contacto page is retired and its file physically removed from the
+server, which matters more than it sounds: our own records show that merely marking a page
+"archived" stops the system ever touching it again but leaves the last version of it sitting
+there being served forever. So archiving alone would have left it live and frozen. It now
+returns a proper "not found". I also cleared a Spanish phone number the system had been
+holding for this site — it came from research on the old forum and was never ours to publish.
+It wasn't visible anywhere, but a site with no contact route shouldn't be keeping one on file.
+
+The three buttons that pointed at the dead contact page now point somewhere real. Two of them
+were pointing at themselves, which I hadn't spotted this morning — a "read the latest news"
+button on the news page, and an "explore the glossary" button on the glossary page. Those are
+just noise, so I removed them rather than inventing destinations. Each page now has one button
+that does what it says.
+
+**On the for-sale block, I've stopped short on purpose, and it's a judgement I'd like you to
+sanction.** Everything is configured: the site is recorded as portfolio, tier 2, for sale, with
+your Afternic listing as the destination. What I have not done is put the block on the page,
+because **every word of it is written in English** — "available to acquire", "register your
+interest", "Built by". relojistas is a Spanish site; its own brief says it must be entirely in
+Spanish. Putting an English sales block on it would be me deliberately committing the exact
+fault I spent this morning writing up, having just told you it was a problem.
+
+It isn't a translation job either, which is the annoying part. The wording you approved was
+chosen carefully — "acquire" rather than "for sale", representation rather than adjectives, no
+price on the page. That register doesn't survive being run through a translator; the natural
+Spanish for "for sale" reads like a classified ad. It needs someone with an ear for it, and
+that's a call for the workstream that owns this block, not for me on a site thread. I've
+written the whole thing up for them with what I checked, so nobody repeats the groundwork. The
+day the block speaks Spanish, relojistas is one step from having it.
+
+**Two things for you.** First, I couldn't verify the Afternic listing myself — GoDaddy blocks
+automated checks, and their public page for the domain is uninformative in both directions. I've
+taken your dashboard as the answer and recorded it as your reading rather than my check, so
+nobody later mistakes it for something I confirmed. Second, that listing has its **minimum
+offer set to zero**. The design deliberately relies on a minimum-offer floor instead of putting
+a scary price on the page — with it at zero, that protection isn't there, and the page would be
+inviting offers with nothing holding the bottom up. Worth a minute of your time before this
+goes live anywhere.

@@ -1566,3 +1566,109 @@ Note `pages.rendered_header`/`rendered_footer` are **empty on all 19 rows** whil
 all serve a header and footer — so those columns are not the source of the served chrome, and a
 detector reading them would report every page as broken. [INFERRED — I did not trace which
 detector wrote the 07-19 row; the point stands that the row is false today.]
+
+---
+
+## 2026-07-27 (2) — owner: no contact route on relojistas; about page takes the for-sale block
+
+Two owner instructions. One is done; the other is prepared and deliberately not shipped.
+
+### What "contact us" actually consisted of (four surfaces, all broken anyway)
+
+| surface | state before |
+|---|---|
+| `contacto` page | live, in footer nav. Hero promised *"Escríbenos. Leemos todos los mensajes"*; the `contact-form` component's `form_action` was **`#contact`** — a fragment, so every submission went nowhere |
+| hero CTA on 3 pages | `<a href="/contact.html">` → **404** (the `component_library.go` default; see this morning's entry) |
+| footer, all 19 pages | `<h4>Contact</h4>` over an **empty** anchor |
+| `needs_section_data` | open since 07-16, asking for a business contact email that was never going to exist |
+
+### The sharpest form of the CTA bug, found while fixing it
+
+The hero template is **correctly defensive**:
+
+```
+{{if and .cta_text .cta_url}}<a href="{{.cta_url}}" …>{{.cta_text}}</a>{{end}}
+{{if and .secondary_cta .secondary_cta_url}}…{{end}}
+```
+
+Both CTAs required text **and** a URL. The secondary correctly rendered nothing (no
+`secondary_cta_url`). The primary rendered a 404 **only because the platform default
+manufactured a `cta_url`** — so the default did not merely supply a bad value, it
+**defeated the component's own guard**. Absent the default, that button would simply
+not have appeared and there would have been no dead link at all. Added to the 071
+sighting; it is the strongest argument there for "emit no anchor rather than a guessed
+one".
+
+### Applied (all reversible; backups first)
+
+Backups: `bak_reloj_contact_removal_20260727` (3 hero rows, content_data + rendered_html),
+`bak_reloj_pages_contacto_20260727`, `bak_reloj_identity_20260727`.
+
+1. **Hero CTAs given real, non-self-referential destinations.** `index`: primary →
+   `/noticias/index.html`, secondary → `/glosario/index.html`. On `noticias-index` and
+   `glosario-index` the primary was **self-referential** ("read the latest news" *on* the
+   news index; "explore the glossary" *on* the glossary index) — the same defect as
+   `guias-index`'s "Browse all guides". Dropped `cta_text` on both so the template gate
+   omits the anchor, and gave each secondary a real target. Each page now carries exactly
+   one honest CTA.
+2. **`contacto` archived** (`status='archived'`, out of header and footer nav).
+3. **File removed from `vm-sites`** (`c74fe58`, pushed). This step is not optional:
+   `bugs_open/098` — archiving drops a page from every derivation *and* every re-render,
+   so its last rendered HTML is frozen and **keeps serving**. Live-confirmed: `/contacto.html`
+   → **404** within minutes.
+4. **`identity.contact.phone` cleared.** It held `+34 630 07 09 60` — a real number carried
+   in from research on the defunct forum. Not rendered anywhere live (checked all three
+   candidate pages before and after), but a site with no contact route should not hold one
+   for chrome to find later.
+5. **`needs_section_data` closed `wont_fix`** with the ruling in `resolution_path` (that is
+   the free-text notes column on `site_work_items` — there is no `resolution_notes`; a
+   transaction died on that name and rolled back cleanly, verified by re-reading all three
+   targets before retrying).
+6. **18 `page_rerender` items queued** — 3 with `spec.reason='section_data_resolved'` for the
+   pages whose `content_data` changed, 15 assemble-only for the rest, purely so the footer
+   nav stops linking the retired page.
+
+### The mechanism question that had two contradictory answers in our own docs
+
+NOTES/memory said *"page-rerender re-deploys existing rendered_html, does NOT regenerate from
+content_data"*; the runbook said a scoped rerender **wipes** a hand-patched `rendered_html`.
+Both are true, conditionally, and the discriminator is `spec.reason`
+(`rerender_page_sections_action.go:1-50`, `create_rerender_items_action.go:206-220`):
+
+- `reason ∈ {section_data_resolved, image_landed}` → `RerenderPageSectionsAction`
+  **re-renders every section from stored `content_data` + freshly resolved fields, no LLM**;
+- **no reason** → assemble-only, which redeploys the stored HTML.
+
+So a `content_data` edit reaches the page only with a reason stamped. Item key encodes it
+(`page_rerender_<page>_<site>_<reason|assemble>`) precisely so a stale reason-less row cannot
+suppress a reason-bearing one. **Precondition checked before firing:** if *any* section on the
+page has NULL `content_data` the whole page escalates to the LLM writer — all four pages
+returned 0 nulls, so no copy-roulette risk (the failure mode that fabricated an email on 07-24).
+
+### For-sale block: config written, section deliberately NOT inserted
+
+Owner: **tier 2**, and the Afternic listing is **confirmed live from the owner's dashboard**
+(Status=Listed). `site_specs.commercial` written for relojistas — `class=portfolio, tier=2,
+for_sale_requested=true, advertising_active=false, marketplace_url=https://forsale.godaddy.com/forsale/relojistas.com`.
+
+**It renders nothing today, by design.** Two independent reasons, both verified:
+
+- `about-commercial-block` has **zero Go references** in `platform/`, `internal/`, `pkg/` —
+  the Phase-2 default-set hook is not built, so the block only appears where a section is
+  explicitly inserted, and I did not insert one.
+- **The block is hardcoded English** and this site's brief requires
+  *"íntegramente en español"*. Shipping it would be a deliberate fourth instance of the
+  English-leak defect this site documented this morning.
+
+Raised with the owning workstream rather than patched from here (`about_page_commercial/NOTES`,
+commit `7c0ee759c`) — it is a shared fleet component and the tier wording is owner-approved
+*register*, which does not survive machine translation. Checked for them: **no per-site language
+seam exists** (no column on `sites`; `language` appears only inside `deploy_config.rss_feed`,
+which is `"es"` here).
+
+**[UNVERIFIED] The Afternic listing is the owner's dashboard reading, not mine.**
+`forsale.godaddy.com` returns **403 to automated probes**, and `afternic.com/domain/relojistas.com`
+serves a generic "Sell Domains | Buy Domains" page carrying "NOT LISTED" strings — so my own
+probe is inconclusive in **both** directions and must not be cited either way. Also noted for
+the design: the listing's **Minimum Offer is 0**, so the locked anti-lowball floor is absent
+while the copy would say "register your interest".
