@@ -1074,3 +1074,112 @@ and also fixes the untested multi-commit-push case.
 > works" family from this morning. The only check that settles it is `curl` for a
 > string your change created — which is the same discipline as pod-grepping for a
 > symbol, one layer out.
+
+---
+
+## 2026-07-27 ~20:10 — the beacon, the feed's first ingestion, and a correction to my own correction
+
+### CORRECTION to correction 1 above — right conclusion, WRONG mechanism
+
+I wrote that re-rendering chrome is safe because `applyNavVisibility` drops the
+News item at render time. **The conclusion held — no 404 shipped — but that is not
+what fired.** Observed on the real run (orchestration `d12940a9`, 19:58):
+`refresh_nav_tables` ran BEFORE the render, and `populate_nav_tables_action:146`
+does `DELETE FROM site_nav_items WHERE site_id = $1` and repopulates from
+**deployed pages**. The news page is `planned`, so the News row was simply **not
+recreated**. It is now GONE from `site_nav_items` — deleted, not deactivated:
+
+```
+About /about/index.html active 0     Home  /index.html   active 0
+Tools /tools/index.html active 1     Learn /learn/index.html active 2
+```
+
+`nav_refreshed` reported `"items": 4`. So two independent mechanisms would each
+have prevented the 404 and I asserted the one that did not run.
+
+**Consequence for the news sequence, which is now BETTER than the handoff says:**
+the premise *"the nav row already exists in the DB"* is **false as of 19:58**. When
+the news page is built and deployed, the next nav refresh will recreate the row by
+itself, because the table is derived from deployed pages. Nothing to re-arm.
+
+> **The lesson, and it is the same one twice in a day:** a static read of the code
+> told me *a* mechanism that would produce the observed outcome, and I reported it
+> as *the* mechanism. Two code paths can guarantee the same result; the log says
+> which one ran. I had even marked the claim `[UNVERIFIED — no production execution
+> trace]`, which is what made this cheap to correct — the marker did its job.
+
+### THE FEED INGESTED — 50 items, first time ever
+
+`content_feed_items` for webdesign.co.uk: **50 rows, 0 duplicates, 50 distinct
+`source_url`**, all five editorial sources firing 10 each. The 19:49 tick worked.
+
+**And I was wrong at 19:56 when I said it was failing fleet-wide.** I measured zero
+items across all sites in two hours and read it as a stall of the same class as
+13:49. It was simply **slow** — the run processes sites one at a time and each
+spawned worker spends ~6 minutes validating its workflow before doing anything.
+webdesign.co.uk was 5th of 5. **"Nothing has arrived yet" and "nothing is going to
+arrive" look identical while a slow job is still running**, and the discriminator I
+had (`updated_at` frozen at 19:49:47) was ambiguous — the parent legitimately does
+not tick while awaiting a child. What settled it was simply waiting.
+
+Also corrected en route: I claimed the run had "no children, so the spawn never
+took". Wrong — children here are **spawned pods**, not rows carrying
+`parent_orchestration_id`. `agent-content-feed-orchestrator-21becfc9-qhtqn` was
+running the whole time. Check `kubectl get pods` before concluding a spawn was lost.
+
+**Content quality, by source — this is an editorial decision, not a bug:**
+
+| source | verdict |
+|---|---|
+| `CSS and browsers` | **strong** — Can I Use, MDN, "new CSS features 2026". On-brief. |
+| `web accessibility UK` | **strong** — WCAG 2.2, UK public-sector duty, legal obligations. Also feeds the buyer section's accessibility-duty angle. |
+| `AI web design tools` | **weak** — mostly vendor landing pages ("Free AI Website Builder"), i.e. competitor marketing, not news. |
+| `web design trends` | **weak** — generic "2026 trends" listicles, some graphic-design rather than web. |
+| `UK web design` | **RISKY** — almost entirely *"Top Web Design Agencies in the UK 2026"* ranking listicles. |
+
+⚠️ **`UK web design` collides with a standing RAIL.** The Phase 2 brief says
+**never publish comparative rankings of named agencies** — different risk class, and
+it destroys the neutrality the buying-design section depends on. Nine of its ten
+items are exactly that. Curating them would either republish competitors' rankings
+or read as us entering the ranking business. **Raise before the news page is built.**
+`relevance_score` is NULL on all 50 — nothing has triaged them yet.
+
+### THE BEACON: SQL_p7's Route B COULD NEVER HAVE WORKED
+
+Owner supplied the token; SQL_p12 set it in `site_components.content_data` exactly
+as SQL_p7 instructed. Work item `complete`, `render_site_components` returned
+`"rendered": {"head": true, "footer": true, "header": true}, "success": true`, and
+the chrome **was** genuinely rebuilt — `updated_at` 19:58:21, head 570→571 bytes.
+**No beacon.**
+
+Cause: **the chrome renderer never reads `site_components.content_data`.**
+`renderCtx.ContentData` (`render_site_components_action.go:227`) is a fixed
+hardcoded vocabulary off the `sites` row. The bugs_open/018 schema fill then reaches
+`cf_analytics_token`, sees `source: 'static'`, and at line 622 takes the branch that
+fills from `fallback` **or appends to `unresolved`**. No fallback ⇒ unresolved ⇒
+`{{if .cf_analytics_token}}` shut ⇒ nothing renders. The gate worked; the supply
+never existed.
+
+**Fixed in SQL_p13** by putting the token in the schema's `fallback` — this system's
+own idiom for a declared static literal (the comment at line 624 says so, citing
+`nav_aria_label`). Checked, not assumed: the component is referenced by **exactly
+one** `site_components` row, so no other site can inherit the token.
+
+> **Why two verify blocks passed over a path that never worked.** SQL_p7 asserted
+> the template is present and gated; SQL_p12 asserted the token is in content_data.
+> **Both assert the WRITE.** Neither exercised the READ, and nothing rendered the
+> component and grepped the output for the tag. Straight
+> [[writes-the-field-is-not-reads-the-field]]. A verify block that only re-reads
+> what you just wrote proves the UPDATE ran, nothing more.
+>
+> Second trap in the same incident: **`"rendered": true` meant "did not error",
+> not "changed anything"** — the idempotence gate at line 483 returns
+> `(true, false)` on an already-populated slot, and the caller reports that as
+> rendered. `force_rerender: true` (which `nav-updater` does set) got past it, and
+> the artefact STILL disagreed with the status. Trust the artefact.
+
+**HELD: the forced chrome re-render.** Owner says a new chassis is about to deploy,
+and a dispatch inside ~300s of a pod restart is silently dropped — the exact thing
+that cost the 13:49 feed tick. SQL_p13 is DB config, so it is already live and
+roll-independent. After the roll settles: queue a fresh `nav_drift`, then grep
+**`site_components.rendered_html`** for `beacon.min.js` before looking at any page.

@@ -63,6 +63,32 @@ SELECT count(*) FROM content_feed_items cfi JOIN sites s ON s.id=cfi.site_id
 0 fetched, 0 items, 0 recent failures. Task last fired 13:49:16, so **next tick
 19:49:16 UTC**.
 
+> **✅ RESOLVED 2026-07-27 20:05 — THE FEED INGESTED. 50 items, 0 duplicates, 50
+> distinct URLs, all five editorial sources firing 10 each.** SQL_p9's arming is
+> confirmed working end to end: the 19:49 tick enumerated 5 sites and
+> webdesign.co.uk was among them. It is simply SLOW — sites process one at a time
+> and each spawned worker spends ~6 min validating its workflow first; ours was 5th
+> of 5, so items landed ~15 min after the tick. **I called it "failing fleet-wide"
+> at 19:56 on a zero-count and was wrong** — a slow job in progress and a stalled
+> one look identical, and the parent's `updated_at` legitimately freezes while it
+> awaits a child. Wait before diagnosing.
+>
+> **NEXT IS NOW THE NEWS PAGE — and it is simpler than this doc says.** The
+> "re-render chrome early ships a 404" hazard is gone (see the correction below),
+> AND the premise *"the nav row already exists"* is now **false**: the 19:58 chrome
+> run's `refresh_nav_tables` step DELETED and repopulated `site_nav_items` from
+> DEPLOYED pages, so the News row no longer exists. When the news page is built and
+> deployed the row is recreated automatically. Nothing to re-arm, no ordering trap.
+>
+> ⚠️ **BEFORE BUILDING THE PAGE, RAISE THE CONTENT WITH THE OWNER.** Two of the five
+> queries are strong (`CSS and browsers` → Can I Use/MDN; `web accessibility UK` →
+> WCAG 2.2, UK public-sector duty). Two are weak (`AI web design tools` returns
+> vendor landing pages; `web design trends` returns generic listicles). And
+> **`UK web design` is RISKY — nine of its ten items are "Top Web Design Agencies in
+> the UK 2026" ranking listicles, which collides head-on with the standing rail
+> "never publish comparative rankings of named agencies."** `relevance_score` is
+> NULL on all 50; nothing has triaged them yet.
+
 ### What was wrong and what fixed it
 
 The previous handoff said "wait for the feed". **The feed could never have fired.**
