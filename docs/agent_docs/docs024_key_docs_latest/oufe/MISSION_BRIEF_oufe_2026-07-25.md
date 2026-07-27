@@ -11,7 +11,8 @@ register with a source, and through no other route.
 
 ---
 
-OUFE — Oxen Unity Financial Engineering — is a specialist publication about how
+OUFE, which stands for Oxen Unity Financial Engineering, is a specialist
+publication about how
 corporate finance actually works when a company is under strain: liability
 management, distressed debt, restructuring, and shareholder activism. The focus is
 the United Kingdom, and the mechanics of the UK restructuring toolkit in
@@ -32,19 +33,18 @@ We are not writing for the large funds. They already buy the expensive services
 and are not short of information, and we should not write as though we compete
 with them on that ground.
 
-What this site offers is not more information — it is mechanism and clarity. Take
-a live corporate battle and explain, in a form a busy professional can absorb
-quickly, what the documents permit, who ranks ahead of whom, who is being pushed
+What this site offers is mechanism and clarity rather than more information. Take
+a live corporate battle and explain, in a form a reader can absorb quickly, what the documents permit, who ranks ahead of whom, who is being pushed
 down the queue, and what the law actually allows the majority to do to the
 minority. Alongside the writing, interactive tools let the reader move the
-assumptions themselves and watch who recovers and who is wiped out — for live
+assumptions themselves and watch who recovers and who is wiped out, for live
 cases and for the famous historical ones alike.
 
 Tone: precise, unshowy, and confident about mechanism rather than about outcomes.
 Explain jargon the first time it appears and then use it properly, because the
 reader wants to learn the real vocabulary, not a simplified one. Never breathless,
 never promotional, and never in the register of a trading newsletter. Assume the
-reader is clever and busy.
+reader is clever and new to this.
 
 Positioning against the alternatives should be honest and specific: the
 institutional data services carry more raw information than we ever will, and we
@@ -52,7 +52,7 @@ are not competing on that ground. We compete on synthesis, on explaining
 mechanism, and on making the reader able to test a scenario for themselves.
 
 Visual direction: institutional and restrained, in the register of a serious
-professional practice or a research house — deep, sober colours, generous
+professional practice or a research house. Deep, sober colours, generous
 whitespace, strong typographic hierarchy, and a clear separation between narrative
 analysis and the interactive or tabular elements. It should feel like a document
 you would be comfortable forwarding to a partner at your firm. No stock-photo
@@ -71,6 +71,6 @@ statement about that company must come from a document we can cite and date.
 
 Absolute rule, platform-wide and non-negotiable: never invent a person, a company,
 a case, a quotation, a source, or a statistic. Every figure needs a real source
-that can be checked. Where we do not yet have a sourced figure, say so plainly —
-"we have not verified this" is always publishable, and a plausible guess never is.
+that can be checked. Where we do not yet have a sourced figure, say so plainly.
+"We have not verified this" is always publishable, and a plausible guess never is.
 A field asking for a number is not permission to produce one.
