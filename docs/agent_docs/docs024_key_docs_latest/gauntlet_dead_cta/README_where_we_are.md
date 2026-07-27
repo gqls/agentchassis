@@ -538,3 +538,74 @@ needs a proper fix and the other fifteen need repairing.
 What's left here is unchanged and honest: the engine still fails now and then and
 still throws away the reason, and the acceptance harness still needs fixing
 before it can test a page that waits ten seconds for an answer.
+
+---
+
+## 2026-07-27 (evening) — the engine can explain itself now, and what I got wrong getting there
+
+The Gauntlet's debate engine used to fail every so often and tell nobody why. It
+would return "unavailable" to the visitor and throw the actual reason away, so
+there was no way to find out what had gone wrong — a 429 from the AI provider, a
+timeout, an answer cut off mid-sentence, all arrived looking identical. That is
+now fixed, deployed to the small server, and proved working.
+
+Before starting I checked nobody else was on it, and found something worth
+knowing: the bug number 083 belongs to **two different open cases**, and almost
+every mention of "083" in our history refers to the other one, which someone else
+is actively working. A quick look at the history would have said "crowded, leave
+it alone". Ours had exactly one prior mention — me filing it.
+
+The fix turned out bigger than the bug described. It named two places where the
+error was discarded; there were nine, and auditing every failure path found seven
+more of a second kind. Sixteen in total. One of them was actively destroying its
+own evidence: a status code whose response body Cloudflare replaces with its own
+error page, so the explanation never reached the browser at all. We had fixed
+exactly that on the two neighbouring endpoints in July and missed this one.
+
+The review council rejected my first submission and was right to. Its complaint
+was narrow — it couldn't tell from my summary whether I'd edited four places or
+two — but checking properly showed my own count was wrong and led to the seven
+extra failures nobody had spotted. A reviewer who couldn't see the whole change
+still roughly doubled its coverage.
+
+Then you ruled on the one question the council said it couldn't decide itself:
+whether the failure log should record an extract of what the AI said, given that
+on this page the AI quotes the visitor's own argument back. Checking the detail
+made it not a trade-off at all — the extract was capped at 300 characters, and the
+specific fault it existed to catch puts its evidence about 1,500 characters in, so
+it could never have seen the thing it was for. It now records the *shape* of a bad
+response instead: how long, did it start with a brace, was there a code fence, how
+many answers did it contain. Every question answered, no words recorded. And a
+check now runs automatically before every commit so nobody has to notice this
+again.
+
+The VM is rebuilt and it works. I proved it by deliberately breaking it: same
+code, a throwaway database, a deliberately wrong password for the AI service. The
+new version wrote down exactly what happened — wrong key, provider's own error
+reference. The old version wrote nothing at all. That silence is the whole bug,
+and it is gone. A real argument through the live site afterwards worked start to
+finish.
+
+**What I got wrong, since it's a fair amount and the pattern matters.** Eight
+things, written up properly in the technical notes. Three of them are the same
+mistake in different clothes: **I wrote checks that could not have failed.** A
+new automated check that scanned no files and reported everything fine. A
+verification step that looked for the program in the wrong place, so it would
+always have reported a failed deployment. And a "control" that searched a
+compiled program for text that only exists in source code. Each one produces
+output indistinguishable from success.
+
+I also misread the council's own scoreboard and told you eight reviewers had
+abstained when in fact eight had voted; I claimed a count I hadn't actually run a
+command to produce; and I wrote a commit reference into a document before the
+commit existed. All corrected, all recorded.
+
+The lesson I've written into the fleet-wide log is the one that covers all three
+of the big ones: **an assertion that cannot fail is not an assertion.** Anything
+that says "we now verify X" needs to be shown failing once, at the moment it's
+written, or it is decoration.
+
+The bug stays open on purpose. We can now *see* the failures; we haven't stopped
+them. The right next move is to wait a day or two, read what the log actually
+caught, and fix that — rather than guess at which of three plausible causes to
+address.
