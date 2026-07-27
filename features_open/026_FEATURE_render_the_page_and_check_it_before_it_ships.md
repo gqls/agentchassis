@@ -154,3 +154,68 @@ hours apart, is itself evidence about how visible the gap is once anyone looks.
   a date, so the number is a baseline rather than an anecdote.
 - The three parked `audit_finding_brief_fidelity` rows are either actioned or the item
   type stops being filed.
+
+---
+
+## 2026-07-27 (evening) — Phase 2 is BUILT, ENABLED, and the fleet baseline this file asked for
+
+**Phase 2b done** (`6dd8667ea`): `check_palette_contrast` reads
+`palettes.colours` via `site_specs.resolved_composition.palette_id` and audits
+the pairings a stylesheet emits. **Enabled** in `design-discovery-agent`'s checks
+array (22 checks now; backup `bak_ad_designdiscovery_20260727`). Safe to enable
+before the roll — an unregistered check name logs a Warn and is skipped
+(`discovery_checks.go:124`) — so it is inert until the binary carries it and then
+starts working with nothing owed.
+
+> **The deferral in the box above was wrong, and checking is what settled it.**
+> I wrote that composing the palette needed a second loader that could diverge
+> from `buildPaletteMap`. It does not: the merge RESULT is persisted in
+> `palettes.colours`, so there is nothing to reimplement. *"I cannot do X yet"
+> is a claim about the codebase* — this one did not survive one query.
+
+**Which row it reads is the load-bearing decision, and the obvious choice is
+wrong.** `design_intent.palette.reference_values` — the site's intent — was
+CORRECT throughout the incident. Auditing intent would have reported a clean site
+while the pages were unreadable. The defect was intent ≠ artefact, so the check
+reads the composed artefact.
+
+### The fleet baseline this file's acceptance section asked for
+
+Measured 2026-07-27 across every site with a resolved composition — **7 failing
+pairings on 7 of 10 sites**:
+
+| site | worst pairing | ratio |
+|---|---|---|
+| dartsonline.com | primary as an ink on the background | **1.11:1** |
+| robot-hands.com | same shape | **1.14:1** |
+| oufe.com | same shape | **1.21:1** |
+| webdesign.co.uk | accent as an ink | 2.13:1 |
+| vetcomparison.uk | accent as an ink | 2.42:1 |
+| relojistas.com | accent as an ink | 2.68:1 |
+| idea.uk | muted text on the background | 3.35:1 |
+| fundamentallyai.com | — | **clean** (repaired today) |
+| gamesdesign.co.uk, vonc.com | — | clean |
+
+**Three sites carry the identical near-black-ink-on-near-black-background defect**
+that took three days and the owner's own eyes to find on the fourth. That is the
+answer to "why wasn't this picked up": nothing was looking, and it is not rare.
+
+### Acceptance, honestly
+
+- ✅ *"A dark site whose palette omits card_bg produces a finding before a human
+  sees the page."* Verified against fundamentallyai's real pre-repair palette:
+  exactly the three failures the owner reported, silent on the repaired one.
+- ✅ *"the fleet's live sites recorded here with a date"* — above.
+- ❌ *"The three parked `audit_finding_brief_fidelity` rows are either actioned or
+  the item type stops being filed."* **Untouched.** Still `bugs_open/115`, and
+  still the phase this file argues should come first if only one is ever built.
+
+### What Phase 2 still cannot see
+
+A component that hard-codes an ink over a themed fill — family 3. It produced a
+real regression the same day: repairing fundamentallyai's palette flipped
+`primary` near-black → light blue and two components hard-coding `#fff` over it
+went 17:1 → 2.32:1. **A green Phase 2 result does not mean the pages are legible.**
+Phase 3 (`browser-runner-adapter` on the deploy path) is what closes that, and
+`scripts/render_audit.py` already does the work standalone.
+
