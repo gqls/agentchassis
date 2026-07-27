@@ -101,6 +101,45 @@ Then require BOTH: the open item's `spec->'drifted'` names the newly drifted fac
 run's `work_item_created` reads false when nothing was inserted. Restore afterwards — the sweep
 re-syncs the value itself, so only the work item needs cleaning up.
 
+## Post-roll triage 2026-07-27 (~15:55 UTC) — unchanged by the roll; framing the decision
+
+The fleet rolled to **v1.0.1174** (`2026-07-27T15:11:15Z`). This bug is **not** one of
+the "fixed but inert" class — no fix has been written, so the roll changes nothing.
+Re-read at the two cited sites today, both still exactly as filed:
+
+```
+platform/orchestration/actions/refresh_evidence_base_action.go:367-370
+  if err := createStaleEvidenceItem(...); err != nil { ... } else { res.WorkItemCreated = true }
+platform/orchestration/actions/load_work_item_actions.go:1146   ON CONFLICT (site_id, item_key)
+```
+
+`grep -n "refreshOnConflict" platform/orchestration/actions/` → **no hits**. Still OPEN,
+still unfixed.
+
+**The decision the owner actually needs to make, stated plainly.** The three
+candidates are not alternatives at the same altitude — candidate 2 is free and the
+other two are not, and they answer different questions:
+
+- **Candidate 2 (propagate `inserted` to `res.WorkItemCreated`) is not a design
+  question at all.** It is one line, it changes no behaviour, and it makes the run's
+  own report stop asserting a write that did not happen. It is correct under *every*
+  answer to the real question below, and it should not wait on that answer. Owned by
+  either `work_item_completion_integrity` or `claims_verification`; safe for both.
+- **The real question is: when a second, different finding arrives while an item is
+  open, should the durable record be updated, or should it stay as first written?**
+  Candidate 1 (`DO UPDATE`) says update; candidate 3 (key per fact) says one row per
+  finding. Both have a cost the other does not: candidate 1 changes the semantics of
+  a helper every detector in the fleet calls, so it needs the `refreshOnConflict`
+  opt-in the file already proposes; candidate 3 multiplies rows into a queue that
+  `bugs_open/033`'s own owner ruling says **should not fill** — and `033` is measured
+  today at **380** parked `needs_human_review` items, still growing (newest 15:14
+  today). On that evidence candidate 3 is the weakest, and it is the one that needs
+  the `033` owner's consent that it cannot presently get.
+- **Sizing:** candidate 2 is minutes of code plus an image window. Candidate 1 is a
+  council round plus an induced-fault verification on a shared helper — a session,
+  not an afternoon. They should not be bundled: candidate 2's value is that it makes
+  the report honest *while* candidate 1 is still being decided.
+
 ## Related
 
 - `bugs_open/074` — the case that brought this sweep to life; the induced fault that found this

@@ -103,6 +103,47 @@ they touch the same step and neither is worth a roll alone.
 - Spawned worker pods run `agent_definitions.image_tag`, **not** the deployed image — pod-grep the
   **spawned** pod for a symbol the fix *creates*, with a negative control in the same command.
 
+## Post-roll triage 2026-07-27 (~15:55 UTC) — unchanged, and the priority is higher than the severity
+
+Fleet rolled to **v1.0.1174** (`2026-07-27T15:11:15Z`). No fix has been written for
+this bug, so the roll changes nothing. Re-measured live:
+
+```sql
+SELECT count(*) AS total,
+       count(*) FILTER (WHERE COALESCE(source_url,'')<>'') AS has_source_url,
+       count(*) FILTER (WHERE raw_data ? 'source_url')     AS llm_claimed,
+       max(collected_at) AS newest
+FROM business_intel.data_observations;
+--  2970 | 0 | 0 | 2026-03-18 22:09:03
+```
+
+Identical to the filing. `newest = 2026-03-18` confirms the file's own note that
+collection has been off since March — which is *why* the row count has not moved,
+and why this cannot self-correct by waiting.
+
+**The finding that should change how this is prioritised: 100 + 101 together gate a
+whole site workstream, and neither is severe on its own.** Read individually, 100 is
+"not a correctness emergency" (its own words — nothing unsourced is published) and
+`101` is "low severity". Read together they are the reason `vetcomparison`'s P1
+(restarting vet collection) **cannot start**: provenance is structurally
+unrecordable, so every row collected under a restarted crawl would be born
+unpublishable under our own rule, and the fix is a **Go change** — council gate,
+image build, roll — not config. A workstream blocked on a Go window is a different
+class of problem from a data-quality blemish, and the two bug files' individual
+severity lines actively understate it because neither can see the other's half.
+
+**Consequence for sequencing:** these two are the only bugs in this triage cluster
+whose fix is on the critical path of another workstream. They should be bundled into
+**one** council round and **one** image window (the files already say so, at
+`100` §"Fix candidates" and `101` §"Fix candidates" item 2) — and that round is worth
+scheduling ahead of work with higher nominal severity but no downstream blockee.
+
+**Ownership:** `who-owns.py 100` names no owning workstream; `who-owns.py 101` names
+`vetcomparison` (ACTIVE, 59 commits/14d). Since 101 is the cheaper half of the same
+round and vetcomparison is the blocked party, that thread is the natural owner of
+both — but it has not claimed 100, so this needs an explicit hand-off rather than an
+assumption.
+
 ## Related
 
 - `bugs_open/101` — four inert config keys on the same `scrape_website` step (same round).

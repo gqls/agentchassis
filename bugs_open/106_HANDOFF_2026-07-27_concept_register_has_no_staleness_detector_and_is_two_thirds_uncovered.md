@@ -110,6 +110,76 @@ run. Then add a register entry for one of them and confirm it drops off the repo
 while the other remains — **induce the gap**, because a report that is green on a
 register somebody has just hand-patched proves only that the patch happened.
 
+## Post-roll triage 2026-07-27 (~15:55 UTC) — BOTH recommended candidates landed today; one is complete, one is half
+
+Filed this morning; both recommendations were implemented within hours, by the
+concept-register side, in two commits:
+
+```
+c542c3501  2026-07-27 12:13 UTC  docs(concept-register): add the missing claims-verification entry; file 106 …
+7272d59d4  2026-07-27 12:33 UTC  feat(concept-register): covers-through stamps on all 108 files + a coverage sensor
+```
+
+**Candidate 2 — DONE, verified.** `109` of `109` files in
+`docs026_concept_register/register/` now carry a stamp, e.g.
+`> **covers-through: 2026-07-13** · extraction freeze.` The *misleading* half of this
+bug is closed: a reader can no longer mistake the register for complete.
+
+**Candidate 1 — BUILT and already earning its keep, but NOT on a cadence.**
+`102_CHECK_register_coverage.py` + `102_coverage_ratchet.txt` exist and run.
+Executed live during this sweep:
+
+```
+register files      : 108      workstreams on disk : 78
+post-freeze (2026-07-13) : 53   uncovered : 43   (ratchet accepts 41)
+2 NEW since the ratchet:
+  2026-07-27  bugfix_066_spawn_image_tag  ← post-freeze
+  2026-07-27  gemini_content_provider     ← post-freeze
+```
+
+**That output is itself the induced-gap verification this file asks for**, and better
+than a synthetic one: two genuinely new workstreams appeared *within hours* of the
+ratchet being set, and the sensor named both. The sensor/ratchet shape works.
+
+> **[The remaining half, and it is the load-bearing half.]** This file's candidate 1
+> says the point is to make drift visible **"on a cadence instead of by
+> coincidence"**. The cadence does not exist. `grep -rn "102_CHECK_register_coverage"`
+> across the repo returns hits in exactly two places — the register's own
+> `RUNBOOK_concept_register.md` and the ratchet file's own header comment. It is
+> **not** in `.githooks/`, **not** in `scripts/pattern-check.py`, **not** in
+> `.github/`, and **not** a `scheduled_tasks` row. So the sensor runs when a human
+> remembers to run it — which is the same "detected by coincidence" mechanism this
+> bug was filed about, moved one step earlier. Three coincidental detections is what
+> made this a bug; a fourth tool that must be invoked by coincidence does not
+> retire it.
+
+**Therefore: 106 stays OPEN, but its remaining scope is small and specific** — wire
+`102_CHECK_register_coverage.py` to something that runs without being remembered.
+The natural home is `scripts/pattern-check.py` (advisory, already runs on the commit
+path, already carries the `check_append_only_docs` precedent that was added for
+exactly this "a check worth automating" reason). Report-don't-block is already the
+script's own stated design, so it fits without argument. Estimated **under an hour**,
+docs/scripts only, no council round, no image window.
+
+**Separately, on the R2 question the concept-register workstream expects "~07-27"
+(today): it is due by the calendar and NOT gradable.** Ran the named gating report:
+
+```
+$ ./docs/…/fixloop_eg_dartsonline/101_REPORT_mission_review_findings.sh 7
+── mission-review findings, last 7 day(s) ──   findings: 2   sites: 2
+── classifier runs in the window (denominator for the objection rate) ──   0
+```
+
+Two findings, both dated 2026-07-25, and a **denominator of zero** — the classifier
+did not run at all in the window. R2's own instruction is to *"hand-grade a sample of
+the findings for false positives first"*, and a sample of 2 against 0 runs cannot
+establish an objection rate in either direction. **Waiting another week does not fix
+this**; the lane has to be producing classifier runs before the promotion decision is
+answerable. That is a finding for the owner, not a verdict: R2 should be recorded as
+**blocked on an empty denominator**, not as "not yet due". (R2 belongs to the
+concept-register workstream, not to this bug — noted here only because this sweep was
+asked to establish whether the verdict was due or done.)
+
 ## Related
 
 - `bugs_open/104` — the same watcherless-precondition shape, in the claims layer.

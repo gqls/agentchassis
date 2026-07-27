@@ -6823,3 +6823,55 @@ queried-the-database-about-a-question-only-the-page-can-answer,
 verified-marker-on-an-unchecked-absence,
 an-absence-claim-must-quote-its-filter,
 the-detector-was-never-run-before-being-recommended.
+
+---
+
+## 2026-07-27 — a verification recipe that names a parameter the system does not have (`bugs_open/108`, post-roll triage sweep)
+
+**The claim.** `bugs_open/108`'s *"How to verify a fix"* section instructs:
+*"Defect A, induced: **point the indexer at a deliberately old ref**, run the
+refresh, and assert the banner says STALE despite `updated_at = now()`."* Written
+with full confidence, in a file that is otherwise unusually well-grounded (every
+other claim in it carries its query or its file:line).
+
+**What caught it.** Reading the scheduled task's `input_data` while checking
+something else:
+
+```sql
+SELECT name, last_completed_at, input_data::text FROM scheduled_tasks WHERE name='code-index-refresh';
+--  code-index-refresh | 2026-07-27 13:35:30+00 | {"repo": "agentchassis", "owner": "gqls", "language": "go"}
+```
+
+There is **no ref, branch or commit parameter to point.** `commit_sha` arrives from
+an upstream repo-analysis step (`code_symbols_actions.go:174`,
+`commit_field: "repo_analysis.commit_sha"`), so the indexed ref is whatever that
+step happened to fetch. The recipe is not merely awkward — it is **not executable**,
+and the fix candidate it belongs to (candidate 1) silently acquires extra scope:
+you must first *add* the ability to name a ref before you can test that naming an
+old one is caught.
+
+**The cheap check that would have caught it:** before writing "point X at Y",
+read X's actual parameters — one `SELECT input_data` on the scheduled task, or one
+grep for the config key. This is the same check as the 2026-07-26 entry
+(*"I recommended a config change without checking the config key is read"*) applied
+to a **verification** step rather than a fix step, which is why it slipped: a
+verification recipe reads as a check rather than as a claim, so it does not attract
+the scepticism a claim would.
+
+**Cost:** none yet — caught before anyone attempted the induced test. The cost it
+*would* have had is the expensive shape: a session budgets an induced-fault
+verification, discovers mid-run that the knob does not exist, and has to re-scope
+the fix it had already gated on that verification.
+
+**Generalisable form.** *A "how to verify" section is load-bearing prose and is
+graded by nobody.* Fix candidates get council review; evidence gets quoted and
+re-checked; verification recipes are read only by the one session that eventually
+executes them, by which time the author is gone. **A verification step that names a
+knob, a flag or a parameter deserves the same "does this exist?" check as a claim
+about behaviour** — and it is cheaper, because it is always one grep or one
+`SELECT`. Mark unchecked ones `[UNVERIFIED RECIPE]` rather than letting them read
+as instructions.
+
+Family: the-artefact-exists-so-the-capability-is-assumed,
+grep-the-config-key-before-calling-it-a-win,
+a-verification-recipe-is-a-claim-in-a-checklist-costume.

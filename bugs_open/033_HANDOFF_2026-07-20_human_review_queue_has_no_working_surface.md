@@ -642,3 +642,74 @@ who-owns rule):
 **Not touched by this lane.** `scripts/who-owns.py 033` reports OWNED and ACTIVE
 (`review_queue_drain`, 3 commits/14d, two of them today), so this is evidence contributed in,
 not a competing fix.
+
+---
+
+## Post-roll triage 2026-07-27 (~15:55 UTC) — the drain is IN THE BINARY but CANNOT BE FIRED: its agent definition was never seeded
+
+The fleet rolled to **v1.0.1174** at `2026-07-27T15:11:15Z` (pod
+`agent-chassis-5994dc6d6c-pt8v9`). The Go half of the drain shipped with it — the
+pod-grep this file asks for now passes, with a negative control:
+
+```
+$ kubectl exec -n ai-persona-system agent-chassis-5994dc6d6c-pt8v9 -- sh -c \
+    'strings /app/agent-chassis | grep -c "auto:revalidated"'          # 2
+    'strings /app/agent-chassis | grep -c "revalidate_review_queue"'   # 4
+    'strings /app/agent-chassis | grep -c "zzq_negative_control_xyzzy"' # 0
+```
+
+**But the drain still cannot run, for a reason this file does not yet record.** The
+agent definition the trigger targets does not exist in the live DB — not active,
+not inactive, not snapshotted, not soft-deleted:
+
+```sql
+SELECT type, version, is_active, COALESCE(is_snapshot,false), deleted_at
+FROM agent_definitions WHERE type = 'diagnosis-review-queue-revalidator';
+--  (0 rows)
+
+-- positive control: the row the seed clones its shell from IS present
+SELECT type, version, is_active FROM agent_definitions
+WHERE type='diagnose-orchestrator' AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+--  diagnose-orchestrator | 1 | t
+```
+
+So `review_queue_drain/seed_review_queue_revalidator.sql` has **never been
+applied**. `TRIGGER_revalidate_review_queue_v1.sh` would spawn an agent type
+nothing can resolve. Corroborating: `resolution_path LIKE 'auto:revalidated%'`
+returns **0** rows fleet-wide — the drain has never resolved anything, as expected.
+
+**This is the sharpest next action on this bug and it is config-only, live
+immediately, no image window:** apply the seed (it deliberately ships
+`dry_run=true`), fire the trigger once, read the dry-run verdict list, then flip
+`dry_run` false with the chained `jsonb_set` the seed file already carries at its
+line ~109. The `bugs_closed/045` pair
+(`11dd56f1-…`, `ba28ba8d-…`) is the known-answer fixture recorded above — if the
+dry run does not name those two as resolvable, the revalidator is wrong, not
+borderline.
+
+> **[UNVERIFIED by this sweep]** whether the seed was deliberately withheld pending
+> an owner decision, or simply missed at the roll. `review_queue_drain/RUNBOOK…`
+> describes the deploy sequence as if seeding follows the roll, which reads as
+> "missed", but the owning thread should confirm before anyone applies it.
+
+**The queue is still filling, and slightly faster than it is being cleared.**
+Re-measured live at 15:52 UTC:
+
+```sql
+SELECT status, count(*) FILTER (WHERE COALESCE(handler_agent,'')='') AS no_handler, count(*)
+FROM site_work_items WHERE status IN ('needs_human_review','unresolved','failed','blocked') GROUP BY 1;
+--  needs_human_review | 289 | 380
+--  unresolved         |   0 | 244
+--  failed             |   0 |  43
+SELECT min(created_at), max(created_at) FROM site_work_items WHERE status='needs_human_review';
+--  2026-03-15 02:21 | 2026-07-27 15:14   <-- newest item arrived 3 minutes AFTER the roll
+```
+
+375 → **380** since the 2026-07-26 measurement above; the handler-less share is
+unchanged at 289/380 (76%). Only **4** items in the entire table carry a
+`resolution_path`, and all four are hand-written owner rulings — no automated path
+has ever closed one. The owner's 2026-07-25 reframing ("the queue should not fill")
+is therefore still entirely unaddressed, and it remains the larger half of this bug.
+
+**Contributed, not competing** — `who-owns.py 033` still reports `review_queue_drain`
+OWNED and ACTIVE.

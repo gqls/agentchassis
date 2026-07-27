@@ -111,6 +111,48 @@ the problem — though it is a reasonable immediate step if 2 is not scheduled s
 - For candidate 1, the check is that a definition carrying a bogus key is *refused*. Seed one and
   watch it fail; a silent accept is the bug restating itself.
 
+## Post-roll triage 2026-07-27 (~15:55 UTC) — unchanged; both definitions still carry the inert keys
+
+Fleet rolled to **v1.0.1174** (`2026-07-27T15:11:15Z`). No fix written, so nothing
+moved. The blast-radius query above re-run live returns the identical two rows:
+
+| type | step | max_pages | follow_links | extract_mode | fallback_url |
+|---|---|---|---|---|---|
+| `vet-practice-verifier` | `scrape_website` | t | t | t | t |
+| `domain-research-classifier` | `scrape_site` | t | t | t | f |
+
+`domain-research-classifier` is still classifying domains on home-page text alone
+while its config says otherwise, and still has no identified owner.
+
+**Why this one is worth more attention than its severity line suggests.** It has
+already produced one false claim that reached a commit message within an hour
+(`WRONG_CALLS.md` 2026-07-26), and the failure mode is not "a feature is missing" —
+it is that **a dead config key is indistinguishable by inspection from a live one**,
+so the config *reads as evidence* while being evidence of nothing. That is a
+misleading-power problem, and misleading-power compounds: every future session that
+reads this step's config gets the same wrong impression, and the cheap check
+(`grep -rn "<key>" --include=*.go .`) is one nobody thinks to run precisely because
+the key is sitting there looking implemented.
+
+**Candidate 3 is a genuine quick win and is being under-sold by its own entry.**
+Deleting the four inert keys from both definitions is config-only, live immediately,
+under an hour, and needs no image window. The file rightly notes it "removes the
+evidence of the problem rather than the problem" — but the *misleading* half is the
+half that has actually cost something so far, and candidate 2 (implementing the keys)
+is gated behind a Go window that `bugs_open/100` shows is not imminent. Deleting them
+now and implementing later is strictly better than leaving a false specification in
+place for however long that window takes. **Caveat:** do not delete silently — leave
+the intent in the bug file and a comment in the seed, or the next author re-adds them.
+
+**Do not skip the `[UNSETTLED]` box above before implementing candidate 2.** The
+Firecrawl `onlyMainContent` question is unresolved and could make the whole
+22%→30% gain evaporate; settling it costs one real verification run and must come
+first.
+
+**Bundling still holds:** same step, same roll as `bugs_open/100`, and together they
+gate `vetcomparison` P1 — see the post-roll block in `100` for the sequencing
+argument.
+
 ## Related
 
 - `bugs_open/100` — the provenance defect on the same step; fix in the same council round.

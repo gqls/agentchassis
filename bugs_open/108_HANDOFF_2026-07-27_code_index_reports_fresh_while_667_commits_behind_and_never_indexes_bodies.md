@@ -188,6 +188,77 @@ code_symbols index next round"*. On the gate that promise cannot be kept at all.
   `SELECT count(*) FROM code_symbols WHERE path LIKE 'internal/tools-api/%'` must
   be non-zero. That single query is the whole bug in one line.
 
+## Re-verified 2026-07-27 15:5x UTC, post-roll triage sweep — the mechanism caught in the act
+
+Chassis is on **v1.0.1174** (pod `agent-chassis-5994dc6d6c-pt8v9`, started
+`2026-07-27T15:11:15Z`). This bug is **unaffected by the roll** — it is a data
+defect, not an inert Go fix. Still **OPEN**, and the evidence is now stronger than
+at filing.
+
+**The refresh ran, completed, and re-indexed the same stale commit — measured, not inferred:**
+
+```sql
+SELECT name, enabled, last_triggered_at, last_completed_at, input_data::text
+FROM scheduled_tasks WHERE name = 'code-index-refresh';
+--  code-index-refresh | t | 2026-07-27 13:35:30+00 | 2026-07-27 13:35:30+00
+--  input_data: {"repo": "agentchassis", "owner": "gqls", "language": "go"}
+
+SELECT DISTINCT commit_sha, max(updated_at) OVER () FROM code_symbols;
+--  e19aa5d | 2026-07-27 13:36:50+00
+```
+
+A **successful** run finished at 13:35 today. `updated_at` moved to 13:36 today
+(age ≈ 2h, well under the 48h threshold → banner says **FRESH**). `commit_sha` did
+**not** move: still `e19aa5d` (2026-07-24). That is Defect A observed end to end in
+one cadence cycle, rather than reconstructed from two snapshots.
+
+**The distance has grown while nothing changed.** 667 at filing (~06:00 today) →
+**746** now (`git rev-list --count e19aa5d10..HEAD`). `git ls-remote origin
+086_experience_loop` still returns `e19aa5d108…` — the pushed ref has not moved in
+three days. Measured commit rate: **1,335 commits in 7 days** (≈191/day), so 746
+commits ≈ **3.9 days** of drift, and the gap widens ~191/day for as long as nobody
+pushes.
+
+**The near-miss regression test now has its exact numbers:**
+
+```
+$ git ls-tree -r --name-only e19aa5d10 | grep -c '^internal/tools-api/'   # 0
+$ git ls-tree -r --name-only HEAD      | grep -c '^internal/tools-api/'   # 12
+```
+
+The index returns zero rows for `internal/tools-api/` because **that code did not
+exist at the commit the index describes** — while the banner reports the index
+fresh. This is the cleanest possible statement of the bug: the absence is real *of
+the indexed commit* and false *of the code under review*, and nothing in the answer
+distinguishes the two.
+
+**Defect B re-confirmed live**, and now with a real consumer artefact:
+`max(length(content))` = **451**, `0` markdown rows, `content ILIKE '%stop_reason%'`
+= **0**. A live `collected_data->'code_lookup'` from a run at 14:40 today shows
+`code_context` composed purely of `path :: symbol` + signature + doc line for all
+12 hits — **no body text anywhere in the answer**, exactly as the composer implies.
+
+**Blast radius, measured:** **34 orchestration runs in the last 7 days** carry
+`code_checks` in `collected_data` (latest 14:40 today). Every one was answered from
+this index.
+
+> **[CORRECTION to this file's own verification recipe]** *"Defect A, induced: point
+> the indexer at a deliberately old ref"* is **not executable as written**. The
+> `code-index-refresh` task's `input_data` is `{repo, owner, language}` — there is
+> **no ref/branch/commit parameter to point**. `commit_sha` arrives from an upstream
+> repo-analysis step (`code_symbols_actions.go:174`,
+> `commit_field: "repo_analysis.commit_sha"`), so the ref is whatever that step
+> fetched. Any fix under candidate 1 must therefore *add* the ability to name a ref
+> before the induced test can be run at all — which is additional scope the
+> candidate does not currently mention. Caught by reading the scheduled task's
+> `input_data`, not the Go.
+
+**Ownership note for the next reader:** the header says "unowned", but
+`scripts/who-owns.py 108` names **`architecture_review`** (ACTIVE, 21 commits/14d,
+16 mentions) — that thread grounded the same figures today and carries this as §6
+item 5 of its `HANDOFF_2026-07-27_continue_here.md`. Route work there rather than
+opening a fresh lane.
+
 ## Notes
 
 - `platform/orchestration/actions/registry.go` counts **296** actions across **25**
