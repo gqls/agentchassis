@@ -2083,3 +2083,61 @@ landed:** one is the CSS comment at the top of `evidence-chart`'s template (whic
 is shipped to the page — an HTML `<style>` comment, not a Go template comment, so
 it costs bytes on every render), one is the `council-review-outcomes` caption I
 wrote into the register, and one is the LLM's intro. Two of the three are mine.
+
+## 2026-07-27 (later still) — v1.0.1173 shipped 085's fix, and the live test found a FOURTH drop point
+
+**Deploy verified against the pod, not the tag** (`agent-chassis-5f85dff548-8d2tq`,
+`v1.0.1173`, started 13:45 UTC; my commit `c447d34a6` at 13:18 UTC, so the build
+picked it up):
+
+```
+resolveCurrentPageName                          → 6   (symbol my change CREATED)
+"page object carries none of the known name keys" → 1   (log string only I write)
+resolveCurrentPageNameXYZ_absent_control        → 0   (negative control)
+"BuildRenderContextAction: Context built"       → 1   (pre-existing positive control)
+```
+
+**Then the live test failed, and it was right to.** Fired a scoped section re-render
+on `index` at 14:08 UTC. The section re-rendered (row `updated_at 14:08:17`) and
+**still carried all three charts**, two of which declare `pages: ["capabilities"]`.
+
+> **This is the single most useful thing this thread learned today.** The fix was
+> correct, deployed and verified in the binary — and the feature still did not work,
+> because `RerenderPageSectionsAction` never goes through `BuildRenderContextAction`
+> at all. It assembles its own base in `buildRerenderBaseData(ctx, db, siteID,
+> domain, logger)` — no page name — and merges it with `mergeIntoRenderContext`.
+> Round 2 fixed that merge to *restore* `current_page` from a map, so the plumbing
+> works; nothing was putting the key in the map. 016b §9: *a fix applied to one
+> branch of a two-branch router reads as done, and the other branch keeps the bug.*
+
+**The complete survey, done now instead of assumed.** Five paths build a
+`RenderContext` for section rendering:
+
+| path | set `CurrentPage`? |
+|---|---|
+| `multipage_actions.go:206` | yes, always did |
+| `rerender_pages_actions.go:190` | yes, always did |
+| `section_editor_actions.go:489` | yes, always did |
+| `BuildRenderContextAction` | **no** → fixed, live v1.0.1173 |
+| `buildRerenderBaseData` | **no** → fixed, awaiting the next roll |
+
+Two of five. There is no sixth. Note what the earlier rounds got right and still
+missed: "`build_render_context` has exactly one caller fleet-wide" was TRUE and
+verified twice — it just is not the same question as "what else builds a
+RenderContext without calling it".
+
+The page name was **already in scope one line above the call** — it is passed to
+`newSourceResolver(siteID, params.DB, logger, pageName)` — so this really is one
+line, and this time the claim is checked rather than assumed. Council round 3 on the
+same correlation.
+
+**Why this matters beyond one bug:** until it ships, the only way to verify any
+per-page component behaviour is a full page REBUILD through the content writer,
+which regenerates copy, costs an LLM run and has twice authored broken links into a
+page verified clean the day before. With it, the scoped re-render — no LLM, no copy
+change — becomes a two-minute repeatable check.
+
+*Cheap check that generalises:* **a pod-grep proves the code is deployed; it says
+nothing about whether the code is on the path your feature uses.** Exercise the
+feature on the real route before believing a deploy. Both halves are needed and I
+had been treating the first as sufficient.

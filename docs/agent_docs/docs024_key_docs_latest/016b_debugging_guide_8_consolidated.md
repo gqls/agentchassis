@@ -5765,3 +5765,57 @@ and would have been read as "the producer set it empty", which is the wrong func
    `.name`; the live payloads use `name` on one envelope and `page_name` on two others,
    and one carries both. Survey the shapes in the DB before writing the accessor — the
    struct will not tell you, because the struct is not what builds the envelope.
+
+### A pod-grep proves the code is in the binary, never that it is on the path your feature uses (2026-07-27)
+
+Same case as the entry above, one deploy later, and the more expensive half.
+
+`bugs_open/085`'s fix shipped in chassis `v1.0.1173`. It was verified the way this
+guide tells you to verify: pod-grep a symbol the change **created**, with a negative
+control and a pre-existing positive control. All four readings were correct —
+`resolveCurrentPageName` 6, the unique log string 1, an invented control 0, a
+pre-existing string 1. The code was unambiguously deployed.
+
+**The feature still did not work.** A scoped section re-render on the fixed binary
+re-rendered the page and it still carried three charts assigned to two different
+pages — the exact symptom the fix was for.
+
+The fix was in `BuildRenderContextAction`, and the re-render path never calls it.
+`RerenderPageSectionsAction` assembles its own render base and merges it directly.
+Two routes to the same outcome; the fix was on one of them.
+
+**What made this hard to see was a TRUE fact, verified twice.** Rounds 1 and 2 of the
+council both confirmed *"`build_render_context` has exactly one caller fleet-wide"* —
+by an unfiltered survey, and independently by a reviewer's own attached check. It is
+true. It is also **not the question**. The question is *"what else builds one of these
+without calling that?"*, and nothing about the caller count answers it. A verified
+scoping claim gave the whole submission a false sense of closure, precisely because it
+was rigorous about the wrong boundary.
+
+The survey that would have answered it takes one grep and yields the complete picture:
+
+```
+grep -n "CurrentPage" platform/orchestration/actions/*.go
+```
+
+Five producers. Three already correct (`multipage_actions.go:206`,
+`rerender_pages_actions.go:190`, `section_editor_actions.go:489`), two silently empty.
+That grep was run on day one — to confirm the field was *advertised*. The same output
+answers "where is it lost?" and "who else sets it?", and which answer you get depends
+entirely on which question you brought.
+
+**How to catch this class:**
+
+1. **Deployment and correctness are two verifications, not one.** Pod-grep answers "is
+   my code here?". Only exercising the feature on the route it actually uses answers
+   "does it work?". A green pod-grep plus an untested feature is the shape to distrust
+   — it reads as done and is half of one.
+2. **"X has one caller" does not bound a behaviour; it bounds a function.** For any
+   fix in a function, ask what else achieves the same outcome by a different route.
+   Enumerate producers of the *value*, not callers of the *function*.
+3. **Pick the verification route before the fix, and check the fix is on it.** Here the
+   cheap route (scoped re-render, no LLM) and the expensive one (full rebuild, copy
+   regenerated) go through different code. Had the cheap route been named as the test
+   up front, the gap would have been obvious while the plan was still being written.
+4. **A rerun of the same grep with a different question is nearly free.** The cost here
+   was a whole council round and an image roll; the check was thirty seconds.

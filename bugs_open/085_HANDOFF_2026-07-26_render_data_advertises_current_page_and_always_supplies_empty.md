@@ -6,8 +6,12 @@ the shared `evidence-chart` component. Found by measuring a rendered page, not b
 **no section component can know which page it is on**, so nothing can vary per page.
 **Class:** structural (a key exists in the contract, is always empty on the main path, and
 fails by doing nothing rather than by erroring).
-**Status:** OPEN. Cause established and the fix is one line; not attempted here because Go is
-inert until an image roll and this workstream's owner ruling was "config now, Go later".
+**Status:** OPEN. Build path FIXED and LIVE (v1.0.1173); scoped-re-render path fixed in code
+and inert until the next roll. **Read the two dated sections at the foot before anything
+above them** — "the fix is one line", asserted twice in the original text below, was wrong
+twice over: it was three points on one journey, and then a fourth on a sibling path that
+only a live test found. The original text is left standing, uncorrected in place, because
+how the sizing went wrong is the transferable part.
 
 ---
 
@@ -170,3 +174,57 @@ with a distinct message.
 3. Re-render both pages and run the verification query above this section. **Induce the
    failing branch too** — a page that carries the section but matches no chart must
    render nothing rather than everything.
+
+---
+
+## 2026-07-27 (later) — LIVE on v1.0.1173 for the BUILD path, and a FOURTH drop point found by testing it
+
+Chassis `v1.0.1173` carries the fix. Pod-verified with controls
+(`agent-chassis-5f85dff548-8d2tq`): `resolveCurrentPageName` = 6, the unique log
+string = 1, an invented control = 0, a pre-existing string = 1.
+
+**And the feature still did not work.** A scoped section re-render of
+fundamentallyai.com/`index` at 14:08 UTC on that binary re-rendered the section
+(`page_components.updated_at 14:08:17`) and it **still carried all three charts**,
+two of which declare `pages: ["capabilities"]`.
+
+> **Cause: `RerenderPageSectionsAction` never calls `BuildRenderContextAction`.**
+> It assembles its own ambient base in `buildRerenderBaseData` (`:496`) — seeded
+> with `domain` and `year` only, plus keys from `sites.content_data` — and merges
+> it via `mergeIntoRenderContext`. This round's fix made that merge *restore*
+> `current_page` from a map, so the plumbing works; nothing ever put the key in the
+> map on this path. 016b §9: *a fix applied to one branch of a two-branch router
+> reads as done, and the other branch keeps the bug.*
+
+`pageName` is already local at the call site — passed to
+`newSourceResolver(siteID, params.DB, logger, pageName)` on the line above — so the
+identity was available and simply never reached the render base. Fix: pass it and
+set `base["current_page"] = strings.TrimSuffix(pageName, ".html")`. Regression added
+to `rerender_page_sections_base_data_test.go` and proven to detect its own defect.
+Council round 3 on the same correlation. **Needs the NEXT roll.**
+
+### The complete survey (do this instead of trusting a caller count)
+
+| path | set `CurrentPage`? |
+|---|---|
+| `multipage_actions.go:206` | yes, always did |
+| `rerender_pages_actions.go:190` | yes, always did |
+| `section_editor_actions.go:489` | yes, always did |
+| `BuildRenderContextAction` | **no** → fixed, LIVE v1.0.1173 |
+| `buildRerenderBaseData` | **no** → fixed, inert |
+
+Two of five, no sixth. *"`build_render_context` has exactly one caller fleet-wide"*
+was true and verified twice — and is not the same question as *"what else builds a
+`RenderContext` without calling it"*. That is the question to ask next time.
+
+### Owed at the next roll (supersedes the checklist above)
+
+1. Pod-grep the new warning string with a negative control.
+2. Scoped re-render `index` → assert **one** chart (`relojistas-feed-restoration`),
+   not three. This query is already known to FAIL before the fix, so it
+   discriminates:
+   `SELECT (SELECT string_agg(DISTINCT m[1],',') FROM regexp_matches(pc.rendered_html,'data-chart="([a-z-]+)"','g') m) FROM page_components pc JOIN content_components cc ON cc.id=pc.component_id JOIN pages p ON p.id=pc.page_id JOIN sites s ON s.id=p.site_id WHERE s.domain='fundamentallyai.com' AND cc.function='evidence-chart';`
+3. Restore the `capabilities` placement (plan level + page_components), re-render,
+   assert it carries the **two** charts declared for it.
+4. Induce the empty case — a page carrying the section whose charts all name other
+   pages must render **nothing**, not everything.
