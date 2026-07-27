@@ -20,7 +20,9 @@
 package actions
 
 import (
+	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,28 +34,95 @@ import (
 // collected_data. Each one is a field a template can read and, on the
 // page-build path, always find empty — the same shape as bugs_open/085.
 //
-// This list is a RECORD OF THE GAP, not an approval of it. It is pinned so the
-// gap cannot grow silently: adding a field to RenderContext and wiring it into
-// the template map without the serialiser fails TestRenderContextSerialisation
-// CoversTemplateContract, which is precisely the mistake nobody caught for
-// current_page. Shrinking the list is the goal; growing it needs a reason.
+// This list is a RECORD OF THE GAP, not an approval of it.
+//
+// It is DERIVED from renderContextUnserialised (bugs_open/109) rather than
+// written out again here. It used to be a second hand-maintained copy of the
+// same set, which is precisely the drift class this whole area keeps producing:
+// two lists that must agree, with nothing checking that they do. The only entry
+// that is not a struct field is contact_email, so that one is named here.
 //
 //   - contact_email — benign: an alias of email, derived at render time from
-//     the same struct field, which IS serialised.
-//   - logo_url      — reaches the map in practice via ContentData (both
-//     BuildRenderContextAction and mergeIntoRenderContextEnhanced write the
-//     ContentData key alongside the struct field), so the struct field alone is
-//     latent rather than live.
-//   - theme_css / title / description — genuinely dropped at the step boundary,
-//     exactly as current_page was. Tracked in bugs_open/109; not fixed here
-//     because each needs its own producer decided, and bundling three unrelated
-//     behaviour changes into a bug fix is what the reviewers object to.
-var knownUnserialisedContextFields = []string{
-	"contact_email",
-	"description",
-	"logo_url",
-	"theme_css",
-	"title",
+//     the same struct field, which IS serialised. It has no field of its own on
+//     RenderContext, so it cannot come from renderContextUnserialised.
+//
+// Every other entry, and its reason, lives with the mechanism it constrains.
+func knownUnserialisedContextFieldsFn() []string {
+	out := []string{"contact_email"}
+	for k := range renderContextUnserialised {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// TestRenderContextUnserialisedEntriesGiveReasons: an entry with no reason is
+// indistinguishable from a field somebody forgot, which is the exact failure
+// renderContextUnserialised exists to make impossible. Empty reasons defeat it.
+func TestRenderContextUnserialisedEntriesGiveReasons(t *testing.T) {
+	for key, reason := range renderContextUnserialised {
+		if len(strings.TrimSpace(reason)) < 40 {
+			t.Errorf("renderContextUnserialised[%q] has no real reason (%q) — "+
+				"an unexplained omission is what this map exists to prevent", key, reason)
+		}
+	}
+}
+
+// TestRenderCtxToMapDerivationIsBehaviourPreserving pins the refactor that
+// replaced renderCtxToMap's hand-written scalar literal with a derivation from
+// the struct's json tags (bugs_open/109).
+//
+// The keys below are the EXACT set the literal produced before the change,
+// transcribed from it. If derivation produces a different set, the refactor
+// changed what crosses the step boundary — which is a behaviour change, not a
+// tidy-up, and must be justified rather than discovered later.
+func TestRenderCtxToMapDerivationIsBehaviourPreserving(t *testing.T) {
+	wasLiteral := []string{
+		"domain", "logo_text", "company_name", "tagline", "current_page",
+		"email", "phone", "primary_color", "secondary_color", "accent_color",
+		"text_color", "background_color", "year", "cta_text", "cta_url",
+		"industry", "tone", "target_audience",
+	}
+
+	ctx := &RenderContext{
+		Domain: "example.com", LogoText: "Example", CompanyName: "Example Ltd",
+		Tagline: "t", CurrentPage: "index", Email: "e@example.com", Phone: "0",
+		PrimaryColor: "#1", SecondaryColor: "#2", AccentColor: "#3",
+		TextColor: "#4", BackgroundColor: "#5", Year: "2026",
+		CTAText: "Go", CTAUrl: "/contact.html", Industry: "i", Tone: "plain",
+		TargetAudience: "a",
+		// The deliberately-unserialised ones, all populated: if any of them
+		// starts crossing the boundary, this test says so.
+		ThemeCSS: "css", Title: "ti", Description: "de", LogoURL: "/l.png",
+		SchemaMode: "flexible",
+	}
+
+	derived := renderContextScalarFields(ctx)
+	got := map[string]bool{}
+	for k := range derived {
+		if _, skip := renderContextUnserialised[k]; skip {
+			continue
+		}
+		got[k] = true
+	}
+
+	for _, k := range wasLiteral {
+		if !got[k] {
+			t.Errorf("key %q was serialised by the old literal and is not derived now — "+
+				"the refactor DROPPED a field from collected_data", k)
+		}
+		delete(got, k)
+	}
+	var added []string
+	for k := range got {
+		added = append(added, k)
+	}
+	sort.Strings(added)
+	if len(added) > 0 {
+		t.Errorf("key(s) %v are newly serialised that the old literal did not write. "+
+			"That may well be correct, but it is a behaviour change: decide it "+
+			"deliberately and update this test's transcription.", added)
+	}
 }
 
 // TestRenderContextSerialisationCoversTemplateContract is the guard the
@@ -81,8 +150,8 @@ func TestRenderContextSerialisationCoversTemplateContract(t *testing.T) {
 	serialised := renderCtxToMap(ctx)        // what crosses the step boundary
 	advertised := contextToInterfaceMap(ctx) // what templates are told they may read
 
-	known := make(map[string]bool, len(knownUnserialisedContextFields))
-	for _, k := range knownUnserialisedContextFields {
+	known := make(map[string]bool)
+	for _, k := range knownUnserialisedContextFieldsFn() {
 		known[k] = true
 	}
 
@@ -286,5 +355,49 @@ func TestCurrentPageEmptyStaysEmpty(t *testing.T) {
 	}
 	if got := contextToMap(revived)["current_page"]; got != "" {
 		t.Errorf("regex fallback data has current_page = %q, want empty", got)
+	}
+}
+
+// TestRenderContextJSONTagsAreUnique closes the failure mode the derivation
+// introduces, raised by the council's bug_historian seat (bugs_open/109).
+//
+// Deriving keys from struct tags trades one silent failure for a narrower one:
+// a duplicate tag makes two fields collide in the derived map, and map
+// insertion silently overwrites, so one field's value would vanish under the
+// other's with no compile-time signal. The old hand-written literal could not
+// express that, so the guard has to come with the mechanism.
+//
+// A typo'd (rather than duplicated) tag is not detectable here — that shows up
+// as a key nothing reads, which TestRenderContextSerialisationCoversTemplate
+// Contract catches from the other side.
+func TestRenderContextJSONTagsAreUnique(t *testing.T) {
+	seen := map[string]string{}
+	rt := reflect.TypeOf(RenderContext{})
+	for i := 0; i < rt.NumField(); i++ {
+		f := rt.Field(i)
+		key := strings.Split(f.Tag.Get("json"), ",")[0]
+		if key == "" || key == "-" {
+			continue
+		}
+		if prev, dup := seen[key]; dup {
+			t.Errorf("json tag %q is on both %s and %s — the derived map would silently "+
+				"drop one of them (map insertion overwrites)", key, prev, f.Name)
+		}
+		seen[key] = f.Name
+	}
+}
+
+// TestRenderContextUnserialisedReasonsAreDistinct: the council also noted that a
+// length-only check on the reasons would pass long filler. Copy-pasted reasons
+// are the realistic form of that, so require them to differ from one another.
+func TestRenderContextUnserialisedReasonsAreDistinct(t *testing.T) {
+	byReason := map[string]string{}
+	for key, reason := range renderContextUnserialised {
+		r := strings.ToLower(strings.Join(strings.Fields(reason), " "))
+		if prev, dup := byReason[r]; dup {
+			t.Errorf("%q and %q carry an identical reason — at least one of them was not "+
+				"thought about", prev, key)
+		}
+		byReason[r] = key
 	}
 }

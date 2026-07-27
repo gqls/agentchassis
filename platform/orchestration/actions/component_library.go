@@ -104,10 +104,17 @@ type RenderContext struct {
 	Year string `json:"year"`
 
 	// Content generation
-	Industry       string
-	Tone           string
-	TargetAudience string
-	Services       []string
+	//
+	// These carry json tags like every other field because the tags are the
+	// SINGLE DECLARATION of a field's template key (bugs_open/109) — see
+	// renderContextScalarFields. Untagged, they were invisible to any
+	// mechanical check and had to be remembered by hand in each of four maps.
+	// Nothing marshals a RenderContext, so adding the tags changes no wire
+	// format; it only makes the declaration complete.
+	Industry       string   `json:"industry"`
+	Tone           string   `json:"tone"`
+	TargetAudience string   `json:"target_audience"`
+	Services       []string `json:"services"`
 
 	// ContentData holds arbitrary content fields from LLM generation
 	// Examples: headline, subheadline, features[], testimonials[], body, etc.

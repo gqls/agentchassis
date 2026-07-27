@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -1394,26 +1395,86 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 }
 
 // renderCtxToMap converts RenderContext to map for template substitution
+// renderContextUnserialised names the RenderContext string fields that
+// deliberately do NOT cross the step boundary, each with the reason.
+//
+// bugs_open/109. This map is the entire point of the change that introduced it.
+// Before, renderCtxToMap held a hand-written literal of ~18 keys, and a field
+// that was missing from it was indistinguishable from a field nobody had
+// thought about: "empty" is a legal value for every one of these, so a dropped
+// field has no error surface at all. That is how `current_page` was advertised
+// to every component author while arriving empty forever (bugs_open/085).
+//
+// Now the serialised set is DERIVED from the struct's json tags, so the default
+// for a new field is "serialised", and omitting one is something you have to do
+// on purpose, here, in writing. An entry with no reason is a bug in this map.
+//
+// Shrinking this map is the goal; each entry needs its producer decided first,
+// which is a behaviour change and does not belong in the same edit as the
+// mechanism fix.
+var renderContextUnserialised = map[string]string{
+	"logo_url": "latent, not live: both BuildRenderContextAction and " +
+		"mergeIntoRenderContextEnhanced write ContentData[\"logo_url\"] alongside the " +
+		"struct field, and ContentData is merged at the end of this function, so the " +
+		"value arrives by that route. Serialising the struct field too would be " +
+		"harmless but redundant.",
+	"theme_css": "genuinely dropped, tracked in bugs_open/109. Written by " +
+		"assemble_from_library.go:121 on the assembly path, which renders directly " +
+		"rather than crossing a step boundary. Serialising it would carry one page's " +
+		"stylesheet into the next step's context; the producer has to be decided first.",
+	"title": "genuinely dropped, tracked in bugs_open/109. Written per-page by " +
+		"rerender_pages_actions.go:191 and multipage_actions.go:94. Serialising it " +
+		"from a SITE-level context would bleed one title onto every page — the " +
+		"opposite of the per-page behaviour current_page needed — so this needs its " +
+		"producer decided, not just a slot.",
+	"description": "genuinely dropped, tracked in bugs_open/109. Same shape and " +
+		"same hazard as title: written per-page, would bleed if serialised from a " +
+		"site-level context.",
+	"schema_mode": "control field, not template data. It steers render-time " +
+		"validation strictness and is not advertised to templates by " +
+		"contextToInterfaceMap, so it is not part of the contract this map guards.",
+}
+
+// renderContextScalarFields returns the string-valued fields of RenderContext
+// keyed by their json tag — the tags being the single declaration of what a
+// field is called when it reaches a template (bugs_open/109).
+//
+// Deriving beats listing here because the failure this replaces was silent: a
+// field left out of a hand-written map produces an empty string at the
+// template, which is a legal value, so nothing anywhere reports a problem. With
+// derivation the omission cannot be expressed by accident — a new field is
+// serialised unless someone adds it to renderContextUnserialised with a reason.
+//
+// Only string fields are derived. Composites (NavItems, Services, ContentData,
+// SiteID) need shaping rather than copying and are handled explicitly below.
+func renderContextScalarFields(ctx *RenderContext) map[string]string {
+	out := make(map[string]string, 24)
+	v := reflect.ValueOf(*ctx)
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type.Kind() != reflect.String {
+			continue
+		}
+		key := strings.Split(f.Tag.Get("json"), ",")[0]
+		if key == "" || key == "-" {
+			continue
+		}
+		out[key] = v.Field(i).String()
+	}
+	return out
+}
+
 func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
-	result := map[string]interface{}{
-		"domain":           ctx.Domain,
-		"logo_text":        ctx.LogoText,
-		"company_name":     ctx.CompanyName,
-		"tagline":          ctx.Tagline,
-		"current_page":     ctx.CurrentPage,
-		"email":            ctx.Email,
-		"phone":            ctx.Phone,
-		"primary_color":    ctx.PrimaryColor,
-		"secondary_color":  ctx.SecondaryColor,
-		"accent_color":     ctx.AccentColor,
-		"text_color":       ctx.TextColor,
-		"background_color": ctx.BackgroundColor,
-		"year":             ctx.Year,
-		"cta_text":         ctx.CTAText,
-		"cta_url":          ctx.CTAUrl,
-		"industry":         ctx.Industry,
-		"tone":             ctx.Tone,
-		"target_audience":  ctx.TargetAudience,
+	// The scalar half of the contract is derived from the struct declaration,
+	// not listed by hand — see renderContextScalarFields and
+	// renderContextUnserialised (bugs_open/109).
+	result := make(map[string]interface{}, 32)
+	for key, value := range renderContextScalarFields(ctx) {
+		if _, skip := renderContextUnserialised[key]; skip {
+			continue
+		}
+		result[key] = value
 	}
 
 	if ctx.SiteID != uuid.Nil {
