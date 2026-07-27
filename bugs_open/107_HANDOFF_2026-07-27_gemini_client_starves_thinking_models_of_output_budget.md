@@ -88,11 +88,25 @@ API — asserted from the documented response shape, fixed defensively.
 1. **Reserve, don't fight.** `maxOutputTokens = caller's max_tokens +
    thinking_reserve` (default 8192) for any model assumed to think. A ceiling is
    not a purchase — Gemini bills tokens produced — so headroom is nearly free.
-2. **No `thinkingConfig` sent unless configured.** The 2.5 knob
-   (`thinkingBudget`, int) and the 3.x knob (`thinkingLevel`, string) are
-   incompatible and the wrong one 400s every call. Both are opt-in via
+2. **No `thinkingConfig` sent unless configured.** Both knobs are opt-in via
    `ai_service.thinking_budget_tokens` / `thinking_level`, mutually exclusive,
-   refused at construction if both are set.
+   refused at construction if both are set — because **Google** refuses both
+   together (*"You can only set only one of thinking budget and thinking level"*).
+
+   > **CORRECTED 2026-07-27.** This read: *"The 2.5 knob (`thinkingBudget`, int)
+   > and the 3.x knob (`thinkingLevel`, string) are incompatible and the wrong one
+   > 400s every call."* **Measured on `gemini-pro-latest`: both are accepted**
+   > (`thinkingBudget` at 128, 512, 32768; `thinkingLevel` "low" and "high"). Only
+   > the *value* `thinkingBudget: 0` is refused, with *"Budget 0 is invalid. This
+   > model only works in thinking mode."* I generalised from that one rejected
+   > value. **A refusal tells you about the VALUE; only its neighbours tell you
+   > about the PARAMETER.** The real finding is stronger: **neither knob caps
+   > thinking** (128 requested → 483 spent; 32768 → 783), so a knob is a cost lever
+   > and cannot replace the reserve.
+   >
+   > This is the **fifth** site of that claim and the last to be fixed. I recorded
+   > the other four as corrected on the day and missed this one, which is its own
+   > small lesson: *"corrected at all sites"* is a claim that needs the grep too.
 3. **Deny-list polarity.** Only `flash-lite` and `embedding` are treated as
    non-thinking; an unrecognised model is assumed to think, because an
    unfamiliar Gemini name is almost always a newer one.

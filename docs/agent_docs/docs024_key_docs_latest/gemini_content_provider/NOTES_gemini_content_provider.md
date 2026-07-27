@@ -85,6 +85,10 @@ than a settled question.
   integer) and the 3.x knob (`thinkingLevel`, string) are incompatible, and 07-24
   already caught the 400 from sending the wrong one. The reserve makes the
   default case work with no knob at all.
+  > **CORRECTED later the same day — see the P4 probe entry below.** Both knobs are
+  > accepted; only the *value* `thinkingBudget: 0` is refused. The "incompatible
+  > generations" story was my generalisation from one rejected value. The decision
+  > stands on better ground: neither knob CAPS thinking.
 - `thoughtsTokenCount` / `totalTokenCount` decoded; thinking written back as
   `__usage_thinking_tokens`. `__usage_output_tokens` stays **visible** tokens so
   the field keeps the same meaning across providers.
