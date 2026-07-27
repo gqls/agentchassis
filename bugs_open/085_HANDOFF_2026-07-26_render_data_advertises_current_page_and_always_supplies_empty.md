@@ -98,3 +98,75 @@ correct, so the fix turns it on rather than requiring new data.
   charts were accurate, merely misplaced.
 - Not `bugs_open/068` (rebuild writer/link-resolver contract) — different path, different
   field, no overlap beyond both touching the rebuild pipeline.
+
+---
+
+## 2026-07-27 — FIXED IN CODE, STILL OPEN (inert until the roll)
+
+Committed by the brochure_component_library thread. **Stays OPEN**: the defect is
+reproducible on the live fleet until an image carrying it rolls, which is the bar
+`/bugs_closed/README.md` sets.
+
+> **CORRECTED 2026-07-27 — "the fix is one line" (above, twice) was wrong, and wrong
+> in the same shape as the bug.** Following the value end to end instead of reading
+> the one function found it dropped at **three** points on one journey, each of which
+> looks complete in isolation:
+>
+> 1. `BuildRenderContextAction` never assigns `CurrentPage` — the cause as filed.
+> 2. **`renderCtxToMap` (`v3_site_actions.go:1316`) does not emit `current_page` at
+>    all**, so a correctly-set struct field would not survive the step boundary into
+>    `collected_data`.
+> 3. **`mergeIntoRenderContext` (`:1428`) does not restore it** on the render side.
+>    Its catch-all copies every key into `ContentData`, which is enough for the
+>    html/template path (ContentData wins in `contextToInterfaceMap`) but **not** for
+>    the regex fallback: `contextToMap` skips any `ContentData` key the base map
+>    already holds, and the base map holds an empty `CurrentPage`.
+>
+> Fixing only (1) — the filed one-liner — would have left the field empty at every
+> template and looked exactly like a failed fix. What caught it was measuring the
+> serialised context rather than trusting the struct.
+
+**The proposed candidate would also have missed.** It read
+`input_data.current_page.name`; the live payloads use `name` on the
+page-content-writer envelope and `page_name` on the rerender/page-build ones, and one
+observed shape carries both. The shipped `resolveCurrentPageName` reads the path the
+step config designates (`sources.page`) and tries both keys, stripping `.html` to match
+`buildHeaderConfig`.
+
+**Live evidence, re-measured 2026-07-27** (the original was inferred from a rendered
+page; this is the mechanism itself):
+
+```sql
+SELECT collected_data ? 'render_context'                    AS has_rc,      -- t
+       collected_data->'render_context'->>'domain'          AS rc_domain,   -- populated
+       collected_data->'render_context' ? 'current_page'    AS rc_has_cp    -- FALSE, every row
+  FROM orchestration_states
+ WHERE COALESCE(owner_agent_type,'') = 'page-content-writer'
+   AND jsonb_typeof(collected_data->'input_data'->'current_page') = 'object'
+ ORDER BY created_at DESC LIMIT 6;
+```
+
+The key is **absent**, not merely empty — with `domain` and `company_name` alongside it
+as the positive control. And `build_render_context` has exactly **one** caller
+fleet-wide (surveyed unfiltered across all active `agent_definitions`), so the blast
+radius is the page-build path.
+
+The two-render-path asymmetry was measured directly, not reasoned: with only the
+`ContentData` catch-all in place, `html/template path -> "capabilities"`,
+`regex fallback path -> ""`.
+
+**Test:** `platform/orchestration/actions/render_context_current_page_test.go`. It
+follows the value through the whole chain rather than asserting each function, and both
+round-trip halves were proven load-bearing by deleting each in turn and watching it fail
+with a distinct message.
+
+**Owed at the next roll**, in order:
+
+1. Pod-grep a symbol the change *created*, with a negative control:
+   `kubectl exec -n ai-persona-system <pod> -- sh -c 'strings /app/agent-chassis | grep -c resolveCurrentPageName'`
+2. Restore the `capabilities` placement of `evidence-chart` (removed as containment —
+   see below). The data is already correct: one chart marked `pages: ["index"]`, two
+   marked `pages: ["capabilities"]`.
+3. Re-render both pages and run the verification query above this section. **Induce the
+   failing branch too** — a page that carries the section but matches no chart must
+   render nothing rather than everything.
