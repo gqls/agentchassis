@@ -1,5 +1,25 @@
 # SUMMARY — idea.uk (2026-07-27)
 
+> ## ▶ UPDATE, 2026-07-27 11:13 UTC — the last gap closed a few hours after this was written
+>
+> **The owner paid the £29 and received the report. idea.uk has made its first sale.** Order
+> `ord_1785090638951163875` is `delivered`; Stripe's signed webhook arrived at 11:13:13, the report
+> was emailed the same second, and the queue slot released itself (`{"active":0,"max":5}`).
+>
+> This corrects the central claim below — *"one thing has never happened in production: a customer
+> paying and receiving a report"* — which was true when written and is now retired. **Every link in
+> the chain has run for real.**
+>
+> Corrected in place rather than replaced by a `27b`, on the same reasoning the previous session
+> used for `26b`: this is the milestone the summary below *already anticipated and named as the
+> next step*, not a new turn in the understanding. A summary series earns its keep by recording
+> where the thinking changed direction — and here it did not; it simply arrived.
+>
+> One caveat the body cannot know: the delivered report was generated at 18:40 on 26 July, so it
+> predates the copy fixes and the model migration and still carries two of the three writing
+> defects. The **next** order is the first clean report, the first on the Claude 5 family, and the
+> first that measures per-report cost. Detail in NOTES §X.23.
+
 *Fourth in the series, after `SUMMARY_2026-07-25`, `_2026-07-26` and `_2026-07-26b`. The last one
 said the site was complete and one proof was outstanding: nobody had yet received a report in the
 new format. That proof happened, and then the day turned into something else — so this one exists
@@ -77,6 +97,9 @@ is sitting in the queue right now with a live payment link, waiting on a £29 ca
 other link in the chain has now run for real at least once. This one hasn't, and until it does the
 business end of the product is unproven.
 
+> **SUPERSEDED the same day — see the UPDATE at the top.** It happened at 11:13. Left standing
+> because a paragraph that was true for six hours is the most honest thing in this file.
+
 **One open question, deliberately unanswered:** what a report now costs us to produce. We know the
 top-tier model costs what the old one did and the cheaper one is currently below its old price, and
 we know the new models use somewhat more tokens per job. We are not guessing the net — the next
@@ -84,8 +107,8 @@ real report measures it exactly, because the engine logs its own token usage.
 
 ## Where we're going
 
-In order: someone pays the £29 and we watch a report land in a customer's inbox for the first time.
-Then a small gap in the automatic order expiry — an order interrupted mid-report still holds its
+In order: ~~someone pays the £29 and we watch a report land in a customer's inbox for the first
+time~~ — **done, 11:13 the same morning.** Then a small gap in the automatic order expiry — an order interrupted mid-report still holds its
 slot forever, which is the same failure we spent yesterday fixing, reached by a different door.
 Then the pipeline grows sideways: more tools where a stage earns one, and the News section that is
 still empty.
