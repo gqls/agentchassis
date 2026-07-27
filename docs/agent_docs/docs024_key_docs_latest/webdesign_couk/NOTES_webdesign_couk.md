@@ -968,3 +968,109 @@ by default for any proxied zone, and has been counting since the site went live 
 seeing "1 visit" there is not evidence Web Analytics is on. *Web Analytics* is the
 beacon product, and it is the one that answers "which pages are popular", which is
 what the deferred ordering-by-popularity decision is waiting for.
+
+---
+
+## 2026-07-27 evening (cont.) — every tool page was a dead end; fixed on both surfaces
+
+Owner ruled on W2: **designer pages stay for now** — the site should "cover design
+from several angles" and evolve toward the buying-design goal — and **the pages are
+not worth a rewrite for Americanisms alone**, but *"if we can positively add value
+or change the subjects to be more useful etc then please go ahead."* So the spelling
+conversion is **dropped**, and this is what replaced it.
+
+### The measurement, and the two false starts before it
+
+`tools/` n=63, median **102** words; 30 under 100. `learn/` n=31, median **303**;
+none under 200. So the tools are the thin half — but thinness is not the defect,
+because a tool page's value is the tool.
+
+The real finding is link topology, and **I got it wrong twice before I got it right**:
+
+1. **First count said "63 tools link to a guide, 0 guides link to a tool"** — an
+   artefact of counting `/learn/index.html`, which is in the **footer of every
+   page**. Chrome, not content. Stripping `<nav>/<header>/<footer>` was required.
+2. **Second count said 0 everywhere** — my "exclude landing pages" filter dropped any
+   URL ending `index.html`, and **every tool URL is `/tools/<slug>/index.html`**. It
+   excluded the entire tool namespace. Caught only because the debug sample printed
+   `learn/data/cors-scraping.html` with three tool links in it, contradicting the 0.
+
+Corrected, body-only, chrome stripped:
+
+```
+TOOL  (n=63): -> a guide  0   -> another tool  0     ALL 63 are dead ends
+GUIDE (n=31): -> a tool  23   -> another guide 0
+```
+
+The asymmetry is **the opposite way round from my first answer**. The guides already
+feed the tools well (23 of 31). The tools feed nothing at all. Confirmed by eye on
+`tools/smart-contrast/index.html`: every `href` in it is chrome or a stylesheet.
+
+> **The lesson is the one already in `[[narrow-filter-defines-the-conclusion]]`,
+> twice in five minutes.** Both wrong answers were *confident, tidy numbers*. What
+> caught both was printing a sample of the underlying rows next to the aggregate —
+> the aggregate cannot contradict itself, but a sample can contradict the aggregate.
+> **Never report a link-topology count without printing example rows beside it.**
+
+### What shipped
+
+Each tool page now carries **"The thinking behind this tool"** (the guide that
+explains its subject) and **"Related tools"** (2–3 siblings). 63 pages, 252 links,
+89 distinct targets.
+
+Deliberate choices worth keeping:
+
+- **No copy was written.** Titles and descriptions are lifted **verbatim** from the
+  site's own `tools/index.html` and `learn/index.html` cards. Writing 189 fresh
+  descriptions is exactly the surface where `bugs_open/043`-class invented claims
+  appear, and there was no need — the site had already described itself.
+- **No CSS was added.** The block uses `.grid-cards` and `.card`, the ported pages'
+  own classes (`port-compat.css:118,129`), so it inherits the design pin's hover
+  signature. **`.cta-grid` was deliberately NOT reused** — the guide pages use it and
+  it has **no rule in either stylesheet**, so those cards were stacking in one
+  column. Fixed separately (one page, `learn/data/cors-scraping.html`).
+- **Inside `<section class="ported-page">`, not after it** — that section supplies
+  the max-width and padding, so a block placed after `</section>` would run
+  full-bleed.
+- **Idempotent** — keyed on a `wd-related` sentinel class, so a re-run cannot
+  double-insert.
+
+Verification, before and after shipping: **1,370 internal hrefs across the whole
+site resolve to a real file, 252 of them new — 0 broken**; 63/63 structurally
+balanced (main/body/html/div counts); 819 insertions, **0 deletions**; 63/63 live;
+18 sampled targets fetched live, all 200.
+
+### Both surfaces, because one is not enough
+
+Files: `gqls/sites` `7237eb851` + `df51bfd91`. DB: `SQL_p11_tool_related_links.sql`,
+63/63 components updated. The DB half is not optional — SQL_p10's standing landmine
+is that **assemble republishes STORED `rendered_html`**, so a file-only fix is one
+assemble away from vanishing. It is still an **artefact fix**: a full regeneration
+of a tool page rebuilds it from upstream and the block goes. The durable version is a
+generation-time related-links step, which is not mine to build.
+
+### The accident that found a fleet-wide deploy bug — `bugs_open/120` (NEW, unowned)
+
+The first deploy **reported success and shipped nothing.** `curl` showed the file
+still dated 25 July, cache-busted, with no block.
+
+Cause: the workflow computes changed domains with `git diff --name-only HEAD~1 HEAD`.
+**On a merge commit `HEAD~1` is the first parent — your own commit — so the diff
+returns only the OTHER side of the merge.** My push had been rejected (another
+session pushed first), I ran `git pull`, and the resulting merge made my 63 files
+invisible to the deploy while the other session's work shipped fine.
+
+**It is always the pusher who loses**, because the pusher's commit becomes parent 1.
+And the run is green, so nothing signals it. Filed with an induced-fault verification
+recipe. The same line is in the VM deploy workflow, so it is not B2-specific.
+
+Fixed for this push by **rebasing** rather than merging, so the tip commit's own diff
+named the domain. That is a workaround, not the fix — the fix is to diff
+`${{ github.event.before }}..${{ github.sha }}`, which spans both sides of a merge
+and also fixes the untested multi-commit-push case.
+
+> **`git push` succeeding and the run being green are two facts that together still
+> do not mean the site changed.** Add it to the "all pages return 200 ≠ the site
+> works" family from this morning. The only check that settles it is `curl` for a
+> string your change created — which is the same discipline as pod-grepping for a
+> symbol, one layer out.

@@ -619,3 +619,65 @@ buying-design section. So I've stopped and left it un-started.
 next attempt is 19:49 tonight. Last time it failed for a reason that had nothing to do with us —
 the server had just restarted. It's been up nearly an hour now, so tonight's attempt has a clear
 run at it.
+
+---
+
+### Monday 27 July, later — the tool pages were all dead ends, and that's now fixed
+
+You said the designer pages stay, that they're not worth a rewrite just for American
+spellings, but that adding real value is welcome. So I dropped the spelling job and
+went looking for what would actually help. Here's what I found.
+
+**Every single one of our 63 tool pages was a dead end.** Not one of them linked
+anywhere — no link to the guide that explains the subject, no link to a related tool.
+The only links on them were the menu and the footer. Meanwhile the guides are the
+opposite: 23 of the 31 already point people at tools. So the traffic flowed one way
+and stopped dead.
+
+That matters because the tool pages are the ones people are most likely to land on
+from a search or a shared link, and they're also our thinnest pages — a typical tool
+page has about 100 words, a typical guide about 300. So someone arrives, uses the
+tool, and leaves, and we never show them the other ninety-odd things we've built.
+
+**So every tool page now has two short sections at the bottom**: "The thinking behind
+this tool", which links to the guide explaining the subject, and "Related tools",
+with two or three siblings. The pairings are genuine, not automatic — our touch
+target simulator now points at our guide on the 44-pixel rule, the password strength
+tool points at the guide on password entropy, the regex tester at the regex guide.
+About twenty of the sixty-three are that exact one-to-one match.
+
+Two things I deliberately didn't do. **I wrote no new copy** — every title and
+description is lifted word-for-word from the site's own index pages, because writing
+189 new descriptions is exactly where invented claims creep in, and the site had
+already described itself perfectly well. And **I added no styling** — the blocks use
+the same card and grid classes the rest of the site uses, so they inherit the look
+you already approved rather than introducing a new one.
+
+It's checked properly: every internal link on the whole site, 1,370 of them, points
+at a file that exists — 252 of those are new and none is broken. All 63 pages are
+live and I've fetched a sample of the new links to confirm they load.
+
+**One honest caveat.** I've put this in both the published files and the database, so
+an ordinary republish won't lose it. But if a tool page is ever regenerated from
+scratch it'll come back without the links, because nothing upstream knows to add
+them. Making it permanent means changing how pages are built, which belongs to
+another team's code.
+
+**And an accident worth telling you about, because it affects every site we run.**
+My first attempt deployed and reported complete success — and shipped absolutely
+nothing. The pages on the live site were still the old ones. It turned out the
+deployment script works out which sites changed by comparing the last commit to the
+one before it, and when two of us push at the same time and the changes get merged,
+that comparison only ever sees *the other person's* half. So the person who did the
+work is always the one whose work silently doesn't ship, and the deployment goes
+green while doing it.
+
+I got mine out by taking a different route, and I've written the problem up properly
+with a fix. But it's worth knowing the shape of it: **a successful deploy is not
+evidence that the site changed.** That's the second time today the same lesson has
+come up in a different costume — this morning it was "every page returns 200" not
+meaning the site works. The only thing that settles it is going and looking at the
+live page for something your change created, which is what I now do.
+
+**The news feed** is still due at 19:49 tonight. Everything about it is ready and
+waiting.
