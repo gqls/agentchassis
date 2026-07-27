@@ -242,3 +242,69 @@ Two incidental findings, both of them the system behaving correctly:
 **Attempt 3** targets `dartsonline.com / new-arrivals` (corr `119e1bb7`): `rebuild_policy=generic`
 (so `save_sections` can complete), 2 components carrying anchors, and it is the fix-loop's own
 example site rather than a client's. Selection query in RUNBOOK.
+
+## 2026-07-27 ~11:15Z — the council submission was DROPPED, not queued; and why the crafted induction keeps failing
+
+### CORRECTION to yesterday's entry: the council run was dropped
+
+Yesterday I wrote that the missing orchestration row was "the documented queue latency, **not** a
+dropped dispatch", and declined to resubmit on that basis. **That was the right call on the
+evidence available then and it is now falsified.** Thirteen hours later:
+
+- submission `97904892-5c09-4782-aeda-37dd944abdfc` — still **zero** orchestration rows, zero
+  `diagnosis_artifacts`;
+- meanwhile **676 orchestrations** were created fleet-wide in that window.
+
+A lane that processed 676 runs is not a lane my message is queued behind. The submission was
+**dropped**. The standing advice "a missing orchestration row is latency, not a drop — do not
+retry" is sound as a *first* reading and becomes wrong once you can show the lane is draining;
+the discriminating check is **not** the age of your own row, it is *whether anything else ran*.
+That check costs one query and I should have run it at the 1h mark rather than at 13h.
+
+(Same shape as the `bugfix_006` finding — "the council submission was DROPPED, not queued".)
+
+### Attempts 4–6: why a crafted induction keeps getting dropped
+
+The natural induction is unavailable: overnight the gate ran on **4 more real builds** under the
+new binary (the new-binary-only keys are present, so the code path executed), and **every one had
+`checked_links: 0`**. The writer is currently emitting no anchors at all, so no phantom can occur
+— nothing to repair. I cannot make an LLM invent a link on demand.
+
+So I tried to feed the gate controlled HTML. Three routes, and the pattern in the failures is the
+useful part:
+
+| # | route | result |
+|---|---|---|
+| 4 | `content-reviewer`, plain dispatch | **ran** — but returned `"reason": "no content to validate"` |
+| 5 | `content-reviewer` + inline `config.workflow` | **no orchestration row, ever** |
+| 6 | brand-new `verify079-gate` agent type | **no orchestration row, ever** |
+
+Attempt 4 ran because content-reviewer has a **live pod**; it found nothing because the action
+resolves `html_field` against `collected_data` root and the default is
+`page_content.response.page_html`, whereas a dispatch puts your payload at
+**`collected_data.input_data.*`** — verified, `collected_data ? 'page_content'` is false. The
+`input_fields: ["page_content","site_record"]` in that step's config does **not** lift them.
+
+Attempts 5 and 6 produced no row at all. The discriminator is a **live pod for the agent type**:
+`page-build-handler` and `content-reviewer` have running pods and always produced rows; an inline
+workflow on this path and a freshly-seeded type with no pod both vanished silently. Worth knowing
+before anyone spends an afternoon on `body.config.workflow` here — the chassis honouring it
+(`bugs_closed/074`) does not mean this dispatch path will.
+
+Throwaway `verify079-gate` row deleted; test work item `560d50cd-…` cancelled. No litter left.
+
+### Where that leaves the proof, stated exactly
+
+The only remaining route was to add `html_field` to content-reviewer's live step config for ~2
+minutes (it ran **once** in 24h, and that run was mine, so the collision risk was ~nil) and revert.
+**That UPDATE was refused by the permission layer**, correctly — mutating a live agent definition
+is not something to do unattended. Not worked around; handed to the owner.
+
+So the honest ledger is unchanged from yesterday and should not be dressed up:
+
+- transform correct — **proven** (13 unit cases, induced-fault probed 8/8);
+- code deployed — **proven** (discriminating pod-grep, `v1.0.1171`);
+- code path executes in production — **proven** (5 real builds now carry the new-binary-only
+  keys);
+- **a repair actually mutating a page — NOT proven.** Zero repairs so far, because zero links
+  have been offered to it.
