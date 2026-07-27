@@ -129,3 +129,35 @@ quantify itself.
 
 Everything else — the council round, the remaining checks — is ours to finish and doesn't
 need you.
+
+---
+
+> **ADDENDUM, same day, written after the above.** Two findings arrived while publishing the
+> corrections, and both change what "where we are" means. Recorded here rather than in a second
+> summary, because neither is a new milestone — they are the same milestone, understood better.
+>
+> **1. A site's stored description is a live source, not a memo.** We had the remaining spec
+> work filed as tidy-up: old numbers sitting in site descriptions that would mislead the writer
+> next time. It is worse. Those descriptions are *resolved into the page* on every re-render, so
+> a stale number in one is pushed back onto the published page **over the top of any repair**.
+> Proven the hard way: I corrected ai-agent-orchestration's page, the checks passed, the page
+> re-rendered, and the old figure was back within fifteen minutes — because the leadership
+> biography is pulled from the site description, and I had fixed the page but not the source.
+> The order that works is description, then page, then re-render. This probably also explains a
+> recurring thing we have blamed on caching or failed deploys: a fix that "did not stick"
+> because something rebuilt the page correctly from a source nobody updated.
+>
+> **2. Two of that site's copy templates claimed client work we have never done.** Sweeping for
+> the old agent figure across every part of the site's configuration — not just the parts I had
+> already looked at — turned up its call-to-action template saying *"We have shipped 70+ agent
+> systems"*, and its writing-standards template offering, as the example to imitate, *"runs 70+
+> agents in production today across financial services and logistics environments"*. We run
+> fifteen sites and every one is our own; none is in financial services or logistics. So that is
+> not an exaggerated number, it is a claim about a business we do not have — and it sat in
+> *templates*, which regenerate it by design. Both now state the true, registered claim instead.
+> **This one is copy rather than a defect, so it wants your eye**: if the intended claim really
+> was about client delivery, the honest version needs a figure you can attest, and none exists.
+>
+> Everything else in the summary above stands. The corrections are published and verified
+> against the live pages — a complete scan of all 626 components on registered sites reports no
+> banned claim published anywhere.
