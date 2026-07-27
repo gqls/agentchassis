@@ -342,3 +342,97 @@ quotes. The rationale now states plainly that the change has already landed and 
 already applied, because that changes what is worth objecting to: **objections to the schema are
 the valuable ones now, since a live table is far more expensive to change than unlanded code.**
 Eight `grounded_in` quotes, each re-verified byte-exact with `grep -rF` before submitting.
+
+---
+
+## 2026-07-27b — the verdict, and the objection worth more than the approval
+
+**P2a: APPROVED.** Corr `bbdd2c5e-1b9d-4179-a31c-a8a5c3c3bf32`, round 1,
+`{"decision":"approved","reviewers":11,"abstained":5,"unreadable":0}` — **`unreadable: 0` checked
+first**, per the standing trap: on the 16-seat gate a filtered seat counts as abstained, so an
+approval with a non-zero `unreadable` is seats that could not read the submission, not seats that
+agreed with it. Five advisory objections, none high-severity. Turnaround was ~10 minutes, not the
+~30 the runbook budgets.
+
+**The most useful objection was one I had already made about myself, and had answered badly.**
+`bug_historian` and `guardian` both raised the deferral escape hatch: *"an entry can defer every
+hard check and still reach 'approved' with criteria that assert nothing substantive"*. It was
+risk #5 of my own submission. What matters is not that they found it — I had pointed at it — but
+that my stated answer was **"a minimum-executable-checks rule at the APPROVAL step; it is not
+built"**, and `bug_historian` named exactly why that is not an answer:
+
+> *"Until that gate exists, an all-deferred pattern is indistinguishable from a real one at every
+> status this schema can report."*
+
+A rule a future step must remember is a schema defect wearing a documentation costume. So it is a
+constraint now — migration **230**, `status = 'draft' OR executable_checks > 0`. The bad state is
+unrepresentable rather than discouraged, and it holds no matter which path later writes the
+status. **Candour in a risk list does not close a gap**; naming a risk and shipping it are the
+same act unless the naming changes the code.
+
+> **MISSTEP, and it cost two medium objections:** my sketch for the migration wrote the doc_notes
+> half as a comment — `-- same pair for doc_notes` — instead of the DDL. `editquality` and
+> `guardian` both objected that they could not confirm it had landed, and `guardian` said so
+> exactly right: *"'in principle' is doing the work here because I cannot verify it."* The real
+> file does carry it and I had probed it live before they ever saw the submission. That is not
+> the point. **The submission was ABOUT two halves that must move together, and I elided one of
+> them for brevity.** Reviewers cannot open the file; an abbreviated quote is a different claim,
+> and an abbreviated *diff* is a different change. Never elide the half a change is about.
+
+**Two objections I answered with a query rather than an argument**, because both were of the
+asserted-absence shape and both were mine to prove:
+
+- `reuse_agent` + `prior_art_librarian`: was there already a write-time criteria validator to
+  extend? **No.** `grep -n "func .*[Vv]alidat\|func .*[Cc]riteria"` over the tool-acceptance path
+  returns `evaluateStaticCriteria` (evaluates against fetched HTML), `loadCurrentCriteria`,
+  `extractCriteriaFence` (both parse at read time) and `criteriaOrNull` (a null helper). Every one
+  runs at **read** time. That is the failure class the new validator addresses, not a duplicate of
+  it. Worth stating plainly: the seat was right to demand the check even though the answer was the
+  one I expected — I had asserted the absence without running it.
+- `tooling_provenance`: does splitting `experience` from `experience-pattern` fragment
+  travelling-doc history? **No.**
+  ```
+  subject_type | count | distinct subjects
+  experience   |    59 |        1
+  ```
+  59 rows, **one** subject_key — the vonc EXPERIENCE_PLAN superseded 59 times. `experience` is a
+  per-site level-4 plan; `experience-pattern` is a library-level entry. Different subjects, no
+  shared history to fragment.
+
+**One objection I am NOT acting on, with the reason.** `debug_historian` asked for migration 218
+to be renamed off its number collision with `218_evidence_facts_for_043_sites.sql` *"before this
+becomes load-bearing"*. It already is: the ledger keys on **filename**, and 218 is recorded as
+applied. Renaming it now would make it look pending again and invite a replay — the precise trap
+(`bugs_open/007`) the record-only path exists to avoid. The shop already carries duplicates at
+217, 219, 220, 222, 226 and 227 and resolves by full name. Recorded here so the decision is
+visible rather than silently ignored.
+
+**No `Council-Reviewed:` trailer anywhere.** The verdict approved P2a, whose commit (`2f220f261`)
+predates it and cannot be amended; and it did not review P2b. A trailer on either would be a
+permanent false claim. The 098 report will list both as unreviewed, which is accurate.
+
+## P2b — the write path
+
+`write_experience_pattern` (`36bb6c992`) is the only door into the register. Three rules, each
+closing a door rather than asking anyone to remember something: **status is not writable**
+(supplying one is an error, not a silent no-op — silently dropping it lets a caller believe it
+approved something); **a contract change demotes** an approved entry back to draft, on canonical-
+JSON comparison so key order cannot cause a phantom demotion, with cosmetic fields excluded by an
+explicit list; and **validation refuses the write**, reporting every problem at once because each
+refusal round trip is an LLM call. `executable_checks`/`deferred_checks` are refused from the
+caller for the same reason as status: an entry that scores itself walks through the constraint
+that reads the score.
+
+Falsification before commit, as standing practice: adding `site-journey` to `experiencePatternKinds`
+fails the new lockstep test naming `218_experience_register_substrate.sql` — which also proves the
+regex matched the intended file rather than passing vacuously. Migration 230's guard proves its own
+constraint **in both directions inside the transaction** before committing itself: it refuses
+`status='approved', executable_checks=0`, and it accepts `executable_checks=1`.
+
+Submitted as corr **`2e71f640-06b9-48c8-a674-a121f74be22c`**.
+
+**Still true and worth repeating:** the Go for P2b is committed but **not in a rolled image**, so
+the write path is inert in production. Migration 230 is applied, and I argue it is safe ahead of
+the image (defaults on both columns, tightening-only constraint, constrained states unreachable
+because nothing can write a non-draft status yet). That argument is mine and is in the submission's
+risk list precisely so a reviewer can test it rather than accept it.
