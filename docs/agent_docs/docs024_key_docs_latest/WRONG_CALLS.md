@@ -33,6 +33,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
 | wait / query again before calling an absence a failure | 9 |
+| **test against the ARTEFACT, never against a fixture you wrote to match your assumption about it — a fixture named after real data is not real data** | **1** |
 | **read the ITEM's own row, with the columns that can carry bad news, before inferring its state from an aggregate over the queue containing it — "absence is not failure" does not license "absence is progress"** | **1** |
 | **grep for the capability before asserting it does not exist** | **5** |
 | **prove the artefact is current before reasoning from it** | **4** |
@@ -7225,3 +7226,70 @@ into a handoff would not have been.
 
 Family: measured-a-proxy-for-the-real-source, first-plausible-function-is-not-the-path,
 precision-in-the-wrong-place-reads-as-rigour.
+
+---
+
+## 2026-07-27b — I invented the shape of the thing this workstream exists to stop people inventing
+
+**The claim.** A validator, a migration and a set of passing tests, all asserting that an
+experience-register entry's `contract` is an object carrying a `triggers` array, each trigger
+keyed `when`/`then`. Committed, council-submitted, council-**approved**, and the migration
+applied to the live database.
+
+**What was true.** All nine harvested entries — the only entries that exist — use `contract` as
+an **array** of clauses keyed `control_role` / `primitive` / `outcome`. **The live write path
+would have refused 9 of 9 real entries.** Two more of the same shape came out of the same look:
+`CC-006` has a deliberately EMPTY contract (nothing a visitor does drives a count-up stat band;
+its behaviour lives in `automatic_triggers`), so a "contract must be non-empty" rule refused a
+legitimate entry; and `honesty_clauses` and `latency_envelope` are fields the harvest produces
+for which the table had no columns, so they would have been **silently dropped on write**.
+
+**Why every check I ran passed.** The fixture was an inline literal I wrote myself:
+
+```go
+func validHarvestedEntry() map[string]interface{} {
+    return map[string]interface{}{ ... "contract": map[string]interface{}{"triggers": ...
+```
+
+The function was *called* `validHarvestedEntry`. Nothing about it was harvested. Seven behaviour
+tests, a lockstep test against the migration, induced-fault probes in both directions — all green,
+all measuring the code against a copy of its own assumptions. **A fixture invented to satisfy the
+code under test proves only that the code is self-consistent.** The name made it worse, not
+better: it asserted provenance the value did not have, so every later reading of that test
+inherited a false premise.
+
+**The council did not catch it either**, and could not have: reviewers see the submission, not
+the repo. Approval is not evidence about facts nobody checked.
+
+**The cheap check.** Load the real files. It is three lines, it was available from the first hour,
+and it is what found the bug in the end:
+
+```bash
+python3 -c "import json,glob; [print(f, type(json.load(open(f))['contract']).__name__) for f in glob.glob('harvest/entries/*.json')]"
+```
+
+**The aggravating factor, and the reason this entry is worth its length.** This is the
+experience-register workstream. Its founding finding — written by me, the day before, in its own
+PLAN and SUMMARY — is that harvesting bottom-up from live implementations catches shapes invented
+top-down, and that doing it in that order *"is what caught the ten errors"*. I then built the
+validator from the harvest **notes** rather than the harvest **entries**, and reproduced the exact
+failure mode the workstream was created to prevent. Writing the lesson down does not apply it.
+
+**Cost.** Contained but not zero: one council round spent approving a shape that was wrong, a
+migration applied to the live database that then needed 239 to complete it, and a day of work
+that would have shipped a write path refusing every input it will ever be given. Nothing reached
+production — the Go had not rolled.
+
+**The fix that generalises.** Not the corrected shape: the **fixtures are now the real files.**
+`validHarvestedEntry()` reads `CC-001` off disk, and two tests load all nine — one asserts the
+validator accepts every one, the other that every field they carry has a column. Proved by induced
+fault (restoring the non-empty rule fails naming `CC-006`). The drift cannot recur silently
+because there is no longer a second copy of the truth to drift from.
+
+**Tally.** *Test against the artefact, never against a copy of your assumption about it* — a new
+row, and the sharpest instance yet of the family that already includes "look at the real values,
+not the name" and "prove the artefact is current before reasoning from it". Both of those are
+about reading data; this one is about **manufacturing** it and then reading that.
+
+Family: the-fixture-that-agrees-with-the-code, a-name-is-not-provenance,
+the-lesson-written-down-and-not-applied.
