@@ -1666,6 +1666,40 @@ commit `7c0ee759c`) — it is a shared fleet component and the tier wording is o
 seam exists** (no column on `sites`; `language` appears only inside `deploy_config.rss_feed`,
 which is `"es"` here).
 
+### CORRECTED, same session — deleting `cta_text` made it WORSE, and that is the finding
+
+Item 1 said I "dropped `cta_text` on both so the template gate omits the anchor". **The gate
+did not omit it. The platform refilled it.** Live on both pages afterwards:
+
+```html
+<a href="/contact.html" class="btn btn-primary">Get Started</a>
+```
+
+**English "Get Started" pointing at a 404, on a Spanish site** — strictly worse than the
+Spanish-text-on-a-dead-link I set out to fix. `component_library.go` defaults both fields
+when absent (`cta_text` → `"Get Started"`, `cta_url` → `"/contact.html"`), and the refilled
+pair then **satisfied** `{{if and .cta_text .cta_url}}`.
+
+So the default does not merely supply a bad value — **it manufactures the very condition the
+guard tests for.** "No CTA here" is *unrepresentable* in `content_data`: only a non-empty,
+valid destination suppresses the phantom. Every hero on every site must therefore carry an
+explicit `cta_url` forever, and any that doesn't is one render away from an English button
+pointing at a 404.
+
+Fixed by giving both heroes real, non-self-referential pairs instead of trying to remove
+them: `noticias-index` → primary *Explorar el glosario* `/glosario/index.html`, secondary
+*Consultar las guías* `/guias/index.html`; `glosario-index` → primary *Consultar las guías*
+`/guias/index.html`, secondary *Leer las noticias* `/noticias/index.html`.
+
+**Why I should have predicted it:** I had *read* `defaultString(ctx.CTAUrl, "/contact.html")`
+that morning and written it into the 071 sighting. Knowing the default exists and reasoning
+about what happens when you remove its input are different acts, and I only did the first.
+*Check: before deleting a field to suppress output, grep the field name in
+`component_library.go` — if it appears in a `defaultString`/`defaults` map, deletion is the
+one thing that guarantees the default fires.* Contributed to 071 (`8228fb748`) as the
+strongest available argument for fixing the default rather than the data — no data-side
+repair can express "no button", because they all work by writing `content_data`.
+
 ### CORRECTED, same session — nav is a TABLE, and archiving a page does not touch it
 
 Item 6 above said the 15 assemble-only rerenders would make "the footer nav stop linking the
