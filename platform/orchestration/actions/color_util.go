@@ -136,31 +136,47 @@ func hexToRGBA(hex string, alpha float64) string {
 //
 // Chosen to preserve palette character:
 //   - "background" first because on light themes it's a warm off-white or
-//     cream that reads far better than pure white on a dark hero.
-//   - "text_muted", "text" next because they are the theme's reading colours
-//     — on dark themes they are already light-on-dark.
-//   - "accent", "secondary" as palette-character fallbacks.
+//     cream that reads far better than pure white on a dark hero. (On a dark
+//     site this is inert: the background against a dark section scores ~1:1
+//     and is skipped.)
+//   - "text" next: it is the palette's reading colour, and the answer the
+//     palette's author actually chose.
+//   - "accent", "text_muted", "secondary" as palette-character fallbacks.
 //   - "primary" last because it usually shares a colour family with dark
 //     backgrounds, so contrast is often poor, but worth checking.
+//
+// CORRECTED 2026-07-27 — "text_muted" used to sit AHEAD of "text", and that
+// one line set every dark site's default body AND heading colour to the
+// palette's DIMMEST reading colour. On fundamentallyai.com the emitted block
+// was `--section-text: #7E91A8; --section-heading: #7E91A8` while #E4EAF2 sat
+// unused in the same palette: headings rendered in the muted grey meant for
+// de-emphasised captions. text_muted is by definition the de-emphasised
+// colour; using it as the default de-emphasises everything.
 var paletteTextPreference = []string{
 	"background",
-	"text_muted",
 	"text",
 	"accent",
+	"text_muted",
 	"secondary",
 	"primary",
 }
 
 const (
-	// Minimum contrast ratio for body text on section backgrounds. Below WCAG AA
-	// body (4.5) but above WCAG AA large-text (3.0). Deliberately loose to preserve
-	// palette character — picks softer palette colours over clinical pure-white fallback.
-	sectionBodyMinContrast = 3.0
+	// Minimum contrast ratio for body text on section backgrounds: WCAG AA.
+	//
+	// RAISED 2026-07-27 from 3.0. The old value was set "deliberately loose to
+	// preserve palette character", and the character it preserved was body copy
+	// below the readability floor — a site can ship text at 3.0:1 and no check
+	// downstream disagrees, because every check runs on the source rather than
+	// the rendered page. With "text" now ahead of "text_muted" in the
+	// preference order this rarely binds: a palette's own reading colour
+	// clears 4.5 comfortably on its own background.
+	sectionBodyMinContrast = 4.5
 
-	// Minimum contrast ratio for section headings. Headings are large and bold so
-	// readability holds at lower ratios; this lets accent/warm palette colours come
-	// through on decorative titles.
-	sectionHeadingMinContrast = 2.0
+	// Minimum contrast ratio for section headings: WCAG AA for large text.
+	// Headings are large and bold, so 3.0 is the standard's own allowance —
+	// the previous 2.0 was below any published floor.
+	sectionHeadingMinContrast = 3.0
 )
 
 // pickReadableOnBackground returns a text colour (hex) suitable for rendering
@@ -229,7 +245,21 @@ func buildSectionDefaults(
 	// text/heading colours and emit the full --section-* override block.
 	emitOverrides := func(bg string, context string) string {
 		textHex, textSrc := pickReadableOnBackground(bg, palette, sectionBodyMinContrast)
-		headingHex, headingSrc := pickReadableOnBackground(bg, palette, sectionHeadingMinContrast)
+
+		// A palette that names a `heading` slot has already answered this
+		// question; the walk is only for palettes that don't. Added
+		// 2026-07-27 — `heading` is defined by 15 of 31 palettes and was
+		// consulted by nothing, so a curated heading colour lost to whatever
+		// the preference walk happened to reach first.
+		headingHex, headingSrc := "", ""
+		if h, ok := palette["heading"]; ok && h != "" {
+			if r, err := wcagContrastRatio(h, bg); err == nil && r >= sectionHeadingMinContrast {
+				headingHex, headingSrc = h, "palette:heading"
+			}
+		}
+		if headingHex == "" {
+			headingHex, headingSrc = pickReadableOnBackground(bg, palette, sectionHeadingMinContrast)
+		}
 		mutedRGBA := hexToRGBA(textHex, 0.75)
 
 		logger.Info("buildSectionDefaults: picked section colours",

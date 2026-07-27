@@ -138,6 +138,18 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 		)
 	}
 
+	// 3c. Fill the specialised slots a dark palette omits. Without this the
+	// layout's own light literals (card_bg #ffffff, header_bg #ffffff,
+	// cta_bg #1a365d) ship onto a dark site and carry the site's light text
+	// colour on top of them. Inert on light sites and on any slot the
+	// palette defines — see palette_specialised_slots.go for the measurement.
+	mergedPalette = fillDarkSchemeSpecialisedSlots(mergedPalette, logger)
+
+	// 3d. A primary that cannot be read on its own background makes every
+	// eyebrow, link and card title invisible while every fill still looks
+	// right. Warn, don't fail: the repair is a palette-authoring decision.
+	warnUnusablePrimary(mergedPalette, logger)
+
 	// 4. Surface the override deltas for observability. Operators
 	// debugging a site's render can see at a glance which slots the
 	// spec claimed from the theme.
