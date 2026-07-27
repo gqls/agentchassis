@@ -7346,3 +7346,60 @@ believing. A hazard with no citation should be re-derived before it is obeyed.
 
 Family: read-the-function-dont-infer-from-the-data, the-fixed-bug-whose-warning-outlived-it,
 a-cold-start-doc-is-believed-harder-than-it-is-checked.
+
+---
+
+## 2026-07-27 — "zero live instances fleet-wide" was true when I measured it and false twenty minutes later, and I had already put it in a council submission
+
+**Thread:** bugs thread (bugs_open sweep). **Claim:** in the council submission for the
+`bugs_open/095` fix, the central risk argument was *"the defect shape is ZERO rows
+fleet-wide, so failing it breaks nothing today"*. I measured it, quoted the query, dated
+it, and treated the risk calculation as settled.
+
+**What it actually was.** True at ~18:05 UTC. **False by ~18:35**, while the council was
+still deliberating on the submission that rested on it: `oufe.com/tool-recovery-waterfall`
+entered the defect shape at 18:16:53 — one component row, zero usable, one planned
+section. The submission argued for a new hard-error path on the grounds that nothing in
+the estate could hit it; by the time the verdict came back, something could.
+
+**What caught it.** A council seat (`debug_historian`) objecting to something *else* — that
+my blast-radius query was scoped `WHERE p.status='active'` while bucketing by
+`build_status`, mixing two columns. That objection turned out to be wrong on its own terms
+(archived pages are also zero), but re-running the query to answer it is what surfaced the
+new row. **The objection was not correct and was still worth exactly what it cost.**
+
+**The cheap check that would have.** There isn't one, and that is the point — this is not
+a check I skipped, it is a figure with a shorter half-life than I assumed. The practical
+form is: **re-run the measurement when you act on it, not when you write it.** The gap
+between submitting and committing was thirty minutes and the number moved inside it.
+
+**Why this is a different family from the usual staleness row.** The standing rule is
+"ground every figure against the live system before repeating it from another doc", and
+its stated horizon is *days* ("volumes, counts and statuses go stale within days"). That
+horizon is wrong for anything the fleet actively produces. A count of *pages in a broken
+state* is not a slow-moving inventory figure; it is a queue depth, and queue depths move
+in minutes. **The half-life of a figure is set by what produces it, not by what kind of
+number it looks like.**
+
+The asymmetry that makes it worth a row: a zero is the most dangerous figure to cache,
+because it is the one that *removes* a safeguard from the argument. "17 rows" ages into
+"some rows" and the reasoning survives. "0 rows" ages into "1 row" and the conclusion
+built on it — *this change cannot break anything today* — is simply false, with nothing
+in the sentence to signal it.
+
+**Second, smaller call in the same sitting.** The `bugs_open/080` submission said the
+gap-planner was "the fourth" page-creation surface and that three others canonicalised.
+There are **four** canonicalising creation call sites plus two read-only lookups; it was
+the fifth. I had run the grep, read seven results, and then wrote the number from the bug
+file's framing instead of from my own output. The `guardian` seat asked for the
+enumeration to be confirmed rather than asserted. Cheap check: **when you have already run
+the command that answers a count, take the count from the output, not from the prose you
+are paraphrasing.**
+
+**Tally.** *Zero is the figure most worth re-measuring at the moment of action* — new.
+*Take the number from your own output* — a recurrence of narrow-filter/figure-carried-
+forward, third-ish instance. And an argument for the council that is not about correctness:
+**a wrong objection still bought a real correction**, because answering it forced a re-run.
+
+Family: a-zero-ages-worse-than-any-other-figure, figure-carried-forward-from-prose,
+the-half-life-of-a-count-is-set-by-what-produces-it.
