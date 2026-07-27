@@ -6981,3 +6981,46 @@ investigating, which is what makes it dangerous rather than merely untidy.
 
 Family: narrow-filter-defines-the-conclusion, prior-art-search-goes-stale,
 verify-the-failing-branch.
+
+---
+
+## 2026-07-27 — "dropping `cta_text` makes the gate omit the anchor" — it refilled it, in English, pointing at a 404
+
+**The claim:** carrying out an owner ruling that relojistas.com has no contact route, I
+removed two self-referential hero CTAs by deleting `cta_text` from `content_data`,
+reasoning from the component's own guard, which I had read:
+
+```
+{{if and .cta_text .cta_url}}<a href="{{.cta_url}}" …>{{.cta_text}}</a>{{end}}
+```
+
+**What actually shipped**, on both live pages:
+
+```html
+<a href="/contact.html" class="btn btn-primary">Get Started</a>
+```
+
+English "Get Started" pointing at a 404, on a wholly Spanish site — **worse than the
+Spanish-text-on-a-dead-link I was fixing.** `component_library.go` defaults both fields
+when absent, and the refilled pair then *satisfied* the guard.
+
+**What caught it:** a live sweep of every page after the re-render, not the DB. The stored
+`content_data` looked exactly as intended — the defect exists only in the rendered output.
+
+**The cheap check that would have caught it:** `grep 'cta_text\|cta_url' component_library.go`
+— **fifteen seconds, and I had already read the very line that morning** and quoted it into
+the `bugs_open/071` sighting (`defaultString(ctx.CTAUrl, "/contact.html")`). *Before deleting
+a field to suppress output, grep that field name in the defaults layer: if it is defaulted,
+deletion is the one action that guarantees the default fires.* Generally: **knowing a default
+exists and reasoning about what happens when you remove its input are two different acts**,
+and the first feels like the second.
+
+**Cost:** ~25 minutes on a live site, and two pages briefly worse than before. Recovered by
+giving both heroes real destinations. The finding was worth more than the cost — it is the
+sharpest statement of 071's mechanism (the default fires *upstream* of the guard, so it
+manufactures the condition the guard tests for; "no CTA here" is therefore unrepresentable in
+`content_data`), and it rules out every data-side fix candidate in that case, since they all
+work by writing `content_data`.
+
+Family: the-default-fires-upstream-of-the-guard, i-had-already-read-the-line,
+the-DB-looked-right-and-the-page-did-not.
