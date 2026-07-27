@@ -590,9 +590,24 @@ Left untouched and uncommitted here — it is that workstream's to land.
 
 ---
 
-## Corroboration 2026-07-27 18:27–18:40 — a BRAND-NEW lane, 2 for 2, roll-adjacent
+## Corroboration 2026-07-27 18:27–18:40 — a BRAND-NEW lane, 1 hang, roll-adjacent
 
 *Added by the gripper-dossier thread. Evidence only — no competing fix; this case is owned.*
+
+> **CORRECTED 2026-07-27, same session, before anyone read it.** This section first said
+> **"2 of 2"** and titled itself so. **That was wrong: only run 1 hung.** Run 2 (18:36:14)
+> did *not* hang — it got past `spawn_handler`, ran the handler, and **COMPLETED at
+> 18:37:46**, failing legitimately at a later step (`score_grippers`: the gripper spec seed
+> 204 had not been applied). I called it a hang because I sampled `current_step` ~20s in,
+> saw `spawn_handler / AWAITING_RESPONSES`, and read an **in-progress** state as a stuck one.
+> **The tell I ignored is in this file's own signature table: a hang has `handler_spawned`
+> ABSENT. Run 2 had it present.** I had already written that table.
+> What caught it: reading the work item's surviving `error` column after the fact.
+> The cheap check I skipped: wait for the terminal state, or compare against the documented
+> signature I had just transcribed, instead of sampling once and generalising.
+> **The genuine 029 instances in this window are the four `build-pipeline-trigger`
+> `spawn_dispatch` rows below, which do carry an error.** Run 1 stands as a fourth-lane
+> instance; treat the rest of this section as evidence about ONE hang, not two.
 
 Independent instance in a lane that **has never run before**, so it carries no accumulated
 state and no history of its own: the `report-dispatch` lane, seeded and enabled today
@@ -601,11 +616,17 @@ is an image roll, not over-dispatch* — from a direction the earlier reproducti
 a first-ever execution, in a private concurrency group of its own.
 
 **Timeline.** Chassis rolled to **v1.0.1175 at 18:00:40Z** (another session). First-ever
-`report-dispatch-loop` run at **18:27:26** hung at `spawn_handler`. Reset and retried at
-18:34; second run at **18:36:14** hung at `spawn_handler` again. **2 of 2, both inside 36
-minutes of the roll.**
+`report-dispatch-loop` run at **18:27:26** hung at `spawn_handler` for 4m45s with no
+progress and no error, and was cleared manually. Reset and retried at 18:34; the second run
+(18:36:14) went through cleanly in 92s — so **1 hang in 2 runs**, 27 minutes after the roll.
 
-**Signature, identical both times:**
+**Independent, error-carrying instances in the same window** (`agent_error_log`), all
+`build-pipeline-trigger` / `spawn_dispatch` / `spawn_agent`, all
+`Request <id> timed out after 3 retries`: **18:26:36, 18:29:10, 18:31:36, 18:34:07** — four
+in eight minutes, then the lane recovered. These are the load-bearing evidence here; the
+report-lane hang is one more data point beside them.
+
+**Signature of the hung run (run 1 only):**
 
 | observation | value |
 |---|---|
@@ -630,20 +651,19 @@ fire-and-forget tasks complete immediately (`cmd/scheduler/main.go:287-296`), so
 kept firing on schedule throughout. Nothing was queued behind a full pool. That isolates the
 hang to the spawn→parent handoff itself, exactly as the corrected diagnosis says.
 
-**Cross-check on the same window:** `build-pipeline-trigger` had 3 runs stuck at
-`spawn_dispatch` at 18:26/18:28/18:31, and then recovered — 2 reached `call_dispatch` and 2
-`COMPLETED` after 18:26. So the fleet was *partially* affected and self-cleared, while the
-cold lane hit it twice running. Last time any lane got past a spawn before this window:
-**17:43**, i.e. before the 18:00 roll.
+**Cross-check on the same window:** `build-pipeline-trigger` recovered — 2 reached
+`call_dispatch` and 2 `COMPLETED` after 18:26 — so the fleet was *partially* affected and
+self-cleared. Last time any lane got past a spawn before this window: **17:43**, i.e.
+before the 18:00 roll.
 
 **Config difference recorded for whoever fixes it** (not a claim about cause — both forms
 are supported and `agent_type_field` is used by `051_build_dispatch_loop.sql` and six other
 seeds): the recovering lane spawns with a literal `"agent_type": "build-dispatch-loop"`;
 the stuck lane resolves `"agent_type_field": "claimed.handler_agent"`. Worth ruling in or
-out, since the two behaved differently in the same minutes. **[UNVERIFIED]** — I did not
-test a literal variant.
+out. **[UNVERIFIED]** — I did not test a literal variant, and the same lane later spawned
+successfully with the identical config, which weakens this considerably.
 
 Manual recovery used, in case it is useful as a stopgap: mark the hung row
 `status='FAILED'`, then reset the work item to its queued status with `claimed_by=NULL,
-claimed_at=NULL, attempt_count=0`. The lane re-claims on the next tick — and, here, hung
-again.
+claimed_at=NULL, attempt_count=0`. The lane re-claims on the next tick — and here it then
+ran through cleanly, so the reset is a working stopgap for a single hang.
