@@ -641,3 +641,78 @@ that already does this correctly is `CHVerticalProfile`
 
 Owner ruling this session: **finish the pilot as-is, generalise after.** Prove the
 Tier-3 shape end to end on one site before paying to abstract it from one example.
+
+---
+
+## 2026-07-27 evening — THE LANE RUNS END TO END. Fixtures 1 and 2 pass live.
+
+The chassis rolled to **v1.0.1173 at 13:45** and again to **v1.0.1175 at 18:00** (both
+other sessions), so the six actions went live without me doing the roll. Verified by
+pod-grep against the *running* pod with a negative control (`gripper_intake_nonexistent` → 0)
+— and re-verified after the second roll, because the pod I first checked was gone.
+
+**Seeds applied** (dry-run in a rolled-back transaction first, all clean): 204 (gripper
+matchmatrix spec blocks, 10 products), 207 (component), 209 (three agents), 210 (two tasks,
+both seeded disabled). **208 deliberately NOT applied** — its `base_url` points at the
+island route that no longer exists in that form.
+
+### FIXTURE 1 — success. PASSES, live on the public internet.
+
+`/reports/d1a371be-04a5-4ee6-b744-d64c6fd9e7c4.html` — **HTTP 200, 43,049 bytes**. The
+discriminating string, the substituted formula literal **`(2.5 × 12 × 2) ÷ (0.15 × 2)`**, is
+present on the live page; the negative control (`(9.9 × 99 × 9)`) is absent. Sidecar
+`/reports/<uuid>.json` → `{"status":"ready","url":"…"}` HTTP 200. Zero references to
+`reports/` on the homepage, so it is correctly unlinked.
+
+### FIXTURE 2 — honest no-match. PASSES, live.
+
+500 kg / IP67 / glass. Work item **`complete`** — an honest no-match deploys as SUCCESS, as
+designed. `/reports/29c3f8aa-…html` **HTTP 200, 41,670 bytes**, carrying the mandatory
+sentence *"No gripper in this index meets the requirement"* verbatim, and zero
+Match/Marginal verdicts.
+
+> **`deployed_at` is not fetchability** (`bugs_open/098`). Fixture 2 was **404 for ~2
+> minutes** after the work item said `complete`, then 200. I nearly recorded that 404 as a
+> failure. The git → Action → B2 → Cloudflare leg is real latency; poll it, don't sample it.
+
+### FIXTURE 3 — induced failure. Observed TWICE, unplanned, and it behaved correctly.
+
+Both of my own mistakes below drove the failure path, so it is exercised rather than
+theorised: `handle_failure` → `publish_failed` → `fail_out` → **`fail_workflow`**, the work
+item ending **`failed`** (never `complete`), with a precise `agent_error_log` row. That is
+`fail_workflow` — the new core action — doing exactly the job it was written for. Not yet
+observed: the `failed` **sidecar** live, because both failures happened before the publish
+step. That is the remaining gap before this branch is "verified".
+
+### Three defects found, all mine, all fixed
+
+1. **`target_topic` was a topic nothing consumes.** Seed 210 named
+   `system.agent.generic.requests` (the column DEFAULT). Live: **18 of 18 enabled tasks use
+   `system.agent.scheduled.requests`**; the `.generic.` topic held 7 tasks of which the only
+   enabled one was this bug. Fixed in the seed and live. It fails **silently** and looks
+   healthy from the producer: the scheduler logged "Successfully produced message" and
+   "Triggered task". The only discriminating evidence is downstream — zero
+   `orchestration_states` rows for the agent type, zero mention of the correlation_id in the
+   chassis log.
+2. **Seed 204 was never applied.** `score_grippers` failed with
+   *"no active grippers with matchmatrix spec blocks … (seed 204 applied?)"* — an error that
+   named its own fix. The build order lists 204 at step 3; I jumped to 207.
+3. **My fixture's `request_id` was not a UUID.** `create_report_page` refused
+   `'fixture-1-success'` (17 chars). Correct: the id becomes the page's public URL.
+
+> **CORRECTED — I misread an in-progress run as a hang and put it in another thread's bug
+> file.** I recorded "2 of 2 hung at `spawn_handler`" in `bugs_open/029-hung-spawns`. Run 1
+> did hang (4m45s, no `handler_spawned`, cleared manually). **Run 2 did not** — it completed
+> in 92s and failed later at `score`. I sampled `current_step` ~20 s in and generalised from
+> one reading. The tell was in the signature table I had *just written into that file*: a
+> hang has `handler_spawned` ABSENT; run 2 had it present. Corrected there the same session
+> (`f3cdc3377`) before anyone acted on it, with the load-bearing evidence moved to the four
+> `build-pipeline-trigger` `spawn_dispatch` rows that carry a real error.
+> **Cheap check skipped: wait for a terminal state before calling something stuck.**
+
+### State
+
+Lane **parked** (`report-dispatch` disabled) now the fixtures have run; `report-request-pull`
+never enabled. Both fixture pages left live and unlinked for owner inspection — cleanup
+(`source='manual-test'`) is owed once they have been seen. Owner has issued an Anthropic key
+(capped per project, not per key — acceptable for now); it gates only the island half.
