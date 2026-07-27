@@ -136,3 +136,36 @@ As built (supersedes the checklist that stood here):
 - Upgrade path (B2, framework island): rent a bigger VM, k3s + 1-broker Kafka +
   core services; move = pg_dump/restore + tunnel credentials file. See
   SUMMARY_2026-07-24c.
+
+## Verify a rebuild against the RUNNING CONTAINER — never the tag, never the commit
+
+Added 2026-07-27 answering a council objection (debug_historian, corr `e004fd81`)
+on the `bugs_open/083` fix. On this host the verify-against-the-pod rule still
+applies, and it matters *more* than in the cluster: the island is built with
+`docker compose build`, **nothing downstream records which commit the image came
+from**, and a `compose up -d` that silently kept the old container looks
+identical to a successful deploy.
+
+```bash
+ISL=root@toolsapisuk.vs.mythic-beasts.com
+
+# 1. POSITIVE — a symbol this build CREATED must be in the running binary.
+ssh $ISL 'cd /opt/island && docker compose exec -T tools-api \
+    sh -c "strings /app/tools-api | grep -c logInternalFailure"'      # expect > 0
+
+# 2. NEGATIVE CONTROL — a string the change REMOVED must be gone. Without this,
+#    a grep that silently matches nothing is indistinguishable from a pass.
+ssh $ISL 'cd /opt/island && docker compose exec -T tools-api \
+    sh -c "strings /app/tools-api | grep -c \"JSONError(c, 502\""'    # expect 0
+
+# 3. BEHAVIOURAL — the request log did not exist before this build at all, so
+#    its presence is itself proof the new binary is serving.
+ssh $ISL 'cd /opt/island && docker compose logs --since 5m tools-api | grep -c "\[GIN\]"'
+
+# 4. Container identity, to catch "up -d kept the old one".
+ssh $ISL 'cd /opt/island && docker compose ps --format "{{.Name}} {{.Image}} {{.RunningFor}}" tools-api'
+```
+
+**Pick the grep target from what your change CREATED**, not from a type name or a
+comment: a comment is not in the binary, and a typed constant may be inlined away
+— both make a pod-grep vacuous (this has burned two workstreams already).
