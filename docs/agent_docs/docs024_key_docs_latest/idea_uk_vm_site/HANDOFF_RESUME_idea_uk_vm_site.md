@@ -1,6 +1,10 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-26 21:15 UTC (supersedes everything below)
+> ## ▶ START HERE — state as of 2026-07-26 22:45 UTC, re-verified 2026-07-27 (supersedes everything below)
+>
+> *Re-checked on the morning of the 27th against the box, not from these notes: service active,
+> queue `{"active":1,"max":5,"open":true}`, the pending order still `awaiting_payment` (last touched
+> 26 July 18:43), 73 orders, no overnight activity in the journal. Nothing below has moved.*
 >
 > **The site is complete, the box is healthy, the report format is proven, and every queued deploy
 > has shipped.** Four deploys went out this evening: the automatic order expiry that this file
