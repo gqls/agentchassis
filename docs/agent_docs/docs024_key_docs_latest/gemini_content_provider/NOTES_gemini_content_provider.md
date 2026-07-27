@@ -1090,3 +1090,79 @@ example teaches vagueness.
 
 **Still owed:** 241 after the roll; then rebuild one page and READ it, because a
 blanked placeholder and a working one look identical until you read the output.
+
+## 2026-07-27 — the chassis did not need rolling; content-creator did. One copy of the voice now exists, and it is live.
+
+Owner: roll the chassis when it's ok. **It was already done, by someone else.**
+
+`make build-*` builds from committed HEAD, so another session's **v1.0.1177** build
+at 20:24 (`403f67920`) picked up my commits without either of us coordinating.
+Pod-grep on the running chassis: `voice_style_block` 1, the exact SQL 1,
+`__sent_wire_max_output_tokens` 1. **Rolling again would have killed two councils
+mid-flight for nothing** (two `EXECUTING_STEP` at 2-3s idle when I checked).
+
+**Proved it runs, not just that it shipped.** A pod-grep proves the code is in the
+binary, never that it is on the path. Chassis logs, last 30 min, on a live council
+run: `"available_fields":[..."voice_style"...]` and
+`"voice_style":"These rules outrank any instinct toward \"compelling mark...`. That
+is the canonical row, read from the DB, injected into real template data.
+
+**Migration 241 was REFUSED BY ITS OWN GUARD on the first attempt, and that refusal
+paid for itself twice.**
+
+```
+ERROR: template is only 289 chars - too much was cut. ROLLING BACK.
+```
+
+I had assumed the Voice & Style block was the final section and truncated at the
+anchor. It is not: the block sits at **char 272 of 16,150** and ends at
+`## Company Context`. The row was left untouched.
+
+> **The refusal surfaced a SECOND defect I had already shipped.** The v4 apply
+> appended the three new rules to the end of the **template**, not the end of the
+> **block** — they landed ~11,500 chars away, after the JSON output instructions,
+> and one still read *"the word-weight rule above"*, a reference that no longer
+> resolved anywhere near it. **My v4 guard passed because it asserted the strings
+> were PRESENT, not that they were POSITIONED.** An assertion that checks presence
+> and not position passes a misplacement silently. 241 v2 now asserts
+> `position('{{.voice_style}}' in t) <= 500`.
+
+241 v2 does both jobs — block → placeholder, and delete the orphaned tail. Applied:
+`OK: literal replaced by placeholder, 11840 chars remain` (16,150 − 3,633 block −
+695 tail + placeholder). **There is now exactly one copy of the house voice**:
+canonical row 2,499 chars; page-content-writer literal **0**; Go const **0**.
+
+**content-creator was the roll that was actually needed** — it was on v1.0.1174
+without the reader, so every blog and social post was still being written with no
+house voice. Built from HEAD at **v1.0.1178**, pushed, deployed via its own overlay
+(there is no per-service push/deploy target; `push-backend` is fleet-wide, so
+`docker push` + `kubectl apply -k` on that one overlay is the surgical route). It
+was idle, 0 requests in 20 min, so nothing was interrupted.
+
+Pod-grep, with the discriminating control: reader present (`voice_style_block` 2,
+the SQL 1, the warning string 1) and **the block TEXT absent (0)** — that zero is
+the proof the prose is no longer compiled into Go, and it is absent *because of* the
+change rather than incidentally.
+
+**End-to-end, live blog generation on gemini-pro-latest, 212 words:**
+
+| check | result |
+|---|---|
+| `house voice block unavailable` warnings | **0** |
+| em dashes · exclamations · negative-frame opens | **0 · 0 · 0** |
+| joined clauses | **1** |
+| mean words/sentence | 14.1 (SD 3.0) |
+
+The joined clause is the owner's own request, in live blog copy: *"Technical leaders
+often prioritize initial accuracy, but they'll get better results building error
+recovery instead."* Contractions present. Not staccato.
+
+> **AND THE SAME OUTPUT FABRICATED A STATISTIC.** *"Industry data shows that large
+> language models experience hallucination rates between 3% and 10% depending on the
+> task."* No source, invented range, stated as fact. The house voice governs how copy
+> READS and says nothing about whether it is TRUE — and **content-creator has no
+> claims gate at all**: the fabrication machinery (`043`, the evidence_base, the
+> claims checkers) lives on the site/page path, which this agent does not touch.
+> Applying the voice to content-creator is what surfaced it. **Needs an owner call
+> before any blog output is published anywhere** — flagged, not fixed, and not mine
+> to bundle into this change.
