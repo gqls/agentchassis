@@ -8117,3 +8117,121 @@ able to say WHY a question is the owner's (it trades off money, taste, or risk h
 rather than defaulting to escalation whenever a change touches a live site.
 
 Family: escalated-a-decision-that-was-already-made, the-answer-was-in-the-evidence-I-had.
+
+---
+
+## 2026-07-27 — I called the spawn-wrapper pattern "proven". It succeeds 2 times in 4.
+
+**The claim.** Designing the council-gate wrapper (`bugs_open/096` candidate 4), I told
+the owner the spawn-then-call pattern was "proven in `0NN_fix_implementer_orchestrator.sql`
+and diagnose-orchestrator" and that the precedent was "strong". I built on that and
+recommended it over the alternative.
+
+**What caught it.** Running the thing. The very first test submission stuck at
+`spawn_council` / `AWAITING_RESPONSES` and never reached `call_council`.
+
+**The cheap check I skipped**, one query, under a minute, available from the start:
+
+```sql
+SELECT owner_agent_type, status, count(*) FROM orchestration_states
+WHERE owner_agent_type IN ('diagnose-orchestrator','fix-implementer-orchestrator')
+  AND created_at > now() - interval '14 days' GROUP BY 1,2;
+--  diagnose-orchestrator | COMPLETED | 2
+--  diagnose-orchestrator | FAILED    | 2     <- both "timed out after 3 retries"
+```
+
+Two of four, over the table's entire retained history. I had *already run* a query against
+these very rows — to measure the wrapper's ~8s overhead — and I filtered it to
+`status='COMPLETED'`. **The filter I took from my question ("how long does a successful
+wrapper run take?") deleted the evidence that answered the question I should have been
+asking ("does it work?").** That is [[narrow-filter-defines-the-conclusion]] with the
+failure rows sitting one predicate away.
+
+**Why "proven" was the wrong word specifically.** My evidence for it was that the pattern
+is *in daily use* and that feature-builder once produced a merged PR through it. Both true.
+Neither is a reliability measurement. **"It is used a lot" and "it works" are different
+claims, and a busy system supplies endless evidence for the first while saying nothing
+about the second** — especially here, where the failure mode is a silent hang that looks
+like slowness.
+
+**Tally.** *`status='COMPLETED'` in an exploratory query is a conclusion, not a filter* —
+recurring, and the second time this week a narrow filter answered confidently about a
+small world. *"In daily use" is not a reliability measurement* — new; when about to call
+something proven, count the failures, not the successes, and say the denominator out loud.
+
+Family: narrow-filter-defines-the-conclusion, in-use-is-not-proven, counted-successes-not-attempts.
+
+---
+
+## 2026-07-27 — "241 is the next free migration number" — true when I looked, false by the time the plan was approved, and a reviewer had said so
+
+**The claim, written into a council submission and into the filename of its first
+edit:** that `docs/agent_docs/sql_for_agents/241_code_symbols_body_column.sql` was the
+next free number, "so a concurrent session re-running it is harmless".
+
+**It was true when measured and false 40 minutes later.** Another session committed
+`241_page_writer_uses_voice_placeholder.sql` between my submitting the plan and the
+council approving it. The approved plan therefore names a filename that is already
+taken; implementation must use 242 and re-check again at write time.
+
+**Caught by:** `guardian`, which objected (low) that *"241 being 'the next free number'
+… can't be verified from the DB schema — this is a fact a directory listing would
+settle, not SQL … flagging since it's asserted rather than checked this round."* I then
+re-ran the listing out of diligence rather than expectation, and it had moved.
+**Vindicated inside the hour.**
+
+**The cheap check that would have caught it:** re-running `ls … | sort -n | tail -1`
+**immediately before writing the file**, not when drafting the plan. The deeper error is
+category, not timing: **I treated a shared mutable sequence as a fact I could measure
+once.** `CLAUDE.md` already says this about `git status` — "your session-start snapshot
+goes stale within minutes" — and a migration number is the same kind of object. It was
+the *second* numbering collision I hit the same day; the first was two threads claiming
+`D9` in one decision register within an hour.
+
+**Cost:** none realised — caught before any file was written. Recorded in the handoff
+rather than edited into the approved JSON, so the approved artifact keeps matching the
+verdict it earned.
+
+Family: a-shared-sequence-is-not-a-fact-you-measure-once,
+true-when-measured-false-when-used, the-low-severity-objection-was-the-right-one,
+second-numbering-collision-in-one-day.
+
+---
+
+## 2026-07-27 — a VERIFY script written to catch the plan's most dangerous failure could not itself have run (`content::bytea`)
+
+**The claim, written into a council submission as the answer to the most serious risk
+in it:** that `content_hash` integrity would be guarded *as code, not as a request that
+a human look* — a companion sidecar asserting
+`content_hash IS DISTINCT FROM encode(sha256(content::bytea),'hex')` returns zero rows
+before and after. I offered this specifically to answer two seats objecting that the
+invariant was asserted in prose.
+
+**The expression is invalid and errors on the first row.** `content::bytea` does not
+hash the text — it tries to **parse** the text as a bytea literal, and Postgres returns
+*"invalid input syntax for type bytea"*. The working cast is
+`convert_to(content,'UTF8')`. So the guard I presented as the fix for "guarded only by
+someone remembering to look" was a guard that could not execute. The underlying
+mechanism is right, and is now verified live: **4,535 of 4,535 rows match**
+`encode(sha256(convert_to(content,'UTF8')),'hex')`, 0 mismatches.
+
+**Caught by:** `editquality`, objecting (medium) that the formula *"is asserted, not
+verified against the live schema/trigger definition — if the actual hash function
+differs … the VERIFY script will produce false positives/negatives"*. It suspected the
+wrong failure (a different algorithm) and was right about the real one (my SQL was
+broken), because both come from the same omission: I never ran it.
+
+**The cheap check that would have caught it:** running the query. Once. Against the live
+table, which I had queried perhaps a dozen times that session for other things.
+**A verification script is code, and unrun code is not a verification** — writing an
+assertion and shipping it unexecuted reproduces, one level up, precisely the defect it
+was written to prevent.
+
+**Cost:** none realised — caught in review, corrected in the handoff before
+implementation. But note what it nearly did: had it shipped, the mass-re-embed guard
+would have errored during a migration window and been read as a broken migration rather
+than a broken check.
+
+Family: the-guard-i-wrote-could-not-run,
+unrun-code-is-not-a-verification, right-objection-wrong-mechanism,
+i-had-the-table-open-a-dozen-times.

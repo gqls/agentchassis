@@ -5998,3 +5998,150 @@ for s in "<string your change created>" "<string known present for months>" "<sa
 Best of all, run it against the **old image too** — a count that moves across the
 roll boundary (here 1 → 2) is proof the delta is yours, where a bare presence
 check would have said "yes" on both.
+
+### `CREATE INDEX CONCURRENTLY` in a migration passes on apply and FAILS the dry run — the runner's probe wraps your file in a transaction (2026-07-27)
+
+**Symptom.** You write a migration using `CREATE INDEX CONCURRENTLY` because that is the
+careful thing to do on a live table. `run-migrations.sh` (dry run, the default) reports it
+failing with *"CREATE INDEX CONCURRENTLY cannot run inside a transaction block"*, even
+though the migration is fine and would work if applied.
+
+**Cause.** The dry-run probe deliberately wraps each file in a transaction with a planted
+deferred-constraint violation (`scripts/migration/run-migrations.sh:129-139`) so that any
+`COMMIT` the file issues fails, proving the file reaches its own commit without applying
+anything. That wrapper is exactly the transaction block `CONCURRENTLY` refuses to run in.
+So the safest-looking DDL is the one that breaks the safety check — and 173 of 263 live
+migrations carry their own `BEGIN/COMMIT`, which is the convention the probe expects.
+
+**The judgement, not just the mechanic.** `CONCURRENTLY` is a **size-dependent** choice and
+almost always gets copied in from big-table habit without asking the size. Ask it:
+
+```sql
+SELECT count(*) FROM <table>;
+```
+
+At a few thousand rows a plain `CREATE INDEX` is milliseconds and its brief `ACCESS
+EXCLUSIVE` lock is irrelevant — `code_symbols` was 4,535 rows, where `CONCURRENTLY` bought
+nothing and cost the file its conventional, probe-clean, guarded shape. Reach for
+`CONCURRENTLY` when the row count justifies it, and then accept that the file cannot carry
+`BEGIN/COMMIT` and will be listed "not probed".
+
+Corollary worth keeping: **a risk note that says "X should be checked" is unfinished work,
+not a disclosure.** Shipping it unresolved converts your homework into a reviewer's
+objection — which is exactly what happened here, twice, from two independent seats.
+
+### A column that is BOTH the searchable text and the input to a change-detection hash cannot be extended cheaply — appending to it silently re-embeds the whole table (2026-07-27)
+
+**Symptom.** You want richer search, so you append more text to the column the search
+already matches on. Nothing errors. Then the next refresh re-embeds every row in the table,
+and vector results quietly change meaning because the appended text now dominates them.
+
+**Cause.** The column was doing more than one job. `code_symbols.content` is
+simultaneously (a) the trigram-indexed search text, (b) the **embedded** text, and (c) the
+input to `content_hash`, which `loadExistingHashes` compares to decide what needs
+re-embedding. Appending function bodies to it therefore changes every hash → re-embeds all
+4,535 rows → and shifts every vector toward body text. None of that announces itself; the
+only visible symptom is an embedding bill and subtly different search results.
+
+**Check before extending any searchable column** — ask what else reads it:
+
+```sql
+\d <table>        -- is it NOT NULL? is there a *_hash sibling? an embedding column?
+```
+```bash
+grep -rn "<column>" --include=*.go | grep -i "hash\|embed\|sha256"
+```
+
+**The fix shape:** add a **separate** column with its own index, leaving the original
+byte-identical. Then assert that in code rather than in prose — a companion `_VERIFY.sql`
+sidecar asserting `content_hash = encode(sha256(convert_to(content,'UTF8')),'hex')` still
+holds for every row, run before *and* after. (Note the cast: `content::bytea` **errors** —
+it parses the text as a bytea literal. `convert_to(text,'UTF8')` is the one that works.)
+
+**Generalises past this table.** Any column that is both an input to a hash/etag/dedup key
+and a thing you want to search is a column you extend beside, never in place.
+
+### A single-successor walk over an agent workflow reports a FALSE orphan — `conditional` steps carry no `next_step` (2026-07-27)
+
+**Symptom.** Auditing whether a newly seated council step is actually reachable, a walk from
+`workflow.start_step` following `next_step` reports **2 of 24 steps reachable** and your new
+step among the orphans. That reads as a seat wired into nothing — and it is very tempting,
+because it "explains" a seat that has produced no output.
+
+**Cause.** `action: "conditional"` steps route via `config.then_step` / `config.else_step`
+and have **no `next_step` at all**, so a single-successor walk dies at the first one. In
+`feature-designer` that is `check_spec_approved`, the second step in the chain.
+
+**The check.** Breadth-first, following every edge field:
+
+```python
+FIELDS = ("next_step","then_step","else_step","error_step","on_success","on_failure","default_step")
+# look in BOTH the step object and step["config"] — different actions put them in different places
+```
+
+Correctly walked, that same workflow gives **24 of 24 reachable, no orphans**. If a
+traversal says most of a live, working graph is unreachable, suspect the traversal:
+**"22 of 24 steps orphaned" describes a broken walk far more plausibly than a broken
+workflow.** An output too catastrophic to be true usually is.
+
+Related, same family, cost a wrong read the same day: **`current_step` does not identify
+which agent is running.** `review_editquality` exists on `council-gate`, `fix-proposer` and
+`feature-designer` alike, so a queue query filtered on step name answers about all three.
+Use `owner_agent_type`. And read `now()` from the database — it is UTC while local file
+timestamps are BST, so a run that looks an hour stale may have started seconds ago.
+
+### A shared numeric sequence is reserved by COMMITTING, not by intending — migration numbers and decision registers collide within the hour (2026-07-27)
+
+**Symptom.** You claim the next free migration number (`241`), write a plan around it, and
+by the time the plan is approved another session has committed `241_<something else>.sql`.
+Same day, two threads independently claimed `D9` in one decision register inside one hour,
+each invisible to the other — one of them noting in its commit message that it was
+deliberately avoiding editing the shared file "because it was being actively edited", which
+is precisely when this happens.
+
+**Cause.** Many sessions, one tree. `ls | sort -n | tail -1` is a **snapshot**, and it goes
+stale in minutes — the same property `CLAUDE.md` already warns about for `git status`.
+Nothing reserves the number between your reading it and your writing the file.
+
+**The checks.**
+
+```bash
+# migrations — re-run IMMEDIATELY before writing the file, never from an earlier read
+ls docs/agent_docs/sql_for_agents/*.sql | xargs -n1 basename | grep -oE '^[0-9]+' | sort -n | tail -1
+# decision registers / any numbered series in a shared doc
+git log --oneline -8            # did someone commit a claim on this number while you drafted?
+grep -n "^### D[0-9]" <the register>
+```
+
+**Resolving a collision after the fact:** move the item that is **not yet load-bearing**. A
+number that has been *ruled on*, cited in a commit trailer, or referenced externally must
+keep its identity; an unruled proposal is cheap to renumber. And **do not rename another
+thread's committed file** to match — that breaks its own commit message for no gain; state
+the mapping in the document instead.
+
+### A work item's `status` is not an ownership signal, and a repo grep is not a coverage check — ownership hides inside the `spec` jsonb (2026-07-27)
+
+**Symptom.** You need a target to exercise something, and a `site_work_items` row looks
+free on two independent signals: `status = 'deferred'`, and `grep -rln <its subject> docs/
+bugs_open/ features_open/` finds **no owning workstream doc at all**. Both agree. Both are
+wrong, and firing at it would spend a council round inside another thread's owner-directed
+work.
+
+**Cause.** `deferred` is where a lane parks an item **between rounds**, not abandonment. And
+for a work item the ownership trail characteristically lives *inside* `spec` — round
+markers, prior correlation ids, owner instructions — where no repo grep can reach it,
+because it was never written to a file. Two agreeing signals are not corroboration when
+both are computed from something other than the fact in question.
+
+**The check — read the row you are about to act on:**
+
+```sql
+SELECT jsonb_pretty(spec) FROM site_work_items WHERE id = '<uuid>';
+-- look for: ROUND N / REVISION REQUIRED / owner-directed / a prior_round key
+SELECT correlation_id, kind, created_at, metadata->>'decision'
+FROM diagnosis_artifacts WHERE correlation_id::text LIKE '<prefix>%' ORDER BY created_at;
+```
+
+**Note the gap this leaves.** `scripts/who-owns.py` resolves a **bug number or slug** and
+does **not** cover work items, so the "grep before you file / check who owns it" discipline
+in `CLAUDE.md` has no tool for this class. Until it does, opening the row is the whole check.
