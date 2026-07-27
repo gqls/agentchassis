@@ -2436,7 +2436,27 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		{Name: "SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_DB_NAME", Value: os.Getenv("SERVICE_INFRASTRUCTURE_TEMPLATES_DATABASE_DB_NAME")},
 	}...)
 
-	// Add database passwords and other secrets
+	// Add database passwords and other secrets.
+	//
+	// NOTE (bugs_open/112, 2026-07-27): this is an explicit allow-list, and it is
+	// the ONLY route by which a spawned agent pod gets a provider API key. The
+	// main Deployments take the whole secret via `envFrom: secretRef`; spawned
+	// pods do not (their EnvFrom carries the ConfigMap only, see below), so a key
+	// that is missing here is missing at runtime no matter what the secret holds.
+	//
+	// The allow-list is deliberate — least privilege, the same reason the GitHub
+	// token below is scoped to repo-cloning agents only. Do not replace it with a
+	// blanket secretRef.
+	//
+	// The cost of that choice is this: **any provider named by an agent
+	// definition's `ai_service.api_key_env_var` must have an entry here.** The
+	// client does `os.Getenv(apiKeyEnvVar)` (platform/aiservice/gemini.go:157 and
+	// its siblings) and fails at construction if it is empty — and a step with no
+	// `error_step` takes the whole run down with it. `page-content-writer` was
+	// switched to Gemini in the live DB while `GEMINI_API_KEY` was absent here,
+	// which armed a fleet-wide page-build failure that config alone could not fix.
+	// Adding a provider is therefore a two-place change: the DB config AND this
+	// list, and this half needs a build and a roll.
 	envList = append(envList, []corev1.EnvVar{
 		{
 			Name: "CLIENTS_DB_PASSWORD",
@@ -2501,6 +2521,17 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 						Name: "personae-default-secrets",
 					},
 					Key: "GROK_API_KEY",
+				},
+			},
+		},
+		{
+			Name: "GEMINI_API_KEY",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "personae-default-secrets",
+					},
+					Key: "GEMINI_API_KEY",
 				},
 			},
 		},

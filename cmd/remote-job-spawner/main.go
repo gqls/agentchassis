@@ -368,13 +368,26 @@ func createAgentJob(ctx context.Context, clientset *kubernetes.Clientset, namesp
 	// Add secrets — these must exist in the cluster's namespace.
 	// NOTE: replicate these secrets to any remote cluster:
 	//   personae-platform-secrets (DB passwords, bootstrap key)
-	//   personae-default-secrets  (ANTHROPIC_API_KEY)
+	//   personae-default-secrets  (ANTHROPIC_API_KEY, GEMINI_API_KEY)
+	//
+	// This is the remote twin of the allow-list in
+	// platform/orchestration/actions/spawn_actions.go — see the long note there
+	// (bugs_open/112). Same rule: a provider named by an agent definition's
+	// `ai_service.api_key_env_var` must appear here or the client fails at
+	// construction. GEMINI_API_KEY was added 2026-07-27 alongside the chassis
+	// fix so the two spawners cannot drift again.
+	//
+	// KNOWN GAP, deliberately left: GROK_API_KEY is in the chassis allow-list and
+	// not here. It is not added blind — no agent definition currently uses remote
+	// dispatch at all (0 rows, checked 2026-07-27), so this whole path is latent
+	// and the right moment to reconcile it is when something first uses it.
 	envList = append(envList, []corev1.EnvVar{
 		secretEnvVar("CLIENTS_DB_PASSWORD", "personae-platform-secrets", "CLIENTS_DB_PASSWORD"),
 		secretEnvVar("PGPASSWORD", "personae-platform-secrets", "CLIENTS_DB_PASSWORD"),
 		secretEnvVar("TEMPLATES_DB_PASSWORD", "personae-platform-secrets", "TEMPLATES_DB_PASSWORD"),
 		secretEnvVar("AUTH_DB_PASSWORD", "personae-platform-secrets", "AUTH_DB_PASSWORD"),
 		secretEnvVar("ANTHROPIC_API_KEY", "personae-default-secrets", "ANTHROPIC_API_KEY"),
+		secretEnvVar("GEMINI_API_KEY", "personae-default-secrets", "GEMINI_API_KEY"),
 		secretEnvVar("AGENT_BOOTSTRAP_KEY", "personae-platform-secrets", "agent-bootstrap-key"),
 	}...)
 
