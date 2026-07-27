@@ -798,6 +798,15 @@ loudly, not silently); and the test pins the exclusion list to the *registered* 
 shrinking the ~97 item types that have no verifier at all — which is `bugs_open/021`'s coverage
 backlog, explicitly out of scope here and named in `verifier_coverage_test.go`'s own header.
 
+**The `098` coverage report will list `d61b3ace1` as UNREVIEWED for ever. It is a false negative,
+and this is the note that says so.** The trailer is on `16999d664` (the commit recording the
+verdict), because the verdict post-dates the code commit and this repo is forward-only — no amends,
+so the trailer can never be attached to `d61b3ace1` itself. Verified 2026-07-27: `098` over 2 days
+reports **REVIEWED 5 · MISMATCH 0 · UNREVIEWED 57**, with `d61b3ace1` in the unreviewed list.
+Nothing is wrong; the join is exact by design and simply cannot span the gap. Do not "fix" it by
+back-filling a trailer onto the code commit — that would claim a review the commit did not have at
+the time, which is the failure mode the trailer discipline exists to prevent.
+
 ### C — RE-VERIFIED AFTER THE 2026-07-26 21:03Z CHASSIS ROLL
 
 A roll is exactly when a config-only fix can be silently undone, because a chassis deploy can

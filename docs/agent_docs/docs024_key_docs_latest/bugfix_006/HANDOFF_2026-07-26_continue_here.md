@@ -105,15 +105,28 @@ Design docs: `PLAN_2026-07-26_claim_timeout_generic_evidence.md`. Commands and g
 The trailer is on `16999d664` only, which is correct: it is earned by the APPROVED verdict, and the
 verdict post-dates every earlier commit. Do not back-fill it onto the others.
 
+**So `098` lists the CODE commit `d61b3ace1` as UNREVIEWED, permanently.** Verified 2026-07-27:
+REVIEWED 5 · MISMATCH 0 · UNREVIEWED 57, with `d61b3ace1` among them. A known false negative — the
+join is exact by design and cannot span a verdict that post-dates its commit in a forward-only
+repo. Said so in the bug file too. Do not "fix" it.
+
 ## Watch, don't work
 
-1. **The new marker should start appearing.** If it stays empty while timeouts continue, the branch
-   is not reaching them and the closure was premature:
+1. **The new marker has NOT fired organically yet, and that is not a failure — check the
+   denominator before reading anything into it.** As of 2026-07-27 11:00Z: **31 claims taken since
+   the fix went live, ZERO claim timeouts**, so the sweep has had nothing to do. The branch's
+   correctness rests on the induced-fault proof through the running scheduler (positive case *and*
+   negative control), which is exactly why that was done rather than waiting for organic evidence.
    ```sql
-   SELECT item_type, count(*) FROM site_work_items
-   WHERE error = 'Auto-completed: handler orchestration completed after claim' GROUP BY 1;
+   -- the marker, and the denominator that makes it readable
+   SELECT error, item_type, count(*) FROM site_work_items
+   WHERE updated_at > '2026-07-26 18:26:00+00'
+     AND (error LIKE 'Claim timed out%' OR error LIKE 'Auto-completed%')
+   GROUP BY 1,2;
    ```
-   (Empty as of 21:00Z — expected; orphaned claims are sporadic and there were zero claimed items.)
+   **The premature-closure signal is timeouts WITHOUT auto-completions** — an empty marker beside an
+   empty timeout column says only that no claim has been orphaned yet. (Historic rate was ~6
+   timeouts/day; zero in 17 hours is better than that, plausibly helped by `003`'s F2/F3.)
 2. **A contact form still `#contact` AFTER a discovery cycle ran on that site** is a real signal.
    Still broken because nothing has visited yet is not.
 3. **`bugs_open/003`** is where the prevention lives. Every claim this net catches is one that
