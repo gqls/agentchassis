@@ -3,8 +3,11 @@
 **Filed:** 2026-07-27 · **By:** gauntlet_dead_cta (found while surveying vonc.com's
 Arena after the v1.0.1172 roll) · **Severity:** MEDIUM — public-facing on 16 live
 pages across 6 sites; one of them tells search engines the page has no backend ·
-**Status:** OPEN — code fix written and submitted to the council 2026-07-27; the
-backfill is staged and **deliberately not applied**
+**Status:** OPEN — code fix committed `ebaa2d76d`, council **APPROVED**
+(`52241d09-287e-4d15-9010-400f78339298`, 10 reviewers, 0 unreadable, 5 advisory
+objections, no veto), **inert until the next chassis roll**; the backfill is staged
+and **deliberately not applied**. §3 of this file still holds — the code fix alone
+changes nothing on the web, so the 17 live rows are untouched.
 
 > ## Two corrections from taking this on, 2026-07-27 (bugs thread)
 >
