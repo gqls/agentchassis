@@ -3,7 +3,8 @@
 **This is the cold-start document. Start here, not at
 `HANDOFF_2026-07-21_start_here.md` (superseded — it predates the site going live).**
 
-Read in this order: this file → `SUMMARY_2026-07-26_*.md` (state, plain prose) →
+Read in this order: this file → **`SUMMARY_2026-07-27_one_line_became_four.md`**
+(newest state, plain prose — the series is the record, so the older summaries stay) →
 `RUNBOOK_brochure_component_library.md` (every command, each with its gotcha) →
 `NOTES_brochure_component_library.md` **from the bottom** (newest last; the
 missteps are the point) → `README_where_we_are.md` (the owner's own log; append
@@ -24,9 +25,13 @@ governs.
 | site email | `fundamentallyai@contactforsales.com` |
 | DB | `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db` |
 
-Chassis image at time of writing: **v1.0.1159** in-cluster. Several other threads
-have committed fixes tagged up to v1.0.1167 that are **not rolled**; assume
-anything Go-side filed by others is inert until an image roll.
+Chassis image **as of 2026-07-27 14:0x: `v1.0.1173`**, deployed 13:45 UTC (pod
+`agent-chassis-5f85dff548-8d2tq`). It carries this workstream's first platform
+change — 085's build-path fix — and several other threads' work. **Re-read this
+from the pod, never from the tag or from this line:**
+`kubectl -n ai-persona-system get pods -l app=agent-chassis -o custom-columns='NAME:.metadata.name,IMAGE:.spec.containers[0].image,START:.status.startTime'`
+Anything Go-side committed after 13:18 UTC is still inert — including 085's
+second fix (the scoped-re-render path).
 
 ## 2. State: what is done and verified
 
@@ -199,8 +204,14 @@ is a five-minute job and does not need the page.
 **(0) ~~BUILD THE CHART COMPONENT~~ — DONE 2026-07-26, see §3a.** What it left
 behind, in priority order:
 
-- **`bugs_open/085` — FIXED IN CODE 2026-07-27, INERT until the roll, so it stays
-  OPEN.** The dated section at the foot of the bug file has the detail and the
+- **`bugs_open/085` — HALF LIVE on v1.0.1173, and the live test FAILED.** Read the
+  two dated sections at the foot of the bug file. The build path is fixed and in the
+  running binary (pod-grep with controls); the **scoped section re-render path was a
+  FOURTH drop point**, found by exercising the feature rather than trusting the
+  deploy — `RerenderPageSectionsAction` never calls `BuildRenderContextAction`. That
+  fix is written, tested, council round 3, and needs the **next** roll. Until it
+  ships, the only verification route is a full page REBUILD, which regenerates copy.
+  **OLD TEXT, kept as the correction:** The dated section at the foot of the bug file has the detail and the
   post-roll checklist. **This line used to say "one line in
   `BuildRenderContextAction`" and that was wrong** — the value is dropped at three
   points on one journey and fixing only the filed one-liner would have changed
