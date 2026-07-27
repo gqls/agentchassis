@@ -132,12 +132,45 @@ What was created:
   must stay free to re-render.
 - **A `News` nav item** in the primary group.
 
+> **CORRECTED 2026-07-27 (later session) — step 1 below was wrong, and following
+> it would have waited forever.** "Wait for the feed" assumed creating
+> `content_sources` rows arms a feed. **It does not.** `content-feed-trigger`'s
+> `find_news_sites` step enumerates sites on
+> `site_specs.classification.data->'content_features'->'news_feed'->>'recommended'`,
+> and this site's classification spec had **no `content_features` key at all**, so
+> `NULL::boolean = true` dropped it from every tick. SQL_p8's verify block passed
+> because it checked what SQL_p8 wrote, not what the consumer reads.
+> **Fixed by `SQL_p9_news_feed_classification_flag.sql` (applied).** Verified by
+> running `find_news_sites` unfiltered — run it unfiltered, or you answer a
+> different question and hide its `LIMIT 5`.
+>
+> Two further corrections to the same paragraph: the sources were **never** primed
+> with `next_fetch_at = now()` (they were NULL — harmless, since both due-queries
+> treat NULL as due), and the table is **`content_feed_items`**, not
+> `content_items`.
+>
+> **STATUS as of ~14:30 UTC: the 13:49 tick fired, dispatched all five sources
+> correctly, and ingested ZERO items** — all five died at `spawn_ingester`
+> ("timed out after 3 retries"). **Not this site's bug:** vetcomparison.uk failed
+> identically in the same tick. It is `bugs_open/029` **hung-spawns** (resolve BY
+> SLUG — `bugs_closed/029` is unrelated), roll-adjacent: the chassis pod started
+> 13:45:31Z and the tick fired 13:49:09, **218s** later, inside the ~300s window.
+> That file is heavily owned; the occurrence was contributed to it, no competing
+> fix started.
+>
+> **Sources have been re-armed** (`next_fetch_at = NULL`, guarded on
+> `last_fetched_at IS NULL`) to catch the **19:49 UTC** tick. The dispatcher's
+> optimistic `+6h` had parked them at 19:58 — nine minutes past it.
+> **[MEASURED, 3 days] only the 07:xx and 19:xx ticks ever ingest anything**; 01:49
+> and 13:49 are structurally quiet, so 19:49 is a real chance and 01:49 is not.
+> **Do this first next session:** `SELECT count(*) FROM content_feed_items cfi
+> JOIN sites s ON s.id=cfi.site_id WHERE s.domain='webdesign.co.uk';`
+
 **THE SEQUENCE FROM HERE MATTERS — do these in order:**
 
-1. **Wait for the feed.** `content-feed-refresh` runs every 6h; sources were
-   primed with `next_fetch_at = now()`, next task tick was due 13:49 UTC on
-   2026-07-27. Check: `SELECT count(*) FROM content_items ci JOIN sites s ON
-   s.id = ci.site_id WHERE s.domain='webdesign.co.uk';`
+1. ~~**Wait for the feed.**~~ **Superseded — see the correction above.** The feed
+   is now armed and re-armed for the 19:49 tick; confirm items exist before
+   step 2.
 2. **Then build the page.** Only once items exist — a `news-listing` with nothing
    in it renders near-empty, and the assembler drops any section with ≤10
    characters of visible text.
@@ -247,14 +280,34 @@ did not exist when it had been running in production for weeks. Before building
 
 ## Open questions for the owner
 
-1. ~~Any existing analytics on the source domains?~~ **Answered 2026-07-27: no
-   Search Console on either.** Hence instrument-then-rewrite-then-measure.
-2. **Two audiences or one?** Practitioners and buyers want different things; the
-   site currently addresses only the first.
-3. **Directory inclusion bar**, and whether any third-party pointer may ever be
-   affiliate — the site currently promises it sells nothing.
-4. **Does "pre-eminent source" imply original journalism** in the news section,
-   or curation of others' reporting? Very different cost and risk.
+**All four are now ANSWERED (2026-07-27). Rulings and reasoning are recorded as
+D10–D12 in `PLAN_2026-07-25_webdesign_couk.md`; the work they created is planned
+in `PLAN_2026-07-27_phase2_buyer_track.md`.**
+
+1. ~~Any existing analytics on the source domains?~~ **No Search Console on
+   either.** Hence instrument-then-rewrite-then-measure.
+2. ~~Two audiences or one?~~ **D10: two audiences, FULLY SEPARATED** — a parallel
+   buyer track with its own index, nav entry and register. The owner chose this
+   over the cheaper single-section option I recommended. **Consequence: the buyer
+   track is 100% new writing** — verified, all 63 tools and all 31 guides are
+   practitioner-facing — so W2's two halves are different kinds of work and must
+   not be estimated as one.
+3. ~~Directory inclusion bar / affiliate?~~ **D11: editorial only, NEVER
+   affiliate.** The about page's "sells nothing, collects nothing" promise stands
+   unchanged, and the inclusion bar must be published before the first pointer
+   ships.
+4. ~~Original journalism or curation?~~ **D12: curation.** Original commentary, if
+   ever written, must stay visibly separated from fetched items.
+
+**Newly open, for the owner:**
+
+5. **Nav label `Hire`** for the buyer track — accept or rename? It is
+   outward-facing, so it is his call.
+6. **The eight-page buyer inventory** in the new plan — which earn their place?
+7. **"How to judge a quote" is the highest-risk page this project has planned.**
+   The natural way to write it is with UK price figures we do not have, and this
+   project has shipped invented figures twice. **Rail: no figures, or no page** —
+   unless the owner has real pricing data from his own work.
 
 ---
 
