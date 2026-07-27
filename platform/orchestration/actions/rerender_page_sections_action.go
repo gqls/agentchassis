@@ -64,6 +64,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -236,7 +237,7 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 	// Section templates take colours from CSS vars and copy from content_data,
 	// so this base is small; it only matters for a section that reads an ambient
 	// field. Built once and re-merged per section.
-	baseData := buildRerenderBaseData(ctx, params.DB, siteID, domain, logger)
+	baseData := buildRerenderBaseData(ctx, params.DB, siteID, domain, pageName, logger)
 
 	sectionsMetadata := make([]map[string]interface{}, 0, len(stored))
 	reRendered := 0
@@ -493,10 +494,27 @@ func carryStoredSection(s storedSection) map[string]interface{} {
 // section templates examined take colours from CSS vars and copy from
 // content_data, so this base is rarely read — it only covers a section that
 // references an ambient field (company name, contact, etc).
-func buildRerenderBaseData(ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string, logger *zap.Logger) map[string]interface{} {
+func buildRerenderBaseData(ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string, pageName string, logger *zap.Logger) map[string]interface{} {
 	base := map[string]interface{}{
 		"domain": domain,
 		"year":   fmt.Sprintf("%d", time.Now().Year()),
+	}
+
+	// The page's own identity. bugs_open/085 was fixed on the page-BUILD path
+	// (BuildRenderContextAction); this is the same defect on the scoped
+	// section-re-render path, and it was found by firing a re-render on the
+	// fixed binary and watching a page still render three charts assigned to
+	// two different pages. The page name was already in scope here — it is
+	// passed to newSourceResolver on the line above the call — so the identity
+	// was available and simply never reached the render base.
+	//
+	// mergeIntoRenderContext restores this into RenderContext.CurrentPage, so
+	// setting the map key is all that is needed. Trimmed to match
+	// buildHeaderConfig, which is the form every other producer uses.
+	if pageName != "" {
+		base["current_page"] = strings.TrimSuffix(pageName, ".html")
+	} else {
+		logger.Warn("rerender_page_sections: no page name for the render base — every section will see an empty current_page and cannot vary per page (bugs_open/085)")
 	}
 
 	// Read content_data AND the canonical sites.email COLUMN together. The
