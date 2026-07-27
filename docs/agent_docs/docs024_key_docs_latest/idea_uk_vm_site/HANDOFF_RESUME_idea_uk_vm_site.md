@@ -225,7 +225,10 @@ queued deploy makes it resolve from `OPERATOR_EMAIL` properly.
 - `RUNNING_NOTES_idea_uk_vm_site.md` §X.12–§X.18 — the technical log for this arc, including every
   misstep and correction.
 - `README_where_we_are.md` — the plain-prose owner log.
-- `SUMMARY_2026-07-25` → `SUMMARY_2026-07-26` → `SUMMARY_2026-07-26b` — how the understanding moved.
+- `SUMMARY_2026-07-25` → `SUMMARY_2026-07-26` → `SUMMARY_2026-07-26b` → **`SUMMARY_2026-07-27`
+  (current)** — how the understanding moved. Read the newest for state; read the series to see how
+  wrong we were and when. 26b is the instructive one: it closed on "the format is unproven", which
+  was true for about fourteen hours.
 - `AUDIT_2026-07-25_paid_tool_vs_copy.md` — what the paid tool does vs what the page claimed, the
   owner's ruling, and what was built.
 - `RUNBOOK_idea_uk_vm_site.md` **Phase 5** — the repeatable recipe for adding a guide or tool.
