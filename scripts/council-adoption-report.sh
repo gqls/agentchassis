@@ -13,10 +13,19 @@
 # minutes and said nothing about it is invisible here, and that is a real blind spot,
 # not an oversight — record it when quoting these numbers.
 #
-# CUTOVER: the seat changes went live 2026-07-27 ~13:00 UTC. Rows before that are
-# the baseline; after, the test. Small n for a while — do not over-read one round.
+# CUTOVER. Do not guess this. Take it from the config rows themselves:
+#   SELECT type, updated_at FROM agent_definitions
+#    WHERE type IN ('council-gate','fix-proposer','feature-designer')
+#      AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+# The first draft of this script hardcoded ~13:00 from memory and was 45 minutes
+# early, which silently reclassified five pre-change council runs as post-change
+# evidence. The true value was 13:44:56 — and the five runs at 13:00-13:29 are
+# BASELINE, not signal. A cutover you assumed is a result you invented.
+#
+# Rows before CUT are the baseline; after, the test. Small n for a while — do not
+# over-read one round.
 set -u
-CUT="${CUT:-2026-07-27 13:00:00+00}"
+CUT="${CUT:-2026-07-27 13:44:56+00}"
 psql () { kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
             psql -U clients_user -d clients_db "$@"; }
 
@@ -77,6 +86,10 @@ FROM r WHERE rv->>'reviewer'='architecture' ORDER BY created_at DESC LIMIT 15;"
 
 echo "5. Is the new seat producing NOISE? (a seat that objects to everything, or"
 echo "   emits no signal line, is not earning its place — pull it if so.)"
+echo "   NB: match ARCHITECTURE_SIGNAL case-SENSITIVELY. The pre-fix prompt carried a"
+echo "   lowercase 'architecture_signal' JSON field, so an ILIKE here returns TRUE"
+echo "   for the very version being replaced — a vacuous check that cost me a wrong"
+echo "   'already patched' reading on 2026-07-27."
 psql -c "
 WITH r AS (SELECT jsonb_array_elements(body::jsonb->'reviews') AS rv
            FROM diagnosis_artifacts WHERE kind='council_report')

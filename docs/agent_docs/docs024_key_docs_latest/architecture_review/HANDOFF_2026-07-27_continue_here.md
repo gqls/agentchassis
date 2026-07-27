@@ -1,0 +1,172 @@
+# HANDOFF — architecture seat, continue here (2026-07-27, late)
+
+**Cold-start entry point for this workstream.** Read this, then
+`SUMMARY_2026-07-27b_architecture_seat_built.md` for the prose state and
+`DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` for the per-decision
+table. `RUNBOOK_architecture_seat.md` has every command with its gotcha.
+
+---
+
+## 1. What this workstream is
+
+The owner asked for a process — possibly a council seat — that keeps the
+architecture robust, stops it shifting underneath us, and keeps it sufficient for
+anticipated plans, knowing those goals conflict. The conservative half already
+existed (the guardian seat, sole hard-veto holder, charter clause (d)). Nothing
+argued the forward half. This workstream measured whether that imbalance mattered,
+found it did, and built the counterweight.
+
+## 2. State — what is LIVE right now
+
+All config; **no image dependency, nothing waits on a roll.** Verified by content
+against the live DB at 2026-07-27 ~14:00, after the v1.0.1173 deploy.
+
+| thing | where | state |
+|---|---|---|
+| Council reads its own minutes (D8a′) | `council-gate`, `fix-proposer` — guardian, both historians, prior_art, reuse_agent | **LIVE** |
+| Guardian deflection check (from D5) | same two agents | **LIVE** |
+| Generated case index (D8e-1) | both historians on both agents | **LIVE** |
+| `review_architecture` forward seat (D1/D2/D3) | `feature-designer` only | **LIVE, but pre-fix prompt** |
+| Mechanical RFC trigger (D4) | `scripts/commit-scope-report.sh` | **LIVE** in the commit hook |
+
+Scripts (all committed, all re-runnable, none write to live config):
+`scripts/build-historian-index.py`, `scripts/add-architecture-seat.py`,
+`scripts/patch-feature-designer-context.py`, `scripts/council-adoption-report.sh`.
+
+## 3. THE ONE THING OWED — run this first
+
+```
+/tmp/acm/APPLY_gap.sh
+```
+
+**Not yet run.** Verified against live: prompt text only, step set intact,
+6 `review_fields`, `hard_veto_from` unchanged. Rollback `ROLLBACK=1`. It does three
+things:
+
+1. gives `feature-designer`'s **guardian** its minutes + the deflection check;
+2. gives `feature-designer`'s **bug_historian** the case index;
+3. **replaces `review_architecture`'s prompt** so its routing signal lands in the
+   first line of `notes` — see §5, this one is load-bearing.
+
+Why it matters: the 099 mirror spans `fix-proposer → council-gate` **only**.
+`feature-designer` is mirrored by nothing, so it was left the worst-equipped of the
+three — the design-stage council, which D2 argues matters most.
+
+**If `/tmp/acm/` has been cleared**, regenerate:
+`python3 scripts/patch-feature-designer-context.py --apply` (writes
+`/tmp/acm/feature-designer-CONTEXT.json`), then push it the same way
+`APPLY_gap.sh` does — base64 into `convert_from(decode(...))::jsonb`, never a
+quoted heredoc.
+
+## 4. The measurement — and why there is nothing to read yet
+
+`scripts/council-adoption-report.sh`. **Baseline, all pre-change:**
+
+| seat | reviews | invoked stability pref. | cited precedent |
+|---|---|---|---|
+| guardian | 210 | 90 | **6** |
+| bug_historian | 143 | — | 40 cited a source |
+| debug_historian | 178 | — | 23 cited a source |
+| architecture | 0 | — | — |
+
+**6 of 90 is the number to beat.** That is how often the seat that most needs its
+own history referred to it while invoking the preference that needs it most.
+
+**Post-cutover reviews: ZERO.** Five councils ran today (13:00–13:29) but the true
+cutover is **13:44:56**, so every one of them is baseline. Do not read them as
+signal. Re-run the report once a few councils have run past that time.
+
+Section 5 of the report is a deliberate **kill switch**: a high object-rate with no
+signal line means `review_architecture` is producing confident noise, and it should
+be pulled rather than tolerated.
+
+**Blind spot, stated in the script:** `checks`/`code_checks` are NOT persisted
+(0 of 2,138 stored reviews carry either key), so the report cannot see whether a
+seat issued a SQL query — only what it chose to write down. Silence is not proof it
+did not look.
+
+## 5. Landmines — the expensive ones, all paid for this session
+
+- **A council seat's output schema is a Go contract. Read it before authoring a
+  prompt.** `platform/orchestration/actions/diagnose_council_decide_action.go`:
+  `:160` recognises **only** `{approve, object, veto}`; `:397` marks anything else
+  UNREADABLE; `:446` downgrades an otherwise-approved round to REVISE. An invented
+  verdict vocabulary would have forced **every** `feature-designer` round to revise,
+  exhaust `max_rounds: 3`, and fail — silently, in the lane the seat was added to help.
+- **Custom JSON fields are DISCARDED on persistence.** `councilReview` (`:84-95`)
+  marshals only `{reviewer, verdict, objections, missing, notes, degraded}`. A seat's
+  signal must live in the first line of `notes` or it is written to nothing. This is
+  what §3 item 3 fixes and why that patch is not cosmetic.
+- **`hard_veto_from` is only an audit label** (`:13-14`) — ANY reviewer's veto
+  rejects the round. A seat is advisory because its prompt never offers `veto`.
+- **`feature-designer` is mirrored by nothing.** 099 covers `fix-proposer →
+  council-gate` and does **not** copy `load_schema_hint` (099 line 117). A hint
+  change is a four-place edit; a prompt change rides the mirror to two of four.
+- **Never guess a cutover.** Take it from `agent_definitions.updated_at`. My first
+  draft hardcoded 13:00 from memory, 45 minutes early, which would have reclassified
+  five pre-change runs as evidence.
+- **Beware a case-insensitive check that matches what you are replacing.**
+  `ILIKE '%ARCHITECTURE_SIGNAL%'` returns TRUE for the pre-fix prompt's lowercase
+  `architecture_signal` field, so it read "already patched" when nothing had changed.
+- **The historian's "frozen seven" were CURATED, not lazy** — selected by
+  rediscovery frequency from the concept register, deliberately narrow, with
+  broadening named as future work in
+  `docs026_concept_register/PILOT_bug_historian_reviewer.md` §1/§3. That same doc is
+  where the veto semantics were already written down. **Read docs026 before touching
+  a seat.**
+- **Config survives a chassis roll, but verify by CONTENT not timestamp.** After
+  v1.0.1173 all three agents showed an identical `updated_at`, which looks exactly
+  like a re-seed clobber. It was not — but only a content check proves that.
+
+## 6. What is open, in order
+
+1. **Run `/tmp/acm/APPLY_gap.sh`** (§3). Everything else waits behind it.
+2. **Let councils run, then re-run the adoption report.** This is the honest test of
+   the whole workstream and it cannot be hurried.
+3. **D7(b) — should the guardian weigh benefit at all?** Owner undecided, and
+   deliberately so. My view: it should not — it has no instrument for benefit and has
+   been overturned every time it was escalated. The honest counter: risk and benefit
+   are not separable, and a blast-radius-only seat would block every wide change,
+   which is *more* conservative. **Now answerable from evidence** once the new seat
+   has said something.
+4. **D6 — name the asymmetric bar** in `PROCESS_architecture_review.md`: keeping
+   battle-tested code is the default and needs no evidence; replacing it must show a
+   defect the current design *cannot express a fix for*, mechanically-derived blast
+   radius, independently-valuable stages, and a rollback needing no migration.
+   `RFC_001` already meets four of those; this just names the bar. Small, undone.
+5. **The real remaining design: how does a reviewer query markdown at all?** The
+   concept register (`docs/agent_docs/docs026_concept_register/`) is most of the
+   roadmap artefact I had claimed we lacked — concepts by subject, *including
+   abandoned ones*, plus `DIRECTION_LEDGER.md` naming what is fixed (constitution +
+   mission, hash-checked, commit-hook enforced). It is markdown, so it is invisible
+   for the same reason everything else is. Solving that serves the architecture seat,
+   both historians, and the reuse and prior-art seats at once. Reuse the register's
+   own rediscovery-frequency signal rather than inventing a new ranking.
+
+## 7. Evidence behind the case, if challenged
+
+- **Ossification is measured, not asserted.** `coordinator.go`/`ProcessResponse` was
+  deflected upward across **six distinct submissions in seven days** (07-20→07-26);
+  `spawn_actions.go` four; kafka lane two. Four bugs open in that core (075, 086,
+  034, 096). Method in the RUNBOOK; counts are **floors** (ILIKE tagging undercounts).
+- **Churn refutes the premise it was meant to test.** `platform/orchestration` shows
+  366 commits/60d but **348 are the plug-in action registry**; the core moved 55 and
+  `coordinator.go` 9, against 2,123 repo-wide. Eleven `platform/*` packages moved zero.
+  Quote the split or the headline misleads.
+- **The guardian's veto has never been sustained when escalated** (003, 030, 086).
+  Not proof it was wrong — a risk that did not land was still a risk — but evidence it
+  is uncalibrated.
+- **D4 backtest:** the RFC trigger fires on 10 of the last 300 commits (3.3%).
+
+## 8. Session posture worth carrying
+
+Three confident claims of mine were corrected in two days — that no pre-build
+council existed, that the council could not read its own verdicts, and the verdict
+vocabulary that would have broken the lane. **Every one was caught by reading
+something or running a measurement, none by thinking harder**, and twice the answer
+was already written down in our own docs. Full entries in
+`docs/agent_docs/docs024_key_docs_latest/WRONG_CALLS.md` (2026-07-26 and 2026-07-27).
+
+That is also the argument for the workstream in miniature: a seat with our written
+history in front of it would have known the veto behaviour, because we had already
+written it down.
