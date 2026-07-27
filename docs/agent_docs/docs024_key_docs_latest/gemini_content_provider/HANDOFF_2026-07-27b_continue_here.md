@@ -22,15 +22,39 @@ telemetry migration, and a fabrication gap that is not really about Gemini at al
 | `page-content-writer` | **LIVE on `gemini-pro-latest`**. Its own prompt verified against the model (valid unfenced JSON, all keys, `finishReason=STOP`) |
 | Chassis | **v1.0.1177** — already carried my code before I was asked to roll (another session built from committed HEAD). Do **not** roll redundantly |
 | Voice & Style v4 | **LIVE, single-sourced.** Canonical row `agent_default_configs.config_name='voice_style_block'`, 2,499 chars. page-writer literal **gone**, Go const **gone** |
-| `bugs_open/107` | Fixed, council-APPROVED (`a1a5cf20`), shipped. **OPEN** only until a real page is built and read |
-| `bugs_open/110` | Candidate 1 LIVE. **Candidate 2 owed** — see "the cost question" below |
+| `bugs_open/107` | Fixed, council-APPROVED (`a1a5cf20`), shipped. **Real page built and read 07-27 20:15 UTC (`sale`, live) ⇒ the last condition is met — CLOSE IT** |
+| `bugs_open/110` | Candidate 1 **LIVE, verified** (Gemini rows log `max_tokens 8000`, not 16192 — this table previously said inert). **Candidate 2 owed** — see "the cost question" below |
 | `bugs_open/112` | **FIX CONFIRMED LIVE** in v1.0.1177 (`ProviderKeyEnv` present in the binary), so spawned pods now get `GEMINI_API_KEY`. **The writer can reach Gemini.** Someone should close it |
 | `bugs_open/121` | Fixed. One copy of the voice. Migrations 240 + 241 both applied |
 | `bugs_open/123` | **OPEN, unowned, needs an owner call** — see below |
 
 ## Do this next, in this order
 
-### 1. Re-queue the page build — the blocker that stopped it has lifted
+### 1. ~~Re-queue the page build~~ — DONE 2026-07-27 20:15 UTC, but NOT this way
+
+> **CORRECTED 2026-07-27 evening — the diagnosis below is wrong, and the retry it
+> recommends could never have worked.** `grip-styles` did not fail because the writer
+> could not reach Gemini. Read `site_work_items.error`, not the timing:
+> `"page-build-handler no-op: no sections ready to build … the target section was NOT
+> rebuilt"`. It never reached an LLM call of any provider. **`grip-styles` has no rows
+> in `site_plan_sections` — and neither does any other `blog-post` page on
+> dartsonline**, including all three "safe sibling" fallbacks named below. Two of them
+> (`tungsten-guide`, `beginners`) already tried and are parked in `needs_human_review`
+> from 07-20/07-22, with three more. Re-queueing would have added a sixth.
+>
+> **What was done instead:** built `sale` (the only never-deployed page WITH plan
+> sections and no competing work item), owner-approved to publish. **Live at
+> `https://dartsonline.com/sale.html`** — copy clean on every check, and **zero
+> fabricated statistics on a sale page**. First-ever Gemini rows in `llm_call_log`.
+> Full record in NOTES under "P7 done". Two defects found, neither Gemini's: the hero
+> and CTA duplicate each other, and `product-grid` was skipped for missing data so the
+> Sale page has nothing to buy.
+>
+> **Also corrected by that run: `110` candidate 1 is LIVE, not inert.** The Gemini
+> rows log `max_tokens = 8000`, not the reserve-inflated 16192 — which is RUNBOOK §5's
+> own test for a post-fix binary. The state table below and RUNBOOK §5 both say inert.
+
+*Original text, left for the record:*
 
 `dartsonline/grip-styles` was queued at 15:14 and is now `needs_human_review`,
 `attempt_count 1`, last touched **15:46** — i.e. it *did* get dispatched and failed,

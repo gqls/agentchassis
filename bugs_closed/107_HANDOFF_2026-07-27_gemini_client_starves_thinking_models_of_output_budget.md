@@ -1,7 +1,10 @@
 # 107 — The Gemini client starves thinking models of output budget, and the starvation was diagnosed as a model that cannot write
 
-**Filed** 2026-07-27 · **Status** FIXED IN CODE, **council-APPROVED**, **INERT
-until the next image roll** — so it stays OPEN · **Owner**
+**Filed** 2026-07-27 · **Status** **CLOSED 2026-07-27 20:15 UTC** — fixed,
+council-APPROVED, live, and **executed on the real path**: two `provider='gemini'`
+rows for `agent_type='page-content-writer'`, and the copy they produced is published
+and read (`https://dartsonline.com/sale.html`). Both stated closure conditions met ·
+**Owner**
 `gemini_content_provider` workstream ·
 **Council** APPROVED round 1, corr `a1a5cf20-a70d-48c3-8fda-842d2a91b651`
 (10 reviewers, 6 filtered, `unreadable: 0`; 4 advisory objections, none
@@ -227,6 +230,63 @@ service.
 > never that it is on the feature's path. Close this when a `provider='gemini'` row
 > exists for `agent_type='page-content-writer'` and a human has read the copy it
 > produced.
+
+## CLOSED 2026-07-27 20:15 UTC — the fix executed, and the page is live
+
+The single stated condition above was: *"Close this when a `provider='gemini'` row
+exists for `agent_type='page-content-writer'` and a human has read the copy it
+produced."* Both halves are now satisfied.
+
+**1. The fix executed on the real path.** Work item `df744e27`, orchestration
+`af2d066b`, building `sale` on dartsonline.com — the first Gemini rows ever written to
+`llm_call_log`, fleet-wide:
+
+| step | model | max_tokens | in | out | success | ms |
+|---|---|---|---|---|---|---|
+| `process_sections_loop_iter_0_generate_content` | gemini-pro-latest | 8000 | 4227 | 87 | t | 9608 |
+| `process_sections_loop_iter_1_generate_content` | gemini-pro-latest | 8000 | 4160 | 79 | t | 16476 |
+
+This is the observation the bug was held open for, and it is the one a pod-grep could
+never supply: the code is not merely in the binary, it is **on the feature's path**.
+Both calls `success=t`, neither carrying an `error_message` naming thinking — which
+this file's own §"How to verify" identifies as the authoritative truncation signal for
+a thinking model. The 07-24 symptom (zero characters at a small tier) does not recur.
+
+**87 and 79 output tokens is not a residual starvation.** These steps emit a small
+JSON content object (`headline` / `subheadline` / `cta_text`), not prose; the full
+values are in the live page below. The long-form side of the same fix was already
+demonstrated separately at 1,292 words with no cut.
+
+**2. The copy was read.** Live at `https://dartsonline.com/sale.html` (21,821 bytes,
+header and footer present). Verbatim:
+
+> **Find Your Next Set on Clearance** — High-density tungsten barrels and precision
+> flights are marked down across the store. It's easier to test different weights and
+> grip profiles when the gear costs less. Find the setup that tightens your grouping
+> and suits your arm.
+
+Em dashes 0, exclamations 0, filler 0, negative-frame openings 0; contractions present;
+a genuine "why it matters" clause; and the site's own subject matter survived. **No
+fabricated statistics** — notable because a *sale* page is the strongest possible
+invitation to invent a discount percentage, and `bugs_open/123` / `043` exist because
+that failure mode is real. It invented nothing.
+
+### What this closure does NOT claim
+
+- **Not** that Gemini is the right model for the writer commercially. The bake-off
+  measured it at roughly ten times Fable's billable output tokens per section; that
+  question is open and is the owner's.
+- **Not** that the page is defect-free. Two defects were found in the same run and
+  **neither is this bug and neither is Gemini's**: the hero and call-to-action
+  duplicate each other's message (each section is generated in its own loop iteration
+  with no sight of its siblings), and `product-grid` was skipped
+  (`on_missing=skip_section triggered`, no product data), leaving a Sale page with
+  nothing to buy. Both are structural and provider-independent. Recorded in the
+  workstream NOTES, unfiled.
+- **Not** that `bugs_open/110` is finished. Candidate 1 is now **confirmed live** by
+  these rows (`max_tokens` reads 8000, not the reserve-inflated 16192 — the RUNBOOK's
+  own test for a post-fix binary; several docs still say it is inert). Candidate 2,
+  which would make thinking-token cost visible at all, remains unbuilt.
 
 ## How to verify
 

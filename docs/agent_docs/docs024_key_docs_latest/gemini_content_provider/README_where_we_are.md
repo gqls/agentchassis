@@ -256,3 +256,67 @@ commercial question rather than a technical one, and it is yours.
 My recommendation: revert the page writer to Claude today to stop the clock, keep the
 key fix on the list as a small job so the option stays open, and treat "is Gemini
 worth ten times the cost for page copy" as the real question we now have to answer.
+
+---
+
+## 2026-07-27, later that evening — the page writer has now actually written a page, on Gemini, and it is live
+
+Short version: it works. The thing we had proved in probes and bake-offs has now run
+the whole way through the real machinery, unattended, and put readable English on a
+public page. Nothing in the chain needed a nudge.
+
+**But the job we were told to do first could never have worked, and it is worth
+saying why, because the reason is not about Gemini at all.**
+
+The handoff I picked up said: re-run the `grip-styles` build, because it failed
+earlier today only because the writer could not reach Google, and that has since been
+fixed. That was wrong. I read the failure rather than assuming it, and the build had
+never got anywhere near Google. It stopped much earlier, with "no sections ready to
+build". A page on this system is a list of blocks — a banner, a product list, a
+closing pitch — and *nobody had ever decided what blocks `grip-styles` should have*.
+There was nothing to write. The same is true of every article-style page on that
+site: not one of them has a block list. Five earlier attempts to build such pages are
+still sitting in the review queue from a week ago, all with the same complaint. So
+the suggested fallbacks in the handoff would have failed identically, and I would
+have added a sixth.
+
+**What I did instead**, with your go-ahead: built the `sale` page, which does have a
+block list. It is live now at `dartsonline.com/sale.html`.
+
+**The copy is good, and it avoided the exact trap I was worried about.** A sale page
+is where a machine invents "up to 40% off", and inventing numbers is a live, open
+problem for us. It invented nothing. No percentages, no fake deadlines, no
+manufactured urgency. It also cleared every style check we care about — no em dashes,
+no exclamation marks, no filler, and it uses contractions like a person does. The
+line I would point at is *"It's easier to test different weights and grip profiles
+when the gear costs less"*, because that is the page explaining why you should care,
+in plain words, which is the hardest thing to get out of these models. And it is
+recognisably about darts — tungsten barrels, flights, grip profiles, tightening your
+grouping — rather than generic sale language with the word "darts" dropped in.
+
+**Two honest caveats.**
+
+The first is mine to report and yours to weigh: the two blocks say much the same
+thing twice. The banner says "Find Your Next Set on Clearance" and the closing pitch
+says "Find your next setup in the clearance", and both go on to talk about discounted
+tungsten and finding the right weight. Each block is written well; they were written
+without sight of each other. That is a structural thing, not a Gemini thing, and I
+have not tried to fix it.
+
+The second is worse and has nothing to do with the writing. **The sale page has no
+products on it.** The block list says banner, product list, closing pitch — and the
+product list was dropped during the build because there was no product data to fill
+it. So we have published a page that says, twice, in good English, that things are
+marked down, with nothing to buy underneath. The system did the defensible thing at
+each step: better to drop an empty grid than render an empty grid. The result is
+still a shop page that cannot sell anything. I have flagged it rather than fixed it,
+because the fix is product data, not copy.
+
+**One thing I nearly got wrong, and the check that caught it.** When I first looked
+for the new page it came back "not found", and my instinct was that our deploy had
+silently failed — we have an open bug that does exactly that. Before believing it I
+checked a different page that I had not touched at all. It came back "not found" too.
+That is not something my change could have caused, so the fault had to be in how I
+was looking, and it was: this site serves addresses ending in `.html`. The page had
+been live and correct the whole time. Checking something you did not touch is a
+thirty-second habit that keeps turning a false alarm into a non-event.

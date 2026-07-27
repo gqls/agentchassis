@@ -8499,3 +8499,40 @@ verified-what-i-changed-not-what-i-disturbed.
 > **The cheap check:** cite the artifact clock of the thing you actually care about, not an
 > orchestration row whose step name sounds right. `diagnosis_artifacts.created_at` for MY
 > correlation answered this in one query and needed no guessing about ownership.
+
+---
+
+## 2026-07-27 (evening) — I called a live page dead, and the cheap check was a page I had not touched
+
+**The claim.** Verifying a Gemini page build on dartsonline, I probed
+`https://dartsonline.com/sale` and got **404**. The DB said `build_status='deployed'`,
+`deployed_at` set. I had two open bugs ready to explain exactly that shape —
+`bugs_open/098` ("`deployed_at IS NOT NULL` means a deploy happened once, not that the
+page is fetchable") and `bugs_open/120` (a merge commit skips the site deploy) — and I
+was one sentence from writing "deployed but not fetchable, consistent with 098".
+
+**What caught it.** Before believing it, I probed **`new-arrivals`, a page I had not
+touched**, deployed cleanly on 07-26 → **also 404**. A page my build never went near
+cannot have been broken by my build, so the defect had to be in my probe, not in the
+system. It was: **this site serves `.html` extensions.** `/sale.html` → 200,
+`/about.html` → 200, `/new-arrivals.html` → 200; every extensionless path → 404. The
+page had been live and correct since 20:10:21, ten minutes before I looked.
+
+**Why this one was well-disguised, and the general shape.** Having a *plausible open bug
+that predicts your symptom* is what makes this dangerous. 098 predicted the exact
+observation. The wrong belief was one grep away from looking well-researched — I would
+have cited a real bug, with a real mechanism, against a real 404. Confirmation had a
+ready-made home. **A hypothesis that explains your evidence is not thereby the cause of
+it**, and the more apt the bug you have in hand, the less you interrogate the probe.
+
+**The cheap check (~30 seconds):** before attributing a failure to the system, run the
+same probe against something in the same batch that your change did not touch. If the
+peer fails too, the fault is in your instrument. This is already memory
+(`check-an-untouched-peer-in-the-same-batch`) — this row is the tally, and the point is
+that I applied it *because it was memory*, not because anything about the 404 looked
+suspicious. It looked entirely convincing.
+
+**Distinct from the 07-27 "I measured the table whose NAME matched the concept" rows**
+above: those were the wrong *query*. This was the right query pointed at the wrong
+*URL shape* — and no amount of re-reading my own reasoning would have surfaced it,
+because the reasoning was sound and only the input was wrong.

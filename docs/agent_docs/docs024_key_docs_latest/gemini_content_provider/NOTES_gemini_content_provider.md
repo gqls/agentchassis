@@ -1166,3 +1166,134 @@ recovery instead."* Contractions present. Not staccato.
 > Applying the voice to content-creator is what surfaced it. **Needs an owner call
 > before any blog output is published anywhere** — flagged, not fixed, and not mine
 > to bundle into this change.
+
+---
+
+## 2026-07-27, ~20:00–20:15 UTC — P7 done: page-content-writer wrote a live page on Gemini
+
+### First, a correction to the handoff I was following
+
+> **CORRECTED 2026-07-27 evening — `HANDOFF_2026-07-27b` §1 is wrong about why the
+> `grip-styles` build failed, and its suggested retry could never have worked.**
+> The handoff says the 15:14 build failed because the writer could not reach Gemini
+> (`bugs_open/112`), making it "stale evidence" now that 112 is live. It reads the
+> failure from the timing rather than from the row. The row says:
+>
+> ```
+> page-build-handler no-op: no sections ready to build (empty spec sections, or all
+> sections deferred for missing data) — the target section was NOT rebuilt
+> ```
+>
+> It never reached an LLM call of any provider. Caught by reading
+> `site_work_items.error` before re-queueing. Cheap check that would have caught it
+> at writing time: read `.error`, not `.updated_at`.
+
+**Why it could not work, and why the named fallbacks could not either.**
+`page-build-handler.load_spec_sections` reads `site_plan_sections` (authoritative),
+falling back to `pages.sections`. For dartsonline:
+
+```sql
+SELECT sps.page_name, count(*)
+FROM site_plan_sections sps
+JOIN site_plans sp ON sp.id=sps.plan_id JOIN sites s ON s.id=sp.site_id
+WHERE s.domain='dartsonline.com' AND sp.is_current GROUP BY 1;
+-- 9 rows: about, brands-index, contact, guides-index, index,
+--         new-arrivals, sale, shipping-returns, shop-index
+```
+
+`grip-styles` is absent, and **so is every `blog-post` page** — all 10 have
+`sections = []` and no plan rows. The handoff's fallbacks (`tungsten-guide`,
+`steel-tip-vs-soft-tip`, `beginners`) are in that set. Two of them already tried and
+parked: `tungsten-guide` and `beginners` sit in `needs_human_review` from 2026-07-22
+and 07-20, alongside `board-setup`, `barrel-weight` and `brand-detail` — five items,
+same no-op, pre-dating this workstream. **This is not a Gemini problem and not new.**
+
+### A name collision that nearly produced a false correction
+
+`agent_definitions` has `type='content-creator'` (v1 + v2), whose `ai_service` is
+`claude-haiku-4-5`/`anthropic` — zero occurrences of "gemini" in either config. That
+is **not** the content-creator that was flipped. The flipped one is the standalone
+k8s service, which builds its client from `cfg.Custom["ai_service"]` in a **configmap**
+(`internal/agents/contentcreator/agent.go:101`), verified live:
+
+```
+kubectl -n ai-persona-system get configmap content-creator-agent-configmap \
+  -o jsonpath='{.data.content-creator-agent\.yaml}' | grep -A4 '  ai_service:'
+  provider: "gemini"   model: "gemini-pro-latest"   api_key_env_var: "GEMINI_API_KEY"
+```
+
+I was one step from filing "content-creator was silently reverted". **Two live objects
+share the name; the `agent_definitions` row is the orchestration workflow, not the
+service.** Check which one before asserting anything about "content-creator".
+
+### The run: work item `df744e27`, orchestration `af2d066b`
+
+Target chosen as the only never-deployed page with plan sections and no competing
+open work item (`shop-index`/`brands-index` both had open items — coverage check).
+Owner approved publishing. Dispatch needs `status='triaged'` + `approval_mode='auto'`
++ `pipeline='build'` (`load_work_item_actions.go:558`); `build-pipeline-trigger`
+fires every 120s and picked it up in ~2 min.
+
+**Gemini calls, from `llm_call_log` — the first ever recorded for this provider:**
+
+| step | model | max_tokens | in | out | ok | ms |
+|---|---|---|---|---|---|---|
+| `process_sections_loop_iter_0_generate_content` | gemini-pro-latest | 8000 | 4227 | 87 | t | 9608 |
+| `process_sections_loop_iter_1_generate_content` | gemini-pro-latest | 8000 | 4160 | 79 | t | 16476 |
+
+Two notes on that table:
+
+1. **`max_tokens` reads 8000, not 16192 — so `110` candidate 1 is LIVE**, not inert
+   as `HANDOFF_2026-07-27b` and RUNBOOK §5 both state. The runbook's own test ("if
+   you see 16192 that row predates the roll") is the thing that settles it. The
+   chassis in production already carries it. **[VERIFIED]** by the rows above.
+2. **87 and 79 output tokens is correct, not starvation.** These steps emit a small
+   JSON content object (headline / subheadline / cta_text), not prose. `success=t`
+   and no `error_message` naming thinking — which RUNBOOK §5 correctly identifies as
+   the authoritative truncation signal for a thinking model.
+
+**Before this run, `llm_call_log` had ZERO gemini rows in 7 days, fleet-wide.** So
+every Gemini claim in the workstream up to now rested on direct API probes and on
+content-creator (which does **not** write to `llm_call_log` — it is a standalone
+service and never goes through `ai_actions.go`). This run is the first evidence the
+provider works through the chassis orchestration path end to end.
+
+### The artefact — read, not inferred
+
+`section_plan`: `ready_count 2` (hero, call-to-action), `skipped_count 1`,
+`deferred_count 0`. **`product-grid` skipped: `"on_missing=skip_section triggered"`** —
+no product data resolved. Live at `https://dartsonline.com/sale.html`, 21,821 bytes,
+header + footer present.
+
+| check | result |
+|---|---|
+| em dashes · exclamations · filler | **0 · 0 · 0** |
+| negative-frame openings | **0** |
+| contractions | present ("It's") |
+| "why it matters" sentence | **yes** — *"It's easier to test different weights and grip profiles when the gear costs less."* |
+| **fabricated statistics** | **0** — no percentages, no deadlines, no invented urgency **on a sale page** |
+| site's own story survived | yes — tungsten barrels, flights, shafts, grip profiles, grouping |
+
+**Defect found, not Gemini's: the two blocks duplicate each other.** Hero =
+*"Find Your Next Set on Clearance"*; CTA = *"Find your next setup in the clearance"*,
+and both subheads cover discounted tungsten + finding weight/grip. Each section is
+generated in its own loop iteration with no sight of its siblings' output, so nothing
+in the chain can notice. Structural, provider-independent, unfiled.
+
+**Worse defect, also not Gemini's: a Sale page with nothing to buy.** The product
+grid was the whole commercial point and it was dropped for missing data, leaving two
+blocks of copy asserting things are marked down. Each step behaved defensibly;
+the page is still a shop page that cannot sell.
+
+### Misstep: I called a live page dead
+
+I probed `https://dartsonline.com/sale` → **404** and was about to attribute it to
+`bugs_open/098` ("`deployed_at` set but not fetchable") or `120` (merge commit skips
+deploy). What stopped me was checking **`new-arrivals`, a page I had not touched**,
+deployed cleanly on 07-26 — also 404. A page I did not touch cannot have been broken
+by my build, so the fault was in my probe. **This site serves `.html` extensions**:
+`/sale.html` → 200, `/about.html` → 200, extensionless → 404 for all. The page had
+been live and correct from 20:10:21.
+
+Cheap check that caught it: **probe an untouched peer before believing a bug.** Logged
+to `WRONG_CALLS.md`.
