@@ -74,7 +74,15 @@ the DEPLOYMENT's binary. For a spawned agent that check is a **false green**: it
 the image exists, not that the agent will run it. (Logged in WRONG_CALLS 2026-07-24;
 016b §9 pattern added.)
 
-## The fix (`c0d7c3a71`, 2026-07-27) — INERT until a roll past v1.0.1174
+## The fix (`c0d7c3a71` + `e96d42226`, 2026-07-27) — INERT until a roll past v1.0.1174
+
+**Council gate: APPROVED round 1** — corr `3e146ef2-a072-40a8-86be-f6cd940a95f9`, five
+advisory objections, none high-severity, `unreadable: 0`. Four were acted on in `e96d42226`
+(bound SQL parameters; a log on the silent repository-mismatch fallback; `POD_NAME` honoured
+as the house convention ahead of the hostname fallback; and lookups attached to three absence
+claims that had been asserted without one). The scope objection — that the row-sync hygiene is
+bundled into a fix that disclaims it as the cause — is accurate and was the owner's explicit
+call; recorded, not unpicked.
 
 **Half 1 — the fix. `platform/orchestration/actions/agent_image.go` (new).**
 A spawned chassis pod now runs the image **its spawner is running**. `resolveAgentImage()`
