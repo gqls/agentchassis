@@ -456,3 +456,85 @@ scan against, and running it would flag every number in every paragraph fleet-wi
 
 **Owed:** round 7 with the caller table above attached as checks, the check-8 boundary
 stated, and ideally the two code changes above. No `Council-Reviewed:` trailer until then.
+
+---
+
+## 2026-07-27 — publishing the corrections: two silent traps, both "COMPLETE" and both wrong
+
+Owner rulings applied as migrations `230` (remove finetuning's ~80%) and `231`/`232` (aao on
+the real agent figure). All three edit `content_data` only, so `233` queues re-renders to
+publish them. Getting those five pages actually re-rendered took three attempts, and **both
+failures reported success**.
+
+### Trap 1 — `status='detected'` is a queue with no consumer (`bugs_open/083`)
+
+I inserted the work items with `status='detected'`, copying the convention every discovery
+check uses. They sat. The dispatch loop filters `status IN ('triaged','approved')`
+(`claim_work_item_action.go:102`, `load_work_item_actions.go:559`) and the only promoter,
+`TriageDetectedItemsAction`, runs inside the `improvement-loop` agent, fired only by the
+`improvement-sweep` scheduled task — **disabled since 2026-05-02**. 98 rows are parked
+fleet-wide because of it.
+
+**What made it visible** was not "nothing happened" — it was the *contradiction*: I had
+measured the lane healthy minutes earlier (12 page-rerender orchestrations COMPLETED in 6h,
+newest 11:24), so "the lane is alive AND my items are not moving" is a different claim from
+"it is slow", and only the first one is falsifiable quickly. Fixed by writing `triaged`.
+
+### Trap 2 — `spec.reason` is CONTROL FLOW, and an unknown value silently degrades the render
+
+With a dispatchable status the first item ran, went to `complete`, the orchestration reported
+`COMPLETED` — **and the page still served the old figure.**
+
+What gave it away was not the status but the artefact, and specifically one column:
+
+```sql
+SELECT cc.name, pc.build_status, pc.updated_at, (pc.rendered_html ILIKE '%~80%%') AS still_serves
+FROM page_components pc ... WHERE s.domain='finetuning.uk' AND p.name='index';
+--  case-studies-grid | deployed | 2026-07-27 12:17:15 | t      <-- 12:17 is MY content edit
+--  hero              | deployed | 2026-05-01 19:12:43 | f          the render ran at 12:35
+```
+
+`updated_at` was the timestamp of the **content edit**, not of the render. The re-render had
+completed without touching the component.
+
+The orchestration's `collected_data` keys named the cause — the run contained
+`check_rerender_mode`, `render_page`, `deploy_page`, `complete`, and **no `rerender_sections`
+and no `save_sections`**:
+
+```
+check_rerender_mode:
+  condition: input_data.spec.reason == 'image_landed'
+          OR input_data.spec.reason == 'section_data_resolved'
+          OR input_data.spec.reason == 'cta_links_stale'
+  then_step: rerender_sections   -- re-renders each section FROM content_data
+  else_step: render_page         -- ASSEMBLE-ONLY: reuses the stored section HTML
+```
+
+I had invented `reason: 'claims_corrected'` so the `item_key` would not collide with another
+session's rerender. **The dedup key and the reason are different fields, and I conflated
+them.** An unrecognised reason takes `else_step`, re-assembles the page from stale section
+HTML, deploys it, and reports success — correctly, because nothing went wrong. The workflow
+did exactly what it was asked.
+
+> **Vary `item_key` freely. Never vary `spec.reason`.** It reads like free-text provenance and
+> it is a switch. Same family as the fleet landmine *"a string step-config is a REFERENCE,
+> never a literal"*.
+
+### This matters to `bugs_open/093` beyond this file — and it is a gap in my own fix
+
+`093` added a second call site so stored `content_data` is audited. **Assemble-only mode never
+reads `content_data` at all.** So there is a publish path where the artefact that gets deployed
+is the previously-rendered HTML, and the thing my audit inspects is not the thing that shipped.
+
+Today that is not a hole in coverage — the post-deploy audit reads `rendered_html` too, via the
+scans that were always there. But it does mean the tidy story "the audit now covers the
+re-render path" is too simple: **the re-render path is two paths**, and they consume different
+inputs. Recorded on `093`.
+
+### The transferable bit
+
+Three times today the aggregate said success and the individual artefact said otherwise: a
+vacuous pod-grep (marker already in the binary), a self-authored post-condition (the `1170+`
+cascade), and now a work item at `complete` over an unchanged page. In all three the fix was
+the same shape — **compare against something that was not written by the same hand as the
+change**: a negative control, an independent checker, a timestamp the process itself did not set.
