@@ -159,6 +159,57 @@ how often this happens — one instance, noticed by reading, not counted.
 
 ---
 
+## 2026-07-27 (evening, cont.) — the code tier is dead on two of three lanes
+
+Went to do the cheap thing (warn the seats that an empty `code_checks` result is
+not an absence) and the survey found something bigger than the warning.
+
+**15 prompts mention `code_checks`, not the 4 that `bugs_open/108` names** —
+fix-proposer 7, council-gate 7, feature-designer 1; **13 of 15 promise
+`"content" searches source bodies`.** Then the routing:
+
+| lane | `code_lookup` step | whose `code_checks` are answered |
+|---|---|---|
+| `fix-proposer` | present | 6 seats (editquality, bug_historian, reuse_agent, guidelines, tooling_provenance, guardian) |
+| `feature-designer` | **absent** | **none** |
+| `council-gate` | **absent** | **none** |
+
+Two findings 108 did not have. **(a) `review_prior_art` is not in fix-proposer's
+`code_check_fields`** — so the seat whose entire charter is *"does this already
+exist"* has its code questions dropped on **all three** lanes, including the one
+with the machinery. 108's candidate 5 says "on the gate that promise cannot be
+kept"; it is worse than that. **(b) `feature-designer` has no `code_lookup`
+either**, so `review_architecture` — the *only* forward voice after tonight's D9
+ruling — emits `code_checks` that are never routed anywhere, on top of the
+`content` defect. Doubly dead. Contributed both into 108 rather than forking.
+
+**SHIPPED (config-only, live, no image): the `CODE INDEX LIMITS` caveat on all 15
+prompts.** fix-proposer (7) + feature-designer (1) patched directly, council-gate
+(7) via the 099 mirror. Verified 7/7/1. Invariants held: `review_fields` 16/16/6,
+`hard_veto_from ["guardian"]` on all three, no step added or removed, and the
+earlier `ARCHITECTURE_SIGNAL`/deflection changes survived the mirror.
+
+**This is a mitigation, not a fix, and the distinction matters:** the seats still
+cannot look code up. They are merely no longer *lied to*. The caveat tells them an
+empty or missing code result is NO INFORMATION and that an absence claim belongs in
+`missing` for a human — which is the discipline the SQL tier already had and the
+code tier never did.
+
+**Design constraint discovered while writing it:** the caveat had to be
+**lane-agnostic**, because the 099 mirror forces fix-proposer and council-gate to
+carry byte-identical prompt text — and those two lanes *differ* on whether
+`code_checks` are answered at all. **So no per-lane truth can survive the mirror.**
+That is a real limitation of the mirror as an abstraction, not just of this patch:
+it assumes the two lanes are equivalent, and on the code tier they are not.
+
+Pre-flight, as established: structural diff live→staged = 8 diffs, **0 non-prompt**;
+council_decide invariants asserted before writing; the `-LIVE.json` dumps taken
+minutes earlier are the rollback targets **by construction** rather than by
+assumption. One wrinkle: no quiet window exists on `council-gate` (36 runs/day, back
+to back — I waited through two and a third had started), so the mirror went in
+mid-run. Judged safe because the change is additive prompt text with no routing or
+step-set change; the RUNBOOK's mid-run warning is about step-set edits.
+
 ## 2026-07-27 (evening) — both rulings landed, and a D9 numbering collision
 
 **OWNER RULINGS.** D7(b): **do not narrow the guardian** — clause (d) stands, it

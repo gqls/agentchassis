@@ -250,3 +250,48 @@ broadcast instead. It's for you to read when convenient, not a question this
 workstream is stuck on. It was also numbered D9 by both of us within the same hour,
 independently; I've renumbered theirs to D10 because yours was the ruling that had
 already landed on mine.
+
+## 2026-07-27 (evening) — step 1 done, and it turned up something worse
+
+Step 1 is live: every reviewer that can ask a question about the codebase — fifteen
+of them across the three councils — is now told the truth about what it will get
+back. No rebuild needed, in effect immediately, and reversible.
+
+**But the survey found something bigger than the warning I set out to write.** I had
+thought the problem was that the code index stores only declarations, so searching
+for a route or a config key comes back empty. That's true. The worse part is that on
+**two of the three councils, code questions are never answered at all** — there is no
+step that runs them. The reviewers ask, and nothing anywhere picks the question up.
+
+Two consequences worth your attention:
+
+- The reviewer whose entire job is *"does this already exist, are we rebuilding
+  something we have?"* has its code questions dropped on **all three** councils —
+  including the one council that does have the machinery, because that seat was
+  simply left off the list. That's the seat that exists to stop us building a second
+  copy of something, and its questions go nowhere.
+- **The new forward reviewer is on one of the two councils with no such step.** So
+  its code questions are dead twice over: never routed, and the index couldn't answer
+  them properly anyway. Its instructions still say the answers come back next round.
+
+None of that is caused by anything we did — it predates the seat. But it does sharpen
+what I said earlier: after your ruling the forward half rests on one reviewer, and
+that reviewer currently cannot see the codebase at all. I've written both findings
+into the existing bug file rather than starting a competing one.
+
+**To be clear about what shipped: it's a mitigation, not a fix.** The reviewers still
+can't look anything up. They're just no longer being told they can — they're now
+instructed that an empty result means *no information*, never *it doesn't exist*, and
+that an absence claim should be handed to a human instead. That's the discipline they
+already had for database questions and never had for code ones.
+
+One honest note on how it went in: there is no quiet moment on the busiest council —
+it runs about thirty-six times a day, back to back, and I waited through two runs
+before a third started. So the change went in while one was mid-flight. I judged that
+safe because it only adds text to instructions and changes no routing, but you should
+know I made that call rather than waiting indefinitely.
+
+**Next is step 2** — actually fixing the index so it stores bodies, which is the same
+change that would finally make our written history searchable. That one is code, so it
+needs a review round, a rebuild and a deploy, and I'd put it through the council gate
+first rather than just doing it.

@@ -174,6 +174,53 @@ code_symbols index next round"*. On the gate that promise cannot be kept at all.
    answer there.** A seat that asks questions into a void is worse than one that
    does not ask, because the asking reads as diligence.
 
+   > **WIDENED 2026-07-27 evening (architecture_review thread) — measured from the
+   > live config, and it is worse than "the gate" in two ways.** Candidate 5 names
+   > `council-gate`. In fact **`code_lookup` exists on `fix-proposer` ONLY**, and
+   > even there it does not cover every seat:
+   >
+   > | lane | `code_lookup` step | whose `code_checks` are answered |
+   > |---|---|---|
+   > | `fix-proposer` | present | 6 seats — editquality, bug_historian, reuse_agent, guidelines, tooling_provenance, guardian |
+   > | `feature-designer` | **absent** | **none** |
+   > | `council-gate` | **absent** | **none** |
+   >
+   > **(a) `review_prior_art` is absent from `fix-proposer`'s `code_check_fields`.**
+   > So the seat whose charter is *"does it propose BUILDING something that already
+   > exists"* has its code questions dropped on **all three lanes**, not just the
+   > gate — including the one lane that has the machinery. Its `checks` (SQL) are
+   > collected; its `code_checks` are not.
+   >
+   > **(b) `feature-designer` has no `code_lookup` either**, which candidate 5 does
+   > not mention because the architecture seat post-dates this case. So
+   > `review_architecture` — now the platform's **only** forward-fitness voice after
+   > the owner's 2026-07-27 D9 ruling — emits `code_checks` that are *never routed
+   > anywhere*, on top of the `content` defect. Its prompt still says *"Answered
+   > from the `code_symbols` index next round."* Doubly false on that lane.
+   >
+   > Reproduce (the whole finding in one query):
+   > ```sql
+   > SELECT type,
+   >        default_config->'workflow'->'steps'->'code_lookup' IS NOT NULL AS has_code_lookup,
+   >        default_config->'workflow'->'steps'->'code_lookup'->'config'->'code_check_fields' AS answered_for
+   > FROM agent_definitions WHERE type IN ('fix-proposer','feature-designer','council-gate')
+   >   AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+   > ```
+   >
+   > **Interim mitigation SHIPPED 2026-07-27 18:3x (config-only, live, no image).**
+   > Not a fix — the seats still cannot look code up; they are merely no longer
+   > lied to. A `CODE INDEX LIMITS` paragraph now closes **all 15** prompts that
+   > mention `code_checks` (fix-proposer 7, council-gate 7 via the 099 mirror,
+   > feature-designer 1), stating that the index holds declarations only, mirrors
+   > the last *pushed* ref, and that on some lanes `code_checks` are not answered at
+   > all — therefore **an empty or missing code result is NO INFORMATION, never
+   > absence**, and an absence claim belongs in `missing` for a human. It is
+   > deliberately **lane-agnostic**: the 099 mirror forces `fix-proposer` and
+   > `council-gate` to carry identical prompt text, so a lane-specific sentence
+   > could not survive it — which is itself worth noting as a constraint on any
+   > future per-lane wording. Verify:
+   > `… WHERE prompt_template LIKE '%CODE INDEX LIMITS%'` → 7 / 7 / 1.
+
 ## How to verify a fix
 
 - **Defect B, induced:** `SELECT count(*) FROM code_symbols WHERE content ILIKE
