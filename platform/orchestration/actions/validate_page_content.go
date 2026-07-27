@@ -995,6 +995,15 @@ func loadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 			"treated as 'metric'; fix the register or add the kind (bugs_open/105)",
 			zap.Strings("unrecognised_kinds", unknown))
 	}
+	// The council's guardian seat asked for this: mapping `count` to `metric` is
+	// an interpretive judgement over 18 facts on 4 sites, and resolving it
+	// silently means nothing surfaces if the guess is wrong. Now it announces
+	// itself, so whoever wrote those registers can contradict it.
+	if aliased := eb.AliasedKinds(); len(aliased) > 0 {
+		logger.Info("evidence_base: fact kind(s) resolved through an alias — if this is "+
+			"NOT what the register's author meant, say so (bugs_open/105)",
+			zap.Strings("aliased_kinds", aliased))
+	}
 	return eb
 }
 

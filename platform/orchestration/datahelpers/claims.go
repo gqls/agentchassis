@@ -170,17 +170,48 @@ func (f EvidenceFact) KindIsRecognised() bool {
 	return canonicalFactKinds[k] || aliased
 }
 
-// IsLiveVerifiable reports whether this fact is one V4's freshness sweep may
-// re-run and raise drift on. The spec draws the distinction and no code enforced
-// it: a sql-sourced fact is live-verifiable and goes stale; an attestation is a
-// human's word and is checked for PRESENCE, not re-proved, so re-running a query
-// against it is meaningless. Both halves must hold — a capability claim with a
-// SQL source is exactly the promise-with-a-mechanism case this unlocks.
-func (f EvidenceFact) IsLiveVerifiable() bool {
-	if f.Source.SQL == "" {
-		return false
+// NOTE — IsLiveVerifiable was here and has been REMOVED (council, 2026-07-27).
+//
+// It encoded the spec's real distinction (a sql-sourced fact is re-provable and
+// goes stale; an attestation is a human's word, checked for presence, never
+// re-run) and had no production caller: only tests. The editquality seat pointed
+// out that this reproduces, for a second symbol, the exact defect this change
+// exists to fix — declared, documented, read by nothing. It was right, and the
+// objection is not answerable by arguing the accessor is nice to have.
+//
+// It belongs with its consumer, which is the bug file's candidate 2 (distinct V4
+// treatment for capability/attestation). V4 iterates raw map[string]interface{}
+// facts rather than typed EvidenceFact, so it needs a map-side sibling anyway;
+// that cost is part of candidate 2 and is not paid here.
+
+// AliasedKinds returns the distinct stored Kind values that this code silently
+// resolves to something else, so a caller can report them.
+//
+// The council's guardian seat objected that mapping `count` to `metric` is an
+// interpretive judgement — it may have been an intentional distinct kind for the
+// 4 sites and 18 facts that use it — and that because CanonicalKind resolves it
+// silently, "no signal will ever surface if the guess is wrong". That is exactly
+// right, and it is cheap to fix: the alias now announces itself wherever the
+// register is loaded, so a human with authorship context on those sites sees it
+// rather than having to go looking.
+func (eb *EvidenceBase) AliasedKinds() []string {
+	if eb == nil {
+		return nil
 	}
-	return f.CanonicalKind() != FactKindAttestation
+	seen := map[string]bool{}
+	var out []string
+	for _, f := range eb.Facts {
+		k := strings.ToLower(strings.TrimSpace(f.Kind))
+		if k == "" || canonicalFactKinds[k] {
+			continue
+		}
+		if target, ok := factKindAliases[k]; ok && !seen[k] {
+			seen[k] = true
+			out = append(out, strings.TrimSpace(f.Kind)+" -> "+target)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // UnrecognisedKinds returns the distinct stored Kind values in this register

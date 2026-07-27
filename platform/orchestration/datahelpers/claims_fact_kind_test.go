@@ -61,35 +61,6 @@ func TestKindIsRecognised(t *testing.T) {
 	}
 }
 
-// TestIsLiveVerifiable pins the distinction the spec draws and no code enforced:
-// a sql-sourced fact is re-provable and goes stale; an attestation is a human's
-// word, checked for presence, never re-run.
-func TestIsLiveVerifiable(t *testing.T) {
-	sql := EvidenceSource{SQL: "SELECT count(*) FROM pages"}
-	cases := []struct {
-		name string
-		f    EvidenceFact
-		want bool
-	}{
-		{"sql-backed metric", EvidenceFact{Kind: "metric", Source: sql}, true},
-		{"sql-backed count alias", EvidenceFact{Kind: "count", Source: sql}, true},
-		{"kind absent, sql-backed", EvidenceFact{Source: sql}, true},
-		// the promise-with-a-mechanism case this unlocks
-		{"sql-backed capability", EvidenceFact{Kind: "capability", Source: sql}, true},
-		// a human's word is never re-run, even if someone attaches a query
-		{"attestation with a query", EvidenceFact{Kind: "attestation", Source: sql}, false},
-		{"attested_by, no sql", EvidenceFact{Kind: "attestation",
-			Source: EvidenceSource{AttestedBy: "owner, 2026-07-10"}}, false},
-		{"artifact, no sql", EvidenceFact{Kind: "metric",
-			Source: EvidenceSource{Artifact: "docs/x.md"}}, false},
-	}
-	for _, c := range cases {
-		if got := c.f.IsLiveVerifiable(); got != c.want {
-			t.Errorf("%s: IsLiveVerifiable() = %v, want %v", c.name, got, c.want)
-		}
-	}
-}
-
 // TestUnrecognisedKinds is what a caller reports. It must be EMPTY for the live
 // vocabulary — if this fails, the alias table has fallen behind the fleet and
 // somebody's register is being silently reinterpreted.
@@ -146,5 +117,31 @@ func TestParseEvidenceBaseDoesNotRewriteKind(t *testing.T) {
 	if back.Facts[0].Kind != "count" || back.Facts[1].Kind != "banana" {
 		t.Errorf("round-trip changed the stored kinds: %q, %q",
 			back.Facts[0].Kind, back.Facts[1].Kind)
+	}
+}
+
+// TestAliasedKinds answers the council's guardian objection: the count->metric
+// mapping is an interpretive judgement over 18 facts on 4 live sites, and
+// resolving it silently means nothing surfaces if the guess is wrong. The
+// register must be able to say which kinds it had reinterpreted.
+func TestAliasedKinds(t *testing.T) {
+	eb := &EvidenceBase{Facts: []EvidenceFact{
+		{Kind: "metric"},      // canonical, not an alias
+		{Kind: "count"},       // aliased
+		{Kind: "count"},       // same alias, reported once
+		{Kind: "attestation"}, // canonical
+		{Kind: "banana"},      // unrecognised, not an alias
+		{Kind: ""},            // absent, not an alias
+	}}
+	got := eb.AliasedKinds()
+	if len(got) != 1 || got[0] != "count -> metric" {
+		t.Errorf("AliasedKinds() = %v, want [\"count -> metric\"]", got)
+	}
+	// An unrecognised kind is a DIFFERENT signal and must not be folded in here.
+	if u := eb.UnrecognisedKinds(); len(u) != 1 || u[0] != "banana" {
+		t.Errorf("UnrecognisedKinds() = %v, want [banana]", u)
+	}
+	if (*EvidenceBase)(nil).AliasedKinds() != nil {
+		t.Error("nil register must not panic")
 	}
 }
