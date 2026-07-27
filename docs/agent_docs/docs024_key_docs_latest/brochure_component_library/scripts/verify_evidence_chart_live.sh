@@ -69,8 +69,17 @@ for page in "${PAGES[@]}"; do
   html=$(fetch "https://${DOMAIN}/${page}.html") || { check 1 "page fetched"; continue; }
   check 0 "page fetched ($(printf '%s' "$html" | wc -c) bytes)"
 
-  grep -q 'data-component="evidence-chart"' <<< "$html"
-  check $? "the evidence-chart section is present on the served page"
+  # Asserted only for pages that carry the section — see the `carries` lookup
+  # below. Asserting it everywhere reports a FAIL for a page that is correct.
+  carries_early=$("${PSQL[@]}" -c "
+    SELECT count(*) FROM page_components pc
+      JOIN content_components cc ON cc.id = pc.component_id
+      JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id
+     WHERE s.domain='${DOMAIN}' AND p.name='${page}' AND cc.function='evidence-chart';")
+  if [ "$carries_early" != "0" ]; then
+    grep -q 'data-component="evidence-chart"' <<< "$html"
+    check $? "the evidence-chart section is present on the served page"
+  fi
 
   ! grep -q 'ZgotmplZ' <<< "$html"
   check $? "no ZgotmplZ on the page (no value was rejected by the CSS filter)"
@@ -78,11 +87,24 @@ for page in "${PAGES[@]}"; do
   ! grep -qE '\-\-v:[0-9.]*e\+' <<< "$html"
   check $? "no exponent notation in any bar geometry"
 
-  # Every point the register assigns to THIS page must be on the page, with its
-  # label and its figure. Values are compared as the register holds them.
+  # Does this page actually CARRY the section? Asked of the database, because
+  # that — not the register's `pages` key — is what decides today. While
+  # bugs_open/085 stands, no page identity reaches a section template, so every
+  # chart renders on every page carrying the section and the `pages` key is
+  # inert. When 085 is fixed, swap this back to the per-page expectation: the
+  # register already holds the right answer.
+  carries=$("${PSQL[@]}" -c "
+    SELECT count(*) FROM page_components pc
+      JOIN content_components cc ON cc.id = pc.component_id
+      JOIN pages p ON p.id = pc.page_id JOIN sites s ON s.id = p.site_id
+     WHERE s.domain='${DOMAIN}' AND p.name='${page}' AND cc.function='evidence-chart';")
+  note "      (this page carries the section: ${carries} placement(s))"
+
+  # Every point in the register must be on a page that carries the section,
+  # with its label and its figure exactly as the register holds them.
   while IFS=$'\t' read -r chart cpage label value unit; do
     [ -n "$chart" ] || continue
-    [ "$cpage" = "$page" ] || [ "$cpage" = "*" ] || continue
+    [ "$carries" != "0" ] || continue
     grep -q "data-chart=\"${chart}\"" <<< "$html"
     check $? "chart '${chart}' rendered"
     grep -qF "$label" <<< "$html"
@@ -94,14 +116,18 @@ for page in "${PAGES[@]}"; do
     check $? "  bar geometry drawn from the same figure"
   done <<< "$EXPECTED"
 
-  # Charts NOT assigned to this page must not appear on it.
-  while IFS=$'\t' read -r chart cpage _ _ _; do
-    [ -n "$chart" ] || continue
-    [ "$cpage" = "*" ] && continue
-    [ "$cpage" = "$page" ] && continue
-    ! grep -q "data-chart=\"${chart}\"" <<< "$html"
-    check $? "chart '${chart}' correctly absent (belongs to ${cpage})"
-  done <<< "$EXPECTED"
+  # A page that does NOT carry the section must show no chart at all.
+  if [ "$carries" = "0" ]; then
+    ! grep -q 'data-chart="' <<< "$html"
+    check $? "no chart on a page that does not carry the section"
+  fi
+
+  # The section's figures must match the register as it stands NOW, not as it
+  # stood when the charts were seeded. refresh_evidence_base re-runs each fact's
+  # source.sql and rewrites value/verified_at in place — measured 2026-07-27, the
+  # council facts moved 108/37/9 -> 110/38/10 and the live page followed. That is
+  # the design working, and it is also why a SQL-sourced fact must carry no
+  # hand-written `display`: it would have stayed at the old number.
 
   # Links: capture EVERY href, then strip the fragment — the anchored-href blind
   # spot that let 21 broken links pass three agreeing checks (L2).

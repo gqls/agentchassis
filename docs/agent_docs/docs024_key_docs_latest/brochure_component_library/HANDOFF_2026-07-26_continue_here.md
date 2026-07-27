@@ -36,6 +36,20 @@ not from the database:
 - **43 unique internal link targets across all 7 pages, 0 broken.** (Was 21 of 22
   broken.) Command in the RUNBOOK's "Live crawl" section; re-run it before
   trusting this line, it is a snapshot.
+
+  > **UPDATED 2026-07-27 — and the snapshot warning above earned its keep.** Two
+  > pages were rebuilt on the 26th to add the chart, and the rebuilds **authored
+  > 16 broken internal links** between them; the gate detected every one and
+  > shipped them as warnings. All repaired. Current crawl, 9 deployed pages,
+  > anchor-inclusive: **11 unique internal targets, 1 broken** — a favicon that
+  > has never existed (see §3a). The counts are not comparable: 43 counted
+  > anchored targets separately, 11 strips the fragment first.
+  >
+  > **The durable lesson is not the count.** A per-page link repair does not
+  > survive a rebuild of that page, so "the site is link-sound" describes an
+  > artefact and expires the next time anything is rebuilt. **Re-crawl after every
+  > rebuild**, and never with a pattern that excludes `#` (landmine L2 — it caught
+  > this workstream twice, the second time in this very document's own author).
 - 10 pages `deployed`. Contact page complete: `hero-contact` + `contact-form` +
   `contact-info`, phone live as `tel:`.
 - `self-correction-leopardessconsulting` LIVE (5 sections) — names
