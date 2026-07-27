@@ -144,3 +144,65 @@ the fix lane also generates forward-fitness questions and currently routes them
 to "a human" because nothing there owns them. Not enough to reopen the decision;
 enough that it should be on the table when D7(b) is answered. `[UNMEASURED]`
 how often this happens — one instance, noticed by reading, not counted.
+
+---
+
+## 2026-07-27 (late, cont.) — the seat's own prompt contains a false promise
+
+Went to ground §6 item 5's premise rather than repeat it from earlier docs.
+Live, 2026-07-27:
+
+```sql
+SELECT count(*), count(*) FILTER (WHERE path ILIKE '%.md'), count(DISTINCT path),
+       count(*) FILTER (WHERE COALESCE(content,'')<>''), max(updated_at)
+FROM code_symbols;
+-- 4535 | 0 markdown | 530 files | 4535 with non-empty content | 13:36:50
+```
+
+Markdown invisibility **confirmed**: 4,535 symbols, 100% Go, zero markdown. So
+the premise holds.
+
+**MISSTEP, and a good example of a column name doing the lying.** I read
+`with_body = 4535` as "bodies are indexed", which would have *contradicted*
+`bugs_open/108`'s central claim. It does not. `content` holds **declarations
+only**:
+
+```
+kind      count  avg_len  max_len
+func      2744   198      451
+method     947   203      413
+struct     789   108      181
+```
+
+`max_len` 451 for a whole package's longest function is not a body, and the
+longest `func` row is literally its signature line. So 108 is right and I was
+one query away from writing the opposite into a handoff. Same shape as the
+gauntlet thread's `js_content IS NULL` ≠ "no JS": **a non-empty column is not
+evidence the column holds what its name suggests.** The check that settled it was
+`max(length(content))` grouped by kind — one line.
+
+**The finding that came out of it, contributed INTO `bugs_open/108` rather than
+filed separately** (it is unowned; `who-owns.py` returns no owning workstream,
+its only recent commits are a renumber and a concept-register sweep):
+`review_architecture`'s prompt — the one I shipped an hour earlier — ends with
+*'kind "symbol" matches symbol names, **"content" searches source bodies**, "ls"
+lists indexed paths.'* Given 108 that clause is **false**. The seat will issue
+`content` checks for precisely what a forward-fitness call turns on (a route, a
+registry key, whether anything still references a symbol) and receive a zero it
+cannot distinguish from a real absence. Worse, the same prompt carries the right
+instinct on the SQL tier — *"Treat an empty result as 'no precedent found', NOT as
+'this is novel'"* — and **no equivalent warning on the code tier**, which is the
+one that is actually broken.
+
+**Deliberately NOT fixing that in the prompt.** Three other consumers
+(`review_prior_art`, `review_reuse_agent`, the diagnosis loop's
+`lookup_code_symbols`) carry the same false promise, so a prompt-only fix would
+leave them lying and would need redoing when 108 lands. 108's candidate 2 (index
+bodies from the `[line_start, line_end]` span already on every row) fixes all
+four at once — and 108 already records that the same candidate *"answers the
+schema half of the architecture thread's D8b"*. **So item 5 is mostly decided
+already and I had been about to design it from scratch.** What is genuinely left
+for this workstream is the **ranking** — reuse the concept register's
+rediscovery-frequency signal — not the plumbing. Grepping `/bugs_open/` for the
+mechanism before designing is what caught that, which is the rule working exactly
+as CLAUDE.md says it should.

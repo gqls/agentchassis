@@ -120,6 +120,32 @@ diagnosis loop's `lookup_code_symbols` step (`122_diagnose_agents.sql`).
 **The seats policing absence claims are fed manufactured absence, in the one
 direction that approves the plan.**
 
+**ADDED 2026-07-27 (late, architecture_review thread) — a fourth consumer, and it
+is worse than the three above because its prompt actively instructs reliance on
+the broken half.** `review_architecture` (seated on `feature-designer` ~13:30
+2026-07-27, i.e. after this case was filed) closes with:
+
+> `kind "symbol" matches symbol names, "content" searches source bodies, "ls"
+> lists indexed paths.`
+
+Given this bug, the middle clause is false, so the seat will issue `content`
+checks for exactly the things a forward-fitness judgement turns on — a route, a
+registry key, a config key, whether anything still references a symbol — and get
+a zero it has no way to read as manufactured. Note the same prompt *does* carry
+the right instinct on the SQL tier (*"Treat an empty result as 'no precedent
+found', NOT as 'this is novel'"*) and carries **no equivalent warning on the code
+tier**, which is the tier that is actually broken. Verified live 2026-07-27:
+`code_symbols` = 4,535 rows, **0 markdown**, 530 files, and `content` holds
+declarations only (`max(length(content))` = **451**; the longest `func` row is its
+signature line). Until candidate 2 or 3 lands, treat that clause as a known-false
+promise rather than a seat defect — no prompt edit is worth making twice, and
+fixing it in the prompt alone would leave the other three consumers lying.
+
+Cross-ref: `docs/agent_docs/docs024_key_docs_latest/architecture_review/`
+(`NOTES_architecture_seat.md`, and §6 item 5 of
+`HANDOFF_2026-07-27_continue_here.md` — candidate 2 below is most of that item's
+answer, so the two should be solved together rather than separately).
+
 Compounding, and worth its own line: on the **council-gate** the `code_lookup` step
 is deliberately not mirrored (`0NN_council_gate.sql:40-45`,
 `099_SYNC_gate_roster.py:28`), yet `review_prior_art` — which 099 *does* mirror —

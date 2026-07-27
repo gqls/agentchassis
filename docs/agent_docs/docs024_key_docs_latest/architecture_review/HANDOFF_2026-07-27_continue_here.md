@@ -219,7 +219,34 @@ did not look.
    counter-argument (four bars can be met formally by a wrong plan, and they say
    nothing about a change that is too *small* — that gap is the seat's
    `insufficient` signal, not the document's).
-5. **The real remaining design: how does a reviewer query markdown at all?** The
+5. **The real remaining design: how does a reviewer query markdown at all?**
+
+   > **UPDATED 2026-07-27 late — most of this is already answered by
+   > `bugs_open/108`, and the two should be solved TOGETHER, not separately.**
+   > 108's fix candidate 2 ("index bodies — populate a `body` column from the
+   > `[line_start, line_end]` span already stored on every row") explicitly notes
+   > it *"also answers the schema half of the architecture thread's D8b (indexing
+   > markdown so `WRONG_CALLS.md` and `bugs_open/` become reachable) — same
+   > question, already settled."* So the mechanism is decided; what is left for
+   > this workstream is the **ranking** (reuse the concept register's
+   > rediscovery-frequency signal, do not invent one), not the plumbing.
+   > **Grounded live 2026-07-27: `code_symbols` = 4,535 rows, 100% Go, `0`
+   > markdown, 530 files.** And `content` holds **declarations only** —
+   > `max(length(content))` = 451, the longest `func` row is its signature line —
+   > which confirms 108 rather than contradicting it. Beware `count(*) FILTER
+   > (WHERE content <> '')` = 4,535: it looks like every body is indexed and the
+   > column name promises more than it holds.
+   >
+   > **Consequence for the seat we just shipped, contributed into `bugs_open/108`
+   > (unowned; do not fork a second account):** `review_architecture`'s prompt
+   > tells it `"content" searches source bodies`, which given 108 is **false**, and
+   > the prompt carries no "an empty result is not an absence" warning on the code
+   > tier though it does on the SQL tier. **Do not fix that clause in the prompt
+   > alone** — three other consumers (`review_prior_art`, `review_reuse_agent`,
+   > the diagnosis loop's `lookup_code_symbols`) would still be lying, and a
+   > prompt edit is not worth making twice.
+
+   The
    concept register (`docs/agent_docs/docs026_concept_register/`) is most of the
    roadmap artefact I had claimed we lacked — concepts by subject, *including
    abandoned ones*, plus `DIRECTION_LEDGER.md` naming what is fixed (constitution +
