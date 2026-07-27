@@ -28,6 +28,24 @@
 -- 12 page-rerender orchestrations COMPLETED in the preceding 6 hours, the most
 -- recent at 11:24 today.
 --
+-- ── CORRECTED, ~2 MINUTES AFTER APPLYING: status MUST BE 'triaged' ────────
+-- This file first inserted the items with `status='detected'`, copying the
+-- convention every discovery check uses. **That is a queue with no consumer**,
+-- and it is `bugs_open/083`: the dispatch loop filters
+-- `status IN ('triaged','approved')` (`claim_work_item_action.go:102`,
+-- `load_work_item_actions.go:559`), and the ONLY thing that promotes
+-- `detected` -> `triaged` is `TriageDetectedItemsAction`, which runs only
+-- inside the `improvement-loop` agent, fired only by the `improvement-sweep`
+-- scheduled task — **disabled since 2026-05-02**. 98 rows sit parked fleet-wide
+-- because of it, 28 of them `page_rerender`. These five would have joined them.
+--
+-- Caught because the items sat at `detected` with no orchestration after 45s on
+-- a lane measured healthy minutes earlier (12 completions in 6h) — i.e. the
+-- discrepancy was between the LANE being alive and MY items not moving, which
+-- is a different question from "is it slow". The INSERT below now writes
+-- `triaged` directly. **Do not "follow the convention" here**: the convention
+-- is what 083 is about.
+--
 -- ── item_key AND THE DEDUP INDEX ──────────────────────────────────────────
 --   CREATE UNIQUE INDEX idx_swi_dedup ON site_work_items (site_id, item_key)
 --   WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified',
@@ -71,7 +89,7 @@ BEGIN
              format('Re-render %s — %s', r.name, r.why),
              jsonb_build_object('domain', r.domain, 'page_id', r.page_id::text,
                                 'page_name', r.name, 'reason', 'claims_corrected'),
-             40, 'page-rerender', 'detected', 'bugfix-043-lane',
+             40, 'page-rerender', 'triaged', 'bugfix-043-lane',   -- NOT 'detected' — see bugs_open/083
              format('page_rerender_%s_%s_claims_corrected', r.name, r.site_id),
              v_batch)
         ON CONFLICT DO NOTHING;
