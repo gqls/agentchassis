@@ -201,7 +201,11 @@ two of which declare `pages: ["capabilities"]`.
 identity was available and simply never reached the render base. Fix: pass it and
 set `base["current_page"] = strings.TrimSuffix(pageName, ".html")`. Regression added
 to `rerender_page_sections_base_data_test.go` and proven to detect its own defect.
-Council round 3 on the same correlation. **Needs the NEXT roll.**
+**Council round 3: APPROVED** (2 advisory, none high-severity) on the same
+correlation `b64141e5-b95c-418d-a20d-e917f050ed75`; committed with the trailer.
+**Needs the NEXT roll.** All three rounds are on that one correlation, so the trail
+reads in order: REVISE → APPROVED (build path, shipped v1.0.1173) → APPROVED
+(scoped path, inert).
 
 ### The complete survey (do this instead of trusting a caller count)
 
