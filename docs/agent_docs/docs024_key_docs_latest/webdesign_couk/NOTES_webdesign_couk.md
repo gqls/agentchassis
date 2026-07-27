@@ -670,3 +670,72 @@ Reading the two due-queries took ninety seconds and refuted it. Had I "fixed" it
 I would have set five timestamps, watched the next tick do nothing, and had no
 idea why — with a plausible-looking fix already committed to argue against the
 real cause. **The cheap check was: grep the column, read the consumer.**
+
+### The first tick fired, dispatched correctly, and ingested nothing — 029's shape
+
+SQL_p9 worked exactly as intended and the feed still produced zero items. Both
+halves of that sentence matter, and separating them took one query.
+
+**What worked (the fix is verified, not assumed).** At 13:49 the site was
+enumerated for the first time and all five sources were dispatched with correct,
+well-formed payloads — right `site_id`, right `source_id`, the editorial query
+intact (`"web design visual trends typography colour"`). `next_fetch_at` moved
+from NULL to 19:58 on all five, which is the dispatcher's optimistic stamp
+(`dispatch_feed_sources_action.go:271`). None of that could have happened before
+SQL_p9.
+
+**What then failed, and is not ours.** All five orchestrations died at
+`spawn_ingester`:
+
+```
+spawn_ingester | FAILED | Request <id> timed out after 3 retries | elapsed ~00:08:07
+```
+
+`error` was populated here, but `collected_data->>'__step_error'` was **empty** —
+worth knowing, since the standing advice is to reach for `__step_error` first. On
+this failure class the plain `error` column is the one carrying the message.
+
+**The discriminating check, which is the transferable part.** My feed had been
+armed that same hour, so the overwhelmingly natural reading was "SQL_p9 is
+wrong". The check that settled it in one query was to look at **the same tick on
+a site I had never touched**:
+
+```
+ vetcomparison.uk | failed 1 | new_items 0     <- not mine
+ webdesign.co.uk  | failed 5 | new_items 0
+```
+
+Two sites, two unrelated threads, one tick, zero items. Not ours.
+
+**Cause: `bugs_open/029` (hung spawns — resolve BY SLUG, `bugs_closed/029` is the
+unrelated phantom-links case).** Its corrected diagnosis says roll-adjacent, and
+that is exactly what this was:
+
+```
+agent-chassis pod startTime = 13:45:31Z
+content-feed-refresh fired   = 13:49:09     <- 218 s later, inside the ~300 s window
+```
+
+That file is **heavily owned** — six council rounds, active through 07-26 — so I
+contributed the occurrence into the bug file and started no competing fix.
+
+> **CORRECTED — my earlier `[INFERRED]` note in this file about a 12-hour
+> effective cadence is now MEASURED, and it holds.** I marked it inferred from one
+> cycle and said so. Three days of ingestion history confirm it: items land only
+> in the 07:xx and 19:xx–20:xx hours, never 01:xx or 13:xx, across four sites.
+> The marker did its job — it stopped me repeating a one-cycle guess as fact, and
+> the check that upgraded it was three lines of SQL.
+>
+> The consequence is sharper than I first wrote. **The 13:49 tick is structurally
+> the quiet one**, because established sources always come due just after it. So
+> the tick our newly-armed site landed in was the one carrying *only* never-fetched
+> sources — which is why a single roll took out 100% of that tick's work.
+
+**Recovery.** The five sources sat at `next_fetch_at = 19:58`, **9 minutes past**
+the 19:49 tick — the same staggering trap, which would have deferred them to
+01:49. Reset to NULL, guarded on `last_fetched_at IS NULL` so a success could not
+have been clobbered. Due again at 19:49.
+
+**Still true and unchanged:** the page must have items before it builds, and must
+be built before chrome is re-rendered. Nothing about this failure changes that
+order; it only delays it.

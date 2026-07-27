@@ -314,3 +314,69 @@ for the same reason as before.
 
 **And the Cloudflare analytics step is still sitting with you** — it hasn't moved since this
 morning, and it's still the highest-value five minutes on the project.
+
+## 27 July, mid-afternoon — the feed fired, dispatched properly, and still brought back nothing
+
+Mixed news, but the good part is solid and worth stating first: **the fix works.** At 13:49
+the site was picked up by the news job for the first time ever, and all five of our search
+topics were sent off correctly, with the exact search wording we'd chosen intact. None of that
+could have happened this morning. The thing that was broken is fixed and I've verified it
+rather than assumed it.
+
+**What then went wrong is not ours.** Every one of the five jobs died about eight minutes
+later, all with the same message — the job was handed off and the thing meant to pick it up
+never answered, three times over.
+
+My first thought was that I'd broken it, because I'd armed this feed less than an hour
+earlier and that's the obvious suspect. The way I checked took about a minute and I'd
+recommend it to anyone in the same position: **look at a site you haven't touched, in the same
+run.** vetcomparison.uk went through the identical failure in the identical run. Two different
+sites, two different people's work, one scheduled run, nothing fetched by either. So it isn't
+my change — it's the platform underneath.
+
+**And it's a known problem that somebody else is already deep into fixing.** There's an open
+case about jobs hanging when they're handed off shortly after the system restarts. Our run was
+unlucky in a very specific way: the platform restarted at 13:45:31 and our news job fired at
+13:49:09 — three minutes and thirty-eight seconds later, inside the window where this is known
+to happen. I've added our example to their case file, because a fresh dated instance is
+genuinely useful to them, and I've deliberately not started a rival fix — that's their work
+and they're several rounds into it.
+
+**One thing I found while digging that's worth telling you**, because it affects how you should
+read this. The news job is set to run every six hours, so four times a day. In practice it only
+ever brings anything back **twice** a day. I checked three days of history across four sites
+and articles only ever arrive in the 7am and 7pm runs — never the 1am or 1pm ones. The reason
+is a small timing quirk: a site's next fetch time is set when the articles arrive, a few
+minutes after the run starts, which means it comes due *just* after the following run and
+misses it by a whisker. On one site I measured the miss at thirty-seven seconds.
+
+That's mildly wasteful in general, but it explains our bad luck exactly: the 1:49pm run is
+structurally the quiet one, so it was carrying only brand-new sites like ours and nothing
+established — which is why one restart wiped out the entire run.
+
+**Where we are now.** I've reset our five topics so they're due again at the 7:49pm run, which
+is one of the two that historically works. Left alone they'd have drifted to nearly 2am. There
+was nothing to fix on our side.
+
+The order still stands and hasn't changed: articles arrive, *then* the news page gets built,
+*then* the News link goes live in the menu. I haven't published that link and won't until the
+page genuinely exists.
+
+**Separately, you answered the three open questions and I've recorded them properly.** You
+chose to serve both audiences with fully separate tracks — that's the more expensive answer and
+I think it's the right one, because a single buyer section inside a tool library treats buyers
+as an afterthought, which is the exact problem the brief is trying to fix. I checked, and there
+is genuinely no buyer content to build on: all 63 tools and all 31 guides are written for
+practitioners. So that track is entirely new writing, and I've drafted a plan for it.
+
+Two things in that plan I'd like you to look at. First, I've suggested calling the section
+**Hire** — it's short and plain, but it's your call since it sits in the menu. Second, and more
+importantly: the most obvious page to write is "how to judge a quote", and it's the most
+dangerous page we've ever planned, because the natural way to write it is with price figures we
+simply don't have. We've shipped made-up numbers twice on this project. So my rule is that page
+ships with **no figures at all** unless you have real pricing data from your own work — it can
+still be genuinely useful by explaining what a quote should itemise and what a cheap one has
+quietly left out.
+
+**And the Cloudflare analytics step is still with you.** Still five minutes, still the
+highest-value five minutes on the project, still nothing being collected until it's done.
