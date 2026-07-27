@@ -70,11 +70,22 @@ const (
 	ProvenanceReemitted = "reemitted_value" // the model emitted its answer, then re-emitted the SAME SHAPE
 )
 
-// ParseLLMJSON parses an LLM response as JSON. Wrapper kept for the existing
-// callers; see ParseLLMJSONWithProvenance for which recovery was used.
+// ParseLLMJSON parses an LLM response as JSON. Wrapper over
+// ParseLLMJSONWithProvenance, which reports which tier produced the value.
+//
+// `repaired` keeps its ORIGINAL meaning — "the escaping-only repair was needed" —
+// and deliberately does NOT become true for a tier-3 recovery. Council review
+// (corr c2d3e477, edit-quality + bug-historian, medium) caught that widening it
+// would silently change behaviour for any caller branching on it. There are in
+// fact zero production callers left (`grep -rn "ParseLLMJSON(" --include=*.go`
+// finds only tests, since ExecuteLLMPromptAction now calls the provenance form),
+// so the exposure is nil either way — but a flag whose meaning depends on which
+// tiers happen to exist is a trap for the next caller, and narrowing it costs one
+// expression. A caller that wants to know about a tier-3 recovery must ask for the
+// provenance, which is the point of returning it.
 func ParseLLMJSON(s string) (value interface{}, repaired bool, err error) {
 	value, prov, err := ParseLLMJSONWithProvenance(s)
-	return value, prov != ProvenanceClean, err
+	return value, prov == ProvenanceRepaired, err
 }
 
 // ParseLLMJSONWithProvenance parses an LLM response as JSON and reports HOW it
@@ -164,6 +175,14 @@ func extractCompleteJSONValue(s string) (interface{}, string, bool) {
 	// this function recovered, 59 began with a markdown heading, and every one of
 	// those belonged to experience-planner / tool-generator / generic — agents whose
 	// steps ask for markdown. None of page-content-writer's did.
+	//
+	// The prefix test is deliberately narrow, and council review (corr c2d3e477,
+	// guardian, low) asked whether a heading further into the response could slip
+	// past it. Measured on the same corpus: of the 34 responses this function
+	// recovers, ZERO contain a markdown heading anywhere — at the start or not
+	// (`(?m)^#{1,6} `). So a wider sniff would change nothing today, and a heuristic
+	// that fires on no observed input is a liability rather than a guard. If that
+	// count ever moves, widen this test — do not add a second one elsewhere.
 	if strings.HasPrefix(s, "#") {
 		return nil, "", false
 	}
