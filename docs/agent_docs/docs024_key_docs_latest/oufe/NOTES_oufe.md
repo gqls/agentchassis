@@ -808,3 +808,46 @@ commonest arrangement in the component library, which is a brochure.
 oufe wants a reading order and got a conversion funnel. The "Get Started" button
 and "Our Services" footer group I removed earlier in the week were the same cause
 showing up in the chrome.
+
+### The tool install reproduced a bug I had filed the day before
+
+`PREPARED_tool_insert.sql` was written 2026-07-25 with `slot_name = 'main'` and no
+`pages.sections` entry. I filed `bugs_open/095` on 07-26, describing exactly that
+failure: a wrong slot name matches no section, renders nothing, and the run
+reports `COMPLETED | complete_skipped`. On 07-27 I applied the file unchanged and
+hit it again.
+
+The file predates the bug report, so nothing was ignored. What was missing is the
+step between: **filing a bug does not fix the artefacts that already contain it.**
+Nothing swept the repo for other files carrying the same shape, and the prepared
+file sat there for two days with the defect written into it in advance.
+
+Both corrected in the file itself, so the next reader gets the fixed version
+rather than the fixed *description*.
+
+Worth noting alongside the humanised-copy work in the same session, because it is
+the same shape twice in one day: the rule existed and the artefact didn't follow
+it. Rule 3 was in the writer prompt and the copy still broke it; bug 095 was in
+the bug list and the SQL still broke it. **Writing a rule down changes nothing
+that already exists** — the rule needs either a sweep over what's already there,
+or a check that runs against output rather than intent.
+
+### Copy measured after the rewrite
+
+| page | em dashes | negative frames | "It is/does" openers |
+|---|---|---|---|
+| `/` before | 3 | 7 | 0 |
+| `/` after | 1 | 6 | 0 |
+| `/about` before | 3 | 19 | 6 |
+| `/about` after | **0** | **6** | **1** |
+
+The remaining six on `/about` are largely legitimate and should stay: the
+required "not investment advice, not a financial promotion" disclaimer, a
+conditional ("where a figure is not yet verified"), and two trailing-clause
+contrasts, which rule 3 explicitly permits once the fact has been stated first.
+The counter is crude — it matches "is not" anywhere — so read the sentences
+rather than the number. The paragraph-opening negative frames, which are what
+rule 3 is actually about, are gone.
+
+Three highlight blocks on `/about` are still generator copy; only the first was
+rewritten. Owed.

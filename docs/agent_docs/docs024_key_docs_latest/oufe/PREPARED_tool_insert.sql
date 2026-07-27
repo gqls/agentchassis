@@ -81,8 +81,13 @@ SELECT
 FROM sites s WHERE s.domain = 'oufe.com';
 
 -- 3. bind component to page --------------------------------------------------
+-- pages.sections must list the component too, or the renderer matches nothing.
+UPDATE pages SET sections = '["tool-recovery-waterfall"]'::jsonb
+ WHERE site_id = (SELECT id FROM sites WHERE domain='oufe.com')
+   AND name = 'tool-recovery-waterfall';
+
 INSERT INTO page_components (page_id, component_id, position, slot_name, build_status)
-SELECT p.id, c.id, 1, 'main', 'pending'
+SELECT p.id, c.id, 1, 'tool-recovery-waterfall', 'pending'
 FROM pages p
 JOIN sites s ON s.id = p.site_id
 CROSS JOIN content_components c
@@ -90,8 +95,11 @@ WHERE s.domain = 'oufe.com'
   AND p.name = 'tool-recovery-waterfall'
   AND c.function = 'tool-recovery-waterfall'
   AND c.name = 'tool-recovery-waterfall-oufe-com';
--- NOTE: slot_name must NOT be NULL. A null slot renders nothing while the job
--- still reports COMPLETED (idea.uk delivery trap).
+-- NOTE: slot_name must equal the component FUNCTION name and must also appear in
+-- pages.sections. 'main' is wrong and fails SILENTLY — see bugs_open/095. This
+-- file said 'main' when it was written on 2026-07-25, which is BEFORE 095 was
+-- filed on 07-26; applying it on 07-27 reproduced the bug I had already
+-- documented. Corrected here.
 
 -- 4. travelling PLAN with acceptance criteria --------------------------------
 UPDATE doc_plans SET is_current = false, superseded_at = now()
