@@ -7178,3 +7178,50 @@ characterisation over the artefact it describes**. The memory was not fabricated
 was a fair summary of an outcome ("colours churn, this field helps") that hardened
 into a mechanism claim ("this field pins them"). Summaries of behaviour drift into
 claims about mechanism, and the drift is invisible because both sound like knowledge.
+
+---
+
+## 2026-07-27 — "8 of 14 live sites render an empty footer contact block" — I measured the table whose NAME matched the concept
+
+**The claim:** filed as the justification for `bugs_open/111`, with a query and a list of
+eight named domains, from:
+
+```sql
+SELECT s.domain, ss.data->'contact'->>'email', ss.data->'contact'->>'phone'
+FROM sites s LEFT JOIN site_specs ss ON ss.site_id=s.id AND ss.aspect='identity' …
+```
+
+**Why it is false:** the renderer does not read `site_specs.identity.contact`. It reads
+**`sites.email`**, which is populated on **13 sites** with a deliberate house convention,
+`<name>@contactforsales.com` — including all eight I listed as having nothing. Once
+relojistas' chrome was actually regenerated, its footer rendered
+`relojistas@contactforsales.com` correctly, and the gate I had added correctly omitted the
+null phone line.
+
+The empty block that started it all was **stale chrome frozen on 2026-07-16**
+(`bugs_open/117`), from before `sites.email` was set — a four-day-old artefact read as a
+live rendering defect.
+
+**What caught it:** rendering it. The block came back populated, which no reading of my own
+measurement could have predicted.
+
+**The cheap check that would have caught it:** **find what populates the field before
+measuring a proxy for it.** `grep -rn 'ctx.Email' component_library.go` leads to
+`sites.email` in seconds. I picked the table whose *name* matched the concept ("identity →
+contact → email") over the column the code actually reads, and then measured it precisely
+enough — 14 rows, named domains, a reproducible query — that it looked like evidence.
+**Precision in the wrong place reads exactly like rigour.**
+
+**Cost:** a filed bug whose headline severity was wrong for about three hours, corrected in
+place before anyone acted on it. Cheap here; a fleet-wide "8 sites are broken" figure quoted
+into a handoff would not have been.
+
+**Same investigation, same shape, twice more** — all three are one error repeated:
+- *"the footer nav comes from the `pages` query"* — it comes from `site_nav_items`.
+- *"`InjectFooter`'s skip-guard freezes the footer"* — **the single-page path never calls
+  `InjectFooter`**; `grep -n 'InjectFooter' rerender_single_page_action.go` returns nothing.
+  I filed a bug on that mechanism and had to rewrite it.
+  *Check: before asserting a function is the cause, grep the calling path for its name.*
+
+Family: measured-a-proxy-for-the-real-source, first-plausible-function-is-not-the-path,
+precision-in-the-wrong-place-reads-as-rigour.
