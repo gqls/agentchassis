@@ -104,13 +104,17 @@ is a stored artefact (`site_components.rendered_html`), frozen here since 07-16,
 by `assemblePage`. Trigger: a `nav_drift` work item handled by `nav-updater`
 (→ `render_site_components`). See `bugs_open/117`. **Then re-render the pages.**
 
-**The contact column is GATED but still renders, correctly** — `sites.email` holds
-`relojistas@contactforsales.com` (a 13-site house convention; NOT
-`site_specs.identity.contact`, which is null). The gate correctly dropped the empty phone
-line. **OWNER DECISION OPEN:** that address is a contact route on a site ruled to have none —
-but it is a *sales* address on a domain that is for sale, and clearing it edits a fleet
-convention. `bugs_open/111`'s "8 sites show an empty block" claim is **refuted** (corrected
-in place). Gate applied to BOTH `footer-theme-chrome` and `footer-4-column` because chrome
+**The contact address is CLEARED (owner, 2026-07-27).** The footer had been rendering
+`relojistas@contactforsales.com` — correctly, from **`sites.email`**, a 13-site house
+convention, NOT from `site_specs.identity.contact` (null). Owner ruled: clear it. `sites.email`
+is now NULL **for this site only** (backup `bak_reloj_sites_email_20260727`); **the other 12
+sites keep theirs** — do not "restore" it. With email and phone both empty the
+`{{if or .email .phone}}` gate omits the contact column entirely. `bugs_open/111`'s "8 sites
+show an empty block" claim is **refuted** (corrected in place).
+
+**Favicon SHIPPED** (`e72bd7b`, live and byte-verified): the last broken internal reference —
+all 19 pages had referenced `/assets/images/favicon.png` since launch and it 404'd throughout.
+Built from the site's own logo (the gear glyph replacing the "o"), 180×180. Gate applied to BOTH `footer-theme-chrome` and `footer-4-column` because chrome
 selection has no `is_active` filter and picks alphabetically — the deactivated
 `footer-4-column` is what actually renders fleet-wide (`bugs_open/118`). Backups:
 `bak_footer_theme_chrome_20260727`, `bak_footer_4column_20260727`.
