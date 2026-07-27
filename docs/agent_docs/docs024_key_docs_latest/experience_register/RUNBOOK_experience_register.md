@@ -200,3 +200,74 @@ jq -r '.plan.grounded_in[]' <submission.json> | while IFS= read -r q; do
 caller, the linker drops it. **A dead-code symbol is not a deployment check.** Grep a string that
 is reachable — for P2a, the `experience-pattern` literal in `validDocSubjectTypes`, consumed by
 `docResolveSubject` — and always with a positive and a negative control.
+
+## Seeding the register from harvest (2026-07-27)
+
+```
+./docs/agent_docs/docs024_key_docs_latest/experience_register/240_TRIGGER_seed_harvested_entries_v1.sh
+./240_TRIGGER_seed_harvested_entries_v1.sh CC-001     # one, by filename prefix
+DRY_RUN=1 ./240_TRIGGER_seed_harvested_entries_v1.sh  # build payloads, publish nothing
+```
+
+Dispatches one `experience-register-writer` run per harvested entry (migration 238). It does
+**not** INSERT: migration 218 seeded no entries by raw INSERT so the register's first rows would
+be ones its own contract accepted, and seeding by SQL throws that evidence away.
+
+**The precheck is the important part, and it needs BOTH directions.** v1.0.1175 carried the
+INVENTED contract shape and would have refused all nine entries while looking healthy:
+
+```bash
+strings /app/agent-chassis | grep -c "contract must be an array of clauses"      # want >= 1
+strings /app/agent-chassis | grep -c "contract.triggers must be a non-empty array"  # want 0
+```
+
+The second is load-bearing: a positive-only grep cannot distinguish "the fix shipped" from "both
+shapes are present". The script refuses on either, and also refuses within 300s of a chassis
+restart (a dispatch that soon after a roll is silently dropped).
+
+**`grep -c` prints `0` AND exits 1 on no match**, so `... || echo 0` appends a SECOND zero and
+turns the comparison into `[: 0\n0: integer expression expected`. Swallow it inside the pod
+(`grep -c … || true`) and strip to digits.
+
+**The entry files are DOCUMENTS, not payloads.** They carry `_`-prefixed commentary and a `status`
+recording that they are harvest drafts. The trigger strips both — the action refuses a supplied
+status by design.
+
+Verify (a row is not proof the entry is right):
+
+```sql
+SELECT name, kind, status, executable_checks, jsonb_array_length(deferred_checks) AS deferred
+FROM experience_patterns ORDER BY name;
+
+-- entries and their travelling docs must match; a gap means the write landed and the doc did not
+SELECT (SELECT count(*) FROM experience_patterns) AS entries,
+       (SELECT count(*) FROM doc_plans WHERE subject_type='experience-pattern' AND is_current) AS docs;
+
+-- refusals surface as FAILED orchestrations, NOT as missing rows
+SELECT current_step, status, left(error,300) FROM orchestration_states
+WHERE collected_data->'input_data'->'experience_pattern' IS NOT NULL
+ORDER BY created_at DESC LIMIT 12;
+```
+
+## Rolling the chassis for this workstream
+
+`make build-agent-chassis` builds from committed HEAD. Verify committed HEAD compiles FIRST —
+`git archive HEAD` into a temp dir, `go build ./cmd/... ./platform/... ./internal/...` — because
+the working tree may not compile at all (another session mid-edit) and a failed build wastes the
+cycle. Note `go build ./...` fails on a stray `main` package under `docs/`; that is not the
+service.
+
+**Verify the image before pushing, with a NEGATIVE control**, so a bad image never reaches the
+cluster:
+
+```bash
+docker run --rm --entrypoint sh docker.io/aqls/agent-chassis:$TAG -c \
+  'strings /app/agent-chassis | grep -c "<a string your change CREATED>";
+   strings /app/agent-chassis | grep -c "<a string your change REMOVED>"'   # want 0
+```
+
+**Do NOT use `push-backend` or `deploy-agents` for a one-service roll**: both are fleet-wide.
+`push-backend` pushes all 14 backend images at `IMAGE_TAG` (the 13 you did not build do not exist
+at that tag), and `deploy-agents` rewrites every service's kustomization to it. Push the one image
+and apply the one overlay. Check for in-flight orchestrations first — a roll orphans them, and
+that is the likeliest cause of the eight runs reaped on 2026-07-26.
