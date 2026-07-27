@@ -196,6 +196,24 @@ two of which declare `pages: ["capabilities"]`.
 > map on this path. 016b §9: *a fix applied to one branch of a two-branch router
 > reads as done, and the other branch keeps the bug.*
 
+**The failing run was HEALTHY, which is the half of this evidence that matters.** The
+orchestration finished `COMPLETED / complete`, `error` NULL, no `__step_error` — so
+the section really was re-rendered by the new binary, not left stale by a run that
+died before writing. A failed run produces the same symptom for an entirely different
+reason and the diagnosis would have been wrong. Confirmed on the SERVED page too,
+because a stored render is not proof of what a visitor gets:
+
+```
+$ curl -fsS https://fundamentallyai.com/index.html | grep -oE 'data-chart="[a-z-]+"' | sort -u
+data-chart="council-review-outcomes"      <- declared pages: ["capabilities"]
+data-chart="news-pipeline-credibility"    <- declared pages: ["capabilities"]
+data-chart="relojistas-feed-restoration"  <- the only one that belongs on this page
+```
+
+Stored row and served page agree exactly (`page_components.updated_at
+2026-07-27 14:08:17`), so this is the current state of the live site, not a stale
+artefact of an older render.
+
 `pageName` is already local at the call site — passed to
 `newSourceResolver(siteID, params.DB, logger, pageName)` on the line above — so the
 identity was available and simply never reached the render base. Fix: pass it and
