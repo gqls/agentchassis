@@ -89,15 +89,25 @@ derived from `pages` — archiving does not touch it; contributed to 098). Hero 
 cleared (an inherited `+34` number from the dead forum); the `needs_section_data` request
 for a business email closed `wont_fix`.
 
-**VERIFIED LIVE 2026-07-27 17:45 — 18 of 18 pages, and a full probe of every internal link:**
+**VERIFIED LIVE 2026-07-27 19:00 — 18 of 18 pages, every contact surface gone, site link-clean:**
 
 ```
-18 pages: 0 href="/contacto.html"   0 href="/contact.html"   0 hero "Get Started"
-/contacto.html -> 404 ;  feed.xml still 30 items
-every internal target probed -> only 2 non-200, BOTH pre-existing and unrelated:
-   404 /assets/images/favicon.png   (long-known gap)
-   301 /guias/mantenimiento          (harmless redirect)
+18 pages, all five surfaces zero on every one:
+   href="/contacto.html"  href="/contact.html"  <h4>Contact</h4>
+   email-protection (the CF-obfuscated address)  "Questions:"
+/contacto.html -> 404      favicon.png -> 200      feed.xml -> 30 items
+every internal target probed: 25 distinct, ALL 200 except
+   301 /guias/mantenimiento  -> resolves 200 at /guias/mantenimiento/ (trailing slash)
+⇒ ZERO broken internal links on the site.
+homepage footer now: Quick Links + Our Services only.
+homepage hero: "Leer las últimas noticias" -> /noticias/index.html
+               "Explorar el glosario"      -> /glosario/index.html
 ```
+
+**Grep all five surfaces, not one.** Each was a separate mechanism — the page, the platform
+CTA default, the nav table, the stored chrome, and `sites.email` feeding *two* templates (the
+footer column and the intent-probe's `{{if .contact_email}} Questions: …` clause). Checking
+any one of them would have passed while the others still served.
 
 **Getting the footer to change needed a SITE-CHROME rebuild, not a page re-render** — chrome
 is a stored artefact (`site_components.rendered_html`), frozen here since 07-16, used verbatim
