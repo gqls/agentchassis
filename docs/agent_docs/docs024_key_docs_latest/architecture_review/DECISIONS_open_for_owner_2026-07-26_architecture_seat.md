@@ -468,7 +468,32 @@ Consequences, in ascending order of seriousness:
   that the council reviews *plans against prompts*, not plans against history,
   and that the misstep corpus is a **human** instrument. Honest, and cheap.
 
-### D8a′ — SUPERSEDES D8a. Tell the seats their minutes exist. (owner: approved in intent 2026-07-27)
+### D8a′ — SUPERSEDES D8a. **APPLIED AND LIVE 2026-07-27.**
+
+**Owner ran it 2026-07-27.** `fix-proposer` patched (`UPDATE 1`, 5 seats), then
+`099_SYNC_gate_roster.py --apply` mirrored to `council-gate` — dry run showed no
+seats added or removed, routing OK, drift exactly the five patched steps, snapshot
+taken. **Verified live: 5 seats × 2 agents = 10 rows** carrying `council_report`,
+with the deflection check present on the guardian in both. Config is live
+immediately; no image, no roll. Commands and the three gotchas are in
+`RUNBOOK_architecture_seat.md`.
+
+The five seats now told their minutes exist: `review_guardian`,
+`review_bug_historian`, `review_debug_historian`, `review_prior_art`,
+`review_reuse_agent`. The guardian additionally carries D5's finding — before
+deflecting a change to a higher layer it is told to count how often that site has
+already been sent upward, and that a site which keeps returning is evidence the
+deflections are not holding.
+
+**Not yet measured [UNMEASURED]:** whether the seats actually use it. The check
+is whether `council_report` appears in any seat's `checks` array on subsequent
+runs, and whether the guardian's stability-preference objections start citing
+prior deflections. Worth reading after the next handful of council runs — and it
+is the honest test of this change, not the fact that the text is present.
+
+---
+
+### D8a′ (as proposed) — Tell the seats their minutes exist.
 
 Given the correction above, the right first move is **not** a schema change:
 
