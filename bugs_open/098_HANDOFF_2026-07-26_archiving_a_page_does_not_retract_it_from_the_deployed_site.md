@@ -156,3 +156,62 @@ deployment, not correctness.
   detector of the class in candidate 4 would need to cover both.
 - `bugs_open/071` — the validate gate detects every broken link then discards the
   finding. Relevant to candidate 4: detection may already exist and be thrown away.
+
+## Second surface, found 2026-07-27 on relojistas.com — archiving also leaves the NAV row live
+
+This case says archiving retracts a page from the platform's model but not from the
+site. There is a **second thing it does not retract, and it is more visible than the
+frozen page itself: the navigation entry.**
+
+Retiring relojistas' `contacto` page (owner ruling: the site carries no contact route)
+went `pages.status='archived'`, `in_header=false`, `in_footer=false`, then the file
+deleted from `vm-sites` — so 098's frozen-artefact problem was handled deliberately and
+`/contacto.html` became a correct **404**.
+
+**Every page then advertised that 404 from its own footer.** After a successful
+re-render at 14:29:57 — *five minutes after* the archive — the homepage still carried
+three `href="/contacto.html"` links.
+
+The nav is not derived from `pages`. `RerenderSinglePageAction` calls `GetNavItems`
+(`nav_tables.go:86`), which reads **`site_nav_items` / `site_nav_groups`** and only falls
+back to a `pages`-derived query for sites predating those tables (the fallback
+`bugs_closed/053` narrowed). The live filter is `ni.status = 'active'`. Nothing in the
+archive path writes that table:
+
+```
+group_type | label    | url            | status
+utility    | Contacto | /contacto.html | active     <- still active after the page was archived
+```
+
+**Why this belongs here rather than in its own file:** it is the same defect one layer
+up. 098 is *"the page keeps serving"*; this is *"the nav keeps pointing"*. Same cause —
+archiving is modelled as a `pages` state change, while every other surface holding a copy
+of the page's existence (the deployed file, the nav table) is untouched. A fix that
+reaches only the deployed artefact will still leave the nav dead-linking, and a reader of
+this case would reasonably assume otherwise.
+
+**It also inverts this case's severity note.** Filed here as "low today — one live
+instance, on an orphan URL, no sitemap". A stranded *nav* entry is the opposite: it sits
+in the chrome of **every page on the site** — the most-crawled, most-clicked position
+there is. On relojistas that was 18 pages advertising one 404.
+
+**For candidate 4 (a detector):** cheap, and needs no crawl —
+
+```sql
+SELECT g.site_id, i.label, i.url
+FROM site_nav_items i
+JOIN site_nav_groups g ON g.id = i.group_id
+LEFT JOIN pages p ON p.id = i.page_id
+WHERE i.status = 'active'
+  AND (p.id IS NULL OR p.status <> 'active');
+```
+
+Anything returned is a nav entry pointing at a page the platform has retracted.
+**[UNMEASURED] whether other sites carry stranded nav rows** — I checked only this site;
+worth running fleet-wide before designing the fix.
+
+Repaired here by setting the row `inactive` (backup `bak_reloj_navitem_contacto_20260727`)
+and re-firing every page. **Convention trap:** the 4 pre-existing non-live rows fleet-wide
+use `inactive`; `archived` is also excluded by the `= 'active'` filter but would be
+invisible to anyone querying by convention. Evidence, and the wrong turn that found it:
+`traffic_probe/relojistas_rebuild_running_notes.md`, 2026-07-27.

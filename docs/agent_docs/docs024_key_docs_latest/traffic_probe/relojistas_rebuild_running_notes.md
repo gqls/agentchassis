@@ -1666,6 +1666,53 @@ commit `7c0ee759c`) — it is a shared fleet component and the tier wording is o
 seam exists** (no column on `sites`; `language` appears only inside `deploy_config.rss_feed`,
 which is `"es"` here).
 
+### CORRECTED, same session — nav is a TABLE, and archiving a page does not touch it
+
+Item 6 above said the 15 assemble-only rerenders would make "the footer nav stop linking the
+retired page". **That was wrong, and the live site proved it within four minutes.** After
+`index` re-rendered successfully at 14:29:57 — *after* the archive at 14:24:11 — the homepage
+still carried **three** `href="/contacto.html"` links, and that URL was by then a **404**. For
+about ten minutes I had replaced one dead link with three.
+
+I had reasoned from `render_site_components_action.go:893-897`, whose footer-nav query does
+filter correctly:
+
+```sql
+WHERE site_id = $1 AND (in_footer = true OR in_footer IS NULL) AND status IN ('deployed','active')
+```
+
+**That query is not what serves the nav.** `RerenderSinglePageAction` calls
+`GetNavItems` (`nav_tables.go:86`), which reads **`site_nav_items` / `site_nav_groups`** —
+dedicated nav tables — and only falls back to the `pages` query for sites that predate them
+(the fallback `bugs_open/053` narrowed). relojistas has nav rows, so the `pages`-derived query
+never runs. The filter that actually applies is `ni.status = 'active'` (`nav_tables.go`, the
+`getNavItemsFromTables` query).
+
+So the row that kept the link alive was:
+
+```
+group_type | label    | url             | status
+utility    | Contacto | /contacto.html  | active
+```
+
+Set to `inactive` (backup `bak_reloj_navitem_contacto_20260727`), and every page re-fired.
+**Convention note:** the 4 pre-existing non-live rows fleet-wide all use `inactive`; I first
+wrote `archived`, which the `= 'active'` filter also excludes but which nobody would find by
+convention. Changed to match.
+
+**The transferable finding, and it is bigger than this site:** `pages.status='archived'`
+retracts a page from derivation and re-render, but **not from `site_nav_items`**. So archiving
+any page leaves its nav entry live and the whole site advertises a 404 — on every page, in the
+chrome, which is the most visible place a dead link can be. This is the same shape as
+`bugs_open/098` (archiving does not undeploy) one layer up: 098 is "the page keeps serving",
+this is "the nav keeps pointing". Contributed there rather than filed separately.
+
+**The check I should have run before claiming the mechanism:** I had already observed this
+morning that `pages.rendered_header`/`rendered_footer` are empty on all 19 rows while every
+page serves chrome. That was direct evidence the chrome does not come from where I assumed,
+and I wrote it down as a curiosity instead of following it. *Grep for the table before
+reasoning from the query you found first* — `\dt *nav*` would have ended it in one command.
+
 **[UNVERIFIED] The Afternic listing is the owner's dashboard reading, not mine.**
 `forsale.godaddy.com` returns **403 to automated probes**, and `afternic.com/domain/relojistas.com`
 serves a generic "Sell Domains | Buy Domains" page carrying "NOT LISTED" strings — so my own
