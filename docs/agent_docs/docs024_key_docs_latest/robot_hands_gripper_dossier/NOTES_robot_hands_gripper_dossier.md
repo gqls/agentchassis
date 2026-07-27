@@ -716,3 +716,32 @@ Lane **parked** (`report-dispatch` disabled) now the fixtures have run; `report-
 never enabled. Both fixture pages left live and unlinked for owner inspection — cleanup
 (`source='manual-test'`) is owed once they have been seen. Owner has issued an Anthropic key
 (capped per project, not per key — acceptable for now); it gates only the island half.
+
+### FIXTURE 3 proper — the failing branch is now VERIFIED LIVE (19:18Z)
+
+The earlier two failures never published a `failed` sidecar, and the reason was
+mechanical rather than mysterious: `handle_failure` builds the sidecar from
+`request.request_id` (`emit_report_status_files`, `status: failed`), so the
+invalid 17-char id errored straight to `fail_out` and skipped `publish_failed`.
+**An invalid request_id silently disables the failure-notification path** — worth
+knowing, because the island's whole apology flow depends on it.
+
+Re-run with a valid UUID and the designed fault (`mass_kg="not-a-number"`):
+
+```
+19:18:19  report-builder  score      score_grippers  field mass_kg: invalid value "not-a-number"
+19:18:25  report-builder  fail_out   fail_workflow   gripper dossier build failed
+19:18:26  report-dispatch-loop call_handler call_agent  CHILD_ORCHESTRATION_FAILED
+```
+- work item → **`failed`** (never `complete`)
+- `https://robot-hands.com/reports/edd863e8-…json` → **`{"status":"failed"}` HTTP 200**
+- **0 pages** created for that request id
+- no error rows for `handle_failure` or `publish_failed` — they succeeded quietly
+
+So `score_grippers` treats a malformed spec as a **hard error, never a guessed
+default**, exactly as its header claims, and the failure path publishes.
+**All three DESIGN §6 fixtures now pass, the failing branch included.**
+
+Lane parked again: both `report-*` tasks disabled. Three `manual-test` work items
+and two live report pages left in place for owner inspection; cleanup owed.
+`HANDOFF_RESUME_gripper_dossier.md` written as the cold-start entry point.
