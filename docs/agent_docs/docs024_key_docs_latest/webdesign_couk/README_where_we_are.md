@@ -260,3 +260,57 @@ a broken link on all 98 pages. The order is: articles arrive, page builds, then 
 live.
 
 All of it is written into the handoff so you can pick it up in a new chat.
+
+---
+
+## 27 July, later — the news feed would never have started, and finding out took reading rather than waiting
+
+Picking this back up, the first instruction I'd left myself was "wait for the feed to run at
+13:49". I nearly did exactly that. It would have been a wasted hour, because the feed was
+never going to run — not at 13:49, not at any time.
+
+Here's the mistake, and it's an instructive one. I'd created the five search topics, the news
+page and the menu entry, and I checked all three afterwards and they were all correctly
+there. What I hadn't checked was the one thing that actually decides whether a site's news
+gets fetched — and it turns out that isn't the search topics at all. The system keeps a
+short profile for each site describing what kind of site it is, and there's a flag in that
+profile saying "this site should have news". The scheduled job only ever looks at sites
+carrying that flag. Ours didn't have it. The profile for webdesign.co.uk was written back on
+the 25th when the site was first classified, and news simply wasn't considered at the time.
+
+So I had built the whole thing correctly and left it disconnected from the switch. My own
+verification passed cleanly because it checked everything I had written, and the flag was the
+one thing I hadn't written. That's the lesson worth keeping: I checked my work, not the thing
+that consumes my work.
+
+It's fixed now. I've added the flag, and I confirmed it by running the scheduled job's own
+site-selection query, unchanged, and watching webdesign.co.uk come back in the results where
+it previously didn't appear.
+
+**One thing I had to be careful about**, because it would have quietly undone the editorial
+decisions. When a site is flagged for news, the system offers to generate search topics for
+it automatically from a keyword list. If I'd filled that keyword list in casually, it would
+have created a second set of five topics alongside the ones I'd hand-written, with cruder
+search terms — and the careful choices about UK focus and accessibility would have been
+diluted by machine-generated near-duplicates sitting next to them. It refuses to create a
+topic whose name already exists, so I set the keywords to exactly match the names of the five
+I'd already written, which makes the automatic step do nothing at all. It's a small thing but
+it's the sort of detail that silently degrades a site over months. Whoever touches that list
+next needs to know that changing a single word in it summons a sixth topic.
+
+**Something I've noticed but deliberately not acted on.** The scheduled job only takes five
+sites per run, in alphabetical order, and adding us makes six. "webdesign.co.uk" sorts last of
+the six, so if all six ever come due together, we're the one that gets skipped — every time,
+silently. Right now it isn't happening, because the sites drift out of step with each other by
+a few minutes and rarely come due at once. But that's luck rather than design. I've written it
+down in the technical notes rather than fixing it, because it hasn't actually caused a failure
+yet and the fix touches machinery shared by every site on the fleet. If our news ever goes
+quiet for a day, that's the first place to look.
+
+**Where that leaves us.** The feed is now genuinely armed and the next run is due within the
+hour. Nothing else has changed: the news page still won't be built until real articles arrive,
+and the News menu link still stays unpublished until the page exists. That order still matters
+for the same reason as before.
+
+**And the Cloudflare analytics step is still sitting with you** — it hasn't moved since this
+morning, and it's still the highest-value five minutes on the project.

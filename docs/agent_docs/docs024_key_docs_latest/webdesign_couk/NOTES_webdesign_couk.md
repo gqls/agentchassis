@@ -547,3 +547,126 @@ work, it is a shared namespace. Forward-only, so it stands; recorded here instea
 **The habit that would have caught it:** the yellow commit-scope block prints
 exactly this and I did not read it. `git status --short bugs_open/` before adding
 would have shown two files I did not touch.
+
+---
+
+## 2026-07-27 (later session) — the news feed was never going to fire
+
+Picked up `HANDOFF_2026-07-27_phase2_uk_authority.md`, whose step 1 is **"Wait for
+the feed."** I nearly did. Checking the clock first would have burned the hour and
+told me nothing, because the feed could not have fired at any tick, ever.
+
+### What the handoff said, and where it was wrong
+
+> *"`content-feed-refresh` runs every 6h; sources were primed with
+> `next_fetch_at = now()`, next task tick was due 13:49 UTC."*
+
+Two errors in one sentence, one harmless and one not:
+
+- **Harmless:** the sources were *not* primed with `next_fetch_at = now()`.
+  `SQL_p8` never sets the column, so all five are **NULL**. That turned out not
+  to matter — both due-queries read
+  `(next_fetch_at IS NULL OR next_fetch_at <= NOW())`
+  (`dispatch_feed_sources_action.go:91`, `feed_actions.go:1004`), so NULL *is*
+  due, and sorts first under `NULLS FIRST`. I checked this before assuming it was
+  a bug; it very nearly went into this file as one.
+- **Not harmless:** the tick was irrelevant. **Creating `content_sources` rows is
+  not what arms a feed.** The site is enumerated from the *classification spec*,
+  and ours did not qualify.
+
+### The actual blocker
+
+`content-feed-refresh` → agent `content-feed-trigger` → first step
+`find_news_sites`, whose query is:
+
+```sql
+JOIN site_specs ss ON ss.site_id = s.id
+   AND ss.aspect = 'classification' AND ss.is_current = true
+   AND (ss.data->'content_features'->'news_feed'->>'recommended')::boolean = true
+```
+
+webdesign.co.uk **has** a current classification spec (written by
+`domain-research-classifier`, 2026-07-25) but it has **no `content_features` key
+at all** — news was never evaluated for it. `NULL::boolean = true` is NULL, not
+false, and the row is dropped. Measured before the change:
+
+```
+ ai-agent-orchestration.com | gaswholesalers.com | relojistas.com
+ robot-hands.com            | vetcomparison.uk           -- 5 rows, ours absent
+```
+
+`SQL_p8`'s verify block asserted 5 sources, 1 page, 4 nav items — all true, all
+passing, and **none of them the thing that decides whether the feed runs.** The
+verification checked what the script wrote, not what the consumer reads.
+
+### Fix
+
+`SQL_p9_news_feed_classification_flag.sql` — applied. New superseding
+classification version adding `content_features.news_feed`, following the shape
+robot-hands.com was armed with on 2026-07-08 (`source='manual-recovery'`). The
+old `data` is carried forward with `||` rather than retyped, and the verify block
+runs the **trigger's own predicate verbatim** rather than restating it.
+
+Confirmed after applying, by running `find_news_sites` unfiltered and unmodified:
+
+```
+ relojistas.com | vetcomparison.uk | webdesign.co.uk    -- 3 of 5 slots
+```
+
+Run it **unfiltered**. Filtering that query to `WHERE domain='webdesign.co.uk'`
+answers a different question and hides the `LIMIT 5` below.
+
+### The trap I had to design around
+
+`content-feed-orchestrator` runs `seed_sources` **before** `dispatch_sources`, and
+`seed_content_sources` creates one source **per vertical keyword**, named
+`fmt.Sprintf("News Search: %s", keyword)` with `config.query = keyword`
+(`seed_content_sources_action.go:252-292`). Left naive, arming the flag would have
+silently added five *more* sources whose queries were the bare keywords —
+quietly overriding the editorial queries SQL_p8 wrote a page of justification for.
+
+The insert is `ON CONFLICT (site_id, name) DO NOTHING` against `idx_cs_site_name`.
+So `vertical_keywords` is set to **exactly the five name suffixes** SQL_p8 used,
+making the auto-seeder a no-op by collision. `source_types` is `["news_search"]`
+only — `api_news` would have added an xAI/Grok-backed `LLM News: webdesign.co.uk`
+source nobody chose. **Change one character in those keywords and the sixth
+source appears.** Verified after the change: still exactly 5.
+
+### [MEASURED] Latent starvation in find_news_sites — not filed, not yet biting
+
+The step ends `ORDER BY s.domain LIMIT 5` with no rotation or fairness, and the
+sub-workflow loop caps at `max_iterations: 5`. This change makes webdesign.co.uk
+the **sixth** recommended site and, alphabetically, the **last** of the six
+(`w` > `v`). Whenever five or more are due in one tick, ours is the one dropped —
+deterministically, every time, in silence.
+
+It is not biting now, and the reason is an accident worth writing down.
+`UpdateSourceTimestamps` sets `next_fetch_at = NOW() + fetch_interval` at
+*ingestion*, which is seconds-to-minutes **after** the trigger fired, while the
+scheduler's next tick is `last_triggered_at + interval`. So a fetched site's
+sources come due *just after* the following tick and miss it:
+
+```
+ content-feed-refresh   last_triggered_at = 07:49:09   (next tick 13:49:09)
+ ai-agent-orchestration.com   next_fetch_at = 13:49:46   <- misses by 37 SECONDS
+ gaswholesalers.com           next_fetch_at = 13:51:40
+ robot-hands.com              next_fetch_at = 13:57:40
+```
+
+[INFERRED, one cycle observed — not two] the consequence is that each site is
+effectively refreshed every **12h**, not the configured 6h, and that the
+alternation is what keeps enough `LIMIT 5` slots free for us. Both the starvation
+and the doubled interval are fleet-wide properties of a query in
+`agent_definitions`, not of this site. Recorded here rather than filed as a bug
+because neither has yet produced an observable failure — but if this site's feed
+goes quiet for a day, look here first, not at the sources.
+
+### Misstep in my own reading, caught before it cost anything
+
+My first instinct on seeing `next_fetch_at IS NULL` was "the SQL forgot to prime
+them — that's the bug." It was wrong, and it was the *satisfying* answer: it
+matched a claim in the handoff, it was one line, and it explained the symptom.
+Reading the two due-queries took ninety seconds and refuted it. Had I "fixed" it,
+I would have set five timestamps, watched the next tick do nothing, and had no
+idea why — with a plausible-looking fix already committed to argue against the
+real cause. **The cheap check was: grep the column, read the consumer.**
