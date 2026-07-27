@@ -1,5 +1,15 @@
 # HANDOFF — dead-pod ownership makes responses undeliverable; DB-driven retry then loops forever (with real side effects per cycle)
 
+> **STATUS 2026-07-27: FIXED AND LIVE IN v1.0.1174 — the case stays OPEN, because
+> "live" here means induced-fault-verified and the induced fault has NOT been run.**
+> `VERIFY_075_post_roll.sh` §1 passes in **both** directions (the new literals present
+> AND the removed one at 0), and §4b's two council-owed premises both re-check clean.
+> §2 — the takeover branch — needs a production `UPDATE` and was refused by this
+> session's permission classifier; it was not worked around. See **"Post-roll progress
+> 2026-07-27"** at the foot for exactly what passed and what is owed.
+>
+> The 2026-07-26 status block below is left standing unedited.
+
 > **STATUS 2026-07-26: FIXED IN CODE, INERT — the case stays OPEN.** Fixes 1 and 2
 > below are implemented and committed; the Go is dead weight until a chassis image
 > is built past that commit and rolled. The standing bar for `/bugs_closed/` is
@@ -298,3 +308,69 @@ permanent, correct false negative. Read the trail with:
 - `bugs_open/043` — prior processing_node appearance (diagnosis route hang).
 - RFC_001 (`docs/.../architecture_review/`) — where the delivery-guarantee
   context lives.
+
+---
+
+## Post-roll progress 2026-07-27 (triage sweep) — §1 and §4b PASS, §2 OWED
+
+The fleet rolled to `v1.0.1174` at **15:11:15Z**; the binary is dated **14:58 UTC** and
+the last Go commit before it is `e96d42226` at **14:52:33 UTC**, so this bug's commits
+are in the image. (UTC throughout — this machine is BST and a naive `git log` comparison
+makes live fixes look un-shipped.)
+
+**§1 pod-grep — PASS, and it discriminates in both directions.** The removed literal is
+the load-bearing half:
+
+```
+ORCHESTRATION_TAKEN_OVER            1   (new)
+ORCHESTRATION_TAKEOVER_RACED        1   (new)
+ORCHESTRATION_TAKEOVER_FAILED       1   (new)
+ADAPTER_RETRY_CAP_REACHED           1   (new)
+"failed to take over orchestration" 1   (new)
+"owned by different pod"            0   (REMOVED — this is the discriminating one)
+RETRY_TICKER_CLAIMED                1   (positive control)
+zzz_not_a_real_symbol_075           0   (negative control)
+```
+
+**§4b premise (i) — HOLDS.** Deployments: `agent-chassis` 1, `business-intel` 1,
+`content-creator-agent` 1, `vet-intel` 1; `core-manager` 2 and `reasoning-agent` 3 are
+multi-replica and **own no rows** — the owner census returns only `agent-chassis` (1,302)
+and single-pod spawned Job agents (`agent-page` 164, `agent-build` 89, `agent-feed` 60,
+`agent-internal` 13, `agent-content` 13, `agent-med` 4) plus `business-intel` (6). So the
+unconditional takeover is still safe and the CLAIM_RECOVERY hazard is still dormant.
+
+**§4b premise (ii) — HOLDS.** `grep -rn processing_node --include=*.go platform/ internal/
+pkg/ cmd/`: the only assignment is `state.go:1278` (`SET processing_node = $2 … AND
+processing_node = $3`), i.e. `TakeOverOrchestration`. Everything else is one struct tag,
+four INSERT/SELECT column lists, and a header round-trip in `types/context.go`. No second
+writer.
+
+**§2 induced fault A — NOT RUN.** It requires stamping a live `AWAITING_RESPONSES` row
+with a dead pod name, and the write was refused by this session's permission classifier.
+
+**Fleet state at the time, recorded as a RATE not a count** (every history table here is
+on a retention clock, so a bare count ages into a lie): across the 6 hours to 15:57Z the
+fleet completed **372 orchestrations with 7 FAILED**, and non-terminal rows numbered
+**2 in total** — one `EXECUTING_STEP` orphan from 13:45:01Z (the previous roll, F1's >4h
+reaper owns it) and the known `INITIALIZED` orphan from **2026-07-13** that deferred fix 4
+still does not cover. **Zero `AWAITING_RESPONSES` rows and no ~3-minute retry series
+anywhere** — so the 2026-07-25 loop is not currently reproducing. That is consistent with
+the fix and is **not** evidence for it: there was no dead-pod stranding to heal.
+
+> **Next action, ~20 min, needs DB-write permission:** run
+> `VERIFY_075_post_roll.sh` with `ORCH=<a live AWAITING_RESPONSES id>`. Targets appear
+> and vanish within minutes; a `build-pipeline-trigger` row sitting at `call_dispatch`
+> is a reliable one (it holds for ~8 min). PASS = `ORCHESTRATION_TAKEN_OVER` logged with
+> `previous_pod=induced-dead-pod-075` and the orchestration advances.
+
+**Two script defects found while running it** (both cosmetic, neither affects the verdict,
+fix them in place per the RUNBOOK rule rather than in scrollback):
+
+1. §1's guard does `NEW_PRESENT=$(kubectl … || echo 0)`, and when the inner `grep -c`
+   exits 1 the variable ends up holding **two lines** (`"0\n0"`), so the `[ … -lt 1 ]`
+   test dies with *"integer expression expected"* — under `set -euo pipefail` the script
+   only survives because the test is the failing command. It never actually gated.
+2. §4's orphan census builds its live-pod list with
+   `paste -sd"','"`, which inserts **one character per delimiter cycle**, producing
+   `'podA'podB'` — invalid SQL, and the census always errors out. Use
+   `paste -sd, - | sed "s/,/','/g"`.

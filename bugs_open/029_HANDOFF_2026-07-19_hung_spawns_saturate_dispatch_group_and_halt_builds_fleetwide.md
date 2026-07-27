@@ -500,3 +500,90 @@ optimistically pushes `next_fetch_at = now()+6h` at dispatch
 19:58 — **9 minutes past** the 19:49 tick, which would have deferred them to 01:49 by
 the same staggering mechanism. Reset to NULL (always-due), guarded on
 `last_fetched_at IS NULL` so a success could not have been clobbered.
+
+---
+
+## Fresh instance + a NEW mechanism, 2026-07-27 15:16–15:58 UTC — contributed by the post-roll triage sweep
+
+**Not a competing fix.** This file is owned (`bugfix_029_dispatch_gate`, whose
+`PLAN_2026-07-26_dispatch_gate.md` is still untracked) and six council rounds deep.
+Contributed because (a) it is a fourth dated reproduction, and (b) it identifies a
+**second producer of `complete_idle`** that the dispatch-gate PLAN does not account for.
+
+### The reproduction
+
+The fleet rolled to `v1.0.1174` at **15:11:15Z**. The ~300 s window itself was **clean** —
+five orchestrations created 15:11–15:16, all `COMPLETED`. Then, starting **13 minutes
+after the roll and continuing for 20 minutes**, `build-pipeline-trigger` lost nine
+consecutive spawns:
+
+```
+step_name=spawn_dispatch, "Request … timed out after 3 retries"
+15:24:10  15:26:36  15:29:06  15:31:36  15:34:09  15:36:38  15:39:09  15:41:38  15:44:06
+(and 5 more at 14:07–14:17, after the 13:45:31Z v1.0.1173 roll)
+```
+
+**So the window is wider than the documented ~300 s spawn-drop window.** These start well
+outside it. Each is ~2.5 min apart (the 120 s tick) and each run takes ~8 min to die
+(3 retries), so the losses overlap.
+
+Downstream, and this is what made it visible: six `page_rerender` items sat `triaged` and
+**unclaimed** on `fundamentallyai.com` — another workstream's queued work, blocked. Not a
+halt, though: throughput was **29 items/hr at 14:00 and 4/hr at 15:00**, `claimed` items
+older than 40 min = **0**, and dispatch recovered on its own at **15:58:27**. Exactly the
+*degraded-throughput window* this file's CORRECTED DIAGNOSIS describes, and its
+self-heals working.
+
+### The new bit: `complete_idle` has TWO producers, and the PLAN only names one
+
+`build-pipeline-trigger` declares `spawn_dispatch → error_step: complete_idle` **at config
+level** (checked against the live definition, not assumed — it declares no step-level
+`error_step`, so this is not `bugs_closed/086` territory). Therefore a **total spawn
+failure** is caught and lands on `complete_idle`, recorded `COMPLETED`, `error` **NULL**,
+with the failure visible only in `collected_data.__step_error`.
+
+That is indistinguishable at a glance from the PLAN's divergence-4 churn (gate says
+"pending sites", dispatcher says "nothing dispatchable", conditional → `complete_idle`).
+The two split cleanly on `collected_data ? '__step_error'`:
+
+```sql
+SELECT date_trunc('hour',created_at) h, count(*) AS complete_idle,
+       count(*) FILTER (WHERE collected_data ? '__step_error')       AS from_spawn_failure,
+       count(*) FILTER (WHERE NOT (collected_data ? '__step_error')) AS from_gate_divergence
+FROM orchestration_states
+WHERE orchestration_name LIKE 'build-pipeline-trigger%' AND current_step='complete_idle'
+  AND created_at > now()-interval '12 hours' GROUP BY 1 ORDER BY 1 DESC;
+--  15:00 | 10 | 9 | 1      <- post-roll: spawn failure dominates
+--  14:00 | 10 | 4 | 6
+--  13:00 |  1 | 1 | 0
+```
+
+**Why this matters to D1/D5.** The PLAN's case for aligning the gate is that it makes
+*"trigger not firing"* mean something. True — but the reverse is now the commoner
+condition: the trigger **fires, spawns, loses the spawn, and completes GREEN**. Aligning
+the predicates cannot touch that, so **`complete_idle` will still be an ambiguous signal
+after 213 is applied**, and the "false heartbeat" this file blames for misreading three
+reproductions has a second source that survives the fix. Cheapest remedy is to make the
+two outcomes distinguishable by name — a separate `complete_spawn_failed` terminal step,
+or a watchdog clause keyed on `__step_error` — rather than by a jsonb probe nobody will
+think to run.
+
+**D5's watchdog (214) is unaffected**: it keys on `site_work_items.completed_at`, not on
+orchestration completions, so these green rows do not blind it.
+
+### Status of the owned fix, as found
+
+**Neither migration is applied.** `213_dispatch_gate_matches_dispatcher.sql` and
+`214_build_dispatch_watchdog.sql` exist in `docs/agent_docs/sql_for_agents/`, both
+written **2026-07-26 14:32–14:33 BST**, both still **untracked in git** and absent from
+`schema_migrations`. The live `build-pipeline-trigger.pre_query` is still the unaligned
+one (`status='triaged' AND pipeline='build' AND s.locked_at IS NULL`, no claimed-mutex),
+and no `build-dispatch-watchdog` row exists in `scheduled_tasks`.
+
+The divergence is therefore still live and still measurable: at 15:57Z the gate returned
+**1** pending site while all six of that site's items were unclaimed and undispatched.
+
+Per the PLAN's own scope table, **A + B + C are config/repo and go live on apply, and 029
+closes on them** (D shipped separately as `bugs_open/079`, since closed). So this case is
+one apply away from its own stated closure condition, and has been for over a day.
+Left untouched and uncommitted here — it is that workstream's to land.

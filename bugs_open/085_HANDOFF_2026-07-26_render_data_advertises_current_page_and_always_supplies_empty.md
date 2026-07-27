@@ -250,3 +250,51 @@ was true and verified twice — and is not the same question as *"what else buil
    assert it carries the **two** charts declared for it.
 4. Induce the empty case — a page carrying the section whose charts all name other
    pages must render **nothing**, not everything.
+
+---
+
+## 2026-07-27 (post-roll triage sweep) — the scoped-path fix is LIVE; steps 2–4 deliberately NOT run
+
+**The roll happened.** `v1.0.1174` at **15:11:15Z**, binary dated **14:58 UTC**; the last
+Go commit before it is `e96d42226` at 14:52:33 UTC, so `c447d34a6` and `32a55597e` are
+both in the image. (UTC throughout: this machine is BST, and comparing BST `git log`
+against UTC `kubectl` makes live fixes look un-shipped.)
+
+**Step 1 — PASS.** `agent-chassis-5994dc6d6c-pt8v9`: `currentPageName` resolves **2**,
+`resolveCurrentPageName` resolves **1**, invented control **0**.
+
+**Steps 2, 3 and 4 — NOT RUN, on purpose, and this is a coordination call not a
+verification one.** The `brochure_component_library` workstream **owns this bug and that
+site, and was actively working both while this sweep ran** — untracked
+`sql/085b`–`085f` and `scripts/deploy_stylesheet_direct.sh` were written minutes
+earlier, and `085f_queue_rerenders_after_contrast_and_imagery_fix.sql` had already
+queued the work. Firing a competing scoped re-render at `fundamentallyai.com/index`
+would have raced their palette/imagery re-render through the same section rows.
+(Their `085b`–`085f` numbering is their own SQL seed sequence and is unrelated to this
+bug number — easy to misread.)
+
+**Live state at 15:58Z, as the baseline they should diff against.** The stored render is
+unchanged from the 14:08 measurement in the section above:
+
+```
+page  index   updated_at 2026-07-27 14:08:17.952+00
+charts: council-review-outcomes, news-pipeline-credibility, relojistas-feed-restoration
+```
+
+Still all three, two of which declare `pages: ["capabilities"]` — i.e. **the defect is
+still visible on the live site**, because nothing has re-rendered that section on the new
+binary yet. That is expected, not a failed fix.
+
+**And their re-renders were queued but not dispatching, for an unrelated reason.** Six
+`page_rerender` items sat `triaged` and unclaimed on `fundamentallyai.com`
+(`site_id 199733a8-…`) while `build-pipeline-trigger` lost nine consecutive
+`spawn_dispatch` requests between 15:24 and 15:44 — `bugs_open/029`'s post-roll degraded
+window, not anything to do with this bug. Dispatch recovered at 15:58:27 (first claim by
+`build-dispatch-loop`). **So the natural way to close this case is to let their queued
+re-render land and then run the step-2 query** — no separate induction needed, and no
+race.
+
+> **Next action (owner: brochure_component_library):** after the queued re-render of
+> `index` completes on v1.0.1174, run the step-2 query and assert **one** chart
+> (`relojistas-feed-restoration`), not three. Then steps 3 and 4. The query is already
+> known to fail pre-fix, so it discriminates.

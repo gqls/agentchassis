@@ -1,10 +1,21 @@
 # BUG 066 — spawned agent pods pin stale image tags; chassis deploys never reach them
 
 **Filed:** 2026-07-24 · gauntlet_dead_cta / feature-builder B4 shakeout
-**Status:** **FIXED IN CODE 2026-07-27 (`c0d7c3a71`) — STILL OPEN: INERT until a chassis
-image rolls past v1.0.1174.** The defect is reproducible in production until then, so this
-stays in `/bugs_open/`. Post-roll verification is § "How to verify" below; do that, then move
-the file to `/bugs_closed/`.
+**Status:** **FIXED AND NOW LIVE IN v1.0.1174 — STILL OPEN: steps 2 and 3 of
+§"How to verify" (the induced fault and the pin escape hatch) have NOT been run.**
+
+> **CORRECTED 2026-07-27 — the line above used to say "INERT until a chassis image rolls
+> past v1.0.1174", and that was wrong by about six minutes.** The fix commits are
+> `c0d7c3a71` (14:38:16 UTC) and `e96d42226` (14:52:33 UTC); the chassis binary in the
+> running pod is dated **14:58 UTC** and the fleet rolled to `v1.0.1174` at **15:11:15Z**.
+> `make build` takes committed HEAD, so **both commits rode that build** — v1.0.1174 *is*
+> the roll this file was waiting for, not the one before it.
+> *What caught it:* pod-grepping the string the fix creates instead of trusting the
+> sentence. *The trap underneath:* this machine is **BST**, `git log` prints BST and
+> `kubectl` prints UTC, so a naive comparison makes a live fix look un-shipped.
+>
+> **This does not close the case.** Steps 1 and 4 pass; 2 and 3 are the ones that
+> discriminate, and they are unrun — see § "How to verify".
 **Severity:** high — a rolled chassis image does NOT reach any agent that runs as a
 spawned dedicated pod, and the standard deploy verification cannot see the gap.
 
@@ -150,6 +161,55 @@ say, what spawned pods actually run.
    snapshot row was **not** rewritten.
 
 Only when 1–4 pass does this file move to `/bugs_closed/`.
+
+### Progress 2026-07-27 (post-roll triage sweep) — 1 and 4 PASS, 2 and 3 UNRUN
+
+**Step 1 — PASS.** `agent-chassis-5994dc6d6c-pt8v9`, `v1.0.1174`, binary dated 14:58 UTC:
+
+```
+"bugs_open/066: agent_definitions.image_tag trails"        1
+"Resolved this pod's own container images for spawning"    1
+"Resolved spawn image"                                     1
+ZZZ_NEGATIVE_CONTROL_SHOULD_BE_ZERO                        0
+```
+
+Each of those is a log message the fix creates, not a comment and not a typed const.
+
+**Step 4 — PASS, but read what it does and does not prove.**
+`scripts/check-agent-image-drift.sh`:
+
+```
+deployment spec : docker.io/aqls/agent-chassis:v1.0.1174
+running pod     : agent-chassis-5994dc6d6c-pt8v9  v1.0.1174  15:11:15Z
+agent_definitions rows : v1.0.1174 x180   (pinned via pin_image_tag: 0)
+spawned pods actually running : v1.0.1174 x5
+verdict : No drift.
+```
+
+Five spawned pods really are on the chassis's tag — the third question the old census
+conflated, answered from the pods themselves.
+
+**Steps 2 and 3 — NOT RUN, and this is why the case stays open.** Both need a
+production write (stale one agent's `image_tag`; set `default_config.pin_image_tag`),
+and the write was refused by this session's permission classifier. It was not worked
+around.
+
+**The honest reading: step 4 is a happy-path green and cannot discriminate.** The rows
+and the Deployment agree right now, and *agreement is exactly the state in which the
+fixed and unfixed code behave identically* — the old path reads the row, the new path
+reads the pod, and today they return the same string. This bug's own § "Why the standard
+verification misses it" makes the same argument about a different check. So:
+
+> **Next action, ~20–30 min, needs DB-write permission:** snapshot a non-critical agent's
+> row, set its `image_tag` to a deliberately stale value, fire it, and require **both**
+> that the spawned pod's `spec.containers[0].image` carries the **chassis's** tag and
+> that the chassis logs `bugs_open/066: agent_definitions.image_tag trails …` naming the
+> stale value. Then step 3's pin, then restore. That is the whole remaining cost of this
+> case.
+
+**The interim rule therefore does NOT retire yet.** It retires when step 2 passes, not
+when the image rolls — the rule exists because the deployment pod-grep is a false green
+for spawn-class agents, and nothing above has yet shown the new resolver overriding a row.
 
 ## Interim rule (until the roll)
 Unchanged and still required: any fix that must run inside a spawn-class agent — after the
