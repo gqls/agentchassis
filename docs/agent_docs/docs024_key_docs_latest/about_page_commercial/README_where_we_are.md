@@ -91,3 +91,47 @@ which is exactly what happened to your page on the 24th.
 
 So: nothing is owed to this workstream to get the block on that page — it is there. What is
 still open is the rebuild *trigger* you scripted against, and that now has its own bug file.
+
+## 2026-07-27 — the claims work has reached this thread's pilot site
+
+Written by the fabricated-stats thread (`bugs_closed/043`), not by this workstream. Appended
+because something changed underneath the pilot and you would want to know.
+
+**Short version: nothing here is broken, and the block's design turns out to be exactly right
+for the checking layer we've been building.**
+
+The other thread's job is making sure our sites can't publish numbers that aren't true. Today
+it gave finetuning.uk — this pilot's guinea pig — its first "evidence register": a record of
+what that site is allowed to state, and a rail telling the writer what it must never claim.
+That was prompted by something else on the site entirely (its home page carried "~80%
+reduction in quote preparation time" for a client engagement, with nothing on record behind
+it; you ruled it should come off, and it has). But the effect is site-wide: number-checking is
+now switched on for finetuning.uk, including its about page.
+
+**The commercial block sails through this, and not by luck.** I checked it. The block stores
+no prose figures at all — it is pure configuration (which tier, whether for-sale is requested,
+whether advertising is active, the built-by URL). The only text it renders is the settled copy,
+and that copy was deliberately written without numbers: no price, no traffic figure, no reach
+claim, and the frank low-traffic pitch pushed to advertise.co.uk rather than made on the host
+page.
+
+That decision was made here for commercial reasons — a public price anchors low, traffic claims
+on a near-zero-traffic site are dishonest. It happens to be the single most robust thing you
+can do for the checking layer too, and it is worth naming as a general rule for the rest of the
+estate: **when a commercial claim needs a number, put the number on the surface you control and
+can update, and keep the host page qualitative.** A figure frozen into a page goes stale
+silently and then gets flagged as a fabrication by our own gate. A figure on advertise.co.uk
+can be changed the day it changes.
+
+The one thing to keep in mind as this rolls out further: the phrase "a small number of
+sponsored placements are available" is safe, but if it ever becomes "three placements
+available" on a site where nothing counts placements, the checker will — correctly — treat it
+as an unsupported claim. If you want a real count there, it needs to come from a query, not
+from the copy.
+
+Two things from the other thread that touch this one, both awaiting you rather than us. The
+"eight departments" question: ai-agent-orchestration states eight departments as its own
+structure while leopardess has that exact phrase banned as an invented fabrication, and the
+database has no notion of a department at all. And whether tutorial pages should be exempt from
+number-checking, which is filed as `bugs_open/102` — it matters here only because webdesign.co.uk
+is a portfolio site and will eventually carry this block too.
