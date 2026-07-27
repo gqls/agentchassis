@@ -4,7 +4,53 @@
 **Severity** low as a defect, higher as a trap — a field that looks like a
 contract and silently governs nothing will eventually be written by someone who
 expects behaviour from it.
-**Status** OPEN.
+**Status** **OPEN — candidate 1 done and council-APPROVED; round-1 code is LIVE on
+v1.0.1177/1179, round-2 refinements await the next roll.** Candidate 2 untouched by design.
+
+> ## STATUS 2026-07-27 (bugs thread)
+>
+> **Council APPROVED** (correlation `47bde1b6-7abf-4a82-b44d-bb1e071a9948`,
+> `complete_approved` 20:34:44, 2 medium advisory objections, no veto). **7 seats
+> abstained**, so this was judged by a small panel — both objections came from the two
+> seats that always run.
+>
+> **Live:** `606f485f7` shipped in chassis v1.0.1179. Verified in the running pod by a
+> marker that read **0** on v1.0.1177 and **1** on v1.0.1179 — a real before/after rather
+> than an inference from build timing:
+> `strings /app/agent-chassis | grep -c "not in the documented vocabulary"`.
+>
+> ### The two measurements that changed the fix from what this file proposed
+>
+> 1. **The live vocabulary is not the documented one.** metric 46, **count 18**, entity
+>    11, capability 9, attestation 4. `count` is used by **four sites** and appears in no
+>    spec, so candidate 1 as written — *reject unknown kinds* — would have failed four
+>    registers closed. It is handled as an alias.
+> 2. **`EvidenceBase` is marshalled BACK to `site_specs`** (`refresh_evidence_base_action.go:677`,
+>    `evidence_citations.go:350`). Normalising `Kind` at parse time would have silently
+>    rewritten 18 stored facts from `count` to `metric` through a write path that never
+>    intended to touch them. So **nothing is normalised in place** — the accessors are
+>    read-side, and a test pins that parse plus a marshal round-trip leaves the stored
+>    value byte-identical.
+>
+> ### Round 2 (`b18dd564d`) — both council objections acted on, NOT yet live
+>
+> - **`IsLiveVerifiable` REMOVED.** It had no production caller, only tests. The
+>   editquality seat pointed out that this reproduces, for a second symbol, the exact
+>   defect being fixed. I had flagged it in my own risk section and shipped it anyway,
+>   which is worse than not noticing. It belongs with candidate 2's consumer.
+> - **`AliasedKinds` ADDED.** The guardian seat objected that `count`→`metric` is an
+>   interpretive judgement over 18 facts on 4 sites and that, resolved silently, no signal
+>   would surface if the guess is wrong. It now announces itself where the register loads.
+>   **If whoever wrote those four registers meant `count` as a distinct kind, say so —
+>   this is the open question the council left.**
+>
+> ### Owed
+>
+> - A roll to make round 2 live, then a pod-grep for `"resolved through an alias"`.
+> - **The trailer gap:** `606f485f7` carries the fix with NO `Council-Reviewed:` trailer,
+>   because it was committed ahead of the verdict to make an imminent chassis build. The
+>   `098` coverage report will list it as un-reviewed. It is not — the verdict is
+>   `47bde1b6` and the trailer is on the round-2 commit.
 
 ## The finding
 
