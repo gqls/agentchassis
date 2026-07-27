@@ -1151,3 +1151,84 @@ council run was occupying the head of the lane from 13:00:47.
 > — a 90-second heartbeat that got its own lane when 030 closed. **A busy cron
 > lane says nothing about the generic request lane.** Caught by looking at what
 > the completing rows actually were instead of counting them.
+
+## 2026-07-27 (evening) — took on bugs_open/083 (gauntlet engine 503s), candidate 1
+
+### The ownership check, and why the number matters
+
+Asked to confirm nobody else was on it first. **083 is an AMBIGUOUS number** —
+two unrelated open cases share it, which is the documented trap in
+`bugs_closed/README.md`:
+
+- `083_…_gauntlet_engine_503_discards_the_error` — ours
+- `083_…_detected_findings_never_reach_a_handler` — someone else's, **actively
+  worked today** (`b1b650b00`, `02da9491e`, `75df951c9`, `e2634eeb7`)
+
+`who-owns.py 083` returns both and warns. **Nearly every commit message in the
+repo saying "083" refers to the other one**, so a quick `git log | grep 083`
+would have read as "heavily worked, stay away" — the opposite of the truth for
+our case. Resolved by running the log against each FILE PATH separately: ours had
+exactly one commit, my own filing.
+
+Because `who-owns.py` reads commits and is blind to a session mid-fix, six more
+signals were checked before claiming it: docs mentioning the mechanism, `git
+status internal/tools-api/`, commits to that tree since 07-25, in-flight council
+runs naming tools-api, open work items, and the memory index. All clear. Claim
+recorded in the bug file itself with the evidence table.
+
+### What the fix found beyond the filed scope
+
+§2 named two discard sites. There were **seven**, plus a third affected endpoint:
+
+- both LLM endpoints discard at `client_init` **and** `generate` (4 sites);
+- both have **two further unlogged branches** returning a *different* 503 —
+  `"…response was invalid"` — which §1 had not separated from `"unavailable"`.
+  That matters: if the observed live failures were the invalid-response kind, the
+  cause is a malformed completion, not an upstream outage, and §4's candidate
+  order points the wrong way;
+- **`round.go` returned a literal `502`** and discarded its error. `b498df16b`
+  moved the other two endpoints to 503 precisely because **Cloudflare replaces an
+  origin 502's body**, so `/round`'s JSON error shape never reached the browser.
+  It was missed by that fix. It is the endpoint the other two depend on.
+
+And the reason §5's log-reading step was never going to work: `api/server.go` ran
+`gin.New()` with only `Recovery`, so **the service had no request logging at
+all** — no denominator, which is exactly why §1 carries `[UNMEASURED]`.
+
+### Two disciplines that earned their keep
+
+1. **Induced the naive implementation to prove the tests discriminate.** A
+   version that still *detects* truncation but reports it generically COMPILES
+   and still logs a line — and fails exactly the two truncation tests. First
+   attempt at inducing it deleted the branch outright, which left `aiservice`
+   imported-but-unused, so the package failed to BUILD. **A build failure is not
+   a discriminating test result** — it proves nothing about the assertion. Redone
+   with a fault that compiles.
+2. **Verified all five `grounded_in` quotes byte-exact against source before
+   submitting**, by script, using absolute shas (never `HEAD~n`). An abbreviated
+   quote is a different claim and reviewers cannot open the file.
+
+### Missteps
+
+- **Wrote the council submission to the wrong schema** and it was refused
+  client-side (`ERROR: .plan missing`) — I had `plan` as an ARRAY with
+  `grounded_in` alongside it, but the schema is `plan` as an OBJECT with
+  `summary`/`edits`/`grounded_in`/`risks`, and `grounded_in` is an array of
+  STRINGS. Cost nothing — **the trigger validates client-side before spending
+  credits, by design.** Read the script header, don't infer the schema from
+  CLAUDE.md's prose summary.
+- **`operation: "create"` is not a valid value** — it is `modify|add|remove|config_change`.
+- **Looked for a `## 6` in 083 that was never there.** I had written a §6 into
+  *103* the same morning and carried the structure across in my head. The Edit
+  failed loudly and I diffed working tree vs HEAD (158 lines both, no diff)
+  before touching anything, rather than assuming the file had been truncated.
+  *Check: when a file looks wrong, diff it against HEAD before concluding
+  something ate it.*
+
+### State
+
+Commit `a37a2037c`, council `SUBMISSION_CORR e004fd81-5126-45c0-b580-635a28187995`
+(no trailer — a verdict that post-dates its commit can never carry one honestly).
+**083 stays OPEN**: the island has not been rebuilt, so the fix is inert, and
+`/bugs_closed/`'s bar is fixed AND live. Chassis rolled three times today
+(v1.0.1172 → 1174 → 1175) and **not one of them touches this service.**
