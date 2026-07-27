@@ -197,3 +197,61 @@ Next is the part that makes the register do something: the path that writes an e
 path that binds an entry to a real site's pages, and then the first check that actually runs. That
 last one is what turns Sunday's manual discovery — four carousel cards pointing at a page that
 doesn't exist — into something the system notices by itself.
+
+---
+
+**2026-07-27 (later) — the review came back approved, and the most useful thing in it was a
+criticism I had already made of myself.**
+
+Eleven reviewers read it, five sat it out because it didn't touch their area, and none of them
+failed to read it — that last number matters, because a reviewer who couldn't open the submission
+gets counted the same way as one who had no comment, and an approval made of those would be
+worthless. Five advisory objections, none serious enough to block.
+
+The one worth telling you about: I had written in my own submission that there was a hole. An
+entry in this library is allowed to say "this rule can't be checked by our tools yet, and here's
+why" — that's deliberate, because the alternative is quietly deleting the rule, which is how
+something ends up looking fully tested while the most important thing about it is untested. But
+nothing stopped an entry doing that for *every* rule and still being marked approved. I flagged
+it, and said the fix would be a check at the approval stage later.
+
+Two reviewers landed on the same point and one of them put it better than I had: until that check
+exists, an entry that tests nothing is indistinguishable from a real one. Which is to say — my
+answer wasn't an answer. It was a promise that somebody, later, would remember to do something.
+That's not a safeguard, it's a note. So I've made it a rule the database itself enforces: an
+entry cannot be marked approved unless at least one of its checks can actually run. Not
+discouraged — impossible. And I proved it refuses the bad case before trusting it, and proved it
+still allows the good case, because a rule that's too strict gets switched off and then protects
+nothing.
+
+**Two other objections I answered by going and looking rather than arguing.** One asked whether I
+was building a second version of something that already existed. I checked: the existing code
+that reads these test criteria only ever reads them *when running the test* — never when they're
+written down. That gap is the whole problem, so this isn't a duplicate. The other asked whether
+the new category of document would split the history of an existing one. I checked: the existing
+category has 59 entries but they're all versions of a *single* document, so there's nothing to
+split. Both answers were what I expected — and both reviewers were right to make me check,
+because I'd stated them as fact without running the query.
+
+**One I've declined, and said why.** A reviewer suggested renaming yesterday's database change to
+avoid a number clash. It's already been applied and is recorded under that name; renaming it now
+would make the system think it hadn't run and try to run it again — which is precisely the
+accident the naming exists to prevent. Sometimes the tidier option is the dangerous one.
+
+**And my own mistake in all this, which I'd rather write down than let pass.** When I described
+the database change to the reviewers, I wrote out the first half in full and summarised the second
+half as a one-line comment saying "same again for the other table". Two reviewers objected that
+they couldn't confirm the second half existed. It does — I'd tested it live hours earlier. But
+they were right and the shortcut was indefensible, because the *entire point* of that change was
+that the two halves must always travel together. I abbreviated the exact thing the change was
+about. Reviewers can't open the file; if you don't show them something, you haven't told them.
+
+**Since then I've built the next piece:** the way an entry actually gets into the library. It's
+deliberately the only way in, and it refuses more than it accepts. It won't let anything claim to
+be approved — approval is a verdict something else issues, not a field you fill in. If an entry
+that *was* approved later has its behaviour changed, it drops back to draft automatically, because
+the approval was of the old behaviour. And it reports every problem at once rather than one at a
+time, since each rejection sends an AI writer back round the loop at a cost.
+
+That's now with the reviewers too. The remaining pieces are binding an entry to a real site's
+pages, and then the first check that runs by itself.
