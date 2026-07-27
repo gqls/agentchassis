@@ -14,7 +14,7 @@ REGION ?= uk001
 REGION_PATH ?= uk_001
 REGISTRY ?= docker.io/aqls
 #IMAGE_TAG ?= latest
-IMAGE_TAG ?= v1.0.1170
+IMAGE_TAG ?= v1.0.1174
 
 # Paths
 TERRAFORM_DIR := deployments/terraform/environments/$(ENVIRONMENT)/$(REGION)
@@ -511,12 +511,22 @@ deploy-090-monitoring: ## Deploy monitoring stack
 		fi
 
 
+# bugs_open/066: this is the BOOTSTRAP path — on a fresh cluster there is no
+# agent-chassis Deployment to read a tag from, so unlike update-agent-images it
+# must seed from $(IMAGE_TAG). Scoped the same way regardless: never touch
+# is_snapshot rollback copies (021_model_swap_and_rollback.sql), soft-deleted
+# rows, or a row deliberately pinned with default_config.pin_image_tag.
+# `2>/dev/null` removed — the failure stays non-fatal for a bootstrap, but a
+# silent no-op here is exactly how a stale census goes unnoticed.
 .PHONY: deploy-100-bootstrap-agents
 deploy-100-bootstrap-agents: ## Deploy bootstrap agents (generic orchestrator) with image updates
 	@echo "$(GREEN)Deploying 100-bootstrap-agents...$(NC)"
 	@echo "$(YELLOW)First updating agent definitions with current image...$(NC)"
 	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
-		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW(); SELECT COUNT(*) as updated_count FROM agent_definitions;" 2>/dev/null || true
+		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW() \
+		 WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false) = false \
+		   AND COALESCE(default_config->'pin_image_tag','false'::jsonb) <> 'true'::jsonb; \
+		 SELECT COUNT(*) as updated_count FROM agent_definitions;" || true
 	@cd $(TERRAFORM_DIR)/100-bootstrap-agents && \
 		if [ -f terraform.tfvars.secret ]; then \
 			KUBECONFIG=$(KUBECONFIG_PATH) terraform init && \
@@ -1814,30 +1824,41 @@ backup-list-s3: ## List recent backups in S3
 # Agent Image Management
 #################################
 
-# Update agent definitions with current image tag
+# Sync agent_definitions.image_tag with the tag agent-chassis is RUNNING.
+#
+# bugs_open/066. There used to be FOUR copies of this UPDATE in this makefile
+# (here, update-agent-images-v2, deploy-100-bootstrap-agents, and the inline one
+# in the image-generator quick-deploy), every one of them unscoped —
+# `SET image_repository = …, image_tag = …` with no WHERE at all. That rewrote
+# is_snapshot rollback copies (021_model_swap_and_rollback.sql), resurrected
+# soft-deleted rows, and would silently convert an agent that deliberately runs
+# some OTHER image onto the chassis image. Measured 2026-07-27: 183 rows hit
+# where 180 is correct.
+#
+# There is now ONE implementation, and it is scoped:
+#   scripts/deploy/update-agent-images.sh
+# It reads the tag from the live Deployment rather than from $(IMAGE_TAG),
+# because the point of the record is what IS running — a make variable is a
+# request, not an outcome.
+#
+# NOTE this is hygiene, not the 066 fix. The rows went four tags stale on
+# 2026-07-24 even though deploy-agents already called this, because a sync is a
+# property of one deploy PATH, not of the system: `kubectl apply -k` (the
+# shortcut written at the foot of deploy-agents), `kubectl set image`
+# (scripts/deploy/deploy-agents.sh) and `kubectl rollout undo` all move the
+# cluster without it. The fix that closes the door is at spawn time —
+# platform/orchestration/actions/agent_image.go.
 .PHONY: update-agent-images
-update-agent-images: ## Update all agent definitions with current image tag
-	@echo "$(YELLOW)Updating agent definitions with image: $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
-		"UPDATE agent_definitions SET image_repository = '$(REGISTRY)/agent-chassis', image_tag = '$(IMAGE_TAG)', updated_at = NOW();"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c \
-		"SELECT type, image_repository, image_tag FROM agent_definitions ORDER BY type LIMIT 5;"
-	@echo "$(GREEN)Agent definitions updated with $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
+update-agent-images: ## Sync agent_definitions.image_tag with the running agent-chassis image
+	@KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(PROJECT_NAME) $(SCRIPTS_DIR)/deploy/update-agent-images.sh
 
-# Alternative version using a single command
+# Kept as a name because deploy-agents and the quick-deploy targets call it.
 .PHONY: update-agent-images-v2
-update-agent-images-v2: ## Update all agent definitions with current image tag (alternative)
-	@echo "$(YELLOW)Updating agent definitions with image: $(REGISTRY)/agent-chassis:$(IMAGE_TAG)$(NC)"
-	@KUBECONFIG=$(KUBECONFIG_PATH) kubectl exec --request-timeout=5m -i postgres-clients-0 -n $(PROJECT_NAME) -- psql -U clients_user -d clients_db -c "\
-		UPDATE agent_definitions \
-		SET image_repository = '$(REGISTRY)/agent-chassis', \
-		    image_tag = '$(IMAGE_TAG)', \
-		    updated_at = NOW(); \
-		SELECT type, image_repository, image_tag \
-		FROM agent_definitions \
-		ORDER BY type \
-		LIMIT 5;"
-	@echo "$(GREEN)Agent definitions updated$(NC)"
+update-agent-images-v2: update-agent-images ## Alias of update-agent-images (one implementation, see above)
+
+.PHONY: check-agent-image-drift
+check-agent-image-drift: ## Read-only: what the Deployment runs vs what the rows say vs what a spawn will use
+	@KUBECONFIG=$(KUBECONFIG_PATH) NAMESPACE=$(PROJECT_NAME) $(SCRIPTS_DIR)/check-agent-image-drift.sh
 
 # Update agent images and restart orchestrator
 .PHONY: update-generic-orchestrator

@@ -2340,6 +2340,11 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 		zap.String("timestamp", time.Now().UTC().Format(time.RFC3339)),
 	)
 
+	// bugs_open/066: the image comes from the chassis that is doing the
+	// spawning, not from the agent_definitions row, which nothing updates on a
+	// roll. Falls back to the row if this pod cannot read its own image.
+	spawnImage := resolveAgentImage(ctx, agentDef, logger)
+
 	// Get in-cluster config
 	k8sConfig, err := rest.InClusterConfig()
 	if err != nil {
@@ -2768,8 +2773,9 @@ func spawnAgentKubernetesJobFromDefinition(ctx context.Context, agentID string, 
 					},
 					Containers: []corev1.Container{
 						{
-							Name:    "agent",
-							Image:   fmt.Sprintf("%s:%s", agentDef.ImageRepository, agentDef.ImageTag),
+							Name: "agent",
+							// bugs_open/066 — resolved above, NOT agentDef.Image*.
+							Image:   spawnImage.Ref(),
 							Command: agentDef.Command,
 							Ports: []corev1.ContainerPort{
 								{

@@ -157,14 +157,19 @@ func DispatchAgentAction(ctx context.Context, params ActionParams) (interface{},
 		targetCluster = cluster
 	}
 
+	// bugs_open/066: the remote spawner builds its pod from these two fields,
+	// so the correction has to happen HERE — on the far side there is no
+	// agent_definitions row to consult and no chassis image to compare against.
+	dispatchImage := resolveAgentImage(ctx, agentDef, params.Logger)
+
 	dispatchReq := DispatchRequest{
 		AgentID:              agentID,
 		AgentType:            agentType,
 		AgentName:            agentName,
 		Role:                 role,
 		ClientID:             clientID,
-		ImageRepository:      agentDef.ImageRepository,
-		ImageTag:             agentDef.ImageTag,
+		ImageRepository:      dispatchImage.Repository,
+		ImageTag:             dispatchImage.Tag,
 		Command:              agentDef.Command,
 		Resources:            agentDef.Resources,
 		HealthConfig:         agentDef.HealthConfig,
