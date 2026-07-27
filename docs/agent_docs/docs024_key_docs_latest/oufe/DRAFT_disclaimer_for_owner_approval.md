@@ -125,8 +125,7 @@ output block itself carries a line such as:
 ## E. `/disclaimer` page (linked in the footer legal group)
 
 Longer form covering: what OUFE is and is not; that it is an independent research
-and teaching publication, **not an incorporated company and not an authorised
-firm**; the sourcing standard and its limits; that AI assistance is used and what
+publication, **not an incorporated company and not an authorised firm**; the sourcing standard and its limits; that AI assistance is used and what
 that means for reliability; that the tools are simplifications that can be wrong;
 that analysis of mechanism is not prediction of outcome; that no relationship is
 created by reading; and the correction route.
