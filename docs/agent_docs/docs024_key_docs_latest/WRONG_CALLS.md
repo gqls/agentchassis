@@ -7069,3 +7069,35 @@ before answering, which is the only thing that went right here.
 **Tally:** "grep the index before filing" 1→2.
 
 Family: urgency-suppresses-the-dedup-check, the-shell-test-that-tests-something-else.
+
+## 2026-07-27 — I planned a fix to code owned by two active workstreams, and only checked afterwards
+
+**The claim.** In an approved plan for the webdesign.co.uk dead-link fix, I wrote
+Step 2 as: change `NormalizePagePath` (`platform/orchestration/datahelpers/links.go`)
+so the platform stops treating `/tools` as equivalent to `/tools/index.html`,
+"through the council gate, then build and roll".
+
+**Why it was wrong.** Not the diagnosis — that part holds, and is now recorded in
+`bugs_open/071`. What was wrong was assuming the change was mine to make.
+`bugs_open/071` **already contains a section reasoning about that exact function**,
+concluding the repair belongs at the writer and not in the normaliser. 071 is owned
+by `brochure_component_library` (68 commits/14d) and `gauntlet_dead_cta`
+(60 commits/14d); the adjacent `092` is owned by `bugfix_079_phantom_link_gate`,
+which committed to it the same day. I would have shipped a competing fix into three
+active workstreams' code.
+
+**What caught it.** Reading 071 before editing — which I only did because I paused
+to check whether my finding was already filed. Luck, in other words, dressed as
+diligence.
+
+**The cheap check that would have.** `scripts/who-owns.py 071` — advisory, ~0.3s,
+no cluster calls. I ran it, but *after* writing the plan rather than before. CLAUDE.md
+already says to run it "before routing work AT an existing bug"; what this adds is
+that **writing a plan that touches a bug's code IS routing work at it**, and the
+check belongs before the plan, not before the edit. By the time a plan is approved
+the direction feels settled and is much more expensive to reverse.
+
+**Tally note.** This is the second entry in this file about acting on an
+insufficiently-checked ownership/prior-art assumption (cf. the 2026-07-26
+"capability that had been in production for weeks" class). The recurring shape is
+not a missing fact but a missing *look*, and the look costs under a second.

@@ -739,3 +739,101 @@ have been clobbered. Due again at 19:49.
 **Still true and unchanged:** the page must have items before it builds, and must
 be built before chrome is re-rendered. Nothing about this failure changes that
 order; it only delays it.
+
+### 2026-07-27 — every content link on the home page was a 404, and the audit had never run
+
+The owner clicked a tool link on the live home page and it 404'd. Measured: **10 of
+13 hrefs dead**, only the three nav links alive. All 12 cards across the two
+`info-card-grid` components. The site had been declared live, "98 pages, all 200",
+since 07-26 — true, and irrelevant, because nobody had asked whether the pages
+*link* to each other. **"All pages return 200" and "the site works" are different
+claims, and I had only ever checked the first.**
+
+**Two independent faults**, which is why no single substitution covered them:
+
+1. **Invented slugs.** `colour-contrast-checker` and `css-layout-generator` name
+   pages that do not exist (real: `smart-contrast`, `layout-generator`).
+   `spacing-scale-calculator` and `typography-scale` name tools that exist in **no**
+   form among the 63 built. Four category links point at category pages that were
+   never built. The slugs are absent from `cmd/webdesignport`, so this is
+   generation, not the port — `bugs_open/092`'s mechanism.
+2. **Wrong path shape.** `/tools`, `/guides` and the category links carry no
+   `/index.html`. The sites are served from an **S3-compatible bucket behind
+   Cloudflare** (`x-amz-*` headers) and an object store cannot resolve directory
+   indexes. Measured: `/tools/` 404, `/tools` 404,
+   `/tools/smart-contrast/index.html` 200 — and `/about/` + `/about` 404 on
+   relojistas, robot-hands and gaswholesalers too. **Fleet-wide and inherent.**
+
+**Scope, checked before fixing rather than after:** page_components with dead
+links = the home page only; the other 97 pages match none of the patterns;
+`site_components` (header/footer/head) are clean, every href already a full
+`/index.html`. Two rows.
+
+**The fix.** `SQL_p10` corrects `content_data` **and** `rendered_html` with one
+shared replacement list. Both, deliberately: `content_data` is what a future render
+reads, `rendered_html` is what is served, and the standing landmine is that
+assemble republishes *stored* HTML — so fixing the data alone changes nothing a
+visitor sees.
+
+**Copy was corrected too, where a card described a tool we do not have.**
+Repointing a card titled "Spacing scale calculator" at a design-token tool would
+have fixed the 404 and left the card lying about the destination — the same defect,
+quieter. Replacement descriptions were taken from the live tools, not invented.
+
+**A deploy detail I did not know and would have got wrong:** the site is **not**
+served from the DB. It is published as files into `gqls/sites` (branch `master`,
+not `main`), and a GitHub Action ships changed `<domain>/` dirs to B2. My local
+clone was **394 commits behind** with no `index.html` at all — so "the repo looks
+empty" meant "you have not fetched", not "the site is not in the repo". Fixed in
+both places, then verified live.
+
+**Verified against the live URL, every link, not a sample:**
+
+```
+/about/index.html 200   /index.html 200   /learn/index.html 200
+/tools/index.html 200   /tools/css-variables/index.html 200
+/tools/fluid-typography/index.html 200  /tools/layout-generator/index.html 200
+/tools/smart-contrast/index.html 200
+```
+
+Then a full-site sweep of all **99** deployed HTML files against the artefacts on
+disk: **the only unresolved internal link left anywhere is `/favicon.ico`**, on all
+98 pages. No favicon exists on any fleet site; choosing a brand mark is not mine to
+invent, so it is flagged, not fabricated.
+
+### Why nothing flagged it — the answer is worse than a missed check
+
+`phantom_internal_links`, `dead_controls` and `misdirected_cta` are enabled on
+exactly one agent, `completeness-discovery-agent`, and **that agent has never run —
+on any site**, across the full 13-day retention of `orchestration_states`. The only
+discovery agent ever to execute is `design-discovery-agent` (8 runs), which carries
+none of them. Its only recurring caller is `improvement-loop`, which the owner
+confirms is off; the only scheduled task pointing at it is disabled, a one-shot,
+and scoped to a different site.
+
+So the site *was* checked — by the agent that does not look at links. Filed as
+`bugs_open/116`. **A detector improved but never scheduled produces exactly the
+same outcome as no detector**, which is what makes this worth a bug of its own
+rather than a line in 071.
+
+> **CORRECTION to my own approved plan.** Step 2 was "change `NormalizePagePath` so
+> the platform stops treating `/tools` as equivalent to `/tools/index.html`". I
+> wrote that before checking who owned the adjacent bug. `bugs_open/071` **already
+> reasons about that exact function** and concludes the repair belongs at the
+> writer, not the normaliser — and 071 is owned by two workstreams with 68 and 60
+> commits in 14 days, while `092` is owned by `bugfix_079`, active the same day.
+> `scripts/who-owns.py` answers this in 0.3s and I ran it *after* writing the plan
+> rather than before.
+>
+> My finding is still new and still real — 071's analysis covers the flat-file
+> shape (`/about.html`), where the mismatch is flagged correctly; the
+> `dir/index.html` shape **inverts** it into a false match. But the change is
+> theirs to make, especially as `rerender_page_sections_action.go:429` compares
+> normalised paths and the strip may be load-bearing there. **Contributed to 071,
+> changed no platform code.**
+
+**The most useful thing in this entry, from 071 and confirmed here:** the repair is
+an **artefact, not a property**. I fixed `content_data`, `rendered_html` and the
+published file, and all three will be overwritten the next time that page is
+generated, because nothing upstream changed. The home page is link-sound this
+afternoon. The *site* is not link-sound.

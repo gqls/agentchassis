@@ -572,3 +572,81 @@ that makes a bug file un-closable forever. Recommend: close 071 on the evidence 
 re-file the fragment gap as its own case (the renderer-default belongs with it or with
 `component_library.go`'s owner). Left undone deliberately — filing new numbers from a
 sweep is how `083` and `090` collided, and the owning lane should pick the split.
+
+---
+
+## Sighting + a NEW normalisation gap, 2026-07-27 — webdesign.co.uk home page (webdesign_couk thread)
+
+**Evidence and one new finding. Not a competing fix — I have changed no platform code**,
+because §"One finding that bears on your fix candidates" already reasons about
+`NormalizePagePath` and concludes the repair belongs at the writer. This is offered as the
+case that refines that section, not as a challenge to it.
+
+**The instance.** The owner found no link on `webdesign.co.uk`'s home page worked. Measured
+live: **10 of 13 hrefs 404**; only the three nav links survived. All 12 cards across two
+`info-card-grid` components were dead. Both halves of your class at once:
+
+1. **True phantoms** — `/tools/colour-contrast-checker`, `/tools/css-layout-generator` (real
+   pages are `smart-contrast`, `layout-generator`); `/tools/spacing-scale-calculator` and
+   `/tools/typography-scale` name tools that exist in **no** form among the 63 built; four
+   category links (`/tools/colour|css|typography|accessibility`) point at category pages that
+   were never built.
+2. **Real pages, wrong form** — `/tools`, `/guides`.
+
+Slugs are absent from `cmd/webdesignport`, so they came from generation, not the port. Note
+these are **not prose links**: they are structured `content_data->'cards'->[]->'link_url'`
+values on a data-driven component. Worth knowing for `092` — a writer-prose repair would not
+have reached them.
+
+### The new part: on `dir/index.html` sites the normaliser produces a FALSE MATCH
+
+Your §line 326 analysis covers the flat-file shape: `pages.url = /about.html`, href `/about`,
+normalised forms differ, correctly flagged. **The `dir/index.html` shape inverts that result.**
+
+`NormalizePagePath` strips a trailing `index.html` (`links.go:175`), so:
+
+```
+pages.url  /tools/index.html   ->  /tools
+href       /tools              ->  /tools      ==> MATCH, not flagged
+live       /tools              ->  404
+```
+
+So on any site whose pages are `dir/index.html`, every extensionless or trailing-slash link is
+**invisible to both the gate and the audit** — they agree, by the one shared implementation,
+that it is fine, and it is a live 404. This is the one link of the ten that the audit would
+have passed even had it run.
+
+**This is not a per-site quirk. Measured 2026-07-27 across four domains:**
+
+```
+webdesign.co.uk   /tools/ 404  /tools 404   /tools/smart-contrast/ 404
+                  /tools/smart-contrast/index.html 200
+relojistas.com    /about/ 404  /about 404
+robot-hands.com   /about/ 404  /about 404
+gaswholesalers    /about/ 404  /about 404
+```
+
+Cause: the sites are served from an **S3-compatible bucket behind Cloudflare** (`x-amz-*`
+response headers on every request). **An object store does not resolve directory indexes** —
+this is inherent, not a misconfiguration, and it will never start working. Site *roots* serve
+because the bucket has a default root object; subdirectories never will.
+
+**Why I stopped rather than changing `links.go`.** Removing the `index.html` strip would make
+the matcher stricter — aligned with your section's logic, which warns only against making it
+*more* tolerant — but it is your code, `071` is owned by two active workstreams, and
+`rerender_page_sections_action.go:429` compares `NormalizePagePath(current)` against
+`NormalizePagePath(pageURL)`, so the strip may be load-bearing there. That interaction wants
+the owner's judgement, not mine.
+
+**Corroborating your own strongest point.** §"The part that is new" says a per-page link repair
+is a statement about an artefact that expires on the next rebuild. This instance is the proof:
+I repaired the home page in `content_data` **and** `rendered_html` **and** the published file
+in `gqls/sites`, and all three will be overwritten the next time the page is generated, because
+nothing upstream has changed. The site is link-sound this afternoon and is not link-sound as a
+property.
+
+### Related, filed separately
+
+The audit that would have caught nine of these ten **has never run — on any site**. That is a
+coverage failure rather than a detection one, so it is `bugs_open/116` rather than more text
+here.
