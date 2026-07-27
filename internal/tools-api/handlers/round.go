@@ -95,7 +95,14 @@ func RoundHandler(pool *pgxpool.Pool) gin.HandlerFunc {
 
 		prov, err := FetchProvocation(domain)
 		if err != nil {
-			httperr.JSONError(c, 502, "provocation unavailable")
+			// 503, not 502 — Cloudflare REPLACES an origin 502's body with its
+			// own HTML error page, so the JSON error shape never reaches the
+			// browser and the front end cannot tell this apart from a network
+			// failure. Commit b498df16b made exactly this change for /position
+			// and /defend; /round was missed and kept the 502 until 2026-07-27.
+			// (bugs_open/083, taken on by gauntlet_dead_cta.)
+			logAIFailure("round", "fetch_provocation", "", err)
+			httperr.JSONError(c, http.StatusServiceUnavailable, "provocation unavailable")
 			return
 		}
 

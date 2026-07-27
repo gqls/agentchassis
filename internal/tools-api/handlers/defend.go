@@ -29,8 +29,10 @@ type defendAIResponse struct {
 // DefendHandler handles POST /defend.
 // It loads the round, calls the AI for an even-handed verdict and reasons,
 // validates the response is non-empty, persists it, and returns 200 JSON.
-// If the AI response is malformed or has empty fields, it returns 502 and
-// does NOT persist (fail-loud, no silent-blank persistence).
+// If the AI response is malformed or has empty fields, it returns 503 and
+// does NOT persist (fail-loud, no silent-blank persistence). 503 not 502:
+// Cloudflare replaces an origin 502's body, destroying the JSON error shape
+// (commit b498df16b).
 func DefendHandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req defendRequest
@@ -82,22 +84,26 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 			"api_key_env_var": "ANTHROPIC_API_KEY",
 		})
 		if err != nil {
+			logAIFailure("defend", "client_init", req.RoundID, err)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge unavailable")
 			return
 		}
 
 		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{})
 		if err != nil {
+			logAIFailure("defend", "generate", req.RoundID, err)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge unavailable")
 			return
 		}
 
 		var aiResp defendAIResponse
 		if err := json.Unmarshal([]byte(text), &aiResp); err != nil {
+			logAIBadResponse("defend", "json_unmarshal: "+err.Error(), req.RoundID, text)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge response was invalid")
 			return
 		}
 		if strings.TrimSpace(aiResp.Verdict) == "" || strings.TrimSpace(aiResp.Reasons) == "" {
+			logAIBadResponse("defend", "parsed but verdict or reasons empty", req.RoundID, text)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet judge response was invalid")
 			return
 		}

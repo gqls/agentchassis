@@ -29,8 +29,10 @@ type positionAIResponse struct {
 // PositionHandler handles POST /position.
 // It loads the round, calls the AI for a counter_position and challenge,
 // validates the response is non-empty, persists it, and returns 200 JSON.
-// If the AI response is malformed or has empty fields, it returns 502 and
-// does NOT persist (fail-loud, no silent-blank persistence).
+// If the AI response is malformed or has empty fields, it returns 503 and
+// does NOT persist (fail-loud, no silent-blank persistence). 503 not 502:
+// Cloudflare replaces an origin 502's body, destroying the JSON error shape
+// (commit b498df16b).
 func PositionHandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req positionRequest
@@ -76,22 +78,26 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 			"api_key_env_var": "ANTHROPIC_API_KEY",
 		})
 		if err != nil {
+			logAIFailure("position", "client_init", req.RoundID, err)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent unavailable")
 			return
 		}
 
 		text, err := client.GenerateText(ctx, prompt, map[string]interface{}{})
 		if err != nil {
+			logAIFailure("position", "generate", req.RoundID, err)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent unavailable")
 			return
 		}
 
 		var aiResp positionAIResponse
 		if err := json.Unmarshal([]byte(text), &aiResp); err != nil {
+			logAIBadResponse("position", "json_unmarshal: "+err.Error(), req.RoundID, text)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent response was invalid")
 			return
 		}
 		if strings.TrimSpace(aiResp.CounterPosition) == "" || strings.TrimSpace(aiResp.Challenge) == "" {
+			logAIBadResponse("position", "parsed but counter_position or challenge empty", req.RoundID, text)
 			httperr.JSONError(c, http.StatusServiceUnavailable, "gauntlet opponent response was invalid")
 			return
 		}

@@ -12,6 +12,14 @@ import (
 // Later stages attach middleware and handlers to apiGroup.
 func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	r := gin.New()
+	// gin.Logger() before Recovery so every request is recorded, including one
+	// that panics. Added for bugs_open/083: the island ran gin.New() with only
+	// Recovery, so `docker compose logs tools-api` showed nothing but the startup
+	// banner. With no request log there was no denominator — the 503s could be
+	// described as "bursty" from client-side sampling but no honest overall RATE
+	// could be quoted, which is why 083 §1 carries an [UNMEASURED] marker.
+	// Per-request status + latency here is what turns that into a measurement.
+	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
 	// Local health check — not platform/health per spec hard constraint 6.
