@@ -404,3 +404,54 @@ commits carrying a `Council-Reviewed:` trailer, and a verdict mix that includes 
 revise / 2 guardian vetoes / 1 escalated / 1 invalid alongside 9 approvals. The
 outstanding judgement is editorial and reputational, not technical: whether
 internal objection text and seat names go outward, and in what redacted form.
+
+---
+
+## Decisions taken 2026-07-27 (contrast + imagery pass), and why
+
+**D-C1 — `--color-primary` becomes a light steel blue (#86ADDE) on this site, not the
+brand navy.** The navy `#0E1B2E` scored 1.11:1 against the site's own background. The
+component library uses `--color-primary` as a *foreground* in 53 places and as a fill
+in 26, so the token has to be readable on the page; a fill can always take
+`--color-primary-text`, but a foreground has nowhere else to go. **Reason recorded
+because it looks like a brand change and is not:** the navy survives as the page and
+surface colour, which is where the "deep navy dominant field" of the brief actually
+lives. What changed is which token carries the brand's *ink*.
+
+**D-C2 — bands are painted from `cta_bg`/`cta_text`, never from `primary`.** Applied to
+`stat-band`, `portfolio-showcase` and the three secondary heroes. `cta_bg`/`cta_text`
+are curated as a pair in every palette; `primary` is not a background token at all.
+This is the rule to apply to any future component that wants a full-bleed emphasis
+band.
+
+**D-C3 — a component with no image renders no image.** Rejected the alternative of
+pointing the fallback at a real placeholder asset. A placeholder is a decision about
+the page's content and belongs in the data, not in a template's else-branch; and the
+previous else-branch (`/assets/images/hero.jpg`) proves how badly a template-level
+guess ages — it named a file that exists on no site in the fleet.
+
+**D-C4 — icon images sit on a deliberately light chip.** The generated icons are dark
+line art on near-white. Rather than invert them or blend them, the chip is painted
+light *when an icon image is present*. This is a hard-coded light literal, which is the
+exact shape of the bug this session fixed — the difference, stated in the template, is
+that it is chosen **for the artwork it holds** rather than inherited from a theme that
+may be dark. If icons are ever regenerated as light-on-transparent, this reverses.
+
+**D-C5 — the palette row is aligned DOWN to the values the served stylesheet uses**,
+not the other way round. The stylesheet had drifted a shade from its own palette row
+(an `analyze_design` run's `color_scheme` wins over the row for core slots). Both sets
+were fine; making the row match what is live means a future deterministic re-render
+reproduces the live file instead of shifting it again.
+
+**D-C6 — do not repaint the other 11 affected sites from this workstream.** They are
+owned elsewhere. The renderer fix repairs them when their stylesheet is next rendered,
+and a stylesheet is only written by a design run — so each needs its owner's decision,
+not ours. Measurement handed over in `bugs_open/113`.
+
+**D-C7 — the pipeline check is scoped in three phases, and the cheap one is not first.**
+The instinct was to build the palette-composition check in Go straight away. Deferred
+in `features_open/026` behind *draining what is already detected*, because three
+`audit_finding_brief_fidelity` rows filed on 24 July — one of them saying in terms that
+the site had almost no imagery — are still sitting at `detected` and are the only rows
+of their type in the database. A detector whose output nobody reads is a more expensive
+way of not knowing.
