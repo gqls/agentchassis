@@ -10,10 +10,19 @@
 -- QUEUE DEPTH (LAG) 0 on system.agent.generic.requests while the council ran in
 -- its own pod, where the inline path necessarily holds LAG >= 1 for 4-9 minutes.
 -- The spawn handshake UNDERNEATH it does not: the run stuck at spawn_council /
--- AWAITING_RESPONSES because the child answered 1.92s BEFORE the parent began
--- listening (19:50:24.189 vs 19:50:26.109). The archetype this copies fails the
--- same way in 2 of its 4 runs over the whole retained history — "in daily use"
--- was not a reliability measurement, and that error is logged in WRONG_CALLS.md.
+-- AWAITING_RESPONSES and never reached call_council. The archetype this copies
+-- fails the same way in 2 of its 4 runs over the whole retained history — "in
+-- daily use" was not a reliability measurement, and that error is logged in
+-- WRONG_CALLS.md.
+--   CAUSE: still open. My first explanation — that the child answered 1.92s
+--   before the parent began listening (19:50:24.189 vs 19:50:26.109) and the
+--   reply was discarded — was REFUTED by the diagnosis loop (corr eb8df254) and
+--   is wrong: persistAwaitingStateWithRetry (coordinator.go:1863-1879) returns
+--   early on "Response already arrived during state persist - continuing", and
+--   processResponseClaimWithRetry retries the claim for exactly that case. It is
+--   a genuine NON-RESPONSE, fleet-wide (same shape on
+--   build-pipeline-trigger/spawn_dispatch), i.e. the bugs_open/003 family.
+--   Full correction + next scope: bugs_open/096 "Candidate 4".
 -- >>> DO NOT flip 097_TRIGGER_council_review_v1.sh's default to this agent until
 -- >>> the spawn race is fixed. See bugs_open/096 "Candidate 4" for the evidence
 -- >>> and bugs_open/003 + 029 for the probable family.

@@ -364,6 +364,46 @@ it belongs in the diagnosis loop before anyone acts on it. It is very likely the
 same family as `bugs_open/003` (spawn lost child response) and `029` (what those
 hangs do to the fleet); read both before filing anything new.
 
+> ### **CORRECTED same day — the race above was REFUTED by the diagnosis loop.**
+> Filed as correlation `eb8df254-f05d-4e50-8798-c52773834df6`; verdict **REFUTED**
+> in ~5 minutes. Verdict lives in
+> `orchestration_states.collected_data->'verdict'` for that correlation, **not**
+> in `doc_notes` — a code-tier run with no explicit subject writes no note
+> (`persist_note` returned `{"reason":"no explicit subject","persisted":false}`).
+>
+> **Why it is wrong.** Two coordinator paths already cover a reply that beats the
+> parent's transition, and I verified both in source rather than taking the
+> loop's word:
+> - `persistAwaitingStateWithRetry` (`coordinator.go:1863-1879`) re-loads state on
+>   every attempt and returns early — `"Response already arrived during state
+>   persist - continuing"` — if the step's `CollectedData` already holds a
+>   response. So a fast child's reply is not clobbered.
+> - `processResponseClaimWithRetry` retries the claim specifically for
+>   *"response may arrive before awaited_request is inserted"*.
+>
+> **What it is instead:** a genuine non-response. The loop's runtime citation is
+> `build-pipeline-trigger/spawn_dispatch (spawn_agent) error: Request ... timed
+> out after 3 retries` from `agent_error_log` — so this is **fleet-wide and not
+> council-specific**, and it is the `003` delivery family rather than an ordering
+> race. Next scope the loop named: `coordinator.go:handleRequestTimeout`,
+> `spawn_actions.go:SpawnAgentAction` / `preRegisterAwaitedRequest`,
+> `state.go:GetAwaitedRequestStatus` / `ResetAwaitedRequestForRetry`.
+>
+> **Two process errors of mine, recorded because they are the transferable part.**
+> First: I built the mechanism from timestamps and never opened
+> `persistAwaitingStateWithRetry` — the one function that answers it. That is the
+> exact failure CLAUDE.md's "Diagnosis before debugging" section was rewritten to
+> describe, repeated inside the same subsystem. Second, and worse for whoever
+> picks this up: **I cancelled the stuck orchestration and reaped its Job before
+> filing**, so the loop recorded that it could find no row parked at a spawn step
+> to examine. The static refutation stands on its own, but the runtime half was
+> weakened by my own tidying. **Do not cancel the failing row until the diagnosis
+> has run.**
+>
+> What survives unchanged: the LAG 0 measurement, the 2-of-4 archetype failure
+> rate, and the fact that this run failed at `spawn_council`. The lane fix is
+> still correct; only my explanation of the blocker was wrong.
+
 ### State left behind — safe, and deliberately not the default
 
 - `council-gate-orchestrator` **is live in `agent_definitions`, but nothing

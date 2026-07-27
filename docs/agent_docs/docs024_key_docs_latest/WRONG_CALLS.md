@@ -8235,3 +8235,57 @@ than a broken check.
 Family: the-guard-i-wrote-could-not-run,
 unrun-code-is-not-a-verification, right-objection-wrong-mechanism,
 i-had-the-table-open-a-dozen-times.
+
+---
+
+## 2026-07-27 — I built a mechanism out of three timestamps and never opened the function that answers it. Refuted in five minutes.
+
+**The claim.** The council wrapper's spawn stuck at `spawn_council` /
+`AWAITING_RESPONSES`. I had ms-precision evidence that the child replied 1.92 s
+*before* the parent transitioned (19:50:24.189 vs 19:50:26.109), and
+`SpawnAgentAction` visibly sleeps 5 s + 5 s before returning `await_response:true`.
+So I concluded the reply landed in a window the parent was not yet in and was
+discarded. I marked it `[INFERRED]` and filed it — which was right — but I had
+already written it into a bug file, a seed header **and a memory file** that
+auto-loads into every future session.
+
+**What caught it.** The diagnosis loop, verdict **REFUTED**, correlation
+`eb8df254`, in about five minutes. `persistAwaitingStateWithRetry`
+(`coordinator.go:1863-1879`) re-loads state on every attempt and returns early on
+`"Response already arrived during state persist - continuing"`;
+`processResponseClaimWithRetry` retries the claim for literally
+*"response may arrive before awaited_request is inserted"*. Both paths already
+cover the race I invented. I verified both citations in source rather than
+trusting the verdict, and they are real.
+
+**The cheap check I skipped:** open the function. One function. I had grepped
+`coordinator.go` repeatedly that hour and read `continueExecution`,
+`ProcessResponse` and `buildCallResult` — but never
+`persistAwaitingStateWithRetry`, the one whose name is literally the thing I was
+theorising about.
+
+**This is the failure CLAUDE.md's "Diagnosis before debugging" section was
+rewritten to describe, repeated inside the same subsystem it was written about.**
+That section records a thread filing a structural claim from grep hits whose
+functions it had never opened, refuted by the loop in 9.5 minutes. Mine took 5.
+Reading the warning is not the same as being protected by it: I filed *because*
+of that section, and still shipped the claim into three files first.
+
+**The compounding error, which is the worse one.** Before filing, I cancelled the
+stuck orchestration and deleted its Job — tidy-up, and defensible on its own terms
+(a row parked in `AWAITING_RESPONSES` feeds the `029` saturation class). But the
+loop then recorded that it could find **no orchestration row parked at a spawn
+step** to examine, so it refuted me on static evidence with the runtime half
+missing. **The failing row WAS the evidence.** Cleanup and evidence preservation
+are in direct tension and I did not notice the trade at the time.
+
+**Tally.** *Timestamps are a symptom, not a mechanism* — new; three precise
+numbers feel like proof and constrain nothing about which code path ran.
+*Open the function whose name matches your theory, before writing the theory
+down* — recurring, now twice in this file. *Never destroy the failing artefact
+until the diagnosis has run* — new, and the one I'd most want automated: the 090
+trigger could refuse, or warn, when the orchestration named in the symptom is
+already `CANCELLED`.
+
+Family: built-a-mechanism-from-timestamps, never-opened-the-named-function,
+cancelled-the-evidence-before-filing, wrote-it-down-before-i-checked-it.
