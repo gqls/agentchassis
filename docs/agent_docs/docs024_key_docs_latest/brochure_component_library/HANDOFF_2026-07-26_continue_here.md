@@ -157,29 +157,61 @@ soften that sentence.
 
 **Deliberately not built by a thread: publishing our internal review records
 outward is an owner call.** What it would contain, from data that genuinely exists
-(measured 2026-07-26):
+— **re-grounded 2026-07-27**, because these figures move daily:
 
-- **156 council-gate decision notes** since 2026-07-17 (`doc_notes` where
-  `categories ? 'council-gate'`).
-- **41 commits** since 2026-07-01 carrying a `Council-Reviewed:` trailer, which is
+- **177 council-gate decision notes** since 2026-07-17 (`doc_notes` where
+  `categories ? 'council-gate'`); was 156 on 07-26.
+- **42 commits** since 2026-07-01 carrying a `Council-Reviewed:` trailer, which is
   the exact commit↔verdict join.
-- Verdicts including the unflattering ones: **9 approved, 7 revise, 2 rejected
-  (guardian vetoes), 1 escalated, 1 invalid** on the sample queried. The failures
-  are what would make the page credible rather than promotional — a review record
-  showing only approvals is not evidence of review.
+- Verdicts across all 177 rounds: **42 APPROVED, 118 REVISE, 10 REJECTED**
+  (7 unparsed). The failures are what would make the page credible rather than
+  promotional — a review record showing only approvals is not evidence of review.
+- **And the split that is the actual story**, because the decision rule itself was
+  broken until 2026-07-22 (`bugs_closed/057` — objection severity was ignored, so
+  approval was effectively unreachable):
+
+  | period | approved | revise | rejected |
+  |---|---|---|---|
+  | before the 07-22 fix | **0** | 85 | 2 |
+  | since the 07-22 fix | **42** | 33 | 8 |
+
+  ```sql
+  SELECT CASE WHEN created_at < '2026-07-22' THEN 'before' ELSE 'since' END AS period,
+         substring(body from 'COUNCIL GATE — ([A-Z]+)') AS verdict, count(*)
+    FROM doc_notes WHERE categories ? 'council-gate' GROUP BY 1,2 ORDER BY 1;
+  ```
+
+  Ninety-one consecutive rounds with **zero** approvals, because the reviewer of
+  the reviewers had a bug. That is a better argument for the practice than any
+  approval rate — but it is also the single most quotable line against us, and
+  publishing it is exactly the decision being asked for.
 
 The judgement the owner has to make is not technical: it is whether internal
 review artefacts (objection text, seat names, what was rejected and why) go
-outward, and in what redacted form. Same call applies to `tool-decision-record`.
+outward, and in what redacted form. Same call applies to `tool-decision-record`
+(also `planned`, never built). **The exact sentence the absence makes untrue** is
+on the deployed self-correction page: *"Self-correction isn't a design principle we
+claim — it's something you can read."* Nobody can read it. Softening that sentence
+is a five-minute job and does not need the page.
 
 ## 4. Next actions, in the agreed order
 
 **(0) ~~BUILD THE CHART COMPONENT~~ — DONE 2026-07-26, see §3a.** What it left
 behind, in priority order:
 
-- **`bugs_open/085`** (filed by this workstream): no page identity reaches a
-  section template. One line in `BuildRenderContextAction`; needs the next image
-  roll. Fixing it restores the capabilities chart with no data change.
+- **`bugs_open/085` — FIXED IN CODE 2026-07-27, INERT until the roll, so it stays
+  OPEN.** The dated section at the foot of the bug file has the detail and the
+  post-roll checklist. **This line used to say "one line in
+  `BuildRenderContextAction`" and that was wrong** — the value is dropped at three
+  points on one journey and fixing only the filed one-liner would have changed
+  nothing visible. Split out at the council's request:
+  **`bugs_open/109`** now owns the generic mechanism (four hand-maintained
+  allowlists with nothing checking they agree; `theme_css`, `title` and
+  `description` are dropped the same way today).
+  Owed at the roll: pod-grep `resolveCurrentPageName` with a negative control,
+  restore the `capabilities` placement, re-render **in scoped mode** (assemble
+  redeploys stored HTML and would read as a false green), and induce the failing
+  branch — a page matching no chart must render nothing, not everything.
 - **`bugs_open/071` has a fresh instance and a sharper claim**: the index rebuild
   *authored* six broken links, the gate flagged all six as non-blocking warnings,
   and the 2026-07-25 repair did not survive the rebuild. "Link-sound" describes an
@@ -187,13 +219,48 @@ behind, in priority order:
 - **The dark-theme render is unverified** — leopardess has no `charts` key yet, so
   nothing dark has rendered. Do that check when it does.
 
-**(a) ~~Measure the voice fix~~ — MEASURED 2026-07-26. Mixed.** Like-for-like, on
-the components that existed before and after: **index 11 → 6**, **capabilities
-6 → 6**. Two components (`portfolio-showcase`, `hero-card-carousel`) hold 8 of the
-12 that remain, so a per-component fix now looks better than a fourth site-wide
-prompt round — which the handoff already ruled out without saying so first. The
-owner has the choice (mechanical post-pass vs per-component); nothing is blocked.
-`That X matters` is 1, not 0, on a page not rebuilt this session — pre-existing.
+**(a) ~~Measure the voice fix~~ — RE-MEASURED 2026-07-27, and the metric was
+measuring the wrong thing.**
+
+> **CORRECTED 2026-07-27.** This entry read: *"index 11 → 6, capabilities 6 → 6.
+> Two components (`portfolio-showcase`, `hero-card-carousel`) hold 8 of the 12
+> that remain, so a per-component fix now looks better."* Both halves are wrong in
+> the same way. **`hero-card-carousel`'s four em-dashes are literals in its
+> `html_template`, not the writer's output** (its `content_data` em-dash count is
+> 0). So capabilities' "no improvement" is four characters no prompt could ever
+> reach; the writer only wrote **two** there. The count in `rendered_html` sums two
+> populations that no writer change can both address.
+
+Site-wide today: **66 em-dashes — 23 baked into component templates, 43 written by
+the content LLM.** The split query is in the RUNBOOK under *"Counting em-dashes so
+the number means something"*. `from_words` is the only column a writer-prompt
+change can move.
+
+The 23 template-baked ones are in `tool-model-approach-selector` (12),
+`tool-llm-cost-calculator` (5), `hero-card-carousel` (4), `image-hover-card-grid`
+(1) and `evidence-chart` (1, mine — a shipped `<style>` comment). **The tool
+components are generated**, so those are the tool-builder's model output frozen
+into a template at generation time; the next generated tool reproduces them.
+
+**Recommendation, given to the owner 2026-07-27: neither of the two options as
+posed — do the per-component fix on the TEMPLATES and leave the writer alone.**
+Reasons, in order: the writer's own rate roughly halved where it was re-run
+(index 11 → 6 like-for-like) so the prompt is working; a mechanical post-pass over
+`content_data` cannot touch the 23 template ones at all, and would be a
+find-and-replace over copy that the claims and voice gates have already passed;
+and `from_words` is spread across 14 sections with a long tail, which is the
+profile a post-pass is worst at and a prompt is best at. Concentration is on the
+template side — three components hold 21 of 23. Cheapest real win: strip the
+literals from those three templates and fix the tool-builder's generation prompt
+so new tools are born without them.
+
+`That X matters` is 1, on `self-correction-leopardessconsulting`, unchanged and
+pre-existing.
+
+**Note while you are here:** `capabilities` flipped to `build_status =
+'needs_rebuild'` at 2026-07-27 11:26 (not by this thread; the served page is 200
+and carries the link repairs). A rebuild will re-author its copy — and, on this
+site's record, is the moment to re-run the anchor-inclusive link crawl.
 
 The original instruction, for the next measurement:
 

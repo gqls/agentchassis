@@ -2005,3 +2005,81 @@ That is the design working end to end, and it retrospectively justifies the rule
 that a SQL-sourced fact must carry **no** `display`: had I set one, the bar would
 have moved to 110 while the label beside it still read 108. The rule was written
 from reading the refresher's code; this is the first observation of it mattering.
+
+## 2026-07-27 (later) — bugs_open/085 fixed, and the em-dash metric was measuring the wrong thing
+
+### 085: my own bug file said "one line". It was three.
+
+Written up in full in `bugs_open/085` (dated section at the foot) and as a §9
+pattern in `016b`; the wrong call is logged in `WRONG_CALLS.md`. The short version
+for this workstream: **the page's name is dropped at three points between the
+workflow config that supplies it and the template that reads it**, not one.
+`BuildRenderContextAction` never assigns it (the defect I filed), `renderCtxToMap`
+never *emits* it, and `mergeIntoRenderContext` never *restores* it. Each looks
+complete on its own. Fixing only the filed one-liner would have shipped a
+no-visible-change fix, which reads as a bad diagnosis.
+
+What caught it: querying the serialised context rather than trusting the struct.
+`collected_data->'render_context' ? 'current_page'` is **false** on every
+page-content-writer run, with `domain` populated alongside as the positive
+control. *Absent*, not empty, is what localises the fault to the serialiser.
+
+Two things worth carrying:
+
+- **`build_render_context` has exactly ONE caller fleet-wide.** Surveyed
+  unfiltered across every active `agent_definitions` row before writing anything —
+  the habit that memory row about narrow filters exists to enforce. Knowing the
+  blast radius is one workflow is what made the config-driven accessor safe.
+- **The key name came from the payload, not the schema.** `pages.name` is a
+  column; `input_data.current_page` is assembled by workflow config, and the live
+  envelopes use `name` on the writer path and `page_name` on the rerender and
+  page-build ones. My filed fix candidate read `.name` unconditionally and would
+  have silently resolved to empty on two of the three paths.
+
+Submitted to the council gate (`b64141e5-b95c-418d-a20d-e917f050ed75`) — the first
+platform-code change this workstream has produced, so the first that is in scope.
+
+### The voice metric was counting the writer's words and the component templates together
+
+Asked to choose between a mechanical post-pass and a per-component fix, I
+re-measured before recommending, and the measurement changed the question.
+
+Site-wide em-dashes today: **66 total — 23 baked into component templates, 43
+written by the content LLM.** Split per page:
+
+| page | total | from the template | from the words |
+|---|---|---|---|
+| tool-model-approach-selector-guide | 17 | 0 | 17 |
+| index | 9 | 1 | 8 |
+| about | 8 | 0 | 8 |
+| model-fine-tuning | 5 | 1 | 4 |
+| capabilities | 6 | **4** | **2** |
+| multi-agent-review-council | 2 | 0 | 2 |
+| llm-cost-calculator | 6 | **5** | 1 |
+| self-correction-leopardessconsulting | 1 | 0 | 1 |
+| tool-model-approach-selector | 12 | **12** | **0** |
+| contact | 0 | 0 | 0 |
+
+> **CORRECTED 2026-07-27** — the handoff's next-action (a) reported *"capabilities
+> 6 → 6"* as the voice fix having no effect there, and said *"two components
+> (`portfolio-showcase`, `hero-card-carousel`) hold 8 of the 12 that remain, so a
+> per-component fix now looks better"*. Both halves are wrong in the same way.
+> **`hero-card-carousel`'s four em-dashes are literals in its `html_template`, not
+> the writer's output** (`content_data` em-dash count: 0). So capabilities' "no
+> improvement" is measuring four characters no prompt has ever been able to reach;
+> the writer only ever wrote **two** there. Confirmed by counting `—` in
+> `content_components.html_template` alongside `page_components.content_data`,
+> which is the check the original measurement lacked.
+
+The 23 template-baked ones sit in `tool-model-approach-selector` (12),
+`tool-llm-cost-calculator` (5), `hero-card-carousel` (4), `image-hover-card-grid`
+(1) and — mine — `evidence-chart` (1). The tool components are **generated**, so
+their em-dashes come from the tool-builder's own model output frozen into a
+template at generation time: no writer prompt and no content post-pass can touch
+them, and they will be reproduced by the next generated tool.
+
+**My own contribution to the metric, since index went 6 → 9 after the chart
+landed:** one is the CSS comment at the top of `evidence-chart`'s template (which
+is shipped to the page — an HTML `<style>` comment, not a Go template comment, so
+it costs bytes on every render), one is the `council-review-outcomes` caption I
+wrote into the register, and one is the LLM's intro. Two of the three are mine.

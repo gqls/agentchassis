@@ -354,3 +354,63 @@ our site had the lowest `site_id`, which is what that trigger's
 `ORDER BY wi.site_id … LIMIT 1` selects on — so it was being picked, not starved.
 [UNDIAGNOSED] Recorded because a future thread will otherwise read the silence as
 "the queue is backed up", which the depth said it was not.
+
+## Counting em-dashes so the number means something (added 2026-07-27)
+
+The obvious query is wrong, and it was wrong in the handoff for a day. Counting `—`
+in `page_components.rendered_html` sums **two different populations**: what the
+content LLM wrote, and literals baked into the component's `html_template`. No
+writer-prompt round and no `content_data` post-pass can move the second kind, so a
+page whose count "did not improve" may have improved entirely and be pinned by
+template text.
+
+Always split by origin:
+
+```sql
+WITH pc AS (
+  SELECT p.name AS page,
+         length(pc.rendered_html)  - length(replace(pc.rendered_html,'—',''))  AS em_rendered,
+         length(cc.html_template)  - length(replace(cc.html_template,'—',''))  AS em_template
+  FROM pages p JOIN sites s ON s.id = p.site_id
+       JOIN page_components pc ON pc.page_id = p.id
+       JOIN content_components cc ON cc.id = pc.component_id
+  WHERE s.domain = 'fundamentallyai.com'
+)
+SELECT page, sum(em_rendered) AS total,
+       sum(em_template)                AS from_template,
+       sum(em_rendered - em_template)  AS from_words
+FROM pc GROUP BY page
+UNION ALL SELECT 'TOTAL', sum(em_rendered), sum(em_template), sum(em_rendered - em_template) FROM pc
+ORDER BY 4 DESC;
+```
+
+`from_words` is the only column a writer-prompt change can move. **Do not** attribute
+by comparing `em_rendered` to `content_data` alone: a component can carry both, and
+`content_data` also holds resolved data (chart facts, query results) whose punctuation
+is not the writer's either.
+
+Gotcha: a `<style>` comment inside a component template counts, and *ships* — it is an
+HTML comment, not a Go template comment, so it costs bytes on every render and shows up
+in every text metric taken from `rendered_html`.
+
+## Council gate: reading a REVISE properly (added 2026-07-27)
+
+`metadata` on the `council_report` artifact has only four keys — `decision`,
+`abstained`, `reviewers`, `unreadable`. **The objections are in `body`, not
+`metadata`**, and `body` is a single JSON string, so the psql way to read it is to
+dump it to a file and grep, not to try `jsonb_array_elements` on `metadata->'reviews'`
+(that returns zero rows and looks like "no reviews ran"):
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A -c \
+  "SELECT body FROM diagnosis_artifacts
+    WHERE correlation_id='<SUBMISSION_CORR>' AND kind='council_report';" > /tmp/report.txt
+grep -o '"reviewer":"[a-z_]*","verdict":"[a-z]*"' /tmp/report.txt
+```
+
+`decided_by` names the seat that gated it. Read `unreadable` before trusting
+`abstained`: on this 16-seat gate the abstentions are footprint filtering, which is
+normal and cheap — `unreadable: 0` is what says no seat failed to run.
+
+Resubmit on the SAME correlation so the trail accumulates:
+`RESUBMIT_CORR=<corr> ./…/097_TRIGGER_council_review_v1.sh <submission_r2.json>`

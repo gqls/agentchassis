@@ -574,3 +574,72 @@ worked, and I'd rather not spend a fourth round on the site-wide instruction.
 When you want it finished, the cheaper options are a mechanical pass over the
 finished text, or fixing the two specific components that produce most of them.
 Your call; nothing is blocked on it.
+
+## 2026-07-27 (afternoon) — the em-dash question, answered properly, and a bug I sized wrong
+
+### The em-dash count was measuring two different things at once
+
+You asked me to pick between the mechanical pass and fixing the two components.
+Before recommending I re-measured, and the measurement changed the question, so
+here is the honest version.
+
+The count I gave you came from the finished page HTML. That HTML contains two
+different kinds of em dash: the ones the writing model produced, and ones **typed
+into the component template itself** and therefore reprinted on every render. No
+instruction to the writer can ever move the second kind. Nor could the mechanical
+pass I offered you, because that pass would work on the text, and these are not in
+the text — they are in the shell the text is poured into.
+
+Split properly, the site has **66 em dashes: 43 written, 23 baked into templates**.
+That changes both halves of what I told you yesterday. The capabilities page,
+which I reported as "no improvement at all", carries **four** template ones and only
+**two** written ones — so the writer's output there may well have improved and I
+had no way of seeing it. And one of the two components I named as the main
+offenders, the card carousel, turns out to contribute nothing from the writer at
+all. Its four are all template.
+
+**So my recommendation is neither of the two options I gave you.** Leave the writer
+alone — it is working, the home page halved. Do the per-component fix, but on the
+templates rather than the copy: three components hold 21 of the 23, and two of
+those three are *generated* tool pages, which means the same em dashes will be
+reprinted into the next tool we generate unless the generator's own instructions
+are fixed. That is the cheapest durable win here, and it is a small job.
+
+One more thing, since I am being exact about it: **two of the three em dashes the
+chart section added to the home page are mine**, not the model's. One is a comment
+I left at the top of the chart's stylesheet, which — I had not realised — is
+shipped to the browser on every render rather than stripped. The other is in a
+caption I wrote.
+
+### The page-identity bug: I said one line, it was three
+
+Yesterday I filed the bug that stops a component knowing which page it is on, and
+wrote in it, twice, that the fix was one line. That was wrong. Following the value
+properly today, it is dropped at **three** separate points between where it enters
+and where a component could read it. Each of the three looks perfectly reasonable
+in isolation, which is why one pass found only one of them. Had I shipped just the
+line I filed, nothing visible would have changed and the next person would
+reasonably have concluded the diagnosis was bad.
+
+It is fixed now, with a test that follows the value the whole way rather than
+checking each piece — and I proved the test works by deleting each half of the fix
+in turn and watching it fail differently each time.
+
+The review council sent it back once, and the objection was a good one: *you have
+fixed this one field, but not the mechanism that dropped it — the next field
+someone adds will vanish the same way, silently.* They were right, and checking
+turned out to make it concrete: **three other fields are in exactly that state
+today**. So the fix now also carries a check that fails the moment anyone adds a
+field the templates can see but the pipeline cannot deliver, and the wider
+mechanism is filed as its own case rather than quietly bundled in.
+
+None of this is live yet. Go code only takes effect when a new image is built and
+rolled out, and I have not done that — it would also switch on a good deal of other
+threads' finished work at the same time, which is your call rather than mine.
+
+### The decision-record page
+
+Separately below/in the handoff, but the short version: nothing technical is
+blocking it. What is blocking it is a judgement only you can make, and I have
+written out both what the page would contain and what the most quotable line
+against us would be, so you can decide with the actual numbers in front of you.
