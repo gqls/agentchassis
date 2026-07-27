@@ -2362,3 +2362,62 @@ tokenizer counts ~30% more tokens for the same text, and two steps that
 previously did no thinking now do a little. Net direction is genuinely unknown
 until a real report runs — the `[cache]` log lines carry per-call token counts,
 so the next order measures it for free.
+
+### §X.23 — FIRST SALE: paid, delivered, slot released (2026-07-27 11:13:13 UTC)
+
+`ord_1785090638951163875` → `delivered`. The owner paid the £29 on the live Stripe session issued
+at 18:43 the previous day. **This is the first time idea.uk has taken money and delivered a report**,
+and it closes the last unexecuted leg of the chain.
+
+Verified from the box and from nginx, not from being told it worked:
+
+```
+order   : status=delivered  updated=2026-07-27T11:13:13.463Z  session=cs_live_a1j7o8uz…
+          report 10,109 chars / html 14,551 — unchanged since generation
+statuses: {requested 60, expired 5, delivered 4, declined 4}   ← delivered 3 → 4
+capacity: {"active":0,"max":5,"open":true}                      ← slot released automatically
+journal : 11:13:13 email to aaa@designconsultancy.co.uk sent: "Your idea.uk report"
+nginx   : 11:13:13 POST /stripe/webhook 200  3.130.192.231  "Stripe/1.0 (+…/docs/webhooks)"
+          11:13:15 GET /order/success?o=ord_1785090638951163875  ref=checkout.stripe.com
+```
+
+The payment arrived through the **signed webhook** — the source of truth — not through any client
+redirect. `deliverReport` then sent the stored report without re-running the engine, exactly as the
+review-before-pay design intends, and `ActiveCount` dropped the order out of the active set on its
+own, freeing the slot with no operator action.
+
+#### Two things the same access log proves for free
+
+1. **Removing the `fake=1` bypass did not break the real payment path.** The genuine Stripe success
+   redirect is `GET /order/success?o=…` with **no** `fake=1` parameter — the shortcut `bugs_closed/089`
+   deleted is not part of the real flow at all. That was the reasonable fear when removing something
+   the checkout appears to touch, and it is now answered with evidence rather than argument.
+2. **The attack and the real payment are visible side by side.** The three `&fake=1` probes from
+   26 July 18:45 / 21:12 all returned 200 and progressed nothing; the Stripe webhook on 27 July
+   progressed everything. Refusal and acceptance in one file.
+
+#### What the customer actually received — stated because it is not the newest build
+
+The report was generated at **18:40 on 26 July**, which is before the copy fixes (deployed 21:10)
+and before the Claude 5 migration (~21:55). Checked against the stored text rather than assumed:
+
+```
+"out of 5 — hard to copy" present : True     ← the malformed score line
+".." (doubled full stop)  present : True
+"(each out of 5)"         present : False    ← the fix, absent as expected
+```
+
+So the first paying customer received a report carrying two of the three copy defects. Nothing to
+be done about that copy — it is sent — but it means **the next order is the first report on the new
+models AND the first with the copy fixes**, and therefore also the first that measures per-report
+cost on the 5 family. The `[cache]` log lines will carry the token counts.
+
+#### What this retires, and the transferable bit
+
+The standing line "nobody has ever paid for a report and received one" is gone. Worth keeping is
+*why it survived so long unnoticed*: the 12:40 run on 26 July proved the report format and was then
+**declined**, which is the correct way to close a test without self-charging — and it left
+`approve → pay → webhook → delivery` unexecuted while every visible signal said the product was
+finished. **A product can be complete, verified, and demonstrably working and still never have done
+the thing it exists to do.** The question to ask of the next site declared done is not "does it
+work" but "has the transaction at the end of it ever completed once".

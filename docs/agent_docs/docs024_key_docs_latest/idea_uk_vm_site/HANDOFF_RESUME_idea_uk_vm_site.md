@@ -34,7 +34,7 @@
 > and the first with the copy fixes**, and it is also the first that will measure per-report cost.
 >
 > **The site is complete, the box is healthy, the report format is proven, and every queued deploy
-> has shipped.** Four deploys went out this evening: the automatic order expiry that this file
+> has shipped.** Four deploys went out on 26 July: the automatic order expiry that this file
 > used to call the top job, plus two security fixes found while preparing it, plus three copy
 > fixes found by reading a real report, plus the move of the report engine onto the Claude 5
 > family (`claude-opus-5` / `claude-sonnet-5` — see Open item 2, which is now done).

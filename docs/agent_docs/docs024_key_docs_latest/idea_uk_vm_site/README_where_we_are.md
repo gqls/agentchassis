@@ -1506,3 +1506,36 @@ precisely, because the engine logs its own token counts on every call.
 **Still waiting on you: the £29.** The pay link from yesterday is in your inbox. Everything else in
 the chain has now run in production at least once; taking a payment and delivering the report off
 the back of it is the one thing that never has.
+
+## 2026-07-27 — you paid, the report arrived, and idea.uk has its first sale
+
+At 11:13 this morning the £29 went through and the report landed in your inbox. That's the first
+time this thing has taken money from anyone and delivered what it promised, and it means every
+single step of the chain has now happened for real: someone asks, we confirm, the engine researches
+and writes, a person reviews it, the customer pays, and the report goes out. Nothing in that
+sentence is theoretical any more.
+
+I checked it rather than taking your word for it — not out of doubt, but because "the customer says
+it arrived" and "the system recorded it properly" are different facts and only one of them is
+checkable later. The order is marked delivered, the payment came in through Stripe's own signed
+notification rather than anything the browser could have faked, the email went out at the same
+second, and the queue slot freed itself automatically so the next customer can order. That last one
+matters: it's the mechanism we spent yesterday morning fixing.
+
+**One nice thing fell out of the logs.** When I removed that payment loophole yesterday, the honest
+worry was whether the loophole was somehow load-bearing — whether real Stripe payments quietly
+relied on the same shortcut. Today's log settles it: the genuine return from Stripe doesn't touch
+it at all. The real payment and my three attempted break-ins are sitting in the same file, the
+break-ins doing nothing and the payment doing everything.
+
+**One thing you should know about the report you got.** It was written at 18:40 last night, which
+is before I fixed those three small writing faults and before the move to the newer AI models. So
+your copy still has the doubled full stop and the scoring line with the missing number. Nothing to
+do about that one — it's sent — but the next report anyone orders will be the first clean one, and
+the first written by the new models. It'll also be the first that tells us what a report actually
+costs us now, because the engine logs its own usage.
+
+So: the product works, end to end, with real money. What's left is smaller — an order interrupted
+mid-report still holds its slot forever, which is the same bug we fixed yesterday arriving through
+a different door, and the News section is still empty. Neither is urgent. The thing that was
+genuinely unknown yesterday is now known.
