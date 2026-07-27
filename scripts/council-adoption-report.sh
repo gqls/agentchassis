@@ -44,22 +44,40 @@ FROM r GROUP BY agent ORDER BY 3 DESC, 2 DESC;"
 
 echo "2. THE headline: does the guardian cite PRIOR DEFLECTIONS when it invokes"
 echo "   the stability preference? (before this change it had no way to know)"
+echo "   FIXED 2026-07-27 late: 'invoked' and 'cited' were two INDEPENDENT filters"
+echo "   over all guardian reviews, so the pair was never a subset — yet it was"
+echo "   quoted as '6 of 90' in the handoff, memory and the owner's decision doc."
+echo "   The real intersection was 2 of 90 (2.2%), not 6 (6.7%): 4 of the 6 cited"
+echo "   precedent WITHOUT invoking the preference. both_invoked_and_cited is the"
+echo "   headline; the other two columns are kept only to show the gap."
 psql -c "
 WITH r AS (SELECT created_at, jsonb_array_elements(body::jsonb->'reviews') AS rv
            FROM diagnosis_artifacts WHERE kind='council_report'),
 g AS (SELECT created_at,
              COALESCE(rv->>'notes','') || ' ' ||
              COALESCE((SELECT string_agg(o->>'problem',' ') FROM jsonb_array_elements(rv->'objections') o),'') AS txt
-      FROM r WHERE rv->>'reviewer'='guardian')
+      FROM r WHERE rv->>'reviewer'='guardian'),
+f AS (SELECT created_at,
+        (txt ILIKE '%higher%layer%' OR txt ILIKE '%battle-tested%'
+         OR txt ILIKE '%foundational%') AS stab,
+        (txt ILIKE '%deflect%' OR txt ILIKE '%prior council%'
+         OR txt ILIKE '%council_report%'
+         OR txt ILIKE '%previous submission%'
+         OR txt ~* 'sent upward|already been sent|has been before|repeatedly sent') AS prec
+      FROM g)
 SELECT CASE WHEN created_at < '$CUT' THEN 'before' ELSE 'after' END AS era,
-       count(*) AS guardian_reviews,
-       count(*) FILTER (WHERE txt ILIKE '%higher%layer%' OR txt ILIKE '%battle-tested%'
-                           OR txt ILIKE '%foundational%')                AS invoked_stability,
-       count(*) FILTER (WHERE txt ILIKE '%deflect%' OR txt ILIKE '%prior council%'
-                           OR txt ILIKE '%council_report%'
-                           OR txt ILIKE '%previous submission%'
-                           OR txt ~* 'sent upward|already been sent|has been before|repeatedly sent') AS cited_precedent
-FROM g GROUP BY 1 ORDER BY 1 DESC;"
+       count(*)                                     AS guardian_reviews,
+       count(*) FILTER (WHERE stab)                 AS invoked_stability,
+       count(*) FILTER (WHERE stab AND prec)        AS both_invoked_and_cited,
+       round(100.0*count(*) FILTER (WHERE stab AND prec)
+             / NULLIF(count(*) FILTER (WHERE stab),0), 1) AS pct_of_invoked,
+       count(*) FILTER (WHERE prec AND NOT stab)    AS cited_but_did_not_invoke
+FROM f GROUP BY 1 ORDER BY 1 DESC;"
+echo "   CAVEAT, both directions. OVER-counts: '%deflect%' matches the word alone,"
+echo "   and the NEW prompt itself says 'deflected upward', so a seat echoing its"
+echo "   own instructions scores a citation. UNDER-counts: the 14:18 guardian"
+echo "   reasoned correctly about recurrence WITHOUT quoting a past report and"
+echo "   scored zero. Read the review text before trusting either number at low n."
 
 echo "3. Do the historians cite the new case index (a title, a bug slug, a wrong call)?"
 psql -c "

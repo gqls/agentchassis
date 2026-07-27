@@ -49,10 +49,24 @@ council ran** (`scripts/council-adoption-report.sh`):
 | debug_historian | 173 | — | 19 cited a source |
 | architecture | 0 | — | — |
 
-**3 of 87 is the number to beat.** That is how often the seat that most needs its
+~~**3 of 87 is the number to beat.**~~ That is how often the seat that most needs its
 own history actually referred to it, while invoking the very preference that needs
 it. *(An earlier run of the report said 4; the query carried stray literals that
 matched spuriously. Corrected here — the committed script gives 3.)*
+
+> **CORRECTED AGAIN 2026-07-27 late, and this time the defect was structural, not
+> a stray literal.** The sentence above describes an **intersection** ("referred to
+> it *while* invoking the preference") that the query never computed: `invoked` and
+> `cited` were two **independent** `FILTER`s over all guardian reviews, so neither
+> "3 of 87" nor the later "6 of 90" was ever a subset. On the same corpus, **4 of
+> the 6 cited precedent without invoking the preference at all**, and the true
+> intersection is **2 of 90 = 2.2%**. Fixed in
+> `scripts/council-adoption-report.sh` (headline is now `both_invoked_and_cited`,
+> with `cited_but_did_not_invoke` kept visible). **Take 2 of 90 as the baseline.**
+> The correction makes the D5 case *stronger*, not weaker — the seat referred to
+> its own history less often than we had said. Caught by two figures both labelled
+> "pre-change" disagreeing about a population that could not have changed; full
+> entry in `WRONG_CALLS.md`.
 
 Named `DECISIONS_open_for_owner_*` rather than `SUMMARY_*` deliberately: the
 content is choices awaiting a ruling, which is the shape of
@@ -454,7 +468,7 @@ before D5, and cannot be implemented before D1/D2.** It is downstream of both.
 > **Reversal trigger — the condition under which narrowing IS justified.** Re-run
 > `scripts/council-adoption-report.sh` once there are **≥20 post-cutover guardian
 > reviews that invoke the stability preference**, and narrow (b) if BOTH hold:
-> (i) precedent-citation stays near the 6-of-90 (~7%) baseline, i.e. the minutes
+> (i) precedent-citation stays near the **2-of-90 (2.2%)** baseline, i.e. the minutes
 > changed nothing; and (ii) deflections still recur on the same core sites
 > (`coordinator.go`/`ProcessResponse`, `spawn_actions.go`). If instead citation
 > rises and recurrence falls, the instrument fixed it and clause (d) should stand

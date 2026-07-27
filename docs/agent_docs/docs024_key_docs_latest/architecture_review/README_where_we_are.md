@@ -150,7 +150,32 @@ of something unmeasured is the mistake the whole measure-first approach exists t
 avoid. I've written down a countable trigger for revisiting it, so it doesn't rest
 on somebody remembering.
 
-**Missteps, as asked.** Four went into the fleet-wide wrong-calls ledger today.
+**One correction you should have before you rule, found while writing this up.**
+The headline number I gave you — "6 of 90 times the safety reviewer referred to its
+own history when invoking the caution rule" — was wrong, and wrong in a way that
+mattered for your decision. My query counted two things separately (how often it
+invoked the rule, how often it cited history) and never checked how often it did
+*both*. Four of those six citations came from reviews that never invoked the rule
+at all. **The real figure is 2 of 90, about 2%, not 7%.** What gave it away was
+that two of my own documents quoted different numbers for the same fixed
+population, and I'd written both down without noticing.
+
+Two things follow. The correction makes the case for what we built **stronger**,
+not weaker: the reviewer was consulting its own history even less than I claimed,
+so the missing instrument mattered more. But the reversal trigger I offered you
+above was pegged to the wrong figure — set around three times too high, it would
+have fired on behaviour that is actually a big improvement. It now reads 2%, and
+the corrected before/after is **2 of 90 against 1 of 2**. Two reviews is far too
+few to mean anything; I'm reporting it because the baseline is now honest.
+
+And a harder thing to admit: I had already told you this metric *undercounts* good
+behaviour, and in the very same message I quoted its *overcounted* headline as
+evidence. Having found a measurement wrong in one direction, I should have checked
+the other before using it again.
+
+**Missteps, as asked.** Five went into the fleet-wide wrong-calls ledger today,
+the metric one included — it's the most consequential, because it's the only one
+that reached a decision you were being asked to make.
 The one worth your attention: our own notes recorded that I'm not permitted to
 write live configuration, so every change on this workstream was packaged as a
 script **for you to run** — including the one this session was blocked on. That

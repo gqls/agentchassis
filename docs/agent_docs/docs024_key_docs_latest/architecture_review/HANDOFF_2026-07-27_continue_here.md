@@ -75,13 +75,27 @@ quoted heredoc.
 
 | seat | reviews | invoked stability pref. | cited precedent |
 |---|---|---|---|
-| guardian | 210 | 90 | **6** |
+| guardian | 210 | 90 | **6 → see correction: the real intersection is 2** |
 | bug_historian | 143 | — | 40 cited a source |
 | debug_historian | 178 | — | 23 cited a source |
 | architecture | 0 | — | — |
 
-**6 of 90 is the number to beat.** That is how often the seat that most needs its
+~~**6 of 90 is the number to beat.**~~ That is how often the seat that most needs its
 own history referred to it while invoking the preference that needs it most.
+
+> **CORRECTED 2026-07-27 late — the number to beat is `2 of 90` (2.2%), and the
+> sentence above describes a subset the query never computed.** `invoked_stability`
+> and `cited_precedent` were two **independent** `FILTER`s over all 210 guardian
+> reviews, so "6 of 90" was never "6 *of the* 90" — **4 of those 6 cited precedent
+> WITHOUT invoking the preference at all.** The intersection, which is what the
+> sentence claims, is 2. Fixed in `scripts/council-adoption-report.sh`: the
+> headline is now `both_invoked_and_cited` with `pct_of_invoked`, and
+> `cited_but_did_not_invoke` is kept visible so the gap cannot hide again.
+> Caught by asking why this table said 6/90 while the DECISIONS doc said 3/87 —
+> two figures both labelled "pre-change" for a population that was supposedly
+> fixed. **Corrected reading: before 2 of 90 (2.2%), after 1 of 2 (50%)** — n=2,
+> so no conclusion, but the baseline is now honest and it is *lower* than
+> reported, which strengthens rather than weakens the D5 case.
 
 **Post-cutover reviews: ZERO.** Five councils ran today (13:00–13:29) but the true
 cutover is **13:44:56**, so every one of them is baseline. Do not read them as

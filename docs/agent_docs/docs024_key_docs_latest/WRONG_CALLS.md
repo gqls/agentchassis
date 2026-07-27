@@ -6703,3 +6703,66 @@ finding that would have sent me editing live config to fix a non-problem.
 
 Family: single-successor-walk-over-a-branching-graph,
 too-catastrophic-to-be-true, false-absence-from-the-wrong-traversal.
+
+---
+
+## 2026-07-27 — "6 of 90 stability objections cited precedent" — two independent filters read as an intersection, in the one figure the whole workstream is judged by
+
+**The claim, written into three documents and put to the owner as the headline
+measurement:** that the guardian seat *"cited precedent 6 of 90 times when it
+invoked the stability preference"*, and that **"6 of 90 is the number to beat."**
+It went into `architecture_review/HANDOFF_2026-07-27_continue_here.md`, this
+workstream's auto-memory, the owner's `DECISIONS_open_for_owner_*` file (as the
+baseline for a reversal trigger I was asking the owner to rule against), and my
+own message to the owner describing it as *"how often the seat that most needs its
+own history referred to it while invoking the preference that needs it most."*
+
+**It was false, and the sentence describes a quantity the query never computed.**
+In `scripts/council-adoption-report.sh` §2, `invoked_stability` and
+`cited_precedent` were two **independent** `count(*) FILTER (...)` expressions over
+the same 210 guardian reviews. Nothing intersected them. So "6 of 90" was never
+"6 *of the* 90" — the 6 and the 90 are overlapping populations, and on the real
+data **4 of those 6 cited precedent without invoking the preference at all.** The
+intersection the sentence claims is **2 of 90 (2.2%)**, not 6 (6.7%). An earlier
+capture in the same family said "3 of 87", which was corrected once already for a
+stray literal and left structurally wrong.
+
+**Caught by:** noticing that the DECISIONS doc said `3 of 87` and the handoff said
+`6 of 90`, both explicitly labelled **pre-change** — a population that by
+definition could not still be growing. I had already written both numbers down
+without the disagreement registering. Chasing which clause matched
+(`%deflect%` vs `%prior council%` vs `%council_report%`) is what exposed that the
+two filters never met.
+
+**The cheap check that would have caught it:** `count(*) FILTER (WHERE a AND b)`
+— write the conjunction the sentence asserts, once, at the moment of writing the
+sentence. **A prose claim of the form "X while Y" must correspond to a single
+predicate `X AND Y` in the SQL; two independent counters in one `SELECT` row read
+as a ratio and are not one.** Two counts printed side by side acquire an implied
+denominator purely from being adjacent.
+
+**Cost:** the owner was given a false baseline for a decision (D7(b)) and I had
+built a reversal trigger on top of it — *"narrow the remit if citation stays near
+the 6-of-90 (~7%) baseline"* — a threshold set roughly 3× too high, which would
+have made the trigger fire on behaviour that is actually a large improvement.
+Corrected in all four places before the ruling. **The correction strengthens the
+case it was offered as evidence for**: the seat referred to its own history *less*
+often than claimed (2.2%, not 6.7%), so the instrument was needed more, not less.
+The script now prints `both_invoked_and_cited` and `pct_of_invoked` as the
+headline and keeps `cited_but_did_not_invoke` visible so the gap cannot re-hide.
+
+**Second-order lesson, worth more than the arithmetic.** The same review this
+metric scored `cited_precedent = 0` is the one I quoted to the owner as the best
+evidence the change worked — the guardian reasoning its way out of a deflection.
+So the metric **under**-counts good behaviour in one direction and **over**-counts
+it in the other (`%deflect%` matches the word alone, and the new prompt *itself*
+says "deflected upward", so a seat echoing its own instructions scores a
+citation). I had already told the owner about the undercount and still quoted the
+overcounted headline in the same message. **A metric you have just discovered is
+wrong in one direction deserves a check in the other before you quote it again.**
+
+Family: two-independent-filters-read-as-an-intersection,
+adjacent-counts-acquire-an-implied-denominator,
+the-figure-the-workstream-is-judged-by-was-the-unchecked-one,
+disagreeing-snapshots-of-a-fixed-population,
+found-one-direction-of-error-and-quoted-the-other.

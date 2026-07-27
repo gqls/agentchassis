@@ -206,6 +206,36 @@ instinct on the SQL tier — *"Treat an empty result as 'no precedent found', NO
 'this is novel'"* — and **no equivalent warning on the code tier**, which is the
 one that is actually broken.
 
+**MISSTEP, and the most consequential of the session: the headline metric was
+measuring something other than what its own sentence said.** I reported "6 of 90
+stability objections cited precedent" and called it "the number to beat" — to the
+owner, in the handoff, in memory, and as the baseline of a reversal trigger in the
+decisions doc. In `scripts/council-adoption-report.sh` §2, `invoked_stability` and
+`cited_precedent` were two **independent** `FILTER`s over the same 210 reviews.
+They never intersected, so "6 of 90" was never "6 *of the* 90": **4 of the 6 cited
+precedent without invoking the preference at all**, and the true intersection is
+**2 of 90 (2.2%)**.
+
+Caught by the DECISIONS doc saying `3 of 87` while the handoff said `6 of 90`,
+**both labelled pre-change** — a population that cannot grow. I had written both
+numbers without the contradiction registering. The cheap check is
+`count(*) FILTER (WHERE stab AND prec)`: **a prose claim of the form "X while Y"
+must be one predicate `X AND Y`; two counters printed side by side acquire an
+implied denominator from adjacency alone.** Script fixed (headline is now
+`both_invoked_and_cited` + `pct_of_invoked`, with `cited_but_did_not_invoke` kept
+visible), all four sites corrected, full entry in `WRONG_CALLS.md`.
+
+Two things worth carrying. First, **the correction strengthens the case it was
+evidence for** — the seat used its history *less* than I claimed. Corrected
+reading: **before 2 of 90 (2.2%), after 1 of 2 (50%)**, n=2 so no conclusion.
+Second, and worse: I had *already* found that this metric **under**-counts (it
+scored the 14:18 review 0 while I was quoting that same review as the best
+evidence the change worked) and I still repeated the **over**-counted headline in
+the same message. `%deflect%` matches the bare word, and the new prompt itself says
+"deflected upward" — so a seat echoing its instructions scores a citation.
+**Having found a metric wrong in one direction, check the other before quoting it
+again.**
+
 **Deliberately NOT fixing that in the prompt.** Three other consumers
 (`review_prior_art`, `review_reuse_agent`, the diagnosis loop's
 `lookup_code_symbols`) carry the same false promise, so a prompt-only fix would
