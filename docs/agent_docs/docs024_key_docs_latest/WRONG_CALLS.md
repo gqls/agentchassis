@@ -7595,3 +7595,134 @@ itself.*
 
 Family: a-clean-result-and-an-unrun-check-are-identical, vacuous-detector,
 protected-against-a-risk-the-tool-does-not-have.
+
+## 2026-07-27 — three zeros in one session, none of them findings: a null result means nothing until the instrument is shown able to return non-zero
+
+Bug-sweep thread, the session that shipped `bugs_open/112`. Not one wrong claim —
+a *shape*, which turned up three times in about two hours and was caught three
+times only because a control happened to be present. It very nearly cost a
+wasted image build.
+
+**Zero #1 — the anchored pod-grep.** Verifying that the Gemini fix was in the
+newly built image, I ran:
+
+```
+strings /app/agent-chassis | grep -c "^GEMINI_API_KEY$"    -> 0
+strings /app/agent-chassis | grep -c "^ANTHROPIC_API_KEY$" -> 0   <-- the tell
+```
+
+The natural reading of the first line alone is "the fix is not in the image" —
+and the next action is to rebuild and re-roll, which costs a tag, a push and a
+fleet restart. It is wrong. `ANTHROPIC_API_KEY` has been in that binary for
+months, so a 0 for it proves the **grep** is broken, not the image: Go string
+constants are laid down inside a larger string table, so `strings` emits them as
+substrings of longer lines and `^...$` anchors can never match. Unanchored, the
+real answer was `GEMINI_API_KEY -> 2` on the new image against `1` on the old.
+**What saved it was including a positive control in the same loop** — not skill,
+habit.
+
+**Zero #2 — the payload that "wasn't there".** The drain's own trigger script
+prints the query to read its result:
+
+```sql
+SELECT jsonb_pretty(collected_data->'complete'->'result'->'response') ...   -- returns EMPTY
+```
+
+Run after a `COMPLETED` sweep, that empty result reads exactly like "the sweep
+ran and did nothing" — which is *the very failure mode `bugs_open/033` is about*,
+so it was a plausible finding rather than an obvious error. It is a wrong path:
+the sweep step's `output_field` is `revalidation_result`, and the payload was
+sitting at `collected_data->'revalidation_result'` all along, with 50 items in
+it. Caught by dumping `jsonb_object_keys(collected_data)` instead of trusting the
+documented query.
+
+**Zero #3 — the filtered grep, inherited.** `bugs_open/101` evidences "four
+config keys are inert" with:
+
+```
+$ grep -rn "max_pages" --include=*.go . | grep -i webscrape      # no hits
+```
+
+True, and true of the claim it supports. But the conclusion a reader carries away
+is "these four keys are dead", and the obvious next action — a fleet-wide
+`UPDATE ... WHERE config ? 'max_pages'` — would strip a **live** page cap from
+`build-site-planner` (80) and `site-planner` (20), where the code logs *"preserved
+pages exceed max_pages; keeping all preserved, dropping all net-new"*. Silently
+uncapping two site planners is worse than the bug being fixed. Caught by re-running
+it unfiltered.
+
+### The through-line
+
+**A zero, an empty and a no-hit are all the same object: the absence of a signal.
+Absence has two causes — the thing is not there, or the instrument cannot see it
+— and nothing in the output distinguishes them.** Every one of these three read
+as a finding, and in each case the finding was about my own instrument.
+
+The asymmetry is what makes it dangerous: a *non-zero* result is self-validating
+(the instrument demonstrably works), so we check positives casually and negatives
+not at all — while negatives are exactly what we build conclusions on
+("nothing shipped", "it did no work", "the key is dead").
+
+### The cheap checks, in the order they would have fired
+
+- **Never run a `grep -c` for a verification without a positive control in the
+  same command** — a string you KNOW is present. If the control returns 0, the
+  grep is wrong. This is already the rule for pod-greps in CLAUDE.md; the new
+  part is that it applies to the *syntax* of the grep, not just the choice of
+  marker. An anchor, a `-w`, a locale, a non-UTF-8 file will each silently
+  return 0.
+- **Before believing an empty payload, dump the container's keys.**
+  `jsonb_object_keys(collected_data)` costs one query and answers "wrong path" vs
+  "no work" outright. A runbook's printed query is a claim like any other and
+  goes stale when a step's `output_field` changes.
+- **Before carrying someone else's negative into an action, re-run it
+  unfiltered.** The filter that made their claim precise is the filter that makes
+  your generalisation false. (This is the recorded
+  `narrow-filter-defines-the-conclusion` landmine, arrived at from a new
+  direction: here the filter was in *evidence I inherited*, not in a query I wrote.)
+
+Family: absence-is-not-evidence, positive-control-missing,
+narrow-filter-defines-the-conclusion, instrument-failure-read-as-finding.
+
+## 2026-07-27 — "2 resolved out of 50" was never a rate: a `LIMIT` is a filter you did not write
+
+Same session, `bugs_open/033`. The review-queue drain's first dry run came back
+`scanned 50, resolved 2, still_holds 2, unknown 46`. The seed's own header
+predicts *"roughly 51 resolved"*. Two against a predicted fifty-one is a
+four-percent hit rate against an expected fourteen, and I got as far as drafting
+"the drain does not work on the real population" before checking.
+
+It would have been wrong, and expensively so — it condemns a mechanism that had
+just been seeded after being missing for two days.
+
+**The sweep's query is `... WHERE status='needs_human_review' ORDER BY created_at
+ASC LIMIT $n`.** Oldest first, deliberately (the code says so: *"the oldest items
+are the ones most likely to be describing a page state that no longer exists"*).
+So the 50 it scanned were the 50 **oldest**, and the composition was
+`needs_section_data` 20, `content_rewrite` 16, `needs_content_page` 11,
+`empty_section` 3 — with **zero `unresolved_cta` and zero
+`required_fields_missing`**, which are two of the three types the revalidator
+covers and together are 115 items, 30% of the queue. The run never met the
+population it was written for. The estimate was neither confirmed nor refuted.
+
+**Why it was convincing:** `scanned: 50` reads as a sample, and 50 of 381 sounds
+like a reasonable one. Nothing in the payload says "this sample was selected by
+age, and age correlates with type". The `LIMIT` did not feel like a filter
+because I did not write it — it arrived as a config default (`max_items: 50`).
+
+### The cheap check
+
+**Before quoting any figure from a capped query, read its `ORDER BY` and ask what
+the ordering correlates with.** `LIMIT` without `ORDER BY RANDOM()` is not a
+sample, it is a selection — and the selecting column is almost always correlated
+with something you care about (age with type, id with creation order, name with
+tenant). One query settles it: compare the batch's distribution against the
+population's.
+
+Corollary worth keeping: **a default in a config file is still a filter.** The
+recorded landmine is about filters taken from the question; this one was taken
+from a default nobody chose, which is harder to notice precisely because no one
+authored it.
+
+Family: narrow-filter-defines-the-conclusion, sample-is-not-the-population,
+a-default-is-a-decision.
