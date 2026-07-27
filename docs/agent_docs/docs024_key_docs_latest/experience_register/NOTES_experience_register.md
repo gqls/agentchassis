@@ -245,3 +245,100 @@ commit, so 098 will list it as unreviewed by design. Recording it here is the su
   register's first rows are meant to be ones it accepted.
 - The migration is not applied. Image before migration, or the widened CHECK recreates 184's
   split exactly.
+
+---
+
+## 2026-07-27 — the substrate is LIVE; and a council run that returned no verdict
+
+**The gate lifted on its own.** Chassis **v1.0.1172** (pod `agent-chassis-7f88c4bd7f-bhhbf`,
+started `2026-07-27T10:55:44Z`) carries the Go half. Pod-grep, with controls, because a bare
+count proves nothing:
+
+```
+strings /app/agent-chassis | grep -c "experience-pattern"      → 1   (my change)
+strings /app/agent-chassis | grep -c "docResolveSubject"       → 2   (positive control)
+strings /app/agent-chassis | grep -c "experience-nonsense-xyz" → 0   (negative control)
+```
+`ValidateExperienceCriteria` greps **0** — expected, and worth writing down so nobody reads it
+as a failed deploy: the function has no caller yet, so the linker drops it. **A dead-code symbol
+is not a deployment check.** The discriminating string here is the one in `validDocSubjectTypes`,
+which *is* reachable, via `docResolveSubject`. Confirmed the string has exactly one Go source:
+`grep -rn '"experience-pattern"' --include=*.go .` → `doc_subjects_common.go:37` and the test file.
+
+**Migration 218 applied — by hand, deliberately.** `run-migrations.sh` listed **20 pending
+files**, 19 of them other threads'. `--apply` applies *all* of them in order. Several are parked
+on purpose: `229_vonc_about_swapped_stat_values.sql`'s own probe already says *"the exact swapped
+state … was not found — re-survey before forcing this"*. So: `psql -f` the one file, then the
+runner's `--record-only` path to register it in the ledger (a hand-applied file that is never
+recorded stays "pending" for ever and eventually gets replayed — `bugs_open/007`, which cost ~3
+days in July).
+
+> **MISSTEP (mine, caught by re-reading the runner's README before applying):** the migration had
+> **no guard block**. The README requires one — `DO $$ … RAISE EXCEPTION … $$` inside the same
+> `BEGIN/COMMIT`, so a partial apply rolls itself back — and mine ended with bare `SELECT`
+> verifies *after* `COMMIT`, which report but cannot prevent. I had probed the Go side by induced
+> fault and simply not applied the same standard to the SQL. Added the guard (and the rollback
+> recipe) before applying.
+>
+> Then **proved the guard bites**, which is the part that matters: run standalone against the
+> un-migrated database it raised
+> `ERROR: 218: subject_type CHECK not widened on: doc_plans_subject_type_check, doc_notes_subject_type_check`
+> — precisely the half-made split contract of `bugs_closed/064`. A guard that has never been seen
+> to fail is a comment.
+
+**Post-apply verification, in a transaction that rolled back** (positive *and* negative, because
+a positive alone cannot tell a widened CHECK from a dropped one):
+
+| probe | result |
+|---|---|
+| `INSERT doc_plans … subject_type='experience-pattern'` | **ACCEPTED** |
+| `INSERT doc_plans … subject_type='site'` | **REJECTED** — `violates check constraint "doc_plans_subject_type_check"` |
+| `INSERT doc_notes … subject_type='experience-pattern'` | **ACCEPTED** |
+| rows surviving the probe | **0** |
+
+So 064's contract now agrees in both directions on the live database. `experience_patterns`,
+`site_experiences`, `experience_invariants` all exist; two invariants seeded (6 and 2 sightings);
+**zero patterns**, by design.
+
+### The first council submission returned no verdict at all
+
+`f4610451-6bff-45d0-8d18-6f25d26640cd` did **not** come back REVISE or REJECTED. It wedged:
+
+```
+current_step = review_editquality | status = FAILED
+error = 'reaper: stale EXECUTING_STEP for >4h; step=review_editquality'
+created 18:34Z → killed 22:36Z
+```
+
+**This is a third outcome I had not accounted for, and it is invisible if you only look for a
+verdict.** Polling `current_step`/`status` the way the runbook says would show a run "in
+progress" for four hours and then a `FAILED` row that carries no objections, no reviewers, and
+nothing to act on. It is not a REVISE and must never be recorded as one.
+
+It was not unique to me. Eight runs were reaped that day and **none on any other day in the
+previous seven**:
+
+```sql
+SELECT date_trunc('day', created_at) AS day, count(*) FROM orchestration_states
+WHERE error LIKE 'reaper: stale EXECUTING_STEP%' AND created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY 1;                          -- 2026-07-26: 8. Every other day: 0.
+```
+Spread across 14:44→21:02 and six different steps (`council_decide`, `review_constitution`,
+`review_reuse_agent`, `review_editquality` ×2, `review_debug_historian`, `extract_claims`), each
+killed at exactly +4h.
+
+`[UNDIAGNOSED]` — I am **not** asserting a cause. The window overlaps several chassis rolls that
+evening (v1.0.1169→1170→1171), and an in-flight step whose response returns to a pod that no
+longer owns it is a known shape here (`coordinator.go:271` discards non-owner responses), but
+that is a **hypothesis I have not tested** and 8 wedges over 6 hours is more than the roll count.
+Not filed: a one-day spike with no recurrence is not yet a bug, and `bugs_open/029`
+(hung spawns) and `bugs_open/075` (orphaned ownership) are adjacent and owned. **The trigger to
+file is recurrence** — if reaped runs appear on a second day, that query is the evidence.
+
+**Resubmitted** as `bbdd2c5e-1b9d-4179-a31c-a8a5c3c3bf32`, with the submission saved *in the repo*
+this time (`council_submission_p2a_substrate_and_criteria.json`) rather than a session scratchpad
+— the first one was lost when the scratchpad went, and rebuilding it cost an hour of re-deriving
+quotes. The rationale now states plainly that the change has already landed and the migration is
+already applied, because that changes what is worth objecting to: **objections to the schema are
+the valuable ones now, since a live table is far more expensive to change than unlanded code.**
+Eight `grounded_in` quotes, each re-verified byte-exact with `grep -rF` before submitting.

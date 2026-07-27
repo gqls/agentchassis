@@ -120,3 +120,83 @@ nothing about status, and a closed case moves directory:
 ```bash
 ls bugs_open/ bugs_closed/ | grep '^064'
 ```
+
+## Applying a migration when 19 other threads' files are also pending (2026-07-27)
+
+**Never `--apply` in this shop without reading the pending list first.** The runner applies
+*every* pending file in order, and on 2026-07-27 that was 20 files, 19 belonging to other
+threads — some parked on purpose (`229`'s own probe says the state it targets was not found).
+
+```bash
+./scripts/migration/run-migrations.sh            # dry run — READ the pending list
+```
+
+Apply one file, then register it (an unrecorded hand-apply stays "pending" for ever and is
+eventually replayed — `bugs_open/007`):
+
+```bash
+kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f - < docs/agent_docs/sql_for_agents/NNN_x.sql
+
+./scripts/migration/run-migrations.sh --record-only docs/agent_docs/sql_for_agents/NNN_x.sql \
+  --note "applied by hand <date>; <what you verified>"
+```
+The ledger row is `(filename, md5 checksum of the file AS APPLIED, applied_by='record-only',
+notes)` — so if you edit the file before applying, checksum *after* the edit.
+
+**Every migration needs a guard block, and the guard needs proving.** README convention:
+`DO $$ … RAISE EXCEPTION … $$` inside the same `BEGIN/COMMIT`, so a partial apply rolls itself
+back. A trailing `SELECT` after `COMMIT` reports but cannot prevent. Prove it bites by running
+it alone *before* the migration, when it should fail:
+
+```bash
+sed -n '/^DO \$guard\$/,/^\$guard\$;/p' docs/agent_docs/sql_for_agents/NNN_x.sql | \
+  kubectl exec -i -n ai-persona-system postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 -f -
+# expect the RAISE, naming exactly what is not yet true
+```
+
+**Verify a widened CHECK with a negative control**, inside a transaction you roll back — a
+positive alone cannot distinguish a widened constraint from a dropped one:
+
+```sql
+BEGIN;
+SAVEPOINT s1; INSERT INTO doc_plans (subject_type, subject_key, body) VALUES ('<new>','__probe__','x');
+ROLLBACK TO s1;                                     -- expect ACCEPTED
+SAVEPOINT s2; INSERT INTO doc_plans (subject_type, subject_key, body) VALUES ('site','__probe__','x');
+ROLLBACK TO s2;                                     -- expect REJECTED
+ROLLBACK;
+```
+
+## Reading a council verdict — there are THREE outcomes, not two (2026-07-27)
+
+A run can end with **no verdict at all**: killed by the stale-step reaper after 4h. It is a
+`FAILED` row with no objections and nothing to act on, and it is **not** a REVISE.
+
+```sql
+SELECT current_step, status, error, created_at, updated_at FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<SUBMISSION_CORR>';
+-- error LIKE 'reaper: stale EXECUTING_STEP%'  →  no verdict; resubmit, do not interpret
+```
+Check whether it is systemic before assuming it was you:
+```sql
+SELECT date_trunc('day', created_at) AS day, count(*) FROM orchestration_states
+WHERE error LIKE 'reaper: stale EXECUTING_STEP%' AND created_at > now() - interval '7 days'
+GROUP BY 1 ORDER BY 1;
+```
+
+**Keep the submission JSON in the workstream directory, not the scratchpad.** A session
+scratchpad does not survive; rebuilding a submission means re-deriving every `grounded_in` quote.
+Verify quotes are byte-exact before spending credits:
+
+```bash
+jq -r '.plan.grounded_in[]' <submission.json> | while IFS= read -r q; do
+  grep -rqF -- "$q" platform/ internal/ || echo "MISSING: $q"; done
+```
+
+## Pod-grep for a symbol that has no caller yet
+
+`ValidateExperienceCriteria` greps **0** in a binary that certainly contains the change: with no
+caller, the linker drops it. **A dead-code symbol is not a deployment check.** Grep a string that
+is reachable — for P2a, the `experience-pattern` literal in `validDocSubjectTypes`, consumed by
+`docResolveSubject` — and always with a positive and a negative control.

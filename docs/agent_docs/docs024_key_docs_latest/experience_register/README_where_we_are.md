@@ -140,3 +140,60 @@ carried forward my own note that the statistics band has no behaviour, when in f
 most careful behaviour of the five.
 
 Next is the register's own build, which is what you green-lit the sequence for.
+
+---
+
+**2026-07-27 — the register exists in the database now, not just on paper.**
+
+The thing we were waiting for happened on its own. Yesterday's build of the platform went out
+this morning, and it contained the small code change the register needed. That was the condition
+we had set for ourselves: the code has to go out *before* the database change, because doing it
+the other way round recreates a bug we spent real time closing last week — a database that
+accepts something every piece of code still refuses.
+
+So this afternoon the database change went in. The register now has its three tables: the library
+of experiences itself, the per-site copies that bind an experience to real pages, and the small
+set of rules that hold across many experiences at once. Two of those rules are seeded, the ones
+harvest actually found evidence for. The library itself is deliberately **empty** — entries have
+to be written through the validating path, so that the first things in the register are things
+the register's own rules accepted. Seeding it by hand would have been quicker and would have
+proved nothing.
+
+I checked it rather than assuming it. The interesting check is the negative one: it is easy to
+confirm that the new value is now allowed, and that tells you almost nothing, because a
+constraint that was accidentally *deleted* would also accept it. So I also confirmed a value that
+should still be refused is still refused. It is. Both checks ran inside a transaction that I
+rolled back, so nothing was left behind.
+
+Two things I got wrong and fixed, both worth saying because they are the same mistake in
+different clothes. First, the database change went out yesterday without its safety block — the
+bit that checks its own work and undoes everything if the work is incomplete. Our own written
+convention requires one; I had skipped it. Worse, I had been careful in exactly this way about
+the *code* the day before, deliberately breaking each check to watch it fail. I just hadn't held
+the database change to the same standard. Added it, then broke it on purpose to watch it fail
+before trusting it — which it did, naming precisely the half-finished state it exists to prevent.
+
+Second, applying it turned out to be a small trap. The tool that applies these changes applies
+*everything* that is waiting, and twenty were waiting — nineteen belonging to other people
+working on this system, some of them parked deliberately. One of them says, in its own text, that
+the situation it was written for no longer exists. So I applied only mine, by hand, and then
+registered it properly so it doesn't get applied a second time later.
+
+**The review we were waiting on never happened.** Not rejected, not sent back — it simply died.
+It got stuck four hours into one reviewer's turn and was cleaned up by a watchdog. That is a
+third possible outcome I hadn't allowed for, and it's the sort that quietly looks like patience:
+you keep checking and it keeps saying "in progress". It wasn't only mine — eight runs died that
+way on the same day, and none on any other day that week. I have **not** claimed to know why. The
+day had several platform restarts, which is a plausible culprit, but plausible is not diagnosed,
+and I'd rather write down the question than invent an answer. If it happens on a second day, that
+becomes a bug worth filing and the query to prove it is written down.
+
+I've resubmitted, and this time I've said in the submission that the change has already gone
+live. That sounds like an odd thing to volunteer, but it changes what the reviewers should care
+about: objections to the *shape of the tables* are now the expensive ones, because a live table
+is much harder to change than code that hasn't shipped.
+
+Next is the part that makes the register do something: the path that writes an entry into it, the
+path that binds an entry to a real site's pages, and then the first check that actually runs. That
+last one is what turns Sunday's manual discovery — four carousel cards pointing at a page that
+doesn't exist — into something the system notices by itself.

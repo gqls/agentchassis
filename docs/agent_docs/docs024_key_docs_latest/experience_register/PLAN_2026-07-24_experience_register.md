@@ -297,3 +297,43 @@ unbound links; bindings make its job mechanical where they exist.
   RekeyTravellingDocs is wired for 'tool' renames only).
 - **Ownership** — the vonc pilot and tools-api belong to the gauntlet_dead_cta session;
   this workstream consumes its output (pattern #1), it does not drive the pilot.
+
+---
+
+## UPDATE 2026-07-27 — P2a is LIVE; the ordering condition was satisfied
+
+**Phase P2a moves from BUILT-AND-INERT to LIVE.** Chassis v1.0.1172 (pod started
+`2026-07-27T10:55:44Z`) carries `validDocSubjectTypes` with `experience-pattern`, so the
+ordering rule this plan has insisted on since 07-24 — **image before migration, or the widened
+CHECK recreates migration 184's split contract** — was satisfied, and migration 218 was applied
+by hand at 12:56Z and recorded in the ledger.
+
+Live now: `experience_patterns`, `site_experiences`, `experience_invariants`, the widened
+`doc_plans`/`doc_notes` subject CHECK, and two seeded invariants (`no-inert-control`,
+6 sightings; `pointer-behaviour-has-a-keyboard-equal`, 2). **Zero patterns, deliberately** —
+entries are written through the validating write path so the register's first rows are ones its
+own contract accepted.
+
+Applied by hand rather than by the runner because `run-migrations.sh --apply` would have applied
+all 20 pending files, 19 of them other threads' and several parked on purpose. Recipe and the
+guard-proving step are now in the RUNBOOK.
+
+**CORRECTION to this plan's own migration**, found by re-reading the runner README before
+applying: 218 shipped without the `DO $$ … RAISE EXCEPTION … $$` guard block the convention
+requires, so a partial apply could have left the split contract half-made. Guard and rollback
+recipe added, and the guard was **proved to bite** by running it against the un-migrated database
+first. The general lesson is recorded in NOTES: I had probed the Go side by induced fault and
+had not applied the same standard to the SQL.
+
+**Council**: the P2a verdict is still outstanding, but not for the reason recorded on 07-26. The
+first submission never returned a verdict at all — it was killed by the 4-hour stale-step reaper,
+one of eight runs reaped that day (none on any other day that week; cause `[UNDIAGNOSED]`, not
+filed, trigger to file is recurrence). Resubmitted as
+`bbdd2c5e-1b9d-4179-a31c-a8a5c3c3bf32`, with the submission JSON now kept **in this directory**
+so the trail survives the session.
+
+**Remaining for P2, unchanged in substance** — the write path (`write_experience_pattern`,
+validating on the way in), the bind path (`bind_site_experience`, with bind-time closure and
+anchor checks), and the first consumer: running a site's bound criteria and flipping
+`bound → verified` and `approved → proven`. One thing the live schema now changes about the
+order: the write path is no longer blocked on anything, because the tables it writes to exist.
