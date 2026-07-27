@@ -266,7 +266,58 @@ has not been computed; worth doing before building it.
 
 ---
 
-### D5 — Measure ossification before staffing anything.
+### D5 — RUN 2026-07-27. Result: ossification is real, and the exercise is justified.
+
+**Owner approved the measurement 2026-07-27. It has been run. §3's `[INFERRED]`
+hypothesis is now measured, and it holds.**
+
+The corpus: 259 `council_report` artifacts, giving **204 guardian verdicts —
+139 object, 53 approve, 12 veto** (veto rate 5.9%, objection rate 68%), and
+**437 individual guardian objections**, of which **29 invoke the stability
+preference** explicitly ("higher layer", "less-foundational", "battle-tested",
+"foundational").
+
+The decisive figure is not the count but the **recurrence**:
+
+| core site deflected upward | distinct submissions | first | last |
+|---|---|---|---|
+| `coordinator.go` / `SagaCoordinator.ProcessResponse` | **6** | 2026-07-20 | 2026-07-26 |
+| `spawn_actions.go` / `spawnAgentKubernetesJobFromDefinition` | **4** | 2026-07-21 | 2026-07-26 |
+| `platform/kafka` consume lane / `processRequests` | 2 | 2026-07-26 | 2026-07-26 |
+
+**Six independent submissions needed to change `ProcessResponse` in seven days,
+and each was told to fix it somewhere higher.** That is the ossification
+signature: if the higher-layer fixes had held, the same site would not keep
+coming back. Four bugs currently sit open *in that core* — `075` (ownership
+discard), `086` (converter, coordinator.go), `034` (validation, coordinator.go),
+`096` (council head-of-line blocking).
+
+Set against §3's churn split — `coordinator.go` moved **9 times in 60 days**
+while the action registry above it moved **348** — the two measurements agree:
+
+> **Pressure on the core is high and rising; actual change to the core is near
+> zero; the difference is being absorbed as workarounds in the layer above.**
+
+One objection in the set is the guardian recording its own deflection failing:
+*"The round-2 veto's named higher-layer alternative is refuted by hard evidence
+(scheduler has no k8s capability…)"* — i.e. the safest contained alternative did
+not exist. That is the mechanism failing in a single row.
+
+**Verdict on D5's own question — "does this justify staffing anything?" — YES.**
+It also re-weights D7(b): the guardian is deflecting to a higher layer 29 times
+without any instrument for whether those deflections hold. It has no way to know
+`ProcessResponse` is on its sixth visit, because (per D8) it cannot see its own
+minutes.
+
+*Method, for re-running:* `jsonb_array_elements(body::jsonb->'reviews')` over
+`diagnosis_artifacts WHERE kind='council_report'`, filtered to
+`r->>'reviewer'='guardian'`, then `jsonb_array_elements(r->'objections')`.
+Site tagging is by `ILIKE` on the objection text — **[APPROXIMATE]**: it
+undercounts anything phrased without the symbol name, so 6/4/2 are floors.
+
+---
+
+### D5 (original proposal, retained for the record) — Measure ossification before staffing anything.
 
 **Proposal.** Before adding a seat, answer: **are we extending sideways because
 the core is untouchable?** Concretely — for each of the last N guardian
@@ -354,11 +405,34 @@ Consequences, in ascending order of seriousness:
    invisible to every seat.** The entire written record of how we get things
    wrong cannot be consulted by the system built to catch us getting things
    wrong.
-2. **`doc_notes` is not in the schema hint** — so the council cannot read *its
-   own verdicts*, which is where every past objection, veto and guardian
-   containment note is written. Each run starts with no memory of any previous
-   run. Worse, the prompts warn that a check against a table outside the hint
-   "fails and wastes the round", so a seat that tries is penalised.
+2. **`doc_notes` is not in the schema hint** — so the headline/summary layer of
+   past verdicts is unreachable.
+
+   > **CORRECTED 2026-07-27, same day, before anything was built on it.** This
+   > point originally read: *"so the council cannot read its own verdicts …
+   > each run starts with no memory of any previous run."* **That is wrong, and
+   > it is wrong in the direction that matters.** The council's own history *is*
+   > reachable: `diagnosis_artifacts` **is** one of the ten hinted tables, and it
+   > holds **259 `council_report` rows** whose body is the full verdict JSON —
+   > every reviewer's objections verbatim, with severities — plus 248 `fix_plan`
+   > rows. The memory is on the shelf and always has been.
+   >
+   > What is actually true is narrower and more embarrassing: **no seat is told
+   > it is there.** Of 32 `review_*` prompts across `council-gate` and
+   > `fix-proposer`, **zero** mention `council_report`; only two
+   > (`diagnosis_guardian`, `tooling_provenance`) mention `diagnosis_artifacts`
+   > at all. The schema hint lists table names and columns with no indication
+   > that one of them is the council's own minutes.
+   >
+   > **What caught it:** running the D5 measurement, which needed the guardian's
+   > historical objections and therefore had to find where they were stored —
+   > the query I would have skipped had I gone straight to implementing D8a.
+   > **The cheap check:** `SELECT kind, count(*) FROM diagnosis_artifacts GROUP BY 1`
+   > — five seconds, against a table already named in the hint I had read.
+   > **Consequence for the plan:** D8a as written (add `doc_notes`) would have
+   > bought the derivative summary layer while leaving the full corpus still
+   > unmentioned. The fix is a **prompt** change, not a schema change — cheaper
+   > than proposed and strictly better. See D8a′.
 3. **The `bug_historian`'s "documented history" is seven narrative items
    hard-coded into its prompt template** — a hand-written constant ending
    "MOST RECENT: Go's template engine…". The seat named *historian* holds a
@@ -394,9 +468,85 @@ Consequences, in ascending order of seriousness:
   that the council reviews *plans against prompts*, not plans against history,
   and that the misstep corpus is a **human** instrument. Honest, and cheap.
 
-**My recommendation: D8a now** (one line, immediate, and it is the seat's own
-memory), **D8c's date-stamp now** (seconds, makes staleness visible), and
-**D8b sized but deferred until D5 says whether any of this is worth staffing.**
+### D8a′ — SUPERSEDES D8a. Tell the seats their minutes exist. (owner: approved in intent 2026-07-27)
+
+Given the correction above, the right first move is **not** a schema change:
+
+- The corpus is already reachable (`diagnosis_artifacts`, hinted, 259
+  `council_report` rows with full verdict text).
+- What is missing is **one paragraph in the seat prompts** naming the table, the
+  `kind='council_report'` filter, and the `body::jsonb->'reviews'` shape.
+- **Implementation path is the documented one**, not a hand-patch: edit
+  `fix-proposer`'s `review_*` steps, then run
+  `099_SYNC_gate_roster.py --apply` (snapshots first). **Landmine confirmed
+  2026-07-27: the mirror copies `review_*`/`gate_*` steps only — it does NOT
+  copy `load_schema_hint`** (099 line 117 carries non-review steps over from the
+  gate's own copy). So a hint change would be a four-place edit across
+  `council-gate`, `fix-proposer`, `feature-designer`, `experience-planner`; a
+  prompt change rides the mirror for two of them.
+- **`doc_notes` in the hint is now optional and secondary** — it holds the
+  headline summaries, which are derivative of `council_report`. Worth adding for
+  the guardian's containment notes, but it is no longer the load-bearing change.
+
+**Highest-value single line, from D5:** the guardian should be able to ask *"how
+many times has this core site already been deflected upward?"* Six visits to
+`ProcessResponse` is a fact about its own past behaviour that it currently
+cannot see.
+
+---
+
+### D8e — the debugging guides: the owner is right, and they are far too big
+
+**Asked 2026-07-27: does the `bug_historian` look at the old debug docs?** No —
+they are markdown, and per D8 no seat can read markdown. Sizes measured:
+
+| corpus | bytes | files |
+|---|---|---|
+| `016b_debugging_guide_8_consolidated.md` | 455,474 | 1 |
+| `016_debugging_guide_v2_58_consolidated.md` | 251,931 | 1 |
+| `WRONG_CALLS.md` | 386,455 | 1 |
+| `bugs_open/` | 359,862 | 32 |
+| `bugs_closed/` | 1,841,386 | 89 |
+| **total** | **~3.3 MB** | 124 |
+
+**~3.3 MB is roughly 800k tokens against a seat budget of `max_tokens: 8000`.**
+So "or if they're too big then some other agent should" is the correct read —
+inlining is not on the table for any seat.
+
+**But they are already chunked, and that is the opening.** `016b` §9 is a flat
+list of `### <one-line pattern assertion>` headings, each self-contained and
+dated — *"A mistyped routing key produces silence in every gate at once, not one
+loud failure (2026-07-18)"*, *"An action that exists in code but in no registry
+fails as 'requires a topic' — and the failure is stamped 'complete'"*. The
+headings alone are a usable index at roughly **10–20 KB**, which *is* promptable.
+
+Three shapes, cheapest first — **not yet decided**:
+
+- **D8e-1 — heading index only.** Extract §9 headings + `WRONG_CALLS` `##`
+  headings + `bugs_*` filename slugs into a table; give the historians the list
+  and let them `code_check`/SQL for detail. Smallest, and it directly fixes the
+  frozen-seven problem (D8c) by making the list generated rather than typed.
+- **D8e-2 — a retrieval seat.** A dedicated agent that takes the plan, searches
+  the full 3.3 MB, and returns the three most relevant prior cases to the
+  council. This is the owner's "some other agent should" — correct shape, more
+  build.
+- **D8e-3 — index markdown into `code_symbols`** (was D8b). Most general,
+  largest, and it also serves the reuse/prior-art seats.
+
+**My recommendation: D8e-1 now** — it is small, it makes the historian's list
+self-maintaining, and it is a prerequisite for judging whether D8e-2 is worth
+it. Note the sequencing trap: D8e-2 built first would be a retrieval agent over
+a corpus nobody has indexed.
+
+---
+
+**Revised recommendation (supersedes the line below): D8a′ first** — a prompt
+paragraph, mirrored via 099, exposing the council's own 259 minutes; then
+**D8c's date-stamp**; then **D8e-1**; with D8e-2/D8e-3 sized only after D8e-1
+shows what the index looks like. Original recommendation, retained: *D8a now
+(one line, immediate, and it is the seat's own memory), D8c's date-stamp now,
+and D8b sized but deferred until D5 says whether any of this is worth staffing.*
+D5 has now reported and says it is.
 
 **Against.** Every option here widens what the council can query, and the
 prompts are already long; more corpus may mean more rounds, and round count is
