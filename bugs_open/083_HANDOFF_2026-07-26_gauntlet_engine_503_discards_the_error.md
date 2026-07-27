@@ -253,8 +253,9 @@ Final: **16 of 16 5xx fault paths logged; 6 of 6 4xx caller paths deliberately n
 
 **Round 2 — APPROVED**, "with 2 advisory objection(s) — none high-severity"
 (9 reviewers: 7 approve, 2 object, advisory only). Commit
-`f6a1e1a` carries the `Council-Reviewed:` trailer; the three earlier commits
-cannot, because the verdict post-dates them.
+`9474e6b68` carries the `Council-Reviewed:` trailer; the three earlier commits
+(`a37a2037c`, `7f281cea9`, `74795f6ef`) cannot, because the verdict post-dates
+them — a trailer asserted ahead of its verdict is a permanent false claim.
 
 ### The four advisories, and what was done about each
 
