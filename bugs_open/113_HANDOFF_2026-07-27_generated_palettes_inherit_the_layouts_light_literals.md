@@ -226,3 +226,68 @@ layout. The alternatives are all "someone must remember":
    asserts this at unit level; confirm it on a real render.
 4. Run `scripts/render_audit.py --sitemap` against each of the 12 affected sites,
    before and after their stylesheet is re-rendered, and record both numbers here.
+
+---
+
+## 2026-07-27 (evening) — the fix is LIVE on fundamentallyai.com, and it exposed the mirror defect
+
+Contributed by the brochure_component_library thread (the sibling that filed `115`,
+`085` and the chart). **Not a fork — adding measurements to your account.**
+
+**Regenerated the stylesheet** by queueing a fresh `needs_design` work item
+(`e2255d82`, handler `webdesign-agent`, `complete` at 18:37). This was necessary because
+the Go fix cannot reach the artefact on its own: `styles.css` is only ever written by a
+webdesign run (`bugs_closed/072`), so the fix sat live in the binary while the site
+served the broken sheet.
+
+**Your fix works.** Measured on the served stylesheet, before → after:
+
+| slot | before | after |
+|---|---|---|
+| `--color-primary` | `#0E1B2E` | **`#86ADDE`** (the pin, at last) |
+| `--color-secondary` | `#1A2E48` | **`#4A6C99`** |
+| `--color-card-bg` | `#ffffff` | **`#132239`** (derived, not the layout's literal) |
+| `--color-header-bg` | `#ffffff` | **`#0B1424`** |
+
+| pair | before | after |
+|---|---|---|
+| card title | **1.21:1** | **13.19:1** |
+| card body | 3.23:1 | **4.94:1** |
+| eyebrow (`primary` on `background`) | **1.11:1** | **8.30:1** |
+
+`render_audit.py` over 8 of the 9 deployed pages: **0 contrast failures, 0 broken
+images**, against ~101 failures this afternoon.
+
+### The mirror defect, which the regeneration CAUSED
+
+The ninth page, `/tools/llm-cost-calculator.html`, went from clean to **4 failures**:
+
+```
+2.32:1 need 4.5   rgb(255,255,255) on rgb(134,173,222)   .calc-btn  'Calculate Costs'
+2.32:1 need 3.0   rgb(255,255,255) on rgb(134,173,222)   .htl-headline
+```
+
+`.calc-btn` is `background: var(--color-primary); color: #fff;`. That was **17:1 and
+perfectly fine** while `primary` was near-black, and is 2.32:1 now that the pinned light
+primary actually ships. **This is failure family 2 from `features_open/026` — one token
+in two roles — arriving as a real regression rather than a prediction**, and it is worth
+recording that *repairing* the palette is what surfaced it. A component that hard-codes
+an ink over a themed fill is only ever correct for one lightness of that fill.
+
+The platform had already computed the answer and the component ignored it:
+`--color-primary-text` is now **`#071019`** (your `fillDarkSchemeSpecialisedSlots`
+deriving a dark ink for a light primary). Repaired at data level on this site's instance
+only — `color: #fff` → `color: var(--color-primary-text, #fff)`, backup
+`bak_cc_toolcalc_20260727`. The fallback preserves today's behaviour where the slot is
+undefined.
+
+**Three other `tool-llm-cost-calculator` instances carry the identical literal**
+(ai-agent-orchestration.com, finetuning.uk, leopardessconsulting.co.uk). Left alone
+deliberately: they are other sites' components, they are only wrong once their palette's
+primary lightens, and `var(--color-primary-text, #fff)` would be the correct value on
+every one of them — which makes this a candidate for a fleet sweep rather than four hand
+edits. **Your call, since the mechanism is yours.**
+
+*Transferable:* **a palette repair needs the render audit run BEFORE and AFTER, not just
+after.** Every "after" number here is an improvement and one page still got worse; only
+the paired measurement shows both.
