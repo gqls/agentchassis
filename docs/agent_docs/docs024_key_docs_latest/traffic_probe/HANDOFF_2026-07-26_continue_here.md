@@ -102,7 +102,10 @@ every internal target probed -> only 2 non-200, BOTH pre-existing and unrelated:
 **Getting the footer to change needed a SITE-CHROME rebuild, not a page re-render** — chrome
 is a stored artefact (`site_components.rendered_html`), frozen here since 07-16, used verbatim
 by `assemblePage`. Trigger: a `nav_drift` work item handled by `nav-updater`
-(→ `render_site_components`). See `bugs_open/117`. **Then re-render the pages.**
+(→ `render_site_components`). See `bugs_open/117`, and the full recipe with its three gotchas
+in the runbook, § "Changing site CHROME". **`nav-updater` queues the page re-renders itself**
+(they show up as `source='rerender-pages'`) — do not queue your own first, that races the
+chrome rebuild and renders pages against the old footer.
 
 **The contact address is CLEARED (owner, 2026-07-27).** The footer had been rendering
 `relojistas@contactforsales.com` — correctly, from **`sites.email`**, a 13-site house
