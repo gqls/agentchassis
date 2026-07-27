@@ -1700,6 +1700,64 @@ one thing that guarantees the default fires.* Contributed to 071 (`8228fb748`) a
 strongest available argument for fixing the default rather than the data — no data-side
 repair can express "no button", because they all work by writing `content_data`.
 
+### The chrome chase — three wrong mechanisms before the right one, and what each cost
+
+Removing the contact route left **54 dead links** (18 pages × 3 footer links to the retired
+`/contacto.html`). Getting them off took four attempts, and the first three were confidently
+wrong. Recording the whole sequence because the *shape* of the error repeated each time:
+**I reasoned from the first plausible function I found and never checked it was on the path.**
+
+| # | I believed | Refuted by | Cost |
+|---|---|---|---|
+| 1 | `in_footer=false` + `status='archived'` drops it from nav | live page after 18 successful re-renders | ~15 min |
+| 2 | nav comes from the `pages` query at `render_site_components_action.go:893` | it comes from `site_nav_items` via `GetNavItems` | ~10 min |
+| 3 | `InjectFooter`'s skip-guard freezes the footer | **the single-page path never calls `InjectFooter`** (`grep` returns nothing) | filed a bug with the wrong cause |
+| 4 | *(correct)* chrome is a **stored artefact** in `site_components.rendered_html`, used verbatim by `assemblePage`, regenerated only by `render_site_components` | — | fixed |
+
+**What actually caught #3:** the stored footer renders `<h4>Our Services</h4>`, a string that
+exists in **no active component**. The skip-guard theory could not explain that, and the
+theory that could — "it is rendering something deactivated" — turned out to be a second bug.
+
+`bugs_open/117` was filed on mechanism 3 and **rewritten on mechanism 4 before anyone acted
+on it** (`db14421e7`). That is the cheap place to be wrong; a handoff would not have been.
+
+### And the second bug the chase turned up
+
+`render_site_components_action.go:545-556` selects chrome as:
+
+```
+"footer": "site-footer"  →  FROM content_components WHERE function = $1 ORDER BY name LIMIT 1
+```
+
+**No `is_active` filter.** Five rows have `function='site-footer'`; the alphabetically first
+is `footer-4-column`, which is **`is_active = false`**. Both *active* components are
+unreachable. So the fleet's footers have been rendering from a deactivated component, and my
+owner-approved gate — applied to the active `footer-theme-chrome` — could never have landed.
+Filed `bugs_open/118`; gate re-applied to `footer-4-column`, which also had its email and
+phone lines **completely ungated** (the genuinely defective version).
+
+### CORRECTED — the site DOES have a contact email, and my 111 measurement was wrong
+
+Once the chrome actually regenerated, the footer rendered
+**`relojistas@contactforsales.com`** — correctly, and the null `{{.phone}}` line was omitted,
+so the gate works. The address is not in `site_specs.identity.contact` (null, and I cleared
+the phone there myself). It is **`sites.email`**, populated on **13 sites** with a deliberate
+house convention `<name>@contactforsales.com`.
+
+So `bugs_open/111`'s headline measurement — "8 of 14 sites render an empty contact block" —
+is **false**: I measured `site_specs.identity.contact`, a table whose *name* matches the
+concept, rather than the column the renderer reads. The empty block I saw this morning was
+**stale chrome frozen on 2026-07-16**, from before `sites.email` was set. Corrected in place
+at the top of that file.
+
+*Check:* **find what populates the field before measuring a proxy for it** —
+`grep -rn 'ctx.Email' component_library.go` would have pointed at `sites.email` in seconds.
+
+**Open question for the owner, not decided here:** the footer now advertises
+`relojistas@contactforsales.com`. That is a *sales* address on a domain that is for sale, so
+it may be exactly right — but the ruling was "no contact route", and this is one. Clearing it
+means editing a 13-site convention, so it is the owner's call, not this thread's.
+
 ### CORRECTED, same session — nav is a TABLE, and archiving a page does not touch it
 
 Item 6 above said the 15 assemble-only rerenders would make "the footer nav stop linking the
