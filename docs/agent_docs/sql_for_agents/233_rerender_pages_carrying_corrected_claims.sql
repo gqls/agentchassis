@@ -46,6 +46,36 @@
 -- `triaged` directly. **Do not "follow the convention" here**: the convention
 -- is what 083 is about.
 --
+-- ── CORRECTED AGAIN: `spec.reason` SELECTS THE MODE — IT IS NOT A LABEL ───
+-- The first run of this file used `reason: 'claims_corrected'`, invented so the
+-- item_key would not collide with another session's rerender. The work item
+-- went to `complete`, the orchestration reported COMPLETED — and the page still
+-- served the old figure. `page_components.updated_at` was the timestamp of the
+-- CONTENT edit, not of the render, which is what gave it away.
+--
+-- The page-rerender agent branches on that exact string:
+--
+--   check_rerender_mode:
+--     condition: input_data.spec.reason == 'image_landed'
+--             OR input_data.spec.reason == 'section_data_resolved'
+--             OR input_data.spec.reason == 'cta_links_stale'
+--     then_step: rerender_sections     -- re-renders each section from content_data
+--     else_step: render_page           -- ASSEMBLE-ONLY: reuses stored section HTML
+--
+-- An unrecognised reason therefore takes `else_step`, re-assembles the page from
+-- the STALE section HTML, deploys it, and reports success. Nothing errors,
+-- because nothing went wrong — the workflow did exactly what it was asked.
+--
+-- So a value that reads like free-text provenance is load-bearing control flow.
+-- Same family as the fleet landmine "a string step-config is a REFERENCE, never
+-- a literal". **The dedup key and the reason are DIFFERENT FIELDS** — vary
+-- `item_key` freely, never `spec.reason`.
+--
+-- This also matters to bugs_open/093 beyond this file: the stat audit added
+-- there reads stored `content_data`, and assemble-only mode never reads
+-- content_data at all. A page can be re-published on a path where the audited
+-- artefact is not the published one.
+--
 -- ── item_key AND THE DEDUP INDEX ──────────────────────────────────────────
 --   CREATE UNIQUE INDEX idx_swi_dedup ON site_work_items (site_id, item_key)
 --   WHERE item_key IS NOT NULL AND status <> ALL (ARRAY['complete','verified',
@@ -88,7 +118,8 @@ BEGIN
             (r.site_id, r.page_id, 'claims_correction', 'build', 'page_rerender', 'medium',
              format('Re-render %s — %s', r.name, r.why),
              jsonb_build_object('domain', r.domain, 'page_id', r.page_id::text,
-                                'page_name', r.name, 'reason', 'claims_corrected'),
+                                -- spec.reason IS CONTROL FLOW, NOT A LABEL. See below.
+                                'page_name', r.name, 'reason', 'section_data_resolved'),
              40, 'page-rerender', 'triaged', 'bugfix-043-lane',   -- NOT 'detected' — see bugs_open/083
              format('page_rerender_%s_%s_claims_corrected', r.name, r.site_id),
              v_batch)
