@@ -364,10 +364,30 @@ func refreshOneSiteEvidence(
 	}
 
 	if res.Drifted > 0 {
-		if err := createStaleEvidenceItem(ctx, db, siteID, domain, res, params.AgentType, logger); err != nil {
+		// bugs_open/091 candidate 2. This used to read `else { res.WorkItemCreated
+		// = true }`, so work_item_created meant "no error", not "a record exists".
+		// The item is keyed per SITE, and insertWorkItem dedups on that key while
+		// any non-terminal row is open — so when a SECOND, different fact drifts
+		// while an earlier item is still open, nothing is written and the run
+		// reported the write anyway. The only trace of the truth was a log line
+		// carrying inserted=false, in a pod that was replaced four minutes later.
+		//
+		// This does NOT fix the dedup dropping the finding (candidate 1) — that
+		// changes a helper every detector in the fleet calls and belongs to the
+		// work_item_completion_integrity workstream. It makes the report honest
+		// while that is decided, which is true under either answer.
+		inserted, err := createStaleEvidenceItem(ctx, db, siteID, domain, res, params.AgentType, logger)
+		if err != nil {
 			logger.Warn("refresh_evidence_base: failed to create stale_evidence item", zap.Error(err))
-		} else {
-			res.WorkItemCreated = true
+		}
+		res.WorkItemCreated = inserted
+		if err == nil && !inserted {
+			logger.Warn("refresh_evidence_base: drift found but NO work item written — an open "+
+				"stale_evidence item already holds this site's key, and its spec still describes "+
+				"the EARLIER drift (bugs_open/091)",
+				zap.String("site_id", siteID.String()),
+				zap.String("domain", domain),
+				zap.Int("drifted", res.Drifted))
 		}
 	}
 	return res, nil
@@ -712,10 +732,14 @@ func writeRefreshedEvidenceBase(
 // handler is the human-review pseudo-handler, matching claims_unverified —
 // changing published copy because a number moved is a human decision (spec
 // open question 3), even when the site is merely under-claiming.
+// createStaleEvidenceItem returns whether a row was actually WRITTEN, not merely
+// whether the attempt errored (bugs_open/091). The item is keyed per site, so a
+// second drift arriving while an earlier item is open dedups to nothing — and
+// the caller must be able to tell that apart from success.
 func createStaleEvidenceItem(
 	ctx context.Context, db *sql.DB, siteID uuid.UUID, domain string,
 	res *siteRefreshResult, agentType string, logger *zap.Logger,
-) error {
+) (bool, error) {
 	drifted := make([]evidenceFactRefresh, 0, res.Drifted)
 	for _, f := range res.Facts {
 		if f.Outcome == "drifted" {
@@ -733,14 +757,14 @@ func createStaleEvidenceItem(
 			"number has already been re-synced to the live query — the COPY is what needs a human ruling.",
 	})
 	if err != nil {
-		return fmt.Errorf("marshal stale_evidence spec: %w", err)
+		return false, fmt.Errorf("marshal stale_evidence spec: %w", err)
 	}
 
 	summary := fmt.Sprintf("Evidence freshness (%s): %d fact(s) drifted outside tolerance", domain, len(drifted))
 
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
+		return false, fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -759,17 +783,17 @@ func createStaleEvidenceItem(
 		itemKey:      "stale_evidence:" + siteID.String(),
 	}, logger)
 	if err != nil {
-		return fmt.Errorf("insert stale_evidence item: %w", err)
+		return false, fmt.Errorf("insert stale_evidence item: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit stale_evidence item: %w", err)
+		return false, fmt.Errorf("commit stale_evidence item: %w", err)
 	}
 
 	logger.Warn("refresh_evidence_base: evidence drift raised for human review",
 		zap.String("site_id", siteID.String()),
 		zap.Int("drifted", len(drifted)),
 		zap.Bool("inserted", inserted))
-	return nil
+	return inserted, nil
 }
 
 func loadSiteDomain(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger *zap.Logger) string {

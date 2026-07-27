@@ -452,7 +452,7 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 
 	itemKey := fmt.Sprintf("gap_plan_new_%s_%s", pageName, siteID)
 
-	_, err = db.ExecContext(ctx, `
+	itemRes, err := db.ExecContext(ctx, `
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by,
@@ -467,20 +467,47 @@ func applyNewPage(ctx context.Context, db *sql.DB, plan map[string]interface{}, 
 		return nil, fmt.Errorf("create work item: %w", err)
 	}
 
+	// bugs_open/091, same shape as the filed case: the INSERT is ON CONFLICT DO
+	// NOTHING, so it writes nothing when an item already holds this key — and
+	// this used to report `"item_created": true` regardless, i.e. "no error"
+	// rather than "a record exists". RowsAffected is the only thing that knows.
+	itemCreated := execWroteARow(itemRes)
+
 	// Mark original as complete
 	markOriginalComplete(ctx, db, originalItemID)
 
 	logger.Info("ApplyGapPlanAction: new_page created",
 		zap.String("page_name", pageName),
-		zap.String("page_id", pageID.String()))
+		zap.String("page_id", pageID.String()),
+		zap.Bool("item_created", itemCreated))
 
 	return map[string]interface{}{
 		"applied":      true,
 		"approach":     "new_page",
 		"page_name":    pageName,
 		"page_id":      pageID.String(),
-		"item_created": true,
+		"item_created": itemCreated,
 	}, nil
+}
+
+// execWroteARow reports whether an INSERT actually wrote, for the
+// ON CONFLICT DO NOTHING statements whose callers report a creation
+// (bugs_open/091).
+//
+// A driver that does not support RowsAffected returns an error rather than a
+// count; treating that as "written" preserves the previous, optimistic answer
+// rather than inventing a pessimistic one, so an unsupported driver degrades to
+// the old behaviour instead of reporting a false negative. lib/pq does support
+// it, so this is a defensive branch rather than a live one.
+func execWroteARow(res sql.Result) bool {
+	if res == nil {
+		return true
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return true
+	}
+	return n > 0
 }
 
 // ============================================================================
@@ -640,7 +667,7 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 	summary := fmt.Sprintf("Build re-typed page: %s (now %s) — %s", pageName, targetType, truncate(reasoning, 60))
 	itemKey := fmt.Sprintf("gap_plan_retype_%s_%s", pageName, siteID)
 
-	_, err = db.ExecContext(ctx, `
+	retypeItemRes, err := db.ExecContext(ctx, `
 		INSERT INTO site_work_items (
 			site_id, source, pipeline, item_type, severity, summary,
 			spec, page_id, priority, handler_agent, status, created_by,
@@ -653,6 +680,9 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 	if err != nil {
 		return nil, fmt.Errorf("create build work item for re-typed page: %w", err)
 	}
+
+	// bugs_open/091, third site of the same shape — see execWroteARow.
+	itemCreated := execWroteARow(retypeItemRes)
 
 	markOriginalComplete(ctx, db, originalItemID)
 
@@ -669,7 +699,7 @@ func applyRetypeExisting(ctx context.Context, db *sql.DB, plan map[string]interf
 		"page_id":      candidateID.String(),
 		"from_type":    previousType,
 		"to_type":      targetType,
-		"item_created": true,
+		"item_created": itemCreated,
 	}, nil
 }
 
