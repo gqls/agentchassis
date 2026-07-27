@@ -105,3 +105,33 @@ actions package; check `gofmt -l` on *your* files only, and confirm HEAD was cle
 Induce the failing branch: snapshot a non-critical agent row, set its `image_tag` stale, fire
 it, and confirm the spawned pod carries the **chassis's** tag plus the drift warning in the
 chassis log. A green happy path proves deployment, not correctness.
+
+## `psql -v` does NOT interpolate into `-c` — only into stdin/`-f`
+
+Found while parameterising the row sync for the council's constitution seat.
+
+```bash
+# FAILS — the -c string is sent as-is: ERROR: syntax error at or near ":"
+psql -U clients_user -d clients_db -v t="v1.0.1173" -tAc "SELECT count(*) FROM agent_definitions WHERE image_tag = :'t';"
+
+# WORKS — psql interpolates input it lexes
+echo "SELECT count(*) FROM agent_definitions WHERE image_tag = :'t';" \
+  | psql -U clients_user -d clients_db -v t="v1.0.1173" -tA
+```
+**Gotcha:** the failure is loud here, but the shape is the trap — reaching for `-v` with
+`-c` looks parameterised in review and is not parameterised at all. In a makefile recipe the
+working form is `printf "%s\n" "…" | kubectl exec -i … -- psql -v name=value`; prove the
+whole pipeline with a read-only `SELECT` before pointing it at an `UPDATE`.
+
+## Answering "did anyone already build this?" for a self-pod lookup
+
+```bash
+grep -rn "os.Hostname()\|POD_NAME\|serviceaccount/namespace" --include=*.go . | grep -v _test.go
+grep -rn "Pods(.*).Get" --include=*.go .
+```
+Result 2026-07-27: no existing helper reads the pod's own **image** — the only `Pods().Get`
+calls are job-existence (`spawn_actions.go`) and gate-log fetch (`diagnose_build_gate_action.go`).
+But the search surfaced the house convention `os.Getenv("POD_NAME")` (`agentbase/agent.go` and
+three adapters), which the resolver now honours first. **Gotcha:** `POD_NAME` and
+`POD_NAMESPACE` are **UNSET** on the chassis Deployment — verified in the running pod — so the
+`os.Hostname()` fallback is the live path, not the exceptional one.

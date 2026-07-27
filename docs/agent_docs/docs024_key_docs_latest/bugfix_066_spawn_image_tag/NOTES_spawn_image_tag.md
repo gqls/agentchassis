@@ -83,3 +83,53 @@ Committed `c0d7c3a71` (7 files, scope block verified). Council submitted, corr
 the usual ~30 min queue. **066 stays OPEN**: the fix is inert until a chassis roll past
 v1.0.1174, and the defect is reproducible in production until then. The four post-roll
 verification steps are written into the case file so whoever rolls can close it.
+
+## Council gate — APPROVED round 1, and four objections worth acting on
+
+Corr `3e146ef2-a072-40a8-86be-f6cd940a95f9`. `approved`, "5 advisory objection(s) — none
+high-severity", `unreadable: 0`, `abstained: 7` (the relevance filter, not silence — the
+abstention count on the 16-seat gate is filtered seats, so only `unreadable: 0` says every
+seat that ran could read the plan). Lane was clear; the run started immediately and finished
+in ~8 minutes rather than the ~30 the RUNBOOKs warn about.
+
+Acted on rather than filed, because four of them were right:
+
+- **constitution (medium ×2)** — the SQL was built by string interpolation. Both sites now
+  bind with `psql -v` / `:'var'`. **This immediately produced a real trap:** `psql` performs
+  `:'var'` interpolation only on input it *lexes* (stdin / `-f`) and sends a `-c` string
+  as-is, so the parameterised `-c` form fails with `syntax error at or near ":"`. Reaching
+  for `-v` with `-c` **looks** parameterised in review and is not parameterised at all. Both
+  forms verified; the makefile now pipes via `printf`. In the RUNBOOK.
+- **guardian (low)** — no log on the "repository didn't match, falling back to the row" path.
+  Correct, and it is exactly what a registry-host spelling mismatch would do: revert silently
+  to the bug being fixed. Now a `Warn` naming the row's repository and every image this pod runs.
+- **prior_art_librarian (medium)** — "spawn_group.go:248 is a dead override" was an absence
+  claim with no lookup attached, *while the claim right next to it carried a grep*. That is
+  the same shape I had already logged against myself in `WRONG_CALLS.md` **this session**, one
+  file away, and I still did it. Checked properly: four `"image_tag"` hits in Go, three are
+  struct tags, the spawn_group write is the only one and nothing reads it. Claim survives.
+- **reuse_agent (medium)** — no evidence the tree was searched for an existing self-pod
+  helper. There is none (the only `Pods().Get` calls are job-existence and gate-log fetch),
+  **but the search found a house convention I had ignored**: `os.Getenv("POD_NAME")`, used by
+  `agentbase/agent.go` and three adapters. Now preferred, hostname kept as fallback — and the
+  fallback is the live path, because `POD_NAME` is unset on the chassis Deployment. The seat
+  was right for a reason I had not anticipated: not "you duplicated something" but "you
+  invented a convention next to an existing one".
+- **debug_historian (low)** — enumerate `status`/`is_active` before trusting the blast radius
+  (the `sites.status` lesson). 105 experimental+active, 70 active+active, 5
+  experimental+**inactive** = the 180. Recorded in the script as a deliberate finding: the 5
+  inactive rows are in scope on purpose, since an inactive row can be reactivated.
+- **editquality (medium/low)** — edits 5–7 are hygiene bundled into a fix that disclaims them
+  as the cause. Accurate. It was the owner's explicit call to do both halves in one pass;
+  recorded, not unpicked (forward-only).
+
+One fidelity note for future submissions: the guardian flagged that the drift log string
+referenced by `check-agent-image-drift.sh` "isn't in the agent_image.go sketch". It *is* in
+the file — my sketch was abridged. **An abridged sketch is a different claim than the code**,
+which is the `grounded_in` quote-fidelity rule applied to `sketch`, and I had not thought of
+it that way before.
+
+Committed `e96d42226` with `Council-Reviewed: 3e146ef2-…`. The trailer is on the follow-up
+commit rather than on `c0d7c3a71` (the fix itself) because forward-only forbids amending —
+the 098 report's commit↔verdict join will find the trailer, but a reader should know the
+verdict covers both commits.
