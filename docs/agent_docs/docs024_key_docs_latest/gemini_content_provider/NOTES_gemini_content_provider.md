@@ -522,3 +522,80 @@ called `max_tokens`.
 > question is whether Gemini writes acceptably, and delaying that to protect a
 > telemetry column whose wrong rows are self-identifying would be the wrong
 > priority. Stated so it is a decision, not an oversight.
+
+## 2026-07-27 — P6 DONE (writer on Gemini), P7 partly done and deliberately stopped short
+
+**P6 applied.** `P6_FLIP_page_content_writer.sql` ran clean:
+
+```
+--- BEFORE --- {"model":"claude-sonnet-4-6","provider":"anthropic","max_tokens":8000,...}
+UPDATE 1
+--- AFTER  --- {"model":"gemini-pro-latest","provider":"gemini","max_tokens":8000,...}
+NOTICE: OK: gemini/gemini-pro-latest, max_tokens 8000 preserved, style block intact.
+COMMIT
+```
+
+**`max_tokens: 8000` survived** — which is precisely what the `jsonb_set` replace
+would have deleted. The assertion block earned its place on its first run: it is the
+difference between knowing that and assuming it. `tmpl_chars` still 12,570, style
+block intact. Backup: `bak_agent_definitions_pcw_20260727_p6`.
+
+**P7 — I did NOT rebuild a real page, and that is a deliberate stop, not an
+omission.** The candidates were all live pages owned by other workstreams
+mid-flight: `fundamentallyai`'s `about` (brochure, actively working 085/109 — and
+the site whose baseline snapshot makes it the *ideal* comparison), and `vonc.com`
+(gauntlet, which has just got that site to `claimscan 0/49` — regenerating copy
+could reintroduce fabrications and undo it). Pool sites have **no pages**
+(`pool-ai-agents.internal` → 0 rows), so the usual scratch target does not exist
+for a page build. Mutating someone's live estate to answer my question is not mine
+to decide.
+
+**What I tested instead, because it isolates the risky part.** The writer's real
+12,570-char `prompt_template`, placeholders filled with genuine material and the
+section schema appended, at its real `max_tokens: 8000`, direct to
+`gemini-pro-latest`:
+
+| measure | result |
+|---|---|
+| finish reason | **STOP** (not MAX_TOKENS) |
+| visible / thinking | 120 / **1,576** tokens — the 8192 reserve is ~5x what was needed |
+| output | **valid JSON, unfenced, all four required keys present** |
+
+JSON adherence was the real risk: the writer sets `output_format: json`, and a
+thinking model that wrapped its answer in a ``` fence or truncated mid-string would
+break the section writer in a way a prose test would never show. It did neither.
+
+**The copy, measured against the Voice & Style rules rather than eyeballed:**
+
+| rule | result |
+|---|---|
+| no em dashes | **0** |
+| no exclamation marks | 0 |
+| filler words (crucially/seamless/robust/leverage/delve…) | **none** |
+| fact-first opening, no negative frame | **yes** — "FundamentallyAI is an AI consultancy." |
+| one idea per sentence | 6 sentences, mean 9.2 words |
+| one rough edge left standing | **yes** — "Our systems can produce incorrect output." |
+| contractions | **absent — the one rule it missed** |
+
+For context, the Claude + v1-prompt test on 07-24 got em dashes **19 → 14**
+("down, NOT gone — rule partially obeyed"). This run scored **0**.
+
+> **Do not read that as "Gemini obeys the style prompt better than Claude."** It is
+> **n=1 against n=1**, on *different* prompt content and a different section, and my
+> harness differs from a real run in four ways: no `site_specs` / `brief` /
+> `existing_content` / `link_context` (I substituted a Material block), no
+> `appendOutputInstructions` from the chassis, no `process_sections_loop`, so no
+> multi-section coherence, and no deploy. **What it does establish** is narrower and
+> still worth having: the writer's prompt shape works on Gemini, returns parseable
+> JSON of the right shape, does not truncate at 8000, and the style block transfers
+> to a different model family rather than being tuned to Claude. That last one was a
+> live risk nobody had tested.
+
+**Still owed, and it needs an owner decision on the target:** one real page build
+through `process_sections_loop` on a site the owner nominates, then read the copy
+and check the page's own story survived (bug-056 vigilance). Until then P7 is
+**partial** and `bugs_open/107` stays OPEN.
+
+**Also owed at the next chassis roll:** `110` candidate 1 is inert, so any writer
+run before that roll logs `max_tokens = 16192` where the caller asked 8000. Those
+rows are self-identifying (`provider='gemini' AND max_tokens = 16192`).

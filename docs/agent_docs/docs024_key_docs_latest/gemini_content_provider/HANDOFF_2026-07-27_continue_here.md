@@ -26,40 +26,52 @@ proven on two real generations**. One thing is left: flipping
 | P3 build + roll | **DONE** — both images `v1.0.1173`, pod-grep verified on both binaries |
 | P4 probe the key | **DONE** — tier tables in `NOTES`; falsified one of my own claims |
 | P5 flip content-creator | **DONE AND PROVEN** — 264-char tweet at the tier that returned ZERO on 07-24; 1,292-word blog post, no truncation |
-| **P6 flip page-content-writer** | **NOT DONE — the only outstanding item** |
-| P7 read the copy | **NOT DONE** — the real test of the question the owner asked |
+| P6 flip page-content-writer | **DONE** — script ran clean, `max_tokens: 8000` preserved (what a `jsonb_set` replace would have deleted), style block intact |
+| **P7 read the copy** | **PARTIAL — needs an owner decision on the target.** The writer's real 12.5K prompt at its real 8000 budget returns **valid unfenced JSON, all keys, finish=STOP, 1,576 thinking tokens**, and the copy scores **0 em dashes / 0 filler / fact-first opening** (Claude+v1 got em dashes 19→14). But **no real page has been rebuilt** — see below |
+| **110 candidate 1** | in code, **INERT until the next chassis roll** |
 
 `bugs_open/107` stays **OPEN** until P6/P7 land, per the "fixed AND live with no
 residual" bar.
 
-## The one command left
+## The one thing left, and it needs YOUR call, not a command
 
-```bash
-kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
-  psql -U clients_user -d clients_db \
-  < docs/agent_docs/docs024_key_docs_latest/gemini_content_provider/P6_FLIP_page_content_writer.sql
-```
+**Rebuild one real page through `process_sections_loop` and read the copy.** I
+stopped short of this deliberately: every candidate page belongs to a workstream
+that is mid-flight, and mutating their live estate to answer my question is not my
+decision.
 
-My tool-permission classifier refused this write; nothing else is blocked. The
-script is transactional, backs the row up, is guarded on the `updated_at` I read
-(`2026-07-27 13:44:56.343485+00`), and **RAISEs to roll itself back** unless
-provider, model, `max_tokens: 8000` and the Voice & Style block all verify after
-the write.
+- `fundamentallyai` / `about` — **the ideal comparison**, because the brochure
+  thread snapshotted `about_copy_before.txt` as a Claude baseline for exactly this.
+  But that thread is actively working `085`/`109` on that site.
+- `vonc.com` — the designated test site, but the gauntlet thread has just got it to
+  `claimscan 0/49`, and regenerating copy could reintroduce fabrications.
+- Pool sites — **have no pages at all** (`pool-ai-agents.internal` → 0 rows), so the
+  usual scratch target does not exist for a page build.
 
-If it reports `UPDATE 0` / raises on provider: another session wrote the row.
-**Re-read `updated_at`, put the new value in the script, do not retry blind.**
+So: **name a page, or authorise `fundamentallyai/about` after a word with the
+brochure thread.** Then read the artefact — `complete` is not proof the work
+happened — and check em dashes, filler, fact-first openings, and that the page's own
+story survived (bug-056 vigilance).
 
-### Then, and do not skip it
+Watch for a `*TruncatedError` naming thinking: it means the 8192 reserve is too
+small for the writer's *real* (context-loaded) prompt — raise
+`thinking_reserve_tokens` in the same `ai_service` block. It is **not** a sign the
+fix failed. On my harness thinking was 1,576, i.e. the reserve is ~5x what was
+needed, but a real run carries `site_specs`, `brief`, `existing_content` and
+`link_context` on top.
 
-Rebuild **one** page and **read the copy**. `complete` is not proof the work
-happened — read the artefact. Compare against the Claude baseline the brochure
-workstream snapshotted (`about_copy_before.txt`): em dashes, filler words,
-fact-first openings, and whether the page's own story survived. Only then consider
-anything site-wide.
+### What P7 already established, and what it does not
 
-Watch for a `*TruncatedError` naming thinking. That means the 8192 reserve is too
-small for the writer's *real* prompt — raise `thinking_reserve_tokens` in the same
-`ai_service` block. It is not a sign the fix failed.
+**Does:** the writer's prompt shape works on Gemini; it returns **valid, unfenced
+JSON with all required keys** (the real risk, since `output_format: json` means a
+fence or a mid-string cut would break the section writer invisibly); no truncation
+at 8000; and **the Voice & Style block transfers to a different model family**
+rather than being tuned to Claude — an untested risk until now.
+
+**Does not:** justify "Gemini writes better than Claude". It is **n=1 vs n=1** on
+different content, and my harness had no `site_specs`/`brief`/`existing_content`/
+`link_context`, no chassis `appendOutputInstructions`, and no multi-section
+coherence test.
 
 ## Landmines, ordered by what they would cost you
 
