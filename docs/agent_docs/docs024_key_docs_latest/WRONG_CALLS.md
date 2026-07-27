@@ -32,8 +32,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **attach the query to a load-bearing absence claim — "checked" without the check text is a claim about diligence** | **1** |
 | **read the CONTRACT a thing plugs into, not just its logic** | **2** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
-| wait / query again before calling an absence a failure | 8 |
-| **grep for the capability before asserting it does not exist** | **4** |
+| wait / query again before calling an absence a failure | 9 |
+| **grep for the capability before asserting it does not exist** | **5** |
 | **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | 1 |
 | **record the CLOCK beside a reading, never infer it afterwards** | **2** |
@@ -58,6 +58,11 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
+| **compare a STRUCTURAL property of the output against the source — counts and a zero exit code cannot see silent loss** | **1** |
+| **derive a count from the artefact; never type one** | **2** |
+| **review the plan's CONTENTS, not just its top-level shape** | **1** |
+| **commit with an explicit PATHSPEC — a bare directory is `git add -A` wearing different clothes in a shared tree** | **1** |
+| **read the target file's own stated contract before appending to it** | **1** |
 | **pair a negative assertion with a positive control over the same fetch — "the bad string is gone" also passes on a 404, a typo and an empty file; and run any pod-grep marker against the CURRENT binary first — if it passes before the change ships, it is not a test** | **2** |
 | **give an "absence means wait" rule an exit condition — check whether anything NEWER has drained past you before concluding you are merely queued** | **2** |
 | **prove the CHANNEL carries signal before reading a zero from it — an unscraped metric, an unwired counter and a fixed bug are byte-identical** | **1** |
@@ -3969,35 +3974,31 @@ the other branch — the useful version is *"absence means queued **unless** som
 drained past you"*. Family: default-with-no-exit-condition, absence-is-ambiguous,
 rule-outlived-its-window.
 
-**2026-07-26 — diagnosed a working queue as a spawn-loss bug, from the tail of unrelated
-work.** 98 `page_rerender` items sat `triaged` with `attempt_count=0` while `needs_imagery`
-items on the same site kept completing. I concluded the `page-rerender` agent specifically
-was not receiving spawns — `bugs_open/003` class — and wrote that into a commit and a NOTES
-section. It was wrong in every part. The queue was fine: first claim came **20m40s** after
-the items were created (the documented ~20–30 min latency), then all 98 completed over 3h28m
-at ~2.1 min each, which is simply what single-flight-per-site costs for 98 pages. By morning
-every page was live.
-**The specific error is more instructive than the delay.** My evidence for "page_rerender is
-uniquely broken" was that imagery was completing *concurrently*. It was not. Every imagery
-item I watched finish had been **claimed at 17:04–17:16, before the page items existed**; I
-was watching the tail of work already in flight. Imagery then stopped dead at 17:18 and did
-not resume until 20:40:38 — **18 seconds after the last page_rerender completed**. The two
-never overlapped for a moment. My own priority change had worked exactly as intended and
-starved imagery completely; I read the pre-emption I had just caused as evidence of a fault.
-**What caught it:** walking away. The queue drained overnight and the site was fully live.
-**The cheap check:** compare `claimed_at` of the "still progressing" items against
-`created_at` of the "stuck" ones. `SELECT item_type, min(claimed_at), max(completed_at) FROM
-site_work_items WHERE site_id=... GROUP BY 1` answers it in one query — items claimed before
-yours existed are not evidence of anything about yours. And `attempt_count=0` means *not yet
-tried*, which is indistinguishable from *never will be* until the documented latency window
-has actually elapsed. I gave up **8 minutes** before the first claim.
-**The class:** concurrency inferred from two things being observed in the same minute, when
-one was already in flight. Timestamps distinguish them and I did not look at timestamps —
-I looked at counts changing. Also a second instance of the family directly above it, from
-the opposite direction: that row is "waited too long because absence means queued"; this one
-is "gave up too early because absence means dropped". Same ambiguity, opposite conclusions,
-and in both cases the resolving evidence was a timestamp comparison nobody ran.
-Family: absence-is-ambiguous, false-concurrency, counts-without-timestamps.
+### 2026-07-26 — webdesign.co.uk — "98 page_rerender items will never dispatch; page-rerender is broken"
+**Asserted:** that the `page-rerender` agent was not receiving spawns — `bugs_open/003`
+class — because 98 items sat `triaged` with `attempt_count=0` while `needs_imagery` items on
+the same site kept completing. Written into a commit message and a NOTES section as a
+platform blocker.
+**Actually:** the queue was working normally. First claim came **20m40s** after the items
+were created (the documented publish→run-start latency); all 98 completed over 3h28m at
+~2.1 min each, which is simply what single-flight-per-site costs. By morning every page was
+live. The "concurrent" imagery was nothing of the kind: every imagery item I watched finish
+had been **claimed at 17:04–17:16, before the page items existed at 17:12**, and imagery then
+stopped dead at 17:18 and did not resume until **20:40:38 — 18 seconds after the last page
+completed**. My own priority change (`page_rerender`→5, imagery→90) had pre-empted imagery
+perfectly for three and a half hours. I read the starvation I had just caused as a fault.
+**Caught by:** walking away. The queue drained overnight and the site was fully live — luck
+of the calendar, not a check. I gave up **8 minutes** before the first claim.
+**The cheap check that would have caught it:** `SELECT item_type, min(created_at),
+min(claimed_at), max(completed_at) FROM site_work_items WHERE site_id=… GROUP BY 1` — items
+claimed *before yours existed* say nothing about yours. I was reading counts change, never
+timestamps. And `attempt_count=0` means *not yet tried*, indistinguishable from *never will
+be* until the documented window has elapsed.
+**Cost:** one duplicate direct dispatch (harmless — the importer keys on
+`(page_id, slot_name)`), a false blocker in a commit message and a handoff, and a day of the
+owner believing the site was stuck. Note this sits near the entry above from the *opposite*
+direction — waiting 62 minutes because "absence means queued". Same ambiguity, opposite
+conclusions, same unrun timestamp comparison.
 
 **2026-07-26 — wrote a lockstep test that could not fail, and nearly shipped it as the
 guard's proof.** Fixing `bugs_open/076` I added `truncationAwareActions`, a registry naming
@@ -4170,32 +4171,28 @@ model had a single owner-controlled roll in it. The general form: a safety prope
 someone else's future action, asserted as if it were mine to hold. Family: shared-tree-timing,
 inert-until-someone-else-decides, known-landmine-repeated.
 
-**2026-07-26 — filed a bug asserting a universal negative that a single grep would have
-refuted.** `bugs_open/084` originally claimed *"There is no point in the pipeline where 'this
-page's JavaScript works' is asserted. Every check we have is a check of presence… none is a
-check of integrity."* The platform has a four-tier verification ladder whose top tier drives
-the deployed page in **real headless Chromium** (`playwright-go`), performs `fill`/`click`/
-`select`, asserts post-interaction DOM state, and captures `console.error` plus uncaught page
-errors — live in production at **v1.0.1167**, made continuous by the `tool_acceptance_due`
-discovery check, and documented under a heading that literally reads *"Does it actually work
-in a browser?"*. Plus a live `dead_controls` detector, a `truncated_component` check for
-unterminated `<script>`, and a `tool_health` check that fails a tool with no script at all.
-**What caught it:** the owner asking "consult the docs for where we have built mechanisms to
-check whether the JS functions — how does this compare to your diagnosis?" One question.
-**The cheap check:** the one CLAUDE.md already mandates — *"Grep before you file"*. `grep -ri
-"dead_control\|browser-runner\|acceptance" docs/ platform/` returns the ladder in seconds. I
-had even read a memory line naming the dead-controls detector as live, and filed anyway.
-**The mechanism of the error, which is the transferable part:** I generalised from *my*
-population to *the platform*. My pages (owned, ported, `component_level='section'`) genuinely
-get no browser coverage — Tier 4 gates on `cc.component_level = 'tool'` plus a declared
-criteria fence. That is a **coverage boundary**, not an absent capability, and the two demand
-completely different work: the first version would have sent someone to build a headless
-browser tier that has been running for weeks. A true statement about a subset, promoted to a
-claim about the whole, reads identically in the file and is far more expensive.
-**Rule of thumb this earns:** a bug report whose central claim is "nothing does X" must cite
-the grep that establishes it, or say "I did not check". Universal negatives are the one claim
-shape where absence of evidence gets written down as evidence of absence.
-Family: universal-negative-unchecked, generalising-from-own-population, grep-before-you-file.
+### 2026-07-26 — webdesign.co.uk — "no point in the pipeline asserts that a page's JavaScript works"
+**Asserted:** filed as `bugs_open/084`, claiming the platform has only presence checks and
+no integrity checks for JavaScript, and recommending a live script-integrity sweep be built.
+**Actually:** there is a four-tier verification ladder whose Tier 4 drives the deployed page
+in **real headless Chromium** — `internal/adapters/browserrunner/run_checks_action.go`,
+playwright-go, real `fill`/`click`/`select`, post-interaction DOM assertions, `console.error`
+and uncaught page errors via `OnConsole`/`OnPageError`, desktop + mobile profiles, failure
+screenshots. **Live in production at v1.0.1167**, made continuous by `tool_acceptance_due`,
+and documented under a heading reading *"Does it actually work in a browser?"*. Plus live
+`dead_controls`, `truncated_component` and `tool_health` checks.
+**Caught by:** the owner asking "consult the docs for where we have built mechanisms to check
+whether the JS functions — how does this compare to your diagnosis?" One question. No check
+of mine would have surfaced it.
+**The cheap check that would have caught it:** the one CLAUDE.md already mandates — *grep
+before you file*. `grep -ri "dead_control\|browser-runner\|acceptance" docs/ platform/`
+returns the ladder in seconds. I had even read a memory line naming the dead-controls
+detector as live, and filed anyway.
+**Cost:** would have sent someone to build a headless-browser tier that has been running for
+weeks. Rewritten and renamed the same day. **The transferable mechanism:** I generalised from
+*my* population (owned, ported, `component_level='section'` pages, which genuinely get no
+browser run because Tier 4 gates on `'tool'`) to *the platform*. A coverage boundary and an
+absent capability read identically in a bug file and demand completely different work.
 
 ---
 
@@ -5542,3 +5539,101 @@ unfalsifiable without a positive control in the same command* (twice), and now
 three is the same — **the pod-grep is a test, and a test with no known-good and
 known-bad answer is not a test.** Both halves have now failed in the wild, one
 by being absent and one by being over-specified.
+
+### 2026-07-27 — webdesign.co.uk — "97 pages transformed, 0 warnings" while 60 tools shipped dead
+**Asserted:** that the port had converted every page correctly. The transform printed
+`transformed 97 pages, 27 assets, 0 warnings` on every run, each count was right, the
+fragments were well-formed HTML, and the manifest was complete.
+**Actually:** **every tool's JavaScript had been silently discarded.** Both source sites put
+their `<script>` tags after `</main>`, at body level; the transform chose its content root
+(`<main>`) *before* extracting scripts, so it harvested only what was inside it — nothing.
+`tool-bayesian-rank` had zero scripts and `bayes.js` was not even in the manifest. Around 60
+of 63 interactive tools would have published as static markup: correct-looking pages that do
+nothing when you click them.
+**Caught by:** luck. Grepping one fragment for `<script` while chasing an unrelated question
+about sibling assets. No gate, no warning, no failing count — and a browser would have been
+needed to notice it in production.
+**The cheap check that would have caught it:** compare a **structural property of the output
+against the source**, not just count the outputs. Scripts in ⇒ scripts out. Now enforced as
+`checkScriptParity` (`cmd/webdesignport/transform.go`), which **fails** rather than warns —
+and was proved by re-introducing the original bug in a scratch build, producing 60 failures,
+one per dead tool. A gate only ever seen passing has not been tested; it has been observed
+not complaining.
+**Cost:** nothing, by luck alone. Had it shipped, the failure is invisible to every
+DB-side check (`build_status='deployed'`, artefact present, HTML valid) and would have been
+found by a human clicking. Filed the platform-wide version as `bugs_open/084`.
+
+### 2026-07-27 — webdesign.co.uk — committed with `git add <directory>` in a shared tree
+**Asserted:** implicitly, that `git add bugs_open` staged my work. The commit message
+described a JavaScript-verification correction.
+**Actually:** it also swept in two files belonging to another live session — their move of
+`bugs_open/006` to `bugs_closed/` (580 lines) and their new `bugs_open/088` (171 lines).
+751 lines of someone else's work now sit under a commit message about JavaScript, where
+`git log --follow` and `git bisect` will not expect them. Both files are intact; nothing was
+lost.
+**Caught by:** reading the `create mode` / `delete mode` lines in git's own commit output —
+a habit, not a mechanism. The yellow commit-scope block had printed exactly this and I had
+not read it.
+**The cheap check that would have caught it:** `git status --short <dir>/` before adding, or
+simply reading the commit-scope block that the pre-commit hook prints for this purpose.
+CLAUDE.md forbids `git add -A` / `.` / `*`; **a bare directory is the same mistake wearing
+different clothes**, because in a shared tree a directory is not a unit of work, it is a
+shared namespace.
+**Cost:** unclean history for another thread; forward-only, so it stands. Recorded rather
+than repaired.
+
+### 2026-07-27 — webdesign.co.uk — invented a statistic in the act of removing invented statistics
+**Asserted:** replacing the about page's two unmeasurable claims ("100 Lighthouse score",
+"0.1s First Content Paint" — figures nobody has measured for this domain) with facts, I
+hand-typed "**64** Tools".
+**Actually:** there are **63**. Worse, the same 64 had originated in the mission brief I
+wrote before the catalogue existed, and had already propagated into **eight live specs** —
+`identity.about_us`, `strategy.value_proposition`, and the briefing the page planner reads.
+The home page would have opened by advertising a tool that does not exist.
+**Caught by:** running `jq '.tools|length'` over the generated catalogue for an unrelated
+reason. Then a *second* instance of the same class: after replacing the literal with a
+`{{TOOL_COUNT}}` placeholder, the substitution ran **before** the rewrite that introduces the
+placeholder, so a literal `{{TOOL_COUNT}}` reached the page. Exit code 0 both times.
+**The cheap check that would have caught it:** **derive the count from the artefact; never
+type one.** A number that cannot be typed cannot drift. Corrected in the DB by
+`SQL_p4_fix_tool_count.sql` before the planner ran.
+**Cost:** none live, caught in time — but only because the airlock held the planner back long
+enough to look. Had the cascade run unattended, a fabricated figure would have been the first
+sentence on the home page.
+
+### 2026-07-27 — webdesign.co.uk — reviewed the planner's page LIST and called the plan checked
+**Asserted:** that the planner had obeyed the mission brief, because it produced exactly one
+page (`/index.html`) as instructed rather than inventing a site.
+**Actually:** it had also chosen the *sections* for that page, and picked a full-bleed hero
+painting `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.6))` over a background image with
+`--hero-ink:#fff`. A dark hero — contradicting both the brief ("two-column hero, copy left,
+image right") and `design_intent.avoid` ("Dark backgrounds of any kind"). It shipped live and
+the owner spotted it.
+**Caught by:** the owner looking at his own site. Not a check.
+**The cheap check that would have caught it:** `SELECT sections FROM pages WHERE name='index'`
+— one query, at the moment I was already reviewing the plan. **Reviewing a plan's top-level
+shape is not reviewing the plan.** Note also what this says about pins: the palette pin held
+flawlessly (every colour in the committed `styles.css` is a pinned one), because a pin governs
+colour *values* and cannot govern component *selection* — the darkness was a literal `rgba()`
+inside the chosen component's own template, drawn from no palette, and `avoid` is prose the
+planner's component choice never reads.
+**Cost:** a wrong hero live for a day, and a manual fix that turned out to need a
+template-render because **no rerender path handles a section whose component changed** —
+assemble-only republishes stored HTML, and the data-refresh path correctly does nothing when
+no data changed.
+
+### 2026-07-27 — webdesign.co.uk — appended to this file without reading its own row shape
+**Asserted:** implicitly, that adding two bold paragraphs at the end of `WRONG_CALLS.md` was
+filing a wrong call.
+**Actually:** this file specifies a **row shape** (`### YYYY-MM-DD — <thread> — <claim>`, then
+`Asserted` / `Actually` / `Caught by` / `The cheap check` / `Cost`) and a **standing tally**
+with the instruction *"update it when you add a row"*. I matched neither, so my entries were
+unparseable by the file's own conventions and, worse, invisible to the aggregate — which the
+file states plainly is the entire point: *"One entry is an anecdote. The value is the tally."*
+**Caught by:** the owner asking me to write the missteps into the missteps file, which made
+me open it properly for the first time instead of appending to its tail.
+**The cheap check that would have caught it:** read the target file's header before writing
+to it. A file that documents its own contract in its first 150 lines is telling you it has one.
+**Cost:** two malformed entries for a day, reformatted here, and one tally left un-incremented
+— which is the part that actually mattered, because a tally row that never reaches 2 never
+gets automated.
