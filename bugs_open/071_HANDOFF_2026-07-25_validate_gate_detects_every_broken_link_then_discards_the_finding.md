@@ -380,3 +380,96 @@ emit ids, which is this case's to decide.
 **The tally that matters for the fix:** on two rebuilt pages the writer produced
 16 broken internal links, the gate detected all 16 as non-blocking warnings, and
 every one of them shipped.
+
+## Sighting, 2026-07-27 — relojistas.com: the phantom is a PLATFORM DEFAULT, not a writer invention (traffic_probe)
+
+Different site, different language, and a **different producer** — which is why
+this is worth adding rather than logging as one more instance.
+
+**Live, 2026-07-27** (sweep of all 19 deployed pages, 27 distinct internal
+targets, fragment-stripped so it is not the anchor-blind pattern above):
+
+```
+404  /contact.html              <- linked from /index.html, /noticias/index.html, /glosario/index.html
+404  /assets/images/favicon.png <- linked from all 19 pages (separate, long-known gap)
+301  /guias/mantenimiento       <- harmless redirect
+```
+
+**Nothing authored `/contact.html`.** It is absent from `content_data` and
+present only in `rendered_html`:
+
+```sql
+SELECT p.name, pc.slot_name,
+       pc.content_data::text ILIKE '%contact.html%' AS in_data,
+       COALESCE(pc.rendered_html,'') ILIKE '%contact.html%' AS in_rendered
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE p.site_id='ecf15e75-a966-4900-bcb0-1c85f689dbfd' AND ...;
+--  glosario-index | hero | f | t
+--  index          | hero | f | t
+--  noticias-index | hero | f | t
+```
+
+The homepage hero's `content_data` is Spanish and has **no URL field at all**:
+
+```json
+{"cta_text": "Leer las últimas noticias", "secondary_cta": "Explorar el glosario", ...}
+```
+
+and renders as
+
+```html
+<a href="/contact.html" class="btn btn-primary">Leer las últimas noticias</a>
+```
+
+The producer is `component_library.go` — an unconditional English default,
+present in three places (`:768-769`, `:821-824`, `:893-894`):
+
+```go
+"cta_text": defaultString(ctx.CTAText, "Get Started"),
+"cta_url":  defaultString(ctx.CTAUrl, "/contact.html"),
+// and, as a map:
+"primary_cta_url": "/contact.html",  "secondary_cta_url": "/about.html",
+```
+
+This is the `LNK-007` fallback that `render_site_components_action.go:791`
+already instructs the model to avoid — the instruction constrains the *writer*,
+while the default fires in the *renderer*, downstream of it.
+
+**Why it sharpens this case rather than repeating it:**
+
+1. **Both detectors fired and the default still won.** `internal-link-resolver`
+   filed **18 `unresolved_cta` rows** (2026-07-18 → 07-21, all still
+   `needs_human_review`) naming the exact fields — *"Unresolved CTA on index
+   ('hero'): no real-page destination for secondary_cta_url"*. So the platform
+   escalated to a human queue **and** shipped a hardcoded 404 in the same breath.
+   The queue it escalated into is `bugs_open/033` (no working surface), so the
+   escalation arm is inert by construction.
+2. **A writer-side fix cannot remove this class.** `092` (writer never gets link
+   constraints) addresses invented targets. This link was never invented by a
+   model — a page with *perfect* authored content still gets `/contact.html`,
+   because the default fills a field the author left empty.
+3. **On a non-English site the default is unfixable by resolution.** `/contact.html`
+   can never resolve on relojistas: the page is `/contacto.html`. The same
+   defaults ship English *copy* too — live on this Spanish site today:
+   `"Browse all guides"` (self-linking, on `/guias/index.html`),
+   `"Explore All Archetypes"` (→ `/noticias/`, on `/glosario/index.html`), and a
+   footer `<h4>Contact</h4>` on all 19 pages.
+4. **Authored content is silently dropped alongside it.** The hero's
+   `secondary_cta`, *"Explorar el glosario"*, appears **nowhere** in the rendered
+   output — the anchor is not emitted at all. So the same path that invents a
+   dead primary CTA discards a good secondary one. [UNDIAGNOSED — I did not trace
+   which of the three default maps ran; the observable is the missing anchor.]
+
+**Bearing on fix candidates:** a repair that rewrites stored `rendered_html` does
+not hold here for the reason already recorded above (a rebuild re-runs the
+default), and a repair that only constrains the writer does not reach it at all.
+The candidate that closes the door is making an unresolved CTA URL **unrenderable**
+— emit no anchor rather than a guessed one — which is also what the component
+already does for the secondary CTA.
+
+**Check-methodology landmine, paid for here:** on a Cloudflare-proxied site
+`grep -c 'mailto:'` returns **0 no matter what**, because CF rewrites every
+mailto into `/cdn-cgi/l/email-protection#<hex>`. A "0 emails" pass is vacuous.
+Decode with XOR against the first byte before believing it — that is how the
+homepage's `relojistas@contactforsales.com` and an **empty** footer anchor
+(`<a href="/cdn-cgi/l/email-protection#07"></a>`) became visible.
