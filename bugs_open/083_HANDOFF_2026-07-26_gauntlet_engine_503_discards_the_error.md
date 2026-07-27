@@ -354,3 +354,70 @@ unwrapped payload identifier inside any package that calls `GenerateText`.
 - debug_historian/low (precedent check) — **CLOSED**, run and concordant.
 
 **083 still OPEN**: the island has not been rebuilt, so all of this is inert.
+
+---
+
+## 9. DEPLOYED 2026-07-27 — candidate 1 is FIXED AND LIVE; 2–4 are now unblocked
+
+Island rebuilt on **`aqls/tools-api:v1.0.1178`**, built from committed HEAD via
+`make build-tools-api-ref`, shipped `docker save | gzip | ssh docker load`,
+container recreated. Commit `a0d275916`.
+
+**Verified against the RUNNING container, never the tag** (RUNBOOK_island.md):
+
+| check | result |
+|---|---|
+| `strings /tools-api \| grep -c logInternalFailure` | **4** (0 on v1.0.1163 — a real before/after pair) |
+| `logAIBadResponse` / `TopLevelJSONObjects` | 4 / 1 |
+| negative control `logNeverExisted` | **0** — the grep discriminates |
+| `HostConfig.LogConfig` | `max-size 10m, max-file 3` — rotation live |
+| container image | `v1.0.1178`, recreated (not a kept container) |
+
+### The failing branch was INDUCED — a green path proves deployment, not correctness
+
+Run off production against a throwaway Postgres and the **identical image**, with
+a deliberately invalid API key:
+
+```
+v1.0.1178 →  gauntlet/position: generate FAILED round_id=cbf64469-4d06-46da-bac2-f642e6822d4b
+             err=API request failed with status 401: {"type":"error","error":
+             {"type":"authentication_error","message":"invalid x-api-key"},
+             "request_id":"req_011CdT8yka1p5Ahy3Ye5gBU2"}
+             [GIN] … | 503 | 164.116709ms | POST "/api/v1/tools/gauntlet/position"
+
+v1.0.1163 →  0 diagnostic lines, 0 request lines
+```
+
+**That silence is the whole of this bug.** The upstream status, the provider's
+own error type and its `request_id` are all now on the record, and the request
+log gives the failure a denominator for the first time.
+
+Live round-trip after the roll: `/round` 200 · `/position` 200 (10.0 s, real
+counter+challenge) · `/defend` 200 (14.9 s, real verdict). Smoke: preflights 204,
+denied origin 403, missing round 404, `vonc.com/tools/gauntlet` 200.
+
+### Why this bug stays OPEN
+
+The **diagnosability** defect in the title is fixed and live. The **intermittent
+503s themselves are not** — nothing has been done to stop them, and by design:
+§4 orders candidate 1 first precisely so 2–4 stop being guesses.
+
+**Next step is to wait, not to code.** The fault is bursty (23 clean calls minutes
+after two live failures), so it must be *caught*, not reproduced:
+
+```bash
+ssh root@toolsapisuk.vs.mythic-beasts.com \
+  'cd /opt/island && docker compose logs --since 24h tools-api | grep -E "gauntlet/(round|position|defend): "'
+```
+
+Then read what it says and act on THAT:
+- `err=…status 429/529` → candidate 3 (retry once on a transient).
+- a timeout / context deadline → candidate 2 (the client is still `&http.Client{}`
+  with no timeout, `anthropic.go:63`).
+- `TRUNCATED` → candidate 4 becomes justified. **§2 predicts it will not appear;
+  if it never does, close candidate 4 as refuted rather than leaving it open.**
+- `response UNUSABLE … objects=2` → a bugs_closed/088-class double emission, which
+  is a prompt fix, not a transport fix.
+
+[UNMEASURED] no failure has been captured in the wild yet — the build is 5 minutes
+old at time of writing. **Recheck after 24–48h of real traffic.**
