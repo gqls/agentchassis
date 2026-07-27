@@ -940,3 +940,81 @@ goes further.
 **Recommendation to the owner:** keep Gemini, add the positive clause, and re-read
 one page. Reach for Fable 5 only if that still reads flat — it is the best prose of
 the four and it is ~3x the cost. **Grok is out on this evidence.**
+
+## 2026-07-27 — Voice & Style v4 APPLIED, and the choppiness was our rule 1
+
+Owner: use Gemini with the improved prompt, make it the default for all content
+unless overridden — and asked why Gemini won't write *"...easy for a single demo
+but to try to have them recover..."*, i.e. why it never joins clauses and always
+takes the most obvious word.
+
+**Answer: our own rule 1 forbade it.** The live block read:
+
+> `- One idea per sentence. If a sentence chains two or more ideas with commas or dashes, split it.`
+
+That is an instruction to split exactly the sentence the owner wanted. Gemini
+follows the block most literally of the four models tested, so it landed driest —
+and Grok, which follows it harder still, produced *"It includes copy. It includes
+imagery. It includes layout."* **The choppiness was not a model trait. It was
+obedience.**
+
+**v4, tested before applying** (5 runs, `gemini-pro-latest`, same prompt/material):
+
+| | v3 (live) | v4 |
+|---|---|---|
+| chars | 422 | **637** |
+| mean words/sentence | 7.6 | **12.1** |
+| sentence-length SD | — | 5.7 |
+| conjunction-joined clauses per run | ~0 | **2.2** |
+| em dashes · negative frames · filler | 0 · 0 · 0 | **0 · 0 · 0** |
+
+The requested sentence appears verbatim: *"Chaining models together is easy for a
+single demo, but getting them to recover from errors takes months."*
+
+Four changes: rule 1 **rewritten** (not appended to — see below); "say why it
+matters"; "don't always take the most obvious word"; "don't restate your opening"
+(that last one fixes the near-duplicate opening the earlier warm test produced).
+
+> **Rule 1 had to be REPLACED, and this is the reusable bit.** Appending a softer
+> rule below a stricter one leaves the prompt self-contradictory, and these models
+> resolve that by obeying the earlier, more literal instruction. A prompt is not a
+> pile of preferences; a contradicted rule is a bug, not a nuance. The apply script
+> asserts the old wording is **gone**, not merely that the new wording is present.
+
+**Applied to `page-content-writer`** via `APPLY_voice_v4_page_content_writer.sql`
+(transactional, backs up to `bak_agent_definitions_pcw_voice_v4`, and RAISEs to roll
+back unless six conditions hold — including that the em-dash rule survived).
+Result: `OK: rule 1 rewritten, 3 rules appended, em-dash rule intact (16149 chars)`.
+Live immediately; 12,570 → 16,149 chars.
+
+**"Default for all content" is TWO places, not eighteen.** 30-day LLM call counts:
+`page-content-writer` **2,330**, `content-gap-planner` 9, `content-reviewer` 2, and
+the other **fifteen** `content-creator-*` / `content-writer` agent definitions
+**zero**. They are dormant. Pasting the block into fifteen unused agents would
+create fifteen copies of a contract nobody exercises — the drift class, for no gain.
+
+The real second place is **`content-creator-agent`**, the blog/social service. It
+does not write to `llm_call_log` at all, so it appears in no usage query, **and it
+had no house style whatsoever** — every blog post and tweet this platform has ever
+produced was written with none. Fixed in Go (`buildEnhancedContentPrompt` now
+appends `voiceStyleBlock(config)`), **inert until the next content-creator roll**.
+
+**The override mechanism, since the owner asked for one:**
+`core_logic.voice_style_block` — present and non-empty wins; **present and empty
+means explicitly off**; absent means inherit the default. The empty case is
+deliberately distinct from absent, because "unless overridden" needs a way to say
+*off*, and an absent key cannot express that. Same present-but-empty distinction
+`bugs_closed/009` had to add a guard for.
+
+> **I created a second copy of the rules, and filed it rather than hiding it.** The
+> block now exists as a DB literal (page-content-writer) **and** a Go `const`
+> (content-creator) — two hand-maintained copies of one contract, in two substrates,
+> changed by two different mechanisms. That is the council-roster drift class
+> verbatim. **`features_open/026`** proposes the single-source fix (prefer candidate
+> 1: one row both read). Both sites carry a `[KNOWN DUPLICATION]` comment pointing
+> at it. **Until then: change both, or neither.**
+
+**Not yet done:** no page has been rebuilt on v4. The measurements above are the
+harness, not a real section with `site_specs`/`brief`/`link_context` loaded. And
+`bugs_open/112` still blocks the writer from reaching Gemini in a spawned pod until
+that image rolls.
