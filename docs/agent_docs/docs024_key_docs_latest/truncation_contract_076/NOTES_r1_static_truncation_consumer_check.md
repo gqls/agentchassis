@@ -216,3 +216,56 @@ The handoff's third shape — a chassis startup scan. It needs a Go change, a
 council round and an image roll to add a layer that catches, at the next roll, a
 subset of what L1 catches on demand today. Revisit only if L1 turns out to be run
 too rarely; that is a usage fact nobody has yet.
+
+---
+
+## 2026-07-27 ~11:0x — post-roll re-verification (chassis v1.0.1172)
+
+A fresh chassis build was deployed (pod `agent-chassis-7f88c4bd7f-bhhbf`, image
+`v1.0.1172`, started `2026-07-27T10:55:44Z`). **R1 itself is unaffected by a roll**
+— it is Python and docs, nothing inert — but 076's guard lives in the binary, so
+its liveness is a claim about the NEW pod, not about git.
+
+**Guard still live on the new binary.** `guard:1 REFUSED:1 degrade:1`, negative
+control `0`. And the source is byte-identical since `511670fc8`:
+`git diff 511670fc8 HEAD -- ai_actions.go truncation_guard.go
+diagnose_council_decide_action.go` is empty.
+
+**Config unaffected by the roll:** the lint reports 171 definitions, 37 tolerating
+steps, 37 guarded, exit 0. No new tolerating config arrived with the roll.
+
+**Post-roll traffic:** 6 LLM calls, 4 of them council `review_*` steps — the
+guarded path has run on the new binary. **0 tolerated, 0 refused**: no response
+has been cut since the roll, so this is evidence of DEPLOYMENT and of the path
+running, not of the guard's behaviour. The behaviour was proven by induction on
+v1.0.1169 and the code has not changed since.
+
+**Unattended evidence the consumer half keeps working:** `TRUNCATION_DEGRADED_REVIEW`
+rows are now **6**, up from the 3 the handoff recorded, latest `2026-07-26
+21:55:10Z`. Three real degradations were captured after that file was written,
+with nobody watching.
+
+### FINDING — the handoff's positive control asserted a number that is not a property of the code
+
+Its §6 recipe says `grep -c "tolerate_truncation"` → **3**. On v1.0.1172 it
+returns **4**, with the 076 source unchanged.
+
+`strings` does not print one Go string literal per line. The linker packs string
+data into blobs; `strings` prints each blob; so `grep -c` on a common substring
+counts **blobs that happen to contain it**, and where those blobs split moves
+between builds for reasons unrelated to your change. (Visible directly: piping
+that grep through `cut -c1-95` shows merged fragments — `stop_reason=refusal`,
+`heap_released_bytes`, an SQL `DO NOTHING`, an OCI runtime description — all on
+one "line".)
+
+**So: a pod-grep control must assert PRESENCE (`>=1`) and a negative control at 0,
+never equality on a count.** An equality assertion fails on an innocent rebuild,
+and a control that fails on a correct binary is worse than none — it sends the
+next thread hunting a regression that does not exist. The handoff is corrected in
+place with the evidence; `WRONG_CALLS.md` has the entry, because the pod-grep
+family already has a tally there.
+
+**R5 re-checked, unchanged:** `platform/orchestration/orchestration_test.go:171`
+still fails `go vet` (`NewSagaCoordinator` called with 3 args, needs 4). Still not
+ours; `platform/orchestration/actions` — where all of 076 lives — still compiles
+and passes.

@@ -45,7 +45,9 @@ items, none of which reopens anything.
 | thing | state | evidence |
 |---|---|---|
 | case file | `bugs_closed/076_…` | moved in `8a80549d4` |
-| live | **yes**, chassis **v1.0.1171** | pod-grep: `guard:1 REFUSED:1 degrade:1` |
+| live | **yes**, chassis **v1.0.1172** (re-verified 2026-07-27 after a fresh roll) | pod-grep: `guard:1 REFUSED:1 degrade:1`, negative control 0; source byte-identical since `511670fc8` |
+| degradation rows | **6** (was 3 when this file was written), latest `2026-07-26 21:55:10Z` | `error_code='TRUNCATION_DEGRADED_REVIEW'` — the consumer path kept working unattended |
+| post-roll traffic | 4 council `review_*` steps on the new binary, **0 truncations** | so the guard is deployed and the guarded path runs; no cut response has arrived to exercise it since |
 | council | **APPROVED ×2** — `470678f4…` (guard), `1535e2ac…` (residuals) | round 1 each, 12 reviewers, `unreadable:0` |
 | trailer | **impossible on both** — verdicts post-date their commits, forward-only forbids the amend | permanent `098` false negative, recorded so nobody re-investigates |
 | exposure | 37 tolerating steps: `council-gate` 16, `fix-proposer` 16, `feature-designer` 5 | all consumed by `diagnose_council_decide`, which is guarded |
@@ -355,12 +357,26 @@ old binary; the last two are controls):
 ```bash
 POD=$(kubectl get pods -n ai-persona-system -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
 kubectl exec -n ai-persona-system $POD -- sh -c '
-  strings /app/agent-chassis | grep -c "no step in this workflow consumes the __truncated marker"  # 1
-  strings /app/agent-chassis | grep -c "REFUSED (bugs_open/076"                                    # 1
-  strings /app/agent-chassis | grep -c "TRUNCATION_DEGRADED_REVIEW"                                # 1
-  strings /app/agent-chassis | grep -c "tolerate_truncation"                                       # 3  (positive control)
-  strings /app/agent-chassis | grep -c "this_string_should_not_exist_076"'                         # 0  (negative control)
+  strings /app/agent-chassis | grep -c "no step in this workflow consumes the __truncated marker"  # >=1
+  strings /app/agent-chassis | grep -c "REFUSED (bugs_open/076"                                    # >=1
+  strings /app/agent-chassis | grep -c "TRUNCATION_DEGRADED_REVIEW"                                # >=1
+  strings /app/agent-chassis | grep -c "tolerate_truncation"                                       # >=1 (positive control)
+  strings /app/agent-chassis | grep -c "this_string_should_not_exist_076"'                         # 0   (negative control)
 ```
+
+> **CORRECTED 2026-07-27 — the positive control used to say `# 3` and that number
+> is not a property of the code.** On v1.0.1172 it returns **4** with the 076
+> source **byte-identical** since `511670fc8` (`git diff 511670fc8 HEAD --
+> ai_actions.go truncation_guard.go diagnose_council_decide_action.go` is empty).
+> `strings` does not emit one Go string literal per line: the linker packs string
+> data into blobs and `strings` prints each blob, so a `grep -c` for a common
+> substring counts **blobs that happen to contain it**, and where the blobs split
+> moves between builds for reasons that have nothing to do with your change.
+> **Assert presence (`>=1`) plus the negative control at 0 — never equality on a
+> count.** An equality assertion here fails on an innocent rebuild, and a control
+> that "fails" on a correct binary is worse than no control: it invites a thread
+> to go looking for a regression that is not there. Verified live on v1.0.1172,
+> 2026-07-27: guard 1, REFUSED 1, degrade 1, control 4, negative 0.
 
 **Correctness — induce it, and READ WHAT THE FAILURE WROTE.** Seed two
 throwaway `diagnose`/`coordinator` agents, identical but for `accepts_truncated`

@@ -72,6 +72,45 @@ Gotchas, each one paid for:
 - Nothing dispatches to a type nobody sends to, so an idle probe is inert — but
   it is still a live definition. Keep the window short and delete by `type LIKE`.
 
+## Proving 076 is still live after a chassis roll
+
+R1 is scripts and docs — a roll cannot change it. The **guard** is in the binary,
+so after any roll:
+
+```bash
+POD=$(kubectl get pods -n ai-persona-system -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -n ai-persona-system $POD -- sh -c '
+  echo -n "guard    : "; strings /app/agent-chassis | grep -c "no step in this workflow consumes the __truncated marker"
+  echo -n "REFUSED  : "; strings /app/agent-chassis | grep -c "REFUSED (bugs_open/076"
+  echo -n "degrade  : "; strings /app/agent-chassis | grep -c "TRUNCATION_DEGRADED_REVIEW"
+  echo -n "negative : "; strings /app/agent-chassis | grep -c "this_string_should_not_exist_076"'
+```
+
+**Read the first three as `>= 1` and the last as `== 0`. Do NOT assert an exact
+count of a common substring** — `strings` prints packed data blobs, not one
+literal per line, so a count moves between builds with the source unchanged
+(measured: `tolerate_truncation` gave 3 on v1.0.1171 and 4 on v1.0.1172 with an
+empty `git diff` across all three 076 files). A control that fails on a correct
+binary is worse than no control.
+
+Then confirm the code behind it did not move under you, which is the half a
+pod-grep cannot tell you:
+
+```bash
+git diff --stat <last-known-good-sha> HEAD -- \
+  platform/orchestration/actions/ai_actions.go \
+  platform/orchestration/actions/truncation_guard.go \
+  platform/orchestration/actions/diagnose_council_decide_action.go
+```
+
+Unattended evidence that the consumer half is still working — this grows on its
+own, and is stronger than any greppable string:
+
+```sql
+SELECT count(*), max(occurred_at) FROM agent_error_log
+WHERE error_code = 'TRUNCATION_DEGRADED_REVIEW';   -- 3 on 07-26 21:15Z, 6 by 07-27
+```
+
 ## Grounding queries (re-run these; they go stale in days)
 
 ```sql

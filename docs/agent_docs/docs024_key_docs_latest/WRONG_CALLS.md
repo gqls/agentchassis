@@ -5508,3 +5508,37 @@ composed in a different buffer** — commit messages, plans and prose about the 
 
 Family: vacuous-grep-no-positive-control (3rd instance tonight), string-from-the-wrong-buffer,
 sweep-is-not-destruction, moral-drawn-from-an-unverified-mechanism.
+
+---
+
+## 2026-07-27 — a pod-grep control asserted a COUNT, and the count is not ours to predict
+
+`bugs_closed/076`'s re-verification recipe (its handoff §6) told the next thread
+to run `strings /app/agent-chassis | grep -c "tolerate_truncation"` and **expect
+3**. On chassis v1.0.1172 it returns **4**, with the 076 source byte-identical
+since `511670fc8` (empty `git diff` across all three files).
+
+`strings` does not emit one Go string literal per line. The linker packs string
+data into blobs and `strings` prints each blob, so `grep -c` on a common substring
+counts **blobs that happen to contain it** — and the split points move between
+builds for reasons that have nothing to do with your change. Piping the same grep
+through `cut` shows it plainly: one "line" carries `stop_reason=refusal`, a heap
+metric, an SQL `DO NOTHING` and an OCI runtime description.
+
+Direction matters, and it is why this is worth an entry rather than a shrug. The
+false claim here does not hide a defect — it **invents** one. A control that reads
+FAILED on a correct binary sends the next thread hunting a regression that does
+not exist, on the exact day they are trying to establish whether a roll broke
+something. That is expensive precisely when time is short.
+
+**The cheap check: assert PRESENCE (`>= 1`) plus a negative control at 0, never
+equality on a count.** If you want a number to mean something, count something you
+control — rows you wrote, a symbol you named — not a substring in a linker's
+output.
+
+**Tally, pod-grep family.** This is the third entry: *a removed-literal grep is
+unfalsifiable without a positive control in the same command* (twice), and now
+*a positive control must not be an equality assertion*. The shape underneath all
+three is the same — **the pod-grep is a test, and a test with no known-good and
+known-bad answer is not a test.** Both halves have now failed in the wild, one
+by being absent and one by being over-specified.

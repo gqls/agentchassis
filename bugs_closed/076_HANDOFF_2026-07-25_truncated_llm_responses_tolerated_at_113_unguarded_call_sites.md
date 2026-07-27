@@ -801,6 +801,29 @@ a second session that collided on this same residual and stood down.
 Workstream docs (the standing five, started at the beginning as the handoff
 required): `docs/agent_docs/docs024_key_docs_latest/truncation_contract_076/`.
 
+## Post-roll re-verification, 2026-07-27 — chassis v1.0.1172
+
+Still live on the new binary: `guard:1 REFUSED:1 degrade:1`, negative control 0,
+and the 076 source is byte-identical since `511670fc8` (empty `git diff` across
+`ai_actions.go`, `truncation_guard.go`, `diagnose_council_decide_action.go`).
+Config unaffected: 171 definitions, 37 tolerating steps, 37 guarded. Four council
+`review_*` steps have run on the new binary with **0 truncations** — evidence the
+guarded path runs, not evidence about the guard's behaviour, which was proven by
+induction on v1.0.1169 and has not changed since.
+
+**The consumer half kept working unattended:** `TRUNCATION_DEGRADED_REVIEW` rows
+are now **6**, up from 3, latest `2026-07-26 21:55:10Z`.
+
+**One correction to this case's own verification recipe.** It told the next thread
+to expect `grep -c "tolerate_truncation"` == **3**; v1.0.1172 returns **4** with
+the source unchanged. `strings` prints packed data blobs, not one literal per
+line, so a substring count moves between builds for reasons unrelated to the
+change. **Assert presence (`>=1`) plus the negative control at 0, never equality
+on a count** — this control would have read FAILED on a correct binary, inventing
+a regression on the day someone was checking whether a roll broke something.
+Corrected in the handoff and the RUNBOOK; logged in `WRONG_CALLS.md`, where the
+pod-grep family now has three entries.
+
 ## Related
 
 - `bugs_closed/019` — one truncated reviewer voided a whole council round; the

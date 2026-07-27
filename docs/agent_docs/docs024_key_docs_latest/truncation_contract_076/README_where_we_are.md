@@ -88,3 +88,35 @@ committed history, so neither of us was visible to the other until one tried to
 write to a file the other had open. They stood down, left their finding in my
 notes, and it was a good finding. Nothing was lost this time. The cost was about
 half an hour of duplicated thinking.
+
+---
+
+**2026-07-27, late morning.**
+
+A fresh chassis build went out overnight, so the first job was to re-prove that
+the original 076 protection is actually in the new binary — we verify against the
+running program, never against what the source says. It is there, and the source
+behind it has not been touched since. The new checks I built yesterday are
+unaffected by a rebuild, since they are scripts rather than shipped code, and the
+live one still reports the fleet clean: 171 agent definitions, 37 places that keep
+half-answers, all 37 properly watched.
+
+Two things worth reporting from the check itself.
+
+The first is quietly encouraging: the record of "a reviewer's answer was cut and
+we degraded it rather than pretending it was whole" has grown from three entries
+to six since yesterday evening. Nobody was watching. That is the half of the
+contract that used to be enforced by nothing at all, working on its own and
+leaving a trail.
+
+The second is a small correction to our own instructions. The written recipe for
+proving the protection is deployed says to count how many times a particular word
+appears inside the compiled program, and expect exactly three. It now returns
+four — with the code completely unchanged. The reason is technical but the lesson
+is not: that counting method was never measuring what we thought. The compiler
+packs text together in ways that shift between builds, so the count moves for
+reasons that have nothing to do with whether our change is present. The check
+should ask "is it there at all", plus a deliberately absent phrase to prove the
+search itself works. I have corrected the instructions where they live, with the
+evidence, because a check that fails on a perfectly good build is worse than no
+check — it sends the next person hunting a problem that does not exist.
