@@ -64,45 +64,89 @@ B's half, currently under-weighted by the index ordering.
 
 ---
 
-## THE ONE THING TO DECIDE BEFORE ORDERING BY POPULARITY
+## STATE AS OF 2026-07-27 — what is already done
 
-**We have no popularity data. None.** This is the load-bearing premise in the
-brief and it must not be quietly guessed at.
+The owner answered the open questions and two workstreams were actioned. **Start
+from here, not from a blank page.**
 
-- The site went live on **2026-07-26**. It is one day old with no inbound links.
-- It is served from **B2 behind Cloudflare** — there is **no nginx access log**.
-  (The `traffic_probe` numbers used elsewhere in this repo come from
-  `/var/log/nginx/access.log` on a *VM*; webdesign.co.uk has no VM.)
-- No analytics beacon is installed. No `analytics`/`pageview` table exists in the
-  platform DB.
-- The source sites are also static on B2, so they have no logs to borrow either.
+### Analytics: wired, gated, awaiting ONE dashboard step (W1)
 
-**Recommended sequence — instrument first, order later:**
+`SQL_p7_cloudflare_analytics.sql` — **applied live.** The Cloudflare Web
+Analytics beacon is in the head chrome fork, **gated on a token**: with no token
+the tag does not render at all, so nothing broken has shipped.
 
-1. **Add Cloudflare Web Analytics now** (free, cookieless, one `<script>` in the
-   head chrome fork — `SQL_p5_chrome_forks.sql`, component
-   `webdesign-couk-head`). It gives per-path pageviews. This is a ~10-minute job
-   and every week it is delayed is a week of data not collected. **Do this first,
-   whatever else is decided.**
-2. **Meanwhile, order by a declared editorial proxy, not by an invented
-   metric.** Write the ordering into `catalogue_additions.json` as an explicit
-   `rank` field with a stated basis (e.g. "editorial, by breadth of use") and a
-   **named reversal trigger**: *revisit once 30 days of analytics exist.*
-   Anything else risks a fabricated ordering presented as a popularity ordering,
-   which is the same class of error as the invented tool count this project
-   already made twice.
-3. **Then reorder from real data.** See the payoff below.
+The token can only be minted in the Cloudflare dashboard — `CF_API_TOKEN` in this
+repo is a GitHub Actions secret and is not reachable from the workstation. **The
+owner has two routes and needs only one:**
 
-**The payoff, and it is large:** the tools and learn indexes are **generated from
-the catalogue**, not hand-authored. Reordering the whole site is a *data edit
-plus a re-run* — add `rank` to the entries, `webdesignport harvest && transform`,
-import, re-render two pages. No code change, no page rewriting. The architecture
-already supports exactly what the owner wants.
+- **Route A (recommended, zero further work):** Cloudflare dashboard → Web
+  Analytics → add `webdesign.co.uk` → **Automatic Setup**. The zone is already
+  proxied, so the edge injects the beacon itself. No deploy, nothing in this repo
+  changes, and the gated tag below simply stays closed and harmless.
+- **Route B (version-controlled):** paste the token from the dashboard's Manual
+  Setup snippet into the commented `UPDATE` at the foot of `SQL_p7`, then
+  re-render chrome.
 
-**Ask the owner** whether he has any existing analytics (Plausible, GA, Search
-Console) on the two source domains — Search Console in particular would give real
-query and click data for the *same content* under different URLs, which is the
-best available proxy and costs nothing to check.
+**Until one of these happens, no data is being collected.** That is the single
+highest-value five minutes available on this project.
+
+### Popularity ordering: deferred, and for a better reason than "no data" (W2)
+
+The owner confirmed **no Google Search Console** on either source domain, so
+there is no proxy dataset to borrow. But he also made the decisive point:
+
+> *"don't change the order until we have stats, but we will change the tools and
+> guides now anyhow to make them all better so historical stats will be out of
+> date."*
+
+That is right and it settles the sequencing. **Do not add a `rank` field yet.**
+Ordering measured against content that is about to be rewritten would be stale on
+arrival. The order is:
+
+1. instrument (above);
+2. rewrite and improve the tools and guides;
+3. *then* let stats accumulate against the improved content;
+4. *then* order by popularity.
+
+Reordering remains cheap whenever that moment comes — the indexes are generated
+from the catalogue, so it is a data edit plus a re-run, not a rewrite.
+
+### News: enabled, mid-flight (W5)
+
+`SQL_p8_news_section.sql` — **applied live.** Scoped to this site only; it is
+explicitly *not* `features_open/005` (a fleet programme to onboard ~37 pool
+domains, parked for its own reasons). The verify block asserts no pool site was
+touched.
+
+What was created:
+
+- **5 `news_search` sources** — UK web design; AI web design tools; CSS and
+  browsers; web accessibility UK; web design trends. `news_search` was chosen
+  over `rss` because a query states topic focus and degrades gracefully, whereas
+  a curated feed list rots silently. **These queries are an editorial choice,
+  listed in full in the SQL so they can be argued with, and untuned — nobody has
+  seen what they return yet. Expect to revise after the first fetch.**
+- **`/news/index.html`** — `page_type='news-index'`, sections `["news-listing"]`,
+  `build_status='planned'`, and deliberately **`rebuild_policy='generic'`** unlike
+  this site's other 97 owned pages, because the listing is machine-maintained and
+  must stay free to re-render.
+- **A `News` nav item** in the primary group.
+
+**THE SEQUENCE FROM HERE MATTERS — do these in order:**
+
+1. **Wait for the feed.** `content-feed-refresh` runs every 6h; sources were
+   primed with `next_fetch_at = now()`, next task tick was due 13:49 UTC on
+   2026-07-27. Check: `SELECT count(*) FROM content_items ci JOIN sites s ON
+   s.id = ci.site_id WHERE s.domain='webdesign.co.uk';`
+2. **Then build the page.** Only once items exist — a `news-listing` with nothing
+   in it renders near-empty, and the assembler drops any section with ≤10
+   characters of visible text.
+3. **Then re-render chrome**, which publishes the News nav link.
+
+**Do not re-render chrome before step 2 completes.** The nav row already exists
+in the database but chrome has not been re-rendered, so no News link is live yet
+(verified: 0 occurrences on the live home page). Publishing it early would put a
+link to a 404 in the header of all 98 pages — `bugs_open/049`'s exact shape.
 
 ---
 
@@ -173,10 +217,10 @@ New content type: curated pointers to the best third-party tools, UK-relevant.
 
 | week | focus |
 |---|---|
-| 1 | W1 instrumentation. Ask owner re Search Console. Decide the two-audience question (W3). Agree the directory inclusion bar (W4). Browser-QA the 16 tier-1 tools *or* widen Tier 4 to do it automatically. |
-| 2 | W2 copy rewrite + editorial ordering (declared as editorial, with the reversal trigger). Visual/usability pass on the indexes. |
-| 3 | W5 news section via the existing pipeline, through the owner gate. W4 directory pilot with a small curated set. |
-| 4 | Re-rank from the first real analytics if enough has accumulated. UK-focus content. Review. |
+| 1 | **Owner: one Cloudflare dashboard step** (see above). Finish the news sequence. Decide the two-audience question (W3). Agree the directory inclusion bar (W4). Browser-QA the 16 tier-1 tools *or* widen Tier 4 to do it automatically. |
+| 2 | **W2 copy rewrite — the main event.** Improve every tool and guide: clarity, usability, up-to-dateness. NO reordering yet (see above). Visual/usability pass on the indexes. |
+| 3 | Tune the news queries against what they actually returned. W4 directory pilot with a small curated set. |
+| 4 | UK-focus content. Review. **Ordering waits until stats have accumulated against the REWRITTEN content** — not before. |
 
 **"Adding rather than removing" is already the architecture.** Every page is an
 owned page; adding tools and articles is a catalogue entry plus a transform run.
@@ -203,8 +247,8 @@ did not exist when it had been running in production for weeks. Before building
 
 ## Open questions for the owner
 
-1. **Any existing analytics on the source domains?** Search Console especially —
-   it would give real query/click data for this exact content.
+1. ~~Any existing analytics on the source domains?~~ **Answered 2026-07-27: no
+   Search Console on either.** Hence instrument-then-rewrite-then-measure.
 2. **Two audiences or one?** Practitioners and buyers want different things; the
    site currently addresses only the first.
 3. **Directory inclusion bar**, and whether any third-party pointer may ever be

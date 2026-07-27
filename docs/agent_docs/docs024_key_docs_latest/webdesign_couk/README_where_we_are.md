@@ -217,3 +217,46 @@ Everything's written up in a Phase 2 handoff so you can pick this up in a fresh 
 with the popularity question and lists four decisions I need from you — including one I think
 matters more than it sounds: you've described two different audiences, designers who want a
 tool and people who want web design *done*. Those want quite different things from a homepage.
+
+---
+
+**2026-07-27 (later) — analytics wired, news switched on, ordering deliberately deferred**
+
+Three things done, and one small job left with you.
+
+**Analytics.** The Cloudflare beacon is now in the site's page template, but *gated* — it
+only renders if there's a token, and there isn't one yet. I did it that way because the token
+can only be created in your Cloudflare dashboard, and putting a fake one in would have meant
+every page on the site making a request that always fails. So nothing broken has shipped, and
+the moment a token exists it starts working.
+
+**You need to do one of two things, and only one.** Easiest by far: in Cloudflare, go to Web
+Analytics, add webdesign.co.uk, and choose **Automatic Setup**. Because the site already runs
+through Cloudflare, it will inject the tracking itself and there's nothing for me to deploy.
+Alternatively, if you'd rather it lived in our own code, send me the token from the Manual
+Setup box and I'll set it. Until one of those happens we're collecting nothing, so it's
+genuinely the highest-value five minutes on this project right now.
+
+**Ordering.** You made the point that settles it: we're about to rewrite the tools and guides
+anyway, so any stats we gathered now would be measuring content that's about to change. So the
+sequence is instrument → improve → *then* measure → *then* reorder. I've deliberately not put
+any ordering in, rather than putting in a guess and calling it popularity. When the time
+comes it's a quick job — the index pages are generated from a list, so reordering the whole
+site is an edit to that list and a re-run.
+
+**News is on.** I want to be clear about what I did and didn't do here, because there was a
+trap. There's an existing plan in the system to switch on news across thirty-seven *other*
+domains, which you'd previously paused. That is not what you asked for, so I didn't go near
+it. What I did was add a news section to this one site: five search topics (UK web design, AI
+web design tools, CSS and browsers, UK accessibility rules, and design trends), a news page,
+and a News nav item.
+
+Two honest caveats. The five topics are my editorial guess — nobody has seen what they return
+yet, and I'd expect to change them once we do. And the news page isn't live yet: the feed
+refreshes on a six-hourly cycle, and the page has to have actual articles in it before it gets
+built, otherwise it publishes as an empty shell. I've deliberately *not* published the News
+link in the menu yet for the same reason — a menu link to a page that doesn't exist would put
+a broken link on all 98 pages. The order is: articles arrive, page builds, then the link goes
+live.
+
+All of it is written into the handoff so you can pick it up in a new chat.
