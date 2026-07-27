@@ -24,6 +24,28 @@ code artifacts at all (see status vocabulary in `README.md`). One duplicate
 column below now reflects verified ground truth for the 124 corrected rows;
 all other rows held up under verification and keep their original signal.
 
+**2026-07-27 addition (third instance of the same gap — see `bugs_open/106`):**
+the entire **claims-verification** subsystem was absent. Its first plan is dated
+2026-07-16, three days after extraction froze, so V0–V5, the `evidence_base`
+register, the banned-claim scanner and the citation verifier were never
+extracted; `grep -rl evidence_base register/` returned nothing until today. Added
+as `claims-verification.md`, **12 concepts (CLM-001..012)**, grounded in code and
+DB read first-hand on 2026-07-27 rather than carried from other documents.
+
+Two of the twelve are recorded defects rather than descriptions — `CLM-009`
+(`EvidenceFact.Kind` declared and read nowhere) and `CLM-010` (the fleet-share
+deferral whose "until two sites" precondition lapsed at eight) — because both are
+dormant capability, which is exactly the class this register exists to make
+findable and the class code search cannot surface.
+
+**The pattern is now three-for-three and all three were found by coincidence**
+(fixloop 07-16, model-directory 07-17, claims-verification 07-27), each by a
+session that happened to be working beside the hole. Measured today: **51 of 76
+workstream directories postdate the freeze — 67%.** `bugs_open/106` proposes a
+coverage sensor on the model of `verifier_coverage_test.go`, and a
+`covers-through:` stamp per file so a reader can see where the register stopped
+looking.
+
 **2026-07-16 addition:** a coordination pass with the fixloop workstream (its
 tool went complete 2026-07-16, all 4 triage/escalation phases live) found a
 genuine gap — that whole subsystem shipped after extraction froze on 2026-07-13,

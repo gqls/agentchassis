@@ -1187,3 +1187,49 @@ Owner: fresh chassis build deployed 18:58:33 BST. Verification per CLAUDE.md
   thread's evidence standard already covered it.
 
 <!-- Append new turns below this line. Format: ## Turn N — date — one-line summary -->
+
+
+---
+
+## 2026-07-27 — third missed subsystem, and the case for a coverage sensor
+
+Contributed from the oufe.com workstream (not the register thread's own work).
+
+**What happened.** A session working on claims verification concluded that a whole
+class of defect — a site claiming its own reliability — was "invisible to every
+scanner in the estate", wrote that into the standing instructions of a live
+council seat, and was one owner review away from building a redundant subsystem.
+It was wrong: the banned-claim scanner is a bare regex over prose and always could
+have caught it. Nobody had ever written a pattern for the class.
+
+**Why this belongs in these notes.** Every one of the four things that session
+missed — the scanner's real reach, a deferred decision in a spec's
+open-questions section, a precedent in a sibling file, and a struct field declared
+and never read — is a *design artefact of a subsystem that is not in this
+register*. The register is the instrument that should have closed exactly that
+gap, and it had a hole precisely where it was needed.
+
+**The measurement.** Extraction froze 2026-07-13. **51 of 76 workstream
+directories were created after it — 67%.** Until today there was no
+claims-verification entry at all.
+
+**The structural point, which is worth more than the entry I added.** This is the
+third time a subsystem has been found missing (fixloop, model-directory, now
+claims), and all three were found because somebody happened to be working next to
+the hole. Three coincidental detections of one failure mode is a missing detector,
+not bad luck.
+
+And it rhymes with a defect found in the claims layer the same week: a decision
+deferred "until two sites have evidence bases", never revisited at eight. **A
+freeze with no watcher becomes permanent, exactly as a deferral with no watcher
+becomes policy.** Everything else here relies on watchers — cooldowns, staleness
+sweeps, claim timeouts, citation re-verification. Frozen indexes and deferred
+decisions are the two classes with none.
+
+**What I did and did not do.** Added `register/claims-verification.md` (12
+concepts, first-hand citations) and the index note. **I did not** touch any
+existing entry, re-run extraction, or alter the taxonomy — those belong to this
+workstream. `bugs_open/106` carries the coverage-sensor proposal, modelled on
+`verifier_coverage_test.go`'s sensor-plus-ratchet, and a cheaper interim: a
+`covers-through:` stamp per register file, so the register can say where it
+stopped looking instead of implying completeness.
