@@ -106,3 +106,33 @@ provider, then pro is the candidate and the headroom fix is what makes it
 possible — but pro-with-a-proper-budget has genuinely never been run, so it's a
 real experiment. Either way it's now a one-line config change to try it and a
 one-line change to go back, so trying pro first costs very little.
+
+## 2026-07-27 (later) — you've answered: pro, for quality and diversity
+
+Noted, and that's the interesting choice rather than the safe one. It means the
+headroom fix isn't a side improvement — it's the whole reason to expect a
+different outcome, because pro is precisely the model that produced nothing last
+time.
+
+Two things I want on the record before we run it, so neither arrives as a
+surprise.
+
+The first is that I picked the headroom figure (8192 tokens) as sensible-looking
+generosity, not from measurement. Nobody has ever watched how much pro actually
+thinks on our prompts. The probe prints that number per setting, and the largest
+one it reports is what the headroom should be set from. It's plausible the current
+default is already comfortable; it's also plausible pro thinks well past it on a
+long page section, in which case we'd see the same empty output as before and it
+would look like the fix hadn't worked when in fact it just needs a bigger number.
+
+The second is that the risk has moved. Truncation was the problem last time; with
+headroom in place, **cost** is the thing to watch, because Google bills thinking
+tokens as output. A model that thinks for twenty thousand tokens to write three
+paragraphs is working exactly as designed under my fix and is still the wrong
+answer for us. That's now measurable in advance — the probe reports it — and
+trackable afterwards, since I added the thinking count to what we log per call.
+If those numbers come back ugly, the honest thing is to put the flash-lite trade
+back to you with real figures attached, rather than the way it was put on the 24th
+with no numbers on either side.
+
+Still blocked on the cluster login before any of that can run.

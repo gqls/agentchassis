@@ -155,8 +155,32 @@ accepted) in one run, and the tier table *is* the reserve calculation.
 **D7 — Model choice is the owner's, and it is now a config line.** The 07-24
 revert turned on a quality trade (pro starved vs flash-lite capable). With the
 reserve in place that trade may not exist — pro at a provisioned budget was never
-tested. The probe produces the evidence; the pick stays an owner decision. Open
-question below.
+tested. The probe produces the evidence; the pick stays an owner decision.
+
+> **ANSWERED 2026-07-27 (owner): quality / provider diversity — go with pro.**
+> So the target config for both agents is `provider: "gemini"`,
+> `model: "gemini-pro-latest"`, and the thinking reserve is load-bearing rather
+> than incidental: pro is exactly the tier that produced nothing on 07-24, and
+> the reserve is the only reason to expect a different result this time.
+>
+> Two consequences that follow from picking pro specifically, both to be settled
+> by the probe (P4) and not assumed:
+> 1. **The 8192 default may be too small.** It was chosen as generous headroom,
+>    not measured against pro's actual thinking on our prompts. The probe's
+>    `THINK_TOK` column *is* the reserve calculation — set the reserve from the
+>    largest figure observed, with headroom.
+> 2. **Cost is now the live risk, not truncation.** Thinking tokens are billed as
+>    output. A pro model that thinks for tens of thousands of tokens per section
+>    works correctly under this fix and is still the wrong answer commercially.
+>    The probe reports thinking tokens per tier, so this is measurable before any
+>    site-wide use — and `__usage_thinking_tokens` now makes it trackable after.
+>    If the numbers are bad, flash-lite remains the fallback the owner declined
+>    on quality, and that trade should be re-put with real figures attached
+>    rather than assumed.
+>
+> Not to be confused with a green light to flip: P3 (roll the image) still comes
+> first, because a Gemini config on a chassis that predates the fix reproduces
+> 07-24 exactly.
 
 ## Phasing
 
