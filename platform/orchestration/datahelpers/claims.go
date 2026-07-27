@@ -39,6 +39,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -83,6 +84,127 @@ type EvidenceFact struct {
 	// must not pass because 12 <= the orchestration-records count). A non-exact
 	// fact without context terms is matched as exact.
 	ContextTerms []string `json:"context_terms,omitempty"`
+}
+
+// ============================================================================
+// Fact kinds (bugs_open/105)
+// ============================================================================
+//
+// EvidenceFact.Kind was declared, documented in the spec, written by nine
+// registers — and read by nothing. A field that looks like a contract and
+// governs nothing eventually gets written by someone expecting behaviour from
+// it, and in the meantime it is the slot a whole class of claim needs: a
+// `capability` fact whose source is the mechanism that keeps it is how a
+// PROMISE ("we correct errors when told") becomes mechanically checkable rather
+// than prose. The design was already present; only the reader was missing.
+//
+// TWO THINGS SHAPED THIS, both measured rather than assumed:
+//
+//  1. The live vocabulary is NOT the documented one. Across the nine current
+//     registers on 2026-07-27: metric 46, count 18, entity 11, capability 9,
+//     attestation 4. `count` is used by four sites and appears in no
+//     documentation. So the bug file's candidate 1 as written — "reject unknown
+//     kinds" — would have failed the registers of four live sites closed. It is
+//     an alias of metric, and is treated as one.
+//
+//  2. Kind is NOT normalised in place, deliberately. EvidenceBase is marshalled
+//     BACK to site_specs by refresh_evidence_base_action.go:677 and
+//     evidence_citations.go:350, so rewriting the field at parse time would
+//     silently mutate 18 stored facts from "count" to "metric" through a write
+//     path that never intended to touch them. Callers read CanonicalKind()
+//     instead; the stored value stays exactly as its author wrote it.
+//
+// This mirrors the rule the banned-claim parser above already follows — a typo
+// must never silently drop a claim — rather than inventing a stricter one for
+// this field alone.
+const (
+	FactKindMetric      = "metric"      // a number backed by a query or artifact
+	FactKindCapability  = "capability"  // something the platform DOES, incl. a promise
+	FactKindEntity      = "entity"      // a named thing that exists
+	FactKindAttestation = "attestation" // a human's word, not re-provable
+)
+
+// factKindAliases maps live-but-undocumented spellings onto the canonical
+// vocabulary. `count` is the only one in the fleet today and is semantically a
+// metric — both are "a number a query can re-derive".
+var factKindAliases = map[string]string{
+	"count":   FactKindMetric,
+	"metrics": FactKindMetric,
+	"counts":  FactKindMetric,
+}
+
+var canonicalFactKinds = map[string]bool{
+	FactKindMetric: true, FactKindCapability: true,
+	FactKindEntity: true, FactKindAttestation: true,
+}
+
+// CanonicalKind maps this fact's Kind onto the documented vocabulary without
+// touching the stored value. An absent kind defaults to metric, which is what
+// every kind-less fact in the fleet is. An unrecognised kind is returned as
+// metric too — the safe default — and is separately reportable via
+// KindIsRecognised so the anomaly is visible rather than silently absorbed.
+func (f EvidenceFact) CanonicalKind() string {
+	k := strings.ToLower(strings.TrimSpace(f.Kind))
+	if k == "" {
+		return FactKindMetric
+	}
+	if canonicalFactKinds[k] {
+		return k
+	}
+	if alias, ok := factKindAliases[k]; ok {
+		return alias
+	}
+	return FactKindMetric
+}
+
+// KindIsRecognised reports whether the stored Kind is one this code understands
+// — canonical, a known alias, or deliberately absent. It is the discriminator a
+// caller needs to tell "this fact is a metric" from "nobody knows what this fact
+// is and it is being treated as a metric".
+func (f EvidenceFact) KindIsRecognised() bool {
+	k := strings.ToLower(strings.TrimSpace(f.Kind))
+	if k == "" {
+		return true
+	}
+	_, aliased := factKindAliases[k]
+	return canonicalFactKinds[k] || aliased
+}
+
+// IsLiveVerifiable reports whether this fact is one V4's freshness sweep may
+// re-run and raise drift on. The spec draws the distinction and no code enforced
+// it: a sql-sourced fact is live-verifiable and goes stale; an attestation is a
+// human's word and is checked for PRESENCE, not re-proved, so re-running a query
+// against it is meaningless. Both halves must hold — a capability claim with a
+// SQL source is exactly the promise-with-a-mechanism case this unlocks.
+func (f EvidenceFact) IsLiveVerifiable() bool {
+	if f.Source.SQL == "" {
+		return false
+	}
+	return f.CanonicalKind() != FactKindAttestation
+}
+
+// UnrecognisedKinds returns the distinct stored Kind values in this register
+// that no rule understands, so a caller can report them. Empty for every live
+// register on 2026-07-27; it exists so the NEXT typo is visible on the day it is
+// written rather than after someone wonders why a fact behaves like a metric.
+func (eb *EvidenceBase) UnrecognisedKinds() []string {
+	if eb == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, f := range eb.Facts {
+		if f.KindIsRecognised() {
+			continue
+		}
+		k := strings.TrimSpace(f.Kind)
+		if !seen[k] {
+			seen[k] = true
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // BannedClaim is one audited-out fabrication — a per-site regression pattern.

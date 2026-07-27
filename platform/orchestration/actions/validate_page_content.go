@@ -979,6 +979,22 @@ func loadEvidenceBase(ctx context.Context, db *sql.DB, siteID uuid.UUID, logger 
 			zap.Error(err))
 		return nil
 	}
+	// bugs_open/105. EvidenceFact.Kind was declared, documented and read by
+	// nothing, so `kind: "banana"` behaved exactly like `kind: "metric"` and
+	// nobody could tell. Reporting the unrecognised values here is what makes
+	// the vocabulary real: a typo becomes visible on the day it is written
+	// rather than after someone wonders why a fact behaves like a metric.
+	//
+	// It warns rather than rejecting, deliberately. The live vocabulary is not
+	// the documented one — `count` is used by four sites and appears in no
+	// spec — so failing the parse on an unknown kind would have closed four
+	// registers. `count` is handled as an alias; anything genuinely unknown is
+	// treated as a metric and named here.
+	if unknown := eb.UnrecognisedKinds(); len(unknown) > 0 {
+		logger.Warn("evidence_base: fact kind(s) not in the documented vocabulary — "+
+			"treated as 'metric'; fix the register or add the kind (bugs_open/105)",
+			zap.Strings("unrecognised_kinds", unknown))
+	}
 	return eb
 }
 
