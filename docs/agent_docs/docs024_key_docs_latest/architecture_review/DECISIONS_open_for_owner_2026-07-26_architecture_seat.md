@@ -599,3 +599,116 @@ may be the real first task.
   their prompts were not read.
 - The 003/030/086 veto record is from the workstream docs and `doc_notes`
   headlines; individual verdict bodies were not read in full.
+
+---
+
+## 8. Evidence from a live near-miss — added 2026-07-27 by the gripper-dossier thread
+
+*Appended, not restructured; §§1–7 are untouched. Owner directed this thread to
+feed evidence here and leave the seat question with you.*
+
+**The incident.** On 2026-07-24 the gripper-dossier design specified a new service
+`cmd/gripper-intake/` on the island VM (own DB, own key, own limiter, own CORS).
+On 2026-07-25 another thread shipped `cmd/tools-api` to the same VM — multi-tool,
+multi-site, with all four already in it. Caught 2026-07-26 by the **owner asking an
+integration question**. No mechanism caught it. Full write-up:
+`WRONG_CALLS.md` 2026-07-27; correction in
+`robot_hands_gripper_dossier/DESIGN_2026-07-24_…md` §2.
+
+### 8a. D4 is no longer `[UNMEASURED]`
+
+§5's D4 says the mechanical RFC trigger's fire rate on real history *"has not been
+computed; worth doing before building it."* Computed, for the **doc-surface**
+variant — a staged `.md` adding a line that names a `cmd/<x>/` absent from `cmd/`:
+
+```
+git show --format= --unified=0 --diff-filter=AM <sha> -- '*.md'   # added lines only
+commits scanned: 1500   firing: 10   rate: 0.67%   (2026-07-19 → 07-27)
+  12fa24e6b 07-24 gripper workstream opened   -> gripper-intake   ← the incident, day one
+  e9fb8a174 07-25 · ce97c8bca 07-25 · 79fd07caa 07-26 -> gripper-intake
+  9658d3921 · af07067df · fc0652ce8 · d7b8f34d9  07-20 -> assembler
+```
+
+0.67% sits inside `pattern-check.py`'s accepted band (SUMMARY 2.0%, README 0.7%).
+
+Two cautions for whoever builds D4. **A whole-tree scan is not the same predicate**
+— it fires on ~190 docs, almost all archived copies naming the retired `cmd/bundle`;
+only the staged-diff form is usable. And **"new compose service" and "new route
+prefix" are not buildable** from what a pre-commit hook sees: compose files live
+under `docs/`, and three router idioms (gin, gorilla, stdlib) are live in this tree
+simultaneously.
+
+**The property that justifies it is not the first fire.** On 07-24 `tools-api` did
+not exist, so the peer list would have been correct and the author right to proceed.
+It is that the check is **free and idempotent**, so it re-fires on 07-25 and 07-26
+with `cmd/tools-api` newly in the peer list. Recommend printing peers annotated by
+recency — the failure mode is a peer that arrived *after* you looked.
+
+### 8b. D8 is worse than stated — the Go tier is broken too, not merely narrow
+
+§5 D8 records that `code_checks` reaches "Go only — 4,535 symbols, 0 markdown."
+Both halves of that sentence understate it. Filed as `bugs_open/107`:
+
+- **`content` never contains function bodies.** `composeSymbolContent`
+  (`code_symbols_actions.go:336-352`) builds it from `kind+symbol+signature+doc+path`.
+  Live, the entire `content` of one row is three lines: `func init` / `func init()` /
+  the path. So every `content` check for a route, registry key, table name or string
+  literal returns zero. Verified: `'%stop_reason%'`, `'%/api/v1/tools/gauntlet%'`,
+  `'%med_export_json%'` → **0, 0, 0**. The contract at
+  `diagnose_code_lookup_action.go:29-31` promises body matching and **its own
+  documented example cannot work.**
+- **The freshness guard reports FRESH while 667 commits behind.**
+  `codeIndexFreshness` computes age from `updated_at`. Live: rows written
+  2026-07-26 13:36 (→ FRESH) describing commit `e19aa5d` from 07-24. The index
+  tracks a **pushed** ref; `origin/086_experience_loop` has not moved since 07-24
+  while the branch gained 667 commits. `internal/tools-api/` therefore has **zero
+  rows** — the service the design duplicated was invisible to the very index a
+  prior-art check would query.
+
+**Consequence for D8's own reasoning:** D8a (add `doc_notes` to the schema hint) and
+D8b (index markdown) both assume the Go tier works and only the corpus is missing.
+It does not work. **A forward architecture seat built on this index would inherit an
+instrument that manufactures absence in the direction that approves the plan.**
+`bugs_open/107` candidate 2 (index bodies from the `[line_start, line_end]` span
+already stored) also settles D8b's schema question as a side effect.
+
+### 8c. Evidence bearing on D1 and D3 — do *not* seat duplicate-capability
+
+This incident is the strongest case yet for D1's "no second brake", but it also
+argues that **duplicate-capability should not be a seat at all**:
+
+- "Does this already exist?" is **factual**, and `pattern-check.py`'s founding
+  doctrine is *"spend the LLM council on judgement, not on what a string comparison
+  can settle."* A seat on a factual question is the mistake that file exists to stop.
+- Two seats already hold the remit (`reuse_agent`, `prior_art_librarian`). Their
+  problem is a broken instrument (8b), not absent judgement.
+- **No seat would have caught this one anyway.** On 07-24 the absence was real; any
+  reviewer would have approved correctly on the evidence. Reserve the seat budget
+  for D1/D2's forward-fitness remit, which is genuinely judgement.
+
+### 8d. The gap §6 names, restated from the incident
+
+§6 says the seat needs a readable roadmap. The incident points at something
+narrower and more tractable:
+
+> **A decision with architectural consequence was recorded in the one medium no
+> mechanism reads, and the mechanism that would object refuses that medium by
+> design** (`097_TRIGGER_council_review_v1.sh:53`, `SCOPE_RE='^(platform|internal|pkg)/'`).
+
+That refusal is *correct* — 72 DESIGN/PLAN/SPEC docs were created in
+`docs024_key_docs_latest` in July, and reviewing them would cost real credits. The
+route around it is not to widen the gate's scope but to let a **grep** read the docs
+and hand the council nothing. Recommend against building a capability-ledger table:
+`ls cmd/` cannot drift, and D8 already showed that anything requiring manual upkeep
+goes stale silently (the `bug_historian`'s hard-coded seven).
+
+### 8e. A doctrine offered for ratification, if the owner wants one sentence
+
+> **Divergence is allowed when it is parameterised and forbidden when it is copied.**
+> A second implementation is fine as a row in a table or a profile; it is not fine as
+> a second copy of the code.
+
+Generalises `vm_estate`'s *"merge the generator, not the trust boundary."* Worked
+example: `med_export_json` (`registry.go:1691`) sits **ten lines above**
+`directory_export_json` (`:1701`), whose own header reads *"nothing site-specific
+may be hardcoded here."* Both registered, both live, nobody saw it.
