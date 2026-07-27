@@ -39,7 +39,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | 1 |
 | **record the CLOCK beside a reading, never infer it afterwards** | **2** |
-| **run a census against a known-positive control before reporting the count** | **1** |
+| **run a census against a known-positive control before reporting the count — and for a binary classifier, sample its BOUNDARY, because every implementation agrees at the extremes** | **2** |
 | **look at the real values before designing for the assumed ones** | **5** |
 | **follow the value across EVERY hop before sizing a fix — a struct→map→struct conversion is a hop, and a defect that fully explains the symptom can still be one of three** | **1** |
 | **read the SCHEMA before naming a column — a Go map key is not a column, and a CHECK constraint's allowed set is not guessable from the column name** | **3** |
@@ -7875,3 +7875,44 @@ the-reason-was-one-file-away, my-own-earlier-writeup-was-the-thing-misleading-me
 > architecture-seat workstream's own thesis arriving as evidence against its author:
 > a reviewer with the written record in front of it caught what its author, who wrote
 > that record the same day, did not.
+
+---
+
+## 2026-07-27 — I wrote a check with no failing branch, inside the commit that adds a guard against checks with no failing branch
+
+**Where:** verifying the `platform/colour` extraction (`features_open/026` Phase 2a).
+
+**The claim:** that I had confirmed `isDarkHex` and `isDarkColor` were not wired to
+each other's implementation — the one mistake in that refactor that compiles, passes
+every existing test, and silently inverts the renderer's light/dark classification. I
+had named it myself as the residual risk in the council submission.
+
+**Why it is false:** my probe printed both functions for `#000000`, `#666666`,
+`#888888`, `#ffffff`. **The two agree on all four.** Had they been swapped, the output
+would have been byte-identical. The check could not fail, so it confirmed nothing — and
+I had just written, in the same submission, that a checker which cannot discriminate is
+worse than none.
+
+**What caught it:** reading my own output and noticing every row agreed. That is luck,
+not method; a row of four `true/true, false/false` pairs looks like a clean pass.
+
+**The cheap check that would have caught it:** **before trusting a probe, run it against
+a case you know is wrong.** Ten seconds: swap the two delegations, re-run, see whether
+the output changes. It does not.
+
+The discriminating window turned out to be six greys wide — `#767676`–`#7b7b7b`, where
+`isDarkHex` is false and `isDarkColor` is true — because their crossovers sit at ≈
+`#777777` (does white beat black) and ≈ `#7c7c7c` (luminance < 0.2). **A binary
+classifier can only be tested near its boundary**, and I sampled the extremes, which is
+where every implementation agrees. Now a permanent guard
+(`color_util_delegation_test.go`), verified by inducing the swap.
+
+**Cost:** none realised. The wiring was correct. But I would have reported "checked" on
+evidence that could not have contradicted me, which is how the entries above this one
+in this file get written.
+
+**Tally:** "run a census against a known-positive control before reporting the count"
+1→2 — same shape, different subject: *induce the fault before believing the probe*.
+
+Family: the-check-with-no-failing-branch (again, and this time in the guard against it),
+sample-the-boundary-not-the-extremes.
