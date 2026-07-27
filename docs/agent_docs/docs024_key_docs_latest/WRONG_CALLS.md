@@ -5871,3 +5871,43 @@ written record (`PILOT_bug_historian_reviewer.md` here, the pre-build councils o
 was not read. That is the tally line worth watching — and it is precisely the gap the
 historians' index built this session is meant to close, which is either encouraging or ironic
 depending on the hour.
+
+---
+
+## 2026-07-27 — "the re-render is queued" was true; "the correction is published" was not, and I nearly conflated them
+
+**The claim I was about to write:** that migration `233` had published the day's claim
+corrections. The work item said `complete`, the orchestration said `COMPLETED`, and
+finetuning.uk's home page was still serving the "~80%" figure the owner had asked me to remove.
+
+**Why it happened.** I set `spec.reason: 'claims_corrected'` — a value I invented so the
+work item's dedup key would not collide with another session's. That field is not a label; the
+`page-rerender` agent branches on it (`reason == 'image_landed' | 'section_data_resolved' |
+'cta_links_stale'` → re-render sections from `content_data`; **anything else → assemble the
+page from the stored section HTML**). An unrecognised value silently took the degraded branch,
+republished the stale HTML, and reported success — correctly, because nothing failed.
+
+**The cheap check that caught it,** and it is one column:
+
+```sql
+SELECT cc.name, pc.updated_at, (pc.rendered_html ILIKE '%~80%%') FROM page_components pc ...
+-- case-studies-grid | 2026-07-27 12:17:15 | t     <-- 12:17 was MY content edit; the render ran at 12:35
+```
+**`updated_at` older than the run that claims to have written it is proof the write did not
+happen.** A status is a claim about work; a timestamp the process itself did not set is evidence.
+
+**The mechanism of the error, which is the transferable part.** I varied a field for one
+purpose (dedup uniqueness) without asking what else reads it. `item_key` and `spec.reason` sit
+side by side in the same INSERT and look like the same kind of thing — both are strings, both
+describe why the item exists. One is metadata and one is a switch, and nothing in the shape of
+the call distinguishes them. The general form: **before inventing a value for a field, grep for
+who reads it.** `grep -rn "spec.reason\|'reason'" --include=*.go` and the agent's own
+`conditional` steps would each have answered it in seconds.
+
+**Third instance in one session of the same family**, which is why this is worth a row rather
+than a shrug: a vacuous pod-grep (the marker my change "created" already existed in the live
+binary), a self-authored post-condition (the `1170+` cascade), and now a `complete` work item
+over an unchanged page. Every time, the aggregate reported success and the individual artefact
+disagreed. Every time, the fix was to check against something **not written by the same hand as
+the change** — a negative control, an independent checker, a timestamp set by someone else.
+Family: invented-a-value-for-a-field-that-is-control-flow, status-is-a-claim-artefact-is-evidence, aggregate-agrees-artefact-does-not.
