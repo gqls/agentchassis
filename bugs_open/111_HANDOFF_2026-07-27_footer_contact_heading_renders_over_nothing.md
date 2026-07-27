@@ -1,4 +1,35 @@
-# 111 — the footer's "Contact" heading is ungated while its contents are gated, so 8 of 14 live sites show a heading over nothing
+# 111 — the footer's "Contact" heading is ungated while its contents are gated
+
+> **CORRECTED 2026-07-27, hours after filing — the measurement below is WRONG and the
+> severity is much lower than stated.** I measured contact details from
+> `site_specs.identity.contact`, concluded 8 of 14 live sites render an empty contact block,
+> and filed that as the justification. **The platform does not read contact details from
+> there.** The source is **`sites.email`**, which is populated on **13 sites** with a
+> deliberate house convention — `<name>@contactforsales.com` — including every site I listed
+> as having "neither email nor phone". relojistas' own footer, once its chrome was actually
+> regenerated, renders `relojistas@contactforsales.com` correctly.
+>
+> So the gate is still right (it is the pattern the neighbouring columns already use, and it
+> correctly omitted the empty `{{.phone}}` line), but **"8 sites show a heading over nothing"
+> is false** and must not be quoted. The empty block I saw on relojistas was a **stale chrome
+> artefact frozen on 2026-07-16** (`bugs_open/117`), from before `sites.email` was set — not
+> a live rendering defect.
+>
+> Two further corrections, both material:
+> - **The gate was applied to the wrong component.** `footer-theme-chrome` is never selected;
+>   chrome renders from `footer-4-column`, which is `is_active = false` and wins on
+>   `ORDER BY name LIMIT 1`. Filed as **`bugs_open/118`**. Both components now carry the gate.
+> - **`footer-4-column`'s email and phone lines were completely ungated** (no `{{if}}` at
+>   all), which is the genuinely defective version and the source of the empty
+>   `<a href="mailto:"></a>` this case opens with.
+>
+> *The cheap check that would have caught it:* `grep -rn 'ctx.Email\|"email"' component_library.go`
+> to find what actually populates the field, before measuring a proxy for it. I measured the
+> table whose name matched the concept instead of the one the renderer reads. See
+> `WRONG_CALLS.md` 2026-07-27.
+
+**Original filing follows, retained for the mechanism — read the measurement as refuted.**
+
 
 **Filed:** 2026-07-27, from relojistas.com, while carrying out an owner ruling that
 the site should have no contact route at all.
