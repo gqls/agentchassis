@@ -176,6 +176,48 @@ receives the key. That needs the roll, then verify step 1 below. A pod-grep of
 the chassis binary would be VACUOUS here — the failure is in what the *spawned*
 pod's env contains, not in what the chassis binary knows.
 
+## VERIFY STEP 1 — PASSED 2026-07-27 18:16 UTC, on the real path
+
+**The key reaches a spawned pod. Observed, not inferred, with a roll-boundary
+control** — which is the whole point, because the binary was never the problem.
+
+First pod spawned by the `v1.0.1175` chassis, `agent-build-dispatch-loop-d4f0502e-2cq7z`,
+started `2026-07-27T18:16:07Z`:
+
+```
+# env NAMES in the spawned pod's own spec
+ANTHROPIC_API_KEY
+GROK_API_KEY
+GEMINI_API_KEY          <-- absent before this fix
+
+# read inside the running container
+GEMINI len=53   ANTHROPIC len=108
+```
+
+`len=53` matches the chassis's own `GEMINI_API_KEY`, so it is the real key and
+not an empty var that merely exists.
+
+**The control is what makes this conclusive.** The two `nav-updater` pods spawned
+*before* the roll are still alive on the old image, so the comparison is like for
+like on a live cluster rather than against a memory of one:
+
+| spawned pod | image | `GEMINI_API_KEY` entries |
+|---|---|---|
+| `agent-build-dispatch-loop-d4f0502e-2cq7z` (post-roll) | v1.0.1175 | **1** |
+| `agent-nav-updater-79698e25-wdl4c` (pre-roll) | v1.0.1174 | **0** |
+| `agent-nav-updater-7d39ed72-vd8w4` (pre-roll) | v1.0.1174 | **0** |
+
+This also confirms `bugs_open/066` is doing its job: the spawned pod runs the
+image its SPAWNER runs (v1.0.1175), which is the only reason a chassis-only roll
+could fix a defect that manifests in spawned pods at all. Had 066 still been
+broken, spawned pods would have kept pinning `agent_definitions.image_tag` and
+this fix would have been invisible no matter how correct the code was.
+
+**STILL OPEN on verify step 2**: no Gemini call has yet traversed the chassis
+(`llm_call_log` provider='gemini' remains 0). Step 1 proves the key arrives; only
+step 2 proves the writer works on Gemini. The `model-directory-publish` tick at
+20:25:16 UTC is the first thing due to exercise it.
+
 ## How to verify a fix
 
 1. **The key reaches a spawned pod.** Not a pod-grep of the binary — an env check
