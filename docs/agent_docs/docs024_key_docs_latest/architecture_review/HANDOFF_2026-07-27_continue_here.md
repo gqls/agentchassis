@@ -33,13 +33,24 @@ Scripts (all committed, all re-runnable, none write to live config):
 `scripts/build-historian-index.py`, `scripts/add-architecture-seat.py`,
 `scripts/patch-feature-designer-context.py`, `scripts/council-adoption-report.sh`.
 
-## 3. THE ONE THING OWED — run this first
+## 3. THE ONE THING OWED — ✅ DONE 2026-07-27 late
 
 ```
 /tmp/acm/APPLY_gap.sh
 ```
 
-**Not yet run.** Verified against live: prompt text only, step set intact,
+> **RUN AND VERIFIED 2026-07-27 (late session).** Nothing is owed here any more;
+> §6 is the live list. Post-apply invariants all held: `live == CONTEXT.json`
+> byte-exact after canonical load, step set unchanged, `review_fields` 6,
+> `hard_veto_from` `["guardian"]`, `max_rounds` 3. Every guardian on all three
+> councils now shows `minutes=t deflection=t`; both historians `case_index=t`.
+> Pre-flight worth repeating on any future config push: the structural diff of
+> live → payload was **exactly three `prompt_template` strings** and nothing
+> else, and `live == SEATED.json` was confirmed `True` first — which is what made
+> `ROLLBACK=1` trustworthy rather than merely available. Detail in
+> `NOTES_architecture_seat.md`.
+
+Verified against live: prompt text only, step set intact,
 6 `review_fields`, `hard_veto_from` unchanged. Rollback `ROLLBACK=1`. It does three
 things:
 
@@ -76,6 +87,27 @@ own history referred to it while invoking the preference that needs it most.
 cutover is **13:44:56**, so every one of them is baseline. Do not read them as
 signal. Re-run the report once a few councils have run past that time.
 
+> **UPDATED 2026-07-27 late — first post-cutover evidence is IN, and it is good.**
+> 10 post-cutover reviews now exist, all `council-gate`. The council at
+> **14:18:19** (`b64141e5`, the 109 render-context fix) is the first past the
+> cutover and all three payloads landed:
+>
+> - **debug_historian cited `WRONG_CALLS.md` BY DATE** to reject the plan's
+>   *"no sixth path exists"*: *"exactly the shape of WRONG_CALLS 2026-07-21 …
+>   and 2026-07-24"*. Our own logged errors catching a new one — the thesis of
+>   the workstream, working.
+> - **bug_historian cited `016b §9`, `bugs_open/034`, `bugs_open/109`.**
+> - **The guardian invoked the stability preference and reasoned its way OUT of
+>   deflecting:** *"The recurrence across three rounds is evidence of a genuinely
+>   scattered defect …, not evidence that this fix belongs at a higher layer."*
+>
+> **But read §2 of the report sceptically — it scored that guardian review
+> `cited_precedent=0`.** Qualitatively it is the D5 payload working; the metric
+> counts a *precedent citation* and reasoning correctly about recurrence without
+> quoting a past report does not match it. So **`cited_precedent` undercounts
+> correct behaviour**, and "6 of 90 → n" is not on its own the verdict on D5.
+> n=1: no conclusion yet, in either direction.
+
 Section 5 of the report is a deliberate **kill switch**: a high object-rate with no
 signal line means `review_architecture` is producing confident noise, and it should
 be pulled rather than tolerated.
@@ -108,6 +140,20 @@ did not look.
 - **Beware a case-insensitive check that matches what you are replacing.**
   `ILIKE '%ARCHITECTURE_SIGNAL%'` returns TRUE for the pre-fix prompt's lowercase
   `architecture_signal` field, so it read "already patched" when nothing had changed.
+- **A work item's `status` is not an ownership signal, and a docs grep is not a
+  coverage check.** (2026-07-27 late — caught before acting, would have cost a
+  council round and left confusing artefacts in another thread's trail.) Wanting
+  to exercise the new seat, I nearly fired a probe run at `7b89fb35`, which looked
+  free on two independent signals that were **both wrong**: `status='deferred'`
+  (it is where this lane parks an item *between council rounds*, not abandonment)
+  and a `grep -rln` for its subject across `docs/`, `bugs_open/`, `features_open/`
+  that returned **no owning workstream doc at all**. Opening the spec body showed
+  three completed rounds and `=== ROUND 4 — ONE CHANGE ONLY, owner-directed`.
+  **For a `site_work_items` row the ownership evidence often lives INSIDE the
+  `spec` jsonb, where no repo grep can reach it** — and `scripts/who-owns.py`
+  covers a bug number/slug, not a work item, so this class is not covered by any
+  tool. **Read the row you are about to act on.** Both approved specs are owned;
+  neither is a probe target.
 - **The historian's "frozen seven" were CURATED, not lazy** — selected by
   rediscovery frequency from the concept register, deliberately narrow, with
   broadening named as future work in
@@ -120,20 +166,59 @@ did not look.
 
 ## 6. What is open, in order
 
-1. **Run `/tmp/acm/APPLY_gap.sh`** (§3). Everything else waits behind it.
+1. ~~**Run `/tmp/acm/APPLY_gap.sh`**~~ — ✅ **DONE 2026-07-27 late** (§3).
 2. **Let councils run, then re-run the adoption report.** This is the honest test of
    the whole workstream and it cannot be hurried.
+
+   > **CORRECTED 2026-07-27 late — "cannot be hurried" understated it; on the
+   > current queue the architecture seat cannot speak AT ALL, so waiting alone
+   > produces nothing.** The chain: `review_architecture` exists **only** on
+   > `feature-designer`; `feature-designer` refuses anything without an
+   > owner-approved spec (`check_spec_approved` — `item_type='capability_gap'`
+   > carrying BOTH `owner_approval` and `code_pointers`); and there are **5
+   > `capability_gap` items in total, 2 approved, both already owned by other
+   > threads** (`9ed684bc` tools-api → Gauntlet; `7b89fb35` colour-fixer remit →
+   > an active 4-round design thread). So the first architecture review arrives
+   > when the colour thread runs its **round 4** (owner-directed, instructions
+   > already written into the spec) or when the owner approves a new spec.
+   > **A zero in §4 of the report is a rate limit, not a fault** — do not read it
+   > as breakage, and do not fire a probe to manufacture one (see §5).
+   >
+   > The seat itself is verified **reachable**, so nothing is wrong with it: BFS
+   > over the workflow graph including conditional branches gives 24 of 24 steps
+   > reachable from `load_spec`, no orphans, chain `review_guidelines →
+   > review_architecture → review_guardian → council_decide`. It has **no
+   > footprint/relevance gate** (unlike the 16-seat gate's seats) so it fires on
+   > every design run clearing the approval gate.
 3. **D7(b) — should the guardian weigh benefit at all?** Owner undecided, and
    deliberately so. My view: it should not — it has no instrument for benefit and has
    been overturned every time it was escalated. The honest counter: risk and benefit
    are not separable, and a blast-radius-only seat would block every wide change,
    which is *more* conservative. **Now answerable from evidence** once the new seat
    has said something.
-4. **D6 — name the asymmetric bar** in `PROCESS_architecture_review.md`: keeping
-   battle-tested code is the default and needs no evidence; replacing it must show a
-   defect the current design *cannot express a fix for*, mechanically-derived blast
-   radius, independently-valuable stages, and a rollback needing no migration.
-   `RFC_001` already meets four of those; this just names the bar. Small, undone.
+
+   > **New evidence 2026-07-27 late, bearing on this AND on D1/D2/D3.** On the
+   > 14:18 council, `bug_historian` opened its note *"Architecture-level concern
+   > for a human"* and asked for a human ruling between a shared
+   > render-context-builder refactor and continuing to fix drop points one live
+   > test at a time. That is a forward-fitness judgement, raised by a seat not
+   > commissioned to make one, on the **fix lane** — which has no
+   > `review_architecture` seat because D1/D2/D3 placed it on `feature-designer`
+   > only. First live sign that the fix lane also generates these questions and
+   > currently routes them to "a human" because nothing there owns them. Not
+   > enough to reopen the decision; put it on the table when D7(b) is answered.
+   > `[UNMEASURED]` — one instance, noticed by reading, not counted.
+4. ~~**D6 — name the asymmetric bar**~~ — ✅ **DONE 2026-07-27 late.** Now a named
+   section in `PROCESS_architecture_review.md`: keeping battle-tested code is the
+   default and needs no evidence; replacing it must clear four bars — a defect the
+   current design *cannot express a fix for* (recurrence alone is explicitly NOT
+   sufficient), mechanically-derived blast radius, independently-valuable stages
+   that build alone, and a rollback needing no migration. The *why* of the asymmetry
+   is stated too (risk is measurable pre-hoc, benefit is a forecast; weighing them
+   as like quantities favours whoever already preferred one), as is the
+   counter-argument (four bars can be met formally by a wrong plan, and they say
+   nothing about a change that is too *small* — that gap is the seat's
+   `insufficient` signal, not the document's).
 5. **The real remaining design: how does a reviewer query markdown at all?** The
    concept register (`docs/agent_docs/docs026_concept_register/`) is most of the
    roadmap artefact I had claimed we lacked — concepts by subject, *including

@@ -27,6 +27,53 @@ A point fix that happens to be large does not need an RFC; a small change
 that rewrites a contract does. When in doubt, the cost of an RFC is one
 document — write it.
 
+## The bar is asymmetric, and that is deliberate (D6, named 2026-07-27)
+
+The trigger test above says when a change *needs* an RFC. It does not say what
+an RFC must *prove*, and leaving that unstated is how "we should redesign this"
+becomes arguable on confidence alone. So, named explicitly:
+
+**Keeping battle-tested code is the default and needs no evidence.** Code that
+has been in production and has not failed carries an argument by survival. The
+guardian's stability preference is that argument, and it does not need
+restating per submission.
+
+**Replacing it must clear four bars.** All four, not a majority:
+
+1. **A defect the current design cannot express a fix for.** Not a defect that
+   is awkward to fix, or that has recurred — a defect where the contained fix
+   does not exist. Recurrence alone is *not* sufficient: a bug found at four
+   call sites may be four point fixes. The question is whether a fifth site can
+   still be created after the fix lands.
+2. **Blast radius derived mechanically** (§4 below) — `go list -deps`,
+   compile-proof for removals. A qualitative "this is fairly contained" fails
+   this bar however true it turns out to be.
+3. **Independently-valuable stages.** Each stage must be worth shipping if the
+   later ones never ship, and must build and test alone against the tree as it
+   exists before it. A plan whose stages must land together is one change
+   wearing a staging costume.
+4. **A rollback needing no migration.** The previous binary must tolerate the
+   new schema. If it cannot, say so loudly and expect that to be the objection
+   the owner rules on.
+
+**Why asymmetric rather than "weigh the evidence both ways":** a symmetric bar
+sounds fairer and is not, because the two sides have unequal instruments. The
+risk of change is measurable before the fact (blast radius, call sites, stages)
+while the benefit is mostly forecast. Weighing a measurement against a forecast
+as though they were the same kind of quantity reliably favours whichever side
+the author already preferred. Making the bar explicitly asymmetric puts the
+burden where the uncertainty is.
+
+`RFC_001` already meets bars 1, 2, 3 and 4 — this section does not change it,
+it names the standard it was already written to. The bar is stated here so a
+*future* RFC cannot be argued through on the strength of its prose.
+
+**The counter-argument, kept visible:** a bar this explicit can be satisfied
+formally by a plan that is still wrong, and it says nothing about a change that
+is *insufficient* — a point fix that leaves the mechanism exploitable clears
+every bar above by never being an RFC at all. That gap is the `review_architecture`
+seat's job (`insufficient` is one of its three signals), not this document's.
+
 ## What an RFC contains
 
 One markdown file, `RFC_NNN_<slug>.md`, in this directory. Status line at the
