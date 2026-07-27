@@ -87,9 +87,28 @@ var experiencePatternNameRE = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // TestExperiencePatternKinds_LockstepWithMigrationCheck.
 var experiencePatternKinds = []string{"component-contract", "micro-journey"}
 
+// ── the four column classes ────────────────────────────────────────────────
+//
+// Every column of experience_patterns belongs to exactly ONE of the four lists
+// below, and TestExperiencePatternColumns_EveryColumnIsClassified fails if a
+// column exists in the migrations that none of them names. That test is the
+// answer to the objection three council seats raised independently on corr
+// 2e71f640: the demotion list was hand-maintained with no mechanical guard,
+// unlike the kinds vocabulary, and "a list drawn too narrow silently lets a
+// changed clause keep 'approved' status — precisely the failure this rule
+// exists to prevent" (guardian).
+//
+// A derived list is not possible here, because which fields are clause-bearing
+// is a judgement rather than a fact about the schema. So the guard forces the
+// judgement to be MADE: adding a column without classifying it fails the build.
+// That converts a silent omission into a required decision, which is the most a
+// mechanical check can do for a question that is not mechanical.
+
 // experiencePatternContractFields are the fields whose change invalidates an
-// approval (rule 2 above). Everything else is presentation.
+// approval (rule 2 above): they are what a reviewer was looking at when they
+// approved the entry.
 var experiencePatternContractFields = []string{
+	"kind",
 	"contract",
 	"criteria_template",
 	"binding_schema",
@@ -102,6 +121,36 @@ var experiencePatternContractFields = []string{
 	"requires_invariant",
 	"primitives",
 	"destination_roles",
+}
+
+// experiencePatternSelectionFields decide WHERE an entry is offered, not
+// whether it is sound. Changing them does not invalidate an approval, because
+// nothing a reviewer approved becomes untrue when a pattern is offered on a
+// different kind of page. Deliberately separate from the contract list rather
+// than lumped in: over-wide demotion produces spurious warnings, and a warning
+// that fires spuriously is one people learn to click past.
+var experiencePatternSelectionFields = []string{
+	"section_types",
+	"suitable_site_types",
+	"funnel_stage",
+}
+
+// experiencePatternCosmeticFields are presentation only.
+var experiencePatternCosmeticFields = []string{
+	"display_name",
+	"description",
+	"aka",
+}
+
+// experiencePatternSystemFields are written or owned by the platform, never by
+// a submitting caller: identity, provenance, lifecycle, and the validator's own
+// findings. `status`, `executable_checks` and `deferred_checks` are here rather
+// than in any caller-facing list precisely because they are refused as input —
+// an entry that scores itself walks through the constraint that reads the score.
+var experiencePatternSystemFields = []string{
+	"id", "name", "status", "executable_checks", "deferred_checks",
+	"source", "source_agent", "harvested_from", "created_by",
+	"created_at", "updated_at",
 }
 
 // experiencePatternJSONFields are every jsonb column this action writes, so the

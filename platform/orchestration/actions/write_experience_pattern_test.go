@@ -341,6 +341,120 @@ func TestExperiencePatternKinds_LockstepWithMigrationCheck(t *testing.T) {
 	}
 }
 
+// experiencePatternColumnsFromMigrations re-derives the table's columns from
+// the migration files — the CREATE TABLE plus every later ADD COLUMN — so the
+// tests below compare the Go lists against the schema rather than against
+// another hand-maintained list.
+func experiencePatternColumnsFromMigrations(t *testing.T) map[string]string {
+	t.Helper()
+	dir := filepath.Join("..", "..", "..", "docs", "agent_docs", "sql_for_agents")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("cannot read migrations dir %s: %v", dir, err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".sql") {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Strings(names) // numeric prefixes, so lexical order is apply order here
+
+	createRE := regexp.MustCompile(`(?s)CREATE TABLE IF NOT EXISTS experience_patterns \((.*?)\n\);`)
+	colRE := regexp.MustCompile(`(?m)^\s{4}([a-z_]+)\s+(uuid|text|jsonb|integer|timestamptz)`)
+	addRE := regexp.MustCompile(`ALTER TABLE experience_patterns\s+ADD COLUMN IF NOT EXISTS ([a-z_]+) ([a-z]+)`)
+
+	cols := map[string]string{}
+	for _, n := range names {
+		raw, err := os.ReadFile(filepath.Join(dir, n))
+		if err != nil {
+			t.Fatalf("read %s: %v", n, err)
+		}
+		if m := createRE.FindSubmatch(raw); m != nil {
+			for _, c := range colRE.FindAllStringSubmatch(string(m[1]), -1) {
+				cols[c[1]] = c[2]
+			}
+		}
+		for _, c := range addRE.FindAllStringSubmatch(string(raw), -1) {
+			cols[c[1]] = c[2]
+		}
+	}
+	if len(cols) == 0 {
+		t.Fatal("no experience_patterns columns found in the migrations — if the table moved or the DDL was reworded, fix this parser rather than deleting the test")
+	}
+	return cols
+}
+
+// TestExperiencePatternColumns_EveryColumnIsClassified is the answer to the
+// objection three council seats raised independently (corr 2e71f640): the
+// demotion list was hand-maintained with no mechanical guard.
+//
+// Which fields are clause-bearing is a judgement, so it cannot be derived. What
+// CAN be enforced is that the judgement was made at all: a column added to the
+// table and classified into none of the four lists fails here. A silent
+// omission becomes a required decision — which is the most a mechanical check
+// can do for a question that is not mechanical.
+func TestExperiencePatternColumns_EveryColumnIsClassified(t *testing.T) {
+	cols := experiencePatternColumnsFromMigrations(t)
+
+	classified := map[string]string{}
+	for _, spec := range []struct {
+		list  []string
+		class string
+	}{
+		{experiencePatternContractFields, "contract"},
+		{experiencePatternSelectionFields, "selection"},
+		{experiencePatternCosmeticFields, "cosmetic"},
+		{experiencePatternSystemFields, "system"},
+	} {
+		for _, f := range spec.list {
+			if other, dup := classified[f]; dup {
+				t.Errorf("column %q is classified twice (%s and %s) — the classes must partition, or demotion depends on list order",
+					f, other, spec.class)
+			}
+			classified[f] = spec.class
+		}
+	}
+
+	for col := range cols {
+		if _, ok := classified[col]; !ok {
+			t.Errorf("column %q exists in the migrations but is in NONE of experiencePatternContractFields / SelectionFields / CosmeticFields / SystemFields.\n"+
+				"Classify it: does changing it invalidate an approval? If yes it belongs in the contract list, and leaving it out means a changed clause silently keeps 'approved'.", col)
+		}
+	}
+	for col, class := range classified {
+		if _, ok := cols[col]; !ok {
+			t.Errorf("%q is classified as %s but is not a column of experience_patterns — a stale entry here makes the classification look complete when it is not", col, class)
+		}
+	}
+}
+
+// TestExperiencePatternJSONFields_CoversEveryJSONBColumn closes the gap
+// bug_historian named: "a jsonb column added to experience_patterns but not to
+// the hand-maintained marshalling list is silently never written — no error, no
+// warning, no failed work item."
+func TestExperiencePatternJSONFields_CoversEveryJSONBColumn(t *testing.T) {
+	cols := experiencePatternColumnsFromMigrations(t)
+
+	// deferred_checks is written from the validator's findings, not from the
+	// caller's entry, so it is deliberately not in the marshalling list.
+	writtenFromValidation := map[string]bool{"deferred_checks": true}
+
+	for col, typ := range cols {
+		if typ != "jsonb" || writtenFromValidation[col] {
+			continue
+		}
+		if !containsString(experiencePatternJSONFields, col) {
+			t.Errorf("jsonb column %q is not in experiencePatternJSONFields, so a caller can supply it and it will be SILENTLY never written", col)
+		}
+	}
+	for _, f := range experiencePatternJSONFields {
+		if cols[f] != "jsonb" {
+			t.Errorf("experiencePatternJSONFields names %q, which is not a jsonb column of experience_patterns (got %q)", f, cols[f])
+		}
+	}
+}
+
 func TestMissingExperienceInvariants_NilDBIsNotAFalsePass(t *testing.T) {
 	// The action must not report "no missing invariants" when it could not ask.
 	// With no DB it returns nil, so the caller's own guard is what stands
