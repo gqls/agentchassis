@@ -6085,3 +6085,53 @@ is more expensive than no result, because it stops anyone re-running it.
 
 Family: the-attribution-jumped-a-layer, a-sweep's-message-is-not-its-contents,
 a-confident-negative-stops-the-re-run.
+
+---
+
+## 2026-07-27 — "relojistas homepage: 0 phantoms" — a check that could not fail, in a handoff, for a day
+
+**The claim:** `traffic_probe/HANDOFF_2026-07-26_continue_here.md` §1, under a
+heading saying everything below it was fetched live, listed
+
+```bash
+curl -s https://relojistas.com/ | grep -c 'href="/ferias\|href="/archivo'   # 0 phantoms
+```
+
+**Why it is false:** `/ferias` and `/archivo` are the two phantoms that thread had
+just *repaired*. The grep searches a page for the absence of things known to be
+absent. It returns 0 on a clean page and 0 on a page riddled with different
+phantoms — it has no failing branch. Meanwhile the homepage's **primary hero
+button** pointed at `/contact.html`, a 404, and had done since at least 07-18.
+Two more English CTAs were live on the Spanish site, and `favicon.png` 404'd on
+all 19 pages.
+
+**What caught it:** following every internal href on all 19 deployed pages and
+probing each target, rather than grepping for named strings. 27 distinct targets,
+3 non-200.
+
+**The cheap check that would have caught it:** **run the check against a case you
+know is broken before you trust a pass.** One `curl -s .../ | grep -c 'href="/'`
+would have shown 17 internal links on that homepage and made "I am only testing
+two of them" obvious. Generally: *a verification that names the specific defect it
+expects to find can only confirm that defect's absence — it cannot report the
+site's state.* The same page carried a second one, `grep -c 'mailto:'  # 0`,
+vacuous for a different reason: Cloudflare rewrites every mailto into
+`/cdn-cgi/l/email-protection#<hex>`, so on any CF-proxied site that grep is 0
+regardless of truth. There was an email on the page.
+
+**Cost:** low in repair, high in what it protected. The workstream was recorded as
+"finished & self-running, build list empty" for a day while the main call to action
+on the front page 404'd. The false confidence is the damage — a build list is only
+empty relative to the checks you ran.
+
+**Smaller miss, same morning, and the aggravating detail is that it is a repeat:**
+- *"8 open work items"* — it was **27**. The query grouped by
+  `item_type, status, source` and I read the row count as the item count. This
+  file's own workstream recorded that exact error on 07-26 ("a GROUP BY total is
+  not evidence"), and I had read that line the same morning before making it.
+  *Check: `count(*)` over the ungrouped set before quoting any number a GROUP BY
+  produced.* **Reading a landmine is not applying it** — the entry that gets
+  applied is the one written where the mistake is made, not in a list of lessons.
+
+Family: the-check-with-no-failing-branch, the-proxy-rewrote-what-you-grepped-for,
+a-landmine-read-is-not-a-landmine-heeded.

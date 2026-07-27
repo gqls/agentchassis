@@ -30,11 +30,34 @@ key-only). DB: `kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql 
 ```bash
 curl -s https://relojistas.com/feed.xml | grep -c "<item>"                     # 30
 curl -s https://relojistas.com/feed.xml | grep -o "<lastBuildDate>[^<]*"       # 26 Jul 13:49 UTC
-curl -s https://relojistas.com/ | grep -c 'href="/ferias\|href="/archivo'      # 0 phantoms
-curl -s https://relojistas.com/ | grep -c 'mailto:'                            # 0
+curl -s https://relojistas.com/ | grep -c 'href="/ferias\|href="/archivo'      # 0 phantoms  <- SEE CORRECTION
+curl -s https://relojistas.com/ | grep -c 'mailto:'                            # 0           <- SEE CORRECTION
 curl -s https://relojistas.com/ | grep -c 'action="/intent"'                   # 1 (search box)
 curl -s https://relojistas.com/ | grep -c '<article'                           # 12 (server-rendered)
 ```
+
+> **CORRECTED 2026-07-27 — lines 3 and 4 above are vacuous checks. Do not reuse them.**
+>
+> **"0 phantoms" greps for the two phantoms we already fixed**, so it returns 0 forever —
+> including on a page full of different ones. A real sweep of all 19 deployed pages found
+> **`/contact.html` → 404 linked from three of them, and it is the homepage's primary hero
+> button** (`<a href="/contact.html">Leer las últimas noticias</a>`). Also `favicon.png` 404s
+> on all 19. Use this instead — it follows every internal href and probes each target:
+> ```bash
+> curl -s "https://relojistas.com$PAGE" | grep -o 'href="/[^"]*"' | sed 's/href="//;s/"$//' \
+>   | grep -v '^/cdn-cgi' | cut -d'#' -f1 | sort -u | while read -r h; do
+>       printf '%s %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "https://relojistas.com$h")" "$h"; done
+> ```
+> **"0 mailto" is vacuous on any Cloudflare-proxied site** — CF rewrites every mailto into
+> `/cdn-cgi/l/email-protection#<hex>`, so the grep can never match. Decode (XOR each byte after
+> the first against the first) before believing it: the homepage does carry
+> `relojistas@contactforsales.com`, and the footer contact anchor is **empty**.
+>
+> Cause and full evidence: running notes 2026-07-27; contributed to `bugs_open/071` (slug
+> `validate_gate_detects_every_broken_link_then_discards_the_finding`) as a sighting in
+> `b96acad7d`. It is a **platform default**, not a writer invention — `component_library.go`
+> fills an empty `cta_url` with a hardcoded English `/contact.html`. **Owned by
+> `brochure_component_library`; do not start a competing fix.**
 
 - Pipeline **runs unattended** — feed rebuilt today with no human involvement.
 - Corpus 72 relevant + 5 review, newest 2026-07-26 07:56. 18 pages deployed.

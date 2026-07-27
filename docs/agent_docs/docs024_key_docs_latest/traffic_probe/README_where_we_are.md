@@ -550,3 +550,70 @@ relojistas box's configuration exactly before we ever apply anything to it.
 
 I've written you a fresh read-out and, more usefully, a detailed handover document so you can
 pick all of this up in a new conversation without me having to reconstruct it.
+
+---
+
+**Monday 27 July.** I picked the site up from yesterday's handover and started by re-checking
+everything it claimed, which is the habit that paid off today.
+
+The good news first, and it is genuinely good: the site is still running itself. The news feed
+rebuilt at 07:54 this morning with nobody involved, thirty items, and the homepage has been
+regenerating cleanly for three days now without the copy-mangling problem I fixed last week
+coming back. Your one outstanding job — the session on the box — is still the only thing
+holding the rest up, and nothing about it has changed.
+
+**But I found something on the homepage that has been wrong for a while, and it is the sort of
+thing a visitor would hit in their first ten seconds.** The big button on the front page says
+"Leer las últimas noticias" — read the latest news — and it goes to a page that does not exist.
+It has been pointing at `/contact.html` since at least the 18th. Not the Spanish contact page
+we actually have, `/contacto.html`, but an English one that was never built and never will be.
+Anyone clicking the main call to action on your homepage gets a 404.
+
+Two other things sit alongside it. A button on the guides page reads "Browse all guides" — in
+English, on a Spanish site — and it links back to the page it is already on. Another on the
+glossary page reads "Explore All Archetypes", also English, and it sends you to the news
+section. And the contact block at the bottom of every page is an empty box with an English
+heading.
+
+**The part worth understanding is where these came from, because it is not what you'd guess.**
+Nobody wrote them. The AI that writes the site's copy never produced that link. What happens is
+that when the page's stored content leaves the button's destination blank, the platform quietly
+fills it in with a built-in default — and that default is hardcoded English: `/contact.html`,
+"Get Started", "Learn More". It is applied to every site we run, whatever language it is in. On
+an English site you'd never notice, because `/contact.html` usually exists. On a Spanish site it
+can never be right.
+
+What makes it worse, and more useful to know: **the platform spotted this itself and published
+anyway.** There are eighteen separate records in the database, going back to the 18th, each one
+correctly naming a button with no valid destination and flagging it for a human to look at. The
+queue those flags go into has no working screen — that is a known problem we already have open.
+So the system detected the fault, filed it perfectly, sent it to a room nobody can enter, and
+shipped the broken page in the same breath.
+
+I did **not** start fixing it. There is already an open case about exactly this family of
+problem, and it belongs to another workstream that was committing to it this morning. Two people
+fixing the same thing in one shared repository is how work gets destroyed here, so I did what
+our rules say: I wrote my evidence into their case file instead. What relojistas adds to it is
+the bit they did not have — that the broken link is the platform's own default rather than
+something the AI invented, which matters because the fix they were considering (telling the AI
+which pages exist) would not have touched it.
+
+**And two corrections against myself, both the same mistake in different clothes.**
+
+I told you a few minutes into this that there were eight outstanding items on the site. There
+are twenty-seven. I had run a query that grouped them into categories and then read the number
+of categories as the number of items. This file already records me making that exact error on
+Saturday, and I had read that entry earlier the same morning. Reading a warning is not the same
+as heeding one.
+
+The second is more useful to you. Yesterday's handover "verified" that the homepage had no
+broken links by searching it for the two specific broken links we fixed last week. Of course it
+found none — they were fixed. That check could never have failed, and it sat there looking like
+proof while the main button on the page pointed at a 404. I have replaced it with a real sweep
+that follows every link on all nineteen pages and actually requests each one. The same applies
+to a check that said we had no email addresses exposed: Cloudflare scrambles email addresses
+automatically, so searching the page for them always finds nothing. A test that cannot fail is
+worse than no test, because it produces confidence.
+
+None of this changes what I need from you — the box session is still the one thing. But the
+homepage button is the kind of fault I would rather you heard from me than found yourself.

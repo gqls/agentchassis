@@ -1440,3 +1440,129 @@ concluding anything disappeared.
 
 **Corpus:** 72 relevant + 5 review (was 71+4 on 07-25), newest 2026-07-26 07:56 — still
 ingesting. 18 pages deployed.
+
+---
+
+## 2026-07-27 — the "0 phantoms" check was vacuous, and the homepage's main CTA is a live 404
+
+Session opened to pick relojistas up from `HANDOFF_2026-07-26_continue_here.md`. Re-verified
+the handoff's state first, per the standing rule about carrying figures forward. Everything it
+asserts still holds:
+
+```
+feed.xml            30 items, lastBuildDate Mon, 27 Jul 2026 07:54:17 +0000  (unattended)
+homepage            12 server-rendered <article>, intent box present
+external.php?type=RSS2 -> 200 ; ?type=rss2 -> 404 ; bare -> 404 ; /buscar -> 404 ; /events -> 404
+page_rerender       22 complete, newest 07-27 07:54
+last needs_page from render_news_section: 2026-07-24 13:45  (still pre-v1.0.1155)
+```
+
+So the emitter fix now has a **three-day** window, and the owner's box session is still the
+only gate. No change there.
+
+**Two things I got wrong inside the first ten minutes, both the same shape.**
+
+**(1) I read a GROUP BY row count as an item count.** My first work-item query grouped by
+`item_type, status, source` and returned 8 rows; I reported "8 open work items". It is **27**.
+This is the *identical* mistake this file records against itself on 07-26 ("a GROUP BY total is
+not evidence about a cause — read the `source` column"), made again the next day by someone who
+had just read that line. Reading a landmine is not the same as applying it. The check is one
+word: `count(*)` over the ungrouped set before quoting a number.
+
+**(2) The handoff's phantom check cannot fail.** It is
+
+```bash
+curl -s https://relojistas.com/ | grep -c 'href="/ferias\|href="/archivo'   # 0
+```
+
+which greps for the two phantoms we already fixed. It returns 0 forever, including on a page
+full of *different* phantoms. Replaced with a real sweep — every internal href on all 19
+deployed pages, fragment-stripped, each target probed:
+
+```bash
+# 27 distinct targets across 19 pages
+404  /contact.html               <- /index.html, /noticias/index.html, /glosario/index.html
+404  /assets/images/favicon.png  <- all 19
+301  /guias/mantenimiento        <- harmless
+```
+
+**`/contact.html` is the homepage's primary hero button.** Live now:
+
+```html
+<a href="/contact.html" class="btn btn-primary">Leer las últimas noticias</a>
+```
+
+Spanish copy, English target, 404. The real page is `/contacto.html`.
+
+**Nothing authored it.** It is absent from `content_data` and present only in `rendered_html`
+(`in_data=f, in_rendered=t` on all three pages). The hero's stored content is:
+
+```json
+{"cta_text": "Leer las últimas noticias", "secondary_cta": "Explorar el glosario", ...}
+```
+
+— text but **no URL fields at all**. The URL comes from `component_library.go`, which fills an
+empty `cta_url` with a hardcoded English default in three places (`:768-769`, `:821-824`,
+`:893-894`):
+
+```go
+"cta_url": defaultString(ctx.CTAUrl, "/contact.html"),
+"primary_cta_url": "/contact.html",  "secondary_cta_url": "/about.html",
+```
+
+This is the `LNK-007` fallback that `render_site_components_action.go:791` already tells the
+*writer* to avoid — but the default fires in the *renderer*, downstream of the writer, so the
+instruction cannot reach it.
+
+**The platform detected it and shipped it anyway.** `internal-link-resolver` filed **18
+`unresolved_cta` rows** between 07-18 and 07-21, still at `needs_human_review`, naming the exact
+fields ("Unresolved CTA on index ('hero'): no real-page destination for secondary_cta_url").
+The queue they escalate into is `bugs_open/033` — which has no working surface. So both arms
+are inert: the escalation goes nowhere and the render emits the phantom.
+
+**Not filed as a new bug.** `scripts/who-owns.py 071` says `bugs_open/071`
+(`validate_gate_detects_every_broken_link_then_discards_the_finding` — resolve that number by
+slug, it is one of the ambiguous pair) is **actively owned** by `brochure_component_library`,
+with commits today. Contributed the evidence into the bug file instead, per CLAUDE.md, as a
+sighting: `b96acad7d`. What it adds to 071 is that this phantom is a **platform default, not a
+writer invention** — so `092` (writer never gets link constraints) cannot reach it; a page with
+perfect authored content still gets `/contact.html`.
+
+**Also live on the Spanish site, same root cause** (English defaults leaking through):
+
+| where | rendered | target |
+|---|---|---|
+| `/guias/index.html` | `Browse all guides` | `/guias/index.html` — links to itself |
+| `/glosario/index.html` | `Explore All Archetypes` | `/noticias/` — copy names archetypes |
+| all 19 pages | footer `<h4>Contact</h4>` | — |
+| homepage intent box | `Questions:` mid-Spanish-paragraph | hand-authored, ours |
+
+And the hero's authored `secondary_cta` — "Explorar el glosario" — **renders as nothing at
+all**; the anchor is simply not emitted. So the same path that invents a dead primary CTA
+discards a good secondary one.
+
+**Landmine, and it cost me a wrong belief for about a minute: `grep -c 'mailto:'` returns 0 on
+any Cloudflare-proxied site regardless of the truth.** CF rewrites every mailto into
+`/cdn-cgi/l/email-protection#<hex>`. The handoff's "0 mailto" line is therefore vacuous in
+exactly the way the phantom check is. Decoding (XOR every byte after the first against the
+first) shows the homepage does carry `relojistas@contactforsales.com` in the hand-authored
+intent-probe privacy text, and — separately — that the **footer contact anchor is empty**:
+`<p><a href="/cdn-cgi/l/email-protection#07"></a></p>`. That empty anchor is the visible end of
+the `needs_section_data` row open since 07-16 ("Section 'contact-info' on contacto needs:
+Business contact email address"), and the `063` fail-open (validateEmails passes when a site has
+no contact email) is why it shipped.
+
+**Stale rows, now checked rather than assumed.** Of the 27 open items, these describe repairs
+that already happened and were never closed — all verified against the live pages today:
+
+| row | claim | live today |
+|---|---|---|
+| `needs_rerender` (07-19) | "9 pages missing header/footer" | all 19 pages have `<header>`, `<footer>`, `<nav>` |
+| `empty_section` (07-19) | news-listing empty on noticias-index | renders 20 `<article>` |
+| `empty_internal_href` (07-19) | `href=""` on glosario-index | 0 empty hrefs in served HTML on any page |
+| `phantom_internal_link` ×2 (07-19) | `/ferias`, `/archivo` on index | 0 occurrences |
+
+Note `pages.rendered_header`/`rendered_footer` are **empty on all 19 rows** while the live pages
+all serve a header and footer — so those columns are not the source of the served chrome, and a
+detector reading them would report every page as broken. [INFERRED — I did not trace which
+detector wrote the 07-19 row; the point stands that the row is false today.]
