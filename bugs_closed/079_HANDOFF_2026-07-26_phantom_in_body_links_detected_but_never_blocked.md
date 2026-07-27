@@ -24,13 +24,40 @@
 >   `link check and repair SKIPPED` 0 → **3**; positive control `CONTENT_VALIDATION_BLOCKER_DETAIL`
 >   **2 both times**, so the grep discriminates.
 >
-> **NOT PROVEN, and this is the honest residual:** the end-to-end induction — a real build whose
-> writer emits a phantom, and the *deployed* markup coming out without it. A `page-build-handler`
-> run was dispatched for `webdesign.co.uk` `learn-design-digital-grain`
-> (corr `a1dfbf68-a312-4009-8bb4-5375224e87c9`, work item `560d50cd-…`) and was still queued
-> behind 10 orchestrations when this was written. **Pod-grep proves DEPLOYMENT, not correctness.**
-> Finish it with §"How to verify a fix" below plus RUNBOOK R6/R7 in
-> `docs/agent_docs/docs024_key_docs_latest/bugfix_079_phantom_link_gate/`.
+> **PROVEN END TO END on the deployed binary, 2026-07-27 12:23Z** (owner-approved induction).
+> Crafted markup fed through the live gate on `dartsonline.com`, exercising both arms plus the
+> two must-not-touch cases:
+>
+> ```
+> in:  <p>Read our <a href="/definitely-not-a-page.html">pricing guide</a> for details, then
+>      <a href="/contact">talk to us</a> or browse <a href="/new-arrivals.html">new arrivals</a>.
+>      See <a href="https://example.com/x">an external ref</a>.</p>
+>
+> out: <p>Read our pricing guide for details, then
+>      <a href="/contact.html">talk to us</a> or browse <a href="/new-arrivals.html">new arrivals</a>.
+>      See <a href="https://example.com/x">an external ref</a>.</p>
+> ```
+>
+> `checked_links 3 · links_rewritten 1 · links_unlinked 1`, and the repair list carried
+> `{"href":"/definitely-not-a-page.html","action":"unlink"}` and
+> `{"href":"/contact","action":"rewrite","new_href":"/contact.html"}`. The invented target lost
+> its link and **kept its text**; the extension-less target was rewritten to the **stored**
+> `pages.url`; the already-valid link and the external link were untouched.
+>
+> The durable record landed too — `agent_error_log`, `error_code=CONTENT_LINK_REPAIR_DETAIL`:
+> *"Repaired 2 dead internal link(s) before save: 1 href(s) rewritten, 1 link(s) removed"*, with
+> both hrefs in `context.repairs`. That is `071` gap 3 answered for this class: the finding now
+> outlives `collected_data` pruning.
+>
+> **How it was induced, and why that took four attempts.** No natural induction was available —
+> the gate ran on 5 real builds under the new binary and every one had `checked_links: 0` (the
+> writer is emitting no anchors at all, which is `bugs_open/092`). Crafted routes fail unless the
+> target agent type has a **live pod**: an inline `config.workflow` and a freshly-seeded agent
+> type both vanished without an orchestration row. What worked was `content-reviewer` (live pod)
+> with its `validate_content` step's `html_field` pointed at `input_data.page_html` for ~2
+> minutes — an owner-approved change to a live agent definition, restored immediately and
+> verified byte-identical against the pre-patch snapshot. Risk was ~nil: content-reviewer had run
+> **once in 24h** and that run was also mine.
 >
 > **No `Council-Reviewed:` trailer.** Submission `97904892-5c09-4782-aeda-37dd944abdfc` never got
 > an orchestration row (1h40m; the lane had a run stuck at `council_decide` for 239 min). The

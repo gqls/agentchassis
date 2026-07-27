@@ -308,3 +308,41 @@ So the honest ledger is unchanged from yesterday and should not be dressed up:
   keys);
 - **a repair actually mutating a page — NOT proven.** Zero repairs so far, because zero links
   have been offered to it.
+
+## 2026-07-27 12:23Z — PROVEN END TO END; 079 CLOSED
+
+Owner approved the two-minute config patch. Result, first try:
+
+```
+checked_links 3 · links_rewritten 1 · links_unlinked 1
+
+/definitely-not-a-page.html  -> unlink   (text "pricing guide" survives)
+/contact                     -> rewrite  -> /contact.html   (the STORED pages.url)
+/new-arrivals.html           -> untouched (already valid)
+https://example.com/x        -> untouched (external)
+```
+
+`agent_error_log` carries `CONTENT_LINK_REPAIR_DETAIL` with both hrefs in `context.repairs` —
+`071` gap 3 answered for this class.
+
+The four "must not change anything" unit tests were the ones I cared about most here, and the
+live run agreed with them: the two links that should not have been touched were not touched. A
+repair pass that over-reaches would have been a worse bug than the one being fixed.
+
+**Config restored and byte-checked**, not merely "restored": snapshot taken before the patch,
+compared with `json.dumps(sort_keys=True)` after — IDENTICAL. Saying "I put it back" is not
+evidence; the comparison is. Window ~2 minutes on an agent that had run once in 24h (that run
+also mine), so the collision risk was as close to nil as this cluster allows.
+
+**Why the induction needed four attempts — the transferable bit.** A crafted dispatch only
+materialises if the target agent type has a **live pod**. `page-build-handler` and
+`content-reviewer` always produced orchestration rows; an inline `config.workflow` and a
+freshly-seeded `verify079-gate` type both vanished with no row and no error. Do not read that
+silence as queue latency — check whether *anything else* is running before concluding a message
+is merely queued. That is the same check that finally settled the council question.
+
+Also worth stating plainly: **the natural induction never arrived and I stopped waiting for it.**
+Five real builds ran the new code and all had `checked_links: 0`. Waiting for the fleet to
+produce a phantom would have looked like diligence and delivered nothing, because the writer is
+currently emitting no links at all (`bugs_open/092`). Crafting the input was the only route that
+could ever have closed this.
