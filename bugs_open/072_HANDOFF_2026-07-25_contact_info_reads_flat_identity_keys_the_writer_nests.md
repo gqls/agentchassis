@@ -131,3 +131,60 @@ Rebuild a contact page on a site in the "no" group and confirm three components
 with the phone present in the third. Do **not** verify by checking the five
 working sites — they were never affected. For candidate 1, the induced test is a
 site whose identity has *only* nested keys.
+
+---
+
+## UPDATE 2026-07-27 (backlog sweep) — this bug and `bugs_open/111` are the same eight sites
+
+**Contributed, not fixed.** `scripts/who-owns.py` puts this case with
+`brochure_component_library` [ACTIVE]; per CLAUDE.md this is a contribution into
+the case file, not a competing fix.
+
+**Re-grounded against the live DB today** (the 07-25 figures had moved — a sixth
+site has since been worked around and a fourteenth site now exists, so "8 of 13"
+is now **8 of 14**):
+
+```sql
+SELECT s.domain,
+       CASE WHEN ss.data ? 'contact' THEN 'nested' ELSE '' END,
+       CASE WHEN (ss.data ? 'email') OR (ss.data ? 'phone') THEN 'FLAT' ELSE '' END
+FROM site_specs ss JOIN sites s ON s.id = ss.site_id
+WHERE ss.aspect = 'identity' AND ss.is_current ORDER BY 3 DESC, 1;
+```
+
+**All 14 sites nest `contact`.** Six carry a flat pair as well (the data
+workaround — all six have `…@contactforsales.com` addresses, which is what makes
+them identifiable as worked-around rather than natively flat). The remaining
+**eight have nested-only keys**: `dartsonline.com`, `gamesdesign.co.uk`,
+`oufe.com`, `relojistas.com`, `robot-hands.com`, `vetcomparison.uk`, `vonc.com`,
+`webdesign.co.uk`.
+
+Note this **corrects the framing in the original diagnosis above**: it is not
+that some sites are written flat and some nested. The writer nests on *every*
+site; the six that work were manually patched. So there is no "flat-writing"
+code path to preserve, and candidate 1 (read the nested path) can be made
+unconditional rather than a fallback.
+
+### Why this matters beyond this bug
+
+`bugs_open/111` (footer "Contact" heading renders over nothing) reports **"8 of
+14 live sites"**. That is the *same eight sites*, and the mechanism connects:
+111's footer chrome gates its contents on `{{if .email}}` / `{{if .phone}}` while
+leaving `<h4>Contact</h4>` unconditional. Those fields are empty on exactly the
+sites where this bug prevents the contact data resolving. **So 072 is the
+upstream cause of most of 111.**
+
+Consequences for whoever picks these up:
+- Fixing the path contract here populates email/phone on those eight sites and
+  makes 111's heading stop stranding on **seven** of them — without touching
+  shared fleet chrome, which is the part 111 correctly flags as not a site
+  thread's unilateral call.
+- 111 does **not** become redundant. `relojistas.com` is an owner ruling of *no
+  contact route at all*, so it must render no heading even with the contract
+  fixed. 111 shrinks from a fleet-wide cosmetic defect to one genuine
+  edge case — a much smaller and safer change.
+- **Sequence them 072 → 111.** Doing 111 first fixes the symptom on eight sites
+  and removes the evidence that would show 072 still broken.
+
+[UNVERIFIED] I did not rebuild a contact page to confirm the block then renders —
+that is still the verification step above, and it needs the contract fix first.
