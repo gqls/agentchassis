@@ -6766,3 +6766,60 @@ adjacent-counts-acquire-an-implied-denominator,
 the-figure-the-workstream-is-judged-by-was-the-unchecked-one,
 disagreeing-snapshots-of-a-fixed-population,
 found-one-direction-of-error-and-quoted-the-other.
+
+---
+
+## 2026-07-27 — four bug files, four figures, three wrong: a DB query stood in for the rendered artefact
+
+**Who:** the render/page-build triage sweep, re-grounding `bugs_open/080`, `095`,
+`098`, `111` against the live system before reporting them as open.
+
+**The claims, and what they actually were:**
+
+| case | filed claim | measured 2026-07-27 |
+|---|---|---|
+| `111` | "**8 of 14** live sites show a heading over nothing" | **2** — `gamesdesign.co.uk`, `relojistas.com`. Five of the eight named render a *populated* Contact block |
+| `080` | "**No duplicate exists today.** [VERIFIED]" | `robot-hands.com` has carried the duplicate since **2026-07-08**, i.e. *before the case was filed*; both URLs serve 200 |
+| `098` | detector query offered as ready to run fleet-wide | returns **4 rows, all false positives**; 0 true positives |
+| `095` | mechanism: wrong `slot_name` → assembly finds nothing | `getPageSections` **never reads `pages.sections`**; the empty assembly came from `rendered_html` being NULL |
+
+**What caught it:** curling the deployed page and reading the function, instead of
+trusting the query the file shipped with. For `111`, `curl https://<domain>/` and
+stripping tags out of the `.footer-contact` block — thirty seconds per site.
+
+**The single mistake underneath all four.** Each file measured its blast radius
+with a query against *the table the author reasoned from*, never against **the
+thing the user sees**. `111`'s query reads `site_specs.identity.contact`; the
+footer renders from the **`sites.email` / `sites.phone` columns** — a different
+store entirely, populated on 13 of 14 sites. The query was not wrong SQL; it was
+SQL about the wrong object, and it returned a confident, plausible, precise
+number. `080`'s survey filtered by `page_type`, and the duplicate row it was
+looking for is typed `section-index` — so the filter excluded the very thing it
+was written to find, and reported the absence as VERIFIED.
+
+**The cheap check that would have caught it:** **for any claim about what a page
+displays, the evidence is the fetched page.** A DB query is evidence about the
+database. Before writing "N sites are affected", fetch one site the query says is
+affected *and* one it says is not — a two-request check that discriminates. If the
+claim is about rendering, `curl | grep` outranks any `SELECT`, and CLAUDE.md
+already says so: *"Trust the rendered artefact, not the status."*
+
+**Second lesson: [VERIFIED] on an absence is the shape to distrust.** `080` wrote
+"No duplicate exists today. [VERIFIED 2026-07-26]" — the marker made an unchecked
+*population* look like a checked *fact*. The query ran and returned nothing;
+what went unchecked was whether it could have returned the thing. **An absence is
+only as strong as the filter that produced it, so an absence claim must quote its
+filter** — and when the filter names a column (`page_type`) the bug is *about*
+disagreeing on, it cannot be the instrument.
+
+**Cost:** none reached production — all four were corrected in the case files
+before anyone acted (commit `2a1e86544`). The near-miss is `098`: a detector built
+to its filed query would have opened 4 work items against healthy nav on day one
+and found nothing real, which is precisely the discredited-detector failure
+`bugs_open/033` and `/071` already describe.
+
+Family: narrow-filter-defines-the-conclusion,
+queried-the-database-about-a-question-only-the-page-can-answer,
+verified-marker-on-an-unchecked-absence,
+an-absence-claim-must-quote-its-filter,
+the-detector-was-never-run-before-being-recommended.
