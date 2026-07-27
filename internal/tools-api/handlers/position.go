@@ -55,6 +55,7 @@ func PositionHandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {
 			if errors.Is(err, pgx.ErrNoRows) {
 				httperr.JSONError(c, http.StatusNotFound, "round not found")
 			} else {
+				logInternalFailure("position", "round_lookup", req.RoundID, err)
 				httperr.JSONError(c, http.StatusInternalServerError, "round lookup failed")
 			}
 			return
@@ -104,11 +105,13 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 
 		counterJSON, err := json.Marshal(aiResp)
 		if err != nil {
+			logInternalFailure("position", "marshal_counter", req.RoundID, err)
 			httperr.JSONError(c, http.StatusInternalServerError, "internal error")
 			return
 		}
 
 		if err := store.UpdateRoundPosition(ctx, pool, req.RoundID, req.PositionText, json.RawMessage(counterJSON)); err != nil {
+			logInternalFailure("position", "persist_position", req.RoundID, err)
 			httperr.JSONError(c, http.StatusInternalServerError, "failed to persist position")
 			return
 		}

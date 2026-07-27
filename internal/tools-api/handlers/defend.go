@@ -55,6 +55,7 @@ func DefendHandler(pool *pgxpool.Pool, cfg *config.Config) gin.HandlerFunc {
 			if errors.Is(err, pgx.ErrNoRows) {
 				httperr.JSONError(c, http.StatusNotFound, "round not found")
 			} else {
+				logInternalFailure("defend", "round_lookup", req.RoundID, err)
 				httperr.JSONError(c, http.StatusInternalServerError, "round lookup failed")
 			}
 			return
@@ -110,11 +111,13 @@ Reply with ONLY a JSON object and no prose wrapper, markdown, or explanation. Th
 
 		verdictJSON, err := json.Marshal(aiResp)
 		if err != nil {
+			logInternalFailure("defend", "marshal_verdict", req.RoundID, err)
 			httperr.JSONError(c, http.StatusInternalServerError, "internal error")
 			return
 		}
 
 		if err := store.UpdateRoundVerdict(ctx, pool, req.RoundID, req.DefenceText, json.RawMessage(verdictJSON)); err != nil {
+			logInternalFailure("defend", "persist_verdict", req.RoundID, err)
 			httperr.JSONError(c, http.StatusInternalServerError, "failed to persist verdict")
 			return
 		}

@@ -110,7 +110,8 @@ func RoundHandler(pool *pgxpool.Pool) gin.HandlerFunc {
 
 		round, err := store.CreateRound(c.Request.Context(), pool, siteID, prov, ipHash)
 		if err != nil {
-			httperr.JSONError(c, 500, "could not create round")
+			logInternalFailure("round", "create_round", "", err)
+			httperr.JSONError(c, http.StatusInternalServerError, "could not create round")
 			return
 		}
 

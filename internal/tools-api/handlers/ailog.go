@@ -68,6 +68,22 @@ func logAIFailure(endpoint, stage, roundID string, err error) {
 // (the bugs_closed/088 class) from a genuinely empty completion, and those have
 // different fixes. Without it this branch is as opaque as the one 083 was filed
 // about.
+// logInternalFailure records a non-LLM server-side failure — a DB lookup, a
+// persist, a marshal — immediately before the handler returns 5xx.
+//
+// Separate from logAIFailure because the truncation check is meaningless for a
+// database error, and a helper whose name claims "AI" would misdescribe the call
+// site. These paths discarded their errors exactly as the LLM ones did; they are
+// 500s rather than 503s, so they sit outside bugs_open/083's title, but they are
+// the same defect and the same one-line remedy.
+//
+// The 400-class returns are deliberately NOT logged: those are caller mistakes,
+// not faults, and gin.Logger() already records method, path and status for every
+// request, so logging them again would add noise without adding a fact.
+func logInternalFailure(endpoint, stage, roundID string, err error) {
+	log.Printf("gauntlet/%s: %s FAILED round_id=%s err=%v", endpoint, stage, roundID, err)
+}
+
 func logAIBadResponse(endpoint, reason, roundID, body string) {
 	log.Printf("gauntlet/%s: response UNUSABLE round_id=%s reason=%s body_chars=%s body=%q",
 		endpoint, roundID, reason, strconv.Itoa(len(body)), snippet(body))

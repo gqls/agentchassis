@@ -124,6 +124,23 @@ func TestLogAIBadResponse_CapsAVeryLongBody(t *testing.T) {
 	}
 }
 
+// The 500-class paths (DB lookup, marshal, persist) discarded their errors
+// exactly as the LLM ones did. They are logged through a separate helper because
+// a truncation check is meaningless for a database error — but the record must
+// still carry the cause, or those paths stay as undiagnosable as the 503s were.
+func TestLogInternalFailure_RecordsTheCause(t *testing.T) {
+	out := captureLog(func() {
+		logInternalFailure("defend", "persist_verdict", "round-321",
+			errors.New("ERROR: deadlock detected (SQLSTATE 40P01)"))
+	})
+
+	for _, want := range []string{"gauntlet/defend", "persist_verdict", "FAILED", "round-321", "40P01"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("internal-failure log missing %q\ngot: %s", want, out)
+		}
+	}
+}
+
 func TestSnippet_LeavesAShortBodyIntact(t *testing.T) {
 	if got := snippet("short"); got != "short" {
 		t.Errorf("snippet altered a short body: %q", got)
