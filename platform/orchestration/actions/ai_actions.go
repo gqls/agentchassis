@@ -444,6 +444,16 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 
+		// Thinking telemetry is read on the FAILURE path too, and deliberately.
+		// gemini.go records usage into the options map BEFORE it inspects
+		// finishReason, so a call cut short by thinking still carries the
+		// thinking count that explains why — and that is the single most useful
+		// row in the table for sizing the reserve (bugs_open/107 was diagnosed
+		// as an incapable model precisely because this number was invisible).
+		// A failed call whose thinking_tokens ≈ wire_max_output_tokens is the
+		// starvation signature, readable without any arithmetic on output_tokens.
+		wireMax, thinkReserve, thinkTokens, totalTokens := thinkingTelemetry(options)
+
 		// Log the failed call
 		LogLLMCall(params.DB, params.Logger, LLMCallLogParams{
 			AgentType:       params.AgentType,
@@ -464,6 +474,11 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			WorkItemID:      flywheelWorkItemID,
 			Vertical:        flywheelVertical,
 			RAGContextUsed:  flywheelRAG,
+
+			WireMaxOutputTokens:   wireMax,
+			ThinkingReserveTokens: thinkReserve,
+			ThinkingTokens:        thinkTokens,
+			TotalOutputTokens:     totalTokens,
 		})
 
 		// ── Tolerated truncation: degrade the STEP, don't void the RUN ──
@@ -642,6 +657,7 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 	if mt, ok := options["__sent_max_tokens"].(int); ok {
 		sentMaxTokens = mt
 	}
+	wireMax, thinkReserve, thinkTokens, totalTokens := thinkingTelemetry(options)
 	// A TOLERATED truncation was already logged in the error path above
 	// (success=false, stop_reason in error_message) — do not log it a second
 	// time as a success. A success=true row with output_tokens at exactly the
@@ -671,6 +687,11 @@ func ExecuteLLMPromptAction(ctx context.Context, params ActionParams) (interface
 			WorkItemID:      flywheelWorkItemID,
 			Vertical:        flywheelVertical,
 			RAGContextUsed:  flywheelRAG,
+
+			WireMaxOutputTokens:   wireMax,
+			ThinkingReserveTokens: thinkReserve,
+			ThinkingTokens:        thinkTokens,
+			TotalOutputTokens:     totalTokens,
 		})
 	}
 
