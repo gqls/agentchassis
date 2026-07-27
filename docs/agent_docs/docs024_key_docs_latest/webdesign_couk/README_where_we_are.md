@@ -552,3 +552,70 @@ the links work.
 changed, so if that page is ever regenerated it will come back broken. The home page is sound
 today; the site is not yet sound as a rule. That's what `bugs_open/116` and the other two open
 cases are for.
+
+---
+
+### Monday 27 July, evening — the analytics answer, and two things I found were no longer true
+
+**On the Cloudflare analytics.** You said you thought you'd enabled it and it was showing one
+visit, yours. I checked the live page and the tracking script still isn't there — I looked three
+ways (a plain fetch, a fetch pretending to be a desktop Chrome browser, and one with a
+cache-busting trick so we couldn't be seeing an old copy), and it's absent every time. The page
+is definitely going through Cloudflare, and there's nothing on our side blocking Cloudflare from
+adding the script. So the automatic method isn't working, whatever the dashboard is showing.
+
+Here's what I think you're seeing, and it's an easy one to trip over. **Cloudflare has two
+separate things both called analytics.** One is *Traffic*, under "Analytics & Logs" — that counts
+requests at Cloudflare's edge, it's been switched on since the day the site went live, and it
+needed no setup at all. Seeing a visit there tells us nothing about whether the thing you enabled
+worked. The other is *Web Analytics*, which is the one that needs a small script on the page, and
+it's the only one that can tell us **which pages people actually read** — which is the whole
+reason we wanted it, because the "put the popular tools first" decision is waiting on it.
+
+**The good news is I don't need you to fight the dashboard.** The previous session already built
+the alternative and it's sitting there ready: the tracking script is already in our page template,
+switched off, waiting for one thing. If you go to **Web Analytics → Manage site** and look at the
+manual snippet it offers, there's a token in it — a string of letters and numbers. Paste that to
+me and I'll have it live in about ten minutes, and it'll be in our own version control rather than
+depending on a Cloudflare setting that can silently stop working. That's the only thing I need
+from you on this.
+
+**Now the two things I found were no longer true.** Both were warnings I inherited, and both had
+quietly expired.
+
+The first was a rule I was told not to break: don't re-publish the site's header until the news
+page exists, or you'll put a broken link in the header of all 98 pages. That was real when it was
+written. It isn't any more — another team fixed the underlying problem, and the system now removes
+links to pages that don't exist yet, all by itself. I checked this properly rather than taking it
+on trust: I read the code, followed it through to the rule it applies, confirmed our news page
+matches that rule, and confirmed the fix is genuinely in the software that's actually running, not
+just sitting in someone's draft. I should be straight that I haven't yet *watched* it happen —
+the server had only been up 35 minutes when I looked, so there was nothing to see. The next time
+the header gets re-published is the moment that confirms it.
+
+This matters more than it sounds, because it was blocking two things at once — the news page
+sequence, and the analytics fix above, which needs exactly that header re-publish.
+
+**The second was the spelling job.** I was told 23 pages have American spellings and given a short
+list of words to ignore. The count was about right — I make it 38 instances across 22 pages — but
+the method would have broken the site. Three problems. The same letters appear inside the
+JavaScript that makes the tools work, so a blanket find-and-replace would silently break working
+tools while leaving them looking perfectly fine. Four of our web addresses contain the American
+spelling, and rewriting those recreates exactly the broken-links mess we cleaned up yesterday.
+And one of the "errors" isn't one: our entropy *meter* is spelled correctly, because in British
+English a measuring device is a meter — it's only the unit of length that's a metre. I'd have
+introduced a mistake while claiming to fix one.
+
+**But there's a bigger question underneath it that I'd rather you answered than I assumed.** There
+isn't a single British spelling anywhere on the site — it's uniformly American throughout. So this
+isn't tidying up a few strays, it's a deliberate decision to change house style across a fifth of
+the live pages. My view is we should do it, because on a .co.uk aimed at British buyers the
+American spellings quietly undercut us. But it's your call, and it's tangled up with a question
+you left open last time: **do the designer pages stay?** If we're ultimately not focusing on them,
+this is polishing something we're stepping back from, and I'd rather spend the time on the
+buying-design section. So I've stopped and left it un-started.
+
+**The news feed** is still waiting. It's armed correctly, all five sources, no errors, and the
+next attempt is 19:49 tonight. Last time it failed for a reason that had nothing to do with us —
+the server had just restarted. It's been up nearly an hour now, so tonight's attempt has a clear
+run at it.

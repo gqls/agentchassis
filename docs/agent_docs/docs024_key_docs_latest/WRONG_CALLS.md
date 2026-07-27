@@ -7293,3 +7293,56 @@ about reading data; this one is about **manufacturing** it and then reading that
 
 Family: the-fixture-that-agrees-with-the-code, a-name-is-not-provenance,
 the-lesson-written-down-and-not-applied.
+
+---
+
+## 2026-07-27 — a handoff's landmine outlived the bug it warned about (webdesign.co.uk)
+
+**The claim.** `HANDOFF_2026-07-27b_continue_here.md` §1, written that afternoon as the
+cold-start document for the next thread, on the order of building the news page:
+
+> *"only after it builds, re-render chrome to publish the News nav link. **That order is not
+> optional** — the nav row already exists in the DB, so re-rendering chrome early puts a 404 in
+> the header of all 98 pages (`bugs_open/049`'s exact shape)."*
+
+**Why it was false.** The platform already drops the item. Every chrome path passes
+`NavFetchableOnly` to `GetNavItems`, and `applyNavVisibility` (`nav_tables.go:152`) filters any
+target matching `NeverDeployedPagePredicate` — which `/news/index.html` matches exactly
+(`deployed_at IS NULL`, `build_status='planned'`). It is in the running binary, not just the tree:
+pod-grep of the drop log on `v1.0.1175` returns 1. The guard shipped with the **049 fix itself**
+(`a9083d51b`, `759cb2b77`) — the very bug the warning cites as the hazard.
+
+**What caught it.** Reading the function. I was already inside `getNavItemsFromTables` looking at
+the nav query when a comment at `nav_tables.go:368` said the deployment predicate had **moved to
+`applyNavVisibility`**. One jump. The code volunteered its own correction.
+
+**The cheap check that would have.** The same one, before writing "not optional" into a cold-start
+doc: open the function that renders the nav and follow where it filters. Under a minute. The
+handoff instead reasoned from the DB row (`site_nav_items` has an active News row pointing at an
+unbuilt page — true) straight to the rendered outcome (a 404 ships — false), with the renderer
+never opened. **This is the exact shape CLAUDE.md's 2026-07-19 correction was written about:
+"the failure mode is not missing information — it is not looking."**
+
+**The new part, and the reason this is worth a row of its own.** The claim was *true when the
+mechanism was first learned* and quietly stopped being true when another workstream fixed it.
+**A landmine written into a handoff has no expiry date and no owner.** `bugs_open/049` was closed
+by the CTA/link-integrity thread; nothing in that closure could reach into a site workstream's
+handoff and retire the warning it had spawned. So the warning propagated forward under its own
+momentum, into the one document a fresh thread is told to trust first — where it is *more*
+load-bearing than an ordinary note, because a cold-start reader has no context to doubt it with.
+
+The asymmetry is what makes it dangerous rather than merely stale: a **stale hazard warning costs
+silently**. It never fires, never contradicts anything, and just makes people take a longer route
+— here, it would have made the news sequence look fragile and, worse, ruled out the chrome
+re-render that Route B of the Cloudflare beacon needs. Nothing would have looked wrong.
+
+**Tally.** Two families. *Read the function, don't infer the behaviour from the data* — a
+recurrence, now at least the third instance, and the one CLAUDE.md already names. And a genuinely
+new one: **a warning inherits the confidence of the document it lands in, not the freshness of the
+fact behind it.** Practical form, cheap enough to adopt: when a handoff states a hazard as a
+constraint on someone else's future work, **cite the code that makes it true, not just the symptom**
+— `NormalizePagePath`-style file:line, so the next reader can re-check in seconds instead of
+believing. A hazard with no citation should be re-derived before it is obeyed.
+
+Family: read-the-function-dont-infer-from-the-data, the-fixed-bug-whose-warning-outlived-it,
+a-cold-start-doc-is-believed-harder-than-it-is-checked.

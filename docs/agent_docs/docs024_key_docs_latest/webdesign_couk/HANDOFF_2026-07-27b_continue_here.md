@@ -35,6 +35,26 @@ SELECT count(*) FROM content_feed_items cfi JOIN sites s ON s.id=cfi.site_id
   publish the News nav link. That order is not optional — the nav row already
   exists in the DB, so re-rendering chrome early puts a 404 in the header of all
   98 pages (`bugs_open/049`'s exact shape).
+
+> **CORRECTED 2026-07-27 evening — the hazard in that last sentence is GONE.**
+> Re-rendering chrome early is now **safe**: the platform drops the News item
+> itself. Every chrome path passes `NavFetchableOnly`
+> (`render_site_components_action.go:103,104,119,194`,
+> `section_editor_actions.go:475,476`, `v3_site_actions.go:968`), and
+> `applyNavVisibility` (`nav_tables.go:152`) filters out any target matching
+> `NeverDeployedPagePredicate` (`datahelpers/links.go:210`) — which
+> `/news/index.html` does (`deployed_at IS NULL`, `build_status='planned'`). The
+> guard is in the **running** binary: pod `agent-chassis-566bf56b78-jtjnj`,
+> `v1.0.1175`, pod-grep of `"dropped nav items whose target page has never been
+> deployed"` → 1. It arrived with the 049 fix (`a9083d51b`, `759cb2b77`).
+> **[UNVERIFIED: no production execution trace]** — the pod was 35 minutes old when
+> I looked, so the absence of the drop log proves nothing yet; the first chrome
+> render after this note is what confirms it.
+> **The build-then-publish order is still the tidier sequence — just no longer
+> load-bearing.** This matters because three `needs_rerender` items for
+> header/footer/head are already sitting `detected` in `site_work_items`, so a
+> chrome render is coming whether or not anyone sequences it. Full evidence chain
+> in `NOTES_webdesign_couk.md`, entry "2026-07-27 evening".
 - **If still 0 after ~20:15 UTC:** re-read `bugs_open/029` before anything else and
   check the chassis pod's `startTime` against the tick time. Do **not** conclude
   the arming is broken — it is verified working (see below).
@@ -345,6 +365,29 @@ zero duplication risk.
    → **Automatic Setup** (the zone is already proxied; nothing in this repo
    changes). Until then **nothing is being collected**, and every "order by
    popularity" decision waits on it.
+
+   > **UPDATED 2026-07-27 evening — owner reports it enabled and "showing 1 visit
+   > (mine)"; the beacon is still absent, so switch to Route B.** Measured 18:20 UTC:
+   > **no beacon** under a plain curl, a desktop-Chrome UA, *and* a cache-busted URL.
+   > The response carries `cf-ray` and `cf-cache-status: DYNAMIC`, so it genuinely
+   > passes through the proxy and could have been rewritten, and `cache-control:
+   > public, max-age=3600` has no `no-transform` — the one documented condition that
+   > blocks edge injection. **Route A is not injecting.**
+   >
+   > **The two dashboards are easy to confuse and only one needed enabling.**
+   > *Analytics & Logs → Traffic* is server-side, on by default for any proxied zone,
+   > and has counted since launch — a visit count there is **not** evidence Web
+   > Analytics is on. *Web Analytics* is the beacon product and the only one that
+   > answers "which pages are popular".
+   >
+   > **Route B is already built and one string from working.** `SQL_p7` put the
+   > beacon in the `webdesign-couk-head` template behind `{{if .cf_analytics_token}}`
+   > (verified live: template contains it, gate present, token unset, so nothing
+   > renders — the correct resting state). Ask the owner for the token from
+   > **Web Analytics → Manage site → the manual JS snippet**, the value inside
+   > `data-cf-beacon='{"token": "…"}'`. Then: run the commented UPDATE at the foot of
+   > `SQL_p7`, re-render chrome (**now safe — see the correction in §1**), and verify
+   > with `curl -s https://webdesign.co.uk/ | grep -c cloudflareinsights`.
 2. **The (a)/(b)/(c) exposure decision** above.
 3. **`Buying design` confirmed** as the nav label, and the eight-page inventory.
 4. **Do the designers stay?**
@@ -367,6 +410,30 @@ zero duplication risk.
   pages. The pattern must exclude `color`/`center`/`gray`/`behavior` (CSS tokens;
   `behavior` contributes zero, all `scroll-behavior`). **Two of the three affected
   titles are also live slugs — Britishise the title, never the URL.**
+
+  > **CORRECTED 2026-07-27 evening — count roughly right, exclusion list NOT
+  > sufficient.** Re-measured on the served files with `<script>`/`<style>` and all
+  > tags stripped: **38 prose occurrences across 22 files**. Excluding only the four
+  > CSS tokens above is not enough, and a sweep built on that list breaks things:
+  > (1) the same letters are **JavaScript identifiers** in the tools' inline scripts
+  > — `resize` ×23, `minSize`, `textSize`, `fontSize`, `fileSize`, `optimizedSize`,
+  > `initialize`, `tokenizer` — and `optimizedSize` contains `optimized`, so a blind
+  > replace silently breaks a live tool that still *looks* fine;
+  > (2) **four** live slugs carry the American form, not two —
+  > `/tools/image-optimizer/`, `/tools/svg-optimizer/`, `/tools/text-sanitizer/`,
+  > `/learn/code/regex-visualized.html`;
+  > (3) **`meter` is not an error at all** — an *entropy meter* is a device, and
+  > British English keeps "meter" for devices ("metre" is only the unit of length),
+  > so 3 of the pages flagged were false positives.
+  > Safe shape: **prose-only** — text nodes outside `<script>`/`<style>` and outside
+  > tag attributes, plus `<title>` and meta description, across
+  > `page_components.rendered_html` + `content_data`, `pages.title` +
+  > `meta_description`, and the served file.
+  > **Reframing worth the owner's call:** there are **zero** `-ise` forms on the site
+  > and 15 pages of `-ize`, so this is a uniform house-style conversion of a fifth of
+  > the live pages, not a defect cleanup — and Oxford British English permits `-ize`.
+  > Not started, pending that call and the "do the designers stay?" answer, which
+  > decides whether W2's practitioner half is worth doing at all.
 - **Ordering by popularity stays last**, and only after stats accumulate against
   rewritten content.
 

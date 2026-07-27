@@ -837,3 +837,134 @@ an **artefact, not a property**. I fixed `content_data`, `rendered_html` and the
 published file, and all three will be overwritten the next time that page is
 generated, because nothing upstream changed. The home page is link-sound this
 afternoon. The *site* is not link-sound.
+
+---
+
+## 2026-07-27 evening — two corrections, both to claims in the handoff I inherited
+
+Session 3. Owner said he thought Cloudflare analytics was enabled ("it shows 1
+visit (mine)"). Checking that led into both corrections below.
+
+### CORRECTION 1 — the "re-rendering chrome ships a 404 News link" blocker is GONE
+
+`HANDOFF_2026-07-27b` §1 says, of building the news page:
+
+> only after it builds, re-render chrome to publish the News nav link. That order
+> is not optional — the nav row already exists in the DB, so re-rendering chrome
+> early puts a 404 in the header of all 98 pages (`bugs_open/049`'s exact shape).
+
+**That is no longer true, and I nearly worked around a constraint that does not
+exist.** The platform now drops the item by itself. Evidence, in the order I got it:
+
+- The News nav row is real and `active` — `site_nav_items` has `News →
+  /news/index.html` at position 40, and `/news/index.html` is `build_status =
+  'planned'`, `deployed_at IS NULL`. So the *premise* holds.
+- But **every chrome path asks for fetchable items only**:
+  `render_site_components_action.go:103,104,119,194`, `section_editor_actions.go:475,476`
+  and `v3_site_actions.go:968` all pass `NavFetchableOnly` to `GetNavItems`.
+- `applyNavVisibility` (`nav_tables.go:152-249`) drops any item whose URL is not in
+  `loadFetchablePageSet`, which excludes
+  `NeverDeployedPagePredicate = deployed_at IS NULL AND COALESCE(build_status,'') <> 'deployed'`
+  (`datahelpers/links.go:210`). The news page matches that predicate exactly.
+- The kept set is non-empty (Home/Tools/Learn/About are all deployed), so neither
+  the `deployedPages == 0` nor the "every item unfetchable" fallback fires — those
+  are the two branches that would serve the UNFILTERED nav and re-arm the trap.
+- **It is in the running binary**, not just the tree: chassis pod
+  `agent-chassis-566bf56b78-jtjnj` runs `v1.0.1175` and
+  `strings /app/agent-chassis | grep -c "dropped nav items whose target page has never been deployed"` → **1**.
+  The guard arrived in `a9083d51b` / `759cb2b77` (the 049 fix).
+
+**[UNVERIFIED — no production execution trace.]** I could not show the branch
+actually firing in production: the pod started `18:00:40Z` and I looked at `18:35`,
+so `--since=24h` is really 35 minutes of pod life, and no chrome render happened in
+it. Zero occurrences of the drop log is therefore *uninformative*, not confirming —
+the same narrow-window trap as `narrow-filter-defines-the-conclusion`. The static
+chain above is complete and the binary check is real, but the first chrome render
+after this note is the one that proves it. **Watch for the
+`dropped nav items whose target page has never been deployed` line naming
+`/news/index.html`.**
+
+Why it matters beyond the news page: three `needs_rerender` work items are already
+sitting in `site_work_items` for this site (header, footer, head, all `detected`),
+so a chrome re-render is going to happen whether or not anyone sequences it. Under
+the old belief that was a live hazard. It is not.
+
+### CORRECTION 2 — W2's "American spellings" is right about the count and wrong about the method
+
+The handoff sizes W2's starting item as *"American spellings in body copy on 23 of
+98 pages"*, excluding `color`/`center`/`gray`/`behavior` as CSS tokens. The count is
+close — I measure **38 prose occurrences across 22 files** — but **the stated
+exclusion list is not sufficient, and a sweep built on it would break the site.**
+
+Measured on the served files (`~/projects/sites/webdesign.co.uk`), stripping
+`<script>` and `<style>` blocks and then all tags, so only real prose is counted:
+
+```
+7 visualize   6 optimized   3 optimizing   3 organize   3 organization
+3 defense     3 optimizer   2 prioritize   2 visualizing 1 optimizes
+1 recognizing 1 specialized 1 fiber        1 optimize    1 recognize
+```
+
+**Three traps a naive `replace()` over the HTML walks straight into:**
+
+1. **The same letters are JavaScript identifiers.** Un-stripped, the files yield
+   `resize` ×23, `minsize` ×9, `textsize` ×6, `fontsize` ×4, `filesize` ×3,
+   `maxsize`, `brushsize`, `originalsize`, `optimizedsize`, `initialize`,
+   `tokenizer`, `sanitizer`. These are camelCase variables and the CSS `resize`
+   keyword inside the tools' inline scripts. `optimizedSize` contains `optimized`;
+   rewriting it silently breaks an interactive tool, and the tool still renders, so
+   nothing looks wrong.
+2. **Four live slugs contain the American form** — `/tools/image-optimizer/`,
+   `/tools/svg-optimizer/`, `/tools/text-sanitizer/`,
+   `/learn/code/regex-visualized.html`. Rewriting an `href` re-creates the exact
+   404 class this site spent yesterday fixing. **Britishise the title, never the
+   URL** — which means accepting a visible mismatch between a title reading
+   "Image Optimiser" and a URL reading `image-optimizer`. That is the correct
+   trade, not an oversight.
+3. **`meter` is not an error.** It shows up 5 times over 3 pages
+   (`/tools/entropy-meter/`, `/learn/security/entropy-physics.html`,
+   `/tools/index.html`). An *entropy meter* is a measuring device, and British
+   English keeps "meter" for the device — "metre" is only the unit of length.
+   Changing it would introduce a mistake while claiming to fix one. Dropped from
+   the list.
+
+**So the safe shape of the fix is prose-only**: edit text nodes outside
+`<script>`/`<style>` and outside tag attributes, plus `<title>` and the meta
+description, on all three surfaces (`page_components.rendered_html` +
+`content_data`, `pages.title` + `meta_description`, and the served file). Not
+written yet — see the open question below.
+
+### One thing the sizing exercise turned up that changes the framing
+
+There are **zero** `-ise` forms anywhere on the site and 15 pages carrying `-ize`.
+So this is not "stray Americanisms in otherwise British copy" — the site is
+**uniformly** American on these words, and converting it is a deliberate house-style
+change to a fifth of the live pages, not a defect cleanup. Worth the owner's
+sign-off rather than my assumption, especially as Oxford British English legitimately
+permits `-ize`. My view: on a `.co.uk` pitched at UK buyers, `-ise` is right, because
+most UK readers read `-ize` as American whatever the OED allows.
+
+### Cloudflare analytics — the beacon is NOT live, and Route B is already built
+
+Measured `18:20 UTC` against `https://webdesign.co.uk/`: **no beacon**, under a
+plain curl, under a desktop-Chrome UA, and with a cache-busting query string.
+`cf-ray` present and `cf-cache-status: DYNAMIC`, so the response really is passing
+through the Cloudflare proxy and could have been transformed. `cache-control:
+public, max-age=3600` carries no `no-transform`, which is the one documented
+condition that blocks automatic edge injection. So **Route A (Automatic Setup) is
+not injecting**, whatever the dashboard shows.
+
+`SQL_p7` already wired **Route B** and it is live and correctly gated: the
+`webdesign-couk-head` template contains the beacon behind
+`{{if .cf_analytics_token}}`, and `site_components.head.content_data` has **no
+token**, so the gate is closed and nothing renders. That is the intended resting
+state. **One token string turns it on** — the commented UPDATE at the foot of
+`SQL_p7`, then a chrome re-render, which correction 1 above has just established is
+safe.
+
+**The distinction to put to the owner:** Cloudflare shows two different things and
+only one of them needed enabling. *Analytics & Logs → Traffic* is server-side, on
+by default for any proxied zone, and has been counting since the site went live —
+seeing "1 visit" there is not evidence Web Analytics is on. *Web Analytics* is the
+beacon product, and it is the one that answers "which pages are popular", which is
+what the deferred ordering-by-popularity decision is waiting for.
