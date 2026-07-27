@@ -5754,3 +5754,62 @@ index and still reached for the general rule.
 of the thing you claim is slow. An absence is evidence about a *system*, never about your own
 item alone.
 Family: heuristic-applied-without-a-falsifier, absence-has-two-causes, ignored-my-own-counterexample.
+
+---
+
+## 2026-07-27 — I shipped "1170+ agents" to production while fixing a claim that understated the fleet
+
+**The claim I wrote down:** migration `231`'s post-condition asserted that ai-agent-orchestration.com's
+stored content no longer carried a superseded agent figure, and it passed. `231` committed and applied
+on that basis. The site was at that moment publishing **"1170+ agents"** in six sentences — a figure
+about 6.7x the real fleet (175), produced by my own fix for a figure that understated it.
+
+**What actually happened.** I normalised the copy with a nested chain of `replace()`:
+
+```sql
+replace(replace(replace(X, '70+ Agents','170+ Agents'),
+                           '70+ agents','170+ agents'),
+                           '70+ agent', '170+ agent')
+```
+
+The third call reads the second's **output**, and `"170+ agents"` contains `"70+ agent"` at offset 1.
+So it matched its own replacement and produced `"1170+ agents"`. Two further variants —
+`"70 Agents"` with no plus, and `"30 distinct agent types"` with the infix — were never touched,
+because my census of variants was a `LIKE` list I wrote from the shapes I had already noticed.
+
+**What caught it:** running the real `ParseEvidenceBase` + `ScanBannedClaims` over the stored content
+with the site's own newly-seeded register, and asking a question the migration could not ask about
+itself — *does the corrected copy trip the site's own bans?* Four hits, immediately. Fixed in `232`,
+kept as a separate file so the mistake stays on the record.
+
+**The cheap check that would have caught it, and it is one line:**
+
+```sql
+-- after ANY replace()-chain over content, look at what you actually produced
+SELECT DISTINCT m[1] FROM page_components pc, LATERAL regexp_matches(pc.content_data::text, '<the shape>', 'g') m;
+```
+I ran exactly this query BEFORE writing `231` to enumerate the variants. I did not run it AFTER.
+
+**The mechanism of the error, which is the transferable part.** `231`'s post-condition was
+`content_data !~ '(^|[^1])70\+\s*[Aa]gent'`. Read it against the two defects:
+
+- the `[^1]` **explicitly excuses a leading 1** — the exact artefact the cascade produces;
+- it enumerates only the shapes the migration already knew about.
+
+I wrote the assertion from the same mental model as the change, so it could only confirm the change
+did what I thought it did. **A post-condition authored by the author of the change, from the author's
+own list of cases, cannot falsify that change** — it re-runs the belief instead of testing it. The
+only thing that found this was an *independent* oracle: the site's own banned_claims, compiled by
+the real Go engine, which knew nothing about my intentions.
+
+Twice in one session, the same lesson from opposite directions: earlier I nearly reported a vacuous
+pod-grep (the marker string my change "created" already existed in the live binary), and caught that
+only by demanding a negative control. Here I nearly left a 6.7x overstatement live, and caught it
+only by demanding an independent checker. **Both times the aggregate looked right and the individual
+items were wrong** — the register said "7 components rewritten", which was true and told me nothing.
+
+**Rule of thumb this earns:** a self-authored post-condition is a restatement, not a test. After a
+bulk text edit, read the output rather than counting it, and grade the result with a checker that
+was not written for this change. Where one exists already — a gate, a lint, a banned-claims list —
+use *that*, not a fresh assertion of your own.
+Family: post-condition-shares-the-authors-model, cascading-replace-feeds-itself, census-of-what-i-already-noticed, read-the-output-not-the-count.
