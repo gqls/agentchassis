@@ -101,3 +101,87 @@ Restore `build_status` afterwards if the run does not complete — this thread l
 **Related:** `bugs_closed/068` (the contract fix that exposed this — same rebuild path, one step
 earlier), `bugs_open/086` (the dropped `error_step`; had it been carried, this failure would still be
 fatal — `process_sections_loop` declares no handler).
+
+---
+
+## 2026-07-27 — both blocking questions ANSWERED, and candidate A is APPLIED
+
+Picked up by the bug-sweep thread. `who-owns.py 087` reports no owning
+workstream, and no session had touched the file since 07-26 19:25.
+
+### The two "cheap open questions" the case named as blockers — neither blocks
+
+Both settled by reading `platform/orchestration/actions/plan_sections_action.go`,
+not by trying it:
+
+**Q1 — does `plan_sections` tolerate an absent `work_item_id`? YES.**
+`:50-52` — `Required` is `["site_id"]` **alone**; `work_item_id` sits in
+`Optional`. `createDeferredItems` (`:1824-1830`) guards
+`if parentWorkItemID != ""`, so an absent one leaves `parentID` nil and deferred
+items simply get no parent. The rebuild flow has no work item and does not need
+one.
+
+**Q2 — where does `sections` come from on the rebuild path? `current_page.sections`,
+which is the shape the action documents for ITSELF.** The case treated this as a
+possible mismatch because the handler passes `spec_sections.sections`. But the
+action's own header example (`:22-25`) is:
+
+```json
+"sections":  "page_record.sections",
+"page_name": "page_record.name"
+```
+
+— a **page record's** section list, which is exactly what `current_page.sections`
+is. The parser (`:649-664`) accepts `[]interface{}` of strings, `[]string`, or a
+JSON string; `["hero-about","content-block-about",…]` is the first case.
+`filterSiteLevelSections` then strips any header/footer names, which is the one
+real hazard in feeding it a raw page section list and is already handled.
+
+**And the failure mode improves even in the worst case.** If
+`current_page.sections` were empty, `plan_sections` returns
+`{"sections_ready": [], …, "reason": "no sections to plan"}` (`:673-681`) — the
+**key exists**. So `extract_fields` finds it and the loop iterates zero times
+instead of dying on `key 'sections_ready' not found`. The fatal error this case
+reports cannot recur in that shape.
+
+### Applied — `docs/agent_docs/sql_for_agents/246_page_rebuild_plans_its_sections.sql`
+
+Config-only, live on apply, snapshot taken first. Three targeted `jsonb_set`
+operations (an added key and two scalars — never a literal-object write at a
+parent path, which would have destroyed the eight-entry `input_mapping`):
+
+1. new `plan_sections` step in `build_pages_loop`'s sub-workflow,
+   `next_step: write_page_content`, `output_field: section_plan`;
+2. `start_step` moved from `write_page_content` to `plan_sections`;
+3. `"section_plan": "section_plan"` added to the writer's `input_mapping`.
+
+Verified inside the transaction before COMMIT:
+
+```
+start_step            -> plan_sections
+plan_sections         -> write_page_content     (heads the graph, 9 steps total)
+input_mapping         -> 9 keys, has_section_plan = t   (the original 8 survived)
+```
+
+That third check is the load-bearing one: the writer's mapping had eight entries
+and a careless write at the `input_mapping` path would have replaced all of them,
+breaking the rebuild path in a new and less obvious way.
+
+### ⚠️ NOT YET VERIFIED LIVE — the acceptance test needs a real dispatch
+
+Nothing above proves the fix WORKS; it proves the config is shaped correctly. The
+case's own test still stands and is outward-facing, so it has not been run:
+re-arm one page (`UPDATE pages SET build_status='needs_rebuild'`), dispatch
+`page-rebuild` for its site, and require the writer child to reach `compile_page`
+with the page deployed and its components rewritten. **Assert the branch, not the
+happy path** — the child's `initial_request_data->'input_data'` must be the
+rebuild shape. Restore `build_status` if the run does not complete.
+
+Until that runs, this is a **config change that should work**, not a fixed bug —
+so 087 stays OPEN.
+
+**Candidates B and C are untouched** and still want an owner call: B routes
+rebuilds through `page-build-handler`, C retires `page-rebuild` altogether. C is
+the one that removes the class, and the case's argument for it is strong — the
+path has 0 runs in the 13-day retention window and two live paths already cover
+the need.
