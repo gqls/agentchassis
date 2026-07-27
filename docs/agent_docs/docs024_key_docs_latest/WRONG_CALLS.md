@@ -7556,3 +7556,42 @@ that exists and machinery that fires.
 
 Family: interceptor-existed-and-was-not-used, confidence-is-the-gate-and-should-not-be,
 rule-without-a-sweep, universal-negative-from-local-evidence.
+
+---
+
+## 2026-07-27b — the check I wrote to catch a bug reported CLEAN because it was scanning nothing
+
+**The claim.** Having added `check_logged_model_output` to `pattern-check.py`, I ran
+it and reported the result as meaningful. It found nothing, and nothing was wrong.
+
+**What was true.** It was **vacuous**. The check gated on the *file* containing
+`GenerateText` — but in the code it was written to police, the LLM call lives in
+`handlers/defend.go` and the log sink in its sibling `handlers/ailog.go`. The file
+holding the defect never mentions `GenerateText`, so it was skipped entirely. The
+check scanned zero files and printed a clean result, which is exactly what a
+passing check looks like.
+
+**What caught it.** A **positive control**: auditing `a37a2037c` — the commit that
+had *introduced* the raw-excerpt logging — and requiring a finding. It produced
+none, which is the only reason I looked at the gate.
+
+**The cheap check that would have.** The one I then used. **A new check must be
+run against a commit known to contain the defect, and must fire.** Otherwise
+"0 findings" is indistinguishable from "0 files examined" — and the second is
+worse than no check at all, because it is now a documented reassurance.
+
+**Cost.** None realised; caught before it was committed as working. But the shape
+is the point: this is the same failure as the *vacuous pod-grep* already in this
+ledger twice (a comment is not in the binary; a typed const is inlined away), now
+in a third costume. **Every "we now detect X" claim needs the negative case
+demonstrated, not just the positive one asserted.**
+
+**Same session, smaller:** I `git stash`ed a shared working tree to isolate a
+negative control, when the command I was running (`pattern-check --ref <sha>`)
+diffs committed state and never saw my uncommitted work. The stash was pure risk —
+three other sessions' stashes are in that list — and bought nothing. *Check: does
+the tool I am running actually read the working tree before protecting it from
+itself.*
+
+Family: a-clean-result-and-an-unrun-check-are-identical, vacuous-detector,
+protected-against-a-risk-the-tool-does-not-have.
