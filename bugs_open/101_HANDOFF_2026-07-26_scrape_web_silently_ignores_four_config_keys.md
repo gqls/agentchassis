@@ -160,3 +160,73 @@ argument.
   read", with the one-command check.
 - Same family as the fleet's inert-layer entries: **the artefact exists, so the capability is
   assumed.**
+
+---
+
+## ⚠️ 2026-07-27 — CANDIDATE 3 HAS A TRAP: the keys are inert PER ACTION, not per name
+
+Contributed by the bug-sweep thread while re-grounding this case. **Nothing above
+is wrong** — but the diagnostic greps in "Root cause" are filtered in a way that
+makes all four keys look universally dead, and one of them is not.
+
+The file's own check for `max_pages` is:
+
+```
+$ grep -rn "max_pages" --include=*.go . | grep -i webscrape      # no hits
+```
+
+That is a true statement about `webscrape`. Re-run it **unfiltered** and the
+picture changes:
+
+```
+$ grep -rn --include=*.go "max_pages" . | grep -v '^./docs/'
+platform/orchestration/actions/select_representative_content_action.go:35   Optional: []string{"max_pages", ...}
+platform/orchestration/actions/select_representative_content_action.go:54   if mp, ok := config["max_pages"].(float64); ok {
+platform/orchestration/actions/v3_site_actions.go:2963                      if mp, ok := config["max_pages"].(float64); ok {
+platform/orchestration/actions/v3_site_actions.go:5323                      logger.Warn("validate: preserved pages exceed max_pages; ...")
+```
+
+**`max_pages` is a live, load-bearing key — for two OTHER actions.** And those
+actions are in use right now:
+
+| action | type | step | `max_pages` | live? |
+|---|---|---|---|---|
+| `scrape_web` | `domain-research-classifier` | `scrape_site` | 3 | **inert** (this bug) |
+| `scrape_web` | `vet-practice-verifier` | `scrape_website` | 3 | **inert** (this bug) |
+| `select_representative_content` | `site-adoption-agent` | `select_content` | 3 | **LIVE** — read at `select_representative_content_action.go:54` |
+| `validate_site_plan` | `build-site-planner` | `validate_plan` | 80 | **LIVE** — read at `v3_site_actions.go:2963` |
+| `validate_site_plan` | `site-planner` | `validate_plan` | 20 | **LIVE** — same |
+
+**So candidate 3 must delete by (action, key), never by key.** A fleet-wide
+cleanup written the obvious way —
+
+```sql
+-- DO NOT DO THIS
+UPDATE agent_definitions SET default_config = ... WHERE config ? 'max_pages'
+```
+
+— strips a live page cap from three steps, including `build-site-planner`'s 80,
+where the code's own warning shows the value doing real work: *"validate:
+preserved pages exceed max_pages; keeping all preserved, dropping all net-new"*.
+Silently uncapping a site planner is a considerably worse bug than the one this
+file is about.
+
+The other three keys **are** dead everywhere, checked unfiltered across the whole
+tree (`docs/` excluded, which holds vendored copies):
+
+```
+$ grep -rn --include=*.go "follow_links\|extract_mode\|fallback_url_field" . | grep -v '^./docs/'
+(no output)
+```
+
+This is the same shape as the recorded landmine *"a narrow filter defines the
+conclusion"*: a grep filtered by a term taken from the question answers
+confidently about a small world and never reveals that the world was small. The
+filter was `webscrape`, and it was correct for the claim being made — the risk
+only appears when the next reader carries the conclusion **"these four keys are
+inert"** into a fleet-wide edit, which is exactly what candidate 3 is.
+
+**Unchanged by this note:** candidate 3 is still not recommended over 1+2, for the
+reason the file already gives — it removes the evidence rather than the problem.
+And `domain-research-classifier` still has no identified owner, so half of
+candidate 3's blast radius is someone else's agent.
