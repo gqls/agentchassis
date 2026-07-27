@@ -244,3 +244,73 @@ anything is edited.
    close until it is met. **Do not grade it on a green build.**
 3. **Council round 7**, attaching the caller table from `NOTES` as checks.
 4. The finetuning and units rulings — both yours, neither guessable.
+
+---
+
+## 9. Update, 2026-07-27 afternoon — owner rulings applied, and item (c) is NOT what this file said
+
+**Both owner rulings are done and VERIFIED ON THE PUBLISHED ARTEFACT**, not on a status:
+
+| ruling | migration | state |
+|---|---|---|
+| remove finetuning's "~80% reduction in quote preparation time" | `230` | gone from stored **and** published; site given its FIRST register (writer_block + banned_claims) so it cannot be reinvented |
+| use the real agent figure on aao | `231`,`232`,`235`,`236` | published as **170+**; specs fixed at source; 8 banned_claims → 10 |
+
+Verified by a **completeness-checked** fleet scan (626 of 626 components on registered sites
+exported, then `ParseEvidenceBase` + `ScanBannedClaims` over the deployed HTML):
+**no banned claim is published on any registered site.** The completeness check matters — an
+earlier run of the same scan silently covered 485 of 881 components after a broken `kubectl
+exec` stream and reported CLEAN.
+
+### § 3(c) IS WRONG AND THIS IS THE CORRECTION
+
+> This file says a number in a spec "is an *instruction* to the writer and nothing refreshes
+> it". **A spec is a live SOURCE.** `rerender_page_sections` renders "from stored content_data
+> **+ fresh resolved fields**", and a resolved field's source is the spec — so a stale figure
+> is **re-injected into published content on every re-render, over the top of any repair.**
+> Measured: page corrected 12:2x → re-rendered 12:37 → the old figure back in `content_data`
+> and in the deployed HTML by 12:4x. Fifteen minutes.
+>
+> **Order matters and is not optional: spec → content_data → re-render.** Any other order is
+> undone by the next render. This likely explains a recurring fleet shape — a repair that "did
+> not stick", re-diagnosed as caching or a failed deploy, when something re-derived it
+> correctly from a source nobody updated.
+
+### Two more things the sweep found, both worth knowing
+
+- **`236`: two aao *copy templates* claimed client work that never happened** —
+  `cta_strategy`: "We have shipped 70+ agent systems"; `content_standards`, as the example to
+  imitate: "runs 70+ agents in production today across financial services and logistics
+  environments". 15 non-pool sites exist and every one is our own. Not an exaggerated number —
+  a claim about a business we do not have, sitting in templates that regenerate it by design.
+  **Mechanically bumping 70+→170+ would have made it bigger**, which is why it is its own file.
+  **Flagged for the owner: this is copy, not a defect fix.**
+- **201 components across 8 sites and 79 pages have published HTML and NO `content_data`.**
+  Unreachable by a content_data migration, by the re-render path, and by `093`'s stat audit,
+  which reads content_data by construction. They are the concrete argument for keeping the
+  `rendered_html` scans.
+
+### Traps that cost real time today — read before doing this again
+
+1. **`status='detected'` is a queue with no consumer** (`bugs_open/083`). Insert work items as
+   `'triaged'`. 98 rows are parked fleet-wide because of this.
+2. **`spec.reason` is CONTROL FLOW, not a label.** `check_rerender_mode` branches on it; an
+   unrecognised value takes `else_step` → assemble-only, which republishes the **stale** HTML
+   and reports COMPLETED. Vary `item_key` for dedup, **never** `spec.reason`. Recognised
+   values: `image_landed`, `section_data_resolved`, `cta_links_stale`.
+3. **A row filter narrower than its own transform is a silent no-op** on exactly the rows you
+   meant to catch (`235` attempt 3: the singular pattern went into the `SET` and not the
+   `WHERE`).
+4. **Never chain `replace()` where one pattern matches another's replacement** — `'170+ agents'`
+   contains `'70+ agent'`, which shipped **"1170+ agents"** to production. Anchor with `\m`.
+5. **Assert the ABSENCE of the banned patterns, not the presence of your edits.** `231`'s
+   self-authored post-condition passed over two real defects; `235`'s independent one caught
+   three and rolled back each time.
+
+### Still owed
+
+- **Council round 7** on `569241fb-…` with the caller table from `NOTES` attached as checks.
+- The **eight-departments ruling** (aao registers it as a fact; leopardess bans the identical
+  phrase; the DB has no department concept) and whether `236`'s replacement copy is what the
+  owner actually wants.
+- `bugs_open/102` (page_type-blind claims layer), which is what blocks covering webdesign.co.uk.
