@@ -599,3 +599,63 @@ and check the page's own story survived (bug-056 vigilance). Until then P7 is
 **Also owed at the next chassis roll:** `110` candidate 1 is inert, so any writer
 run before that roll logs `max_tokens = 16192` where the caller asked 8000. Those
 rows are self-identifying (`provider='gemini' AND max_tokens = 16192`).
+
+## 2026-07-27 — P7's page build is BLOCKED by bugs_open/029, which has nothing to do with Gemini
+
+Owner nominated dartsonline. Queued `grip-styles` (status `planned`, **never
+deployed**, so a bad result costs nothing) as a `needs_page` / `page-build-handler`
+item, `pipeline='build'`, `status='triaged'`, work item
+`9fdb87b4-56bf-4981-a899-318e6294c08d`.
+
+**It never got claimed.** Eight minutes, `attempt_count` still 0. The chase:
+
+- `build-pipeline-trigger` fires every 120s and is enabled. Its `pre_query` returned
+  `pending_sites: "1"` — my site, correctly detected. So detection works.
+- The site is unlocked, and my item satisfies every clause of that query
+  (`pipeline='build'`, `triaged`, `attempt_count 0 < max_attempts 3`). It is the
+  **only** eligible build item fleet-wide.
+- Its `seed_queue` step reports `{"total":0,"seeded":0,"skipped":0}` — **a red
+  herring I nearly chased.** That step is `seed_build_queue`, which creates records
+  for brand-new sites from `build_queue`. Zero is correct there.
+- The runs get to `spawn_dispatch` (`spawn_agent` → `build-dispatch-loop`) and sit
+  at `AWAITING_RESPONSES`. Three of them, idle 134s / 284s / 430s.
+- `build-dispatch-loop` orchestrations: **the most recent is CANCELLED, 2026-07-19.**
+  Nothing has run since.
+
+That is `bugs_open/029_..._hung_spawns_saturate_dispatch_group_and_halt_builds_fleetwide`
+verbatim: *"builds simply stop happening everywhere, and the scheduler keeps firing
+every 30 seconds into a full pool."* **Filed 2026-07-19, still OPEN**, and it is the
+consequence half of `003` (spawn loses the child response). Corroborating:
+`page-build-handler` runs on 07-26 FAILED at `spawn_content_writer` and
+`call_content_writer`.
+
+**So P7 cannot complete through the normal build path, for reasons that predate this
+workstream by eight days and are unrelated to the model swap.** I am not fixing 029
+— it is a filed, owned fleet outage, and starting a competing fix is exactly what the
+coordination rules forbid. The work item stays queued; it will build when 029 lifts.
+
+Also relevant if someone retries this: `grip-styles` has **0 `page_components`**, so
+even a working rerender has nothing to re-render — that is `bugs_open/087`'s territory
+(*page_rebuild writer has no section plan and nothing builds one*). A page that is
+`planned` needs the full build path, not the rerender path.
+
+**What was produced instead, on the owner's actual brief.** content-creator is on
+Gemini and working, so the in-depth darts content went through that: **1,458 words,
+8,570 chars, 2,146 tokens, 43.5s, est. £0.021**, corr
+`16f7535d-6f8c-4149-b650-44764e1342ec`. Saved as
+`SAMPLE_2026-07-27_darts_technique_gemini_output.md`. **Not published and not
+claim-checked.**
+
+Audited it rather than admiring it. The brief forbade invented statistics, results
+and quotes, and that held: **no tournament results, no dates, no quotes**, and every
+number is game arithmetic (501, 15-dart legs, treble 20, a 141 finish on double 12 —
+which checks out) rather than a statistic about a person. It does make **technique**
+claims about seven named living players. Those are checkable in principle and
+**unchecked by us**, which is fine for a sample and would not be fine on a page.
+
+> **Misstep, mine, caught in the same breath.** My first extraction of the article
+> printed `Letâs` and `bedâusing`, and I was about to report an encoding bug in the
+> pipeline. It was **my** extraction: I decoded the JSON payload with
+> `unicode_escape`, which mangles UTF-8. Re-read with plain `json.loads` on the log
+> line and the text is clean — zero mojibake. **A garbled artefact is evidence about
+> your reader until you have proved otherwise.**
