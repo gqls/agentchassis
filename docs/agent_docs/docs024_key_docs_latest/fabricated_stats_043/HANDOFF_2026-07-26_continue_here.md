@@ -186,3 +186,61 @@ tells a writer to say it. The query and the full extract are in
 and rows in `agent_definitions` are three different units. Which one the sites should claim
 is an editorial decision about what the business says it is; it cannot be looked up, and
 picking one silently would be exactly the failure this whole lane exists to stop.
+
+---
+
+## 8. Update, 2026-07-27 — (a) is LIVE, (b) is largely FALSIFIED, and where it stands now
+
+**(a) IS LIVE.** `v1.0.1172` carries the `093` second call site (pod-verified 2026-07-27:
+`turn this into a check rather than a list` → 1, `scanStoredStatClaims` → 2, positive
+control `turn this into a gate` → 1). **Council round 6 came back REVISE** on correlation
+`569241fb-…` — 5 approve, 5 object, no veto, `decided_by: prior_art_librarian`, and
+`unreadable: ["review_editquality.result"]`, so it was decided a seat short. The gating
+objection is *"unverifiable-from-here rather than false"*: attach the queries, not just
+their results. `guardian` stated its approval condition outright and **it is now satisfied**
+— the caller sets are enumerated in `NOTES`, including the fourth `ParseEvidenceBase`
+consumer the submission had not named (`validate_page_content.go:976`, check 8) and why its
+nil-skip is **correct** rather than a fourth instance of the landmine. Round 7 is owed and
+mostly written; two seats also asked for real changes (see NOTES).
+
+**(b) IS LARGELY FALSIFIED — do not just work the list in § 3(b).** Surveyed 2026-07-27 with
+the real scanner against an empty register, so every business-shaped number surfaces:
+
+| site | components | number claims | verdict |
+|---|---|---|---|
+| gaswholesalers.com | 102 | 0 | **needs no register** |
+| dartsonline.com | 17 | 1 | a 30-day returns window — a policy term. **Needs none** |
+| finetuning.uk | 139 | 5 | 4 audience descriptors + a privacy age limit; **1 real, owner ruling owed** |
+| webdesign.co.uk | 101 | 15 | **all 15 false positives** — see `bugs_open/102` |
+| vonc.com | 49 | 0 in prose, 14 in stat fields | **DONE** — migrations 228 + 229 |
+
+- **`bugs_open/102` filed** (new): the claims layer is `page_type`-blind. All 15
+  webdesign.co.uk hits are worked examples on six `page_type='guide'` pages. **It blocks
+  covering the estate's largest site**, because switching the register on would raise 15
+  correct-copy items into the queue `033` says has no working surface.
+- **Owner ruling owed on finetuning.uk**: the home page publishes *"Facilities management
+  company (Midlands, UK) — ~80% reduction in quote preparation time"* with nothing on
+  record behind it. Register it as a fact if it is real and provable; otherwise it comes
+  off the page. **Not touched.**
+- **vonc.com DONE.** `228` seeds facts[] (8 archetypes / 3 tools / 2 guides / 18 pages),
+  every value a `pages` row-count with its proving query attached, merged by `jsonb_set` so
+  the 9 banned_claims and all 7 keys survive. Measured before/after with the shipping
+  extractor: **14 findings all `low` → 2 findings both `medium` → 0** after `229` fixed the
+  real defect (about/`content-block-about` had Archetypes and Tools Live transposed; three
+  other components on the site agreed with the DB, that one did not). Fleet register
+  findings **21 → 8**.
+  > **`229` edited `content_data` ONLY.** vonc `/about` still SERVES the wrong figures until
+  > it is re-rendered. That is deliberate, and re-rendering it is the smallest outstanding
+  > task in this lane.
+
+**(c) unchanged** from § 7 — measured, twelve sites, needs an owner ruling on units before
+anything is edited.
+
+### The cheapest next actions, in order
+
+1. **Re-render vonc `/about`** to publish `229`. Nothing else in the lane is closer to done.
+2. **Run the discovery audit** and confirm `claims_unverified` items now carry
+   `source: content_data` findings — that is `093`'s own verification bar, and `093` cannot
+   close until it is met. **Do not grade it on a green build.**
+3. **Council round 7**, attaching the caller table from `NOTES` as checks.
+4. The finetuning and units rulings — both yours, neither guessable.
