@@ -113,6 +113,22 @@ def main():
         print(f"  {seat}: {len(p_before):,} -> "
               f"{len(steps[seat]['config']['prompt_template']):,} chars")
 
+    # review_architecture is already live, but with the pre-correction prompt whose
+    # routing signal went into a field the council discards. Refresh it from the
+    # seat script, which is the single source of truth for that prompt.
+    p = pathlib.Path(__file__).resolve().parent / "add-architecture-seat.py"
+    spec_a = importlib.util.spec_from_file_location("aas", p)
+    m_a = importlib.util.module_from_spec(spec_a)
+    spec_a.loader.exec_module(m_a)
+    if "review_architecture" in steps:
+        cur = steps["review_architecture"]["config"]["prompt_template"]
+        if cur != m_a.PROMPT:
+            steps["review_architecture"]["config"]["prompt_template"] = m_a.PROMPT
+            print(f"  review_architecture: {len(cur):,} -> {len(m_a.PROMPT):,} chars "
+                  f"(routing signal moved into notes — the JSON field was discarded)")
+        else:
+            print("  review_architecture: already current — skipping")
+
     if not a.apply:
         print("\nDRY RUN — nothing written. Re-run with --apply.")
         return

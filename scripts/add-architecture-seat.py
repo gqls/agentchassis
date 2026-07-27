@@ -40,9 +40,19 @@ D3: advisory, NO veto — and the mechanism for that is NOT the hard_veto_from l
   a verdict vocabulary for it.
 
 So: verdict is approve|object, never veto. The forward argument is carried by
-objection SEVERITY (high gates a round, low/medium are recorded but advisory) and
-by a separate `architecture_signal` field that routes to the RFC track without
-touching the decision.
+objection SEVERITY (high gates a round, low/medium are recorded but advisory).
+
+  CORRECTED AGAIN 2026-07-27, after the seat was already live. The fix above put
+  the RFC routing in a separate `architecture_signal` JSON field. That field is
+  DISCARDED: `councilReview` (same file, :84-95) marshals only
+  {reviewer, verdict, objections, missing, notes, degraded}, so every custom field
+  a seat emits is dropped when the report is persisted — confirmed against 2,138
+  stored reviews, where `checks` and `code_checks` do not appear either.
+  The seat would have run correctly and its distinctive output would have gone
+  nowhere. The signal now goes in the FIRST LINE of `notes`, in a fixed greppable
+  shape, which is both what survives and what makes the seat measurable.
+  Caught by building the adoption report — i.e. by asking "how would I ever know
+  if this worked?", which is a question worth asking before shipping, not after.
 
 D5 is why it exists at all: measured 2026-07-27, coordinator.go/ProcessResponse
 was deflected upward by six distinct submissions in seven days while the file
@@ -118,19 +128,37 @@ are advisory-but-recorded:
 - "object", severity MEDIUM — this is an architecture change whether or not it is
   dressed as a fix, OR the architecture underneath is insufficient even though the
   plan itself should proceed. Recorded and returned to the author without blocking.
-  Set `architecture_signal` to say which of the two you mean.
+  Say which of the two you mean in the ARCHITECTURE_SIGNAL line of your notes.
 - "object", severity HIGH — reserve this. Use it only when proceeding would make
   the architecture materially harder to change later: a contract about to be
   depended on, a workaround about to be built on top of a workaround. This DOES
   force a revise round, so spend it rarely and say exactly what becomes irreversible.
 
-`architecture_signal` is your routing field and does not affect the decision:
+YOUR ROUTING SIGNAL MUST GO IN `notes`, AS THE FIRST LINE, IN THIS EXACT SHAPE:
+
+  ARCHITECTURE_SIGNAL: point_fix|needs_rfc|insufficient | DEFLECTIONS: <n or unknown>
+
+then a blank line, then your prose. This is not decoration. The council persists
+only {reviewer, verdict, objections, missing, notes} — every other field you emit is
+DISCARDED when the report is stored, so a signal placed anywhere else is written to
+nothing and no one will ever read it. The first line is what makes your verdict
+findable later, and what lets us measure whether this seat earns its place.
+
 - "point_fix"    — constrained; proceed normally.
 - "needs_rfc"    — meets the architecture-review trigger test; deserves an RFC
                    (architecture_review/PROCESS_architecture_review.md) with blast
                    radius, staged rollout and rollback written down.
 - "insufficient" — the plan is fine, the architecture under it is not, and you want
                    that on the record.
+
+DEFLECTIONS is the count from (d), or `unknown` if you did not or could not check.
+Write `unknown` honestly rather than guessing a number — a fabricated count here is
+worse than no count, because it will be read as measurement.
+
+After that first line, use the prose in `notes` to carry what the schema will not:
+the specific future load you judged against, the cost of not changing, and which
+trigger condition fired if any. Objections carry anything you want the author to act
+on; notes carry your reasoning.
 
 Be concrete or be quiet. An unevidenced "we should redesign this" is worse than
 silence — it spends the one voice arguing for change on nothing. If the contained
@@ -164,7 +192,7 @@ Treat an empty result as "no precedent found", NOT as "this is novel".
 {{.plan_persisted.plan_json}}
 
 ## Output — ONLY this JSON
-{"reviewer": "architecture", "verdict": "approve|object", "architecture_signal": "point_fix|needs_rfc|insufficient", "trigger": "which trigger condition, or null", "future_load": "the specific coming work you judged against", "cost_of_not_changing": "...", "deflection_count": "n or unknown", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "checks": [{"sql": "SELECT ...", "why": "..."}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "..."}], "notes": "..."}
+{"reviewer": "architecture", "verdict": "approve|object", "objections": [{"edit": 1, "problem": "...", "severity": "low|medium|high"}], "missing": [], "checks": [{"sql": "SELECT ...", "why": "..."}], "code_checks": [{"kind": "symbol|content|ls", "query": "pattern", "why": "..."}], "notes": "ARCHITECTURE_SIGNAL: <point_fix|needs_rfc|insufficient> | DEFLECTIONS: <n|unknown>\\n\\n<your reasoning: the future load you judged against, the cost of not changing, which trigger fired>"}
 
 CODE QUESTIONS (code_checks): when your verdict hinges on a fact about the CODEBASE
 — does another implementation exist, which files carry symbol X, does anything still
