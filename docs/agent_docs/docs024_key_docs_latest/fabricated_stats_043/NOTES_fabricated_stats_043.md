@@ -538,3 +538,72 @@ vacuous pod-grep (marker already in the binary), a self-authored post-condition 
 cascade), and now a work item at `complete` over an unchanged page. In all three the fix was
 the same shape — **compare against something that was not written by the same hand as the
 change**: a negative control, an independent checker, a timestamp the process itself did not set.
+
+### Same day — owed item (c) is WORSE than recorded, and the correction is load-bearing
+
+> **CORRECTED 2026-07-27.** Both this file and the handoff have described item (c) as: *"a
+> number in a `briefing`/`identity`/`site_plan` spec is an **instruction** to the writer and
+> nothing refreshes it."* That is too mild and it made the item look like tidy-up. **A stale
+> figure in a spec is re-injected into published content on every re-render, over the top of
+> any repair.** The spec is a live SOURCE, not a memo.
+>
+> **What caught it:** I fixed aao's page content (231/232, post-conditions passed), re-rendered
+> the page (233), and then found `30+ agent types` back in `content_data` — and in the deployed
+> HTML. The page's leadership bio and the `identity` spec are byte-identical:
+>
+> ```
+> PAGE content_data: …gle-model approach. The framework now coordinates 30+ agent types on Kubernetes and Kafka, processing over a thousand or…
+> SPEC identity:     …gle-model approach. The framework now coordinates 30+ agent types on Kubernetes and Kafka, processing over a thousand or…
+> ```
+>
+> `rerender_page_sections` renders "from stored content_data **+ fresh resolved fields**". The
+> bio is a resolved field, its source is the spec, the spec still said 30+, so the render
+> faithfully restored the old claim. Elapsed time between fixing the page and the page being
+> wrong again: **about fifteen minutes.**
+
+**The order that actually works, and it is not optional:** fix the **spec** first, then the
+page `content_data`, then re-render. Any other order is undone by the next render of that page,
+and the window can be minutes.
+
+**This probably explains a recurring fleet shape.** A correction that "did not stick" gets
+re-diagnosed as caching, a stale deploy, or a lost message. At least one class of it is neither:
+something re-derived the page correctly from a source nobody updated. Worth remembering the
+next time a repair appears to evaporate.
+
+Applied as `235` across `identity`/`briefing`/`strategy`/`portfolio`/`site_plan`.
+
+**`235` needed three attempts and its post-condition caught all three** — which is the direct
+counter-example to `231`, whose self-authored assertion passed over two real defects:
+
+1. `site_plan` says "the 70+ **agent** organisation" — singular, so the plural pattern missed it.
+2. `portfolio` says "across potentially thousands of concurrent agent instances" — the removal
+   pattern expected a verb (`with|managing|handling|processing`).
+3. Then the fix for (1) went into the `SET` and **not the `WHERE`**, so `site_plan` was never
+   selected for update at all. *A row filter narrower than its own transform is a silent no-op
+   on exactly the rows you most meant to catch.*
+
+Each time the transaction rolled back rather than shipping a partial fix, because the
+post-condition asserts **the absence of the banned patterns** rather than the presence of my
+edits. That is the whole difference, and it is now the house pattern for this lane.
+
+**Also settled, and it is a limit worth knowing:** `234` narrowed the `thousands of concurrent`
+ban after it fired on correct prose — an article sentence about what production systems *in
+general* require ("process thousands of concurrent **workflows**"), which claims nothing about
+us. The prohibition is concurrent-**instance** counts. Narrowing the rule beat editing the
+sentence for a second reason: that component has **NULL `content_data`**, so the only available
+edit would have been to `rendered_html`, which the next rebuild discards.
+
+That turned up the measurement below, which qualifies `093` and any future "fix it in
+content_data" plan:
+
+```sql
+SELECT count(*) AS components, count(DISTINCT p.site_id) AS sites, count(DISTINCT p.id) AS pages
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE COALESCE(pc.rendered_html,'') <> '' AND (pc.content_data IS NULL OR pc.content_data::text='{}');
+--  201 | 8 | 79
+```
+
+**201 components, 8 sites, 79 pages have published HTML and no `content_data` at all.** They
+cannot be corrected by a content_data migration, cannot be re-rendered (nothing to render
+from), and are invisible to `093`'s stat audit, which reads content_data by construction. They
+are reachable only by the HTML-side scans — which is the concrete argument for keeping them.
