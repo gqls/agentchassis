@@ -1810,6 +1810,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Append one NOTES entry (row) for a tool/pipeline subject",
 		IsLocal:     true,
 	},
+	"write_experience_pattern": {
+		Handler:     WriteExperiencePatternAction,
+		Category:    "experience_register",
+		Description: "Validate and write one experience-register entry — always as draft; approval is a verdict, not a field",
+		IsLocal:     true,
+	},
 	"rename_tool_identity": {
 		Handler:     RenameToolIdentityAction,
 		Category:    "documentation",
