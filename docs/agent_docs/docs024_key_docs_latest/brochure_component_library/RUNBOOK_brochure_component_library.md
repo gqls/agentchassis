@@ -414,3 +414,139 @@ normal and cheap — `unreadable: 0` is what says no seat failed to run.
 
 Resubmit on the SAME correlation so the trail accumulates:
 `RESUBMIT_CORR=<corr> ./…/097_TRIGGER_council_review_v1.sh <submission_r2.json>`
+
+## Measuring what a page actually looks like (added 2026-07-27)
+
+The tool that found 101 unreadable text pairs in two minutes. Run it before
+believing a page is fine, and after any palette or component-template change.
+
+```bash
+scripts/render_audit.py --sitemap https://<domain>/index.html      # whole site
+scripts/render_audit.py --width 1280 https://<domain>/about.html   # desktop
+scripts/render_audit.py --json out.json --quiet https://...        # for diffing
+```
+
+Exit status is 1 on any failure, so it works as a gate.
+
+**Read the "slow-loading image(s) re-checked OK" note, and never skip the
+re-check.** A headless render fires every image request at once and our own
+origins throttle the burst, so the browser's "this failed to load" is evidence
+of a LOAD failure, not a missing file. Measured here: **41 reported broken, 35
+of them served 200 on an unhurried retry**, 6 were real. Acting on the first
+number sends someone regenerating assets that are already live. The tool
+re-checks each one serially over HTTP before reporting; if you ever reimplement
+this, reimplement that too.
+
+**A contrast check cannot see a brand regression.** Making `--color-primary`
+light fixed 98 failures and turned three heroes pale blue — dark ink on light
+blue, comfortably passing AA, and completely wrong for a "deep navy dominant
+field" site. Screenshot after every palette change:
+
+```bash
+CH=~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome
+$CH --headless=new --no-sandbox --hide-scrollbars --window-size=390,1400 \
+    --virtual-time-budget=8000 --screenshot=out.png https://<domain>/index.html
+```
+
+## Correcting a palette, and why you cannot just regenerate the stylesheet
+
+`assets/css/styles.css` is written by exactly one path: webdesign-agent's
+`deploy_css` step. Reaching it means running `analyze_design` first — an LLM
+that emits a fresh `color_scheme` on every run, which **wins over the palette
+row** for the eight core slots (`corePaletteKeys`). The pin that is supposed to
+hold it steady, `design_intent.palette.reference_values`, is handed to the model
+as *"starting points, not exact targets … you may adjust them"*. **It is
+advisory by construction, and a memory landmine describes it as a pin — that is
+wrong and this is the correction.**
+
+Proof the drift is real, and the method for checking it on any site: render the
+layout template locally against the palette row and diff it against the served
+file.
+
+```bash
+# layout css_template + structure_tokens + typography_set fonts + palette colours
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -t -A <<'SQL'
+SELECT jsonb_build_object('layout_template', l.css_template, 'structure_tokens', l.structure_tokens,
+                          'typography', ts.fonts, 'palette_new', p.colours)::text
+FROM layouts l, typography_sets ts, palettes p
+WHERE l.id='<layout_id>' AND ts.id='<typography_set_id>' AND p.id='<palette_id>';
+SQL
+```
+
+The template uses only `{{palette}}`, `{{typo}}`, `{{token}}` and a single
+`{{with palette "heading" ""}}`, so a regex substitution reproduces it exactly —
+which is how the drift was proven: every structural rule matched byte-for-byte
+while all five core colours differed by a shade.
+
+**Correct the data AND the artefact, or the fix is temporary.** Update
+`palettes.colours`, `css_themes.color_palette` and
+`design_intent.palette.reference_values` together (they are three copies), then
+publish the stylesheet directly:
+
+```bash
+docs/.../brochure_component_library/scripts/deploy_stylesheet_direct.sh \
+    <domain> <local-styles.css> [assets/css/styles.css]
+```
+
+That script publishes one file through the git-adapter
+(`system.adapter.git.requests`, `repo_name: sites`) without running a design
+pass. **Note for the next session: this needs a Kafka publish, which a
+restricted permission mode may refuse — it did on 2026-07-27, and the colour fix
+sat ready but unpublished as a result.**
+
+## Where the palette slots actually come from
+
+```sql
+-- every palette slot every active layout declares, and how many declare it
+SELECT slot, count(DISTINCT l.name)
+FROM layouts l, LATERAL regexp_matches(l.css_template, '\{\{\s*palette\s+"([a-z_]+)"', 'g') m(slot)
+WHERE l.is_active GROUP BY slot ORDER BY 2 DESC;
+```
+
+18 of 18 layouts declare the same 17; then a long tail of 60+ names in 1–3
+layouts each. A per-site generated palette supplies **8**. The gap is
+`bugs_open/113`.
+
+## Re-rendering a page so a template or content_data change reaches the served HTML
+
+The work-item route, with `reason='section_data_resolved'` — this is the one
+that re-renders every section through the CURRENT template with no LLM. Without
+that reason you get assemble-only, which restitches the STORED html and your
+template change never appears.
+
+```sql
+INSERT INTO site_work_items (site_id, item_type, item_key, status, pipeline, summary, spec,
+  handler_agent, source, created_by, attempt_count, max_attempts, created_at, updated_at)
+SELECT p.site_id, 'page_rerender',
+       'page_rerender_' || p.name || '_<site>_<what>_<yyyymmdd>',
+       'triaged', 'build', 'Republish ' || p.name || ': <why>',
+       jsonb_build_object('domain','<domain>','page_id',p.id::text,'page_name',p.name,
+                          'filename', p.name || '.html', 'reason','section_data_resolved'),
+       'page-rerender','operator:<workstream>','operator:<workstream>',0,3,NOW(),NOW()
+  FROM pages p WHERE p.site_id='<site>' AND p.name IN (...);
+```
+
+**Check for NULL `content_data` first** — a page carrying one escalates to the
+content writer and the copy IS regenerated:
+
+```sql
+SELECT p.name, count(*) FILTER (WHERE pc.content_data IS NULL)
+FROM pages p LEFT JOIN page_components pc ON pc.page_id=p.id
+WHERE p.site_id='<site>' GROUP BY p.name;
+```
+
+Measured 2026-07-27: 11 such items went from `triaged` to `complete` in well
+under the 7–9 minutes this runbook previously recorded — 030 is fixed and the
+lane is fast now.
+
+## `kubectl exec` inside a `while read` loop eats the loop's input
+
+```bash
+while IFS='|' read -r fn id; do
+  kubectl ... psql -c "..." > "$fn.html"     # <-- consumes stdin, loop runs ONCE
+done < list.txt
+```
+
+Every file after the first is silently missing. Redirect the inner command's
+stdin (`< /dev/null`) or iterate over an array instead. Cost 5 minutes and a
+confusing "No such file or directory" from a grep over files that should exist.

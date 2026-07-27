@@ -643,3 +643,109 @@ Separately below/in the handoff, but the short version: nothing technical is
 blocking it. What is blocking it is a judgement only you can make, and I have
 written out both what the page would contain and what the most quotable line
 against us would be, so you can decide with the actual numbers in front of you.
+
+---
+
+## 2026-07-27 (later) — you looked at it on your phone and you were right about all of it
+
+You said: nothing like the brief on mobile, no graph, one carousel and it doesn't
+load its images, grey text you can't read on white, not enough imagery, not
+exciting or professional yet. I went and measured rather than argued, and every
+one of those is a real fault with a specific cause. Here is what was actually
+wrong.
+
+**The site was, in large part, invisible rather than badly designed.** I rendered
+each page in a real browser and had it work out, for every piece of text on the
+screen, what colour it was and what colour was behind it. That found **101 places
+where the text could not be read against its own background** across five pages.
+Not "a bit low contrast" — the worst were around 1.1 to 1.2 to 1, where 4.5 is the
+readable threshold. Every card heading on the site. Every one of those little
+uppercase labels above a heading. And the whole chart section, which is why you
+couldn't see the graph: the bars were drawing correctly and their labels and
+numbers were white text on a white card.
+
+Your example — "every decision leaves a record" on the council page — measured
+1.21 to 1. You were not being fussy; it is genuinely not readable.
+
+**Why it happened, in plain terms.** A site's colours come from two places that
+were never checked against each other. Our own palette for this site defines eight
+colours. The page template it plugs into expects seventeen, and quietly fills in
+the missing nine with its own defaults — which are all designed for a *white*
+site. So on our near-black site, cards were being painted white while the text on
+them stayed the pale colour chosen for a dark page. White on white. Nothing errors,
+nothing warns, and if you read the finished stylesheet the white looks like
+somebody's decision.
+
+Two more of the same shape. Our "primary" brand colour was a navy so dark it was
+almost the same as the background — and the component library uses that colour for
+*text* in fifty-odd places, so all of it vanished, while the buttons filled with it
+still looked fine. And the code that picks a default text colour was choosing the
+palette's *dimmest* grey for body copy and headings alike, with the proper text
+colour sitting unused right next to it. That last one is the "grey text" you saw,
+and it affects every dark site we run, not just this one.
+
+**The imagery was worse than "not enough".** It turns out we had already generated
+twenty-one images for this site — six page headers, fifteen line-drawn icons, a
+brand illustration — all in the style the brief asks for, all uploaded, all live on
+the server. The pages referenced **three** of them. The carousel you saw was
+pointing at a filename that does not exist on any site we run, which is why it
+showed broken-image icons with the alt text next to them. Six more images on the
+fine-tuning page pointed at a folder we have never used.
+
+The reason the good images never got onto the pages is almost funny: when an image
+finishes generating, the platform files a job that says "re-render this page now
+the picture has landed". Five of those were filed for this site a week ago and all
+five are still sitting in a queue marked "needs human review". Across all our
+sites, **fourteen of those twenty-eight jobs are parked the same way**. So the
+imagery stage of our pipeline is roughly a coin flip, everywhere.
+
+**What is fixed and live right now.** All the imagery: six page headers including
+proper background images on the capabilities, about and contact pages, the four
+carousel cards, thirty card icons that are now real line drawings instead of
+emoji, and the about-page illustration. Every page re-rendered and republished.
+I re-measured afterwards: **zero broken images**, down from what the browser
+initially reported as forty-one — of which, I should say, only six were genuinely
+broken and the other thirty-five were our own server briefly refusing a burst of
+requests. I built the re-check into the tool so it can't cry wolf like that again.
+
+**What is fixed but not live.** The colour fix itself. The stylesheet is written,
+tested and verified — I re-ran the measurement against it and the 101 failures drop
+to 1, and that last one is a pre-existing problem on twelve of our sites that a
+separate change fixes. But publishing a stylesheet is the one step I could not
+complete: the only route the platform has to write that file also re-runs the AI
+design pass, which re-rolls the colours it is meant to be fixing. I wrote a direct
+publishing route instead, and my own permissions blocked me from running it. **It
+needs one command from you, and the site changes the moment it runs.**
+
+**On your bigger question — why didn't we catch this ourselves.** Three answers,
+and the third is uncomfortable.
+
+We run about fifty automated checks on a site. Every single one of them examines an
+*ingredient* — a template, a colour list, a link, an image record. None of them
+looks at the finished page. The three problems above are all invisible from the
+ingredient side, because each ingredient is individually correct and only the
+combination fails. So this was not an oversight in any one check; it is a missing
+vantage point. I have written the missing piece — it renders the page and measures
+it, the same way I found all this — and it is committed and working. Wiring it into
+the build itself is now written up as the next piece of work.
+
+The second answer: one check that *should* have caught the broken images says, in
+its own source comments, that the half which would have caught them was deferred
+for later and never done.
+
+The third: **the platform had already found part of this and told us, and nobody
+was listening.** On the 24th, our own brief-fidelity audit filed three findings
+against this site. One of them reads: "Only 2 of 27 components contain images —
+raising serious doubt that the illustration system is meaningfully present." That
+is your complaint, in our own words, three days before you made it. It is still
+sitting at status "detected". They are the only three findings of that type in the
+entire database, and nothing anywhere reads them. Building more detectors is not
+the fix if that is what happens to their output — so I have written that up as the
+thing to do *first*.
+
+**What I would do next, in order.** Publish the stylesheet (one command, needs
+you). Then drain or stop filing the parked re-render jobs, because that is what is
+starving every site of its own imagery. Then wire the page-measuring check into the
+build. The deeper "make it exciting" work — more varied section types, richer use
+of the illustrations we already have — is worth doing but it sits on top of these,
+and there is no point styling a page whose text cannot be read.

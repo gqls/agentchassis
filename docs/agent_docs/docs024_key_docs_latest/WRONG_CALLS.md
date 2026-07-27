@@ -7101,3 +7101,80 @@ the direction feels settled and is much more expensive to reverse.
 insufficiently-checked ownership/prior-art assumption (cf. the 2026-07-26
 "capability that had been in production for weeks" class). The recurring shape is
 not a missing fact but a missing *look*, and the look costs under a second.
+
+---
+
+## 2026-07-27 — I reported 41 broken images. Six were broken.
+
+**Thread.** brochure_component_library, fundamentallyai.com contrast/imagery pass.
+
+**The claim.** My new render-audit tool reported **41 broken images across 7 pages**.
+I very nearly wrote that number into the owner's log and into `bugs_open/114` as the
+scale of the imagery failure — it fitted the story I already had (that the site's
+generated assets were never wired in), which is exactly why it went down so easily.
+
+**Why it was wrong.** A headless render fires every image request on a page at once.
+Our own origin throttles that burst and resets connections, so the browser reports
+`naturalWidth === 0` for images that are perfectly present. Re-checking each one
+serially over HTTP: **35 of the 41 returned 200.** Only 6 were genuine — all of them
+one writer-invented path (`/images/illustrations/*.svg`). The first file in the list
+was `/assets/images/logo.jpg`, which is on every page of the site and obviously fine;
+that is what made me look.
+
+**What caught it.** Noticing that the site's *logo* was in the broken list. A wrong
+number containing one absurd entry is luckier than a wrong number that is uniformly
+plausible — if the throttling had spared the logo I would have shipped all 41.
+
+**The cheap check that would have.** Re-request each failure over HTTP before
+reporting it, serially, with a retry. It is now built into `scripts/render_audit.py`,
+which reports only statuses that survive that pass and prints the discarded count as
+"N slow-loading image(s) re-checked OK".
+
+**Tally note.** *"Retry before condemning"* was **already in my own memory** as a
+landmine from 2026-07-25 ("cache-busted probing in a tight loop throttles the origin
+and reads as broken links"), written by this same workstream. I had read it this
+session. Knowing a landmine is not the same as having the check wired in: the memory
+told me to be careful, and being careful is not a mechanism. The entry is only worth
+the tally if the next tool that measures a live site inherits the retry by default —
+which is the difference between a note and a fix.
+
+---
+
+## 2026-07-27 — I called `design_intent.palette.reference_values` a pin. The prompt calls it a suggestion.
+
+**Thread.** Same session, deciding how to apply a corrected palette.
+
+**The claim.** That updating `design_intent.palette.reference_values` would hold the
+core colours steady across a `webdesign-agent` run, so running the agent was a safe
+way to regenerate a stylesheet. My own memory index says so in as many words:
+*"generic_theme misfires fleet-wide → webdesign re-rolls core colours each run; **pin
+via design_intent.palette.reference_values**"*.
+
+**Why it was wrong.** The prompt hands those values to the model like this:
+
+> *"A design direction has been set for this site. You have creative freedom to
+> interpret this intent. **The reference values are starting points — you may adjust
+> them to better express the described character.**"*
+
+It is an invitation, not a constraint. And the merge rule gives the model's output
+authority over the palette row for all eight core slots, so a run can and does move
+them. Proven, not inferred: re-rendering the layout template locally against the
+palette row and diffing against the served stylesheet showed every structural rule
+matching byte-for-byte while **all five core colours differed by a shade** and
+line-height differed — the live file was never generated from its own palette row.
+
+**What caught it.** Reading the prompt text before dispatching, because the run was
+going to cost minutes and I wanted to know what it would do. Had I dispatched first,
+the agent would have re-rolled the exact colours I was correcting and the result
+would have looked like my fix had failed.
+
+**The cheap check that would have.** Read the step's `prompt_template` before
+trusting any claim that a spec value is authoritative. A "pin" that lives in a
+prompt is a request; only code that rejects a contradicting value is a pin — as
+`enforceLayoutScheme` is for `background`, and as nothing is for the rest.
+
+**Tally note.** Second entry in this file about **trusting a remembered
+characterisation over the artefact it describes**. The memory was not fabricated; it
+was a fair summary of an outcome ("colours churn, this field helps") that hardened
+into a mechanism claim ("this field pins them"). Summaries of behaviour drift into
+claims about mechanism, and the drift is invisible because both sound like knowledge.

@@ -2141,3 +2141,104 @@ change — becomes a two-minute repeatable check.
 nothing about whether the code is on the path your feature uses.** Exercise the
 feature on the real route before believing a deploy. Both halves are needed and I
 had been treating the first as sufficient.
+
+---
+
+## 2026-07-27 (later) — the contrast measurement, and three families it separated
+
+Owner report from mobile: nothing like the brief, no graph, one carousel with broken
+images, unreadable grey on white, not enough imagery. Every item reproduced by
+measurement.
+
+### Method (this is the transferable part)
+
+`scripts/render_audit.py` — render each SERVED page in headless Chromium, walk every
+visible text node, composite the effective background through transparent ancestors,
+compute the WCAG ratio of the pair actually on screen. 101 failures across 5 pages, in
+about two minutes. Everything below fell out of that one pass.
+
+The tool exists because **no check we run renders a page**; all fifty-odd read a
+source. Full argument in `features_open/026`.
+
+### Family 1 — specialised slots fall through to the layout's light literals
+
+`layouts.css_template` declares 17 palette slots with hard-coded fallbacks;
+`corePaletteKeys` is 8; a generated per-site palette has only those 8. So `card_bg`
+renders as the layout's `#ffffff` on a near-black site, carrying `--color-text:
+#E8EDF3`. **1.21:1.** Fleet: 16 of 31 palettes lack `card_bg`, 12 of those are dark.
+Filed `bugs_open/113`.
+
+### Family 2 — one token, two roles
+
+`--color-primary` `#0E1B2E` scores **1.11:1** on background `#090F1A`. The library uses
+it as a foreground 53 times and as a fill 26 times. Every eyebrow, link and card title
+invisible; every button fine. That asymmetry is why the page reads as *missing text*
+rather than as a colour fault, and why nobody spotted it from a screenshot.
+
+### Family 3 — exposed only by fixing family 2
+
+Making `primary` light broke three components that paint a full-bleed band in
+`--color-primary` and hard-code white ink over it (`portfolio-showcase`, `stat-band`,
+the three secondary heroes). Repainted with the `cta_bg`/`cta_text` pair, which is
+curated together in every palette. **Fixing a token's value cannot be verified without
+re-measuring: the fix moved 101 → 17, and the 17 were new.**
+
+### The picker was choosing the dimmest colour available
+
+`paletteTextPreference` listed `text_muted` before `text`, so `buildSectionDefaults`
+emitted `--section-text: #7E91A8; --section-heading: #7E91A8` on every dark site while
+`#E4EAF2` sat unused. Thresholds were 3.0 body / 2.0 heading, below any published
+floor. The `heading` slot (15 of 31 palettes define it) was read by nothing.
+
+### MISSTEPS
+
+- **I nearly ran `webdesign-agent` to regenerate the stylesheet.** It would have
+  re-rolled the very palette I was correcting: `analyze_design` emits a fresh
+  `color_scheme` each run and the merge gives the spec the core slots. The "pin"
+  (`design_intent.palette.reference_values`) is handed to the model as *"starting
+  points, not exact targets … you may adjust them"* — **advisory by construction**, and
+  I had been treating it as a pin because a memory landmine calls it one. Caught by
+  reading the prompt before dispatching, not after.
+- **Proof the drift is real, not theoretical:** I re-rendered the layout template
+  locally with the palette row's own values and diffed against the served stylesheet.
+  Every structural rule matched byte-for-byte; all five core colours differed by a
+  shade (`#080E1C` served vs `#090F1A` in the row) plus line-height 1.65 vs 1.6. The
+  served file was never generated from its own palette row. Aligned in `085c`.
+- **My first fix set was too wide.** I changed accent, border and text_muted as well;
+  re-running the audit showed they were already passing, so the diff was reverted to
+  the two core values that actually fail a ratio. A palette change that isn't forced by
+  a measurement is churn.
+- **41 broken images reported, 35 of them false.** A headless render fires every image
+  request at once and our own origin throttles the burst. Only 6 were real. The
+  landmine "retry before condemning" was already in my own memory and I still had to be
+  bitten by it before building the re-check into the tool. Had I acted on the first
+  number I would have sent someone regenerating 35 assets that were already live.
+- **The three secondary heroes went pale blue and the audit said PASS.** `hero-services`
+  paints itself `--color-primary`; with primary now light, dark ink on light blue
+  clears AA comfortably while being completely off-brief for a "deep navy dominant
+  field" site. **A contrast check cannot see a brand regression** — I only caught it by
+  screenshotting. Fixed by giving those heroes the page hero images they should always
+  have had.
+
+### The imagery chain, and where it breaks
+
+21 of 23 planned images were generated, deployed and serving 200; three were
+referenced. Causes, in order of how much they cost: five `image_landed` re-render work
+items parked in `needs_human_review` since 07-20 (**14 of 28 fleet-wide**); three
+components falling back to `/assets/images/hero.jpg`, a filename on no site anywhere;
+six writer-invented `/images/illustrations/*.svg` paths. Filed `bugs_open/114`.
+
+Also found, NOT diagnosed: **52 `assets` rows whose `url` is the literal
+`/assets/images/input-data.asset-key.jpg`** — an unrendered template expression
+persisted as a path, across 4 sites. Recorded in 114 because it means the `assets`
+table cannot answer "where is this site's image", which is what `check_image_url_404`
+asks it.
+
+### State at the end of the session
+
+- Imagery: **live, 0 broken images** (was 5 broken + 3 of 21 assets used).
+- Contrast: fix written, tested, **verified to take 101 → 1** against a local render of
+  the corrected stylesheet — and **NOT live**, because publishing `styles.css` needs a
+  git-adapter dispatch my permissions refused. One command, `scripts/` in the workstream.
+- Go renderer fix committed `3096a55a6`, council `f17b0a77-15e2-48ef-ba3e-9030ab4e0d8e`,
+  inert until the next roll.
