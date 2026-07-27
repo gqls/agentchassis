@@ -61,16 +61,16 @@ around that skeleton or fixes it.
 
 ---
 
-## 3. The two decisions blocking content
+## 3. Decisions — one answered, one still open
 
 Both in `DECISIONS_2026-07-26_oufe.md`.
 
-**O1 — the audience.** He asked whether aiming at students would be safer.
-Recommendation on file: take the safety posture, do not narrow the audience,
-because the risk lives in asserting live facts about named companies and the value
-lives in explaining mechanism, and those are separable. Narrowing to students
-removes the ability to charge for anything. **Unanswered, and it shapes everything
-written next.**
+**O1 — the audience. ANSWERED 2026-07-27.** The owner chose "anyone learning how
+this works": students, trainees, early-career analysts, and practitioners in
+adjacent seats. Not narrowed to students (which would have made the site free
+indefinitely), not narrowed to mid-market professionals. Applied to
+`identity.target_audience`, to a new `audience` aspect (`audience.v1` — the site
+had none), and to the mission brief. **Content is no longer blocked on this.**
 
 **O6 — the radar ordering.** He ruled "direction 3 first, lowest risk"; this
 workstream argued it is the highest risk available and built the dossier-plus-tool
@@ -180,7 +180,7 @@ window.
 
 ## 8. Suggested next moves, in order
 
-1. **Get an answer to O1 (audience).** It gates what gets written.
+1. ~~Get an answer to O1~~ — **done 2026-07-27**, see §3. Content is unblocked.
 2. **Apply the council lane** at a quiet hour, then run the **Tier-4 browser
    acceptance** for the waterfall tool — still owed. Markup being present is not
    evidence a tool works; that claim belongs to the headless run.

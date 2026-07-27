@@ -20,6 +20,7 @@ the open list can be read in one sitting. Companion to
 | D8 | Tools must say they can give a wrong answer; acknowledgement is a condition of use | 07-26 |
 | D9 | Disclaimer sections A–F approved | 07-26 |
 | D10 | Paid products: liability capped at the refund | 07-26 (wording drafted, §G) |
+| D11 | Audience = **anyone learning how this works** (students, trainees, early-career, adjacent practitioners) — not narrowed to students, not narrowed to mid-market professionals | 07-27 |
 
 ---
 
@@ -27,7 +28,13 @@ the open list can be read in one sitting. Companion to
 
 Ordered by what blocks the most work.
 
-### O1 — The audience question ⟵ blocks content direction
+### O1 — The audience question ⟵ **DECIDED 2026-07-27: option (a)**
+
+> **The owner chose (a): audience is "anyone learning how this works".** Applied
+> the same day to `site_specs.identity.target_audience` and to a new `audience`
+> aspect (`audience.v1`), which the site did not previously have. The mission
+> brief is revised to match. Original reasoning kept below.
+
 
 The owner asked whether targeting **students** would be safer. Recommendation
 (PLAN §7): **take the safety posture, do not narrow the audience.**

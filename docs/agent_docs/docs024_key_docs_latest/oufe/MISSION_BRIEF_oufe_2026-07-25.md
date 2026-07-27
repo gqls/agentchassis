@@ -19,13 +19,18 @@ particular: restructuring plans under Part 26A of the Companies Act, cross-class
 cramdown, schemes of arrangement, and the special administration regime that sits
 behind regulated utilities.
 
-The audience is the working mid-market professional: restructuring advisers at
-boutique firms, corporate finance and insolvency lawyers, private credit analysts,
-family offices, and analysts early in their careers who need to understand the
-mechanism rather than the headline. They are financially literate and sceptical.
-They do not have a six-figure terminal subscription, and they are not served by
-either the trade press, which reports outcomes without mechanism, or the
+The audience is anyone learning how this actually works. Students and trainees,
+analysts early in their careers, and practitioners in adjacent seats who need the
+mechanism rather than the headline: the corporate lawyer working out what the
+credit team is doing, the fund operations person, the adviser at a boutique firm.
+They are financially literate or willing to become so, and sceptical of marketing
+language. They do not have a six-figure terminal subscription. They are not served
+by the trade press, which reports outcomes without mechanism, or by the
 institutional data services, which cost more than their firm will approve.
+
+We are not writing for the large funds. They already buy the expensive services
+and are not short of information, and we should not write as though we compete
+with them on that ground.
 
 What this site offers is not more information — it is mechanism and clarity. Take
 a live corporate battle and explain, in a form a busy professional can absorb
