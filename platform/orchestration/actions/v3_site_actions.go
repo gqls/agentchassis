@@ -943,6 +943,17 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 		}
 	}
 
+	// Page identity. mergeIntoRenderContextEnhanced extracts a fixed allowlist of
+	// branding fields (domain, colours, contact, a few image URLs) and drops
+	// everything else, so the page record's own name never reached the context:
+	// the step config passes "page": "input_data.current_page", and it was
+	// thrown away. Every section component therefore saw an empty current_page
+	// and could not vary per page, while the template data map advertised the
+	// field as available. bugs_open/085.
+	if renderCtx.CurrentPage == "" {
+		renderCtx.CurrentPage = resolveCurrentPageName(params.CollectedData, config, params.Logger)
+	}
+
 	// Try to load navigation from DB if we have site_id
 	if siteIDField, ok := config["site_id_field"].(string); ok && siteIDField != "" {
 		siteIDStr := datahelpers.ExtractNestedFieldString(params.CollectedData, siteIDField)
@@ -1016,6 +1027,76 @@ func BuildRenderContextAction(ctx context.Context, params ActionParams) (interfa
 	result["_built_at"] = time.Now().Format(time.RFC3339)
 
 	return result, nil
+}
+
+// currentPageNameKeys are the keys under which a page record carries its own
+// name, in the order they are trusted. Both are live: the page-content-writer's
+// current_page (the only caller of build_render_context today) uses "name",
+// while the rerender and page-build envelopes use "page_name" — and one
+// observed shape carries both. Taken from the live payloads on 2026-07-27
+// rather than from the struct, because the envelope is assembled by config.
+var currentPageNameKeys = []string{"name", "page_name"}
+
+// resolveCurrentPageName recovers the page's own name from whichever source the
+// step config designates as the page, returning it without the ".html" suffix
+// (the form the nav's active-page comparison and every existing CurrentPage
+// producer use — see buildHeaderConfig).
+//
+// It reads the configured path rather than a hard-coded one so the fix follows
+// the workflow rather than a single agent's spelling of it, and falls back to
+// the conventional location when sources are absent or in array form.
+//
+// Every way of failing here degrades to an empty CurrentPage — which is today's
+// behaviour, so it fails closed — but it does NOT fail quietly. Silence is the
+// defect this function exists to fix; a second silent drop inside the fix would
+// be the same bug wearing the fix's clothes. Each degradation logs the shape it
+// actually saw, so the next unknown envelope costs one log line rather than
+// another round of measuring rendered pages.
+func resolveCurrentPageName(collectedData map[string]interface{}, config map[string]interface{}, logger *zap.Logger) string {
+	const conventionalPath = "input_data.current_page"
+
+	path := conventionalPath
+	switch sources := config["sources"].(type) {
+	case map[string]interface{}:
+		if p, ok := sources["page"].(string); ok && p != "" {
+			path = p
+		} else {
+			logger.Warn("resolveCurrentPageName: step config has a sources map with no usable \"page\" entry — falling back to the conventional path; current_page will be empty if the page is not there (bugs_open/085)",
+				zap.String("fallback_path", conventionalPath),
+				zap.Strings("source_names", datahelpers.GetMapKeys(sources)))
+		}
+	default:
+		// The array form and an absent `sources` are both legitimate configs, so
+		// this is not a warning — but it must not be silent either. Without it,
+		// the one branch that takes the conventional path WITHOUT anyone having
+		// declared it says nothing at all, which is the shape this whole function
+		// exists to stop reproducing.
+		logger.Info("resolveCurrentPageName: step config declares no sources map (absent, or the array form) — using the conventional page path",
+			zap.String("path", conventionalPath),
+			zap.String("sources_type", fmt.Sprintf("%T", config["sources"])))
+	}
+
+	page := datahelpers.ExtractNestedFieldMap(collectedData, path)
+	if page == nil {
+		logger.Warn("resolveCurrentPageName: no page object at the configured source path — every section component will see an empty current_page and cannot vary per page (bugs_open/085)",
+			zap.String("path", path))
+		return ""
+	}
+	for _, key := range currentPageNameKeys {
+		if v, ok := page[key].(string); ok && v != "" {
+			return strings.TrimSuffix(v, ".html")
+		}
+	}
+
+	// A page object that carries none of the known name keys is a THIRD envelope
+	// shape. Log the keys it does carry: that is the whole diagnosis for whoever
+	// adds it to currentPageNameKeys, and it is the difference between this and
+	// the silent allowlist drop that caused the bug.
+	logger.Warn("resolveCurrentPageName: page object carries none of the known name keys — current_page will be empty; add the key it does use to currentPageNameKeys (bugs_open/085)",
+		zap.String("path", path),
+		zap.Strings("known_keys", currentPageNameKeys),
+		zap.Strings("keys_present", datahelpers.GetMapKeys(page)))
+	return ""
 }
 
 // mergeIntoRenderContextEnhanced extracts data from various source formats
@@ -1319,6 +1400,7 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 		"logo_text":        ctx.LogoText,
 		"company_name":     ctx.CompanyName,
 		"tagline":          ctx.Tagline,
+		"current_page":     ctx.CurrentPage,
 		"email":            ctx.Email,
 		"phone":            ctx.Phone,
 		"primary_color":    ctx.PrimaryColor,
@@ -1440,6 +1522,15 @@ func mergeIntoRenderContext(ctx *RenderContext, data map[string]interface{}) {
 	}
 	if v, ok := data["tagline"].(string); ok && v != "" {
 		ctx.Tagline = v
+	}
+	// current_page survives the round-trip through collected_data only if it is
+	// restored into the struct field here. The catch-all at the end of this
+	// function puts it in ContentData, which is enough for the html/template
+	// path (ContentData wins in contextToInterfaceMap) but NOT for the regex
+	// fallback (contextToMap skips a key the base map already holds, and the
+	// base map holds an empty CurrentPage). Two render paths, one value.
+	if v, ok := data["current_page"].(string); ok && v != "" {
+		ctx.CurrentPage = v
 	}
 	if v, ok := data["email"].(string); ok && v != "" {
 		ctx.Email = v
