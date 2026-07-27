@@ -159,6 +159,45 @@ how often this happens — one instance, noticed by reading, not counted.
 
 ---
 
+## 2026-07-27 (evening, cont.) — D11 filed, and the "real fix" was a third of the ask
+
+**Owner directive (D11): seats must be able to LOOK THINGS UP, not merely be honest
+about not being able to.** The `CODE INDEX LIMITS` caveat is an interim, explicitly.
+
+**I answered the owner's "is that the same thing?" with NO, and that was right —
+my "step 2" was about a third of it.** Three layers, only the first of which is
+`bugs_open/108` candidate 2: (1) the index must CONTAIN the answer (bodies +
+markdown); (2) the question must be ROUTED (`code_lookup` is on `fix-proposer`
+only); (3) "dynamic" — the round-trip itself, where a seat gets answers *next
+round* and so cannot look while reasoning. Layer 3 is a different shape of change
+and belongs in its own RFC. **Recommended order 2 → 1 → 3**, because routing is
+config-only and makes the index we already have reachable everywhere immediately.
+
+**Two things found by READING THE SCHEMA that would have wrecked a naive "just
+index bodies" edit** — both are why the plan is shaped as it is:
+
+- **`content` is doing three jobs at once**: it is the trigram-indexed search text,
+  the **embedded** text, AND the input to `content_hash`, which is the re-embed
+  trigger (`loadExistingHashes` compares it). Appending bodies to `content` would
+  therefore have silently **re-embedded all 4,535 rows** and let body text dominate
+  the vectors — a large, invisible cost arriving as a side effect of a *search* fix.
+  ⇒ a **separate `body` column**, leaving `content`/`content_hash` byte-identical.
+- **`code_symbols.kind` has a CHECK constraint** (`func|method|struct|interface|
+  alias|type|var|const`), so **markdown cannot be inserted at all** without relaxing
+  it. 108 candidate 2 says indexing markdown is "the same question, already settled";
+  it is the same *mechanism* but not the same *cost* — it needs a migration. Markdown
+  is therefore scoped OUT of this submission rather than smuggled in.
+
+Also corrected en route: **the live migrations home is
+`docs/agent_docs/sql_for_agents/` (`run-migrations.sh:56`), not
+`platform/database/migrations/`**, which stops at 200 and is historical. Next free
+number is **241**.
+
+**SUBMITTED to the council gate: `SUBMISSION_CORR=18fe4035-4fa6-4079-ab44-8541d6e58944`**
+(6 edits, 5 in `platform/`). Budget ~30 min, not 2 — the queue was 4 deep at submit
+time. `Council-Reviewed: 18fe4035-…` on commit **only if APPROVED**, and re-read
+`decided_by` per round.
+
 ## 2026-07-27 (evening, cont.) — the code tier is dead on two of three lanes
 
 Went to do the cheap thing (warn the seats that an empty `code_checks` result is

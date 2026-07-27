@@ -19,6 +19,7 @@ status line. Current state in prose:
 | D8e-1 generated case index for the historians | **LIVE** |
 | D9 does the FIX lane need the forward seat too | **RULED: NO — do not act** (owner, 07-27 evening): the new seat *is* the forward voice, one is enough |
 | D10 landmines as a footprinted corpus | **OPEN** — drafted by another thread (was numbered D9; renumbered on a concurrent collision) |
+| **D11 seats must be able to LOOK THINGS UP** | **OWNER DIRECTIVE 07-27 evening, go given.** Three layers — index *contains* it (bodies+markdown, needs a migration), question is *routed* (config, cheapest), and the *dynamic* round-trip (unscoped, own RFC). The shipped caveat is an interim, not a destination |
 
 **NO DECISION IS OPEN FOR THE OWNER as of 2026-07-27 evening.** D7(b) and D9 were
 both ruled that evening — *don't narrow the guardian; don't seat a second forward
@@ -750,6 +751,54 @@ D5 has now reported and says it is.
 prompts are already long; more corpus may mean more rounds, and round count is
 what makes the gate cost ~30 minutes. D8d is a legitimate answer if the corpus
 is judged a human instrument by design.
+
+---
+
+### D11 — OWNER DIRECTIVE 2026-07-27 evening: the seats must be able to LOOK THINGS UP, not merely be honest about not being able to
+
+**Quoting the owner, on the mitigation shipped that evening:**
+
+> *"please note somewhere that we want to make this more dynamic: 'The seats still
+> can't look anything up. They're just no longer lied to…' and able to look up
+> things."*
+
+**So the `CODE INDEX LIMITS` caveat is explicitly an interim, not a destination.**
+It stops a seat inventing an absence; it does not give it an instrument. The
+directive is that seats acquire a working lookup.
+
+**This is BIGGER than `bugs_open/108` candidate 2, and the difference matters —
+"index bodies" alone would satisfy none of it end to end.** Three separate layers,
+all required, and only the first is 108 candidate 2:
+
+1. **The index must CONTAIN the answer.** Bodies (108 defect B) and markdown
+   (D8b — `WRONG_CALLS.md`, `/bugs_open/`, the concept register). *Not free, and
+   108 understates this:* `code_symbols.kind` carries a **CHECK constraint**
+   (`func|method|struct|interface|alias|type|var|const`), so **markdown cannot be
+   inserted at all without a migration**; and `content` is simultaneously the
+   trigram-indexed text AND the embedded text, keyed by `content_hash`, so
+   appending bodies to it would silently **re-embed all 4,535 rows** and let bodies
+   dominate the vectors. ⇒ a **separate `body` column + its own trigram index**,
+   i.e. a schema change, not a one-line indexer edit.
+2. **The question must be ROUTED.** Measured 2026-07-27: `code_lookup` exists on
+   **`fix-proposer` only**, and `review_prior_art` is not even in its
+   `code_check_fields`. So on `feature-designer` — where the forward seat lives —
+   a perfect index would still answer **nothing**. This layer is *config*, needs no
+   image, and is the cheapest of the three.
+3. **"More dynamic" — the round-trip itself is the deeper limit.** Today a seat
+   emits `code_checks` and gets answers **next round**, so it cannot look something
+   up *while reasoning*; it must guess, commit to a verdict, and be corrected a
+   round later. The owner's word "dynamic" points here. `[UNSCOPED]` — this is a
+   tool-use-shaped change to how a seat runs, materially larger than 1 or 2, and it
+   should not be smuggled into the same change.
+
+**Sequencing recommendation: 2 → 1 → 3.** Routing is config-only and makes the
+existing (declarations-only) index reachable on every lane immediately; bodies +
+markdown need a migration, an image and a roll; the dynamic round-trip is its own
+piece of work and probably its own RFC.
+
+**Status: OPEN, and the owner has said go on layers 1 and 2** ("Yes please go ahead
+with the Step 2 real fix"), with the correction recorded that layer 3 was not what
+"step 2" meant.
 
 ---
 

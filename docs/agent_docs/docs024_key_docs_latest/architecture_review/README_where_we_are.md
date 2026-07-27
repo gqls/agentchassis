@@ -295,3 +295,41 @@ know I made that call rather than waiting indefinitely.
 change that would finally make our written history searchable. That one is code, so it
 needs a review round, a rebuild and a deploy, and I'd put it through the council gate
 first rather than just doing it.
+
+## 2026-07-27 (evening) — noted: the caveat is a stop-gap, and no, it isn't the same thing
+
+**Your point is recorded as a standing direction (D11 in the decisions file): we want
+the reviewers able to actually look things up, not merely honest about being unable
+to.** What shipped stops a reviewer inventing an absence; it gives it no instrument.
+That's a floor, not a destination, and it's now written down as such.
+
+**And to answer your question directly: no, the "step 2" I described is not the same
+as what you just asked for. It's about a third of it.** I'd framed step 2 as "make
+the index store bodies". That's necessary and nowhere near sufficient. Looking things
+up actually needs three things, and I'd only named the first:
+
+1. **The index has to contain the answer** — function bodies, and our written history
+   in markdown. This is the part I'd called step 2, and it's more expensive than the
+   bug file suggests: markdown literally cannot be inserted today because the table
+   restricts what kinds of thing it will accept, and the column that would hold
+   bodies is also the column used for the semantic search, so overloading it would
+   silently redo every embedding and skew the results. So it needs a schema change,
+   not a one-line edit.
+2. **The question has to actually be routed** — and today, on the council where the
+   new forward reviewer lives, it isn't routed anywhere at all. A perfect index would
+   still answer nothing there. This part is configuration only: no rebuild, no
+   deploy, and it's the cheapest of the three. **I had this as an afterthought and
+   it should be first.**
+3. **The "dynamic" part you're pointing at, which is the deepest.** Right now a
+   reviewer asks its question and gets the answer *the following round* — so it can't
+   look something up while it's thinking. It has to guess, commit to a verdict, and
+   be corrected a round later. Making that live, so it can look while reasoning, is a
+   materially bigger change to how a reviewer runs, and I don't want to smuggle it
+   into the same piece of work.
+
+**I'd do 2, then 1, then 3** — routing first because it's free and immediately makes
+the index we already have reachable everywhere; bodies and markdown next because they
+need a migration, a rebuild and a deploy; the live-lookup change last and probably as
+its own RFC, since it changes the shape of a review rather than its inputs.
+
+Going ahead now with 2 and 1, through the council gate first as I said I would.

@@ -1,0 +1,60 @@
+{
+  "rationale": "The council's code tier answers 'absent' for code that exists, and after the owner's 2026-07-27 D9 ruling the platform's ONLY forward-fitness voice (review_architecture on feature-designer) depends on it. Three defects compound, measured live 2026-07-27, not inferred. (1) ROUTING: the code_lookup step exists on fix-proposer ONLY. feature-designer and council-gate have no such step, so every code_check raised on those two lanes is never routed anywhere and silently returns nothing; and even on fix-proposer, review_prior_art -- the seat whose charter is 'does it propose BUILDING something that already exists' -- is absent from code_check_fields, so its code questions are dropped on all three lanes. (2) CONTENT: code_symbols.content holds declarations only (kind + symbol + signature + doc + path); function bodies are never indexed, so a content check for any route, table name, registry key, config key or string literal returns zero rows -- max(length(content)) is 451 across 2744 func rows. (3) The documented contract at diagnose_code_lookup_action.go:29-31 promises content 'match against symbol source bodies', which cannot work, and its own example '%stop_reason%' is a literal that only ever appears inside a body. This plan fixes routing and content. It deliberately does NOT attempt the dynamic/live-lookup change (a seat querying while reasoning rather than receiving answers next round) -- that is a change to how a seat runs, materially larger, and belongs in its own RFC. A config-only interim already shipped 2026-07-27 18:3x: a CODE INDEX LIMITS caveat on all 15 prompts mentioning code_checks, telling seats an empty code result is NO INFORMATION rather than absence. That stops fabricated absence claims; it gives no instrument, which is what this plan is for. Two design constraints discovered by reading the schema rather than assuming: content is simultaneously the trigram-indexed AND the embedded text, keyed by content_hash, so appending bodies to it would silently re-embed all 4535 rows and let bodies dominate the vectors -- hence a SEPARATE body column; and code_symbols.kind carries a CHECK constraint (func|method|struct|interface|alias|type|var|const), so indexing markdown is impossible without relaxing it, which is why markdown is scoped OUT of this plan and left to a follow-up rather than smuggled in.",
+  "submitter": "architecture council 2 (architecture_review workstream)",
+  "plan": {
+    "summary": "The council's code tier answers 'absent' for code that exists. Three compounding defects, measured live 2026-07-27: code_lookup exists on fix-proposer ONLY (feature-designer and council-gate route code_checks nowhere), review_prior_art is absent from fix-proposer's code_check_fields, and code_symbols.content holds declarations only so no body/literal search can ever match. This plan adds a separate body column (NOT extending content, which is the embedded text keyed by content_hash), populates it at index time from the line span already recorded, makes the 'content' check search it, corrects the contract comment that promised body matching, and renders 'answered: 0 rows' distinctly from 'not answered'. Markdown indexing is deliberately OUT (kind has a CHECK constraint), as is the dynamic live-lookup change (its own RFC). The routing half is config, applied separately.",
+    "edits": [
+      {
+        "file": "docs/agent_docs/sql_for_agents/241_code_symbols_body_column.sql",
+        "operation": "add",
+        "rationale": "Add the body column and its own trigram index, rather than extending content. content is NOT NULL, is the source of content_hash (the re-embed trigger), and is the embedded text -- appending bodies to it would re-embed all 4535 rows and skew vector semantics toward body text. A separate column leaves embeddings and hashes untouched. 241 is the next free number in the live migrations home (docs/agent_docs/sql_for_agents; platform/database/migrations is historical, per scripts/migration/run-migrations.sh:56). Idempotent so a concurrent session re-running it is harmless.",
+        "sketch": "ALTER TABLE code_symbols ADD COLUMN IF NOT EXISTS body text;\nCREATE INDEX CONCURRENTLY IF NOT EXISTS idx_code_symbols_body_trgm\n  ON code_symbols USING gin (body gin_trgm_ops);\n-- body stays NULLABLE: rows indexed before this ships legitimately have no body,\n-- and NULL is the honest value. A NOT NULL DEFAULT '' would make 'not yet indexed'\n-- indistinguishable from 'body is genuinely empty' -- the exact confusion 108 is about."
+      },
+      {
+        "file": "platform/orchestration/actions/code_symbols_actions.go",
+        "operation": "modify",
+        "rationale": "Populate body at index time from the line span the indexer ALREADY records. symbolRow carries lineStart/lineEnd (set from td.StartLine/td.EndLine), and the indexer is already walking the file, so this needs no new file I/O pass and no re-parse. Deliberately NOT reusing internal/analysis.ReadSymbolBody here: that function needs an analyser Output plus a checked-out root to resolve a 'path:Symbol' scope string, which is the bundle assembler's problem, not the indexer's -- the indexer already holds the concrete span and the file lines.",
+        "sketch": "// in the row builders, alongside the existing content:\nbody := sliceLines(fileLines, td.StartLine, td.EndLine) // [start,end] inclusive, 1-indexed,\n                                                       // matching analysis.ReadSymbolBody's convention\nrows = append(rows, symbolRow{..., content: content, body: body, ...})\n\n// content and content_hash are UNCHANGED, so no row is re-embedded by this edit.",
+        "symbol": "composeSymbolContent/row builders"
+      },
+      {
+        "file": "platform/orchestration/actions/code_symbols_actions.go",
+        "operation": "modify",
+        "rationale": "Persist the new field. The upsert must write body without disturbing content_hash, or every row re-embeds on the next refresh -- which would be a costly and invisible side effect of a search fix.",
+        "sketch": "INSERT INTO code_symbols (repo, path, symbol, kind, signature, doc,\n                          line_start, line_end, content, body, content_hash, ...)\nVALUES (...)\nON CONFLICT ON CONSTRAINT uq_code_symbols_identity DO UPDATE\n  SET body = EXCLUDED.body, ...   -- content_hash logic untouched",
+        "symbol": "upsertSymbolRows"
+      },
+      {
+        "file": "platform/orchestration/actions/diagnose_code_lookup_action.go",
+        "operation": "modify",
+        "rationale": "Make the 'content' kind search what its own documented contract promises. Search body OR content so the kind keeps working for declaration matches (its only current use) while gaining the body matching the contract has always claimed. Returning the matching excerpt from body rather than the whole declaration is what makes the result useful at the 400-char excerpt cap already configured.",
+        "sketch": "case \"content\":\n  ... WHERE (COALESCE(body,'') ILIKE '%'||$1||'%' OR content ILIKE '%'||$1||'%')\n  -- excerpt preferentially from body when it matched",
+        "symbol": "runCodeCheck (case \"content\")"
+      },
+      {
+        "file": "platform/orchestration/actions/diagnose_code_lookup_action.go",
+        "operation": "modify",
+        "rationale": "Fix the contract comment at :29-31 that promises body matching, and its '%stop_reason%' example which cannot work today. This is bugs_open/108 candidate 3, worth doing in the same edit because leaving a now-true comment next to a now-fixed behaviour is how the next reader learns which one to trust. Also state the ref-tracking fact (the index mirrors the last PUSHED ref) so a reader of the banner is not misled -- 108 candidate 4.",
+        "sketch": "//  content \u2014 match against symbol source BODIES and declarations (ILIKE over\n//            trigram-indexed body/content, e.g. \"%stop_reason%\").\n//  NOTE: the index mirrors the last PUSHED ref, not local HEAD.",
+        "symbol": "package doc comment"
+      },
+      {
+        "file": "platform/orchestration/actions/diagnose_code_lookup_action.go",
+        "operation": "modify",
+        "rationale": "An empty result must be distinguishable from an unanswerable one at the DATA layer, not only in prompt text. Today a seat cannot tell 'searched, found nothing' from 'nobody ran your query'. This is the root cause 108 names -- an empty result indistinguishable from genuine absence -- and prompt wording alone cannot fix it, because the prompt is not present when the result is read.",
+        "sketch": "// render explicitly, per check:\n//   \"answered: 0 rows (index @ <sha>, N commits behind, bodies indexed: yes)\"\n// rather than an empty section that reads as absence.",
+        "symbol": "renderCodeCheckResults"
+      }
+    ],
+    "grounded_in": [
+      "platform/orchestration/actions/code_symbols_actions.go:334-336 \u2014 // composeSymbolContent builds the searchable text (embedded AND trigram-matched):\n// kind + symbol + signature + doc + path.",
+      "platform/orchestration/actions/diagnose_code_lookup_action.go:29-31 \u2014 content \u2014 match against symbol source bodies (ILIKE over the\n           trigram-indexed content column, e.g. \"%stop_reason%\");\n           returns path, symbol + a capped matching-line excerpt.",
+      "live clients_db, 2026-07-27 \u2014 SELECT kind, count(*), max(length(content)) FROM code_symbols GROUP BY 1 -> func 2744 max 451, method 947 max 413, struct 789 max 181, interface 32, alias 23. Total 4535 rows, 530 distinct paths, 0 rows where path ILIKE '%.md'.",
+      "live clients_db agent_definitions, 2026-07-27 \u2014 code_lookup step present on fix-proposer only; NULL on feature-designer and council-gate. fix-proposer code_check_fields = [editquality, bug_historian, reuse_agent, guidelines, tooling_provenance, guardian] -- review_prior_art absent.",
+      "bugs_open/108 (defect B) \u2014 Bodies are read on demand by ReadSymbolBody (internal/analysis/symbolbody.go:31), which the indexer never calls. So every content check for a route, registry key, table name, config key or any string literal returns zero rows.",
+      "live clients_db schema, code_symbols \u2014 content text NOT NULL; content_hash character varying(64) NOT NULL; embedding vector(768); idx_code_symbols_content_trgm gin (content gin_trgm_ops); code_symbols_kind_check CHECK (kind = ANY (ARRAY['func','method','struct','interface','alias','type','var','const']))",
+      "scripts/migration/run-migrations.sh:56 \u2014 MIGRATIONS_DIR=\"${MIGRATIONS_DIR:-$ROOT/docs/agent_docs/sql_for_agents}\""
+    ],
+    "risks": "(1) The new body column is populated only on the NEXT successful reindex, so between deploy and reindex a content check still returns declaration-only matches \u2014 it degrades to today's behaviour, it does not break. (2) The chief risk is accidentally disturbing content_hash: if the upsert touches it, every one of the 4535 rows re-embeds on the next refresh, a large and invisible cost. A reviewer should check that content and content_hash are byte-identical before and after this change \u2014 that is the single most important assertion in this plan. (3) body is nullable by design: NULL means 'not indexed yet' and empty-string would make that indistinguishable from a genuinely empty body, which is the exact confusion bugs_open/108 documents. (4) The body trigram index adds write cost on reindex and disk; CREATE INDEX CONCURRENTLY avoids locking, but must not run inside a transaction \u2014 the migration runner should be checked for that. (5) Bodies may contain secrets or long generated blobs; the 400-char excerpt cap and 40-row cap already bound what reaches a prompt, but a reviewer should confirm the excerpt is taken around the MATCH rather than from the head of the body. (6) This does not make the index fresh \u2014 it still mirrors the last pushed ref (108 defect A), which is why edit 5 states that fact in the contract rather than leaving a reader to infer currency."
+  }
+}
