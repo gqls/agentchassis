@@ -132,6 +132,18 @@ what this key can reach · visible-vs-thinking output at each real tier · which
 thinking knob the model accepts. Those answers were obtained by hand on 07-24
 and survived only inside a commit message.
 
+## Blocked on an unrelated fleet outage
+
+The end-to-end page-build verification (P7) **cannot run**: `bugs_open/029` (hung
+spawns saturate the dispatch group, halting all builds fleet-wide, filed 2026-07-19,
+still OPEN) has stopped `build-dispatch-loop` since 19 July. A properly queued
+`needs_page` item for `dartsonline/grip-styles` was detected and never claimed. This
+predates this bug by eight days and is unrelated to the provider switch.
+
+The model-side risks were verified directly instead: the writer's real 12,570-char
+prompt at its real 8000 budget returns valid unfenced JSON with all required keys,
+`finishReason=STOP`, 1,576 thinking tokens.
+
 ## Why this stays OPEN
 
 The fix is Go, so it is **inert until an image rebuild and roll**. Until then the

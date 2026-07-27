@@ -38,6 +38,26 @@ nominates.
 `bugs_open/107` stays **OPEN** until P6/P7 land, per the "fixed AND live with no
 residual" bar.
 
+## BLOCKED, and not by us: `bugs_open/029` has halted every build since 19 July
+
+**P7's page build cannot run.** Queued `dartsonline/grip-styles` (planned, never
+deployed) as a proper `needs_page` build item on 2026-07-27. It was never claimed.
+`build-pipeline-trigger` detects it correctly (`pending_sites: "1"`, and it is the
+only eligible build item fleet-wide), then hangs at `spawn_dispatch` awaiting a
+response. **`build-dispatch-loop`'s last orchestration is CANCELLED, 2026-07-19.**
+
+That is `bugs_open/029` — *hung spawns saturate the dispatch group and silently halt
+ALL builds fleet-wide*, filed 19 July, **still OPEN**, the consequence half of `003`.
+Nothing to do with the model swap. **Do not start a competing fix**; it is filed and
+owned. The work item stays queued and will build when 029 lifts.
+
+Two traps if you retry this:
+- `build-pipeline-trigger`'s `seed_queue` step reporting `{"total":0,"seeded":0}` is
+  a **red herring**. That step seeds brand-new sites from `build_queue`; zero is
+  correct. The stall is one step later, at `spawn_dispatch`.
+- `grip-styles` has **0 `page_components`**, so a rerender has nothing to re-render.
+  A `planned` page needs the full build path. See `bugs_open/087`.
+
 ## The one thing left, and it needs YOUR call, not a command
 
 **Rebuild one real page through `process_sections_loop` and read the copy.** I
