@@ -7593,8 +7593,27 @@ three other sessions' stashes are in that list — and bought nothing. *Check: d
 the tool I am running actually read the working tree before protecting it from
 itself.*
 
+**And a THIRD instance of the same family, hours later, in the very section
+warning about it.** The runbook block I wrote to verify the island rebuild —
+titled *"verify against the RUNNING CONTAINER"* — shipped with two defects:
+it grepped **`/app/tools-api`** when the dockerfile puts the binary at
+**`/tools-api`** (so every check would have returned 0 and read as a failed
+deploy), and its negative control grepped **`JSONError(c, 502`**, which is Go
+*source* and is not in a compiled binary at all — it returns 0 before and after
+and proves nothing. Caught by running the greps against the built image before
+shipping. *Check: a verification command is code too; run it against a known-good
+AND a known-bad input before writing it down as the procedure.*
+
+**The tally is the point.** Three in one day, each in a different costume —
+a file-gated linter, a source-string grep of a binary, a wrong path — and one of
+them written *inside the warning about the other two*. The generalisation that
+covers all three: **an assertion that cannot fail is not an assertion.** Every
+"we now verify X" needs its failing case demonstrated once, at the moment it is
+written.
+
 Family: a-clean-result-and-an-unrun-check-are-identical, vacuous-detector,
-protected-against-a-risk-the-tool-does-not-have.
+protected-against-a-risk-the-tool-does-not-have,
+the-verification-command-is-code-too.
 
 ## 2026-07-27 — three zeros in one session, none of them findings: a null result means nothing until the instrument is shown able to return non-zero
 
