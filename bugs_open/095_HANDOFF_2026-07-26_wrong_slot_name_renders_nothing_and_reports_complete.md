@@ -61,6 +61,43 @@ A page still at `build_status='planned'` is also skipped, with the same
 success-shaped outcome. Setting `needs_rebuild` is required before a
 never-built page will render.
 
+## Scale — measured 2026-07-27 (triage sweep): **zero live instances**
+
+The fault shape is *"page has component rows, but none of them carries usable
+`rendered_html`"* — that is what makes `assemblePage` return empty and the run report
+`complete_skipped`. Fleet-wide:
+
+```sql
+SELECT s.domain, p.name, count(*) AS components,
+       count(*) FILTER (WHERE pc.rendered_html IS NOT NULL AND pc.rendered_html <> '') AS usable
+FROM pages p JOIN sites s ON s.id=p.site_id JOIN page_components pc ON pc.page_id=p.id
+GROUP BY 1,2 HAVING count(*) FILTER (WHERE pc.rendered_html IS NOT NULL AND pc.rendered_html <> '') = 0;
+-- 0 rows
+```
+
+So this is a **defect class with no current damage** — the case for fixing it is the
+silence, not a live page. Severity "medium-high" stands on that basis alone.
+
+> **Two corrections to the mechanism as filed, both found by reading the code:**
+>
+> 1. **`slot_name` not matching `pages.sections` is NOT what makes assembly return
+>    empty.** `getPageSections` (`rerender_single_page_action.go:509`) selects *every*
+>    `page_components` row for the page and filters only on
+>    `rendered_html IS NOT NULL AND rendered_html != ''` — it never consults
+>    `pages.sections`. The `'main'` row rendered nothing because **nothing ever
+>    populated its `rendered_html`**; the slot mismatch bites earlier, at the render
+>    step that pairs planned sections to component rows, not at assembly.
+> 2. Consequently a fleet scan for *"slot_name absent from `pages.sections`"* is **not**
+>    a detector for this bug. It returns **70 rows across 12 sites** today, and they are
+>    overwhelmingly benign — `loadComponentSchemas` keys by both component *name* and
+>    *function*, so a slot matches either. Do not use that scan as evidence of damage;
+>    use the one above.
+>
+> This matters for fix candidate 1: a CHECK constraint tying `slot_name` to the
+> component `function` would still be correct, but it must be justified as closing the
+> *render-pairing* hole, not as preventing an assembly failure — and it would have to
+> reckon with those 70 existing rows.
+
 ## Fix candidates, ordered by what closes the door
 
 1. **Make the mismatch unrepresentable**: a CHECK or trigger requiring

@@ -210,6 +210,54 @@ Anything returned is a nav entry pointing at a page the platform has retracted.
 **[UNMEASURED] whether other sites carry stranded nav rows** — I checked only this site;
 worth running fleet-wide before designing the fix.
 
+> ## MEASURED 2026-07-27 (triage sweep) — run fleet-wide, and **the query as written is wrong**
+>
+> Fleet-wide it returns **4 rows, all on `leopardessconsulting.co.uk`, and all four are
+> false positives.** No other site carries a stranded nav row.
+>
+> | label | url | `page_id` | live |
+> |---|---|---|---|
+> | Agent Complexity Estimator | `/tools/tool-agent-complexity-estimator.html` | **NULL** | 200 |
+> | Automation Suitability Scorer | `/tools/process-automation-scorer/index.html` | **NULL** | 200 |
+> | Password Entropy | `/tools/password-entropy.html` | **NULL** | 200 |
+> | ROI Estimator | `/tools/ai-agent-roi-estimator.html` | **NULL** | 200 |
+>
+> All four have `page_id IS NULL` — nav rows authored by URL with no FK — and every one
+> of their URLs resolves to an `active` page and serves **HTTP 200**. The `LEFT JOIN …
+> WHERE p.id IS NULL` arm cannot tell *"points at a retracted page"* from *"has no page
+> FK at all"*, and the second is the common case: a nav entry created by URL is normal.
+>
+> **A detector built on the query above would open 4 work items against healthy nav on
+> day one and find nothing real** — the failure mode that `bugs_open/033` and `/071`
+> already describe (detection nobody can act on). Fall back to the URL when the FK is
+> absent:
+>
+> ```sql
+> SELECT s.domain, i.label, i.url
+> FROM site_nav_items i
+> JOIN site_nav_groups g ON g.id = i.group_id
+> JOIN sites s ON s.id = g.site_id
+> LEFT JOIN pages p ON p.id = i.page_id
+> LEFT JOIN pages q ON q.site_id = g.site_id AND q.url = i.url
+> WHERE i.status = 'active'
+>   AND COALESCE(p.status, q.status) IS DISTINCT FROM 'active';
+> ```
+>
+> That returns **0 rows** today — i.e. the relojistas repair holds and nothing else in
+> the fleet is stranded. Which means the *nav* half of this case has **no live instance
+> left**; only the frozen-artefact half does (below).
+>
+> **The frozen-artefact half is still live and still reproducible**, re-checked
+> 2026-07-27:
+>
+> ```
+> 200  https://robot-hands.com/learning-center/index.html
+> ```
+>
+> The archived-but-once-deployed population has grown 12 → **13** (leopardess 10,
+> robot-hands 2, relojistas 1 — the newly archived `contacto`, whose file was deleted
+> deliberately, so it correctly 404s and is not a new instance).
+
 Repaired here by setting the row `inactive` (backup `bak_reloj_navitem_contacto_20260727`)
 and re-firing every page. **Convention trap:** the 4 pre-existing non-live rows fleet-wide
 use `inactive`; `archived` is also excluded by the `= 'active'` filter but would be

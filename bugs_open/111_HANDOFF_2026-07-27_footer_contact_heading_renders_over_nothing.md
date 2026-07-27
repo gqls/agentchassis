@@ -81,6 +81,60 @@ WHERE EXISTS (SELECT 1 FROM pages p WHERE p.site_id=s.id AND p.deployed_at IS NO
 ORDER BY 2, s.domain;
 ```
 
+> ## CORRECTED 2026-07-27 (triage sweep) — the blast radius is **2 sites, not 8**, and the query above cannot measure it
+>
+> **What caught it:** curling the rendered footers instead of querying keys —
+> CLAUDE.md's *"Trust the rendered artefact, not the status"*. The query above reads
+> `site_specs.identity.contact`, and **the footer does not read that.**
+>
+> Measured 2026-07-27 by fetching `/` on all 14 live-page sites and stripping tags
+> from the `.footer-contact` block:
+>
+> | rendered outcome | sites |
+> |---|---|
+> | **EMPTY — heading over nothing** | **2**: `gamesdesign.co.uk`, `relojistas.com` |
+> | populated (email and/or phone) | 10 |
+> | no `.footer-contact` block at all | 2: `idea.uk`, `webdesign.co.uk` |
+>
+> So **five of the eight sites this file names as broken render a populated Contact
+> block**: `gaswholesalers.com`, `oufe.com`, `robot-hands.com`, `vetcomparison.uk`,
+> `vonc.com`. The file's list was derived from the wrong key.
+>
+> **The footer's values come from the `sites.email` / `sites.phone` COLUMNS**, not
+> from `site_specs.identity` in either its flat or nested form:
+>
+> ```sql
+> SELECT domain, email, phone FROM sites
+> WHERE EXISTS (SELECT 1 FROM pages p WHERE p.site_id=sites.id AND p.deployed_at IS NOT NULL);
+> -- sites.email IS NULL on exactly ONE site: gamesdesign.co.uk
+> -- sites.phone IS NULL on seven: gamesdesign, oufe, relojistas, robot-hands,
+> --                               vetcomparison, vonc, webdesign
+> ```
+>
+> That column set predicts the rendered output on 13 of 14 sites. The exception is
+> **`relojistas.com`, which renders an empty anchor despite a populated
+> `sites.email`** (`relojistas@contactforsales.com`) — its identity spec was cleared
+> at 14:24 and the page re-rendered at 14:29, so a third path is feeding that render.
+> **[UNVERIFIED] which one** — worth one query before anyone fixes relojistas
+> specifically.
+>
+> **What this does to the case.** It does not refute the defect — the gate really is
+> on the wrong side of the heading, and `gamesdesign.co.uk` is a genuine live
+> instance with no contact data anywhere. It refutes the *sizing*: this is a 2-site
+> cosmetic issue, not an 8-site fleet-wide one, and one of those two
+> (`relojistas.com`) is an owner ruling of *no contact route at all* rather than
+> missing data. **Fix candidate 1 is still right and still cheap; it is just not
+> urgent, and it should not be justified by the "8 of 14" figure.**
+>
+> **Dependency (from the main session's 072 work, 2026-07-27, commit `ca53bc19c`):**
+> `bugs_open/072` (*contact_info_reads_flat_identity_keys* — resolve by slug, the
+> `072` in `bugs_closed/` is the component-CSS one) is the contract defect behind the
+> identity-key divergence, and the sequence is **072 then 111**, because fixing 111
+> first hides whether 072 is still broken. Note the correction above narrows what 072
+> can buy here: the footer is *already* populated on 10 of the 12 sites that carry the
+> block, so at most 2 sites are reachable by any contact-data fix, and only
+> `gamesdesign.co.uk` by data alone.
+
 ## Why it blocks something real, not just tidiness
 
 The owner ruled on 2026-07-27 that relojistas.com carries **no contact route**. Every
@@ -139,7 +193,18 @@ because CF rewrites every mailto into `/cdn-cgi/l/email-protection#<hex>`. This 
 made the empty footer anchor invisible for a day. Decode by XOR-ing each byte after the
 first against the first byte.
 
-## Unverified observation worth someone's minute
+## Unverified observation worth someone's minute — **RESOLVED 2026-07-27, benign at the footer**
+
+> **CHECKED (triage sweep, 2026-07-27).** `dartsonline.com`'s live footer publishes
+> `darts@contactforsales.com` / `07934 524 911` — the house convention, taken from
+> `sites.email` / `sites.phone`. The research-derived `sales@darts.com` /
+> `(800) 526-1920` in its identity spec **are not what ships to the footer**, because
+> the footer never reads that spec (see the correction above). So the worry below is
+> not live *at this surface*.
+> **[UNVERIFIED] whether those spec values surface anywhere else** — the spec is still
+> carrying a third party's real address and phone number (`13010 NE David Cir,
+> Portland`), which is worth someone's minute for a different reason than the one
+> originally filed.
 
 `dartsonline.com` carries `sales@darts.com` / `(800) 526-1920` in its identity contact.
 Every other site with details uses the `<name>@contactforsales.com` house convention, and

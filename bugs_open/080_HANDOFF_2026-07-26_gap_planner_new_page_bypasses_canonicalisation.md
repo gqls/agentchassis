@@ -63,6 +63,50 @@ never brought into it.
 are the only exposure, and neither has been re-planned since. This is a latent
 trap, not live damage — which is why it is filed rather than hot-fixed.
 
+> ## CORRECTED 2026-07-27 (triage sweep) — **the duplicate already existed when this was filed, and it is live**
+>
+> `robot-hands.com` carries **both** rows, and has since before this case was
+> written:
+>
+> | name | url | page_type | build_status | status | created_at | nav |
+> |---|---|---|---|---|---|---|
+> | `news-index` | `/news/index.html` | `section-index` | deployed | active | **2026-07-08** | header+footer |
+> | `news` | `/news.html` | `news-index` | deployed | active | **2026-07-10** | header+footer |
+>
+> Both serve **HTTP 200**. Both were re-deployed within 12 seconds of each other at
+> 2026-07-27 08:10. They are near-duplicates of one another — identical `<title>`
+> (*"Robotics & Automation News | Gripper Industry Updates | Robot-Hands.com"*) and
+> the same listing under two headings (*"Gripper Industry News & Updates"* vs
+> *"Gripper Industry News & Automation Updates"*). The live nav points only at
+> `/news/index.html`, so **`/news.html` is an orphaned live duplicate** — reachable
+> by URL and by search engines, linked from nothing.
+>
+> **Why the original measurement missed it.** The table above this box lists
+> robot-hands.com once, as `news` at `/news.html`, because the survey selected
+> *"sites holding a `news-index` page"* by **`page_type`** — and the duplicate row is
+> typed `section-index`, so it fell outside the filter. The filter defined the
+> conclusion. Re-run it by name/URL shape, never by `page_type`:
+>
+> ```sql
+> SELECT s.domain, p.name, p.url, p.page_type, p.build_status, p.created_at
+> FROM pages p JOIN sites s ON s.id=p.site_id
+> WHERE p.page_type IN ('news-index','section-index')
+>    OR p.name LIKE '%news%' OR p.url LIKE '%news%'
+> ORDER BY 1,2;
+> ```
+>
+> **What changes.** Severity moves from *latent trap* to *live damage on one site*,
+> and the "reversal trigger" below is spent — it already fired, before filing. The
+> fix-candidate ordering is unaffected (candidate 1 is still the honest one), but the
+> decision it defers — *what to do with the existing rows* — is no longer
+> hypothetical: it is a concrete call on which of robot-hands.com's two news pages
+> survives and whether the other 301s.
+>
+> `webdesign.co.uk` is worth a second look for the same reason: it holds `news` at
+> **`/news/index.html`** (canonical URL, non-canonical name, `page_type=news-index`,
+> still `planned`). That row would collide with a canonical `news-index` name on the
+> next plan — the same trap, one step earlier.
+
 **Reversal trigger:** a re-plan of `gaswholesalers.com` or `robot-hands.com` that
 emits a news listing. After migration `206_planner_news_index_page_type.sql`
 (applied 2026-07-25) the planner *can* now emit `news-index`, so the trigger is
