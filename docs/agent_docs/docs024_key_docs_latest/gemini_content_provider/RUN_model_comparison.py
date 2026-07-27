@@ -18,6 +18,7 @@ OUT = sys.argv[3]
 
 GEM_KEY = os.environ["GEMINI_API_KEY"]
 ANT_KEY = os.environ["ANTHROPIC_API_KEY"]
+XAI_KEY = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY")
 VISIBLE_BUDGET = 8000
 RESERVE = 8192
 
@@ -47,6 +48,46 @@ def run_gemini():
                  "visible_tok": u.get("candidatesTokenCount", 0),
                  "thinking_tok": u.get("thoughtsTokenCount", 0),
                  "input_tok": u.get("promptTokenCount", 0)}
+
+
+def run_anthropic(model, extra=None):
+    """Anthropic Messages API. No temperature/top_p/top_k on 4.7+ (400).
+    Fable 5: thinking is ALWAYS ON — send no `thinking` field at all
+    (an explicit {type:"disabled"} or {type:"enabled",budget_tokens} both 400).
+    Its safety classifiers can decline: HTTP 200 with stop_reason "refusal",
+    so check stop_reason BEFORE reading content."""
+    body = {"model": model, "max_tokens": VISIBLE_BUDGET,
+            "messages": [{"role": "user", "content": PROMPT}]}
+    if extra:
+        body.update(extra)
+    d, secs = post("https://api.anthropic.com/v1/messages", body,
+                   {"x-api-key": ANT_KEY, "anthropic-version": "2023-06-01"})
+    if d.get("stop_reason") == "refusal":
+        raise RuntimeError(f"refusal: {(d.get('stop_details') or {}).get('category')}")
+    txt = "".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text")
+    u = d.get("usage", {})
+    # Fable's thinking is billed inside output_tokens but never returned as text,
+    # so visible/thinking cannot be separated here the way Gemini's can.
+    return txt, {"secs": round(secs, 1), "finish": d.get("stop_reason"),
+                 "visible_tok": u.get("output_tokens", 0), "thinking_tok": 0,
+                 "input_tok": u.get("input_tokens", 0)}
+
+
+def run_grok():
+    """xAI, via the OpenAI-compatible chat/completions endpoint. The platform's
+    news lane uses /v1/responses (feed_actions.go:742) because it needs the
+    web_search tool array; for a plain completion chat/completions is simpler."""
+    body = {"model": "grok-4-1-fast", "max_tokens": VISIBLE_BUDGET,
+            "messages": [{"role": "user", "content": PROMPT}]}
+    d, secs = post("https://api.x.ai/v1/chat/completions", body,
+                   {"Authorization": f"Bearer {XAI_KEY}"})
+    ch = d["choices"][0]
+    txt = ch["message"].get("content") or ""
+    u = d.get("usage", {})
+    reasoning = (u.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)
+    return txt, {"secs": round(secs, 1), "finish": ch.get("finish_reason"),
+                 "visible_tok": u.get("completion_tokens", 0) - reasoning,
+                 "thinking_tok": reasoning, "input_tok": u.get("prompt_tokens", 0)}
 
 
 def run_claude():
@@ -91,7 +132,13 @@ def score(txt):
 
 results = {}
 samples = {}
-for name, fn in (("gemini-pro-latest", run_gemini), ("claude-sonnet-4-6", run_claude)):
+MODELS = (
+    ("gemini-pro-latest", run_gemini),
+    ("claude-sonnet-4-6", run_claude),
+    ("grok-4-1-fast", run_grok),
+    ("claude-fable-5", lambda: run_anthropic("claude-fable-5")),
+)
+for name, fn in MODELS:
     rows, texts = [], []
     for i in range(N):
         try:

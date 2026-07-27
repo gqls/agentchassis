@@ -855,3 +855,88 @@ at 2.7x latency, on an agent that runs per section across the whole estate. If t
 owner's answer to that is "not worth it", then `112` need never be fixed for this
 workstream's sake and the writer simply stays on Claude. That is an owner call, and it
 is now the *first* question, not the last one.
+
+## 2026-07-27 — four-model bake-off (Gemini · Sonnet 4.6 · Grok · Fable 5), and the dryness is partly OUR PROMPT
+
+Owner: stay on Gemini and watch costs; prefers the Gemini copy because it sounds
+less like AI, but finds it **"very dry… a straight up list of facts without much
+personality."** Asked to put the same prompt to Grok (news API key exists) and to
+Fable 5.
+
+Same harness as the 5×2 run: real writer `prompt_template`, identical material,
+`max_tokens: 8000`, 5 runs each. Grok via `https://api.x.ai/v1/chat/completions`,
+model `grok-4-1-fast` (the model our news lane already uses; the platform itself
+calls `/v1/responses` — `feed_actions.go:742` — because it needs the web_search
+tool array, which a plain completion does not). Fable 5 per the `claude-api`
+skill: **send no `thinking` field at all** (it is always on; an explicit
+`disabled` or `budget_tokens` both 400), no sampling params, and check
+`stop_reason == "refusal"` before reading content.
+
+| metric | gemini-pro-latest | claude-sonnet-4-6 | grok-4-1-fast | claude-fable-5 |
+|---|---|---|---|---|
+| valid JSON / all keys | 5/5 | 5/5 | 5/5 | 5/5 |
+| fenced ``` | 0/5 | **5/5** | 0/5 | 0/5 |
+| em dashes · filler | 0 · 0 | 0 · 0 | 0 · 0 | 0 · 0 |
+| **negative-frame sentences** | 0.0 | **0.4** | 0.0 | **0.0** |
+| raw HTML tags | 0.4 | 3.6 | 0.0 | 1.6 |
+| contractions | 1.2 | 3.6 | **0.0** | 1.6 |
+| mean words/sentence | 7.6 | 14.9 | **4.8** | 12.5 |
+| chars | 422 | 557 | **262** | 527 |
+| billable output tokens | **2,425** (2,311 thinking) | 172 | 76 (+675 reasoning) | 767 |
+| latency | 17.1s | 4.3s | 6.9s | 13.2s |
+
+**Grok is the owner's complaint amplified, not fixed.** Verbatim: *"We build
+multi-agent systems. The systems produce finished work. That work includes
+research. It includes copy. It includes imagery. It includes layout."* — 4.8 words
+per sentence, zero contractions, 262 chars. It obeys "one idea, one sentence"
+hardest of the four and is by far the driest. It also breaks our own **rule 13**
+(don't repeat a sentence template for cadence) while obeying rule 1.
+
+**Fable 5 is the direct fix for dryness.** Verbatim: *"If you're weighing whether
+to build this capability or buy it, the fleet is work you can inspect before you
+decide."* That has a point of view, a contraction, and a reason to care — and
+**0 negative-frame sentences**, where Sonnet averages 0.4 and reliably reaches for
+*"Not assistants. Not chatbots."* It is also the only model besides Gemini that
+never fences its JSON. Cost: **~$0.073 per hero section** (in 3,444 / out 767 tok
+at $10/$50 per MTok, rates from the skill) vs Gemini's **~$0.024** and Sonnet's
+**~$0.010**. So ~3x Gemini, ~7x Sonnet.
+
+> **Token counts and cost run in OPPOSITE directions here, which is worth not
+> misreading.** Gemini spends **3x** the billable output tokens of Fable (2,425 vs
+> 767) and costs **1/3** as much, because its per-token rate is a fifth. A "which
+> model is cheaper" question cannot be answered from the token column alone.
+
+**The finding that matters most: the dryness is partly our own prompt.** The Voice
+& Style block is almost entirely **prohibitive** — no em dashes, no filler, no
+negative frames, no exclamation marks, one idea per sentence. It says almost
+nothing about *having something to say*. Pushed to its limit, "one idea, one
+sentence" produces exactly the staccato fact-list the owner is objecting to, and
+**Grok proves the mechanism**: it obeys hardest and is driest.
+
+Tested it. Added **one** positive clause to the same prompt, changed nothing else,
+re-ran Gemini 3x:
+
+> *Say why it matters to the reader, not just what is true. At least one sentence
+> should give them a reason to care that they could not have guessed from the facts
+> alone. Write like someone with a point of view who has done this work, not like a
+> specification being read out.*
+
+Result: **422 → 611 chars mean** (528/636/670), still 0 em dashes, mean words per
+sentence 8.0–9.5 (still short). And the copy acquired an argument:
+
+> *"Chaining language models together is easy for a single demo. Making them
+> recover from errors takes months of engineering time. You don't have to build
+> that architecture from scratch."*
+
+That is the personality the owner said was missing, on the **same model, at no
+extra cost**. `[n=3, one section, one page]` — not proof, but it is the cheapest
+thing to try before paying 3x for Fable.
+
+**Residual tic in the warmed output:** it now opens twice — *"We build multi-agent
+systems that produce finished work… We construct multi-agent systems that execute
+entire workflows."* A near-duplicate restatement. Worth a dedupe clause if this
+goes further.
+
+**Recommendation to the owner:** keep Gemini, add the positive clause, and re-read
+one page. Reach for Fable 5 only if that still reads flat — it is the best prose of
+the four and it is ~3x the cost. **Grok is out on this evidence.**
