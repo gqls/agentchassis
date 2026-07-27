@@ -70,53 +70,89 @@ Recommendation: **after** for the free site as it stands, **before** the first
 paid sale — that is the point at which G starts to matter and at which a customer
 relationship exists. Drifting into a sale without choosing is the bad outcome.
 
-### O4 — Where the promise-keeping agents go ⟵ the owner's question, answered
+### O4 — Where the promise-keeping agents go ⟵ REWRITTEN 2026-07-27 after research
 
-*"Do we need to put agents into the committee or into the workflow or both?"*
+> **CORRECTED.** The first version of this decision recommended building a
+> live-content sweep and a new promise register, on the premise that this class
+> was invisible to every check we own. **The premise was false** and the owner
+> caught it by refusing the answer and telling me to look harder at what exists.
+> The corrected recommendation is almost entirely reuse. Original reasoning left
+> visible below the line; full entry in `WRONG_CALLS.md`.
 
-**Both — and neither is the missing piece.** There are three moments where a
-promise can go wrong, and we currently cover two:
+**The answer to "committee or workflow or both" is: both, and they are already
+built. What is missing is not a layer — it is REACH.**
 
 | moment | control | state |
 |---|---|---|
-| **Generation** — the writer invents a promise | writer rules (mig 223) | **shipped** |
-| **Review** — a proposed change introduces or weakens one | council compliance seat (mig 223) | **shipped** |
-| **Live content** — what is deployed right now | *nothing* | **GAP** |
+| Generation | writer rules (mig 223) | shipped, fleet-wide |
+| Review of a proposed change | compliance seat (mig 223, corrected by 227) | shipped, both rosters |
+| **Build gate** | `ScanBannedClaims` → severity **blocker** | **existed all along** |
+| **Live deployed pages** | `check_unverified_claims` → **high** + HITL item | **existed all along** |
 
-The gap is not theoretical: the promise we caught this week **was never reviewed
-by any council** — site copy is not submitted to the gate — and it **pre-dated the
-writer rule**. It was caught by a person reading the page. That is not a control:
-it does not run on a schedule and it does not scale past the site someone happens
-to be looking at.
+The last two are the discovery. The scanner is an unrestricted case-insensitive
+regex over prose — it catches whatever patterns a site is given, numeric or not.
+It would have caught all four oufe phrases. Nobody had ever written a pattern for
+this class, on any site.
 
-So the first recommendation is a **sweep**: a discovery check that scans deployed
-pages for reliability overclaims, in the same shape as the existing
-`check_unverified_claims`. That is the layer that would have caught oufe without
-me, and it is the cheapest of the three to build because the pattern exists.
+**So the work is coverage, in three steps, mostly config:**
 
-**But the owner's phrasing points at something none of the three do.** He asked
-how we ensure our promises are *met* — which is a different question from whether
-we *overclaim*. Detecting a false promise and keeping a true one are not the same
-job:
+1. **Arm the patterns.** DONE for oufe (mig 226): 10 patterns, tested both ways —
+   10/10 fabrication shapes blocked including all four live phrases, 13/13
+   legitimate sentences pass. One UPDATE, no image roll. The line they draw is
+   worth keeping: **you may describe what you DO; you may not claim what that
+   GUARANTEES.** "We cite every figure and date it" passes; "a claim without a
+   source does not appear here" does not.
+2. **Make it reach the fleet.** Today only **5 of 15 live sites** carry a single
+   banned pattern — the ten without include **vetcomparison.uk**, the site of our
+   worst fabrication incident, and **idea.uk**, which takes real money. There is
+   no mechanism to define a set once. **This exact question is already filed and
+   deferred**: `SPEC_claims_verification.md:250-252` asks whether `banned_claims`
+   should be fleet-shareable and answers *"per-site only until two sites have
+   evidence bases"*. That precondition lapsed at n=8. **The decision is due, not
+   new.** The implementation is precedented one directory away:
+   `globalTellPhrases()` (`voicetells.go:121-137`) is a hardcoded fleet list
+   unioned with the per-site list at `:109` — mirror that into
+   `ParseEvidenceBase`. Small, and it is how the sibling engine already works.
+3. **Give the post-deploy sweep a cadence.** `check_unverified_claims` runs only
+   under `quality-discovery-agent`, which runs only under `improvement-loop`,
+   whose `improvement-sweep` task has been **disabled since 2026-05-02**
+   (`bugs_open/083`). So the live-content check exists and effectively never
+   runs. That is an owner decision, because re-enabling also re-arms fleet-wide
+   auto-fixing.
 
-> "Tell us and we will correct it" needs a monitored inbox.
-> "14-day refund" needs someone able to issue refunds.
-> "We name the document behind each figure" needs the register to be populated.
+**On the promise question specifically — also mostly reuse.** `evidence_base`
+already defines `kind: metric | capability | entity | attestation` and
+`source: sql | artifact | attested_by`, and V4 already re-runs sql-sourced facts
+on a daily fleet sweep and raises `stale_evidence` on drift. **`Kind` is declared
+in the struct and never read anywhere in the platform** — the slot for "a
+capability claim, backed by a query, an artifact, or a named human's attestation"
+was cut and never used. A promise is exactly that: `kind: capability`, source =
+the mechanism that keeps it.
 
-Every one of those is a claim about our own future behaviour, and **nothing in the
-estate checks that a promise has a mechanism behind it.** The platform already
-understands this shape for buttons — a label implies a real destination, and a
-button with no destination does not render. **A promise implies a real
-mechanism**, and we have no equivalent.
+Two other things already exist and should not be reinvented: the EXPERIENCE_PLAN's
+§2 is *literally called a promise ledger* (CTA copy → the state the destination
+must deliver), and `check_contact_form_undeliverable` already refuses to accept a
+synthesised `info@own-domain` as an inbox, on the stated ground that *"a mailto
+nobody reads makes the form look repaired while still losing the message"* — the
+nearest thing we have to a monitored-inbox check, stopping one step short by
+design.
 
-- **(a) Recommended** — build the live-content sweep now (small, known pattern),
-  and open a **promise register**: each outward promise recorded with the
-  mechanism that keeps it and a check that the mechanism exists. Same idea as
-  CTA integrity, one level up.
-- **(b)** Sweep only. Catches overclaims, does not tell you whether a true promise
-  is being kept.
-- **(c)** Neither; rely on the two shipped layers and human reading. Honest
-  position, but it is the position that already failed once this week.
+- **(a) Recommended** — steps 1–3 above; then extend `evidence_base` to consume
+  `kind: capability` for promises rather than building a new register.
+- **(b)** Steps 1 and 3 only; leave promises to human reading.
+- **(c)** Step 1 only (per-site arming, forever). Cheapest, and leaves every new
+  site unprotected by default — which is the state that produced this bug.
+
+<details><summary>Original reasoning, superseded — kept because the error is the point</summary>
+
+The first version asserted a three-moment table with "Live content — nothing —
+GAP", concluded that a promise is invisible to every scanner, and proposed a new
+sweep plus a new promise register. The sweep already exists (it just has no
+cadence); the scanner already covers the class (it just has no patterns); and the
+register has an unused slot for capability claims. The proposal was new machinery
+standing in for unread source.
+
+</details>
 
 ### O5 — Say plainly that Oxen Unity is not a company?
 
