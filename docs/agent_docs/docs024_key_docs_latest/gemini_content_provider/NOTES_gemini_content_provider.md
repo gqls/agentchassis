@@ -663,3 +663,71 @@ claims about seven named living players. Those are checkable in principle and
 > `unicode_escape`, which mangles UTF-8. Re-read with plain `json.loads` on the log
 > line and the text is clean — zero mojibake. **A garbled artefact is evidence about
 > your reader until you have proved otherwise.**
+
+## 2026-07-27 — the model-vs-prompt question, measured (5 runs each, same prompt)
+
+Owner asked which model's content is better, or whether it's much of a muchness and
+really about the prompt. Neither of my earlier samples could answer that: Gemini n=1
+on a hand harness, Claude n=1 from 07-24 on an *older* prompt version and a different
+page. Comparing them would have been a guess wearing a number.
+
+So: same prompt (the real writer `prompt_template`, placeholders filled identically),
+same material, same visible budget (8000), **5 runs each**, mechanically scored.
+Script `RUN_model_comparison.py`, raw output `DATA_2026-07-27_model_comparison_5x2_runs.json`.
+
+| metric | gemini-pro-latest | claude-sonnet-4-6 |
+|---|---|---|
+| valid JSON, all keys | 5/5 | 5/5 |
+| em dashes | 0.0 | 0.8 (0–2) |
+| filler words | 0.0 | 0.0 |
+| exclamations | 0.0 | 0.0 |
+| **negative-frame sentences** | **0.0** | **1.4 (0–2)** |
+| **"not X, it's Y" construction** | **0.0** | **0.8 (0–1)** |
+| contractions | 0.8 (0–1) | **4.8 (4–5)** |
+| raw HTML tags in fields | 0 | 6.0 |
+| chars / sentences / mean words | 382 / 7.4 / 8.2 | 602 / 6.4 / 15.2 |
+| **billable output tokens** | **1,921** (106 visible + 1,815 thinking) | **188** |
+| latency | 12.3s (9.7–15.4) | 4.6s (4.1–5.5) |
+
+**The answer to the question as asked: mostly the prompt.** Both models produce
+recognisably house-style copy. Filler, exclamations and hype are at zero for both.
+Neither invents a negative headline. On the things the style block was written to
+stamp out, the two are close, and both are far from where the copy was before the
+block existed.
+
+**Where they differ, they differ consistently, and not in the direction I expected.**
+Gemini scored **0 negative-frame sentences across 5 runs; Claude scored 7** — with
+the exact construction the owner personally caught across three rounds of refining
+that prompt: "Not assistants. Not chatbots." "That's not a case study." Rule 3 is the
+rule this house style is *most* about, and Claude persistently breaks it.
+
+Claude wins the contractions rule (4.8 vs 0.8) and writes 58% more, in sentences
+nearly twice as long. Whether "one idea per sentence" at 8.2 words reads better than
+15.2 is the owner's call, not a metric.
+
+> **My first scoring pass missed the negative-frame result entirely**, because it
+> only checked the *headline* for a negative opening. The violation was in the
+> *subheadline* and *body*. I found it by reading the samples, not by running the
+> scorer. **A mechanical score is only as good as the field it looks at**, and a
+> metric that returns 0/5 for both models is exactly as convincing as one that
+> found nothing to look at.
+
+**Claude fences its JSON on 5/5 runs and Gemini never does.** Not a risk: the
+pipeline strips ```json at `v3_site_actions.go:2806`, which is why Claude has been
+serving the writer for months without trouble. Recorded so nobody counts it as a
+Gemini advantage. The raw `<p>` tags Claude emits into JSON string fields are a
+different matter and depend on the component template.
+
+**The finding that should decide this workstream is cost, not quality.** Gemini
+spends **1,815 thinking tokens per section** against Claude's zero, so ~**10x the
+billable output tokens** for one hero section, at **2.7x the latency**. Thinking
+bills as output. `page-content-writer` runs *per section, per page, across the
+estate*, so that multiplier lands on every build. `[UNVERIFIED]` per-token rates put
+it at roughly £0.019 vs £0.003 per section, but the **token ratio is measured and the
+rates are not** — trust the 10x, not the pounds.
+
+**Caveats, so this isn't over-read.** n=5. My harness still lacks `site_specs`,
+`brief`, `existing_content` and `link_context`, and the chassis'
+`appendOutputInstructions`; a real section carries more context and may think longer,
+not less. And "better prose" is not decidable by any of these counters — ten samples
+are in the JSON for a human read.
