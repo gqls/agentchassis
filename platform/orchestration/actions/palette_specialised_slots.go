@@ -40,6 +40,7 @@
 package actions
 
 import (
+	"regexp"
 	"sort"
 
 	"go.uber.org/zap"
@@ -116,12 +117,21 @@ func fillDarkSchemeSpecialisedSlots(palette map[string]string, logger *zap.Logge
 	}
 
 	filled := make([]string, 0, len(darkSchemeDerivations))
+	skipped := make([]string, 0)
 	for _, d := range darkSchemeDerivations {
 		if existing, ok := palette[d.name]; ok && existing != "" {
 			continue
 		}
 		source, ok := palette[d.from]
 		if !ok || source == "" {
+			// The source slot is itself missing, so there is nothing to derive
+			// from and the layout's literal ships after all. That is the SAME
+			// outcome as doing nothing, and it must not look like success:
+			// council f17b0a77, bug_historian (high) — "a silent no-op fallback
+			// path sits right next to the loud one this plan is adding, and
+			// nothing distinguishes 'derived' from 'fell through to the light
+			// literal' in the output CSS".
+			skipped = append(skipped, d.name+"<-"+d.from)
 			continue
 		}
 		if d.isInk {
@@ -140,7 +150,86 @@ func fillDarkSchemeSpecialisedSlots(palette map[string]string, logger *zap.Logge
 			zap.String("background", bg),
 			zap.Strings("derived", filled))
 	}
+	if len(skipped) > 0 {
+		sort.Strings(skipped)
+		logger.Warn("fillDarkSchemeSpecialisedSlots: could NOT derive one or more slots because "+
+			"the core slot each derives from is itself missing — the layout's own literal will "+
+			"ship for these, which on a dark site is the defect this function exists to prevent",
+			zap.String("background", bg),
+			zap.Strings("undeliverable", skipped))
+	}
 	return palette
+}
+
+// paletteHelperCall matches a layout template's {{palette "slot" "fallback"}}.
+// Both arguments are captured: the slot name says what the layout wants, and
+// the fallback says what ships when nothing supplies it.
+var paletteHelperCall = regexp.MustCompile(`\{\{\s*palette\s+"([a-z_]+)"\s+"([^"]*)"\s*\}\}`)
+
+// warnLightLiteralsOnDarkSite reports every slot a layout declares that this
+// dark palette does not supply and darkSchemeDerivations does not cover, where
+// the layout's own fallback is a LIGHT colour — i.e. exactly the cases that
+// will ship a light value onto a dark page.
+//
+// WHY THIS EXISTS RATHER THAN A LONGER DERIVATION TABLE (council f17b0a77,
+// bug_historian, medium): the derivation table fixes the nine specialised slots
+// all 18 active layouts share, but `{{palette "X" "<light literal>"}}` is a
+// GENERIC construct and the fleet's layouts declare 60+ further slot names
+// between them — `badge_bg`, `chip_bg`, `input_pane_bg`, `trust_bar_bg`,
+// `callout_bg`, `code_bg`, `success`, `warn`. Enumerating those would be
+// guesswork: nobody can say from here what `badge_deal` should be on a dark
+// site, and deriving `success` from `surface` would be actively wrong.
+//
+// So this does not guess. It makes the fall-through VISIBLE, which is the
+// property whose absence let the original defect hide for as long as it did —
+// a derived value, a curated value and a layout literal are indistinguishable
+// in the finished CSS. A slot named here is a palette-authoring decision
+// somebody has not made yet, and now has to be told about.
+func warnLightLiteralsOnDarkSite(layoutTemplate string, palette map[string]string, logger *zap.Logger) {
+	bg, ok := palette["background"]
+	if !ok || bg == "" || !isDarkHex(bg) {
+		return
+	}
+	covered := make(map[string]struct{}, len(darkSchemeDerivations))
+	for _, d := range darkSchemeDerivations {
+		covered[d.name] = struct{}{}
+	}
+
+	seen := make(map[string]struct{})
+	offenders := make([]string, 0)
+	for _, m := range paletteHelperCall.FindAllStringSubmatch(layoutTemplate, -1) {
+		slot, fallback := m[1], m[2]
+		if _, dup := seen[slot]; dup {
+			continue
+		}
+		seen[slot] = struct{}{}
+		if v, ok := palette[slot]; ok && v != "" {
+			continue // the palette supplies it; the literal is unreachable
+		}
+		if _, ok := covered[slot]; ok {
+			continue // derived above
+		}
+		// Only a LIGHT literal is a problem on a dark site. A fallback that is
+		// itself dark, or is not a plain hex (a gradient, a var(), an rgba),
+		// is left alone rather than guessed at.
+		if _, _, _, err := parseHexColor(fallback); err != nil {
+			continue
+		}
+		if !isDarkHex(fallback) {
+			offenders = append(offenders, slot+"="+fallback)
+		}
+	}
+	if len(offenders) == 0 {
+		return
+	}
+	sort.Strings(offenders)
+	logger.Warn("layout declares palette slots this dark palette does not supply, and their "+
+		"fallbacks are LIGHT literals — they will ship as-is and are indistinguishable from a "+
+		"curated choice in the finished CSS; each is a palette-authoring decision, not a bug "+
+		"this renderer can safely guess",
+		zap.String("background", bg),
+		zap.Int("count", len(offenders)),
+		zap.Strings("light_literals", offenders))
 }
 
 // pickInkOn returns a foreground for bgHex, preferring a colour already in the

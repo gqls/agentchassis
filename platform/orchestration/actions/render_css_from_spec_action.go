@@ -150,6 +150,14 @@ func RenderCSSFromSpecAction(ctx context.Context, params ActionParams) (interfac
 	// right. Warn, don't fail: the repair is a palette-authoring decision.
 	warnUnusablePrimary(mergedPalette, logger)
 
+	// 3e. The derivation above covers the nine specialised slots every layout
+	// shares. `{{palette "X" "<literal>"}}` is a generic construct, though, and
+	// the fleet's 18 layouts declare 60+ further slot names between them. This
+	// names the ones whose light literal is about to ship onto a dark page,
+	// rather than guessing values for slots only their layout's author
+	// understands (council f17b0a77, bug_historian).
+	warnLightLiteralsOnDarkSite(comp.LayoutTemplate, mergedPalette, logger)
+
 	// 4. Surface the override deltas for observability. Operators
 	// debugging a site's render can see at a glance which slots the
 	// spec claimed from the theme.

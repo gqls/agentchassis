@@ -14,10 +14,12 @@
 package actions
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 func darkCoreOnlyPalette() map[string]string {
@@ -147,5 +149,98 @@ func TestSectionHeadingPrefersTheCuratedHeadingSlot(t *testing.T) {
 	css := buildSectionDefaults(p["background"], p["surface"], p, true, true, zap.NewNop())
 	if !strings.Contains(css, "--section-heading: #F2F6FA") {
 		t.Errorf("curated heading slot ignored; got:\n%s", css)
+	}
+}
+
+// --- council f17b0a77 round 1, bug_historian (gating) ------------------------
+//
+// "a silent no-op fallback path sits right next to the loud one this plan is
+// adding, in the same function, and nothing distinguishes 'derived' from 'fell
+// through to the light literal' in the output CSS". Both tests below assert the
+// SIGNAL, not the colour: the whole defect class is things that fail by looking
+// like nothing happened.
+
+// TestUndeliverableDerivationIsLoud — when the core slot a derivation reads is
+// itself missing, the layout's literal ships after all. That is the same
+// outcome as doing nothing and must not be silent.
+func TestUndeliverableDerivationIsLoud(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+
+	// A dark palette with no `surface`: card_bg, cta_bg, background_alt and
+	// surface_alt all derive from it and none can be filled.
+	p := map[string]string{
+		"background": "#080E1C", "text": "#E4EAF2", "text_muted": "#7E91A8",
+		"primary": "#86ADDE", "secondary": "#4A6C99", "accent": "#C8902A",
+	}
+	fillDarkSchemeSpecialisedSlots(p, zap.New(core))
+
+	if _, ok := p["card_bg"]; ok {
+		t.Fatal("card_bg was derived from a slot that does not exist")
+	}
+	found := false
+	for _, e := range logs.All() {
+		if strings.Contains(e.Message, "could NOT derive") {
+			found = true
+			for _, f := range e.Context {
+				if f.Key == "undeliverable" {
+					if !strings.Contains(fmt.Sprint(f.Interface), "card_bg<-surface") {
+						t.Errorf("warning does not name the undeliverable slot: %v", f.Interface)
+					}
+				}
+			}
+		}
+	}
+	if !found {
+		t.Error("a derivation was skipped and nothing warned — indistinguishable from success")
+	}
+}
+
+// TestUncoveredLightLiteralIsNamed — the derivation table covers the nine slots
+// all 18 layouts share, but `{{palette "X" "<literal>"}}` is generic and the
+// fleet declares 60+ further slot names. Those cannot be derived safely (nobody
+// can say what `badge_deal` should be on a dark site), so they must at least be
+// visible.
+func TestUncoveredLightLiteralIsNamed(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+	layout := `:root {
+	  --color-card-bg:  {{palette "card_bg"  "#ffffff"}};
+	  --color-badge-bg: {{palette "badge_bg" "#f7fafc"}};
+	  --color-code-bg:  {{palette "code_bg"  "#0b1020"}};
+	  --color-accent:   {{palette "accent"   "#3182ce"}};
+	}`
+	p := darkCoreOnlyPalette()
+	fillDarkSchemeSpecialisedSlots(p, zap.NewNop()) // card_bg now covered
+	warnLightLiteralsOnDarkSite(layout, p, zap.New(core))
+
+	var named string
+	for _, e := range logs.All() {
+		for _, f := range e.Context {
+			if f.Key == "light_literals" {
+				named = fmt.Sprint(f.Interface)
+			}
+		}
+	}
+	if !strings.Contains(named, "badge_bg=#f7fafc") {
+		t.Errorf("an uncovered LIGHT literal was not named: %q", named)
+	}
+	if strings.Contains(named, "code_bg") {
+		t.Errorf("a DARK literal is not a problem on a dark site and must not be reported: %q", named)
+	}
+	if strings.Contains(named, "accent") {
+		t.Errorf("a slot the palette supplies has an unreachable literal and must not be reported: %q", named)
+	}
+	if strings.Contains(named, "card_bg") {
+		t.Errorf("a slot the derivation covers must not also be reported: %q", named)
+	}
+}
+
+// TestLightSiteIsNotWarnedAboutItsOwnLiterals — the whole point of the light
+// literals is that they are correct on a light site.
+func TestLightSiteIsNotWarnedAboutItsOwnLiterals(t *testing.T) {
+	core, logs := observer.New(zap.WarnLevel)
+	layout := `--color-badge-bg: {{palette "badge_bg" "#f7fafc"}};`
+	warnLightLiteralsOnDarkSite(layout, map[string]string{"background": "#ffffff"}, zap.New(core))
+	if logs.Len() != 0 {
+		t.Errorf("a light site was warned about literals chosen for it: %v", logs.All())
 	}
 }
