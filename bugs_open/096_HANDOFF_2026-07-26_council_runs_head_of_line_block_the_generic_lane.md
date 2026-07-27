@@ -244,3 +244,44 @@ in flight, and cheap work can be running.
 roll first, confirm `system.agent.council-gate.requests` has a consumer, and only
 then point `097_TRIGGER_council_review_v1.sh` at it. A producer aimed at an
 unconsumed topic piles messages up where nothing will ever run them.
+
+
+## Why the fix has not been applied yet — measured, and it needs an owner decision
+
+Watched the cluster for ~90 minutes on 2026-07-27 looking for a safe moment.
+**It never came.** Council and diagnosis runs were in flight on every single
+check: 3, 3, 2, 3, 2, 1, 2, 1, 2, 2, 2, 1, 2. Never zero.
+
+That is the bug describing itself. The lane is busy because councils run
+back-to-back, and the fix for that congestion needs a gap the congestion prevents.
+
+**A roll does cost an in-flight run, and this is not a guess.**
+`Agent.Shutdown()` (`agentbase/agent.go:1485-1505`) signals shutdown, waits
+`30 seconds` for goroutines, logs `"Agent shutdown timeout"` and closes the
+consumers regardless. A council step is a single LLM call that routinely runs for
+minutes, so it is inside that timeout and gets cut. The pod's grace period is 60s,
+which does not help: shutdown gives up at 30.
+
+The deployment itself is safe (`RollingUpdate`, `replicas=1`, `maxSurge=25%`), so
+the new pod starts before the old one is terminated and there is no window with no
+consumer. The loss is the in-flight work, not availability.
+
+### The decision
+
+Three options, none of which a session should take unilaterally:
+
+1. **Apply it at a genuinely quiet hour** (overnight). Costs nothing, delays the
+   fix by a day. Recommended, and the change is already committed and ready.
+2. **Apply now and accept one lost council round.** One session loses a review and
+   re-submits; every session stops queueing behind councils from then on. A
+   defensible trade, but the cost lands on somebody who did not choose it.
+3. Leave it. The congestion is real and measured: seven ordinary dispatches
+   blocked in one afternoon, and a live site missing a page all session because of
+   it.
+
+**Applying it is one command and does not need the overlay:**
+```bash
+kubectl -n ai-persona-system set env deploy/agent-chassis \
+  EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests,system.agent.council-gate.requests
+```
+Then confirm the new lane has a consumer before pointing `097` at it.
