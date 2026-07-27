@@ -53,6 +53,28 @@ Four exposures, needing four different placements:
    distressed is a statement of fact about it. Answered by sourcing and by
    marking our reading as our reading, not by disclaiming.
 
+## A2. Persistent banner, every page — DECIDED 2026-07-27, LIVE
+
+The owner chose a persistent banner over a footer-only line and over an entry
+interstitial, in a plain professional register. It sits directly under the header
+on every page, needs no click, and cannot be dismissed and forgotten:
+
+> **Analysis of mechanism, not investment advice.**
+> We cite our sources so you can check them, and our reading of them can be wrong.
+
+Two words on why it is phrased that way. It does **not** say every figure is
+sourced, which is the promise struck on 07-26 and which we cannot keep. And it
+does not apologise: for a professional reader an apologetic banner reads as
+amateur, while a flat statement of what the site is reads as a research house.
+
+Styling uses `--color-text-muted` on `--color-surface`, measured at **5.12**
+against AA's 4.5, with the bolded lead in `--color-text` at 11.32. Checked before
+writing it, not after — the site had a 1.00 contrast bug the same day.
+
+The entry interstitial was rejected for the reason already argued against staged
+warnings in the tool: repeated click-throughs go blind fast, and a warning nobody
+reads is weaker in practice than one they cannot miss.
+
 ## A. Footer line (every page)
 
 > OUFE publishes educational analysis of financial and legal mechanism. We make
