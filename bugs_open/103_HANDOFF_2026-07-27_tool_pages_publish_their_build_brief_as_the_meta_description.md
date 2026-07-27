@@ -1,0 +1,159 @@
+# 103 — every deployed tool page publishes its internal build brief as the public meta description
+
+**Filed:** 2026-07-27 · **By:** gauntlet_dead_cta (found while surveying vonc.com's
+Arena after the v1.0.1172 roll) · **Severity:** MEDIUM — public-facing on 16 live
+pages across 6 sites; one of them tells search engines the page has no backend ·
+**Status:** OPEN, not fixed
+
+## 1. Symptom
+
+`pages.meta_description` — the text search engines show under the result — is the
+tool's **internal build specification**, verbatim. The worst case is live now at
+`https://vonc.com/tools/arena/index.html`, 1,206 characters:
+
+> "The Arena is Spark's competitive mode, v1 as a fully self-contained
+> client-side experience (**no fetch calls, no backend**). Four elements, in
+> order: (1) TODAY'S PROVOCATION — a bold prompt displayed prominently at the top
+> (**embed 5 sample provocations in JS and pick one by day-of-date** so the page
+> changes daily, e.g. …"
+
+That is the instruction given to the generator, published as the page's own
+description. It leaks implementation detail, it reads as machine output, and
+Google truncates at ~155 chars so what actually renders is a fragment of a spec.
+
+The other 15 are the same defect in a less embarrassing register — tool specs
+written for an engineer, not a visitor:
+
+| site_id (prefix) | page | len |
+|---|---|---|
+| `9ec3b9ee` (vonc.com) | `tool-arena` | **1206** |
+| `4851f6fc` | `tool-process-automation-scorer` | 637 |
+| `4851f6fc` / `2a8ebf9c` | `(tool-)agent-complexity-estimator` | 607 |
+| `4851f6fc` / `1368e337` / `199733a8` / `2a8ebf9c` | `(tool-)llm-cost-calculator` | 543 |
+| `1368e337` / `2a8ebf9c` / `4851f6fc` | `(tool-)ai-agent-roi-estimator` | 514 |
+| `1368e337` | `tool-ai-data-risk-checker` | 508 |
+| `199733a8` | `tool-model-approach-selector` | 505 |
+| `5fe15466` | `tool-breakeven-volume-calculator` | 461 |
+| `1368e337` | `tool-ai-readiness-quiz` | 460 |
+| `5fe15466` | `tool-fuel-budget-forecaster` | 449 |
+
+Census query (re-run it; do not trust this table's counts):
+
+```sql
+SELECT count(*) AS pages, count(DISTINCT site_id) AS sites
+FROM pages
+WHERE meta_description IS NOT NULL
+  AND (meta_description ~* 'no fetch calls|elements, in order|embed [0-9]+ sample|client-side experience'
+       OR length(meta_description) > 400);
+-- 2026-07-27: 16 | 6
+```
+
+## 2. Root cause — cited
+
+`platform/orchestration/actions/deploy_tool_action.go`. The tool page INSERT at
+**line 321-343** binds `$9 = toolDescription.String` into `meta_description`:
+
+```go
+	SELECT name, display_name, function, category,
+	       description, html_template, semantic_tags::text, input_schema::text
+	FROM content_components
+	WHERE id = $1 AND component_level = 'tool' AND is_active = true
+```
+```go
+	INSERT INTO pages (… meta_description, sections, …)
+	VALUES (…, $9, $10::jsonb, 'planned', 'active')
+	…
+	`, siteID, pageName, pageURL, pageTitle,
+		navSection+" / "+toolDisplayName, maxNavOrder+1, inHeader, inFooter,
+		toolDescription.String, sectionsJSON,   // <-- line 341
+	).Scan(&pageID)
+```
+
+`content_components.description` for a `component_level='tool'` row is the
+**build brief**, not marketing copy. Proven byte-identical, not merely similar:
+
+```sql
+SELECT cc.name, length(cc.description),
+       cc.description = (SELECT p.meta_description FROM pages p
+                         WHERE p.site_id='9ec3b9ee-5b08-461b-b4f8-9e1e03579c74'
+                           AND p.name='tool-arena') AS identical
+FROM content_components cc WHERE cc.id='faa69bcc-f94e-4ca0-ac76-14a03da4807c';
+-- tool-arena-interface-vonc-com | 1206 | t
+```
+
+**The correct pattern already exists in the same function, ~100 lines below.**
+The companion *guide* page (line 438-458) composes a human-facing description
+instead of copying the brief:
+
+```go
+	fmt.Sprintf("A practical guide to %s — what it means, how it works, and how to use our interactive %s.",
+		strings.TrimPrefix(toolDisplayName, "UK "), strings.ToLower(toolDisplayName)),
+```
+
+So this is not an unsolved problem — it is one of two sibling writes in one
+function disagreeing, and the wrong one is the visitor-facing page.
+
+## 3. It does not self-heal
+
+The tool-page statement's conflict clause deliberately omits the column:
+
+```go
+	ON CONFLICT (site_id, name) DO UPDATE SET
+		url = EXCLUDED.url, title = EXCLUDED.title,
+		sections = EXCLUDED.sections, updated_at = NOW()
+```
+
+`meta_description` is **not** in the `DO UPDATE SET` list. Redeploying a tool
+therefore leaves the bad description in place. **A code fix alone repairs nothing
+already live** — the 16 existing rows need a backfill, and any fix that ships
+without one will look correct in code review and change nothing on the web.
+
+## 4. Fix candidates — ordered by what closes the door
+
+1. **Stop the tool page from ever receiving the brief.** Give tools a distinct
+   public-copy field (e.g. `content_components.meta_description`, or a
+   `public_summary` in `input_schema`) and bind *that* at line 341, falling back
+   to a composed sentence in the guide-page style — never to `description`.
+   This makes "the brief is the SEO text" unrepresentable rather than merely
+   unlikely. Prefer it.
+2. **Compose at the call site**, mirroring line ~456 exactly: bind a
+   `fmt.Sprintf` over `toolDisplayName`/`toolCategory` instead of
+   `toolDescription.String`. Cheapest correct change; leaves the field free for
+   a future editor to reintroduce the brief by hand.
+3. **Backfill the 16 live rows** — required by §3 whichever of (1)/(2) lands.
+   Compose from `display_name` + category; do NOT truncate the existing brief,
+   which would leave a clipped spec rather than a description.
+4. **Add a length/shape guard** where the page is written (>320 chars, or
+   matching the census regex, is never a real meta description). This is what
+   turns the class off for whatever writes a page next, not just this action.
+
+Any of these is a change to `platform/`, so it goes through the council gate per
+CLAUDE.md, and it is inert until a chassis image roll.
+
+## 5. How to verify a fix
+
+The green path proves nothing here — a *new* tool deploy is the failing branch.
+
+1. Deploy a tool to a scratch site and assert its `pages.meta_description` is
+   **not** equal to the source `content_components.description`:
+   ```sql
+   SELECT p.meta_description = cc.description AS still_broken
+   FROM pages p JOIN content_components cc ON cc.id = '<tool_component_id>'
+   WHERE p.site_id='<scratch>' AND p.name='<tool page>';
+   -- must be f
+   ```
+2. Re-run the §1 census — must return `0 | 0` **after** the backfill, and the
+   backfill must be verified on the served page, not just the row:
+   `curl -s https://vonc.com/tools/arena/index.html | grep -o '<meta name="description"[^>]*>'`
+3. Negative control: confirm the census regex still matches a deliberately
+   bad row, or a `0` result is indistinguishable from a broken query.
+
+## 6. Note for whoever takes this
+
+Found while assessing what the v1.0.1172 roll changed for vonc.com. It is
+**not** the Arena's main problem — that page also serves invented users with
+handles (`@synthetix`, `@inkblot_vera`) and invented vote tallies from a
+hardcoded `FLOOR_TAKES` array, with take-submission writing only to
+`localStorage`. That is the `gauntlet_dead_cta` workstream's business and is
+tracked in its PLAN, not here. This bug is only the meta-description leak, which
+is fleet-wide and independent of it.
