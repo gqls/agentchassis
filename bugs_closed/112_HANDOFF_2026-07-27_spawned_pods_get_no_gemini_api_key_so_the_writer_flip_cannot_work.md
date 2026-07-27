@@ -303,3 +303,80 @@ separately as `bugs_open/119`.
 an `api_key_env_var` the target pod cannot receive) is undone, and it remains the
 fix that makes this class unrepresentable. `agentenv.ProviderKeyNames` exists to
 make it cheap to write.
+
+---
+
+# ✅ CLOSED 2026-07-27 — both acceptance tests passed on the real path
+
+**Bar met: fixed AND live AND verified**, on the live path rather than by
+inference from a binary.
+
+### Test 1 — the key reaches a SPAWNED pod ✅ (18:16 UTC, v1.0.1175)
+
+First pod spawned by the new chassis, `agent-build-dispatch-loop-d4f0502e-2cq7z`:
+`GEMINI_API_KEY` present in the pod spec, `len=53` inside the running container
+(matching the chassis's own key, so a real value and not an empty var that merely
+exists). **Live roll-boundary control**: the two pods spawned *before* the roll
+were still running on v1.0.1174 and carried **0** such entries. A chassis
+pod-grep would have been vacuous here — the defect was always in what the
+*spawned* pod's env contains.
+
+### Test 2 — the writer actually calls Gemini ✅ (20:09 UTC)
+
+```
+llm_call_log WHERE provider='gemini'
+2026-07-27 20:09:31 | page-content-writer | gemini-pro-latest | max_tokens 8000 | output 87 | success=t
+2026-07-27 20:09:50 | page-content-writer | gemini-pro-latest | max_tokens 8000 | output 79 | success=t
+```
+
+`page-content-writer` runs in a spawned pod, so these two rows are the whole
+causal chain working: spawned pod → env → client construction → API call →
+success. The column was **0 for the life of the platform** until now. Both calls
+finished well inside the ceiling (87/79 against 8000), so neither is a truncated
+completion masquerading as success.
+
+### Both spawners are live, and the consolidation with them
+
+`v1.0.1179`, rolled 20:26 UTC. Discriminating markers with the pre-image as
+control — note `GEMINI_API_KEY` reads **2 on both**, so the marker that proved the
+*first* fix is useless for the consolidation; the package path is the one that
+discriminates:
+
+| marker | chassis v1.0.1175 | chassis v1.0.1179 | remote-job-spawner v1.0.1179 |
+|---|---|---|---|
+| `platform/agentenv` | 0 | **3** | **3** |
+| `ProviderKeyEnv` | 0 | **1** | **1** |
+| `GROK_API_KEY` | — | — | **1** |
+| `…agentenvNOTREAL` | — | 0 | 0 |
+
+(The remote spawner's binary is at `/remote-job-spawner`, **not** `/app/` — a
+grep against `/app/*` there hits a YAML file and returns 0 for everything, which
+reads exactly like "the change did not ship".)
+
+### ⚠️ The guardian's medium objection is NOW LIVE, and it was accepted knowingly
+
+Council round 2 approved this while flagging: *"Consolidating the allow-list gives
+`cmd/remote-job-spawner` `GROK_API_KEY` it never had… a permission widening on the
+remote path."* That is no longer theoretical — `remote-job-spawner:v1.0.1179`
+carries it. It remains **unexercised** (no agent definition uses remote dispatch),
+and it was disclosed in the submission's own risks, but anyone auditing spawned-pod
+credentials should know it changed today and why.
+
+### What this closure does NOT claim
+
+- **Acceptance test 3 was not run.** Pointing a scratch step at a bogus
+  `api_key_env_var` to confirm the construction error still names the variable is
+  untouched. The fix is proven by a working path, not by its guard.
+- **Nothing here is a verdict on Gemini as the writer's provider.** That is
+  `bugs_open/107`/`110` and the `gemini_content_provider` workstream's call —
+  including the ~10× thinking-token cost finding, which is an owner decision and
+  is unaffected by this fix.
+- **Candidate 3 remains undone** — nothing validates at config time that an
+  `api_key_env_var` names a key the target pod can receive, so the next provider
+  added to a DB config without a matching `agentenv` entry fails identically. One
+  place to change now instead of two; still not zero. `agentenv.ProviderKeyNames`
+  exists to make that check cheap to write.
+
+**Council:** `dfa6205e-b10e-440c-b251-5d791fdeb718` — round 1 REVISE (an unreadable
+guardian result, not a judgement; filed as `bugs_open/119`), round 2 **APPROVED**,
+`unreadable=0`, verified to name the same four files as commit `6b5509ee3`.
