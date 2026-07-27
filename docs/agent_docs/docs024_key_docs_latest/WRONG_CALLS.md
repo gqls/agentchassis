@@ -5662,3 +5662,57 @@ trusting their output.
 "clean" recorded in four places including a bug file other threads read, and a
 correction pass across all of them. The gate had detected all sixteen and shipped
 them as warnings, so nothing else was going to catch it.
+
+### Addendum, 2026-07-27 — why the existing answer was invisible, which is the transferable bit
+
+Four things existed that I did not find. Naming *why* each was unfindable is more
+use than the entry above, because the pattern will recur.
+
+**Code search finds things by their effects.** Grep a function and you get its
+callers; grep a work-item type and you get its producers and consumers; open a
+table and you find the queries. Anything that *runs* leaves a trail of references,
+and that trail is what "look hard at the existing code" actually follows.
+
+**Dormant capability leaves no trail at all**, and every one of the four was dormant
+in a different way:
+
+- `EvidenceFact.Kind` (`claims.go:73`) governs no behaviour, so it has zero call
+  sites, zero tests, zero log lines, zero work items. It exists in a struct
+  definition and a spec paragraph. Grepping for "where does the platform handle
+  capability claims" returns nothing — **not because there is no slot, but because
+  the slot is empty.**
+- The deferred decision lives in `SPEC_claims_verification.md:250-252`, under a
+  heading reading *"Open questions for the owner"*. It is not a bug, not a feature
+  file, not a TODO in code. I ran the documented prior-art check — grep
+  `bugs_open/` and `features_open/` — and it was in neither.
+- The precedent (`globalTellPhrases`, `voicetells.go:121-137`, unioned at `:109`)
+  sits in the sibling file of the engine I was reading, solving the same
+  per-site-versus-fleet problem in the opposite direction. **Nothing in
+  `claims.go` references it.** The two are conceptual siblings with no code
+  linkage; only a person who knows both files knows they are related.
+- The live sweep exists and is correct, but its scheduled task is disabled, so it
+  produces no findings, no items, no logs — indistinguishable at runtime from a
+  check that was never built.
+
+**So the absence of references is exactly what "does not exist" and "exists but
+dormant" both look like from inside the code.** That is why *"nothing in the estate
+does X"* is so dangerous a sentence: the evidence that would refute it is, by
+construction, the evidence code search cannot surface.
+
+**The correction, and it is a change of instrument, not of effort.** Dormant
+capability is found in *design artefacts*, not code: specs and their open-questions
+sections, struct comments listing a vocabulary, "deliberately not built" lists,
+and sibling subsystems that solved the same shape. Had I read the claims spec
+end-to-end — twenty minutes — I would have found the question, the proposal, and
+the reasoning, already written and waiting for an answer.
+
+**A second-order finding worth its own line: a deferral with a numeric trigger and
+no watcher becomes a permanent decision.** *"Per-site only until two sites have
+evidence bases"* was right at n=1. It is now n=8, nothing re-read it, and the
+deferral has been silently operating as policy for months. Nothing in this estate
+re-examines its own deferred decisions when their preconditions lapse — every
+other trigger we rely on (cooldowns, staleness, sweeps) has a watcher, and this
+class has none.
+
+Family: dormant-capability-is-invisible-to-grep, absence-of-references-is-ambiguous,
+read-the-spec-not-just-the-code, deferral-without-a-watcher-is-a-decision.
