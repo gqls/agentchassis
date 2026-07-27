@@ -79,6 +79,40 @@ the repair is already written into the generator and waiting.
 
 ---
 
+## 1b. 2026-07-27 — owner ruling: NO contact route; about page takes the for-sale block
+
+**Applied.** relojistas carries no contact surface. `contacto` archived **and its file
+deleted from `vm-sites`** (`c74fe58`) — archiving alone leaves it serving (`bugs_open/098`);
+`/contacto.html` → 404. Its nav row set `inactive` (nav lives in **`site_nav_items`**, NOT
+derived from `pages` — archiving does not touch it; contributed to 098). Hero CTAs on
+`index`/`noticias-index`/`glosario-index` given real destinations; `identity.contact.phone`
+cleared (an inherited `+34` number from the dead forum); the `needs_section_data` request
+for a business email closed `wont_fix`. Footer contact column now gated on having contents
+(`footer-theme-chrome`, owner-approved fleet change — filed as `bugs_open/111`, backup
+`bak_footer_theme_chrome_20260727`).
+
+**Two traps burned in, both worth more than the task:**
+
+1. **You cannot remove a CTA by clearing its data.** Deleting `cta_text` made
+   `component_library.go` refill *both* fields, and the refilled pair then **satisfied** the
+   template's `{{if and .cta_text .cta_url}}` guard — shipping English **"Get Started" → 404**
+   on a Spanish site, worse than before. Every hero must carry an explicit `cta_url` forever.
+2. **`page_rerender` only regenerates from `content_data` when `spec.reason` is stamped**
+   (`section_data_resolved` / `image_landed`); reason-less is assemble-only and redeploys
+   stale HTML. Precondition: any section with NULL `content_data` escalates the whole page
+   to the **LLM writer** — check before firing.
+
+**For-sale block: CONFIGURED, deliberately NOT rendered.** `site_specs.commercial` =
+`portfolio / tier 2 / for_sale_requested / marketplace_url=forsale.godaddy.com/forsale/relojistas.com`.
+Nothing renders it: `about-commercial-block` has **zero Go references** (Phase-2 default-set
+unbuilt) and no section was inserted. **Blocked on language** — the block is hardcoded
+English and this site must be *íntegramente en español*; raised with the owning workstream
+(`about_page_commercial/NOTES`, `7c0ee759c`). **[UNVERIFIED]** the Afternic listing is the
+owner's dashboard reading — GoDaddy 403s automated probes. Its **Minimum Offer is 0**, so the
+design's anti-lowball floor is absent.
+
+---
+
 ## 2. THE ONE OUTSTANDING ACTION — the owner's box session
 
 Only the owner can do this (it needs the box). It converges four standing items at once.
