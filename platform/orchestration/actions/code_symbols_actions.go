@@ -17,6 +17,21 @@
 //                      (non-fatal), prune symbols absent from this commit.
 // lookup_code_symbols: embed query → vector search code_symbols → trigram
 //                      fallback → top-k + combined code_context.
+//
+// BODIES (2026-07-27, D11 layer 1, council 18fe4035): each row also carries the
+// symbol's SOURCE TEXT in code_symbols.body, sliced from the local checkout by
+// the line span the analyser already recorded. Until this, `content` was the only
+// searchable text and it holds DECLARATIONS ONLY (composeSymbolContent: kind +
+// symbol + signature + doc + path), so diagnose_code_lookup's `content` kind —
+// which documents itself as matching "symbol source bodies" — returned zero rows
+// for every string literal, route, registry key or table name inside a function.
+// A zero read as absence is how a reviewer concludes "no such code exists" about
+// code that does (bugs_open/108 defect B).
+//
+// body is a SEPARATE COLUMN and is deliberately absent from content_hash: that
+// hash is the re-embed trigger (loadExistingHashes), so folding bodies into
+// content would silently re-embed and re-skew all 4,535 vectors as a side effect
+// of a search fix. 243_code_symbols_body_column_VERIFY.sql asserts that.
 
 package actions
 
@@ -26,6 +41,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/gqls/agentchassis/internal/analysis"
@@ -126,8 +143,12 @@ func LookupCodeSymbolsAction(ctx context.Context, params ActionParams) (interfac
 		return nil, fmt.Errorf("lookup_code_symbols: search failed: %w", err)
 	}
 
-	// Combined context: one line per hit (path:symbol + signature). Bodies are
-	// NOT stored here — the assembler reads them from the repo at commit_sha.
+	// Combined context: one line per hit (path:symbol + signature). Bodies ARE
+	// stored now (code_symbols.body) but are deliberately NOT rendered here: this
+	// is retrieval SEEDING for the bundle assembler, which reads the body from the
+	// checkout at commit_sha, and a top-k of full function bodies would blow the
+	// caller's context. The body column serves diagnose_code_lookup's `content`
+	// kind, which caps its excerpt.
 	var parts []string
 	for i, r := range results {
 		path, _ := r["path"].(string)
@@ -191,7 +212,7 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("index_code_symbols: decode analysis output: %w", err)
 	}
 
-	rows := flattenSymbols(out)
+	rows := flattenSymbols(out, logger)
 	if len(rows) == 0 {
 		logger.Warn("index_code_symbols: analyser produced no symbols", zap.String("repo", repo))
 		return map[string]interface{}{"indexed": true, "repo": repo, "symbols": 0, "upserted": 0, "pruned": 0}, nil
@@ -207,7 +228,7 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 	}
 	embModel := getEmbeddingModel(config)
 
-	upserted, embedded, embeddingsFailed := 0, 0, 0
+	upserted, embedded, embeddingsFailed, withBody := 0, 0, 0, 0
 	for _, r := range rows {
 		// Embed only when new or changed; COALESCE in the upsert keeps the
 		// existing embedding otherwise.
@@ -225,11 +246,19 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 
+		// body is assigned PLAINLY, never COALESCEd onto the existing value the
+		// way embedding is. Preserving an old body on a failed slice looks safer
+		// and is not: content_hash covers the DECLARATION text only (kind +
+		// symbol + signature + doc + path), so a function whose body changed
+		// while its signature did not has an UNCHANGED hash — there is no cheap
+		// test for "this body is still current". line_start/line_end above are
+		// overwritten from EXCLUDED regardless, so a preserved body would end up
+		// contradicting the very span it claims to be. NULL is the honest state.
 		_, execErr := params.DB.ExecContext(ctx, `
 			INSERT INTO code_symbols (
 				repo, commit_sha, path, symbol, kind, signature, doc,
-				line_start, line_end, content, content_hash, embedding, embedding_model
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::vector,$13)
+				line_start, line_end, content, body, content_hash, embedding, embedding_model
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector,$14)
 			ON CONFLICT (repo, path, symbol) DO UPDATE SET
 				commit_sha      = EXCLUDED.commit_sha,
 				kind            = EXCLUDED.kind,
@@ -238,18 +267,22 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 				line_start      = EXCLUDED.line_start,
 				line_end        = EXCLUDED.line_end,
 				content         = EXCLUDED.content,
+				body            = EXCLUDED.body,
 				content_hash    = EXCLUDED.content_hash,
 				embedding       = COALESCE(EXCLUDED.embedding, code_symbols.embedding),
 				embedding_model = EXCLUDED.embedding_model,
 				updated_at      = now()`,
 			repo, nullIfEmpty(commitSHA), r.path, r.symbol, r.kind,
 			nullIfEmpty(r.signature), nullIfEmpty(r.doc),
-			r.lineStart, r.lineEnd, r.content, r.hash, embArg, embModel)
+			r.lineStart, r.lineEnd, r.content, r.body, r.hash, embArg, embModel)
 		if execErr != nil {
 			logger.Warn("index_code_symbols: upsert failed", zap.String("symbol", r.symbol), zap.Error(execErr))
 			continue
 		}
 		upserted++
+		if r.body != nil {
+			withBody++
+		}
 	}
 
 	// Prune symbols absent from this commit. Only safe when a commit_sha is
@@ -273,7 +306,7 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 		zap.String("repo", repo), zap.String("commit_sha", commitSHA),
 		zap.Int("symbols", len(rows)), zap.Int("upserted", upserted),
 		zap.Int("embedded", embedded), zap.Int("embeddings_failed", embeddingsFailed),
-		zap.Int("pruned", pruned))
+		zap.Int("with_body", withBody), zap.Int("pruned", pruned))
 
 	return map[string]interface{}{
 		"indexed":           true,
@@ -283,7 +316,11 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 		"upserted":          upserted,
 		"embedded":          embedded,
 		"embeddings_failed": embeddingsFailed,
-		"pruned":            pruned,
+		// with_body is reported next to upserted so a run that indexed everything
+		// and sliced nothing is legible from the orchestration record alone,
+		// without anyone thinking to query the column.
+		"with_body": withBody,
+		"pruned":    pruned,
 	}, nil
 }
 
@@ -294,13 +331,60 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 type symbolRow struct {
 	path, symbol, kind, signature, doc, content, hash string
 	lineStart, lineEnd                                int
+	// body is the symbol's source text, or nil when it could not be sliced.
+	// A POINTER, not a string, so "could not read it" persists as NULL and can
+	// never be confused with a genuinely empty body — the empty-vs-absent
+	// confusion this whole change exists to remove, reintroduced one layer down.
+	body *string
 }
 
 // flattenSymbols turns the analyser Output into one row per function/method and
 // per type. Method symbol names carry the receiver, e.g. "(*OllamaClient).GenerateEmbedding".
-func flattenSymbols(out analysis.Output) []symbolRow {
+//
+// Bodies are sliced from out.Root — the LOCAL checkout. That works because the
+// live code-indexer workflow's first step is analyse_repo_local, which fetches
+// the tarball into this pod's own temp dir and deliberately does NOT clean it up,
+// so out.Root is a real path THIS process can read. It would NOT work under the
+// original request_repo_analysis wiring (seed 118), where the analyser adapter
+// parses in its own pod and returns line spans whose root does not exist here:
+// every read would fail and every body would be NULL. That is a degrade, not a
+// break — and the log line below says which happened rather than leaving it to
+// be inferred from a column of NULLs.
+func flattenSymbols(out analysis.Output, logger *zap.Logger) []symbolRow {
 	var rows []symbolRow
+	filesRead, fileReadErrs, bodiesSliced, sliceErrs := 0, 0, 0, 0
+	var firstReadErr error
+
 	for _, f := range out.Files {
+		// ONE read per FILE, not per symbol: a file with 40 functions is read
+		// once and sliced 40 times. No re-parse — the spans are already recorded.
+		src, srcErr := readIndexedFile(out.Root, f.Path)
+		if srcErr != nil {
+			fileReadErrs++
+			if firstReadErr == nil {
+				firstReadErr = srcErr
+			}
+		} else {
+			filesRead++
+		}
+
+		slice := func(start, end int) *string {
+			if srcErr != nil {
+				return nil
+			}
+			b, err := analysis.SliceLines(src, start, end)
+			if err != nil {
+				// A bad span is the analyser and the file disagreeing. Leave the
+				// body NULL: a wrong body is worse than a missing one, because a
+				// missing one is visible in the coverage count and a wrong one is
+				// only visible to whoever acts on it.
+				sliceErrs++
+				return nil
+			}
+			bodiesSliced++
+			return &b
+		}
+
 		for _, fn := range f.Functions {
 			kind := "func"
 			name := fn.Name
@@ -313,6 +397,7 @@ func flattenSymbols(out analysis.Output) []symbolRow {
 				path: f.Path, symbol: name, kind: kind,
 				signature: fn.Signature, doc: fn.Doc, content: content,
 				hash: sha256hex(content), lineStart: fn.StartLine, lineEnd: fn.EndLine,
+				body: slice(fn.StartLine, fn.EndLine),
 			})
 		}
 		for _, td := range f.Types {
@@ -325,10 +410,47 @@ func flattenSymbols(out analysis.Output) []symbolRow {
 				path: f.Path, symbol: td.Name, kind: kind,
 				signature: "", doc: td.Doc, content: content,
 				hash: sha256hex(content), lineStart: td.StartLine, lineEnd: td.EndLine,
+				body: slice(td.StartLine, td.EndLine),
 			})
 		}
 	}
+
+	if logger != nil {
+		fields := []zap.Field{
+			zap.String("root", out.Root),
+			zap.Int("files_read", filesRead),
+			zap.Int("file_read_errors", fileReadErrs),
+			zap.Int("bodies_sliced", bodiesSliced),
+			zap.Int("slice_errors", sliceErrs),
+			zap.Int("symbols", len(rows)),
+		}
+		if firstReadErr != nil {
+			fields = append(fields, zap.NamedError("first_read_error", firstReadErr))
+		}
+		if bodiesSliced == 0 && len(rows) > 0 {
+			// Loud: every content check will keep behaving as it did before this
+			// change, and nothing else in the system would say so.
+			logger.Warn("index_code_symbols: NO symbol bodies could be sliced — "+
+				"code_symbols.body will be NULL for this repo and content checks stay declaration-only. "+
+				"Expected cause: the workflow's analyse step is not analyse_repo_local, so out.Root is not a local checkout", fields...)
+		} else {
+			logger.Info("index_code_symbols: sliced symbol bodies from the local checkout", fields...)
+		}
+	}
 	return rows
+}
+
+// readIndexedFile reads one analysed file from the checkout root. Paths in the
+// analyser Output are slash-relative to Root (analysis.FileInfo.Path), so they
+// are converted with filepath.FromSlash — the same conversion ReadSymbolBody
+// does, kept identical on purpose. An empty root is an error rather than a read
+// of the process's working directory, which would silently index whatever
+// happened to sit at that relative path in the container image.
+func readIndexedFile(root, slashRelPath string) ([]byte, error) {
+	if root == "" {
+		return nil, fmt.Errorf("no checkout root in the analysis output (bodies unavailable)")
+	}
+	return os.ReadFile(filepath.Join(root, filepath.FromSlash(slashRelPath)))
 }
 
 // composeSymbolContent builds the searchable text (embedded AND trigram-matched):

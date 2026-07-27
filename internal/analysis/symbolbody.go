@@ -67,7 +67,7 @@ func ReadSymbolBody(root string, out Output, symbol string) (string, error) {
 	if !ok {
 		return "", fmt.Errorf("ReadSymbolBody: symbol %q not found in %s", namePart, pathPart)
 	}
-	return sliceLines(src, start, end)
+	return SliceLines(src, start, end)
 }
 
 // splitSymbol splits on the LAST colon: "path:Name" -> ("path","Name");
@@ -127,16 +127,25 @@ func receiverType(fn FuncDef) string {
 	return strings.TrimPrefix(fn.Receiver.Type, "*")
 }
 
-// sliceLines returns src lines [start,end] inclusive, 1-indexed — the verified
+// SliceLines returns src lines [start,end] inclusive, 1-indexed — the verified
 // cmd/bundle convention. Bounds are clamped so a stale/incorrect span reports an
 // error or trims rather than panicking.
-func sliceLines(src []byte, start, end int) (string, error) {
+//
+// EXPORTED 2026-07-27 for index_code_symbols, which now stores each symbol's
+// body at index time (D11 layer 1, council 18fe4035). It is exported rather than
+// re-implemented so ONE function keeps owning the [start,end] inclusive 1-indexed
+// convention: the indexer that WRITES a body and ReadSymbolBody, which reads one
+// on demand, must agree byte-for-byte or a stored body and a freshly sliced one
+// silently differ. Round 2 of that council proposed EXTRACTING a shared slicer;
+// prior_art_librarian pointed out this one already existed, which is why the edit
+// is an export and not a new function.
+func SliceLines(src []byte, start, end int) (string, error) {
 	if start <= 0 || end < start {
-		return "", fmt.Errorf("ReadSymbolBody: bad span [%d,%d]", start, end)
+		return "", fmt.Errorf("SliceLines: bad span [%d,%d]", start, end)
 	}
 	lines := strings.Split(string(src), "\n")
 	if start > len(lines) {
-		return "", fmt.Errorf("ReadSymbolBody: span start %d past end of file (%d lines)", start, len(lines))
+		return "", fmt.Errorf("SliceLines: span start %d past end of file (%d lines)", start, len(lines))
 	}
 	if end > len(lines) {
 		end = len(lines)

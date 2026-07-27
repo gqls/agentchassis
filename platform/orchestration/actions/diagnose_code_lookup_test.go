@@ -206,3 +206,82 @@ func TestFormatAge(t *testing.T) {
 		}
 	}
 }
+
+// Bodies made the excerpt window load-bearing. Against declaration text (a line
+// or two) "first matching line, truncated" and "around the match" are the same
+// answer; against a 200-line function they are not — truncating from the head
+// hands a reviewer a hit they cannot read. The failing branch is the one worth
+// exercising, so the match here sits deep in a long body.
+func TestMatchingExcerptWindowsAroundADeepMatch(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i < 200; i++ {
+		fmt.Fprintf(&b, "\tfiller line %d that is here only to push the match a long way down\n", i)
+	}
+	b.WriteString("\tif resp.StopReason == \"max_tokens\" { // the_needle_we_want\n")
+	for i := 0; i < 200; i++ {
+		fmt.Fprintf(&b, "\tmore filler %d\n", i)
+	}
+	got := matchingExcerpt(b.String(), "the_needle_we_want", 120)
+	if !strings.Contains(got, "the_needle_we_want") {
+		t.Fatalf("excerpt lost the match in a long body: %q", got)
+	}
+	if strings.Contains(got, "filler line 0 ") {
+		t.Fatalf("excerpt came from the head of the body, not around the match: %q", got)
+	}
+	if n := len([]rune(got)); n > 130 { // 120 + the two ellipses and trimming
+		t.Fatalf("excerpt overran the cap: %d runes", n)
+	}
+}
+
+// A single line longer than the cap must still be centred on the match, or a
+// minified/generated line hides the very thing that matched.
+func TestMatchingExcerptCentresWithinALongLine(t *testing.T) {
+	line := strings.Repeat("x", 500) + "the_needle_we_want" + strings.Repeat("y", 500)
+	got := matchingExcerpt(line, "the_needle_we_want", 80)
+	if !strings.Contains(got, "the_needle_we_want") {
+		t.Fatalf("long line was truncated from the head, losing the match: %q", got)
+	}
+}
+
+// The whole point of the scope struct: a zero must never render as silence, and
+// "0 rows because bodies are not indexed" must not read like "0 rows because the
+// code does not do that". Both degraded branches are asserted, not just the
+// healthy one.
+func TestCodeIndexScopeEmptyAnswer(t *testing.T) {
+	healthy := codeIndexScope{total: 4535, withBody: 4535}
+	if got := healthy.emptyAnswer("content"); !strings.Contains(got, "answered: 0 rows") ||
+		!strings.Contains(got, "4535") || strings.Contains(got, "UNKNOWN") {
+		t.Fatalf("a genuine searched-and-empty answer should be stated as one: %q", got)
+	}
+
+	noBodies := codeIndexScope{total: 4535, withBody: 0}
+	if got := noBodies.emptyAnswer("content"); !strings.Contains(got, "UNKNOWN") {
+		t.Fatalf("with no bodies indexed a content zero is UNKNOWN, not absent: %q", got)
+	}
+
+	empty := codeIndexScope{total: 0}
+	if got := empty.emptyAnswer("symbol"); !strings.Contains(got, "NOT ANSWERED") {
+		t.Fatalf("an empty index cannot answer anything: %q", got)
+	}
+
+	broken := codeIndexScope{err: fmt.Errorf("connection refused")}
+	if got := broken.emptyAnswer("ls"); !strings.Contains(got, "NOT ANSWERED") ||
+		!strings.Contains(got, "connection refused") {
+		t.Fatalf("a failed scope read must say so, with the reason: %q", got)
+	}
+}
+
+// The coverage note is what a reviewer reads BEFORE any answer, so the
+// between-migration-and-roll state (column exists, every row NULL) has to be
+// legible as a degrade rather than as a healthy empty result.
+func TestBodyCoverageNote(t *testing.T) {
+	if got := (codeIndexScope{total: 4535, withBody: 0}).bodyCoverageNote(); !strings.Contains(got, "BODIES ARE NOT INDEXED") {
+		t.Fatalf("the no-bodies degrade must be loud: %q", got)
+	}
+	if got := (codeIndexScope{total: 4535, withBody: 4535}).bodyCoverageNote(); !strings.Contains(got, "all of them") {
+		t.Fatalf("full coverage should say so plainly: %q", got)
+	}
+	if got := (codeIndexScope{total: 4535, withBody: 2000}).bodyCoverageNote(); !strings.Contains(got, "44%") {
+		t.Fatalf("partial coverage should report the percentage: %q", got)
+	}
+}

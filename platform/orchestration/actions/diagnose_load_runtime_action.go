@@ -466,9 +466,17 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// prompt's cite-or-abstain acts on absence — so the answer must carry its
 		// own freshness, loudly when stale.
 		cb.WriteString(codeIndexFreshness(ctx, params.DB))
+		// And WHAT was searched, not only when it was indexed. This lane needs it
+		// at least as much as the council's: the verdict prompt's cite-or-abstain
+		// acts on absence, so "0 rows because bodies are not indexed" and "0 rows
+		// because the code does not do that" must not render identically. Same
+		// helper as diagnose_code_lookup — one judgement, not a sibling copy that
+		// drifts (016b §9).
+		codeScope := loadCodeIndexScope(ctx, params.DB, "")
+		cb.WriteString(codeScope.bodyCoverageNote())
 		for i, c := range codeChecks {
 			fmt.Fprintf(&cb, "\n[code_request %d] kind=%s query=%q — %s\n", i+1, c.Kind, c.Query, c.Why)
-			if err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, &cb); err != nil {
+			if err := answerCodeCheck(ctx, params.DB, c, "", codeRowCap, codeExcerpt, codeScope, &cb); err != nil {
 				// Never fatal: a failed lookup is one unanswered question, not a
 				// failed gather. Surfaced in-band so the verdicter sees it was
 				// attempted rather than silently reading absence as evidence.
