@@ -192,3 +192,80 @@ Not anywhere in the code we actually build and deploy. The only working mailer
 in the estate lives in idea.uk's box, outside the build. Everything that emails
 a customer a link — including this dossier — depends on that being fixed once,
 properly, rather than copied a third time.
+
+---
+
+## 27 July, evening — it works. Two real dossiers are live on robot-hands.com.
+
+The whole chain ran, end to end, in production. A request goes in; the physics
+gets scored server-side against the ten real grippers; the model writes the
+prose around those numbers; the honesty gate checks every figure and name; a
+page is built, committed and deployed; and a little status file appears beside
+it saying "ready". You can click both of them:
+
+- `robot-hands.com/reports/d1a371be-04a5-4ee6-b744-d64c6fd9e7c4.html`
+- `robot-hands.com/reports/29c3f8aa-3246-4a81-be8a-1e6b237cc467.html`
+
+Neither is linked from anywhere on the site, which is deliberate.
+
+The first is the ordinary case — a 2.5 kg steel blank. What I checked for is a
+string that could not appear by luck: the actual arithmetic, substituted with
+that request's own numbers, printed on the page. It's there. I also checked a
+formula that should *not* be there, and it isn't, because a test that can only
+pass isn't a test.
+
+The second is the one I care about more. It asks for something we cannot do —
+half a tonne of glass, washed down at high pressure. The report says so, in
+plain words: *"No gripper in this index meets the requirement."* It doesn't
+hedge, doesn't offer a near-miss, and doesn't recommend a purchase. And it
+still counts as a **success** and still gets delivered, because an honest no is
+a real answer and the machinery treats it as one. That was the part most likely
+to go wrong and it went right.
+
+The failure path got tested too, though not on purpose. I made three mistakes
+today and two of them drove the pipeline into its failure branch — which is
+exactly where I'd want to find out that it works. Each time it stopped, refused
+to publish anything, and marked the job **failed** rather than quietly claiming
+success. That distinction is the whole reason I added that piece last week.
+
+The three mistakes, since they're the useful part:
+
+The scheduled job was pointed at the wrong internal address — one that nothing
+listens on. This is a nasty one because everything upstream looked perfect: the
+scheduler said "message sent successfully", said "task triggered", and updated
+its own timestamps. All true, and all meaningless, because nobody was on the
+other end. You can only see it by looking downstream and finding nothing there.
+Eighteen of our eighteen live jobs use the right address; mine used the default
+that comes with the database column, which turns out to be a trap.
+
+I'd also skipped a step: the gripper measurements themselves were never loaded,
+so the scorer had nothing to score. It failed with an error naming the exact
+file I'd missed, which is the kind of error message worth having.
+
+And my test request used a made-up reference instead of a proper one, which the
+page builder refused — correctly, since that reference becomes the page's web
+address.
+
+One correction I want to own, because it's the same lesson as this morning's.
+I looked at a run twenty seconds in, saw it sitting at a step, and wrote into
+*another team's bug file* that it was stuck. It wasn't — it finished ninety
+seconds later. The tell was in a table I had written into that same file
+minutes earlier. I corrected it before anyone acted on it, but wrong evidence
+in someone else's open investigation is worse than no evidence, and I'd rather
+record that than tidy it away.
+
+Also worth knowing: after the job said "complete", the second page was still a
+404 for about two minutes while it made its way out to the CDN. I nearly wrote
+that down as a failure. "It's deployed" and "you can read it" are not the same
+statement.
+
+Where that leaves us. Everything inside our own system is proven. What's left
+is the public-facing half — the form people actually fill in, and the email —
+and that now belongs inside the shared tools service rather than in a service
+of its own. Thank you for the key; it only gates that last part, so it hasn't
+been holding anything up. Before we build it, I'd still want the email sender
+and the abuse guard moved into shared code, because that's the exact moment
+we'd otherwise end up with two of each.
+
+I've switched the lane off again now the tests have run. The two pages are left
+up for you to read; say the word and I'll clear them out.
