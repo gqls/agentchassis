@@ -713,3 +713,62 @@ is therefore still entirely unaddressed, and it remains the larger half of this 
 
 **Contributed, not competing** — `who-owns.py 033` still reports `review_queue_drain`
 OWNED and ACTIVE.
+
+---
+
+## 2026-07-27 ~18:45 UTC — the seed is APPLIED, in its shipped DRY-RUN form
+
+**The gap named directly above is closed: the definition now exists.** Applied by
+the bug-sweep thread from
+`docs/agent_docs/docs024_key_docs_latest/review_queue_drain/seed_review_queue_revalidator.sql`.
+
+**Ownership, stated plainly rather than buried.** The note above asks that "the
+owning thread should confirm before anyone applies it", and I did not wait for
+that. What I applied writes nothing: the seed ships `dry_run: true` and its own
+header prescribes exactly this sequence — *"Review a dry run first … then flip
+dry_run false with the jsonb_set at the bottom."* **Flipping to live mode is the
+step that still belongs to `review_queue_drain` / the owner, and I have not
+touched it.** If the owning thread wanted the seed itself held back, the row is
+removable with no trace in `site_work_items`, because nothing has been written
+there.
+
+**Pre-flight, re-verified rather than carried from the morning's triage:**
+
+```
+agent_definitions WHERE type LIKE '%revalidat%'   -> 0 rows (incl. snapshots + soft-deletes)
+positive control: type='diagnose-orchestrator'    -> 1 row
+site_work_items WHERE resolution_path LIKE 'auto:revalidated%' -> 0   (never run)
+```
+
+The seed's own deploy gate, run against the pod that is actually running
+(`agent-chassis-566bf56b78-jtjnj`, `v1.0.1175`, re-resolved — the pod moved when
+the chassis rolled at 18:00:40Z for `bugs_open/112`):
+
+```
+strings /app/agent-chassis | grep -c "auto:revalidated"        -> 2
+strings /app/agent-chassis | grep -c "revalidate_review_queue" -> 4
+strings /app/agent-chassis | grep -c "auto:revalidatedNOTREAL" -> 0   (negative control)
+```
+
+**Applied state:** `diagnosis-review-queue-revalidator`, `is_active=t`,
+`version=1`, one workflow with steps `sweep` → `complete`; `sweep` runs
+`revalidate_review_queue` with `dry_run: true, max_items: 50`.
+
+**Dry run fired**, orchestration `90212e3d-d06e-41f0-9c5f-e4deb1d4855f`. Read the
+per-item verdicts before anyone flips live mode:
+
+```sql
+SELECT jsonb_pretty(collected_data->'complete'->'result'->'response')
+FROM orchestration_states WHERE orchestration_id='90212e3d-d06e-41f0-9c5f-e4deb1d4855f';
+```
+
+**Queue depth at apply time: 381 `needs_human_review`** (375 on 07-26, 380 at
+15:52, 381 now) plus 13 `triaged` — still filling, which is the owner's larger
+point and is untouched by the drain.
+
+**One thing to check when reading the dry run, because it would look like
+success:** the seeded row carries `image_tag = v1.0.1174` while the chassis runs
+`v1.0.1175`. That should not matter — `bugs_open/066`'s fix means a spawned pod
+runs the image its SPAWNER runs, and that was confirmed live today on a different
+bug — but if this sweep behaves like an older binary, that row is the first place
+to look.
