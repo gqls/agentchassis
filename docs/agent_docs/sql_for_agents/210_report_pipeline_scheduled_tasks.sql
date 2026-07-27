@@ -30,6 +30,21 @@
 -- IDEMPOTENT: ON CONFLICT (name) DO UPDATE. The enabled flag is deliberately
 -- NOT overwritten on conflict — re-running this seed must never silently
 -- re-disable a lane the operator has enabled.
+--
+-- CORRECTED 2026-07-27 — target_topic MUST be 'system.agent.scheduled.requests'.
+-- This file originally named 'system.agent.generic.requests', which is the
+-- scheduled_tasks column DEFAULT and is a topic NOTHING CONSUMES. Measured live
+-- the day this was found: 18 of 18 enabled tasks use .scheduled.; the .generic.
+-- topic held 7 tasks of which the only enabled one was this bug.
+--
+-- It fails SILENTLY and looks perfectly healthy from the producer side. The
+-- scheduler logged "Successfully produced message" and "Triggered task", and
+-- stamped last_triggered_at AND last_completed_at — which is the NORMAL
+-- fire-and-forget path (cmd/scheduler/main.go:287-296), not a no-op marker, so
+-- the timestamps cannot distinguish "fired into a live topic" from "fired into
+-- a void". The only discriminating evidence is downstream: zero rows in
+-- orchestration_states for the target agent_type, and zero mention of the
+-- correlation_id in the chassis log. Check THAT, not the scheduler's own logs.
 
 \set ON_ERROR_STOP on
 
@@ -49,7 +64,7 @@ INSERT INTO scheduled_tasks (
     || 'deploy_config.report_island, so it costs nothing until 208 is applied.',
     270,
     'report-request-collector',
-    'system.agent.generic.requests',
+    'system.agent.scheduled.requests',
     '{"action": "orchestrate", "config": {"agent_type": "report-request-collector"}, "input_data": {}}'::jsonb,
     'report-pull',
     1,
@@ -83,7 +98,7 @@ INSERT INTO scheduled_tasks (
     || 'when a ''reporting'' item is stuck, so the loop can run its own reaper.',
     90,
     'report-dispatch-loop',
-    'system.agent.generic.requests',
+    'system.agent.scheduled.requests',
     '{"action": "orchestrate", "config": {"agent_type": "report-dispatch-loop"}, "input_data": {}}'::jsonb,
     'report-dispatch',
     1,
