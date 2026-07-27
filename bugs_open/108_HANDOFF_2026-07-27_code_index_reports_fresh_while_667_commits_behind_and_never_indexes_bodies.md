@@ -207,6 +207,26 @@ code_symbols index next round"*. On the gate that promise cannot be kept at all.
    >   AND is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
    > ```
    >
+   > **ROUTING HALF SHIPPED 2026-07-27 19:4x (config-only, live, no image)** —
+   > candidate 5 is now **half done, deliberately**:
+   > - `fix-proposer.code_lookup.code_check_fields` 6 → **7**: `review_prior_art`
+   >   added. It was the only seat emitting `code_checks` and missing from the
+   >   answer list, on the one lane that could answer it.
+   > - **`feature-designer` gains a `code_lookup`** (`run_checks → code_lookup →
+   >   repropose`), answering `review_architecture`. Reachability re-checked: 25/25
+   >   steps, no orphans; `review_fields` 6 and `hard_veto_from` unchanged.
+   > - **`council-gate` deliberately NOT changed.** Candidate 5 offers "mirror
+   >   `code_lookup` onto the gate" as an option; `099_SYNC_gate_roster.py:24-29`
+   >   already states why it is excluded — `code_lookup`/`repropose` *"serve the
+   >   blind reproposer, which the gate has no equivalent of (its authors read the
+   >   objections themselves)"*. That reason is sound and still true. The same test
+   >   is what **includes** `feature-designer`, which does have a blind reproposer.
+   >   **The residual asymmetry, which candidate 5 should be read as still covering:**
+   >   the gate's authors receive SQL `check_results` in the verdict note but never
+   >   code ones, so a gate seat's `code_checks` remain unanswerable. Fixing that
+   >   means surfacing code results into the verdict note — NOT bolting a
+   >   reproposer-shaped step onto a lane that has no reproposer.
+   >
    > **Interim mitigation SHIPPED 2026-07-27 18:3x (config-only, live, no image).**
    > Not a fix — the seats still cannot look code up; they are merely no longer
    > lied to. A `CODE INDEX LIMITS` paragraph now closes **all 15** prompts that

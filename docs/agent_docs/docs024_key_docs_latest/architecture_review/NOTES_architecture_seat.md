@@ -159,6 +159,54 @@ how often this happens — one instance, noticed by reading, not counted.
 
 ---
 
+## 2026-07-27 (evening, cont.) — D11 LAYER 2 SHIPPED: code questions are now routed
+
+Config only, no image, live immediately. Two changes:
+
+| agent | before | after |
+|---|---|---|
+| `fix-proposer` | `code_check_fields` = 6 seats | **7** — `review_prior_art` added |
+| `feature-designer` | no `code_lookup`; `run_checks → repropose` | **`run_checks → code_lookup → repropose`**, answering `review_architecture` |
+| `council-gate` | none | **deliberately unchanged** — see below |
+
+**`review_prior_art` was the one fix-proposer seat emitting `code_checks` and absent
+from the answer list** — 7 seats emit, 6 were listed. The seat whose charter is
+*"does it propose BUILDING something that already exists"* had its code questions
+silently dropped on the one lane that could have answered them.
+
+**Why feature-designer gets a `code_lookup` and the gate does not — and this is the
+part I nearly got wrong.** `bugs_open/108` candidate 5 says *"either mirror
+`code_lookup` onto the gate, or stop `prior_art` promising an answer there"*, which
+reads as licence to add it everywhere. Reading `099_SYNC_gate_roster.py:24-29` first
+gave the actual reason for the exclusion:
+
+> *"it does not mirror fix-proposer's `code_lookup` / `repropose` / `reframe` /
+> `escalate`: those serve the blind reproposer, which the gate has no equivalent of
+> (its authors read the objections themselves)."*
+
+That reason is **sound and still true** — so it is not an oversight to be patched
+over. But it is also the exact test that says feature-designer **should** have one:
+that lane *does* have a blind reproposer (`run_checks → repropose`, `repropose` =
+`execute_llm_prompt → persist_plan`). **So the same principle includes one lane and
+excludes the other.** Overriding a documented deliberate decision is a separate
+decision, not a routing fix; the gate's asymmetry (its authors get SQL check results
+in the verdict note but never code ones) is now written up in 108 rather than
+silently "fixed".
+
+Pre-flight, adapted because this one **does** change the step set: the assertion was
+not "no steps changed" but "exactly `code_lookup` added, nothing removed, and one
+named `next_step` rewired". Diff came back as exactly two lines. Reachability BFS
+including conditional branches: feature-designer **25/25** (was 24/24), fix-proposer
+**48/48**, no orphans on either, `code_lookup` reachable on both. `review_fields`
+6/16 and `hard_veto_from ["guardian"]` unchanged. Both agents were idle at apply time.
+
+**What this does NOT do:** the index still holds declarations only, so a `content`
+check still returns nothing useful. Layer 2 makes the question *reach* the index;
+layer 1 (the council submission) is what puts an answer in it. A `symbol` or `ls`
+lookup, though, works **today** — those match indexed symbol names and paths — so
+the architecture seat has a real instrument for "does this symbol exist / what is
+under this path" for the first time, which it did not have an hour ago.
+
 ## 2026-07-27 (evening, cont.) — D11 filed, and the "real fix" was a third of the ask
 
 **Owner directive (D11): seats must be able to LOOK THINGS UP, not merely be honest

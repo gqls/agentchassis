@@ -333,3 +333,35 @@ need a migration, a rebuild and a deploy; the live-lookup change last and probab
 its own RFC, since it changes the shape of a review rather than its inputs.
 
 Going ahead now with 2 and 1, through the council gate first as I said I would.
+
+## 2026-07-27 (evening) — the routing half is done; reviewers' code questions now go somewhere
+
+Layer 2 is live. Configuration only, no rebuild, in effect immediately.
+
+Two things changed. The reviewer whose whole job is *"are we rebuilding something we
+already have?"* now gets its code questions answered on the council that can answer
+them — it was the one reviewer asking and not being listened to, left off a list of
+six. And **the new forward reviewer's code questions now go somewhere at all**: its
+council had no step to run them, so until this evening it asked into a void.
+
+**One judgement call I want to flag, because I nearly got it backwards.** The bug
+file suggested adding the same step to the third council too. Before doing that I
+read why it was missing, and there was a real reason written down: that machinery
+exists to feed an *automatic* re-drafting step, and the third council has no such
+thing — on that one, a person reads the objections and resubmits. So it isn't an
+oversight to paper over. But the very same test is what says the forward reviewer's
+council *should* have it, because that council does re-draft automatically. So one
+principle both included one and excluded the other, and I've left the third alone
+and written up what it actually needs instead — its authors get the database answers
+in their verdict note but never the code ones, and that's the thing to fix there, not
+a step borrowed from a lane that works differently.
+
+**What this does and doesn't buy us.** Questions of the form *"does this symbol
+exist?"* or *"what's under this path?"* now work — those match things the index
+genuinely holds, and the forward reviewer has that instrument for the first time.
+Questions of the form *"does anything reference this route or config key?"* still
+come back empty, because the index doesn't store the insides of functions yet. That's
+the other half, and it's sitting with the council for review now.
+
+So: the question now reaches the index. Making the index able to answer it is the
+piece under review.
