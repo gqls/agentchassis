@@ -189,3 +189,57 @@ Still outstanding from before, unchanged: the evidence registers for the remaini
 publishing sites, and the fact that a number written into a site's *instructions* never
 refreshes itself (leopardess still tells its writer there are 143 agent definitions of
 which 56 are active; the real figure is 175 active).
+
+---
+
+### 2026-07-27 — the registers you asked for: most of them shouldn't be built
+
+You asked for evidence registers on all the remaining publishing sites. I surveyed them
+before building anything, and the survey changed the answer, so I want to put the reasoning
+in front of you rather than just report what I did.
+
+A register is a list of the numbers a site is allowed to state, each with the query that
+proves it. It's worth having where a site makes factual claims about the business. The
+question I hadn't asked was: **do these sites actually make any?** So I ran the real
+checker over all of them with an empty register, which makes every business-shaped number
+show up, and read what came back.
+
+- **gaswholesalers.com** — 102 components, **zero** numbers. Nothing to police.
+- **dartsonline.com** — one: a 30-day returns window. That's a policy term, not a claim.
+- **finetuning.uk** — five, of which four are descriptions of who it sells to ("5 to 50
+  employees") and a privacy-policy age limit. **One is real**, and I'd like a decision on
+  it: the home page carries a case study reading *"Facilities management company
+  (Midlands, UK) — ~80% reduction in quote preparation time"*. Nothing on record supports
+  that 80%. If it came from a real engagement and you can point at where, I'll register it
+  as a fact and it's protected from then on. If it was written to look good, it should come
+  off the page. I haven't touched it either way.
+- **webdesign.co.uk** — fifteen numbers, and this is the interesting one: **every single
+  one is a false alarm.** They're things like "100 concurrent users", "random 502 Bad
+  Gateway errors", "Try rating Sci-Fi '5'". All fifteen sit on six *tutorial* pages. They
+  aren't claims about the business, they're worked examples in teaching material.
+
+So building a register for webdesign.co.uk — the biggest site we have, at 98 pages — would
+have produced fifteen review items that are all correct writing, and taught whoever reads
+that queue to ignore it. That would leave the site worse off than not checking it. The
+underlying cause is that the checker has no idea what *kind* of page it's reading: a
+tutorial's example and a sales claim look identical to it, even though the database already
+records which is which. I've written that up as a bug (102) with the fix, because it's the
+thing standing between us and covering that site properly.
+
+**What I did build: vonc.com.** It was the one site in the list whose figures are both real
+claims and checkable — 8 archetypes, 3 tools, 2 written guides, 18 pages. I took every one
+of those from the database rather than from the site's own copy (the copy is the thing that
+might be wrong), and each fact carries the query that proves it.
+
+The result is a clean demonstration of why this is worth doing. Before the register, the
+checker had fourteen complaints about vonc and could not tell you whether any of them were
+justified — it had nothing to compare against. After it: **twelve were confirmed correct
+and dropped, and two were real.** The about page says there are 3 archetypes and 8 tools;
+the rest of the site, and the database, say 8 archetypes and 3 tools. The two figures had
+been transposed. I've corrected it.
+
+One honest caveat on that fix: I corrected the stored data, not the published HTML, so the
+about page keeps showing the wrong numbers until it's re-rendered. That's deliberate —
+patching the visible page while leaving the stored copy wrong would make it *look* fixed
+while every future rebuild reprinted the error, which is exactly the failure I spent
+yesterday closing.
