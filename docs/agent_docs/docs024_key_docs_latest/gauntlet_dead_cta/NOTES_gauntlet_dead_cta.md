@@ -1232,3 +1232,100 @@ Commit `a37a2037c`, council `SUBMISSION_CORR e004fd81-5126-45c0-b580-635a2818799
 **083 stays OPEN**: the island has not been rebuilt, so the fix is inert, and
 `/bugs_closed/`'s bar is fixed AND live. Chassis rolled three times today
 (v1.0.1172 → 1174 → 1175) and **not one of them touches this service.**
+
+## 2026-07-27 (late) — MISSTEPS across the council rounds, the fingerprint and the island rebuild
+
+Eight, in the order they happened. Each carries the check that would have caught
+it, placed where the error is actually made — a misstep with no check attached is
+a paragraph nobody acts on.
+
+### 1. I misread the council's own verdict metadata, out loud
+
+Round 1 returned `"abstained": 8` of `"reviewers": 8`, and I reported it as
+possibly meaning nobody voted — "a default-to-revise with no actual objections".
+**Wrong.** The `body` held **eight real reviews: 6 approve, 2 object**, with
+`decided_by: gating objection from editquality`. `abstained` is the
+filtered-seat counting artefact, and this trap is already written down in my own
+memory file for the 16-seat gate.
+*Check: read `body.reviews[]`. NEVER the counters. Corrected within minutes, but
+it was stated to the owner first.*
+
+### 2. My headline count was wrong, and the reviewer's narrow objection exposed it
+
+I told the council "seven discard sites". It was **nine** (4 defend + 4 position
++ 1 round), and auditing every error return then found **seven more** on the 500
+paths — final coverage **16**. editquality only claimed it could not tell an
+abridged sketch from missing work; it happened to be right about something bigger.
+*Check: if you assert a count, produce it with a command in the same breath —
+`grep -c` the call sites — rather than counting in your head while writing prose.*
+
+### 3. The check I wrote to catch a defect scanned NOTHING and reported clean
+
+`check_logged_model_output` gated on **the file** containing `GenerateText`. The
+LLM call lives in `defend.go`; the log sink lives in its sibling `ailog.go`,
+which never mentions `GenerateText` — so it examined zero files and printed a
+clean result. **A clean result and an unrun check are byte-identical output.**
+*Check: a new detector must be run against a commit KNOWN to contain the defect
+and MUST fire. Positive control first, then trust the zero. Now gated on the
+package and verified three ways.*
+
+### 4. I stashed a shared working tree to protect against a risk the tool does not have
+
+To isolate a negative control I ran `git stash -u` on a tree three other sessions
+share, then popped it. `pattern-check --ref <sha>` diffs **committed** state and
+never reads the working tree, so the stash bought nothing and risked everything.
+*Check: does the command actually read the working tree? If it takes a ref, it
+does not.*
+
+### 5. The runbook step I wrote to verify the rebuild had TWO vacuous checks in it
+
+Written yesterday, inside a section titled *"verify against the RUNNING
+CONTAINER"*, and both defects were the exact class it warns about:
+- it grepped **`/app/tools-api`**; the dockerfile does
+  `COPY --from=builder /tools-api /tools-api`, so the binary is at **`/tools-api`**
+  and every check would have returned 0 — reading as a FAILED deploy;
+- its negative control grepped **`JSONError(c, 502`**, which is Go *source*.
+  Source is not in a compiled binary, so it returns 0 before and after.
+*Check: run the verification command against a known-good AND a known-bad input
+before writing it into the runbook. **A verification command is code too.***
+
+### 6. An edit of mine orphaned a doc comment onto the wrong function
+
+Inserting `logInternalFailure` landed it **between** `logAIBadResponse`'s doc
+comment and its function, so ~8 lines describing the response logger sat above
+the DB-error logger. Go does not care; a reader does. Found only because a later
+Edit failed to match the text I expected.
+*Check: after inserting a function into a file, re-read the seam — an insertion
+point that looks like a blank line between decls is often between a comment and
+the thing it documents.*
+
+### 7. I wrote a placeholder commit sha into a bug file
+
+`f6a1e1a` — invented before the commit existed, then corrected to `9474e6b68`.
+A wrong sha is worse than no sha: it resolves to nothing and still reads as a
+real reference.
+*Check: never write a sha you have not run `git log -1` against. Commit first,
+then reference.*
+
+### 8. I predicted "0 diagnostic lines" and got 9, from my own loose grep
+
+Post-deploy I grepped `gauntlet/` and reported 9 hits where I had predicted 0.
+The nine were **URL paths** — `/api/v1/tools/gauntlet/round` contains the string.
+The precise pattern (`gauntlet/(round|position|defend): `) returns empty, which
+was the correct answer for a clean round-trip.
+*Check: grep the format string your code actually emits, not the substring you
+happen to remember. Had I not looked, "9" would have been reported as 9 failures.*
+
+### What went right, for contrast — the induced-fault A/B
+
+The one thing that genuinely proved the deploy was running the **same** induced
+fault against both images off production:
+
+```
+v1.0.1178 → gauntlet/position: generate FAILED … status 401 … invalid x-api-key
+v1.0.1163 → 0 diagnostic lines, 0 request lines
+```
+
+No amount of pod-grepping establishes that. **Three of the eight missteps above
+are variants of "my check could not have failed"** — and the tally, not any one
+of them, is the argument for always demonstrating the failing case.
