@@ -285,3 +285,102 @@ kubectl -n ai-persona-system set env deploy/agent-chassis \
   EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests,system.agent.council-gate.requests
 ```
 Then confirm the new lane has a consumer before pointing `097` at it.
+
+> **UPDATE 2026-07-27 ~19:40 UTC (different thread): this was applied.** Verified
+> live — the deployment now carries both topics, the pod is `v1.0.1177` (started
+> 19:22 UTC), and `kafka-consumer-groups.sh --list` shows
+> `generic-requests-group-lane-system-agent-council-gate-requests`. `097` is still
+> pointed at `system.agent.generic.requests`, i.e. consumer shipped, producer not
+> yet switched — the deliberate rollout order. One council (`f849afaf`) was
+> in flight at 19:18 and was indeed killed by that roll, exactly as the section
+> above predicted; it sat wedged at `review_guardian` for 27+ minutes afterwards.
+
+## Candidate 4 — run the council in a SPAWNED POD. Built and tested 2026-07-27; the fix WORKS and the spawn handshake under it DOES NOT.
+
+Owner direction 2026-07-27: coerce the council into the standard agent workflow
+framework — a thin orchestrator wrapper spawning the real workflow — rather than
+changing the chassis. Built as
+`docs/agent_docs/docs024_key_docs_latest/fixloop_eg_dartsonline/0NN_council_gate_orchestrator.sql`
+(applied; the `council-gate-orchestrator` row is live) and exercised end-to-end.
+
+**This supersedes the "give councils N lanes" idea. Do not build that.** With a
+wrapper the lane is held only for spawn+call, so N councils run concurrently
+through ONE lane — no chassis roll, no static N, DB config only.
+
+### What the test PROVED (the lane problem is solved)
+
+Submission `f5da8f65-a3ec-4d16-8254-3dbfcb76953c`, published 19:50:05 UTC:
+
+- the wrapper reached `AWAITING_RESPONSES` **24 s** after publish;
+- a dedicated pod `agent-council-gate-31da8db4-ktgmj` ran the council;
+- **`QUEUE DEPTH (LAG) : 0` on `system.agent.generic.requests` while that pod was
+  running.** This is the decisive measurement and it is structural rather than a
+  race-test: the offset is committed only *after* `processMessage` returns
+  (`agent.go:672-675`), so under the old inline path LAG is necessarily >= 1 for
+  the whole 4-9 minutes. LAG 0 means the consumer is back in `FetchMessage` with
+  nothing behind it.
+
+### What the test REFUTED (do not repeat my mistake)
+
+I described the wrapper pattern as "proven", on the strength of the archetype
+being in daily use and of feature-builder's merged PR. **Measured instead, over
+the whole retained history of `orchestration_states` (oldest row 2026-07-13):**
+
+```
+diagnose-orchestrator | COMPLETED |  2 | avg  527s
+diagnose-orchestrator | FAILED    |  2 | avg 2796s   <- both "timed out after 3 retries" at call_diagnoser
+```
+
+**Two of four.** The archetype this candidate copies fails about half the time,
+and my run failed too — stuck at `spawn_council` / `AWAITING_RESPONSES`, never
+reaching `call_council`. "In daily use" is not a reliability measurement, and the
+query that settles it takes one minute. Logged in `WRONG_CALLS.md`.
+
+### The race, with ms evidence — `[INFERRED]`, not diagnosed
+
+```
+19:50:11.113  parent  spawn_council -> EXECUTING_STEP     (spawn action begins)
+19:50:24.189  child   sends its initialisation response
+19:50:26.109  parent  spawn_council -> AWAITING_RESPONSES (parent starts listening)
+```
+
+**The child answered 1.92 s before the parent began listening.** `SpawnAgentAction`
+pre-registers the awaited request (`spawn_actions.go:104-126`), then sleeps 5 s,
+sends init, sleeps 5 s more (`:130-151`), and only then returns a result carrying
+`await_response: true` (`buildSpawnResult`, `:565`) — after which the coordinator
+persists `AWAITING_RESPONSES`. A child that boots fast enough to reply inside that
+10 s window replies into a window the parent is not yet in.
+
+Consistent with this, the archetype's successful runs never show `spawn_*` in
+`AWAITING_RESPONSES` at all — `spawn_diagnoser -> call_diagnoser` in 13.7 s and
+12.0 s, no awaiting state recorded — i.e. their responses were applied while the
+step was still `EXECUTING_STEP`. `council-gate` boots in ~3 s and appears to lose
+the race consistently where `diagnose-agent` loses it sometimes.
+
+**This is a theory with good timing evidence, NOT a diagnosis.** It is a durable
+claim about shared spawn infrastructure, the cause may not be where the symptom
+is, and this thread was already wrong once today about this same subsystem — so
+it belongs in the diagnosis loop before anyone acts on it. It is very likely the
+same family as `bugs_open/003` (spawn lost child response) and `029` (what those
+hangs do to the fleet); read both before filing anything new.
+
+### State left behind — safe, and deliberately not the default
+
+- `council-gate-orchestrator` **is live in `agent_definitions`, but nothing
+  targets it.** `097_TRIGGER_council_review_v1.sh` still defaults to
+  `council-gate`; the wrapper is reachable only via an explicit
+  `TARGET_AGENT_TYPE=council-gate-orchestrator`. **Do not flip that default until
+  the spawn race is fixed** — it would move every session onto a path that fails
+  about half the time.
+- `council-gate.idle_timeout_seconds` 0 -> 900. Independent small fix (0 falls
+  through to the 3600 s default at `spawn_actions.go:2691`, so a finished council
+  pod would loiter for an hour). Inert while nothing spawns council-gate.
+- The test run was cancelled and its Job reaped, so it is not sitting in
+  `AWAITING_RESPONSES` feeding the `029` saturation class.
+
+### What is actually blocking, restated
+
+The lane fix is correct and measured. **The blocker is one level down: the
+spawn→call handshake.** Fixing that unblocks this candidate, the diagnosis loop's
+own reliability (half its runs die the same way), and the feature-builder chain —
+so it is worth more than this bug alone.

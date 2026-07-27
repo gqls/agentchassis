@@ -48,7 +48,16 @@ set -euo pipefail
 
 SUBMISSION_FILE="${1:?usage: $0 <submission.json> [resubmit_correlation_id]}"
 FIX_CORR="${2:-${RESUBMIT_CORR:-}}"
-TARGET_AGENT_TYPE='council-gate'
+# bugs_open/096: council-gate runs its 16 seats INLINE on the shared chassis
+# request lane, so one submission blocks every other dispatch for 4-9 minutes and
+# two councils cannot overlap. `council-gate-orchestrator` is a thin wrapper that
+# spawns the council into its own pod (0NN_council_gate_orchestrator.sql) and
+# releases the lane in ~8s. Overridable so the wrapper can be exercised without
+# changing the default for every other session mid-rollout:
+#   TARGET_AGENT_TYPE=council-gate-orchestrator ./097_TRIGGER_council_review_v1.sh sub.json
+# The verdict, artifacts and correlation trail are identical either way — the
+# wrapper forwards the submission verbatim and the CHILD writes the artifacts.
+TARGET_AGENT_TYPE="${TARGET_AGENT_TYPE:-council-gate}"
 CLIENT_ID='demo_client'
 SCOPE_RE='^(platform|internal|pkg)/'
 
