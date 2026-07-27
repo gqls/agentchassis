@@ -115,8 +115,20 @@ spec:
             # joined this lane would re-run every scheduled dispatch under its
             # own consumer group. agent.go refuses the var on non-static agents
             # as a backstop, but do not lean on the backstop.
+            # Council/diagnosis submissions get their own lane too (bugs_open/096,
+            # owner-approved 2026-07-27). 030 gave cron a lane and fixed cron's
+            # 93% share; what remained is that ONE council run — a sequence of
+            # 16 LLM calls — holds the generic lane for its whole duration.
+            # Measured 2026-07-27: seven ordinary dispatches (page re-renders, a
+            # tool render, a research run) queued behind councils in one
+            # afternoon, and a tool page stayed 404 all session as a result.
+            #
+            # ROLLOUT ORDER IS LOAD-BEARING (agent.go:429-432): this consumer
+            # ships BEFORE 097_TRIGGER_council_review_v1.sh is pointed at the
+            # topic. Point a producer at an unconsumed topic and its messages
+            # accumulate with nothing to run them.
             - name: EXTRA_REQUEST_TOPICS
-              value: "system.agent.scheduled.requests"
+              value: "system.agent.scheduled.requests,system.agent.council-gate.requests"
 
           envFrom:
             - configMapRef:
