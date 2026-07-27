@@ -77,6 +77,44 @@ Usable today against any live site with no cluster access.
 
 ### Phase 2 — the cheap half, in the pipeline, no browser
 
+> **STATUS 2026-07-27 — the shared package is BUILT and committed (`e43a3bda0`);
+> the check itself is NOT.** Council `31bad59f-6366-4116-a41c-b6ece45bd634`.
+>
+> **Done.** `platform/colour` holds the WCAG maths once — `ParseHex`,
+> `RelativeLuminance`, `ContrastRatio`, `IsDark`, `IsPerceptuallyDark`, plus
+> `Pair` and `AuditPalette`. `actions/color_util.go` is now five thin wrappers,
+> so no call site in `actions` changed and its palette tests pass untouched.
+> This is the half this feature identified as *"the work"*, and the reason
+> stands: `actions` imports `discovery_checks`, so a second copy of the formulas
+> was the only alternative, and a checker that disagreed with the renderer's own
+> dark/light classification would be worse than none.
+>
+> `AuditPalette` evaluates nine pairings, each carrying its provenance in a
+> comment. The tests are a **regression corpus**, not a demonstration:
+> fundamentallyai.com's real palette before and after today's repair.
+> `TestAuditPaletteCatchesTheRepairRegression` pins the property that matters —
+> **the repair fixed five pairings and broke a sixth**, so a checker run only
+> *after* a palette change would report success. Control assertions carry equal
+> weight: `text_muted/background` measured 5.97:1, passed throughout, and the
+> test fails if the audit flags it.
+>
+> **Not done, and deliberately.** The discovery check that loads a site's
+> **composed** palette and files the finding. Composing it means mirroring
+> `buildPaletteMap` (`render_css_composition_helpers.go:72`) plus the
+> core-vs-specialised authority rule, and a second loader that diverged would
+> recreate the defect being removed. `AuditPalette` is therefore **dead code
+> until that lands** — stated plainly because dead code that looks live is its
+> own trap.
+>
+> **Two things the next author needs.** (1) The slot NAMES in `auditPairs`
+> (`card_bg`, `text_muted`, `primary_text`) are assumed to match the renderer's
+> and are **not yet verified against a live composition** — that is the first
+> thing to test, and it may require renaming entries. (2) Alpha is dropped, not
+> composited, so an 8-digit hex is judged on its opaque colour, which
+> **over-reports** contrast. Callers must composite first.
+
+
+
 A discovery check that composes the palette exactly as `RenderCSSFromSpecAction` does
 and evaluates the pairs the layout actually emits: text on background, text on surface,
 text on card_bg, primary as a foreground, and each ink on its own fill. This catches
