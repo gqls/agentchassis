@@ -281,8 +281,9 @@ func (c *GeminiClient) GenerateText(ctx context.Context, prompt string, options 
 	}
 	generationConfig["maxOutputTokens"] = totalBudget
 
-	// Only ever sent when an operator configured it: the two generations take
-	// incompatible knobs, so the default is to send no thinkingConfig at all.
+	// Only ever sent when an operator configured it. The default sends no
+	// thinkingConfig at all, because a knob is a cost lever and the reserve above
+	// is what makes the call work — neither knob caps thinking (see the struct).
 	if c.thinkingLevel != "" {
 		generationConfig["thinkingConfig"] = map[string]interface{}{"thinkingLevel": c.thinkingLevel}
 	} else if c.thinkingBudget != nil {
