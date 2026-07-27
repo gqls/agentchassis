@@ -380,3 +380,101 @@ quietly left out.
 
 **And the Cloudflare analytics step is still with you.** Still five minutes, still the
 highest-value five minutes on the project, still nothing being collected until it's done.
+
+## 27 July, later — you moved the buyer section up a league, and it changes what the site is for
+
+Your redirection landed a few hours after I'd planned the buyer track, and it's a much better
+brief than the one I was working to. Writing down what I took from it, and the places I've
+pushed back or added.
+
+**You were right about `Hire` and I was wrong to propose it.** It sets a price expectation
+before anyone reads a word, and the expectation it sets is Upwork. Going with **Buying design**,
+your phrase. I did consider "Commissioning" — it has the nice property that a £5,000 buyer
+doesn't use that word, so it filters the audience automatically — but it reads a bit
+institutional, and I think the writing itself should do the filtering rather than a stiff label.
+
+**You were also right about the quote page, for a better reason than mine.** I'd objected
+because we have no verified pricing data. Your objection is stronger: it points the whole
+section at money instead of design, and at £500,000 the buyer isn't price-shopping — they're
+trying not to choose wrong on something they'll be held responsible for. That reframing is what
+made the rest of the plan fall into place.
+
+**The thing I think is the real opportunity, and I'd like you to push back on it.** Everyone
+selling into this market has a reason to shade the truth about AI. An agency wants it to mean
+little, because day rates depend on that. An AI vendor wants it to mean everything. We run one
+of these systems in production across about a thousand sites, and we are not bidding for the
+buyer's project — so we're the only party in the conversation with nothing riding on the
+answer.
+
+That means the most valuable thing we can publish is not what our system does well. It's a
+specific, evidenced account of **where it goes wrong** — because that buyer's daily experience
+is being sold a story, and the one thing they can't get anywhere is someone showing them the
+failure modes honestly.
+
+**But that needs a decision from you, and it's a business one, not mine.** There's a scale:
+talk about failure types in general, publish anonymised cases, or publish our own named
+failures with the evidence. The last is by far the most credible and it's also the most
+exposing — we'd be putting our own mistakes in public where competitors can quote them. I'd
+want that decided once, deliberately, rather than drifting into it page by page. I've not
+written a word at that level and won't until you say.
+
+**On the tools, you asked me to think and here's where I got to.** Your instinct — simple,
+strong impact, returned to repeatedly during a supplier search — is right, and I think it has
+a sharper test attached. The question isn't "is this useful", it's **"does the same tool get
+used at three different stages?"** A buyer goes: build the case internally, write the brief,
+draw up a shortlist, sit through pitches, sign a contract, then watch delivery. A tool that
+helps at one of those is a gimmick. One that helps at three is why they keep the tab open for
+four months.
+
+The strongest by that test is a **side-by-side site comparison**: put your site next to five
+others and get objective results. They'd use it to build the board case, again to check whether
+an agency's portfolio work actually stands up rather than just the case study about it, and
+again afterwards to see whether what they paid for is measurably better. Three visits, three
+different reasons.
+
+But the one I'd build **first** is an **accessibility check framed as legal duty**, because we
+already own it. The contrast checker, the touch-target rule, the focus-visibility work — those
+tools exist on the site today for designers. The buyer version is the same measurement with a
+different frame: not "your contrast is 3.9:1" but "these elements would fail an audit, and
+here's what that means for you". Same engine, two audiences. It's close to free and it carries
+weight in a boardroom.
+
+**One rail I want to state plainly.** These tools run on addresses the buyer types in, and the
+results go to the buyer. We should never publish rankings of named agencies. Quite apart from
+the legal exposure of publishing quality judgements about real firms, it would destroy the
+neutrality that makes any of this worth reading. A buyer privately checking an agency's work is
+research; us publishing the same thing is a hit list. It also means the directory idea should
+be understood as **tools, not suppliers** — pointing at software is uncontroversial, ranking
+agencies is not.
+
+**On verified figures** — agreed, and no figures no page still stands. The most promising
+honest source is one nobody uses in this context: **Companies House**. Agency size and turnover
+from filed accounts is public and checkable. I should flag that the related machinery we have
+elsewhere can't currently record where a fact came from, so treat that as a lead rather than
+something I can lean on yet. Public performance data on real websites is the other solid one.
+
+**The website creation form** — noted and recorded, not started. I've written down your
+architecture point specifically, because it's the bit that tends to get quietly eroded later:
+separate cluster, separate database. I've also noted that one of the tools I'm proposing (a
+brief builder — answer questions, get a usable brief out) is the same shape as that form, so if
+we build it that way it may simply become its first step.
+
+**One tension I'd rather name than paper over.** You said we need a lot of web design traffic
+any way we can get it, and also that this pitches at the multi-million pound buyer. Those are
+different games. My reading: the 94 existing pages are the traffic engine — they rank, they're
+already built, they cost nothing more to keep. The buying section is the positioning layer and
+doesn't need volume to earn its place. The real risk isn't cost, it's **register collision**: a
+brand director landing on an article about the mathematics of CSS Grid concludes this is a
+developer site and leaves. So the buying section needs its own clear front door, and the home
+page has to serve both without confusing either.
+
+Related, and it makes the rewrite more urgent than I'd said: because the two old sites stay
+live, our imported pages duplicate them. So rewriting the copy isn't only a quality job, it's
+how we stop duplicating ourselves. And the buying section is the only part of the site with no
+duplication problem at all, because none of it exists anywhere yet. Your instinct to build it
+serves the traffic goal directly.
+
+**Last question, and it decides real work.** You said ultimately we won't focus on designers.
+I've argued they should stay as the traffic engine, but with no investment beyond the rewrite.
+I need that either confirmed or corrected, because it's the difference between the practitioner
+half of the rewrite being a proper job or a holding action.

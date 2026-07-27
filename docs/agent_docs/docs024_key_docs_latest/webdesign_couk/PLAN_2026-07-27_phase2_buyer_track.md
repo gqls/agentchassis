@@ -1,5 +1,17 @@
 # PLAN — webdesign.co.uk Phase 2: the buyer track (D10) and the copy rewrite (W2)
 
+> **SUPERSEDED IN PART, 2026-07-27 (same day) — read
+> `PLAN_2026-07-27b_buying_design.md` first.** The owner redirected the buyer
+> track within hours of this being written. **What is dead here:** the `Hire`
+> nav label (rejected — reads as Upwork/Fiverr, the wrong end of the quality and
+> price scale), the "how to judge a quote" page (rejected — focuses the section on
+> money rather than design), and the implicit general-purpose small-business
+> buyer. **What survives and is still load-bearing:** §1's measurement that the
+> buyer track is 100% new writing, §2's "buyer uses our tools to check what they
+> were sold" bridge, §5's no-figures rail (the owner strengthened it), and §6's
+> British-English finding. Kept rather than deleted because the rejected version
+> is evidence about how the target audience was initially mis-sized.
+
 **Written 2026-07-27**, immediately after the owner ruled D10/D11/D12 (recorded in
 `PLAN_2026-07-25_webdesign_couk.md`). This plan covers the work those rulings
 created. It is a proposal to react to, not a settled design — the page inventory
