@@ -44,7 +44,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the SCHEMA before naming a column — a Go map key is not a column, and a CHECK constraint's allowed set is not guessable from the column name** | **3** |
 | **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
-| **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents** | **1** |
+| **verify the runtime that will EXECUTE the code — a deployment pod-grep is a false green for spawn-class agents, AND for the right pod running the wrong code path** | **2** |
+| **bound the BEHAVIOUR, not the function — "X has exactly one caller" is true and does not answer "what else does this job without calling X"; a verified scoping claim closes the question hardest** | **1** |
 | **check an example you write against the artifact it constrains** | **2** |
 | **re-derive an inherited residual's prescription; a previous session's fix note is a hypothesis, not a spec** | **1** |
 | grep the index before filing | 1 |
@@ -6355,3 +6356,99 @@ still READS it; three separate guards had already made this flag inert.*
 
 Family: the-column-is-not-the-concept, counted-the-rows-instead-of-reading-them,
 wrong-looking-data-is-not-load-bearing-data.
+
+---
+
+## 2026-07-27 — I verified a deploy correctly, called it done, and the feature did not work
+
+**Where:** the `bugs_open/085` arc. Reported to the owner that the fix was "committed,
+council-approved, needs a roll", and after the roll verified it with a textbook
+pod-grep — symbol my change created, negative control, pre-existing positive control,
+all four readings correct.
+
+**The claim:** the fix is deployed, therefore per-page charts now work.
+
+**Why it is false:** `BuildRenderContextAction`, where the fix lives, is not on the
+path a scoped section re-render takes. `RerenderPageSectionsAction` builds its own
+render base and merges it directly, and that base never carried the page's name. A
+live re-render on the fixed binary produced a page still showing three charts assigned
+to two different pages.
+
+**The uncomfortable part is that the scoping WAS rigorous, and rigorous about the
+wrong boundary.** Both council rounds confirmed *"`build_render_context` has exactly
+one caller fleet-wide"* — my own unfiltered survey, then independently a reviewer's
+attached check. True, twice verified, and irrelevant: it bounds a *function*, not a
+*behaviour*. The question that mattered was "what else builds a RenderContext without
+calling it", and a caller count cannot answer it. The verified claim is what produced
+the false sense of closure — an unverified one would have felt like a loose end.
+
+**What caught it:** exercising the feature on the real route instead of stopping at the
+deploy check. Two minutes.
+
+**The cheap check that would have caught it:** `grep -n "CurrentPage"
+platform/orchestration/actions/*.go` — five producers, three already correct, two
+silently empty. **I ran that exact grep on day one** and read it as "the field is
+advertised in two template maps, good, the contract is real". Same output, three
+different questions, and I only ever asked one of them. *Before sizing a fix, re-run
+your own earliest grep with the question you have NOW.*
+
+**Second, related:** I had named the verification route (a scoped re-render — cheap, no
+LLM, no copy regeneration) in the council submission's own risks section, and never
+checked that the fix was on that route. Naming the test and not walking it is how a
+plan can contain its own refutation and still pass.
+
+**Cost:** one council round and one image roll, both avoidable. Nothing shipped wrong —
+the fix is correct, just incomplete — and the exposure was about two hours in which
+085 was described to the owner as fixed when the feature it exists for did not work.
+
+**Tally:** two rows. *"verify the runtime that will EXECUTE the code"* 1→2 — the same
+family, a level up: not the wrong pod, the wrong code path in the right pod. And one
+new row for the scoping error, which is the one I would not have predicted.
+
+Family: the-true-fact-that-closes-the-wrong-question,
+deployment-is-not-correctness, the-grep-whose-answer-depends-on-your-question.
+
+### 2026-07-27 — gemini P6 — a jsonb_set REPLACE would have silently cut the page writer's output budget by 4x
+
+**Asserted**, in my own RUNBOOK §7, as the command to flip `page-content-writer`
+to Gemini: `jsonb_set(default_config, '{…,generate_content,config,ai_service}',
+'{"provider":"gemini","model":"gemini-pro-latest","api_key_env_var":"GEMINI_API_KEY"}')`.
+Written confidently, with the correct nested path, and reviewed by me twice.
+
+**What was actually true.** `max_tokens: 8000` lives **inside that same
+`ai_service` block**. `jsonb_set` with a literal object is a **REPLACE, not a
+merge**, so the write would have deleted it and `NewGeminiClient` would have
+fallen back to its 2048 default — **less than a third of the writer's real
+budget**. The flip would have reported success, the provider would genuinely have
+changed, and page sections would have started coming back truncated days later.
+Worst of all, the symptom would have pointed at the thinking reserve I had just
+spent the day building, so I would have gone looking in exactly the wrong place
+with a plausible theory ready.
+
+**Caught by:** reading the row before writing to it. A query for the *step's*
+`max_tokens` returned NULL, which looked like "this step has no budget" — the key
+is one level in, under `ai_service`. Chasing that NULL is what surfaced the
+sibling key.
+
+**The cheap check that would have caught it:** **`SELECT` the object you are about
+to `jsonb_set`, and count its keys.** If it has siblings you did not enumerate in
+your replacement literal, you need `||`, not a literal. One query, before the
+write. Generalisable: *any* whole-object write to a jsonb path is a deletion of
+everything in that object you did not mention.
+
+**Cost:** none realised — the write was refused by a tool permission before it
+ran, which is luck, not process. The corrected script now asserts
+`max_tokens = 8000` after the write inside a transaction that rolls back if it
+does not hold, so the class is closed for this path rather than just this instance.
+
+**Smaller miss, same session:** I used `datahelpers.GetIntField` as a pod-grep
+**negative control**, expecting 0, and got 1. It proved nothing — that symbol
+exists throughout the tree and is in the binary regardless of my change. **A
+negative control has to be a string that is absent BECAUSE OF the change**, not
+merely one you expect not to see. The valid control was the format string my edit
+replaced (`no text content in response (finishReason=%q)` → 0). Recorded because
+the failure mode is silent: a "control" that can never fail reads exactly like a
+control that passed.
+
+Family: whole-object-write-deletes-the-siblings,
+NULL-means-absent-or-means-wrong-path, a-control-that-cannot-fail-is-not-a-control.
