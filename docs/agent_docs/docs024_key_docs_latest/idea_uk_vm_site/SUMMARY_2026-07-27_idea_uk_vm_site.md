@@ -108,8 +108,9 @@ real report measures it exactly, because the engine logs its own token usage.
 ## Where we're going
 
 In order: ~~someone pays the £29 and we watch a report land in a customer's inbox for the first
-time~~ — **done, 11:13 the same morning.** Then a small gap in the automatic order expiry — an order interrupted mid-report still holds its
-slot forever, which is the same failure we spent yesterday fixing, reached by a different door.
+time~~ — **done, 11:13 the same morning.** Then a small gap in the automatic order expiry — an
+order interrupted mid-report still holds its slot forever, which is the same failure we spent
+yesterday fixing, reached by a different door.
 Then the pipeline grows sideways: more tools where a stage earns one, and the News section that is
 still empty.
 
