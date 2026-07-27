@@ -104,6 +104,10 @@ deploy path, not the build path: the thing worth measuring is what the visitor g
 If only one phase is ever built, it should be **draining what is already detected**.
 A detector whose output nobody reads is a more expensive way of not knowing.
 
+Filed in its own right as **`bugs_open/115`**, by a concurrent thread in this same
+workstream reading the same owner report. That the two of us found it independently,
+hours apart, is itself evidence about how visible the gap is once anyone looks.
+
 ## Acceptance
 
 - A dark site whose palette omits `card_bg` produces a finding before a human sees the

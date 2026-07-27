@@ -119,9 +119,11 @@ then re-checks each one over HTTP before reporting.
 
 - `bugs_open/113` — the palette/contrast defect found in the same measurement pass.
   Different mechanism; they only share a discovery method.
-- The three `audit_finding_brief_fidelity` rows this site filed on 2026-07-24, still at
-  `status='detected'`, one of which reads *"Only 2 of 27 components contain images —
-  raising serious doubt that the illustration system is meaningfully present"*. They are
-  the **only** rows of that item type in the whole database and nothing consumes them.
-  That is a third distinct gap — detection with no consumer — and it deserves its own
-  file rather than a paragraph here.
+- **`bugs_open/115`** — the three `audit_finding_brief_fidelity` rows this site filed on
+  2026-07-24, still at `status='detected'`, one of which reads *"Only 2 of 27 components
+  contain images — raising serious doubt that the illustration system is meaningfully
+  present"*. They are the only rows of that item type in the whole database and nothing
+  consumes them. Filed by a **concurrent thread in this same workstream** working the
+  same owner report; it and this file were written within minutes of each other, and it
+  was deliberately narrowed to the detection gap once the overlap was noticed. Read them
+  together: 114 is why the imagery never arrived, 115 is why nobody was told.
