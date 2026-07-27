@@ -6875,3 +6875,57 @@ as instructions.
 Family: the-artefact-exists-so-the-capability-is-assumed,
 grep-the-config-key-before-calling-it-a-win,
 a-verification-recipe-is-a-claim-in-a-checklist-costume.
+
+---
+
+## 2026-07-27 — I linked two bugs by their matching counts, without checking they measured the same thing
+
+**The claim.** Triaging the backlog I found `bugs_open/072` (contact-info cannot
+render) reporting **"8 of 13 live sites"** and `bugs_open/111` (footer Contact
+heading over nothing) reporting **"8 of 14 live sites"**. I queried `site_specs`,
+found exactly 8 sites with nested-only `identity` keys, and wrote into the 072
+case file that 111 was **downstream of 072, the same eight sites**, that fixing
+072 would stop the heading stranding on **seven** of them, and that the two must
+be sequenced 072 → 111. Committed as `ca53bc19c` and messaged to the session
+triaging 111.
+
+**What was actually true.** The footer does not read `site_specs.identity` at
+all — it renders from the **`sites.email` / `sites.phone` columns**, a different
+store, populated on **13 of 14** sites. Measured from the rendered footers of all
+14 live sites, 111 affects **2 sites, not 8** (gamesdesign.co.uk and
+relojistas.com), and only **one** of those is reachable by any contact-data fix —
+relojistas is an owner ruling of *no contact route*, so it needs the gate no
+matter what 072 does. So 072 buys at most one site here. The two "8"s were two
+different measurements of two different populations that happened to coincide.
+
+**What caught it.** The render-cluster session, because it measured the
+**rendered artefact** (14 live footers) instead of reasoning from the store I had
+guessed at. It also surfaced that relojistas renders an empty anchor *despite* a
+populated `sites.email`, i.e. a third path feeds that render — which my story
+could not have accommodated.
+
+**The cheap check that would have caught it:** open the template and see which
+field it interpolates. One grep for `footer-contact` in `content_components`
+shows `{{if .email}}` and, one step up, where `.email` is bound from. Ten
+seconds. **I never established the reader** — I matched two numbers and inferred
+a mechanism to join them.
+
+**Cost:** one wrong sequencing recommendation committed to a case file and sent
+to another session, plus a re-argued priority (111 is a 2-site cosmetic fix, not
+a fleet-wide one riding on 072). Caught same-hour, before anyone acted.
+
+**Generalisable form.** *Two bugs reporting the same count are not evidence of
+the same cause — a coincident denominator is the weakest possible join.* The
+count is the least specific thing a bug file publishes; fleets have many
+populations of a similar size, and "8 of 14" will collide constantly across 39
+open cases. Worse, a matching count feels like *corroboration* — it arrives with
+the emotional weight of independent confirmation while carrying almost no
+information. **Join two bugs by a shared reader or a shared write path, named to
+file:line — never by their arithmetic.** This is the standing
+`writes-the-field-is-not-reads-the-field` rule, which I had in memory and did not
+apply: I asserted where the data came *from* without once opening the thing that
+consumes it.
+
+Family: writes-the-field-is-not-reads-the-field,
+narrow-filter-defines-the-conclusion,
+a-verification-recipe-is-a-claim-in-a-checklist-costume.

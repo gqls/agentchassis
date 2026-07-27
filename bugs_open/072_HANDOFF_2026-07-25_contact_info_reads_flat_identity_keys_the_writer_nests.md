@@ -188,3 +188,39 @@ Consequences for whoever picks these up:
 
 [UNVERIFIED] I did not rebuild a contact page to confirm the block then renders —
 that is still the verification step above, and it needs the contract fix first.
+
+> **CORRECTED 2026-07-27, same day, by the render-cluster session — the section
+> immediately above is wrong about 111, and the error is instructive.**
+>
+> **What is wrong:** 111 is **not** the same eight sites and is **not** mostly
+> downstream of this bug. The footer does not read `site_specs.identity` at all —
+> it renders from the **`sites.email` / `sites.phone` columns**, a different store,
+> populated on **13 of 14** sites. Measured from the rendered footers of all 14
+> live sites, 111 affects **2 sites** (gamesdesign.co.uk, relojistas.com), not 8.
+> Only **one** of those is reachable by any contact-data fix, because relojistas is
+> an owner ruling of *no contact route* and needs the gate regardless. So fixing
+> this bug buys **at most one site** on 111, not seven.
+>
+> **Therefore the sequencing argument above is void.** 111 is an independent
+> 2-site cosmetic fix (one `replace()` on one `content_components` row, minutes,
+> reversible) and does **not** need to wait for this bug. Do not hold it.
+>
+> **How the error was made** (this is the part worth keeping): I joined the two
+> cases on their **matching counts** — "8 of 13" here and "8 of 14" there — and
+> inferred a mechanism to explain the coincidence, without ever opening the
+> template to see which field it interpolates. A coincident denominator is the
+> weakest possible join between two bugs; with 39 open cases on a 14-site fleet,
+> "8 of 14" collides constantly. It is also seductive, because a matching count
+> arrives feeling like independent corroboration while carrying almost no
+> information. **Join bugs by a shared reader or write path named to file:line,
+> never by arithmetic.** Logged to `WRONG_CALLS.md` under
+> `writes-the-field-is-not-reads-the-field`.
+>
+> **What still stands from the section above** (measured directly, not inferred):
+> all 14 sites nest `contact`; the six that work carry a manually-added flat pair;
+> so there is no flat-writing code path to preserve and candidate 1 can be
+> unconditional rather than a fallback. That finding is unaffected.
+>
+> **Also unresolved and worth a look:** relojistas renders an empty anchor
+> *despite* a populated `sites.email`, so a third path feeds that render.
+> `[UNVERIFIED]` — nobody has traced it.
