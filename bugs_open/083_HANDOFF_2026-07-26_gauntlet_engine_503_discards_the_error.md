@@ -156,3 +156,80 @@ the caller **while the underlying transient is still occurring** — i.e. the lo
 from (1) must still show retried failures. A quiet period proves nothing here,
 because the fault is bursty: 23 consecutive clean calls were recorded today
 within minutes of two live failures.
+
+---
+
+## 6. WORK LOG — candidate 1 written and committed, 2026-07-27
+
+**Commit `a37a2037c`** · **Council `SUBMISSION_CORR = e004fd81-5126-45c0-b580-635a28187995`**
+(submitted ~18:24Z; verdict pending — the dispatch lane was 8 deep, one item at 373 s).
+**No `Council-Reviewed:` trailer on `a37a2037c`**, deliberately: a trailer is earned
+by an APPROVED verdict, and this verdict post-dates its commit, so it can never
+carry one honestly. If APPROVED, the trailer goes on a follow-up commit.
+
+### It was SEVEN discard sites, not the two §2 names
+
+§2 quotes `defend.go:89-93` and `position.go:83`. Reading the handlers found that
+**both** LLM endpoints discard at `client_init` **and** at `generate`, and that
+**both additionally have two unlogged branches returning a *different* 503
+message** — `"gauntlet judge/opponent response was invalid"` — which §1 never
+separated from `"unavailable"`. That distinction is load-bearing: if the live
+failures were the *invalid-response* kind, the cause is a malformed completion
+rather than an upstream outage, and §4's candidate order points the wrong way.
+The log now tells them apart.
+
+### A THIRD endpoint was affected, and its status code was destroying the evidence
+
+`round.go` discarded its error too, **and returned a literal `502`**:
+
+```go
+prov, err := FetchProvocation(domain)
+if err != nil {
+    httperr.JSONError(c, 502, "provocation unavailable")
+    return
+}
+```
+
+Commit `b498df16b` moved `/position` and `/defend` from 502 to 503 precisely
+because **Cloudflare replaces an origin 502's body with its own HTML** — so this
+endpoint's JSON error shape never reached the browser at all. `/round` was missed
+by that fix. It is the endpoint the other two depend on, so its failures were the
+most consequential to misreport. Now 503, and logged.
+
+### The service had no request logging whatsoever
+
+`api/server.go` ran `gin.New()` with only `Recovery`. That is the real reason §5's
+`docker compose logs tools-api | grep -i judge` was never going to find anything,
+and why §1 carries `[UNMEASURED]` on the rate — **there was no denominator.**
+`gin.Logger()` is now attached, ahead of `Recovery` so a request that panics is
+still recorded.
+
+### What was deliberately NOT done
+
+`max_tokens` is untouched. §2 records the truncation theory as *not fitting the
+evidence*, so this **instruments** the question rather than guessing at it: a
+truncation now logs as `TRUNCATED` carrying the provider's own `reason` and
+`output_tokens`, distinctly from a generic `FAILED`. **If that branch never fires,
+that is itself the finding** — and §4's candidate 4 can be closed rather than
+attempted. Candidates 2 and 3 are untouched, per §4's own ordering.
+
+### The tests discriminate — verified by inducing the fault, not by going green
+
+A passing test proves nothing by itself, so the naive implementation was induced:
+a version that still *detects* truncation but reports it generically **compiles,
+still logs a line**, and fails exactly `TestLogAIFailure_NamesTruncationDistinctly`
+and `TestLogAIFailure_FindsTruncationThroughWrapping`. Restored, re-run green.
+(A first attempt at inducing it left `aiservice` imported-but-unused, so the
+package failed to BUILD — a build failure is not a discriminating test result,
+and it was redone.)
+
+### STILL OPEN — this fix is INERT
+
+- **The island has not been rebuilt.** Committing changes nothing on
+  `tools.apis.uk`; it needs `RUNBOOK_gauntlet_dead_cta.md` §5. **A chassis image
+  roll does nothing for this service** — re-confirmed today across v1.0.1172,
+  v1.0.1174 and v1.0.1175.
+- §5's verification is unrun for that reason: it needs the deployed build, and
+  then a burst to be sampled.
+- **So this bug stays OPEN.** Per `/bugs_closed/README.md` the bar is fixed AND
+  live; a fix committed but inert until a rebuild does not meet it.
