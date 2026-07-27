@@ -106,3 +106,38 @@ defect with better paperwork.
   them first and was never read.
 - Not a duplicate of `083` (detected findings never reach a handler), but the same
   family and probably the same fix. **Contribute there before starting work here.**
+
+---
+
+## 2026-07-27 (evening) — one row drained, and the mechanism measured where it is owned
+
+**Finding 1 is closed, with evidence rather than by fiat.** It read *"No chart component
+exists anywhere in the built inventory — zero of 27 components are chart components"*.
+That was true when written on 07-24 and is now false: `evidence-chart` was built,
+registered and placed on 07-26, and is live on the index with its values sourced from
+`site_specs.evidence_base`, so a chart structurally cannot display an unverified figure.
+The resolution is written into the row's `suggested_action`, so the closure carries its
+own justification and does not have to be taken on trust.
+
+**Findings 2 and 3 stay `detected`, because they stay true.** `model-fine-tuning` and
+`multi-agent-review-council` still differ by one component. Imagery is repaired
+(`bugs_open/114`) but still thin. Closing them would be the failure this file is about,
+one level up — a row marked done by someone who wanted the queue shorter.
+
+**The mechanism is bigger than this file and is measured where it is owned.** Contributed
+into `bugs_open/083` rather than here, since `who-owns.py` says OWNED: fleet-wide,
+**298 non-terminal items across 13 item types have no handler named**, plus 9 more
+naming `human-review`, which is not a registered agent. The standout is
+`needs_section_data` — 44 items, 10 sites, **oldest 135 days**.
+
+> **Caveat carried across from that contribution, because a number this size gets
+> quoted:** `capability_gap` is *supposed* to have no handler. "No handler" is not
+> automatically a defect, and 298 must not be read as 298 broken things. Which of the
+> other twelve types are deliberate is undecided work.
+
+The candidate I would put first is still the one in this file's fix list and now has
+fleet evidence: **a routing audit on a cadence, not a handler per type.** One query
+finds every type whose rows sit non-terminal with no live handler, independent of what
+the type means. `bugs_closed/077`, this file and `083` are three sightings of one thing;
+making the *next* one visible is cheaper than draining this batch.
+
