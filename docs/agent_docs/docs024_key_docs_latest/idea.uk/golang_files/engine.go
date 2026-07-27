@@ -310,13 +310,25 @@ func callClaudeOpts(o callOpts) (string, error) {
 	if out.StopReason == "refusal" {
 		return "", fmt.Errorf("anthropic %s: request declined by safety classifiers (stop_reason=refusal)", o.Model)
 	}
-	// Log the cache hit rate so the operator can see caching actually working
-	// when it should. Cache reads come "for free" at 10% of the input rate.
-	if out.Usage.CacheReadInputTokens > 0 || out.Usage.CacheCreationInputTokens > 0 {
-		fmt.Fprintf(os.Stderr, "[cache] %s: created=%d read=%d input=%d output=%d\n",
-			o.Model, out.Usage.CacheCreationInputTokens, out.Usage.CacheReadInputTokens,
-			out.Usage.InputTokens, out.Usage.OutputTokens)
-	}
+	// Log usage on EVERY call, unconditionally — this is the per-order cost record.
+	//
+	// It used to be gated on cache activity ("log the cache hit rate"), which made
+	// it a caching diagnostic rather than a cost record, and the difference is not
+	// academic: a call whose system prompt falls under the cacheable minimum (512
+	// tokens on Opus 5, 1024 on Sonnet 5) caches nothing, so it logged nothing, so
+	// its tokens were unrecoverable. Measuring a report on 2026-07-27 returned two
+	// lines out of five calls for exactly that reason — the two Sonnet steps were
+	// simply invisible, and no amount of re-reading the log could recover them.
+	// A cost record that silently omits the cheap-model calls is worse than none,
+	// because the number it does print looks complete.
+	//
+	// Cache fields read 0 when a call did not cache, which is itself the signal
+	// that the step is under the minimum. Tokens only — no prices: rates change
+	// (Sonnet 5's introductory rate ends 2026-08-31) and a stale multiplier baked
+	// into a log line would outlive the rate and be believed.
+	fmt.Fprintf(os.Stderr, "[usage] %s: created=%d read=%d input=%d output=%d stop=%s\n",
+		o.Model, out.Usage.CacheCreationInputTokens, out.Usage.CacheReadInputTokens,
+		out.Usage.InputTokens, out.Usage.OutputTokens, out.StopReason)
 	var sb strings.Builder
 	for _, c := range out.Content { // concat text blocks; skip thinking/tool blocks
 		if c.Type == "text" {
