@@ -191,3 +191,69 @@ lock-tfstate-default-tfstate-databases    <blank holder>    363d
 lock released. The only forward-looking item is the reversal trigger in the PLAN
 (re-co-scheduling with `ollama-adapter` plus moving restarts), which is a watch
 item, not an open defect.
+
+## 2026-07-27 — 17h check, and a scare that wasn't (but did reveal a real trade-off)
+
+**Holding.** Both DBs `Ready`, **restarts 0** since the roll (clients was on 8 and
+climbing before). No `Unhealthy`/`Killing` events in the retention window.
+`terraform plan` still "No changes".
+
+**Reversal trigger has NOT fired.** `ollama-adapter` is still on
+`prod-instance-17735925437536833`; `postgres-clients-0` is on
+`…17744590808031336`, sharing with ordinary services (admin-dashboard,
+auth-service, core-manager, kafka-scheduler). Heaviest thing in the namespace is
+agent-chassis at 393m — nowhere near saturation. **So 17h/0 restarts is
+consistent with the fix working and ALSO consistent with nothing having tested
+it.** The `[UNVERIFIED]` label above stands unchanged; do not let a clean day be
+read as proof.
+
+**The scare:** `kubectl top` showed postgres-clients at **1425Mi**, against the
+2Gi limit I set on the basis of "~210Mi observed RSS". At 70% of a ceiling I
+chose, that looked like my own fix had introduced an OOM risk — the exact thing
+the module comment warns about ("a memory limit that is reached kills a database
+outright").
+
+**It had not.** Reading the cgroup instead of the metric:
+
+```
+memory.current = 1873088512   (1786 MiB, 87% of max)
+memory.max     = 2147483648   (2 GiB)
+anon   =   15212544   (14.5 MiB)   <- real process memory, NOT reclaimable
+file   = 1833218048   (1748 MiB)   <- page cache, reclaimable (includes shmem)
+shmem  =  157073408   (150 MiB)    <- shared_buffers
+slab   =   21921240   (21 MiB)
+memory.events: max 1   oom 0   oom_kill 0
+```
+
+Unreclaimable ≈ anon + shmem + slab ≈ **186 MiB against a 2048 MiB ceiling (9%)**.
+`max 1` means the limit was touched once and the kernel **reclaimed page cache**;
+`oom_kill 0` means it never had to kill anything. Working as designed.
+
+**LANDMINE — container memory metrics count page cache, so a database will always
+trend towards its limit and that is NORMAL.** `kubectl top` reports working set,
+which still includes most of the file cache. A DB at 87% of its memory limit is
+not "nearly OOM"; the number that answers that question is `anon` (plus `shmem`),
+and `oom_kill` is the one that says whether it ever mattered. I nearly filed a
+regression off the metric alone. Same discipline as the `cpu.weight` control:
+**read the cgroup, not the dashboard.**
+
+**But the check did surface a real trade-off I had not considered when sizing the
+limit.** Before the fix there was NO memory limit at all (BestEffort ⇒
+`memory.max = max`), so postgres could use as much of the node's free memory for
+page cache as it liked. My fix caps that at 2 GiB — and `max 1` proves the cap is
+already being touched, i.e. the kernel is now evicting cache it would previously
+have kept. For a 100Gi database that is a **query-performance** cost, not an
+availability one.
+
+Worth knowing: **QoS Burstable needs only a `requests` value, not a `limits`
+one.** The CPU floor — the thing that actually fixed this bug — comes entirely
+from `requests`. The memory *limit* contributes nothing to the fix; its only job
+is bounding a leak, and with `anon` at 14.5 MiB there is no leak to bound.
+
+**Not changed, deliberately.** The current state is safe (`oom_kill 0`, 9%
+unreclaimable) and altering it needs another production pod roll. Raising or
+dropping the memory limit is a tuning decision for the owner, not a defect fix,
+and this bug is about availability. Recorded here so it is a considered choice
+rather than an oversight. **[UNMEASURED]** — I have not measured whether the
+cache cap actually costs anything at current query volumes; `max 1` in 17h is a
+single reclaim event, which is not evidence of thrashing.
