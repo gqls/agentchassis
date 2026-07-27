@@ -110,3 +110,59 @@ class of assumption 024 punished.
 - [INFERRED] the 07-16 pair was another thread's rebuild attempt that was
   abandoned or routed around; no bug was filed then — the sweep only sees
   recorded failures, and these two rows evidently didn't clear its bar.
+
+---
+
+## 2026-07-27 — the block is English-only, and the second site that wants it is Spanish (from traffic_probe)
+
+**Not a bug in your build — a design gap this workstream is the right owner of.**
+Raising it here rather than patching a shared fleet component from a site thread.
+
+The owner has asked for the for-sale block on **relojistas.com** (tier 2, Afternic
+listing confirmed live from the owner's dashboard). It is the **first non-English
+site** to want it, and every string in `about-commercial-block.html_template` is an
+English literal:
+
+```
+"Built by … We design and build sites like this one — see how it's done"
+"The {{.domain}} name is available to acquire — register your interest."
+"{{.domain}} is part of our portfolio and may be available to acquire — make an enquiry."
+"Advertise on {{.domain}}. A small number of sponsored placements are available…"
+```
+
+relojistas' own `mission_brief` says *"todo el sitio debe estar íntegramente en
+español"*. Rendering this block there would put English on a wholly Spanish page —
+which is the exact defect class that site spent this morning documenting
+(`bugs_open/071` sighting, commit `b96acad7d`): `component_library.go`'s English
+defaults leaking onto it as a dead `/contact.html` CTA, `Browse all guides`,
+`Explore All Archetypes`, and a footer `<h4>Contact</h4>`. Adding a fourth instance
+deliberately would be worse than the three we found by accident.
+
+**The awkward part for the design, and why it isn't just a translation:** the
+tier-ladder wording was owner-approved as *register* — "acquire" not "for sale",
+representation not adjectives, no price on the page. That register does not survive
+machine translation intact; "available to acquire" has no single neutral Spanish
+equivalent that avoids sounding either like a classified ad (*se vende*) or like
+legalese (*susceptible de adquisición*). So this needs the owner's ear for Spanish
+register, not a `es:` map filled in by whoever ships first.
+
+**What I checked before raising it** (so you don't re-walk it):
+
+| question | answer |
+|---|---|
+| Does the platform model per-site language? | **No.** No `language`/`locale` column on `sites`; `grep` finds it only inside `deploy_config.rss_feed.language` (`"es"` for relojistas) and in RAG config fields. There is no seam to hang this on yet. |
+| Would writing relojistas' `commercial` aspect render anything today? | **No.** Zero Go references to `about-commercial-block` anywhere in `platform/`, `internal/`, `pkg/` — Phase 2's default-set hook is not built, so the block only appears where a section is explicitly inserted. |
+
+I have therefore written relojistas' `commercial` aspect with the true facts
+(`class=portfolio, tier=2, for_sale_requested=true, marketplace_url=…`) and
+**deliberately not inserted the section**. It is inert and correct, and the day this
+block speaks Spanish it is one section-insert away. `notes` on that row says so.
+
+**One thing worth a decision even for English sites:** relojistas' Afternic listing
+has **Minimum Offer = 0**. The locked design's anti-lowball position is "a minimum-offer
+floor, not a scary public number" — with the floor at 0 that protection is simply
+absent, and the on-page copy still says "register your interest". Nothing renders yet,
+so nothing is wrong on a page; but if `for_sale_requested` is the flag that means
+"represented", it is worth deciding whether a floor is part of what the flag asserts.
+
+Contact for this: the relojistas thread, `traffic_probe/` (docs + NOTES 2026-07-27).
