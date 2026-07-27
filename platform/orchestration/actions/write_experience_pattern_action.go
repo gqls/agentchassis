@@ -121,6 +121,8 @@ var experiencePatternContractFields = []string{
 	"requires_invariant",
 	"primitives",
 	"destination_roles",
+	"honesty_clauses",
+	"latency_envelope",
 }
 
 // experiencePatternSelectionFields decide WHERE an entry is offered, not
@@ -160,6 +162,7 @@ var experiencePatternJSONFields = []string{
 	"contract", "states", "automatic_triggers", "data_contract", "degraded_states",
 	"entry_points", "requires_component_contract", "requires_invariant",
 	"binding_schema", "criteria_template",
+	"honesty_clauses", "latency_envelope",
 }
 
 func WriteExperiencePatternAction(ctx context.Context, params ActionParams) (interface{}, error) {
@@ -396,11 +399,28 @@ func validateExperiencePatternShape(entry map[string]interface{}) []string {
 		}
 	}
 
-	contract, _ := entry["contract"].(map[string]interface{})
-	if len(contract) == 0 {
-		problems = append(problems, "contract is required and must be a non-empty object")
-	} else {
-		problems = append(problems, validateExperienceContractTriggers(contract)...)
+	// CORRECTED 2026-07-27. This originally required `contract` to be a non-empty
+	// OBJECT carrying a `triggers` array, with `when`/`then` on each trigger.
+	// Every one of the nine harvested entries uses an ARRAY of clauses keyed
+	// control_role / primitive / outcome — so the shape here was invented, and
+	// the validator would have refused 9 of 9 real entries. Found by trying to
+	// load them, which is the only way this is ever found honestly.
+	clauses, isArray := entry["contract"].([]interface{})
+	if !isArray && entry["contract"] != nil {
+		problems = append(problems, "contract must be an array of clauses (control_role / primitive / outcome), not an object — see the harvested entries")
+	}
+	problems = append(problems, validateExperienceContractClauses(clauses)...)
+
+	// An entry must assert SOMETHING, but not necessarily through `contract`.
+	// CC-006 (count-up-stat-band) has an empty contract on purpose: nothing a
+	// visitor does drives it, so its behaviour lives in automatic_triggers and
+	// its honesty_clauses. Requiring a non-empty contract would have refused a
+	// legitimate entry — the rule is "assert something", not "assert it here".
+	if len(clauses) == 0 &&
+		len(sliceOf(entry["automatic_triggers"])) == 0 &&
+		len(sliceOf(entry["states"])) == 0 {
+		problems = append(problems,
+			"entry asserts nothing: it needs at least one contract clause, automatic trigger, or state — an entry with no behaviour anywhere is a label, not a contract")
 	}
 
 	if fs, ok := entry["funnel_stage"].(string); ok && fs != "" {
@@ -412,40 +432,54 @@ func validateExperiencePatternShape(entry map[string]interface{}) []string {
 	return problems
 }
 
-// validateExperienceContractTriggers enforces the two clauses that make a
-// contract checkable at all: a trigger must name an observable outcome, and a
-// navigating trigger must name a destination ROLE rather than a URL. A base
-// entry carrying a concrete URL is the bugs_closed/045 class — a static value
-// re-applied on every render that a per-site binding cannot override.
-func validateExperienceContractTriggers(contract map[string]interface{}) []string {
+// validateExperienceContractClauses enforces the clauses that make a contract
+// checkable at all. The field names are the HARVESTED ones, taken from the nine
+// entries rather than chosen: `control_role` names what the control is,
+// `primitive` the interaction, `outcome` the observable result.
+//
+// Two rules carry the weight. A clause must name an observable OUTCOME —
+// without one, "there is a button here" gets recorded as behaviour, which is the
+// exact defect the no-inert-control invariant exists for. And a navigating
+// clause must name a destination ROLE rather than a URL: a concrete value in a
+// base entry is the bugs_closed/045 class, a static fallback re-applied on every
+// render that a per-site binding cannot override.
+func validateExperienceContractClauses(clauses []interface{}) []string {
 	var problems []string
-	triggers, ok := contract["triggers"].([]interface{})
-	if !ok || len(triggers) == 0 {
-		return []string{"contract.triggers must be a non-empty array"}
-	}
-	for i, t := range triggers {
-		tm, ok := t.(map[string]interface{})
+	for i, c := range clauses {
+		cm, ok := c.(map[string]interface{})
 		if !ok {
-			problems = append(problems, fmt.Sprintf("contract.triggers[%d] is not an object", i))
+			problems = append(problems, fmt.Sprintf("contract[%d] is not an object", i))
 			continue
 		}
-		label := datahelpers.GetStringField(tm, "when", fmt.Sprintf("#%d", i))
-		if datahelpers.GetStringField(tm, "then", "") == "" {
+		label := datahelpers.GetStringField(cm, "control_role", fmt.Sprintf("#%d", i))
+
+		if datahelpers.GetStringField(cm, "outcome", "") == "" {
 			problems = append(problems, fmt.Sprintf(
-				"contract.triggers[%s]: `then` is required — a trigger with no observable outcome cannot be checked, and is how a control that does nothing gets written down as behaviour", label))
+				"contract[%s]: `outcome` is required — a clause with no observable outcome cannot be checked, and is how a control that does nothing gets written down as behaviour", label))
 		}
-		if role := datahelpers.GetStringField(tm, "destination_role", ""); role != "" {
-			if strings.Contains(role, "/") || strings.Contains(role, ":") {
+		if datahelpers.GetStringField(cm, "primitive", "") == "" {
+			problems = append(problems, fmt.Sprintf(
+				"contract[%s]: `primitive` is required — it is what an acceptance check has to perform", label))
+		}
+		if role := datahelpers.GetStringField(cm, "destination_role", ""); role != "" {
+			if strings.ContainsAny(role, "/:") {
 				problems = append(problems, fmt.Sprintf(
-					"contract.triggers[%s]: destination_role %q looks like a path or URL — a base entry names a ROLE; the concrete page is bound per site", label, role))
+					"contract[%s]: destination_role %q looks like a path or URL — a base entry names a ROLE; the concrete page is bound per site", label, role))
 			}
 		}
-		if u := datahelpers.GetStringField(tm, "destination", ""); u != "" {
+		if u := datahelpers.GetStringField(cm, "destination", ""); u != "" {
 			problems = append(problems, fmt.Sprintf(
-				"contract.triggers[%s]: `destination` is a site-specific value and does not belong in a base entry; use destination_role", label))
+				"contract[%s]: `destination` is a site-specific value and does not belong in a base entry; use destination_role", label))
 		}
 	}
 	return problems
+}
+
+// sliceOf returns v as a slice if it is one, for "did this entry assert
+// anything anywhere" checks.
+func sliceOf(v interface{}) []interface{} {
+	s, _ := v.([]interface{})
+	return s
 }
 
 // changedExperienceContractFields compares the clause-bearing fields of the

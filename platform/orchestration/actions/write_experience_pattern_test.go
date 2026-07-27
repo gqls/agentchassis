@@ -17,44 +17,31 @@ import (
 // examples written to satisfy it proves nothing about the entries it will
 // really see.
 
+// validHarvestedEntry loads a REAL harvested entry off disk rather than
+// declaring a plausible-looking one inline.
+//
+// It used to be an inline literal, and that literal encoded a `contract` shape
+// no harvested entry has ever used — so every test below passed while the
+// validator would have refused all nine real entries. A fixture invented to
+// satisfy the code under test proves only that the code is self-consistent.
 func validHarvestedEntry() map[string]interface{} {
-	return map[string]interface{}{
-		"name":         "feed-driven-teaser-list",
-		"kind":         "component-contract",
-		"display_name": "Feed-driven teaser list",
-		"contract": map[string]interface{}{
-			"triggers": []interface{}{
-				map[string]interface{}{
-					"when":             "a visitor activates a teaser row that has a detail body",
-					"then":             "the detail body is revealed in place and the address bar carries the entry id",
-					"destination_role": "self-state",
-				},
-				map[string]interface{}{
-					"when": "a visitor activates a teaser row that has NO detail body",
-					"then": "nothing happens, and no control was offered in the first place",
-				},
-			},
-		},
-		"requires_invariant": []interface{}{"no-inert-control"},
-		"binding_schema": map[string]interface{}{
-			"list_selector": map[string]interface{}{"type": "selector"},
-			"row_selector":  map[string]interface{}{"type": "selector"},
-		},
-		"criteria_template": map[string]interface{}{
-			"checks": []interface{}{
-				map[string]interface{}{
-					"id":       "list-present",
-					"type":     "selector_exists",
-					"selector": "{{binding.list_selector}}",
-				},
-				map[string]interface{}{
-					"id":       "rows-present",
-					"type":     "selector_count",
-					"selector": "{{binding.row_selector}}",
-				},
-			},
-		},
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "docs", "agent_docs",
+		"docs024_key_docs_latest", "experience_register", "harvest", "entries",
+		"CC-001_feed-driven-teaser-list.json"))
+	if err != nil {
+		panic("cannot read the harvested fixture: " + err.Error())
 	}
+	var entry map[string]interface{}
+	if err := json.Unmarshal(raw, &entry); err != nil {
+		panic("harvested fixture is not valid JSON: " + err.Error())
+	}
+	for k := range entry {
+		if strings.HasPrefix(k, "_") {
+			delete(entry, k)
+		}
+	}
+	delete(entry, "status") // a harvest draft records its own status; the action refuses one
+	return entry
 }
 
 func problemsFor(t *testing.T, entry map[string]interface{}) string {
@@ -79,6 +66,97 @@ func TestExperiencePatternShape_StatusIsNotWritable(t *testing.T) {
 		got := problemsFor(t, entry)
 		if !strings.Contains(got, "status is not writable") {
 			t.Errorf("status=%q was accepted or misreported: %s", status, got)
+		}
+	}
+}
+
+// TestExperiencePatternShape_AcceptsEveryHarvestedEntry is the test that should
+// have existed from the start, and its absence cost a whole build.
+//
+// On 2026-07-27 the validator was written to expect `contract` as an OBJECT
+// carrying a `triggers` array with when/then on each trigger. Every one of the
+// nine harvested entries uses an ARRAY of clauses keyed control_role /
+// primitive / outcome. The shape was invented; the harvest was the evidence;
+// the validator would have refused 9 of 9 real entries — and this in the one
+// workstream whose entire thesis is that harvesting bottom-up catches invented
+// shapes. It was found by trying to load them, which is the only honest way.
+//
+// So the fixtures are the REAL FILES, read from the repo. If the validator's
+// idea of an entry ever drifts from what harvest actually produces again, this
+// fails and names the entry.
+func TestExperiencePatternShape_AcceptsEveryHarvestedEntry(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "docs", "agent_docs", "docs024_key_docs_latest",
+		"experience_register", "harvest", "entries")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("cannot read harvested entries at %s: %v", dir, err)
+	}
+
+	seen := 0
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".json") {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(dir, f.Name()))
+		if err != nil {
+			t.Fatalf("read %s: %v", f.Name(), err)
+		}
+		var entry map[string]interface{}
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			t.Fatalf("%s is not valid JSON: %v", f.Name(), err)
+		}
+
+		// The files are harvest DOCUMENTS. Underscore keys are commentary and
+		// `status` records that they are drafts — the caller strips both before
+		// submitting, because the action refuses a supplied status by design.
+		for k := range entry {
+			if strings.HasPrefix(k, "_") {
+				delete(entry, k)
+			}
+		}
+		delete(entry, "status")
+
+		seen++
+		if problems := validateExperiencePatternShape(entry); len(problems) > 0 {
+			t.Errorf("harvested entry %s would be REFUSED by the validator:\n  %s",
+				f.Name(), strings.Join(problems, "\n  "))
+		}
+	}
+
+	if seen < 9 {
+		t.Fatalf("expected at least the nine harvested entries, read %d — if they moved, fix this path rather than deleting the test", seen)
+	}
+}
+
+// TestExperiencePatternShape_HarvestedFieldsAllHaveColumns catches the other
+// half of the same mistake: a field the harvest produces that the TABLE cannot
+// store is silently dropped on write. honesty_clauses and latency_envelope were
+// both found this way (migration 239).
+func TestExperiencePatternShape_HarvestedFieldsAllHaveColumns(t *testing.T) {
+	dir := filepath.Join("..", "..", "..", "docs", "agent_docs", "docs024_key_docs_latest",
+		"experience_register", "harvest", "entries")
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("cannot read harvested entries: %v", err)
+	}
+	cols := experiencePatternColumnsFromMigrations(t)
+
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".json") {
+			continue
+		}
+		raw, _ := os.ReadFile(filepath.Join(dir, f.Name()))
+		var entry map[string]interface{}
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			continue
+		}
+		for k := range entry {
+			if strings.HasPrefix(k, "_") {
+				continue
+			}
+			if _, ok := cols[k]; !ok {
+				t.Errorf("%s carries field %q, which is not a column of experience_patterns — it would be SILENTLY dropped on write", f.Name(), k)
+			}
 		}
 	}
 }
@@ -126,12 +204,12 @@ func TestExperiencePatternShape_RefusesASiteSpecificDestination(t *testing.T) {
 	// fallback re-applied on every render, which a per-site binding cannot
 	// override. The base entry names a ROLE; the page is bound per site.
 	entry := validHarvestedEntry()
-	contract := entry["contract"].(map[string]interface{})
-	contract["triggers"] = []interface{}{
+	entry["contract"] = []interface{}{
 		map[string]interface{}{
-			"when":        "a visitor activates a card",
-			"then":        "the linked page loads",
-			"destination": "/capabilities.html",
+			"control_role": "card_openable",
+			"primitive":    "activate",
+			"outcome":      "the linked page loads",
+			"destination":  "/capabilities.html",
 		},
 	}
 	got := problemsFor(t, entry)
@@ -139,10 +217,14 @@ func TestExperiencePatternShape_RefusesASiteSpecificDestination(t *testing.T) {
 		t.Fatalf("a hard-coded destination was accepted: %s", got)
 	}
 
-	contract["triggers"] = []interface{}{
+	// The same value wearing the role field's name — this is the live shape of
+	// the defect: four carousel cards on fundamentallyai.com point at
+	// /capabilities, which 404s.
+	entry["contract"] = []interface{}{
 		map[string]interface{}{
-			"when":             "a visitor activates a card",
-			"then":             "the linked page loads",
+			"control_role":     "card_openable",
+			"primitive":        "activate",
+			"outcome":          "the linked page loads",
 			"destination_role": "/capabilities.html",
 		},
 	}
@@ -155,12 +237,11 @@ func TestExperiencePatternShape_TriggerNeedsAnObservableOutcome(t *testing.T) {
 	// A trigger with no `then` is how "there is a button here" gets recorded as
 	// behaviour — the exact defect the no-inert-control invariant exists for.
 	entry := validHarvestedEntry()
-	contract := entry["contract"].(map[string]interface{})
-	contract["triggers"] = []interface{}{
-		map[string]interface{}{"when": "a visitor clicks the arrow"},
+	entry["contract"] = []interface{}{
+		map[string]interface{}{"control_role": "arrow_next", "primitive": "activate"},
 	}
-	if got := problemsFor(t, entry); !strings.Contains(got, "`then` is required") {
-		t.Fatalf("a trigger with no observable outcome was accepted: %s", got)
+	if got := problemsFor(t, entry); !strings.Contains(got, "`outcome` is required") {
+		t.Fatalf("a clause with no observable outcome was accepted: %s", got)
 	}
 }
 
@@ -171,7 +252,7 @@ func TestExperiencePatternShape_ReportsEveryProblemAtOnce(t *testing.T) {
 		"name":     "Not Kebab Case",
 		"kind":     "widget",
 		"status":   "approved",
-		"contract": map[string]interface{}{},
+		"contract": []interface{}{},
 	}
 	problems := validateExperiencePatternShape(entry)
 	if len(problems) < 5 {
@@ -179,7 +260,7 @@ func TestExperiencePatternShape_ReportsEveryProblemAtOnce(t *testing.T) {
 	}
 	joined := strings.Join(problems, " | ")
 	for _, want := range []string{"not kebab-case", "kind must be one of", "display_name is required",
-		"status is not writable", "contract is required"} {
+		"status is not writable", "entry asserts nothing"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("missing problem %q in: %s", want, joined)
 		}
@@ -199,9 +280,9 @@ func TestChangedExperienceContractFields_CosmeticEditsDoNotDemote(t *testing.T) 
 func TestChangedExperienceContractFields_ClauseEditsDoDemote(t *testing.T) {
 	prev := validHarvestedEntry()
 	next := validHarvestedEntry()
-	contract := next["contract"].(map[string]interface{})
-	contract["triggers"] = append(contract["triggers"].([]interface{}),
-		map[string]interface{}{"when": "the feed is empty", "then": "the section is not rendered"})
+	next["contract"] = append(next["contract"].([]interface{}),
+		map[string]interface{}{"control_role": "empty_feed", "primitive": "none",
+			"outcome": "the section is not rendered"})
 
 	changed := changedExperienceContractFields(prev, next)
 	if len(changed) != 1 || changed[0] != "contract" {
