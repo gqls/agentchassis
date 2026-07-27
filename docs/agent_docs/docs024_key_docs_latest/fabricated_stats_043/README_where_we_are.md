@@ -243,3 +243,56 @@ about page keeps showing the wrong numbers until it's re-rendered. That's delibe
 patching the visible page while leaving the stored copy wrong would make it *look* fixed
 while every future rebuild reprinted the error, which is exactly the failure I spent
 yesterday closing.
+
+### 2026-07-27, afternoon — the correction that undid itself, and what it taught us
+
+Both your instructions are done, but the second one took four goes and the reason is worth
+your time, because it is probably costing us elsewhere.
+
+The ~80% claim is off finetuning.uk, and that site now has a rule saying it may not publish
+a quantified client result at all until you've attested one — so a machine can't quietly put
+it back next time the page is rewritten.
+
+Ai-agent-orchestration is on the real agent figure. It had been saying "70+ agents" and "30+
+agent types" while the real numbers are 175 and 174. Both of those statements were *true* —
+they're "at least" claims — which is exactly why no checker had ever complained. You can
+mislead by a factor of five without saying anything false.
+
+**Then the fix undid itself, in about fifteen minutes.** I corrected the page, the checks
+passed, the page re-rendered — and the old figure was back, in the live HTML. Not a caching
+problem, not a failed deploy. The page's leadership biography is not really *on* the page: it
+is pulled from the site's stored description of itself, and I had corrected the page but not
+that description. So the re-render did its job perfectly and put the old sentence back.
+
+That is a bigger deal than one sentence. We had this filed as a tidy-up job — "some old
+numbers are sitting in site descriptions where they'll mislead the writer next time". It is
+worse than that: **those descriptions are a live source, and a stale number in one gets pushed
+back onto the published page every time that page re-renders, on top of whatever we fixed.**
+The order that works is: fix the description, then the page, then re-render. Any other order
+gets quietly reverted.
+
+I suspect this explains a thing we've hit before and blamed on other causes — a fix that
+"didn't stick" and gets re-investigated as a caching or deployment fault, when actually
+something rebuilt the page correctly from a source nobody had updated. Worth remembering next
+time a repair seems to evaporate.
+
+**Two other things came out of it.**
+
+I over-reached with one of the new rules. I told the site never to say "thousands of concurrent
+instances" — which is right, we don't measure that — but I wrote the rule loosely enough that
+it also flagged an article sentence saying production systems in general "need to process
+thousands of concurrent workflows". That's a true statement about the industry, not a boast
+about us, and it's good writing. I narrowed the rule rather than edit the sentence.
+
+And I made a mistake worth telling you about plainly. While replacing "70+" with "170+", my
+find-and-replace fed on its own output, and for about twenty minutes the site claimed **1170+
+agents** — roughly seven times the truth, produced by a fix for understating it. My own check
+passed, because I'd written the check from the same assumption as the change. What caught it
+was running the site's own rules against the corrected text — an independent judge. It's fixed,
+and I've kept it as a separate numbered change so the error stays visible rather than tidied
+away.
+
+**One question for you, unchanged and still blocking.** Ai-agent-orchestration says it has
+eight departments, as its own internal structure. Leopardess has that exact phrase banned as
+an invention. The database has no notion of a department anywhere. Both can't be right, and
+which is right is a decision about what the business says it is, not something I can look up.
