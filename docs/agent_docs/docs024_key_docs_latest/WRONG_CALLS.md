@@ -7990,3 +7990,63 @@ rather than a lesson worth learning again.
 Family: number-lifted-from-a-comment-and-voiced-as-measurement,
 a-comments-figure-inherits-its-date-not-its-provenance,
 precise-sounding-is-not-checked, third-in-this-family-today.
+
+### 2026-07-27 — voice v4 — an assertion that checks PRESENCE and not POSITION passes a misplacement
+
+**Asserted:** that the three new Voice & Style rules had been "appended to the
+block" on `page-content-writer`. My apply script's guard verified each new rule's
+text was in the `prompt_template`, printed
+`OK: rule 1 rewritten, 3 rules appended, em-dash rule intact (16149 chars)`, and I
+reported it as done in a commit message and to the owner.
+
+**What was actually true.** The rules were appended to the end of the **template**,
+not the end of the **block**. The block sits at char 272 of 16,150; the rules landed
+at char 15,455 — **~11,500 characters away, after the JSON output instructions** —
+and one of them still read *"that breaks the word-weight rule above"*, a reference
+that no longer resolved anywhere near it. The guard passed because every string it
+looked for was present. It never asked *where*.
+
+**Caught by:** a different migration refusing itself. `241` tried to swap the block
+for a placeholder on the assumption it was the final section, its own guard fired
+(`template is only 289 chars - too much was cut. ROLLING BACK.`), and chasing *that*
+error is what revealed the block's real position — and therefore the earlier
+misplacement. **The second guard caught the first guard's blind spot.** Neither
+would have surfaced it alone.
+
+**The cheap check that would have caught it:** assert the **position**, not just the
+presence. `position('{{.voice_style}}' in t) <= 500` is one clause. Generally:
+a guard over a large text blob that only tests `LIKE '%needle%'` cannot distinguish
+"in the right place" from "anywhere at all", and appends are exactly the operation
+where that distinction is the whole point.
+
+**Cost:** none realised — the misplaced rules were deleted by `241` v2, which
+replaced the whole block with a placeholder anyway. But they were live in the
+production prompt for roughly two hours, and every page built in that window (none,
+as it happens, because `029` has builds stopped) would have carried a style rule
+citing a rule 11,500 characters away.
+
+**Three more from the same session, each caught by the owner rather than by me:**
+- **I created a duplicate of the house voice inside the commit message warning about
+  duplication.** Saw it, described it accurately, shipped it behind a
+  `[KNOWN DUPLICATION]` comment. *A comment naming a defect is not a mitigation* —
+  and it felt responsible, which is precisely why it was the wrong call. Refiled as
+  `bugs_open/121` at the owner's direction; I had filed it as a *feature*, which
+  puts a defect in the queue nobody treats as urgent.
+- **I invented an override the owner never asked for** — a `voice_style_block`
+  config switch with a present-but-empty opt-out, plus a paragraph defending the
+  empty-vs-absent distinction. The owner meant *"a request has its own prompt in the
+  request"*. *Check: when a directive contains a word like "override", ask what it
+  means before building the mechanism.*
+- **I put prose in Go.** Corrected by the owner: *"one place for the prompt, and
+  probably not in go by choice."* Prompt text a non-engineer may want to edit does
+  not belong where changing it costs a compile and a fleet roll.
+
+**And one thing the tooling caught that I did not:** committing the fix, the
+`pre-commit` hook printed *"migration + platform code in one commit — needs a staged
+rollout order"*. It was right, and it is the observation the architecture seat
+exists to make — a seat that has **never fired** (`bugs_open/121`). A twenty-line
+shell hook beat a sixteen-seat council to the architectural point.
+
+Family: presence-is-not-position, a-comment-naming-a-defect-is-not-a-mitigation,
+built-the-mechanism-before-asking-what-the-word-meant,
+the-second-guard-caught-the-first-guard's-blind-spot.
