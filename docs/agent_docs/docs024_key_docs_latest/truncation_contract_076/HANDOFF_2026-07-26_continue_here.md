@@ -196,6 +196,29 @@ on 2026-07-26 and all 37 tolerating steps sit in guarded workflows).
 > remains unbuilt is *verification* that a declaring action really reads the
 > marker, which needs a Go-side change and is the one part that would flip the
 > "no council submission" decision. The paragraph below still stands.
+>
+> **THIS IS THE NEXT SUBSTANTIAL DECISION, and it is a fork, not a task.** R1 is
+> built, so the sentence at the end of this section — *"if R1 is never built,
+> consider whether the hatch earns its keep at all"* — is now live. Two candidates,
+> ordered by what closes the door:
+>
+> 1. **Delete `accepts_truncated`.** Zero live users, so the bad state becomes
+>    unrepresentable rather than merely visible: the registry (falsifiable by test)
+>    becomes the only way to claim readership. One-line change plus a test pinning
+>    the absence. **Cost:** the guard's own error message currently *advises*
+>    setting it (`ai_actions.go:488`) and would have to change with it, and a
+>    genuinely generic future consumer would need a registry entry it cannot
+>    honestly make. Go change ⇒ council scope ⇒ budget ~30 min.
+> 2. **Validate it.** Require a declaring step's action to be one whose Go code
+>    reads the marker — which is the registry, i.e. this collapses into (1) unless
+>    a *config-level* proof is invented. Nobody has proposed one.
+>
+> **Do not start either without reading `bugs_closed/019` first**: the hatch's
+> ancestor is the case where a hard failure on one seat voided a whole council
+> round, and the argument for a generic escape is that case's argument. My read is
+> that (1) is right on today's evidence (zero users in ~2 days live, and a hatch
+> nothing uses cannot be load-bearing) — but it is a **behaviour-narrowing change
+> to shared machinery**, so it wants the council round, not a quiet commit.
 
 `accepts_truncated: true` in a step's config declares "my action handles a
 partial". **Nothing verifies that.** A wrong or copy-pasted flag re-opens the
