@@ -166,7 +166,69 @@ VALUES
   'experience-register-p2')
 ON CONFLICT (name) DO NOTHING;
 
+-- ---------------------------------------------------------------------------
+-- 6. Guard — assert the exact post-conditions inside the transaction, so a
+--    partial apply rolls itself back rather than leaving the split contract of
+--    §1 half-made. The first two assertions are the ones that matter: a widened
+--    Go vocabulary with an un-widened CHECK (or the reverse) is bugs_closed/064.
+-- ---------------------------------------------------------------------------
+DO $guard$
+DECLARE
+    missing text;
+BEGIN
+    SELECT string_agg(c.conname, ', ')
+      INTO missing
+      FROM pg_constraint c
+     WHERE c.conname IN ('doc_plans_subject_type_check','doc_notes_subject_type_check')
+       AND pg_get_constraintdef(c.oid) NOT LIKE '%experience-pattern%';
+    IF missing IS NOT NULL THEN
+        RAISE EXCEPTION '218: subject_type CHECK not widened on: %', missing;
+    END IF;
+
+    IF (SELECT count(*) FROM pg_constraint
+         WHERE conname IN ('doc_plans_subject_type_check','doc_notes_subject_type_check')) <> 2 THEN
+        RAISE EXCEPTION '218: expected both subject_type CHECKs to exist after the re-add';
+    END IF;
+
+    SELECT string_agg(t, ', ')
+      INTO missing
+      FROM unnest(ARRAY['experience_patterns','site_experiences','experience_invariants']) AS t
+     WHERE to_regclass(t) IS NULL;
+    IF missing IS NOT NULL THEN
+        RAISE EXCEPTION '218: table(s) not created: %', missing;
+    END IF;
+
+    SELECT string_agg(n, ', ')
+      INTO missing
+      FROM unnest(ARRAY['no-inert-control','pointer-behaviour-has-a-keyboard-equal']) AS n
+     WHERE NOT EXISTS (SELECT 1 FROM experience_invariants i WHERE i.name = n);
+    IF missing IS NOT NULL THEN
+        RAISE EXCEPTION '218: invariant(s) not seeded: %', missing;
+    END IF;
+
+    -- The register must start EMPTY of entries: entries are written through the
+    -- validating write path, never by raw INSERT (see §5).
+    IF (SELECT count(*) FROM experience_patterns) > 0 THEN
+        RAISE WARNING '218: experience_patterns already holds % row(s) — not seeded here',
+            (SELECT count(*) FROM experience_patterns);
+    END IF;
+END
+$guard$;
+
 COMMIT;
+
+-- Rollback recipe (hand-run; nothing below is executed by this file):
+--   DROP TABLE IF EXISTS site_experiences;
+--   DROP TABLE IF EXISTS experience_patterns;
+--   DROP TABLE IF EXISTS experience_invariants;
+--   ALTER TABLE doc_plans DROP CONSTRAINT IF EXISTS doc_plans_subject_type_check;
+--   ALTER TABLE doc_plans ADD CONSTRAINT doc_plans_subject_type_check
+--     CHECK (subject_type = ANY (ARRAY['tool'::text,'pipeline'::text,'experience'::text,'action'::text]));
+--   ALTER TABLE doc_notes DROP CONSTRAINT IF EXISTS doc_notes_subject_type_check;
+--   ALTER TABLE doc_notes ADD CONSTRAINT doc_notes_subject_type_check
+--     CHECK (subject_type = ANY (ARRAY['tool'::text,'pipeline'::text,'experience'::text,'action'::text]));
+-- Reverting the CHECK requires reverting the Go vocabulary in the SAME change —
+-- they are one contract (TestValidDocSubjectTypes_LockstepWithMigrationCheck).
 
 -- Verify
 SELECT conname, pg_get_constraintdef(oid) FROM pg_constraint
