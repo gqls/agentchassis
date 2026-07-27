@@ -1,0 +1,189 @@
+# 024 — Consolidation programme: what actually blocks 1,600 domains
+
+**Status:** programme proposed, owner-directed 2026-07-27. Items sequenced, not
+bundled. Two items have a live consumer waiting; one is a recommended **won't-do**.
+
+**Why now.** The owner asked for a consolidation plan towards thousands of domains
+after a near-miss: a design proposed a second public API on the island VM one day
+before `cmd/tools-api` shipped there doing exactly that, multi-tool and multi-site.
+Caught by the owner asking an integration question — no mechanism caught it.
+Incident: `WRONG_CALLS.md` 2026-07-27. Mechanism findings: `bugs_open/107` and
+`architecture_review/DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` §8.
+
+**The doctrine this programme applies** (offered for ratification):
+
+> **Divergence is allowed when it is parameterised and forbidden when it is
+> copied.** A second implementation is fine as a row in a table or a profile; it is
+> not fine as a second copy of the code.
+
+Generalises `vm_estate`'s *"merge the generator, not the trust boundary."*
+
+---
+
+## The scale arithmetic
+
+`platform/orchestration/actions/registry.go`: **296** entries across **25**
+category strings against **10** declared in its own header; `site` alone = 107.
+
+**9 of the 296 exist for 2 of ~1,000 sites, and 5 shipped in one week**
+(`med_*` ×4 for vetcomparison; `score_grippers`, `pull_report_requests`,
+`verify_report_prose`, `create_report_page`, `emit_report_status_files` for
+robot-hands). A per-site action is a per-site entry in Go source requiring a
+rebuild and a redeploy — at 1,600 domains that couples site count to binary size.
+
+**This is the only true scale blocker on the list.** Everything else below is
+either a capability gap or tidiness.
+
+---
+
+## A. Blocks scale — do these
+
+### A1. Per-site actions become config, not Go
+
+The pattern that already does this correctly is `CHVerticalProfile`
+(`platform/orchestration/actions/companies_house_vertical_profiles.go`) — its
+header reads *"Add a new entry here when onboarding a new industry vertical"*: a
+table, not a package per vertical.
+
+**First move, free and self-evidencing:** `med_export_json` (`registry.go:1691`)
+sits **ten lines above** `directory_export_json` (`:1701`), whose header reads
+*"Generic, config-driven … nothing site-specific may be hardcoded here."* It is
+the generic version of the one above it. Both registered, both live, nobody saw
+it. Merge and deprecate — `DeprecatedBy` is already supported by the registry.
+
+**Then:** `score_grippers` becomes a scoring engine with its rule table in
+`site_specs`. **Owner ruling 2026-07-27: after the gripper pilot ships, not
+before** — prove the Tier-3 shape end to end on one site before abstracting it
+from a single example.
+
+*Guard against regression:* the registry has a parity test for *unregistered*
+actions (`registry_parity_test.go`, from `bugs_open/017`) but nothing that notices
+a near-duplicate registration. Nothing would have flagged `med_map_urls` beside
+`firecrawl_map`.
+
+### A2. An SMTP mailer that lives in the build
+
+```
+grep -rn "net/smtp" --include=*.go platform/ internal/ cmd/     →  nothing
+```
+
+**There is no mailer anywhere in the code we build and deploy.** The only working
+one is in idea.uk's VM app in the docs tree — outside `go build`, untested by CI,
+undeployable by the image pipeline. `send_notification`
+(`basic_actions.go:134`) is not email; it produces a Kafka message.
+
+Every "we email you a link" journey depends on this, including the gripper dossier
+next. Promote it to `platform/mailer` **once**. Smallest item here and the only one
+with a consumer already queued. Do it *before* the gripper island half, or it forks.
+
+### A3. `platform/httpguard` — one limiter, one CORS policy, one intake guard
+
+Today the public API's limiter is the **weakest** of the three that exist:
+`internal/tools-api/middleware/ratelimit.go` (token bucket, per-pod, no
+forged-`X-Forwarded-For` test) guards the only public endpoint, while idea.uk's
+better one — banded per endpoint, returns retry-after, and has an explicit test
+proving a forged `X-Forwarded-For` cannot escape it — is unreachable in the docs
+tree. Four different CORS postures exist (tools-api DB-driven 403 vs auth-service
+static allowlist that silently continues, plus two VM ones).
+
+Fold in idea.uk's honeypot + timing gate (`service.go:359-400`), which is the only
+abuse protection of its kind in the estate and which the gripper design currently
+plans to **copy**.
+
+Again: before the island half, not after.
+
+---
+
+## B. Cheap ride-along
+
+**B1. Three HITL action pairs → one.** `await_approval`/`process_approval_decision`,
+`create_approval_request`/`wait_for_approval_response`, and
+`request_human_input`/`process_human_input_response` — 1,549 lines across three
+files for one capability. The third is already the superset (confirmation /
+questionnaire / review, skip conditions, field defaults). Consolidate onto it and
+deprecate the other two pairs. Worth doing while already in the registry.
+
+---
+
+## C. Measure before acting
+
+**C1. Six Firecrawl client constructions** — two adapter providers plus four
+direct in-process HTTP calls (`vet_med_*` ×3, `refresh_product_specs`). The
+`vet_med_*` headers say so in their own source: *"Follows the same direct-HTTP-call
+pattern as ch_fetch_accounts_action.go"* — duplication by imitation, named as such.
+
+Tidiness **if** they share retry/timeout config; a **cost** bug that scales with
+domain count if they don't, because six clients means six independent spend paths
+against one vendor. Measure first; the answer decides which list this belongs on.
+
+---
+
+## D. Recommended WON'T-DO — record it so it stops looking available
+
+**D1. The eight `StartHealthServer` copies.** This looks like the tidiest,
+most countable win on the list. It is a trap.
+
+A sweep reported them as "8 byte-identical copies." Hashing the bodies gives **8
+distinct hashes**, serving **1–3 endpoints each** — some use `http.HandleFunc` on
+the default mux, some build their own, `internal/adapters/git/adapter.go:871`
+serves three endpoints. And `platform/health/server.go` is not the shared version
+of them: it uses gorilla and registers a different surface, and is imported by
+`cmd/agent-chassis` alone.
+
+So it is eight behavioural migrations against eight live binaries, on the liveness
+path Kubernetes uses to decide whether to restart them, to save a few dozen lines
+— for **zero benefit at any domain count**, because health endpoints do not scale
+with site count. Close it as won't-do rather than leave it sitting there.
+
+*(This entry exists because the wrong premise nearly made it the first task. See
+`WRONG_CALLS.md` 2026-07-27: a sweep's figure carries no measurement date.)*
+
+---
+
+## E. The estate — already planned elsewhere, unblocked and free
+
+`vm_estate/PLAN_2026-07-25_framework_controlled_vm_estate.md` P1→P2. Its own
+measurement: the two `setup.sh` copies **share 61 lines and differ on 614**, with
+Defect A present in one fork only. P2 (`render_vm_config` + byte-for-byte diff
+against the live box) is **read-only and free**, and proves the DB description is
+complete before anything is automated. Owner already ruled pull-only (Q1).
+
+Not this programme's to schedule — flagged so it is not duplicated.
+
+---
+
+## F. Unowned and needed
+
+`features_open/015` (staged site maturity ladder) is the **stated methodology** for
+fleet scale — named rungs, stepped reference examples, so a site climbs one rung at
+a time against a worked example. It has **no workstream directory, no PLAN, no
+owner**. It is the difference between "make every site as good as idea.uk" (a
+cliff) and "move every site up one rung" (a staircase).
+
+Flagged, not adopted — starting it inside this entry would be exactly the
+divergence this programme exists to stop.
+
+---
+
+## Sequencing
+
+Ship these as **separate commits**. Bundled, they make a 16-file commit that
+`scripts/commit-scope-report.sh` will correctly print and nobody will correctly
+read — which is the failure mode that script was written for.
+
+Order: **A2 → A3** (both gate the gripper island half) → **A1 first move**
+(`med_export_json`, free) → **B1** → **C1 measurement** → **A1 remainder** after
+the pilot ships.
+
+## What will bite us when we do
+
+- **A1 remainder touches a pilot in flight.** Do not start it before the gripper
+  E2E fixtures pass, or the pilot loses its evidence.
+- **A2/A3 touch `tools-api`, which the gauntlet thread owns** and which has
+  `bugs_open/083` open against its error handling. Coordinate; do not start a
+  competing fix (`scripts/who-owns.py`).
+- **Deprecating `med_export_json` needs a live check first** — some
+  `agent_definitions` workflow may still name it. Query before deprecating.
+- **The registry's category drift (25 vs 10 declared)** makes "does this already
+  exist?" hard for humans as well as machines. Worth fixing alongside A1, but it is
+  a rename across 296 entries — its own task, not a ride-along.
