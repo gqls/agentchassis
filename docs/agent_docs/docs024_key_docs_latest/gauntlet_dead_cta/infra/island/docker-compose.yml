@@ -41,7 +41,13 @@ services:
   # mode). CORS comes from the island DB's minimal sites table, NOT an env
   # allowlist (the drafted ALLOWED_ORIGINS never existed in the merged code).
   tools-api:
-    image: docker.io/aqls/tools-api:v1.0.1163
+    # v1.0.1178 (2026-07-27): the bugs_open/083 diagnosability fix — every 5xx
+    # fault path now records its cause, /round's evidence-destroying 502 is a
+    # 503, gin.Logger() gives the service a request log for the first time, and
+    # an unusable response is logged as a structural fingerprint, never its text.
+    # Built from committed HEAD via `make build-tools-api-ref`; shipped by
+    # docker save|ssh load (no registry creds on the island, by design).
+    image: docker.io/aqls/tools-api:v1.0.1178
     restart: unless-stopped
     environment:
       PORT: "8080"

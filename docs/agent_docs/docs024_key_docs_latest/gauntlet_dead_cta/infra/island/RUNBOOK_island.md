@@ -146,24 +146,42 @@ applies, and it matters *more* than in the cluster: the island is built with
 from**, and a `compose up -d` that silently kept the old container looks
 identical to a successful deploy.
 
+> **CORRECTED 2026-07-27, before first use — the draft of this section had two
+> defects, both of the exact class it warns about.**
+> (a) It grepped **`/app/tools-api`**. The dockerfile
+> (`build/docker/backend/tools-api.dockerfile`) does `COPY --from=builder
+> /tools-api /tools-api` — the binary is at **`/tools-api`**, so every grep would
+> have returned 0 and read as "the deploy failed".
+> (b) Its negative control grepped for **`JSONError(c, 502`** — that is Go
+> *source*, which is not in a compiled binary at all. It returns 0 before AND
+> after, so it proved nothing. **A negative control must be a string that really
+> was in the OLD binary, or a token that cannot exist anywhere.**
+
 ```bash
 ISL=root@toolsapisuk.vs.mythic-beasts.com
+X="docker compose exec -T tools-api sh -c"
 
-# 1. POSITIVE — a symbol this build CREATED must be in the running binary.
-ssh $ISL 'cd /opt/island && docker compose exec -T tools-api \
-    sh -c "strings /app/tools-api | grep -c logInternalFailure"'      # expect > 0
+# 1. POSITIVE — a symbol this build CREATED. Verified locally first: this
+#    returns 4 on v1.0.1178 and 0 on v1.0.1163, so it genuinely separates them.
+ssh $ISL "cd /opt/island && $X 'strings /tools-api | grep -c logInternalFailure'"   # expect > 0
 
-# 2. NEGATIVE CONTROL — a string the change REMOVED must be gone. Without this,
-#    a grep that silently matches nothing is indistinguishable from a pass.
-ssh $ISL 'cd /opt/island && docker compose exec -T tools-api \
-    sh -c "strings /app/tools-api | grep -c \"JSONError(c, 502\""'    # expect 0
+# 2. NEGATIVE CONTROL — a token that exists in NO build. If this returns
+#    non-zero the grep is matching everything and check 1 proved nothing.
+ssh $ISL "cd /opt/island && $X 'strings /tools-api | grep -c logNeverExisted'"      # expect 0
 
-# 3. BEHAVIOURAL — the request log did not exist before this build at all, so
-#    its presence is itself proof the new binary is serving.
+# 3. BEHAVIOURAL — request logging did not exist in ANY previous build, so a
+#    [GIN] line is itself proof the new binary is the one serving traffic.
 ssh $ISL 'cd /opt/island && docker compose logs --since 5m tools-api | grep -c "\[GIN\]"'
 
-# 4. Container identity, to catch "up -d kept the old one".
-ssh $ISL 'cd /opt/island && docker compose ps --format "{{.Name}} {{.Image}} {{.RunningFor}}" tools-api'
+# 4. Container identity, to catch "up -d quietly kept the old container".
+ssh $ISL 'cd /opt/island && docker compose ps --format "{{.Name}}  {{.Image}}  {{.RunningFor}}"'
+```
+
+**Verify the image BEFORE shipping it**, too — a 40 MB transfer and a container
+swap are a slow way to discover the binary was wrong:
+
+```bash
+docker run --rm --entrypoint sh aqls/tools-api:$TAG -c 'strings /tools-api | grep -c <symbol>'
 ```
 
 **Pick the grep target from what your change CREATED**, not from a type name or a
