@@ -1,4 +1,13 @@
-# HANDOFF — architecture seat, continue here (2026-07-27, late)
+# HANDOFF — architecture seat (2026-07-27, late) — ⚠️ SUPERSEDED
+
+> **SUPERSEDED 2026-07-27 evening by `HANDOFF_2026-07-27b_continue_here.md` — start
+> there.** This file is wrong at the top and right at the bottom: the thing it calls
+> "THE ONE THING OWED" was run, and both decisions it leaves open (D7(b), D9) have
+> since been **ruled by the owner**. **§5's landmine list is still current and worth
+> reading** — the Go-contract ones especially (only `{approve,object,veto}` parse;
+> only `{reviewer,verdict,objections,missing,notes,degraded}` persist). Kept rather
+> than rewritten, because the corrections inside it record how the understanding
+> moved.
 
 **Cold-start entry point for this workstream.** Read this, then
 `SUMMARY_2026-07-27b_architecture_seat_built.md` for the prose state and
