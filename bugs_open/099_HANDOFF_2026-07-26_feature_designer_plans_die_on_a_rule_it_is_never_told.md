@@ -5,7 +5,12 @@ feature builder since it was proven end-to-end on 07-25.
 **Severity:** MEDIUM. Not an outage. It silently destroys a completed, good design
 and spends the full designer cost to do it — and the failure is *systematic*, not
 flaky, so retrying without changing anything buys the same result.
-**Status:** OPEN. One-line config fix identified; not applied here (see WHY NOT).
+**Status:** OPEN — **for candidate 2 only.** Candidate 1 (the one-line config
+fix) IS applied, live, and re-verified after the `v1.0.1174` fleet roll on
+2026-07-27; see §"Candidate 1 IS APPLIED" and §"Re-verified 2026-07-27". Anyone
+arriving here from a summary that says "a one-line fix is identified but
+deliberately not applied" is reading a stale pointer — that was true only on
+2026-07-26 morning and the file records the reversal.
 
 ---
 
@@ -155,6 +160,58 @@ its design silently, and there are a dozen more rules in that validator.
 made from outside your lane. It is snapshotted and reversible (rollback in the
 migration header). If you re-seed `feature-designer` from a `.sql`, fold the rule
 into the seed or this fix is clobbered — the "config re-seed clobber" landmine.
+
+## Re-verified 2026-07-27 — candidate 1 SURVIVED a fleet-wide agent re-seed
+
+Checked by the bug-backlog triage sweep. This is the "config re-seed clobber"
+landmine the section above warns the feature-builder workstream about, and it
+came within a minute of firing, so it is worth recording that the check was run
+rather than assumed.
+
+**All 180 live `agent_definitions` rows were rewritten at ~15:10 UTC** — one
+minute before the `v1.0.1174` pods came up at 15:11:15Z, i.e. a `deploy-agents`
+seed sync riding with the roll:
+
+```sql
+SELECT count(*) FILTER (WHERE updated_at > NOW() - INTERVAL '1 hour') AS updated_last_hour,
+       count(*) AS total
+FROM agent_definitions WHERE deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+-- 180 | 180
+```
+
+**The rule survived it, and it survived in the right place** — not merely
+somewhere in the row's JSON, but in the `design` step's own `prompt_template`,
+which is what migration 222 edited:
+
+```sql
+SELECT (default_config->'workflow'->'steps'->'design'->'config'->>'prompt_template')
+       ILIKE '%ONE EDIT PER FILE PER STAGE%' AS in_design_step
+FROM agent_definitions WHERE type='feature-designer'
+  AND deleted_at IS NULL AND COALESCE(is_snapshot,false)=false;
+-- t
+```
+
+Note the difference between that query and the one in §"The mechanism", which
+tests `default_config::text`. **A whole-row `::text ILIKE` cannot tell you the
+rule is on the path the designer reads** — it would pass just as happily if the
+string had landed in `reframe`, or in a comment, or in a step that never runs.
+Use the path-qualified form when re-checking this after any re-seed.
+
+`schema_migrations` still records
+`222_feature_designer_one_edit_per_file_per_stage.sql`, applied 2026-07-26
+21:36:46, `applied_by='record-only'`. **Beware the number:** `222` is used twice
+in `sql_for_agents/` (this one and `222_news_components_carry_their_own_css.sql`,
+applied 18:40 the same day) — resolve by filename, never by number.
+
+## Why this stays OPEN
+
+Candidate 2 — routing a `persist_plan` validation failure back into `repropose`
+rather than discarding a completed design — is **not done**, and it is the
+durable fix. Candidate 1 only lowers the rate for one rule; the validator
+(`diagnose_persist_fix_plan_action.go`) has a dozen more, and a designer that
+trips any of the others still loses its whole design silently, with
+`orchestration_states.error` NULL. That is a Go change, so it is inert until a
+roll — it did **not** ship in `v1.0.1174`.
 
 ## How to verify a fix
 

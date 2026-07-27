@@ -8,7 +8,10 @@
 
 **Filed:** 2026-07-20 ("bugfix 003" thread) · **Status:** **OPEN** — instrumentation
 **LIVE and COLLECTING 2026-07-26** (v1.0.1167 + PodMonitor + NetworkPolicy fix, all
-applied); root cause still NOT established; awaiting 7 days of metric
+applied); root cause still NOT established; awaiting 7 days of metric.
+**2026-07-27: the first timeout has been measured — §10.** One in ~22h, broker
+prod-2, on a spawned pod. §10 also corrects §9's close condition, which used
+`increase()` and returned **0** for that very event.
 **Class:** was filed as cluster network infrastructure. **Reclassified 2026-07-26:**
 the infrastructure hypotheses are refuted; what is proven is an *observability*
 defect that made the bug unmeasurable. See §2.
@@ -438,5 +441,94 @@ on them.
    (the `dns`/`dns_timeout` vs `timeout` split is designed to answer exactly that
    next question: resolution or connect).
 
+   > **CORRECTED 2026-07-27 — condition 4's query is WRONG and would have closed
+   > this bug on a day a timeout actually happened.** See §10. Use
+   > `sum(max_over_time(...{outcome="timeout"}[7d]))`, not `increase(...)`.
+
 Per handoff §8 and the owner's ruling of 2026-07-26, amplifier fixes alone are
 **not** grounds to close.
+
+## 10. FIRST MEASURED TIMEOUT — and the close condition that could not see it (2026-07-27)
+
+Recorded by the bug-backlog triage sweep, 2026-07-27 ~15:53 UTC, the first read of
+this metric since the 07-26 baseline. **The bug is not gone: the instrument caught
+one.** All figures below are from the live Prometheus
+(`prometheus-kube-prometheus-stack-prometheus-0`, container `prometheus`,
+`/api/v1/query`).
+
+```
+sum(max_over_time(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))  -> 1
+sum(max_over_time(ai_persona_kafka_dial_total{outcome="ok"}[7d]))       -> 22312
+count by (outcome) (max_over_time(ai_persona_kafka_dial_total[7d]))     -> ok, timeout   (2 label values)
+```
+
+The single timeout, with its full label set:
+
+```
+outcome  = timeout
+broker   = personae-kafka-cluster-combined-pool-prod-2.personae-kafka-cluster-kafka-brokers.kafka.svc
+pod      = agent-page-rerender-af558880-9mwxw     (a SPAWNED agent, app=dynamic-agent)
+job      = ai-persona-system/agent-chassis
+```
+
+Samples exist at exactly three scrapes, all at value `1`, `1785138799 /
+1785138859 / 1785138919` epoch — **≈07:53 UTC on 2026-07-27**, then the pod died
+and the series ended. `up` for `ai-persona-system/agent-chassis` = **5 targets**,
+so scraping is healthy and this is a real observation, not a coverage hole.
+
+**Rate, stated with its denominator and its window.** ~1 timeout against 22,312
+successful dials — but the metric only goes back **~22 hours** (earliest sample
+in Prometheus ≈2026-07-26 17:52 UTC, i.e. the roll that first served `/metrics`).
+So: **1 dial timeout in ~22h across the chassis Deployment and every spawned
+agent pod**, on a broker-side event lasting the full 10s budget. This is **not**
+7 days of data and §9's condition still is not met. It does settle one thing —
+`p99` dial duration over 24h is **9.98 ms** (down from the 27.9 ms first
+baseline), against a 10s budget, so the intermittent stall remains a distinct
+rare event and nothing like the normal distribution creeping up on the limit.
+
+### The trap, which is the transferable half
+
+**`increase()` returns 0 on this timeout. `max_over_time()` returns 1. Both are
+correct; the close condition asks the wrong one.**
+
+```
+sum(increase(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))   -> 0      <-- §9.4 as written
+sum(max_over_time(ai_persona_kafka_dial_total{outcome="timeout"}[7d])) -> 1   <-- the truth
+```
+
+Why: **the pods that carry this metric are ephemeral spawned Jobs, and a counter
+on an ephemeral target is frequently born at its final value.** Prometheus never
+scraped this series at `0` — its first sample was already `1` — so there is no
+0→1 step for `increase()` to find, and `increase()` over a range whose samples
+are all `1` is `0` by definition. The condition in §9.4 would therefore have
+reported "no timeouts in 7 days" on a day one demonstrably occurred. This is the
+same shape as §7's uptime trap (a window longer than the pod's life silently
+understates) one level up: **a rate function longer than the target's life
+silently understates to zero.**
+
+Corrected close condition for §9.4:
+
+```promql
+sum(max_over_time(ai_persona_kafka_dial_total{outcome="timeout"}[7d]))       # total, survives short-lived pods
+count(max_over_time(ai_persona_kafka_dial_total{outcome!="ok"}[7d]))         # how many distinct pods saw a non-ok outcome
+```
+
+`increase()`/`rate()` stay correct for the long-lived chassis Deployment and are
+still the right tool for the `ok` denominator on it — they are wrong for the
+spawned-agent population, which §8b says is precisely the population this bug is
+about. **Say which population any figure covers.**
+
+### What this does NOT establish
+
+- **It is one event.** It does not distinguish `timeout` from the `dns` /
+  `dns_timeout` outcomes the labels were designed to separate — those buckets are
+  empty, which is itself informative: this was a *connect* failure, not
+  resolution. [MEASURED: `count by (outcome)` returns only `ok` and `timeout`.]
+- **It does not name a cause.** Broker prod-2 with everything else clean matches
+  the shape §1 already described (all brokers, low intermittent rate) and refutes
+  nothing in §2.
+- **It says nothing about the 13 adapter/service Deployments** (§8b). They still
+  serve no `/metrics` and their dials remain invisible. A "1 in 22 hours" figure
+  is the chassis + spawned agents only.
+- **§4.2 (node-pinned `nc` probes) is still unexercised** and is still the most
+  promising untried lead — now with a named broker to aim at.

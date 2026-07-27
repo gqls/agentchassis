@@ -4,10 +4,13 @@
 **Severity:** low blast radius, high confusion cost. It does not lose work
 silently in the normal (loader-created) path; it reliably kills **re-queued**
 work items and mislabels them as stale.
-**Status:** OPEN — diagnosed, verified live, not fixed. **DB-config only: the fix
-is live immediately, no image roll.**
-**Blocks:** `features_open/021` (operator bulk page rebuild) treats this as a
-prerequisite.
+**Status:** **CLOSED 2026-07-27** — candidate 1 applied, live, and verified on
+BOTH branches. Migration
+`docs/agent_docs/sql_for_agents/237_stale_reaper_keys_on_time_in_triaged.sql`.
+See §"FIXED AND LIVE" at the foot. DB-config only, so it went live on apply —
+no image roll was needed or waited for.
+**Blocks:** `features_open/021` (operator bulk page rebuild) treated this as a
+prerequisite — **that block is lifted.**
 
 ## Symptom
 
@@ -192,3 +195,95 @@ coincide for exactly the population the reaper exists to catch. That is a
 reasoned argument, **not a measurement** — mark it as such if you cite it, and
 prefer candidate 2 (`triaged_at`) if the fixing thread wants certainty rather
 than an argument.
+
+---
+
+## FIXED AND LIVE — candidate 1, 2026-07-27 (bug-backlog triage sweep)
+
+`docs/agent_docs/sql_for_agents/237_stale_reaper_keys_on_time_in_triaged.sql`,
+applied by hand 16:01 UTC and recorded `applied_by='record-only'` (the runner's
+`--apply` would have swept ~20 other threads' pending files). Before-image stored
+verbatim in `migration_backups`; rollback recipe in the migration header.
+
+**Live `scheduled_tasks.stale-work-item-reaper.pre_query` after the change** —
+one clause differs, everything else byte-identical:
+
+```
+         WHERE status = 'triaged'
+           AND pipeline = 'build'
+           AND updated_at < NOW() - INTERVAL '48 hours'    <-- was created_at
+           AND claimed_at IS NULL
+```
+
+### Both branches induced, `[[verify-the-failing-branch]]`
+
+The file's own §Verification asks for an induced fault and warns that re-queueing
+and watching it succeed only proves the *trigger* won the race. It also asks for
+`build-pipeline-trigger` to be disabled for the test — **that was not necessary
+and was not done**, because the whole test ran inside a single transaction that
+was rolled back, so no scheduler and no claimer could see it. Two synthetic rows
+built from a real `site_work_items` row (so every NOT NULL column, including
+`created_by` and `handler_agent`, is satisfied):
+
+| probe | `created_at` | `updated_at` | meaning |
+|---|---|---|---|
+| `fresh_requeue` | 07-22 16:02 | 07-27 16:02 | old row, re-queued minutes ago — **must be SPARED** |
+| `genuinely_stale` | 07-22 16:02 | 07-22 16:02 | old row, untouched — **must still be REAPED** |
+
+```
+=== OLD predicate (created_at) would have hit: ===
+ fresh_requeue          <-- THE BUG
+ genuinely_stale
+=== NEW predicate (updated_at, now LIVE) hits: ===
+ genuinely_stale        <-- and only this
+ROLLBACK
+```
+
+That is the discriminating pair: the old clause could not tell the two apart, the
+new one does, and the case the task exists to catch is still caught. Nothing was
+written to the live table.
+
+**What the live counts did NOT prove, said plainly.** At apply time both
+predicates returned **0** against the real table (`triaged` + `pipeline='build'`
++ unclaimed). A before/after of live counts here is worth nothing — it is the
+same "no population to measure" that made the §"Candidate 1's risk measurement"
+query inconclusive. The probe above is the evidence; the 0-vs-0 is not.
+
+### What is NOT fixed, and is the reason to read this file rather than assume
+
+- **Candidate 3 — the reaper still mutates `summary` in place, and it still
+  accumulates.** Measured on the live DB immediately before this change:
+  **91 rows** carry `[stale: triaged 48h+]` and **9 of them carry it twice**.
+  There is no way back to the original text. Candidate 1 makes double-prefixing
+  much rarer (a re-queued row now has a fresh `updated_at`) but does **not** make
+  it unreachable: a row parked, re-queued, then genuinely left 48h is reaped
+  again and prefixed again. The 91 rows are historic damage and were left alone.
+- **Candidate 2 (`triaged_at`)** remains the durable answer if a future thread
+  wants certainty rather than the reasoned argument above.
+
+### Seed-file clobber: checked, and the answer is odder than expected
+
+The canonical definition at `docs/agent_docs/sql_for_tables/020_scheduled_tasks.sql:1141`
+still carries `created_at`, so the "config re-seed clobber" landmine applies in
+principle. In practice it does not — **that block of the seed file does not
+parse.** Line 1116 is `'' ||`, which is real SQL and not a comment, and the
+`INSERT` that follows is swallowed into a string literal. Verified 2026-07-27 by
+running lines 1113–1152 inside `BEGIN`/`ROLLBACK`:
+
+```
+psql:<stdin>:43: ERROR:  syntax error at or near "''"
+LINE 1: '' ||
+```
+
+Two consequences, both worth knowing before anyone "tidies" this:
+1. a re-seed of `020_scheduled_tasks.sql` **errors** at that point rather than
+   silently reinstating the old predicate — so this fix is not at risk from it;
+2. **everything below line 1116 in that file never applies on a re-seed either**,
+   which is a bigger problem than the one this bug is about.
+
+This is the same class as the broken `wi.domain` pre-query at `:1009` already
+recorded by the `bugfix_029_dispatch_gate` thread's PLAN (§"Decisions", finding
+5). **Deliberately not fixed here** — different owner, different bug, and editing
+another thread's in-flight file is the collision CLAUDE.md warns about. Recorded
+so the next reader does not try to "fix" migration 237 by editing a file that
+cannot run.

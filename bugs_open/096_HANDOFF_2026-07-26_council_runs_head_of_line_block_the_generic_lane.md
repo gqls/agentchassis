@@ -7,7 +7,11 @@ its own lane**, and publish→start for a scheduled trigger went from ~18 min to
 after it closed. Not a regression; a named residual.
 **Severity** medium — latency and diagnosability, not correctness. It costs
 sessions time and it makes a correct change look broken.
-**Status** OPEN.
+**Status** OPEN. **Re-checked 2026-07-27 after the `v1.0.1174` fleet roll: still
+open, structure unchanged, mechanism reproduced with ms evidence** — see
+§"Re-checked 2026-07-27". That section also records a trap that nearly refuted
+this bug wrongly: `orchestration_states.requests_topic` is not the lane a message
+arrived on.
 
 ## Symptom
 
@@ -74,6 +78,99 @@ Two things that mislead, both of which cost time here:
    misdiagnosis, which is most of the real cost.
 
 Candidate 1 is the smallest change that removes the class.
+
+## Re-checked 2026-07-27 after a fleet roll: STILL OPEN, mechanism reproduced
+
+Checked by the bug-backlog triage sweep the afternoon the fleet rolled to
+`v1.0.1174` (all pods restarted 15:11 UTC). **A pod roll rejoins the consumer
+group and drains any backlog, so "lag is 0" measured after one proves nothing** —
+that is why the structural facts and a pre-roll reproduction are recorded here
+instead of a lag reading.
+
+### The structure is unchanged — the fix is not applied
+
+```
+kafka-topics.sh --describe --topic system.agent.generic.requests
+  -> PartitionCount: 1     ReplicationFactor: 3
+
+kafka-consumer-groups.sh --describe --group generic-requests-group --members
+  -> exactly ONE member: agent-chassis@agent-chassis-5994dc6d6c-pt8v9, #PARTITIONS 1
+
+kubectl get deploy agent-chassis -o jsonpath=… env
+  -> EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests      (cron only — 030's lane)
+```
+
+One partition, one consumer, and **no extra lane for council/diagnosis
+dispatches**, so fix candidate 1 has not been done.
+
+And the serialisation is explicit in the code, not inferred —
+`platform/agentbase/agent.go:611-619`, the comment on `consumeRequestLane`:
+
+> *"Each lane runs one of these on its own goroutine, so lanes make progress
+> independently. **Within a lane, processing stays strictly serial and in
+> order** — that is unchanged…"*
+
+`a.processMessage(msg, "request")` is a blocking call in the fetch loop and the
+offset is committed after it returns (`:672-675`). One slow message on this topic
+is the whole lane.
+
+### Reproduced 2026-07-27, 12:54–13:29 UTC (before the roll)
+
+Six consecutive generic-lane runs, ms-precision, from `orchestration_states`
+(`created_at` is when the message was **consumed**, not when it was published):
+
+| orchestration | agent | created | ended | gap from previous end |
+|---|---|---|---|---|
+| `614f24fd` | council-gate | 12:54:08.905 | 13:00:47.254 | — |
+| `e5ad20ea` | council-gate | 13:00:47.367 | 13:08:35.213 | **113 ms** |
+| `1b5c172e` | generic | 13:08:35.291 | 13:08:57.730 | **78 ms** |
+| `55f8a2a7` | council-gate | 13:09:21.396 | 13:15:35.099 | 24 s |
+| `1ebe83ba` | council-gate | 13:15:35.220 | 13:22:54.832 | **121 ms** |
+| `2aefeb00` | council-gate | 13:22:54.958 | 13:29:24.722 | **126 ms** |
+
+Four hand-offs at 78–126 ms. A message that starts a tenth of a second after the
+previous one finished was **already waiting**; it did not arrive then. The
+`generic` run at 13:08:35 is the same shape as the symptom table above — an
+unrelated dispatch released the instant a council reached a terminal step. Council
+runs on 07-27 took **5–9 minutes** each (not the tens of minutes of the 07-25
+observation), so the per-event cost is currently lower than when this was filed;
+the mechanism is identical.
+
+### TRAP: `orchestration_states.requests_topic` is NOT the lane the message arrived on
+
+This cost real time here and would have produced a confident refutation of the
+whole bug. The column records the agent's own configured requests topic (its
+`REQUESTS_TOPIC` env), so `build-pipeline-trigger`, `endpoint-health-checker`,
+`content-feed-trigger`, `index-orchestrator`, `model-directory-trigger` and
+`work-item-archiver` all read `requests_topic = system.agent.generic.requests`
+— and every one of them actually arrives on **`system.agent.scheduled.requests`**,
+030's separate lane, on its own goroutine.
+
+The consequence: those agents interleave freely with a running council, which
+looks exactly like "the generic lane is not blocked" and is not evidence about
+this lane at all. **The authority is `scheduled_tasks.target_topic`:**
+
+```sql
+SELECT name, target_agent_type, target_topic FROM scheduled_tasks WHERE enabled;
+-- 18 of 23 enabled tasks -> system.agent.scheduled.requests
+--  4 -> system.agent.business-intel.requests
+--  1 -> system.internal.noop
+--  ZERO enabled scheduled task fires onto system.agent.generic.requests
+```
+
+So the generic lane carries only what threads and agents publish to it by hand:
+council submissions, diagnosis/feature-designer runs, direct page-rerenders
+(049b), `content-reviewer`. That is a small population — which is why this bites
+sessions specifically and is invisible to the pipeline's own throughput.
+
+### Note for candidate 1
+
+The proven shape is already in the tree: `EXTRA_REQUEST_TOPICS` is read at
+`platform/agentbase/agent.go:433`, each entry gets its own goroutine running the
+same `consumeRequestLane`, and `:447` carries an explicit warning —
+**"NEVER put EXTRA_REQUEST_TOPICS in personae-prod-config"** — because it is
+ignored (with a `Warn`) for any agent that is not statically deployed. Read
+`:408-460` before adding a lane.
 
 ## How to verify a fix
 

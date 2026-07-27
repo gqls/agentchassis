@@ -1,6 +1,53 @@
 # HANDOFF — the fix loop does not converge on layout-intrinsic mobile overflow
 
-> **STATUS 2026-07-25 — STAYS OPEN. A third defect was found IN THE GUARD
+> **STATUS 2026-07-27 — CLOSED. The one thing still holding this open was
+> defect 3 being INERT; the fleet rolled to `v1.0.1174` at 15:11 UTC and it is
+> now live and pod-verified.** Nothing else was outstanding: (a) has been live
+> and proven since v1.0.1135, (b) has been fully live since v1.0.1146 and its
+> escalation branch was PROVEN LIVE by induced fault on 2026-07-26, and the
+> structural risk of the never-run INSERT was retired read-only on 2026-07-25.
+> Closed by the bug-backlog triage sweep, 2026-07-27.
+>
+> **Discriminating pod-grep**, `agent-chassis-5994dc6d6c-pt8v9`, image
+> `docker.io/aqls/agent-chassis:v1.0.1174`, pod `startTime`
+> `2026-07-27T15:11:15Z` (pod name re-resolved at check time, not carried over):
+>
+> ```
+> strings /app/agent-chassis | grep -c "ALREADY OPEN under this key"          -> 1   (defect 3 — the string the fix CREATED)
+> strings /app/agent-chassis | grep -c "is not converging on this defect"     -> 1   (the (b) guard)
+> strings /app/agent-chassis | grep -c "spec = site_work_items.spec || EXCLUDED.spec"  -> 1   (the spec-merge fix, not just the guard)
+> strings /app/agent-chassis | grep -c "ai_persona_kafka_dial_total"          -> 1   (positive control — an unrelated change known to be in this image)
+> strings /app/agent-chassis | grep -c "ALREADY OPEN under this keyXYZNOTREAL" -> 0   (negative control)
+> ```
+>
+> `"ALREADY OPEN under this key"` is the note text created by the defect-3 fix
+> (`tool_acceptance_actions.go:752`), reachable only from the new `itemDeduped`
+> branch — so it is a marker of the fix, not of the file.
+>
+> **What is NOT claimed by this closure, stated so nobody reads it as more than
+> it is.** A pod-grep proves the code is in the binary; it never proves the code
+> is on your feature's path. What is proven on the live path is (a) (observed
+> re-aiming the fixer, 2026-07-18) and (b)'s escalation (induced end-to-end,
+> 2026-07-26, §"Verify" §4). Defect 3's *behaviour* has NOT been induced live —
+> it rests on code reading plus the three mutation-checked unit tests named in
+> §"Defect 3", and inducing it would require an already-open `improve_tool` item
+> plus a failing Tier-4 verdict on the same tool. That gap was disclosed when the
+> fix was written and is not new.
+>
+> **Two residual questions travel with this file and are deliberately NOT
+> reasons to keep it open** — neither is a reproducible defect:
+> - **[UNRESOLVED]** whether `max_fix_cycles=2` is reachable on the cadence real
+>   tools fail at (§"Defect 3", last paragraph). Do not raise the threshold or
+>   loosen the guard's three bounds without measuring that first.
+> - **[UNVERIFIED]** the guardian's low-severity objection: no exhaustive search
+>   was done for consumers that pattern-match the note's `Fix:` text.
+> - Separately, `bug_historian`'s objection stands only partly answered: **10
+>   files discard the `Result` of an `ON CONFLICT DO NOTHING`**, listed and marked
+>   `[UNTRIAGED]` in 016b §9. Only the two in this file were fixed. That is the
+>   transferable half of this case and it is someone's next task, not this one's.
+
+> **STATUS 2026-07-25 — SUPERSEDED BY THE BLOCK ABOVE (kept verbatim, it is the
+> record of what was believed then). A third defect was found IN THE GUARD
 > ITSELF, and the "confirmed live" evidence for (b) was miscounted.** Both (a)
 > and (b) remain live and pod-verified on the CURRENT images (chassis
 > v1.0.1159, browser-runner-adapter v1.0.1159 — greps below). What changed
