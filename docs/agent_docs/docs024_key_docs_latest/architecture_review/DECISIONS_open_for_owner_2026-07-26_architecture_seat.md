@@ -14,20 +14,27 @@ status line. Current state in prose:
 | D5 measure ossification first | **RUN — confirmed** |
 | D6 name the asymmetric bar | **DONE 07-27** — `PROCESS_architecture_review.md` |
 | D7(a) does the veto survive | **RULED: yes** (owner) |
-| **D7(b) should the guardian weigh benefit** | **⇦ THE ONE DECISION OPEN FOR THE OWNER.** My recommendation **REVERSED 07-27 late**: do **not** narrow it — defer, with a named reversal trigger (see D7) |
+| D7(b) should the guardian weigh benefit | **RULED: NO — do not narrow it** (owner, 07-27 evening). Clause (d) stands; D7 closed in both halves |
 | D8a′ council reads its own minutes | **LIVE** on all three councils |
 | D8e-1 generated case index for the historians | **LIVE** |
-| D9 does the FIX lane need the forward seat too | **NEW 07-27, arose from evidence.** Recommend DEFER, do not seat a second copy; countable reversal trigger named |
+| D9 does the FIX lane need the forward seat too | **RULED: NO — do not act** (owner, 07-27 evening): the new seat *is* the forward voice, one is enough |
+| D10 landmines as a footprinted corpus | **OPEN** — drafted by another thread (was numbered D9; renumbered on a concurrent collision) |
 
-**The owner's decision, in one line:** D7(b) — *should the guardian keep being
-asked to weigh **benefit**, or be narrowed to blast radius and contract-breakage
-only?* Everything else on this workstream is built, live, or deferred behind a
-named trigger. My advice has **changed** since this file last put it to you, and
-the argument for the change is inside D7; the short version is that the guardian's
-failure looks like **ignorance rather than remit**, and we have now fixed the
-ignorance, so narrowing the remit would be the wrong repair — and an irreversible
-one. It is also **safe to leave open**: nothing is blocked on it and no code waits
-on the answer.
+**NO DECISION IS OPEN FOR THE OWNER as of 2026-07-27 evening.** D7(b) and D9 were
+both ruled that evening — *don't narrow the guardian; don't seat a second forward
+reviewer* — and every other item is built, live, or closed. The one thing still
+awaiting the owner's attention is **D10**, which this thread did not write and
+which arrived as a hand-off from session "bugfix 61"; it is a proposal to read, not
+a question this workstream is blocked on.
+
+**What the two rulings jointly mean, because they are more coherent together than
+apart.** The guardian keeps its hard veto (D7a) *and* its full benefit-weighing
+remit (D7b), and it gets exactly one counterweight rather than a narrowing or a
+second one (D1, D9). So the design is now settled: **one conservative seat with
+full remit, one forward seat, no duplicates, and the balance struck by argument
+between them rather than by trimming either.** That places the whole weight of the
+forward half on a single seat which **has still never spoken** — which is why
+"where now" is about making that seat able to see, not about adding anything.
 
 **Written 2026-07-26** after the owner asked whether we had discussed an
 architecture council member before, and asked for the choices and proposed
@@ -442,6 +449,17 @@ strictly more conservative than today, not less. Narrowing (b) only works if
 the forward seat actually exists and is read — so **(b) should not be decided
 before D5, and cannot be implemented before D1/D2.** It is downstream of both.
 
+> ## ✅ RULED BY THE OWNER, 2026-07-27 evening: **DO NOT NARROW THE GUARDIAN SEAT.**
+>
+> Clause (d) stands unchanged and the guardian keeps being asked to weigh benefit.
+> **D7 is now closed in both halves** — (a) the veto survives, (b) the remit is not
+> narrowed. Nothing further is owed on D7; the reversal trigger below is retained
+> **only** as the condition that would justify re-opening it, not as pending work.
+>
+> Read alongside D7(a): the seat keeps its hard veto *and* its full remit. The
+> counterweight to it is the forward seat (D1/D2/D3), not a narrower guardian —
+> which is the shape the owner has now ruled for twice.
+
 > **UPDATED 2026-07-27 late — my inclination has REVERSED, on first evidence.
 > Recommendation is now: do NOT narrow (b) yet. Defer, with the reversal trigger
 > named below.**
@@ -484,7 +502,27 @@ before D5, and cannot be implemented before D1/D2.** It is downstream of both.
 
 ---
 
-### D9 — NEW, arose from evidence 2026-07-27: does the FIX lane need the forward seat too?
+### D9 — does the FIX lane need the forward seat too? — ✅ RULED: NO
+
+> ## ✅ RULED BY THE OWNER, 2026-07-27 evening: **DO NOT ACT ON THIS.**
+>
+> Verbatim reasoning: *"Don't act on the historian's suggested seat as we have this
+> new one."* The forward-fitness voice is the `review_architecture` seat on
+> `feature-designer`, and one is enough — a `bug_historian` asking for a human
+> ruling on the fix lane is **not** grounds for a second seat.
+>
+> **This closes D9. It does not become deferred work and the reversal trigger below
+> is withdrawn as a plan** — keep it only as the evidence you would need before
+> asking the owner to revisit a settled ruling, which is a higher bar than a
+> trigger firing. Consistent with §8c (do not seat duplicate capability) and with
+> D1 (do not add a second brake); the ruling extends both to "do not add a second
+> *forward* seat either".
+>
+> **Practical consequence, worth stating because it is now load-bearing:** the seat
+> on `feature-designer` is the **only** forward voice the platform has, and it has
+> still said nothing (0 reviews). Everything the forward half is meant to do now
+> rests on that one seat working — which raises the value of the two things that
+> make it able to see (see "Where now" in `README_where_we_are.md`).
 
 **Not a proposal — a question the evidence opened, recorded so it is not lost.**
 D1/D2/D3 deliberately placed `review_architecture` on `feature-designer` only
@@ -715,7 +753,21 @@ is judged a human instrument by design.
 
 ---
 
-### D9 — landmines as a footprinted corpus — DRAFTED BY ANOTHER THREAD, awaiting your fold-in
+### D10 — landmines as a footprinted corpus — DRAFTED BY ANOTHER THREAD, awaiting your fold-in
+
+> **RENUMBERED D9 → D10, 2026-07-27 evening — a genuine concurrent collision, not
+> a correction to anyone's work.** Two threads independently claimed D9 within
+> minutes: this one (committed `1ebb4fcf8`, 15:50) and the fix-lane forward-seat
+> question above (committed `5bfd19a63`, earlier the same hour). Neither could see
+> the other. **This one moved because the other has since been RULED ON by the
+> owner** and a ruling must keep pointing at the thing that was ruled; an unruled
+> proposal is the cheaper one to move. Nothing about the content is affected, and
+> no external doc referenced either number.
+>
+> **The proposal file keeps its original name** —
+> `PROPOSAL_D9_landmines_as_a_footprinted_corpus.md` — deliberately: renaming a file
+> another thread committed would break its own commit message and their scrollback,
+> for no gain. **Same item; read "D9" in that filename as D10.**
 
 **Not written by this thread.** Session *"bugfix 61"* drafted it 2026-07-27 at the
 owner's direction and deliberately did not edit this document beyond this pointer,

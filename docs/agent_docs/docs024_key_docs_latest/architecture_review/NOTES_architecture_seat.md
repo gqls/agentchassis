@@ -159,6 +159,35 @@ how often this happens — one instance, noticed by reading, not counted.
 
 ---
 
+## 2026-07-27 (evening) — both rulings landed, and a D9 numbering collision
+
+**OWNER RULINGS.** D7(b): **do not narrow the guardian** — clause (d) stands, it
+keeps the hard veto AND the benefit remit; D7 closed in both halves. D9: **do not
+act on a fix-lane forward seat** — *"we have this new one"*. Both closed in the
+decisions doc, and the reversal triggers I had written are demoted from "pending
+work" to "the evidence you'd need to re-open a settled ruling", which is a
+deliberately higher bar.
+
+**Design is now settled: one conservative seat at full remit, one forward seat, no
+duplicates.** Which means the whole forward half rests on a single seat that has
+**still never spoken** (0 reviews; no `feature-designer` run since 12:26). The open
+question is no longer *"is one enough"* — it is *"can that one see"*, and the answer
+today is partly no (the `content` false promise + zero markdown).
+
+**CONCURRENT COLLISION, resolved: two threads claimed `D9` inside one hour.** Mine
+(fix-lane seat, `5bfd19a63`) and session *"bugfix 61"*'s landmines-as-footprinted-corpus
+proposal (`1ebb4fcf8`, 15:50), each invisible to the other — they even noted they were
+avoiding editing the doc because it was being actively edited, which is exactly when
+this happens. **Theirs moved to D10** because mine had already been *ruled on* and a
+ruling must keep pointing at what was ruled; an unruled proposal is cheaper to move.
+**Their file keeps its original name** (`PROPOSAL_D9_landmines_as_a_footprinted_corpus.md`)
+— renaming another thread's committed file breaks its own commit message for no gain,
+so the mapping is stated in the section instead. No external doc referenced either
+number (checked: the other `D9`s in the repo belong to the imagery and about-page
+registers). **Lesson for a decision register in a shared doc: the number is not
+reserved by intending to use it, only by committing it — and `git log --oneline -8`
+before claiming one is the whole check.**
+
 ## 2026-07-27 (late, cont.) — the seat's own prompt contains a false promise
 
 Went to ground §6 item 5's premise rather than repeat it from earlier docs.

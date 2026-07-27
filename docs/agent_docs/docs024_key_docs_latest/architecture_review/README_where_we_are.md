@@ -194,3 +194,59 @@ from an append-only file. It was my own line from an hour earlier, not yours, an
 the content is right, but the rule is the rule and the check was correct to catch
 it: the whole point is that nobody gets to decide their own edit is harmless. The
 correction that should have been a new paragraph is the one immediately above this.
+
+## 2026-07-27 (evening) — both rulings in, and where that leaves us
+
+**Your two rulings, recorded.** Don't narrow the guardian — so it keeps its hard
+veto *and* its full remit, including weighing benefit. And don't add the reviewer
+the historian's comment implied, because the new forward reviewer already is that
+voice. Both are now in the decisions file as closed.
+
+Taken together they settle the design, and more cleanly than either does alone:
+**one conservative reviewer with full powers, one forward reviewer, no duplicates,
+and the balance struck by the two of them arguing rather than by trimming either.**
+That was the original shape of the proposal and it is now the ruled shape.
+
+**The consequence worth naming: the entire forward half now rests on one reviewer,
+and that reviewer has still never spoken.** Not broken — it has had no design run
+to speak on, for the reasons in the previous entry. But it does change what matters
+next. Before your rulings, "is one forward seat enough?" was open. Now it is
+answered, so the only question left is whether that one seat can actually see.
+
+**Where now — three things, in order.**
+
+**1. Tell the reviewers the truth about what they can look up.** Right now the
+forward reviewer's instructions promise it can search the *contents* of our source
+code. It cannot: the code index stores only declarations — function signatures, not
+bodies — so a search for a route, a config key or "does anything still reference
+this" comes back empty, and empty is indistinguishable from "doesn't exist". Its
+instructions already warn it about exactly this trap on the *database* side and say
+nothing on the code side, which is the side that's actually broken. Three other
+reviewers have the same false promise. This is a text change to their instructions,
+takes effect immediately, needs no rebuild, and is reversible — and it stops the one
+seat we're now relying on from confidently reporting a false absence.
+
+**2. Then fix the index itself, properly.** This is already written up as an open
+bug (108) and its recommended fix is to store the bodies, using position markers the
+index already keeps. That one change fixes the false promise for all four reviewers
+*and* is the same mechanism that would finally make our written history — the
+wrong-calls ledger, the bug files, the concept register — searchable by a reviewer
+at all. That last part is the "sufficient for anticipated plans" half of your
+original question, and it has been the missing piece throughout. It is a code
+change, so it needs a review round, a rebuild and a deploy, and I'd put it through
+the council gate first.
+
+**3. Let the first real review arrive on its own.** The forward reviewer needs one
+design run. The colour-fixer thread has a fourth round pending that you directed, and
+when it runs, the seat reviews it and we finally get a reading. That costs nothing and
+I'd rather not manufacture one — the near-miss in the last entry is why. If you want
+it sooner, approving any capability spec is a one-line change and I'll say the word
+if a good candidate appears.
+
+**Nothing is waiting on you.** One item in the decisions file, D10, is a proposal
+another session wrote and handed to this workstream — about landmines piling up in
+the auto-loaded memory file because knowledge that can't be queried has to be
+broadcast instead. It's for you to read when convenient, not a question this
+workstream is stuck on. It was also numbered D9 by both of us within the same hour,
+independently; I've renumbered theirs to D10 because yours was the ruling that had
+already landed on mine.
