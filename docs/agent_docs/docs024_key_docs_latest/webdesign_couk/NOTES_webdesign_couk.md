@@ -1183,3 +1183,80 @@ and a dispatch inside ~300s of a pod restart is silently dropped — the exact t
 that cost the 13:49 feed tick. SQL_p13 is DB config, so it is already live and
 roll-independent. After the roll settles: queue a fresh `nav_drift`, then grep
 **`site_components.rendered_html`** for `beacon.min.js` before looking at any page.
+
+---
+
+## 2026-07-27 ~20:25 — news queries retuned to the industry and real developments (SQL_p14)
+
+Owner: *"aim the news queries at the industry and any new big developments in
+design and web design."*
+
+**The first ingestion was the experiment that told us how.** 50 items, 10 per
+source, and the split was clean:
+
+```
+WORKED  "CSS new features browser support"            -> Can I Use, MDN, feature news
+WORKED  "web accessibility WCAG UK regulations"       -> WCAG 2.2, UK public-sector duty
+FAILED  "AI website builder design tools"             -> vendor landing pages
+FAILED  "UK web design industry"                      -> 9/10 agency ranking listicles
+FAILED  "web design visual trends typography colour"  -> "Top 10 Trends 2026"
+```
+
+> **The rule: a query that names a TECHNOLOGY or an AUTHORITY returns journalism;
+> one that names a MARKET CATEGORY returns marketing.** "builder", "tools",
+> "trends" and the exact phrase "UK web design" are the terms vendors and agencies
+> buy and optimise for, so the engine hands back their own pages. The two that
+> worked named CSS/browsers and WCAG/UK-regulations — things standards bodies and
+> journalists write about. This is worth keeping for any future feed on any site.
+
+**One of the three was a compliance risk, not just weak.** The standing rail is
+*never publish comparative rankings of named agencies*, and `UK web design` was
+returning almost nothing else — straight into the table a news page curates from.
+
+### The new set
+
+| keyword (= source name suffix) | query |
+|---|---|
+| CSS and browsers | `CSS new features browser support` **(kept)** |
+| web accessibility UK | `web accessibility WCAG UK regulations` **(kept)** |
+| web platform standards | `web platform standards W3C WHATWG specification` |
+| design industry moves | `design agency acquisition merger industry report` |
+| typography and design systems | `typeface release design system open source` |
+
+Each new one names a thing that *publishes* — a standards body, a corporate event,
+a release — rather than a product category.
+
+**Renamed in place, not deleted and recreated**, because
+`content_feed_items.source_id` is a foreign key and the 20 good items had to
+survive. **The 30 items from the retired queries were deleted** — agency rankings
+and vendor landing pages sitting in the exact table a news page reads from. They
+are a regenerable cache, not a record; leaving them would have meant trusting a
+later triage step to refuse material we had already decided against.
+
+**Both tables moved together, and that is the load-bearing part.** `vertical_keywords`
+exist to COLLIDE with the editorial source names so `seed_content_sources` no-ops.
+Rename a source without its keyword and the seeder adds a **sixth** source carrying
+the bare keyword as its query — silently reintroducing the generic phrasing this
+change exists to remove. The verify block asserts the two sets are identical.
+
+### My verify block failed its own first run, and that was the block working
+
+`array_agg(expr ORDER BY 1)` — **`1` is the constant 1, not a positional
+reference**, so the names never sorted while the keys did, and two identical sets
+compared unequal. `ON_ERROR_STOP` + the transaction rolled the whole thing back;
+re-checked afterwards and all 5 original names and all 50 items were untouched.
+Fixed by repeating the expression in the ORDER BY. **Worth having: a verify block
+that can fail closed is worth more than one that always passes** — this one cost a
+re-run and would have caught a genuine drift identically.
+
+### Verified after applying (independently, not from the block's own NOTICE)
+
+5 sources; 3 carrying the new queries with `next_fetch_at IS NULL` (re-armed, so
+they refetch on the next tick); 2 kept sources due 02:05; keywords match names
+exactly; `recommended: true` still set, so the site stays in `find_news_sites`;
+20 items remain, all from the two good sources.
+
+**NOT verified: whether the new queries actually return journalism.** That cannot
+be known until the next ingestion — and note the measured behaviour that the
+6-hourly task effectively runs 12-hourly, so the realistic next chance is the
+~07:49 tick. **Read the titles before building the news page.**
