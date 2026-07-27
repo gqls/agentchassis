@@ -17,8 +17,8 @@ then `RUNBOOK_phantom_link_gate.md` (the commands).
 The deploy gate detected every dead in-body link accurately and published the page anyway,
 because a miss is filed at `warning` and `valid` counts only blockers and errors. **Fixed and
 live in `v1.0.1171`**: the gate now repairs the link in `clean_html` — rewrite to the stored
-`pages.url` if the target really exists, otherwise drop the `<a>` and keep the text. What is
-**not** yet proven is the end-to-end induction on a real build. That is the only thing owed.
+`pages.url` if the target really exists, otherwise drop the `<a>` and keep the text. Proven end
+to end on the deployed binary 2026-07-27; case closed.
 
 ## State
 
@@ -103,9 +103,13 @@ better outcome than a quiet close — record it in `NOTES` and `WRONG_CALLS`.
 
 - **Do not re-measure the census.** 3 of 16 builds, 17 instances, 15 unique targets, all pure
   inventions, both pages homepages. Queries in RUNBOOK R1/R2.
-- **Do not resubmit to the council** on the evidence of a missing orchestration row — that costs a
-  duplicate round. The lane had a run stuck at `council_decide` for 239 minutes; this is a
-  dispatch-lane problem, not a dropped submission.
+- **On a missing council orchestration row: check whether the LANE is moving before concluding
+  anything.** > **CORRECTED 2026-07-27:** this entry originally said the missing row was latency
+  and "not a dropped submission". That was wrong — 13h later there was still no row while **676
+  orchestrations ran fleet-wide**, so it was a drop. The standing "do not resubmit on a missing
+  row" rule is still right as a first reading, but it needs its falsifier attached:
+  `SELECT count(*) FROM orchestration_states WHERE created_at > '<dispatch time>'`. Large number
+  = your message is not queued behind anything. Logged in `WRONG_CALLS`.
 - **Do not promote the severity** "to be safe". It stops homepages shipping. The measurement is
   the whole argument and it is in the bug file.
 - **Do not make `NormalizePagePath` tolerant of a missing `.html`.** `049` recorded why: `/contact`
@@ -133,7 +137,7 @@ better outcome than a quiet close — record it in `NOTES` and `WRONG_CALLS`.
 
 ## Next work, in priority order
 
-1. Finish the induction, close 079 (above).
+1. ~~Finish the induction, close 079~~ — **DONE 2026-07-27.**
 2. **`bugs_open/092`** — the writer gets no link constraints, 20 of 20 runs. Prevention, and
    worth more than the backstop. Two traps recorded in the file: do **not** wire
    `InjectLinkConstraints` (dead duplicate of the step that already runs), and fix the
