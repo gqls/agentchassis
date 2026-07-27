@@ -483,3 +483,76 @@ decides the file is binary and prints **nothing at all** — no error, no "binar
 file matches", just zero output on a file that visibly contains the strings.
 Always `LC_ALL=C grep -a` on archived pages. The `id_` suffix in the Wayback URL
 is what returns the original bytes rather than the toolbar-injected version.
+
+---
+
+## Changing site CHROME (footer / header / nav) and actually seeing it — 2026-07-27
+
+**The trap this exists for:** editing the chrome component, or the nav tables, and then
+re-rendering a page changes **nothing**, on any page, forever. It looks exactly like the edit
+was wrong. It is not. Chrome is a **stored artefact** (`site_components.rendered_html`) used
+verbatim by `assemblePage`; nothing on the page path rebuilds it (`bugs_open/117`).
+
+**Step 0 — edit the component that is actually SELECTED, which is probably not the active one.**
+Selection is `WHERE function='site-footer' ORDER BY name LIMIT 1` with **no `is_active`
+filter**, so the alphabetically-first row wins even when deactivated (`bugs_open/118`). Check
+before editing:
+
+```sql
+SELECT name, is_active FROM content_components WHERE function='site-footer' ORDER BY name;
+-- today the winner is footer-4-column, is_active = FALSE.
+```
+
+Take a backup table first. Beware `bugs_closed/072`: a `<style>` at the END of an
+`html_template` is silently dropped by the extraction regex — verify it survives your edit.
+
+**Step 1 — rebuild the stored chrome.** The reachable route is a `nav_drift` work item, which
+`nav-updater` handles by running `render_site_components`:
+
+```sql
+INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary,
+       priority, handler_agent, status, created_by, spec, item_key, batch_id)
+VALUES ('<site_id>','manual','build','nav_drift','medium','<why>',
+        20,'nav-updater','triaged','<thread>',
+        '{"orphan_type":"nav_drift","check":"owner_directive","fix":"<what changed and why>"}'::jsonb,
+        'nav_drift:<site_id>:<n>', gen_random_uuid());
+```
+
+`item_key` must be unique per run — suffix it, or `ON CONFLICT DO NOTHING` silently drops
+your second attempt while an earlier row is still non-terminal.
+
+**Step 2 — do NOT queue page re-renders yourself.** The `nav-updater` run **queues them for
+you** (they appear as `source='rerender-pages'`, one per page). Queueing your own first just
+races it and renders pages against the old chrome. Watch instead:
+
+```sql
+SELECT status, count(*) FROM site_work_items
+WHERE site_id='<site_id>' AND status IN ('triaged','claimed') GROUP BY 1;
+```
+
+**Step 3 — verify against the STORED artefact before the page**, so you can tell "chrome not
+rebuilt" apart from "pages not re-rendered":
+
+```sql
+SELECT to_char(updated_at,'HH24:MI:SS'), rendered_html ILIKE '%footer-contact">%'
+FROM site_components WHERE site_id='<site_id>' AND slot_name='footer';
+```
+
+**Timing, measured:** the rebuild itself takes seconds; **getting dispatched took 21 minutes**
+on 2026-07-27 because the fleet's `dispatch` concurrency group (max 8) was full of another
+session's work (oufe.com, fundamentallyai.com). Two earlier rebuilds the same afternoon went
+through in ~90s. **A `nav_drift` sitting at `triaged` is almost always queueing, not a fault** —
+before suspecting a wedge, check that *some* orchestration has COMPLETED recently:
+
+```sql
+SELECT owner_agent_type, count(*), to_char(max(updated_at),'HH24:MI:SS')
+FROM orchestration_states WHERE status='COMPLETED' AND updated_at > now() - interval '8 minutes'
+GROUP BY 1 ORDER BY 3 DESC;
+```
+
+If that is empty *and* `AWAITING_RESPONSES` rows are piling at `spawn_dispatch`, then suspect
+the wedge (`bugs_closed/078`'s livelock signature — the site is selected, the loop claims
+nothing, rows stay `triaged`, the trigger re-picks it every 120s).
+
+**Verify on the page with a string only the NEW chrome can produce**, never by eyeballing —
+"looks the same" is the failure mode this whole section exists for.
