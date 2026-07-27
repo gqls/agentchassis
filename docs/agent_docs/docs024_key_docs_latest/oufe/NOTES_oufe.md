@@ -851,3 +851,54 @@ rule 3 is actually about, are gone.
 
 Three highlight blocks on `/about` are still generator copy; only the first was
 rewritten. Owed.
+
+### The tool is live, and the research lane met a real judgment
+
+`https://oufe.com/tools/tool-recovery-waterfall.html` serves. Verified against the
+live page rather than the row: the condition-of-use gate, the EV input, the
+verdict target, the caveat inside the output block, the inline JS, the site
+chrome, and no unresolved template placeholders.
+
+Getting there needed the assemble-only route, because `save_page_sections`
+refuses an owned page and every tool page is owned. Runbook §8b now carries it.
+
+### Thames Water: the lane found the right document and choked on it
+
+Corr `2c5bbf90` ended `complete_no_sources`. The acquisition half worked
+**better than I expected** — it went to the primary instrument, not commentary:
+
+```
+judiciary.uk/…/Kington-S.A.R.L.-Thames-Water-…-judgment.pdf
+  → "Neutral Citation Number: [2025] EWCA Civ …"
+```
+
+The scrape succeeded. `extract_claims` then failed and took the error branch.
+
+Cause: size. The prompt interpolated every scraped source whole.
+
+| run | scraped chars | outcome |
+|---|---|---|
+| mechanism explainer | 320,692 | 19 citations registered |
+| Thames | **584,152** | nothing |
+
+A Court of Appeal judgment is not a web page.
+
+**And the fix already existed.** `format_research_content`
+(`research_actions.go:204-320`) takes `max_content_per_source` and truncates each
+source into one LLM-ready block. **I listed that action by name in my own research
+notes while designing this lane** — "format_research_content — Format scraped
+content for LLM context" — and then wired scrape straight into the extractor.
+
+Third time this week: the capability was present, unused, and invisible because
+nothing pointed at it. The other two were `ScanBannedClaims` and
+`EvidenceFact.Kind`. In all three I reasoned from what I could see running rather
+than from what was available.
+
+Migration 229 inserts the step at a 24,000-char cap. **Honest limitation, stated
+rather than papered over:** a long judgment is now searched across roughly its
+first fifth. Judgments front-load the citation, parties, issues and often a
+summary, so that is the richest part for quotable claims — but a claim at
+paragraph 180 will not be found and the run will not say so. Chunking is the real
+answer and needs a loop this workflow does not have.
+
+Re-run fired as corr `a07edd25`.
