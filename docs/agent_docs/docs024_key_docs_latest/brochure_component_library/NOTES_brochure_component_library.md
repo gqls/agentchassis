@@ -1948,3 +1948,48 @@ this register:
 
 This ran because `bugs_closed/074` was fixed: the task had carried its workflow in a shape the
 scheduler cannot deliver and had therefore never run at all.
+
+### CORRECTED 2026-07-27 — sixteen broken links, not six, and I used the blind regex
+
+The entry above records six broken links from the index rebuild and reports the
+capabilities page clean. **Wrong on both counts: it was sixteen.** Capabilities
+carried ten more — `/capabilities#review-council` and five siblings,
+extension-less *with a fragment*, 4 in `hero-card-carousel` + 6 in
+`info-card-grid`, all 404 as served.
+
+**The check that hid them was mine, and it was the documented one.** I used
+
+```sql
+regexp_matches(pc.rendered_html, 'href="(/[^"#?]*)"', 'g')
+```
+
+`[^"#?]*` stops at the first `#`, so an anchored href never matches at all. That
+is landmine L2 verbatim — the pattern that hid 21 broken links on 2026-07-25 from
+a census, a repair and a post-check that all agreed. I wrote L2 into the handoff
+that morning and then typed the pattern into the next query.
+
+The live crawl found them because it captures `href="(/[^"]*)"` and strips the
+fragment *afterwards*. That ordering is the entire difference between a link check
+that works and one that reassures.
+
+*Cheap check, and it generalises past this regex:* **when a landmine names a
+specific pattern as dangerous, grep your own new queries for that pattern before
+trusting their output.** Reading the landmine is not the check; the check is
+looking for it in what you just wrote.
+
+Repaired to `/capabilities.html#…` (`bak_pc_fai_cap_links_20260727`). The
+fragments themselves resolve to **zero** ids on the page — that is 071's class
+(24 of 25 fleet-wide) and is left alone deliberately. Logged in `WRONG_CALLS.md`,
+where the "independent witness" row is now at 2.
+
+### The self-refreshing property, confirmed by accident
+
+The council facts were seeded at 108/37/9 on 2026-07-26. Today the register reads
+**110/38/10** — `refresh_evidence_base` re-ran each fact's `source.sql` and
+rewrote `value` and `verified_at` in place — **and the live page shows the new
+figures**. Nobody retyped a number and nothing went stale.
+
+That is the design working end to end, and it retrospectively justifies the rule
+that a SQL-sourced fact must carry **no** `display`: had I set one, the bar would
+have moved to 110 while the label beside it still read 108. The rule was written
+from reading the refresher's code; this is the first observation of it mattering.
