@@ -8414,3 +8414,57 @@ subsequently blocked. Dropping the parameter removed the sanctioned path to the 
 
 Family: two-invocations-one-is-wrong, i-verified-reads-and-broke-a-write,
 the-site-looked-fine-because-the-last-good-deploy-was-still-there.
+
+---
+
+## 2026-07-27 — I rolled the chassis on top of my own in-flight council run and killed it, then spent an hour reading "running" as slow
+
+**Thread:** bugs thread (bugs_open sweep). **Claim:** across four status checks over
+roughly seventy minutes I reported `bugs_open/105`'s council review as *"running"*,
+*"still at review_guardian"*, and *"still deliberating"* — treating a step that had not
+moved as a step that was working.
+
+**What it actually was.** Dead since the moment I rolled the chassis.
+`orchestration_states` for that run last advanced at **19:22:29**; the chassis pod I
+replaced went down and its successor started at **19:22:02**. The step was executing on
+the pod I killed. It never resumed, and it never would have: sixty-six minutes later it
+sat on the same step with the same `updated_at`.
+
+**What caught it.** Nothing in my own loop. I only looked at `updated_at` because the
+user mentioned deploying a new chassis, which made me check what my roll had touched.
+Every check before that read `current_step` and `status` — `review_guardian |
+EXECUTING_STEP` — both of which say "running" forever on a dead run. **A step name and a
+status cannot distinguish working from wedged. Only the clock can.**
+
+**The cheap check that would have.** Two of them, and I skipped both:
+
+- BEFORE rolling: `SELECT current_step, status, updated_at FROM orchestration_states
+  WHERE status NOT IN ('COMPLETED','FAILED','CANCELLED')` — one query, and it would have
+  shown my own council run mid-flight. I checked pod health, image tags, drift and
+  registry state before that roll. I did not check whether I was about to interrupt
+  anything, including my own work.
+- AFTER, in every status poll: select `updated_at` alongside `status`, and read the
+  gap. `EXECUTING_STEP` with a 66-minute-old `updated_at` is not a slow step.
+
+**The blast radius was not just mine.** The dispatch thread's own residual says a wedged
+head orchestration freezes the interactive lane until a pod roll, and nothing notices.
+Two other runs stalled behind mine (`call_council` 19:58, `call_diagnoser` 20:08 — the
+latter almost certainly the `bugs_open/097` diagnosis I had filed myself). The lane only
+recovered when ANOTHER session rolled the chassis at 20:26. So a roll I performed to make
+five fixes live cost an hour of a shared lane, and I reported the symptom of that outage
+four times without recognising it.
+
+**The asymmetry worth keeping.** CLAUDE.md warns about dispatching *within ~300s after* a
+pod restart. The inverse — do not restart the pod on top of work already in flight — is
+not written down anywhere, and it is the one I broke. A roll is not a read-only act just
+because the deployment reports healthy afterwards: **every orchestration mid-step at that
+instant is collateral, and the pod-grep verification that follows says nothing about it.**
+
+**Tally.** *A status field cannot tell you a run is alive; only `updated_at` can* — new,
+and it generalises past orchestrations to anything with a state column.
+*Check what is in flight before you roll* — new. And a recurrence of a familiar one:
+**I verified the thing I changed (the binary) thoroughly and never looked at what I
+disturbed.**
+
+Family: status-says-running-forever-on-a-dead-run, rolled-over-my-own-in-flight-work,
+verified-what-i-changed-not-what-i-disturbed.
