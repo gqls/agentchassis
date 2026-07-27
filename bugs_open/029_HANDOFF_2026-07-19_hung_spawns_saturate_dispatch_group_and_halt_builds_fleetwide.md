@@ -587,3 +587,63 @@ Per the PLAN's own scope table, **A + B + C are config/repo and go live on apply
 closes on them** (D shipped separately as `bugs_open/079`, since closed). So this case is
 one apply away from its own stated closure condition, and has been for over a day.
 Left untouched and uncommitted here — it is that workstream's to land.
+
+---
+
+## Corroboration 2026-07-27 18:27–18:40 — a BRAND-NEW lane, 2 for 2, roll-adjacent
+
+*Added by the gripper-dossier thread. Evidence only — no competing fix; this case is owned.*
+
+Independent instance in a lane that **has never run before**, so it carries no accumulated
+state and no history of its own: the `report-dispatch` lane, seeded and enabled today
+(`sql_for_agents/209`/`210`). It corroborates this file's corrected diagnosis — *the trigger
+is an image roll, not over-dispatch* — from a direction the earlier reproductions could not:
+a first-ever execution, in a private concurrency group of its own.
+
+**Timeline.** Chassis rolled to **v1.0.1175 at 18:00:40Z** (another session). First-ever
+`report-dispatch-loop` run at **18:27:26** hung at `spawn_handler`. Reset and retried at
+18:34; second run at **18:36:14** hung at `spawn_handler` again. **2 of 2, both inside 36
+minutes of the roll.**
+
+**Signature, identical both times:**
+
+| observation | value |
+|---|---|
+| `current_step` | `spawn_handler` |
+| `status` | `AWAITING_RESPONSES` |
+| `awaited_steps` | `[]` ← **nothing is awaited, so nothing can ever wake it** |
+| `execution_path` | `[]` |
+| `collected_data` | has `reap_stuck`, `claim_item`, `claimed`, `check_claimed` — **no `handler_spawned`** |
+| `updated_at` | frozen at the spawn moment |
+
+**The spawn itself SUCCEEDED.** The child pod existed and was healthy —
+`agent-report-builder-bf3475fc-fv5f4`, `1/1 Running`, on the correct image
+`v1.0.1175`, logging `Workflow validated successfully` → `Workflow started and is now
+waiting for a response`, and still emitting ~64 log lines/2min. It had attached to the
+**parent's** orchestration id (79 references to `509212f2` in its log). So this is not a
+failed spawn, not a bad image, and not a dead child: **the child came up and the parent
+never recorded that it had.**
+
+**Not a concurrency-group effect, which is the useful part.** `report-dispatch` has its own
+`concurrency_group='report-dispatch'`, `max_concurrent=1`, and the scheduler stamps
+fire-and-forget tasks complete immediately (`cmd/scheduler/main.go:287-296`), so the task
+kept firing on schedule throughout. Nothing was queued behind a full pool. That isolates the
+hang to the spawn→parent handoff itself, exactly as the corrected diagnosis says.
+
+**Cross-check on the same window:** `build-pipeline-trigger` had 3 runs stuck at
+`spawn_dispatch` at 18:26/18:28/18:31, and then recovered — 2 reached `call_dispatch` and 2
+`COMPLETED` after 18:26. So the fleet was *partially* affected and self-cleared, while the
+cold lane hit it twice running. Last time any lane got past a spawn before this window:
+**17:43**, i.e. before the 18:00 roll.
+
+**Config difference recorded for whoever fixes it** (not a claim about cause — both forms
+are supported and `agent_type_field` is used by `051_build_dispatch_loop.sql` and six other
+seeds): the recovering lane spawns with a literal `"agent_type": "build-dispatch-loop"`;
+the stuck lane resolves `"agent_type_field": "claimed.handler_agent"`. Worth ruling in or
+out, since the two behaved differently in the same minutes. **[UNVERIFIED]** — I did not
+test a literal variant.
+
+Manual recovery used, in case it is useful as a stopgap: mark the hung row
+`status='FAILED'`, then reset the work item to its queued status with `claimed_by=NULL,
+claimed_at=NULL, attempt_count=0`. The lane re-claims on the next tick — and, here, hung
+again.
