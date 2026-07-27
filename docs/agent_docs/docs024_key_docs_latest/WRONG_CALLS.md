@@ -8468,3 +8468,34 @@ disturbed.**
 
 Family: status-says-running-forever-on-a-dead-run, rolled-over-my-own-in-flight-work,
 verified-what-i-changed-not-what-i-disturbed.
+
+> **CORRECTED 2026-07-27, ~20 minutes after writing the entry above — I misidentified one of
+> the two "collateral" runs, in the file about misidentifying things.**
+>
+> The entry claims *"two other runs stalled behind mine (`call_council` 19:58,
+> `call_diagnoser` 20:08 — the latter almost certainly the `bugs_open/097` diagnosis I had
+> filed myself)"*. The `call_diagnoser` identification is **wrong on both halves**. That
+> orchestration (`7803075d`) advanced to `load_runtime` at 20:30:59, so it is alive, not
+> stalled; and it carries no `fix_correlation_id`, so nothing tied it to my 097 run except
+> that the step name matched the concept I was looking for.
+>
+> **That is the exact error pattern already logged on 2026-07-27 ("I measured the table
+> whose NAME matched the concept").** I did it again, one file down, within the hour, while
+> writing about being careless.
+>
+> **What survives.** My own council run (`0d6bb5f8`) is genuinely dead at my roll —
+> unchanged at 69 minutes, and that is measured, not inferred. And the 097 diagnosis IS
+> stalled: its last artifact is `bundle` iteration 3 at **19:25:10**, three minutes after
+> the roll, with nothing in the 66 minutes since. So the *conclusion* about 097 stands on
+> its own evidence (its artifact clock), which is what I should have cited in the first
+> place instead of a same-named orchestration step.
+>
+> **What does NOT survive.** "Two other runs stalled behind mine" is unproven. One was
+> alive. The other (`900327ca`, `call_council` at 19:58) belongs to another session and I
+> have not established whether my wedge caused it. And the lane is plainly healthy now —
+> 21 completions in the last 15 minutes — so "an hour of a shared lane" is an overclaim I
+> cannot support.
+>
+> **The cheap check:** cite the artifact clock of the thing you actually care about, not an
+> orchestration row whose step name sounds right. `diagnosis_artifacts.created_at` for MY
+> correlation answered this in one query and needed no guessing about ownership.
