@@ -436,3 +436,77 @@ the write path is inert in production. Migration 230 is applied, and I argue it 
 the image (defaults on both columns, tightening-only constraint, constrained states unreachable
 because nothing can write a non-draft status yet). That argument is mine and is in the submission's
 risk list precisely so a reviewer can test it rather than accept it.
+
+---
+
+## 2026-07-27c — the roll, the writer pipeline, and the shape I invented
+
+**v1.0.1175 is live** (pod `agent-chassis-566bf56b78-jtjnj`, started 18:00:40Z) and carries the
+write path. Pod-grep with controls: `write_experience_pattern` → **16**; my derived-field refusal
+string `is derived from validation` → **1**; `docResolveSubject` → 2 (positive control);
+`experience-nonsense-xyz` → 0 (negative). Note `experience_patterns_approved_needs_executable_check`
+greps **0** and that is correct — a constraint name exists only in SQL. Reading that as a failed
+deploy would be the same vacuous-marker trap in reverse.
+
+**P2b: APPROVED** (corr `2e71f640-06b9-48c8-a674-a121f74be22c`, 10 reviewers, `unreadable: 0`,
+5 advisory objections). Three seats — editquality, guardian, debug_historian — converged
+independently on my own risk #1: `experiencePatternContractFields` decides whether an approved
+entry loses its approval, and it was a hand-maintained literal with no structural check.
+
+The fix worth recording is the *shape* of the fix. A derived list is impossible — which fields
+are clause-bearing is a judgement, not a fact about the schema. So the guard forces the judgement
+to be **made**: every column of `experience_patterns` must be classified as contract, selection,
+cosmetic or system, and a column named by none of them fails the build. **A silent omission
+becomes a required decision**, which is the most a mechanical check can do for a question that is
+not mechanical. Proved by induced fault; the same parser also closes bug_historian's separate
+objection (a jsonb column absent from the marshalling list is silently never written).
+
+Two absence claims the reviewers refused to take on my word, both of which I had asserted without
+running:
+- *Does any other writer touch `experience_patterns`?* No — `grep -rn` over `platform/ internal/
+  cmd/` returns 2 hits, both in my own action. So migration 230's CHECK could break nothing.
+- *Does any workflow call `write_experience_pattern`?*
+  `SELECT count(*) FROM agent_definitions WHERE default_config::text LIKE '%write_experience_pattern%'`
+  → **0**. Genuinely inert, as claimed.
+
+**Migration 238 seeds `experience-register-writer`** — the owning pipeline guardian asked to see
+named rather than smuggled into an existing agent. Its one design decision: the entry write and
+its travelling doc are **one workflow**, closing risk #3 (an entry with no provenance) by shape
+rather than by a rule a caller must remember. The guard fails if a later edit points
+`write_pattern` straight at `complete`.
+
+### Then I tried to load a real entry, and the build fell over
+
+> **CORRECTED 2026-07-27 — the `contract` shape in migration 218, in
+> `write_experience_pattern_action.go`, in the P2b council submission and in every test was
+> INVENTED.** It expected an object carrying a `triggers` array with `when`/`then`. **All nine
+> harvested entries use an ARRAY of clauses keyed `control_role` / `primitive` / `outcome`.** The
+> live write path would have refused **9 of 9** of the only entries that exist.
+>
+> Two more from the same look: **CC-006** has a deliberately EMPTY contract — nothing a visitor
+> does drives a count-up stat band, its behaviour is in `automatic_triggers` and
+> `honesty_clauses` — so "contract must be non-empty" refused a legitimate entry; and
+> **`honesty_clauses` / `latency_envelope`** are fields the harvest produces for which the table
+> had no columns, so they would have been silently dropped (migration **239**).
+>
+> **What caught it:** trying to load the real files. Nothing else could have — seven behaviour
+> tests, a migration lockstep, and induced-fault probes in both directions were all green,
+> because the fixture was an inline literal I wrote to match the code and *called*
+> `validHarvestedEntry()`. The name asserted a provenance the value did not have. The council
+> approved it too, and could not have caught it: reviewers see the submission, not the repo.
+>
+> **Why this one stings:** this workstream's founding finding, written by me the day before in
+> this very directory, is that harvesting bottom-up catches shapes invented top-down. I built the
+> validator from the harvest **NOTES** rather than the harvest **ENTRIES**. Writing a lesson down
+> is not applying it. Full entry in `WRONG_CALLS.md`.
+
+**The fix that generalises is not the corrected shape — it is that the fixtures are now the real
+files.** `validHarvestedEntry()` reads `CC-001` off disk; two new tests load all nine, one
+asserting the validator accepts every one and the other that every field they carry has a column.
+There is no longer a second copy of the truth to drift from. Proved by induced fault: restoring
+the non-empty-contract rule fails naming `CC-006_count-up-stat-band.json` exactly.
+
+**Live state:** migrations 218, 230, 238, 239 applied and in the ledger. `experience_patterns`
+still **0 rows** — and it must stay that way for now, because **v1.0.1175 carries the INVENTED
+shape**. The register cannot be populated until the next roll ships `799c0c97e`. That is the
+whole remaining gap between "built" and "real".

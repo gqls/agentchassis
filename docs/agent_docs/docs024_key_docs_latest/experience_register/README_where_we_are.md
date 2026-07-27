@@ -255,3 +255,56 @@ time, since each rejection sends an AI writer back round the loop at a cost.
 
 That's now with the reviewers too. The remaining pieces are binding an entry to a real site's
 pages, and then the first check that runs by itself.
+
+---
+
+**2026-07-27 (evening) — the build went out, the second review passed, and then I tried to use
+the thing and it didn't work.**
+
+The review came back approved again. Three of the reviewers landed on the same weakness, and it
+was one I'd flagged myself: there's a list in the code that decides which changes to an entry are
+serious enough to cancel its approval, and that list was just typed out by hand with nothing
+checking it. Too short a list and a rule quietly changes while the entry still says "approved".
+
+I couldn't make the list automatic — deciding which parts of an entry are *substantive* is a
+judgement, not something a computer can read off. But I could make the judgement compulsory: every
+field of an entry must now be filed under one of four headings, and if someone adds a new field
+and doesn't file it, the build stops and tells them to. It converts something easy to forget into
+something you can't skip.
+
+Then I built the piece that actually puts entries into the library, and pointed it at one of the
+nine real examples we harvested at the weekend.
+
+**It would have rejected all nine.**
+
+The entries describe a component's behaviour as a *list* of clauses. I'd written the checker
+expecting a different arrangement entirely. Not a typo — a different idea of what an entry looks
+like. And two related misses fell out of the same five minutes: one of the nine has no
+interactive behaviour at all (it's a set of numbers that count up when you scroll to them, so
+nothing a visitor *does* drives it) and my checker insisted every entry must have some; and two
+kinds of information the harvest records had nowhere to be stored, so they'd have been thrown away
+silently on the way in.
+
+Here's the part I want to be straight about. Every test I'd written passed. The reviewers approved
+it. The reason is that I'd written my own example to test against, matched it to my code, and
+named it after the real thing — so it looked like evidence and was actually just a copy of my own
+assumption. And the reviewers only ever see the change described to them, not the actual files, so
+they had no way to notice.
+
+Worse: this workstream exists *because* of exactly this failure. Its founding lesson, which I
+wrote down two days ago in the same folder, is that you must build these things from what real
+implementations actually do rather than from a tidy idea of what they ought to do. I then built
+the checker from my own notes about the harvest instead of from the harvest itself. Writing a
+lesson down is not the same as applying it, and I'd like that on the record rather than smoothed
+over.
+
+The repair isn't really the corrected format. It's that the tests now read the nine real files
+off disk. There's no longer a private copy of the truth for the code to drift away from, and I
+proved it works by deliberately reintroducing the bug and watching the test name the exact entry
+that would have been rejected.
+
+**Where that leaves us.** The database side is complete and live. The library is still empty, and
+deliberately so — the version of the code running in production right now is the one with the
+wrong idea of an entry, so it would refuse everything. The corrected version is committed and
+needs the next build to go out. After that, the nine harvested entries can go in, and then the
+remaining piece is binding them to a real site's pages so the checks run by themselves.
