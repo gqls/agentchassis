@@ -1463,3 +1463,46 @@ was mid-report when the service restarted — and since the report runs in memor
 strands one. That's the same "slot lost forever" problem we just fixed, by a different door. The
 fix is small but it's only safe to write when nothing is running, and something was running all
 evening.
+
+## 2026-07-26 (late) — the report engine was a generation behind, and updating it was nearly a disaster
+
+You asked me to move everything onto the newest AI models. The engine was running last
+generation's — fine, but a year behind what we could be using. It's now on the current ones, live
+on the box, and I've checked it end to end.
+
+What's worth telling you is what nearly happened.
+
+I'd said earlier in the evening that the models were "a lever needing no rebuild" — that you could
+change which AI writes the reports by editing one line of configuration on the server, no
+programming needed. **That was wrong, and wrong in the way that costs money.** If you or I had
+done that, every single report would have failed instantly with an error, and the tool would have
+been dead until someone worked out why.
+
+The reason is a small piece of logic buried in the engine. Different generations of these models
+want to be asked to "think" in different ways, and the code had a list of the models that use the
+newer style. Anything not on that list got the older style. That sounds sensible and is exactly
+backwards: a model the code has never heard of is almost certainly a *newer* one, so the code was
+guaranteed to get every future upgrade wrong. I caught it because I tested the old and new
+approaches against the live AI service before changing any code — the old style came back with a
+flat refusal, in writing.
+
+So I turned the list inside out. Now the code only uses the old style for models it specifically
+knows are old, and anything unfamiliar gets the modern treatment. The next upgrade won't hit this.
+
+Two smaller things fell out of the same job. There were two places where the engine relied on a
+default that has quietly changed meaning between model generations — it used to mean "don't think
+about this", and now means "think as much as you like", which would have eaten into the space
+reserved for the actual answer and could have cut reports off mid-sentence. Both are now explicit.
+And I found that when a reply *did* get cut off, the engine didn't notice: it took the half-answer
+and carried on as though it were complete. That now stops and says so, rather than putting a
+fragment in front of a customer.
+
+**On cost, I'm deliberately not giving you a number.** The new top-tier model costs exactly what
+the old one did, and the cheaper model is currently on an introductory rate that's *below* what we
+were paying. Pulling the other way, the new models count text slightly differently and use a few
+more tokens per job. I could guess the net, but I'd rather not — the next real report will tell us
+precisely, because the engine logs its own token counts on every call.
+
+**Still waiting on you: the £29.** The pay link from yesterday is in your inbox. Everything else in
+the chain has now run in production at least once; taking a payment and delivering the report off
+the back of it is the one thing that never has.
