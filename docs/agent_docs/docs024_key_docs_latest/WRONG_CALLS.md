@@ -8289,3 +8289,69 @@ already `CANCELLED`.
 
 Family: built-a-mechanism-from-timestamps, never-opened-the-named-function,
 cancelled-the-evidence-before-filing, wrote-it-down-before-i-checked-it.
+
+---
+
+## 2026-07-27 — "the indexer is already walking the file, so this needs no new file I/O pass" — it walks a JSON blob with no source text in it, and the whole plan depended on the opposite
+
+**The claim.** In the council submission for D11 layer 1 (corr `18fe4035`,
+APPROVED round 3), the rationale for the edit that populates `code_symbols.body`
+read: *"symbolRow carries lineStart/lineEnd (set from td.StartLine/td.EndLine),
+and the indexer is already walking the file, so this needs no new file I/O pass
+and no re-parse."* The sketch followed from it:
+`body, err := analysis.SliceLines(fileSrc, td.StartLine, td.EndLine)` — with
+`fileSrc` appearing from nowhere.
+
+**What is actually true.** `flattenSymbols(out analysis.Output)` walks a
+**JSON-decoded `analysis.Output`**: paths, line spans, signatures, doc strings.
+`analysis.FileInfo` has no source-text field. There is no file being walked and
+no `fileSrc` in scope. The plan's central edit had **no stated source for the
+bytes it was slicing**, and twelve council seats approved it.
+
+**Why it works anyway, which is the uncomfortable part.** The LIVE `code-indexer`
+workflow's first step is `analyse_repo_local`, which fetches the tarball into the
+indexer pod's own temp dir and deliberately does not clean it up — so `out.Root`
+is a real local path and the bodies can be read from it. **That is live config, not
+code, and the repo's own seed for that agent
+(`118_code_indexer_for_analyser.sql`) still shows the OLD wiring**
+(`request_repo_analysis`), under which the analyser parses in a different pod and
+`out.Root` names a directory that does not exist in the indexer's. Under the seed,
+every read fails, every body is NULL, and the change ships **looking done and
+being inert**.
+
+So the claim was false, the design survived on a fact the claim did not mention,
+and the repo's own SQL would have led a reader to the opposite conclusion.
+
+**Caught by:** opening `flattenSymbols` to write the edit, then querying
+`agent_definitions` for the live workflow because the signature made no sense.
+Not by any reviewer — 12 seats, including `prior_art_librarian`, which had caught
+a *different* absence claim in the same plan the round before.
+
+**The cheap check that would have caught it:** *the sketch names a variable that
+is not in scope at the site you are editing.* `fileSrc` was never defined
+anywhere in the submission. A plan sketch is not compiled, and that is exactly why
+an undefined identifier in one is a signal and not a typo — it marks the place
+where the plan assumed a fact it never checked. **Read the enclosing function's
+signature before writing the sketch that lives inside it.**
+
+**Second cheap check, the one with legs:** *when a claim about runtime behaviour
+can be settled from either the repo's seed SQL or the live `agent_definitions`
+row, the live row is the fact and the seed is a historical document.* This tree
+has seeds that were superseded by config edits months ago and never updated. The
+same trap is already in this file under other names; this is the first time it
+nearly shipped an inert feature rather than a wrong belief.
+
+**Cost:** none realised — caught before the build. Had it not been, the cost would
+have been a green deploy, an all-NULL column, and a `content` check that kept
+returning zero rows while everyone believed the fix had landed. That is worse than
+the original bug, because the original bug at least had `bugs_open/108` pointing
+at it.
+
+**Tally.** *Wrote it down before I checked it* — recurring, and now the dominant
+family in this file by some distance. *The seed is not the system* — new.
+*A council approving a plan is not evidence the plan is implementable* — new, and
+worth saying plainly: the gate reviews reasoning against evidence, and an
+undefined variable in a sketch is neither.
+
+Family: wrote-it-down-before-i-checked-it, the-seed-is-not-the-system,
+approval-is-not-implementability.

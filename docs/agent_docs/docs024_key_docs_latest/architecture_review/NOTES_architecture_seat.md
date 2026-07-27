@@ -415,3 +415,107 @@ for this workstream is the **ranking** — reuse the concept register's
 rediscovery-frequency signal — not the plumbing. Grepping `/bugs_open/` for the
 mechanism before designing is what caught that, which is the rule working exactly
 as CLAUDE.md says it should.
+
+---
+
+## 2026-07-27, ~21:00 — layer 1 BUILT and committed (`37f7deff9`). Three defects in the approved plan, one of them nearly fatal
+
+Migrations **243** (`code_symbols.body` + trigram index, applied and green) and
+**244** (the doc_notes trail) are live. The Go is committed and rides the chassis
+build another session was starting as I finished — so it is **inert until that
+roll**, and the column is deliberately NULL until then.
+
+### The plan was APPROVED and still had three concrete defects. All three were advisory objections that turned out to be right when actually run.
+
+**1. The migration number moved TWICE.** Approved as 241. `guardian` objected
+(low) that "241 is the next free number" was asserted rather than checkable from
+SQL. By the time I opened the directory, another session had committed 241 and a
+third had 242 staged. It is **243**. The handoff I started from already said
+"use 242" — and *that* was stale within four hours of being written. This
+sequence is shared state; re-read it immediately before writing the file, never
+from a doc.
+
+**2. The VERIFY hash expression as approved would have ERRORED.**
+`sha256(content::bytea)` fails with *"invalid input syntax for type bytea"* —
+the cast **parses** the text as a bytea literal, it does not encode it.
+`convert_to(content,'UTF8')` is the encode. `editquality` objected (medium) that
+the formula was asserted rather than verified against the live schema. Correct,
+and the concrete defect was a cast. The corrected expression measures **0 drift
+across all 4,535 rows**, before and after.
+
+**3. THE ONE THAT NEARLY SANK IT — "the indexer is already walking the file, so
+this needs no new file I/O pass and no re-parse" is FALSE.** `flattenSymbols`
+walks a **JSON-decoded `analysis.Output`** that carries line spans and *no source
+text*. There is no file being walked. Bodies have to come from somewhere, and the
+plan never said where.
+
+It works **only** because the LIVE `code-indexer` workflow's first step is
+`analyse_repo_local`, which fetches the tarball into the indexer pod's own temp
+dir and *deliberately does not clean it up*, so `out.Root` is a real local path.
+Under the wiring in **seed `118_code_indexer_for_analyser.sql` — which is what
+the repo still shows** — the analyser adapter parses in its OWN pod and returns
+spans whose root does not exist in the indexer's. Every read would have failed,
+every body would have been NULL, and the change would have looked shipped while
+being completely inert.
+
+> **The seed file is stale and the live row is the truth.** I read
+> `agent_definitions` rather than the seed, and that is the only reason this was
+> caught before the build rather than after a green deploy with an all-NULL
+> column. A thread that had trusted the repo's own SQL would have concluded
+> either "impossible" or, worse, "done".
+
+So `flattenSymbols` now logs `root`, `files_read`, `file_read_errors`,
+`bodies_sliced`, and warns **loudly** when `bodies_sliced == 0 && symbols > 0`,
+naming that exact cause. `with_body` is returned in the action result next to
+`upserted`, so the failure is legible from the orchestration record without
+anyone thinking to query the column.
+
+### Two findings that were nobody's objection
+
+**`content_hash` does NOT change when only a function's body changes.** The hash
+covers `composeSymbolContent` output — kind + symbol + signature + doc + path.
+A function whose body was rewritten while its signature stayed put has a
+**byte-identical hash**. Consequences:
+
+- The embedding-skip is still correct (embeddings are of `content`, which
+  genuinely did not change).
+- But there is **no cheap test for "this stored body is still current"**, which
+  kills the tempting `body = COALESCE(EXCLUDED.body, code_symbols.body)` — the
+  "safe" form that preserves a body when a slice fails. It would preserve text
+  that no longer matches the `line_start`/`line_end` written from `EXCLUDED` in
+  the same statement. **Plain assignment; NULL is the honest state.** A missing
+  body is visible in the coverage count; a wrong one is visible only to whoever
+  acts on it.
+
+**There are TWO call sites answering code checks, not one.**
+`diagnose_load_runtime` (the diagnosis lane) calls the same `answerCodeCheck`
+helper as `diagnose_code_lookup` (the council's verify tier). The compiler found
+it, not me — I had changed the signature. Both now carry the scope note, which
+matters more in the diagnosis lane, because the verdict prompt's cite-or-abstain
+acts **directly** on absence. Had the helper been duplicated rather than shared,
+the sibling would have kept the old silent-empty rendering and nothing would have
+said so — 016b §9's "one call site gets the rigorous fix, the sibling stays
+heuristic", avoided by luck of a shared signature.
+
+### Smaller things worth not re-deriving
+
+- **`EXPLAIN` on the OR predicate currently shows a Seq Scan** (cost 547).
+  That is `guardian`'s low objection confirmed — but with `body` entirely NULL
+  the measurement **cannot decide anything**, so the choice between the OR and a
+  single expression index on `(COALESCE(body,'') || ' ' || content)` is
+  **deferred until after the reindex**, when there is real text to plan over.
+  Check 5 of the VERIFY file runs it.
+- **The migration runner has no single-file apply.** `--apply` applies *every*
+  pending file, which in this tree means other sessions' work. The escape hatch
+  is `MIGRATIONS_DIR=<dir with just your file>` — same ledger, same probe, same
+  recording. In RUNBOOK now.
+- **244's guard was verified by inducing the fault**, not by reading it: running
+  the file a second time raises `P0001` and inserts nothing (`count` stays 4).
+- **Three `pattern-check` advisories on the commit, all benign but check them
+  yourself:** two `logged-model-output` hits are a heuristic matching a local
+  variable named `text` near an `Fprintf` — one is my answer-rendering (source
+  code from the index, not model output), one is pre-existing code in a file my
+  pathspec included. The `unpaired-change` hit wants `codeIndexFreshness`
+  alongside a `FROM code_symbols` read: both renderers *do* still call it on
+  unchanged lines, and I added a second provenance line beside it. **I should
+  have said so in the commit message, which is what that check asks for.**

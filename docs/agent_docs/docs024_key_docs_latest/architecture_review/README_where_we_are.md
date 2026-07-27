@@ -401,3 +401,67 @@ I've written a fresh cold-start handoff so this can be picked up in a new sessio
 without reading the whole evening back. The previous one is marked superseded rather
 than replaced — its landmine list is still the best part of it, and the corrections
 inside it are a record of how we got things wrong, which is worth more than a tidy file.
+
+---
+
+**2026-07-27, evening (later).** The approved plan is now built and committed. Two
+database changes are live; the code half is committed and waiting on the chassis
+image another session was building as I finished, so it will come alive with that
+deploy rather than needing one of its own.
+
+What it does, in one sentence: the council's code index now stores what functions
+actually *do*, not just what they're called.
+
+That sounds small. It isn't. Until today the index held only declarations — a
+function's name, its signature, its doc comment, its file path. So when a reviewer
+asked "does this code anywhere set a stop reason?", the search ran, found nothing,
+and reported nothing found. The reviewer read that as "the code doesn't do that".
+The truth was "we never looked inside any function". The search tool's own
+documentation claimed it searched function bodies, and its own worked example was a
+string that could never have matched. That gap has been there since the tool was
+built.
+
+**Three things in the approved plan turned out to be wrong when I went to build it,
+and all three had been raised as minor objections by reviewers I could have
+dismissed.**
+
+The first two I already knew about and wrote down last night: the migration number
+had been taken by another session, and a verification script had a bad type cast.
+Both fixed.
+
+The third I found this evening, and it's the one that matters. The plan said the
+indexer was "already walking the file, so this needs no new file reading". It
+isn't. It walks a summary — a list of line numbers and names with no source code in
+it at all. The plan's central step was slicing text out of a variable that doesn't
+exist. Twelve reviewers approved it.
+
+It works anyway, but only by luck: the live configuration for that indexer was
+changed some time ago to fetch the repository into its own pod, so there *is* real
+source on disk to read. The version of that configuration stored in our own
+repository still shows the old arrangement — under which every body would have been
+empty, and the feature would have deployed looking finished and doing nothing.
+
+I caught it because the function signature didn't make sense when I opened it to
+write the change, so I went and read the live configuration instead of the file in
+the repo. That is the whole lesson: **our stored setup files are history, the live
+database is the fact.** I've logged it in the fleet-wide wrong-calls file, because
+this is the first time that particular confusion nearly shipped an inert feature
+rather than just a wrong belief.
+
+**One design decision worth knowing about**, because it's counter-intuitive. When
+the indexer can't read a function's source, it stores nothing rather than keeping
+whatever it had last time. Keeping the old copy looks safer and isn't: we have no
+cheap way to tell whether a stored body is still current, because our
+change-detection only covers the declaration — a function can be rewritten
+completely while its signature stays identical, and nothing we record would change.
+So a preserved body could end up describing code that no longer exists, sitting
+next to line numbers that had just been updated. An honest blank beats a
+confident-looking stale answer.
+
+**What's left.** Once the image rolls, I re-run the indexer, confirm the bodies
+actually arrive, and re-check one performance question that can't be answered
+today — the query plan for the new search can only be measured against real text,
+and the column is empty until then. After that, the remaining known gap is that
+markdown is still invisible to every reviewer: our own bug files, the wrong-calls
+log and the design register are all unreadable by the machinery that reviews our
+plans. That needs a separate change and shouldn't be bundled into this one.

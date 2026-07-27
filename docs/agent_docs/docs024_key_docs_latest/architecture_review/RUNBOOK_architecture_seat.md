@@ -208,3 +208,96 @@ grep -c '^### ' docs/agent_docs/docs024_key_docs_latest/016b_debugging_guide_8_c
 
 ~3.3 MB across 124 files against `max_tokens: 8000` — un-inlinable. But `016b` §9
 is one-line dated headings, so the **heading index** is the promptable subset.
+
+## Apply ONE migration in a shared tree (the runner has no single-file mode)
+
+`--apply` applies **every pending file, in order** — which in this tree means
+other sessions' half-finished work as well as yours. There is no `--only` flag.
+The escape hatch is the `MIGRATIONS_DIR` env override: same ledger, same probe,
+same recording, one file.
+
+```bash
+SCRATCH=/tmp/mig_$$; mkdir -p "$SCRATCH"
+cp docs/agent_docs/sql_for_agents/NNN_your_file.sql "$SCRATCH/"
+MIGRATIONS_DIR="$SCRATCH" ./scripts/migration/run-migrations.sh          # dry run + probe
+MIGRATIONS_DIR="$SCRATCH" ./scripts/migration/run-migrations.sh --apply
+```
+
+**Gotcha:** the ledger keys on the *basename*, so this records exactly as a
+normal run would — but a full dry run (no override) is still worth doing first,
+because that is the only thing that shows you your number is taken.
+
+**The number moves under you.** Re-read it immediately before writing the file,
+never from a handoff — 243 was approved as 241 and two sessions took 241 and 242
+in the four hours between approval and implementation:
+
+```bash
+ls docs/agent_docs/sql_for_agents/*.sql | xargs -n1 basename \
+  | grep -oE '^[0-9]+' | sort -n | tail -1
+```
+
+## Verify a guard by making it FIRE, not by reading it
+
+A migration guard that has never refused anything is an untested branch. Run the
+file a second time by hand — it must raise and change nothing:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -v ON_ERROR_STOP=1 \
+  -f - < docs/agent_docs/sql_for_agents/244_code_index_body_doc_notes.sql
+# expect: ERROR: 244: ... already present ...   and the row count unchanged
+```
+
+## Check the code index actually has BODIES (not just rows)
+
+The whole point of D11 layer 1. `total` has always been ~4,535; `bodies` was 0
+until the chassis image carrying `37f7deff9` rolled.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c "
+SELECT count(*) AS total, count(body) AS bodies,
+       round(100.0*count(body)/NULLIF(count(*),0),1) AS pct,
+       max(length(body)) AS biggest_body
+FROM code_symbols;"
+```
+
+Full assertion set, run **before and after** any reindex:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db \
+  -f - < docs/agent_docs/sql_for_agents/243_code_symbols_body_column_VERIFY.sql
+```
+
+**Gotcha that cost a council objection:** the hash check is
+`encode(sha256(convert_to(content,'UTF8')),'hex')`. **Not** `content::bytea` —
+that cast *parses* the text as a bytea literal and errors on the first row.
+
+## Read the LIVE workflow, not the seed, before believing anything about an agent
+
+`118_code_indexer_for_analyser.sql` still shows `request_repo_analysis`; the live
+row has used `analyse_repo_local` for some time, and the difference decides
+whether the indexer can read source at all.
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c "
+SELECT jsonb_pretty(default_config->'workflow'->'steps')
+FROM agent_definitions
+WHERE type='code-indexer' AND is_active
+  AND NOT COALESCE(is_snapshot,false) AND deleted_at IS NULL;"
+```
+
+## Read the travelling-docs trail for the code index
+
+Four rows and counting: the defect (19:38) then the fix (20:15) for each action.
+**Extend it, never start a third subject_key.**
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- \
+  psql -U clients_user -d clients_db -c "
+SELECT subject_key, created_at, body FROM doc_notes
+WHERE subject_key IN ('index_code_symbols','diagnose_code_lookup')
+ORDER BY created_at, subject_key;"
+```
