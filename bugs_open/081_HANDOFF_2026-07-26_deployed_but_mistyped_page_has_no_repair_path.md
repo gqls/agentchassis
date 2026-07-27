@@ -86,6 +86,68 @@ does that site have?"* — answer, zero. Both true, and together they read as "n
 live damage". The question neither asked was *"is there a page already doing the
 job under the wrong type that is **deployed**?"* — and there is, on that very site.
 
+## FINDING 2026-07-27 (bugs thread) — **candidate 2's premise does not survive measurement, and this is the blocker**
+
+I set out to build candidate 2 (a second candidate class for deployed-but-mistyped
+pages, keeping 015's fail-closed authorisation) and stopped, because the predicate it
+needs **cannot be written from the evidence available**. Recording the measurement so
+the next thread does not re-derive it.
+
+**The discriminator I chose, and why.** Not name vocabulary — `bugs_open/044` is exactly
+about that failing on non-English sites, and it is the trap 015 already stepped in. The
+structural, language-independent signal is that the page carries the `news-listing`
+component: that is what a news listing *is*.
+
+**Fleet-wide, `sections @> ["news-listing"] AND page_type <> 'news-index'` returns four
+rows, and one is a false positive:**
+
+| domain | name | page_type | sections | is it the news listing? |
+|---|---|---|---|---|
+| ai-agent-orchestration.com | `news` | `content` | `["hero","news-listing"]` | **yes** — mistyped |
+| idea.uk | `news-index` | `section-index` | `["hero","news-listing"]` | **yes** — mistyped |
+| robot-hands.com | `news-index` | `section-index` | `["news-listing"]` | **yes** — mistyped |
+| robot-hands.com | **`gripper-catalog-index`** | `section-index` | `["news-listing"]` | **NO — it is the catalog index, which embeds a news feed** |
+
+**And the shapes are byte-identical.** `gripper-catalog-index` and `news-index` on the
+same site both hold exactly `["news-listing"]`. So does `webdesign.co.uk/news`, which is
+**correctly** typed `news-index`. There is no section-count, ordering, or composition
+signal that separates them:
+
+```
+robot-hands.com | gripper-catalog-index | section-index | ["news-listing"]   <- NOT news
+robot-hands.com | news-index            | section-index | ["news-listing"]   <- IS news
+webdesign.co.uk | news                  | news-index    | ["news-listing"]   <- IS news, already right
+```
+
+**The site's own config does not resolve it either.** I checked
+`classification.content_features.news_feed` on both affected sites hoping it named the
+intended page; it carries `recommended`, `separate_page`, `source_types`,
+`vertical_keywords` and a `reason` — **no page id, name or URL**. So nothing authoritative
+points at which page is meant to be the news listing.
+
+**What this means for the candidates:**
+
+- **Candidate 2 is blocked, not merely more work.** It needs a discriminator that does
+  not exist yet. Writing the predicate anyway would offer `gripper-catalog-index` to the
+  planner as a re-type candidate, and re-typing the catalog index to `news-index` would
+  point `render_news_section` at the wrong page and break a live, working page. That is a
+  worse outcome than the current silent loop.
+- **The honest options are to CREATE the missing signal**, not to infer it: either record
+  the intended page on `news_feed` config when the page is created, or accept that this
+  is a human judgement and take candidate 3 (detect and route to review) — which is
+  precisely the shape 015's fail-closed model was built for, with a human rather than an
+  LLM choosing.
+- **Candidate 1 remains what this file says it is:** it would repair the instance and
+  hand broad re-type authority to a generic arm.
+
+**This also blocks `bugs_open/080`'s residual.** The settled section-index convention says
+robot-hands should keep `news-index` at `/news/index.html`, re-typed to `news-index`, and
+retire `/news.html` — see 080's correction box. That repair is *decided*; what is missing
+is a mechanism that can identify the page without also selecting the catalog index. Until
+one exists it is a hand-repair, and both rows are deployed and live.
+
+---
+
 ## Fix candidates (none applied)
 
 1. **Add `page_type` to the `new_page` upsert's `DO UPDATE SET`.** One line, and it
