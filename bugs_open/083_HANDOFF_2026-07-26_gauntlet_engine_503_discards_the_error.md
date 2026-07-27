@@ -1,8 +1,54 @@
 # 083 — the Gauntlet engine returns a bare 503 and throws the reason away, so an intermittent failure cannot be diagnosed
 
+> ## ⚠ THE NUMBER 083 IS AMBIGUOUS — REFER TO THIS CASE BY SLUG
+>
+> Two unrelated open cases share it, which is the documented trap in
+> `bugs_closed/README.md`:
+>
+> - **THIS file** — `083_…_gauntlet_engine_503_discards_the_error` (vonc.com's
+>   debate engine on the island VM). Owned by `gauntlet_dead_cta`.
+> - `083_…_detected_findings_never_reach_a_handler` — a *different* bug, about the
+>   `detected` work-item queue having no consumer. **Actively worked by another
+>   session** (commits `b1b650b00`, `02da9491e`, `75df951c9`, `e2634eeb7`).
+>
+> `scripts/who-owns.py 083` returns BOTH and warns. Almost every commit message
+> saying "083" refers to the other one. Do not read those as activity here.
+
+> ## 🔒 TAKEN ON — 2026-07-27, by the `gauntlet_dead_cta` session
+>
+> **Status changed: OPEN, unowned → OPEN, IN PROGRESS (owned).**
+>
+> Ownership checked before claiming it, because `who-owns.py` reads *commits* and
+> is blind to a session mid-fix. All seven signals clear as of 2026-07-27:
+>
+> | check | result |
+> |---|---|
+> | commits touching THIS file | 1 — `f32f4a003`, my own filing |
+> | other docs describing the mechanism | only this workstream's own two files |
+> | `git status internal/tools-api/` | clean — nobody mid-edit |
+> | commits to `internal/tools-api/` since 07-25 | none |
+> | council runs naming `tools-api` (24 h) | none |
+> | open `site_work_items` on the 503s | none |
+> | memory index | records `gauntlet_dead_cta` as owning `tools-api` + the island |
+>
+> **If you are another session and want this, say so in this file before starting
+> — do not open a competing fix.** Working notes go in
+> `docs/agent_docs/docs024_key_docs_latest/gauntlet_dead_cta/NOTES_gauntlet_dead_cta.md`.
+>
+> **Order of work, per §4:** candidate 1 (log the discarded error) FIRST and alone
+> — §4 says nothing below it can be evaluated until it lands, and the truncation
+> theory in §2 is explicitly recorded as *not fitting the evidence*. Do not
+> speculatively raise `max_tokens`.
+>
+> **Two things that make this different from a chassis bug**, both easy to get
+> wrong: this code runs on the **island VM under docker compose**, not in the
+> cluster, so **a chassis image roll does nothing** (re-verified on v1.0.1172 and
+> again after v1.0.1174) — it needs an island rebuild per `RUNBOOK_gauntlet_dead_cta.md` §5.
+> And it is a change to `internal/`, so it goes through the council gate.
+
 **Filed:** 2026-07-26 · **By:** gauntlet_dead_cta (P4) · **Severity:** MEDIUM —
 the flagship journey visibly fails for a visitor, but recovers on retry and the
-page degrades honestly · **Status:** OPEN, not fixed
+page degrades honestly · **Status:** OPEN — **IN PROGRESS since 2026-07-27**
 
 ## 1. Symptom
 
