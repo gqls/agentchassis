@@ -291,3 +291,94 @@ only view the reviewers get, and all three would have cost a round:
 The cheap check behind all three: **build the submission with a script that
 asserts, rather than assembling it by hand and proof-reading.** Proof-reading
 found none of these; three `assert`s found all three in one run.
+
+## 2026-07-27 — council verdict: APPROVED, and what each objection got
+
+**APPROVED, round 1**, corr `a1a5cf20-a70d-48c3-8fda-842d2a91b651`. Decided
+*"approved with 4 advisory objection(s) — none high-severity"*.
+`reviewers: 10, abstained: 6, unreadable: 0` — 10 + 6 = 16 = the live seat count,
+so **every seat is accounted for and no opinion was lost**. (Read `unreadable`,
+not `abstained`: abstentions are the relevance filter working.) Ten seats fired,
+six were filtered out. Approving seats: guidelines, diagnosis_guardian,
+constitution, mission, prior_art_librarian, llm_reliability. Objecting-but-not-
+vetoing: editquality, reuse_agent, guardian, debug_historian.
+
+**Every objection, and what it got. Three changed something.**
+
+1. **reuse_agent (medium) — `geminiConfigInt` may duplicate
+   `datahelpers.GetIntField`, and the plan showed no evidence I checked.** The
+   seat was right that I had not checked. I have now: `GetIntField` exists at
+   `platform/orchestration/datahelpers/data_helpers.go:1560`, and it is **not**
+   applicable, for two reasons now recorded *in the code at the helper*:
+   it returns the **default on an unrecognised type** rather than an error (so
+   `thinking_reserve_tokens: "8192"` — a string, the likeliest hand-editing slip
+   — would silently become the default, which is the silently-ignored-config-key
+   failure this platform has a standing rule against); and it lives in the
+   orchestration layer, so importing it would point a provider-client leaf at
+   orchestration (no cycle today, but the arrow is backwards). **The good outcome
+   is not the answer, it is that the code now carries the check** — the next
+   reader and the next council see it was made.
+
+2. **reuse_agent + prior_art (procedural) — no precedent check, and this file was
+   already the subject of a revert.** Done: two prior council reports mention
+   Gemini (`d35844da` 07-20, `e996bf0a` 07-18) and **both are the imagery lane** —
+   `provider.go`'s routing switch and the `"gemini"` alias, i.e.
+   `internal/adapters/imagegenerator` / `bugs_closed/011`. Neither touches
+   `platform/aiservice/gemini.go` or text generation. So: no prior council pass on
+   this file. That is an answer, not an absence-of-evidence shrug.
+
+3. **guardian (low) — name `estimateCost`'s blast radius rather than assume it.**
+   Done: exactly one consumer, `internal/agents/contentcreator/agent.go:299`, same
+   file. Nothing outside it reads the table or its output.
+
+4. **guardian (missing) — confirm no other `agent_definitions` row is on Gemini.**
+   Done: `SELECT count(*) … provider": "gemini"` → **0**. Risk 6 holds.
+
+5. **editquality + guardian (medium) — `max_tokens` is no longer a hard visible
+   length cap, with no compensating clamp.** The substantive one, and I am **not**
+   fixing it here. Filed as `features_open/025` with the reasoning: a clamp in the
+   provider client would truncate returned text, and the writer sets
+   `output_format: json`, so cutting mid-string yields an unparseable artifact —
+   worse than a long one. And a *character* limit tied to a publishing platform
+   does not belong in an LLM transport: Anthropic has the identical exposure the
+   moment extended thinking is turned on there. The cap belongs in
+   content-creator, on the tweet text, in characters, for every provider. 025 also
+   carries the question guardian asked that I only partly answered: which callers
+   enforce their own truncation, and which rely on `max_tokens`.
+
+6. **llm_reliability (low) — `llm_call_log`'s `output_tokens == max_tokens` CUT
+   heuristic goes quiet for Gemini thinking models.** Disclosed in the submission
+   and in the code, and the seat's real point was ownership: *"should be called out
+   to whoever owns that heuristic/dashboard, not just noted in code comments."*
+   Also in `025`, with two options and a note that the rule is quoted in CLAUDE.md
+   and 016b — a rule that silently means something different per provider is worse
+   than either version of it.
+
+7. **debug_historian (medium) — the plan names no pod-grep deploy verification.**
+   Correct about the *plan*; the step does exist, in `RUNBOOK` §4 (a string this
+   change creates, plus a negative control) and in `bugs_open/107`'s "How to
+   verify". I left it out of the submission, which is the reviewable artifact, so
+   the objection stands as written. Cross-referenced rather than re-invented.
+
+8. **editquality (low) — edits 3/4 are scope creep past the diagnosed mechanism.**
+   Fair, and accepted as a judgement call rather than changed: the retired-pin
+   refusal is what makes the primary fix *reachable at all* (you cannot exercise a
+   reserve against a model that 404s), which the seat itself allowed. The cost-table
+   re-key is genuinely adjacent — it stays because it is three lines and was
+   discovered by the same read, and unbundling it now would cost a round to gain
+   tidiness.
+
+9. **prior_art (low) — "the string 'thinking' appeared nowhere" describes a prior
+   commit's state that the code index cannot see, with no diff/blame attached.**
+   A fair point about *evidence form*. The claim is checkable with
+   `git show 8a2b5dea0~1:platform/aiservice/gemini.go | grep -c thinking` → 0, and
+   the seat noted the conclusion does not hinge on it.
+
+**No `Council-Reviewed:` trailer is possible, and this is a known false negative.**
+The approved code is in `8a2b5dea0`, `f4f2336a3` and `17136ce3c`, all of which
+predate the verdict, and the repo is forward-only — no amends. So the `098`
+coverage report will list them as UNREVIEWED. Same shape as `bugs_closed/011`'s
+round-9 approval, already recorded in `016b` §8.2. The verdict is real and its
+correlation is recorded here, in `bugs_open/107` and in the PLAN; the join is just
+not machine-exact. **A trailer added by a later commit would be worse** — it would
+attach the approval to code the council never saw.

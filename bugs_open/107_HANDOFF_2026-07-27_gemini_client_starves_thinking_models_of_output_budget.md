@@ -1,7 +1,15 @@
 # 107 — The Gemini client starves thinking models of output budget, and the starvation was diagnosed as a model that cannot write
 
-**Filed** 2026-07-27 · **Status** FIXED IN CODE, **INERT until the next image
-roll** — so it stays OPEN · **Owner** `gemini_content_provider` workstream ·
+**Filed** 2026-07-27 · **Status** FIXED IN CODE, **council-APPROVED**, **INERT
+until the next image roll** — so it stays OPEN · **Owner**
+`gemini_content_provider` workstream ·
+**Council** APPROVED round 1, corr `a1a5cf20-a70d-48c3-8fda-842d2a91b651`
+(10 reviewers, 6 filtered, `unreadable: 0`; 4 advisory objections, none
+high-severity). **No `Council-Reviewed:` trailer is possible** — the verdict
+post-dates the commits and the repo is forward-only, so `098` will read
+UNREVIEWED: a known false negative, same shape as `bugs_closed/011` round 9
+(`016b` §8.2). Two objections became `features_open/025`; the rest are answered in
+the workstream NOTES ·
 **Related** `bugs_closed/008` (stop signals undecoded), `bugs_closed/009`
 (root `ai_service` shadowing), `bugs_closed/011` (a capability believed missing
 because one enum routed elsewhere)

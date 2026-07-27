@@ -230,6 +230,19 @@ func NewGeminiClient(ctx context.Context, config map[string]interface{}) (*Gemin
 
 // geminiConfigInt accepts the number shapes an ai_service block can arrive in:
 // JSON config decodes to float64, Go-literal config to int.
+//
+// Why not datahelpers.GetIntField (raised by the council's reuse seat, corr
+// a1a5cf20, and a fair challenge — the check had not been done):
+//   - It returns the DEFAULT on an unrecognised type instead of an error
+//     (data_helpers.go:1560-1568). So `thinking_reserve_tokens: "8192"` — a
+//     string, the likeliest hand-editing slip — would silently become the
+//     default, which is the silently-ignored-config-key failure this platform
+//     has a standing rule against. Every caller here wants the config error.
+//   - It lives in platform/orchestration/datahelpers. Importing that into
+//     platform/aiservice points a provider-client leaf at the orchestration
+//     layer. No import cycle today, but the arrow is backwards.
+//
+// If GetIntField ever grows an error-returning sibling, collapse this into it.
 func geminiConfigInt(raw interface{}) (int, error) {
 	switch v := raw.(type) {
 	case int:
