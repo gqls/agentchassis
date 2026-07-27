@@ -11,10 +11,9 @@ package actions
 
 import (
 	"fmt"
-	"math"
-	"strconv"
 	"strings"
 
+	"github.com/gqls/agentchassis/platform/colour"
 	"go.uber.org/zap"
 )
 
@@ -22,94 +21,40 @@ import (
 // Hex parsing and WCAG luminance
 // ============================================================================
 
+// The formulas below now live in platform/colour so that
+// actions/discovery_checks can use them too — `actions` imports that package,
+// so it can never import back, and a second copy of the WCAG maths is exactly
+// the two-things-that-must-agree drift this codebase keeps paying for
+// (bugs_open/109, bugs_open/113). These wrappers keep the unexported names so
+// no call site in this package had to change.
+
 // parseHexColor handles #rgb, #rrggbb, and #rrggbbaa forms. Alpha is ignored.
 func parseHexColor(hex string) (r, g, b uint8, err error) {
-	hex = strings.TrimPrefix(strings.TrimSpace(hex), "#")
-	switch len(hex) {
-	case 3:
-		hex = string([]byte{hex[0], hex[0], hex[1], hex[1], hex[2], hex[2]})
-	case 6:
-		// already fine
-	case 8:
-		hex = hex[:6]
-	default:
-		return 0, 0, 0, fmt.Errorf("invalid hex color: #%s", hex)
-	}
-
-	rr, err := strconv.ParseUint(hex[0:2], 16, 8)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	gg, err := strconv.ParseUint(hex[2:4], 16, 8)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	bb, err := strconv.ParseUint(hex[4:6], 16, 8)
-	if err != nil {
-		return 0, 0, 0, err
-	}
-	return uint8(rr), uint8(gg), uint8(bb), nil
-}
-
-// sRGBToLinear converts an sRGB channel value (0-255) to linear light.
-func sRGBToLinear(c uint8) float64 {
-	f := float64(c) / 255.0
-	if f <= 0.03928 {
-		return f / 12.92
-	}
-	return math.Pow((f+0.055)/1.055, 2.4)
+	return colour.ParseHex(hex)
 }
 
 // relativeLuminance returns the WCAG relative luminance of an sRGB colour (0..1).
 func relativeLuminance(r, g, b uint8) float64 {
-	return 0.2126*sRGBToLinear(r) + 0.7152*sRGBToLinear(g) + 0.0722*sRGBToLinear(b)
+	return colour.RelativeLuminance(r, g, b)
 }
 
 // wcagContrastRatio returns the WCAG contrast ratio between two hex colours:
 // 1.0 for identical colours, 21.0 for pure black on pure white.
 func wcagContrastRatio(hex1, hex2 string) (float64, error) {
-	r1, g1, b1, err := parseHexColor(hex1)
-	if err != nil {
-		return 0, fmt.Errorf("parse fg color %q: %w", hex1, err)
-	}
-	r2, g2, b2, err := parseHexColor(hex2)
-	if err != nil {
-		return 0, fmt.Errorf("parse bg color %q: %w", hex2, err)
-	}
-	l1 := relativeLuminance(r1, g1, b1)
-	l2 := relativeLuminance(r2, g2, b2)
-	if l1 < l2 {
-		l1, l2 = l2, l1
-	}
-	return (l1 + 0.05) / (l2 + 0.05), nil
+	return colour.ContrastRatio(hex1, hex2)
 }
-
-// ============================================================================
-// Dark classification — self-consistent with the picker
-// ============================================================================
 
 // isDarkHex returns true when white contrasts better than black on the given
-// colour. This is the semantically correct check for "does this background
-// need light-on-dark text overrides?" and is self-consistent with the
-// contrast-based picker. The crossover point sits around #777777, matching
-// intuition.
+// colour — "does this background need light-on-dark text?". Self-consistent
+// with the picker by construction, because both now read one implementation.
 func isDarkHex(hex string) bool {
-	whiteRatio, err := wcagContrastRatio("#ffffff", hex)
-	if err != nil {
-		return false
-	}
-	blackRatio, _ := wcagContrastRatio("#000000", hex)
-	return whiteRatio > blackRatio
+	return colour.IsDark(hex)
 }
 
-// isDarkColor returns true if a hex color has relative luminance < 0.2
-// (perceptually dark).
+// isDarkColor returns true if a hex colour has relative luminance < 0.2.
+// NOT a synonym for isDarkHex; see platform/colour for why they differ.
 func isDarkColor(hex string) bool {
-	r, g, b, err := parseHexColor(hex)
-	if err != nil {
-		return false
-	}
-	return relativeLuminance(r, g, b) < 0.2
+	return colour.IsPerceptuallyDark(hex)
 }
 
 // ============================================================================
