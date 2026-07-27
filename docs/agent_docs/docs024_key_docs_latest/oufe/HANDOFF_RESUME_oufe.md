@@ -1,3 +1,8 @@
+> # SUPERSEDED — 2026-07-27
+> **Start at `HANDOFF_2026-07-27_continue_here.md` instead.** This file's
+> state table describes a site whose case was unwritten and whose tool did
+> not exist. Both are live now. Kept for the record only.
+
 # HANDOFF / RESUME — oufe.com + oxenunity.com
 
 Cold-start entry point for this workstream. Written 2026-07-25.
