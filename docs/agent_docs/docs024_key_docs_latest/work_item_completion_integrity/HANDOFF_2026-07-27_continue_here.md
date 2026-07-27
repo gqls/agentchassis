@@ -78,6 +78,41 @@ against the tree as it exists before it*, and *name the mechanism in the stage g
    owner) → per-stage build gates → PR merge (owner) → seed apply (owner). The owner
    has approved the *spec*, not the *plan*.
 
+## Round 2's plan, and what it will and will NOT fix
+
+It designed the objection out exactly as asked — **a new exported entry point, not a
+signature change**, in its own words:
+
+> *"The existing `ReplaceHardcodedColors` keeps its current signature and behaviour
+> untouched, so the handler and any other existing caller keep compiling and
+> behaving exactly as before. `PartitionByRemit` is extended (not replaced) to
+> additionally consult `DeriveColorVariableMap` … This is the only edit to this file
+> in this stage."*
+
+(That last sentence is migration `222` visibly working — the designer now states the
+rule back.) Symbols: s1 `DeriveColorVariableMap`, `ReplaceHardcodedColorsFromPalette`;
+s2 two new tests; s3 **`(none)`**, correctly — a wiring-only stage that introduces no
+new symbol takes an empty list under the prompt's rule 8.
+
+**Set expectations before anyone reads a shrinking number as a fix.** Matching is
+**exact-string against the site's palette**. finetuning.uk's palette really does
+carry `background: #ffffff` and `background_alt: #f8f9fa` (verified on the site's own
+row, not the column default — I originally cited the default, which would have been a
+different claim). But the residue histogram there is:
+
+```
+#fff ×6   #f8f9fa ×5   #e0e0e0 ×3   #fef2f2 ×2   #ecfdf5 ×1   #eee ×1
+```
+
+`#fff` is **not** `#ffffff` under exact matching, so the single commonest residue
+colour stays out of remit. This feature converts the `#f8f9fa` occurrences and
+nothing else. **That is correct, not a shortfall** — "whether a bare `#fff` is worth
+variabilising at all" is one of the three open questions the spec deliberately posed
+and the plan deliberately declined to answer. The capability gap will SHRINK, not
+close, and the remainder is explicitly parked on owner decisions about `#fff`,
+semantic tints (`#fef2f2`, `#ecfdf5` — no palette entries exist for them) and inline
+`style=""` attributes.
+
 ## Landmines this thread paid for (all filed, none theoretical)
 
 - **`kubectl run -i --rm | kcat -P` silently publishes NOTHING, ~4 times in 5** —
