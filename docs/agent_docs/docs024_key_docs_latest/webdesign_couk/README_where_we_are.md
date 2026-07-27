@@ -478,3 +478,77 @@ serves the traffic goal directly.
 I've argued they should stay as the traffic engine, but with no investment beyond the rewrite.
 I need that either confirmed or corrected, because it's the difference between the practitioner
 half of the rewrite being a proper job or a holding action.
+
+## 27 July, evening — you were right, and the reason it wasn't caught is worse than the bug
+
+**Fixed and live.** Every link on the home page now works. I checked all of them against the
+real site, not the database, and then swept all 99 published pages for the same problem.
+
+**What was actually wrong.** Ten of the thirteen links on the home page were dead. The only
+ones working were the three in the top menu — which is exactly why it survived a look: the
+menu works, so the site feels fine until you click a card.
+
+Two separate problems had stacked up. First, four of the cards pointed at tools **that don't
+exist** — two were real tools under different names, and two were tools nobody has ever built.
+Another four pointed at category pages ("colour tools", "CSS tools") that were never created.
+Second, the links were written in a form our hosting cannot serve: the site lives in a storage
+bucket, and a bucket can't work out that `/tools` means `/tools/index.html` — it needs the full
+address. That second one affects every site we run, not just this one; I checked relojistas,
+robot-hands and gaswholesalers and they all behave the same way.
+
+I also corrected the wording on two cards. One was titled "Spacing scale calculator" and we
+have no such tool. Just repointing it somewhere would have fixed the broken link and left the
+card promising something it doesn't deliver — which is the same problem wearing a disguise. So
+those two cards now describe the tool they actually open.
+
+**One thing I got wrong along the way, worth knowing.** I assumed the site was served from our
+database. It isn't — the pages are published as files into a separate code repository and a
+GitHub action ships them to storage. My copy of that repository was 394 commits out of date and
+appeared to contain no home page at all, which for a moment looked like a much bigger problem
+than it was. So I fixed it in both places and confirmed the deployment ran.
+
+**Now the part that matters more than the bug.** You asked how this got live without being
+checked or flagged, and the honest answer is that the checks exist, are well written, and
+**have never run — on any site.**
+
+We have three checks built specifically for this: dead internal links, dead buttons, and
+misdirected calls-to-action. They're switched on for exactly one automated inspector, and that
+inspector has not run once in the entire period our records cover, for any of our sites. The
+only inspector that has ever run is a different one that looks at design and never looks at
+links. So this site *was* inspected, the day before it went live, by the inspector that doesn't
+check the thing that was broken.
+
+The reason is mundane: the only thing that routinely triggers the link inspector is the
+improvement loop, which you've got switched off, and the only scheduled job pointing at it is
+disabled and was set up for a different site anyway.
+
+**Why this is worse than a missed check.** A site with no link problems reported looks exactly
+the same as a site nobody has looked at. I told you this site was live with all 98 pages
+returning 200, and that was true — but "every page loads" and "the site works" are different
+claims, and I'd only checked the first. I've written it up as its own fault to be fixed
+(`bugs_open/116`) rather than burying it, because a checker that's been improved but never
+scheduled is worth exactly as much as no checker.
+
+Your instinct that the checkers should run after every build or change is, I think, the right
+fix rather than just switching the loop back on. A periodic sweep can only tell you about
+damage after it's shipped; running on every change means "no problems found" would actually
+mean something.
+
+**One thing I stopped myself doing.** My plan said I'd fix the address-format problem in the
+platform code. Before editing I checked who owns that area, and it turns out two other active
+workstreams are working in exactly that file and have already written up their reasoning about
+it — and a third is working the related half. I'd have been shipping a competing fix into three
+people's work. So I've handed them my evidence instead and changed no shared code. I've also
+logged the process mistake: I ran the ownership check *after* writing the plan rather than
+before, and it takes under a second.
+
+**Two things left over.** The favicon is missing on all 98 pages — it's a genuine small 404 on
+every page, but none of our sites has one and picking a brand mark is your call, not something I
+should invent. And the home page currently has two near-identical "What's here" sections with
+overlapping cards; that's a design question rather than a bug, but you'll notice it now that
+the links work.
+
+**And the honest caveat.** I repaired the stored page and the published file. Nothing upstream
+changed, so if that page is ever regenerated it will come back broken. The home page is sound
+today; the site is not yet sound as a rule. That's what `bugs_open/116` and the other two open
+cases are for.
