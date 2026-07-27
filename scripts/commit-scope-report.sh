@@ -27,6 +27,50 @@ files=$(git diff --cached --name-only --diff-filter=ACMRD 2>/dev/null | grep . |
 [ -z "$files" ] && exit 0
 
 n=$(printf '%s\n' "$files" | wc -l | tr -d ' ')
+
+# ── ARCHITECTURE SIGNAL (advisory, added 2026-07-27) ────────────────────────
+# Fires the architecture-review track's own trigger test mechanically, because
+# nothing else fires it: RFC_001 was written AFTER its code was already running
+# in production. Test source: architecture_review/PROCESS_architecture_review.md.
+# Runs BEFORE the single-file early-exit below — an architecture change can be
+# one file (coordinator.go is the most-deflected site we have).
+# Never blocks. Prints, at most, three lines.
+arch_hits=""
+
+# (1) coordinated edits across >=3 top-level platform/* packages
+plat_pkgs=$(printf '%s\n' "$files" | sed -n 's|^\(platform/[^/]*\)/.*|\1|p' | sort -u)
+np=$(printf '%s\n' "$plat_pkgs" | grep -c . || true)
+[ "$np" -ge 3 ] && arch_hits="${arch_hits}${np} platform packages at once ($(printf '%s\n' "$plat_pkgs" | paste -sd, - | sed 's/,/, /g'))
+"
+
+# (2) an exported Go symbol removed or its signature changed
+exported_gone=$(git diff --cached -U0 -- '*.go' 2>/dev/null \
+  | grep -E '^-(func|type|const|var) [A-Z]|^-func \([^)]*\) [A-Z]' | head -4 || true)
+[ -n "$exported_gone" ] && arch_hits="${arch_hits}exported symbol removed/changed — $(printf '%s' "$exported_gone" | wc -l | tr -d ' ') line(s), e.g. $(printf '%s\n' "$exported_gone" | head -1 | cut -c1-72)
+"
+
+# (3) a migration shipping alongside platform code — schema+binary in one step
+#     is exactly the "cannot both fit in one deploy step" condition.
+has_mig=$(printf '%s\n' "$files" | grep -cE '(^|/)migrations?/|\.sql$' || true)
+has_plat=$(printf '%s\n' "$files" | grep -c '^platform/' || true)
+{ [ "$has_mig" -gt 0 ] && [ "$has_plat" -gt 0 ]; } && arch_hits="${arch_hits}migration + platform code in one commit — needs a staged rollout order
+"
+
+# (4) the sites D5 measured as repeatedly deflected upward (2026-07-27):
+#     ProcessResponse x6 submissions in 7 days, spawn_actions x4, kafka lane x2.
+ossified=$(printf '%s\n' "$files" | grep -E 'platform/orchestration/coordinator\.go|platform/orchestration/actions/spawn_actions\.go|^platform/kafka/' || true)
+[ -n "$ossified" ] && arch_hits="${arch_hits}touches a known-ossified core site — $(printf '%s\n' "$ossified" | paste -sd, - | sed 's/,/, /g')
+"
+
+if [ -n "$arch_hits" ]; then
+  printf '\n\033[1;36m── architecture signal ──\033[0m\n'
+  printf '%s' "$arch_hits" | sed 's/^/   • /'
+  printf '   \033[2m↳ this meets the RFC trigger test. If it is a point fix, carry on.\033[0m\n'
+  printf '   \033[2m  If it changes a shared contract, write an RFC first:\033[0m\n'
+  printf '   \033[2m  docs/agent_docs/docs024_key_docs_latest/architecture_review/PROCESS_architecture_review.md\033[0m\n'
+fi
+# ── end architecture signal ─────────────────────────────────────────────────
+
 # A single-file commit has nothing to scan for passengers.
 [ "$n" -le 1 ] && exit 0
 
