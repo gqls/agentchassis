@@ -7403,3 +7403,58 @@ forward, third-ish instance. And an argument for the council that is not about c
 
 Family: a-zero-ages-worse-than-any-other-figure, figure-carried-forward-from-prose,
 the-half-life-of-a-count-is-set-by-what-produces-it.
+
+---
+
+## 2026-07-27 — idea.uk: I nearly reported a pass from a test that could not have failed
+
+**The call.** After one full engine run I checked the deployed report for the three copy
+defects fixed on 07-26. All three absent, every format marker present. I was one sentence
+away from writing "the copy fixes are proven in a rendered artefact."
+
+**Why it was wrong.** Two of the three **could not have appeared in that run whatever the
+code did**:
+
+- the doubled full stop fires only when the *submitted text itself* ends in a full stop and
+  the template appends a second — **I wrote the submission, and it didn't end in one**;
+- the malformed score line lives in a block that never rendered, because the run hit
+  `NO FURTHER IDEA CLEARED THE BAR` and nothing was scored. The fix marker
+  `(each out of 5)` was absent for the same reason — which I first read as a *second*
+  finding rather than as the same absence twice.
+
+Checking for a defect in a section that does not exist is not a check. The fixes remain
+**unproven in a rendered artefact**; settling it needs a submission ending in a full stop
+that is strong enough for at least one idea to clear the bar.
+
+**What caught it.** Reading the artefact's structure instead of stopping at the grep
+result. The `(each out of 5)` marker coming back `False` was the thread to pull: a *fix*
+marker missing alongside all *defect* markers missing is incoherent unless the whole
+section is gone. Had every marker agreed, I would have shipped the false claim.
+
+**The cheap check, and why this one is different.** The standing rule is *verify the
+failing branch* — third instance on this workstream. But the previous two were code paths I
+controlled. **Here the failing branch is a property of the INPUT**, and I chose the input,
+so I had authored a test that could not fail without noticing. The check is one question,
+asked before reading the result, not after: **"could this input have produced the bug?"**
+If the answer isn't a confident yes, the run is not a test of the fix, whatever it prints.
+
+Corollary worth keeping: **when a fix marker and its defect marker are both absent, suspect
+the section, not the fix.** Two markers disagreeing about whether a feature exists is
+structural evidence, and it is cheaper to read than a re-run.
+
+**Second, smaller call in the same sitting — a landmine I had already written down.** My
+deploy script ran `set -e` with a `grep -ac …` **negative control** in the verification tail.
+The control did its job — zero matches in the rollback binary — `grep` exited 1, and `set -e`
+killed the script mid-verification. The deploy itself had already succeeded, so for a moment
+it read as a failed deploy. This is the same family as the recorded `printf | grep -q` under
+`pipefail` trap: **a grep asserting absence exits non-zero on success**, so it must never sit
+inside `set -e`/`pipefail` unguarded. Cheap check: **capture greps into `$(…)` and print
+them, or append `|| true`** — never let an intentional zero-match terminate the run that is
+checking for it.
+
+**Tally.** *Could this input have produced the bug?* — new, and the sharper form of
+verify-the-failing-branch for input-driven faults. *A grep that asserts absence fails under
+`set -e`* — recurrence, second instance, and the first was already in memory when I did it.
+
+Family: verify-the-failing-branch, a-green-result-from-an-input-that-cannot-fail,
+absence-assertions-exit-non-zero.
