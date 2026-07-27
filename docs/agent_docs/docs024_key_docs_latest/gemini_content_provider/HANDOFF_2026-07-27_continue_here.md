@@ -1,7 +1,10 @@
 # HANDOFF — Gemini content provider, continue here (2026-07-27)
 
 **Read this first, then `PLAN` for the why and `RUNBOOK` for the commands.**
-Bug case: `bugs_open/107`. Follow-ups: `features_open/025`.
+Bug cases: **`bugs_open/107`** (the starvation fix) and **`bugs_open/110`** (a
+regression the 107 fix introduced into `llm_call_log` — candidate 1 applied, inert
+until the next roll). Follow-up: `features_open/025` (item (a) only; item (b) was
+superseded by 110).
 
 ---
 
@@ -13,9 +16,11 @@ verdict measured **our own starved token budget**: Gemini's `maxOutputTokens` is
 *total* output ceiling with thinking spent from it first, while Anthropic's
 `max_tokens` (thinking off) is all visible text, and our client passed the
 Anthropic-sized number straight through. The client is fixed, council-APPROVED,
-shipped in **v1.0.1173**, and **content-creator is live on `gemini-pro-latest` and
-proven on two real generations**. One thing is left: flipping
-`page-content-writer`, which needs a live DB write my tooling refused.
+shipped in **v1.0.1173**, and **BOTH agents are now live on `gemini-pro-latest`** —
+content-creator proven on two real generations, the writer proven on its real prompt
+returning valid JSON. One thing is left, and it needs a decision rather than a
+command: **rebuild one real page and read the copy**, on a target the owner
+nominates.
 
 ## State
 
@@ -114,8 +119,8 @@ Measured against the live key, 2026-07-27, `gemini-pro-latest`
 if prompts grow materially — thinking scales with prompt complexity, it is not a
 constant.
 
-- Real 12,570-char writer prompt: thinking **2,764–2,878** tokens. Hence 8192
-  (~3x headroom).
+- Real 12,570-char writer prompt: thinking **1,576** tokens with genuine material,
+  **2,764–2,878** with stub placeholders. Hence 8192 (3–5x headroom).
 - Trivial prompt: thinking 786–1,145.
 - **Thinking expands to fill a small ceiling**: at `maxOutputTokens=100` it spent
   92 and left 4 tokens of text. That is the 07-24 failure, reproduced exactly.
