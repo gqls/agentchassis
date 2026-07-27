@@ -7916,3 +7916,77 @@ in this file get written.
 
 Family: the-check-with-no-failing-branch (again, and this time in the guard against it),
 sample-the-boundary-not-the-extremes.
+
+---
+
+## 2026-07-27 — "extract a shared slicer" — proposing to create a function that already existed, in a plan whose own subject was unchecked absence claims
+
+**The claim, written into a council submission (round 2) as the fix for a reuse
+objection:** that `internal/analysis` needed a shared line-slicing primitive
+*extracted* from `ReadSymbolBody`, so the indexer and the on-demand reader would stop
+being two hand-synced implementations. I specified
+`func SliceLines(lines []string, startLine, endLine int) string` as new work, and
+cited `symbolbody.go`'s header asking for "the ONE slicer" as support.
+
+**It already existed.** `internal/analysis/symbolbody.go:133`:
+`func sliceLines(src []byte, start, end int) (string, error)` — unexported, and
+`ReadSymbolBody` already calls it. The correct edit was two lines (export it, keep an
+alias), not an extraction. I had cited that file **twice**, by line number, in two
+consecutive rounds.
+
+**Caught by:** `prior_art_librarian`, whose entire charter is "does it propose
+BUILDING something that already exists" — and which was answering `code_checks` for
+the first time that evening **because I had added it to `code_check_fields` an hour
+earlier**. The seat I had just wired up caught me proposing to build a thing we had.
+
+**The cheap check that would have caught it:** `grep -n "func.*[Ss]lice" internal/analysis/*.go`
+— one command against the very file I was citing. **Citing a file's line numbers is
+not reading it**; I quoted `:31` and `:133` was forty lines further down. Note also
+that the code index could not have helped here even if consulted: it holds
+declarations only, so a `content` search would have returned nothing — the same
+defect this plan exists to fix, shielding the error from the tool meant to catch it.
+
+**Cost:** none realised — caught in review, and the resulting edit is smaller and
+strictly better. The irony is the finding: a plan about unchecked absence claims,
+containing an unchecked absence claim, in a codebase whose absence-checking index is
+broken in the way the plan was written to repair.
+
+Family: proposed-building-what-already-existed,
+cited-the-file-without-reading-it, the-seat-i-had-just-wired-caught-me,
+the-broken-tool-would-not-have-saved-me.
+
+---
+
+## 2026-07-27 — "86 of 92 live migrations carry their own BEGIN/COMMIT" — a precise figure lifted from a code comment and presented as measurement
+
+**The claim, written into a council submission and used to justify a design choice:**
+that the migration should carry its own `BEGIN/COMMIT` because "86 of 92 live
+migrations" do. It reads as a census. It sounds checked. It has a denominator.
+
+**I never counted anything.** The figure is quoted from a **comment inside
+`run-migrations.sh`** (`:132`), written by someone else at some earlier date, and I
+repeated it in my own voice. Measured properly: **263** migration files (excluding
+UPPERCASE sidecars), **173** containing `BEGIN` — **66%, not 93%**, against a
+denominator nearly three times larger. The conclusion it supported happens to survive
+(carrying `BEGIN/COMMIT` is still the majority convention and what the dry-run probe
+expects), which is luck rather than method.
+
+**Caught by:** `prior_art_librarian`, flagging it as "precise-sounding but
+self-reported, not council-verified", and by this council's standing rule that
+rationale-reported numbers get an attached check rather than trust.
+
+**The cheap check that would have caught it:** two `ls | wc -l` commands, which took
+about fifteen seconds when I finally ran them. Generally: **a number carried out of a
+comment inherits that comment's date and none of its provenance.** A comment is a
+claim someone made once about a corpus that has since grown — here, by 171 files. If
+a figure is load-bearing enough to put in a rationale, it is cheap enough to re-count;
+if it isn't worth re-counting, it isn't worth citing.
+
+**Cost:** none realised. But this is the *third* entry today in the same family — a
+stale-or-borrowed figure repeated in my own voice — after the "6 of 90" metric and the
+"3 of 87" baseline. The tally is the point: this is now a check worth making reflexive
+rather than a lesson worth learning again.
+
+Family: number-lifted-from-a-comment-and-voiced-as-measurement,
+a-comments-figure-inherits-its-date-not-its-provenance,
+precise-sounding-is-not-checked, third-in-this-family-today.
