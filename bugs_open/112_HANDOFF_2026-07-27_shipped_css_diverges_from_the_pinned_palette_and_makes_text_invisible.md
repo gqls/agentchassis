@@ -1,4 +1,4 @@
-# 110 — the shipped CSS diverges from the site's pinned palette, and the divergence makes text invisible
+# 112 — the shipped CSS diverges from the site's pinned palette, and the divergence makes text invisible
 
 **Filed:** 2026-07-27 by the brochure_component_library workstream, after the owner
 looked at fundamentallyai.com on mobile and reported unreadable grey text, a missing
