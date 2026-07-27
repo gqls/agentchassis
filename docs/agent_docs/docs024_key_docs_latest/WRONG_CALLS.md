@@ -38,7 +38,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | measure a property before describing it | 1 |
 | **record the CLOCK beside a reading, never infer it afterwards** | **2** |
 | **run a census against a known-positive control before reporting the count** | **1** |
-| **look at the real values before designing for the assumed ones** | **4** |
+| **look at the real values before designing for the assumed ones** | **5** |
+| **follow the value across EVERY hop before sizing a fix — a struct→map→struct conversion is a hop, and a defect that fully explains the symptom can still be one of three** | **1** |
 | **read the SCHEMA before naming a column — a Go map key is not a column, and a CHECK constraint's allowed set is not guessable from the column name** | **3** |
 | **enumerate the SIBLING instances before quantifying — "generic"/"fleet-wide"/"the listings all X" needs a count, in EITHER direction: a defect that generalises, or a safeguard that does** | **2** |
 | **verify a control by what the USER perceives, not that the handler fired — an invisible-in-context effect is a dead control** | **1** |
@@ -6135,3 +6136,119 @@ empty relative to the checks you ran.
 
 Family: the-check-with-no-failing-branch, the-proxy-rewrote-what-you-grepped-for,
 a-landmine-read-is-not-a-landmine-heeded.
+
+---
+
+## 2026-07-27 — I filed a bug saying "the fix is one line". It was three, and the two I missed were on the same journey as the one I found
+
+**Where:** `bugs_open/085`, filed by me on 2026-07-26 — twice in the file ("the fix
+is one line", "Fix candidate (one line, plus a test)"), and carried into the
+workstream handoff as *"restoring the capabilities placement is a one-line Go
+change"*.
+
+**The claim:** `BuildRenderContextAction` never assigns `CurrentPage`, therefore
+assigning it there fixes the empty `current_page` every section component sees.
+
+**Why it is false:** the value makes five hops between the workflow config that
+supplies it and the template that reads it, and it was dropped at three of them.
+Besides the missing assignment, `renderCtxToMap` **does not emit the key at all**
+(so a correctly-set struct field never crosses the step boundary into
+`collected_data`), and `mergeIntoRenderContext` does not restore it on the render
+side. Shipping only my one-liner would have changed nothing visible, and would have
+looked like a diagnosis that was simply wrong.
+
+**How I got there:** I read the producer, found a real defect in it, and stopped. The
+symptom was fully explained by what I had found — which is exactly the condition under
+which you stop looking. The other two hops are `struct → map → struct` conversions, and
+those do not read as hops; a serialiser omitting one of twenty fields looks like the
+field is not wanted, and a catch-all that copies every key looks like it catches all.
+
+**What caught it:** querying the **serialised** context instead of trusting the struct.
+`collected_data->'render_context' ? 'current_page'` returns **false** on every
+page-content-writer run — key *absent*, with `domain` and `company_name` populated
+alongside as the positive control. Absent, not empty, is what points at the serialiser.
+
+**The cheap check that would have caught it:** **before sizing a fix, list every hop the
+value makes and check each one.** Thirty seconds of `grep -n current_page` across the
+package would have shown `renderCtxToMap` had no such key. I ran that grep — on the
+first day — and read it as "the field exists in two template-data maps, good, the
+contract is real". I was looking for whether the field was *advertised*, not for where
+it was *lost*, and the same output answers both questions differently.
+
+**Second miss in the same file, same shape:** the fix candidate I wrote read
+`input_data.current_page.name`. The live envelopes use `name` on the page-content-writer
+payload and `page_name` on the rerender and page-build ones. I took the key from the
+`pages` table's column, not from the payload — but the envelope is assembled by workflow
+config, so the struct is not its contract. Had someone applied my candidate to the
+rerender path it would have silently resolved to empty: the bug's own failure mode,
+reproduced by its own fix.
+
+**Cost:** none realised — I found it while implementing, before anything shipped. The
+exposure is that the "one line" figure sat in a bug file and a handoff for a day, and
+sizing is exactly what another thread reads a bug file *for*. A fix advertised as
+one line is a fix somebody picks up in the gaps between other work.
+
+**Tally:** one new row — *follow the value across every hop before sizing a fix*.
+Related but distinct from "read the code before asserting a mechanism" (I did read it),
+and from "look at the real values, not the name" (which the `.name`/`page_name` miss
+does belong to — that one 5→6).
+
+Family: the-defect-that-is-fully-explained-and-still-incomplete,
+a-conversion-is-a-hop, the-fix-that-reproduces-the-bug.
+
+---
+
+## 2026-07-27 — "the council verdict is still queued" (it had been dead for 14 hours)
+
+**The claim.** Reporting P2a to the owner I wrote: *"Council gate submitted — corr
+`f4610451-…`, still queued (lane depth 5, down from 8; the usual wait is around half an
+hour)."* And in the workstream NOTES: *"Verdict pending; queue depth was 8 at submission."*
+
+**What was true.** The run had failed at **22:36 the previous night**, ~14 hours before I
+described it as queued:
+
+```
+current_step = review_editquality | status = FAILED
+error = 'reaper: stale EXECUTING_STEP for >4h; step=review_editquality'
+```
+
+**What I actually checked, and why it misled me.** I polled the run and got `(0 rows)`, then
+checked the *lane* and saw the depth falling, 8 → 5. Both observations were real. Neither was
+about my run. I had a documented rule for exactly this — *a missing orchestration row is almost
+always latency, not a dropped dispatch; do not retry on that evidence* — and I applied it past
+its warrant. That rule tells you not to conclude **failure** from absence. I used it to conclude
+**progress** from absence, which it does not license. A falling queue depth is evidence that the
+lane drains; it is not evidence that *my* item is in it.
+
+**The cheap check.** One query, and I had already written it into the runbook:
+
+```sql
+SELECT current_step, status, error FROM orchestration_states
+WHERE collected_data->'input_data'->>'fix_correlation_id' = '<CORR>';
+```
+
+I ran a *narrower* version of this — selecting `current_step, status` and **not `error`** — and
+even then only while the row was genuinely absent. The row appeared later and I never re-read it;
+I re-derived the state from the queue instead. **Selecting fewer columns than the question needs
+turns a decisive query into a suggestive one.**
+
+**The deeper miss: I was watching for two outcomes when there are three.** APPROVED / REVISE /
+REJECTED are verdicts. A run can also *end without deciding anything* — reaped as a stale step,
+leaving a `FAILED` row with no objections, no reviewers, nothing to act on. Nothing in my polling
+loop could have distinguished "still thinking" from "died four hours ago", because I was only
+ever asking *has the verdict arrived yet*. **A poll that can only detect success will report
+failure as patience, indefinitely.** It was not rare, either: eight runs were reaped that day,
+across six different steps.
+
+**Cost.** Real but bounded: the owner was told to expect a verdict that could never arrive, and
+~14 hours of wall-clock were spent not-resubmitting. Nothing was built on the false belief.
+Caught by reading `error` when the run finally showed a status I did not expect.
+
+**Tally.** *Read the row, not the surroundings* — a new row, and the second time this month I
+have inferred an item's state from an aggregate over the queue containing it rather than from the
+item. Distinct from "grep the config key before calling it a win" (there the check was skipped
+entirely); here the check was **run in a weakened form and then superseded by an inference**,
+which is harder to notice because the transcript shows a query.
+
+Family: absence-is-not-evidence-in-either-direction, the-poll-that-cannot-see-failure,
+a-narrow-projection-defines-the-answer.
