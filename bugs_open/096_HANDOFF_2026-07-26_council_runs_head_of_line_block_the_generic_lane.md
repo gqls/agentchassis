@@ -178,3 +178,40 @@ Publish a council submission and, while it runs, publish a page re-render. The
 re-render must start within seconds. Measure with consumer-group lag, and record
 both timestamps — a single fast run proves nothing unless a long one was
 genuinely in flight at the same time.
+
+## Fourth, fifth and sixth instances — 2026-07-27, all in one working session
+
+Contributed from the oufe.com workstream. No fix attempted; this is frequency
+evidence, which the file previously lacked.
+
+Blocked on 2026-07-27 while doing ordinary site work: three page re-renders, a
+tool-page render (twice), and a `grounded-explainer` research run. Each sat with
+**no `orchestration_states` row at all** while the lane ran councils, and lag
+climbed 5 → 8 → 9 → 11 across the afternoon. Head of line, read from the topic:
+
+```
+offset 105214  council-gate   (bugs_open/043 candidates)
+offset 105335  council-gate   ("HONEST FRAMING FIRST: this change is already committed…")
+in flight      9cd19dba  EXECUTING_STEP  review_debug_historian
+```
+
+**What this adds to the case.** The file already establishes the mechanism and
+the latency. What it did not have is how often a normal working session runs into
+it: **six blocked dispatches in one afternoon, on a day when nothing unusual was
+happening.** The estate simply followed its own norm of putting changes through
+the council, and ordinary content work queued behind it each time.
+
+The practical cost is not the wait. It is that a queued dispatch and a dropped one
+look identical for the first several minutes, so the temptation each time is to
+re-fire — which is the one action that makes it worse, and which this file already
+warns against. On this day the warning held only because the same person had
+written it the day before.
+
+**This also lands on a user-visible outcome**, which the earlier instances did
+not. The owner asked why he could not find any tools on oufe.com. The tool page
+existed, its render was correct, and it stayed 404 for the rest of the session
+because the lane was busy. "Nothing is broken and the page is not there" is the
+shape of this bug seen from outside.
+
+Candidate 1 (an `EXTRA_REQUEST_TOPICS` lane for council/diagnosis dispatches,
+exactly as 030 did for cron) remains unapplied. It is config.
