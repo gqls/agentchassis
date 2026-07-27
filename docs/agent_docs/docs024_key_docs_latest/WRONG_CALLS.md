@@ -6499,3 +6499,54 @@ would only have appeared at P6.
 Family: writes-the-field-is-not-reads-the-field,
 column-names-from-memory-of-my-own-field-names,
 the-fix-reproduced-the-defect-it-fixed.
+
+---
+
+## 2026-07-27 — "the deploy never syncs the rows" — I read the target list and the first 100 lines of the recipe, and stopped (bugs_open/066)
+
+**The claim, written into a plan the owner then made a decision on:** that
+`make deploy-agents` never touches `agent_definitions`, that the deploy-time
+sync existed in this repo three times and was *"wired into the roll zero
+times"*, and that the fix therefore had to **add** one. I put that in a table
+of five copies of the tag, with live values against each, and offered it to the
+owner as the evidence for choosing between routes.
+
+**It was false.** `deploy-agents` calls `update-agent-images-v2` at
+`makefile:1028` and always has; that target runs
+`UPDATE agent_definitions SET image_repository = …, image_tag = …`.
+`deploy-100-bootstrap-agents` syncs too. The rows still went four tags stale on
+2026-07-24 — which turned out to be a **better** finding than the one I claimed,
+because it says the sync fails as a *class* (it is a property of one deploy
+path, not of the system) rather than that someone forgot to wire a target.
+
+**Caught by:** going to edit the tail of the `deploy-agents` recipe and reading
+what was already there — 111 lines below the target header, past ~20
+near-identical `kubectl apply -k` blocks. Nothing prompted it; I would have
+committed the wrong premise otherwise.
+
+**The cheap check that would have caught it:** `grep -n "agent_definitions" makefile`
+— one command, which I did run, **after**. What I had run instead was
+`grep -n "IMAGE_TAG\|image_tag\|deploy-agents" makefile`, whose output is
+dominated by 40 `newTag:` sed lines, and `sed -n '917,1010p'` on a recipe that
+runs to 1035. **A long recipe is a file, not a line** — either read it whole or
+grep for the *effect* you are claiming is absent (the table name), never for the
+variable you happen to be tracing.
+
+**Why the shape is familiar:** this is
+[[narrow-filter-defines-the-conclusion]] again, and I have the landmine in
+memory. The filter was taken from the question — I was tracing `IMAGE_TAG`, so
+I grepped `IMAGE_TAG` — and the answer that came back was confident and about a
+small world, and did not reveal the world was small. Grepping the **object of
+the claim** (`agent_definitions`) rather than the **subject of my search**
+(`IMAGE_TAG`) is the whole difference.
+
+**Cost:** one owner decision taken on a false premise (they chose "both halves",
+which the correction did not change) and half 2 rewritten from *add a sync* to
+*consolidate five unscoped ones*. The corrected half is strictly better — it
+found that every existing copy ran `WHERE 1=1`, clobbering `is_snapshot`
+rollback rows: 183 rows hit where 180 is correct. Recorded as a visible
+correction in `bugs_open/066` at the site of the original claim, and in the
+commit message that carries the fix.
+
+Family: narrow-filter-defines-the-conclusion, absence-claimed-from-a-partial-read,
+the-truth-was-a-better-finding-than-the-claim.

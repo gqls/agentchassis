@@ -33,6 +33,28 @@ WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
 -- every row should be the tag now on the agent-chassis Deployment
 ```
 
+> **CORRECTED 2026-07-27 (bugfix-066 thread) — use `scripts/check-agent-image-drift.sh`
+> instead, and read this census differently.** 066 is fixed in code (`c0d7c3a71`) but
+> **INERT until a chassis roll past v1.0.1174**, so:
+> - **Until the roll:** the instruction above stands exactly as written.
+> - **After the roll:** the spawn path takes its image from the RUNNING chassis pod
+>   (`platform/orchestration/actions/agent_image.go`), so this census stops being an
+>   exposure measure — a stale row is then a bookkeeping defect, not a stale pod, and
+>   reading it as exposure will produce false alarms where it used to produce false comfort.
+> - **The check that tells them apart** is `scripts/check-agent-image-drift.sh` (or
+>   `make check-agent-image-drift`): it prints what the Deployment runs, what the rows say,
+>   and what spawned pods are actually running, as three separate answers.
+> - **Confirm which world you are in** before trusting either, with a pod-grep of a string
+>   the fix created:
+>   `strings /app/agent-chassis | grep -c "bugs_open/066: agent_definitions.image_tag trails"`
+>
+> Also corrected: this workstream's `[INFERRED]` note that the sync lives only in
+> `deploy-100-bootstrap-agents` (`makefile:518`) and *not* in `deploy-agents`. It is in
+> **both** — `deploy-agents` calls `update-agent-images-v2` at `makefile:1028`. The
+> inference was correctly marked `[INFERRED]`, and marking it is what made it cheap to
+> falsify; the rows went stale anyway, for a different and better reason (a sync is a
+> property of one deploy *path*, not of the system). See `bugs_open/066` and `WRONG_CALLS.md`.
+
 ## A1 — build + deploy the chassis image ☑ DONE (via v1.0.1132)
 
 v1.0.1131 was built from committed HEAD (`c19b5d097`) and pushed; a

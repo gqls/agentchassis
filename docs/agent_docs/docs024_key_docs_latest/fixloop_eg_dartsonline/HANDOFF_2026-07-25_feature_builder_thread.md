@@ -121,6 +121,17 @@ But the bug is *not* fixed: the `UPDATE agent_definitions SET image_tag` lives i
 the `deploy-100-bootstrap-agents` target (`makefile:518`), **not** in
 `deploy-agents`. `[INFERRED]` — whoever rolled 1158 happened to run a target that
 syncs. **Re-run the census before any implementer fire**, don't assume:
+
+> **CORRECTED 2026-07-27 (bugfix-066 thread): the `[INFERRED]` half is FALSE.** The UPDATE
+> is in **both** targets — `deploy-agents` calls `update-agent-images-v2` at `makefile:1028`.
+> So "whoever rolled 1158 happened to run a target that syncs" is not the explanation;
+> the ordinary roll path syncs. The rows went four tags stale on 07-24 anyway, and the real
+> reason is better: **a deploy-time sync is a property of one deploy PATH, not of the
+> system** — `kubectl apply -k`, `kubectl set image` and `rollout undo` all move the cluster
+> without it. Marking the claim `[INFERRED]` is what made it cheap to falsify — this is the
+> marker earning its place, not a criticism of the note. 066 is now fixed in code
+> (`c0d7c3a71`, INERT until a roll past v1.0.1174); the census below is superseded by
+> `scripts/check-agent-image-drift.sh` — see the correction in `RUNBOOK_feature_builder.md`.
 ```sql
 SELECT COALESCE(image_tag,'(null)') tag, count(*) FROM agent_definitions
 WHERE is_active AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
