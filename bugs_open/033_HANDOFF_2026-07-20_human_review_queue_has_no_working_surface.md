@@ -847,3 +847,58 @@ FROM orchestration_states WHERE orchestration_id='<orch>';
 
 An empty result from the printed query looks exactly like "the sweep did nothing",
 which is the same false-negative shape this bug is otherwise about.
+
+### FULL-QUEUE DRY RUN — the drain works, and the seed's estimate was right
+
+Orchestration `668f9e39-189d-452c-b052-80bfd9aa640d`, `max_items` raised 50 → 500
+(snapshot `4242a5c0` taken first; `dry_run` left **true** and re-verified after the
+write — `{"dry_run": true, "max_items": 500}`). Completed 19:18 UTC.
+
+```
+scanned      382      (capped_at 500 — the whole queue, nothing truncated)
+resolved      57
+still_holds   30
+unknown      295
+closed         0      (dry_run — nothing written)
+```
+
+**57 resolved against the seed's predicted "roughly 51".** The estimate holds.
+
+> **CORRECTION to the section above.** I wrote that the first run's "2 resolved of
+> 50" could not be extrapolated. That was right, but understated: the true figure
+> is not merely different, it is **28× larger**, and the reason is worth keeping.
+
+**The first run sampled the drain's single worst type and nothing else.** Verdicts
+by covered type, whole queue:
+
+| item_type | resolved | still_holds | unknown | total | judged |
+|---|---|---|---|---|---|
+| `unresolved_cta` | **44** | 26 | **0** | 70 | **100%** |
+| `required_fields_missing` | 11 | 2 | 32 | 45 | 29% |
+| `needs_section_data` | 2 | 2 | 40 | 44 | **9%** |
+| **covered total** | **57** | **30** | **72** | **159** | 55% |
+
+`unresolved_cta` is where the drain earns its keep — **70 of 70 judged, zero
+unknown, 44 closable**. `needs_section_data` is its weakest — 40 of 44 unknown.
+The oldest-50 batch was `needs_section_data`-heavy and contained **no
+`unresolved_cta` at all**, so the first run measured the 9% type and missed the
+100% one entirely.
+
+Why the 72 covered-but-unjudged: `component has no content_data` 32,
+`no deployed component matches` 25, `spec.missing names no fields` 15. These are
+the real coverage gap inside the covered types — a revalidator limit, not a
+reporting one.
+
+**What a live run would do:** close **57** items (15% of 382), leaving 325. The
+sample `resolved` reasons are the ghost class the drain was built for — *"every
+field this item reports missing (`cta_url`, `secondary_cta_url`) is populated on
+the deployed component"*.
+
+**Uncovered: 223 items across 20 types**, honestly reported in `uncovered_types`.
+The largest is `cta_names_unknown_destination` (70), excluded on purpose because
+`cta_link_integrity` owns it — so 57 closable of 159 covered is the fair
+denominator, not 57 of 382.
+
+**Still not flipped to live.** `dry_run` remains `true` and that decision stays
+with `review_queue_drain` / the owner. Everything above is a dry-run projection;
+`closed = 0` and no `site_work_items` row has been touched.
