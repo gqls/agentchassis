@@ -1,4 +1,54 @@
-# 095 — a wrong `slot_name` renders nothing and the run reports COMPLETED
+# 095 — a wrong `slot_name` renders nothing and the run reports COMPLETED (FIXED IN CODE, INERT UNTIL THE NEXT CHASSIS ROLL)
+
+> ## STATUS 2026-07-27 — candidate 2 applied, council APPROVED, **not yet live**
+>
+> **Fix:** `6579e9ae1`. `getPageSections` now counts what it saw instead of discarding
+> it (the SQL pre-filter on `rendered_html` was throwing away exactly the evidence that
+> distinguishes the two empty cases), and returns a `pageAssembly` alongside the HTML.
+> The re-renderer splits the one ambiguous outcome in two: **component rows that exist
+> and contribute nothing fails the step**, naming the planned sections, the unrendered
+> slots and the blank slots; **no component rows at all** stays a legitimate skip but
+> now names what the page planned instead of "no components found for page".
+> `ApplySectionEditAction` uses the same discriminator — it had the same silent shape,
+> returning `success=true` with `html=""`.
+>
+> **Candidate 1 was deliberately NOT taken.** This file's own correction shows slot
+> mismatch is not the mechanism, and a CHECK constraint would have to reckon with the
+> 70 benign rows across 12 sites that correction identifies.
+>
+> **Council:** APPROVED, correlation `d7d47150-883a-4991-932a-372d9fe2b4b6`
+> (10 reviewers, 0 unreadable, 4 advisory objections, no veto). One was acted on: the
+> section-editor arm originally failed on *any* empty reassembly, which two seats
+> correctly called asserted rather than evidenced; it now shares the re-renderer's rule.
+>
+> ### CORRECTION to §"Scale — measured 2026-07-27: zero live instances"
+>
+> **That is no longer true, and it stopped being true within twenty minutes.** The
+> defect shape was 0 fleet-wide at ~18:05 UTC and **1** at ~18:35:
+>
+> ```
+>  domain   |          name           | status | build_status  | comp_rows | usable | planned
+> ----------+-------------------------+--------+---------------+-----------+--------+---------
+>  oufe.com | tool-recovery-waterfall | active | needs_rebuild |         1 |      0 |       1
+> ```
+>
+> Created/updated 2026-07-27 18:16:53. So there IS a live instance to prove the fix
+> against after the roll, and the "no current damage" framing this file rests on has a
+> half-life measured in minutes rather than days. Re-run the census before quoting it —
+> and note the query in this file is scoped `WHERE p.status='active'`; archived pages
+> are also 0 today, but the filter is not load-bearing and should not be copied as if
+> it were (a council seat flagged exactly that shape).
+>
+> ### After the roll
+>
+> Pod-grep a string this change CREATED, then induce the failing branch:
+> ```
+> kubectl exec -n ai-persona-system <chassis pod> -- \
+>   sh -c 'strings /app/agent-chassis | grep -c "assembled to nothing"'
+> ```
+> Then re-render `oufe.com/tool-recovery-waterfall` and confirm the run **fails** with
+> the two lists named, rather than reporting COMPLETED. A green re-render of a healthy
+> page proves the deploy, not the fix.
 
 **Filed** 2026-07-26 from the oufe.com workstream.
 **Severity** medium-high — silent. The failure is shaped exactly like a success,
