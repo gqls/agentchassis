@@ -3714,6 +3714,85 @@ working one gets it, not **whether** it works.
 Category tags: `two-provisioning-routes-one-secret`, `deployment-is-not-spawned`,
 `a-green-pod-grep-is-not-a-live-path`.
 
+### Omitting a key is not neutral — it selects the REMOTE default, so `if v { send(v) }` inverts every falsey request (2026-07-28)
+
+**Symptom.** Three live steps set `only_main_content: false` on their scrape config —
+an explicit request for the whole page, nav and footer included — and had been
+receiving main-content-only pages since the day they were written. Nothing errored,
+nothing logged, and the config read as honoured.
+
+**Mechanism.** `FirecrawlScrapingProvider.Scrape` did this:
+
+```go
+onlyMainContent := false
+if mainContent, ok := config["only_main_content"].(bool); ok {
+    onlyMainContent = mainContent
+}
+...
+if onlyMainContent {                       // <-- can only ever emit TRUE
+    payload["onlyMainContent"] = onlyMainContent
+}
+```
+
+The read is correct. The **write** is guarded on the value's truth rather than on
+whether the caller said anything, so `false` and "unset" produce the identical
+payload. And they are not identical to the remote API: Firecrawl documents
+`onlyMainContent` as **`default: true`**. So omission is a positive instruction —
+the opposite one.
+
+The `/crawl` path **in the same file** was always right (`if onlyMain, ok := …; ok`),
+which is why this survived: any reader checking "do we support this key?" found a
+correct implementation twenty lines away and stopped.
+
+**The rule.** **For any option forwarded to something with its own defaults, guard the
+send on PRESENCE, never on the value.** `if ok` not `if v`. The bug is invisible
+whenever the remote default and your zero value coincide — and it is *undetectable
+from the response*, because a footer that survives is equally consistent with "we sent
+false" and "the remote kept it anyway". So the test must assert on the **request you
+built**, not on what came back. That usually means extracting payload construction
+into a pure function; if the payload can only be observed by making the call, it
+cannot be regression-tested at all.
+
+**Where else to look.** Any `if x { m["k"] = x }` over a bool or a zero-able number
+being marshalled to a third party. `maxAge: 0` ("force a fresh fetch") is the same
+shape and is a real instruction, not an absence.
+
+**Related:** `bugs_closed/042` (a configured value that never reached the action —
+config and behaviour agreed because the seeded value equalled the code default);
+`bugs_closed/127` (`search_type` dropped at a provider interface, fixed by making the
+parameter part of the signature so it *cannot* be dropped); `bugs_open/101`, whose
+`[UNSETTLED]` box this settled.
+
+Category tags: `omission-is-an-instruction`, `guard-on-presence-not-truth`,
+`assert-the-request-not-the-response`.
+
+### A registry that everything registers with and nothing reads (2026-07-28)
+
+**Symptom.** 134 files call `datahelpers.RegisterActionInputSpec`. Actions declare
+their inputs conscientiously. `GetActionInputSpec` — the only way to *read* any of it
+— had **no callers at all**; grep returned its own definition and nothing else. The
+sole consumer was a parity test asserting the registry was consistent with itself.
+
+**Why it matters.** This is the inert-layer class seen from the other side. The usual
+form is "the artefact exists, so the capability is assumed". This form is worse,
+because the *maintenance* is real and ongoing: every new action pays the cost of
+declaring a spec, which makes the mechanism look load-bearing to everyone who touches
+it, while nothing downstream consumes the declaration.
+
+**The check, and it is cheap.** For any registry, index or map that things register
+with, grep the **getter**, not the setter. A registry with many writers and no readers
+is a maintained fiction. `grep -rn "GetX\|LookupX\|ListX" --include=*.go .` — if the
+only hits are the definition and a test, the layer is inert.
+
+**What to do about it.** Extending an inert registry is usually far cheaper than
+building the mechanism you were about to build, and it converts sunk maintenance into
+value — here, the existing spec registry became the config-key contract behind
+`bugs_open/101`'s fix rather than a second parallel registry, which is exactly the
+drift class the council reviews for.
+
+Category tags: `registered-but-never-read`, `grep-the-getter-not-the-setter`,
+`inert-layer`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs

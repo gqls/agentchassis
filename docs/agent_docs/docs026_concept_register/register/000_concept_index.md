@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,636 concepts across 107 category register files. 1,627 consolidated from
+1,639 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -10,7 +10,10 @@ fix-loop's own first real-case run found — see the addition notes further
 down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
-pre-commit detector that stops model text reaching a log. Status tags were documentary signals from the source material unless
+pre-commit detector that stops model text reaching a log; and 3 more
+(SCR-002/003/004) added 2026-07-28 from the `bugs_open/100`+`101` fix —
+fetch-recorded provenance, the declared config-key contract that makes an inert
+step-config key detectable, and its fleet-wide coverage report. Status tags were documentary signals from the source material unless
 independently verified (see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see

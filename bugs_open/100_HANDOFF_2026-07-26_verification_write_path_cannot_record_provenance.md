@@ -1,5 +1,58 @@
 # 100 — The verification write path CANNOT record provenance: it reads the source URL from the LLM
 
+> ## STATUS 2026-07-28 — candidate 1 COMMITTED (`2ebabf2ca`); INERT until the chassis image rolls
+>
+> Taken by the "bugsearch" thread, bundled with `bugs_open/101` as both files instruct.
+> Council submitted: `SUBMISSION_CORR=f4cf0aab-5a08-4475-91ea-fa831cff323c`.
+>
+> **The fetcher was already recording the answer.** Every webscrape provider result
+> carries `url` and `captured_at`, set beside the HTTP call
+> (`providers/firecrawl.go`). Nothing read it. So this needed no new provenance
+> mechanism and no prompt change — only for the writer to stop asking the model a
+> question the fetcher had already answered. `datahelpers.ExtractFetchProvenance` is
+> the reader, and it is generic across verticals (this file's candidate 3, at
+> candidate 1's cost).
+>
+> **The three model reads are DELETED, not demoted to a fallback.** A fallback would
+> have restored the old behaviour the moment a model volunteered a plausible-looking
+> URL — which is the failure this file forbids, arriving later and harder to see. A
+> model-supplied `source_url` is now logged as **ignored**, so the prompt drifting
+> toward self-reported provenance becomes visible rather than silently taking effect.
+> Same substitution at both price insert sites, which fed from the same three reads.
+>
+> **`scraped_data` is appended to the writer's inputs unconditionally**, not added to
+> the definition's `input_fields`. Making provenance depend on every caller remembering
+> a config key is precisely what produced 2,970 unsourced rows in silence.
+>
+> **The unrepresentable-state half is SQL `257`, written and deliberately NOT APPLIED.**
+> It must follow the image: applied first, it would refuse writes the running binary
+> cannot yet satisfy, turning a silent data-quality defect into a hard failure of vet
+> verification. Two notes on it:
+> - It is a `CHECK`, not `NOT NULL`, because **`source_type` was ALREADY `NOT NULL` and
+>   never fired once** — the Go read produced an empty *string*, not a NULL. The empty
+>   string is the bad value, so the empty string is what has to be refused. The
+>   constraint that was already there is the reason to distrust "there is a constraint"
+>   as an answer.
+> - `NOT VALID`, so the 2,970 historical rows stay as they are: genuinely unsourced and
+>   unpublishable, refused by the publishing rule rather than back-filled with invented
+>   provenance — which would be this very bug.
+>
+> **Blast radius checked, not assumed:** exactly one writer in the tree inserts into
+> `data_observations` (`business_intel_actions.go:370`), so the constraint cannot break
+> a second path.
+>
+> **`[UNVERIFIED]` — the live shape of `scraped_data`.** No run carrying one survives
+> (collection off since 2026-03-18; `orchestration_states` is on a retention clock), so
+> the path was **traced through the code** rather than observed: adapter
+> `sendSuccessResponse` → `ResponseBody.Body` → `parseResponseBody` →
+> `collected_data[output_field]` = `{data:{url, captured_at}}`, i.e. **`data.url`**. The
+> reader accepts six shapes and logs loudly when none matches. **The first real
+> verification run settles it**, and the check is this file's own: `source_url`
+> non-empty **and** `raw_data ? 'source_url'` still **false**.
+>
+> **Still open until:** the chassis image rolls, SQL 257 is applied after it, and one
+> verification runs green against both columns.
+
 **Filed** 2026-07-26 by session "bugfix 061" (vetcomparison workstream).
 **Status** OPEN. Unowned. **Not a correctness emergency** — nothing unsourced is published; the
 consequence is that a large body of held data is permanently unpublishable under our own rule.

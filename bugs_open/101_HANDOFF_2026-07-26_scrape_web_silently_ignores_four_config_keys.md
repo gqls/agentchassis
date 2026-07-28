@@ -1,5 +1,52 @@
 # 101 — `scrape_web` silently ignores four config keys, so two workflows describe a crawl they never perform
 
+> ## STATUS 2026-07-28 — candidates 1 + 2 COMMITTED (`2ebabf2ca`); INERT until TWO images roll
+>
+> Taken by the "bugsearch" thread, bundled with `bugs_open/100` as this file instructs.
+> Council submitted: `SUBMISSION_CORR=f4cf0aab-5a08-4475-91ea-fa831cff323c`.
+>
+> **The `[UNSETTLED]` box below is SETTLED, and the answer was a third bug.**
+> `FirecrawlScrapingProvider.Scrape` read `only_main_content` and then emitted the key
+> **only when true**, so `only_main_content: false` was inexpressible and Firecrawl's
+> documented default (`true` — strips headers, navs, footers) applied instead. The
+> `/crawl` path in the same file was always correct; they now agree. **Three live steps
+> ask for `false` and have been getting the opposite**: `site-scraper/scrape_site`,
+> `site-adoption-agent/fetch_primary_css`, `website-capture-firecrawl/scrape_main_page`.
+> So the probe's 22%→30% was never reachable by adding page fetches: the probe fetched
+> **raw HTML**, production fetched **main-content-only**, and company numbers live in
+> footers. `[UNVERIFIED]` how much of the gap this accounts for — not measured.
+>
+> **Candidate 2 (implement the keys):** `fallback_url_field` and `extract_mode` are
+> implemented. `max_pages`/`follow_links` map onto the dialect the adapter already
+> supports (`Crawl` reads `limit` and `include_paths`) rather than a second one being
+> invented — and because `/scrape` fetches exactly one page, a single-page step
+> carrying them now **warns** instead of silently fetching one page and reporting
+> success.
+>
+> **Candidate 1 (the class fix):** `ActionInputSpec` gains `ConfigKeys`, and the
+> workflow validator reports step-config keys the action does not read. **Opt-in per
+> action** — measured 811 distinct (action,key) pairs over 228 live actions, so a
+> fleet-wide allow-list would be a guess at scale and an over-strict validator is worse
+> than the inert key it chases. `StrictConfig` turns the warning into a refusal once a
+> contract is known complete; `scrape_web` is **not strict yet**, because both live
+> definitions would have to be corrected first and `domain-research-classifier` still
+> has no owner.
+>
+> **A FIFTH inert key, found by the new audit on its first run, not by reading this
+> file:** `add_protocol`, on `domain-research-classifier/scrape_site`. It is a near-miss
+> typo — the code reads `add_protocol_if_missing`, and that line belongs to a
+> **different action**. A bare domain reaching the adapter is a failed fetch, so it was
+> not cosmetic. Implemented. This is the argument for the detector in one line: four
+> keys were found by a careful reader, the fifth needed a machine.
+>
+> **Candidate 3 (delete the keys) was NOT done, and is now unnecessary** — the keys are
+> either implemented or reported, so nothing false is left in place to delete. The
+> "delete by (action, key), never by key" trap recorded below is unchanged and still
+> applies to anyone doing fleet-wide config edits.
+>
+> **Still open until:** the chassis image rolls (and the web-scrape-adapter image for
+> the `only_main_content` half). New: `./scripts/audit-config-keys.sh`.
+
 **Filed** 2026-07-26 by session "bugfix 061" (vetcomparison workstream).
 **Status** OPEN. Unowned. Low severity, **high misleading-power** — it caused a false claim in a
 commit message within an hour of being read (`WRONG_CALLS.md`, 2026-07-26).
