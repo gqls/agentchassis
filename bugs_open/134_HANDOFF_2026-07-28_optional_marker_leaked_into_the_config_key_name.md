@@ -1,6 +1,6 @@
 # 134 — a doc convention for "optional" leaked into the real key name, so two config keys are inert
 
-Filed 2026-07-28 by session "bugsearch 3", found with `cmd/config-key-coverage`
+Filed 2026-07-28 by session "bugsearch 3", found with `cmd/config-key-audit --specs`
 (SCR-005) while working the `bugs_closed/101` coverage ratchet. **Latent, not
 biting:** the agent has never run.
 
@@ -114,4 +114,4 @@ leave the config honest-but-warning rather than change behaviour.
   101's own tooling, which is the tooling working.
 - `bugs_open/133` — same session, same class one level down: a *message* that
   describes something that did not happen.
-- concept register SCR-003 (`CheckConfig`), SCR-004, SCR-005 (what found it).
+- concept register SCR-003 (`CheckConfig`), SCR-004, SCR-005 (`--specs`, what found it).
