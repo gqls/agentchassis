@@ -175,3 +175,44 @@ re-scraping successfully and re-failing identically. So the absence of a workflo
 is not evidence this is fine; grep the ADAPTER log. Mitigation if it fires is
 config-only and needs no roll: set `scrape_config.formats` on the offending step (the
 override exists precisely because of 062).
+
+## Post-roll: is `CheckConfig` live, and has it been exercised? (TWO questions)
+
+Added 2026-07-28 after `v1.0.1194`. **They are separate and the second is the one
+that gets skipped.**
+
+**1. Is it in the running binary?** Never the tag — a retag is not a rebuild.
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c '
+  echo -n "checksConfig (created by the change): "; strings /app/agent-chassis | grep -c "checksConfig"
+  echo -n "POSITIVE CONTROL UnknownConfigKeys  : "; strings /app/agent-chassis | grep -c "UnknownConfigKeys"
+  echo -n "NEGATIVE CONTROL bogus_symbol_xyz   : "; strings /app/agent-chassis | grep -c "bogus_symbol_xyz"'
+```
+On 1194: 2 / 5 / 0. `checksConfig` is discriminating because the change created it.
+
+**2. Has it actually run? COUNT THIS BEFORE READING ANY WARNING COUNT.**
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT count(DISTINCT o.orchestration_id) AS runs_touching_opted_in
+FROM orchestration_states o, jsonb_each(o.workflow_plan->'steps') AS e(k,v)
+WHERE o.created_at > '<roll time>' AND v->>'action' IN (<the 58>);"
+# list them with: go run ./cmd/config-key-audit --specs | jq -r 'to_entries[]|select(.value.opted_in)|.key'
+```
+Measured 21:45Z on 1194: **13 orchestrations since the roll, 0 touching an opted-in
+action.** So the warning count below was 0 over a denominator of 0 — unfalsifiable,
+not reassuring.
+
+**3. Only then, the warning itself — across ALL pods:**
+
+```bash
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=-1 --since=6h \
+  | grep "keys this action does not read"
+```
+A hit names step, action and keys. It is warn-only (`StrictConfig` is set by nobody —
+grepped, not assumed) and is **more likely a spec gap than a dead key**, because the
+batch only included actions whose spec already covered every live key. Add the key to
+the spec if the action reads it; **do not add it to `ConfigKeys` without checking**,
+which silences the detector and leaves the behaviour broken.

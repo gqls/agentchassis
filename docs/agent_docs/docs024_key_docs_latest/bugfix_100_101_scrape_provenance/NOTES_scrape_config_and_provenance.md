@@ -934,3 +934,81 @@ from `ListDeclaredConfigKeys` membership. **A fourth copy of a rule that until t
 morning had three would have been this tool committing the exact defect it exists to
 find**, and the comment would have vouched for the opposite. Same class as everything
 else in this file.
+
+## §17 — 2026-07-28 ~21:45 — post-roll on v1.0.1194: the code is LIVE and the behaviour is UNEXERCISED
+
+A fresh chassis rolled (`v1.0.1194`, pods created **20:48Z**). `CheckConfig` is Go, so
+it was inert until this. Two separate questions, and I nearly answered only the first.
+
+### 1. Is my change in the running binary? YES — proven, not inferred
+
+Pod-grep on a symbol the change **created**, with both controls in the same command
+(`agent-chassis-74dbd9c9f4-7p6d8`):
+
+```
+checksConfig       2   <- created by this change
+CheckConfig       12   <- created by this change
+POSITIVE CONTROL  UnknownConfigKeys  5
+NEGATIVE CONTROL  bogus_symbol_xyz   0
+```
+
+Commit `ce9e28784` is 2026-07-28T19:54:31Z; the pods are 20:48Z, so the ordering is
+consistent — but the pod-grep is the evidence, not the ordering, and not the tag.
+
+Also re-checked that the roll did not regress the earlier fixes:
+`unrecognised_keys` 1 · `no fetch provenance available` 1 · `add_protocol` 3. And the
+cross-lane obligation the fleet index says is owed after **every** roll
+(`bugs_closed/124`, migration 258 needs the `$ctx.` field or the diagnose lane stops
+silently): `unknown execution-context field` → **1**, positive control → 1. Safe.
+
+### 2. Did it produce spurious warnings? UNKNOWN — and "0" does not mean "no"
+
+```
+grep -c "keys this action does not read"  across ALL chassis pods, since the roll  ->  0
+```
+
+**That zero is worthless on its own, and I almost banked it.** Counting the
+denominator first, as this file has now twice told me to:
+
+```
+orchestrations since 20:48Z                                    13
+...of those, touching ANY of the 58 opted-in actions            0
+```
+
+**Zero runs. So the detector has not executed once against my change**, and the clean
+log is unfalsifiable rather than reassuring — the exact shape of the 062 watch in §14
+and of the `EXCEPT`-diff landmine before it.
+
+> **Third instance in one session, which is the actual finding.** 062's watch
+> (0 errors / 0 attempts), the `UNKNOWN KEYS: none` that a declaration had silenced,
+> and now this. Each time the reassuring number was produced by an empty denominator,
+> and each time the shape was invisible until I asked "how many chances did it have
+> to fail?". **The check is one query and it belongs beside every clean result, not
+> in a lesson written after the fact.**
+
+**So the honest status is: `CheckConfig` is LIVE and UNEXERCISED.** The claim that
+matters — *56 actions opted in and none of them warns on live traffic* — is still
+carried by the OFFLINE audit (`UNKNOWN KEYS: none` against every live definition),
+which is a strong prediction and not a live observation.
+
+**What would settle it, and what to watch for:**
+
+```bash
+# the denominator FIRST, always
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -c "
+SELECT count(DISTINCT o.orchestration_id)
+FROM orchestration_states o, jsonb_each(o.workflow_plan->'steps') AS e(k,v)
+WHERE o.created_at > '2026-07-28 20:48:00+00'
+  AND v->>'action' IN (SELECT jsonb_object_keys(:'declared'::jsonb));"   -- or paste the 58
+
+# then the warning, across ALL pods
+kubectl -n ai-persona-system logs -l app=agent-chassis --tail=-1 --since=6h \
+  | grep "keys this action does not read"
+```
+
+A hit names the step, the action and the keys. **If one appears, it is far more
+likely a gap in that action's spec than a genuinely dead key** — my batch only
+included actions whose spec already covered every live key, so a warning means a
+definition changed or my classification was wrong for that action. Fix by adding the
+key to the spec if the action reads it; the warning is warn-only and blocks nothing
+(`StrictConfig` is set by nobody — grepped, not assumed).

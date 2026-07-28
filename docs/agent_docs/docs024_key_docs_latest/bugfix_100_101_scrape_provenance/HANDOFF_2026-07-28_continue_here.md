@@ -1,4 +1,10 @@
-# HANDOFF 2026-07-28 (evening) — `bugs_open/100` + `bugs_closed/101`: continue here
+# HANDOFF 2026-07-28 (evening) — `bugs_open/100` + `bugs_closed/101`
+
+> ## ⛳ SUPERSEDED for "what to do next" by `HANDOFF_2026-07-28b_continue_here.md`.
+> This file remains the reference for **how 100/101 were fixed and verified** — the
+> pod-greps, the SQL ordering, the council trail. Go to `-28b` for the current state
+> and the queue: the ratchet moved 208→152 and is live-but-unexercised on
+> **v1.0.1194**, and two new bugs (`133`, `134`) were filed on 07-28 evening.
 
 Written because token load ended the session, not because the work stalled. **The
 code is live and verified.** What is left is one council round and one owed run.
