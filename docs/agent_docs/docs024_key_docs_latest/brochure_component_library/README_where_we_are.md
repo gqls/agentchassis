@@ -815,3 +815,27 @@ board for whoever picks it up next.
 One process note: we cleaned the capabilities page ourselves tonight, which means it's
 no longer an example of the bug — the bug file now points at the other two sites for
 anyone who needs to see it live.
+
+**Later, same evening — the 079 fix is designed and handed off, not built.** You asked me
+to go ahead with it and then to write it up so a fresh session can carry it. Both done.
+
+The short version of the fix: the repair currently happens at the inspection stage, and
+the page gets saved from a different copy that never sees it. So rather than trying to
+keep two copies in step, we move the repair to the moment of saving — the last point
+everything passes through. Whatever route a page took to get there, it cannot be stored
+with a dead link. The reason that beats the alternative is concrete: one of the routes
+that saves pages doesn't run the inspection step at all, so fixing the inspector could
+never have covered it.
+
+Two things make this cheaper than it sounds. Every piece already exists — the repair
+function, the list of real page addresses, the logging — and they're all in the same
+place in the code as the save step, so it's wiring rather than building. And we can prove
+it works without spending anything on AI: there's a page on gamesdesign.co.uk whose
+stored copy has carried a broken link since the 21st, and re-saving it after the fix
+either cleans it or doesn't. That's the test.
+
+There's also a safety catch built in: a switch that turns the repair off from the
+database if it ever misbehaves, without waiting for a new software build.
+
+Handoff doc is in the repo with everything needed to start cold; the bug file and my
+notes both point at it.
