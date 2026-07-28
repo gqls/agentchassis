@@ -83,3 +83,39 @@ exists and is on the path under investigation. The index holds one commit, 970 b
 **Open thread I could not settle:** `rerender_page_sections` returned `escalated: true`
 while filing no work item and mutating nothing. Marked `[UNVERIFIED]` — plausible for a
 tool-widget section, but it is the `bugs_open/091` shape.
+
+## 2026-07-28 — session 2 ("bug sweep continuation 2")
+
+**Target selection.** The handoff's item 1 (108) is now OWNED — the architecture-review
+thread has eight commits on it and names "108 candidate 1" as its own next job, so the
+sweep must not take it; 097 stays blocked behind it. 091 candidate 1 belongs to
+`work_item_completion_integrity`. Took **127** instead: fleet-wide (5 sites), confirmed
+unowned (`who-owns` `likely OWNING` section prints `(none identified)`; only the filing
+commit touches it), and webdesign.co.uk's News page is blocked on it.
+
+**127 fixed (candidates 1+3, `723a10259`).** The filed mechanism held exactly at HEAD.
+Two things the bug file did not know:
+
+- **Firecrawl (the live primary) returns news dates as relative text** ("3 months ago"),
+  verified against docs.firecrawl.dev — while `WriteFeedItemsAction` parses RFC3339 only.
+  Without a date normaliser at the provider boundary the fix would pass every unit test
+  and still fail the bug's own acceptance check (`source_published_at` populated). The
+  acceptance check was the thing that surfaced this — reading the verifier before writing
+  the fix paid for itself again.
+- **The downstream age filter is already written and dead**: `WriteFeedItemsAction` skips
+  items >30 days old or >1 day future, which today never fires because `published_at`
+  always arrives empty. Once dates flow, feed item counts will legitimately DROP — do not
+  read that as a regression post-roll.
+
+Checked before building: all three providers registered available in the running adapter
+pod (so DuckDuckGo declining news is safe — both keyed providers precede it), and
+external API params verified by fetching both providers' docs rather than from memory
+(ScrapingBee `search_type=news`/`news_results`; Firecrawl `sources`/`tbs`/`data.news`).
+`[UNVERIFIED]` residual: ScrapingBee's news field names are documented-not-witnessed — no
+live call with a real key was made; failure mode is loud (zero results → fallback), not
+mislabelling.
+
+Tests: 14 across three new files, green against a `git archive HEAD` overlay; the full
+actions suite is green there too (the 07-21 `discovery_checks` RED is gone). Council
+submission `a7ae8ce8-ef40-4503-be8a-972ebe1b0973`, verdict pending at commit time —
+committed without trailer per standing practice.

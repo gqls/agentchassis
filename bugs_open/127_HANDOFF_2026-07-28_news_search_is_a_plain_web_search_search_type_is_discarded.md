@@ -1,9 +1,42 @@
 # 127 — every "news search" feed is a plain WEB search; `search_type` is discarded at the provider interface
 
-**Filed 2026-07-28** from `webdesign.co.uk`. **Unowned.** Affects **every site in the
-fleet with a `news_search` content source** — measured today on webdesign.co.uk,
-robot-hands.com, relojistas.com, gaswholesalers.com and ai-agent-orchestration.com
-all use this path.
+**Filed 2026-07-28** from `webdesign.co.uk`. **Taken by the bugs-sweep thread 2026-07-28.**
+Affects **every site in the fleet with a `news_search` content source** — measured today on
+webdesign.co.uk, robot-hands.com, relojistas.com, gaswholesalers.com and
+ai-agent-orchestration.com all use this path.
+
+> ## STATUS 2026-07-28 — fix candidates 1+3 COMMITTED (`723a10259`); INERT until BOTH images roll
+>
+> `SearchProvider.Search` now takes the `SearchOptions` that was always defined and never
+> constructed, so the parameter can no longer be dropped — the single call site must pass
+> it. Per provider: **ScrapingBee** sends `search_type=news` + `tbs` and parses
+> `news_results`; **Firecrawl** (live primary) sends `sources:["news"]` + `tbs` and parses
+> `data.news`; **DuckDuckGo** has no news vertical on the html endpoint and now declines
+> with `ErrUnsupportedSearchType` (candidate 3) — the adapter falls through, and if every
+> provider declines the request errors instead of serving web results labelled news.
+> `time_range` flows from `source_config` → `FetchNewsSearchAction` → `WebSearchAction` →
+> adapter payload → provider date filters (`qdr:*` / `df`). Provider dates are normalised
+> to RFC3339 at the boundary (Firecrawl news dates are relative text like "3 months ago");
+> `WriteFeedItemsAction` parses RFC3339 only, so this is what lets `source_published_at`
+> stop being NULL. 14 regression tests in `providers/search_options_test.go`,
+> `websearch/search_options_test.go`, `actions/web_search_options_test.go`.
+>
+> **Why this stays OPEN — the fix is not live:**
+> 1. **Both images must roll**: `web-search-adapter` (the interface + providers) AND
+>    `agent-chassis` (the `time_range` plumbing). The adapter alone delivers the core fix;
+>    the chassis part only adds the optional recency window.
+> 2. **Induced verification owed** (recipe below, unchanged): after the roll, fire a fetch
+>    with a recent-event query and assert `content_feed_items.source_published_at` is
+>    populated and recent. Adapter pod-grep: `"unsupported search type"` present (new),
+>    `"all %d providers failed after retries"` absent (replaced by a variant naming the
+>    search_type — a marker that flips both ways).
+> 3. **One documented-not-witnessed risk**: the `news_results` field names and `tbs`
+>    forwarding for ScrapingBee come from its public docs (fetched 2026-07-28), not from a
+>    live call with a real key. If wrong, the news parse yields zero results and errors
+>    loudly rather than mislabelling — but check the fallbacks list in the first live run.
+>
+> Council submission `a7ae8ce8-ef40-4503-be8a-972ebe1b0973` (verdict pending at commit
+> time; no trailer until `decided_by` is read).
 
 ---
 
