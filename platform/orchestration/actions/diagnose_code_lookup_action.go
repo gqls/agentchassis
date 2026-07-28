@@ -398,12 +398,29 @@ func answerCodeCheck(ctx context.Context, db *sql.DB, c codeCheck, repoFilter st
 		// content is the declaration line + doc + path. Both are searched because
 		// the kind's ONLY working use until now was declaration matches, and
 		// silently dropping that would break checks that currently succeed.
-		// COALESCE, not `body ILIKE`, so rows indexed before the body column
-		// existed (body IS NULL) still match on content instead of vanishing.
+		//
+		// NO COALESCE IN THE PREDICATE, and that is load-bearing rather than
+		// stylistic. Wrapping the column in COALESCE(body,'') disqualifies
+		// idx_code_symbols_body_trgm — the planner cannot match an expression to
+		// a plain-column index — so the whole thing falls back to a Seq Scan.
+		// MEASURED on the live index (4,535 rows, bodies populated, 2026-07-28):
+		//   COALESCE(body,'') ILIKE .. OR content ILIKE ..  → Seq Scan, 125.9 ms
+		//   body ILIKE ..            OR content ILIKE ..    → BitmapOr across BOTH
+		//                                                     trigram indexes, 5.5 ms
+		// The row sets are IDENTICAL. On a NULL body, `body ILIKE x` evaluates to
+		// NULL rather than false, and a WHERE clause discards NULL exactly as it
+		// discards false — so a not-yet-indexed row still falls through to the
+		// content side of the OR, which is the only thing the COALESCE was for.
+		// (Verified against the NULL branch explicitly: with 0 NULL bodies in the
+		// table, comparing the two forms on live rows would have been vacuous.)
+		// This is guardian's low objection settled by measurement — and its
+		// suggested remedy, one index on (COALESCE(body,'') || ' ' || content),
+		// is not needed: it would duplicate every byte of both columns on disk and
+		// lose the body-vs-declaration distinction the [body]/[decl] marker needs.
 		rows, err := db.QueryContext(ctx, `
 			SELECT path, symbol, COALESCE(body,''), content, COALESCE(commit_sha,''), (body IS NOT NULL)
 			FROM code_symbols
-			WHERE (COALESCE(body,'') ILIKE '%' || $1 || '%' OR content ILIKE '%' || $1 || '%')
+			WHERE (body ILIKE '%' || $1 || '%' OR content ILIKE '%' || $1 || '%')
 			  AND ($2 = '' OR repo = $2)
 			ORDER BY path, symbol
 			LIMIT $3`, c.Query, repoFilter, rowCap)
