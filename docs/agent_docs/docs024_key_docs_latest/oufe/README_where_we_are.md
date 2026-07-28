@@ -290,3 +290,64 @@ happens when there is no value left at all, which is the whole point of the tool
 for the entire period I was describing the tool as working, its most important
 behaviour had never been tested once. It passes now, and it is the first time anyone
 has seen it do so.
+
+---
+
+**28 July, later — I was wrong in the bug I filed you, and the real problem is worse**
+
+Yesterday I filed a bug saying the generated stylesheets fail accessibility
+standards on four sites, with a table of numbers for eleven sites. I went back to
+fix the other three today. The table was wrong, and it could not have been right.
+
+Here is what I did. Your oufe site used one particular colour setting for its
+links, so I measured that setting on every other site and wrote down the results.
+But that setting is not the link colour on the other sites. On dartsonline it is
+almost exactly the same as the page background, so what I actually measured was
+the background against itself. No text was involved in any row of that table.
+
+The deeper mistake is that the question cannot be answered from a stylesheet at
+all. Which rule wins depends on the whole page, and the answer changes with
+transparency and background gradients. I wrote a text search for a question that
+needs an actual browser, then wrote the results up as a table, which is the format
+that looks most like fact.
+
+So I measured it properly, in a real browser, looking at what is genuinely painted
+on screen. Two things came out.
+
+**The real fault is the buttons, not the links, and it affects nearly everything.**
+The site header's "Get Started" button is white text on each site's own accent
+colour, and the white is hardcoded, so whether it is readable is pure luck
+depending on how dark that site's accent happens to be. **Five of the six sites I
+measured fail.** No amount of fixing a site's colours can help, because the text
+colour is not taken from the site's colours at all.
+
+**robot-hands.com's main button is invisible.** Not hard to read: invisible. It is
+white text on a white button, so the primary "Run a MatchMatrix Query" button on
+the homepage renders as an empty white rectangle. I took a screenshot to be sure.
+That is a live commercial site whose main call to action cannot be seen or
+understood, and it has been that way unnoticed. The "Open tool" link on every tool
+card is dark grey on dark grey, near enough the same problem.
+
+I have fixed oufe and verified it in the browser. I have deliberately **not**
+touched vonc or robot-hands, because other threads own that work and I would be
+starting a competing fix. Both are written up in the bug with exact evidence.
+
+Two other things worth telling you.
+
+While building the measurement I produced **three false alarms**, each of which
+looked like a serious live fault and each of which turned out to be my tool being
+wrong, not the site. One said vetcomparison's navigation was invisible white text
+on white; I took a screenshot and the header is blue with perfectly clear white
+text. I only caught them because I looked at pictures of the pages instead of
+trusting the numbers. The lesson I have written down is that for live public
+sites, a checker that cries wolf is worse than no checker, because people
+eventually "fix" its false alarms and break something real.
+
+And I discovered afterwards that **another thread built a colour checker
+yesterday**, which I did not find before building mine. That is a miss on my part.
+The good news is they genuinely do different jobs: theirs checks a site's colour
+scheme before anything is published and takes microseconds, mine checks what is
+actually painted on the live page. Neither can see what the other sees, and the
+button fault above is invisible to theirs because the offending white is hardcoded
+in the page furniture rather than being part of any colour scheme. I have written
+that down in both places so nobody deletes one thinking it duplicates the other.
