@@ -62,3 +62,28 @@ to measure it.* Both halves are evidenced by artefacts rather than a calculation
 can dispute — the zero-character result is in the July record, the fix is
 council-reviewed, and the figures come from a database column that did not exist the day
 before.
+
+---
+
+## ADDENDUM 2026-07-28 — the decision landed, and it is a better angle than the ratio
+
+The owner has ruled that we **keep** the second model: *"I think we can keep gemini
+because it is part of the story that we can use different models in our workflows."*
+
+That is worth more to you than the cost figure above, because it is a **position**
+rather than a measurement, and it is one most firms cannot honestly claim:
+
+- **We measured what the second model costs, and kept it anyway, on purpose.** The
+  ratio came first, the decision second. That ordering is the point — it is the
+  difference between a considered trade and an unexamined default.
+- **The pipeline genuinely is heterogeneous today.** Two content agents on Google, most
+  of the estate on Anthropic, one price-scraping job on a locally-hosted model. Not an
+  aspiration or a roadmap item.
+- **Not being locked to one supplier is the argument**, and it is more durable than any
+  token count: prices move, models get retired, terms change. A pipeline that can move
+  between providers has already proved it can, because it has.
+
+**Still bound by the caveats above.** This addendum adds a claim about *our own
+decision*, which is safe to state because we made it. It does not license the numbers
+to travel without their neighbour, and it does not become a claim about what other
+firms do or should do.
