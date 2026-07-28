@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,639 concepts across 107 category register files. 1,627 consolidated from
+1,640 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -13,7 +13,10 @@ responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
 (SCR-002/003/004) added 2026-07-28 from the `bugs_open/100`+`101` fix —
 fetch-recorded provenance, the declared config-key contract that makes an inert
-step-config key detectable, and its fleet-wide coverage report. Status tags were documentary signals from the source material unless
+step-config key detectable, and its fleet-wide coverage report; and 1 more
+(WFA-002) added 2026-07-28 from the `bugs_open/124` fix — the `$ctx.`
+execution-context parameter namespace, which lets any queue-driven workflow's
+SQL record which run claimed a row. Status tags were documentary signals from the source material unless
 independently verified (see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
@@ -174,6 +177,7 @@ an ID prefix, or a status word.
 | PLAN-039 | Plan storage authority: 029 Q1 and the withdrawn table-first alteration | superseded | A table-first fix was tried and reverted same-day pending the still-open Q1 decision | site-plan-and-reconciler.md |
 | TL-001 | Tool widget clobber hazard (interactive content silently destroyed by content rebuild) | deployed | A tool/game lives as a section's rendered_html, not a planned section, so any full rebuild (needs_page,... | tool-lifecycle.md |
 | WFA-001 | Workflow Builder & Validator (YAML DSL) | abandoned | A validation-first YAML-to-workflow-JSON authoring system; no later doc references it as ever used. | workflow-authoring.md |
+| WFA-002 | `$ctx.` execution-context parameter namespace for `query_database` | deployed | Any workflow's SQL can bind the identity of the run executing it ($ctx.correlation_id, …), so a claim step can record which run took a queued row. | workflow-authoring.md |
 | IMP-044 | Defect-cataloguing discipline (enumerate-before-fixing) | deployed | A working method for a real adoption-run defect sweep: group symptoms into lettered families by shared mechanism... | improvement-loop.md |
 | DBG-059 | orchestration_state_audit: temporary attachable trigger for state races | deployed | AFTER UPDATE trigger capturing every transition; explicitly removed after use | debugging.md |
 | SOC-002 | Spark — AI game-master social platform (core concept) | partial | AI as producer not performer; opinion-first provocation game; v1 live on vonc.com | social-media.md |

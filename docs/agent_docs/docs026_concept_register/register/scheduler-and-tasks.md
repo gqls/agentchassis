@@ -105,7 +105,17 @@ units U01, U02, U03, U05, U11, U12, U13, U17a, U19, U24b, U24c, U24d.
 - **what:** An `agent_definitions` orchestrator agent that claims one `awaiting_diagnosis` item on a 60s tick (via `diagnose-pipeline-trigger` scheduled task, `max_concurrent=1`), atomically moves it to `diagnosing`, spawns `diagnose-orchestrator`, and reaps its own runs older than 75 minutes as `failed`. Deliberately shipped with the scheduled task disabled until the chassis image is live and the benchmark's blinding is confirmed, since enabling it would let the loop claim and consume the benchmark item before blinding could be verified.
 - **sources:** fixloop_eg_dartsonline/0NN_diagnose_dispatch_loop.sql, fixloop_eg_dartsonline/PLAN_fixloop_pilot.md §F0.1d, fixloop_eg_dartsonline/RUNBOOK_diagnosis_fix_loop(10).md#CURRENT POSITION history
 - **relations:** private inert pipeline statuses pattern; needs_diagnosis intake route
-- **verify-later:** `scheduled_tasks.enabled` for name='diagnose-pipeline-trigger' (should still be false unless deliberately turned on)
+- **verify-later:** `scheduled_tasks.enabled` for name='diagnose-pipeline-trigger'
+- **CORRECTED 2026-07-28 (bugs_open/124):** the "shipped disabled" note above is
+  history, not current state — the task has been `enabled = t` for some time, and
+  the `verify-later` line above used to say "should still be false unless
+  deliberately turned on", which is exactly the stale expectation that let this
+  go unnoticed. Enabling it created a **second dispatcher** for a queue the 090
+  intake script was also dispatching, so every manually-filed diagnosis ran twice
+  until 2026-07-28. Fixed: the script now reads dispatch authority from this row
+  rather than assuming, and takes the claim before any direct publish.
+  `claim_item` additionally stamps `spec.dispatch_correlation_id` (migration 258,
+  needs chassis ≥ v1.0.1191) so the item joins to the run that took it.
 
 ### SCH-013 — Reaper mechanisms, the work-item-claim reaper gap, and the reaper-location correction
 - **status:** superseded
