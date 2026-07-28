@@ -255,8 +255,9 @@ func DispatchAgentAction(ctx context.Context, params ActionParams) (interface{},
 	time.Sleep(startupWait)
 
 	// 11. Send initialization message
-	if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
-		initRequestID, childRequestsTopic, parentResponsesTopic); err != nil {
+	retryPayload, err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
+		initRequestID, childRequestsTopic, parentResponsesTopic)
+	if err != nil {
 		params.Logger.Error("Failed to send initialization message",
 			zap.String("agent_id", agentID),
 			zap.Error(err))
@@ -279,5 +280,5 @@ func DispatchAgentAction(ctx context.Context, params ActionParams) (interface{},
 	// 13. Build and return result — same structure as SpawnAgentAction
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
 		childRequestsTopic, childResponsesTopic, parentResponsesTopic,
-		stableIdentity, subtreeInfo), nil
+		stableIdentity, subtreeInfo, retryPayload), nil
 }

@@ -456,34 +456,10 @@ func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID str
         processing_pod = $2
     WHERE request_id = $1
       AND status = 'waiting'
-    RETURNING 
-        request_id, orchestration_id, correlation_id, step_id, step_name,
-        retry_version, target_agent_id, target_agent_type,
-        responses_topic, requests_topic, sent_at, timeout_at,
-        reply_to_request_id, status, processed_at
+    RETURNING ` + awaitedRequestColumns + `
 `
 
-	record := &AwaitedRequest{}
-	var processedAt sql.NullTime
-
-	err := r.db.QueryRowContext(ctx, query, requestID, claimerPodName).Scan(
-		&record.RequestID,
-		&record.OrchestrationID,
-		&record.CorrelationID,
-		&record.StepID,
-		&record.StepName,
-		&record.RetryVersion,
-		&record.TargetAgentID,
-		&record.TargetAgentType,
-		&record.ResponsesTopic,
-		&record.RequestsTopic,
-		&record.SentAt,
-		&record.TimeoutAt,
-		&record.ReplyToRequestID,
-		&record.Status,
-		&processedAt,
-	)
-
+	record, err := scanAwaitedRequestRow(r.db.QueryRowContext(ctx, query, requestID, claimerPodName).Scan)
 	if err == sql.ErrNoRows {
 		// Not found OR already claimed by another worker - both cases return nil
 		r.logger.Debug("ClaimAwaitedRequest: not claimed (already processed or not found)",
@@ -493,10 +469,6 @@ func (r *StateRepository) ClaimAwaitedRequest(ctx context.Context, requestID str
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to claim awaited request: %w", err)
-	}
-
-	if processedAt.Valid {
-		record.ProcessedAt = &processedAt.Time
 	}
 
 	// DEBUG AFTER claim: log result
@@ -735,6 +707,33 @@ func (s *SagaCoordinator) handleOrchestrationStatus(ctx context.Context, state *
 	)
 
 	repo := NewStateRepository(s.db, s.logger)
+
+	// MISROUTED DELIVERY (bugs_open/129, defence in depth). We are on the REQUEST
+	// path — ExecuteWorkflow, not ProcessResponse — so an inbound request whose
+	// request_id this orchestration is ITSELF awaiting cannot be a resumption of
+	// this orchestration: it is the awaited work, delivered against the waiter's
+	// row instead of the worker's. Every branch below would decline it
+	// (AWAITING_RESPONSES returns ErrWaitingForResponse, FAILED returns nil) and
+	// the caller would log "ProcessMessage completed successfully" while nothing
+	// ran and nobody replied — six minutes of silence, then the parent times out.
+	//
+	// The upstream cause was the retry path reconstructing the message with this
+	// orchestration's own id; that is fixed in handleRecoverableError. This check
+	// is what keeps the failure loud and attributable if any other sender ever
+	// gets the identity wrong: it can no longer be reported as success.
+	if execCtx.RequestID != "" {
+		if awaited, isAwaited := state.AwaitedRequests[execCtx.RequestID]; isAwaited {
+			s.logger.Error("MISROUTED_REQUEST: an inbound request was delivered against the orchestration that is awaiting it — refusing to report success",
+				zap.String("orchestration_id", state.OrchestrationID),
+				zap.String("request_id", execCtx.RequestID),
+				zap.String("awaited_step_name", awaited.StepName),
+				zap.String("target_agent_type", awaited.TargetAgentType),
+				zap.Int("retry_version", execCtx.RetryVersion),
+				zap.String("state_status", string(state.Status)))
+			return fmt.Errorf("misrouted request %s: delivered with orchestration_id %s, which is the orchestration awaiting it (step %q)",
+				execCtx.RequestID, state.OrchestrationID, awaited.StepName)
+		}
+	}
 
 	switch state.Status {
 	case StatusInitialized:
@@ -2028,7 +2027,25 @@ func createAwaitedRequest(requestID string, execCtx *types.ExecutionContext, sta
 		RequestsTopic:   requestsTopic,
 		SentAt:          time.Now(),
 		TimeoutAt:       time.Now().Add(getTimeout(step)),
+		RequestPayload:  extractRetryPayload(result),
 	}
+}
+
+// extractRetryPayload lifts the message the action actually produced out of its
+// result, so a timeout can REPLAY it rather than reconstruct one from the
+// awaiting orchestration's state (bugs_open/129). Absent is a valid state and is
+// handled at retry time — the coordinator refuses to retry rather than emitting
+// a message carrying its own orchestration_id.
+func extractRetryPayload(result map[string]interface{}) json.RawMessage {
+	raw, ok := result[types.RetryPayloadKey]
+	if !ok || raw == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	return json.RawMessage(encoded)
 }
 
 // Extract target agent type from step or result
@@ -2910,66 +2927,70 @@ func (s *SagaCoordinator) handleRecoverableError(ctx context.Context, state *Orc
 		// Continue anyway - better to retry than to fail
 	}
 
-	// Determine fuel budget
-	fuelBudget := state.FuelBudget
-	if fuelBudget <= 0 {
-		fuelBudget = 100
-	}
-
-	// Build sender info
-	sender := execCtx.Sender
-	if sender.AgentID == "" {
-		sender = types.AgentIdentity{
-			AgentID:   os.Getenv("AGENT_ID"),
-			AgentType: os.Getenv("AGENT_TYPE"),
-			PodName:   os.Getenv("HOSTNAME"),
-		}
-	}
-
-	// Create retry request
-	retryRequest := &types.RequestMessage{
-		Headers: types.RequestHeaders{
-			CorrelationID:     state.CorrelationID,
-			ClientID:          state.ClientID,
-			Sender:            sender,
-			OrchestrationID:   state.OrchestrationID,
-			OrchestrationName: state.OrchestrationName,
-			RequestID:         requestID,
-			RetryVersion:      awaited.RetryVersion,
-			StepID:            awaited.StepID,
-			StepName:          awaited.StepName,
-			ToAgentType:       awaited.TargetAgentType,
-			ToAgent:           awaited.TargetAgentID,
-			RequestsTopic:     awaited.RequestsTopic,
-			ResponsesTopic:    awaited.ResponsesTopic,
-			MessageID:         uuid.New().String(),
-			MessageType:       "request",
-			Timestamp:         time.Now(),
-			Action:            "execute",
-			FuelBudget:        fuelBudget,
-			TimeoutSeconds:    int(newTimeout.Seconds()),
-		},
-		Body: map[string]interface{}{
-			"is_retry":      true,
-			"retry_version": awaited.RetryVersion,
-		},
-	}
-
-	retryBytes, err := json.Marshal(retryRequest)
+	// A RETRY IS A REPLAY OF THE ORIGINAL REQUEST — never a reconstruction
+	// (bugs_open/129). This block used to synthesise a fresh RequestMessage from
+	// the AWAITING orchestration's own state:
+	//
+	//     OrchestrationID: state.OrchestrationID   // the PARENT's id
+	//     Action:          "execute"               // never the original action
+	//     Body:            {"is_retry": true, …}   // the payload, gone
+	//
+	// which is how the spawned child came to load the PARENT's row, find it at
+	// AWAITING_RESPONSES, decline the work and log "ProcessMessage completed
+	// successfully" while never replying. Measured on the live database
+	// 2026-07-28: all 430 retried awaited_requests of the previous 14 days went
+	// out this way, and 294 of them exhausted the retry budget.
+	//
+	// The identity, action and body now all come from the message that was
+	// actually sent, and the Kafka headers are regenerated from that same message
+	// so the two cannot disagree.
+	payload, err := types.DecodeRetryPayload(awaited.RequestPayload)
 	if err != nil {
-		s.logger.Error("Failed to marshal retry request",
+		// No recorded payload: the only messages we could build here are ones we
+		// know to be wrong. Fail the request with a named, greppable error rather
+		// than emitting one that will be silently swallowed by whatever receives
+		// it. Every sender of an awaited request is expected to record its
+		// payload — this counts the ones that do not.
+		s.logger.Error("RETRY_PAYLOAD_UNAVAILABLE: refusing to synthesise a retry (would carry this orchestration's own id)",
 			zap.String("request_id", requestID),
+			zap.String("step_name", awaited.StepName),
+			zap.String("target_agent_type", awaited.TargetAgentType),
+			zap.String("requests_topic", awaited.RequestsTopic),
 			zap.Error(err))
-		return err
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
 	}
 
-	s.logger.Info("Sending retry to target agent requests topic",
+	retryHeaders, retryBytes, replayed, err := payload.ReplayRequest(awaited.RetryVersion, int(newTimeout.Seconds()))
+	if err != nil {
+		s.logger.Error("RETRY_PAYLOAD_UNDECODABLE: stored request payload could not be replayed",
+			zap.String("request_id", requestID),
+			zap.String("step_name", awaited.StepName),
+			zap.Error(err))
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
+	}
+
+	// The invariant, asserted rather than assumed: a request this orchestration
+	// sends OUT must never carry this orchestration's own id, or the receiver
+	// resolves our row instead of its own and declines the work. Cheap, and it
+	// holds against any future sender that records a payload incorrectly.
+	if replayed.Headers.OrchestrationID == state.OrchestrationID {
+		s.logger.Error("RETRY_SELF_ADDRESSED: replayed request carries the awaiting orchestration's own id — refusing to send",
+			zap.String("request_id", requestID),
+			zap.String("orchestration_id", state.OrchestrationID),
+			zap.String("step_name", awaited.StepName))
+		return s.handleUnrecoverableError(ctx, state, requestID, execCtx, response)
+	}
+
+	s.logger.Info("Replaying original request to target agent requests topic",
 		zap.String("request_id", requestID),
-		zap.String("topic", awaited.RequestsTopic),
+		zap.String("topic", payload.Topic),
+		zap.String("child_orchestration_id", replayed.Headers.OrchestrationID),
+		zap.String("action", replayed.Headers.Action),
+		zap.Int("retry_version", awaited.RetryVersion),
 		zap.String("target_agent_id", awaited.TargetAgentID))
 
-	// Send the retry
-	err = s.producer.Produce(ctx, awaited.RequestsTopic, retryRequest.Headers.ToMap(), []byte(requestID), retryBytes)
+	// Send the retry to the topic the original went to, not a re-derived one.
+	err = s.producer.Produce(ctx, payload.Topic, retryHeaders, []byte(payload.Key), retryBytes)
 	if err != nil {
 		s.logger.Error("Failed to send retry request",
 			zap.String("request_id", requestID),

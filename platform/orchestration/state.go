@@ -79,6 +79,21 @@ type AwaitedRequest struct {
 	TimeoutAt        time.Time `json:"timeout_at"`
 	ReplyToRequestID string    `json:"reply_to_request_id,omitempty"`
 
+	// RequestPayload is the exact message that was produced for this request —
+	// {"topic":…,"key":…,"headers":{…},"body":…}, i.e. the arguments of the
+	// original producer.Produce call. A retry is a REPLAY of it; only
+	// retry_version, message_id and timestamp may differ. Without it the
+	// coordinator used to rebuild the request out of the AWAITING orchestration's
+	// own state, which handed the child the PARENT's orchestration_id and made it
+	// decline the work while logging success (bugs_open/129).
+	//
+	// Deliberately `json:"-"`: this struct is also serialised into
+	// orchestration_states.awaited_requests, which is rewritten on every state
+	// update. The payload belongs on the per-request row, not the hot one — it is
+	// read back from awaited_requests.request_payload at retry time, which is the
+	// only moment it is needed.
+	RequestPayload json.RawMessage `json:"-"`
+
 	Status      string     `json:"status,omitempty" db:"status"`
 	ProcessedAt *time.Time `json:"processed_at,omitempty" db:"processed_at"`
 }
@@ -1493,8 +1508,8 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 			request_id, orchestration_id, correlation_id, step_id, step_name,
 			retry_version, target_agent_id, target_agent_type,
 			responses_topic, requests_topic, sent_at, timeout_at,
-			reply_to_request_id, status
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'waiting')
+			reply_to_request_id, request_payload, status
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'waiting')
 		ON CONFLICT (request_id) DO NOTHING
 	`
 
@@ -1512,6 +1527,7 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 		req.SentAt,
 		req.TimeoutAt,
 		req.ReplyToRequestID,
+		nullableJSON(req.RequestPayload),
 	)
 
 	if err != nil {
@@ -1524,6 +1540,24 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 	}
 
 	if rows == 0 {
+		// The row already exists — the "already exists" error below is
+		// load-bearing (its caller uses it to decide whether to arm a timeout
+		// handler), so the conflict clause stays DO NOTHING rather than becoming
+		// DO UPDATE. But spawn_agent pre-registers its row BEFORE it builds and
+		// sends the message (preRegisterAwaitedRequest), so on that path this
+		// insert is the FIRST time the payload is known. Back-fill it, and only
+		// when the row has none — never overwrite a recorded payload, or a
+		// retry could replay something other than what was sent.
+		if len(req.RequestPayload) > 0 {
+			if _, upErr := r.db.ExecContext(ctx,
+				`UPDATE awaited_requests SET request_payload = $2
+				  WHERE request_id = $1 AND request_payload IS NULL`,
+				req.RequestID, []byte(req.RequestPayload)); upErr != nil {
+				r.logger.Warn("Failed to back-fill request_payload on a pre-registered awaited request (retry will refuse rather than poison)",
+					zap.String("request_id", req.RequestID),
+					zap.Error(upErr))
+			}
+		}
 		return fmt.Errorf("awaited request already exists: %s", req.RequestID)
 	}
 
@@ -1543,46 +1577,18 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 // that path to the possibly-stale in-memory fallback.
 func (r *StateRepository) GetAwaitedRequest(ctx context.Context, requestID string) (*AwaitedRequest, error) {
 	query := `
-		SELECT
-			request_id, orchestration_id, correlation_id, step_id, step_name,
-			retry_version, target_agent_id, target_agent_type,
-			responses_topic, requests_topic, sent_at, timeout_at,
-			reply_to_request_id, status, processed_at
+		SELECT ` + awaitedRequestColumns + `
 		FROM awaited_requests
 		WHERE request_id = $1
 		  AND status IN ('waiting', 'retrying')
 	`
 
-	record := &AwaitedRequest{}
-	var processedAt sql.NullTime
-
-	err := r.db.QueryRowContext(ctx, query, requestID).Scan(
-		&record.RequestID,
-		&record.OrchestrationID,
-		&record.CorrelationID,
-		&record.StepID,
-		&record.StepName,
-		&record.RetryVersion,
-		&record.TargetAgentID,
-		&record.TargetAgentType,
-		&record.ResponsesTopic,
-		&record.RequestsTopic,
-		&record.SentAt,
-		&record.TimeoutAt,
-		&record.ReplyToRequestID,
-		&record.Status,
-		&processedAt,
-	)
-
+	record, err := scanAwaitedRequestRow(r.db.QueryRowContext(ctx, query, requestID).Scan)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get awaited request: %w", err)
-	}
-
-	if processedAt.Valid {
-		record.ProcessedAt = &processedAt.Time
 	}
 
 	return record, nil
@@ -1627,11 +1633,31 @@ func (r *StateRepository) GetAwaitedRequestWithRetry(ctx context.Context, reques
 	return nil, nil
 }
 
+// awaitedRequestColumns is the canonical column order shared by every claim/get
+// of an awaited_requests row in this file, and by scanAwaitedRequestRow. Adding
+// a column means adding it HERE and in scanAwaitedRequestRow — the two are one
+// contract, and every SELECT below interpolates this constant so they cannot
+// drift apart.
+const awaitedRequestColumns = `request_id, orchestration_id, correlation_id, step_id, step_name,
+		retry_version, target_agent_id, target_agent_type,
+		responses_topic, requests_topic, sent_at, timeout_at,
+		reply_to_request_id, request_payload, status, processed_at`
+
+// nullableJSON binds a possibly-absent JSON document as SQL NULL rather than as
+// an empty string, which a jsonb column rejects.
+func nullableJSON(raw json.RawMessage) interface{} {
+	if len(raw) == 0 {
+		return nil
+	}
+	return []byte(raw)
+}
+
 // scanAwaitedRequestRow scans one awaited_requests row in the canonical column
-// order shared by every claim/get in this file.
+// order shared by every claim/get in this file (awaitedRequestColumns).
 func scanAwaitedRequestRow(scan func(dest ...interface{}) error) (*AwaitedRequest, error) {
 	record := &AwaitedRequest{}
 	var processedAt sql.NullTime
+	var requestPayload []byte
 
 	err := scan(
 		&record.RequestID,
@@ -1647,6 +1673,7 @@ func scanAwaitedRequestRow(scan func(dest ...interface{}) error) (*AwaitedReques
 		&record.SentAt,
 		&record.TimeoutAt,
 		&record.ReplyToRequestID,
+		&requestPayload,
 		&record.Status,
 		&processedAt,
 	)
@@ -1655,6 +1682,9 @@ func scanAwaitedRequestRow(scan func(dest ...interface{}) error) (*AwaitedReques
 	}
 	if processedAt.Valid {
 		record.ProcessedAt = &processedAt.Time
+	}
+	if len(requestPayload) > 0 {
+		record.RequestPayload = json.RawMessage(requestPayload)
 	}
 	return record, nil
 }
@@ -1676,10 +1706,7 @@ func (r *StateRepository) ClaimAwaitedRequestForRetry(ctx context.Context, reque
 		    processed_at = NULL
 		WHERE request_id = $1
 		  AND ( (status = 'waiting' AND timeout_at <= NOW()) OR status = 'expired' )
-		RETURNING request_id, orchestration_id, correlation_id, step_id, step_name,
-		          retry_version, target_agent_id, target_agent_type,
-		          responses_topic, requests_topic, sent_at, timeout_at,
-		          reply_to_request_id, status, processed_at
+		RETURNING ` + awaitedRequestColumns + `
 	`
 
 	record, err := scanAwaitedRequestRow(r.db.QueryRowContext(ctx, query, requestID, podName).Scan)
@@ -1721,10 +1748,7 @@ func (r *StateRepository) ClaimExpiredAwaitedRequestsForRetry(ctx context.Contex
 		    FOR UPDATE OF a SKIP LOCKED
 		    LIMIT $2
 		)
-		RETURNING request_id, orchestration_id, correlation_id, step_id, step_name,
-		          retry_version, target_agent_id, target_agent_type,
-		          responses_topic, requests_topic, sent_at, timeout_at,
-		          reply_to_request_id, status, processed_at
+		RETURNING ` + awaitedRequestColumns + `
 	`
 
 	rows, err := r.db.QueryContext(ctx, query, podName, limit)

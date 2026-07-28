@@ -133,8 +133,9 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	time.Sleep(5 * time.Second)
 
 	// 11. Send initialization message - agent may respond immediately after this
-	if err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
-		initRequestID, childRequestsTopic, parentResponsesTopic); err != nil {
+	retryPayload, err := sendInitializationMessage(ctx, params, agentID, agentName, agentType, role,
+		initRequestID, childRequestsTopic, parentResponsesTopic)
+	if err != nil {
 		params.Logger.Error("Failed to send initialization message",
 			zap.String("agent_id", agentID),
 			zap.Error(err))
@@ -153,7 +154,7 @@ func SpawnAgentAction(ctx context.Context, params ActionParams) (interface{}, er
 	// 13. Build and return comprehensive result
 	return buildSpawnResult(agentID, agentName, agentType, role, initRequestID,
 		childRequestsTopic, childResponsesTopic, parentResponsesTopic,
-		stableIdentity, subtreeInfo), nil
+		stableIdentity, subtreeInfo, retryPayload), nil
 }
 
 // preRegisterAwaitedRequest inserts an awaited_request record BEFORE sending the message
@@ -313,8 +314,15 @@ func createTopics(ctx context.Context, logger *zap.Logger, requestsTopic, respon
 	return nil
 }
 
-// Message building and sending
-func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) error {
+// Message building and sending.
+//
+// Returns the retry payload — the exact produced message — so the caller can put
+// it in the action result under types.RetryPayloadKey and the coordinator can
+// REPLAY it on timeout instead of reconstructing one from the spawning
+// orchestration's own state (bugs_open/129). A nil payload is returned when
+// nothing was produced; the coordinator then refuses to retry rather than
+// sending a message that would carry the parent's orchestration_id.
+func sendInitializationMessage(ctx context.Context, params ActionParams, agentID, agentName, agentType, role, requestID, childRequestsTopic, parentResponsesTopic string) (map[string]interface{}, error) {
 
 	params.Logger.Info("Sending initialization message",
 		zap.String("I am on agent:", os.Getenv("AGENT_TYPE")),
@@ -416,7 +424,7 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 	// Marshal message
 	messageBytes, err := json.Marshal(message)
 	if err != nil {
-		return fmt.Errorf("failed to marshal message: %w", err)
+		return nil, fmt.Errorf("failed to marshal message: %w", err)
 	}
 
 	params.Logger.Info("Sending initialization message to spawned agent",
@@ -425,8 +433,15 @@ func sendInitializationMessage(ctx context.Context, params ActionParams, agentID
 		zap.String("reply to request id", message.Headers.ReplyToRequestID),
 		zap.String("action", "initialize"))
 
+	// Record what we are about to send BEFORE sending, and return it whatever the
+	// send does: a timeout is exactly the case where the send may have half
+	// happened, and the replay must be of the message we built, not of a later
+	// reconstruction. sendMessageWithRetries keys on requestID, so the replay
+	// does too.
+	retryPayload := types.BuildRetryPayload(childRequestsTopic, requestID, messageBytes)
+
 	// Send with retries
-	return sendMessageWithRetries(ctx, params, childRequestsTopic, message.Headers.ToMap(), requestID, messageBytes)
+	return retryPayload, sendMessageWithRetries(ctx, params, childRequestsTopic, message.Headers.ToMap(), requestID, messageBytes)
 }
 
 func buildInitializationMessage(params ActionParams, agentID, agentName, agentType, role, requestID, parentResponsesTopic, senderType string, initData map[string]interface{}) *types.RequestMessage {
@@ -554,8 +569,9 @@ func createSubtreeInfo(agentID, agentName, agentType, parentAgentID string) *typ
 
 func buildSpawnResult(agentID, agentName, agentType, role, requestID,
 	childRequestsTopic, childResponsesTopic, parentResponsesTopic,
-	stableIdentity string, subtree *types.SubtreeInfo) map[string]interface{} {
-	return map[string]interface{}{
+	stableIdentity string, subtree *types.SubtreeInfo,
+	retryPayload map[string]interface{}) map[string]interface{} {
+	result := map[string]interface{}{
 		"agent_id":          agentID,
 		"agent_name":        agentName,
 		"agent_type":        agentType,
@@ -587,6 +603,17 @@ func buildSpawnResult(agentID, agentName, agentType, role, requestID,
 			},
 		},
 	}
+
+	// The message we actually produced, so a timeout replays it rather than
+	// reconstructing one that would carry the SPAWNER's orchestration_id
+	// (bugs_open/129). Omitted rather than set empty when the send never
+	// happened: an absent payload makes the coordinator refuse to retry, which
+	// is the safe reading of "we do not know what was sent".
+	if len(retryPayload) > 0 {
+		result[types.RetryPayloadKey] = retryPayload
+	}
+
+	return result
 }
 
 func logSpawnStart(params ActionParams) {

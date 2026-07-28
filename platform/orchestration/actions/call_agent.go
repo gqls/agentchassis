@@ -91,12 +91,13 @@ func CallAgentAction(ctx context.Context, params ActionParams) (interface{}, err
 	)
 
 	// 8. Send the message to the agent
-	if err := sendAgentRequest(ctx, params, targetAgent.RequestsTopic, requestMessage); err != nil {
+	retryPayload, err := sendAgentRequest(ctx, params, targetAgent.RequestsTopic, requestMessage)
+	if err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
 	// 9. Build and return the result
-	callResult := buildCallResult(targetAgent, childOrchID, targetAction, requestMessage.Headers.RequestID)
+	callResult := buildCallResult(targetAgent, childOrchID, targetAction, requestMessage.Headers.RequestID, retryPayload)
 
 	// 10. Check if caller configured fire-and-forget (no waiting for child response).
 	//     buildCallResult sets await_response: true by default.
@@ -596,17 +597,26 @@ func buildCallRequestMessage(
 	return message
 }
 
-// Send the request to the agent
-func sendAgentRequest(ctx context.Context, params ActionParams, targetTopic string, message *types.RequestMessage) error {
+// Send the request to the agent.
+//
+// Returns the retry payload — the exact produced message — so the caller can put
+// it in the action result under types.RetryPayloadKey and the coordinator can
+// REPLAY it on timeout instead of reconstructing one from the CALLING
+// orchestration's own state (bugs_open/129).
+func sendAgentRequest(ctx context.Context, params ActionParams, targetTopic string, message *types.RequestMessage) (map[string]interface{}, error) {
 	// Marshal the message
 	msgBytes, err := json.Marshal(message)
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Convert headers
 	headers := message.Headers.ToMap()
 	key := []byte(params.ExecutionContext.CorrelationID)
+
+	// Record what we are about to send, keyed exactly as the send is, so a
+	// replay is indistinguishable from the original but for retry_version.
+	retryPayload := types.BuildRetryPayload(targetTopic, string(key), msgBytes)
 
 	params.Logger.Info("Sending request to agent",
 		zap.String("target_topic", targetTopic),
@@ -616,7 +626,7 @@ func sendAgentRequest(ctx context.Context, params ActionParams, targetTopic stri
 
 	// Send the message
 	if err := params.Producer.Produce(ctx, targetTopic, headers, key, msgBytes); err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
+		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
 	// Trace if available
@@ -630,12 +640,13 @@ func sendAgentRequest(ctx context.Context, params ActionParams, targetTopic stri
 			})
 	}
 
-	return nil
+	return retryPayload, nil
 }
 
 // Build the result to return
-func buildCallResult(targetAgent *TargetAgentInfo, childOrchID, targetAction, requestID string) map[string]interface{} {
-	return map[string]interface{}{
+func buildCallResult(targetAgent *TargetAgentInfo, childOrchID, targetAction, requestID string,
+	retryPayload map[string]interface{}) map[string]interface{} {
+	result := map[string]interface{}{
 		"agent_called":          targetAgent.AgentID,
 		"agent_type":            targetAgent.AgentType,
 		"request_id":            requestID,
@@ -647,6 +658,15 @@ func buildCallResult(targetAgent *TargetAgentInfo, childOrchID, targetAction, re
 		"await_response":        true,
 		"target_agent_type":     targetAgent.AgentType,
 	}
+
+	// The message we actually produced, so a timeout replays it rather than
+	// reconstructing one that would carry the CALLER's orchestration_id
+	// (bugs_open/129).
+	if len(retryPayload) > 0 {
+		result[types.RetryPayloadKey] = retryPayload
+	}
+
+	return result
 }
 
 // Helper functions

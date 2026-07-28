@@ -250,41 +250,54 @@ func (tm *TimeoutMonitor) retryTimedOutRequest(ctx context.Context, state *Orche
 		return
 	}
 
-	// Create retry message
-	retryRequest := &types.RequestMessage{
-		Headers: types.RequestHeaders{
-			RequestID:         awaited.RequestID,
-			RetryVersion:      awaited.RetryVersion,
-			StepID:            awaited.StepID,
-			StepName:          awaited.StepName,
-			OrchestrationID:   state.OrchestrationID,
-			OrchestrationName: state.OrchestrationName,
-			CorrelationID:     state.CorrelationID,
-			ToAgentType:       awaited.TargetAgentType,
-			ToAgent:           awaited.TargetAgentID, // Add if available
-			ClientID:          state.ClientID,
-			MessageID:         uuid.New().String(),
-			MessageType:       "request",
-			Timestamp:         time.Now(),
-			Action:            "retry",
-			ResponsesTopic:    awaited.ResponsesTopic, // Pass it along
-		},
+	// A RETRY IS A REPLAY (bugs_open/129) — the same invariant the live retry
+	// path in coordinator.go handleRecoverableError now enforces. This monitor is
+	// the older, currently dormant timeout path (all 430 retries measured over
+	// 14 days on 2026-07-28 went through the coordinator), and it carried the
+	// same defect: OrchestrationID: state.OrchestrationID hands the target THIS
+	// orchestration's id, so it resolves our row, sees AWAITING_RESPONSES and
+	// declines the work while reporting success. It is fixed here rather than
+	// left as a landmine for whoever revives it.
+	payload, err := types.DecodeRetryPayload(awaited.RequestPayload)
+	if err != nil {
+		tm.logger.Error("RETRY_PAYLOAD_UNAVAILABLE: refusing to synthesise a retry (would carry this orchestration's own id)",
+			zap.String("request_id", awaited.RequestID),
+			zap.String("step_name", awaited.StepName),
+			zap.Error(err))
+		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "No recorded request payload to replay")
+		return
 	}
 
-	// CRITICAL CHANGE: Must send to the child's REQUEST topic, not constructed
-	// The awaited request should store where to send retries
-	retryTopic := awaited.RequestsTopic // NEW field needed
+	retryHeaders, retryBytes, replayed, err := payload.ReplayRequest(awaited.RetryVersion, 0)
+	if err != nil {
+		tm.logger.Error("RETRY_PAYLOAD_UNDECODABLE: stored request payload could not be replayed",
+			zap.String("request_id", awaited.RequestID),
+			zap.Error(err))
+		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "Stored request payload could not be replayed")
+		return
+	}
+
+	if replayed.Headers.OrchestrationID == state.OrchestrationID {
+		tm.logger.Error("RETRY_SELF_ADDRESSED: replayed request carries the awaiting orchestration's own id — refusing to send",
+			zap.String("request_id", awaited.RequestID),
+			zap.String("orchestration_id", state.OrchestrationID))
+		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "Replayed request is self-addressed")
+		return
+	}
+
+	// Send to the topic the original went to, not a re-derived one.
+	retryTopic := payload.Topic
 	if retryTopic == "" {
-		// This shouldn't happen with new architecture
+		retryTopic = awaited.RequestsTopic
+	}
+	if retryTopic == "" {
 		tm.logger.Error("No requests topic for retry",
 			zap.String("request_id", awaited.RequestID))
 		tm.failOrchestrationDueToTimeout(ctx, state, awaited.RequestID, "No requests topic for retry")
 		return
 	}
 
-	retryBytes, _ := json.Marshal(retryRequest)
-
-	if err := tm.producer.Produce(ctx, retryTopic, retryRequest.Headers.ToMap(),
+	if err := tm.producer.Produce(ctx, retryTopic, retryHeaders,
 		[]byte(awaited.RequestID), retryBytes); err != nil {
 		tm.logger.Error("Failed to send retry request",
 			zap.Error(err),
