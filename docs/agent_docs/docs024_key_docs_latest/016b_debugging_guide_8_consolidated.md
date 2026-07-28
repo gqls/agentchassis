@@ -3863,6 +3863,25 @@ joined. It surfaced only when the two disagreed and the failing one wrote `faile
 over the succeeding one's work item, whereupon the duplicates were miscounted as
 instances of an unrelated open bug and inflated its rate.
 
+> **MEASURED 2026-07-28, same day, by the thread that wrote this entry.** The
+> "fleet-wide" framing above is right about the SHAPE and was wrong to imply live
+> prevalence. Audited every script under `docs/` and `scripts/`: the signature is a
+> script that **inserts a `site_work_items` row AND publishes an envelope** (one
+> that merely pokes a *loop* is benign — the claim is atomic). **3 hits, 0 live
+> instances beyond `124` itself:** `180_adoption/080_trigger_adoption.sh` is a
+> false positive (it inserts an `evaluate_tools` row and separately publishes
+> unrelated work), and `092_TRIGGER_experience_plan.sh` is **latent** — intake at a
+> private status plus its own publish, safe only while nothing claims
+> `awaiting_experience_plan`, which nothing does today. A warning now sits in that
+> script above its INSERT.
+>
+> The entry earns its place anyway, because the *design* repeats:
+> `report-dispatch-loop` is a direct clone of the diagnose loop — same `claim_item`
+> shape, same `FOR UPDATE SKIP LOCKED`, same private-status pair — and ships
+> DISABLED, the exact configuration the diagnose lane sat in for weeks. That lane
+> is safe for a structural reason worth copying: its items are created by a Go
+> action, not by a publishing script, so it has one dispatcher **by construction**.
+
 **The check, and it is one query.** For any lane with a trigger script, ask
 whether the automatic dispatcher is on *now* rather than trusting the comment:
 
