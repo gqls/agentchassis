@@ -1,13 +1,16 @@
 # Concept Index — master register
 
-1,633 concepts across 107 category register files. 1,627 consolidated from
+1,636 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
 missingkey=zero structural defect it surfaced) that shipped after extraction
 froze; 2 more (MDL-038/039) added 2026-07-17 for two live platform bugs the
 fix-loop's own first real-case run found — see the addition notes further
-down. Status tags were documentary signals from the source material unless
+down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28
+for capability that shipped this week — a structural fingerprint for LLM
+responses, the diagnosability layer on the island's tools-api, and the
+pre-commit detector that stops model text reaching a log. Status tags were documentary signals from the source material unless
 independently verified (see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
@@ -1714,3 +1717,15 @@ an ID prefix, or a status word.
 | STY-008 | SectionStyles: built-but-disconnected per-section CSS mechanism, retired | abandoned | ~80% built renderer mechanism no active layout ever consumes | styling-render-pipeline.md |
 | BIZ-008 | Unit economics, pricing, and sourcing decisions (idea.uk) | deployed | £29 flat, cost-plus; self-hosted LLMs deferred to 2027 | business-strategy.md |
 | SOC-012 | Spark revenue model | aspirational | £3-5/mo subscription + meritocratic brand sponsorship + revenue share, no pay-to-win | social-media.md |
+| VIZ-001 | evidence-chart: magnitudes resolved through fact ids | deployed | CSS bars, no SVG; a chart point cannot carry its own number — every value resolves via fact_id and renders its verified date | visualisation-and-charts.md |
+| VIZ-002 | evidence-timeseries: one measurement over time | built | Companion to evidence-chart; one column per dated observation, each point rendering its OWN citation. Not yet on a live page | visualisation-and-charts.md |
+| VIZ-003 | Series facts: the substrate a time axis needs | deployed | Observation{as_of,value,source}; as_of is the date the value APPLIES to, distinct from the three provenance dates | visualisation-and-charts.md |
+| VIZ-004 | The honesty gate had to learn about series | deployed | numberSupported skips Value==nil, so without a series branch every plotted point reads as an unregistered number | visualisation-and-charts.md |
+| VIZ-005 | Generated images explain, code-rendered output states | designed | Diffusion imagery is wrong for anything exact, selectable or translatable. Stated in features_open/023; nothing enforces it | visualisation-and-charts.md |
+| VIZ-006 | mechanism-flow: drawing a process, with no numeric field | deployed | Numbered flow with decision branches. Has NO number slot by design — the absence is the control | visualisation-and-charts.md |
+| VIZ-007 | No arithmetic in the render funcmap; a missing func is a PARSE error | deployed | No inc/add. Rules out SVG coordinate maths in templates, which is why charts pass values to CSS custom properties | visualisation-and-charts.md |
+| VIZ-008 | $facts is declared by the template, not supplied by the engine | deployed | {{$facts := .facts}}. An undeclared variable is a parse error, so the component renders nothing rather than degrading | visualisation-and-charts.md |
+| VIZ-009 | Text inside <svg> is invisible to the claims gate | deployed | extractAssertions never reaches SVG text, so an SVG diagram could assert anything and scan clean | visualisation-and-charts.md |
+| VIZ-010 | cmd/contrastscan: the post-deploy contrast witness | deployed | Computed style + actual painted backdrop, alpha-composited. Complements AuditPalette; neither sees what the other sees | visualisation-and-charts.md |
+| VIZ-011 | Chart furniture is a graphical object, so 3.0 applies | deployed | Axis lines and connectors need 3.0. --color-border scores 1.66 on oufe and fails; the accent scores 6.86 | visualisation-and-charts.md |
+| CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |

@@ -38,3 +38,46 @@ collapsed) across unit U13.
 - **sources:** temperature/PLAN_temperature_observability_and_resolution.md#Step 5
 - **relations:** Per-field LLM config resolution fallback chain (LCO-002)
 - **verify-later:** n/a (not yet implemented; gated on Steps 1-3)
+
+### LCO-005 — `aiservice.Fingerprint`: log a model response's SHAPE, never its text
+- **status:** deployed
+- **what:** `Fingerprint(s string) string` returns one stable line —
+  `chars=1834 first=L fence=yes objects=2 parses=false keys=[]` — describing an
+  LLM response structurally: length, first non-space character, whether a
+  markdown fence is present, how many **top-level** JSON objects it contains,
+  whether it parses, and its keys if so. Exists because every question an
+  unusable completion raises is structural (prose wrapper? fence? two objects?
+  empty?) and **none of them needs the text.** Logging the text instead publishes
+  whatever the model echoed back — on a debate/chat/support endpoint that is the
+  visitor's own words — to anyone who can read the container's logs.
+  It is also strictly MORE diagnostic than a capped excerpt: `bugs_closed/088`'s
+  second JSON object begins ~1,500 chars in, so a 300-char excerpt could never
+  reveal the case it existed for. `TopLevelJSONObjects` is exported separately and
+  is string- and escape-aware, because a brace inside a quoted value otherwise
+  miscounts and the count is the whole point.
+- **sources:** `platform/aiservice/fingerprint.go`; `platform/aiservice/fingerprint_test.go`;
+  consumer at `internal/tools-api/handlers/ailog.go`
+- **relations:** LCO-006; CNV-003; `bugs_open/083`; council corr `e004fd81`
+- **note:** the owner ruled on 2026-07-27 that no model text is logged, on an item
+  the council explicitly recorded it could not close itself.
+
+### LCO-006 — A 5xx with a discarded error is undiagnosable, and bursty faults cannot be reproduced
+- **status:** deployed (tools-api on the island VM; **not** in the chassis)
+- **what:** Every LLM-backed handler in `tools-api` discarded `err` before
+  returning 503, so a 429, a 529, a network timeout with no client timeout, a
+  truncated completion and a malformed response all reached the caller as one
+  opaque message. Now every **5xx fault path** logs its cause (16 sites), with
+  truncation labelled distinctly via `aiservice.IsTruncated` because that is our
+  own cap and not an upstream fault. **4xx caller paths are deliberately NOT
+  logged** — caller mistakes are not faults and `gin.Logger()` already records
+  method/path/status. Two structural findings came with it: the service had **no
+  request logging at all**, so there was no denominator and no honest failure
+  *rate* could be quoted; and `/round` returned a literal **502**, whose body
+  Cloudflare replaces with its own HTML, destroying the JSON error the front end
+  needed — the one status code that eats its own evidence.
+- **sources:** `internal/tools-api/handlers/ailog.go`, `.../defend.go`,
+  `.../position.go`, `.../round.go`, `internal/tools-api/api/server.go`
+- **relations:** LCO-005; `bugs_open/083`; `RUNBOOK_gauntlet_dead_cta.md` §5
+- **note:** proven by an INDUCED fault, not a green path — the same invalid key
+  against both images: the new one logs `status 401 … invalid x-api-key`, the old
+  one logs nothing at all.

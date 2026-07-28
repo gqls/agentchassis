@@ -23,3 +23,24 @@ one extraction, not independent corroboration).
 - **sources:** docs/leopardessconsulting/RUNBOOK.md#Landmines; docs/social001_vonc_tiktok_social/minilobby_task/VERDICT_minilobby_trim_method.md#7; docs/social001_vonc_tiktok_social/minilobby_task/HANDOFF_2026-07-09_vonc_spark_minilobby_trim(2).md#8; docs/leopardessconsulting/HANDOFF.md#5
 - **relations:** silent no-op success class; fleet generalisation doctrine; standing evidence rules (operating-doctrine register, OPD-001)
 - **verify-later:** n/a (doctrine); bak_* table inventory in clients_db
+
+### OPP-003 — `check_logged_model_output`: a pre-commit detector for publishing model text
+- **status:** deployed (advisory; 8th check in `scripts/pattern-check.py`, run by `.githooks/pre-commit`)
+- **what:** Flags a log sink (`log.*`, `logger.*`, `fmt.Print*`) that passes an
+  unwrapped payload identifier (`text`, `body`, `completion`, `response`, `raw`,
+  …) inside any package that calls `GenerateText`, and points at
+  `aiservice.Fingerprint` as the fix. Silent when the value is wrapped in a
+  derived-fact helper. Exists because whether to log model output is a *content*
+  decision, not a code-review one — it took a full council round to surface once,
+  and the reviewer stated it could not be closed by the council alone.
+- **sources:** `scripts/pattern-check.py` (`check_logged_model_output`)
+- **relations:** LCO-005; `bugs_open/083`
+- **note — the check nearly shipped VACUOUS, and this is the transferable part:**
+  the first version gated on **the file** containing `GenerateText`. The LLM call
+  lives in `defend.go` and the log sink in its sibling `ailog.go`, so it examined
+  **zero files and printed a clean result**. A clean result and an unrun check are
+  byte-identical output. Caught only by a **positive control** — auditing the
+  commit that introduced the defect and *requiring* a finding. Now gated on the
+  package and verified three ways: fires on `a37a2037c`, silent on the fix, zero
+  findings fleet-wide. **Any new detector needs its failing case demonstrated at
+  the moment it is written.**
