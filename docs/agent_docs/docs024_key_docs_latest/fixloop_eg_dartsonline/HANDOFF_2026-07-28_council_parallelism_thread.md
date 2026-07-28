@@ -212,6 +212,85 @@ today (see the struck-through "ABATED" section in `bugs_open/029`). Whoever pick
 this up should re-run the hourly table with the control column during a **busy**
 window before drawing any conclusion about the replay fix.
 
+## OWED ITEM DISCHARGED 2026-07-28 21:15Z — the busy-window control run
+
+The 20:58 section above closed asking the next thread to *"re-run the hourly table
+with the control column during a busy window before drawing any conclusion about
+the replay fix."* Done, on `v1.0.1194` (both pods up 20:48Z).
+
+**The whole `spawn_dispatch` timeout class stops at `11:29:57Z` and has not
+recurred in the ten hours since.**
+
+| hour | orch runs | bpt spawns (control) | timeouts |
+|---|---|---|---|
+| 09:00 | 150 | 21 | 2 |
+| 10:00 | 114 | 24 | **16** |
+| 11:00 | 132 | 24 | **11** |
+| 12:00 → 21:15 | 708 | **50** | **0** |
+
+**This is not a filter artifact, and that was checked rather than assumed.** The
+morning readings all came from `error_message ILIKE '%timed out after%'`; if the
+fix had changed the error *text*, a zero would mean nothing. Re-run
+**unfiltered** over 10 hours, grouped by `agent_type, step_name`:
+`build-pipeline-trigger / spawn_dispatch` appears **6 times, first 11:17:27Z, last
+11:29:57Z**, and not once after. The class is absent from the unfiltered log, not
+hidden from the filter.
+
+**The control is alive.** 50 reproducer spawns across the clean window, and 3 of
+them post-roll (21:07:58 → 21:12:57), so the cron did not simply stop — which is
+the failure mode that made the morning "ABATED" call wrong.
+
+**How far this goes, stated carefully.** Against the morning rate (46–67%) 50
+spawns would have predicted roughly 23–33 failures; against the mildest observed
+rate (09:00, ~10%) still ~5. Zero is a real signal and the class looks closed.
+**Do not convert it to a confidence figure** — the failures are bursty, so any
+independence assumption overstates it. The post-*roll* window specifically is
+still thin: 3 reproducer runs is better than 20:58's zero, but it is not yet the
+busy post-roll window that would test response-replay directly.
+
+## Adjacent live finding — truncation damage, correctly attributed
+
+Surfaced by the unfiltered baseline above; recorded here because it lands on
+**this thread's own subject** (council verdict quality), and because I first
+misattributed it twice.
+
+- **It is NOT `bugs_open/119`.** 119 is a *complete but structurally invalid*
+  review (a stray bracket); it says so, and names truncation as a different case.
+- **It is NOT a regression of `bugs_closed/019`.** It is 019's fix **working as
+  designed**: the partial is recorded, the seat is named `unreadable`, and the
+  round continues instead of being voided.
+
+What is unclaimed is the **residual rate**, which 019's fix made survivable but
+did not reduce:
+
+- **12 of 37 council rounds in 10 hours** decided with at least one seat's opinion
+  partial or lost (14 damaged-seat events). Denominator verified rather than
+  assumed: all 12 damaged `orchestration_id`s join to `orchestration_states` rows
+  carrying `council_decide`, owner `council-gate` (11) / `experience-approval-council`
+  (3). The `agent_type='generic'` on the error rows is the spawned **pod's**
+  identity, not the orchestration owner — reading it as a separate population is
+  the available denominator trap here.
+- **It is concentrated**: over 24h, `review_editquality` 10 events (6
+  unsalvageable / 4 salvaged); `deferral_honesty` 2; `checkability`, `guardian`,
+  `guidelines`, `prior_art` 1 each.
+- **No seat sets `max_tokens`.** All 16 set `tolerate_truncation: true` and leave
+  `max_tokens` NULL (live `agent_definitions` row).
+
+The platform already names the remedy, in the code that emits these very rows —
+`platform/orchestration/actions/diagnose_council_decide_action.go:582-583`:
+
+> *"What needs a human eventually is the pattern — a seat that truncates
+> repeatedly wants a higher `max_tokens`, not a nightly salvage."*
+
+`recordTruncationDegradation` was built precisely so this pattern would be
+queryable by a human rather than dying in a pod log. This is that read, and the
+pattern it was watching for is present. **[UNMEASURED]** what value would be
+enough, and whether the seat's prompt is simply over-long for any sane cap.
+
+**Not actioned deliberately:** raising `max_tokens` on the gate is a live change
+to the shared review apparatus every thread submits through, so it is an owner
+call, not a 21:00 unilateral edit.
+
 ## Next actions (superseded above — kept for the record)
 
 1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
