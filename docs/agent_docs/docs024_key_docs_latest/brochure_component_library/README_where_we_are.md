@@ -779,3 +779,39 @@ Also confirmed: the `/assets/illustrations/` folder those carousel pictures poin
 never existed on any site we run — the writer simply invented it. So that regression
 joins the invented-links problem as one and the same defect: the writer isn't told what
 exists, and (we now know) nothing downstream actually stops the results shipping.
+
+---
+
+**2026-07-28, evening.** The spending cap on the Claude models came back mid-afternoon,
+so the things we'd parked "until August" got done tonight instead.
+
+Three outcomes. First, the model-selector tool now has its picture. It turned out the
+image had been sitting published on the site all along — the page just never pointed at
+it. We added the picture to the page directly and pushed that one page live; it's
+showing now, and it's the right image for the job (a three-way fork illustration, no
+lettering).
+
+Second, the capabilities page is clean again. All thirteen broken references — the nine
+made-up links and the four made-up illustration files — came from one bad rebuild this
+morning, and the platform keeps a copy of what each section looked like before it gets
+overwritten. So rather than repairing thirteen things we put back the two sections the
+bad build had damaged, exactly as they were the day before, and re-rendered the page
+without involving the writing AI at all. The live page now has no broken links, real
+photographs on the carousel, and both charts still in place. One wart we inherited
+rather than caused: several of the restored links point at spots *within* the page that
+don't technically exist, so clicking them opens the page but doesn't scroll anywhere.
+Cosmetic, noted for later.
+
+Third, we asked the independent diagnosis system to check this morning's big claim —
+that the platform's link-repair step does its work and then the work gets thrown away
+before saving. Its answer was "could not verify" rather than "wrong": it agreed with
+how the code is wired but couldn't see a complete example from where it looked. In
+chasing the one new lead it gave us, we found a third site with the same signature —
+a page whose repair has been recomputed as recently as this afternoon while the stored
+page hasn't changed in a week. So the claim stands, now with three sites behind it,
+and the real fix (make the save step apply the repair) is the biggest lever on the
+board for whoever picks it up next.
+
+One process note: we cleaned the capabilities page ourselves tonight, which means it's
+no longer an example of the bug — the bug file now points at the other two sites for
+anyone who needs to see it live.
