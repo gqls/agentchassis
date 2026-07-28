@@ -107,10 +107,11 @@ type Agent struct {
 	// Thin-ingest intake path, from CHASSIS_INTAKE_MODE (chassis_replica_
 	// scaling CS-2). nil/false for every agent that does not set the env var —
 	// see intake.go for the modes and the structural guards.
-	intakeRepo      *orchestration.IntakeRepository
-	intakeRequests  bool
-	intakeResponses bool
-	intakePool      *intakeWorkerPool
+	intakeRepo       *orchestration.IntakeRepository
+	intakeRequests   bool
+	intakeResponses  bool
+	intakeMaxPending int
+	intakePool       *intakeWorkerPool
 
 	// Topics
 	requestsTopic  string // as an agent this is my requests topic

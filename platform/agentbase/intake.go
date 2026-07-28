@@ -25,6 +25,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -38,6 +39,16 @@ const (
 	intakeModeEnv           = "CHASSIS_INTAKE_MODE"
 	intakeModeWorkerPool    = "worker_pool"
 	intakeModeWorkerPoolAll = "worker_pool_all"
+
+	// Backpressure (CS-2c, guardian objection on corr 9f0499b9): thin ingest
+	// removes Kafka's implicit throttling — the blocking consume loop WAS the
+	// backpressure — so the table must impose its own bound. When the not-done
+	// backlog reaches the cap, persistIntake stalls BEFORE inserting; the lane
+	// stops advancing, messages accumulate in Kafka exactly as they do today,
+	// and every existing LAG monitor sees it. The bound is structural, not a
+	// runbook instruction.
+	intakeMaxPendingEnv     = "CHASSIS_INTAKE_MAX_PENDING"
+	intakeMaxPendingDefault = 5000
 )
 
 // intakeKeyNamespace makes degenerate serialisation keys deterministic: the
@@ -77,6 +88,10 @@ func (a *Agent) setupIntake(mainTopic string) {
 	a.intakeRepo = orchestration.NewIntakeRepository(a.db, a.logger)
 	a.intakeRequests = true
 	a.intakeResponses = mode == intakeModeWorkerPoolAll
+	a.intakeMaxPending = intakeMaxPendingDefault
+	if v, err := strconv.Atoi(os.Getenv(intakeMaxPendingEnv)); err == nil && v > 0 {
+		a.intakeMaxPending = v
+	}
 
 	// The pod-grep discriminator for deploy verification: this exact token is
 	// new with CS-2 and logged once at startup.
@@ -98,6 +113,31 @@ func (a *Agent) intakeForResponses() bool { return a.intakeRepo != nil && a.inta
 // the inline path gives today (processMessage cannot run without the DB
 // either); a silently skipped dispatch is not.
 func (a *Agent) persistIntake(msg kafka.Message, kind string) bool {
+	// Backpressure gate FIRST: while the not-done backlog is at the cap, this
+	// loop stalls and the lane stops advancing — Kafka accumulates and every
+	// existing LAG monitor sees it, exactly the bound the blocking consume
+	// loop used to provide implicitly. One indexed count per message; ingest
+	// is milliseconds either way at this fleet's dispatch rates.
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		backlog, err := a.intakeRepo.PendingBacklog(ctx)
+		cancel()
+		if err == nil && backlog < a.intakeMaxPending {
+			break
+		}
+		if err == nil {
+			a.logger.Warn("INTAKE_BACKPRESSURE: backlog at cap, lane holds",
+				zap.Int("backlog", backlog),
+				zap.Int("cap", a.intakeMaxPending),
+				zap.String("topic", msg.Topic))
+		}
+		select {
+		case <-a.ctx.Done():
+			return false
+		case <-time.After(2 * time.Second):
+		}
+	}
+
 	headers := kafka.HeadersToMap(msg.Headers)
 	key, orchestrationID, correlationID, requestID := a.intakeSerialisationKey(headers, kind)
 

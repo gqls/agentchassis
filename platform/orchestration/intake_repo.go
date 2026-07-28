@@ -256,6 +256,17 @@ func (r *IntakeRepository) PurgeDoneEvents(ctx context.Context, olderThan time.D
 	return rows, nil
 }
 
+// PendingBacklog counts events not yet done — the figure the ingest loops
+// gate on (CS-2c, council corr 9f0499b9 guardian objection: removing Kafka's
+// implicit backpressure must not leave the table unbounded). Uses the partial
+// index idx_cie_pending.
+func (r *IntakeRepository) PendingBacklog(ctx context.Context) (int, error) {
+	var n int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT count(*) FROM chassis_intake_events WHERE status IN ('pending','running')`).Scan(&n)
+	return n, err
+}
+
 // ResolveResponseOrchestration maps a response's request id to the PARENT
 // orchestration that awaits it, via awaited_requests. A response's own
 // orchestration_id header names the CHILD's run — serialising on it would
