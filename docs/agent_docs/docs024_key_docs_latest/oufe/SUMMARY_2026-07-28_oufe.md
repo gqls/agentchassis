@@ -108,7 +108,7 @@ into a handoff in bold, and repeated to the owner twice.
 ## Where we are now
 
 The site is eight pages, all live. The claims scanner reports zero findings across
-fifteen components. Contrast passes on everything measurable. The tool is verified
+sixteen components. Contrast passes on everything measurable. The tool is verified
 in a real browser rather than asserted from its markup. The legal pages are
 published and protected.
 
