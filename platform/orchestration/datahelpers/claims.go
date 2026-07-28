@@ -566,24 +566,47 @@ type ClaimSurface struct {
 
 // editorialPageTypes are the page types whose BODY PROSE is not a first-person
 // claim about the business — instruction, commentary, aggregated third-party
-// listings, or an interactive instrument's own help text. Each entry below is
-// held down by a measured false positive on a live opted-in site; do not widen
-// this from intuition, and never widen it to a page type whose body is
-// marketing copy.
+// listings, or an interactive instrument's own help text.
 //
-// 'report' is deliberately ABSENT. Its 14 findings on robot-hands are false
-// positives of a different class — model numbers inside product names ("Schunk
-// EGP 40-N-S-B — manufacturer specification") tripping on `verified` in the
-// context window — and a report page's figures genuinely can be business
-// claims. Excluding it here would fix those by coincidence, not by mechanism.
+// THE BAR FOR MEMBERSHIP: a measured false positive on live copy, AND a body
+// that is never marketing. Do not widen this from intuition. The literals are
+// the live `pages.page_type` vocabulary, checked against the column on
+// 2026-07-28 (content 130, tool 110, blog-post 67, guide 52, section-index 20,
+// entity-page 20, landing 17, game 5, news-index 4, blog-index 3, report 2,
+// entity-directory 2, adoption-tracker 1, protocol-tracker 1, model-directory 1)
+// — a literal that does not match a stored value is a silent no-op, so re-run
+// that query before adding one.
+//
+// Each member, with what earns it (measured 2026-07-28, cmd/claimscan against
+// each opted-in site's own register over live rendered_html):
+//   - blog-post (46 false positives) — worked examples in explainers
+//   - tool (7) — an instrument's own help text: "Set to 0 to disable"
+//   - game (4) — the same, on interactive pages
+//   - guide (1 live, plus the 15 on webdesign.co.uk that motivated bugs_open/102)
+//   - news-index (1) — a quoted third-party market figure in a listing
+//
+// THREE PAGE TYPES ARE DELIBERATELY ABSENT, each for a different reason:
+//
+//   - 'blog-index': never measured. It exists on three sites and has raised zero
+//     findings even scanned against an EMPTY register, so there is no evidence
+//     either way. Adding it by analogy to blog-post would be exactly the
+//     unmeasured extrapolation this comment warns against (council round 1,
+//     correlation de4a19f5, edit-quality seat — the objection was right).
+//   - 'section-index': measured, and REJECTED on the second half of the bar.
+//     Two of its twenty pages are `about-index` and `contact-index` on
+//     gamesdesign.co.uk — marketing surfaces filed under an index name. Its two
+//     false positives are one quoted market-share sentence; a blind spot over
+//     an about page is the worse trade.
+//   - 'report': its 14 findings on robot-hands are a different class entirely —
+//     model numbers inside product names ("Schunk EGP 40-N-S-B — manufacturer
+//     specification") tripping on `verified` in the context window. Excluding it
+//     here would fix those by coincidence, not by mechanism.
 var editorialPageTypes = map[string]bool{
-	"guide":         true,
-	"blog-post":     true,
-	"blog-index":    true,
-	"news-index":    true,
-	"section-index": true,
-	"tool":          true,
-	"game":          true,
+	"guide":      true,
+	"blog-post":  true,
+	"news-index": true,
+	"tool":       true,
+	"game":       true,
 }
 
 // ProseNumbersAreClaims reports whether the heuristic number scan applies to

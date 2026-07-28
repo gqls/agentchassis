@@ -5,18 +5,21 @@
 // Every fixture in the editorial test below is a VERBATIM live false positive,
 // measured 2026-07-28 with cmd/claimscan against each opted-in site's own
 // evidence register over its live rendered_html: 124 unregistered-number
-// findings fleet-wide, of which 47 sat on editorial page types and all 47 were
-// worked examples, widget help text, or quoted third-party figures. The
+// findings fleet-wide, of which 59 sit on the editorial page types kept below and
+// every one is a worked example, widget help text, or a quoted third-party figure. The
 // business-surface fixtures are live TRUE positives from the same run, so the
 // two directions are graded against the same corpus.
 //
-// The three properties this file pins, in the order they matter:
+// The four properties this file pins, in the order they matter:
 //  1. an editorial page raises no prose number findings;
 //  2. the SAME text on a business page (and on an unknown surface) still does —
 //     without this, "quiet" and "broken" are indistinguishable;
 //  3. a BANNED claim is still raised on an editorial page — the case that
 //     motivated the whole check was "70+ agents across eight functional
-//     departments" found on a guide.
+//     departments" found on a guide;
+//  4. the three types that LOOK editorial and are deliberately not (blog-index,
+//     section-index, report) stay scanned, each with its reason attached, so
+//     adding one back is a deliberate act rather than a tidy-up.
 
 package datahelpers
 
@@ -68,10 +71,29 @@ var editorialFalsePositives = []struct {
 			"you have an inflation problem."},
 	{"news-index", "robot-hands.com",
 		"[Insights] Market report projects cobot tending cells to hold 38% share, driven by demand from small manufacturing customers."},
-	{"section-index", "robot-hands.com",
-		"[Insights] Market report projects cobot tending cells to hold 38% share, driven by demand from small manufacturing customers."},
-	{"blog-index", "(no live instance; same body shape as blog-post)",
-		"In a game with 10,000 active players farming that item, roughly 180 of them will hit that wall."},
+}
+
+// The types that look editorial and are NOT, each for its own reason — pinned so
+// that adding one back is a deliberate act with evidence attached, not a tidy-up.
+// See editorialPageTypes' comment; all three were settled by measurement after
+// council round 1 objected to 'blog-index' as an unmeasured extrapolation.
+var notEditorialPageTypes = []struct {
+	pageType string
+	because  string
+}{
+	{"blog-index", "never measured: 3 pages fleet-wide, zero findings even against an empty register"},
+	{"section-index", "2 of its 20 pages are about-index / contact-index — marketing bodies under an index name"},
+	{"report", "its false positives are model numbers in product names, a different mechanism"},
+}
+
+func TestTypesDeliberatelyNotEditorialStayScanned(t *testing.T) {
+	eb := mustParseSurfaceEB(t)
+	block := "We hold 45,000 client records across the estate."
+	for _, tc := range notEditorialPageTypes {
+		if f := eb.ScanUnregisteredNumbers([]string{block}, ClaimSurface{PageType: tc.pageType}); len(f) != 1 {
+			t.Errorf("page_type %q must still be scanned (%s), got %+v", tc.pageType, tc.because, f)
+		}
+	}
 }
 
 // (1) The editorial types raise nothing from prose numbers.
@@ -93,10 +115,12 @@ func TestSameTextOnBusinessSurfaceIsStillScanned(t *testing.T) {
 	eb := mustParseSurfaceEB(t)
 	for _, fp := range editorialFalsePositives {
 		for _, surface := range []ClaimSurface{
-			{PageType: "content"}, // the type carrying the live TRUE positives
-			{PageType: "landing"}, //
-			{PageType: "report"},  // deliberately NOT editorial — see claims.go
-			{},                    // unknown: site chrome, or no page in hand
+			{PageType: "content"},       // the type carrying the live TRUE positives
+			{PageType: "landing"},       //
+			{PageType: "report"},        // deliberately NOT editorial — see claims.go
+			{PageType: "section-index"}, // ditto: about-index / contact-index live here
+			{PageType: "blog-index"},    // ditto: never measured
+			{},                          // unknown: site chrome, or no page in hand
 			{PageType: "some-type-nobody-has-invented-yet"},
 		} {
 			if f := eb.ScanUnregisteredNumbers([]string{fp.block}, surface); len(f) == 0 {
@@ -157,7 +181,8 @@ func TestPageTypeMatchingIsCaseAndSpaceInsensitive(t *testing.T) {
 			t.Errorf("page_type %q should be editorial", pt)
 		}
 	}
-	for _, pt := range []string{"", "content", "landing", "report", "entity-page", "guides", "blogpost"} {
+	for _, pt := range []string{"", "content", "landing", "report", "entity-page", "guides", "blogpost",
+		"blog-index", "section-index"} {
 		if !(ClaimSurface{PageType: pt}).ProseNumbersAreClaims() {
 			t.Errorf("page_type %q must stay scanned — unknown and business types are noisy by design", pt)
 		}
