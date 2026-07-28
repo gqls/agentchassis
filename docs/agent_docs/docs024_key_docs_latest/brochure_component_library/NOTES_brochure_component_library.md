@@ -2573,3 +2573,25 @@ NOT yet explained [UNVERIFIED which side is current].
 **Capabilities repair (13 refs) deliberately HELD until the 090 verdict lands** — if
 the loop refutes or refines the discard mechanism, the repair route (fix-079-first vs
 scoped re-render) changes.
+
+**§4d step 1 done — and the §4d finding itself falls to a wrong-column join.**
+Built `docs/agent_docs/sql_for_agents/256_experience_pattern_component_join_check.sql`
+(every `experience_patterns.section_types` entry must name a live component). Live
+result: **ZERO missing.**
+
+> **CORRECTED 2026-07-28 (this session):** §4d's *"Four of nine do not resolve, and
+> they are exactly four of the five components this workstream built"* is **false as a
+> claim about the register.** The four names (`hero-carousel`, `image-hover-cards`,
+> `insight-carousel`, `people-feature`) all resolve via
+> `content_components.section_type` — the morning's join tested `function` only.
+> `content_components` names a component BOTH ways, and `section_type` is the selector
+> key (`idx_cc_selector`). Check-answers-the-question-you-encoded, in our own analysis.
+> What caught it: 256's dual-column join returning zero rows where the morning's
+> single-column one returned four. §4d step 2 ("fix the four names") is therefore MOOT.
+> Step 3 (bind a site) belongs to the experience-register thread, whose patterns were
+> updated 15:17Z and 16:40Z today — it is actively working; do not touch its rows.
+
+What SURVIVES of §4d: "nothing reconciles the two" was true and 256 now exists for it;
+`teaser-detail-deeplink` remains the owner's carousel idea already named (do not invent
+a new name); `site_experiences` binding state is the register thread's to report, not
+ours to assert from a stale count.
