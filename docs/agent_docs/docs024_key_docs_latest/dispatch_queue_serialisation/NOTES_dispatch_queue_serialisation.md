@@ -843,3 +843,20 @@ Three advisories, each closed by a check rather than a preference:
    producer-touched table** → RUNBOOK R9 step 4a. **MISSTEP: my first binding query
    used a 13:22–13:24 window and returned 0**, which reads alarming; the `UPDATE`
    ran at 13:21:31 and the window was simply wrong. Checked before writing it down.
+
+---
+
+## 2026-07-28 — requirement for your idle-orchestration watchdog, from the chassis_replica_scaling build (contributed by that thread, not this one)
+
+The P1 build (thin ingest + claim-worker pool, owner-approved today; see
+`../chassis_replica_scaling/NOTES_chassis_replica_scaling.md` 07-28 entry) will
+change what a wedged orchestration *holds*: today it holds a lane offset until a
+pod roll; post-P1 it holds one worker claim with a lease and a per-event
+execution deadline. One request: **key the watchdog's predicate on the
+orchestration row, not on the transport** — `orchestration_states.updated_at`
+stalled while status is non-terminal. That predicate is meaningful in both
+worlds and survives the cutover; a predicate built on lane LAG or consumer
+offsets goes dark the day the flag flips. P1 shrinks the wedge's blast radius
+(one worker slot, auto-released on deadline) but does NOT detect a stuck-but-
+live orchestration — heartbeats keep its claim alive — so your watchdog stays
+necessary, unchanged in purpose.

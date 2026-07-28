@@ -93,3 +93,37 @@ Three things I'd like from you, none blocking the first phase: roughly what
 one domain generates per day at target scale (sets how far we tune, nothing
 else); a yes to doing the to-do-list phase first; and how long finished job
 records need to stay queryable before we archive them.
+
+---
+
+2026-07-28. You asked this morning how we can parallelise work-item
+processing — per domain, per area of code, or some other way — and the answer,
+after reading everything this repo and the live system had to say, is: none of
+those. The right unit is the individual job (the orchestration). Per-domain
+ordering turned out to be a convenience someone coded into three database
+queries, not something the system actually needs; per-area-of-code isn't a
+thing the system even records. What the system genuinely requires is much
+narrower — a job that declares "I depend on that other job" waits for it, two
+copies of the same job can't both run, and two agents can't write the same
+component at once. All of that is already enforced, and none of it needs the
+one-at-a-time queue we have today.
+
+So the build is the to-do-list design described above, and you approved the
+whole programme today, stage by stage, with a written read-out to you at each
+boundary. The stages: first a small safety fix (without it, two workers could
+occasionally double-process one reply); then the main change — messages become
+database rows the moment they arrive, and a pool of workers takes jobs off the
+list, so a slow council ties up one worker instead of everyone behind it; then
+replies go through the same pool; then two or three copies of the chassis;
+then we hand the "release more than one site per tick" knob to the thread that
+owns that query. Each stage ships dark behind a switch, gets proven live
+(including deliberately breaking it to watch it recover), and can be turned
+off again by unsetting one variable.
+
+Two pieces of luck this morning: the council traffic got its own lane overnight
+(another thread finished that), so the worst of the queue-jamming is already
+relieved while we build; and the "spawn race" that blocked running councils in
+their own pods turned out to be something else — a reply that never comes, not
+one that comes too early — which is now squarely in the bug 029 owner's court,
+not ours. Rolls of the chassis will wait for a quiet moment (no council
+mid-run) as you ruled.

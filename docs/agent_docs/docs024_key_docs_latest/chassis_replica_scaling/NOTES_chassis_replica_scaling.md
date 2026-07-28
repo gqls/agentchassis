@@ -117,3 +117,61 @@ Checked while doing the above (2026-07-26): **no multi-replica service owns any
 orchestration row today** — all agent-chassis rows (replicas 1), single-pod
 spawned Job agents, business-intel (replicas 1); core-manager (2) and
 reasoning-agent (3) own none.
+
+---
+
+## 2026-07-28 — workstream ADOPTED; owner approved the whole P1→P2 programme
+
+This session adopted the workstream (it was design-only and unowned; the restart
+list's §A "do first: build P1" stands). The owner was asked directly and chose
+**the whole programme** — P1 (thin ingest + claim workers), then responses
+through the pool, then P2 (shared response group + replicas 2–3), then the
+dispatch fan-out handoff — **with a written read-out at each phase boundary**
+(appended to README_where_we_are + said in chat). Roll policy ruled: **gate on a
+quiet lane** (no `review_*`/`gate_*`/`verdict`/`route` step in flight), not
+owner-designated windows. Full build plan (phases, schema, claim design,
+verification): `~/.claude/plans/the-processing-of-work-ancient-bunny.md`; the
+substance will land in this directory's PLAN as annotations + this file as the
+build proceeds.
+
+**P0 items from the PLAN, discharged today:**
+
+- **The two filed diagnosis claims, resolved as far as they resolve.** Corr
+  `78470372` (single synchronous consumer): work item `complete`,
+  `diagnosis_artifacts` holds the bundle (iteration 1) but no verdict body I
+  could locate. Moot in substance — the mechanism has since been confirmed twice
+  independently: 030's lane fix worked exactly as the mechanism predicts, and
+  096's 07-27 reproduction measured 78–126 ms hand-offs. Corr `2d02d62a`
+  (ownership discard): work item `failed` 2026-07-20, no artifacts — also moot,
+  the mechanism was confirmed and FIXED from the 075 side
+  (`TakeOverOrchestration`, live since v1.0.1174). Neither refutes the design.
+  [Checked live: `site_work_items` + `diagnosis_artifacts`, this session.]
+- **096's lane split is COMPLETE — done by the oufe thread, not us.** The
+  overnight roll (v1.0.1180, ~22:06Z 07-27) carried the council-lane manifest;
+  `f8947b9b8` (08:08 today) flipped `097` to `system.agent.council-gate.requests`
+  after verifying the lane end-to-end with a cheap rerender. The dominant
+  head-of-line source is off the generic lane while P1 is built. Nothing for
+  Phase 0 to do there.
+- **The spawn "race" under Candidate 4 was REFUTED by its own filer**
+  (`47d700946`, 096's 07-28 correction): the wrapper failed at `call_council`
+  with "timed out after 3 retries" — a **non-response**, not an
+  early-response-lost race. `agent_error_log` shows 79 `spawn_dispatch` timeouts
+  in 29 h for `build-pipeline-trigger` (orchestration_states undercounts: a
+  timed-out awaited request does not reliably fail its orchestration). Owned by
+  bugs_open/029 (active). **Consequence for our Phase 3:** the hoped-for side
+  effect — durable response intake dissolving the ~1.5 s orphan window — is now
+  UNLIKELY to fix Candidate 4, because the failure is the response never
+  arriving, not arriving early. The re-test stays in Phase 3 (cheap, and the
+  measurement is owed to 029 either way), with expectations stated here first.
+- **The mutable-state audit the P1 pool needs is half done already**: this
+  file's 07-26 entry records 318 package-level vars under
+  `platform/orchestration/actions/` with exactly one benign startup-only write.
+  CS-2 still owes the same pass over `platform/orchestration` (non-actions) +
+  `platform/agentbase` before the council submission.
+
+**One correction this plan makes to this file's 07-26 entry:** the
+CLAIM_RECOVERY staleness guard is gated there as "when you get to a shared
+group" (P2). It is actually a prerequisite for **any** concurrent response
+processing, including a single-pod worker pool — two workers handling duplicate
+deliveries of one response reach the same reset. So it ships FIRST (CS-1, own
+council run), before the pool exists.
