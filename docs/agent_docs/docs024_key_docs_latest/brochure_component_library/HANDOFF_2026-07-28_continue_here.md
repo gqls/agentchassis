@@ -161,6 +161,55 @@ Reading it back for whoever picks this up:
   asked for per panel — two sentences with a specific asymmetry — so it will need the
   writer prompt and the component `input_schema` to agree, not just CSS.
 
+> **CORRECTED 2026-07-28, by the owner: there are TWO carousel components, not three.**
+> I counted `image-hover-card-grid` as one and it is a **grid**. Live count:
+> `swipeable-insight-carousel` (2 placements: council, self-correction — and it carries
+> **no images at all**) and `hero-card-carousel` (1 placement: capabilities). So on any
+> page he visits he sees **one** carousel, which is what he said. *Do not count a
+> component as a treatment because its name is adjacent to one.*
+
+### Owner's follow-up: the writer should not know how its content is displayed
+
+> *"the content writer doesn't need to and shouldn't know how its content is displayed,
+> and the carousel layout of text and click-through may be another (small cpu based) llm
+> that splits the text."*
+
+**This is an architectural proposal, not a feature request, and it cuts against how
+components work today.** Currently a component's `input_schema` declares named fields and
+the writer is prompted to fill them — so the writer *does* know the display shape, because
+the slots exist for display reasons. The proposal is: writer produces content; a separate
+cheap model shapes it for the chosen treatment.
+
+Arguments recorded for whoever designs it:
+
+- **It narrows the invention surface, which is today's live bug.** The rebuild that
+  prompted this invented nine link destinations and four image paths. A splitter whose
+  only job is to *reshape text it was given* has no reason to emit an href or a `src` at
+  all — it cannot invent a destination because it is never asked for one. Narrowing what
+  a model is asked to do narrows what it can invent.
+- **Treatment becomes a rendering decision rather than a regeneration.** Today changing a
+  panel from a grid to a carousel means re-running the writer, which is what authored the
+  broken links. That is a strong argument on its own.
+- **It is testable in a way whole-panel generation is not.** "Hook, then an unfinished
+  continuation, inventing nothing" has checkable properties.
+
+**The strongest objection, and it is a real one: do NOT put the splitter on the render
+path.** The scoped section re-render (`rerender_page_sections`) is currently our only
+LLM-free route — it is how we fixed the palette, the inks and the chart without
+regenerating copy, and it is the safest tool this workstream has. Putting a model on it
+would make every re-render non-deterministic. **Split once, persist into `content_data`,
+and the cheap path stays cheap.**
+
+Two specific hazards to design against:
+
+1. **The claims gate uses a ±70-character window** around a figure for its context terms
+   (`datahelpers/claims.go`). A splitter that separates a number from its supporting
+   words will make a verified claim look unverified. Any split must keep a figure and its
+   context in the same fragment.
+2. **A deliberately unfinished sentence looks like truncation** to checkers built to
+   detect exactly that (`output_tokens == max_tokens`). The cliffhanger needs to be
+   structurally distinguishable from a cut completion, or it will be "repaired".
+
 **Do not treat this as a ticket to start building.** The owner also said *"We may already
 be addressing the design aspect"* — `features_open/018` (the screenshot design critic) is
 the existing lane, and three carousel components already exist
