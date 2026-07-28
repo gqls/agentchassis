@@ -940,3 +940,71 @@ Council gate: `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`. Registered as **TL-031** i
 register in the same commit that ships it, with its landmine and its open review question (whether
 a check type added to a shared vocabulary is architecture-scope) written down rather than left to
 folklore.
+
+---
+
+## 2026-07-28f — CC-001 revised: the council's objections answered structurally, not by rewording
+
+The approval council's REVISE (corr `ec91c7e4`) had twelve objections across four seats. The
+revision is written against the two `[high]` ones, and the rest fall out of the same two moves.
+
+**prior_art [high] — the invariant was restated three times while `requires_invariant` sat empty.**
+Four sibling entries reference `no-inert-control`; this one, whose own `why` calls it *"the defect
+class this workstream exists to stop"*, did not. Now referenced, and — the part that matters — the
+clauses the invariant owns are **deleted from the entry** rather than left beside the reference.
+`must_not` was *"carry an href / carry a tabindex / carry an activation handler"*; the first two are
+the invariant verbatim in local terms (*"no placeholder href, no tab stop, no rendered button"*).
+
+**checkability [high] — "no activation handler" had no check at all.** These two objections turn
+out to have one answer: the activation handler is precisely the clause the invariant does **not**
+reach — a listener bound by JS to an element that is not a rendered button. So it is what stays in
+`must_not` after the restatements are removed, and it now carries its own check,
+`inert_row_has_no_activation_handler`, deferred on **its own capability** (no event-listener
+assertion at either tier) rather than folded into the attribute gap. That answers
+`deferral_honesty [low]`'s complaint about one missing capability being deferred three times: the
+ledger now names three genuinely distinct gaps (event listeners, fault injection, per-row
+conditionals) instead of counting one gap three times.
+
+**The four silent gaps each got a check.** `stay hidden`, the degraded state, `absence_semantics`,
+and the openable half of the split were all uncovered *and undeclared* — which the checkability
+seat rightly called worse than a declared limitation. Two are now **executable**, two are declared:
+
+```
+list_exists                          Tier 2  PASS (live)
+template_row_stays_hidden            Tier 2  PASS (live)   <- NEW, was a silent gap
+openable_row_is_a_real_control       tier 4  rows are cloned client-side
+template_row_not_a_control           tier 4  see below
+no_dead_row_hrefs                    tier 4  rows are cloned client-side
+feed_loads                           tier 4  it is a network claim, not a text match
+rows_rendered                        tier 4  + declared: no checker reads a count threshold
+inert_row_has_no_activation_handler  deferred: no event-listener assertion exists
+degraded_state_leaves_the_shell…     deferred: nothing can INDUCE a feed failure
+absent_optional_field_hides_its_slot deferred: no per-row conditional tied to source data
+```
+
+Validated through the real validator before seeding: **2 executable, 8 deferred, 0 errors**, and
+**zero unused-binding deferrals** — every binding is now referenced by a check, where three of them
+used to be carried as shadows of checks that did not exist.
+
+**`feed_loads`: the contradiction was mine and the resolution is a re-type, not a re-word.** The
+seat was right that it sat in `criteria_template` AND `deferred_checks` with a reason ending
+*"remove the marker if the platform has caught up"* — a self-contradicting status. The clause was
+**mis-typed**: what it means is "the feed is actually fetched", a network claim only a browser can
+make. `asset_loads` at Tier 2 matches the path as *text in the page HTML*, and this loader is an
+external bundle. `tier: 4` says the true thing once instead of two half-truths.
+
+### The uncomfortable one: `template_row_not_a_control` now runs, and fails a page I would call fine
+
+> **CORRECTION to my own reasoning earlier today.** In 2026-07-28e I wrote that implementing
+> attribute assertion would turn this check executable and give the openable/inert split real
+> Tier 2 coverage. It does turn it executable. It does **not** give it coverage, because run at
+> Tier 2 it FAILS: the served template carries `href="#"`, and the platform already exempts
+> `data-runtime-fill` shells from its dead-control sweep for exactly that reason. I have re-tiered
+> the clause to 4 — but I want it on the record that **re-tiering is the reading that makes my own
+> red result disappear**, which is the shape of reasoning I should distrust in myself. That is why
+> the disagreement is filed as `bugs_open/137` for someone else to settle rather than closed here,
+> and why the entry's note says so in as many words.
+
+So the honest reading of this entry today: **2 of 10 clauses checkable, both passing.** Up from 1 of
+5, and the denominator grew because gaps that were silent are now counted. A worse-looking ratio
+that is a better entry.

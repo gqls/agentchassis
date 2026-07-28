@@ -1,6 +1,7 @@
 {
-  "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
+  "_status": "HARVEST DRAFT — revised 2026-07-28 in answer to the approval council's REVISE (corr ec91c7e4-1b2c-4329-be19-4231cdfa553b). Candidate row for experience_patterns.",
   "_harvested": "2026-07-26 from the live vonc.com provocations archive; component row grounded in the DB (content_components 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37, section_type 'provocations-archive-list', quality_score 100, usage_count 0).",
+  "_REVISION_2026-07-28": "Round 2. The council's two [high] objections were (prior_art) that this entry restated the no-inert-control invariant in local terms three times while requires_invariant sat empty, and (checkability) that the 'no activation handler' third of the must_not had no check at all, deferred or otherwise. Both are answered structurally rather than by rewording: the invariant is now REFERENCED and the clauses it owns are deleted from this entry, and what remains in must_not is the one thing the invariant does NOT cover — a JS-bound activation handler on an element that is not a rendered button — which now carries its own check naming its own missing capability. Four silent gaps the council named (stay-hidden, degraded state, absence_semantics, the openable half of the split) now each have a check: two of them executable, two declared. See NOTES 2026-07-28e/f.",
   "name": "feed-driven-teaser-list",
   "kind": "component-contract",
   "display_name": "Teaser list rendered from a data feed, with an honest openable/inert split",
@@ -21,6 +22,9 @@
     "news",
     "interactive-platform"
   ],
+  "requires_invariant": [
+    "no-inert-control"
+  ],
   "contract": [
     {
       "control_role": "list_item_openable",
@@ -35,24 +39,25 @@
     {
       "state_role": "list_item_not_openable",
       "condition": "the row's feed record lacks the field the linked content lives in",
+      "enforces_invariant": "no-inert-control",
       "must_not": [
-        "carry an href",
-        "carry a tabindex",
         "carry an activation handler"
       ],
+      "_must_not_note": "REVISED 2026-07-28. This list used to read 'carry an href', 'carry a tabindex', 'carry an activation handler'. The first two ARE the no-inert-control invariant ('no placeholder href, no tab stop, no rendered button') restated in local terms, which is the drift the invariants table exists to end — they are now referenced via requires_invariant and enforces_invariant instead. What is left is the one thing the invariant does not reach: a click handler bound by JS to an element that is not a rendered button. That is genuinely local, genuinely the worst case (a row that LOOKS inert and is not), and it is the clause the council found uncovered.",
       "outcome": "the row shows its teaser text and is visibly not offered as openable",
-      "why": "the template ships a placeholder href='#'. Cloning it for a row with nowhere to go MANUFACTURES a dead control — the defect class this workstream exists to stop (bugs_open/023; the 2026-07-22 gauntlet correction). Stripping it is not cosmetic: it is the contract.",
+      "why": "the template ships a placeholder href='#'. Cloning it for a row with nowhere to go MANUFACTURES a dead control — the invariant's defect class exactly (bugs_open/023; the 2026-07-22 gauntlet correction). Stripping it is not cosmetic: it is the contract.",
       "evidence": "archive_loader_new.js --static branch removes href AND tabindex; live check B.3; feed carries 7 openable + 1 inert, so the split is exercised by real data"
     },
     {
       "state_role": "template_row",
       "condition": "always",
+      "enforces_invariant": "no-inert-control",
       "must": [
-        "stay hidden",
-        "have its own href removed before any clone is appended"
+        "stay hidden"
       ],
-      "why": "the un-cloned template is itself markup on the page; left with href='#' it is a dead control that no visitor can see but every sweep can find",
-      "evidence": "archive_loader_new.js: tmpl.removeAttribute(\"href\") before the clone loop"
+      "_must_note": "REVISED 2026-07-28. 'have its own href removed before any clone is appended' was the second restatement of the invariant and is removed from this list; it is carried by requires_invariant and checked by template_row_not_a_control. 'stay hidden' stays because it is local and, as of today, it is the half of this clause a static check can actually assert — see template_row_stays_hidden.",
+      "why": "the un-cloned template is itself markup on the page; left with href='#' and visible it would be a dead control. Hidden-ness is what makes the placeholder harmless BEFORE the loader runs, which is why it is asserted separately and at a tier that can see it.",
+      "evidence": "archive_loader_new.js: tmpl.removeAttribute(\"href\") before the clone loop; served markup carries `hidden` and `data-archive-template` (fetched 2026-07-28)"
     },
     {
       "state_role": "empty_list",
@@ -80,7 +85,8 @@
     {
       "when": "feed missing, non-200 or malformed",
       "outcome": "the shell and the empty state are left exactly as built — no half-populated rows, no invented error UI",
-      "evidence": "archive_loader_new.js fetch().catch()"
+      "evidence": "archive_loader_new.js fetch().catch()",
+      "checked_by": "degraded_state_leaves_the_shell_intact (declared unassertable — see its reason; it is no longer a silent gap)"
     }
   ],
   "binding_schema": {
@@ -94,17 +100,16 @@
       "type": "selector"
     },
     "item_openable_selector": {
-      "type": "selector",
-      "unused_ok": true,
-      "reason": "Serves the openable/inert split — the entry's most valuable clause. Declared but not referenced by any check because no attribute assertion exists at either tier, so 'this element does/does not carry the attribute' cannot be checked. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+      "type": "selector"
     },
     "item_static_selector": {
       "type": "selector"
     },
     "empty_state_selector": {
-      "type": "selector",
-      "unused_ok": true,
-      "reason": "Serves the degraded 'feed empty' clause. Declared but not referenced by any check because no empty-region assertion exists; innerText on a display:none subtree falls back to textContent, so 'nothing is shown here' is not checkable today. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+      "type": "selector"
+    },
+    "stat_slot_selector": {
+      "type": "selector"
     },
     "feed_path": {
       "type": "asset_path"
@@ -129,17 +134,31 @@
         "selector": "{{binding.list_container}}"
       },
       {
-        "id": "feed_loads",
-        "type": "asset_loads",
-        "path": "{{binding.feed_path}}",
-        "_unsupported": "asset_loads exists only at Tier 2 and matches the path as text in the page HTML; this component's loader is an external bundle (/assets/js/snippets.js), so the feed reference is never in the page and the check can only fail a CORRECT page. Verified live 2026-07-28: /data/provocations.json serves 200 while the page references no json at all. Needs a checker that follows the bundle, or a Tier 4 network-request assertion, neither of which exists."
+        "id": "template_row_stays_hidden",
+        "type": "attribute_matches",
+        "selector": "{{binding.item_template}}",
+        "attribute": "hidden",
+        "matches": "^$|^(hidden|true)$",
+        "note": "NEW 2026-07-28, answering the council's 'stay hidden has no check anywhere' — and it is executable TODAY, not deferred. A missing hidden attribute fails, which is the whole point: the template's placeholder href is harmless only because nothing can reach the element. This is the one half of the openable/inert split a static look at the page can honestly assert, because the template is the only one of the three row states that is actually served."
       },
       {
-        "id": "rows_rendered",
-        "type": "selector_count",
-        "selector": "{{binding.list_container}} > *",
-        "note": "REQUIRES TIER 4. The rows are cloned client-side, so the served HTML carries only the template. At Tier 2 selector_count collapses to the container's anchor — exactly what list_exists already asserts — so this would pass while saying nothing about rows. Only a browser sees the cloned rows.",
-        "tier": 4
+        "id": "template_row_not_a_control",
+        "type": "attribute_absent",
+        "selector": "{{binding.item_template}}",
+        "attributes": [
+          "href"
+        ],
+        "tier": 4,
+        "note": "RE-TIERED 2026-07-28, and this is a correction to my own earlier claim rather than a convenience. The check type now EXISTS at Tier 2 and, run there, it FAILS this page: the served template carries href=\"#\". But the clause it encodes — 'the loader removes the template's own href' — is true only AFTER hydration, and the platform already exempts data-runtime-fill shells from its dead-control sweep for exactly that reason. Asserting it statically judges the page a moment before the sentence becomes true. The disagreement between the two mechanisms is real, is NOT resolved by this entry, and is filed as bugs_open/137; re-tiering here is the honest reading, not the settled one."
+      },
+      {
+        "id": "openable_row_is_a_real_control",
+        "type": "attribute_matches",
+        "selector": "{{binding.item_openable_selector}}",
+        "attribute": "href",
+        "not_matches": "^(#|\\s*)$",
+        "tier": 4,
+        "note": "NEW 2026-07-28. The positive half of the split: a row the feed says is openable must carry a real destination, not the template's placeholder. Tier 4 because the rows are cloned client-side and do not exist in the served HTML — which is a statement about THIS component's rendering, not about a missing capability, and the difference matters: the day the browser runner is wired to the register this runs unchanged."
       },
       {
         "id": "no_dead_row_hrefs",
@@ -149,16 +168,45 @@
           "href",
           "tabindex"
         ],
-        "_unsupported": "no attribute assertion exists today (HARVEST_01 §3.2)"
+        "tier": 4,
+        "note": "REASON CHANGED 2026-07-28. This used to be deferred because no attribute assertion existed at any tier. It now exists, and the reason is different and narrower: the inert rows are cloned client-side, so a static evaluation matches zero elements and correctly declines rather than passing vacuously (verified against the live page today). The executable form of the no-inert-control invariant for this component, waiting only on a browser."
       },
       {
-        "id": "template_row_not_a_control",
-        "type": "attribute_absent",
-        "selector": "{{binding.item_template}}",
-        "attributes": [
-          "href"
+        "id": "inert_row_has_no_activation_handler",
+        "type": "event_listener_absent",
+        "selector": "{{binding.item_static_selector}}",
+        "events": [
+          "click",
+          "keydown"
         ],
-        "_unsupported": "same gap; this one is invisible to a human reviewer, which is exactly why it wants a machine check"
+        "_unsupported": "NEW 2026-07-28, answering the council's [high] finding that a third of the must_not had no check at all, not even a deferred one. No event-listener assertion exists at EITHER tier — this is a distinct missing capability from attribute assertion, not another instance of it, and it is recorded separately so the harness backlog does not read as one gap when it is two. It is also the hardest half to see by eye: a row can carry no href and no tabindex and still be made clickable by a listener, which looks inert in the markup and behaves as a control."
+      },
+      {
+        "id": "feed_loads",
+        "type": "asset_loads",
+        "path": "{{binding.feed_path}}",
+        "tier": 4,
+        "note": "CONTRADICTION RESOLVED 2026-07-28. The council was right that this sat in criteria_template AND deferred_checks with a reason ending 'remove the marker if the platform has caught up' — a self-contradicting status, and mine. The resolution is that the clause was mis-typed, not merely unsupported: what it means is 'the feed is actually fetched', which is a network claim only a browser can make. asset_loads at Tier 2 matches the path as TEXT in the page HTML, and this component's loader is an external bundle (/assets/js/snippets.js), so the path is never in the page — verified live 2026-07-28: /data/provocations.json serves 200 while the page references no json at all. Tier 4 states the truth once instead of two half-truths."
+      },
+      {
+        "id": "rows_rendered",
+        "type": "selector_count",
+        "selector": "{{binding.list_container}} > *",
+        "tier": 4,
+        "note": "REQUIRES TIER 4. The rows are cloned client-side, so the served HTML carries only the template. At Tier 2 selector_count collapses to the container's anchor — exactly what list_exists already asserts — so this would pass while saying nothing about rows. DECLARED LIMITATION, added 2026-07-28 after the council noted a quantity-sounding name with no quantity: no checker reads a minimum or expected count (a `min` key would be an inert field, which the validator refuses), so even at Tier 4 this asserts THAT rows exist, never HOW MANY. It cannot distinguish a complete render from a partial one. Naming that here rather than letting the id imply otherwise."
+      },
+      {
+        "id": "degraded_state_leaves_the_shell_intact",
+        "type": "degraded_state",
+        "selector": "{{binding.empty_state_selector}}",
+        "when": "feed missing, non-200 or malformed",
+        "_unsupported": "NEW 2026-07-28, answering the council's 'this is a silent gap, not a declared limitation'. Nothing at either tier can INDUCE a feed failure and then assert the result: Tier 2 fetches one page as served, Tier 4 drives a real browser against the real feed, and neither can serve a broken one. Needs fault injection at the fetch boundary, which does not exist. Declared so the requirement survives with its reason attached rather than looking covered."
+      },
+      {
+        "id": "absent_optional_field_hides_its_slot",
+        "type": "conditional_per_row",
+        "selector": "{{binding.stat_slot_selector}}",
+        "_unsupported": "NEW 2026-07-28, answering the council's finding that absence_semantics — the clause the description leans on for its 'no invented participation numbers' honesty pitch — had no check and no deferral note. Asserting it needs a per-row conditional: for each rendered row, the stat slot is present iff that row's record carries a stat. No check type expresses a per-element condition tied to the source data, at either tier. This is a third distinct capability gap, recorded as its own."
       }
     ]
   },
