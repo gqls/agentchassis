@@ -16,6 +16,11 @@ THE THREE RULES THIS TOOL ENFORCES, because each was learned the expensive way:
   1. PROBE BEFORE LISTING. A sitemap advertising a 404 is worse than no sitemap. Every
      URL is fetched and only 200s are emitted. Use --no-probe at your peril.
 
+     BUT THE PROBE IS POINT-IN-TIME, and that cuts both ways. On 2026-07-28 it dropped
+     oufe.com/cases/thames-water.html as 404 — correctly, at that moment: the page was
+     deployed 1.5 hours later. Run this when the target site is NOT mid-build, and treat
+     a dropped URL as "not fetchable right now", never as "broken".
+
   2. llms.txt IS BUILT *FROM* THE PAGES, NOT WRITTEN *ABOUT* THEM. Each entry is the
      page's own <h1> and its own first sentence. Nothing here invents a description of
      a site — that is how unsupported claims get published.

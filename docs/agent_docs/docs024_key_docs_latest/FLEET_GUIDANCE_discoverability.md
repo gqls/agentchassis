@@ -24,8 +24,13 @@ Generates `robots.txt`, `sitemap.xml` and `llms.txt` from the `pages` table. Reg
 **Three rules it enforces as behaviour, not advice** — each cost real time to learn:
 
 1. **Probe before listing.** Every URL is fetched; only 200s are emitted. *A sitemap advertising
-   a 404 is worse than no sitemap.* On its first fleet run it caught `/cases/thames-water.html`
-   on **oufe.com** — marked `active` and `deployed_at IS NOT NULL` in the DB, 404 on the wire.
+   a 404 is worse than no sitemap.*
+   **But the probe is POINT-IN-TIME.** On its first fleet run it dropped
+   `oufe.com/cases/thames-water.html` as 404 — correct at that moment, and the page was
+   **deployed 1.5 hours later** (`deployed_at 07-28 16:38` vs a ~15:0x probe). *I first wrote
+   this up as the tool "catching a dead page", which implied a defect on oufe's side. It was a
+   site mid-build.* Run it when the target is not building, and read a dropped URL as **"not
+   fetchable right now"**, never as "broken".
 2. **`llms.txt` is built FROM the pages, not written ABOUT them.** Each entry is the page's own
    `<h1>` and its own first sentence. Nothing invents a description of a site — that is how
    unsupported claims get published, and this estate has a whole verification layer devoted to
