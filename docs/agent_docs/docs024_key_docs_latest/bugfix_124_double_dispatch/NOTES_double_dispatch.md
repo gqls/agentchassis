@@ -399,3 +399,26 @@ remedies, the 016b §9 pointer, and the `psql -t -A` trap for whoever implements
 the claim. Standing practice: put the check where the error is MADE, not only in a
 doc nobody opens at the moment of the mistake. That is the same discoverability
 failure that let the psql trap bite three separate threads today.
+
+## 2026-07-28 20:5x — third roll (v1.0.1194), invariant still holds
+
+Another session rolled again. Same check, same result:
+
+```
+pods    agent-chassis-74dbd9c9f4-{7p6d8,rxb52}  v1.0.1194  digest sha256:8013878b…
+grep -c "unknown execution-context field"       → 1 on both
+replicas 2/2      needs_diagnosis stuck >90m: 0
+```
+
+Three consecutive rolls by three different sessions, none of whom knew about
+migration 258, and the lane survived all three. That is not luck — it is the
+committed-HEAD build rule doing its job: every build since `af0cde87d` structurally
+contains the fix, so the only way to break this is a deliberate `REF=` to an older
+commit or a rollback. Worth stating plainly, because "it held three times" could
+otherwise be read as evidence the landmine is theoretical. It is not; the
+protection is upstream of the check, and the check is what tells you when the
+protection stopped applying.
+
+Replicas held at 2/2 for the third time as well — the overlay fix continues to
+survive deploys done by others, which was the entire point of moving it out of
+`kubectl scale`.

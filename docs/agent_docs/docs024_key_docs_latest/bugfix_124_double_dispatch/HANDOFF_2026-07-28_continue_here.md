@@ -10,7 +10,13 @@ Session: "bugsearch 2". Working docs beside this file: `PLAN_2026-07-28_double_d
 
 ---
 
-## 1. State — verified 2026-07-28 18:2x, after the v1.0.1192 roll
+## 1. State — RE-VERIFIED 2026-07-28 20:5x, after the v1.0.1194 roll
+
+> Checked again after a third roll I did not perform. **v1.0.1194** (digest
+> `sha256:8013878b…`), both pods `ctx-support=1`, replicas **2/2**, diagnose lane
+> 0 stuck. The invariant below has now survived three consecutive rolls by other
+> sessions — because the build comes from committed HEAD, which carries the fix.
+> The table below is from the 1192 check; the 1194 numbers are identical in kind.
 
 | thing | state | how it was checked |
 |---|---|---|
