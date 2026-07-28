@@ -653,3 +653,52 @@ I also had to correct my own instruction from yesterday. I had written "wait a d
 or two of real traffic, then read the log" as the next step. There is no real
 traffic, so that would have had the next session waiting indefinitely for
 something that was never going to arrive.
+
+---
+
+## 2026-07-28 (later) — the restyle, and the round you lost
+
+You asked for three things on vonc.com: bigger text, a wider content column, and
+the purple a shade darker so white text reads better. All three are live. Two of
+them turned out to need more care than they looked.
+
+**The purple could not simply be darkened.** That one colour was doing two jobs:
+it was the background behind white text, and it was the colour of the links on
+the dark page. Darkening it improves the first and ruins the second — and the
+links were already below the readability standard before we started. There is no
+single shade that works for both; I checked the numbers rather than guessing. So
+the purple is now darker where white sits on it, and the links have their own
+lighter shade, which quietly fixed a readability problem that was already there.
+
+**The narrow column wasn't in the site's stylesheet.** Two of the blocks get
+their width from inside the components themselves. The obvious fix was to edit
+those components — but one of them, the hero, is shared across **182 pages on
+other sites**: the watch glossaries, the fuel pages, the gripper guides. Widening
+your homepage is not a reason to move 181 other people's pages. I overrode it
+from vonc's own stylesheet instead, which stops at vonc.
+
+**Then you hit a real bug, and it was mine.** You lost the AI's challenge while
+answering it, the provocation was missing when you first arrived, and the Send
+Defence button stopped doing anything. Those were all one fault: the whole round
+only ever existed in the page's memory. If the page reloaded for any reason — a
+refresh, the back button, or a phone quietly dropping the tab while you switched
+apps — the round vanished, along with everything you had typed, while the round
+itself was still running on the server. You had no way back to it. The button
+then refused because it could no longer see a round, and said so in a message at
+the top of the page while you were at the bottom looking at the button. From
+where you sat, it did nothing.
+
+It now remembers. Reload the page and your round comes back — the challenge, the
+clock still counting correctly, and the words you had typed. I tested that on the
+live page on both a computer and a phone: challenge intact, draft intact, and the
+defence then sends and returns a real verdict.
+
+Worth saying: my first suspicion was my own stylesheet, published forty minutes
+earlier — bigger text can push things out of sight and a wider column can end up
+covering a button. I checked that before anything else. It was not the cause, but
+it was the first thing I looked at rather than the last.
+
+And you were right about the provocation, including the part you weren't sure
+about. It genuinely was blank when the page opened, for about three seconds,
+because it waits for a file to load and nothing filled the gap. It now says it is
+fetching, and says so honestly if it fails.
