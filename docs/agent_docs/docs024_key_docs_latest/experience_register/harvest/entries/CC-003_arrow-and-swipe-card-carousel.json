@@ -16,7 +16,7 @@
     "navigate"
   ],
   "section_types": [
-    "{{binding.section_type}}"
+    "hero-carousel"
   ],
   "destination_roles": [
     {
@@ -115,9 +115,6 @@
     "section": {
       "type": "selector"
     },
-    "section_type": {
-      "type": "section_type"
-    },
     "track": {
       "type": "selector"
     },
@@ -166,7 +163,8 @@
         "id": "at_least_two_cards",
         "type": "selector_count",
         "selector": "{{binding.slide}}",
-        "min": 2
+        "min": 2,
+        "_unsupported": "no tier asserts a THRESHOLD: selector_count checks existence only (Tier 2 anchorPresent, Tier 4 n > 0), and neither check struct has a min field, so `min` is silently ignored. This clause needs a real count; carried until a checker can assert one."
       },
       {
         "id": "arrows_exist",

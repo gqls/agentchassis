@@ -14,7 +14,7 @@
     "play"
   ],
   "section_types": [
-    "{{binding.section_type}}"
+    "stat-band"
   ],
   "destination_roles": [],
   "funnel_stage": "awareness",
@@ -69,9 +69,6 @@
     "section": {
       "type": "selector"
     },
-    "section_type": {
-      "type": "section_type"
-    },
     "value_selector": {
       "type": "selector"
     },
@@ -93,7 +90,7 @@
         "id": "values_exist",
         "type": "selector_count",
         "selector": "{{binding.value_selector}}",
-        "min": 1
+        "note": "asserts existence; selector_count is existence-only at both tiers, and min=1 added nothing"
       },
       {
         "id": "values_are_authored_not_empty",

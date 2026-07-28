@@ -12,7 +12,7 @@
   "description": "A list whose rows are cloned from a hidden template and filled from a feed. Whether a row is a control is decided by the DATA, not by the template: a row whose record carries the linked content becomes a real link; a row whose record does not is stripped of the template's placeholder href and left out of the tab order.",
   "primitives": [],
   "section_types": [
-    "{{binding.section_type}}"
+    "provocations-archive-list"
   ],
   "destination_roles": [],
   "funnel_stage": "consideration",
@@ -106,9 +106,6 @@
       "unused_ok": true,
       "reason": "Serves the degraded 'feed empty' clause. Declared but not referenced by any check because no empty-region assertion exists; innerText on a display:none subtree falls back to textContent, so 'nothing is shown here' is not checkable today. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
     },
-    "section_type": {
-      "type": "section_type"
-    },
     "feed_path": {
       "type": "asset_path"
     },
@@ -140,7 +137,7 @@
         "id": "rows_rendered",
         "type": "selector_count",
         "selector": "{{binding.list_container}} > *",
-        "min": 1
+        "note": "asserts existence; selector_count is existence-only at both tiers, and min=1 added nothing"
       },
       {
         "id": "no_dead_row_hrefs",

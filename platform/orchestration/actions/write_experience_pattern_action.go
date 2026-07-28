@@ -195,10 +195,26 @@ func WriteExperiencePatternAction(ctx context.Context, params ActionParams) (int
 	// a check, and only differs in which document happens to carry it.
 	var validation ExperienceCriteriaValidation
 	if tmpl, ok := entry["criteria_template"].(map[string]interface{}); ok {
-		validation = ValidateExperienceCriteria(tmpl,
-			asMap(entry["binding_schema"]),
-			entry["contract"], entry["states"], entry["data_contract"],
-			entry["degraded_states"], entry["entry_points"])
+		// Pass EVERY other field as an extra, rather than an enumerated list of
+		// the ones expected to carry placeholders.
+		//
+		// CORRECTED 2026-07-28, on the first live run: the list used to be
+		// contract/states/data_contract/degraded_states/entry_points, and it
+		// omitted `section_types` — which carries {{binding.section_type}} in the
+		// harvested entries. The binding was therefore reported as declared-but-
+		// unused when it was used all along, and the entry was refused for a
+		// defect it did not have. A hand-maintained list of documents-that-might-
+		// contain-placeholders drifts exactly like a hand-maintained column list,
+		// and there is no reason to keep one: anything that is not the schema or
+		// the template itself is fair game to scan.
+		extras := make([]interface{}, 0, len(entry))
+		for k, val := range entry {
+			if k == "binding_schema" || k == "criteria_template" {
+				continue
+			}
+			extras = append(extras, val)
+		}
+		validation = ValidateExperienceCriteria(tmpl, asMap(entry["binding_schema"]), extras...)
 		for _, e := range validation.Errors {
 			problems = append(problems, fmt.Sprintf("criteria[%s].%s: %s", e.CheckID, e.Field, e.Detail))
 		}

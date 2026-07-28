@@ -15,7 +15,7 @@
     "reveal"
   ],
   "section_types": [
-    "{{binding.section_type}}"
+    "gauntlet-interface"
   ],
   "destination_roles": [
     {
@@ -103,9 +103,6 @@
   "binding_schema": {
     "tool_section": {
       "type": "selector"
-    },
-    "section_type": {
-      "type": "section_type"
     },
     "start_control": {
       "type": "selector"

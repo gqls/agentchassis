@@ -16,7 +16,7 @@
     "dismiss"
   ],
   "section_types": [
-    "{{binding.list_section_type}}"
+    "provocations-archive-list"
   ],
   "destination_roles": [
     {
@@ -137,9 +137,6 @@
     "list_page": {
       "type": "page",
       "role": "index"
-    },
-    "list_section_type": {
-      "type": "section_type"
     },
     "feed_path": {
       "type": "asset_path"

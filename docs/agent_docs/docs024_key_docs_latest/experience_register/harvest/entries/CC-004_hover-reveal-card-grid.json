@@ -1,66 +1,141 @@
 {
   "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
   "_harvested": "2026-07-26 from fundamentallyai.com/model-fine-tuning.html (live, HTTP 200) — component image-hover-card-grid. CSS-only behaviour; verified in the SHIPPED page CSS, not only in the repo template.",
-
   "name": "hover-reveal-card-grid",
   "kind": "component-contract",
   "display_name": "Image cards that reveal their description on hover — and on keyboard focus",
-  "aka": ["hover card", "image tile grid", "reveal on hover"],
+  "aka": [
+    "hover card",
+    "image tile grid",
+    "reveal on hover"
+  ],
   "description": "A grid of image cards. Pointing at a card zooms its image and reveals the description; the same reveal happens when the card receives keyboard focus, so the content is not pointer-only.",
-
-  "primitives": ["reveal", "navigate"],
-  "section_types": ["{{binding.section_type}}"],
-  "destination_roles": [{ "role": "{{binding.card_destination_role}}", "of": "card.entity" }],
+  "primitives": [
+    "reveal",
+    "navigate"
+  ],
+  "section_types": [
+    "image-hover-cards"
+  ],
+  "destination_roles": [
+    {
+      "role": "{{binding.card_destination_role}}",
+      "of": "card.entity"
+    }
+  ],
   "funnel_stage": "consideration",
-  "suitable_site_types": ["corporate", "content", "portfolio"],
-
-  "requires_invariant": ["no-inert-control", "pointer-behaviour-has-a-keyboard-equal"],
-
+  "suitable_site_types": [
+    "corporate",
+    "content",
+    "portfolio"
+  ],
+  "requires_invariant": [
+    "no-inert-control",
+    "pointer-behaviour-has-a-keyboard-equal"
+  ],
   "contract": [
-    { "control_role": "card", "primitive": "reveal",
+    {
+      "control_role": "card",
+      "primitive": "reveal",
       "outcome": "the card's description becomes visible and its image scales up",
-      "trigger_channels": ["pointer hover", "keyboard focus"],
+      "trigger_channels": [
+        "pointer hover",
+        "keyboard focus"
+      ],
       "why_both": "a reveal bound to hover alone is unreachable by keyboard and unusable on touch. Every rule in this grid is written twice in the CSS for exactly that reason — and that is the clause worth registering, because it is the one that gets dropped when the behaviour is re-invented.",
-      "evidence": "shipped page CSS carries `…__card:hover .__img, …__card:focus-visible .__img` and the same pair for `.__desc`; 4 focus-visible rules present in the live HTML" },
-    { "control_role": "card", "primitive": "navigate",
+      "evidence": "shipped page CSS carries `…__card:hover .__img, …__card:focus-visible .__img` and the same pair for `.__desc`; 4 focus-visible rules present in the live HTML"
+    },
+    {
+      "control_role": "card",
+      "primitive": "navigate",
       "outcome": "a real page load of the card's destination — the whole card is the link, not a small cue inside it",
       "destination_role": "{{binding.card_destination_role}}",
-      "evidence": "live markup: <a class=\"image-hover-card-grid__card\" href=…> wrapping the image and body" }
+      "evidence": "live markup: <a class=\"image-hover-card-grid__card\" href=…> wrapping the image and body"
+    }
   ],
-
   "states": [
-    { "state_role": "reduced_motion", "condition": "prefers-reduced-motion is set", "outcome": "the description still reveals; only the image scaling is suppressed",
+    {
+      "state_role": "reduced_motion",
+      "condition": "prefers-reduced-motion is set",
+      "outcome": "the description still reveals; only the image scaling is suppressed",
       "why": "motion is the preference being expressed, not information — suppressing the content too would be a different, worse component",
-      "evidence": "template media query resets `scale: 1` on hover only" },
-    { "state_role": "cue_without_destination", "condition": "a card record carries no link label", "outcome": "no cue is rendered (`{{if .link_label}}`) — the card does not advertise an action it does not have" }
+      "evidence": "template media query resets `scale: 1` on hover only"
+    },
+    {
+      "state_role": "cue_without_destination",
+      "condition": "a card record carries no link label",
+      "outcome": "no cue is rendered (`{{if .link_label}}`) — the card does not advertise an action it does not have"
+    }
   ],
-
   "degraded_states": [
-    { "when": "no JS at all", "outcome": "everything above still works — this component has no JavaScript; the behaviour is CSS",
-      "note": "worth registering explicitly: 'the interaction survives with scripting off' is a property, and knowing WHICH patterns have it is how a site keeps working when a bundle breaks (see bugs_open/084)" }
+    {
+      "when": "no JS at all",
+      "outcome": "everything above still works — this component has no JavaScript; the behaviour is CSS",
+      "note": "worth registering explicitly: 'the interaction survives with scripting off' is a property, and knowing WHICH patterns have it is how a site keeps working when a bundle breaks (see bugs_open/084)"
+    }
   ],
-
   "binding_schema": {
-    "section": { "type": "selector" }, "section_type": { "type": "section_type" },
-    "card": { "type": "selector" }, "card_description": { "type": "selector" },
-    "card_destination_role": { "type": "value" }
+    "section": {
+      "type": "selector"
+    },
+    "card": {
+      "type": "selector"
+    },
+    "card_description": {
+      "type": "selector"
+    },
+    "card_destination_role": {
+      "type": "value"
+    }
   },
-
   "criteria_template": {
-    "profiles": ["desktop", "mobile"],
+    "profiles": [
+      "desktop",
+      "mobile"
+    ],
     "container": "{{binding.section}}",
     "checks": [
-      { "id": "cards_exist", "type": "selector_count", "selector": "{{binding.card}}", "min": 1 },
-      { "id": "cards_are_links", "type": "attribute_matches", "selector": "{{binding.card}}", "attribute": "href", "not_matches": "^(#|\\s*)$",
-        "_unsupported": "no attribute assertion (HARVEST_01 §3.2)" },
-      { "id": "reveal_on_focus", "type": "interaction", "tier": 4,
-        "steps": [{ "action": "focus", "selector": "{{binding.card}}" }],
-        "expect": { "selector": "{{binding.card_description}}", "visible": true },
-        "_unsupported": "steps are fill|click|select only — there is no focus step, and `expect` cannot assert visibility (HARVEST_01 §3.3/§3.4). The keyboard-equivalence clause is therefore unassertable, which is precisely how it gets lost in a rebuild." },
-      { "id": "no_overflow", "type": "no_horizontal_overflow", "profiles": ["mobile"], "tier": 4 }
+      {
+        "id": "cards_exist",
+        "type": "selector_count",
+        "selector": "{{binding.card}}",
+        "note": "asserts existence; selector_count is existence-only at both tiers, and min=1 added nothing"
+      },
+      {
+        "id": "cards_are_links",
+        "type": "attribute_matches",
+        "selector": "{{binding.card}}",
+        "attribute": "href",
+        "not_matches": "^(#|\\s*)$",
+        "_unsupported": "no attribute assertion (HARVEST_01 §3.2)"
+      },
+      {
+        "id": "reveal_on_focus",
+        "type": "interaction",
+        "tier": 4,
+        "steps": [
+          {
+            "action": "focus",
+            "selector": "{{binding.card}}"
+          }
+        ],
+        "expect": {
+          "selector": "{{binding.card_description}}",
+          "visible": true
+        },
+        "_unsupported": "steps are fill|click|select only — there is no focus step, and `expect` cannot assert visibility (HARVEST_01 §3.3/§3.4). The keyboard-equivalence clause is therefore unassertable, which is precisely how it gets lost in a rebuild."
+      },
+      {
+        "id": "no_overflow",
+        "type": "no_horizontal_overflow",
+        "profiles": [
+          "mobile"
+        ],
+        "tier": 4
+      }
     ]
   },
-
-  "status": "draft", "source": "harvest",
+  "status": "draft",
+  "source": "harvest",
   "harvested_from": "fundamentallyai.com/model-fine-tuning.html (live 2026-07-26); source at brochure_component_library/components/image-hover-card-grid/."
 }
