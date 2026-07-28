@@ -819,3 +819,20 @@ completes and I'll verify it:
 
 Also still on your desk: how a won verdict gets recorded — a private permalink
 to your own round, or a shareable card made from the real verdict text.
+
+---
+
+2026-07-28, end of the evening. Your card is live. When a round ends, a button
+appears under the verdict — it wasn't there a moment before, because there was
+nothing true for it to say — and pressing it hands you an image: the
+provocation you argued, the judge's actual words, the date, and the site's
+address. On a phone it opens the share sheet; on a computer it downloads. I
+watched one made from a round the judge scored against me, which felt
+appropriately honest.
+
+That closes out everything from your walk through the site this morning — the
+invisible headline, the cut-off content, the button that did nothing, the
+provocation that read as filler, the busy page, and now the keepable verdict.
+Filed at breakfast, all live by night. What's left is the question no code
+can answer: why someone argues here rather than in a chat window. The site is
+now good enough that the question deserves an answer.
