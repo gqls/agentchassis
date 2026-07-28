@@ -45,13 +45,35 @@ He reviewed the site and asked for five things. **One is done, four are open.**
    and more like a readable important doc".
 5. **Infographics for the harder concepts, and graphs where appropriate.**
 
-> **Before starting 5, know this: there is no chart renderer.** The doctrine
-> (charts are code-rendered from real figures, never drawn by a diffusion model)
-> is real and enforced. The implementation is a gap. `go-echarts` is not in
-> `go.mod`; the only chart code in the estate is
-> `platform/orchestration/actions/report_charts.go`, a dependency-free inline-SVG
-> helper written for one report page. So a graph means extending that, or drawing
-> client-side inside a tool. Do not promise a chart before reading that file.
+> **CORRECTED 2026-07-28 by the owner — this paragraph was WRONG and it is the
+> reason it stayed wrong: I wrote it, in bold, as a warning, so nobody re-derived
+> it.** It used to read *"there is no chart renderer"*. There are two, and one is
+> exactly the design this site needs:
+>
+> - **`evidence-chart`** — a LIVE, active section component. CSS-drawn horizontal
+>   bars, no SVG, no dependency. Every point resolves through a `fact_id` into the
+>   evidence register, the denominator can be a `max_fact_id`, and each row renders
+>   `verified <date>` with a `source_note`. **A chart point structurally cannot
+>   carry its own number.**
+> - **`renderBarChartSVG` / `renderHeadroomChart`** in
+>   `platform/orchestration/actions/report_charts.go` — inline SVG, unexported,
+>   bound to report pages.
+> - **`features_open/023`** — the designed rule that infographic prompts are built
+>   from `evidence_base`, plus the boundary: *generated images explain,
+>   code-rendered SVG states*.
+>
+> The evidence I cited was true (`go-echarts` really is absent; `report_charts.go`
+> really is narrow) and the conclusion did not follow. **Capability on this
+> platform is mostly DATA** — `evidence-chart` is a row in `content_components`,
+> so no grep of `go.mod` or `platform/` can ever find it. Query the component
+> library, and read `features_open/`.
+>
+> **What is actually missing is a TIME-SERIES renderer.** Both existing renderers
+> compare magnitudes; neither has a temporal axis. And underneath that is a schema
+> gap: an `evidence_base` fact carries one value plus provenance dates
+> (`accessed`, `published`, `verified_at`), and **none of them is the date the
+> value applies to**. A historical graph needs an observation series with an
+> `as_of` per point, so this is a substrate question before it is a drawing one.
 
 Items 3 and 4 interact with **`bugs_open/107` (the skeleton one — see §6 on the
 number collision)**: every site gets hero › cards › call-to-action regardless of

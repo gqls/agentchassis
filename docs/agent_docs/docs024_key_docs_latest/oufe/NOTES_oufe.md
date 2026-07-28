@@ -1115,3 +1115,49 @@ Also worth noting: `TRIGGER_rerender_page.sh` uses `${3:-section_data_resolved}`
 and `:-` treats an **empty string as unset**. Passing `""` for assemble-only
 silently gives you `section_data_resolved`. It prints the reason it used; I read
 that line and it was not what I passed. Both now in the RUNBOOK (§9, §10, §11).
+
+### 2026-07-28 (later still) — MISSTEP: "there is no chart renderer", owner-corrected
+
+I wrote that into this workstream's handoff as a bold warning, repeated it in two
+summaries to the owner, and used it to classify graphs as blocked. The owner asked
+me to check. **There are two chart renderers and one of them is precisely the
+evidence-gated design this site needs.**
+
+- `evidence-chart` — live, active, section-level. CSS-drawn bars, no SVG, no
+  dependency. Every point resolves through `fact_id` into the register, the
+  denominator can be `max_fact_id`, each row prints `verified <date>` and the
+  figure carries `source_note`. **A point cannot carry its own number.**
+- `report_charts.go` — `renderBarChartSVG`, `renderHeadroomChart`, inline SVG,
+  unexported, bound to report pages.
+- `features_open/023` — the designed rule (infographic prompts built from
+  `evidence_base`) and the boundary: generated images explain, code-rendered SVG
+  states, for anything that must be exact, selectable or translatable.
+
+**Why it survived.** The evidence I cited was correct — `go-echarts` is genuinely
+absent, `report_charts.go` is genuinely narrow — and the conclusion did not follow
+from it. That combination is the dangerous one: true premises make a wrong scope
+feel checked. And because I wrote it as a **warning in a handoff**, in bold, it
+read like the output of an investigation rather than an input to one, so neither I
+nor anyone else re-derived it.
+
+**The check that would have caught it, and it is not "grep harder".** Capability on
+this platform is mostly **data**: `evidence-chart` is a row in
+`content_components`. No grep of `go.mod`, `platform/` or `internal/` can ever
+surface it. Query the component library. And read `features_open/` — I had never
+opened it in this workstream, and it held designed-not-built answers to *two*
+things I was treating as open questions, one of which (`001`, packaged topic
+features) the owner had raised himself on 2026-07-19.
+
+**A second finding that only appeared because I looked properly.** What is missing
+is a **time-series** renderer: both existing ones compare magnitudes, neither has a
+temporal axis. Underneath that is a substrate gap — an `evidence_base` fact holds
+one value plus *provenance* dates (`accessed`, `published`, `verified_at`,
+`staleness_days`), and **none of those is the date the value applies to**. A
+historical graph needs an observation series with an `as_of` per point. So
+"historical data graphs" is a schema question before it is a drawing question, and
+I would have missed that entirely had I stopped at "good news, we have charts".
+
+Also logged: the prior-art miss on `platform/colour.AuditPalette` earlier the same
+day — I grepped `cmd/` and `scripts/` but not `platform/`, and built a second
+contrast tool without knowing the first existed. Same family: I searched where I
+expected the answer to live rather than everywhere it could.
