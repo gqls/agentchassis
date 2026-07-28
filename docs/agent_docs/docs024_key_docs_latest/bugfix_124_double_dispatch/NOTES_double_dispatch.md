@@ -239,3 +239,62 @@ Two things it adds that I did not have:
 
 Recorded rather than acted on. The verdict is REFUTED, which is the cheapest place
 to be wrong and the reason the symptom was worth a real run.
+
+## 2026-07-28 17:18 — P1 was BROKEN, and only testing the failing branch found it
+
+I had verified the default path (loop live → intake only) against a real run and
+it was clean. That proved nothing about **P1**, the guard that is supposed to stop
+a direct publish when someone else already holds the claim — and P1 is the part
+that actually closes the door. So I staged the failure: inserted a
+`needs_diagnosis` row already at `diagnosing`, `claimed_by='pretend-other-dispatcher'`,
+and ran the script with `DISPATCH=1`.
+
+**It dispatched.** A real orchestration went out
+(`902e981a-d3d5-4219-9c9c-f8685d1cf992`) against an item another dispatcher owned
+— the exact thing the fix exists to prevent.
+
+The cause, and it is a good one:
+
+```
+$ printf '%s' "UPDATE … WHERE status='awaiting_diagnosis' RETURNING id::text;" | psql -t -A
+UPDATE 0
+```
+
+**`psql -t -A` still prints the command tag on a non-SELECT.** `-t` suppresses the
+header and footer *of a result set*; it does nothing to the status line of an
+`UPDATE`. So a claim that matched **zero rows** returned the eight-character
+string `UPDATE 0`, my `if [ -z "$CLAIMED_ID" ]` test saw a non-empty value, and
+the guard concluded it held the claim. The happy path had worked perfectly and
+concealed it, because there the RETURNING row *does* come back and the tag is
+suppressed by `-t` for the SELECT-shaped output.
+
+Two fixes, because one of them is not enough on its own:
+
+1. **Wrap the UPDATE in a CTE and SELECT from it.** Then it is a SELECT, and no
+   rows genuinely means no output. Verified both ways against the live DB: `[]`
+   length 0 on no match, `[a24c692c-…]` length 36 on a match.
+2. **Assert the SHAPE, not presence.** The guard now requires a uuid. Controls
+   run: uuid ACCEPT, `UPDATE 0` REFUSE, empty REFUSE, and `UPDATE 1` REFUSE — that
+   last one matters, because it is what the tag would be if a row *had* matched,
+   and a presence test would have accepted it as an id.
+
+Re-ran the staged failure afterwards: `NOT DISPATCHING: could not claim the
+intake`, exit 1, nothing published.
+
+**What this cost, honestly:** one junk diagnosis run
+(`902e981a`, symptom "claim branch test") which I left to finish rather than
+cancel — cancelling an in-flight orchestration has wedged this lane before, and a
+wasted 13 minutes of LLM is the cheaper of the two risks. Test row `a24c692c`
+cancelled with its purpose recorded in `error`.
+
+**The lesson is the standing one, and I nearly skipped it.** A green happy path
+proves deployment, not correctness — induce the fault. I had *already written*
+"verify the failing branch" into the plan for the council, and still nearly shipped
+on the happy path alone because the happy path had been so convincing. Two hours
+of live verification on the good case would not have found this; five minutes of
+staging the bad case did.
+
+Generalisable beyond this script: **`psql -t -A` into a shell variable is safe for
+SELECT and unsafe for anything else.** Any `UPDATE/INSERT/DELETE … RETURNING`
+whose result is tested for emptiness has this bug. Worth a grep across the trigger
+scripts — not done here.

@@ -488,19 +488,32 @@ fi
 
 echo ""
 echo "-- claiming the intake for a direct dispatch ..."
+# The UPDATE is wrapped in a CTE and SELECTed from, which is NOT cosmetic.
+# `psql -t -A` on a bare `UPDATE … RETURNING` that matches NO rows still prints
+# the command tag `UPDATE 0` — eight non-empty characters — so an emptiness test
+# on the raw output passes every time and the guard below never fires. That is
+# not hypothetical: it is what this script did on its first run, dispatching
+# against an item another dispatcher already owned. `-t` suppresses the header
+# and footer of a result set; it does not suppress the status line of a
+# non-SELECT. Made a SELECT, no rows means no output.
 CLAIMED_ID=$(printf '%s' "
-  UPDATE site_work_items
-     SET status = 'diagnosing',
-         claimed_by = '090_TRIGGER_needs_diagnosis',
-         claimed_at = NOW(),
-         spec = jsonb_set(COALESCE(spec, '{}'::jsonb),
-                          '{dispatch_correlation_id}',
-                          to_jsonb('${CORRELATION_ID}'::text), true)
-   WHERE site_id = '${SYSTEM_SITE_ID}' AND item_key = '${ITEM_KEY}'
-     AND status = 'awaiting_diagnosis'
-  RETURNING id::text;" | "${PSQL[@]}" -t -A)
+  WITH claimed AS (
+    UPDATE site_work_items
+       SET status = 'diagnosing',
+           claimed_by = '090_TRIGGER_needs_diagnosis',
+           claimed_at = NOW(),
+           spec = jsonb_set(COALESCE(spec, '{}'::jsonb),
+                            '{dispatch_correlation_id}',
+                            to_jsonb('${CORRELATION_ID}'::text), true)
+     WHERE site_id = '${SYSTEM_SITE_ID}' AND item_key = '${ITEM_KEY}'
+       AND status = 'awaiting_diagnosis'
+    RETURNING id
+  )
+  SELECT id::text FROM claimed;" | "${PSQL[@]}" -t -A)
 
-if [ -z "$CLAIMED_ID" ]; then
+# Assert the SHAPE, not merely presence — a guard that accepts any non-empty
+# string is what let `UPDATE 0` through. Only a uuid means we hold the claim.
+if ! printf '%s' "$CLAIMED_ID" | grep -Eq '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
   cat <<EOF
 
 =========================================
