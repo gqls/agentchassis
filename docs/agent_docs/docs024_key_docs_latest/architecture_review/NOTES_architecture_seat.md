@@ -855,3 +855,116 @@ diagnosed it** — recording the observation with its evidence, not a mechanism.
 `[UNDIAGNOSED]`.
 
 Re-fired round 3 under the same `RESUBMIT_CORR`, pods 67 minutes old, LAG 0.
+
+---
+
+## 2026-07-28, 21:30 — round 7 came back 8/2, and every objection was a request for a MEASUREMENT
+
+Round 7 (the scope split) is the best round of the eight: **8 approve / 2 object**,
+1 seat unreadable, 5 abstained of 10 reviewers. Verdict still `revise`.
+
+```sql
+SELECT created_at, metadata->>'decision', metadata->>'unreadable'
+FROM diagnosis_artifacts WHERE correlation_id='7ba5b8c4-0e10-46db-9fc4-2bd0584e943a'
+  AND kind='council_report' ORDER BY created_at;
+-- 15:19 revise/0 · 16:49 revise/1 · 19:40 revise/1 · 19:54 revise/1
+-- 20:08 revise/0 · 20:20 revise/0 · 21:09 revise/1   <- round 7
+```
+
+**The shape changed and that is the finding.** Rounds 1–6 drew objections about
+what the plan *does*. Round 7 drew six objections (2 medium, 4 low, no HIGH) and
+**not one says the plan is wrong.** All six say the same thing in six voices:
+*you asserted this; go measure it and cite it.*
+
+| seat | sev | what it actually wanted |
+|---|---|---|
+| reuse_agent | med | is some RAG/document pipeline already ingesting these globs? |
+| guardian | low | name the pipelines that touch `code_symbols`; I can't re-verify a grep |
+| guardian | low | confirm DB-side that ONE agent_definition wires `IndexCodeSymbolsAction` |
+| debug_historian | med | the plan has NO pod-binary verification; every VERIFY assertion is DB-only |
+| prior_art_librarian | low | the owning-pipeline claim has no `grounded_in` line, unlike every other |
+| prior_art_librarian | low | the `site_work_items` negative isn't cited here (explicitly informational) |
+
+**So round 8 adds NO mechanism** — no code, no globs, no schema, no helper. The
+six edits are identical in substance; eight query results go into `grounded_in`
+and one missing verification step goes into the VERIFY file. This is the §4
+lesson applied in the other direction: rounds 4–6 died because each objection was
+answered by *adding machinery*, and each new machine became fresh surface. **An
+objection asking for evidence must be answered with evidence, never with code.**
+If round 8 does not converge, the conclusion is about the plan, not an accretion.
+
+### What the measurements said
+
+**1. reuse_agent — no, and the answer is stronger than absence.** `rag_index`
+takes its text from the **orchestration payload**, not from disk
+(`rag_actions.go:138-139`: `content := ExtractNestedFieldString(params.CollectedData, contentField)`).
+No `filepath.Glob`, no `Walk`, no root anywhere in the action — it *cannot* reach
+a repo file unless an earlier step already read it in. Empirically the whole RAG
+surface is **34 rows in 2 collections, zero of repo-markdown provenance**, against
+4,992 `code_symbols` rows. And the decisive half:
+
+```sql
+-- rag_lookup is wired to ONE agent, and it is the test agent
+--   rag_index  -> rag-test-agent (index_content), tool-generator (index_plan)
+--   rag_lookup -> rag-test-agent (lookup_query)   <- and nothing else
+```
+
+**No diagnostic or council seat can reach `knowledge_base` at all.** The readers
+this workstream serves — `diagnose-agent`, `feature-designer`, `fix-proposer` —
+reach `code_symbols` and nothing else. Putting markdown in the RAG surface would
+not make it findable by them. It is not a second path to the same place.
+
+**2. guardian — the reader census, and A CORRECTION I OWE.** Seven live read
+sites, none selecting `kind`; the column reaches Go only at
+`code_symbols_actions.go:528` and `:549`, both inside `lookup_code_symbols`, both
+handing it to `scanCodeSymbolRows:566-585`, which writes it to `r["kind"]` and
+never compares it.
+
+> **CORRECTED 2026-07-28:** rounds 6 and 7 both stated the branch-on-`kind` grep
+> returned **"one hit"**. It returns **four** — `diagnose_code_lookup_action.go:246`
+> (`switch kind { case "content" … }`), `:415` (`validCodeCheckKind`), `:550`
+> (`unrecognised kind %q`), and `code_symbols_actions.go:430` (`kind := td.Kind`).
+> **None is the column**: the first three are the *code_check* kind namespace
+> (`symbol|content|ls`, enumerated at `:414-420`), the fourth is the analyser's
+> `typeDef.Kind` on the write path. **The conclusion held; the evidence I gave for
+> it was undercounted.** What caught it: guardian refusing to take a human grep on
+> trust and asking which pipelines actually touch the table. The cheap check that
+> would have: running the grep with the alternation actually written out
+> (`switch|case |== "|!= "|["kind"]|.Kind`) instead of eyeballing for the column
+> name. Logged in `WRONG_CALLS.md`.
+
+Worth conceding rather than papering over: guardian is **right** that its own tier
+cannot re-verify this — `code_checks` see declarations only, never switch bodies.
+Round 8 states it as a human grep. This plan's markdown corpus does not close that
+gap either.
+
+**3. guardian/prior_art — ownership, DB-side.** `index_code_symbols` is wired by
+**exactly one** `agent_definition`: `code-indexer/index_symbols`. Four agents
+touch the table; one writes it. `scheduled_tasks` holds
+`code-index-refresh | index-orchestrator | 86400 | enabled | last fired 12:46:27Z`.
+
+**4. debug_historian — a real gap, and the sharper form of it.** The objection was
+"no pod-binary verification". The sharper statement, which is why it matters:
+**every existing VERIFY assertion would read identically against a pod that never
+received the code** — `kind='doc'` rows would simply be absent, which is
+indistinguishable from "the roll hasn't happened yet". VERIFY gains a step 0, and
+it is discriminating rather than decorative because the baseline is **measured**:
+
+```
+pod agent-chassis-74dbd9c9f4-7p6d8, strings /app/agent-chassis | grep -c
+  flattenMarkdown 0 · composeDocContent 0 · defaultDocGlobs 0   <- the change
+  composeSymbolContent 2 · scanCodeSymbolRows 2                 <- POSITIVE CONTROL
+```
+
+The positive control is the part that earns it: without it, a `0` cannot be told
+apart from a broken probe against a stripped or renamed binary.
+
+**5. Also fixed, unprompted.** `grounded_in`'s last entry still carried the stale
+**~1,749** sizing *after the rationale had already corrected it to ~3,472*. A
+submission that corrects a number in prose while leaving it in the evidence is
+precisely the drift this workstream exists to review for. Fixed at source.
+
+**Round 8 dispatched** on `RESUBMIT_CORR=7ba5b8c4-…`, committed first at
+`SUBMISSION_2026-07-28b_markdown_into_the_index.json` (a NEW file — round 7's text
+stays on disk so the round-7→8 diff is auditable). Two runs ahead of it in the
+lane at dispatch.

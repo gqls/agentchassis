@@ -594,3 +594,67 @@ back it immediately raised the most serious objection of the whole sequence. So
 for three rounds I was being reviewed by a council I believed was complete and
 wasn't. That's logged as a known bug; it isn't mine to fix, but it cost real
 review quality here and it will be costing it elsewhere.
+
+---
+
+**2026-07-28, evening — the split worked, and the objections changed character.**
+
+Round seven came back eight approve, two object. That's the best of the eight
+rounds, but the number isn't the interesting part. **Not one of the six objections
+said the plan was wrong.** All six said, in six different ways, the same thing:
+*you've asserted that; go and measure it and show us.*
+
+That's a different kind of REVISE from the previous six, and it means the split
+did what I hoped. The arguing has stopped being about the plan's design and
+started being about the quality of my evidence for it.
+
+So round eight changes no code at all. Same six edits, word for word in substance.
+What I added was eight query results and one missing check. I want to be explicit
+about why, because it's the opposite of what I did in rounds four to six: back
+then, every objection got answered by *building something*, and each new thing I
+built became something else to object to. **An objection that asks for evidence has
+to be answered with evidence, never with more machinery.** If round eight still
+doesn't pass, then the problem really is the plan, and I'll know that cleanly.
+
+Four things got measured. Three came back the way I expected. One did not.
+
+The one that surprised me, pleasantly: a reviewer asked whether some other part of
+the platform already sucks these documents into a searchable form, in which case
+I'd be building a second way to do the same job. The answer is no, and it's firmer
+than just "no". There *is* a document-search facility, but it can only read text
+that's already been handed to it — it can't go and open a file. It currently holds
+thirty-four items, none of them from our documentation. And the part that settles
+it completely: **the only thing wired up to search it is a test agent.** None of
+the reviewing or diagnosing agents can reach it. So even if I did put our
+documents there, not one of the people who need to find them could.
+
+The one I got wrong is worth telling you about. To support a claim that widening
+this database column is safe, I'd said a code search "returns one hit", and named
+it. It returns four. My conclusion was still right — none of the four is the thing
+I was worried about — but the evidence I'd given for it was undercounted, and I'd
+reported it in two consecutive rounds in the confident voice you use for something
+you've counted. What had actually happened is that I searched, mentally threw away
+the results that obviously didn't matter, and then reported the number I had left
+as though it were the number the search returned. **A wrong conclusion gets caught.
+A right conclusion propped up by a count nobody took gets quoted forward forever.**
+It's logged in the fleet-wide wrong-calls file, and round eight lists all four hits
+with their line numbers so anyone can check the dismissal themselves.
+
+What caught it is the thing I'd most like to hold on to. The reviewer that found
+it never disputed my conclusion. It said, roughly: *this rests on a human search,
+which is fine, but it's exactly the sort of claim my own tooling can't
+independently re-check.* Then it asked a different question — which parts of the
+system actually use this table — and going to answer *that* is what made me re-run
+the search properly. **A reviewer saying "I can't verify this" is not a softer
+objection than "this is wrong". It's the one that finds the claims nobody will ever
+check.**
+
+The last objection found a real hole. All my verification steps read the database.
+Every one of them would have looked exactly the same against a machine that never
+received the new code — the new rows would simply be missing, which is
+indistinguishable from "it hasn't been deployed yet". So there's now a step that
+checks the running program itself, first, before any of the database checks are
+believed. I've measured what it reads today so that the check can actually tell the
+difference, rather than being decorative.
+
+Round eight is with the council now.

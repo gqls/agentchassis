@@ -9695,3 +9695,69 @@ filter quietly describes a small world; here there is **no filter to notice**. T
 question was substituted, not narrowed. The tell is that the query's subject
 (actions in config) and the claim's subject (requests on the wire) were different
 nouns — and I never wrote them next to each other.
+
+---
+
+## 2026-07-28 (evening) — "the grep returns one hit": the conclusion was right, the evidence for it was undercounted
+
+**The claim.** In council rounds 6 and 7 of the markdown-index plan I supported
+the blast-radius claim *"no reader switches on `code_symbols.kind`"* with a stated
+measurement: **"re-checked round 6: one hit, resolved as the analyser's
+`typeDef.Kind`, not the table."** One hit, named and dismissed. It reads like a
+census.
+
+**What is actually there.** Four branch sites on a variable named `kind` across
+the three live files that touch the table:
+
+```
+diagnose_code_lookup_action.go:246   switch kind { case "content" … }
+diagnose_code_lookup_action.go:415   func validCodeCheckKind(kind string) switch kind { case "symbol","content","ls" }
+diagnose_code_lookup_action.go:550   return fmt.Errorf("unrecognised kind %q", c.Kind)
+code_symbols_actions.go:430          kind := td.Kind      // the analyser's typeDef, write path
+```
+
+**The conclusion still holds** — none is the column. The first three are the
+*code_check* kind, a separate namespace enumerated at `:414-420` (`symbol|content|ls`);
+the fourth is the one I had named. **That is what makes this worth logging.** A
+wrong conclusion gets caught. A right conclusion resting on evidence that was
+never actually gathered survives, gets quoted forward, and is indistinguishable in
+the register from one that was.
+
+**Why it happened.** I was greping *for the column* — scanning hits for
+`code_symbols.kind` and mentally discarding the rest as obviously-not-it. That is
+a filter applied in the head, after the tool ran, and it leaves no trace in the
+number you then report. "One hit" was the count of hits I had **kept**, reported
+as the count the grep **returned**.
+
+**The cheap check that would have caught it.** Write the alternation out and read
+the raw count before interpreting anything:
+
+```bash
+grep -rnE 'switch|case |== *"|!= *"|\["kind"\]|\.Kind' --include=*.go \
+  platform/orchestration/actions/{diagnose_code_lookup,code_symbols,analyse_repo_local}_action*.go
+```
+
+Then dismiss the hits **in the write-up, one by one, with their line numbers** —
+which is exactly what makes the dismissal auditable by someone who cannot run your
+grep. Round 8 does this and it takes four lines.
+
+**What caught it.** The `guardian` seat, which did not challenge the conclusion at
+all. It said: *"the blast-radius claim rests on a human grep, which is fine, but it
+is exactly the kind of claim my own tier cannot re-verify — `code_checks` only see
+declarations, never switch statements inside function bodies."* It asked instead
+for the claim to be corroborated by **which pipelines actually touch the table**.
+Going to answer *that* question is what made me re-run the grep properly.
+
+**The transferable bit.** A reviewer saying *"I cannot verify this"* is not a
+weaker objection than *"this is wrong"* — it is the objection that finds the
+claims nobody will ever check. And when a seat names the epistemic limit of its
+own tier, **concede it in the resubmission rather than answering as if it were a
+challenge to the conclusion**; the honest form ("this is a human grep, here are
+the four hits and why none is the column") is both shorter and more persuasive
+than a defence.
+
+**Recurrence.** Same family as *"a narrow filter defines the conclusion"* and
+*"a check answers the question you ENCODED"*, with the filter moved one step
+later: not in the query, not in the question, but in the **reading of the output**.
+The tell is a suspiciously round, suspiciously small count — *one* hit, *zero*
+collisions — reported without the hits themselves being listed.
