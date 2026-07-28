@@ -6254,3 +6254,51 @@ described as working.
 closes the door); `bugs_closed/012` (an improver truncating and destroying a component —
 same family: a rewriter with insufficient constraints on what it may not touch);
 `bugs_closed/024` (the inverse — the loop unable to act at all).
+
+### Fixing one defect can ARM another that was dormant only because the first one crashed first (2026-07-28)
+
+The most valuable thing found in a two-day bug sweep, and neither case file could
+have contained it.
+
+`bugs_open/087`: `page-rebuild` died at `process_sections_loop` with
+`key 'sections_ready' not found`, because nothing supplied the writer a section
+plan. Diagnosed, fixed config-only, verified live — the writer received
+`sections_ready = 4` and ran on.
+
+The very first run that got past it then reached `deploy_page` **for the first
+time ever**, and `deploy_page` wrote the page to the wrong path, publishing a live
+orphaned duplicate (`bugs_open/125`). The resolver had been wrong since it was
+written; **087 was the reason it had never been reached.**
+
+Measured after the fact: across 15 days of `orchestration_states` retention, the
+buggy path had executed exactly **once** — the acceptance test that exposed it.
+And when it does fire it hits **280 of 431 pages (65%)**, every page whose `url`
+is not `/<name>.html`.
+
+**The transferable shape.** A workflow is a chain, and a defect early in the
+chain is a *shield* for every defect after it. Dormancy is therefore ambiguous:
+
+- "this path never runs, so its bugs are low priority" — often **backwards**. It
+  may never run *because* something upstream is broken, and the fix you are about
+  to ship is what starts the traffic.
+- A step's execution count is evidence about its *predecessors*, not about its
+  own quality. `deploy_page` had 0 executions and 1 latent estate-wide defect.
+
+**What to do when fixing a step that unblocks a chain:**
+
+1. **Enumerate what runs downstream for the first time**, and read those steps
+   before shipping — they have never been exercised and carry no operational
+   evidence. Their tests, if any, are unit tests.
+2. **Verify at the artefact, not the status.** The run that created the orphan
+   reported `"success": true` on the commit whose path was wrong. The success
+   flag was true *of the thing it did*; it was the wrong thing.
+3. **Size the newly-reachable blast radius with a query before the first live
+   run** — here, one `SELECT count(*) … WHERE url <> '/'||name||'.html'` would
+   have predicted the duplicate before it was published.
+4. **Prefer a first live run on a target where the downstream steps cannot cause
+   damage**, and check the guards that would stop it (`rebuild_policy`, deploy
+   gates) as part of choosing — not after the failure explains itself.
+
+Sibling of §"A fix applied to one branch of a two-branch router reads as done".
+That one is about a fix reaching half its callers; this one is about a fix
+delivering traffic to code that was never ready for it.
