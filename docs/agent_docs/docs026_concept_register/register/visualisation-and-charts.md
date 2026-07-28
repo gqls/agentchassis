@@ -94,10 +94,12 @@ a live site*, that is said explicitly.
 - **relations:** VIZ-001, VIZ-002, VIZ-006, CLM-002
 
 ### VIZ-010 — `cmd/contrastscan`: the post-deploy contrast witness
-- **status:** deployed (built 2026-07-28), exercised across 10 live sites
+- **status:** **built, run by hand only — NOT wired into anything**
+- **status-evidence:** checked 2026-07-28 after the owner asked. Every reference to it in the repo is documentation (bug files, this register, migration comments). Zero references in the Makefile, in CI, in any shell script, or in any `agent_definitions` workflow; no `contrast_failure` work-item type exists. Its sibling `cmd/claimscan` is equally unwired.
+- **why the correction matters:** this entry originally said "deployed", which this register's own status vocabulary explicitly forbids for a thing that is built but not exercised — and the overstatement was written in the same file that states the rule. **Nothing runs this on a schedule, so nothing will catch the next contrast defect before a human sees it.** That is not hypothetical: on the day it was built, an unreadable chart reached the live site and was found by the owner looking at a screenshot, not by the tool.
 - **what:** Measures WCAG contrast on live pages in headless Chromium using computed style and the **actual painted backdrop**, alpha-composited. Exits non-zero on failure.
 - **why it matters:** it exists because a stylesheet cannot answer the question — it cannot resolve the cascade, and the result depends on ancestors, alpha and gradients. `bugs_open/122`'s original table was built from a regex and was largely wrong. The tool's three guards are each a false positive it produced before having them, and the general rule is recorded with it: **on live public sites an over-reporting audit is worse than none**, because its findings get "fixed" into real regressions.
-- **complements, does not replace:** `platform/colour.AuditPalette` (026 phase 2b) reads the *composed palette* pre-deploy in microseconds; this reads the *painted page* post-deploy. A colour can be legible in the palette and illegible on the page, because chrome carries hardcoded literals that are in no palette.
+- **complements, does not replace:** `platform/colour.AuditPalette` (026 phase 2b) reads the *composed palette* pre-deploy in microseconds and IS wired into the build; this reads the *painted page* post-deploy and is not wired into anything. A colour can be legible in the palette and illegible on the page, because chrome carries hardcoded literals that are in no palette.
 - **sources:** `cmd/contrastscan/main.go`; `bugs_open/122`; `platform/colour/palette_audit.go:89`
 - **relations:** VIZ-011
 
