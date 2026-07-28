@@ -48,12 +48,10 @@ Take one of those places and you get the full report — same research, same len
 
 In return, you let us publish it as an example.
 
-**Your name is your choice.** Ask us to credit you and we will publish your name and a
-link to your site alongside the report. Stay quiet and we publish the idea and the report
-on their own — your name, your email and your company stay out of it.
+We publish the idea and the report. Your name, your email and your company stay out of it.
 
-We might publish next week, or never. The permission is yours to give and yours to
-withdraw: email us and it comes down within five working days.
+Which reports go in the library is our call — yours might appear next week, or never.
+Taking it out again is yours: email us and it comes down within five working days.
 
 Everything else matches the full report — same delivery, same refund if it turns up
 nothing worth acting on.
@@ -62,39 +60,33 @@ Want your idea kept private? That is what the £29 report is for.
 
 ---
 
-## On crediting with a link — offer it, do not sell it as SEO
+## The name-and-link offer: considered, then DROPPED (owner, 2026-07-28)
 
-The owner's idea: publish the example with the submitter's name and a link to their site,
-so they read the £8 as buying exposure as well as a report. **Worth doing. Worth being
-careful how it is described.**
+Proposed and then withdrawn the same day. Recording it because the reason generalises.
 
-**Why to offer it.** It converts the cost of the barter into a benefit, and it improves
-the library: a worked example with a real business attached is more persuasive than an
-anonymous one. It also helps the adverse-selection problem — someone who wants their name
-on it is likelier to be a real business with a real idea than someone offloading a
-throwaway.
+The idea was to publish the example with the submitter's name and a link to their site,
+so the £8 read as exposure as well as a report. **The owner killed it on the sharpest
+possible objection: we will not publish rude or poor submissions, so we cannot promise
+publication — and a link is a promise whose delivery depends on what they send us.**
 
-**Why not to market it as SEO.** Two reasons, and the second is the sharper one:
+**A veto and a promise cannot both be honest.** We keep the right to refuse anything we
+would not want in the library; the moment we advertise a link in exchange for £8 we owe it
+to whoever pays, including the ones we would refuse. Better to promise only the report,
+which we can always deliver, and keep publication entirely our call.
 
-1. **We cannot support the claim.** idea.uk had 26 non-bot page views in the ten days to
-   28 July, most of them cloud scanners and a Tor exit. A link from a site with no traffic
-   and no history is worth very little today, and this product's entire brand is not
-   overstating things. Selling "an SEO link" from here is the one claim that would read as
-   dishonest to exactly the audience we want.
-2. **Selling a link makes it a paid link.** If part of what £8 buys is a backlink, search
-   engines treat that as a paid link and expect `rel="sponsored"` or `nofollow` — which
-   removes the value being sold. Framed as *credit for the person whose idea it is*, it is
-   editorial attribution and the problem does not arise. The framing is the difference,
-   and the difference is real.
+Two further reasons it was the right call, from the earlier analysis:
 
-**So:** offer the credit and the link plainly — "we will publish your name and a link to
-your site" — and let the reader decide what that is worth to them. The honest appeal is
-**exposure and credibility**, not link juice: being the worked example on someone's site
-is a marketing benefit that does not depend on domain authority.
+1. **We could not support the SEO claim anyway.** idea.uk had 26 non-bot page views in the
+   ten days to 28 July, mostly cloud scanners and a Tor exit. A link from a site with no
+   traffic is worth very little today, and this product's brand is not overstating things.
+2. **Selling a link makes it a paid link.** Search engines expect `rel="sponsored"` or
+   `nofollow` on links exchanged for money — which removes the value being sold. So the
+   version that is safe to offer is the version with nothing much to offer.
 
-Mark the link `rel="nofollow"` regardless. It costs nothing we are honestly offering, it
-matches the `nofollow` discipline already agreed for commercial links elsewhere on the
-estate, and it means the offer stays clean if the site's traffic ever does grow.
+**Transferable:** do not attach a benefit to a transaction when delivering that benefit
+depends on the quality of what the customer supplies. Either you publish things you would
+rather not, or you break a promise to someone who paid. The report itself has no such
+problem — we can always deliver that, whatever arrives.
 
 ---
 
@@ -118,9 +110,9 @@ does not, and it gives the £29 a stated benefit it did not visibly have.
    machine, not for the human confirm-and-approve step. Fine for an experiment.
 3. **Same report, explicitly.** A lesser version would make the published specimen no
    evidence of what a £29 buyer receives, which defeats the point.
-4. **Consent is an unticked box the buyer ticks**, stored on the order, wording visible at
-   that moment. A pre-ticked box is not consent. Store the credit-me choice separately —
-   two decisions, two records.
+4. **Consent is an unticked box the buyer ticks**, stored on the order, with the wording
+   visible at that moment. A pre-ticked box is not consent. One decision now, one record —
+   the credit-me choice is gone with the link offer.
 5. **Keep the right not to publish.** Stated in the copy, and it is the backstop for
    adverse selection.
 
@@ -131,14 +123,14 @@ does not, and it gives the £29 a stated benefit it did not visibly have.
 `PriceGBP` is one value threaded `Config → StripeProvider.priceGBP → CreateCheckout`, so
 price is fixed per *process*, not per *order*:
 
-- `Order` gains price, a consent flag, and the credit-me choice (all persisted — a consent
-  record must outlive the session that captured it).
+- `Order` gains a price and a consent flag (both persisted — a consent record must
+  outlive the session that captured it).
 - `Provider.CreateCheckout(orderID, email)` gains a price argument — an interface change,
   so `StripeProvider` and `FakeProvider` move together.
 - `sendPayLink` passes the order's own price, or the email and the checkout disagree about
   what the buyer owes.
-- Form: tier choice, consent box, optional name-and-URL fields. Operator review email
-  shows the tier, so approval is never accidental.
+- Form: tier choice and consent box. Operator review email shows the tier, so approval is
+  never accidental.
 - Tests: no consent-flagged order without the box ticked; an £8 order never produces a £29
   checkout, or the reverse.
 
