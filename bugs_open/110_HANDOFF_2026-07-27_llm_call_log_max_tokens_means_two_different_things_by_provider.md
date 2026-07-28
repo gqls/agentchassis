@@ -153,6 +153,39 @@ honest in the meantime, so this is not urgent.
 Gemini".** A rule that means something different per provider is worse than either
 version of it, and that is precisely the defect being fixed.
 
+## Candidate 2 COUNCIL-APPROVED 2026-07-28 07:22 UTC — unanimous, round 3
+
+`Council-Reviewed: fa4ec9c8-34f4-4ea1-afcd-79d3a219e899` · **`decided_by: "all
+reviewers approve"`**, 10 reviewers, 6 abstained (footprint-gated), **`unreadable: 0`**.
+Every seat approved, including `editquality` and `guardian`, both of which objected in
+round 2.
+
+**Three rounds, and only one of them was about the code.**
+
+- **Round 1 (corr `913a86e0`) never returned a verdict** — it wedged at
+  `review_constitution` and was reaped after 4h with `__step_error` NULL and no LLM
+  call ever made. Harness, not plan.
+- **Round 2** — REVISE, `unreadable: 1`, `decided_by: "unreadable reviewer(s):
+  review_editquality.result"`. Also harness. But its two real objections found a
+  genuine hole: **seven `LogLLMCall` sites, not two**, one of them
+  (`companies_house_llm_review_action.go`) provider-configurable and therefore able to
+  log NULL thinking on a real Gemini call. Fixed structurally — four settable fields
+  collapsed into one `Options` map, so a site cannot populate some-but-not-all. That
+  change also exposed a data race I had introduced: round 1 read the options map
+  *inside* the fire-and-forget goroutine.
+- **Round 3** — REVISE, `unreadable: 0`, `decided_by: "gating objection from
+  editquality"`. **The first verdict that was actually about the submission, and it was
+  right.** Revising round 1 into round 2 I had *retargeted* the `ai_actions.go` edit to
+  `companies_house` instead of adding one, so the plan proposed a breaking struct change
+  with no migration shown for its own two original call sites — while the risks section
+  asserted all seven were updated. The code was correct throughout; the sketch was not,
+  and the sketch is all a reviewer sees.
+
+> **The trailer's own caveat.** The code commit is `4ca21d7d6`, which **predates** this
+> verdict, and the tree is forward-only. So `098` may still list that commit as
+> unreviewed — the known false-negative shape recorded for `bugs_closed/011` round 9 and
+> for `107`. The trailer rides on the commit that records the approval.
+
 ## Candidate 2 BUILT 2026-07-27 evening — migration applied, Go committed and INERT
 
 Commit `ca4071c82`; migration `docs/agent_docs/sql_for_agents/245_llm_call_log_thinking_telemetry.sql`

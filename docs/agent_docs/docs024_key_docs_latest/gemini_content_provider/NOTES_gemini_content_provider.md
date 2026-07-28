@@ -1483,3 +1483,44 @@ after `ca4071c82`.
 > live".** Two facts that both looked like yes — a bumped tag and a fresh pod — and
 > the change was still absent. The pod-grep is the only thing that settled it, and it
 > only settled it once the marker was one my change ALONE creates.
+
+### Council APPROVED unanimously on round 3 — and the one substantive objection was about my paperwork, not my code
+
+`Council-Reviewed: fa4ec9c8-34f4-4ea1-afcd-79d3a219e899`, `decided_by: "all reviewers
+approve"`, 10/10, `unreadable: 0`.
+
+**Two of the three REVISE verdicts were the harness, and reading `decided_by` before
+rewriting anything is what kept that cheap.** Round 1 was reaped (no verdict at all);
+round 2 was `unreadable: 1` on `review_editquality.result`. Had I treated either as a
+judgement on the plan I would have rewritten working code twice.
+
+**But "it was the harness" is not a reason to ignore the objections that DID parse.**
+Round 2's guardian seat found the real defect in this change: **seven `LogLLMCall`
+sites, not the two I claimed**, and `companies_house_llm_review_action.go` reads its
+provider from config, so it could be pointed at Gemini and would have logged NULL
+thinking on a thinking call — silently. That is the *"one call site of a shared
+judgement gets the rigorous fix, the sibling stays heuristic"* shape, and I had cited
+that very shape in my own rationale while committing it.
+
+**Round 3's gating objection was correct and was entirely my fault.** Revising round 1
+into round 2, I retargeted the `ai_actions.go` edit to `companies_house` rather than
+adding a new one. The plan then proposed removing four struct fields with **no
+migration shown for the two call sites that used them**, while `risks` went on
+asserting all seven were updated. `editquality` caught the contradiction between those
+two statements. The code was right the whole time — both sites read `Options: options`,
+build clean, tests green — but **a reviewer cannot open the file; the sketch is the
+only view of the code they get**, and mine had quietly stopped describing it.
+
+> **The runbook warns about exactly this** — *"On a resubmit, update the `sketch`
+> fields, not just the `rationale`"* — and I walked into it in the same submission
+> where I quoted the sibling-site pattern against myself. Knowing a trap by name is not
+> the same as checking for it. **Cheap check: after editing a submission, diff the edit
+> list against `git diff --stat` and confirm every touched file still appears.**
+
+**What the objections were worth.** `prior_art_librarian` moved object → approve once I
+re-verified the absence claim tree-wide instead of asserting it; `guardian` and
+`editquality` moved object → approve on round 3. Three rounds cost ~35 minutes of
+review and produced: one real code defect found (the five missed call sites), one data
+race of mine found while fixing it, and two unverified claims of mine turned into
+checks. **[VERIFIED]** — seat verdicts read from `diagnosis_artifacts`, not inferred
+from the decision string.
