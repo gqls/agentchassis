@@ -297,3 +297,22 @@ because the CSS rule block still names the selector. The DISCRIMINATING probe is
 markup form (`<div class="footer-contact">`, absent) not the bare token — the
 assert-position-not-presence lesson in miniature, caught before it misled anyone.
 Live-page verification pending the re-render drain; 111 closes on it.
+
+---
+
+## 2026-07-28 ~15:30 (bugs thread 2) — cap raised; council round 2 APPROVED; robot-hands got its first audit
+
+Owner raised the API cap mid-afternoon; the 097 resubmission (RESUBMIT_CORR trail
+fcd4322b) went straight through: **APPROVED, 11 reviewers, 0 unreadable**. Fixed
+forward from objections: the fail-open skip now writes a durable
+`CONTENT_LINK_REPAIR_SKIPPED` row (`e60f5ef59`, inert till next roll). New durable
+facts, all in the 097 file: the phantom discovery check has NO fleet dispatcher (four
+domains = four hand-fired one-shots; robot-hands audit #1 found 24 stored-state
+phantoms); the check reads STORED component HTML, so "repaired outbound" and "flagged
+by the check" are both true at once; the last live phantom sits on a
+needs_rebuild-since-May section-index page → 080/081/098 family, owner call.
+
+Registered LNK-023 + CTXA-024 per the new CLAUDE.md concept-register rule. Also: the
+tree switched to `087_towards_multiple_domains` mid-session (086 merged to main) —
+both fixes reachable; and the shared rerender repair is already firing for OTHER
+threads' pages (`about` ×3, `report` 6 rewritten) within two hours of deploying.

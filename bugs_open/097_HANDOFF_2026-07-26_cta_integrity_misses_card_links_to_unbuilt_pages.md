@@ -358,3 +358,41 @@ both repair arms exercised live (3 rewrites to real stored URLs, 20 phantoms unl
 All four pages re-probed over HTTPS: 200, zero remaining `/matchmatrix/methodology` or
 `/learning-center/*` phantom hrefs. The live damage this file tracked is CLEARED; the
 detector gap (headline) remains the open work.
+
+---
+
+## 2026-07-28 15:2x — council APPROVED on resubmit; the site's FIRST discovery audit ran; one live phantom remains and it is another family's bug
+
+**Council trail `fcd4322b`, round 2 (post cap-raise): APPROVED** — 11 reviewers, 0
+unreadable. The code had already shipped (advisory gate, spend-cap window), so the
+commit stays trailer-less — a known 098 false negative. Objections acted on:
+bug_historian's medium (fail-open skip left no durable record) fixed forward in
+`e60f5ef59` — the skip branch now writes `CONTENT_LINK_REPAIR_SKIPPED` to
+`agent_error_log` (inert until the next roll). Its second medium stands as an **open
+sub-question**: are the two rerender actions plus the build gate the COMPLETE set of
+paths that ship page HTML? Not claimed; the origin-stamped log at least makes every
+covered path visible.
+
+**The dispatcher gap, proven and then exercised.** `check_phantom_internal_links`
+(LNK-009) is live in `completeness-discovery-agent` but has NO fleet dispatcher — the
+four covered domains each got a hand-fired one-shot; robot-hands had simply never been
+audited. Fired its first: **24 phantom findings across 5 pages** (plus 8
+cta_names_unknown_destination, 8 needs_internal_links, 20 page_rerender items, nav
+drift). Note the check reads **stored** `page_components.rendered_html`, so its
+findings describe authoring debt (`content_data` still holds the bad hrefs); the four
+repaired pages are outbound-clean while their stored rows stay dirty by design. The
+queue rows stand as the record — the `detected`-unclaimable drain is `083`'s open
+problem, deliberately not worked around here.
+
+**The one remaining LIVE phantom is not this bug.** `learning-center-index`
+(`/learning-center/index.html`) serves a **May deploy**: `build_status='needs_rebuild'`
+since then, components untouched since 07-03; the stitch-rerender legitimately
+no-opped (empty final_result). Its phantom href targets `learning-center-article` —
+**`status='archived'` yet once-deployed and now 404** (`bugs_open/098`'s exact shape:
+archiving does not undeploy). A stale section-index page needing a real rebuild is the
+`080`/`081` family with its standing owner call. Routed there; not brute-forced here.
+
+**Remaining open work in this file:** the `ctaFieldNames` enumeration gap (candidate
+1/2 at the CHECK stage), the deploy-path completeness sub-question above, and a
+fleet dispatcher decision for the discovery audit (owner-adjacent: it files rows into
+a queue with no drain — `083`/`033`).
