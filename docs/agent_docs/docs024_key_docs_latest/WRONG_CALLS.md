@@ -9086,3 +9086,29 @@ the hardest thing to distrust, because its scope was chosen by the same reasonin
 chose what to build. When it agrees with you, it may only be agreeing with your blind
 spot. **Verify a fix by looking at the artefact, not by re-running the check that
 passed before you made it.**
+
+---
+
+## 2026-07-28 — "PROVEN END TO END" on a route that could not reach the failing step (079 closure)
+
+**The claim:** `bugs_open/079` closed as FIXED, "PROVEN END TO END on the deployed
+binary" — the link repair rewrites/unlinks dead hrefs "in `clean_html` — the string
+`save_sections` persists."
+
+**What was true:** the repair action works, logs durably, and is deployed. **What was
+false:** `save_sections` never reads `clean_html` on the primary build plan — the
+structured `sections_metadata` path wins whenever metadata exists, which
+`require_sections_metadata: true` guarantees. The repair output is discarded on every
+natural build. Caught 2026-07-28 by a routine link crawl on fundamentallyai finding all
+9 "repaired" targets live and 404ing, 400ms after the repair log row.
+
+**Why the proof missed it:** the induction route (`content-reviewer`, `html_field`
+repointed) had no `save_sections` step — chosen because no natural induction was
+available at the time. The proof verified the ACTION's return map on a synthetic route,
+and the claim quietly widened from "the action repairs" to "the page ships repaired."
+
+**The cheap check that would have caught it:** one SELECT of the saved
+`page_components.rendered_html` after the first natural build that logged a repair —
+the repaired href must be absent from the PERSISTED row. Same family as "writes the
+field ≠ reads the field" and 016b §"pod-grep proves the binary, not the path" — this
+adds the third rung: on the path, ran, and the next step discarded its output.
