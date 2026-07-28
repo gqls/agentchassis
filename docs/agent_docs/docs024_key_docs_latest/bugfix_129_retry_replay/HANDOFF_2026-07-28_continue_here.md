@@ -1,10 +1,33 @@
 # HANDOFF — bugfix 129 retry replay, 2026-07-28 ~22:20 BST
 
+> ## ⚠ SUPERSEDED 2026-07-28 ~22:30 by thread "bugsearch 5" — **§2's owed item IS DISCHARGED and the bug is CLOSED.**
+>
+> A replay was witnessed on a natural live timeout at 21:25:18Z (`call_scraper`,
+> request `30585e6d…`): child orchestration id `ef7e2ddb…` ≠ awaiting `b89b6e5e…`,
+> action `process`, reached `processed`, both orchestrations COMPLETED.
+> **Do not go looking for it — it is done.** The bug file moved to
+> `bugs_closed/129_HANDOFF_…`; the full evidence is in its new top block, and the
+> read-out is `SUMMARY_2026-07-28_retry_replay.md`.
+>
+> **Two defects in this document, corrected there — do not follow §2 or §5 as written:**
+> - **§2's grep names the wrong pod.** `-l app=agent-chassis` returns nothing even
+>   when a replay has happened: the retry runs in whichever service hosts the
+>   **awaiting orchestration** (here `business-intel`). All services run one image,
+>   so loop over the labels. This nearly produced a false "no replay yet".
+> - **§5's "anything else is a genuine gap" is too strict.** Adapter actions
+>   (`target_agent_id = ''` + `system.adapter%` topic) branch at
+>   `coordinator.go:2809` into step **re-execution** and never read a payload, so
+>   their NULL payloads are harmless. Exclude them before counting.
+>
+> **What genuinely remains** is §3 and §4 — both owner decisions about *how* the
+> change shipped, neither blocking the bug. Those stand exactly as written below.
+
 **Read this first, then `REVIEW_2026-07-28_council_scope_veto.md`.** Everything
 else in this directory is background you do not need to start.
 
-**Thread:** "bugsearch 4". **State: the fix is LIVE and half-verified.** One thing
-is owed before the bug can close, and one decision is owed by the owner.
+**Thread:** "bugsearch 4". ~~**State: the fix is LIVE and half-verified.** One thing
+is owed before the bug can close~~ **— now fully verified and closed, see above** —
+and one decision is owed by the owner.
 
 ---
 

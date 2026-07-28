@@ -9804,3 +9804,69 @@ acted on it — the claim was already committed, and the fix it implied
 **Recurrence.** Same family as *"a check answers the question you ENCODED"*, in
 the schema layer: the query was well-formed, ran clean, and answered a question
 about a path that does not exist.
+
+---
+
+## 2026-07-28 — a verification recipe that greps the wrong pod, and a coverage query that spans a fork
+
+**Thread:** "bugsearch 5", closing `bugs_closed/129`. Two claims, both written into
+a durable handoff by the previous thread, both false, both caught within minutes of
+being acted on — which is the only reason they cost nothing.
+
+### Claim 1 — "grep `-l app=agent-chassis` for the replay"
+
+The handoff's §2 gave this as *the* command that decides whether the fix works. It
+returns **zero lines even when a replay has just succeeded**. The retry executes in
+whichever service hosts the awaiting orchestration — here `business-intel` — and
+every service runs the same image, so the code is under every label and only the
+execution is localised.
+
+**What caught it.** The database and the log disagreed: `awaited_requests` showed a
+row at `retry_version 1` with a fresh `sent_at`, while the log grep showed nothing
+at all. A retry that happened and a retry that did not cannot both be true, so one
+of the two probes was wrong — and the DB row is the harder evidence.
+
+**The cheap check that would have.** Resolve the executor before grepping for its
+output: `processing_pod` is on the row. Or loop the labels, which costs one line.
+
+**Why it is worth a row here.** Zero lines from the expected pod is
+*indistinguishable* from "hasn't happened yet", and the handoff had primed exactly
+that reading ("no timeout has occurred yet"). A false negative that agrees with the
+story you already believe will not be questioned. The generalisation — **grep the
+orchestration's host, not the subsystem's name** — is in 016b §9.
+
+### Claim 2 — "any NULL payload other than scrape/search is a genuine gap"
+
+§5 of the same handoff. The live census returned 4 `deploy_page` rows; by that rule
+they were gaps needing wiring. They are not. `coordinator.go:2809` forks adapter
+actions into step **re-execution** before anything reads the payload column, so
+those NULLs are correct by construction.
+
+**What caught it.** Reading the branch instead of trusting the rule — the rows all
+carried `target_agent_type='unknown'` and an empty `target_agent_id`, which is not
+what a mis-wired agent call looks like.
+
+**The cheap check that would have.** Follow the column to its only consumer before
+writing a coverage query for it. One `grep` for `DecodeRetryPayload` shows the fork
+sitting above it.
+
+**The transferable bit.** A coverage query for a column consumed by **one branch of
+a fork** silently measures both branches. Write the exclusion at the same time you
+write the fork, or you manufacture a backlog aimed at a non-defect. Tell: the
+"gaps" cluster perfectly on one step name or topic prefix. Same family as *"a
+uniform result across every row is the tell"* — a uniform shape is usually a
+branch, not a bug.
+
+### The tally point
+
+Both are the **same underlying skipped check**: *the probe was inherited, not
+re-derived.* Each was handed over as a finished command with a stated expected
+answer, and both were run without asking what they actually measure. Related to
+*"a verify-later that states an expectation rather than a question"* (016b §9) —
+here the expectation travelled in a handoff instead of a comment, which is worse,
+because a handoff is read exactly once by someone with no context to doubt it.
+
+**Third occurrence of the "check answers the question you ENCODED" family this
+week.** Worth automating the cheapest guard: any coverage/verification query
+committed to a RUNBOOK should carry its denominator, so an empty result cannot be
+read as success. Done for 129's runbook; not yet general.

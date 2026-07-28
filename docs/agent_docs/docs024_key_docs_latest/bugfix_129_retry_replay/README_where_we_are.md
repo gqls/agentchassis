@@ -219,3 +219,64 @@ the retry path at all. I would rather say that plainly than round it up.
 happening and confirm it goes out addressed to the right recipient. I have written
 down the two commands that check it, and what does and does not count as proof, in
 the handoff.
+
+---
+
+## 2026-07-28, about half past ten at night — the last piece arrived, and the bug is closed
+
+The thing I said was owed has happened, and it happened on its own about twenty
+minutes after I wrote that note.
+
+A real job — a price scraper — sent a request off and waited half an hour for an
+answer that never came. That is exactly the situation this bug was about. The
+system noticed the silence and sent the request again. Under the old code, that
+second attempt was the moment everything went wrong: it would rebuild the request
+from scratch and put the *wrong name* on the envelope, so the worker receiving it
+looked up the sender's own job, saw it was already sitting there waiting, decided
+there was nothing to do, and quietly said nothing. The job then waited until it ran
+out of patience. That happened to every single retried request in the fortnight I
+measured — four hundred and thirty of them — and two thirds of those jobs died of it.
+
+This time the second attempt went out as an exact copy of the original, with the
+right name on the envelope. The worker picked it up, did the work, and answered. The
+job finished, and so did the parent job that was waiting on it. About a minute and
+three quarters, start to finish.
+
+That is the whole thing proven now. The half I could already show you — that the
+system keeps a faithful copy of every request it sends — was working. The half I
+could not show you, that the copy actually gets used properly when something needs
+retrying, is now witnessed on real traffic rather than in a test I wrote myself.
+That distinction mattered to me: a test I write can only prove the new code does
+what I think it does, whereas this was the system's own work, unprompted.
+
+**Two things I got wrong on the way, both caught quickly.**
+
+The first is worth passing on because it is a trap anyone would fall into. My own
+handoff note told me to check the logs of a service called the chassis. I did, and
+found nothing, which looked like "no retry has happened yet". It had happened — in
+a *different* service's logs. All these services run the same program; which one
+does the retrying depends on which one was waiting. So the check I had written down
+for whoever came next would have told them the wrong thing. I have fixed it in the
+notes.
+
+The second was simply reading too fast: I saw a request still marked "waiting" and
+assumed it had failed, when in fact it was still in mid-air and finished
+successfully seconds later. I had not looked at the clock.
+
+**One small correction to something in the notes.** I had written that if anything
+other than two specific web-scraping steps turned up without a saved copy of its
+request, that was a real problem to chase. Four such things turned up. They are not
+a problem: they are a different kind of request that gets re-run from the beginning
+rather than re-sent, so it has no need of a saved copy. I checked this by reading
+the code rather than assuming, and then re-ran the count in a way that tells the two
+kinds apart. Genuine problems: none.
+
+**What is still open, and it is all yours, not mine.** The review panel objected to
+*how* this change reached production rather than to the change itself, and that
+question is untouched by tonight's result — the fix works, the objection was about
+process. There is also the awkward finding I raised last time: on this setup,
+committing work *is* shipping it, so "hold it back pending a decision" was never
+actually available to me. Both of those need a call from you. And the two
+web-scraping steps I mentioned have a separate, smaller fault of their own that
+deserves looking at properly rather than being bundled in here — bundling is
+precisely what got objected to.

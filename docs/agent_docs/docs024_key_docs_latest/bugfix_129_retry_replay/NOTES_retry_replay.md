@@ -338,3 +338,77 @@ function that did not exist before and therefore cannot fail against the old cod
 Induced a real one via `TRIGGER_code_indexer_v2.sh` (correlation
 `c54b3fdf-b556-45f1-8e59-8237bec64d2a`) — the lane bugs_open/129 records as failing
 2 of 3 on v1.0.1184.
+
+## 2026-07-28, ~22:30 — the REPLAY half IS witnessed. Bug closed. (thread "bugsearch 5")
+
+The wait was about 20 minutes. A real `call_scraper` request sent at 20:55:17Z with
+`timeout_seconds: 1800` expired at 21:25:17Z, and the coordinator replayed it at
+21:25:18.5 — a **natural** timeout, not an induced one, which is better evidence
+than the induced run I was chasing.
+
+```
+coordinator.go:2984  "Replaying original request to target agent requests topic"
+  request_id             30585e6d-ade5-406b-a90b-b64222de0853
+  child_orchestration_id ef7e2ddb-d58e-4e5f-a391-421f9fadbc3f   ← awaiting orch is b89b6e5e
+  action                 "process"                              ← old code forced "execute"
+  retry_version          1
+  pod                    business-intel-765566d57-wxpsr
+```
+
+`processed_at 21:27:05.999`; child orch `ef7e2ddb` → `complete/COMPLETED` at
+21:27:06.938, parent `b89b6e5e` at 21:27:07.104. Every assertion the handoff named
+as closing evidence is met, on the one request class the old code destroyed.
+
+Detail worth keeping: the stored `request_payload` still reads `retry_version: 0`
+and the original 20:55:17 timestamp. That is **correct** — it is the captured
+original; only the wire copy is bumped. Seeing `0` in the stored blob next to `1`
+on the row briefly looked like a bug and is not.
+
+### Misstep 1 — I grepped the wrong pod label and nearly recorded a false negative
+
+My first log grep was the handoff's own command, `-l app=agent-chassis`. **Zero
+lines.** The retry runs in whichever service hosts the *awaiting orchestration*,
+which here was `business-intel`. Every service runs the same image
+(`agent-chassis:v1.0.1194` — one binary, many app labels), so the code is present
+everywhere; only the *execution* is localised. Had I stopped at that grep I would
+have written "no replay has occurred" while the replay sat in the next pod's log.
+The handoff's §2 command has this defect; fixed in the RUNBOOK and flagged in the
+bug file.
+
+Corollary: the log line is **stronger** evidence than the pod-grep the handoff
+leaned on. `strings | grep` proves the binary *contains* the code; the log line
+proves it *ran*.
+
+### Misstep 2 — I read a live request as expired
+
+Saw `status='waiting'` with `timeout_at 21:28:18` and called it timed-out. It was
+21:27:45. The row was **still in flight** and reached `processed` moments later.
+Cheap check I skipped: `SELECT now()` in the same query as the row. Doing that from
+the start would also have saved the wrong inference in Misstep 1, because the
+sequence would have been obviously mid-flight rather than dead.
+
+### The §5 rule in the handoff is too strict — corrected
+
+§5 says the NULL-payload population should be only `scrape_pages`/`search_web` and
+"anything else is a genuine gap". The live census says `deploy_page`/`unknown` ×4.
+Not a gap: `coordinator.go:2809` branches
+`TargetAgentID == "" && RequestsTopic LIKE 'system.adapter%'` into step
+**re-execution** and returns at :2881, never reaching `DecodeRetryPayload` at :2947.
+Adapter actions re-run the step with full context instead of replaying a message,
+so they have no use for a stored payload. All 4 rows match the predicate exactly.
+
+Census split by the path each row would actually take, since the roll:
+**adapter re-execution 4 · replay path 18, of which 18 carry a payload · genuine
+gaps 0.** The corrected query is in the bug file and the RUNBOOK.
+
+Counter-markers `RETRY_SELF_ADDRESSED` / `MISROUTED_REQUEST` /
+`RETRY_PAYLOAD_UNAVAILABLE` / `RETRY_PAYLOAD_BACKFILL_MISSED`: **0** across five
+services over 3 hours.
+
+### What is NOT closed by this
+
+The council's SCOPE veto and the "committing is shipping" clause are owner calls
+about *how* the change shipped; they are untouched by this verification and live on
+in `REVIEW_2026-07-28_council_scope_veto.md`. `scrape_web`/`web_search` still record
+no payload by design and need their own diagnosis — deliberately not bundled here,
+that being the exact thing the guardian vetoed.

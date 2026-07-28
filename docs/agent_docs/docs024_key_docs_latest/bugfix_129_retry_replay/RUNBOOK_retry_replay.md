@@ -147,21 +147,61 @@ WHERE request_payload IS NOT NULL
 ```
 
 Fleet-wide coverage of the recording, once a roll has been in for a while — any
-step appearing here gets **no retries at all** and needs wiring:
+step appearing here gets **no retries at all** and needs wiring.
+
+> **CORRECTED 2026-07-28 (bugsearch 5) — the plain `request_payload IS NULL` count
+> over-reports, and its false positives look exactly like real gaps.** Adapter
+> actions legitimately store no payload: `coordinator.go:2809` branches
+> `TargetAgentID == '' && RequestsTopic LIKE 'system.adapter%'` into step
+> **re-execution** and returns at :2881, never reaching `DecodeRetryPayload`
+> (:2947). The uncorrected query reported 4 `deploy_page` rows as gaps; there were
+> none. **Always exclude the adapter path before counting.**
 
 ```sql
 SELECT step_name, target_agent_type, count(*) AS unrecorded
 FROM awaited_requests
-WHERE sent_at > now() - interval '2 hours' AND request_payload IS NULL
+WHERE sent_at > now() - interval '2 hours'
+  AND request_payload IS NULL
+  AND NOT (target_agent_id = '' AND requests_topic LIKE 'system.adapter%')
 GROUP BY 1,2 ORDER BY 3 DESC;
 ```
 
-And the loud failures the refusal emits, which is where an uncovered sender shows
-up as an error rather than as silence:
+Denominator alongside it, so an empty result cannot be confused with no traffic:
+
+```sql
+SELECT
+  count(*) FILTER (WHERE target_agent_id = '' AND requests_topic LIKE 'system.adapter%') AS adapter_reexec,
+  count(*) FILTER (WHERE NOT (target_agent_id = '' AND requests_topic LIKE 'system.adapter%')) AS replay_path,
+  count(*) FILTER (WHERE NOT (target_agent_id = '' AND requests_topic LIKE 'system.adapter%')
+                     AND request_payload IS NOT NULL) AS replay_path_recorded
+FROM awaited_requests WHERE sent_at > now() - interval '2 hours';
+```
+
+And the replay itself plus the loud failures, which is where an uncovered sender
+shows up as an error rather than as silence:
+
+> **GOTCHA — grepping `-l app=agent-chassis` alone gives a FALSE NEGATIVE.** The
+> retry executes in whichever service hosts the **awaiting orchestration**, not in
+> the chassis by name; the 2026-07-28 witness ran in `business-intel`. Every service
+> runs the same image, so the code is everywhere and only the execution is
+> localised. Loop over the labels. Note this log line is *stronger* evidence than
+> the pod-grep: `strings` proves the binary contains the fix, this proves it ran.
 
 ```bash
-kubectl logs -n ai-persona-system -l app=agent-chassis --since=1h \
-  | grep -E 'RETRY_PAYLOAD_UNAVAILABLE|RETRY_SELF_ADDRESSED|MISROUTED_REQUEST'
+for l in agent-chassis business-intel core-manager reasoning-agent content-creator-agent; do
+  echo "== $l"
+  kubectl logs -n ai-persona-system -l app=$l --tail=-1 --since=1h 2>/dev/null \
+    | grep -E 'Replaying original request|RETRY_PAYLOAD_UNAVAILABLE|RETRY_SELF_ADDRESSED|MISROUTED_REQUEST'
+done
+```
+
+A good replay line has `child_orchestration_id` **different from** the awaiting
+orchestration and the original `action` (not `execute`). Confirm it landed:
+
+```sql
+SELECT status, processed_at FROM awaited_requests WHERE request_id = '<id>';
+-- and read now() in the SAME query as any timeout_at, or a request still in
+-- flight reads as expired (that misread cost a wrong call on 2026-07-28)
 ```
 
 ## 6. Council round

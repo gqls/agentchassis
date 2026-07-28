@@ -3916,6 +3916,63 @@ Write the query, not the expected answer.
 Category tags: `two-dispatchers-one-queue`, `comment-outlived-the-config`,
 `claim-is-the-ticket`, `verify-later-states-an-expectation`.
 
+### One image, many app labels — grep the ORCHESTRATION's host, not the mechanism's name
+
+Found closing `bugs_open/129`, 2026-07-28. Every backend service in this cluster
+runs the **same image** (`agent-chassis:v1.0.1194` was on the `business-intel`,
+`core-manager` and `agent-chassis` pods simultaneously). So the *code* is present
+under every `app=` label, and only the *execution* is localised — to whichever
+service happens to host the orchestration doing the work.
+
+**The trap:** you verify a coordinator-level fix by grepping
+`-l app=agent-chassis`, because the mechanism lives in the chassis library and the
+chassis is what you rebuilt. You get zero lines. Zero lines from the pod you
+expected reads as **"it hasn't happened yet"**, which is indistinguishable from
+"it happened somewhere else". The 129 verification nearly recorded "no replay has
+occurred" while the replay sat in `business-intel`'s log, one label away.
+
+**The rule.** For anything driven by an orchestration, the log lives with the
+orchestration's owner. Either resolve the owner first (the awaited request's
+`processing_pod`, or the sender in `request_payload->'message'->'headers'->'sender'`)
+or loop the labels — never grep the one service whose name matches the subsystem.
+
+**The sharper half.** A pod-grep (`strings /app/agent-chassis | grep -c '<symbol>'`)
+proves the binary **contains** the code. A log line proves it **ran**. These are not
+the same claim, and the handoff that leaned on the pod-grep was making the weaker
+one while believing it had the stronger. Prefer an execution witness wherever the
+code path can be provoked or waited for; fall back to the pod-grep only for code
+that has had no chance to run.
+
+Category tags: `one-image-many-labels`, `grep-the-owner-not-the-name`,
+`contains-is-not-ran`.
+
+### A NULL that is legitimate for one branch is not a gap in the other
+
+Same session. A new column (`awaited_requests.request_payload`) was rolled out with
+a coverage query — "any step with a NULL payload gets no retries and needs wiring".
+It reported 4 `deploy_page` rows as gaps. **None of them were.**
+
+The retry path forks *before* it reads the column: `coordinator.go:2809` sends
+adapter actions (`TargetAgentID == '' && RequestsTopic LIKE 'system.adapter%'`) to
+**step re-execution** and returns; only the other branch decodes a payload. Adapter
+actions re-run the step with full context, so they have no use for a stored copy
+and their NULLs cost nothing.
+
+**The transferable bit.** When you add a column consumed by *one* branch of a fork,
+the natural coverage query (`WHERE col IS NULL`) silently measures **both** branches
+and reports the branch that never reads it as broken. **Write the exclusion into the
+query at the same time you write the fork into the code** — the two are one change,
+and separating them guarantees a false-positive backlog aimed at a non-defect.
+Cheap tell: the "gaps" cluster perfectly on one step name or one topic prefix. A gap
+that is *uniformly* one shape is usually a branch, not a bug — the same shape as
+*"a uniform result across every row is the tell"* in `WRONG_CALLS.md`.
+
+Pair it with the denominator (adapter 4 · replay-path 18 · recorded 18), or an empty
+result cannot be told from no traffic.
+
+Category tags: `null-legitimate-in-one-branch`, `coverage-query-spans-the-fork`,
+`count-the-denominator`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -6778,7 +6835,7 @@ Body:            {"is_retry": true, …},   // the original payload, gone
 
 The receiver loaded state by that id, found the **waiter's** row sitting at
 `AWAITING_RESPONSES`, concluded "already awaiting — nothing to do", logged
-`ProcessMessage completed successfully`, and never replied (`bugs_open/129`).
+`ProcessMessage completed successfully`, and never replied (`bugs_closed/129`).
 Six minutes of silence, then the waiter timed out — the two log lines describe the
 same event from opposite ends.
 
@@ -6843,7 +6900,7 @@ are carrying it.
 thread deliberately did not deploy and recorded "hold pending an owner call" as its
 chosen option. The fleet rolled to v1.0.1194 at 20:48Z for an unrelated change and
 carried it out anyway — commits at 19:57Z and 20:16Z. Confirmed by pod-grep on both
-pods, not inferred (`bugs_open/129`).
+pods, not inferred (`bugs_closed/129`).
 
 **Why nobody is at fault.** The roller cannot see it. Reading every commit since the
 last roll is not something anyone does eight times a day, and the build rule that

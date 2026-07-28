@@ -1,6 +1,88 @@
 # 129 — the spawned child ADOPTS the parent's orchestration row and silently declines the work
 
-> ## UPDATE 2026-07-28 ~22:15 — THE FIX IS **LIVE** on v1.0.1194, carried out by another session's roll. Still OPEN: the REPLAY half is not yet witnessed.
+> ## CLOSED 2026-07-28 22:30 BST — **REPLAY WITNESSED on natural live traffic.** (thread "bugsearch 5")
+>
+> The one thing owed by the block below is discharged. A real 30-minute timeout —
+> not an induced fault — took the replay path and the child completed.
+>
+> **The witness.** `call_scraper`, request `30585e6d-ade5-406b-a90b-b64222de0853`.
+> Original sent 20:55:17Z with `timeout_seconds: 1800`; it expired at 21:25:17Z and
+> the coordinator replayed it one second later:
+>
+> ```
+> coordinator.go:2984  "Replaying original request to target agent requests topic"
+>   request_id             30585e6d-ade5-406b-a90b-b64222de0853
+>   child_orchestration_id ef7e2ddb-d58e-4e5f-a391-421f9fadbc3f   ← NOT the awaiting orch
+>   action                 "process"                              ← NOT "execute"
+>   retry_version          1
+>   pod                    business-intel-765566d57-wxpsr
+> ```
+>
+> | assertion | required | observed |
+> |---|---|---|
+> | child orch id ≠ awaiting orch id | differs | `ef7e2ddb…` vs awaiting `b89b6e5e…` ✅ |
+> | action preserved | original | `process` (old code forced `execute`) ✅ |
+> | body preserved | non-empty | `input_data`/`config` intact, 1,186 B ✅ |
+> | request reaches `processed` | yes | `processed_at 21:27:05.999` ✅ |
+> | child orchestration outcome | advances | `ef7e2ddb` → `complete/COMPLETED` 21:27:06.938 ✅ |
+> | parent orchestration outcome | advances | `b89b6e5e` → `complete/COMPLETED` 21:27:07.104 ✅ |
+>
+> Under the old code this is precisely the request that would have died: the replay
+> carried the **child's** `ef7e2ddb` where the reconstruction would have put the
+> awaiting `b89b6e5e`, which is the swallow this file is named for. Note the stored
+> payload still reads `retry_version: 0` — correct, it is the captured *original*;
+> only the wire copy is bumped to 1, which is the replay contract holding.
+>
+> **Counter-checks, all clean.** `RETRY_SELF_ADDRESSED`, `MISROUTED_REQUEST`,
+> `RETRY_PAYLOAD_UNAVAILABLE`, `RETRY_PAYLOAD_BACKFILL_MISSED` = **0** across
+> agent-chassis, business-intel, core-manager, reasoning-agent and
+> content-creator-agent over 3 hours.
+>
+> ### CORRECTION to §5 of the handoff — "anything but scrape/search is a genuine gap" is WRONG
+>
+> The live NULL-payload census returns `deploy_page` / `unknown` ×4, which that rule
+> calls a genuine gap. **It is not one.** `coordinator.go:2809` branches
+> `TargetAgentID == "" && RequestsTopic LIKE 'system.adapter%'` into step
+> **re-execution** and returns at :2881 — it never reaches `DecodeRetryPayload` at
+> :2947, so an adapter action's payload is never read and its absence costs nothing.
+> All 4 rows match that predicate exactly. The correct discriminator:
+>
+> ```sql
+> SELECT step_name, target_agent_type, count(*) FROM awaited_requests
+> WHERE request_payload IS NULL AND sent_at > '2026-07-28 20:48:11'
+>   AND NOT (target_agent_id = '' AND requests_topic LIKE 'system.adapter%')
+> GROUP BY 1,2;            -- 0 rows
+> ```
+> Split by the path each row would actually take: **adapter re-execution 4 · replay
+> path 18, of which 18 carry a payload.** Zero genuine gaps.
+>
+> ### LANDMINE — the verification command in the block below greps the WRONG POD
+>
+> It says `-l app=agent-chassis`. **The retry runs in whichever service hosts the
+> AWAITING orchestration**, which for this witness was `business-intel`. Grepping
+> agent-chassis returns nothing and reads as "no replay has happened" — a false
+> negative I hit on the first attempt. All services run the *same* image
+> (`agent-chassis:v1.0.1194`), so grep by the orchestration's owner, or all of them:
+> ```bash
+> for l in agent-chassis business-intel core-manager reasoning-agent; do
+>   kubectl logs -n ai-persona-system -l app=$l --tail=-1 --since=3h \
+>     | grep -E 'Replaying original request|RETRY_SELF_ADDRESSED|RETRY_PAYLOAD_UNAVAILABLE'
+> done
+> ```
+> Also: that log line is **stronger evidence than the pod-grep** — a `strings` hit
+> proves the binary contains the code, whereas this proves it *executed*.
+>
+> **Still owed, and NOT a blocker on this bug:** the owner's call on the council's
+> SCOPE veto (`REVIEW_2026-07-28_council_scope_veto.md`) and on whether the
+> platform-seam ruling gains a "commit it dark" clause. Both are about *how* the
+> change shipped, not whether the defect is fixed. `scrape_web`/`web_search` still
+> record no payload by design (§5) and need their own diagnosis.
+>
+> ---
+>
+> ## ~~UPDATE 2026-07-28 ~22:15 — Still OPEN: the REPLAY half is not yet witnessed.~~ SUPERSEDED by the block above, on that one point. Everything else in it stands.
+>
+> ## UPDATE 2026-07-28 ~22:15 — THE FIX IS **LIVE** on v1.0.1194, carried out by another session's roll.
 >
 > I deliberately did not deploy (council veto, below). **It shipped anyway** — the
 > fleet rolled to **v1.0.1194 at 20:48:11Z**, and `make build-<service>` builds from
