@@ -457,6 +457,23 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 		}
 	}
 
+	// 5a. Inject per-page JSON-LD (schema.org). Structured data is how an answer
+	// engine knows what a URL IS rather than guessing from prose, and the estate had
+	// none: measured 2026-07-28, ZERO of 14 live sites emitted any application/ld+json.
+	//
+	// This is the head, deliberately. The obvious alternative — a page SECTION that
+	// emits the script — cannot work: getPageSections drops any section with no
+	// VISIBLE content (sectionHasVisibleContent strips <script> then requires >10
+	// chars), so a metadata-only section renders correctly into page_components and is
+	// silently discarded at assembly. Proven on relojistas, backed out, see
+	// FLEET_GUIDANCE_discoverability.md.
+	//
+	// WebPage only, and nothing richer. We have Name/Title/URL/MetaDesc here and
+	// nothing that tells us a page is an Article, a DefinedTerm or a product — and a
+	// wrong @type is a false claim about the page, which is worse than no claim.
+	// Richer per-type markup needs page_type plumbed through PageInfo first.
+	head = injectPageJSONLD(head, page)
+
 	// 5b. Inject the CSS for this page's components (bugs_open/072). The site
 	// stylesheet is frozen at the last design run, so a component added since
 	// then has markup on the page and no rules anywhere; this puts its CSS on
@@ -696,6 +713,59 @@ func sectionHasVisibleContent(html string) bool {
 	s = reHTMLEntities.ReplaceAllString(s, "")
 	s = reWhitespace.ReplaceAllString(s, "")
 	return len(s) > 10
+}
+
+// injectPageJSONLD adds one schema.org WebPage block to the head, describing the page
+// in terms of what we actually know about it. Idempotent, and a no-op when there is
+// nothing truthful to say.
+//
+// Silent no-ops are deliberate here rather than partial output: a JSON-LD block naming
+// a page with no title, or on a site with no domain, is a machine-readable assertion
+// that is wrong, and wrong structured data is worse than none — search engines act on it.
+func injectPageJSONLD(head string, page *PageInfo) string {
+	if head == "" || page == nil {
+		return head
+	}
+	// Never emit twice: a stored head may already carry one from an earlier render.
+	if strings.Contains(head, "application/ld+json") {
+		return head
+	}
+	if page.Title == "" || page.Domain == "" {
+		return head
+	}
+
+	origin := "https://" + page.Domain
+	pageURL := origin + page.URL
+
+	doc := map[string]interface{}{
+		"@context": "https://schema.org",
+		"@type":    "WebPage",
+		"@id":      pageURL,
+		"url":      pageURL,
+		"name":     page.Title,
+		"isPartOf": map[string]interface{}{
+			"@type": "WebSite",
+			"url":   origin,
+			"name":  page.Domain,
+		},
+	}
+	if page.MetaDesc != "" {
+		doc["description"] = page.MetaDesc
+	}
+
+	// json.Marshal escapes <, > and & to \u003c/\u003e/\u0026 by default, which keeps
+	// the payload safe to embed inside a <script> element — a title containing "</script>"
+	// cannot break out. Do NOT switch to an Encoder with SetEscapeHTML(false).
+	payload, err := json.Marshal(doc)
+	if err != nil {
+		return head
+	}
+
+	block := fmt.Sprintf("\n<script type=\"application/ld+json\">%s</script>\n", payload)
+	if idx := strings.LastIndex(head, "</head>"); idx >= 0 {
+		return head[:idx] + block + head[idx:]
+	}
+	return head + block
 }
 
 // resolveComponent returns area component if exists, otherwise site component
