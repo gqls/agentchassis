@@ -156,11 +156,27 @@ func VerifySiteExperienceAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("verify_site_experience: loading fork: %w", err)
 	}
 
-	// A `proposed` fork has not been bound; running its criteria would assert
-	// against placeholders. Refuse rather than produce a result nobody should
-	// trust.
-	if forkStatus == "proposed" {
-		return nil, fmt.Errorf("verify_site_experience: fork of %q is 'proposed', not bound — its entry is a draft, so there is nothing here it would be honest to verify", patternName)
+	// DRY RUN — evaluate and report, write NOTHING.
+	//
+	// This exists because of a real gap in the lifecycle, not as a convenience.
+	// A fork of a `draft` entry is recorded `proposed`, and a `proposed` fork
+	// cannot be verified, because verifying it would attach a live-sounding
+	// status to a contract nobody has approved. But per-experience approval is
+	// designed and NOT BUILT, so today every entry is draft, every fork is
+	// proposed, and the whole path would be unexercisable — which is how a
+	// mechanism rots before it is ever used.
+	//
+	// A dry run breaks that without faking anything: it runs the real checks
+	// against the real page and returns the real result, while writing no status
+	// and no timestamp. It is the difference between "we cannot check this yet"
+	// and "we have never once run it".
+	dryRun := datahelpers.GetBoolField(config, "dry_run", false)
+
+	// A `proposed` fork has not been bound against an approved entry; recording
+	// a verdict on it would attach a live-sounding status to a contract nobody
+	// approved. Reporting on it is fine — claiming is not.
+	if forkStatus == "proposed" && !dryRun {
+		return nil, fmt.Errorf("verify_site_experience: fork of %q is 'proposed', not bound — its entry is a draft, so there is nothing here it would be honest to verify. Re-run with dry_run to see what the checks WOULD say", patternName)
 	}
 
 	bindings := map[string]interface{}{}
@@ -194,9 +210,27 @@ func VerifySiteExperienceAction(ctx context.Context, params ActionParams) (inter
 			fmt.Sprintf("could not fetch %s: %v", pageURL, fetchErr))
 	}
 
-	ev, err := discovery_checks.EvaluateStaticCriteriaJSON([]byte(resolved), status, html)
+	// Only Tier-2-executable checks may be judged by the Tier 2 evaluator.
+	//
+	// CORRECTED 2026-07-28, from the first live run. This used to hand the whole
+	// document to the static evaluator, which is wrong in the dangerous
+	// direction: a check declaring `tier: 4` — or one whose TYPE only exists in
+	// the browser runner — would be evaluated statically anyway, and for
+	// `selector_count` a static evaluation is *vacuously green* (it confirms the
+	// container's anchor and never counts anything). A verification resting on
+	// that is the vacuous pass wearing a different hat.
+	staticDoc, tier4 := splitExperienceChecksByTier([]byte(resolved))
+
+	ev, err := discovery_checks.EvaluateStaticCriteriaJSON(staticDoc, status, html)
 	if err != nil {
 		return nil, fmt.Errorf("verify_site_experience: criteria did not parse after substitution: %w", err)
+	}
+	// Reported, never counted: a check awaiting a browser is not a pass and not
+	// a failure, and the whole discipline here is that those stay visible.
+	for _, id := range tier4 {
+		ev.Skipped = append(ev.Skipped, discovery_checks.StaticCheckOutcome{
+			ID: id, Detail: "requires Tier 4 (a real browser); not judged by the static evaluator",
+		})
 	}
 
 	result := map[string]interface{}{
@@ -219,7 +253,32 @@ func VerifySiteExperienceAction(ctx context.Context, params ActionParams) (inter
 	// checks were all skipped or all deferred also has no failures, and calling
 	// that verified would be the register committing the defect it exists to
 	// find.
-	switch experienceVerdict(ev) {
+	verdict := experienceVerdict(ev)
+
+	if dryRun {
+		// Side-effect-free ON PURPOSE: not even last_check_result. A dry run
+		// that leaves a trace is one somebody later reads as a real result.
+		logger.Info("verify_site_experience: DRY RUN (nothing written)",
+			zap.String("pattern", patternName),
+			zap.String("would_be", verdict),
+			zap.Int("passed", len(ev.Passed)),
+			zap.Int("failed", len(ev.Failed)),
+			zap.Int("skipped", len(ev.Skipped)))
+		return map[string]interface{}{
+			"dry_run":       true,
+			"pattern_name":  patternName,
+			"would_be":      verdict,
+			"fork_status":   forkStatus + " (unchanged)",
+			"passed":        len(ev.Passed),
+			"failed":        len(ev.Failed),
+			"skipped":       len(ev.Skipped),
+			"failed_checks": ev.Failed,
+			"summary": fmt.Sprintf("DRY RUN: would be %s — %d passed, %d failed, %d skipped",
+				verdict, len(ev.Passed), len(ev.Failed), len(ev.Skipped)),
+		}, nil
+	}
+
+	switch verdict {
 	case "broken":
 		return experienceRecord(ctx, params, logger, forkID, patternName, "broken", resultJSON,
 			fmt.Sprintf("%d check(s) failed", len(ev.Failed)), ev, false)
@@ -237,6 +296,82 @@ func VerifySiteExperienceAction(ctx context.Context, params ActionParams) (inter
 			fmt.Sprintf("%d passed, 0 failed, %d skipped", len(ev.Passed), len(ev.Skipped)),
 			ev, promote)
 	}
+}
+
+// splitExperienceChecksByTier returns the criteria document containing only the
+// checks a Tier 2 static evaluation may legitimately judge, plus the ids of
+// those it may not.
+//
+// A check is held back when it is marked DEFERRED, when it declares `tier: 4`,
+// or when its type is one only the browser runner implements. Three different
+// voices saying the same thing: the register (we already know this cannot run),
+// the author (this needs a browser), and the platform (this type only exists at
+// Tier 4). Any one of them is sufficient.
+//
+// A malformed document is returned unchanged — parsing is the evaluator's job
+// to complain about, and swallowing the error here would hide it.
+func splitExperienceChecksByTier(doc []byte) ([]byte, []string) {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(doc, &parsed); err != nil {
+		return doc, nil
+	}
+	checks, ok := parsed["checks"].([]interface{})
+	if !ok {
+		return doc, nil
+	}
+
+	kept := make([]interface{}, 0, len(checks))
+	var held []string
+	for _, c := range checks {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			kept = append(kept, c)
+			continue
+		}
+		id := experienceString(cm["id"])
+
+		// A check the REGISTER ITSELF recorded as deferred must not be executed.
+		//
+		// Found on the first live run, and it is the sharpest instance of "fix
+		// the harness, never the page" in this whole workstream: CC-001's
+		// `feed_loads` is marked unexecutable — `asset_loads` only matches the
+		// path as text in the page HTML, and that component's loader is an
+		// external bundle — yet the consumer ran it anyway and reported a
+		// FAILURE. A correct page was called broken by a check we had already
+		// written down as impossible. Deferral has to bind the consumer too, or
+		// it is only a comment.
+		if reason, deferred := experienceDeferralReason(cm); deferred {
+			held = append(held, id+" (deferred: "+reason+")")
+			continue
+		}
+
+		needsBrowser := false
+
+		// The author said so.
+		switch t := cm[experienceTierKey].(type) {
+		case float64:
+			needsBrowser = t > 2
+		case string:
+			needsBrowser = t == "4"
+		}
+		// Or the platform says so: the type exists only at Tier 4.
+		if tier, known := experienceCheckTiers[experienceString(cm["type"])]; known && tier > 2 {
+			needsBrowser = true
+		}
+
+		if needsBrowser {
+			held = append(held, id)
+			continue
+		}
+		kept = append(kept, c)
+	}
+
+	parsed["checks"] = kept
+	out, err := json.Marshal(parsed)
+	if err != nil {
+		return doc, nil
+	}
+	return out, held
 }
 
 // experienceVerdict is the whole decision, in one place so it can be tested

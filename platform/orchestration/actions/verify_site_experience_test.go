@@ -121,3 +121,85 @@ func TestVerifyDecision_ProvenNeedsAPassNotJustAnApprovedEntry(t *testing.T) {
 		}
 	}
 }
+
+// TestSplitExperienceChecksByTier holds back checks a static evaluation must not
+// judge. Found by the first live run: a `selector_count` evaluated statically is
+// VACUOUSLY green — it confirms the container's anchor and never counts
+// anything — so letting a tier-4 check through would rest a verification on an
+// assertion that cannot fail.
+func TestSplitExperienceChecksByTier(t *testing.T) {
+	doc := []byte(`{"checks":[
+	  {"id":"static_ok","type":"selector_exists","selector":".a"},
+	  {"id":"author_says_browser","type":"selector_count","selector":".b","tier":4},
+	  {"id":"type_is_tier4","type":"no_console_errors"},
+	  {"id":"also_static","type":"page_status_ok"}]}`)
+
+	kept, held := splitExperienceChecksByTier(doc)
+
+	heldSet := map[string]bool{}
+	for _, id := range held {
+		heldSet[id] = true
+	}
+	if !heldSet["author_says_browser"] {
+		t.Error("a check declaring tier:4 was handed to the static evaluator")
+	}
+	if !heldSet["type_is_tier4"] {
+		t.Error("a check whose TYPE only exists at Tier 4 was handed to the static evaluator")
+	}
+	if len(held) != 2 {
+		t.Errorf("held back %d checks, want 2: %v", len(held), held)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(kept, &parsed); err != nil {
+		t.Fatalf("the kept document is not valid JSON: %v", err)
+	}
+	remaining := parsed["checks"].([]interface{})
+	if len(remaining) != 2 {
+		t.Fatalf("kept %d checks, want 2 (static_ok, also_static)", len(remaining))
+	}
+
+	// A malformed document must pass through untouched — parsing is the
+	// evaluator's job to complain about, and swallowing it here would hide it.
+	bad := []byte(`{not json`)
+	if out, held := splitExperienceChecksByTier(bad); string(out) != string(bad) || held != nil {
+		t.Error("a malformed document was altered instead of passed through")
+	}
+}
+
+// TestSplitExperienceChecksByTier_HoldsBackDeferredChecks is the regression for
+// the sharpest defect the first live run exposed.
+//
+// CC-001's `feed_loads` is recorded DEFERRED — asset_loads matches the path only
+// as text in the page HTML, and that component's loader is an external bundle,
+// so it can never match. The consumer ran it anyway and reported a FAILURE:
+// a correct page called broken by a check we had already written down as
+// impossible. Deferral must bind the consumer, or it is only a comment.
+func TestSplitExperienceChecksByTier_HoldsBackDeferredChecks(t *testing.T) {
+	doc := []byte(`{"checks":[
+	  {"id":"real","type":"selector_exists","selector":".a"},
+	  {"id":"marked_unsupported","type":"asset_loads","path":"/x.json",
+	   "_unsupported":"the loader is an external bundle so the path is never in the page"},
+	  {"id":"marked_deferred","type":"selector_exists","selector":".b",
+	   "deferred":true,"note":"waiting on a capability"}]}`)
+
+	kept, held := splitExperienceChecksByTier(doc)
+
+	joined := strings.Join(held, " | ")
+	for _, want := range []string{"marked_unsupported", "marked_deferred"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("deferred check %q was handed to the evaluator and could be reported as a FAILURE: %s", want, joined)
+		}
+	}
+	if !strings.Contains(joined, "external bundle") {
+		t.Error("the deferral REASON was dropped — a held-back check with no reason is indistinguishable from one nobody wrote")
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(kept, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(parsed["checks"].([]interface{})); n != 1 {
+		t.Fatalf("kept %d checks, want only the executable one", n)
+	}
+}

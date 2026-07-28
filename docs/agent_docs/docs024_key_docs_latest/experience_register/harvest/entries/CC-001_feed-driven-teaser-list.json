@@ -131,13 +131,15 @@
       {
         "id": "feed_loads",
         "type": "asset_loads",
-        "path": "{{binding.feed_path}}"
+        "path": "{{binding.feed_path}}",
+        "_unsupported": "asset_loads exists only at Tier 2 and matches the path as text in the page HTML; this component's loader is an external bundle (/assets/js/snippets.js), so the feed reference is never in the page and the check can only fail a CORRECT page. Verified live 2026-07-28: /data/provocations.json serves 200 while the page references no json at all. Needs a checker that follows the bundle, or a Tier 4 network-request assertion, neither of which exists."
       },
       {
         "id": "rows_rendered",
         "type": "selector_count",
         "selector": "{{binding.list_container}} > *",
-        "note": "asserts existence; selector_count is existence-only at both tiers, and min=1 added nothing"
+        "note": "REQUIRES TIER 4. The rows are cloned client-side, so the served HTML carries only the template. At Tier 2 selector_count collapses to the container's anchor — exactly what list_exists already asserts — so this would pass while saying nothing about rows. Only a browser sees the cloned rows.",
+        "tier": 4
       },
       {
         "id": "no_dead_row_hrefs",
