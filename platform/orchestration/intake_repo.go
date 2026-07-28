@@ -86,14 +86,24 @@ func (r *IntakeRepository) InsertIntakeEvent(ctx context.Context, ev *IntakeEven
 	return rows > 0, nil
 }
 
-// CandidateKeys returns up to limit serialisation keys that have pending work
-// and no live claim, oldest first. Read-only and deliberately approximate —
-// two workers may see the same key; ClaimSerialisationKey decides the winner.
+// CandidateKeys returns up to limit serialisation keys that have claimable
+// work and no live claim, oldest first. Read-only and deliberately
+// approximate — two workers may see the same key; ClaimSerialisationKey
+// decides the winner.
+//
+// 'running' events count as claimable work (CS-2d, found live 2026-07-28): a
+// running event under an EXPIRED claim belongs to a dead holder, and if the
+// key has no pending siblings a pending-only scan never surfaces it — the
+// takeover reset that would recover it only runs on a claim, so the event is
+// orphaned forever (two real dispatches sat that way for 90 minutes). A
+// running event under a LIVE claim never reaches a worker: the NOT EXISTS
+// excludes its key, and the lease heartbeat keeps that true while the holder
+// works.
 func (r *IntakeRepository) CandidateKeys(ctx context.Context, limit int) ([]string, error) {
 	query := `
 		SELECT e.serialisation_key
 		FROM chassis_intake_events e
-		WHERE e.status = 'pending'
+		WHERE e.status IN ('pending','running')
 		  AND NOT EXISTS (
 		        SELECT 1 FROM chassis_orchestration_claims c
 		        WHERE c.serialisation_key = e.serialisation_key

@@ -52,3 +52,15 @@ func TestCandidateScanSkipsLiveClaims(t *testing.T) {
 		t.Fatalf("CandidateKeys lost its live-claim filter — workers would converge on busy keys. SQL:\n%s", sql)
 	}
 }
+
+// A key whose only events are 'running' under an expired claim must still be
+// scannable, or the takeover reset can never reach it and the events are
+// orphaned forever — two real dispatches were lost this way on 2026-07-28
+// (CS-2d). The live-claim NOT EXISTS above is what keeps genuinely-running
+// work excluded, so both predicates are load-bearing together.
+func TestCandidateScanRecoversOrphanedRunningEvents(t *testing.T) {
+	sql := intakeSQLOf(t, "func (r *IntakeRepository) CandidateKeys")
+	if !strings.Contains(sql, "status in ('pending','running')") {
+		t.Fatalf("CandidateKeys no longer scans running events — orphaned events under expired claims become unrecoverable. SQL:\n%s", sql)
+	}
+}
