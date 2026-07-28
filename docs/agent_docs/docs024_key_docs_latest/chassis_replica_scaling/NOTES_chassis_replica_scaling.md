@@ -241,3 +241,36 @@ out; trust the artefact, not the status — not checked, test site). The wedged
 row 6c4a0bdf sits in `EXECUTING_STEP` indefinitely; left in place deliberately
 as a live specimen for the watchdog work (dispatch_queue_serialisation), noted
 here so nobody diagnoses it as fresh.
+
+---
+
+## 2026-07-28 midday — CS-1/CS-2 built+submitted; the roll landmine fired on our own council; pre-enablement audit discharged
+
+**Build state.** CS-1 (staleness guard) committed `afbd005f9`; CS-2 (intake +
+pool, dark) committed `28b1a0305` with migration 249 applied+recorded; CS-2b
+(`924df47d0`) makes the chassis DB pool cap env-configurable — found in the
+audit below: `SetMaxOpenConns(4)` equals the default worker count before the
+consume loops, heartbeats, response path and retry driver are counted, so
+enablement must set `CHASSIS_DB_MAX_OPEN_CONNS` (≥12 suggested) alongside the
+flag; every other agent keeps 4.
+
+**The "a roll costs an in-flight council" landmine fired on CS-1's own
+review run** — second specimen after 096's f849afaf. The run was consumed at
+09:54:32Z, the roll (v1.0.1182, another thread's) landed at 09:55:02Z, and the
+row froze at `review_editquality` / `EXECUTING_STEP`, `updated_at` 09:54:33,
+parked for good. The council LANE is fine (CS-2's run, submitted post-roll,
+progressed normally). Resubmitted under the same trail
+(`RESUBMIT_CORR=a45f59af…`, new run `12a378af…`), queued behind CS-2's run.
+Verdicts pending for both: CS-1 corr `a45f59af…`, CS-2 corr `9f0499b9…`.
+
+**Pre-enablement mutable-state audit: DISCHARGED.** `platform/orchestration`
+(root) + `platform/agentbase` package-level vars, every one read-only after
+init: three error sentinels (coordinator.go:48), one compiled regexp
+(loop_error_handler.go:26), one read-only map (agent_error_log.go:125, only
+read at :132), one read-only slice (agent.go requiredIncomingHeaders, only
+ranged), one uuid namespace (intake.go, new, never written). Combined with the
+029 lane's earlier pass over `platform/orchestration/actions` (318
+declarations, one benign startup-only write, setter has no callers), the
+worker pool introduces no package-level shared-state hazard. Remaining
+cross-worker safety = the DB claims (ClaimAwaitedRequest, the intake CAS),
+`UpdateStateWithVersion`, component locks, and CS-1's guard.
