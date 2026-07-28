@@ -1659,11 +1659,19 @@ func RenderFallbackFooter(ctx *RenderContext) string {
 		year = fmt.Sprintf("%d", time.Now().Year())
 	}
 
+	// The container is gated on its contents, matching the DB footer
+	// components' {{if}} gates (bugs_open/111): a site with no contact route
+	// must not render a bare "Contact" heading over empty space.
+	contactHTML := ""
+	if ctx.Email != "" {
+		contactHTML = fmt.Sprintf(`<div class="footer-contact"><h4>Contact</h4><p>%s</p></div>`, ctx.Email)
+	}
+
 	return fmt.Sprintf(`<footer class="site-footer">
     <div class="footer-container">
         <div class="footer-brand"><h3>%s</h3><p>%s</p></div>
         <div class="footer-links"><h4>Links</h4><ul>%s</ul></div>
-        <div class="footer-contact"><h4>Contact</h4><p>%s</p></div>
+        %s
     </div>
     <div class="footer-bottom"><p>&copy; %s %s. All rights reserved.</p></div>
 </footer>
@@ -1678,7 +1686,7 @@ func RenderFallbackFooter(ctx *RenderContext) string {
 .footer-bottom{margin-top:2rem;padding:1.5rem 0;border-top:1px solid color-mix(in srgb, var(--color-footer-text, var(--color-text)) 10%%, transparent);text-align:center}
 .footer-bottom p{margin:0;color:color-mix(in srgb, var(--color-footer-text, var(--color-text)) 60%%, transparent);font-size:.9rem}
 @media(max-width:768px){.footer-container{grid-template-columns:1fr}}
-</style>`, ctx.LogoText, ctx.Tagline, navHTML, ctx.Email, year, ctx.CompanyName)
+</style>`, ctx.LogoText, ctx.Tagline, navHTML, contactHTML, year, ctx.CompanyName)
 }
 
 // ===========================================================================
