@@ -256,7 +256,23 @@ bcc396b6b  bug(131 B): tag moved to v1.0.1192 and the fix survived — re-greppe
    through it. The watch query is in `bugs_closed/086…md`.
 2. **Watch for the first `no_horizontal_overflow` firing** (§3 query). One run closes the
    check-side of 131 B or reopens it with real evidence.
-3. **Register `make deploy-<service>`** in the concept register (§4).
-4. If picking up something new instead, the fleet cold-start list is
+   **Still 0 runs as of 19:2xZ** — 14 in the week before the roll, last at `15:17:51Z`,
+   none since. Nothing is wrong; the path is acceptance-run-driven and no acceptance run
+   has happened. Same for seed 259's failure lane: 0 `image-build-handler` runs since
+   `18:50Z`. **Neither is going to fire on its own tonight** — the 10 `needs_imagery`
+   items are sitting in `detected`, and the claim query takes only `triaged`/`approved`
+   (`claim_work_item_action.go:102`), so nothing will pick them up until triage promotes
+   them. If you want either witnessed sooner you have to move the item, and for the
+   131 B side that means dispatching at the gauntlet workstream's `tools-api` — check
+   with them first.
+3. ~~**Register `make deploy-<service>`**~~ **DONE** — concept register `DMR-002`
+   (`deploy-mechanics-reference.md`), index count 1,640 → 1,641, commit `8939c5eb2`.
+4. **The 086 handler-drift question is closed** (commit `50918554d`): the audit's
+   arithmetic was wrong twice, the residual is one handler rather than two and is
+   *unresolvable* rather than unexplained, and seed `260` baselines all sixteen handler
+   owners so the next occurrence is a two-table diff. Read it before re-deriving any
+   handler count — the census measures step-level *only*, so it falls when the
+   recommended `config`-twin fix is applied.
+5. If picking up something new instead, the fleet cold-start list is
    `OPEN_THREADS_RESTART_LIST.md` — but treat its figures as stale and re-ground them;
    it was last refreshed 2026-07-27 22:00Z and this tree has moved a long way since.
