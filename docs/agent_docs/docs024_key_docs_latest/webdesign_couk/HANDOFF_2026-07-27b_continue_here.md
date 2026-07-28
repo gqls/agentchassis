@@ -277,10 +277,33 @@ doesn't**, and to explore competing against AI copy that is *"looking less and l
 like slop"*, being a destination in the noise, and **owning the customer** because
 *"relationships are and will always remain human to human"*.
 
-> ⚠️ **DECISION STILL OPEN — do not write at this level until it is made.**
-> How exposing: (a) generic failure classes, (b) anonymised cases, (c) **our own
-> named failures with evidence**. (c) is most credible and most exposing. Nothing
-> has been written at (c).
+> ✅ **DECIDED 2026-07-28 — (c), our own NAMED failures and fixes, at an
+> ASYMMETRIC RATIO. Full ruling and its consequences = `PLAN_2026-07-25` §D13.**
+> Owner: *"only claim our fixes once or twice but list the errors truthfully as
+> many times as we like"* — and the entitled claim is that we have *"directly
+> challenged these facts and gone some way towards fixing them — a long way —
+> almost comparable to a human and sometimes more"*, naming the council gate, the
+> diagnosis loop and the claims checker. **Condition: "we'll need to provide
+> proof."**
+>
+> **The ratio is the answer to the humblebrag objection below** — rationing the
+> CLAIMS rather than the failures means there is no pattern to detect, because
+> most failures are simply told and left. So: two separate budgets, failures
+> unlimited, fixes one or two in the whole section, and **never paired in the
+> same breath** — a failure arriving with its fix attached is the shape we are
+> avoiding.
+>
+> Two things D13 adds that are not in the paragraph below:
+> **(1)** a claimed fix needs evidence it *worked*, not that it exists — "we built
+> a council" is a capability, not a result; and *"almost comparable to a human and
+> sometimes more"* has **no measurement behind it today**, so either find one or
+> soften it, but do not ship it on confidence.
+> **(2) RAIL: publish CLOSED failures, or ones with no exploitation value.**
+> D13 authorises naming our defects, not publishing live attack surface —
+> `bugs_open/132` is an open information disclosure, and the fleet has had
+> forged-XFF hardening in flight. An open exploitable bug waits; the closed set is
+> already larger and more honest, because it comes with the fix and the
+> verification attached.
 >
 > **My unraised caution, worth putting to him:** if every published failure is
 > followed by a redemption, readers detect the pattern within three examples and it
