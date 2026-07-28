@@ -104,3 +104,68 @@ none of them need the council, a new cluster, or a decision you'd be stuck with.
 
 The full plan, with the phases and the seven open questions, is in
 `PLAN_2026-07-28_webdesign_uk_build_service.md`.
+
+---
+
+## 2026-07-28 — your three rulings, and what they change
+
+You ruled on all three the same evening. Recording what each one moves, because
+two of them went against what I'd recommended and that has consequences worth
+seeing rather than discovering later.
+
+**The trust boundary: yes, ship it now, decide isolation at P3.** That's now a
+constraint rather than a preference, and the thing to protect is the direction of
+travel — the box never dials into the cluster and never holds a credential to it.
+Any later shortcut that reverses that gives back the entire security argument for
+free, so it's worth being unfashionably strict about. The one thing I've written
+down so it doesn't get skipped: the isolation decision has a specific trigger —
+the first paid build that scrapes a domain we don't own — and whoever runs that
+build owes the decision. It would be very easy, with money coming in by then, for
+that moment to pass unnoticed.
+
+**The questionnaire stays optional.** Fine, and I've kept my argument in the plan
+rather than deleting it, because the risk it describes doesn't disappear with the
+gate — it just has to live somewhere else. The good news is that "somewhere else"
+is stronger than the gate was. A gate is a rule someone can be talked out of; what
+I've put in its place is structural. We simply don't generate a contact block at
+all unless you gave us the details — not a placeholder that might slip through,
+absent. The bug that let a fabricated address reach production was a *check*
+failing open, and a field that is never written can't fail open. Alongside that,
+the platform already has the right mechanism: seed the site's evidence base before
+the first page is written, built from the two things we genuinely have — what the
+customer told the chat, and what we read on their existing site, each attributed.
+
+There is one condition attached, and I'd rather flag it now than have it arrive as
+a surprise. The optional questionnaire is safe *while a human looks at every site
+before it goes out*. P5 is the phase that automates release. When release stops
+passing a human, this decision needs re-opening — either the gate comes back, or
+those two controls have to be shown to be doing the work by themselves. I've
+written that into the phase itself so the step that removes the safety net is the
+step that notices.
+
+**A real chat, then.** You were right that it buys something my version didn't,
+and I'd missed it: a real conversation can *do* the briefing. It can ask for the
+phone number and the services naturally, while someone is engaged, which is a far
+better collection mechanism than an optional form afterwards. So your two rulings
+work together better than either does alone — the chat is much less likely to
+leave us with an empty brief than a stepped form plus an optional questionnaire
+would have been.
+
+The cost of it is that it moves work earlier. A fake door with a form costs
+nothing to run and could go up bare. A fake door with a real chat spends money on
+every visitor, including hostile ones, so the limits — per-visitor rate, a cap on
+how long one conversation can run, and above all a per-day ceiling on total spend
+— have to ship *with* it rather than after. The first phase is therefore a bigger
+piece of work than it looked this afternoon, and it's the one not to rush.
+
+The one part I'd think about hardest is not a setting. What someone types into
+that chat ends up in the brief, and the brief is read by the agents that build the
+site. Someone typing "ignore your instructions and…" is writing into a document
+our own system will later read. The answer is that the transcript enters the build
+as quoted customer statements in a named field, never as loose prose pasted into a
+prompt — which is the same discipline as the evidence base, arrived at from a
+different direction.
+
+**Still needing you:** the price (unblocked as soon as I measure what a build
+actually costs), whether the preview sites sit on `*.preview.webdesign.uk` or a
+subdomain of another of your domains, and the thousand-sites figure.

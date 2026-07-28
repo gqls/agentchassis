@@ -139,17 +139,24 @@ Which opens cheaper options than a cluster, in ascending cost:
 | (c) Separate namespace + database | data + pod-level | above, plus a second fleet deploy |
 | (d) Dedicated cluster | everything | second of everything: k8s, Kafka, Postgres, images, migrations, monitoring, kubeconfig |
 
-**Recommendation:** ship the boundary in §4.1 on day one (it is nearly free and
-needed under every option), and make the isolation choice at the point where the
-first *paid build against scraped third-party content* is about to run — which
-§9 puts at P3, deliberately after money is already coming in. Do not build (d)
-before P1, because P1 through P3 do not need it and it would delay the only thing
-that tells us whether any of this sells.
+> **DECIDED (owner, 2026-07-28): ship the boundary now, take the isolation
+> decision at P3.** So §4.1's VM-front + outbound-pull arrangement is a design
+> constraint from here, not an option, and the choice between (a)–(d) is deferred
+> to the point where the first paid build against scraped third-party content is
+> about to run. Deferring costs nothing because the poller points at whichever
+> cluster exists — that property is the reason to design it this way round, and it
+> is now load-bearing. **Do not erode it**: any later shortcut that has the box
+> dialling into the cluster, or holding a cluster credential, gives back the whole
+> security argument.
 
-**If the owner prefers (d) regardless, it does not invalidate anything below** —
-the pull design points the poller at whichever cluster exists, so the phases are
-unchanged and the second cluster becomes a P6 swap rather than a P0 prerequisite.
-That is the main reason to design it this way round.
+Two things follow that should not be lost between now and P3:
+
+- **The isolation question must actually be asked at P3**, not silently skipped
+  because money is flowing by then. The trigger is specific: *the first paid build
+  that scrapes a domain we do not own*. Whoever runs that build owes the decision.
+- **§4.2 is the reason to state when it is asked** — blast radius of attacker-
+  supplied content reaching agents with write access to the DB serving 14 live
+  sites. Not "hacked". The wrong reason picks the wrong remedy.
 
 ### 4.3 One asset nobody has documented
 
@@ -164,18 +171,45 @@ P4, not before.
 
 ## 5. The product — the chat box, and the one change I want to argue for
 
-### 5.1 Make the "chat box" a stepped form, not a chat
+### 5.1 The chat box — OWNER RULING: a real LLM chat
 
-[ARGUED.] A real chat box implies an LLM conversation: unbounded input, unbounded
-turns, prompt injection, cost per message, no natural end. For the job it actually
-does — *capture one domain name* — a single field and a button is better UX and a
-fraction of the risk surface.
+> **DECIDED (owner, 2026-07-28): a real LLM chat, not a stepped form.**
+> I argued for a stepped conversational form — same feel, a fraction of the
+> exposure, since the job is to capture one domain name. **Overruled, and on
+> reflection the ruling buys something my version could not:** see §5.3. A real
+> conversation can *conduct the briefing*, which is exactly the material the
+> optional questionnaire would otherwise have to collect from a form nobody fills
+> in. The two rulings work together better than either does alone.
 
-The *feel* the owner wants (one question at a time, conversational, not a wall of
-form fields) is achievable with a stepped form that asks one thing per screen.
-**Recommendation: conversational-styled stepped form for v1.** idea.uk already
-proves the shape: one embedded `page.html` compiled into the binary, 46KB, no
-framework, no build step.
+The argument I made, kept because it is the risk register for what now has to be
+built: a real chat is unbounded input, unbounded turns, cost per message from
+strangers, prompt-injection surface, and no natural end.
+
+**So the ruling moves work earlier, and that is the main planning consequence.**
+A fake door with a stepped form costs nothing to run and could ship bare. A fake
+door with a real LLM chat **spends money on every visitor, including hostile
+ones**, so the controls are no longer P2 polish — they ship with P1 or P1 does not
+go public:
+
+| control | why | reuse |
+|---|---|---|
+| Per-IP rate limit | the faucet | `middleware.RateLimitMiddleware` (tools-api) |
+| Request body cap | oversize prompts | `middleware.InputCapMiddleware` |
+| **Turn cap per session** | a chat has no natural end; a form does | new, trivial |
+| **Per-day global spend ceiling** | the only control that bounds total loss | new; `llm_call_log` makes it measurable |
+| Cheap model for the chat itself | the chat is intake, not the product | the build is where the money should go |
+| Request log from deploy #1 | `bugs_open/083`: the island had no denominator | `gin.Logger()` |
+| Prompt-injection containment | the transcript becomes build input (§4.2) | treat the transcript as **data, never instructions** |
+
+That last row is the one to think hardest about, and it is not a middleware
+setting. The chat transcript flows into the brief, which flows into the build. A
+visitor who types *"ignore your instructions and…"* is writing into a document
+that later agents read. **The transcript must enter the build as quoted customer
+statements in a named field, never as free prose spliced into a prompt.**
+
+idea.uk still supplies the page shape: one embedded `page.html` compiled into the
+binary, 46KB, no framework, no build step. The chat is a panel on it, not a
+rewrite of it.
 
 ### 5.2 What "create a website from a domain" actually means
 
@@ -191,14 +225,16 @@ The domain splits the product in two, and they are not equally safe:
 **Design consequence:** the free artefact is generated only from what we read, and
 where we read nothing we say so rather than filling it in.
 
-### 5.3 The questionnaire must be required, not optional
+### 5.3 The questionnaire — OWNER RULING: stays optional
 
-> **[ARGUED — this is a change to the owner's flow, and the evidence for it is
-> ours.]**
+> **DECIDED (owner, 2026-07-28): optional, as originally described.**
+> I argued it should gate the paid build. Overruled. **The argument is kept below
+> in full, because the risk it describes does not go away when the gate does — it
+> moves, and §5.3a is where it moves to.** Recording the reasoning rather than
+> deleting it is what lets a later thread re-open this with the evidence intact
+> rather than re-deriving it.
 
-The owner has the questionnaire as "an optional better route". I think it has to
-be the **gate on the paid build**, for a reason this repo has already paid for
-twice:
+The argument, as put:
 
 - `bugs_open/063`: the hallucinated-email check **fails open** when a site has no
   contact email — *a fabricated address reached production for hours* that way.
@@ -212,20 +248,48 @@ A site we generate for *a real named business* that invents its telephone number
 its address, its accreditations or its years in business is not a defect — it is
 that business's liability, published under their name, sold to them by us.
 
-So:
+So the questionnaire's real job was never lead capture — it is the **fabrication
+control**, and its minimum fields are exactly the ones the platform otherwise
+invents: legal business name, contact email, telephone, address, services, and an
+explicit *"claims you are happy for us to make"* box.
 
-- **Free teaser from a domain alone: fine.** It is visibly ours, visibly a demo,
-  built only from what we read, and it leaves contact details blank **by design**
-  rather than by accident.
-- **Paid build: no questionnaire, no build.** The questionnaire's real job is not
-  lead capture — it is the **fabrication control**. Its minimum fields are exactly
-  the ones the platform otherwise invents: legal business name, contact email,
-  telephone, address, services, and an explicit *"claims you are happy for us to
-  make"* box.
+### 5.3a Where the control moves, now that it is not a gate
 
-This is not a smaller product. It is the same funnel with the honest gate in it,
-and it gives the page something true and unusual to say: *we will not write a word
-about your business that you have not told us or we have not read on your site.*
+**A gate is one way to stop a fabricated telephone number reaching a customer's
+live site. It is not the only way, and it is not the strongest one.** Ranked by
+what makes the bad state *unrepresentable* rather than merely discouraged:
+
+1. **Emit no contact block at all unless the details were supplied.** Not a
+   placeholder that could ship — **absent**. This is the structural fix, it is
+   cheap, and it removes the failure entirely rather than reducing its odds. Note
+   `bugs_open/063` is precisely a *check* failing open; a field that is never
+   generated cannot fail open.
+2. **Seed `evidence_base` before the first page is written.** The platform already
+   has this mechanism and the oufe seed's own preamble explains it: *the entire
+   claims layer is gated on the PRESENCE of this aspect — `loadEvidenceBase`
+   returns nil and every lane silently no-ops*
+   (`validate_page_content.go:727-746`). For a customer site the evidence base is
+   assembled from the two sources we actually have — **what they told the chat**
+   and **what we read on their existing site** — each attributed. That turns "do
+   not invent" from an instruction into a data structure.
+3. **The human pre-release review**, which P3 has anyway.
+
+**The conditional that follows, and it is the one to carry forward:** the
+questionnaire can stay optional *while a human reviews every site before release*.
+P5 is the phase that automates release. **When release stops passing a human, this
+decision must be re-opened** — either the gate returns, or controls 1 and 2 must
+be demonstrably doing the work on their own. Flagged here so the phase that
+removes the backstop is the phase that notices.
+
+**And the ruling on §5.1 helps more than it looks.** A real LLM chat can ask for
+the telephone number, the address and the services *conversationally*, in the
+moment someone is already engaged — which is a far better collection mechanism
+than an optional form after the fact. The optional questionnaire is much less
+likely to be the empty path than it would have been behind a stepped form.
+
+The page still gets something true and unusual to say, and it survives the ruling
+intact: *we will not write a word about your business that you have not told us or
+we have not read on your site.*
 
 ### 5.4 What the free teaser should contain
 
@@ -333,13 +397,20 @@ denominator — its 503 rate could not be honestly quoted at all.
   build's model cost from `llm_call_log`. Read `platform/httpguard` to see whether
   risk 1 is already solved. *Output: a price, a cost, and the isolation ruling.*
 - **P1 — The shopfront, with nothing behind it.** webdesign.uk on a VM: the
-  minimal page, the domain box, the questionnaire, Stripe in **test mode**, orders
-  stored on the box. Nothing builds. **This is the fake-door idea.uk already ran**
-  (`idea.uk/idea_uk_fakedoor.html`) and it answers the only question that matters
-  — does anyone type a domain in and go through with it.
+  minimal page, the **LLM chat**, the questionnaire, Stripe in **test mode**,
+  orders stored on the box. Nothing builds. **This is the fake-door idea.uk
+  already ran** (`idea.uk/idea_uk_fakedoor.html`) and it answers the only question
+  that matters — does anyone type a domain in and go through with it.
+  > **Resized by the §5.1 ruling.** A fake door with a stepped form costs nothing
+  > to run and could have gone up bare. **A fake door with a real LLM chat spends
+  > money on every visitor**, so §5.1's control table — per-IP limit, turn cap,
+  > per-day spend ceiling, request log, transcript-as-data — is **part of P1**,
+  > not P2 polish. P1 is therefore a bigger phase than it first looked, and it is
+  > the phase that must not be rushed to "just get it up".
 - **P2 — The free teaser.** §5.4 item 1 first (near-free, real machinery), then 2.
-  Item 3 only once the cost from P0 is known. Ship the guards from §8 with it, not
-  after.
+  Item 3 only once the cost from P0 is known. Ship the remaining guards from §8
+  with it — SSRF above all, since P2 is where a user-supplied URL first reaches a
+  fetcher.
 - **P3 — Manual fulfilment. Real money.** Stripe live. A paid order is picked up
   by a human, who seeds the site row and specs the way oufe was seeded, triggers
   the existing build, reviews it, releases it to
@@ -378,23 +449,31 @@ touch `platform/`.**
 
 ---
 
-## 11. Open for the owner
+## 11. Decisions taken, and what is still open
 
-1. **The trust boundary (§4).** Ship the VM-front + outbound-pull boundary now and
-   take the isolation decision at P3 — or stand up the dedicated cluster first?
-   My recommendation is the former; the latter is unchanged in cost if deferred.
-2. **Isolation option (§4.2)** — (a) `network_id`, (b) separate DB, (c) namespace
-   + DB, (d) dedicated cluster. And is the reason the blast radius of scraped
-   content, as I have argued, or something else?
-3. **The questionnaire as a gate (§5.3)** — required before any paid build, or
-   genuinely optional as you first described it?
-4. **The chat box (§5.1)** — stepped conversational form, or do you specifically
-   want a real LLM chat?
-5. **Price**, and whether the teaser is free to everyone or gated on an email.
-6. **The preview host (§6)** — `*.preview.webdesign.uk` on the VM, or a subdomain
+**Ruled by the owner, 2026-07-28** — all three recorded where they bite, not only
+here:
+
+1. ~~**The trust boundary (§4).**~~ **DECIDED: boundary now, isolation at P3.**
+   §4.1 is a design constraint from here. The trigger for the deferred decision is
+   the first paid build that scrapes a domain we do not own.
+2. ~~**The questionnaire as a gate (§5.3).**~~ **DECIDED: stays optional.** My
+   argument is kept in §5.3 and the control it was carrying moves to §5.3a — emit
+   no contact block unless supplied; seed `evidence_base` from chat + scrape.
+   **Re-open at P5**, which is when automated release removes the human backstop.
+3. ~~**The chat box (§5.1).**~~ **DECIDED: a real LLM chat.** Resizes P1: the
+   spend and abuse controls ship *with* the fake door.
+
+Still open, and the first two are the next things needed:
+
+4. **Price**, and whether the teaser is free to everyone or gated on an email.
+   Blocked on nothing but the P0 cost measurement.
+5. **The preview host (§6)** — `*.preview.webdesign.uk` on the VM, or a subdomain
    of a different domain of yours?
-7. **§12 — the "thousand sites" figure.** Needs a decision, and it is the one
-   thing here with a deadline attached, because it is already in outward copy.
+6. **Isolation option (§4.2)**, at P3 — (a) `network_id`, (b) separate DB,
+   (c) namespace + DB, (d) dedicated cluster.
+7. **§12 — the "thousand sites" figure.** The one item here with a deadline
+   attached, because it is already in outward-facing copy.
 
 ---
 
