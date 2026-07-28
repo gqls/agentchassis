@@ -17,29 +17,42 @@ gap between *"nothing on this page lies"* and *"a person can tell what to do"*.
 
 ---
 
-## A. The word "Gauntlet" is invisible — 1.00:1 contrast [HIGH — I caused this today]
+## A. The word "Gauntlet" is invisible — 1.00:1 contrast [HIGH] — FIXED 2026-07-28
 
 `.gi-title-accent` renders `rgb(109,40,217)` on a resolved background of
 `rgb(109,40,217)`. **The same colour. Contrast ratio 1.00:1** against a 4.5
 threshold. Owner's screenshot shows the headline reading "Enter the ______".
 
-**Cause, and it is mine.** Earlier on 2026-07-28 I set
-`--color-primary: #7c3cff → #6d28d9` in `assets/css/styles.css` to improve
-white-on-purple readability. The hero accent **and** the hero background both
-derive from `--color-primary`, so darkening the one collapsed them onto each other.
+> **CORRECTED — I first filed this as a regression I caused today. It is not.**
+> `.gi-title-accent` has always been `color: var(--color-primary)`, and this
+> section's background has always been `--color-primary` too. They resolve to the
+> same colour whatever that variable holds. **With the previous `#7c3cff` the
+> ratio was 1.34:1 — also invisible.** My palette change altered the shade and
+> not the relationship. Filing my own change as the cause would have sent the
+> next reader to the wrong place; the fault is that an accent is painted with its
+> own background's token.
+
+**Cause.** `.gauntlet-interface-section .gi-title .gi-title-accent { color:
+var(--color-primary) }` while `.gauntlet-interface-section` has
+`background: var(--color-primary)`.
 
 I verified that change with computed font sizes, brace balance, line counts and
 page-level overflow. **Not one of those could see a foreground and background
 becoming the same colour.**
 
-**Fix:** the accent must not be `--color-primary` when it sits on a
-primary-derived background. Give the hero accent its own token
-(`--color-hero-accent`) and pick it by measured contrast against the *painted*
-background, not by eye. `--color-accent: #fc5c7d` already exists and is a
-candidate — measure before adopting.
+**FIXED and live 2026-07-28.** Repointed to `--color-stage` (`#f59e0b`), an
+existing site token, measured **3.31:1** against `#6d28d9` — passes AA for large
+text (44–64px) and stays distinct from the white run of the headline. Candidates
+measured rather than guessed: `--color-accent` #fc5c7d was **2.36:1 (FAIL)** and
+`--color-primary-on-dark` #a78bfa **2.61:1 (FAIL)**; plain white reads 7.10:1 but
+would erase the accent entirely.
 
-**Verify:** compute the ratio from `getComputedStyle` on the live page; assert
-≥ 3.0 (large text). A screenshot is not a check.
+**Verified live**, desktop and mobile: `rgb(245,158,11)` on `rgb(109,40,217)` =
+**3.31:1**, 0 raw placeholders.
+
+**The general defect remains open elsewhere:** any component whose accent token is
+also its background token has this fault latent. Worth a fleet grep for
+`color: var(--color-primary)` inside a section whose background is the same var.
 
 ---
 
