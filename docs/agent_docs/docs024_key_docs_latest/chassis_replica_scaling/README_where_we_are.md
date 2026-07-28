@@ -175,3 +175,45 @@ retry smarter.
 Nothing needs a choice from you today. Next: the review's round three, then
 building the new chassis and rolling it out in a quiet moment, then proving
 the whole thing live with the same five-at-once test that fails today.
+
+---
+
+2026-07-28, midday — it's live, and the proof is the same test that failed
+this morning.
+
+The worker pool passed review on round three, went out in a new chassis
+(dark, switched off), was verified in the running pod, and was then switched
+on. Along the way we found something worse than the queue we set out to fix:
+every time the chassis restarts, its reply-reading side re-reads the ENTIRE
+history of every reply ever sent before it hears anything new — measured at
+two to three hours of deafness per restart, growing daily. That, more than
+anything, is what the "things fail for twenty minutes after a deploy" folklore
+actually was. A second small change (also reviewed and approved) makes a fresh
+chassis start reading from "now" instead of "the beginning of time"; it is
+live and verified — the fresh pod heard its first reply within a second of
+starting.
+
+One confession for the record: I flipped that second switch a few minutes
+before the code for it was actually in the running chassis — the switch did
+nothing, silently, and cost one extra restart. The check that catches this
+(look inside the running binary before trusting a switch) was one I had
+written down twice that same hour and applied to every switch except the
+newest one. It's in the wrong-calls log; the fix went out properly minutes
+later, checked first this time.
+
+The scoreboard, same five-page test, same day: morning — nought out of five,
+twelve minutes of retrying, one job permanently stuck. Midday — four out of
+five done in forty-seven seconds, four of them genuinely running at the same
+moment, and the one failure was a real, honest error (two deploys to the same
+site's repository collided at GitHub and the loser was told so immediately) —
+a small known class now recorded in the bug ledger, fixable in the publisher,
+and nothing like the silent timeouts of this morning.
+
+Where that leaves the plan you approved: the first two stages are DONE and
+live. Next stage when work resumes: send the replies through the same worker
+pool (the code already ships, one switch), re-test the council-in-its-own-pod
+idea, and then — with your explicit yes, as agreed — two or three chassis
+copies. Nothing needs a decision from you right now; the one I'd flag for
+when you're next here is whether the publisher should queue same-site deploys
+one behind another, which would close both halves of the collision class in
+the ledger.

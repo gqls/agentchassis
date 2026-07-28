@@ -368,6 +368,58 @@ against a deaf response lane would measure the replay, not the pool.
 > `system.agent.generic.responses`, so build work fleet-wide treadmills
 > until ~13:00 unless CS-3a flips. Operational call recorded below.
 
+---
+
+## 2026-07-28 ~11:30 — CS-3a APPROVED, live, VERIFIED (LAG 0); the decisive burst: 0/5 this morning → 4/5 in 47 seconds now; one wrong call logged on the way
+
+**The wrong call first** (full entry in WRONG_CALLS.md): I flipped
+`CHASSIS_RESPONSES_START_AT=latest` while the pod still ran v1.0.1184 — an
+image built before the flag's code existed. Unknown env keys are silently
+ignored; the "fix" was a no-op that cost one more restart and restarted the
+replay from zero. The pre-flip pod-grep gate I had written into the audit
+artifact that same hour would have caught it; I had applied it to every flag
+except the one I'd just invented. Corrected by building v1.0.1186,
+**verifying the symbol in the image BEFORE rolling**, then rolling on a quiet
+lane.
+
+**CS-3a verdict: APPROVED** (corr `f4e425dc…`, "approved with 3 advisory
+objection(s) — none high-severity"). Live and verified on pod
+`…-zfc2h` (started 11:23:47Z): `RESPONSES_START_AT_LATEST` logged, response
+group born at **pos 12,289 = log-end, LAG 0** — zero replay, response lane
+live from the first second. The 2–3-hour-per-restart response outage class is
+closed for the chassis.
+
+**Sequential control on the full stack: COMPLETED end-to-end in 24.9 s**
+(corr `e506b005…`), including the deploy round trip.
+
+**THE DECISIVE BURST** (same five pages that went 0/5 twice this morning),
+corr prefixes e6a0cf7a/3f264f03/3e22ad91/e6223786/6aedced7, published
+11:25:44–46Z:
+- Intake: four events **started within 0.9 s of each other** — four workers
+  running four orchestrations simultaneously; the fifth queued 7 s for a free
+  worker. Serial-by-construction is over; the claims table did the ordering.
+- Outcomes: **4/5 COMPLETED, whole batch terminal in 47 s** (vs 12 minutes of
+  retries to 0/5 this morning).
+- The 1 failure is a NEW, smaller, honest class: GitHub **422 "Update is not
+  a fast forward"** — five concurrent commits to gqls/sites raced the ref
+  update and the loser was refused, fail-fast with a real error in seconds
+  (no treadmill, no wedge). Contributed to `bugs_open/120` (same repo, same
+  missing serialisation, one account): the worker pool makes concurrent
+  same-repo commits routine, so the git-adapter wants per-repo serialisation
+  or 422-retry-with-rebase. Until then, expect occasional prompt
+  non-fast-forward failures on same-site concurrent deploys.
+
+**Owed and explicitly deferred, with triggers:**
+- CS-1's induced live tests (duplicate response → `STALENESS_HELD`; stale
+  claim → `CLAIM_RECOVERY` still fires). The guard is live and
+  tripwire-tested; the induced pair MUST run **before Phase 4 sets
+  replicas>1**, when the guard becomes load-bearing across pods.
+- Phase 3 enablement (`worker_pool_all`) + the Candidate 4 re-test — next
+  session's opener; the response-side code is already in the live binary.
+- The two parked wedge specimens (`6c4a0bdf` check_skipped, and CS-1's
+  first council run at review_editquality) stay in place for the
+  dispatch_queue_serialisation watchdog work.
+
 Instrument gotcha for whoever repeats this: `oufe/TRIGGER_rerender_page.sh`
 names its kcat pod `kcat-rerender-$(date +%s)` — seconds granularity, so
 PARALLEL invocations collide with "AlreadyExists" (3 of 5 lost that way on the
