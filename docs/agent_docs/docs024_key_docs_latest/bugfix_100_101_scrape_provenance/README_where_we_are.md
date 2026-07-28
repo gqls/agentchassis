@@ -93,3 +93,63 @@ state. What they do now is *say so*: instead of silently fetching one page and
 reporting success, they log that the setting cannot take effect and why. The honest
 half is done; the behaviour change is somebody's deliberate decision to make, not a
 side effect of my bug fix.
+
+---
+
+## 2026-07-28, evening (new session, picked this up from the handoff)
+
+**First thing: the file I was handed was already an hour out of date, and the work
+had moved on without it.** Worth saying because it is the normal condition here, not
+a mishap — several sessions work this tree at once. I checked the live system rather
+than believing the document, and found the review council had already been round
+three times and **approved** it. So the main outstanding job on that handoff was
+finished before I read the sentence saying it wasn't.
+
+**You made a call and I recorded it.** The two agents that claim to read three pages
+but only read one — you said leave them warning, don't switch them to crawling. I've
+written that into the bug file and the handoff as a *decision*, not an omission, with
+an explicit note telling the next person not to "finish the job" by flipping it. That
+matters more than it sounds: in six weeks a deliberate won't-do and an overlooked gap
+look identical, and someone helpfully fixes the one you chose.
+
+**I checked the two things that were blocked. Both still are.** The vet data hasn't
+restarted — the newest record is still 18 March — so the test that would close the
+remaining bug still cannot run. And the payload alarm that came back "clean" after
+the last deploy was clean because **nothing had been scraped at all**. Zero errors out
+of zero attempts. That is not reassurance, it is an empty measurement.
+
+**So I made something actually run — and it found a new bug.** I fired one real scrape
+at our own site to give that alarm something to measure. No payload error, which is
+good. But the reply only got through because the adapter had quietly thrown away the
+last 3,800 characters of the page and stamped it *"full version in S3"* — when nothing
+had been uploaded to S3 at all. The note telling you where to find the missing data
+points at a file that was never written. **Four of the six live scrapers are set up
+that way.** One of them is the vet verifier, and the thing it exists to extract — a
+company registration number — is normally in a page footer, which is exactly the part
+that gets cut. I've marked that last bit clearly as a suspicion rather than a finding,
+because no vet page has been scraped since March so nobody can know yet. It is cheap
+to settle the moment collection restarts.
+
+**Underneath that was a measuring fault worth more than the bug.** The command in our
+own runbook for checking that alarm reads the logs of *one* of three copies of the
+service — and because of how the queue works, two of the three never do any work at
+all. So it can report a perfectly clean log while the only copy doing anything is
+failing. It picked an idle one today. Fixed everywhere we'd written it down.
+
+**Then the config audit, which turned out not to be the job I was given.** The task
+was "keep declaring config keys, 208 to go". I'd have spent the evening grinding
+through them. Instead the first one I opened had already declared all its keys — which
+made no sense — and the reason turned out to be that **the opt-in mechanism was
+blocking the very adoption it was built to encourage.** Signing up required filling in
+a field that means "settings, not references", so any component whose settings are all
+references literally could not sign up without lying about its own configuration. One
+component in 152 had managed it. That is not people being slow; that is a door that
+doesn't open. I separated the two things, and the number went from 208 outstanding to
+152 in one change — with no new claims about behaviour, because I only signed up the
+ones where the answer was already proven. It's gone to the council.
+
+**The honest bit I want on the record.** That is the second time in one day this piece
+of work has shipped a fix that hid its own problem — first a filter that silenced the
+report meant to catch it, now a gate that blocked its own adoption. I've logged both.
+The pattern is that whoever builds a mechanism is the worst-placed person to notice it
+is too expensive to use, because for them it wasn't.
