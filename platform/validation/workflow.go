@@ -3,15 +3,22 @@ package validation
 
 import (
 	"fmt"
+	"strings"
+	"sync"
 
 	"github.com/gqls/agentchassis/pkg/models"
 	"github.com/gqls/agentchassis/platform/orchestration/actioncheck"
+	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 	"go.uber.org/zap"
 )
 
 // WorkflowValidator provides validation for workflow plans
 type WorkflowValidator struct {
 	logger *zap.Logger
+
+	// warnedConfigKeys dedupes the unknown-config-key warning, which would
+	// otherwise fire on every message for the life of the pod.
+	warnedConfigKeys sync.Map
 }
 
 func NewWorkflowValidator(logger *zap.Logger) *WorkflowValidator {
@@ -94,6 +101,28 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 		}
 	}
 
+	// Report step-config keys the action does not recognise (bugs_open/101).
+	//
+	// An unknown key is silently ignored at execution, so a stale or aspirational
+	// key is indistinguishable BY INSPECTION from a live one — the config reads as
+	// a specification of behaviour while being evidence of nothing. This is the
+	// only place that sees the action name and its config together on every run.
+	//
+	// Warn, don't fail, unless the action has declared its key set complete
+	// (StrictConfig). ValidateWorkflow rejecting a workflow fleet-wide on a key
+	// list that is merely incomplete would be a far worse defect than the one
+	// being reported.
+	if len(step.Config) > 0 {
+		if unknown, checked := datahelpers.UnknownConfigKeys(step.Action, step.Config); checked && len(unknown) > 0 {
+			if datahelpers.IsStrictConfigAction(step.Action) {
+				return fmt.Errorf("step '%s' (action '%s') has unrecognised config keys %v — "+
+					"this action declares its config contract as complete, so an unknown key is "+
+					"a definition error, not a no-op", name, step.Action, unknown)
+			}
+			v.warnUnknownConfigKeysOnce(name, step.Action, unknown)
+		}
+	}
+
 	// Validate fan-out sub-tasks
 	if step.Action == "fan_out" {
 		if len(step.SubTasks) == 0 {
@@ -107,6 +136,26 @@ func (v *WorkflowValidator) validateStep(name string, step models.Step, allSteps
 	}
 
 	return nil
+}
+
+// warnUnknownConfigKeysOnce logs each distinct (step, action, keys) combination a
+// single time per process. ValidateWorkflow runs on EVERY message, so an undeduped
+// warning would repeat for the life of the pod on a busy lane — and a warning that
+// scrolls is a warning nobody reads, which would leave the defect just as invisible
+// as the silent ignore it replaced.
+func (v *WorkflowValidator) warnUnknownConfigKeysOnce(stepName, action string, unknown []string) {
+	key := stepName + "\x00" + action + "\x00" + strings.Join(unknown, ",")
+	if _, seen := v.warnedConfigKeys.LoadOrStore(key, struct{}{}); seen {
+		return
+	}
+	v.logger.Warn("Step config carries keys this action does not read — they are silently ignored at execution",
+		zap.String("step", stepName),
+		zap.String("action", action),
+		zap.Strings("unrecognised_keys", unknown),
+		zap.String("consequence", "the config describes behaviour that does not happen"),
+		zap.String("fix", "implement the key, delete it from the definition, or add it to the action's ActionInputSpec.ConfigKeys if it is read elsewhere"),
+		zap.String("ref", "bugs_open/101"),
+	)
 }
 
 // IsLocalAction checks if an action is executed locally

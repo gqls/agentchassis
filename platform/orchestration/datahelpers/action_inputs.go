@@ -7,6 +7,7 @@ package datahelpers
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 
 	"go.uber.org/zap"
@@ -28,6 +29,134 @@ type ActionInputSpec struct {
 
 	// DefaultValues for optional fields
 	Defaults map[string]interface{}
+
+	// ConfigKeys declares the step-config keys this action reads that are NOT
+	// data-input fields — settings rather than references (e.g. "max_pages",
+	// "upload_results", "scrape_config").
+	//
+	// Declaring this OPTS THE ACTION IN to unknown-config-key detection: a step
+	// carrying a key that is in neither Required, Optional, ConfigKeys,
+	// Deprecated nor the framework's own set is reported by UnknownConfigKeys.
+	// An action that leaves this empty is not checked at all, and behaves
+	// exactly as it did before this field existed.
+	//
+	// Why opt-in rather than fleet-wide (bugs_open/101, D2): there are 811
+	// distinct (action, key) pairs across 228 live actions. A declaration that
+	// wrong at that scale would reject working definitions, and an over-strict
+	// validator is a considerably worse bug than the inert key it is chasing —
+	// cf. this bug's own recorded trap, where a fleet-wide cleanup keyed on
+	// "max_pages" would have stripped a live page cap off build-site-planner.
+	// Adoption is driven by the coverage report (scripts/audit-config-keys.sh),
+	// not by a flag day.
+	ConfigKeys []string
+
+	// StrictConfig turns an unrecognised config key into a hard validation
+	// error for this action instead of a warning. Set it only once ConfigKeys is
+	// known to be COMPLETE — verified against every live definition using the
+	// action, not just the one in front of you.
+	StrictConfig bool
+}
+
+// frameworkStepConfigKeys are step-config keys the orchestrator itself reads or
+// injects, on any step regardless of action. They are never "unknown".
+//
+// Derived by grepping the engine's own reads (platform/orchestration/*.go,
+// platform/messaging/*.go) rather than written from memory — an under-populated
+// list here would produce false positives on working steps, which is the failure
+// mode most likely to get this whole check switched off.
+var frameworkStepConfigKeys = map[string]bool{
+	"action":            true, // dispatch/adapter action selector
+	"agent_type":        true, // routing (processor.go, coordinator.go)
+	"continue_on_error": true, // loop error handler
+	"error_step":        true, // per-step error routing
+	"input_fields":      true, // read by ExtractActionInputs for every action
+	"loop_item_index":   true, // injected by loop expansion
+	"loop_iteration":    true, // injected by loop expansion
+	"loop_name":         true, // injected by loop expansion
+	"loop_var_name":     true, // injected by loop expansion
+	"output_mapping":    true, // coordinator result mapping
+	"role":              true, // coordinator
+	"target_action":     true, // coordinator
+	"timeout_seconds":   true, // coordinator step timeout
+	"total_iterations":  true, // loop error handler
+}
+
+// IsFrameworkStepConfigKey reports whether a key is read by the orchestrator
+// itself rather than by any particular action.
+func IsFrameworkStepConfigKey(key string) bool {
+	return frameworkStepConfigKeys[key]
+}
+
+// UnknownConfigKeys returns the step-config keys that the named action does not
+// recognise, sorted.
+//
+// The second return value, `checked`, is the load-bearing one: it distinguishes
+// "this action declared its keys and none were unknown" (checked=true, empty
+// result) from "this action has not opted in, so nothing was examined"
+// (checked=false, empty result). Both return no keys. Only one of them is
+// evidence of anything, and collapsing them is how a quiet result comes to read
+// as a pass — the exact shape bugs_open/101 is about.
+func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknown []string, checked bool) {
+	spec, ok := GetActionInputSpec(actionName)
+	if !ok || len(spec.ConfigKeys) == 0 {
+		return nil, false
+	}
+
+	recognised := make(map[string]bool, len(spec.Required)+len(spec.Optional)+len(spec.ConfigKeys))
+	for _, k := range spec.Required {
+		recognised[k] = true
+	}
+	for _, k := range spec.Optional {
+		recognised[k] = true
+	}
+	for _, k := range spec.ConfigKeys {
+		recognised[k] = true
+	}
+	// Deprecated keys are recognised on purpose: they are wired, and warning
+	// about them here would duplicate ExtractActionInputs' own deprecation
+	// warning with a misleading "unknown" label.
+	for k := range spec.Deprecated {
+		recognised[k] = true
+	}
+
+	for k := range config {
+		if recognised[k] || IsFrameworkStepConfigKey(k) {
+			continue
+		}
+		unknown = append(unknown, k)
+	}
+	sort.Strings(unknown)
+	return unknown, true
+}
+
+// IsStrictConfigAction reports whether unrecognised keys should fail validation
+// for this action rather than warn.
+func IsStrictConfigAction(actionName string) bool {
+	spec, ok := GetActionInputSpec(actionName)
+	return ok && spec.StrictConfig && len(spec.ConfigKeys) > 0
+}
+
+// ListDeclaredConfigKeys returns the full recognised key set for every action
+// that has opted in. Used by the offline audit (scripts/audit-config-keys.sh) to
+// compare the binary's declarations against what live agent_definitions actually
+// carry.
+func ListDeclaredConfigKeys() map[string][]string {
+	out := make(map[string][]string, len(actionInputSpecs))
+	for name, spec := range actionInputSpecs {
+		if len(spec.ConfigKeys) == 0 {
+			continue
+		}
+		keys := make([]string, 0, len(spec.Required)+len(spec.Optional)+len(spec.ConfigKeys)+len(spec.Deprecated))
+		keys = append(keys, spec.Required...)
+		keys = append(keys, spec.Optional...)
+		keys = append(keys, spec.ConfigKeys...)
+		for k := range spec.Deprecated {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		out[name] = keys
+	}
+	return out
 }
 
 // ActionInputs is the result of extraction

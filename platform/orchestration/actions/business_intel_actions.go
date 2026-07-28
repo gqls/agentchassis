@@ -23,6 +23,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// scrapedDataField is the collected_data key holding the webscrape adapter's
+// response — the fetch record that carries the URL actually retrieved and when.
+// It is the provenance source for store_business_verification (bugs_open/100).
+const scrapedDataField = "scraped_data"
+
 // ---------------------------------------------------------------------------
 // load_business_record
 // ---------------------------------------------------------------------------
@@ -160,13 +165,22 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 
 	config := params.StepConfig.Config
 
-	// Extract inputs
+	// Extract inputs.
+	//
+	// scraped_data is appended unconditionally rather than left to the definition's
+	// input_fields list (bugs_open/100). Provenance is not optional, and making it
+	// depend on every caller remembering a config key is what produced 2,970 rows
+	// with no source: the writer must be able to reach the fetch record whatever the
+	// definition says.
 	inputFields := []string{"business_id", "verification_result"}
 	if fields, ok := config["input_fields"].([]interface{}); ok {
 		inputFields = make([]string, len(fields))
 		for i, f := range fields {
 			inputFields[i], _ = f.(string)
 		}
+	}
+	if !containsString(inputFields, scrapedDataField) {
+		inputFields = append(inputFields, scrapedDataField)
 	}
 	extracted := datahelpers.ExtractFields(params.CollectedData, inputFields, params.Logger)
 
@@ -180,6 +194,34 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 	verResult, ok := extracted["verification_result"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("verification_result must be an object")
+	}
+
+	// Provenance comes from the fetch, and ONLY from the fetch (bugs_open/100).
+	//
+	// This used to read verResult["source_url"] / ["source_type"] / ["source_name"]
+	// — the model's own output object. The prompt never asks for those keys, so they
+	// were never present and every observation was stored unsourced; and had they
+	// been present it would have been worse, because provenance asserted by the same
+	// call that produced the facts is not provenance. Those reads are gone rather
+	// than demoted to a fallback: a fallback would have quietly restored the old
+	// behaviour the moment a model volunteered a plausible-looking URL.
+	prov, provOK := datahelpers.ExtractFetchProvenance(extracted[scrapedDataField])
+	if !provOK {
+		params.Logger.Warn("StoreBusinessVerificationAction: no fetch provenance available — observation will be stored unsourced",
+			zap.String("business_id", businessID),
+			zap.String("expected_field", scrapedDataField),
+			zap.String("consequence", "the row cannot say where it came from and is unpublishable under the sourcing rule"),
+			zap.String("ref", "bugs_open/100"),
+		)
+	}
+	if llmClaimed := verResult["source_url"]; llmClaimed != nil {
+		// Not used — recorded because it means the prompt has started asking the
+		// model for its own provenance, which is the rejected candidate 4.
+		params.Logger.Warn("StoreBusinessVerificationAction: model emitted a source_url; it is being IGNORED",
+			zap.String("business_id", businessID),
+			zap.Any("model_claimed", llmClaimed),
+			zap.String("ref", "bugs_open/100 §Why the obvious fix is WRONG"),
+		)
 	}
 
 	params.Logger.Info("StoreBusinessVerificationAction: Storing results",
@@ -264,15 +306,12 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 			businessID,
 		)
 
-		sourceType, _ := verResult["source_type"].(string)
-		sourceURL, _ := verResult["source_url"].(string)
-
 		for _, priceRaw := range pricesRaw {
 			price, ok := priceRaw.(map[string]interface{})
 			if !ok {
 				continue
 			}
-			err := insertPrice(ctx, tx, businessID, price, sourceType, sourceURL)
+			err := insertPrice(ctx, tx, businessID, price, prov.SourceType, prov.SourceURL)
 			if err != nil {
 				params.Logger.Warn("StoreBusinessVerificationAction: Failed to insert price",
 					zap.Error(err),
@@ -298,15 +337,12 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 			businessID,
 		)
 
-		sourceType, _ := verResult["source_type"].(string)
-		sourceURL, _ := verResult["source_url"].(string)
-
 		for _, medRaw := range medsRaw {
 			med, ok := medRaw.(map[string]interface{})
 			if !ok {
 				continue
 			}
-			err := insertMedicinePrice(ctx, tx, businessID, med, sourceType, sourceURL)
+			err := insertMedicinePrice(ctx, tx, businessID, med, prov.SourceType, prov.SourceURL)
 			if err != nil {
 				params.Logger.Warn("StoreBusinessVerificationAction: Failed to insert medicine price",
 					zap.Error(err),
@@ -319,18 +355,26 @@ func StoreBusinessVerificationAction(ctx context.Context, params ActionParams) (
 
 	// 4. Create data observation (provenance record)
 	rawDataJSON, _ := json.Marshal(verResult)
-	sourceType, _ := verResult["source_type"].(string)
-	sourceName, _ := verResult["source_name"].(string)
-	sourceURL, _ := verResult["source_url"].(string)
+	sourceType, sourceName, sourceURL := prov.SourceType, prov.SourceName, prov.SourceURL
 	extractionNotes, _ := verResult["extraction_notes"].(string)
 
+	// collected_at is the FETCH time as recorded by the fetcher, not the write time.
+	// Passing NULL lets the column default to now(); an observation retrieved hours
+	// before it was written should not claim to be as fresh as the write.
+	var collectedAt interface{}
+	if prov.CapturedAt != "" {
+		collectedAt = prov.CapturedAt
+	}
+
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO business_intel.data_observations 
-			(business_id, source_type, source_name, source_url, raw_data, 
-			 extraction_confidence, extraction_notes, orchestration_id, processed_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
+		INSERT INTO business_intel.data_observations
+			(business_id, source_type, source_name, source_url, raw_data,
+			 extraction_confidence, extraction_notes, orchestration_id,
+			 collected_at, processed_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, COALESCE($9::timestamp, NOW()), NOW())`,
 		businessID, sourceType, sourceName, sourceURL, rawDataJSON,
 		confidenceScore, extractionNotes, params.ExecutionContext.OrchestrationID,
+		collectedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert data observation: %w", err)

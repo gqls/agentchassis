@@ -54,16 +54,21 @@ func (f *FirecrawlScrapingProvider) IsAvailable() bool {
 	return f.apiKey != ""
 }
 
-// Scrape performs single page scraping using Firecrawl API v2
-func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
-	f.logger.Info("Starting scrape", zap.String("url", url))
-
+// buildScrapePayload turns a caller's scrape_config into the Firecrawl v2 /scrape
+// request body. Extracted from Scrape so the wire payload is assertable without an
+// HTTP call: the discriminating question for bugs_open/101 is "what did we SEND",
+// and no assertion on the scraped content can answer it — a footer that survives is
+// equally consistent with us sending nothing and Firecrawl choosing to keep it.
+//
+// Every key here is presence-checked, never truthiness-checked. Firecrawl applies
+// its own defaults to whatever we omit, so for any key whose default is not our
+// default, "omit when false" silently inverts the caller's request.
+func buildScrapePayload(url string, config map[string]interface{}) map[string]interface{} {
 	// Build formats array (v2 format — at top level for /scrape endpoint).
 	// config["formats"] overrides the default, same contract the /crawl path
-	// already honours (buildCrawlPayload below) — a text-only caller can
-	// request ["markdown"] and cut the fetched payload to a third
-	// (bugs_open/062: the 4-format default helped push batch responses past
-	// Kafka's max message size).
+	// already honours — a text-only caller can request ["markdown"] and cut the
+	// fetched payload to a third (bugs_open/062: the 4-format default helped push
+	// batch responses past Kafka's max message size).
 	formats := []interface{}{"markdown", "html", "rawHtml", "links"}
 	if requested, ok := config["formats"].([]interface{}); ok && len(requested) > 0 {
 		formats = requested
@@ -72,11 +77,6 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 	captureScreenshot := true
 	if capture, ok := config["capture_screenshot"].(bool); ok {
 		captureScreenshot = capture
-	}
-
-	onlyMainContent := false
-	if mainContent, ok := config["only_main_content"].(bool); ok {
-		onlyMainContent = mainContent
 	}
 
 	waitFor := 0
@@ -105,8 +105,19 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 		"formats": formats,
 	}
 
-	// Add optional parameters
-	if onlyMainContent {
+	// Firecrawl's documented default for /scrape is onlyMainContent=true, which
+	// strips headers, navs and footers. OMITTING the key is therefore NOT neutral —
+	// it silently selects main-content-only.
+	//
+	// Until bugs_open/101 this emitted the key only when it was TRUE, which made
+	// `only_main_content: false` inexpressible: a caller asking for the full page got
+	// the opposite, with nothing in the payload to show for it. Three live steps were
+	// asking for exactly that — site-scraper/scrape_site,
+	// site-adoption-agent/fetch_primary_css and website-capture-firecrawl/scrape_main_page.
+	//
+	// Presence, not truthiness, is the contract. The /crawl path has always done this;
+	// the two now agree.
+	if onlyMainContent, ok := config["only_main_content"].(bool); ok {
 		payload["onlyMainContent"] = onlyMainContent
 	}
 
@@ -118,6 +129,15 @@ func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, conf
 	if maxAge, ok := config["max_age"].(float64); ok {
 		payload["maxAge"] = int(maxAge)
 	}
+
+	return payload
+}
+
+// Scrape performs single page scraping using Firecrawl API v2
+func (f *FirecrawlScrapingProvider) Scrape(ctx context.Context, url string, config map[string]interface{}) (map[string]interface{}, error) {
+	f.logger.Info("Starting scrape", zap.String("url", url))
+
+	payload := buildScrapePayload(url, config)
 
 	f.logger.Info("Firecrawl Scrape request",
 		zap.String("url", url),
