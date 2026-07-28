@@ -761,3 +761,31 @@ the question you must answer, giving the page a visual ranking, and deciding
 what pressing "Enter the Gauntlet" should actually reveal. That last one is a
 genuine either/or you should pick, and I've laid the two options out at the
 end of today's summary in the chat.
+
+---
+
+2026-07-28, evening. The change you chose this afternoon is live: the Gauntlet
+page now opens with a single door. A visitor sees the title, what the game is,
+the clock face and the rules — and one button. The provocation is no longer
+sitting on the page when they arrive; pressing Enter the Gauntlet starts a
+real round and the question is revealed by that press, with the box to answer
+in directly beneath it. On a phone the button used to be two and a half
+screens down; it is now on the first screen.
+
+Two things worth telling you from the build. First, the checker we fixed this
+morning — the one that could finally see content cut off the edge of a phone —
+caught me twice while I was building this: the new button and the link beside
+it were each a fraction too wide on a phone, for a reason no eye would spot in
+the code. It flagged both before anything shipped. The tool you asked for
+earned its keep the same day, on its own author.
+
+Second, I tested the failure the honest way: I made the round-starting call
+fail on purpose and watched what a visitor would see. The page stays closed
+and says, right next to the button, that the opponent is offline and nothing
+was lost. It only ever opens on a genuine answer from the engine — same rule
+as everything else on this site.
+
+Still on the list from your visit: making the provocation read unmistakably as
+a question addressed to you, tidying the page's visual pecking order, and
+recording a won verdict somewhere — that last one has two honest options
+waiting on your pick.

@@ -188,7 +188,34 @@ to `.gi-container`, which already had **zero**. That NARROWED the column 74%→7
 
 ---
 
-## C. "Enter the Gauntlet" reveals nothing [MEDIUM]
+## C. "Enter the Gauntlet" reveals nothing [MEDIUM] — FIXED & VERIFIED LIVE 2026-07-28 ~20:35
+
+> **DONE — the owner chose "the button reveals the round" over
+> "position-as-entry" (the two candidates below; ruling taken ~19:50).** The
+> page now opens SEALED: header, an entry block (button at 512px on a phone —
+> was 1,913px — plus the "How it works" link and its own status line), and the
+> sidebar (clock + rules). The provocation panel is hidden until `/round`
+> returns 200; the `gi-sealed` class is removed ONLY in that success handler or
+> when resuming a genuinely live stored round — the reveal is itself an
+> API-bound state change, per the standing rail. The feed pre-render was
+> REMOVED (dated comment at the code records the reversal so nobody restores
+> it); the two "press Enter the Gauntlet" recovery messages now point at
+> filing a position (the button hides after reveal, and position-filing
+> auto-starts a fresh round; a 404 also clears the stale round id so that
+> auto-start genuinely fires).
+> **Verified twice**: 22-check local harness against the LIVE engine (sealed
+> load · injected-503 stays sealed with the error at the entry · real reveal ·
+> real AI counter · mid-round reload resumes revealed · fresh context sealed ·
+> overflow clean both states), then 16 checks on the DEPLOYED page, desktop +
+> mobile, real browser CORS, one real round, 0 raw placeholders.
+> **The new 131-B check earned its keep during this build**: it caught the
+> entry button and then the rules link at 398px on a 358px row (content-box
+> padding on top of max-width:100%) — two would-be cut elements stopped
+> before shipping. Sources: `p4_sources/*2026-07-28d_sealed_reveal*`,
+> harness `drive_reveal_131c.py`, delivery corr `824c7f1c`.
+> Residual for E/F: the revealed panel's provocation framing and the page's
+> visual ranking are unchanged — C's fix gives E its structure (input directly
+> beneath the provocation, nothing between), E's affordance work remains.
 
 Measured on a 390px viewport. Before pressing: the provocation is **already on
 screen** (pre-rendered from the feed), timer reads `20:00`, status says "No round

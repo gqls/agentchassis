@@ -1724,3 +1724,42 @@ entry above, and its transcript — for overlap with this thread's in-flight wor
   (filing C, the appeal specs); no design or build. This thread's reveal build
   (`gi-sealed` state class; template+JS pulled; entry model chosen by the
   owner) proceeds.
+
+## 2026-07-28, ~20:00–20:40 BST — 131-C SHIPPED: the button now reveals the round
+
+Owner ruling (~19:50, this session's question): **"the button reveals the
+round"** over "position-as-entry". Built, driven, delivered, live-verified.
+
+- **Shape**: section opens with `gi-sealed`; entry block (moved CTA row + its
+  own status line) after the header; provocation panel hidden; sidebar stays
+  (the `#gi-rules` anchor keeps a live target — arena collapses to one
+  column). `reveal()` fires in exactly two places: `/round` 200 and a live
+  stored-round resume. The feed pre-render is GONE — the reversal is written
+  at the code so nobody "fixes" it back.
+- **Concurrent-session note**: a 20:03 BST edit by another thread (flow
+  reorder, objectives/progress below the steps, cited C+E) landed mid-build;
+  owner confirmed C/E/F is this thread's; rebuilt on top of it — the reorder
+  and the reveal compose (post-reveal: provocation → input, nothing between).
+  Its untracked sources swept into this commit with attribution.
+- **Two catches by our own new check, pre-ship**: in the sealed state the
+  entry button, then the rules link, measured 398px on a 358px row — the
+  131-B clipped-cut clause (running in the local harness) flagged both.
+  Cause: `box-sizing: content-box` on those elements — `max-width:100%` caps
+  the CONTENT box and 2×20px padding rides on top. Fix: border-box +
+  min-width:0 + max-width:100% as one unit. *Check: a max-width cap without
+  knowing the box-sizing is not a cap.* First real work the new clause has
+  done anywhere — in a harness, before damage, which is the cheap place.
+- **Misstep**: my "fresh visitor" test cleared sessionStorage then reloaded
+  the SAME page — `pagehide` re-saved the live round from page memory and the
+  reload correctly resurrected it. The test was wrong, not the page. *Check:
+  a fresh visitor is a NEW CONTEXT; a cleared store in a live page is not.*
+- **Delivery**: one guarded transaction (both UPDATEs `WHERE updated_at =`
+  the read value — a concurrent write would have zeroed them), template +
+  js_content + rendered_html; assemble-only rerender corr `824c7f1c`
+  COMPLETED, `__step_error` NULL; JS asset republished (grep 3 markers on
+  the served file). Live: 16/16 (both profiles, real CORS, one real round,
+  reload-resume, 0 placeholders, overflow clean sealed AND revealed).
+- **Open in 131**: E (provocation must read as the question — C gave it the
+  adjacency; the affordance/container work remains), F (visual ranking),
+  G (record a won verdict — owner options 1/2), B check-side witness on the
+  acceptance lane, H (product answer; deferred by design-first ruling).
