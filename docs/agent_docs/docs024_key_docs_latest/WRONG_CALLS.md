@@ -9256,3 +9256,37 @@ sentence and was not applied, again.
 
 Family: narrow-filter-defines-the-conclusion, check-answers-the-question-you-encoded,
 writes-the-field-is-not-reads-the-field.
+
+---
+
+## 2026-07-28 — "Four of nine patterns do not resolve" — a join keyed on the wrong column (brochure §4d)
+
+**The claim** (brochure HANDOFF_2026-07-28 §4d, stated as measured with a printed
+truth table): *"Four of nine [experience_patterns section_types] do not resolve, and
+they are exactly four of the five components this workstream built"* — presented as
+evidence that the register was written with approximate names and needed fixing.
+
+**What was actually true.** All four resolve. `content_components` names a component
+TWO ways — `function` and `section_type` — and the register's entries name the
+`section_type` (which is the selector key: `idx_cc_selector`). The morning's join
+tested `function` only. The truth table was real; it answered "which entries match
+`function`", not "which entries resolve".
+
+**What caught it.** `sql_for_agents/256` (the join check §4d itself asked for), written
+dual-column after a `\d content_components` showed the second name column: zero rows
+missing. The correction is in the brochure NOTES and the 07-28b handoff, and step 2 of
+§4d ("fix the four names") died with it — a write to another workstream's actively
+maintained rows that would have "fixed" four correct values.
+
+**The cheap check.** `\d` the join TARGET before declaring a foreign key broken. If a
+reconciliation claim names one column and the target table has a second name-shaped
+column, run the join both ways before printing a truth table. Schema-first is already
+the SQL rule; this extends it to join keys: the table you are joining TO is part of
+the question you are encoding.
+
+**Tally.** *check-answers-the-question-you-encoded* — recurring, and this instance
+nearly caused writes: the "fix" for the four names would have corrupted a live
+register. Second face this week of: a printed measurement lends false weight to a
+mis-keyed question.
+
+Family: check-answers-the-question-you-encoded, narrow-filter-defines-the-conclusion.
