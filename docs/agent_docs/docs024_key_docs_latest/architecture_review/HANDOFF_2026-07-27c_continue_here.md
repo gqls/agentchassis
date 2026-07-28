@@ -51,6 +51,18 @@ the evidence you would need to ask the owner to revisit, which is a higher bar.
 >    COMMIT DISTANCE) is now a PREREQUISITE, not a parallel nicety.** Full evidence
 >    in `bugs_open/108`; the transferable shape is in `016b` §9.
 >
+> **Marker for the NEXT roll (the `a4f06f83a` COALESCE fix), pre-validated against
+> `v1.0.1180` — it returned `0` / `1`, so the grep is known to work before the new
+> image exists. After the roll it must FLIP:**
+> ```bash
+> POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o name | head -1)
+> kubectl -n ai-persona-system exec $POD -- sh -c '
+>   strings /app/agent-chassis | grep -c "WHERE (body ILIKE"          # expect 1 (was 0)
+>   strings /app/agent-chassis | grep -c "WHERE (COALESCE(body"       # expect 0 (was 1)'
+> ```
+> Then re-run VERIFY check 5 and expect a **BitmapOr across both trigram indexes**,
+> not a Seq Scan. A rebuild of the same code cannot fake that flip.
+>
 > **The distance is not the indexer's fault:** it mirrors the last **pushed** tip,
 > and `origin/086_experience_loop` has sat at `e19aa5d10` while local HEAD moved
 > 955 commits. A reindex cannot fix that — **only a push can.** Worth raising with
