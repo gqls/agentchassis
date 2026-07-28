@@ -650,3 +650,57 @@ property.
 The audit that would have caught nine of these ten **has never run — on any site**. That is a
 coverage failure rather than a detection one, so it is `bugs_open/116` rather than more text
 here.
+
+---
+
+## 2026-07-28 — third instance, and this time it was caught by a BASELINE rather than by luck
+
+Contributed by the brochure_component_library thread. **Same site, same mechanism, third
+occurrence** (index 07-26: 6 links; capabilities 07-26: 10; capabilities 07-28: 9).
+
+Rebuilt `fundamentallyai.com/capabilities` to add the `evidence-chart` section
+(work item `8f366ce5`, `complete`, attempt 0). The build succeeded and the chart is
+correct. It also **authored 9 internal link targets that did not exist before**, of which
+**7 are confirmed 404** and 2 were unresolved under origin throttling:
+
+```
+/asset-recovery                404      /commerce            404
+/capabilities/rapid-delivery   404      /decision-record     000
+/capabilities/review-council   404      /delivery            000
+/capabilities/verification     404      /verification        404
+/contact                       404   <-- contact.html EXISTS and serves 200
+```
+
+`/contact` is the sharpest of them: the page is there, the writer emitted the
+**extension-less** form, and this site serves `.html`. That is landmine L1 of the
+brochure workstream, authored fresh by a gate-passing build.
+
+The other eight are invented destinations — `/capabilities/<slug>` sub-pages and
+top-level nouns that have never existed on this site.
+
+### What is new here, and why it is worth adding to this file
+
+**I took a link baseline before firing the rebuild** (9 internal targets, captured from
+the served page) precisely because this had happened twice. Without it the after-state —
+18 targets — looks like a page with some broken links, indistinguishable from
+pre-existing damage. With it, the 9 are provably **authored by this build**.
+
+> **The recommendation this file should carry: baseline before every rebuild.**
+> ```bash
+> curl -fsS https://<domain>/<page>.html \
+>   | grep -oE 'href="(/[^"]*)"' | sed 's/href="//; s/"$//' | cut -d'#' -f1 | sort -u > before.txt
+> # rebuild, then:
+> comm -13 before.txt after.txt      # exactly what this build authored
+> ```
+> Capture `href="(/[^"]*)"` and strip the fragment **afterwards** — `[^"#?]` is
+> anchor-blind and is how 21 broken links survived three agreeing checks on 07-25.
+
+**Not hand-repaired this time, deliberately.** The 07-25 and 07-26 repairs were per-page
+edits and **neither survived the next rebuild of that page** — which is this bug's whole
+point. A fourth hand repair would produce a fourth data point for a conclusion already
+established. The fix belongs where the gate discards the finding, or upstream in
+`bugs_open/092` (the writer never receives its link constraints), which is the plausible
+cause of the invented destinations.
+
+**Live exposure right now:** `capabilities.html` serves 200 with at least 7 dead internal
+links. Recorded rather than silently repaired so the next thread inherits the true state.
