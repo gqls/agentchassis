@@ -36,6 +36,19 @@ its log is ours.
 | vonc.com restyle | LIVE — text +25%, content +25%, purple split for contrast |
 | `bugs_open/083` fix | LIVE and council-APPROVED (`e004fd81`), trailer on `9474e6b68` |
 
+## 2b. UPDATE, later on 2026-07-28
+
+Owner asked for the provocation and the call-to-act to be prominent, and for the
+whole UI to go through the experience loop to be "more enticing".
+
+- **Type scale shipped** on the gauntlet: "Today's Provocation" 13→20px, the
+  provocation 32→46px, "1 · Your position" 13→24px, body 19→23px, input 18→21px.
+  Live, desktop + mobile, no overflow.
+- **The experience loop CANNOT take an "enticing" request** — five binary check
+  types, five integrity seats, no vocabulary for hierarchy. Evidence and the
+  extension path: `experience_loop/HANDOFF_2026-07-28_appeal_dimension.md`.
+  **Do not fire it at this; it costs credits to answer a question nobody asked.**
+
 ## 3. Next actions, highest value first
 
 1. **`bugs_open/083` — DO NOT speculatively fix. Wait for a real fault.**
