@@ -609,3 +609,47 @@ The bug stays open on purpose. We can now *see* the failures; we haven't stopped
 them. The right next move is to wait a day or two, read what the log actually
 caught, and fix that — rather than guess at which of three plausible causes to
 address.
+
+---
+
+## 2026-07-28 — the engine is fine, and nobody is using it
+
+Two things came out of checking the engine this morning, and the second one is
+not a technical finding at all.
+
+**The fault has stopped.** I fired twelve full arguments at the live engine —
+twenty-four calls to the AI — and every single one worked, between six and
+twenty-two seconds each. Adding yesterday's and Sunday's runs, that is around
+forty-nine consecutive clean exchanges across three days with no failure at all.
+The logging we added is switched on, working, and has caught nothing, because
+there has been nothing to catch. Whatever was going wrong on Sunday appears to
+have been a passing problem at the AI provider's end rather than something in
+our code.
+
+That is the right outcome, and it also means we should *not* now "fix" it. Two of
+the three remaining ideas — automatically retrying, and allowing the AI longer
+answers — were guesses about a cause we could not see. One of them we can now
+positively rule out: the "answer got cut off" theory has a detector live in
+production and it has never once fired, exactly as I predicted when I refused to
+act on that theory last week. The third idea, giving the call a time limit, is
+still worth doing, but it turns out to sit in shared code used by every agent we
+run, not just this one — so it is a bigger, fleet-wide decision than the bug file
+suggested, and I have flagged it as such rather than quietly making it.
+
+**The second finding: the Gauntlet has had no visitors.** The new request log
+recorded eight requests in its first twenty-four hours, and all eight were mine
+from testing. The very first thing the new measurement produced was that there is
+nothing to measure.
+
+I mention it because it changes what "finished" means here. The experience works —
+genuinely, end to end, against a real AI opponent, verified repeatedly. It is
+also, at the moment, a room with nobody in it. Everything we have been fixing has
+been about making the thing honest and reliable, which was the right order to do
+it in, but no amount of further engineering will produce a visitor. That is now
+the constraint, and it is a decision for you rather than a bug for me: whether
+this site should be getting traffic, and if so, where from.
+
+I also had to correct my own instruction from yesterday. I had written "wait a day
+or two of real traffic, then read the log" as the next step. There is no real
+traffic, so that would have had the next session waiting indefinitely for
+something that was never going to arrive.
