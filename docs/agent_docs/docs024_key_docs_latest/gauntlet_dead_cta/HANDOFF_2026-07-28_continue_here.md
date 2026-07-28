@@ -120,6 +120,25 @@ specs, each with a real measured failing case from 131, and names its first move
 therefore reads 0 on every page whose content is clipped. **It silently passes on
 live pages today.**
 
+## 2d. DELTA ~14:20 — the Anthropic cap: the Gauntlet's opponent is DOWN until 08-01
+
+**The fleet's Anthropic key hit its usage limit ("regain access 2026-08-01
+00:00 UTC"), and the island shares it — proven by a live probe** (round
+`da3debc8`, position → `{"error":"gauntlet opponent unavailable"}`, engine log
+holds the 400 with the usage-limit body). Consequences for this file:
+
+- §1's "nothing has failed in ~49 calls" ended at ~13:00 BST today, through no
+  defect of the engine's. A visitor now gets an honest "opponent unavailable" —
+  the failure mode this workstream built, doing its job. No fabrication risk.
+- **That probe is the armed 083 log's first-ever catch** — cause class outside
+  candidates 1–4 (upstream account state). It is **not** a candidate-4 test:
+  the call failed before truncation was reachable. Candidate 4's terms unchanged.
+- The 131 C/E/F **design** work is unaffected (no LLM in the page pipeline
+  steps that were unblocked); anything needing a council round or generation
+  queues behind 08-01 unless the owner raises the cap.
+- Fleet-wide detail + evidence: NOTES entry of ~14:20, and `bugs_open/130` §status
+  (its council round was the canary — died unjudged at the first LLM seat).
+
 ## 3. Next actions, highest value first
 
 0. **`bugs_open/131` B–H — the owner's own findings, and the near-term list.**
@@ -127,7 +146,9 @@ live pages today.**
    `/about.html`'s 560px table, then C/E/F now that they are unblocked.
 
 1. **`bugs_open/083` — DO NOT speculatively fix. Wait for a real fault.**
-   The log is armed and empty. Candidate 3 (retry) is unjustified by evidence;
+   The log is armed and empty *(> CORRECTED 14:20 — no longer empty: first catch
+   is the usage-cap fault above, cause class outside candidates 1–4)*. Candidate 3
+   (retry) is unjustified by evidence;
    candidate 4 (`max_tokens`) is **refuted so far** — the TRUNCATED branch is live
    and has never fired, exactly as §2 predicted. **If it still has not fired after
    the next burst, close candidate 4 as refuted rather than leaving it open.**
@@ -140,6 +161,12 @@ live pages today.**
    `&http.Client{}` at `platform/aiservice/anthropic.go:63`, referenced by 17 Go
    files. A genuine latent defect for every agent. Argue it on fleet grounds with
    its own council round — do not slip it in as a fix for a burst that stopped.
+   > **DONE 2026-07-28 (~11:40):** promoted to **`bugs_open/130`** and fixed —
+   > and it was NOT latent: `llm_call_log` holds a measured 30 min 5 s hang
+   > (2026-04-28) ended only by pod shutdown. 600s ceiling in both constructors
+   > (gemini.go:180 was the platform's only other naked client), committed
+   > `a554bc914`, council corr `1b7d802d` pending. Inert until images roll —
+   > chassis fleet AND island tools-api separately. Details in NOTES + the bug file.
 3. **P5 acceptance is still blocked on the harness, not the page.**
    `browserrunner/run_checks_action.go:199` waits `stepDelay = 300ms`; the AI calls
    take 8–23s, so the plan's own checks would FAIL a correct page. Fix the harness.

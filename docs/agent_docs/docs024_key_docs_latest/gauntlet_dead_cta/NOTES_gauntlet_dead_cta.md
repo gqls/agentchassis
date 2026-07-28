@@ -1480,3 +1480,77 @@ lesson from earlier the same day, applied.
    still EXECUTES the script; `head` only truncates its output. Idempotent and
    harmless here, but it dispatched real work. *Check: reading a script's banner
    is `sed -n 1,2p`, not running it and piping to head.*
+
+## 2026-07-28, late morning — candidate 2 becomes bugs_open/130: fix committed, council pending
+
+Session "vonc 5", resuming from HANDOFF_2026-07-28_continue_here.md (~11:20 BST).
+
+**Action-1 check (083 gauntlet-engine-503):** armed log grepped 11:24 BST —
+**empty, zero faults**. The traffic at 09:14–09:23 (three clean rounds, all 200s,
+position 10–15s, defend 18s) pre-dates the handoff (committed 11:07), so "the
+next burst" has not happened. Candidate 4 stays open; nothing to close yet.
+
+**Action 2 executed — candidate 2 promoted to its own fleet case, `bugs_open/130`:**
+
+- The characterisation got materially STRONGER than §10's "genuine latent
+  defect": `llm_call_log` holds a **measured incident** — 2026-04-28,
+  content-quality-auditor, `latency_ms=1,805,242` (30 min 5 s), `success=f`,
+  error `context canceled`. Nothing timed it out; the pod dying freed the lane.
+  So: not latent, fired once in recorded history.
+- Ceiling grounded in the fleet's own data, not a guess: 43,890 anthropic calls
+  since 2026-03-25, slowest-ever SUCCESS 361,885 ms (32k-output-token call);
+  the only other two >300s failures are max_tokens truncations on completed
+  calls. `Timeout: 600s` (1.66x worst success) in both constructors —
+  anthropic.go and gemini.go were the only two naked `&http.Client{}` in the
+  entire platform; ollama already carried 120s.
+- Committed `a554bc914` (bug file + both fixes, pathspec). Council corr
+  `1b7d802d-b416-4bcf-9b2f-0445e918ecda` — see the cap section below for how
+  that round actually ended.
+  INERT until image rolls: chassis fleet AND island tools-api separately.
+- > **CORRECTED (same session):** this entry's first draft carried invented
+  > clock times ("~11:35") — the session assumed minutes had passed when hours
+  > had (three hours of wall clock went on tool calls). The 090/097 rows carry
+  > the real times; the log check was 11:24 BST, the council dispatch 14:12 BST.
+  > *Check: a timestamp you are about to write down must come from `date` or a
+  > DB row you just read, never from your model of how long things took.*
+- **Misstep avoided by minutes:** filed the case as `bugs_open/129`; a
+  concurrent session committed its own 129 (spawned-child handshake) while my
+  file was still uncommitted. Caught because their memory-index update landed
+  mid-session. Renumbered to 130 before committing. *Check: `ls` both bug dirs
+  for your number IMMEDIATELY before `git add`, not when you pick it.*
+
+**Handoff corrections found on re-verification (its §0 told me to):**
+- §3.4 stale: **`bugs_open/103` was CLOSED 07-27** ("all 17 pages verified",
+  commit 9def84996) — the code fix and the other 15 pages are NOT open work.
+- §3.2 done: candidate 2 is now bugs_open/130 as above.
+
+## 2026-07-28, ~14:20 BST — the fleet's Anthropic key hit its usage cap; the Gauntlet's opponent is DOWN until 08-01
+
+Found because the 130 council round died in 2 seconds at `review_editquality`:
+`API request failed with status 400 ... "You have reached your specified API
+usage limits. You will regain access on 2026-08-01 at 00:00 UTC."`
+
+- **Fleet scope, from `llm_call_log`:** the cap began biting in the 12:00 UTC
+  hour (5 ok / 6 fail), 0 successes since 13:00 UTC. Every anthropic-provider
+  call in the cluster fails until 2026-08-01 00:00 UTC or the owner raises the
+  limit. Councils, diagnosis loop, content generation — all dark. Non-LLM paths
+  stay green (the brochure landmine: never infer LLM health from status counts).
+- **The island SHARES the capped key** — proven behaviourally, not by key
+  inspection (the classifier refused hashing the secret, rightly): opened a real
+  round via Caddy loopback (`Host: tools.apis.uk`, round `da3debc8`), filed a
+  position, and got `{"error":"gauntlet opponent unavailable"}` while the
+  engine log recorded the 400 with the usage-limit body.
+- **That probe is the armed 083 log's FIRST-EVER catch** — and it worked exactly
+  as designed: the visitor-facing answer is honest, the log names the real
+  cause, request_id and all. None of candidates 1–4 fired; the cause class is
+  new (upstream account state). **NOT a fair test of candidate 4** — the call
+  failed before truncation was reachable, so candidate 4 stays open on the
+  original terms (a real burst of successful traffic).
+- **API contract detail the RUNBOOK's smoke matrix omits:** `/position` takes
+  `round_id` + `position_text` (not `position`/`argument`); wrong field names
+  get a clean 400 `"round_id and position_text are required"`.
+- Mitigation pointer, [UNVERIFIED]: the Gemini provider (bugs_open/110, one
+  image roll from usable per its workstream) is on a DIFFERENT provider key and
+  would not be capped. Whether today's v1.0.1185/1187 rolls contain it is that
+  workstream's question to answer with its own discriminating check
+  (`total_output_tokens`), not this one's.

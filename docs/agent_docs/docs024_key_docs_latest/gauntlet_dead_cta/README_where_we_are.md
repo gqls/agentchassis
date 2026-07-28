@@ -702,3 +702,34 @@ And you were right about the provocation, including the part you weren't sure
 about. It genuinely was blank when the page opened, for about three seconds,
 because it waits for a file to load and nothing filled the gap. It now says it is
 fetching, and says so honestly if it fails.
+
+---
+
+2026-07-28, mid-afternoon. Two things from this session, one good, one you need
+to know about.
+
+The good one first. The slow-burning risk we flagged two days ago — that the
+software talks to the AI with no time limit at all, so a call that never answers
+would freeze an agent until someone restarts it — turned out not to be
+theoretical. Digging through the records, it has already happened once, back in
+April: one call sat waiting for thirty minutes and was only freed because the
+machine happened to restart. It is now fixed properly — every call gives up
+after ten minutes, which is generous (the slowest genuine answer we have ever
+recorded took six), and when a call does give up it leaves a clear note saying
+exactly what happened instead of freezing silently. Filed as case 130, fix
+written and committed; it takes effect at the next software release.
+
+Now the thing you need to know. This afternoon, at about one o'clock, the
+account we use to talk to the AI ran out of its monthly allowance. The provider
+says it comes back on Friday the 1st at midnight. Until then, every part of the
+system that thinks — the review panels, the diagnosis runs, the content writing,
+and the Gauntlet's opponent on vonc.com — is off. I checked the Gauntlet
+directly: a visitor who tries to play right now is told, honestly, that the
+opponent is unavailable. Nothing pretends, nothing fakes an answer, which is
+exactly what we built. But the site's one interactive feature is down until the
+allowance resets, unless you choose to raise the limit with the provider —
+that is your call, and nothing on our side can substitute for it.
+
+One small silver lining: the failure alarm we armed on the Gauntlet two days
+ago caught this within seconds and named the real cause. First time it has ever
+fired, and it did its job.

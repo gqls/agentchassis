@@ -7,9 +7,18 @@
 **Filed:** 2026-07-28, by the gauntlet_dead_cta thread (this is `bugs_open/083`
 gauntlet-engine-503's candidate 2, promoted to its own case on fleet grounds as
 that file's §10 directed).
-**Status:** OPEN — fix built, tests pass, submitted to the council 2026-07-28
-~11:35 BST, `SUBMISSION_CORR = 1b7d802d-b416-4bcf-9b2f-0445e918ecda` (verdict
-PENDING at commit time — read `decided_by` before believing any later trailer).
+**Status:** OPEN — fix built, tests pass, committed `a554bc914`.
+`SUBMISSION_CORR = 1b7d802d-b416-4bcf-9b2f-0445e918ecda`, dispatched 14:12 BST
+(> **CORRECTED 2026-07-28:** an earlier draft said "~11:35 BST" — assumed from
+> memory of the session's start; the orchestration row's `created_at` says
+> 13:12:59 UTC. What caught it: reading the row. The cheap check: never stamp a
+> time you did not just read from `date` or the DB.)
+**The council round DIED UNJUDGED at `complete_invalid` / `review_editquality`:
+the fleet's Anthropic key hit its API usage limit** ("regain access 2026-08-01
+00:00 UTC") — the run's first LLM seat was the first call to fail. Not a
+submission defect (the fix_plan artifact persisted; the JSON parsed). **Resubmit
+with `RESUBMIT_CORR=1b7d802d-b416-4bcf-9b2f-0445e918ecda` once anthropic calls
+succeed again** (2026-08-01, or earlier if the owner raises the cap).
 INERT until an image roll (chassis fleet AND island tools-api separately).
 
 ## Symptom
