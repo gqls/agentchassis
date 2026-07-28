@@ -32,7 +32,9 @@ All eight pages 200:
 | `/contact.html` | `mailto:` form |
 
 Site id `a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39`. Evidence register: **32 facts**.
-`claimscan` **0 findings across 17 components**. `contrastscan` 14 pairs all pass.
+`claimscan` **0 findings across 17 components**. `scripts/render_audit.py`: **0 real
+contrast failures** across all pages (the one remaining reading is an `overImage`
+heuristic, screenshot-confirmed fine).
 
 `oxenunity.com` unchanged, still a hand-authored one-pager.
 
@@ -47,7 +49,8 @@ Site id `a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39`. Evidence register: **32 facts**.
    page (248). Seven steps, two branches, every step from a registered fact.
 5. **Series facts** (`claims_series.go`) — `Observation{as_of,value,source}`.
 6. **`evidence-timeseries` component** (mig 250) — **BUILT, STILL UNUSED.**
-7. **`cmd/contrastscan`** — browser-based contrast audit.
+7. ~~`cmd/contrastscan`~~ — **built and then DELETED the same day**: it duplicated
+   `scripts/render_audit.py`, which already existed and is better. Do not rebuild it.
 8. **Two charts on the Thames page** — capital structure (251/252) and the Ofwat
    determination (254/255).
 9. **Scanner fix** — written-out British dates ("28 July 2026") were read as
