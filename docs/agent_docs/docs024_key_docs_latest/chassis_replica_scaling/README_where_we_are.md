@@ -217,3 +217,35 @@ copies. Nothing needs a decision from you right now; the one I'd flag for
 when you're next here is whether the publisher should queue same-site deploys
 one behind another, which would close both halves of the collision class in
 the ledger.
+
+---
+
+2026-07-28, afternoon — you said yes to queueing same-site deploys, and it's
+done, live, and proven.
+
+The publisher now handles a collision the way a polite queue would: when two
+deploys race and GitHub refuses the second one, it re-reads what the winner
+published, rebuilds its own commit on top, and goes again — up to four
+tries. Real errors (bad credentials, rate limits) still fail immediately and
+loudly. The five-at-once test that failed completely this morning and lost
+one of five at midday now passes clean: five for five in twenty seconds, and
+a doubled-up ten-at-once run went sixteen for sixteen. The retry itself never
+even needed to fire in those runs — so rather than trust luck, I built a
+rehearsal rig that fakes GitHub refusing a commit mid-race and proved the
+retry does exactly the right thing, step by step.
+
+One thing you should know fleet-wide: the review council is out of action
+until the 1st of August — the AI budget cap has been reached, and every
+reviewer seat is an AI call. Today's deploy went out on your direct say-so
+and is fully verified; I'll put it through the council for the record when
+the lights come back on. Anything else that needs an AI anywhere in the
+fleet — writing copy, reviews, diagnoses — is in the same boat until then,
+which is worth knowing before trusting any "it ran fine" between now and
+Friday.
+
+Also tidied into the ledgers along the way: the stuck-job cleaner does
+exist (it swept this morning's stuck specimen after four hours — good that
+it exists, four hours is still too slow to be an alarm), and the one
+remaining piece of the publishing collision story — the deploy pipeline
+mis-reading merge commits — stays open in the bug ledger for whoever owns
+it next.
