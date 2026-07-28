@@ -832,7 +832,26 @@ dispatch loop is manufacturing instances of it. The item-closing gap looks separ
 cheaper than the spawn defect itself. **Now filed separately as `bugs_open/124`** with a
 live specimen — one item, two complete diagnosis chains, two correlations.
 
-### Re-measured 2026-07-28 10:00 on v1.0.1182 — ABATED, but NOT proven fixed
+### Re-measured 2026-07-28 10:00 on v1.0.1182 — ~~ABATED~~ **FALSIFIED 90 MINUTES LATER, by me**
+
+> **CORRECTION 2026-07-28 12:38 — do not use the "abated" reading below.** I called
+> it abated off one clean hour, flagged the burstiness risk in the same breath, and
+> the burstiness is exactly what got me. Same free reproducer, extended:
+>
+> | hour | `build-pipeline-trigger` spawns | timeouts |
+> |---|---|---|
+> | 09:00 | 21 | 2 |
+> | **10:00** | 24 | **16** |
+> | **11:00** | 24 | **11** |
+>
+> So the 09:00 hour was a trough, not a recovery. **The lesson is not "measure
+> longer" — I already knew that and wrote it down. It is that I published a
+> headline ("ABATED") my own caveat contradicted.** A caveat under a wrong headline
+> does not travel; the headline does.
+>
+> The real mechanism has since been found by the `chassis_replica_scaling` thread —
+> see their section in this file. It is **not** a spawn fault at all, which retires
+> my framing along with the reading.
 
 Using the free reproducer above rather than a paid run.
 

@@ -81,34 +81,52 @@ SELECT date_trunc('hour', created_at), count(*),
 FROM orchestration_states WHERE created_at > now() - interval '12 hours' GROUP BY 1 ORDER BY 1;
 ```
 
-## Where it stands right now (07-28 10:00, v1.0.1182)
+## Where it stands (07-28 12:38) — the mechanism is FOUND, and it is not a spawn bug
 
-**Abated, not proven fixed.** 07-28 `09:00` hour: **21 `build-pipeline-trigger`
-runs, 0 timeouts**, on a busy fleet (150 orchestrations). Against 07-27's 25/12,
-24/1, 23/13 — note the 24/1, which is why one clean hour is not enough.
+**Superseded: my 10:00 "abated" reading was wrong** and is struck through in
+`029`. Extended with the same reproducer: `09:00` 21 spawns/2 timeouts, **`10:00`
+24/16, `11:00` 24/11**. The clean hour was a trough.
 
-Two timeouts at 09:57:29 and 09:59:59 are `[INFERRED]` roll-casualties (chassis
-rolled 09:55:02Z), not the defect.
+**The `chassis_replica_scaling` thread has since caught the mechanism end to end**
+(commits `42c7a7317`, `8b7638de5`), and it retires the whole "spawn handshake"
+framing this thread was working under:
 
-**`afbd005f9` did NOT cause this** — *"CLAIM_RECOVERY may no longer steal a live
-claim"* is adjacent code but was committed at 10:52, after the clean window and
-after the running image was built. Whatever changed between `1180` and `1182` is
-unidentified.
+- **It is a queue-vs-timeout treadmill, not a spawn race and not the roll.** The
+  response is *not lost* — it is *late*. Evidenced hop by hop: the git-adapter
+  answered in 3.0 s (produced 10:34:45Z) and the chassis processed that response
+  at 10:37:35Z — **2m50s of response-lane queueing, five seconds after the await's
+  final timeout**. An await fails when callee-queue plus response-lane delay
+  exceeds 3 minutes, and F2's re-queue-at-the-back turns that into a treadmill.
+- **Post-roll degradation is response REPLAY**: ~49 msg/min drain, so **2–3 hours
+  of response deafness per restart**, load-independent and *growing daily* as the
+  responses topic grows.
+
+That is consistent with everything this thread measured and explains what I could
+not: the burstiness (queue-depth dependent), the roll correlation (replay), why
+`build-pipeline-trigger` dominates (fires every 30 s, most exposed), and why
+`page-rerender` is clean (fewer, faster hops). It also confirms the diagnosis
+loop was right to refute my persist-ordering race.
+
+**Implication for the wrapper:** the blocker is response-lane latency, so adding
+a spawn hop to the council makes it *more* exposed, not less. Do not retry the
+wrapper on the assumption that a fresh chassis fixed anything.
 
 ## Next actions, in order
 
-1. **Watch one more busy hour** on `agent_error_log` before anyone concludes the
-   spawn defect is fixed. If it stays clean, `029` may be closable — which would
-   unblock everything below.
-2. **If clean: retry the wrapper.** One submission with
-   `TARGET_AGENT_TYPE=council-gate-orchestrator`. Success = wrapper reaches
+1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
+   mechanism and the fix. This thread's remaining job is to retry the wrapper
+   *after* their fix lands, not to investigate further.
+2. **Retry the wrapper only once response-lane latency is fixed.** One submission
+   with `TARGET_AGENT_TYPE=council-gate-orchestrator`. Success = wrapper reaches
    `AWAITING_RESPONSES` in ~24 s, a dedicated pod appears, generic LAG stays 0,
    and a `council_report` lands under the submission correlation.
 3. **Then flip `097`'s default** to `council-gate-orchestrator` and the council
    becomes concurrent. Not before.
 4. **`bugs_open/124`** (one diagnosis item runs twice, two correlations) is
    separate, unowned, and cheaper — fix candidate 1 is to make a diagnosed item
-   terminal, which makes the duplicate unrepresentable.
+   terminal, which makes the duplicate unrepresentable. **Note it is now doubly
+   worth fixing**: duplicate chains double the response-lane load that is
+   causing the timeouts.
 
 ## Landmines paid for in this thread
 
