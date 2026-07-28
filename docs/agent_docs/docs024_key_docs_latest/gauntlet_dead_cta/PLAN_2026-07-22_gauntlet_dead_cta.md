@@ -231,3 +231,66 @@ assertions that are true at 300 ms. **Not acceptable:** making the page paint
 optimistic placeholder text to satisfy them — that would make the checks pass
 with the engine switched off. Meanwhile the journeys ARE verified, by
 `p4_sources/verify_live.py` driving the deployed pages in Chromium.
+
+---
+
+## OWNER DIRECTION — 2026-07-28 (supersedes the blocking order in `bugs_open/131`)
+
+Recorded verbatim in substance because it changes both the sequencing and the
+long-run shape of this product, and neither is derivable from the code.
+
+### Sequencing ruling: design FIRST, premise later
+
+> *"I'm happy to improve the design before deciding on the whole premise as the
+> latter may take longer."*
+
+**This unblocks `bugs_open/131` items C, E and F**, which that file had gated
+behind item H (the "why argue with an AI when Perplexity is free" question).
+**H no longer blocks them.** Do the design work now; the premise question runs on
+its own, longer clock.
+
+### The premise question is not unanswered — it has a hypothesis
+
+The owner's own answer to H, which should be treated as the working theory rather
+than an open void:
+
+> *"It might be that when there are more people and perhaps with different,
+> predefined, interesting categories of provocations — maybe current affairs,
+> celebrity, films, news, finance, as well as the type of provocations you are
+> doing already — that it will seem lively and serve better purpose."*
+
+So the differentiator from a chat window is **not** the argument itself; it is
+**liveliness and breadth** — many people, many subjects, a place with something
+going on. That reframes several things already built: the Gauntlet is currently
+one provocation per day in one register (abstract/cultural), which is the
+narrowest possible version of the thing the owner thinks would work.
+
+**Implication for `131` item G** (recording a won verdict): it is not a vanity
+feature, it is a *first step toward liveliness*. Treat it as such when scoping.
+
+### Direction for LATER — not now, but do not lose it
+
+1. **Provocation categories.** Predefined, interesting, named: current affairs,
+   celebrity, films, news, finance — *alongside* the existing abstract register,
+   not replacing it. This is the single most concrete lever named.
+2. **Group opinion statistics, with graphs as the first step.** *"There could be
+   value in the stats of group's opinions and decisions at a later stage, so
+   graphs might be the first step for that."*
+   **RAIL — this is the sharpest fabrication risk this workstream has faced.**
+   A graph of group opinion on a site with no participants is a fabricated crowd
+   with a chart drawn on it. The existing rule stands and applies with force: a
+   number appears only if it is true by construction or measured. **Graphs come
+   after participants, never before them.** [Recorded 2026-07-28 so nobody builds
+   the chart first because it is the easy part.]
+3. **Visitor-suggested provocations, to their own groups.** *"People suggesting
+   their own provocations to their own groups might be another angle to explore."*
+   Note this implies identity, groups and moderation — none of which exist. It is
+   an exploration, not a queued feature.
+
+### Priority, stated plainly
+
+> *"But to start with, let's get what we have done, working well."*
+
+**Fix what exists before extending it.** `bugs_open/131` B–F is the near-term
+list; categories, graphs and groups are all downstream of that and of real
+participants.
