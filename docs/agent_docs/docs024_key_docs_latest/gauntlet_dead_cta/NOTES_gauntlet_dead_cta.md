@@ -1693,3 +1693,34 @@ positive control returning an impossible 0, and re-reading my own handoff agains
 the commit log. The tally this week is now five "checks that could not fail" and
 one "tidy arithmetic with no mechanism". They are the same error wearing
 different clothes: **evidence that cannot be wrong is not evidence.**
+
+## 2026-07-28, ~19:40 BST — vonc 4's close-out absorbed before its thread closes (owner ask)
+
+Reviewed session vonc 4 (`e0016932`) — its commits, its 19:32 close-out NOTES
+entry above, and its transcript — for overlap with this thread's in-flight work.
+
+- **131-B check-side is DEPLOYED: fleet `v1.0.1192` (pod started 18:23:07Z),
+  re-grepped by them after the roll** (positive 1 / marker 1 / negative 0).
+  LIVE but UNWITNESSED — no acceptance run has exercised the new clause yet.
+  Their §3 pod-grep recipe supersedes the `strings` one for this container:
+  **`strings` does not exist in the browser-runner-adapter image** — grep the
+  binary at `/app/browser-runner-adapter` directly.
+- **`bugs_open/130`'s chassis half is [INFERRED] live on 1192**: the same fleet
+  build pass whose browser-runner-adapter carries the 14:39:22Z commit must
+  carry 13:13:45Z `a554bc914` in the chassis. No static marker exists (struct
+  literal), so the WITNESS is behavioural: any post-18:23Z anthropic failure at
+  `latency_ms ≈ 600,0xx`. **The ISLAND half is NOT live** — tools-api is still
+  `v1.0.1178`, built 07-27, pre-130. Island rebuild owed by this workstream.
+- **Their retag landmine applies to us**: 1188/1189 were ONE image id built
+  56 min before the fix "in" them. Check `.ID`+`.CreatedAt`, never the tag.
+- **131 is now an AMBIGUOUS NUMBER** (added to CLAUDE.md's list): a second
+  `bugs_open/131_…og_image…` was filed 16:10. And **vonc.com is one of its 11
+  affected sites — checked live 19:40: the gauntlet page emits
+  `og:image → /assets/images/og-card.png`, HTTP 404.** Every social share of
+  the Gauntlet unfurls with no preview — directly relevant to "this site has
+  no visitors", owned by that bug (UNDIAGNOSED — do not build a generator;
+  their control pair leopardess/robot-hands shows an emitter exists).
+- **131-C is uncontended**: their transcript's "reveal" hits are all diagnosis
+  (filing C, the appeal specs); no design or build. This thread's reveal build
+  (`gi-sealed` state class; template+JS pulled; entry model chosen by the
+  owner) proceeds.
