@@ -301,3 +301,60 @@ subset. The fix that makes recurrence unrepresentable is ONE shared post-process
 pipeline both paths call (repair + validation included), not adding one missing call
 to the bulk copy (which leaves the next divergence open). Landmine from memory: do NOT
 wire `InjectLinkConstraints` — it is a dead duplicate (see bugfix 092 notes).
+
+---
+
+## 2026-07-28 13:1x — THE REPAIR HALF IS FIXED, LIVE, AND VERIFIED ON THE DAMAGED PAGE. The detector half stays open.
+
+**Built** (commit `c18f6f430`, live chassis `v1.0.1187`, digest-verified after a live
+same-tag collision at 1186): `repairOutboundPageLinks` — one shared seam applying the
+build gate's `RepairPageLinks` (same `loadValidPagePaths` index) at
+HTML-leaves-for-deploy on BOTH rerender paths. `writeLinkRepairLog` generalised with a
+`linkRepairOrigin` so the durable record names WHICH path repaired; the gate's rows are
+byte-identical to before.
+
+**Verified end to end on the live damage** (single-page rerender corr `c9dc739a`,
+COMPLETED 13:11):
+
+| check | result |
+|---|---|
+| `agent_error_log` row `agent_type='page-rerender'`, code `CONTENT_LINK_REPAIR_DETAIL` | **"Repaired 6 dead internal link(s): 0 rewritten, 6 removed", page learning-center** — a row shape structurally impossible on any pre-1187 binary |
+| served `learning-center.html`, the five `/learning-center/*` hrefs | **5 → 0** |
+| served `learning-center.html`, `/matchmatrix/methodology` href | **1 → 0** |
+| page integrity | 30,103 bytes, anchor text preserved as plain text (unlink keeps body prose) |
+
+The remaining three pages carrying `/matchmatrix/methodology` (`gripper-catalog`,
+`pneumatic-vs-electric-grippers`, `selection-guide` — a wider spread than this file
+knew) are being cleared by the same dispatch.
+
+**Correction to the diagnosis, which changes nothing about the fix:**
+`RerenderSitePagesAction` — the "bulk path" the verdict named — is **unregistered dead
+code**: no registry entry, no `agent_definitions` reference, no callers. The live bulk
+mechanism is `create_rerender_items` → per-page work items → `page-rerender` running
+`RerenderSinglePageAction`. So the 07-25 rebuild went through the SINGLE-page action,
+which equally lacked the repair. The mechanism finding ("no rerender path validates or
+repairs") holds; the function attribution was wrong. The fix covered both paths plus
+the dead one, so the correction costs nothing — but it is why fixing the drift CLASS
+beats fixing the named site.
+
+**Council: could not sit.** Submission `fcd4322b` died at its first seat — the
+Anthropic API spend cap is exhausted until 2026-08-01 00:00 UTC. The gate is advisory;
+committed without trailer per standing practice. **Resubmit with
+`RESUBMIT_CORR=fcd4322b` when LLM access returns.**
+
+**WHY THIS FILE STAYS OPEN — the headline defect is untouched:** `ctaFieldNames`
+(`resolve_internal_links_action.go`) still enumerates named CTA fields and walks no
+`content_data` arrays, so `unresolved_cta` still cannot SEE `info-card-grid` card
+links; and `check_phantom_internal_links` has still never produced a finding for
+robot-hands.com (mechanism unestablished — possibly 083's dead sweep). Detection and
+repair are not substitutes: the repair now deletes a phantom link silently, and the
+authoring defect that wrote it goes unreported. Fix candidate 1 (resolve rendered
+hrefs against `pages.url` at the CHECK, reporting findings) remains the open work.
+
+**Site-wide sweep result (all four affected pages rebuilt through the repaired path,
+13:1x–13:2x):** learning-center 0 rewritten/6 unlinked · gripper-catalog 1/4 ·
+pneumatic-vs-electric-grippers 0/6 · selection-guide 2/4 — **23 dead links repaired**,
+both repair arms exercised live (3 rewrites to real stored URLs, 20 phantoms unlinked).
+All four pages re-probed over HTTPS: 200, zero remaining `/matchmatrix/methodology` or
+`/learning-center/*` phantom hrefs. The live damage this file tracked is CLEARED; the
+detector gap (headline) remains the open work.

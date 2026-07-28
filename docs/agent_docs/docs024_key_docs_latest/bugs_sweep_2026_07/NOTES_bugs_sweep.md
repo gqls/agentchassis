@@ -210,3 +210,51 @@ Three things this close surfaced, priced for the next session:
 NEXT per the handoff order: **097** — its blocker is gone twice over (honest banner +
 RepairPageLinks actually indexed). Re-fire its diagnosis with the unchanged question:
 which of the three mechanisms was on the 07-25 build path.
+
+---
+
+## 2026-07-28 afternoon (bugs thread 2, continued) — 097's repair half: diagnosed, fixed, live, verified on the damaged page
+
+The owner refreshed the chassis (v1.0.1185) and said carry on. Both in-flight diagnosis
+runs had COMPLETED before the roll: `dcde1ed9` (129 — CONFIRMED on the timeout half;
+could not see the reaped pods' logs, which stay preserved in the bug file) and
+`9543aaf1` (097 — **CONFIRMED, first try, one day after three failed attempts**: the
+07-25 rebuild went through a rerender path and NO rerender path runs RepairPageLinks;
+the honest index closed 108 and immediately earned its keep).
+
+Fix `c18f6f430`: shared `repairOutboundPageLinks` on both rerender paths + generalised
+`writeLinkRepairLog` (origin-stamped). Live v1.0.1187, verified three ways: pod markers
+1/1; an `agent_type='page-rerender'` repair row (impossible on any earlier binary) —
+"6 dead links: 0 rewritten, 6 removed"; served learning-center.html went from 6 dead
+hrefs to 0, text intact, 30KB. Remaining three pages carrying the methodology phantom
+cleared by the same dispatch.
+
+**Missteps + traps this stretch, priced:**
+
+- **The Anthropic API spend cap is EXHAUSTED until 2026-08-01 00:00 UTC.** Council
+  submission `fcd4322b` died at its first seat with the API's own message. Everything
+  LLM is dark: councils, diagnosis runs, content writers. Bugs fixable with code +
+  non-LLM verification (like this one) remain workable; anything needing a verdict
+  queues behind 08-01 or an owner cap raise. Resubmit 097's plan with
+  `RESUBMIT_CORR=fcd4322b` when access returns.
+- **A LIVE same-tag collision:** two sessions bumped 1185→1186 within minutes; the
+  sibling's registry push overwrote mine, and the pod came up WITHOUT my fix under MY
+  tag. Caught only because the pod's imageID digest ≠ my pushed digest. The pod-grep
+  discipline (markers, not tags) caught it in one query; 1187 resolved it. When two
+  chassis threads are active, expect this and check the DIGEST.
+- **The diagnosis named a function that cannot run:** `RerenderSitePagesAction` is
+  unregistered dead code; the live path was `RerenderSinglePageAction` via per-page
+  work items. Mechanism right, attribution wrong — and the fix survived the correction
+  precisely because it fixed the drift CLASS (both paths, one seam), not the named
+  function.
+- The 097 triage's "bare /cases … rewrites" paraphrase does not match the code: a
+  section-index alias is ACCEPTED (the index normalises index.html away); only the
+  extension-omitted form rewrites. My first test encoded the paraphrase and failed —
+  read Lookup, not the prose about it.
+
+**Backlog state:** 097 stays OPEN for its headline (detector enumeration —
+`ctaFieldNames` still blind to card arrays; `check_phantom_internal_links` still
+zero-findings on robot-hands, mechanism unestablished, likely 083). 109 was closed by
+the sibling thread mid-session (all four maps derived). NEXT candidates: 091 candidate
+1 (coordinate with work_item_completion_integrity), or the unowned untouched list —
+but note the spend cap constrains anything council/diagnosis-shaped until 08-01.
