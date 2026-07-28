@@ -10090,3 +10090,51 @@ the next thread reads the same line and makes the same claim. It now says the to
 and names what caught it. Related: [[prior-art-search-goes-stale]] (an absence is only true when
 you looked) — this is its mirror image, **a presence is only true when you looked**, and the
 half-life is the same.
+
+---
+
+## 2026-07-28 — "suites green" was true of my working tree and false of the commit, and HEAD did not compile
+
+**The claim.** Commit `93003e6e0` (bugs_open/104, fleet-wide banned claims) says in its own
+message: *"8 unit tests; full datahelpers/actions/discovery_checks suites green."* I had run them,
+they were green, and I wrote it down. **The commit itself did not compile.**
+
+**What was actually wrong.** The pathspec named `validate_page_content.go` and
+`check_unverified_claims.go` because I had edited them. Both files *also* carried another
+session's uncommitted `ClaimSurface` plumbing (bugs_open/102) — the same-file passenger CLAUDE.md
+says no hook can catch. So my commit shipped the two **consumers** of a type whose **definition**,
+in `claims.go`, was still sitting uncommitted in the shared tree:
+
+```
+check_unverified_claims.go:295: undefined: datahelpers.ClaimSurface
+check_unverified_claims.go:414: too many arguments in call to eb.ScanUnregisteredNumbers
+```
+
+That matters more than an untidy commit: **`make build-<service>` builds from committed HEAD**, so
+for the four minutes until the 102 session committed its half (`3ddb4ed2d`), any session that
+started an image build would have got a compile failure with my name on the commit.
+
+**What caught it.** Not the tests, not the commit-scope hook — both were happy. It was reading the
+commit's own diff afterwards because the insertion/deletion counts looked too large for the edits
+I remembered making, and noticing a hunk header that read
+`func scanComponentClaims(html, slotName string, eb *datahelpers.EvidenceBase)` — **without** the
+`surface` parameter that was in my working tree. A hunk whose context is code you did not write is
+the tell.
+
+**The cheap check that would have.** One command, before or straight after committing:
+
+```bash
+git archive HEAD | tar -x -C /tmp/headcheck && (cd /tmp/headcheck && go build ./platform/...)
+```
+
+**The transferable bit.** Every test I ran, and every build, was against **my working tree** — which
+contained the other session's definition. The tree is the union of everybody's WIP; HEAD is what
+ships. **A green test in a shared tree proves the union compiles, never that your commit does**, and
+the gap is invisible precisely when the missing half is someone else's uncommitted dependency. This
+is the mirror of [[shared-tree-wont-compile]], which is *their* WIP breaking *my* tests; this is
+*their* WIP being carried by *my* commit and breaking everyone.
+
+**Also worth saying plainly:** the pathspec discipline did its job on every file it could — it kept
+five other sessions' modified files out. It cannot help with a file two sessions are editing at
+once, and this is what that costs. The fix was forward-only: I prepared the missing half as a
+labelled `sweep:` commit, and by the time it ran the owning session had committed it themselves.
