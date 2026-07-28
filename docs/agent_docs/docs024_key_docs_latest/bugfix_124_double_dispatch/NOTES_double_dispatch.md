@@ -298,3 +298,59 @@ Generalisable beyond this script: **`psql -t -A` into a shell variable is safe f
 SELECT and unsafe for anything else.** Any `UPDATE/INSERT/DELETE … RETURNING`
 whose result is tested for emptiness has this bug. Worth a grep across the trigger
 scripts — not done here.
+
+## 2026-07-28 18:2x — v1.0.1192 rolled by another session; the landmine held
+
+Someone deployed a fresh chassis. This is the first live test of 124's standing
+invariant, so I checked it rather than assumed:
+
+```
+pods    agent-chassis-f757fcf65-{bg9t7,kctnr}  v1.0.1192  digest sha256:4bd9a111…
+grep -c "unknown execution-context field"      → 1 on BOTH pods
+replicas                                        2/2      (the overlay fix held)
+agent_definitions.image_tag                     186 rows @ v1.0.1192
+needs_diagnosis awaiting_diagnosis|diagnosing   0
+```
+
+Both pods carry the `$ctx.` binding, so migration 258 is still satisfied and the
+diagnose lane is safe. The build came from committed HEAD, which now includes the
+fix — which is exactly why the committed-ref build rule exists.
+
+Worth noting what was actually at risk: had that build come from a ref predating
+`af0cde87d`, `claim_item` would have failed on the next tick and the diagnose lane
+would have stopped dispatching, silently, with no failed row to look at. **A
+pod-grep after every roll is not ceremony for this lane; it is the only thing
+standing between a routine deploy and a dead queue.**
+
+Also confirmed the 2-replica overlay fix survived a deploy I did not run — which
+was the point of moving it out of `kubectl scale` and into the overlay.
+
+## The psql trap had been found TWICE before, and written down nowhere findable
+
+Ran the audit I said was worth doing:
+
+```
+docs024/idea_uk_vm_site/054_chrome_verify/02_verify_054_induced_fault.sh:54
+  "INSERT then SELECT (not RETURNING): psql -tA prints the 'INSERT 0 1' command tag
+   on its own line alongside a RETURNING value, which pollutes a captured id."
+
+docs024/webdesign_couk/scripts/watch_park_webdesign.sh:90-93
+  "psql prints its command tag ('UPDATE 0') alongside the RETURNING rows even
+   under -t -A, so filter it out. Logging it made every idle cycle look like a
+   park and would have hidden a real one in the noise."
+```
+
+Two threads, two independent discoveries, two different local workarounds (avoid
+`RETURNING` entirely; filter the tag out of the stream). **Neither reached 016b or
+`WRONG_CALLS`.** So I hit it a third time — and my instance was the dangerous one:
+theirs polluted *visible output*, mine made a *guard silently pass* and dispatched
+a paid job against another dispatcher's item while reporting success.
+
+Now in 016b §9 with both halves of the fix. The lesson is not about psql. It is
+that a fix recorded in the script where it was needed is invisible to the next
+thread, and the cost of that invisibility scales with how much worse the third
+instance happens to be. Same class as `bugs_open/106` (the register is
+two-thirds uncovered), reached from a different direction.
+
+No live instances of the bug found elsewhere: no other script captures a non-SELECT
+into a variable and tests it for emptiness.
