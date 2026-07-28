@@ -9983,3 +9983,110 @@ the census at ~4890: 0 of 14,209 persisted plan steps carry the step-level twin 
 the `config` one). Knowing a trap exists does not help if you query the field name you expected;
 the tell is a result that is uniformly NULL across *every* row, which is almost never a fact about
 the world.
+
+---
+
+## 2026-07-28 (later) — a reversal trigger that counts the opposite of what it means, and a snapshot I declared missing
+
+**Thread:** "bugsearch 5", seating `review_architecture` on the fix lane after the
+owner reversed D9. Two more, both caught inside a minute, both worth the row
+because each was about to be handed to the owner as fact.
+
+### Claim 1 — "the trigger has fired 68 times across 50 submissions"
+
+D9's reversal condition was *≥3 architecture-level escalations routed to a human*,
+with the query written into the decision doc: `body ILIKE '%rchitecture-level
+concern%'` over `council_report`. It returns **68 / 50**. I was one sentence from
+reporting that as a 16×-threshold mandate.
+
+**It measures the negation.** The phrase is seeded in **four prompts**, so seats are
+*taught* to use it — and 26 of the matches are seats writing *"**No**
+architecture-level concern in this area"*. Split properly: **13 affirmative reports
+across 10 submissions**. Still over threshold, so the conclusion survived; the
+number I would have quoted was wrong by 5×, in the direction that flatters the
+decision.
+
+**What caught it.** Asking the cheap question before quoting a number that was
+about to justify reversing an owner ruling: *is this string in any prompt?*
+```sql
+SELECT type FROM agent_definitions WHERE deleted_at IS NULL
+  AND default_config::text ILIKE '%<the phrase>%';   -- 4 rows ⇒ the count is polluted
+```
+Then read three matches verbatim. Both checks together took under a minute.
+
+**The transferable bit.** This is
+[[declaring-a-key-silences-your-own-detector]] inverted: there, declaring a key
+silenced a detector; here, **teaching seats a phrase made the detector for that
+phrase fire on everyone who considered the question and said no.** Any
+free-text detector whose phrase also appears in the instructions is measuring
+compliance with the instructions, not the signal. **Before believing a
+`body ILIKE` count, grep the prompts for the same string.**
+
+Aggravating factor worth naming: the trigger was authored in the same document that
+recorded it as `[UNMEASURED]`. **An unrun query acquires authority by sitting in a
+decision register** — it looks like a measurement because of where it lives.
+
+### Claim 2 — "099 printed 'snapshot taken' and no snapshot exists"
+
+I checked `agent_definitions` for `is_snapshot=true`, found nothing, and wrote that
+the safety mechanism was a false print — citing
+[[a-print-statement-is-not-a-config-row]] by name.
+
+**Wrong: snapshots go to `agent_definitions_backup`.** Reading `snapshot_agent`'s
+body showed the INSERT target immediately, and the row was there — 21:56:37Z, at 16
+seats, exactly as advertised. The mechanism works.
+
+**The transferable bit.** *Having the right pattern loaded is not the same as
+checking it applies.* I reached for a known failure shape and let it substitute for
+reading the function — the same substitution the pattern itself warns against. When
+a safety mechanism appears to have failed, **read its implementation before
+reporting it broken**: a missing row is far more often the wrong table than a lying
+print. Cheap check: `SELECT prosrc FROM pg_proc WHERE proname='<fn>'`.
+
+### The tally point
+
+Both are the family already dominating this file — *the check answers the question
+you encoded*. The new wrinkle in Claim 1 is that the polluting text was **our own
+prompt**, which no amount of care about filters would have caught: the query was
+well-formed, the table right, the population right, and the string meant something
+different in the corpus than in the author's head. **Add "grep the prompts" to the
+standing checks for any council-corpus metric** — that now covers both this and the
+`%deflect%` false-citation trap logged 07-27.
+
+---
+
+## 2026-07-28 — I recommended a tool that had been deleted the same day, from my own memory index
+
+**The claim.** In the opening plan for the webdesign.uk build service, the free-teaser section
+listed the machinery we could point at a prospect's existing site: browser-runner checks, the
+44px rule, and *"the contrast scanner (`cmd/contrastscan`)"*.
+
+**`cmd/contrastscan` does not exist.** It was built earlier the same day by the oufe thread,
+found to duplicate `scripts/render_audit.py`, and **deleted on discovery**. The register entry
+(VIZ-010) already recorded the whole episode, including its cause: *"the prior-art grep was
+`--include=*.go` and the prior art is Python."*
+
+**What caught it.** `scripts/pattern-check.py`'s `new-capability-surface`, on the commit hook,
+about ninety seconds after the file was written. Worth noting *how* it fired: not on code
+creating a path, but on **a document proposing one**. It printed the real `cmd/` listing
+underneath, so the correction took one `ls`.
+
+**The cheap check that would have.** `ls cmd/`. One command, no cluster, no grep syntax to get
+wrong. I had run a dozen live database queries to ground everything else in that plan and did not
+run this one, because the tool name did not feel like a claim — it felt like a fact I already
+knew.
+
+**The transferable bit, and it is not "check your facts".** *The name came from my own auto-memory
+index*, which said `cmd/contrastscan` is the browser witness. That line was written before the
+deletion and was stale by hours. **A memory index is a claim with no evidence attached and no
+expiry**, and it is read in the one posture where nothing gets verified — cold start, where its
+whole purpose is to save you the lookup. So: **a path, a symbol or a flag recalled from memory is
+an [UNVERIFIED] claim wearing the clothes of a settled one.** The system prompt already says to
+verify a memory that names a file before recommending it; the interesting part is that the memory
+was *right when written*, which is the failure mode no amount of care at write time prevents.
+
+**Follow-through.** The stale memory was corrected in place rather than only the plan — otherwise
+the next thread reads the same line and makes the same claim. It now says the tool does not exist
+and names what caught it. Related: [[prior-art-search-goes-stale]] (an absence is only true when
+you looked) — this is its mirror image, **a presence is only true when you looked**, and the
+half-life is the same.
