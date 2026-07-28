@@ -409,6 +409,49 @@ corr prefixes e6a0cf7a/3f264f03/3e22ad91/e6223786/6aedced7, published
   or 422-retry-with-rebase. Until then, expect occasional prompt
   non-fast-forward failures on same-site concurrent deploys.
 
+## 2026-07-28 afternoon — git-adapter serialisation (owner-ruled) LIVE and proven both ways; the council gate is DOWN on the fleet's LLM spend cap until 08-01
+
+**Owner ruled** ("the git adapter should serialise same-site deploys… go
+ahead"): implemented as re-base-and-retry at GitHub's own ref CAS
+(`CommitToRepo`, commit `7dc876795`) — on a non-fast-forward the loser
+re-reads the winner's head and rebuilds tree+commit on it, max 4 attempts;
+blobs hoisted (content-addressed); only "fast forward" 422s retry, everything
+else still fails loudly. Deployed v1.0.1187 to both replicas (rolled on the
+owner's go-ahead with one in-flight git op accepted as an F2-recoverable
+casualty), verified against the RUNNING processes via `/proc/1/exe` (the
+adapter's binary lives at `/root/git-adapter`, unreadable by the container
+user — `/proc/1/exe` is the pod-grep route on this image).
+
+**Proof, both branches:**
+- Happy path at burst scale: the 5-burst went **5/5 COMPLETED in 20.3 s**
+  (14:27), then a 10-concurrent double-burst — **16/16 COMPLETED in the
+  window, 0 failed** (vs 0/5 morning, 4/5 midday).
+- The failing branch: no natural race fired across all 16 (zero
+  REF_RACE_RETRY lines), so it is proven by an induced test instead — a fake
+  GitHub returns the verbatim 422 on the first ref PATCH while moving the
+  head; the test asserts head re-read, tree+commit rebuilt on the winner's
+  base, second PATCH succeeds, blobs created once (`1602dcd95`). Live firing
+  will log `REF_RACE_RETRY` when it happens.
+
+**Council: submission corr `bf2bef0a…` died `complete_invalid` at the FIRST
+seat — not on the merits: the Anthropic usage cap is exhausted fleet-wide
+("You will regain access on 2026-08-01 at 00:00 UTC"). The advisory gate is
+therefore DOWN until 08-01; no resubmission is possible before then.** The
+deploy stands on the owner's explicit direction; resubmit for the record
+after 08-01 if anyone wants the trailer. (Corollary: no further council
+submissions this session; the Phase 3 flip needs none — `worker_pool_all`
+was reviewed inside CS-2's approved plan.)
+
+**Two incidental discoveries recorded:**
+- A stale-orchestration **reaper exists**: the morning's wedged specimen
+  `6c4a0bdf` was failed at 13:46:56 with "reaper: stale EXECUTING_STEP for
+  >4h". Wedge bookkeeping heals at 4 h — detection is still the watchdog's
+  job (4 h is an outage, not an alert), but 029's fix-candidate 1 exists in
+  some form.
+- The shared tree's branch moved mid-afternoon: `086_experience_loop` →
+  `087_towards_multiple_domains` (another session; 087 is a strict superset —
+  verified all this workstream's commits are ancestors of the new HEAD).
+
 **Owed and explicitly deferred, with triggers:**
 - CS-1's induced live tests (duplicate response → `STALENESS_HELD`; stale
   claim → `CLAIM_RECOVERY` still fires). The guard is live and

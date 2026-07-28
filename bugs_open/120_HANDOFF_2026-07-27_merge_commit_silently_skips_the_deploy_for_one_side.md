@@ -152,3 +152,19 @@ multiple concurrent writers and no serialisation anywhere — one fix shape
 would close both the machine race and narrow this file's window. Evidence
 corr: `6aedced7-490d-466a-ba5e-163616bdce45`, 11:26:28Z. Not filed as a new
 number — same repo, same missing serialisation, one account.
+
+**UPDATE same day ~14:45 — the machine half is FIXED and LIVE (owner-ruled).**
+`CommitToRepo` now re-bases and retries at GitHub's ref CAS on a
+non-fast-forward (commit `7dc876795`, adapter v1.0.1187 on both replicas,
+verified via `/proc/1/exe` — `/root/git-adapter` is unreadable by the
+container user). Proof: 16/16 concurrent deploys completed where the morning
+burst went 4/5; the failing branch is pinned by an induced fake-GitHub test
+(`1602dcd95` — verbatim 422, head moves mid-flight, second attempt builds on
+the winner's base, blobs created once). **This also absorbs this file's human
+half in the window sense**: a human push landing between the adapter's read
+and update now causes a re-base, not a failed deploy. What it does NOT fix is
+this file's original mechanism — the deploy WORKFLOW diffing `HEAD~1` on a
+merge commit — which remains open. Council review of the fix died on the
+fleet's LLM spend cap (`complete_invalid` at seat 1, corr `bf2bef0a…`;
+access returns 08-01) — resubmit after that date if the trailer is wanted.
+— work-item parallelisation thread
