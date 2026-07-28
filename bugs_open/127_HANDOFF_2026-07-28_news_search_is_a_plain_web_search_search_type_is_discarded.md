@@ -35,8 +35,16 @@ ai-agent-orchestration.com all use this path.
 >    live call with a real key. If wrong, the news parse yields zero results and errors
 >    loudly rather than mislabelling — but check the fallbacks list in the first live run.
 >
-> Council submission `a7ae8ce8-ef40-4503-be8a-972ebe1b0973` (verdict pending at commit
-> time; no trailer until `decided_by` is read).
+> Council verdict `a7ae8ce8-ef40-4503-be8a-972ebe1b0973`: **APPROVED round 1** (10:46Z,
+> `unreadable: 0`, plan summary matched verbatim). The fix commit `723a10259` predates the
+> verdict, so the trailer rides the verdict-record commit. The seats' three containment
+> asks were answered by grep after approval, all clean: `SearchProvider` has no implementer
+> or caller outside the adapter package + its tests (guardian's tips-to-veto condition
+> refuted); nothing parses the old "providers failed" error string; no existing
+> date-normalisation helper in `datahelpers/`/`pkg/` for the normaliser to have duplicated
+> (reuse seat). debug_historian's ask — pod-grep the new symbols, don't trust the induced
+> fetch alone — is folded into item 2 above; prior_art's ask — re-check provider
+> availability at roll time, not from an earlier log — is done as part of the roll.
 
 ---
 
