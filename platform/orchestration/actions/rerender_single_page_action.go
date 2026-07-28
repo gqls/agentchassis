@@ -152,6 +152,15 @@ func RerenderSinglePageAction(ctx context.Context, params ActionParams) (interfa
 	// template); only what ships is stripped. No-op when absent.
 	html = content.StripToolDocHeader(html)
 
+	// Repair dead internal links against pages.url before the page ships —
+	// the same repair the initial-build gate applies (bugs_open/079). Without
+	// it a rebuilt page redeploys 404s the gate would have caught
+	// (bugs_open/097, diagnosis 9543aaf1). Same outbound-only philosophy as
+	// the strip above: DB rendered_html keeps the unrepaired form.
+	pageIndex, pageIndexOK := loadValidPagePaths(ctx, params.DB, pageInfo.SiteID, params.Logger)
+	html = repairOutboundPageLinks(ctx, params, pageInfo.SiteID, pageInfo.Domain,
+		pageInfo.Name, pageInfo.URL, html, pageIndex, pageIndexOK, params.Logger)
+
 	// Collect JS assets for components used on this page.
 	// Components with js_content get deployed as /tools/assets/{function}.js
 	jsAssets := collectJSAssets(ctx, params.DB, pageID, params.Logger)

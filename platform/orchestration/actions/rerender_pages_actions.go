@@ -181,6 +181,13 @@ func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interfac
 	// Load head component template
 	headTemplate := rerenderLoadHeadTemplate(ctx, params.DB, siteID, params.Logger)
 
+	// The site's valid-URL index, built ONCE for the whole run — the same
+	// index (and the same builder) the initial-build gate repairs against, so
+	// this path and the gate cannot disagree about which links are dead
+	// (bugs_open/097: the 2026-07-25 learning-center rebuild came through
+	// here and redeployed six 404s the gate would have repaired).
+	pageIndex, pageIndexOK := loadValidPagePaths(ctx, params.DB, siteID, params.Logger)
+
 	// Re-render each page
 	renderedPages := make([]map[string]interface{}, 0, len(pages))
 	for _, page := range pages {
@@ -199,6 +206,13 @@ func RerenderSitePagesAction(ctx context.Context, params ActionParams) (interfac
 				zap.Error(err),
 			)
 			continue
+		}
+		// Repair dead internal links before the page ships — the same repair
+		// the initial-build gate applies (bugs_open/079); applied at the
+		// collection point so rerenderSinglePage's seam stays untouched.
+		if htmlStr, ok := rendered["html"].(string); ok {
+			rendered["html"] = repairOutboundPageLinks(ctx, params, siteID, domain,
+				page.Name, page.URL, htmlStr, pageIndex, pageIndexOK, params.Logger)
 		}
 		renderedPages = append(renderedPages, rendered)
 	}

@@ -367,7 +367,15 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 		// A pod log line is not a record. Persist what we DID, not only what we
 		// saw — bugs_open/071 gap 3: on the success path this action wrote
 		// nothing durable, and collected_data is pruned at ~24h.
-		writeLinkRepairLog(ctx, params, siteIDStr, domain, repairs, rewritten, unlinked, logger)
+		writeLinkRepairLog(ctx, params, siteIDStr, domain,
+			linkRepairOrigin{
+				AgentType:  "page-build-handler", // best-effort; the action runs under this agent
+				StepName:   "validate_content",
+				ActionName: "validate_page_content",
+				PageName:   datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
+				PageURL:    datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.url"),
+			},
+			repairs, rewritten, unlinked, logger)
 	}
 
 	// Build issues list for output — after the repair pass, so each link issue
@@ -560,6 +568,16 @@ func writeValidationFailureLog(
 // before this change.
 const linkRepairErrorCode = "CONTENT_LINK_REPAIR_DETAIL"
 
+// linkRepairOrigin names WHO repaired, for the agent_error_log row written by
+// writeLinkRepairLog. The writer is shared since bugs_open/097 by the build
+// gate and both rerender paths, and a row that cannot say which path acted
+// cannot be used to spot the path that stopped acting — the exact drift 097 is
+// about. Page identity travels here explicitly because only the gate has a
+// page_record in CollectedData to extract it from.
+type linkRepairOrigin struct {
+	AgentType, StepName, ActionName, PageName, PageURL string
+}
+
 // writeLinkRepairLog persists what the repair pass DID, on the success path.
 //
 // bugs_open/071 gap 3: a page whose only findings were warnings wrote nothing
@@ -583,6 +601,7 @@ func writeLinkRepairLog(
 	params ActionParams,
 	siteIDStr string,
 	domain string,
+	origin linkRepairOrigin,
 	repairs []datahelpers.LinkRepair,
 	rewritten, unlinked int,
 	logger *zap.Logger,
@@ -604,8 +623,8 @@ func writeLinkRepairLog(
 		"rewritten": rewritten,
 		"unlinked":  unlinked,
 		"repairs":   repairMaps,
-		"page_name": datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.name"),
-		"page_url":  datahelpers.ExtractNestedFieldString(params.CollectedData, "page_record.url"),
+		"page_name": origin.PageName,
+		"page_url":  origin.PageURL,
 	}
 	contextJSON, err := json.Marshal(contextData)
 	if err != nil {
@@ -628,9 +647,9 @@ func writeLinkRepairLog(
 	`,
 		siteIDArg,
 		domain,
-		"page-build-handler", // best-effort; the action runs under this agent
-		"validate_content",
-		"validate_page_content",
+		origin.AgentType,
+		origin.StepName,
+		origin.ActionName,
 		fmt.Sprintf("Repaired %d dead internal link(s) before save: %d href(s) rewritten, %d link(s) removed; see context.repairs",
 			len(repairs), rewritten, unlinked),
 		linkRepairErrorCode,
