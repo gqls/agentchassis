@@ -78,8 +78,19 @@ var RerenderPageSectionsInputSpec = datahelpers.ActionInputSpec{
 	// so a bare site_id can be silently bound from the wrong source. The wiring
 	// maps it explicitly: "target_site_id": "input_data.site_id". Same precedent
 	// as reconcile_site_plan.
-	Required: []string{"target_site_id", "page_name"},
-	Optional: []string{"reason"},
+	// page_name moved Required -> Optional (bugs_open/094). Callers that know the
+	// page by ID had no way in: the required-field check rejected the envelope
+	// before the action ran, with "missing required fields: [page_name]", even
+	// though the action's very next act is a DB lookup that could have resolved
+	// it. 049b_deploy_single_page.sh publishes page_id/site_id/domain and could
+	// not use its own documented section_data_resolved branch at all.
+	//
+	// EITHER page_name OR page_id is now sufficient and the action derives the
+	// other. That is what makes the bad envelope unrepresentable rather than
+	// merely documented — every existing caller is fixed at once, including any
+	// not yet found.
+	Required: []string{"target_site_id"},
+	Optional: []string{"page_name", "page_id", "reason"},
 	Defaults: map[string]interface{}{},
 }
 
@@ -118,27 +129,51 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("invalid target_site_id %q: %w", inputs.Get("target_site_id"), err)
 	}
 	pageName := inputs.Get("page_name")
-	if pageName == "" {
-		return nil, fmt.Errorf("page_name is required")
+	pageIDIn := inputs.Get("page_id")
+	if pageName == "" && pageIDIn == "" {
+		return nil, fmt.Errorf("need page_name or page_id (bugs_open/094): got neither")
 	}
 	reason := inputs.Get("reason")
 
 	// ── Resolve page_id + domain (also surfaced for the downstream render_page,
 	//    which finds them via ExtractFields' recursive search); page url feeds
 	//    the CTA recompute's self-link test ────────────────────────────────────
+	//
+	// bugs_open/094: resolve by whichever key the caller supplied. Both branches
+	// are scoped to the site, so a page_id belonging to a DIFFERENT site is a
+	// not-found rather than a cross-site re-render — target_site_id stays
+	// authoritative and page_id cannot be used to reach past it.
 	var pageID uuid.UUID
 	var domain, pageURL string
-	err = params.DB.QueryRowContext(ctx, `
-		SELECT p.id, s.domain, COALESCE(p.url, '')
-		FROM pages p
-		JOIN sites s ON s.id = p.site_id
-		WHERE p.site_id = $1 AND p.name = $2
-	`, siteID, pageName).Scan(&pageID, &domain, &pageURL)
+	if pageName != "" {
+		err = params.DB.QueryRowContext(ctx, `
+			SELECT p.id, s.domain, COALESCE(p.url, ''), p.name
+			FROM pages p
+			JOIN sites s ON s.id = p.site_id
+			WHERE p.site_id = $1 AND p.name = $2
+		`, siteID, pageName).Scan(&pageID, &domain, &pageURL, &pageName)
+	} else {
+		parsed, perr := uuid.Parse(pageIDIn)
+		if perr != nil {
+			return nil, fmt.Errorf("invalid page_id %q: %w", pageIDIn, perr)
+		}
+		err = params.DB.QueryRowContext(ctx, `
+			SELECT p.id, s.domain, COALESCE(p.url, ''), p.name
+			FROM pages p
+			JOIN sites s ON s.id = p.site_id
+			WHERE p.site_id = $1 AND p.id = $2
+		`, siteID, parsed).Scan(&pageID, &domain, &pageURL, &pageName)
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
+			// Name the key that was actually used, so "not found" is actionable
+			// rather than ambiguous about which lookup failed.
+			if pageIDIn != "" && inputs.Get("page_name") == "" {
+				return nil, fmt.Errorf("page_id %s not found for site %s", pageIDIn, siteID)
+			}
 			return nil, fmt.Errorf("page %q not found for site %s", pageName, siteID)
 		}
-		return nil, fmt.Errorf("resolve page %q: %w", pageName, err)
+		return nil, fmt.Errorf("resolve page: %w", err)
 	}
 
 	out := map[string]interface{}{
