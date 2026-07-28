@@ -1,19 +1,36 @@
 {
   "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
   "_harvested": "2026-07-26, from the LIVE vonc.com provocations archive (verified first-hand this session, not from another session's log: GET /provocations/index.html 200, GET /data/provocations.json 200 byte-identical to p4_sources/provocations.json, loader present in the live /assets/js/snippets.js bundle by four discriminating strings).",
-
   "name": "teaser-detail-deeplink",
   "kind": "micro-journey",
   "display_name": "Teaser list → full case, opened in place at a shareable URL",
-  "aka": ["master-detail", "drill-down", "progressive disclosure", "in-page detail"],
+  "aka": [
+    "master-detail",
+    "drill-down",
+    "progressive disclosure",
+    "in-page detail"
+  ],
   "description": "A list of teasers where activating one opens its full text in place — no page load — while the address bar gains a parameter that reproduces the same open state on a cold load. Rows with no full text are not offered as controls at all.",
-
-  "primitives": ["reveal", "dismiss"],
-  "section_types": ["{{binding.list_section_type}}"],
-  "destination_roles": [{ "role": "self-state", "of": "list_item.entity", "addressable": true }],
+  "primitives": [
+    "reveal",
+    "dismiss"
+  ],
+  "section_types": [
+    "{{binding.list_section_type}}"
+  ],
+  "destination_roles": [
+    {
+      "role": "self-state",
+      "of": "list_item.entity",
+      "addressable": true
+    }
+  ],
   "funnel_stage": "consideration",
-  "suitable_site_types": ["content", "interactive-platform", "news"],
-
+  "suitable_site_types": [
+    "content",
+    "interactive-platform",
+    "news"
+  ],
   "contract": [
     {
       "control_role": "list_item_openable",
@@ -38,9 +55,7 @@
       "evidence": "archive_loader_new.js popstate handler"
     }
   ],
-
   "_SCHEMA_DELTA": "Everything below this line is a field the draft DDL does NOT have. Each was forced by the live implementation, not invented — see HARVEST_01 §3.",
-
   "entry_points": [
     {
       "kind": "url_parameter",
@@ -49,73 +64,170 @@
       "evidence": "archive_loader_new.js currentSlug() + fillArchive() tail; live check B.2 (direct load)"
     }
   ],
-
   "requires_component_contract": [
     {
       "pattern": "feed-driven-teaser-list",
-      "supplies": ["list_item_openable", "list_item_not_openable", "empty_list", "template_row"],
+      "supplies": [
+        "list_item_openable",
+        "list_item_not_openable",
+        "empty_list",
+        "template_row"
+      ],
       "why_not_restated_here": "the openable/inert split is a RENDER-time property of the list, so it belongs to the component contract; a journey that restated it would create two accounts of one clause that drift apart (HARVEST_01 §3.6). The journey asserts only what activation DOES."
     }
   ],
-
   "data_contract": {
     "source": "{{binding.feed_path}}",
     "shape": "{ <collection>: { entries: [ { key, date?, title, teaser, body?, url? } ] }, newest first",
-    "required_for_openable": ["key", "title", "body"],
+    "required_for_openable": [
+      "key",
+      "title",
+      "body"
+    ],
     "absence_semantics": "an entry without `body` is legitimate and MUST degrade to the non-openable state, never to a dead link",
     "cap": "the loader renders at most N (vonc: 24) — a cap is part of the contract, not an implementation detail",
     "evidence": "archive_loader_new.js data-contract header comment; provocations.json archive.entries[] (8 entries, 7 with detail_body, 1 without — the split is real live data, not a test fixture)"
   },
-
   "degraded_states": [
     {
       "when": "the feed is missing, non-200, or malformed",
       "outcome": "the list shell and its empty-state line are left exactly as built; nothing renders half-populated and no error UI is invented",
-      "must_not": ["render rows with empty fields", "render an openable row with no body"],
+      "must_not": [
+        "render rows with empty fields",
+        "render an openable row with no body"
+      ],
       "evidence": "archive_loader_new.js fetch().catch() — graceful, documented in its header"
     }
   ],
-
   "binding_schema": {
-    "list_section": { "type": "selector", "note": "the component container, e.g. [data-component=...]" },
-    "list_container": { "type": "selector" },
-    "item_template": { "type": "selector", "note": "the hidden row the loader clones" },
-    "item_openable_selector": { "type": "selector" },
-    "item_static_selector": { "type": "selector" },
-    "detail_selector": { "type": "selector" },
-    "detail_close_selector": { "type": "selector" },
-    "empty_state_selector": { "type": "selector" },
-    "list_page": { "type": "page", "role": "index" },
-    "list_section_type": { "type": "section_type" },
-    "feed_path": { "type": "asset_path" },
-    "detail_param": { "type": "url_param" },
-    "sample_item_key": { "type": "value", "note": "bind-time: a key that is openable TODAY, so the criteria have something real to open" }
+    "list_section": {
+      "type": "selector",
+      "note": "the component container, e.g. [data-component=...]"
+    },
+    "list_container": {
+      "type": "selector"
+    },
+    "item_template": {
+      "type": "selector",
+      "note": "the hidden row the loader clones",
+      "unused_ok": true,
+      "reason": "Serves the hidden template row the loader clones. Declared but not referenced by any check because no attribute assertion exists at either tier, so 'this element does/does not carry the attribute' cannot be checked. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "item_openable_selector": {
+      "type": "selector"
+    },
+    "item_static_selector": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the inert row — the half of the split that must NOT be a control. Declared but not referenced by any check because no attribute assertion exists at either tier, so 'this element does/does not carry the attribute' cannot be checked. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "detail_selector": {
+      "type": "selector"
+    },
+    "detail_close_selector": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the reversibility clause: opening a detail must be undoable. Declared but not referenced by any check because no ordering/sequencing across separate assertions, so an open-then-close clause cannot be expressed. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "empty_state_selector": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the emptied-list state after a deep link. Declared but not referenced by any check because no empty-region assertion exists; innerText on a display:none subtree falls back to textContent, so 'nothing is shown here' is not checkable today. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "list_page": {
+      "type": "page",
+      "role": "index"
+    },
+    "list_section_type": {
+      "type": "section_type"
+    },
+    "feed_path": {
+      "type": "asset_path"
+    },
+    "detail_param": {
+      "type": "url_param"
+    },
+    "sample_item_key": {
+      "type": "value",
+      "note": "bind-time: a key that is openable TODAY, so the criteria have something real to open"
+    }
   },
-
   "criteria_template": {
-    "profiles": ["desktop", "mobile"],
+    "profiles": [
+      "desktop",
+      "mobile"
+    ],
     "container": "{{binding.list_section}}",
     "checks": [
-      { "id": "list_exists", "type": "selector_exists", "selector": "{{binding.list_container}}" },
-      { "id": "feed_loads", "type": "asset_loads", "path": "{{binding.feed_path}}" },
-      { "id": "openable_item_exists", "type": "selector_exists", "selector": "{{binding.item_openable_selector}}" },
-      { "id": "detail_region_exists", "type": "selector_exists", "selector": "{{binding.detail_selector}}" },
-      { "id": "detail_opens_populated", "type": "interaction",
-        "steps": [{ "action": "click", "selector": "{{binding.item_openable_selector}}" }],
-        "expect": { "selector": "{{binding.detail_selector}}", "text_matches": ".{200,}" } },
-      { "id": "no_overflow", "type": "no_horizontal_overflow", "profiles": ["mobile"], "tier": 4 },
-
-      { "id": "detail_empty_before_opening", "type": "selector_text_empty",
+      {
+        "id": "list_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.list_container}}"
+      },
+      {
+        "id": "feed_loads",
+        "type": "asset_loads",
+        "path": "{{binding.feed_path}}"
+      },
+      {
+        "id": "openable_item_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.item_openable_selector}}"
+      },
+      {
+        "id": "detail_region_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.detail_selector}}"
+      },
+      {
+        "id": "detail_opens_populated",
+        "type": "interaction",
+        "steps": [
+          {
+            "action": "click",
+            "selector": "{{binding.item_openable_selector}}"
+          }
+        ],
+        "expect": {
+          "selector": "{{binding.detail_selector}}",
+          "text_matches": ".{200,}"
+        }
+      },
+      {
+        "id": "no_overflow",
+        "type": "no_horizontal_overflow",
+        "profiles": [
+          "mobile"
+        ],
+        "tier": 4
+      },
+      {
+        "id": "detail_empty_before_opening",
+        "type": "selector_text_empty",
         "selector": "{{binding.detail_selector}}",
-        "_unsupported": "no check type asserts an EMPTY/absent state today; without it the innerText/display:none trap passes silently (HARVEST_01 §3.4)" },
-      { "_inherited": "the anti-dead-control check (static rows carry no href/tabindex) is asserted by the required component contract feed-driven-teaser-list, not restated here" },
-      { "id": "deep_link_direct_load", "type": "journey", "tier": 4,
-        "steps": [{ "action": "goto", "url": "{{binding.list_page.url}}?{{binding.detail_param}}={{binding.sample_item_key}}" }],
-        "expect": { "selector": "{{binding.detail_selector}}", "text_matches": ".{200,}" },
-        "_unsupported": "steps support only fill|click|select — there is no goto/navigate step, so the deep link (the pattern's whole point) cannot be asserted by the platform today (HARVEST_01 §3.3)" }
+        "_unsupported": "no check type asserts an EMPTY/absent state today; without it the innerText/display:none trap passes silently (HARVEST_01 §3.4)"
+      },
+      {
+        "_inherited": "the anti-dead-control check (static rows carry no href/tabindex) is asserted by the required component contract feed-driven-teaser-list, not restated here"
+      },
+      {
+        "id": "deep_link_direct_load",
+        "type": "journey",
+        "tier": 4,
+        "steps": [
+          {
+            "action": "goto",
+            "url": "{{binding.list_page.url}}?{{binding.detail_param}}={{binding.sample_item_key}}"
+          }
+        ],
+        "expect": {
+          "selector": "{{binding.detail_selector}}",
+          "text_matches": ".{200,}"
+        },
+        "_unsupported": "steps support only fill|click|select — there is no goto/navigate step, so the deep link (the pattern's whole point) cannot be asserted by the platform today (HARVEST_01 §3.3)"
+      }
     ]
   },
-
   "status": "draft",
   "source": "harvest",
   "harvested_from": "vonc.com — provocations archive (component provocations-archive-list 70d6662a-0e6f-478d-bc2e-b9e8e5eaeb37, js_snippet provocations-archive-loader), built under the approved EXPERIENCE_PLAN 'vonc-spark-game' Journey B, live and verified 2026-07-26 (72/73)."

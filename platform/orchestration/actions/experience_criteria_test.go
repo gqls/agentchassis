@@ -99,10 +99,30 @@ func TestValidateExperienceCriteria_PlaceholderClosure(t *testing.T) {
 		t.Errorf("unused binding must fail, got %+v", v.Errors)
 	}
 
-	// …unless it is deliberate.
+	// …unless it is deliberate AND says why. A bare marker is refused:
+	// TIGHTENED 2026-07-28. This previously accepted `unused_ok: true` alone,
+	// while the rule's own error message promised a reason. An escape hatch that
+	// does not demand its justification is a slower way of ignoring the rule.
 	schema["forgotten"] = map[string]interface{}{"type": "selector", "unused_ok": true}
-	if v = ValidateExperienceCriteria(unused, schema); !v.OK() {
-		t.Errorf("unused_ok must silence it, got %+v", v.Errors)
+	v = ValidateExperienceCriteria(unused, schema)
+	if !hasErrorContaining(v, "marked unused_ok with no reason") {
+		t.Errorf("a bare unused_ok must be refused, got %+v", v.Errors)
+	}
+
+	// With a reason it becomes a DEFERRAL — carried and reported, never silently
+	// tolerated. The first live run showed why: every unused binding in the nine
+	// harvested entries named a clause our checkers cannot assert yet, so the
+	// count of these is a measure of the harness gap, not noise.
+	schema["forgotten"] = map[string]interface{}{
+		"type": "selector", "unused_ok": true,
+		"reason": "serves the empty-region clause; no empty-region assertion exists at either tier",
+	}
+	v = ValidateExperienceCriteria(unused, schema)
+	if !v.OK() {
+		t.Errorf("unused_ok with a reason must not error, got %+v", v.Errors)
+	}
+	if !experienceHasDeferral(v.Deferred, "binding:forgotten") {
+		t.Errorf("a justified unused binding must be RECORDED as a deferral, got %+v", v.Deferred)
 	}
 }
 

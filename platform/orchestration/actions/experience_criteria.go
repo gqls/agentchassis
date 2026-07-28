@@ -189,12 +189,41 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 		}
 	}
 	// P4 — declared but never used.
+	//
+	// The first live run of this validator (2026-07-28) refused five of the nine
+	// harvested entries here, and the refusals were RIGHT in a way worth writing
+	// down: every unused binding named a part of the experience the entry's
+	// clauses describe but our checkers cannot assert today — an empty region, an
+	// attribute, an ordering, a cross-page navigation, a wait longer than the
+	// runner's 300 ms. So an unused binding is the SHADOW of a deferred check.
+	//
+	// That makes blanket tolerance wrong (the mismatch is real and worth seeing)
+	// and a hard error wrong too (deleting the binding would delete the record of
+	// what the clause will need the day the harness can run it). It is therefore
+	// a DEFERRAL, on the same terms as a deferred check: declared, carried,
+	// reported, never counted as a pass — and it must say WHY.
+	//
+	// The reason is required rather than optional because the previous version
+	// accepted a bare `unused_ok: true` while its own error message promised a
+	// reason. An escape hatch that does not demand its justification is just a
+	// slower way of ignoring the rule.
 	for name, decl := range bindingSchema {
 		if used[name] {
 			continue
 		}
 		if m, ok := decl.(map[string]interface{}); ok {
 			if b, _ := m["unused_ok"].(bool); b {
+				reason := strings.TrimSpace(experienceString(m["reason"]))
+				if reason == "" {
+					v.errf("", "binding_schema",
+						"binding %q is marked unused_ok with no reason — say which clause it serves and what stops us asserting it, or the marker is just a way of switching the check off", name)
+					continue
+				}
+				v.Deferred = append(v.Deferred, ExperienceCriteriaIssue{
+					CheckID: "binding:" + name,
+					Field:   "binding_schema",
+					Detail:  reason,
+				})
 				continue
 			}
 		}
@@ -390,6 +419,13 @@ func collectExperiencePlaceholders(v interface{}, into map[string]bool) {
 
 // experienceFlatten renders every string in a decoded JSON value, for the
 // whole-document scans (absolute URLs).
+// experienceString renders a value as a string when it is one, so a reason
+// written as a number or a bool is treated as absent rather than accepted.
+func experienceString(v interface{}) string {
+	s, _ := v.(string)
+	return s
+}
+
 func experienceFlatten(v interface{}) string {
 	var b strings.Builder
 	var walk func(interface{})

@@ -1,66 +1,132 @@
 {
   "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
   "_harvested": "2026-07-26 from fundamentallyai.com/index.html (live, HTTP 200) — component stat-band, behaviour in the served bundle (marker __statBandInit ×2). Source: brochure_component_library/components/stat-band/.",
-
   "name": "count-up-stat-band",
   "kind": "component-contract",
   "display_name": "Figures that count up when they come into view — without ever inventing a digit",
-  "aka": ["stat counter", "animated metrics band", "odometer"],
+  "aka": [
+    "stat counter",
+    "animated metrics band",
+    "odometer"
+  ],
   "description": "A row of authored figures. Each animates from zero to its real value the first time it scrolls into view, then settles on the exact authored string. The true figure is in the DOM and on the accessible name the whole time.",
-
-  "primitives": ["play"],
-  "section_types": ["{{binding.section_type}}"],
+  "primitives": [
+    "play"
+  ],
+  "section_types": [
+    "{{binding.section_type}}"
+  ],
   "destination_roles": [],
   "funnel_stage": "awareness",
-  "suitable_site_types": ["corporate", "content", "portfolio"],
-
+  "suitable_site_types": [
+    "corporate",
+    "content",
+    "portfolio"
+  ],
   "contract": [],
-
   "automatic_triggers": [
-    { "actor": "viewport", "when": "the figure first scrolls into view (IntersectionObserver, 0.4)",
+    {
+      "actor": "viewport",
+      "when": "the figure first scrolls into view (IntersectionObserver, 0.4)",
       "outcome": "it counts from zero to the authored value over ~1.1 s and then displays the authored string EXACTLY as written, character for character",
       "once_only": true,
-      "evidence": "behaviour.js io.unobserve after the first intersection; step() restores `original` at p=1" },
-    { "actor": "system preference", "when": "prefers-reduced-motion is set", "outcome": "no animation at all; the authored value is displayed immediately" }
+      "evidence": "behaviour.js io.unobserve after the first intersection; step() restores `original` at p=1"
+    },
+    {
+      "actor": "system preference",
+      "when": "prefers-reduced-motion is set",
+      "outcome": "no animation at all; the authored value is displayed immediately"
+    }
   ],
-
   "honesty_clauses": [
-    { "clause": "the animation never invents digits — it counts only to a value that was already rendered from authored data",
+    {
+      "clause": "the animation never invents digits — it counts only to a value that was already rendered from authored data",
       "why": "an animated number is exactly where a fabricated statistic hides most comfortably; this component's own header comment says so, and the fleet has had to strip fabricated stats twice (vonc leaderboard, vetcomparison prices)",
-      "evidence": "behaviour.js parses the rendered text; there is no data source it could invent from" },
-    { "clause": "the real figure is present for assistive technology throughout — the accessible name carries the authored value while the visible text is mid-count",
-      "evidence": "live page: every [data-countup] span carries aria-label with the authored value (\"10+\", \"~97%\", \"<24h\", \"12+\")" },
-    { "clause": "non-numeric and prefixed/suffixed figures survive verbatim (\"~97%\", \"<24h\", \"10+\") — a figure the parser cannot read is displayed, not dropped",
-      "evidence": "behaviour.js regex ^(\\D*)(\\d[\\d,]*(?:\\.\\d+)?)(\\D*)$ with the no-match branch restoring the original" }
+      "evidence": "behaviour.js parses the rendered text; there is no data source it could invent from"
+    },
+    {
+      "clause": "the real figure is present for assistive technology throughout — the accessible name carries the authored value while the visible text is mid-count",
+      "evidence": "live page: every [data-countup] span carries aria-label with the authored value (\"10+\", \"~97%\", \"<24h\", \"12+\")"
+    },
+    {
+      "clause": "non-numeric and prefixed/suffixed figures survive verbatim (\"~97%\", \"<24h\", \"10+\") — a figure the parser cannot read is displayed, not dropped",
+      "evidence": "behaviour.js regex ^(\\D*)(\\d[\\d,]*(?:\\.\\d+)?)(\\D*)$ with the no-match branch restoring the original"
+    }
   ],
-
   "degraded_states": [
-    { "when": "the JS bundle fails, or IntersectionObserver is unavailable", "outcome": "the authored figures are already in the HTML and simply stand (without the observer they animate immediately rather than on view)", "evidence": "template renders real values; behaviour.js fallback branch animates all" },
-    { "when": "the bundle is evaluated twice", "outcome": "initialisation runs once — an explicit flag (`window.__statBandInit`) guards it", "why": "site-wide bundles get re-evaluated; a second run would restart every count-up" }
+    {
+      "when": "the JS bundle fails, or IntersectionObserver is unavailable",
+      "outcome": "the authored figures are already in the HTML and simply stand (without the observer they animate immediately rather than on view)",
+      "evidence": "template renders real values; behaviour.js fallback branch animates all"
+    },
+    {
+      "when": "the bundle is evaluated twice",
+      "outcome": "initialisation runs once — an explicit flag (`window.__statBandInit`) guards it",
+      "why": "site-wide bundles get re-evaluated; a second run would restart every count-up"
+    }
   ],
-
   "binding_schema": {
-    "section": { "type": "selector" }, "section_type": { "type": "section_type" },
-    "value_selector": { "type": "selector" }, "countup_attribute": { "type": "value", "default": "data-countup" }
+    "section": {
+      "type": "selector"
+    },
+    "section_type": {
+      "type": "section_type"
+    },
+    "value_selector": {
+      "type": "selector"
+    },
+    "countup_attribute": {
+      "type": "value",
+      "default": "data-countup",
+      "unused_ok": true,
+      "reason": "Serves the count-up trigger marker that carries the authored target value. Declared but not referenced by any check because no attribute assertion exists at either tier, so 'this element does/does not carry the attribute' cannot be checked. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    }
   },
-
   "criteria_template": {
-    "profiles": ["desktop", "mobile"],
+    "profiles": [
+      "desktop",
+      "mobile"
+    ],
     "container": "{{binding.section}}",
     "checks": [
-      { "id": "values_exist", "type": "selector_count", "selector": "{{binding.value_selector}}", "min": 1 },
-      { "id": "values_are_authored_not_empty", "type": "interaction",
-        "steps": [], "expect": { "selector": "{{binding.value_selector}}", "text_matches": "\\S" } },
-      { "id": "accessible_name_carries_the_real_figure", "type": "attribute_matches",
-        "selector": "{{binding.value_selector}}", "attribute": "aria-label", "matches": "\\S",
-        "_unsupported": "no attribute assertion (HARVEST_01 §3.2). Without it, the honesty clause that matters most here is unassertable." },
-      { "id": "settles_on_the_authored_value", "type": "interaction", "tier": 4,
-        "steps": [], "expect_within_ms": 2500,
-        "expect": { "selector": "{{binding.value_selector}}", "text_equals": "{{binding.value_selector}}@aria-label" },
-        "_unsupported": "needs both a wait and a comparison between two live values; neither exists (HARVEST_01 §3.5)" }
+      {
+        "id": "values_exist",
+        "type": "selector_count",
+        "selector": "{{binding.value_selector}}",
+        "min": 1
+      },
+      {
+        "id": "values_are_authored_not_empty",
+        "type": "interaction",
+        "steps": [],
+        "expect": {
+          "selector": "{{binding.value_selector}}",
+          "text_matches": "\\S"
+        }
+      },
+      {
+        "id": "accessible_name_carries_the_real_figure",
+        "type": "attribute_matches",
+        "selector": "{{binding.value_selector}}",
+        "attribute": "aria-label",
+        "matches": "\\S",
+        "_unsupported": "no attribute assertion (HARVEST_01 §3.2). Without it, the honesty clause that matters most here is unassertable."
+      },
+      {
+        "id": "settles_on_the_authored_value",
+        "type": "interaction",
+        "tier": 4,
+        "steps": [],
+        "expect_within_ms": 2500,
+        "expect": {
+          "selector": "{{binding.value_selector}}",
+          "text_equals": "{{binding.value_selector}}@aria-label"
+        },
+        "_unsupported": "needs both a wait and a comparison between two live values; neither exists (HARVEST_01 §3.5)"
+      }
     ]
   },
-
-  "status": "draft", "source": "harvest",
+  "status": "draft",
+  "source": "harvest",
   "harvested_from": "fundamentallyai.com/index.html (live 2026-07-26; 4 count-up figures). NOTE: design/taxonomy_seed.md had recorded stat-band as having NO interaction — wrong, and corrected there (HARVEST_02 §3.2)."
 }

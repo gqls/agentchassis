@@ -1,32 +1,51 @@
 {
   "_status": "HARVEST DRAFT — not applied. Candidate row for experience_patterns (P2).",
   "_harvested": "2026-07-26 from the LIVE vonc.com gauntlet (https://vonc.com/tools/gauntlet/index.html against https://tools.apis.uk), built under the approved EXPERIENCE_PLAN 'vonc-spark-game' Journey C and verified on the deployed pages the same day (gauntlet_dead_cta/p4_sources/verify_live_2026-07-26.txt, checks C.1–C.3 on desktop and mobile).",
-
   "name": "timed-remote-challenge-loop",
   "kind": "micro-journey",
   "display_name": "A timed exchange with a remote engine, where nothing advances except on a real response",
-  "aka": ["challenge–response loop", "turn-based tool session", "timed task flow"],
+  "aka": [
+    "challenge–response loop",
+    "turn-based tool session",
+    "timed task flow"
+  ],
   "description": "A visitor starts a session against a remote engine, submits, receives generated content, submits again, and receives an outcome. A clock and a progress indicator run alongside. The rule that makes it honest: every visible state change — clock start, progress marker, outcome — is a consequence of a successful response, never of the click that requested it.",
-
-  "primitives": ["submit", "reveal"],
-  "section_types": ["{{binding.section_type}}"],
-  "destination_roles": [{ "role": "tool", "of": "topic" }],
+  "primitives": [
+    "submit",
+    "reveal"
+  ],
+  "section_types": [
+    "{{binding.section_type}}"
+  ],
+  "destination_roles": [
+    {
+      "role": "tool",
+      "of": "topic"
+    }
+  ],
   "funnel_stage": "conversion",
-  "suitable_site_types": ["interactive-platform"],
-
+  "suitable_site_types": [
+    "interactive-platform"
+  ],
   "contract": [
     {
       "control_role": "session_start",
       "primitive": "submit",
       "outcome": "on a successful start response: the session's own content is rendered from the response, the clock starts, and the working area comes into view. On failure: an honest offline message, the clock does NOT start, and no progress marker is set.",
-      "must_not": ["start the clock before the response", "render placeholder content while waiting"],
+      "must_not": [
+        "start the clock before the response",
+        "render placeholder content while waiting"
+      ],
       "evidence": "gauntlet_new.js header + POST /round path; live C.1 (clock read 19:59 one second after a real 200)"
     },
     {
       "control_role": "turn_submit",
       "primitive": "submit",
       "outcome": "the visitor's text is sent; on a successful response the generated reply is rendered verbatim into its own region and EXACTLY ONE progress marker is set as a side-effect of that response",
-      "must_not": ["mark progress on click", "allow a marker to be toggled by the visitor"],
+      "must_not": [
+        "mark progress on click",
+        "allow a marker to be toggled by the visitor"
+      ],
       "evidence": "the manual-toggle handler was deliberately deleted in the P4 rebuild (EXPERIENCE_PLAN Journey C.4); live C.2 asserts exactly one marker set"
     },
     {
@@ -43,14 +62,17 @@
       "evidence": "gauntlet_new.js header comment; measured latencies in verify_live_2026-07-26.txt"
     }
   ],
-
   "_SCHEMA_DELTA": "degraded_states / data_contract / latency_envelope are fields the draft DDL does not have — see HARVEST_01 §3.",
-
   "degraded_states": [
     {
       "when": "the engine returns an error status or the request fails",
       "outcome": "a plain honest message naming the engine as unavailable, AND an explicit reassurance that the visitor's typed text is preserved",
-      "must_not": ["mark any progress", "start or advance the clock", "render an outcome", "show a fabricated reply"],
+      "must_not": [
+        "mark any progress",
+        "start or advance the clock",
+        "render an outcome",
+        "show a fabricated reply"
+      ],
       "evidence": "live run, attempt 1: 'The AI opponent is offline — try again later. Nothing was lost; your text is still here.' — a real degraded render captured in the verification log, then the retry succeeded",
       "note": "The upstream flakiness itself is bugs_open/083 (the handlers discard the reason). The PATTERN is unaffected: the degraded state is part of the contract and was exercised for real."
     },
@@ -60,82 +82,214 @@
       "evidence": "Cloudflare replaces origin 502 bodies, so the engine returns 503 deliberately (gauntlet_dead_cta RUNBOOK; gauntlet_new.js header)"
     }
   ],
-
   "data_contract": {
     "source": "remote engine, {{binding.api_base}}",
-    "endpoints": ["{{binding.start_endpoint}}", "{{binding.turn_endpoint}}", "{{binding.final_endpoint}}"],
+    "endpoints": [
+      "{{binding.start_endpoint}}",
+      "{{binding.turn_endpoint}}",
+      "{{binding.final_endpoint}}"
+    ],
     "session_state": "held in page memory for the session only; never persisted client-side, never invented",
     "input_cap": "{{binding.max_chars}} characters per submission, enforced client-side and server-side",
     "rendering_rule": "content returned by the engine is rendered as-is; the client never re-derives or supplements a field",
     "cross_origin": "the page's origin must be allow-listed by the engine — a browser-real check, not exercisable from a script that bypasses CORS",
     "evidence": "gauntlet_new.js constants + EXPERIENCE_PLAN §3 'Client-side-only'"
   },
-
   "latency_envelope": {
     "measured": "8–23 s per generated response (live, 2026-07-26)",
     "consequence": "acceptance checks for this pattern REQUIRE a wait/poll. The platform's browser-runner asserts 300 ms after the last step (internal/adapters/browserrunner/run_checks_action.go:199 stepDelay, assertion in runInteraction at :493) with a 120 s run deadline — so a correct page fails the plan's own gauntlet_position_flow / gauntlet_defend_flow checks. Fix the harness, never the page: placeholder text would pass with the engine switched off.",
     "owner": "gauntlet_dead_cta P5"
   },
-
   "binding_schema": {
-    "tool_section": { "type": "selector" },
-    "section_type": { "type": "section_type" },
-    "start_control": { "type": "selector" },
-    "turn_input": { "type": "selector" },
-    "turn_submit": { "type": "selector" },
-    "turn_output": { "type": "selector" },
-    "final_input": { "type": "selector" },
-    "final_submit": { "type": "selector" },
-    "outcome_selector": { "type": "selector" },
-    "outcome_reasons_selector": { "type": "selector" },
-    "status_selector": { "type": "selector" },
-    "progress_marker_selector": { "type": "selector" },
-    "progress_pct_selector": { "type": "selector" },
-    "timer_selector": { "type": "selector" },
-    "api_base": { "type": "value" },
-    "start_endpoint": { "type": "value" },
-    "turn_endpoint": { "type": "value" },
-    "final_endpoint": { "type": "value" },
-    "max_chars": { "type": "value" },
-    "marker_count": { "type": "value" },
-    "tool_page": { "type": "page", "role": "tool" }
+    "tool_section": {
+      "type": "selector"
+    },
+    "section_type": {
+      "type": "section_type"
+    },
+    "start_control": {
+      "type": "selector"
+    },
+    "turn_input": {
+      "type": "selector"
+    },
+    "sample_turn_text": {
+      "type": "value",
+      "note": "The text typed into turn_input by the round-trip check. A VALUE, not a selector: each site supplies a prompt that is meaningful for its own gauntlet."
+    },
+    "turn_submit": {
+      "type": "selector"
+    },
+    "turn_output": {
+      "type": "selector"
+    },
+    "final_input": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the final turn of the loop. Declared but not referenced by any check because the runner asserts 300ms after the last step (stepDelay) and this clause needs a wait/poll, so any check would fail a CORRECT page. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "final_submit": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the final submission of the loop. Declared but not referenced by any check because the runner asserts 300ms after the last step (stepDelay) and this clause needs a wait/poll, so any check would fail a CORRECT page. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "outcome_selector": {
+      "type": "selector"
+    },
+    "outcome_reasons_selector": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the verdict's stated reasons. Declared but not referenced by any check because the runner asserts 300ms after the last step (stepDelay) and this clause needs a wait/poll, so any check would fail a CORRECT page. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "status_selector": {
+      "type": "selector"
+    },
+    "progress_marker_selector": {
+      "type": "selector"
+    },
+    "progress_pct_selector": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the progress readout during the loop. Declared but not referenced by any check because the runner asserts 300ms after the last step (stepDelay) and this clause needs a wait/poll, so any check would fail a CORRECT page. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "timer_selector": {
+      "type": "selector",
+      "unused_ok": true,
+      "reason": "Serves the countdown timer. Declared but not referenced by any check because the runner asserts 300ms after the last step (stepDelay) and this clause needs a wait/poll, so any check would fail a CORRECT page. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "api_base": {
+      "type": "value"
+    },
+    "start_endpoint": {
+      "type": "value"
+    },
+    "turn_endpoint": {
+      "type": "value"
+    },
+    "final_endpoint": {
+      "type": "value"
+    },
+    "max_chars": {
+      "type": "value"
+    },
+    "marker_count": {
+      "type": "value",
+      "unused_ok": true,
+      "reason": "Serves the count of progress markers rendered. Declared but not referenced by any check because no attribute assertion exists at either tier, so 'this element does/does not carry the attribute' cannot be checked. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    },
+    "tool_page": {
+      "type": "page",
+      "role": "tool",
+      "unused_ok": true,
+      "reason": "Serves the tool page the loop runs on. Declared but not referenced by any check because no navigation step and no URL on page_status_ok, so a cross-page outcome cannot be reached or checked. Kept so the requirement survives until the harness can run it — deleting it would delete the record of what the clause needs."
+    }
   },
-
   "criteria_template": {
-    "profiles": ["desktop", "mobile"],
+    "profiles": [
+      "desktop",
+      "mobile"
+    ],
     "container": "{{binding.tool_section}}",
     "checks": [
-      { "id": "tool_page_ok", "type": "page_status_ok" },
-      { "id": "start_control_exists", "type": "selector_exists", "selector": "{{binding.start_control}}" },
-      { "id": "status_region_exists", "type": "selector_exists", "selector": "{{binding.status_selector}}" },
-      { "id": "turn_input_exists", "type": "selector_exists", "selector": "{{binding.turn_input}}" },
-      { "id": "outcome_region_exists", "type": "selector_exists", "selector": "{{binding.outcome_selector}}" },
-      { "id": "no_overflow", "type": "no_horizontal_overflow", "profiles": ["mobile"], "tier": 4 },
-
-      { "id": "session_starts_for_real", "type": "interaction", "tier": 4,
-        "steps": [{ "action": "click", "selector": "{{binding.start_control}}" }],
-        "expect": { "selector": "{{binding.status_selector}}", "text_matches": "live" },
-        "expect_within_ms": 45000,
-        "_unsupported": "expect_within_ms does not exist; the runner asserts 300 ms after the step (HARVEST_01 §3.5)" },
-      { "id": "turn_returns_generated_content", "type": "interaction", "tier": 4,
+      {
+        "id": "tool_page_ok",
+        "type": "page_status_ok"
+      },
+      {
+        "id": "start_control_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.start_control}}"
+      },
+      {
+        "id": "status_region_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.status_selector}}"
+      },
+      {
+        "id": "turn_input_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.turn_input}}"
+      },
+      {
+        "id": "outcome_region_exists",
+        "type": "selector_exists",
+        "selector": "{{binding.outcome_selector}}"
+      },
+      {
+        "id": "no_overflow",
+        "type": "no_horizontal_overflow",
+        "profiles": [
+          "mobile"
+        ],
+        "tier": 4
+      },
+      {
+        "id": "session_starts_for_real",
+        "type": "interaction",
+        "tier": 4,
         "steps": [
-          { "action": "fill", "selector": "{{binding.turn_input}}", "value": "{{binding.sample_turn_text}}" },
-          { "action": "click", "selector": "{{binding.turn_submit}}" }],
-        "expect": { "selector": "{{binding.turn_output}}", "text_matches": ".{40,}" },
-        "expect_within_ms": 60000, "retries": 1,
-        "_unsupported": "expect_within_ms and retries do not exist. Retry matters here: an intermittently failing engine must not be reported as a broken page, and a degraded run must be reported as degraded, not as a pass." },
-      { "id": "progress_marked_only_by_response", "type": "selector_count",
-        "selector": "{{binding.progress_marker_selector}}.is-complete", "equals": 1, "after": "turn_returns_generated_content",
-        "_unsupported": "checks cannot be ordered or made conditional on another check today; this one is the whole honesty rule and is currently unexpressible (HARVEST_01 §3.5)" },
-      { "id": "nothing_advances_when_engine_down", "type": "degraded_state", "tier": 4,
+          {
+            "action": "click",
+            "selector": "{{binding.start_control}}"
+          }
+        ],
+        "expect": {
+          "selector": "{{binding.status_selector}}",
+          "text_matches": "live"
+        },
+        "expect_within_ms": 45000,
+        "_unsupported": "expect_within_ms does not exist; the runner asserts 300 ms after the step (HARVEST_01 §3.5)"
+      },
+      {
+        "id": "turn_returns_generated_content",
+        "type": "interaction",
+        "tier": 4,
+        "steps": [
+          {
+            "action": "fill",
+            "selector": "{{binding.turn_input}}",
+            "value": "{{binding.sample_turn_text}}"
+          },
+          {
+            "action": "click",
+            "selector": "{{binding.turn_submit}}"
+          }
+        ],
+        "expect": {
+          "selector": "{{binding.turn_output}}",
+          "text_matches": ".{40,}"
+        },
+        "expect_within_ms": 60000,
+        "retries": 1,
+        "_unsupported": "expect_within_ms and retries do not exist. Retry matters here: an intermittently failing engine must not be reported as a broken page, and a degraded run must be reported as degraded, not as a pass."
+      },
+      {
+        "id": "progress_marked_only_by_response",
+        "type": "selector_count",
+        "selector": "{{binding.progress_marker_selector}}.is-complete",
+        "equals": 1,
+        "after": "turn_returns_generated_content",
+        "_unsupported": "checks cannot be ordered or made conditional on another check today; this one is the whole honesty rule and is currently unexpressible (HARVEST_01 §3.5)"
+      },
+      {
+        "id": "nothing_advances_when_engine_down",
+        "type": "degraded_state",
+        "tier": 4,
         "given": "the engine is unreachable",
         "expect_all": [
-          { "selector": "{{binding.status_selector}}", "text_matches": "(?i)offline|unavailable" },
-          { "selector": "{{binding.progress_marker_selector}}.is-complete", "count": 0 }],
-        "_unsupported": "no way to induce or simulate a failing dependency in a check run — the honest-degradation clause cannot be tested by the platform at all (HARVEST_01 §3.7). Today it can only be observed opportunistically, as it was on 2026-07-26." }
+          {
+            "selector": "{{binding.status_selector}}",
+            "text_matches": "(?i)offline|unavailable"
+          },
+          {
+            "selector": "{{binding.progress_marker_selector}}.is-complete",
+            "count": 0
+          }
+        ],
+        "_unsupported": "no way to induce or simulate a failing dependency in a check run — the honest-degradation clause cannot be tested by the platform at all (HARVEST_01 §3.7). Today it can only be observed opportunistically, as it was on 2026-07-26."
+      }
     ]
   },
-
   "status": "draft",
   "source": "harvest",
   "harvested_from": "vonc.com gauntlet-interface (component 5da50747-7936-4b8f-a66d-c1ea98919c75) against tools.apis.uk; EXPERIENCE_PLAN 'vonc-spark-game' Journey C; live verification 2026-07-26."
