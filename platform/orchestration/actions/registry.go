@@ -1822,6 +1822,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Bind a register entry to one site's real pages and selectors, refusing unclosed, empty, unanchored or dead-page bindings",
 		IsLocal:     true,
 	},
+	"verify_site_experience": {
+		Handler:     VerifySiteExperienceAction,
+		Category:    "experience_register",
+		Description: "Run a bound fork's criteria against the deployed page; verified needs a PASS, never merely an absence of failures",
+		IsLocal:     true,
+	},
 	"rename_tool_identity": {
 		Handler:     RenameToolIdentityAction,
 		Category:    "documentation",
