@@ -55,13 +55,38 @@ Site id `a0d7f1ae-f37e-4ea5-b30c-9012d1d14f39`. Evidence register: **32 facts**.
 
 ## 3. NEXT — in priority order
 
-### 3a. Wire `contrastscan` into something (the highest-value gap)
-**Nothing runs either scanner automatically.** `contrastscan` and `claimscan` are
-both manual commands. This is not academic: on 2026-07-28 an unreadable chart
-reached the live site and **the owner found it in a screenshot**, after the tool
-had reported that page clean. `bugs_open/122` candidate 2 describes the shape —
-post-deploy sweep raising `contrast_failure` at high severity. Register entry
-VIZ-010 now says "built, unwired" so nobody repeats the overstatement.
+### 3a. Wire `scripts/render_audit.py` — the tool EXISTS, nothing runs it
+
+> **CORRECTED, same evening.** This section used to say "wire `contrastscan`".
+> `cmd/contrastscan` was a **duplicate I built without finding
+> `scripts/render_audit.py`** (brochure workstream, 2026-07-27), because my
+> prior-art grep was `--include=*.go` and the prior art is Python. **The Go tool
+> has been deleted.** Do not rebuild it.
+
+What is **already wired**: `check_palette_contrast` — a discovery check, DB-only,
+microseconds, reading the *composed* palette. It is good and it states in its own
+header what it cannot see.
+
+What is **not wired**: `scripts/render_audit.py`, which renders every element in
+headless Chromium and is the only thing catching 026 **family 3** — a component
+hard-coding an ink over a themed fill. That is precisely the class that put an
+unreadable chart on this site. Shape: `bugs_open/122` candidate 2. It needs a
+browser, so it is not a DB-only discovery check; the natural home is the
+**browser-runner-adapter, which already runs Playwright in-cluster**.
+
+**Fleet audit run 2026-07-28 evening — 65 live contrast failures on 7 homepages:**
+
+| site | failures | note |
+|---|---|---|
+| gamesdesign.co.uk | **30** | stat band, cyan-on-cyan |
+| **idea.uk** | **18** | the site that took the first sale |
+| vetcomparison.uk | 10 | |
+| relojistas.com | 2 | |
+| oufe.com | ~~5~~ **0** | fixed, see below |
+| webdesign.co.uk | 0 | |
+| leopardessconsulting.co.uk | 0 | |
+
+Those belong to other workstreams — route, do not fix over the top.
 
 ### 3b. More charts, tools and guides — the owner's standing ask
 His words on seeing the first chart: *"this is starting to look great! We'll need
@@ -115,10 +140,18 @@ CSS-drawn furniture. Verified by decoding the payload claimscan received.
 flagged as unregistered when the chart's terse label contains none of its terms.
 Fix the label, not the guard.
 
-**Contrast:** `--color-primary` on oufe **equals the surface colour**, so anything
-using it as a foreground is invisible. `--color-card-bg` was white on a dark site
-(fixed). Chart furniture needs the **3.0** non-text threshold and `--color-border`
-scores 1.66 — use `--color-accent`.
+**Contrast — ROOT CAUSE NOW FIXED.** `--color-primary` was `#1B2A3B`, *identical to
+`--color-surface`*, so all 7 of its foreground uses were invisible or near it.
+Three components were patched individually before anyone traced it to the palette.
+Its 3 background uses all pair it with `--color-primary-text`, so the pair flips
+together: now `#86ADDE` / `#0F1820`. oufe went **5 → 0** real failures.
+`--color-card-bg` was also white on a dark site (fixed). Chart furniture needs the
+**3.0** non-text threshold and `--color-border` scores 1.66 — use `--color-accent`.
+
+**A `render_audit.py` reading marked "over an image — ratio approximate" is a
+heuristic, not a verdict.** It assumes mid-grey for an unknown backdrop. oufe's
+last "failure" was a white button over a near-black hero and is genuinely fine —
+confirmed by screenshot.
 
 **Supersede-then-insert must be SEQUENTIAL.** A CTE doing both fails: every branch
 sees one snapshot, so the partial unique index still sees the old row (23505).
