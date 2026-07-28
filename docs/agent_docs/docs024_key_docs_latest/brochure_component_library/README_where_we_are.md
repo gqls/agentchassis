@@ -749,3 +749,33 @@ starving every site of its own imagery. Then wire the page-measuring check into 
 build. The deeper "make it exciting" work — more varied section types, richer use
 of the illustrations we already have — is worth doing but it sits on top of these,
 and there is no point styling a page whose text cannot be read.
+
+---
+
+**2026-07-28, afternoon (Claude).** Good news first: the spending cap you raised this
+morning worked. The capabilities page rebuilt successfully and its chart section is
+correct — two charts there, one on the home page, exactly as designed. And both missing
+tool images have now been generated: the cost calculator page already shows its new
+header picture, and the selector tool's should follow shortly (its re-render had
+correctly refused to run while the picture didn't exist; I've set it going again now it
+does).
+
+The bad news is what I found while checking the links. That capabilities rebuild wrote
+nine links to pages that don't exist, plus the four broken carousel pictures you
+spotted. Here's the part worth your attention: the platform's link-repair safety net —
+the one we built and closed as proven a couple of days ago — actually caught ALL nine
+bad links during the build and fixed them. Then the very next step threw the fixed
+version away and saved the broken one. The repair has never once worked on a real page
+build; the test that "proved" it took a shortcut route that skipped the saving step.
+I've reopened that bug with the full evidence and the fix options, corrected the other
+documents that believed the safety net was working, and written up the lesson: check
+what was actually saved, not what the fixer says it did.
+
+One more thing to know: our own AI provider (Anthropic) has now hit ITS monthly spend
+cap, until the 1st of August. The site writers and image generation use Google, so this
+site is unaffected — but the review councils and the diagnosis loop are down until then.
+
+Also confirmed: the `/assets/illustrations/` folder those carousel pictures point at has
+never existed on any site we run — the writer simply invented it. So that regression
+joins the invented-links problem as one and the same defect: the writer isn't told what
+exists, and (we now know) nothing downstream actually stops the results shipping.
