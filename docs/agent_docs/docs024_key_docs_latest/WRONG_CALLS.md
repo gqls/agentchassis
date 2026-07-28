@@ -36,7 +36,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **after fixing a class of defect, grep your OWN diff for the same shape before committing — fixing the instances reviewers point at is not fixing the class** | **1** |
 | **test against the ARTEFACT, never against a fixture you wrote to match your assumption about it — a fixture named after real data is not real data** | **1** |
 | **read the ITEM's own row, with the columns that can carry bad news, before inferring its state from an aggregate over the queue containing it — "absence is not failure" does not license "absence is progress"** | **1** |
-| **grep for the capability before asserting it does not exist** | **5** |
+| **grep for the capability before asserting it does not exist** | **6** |
 | **prove the artefact is current before reasoning from it** | **4** |
 | measure a property before describing it | 1 |
 | **record the CLOCK beside a reading, never infer it afterwards** | **2** |
@@ -85,6 +85,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **measure a SYMPTOM's exposure across every cause, not only the one you are fixing — a bug file's exposure figure is read as "is this biting?", not "is my code path biting?"; and FETCH the live artefact you have already named in your own prose** | **1** |
 | **RE-RUN the prior-art search when the design outlives it — an absence is true only at the moment you looked, and a peer built the next day is invisible to a search you already did. A search is a reading, not a property.** — *AUTOMATED 2026-07-28: `check_new_capability_surface` in `scripts/pattern-check.py` fires when a staged `.md` proposes a `cmd/`, dockerfile or package that does not exist, and prints the existing peers marked `(new)`. Advisory. Measured 1.33% / 1,500 commits. It re-runs on every later commit touching the doc, which is the half a one-shot review cannot do.* | **1** |
 | **read `decided_by` before writing a `Council-Reviewed:` trailer — and again if the submission went to another round, because a later APPROVAL can attach to a materially DIFFERENT plan and the coverage report cannot tell** | **1** |
+| **read `features_open/` before treating a capability question as open — the backlog holds DESIGNED-NOT-BUILT answers, and a feature file is invisible to a code grep, a component query and a bug-dir grep alike** | **1** |
 | **measure a RENDERED property in the thing that renders it — a stylesheet cannot say what colour is painted (it cannot resolve the cascade, ancestors, alpha or gradients), and an audit that over-reports on live sites is worse than none, because its findings get "fixed" into real regressions** | **1** |
 | **treat any check whose failure triggers an automated REWRITE as production configuration — a wrong test does not merely fail, it becomes the specification the repair loop faithfully implements, and it will damage correct code to satisfy it** | **1** |
 
@@ -8846,3 +8847,63 @@ correctly. Neither was asked what I thought I was asking.
 
 Family: interceptor-existed-and-was-not-used, the-check-answers-the-question-you-
 encoded, proxy-for-a-relationship, rule-adopted-in-half.
+
+---
+
+## 2026-07-28 — "there is no chart renderer", said three times, while two of them were live
+
+**The claim.** That the platform has no way to draw a chart, so the owner's request for
+graphs could not be met without building one. I put it in the oufe handoff as a warning
+("**Before starting 5, know this: there is no chart renderer**"), repeated it in two
+summaries to the owner, and used it to justify calling graphs a blocked item needing a
+decision.
+
+**It was wrong, and the owner corrected it** ("please check that there is no chart
+renderer as there was some work done on that").
+
+**What actually exists:**
+
+- **`evidence-chart`** — a live, active section component. Horizontal bars drawn in **CSS**
+  custom properties, no SVG and no dependency. Every plotted point resolves through a
+  `fact_id` into the evidence register; the denominator can itself be a `max_fact_id`; each
+  row renders `verified <date>` beside the value and the figure carries a `source_note`.
+  **A chart point structurally cannot carry its own number.** That is the exact doctrine I
+  was describing as unbuilt, already built and running on a live site.
+- **`renderBarChartSVG` / `renderHeadroomChart`** in
+  `platform/orchestration/actions/report_charts.go` — dependency-free inline SVG.
+- **`features_open/023`** — the designed rule that infographic prompts must be assembled
+  from `evidence_base`, plus the R4 scoping boundary: *generated images explain,
+  code-rendered SVG states*, for values that must be exact, selectable or translatable.
+
+**Why I got it wrong, and it is not the obvious reason.** I did not invent the claim: I
+inherited it from a handoff I wrote earlier in this workstream, and the handoff was
+honest about its own basis (`go-echarts` is not in `go.mod`, and `report_charts.go` is
+unexported and bound to one report page). Both of those facts are still true. **The error
+was the conclusion drawn from them** — "no charting library and one narrow helper" became
+"no chart renderer", and the missing step was looking anywhere other than Go source.
+`evidence-chart` is a row in `content_components`; no amount of grepping `go.mod` or
+`platform/` will ever surface it. The capability lived in the database.
+
+**The check I skipped, twice over.** First: `grep for the capability before asserting it
+does not exist` — which for this platform means the **component library and the seeds**,
+not just the code, because most capability here is data. Second, and the one I want as its
+own row: **I never read `features_open/` at all.** Two of the questions I was treating as
+open and unanswered — how infographic figures stay sourced (023), and how a topic gets
+decomposed into a packaged feature (001, raised by the owner himself on 2026-07-19) — were
+sitting there designed, with the tradeoffs already worked through. A feature file is
+invisible to a code grep, to a `content_components` query, and to the "grep both bug dirs"
+rule, so nothing I habitually do would have found it.
+
+**What is genuinely missing**, stated properly this time: a **time-series** renderer. Both
+existing renderers compare magnitudes and neither has a temporal axis. And underneath that
+is a substrate gap I would have missed if I had stopped at "we have charts": an
+`evidence_base` fact holds **one value plus provenance dates** (`accessed`, `published`,
+`verified_at`, `staleness_days`). None of those is *the date the value applies to*. A
+historical graph needs an observation series with an `as_of` per point, so the gap is a
+schema question before it is a rendering question.
+
+**The shape to carry.** The dangerous inherited claim is not the false one — it is the one
+whose *evidence* is true and whose *scope* is wrong. "go-echarts is absent" was correct and
+checkable, and it made the surrounding sentence feel checked. **A warning I wrote myself,
+in a handoff, in bold, was the thing I never re-derived** — precisely because it looked
+like the output of an investigation rather than an input to one.
