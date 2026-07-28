@@ -635,3 +635,69 @@ a fair statement of epistemic status and not a defect: the greps are in the NOTE
 their exact commands so anyone can re-run them, and both claims are the kind that a
 compile failure or a broken script would have surfaced loudly. Recorded rather than
 actioned.
+
+## §13 — 2026-07-28 ~20:25 — the crawl call is RULED, and both remaining measurements re-read
+
+New session, picked the lane up from the HANDOFF. First act was to re-read state from
+the live system rather than the file, which was right: the file I was handed was ~1h
+stale and the council had already reached round 3.
+
+**Round 3 APPROVED, re-verified independently of the doc:**
+
+```
+$ ... WHERE orchestration_id='81907079-2e34-4221-81e7-4644f3f52ad4'
+COMPLETED|complete_approved|approved with 1 advisory objection(s) — none high-severity
+$ git show -s --format='%b' f5888c912 | grep -i Council-Reviewed
+Council-Reviewed: f4cf0aab-5a08-4475-91ea-fa831cff323c
+```
+
+Both halves checked — the verdict in the DB *and* the trailer on the commit — because
+either alone is a claim about the other.
+
+### OWNER RULING: the two agents stay on scrape, warning
+
+Put to the owner as an open call (it is flagged as owed to him in three places). He
+ruled **leave them warning**. Recorded in `bugs_closed/101` residual 2 and HANDOFF §9
+item 4, both marked as a *decision, not an omission*, with an explicit "do not flip
+the action to finish the job" — because a later thread reading "advertises a crawl it
+cannot perform" will otherwise read it as unfinished work and helpfully fix it.
+
+That framing is the point. A deliberate won't-do and an un-noticed gap look identical
+in a doc six weeks later unless the doc says which it is.
+
+### Residual 1 was stale in the bug file — the third state exists and FIRES
+
+`bugs_closed/101` still said the detector "needs a third state — and until it has one,
+that none must not be read as no step misdescribes itself". `ConditionalKeys` shipped
+in the round-2 follow-up (`275ef5fab`), so that sentence had been false for ~20 min.
+Corrected against a **run**, not against the source:
+
+```
+=== CONDITIONALLY HONOURED (declared, so not unknown — but may not apply) ===
+  scrape_web.follow_links: only on a crawl — ... or no links are followed
+  scrape_web.max_pages:    only on a crawl — ... or /scrape fetches exactly one page
+```
+
+Two live steps, named, with their conditions. The `UNKNOWN KEYS: none` line now prints
+its own warning to be read with that section.
+
+> **The pattern, for §9 if it recurs:** a residual written into a bug file is a claim
+> with a short half-life — it describes work someone is *actively doing*. The fix
+> lands, and the residual becomes a false statement in a CLOSED file that nobody
+> re-reads. **Re-check a closed bug's residuals against the system before citing
+> them**, and when you discharge one, go back and strike it where it was written.
+
+### Both blocked items re-measured, both still blocked
+
+```
+$ SELECT source_url, source_type, raw_data ? 'source_url' AS llm_claimed, collected_at
+    FROM business_intel.data_observations ORDER BY collected_at DESC LIMIT 5;
+  (5 rows, newest collected_at = 2026-03-18 22:09)
+$ kubectl logs deploy/web-scrape-adapter --since=3h | grep -c "Starting scrape"   -> 0
+$ ... | grep -ci "Message Size Too Large|Failed to produce"                        -> 0
+```
+
+`data_observations` newest row is still **2026-03-18** — collection has not restarted,
+so 100's closing test still cannot run. And the 062 watch still reads 0 errors over 0
+attempts. **Both zeroes were re-derived, not carried forward from the handoff** — a
+figure copied between docs is how a stale premise gets diagnosed as a bug.

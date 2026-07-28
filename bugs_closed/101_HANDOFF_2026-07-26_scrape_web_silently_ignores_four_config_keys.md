@@ -28,19 +28,36 @@
 > post-roll: **0** `Message Size Too Large`, **0** `Failed to produce`.
 >
 > **TWO RESIDUALS, neither the defect this file names — do not treat closure as
-> covering them:**
-> 1. **The audit now reads clean while two live steps still misdescribe themselves.**
->    Declaring `max_pages`/`follow_links` made them *recognised*, so
->    `scripts/audit-config-keys.sh` prints `UNKNOWN KEYS: none` although
+> covering them. BOTH are now discharged; kept here because the reasoning is the
+> record:**
+> 1. ~~**The audit now reads clean while two live steps still misdescribe
+>    themselves.**~~ **DISCHARGED 2026-07-28** — the third state was built.
+>    Declaring `max_pages`/`follow_links` had made them *recognised*, so
+>    `scripts/audit-config-keys.sh` printed `UNKNOWN KEYS: none` although
 >    `vet-practice-verifier/scrape_website` and `domain-research-classifier/scrape_site`
->    still advertise a three-page crawl that a single-page scrape cannot perform. The
->    detector needs a third state — *recognised but conditionally honoured* — and
->    until it has one, that "none" must not be read as "no step misdescribes itself".
->    Caught by the council's `editquality` seat, logged in `WRONG_CALLS.md` 2026-07-28.
-> 2. **Switching those two agents to `action: "crawl"` was deliberately NOT done.**
->    It is a behaviour change to two other owners' agents (one unowned) under a lane
->    off since March. They warn now instead of silently fetching one page. That
->    decision is somebody's to make deliberately, not a side effect of this fix.
+>    still advertise a three-page crawl that a single-page scrape cannot perform.
+>    `ConditionalKeys` and a third report section now exist, and the section fires —
+>    verified by running the audit, not by reading the code:
+>
+>    ```
+>    === CONDITIONALLY HONOURED (declared, so not unknown — but may not apply) ===
+>      scrape_web.follow_links: only on a crawl — set the step's config action to "crawl", or no links are followed
+>      scrape_web.max_pages:    only on a crawl — set the step's config action to "crawl", or /scrape fetches exactly one page
+>    ```
+>
+>    The `UNKNOWN KEYS: none` line now carries its own warning to be read together
+>    with that section. Caught by the council's `editquality` seat — which then
+>    approved the fix with zero objections at round 3. `WRONG_CALLS.md` 2026-07-28.
+> 2. **Switching those two agents to `action: "crawl"` was deliberately NOT done —
+>    and the OWNER HAS NOW RULED IT STAYS THAT WAY (2026-07-28).** It is a behaviour
+>    change to two other owners' agents (one unowned) under a lane off since March.
+>    **Ruling: leave them warning.** They warn at runtime *and* appear in the audit's
+>    CONDITIONALLY HONOURED section, so the mismatch is visible from two directions
+>    instead of none — which is what this bug was actually about. Making the config
+>    honest by changing what the agents *do* is a separate change, for whoever owns
+>    them, on its own merits. **This is a decision, not an omission: do not "fix" it
+>    by flipping the action.** If you think it should be flipped, raise it with the
+>    owning lane rather than reopening this bug.
 >
 > **Council: APPROVED at round 3** — corr `f4cf0aab-5a08-4475-91ea-fa831cff323c`,
 > *"approved with 1 advisory objection(s) — none high-severity"*, `unreadable: 0`,

@@ -237,6 +237,11 @@ returned only comment prose, and `ConditionalKeys` is genuinely new. NOTES §12.
    the clean error log has a zero denominator. §2, and the RUNBOOK puts the attempt
    count above the watch.
 3. **208 undeclared actions** in the coverage ratchet. §3c.
-4. **Two owner calls, neither this thread's:** whether `vet-practice-verifier` and
-   `domain-research-classifier` switch to `action: "crawl"`, and who owns
-   `domain-research-classifier` at all.
+4. ~~**Two owner calls, neither this thread's:**~~ **ONE of the two is now RULED
+   (2026-07-28, owner): `vet-practice-verifier` and `domain-research-classifier`
+   STAY on scrape, warning.** Not a deferral — a decision. The mismatch is visible
+   from two directions (runtime warning + the audit's CONDITIONALLY HONOURED
+   section), which is what 101 was about; changing what the agents *do* is a
+   separate change for whoever owns them. **Do not flip the action "to finish the
+   job".** Recorded in `bugs_closed/101` residual 2.
+   **Still open:** who owns `domain-research-classifier` at all.
