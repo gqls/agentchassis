@@ -43,7 +43,29 @@ edited).
 
 ## 2. Open questions — none of these are blocked, all of them are judgement calls
 
-### 2a. `$ctx.` is owed an architecture review — the council vetoed on scope
+### 2a. ~~`$ctx.` is owed an architecture review~~ **RESOLVED — OWNER RULING 2026-07-28, Option A**
+
+> **The review was held and the owner ruled: keep the code, fix the precedent.**
+> `$ctx.` stays. The standing rule it produced is in `CLAUDE.md` §"Platform seams
+> and the ordering exemption" and binds every session — a seam ships ahead of
+> review only under a **stated ordering constraint** and only if **registered in
+> the same commit**; blast-radius claims are **measured before submitting**; a
+> **scope veto is not answered by resubmitting**. Full review with the three costed
+> options: `REVIEW_2026-07-28_ctx_namespace.md` beside this file.
+>
+> **Item 2b resolved on the way**: of 34 `ExecutionContext.CorrelationID` readers,
+> only **2** bind it into SQL and 16 use it as a Kafka partition key — 32 are not
+> about SQL at all. My submission's *"every lane had to grow a bespoke Go action"*
+> was **overstated and is corrected**; the substantive point survives (none is a
+> reusable mechanism, none is callable from config, so there is nothing to migrate).
+>
+> **Deliberately NOT ruled on:** whether `$ctx.` gets a second consumer.
+> **Accepted with open eyes:** the ordering hazard is mitigated by docs + a
+> pod-grep, not by code.
+
+*(original text kept below for the record)*
+
+### 2a-original. `$ctx.` is owed an architecture review — the council vetoed on scope
 
 Council corr `90361922-e4c4-482e-a0b7-b1a49640265a`, round 2: **REJECTED**,
 11 reviewers, `unreadable: 0` (a real verdict, not the harness — check `unreadable`,
@@ -72,7 +94,7 @@ Two things for whoever takes this up:
 - The architecture-review seat exists and is live (`docs024/architecture_review/`,
   D11 layers 1+2 on v1.0.1182). That is the right venue. **I did not file it.**
 
-### 2b. 34 bespoke `ExecutionContext.CorrelationID` readers, unmigrated
+### 2b. ~~34 bespoke `ExecutionContext.CorrelationID` readers, unmigrated~~ **RESOLVED — see 2a**
 
 `grep -rl "ExecutionContext.CorrelationID" platform/orchestration/actions/*.go | wc -l`
 → **34**. My submission asserted *"every lane wanting this had to grow a bespoke Go
@@ -158,8 +180,8 @@ other's `mark_failed` wrote over it.
 ## 4. What I would do next, in order
 
 0. ~~Run the 2c audit~~ — **DONE**, see above. Result: nothing live to chase.
-1. **Route 2a to architecture review**, naming the guardian↔reuse tension
-   explicitly rather than asking them to rediscover it. Cheap, and it is owed.
+1. ~~Route 2a to architecture review~~ — **DONE. Owner ruled Option A**; the rule
+   is in CLAUDE.md and 2b was settled by the same evidence.
 2. **Run the 2c audit.** One query plus a grep per enabled task. If it finds a
    second instance, that is a fleet-wide class and worth a bug of its own.
 3. **Settle 2b** with a read of the 34 files — it either strengthens or dissolves
