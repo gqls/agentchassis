@@ -226,7 +226,7 @@ check which dominates before changing either.
 
 ---
 
-## E. The provocation does not read as the thing you must answer [MEDIUM, design]
+## E. The provocation does not read as the thing you must answer [MEDIUM, design] — PARTLY FIXED 2026-07-28
 
 Owner: *"someone trying to figure out how the site works will skip right past it
 thinking it's AI slop text and not realise that it **is** the challenge."*
@@ -240,6 +240,43 @@ copy, on a page where several other blocks also look like editorial copy.
 provocation structurally distinct from every other block — its own container
 treatment, an explicit "you are arguing against this" affordance adjacent to it,
 and the input immediately beneath it rather than a scroll away.
+
+### PARTLY FIXED — the mechanism was distance, and it was measurable
+
+The type size was already fixed; the remaining fault was **the box you answer in
+was 2,066px below the provocation on mobile — 2.4 screens.** Between them sat
+intro copy, a status line, the Enter button, **three objective bullets and a
+progress bar**. Objectives and progress REPORT; they are not things a visitor
+does, and they were physically separating the question from its answer.
+
+**Reordered so the panel reads: provocation → answer it → how you are doing.**
+Pure DOM reorder inside `.gi-challenge-body`; the JS selects by `data-` attribute
+so nothing rewired (selector counts identical, div balance 21/21).
+
+| | mobile | desktop |
+|---|---|---|
+| gap before | 2,066px | 1,118px |
+| gap after | **1,624px** | **749px** |
+| objectives | between them | after the input |
+
+Verified live: 0 over-wide elements, no page errors, and a real round still
+completes (opponent replied, objectives wired, 33% progress).
+
+### STILL OPEN, and it is a DESIGN DECISION not a bug
+
+The largest remaining separator is **`.gi-cta-row` at 317px** — the "Enter the
+Gauntlet" button, which is **item C's own subject**. Closing the rest of the gap
+means resolving C, and C is a choice this file already framed:
+
+> either the button moves to the top and the provocation is revealed BY pressing
+> it, or the button stops being the entry point and filing a position is the only
+> entry. **Do not do both** — two entry points is why this is confusing.
+
+The JS already auto-starts a round when a position is filed with no round, so the
+input is *already* a working entry point and the button is the redundant one.
+Moving it below the steps would close ~317px and resolve C — but it changes which
+control is primary, which is the owner's call, not a mechanical fix.
+**Deliberately not bundled into this pass.**
 
 ---
 
