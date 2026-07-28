@@ -9870,3 +9870,116 @@ because a handoff is read exactly once by someone with no context to doubt it.
 week.** Worth automating the cheapest guard: any coverage/verification query
 committed to a RUNBOOK should carry its denominator, so an empty result cannot be
 read as success. Done for 129's runbook; not yet general.
+
+---
+
+## 2026-07-28 — "relojistas is finished and self-running" — while its logo was unreadable on every page
+
+**Where I wrote it.** `traffic_probe/HANDOFF_2026-07-28_continue_here.md` §0: *"relojistas.com
+is **finished and self-running**"*, with a state table whose every row said healthy. Repeated in
+the SUMMARY series and carried into a second session as settled background.
+
+**The truth.** The site's header logo is a **two-up brand specification sheet** — the wordmark
+printed twice, on a light swatch and a dark swatch — served as `logo.jpg` at 1408×768 and styled
+`.logo-img { max-height: 44px; width: auto; }` with **no crop anywhere in the only stylesheet**.
+So every page renders the whole board at roughly 81×44px and both wordmarks are illegible. It
+had been live for weeks.
+
+**What caught it.** Running the og-card derivation (`bugs_open/131`) and then *looking at the
+PNG it produced*. The card was a picture of the same spec sheet — which is only visible to an
+eye, since the job reported `complete`, the URL returned 200, `file` said a valid 1200×630
+`image/png`, and the provenance rows were written. Every mechanical signal was green.
+
+**The cheap check that would have.** **Look at the site.** Once. The entire verification behind
+"finished" was a battery of `curl`s: status codes, `og:` tags, robots.txt, sitemap.xml,
+llms.txt, feed items, 301/302/410 behaviour. Every one of those asks *what does a crawler
+receive*. Not one of them asks *what does a person see*. I had a rich, genuinely rigorous audit
+pointed at exactly one of the two audiences, and no line in it that could ever have failed on a
+visual defect.
+
+**The transferable bit.** *A site is "verified" only against the audience your checks encode.*
+Crawler-facing verification and human-facing verification share the word "live" and overlap
+nowhere. This is the `check answers the question you ENCODED` family again — but the missing
+question here was not a filter or a denominator, it was **an entire audience**. Tell: an audit
+whose every command is `curl … | grep` has no opinion about rendering, and the more thorough it
+looks, the more confidently it will be cited as proof the site is fine.
+
+**Corollary for image artefacts, worth its own line.** For a PNG, dimensions and MIME type are
+*not* "checking the artefact" — they are the equivalent of checking a status code. **What the
+picture shows is the artefact, and the only way to know is to look at it.** `bugs_open/012` said
+check structure after a rewrite rather than trusting status; in an image medium that rule needs
+an eye, because every automated signal available passed here.
+
+### The tally point
+
+That makes **two** entries this week where the probe measured a real thing correctly and the
+real thing was not the question (the 129 inherited-probe pair above, and this). The difference:
+those inherited a wrong question, this one never had the question at all. **No check I could
+have added to my `curl` battery would have caught it** — the fix is not a better command, it is
+noticing that a whole class of user was absent from the plan. Cheapest general guard: any doc
+claiming a *site* is finished should have to name what a human saw, and when.
+
+## 2026-07-28 — a handoff named the wrong council objection as the gating one, and it read as fact
+
+**The claim.** `consolidation/HANDOFF_2026-07-28_continue_here.md` §4, written as the cold-start
+brief for the next session, said of council corr `721ac4f7`: *"Corr … → `revise`, gating
+objection from `bug_historian`… **The objection, and it is fair:** the change introduces
+`prose_sections` and `no_match_sentence` as cross-step contract fields, and the council's own
+read-only check found that `report-builder` has `input_contract` NULL and `output_contract`
+NULL."* It then gave a two-step remediation built entirely on that reading.
+
+**What was true.** The seat is right; the objection is not. `council_decide.decided_by` does say
+*"gating objection from bug_historian"* — but bug_historian's only **high** is on edit 3 and is
+about **enforcement**: *"the plan never establishes what the CALLER does with those violations…
+if logged/recorded but not used to block report delivery, this is exactly the documented shape in
+bugs_open/079 and bugs_open/083."* The DECLARED CONTRACTS point is real but **medium**, and came
+from three *other* seats (`guidelines` ×2, `prior_art`, `guardian`). The handoff had fused the
+gating seat's *name* to a different seat's *content*.
+
+**What it would have cost.** The remediation as written answers four mediums and leaves the high
+untouched — a near-certain second `revise`, at ~30 minutes of queue and a full council round.
+Worse, it had already been carried forward once: the same §4 also instructed *"fix edit 1's
+`symbol` field"*, which on inspection was **correct as submitted** (`assessPayloadRated` is a
+two-hop delegation from `scoreGrippers`, and the guard genuinely lives there). Following the
+brief would have introduced an error into a plan the seat had merely asked to have *confirmed*.
+
+**What caught it.** Reading the artefact instead of the summary — one query printing every seat's
+verdict and objection severities side by side:
+
+```sql
+SELECT k, collected_data->k->'result'->>'reviewer', collected_data->k->'result'->>'verdict',
+       (SELECT string_agg((o->>'severity')||':edit'||(o->>'edit'), ', ')
+          FROM jsonb_array_elements(collected_data->k->'result'->'objections') o)
+FROM orchestration_states, jsonb_object_keys(collected_data) k
+WHERE orchestration_id='<run>' AND k LIKE 'review\_%' ORDER BY 1;
+```
+
+Ten rows, one per seat. The high stands out immediately; so does the fact that it is on a
+different subject from the one the handoff named.
+
+**The transferable bit.** *`decided_by` names the seat, not the objection.* A REVISE verdict has
+one gating reason and often several advisory ones, and a prose summary written at the end of a
+long session is exactly where those get merged — the most-repeated objection displaces the most
+*severe* one, because three seats saying "contracts" is louder than one seat saying "enforcement".
+**Never inherit a council verdict through prose.** This is the `writes the field ≠ reads the
+field` family: the handoff faithfully recorded that a gating objection existed and silently
+substituted its content.
+
+**Second, sharper point — the brief was confidently wrong in the direction of the easier task.**
+Declaring two contract fields is a small, mechanical, satisfying job. Proving that a detector's
+output actually blocks delivery is an open-ended read through the engine. Both readings were
+available at write time; the one that survived into the handoff was the tractable one. Worth
+distrusting on that shape alone.
+
+**Cheapest general guard.** A handoff that routes the next session at a verdict should paste the
+**severity table**, not a paragraph — and should quote the gating objection *verbatim*, since it
+is the one thing the next session must answer.
+
+**Footnote, a landmine walked into on the way.** Verifying the enforcement claim, the first query
+asked `s.value->>'error_step'` and got NULL for every step in report-builder — which reads exactly
+like "no error routing anywhere" and would have *confirmed* bug_historian. `error_step` persists
+at `s.value->'config'->>'error_step'`. **This was already written down** in `016b` (§ ~663, and
+the census at ~4890: 0 of 14,209 persisted plan steps carry the step-level twin vs 1,828 carrying
+the `config` one). Knowing a trap exists does not help if you query the field name you expected;
+the tell is a result that is uniformly NULL across *every* row, which is almost never a fact about
+the world.
