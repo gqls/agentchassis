@@ -949,3 +949,82 @@ answer has been a sweep rather than another hand-patch:
 | house voice in the writer | live copy still broke it; 23 writers never had it |
 
 **Writing a rule is the cheap half. The sweep is the half that changes anything.**
+
+---
+
+## 2026-07-28 — council lane completed, and the Tier-4 run I owed
+
+**The council lane is fully rolled out.** The overnight chassis deploy carried the
+committed `e88852825` manifest, so `EXTRA_REQUEST_TOPICS` now includes
+`system.agent.council-gate.requests` and the consumer group is live on all three
+partitions. I proved the lane end to end **before** switching the producer, using
+a cheap `page-rerender` published to the new topic rather than a council run:
+`COMPLETED | complete`, page re-rendered. Then switched
+`097_TRIGGER_council_review_v1.sh` (commit `f8947b9b8`) and recorded the
+rollout order in the script's own header.
+
+Worth keeping: a registered consumer group proves *subscription*, not *routing*.
+The cheapest agent you have is the right instrument for that distinction.
+
+`bugs_open/096` stays OPEN on purpose. Routing is proven; **relief is not** — no
+real council has run on the lane yet, so "councils no longer block the fleet" is
+still an unmeasured claim. The confirming query is written into the bug so the
+next genuine submission is the test at no extra cost. Also found a residual
+producer I did not switch: `bugfix_034/VERIFY_034_post_roll.sh:58` still publishes
+a council-gate probe to the generic lane. Another workstream's file, a one-off
+probe — but it means "all council traffic is off the generic lane" is not yet
+true, and saying so is cheaper than someone discovering it.
+
+### MISSTEP — I wrote an acceptance fence that could not pass, then nearly let it rewrite the disclaimer
+
+I had claimed the waterfall tool worked. That claim rested on markup, and the
+Tier-4 run was owed precisely because markup is not behaviour. It **failed 2 of
+11 checks**.
+
+The failure was mine, in the fence, not in the tool. Both interaction checks
+clicked `#rw-accept` first, and my note under the fence explicitly *argued* they
+must — "a hidden input cannot be filled". True, and irrelevant, because
+`run_checks_action.go` opens ONE page per profile (`:569`), navigates once
+(`:584`), and runs every check against it (`:398`). The gate sets
+`display:'none'` on click, so check one opened it and check two hit an element
+that resolved in the DOM but was not visible.
+
+Two things I got right by accident and want to make deliberate:
+
+- I did **not** trust the headline. The message "locator resolved to `<button…>`
+  … element is not visible" reads like a broken button. The thing that pointed
+  the other way was that `high-ev-covers-all` **passed**, and it clicks the same
+  button — so the button demonstrably works when the page is fresh. A check that
+  passes is evidence about the checks that fail.
+- I read the runner's page lifecycle rather than inferring it from the symptom.
+  The inference and the code agreed here; they often do not, and I would not have
+  known which.
+
+**The part that actually mattered.** The failure auto-raised an `improve_tool`
+item carrying my fence as the spec, for dispatch to `tool-improver`. Its task
+would have been: make this tool pass a test requiring the consent gate to be
+clickable twice on one page load. The only ways to do that are to stop the gate
+hiding, make it reappear, or delete it — **all three weaken the disclaimer**,
+which is section B of the owner-approved wording and the proximate placement the
+whole negligent-misstatement position rests on. I cancelled it `wont_fix` with
+the reasoning in `resolution_path`.
+
+Nothing stopped that except my noticing. Filed as `bugs_open/126`, because it is
+not about this tool: it applies to every tool with a consent gate, and the
+disclaimer doctrine is actively pushing us to build more of them.
+
+The generalisation, which is the bit I want to carry: **an automated repair loop
+inherits the authority of whatever test it is given.** A wrong test does not
+merely fail — it becomes a specification, and the loop will faithfully damage
+correct code to satisfy it. Any check whose failure triggers a rewrite is
+production configuration, not test scaffolding.
+
+Fence corrected by superseding the `doc_plans` row rather than editing it, so the
+wrong version stays on the record. `gate-opens` is now its own first check, and
+the two arithmetic checks inherit the opened page. Re-run with **no change to the
+tool source**: **13 of 13 passed** across desktop and mobile — which is what
+establishes the fence rather than the tool as the defect.
+
+`zero-ev-breaks-at-top` had **never executed** before today; it died at its gate
+click on the only previous run. So the tool's behaviour at zero enterprise value
+was unverified the whole time I was describing the tool as working.
