@@ -104,6 +104,74 @@ which bills through GCP budgets instead of a hard ceiling.
    and missed two that **404**. Its own header admits it never makes an HTTP request.
    Contains one hypothesis marked UNVERIFIED; read the code before acting on it.
 
+## 4b. REGRESSION I CAUSED — the carousel images, and the rule the owner drew from it
+
+**Owner reported 2026-07-28: the images no longer render in the carousel.** Confirmed,
+and it was the capabilities rebuild I fired at 10:05Z.
+
+| | before the rebuild | after |
+|---|---|---|
+| carousel `<img src>` | `/assets/images/hero-home.jpg`, `hero-fine-tuning.jpg`, `hero-review-council.jpg`, `brand-illustration.jpg` | `/assets/illustrations/review-council.svg`, `rapid-delivery.svg`, `verification-audit.svg`, `vector-search.svg` |
+| do they resolve? | **all 200** | **404** (different directory: `/assets/illustrations/`, which has never existed) |
+
+The writer **replaced four working image references with four invented ones**, in a
+directory the site does not use, and the build passed the gate. Same mechanism as the 9
+invented link targets the same rebuild authored (`bugs_open/071`, third instance) and
+plausibly the same upstream cause — `bugs_open/092`, the writer never receiving its
+constraints. Four `<img>` tags are still emitted, so nothing looks structurally broken;
+the boxes are simply empty.
+
+> ### OWNER RULE, 2026-07-28 — **replace before deleting**
+> *"if that's because we're changing them then it should replace before deleting them."*
+>
+> A regeneration that swaps an asset reference must not leave the page pointing at
+> something that does not exist yet. Either the new asset is created first and the
+> reference swapped after, or the old reference stands. **An empty box is worse than a
+> stale picture** — the stale one still communicates, and the empty one reads as
+> brokenness to a visitor who has no idea a change was intended.
+>
+> This generalises past imagery: it is the same shape as `bugs_open/098` (archiving
+> retracts a page from every derivation while the frozen artefact keeps serving) and as
+> the link authoring above. **The platform is willing to write a reference to something
+> that does not exist, in three separate subsystems.**
+
+**Fix here is not a hand-repair of four `src` values** — that is what failed twice for
+links (`071`) and would fail the same way at the next rebuild. Establish first whether
+`/assets/illustrations/*` was ever a real convention on any site or is pure invention;
+then it belongs with `092`/`071` as one authoring defect, not three patches.
+
+## 4c. OWNER DESIGN DIRECTION, 2026-07-28 — panels as carousels, with a deliberate cliffhanger
+
+Recorded verbatim in intent, not yet designed or built:
+
+> *"as a whole almost all the panels could be carousels of one sort or another,
+> especially on the home page, and have a really short first sentence and a small
+> potentially incomplete second sentence to be completed when they click through — that
+> may be one of the styles but not necessarily all of them."*
+
+Reading it back for whoever picks this up:
+
+- **Most panels become carousels**, home page first. Not necessarily the same carousel —
+  *"one sort or another"*, and *"one of the styles but not necessarily all of them"*.
+  So this is a **family** of panel treatments, not a single component applied everywhere.
+- **The copy pattern is the interesting part**: a very short first sentence, then a
+  second that is deliberately **incomplete** and resolves on click-through. The panel
+  poses; the destination answers.
+- **This is a content contract as much as a layout one.** It changes what the writer is
+  asked for per panel — two sentences with a specific asymmetry — so it will need the
+  writer prompt and the component `input_schema` to agree, not just CSS.
+
+**Do not treat this as a ticket to start building.** The owner also said *"We may already
+be addressing the design aspect"* — `features_open/018` (the screenshot design critic) is
+the existing lane, and three carousel components already exist
+(`hero-card-carousel`, `swipeable-insight-carousel`, `image-hover-card-grid`).
+**Check what those already do before proposing anything new** — this workstream's
+recurring mistake is building beside existing machinery rather than on it.
+
+Two constraints already established that this direction must respect: the owner ruled on
+2026-07-24 that **autoplay is opt-in, not default** (*"movement not for all carousels"*),
+and every figure that appears must come from the evidence base, never from the writer.
+
 ## 5. Open, not blocked, and worth a thread
 
 - **Template sameness** — `model-fine-tuning` and `multi-agent-review-council` still
