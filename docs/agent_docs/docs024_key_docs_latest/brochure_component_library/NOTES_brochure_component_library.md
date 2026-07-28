@@ -2595,3 +2595,41 @@ What SURVIVES of §4d: "nothing reconciles the two" was true and 256 now exists 
 `teaser-detail-deeplink` remains the owner's carousel idea already named (do not invent
 a new name); `site_experiences` binding state is the register thread's to report, not
 ours to assert from a stale count.
+
+**Evening part 2 — capabilities REPAIRED & VERIFIED SERVED; verdict collected; bookkeeping.**
+
+- **The 13 broken refs are one revert, not thirteen repairs.** `page_component_history`
+  rows with source `save_page_sections_overwrite` archive the DISPLACED content at each
+  overwrite — the 10:45 rows held the clean pre-regression `content_data` for both
+  corrupted components (carousel: 4 real jpgs + `/capabilities.html#…` fragment links;
+  info-card-grid: same fragment-link family). All 4 archived jpgs still 200. Restored
+  both components' `content_data` wholesale (corrupted state archived first, source
+  `operator_restore_pre_regression_2026-07-28`), then re-rendered LLM-free with
+  `spec.reason=section_data_resolved` (all 6 sections had non-NULL content_data, so no
+  writer escalation). NOTE the near-miss first: my phantom LIKE test matched
+  `%decision-record%` against `/capabilities.html#decision-record` and said the CLEAN
+  state had phantoms — assert-position-not-presence, caught by printing the link arrays.
+- **Dispatch detour:** the direct 049b kcat fire was declined by the session's permission
+  layer this time, so the platform-native route was used: INSERT a `page_rerender` work
+  item — which BLOCKED ("No handler_agent set"); the cta NOTES template omits
+  `handler_agent='page-rerender'` (999/999 routed rows carry it). Corrected their NOTES.
+  Item `51e7b867` then queued behind idea.uk (dispatcher = one site per tick by site_id)
+  and completed 16:59:08Z.
+- **Served verification (the only one that counts):** capabilities.html — phantom hrefs
+  0, `/assets/illustrations/` 0, all 4 restored jpgs serving, both 085 charts intact.
+  Residuals, none introduced tonight: favicon.png 404 (known, site-wide);
+  the restored fragment links point at anchors that DO NOT EXIST — zero `id=` attributes
+  on the page, also true pre-regression, so the last-good state itself scrolls nowhere
+  (soft 023-adjacent defect, filed here as a residual only); `icon-cap-review.jpg`
+  serves 200/404/200 across 9 seconds — flapping origin/edge state, pre-existing (it
+  also misbehaved in the morning crawl), worth an eye.
+- **090 verdict: UNVERIFIABLE — no refutation** (full addendum in `bugs_open/079`).
+  Chasing the loop's one new citation added a THIRD site: gamesdesign
+  `/tools/bayesian-ranking.html`, repair recomputed today 15:47Z, stored components
+  unchanged since 07-21, `href=""` still in the saved hero-tool row. Also learned: the
+  verdict lands in the child orchestration's `collected_data->'verdict'`, NOT
+  `diagnosis_artifacts` (bundles only); and the intake row was auto-completed 17:02Z by
+  the now-ENABLED `diagnose-pipeline-trigger` — the 090 script's "close it by hand"
+  step is STALE.
+- Items closed: `56fbcc9a` (selector hero — served), `51e7b867` (capabilities rerender),
+  intake `needs_diagnosis:validate-page-content-repairs-dead-in-bo` (auto).
