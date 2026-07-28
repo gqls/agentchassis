@@ -70,11 +70,43 @@ The pattern that already does this correctly is `CHVerticalProfile`
 header reads *"Add a new entry here when onboarding a new industry vertical"*: a
 table, not a package per vertical.
 
-**First move, free and self-evidencing:** `med_export_json` (`registry.go:1691`)
-sits **ten lines above** `directory_export_json` (`:1701`), whose header reads
-*"Generic, config-driven … nothing site-specific may be hardcoded here."* It is
-the generic version of the one above it. Both registered, both live, nobody saw
-it. Merge and deprecate — `DeprecatedBy` is already supported by the registry.
+> **CORRECTED 2026-07-28 — the "free first move" was not free, and the premise was
+> never checked.** This section said: *"First move, free and self-evidencing:
+> `med_export_json` sits ten lines above `directory_export_json` … It is the generic
+> version of the one above it. Both registered, both live, nobody saw it. Merge and
+> deprecate."* **Wrong.** Verified live before touching anything:
+>
+> - `med_export_json` is named by a **live, active** agent (`med-json-exporter`).
+> - The two files are 634 vs 537 lines and share almost nothing: the med exporter
+>   has **16 functions the generic one does not**, including
+>   `filterMedExportProvenance` — a **fail-closed provenance gate** ("no price
+>   without a source URL and capture date") added two commits ago in `f82f8b425`,
+>   directly serving vetcomparison's P1 provenance work — plus letter-bucketing, a
+>   medicine index and variant counting, which are a price-comparison data model,
+>   not boilerplate.
+>
+> Merging would either break a live lane or drag all sixteen into the "generic"
+> exporter, which would stop it being generic. **They share a purpose, not an
+> implementation.** The claim came from a sub-agent audit line I repeated without
+> opening either file.
+
+**The genuine finding in this family, and it is the opposite shape.**
+`firecrawl_map` and `med_map_urls` both call Firecrawl's `/map`. But:
+
+| action | style | callers |
+|---|---|---|
+| `med_map_urls` | direct in-process HTTP, own key handling | **live agent `med-url-mapper`** |
+| `firecrawl_map` | wraps `WebscrapeAction` (adapter, async) | **none — anywhere** |
+
+`firecrawl_map` appears in `registry.go:1641` and **nowhere else**: no Go caller, no
+seed, no agent config. So this is not "consolidate the bespoke one onto the generic
+one" — the generic one is **dead registered code**, and the live one went direct
+deliberately (the adapter path is async; these callers are synchronous).
+
+The available action is therefore to **decide `firecrawl_map`'s fate** — wire it or
+delete it — not to merge anything into it. That is small, safe, and real. Whoever
+takes it should check `ListDeprecatedActions` semantics first; the registry already
+supports `DeprecatedBy`.
 
 **Then:** `score_grippers` becomes a scoring engine with its rule table in
 `site_specs`. **Owner ruling 2026-07-27: after the gripper pilot ships, not
