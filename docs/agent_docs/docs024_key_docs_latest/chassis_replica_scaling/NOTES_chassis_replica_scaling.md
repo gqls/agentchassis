@@ -175,3 +175,69 @@ group" (P2). It is actually a prerequisite for **any** concurrent response
 processing, including a single-pod worker pool — two workers handling duplicate
 deliveries of one response reach the same reset. So it ships FIRST (CS-1, own
 council run), before the pool exists.
+
+---
+
+## 2026-07-28 — Phase 0 baseline: sequential 5/5 COMPLETED; concurrent 0/5. The layer below the lane is the next constraint, with evidence.
+
+Method: cheap `page-rerender` dispatches on vonc.com (the designated test
+site), the oufe TRIGGER envelope, five different pages (about, catalyst,
+judge, maker, mentor — all 0 NULL-content sections). Same five pages, two
+shapes, ~4 minutes apart, on pod v1.0.1180 (11 h old — outside every
+post-roll window):
+
+**Sequential (publisher slower than the drain — kcat pod spin-up spaced
+arrivals ~15 s apart).** Published 09:42:12–09:43:14Z; offsets 105496→105501
+(exactly +5, nothing else in the window); **5/5 COMPLETED**, per-orchestration
+created→terminal 6.0–8.2 s. Closed mass balance: 5 published, 5 consumed, 5
+terminal, 0 unaccounted by 09:43:55Z.
+
+**Concurrent (all five inside 7.8 s — faster than one segment, so a genuine
+burst).** Published 09:46:15.0–09:46:22.8Z. Lane consumed serially over ~37 s
+(creations 09:46:09.6→09:46:46.4). Outcome: **0/5 COMPLETED — 4 FAILED at
+`deploy_page` with "Request timed out (code: TIMEOUT)"** (error stamped
+~09:58–09:59, i.e. ~12 min of F2 retries), **1 WEDGED** at `check_skipped`,
+`EXECUTING_STEP`, `updated_at` frozen at 09:46:30 — the exact idle-orchestration
+census class from the foot of bugs_closed/030. Checked before concluding: the
+response lane is alive (`max(processed_at)` was 10 s old at 10:07), so the
+wedge holds no lane; it is a parked row only the watchdog would find.
+
+> **CORRECTED 2026-07-28, twenty minutes after writing the paragraph below —
+> before it was committed, caught by reading bugs_open/029's same-morning
+> entry.** I first wrote this up as "five concurrent spawns → 4/5 timeouts, the
+> 029 family under concurrency". Then 029's 10:00 re-measure recorded **a
+> chassis roll to v1.0.1182 at 09:55:02Z — mid-way through my burst's await
+> window.** A roll kills in-flight awaits by design, and the ~300 s-to-20-min
+> post-roll degraded window follows it. The F2 retry cadence means the first
+> retries pre-date the roll and still got no response `[INFERRED from the ~3 min
+> retry cycle; not confirmed per-request]`, so concurrency may still be the
+> cause — but the burst's failures are CONFOUNDED and the attribution is
+> withdrawn until the clean re-run below. The sequential 5/5 baseline (09:42–43)
+> pre-dates the roll entirely and stands.
+
+**What survives unconfounded:** the lane consumed the burst strictly serially
+(~37 s for five, creations spaced 6–20 s); the wedged row froze at 09:46:30,
+nine minutes BEFORE the roll, so it is a genuine parked specimen of the
+idle-orchestration census class, not a roll casualty.
+
+**Re-run required (and scheduled this session): same 5-page burst on a pod
+>25 min past the 09:55 roll.** If it completes, the concurrency claim was a
+roll artefact and P1's enablement risk shrinks; if it fails the same way, the
+spawn/response layer genuinely cannot take 5 concurrent spawns and that
+evidence goes to the 029 lane. Either way CS-2's enablement verification must
+measure COMPLETIONS, not just lane LAG. `[ALSO UNSEPARATED: all five pages are
+one site, so same-site deploy contention vs generic spawn-loss needs a
+cross-site burst to distinguish.]`
+
+Instrument gotcha for whoever repeats this: `oufe/TRIGGER_rerender_page.sh`
+names its kcat pod `kcat-rerender-$(date +%s)` — seconds granularity, so
+PARALLEL invocations collide with "AlreadyExists" (3 of 5 lost that way on the
+first attempt). The burst script with per-page+$RANDOM names is in this
+session's scratchpad (burst5.sh); fold it into the RUNBOOK if the cross-site
+check gets run.
+
+Residue: 4 vonc.com pages may be re-rendered but undeployed (deploy_page timed
+out; trust the artefact, not the status — not checked, test site). The wedged
+row 6c4a0bdf sits in `EXECUTING_STEP` indefinitely; left in place deliberately
+as a live specimen for the watchdog work (dispatch_queue_serialisation), noted
+here so nobody diagnoses it as fresh.
