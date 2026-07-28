@@ -1,8 +1,11 @@
 # Spanish copy for `about-commercial-block` — the first non-English site
 
 **Written 2026-07-28 for relojistas.com (tier 2), by the traffic_probe thread.**
-Contributed because this workstream owns the component; **nothing here is applied.** The
-block is still English-only in the library and relojistas has no section inserted.
+
+> **STATUS: SHIPPED 2026-07-28.** Owner authorised the build. The `language` seam is in the
+> component's schema, the Spanish branches are in `html_template`, and this copy is **live on
+> relojistas.com/sobre-nosotros.html** — the first non-English render of the block. Absent
+> `language` ⇒ English, so the rest of the fleet is unchanged. See NOTES 2026-07-28.
 
 Grounded in relojistas' own `site_specs.content_direction`, not in a translator's instinct —
 that spec is the reason several obvious renderings are wrong (see *Rejected* below).

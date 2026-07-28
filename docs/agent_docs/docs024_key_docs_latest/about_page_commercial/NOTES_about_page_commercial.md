@@ -169,3 +169,56 @@ block speaks Spanish it is one section-insert away. `notes` on that row says so.
 > flag asserts?** Worth deciding on its own merits, not because of relojistas.
 
 Contact for this: the relojistas thread, `traffic_probe/` (docs + NOTES 2026-07-27).
+
+
+## 2026-07-28 — LANGUAGE SEAM BUILT + first non-English site LIVE (traffic_probe thread, owner-authorised)
+
+**I changed your component.** Owner said "go ahead with what's necessary for the for-sale
+block", so this is applied, not proposed. Backup: `bak_acb_20260728`.
+
+**The seam is one field, using the pattern already in the schema.** Every other field is
+`source: site_specs.commercial.<key>`; `language` is now too:
+
+```json
+"language": {"type":"text","source":"site_specs.commercial.language","required":false,
+             "on_missing":"skip_field","llm_guidance":"Resolver-owned ISO code … Never LLM-authored."}
+```
+
+`html_template` branches `{{if eq .language "es"}}…{{else}}<the locked English>{{end}}` on the
+three copy lines (built-by, the tier ladder, advertise). **Absent ⇒ English**, so nothing else
+in the fleet changes — verified: `finetuning.uk` has no `language` key and renders exactly as
+before.
+
+**Why a field and not per-site copy overrides:** putting the strings in `site_specs` would let
+the locked wording drift per site, which is the thing the design protects. The English stays a
+template literal; a second language is a deliberate template addition, reviewed once.
+
+**LIVE on relojistas.com/sobre-nosotros.html** — the first non-English render of this block:
+
+```html
+<p class="acb-heading">Sobre este sitio</p>
+<p class="acb-builtby">Diseñado y construido por fundamentallyai.com — ver cómo se hace.</p>
+<p class="acb-acquire">El dominio relojistas.com está disponible para su adquisición
+   — puedes <a href="…forsale.godaddy.com…" rel="nofollow">manifestar tu interés</a>.</p>
+```
+
+`acb-advertise` correctly absent — **the mutual exclusion gate fired for real for the first
+time** (`for_sale_requested=true` ⇒ no advertise line). The pilot could never exercise it:
+finetuning.uk ships built-by only.
+
+**Two things your pilot never hit, because it only ever rendered the built-by line:**
+
+1. **The tier ladder and the for-sale gate had never rendered anywhere.** They do now, correctly,
+   with real booleans out of the aspect (`for_sale_requested: true`, `advertising_active: false`
+   arrive as JSON booleans, not strings — so the `and`/`not` gate behaves; a stringified "false"
+   would have been truthy and silently inverted it).
+2. **Insertion did NOT need the page-rebuild path**, and therefore did not need the
+   `resolve_links` contract bug your pilot died on (still live: `page-content-writer`'s
+   `resolve_links` maps `"sections?"` optional while `internal-link-resolver` requires it).
+   Inserting the three section rows by hand — `site_plan_sections` + `pages.sections` +
+   `page_components` with `content_data` — and firing a **scoped** rerender
+   (`spec.reason=section_data_resolved`) renders it from stored content_data with **no LLM and
+   no rebuild**. That is a cheaper route to Phase 1 than waiting for 090's successor to be fixed.
+
+Spanish copy and the register decisions behind it: `COPY_es_about_commercial_block.md`.
+Evidence and the site-thread's own account: `traffic_probe/relojistas_rebuild_running_notes.md`.
