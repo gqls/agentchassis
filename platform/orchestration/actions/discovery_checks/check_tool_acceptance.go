@@ -342,6 +342,28 @@ func firstOf(ss []string) string {
 
 // evaluateStaticCriteria applies the anchor rule to the statically-visible
 // subset of the criteria against the deployed page HTML.
+//
+// THE CONTRACT IS NOW MIXED, AND THAT IS DELIBERATE — read this before adding a
+// check type (recorded here 2026-07-28 because it was previously argued only in
+// a review note, which does not survive the review).
+//
+//   - CONFIRM-ONLY, the original rule and still the default: a selector is
+//     judged on its ANCHOR against raw HTML, so a runtime-built path passes and
+//     only an absent anchor fails. Nothing is refuted for being built by JS.
+//   - REFUTING, for attribute assertion (attribute_absent, attribute_matches)
+//     and for the built-in shell-dead-controls sweep below, which predates it.
+//     Both fail a page for something it actually SERVES.
+//
+// The line between them is not "which check", it is WHAT THE CHECK CAN SEE. A
+// refuting check may only judge elements present in the served HTML; when its
+// selector matches nothing it SKIPS, because the thing it would be judging was
+// never delivered. So the confirm-only guarantee is intact where it matters —
+// no check fails a page for markup the browser will build — while a served
+// defect can now be named.
+//
+// A NEW CHECK TYPE THAT REFUTES MUST HONOUR THAT SKIP RULE. Without it, every
+// client-side-rendered page fails; with it inverted (skip becomes pass), every
+// such check is vacuously green, which is worse because it looks like coverage.
 func evaluateStaticCriteria(crit criteriaDoc, httpStatus int, html string) evaluation {
 	var ev evaluation
 
