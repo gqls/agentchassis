@@ -1028,3 +1028,90 @@ establishes the fence rather than the tool as the defect.
 `zero-ev-breaks-at-top` had **never executed** before today; it died at its gate
 click on the only previous run. So the tool's behaviour at zero enterprise value
 was unverified the whole time I was describing the tool as working.
+
+### 2026-07-28 (later) — the mechanism diagram, and a trap I set for myself by locking too early
+
+Built `mechanism-flow` (mig 247) and put the Part 26A cross-class cram down on the
+Thames page (mig 248). The flagship case page had been **one section, a single
+`generic-text-block`** — the owner's "reads like a heavy text book" in its most
+literal possible form.
+
+Reuse check first, per the §10 lesson from the handoff. `evidence-chart` exists
+and plots magnitudes; `tool-guide-intro` exists and is the answer to "guides at
+each point"; `renderBarChartSVG` in `report_charts.go` is unexported and bound to
+one report page. Nothing in the estate draws a **process**, so that was the real
+gap and the thing worth building.
+
+Three decisions worth keeping, none of them taste:
+
+- **No numeric field, at all.** On this site every figure must arrive through the
+  register. A component with a number-shaped slot is an invitation, so the
+  absence of the slot is the control rather than a rule about using it.
+- **HTML text, CSS connectors, no SVG.** The obvious build is inline `<svg>` with
+  `<text>` labels, and it is wrong here: SVG text is invisible to the claims gate,
+  so a diagram could assert anything and scan clean. **Verified rather than
+  assumed** — I decoded the base64 payload claimscan actually received and found
+  "cross-class cram down" in it.
+- **Contrast measured before writing.** `--color-border` (#2E3F52) scores **1.66**
+  on the page background and fails the 3.0 non-text threshold, so the rail and
+  connectors use `--color-accent` (6.86). In a mechanism diagram the connectors
+  are graphical objects needed to understand the content, so that threshold
+  genuinely applies to them. This is the 122 class of defect, caught before
+  shipping for once.
+
+Every one of the seven steps paraphrases a fact already in the register,
+quote-verified with a source. No statutory content from memory: that is precisely
+what the grounded-explainer audit caught on this site once already.
+
+#### MISSTEP — I locked the component at insert time, which would have rendered it invisible for ever
+
+I inserted the row with `lock_type='permanent'` and an empty `rendered_html`,
+pleased with myself for protecting it. Then read the renderer:
+`save_page_sections` **preserves** locked rows instead of rendering them
+(`loadActiveLockedRows`). A row locked with empty `rendered_html` therefore
+renders as **nothing, permanently**, and the page still reports success — the
+exact silent-success shape as bugs_closed/095.
+
+Caught by reading the code before firing the render rather than after. The fix was
+the migration-182 pattern: write `rendered_html` by hand in the same statement.
+I rendered the component's **own** `html_template` through Go's `html/template`
+rather than reimplementing the markup, because a reimplementation drifts from the
+renderer silently and there is no test that would catch it.
+
+That also caught a second thing before it shipped: my first draft numbered the
+steps with `{{inc $i}}`, and **`inc` is not in the render funcmap**. A template
+referencing a missing function fails to PARSE — it does not degrade — so the
+section would have rendered nothing at all. Replaced with a CSS counter, which
+needs no funcmap at all.
+
+#### What the lock audit turned up, which matters more than my own slip
+
+The existing Thames prose was **7,896 bytes of grounded, audited content with no
+lock, on a page with `rebuild_policy='generic'`**. One ordinary re-render would
+have handed cited legal text to a writer and replaced it with plausible prose.
+That is the one failure this site cannot absorb, and nothing was protecting it.
+Locked `permanent` now. Checking the locks on the sections you are NOT touching
+belongs in the re-render routine, not in a bug file.
+
+#### claimscan found exactly one thing, and it was mine
+
+`(should|must) (buy|sell|short|invest|avoid)`, my own pattern from mig 226,
+matching the index hero's **negation**: "nothing to say about what you should
+buy". A false positive.
+
+I moved the copy rather than the pattern, and the reasoning is worth recording
+because the instinct runs the other way. For a control whose job is to stop the
+site recommending a trade, over-matching is the correct error direction, and RE2
+has no lookbehind to spot a negated frame in one expression. What is not
+acceptable is a permanent known-false finding, because a scanner that always
+reports one is a scanner people stop reading. The replacement is better copy
+anyway: "it does not tell you what to trade" says what the site does, which is the
+house-voice rule, instead of describing an absence.
+
+Re-scan after the fix: **0 findings across 13 components**, the new diagram among
+them.
+
+Also worth noting: `TRIGGER_rerender_page.sh` uses `${3:-section_data_resolved}`,
+and `:-` treats an **empty string as unset**. Passing `""` for assemble-only
+silently gives you `section_data_resolved`. It prints the reason it used; I read
+that line and it was not what I passed. Both now in the RUNBOOK (§9, §10, §11).
