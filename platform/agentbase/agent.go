@@ -406,8 +406,24 @@ func (a *Agent) setupConsumers() error {
 		zap.String("groupID", a.AgentID[0:8]),
 	)
 
-	// Simple consumer group
-	responseConsumer, err := kafka.NewConsumer(
+	// Simple consumer group. The group id is the per-pod AgentID, so with
+	// FirstOffset every pod start replays the response topic's entire history
+	// before hearing fresh traffic (~23 min measured on the chassis,
+	// chassis_replica_scaling NOTES 2026-07-28 — and most of bugs_open/029's
+	// "post-roll degraded window" by the same numbers). CHASSIS_RESPONSES_
+	// START_AT=latest opts the STATIC chassis out of the replay; spawned pods
+	// keep FirstOffset — their per-job topics are created fresh, so there is
+	// no history to skip and the first messages may pre-date the consumer.
+	newResponseConsumer := kafka.NewConsumer
+	if os.Getenv("CHASSIS_RESPONSES_START_AT") == "latest" {
+		if strings.HasPrefix(requestsTopic, "system.agent.") && !a.spawned {
+			newResponseConsumer = kafka.NewConsumerFromLatest
+			a.logger.Info("RESPONSES_START_AT_LATEST: per-pod response group will not replay topic history")
+		} else {
+			a.logger.Warn("CHASSIS_RESPONSES_START_AT=latest ignored — not a statically deployed agent")
+		}
+	}
+	responseConsumer, err := newResponseConsumer(
 		a.config.KafkaBrokers,
 		responsesTopic,
 		a.AgentID,

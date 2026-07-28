@@ -21,6 +21,25 @@ type Consumer struct {
 
 // NewConsumer creates a new standardized Kafka consumer
 func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*Consumer, error) {
+	return newConsumerWithStart(brokers, topic, groupID, logger, kafka.FirstOffset)
+}
+
+// NewConsumerFromLatest is NewConsumer with StartOffset LastOffset, for a
+// consumer whose group id is EPHEMERAL (per-pod) on a topic with long history.
+// With FirstOffset such a consumer replays the topic's entire past on every
+// pod start — measured 2026-07-28 on the chassis's response lane: 12,280
+// messages, ~530/min, ~23 minutes of processing history while deaf to fresh
+// traffic, on every restart, growing with the topic (chassis_replica_scaling
+// NOTES). The blind window this trades for is the pod-restart seconds, and
+// only for messages nothing else would redeliver — the F2 retry driver
+// re-sends any await whose response lands there (bugs_open/003).
+// Stable-group consumers must keep NewConsumer: their stored offsets make
+// StartOffset irrelevant after the first ever start.
+func NewConsumerFromLatest(brokers []string, topic, groupID string, logger *zap.Logger) (*Consumer, error) {
+	return newConsumerWithStart(brokers, topic, groupID, logger, kafka.LastOffset)
+}
+
+func newConsumerWithStart(brokers []string, topic, groupID string, logger *zap.Logger, startOffset int64) (*Consumer, error) {
 	if len(brokers) == 0 {
 		return nil, fmt.Errorf("kafka brokers list cannot be empty")
 	}
@@ -41,10 +60,10 @@ func NewConsumer(brokers []string, topic, groupID string, logger *zap.Logger) (*
 		Brokers:        brokers,
 		GroupID:        groupID,
 		Topic:          topic,
-		MinBytes:       1,                 // 1 byte
-		MaxBytes:       10e6,              // 10MB
-		CommitInterval: 0,                 // Manual commit
-		StartOffset:    kafka.FirstOffset, // Start from beginning if no offset stored
+		MinBytes:       1,           // 1 byte
+		MaxBytes:       10e6,        // 10MB
+		CommitInterval: 0,           // Manual commit
+		StartOffset:    startOffset, // Only consulted when the group has no stored offset
 		// bugs_open/040-kafka-dial: same 10s budget as before, now counted.
 		// The timeout is passed explicitly and deliberately unchanged — see the
 		// scope note in dialer.go.
