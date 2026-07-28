@@ -388,3 +388,14 @@ kept this file's own item 1 from being reported forever.
 
 **Item B check-side therefore stays OPEN** — but it is now open on *evidence*, not on a
 deploy. `/bugs_closed/`'s bar is fixed AND live; this is live and unwitnessed.
+
+> **UPDATE 2026-07-28 18:23Z — the tag moved, the fix survived.** A fleet deploy took
+> `browser-runner-adapter` from the `v1.0.1190` above to **`v1.0.1192`** (pod
+> `browser-runner-adapter-8f74cbd95-nj866`, started `18:23:07Z`). Re-grepped rather than
+> assumed, because this bug's whole check-side history is a lesson in tags that lie:
+> positive control **1**, fix marker **1**, negative control **0**. The clause is still
+> in the running binary. **Do not go looking for `v1.0.1190`** — it is gone, and the
+> version number in the section above is now history, not state.
+>
+> **Still unwitnessed.** `no_horizontal_overflow` has run **0** times since the 16:56Z
+> roll (checked 18:2xZ). Everything in "what to watch for" above stands unchanged.
