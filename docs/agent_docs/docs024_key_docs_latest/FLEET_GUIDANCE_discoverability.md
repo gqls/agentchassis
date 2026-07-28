@@ -142,6 +142,21 @@ JSON-LD payload and **renders nothing when unset**, attached per page. Used to p
 `Generic Text Block` — **shared by 13 sites across 276 pages.** Glossary-specific markup there
 would be wrong for twelve other sites. This is why the dedicated component exists.
 
+> **TRAP, paid for on the first insert — `pages.sections` must carry the SECTION_TYPE, not the
+> component NAME.** A scoped rerender rebuilds `page_components` with
+> `slot_name = section_type`. If a component's `name` differs from its `section_type` (here
+> `structured-data-block` vs `structured-data`), the entry you wrote into `pages.sections`
+> stops matching after the first rerender and **the assembler silently drops the section**.
+>
+> The failure is invisible from the DB side, which is what makes it expensive: the component
+> renders perfectly — `page_components.rendered_html` was 2,646 bytes with the JSON-LD in it —
+> and the page simply never includes it. Checking the stored render says SUCCESS; only fetching
+> the page says otherwise. *Trust the rendered artefact, not the stored one.*
+>
+> `about-commercial-block` survived the same path only because its `name` and `section_type`
+> are identical. **Easiest safe rule: give new components a `name` equal to their
+> `section_type`.**
+
 ---
 
 ## 6. Reviving a dead URL surface — when it is content strategy and when it is a doorway

@@ -2014,3 +2014,46 @@ message says nothing about it and `git log` on the file would mislead anyone loo
 reasoning. This is the documented `add -A` hazard, and the mitigation remains the same: **commit
 narrowly the moment the work is coherent** — which a merge in progress can prevent, so also
 **check `.git/MERGE_HEAD` before assuming your commit will land.**
+
+
+## 2026-07-28 (3) — JSON-LD on the glossary, and a silent section-drop that cost two renders
+
+Owner asked for JSON-LD, fleet mechanism, and the crawler settings. Settings verified: **his
+Cloudflare flip worked** — ClaudeBot, GPTBot, CCBot, PerplexityBot, OAI-SearchBot and
+Google-Extended all `allowed`, Cloudflare's managed block gone, served file 82 lines → 21.
+
+**Could not use the cheap route for JSON-LD.** relojistas' glossary pages render from generic
+`hero` and `Generic Text Block` components — **shared by 13 sites across 276 pages**. Putting
+glossary schema in them would be wrong for twelve other sites. Built a dedicated
+`structured-data-block` component instead (renders nothing when its payload is unset, so it is
+safe to attach anywhere) carrying a real `DefinedTermSet` of the 8 glossary terms — each term's
+own name, own definition and own URL, harvested from the live pages exactly like `llms.txt`.
+
+### The trap: `pages.sections` must carry the SECTION_TYPE, not the component NAME
+
+Inserted the section the same way as `about-commercial-block` — `site_plan_sections` +
+`pages.sections` + `page_components` — and fired a scoped rerender. Work item went `complete`.
+**Live page: zero JSON-LD blocks.**
+
+First read of the DB made it look like the row had been *deleted* — my query used
+`slot_name='structured-data-block'` and returned nothing. It had not been deleted; **the
+rerender had renamed it**, because it rebuilds `page_components` with
+`slot_name = section_type`, and this component's `name` (`structured-data-block`) differs from
+its `section_type` (`structured-data`).
+
+So `pages.sections` still said `structured-data-block` while the row was `structured-data`, the
+two stopped matching, and **the assembler silently dropped the section**.
+
+What makes it expensive is that every DB-side check says SUCCESS:
+
+```
+slot_name=structured-data | payload=2602 | rendered=2646 | has_jsonld=true
+```
+
+The component rendered. The stored HTML contains the JSON-LD. The page does not.
+**Only fetching the page reveals it** — `bugs_open/117`'s lesson one layer along: trust the
+*served* artefact, not the stored one.
+
+`about-commercial-block` survived the identical path only because its `name` and `section_type`
+are the same string. **Rule for new components: make `name` equal `section_type`.** Recorded in
+`FLEET_GUIDANCE_discoverability.md` §5.
