@@ -80,8 +80,7 @@ network claim, not a text match).
 
 ## 3. THE THING THAT NEEDS A HUMAN, not another submission
 
-**The council gate's `architecture` seat — which had never fired on any submission in its life —
-ruled that these check types ARE architecture-scope:**
+**The council gate's `architecture` seat ruled that these check types ARE architecture-scope:**
 
 > *"new reserved keys added to experienceCheckTiers, a capability table with two read-sites across
 > two systems. Per the plan's own cited 2026-07-28 seam ruling, a new key on a shared vocabulary is
@@ -106,8 +105,18 @@ Facts for whoever picks it up (all measured, not asserted):
 
 **Council trail:** `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`, two rounds.
 Round 1: 11 reviewers, 8 approve, 3 object, **1 unreadable, and the REVISE was decided BY the
-unreadable seat** — the harness, not the change. Round 2: 13 reviewers (the architecture seat
-joined), **0 unreadable**, 10 approve, 3 object, no veto, decided by architecture on scope.
+unreadable seat** — the harness, not the change. Round 2: 13 reviewers, **0 unreadable**, 10 approve,
+3 object, no veto, decided by architecture on scope.
+
+> **CORRECTED, and it was my error.** I first wrote that the architecture seat had never fired in
+> its life and that this submission's explicit scope question drew it. Both halves are wrong.
+> ANOTHER session seated it on `fix-proposer` + `council-gate` earlier the same evening (owner
+> reversal of decision D9, register FIX-054), and its genuine first review — on a different
+> submission, citing `bugs_closed/129` by name — landed at 22:11Z, one minute before my round-2
+> report. Round 1 was submitted before that seating and drew 11 reviewers; round 2 after it and
+> drew 13. **So a resubmission is NOT judged by the same panel as the original** — the roster is
+> shared, mutable state that changed five times in 18 hours. Read the live seat list per round
+> before explaining a verdict by anything about your own submission.
 
 ## 4. Open, and honest about it
 

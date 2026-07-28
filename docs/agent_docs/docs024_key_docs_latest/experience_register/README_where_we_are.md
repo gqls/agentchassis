@@ -422,12 +422,18 @@ but the reason turned out to be a technical fault on their side — one reviewer
 unreadable, and the rules count that as blocking. Eight of the eleven had approved. Worth knowing
 because it would have been easy to read that as "they didn't like it" and start rewriting.
 
-The second time, thirteen reviewers, nothing unreadable, and a seat spoke that has **never spoken
-before on anything** — the architecture reviewer. It has been counted in the roster for weeks and
-has never once fired. It fired because I asked it a direct question: does adding a new *kind* of
-check to a shared vocabulary count as an architectural decision rather than a small addition? Its
-answer was yes, it does — even though the change is small, well tested, and measured at zero
-collisions with anything that exists.
+The second time, thirteen reviewers, nothing unreadable, and the architecture reviewer spoke. I had
+asked it a direct question: does adding a new *kind* of check to a shared vocabulary count as an
+architectural decision rather than a small addition? Its answer was yes, it does — even though the
+change is small, well tested, and measured at zero collisions with anything that exists.
+
+**A correction to that paragraph, which I wrote wrong an hour ago and am leaving visible.** I said
+that seat had never spoken before on anything and that my question was what drew it. The ruling
+stands, but that story was mine and it was false. Another session had put that reviewer onto this
+review panel earlier the same evening — that's why the first round had eleven reviewers and the
+second had thirteen. Its actual first words in existence were about somebody else's change, a
+minute before mine. The thing worth taking from it is duller and more useful than the story I told:
+**when you send something back for a second look here, it is not the same people looking.**
 
 I'm not arguing with it, and I want to be clear about why, because the temptation was to go back
 with better numbers. Our own rules say a scope objection isn't answered that way: it's a judgement
