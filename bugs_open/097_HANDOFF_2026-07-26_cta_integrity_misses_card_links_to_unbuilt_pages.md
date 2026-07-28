@@ -230,3 +230,31 @@ damage. Neither needs a diagnosis run; the cause is fully known.
 > > So the mechanism question this file needs answered — **which of the three mechanisms
 > > was actually on the 07-25 build path** — is unanswered and cannot be asked again until
 > > 029 lets a diagnoser run. Do not pick between fix candidates 1/2/3 before it is.
+> >
+> > **UPDATE 2026-07-28 — attempt 3 RAN, and returned `UNVERIFIABLE`. The blocker is now
+> > `bugs_open/108`, not 029.**
+> >
+> > Correlation `914dc844-7dad-4d5a-8d1b-a9c4296880c4`, five iterations, ~254KB of
+> > bundles, no answer. Two of its findings are worth keeping regardless:
+> >
+> > - **The phantom targets have no `pages` rows at all** —
+> >   `/learning-center/technology-guides` and `/learning-center/application-guides`
+> >   return 0 rows. So these are pure phantoms, not the "target exists at a different
+> >   url" sub-class that `/matchmatrix/methodology` belongs to.
+> > - **No `phantom_internal_link` OR `unbuilt_internal_link` work item exists for this
+> >   site**, on a widened query across any `page_id`. The earlier finding holds under a
+> >   broader predicate than I used.
+> >
+> > **Why it could not conclude.** It asked whether `RepairPageLinks` exists — load-bearing,
+> > because the whole question is whether the gate's repair step was on the path — and the
+> > code index answered *"0 rows … The query was RUN and found nothing; this is not an
+> > unanswered question."* That is a **false zero**: the symbol is at
+> > `link_repair.go:139` and is called at `validate_page_content.go:357`. The index holds
+> > exactly one commit, `e19aa5d` of 2026-07-24, now **970 commits behind HEAD**, and
+> > `link_repair.go` was added on 2026-07-26 — two days later. Full measurement in
+> > `bugs_open/108`, which this run has now given a measured cost.
+> >
+> > **So the sequencing is: 108 before this.** A fourth diagnosis run against the same
+> > index will fail the same way. Until the index is current, this question has to be
+> > answered by hand — read the page-build pipeline's step list for the 07-25 deploy and
+> > check whether `validate_page_content` was on it — or not asked of the loop at all.
