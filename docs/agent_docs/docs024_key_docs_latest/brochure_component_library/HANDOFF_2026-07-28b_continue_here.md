@@ -54,9 +54,13 @@ Unchanged — see the morning handoff §1. DB access, site/plan/page ids, `.html
    worth a thread.
 4. **After 08-01:** fire the owed 090 diagnosis verification on the 079 reopen claim,
    and any council submissions queued during the cap.
-5. **Owner design directions** (§4c carousels/cliffhanger, §4d experience-register join
-   check + four wrong names, §4e shapes registry) — all untouched, all still the
-   biggest open design surface. Start with the §4d join check: it is a few lines.
+5. **Owner design directions** (§4c carousels/cliffhanger, §4e shapes registry) — the
+   remaining open design surface. §4d is DONE and half-corrected (evening session):
+   the join check exists (`sql_for_agents/256`, dual-column) and returns **zero
+   missing** — §4d's "four wrong names" was a `function`-only join; all four resolve
+   via `content_components.section_type`, so step 2 is MOOT. Step 3 (bind a site) is
+   the experience-register thread's — its patterns were updated twice today; do not
+   touch its rows. §4c/§4e remain untouched.
 
 ## Landmine added this session
 
