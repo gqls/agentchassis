@@ -24,6 +24,8 @@ import (
 	"net/smtp"
 	"os"
 	"strconv"
+	"unicode"
+	"unicode/utf8"
 	"strings"
 	"time"
 )
@@ -429,11 +431,12 @@ func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 	// Per-IP flood backstop (looser than the taster; see newIntakeLimiter).
 	if ok, retry := a.intake.allow(ip); !ok {
 		mins := int((retry + 59*time.Second) / time.Minute)
+		// This wrote a bare HTML fragment straight to the wire — no doctype, no
+		// stylesheet, no page furniture — so it rendered as unstyled text in the
+		// same way the http.Error paths did. Same fix, same helper.
 		w.Header().Set("Retry-After", fmt.Sprintf("%d", int(retry.Seconds())))
-		w.WriteHeader(http.StatusTooManyRequests)
-		writeHTML(w, fmt.Sprintf(
-			`<h1>One moment</h1><p>We've had a lot of requests from your connection just now — please try again in about %d minute(s), or email us directly at %s.</p><a class="back" href="/">← idea.uk</a>`,
-			mins, html.EscapeString(a.contactEmail())))
+		a.requestError(w, http.StatusTooManyRequests, "One moment",
+			fmt.Sprintf("We've had a lot of requests from your connection just now. Please try again in about %d minute(s) — or just email us and we'll take it from there.", mins))
 		return
 	}
 
@@ -444,17 +447,21 @@ func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 	notes := strings.TrimSpace(r.FormValue("notes"))
 
 	if name == "" || email == "" || business == "" || audience == "" {
-		http.Error(w, "missing required field", http.StatusBadRequest)
+		a.requestError(w, http.StatusBadRequest, "Something's missing",
+			"We need your name, your email address, a description of your idea, and who it's for. "+
+				"Please go back and fill in whichever of those is still blank.")
 		return
 	}
 	// Sanity, not strictness: a parseable address and fields within sane bounds —
 	// enough to reject junk and cap payload size without rejecting real people.
 	if _, err := mail.ParseAddress(email); err != nil || len(email) > 254 {
-		http.Error(w, "Please enter a valid email address", http.StatusBadRequest)
+		a.requestError(w, http.StatusBadRequest, "That email address doesn't look right",
+			"We could not read <strong>"+html.EscapeString(truncateForDisplay(email, 80))+"</strong> as an email address. "+
+				"It is the only way we can send your report, so it needs to be one we can reach you on.")
 		return
 	}
-	if len(name) > 200 || len(business) > 500 || len(audience) > 2000 || len(notes) > 4000 {
-		http.Error(w, "One of the fields is too long — please shorten it", http.StatusBadRequest)
+	if msg := overLongField(name, business, audience, notes); msg != "" {
+		a.requestError(w, http.StatusBadRequest, "That's a little too long", msg)
 		return
 	}
 
@@ -472,6 +479,93 @@ func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 // requestAccepted renders the "we've got your request" page. Extracted so the
 // honeypot and timing silent-drop paths return an identical response to a real
 // accept — a filtered bot gets no signal that it was caught.
+// requestError renders a styled, specific error page for the PUBLIC request
+// form, and is the reason this exists rather than http.Error:
+//
+// The form is a NATIVE POST — its JavaScript only stamps the timing field, it
+// does not intercept submit. So a validation failure NAVIGATES THE BROWSER AWAY
+// from the form. With http.Error the visitor landed on a bare text/plain page
+// reading "One of the fields is too long — please shorten it": no styling, no
+// idea which field, and their typing apparently gone. It hit hardest the people
+// who had written the most, which is exactly the wrong population to lose.
+//
+// So: the site's own page furniture, a message naming the field and the limit,
+// and a back control that returns to the filled-in form rather than a blank one.
+// history.back() restores the form state in every current browser; the plain
+// href is the fallback for anything that blocks the inline handler.
+func (a *App) requestError(w http.ResponseWriter, status int, heading, detail string) {
+	w.Header().Set("content-type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write([]byte(a.page(heading,
+		`<h1>`+html.EscapeString(heading)+`</h1>
+<div class="accent"><p>`+detail+`</p></div>
+<p><a class="back" href="/report.html#request-a-report" onclick="if(history.length>1){history.back();return false}">← Go back and edit what you wrote</a></p>
+<p style="font-size:14px">Your answers are still in the form — going back will bring them with you. If anything has gone astray, email us at `+html.EscapeString(a.contactEmail())+` and we'll sort it out.</p>`)))
+}
+
+// overLongField names the FIRST field over its limit, with both counts, so the
+// visitor is told what to change instead of being asked to guess. Counting is by
+// rune, not byte: a byte count silently gives a shorter allowance to anyone
+// writing with accents or non-Latin script, and the number quoted back would not
+// have matched what they could see on screen.
+func overLongField(name, business, audience, notes string) string {
+	for _, f := range []struct {
+		label string
+		val   string
+		limit int
+	}{
+		{"your name", name, 200},
+		{"the description of your idea", business, 500},
+		{"who it's for", audience, 2000},
+		{"the extra notes", notes, 4000},
+	} {
+		if n := utf8.RuneCountInString(f.val); n > f.limit {
+			return fmt.Sprintf(
+				"%s is %s characters long and the most we can take is %s. Please shorten it by about %s characters and send it again — everything else you typed is fine.",
+				capitaliseFirst(f.label), commas(n), commas(f.limit), commas(n-f.limit))
+		}
+	}
+	return ""
+}
+
+// truncateForDisplay bounds a value we echo back to the visitor. Their input is
+// escaped, so this is not a safety measure — it stops a pasted wall of text
+// making the error page itself unreadable. Cut on a rune boundary so a multibyte
+// character is never sliced in half.
+func truncateForDisplay(s string, max int) string {
+	if utf8.RuneCountInString(s) <= max {
+		return s
+	}
+	r := []rune(s)
+	return string(r[:max]) + "…"
+}
+
+func capitaliseFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	r[0] = unicode.ToUpper(r[0])
+	return string(r)
+}
+
+// commas groups an integer for readability — "5,200" reads as a length, "5200"
+// reads as an error code.
+func commas(n int) string {
+	s := strconv.Itoa(n)
+	if len(s) <= 3 {
+		return s
+	}
+	var out []byte
+	for i, c := range []byte(s) {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			out = append(out, ',')
+		}
+		out = append(out, c)
+	}
+	return string(out)
+}
+
 func (a *App) requestAccepted(w http.ResponseWriter, name string) {
 	writeHTML(w, a.page("Request received",
 		`<h1>Thanks, `+html.EscapeString(firstName(name))+` — we've got your request.</h1>
