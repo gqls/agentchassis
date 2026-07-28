@@ -280,3 +280,20 @@ sequence trap I nearly fell into: my first read of the dead run was "queue laten
 
 **127's last verification rides the ~13:50 feed refresh** (non-LLM write path, so the
 cap doesn't block it); watcher armed.
+
+## 2026-07-28 ~15:30 — session 2, post-cap-raise round
+
+**The cap was raised ~14:50 and the discipline for the window's casualties held up.**
+109's dead round resubmitted on its own corr (`RESUBMIT_CORR`), came back **"all
+reviewers approve"** (9 seats, `unreadable: 0`, four low advisories — every one an
+observation of a deliberate, disclosed choice). **109 CLOSED** to `bugs_closed/`,
+trailer on the close commit `517e881e7`.
+
+**111's live instances cleared through the 117 recipe, which worked exactly as its
+memory file says** — nav_drift → nav-updater, chrome rebuilt in ~11 min, handler queued
+its own 32 page re-renders. One methodological nuance worth keeping: my artefact
+"wholeness" check matched `footer-contact` and reported TRUE on the rebuilt chrome —
+because the CSS rule block still names the selector. The DISCRIMINATING probe is the
+markup form (`<div class="footer-contact">`, absent) not the bare token — the
+assert-position-not-presence lesson in miniature, caught before it misled anyone.
+Live-page verification pending the re-render drain; 111 closes on it.
