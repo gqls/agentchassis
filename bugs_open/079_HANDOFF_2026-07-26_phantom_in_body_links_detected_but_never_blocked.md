@@ -66,6 +66,28 @@
 > return (spend cap exhausted until 08-01; the queue currently fails LLM work). The claim
 > above is cited from code + two same-day production runs, but the loop's re-check is owed
 > on a reopen of this size.
+>
+> **Verification run DONE 2026-07-28 evening** (the cap was raised ~14:50 BST, not 08-01;
+> corr `954d8da9-789a-4515-be07-1b15b9511f4b`, 5 iterations, verdict in the child
+> orchestration's `collected_data->'verdict'` — NOT in `diagnosis_artifacts`, which got
+> bundles only). **Outcome: UNVERIFIABLE — no refutation.** The loop confirmed the static
+> mechanism chain (validate_content `next_step: save_sections`; the repair-log format
+> string) but stated it could not observe "a page-build-handler/validate_content run with
+> valid=true" inside its search scope, so the discard remained "unobserved" from where it
+> stood — it did not find the 10:45Z fundamentallyai timeline this file cites. Chasing its
+> one NEW citation produced a **third corroborating site**: gamesdesign.co.uk
+> `/tools/bayesian-ranking.html` — repair computed TODAY 15:47:03Z (2 empty-href unlinks,
+> `CONTENT_LINK_REPAIR_DETAIL`) while every `page_components` row for that page was last
+> written **2026-07-21** and `bayesian-ranking-hero-tool` still carries `href=""`. The gate
+> recomputes the same repair on every pass; the store never changes. No counter-example
+> found anywhere: no run exists whose computed repair reached its saved row.
+>
+> **Live-reproduction note for the fixing thread:** fundamentallyai `capabilities.html` is
+> NO LONGER a live reproduction — the brochure thread reverted its two corrupted components
+> to pre-regression `content_data` (corrupted state archived in `page_component_history`,
+> source `operator_restore_pre_regression_2026-07-28`) and re-rendered; the served page is
+> phantom-free. Use vonc `/about.html` and gamesdesign `/tools/bayesian-ranking.html`
+> (the stored `href=""`, above) as the standing reproductions.
 
 > ## FIXED — live in chassis `v1.0.1171`, 2026-07-26 — **superseded by the REOPENED banner above; preserved unedited below**
 >
