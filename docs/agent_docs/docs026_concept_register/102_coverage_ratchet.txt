@@ -27,7 +27,6 @@ dormant_agents_inventory
 durable_write_guard
 empty_sections_loop_integrity
 experience_loop
-experience_register
 fabricated_stats_043
 gauntlet_dead_cta
 hero_tool_component_045

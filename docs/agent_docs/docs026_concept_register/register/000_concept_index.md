@@ -28,7 +28,16 @@ the structured save path and 4 of the 6 live persistence paths had no repair at
 all; and 1 more (FIX-054) added 2026-07-28 — the forward-fitness council seat
 extended to the FIX lane and the gate, on the owner's reversal of decision D9,
 because `bugs_closed/124` and `129` were each vetoed on scope and told to route
-their seam to an architecture review reachable from neither lane. Status tags were
+their seam to an architecture review reachable from neither lane; and 5 more
+(TL-031, PLAN-043/044/045/046) added 2026-07-28 for the experience register — its
+substrate, its validating write path, its bind/verify consumer, its five-seat
+approval council, and the attribute assertion that closed its largest harness gap.
+That last group carries a note on method: the first of the five was added alone,
+and adding it was enough to make `102_CHECK_register_coverage.py` treat the whole
+workstream as covered while four callable mechanisms were still absent. The
+coverage check matches on workstream NAME, so ONE entry silences it for
+everything — which means dropping a ratchet line obliges you to register the
+mechanisms, not merely one of them. Status tags were
 documentary signals from the source material unless independently verified (see
 below).
 
@@ -1760,4 +1769,5 @@ an ID prefix, or a status word.
 | CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
 | CLM-015 | The fleet-wide banned-claim set: nine patterns no site may assert about itself | committed, INERT until roll | Nil-safe, so an unarmed site is protected; NOT unioned at parse time because EvidenceBase is marshalled back to site_specs; the negation-prone pattern is deliberately excluded | claims-verification.md |
 | CLM-014 | cmd/claimscan: run the live gate's own engine over exported page HTML, offline | deployed | The only way to test a candidate pattern set against copy other than the site it was written for; a session nearly rebuilt it. Prints BANNED/NUMBER, never the string "banned_claim" | claims-verification.md |
+| CLM-016 | ClaimSurface: the page's structural type gates the prose number heuristic | committed, INERT until roll | 124 live findings -> 63, suppressing 61 measured false positives and nothing else; ONLY the heuristic is gated (banned claims and stat fields still scan every page type); zero value = UNKNOWN = scanned | claims-verification.md |
 | LNK-024 | repairSectionsBeforePersist: dead-link repair at the PERSISTENCE point | built | The gate repairs clean_html, which the structured save path never reads — so repair moves to where sections are written; 4 of 6 persistence paths had none by any route | link-management.md |
