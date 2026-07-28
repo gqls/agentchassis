@@ -6759,3 +6759,70 @@ of workstreams postdate it) and `architecture-seat-has-never-fired` (a roster sl
 counted as coverage while firing zero times) are the same class — **a mechanism whose
 usage is assumed rather than measured.** Ask of each: when did this last actually
 run, and who has adopted it since it shipped?
+
+### A "retry" that RECONSTRUCTS the request instead of resending it will address it from the waiter's identity — and the receiver then declines its own work while logging success (2026-07-28)
+
+**The shape.** A timeout handler lives in the *waiting* side of a request/response
+pair. Everything in scope at that moment describes the waiter: its state row, its
+correlation, its step. So the natural way to write "send it again" is to build a
+fresh message out of what is in hand — and every field then carries the **waiter's**
+identity rather than the original recipient's.
+
+Found in `platform/orchestration/coordinator.go handleRecoverableError`, which built:
+
+```go
+OrchestrationID: state.OrchestrationID,   // the AWAITING orchestration's own id
+Action:          "execute",               // not the original action
+Body:            {"is_retry": true, …},   // the original payload, gone
+```
+
+The receiver loaded state by that id, found the **waiter's** row sitting at
+`AWAITING_RESPONSES`, concluded "already awaiting — nothing to do", logged
+`ProcessMessage completed successfully`, and never replied (`bugs_open/129`).
+Six minutes of silence, then the waiter timed out — the two log lines describe the
+same event from opposite ends.
+
+**Why it survives so long.** Every symptom points at the receiver. The receiver's
+log says success; the sender's says timeout; the *original* send is correct, so
+reading the send path exonerates it. The defect is in the **second** message, which
+nothing prints side by side with the first.
+
+**Three defects for the price of one, and only the first is obvious.** Identity is
+the one that gets diagnosed. The lost body is worse in a subtle way: fixing the
+identity *alone* makes the receiver create a correct row and then execute on a stub
+payload — a wrong answer where there used to be no answer.
+
+**The check.** *Ask whether the retry and the original are the SAME message.* If a
+codebase constructs its retry rather than replaying a stored one, the question is
+not "is this field right" but "which fields does the waiter even know?" — and the
+answer is never all of them.
+
+**The measurement that sizes it, and it is one query.** A retry that recovers
+produces a **decaying** tail across attempt counts; a retry that cannot work
+**accumulates at the cap**:
+
+```sql
+SELECT retry_version, count(*) FROM awaited_requests GROUP BY 1 ORDER BY 1;
+-- healthy:  many at 1, fewer at 2, fewest at 3
+-- observed: 93 at 1, 45 at 2, 294 at 3   ← the shape of a retry that never rescues
+```
+
+Do **not** read "succeeded at retry_version ≥ 1" as "the retry worked" — a late
+*original* response arriving after the retry was sent produces an identical row, and
+the two are indistinguishable in that table.
+
+**The fix that makes the bad state unrepresentable: a retry is a REPLAY.** Store the
+exact producer call at send time and re-emit it, re-stamping only attempt number,
+message id and timestamp; regenerate the transport headers **from the replayed
+message** so headers and body cannot disagree. Where no payload was stored, refuse to
+retry with a named error rather than emitting one you know to be misaddressed —
+silence becomes a greppable count.
+
+**Generalises to:** any resend, redelivery, dead-letter replay, or "re-dispatch"
+built by a component that is not the original sender — outbox drains, DLQ
+re-injectors, sweeper/reaper re-queues, cron-driven repair loops. Ask of each: *does
+this replay the original bytes, or does it author new ones from local state?* If a
+carve-out already exists for one class of target on the grounds that "those need the
+full payload" — as one did here for adapters — that comment is the bug report for
+everything without the carve-out. **A special case written to preserve fidelity is
+evidence that fidelity was lost generally.**

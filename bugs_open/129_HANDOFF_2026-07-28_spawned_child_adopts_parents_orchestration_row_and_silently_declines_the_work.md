@@ -1,5 +1,70 @@
 # 129 — the spawned child ADOPTS the parent's orchestration row and silently declines the work
 
+> ## ROOT CAUSE FOUND AND FIXED IN CODE — 2026-07-28 evening (bugsearch 4 thread). STAYS OPEN: built, not live.
+>
+> **The child was never the defect.** It was handed the parent's identity, by the
+> coordinator's own retry path. `handleRecoverableError`
+> (`platform/orchestration/coordinator.go`) did not resend the request that timed
+> out — it **synthesised a new one out of the AWAITING orchestration's own state**:
+>
+> ```go
+> OrchestrationID: state.OrchestrationID,   // the PARENT's id  → this file's swallow
+> Action:          "execute",               // never the original action
+> Body:            {"is_retry": true, …},   // the original payload, gone
+> ```
+>
+> So all three of this file's fix candidates aim at the wrong end. Candidate 2 is
+> still worth having and is included, but as defence in depth — **it does not fix
+> the bug on its own** (the parent still times out; only the silence goes away).
+>
+> **Measured before writing anything** (live `clients_db`, 14 days): **430 of 430**
+> retried `awaited_requests` took that path and **294 (68%) exhausted the budget**.
+> All-history the distribution is 93 at `retry_version` 1, 45 at 2 and **294 at 3** —
+> a retry that recovers decays; this one accumulates at the cap. The adapter
+> re-execute branch eight lines above, whose comment already says *"adapters need the
+> full payload"*, has been taken **zero** times.
+> `[UNMEASURED]` how many of the 108 rows that ended `processed` at
+> `retry_version` ≥ 1 were rescued by the retry rather than by a late original
+> response — the two are indistinguishable here, so the durable claim is "68%
+> exhausted", not "retries never work".
+>
+> **The fix — one invariant: a retry is a REPLAY of the original request**, differing
+> in `retry_version`, `message_id` and `timestamp` and nothing else. Commit
+> `eb70c3dd3` + follow-up; migration `263` (`awaited_requests.request_payload`,
+> nullable) **applied and recorded**; chassis **v1.0.1193 built and pushed**.
+> Concept register: **RSH-003** (`resilience-self-heal.md`).
+>
+> **WHY THIS STAYS OPEN — the bar is fixed AND live, and it is not live.**
+> The council gate **REJECTED** it on **SCOPE** (`75cb2fdc-e74c-4d3d-99b7-9264548e65d6`,
+> `decided_by: hard veto from guardian`, `unreadable: 0` — a judgement, not the
+> harness). Six of ten seats approved and **no seat disputed the diagnosis**; the
+> veto is about venue — a shared mechanism plus a schema column arriving inside a
+> bug patch, the same finding as `bugs_closed/124`. Per the owner ruling of
+> 2026-07-28 that is **not** answered by resubmitting, and the seats **contradict
+> each other on the remedy** (the guardian's contained alternative is the child-side
+> patch that `constitution` and `editquality` approved the plan for *not* treating as
+> primary), so it needs a human. **The deploy is deliberately not done.**
+>
+> **COLD-START:** `docs/agent_docs/docs024_key_docs_latest/bugfix_129_retry_replay/`
+> — `REVIEW_2026-07-28_council_scope_veto.md` first (the three options, costed),
+> then `RUNBOOK_retry_replay.md` for the verification commands.
+>
+> **LANDMINE 1:** the live retry path is `coordinator.go handleRecoverableError`,
+> **not** `helpers.go retryTimedOutRequest`. The latter has the identical defect and
+> is fixed too, but it is dormant — grepping for the *mechanism* lands you there and
+> you will fix nothing. Grep the **error string from the evidence**
+> (`timed out after 3 retries`), which lands in `coordinator.go`.
+> **LANDMINE 2:** the discriminating pod-grep is a string this fix **DELETED** —
+> `is_retry`. v1.0.1192 has it and none of the new markers; v1.0.1193 is the
+> reverse. The obvious positive markers alone are vacuous.
+>
+> **Residual, NOT fixed here and deliberately not bundled:** 6 of the 428 retried
+> requests come from `scrape_web`/`web_search`, which put the **caller's own**
+> orchestration id on the *original* outbound message
+> (`web_search_action.go:139`), so there is no child identity to replay. They now
+> fail fast rather than retry — 4 of the 6 exhausted anyway, so the delta is ≤2
+> requests a fortnight. Own mechanism, own diagnosis.
+
 **Filed 2026-07-28 (bugs thread 2).** Status: OPEN, unowned — but read the family notes
 below before routing: the *measurement* discipline and prior refuted theory live in the
 handshake record, and `platform/orchestration/coordinator.go` is being actively worked by

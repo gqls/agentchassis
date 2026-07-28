@@ -9646,3 +9646,52 @@ filter, then the gate. A mechanism's author is the worst-placed person to notice
 that its cost is prohibitive, because for them it was not.
 
 Fixed in `ce9e28784` (`CheckConfig`), 208 → 152 undeclared actions.
+
+---
+
+## 2026-07-28 — "complete coverage", from a query about a neighbouring question (bugfix 129, retry replay)
+
+**The claim.** In a council submission I wrote that `call_agent` and `spawn_agent`
+are "the only awaited senders seeded fleet-wide, so coverage is complete" — and,
+worse, I wrote it in the confident register reserved for measured things, *because
+I had measured something*.
+
+**What I actually ran.** A census of `agent_definitions` for every distinct
+`$.workflow.steps.*.action`, filtered to names matching spawn/call/orchestrate. It
+came back `spawn_agent` (93) and `call_agent` (80), and that is true.
+
+**Why it does not support the claim.** That query answers *"which spawn/call
+actions are seeded"*. Coverage turns on *"which actions await a response"*. Those
+are different questions, and the first cannot falsify the second — there is no
+filter to notice being wrong, because the query is simply about something else.
+`scrape_web` and `web_search` are seeded, do await responses, and are nowhere near
+a name containing "spawn" or "call".
+
+**The measurement that settles it** — 6 of 428 retried requests in 14 days were
+produced by neither wired action:
+
+```sql
+SELECT CASE WHEN COALESCE(target_agent_id,'') <> '' THEN 'call_agent/spawn_agent (wired)'
+            WHEN requests_topic LIKE 'system.adapter%' THEN 'adapter (re-executes)'
+            ELSE 'OTHER awaited sender' END, count(*)
+FROM awaited_requests WHERE sent_at > now() - interval '14 days' AND retry_version > 0
+GROUP BY 1;
+```
+
+**The cheap check that would have caught it.** Split the population you are
+claiming to cover **by a property only the covered producers have** — here,
+`call_agent` and `spawn_agent` both always set `target_agent_id`, so its absence
+names every sender they did not produce. One query, over the actual retried rows,
+instead of over the config that describes them.
+
+**What caught it.** Three council seats independently pressing on the coverage
+claim — none of them could re-run my SQL (`awaited_requests` is not in the schema
+they are given), so all three flagged it as *asserted*. The verdict itself was a
+veto on an unrelated axis; the correction came from the objections underneath it.
+
+**The recurrence worth noting.** This is the twin of the entry pattern
+"[a narrow filter defines the conclusion]" and it is the *harder* twin: there, a
+filter quietly describes a small world; here there is **no filter to notice**. The
+question was substituted, not narrowed. The tell is that the query's subject
+(actions in config) and the claim's subject (requests on the wire) were different
+nouns — and I never wrote them next to each other.

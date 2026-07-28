@@ -1549,13 +1549,41 @@ func (r *StateRepository) InsertAwaitedRequest(ctx context.Context, req *Awaited
 		// when the row has none — never overwrite a recorded payload, or a
 		// retry could replay something other than what was sent.
 		if len(req.RequestPayload) > 0 {
-			if _, upErr := r.db.ExecContext(ctx,
+			// Check BOTH the error and rows-affected. A guarded UPDATE that
+			// matches nothing succeeds with err == nil, so the error alone
+			// cannot tell "backed-fill" from "did nothing" — and the only
+			// other place this surfaces is RETRY_PAYLOAD_UNAVAILABLE minutes
+			// later, by which time the write-time cause is gone. Same shape as
+			// 016b §9 "a field assigned in memory before an UPDATE that omits
+			// its column is a silent no-op" and "ON CONFLICT DO NOTHING
+			// succeeds while inserting nothing".
+			res, upErr := r.db.ExecContext(ctx,
 				`UPDATE awaited_requests SET request_payload = $2
 				  WHERE request_id = $1 AND request_payload IS NULL`,
-				req.RequestID, []byte(req.RequestPayload)); upErr != nil {
-				r.logger.Warn("Failed to back-fill request_payload on a pre-registered awaited request (retry will refuse rather than poison)",
+				req.RequestID, []byte(req.RequestPayload))
+			switch {
+			case upErr != nil:
+				r.logger.Error("RETRY_PAYLOAD_BACKFILL_FAILED: pre-registered awaited request kept no payload — its retry will refuse rather than poison",
 					zap.String("request_id", req.RequestID),
 					zap.Error(upErr))
+			default:
+				if n, rErr := res.RowsAffected(); rErr != nil {
+					r.logger.Warn("RETRY_PAYLOAD_BACKFILL_UNCOUNTED: driver would not report rows affected",
+						zap.String("request_id", req.RequestID), zap.Error(rErr))
+				} else if n == 0 {
+					// Benign when a payload is already recorded (this insert is
+					// a duplicate of one that carried it); a real gap when the
+					// row is gone or the column stayed NULL. Say which.
+					var present bool
+					if qErr := r.db.QueryRowContext(ctx,
+						`SELECT request_payload IS NOT NULL FROM awaited_requests WHERE request_id = $1`,
+						req.RequestID).Scan(&present); qErr != nil || !present {
+						r.logger.Error("RETRY_PAYLOAD_BACKFILL_MISSED: no row took the payload — its retry will refuse rather than poison",
+							zap.String("request_id", req.RequestID),
+							zap.Bool("payload_present", present),
+							zap.Error(qErr))
+					}
+				}
 			}
 		}
 		return fmt.Errorf("awaited request already exists: %s", req.RequestID)
