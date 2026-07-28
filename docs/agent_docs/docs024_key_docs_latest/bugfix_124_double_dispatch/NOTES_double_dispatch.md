@@ -354,3 +354,48 @@ two-thirds uncovered), reached from a different direction.
 
 No live instances of the bug found elsewhere: no other script captures a non-SELECT
 into a variable and tests it for emptiness.
+
+## 2026-07-28 evening — the fleet-wide audit (handoff item 2c) — RUN. 0 live, 1 latent.
+
+The 016b §9 entry claimed this shape was fleet-wide. That was an inference from
+how the lanes grew, not a measurement, so I measured it.
+
+**Method.** The 124 signature is precise: a script that **inserts a
+`site_work_items` row AND publishes an orchestrate envelope**, where something
+else can claim that row. Both halves matter — a script that only pokes a *loop*
+is benign (the loop's claim is atomic, so two ticks race harmlessly), and a
+script that only inserts is the correct shape.
+
+```
+23 enabled scheduled_tasks;  scripts inserting a work item AND publishing:  3
+```
+
+**The three, judged individually:**
+
+| script | verdict |
+|---|---|
+| `090_TRIGGER_needs_diagnosis_v1.sh` | the known bug — **fixed today** |
+| `180_adoption/080_trigger_adoption.sh` | **NOT an instance.** It inserts an `evaluate_tools`/`tool-suggester` row and separately publishes to `site-adoption-agent` with a `{domain,url}` payload. Two different pieces of work in one script; the inserted row's dispatch by the build loop is the designed path. |
+| `092_TRIGGER_experience_plan.sh` | **LATENT instance.** Inserts `needs_experience_plan` at the private status `awaiting_experience_plan`, then publishes to `experience-planner` itself. Safe *today*: no `agent_definitions` row references that status and no scheduled task targets an experience agent — both checked, both empty. |
+
+**So: zero live instances beyond 124.** The §9 entry's "fleet-wide" framing was
+right about the *shape* and wrong to imply live prevalence — corrected by this
+measurement rather than left as an unchecked claim.
+
+**But the pattern is a repeated design, not a one-off**, which is the finding that
+justifies the entry. `report-dispatch-loop` exists in `agent_definitions` as a
+**direct clone of the diagnose loop** — same `claim_item` shape, same
+`FOR UPDATE SKIP LOCKED`, same private-status pair (`awaiting_report` →
+`reporting`) — and its scheduled task `report-dispatch` ships **DISABLED**. That is
+precisely the configuration the diagnose lane was in on 2026-07-09. It is *not* at
+risk, because `report_request` rows are created by a Go action
+(`report_request_pull_action.go`), not by a publishing script — so that lane has
+one dispatcher by construction. Worth knowing that the safe lane is safe for a
+structural reason, not by luck.
+
+**Action taken where it will actually be read.** A warning block now sits in
+`092_TRIGGER_experience_plan.sh` immediately above its INSERT — naming both
+remedies, the 016b §9 pointer, and the `psql -t -A` trap for whoever implements
+the claim. Standing practice: put the check where the error is MADE, not only in a
+doc nobody opens at the moment of the mistake. That is the same discoverability
+failure that let the psql trap bite three separate threads today.

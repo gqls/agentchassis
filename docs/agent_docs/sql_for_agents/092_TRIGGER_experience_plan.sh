@@ -39,6 +39,34 @@ echo "  Experience key:  $EXPERIENCE_KEY"
 echo "  Correlation ID:  $CID"
 echo "========================================="
 
+# ⚠ IF YOU BUILD AN EXPERIENCE DISPATCH LOOP, CHANGE THIS SCRIPT IN THE SAME
+#   COMMIT — otherwise every experience plan runs TWICE (contributed 2026-07-28 by
+#   the bugs_closed/124 thread; audit finding, not a live bug today).
+#
+#   Below, this script writes an intake row AND then publishes the handler
+#   envelope itself. That is safe ONLY while nothing else claims
+#   'awaiting_experience_plan' — and today nothing does (verified: no
+#   agent_definitions row references that status, no scheduled_task targets an
+#   experience agent). It is the exact configuration the diagnose lane was in
+#   before someone enabled `diagnose-pipeline-trigger`, at which point the loop
+#   claimed the same rows this script had already dispatched and every manually
+#   filed diagnosis ran twice — two full LLM runs, on two correlations that could
+#   not be joined — for an unknown number of days before anyone noticed. Nothing
+#   fails when this happens; that is what makes it survive.
+#
+#   Enabling a loop is one line of SQL and it does not touch this file. So when
+#   the loop arrives, do ONE of:
+#     (a) delete the kcat publish below and let the loop dispatch (what 090 does
+#         now — it asks the DB whether the loop is live rather than assuming); or
+#     (b) claim the row atomically here BEFORE publishing, and publish nothing if
+#         the claim returns no row.
+#   See 016b §9 "Turning on the automatic path does not turn off the manual one",
+#   and 090_TRIGGER_needs_diagnosis_v1.sh header note 7 for a worked example.
+#
+#   Trap if you write (b): `psql -t -A` prints the command tag `UPDATE 0` on a
+#   zero-row RETURNING, so an emptiness test on the raw output ALWAYS passes.
+#   Wrap the UPDATE in a CTE and SELECT from it, and assert a uuid — 016b §9.
+
 # Durable intake row (inert to build sweeps; idempotent via idx_swi_dedup).
 "${PSQL[@]}" "INSERT INTO site_work_items (site_id, source, pipeline, item_type, severity, summary, spec, priority, status, created_by, item_key)
   VALUES ('${SITE_ID}', 'experience-trigger', 'experience', 'needs_experience_plan', 'medium',
