@@ -209,6 +209,14 @@ dead_forum_locations() {
     location = /cron.php         { return 410; }
     location ~ ^/(ventas|forums)/(attachment|showthread|newreply|printthread)\.php$ { return 410; }
 
+    # The old forum FAQ has an honest live equivalent: a real FAQ about watches, which
+    # is what that URL promises. 480 real-crawler requests in 33h were landing on a 404.
+    # This is content strategy, not a doorway: the page genuinely answers what the
+    # request was FOR. Contrast /showthread.php?t=<id>, which is 410 above precisely
+    # because we cannot know what any given thread was about and serving arbitrary
+    # articles to absorb the hit is the doorway pattern search engines penalise.
+    location = /faq.php { return 301 /preguntas-frecuentes.html; }
+
     # The old forum search still has a live equivalent: the engine's own results page.
     # Same function, honestly mapped — not a doorway, the user asked to search and gets
     # a search. Query string is carried through by nginx on a rewrite.
