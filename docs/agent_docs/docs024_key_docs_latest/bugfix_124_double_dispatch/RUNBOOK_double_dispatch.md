@@ -115,3 +115,78 @@ kubectl exec -n ai-persona-system <chassis-pod> -- \
 `$ctx.` is a string literal the change **introduces**, so a zero count is a real
 negative. Pick a marker your change *creates* or *deletes*, never a Go `const`
 or a type name — those are vacuous markers that never appear in the binary.
+
+## Sweep direct-dispatched diagnoses left at `diagnosing`
+
+*(Answers the council's edit-4 objection, round 2: the direct-dispatch branch has
+no closer.)*
+
+`DISPATCH=1`, or any run while the loop is disabled, claims the item to
+`diagnosing` and publishes. Nothing then closes it: the loop's `reap_stuck` is the
+only closer, and it only runs when the loop ticks — which is exactly the condition
+that branch fires under. So these need a periodic human sweep:
+
+```sql
+SELECT id, item_key, claimed_at, spec->>'dispatch_correlation_id' AS run_corr,
+       now() - claimed_at AS age
+FROM site_work_items
+WHERE item_type = 'needs_diagnosis'
+  AND status = 'diagnosing'
+  AND claimed_by = '090_TRIGGER_needs_diagnosis'
+  AND claimed_at < now() - interval '90 minutes'
+ORDER BY claimed_at;
+```
+
+`claimed_by` is the discriminator — loop-claimed rows say `diagnose-dispatch-loop`
+and close themselves, so this only ever returns rows nobody is going to close.
+Check the run finished, then close by hand:
+
+```sql
+UPDATE site_work_items SET status='complete', completed_at=now()
+WHERE id = '<id>' AND status = 'diagnosing';
+```
+
+**Why not leave them at `awaiting_diagnosis` instead, which needs no sweep?**
+Because the next person to enable the loop would hand it the entire stale backlog
+to re-diagnose. A row that needs closing is a smaller problem than a queue that
+re-runs its own history.
+
+## CORRECTION — migration 258's rollback recipe names the wrong table
+
+`258_diagnose_loop_stamps_run_correlation.sql` says to restore from
+`agent_definitions ... is_snapshot = true`. **There is no such row.** The two-arg
+`snapshot_agent(type, reason)` writes to **`agent_definitions_backup`**:
+
+```sql
+SELECT id, type, version, snapshot_taken_at, snapshot_reason
+FROM agent_definitions_backup
+WHERE type='diagnose-dispatch-loop' ORDER BY snapshot_taken_at DESC LIMIT 3;
+-- → f4055640… | 1 | 2026-07-28 17:03:57 | 258_…: pre-update
+```
+
+The snapshot is real and the rollback works; only the recipe was wrong. **258 is
+not edited** — it is recorded in `schema_migrations` with a checksum of the file as
+applied, and the standing rule is to supersede rather than edit. The correction
+lives here.
+
+**Nearly a much worse mistake:** `SELECT id … FROM agent_definitions WHERE
+type='diagnose-dispatch-loop'` returned one row, and I was one step from filing
+"`snapshot_agent` reports success and writes nothing, fleet-wide". Reading the
+function body first showed it writes to a different table entirely. **Read the
+function before filing the absence.**
+
+## `LIMIT` applies to the EXPANDED rows of a set-returning function
+
+Twice today this nearly produced a false finding:
+
+```sql
+-- WRONG: returns the FIRST KEY, not the first row's keys
+SELECT jsonb_object_keys(cfg) FROM t ORDER BY x DESC LIMIT 1;
+-- RIGHT: pick the row first
+WITH snap AS (SELECT cfg FROM t ORDER BY x DESC LIMIT 1)
+SELECT jsonb_object_keys(cfg) FROM snap;
+```
+
+The wrong form reported `claim_item.config` as having a single key `query`, which
+reads exactly like "the migration clobbered `output_format`". It had not: the real
+answer is `query, output_format` before and `query, params, output_format` after.

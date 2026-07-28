@@ -228,3 +228,71 @@ agent 16:38:59 — two `diagnose-agent` pods on the same symptom, 47 seconds apa
   splitting on 2026-07-28: rows before it include duplicates this bug produced.
 
 **Status: CLOSED — fixed AND live AND verified against a real run.**
+
+---
+
+## Council verdict: **REJECTED** — guardian veto on SCOPE, not on correctness
+
+Corr `90361922-e4c4-482e-a0b7-b1a49640265a`, round 2 (round 1 died when this
+change's own chassis roll replaced the pod running it — see the workstream NOTES).
+**11 reviewers, 5 abstained, `unreadable: 0`** — a real verdict, not the harness.
+
+| verdict | seats |
+|---|---|
+| approve | guidelines, diagnosis_guardian, render_guardian, mission |
+| object | editquality, reuse_agent, tooling_provenance, debug_historian, constitution, prior_art_librarian |
+| **veto** | **guardian** |
+
+**No seat disputed the diagnosis or the fix's correctness.** `editquality` called
+the causal analysis sound, said the plan *"correctly separates the two refuted
+mechanisms from the two real, surviving conclusions and edits only the latter
+two"*, called folding the stamp into the atomic claim *"the strongest part of the
+plan"*, and stated its three objections are *"fixable, not structural"*.
+`guidelines` analysed the DDL, dedup, provenance and contract rules explicitly and
+found no violation.
+
+**The veto, in full, is criterion (b) — architecture change dressed as a point
+fix:** *"the plan itself states the intent is a generic, platform-wide seam rather
+than a diagnose-specific fix … independent of how well-tested or additive the
+mechanism is."* It objects to P3's `$ctx.` namespace touching a shared action's
+param-resolution contract inside a bug patch, and names a contained alternative: a
+diagnose-lane-scoped bespoke Go action that writes the correlation into
+`collected_data` before `claim_item` runs.
+
+**It is a fair process objection and it is recorded as binding on process, not on
+this code.** Three things about it, stated plainly:
+
+1. **The gate is advisory and this shipped before the verdict landed** — because
+   migration 258 could not be applied against an older chassis without stopping
+   the diagnose lane, so the image had to go first. That is a real ordering
+   constraint, not a convenience. Said out loud rather than glossed.
+2. **The guardian's alternative is the exact thing the `reuse_agent` seat objected
+   to in the same round** — *"the platform ends up with two ways to get a run's
+   correlation into a query … nothing here proposes migrating the old ones"*.
+   Those two seats want opposite things; a 35th bespoke correlation-reader
+   satisfies the guardian and deepens what reuse is complaining about. That
+   tension is above this bug's pay grade.
+3. **The three checkable objections are now MEASURED, not argued** (below).
+
+### The objections, answered with measurements
+
+| objection | seat | answer |
+|---|---|---|
+| *"the no-collision argument is asserted, not verified"* (high) | guardian, editquality | **Measured across every live workflow**: 63 steps fleet-wide use `params`; **exactly 1** path starts with `$`, and it is `$ctx.correlation_id`, this change's own. Zero pre-existing paths can be shadowed. |
+| *"grounded evidence only confirms `claim_item` exists, not its config shape — other keys may be clobbered"* (low) | editquality | **Measured against the pre-update snapshot**: `claim_item.config` was `{query, output_format}`, is now `{query, params, output_field}` → `{query, params, output_format}`. Nothing lost. |
+| *"the direct-dispatch branch leaves a row at `diagnosing` with no closer"* (medium) | editquality, guardian | **Real gap, now has the documented sweep the objection asked for** — `RUNBOOK_double_dispatch.md` § "Sweep direct-dispatched diagnoses left at `diagnosing`", keyed on `claimed_by='090_TRIGGER_needs_diagnosis'` (loop-claimed rows close themselves, so the sweep only ever returns rows nobody will close). |
+| *"never names the bespoke actions it says every lane had to grow"* | reuse_agent | Fair — the rationale asserted it. **Enumerated: 34 files under `platform/orchestration/actions/` read `ExecutionContext.CorrelationID` directly**, `diagnose_assemble_bundle_action.go` among them. They are actions doing their own work with the correlation, not param-binding paths; `$ctx.` addresses config-authored SQL, which had no route at all. **No migration of the 34 is proposed and that is now an open question, not a silence.** |
+
+### What is owed, and to whom
+
+**The `$ctx.` namespace should go to architecture review on its own merits**, as
+the guardian asked — separately from this bug, and it has shipped ahead of that
+review. It is registered as `WFA-002` in the concept register with its ordering
+landmine, so it is discoverable rather than buried. Reverting it now would break
+the item↔run join the 090 script depends on and cost another image+migration
+cycle; that is a reason to review it, not a reason to pretend the veto did not
+happen.
+
+**This bug stays CLOSED.** The defect is fixed, live and verified against a real
+run. The veto is about how a platform capability reached production, not about
+whether diagnoses still run twice — they do not.
