@@ -39,8 +39,10 @@
 // WHAT THE INDEX IS A SNAPSHOT OF (state it, do not leave it to be inferred):
 // the index mirrors the last PUSHED ref that the code-indexer fetched, never
 // local HEAD and never uncommitted work. So "no matches" means "not in the code
-// as pushed at commit <sha>", and the freshness banner prints that sha and its
-// age on every answer.
+// as pushed at commit <sha>". The freshness banner states this on every answer,
+// and its verdict is keyed to the indexed COMMIT's own committer date
+// (code_symbols.commit_time, bugs_open/108 defect A) — never to updated_at,
+// which any refresh resets even when it re-fetches the same stale tip.
 //
 // CORRECTED 2026-07-27 (D11 layer 1, council 18fe4035): until this date the
 // `content` kind's description above was FALSE. It claimed to match source
@@ -66,8 +68,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// codeIndexStaleAfter is when the code_symbols index is loud-flagged as STALE in
-// every rendered answer. The index is refreshed by the `code-index-refresh`
+// codeIndexStaleAfter is when the index is loud-flagged because the REFRESH
+// pipeline looks dead. The index is refreshed by the `code-index-refresh`
 // scheduled task every 24h (SEED_code_index_refresh_cadence.sql, bugs_open/059);
 // 48h therefore means "at least one scheduled refresh was missed". Deliberately a
 // const, not step config: it is one platform-wide fact coupled to that cadence
@@ -75,43 +77,110 @@ import (
 // themselves whatever this threshold says.
 const codeIndexStaleAfter = 48 * time.Hour
 
+// codeIndexCommitStaleAfter flags the index STALE by the age of the COMMIT it
+// describes — the verdict that bugs_open/108 defect A was about. Distinct from
+// codeIndexStaleAfter (missed-refresh detection) because the two clocks fail
+// independently: re-running the indexer resets updated_at but can never reset
+// the committer date, so this verdict cannot be laundered by a refresh that
+// re-fetches the same pushed tip. Measured on this fleet (~191 commits/day),
+// 48h of commit age is ~380 commits of invisibility; a genuinely idle repo
+// tripping it errs in the safe direction (readers are told to treat empty
+// answers as unknown, which for an idle repo costs trust, not correctness).
+const codeIndexCommitStaleAfter = 48 * time.Hour
+
+// indexFreshness is the high-water-mark row the banner decides from. A zero
+// commitTime means the commit's date is UNRECORDED (NULL) — rendered as a loud
+// UNKNOWN, never as fresh: FRESH must be unprovable without evidence about the
+// commit itself, or the row clock creeps back in as the verdict.
+type indexFreshness struct {
+	sha, ref   string
+	commitTime time.Time
+	updatedAt  time.Time
+	err        error
+}
+
 // codeIndexFreshness reads the index's high-water mark and renders the freshness
-// banner both answer tiers prepend to their output. One query per action run.
+// banner both answer tiers prepend to their output. One query per action run,
+// scoped to the repo the checks will search (same filter loadCodeIndexScope
+// applies — a banner describing another corpus's freshness is not a guard).
 // Never fatal: an error degrades to an "unknown freshness" note (fail open) —
 // the guard must not break the lookup it qualifies.
-func codeIndexFreshness(ctx context.Context, db *sql.DB) string {
-	var sha string
-	var updatedAt time.Time
-	err := db.QueryRowContext(ctx,
-		`SELECT COALESCE(commit_sha,''), updated_at FROM code_symbols
-		 ORDER BY updated_at DESC LIMIT 1`).Scan(&sha, &updatedAt)
-	if err == sql.ErrNoRows {
-		return freshnessBanner("", time.Time{}, time.Now(), codeIndexStaleAfter, nil)
+func codeIndexFreshness(ctx context.Context, db *sql.DB, repoFilter string) string {
+	var f indexFreshness
+	var ct sql.NullTime
+	f.err = db.QueryRowContext(ctx,
+		`SELECT COALESCE(commit_sha,''), COALESCE(ref,''), commit_time, updated_at FROM code_symbols
+		 WHERE ($1 = '' OR repo = $1)
+		 ORDER BY updated_at DESC LIMIT 1`, repoFilter).Scan(&f.sha, &f.ref, &ct, &f.updatedAt)
+	if f.err == sql.ErrNoRows {
+		f = indexFreshness{}
 	}
-	return freshnessBanner(sha, updatedAt, time.Now(), codeIndexStaleAfter, err)
+	if ct.Valid {
+		f.commitTime = ct.Time
+	}
+	return freshnessBanner(f, time.Now())
+}
+
+// refClause names the indexed ref when it is recorded, so the banner can state
+// what the index mirrors rather than leaving "which branch is this even" to be
+// guessed. Pre-migration rows have no ref; the clause degrades to nothing.
+func refClause(ref string) string {
+	if ref == "" {
+		return ""
+	}
+	return fmt.Sprintf(" (ref %s)", ref)
 }
 
 // freshnessBanner is the pure decision+formatting half of codeIndexFreshness,
-// split out so the stale/empty/error branches are unit-testable without a DB
+// split out so every branch is unit-testable without a DB
 // (verify-the-failing-branch: a guard whose job is to catch a fault must be
 // SEEN catching it). bugs_open/059's read-time half: a stale index answers
 // "absent" identically to a genuine absence, so at read time the answer must
 // carry its own freshness — an empty result against a stale index is UNKNOWN,
 // not evidence of absence, and nothing upstream can add that qualifier later.
-func freshnessBanner(sha string, updatedAt, now time.Time, staleAfter time.Duration, queryErr error) string {
-	if queryErr != nil {
-		return fmt.Sprintf("(index freshness UNKNOWN — %v; treat every empty answer below as unknown, not absent)\n", queryErr)
+//
+// The verdict is a function of the indexed COMMIT, not of updated_at
+// (bugs_open/108 defect A: the refresh cadence re-fetches the last pushed tip,
+// so keying on the row clock reported FRESH forever while the described code
+// fell 1,003 commits behind — and the honest empty-answer wording shipped with
+// defect B's fix made that false FRESH a stronger lie). updated_at keeps one
+// job, its original one: detecting that the refresh pipeline itself is dead.
+func freshnessBanner(f indexFreshness, now time.Time) string {
+	if f.err != nil {
+		return fmt.Sprintf("(index freshness UNKNOWN — %v; treat every empty answer below as unknown, not absent)\n", f.err)
 	}
-	if updatedAt.IsZero() {
+	if f.updatedAt.IsZero() {
 		return "!! CODE INDEX EMPTY — no symbols indexed at all. Every answer below is UNKNOWN, not absent. Run index-orchestrator before trusting any of this. !!\n"
 	}
-	age := now.Sub(updatedAt)
-	if age > staleAfter {
+	rowAge := now.Sub(f.updatedAt)
+	if f.commitTime.IsZero() {
 		return fmt.Sprintf(
-			"!! CODE INDEX STALE: last refreshed %s ago (%s) at commit %s — code newer than that is NOT in the index, so a 'no matches' answer below may mean NOT YET INDEXED, not absent. Run index-orchestrator to refresh. !!\n",
-			formatAge(age), updatedAt.Format("2006-01-02"), shortSHA(sha))
+			"!! CODE INDEX AGE UNKNOWN: it describes commit %s%s but that commit's date is unrecorded — the refresh clock (rows written %s ago) says when the INDEXER last ran, never how old the code is, so freshness CANNOT be judged. Treat every empty answer below as UNKNOWN, not absent. (Expected until the first reindex after migration 250.) !!\n",
+			shortSHA(f.sha), refClause(f.ref), formatAge(rowAge))
 	}
-	return fmt.Sprintf("(index freshness: refreshed %s ago at commit %s)\n", formatAge(age), shortSHA(sha))
+	commitAge := now.Sub(f.commitTime)
+	if commitAge > codeIndexCommitStaleAfter {
+		return fmt.Sprintf(
+			"!! CODE INDEX STALE: it describes commit %s%s, committed %s (%s ago) — every change since then is INVISIBLE below, so a 'no matches' answer may mean NOT YET INDEXED, not absent. The index mirrors the last PUSHED tip%s; re-running the indexer cannot advance it — only a push can. (rows refreshed %s ago) !!\n",
+			shortSHA(f.sha), refClause(f.ref), f.commitTime.Format("2006-01-02"), formatAge(commitAge),
+			refOfClause(f.ref), formatAge(rowAge))
+	}
+	if rowAge > codeIndexStaleAfter {
+		return fmt.Sprintf(
+			"!! CODE INDEX REFRESH MISSED: the indexed commit %s%s is recent (committed %s ago) but no refresh has run for %s — the cadence looks dead. Run index-orchestrator to refresh. Treat empty answers below as unknown, not absent. !!\n",
+			shortSHA(f.sha), refClause(f.ref), formatAge(commitAge), formatAge(rowAge))
+	}
+	return fmt.Sprintf(
+		"(index freshness: commit %s%s, committed %s ago; refreshed %s ago. The index mirrors the last pushed tip%s — local unpushed work is never visible.)\n",
+		shortSHA(f.sha), refClause(f.ref), formatAge(commitAge), formatAge(rowAge), refOfClause(f.ref))
+}
+
+// refOfClause is refClause for prose position: " of <ref>" mid-sentence.
+func refOfClause(ref string) string {
+	if ref == "" {
+		return ""
+	}
+	return " of " + ref
 }
 
 // codeIndexScope is what was actually searched, read ONCE per action run (not
@@ -282,7 +351,7 @@ func DiagnoseCodeLookupAction(ctx context.Context, params ActionParams) (interfa
 	// The read-time freshness guard (bugs_open/059): the header above SAYS to
 	// treat a stale answer as unknown, but until now nothing COMPUTED staleness,
 	// so a reader had no way to apply the rule. One query; loud when stale.
-	b.WriteString(codeIndexFreshness(ctx, params.DB))
+	b.WriteString(codeIndexFreshness(ctx, params.DB, repoFilter))
 	// WHAT was searched, beside WHEN it was indexed. Freshness alone cannot say
 	// whether a `content` check could have matched at all.
 	scope := loadCodeIndexScope(ctx, params.DB, repoFilter)

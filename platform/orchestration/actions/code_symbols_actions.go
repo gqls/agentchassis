@@ -44,6 +44,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gqls/agentchassis/internal/analysis"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -195,6 +196,25 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 	commitField := datahelpers.GetStringField(config, "commit_field", "repo_analysis.commit_sha")
 	commitSHA := datahelpers.ExtractNestedFieldString(params.CollectedData, commitField)
 
+	// The ref the analyse step fetched, and the fetched commit's own committer
+	// date (bugs_open/108 defect A). Both were always known at this point —
+	// analyse_repo_local returns them beside commit_sha — and both were
+	// discarded here, which is why the freshness banner had nothing to key on
+	// but the row clock. Absent-or-unparseable persists as NULL, the honest
+	// "unrecorded" state the banner renders as UNKNOWN, never as fresh.
+	refField := datahelpers.GetStringField(config, "ref_field", "repo_analysis.ref")
+	indexedRef := datahelpers.ExtractNestedFieldString(params.CollectedData, refField)
+	commitTimeField := datahelpers.GetStringField(config, "commit_time_field", "repo_analysis.commit_time")
+	var commitTime interface{} // nil → NULL::timestamptz
+	if s := datahelpers.ExtractNestedFieldString(params.CollectedData, commitTimeField); s != "" {
+		if t, perr := time.Parse(time.RFC3339, s); perr == nil {
+			commitTime = t.UTC()
+		} else {
+			logger.Warn("index_code_symbols: unparseable commit_time — storing NULL (freshness banner will read UNKNOWN)",
+				zap.String("commit_time", s), zap.Error(perr))
+		}
+	}
+
 	analysisField := datahelpers.GetStringField(config, "analysis_field", "repo_analysis.output")
 	rawOutput := datahelpers.ExtractNestedField(params.CollectedData, analysisField)
 	if rawOutput == nil {
@@ -254,13 +274,19 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 		// test for "this body is still current". line_start/line_end above are
 		// overwritten from EXCLUDED regardless, so a preserved body would end up
 		// contradicting the very span it claims to be. NULL is the honest state.
+		// ref and commit_time are assigned plainly, like body and for the same
+		// reason: a re-index at a new ref must overwrite, and an unrecorded
+		// commit_time must persist as NULL rather than be COALESCEd onto a stale
+		// value it would then contradict.
 		_, execErr := params.DB.ExecContext(ctx, `
 			INSERT INTO code_symbols (
-				repo, commit_sha, path, symbol, kind, signature, doc,
+				repo, commit_sha, ref, commit_time, path, symbol, kind, signature, doc,
 				line_start, line_end, content, body, content_hash, embedding, embedding_model
-			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector,$14)
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector,$16)
 			ON CONFLICT (repo, path, symbol) DO UPDATE SET
 				commit_sha      = EXCLUDED.commit_sha,
+				ref             = EXCLUDED.ref,
+				commit_time     = EXCLUDED.commit_time,
 				kind            = EXCLUDED.kind,
 				signature       = EXCLUDED.signature,
 				doc             = EXCLUDED.doc,
@@ -272,7 +298,7 @@ func IndexCodeSymbolsAction(ctx context.Context, params ActionParams) (interface
 				embedding       = COALESCE(EXCLUDED.embedding, code_symbols.embedding),
 				embedding_model = EXCLUDED.embedding_model,
 				updated_at      = now()`,
-			repo, nullIfEmpty(commitSHA), r.path, r.symbol, r.kind,
+			repo, nullIfEmpty(commitSHA), nullIfEmpty(indexedRef), commitTime, r.path, r.symbol, r.kind,
 			nullIfEmpty(r.signature), nullIfEmpty(r.doc),
 			r.lineStart, r.lineEnd, r.content, r.body, r.hash, embArg, embModel)
 		if execErr != nil {

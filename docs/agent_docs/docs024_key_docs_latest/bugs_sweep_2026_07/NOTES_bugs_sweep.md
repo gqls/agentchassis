@@ -119,3 +119,49 @@ Tests: 14 across three new files, green against a `git archive HEAD` overlay; th
 actions suite is green there too (the 07-21 `discovery_checks` RED is gone). Council
 submission `a7ae8ce8-ef40-4503-be8a-972ebe1b0973`, verdict pending at commit time —
 committed without trailer per standing practice.
+
+---
+
+## 2026-07-28, second session ("bugs thread 2") — 108 defect A: freshness by commit identity
+
+Took `bugs_open/108` per the handoff's next-actions order. Ownership check first:
+`who-owns` names `architecture_review` (36 commits/14d), whose HANDOFF_2026-07-28 §3
+item 1 is exactly this fix and whose design direction was already settled — store the
+ref the indexer fetched, key the verdict on the commit rather than the row clock. This
+session implements THEIR design under the bugs-sweep remit; contribution goes into the
+bug file, not a competing lane.
+
+**Two things the bug file did not know, found before writing code:**
+
+- **The "no ref parameter to point" correction is itself superseded.** The
+  `code-index-refresh` task's `input_data` really is `{repo, owner, language}` — but its
+  `pre_query` (a column the bug file never read) derives `ref` from the most recent
+  orchestration whose `input_data.ref` matches `^[0-9]{3}_`, so the cadence dispatch DID
+  carry `ref=086_experience_loop` on both recent runs (orch `59f41f80`, `a9b48ceb`,
+  verified in `collected_data`). The ref reaches the indexer today and is discarded at
+  the upsert — which is why the fix is "store it", not "plumb it".
+- **`analyse_repo_local` pins its fetch to the index's own commit by DEFAULT**
+  (`pin_to_index_commit` default true). Had that been live on the indexer lane, even a
+  push could never advance the index — checked the live `agent_definitions` row before
+  assuming: the code-indexer sets `pin_to_index_commit: false` explicitly ("the indexer
+  DEFINES the index commit"). No third defect; recorded here so nobody re-walks the scare.
+
+**Built (candidate 1 + the banner half of 4):** `GitHubSource.CommitInfo` (one read-only
+GET `/commits/{sha}` in the spawned pod — resolves full sha + committer date);
+`analyse_repo_local` exports `commit_time` best-effort (failure → absent → NULL → banner
+UNKNOWN, never an invented date); `index_code_symbols` stores `ref` + `commit_time`
+(plain assignment in the upsert, same doctrine as `body`); `freshnessBanner` verdict now
+keys STALE on COMMIT age (`codeIndexCommitStaleAfter`, 48h) and renders NULL commit_time
+as loud-UNKNOWN — FRESH is unprovable without evidence about the commit. The
+missed-refresh branch on `updated_at` survives as pipeline-liveness. Both lanes' call
+sites updated; banner states the pushed-tip mirror fact in every branch. Migration 250
+applied (columns nullable, all 4,535 rows NULL until the first post-roll reindex — the
+VERIFY script's check 4 encodes the induced fault as SQL). Unit tests: the exact live
+failure (refreshed 2h ago, commit 4d old) is now the first test case and must render
+STALE; green against `git archive HEAD` + overlay.
+
+**Deliberately NOT done:** pushing the branch (the only thing that makes the index
+CURRENT — owner call, stated in the bug file); prompt-side edits to the CODE INDEX
+LIMITS paragraph (config-side, owning workstream's call, and it errs safe as written).
+
+Council submission `b5285973-9038-47a1-b5d9-4a9696fb1eb3`.

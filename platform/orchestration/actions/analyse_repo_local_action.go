@@ -57,6 +57,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/gqls/agentchassis/internal/analysis"
 	"github.com/gqls/agentchassis/internal/reposource"
@@ -166,6 +167,23 @@ func AnalyseRepoLocalAction(ctx context.Context, params ActionParams) (interface
 		return nil, fmt.Errorf("analyse_repo_local: fetch %s/%s@%s: %w", owner, repo, ref, err)
 	}
 
+	// Resolve the fetched snapshot's own committer date (and full sha) — the
+	// self-contained fact the read-time freshness verdict keys on (bugs_open/108
+	// defect A: row updated_at says when the INDEXER ran, never how old the code
+	// is). Resolved against the sha the tarball actually yielded, not the
+	// requested ref — the ref can move between the two calls; the sha cannot.
+	// Best-effort: a failure leaves commit_time absent, so the indexer stores
+	// NULL and the freshness banner reads UNKNOWN — the honest degrade — rather
+	// than a date that was never fetched.
+	var commitTime time.Time
+	if fullSHA, committedAt, ciErr := src.CommitInfo(ctx, owner, repo, commitSHA); ciErr != nil {
+		logger.Warn("analyse_repo_local: could not resolve commit date (freshness banner will read UNKNOWN)",
+			zap.String("commit_sha", commitSHA), zap.Error(ciErr))
+	} else {
+		commitSHA = fullSHA
+		commitTime = committedAt
+	}
+
 	// Parse IN-PROCESS. out.Root == dir (a real local path) — the whole point: it
 	// makes repo_analysis.root a checkout THIS pod can slice bodies from.
 	// §7C.1: denylist-style excludes (substring match inside the analyser walk),
@@ -200,6 +218,9 @@ func AnalyseRepoLocalAction(ctx context.Context, params ActionParams) (interface
 	repoAnalysis["owner"] = owner
 	repoAnalysis["repo"] = repo
 	repoAnalysis["ref"] = ref
+	if !commitTime.IsZero() {
+		repoAnalysis["commit_time"] = commitTime.UTC().Format(time.RFC3339)
+	}
 	return repoAnalysis, nil
 }
 

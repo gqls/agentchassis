@@ -27,6 +27,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -123,6 +124,60 @@ func (g *GitHubSource) FetchToDir(ctx context.Context, owner, repo, ref string) 
 		zap.String("dir", tmp),
 	)
 	return tmp, commitSHA, nil
+}
+
+// CommitInfo resolves a ref or (short) sha to the full commit SHA and its
+// committer date, via GET /repos/{owner}/{repo}/commits/{ref} — read-only, same
+// credential and apiBase as FetchToDir. It exists because the tarball fetch can
+// only recover a SHORT sha from the archive's top-level dir name and nothing
+// about WHEN that commit was made — and "how old is the code this index
+// describes" is the one self-contained fact a DB-only reader can later judge
+// index freshness from (bugs_open/108 defect A: the row clock resets on every
+// refresh; the committer date cannot). Committer date, not author date: it is
+// when the commit as it exists on the branch was created.
+//
+// A method on the concrete *GitHubSource, deliberately NOT on the Fetcher
+// interface: callers that need it hold the concrete type, and widening the seam
+// would break every other implementation for an optional enrichment.
+func (g *GitHubSource) CommitInfo(ctx context.Context, owner, repo, ref string) (sha string, committedAt time.Time, err error) {
+	if owner == "" || repo == "" || ref == "" {
+		return "", time.Time{}, fmt.Errorf("owner, repo and ref are required")
+	}
+	url := fmt.Sprintf("%s/repos/%s/%s/commits/%s", g.apiBase, owner, repo, ref)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("build commit request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+g.token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := g.httpClient.Do(req)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("fetch commit info: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		return "", time.Time{}, fmt.Errorf("github commit %s/%s@%s returned %d: %s",
+			owner, repo, ref, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var payload struct {
+		SHA    string `json:"sha"`
+		Commit struct {
+			Committer struct {
+				Date time.Time `json:"date"`
+			} `json:"committer"`
+		} `json:"commit"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&payload); err != nil {
+		return "", time.Time{}, fmt.Errorf("decode commit info: %w", err)
+	}
+	if payload.SHA == "" || payload.Commit.Committer.Date.IsZero() {
+		return "", time.Time{}, fmt.Errorf("commit info for %s/%s@%s: response missing sha or committer date", owner, repo, ref)
+	}
+	return payload.SHA, payload.Commit.Committer.Date, nil
 }
 
 // extractTarGz unpacks a gzipped tar stream into destDir, stripping the single

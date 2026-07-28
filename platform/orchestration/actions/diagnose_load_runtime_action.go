@@ -465,7 +465,7 @@ func DiagnoseLoadRuntimeAction(ctx context.Context, params ActionParams) (interf
 		// index answers "absent" identically to a genuine absence, and the verdict
 		// prompt's cite-or-abstain acts on absence — so the answer must carry its
 		// own freshness, loudly when stale.
-		cb.WriteString(codeIndexFreshness(ctx, params.DB))
+		cb.WriteString(codeIndexFreshness(ctx, params.DB, ""))
 		// And WHAT was searched, not only when it was indexed. This lane needs it
 		// at least as much as the council's: the verdict prompt's cite-or-abstain
 		// acts on absence, so "0 rows because bodies are not indexed" and "0 rows

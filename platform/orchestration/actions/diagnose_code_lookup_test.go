@@ -134,44 +134,81 @@ func TestDedupCodeChecks(t *testing.T) {
 	}
 }
 
-// The read-time freshness guard (bugs_open/059). The header text has always SAID
-// "treat a stale or empty answer as unknown, not absent" — these tests verify the
-// guard that finally COMPUTES that, branch by induced branch (a guard whose job
-// is to catch a fault must be seen catching it, not only passing when healthy).
+// The read-time freshness guard (bugs_open/059, reworked for bugs_open/108
+// defect A). The header text has always SAID "treat a stale or empty answer as
+// unknown, not absent" — these tests verify the guard that COMPUTES that,
+// branch by induced branch (a guard whose job is to catch a fault must be seen
+// catching it, not only passing when healthy). The verdict keys on the indexed
+// commit's own date: the exact live failure — a fresh refresh clock over a
+// days-old commit — is the first case, because it is the branch the old
+// updated_at-keyed verdict could not represent.
 func TestFreshnessBanner(t *testing.T) {
-	now := time.Date(2026, 7, 24, 12, 0, 0, 0, time.UTC)
-	staleAfter := 48 * time.Hour
+	now := time.Date(2026, 7, 28, 12, 0, 0, 0, time.UTC)
 
-	t.Run("fresh index: quiet one-liner naming age and sha", func(t *testing.T) {
-		got := freshnessBanner("adb00fd1234", now.Add(-3*time.Hour), now, staleAfter, nil)
+	t.Run("THE 108 failure: fresh refresh clock over a stale commit is loud-STALE", func(t *testing.T) {
+		// Measured live 2026-07-28: rows written 2h ago, commit e19aa5d from
+		// four days and 1,003 commits earlier. The old verdict rendered this
+		// "(index freshness: refreshed 2h ago …)".
+		got := freshnessBanner(indexFreshness{
+			sha: "e19aa5d108e", ref: "086_experience_loop",
+			commitTime: now.Add(-96 * time.Hour), updatedAt: now.Add(-2 * time.Hour),
+		}, now)
+		for _, must := range []string{"STALE", "e19aa5d1", "086_experience_loop", "4d", "NOT YET INDEXED", "PUSHED", "only a push"} {
+			if !strings.Contains(got, must) {
+				t.Fatalf("stale-commit banner must contain %q: %q", must, got)
+			}
+		}
+	})
+
+	t.Run("unrecorded commit date: loud UNKNOWN, never fresh", func(t *testing.T) {
+		// Pre-migration rows, or the CommitInfo call failed. However recent the
+		// refresh, FRESH must be unprovable without evidence about the commit.
+		got := freshnessBanner(indexFreshness{sha: "adb00fd1234", updatedAt: now.Add(-time.Hour)}, now)
+		if !strings.Contains(got, "UNKNOWN") || !strings.Contains(got, "!!") {
+			t.Fatalf("unrecorded commit date must be loud-UNKNOWN: %q", got)
+		}
+		if strings.Contains(got, "index freshness:") {
+			t.Fatalf("unrecorded commit date must not render the quiet fresh line: %q", got)
+		}
+	})
+
+	t.Run("fresh index: quiet one-liner naming both ages, sha, ref and the mirror fact", func(t *testing.T) {
+		got := freshnessBanner(indexFreshness{
+			sha: "adb00fd1234", ref: "main",
+			commitTime: now.Add(-5 * time.Hour), updatedAt: now.Add(-3 * time.Hour),
+		}, now)
 		if strings.Contains(got, "STALE") || strings.Contains(got, "!!") {
 			t.Fatalf("a fresh index must not be flagged: %q", got)
 		}
-		for _, must := range []string{"3h", "adb00fd"} {
+		for _, must := range []string{"5h", "3h", "adb00fd", "main", "pushed tip", "never visible"} {
 			if !strings.Contains(got, must) {
 				t.Fatalf("banner must name %q: %q", must, got)
 			}
 		}
 	})
 
-	t.Run("stale index: loud, names age, date, sha and the remedy", func(t *testing.T) {
-		got := freshnessBanner("e3176f8abc", now.Add(-20*24*time.Hour), now, staleAfter, nil)
-		for _, must := range []string{"STALE", "20d", "e3176f8", "NOT YET INDEXED", "index-orchestrator"} {
+	t.Run("missed refresh: recent commit but a dead cadence stays loud", func(t *testing.T) {
+		got := freshnessBanner(indexFreshness{
+			sha: "abc1234", commitTime: now.Add(-3 * time.Hour), updatedAt: now.Add(-72 * time.Hour),
+		}, now)
+		for _, must := range []string{"REFRESH MISSED", "3d", "index-orchestrator"} {
 			if !strings.Contains(got, must) {
-				t.Fatalf("stale banner must contain %q: %q", must, got)
+				t.Fatalf("missed-refresh banner must contain %q: %q", must, got)
 			}
 		}
 	})
 
-	t.Run("boundary: exactly the threshold is not yet stale", func(t *testing.T) {
-		got := freshnessBanner("abc1234", now.Add(-staleAfter), now, staleAfter, nil)
+	t.Run("boundary: commit age exactly at the threshold is not yet stale", func(t *testing.T) {
+		got := freshnessBanner(indexFreshness{
+			sha: "abc1234", commitTime: now.Add(-codeIndexCommitStaleAfter), updatedAt: now.Add(-time.Hour),
+		}, now)
 		if strings.Contains(got, "STALE") {
-			t.Fatalf("age == threshold must not flag (only >): %q", got)
+			t.Fatalf("commit age == threshold must not flag (only >): %q", got)
 		}
 	})
 
 	t.Run("empty index: loudest — every answer is unknown", func(t *testing.T) {
-		got := freshnessBanner("", time.Time{}, now, staleAfter, nil)
+		got := freshnessBanner(indexFreshness{}, now)
 		for _, must := range []string{"EMPTY", "UNKNOWN, not absent", "index-orchestrator"} {
 			if !strings.Contains(got, must) {
 				t.Fatalf("empty banner must contain %q: %q", must, got)
@@ -180,11 +217,20 @@ func TestFreshnessBanner(t *testing.T) {
 	})
 
 	t.Run("query error: fail open with an unknown-freshness note, never silent", func(t *testing.T) {
-		got := freshnessBanner("", time.Time{}, now, staleAfter, fmt.Errorf("connection refused"))
+		got := freshnessBanner(indexFreshness{err: fmt.Errorf("connection refused")}, now)
 		for _, must := range []string{"UNKNOWN", "connection refused", "unknown, not absent"} {
 			if !strings.Contains(got, must) {
 				t.Fatalf("error banner must contain %q: %q", must, got)
 			}
+		}
+	})
+
+	t.Run("missing ref degrades to no clause, not to an empty parenthesis", func(t *testing.T) {
+		got := freshnessBanner(indexFreshness{
+			sha: "abc1234", commitTime: now.Add(-96 * time.Hour), updatedAt: now.Add(-time.Hour),
+		}, now)
+		if strings.Contains(got, "(ref ") || strings.Contains(got, " of )") {
+			t.Fatalf("pre-migration rows have no ref; the clause must vanish cleanly: %q", got)
 		}
 	})
 }
