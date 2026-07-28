@@ -124,3 +124,72 @@ checking that the file deployed. Both pass today, on a site that is broken.
 - `bugs_open/125` — page rebuild deploys to a path derived from `name`, ignoring
   `pages.url`. Another way a URL that should exist does not, i.e. another
   generator of 404s that land on this.
+
+---
+
+### 2026-07-28 15:25 — candidate 4 DONE (20 sites). The bug stays OPEN, deliberately.
+
+Owner asked for a decent default 404 across the fleet, so the *target document*
+now exists everywhere it is needed. **This is candidate 4, which this file already
+flags as the trap — it fixes nothing on its own and the bug is NOT closed.** A
+missing path still returns the JSON blob on all 20 sites. What changed is that the
+edge now has something worth serving.
+
+**Shipped** (`gqls/sites e2a9720d5`, deploy run `30372990012`, verified live on
+**20 of 20**): one self-contained page per site — no external fonts, stylesheets,
+scripts or images, because an error page renders when things are already broken and
+must not depend on a CDN or on `/assets/css/styles.css` having deployed. Light/dark
+via `prefers-color-scheme`, `noindex`, Spanish copy where relevant, and
+`prefers-reduced-motion` honoured on the one animated element — **the fleet used
+that query nowhere before this**, and webdesign.co.uk is about to publish on
+accessibility duty.
+
+**Every link verified on disk before writing: 43 links across 20 pages, 0 broken.**
+Sections are discovered from real `*/index.html` files, never invented — putting
+phantom links on the page that exists *because* of phantom links would be absurd
+(`bugs_open/092`'s class).
+
+**Scope was PROBED, not assumed.** Each domain was requested with a known-missing
+path; only the 20 that actually returned the B2 JSON are in scope. Excluded:
+`relojistas.com` and `idea.uk` (already serve a real 404 — both on the VM/nginx
+stack, which is also the clean proof this is a B2 property and not per-site drift),
+`loancalculator.co.uk` and `testllmlog.example.com` (not live).
+
+> **`relojistas.com` was excluded for a second and stronger reason, worth recording
+> for anyone else scripting across this repo.** The deploy runs `b2 sync --delete`
+> over the **whole domain directory**, not just changed files. That site's copy here
+> is 12 days stale and still contains `contacto.html`, which its workstream
+> **deliberately removed from the live site**. Adding one unrelated file to that
+> directory would have re-synced the lot and resurrected a page another thread
+> killed. A fleet-wide script's blast radius is the directory, not the file it
+> writes.
+
+### What is still owed — the actual fix
+
+Route origin 404s to `<domain>/404.html`. The edge worker's source is **not in
+either repo** (checked: no `wrangler.toml`, no worker JS anywhere under
+`~/projects/sites` or `~/projects/agentchassis`), so this is a Cloudflare-side edit
+and cannot be done from here. The shape, for whoever holds it — in the existing
+B2 proxy, where it currently builds that JSON error:
+
+```js
+if (b2Response.status === 404) {
+  const fallback = await fetch(`${B2_BASE}/${domain}/404.html`);
+  if (fallback.ok) {
+    return new Response(fallback.body, {
+      status: 404,                                   // MUST stay 404
+      headers: { 'content-type': 'text/html; charset=utf-8',
+                 'cache-control': 'public, max-age=300' },
+    });
+  }
+}
+```
+
+**Status 404 must be preserved.** A soft-404 returning 200 is worse than the
+present bug: it makes every broken link invisible to crawlers and to any link
+checker we ever build — and `bugs_open/116` says we have none running yet, so we
+would be blinding a detector before it exists.
+
+**Verification is unchanged and still the discriminating one:** request a path that
+certainly does not exist and read the BODY. Do not fetch `/404.html` by name —
+that returns 200 on all 20 sites today, on a fleet that is still broken.
