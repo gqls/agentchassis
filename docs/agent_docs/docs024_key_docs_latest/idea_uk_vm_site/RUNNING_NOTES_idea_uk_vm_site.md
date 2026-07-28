@@ -2644,3 +2644,107 @@ One line in `engine.go` — log `Usage` on every call, not only on cache activit
 "partially observable when caching happens" into a permanent per-order fact, for real customer
 orders as well as test runs. Not built this session: it needs a 6th deploy and the owner has not
 asked for one. **Until it ships, every cost figure for this product is a floor.**
+
+> **DONE 2026-07-28 — shipped as the 6th deploy (`fb10b2659`).** Unconditional, `[cache]`→`[usage]`.
+> Induced live with one free taster (~1.3¢): `[usage] claude-opus-5: created=0 read=0 input=620
+> output=405 stop=end_turn`. **`created=0 read=0` IS the proof** — that call cached nothing, so the
+> old binary logged nothing for it. Every future order now measures itself.
+
+### §X.26 — a broken DNS zone, a funnel with no people in it, and a hero CTA pointing away from the sale (2026-07-28)
+
+#### 1. `bounce.leopardess.uk` is BROKEN, not pending — and would never have self-resolved
+
+Owner reported the Clook records were added and SES had gone back to Pending. The zone edit did
+land (`SOA serial 2026072801`, bumped that day). But:
+
+| query | result |
+|---|---|
+| `www` / `_dmarc` / `mail` `.leopardess.uk` | `NOERROR` |
+| a nonexistent name | `NXDOMAIN` — the server reports absence correctly |
+| **`bounce.leopardess.uk`** | **`SERVFAIL`** on SOA, NS, A, MX, TXT, CNAME, from **both** `dns1`/`dns2.uk-noc.com`, and with `+cd` (so not DNSSEC validation) |
+
+**The NXDOMAIN control is the load-bearing part.** A name that does not exist answers NXDOMAIN; a
+name the server thinks exists but cannot serve answers SERVFAIL. So `bounce` is not missing — it is
+**present and broken**, the signature of a stale delegation or an orphaned child zone. SES queries,
+gets SERVFAIL, and stays Pending indefinitely. **No amount of waiting fixes this**, which is exactly
+what "pending" invites you to do. Handed to the owner as a precise report for Clook rather than
+"it isn't working".
+
+#### 2. The funnel: there is essentially nobody there
+
+Full access log (05 Jun → 28 Jul), post-cutover window 18–28 Jul, bots filtered:
+
+```
+GET /report.html   26 views, 20 unique IPs
+POST /request       8,       7 unique IPs
+GET /order/success  1
+```
+
+**8/26 = 31% is a garbage number and must never be quoted as a conversion rate.** Reverse-DNS on the
+viewers: `googleusercontent.com` (3 IPs, 9 views), `tor-exit-8.zbau.f3netze.de`, several Tencent-range
+addresses with no PTR — and **4 of the 26 views were the owner**. Of the 8 submissions, **4 were our
+own test orders** and two came from Tor exits. **Genuine external prospects in ten days: between
+zero and a small handful.** This is the hard evidence for the demand-not-correctness claim in
+`SUMMARY_2026-07-27b`, and it is why an A/B test would have been unreadable noise.
+
+#### 3. Report intro restructured — and BOTH renderers needed it (7th deploy, `bec6193cc`)
+
+One block of four long sentences → three scannable paragraphs (what this is, with the reader's own
+words in the opener; what is in it; how it was made). **The trap:** `reportIntro` fed a single `<p>`
+in the HTML renderer, and **HTML collapses blank lines** — so changing only the string would have
+fixed the text email and left the HTML one a wall, with nothing to show it. Both now split on the
+blank line via a shared `introParagraphs()`.
+
+**A test caught a real regression.** My first draft prefixed the third paragraph `"How it was made:"`,
+which lowercased the W in `"We use AI to research and draft this report"` — the AI disclosure
+required by the 07-25 audit and pinned by `TestRenderReadable`. Label dropped, comment added at the
+site so it is not re-added. A new test pins ≥3 paragraphs and the submitted idea being in the first.
+
+#### 4. Asked for an early in-page link; found the hero CTA pointing AWAY from the sale
+
+The request was "the form is a long way down, add a link near the top". Measuring first
+(`id="request-a-report"` at byte **31,326 of 43,224 — 72% down**) turned up something worse:
+
+```
+16191  BEFORE form   <a href="/contact.html">Request a Verified Idea Report</a>
+```
+
+**The most prominent control on the page, the one a reader reaches first, took them away from the
+purchase.** The section immediately above the form (`call-to-action`, position 4) rendered **no link
+at all** — a dead label.
+
+Mechanism, confirmed from the schema rather than assumed: `cta_url` and `primary_cta_url` are
+`source: renderer` with **no fallback**; `content_data` carried the CTA *text* but no URL, so the
+renderer's hardcoded `/contact.html` default filled the gap. Same shape as the home-page CTA fix
+(`p3_05-07`), and because those fields are **not** recomputed on a `section_data_resolved` rerender,
+a value set in `content_data` holds.
+
+**So the right fix was better than the one asked for:** point the *existing* hero button at
+`#request-a-report` rather than add a second control beside a broken one. `p4_20` sets both CTAs;
+`p4_21` dispatches the rerender with `reason=section_data_resolved` (a plain `rerender-pages`
+assembles from stored HTML and could never apply a `content_data` change).
+
+Guards written into both scripts, each earned by a past failure on this workstream: both rows
+verified **unlocked** first (a locked section's rerender is silently discarded); **no NULL
+`content_data`** or the rerender escalates to the LLM writer and rewrites live sales copy; and
+`p4_21` **refuses if the CTA values are not present**, so it cannot dispatch a render that changes
+nothing and reports success.
+
+**VERIFIED LIVE, with a negative control** (~3 min later — far faster than the 16–36 min the queue
+used to take, consistent with `030` being fixed):
+
+```
+16216  BEFORE form   #request-a-report   Request a Verified Idea Report   ← hero, 37% down
+30449  BEFORE form   #request-a-report   Request a Verified Idea Report   ← was a DEAD LABEL
+43901  after form    /contact.html       Contact                          ← footer, correct
+'/contact.html' + 'Request a Verified Idea Report'  : GONE ✓
+```
+
+Two live paths to the form, the first at **37% down instead of 73%**, and the misdirect is gone.
+`secondary_cta_url` left unset on both, so those labels render nothing — correct-or-absent (LNK-005)
+rather than inventing a destination.
+
+**The transferable bit:** the brief was a UX tweak; measuring the page before implementing it turned
+up a live revenue leak that no scanner had reported, because *every link on the page returned 200*.
+`/contact.html` is a real page. **A dead CTA and a wrong CTA look identical to a link checker** —
+only reading where the link *goes against what its text promises* finds this class.
