@@ -354,6 +354,20 @@ fresh responses** — and the window grows with the topic. Consequences:
 Decisive burst test deferred ~15 min until the replay catches up — running it
 against a deaf response lane would measure the replay, not the pool.
 
+> **CORRECTED ~11:20, by a closed-window measurement — my "~23 minutes" was
+> 5× optimistic.** The early drain (~530/min) was the shallow part; a proper
+> two-point window (124 s, position 7,145→7,248) gives **49 messages/min**,
+> because ancient responses whose `awaited_requests` rows are long purged
+> each burn the ~1.5 s not-found retry loop in
+> `processResponseClaimWithRetry`. Remaining lag 5,037 at 11:16 ⇒ **~103
+> further minutes**; total response deafness per pod restart at today's
+> history ≈ **2–3 hours**, not 23 minutes. The sequential control FAILED at
+> 11:12:45 (deploy_page, 4×3 min) exactly as this predicts — the pool's
+> request side did its job in 3 s; the response side was in yesterday.
+> Fleet impact while the window runs: every spawned handler's response rides
+> `system.agent.generic.responses`, so build work fleet-wide treadmills
+> until ~13:00 unless CS-3a flips. Operational call recorded below.
+
 Instrument gotcha for whoever repeats this: `oufe/TRIGGER_rerender_page.sh`
 names its kcat pod `kcat-rerender-$(date +%s)` — seconds granularity, so
 PARALLEL invocations collide with "AlreadyExists" (3 of 5 lost that way on the

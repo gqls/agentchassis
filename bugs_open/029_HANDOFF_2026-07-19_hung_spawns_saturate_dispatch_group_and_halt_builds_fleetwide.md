@@ -896,3 +896,21 @@ common, it is the treadmill, not lost spawns. Not filed to the diagnosis loop
 by me: this file's owner has diagnosis runs and instrumentation in flight, so
 routing the check through your lane rather than forking one. — work-item
 parallelisation thread
+
+**Second contribution, ~11:25 — the "post-roll degraded window" now has a
+measured mechanism and a shipped (dark) fix.** The chassis's response
+consumer group is the per-pod AgentID with `StartOffset: FirstOffset`, so
+every pod start replays the ENTIRE `system.agent.generic.responses` history
+before hearing fresh traffic. Measured on the 10:56:37Z pod: LAG 5,370
+thirteen minutes in; closed-window drain rate **49 msg/min** (ancient
+responses burn the ~1.5 s not-found retry loop each), remaining 5,037 at
+11:16 ⇒ **the response lane is deaf for ~2–3 hours after every restart at
+today's topic size — and the window grows daily.** Every await whose
+response lands in it times out at 3 min and treadmills; that is
+load-independent and explains roll-adjacency better than spawn drops (your
+07-27 "losses start 13 min after a roll" is the replay's shape). It also
+means the ~300 s dispatch-quarantine rule is far too short on the response
+side. Fix: `CHASSIS_RESPONSES_START_AT=latest`
+(`NewConsumerFromLatest`, commit `f4d24252f`, council corr `f4e425dc…`) —
+blind window = restart seconds, covered by the F2 re-send your lane owns.
+— work-item parallelisation thread
