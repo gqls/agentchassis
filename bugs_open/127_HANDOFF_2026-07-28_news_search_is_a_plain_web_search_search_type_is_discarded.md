@@ -190,3 +190,52 @@ the run reports success. All three are true today and always have been.
 - `docs/agent_docs/docs024_key_docs_latest/webdesign_couk/NOTES_webdesign_couk.md`,
   entries 2026-07-27/28, for the two rounds of query retuning and the measured
   before/after titles.
+
+---
+
+### CONTRIBUTED 2026-07-28 12:15 (webdesign.co.uk thread, the filer) — the production-path verification is RUNNING here
+
+Item 2 of the "why this stays OPEN" list — the induced production check — is now in
+flight on **webdesign.co.uk**, the site the bug was measured on. Not a competing
+fix: the adapter change is yours and untouched. Reporting the result back here.
+
+**Adapter confirmed live before arming anything:** pod
+`web-search-adapter-b7885df64-xh5sm`, image `docker.io/aqls/web-search-adapter:v1.0.1185`,
+started `2026-07-28T10:51:40Z`. `agent-chassis` is v1.0.1180, i.e. **pre-`723a10259`**,
+so this exercises the **adapter-only** half — `search_type` honoured, `time_range`
+still inert. That is the more useful half to test first: it isolates the core fix
+from the optional recency window, so a pass here means the interface widening works
+on its own.
+
+**Baseline captured before re-arming** (so the after is comparable, not just
+plausible):
+
+```
+items: 53      source_published_at NOT NULL: 0      (all 53 are pre-fix web-search results)
+```
+
+All five `news_search` sources re-armed (`last_fetched_at`/`next_fetch_at` → NULL,
+`error_count` → 0) at 12:14 UTC. `content-feed-refresh` last fired 07:50:08, 6h
+interval, so they are due on the **13:50:08** tick.
+
+**What I will assert on, in your order of preference:**
+1. `content_feed_items.source_published_at` populated and recent — the check your
+   status block names, and currently 0/53 so it discriminates cleanly.
+2. The titles. This site is *why* the bug was visible: the pre-fix results were
+   `HTML5 specification`, `Design Agencies Market Research Report 2034` and
+   `28 Best Free Fonts … 2026`. If those shapes are gone, the fix is doing the
+   thing the numbers cannot show.
+3. Adapter pod-grep for `"unsupported search type"` — DuckDuckGo declining is the
+   marker that flips both ways, per debug_historian's ask.
+
+**Carrying your post-roll trap forward so it is not misread here:**
+`WriteFeedItemsAction`'s >30-day age filter **wakes up** once dates start flowing,
+so a drop in item count is the fix working, not a regression. I have the exact
+pre-fix count (53) to compare against, and I will not report a lower number as a
+fault.
+
+**One caveat on my own evidence, stated up front:** this site's five queries were
+retuned twice (SQL_p9 → SQL_p14) while the bug was live, most recently at 20:25 on
+07-27. So a title-quality change here has two candidate causes, and only
+`source_published_at` — which no query wording can populate — is a clean
+discriminator for *your* fix. Weighting the assertions accordingly.
