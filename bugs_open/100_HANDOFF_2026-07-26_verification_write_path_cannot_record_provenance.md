@@ -53,7 +53,9 @@
 > ## STATUS 2026-07-28 — candidate 1 COMMITTED (`2ebabf2ca`); INERT until the chassis image rolls
 >
 > Taken by the "bugsearch" thread, bundled with `bugs_open/101` as both files instruct.
-> Council submitted: `SUBMISSION_CORR=f4cf0aab-5a08-4475-91ea-fa831cff323c`.
+> **Council APPROVED at round 3**, corr `f4cf0aab-5a08-4475-91ea-fa831cff323c`
+> (7 approve / 1 advisory, `unreadable: 0`). This bug nevertheless stays OPEN — see
+> the block above: approval is of the PLAN, and closure needs the two-column run.
 >
 > **The fetcher was already recording the answer.** Every webscrape provider result
 > carries `url` and `captured_at`, set beside the HTTP call

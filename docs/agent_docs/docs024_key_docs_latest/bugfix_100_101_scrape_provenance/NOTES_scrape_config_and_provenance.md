@@ -570,3 +570,68 @@ BEGIN / INSERT 0 0 / INSERT 0 0 / INSERT 0 0 / COMMIT
 ```
 
 Not asserted — the re-run was actually performed and the row counts re-read.
+
+## §12 — 2026-07-28 ~20:10 — round 3: APPROVED, and the reuse check I should have run first
+
+```
+round 1: revise   | decided_by "gating objection from tooling_provenance" | unreadable 1
+round 2: revise   | decided_by "unreadable reviewer(s): review_editquality.result" | unreadable 1
+round 3: APPROVED | decided_by "approved with 1 advisory objection(s) — none high-severity" | unreadable 0
+```
+
+**7 approve / 1 object (advisory, medium), `unreadable: 0`.** The approval is
+verified as attaching to THIS plan, not an adjacent one — the landmine says a later
+approval can attach to a different plan, so the seat verdicts were read, not just the
+decision field. The two that moved are the ones that matter:
+
+- **`editquality` — the seat that was UNREADABLE in round 2 — approves with ZERO
+  objections.** Its round-1 objection (declaring the keys silenced the audit) is what
+  `ConditionalKeys` was built to answer, so this is the verdict I most wanted and
+  could not read last round.
+- **`guardian` moved from object → approve**, its two remaining points downgraded to
+  low and explicitly not vetoed.
+- `tooling_provenance` (round-1 gating), `debug_historian`, `prior_art_librarian`,
+  `constitution`, `mission` — all approve.
+
+Trailer claimed on the docs commit: `Council-Reviewed: f4cf0aab-5a08-4475-91ea-fa831cff323c`.
+
+### The advisory that was right, and what running it showed
+
+`reuse_agent` [medium], echoed by `prior_art_librarian` [low]: *"grounded_in only
+documents checks for (a) positional-vs-keyed literals and (b) whether anything
+consumes the audit's stdout shape — neither is a reuse-coverage search for 'does the
+platform already have a way to mark a config key as recognised-but-conditionally-
+honoured'."*
+
+**Correct, and it is my own misstep 4 recurring in a new place.** I checked reuse
+carefully for the registry (`GetActionInputSpec` had no callers) and then added a
+*second* new mechanism — three exported functions and a struct field — without
+running the same search for it. Both seats named the platform's known failure mode:
+dormant machinery mistaken for absent.
+
+Ran it after the fact, which is the wrong order but better than not at all:
+
+```
+$ grep -rniE "conditional(key|field|config)|only_if|applies_when|applicable_when|when_action|requires_action|honoured|honored" \
+    --include=*.go platform/ internal/ pkg/ | grep -v _test.go   # (my own additions excluded)
+```
+Every hit is **comment prose** ("a real info@ … is honoured", "ParentSection is
+intentionally NOT honoured"). No declaration mechanism. The other spec-shaped types
+(`matchmatrixSpec`, `llmFieldSpec`, `reconcileSpec`, `directiveSpec`, `ResourceSpec`,
+`WorkItemSpec`, `ResultSpec`) were checked and none declares per-key applicability —
+`ResultSpec` is the closest in shape and is about result contracts, not step config.
+
+**So `ConditionalKeys` is genuinely new.** The verdict stands, but the process point
+is the durable one: *the reuse discipline has to be applied to the mechanism you are
+ADDING, not only to the one you are extending.* I passed the first test in the same
+submission I failed the second.
+
+### The two advisories I am NOT acting on, and why
+
+`guardian` [low] and `prior_art_librarian` [low] both note that my "all 168 sites are
+keyed" and "only one consumer" claims rest on **my own greps**, which the council
+cannot independently reproduce (its content search runs on a lagging index). That is
+a fair statement of epistemic status and not a defect: the greps are in the NOTES with
+their exact commands so anyone can re-run them, and both claims are the kind that a
+compile failure or a broken script would have surfaced loudly. Recorded rather than
+actioned.

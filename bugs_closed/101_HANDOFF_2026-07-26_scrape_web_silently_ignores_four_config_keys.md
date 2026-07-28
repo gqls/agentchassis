@@ -42,11 +42,13 @@
 >    off since March. They warn now instead of silently fetching one page. That
 >    decision is somebody's to make deliberately, not a side effect of this fix.
 >
-> Council round 1 = **REVISE** (corr `f4cf0aab-5a08-4475-91ea-fa831cff323c`, 11
-> reviewers / 7 approve, gated by `tooling_provenance`). **No `Council-Reviewed:`
-> trailer is claimed** — the trailer is earned by APPROVED only. Revisions owed are
-> listed in the workstream handoff; none of them is a correctness objection to the
-> shipped code, and every objecting seat said so (`guardian`: *"Not a veto"*).
+> **Council: APPROVED at round 3** — corr `f4cf0aab-5a08-4475-91ea-fa831cff323c`,
+> *"approved with 1 advisory objection(s) — none high-severity"*, `unreadable: 0`,
+> 7 approve / 1 advisory object. Trailer claimed on the closing docs commit.
+> The trail: round 1 REVISE (gated by `tooling_provenance`), round 2 REVISE **decided
+> by an unreadable seat** (`review_editquality.result` — the `bugs_open/119` harness
+> case, not a judgement), round 3 APPROVED with `editquality` — the very seat that had
+> been unreadable — approving with zero objections.
 >
 > Full account: `docs024_key_docs_latest/bugfix_100_101_scrape_provenance/`.
 

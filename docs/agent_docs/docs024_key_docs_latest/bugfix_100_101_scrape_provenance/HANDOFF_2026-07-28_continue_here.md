@@ -210,3 +210,33 @@ round-1 objection depended on those queries.
    is visible from two directions instead of none. Still an owner's call.
 4. **`domain-research-classifier` has no owner** — worth raising separately from
    this bug.
+
+---
+
+## 9. ROUND 3 — **APPROVED** 2026-07-28 ~20:09. §7's verdict branches are now spent.
+
+```
+round 1: revise   | decided_by "gating objection from tooling_provenance"
+round 2: revise   | decided_by "unreadable reviewer(s): review_editquality.result"   <- harness (bugs_open/119)
+round 3: APPROVED | decided_by "approved with 1 advisory objection(s) — none high-severity" | unreadable 0
+```
+
+7 approve / 1 advisory object. `editquality` — unreadable in round 2 — approves with
+**zero** objections, which is the verdict `ConditionalKeys` was built to earn.
+Trailer `Council-Reviewed: f4cf0aab-5a08-4475-91ea-fa831cff323c` is claimed.
+
+**Nothing is owed to the council.** The one medium advisory (no reuse-coverage search
+before adding `ConditionalKeys`) was discharged after the fact: the search was run,
+returned only comment prose, and `ConditionalKeys` is genuinely new. NOTES §12.
+
+### The whole of what remains
+
+1. **`bugs_open/100`'s two-column run** — blocked on `vetcomparison` restarting
+   collection. §3b. This is the only thing between 100 and closure.
+2. **The 062 watch is still unexercised** — `grep -c "Starting scrape"` was **0**, so
+   the clean error log has a zero denominator. §2, and the RUNBOOK puts the attempt
+   count above the watch.
+3. **208 undeclared actions** in the coverage ratchet. §3c.
+4. **Two owner calls, neither this thread's:** whether `vet-practice-verifier` and
+   `domain-research-classifier` switch to `action: "crawl"`, and who owns
+   `domain-research-classifier` at all.
