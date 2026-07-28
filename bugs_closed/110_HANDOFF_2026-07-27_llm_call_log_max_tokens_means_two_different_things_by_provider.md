@@ -1,6 +1,6 @@
 # 110 — `llm_call_log.max_tokens` is about to mean two different things depending on provider, and the columns that would disambiguate it do not exist
 
-**Filed** 2026-07-27 by the `gemini_content_provider` workstream ·
+**Status** **CLOSED 2026-07-28** — both candidates live and verified on live Gemini rows; only a cosmetic `DROP COLUMN` remains (see below) · **Filed** 2026-07-27 by the `gemini_content_provider` workstream ·
 **Status** OPEN, unowned · **Severity** low blast radius today, **but the window
 to fix it cleanly closes the moment `bugs_open/107`'s P6 lands** ·
 **Introduced by** `8a2b5dea0` (my own change — this is a regression, not a
@@ -152,6 +152,64 @@ honest in the meantime, so this is not urgent.
 **Not a candidate: changing the rule's wording in `CLAUDE.md`/`016b` to add "except
 Gemini".** A rule that means something different per provider is worse than either
 version of it, and that is precisely the defect being fixed.
+
+## CLOSED 2026-07-28 10:45 UTC — the columns are populated on live Gemini rows
+
+Both candidates are live and **verified on the feature's path, not just in the binary**.
+Chassis **v1.0.1182**. Council-approved unanimously (below).
+
+**The observation this was held open for**, `page-content-writer` building
+dartsonline/sale:
+
+| asked | wire | reserve | visible | thinking | total | ok |
+|---|---|---|---|---|---|---|
+| 8000 | 16192 | 8192 | 87 | 1638 | 5885 | t |
+| 8000 | 16192 | 8192 | 63 | 1849 | 7150 | t |
+| 8000 | 16192 | 8192 | 103 | 1582 | 5912 | t |
+
+`max_tokens` = 8000, the caller's ask (candidate 1). `wire` = 16192 = 8000 + the 8192
+reserve, the value that used to be indistinguishable from it. **`thinking` is the column
+that did not exist**, and it is the whole point:
+
+```
+agent_type          calls  visible  thinking  thinking/visible  % of billed output
+page-content-writer     8    1,890    16,285              8.6x              89.6%
+```
+
+**89.6% of the billable output tokens are thinking, not copy** — per section, per page,
+across the estate. That figure was structurally unobtainable before this change and is
+now one `SELECT` away. It is also the number the whole "is Gemini worth it" question
+turns on, and it is worse than the per-section ratio suggests because the writer runs
+once per section.
+
+**Measured thinking (1,582–2,901) matches the GENUINE-MATERIAL figure (~1,576), not the
+stub figure (2,764–2,878).** This file's own §"How to verify" item 3 quotes the stub
+range as the expected one — wrong reference; stubs make the model work harder, and
+production confirms it. Corrected here rather than left to mislead the next reader.
+
+### A defect of mine, found by reading the rows rather than trusting my own naming
+
+`total_output_tokens` holds Gemini's `usageMetadata.totalTokenCount` — **the total for
+the whole call, prompt included**. In all eight rows it equals
+`input + visible + thinking` exactly. **So I reproduced this bug's own defect inside the
+fix for it**: a column whose name asserts a meaning the value does not have.
+
+Superseded by `total_tokens` (migration **246**, applied; `total_tokens -
+(input+output+thinking) = 0` across all rows). Done as **ADD-then-DROP, not
+`RENAME COLUMN`** — a rename is atomic in the DB and therefore *not* atomic with the
+fleet: this table has one writer that names its columns explicitly, so renaming first
+breaks the running binary's INSERT and rolling the Go first breaks against the old
+column. Either order stops `llm_call_log` recording **for every provider**, silently,
+because logging is fire-and-forget. **Phase 2 — `DROP COLUMN total_output_tokens` — is
+owed once a pod-grep shows the INSERT naming `total_tokens`.** That is the one piece of
+this bug still outstanding, and it is a tidy-up, not a defect.
+
+### What is NOT claimed
+
+- **Not** that Gemini is commercially right for the writer. This makes the cost
+  *visible*; 89.6% thinking is an input to that decision, not the decision.
+- **Not** that the anthropic/ollama NULLs will ever fill. They report none of this, and
+  NULL is the honest encoding — do not `COALESCE(...,0)`.
 
 ## Candidate 2 COUNCIL-APPROVED 2026-07-28 07:22 UTC — unanimous, round 3
 

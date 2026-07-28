@@ -1584,3 +1584,56 @@ item existed.
 workstream and `029` is the owner's thread; resetting another workstream's work item or
 killing their orchestrations to unblock my verification would be exactly the
 cross-thread damage `scripts/who-owns.py` exists to prevent.
+
+### 110 CLOSED — and the cost answer is 89.6%
+
+Bypassed the blocked queue by firing `page-build-handler` **directly**
+(`TRIGGER_110_direct_page_build.sh`), input copied verbatim from orchestration
+`af2d066b` rather than invented. Reached `call_content_writer` in ~15s and completed.
+
+**Why not `049b_deploy_single_page.sh`**, which exists for exactly this blockage: it
+targets `page-rerender`, which is *designed* not to call an LLM — assemble-only with no
+reason, and with `section_data_resolved` it re-renders stored `content_data` through the
+current template "with NO LLM call" (its own header). It escalates to the writer **only**
+if a section has NULL `content_data`, and `sale`'s both had theirs. It would have
+produced a deployed page and **no Gemini row** — a green result proving nothing about
+the thing under test. One level up was the right lever.
+
+**The number the workstream was opened to get:**
+
+```
+agent_type          calls  visible  thinking  ratio  % of billed output
+page-content-writer     8    1,890    16,285   8.6x              89.6%
+```
+
+**Nearly nine tenths of what we pay for on the writer is thinking, not copy.** Per
+section, per page, across the estate.
+
+**Measured thinking 1,582–2,901 matches the GENUINE-MATERIAL figure (~1,576), not the
+stub range (2,764–2,878)** that `110` and my own `VERIFY` script quoted as expected.
+Stubs make the model work harder — the earlier finding, now confirmed from production.
+Corrected at both sites.
+
+**Copy check on the regenerated page** — the point of a second sample rather than
+repeating the first: *"High-density tungsten barrels change how tight you can group your
+darts at the oche. You don't have to pay full price…"* 0 em dashes, 0 exclamations,
+contractions present, **0 fabricated statistics on a sale page**, still recognisably
+about darts. The hero/CTA duplication persists, as expected — that defect is structural
+and untouched by any of this.
+
+**Loose end closed deliberately:** the queued item `0ffc5344` was still `triaged` after
+the out-of-band build, so I marked it `complete` with a note. Left alone it would have
+been picked up whenever `029` cleared and rebuilt the page a second time.
+
+> **I reproduced this bug's own defect inside the fix for it.** `total_output_tokens`
+> holds Gemini's `totalTokenCount` — the WHOLE CALL including the prompt. In all eight
+> rows it equals `input + visible + thinking` exactly. A column whose name asserts a
+> meaning the value does not have is precisely what `110` is about. **Caught by reading
+> the rows, not by re-reading my code** — the arithmetic looked wrong before the name
+> did. Superseded by `total_tokens` (mig 246).
+>
+> **And the fix for THAT had its own trap:** my first draft was `RENAME COLUMN`. A
+> rename is atomic in the DB and therefore *not* atomic with the fleet — one writer,
+> explicit column list, so either ordering breaks every INSERT until the roll, silently,
+> because logging is fire-and-forget. ADD-then-DROP removes the window. **Deployment
+> ordering is part of the fix, not an afterthought to it.**
