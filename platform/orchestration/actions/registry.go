@@ -1157,6 +1157,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Ask the browser-runner adapter to drive a tool's deployed page against its PLAN criteria; awaits the results (no-op skip when the PLAN has no criteria)",
 		IsLocal:     true,
 	},
+	"request_render_audit": {
+		Handler:     RequestRenderAuditAction,
+		Category:    "quality",
+		Description: "Ask the browser-runner adapter to RENDER every deployed page of a site and measure contrast against the effective background, broken images and overflow; awaits the results. Catches the class check_palette_contrast states it cannot see (a component hard-coding an ink over a themed fill).",
+		IsLocal:     true,
+	},
 	"judge_acceptance_results": {
 		Handler:     JudgeAcceptanceResultsAction,
 		Category:    "tools",
