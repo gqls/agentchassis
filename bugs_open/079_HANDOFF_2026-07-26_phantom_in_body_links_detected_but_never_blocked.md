@@ -1,6 +1,73 @@
 # Handoff — the platform detects a dead in-body link and deploys the page anyway
 
-> ## FIXED — live in chassis `v1.0.1171`, 2026-07-26
+> ## REOPENED 2026-07-28 — the repair runs, and its output is DISCARDED before persistence
+>
+> Moved back from `bugs_closed/` by the brochure_component_library thread. The FIXED banner
+> below is preserved unedited; everything in it about the *repair action* remains true. What
+> is false is one clause: *"`clean_html` — the string `save_sections` persists"*. It is not.
+>
+> **Mechanism, cited.** `validate_page_content` applies `RepairPageLinks` to `cleanHTML`
+> and returns it as `clean_html` (`validate_page_content.go:357`, comment at :352–354).
+> The next step, `save_sections` (`save_page_sections_action.go`), tries the **structured
+> metadata path first**: if `sections_metadata_field` resolves to a non-empty array it
+> persists those per-section `rendered_html` strings and never reads `html_field`
+> (`save_page_sections_action.go:166–188`); `html_field` — configured as
+> `validation_result.clean_html` — is read **only when metadata yields zero sections**
+> (:192 onward). The live page-build plan (read from orchestration
+> `bcdc6455-c279-4646-85d8-bfa8cbea3f2e`, page-build-handler, 2026-07-28) sets BOTH
+> `sections_metadata_field: page_content.response.sections_metadata` AND
+> `require_sections_metadata: true` on the validate step — metadata is therefore always
+> present, the fallback is unreachable, and **the repaired string is structurally discarded
+> on every page build**. Not a race; a dead branch.
+>
+> **Production evidence, same day, two sites:**
+>
+> - `fundamentallyai.com/capabilities.html` (work item `8f366ce5`, build orchestration
+>   `bcdc6455`): `CONTENT_LINK_REPAIR_DETAIL` written **10:45:01.347Z** — 10 repairs listed,
+>   naming exactly the 9 dead targets (8 unlinked, `/contact` → `/contact.html` rewritten
+>   twice). The page's six `page_components` rows were saved **10:45:01.768–.807Z** — and
+>   `hero-card-carousel` + `info-card-grid` carry `href="/contact"`,
+>   `/capabilities/review-council` and the rest, unrepaired. Live crawl ~14:20Z: **all 9
+>   serve 404 from the deployed page.**
+> - `vonc.com/about.html`: repair row **14:28:53Z** ("unlink `/how-it-works`" ×2); the
+>   `platform-comparison` `page_components` rows saved in the same run window still contain
+>   `href="/how-it-works"`.
+>
+> **Why the closure's proof did not catch this.** The end-to-end induction ran through
+> `content-reviewer` with `html_field` repointed at `input_data.page_html` — a route that
+> has **no `save_sections` step**. It proved the action transforms and logs correctly
+> (which it does); nothing on that route persisted anything. The unit tests proved the
+> helper; the pod-greps proved deployment. No check ever read back what a real build
+> **saved**. Writes-the-field ≠ reads-the-field, on our own fix.
+>
+> **Blast radius beyond links.** Any transformation applied only to `clean_html` cannot
+> reach persistence on the structured path — the gate's comment-stripping is equally
+> unreachable **[INFERRED from code; no observed comment damage — saved components checked
+> 07-28 carry none, but the writer emitted none either]**. Also note the same build
+> invented four `<img src="/assets/illustrations/*.svg">` paths that shipped: image srcs
+> were never in `RepairPageLinks`' remit at all (see `071`'s 07-28 entry).
+>
+> **Fix candidates, ordered by what closes the door:**
+> 1. **Repair where persistence happens** — `save_page_sections` applies `RepairPageLinks`
+>    to each section's `rendered_html` before insert (it already holds `params.DB` and
+>    `site_id` to build the `PageURLIndex`). No build path can then save an unrepaired
+>    section, whatever the workflow config says.
+> 2. `validate_content` repairs `sections_metadata` in place alongside `clean_html`, so
+>    both representations leave the gate consistent.
+> 3. Make the structured path derive from repaired `clean_html` (re-split by section
+>    boundaries) — highest fidelity risk, listed for completeness.
+>
+> **How to verify the real fix**: after a natural build with a dead in-body link, SELECT
+> the saved `page_components.rendered_html` for the repaired href — it must be absent —
+> then crawl the deployed page. The persisted row is the artefact; the action's return map
+> is not.
+>
+> **Diagnosis-loop note:** a 090 verification run should be fired once the Anthropic lanes
+> return (spend cap exhausted until 08-01; the queue currently fails LLM work). The claim
+> above is cited from code + two same-day production runs, but the loop's re-check is owed
+> on a reopen of this size.
+
+> ## FIXED — live in chassis `v1.0.1171`, 2026-07-26 — **superseded by the REOPENED banner above; preserved unedited below**
 >
 > **The fix.** The gate no longer only reports a dead in-body link, it repairs it, in
 > `clean_html` — the string `save_sections` persists, which is why the gate is the only step on
