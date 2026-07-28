@@ -183,6 +183,43 @@ legacy_feed_locations() {
 EOF
 }
 
+# Dead vBulletin surface (relojistas, added 2026-07-28 from the first per-source crawl
+# analysis — EVIDENCE_2026-07-28_crawl_budget_and_the_dead_forum.md).
+#
+# WHY 410 AND NOT 404: measured 208,529 requests for /attachment.php in 33 hours from
+# 1,409 distinct IPs sweeping 25,030 attachment ids. A 404 means "gone for now, try
+# later" — which is why they have been retrying for months. 410 means "gone, permanently"
+# and is the only status that makes a crawler drop the URL.
+#
+# WHY NOT `Disallow:` THESE IN robots.txt INSTEAD: blocking them stops crawlers ever
+# FETCHING them, and therefore ever seeing the 410 — so they stay indexed forever. Crawl
+# first, be told gone, then de-index.
+#
+# NOTE /faq.php and /search.php are deliberately ABSENT from this list: both have honest
+# live equivalents on the new site and are handled below rather than retired.
+dead_forum_locations() {
+  cat <<'EOF'
+    location = /attachment.php   { return 410; }
+    location = /showthread.php   { return 410; }
+    location = /newreply.php     { return 410; }
+    location = /printthread.php  { return 410; }
+    location = /private.php      { return 410; }
+    location = /sendmessage.php  { return 410; }
+    location = /member.php       { return 410; }
+    location = /cron.php         { return 410; }
+    location ~ ^/(ventas|forums)/(attachment|showthread|newreply|printthread)\.php$ { return 410; }
+
+    # The old forum search still has a live equivalent: the engine's own results page.
+    # Same function, honestly mapped — not a doorway, the user asked to search and gets
+    # a search. Query string is carried through by nginx on a rewrite.
+    location = /search.php {
+        if ($arg_q)          { rewrite ^ /buscar?q=$arg_q redirect; }
+        if ($arg_query)      { rewrite ^ /buscar?q=$arg_query redirect; }
+        rewrite ^ /buscar redirect;
+    }
+EOF
+}
+
 # Cloudflare real-ip (P0): restore the visitor's address from CF's header so
 # access logs count subscribers, not edge nodes. IP list = published CF ranges
 # (https://www.cloudflare.com/ips/, snapshot 2026-07-24 — refresh on re-run if
@@ -226,6 +263,7 @@ static_body() {
     index index.html;
 $(api_locations)
 $(legacy_feed_locations)
+$(dead_forum_locations)
     location / {
         try_files \$uri \$uri/ =404;
     }
