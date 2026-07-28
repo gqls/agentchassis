@@ -822,3 +822,121 @@ independent mechanisms each doing exactly their job.
 **v1.0.1194 carries the bind and verify actions** (pod-grep: `bind_site_experience` 12,
 `verify_site_experience` 16, `requires Tier 4` 1, `deferred:` 1; negative control 0). So the wiring
 that was blocked this morning is now possible — it is the next thing, not a blocked thing.
+
+---
+
+## 2026-07-28e — attribute assertion is BUILT: the gap the register exists to check
+
+**The handoff's order was inverted, deliberately, and the reason is worth recording.** It said:
+apply-a-verdict → wire bind+verify → act on the REVISE → harness work last. I did the harness
+first. The two `[high]` objections in the REVISE verdict are *not fixable by editing the entry* —
+`deferral_honesty`: "the component's entire reason for existing — the openable/inert split — has
+zero executable coverage"; `checkability`: the activation-handler third of the `must_not` has no
+check at all. Both reduce to attribute assertion not existing. Revising and resubmitting today
+would have bought a second REVISE for the same reason, and `apply_experience_verdict` has nothing
+to apply while the only verdict is REVISE. **The last item on the list was the prerequisite for the
+first three.**
+
+### What was measured before deciding, not after
+
+| question | query | answer |
+|---|---|---|
+| how many criteria fences exist fleet-wide | `doc_plans WHERE body LIKE '%```criteria%'` | 78 |
+| how many use `attribute_absent` | same table | **0** |
+| how many use `attribute_matches` | same table | **0** |
+| how many register entries use either | `experience_patterns` | **1** (CC-001) |
+
+Both types previously fell to the evaluator's `default:` branch and were SKIPPED, so **no existing
+document changes outcome** — the new cases are reachable only by a document that names the type.
+That is the blast-radius measurement the 2026-07-28 seam ruling requires the submitter to make
+rather than hand to the reviewer.
+
+### The shape was already decided, by the entries, before any code existed
+
+Eight attribute checks had been authored across six entries. Queried before writing a line:
+
+```
+attribute_absent   {"selector":…, "attributes":["href","tabindex"]}          × 2  (CC-001)
+attribute_matches  {"selector":…, "attribute":"href","not_matches":"^(#|\\s*)$"} × 6
+```
+
+So the specification is the entries, not a shape I invented — the direct counter to this
+workstream's own landmine of four days ago (*"Never test a shape against a fixture you wrote"*).
+Every HTML fixture in the new tests is likewise a verbatim element from a page fetched today.
+
+### The design decision that carries the whole thing: zero matched elements SKIPS
+
+Not a pass: for a list whose rows are cloned client-side, zero matches is the NORMAL Tier 2 state,
+and "no inert row carries a dead href" would then be vacuously true — the register committing the
+exact defect it exists to end. Not a fail either: that calls a correct page broken, which is what
+this workstream actually did on 07-28c. Skipped is reported, never counted, and cannot satisfy
+`experienceVerdict` (≥1 PASS, 0 FAIL).
+
+Also: an attribute check that would assert nothing (no attributes listed, no attribute named, no
+pattern, uncompilable pattern) is refused at **write time**, and deferral is deliberately not an
+escape hatch — deferral says the platform cannot run it *yet*, not that a vacuous check may be
+stored. The runner's honest answer to such a check is a SKIP, which is silent; write time is the
+only loud moment.
+
+### Proven against six live pages BEFORE submitting, through the real exported evaluator
+
+```
+CC-001 template_row_not_a_control     provocations.html  FAIL  1 of 1 carry href="#"
+CC-001 no_dead_row_hrefs              provocations.html  SKIP  selector matched no elements
+CC-002 cta_has_real_destination       provocations.html  PASS  1 element
+CC-003 cards_have_real_destinations   capabilities.html  PASS  4 elements
+CC-004 cards_are_links                model-fine-tuning  PASS  6 elements
+CC-005 links_have_real_destinations   multi-agent-…      PASS  2 elements
+CC-006 accessible_name_carries_…      index.html         PASS  4 elements (aria-label)
+CC-007 link_if_present_is_real        about.html         PASS  1 element
+```
+
+**6 real assertions over 18 real elements**, one correct decline, one failure that is a genuine
+finding (below). Three guards were each probed by induced fault and each bit: making zero-matches
+PASS fails two tests; claiming a per-type field no runner decodes fails the new lockstep; folding
+the per-type fields into the global set fails the leak test.
+
+### The FAIL is a disagreement, not a regression — and I am not resolving it by weakening the check
+
+The vonc template row ships, in the served HTML:
+
+```html
+<a class="provocations-archive__item" data-archive-template hidden href="#">
+```
+
+The component's **own loader** calls that a dead control: *"the template's placeholder href is
+REMOVED (it is href=\"#\", a dead control), no tabindex, no handler"*. But the section also carries
+`data-runtime-fill="true"`, and the platform's built-in dead-control sweep **exempts** runtime-fill
+shells precisely because such hrefs hydrate client-side. So the entry's clause and a standing
+platform exemption disagree, and implementing the capability is what made the disagreement visible
+at all — it had been invisible for as long as the clause was uncheckable.
+
+`[UNRESOLVED]` My reading is that the clause is **mis-tiered**: "the loader removed its href" is
+true post-hydration, which is Tier 4, and asserting it statically fails a page the platform has
+already decided is correct. That is a change to the ENTRY, not to the check, and it belongs in the
+CC-001 revision — recorded here so the reasoning is not reconstructed later.
+
+### A second defect found on the way, deliberately NOT fixed here
+
+The validator counts a check carrying `tier: 4` as **executable**, while `verify_site_experience`
+holds exactly those back. So `executable_checks` overstates coverage by precisely the checks the
+runner will not run — which is the council's `honesty [low]` and `deferral_honesty [medium]`
+objections, and it is *why* CC-001 says `executable_checks: 2` when only one check can run today.
+Left out of this change on purpose: different argument, different blast radius, and folding it in
+is the "accreted a second change during review" failure this workstream logged four days ago.
+
+### Two things I got wrong in the writing, caught before commit
+
+- I named a test constant `vonсTemplateRow` with a **Cyrillic `с` (U+0441)**. It compiles, and it
+  is invisible to `grep vonc`. Caught by `cat -A` on the identifier; the standing note
+  *"grep goes silent on non-UTF-8"* is the neighbouring class.
+- The pre-existing test `TestValidateExperienceCriteria_UnexecutableChecks` used `attribute_absent`
+  as its example of a type no tier executes. That case is now FALSE. Replaced with
+  `selector_text_empty` (the empty-region assertion, also authored by the entries, and genuinely
+  still beyond us) and **marked in the test's own comment** rather than changed silently — a test
+  that quietly stops testing what its name says is how a closed gap comes to look open.
+
+Council gate: `99f2a5e6-e934-4ca1-addb-f16a29b38b0f`. Registered as **TL-031** in the concept
+register in the same commit that ships it, with its landmine and its open review question (whether
+a check type added to a shared vocabulary is architecture-scope) written down rather than left to
+folklore.

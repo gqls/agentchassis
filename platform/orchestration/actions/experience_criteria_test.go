@@ -144,12 +144,20 @@ func TestValidateExperienceCriteria_ContractPlaceholdersCount(t *testing.T) {
 // P6/P7/P8 — the three ways a check can be beyond the platform, each an error
 // when unmarked and a deferral when declared. These are the real cases from
 // HARVEST_01 §§3.2-3.5.
+//
+// CHANGED 2026-07-28: the first case used to be `attribute_absent`, the
+// anti-dead-control clause. It is now IMPLEMENTED at Tier 2, so that case would
+// have been testing a gap that no longer exists — see
+// TestValidateExperienceCriteria_AttributeChecksAreExecutable, which asserts the
+// opposite on purpose. It is replaced here by `selector_text_empty`, the
+// empty-region assertion, which the entries also author and which really is
+// still beyond us.
 func TestValidateExperienceCriteria_UnexecutableChecks(t *testing.T) {
 	cases := []struct {
 		name, check, wantErr string
 	}{
-		{"unknown type (attribute assertion — the anti-dead-control clause)",
-			`{"id":"static_not_interactive","type":"attribute_absent","selector":"{{binding.row}}"}`,
+		{"unknown type (empty-region assertion — the degraded-state clause)",
+			`{"id":"empty_state_shown","type":"selector_text_empty","selector":"{{binding.row}}"}`,
 			"not executable by any tier"},
 		{"inert field (the 300ms-vs-8-23s wait)",
 			`{"id":"turn_returns","type":"interaction","selector":"{{binding.row}}","expect_within_ms":60000}`,
@@ -368,4 +376,139 @@ func betweenFuncs(src, funcStart string) string {
 		return rest[:j]
 	}
 	return rest
+}
+
+// ── attribute assertion (2026-07-28) ───────────────────────────────────────
+
+// TestExperienceCheckTypeFields_LockstepWithRunnerStruct holds the validator's
+// field tables against the RUNNERS' OWN DECODE STRUCTS.
+//
+// This exists because of a defect in this workstream's own migration 259: its
+// guard compared my list against my list and passed while the contract with the
+// real consumer was broken. Both sides were mine, so it verified nothing. Here
+// the other side is not mine and cannot be edited to agree — a field the
+// validator claims is read must have a json tag in a checker, because without
+// one the runner literally cannot see it, and a check carrying it asserts less
+// than it appears to.
+func TestExperienceCheckTypeFields_LockstepWithRunnerStruct(t *testing.T) {
+	tagRE := regexp.MustCompile(`json:"([a-z_]+)`)
+	decodable := map[string]bool{}
+	sources := []string{
+		"discovery_checks/check_tool_acceptance.go",
+		"../../../internal/adapters/browserrunner/run_checks_action.go",
+	}
+	for _, rel := range sources {
+		raw, err := os.ReadFile(filepath.Clean(rel))
+		if err != nil {
+			t.Fatalf("cannot read %s (this test needs both checkers in the checkout): %v", rel, err)
+		}
+		for _, m := range tagRE.FindAllStringSubmatch(string(raw), -1) {
+			decodable[m[1]] = true
+		}
+	}
+	if len(decodable) == 0 {
+		t.Fatal("no json tags found in either checker — the source shape changed; fix this test, not the table")
+	}
+
+	for field := range experienceCheckFields {
+		if !decodable[field] {
+			t.Errorf("experienceCheckFields claims %q is read, but no checker declares a json tag for it — a check carrying it would assert nothing", field)
+		}
+	}
+	for typ, fields := range experienceCheckTypeFields {
+		if _, known := experienceCheckTiers[typ]; !known {
+			t.Errorf("experienceCheckTypeFields has an entry for %q, which the capability table does not know as a check type", typ)
+		}
+		for field := range fields {
+			if !decodable[field] {
+				t.Errorf("experienceCheckTypeFields[%q] claims %q is read, but no checker declares a json tag for it", typ, field)
+			}
+		}
+	}
+}
+
+// TestValidateExperienceCriteria_AttributeChecksAreExecutable pins the point of
+// the change: the eight attribute checks authored across the register were all
+// refused as unexecutable before this, and one capability unblocked them.
+// Verbatim from CC-001 and CC-003 as stored.
+func TestValidateExperienceCriteria_AttributeChecksAreExecutable(t *testing.T) {
+	tmpl := mustJSON(t, `{
+	  "checks": [
+	    {"id":"template_row_not_a_control","type":"attribute_absent",
+	     "selector":"{{binding.item_template}}","attributes":["href"]},
+	    {"id":"cards_have_real_destinations","type":"attribute_matches",
+	     "selector":"{{binding.card_link}}","attribute":"href","not_matches":"^(#|\\s*)$"}
+	  ]}`)
+	schema := mustJSON(t, `{"item_template":{"type":"selector"},"card_link":{"type":"selector"}}`)
+
+	v := ValidateExperienceCriteria(tmpl, schema)
+	if !v.OK() {
+		t.Fatalf("the register's own authored attribute checks must validate: %+v", v.Errors)
+	}
+	if v.Executable != 2 {
+		t.Errorf("want both attribute checks counted executable, got %d (%s)", v.Executable, v.Summary())
+	}
+	if len(v.Deferred) != 0 {
+		t.Errorf("nothing here is deferred any more, got %+v", v.Deferred)
+	}
+}
+
+// TestValidateExperienceCriteria_AttributeFieldsDoNotLeakToOtherTypes — the
+// per-type table must not become a general amnesty. An `attributes` list on a
+// selector_exists is still a field nothing reads.
+func TestValidateExperienceCriteria_AttributeFieldsDoNotLeakToOtherTypes(t *testing.T) {
+	tmpl := mustJSON(t, `{"checks":[
+	  {"id":"list_exists","type":"selector_exists","selector":"{{binding.list_container}}",
+	   "attributes":["href"]}]}`)
+	schema := mustJSON(t, `{"list_container":{"type":"selector"}}`)
+
+	v := ValidateExperienceCriteria(tmpl, schema)
+	if v.OK() {
+		t.Fatal("an attributes list on selector_exists must still be caught as a field no checker reads")
+	}
+	if !hasErrorContaining(v, "not read by any checker") {
+		t.Errorf("want the P7 message, got %+v", v.Errors)
+	}
+}
+
+// TestValidateExperienceCriteria_AttributeCheckMustAssertSomething — P10. Each
+// case mirrors a runtime SKIP guard; the runner's skip is silent, so write time
+// is the only loud moment. Deferral is deliberately not an escape: it says the
+// platform cannot run the check yet, not that a vacuous one may be stored.
+func TestValidateExperienceCriteria_AttributeCheckMustAssertSomething(t *testing.T) {
+	schema := mustJSON(t, `{"target":{"type":"selector"}}`)
+	cases := map[string]struct{ check, want string }{
+		"absent with no attributes": {
+			`{"id":"x","type":"attribute_absent","selector":"{{binding.target}}"}`,
+			"names no attributes"},
+		"absent with only blanks": {
+			`{"id":"x","type":"attribute_absent","selector":"{{binding.target}}","attributes":["  "]}`,
+			"names no attributes"},
+		"matches with no attribute": {
+			`{"id":"x","type":"attribute_matches","selector":"{{binding.target}}","matches":"\\S"}`,
+			"names no attribute"},
+		"matches with no pattern": {
+			`{"id":"x","type":"attribute_matches","selector":"{{binding.target}}","attribute":"href"}`,
+			"neither matches nor not_matches"},
+		"matches with an uncompilable pattern": {
+			`{"id":"x","type":"attribute_matches","selector":"{{binding.target}}","attribute":"href","not_matches":"^(unclosed"}`,
+			"does not compile"},
+		"deferral is not an escape hatch": {
+			`{"id":"x","type":"attribute_absent","selector":"{{binding.target}}","_unsupported":"waiting on something"}`,
+			"names no attributes"},
+	}
+	for name, c := range cases {
+		tmpl := mustJSON(t, `{"checks":[`+c.check+`]}`)
+		v := ValidateExperienceCriteria(tmpl, schema)
+		if v.OK() {
+			t.Errorf("%s: must be refused at write time, but validated clean", name)
+			continue
+		}
+		if !hasErrorContaining(v, c.want) {
+			t.Errorf("%s: want an error containing %q, got %+v", name, c.want, v.Errors)
+		}
+		if v.Executable != 0 {
+			t.Errorf("%s: a check that asserts nothing must never be counted executable, got %d", name, v.Executable)
+		}
+	}
 }

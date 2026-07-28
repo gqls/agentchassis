@@ -22,6 +22,11 @@
 //                                      and expect.selector
 //   asset_loads                      — .path referenced in the deployed HTML
 //   page_status_ok                   — the fetch itself (HTTP 200)
+//   attribute_absent / _matches      — the one pair that needs element
+//                                      IDENTITY, so the one pair that parses a
+//                                      DOM; zero matched elements SKIPS rather
+//                                      than passing vacuously
+//                                      (static_attribute_checks.go)
 //   + built-in shell checks: tool-doc header not leaked to the public page;
 //     no "<no value>" template residue.
 // Everything else (no_console_errors, no_horizontal_overflow, ...) is
@@ -50,6 +55,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
 
@@ -279,12 +285,21 @@ type criteriaDoc struct {
 }
 
 type criteriaCheck struct {
-	ID       string          `json:"id"`
-	Type     string          `json:"type"`
-	Selector string          `json:"selector"`
-	Path     string          `json:"path"`
-	Steps    []criteriaStep  `json:"steps"`
-	Expect   criteriaExpect  `json:"expect"`
+	ID       string         `json:"id"`
+	Type     string         `json:"type"`
+	Selector string         `json:"selector"`
+	Path     string         `json:"path"`
+	Steps    []criteriaStep `json:"steps"`
+	Expect   criteriaExpect `json:"expect"`
+
+	// Attribute assertion (see static_attribute_checks.go). These are the
+	// fields the register's entries already author; the experience validator's
+	// per-type field table is held in lockstep with THIS struct, so a field it
+	// claims is read must have a tag here or the runner could not read it.
+	Attributes []string `json:"attributes"`  // attribute_absent: none of these may be present
+	Attribute  string   `json:"attribute"`   // attribute_matches: the one attribute under test
+	Matches    string   `json:"matches"`     // attribute_matches: value must match this regexp
+	NotMatches string   `json:"not_matches"` // attribute_matches: value must NOT match this regexp
 }
 
 type criteriaStep struct {
@@ -334,6 +349,19 @@ func evaluateStaticCriteria(crit criteriaDoc, httpStatus int, html string) evalu
 	fail := func(id, detail string) { ev.failed = append(ev.failed, checkOutcome{id, detail}) }
 	skip := func(id, detail string) { ev.skipped = append(ev.skipped, checkOutcome{id, detail}) }
 
+	// Parsed at most once, and only if an attribute check asks for it — every
+	// other check type works on the raw string and must not pay for a DOM.
+	var dom *goquery.Document
+	var domErr error
+	var domParsed bool
+	pageDOM := func() (*goquery.Document, error) {
+		if !domParsed {
+			dom, domErr = goquery.NewDocumentFromReader(strings.NewReader(html))
+			domParsed = true
+		}
+		return dom, domErr
+	}
+
 	for _, ch := range crit.Checks {
 		if strings.HasSuffix(ch.ID, "-EDIT") {
 			skip(ch.ID, "placeholder selector (-EDIT) — awaiting real selectors")
@@ -382,6 +410,25 @@ func evaluateStaticCriteria(crit criteriaDoc, httpStatus int, html string) evalu
 				pass(ch.ID, "HTTP 200")
 			} else {
 				fail(ch.ID, fmt.Sprintf("HTTP %d", httpStatus))
+			}
+		case "attribute_absent", "attribute_matches":
+			// The one pair of check types that needs element identity rather
+			// than presence, so the one pair that parses a DOM. Zero matched
+			// elements SKIPS — see static_attribute_checks.go for why that is
+			// neither a pass nor a fail.
+			doc, err := pageDOM()
+			if err != nil {
+				skip(ch.ID, "served page could not be parsed into a DOM: "+err.Error())
+				break
+			}
+			out := evaluateAttributeCheck(doc, ch)
+			switch out.verdict {
+			case attrPass:
+				pass(ch.ID, out.detail)
+			case attrFail:
+				fail(ch.ID, out.detail)
+			default:
+				skip(ch.ID, out.detail)
 			}
 		default:
 			skip(ch.ID, ch.Type+" is not statically checkable (Tier 4)")

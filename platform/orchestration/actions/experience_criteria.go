@@ -60,16 +60,32 @@ var experienceCheckTiers = map[string]int{
 	"interaction":            2,
 	"asset_loads":            2,
 	"page_status_ok":         2,
+	"attribute_absent":       2,
+	"attribute_matches":      2,
 	"no_horizontal_overflow": 4,
 	"no_console_errors":      4,
 }
 
-// experienceCheckFields are the keys either checker reads off a check. Anything
-// else in a check object is inert — the runner never sees it — so a check that
-// carries one is asserting less than it appears to.
+// experienceCheckFields are the keys either checker reads off ANY check.
+// Anything else in a check object is inert — the runner never sees it — so a
+// check that carries one is asserting less than it appears to.
 var experienceCheckFields = map[string]bool{
 	"id": true, "type": true, "selector": true, "path": true,
 	"profiles": true, "steps": true, "expect": true, "container": true,
+}
+
+// experienceCheckTypeFields are keys read only for a PARTICULAR check type.
+//
+// They are kept separate from the table above rather than merged into it: an
+// `attributes` list means something on `attribute_absent` and nothing at all on
+// `selector_exists`, and folding the two together would stop P7 catching the
+// second case — which is exactly the "field the runner never reads" defect the
+// rule exists for. TestExperienceCheckTypeFields_LockstepWithRunnerStruct holds
+// this table against the runner's own decode struct, so a field claimed here
+// that the runner cannot decode fails the build.
+var experienceCheckTypeFields = map[string]map[string]bool{
+	"attribute_absent":  {"attributes": true},
+	"attribute_matches": {"attribute": true, "matches": true, "not_matches": true},
 }
 
 // experienceStepActions are the interaction steps the browser runner performs.
@@ -163,11 +179,12 @@ func (v *ExperienceCriteriaValidation) errf(checkID, field, format string, args 
 //	    error if it does not
 //	P7  a check carrying a field no checker reads is DEFERRED if it says so, an
 //	    error if it does not — this is what catches `expect_within_ms`,
-//	    `retries`, `after`, `equals`, `min`, `visible`, `attributes`
+//	    `retries`, `after`, `equals`, `min`, `visible`
 //	P8  interaction steps use only executable actions; expect uses only
 //	    executable keys (same deferral rule)
 //	P9  a check id ending in -EDIT is rejected outright: Tier 2 silently SKIPS
 //	    those, so they read as green while asserting nothing
+//	P10 an attribute check names something to assert, and its patterns compile
 func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema map[string]interface{}, extra ...interface{}) ExperienceCriteriaValidation {
 	var v ExperienceCriteriaValidation
 
@@ -294,7 +311,7 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 		// P7 — fields no checker reads.
 		var inert []string
 		for key := range ch {
-			if experienceCheckFields[key] || experienceMetaFields[key] {
+			if experienceCheckFields[key] || experienceMetaFields[key] || experienceCheckTypeFields[typ][key] {
 				continue
 			}
 			inert = append(inert, key)
@@ -353,6 +370,20 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 			}
 		}
 
+		// P10 — an attribute check must actually assert something.
+		//
+		// These are ERRORS even when the check is marked deferred. Deferral
+		// says the PLATFORM cannot run the check yet; it is not permission to
+		// store one that would assert nothing on the day it can. An
+		// `attribute_absent` with no attributes, or an `attribute_matches` with
+		// no pattern, is the vacuous-pass class written into the register
+		// itself — and the runner's honest response to it is a SKIP, which is
+		// silent. Refusing it at write time is the only moment it is loud.
+		if issue := experienceAttributeShapeIssue(typ, ch); issue != "" {
+			v.errf(id, "attribute", "%s", issue)
+			badStep = true
+		}
+
 		// P5 (per field) — site-specific values must arrive by binding.
 		literalOK, _ := ch[experienceLiteralOKKey].(string)
 		for field := range experienceBoundFields {
@@ -380,6 +411,45 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 	}
 
 	return v
+}
+
+// experienceAttributeShapeIssue reports why an attribute check would assert
+// nothing, or "" when it is well formed. The conditions mirror the runner's own
+// skip guards in discovery_checks/static_attribute_checks.go one for one — the
+// runner skips silently at run time, so this is where the same conditions get
+// said out loud.
+func experienceAttributeShapeIssue(typ string, ch map[string]interface{}) string {
+	switch typ {
+	case "attribute_absent":
+		attrs, _ := ch["attributes"].([]interface{})
+		named := 0
+		for _, a := range attrs {
+			if strings.TrimSpace(experienceString(a)) != "" {
+				named++
+			}
+		}
+		if named == 0 {
+			return "attribute_absent names no attributes — the check would match elements and then assert nothing about them; list what must not be present"
+		}
+	case "attribute_matches":
+		if strings.TrimSpace(experienceString(ch["attribute"])) == "" {
+			return "attribute_matches names no attribute — say which one is under test"
+		}
+		matches := strings.TrimSpace(experienceString(ch["matches"]))
+		notMatches := strings.TrimSpace(experienceString(ch["not_matches"]))
+		if matches == "" && notMatches == "" {
+			return "attribute_matches carries neither matches nor not_matches — the check reads the attribute and then asserts nothing about its value"
+		}
+		for field, pattern := range map[string]string{"matches": matches, "not_matches": notMatches} {
+			if pattern == "" {
+				continue
+			}
+			if _, err := regexp.Compile(pattern); err != nil {
+				return fmt.Sprintf("%s pattern %q does not compile (%v) — the runner would skip the check, which is silent; a pattern that cannot run must not be stored", field, pattern, err)
+			}
+		}
+	}
+	return ""
 }
 
 // experienceDeferralReason reports whether a check declares itself beyond the

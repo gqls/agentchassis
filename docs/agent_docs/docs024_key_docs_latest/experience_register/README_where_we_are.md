@@ -360,3 +360,54 @@ making a question answerable.
 Next is the part that makes it a safety net rather than a library: binding an entry to one real
 site's actual pages, so its checks run on their own. That's where the four dead carousel links I
 found by hand on Sunday become something the system reports without anyone looking for them.
+
+---
+
+**Tuesday 28 July, evening.** The biggest gap on that work list is now closed. We can ask "does
+this element carry this attribute?" — and the answer is real, not a promise.
+
+I went out of order to do it, and I want to say why rather than have it look like drift. The plan
+said: build the thing that applies a council verdict, then wire the plumbing, then fix up the entry
+the council criticised, and only then do the testing work. But when I read the council's criticisms
+properly, the two serious ones were both *the same complaint* — this entry's whole reason for
+existing is the openable/inert rule, and not one line of that rule can actually be tested. That
+isn't something I can fix by rewriting the entry. Rewriting it and going back to the council would
+have got the same answer for the same reason, and cost another round. So the last job on the list
+turned out to be the thing the first three were waiting on.
+
+Before building anything I checked what it would touch. There are 78 sets of acceptance criteria
+across the whole platform. Not one of them uses either of the two new checks — because until today
+they didn't exist and anything mentioning them was quietly ignored. So nothing that works today
+changes behaviour. I'd rather establish that with a query than assert it in a paragraph and hope.
+
+Then I ran it against six real pages, before submitting it for review rather than after. Six checks
+now genuinely pass, over eighteen real elements on the live sites — the carousel cards, the hover
+grid, the insight track, the stat figures, the archive's call to action, the people block's one
+link. All of those were, until this afternoon, recorded as "we cannot check this".
+
+One check correctly refused to answer, and that matters more than it sounds. The archive's rows are
+built in the browser, so a static look at the page finds none of them — and "no row has a broken
+link" would have been *technically true and completely empty*. It says "nothing was asserted" and
+declines. That's the discipline this whole workstream turns on: a check that asserts nothing must
+never look like a check that passed.
+
+And one check failed, on a page I'd call fine. The archive ships a hidden template row carrying a
+placeholder link. The component's own code calls that a dead control and strips it when the page
+loads. But the platform has a standing rule that shells filled in by the browser get a pass on
+exactly this, because their placeholder links are replaced a moment later. So our written-down
+rule and the platform's existing rule disagree — and nobody could have noticed that until the rule
+became checkable, because you cannot find a disagreement between two things when only one of them
+can speak. My read is that our clause is asking the question at the wrong moment: it's true after
+the page loads, and we're asking before. That's a fix to the entry, not to the checker, and I've
+deliberately not softened the check to make the red go away.
+
+There's also a second, smaller problem I found and deliberately left alone: the register counts a
+check as "runnable" when the part of the system that runs them will actually skip it, so our
+coverage number is flattering by exactly the checks that never execute. It's a separate argument
+and folding it into this change is how one change quietly becomes two — something this workstream
+already got wrong once this week. It's written down and it's next.
+
+The change is with the reviewers now. I've asked them one thing squarely rather than assuming the
+answer: adding a new *kind* of check to a shared vocabulary might count as an architectural
+decision rather than a small addition, in which case the right outcome is that a human looks at it,
+not that it gets waved through quickly.
