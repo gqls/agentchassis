@@ -154,10 +154,39 @@ design's anti-lowball floor is absent.
 
 ---
 
-## 2. THE ONE OUTSTANDING ACTION — the owner's box session
+## 2. ~~THE ONE OUTSTANDING ACTION~~ — **DONE 2026-07-27/28. Nothing here is pending.**
 
-Only the owner can do this (it needs the box). It converges four standing items at once.
-Full procedure: `relojistas_rebuild_runbook.md` § "owner convergence run".
+> **This section is CLOSED. Kept for the procedure, not as a to-do.**
+>
+> **It never needed the owner.** `ssh root@167.233.33.159` works from the working tree; the
+> "only the owner can do this" line stood unchallenged from 07-24 because nobody tried it.
+>
+> | item | state |
+> |---|---|
+> | legacy feed — lowercase `type=rss2`, bare path, `/ventas/` | **CLOSED 07-27** (200 / 302 / 302) |
+> | Cloudflare real-ip | **CLOSED 07-27, PROVEN** — 0 CF edges, **67 distinct client IPs** per 200 requests |
+> | `/buscar` search-that-answers | **CLOSED 07-28** — 5 results for *tourbillon*, correct empty state for a nonsense term |
+> | collector retarget via `/events` | **NOT CLOSEABLE BY ANY BOX SESSION** — see below |
+>
+> **`/events` does not exist.** The engine's `routes()` (`service.go`) is exactly `/health`,
+> `/stats`, `/intent`, `/api/hit` and `SearchPath`. `store.go:12` calls it *"the future /events
+> collector"*. Step 3 below was waiting on unwritten code, and the box's engine binary was the
+> original **2026-06-12** one throughout — the "already deployed by the Action" claim was false.
+> Deployed the real binary on 07-28 from the local `site-engine` checkout (`c049b8f`).
+>
+> **Two traps, both paid for:**
+> - **`DEPLOY_USER=deploy` is NOT optional** — omit it and the webroot is chowned to
+>   `www-data`, and **every vm-sites Action deploy dies** (`rsync … Permission denied`, exit 23).
+>   Did exactly that on 07-27. The runbook's header had it; §P5.2 didn't. Both agree now.
+> - **`MODE=update` still demands `DOMAINS` and `LETSENCRYPT_EMAIL`** — validated at
+>   `setup.sh:44-45`, before the `MODE` branch at `:333`.
+>
+> **Next on this thread:** let real-ip traffic accumulate a few days, then re-check the **P8
+> reversal trigger** (§3) — board-param requests showing distinct real IPs or conditional GETs.
+> That question was **unfalsifiable** until 07-27 and is now answerable.
+
+Full procedure (for reference / other boxes):
+`relojistas_rebuild_runbook.md` § "owner convergence run".
 
 1. **scp the reconciled `setup.sh`** to the box and re-run it (it is idempotent; the box
    no longer has a copy). Source of truth:
