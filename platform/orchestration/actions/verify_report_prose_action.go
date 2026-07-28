@@ -276,7 +276,25 @@ func verifyReportProse(prose, scoring map[string]interface{}, contextValues, kno
 		matchCount = int(v)
 	}
 
-	sections := []string{"summary_html", "candidates_html", "integration_html", "vendor_questions_html"}
+	// The report contract travels WITH the scoring output that produced the
+	// match_count — never from a package const or a default here. See the note
+	// beside score_grippers' output envelope: a second report type in this
+	// package would otherwise be silently checked against the first one's
+	// sentence and sections, and this gate would pass it.
+	//
+	// Absent is a REFUSAL, not a fallback. A gate that defaults its own contract
+	// reports success on a report it never actually checked.
+	// toStringSlice (select_review_panel_action.go) handles the []interface{}
+	// the saga's JSON round-trip produces as well as a native []string.
+	sections := toStringSlice(scoring["prose_sections"])
+	if len(sections) == 0 {
+		return []string{"scoring output carries no prose_sections — the gate cannot know which sections to check"}
+	}
+	noMatch, _ := scoring["no_match_sentence"].(string)
+	if strings.TrimSpace(noMatch) == "" {
+		return []string{"scoring output carries no no_match_sentence — the gate cannot enforce the honest-no-match contract"}
+	}
+
 	for _, key := range sections {
 		raw, _ := prose[key].(string)
 		text := strings.TrimSpace(proseTagRe.ReplaceAllString(raw, " "))
@@ -336,16 +354,23 @@ func verifyReportProse(prose, scoring map[string]interface{}, contextValues, kno
 
 	// (3) the honest no-match contract
 	if matchCount == 0 {
-		summaryText := proseTagRe.ReplaceAllString(prose["summary_html"].(string), " ")
-		if !strings.Contains(summaryText, noMatchSentence) {
-			violations = append(violations, fmt.Sprintf("match_count=0 but summary lacks the mandatory sentence %q", noMatchSentence))
+		// CHECKED assertion. This was `prose["summary_html"].(string)`, which
+		// PANICS when the writer omits the key or returns null — and it is
+		// reachable only on the match_count==0 path, i.e. exactly the case this
+		// gate exists to protect. The prose object comes from an LLM step, so a
+		// missing key is an ordinary outcome, not an impossible one. A panic
+		// here takes down the report build instead of reporting a violation.
+		summaryRaw, _ := prose["summary_html"].(string)
+		summaryText := proseTagRe.ReplaceAllString(summaryRaw, " ")
+		if !strings.Contains(summaryText, noMatch) {
+			violations = append(violations, fmt.Sprintf("match_count=0 but summary lacks the mandatory sentence %q", noMatch))
 		}
 		for _, key := range sections {
 			raw, _ := prose[key].(string)
 			text := proseTagRe.ReplaceAllString(raw, " ")
 			// The mandatory negative sentence itself contains "meets the
 			// requirement" — remove it before scanning for softening.
-			scan := strings.ReplaceAll(text, noMatchSentence, "")
+			scan := strings.ReplaceAll(text, noMatch, "")
 			for _, re := range softeningRes {
 				if loc := re.FindString(scan); loc != "" {
 					violations = append(violations, fmt.Sprintf("%s softens a no-match result (%q)", key, loc))

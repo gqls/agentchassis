@@ -528,7 +528,22 @@ func assessPayloadRated(spec matchmatrixSpec, req scoreRequest, mEq float64, sta
 		rows = append(rows, criteriaRow{Label: "Rated payload", Text: nil, Flag: "none"})
 	}
 
-	if spec.Tech == "soft" && spec.GripMinMM != nil && spec.GripMaxMM != nil {
+	if spec.Tech == "soft" && (spec.GripMinMM == nil || spec.GripMaxMM == nil) {
+		// A soft gripper whose cup range the manufacturer never published.
+		//
+		// This branch used to fall through to the "Not applicable — surface
+		// hold, no jaws" else below, which is correct for a VACUUM or MAGNETIC
+		// gripper (they genuinely have no jaw travel) but silently wrong here:
+		// a soft gripper DOES have a size window, we simply do not know it, and
+		// treating unknown as "no constraint" let the candidate score Match on
+		// its remaining criteria. A paying customer was told the part fits a cup
+		// nobody has published the size of.
+		//
+		// Every other unpublished figure in this file sets state.unknown; this
+		// one did not. Found by TestUnknownNeverPasses on its first real run.
+		state.unknown = true
+		rows = append(rows, criteriaRow{Label: "Grip range", Text: nil, Flag: "none"})
+	} else if spec.Tech == "soft" {
 		if req.Travel > 0 {
 			ok := req.Travel >= *spec.GripMinMM && req.Travel <= *spec.GripMaxMM
 			if !ok {
@@ -675,7 +690,35 @@ func scoreGrippers(req scoreRequest, candidates []gripperCandidate) map[string]i
 		"match_count":      matchCount,
 		"summary_sentence": summary,
 		"fact_block":       buildFactBlock(req, formulas, assessed, matchCount),
+
+		// The report contract the honesty gate enforces, carried WITH the data
+		// that produced it rather than shared as a package const.
+		//
+		// verify_report_prose used to reach for this file's `noMatchSentence`
+		// const and a hardcoded section list. That works only while exactly one
+		// report type exists in this package — the moment a second scorer is
+		// added, the gate silently checks THIS report's sentence against THAT
+		// report's prose, and check (3), the honest-no-match contract, becomes
+		// decorative while still reporting success. Same shape as the
+		// render_directory incident (bugs_open/042): a value that should have
+		// been carried explicitly was resolved from ambient state instead, and a
+		// default silently won.
+		//
+		// A scorer therefore declares the sentence its writer was told to use and
+		// the prose sections it expects, exactly as it already declares
+		// fact_block. The gate REFUSES when either is absent — it must never
+		// fall back to a default, because a gate that defaults its own contract
+		// is not a gate.
+		"no_match_sentence": noMatchSentence,
+		"prose_sections":    reportProseSections(),
 	}
+}
+
+// reportProseSections is the gripper dossier's prose section list, in render
+// order. Returned as a fresh slice per call so a consumer cannot mutate the
+// contract for every later run in the same process.
+func reportProseSections() []string {
+	return []string{"summary_html", "candidates_html", "integration_html", "vendor_questions_html"}
 }
 
 // buildFactBlock renders the plain-text whitelist of every number and name

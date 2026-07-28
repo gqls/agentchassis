@@ -9,6 +9,7 @@
 package actions
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
@@ -314,4 +315,135 @@ func TestBuildScoreRequestMappings(t *testing.T) {
 	if _, err = build(map[string]interface{}{"surface_material": "unobtainium"}); err == nil {
 		t.Error("unknown surface_material must error")
 	}
+}
+
+// --- the honesty guarantee, asserted as a PROPERTY rather than by example ---
+
+// nullableFigureFields are the manufacturer figures that may legitimately be
+// absent ("NOT PUBLISHED"). Each is a pointer precisely so absence is
+// representable and distinguishable from zero.
+var nullableFigureFields = []string{"ForceN", "StrokeMMTotal", "PayloadKg", "IP", "GripMinMM", "GripMaxMM"}
+
+// TestNullableFiguresAreAlwaysPointers is the structural half. The "unknown
+// never passes" guarantee rests on absence being representable: a *float64 that
+// is nil means "not published", where a float64 would silently mean 0 — and
+// 0 >= need is false, so an unpublished figure would render as a confident
+// FAIL rather than "insufficient data". That is worse than a false pass,
+// because it publishes an authoritative-looking wrong answer.
+//
+// This test exists so that regression is a red build rather than a code review
+// someone has to remember to do.
+func TestNullableFiguresAreAlwaysPointers(t *testing.T) {
+	st := reflect.TypeOf(matchmatrixSpec{})
+	for _, name := range nullableFigureFields {
+		f, ok := st.FieldByName(name)
+		if !ok {
+			t.Fatalf("matchmatrixSpec has no field %s — if it was renamed, rename it here too", name)
+		}
+		if f.Type.Kind() != reflect.Ptr {
+			t.Fatalf("matchmatrixSpec.%s is %s, not a pointer: an absent figure would "+
+				"become the zero value and score as a definite FAIL instead of "+
+				"'not published'", name, f.Type)
+		}
+	}
+}
+
+// TestUnknownNeverPasses is the behavioural half, and the one that survives any
+// refactor — it touches only scoreGrippers(req, candidates), so it holds whether
+// the rules live in Go, in config, or somewhere not yet invented. Today's tests
+// assert instances of the guarantee; this asserts the rule itself, across 2^6
+// field masks x every fixture x several request shapes.
+//
+// THE PROPERTY, stated precisely: removing a published figure may never turn a
+// non-passing candidate into a PASSING one, and may never increase headroom.
+//
+// Note what it deliberately does NOT assert, because getting this wrong is the
+// easy mistake and this test made it first. An earlier version required the rank
+// to be monotonic — that removing a figure could only ever worsen a verdict. It
+// failed immediately, and the code was right: OnRobot 2FG7 moves from "No match"
+// (rank 3) to "Insufficient data" (rank 2) when its force figure is removed.
+// That is honest. With the figure published we can assert it fails; without it
+// we cannot assert anything, and saying "No match" would claim knowledge we do
+// not have. Losing information moves a candidate toward UNCERTAINTY in both
+// directions; the guarantee is not "uncertainty is bad", it is "uncertainty is
+// never mistaken for success".
+func TestUnknownNeverPasses(t *testing.T) {
+	requests := []scoreRequest{
+		reqFixture(2.5, 40, 12, 2, 0.15, "0.15", 2, 0, true),   // ordinary
+		reqFixture(2.5, 40, 12, 2, 0.15, "0.15", 2, 54, true),  // with an IP requirement
+		reqFixture(0.2, 10, 9.81, 2, 0.50, "0.50", 2, 0, true), // light, high friction
+		reqFixture(50, 300, 12, 3, 0.10, "0.10", 2, 67, true),  // demanding
+	}
+
+	for ri, req := range requests {
+		baseline := rankByName(t, scoreGrippers(req, testGripperIndex()))
+
+		for mask := 1; mask < 1<<len(nullableFigureFields); mask++ {
+			index := testGripperIndex()
+			for i := range index {
+				v := reflect.ValueOf(&index[i].Spec).Elem()
+				for bit, name := range nullableFigureFields {
+					if mask&(1<<bit) != 0 {
+						v.FieldByName(name).Set(reflect.Zero(v.FieldByName(name).Type()))
+					}
+				}
+			}
+
+			for name, got := range rankByName(t, scoreGrippers(req, index)) {
+				was := baseline[name]
+				// ranks 0 and 1 are Match and Marginal — the two that read as
+				// "you can buy this". Nothing may enter that set by losing data.
+				if got.rank <= 1 && was.rank > 1 {
+					t.Fatalf("request %d, mask %06b: %s became PASSING (%s) after figures were "+
+						"REMOVED — it was %s. An unpublished figure must never read as success",
+						ri, mask, name, got.verdict, was.verdict)
+				}
+				if got.headroom > was.headroom+1e-9 {
+					t.Fatalf("request %d, mask %06b: %s headroom rose %.4f → %.4f "+
+						"when figures were REMOVED", ri, mask, name, was.headroom, got.headroom)
+				}
+			}
+		}
+	}
+}
+
+type scoredFacts struct {
+	rank     int
+	headroom float64
+	verdict  string
+}
+
+func rankByName(t *testing.T, out map[string]interface{}) map[string]scoredFacts {
+	t.Helper()
+	// scoreGrippers marshals then unmarshals its candidates so the saga can
+	// round-trip them, so this is []interface{} of map[string]interface{},
+	// never the typed slice the builder used.
+	raw, ok := out["candidates"].([]interface{})
+	if !ok {
+		t.Fatalf("candidates is %T, not []interface{}", out["candidates"])
+	}
+	byName := make(map[string]scoredFacts, len(raw))
+	for _, item := range raw {
+		c, ok := item.(map[string]interface{})
+		if !ok {
+			t.Fatalf("candidate is %T, not map[string]interface{}", item)
+		}
+		name, _ := c["name"].(string)
+		f := scoredFacts{}
+		switch r := c["rank"].(type) {
+		case int:
+			f.rank = r
+		case float64:
+			f.rank = int(r)
+		}
+		if h, ok := c["headroom"].(float64); ok {
+			f.headroom = h
+		}
+		f.verdict, _ = c["verdict"].(string)
+		byName[name] = f
+	}
+	if len(byName) == 0 {
+		t.Fatal("no candidates scored — the fixture index is empty")
+	}
+	return byName
 }
