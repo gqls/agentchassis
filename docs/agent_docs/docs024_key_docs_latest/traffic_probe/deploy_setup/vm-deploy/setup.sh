@@ -212,10 +212,13 @@ dead_forum_locations() {
     # The old forum search still has a live equivalent: the engine's own results page.
     # Same function, honestly mapped — not a doorway, the user asked to search and gets
     # a search. Query string is carried through by nginx on a rewrite.
+    # NOTE the trailing '?' on each target: without it nginx APPENDS the original
+    # query string, so /search.php?q=rolex redirected to /buscar?q=rolex&q=rolex.
+    # Harmless in practice but wrong, and it looks like a bug to anyone reading a log.
     location = /search.php {
-        if ($arg_q)          { rewrite ^ /buscar?q=$arg_q redirect; }
-        if ($arg_query)      { rewrite ^ /buscar?q=$arg_query redirect; }
-        rewrite ^ /buscar redirect;
+        if ($arg_q)          { rewrite ^ /buscar?q=$arg_q? redirect; }
+        if ($arg_query)      { rewrite ^ /buscar?q=$arg_query? redirect; }
+        rewrite ^ /buscar? redirect;
     }
 EOF
 }
