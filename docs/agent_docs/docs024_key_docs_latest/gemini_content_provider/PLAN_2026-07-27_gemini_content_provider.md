@@ -172,6 +172,35 @@ only inside a commit message. It answers all three questions (what this key can
 reach · visible text vs thinking at each real tier · which thinking knob is
 accepted) in one run, and the tier table *is* the reserve calculation.
 
+**D8 — KEEP GEMINI, and the reason is the product, not the bill (owner, 2026-07-28).**
+*"I think we can keep gemini because it is part of the story that we can use different
+models in our workflows."* This closes the open question at the foot of this file and
+supersedes the framing I had been using, which treated the decision as commercial and
+awaiting a cost figure.
+
+**The cost figure arrived first and was accepted, not ignored** — that ordering matters
+for anyone reading this later. We measured it (11 live calls: 2,439 visible tokens
+against 20,826 of thinking, ~8.5x) and *then* the owner ruled. So this is not "we never
+found out what it cost"; it is "we found out, and being able to demonstrate a
+heterogeneous pipeline is worth it." A future reader who thinks the ratio is
+unacceptable is disagreeing with a judgement, not correcting an oversight.
+
+**What follows.**
+- **Nothing to revert, nothing to build.** Both agents stay on `gemini-pro-latest`.
+- **The flash-lite trade is off the table for now.** The PLAN previously said that if
+  the figures were bad we should re-put the flash-lite option *with numbers*. The
+  numbers exist and the answer is to stay on pro, so do not re-open it on cost grounds
+  alone. A quality regression would be a different argument.
+- **The meter changes job.** `bugs_closed/110`'s columns were built to inform this
+  decision; with the decision made they become a **watch** — the thing that tells us if
+  the ratio drifts, or if a prompt change quietly doubles the thinking. Worth a periodic
+  look, not a dashboard.
+- **The diversity claim is now load-bearing, so it has to stay true.** "We run different
+  models in the same pipeline" is only a story while it is a fact: `page-content-writer`
+  and `content-creator` on Gemini, everything else on Anthropic, `vet_med` on ollama.
+  If a later change consolidates providers for tidiness, this decision is what it is
+  overriding.
+
 **D7 — Model choice is the owner's, and it is now a config line.** The 07-24
 revert turned on a quality trade (pro starved vs flash-lite capable). With the
 reserve in place that trade may not exist — pro at a provisioned budget was never
@@ -255,7 +284,14 @@ or the permission granted.
 > The earlier blocker recorded here — `kubectl` returning `Unauthorized`, which
 > stopped P3–P6 — was **cleared 2026-07-27** when the owner restored credentials.
 
-## Open question for the owner
+## Open question for the owner — ANSWERED 2026-07-28
+
+> **ANSWERED: provider diversity. Owner, 2026-07-28: "I think we can keep gemini
+> because it is part of the story that we can use different models in our workflows."**
+> See **D8**. The question below asked which of two motives was operative, because they
+> point at different tiers. The answer is the second one, and it is a *product* reason
+> rather than a technical or commercial one — which is why no amount of measurement on
+> our side could have settled it. Original text kept below.
 
 Which tier do we actually want, and why did we want Gemini in the first place?
 The repo does not record the motive, and it changes the answer. If the motive was

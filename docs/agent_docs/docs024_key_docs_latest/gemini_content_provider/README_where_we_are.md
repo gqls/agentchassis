@@ -320,3 +320,44 @@ That is not something my change could have caused, so the fault had to be in how
 was looking, and it was: this site serves addresses ending in `.html`. The page had
 been live and correct the whole time. Checking something you did not touch is a
 thirty-second habit that keeps turning a false alarm into a non-event.
+
+---
+
+## 2026-07-28 — the decision: we keep Gemini, and not for the reason I'd been assuming
+
+The owner has ruled: **we keep Gemini, because being able to run different models in the
+same pipeline is part of the story we're telling.**
+
+I want to record that carefully, because I had the question framed wrongly and it's
+worth someone knowing that later.
+
+All week I'd been treating this as a commercial decision waiting on a number. Was Gemini
+worth roughly ten times another model's output tokens for the writing job? I built the
+measurement precisely so that question could be answered, and I kept describing the
+answer as "the owner's call" in the sense of *someone has to weigh the money*.
+
+**The actual answer wasn't about the money at all.** It's that a business selling AI
+work is in a stronger position demonstrating a pipeline that uses several different
+model providers than one wired to a single supplier. That's a product judgement, and no
+amount of measuring on my side could have produced it — I could have measured for
+another week and still not had the answer, because the answer wasn't in the data.
+
+**The measurement wasn't wasted, and the order it happened in matters.** We found out
+what the thinking costs — about eight and a half words of invisible reasoning for every
+word of copy we keep — and *then* the decision was made. So this isn't "we carried on
+without checking". It's "we checked, and decided it's worth it". If someone reads the
+ratio in six months and thinks it looks bad, they're disagreeing with a judgement
+somebody made on purpose, not catching something nobody noticed.
+
+**What the meter is for now.** It was built to inform this decision. With the decision
+made, its job changes: it's the thing that will tell us if the ratio quietly gets worse
+— if a prompt change doubles the thinking, or a model update starts costing more for the
+same copy. Nobody needs to watch it daily. Somebody should look at it occasionally, and
+now somebody can.
+
+**One consequence worth flagging.** "We use different models in our workflows" is only a
+story for as long as it stays true. Right now it is: the two content writers run on
+Google, most of the estate runs on Anthropic, and the vet price scraper runs on a local
+model. If a future tidy-up ever proposes consolidating everything onto one provider for
+simplicity, this decision is the thing it would be overriding — and whoever proposes it
+should know that the variety is deliberate rather than accidental.
