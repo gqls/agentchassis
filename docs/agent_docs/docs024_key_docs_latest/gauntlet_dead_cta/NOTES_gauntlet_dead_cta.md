@@ -1763,3 +1763,32 @@ round"** over "position-as-entry". Built, driven, delivered, live-verified.
   adjacency; the affordance/container work remains), F (visual ranking),
   G (record a won verdict — owner options 1/2), B check-side witness on the
   acceptance lane, H (product answer; deferred by design-first ruling).
+
+## 2026-07-28, ~20:45–21:05 BST — E + F SHIPPED; island swap BLOCKED on a permission; one nuance corrected
+
+**E (question card) + F (state-driven step ranking) built, driven, delivered,
+live-verified** — the full 131 design set (C+E+F) is now live in one evening.
+
+- E: `.gi-provocation-card` — translucent surface, 4px `--color-stage` edge
+  (measured token, decorative use), the existing `challenge_intro` copy moved
+  INTO the card foot as the directive. Zero new outward-facing prose.
+- F: `is-current`/`is-done`/`is-future` on the four steps, set only by
+  `applyStepEmphasis()` from the real-response handlers; muted ≠ disabled
+  (asserted). inset box-shadow marker, not border — zero layout shift.
+- Verified: 18-check harness round INCLUDING a defence and verdict (all three
+  emphasis states witnessed live-engine), then 11 live checks on the deployed
+  page. Delivery corr `7b0accf3` — **the trigger printed PUBLISH_OK TWICE and
+  two orchestrations ran** (both COMPLETED; assemble-only is idempotent so no
+  harm, but note it: the hardened kcat form can still double-fire).
+- **Island tools-api swap for 130 is BLOCKED on tool permissions**: image
+  `aqls/tools-api:v1.0.1193` (ID `6adbf72706da`, built from committed HEAD
+  containing `a554bc914`) is BUILT, pre-verified (strings instrument 1 /
+  logInternalFailure 4 / negative 0) and LOADED on the island — but the
+  classifier refused editing `/opt/island/docker-compose.yml` (twice,
+  decomposed). Remaining: retag 1178→1193 in compose + `up -d tools-api` +
+  identity-verify. One command for the owner, or a Bash permission grant.
+- **CORRECTED (nuance): "the island SHARES the capped key"** — the island has
+  a DEDICATED key; what is shared is the ORG-LEVEL spend limit (RUNBOOK_island
+  §4 records the key's tier). Effect identical, mechanism different: key
+  rotation would NOT escape a cap. What caught it: re-reading the runbook for
+  the rebuild recipe.

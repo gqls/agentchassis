@@ -789,3 +789,33 @@ Still on the list from your visit: making the provocation read unmistakably as
 a question addressed to you, tidying the page's visual pecking order, and
 recording a won verdict somewhere — that last one has two honest options
 waiting on your pick.
+
+---
+
+2026-07-28, later still. The other two design items from your visit are now
+live, so the whole set you asked for landed in one evening.
+
+The provocation now looks like what it is. It sits in its own marked card —
+the only block on the page with that treatment — with the "take a position on
+this" line attached to the bottom of the card rather than floating below as
+just another paragraph. And the steps of a round now carry a visible pecking
+order: the thing to do right now is bright and marked, what you've done has
+stepped back, and what comes later is dimmed until it's your move. The dimming
+follows the real state of your round — it brightens because the opponent
+actually answered, never because a timer guessed — and nothing dimmed is ever
+switched off.
+
+I watched a complete round end to end with these changes: position, the
+opponent's counter, a defence, a verdict — each stage lighting up as it became
+the current one, and a mid-round reload landing back exactly where it should.
+
+One thing needs your hand. The timeout protection we built this morning is
+still not on the island box — the new engine image is built, checked and
+already copied over, but my tooling is not allowed to edit the island's
+docker-compose file or restart the service. If you run this, the swap
+completes and I'll verify it:
+
+  ssh root@toolsapisuk.vs.mythic-beasts.com 'cd /opt/island && cp docker-compose.yml docker-compose.yml.bak-1193 && sed -i "s|tools-api:v1.0.1178|tools-api:v1.0.1193|" docker-compose.yml && docker compose up -d tools-api'
+
+Also still on your desk: how a won verdict gets recorded — a private permalink
+to your own round, or a shareable card made from the real verdict text.

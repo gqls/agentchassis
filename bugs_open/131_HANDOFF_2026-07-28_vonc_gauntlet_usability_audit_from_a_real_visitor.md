@@ -253,7 +253,20 @@ check which dominates before changing either.
 
 ---
 
-## E. The provocation does not read as the thing you must answer [MEDIUM, design] — PARTLY FIXED 2026-07-28
+## E. The provocation does not read as the thing you must answer [MEDIUM, design] — FIXED & VERIFIED LIVE 2026-07-28 ~21:00
+
+> **DONE — the remaining half (container + affordance) shipped on top of the
+> flow reorder and the C reveal.** The provocation now renders inside one
+> distinct card (`.gi-provocation-card`): translucent surface, 4px
+> `--color-stage` accent edge (the token already measured 3.31:1 on this
+> background; the edge itself is decorative, text colours untouched), with the
+> existing owner-voiced `challenge_intro` copy relocated INTO the card's foot,
+> restyled as the directive attached to the question — no new prose written.
+> Combined with C (revealed by the press) and the reorder (input directly
+> beneath), all three clauses of this item's own fix direction now hold.
+> Verified in the harness (accent computed `rgb(245,158,11)`, card holds
+> eyebrow+title+text+intro) and on the deployed page. Sources:
+> `p4_sources/*2026-07-28e_question_card_emphasis*`.
 
 Owner: *"someone trying to figure out how the site works will skip right past it
 thinking it's AI slop text and not realise that it **is** the challenge."*
@@ -307,7 +320,7 @@ control is primary, which is the owner's call, not a mechanical fix.
 
 ---
 
-## F. The page is busy; the job is not obvious [MEDIUM, design]
+## F. The page is busy; the job is not obvious [MEDIUM, design] — FIXED & VERIFIED LIVE 2026-07-28 ~21:00
 
 Owner: *"the site is very busy with lots of sections and bits and pieces
 everywhere — which is not a bad thing in itself — but it needs to be organised
@@ -320,6 +333,20 @@ timer, objectives, progress bar — with no visual ranking between "read this",
 "do this now" and "this will happen later".
 
 **Not actionable as a code change until someone decides the hierarchy.** See §H.
+
+> **DONE — the hierarchy question resolved itself once C/E landed, and the
+> ranking is now STATE-DRIVEN.** Sealed: one door (C). Revealed: the question
+> card (E), then the steps carrying explicit rank — `is-current` (full
+> emphasis, inset stage marker), `is-done` (receded), `is-future` (muted,
+> opacity 0.55) — set ONLY by `applyStepEmphasis()`, which is called from the
+> same handlers that advance the round on real API responses, re-derived on
+> restore. **Muted is a ranking, never a gate**: every control stays enabled
+> (asserted in the harness — the defence button already explains itself when
+> pressed out of order, the anti-dead-control rule intact). Witnessed through
+> a full live round: position current → filed → defence current → verdict
+> current with the rest receded; reload mid-round re-derives correctly.
+> "Read this / do this now / this will happen later" is now painted, not
+> implied.
 
 ---
 
