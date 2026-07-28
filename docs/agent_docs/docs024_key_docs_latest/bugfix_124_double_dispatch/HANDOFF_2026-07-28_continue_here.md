@@ -85,9 +85,25 @@ route at all. **Someone should test that claim before it hardens into folklore.*
 If some of the 34 are genuinely "bind run identity into a query", they are
 migration candidates and the reuse objection is stronger than I allowed.
 
-### 2c. The manual-script + automatic-loop shape, fleet-wide, NOT audited
+### 2c. ~~The manual-script + automatic-loop shape, fleet-wide, NOT audited~~ **DONE 2026-07-28 evening**
 
-This is the highest-value loose end.
+> **RESOLVED — audit run. 0 live instances beyond 124, 1 latent, 1 false positive.**
+> Signature: a script that inserts a `site_work_items` row **and** publishes an
+> envelope (one that merely pokes a loop is benign — the claim is atomic). 3 hits:
+> `090` (fixed), `180_adoption/080_trigger_adoption.sh` (false positive — inserts
+> an `evaluate_tools` row, separately publishes unrelated work), and
+> **`092_TRIGGER_experience_plan.sh` — LATENT**: intake at a private status plus
+> its own publish, safe only while nothing claims `awaiting_experience_plan`
+> (nothing does; checked `agent_definitions` and `scheduled_tasks`, both empty).
+> **A warning block now sits in 092 above its INSERT** naming both remedies.
+> `report-dispatch-loop` is a disabled clone of the diagnose loop but is safe by
+> construction — its items come from a Go action, not a publishing script.
+> Recorded in NOTES and back into 016b §9, which I corrected: I had asserted
+> "fleet-wide" from how the lanes grew rather than from a count.
+
+*(original text kept below for the record)*
+
+This was the highest-value loose end.
 
 `bugs_open/124` was: a hand-run trigger script that dispatches, plus an automatic
 loop enabled later that dispatches the same queue. **Most lanes here grew that way**
@@ -141,6 +157,7 @@ other's `mark_failed` wrote over it.
 
 ## 4. What I would do next, in order
 
+0. ~~Run the 2c audit~~ — **DONE**, see above. Result: nothing live to chase.
 1. **Route 2a to architecture review**, naming the guardian↔reuse tension
    explicitly rather than asking them to rediscover it. Cheap, and it is owed.
 2. **Run the 2c audit.** One query plus a grep per enabled task. If it finds a
