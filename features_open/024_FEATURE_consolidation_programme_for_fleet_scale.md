@@ -3,6 +3,20 @@
 **Status:** programme proposed, owner-directed 2026-07-27. Items sequenced, not
 bundled. Two items have a live consumer waiting; one is a recommended **won't-do**.
 
+> **A2 + A3 BUILT 2026-07-28.** `platform/mailer` (commit `1d747f5e8`, 8 tests) and
+> `platform/httpguard` (commit `3632874d4`, 12 tests) are in the build, gofmt and
+> vet clean, stdlib only, **no service rewired**. `platform/mailer` is the first
+> SMTP anywhere in the built code. `httpguard.ClientIP` carries the `bugs_open/090`
+> hardening and its regression test is **verified to fail** when the original
+> defect is reintroduced.
+> Council **corr `c43a1166-7a34-47de-97f2-ade22d342455`, verdict PENDING** — the
+> commits carry **no `Council-Reviewed:` trailer** and must not gain one until
+> `decided_by` is read and says APPROVED (a REVISE would make the trailer a
+> permanent false claim; that mistake was made in this repo on 2026-07-25).
+> **Adoption is NOT done and is the next step**: wiring `httpguard` into
+> `internal/tools-api/middleware/` touches the gauntlet workstream's service, which
+> has `bugs_open/083` open against it — coordinate first.
+
 **Why now.** The owner asked for a consolidation plan towards thousands of domains
 after a near-miss: a design proposed a second public API on the island VM one day
 before `cmd/tools-api` shipped there doing exactly that, multi-tool and multi-site.
