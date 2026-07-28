@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
 # 097_TRIGGER_council_review_v1.sh — submit a change to the COUNCIL GATE.
 # Envelope mirrors 091_TRIGGER_fix_proposer_v1.sh (kcat pod ->
-# system.agent.generic.requests, action=orchestrate), target agent_type
+# system.agent.council-gate.requests, action=orchestrate), target agent_type
 # council-gate (seed: 0NN_council_gate.sql — must be applied first; owner
 # decision 2026-07-17: apply waits for more concept-register stage-3 seats).
+#
+# WHY THIS TOPIC IS NOT system.agent.generic.requests (changed 2026-07-28,
+# bugs_open/096). A council step is a single LLM call that runs for minutes, and
+# the generic topic was a single lane every other dispatch shared, so one council
+# head-of-line blocked the fleet. Council traffic now has its OWN topic, consumed
+# by its own group in the same chassis (EXTRA_REQUEST_TOPICS). Responses still go
+# to system.agent.generic.responses on purpose — the response topic was never the
+# congested one, and moving it would strand every reply.
+#
+# IF YOU EVER CHANGE THIS TOPIC, THE ORDER IS LOAD-BEARING (agentbase/agent.go
+# :429-432): ship a chassis that CONSUMES the new topic first, confirm the
+# consumer group exists, and only then point this producer at it. A producer
+# aimed at an unconsumed topic piles messages up where nothing will ever run
+# them, and they look exactly like queue latency.
 #
 # WHAT A SUBMISSION IS. One JSON file:
 #   {
@@ -132,7 +146,7 @@ printf '%s\n' "$PAYLOAD" | kubectl -n kafka run -i --rm "kcat-cgate-$(date +%s)"
   --restart=Never -- \
   kcat -P \
   -b personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092 \
-  -t system.agent.generic.requests \
+  -t system.agent.council-gate.requests \
   -H "correlation_id=$CORRELATION_ID" \
   -H "request_id=$REQUEST_ID" \
   -H "message_id=$MESSAGE_ID" \
