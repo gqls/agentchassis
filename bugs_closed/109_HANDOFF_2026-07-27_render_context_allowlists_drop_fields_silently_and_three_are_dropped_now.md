@@ -44,16 +44,23 @@ chassis image roll.** See the 2026-07-28 box below; the earlier box records the 
 > same commit the pod runs (`TestStepContractScalarsSurviveTheRoundTrip` drives the
 > fallback path and asserts restored colours arrive instead of the `#1a1a2e` defaults).
 >
-> **Council caveat:** submission `1d082754` never got a review — the run died in 3s at
-> `review_editquality` on the fleet-wide Anthropic usage cap (`bugs_open/130`; access
-> returns 2026-08-01). Not a verdict on the plan. No trailer is possible; whether to
-> resubmit post-hoc when the cap lifts is an open judgement, noted here so the missing
-> trailer reads as the outage it is.
+> **Council: APPROVED** — the first run of `1d082754` died in 3s on the fleet Anthropic
+> cap (recorded below as the outage it was); the owner raised the cap ~14:50 and the
+> resubmission on the same correlation returned **"all reviewers approve"** at 15:18
+> (9 seats, `unreadable: 0`, four low advisory objections, each an observation of a
+> deliberate disclosed choice: the render-vs-step predicate asymmetry is the design —
+> templates DO read `title`/`theme_css`; the restore path's color_palette
+> accept-empty-string quirk is knowingly out of remit and noted here as an observed
+> oddity for whoever next touches that block).
 >
-> **What closing needs now:** a decision on the residue — the per-page trio
-> (`theme_css`/`title`/`description`) still needs its producers decided, which was always
-> a behaviour change outside candidate 1's remit. Either close this case on the
-> mechanism-complete bar and file the trio separately, or hold it open for that decision.
+> **CLOSED 2026-07-28 on the fixed-AND-live bar.** The defect this case names — four
+> hand-maintained allowlists with no relationship anything checks — no longer exists:
+> one declaration, one predicate, derivation everywhere, live on v1.0.1187 and
+> pod-verified. The remaining residue is NOT this defect: the per-page trio
+> (`theme_css`/`title`/`description`) needs its producers decided before those fields
+> can cross the step boundary — that decision is recorded, with reasons, exactly where
+> it constrains the mechanism (`renderContextUnserialised` in `v3_site_actions.go`),
+> which is the durable home this case built for it.
 
 > ## STATUS 2026-07-27 — the SERIALISE map is derived and **LIVE on v1.0.1177**; the other three are not
 >
