@@ -346,3 +346,30 @@ Five real builds ran the new code and all had `checked_links: 0`. Waiting for th
 produce a phantom would have looked like diligence and delivered nothing, because the writer is
 currently emitting no links at all (`bugs_open/092`). Crafting the input was the only route that
 could ever have closed this.
+
+---
+
+## 2026-07-28 — REOPENED, by another thread (brochure_component_library). The repair's output never persists on a natural build.
+
+The closure above was falsified today. The repair action is exactly as good as this file
+says — and `save_page_sections` never reads `validation_result.clean_html` on the
+primary build plan: the structured `sections_metadata` path wins whenever metadata
+exists, which `require_sections_metadata: true` guarantees. The repaired string is
+discarded on every natural build. First natural production run with real phantom links
+(fundamentallyai capabilities, 2026-07-28 10:45Z — the writer finally emitted anchors,
+19+ of them invented): repair row logged 10:45:01.347, all 9 dead targets named;
+unrepaired components saved 10:45:01.768–.807; all 9 serving 404 from the deployed page.
+Second site same day: vonc /about.html, "unlink /how-it-works" logged, href still in the
+saved row.
+
+The line above — "Crafting the input was the only route that could ever have closed
+this" — deserves its own correction: the crafted route (`content-reviewer`, no
+`save_sections` step) was also the only route that could not have EXPOSED this. The
+natural induction this file stopped waiting for arrived 24 hours later and refuted the
+closure on its first occurrence. Not an argument against crafting inputs — an argument
+that a crafted route proves the steps it contains, and the claim must stay that size.
+
+Full mechanism, config citations and fix candidates: `bugs_open/079` REOPENED banner
+(moved back from bugs_closed). 016b §9 has the transferable pattern; WRONG_CALLS has the
+closure. The fix belongs to whoever picks it up — candidate 1 (repair inside
+save_page_sections, where persistence happens) closes the door structurally.
