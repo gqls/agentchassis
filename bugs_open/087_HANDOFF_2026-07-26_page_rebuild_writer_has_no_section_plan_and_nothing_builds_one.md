@@ -185,3 +185,81 @@ rebuilds through `page-build-handler`, C retires `page-rebuild` altogether. C is
 the one that removes the class, and the case's argument for it is strong — the
 path has 0 runs in the 13-day retention window and two live paths already cover
 the need.
+
+---
+
+## ✅ CANDIDATE A VERIFIED LIVE 2026-07-28 — and it exposed a worse defect behind it
+
+Acceptance test run on the owner's chosen target: `finetuning.uk`,
+`ai-agent-roi-estimator` (the site's only armed page, so blast radius was exactly
+one). Correlation `298b5543-267f-464d-b8ad-d208a5a0f0d0`, 07:03–07:10 UTC,
+chassis `v1.0.1180`.
+
+**The fix works.** The writer child received a fully populated plan:
+
+```
+5de26d35  (page-content-writer, child of the rebuild)   sections_ready = 4
+```
+
+Four sections planned, matching the page's four `sections`. The writer then ran
+`process_sections_loop_iter_0 … iter_1 …` and **COMPLETED** — the step that
+previously died with `key 'sections_ready' not found` now iterates normally. The
+run continued through `review_page_content` and reached `deploy_page`.
+
+Migration 246 also survived the `v1.0.1180` roll (`start_step=plan_sections`,
+step present, `input_mapping` still carries `section_plan`), so the config is not
+re-seed-fragile.
+
+### The run still FAILED — two steps later, and correctly
+
+```
+step build_pages_loop_iter_0_save_sections failed: failed to execute action
+save_page_sections: page ai-agent-roi-estimator is rebuild_policy=owned
+(tool/widget-owned): a generic section save would clobber it. Use
+apply_section_edit for targeted edits or the tool pipeline for rebuilds.
+Refusing to o[verwrite]
+```
+
+**That is a guard working, not a regression.** The page is `rebuild_policy=owned`
+and `save_page_sections` refused to overwrite it. 087's own fix candidate A is
+unaffected — the failure is downstream of everything this case is about, and the
+writer had already done its job.
+
+It does mean this target could never have completed end to end, so
+`update_page_status` never ran and the page is still `needs_rebuild`. **A cleaner
+future test picks a page that is NOT `rebuild_policy=owned`** — check that column
+before choosing.
+
+### ⚠️ It also created a live orphaned page — filed as `bugs_open/125`
+
+`deploy_page` ran BEFORE the guard fired, and wrote to the wrong path:
+
+| URL | before (07:00) | after (07:12) |
+|---|---|---|
+| `/ai-agent-roi-estimator.html` | 404 | **200, 29,521 b — new orphan** |
+| `/tools/ai-agent-roi-estimator.html` | 200, 35,129 b | 200, 35,129 b, byte-identical |
+
+`resolveFilePath` (`git_deployer_actions.go:414-445`) derives the file path from
+`slug`/`name`/`page_name`/`filename`/`id` and **never consults `url`** — which
+the page object carries, and which says `/tools/ai-agent-roi-estimator.html`.
+**280 of 431 pages (65%) would deploy to the wrong path.**
+
+**This is the interesting part of the whole exercise.** 087 was masking 125: the
+rebuild never reached `deploy_page`, so a resolver that has been wrong all along
+could not show it. Fixing one defect made the estate exactly one working rebuild
+away from publishing duplicates at scale — which is a strong argument for the
+case's own **candidate C (retire `page-rebuild`)**, and worth weighing before
+anyone routes more traffic down this path.
+
+**Cleanup owed:** the orphan at `/ai-agent-roi-estimator.html` needs removing and
+this thread could not do it — no credentialed access to `github.com/gqls/sites`,
+and the git adapter's only deletion verb is the unimplemented `delete_repo`. See
+`bugs_open/125` §"Damage done".
+
+### Status
+
+**087's fix is verified and stays applied.** The case stays **OPEN** only because
+its own stated acceptance bar ("the page must deploy with its components
+rewritten") cannot be met on this target — blocked by the `rebuild_policy=owned`
+guard, and now by 125. Re-test on a non-owned page once 125 is fixed and the two
+together will close it.
