@@ -84,6 +84,11 @@ type EvidenceFact struct {
 	// must not pass because 12 <= the orchestration-records count). A non-exact
 	// fact without context terms is matched as exact.
 	ContextTerms []string `json:"context_terms,omitempty"`
+	// Observations carries the dated points of a Kind=="series" fact. A series
+	// fact leaves Value nil: it has no single value, which is the whole point.
+	// See claims_series.go — every observation carries its OWN source and is
+	// never allowed to inherit this fact's.
+	Observations []Observation `json:"observations,omitempty"`
 }
 
 // ============================================================================
@@ -674,6 +679,16 @@ func (eb *EvidenceBase) numberSupported(val float64, window string) bool {
 	lower := strings.ToLower(window)
 	for i := range eb.Facts {
 		f := &eb.Facts[i]
+		// A series fact has no single Value; its observations are the registered
+		// numbers. Without this branch every plotted point on a chart would be
+		// reported as an unregistered number, and the honesty layer would be
+		// fighting the rendering layer instead of backing it.
+		if f.Value == nil && f.IsSeries() {
+			if f.seriesSupports(val, lower) {
+				return true
+			}
+			continue
+		}
 		if f.Value == nil {
 			continue
 		}
