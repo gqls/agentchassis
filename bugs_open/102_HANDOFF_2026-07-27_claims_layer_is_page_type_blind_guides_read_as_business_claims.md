@@ -3,9 +3,17 @@
 **Filed 2026-07-27** by the fabricated-stats lane (`bugs_closed/043`, resolve **by slug**),
 while doing owed item (b) — building evidence registers for the remaining publishing sites.
 
-**Status:** OPEN, not started. Cause is structural and fully known — nothing to diagnose.
-**Live exposure today: nil**, because the affected sites have no `evidence_base` row, so the
-scans are off. **This bug is what stops that being fixed**, which is why it is worth filing
+**Status: FIXED 2026-07-28** (`3ddb4ed2d`, session "bugsearch 7") — code committed, **inert
+until the next chassis roll**. Workstream:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_102_page_type_claims/`. See
+§ "The fix, 2026-07-28" at the bottom, which also **corrects two claims in this
+file's own opening**.
+
+~~**Live exposure today: nil**, because the affected sites have no `evidence_base` row, so the
+scans are off.~~ > **CORRECTED 2026-07-28 — true of webdesign.co.uk, false fleet-wide.**
+Nine sites are armed and carry **124** live unregistered-number findings, **61 of them
+editorial-page false positives**, at a severity that BLOCKS a rebuild. Measured, below.
+**This bug is what stops that being fixed**, which is why it is worth filing
 rather than absorbing.
 
 ---
@@ -150,3 +158,100 @@ the fix has real effect immediately on roll — unlike the post-deploy half, whi
 at all (`bugs_open/083`). The § "How to verify a fix" negative control (a deliberately false
 figure on a non-guide page must still be raised) is therefore exercisable on the build path
 without waiting for any sweep.
+
+---
+
+## The fix, 2026-07-28 — candidate 1, with the boundary drawn one level finer
+
+Session "bugsearch 7". Commit `3ddb4ed2d`. Council round 1 submitted before committing:
+`de4a19f5-8f03-4e74-92cb-c23c10ab829d`. Workstream (plan, runbook, notes, prose log):
+`docs/agent_docs/docs024_key_docs_latest/bugfix_102_page_type_claims/`.
+
+### What the fleet measurement found, and the two corrections it forces
+
+Method: `cmd/claimscan` — the same shared engine as the gate and the audit — run against
+**each opted-in site's own live register** over live `page_components.rendered_html`, with
+`pages.page_type` carried through the export. Nine sites have a current `evidence_base` row.
+
+| page_type | before | after the fix |
+|---|---|---|
+| blog-post | 46 | 0 |
+| content | 38 | 38 |
+| report | 14 | 14 |
+| adoption-tracker | 8 | 8 |
+| tool | 7 | 0 |
+| game | 4 | 0 |
+| protocol-tracker | 3 | 3 |
+| section-index | 2 | 0 |
+| news-index | 1 | 0 |
+| guide | 1 | 0 |
+| **total** | **124** | **63** |
+
+`comm` over the sorted finding lists: **61 suppressed, 0 newly appearing**.
+
+> **CORRECTION 1 — "live exposure today: nil" was scoped to webdesign.co.uk.** The nine armed
+> sites carry 124 findings today. I read all 61 on editorial page types and **all 61 are false
+> positives**: `0.40 × 0.0833 = 3.33%` in a probability explainer, "expose an endpoint that
+> returns **200**", "Set to **0** to disable" in tool help text, a quoted third-party market
+> share ("cobot tending cells to hold **38%** share") on a news index. The 63 on
+> content/report/tracker pages include the real ones the layer exists for (leopardess's
+> `90,790`, ai-agent-orchestration's `170`). **Measured precision on that class: 0%.**
+
+> **CORRECTION 2 — the cost is blocking, not noise.** § "Why this matters" argues from
+> false-positive fatigue. Also true, but `unregistered_number` is **`error`** severity in the
+> build gate and `valid := blockerCount == 0 && errorCount == 0` — so an armed site's blog
+> post carrying a worked example **cannot be rebuilt today**. gamesdesign.co.uk has 40 such
+> findings across four posts.
+
+### The boundary this file's candidate 1 did not draw
+
+Candidate 1 says a guide's "**prose** scan is either skipped or graded a rung lower". Taken
+literally that would have regressed the case that motivated the whole check:
+`check_unverified_claims.go`'s header records its first live run (2026-07-16) finding
+"70+ agents across eight functional departments" **on a guide**.
+
+**So only the NUMBER scan reads the surface.** `ScanBannedClaims` runs on every page type — a
+human-authored pattern for a known falsehood has no false-positive problem to protect
+against. `ScanStatClaims` likewise (`claims_stats.go`: a figure in a `stat*_value` field is a
+claim by construction, and that argument does not weaken on a guide). Both pinned by tests.
+
+### What shipped
+
+- `datahelpers.ClaimSurface{PageType}` + `ProseNumbersAreClaims()` — the policy in one place,
+  next to the lexical gate it corrects. **Zero value = UNKNOWN = scanned**: a scanner that has
+  gone quiet and one that is broken look identical from outside.
+- `ScanUnregisteredNumbers(blocks, surface)` — a **signature change, not a variant**. An
+  optional-safe second entry point is `bugs_open/093`'s shape exactly; requiring the parameter
+  makes the compiler visit every caller.
+- The three callers pass what they already hold: the gate via `resolvePageType`
+  (`page_record.page_type`, which `load_page_record` populates and `page-build-handler` runs
+  before `validate_content`); the audit via one column added to a `JOIN pages` it already did;
+  `cmd/claimscan` via an optional 4th TSV field, warning on stderr when it is absent.
+- Editorial set: `guide`, `blog-post`, `blog-index`, `news-index`, `section-index`, `tool`,
+  `game`. Fleet-wide, hard-coded, no per-site override — candidate 2 is "operators must
+  remember X in a configuration costume", and an unknown type defaults to SCANNED.
+
+### Verification (both directions, per § "How to verify a fix")
+
+Positive control: the fleet re-run above, 124 → 63, suppressing exactly the 61.
+Negative control: the same blocks on `content`/`landing`/`report`/unknown surfaces still flag
+(`TestSameTextOnBusinessSurfaceIsStillScanned`). Regression control: a banned claim on a guide
+still flags while the number scan on the same block does not. Plumbing: `resolvePageType` is
+pinned against the live workflow shape, because a policy that never receives a page type is
+inert and looks identical to a working one.
+
+### Still open, filed here rather than fixed (each is a DIFFERENT mechanism)
+
+1. **`report` pages carry 14 false positives of another class** — model numbers inside product
+   names ("Schunk EGP **40**-N-S-B — manufacturer specification") tripping on `verified` in the
+   context window. Deliberately not fixed by calling `report` editorial: that would be a
+   coincidence, not a mechanism, and a report page's figures genuinely can be business claims.
+2. **Candidate 3 (tutorial-framing lexical exclusion) is still worth doing**, and is the only
+   thing that helps a guide-shaped section on a business page. One live instance measured:
+   finetuning.uk's "particularly not in the **5** to **50** employee businesses" on a `content`
+   hero. Deferred as a second mechanism rather than accreted onto this change.
+3. **webdesign.co.uk can now be armed** — the blocker this file describes is gone. Its 15
+   false positives were all on `page_type = 'guide'`. That is `bugs_open/104`'s coverage work
+   and this file was its precondition.
+4. **After the next chassis roll, pod-grep before believing it is live** (the marker and its
+   negative control are in the workstream RUNBOOK § 2).
