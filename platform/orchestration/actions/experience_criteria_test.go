@@ -512,3 +512,85 @@ func TestValidateExperienceCriteria_AttributeCheckMustAssertSomething(t *testing
 		}
 	}
 }
+
+// TestExecutableCountAgreesWithTheConsumer is the point of extracting
+// experienceNeedsBrowserReason: the number the register STORES as
+// `executable_checks` must equal the number of checks the register's own
+// consumer will actually hand to the evaluator. Those were two separate pieces
+// of logic and they disagreed — the validator counted Tier 4 checks that
+// splitExperienceChecksByTier holds back, so CC-001 recorded 2 when only 1
+// could run, which is exactly what the approval council's honesty seat found by
+// reading the entry.
+//
+// Asserting the two NUMBERS agree, rather than asserting a hardcoded count, is
+// deliberate: a hardcoded expectation is another list of mine, and both sides of
+// this comparison have to move together or the property fails.
+func TestExecutableCountAgreesWithTheConsumer(t *testing.T) {
+	const doc = `{"checks":[
+	  {"id":"list_exists","type":"selector_exists","selector":"{{binding.row}}"},
+	  {"id":"status","type":"page_status_ok"},
+	  {"id":"rows_rendered","type":"selector_count","selector":"{{binding.row}}","tier":4,
+	   "note":"rows are cloned client-side; only a browser sees them"},
+	  {"id":"no_overflow","type":"no_horizontal_overflow","selector":"{{binding.row}}"},
+	  {"id":"row_is_not_a_control","type":"attribute_absent","selector":"{{binding.row}}","attributes":["href"]},
+	  {"id":"feed_loads","type":"asset_loads","path":"{{binding.feed}}",
+	   "_unsupported":"the loader is an external bundle, so the path is never in the page"}
+	]}`
+
+	v := ValidateExperienceCriteria(mustJSON(t, doc),
+		mustJSON(t, `{"row":{"type":"selector"},"feed":{"type":"asset_path"}}`))
+	if !v.OK() {
+		t.Fatalf("fixture must validate: %+v", v.Errors)
+	}
+
+	kept, held := splitExperienceChecksByTier([]byte(doc))
+	var parsed struct {
+		Checks []json.RawMessage `json:"checks"`
+	}
+	if err := json.Unmarshal(kept, &parsed); err != nil {
+		t.Fatalf("kept document will not parse: %v", err)
+	}
+
+	if v.Executable != len(parsed.Checks) {
+		t.Errorf("the validator counted %d executable but the consumer would run %d — the two definitions have drifted apart again (held back: %v)",
+			v.Executable, len(parsed.Checks), held)
+	}
+	// And every check is accounted for exactly once: run, or deferred with a reason.
+	if total := v.Executable + len(v.Deferred); total != 6 {
+		t.Errorf("6 checks in, %d accounted for (%d executable + %d deferred) — a clause has gone missing, which is the one outcome worse than a deferred one",
+			total, v.Executable, len(v.Deferred))
+	}
+	for _, d := range v.Deferred {
+		if strings.TrimSpace(d.Detail) == "" {
+			t.Errorf("deferral of %q carries no reason", d.CheckID)
+		}
+	}
+}
+
+// TestTier4ChecksAreDeferredNotCounted pins the direction that matters: a
+// tier-4 check must be visible in the ledger, not silently dropped, and must
+// not inflate the count the approval CHECK in migration 230 rests on.
+func TestTier4ChecksAreDeferredNotCounted(t *testing.T) {
+	for name, check := range map[string]string{
+		"author declares tier 4": `{"id":"rows","type":"selector_count","selector":"{{binding.row}}","tier":4}`,
+		"type is tier 4 only":    `{"id":"overflow","type":"no_horizontal_overflow","selector":"{{binding.row}}"}`,
+	} {
+		v := ValidateExperienceCriteria(
+			mustJSON(t, `{"checks":[`+check+`]}`),
+			mustJSON(t, `{"row":{"type":"selector"}}`))
+		if !v.OK() {
+			t.Errorf("%s: must validate — a browser-only check is a legitimate clause, not an error: %+v", name, v.Errors)
+			continue
+		}
+		if v.Executable != 0 {
+			t.Errorf("%s: counted %d executable; nothing in the register drives a browser today", name, v.Executable)
+		}
+		if len(v.Deferred) != 1 {
+			t.Errorf("%s: want the clause carried as one deferral, got %+v", name, v.Deferred)
+			continue
+		}
+		if !strings.Contains(v.Deferred[0].Detail, "verify_site_experience evaluates Tier 2 only") {
+			t.Errorf("%s: the deferral must say WHO cannot run it, not just that it is tier 4; got %q", name, v.Deferred[0].Detail)
+		}
+	}
+}

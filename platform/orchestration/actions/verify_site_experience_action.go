@@ -345,21 +345,15 @@ func splitExperienceChecksByTier(doc []byte) ([]byte, []string) {
 			continue
 		}
 
-		needsBrowser := false
-
-		// The author said so.
-		switch t := cm[experienceTierKey].(type) {
-		case float64:
-			needsBrowser = t > 2
-		case string:
-			needsBrowser = t == "4"
-		}
-		// Or the platform says so: the type exists only at Tier 4.
-		if tier, known := experienceCheckTiers[experienceString(cm["type"])]; known && tier > 2 {
-			needsBrowser = true
-		}
-
-		if needsBrowser {
+		// The author says so (`tier`), or the platform does (the type exists
+		// only at Tier 4). ONE definition, shared with the validator's counting
+		// — this logic used to be written out twice, and the two copies
+		// disagreed: the validator counted Tier 4 checks as executable while
+		// this function held exactly those back, so `executable_checks`
+		// overstated coverage by precisely the checks that would never run.
+		// Bare id, not id+reason: these strings become the ID of a reported
+		// skipped outcome, and the reason already travels in its Detail.
+		if experienceNeedsBrowserReason(cm) != "" {
 			held = append(held, id)
 			continue
 		}

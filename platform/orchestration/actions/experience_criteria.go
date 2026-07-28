@@ -139,6 +139,13 @@ type ExperienceCriteriaIssue struct {
 
 // ExperienceCriteriaValidation is the outcome of validating one entry's
 // criteria template against its binding schema.
+//
+// Executable means "the register's own consumer will actually run this",
+// NOT "some tier implements the type". The distinction is the whole value of
+// the number: it is what migration 230's approval CHECK rests on, and an entry
+// approved on the strength of checks nothing will run is the vacuous-pass
+// defect wearing a count. Tier 4 clauses are carried as deferrals with their
+// reason, so nothing is lost — see experienceNeedsBrowserReason.
 type ExperienceCriteriaValidation struct {
 	Errors       []ExperienceCriteriaIssue `json:"errors"`
 	Deferred     []ExperienceCriteriaIssue `json:"deferred"`
@@ -397,6 +404,28 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 		}
 
 		switch {
+		case !deferred && !badStep && experienceHasDeferral(v.Deferred, id):
+			// Already recorded as deferred for another reason; do not count it.
+		case !deferred && !badStep && experienceNeedsBrowserReason(ch) != "":
+			// EXECUTABLE MEANS "THE REGISTER'S CONSUMER WILL ACTUALLY RUN IT".
+			//
+			// This used to count any check whose type SOME tier implements, and
+			// that was a straight disagreement with the runner:
+			// splitExperienceChecksByTier holds back everything Tier 4, so the
+			// count included precisely the checks that would never execute.
+			// CC-001 therefore recorded executable_checks: 2 when only one check
+			// could run — which the approval council's honesty seat spotted
+			// independently ("only list_exists is unambiguously executable
+			// today"), arriving at the same number from the other direction.
+			//
+			// Nothing runs a browser for the register today, so a Tier 4 check is
+			// deferred on exactly the same terms as any other clause we cannot
+			// assert: carried, reported, reasoned, never counted as a pass. The
+			// day the browser runner is wired in, this stops firing on its own,
+			// because both sides now read one function.
+			v.Deferred = append(v.Deferred, ExperienceCriteriaIssue{CheckID: id, Field: experienceTierKey,
+				Detail: "not executable by the register's consumer: " + experienceNeedsBrowserReason(ch) +
+					", and verify_site_experience evaluates Tier 2 only — nothing in the register drives a browser today"})
 		case deferred && !experienceHasDeferral(v.Deferred, id):
 			// Marked deferred, but nothing about it was actually beyond the
 			// platform. Record it as deferred anyway — the marker is the
@@ -411,6 +440,33 @@ func ValidateExperienceCriteria(template map[string]interface{}, bindingSchema m
 	}
 
 	return v
+}
+
+// experienceNeedsBrowserReason reports why a check can only be run by the
+// browser runner, or "" when Tier 2 can run it.
+//
+// THIS IS THE ONE DEFINITION, deliberately. It was written twice — once in the
+// validator's counting and once in the consumer's tier split — and the two
+// disagreed, so `executable_checks` counted checks the runner would never
+// execute. Two voices can say a check needs a browser: the author, via `tier`,
+// and the platform, via the capability table. Either is sufficient.
+func experienceNeedsBrowserReason(ch map[string]interface{}) string {
+	switch t := ch[experienceTierKey].(type) {
+	case float64:
+		if t > 2 {
+			return fmt.Sprintf("the entry declares tier %d", int(t))
+		}
+	case string:
+		if t == "4" {
+			return "the entry declares tier 4"
+		}
+	}
+	if typ := experienceString(ch["type"]); typ != "" {
+		if tier, known := experienceCheckTiers[typ]; known && tier > 2 {
+			return fmt.Sprintf("check type %q exists only at Tier %d", typ, tier)
+		}
+	}
+	return ""
 }
 
 // experienceAttributeShapeIssue reports why an attribute check would assert
