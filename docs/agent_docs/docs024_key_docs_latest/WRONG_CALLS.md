@@ -9290,3 +9290,47 @@ register. Second face this week of: a printed measurement lends false weight to 
 mis-keyed question.
 
 Family: check-answers-the-question-you-encoded, narrow-filter-defines-the-conclusion.
+
+---
+
+## 2026-07-28 — a read-only probe measured a path production does not use, and the delta was carried as achievable
+
+**The claim** (`bugs_open/101` §Consequences 1, stated as measured, n=100,
+"deterministic sample"): company-number extraction from the home page alone yields
+**22/100**; reading legal/terms pages as the config implies yields **30/100** — the
+8-hit delta presented as what implementing `follow_links`/`max_pages` would deliver.
+
+**What was actually true.** The probe **fetched raw HTML**. Production fetches through
+`FirecrawlScrapingProvider.Scrape`, which could not express `only_main_content: false`
+and so received Firecrawl's default — `onlyMainContent: true`, which strips headers,
+navs and **footers**. Company registration numbers live in footers. So the probe and
+production were not fetching the same bytes, and the 30% was never reachable by adding
+page fetches: the pages would have arrived with the very region the numbers live in
+removed. `[UNVERIFIED]` how much of the 22→30 gap this accounts for — not measured, and
+should not be asserted either way.
+
+**What caught it.** The bug file's own `[UNSETTLED]` box, which refused to let candidate
+2 proceed until someone answered "does production strip footers?". Nobody had. Reading
+the provider settled it in one pass — and the answer was a third bug, in shared adapter
+code every scrape on the fleet goes through (three live steps ask for `false` and have
+been getting the opposite).
+
+**To its credit:** the box is why this cost one read instead of an implementation. The
+author flagged the uncertainty, marked it `[UNSETTLED]`, and wrote "READ THIS BEFORE
+IMPLEMENTING candidate 2 — it may not be sufficient". That is the marker discipline
+working exactly as intended.
+
+**The cheap check.** **Measure through the path production uses, or state the path you
+measured as part of the number.** A probe that constructs its own HTTP call is measuring
+a *sibling* of the production path, not the production path — and the difference is
+invisible in the result, because both return plausible HTML. One
+`grep -n "only_main_content" <the provider>` before quoting the delta would have shown
+the two paths disagreeing inside a single file.
+
+**Tally.** *a-green-result-from-the-wrong-path* — same family as
+`deployment-is-not-spawned` (016b §9) and `check-answers-the-question-you-encoded`: the
+measurement was real and answered a question about a system we do not run. Second face
+this week of: an honest number, obtained through a route the fleet does not take.
+
+Family: check-answers-the-question-you-encoded, verify-the-failing-branch,
+omission-is-an-instruction.
