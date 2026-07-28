@@ -198,3 +198,59 @@ at all.
 - `RUNBOOK_council_gate.md:104` — "Reading a verdict: check `unreadable`, NOT
   `abstained`". That guidance exists because this happens; this case is the
   attempt to stop it happening.
+
+---
+
+## Reproducible instance, 2026-07-28 — three runs, no verdict, and RESUBMIT_CORR refuted
+
+From the oufe workstream (series-facts change to `datahelpers`). Recorded because
+it is the first instance here with a **controlled variable**, and because the
+failure shape is worse than the one this bug was filed for: not a bad decision, no
+decision at all.
+
+| run | correlation | RESUBMIT_CORR | outcome |
+|---|---|---|---|
+| round 1 | `da40ddf0` | no | **verdict produced** — REVISE, gating objection from `editquality`, a substantively correct one |
+| round 2 | `da40ddf0` | yes | `COMPLETED / complete_invalid`, no `council_report`, no verdict note |
+| round 2 retry | `da40ddf0` | yes | identical |
+| **control** | `fb593614` | **no** | **identical** — so the resubmission path is NOT the cause |
+
+**What is ruled out.** `complete_invalid`'s own description is "the submission
+failed structural validation, or a reviewer/decide step errored". Structural
+validation passed on every run: a `fix_plan` artifact was persisted each time
+(control: `fix_plan @ 12:57`), carrying the round-2 content. So
+`persist_submission` succeeded and the failure is downstream, in a review or
+`council_decide` step.
+
+The chassis roll to `v1.0.1185` is also ruled out: the first round-2 failure was
+at 12:21 and the pod restarted at 12:38.
+
+**What changed between the round that worked and the three that did not** was only
+the submission prose — a longer `rationale` (3,040 bytes), a rewritten `sketch` on
+edit 0, and a longer `risks`. Same 3 edits, same 3 files, same 5 `grounded_in`
+quotes, 8,775 bytes total, well inside the documented 8-edit / 64KB limits.
+
+**Why this matters more than a wasted round.** The 119 headline case is one seat's
+unparseable JSON costing a round — expensive but visible, because a verdict still
+appears and names `decided_by`. This shape produces **no artefact a submitter can
+read at all**: no `council_report`, no `doc_notes` row, and a terminal status that
+looks like completion. A submitter who does not query `current_step` sees
+`COMPLETED` and reasonably concludes the council approved in silence.
+
+**The trap that nearly caught me.** The most recent `council-gate` note at the time
+was a *different* submission's APPROVED. Reading the latest note rather than
+querying by my own correlation would have had me commit a `Council-Reviewed:`
+trailer for a verdict belonging to someone else's plan. Always:
+
+```sql
+SELECT body FROM doc_notes
+WHERE categories ? 'council-gate' AND body LIKE '%<YOUR_CORR>%'
+ORDER BY created_at DESC LIMIT 1;
+```
+
+**Suggested next step for whoever owns this:** capture the failing step's own
+error. `complete_invalid` is reached from 18 different steps and records which one
+nowhere the submitter can see, so the first fix is diagnosability — put the
+originating step and its error into the completion artefact. Until then a
+submitter cannot tell "my JSON is bad" from "a seat fell over", which is the
+difference between fixing it and re-running it.
