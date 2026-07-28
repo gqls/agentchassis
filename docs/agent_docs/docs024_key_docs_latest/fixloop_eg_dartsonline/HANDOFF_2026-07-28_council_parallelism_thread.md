@@ -111,13 +111,49 @@ loop was right to refute my persist-ordering race.
 a spawn hop to the council makes it *more* exposed, not less. Do not retry the
 wrapper on the assumption that a fresh chassis fixed anything.
 
+## Update 14:54 — their fix looks to be HOLDING, and the council is DARK until 08-01
+
+**Timeouts by hour, with the control** (`build-pipeline-trigger` spawns = the
+reproducer; a zero is meaningless without it):
+
+| hour | orch runs | bpt spawns | timeouts |
+|---|---|---|---|
+| 10:00 | 114 | 24 | **16** |
+| 11:00 | 132 | 24 | **11** |
+| 12:00 | 109 | 10 | 0 |
+| 13:00 | 101 | 4 | 0 |
+| 14:00 | 81 | 4 | 0 |
+
+Three clean hours. **State this carefully** — the reproducer fell from 24/hr to
+~6/hr, which is exactly the weak control that made my morning "abated" call wrong.
+What makes this different is the size of the prior rate: 18 spawns across the
+three clean hours, against a morning rate of 46–67%, which would have predicted
+roughly 8–12 failures. Zero is a real signal. Do **not** convert that into a
+confidence figure — the failures are *bursty*, i.e. clustered, so any calculation
+assuming independence overstates it.
+
+**The discriminating test, and it passed.** The chassis rolled again at
+**14:25:40Z** (now `v1.0.1189`). Every previous roll produced a post-roll timeout
+burst — 22:06 → fourteen timeouts across 22:15–22:45; 09:55 → timeouts at 09:57
+and 09:59. This roll produced **none** in the ~29 minutes after. That is precisely
+the window `chassis_replica_scaling`'s response-replay finding predicts should be
+degraded, so a clean one is evidence their CS-3a fix ("response replay closed")
+works — not just that the fleet went quiet.
+
+**BLOCKER for step 2: the council gate is DOWN until 2026-08-01 00:00 UTC**, on
+the fleet's LLM spend cap (`chassis_replica_scaling/NOTES:412-441` — *"You will
+regain access on 2026-08-01 at 00:00 UTC"*). No submission of any kind is possible
+before then, so the wrapper retry cannot happen until 08-01 regardless of whether
+the spawn defect is fixed. Nothing to do about it but wait.
+
 ## Next actions, in order
 
 1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
    mechanism and the fix. This thread's remaining job is to retry the wrapper
    *after* their fix lands, not to investigate further.
-2. **Retry the wrapper only once response-lane latency is fixed.** One submission
-   with `TARGET_AGENT_TYPE=council-gate-orchestrator`. Success = wrapper reaches
+2. **Retry the wrapper — EARLIEST 2026-08-01**, once the council gate is back and
+   response-lane latency is confirmed fixed. One submission with
+   `TARGET_AGENT_TYPE=council-gate-orchestrator`. Success = wrapper reaches
    `AWAITING_RESPONSES` in ~24 s, a dedicated pod appears, generic LAG stays 0,
    and a `council_report` lands under the submission correlation.
 3. **Then flip `097`'s default** to `council-gate-orchestrator` and the council
