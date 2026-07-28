@@ -17,9 +17,20 @@ status line. Current state in prose:
 | D7(b) should the guardian weigh benefit | **RULED: NO — do not narrow it** (owner, 07-27 evening). Clause (d) stands; D7 closed in both halves |
 | D8a′ council reads its own minutes | **LIVE** on all three councils |
 | D8e-1 generated case index for the historians | **LIVE** |
-| D9 does the FIX lane need the forward seat too | **RULED: NO — do not act** (owner, 07-27 evening): the new seat *is* the forward voice, one is enough |
+| D9 does the FIX lane need the forward seat too | ~~**RULED: NO — do not act** (owner, 07-27 evening)~~ → **REVERSED BY THE OWNER 2026-07-28 evening: SEAT IT. Built & LIVE on `fix-proposer` + `council-gate` (17 seats each).** D9's own reversal trigger was run for the first time and had fired at >3× threshold — see §D9 |
 | D10 landmines as a footprinted corpus | **OPEN** — drafted by another thread (was numbered D9; renumbered on a concurrent collision) |
 | **D11 seats must be able to LOOK THINGS UP** | **OWNER DIRECTIVE 07-27 evening, go given.** Three layers — index *contains* it (bodies+markdown, needs a migration), question is *routed* (config, cheapest), and the *dynamic* round-trip (unscoped, own RFC). The shipped caveat is an interim, not a destination |
+
+> **⚠ SUPERSEDED IN PART, 2026-07-28 evening — D9 WAS REOPENED AND REVERSED BY THE
+> OWNER, and the forward seat is now LIVE on the fix lane and the gate (17 seats
+> each).** The paragraph below is preserved as written; read "as of 2026-07-27
+> evening" literally. What follows it — *"one forward seat, no duplicates"* — is the
+> half that changed: there are now **two instances of the same seat**, one at design
+> time (`feature-designer`) and one on the fix/gate lanes. That is deliberate, and it
+> is a duplicate of PLACEMENT, not of REMIT: D1's "do not add a second brake" still
+> holds, because the new instance is advisory and cannot veto. See §D9.
+> The trigger that justified it was **this document's own**, and it had never been
+> run. Everything below about the guardian (D7a/D7b) is untouched.
 
 **NO DECISION IS OPEN FOR THE OWNER as of 2026-07-27 evening.** D7(b) and D9 were
 both ruled that evening — *don't narrow the guardian; don't seat a second forward
@@ -503,9 +514,107 @@ before D5, and cannot be implemented before D1/D2.** It is downstream of both.
 
 ---
 
-### D9 — does the FIX lane need the forward seat too? — ✅ RULED: NO
+### D9 — does the FIX lane need the forward seat too? — 🔄 REVERSED: YES, AND IT IS LIVE
 
-> ## ✅ RULED BY THE OWNER, 2026-07-27 evening: **DO NOT ACT ON THIS.**
+> ## 🔄 REVERSED BY THE OWNER, 2026-07-28 evening: **SEAT IT ON THE FIX LANE.**
+>
+> *(Recorded by thread "bugsearch 5", which was closing `bugs_closed/129` and hit
+> the consequence of the gap. Contributing into this workstream's register rather
+> than forking a second account — the lane belongs to the architecture-review
+> thread.)*
+>
+> **What changed is evidence, not opinion — and it is THIS ITEM'S OWN TRIGGER.**
+> The ruling below closed D9 while recording its reversal condition: *"if the fix
+> lane produces ≥3 more architecture-level escalations routed to 'a human' from
+> seats not commissioned for them, the remit is unowned in practice"*, marked
+> **`[UNMEASURED]` — "one instance, noticed by reading, not counted. The count
+> above is the check, and it has not been run."**
+>
+> **It has now been run, and it had already fired at more than 3× the threshold:
+> 13 reports across 10 distinct submissions** (07-26 → 07-27), every one an
+> affirmative escalation from a seat with no forward remit — e.g. *"Architecture-level
+> concern for a human: this bug class … has now needed three council rounds"*,
+> *"…leaves the platform's only fail-loud backstop for dead internal links…"*,
+> *"…there is still no fleet-wide, fail-loud invariant…"*.
+>
+> **LANDMINE — the trigger query as written in this file is VACUOUS.**
+> `body ILIKE '%rchitecture-level concern%'` returns **68 reports / 50 submissions**,
+> and it is measuring the opposite of what it intends: the phrase is seeded in four
+> prompts (`council-gate`, `council-gate-036scratch`, `feature-designer`,
+> `fix-proposer`), so **26 of those matches are seats saying "No architecture-level
+> concern"**. Split affirmative from negated before believing any count:
+> ```sql
+> SELECT count(*) FILTER (WHERE body ~* 'architecture-level concern for a human'
+>                            OR body ~* 'architecture-level concern:')  AS affirmative,
+>        count(*) FILTER (WHERE body ~* 'no architecture-level concern') AS negated
+> FROM diagnosis_artifacts WHERE kind='council_report'
+>   AND body ILIKE '%rchitecture-level concern%';
+> ```
+> This is the [[declaring-a-key-silences-your-own-detector]] shape: the prompt that
+> teaches seats the phrase is what made the detector for that phrase meaningless.
+>
+> **The second piece of evidence the ruling could not have had:** `bugs_closed/124`
+> and `bugs_closed/129` both drew guardian SCOPE vetoes within two days, and both
+> were told to *"route the seam to architecture review"* — a venue reachable from
+> **neither** lane they arrived on. The remedy the veto prescribes did not exist.
+> That is not a seat disagreeing; that is a routing hole.
+>
+> ### What was built (config only — live immediately, no image)
+>
+> `review_architecture` is **adapted from the live `feature-designer` seat, not
+> rewritten**: same verdict vocabulary (approve/object, never veto), same
+> `ARCHITECTURE_SIGNAL: point_fix|needs_rfc|insufficient | DEFLECTIONS: <n>` first-line
+> contract, same code-index caveats. Two lane differences: the context sections
+> become the diagnosis + plan (the gate's copy takes the submitter's rationale via
+> the 099 mirror), and one added paragraph naming the fix-lane failure mode — *a
+> shared mechanism arriving inside a bug patch*, citing 124 and 129.
+>
+> | | before | after |
+> |---|---|---|
+> | `fix-proposer` steps | 48 | **50** (+`review_architecture`, +`gate_architecture`) |
+> | `council-gate` steps | 42 | **44** (via the 099 mirror) |
+> | seats (`review_fields`) both lanes | 16 | **17** |
+> | `code_check_fields` (fix lane) | 7 | **8** |
+> | `hard_veto_from` | `["guardian"]` | **unchanged — the seat is advisory** |
+>
+> Chain: `… → gate_debugging → gate_architecture → review_architecture → review_guardian
+> → council_decide`, mirroring feature-designer's placement — **the forward argument
+> lands before the seat that can veto.** Reachability verified by BFS over
+> `then/else/error` branches, not a linear walk (that reports false orphans here):
+> **fix-proposer 50/50, council-gate 44/44, zero orphans.**
+>
+> **Footprint deliberately BROAD** (`platform/`, `internal/`, `pkg/`, `cmd/`, `.sql`,
+> `migration`, `_action.go`, `registry.go`, `coordinator`, `contract`, `interface`,
+> `namespace`, `topic`, …). `select_review_panel_action.go:34-38` states the doctrine
+> this follows: *"over-running a seat is cheap, under-running it is a blind spot"* —
+> and a seat with **no** footprint fails OPEN, so the choice was broad-vs-always, not
+> broad-vs-narrow. D9's cost objection (a 17th seat on 36 runs/day) is answered by the
+> footprint, not ignored: site/content fixes on the fix lane will not match it.
+>
+> **Rollback points exist for both lanes** in `agent_definitions_backup` (NOT
+> `agent_definitions` — snapshots live in the backup table; I looked in the wrong one
+> first and briefly believed 099's "snapshot taken" was a false print). `council-gate`
+> 21:56:37Z via 099; `fix-proposer` 21:59:59Z, both at 16 seats.
+>
+> ### What is NOT solved, and should not be claimed as solved
+>
+> **The gate still has no `code_lookup`.** Verified: `fix-proposer` t, `council-gate`
+> **f**, `feature-designer` t. So on the gate — the lane where 124 and 129 arrived —
+> this seat's `code_checks` are raised and **never answered**. Its SQL checks work;
+> its code questions do not. That is deliberate per `099_SYNC_gate_roster.py:24-29`
+> (code_lookup/repropose *"serve the blind reproposer, which the gate has no
+> equivalent of"*), so fixing it is a real design question, not a config oversight.
+> Until then the seat is **half-sighted on the gate**, exactly as it was on
+> feature-designer — and that was the failure mode D11 exists to fix.
+>
+> **The seat has still never produced a review.** Seating it is not evidence it
+> works. §5's kill switch applies unchanged: high object-rate with no signal line ⇒
+> pull it. **First real test is the next platform submission on either lane** — read
+> the ARCHITECTURE_SIGNAL line, do not just count verdicts.
+>
+> ---
+>
+> ## ~~✅ RULED BY THE OWNER, 2026-07-27 evening: DO NOT ACT ON THIS.~~ — superseded above, on the ruling only. Its reasoning is preserved because it is why the reversal needed evidence rather than a preference.
 >
 > Verbatim reasoning: *"Don't act on the historian's suggested seat as we have this
 > new one."* The forward-fitness voice is the `review_architecture` seat on

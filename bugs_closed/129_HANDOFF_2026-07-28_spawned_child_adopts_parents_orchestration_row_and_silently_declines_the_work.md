@@ -72,11 +72,30 @@
 > Also: that log line is **stronger evidence than the pod-grep** — a `strings` hit
 > proves the binary contains the code, whereas this proves it *executed*.
 >
-> **Still owed, and NOT a blocker on this bug:** the owner's call on the council's
-> SCOPE veto (`REVIEW_2026-07-28_council_scope_veto.md`) and on whether the
-> platform-seam ruling gains a "commit it dark" clause. Both are about *how* the
-> change shipped, not whether the defect is fixed. `scrape_web`/`web_search` still
-> record no payload by design (§5) and need their own diagnosis.
+> ### OWNER RULING 2026-07-28 evening — the code STAYS LIVE, and the venue gets built
+>
+> **Decision 1: leave the fix live.** A human breaking a guardian SCOPE veto, which
+> is exactly what the 07-28 ruling reserves a human for. Recorded explicitly rather
+> than left implicit, because a veto that is silently outlived teaches the wrong
+> thing. The contained alternative was declined on the merits: it does not fix the
+> bug (it removes the silence, not the failure), two seats approved the plan
+> *because* that guard was not primary, and reverting now would restore a defect
+> measured at 430/430. **No `Council-Reviewed:` trailer is added — the verdict was
+> and remains REJECTED; the override is recorded here, not laundered into a trailer.**
+>
+> **Decision 2: the missing venue is now built.** The veto told this change to "route
+> the seam to architecture review" — a venue reachable from neither lane. As of
+> tonight `review_architecture` is seated on **`fix-proposer` and `council-gate`**
+> (17 seats each, advisory, no veto), so the next seam of this shape gets the
+> forward argument on the record *before* the guardian speaks. Full record, evidence
+> and caveats: `architecture_review/DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` §D9.
+> **Caveat worth carrying: the gate still has no `code_lookup`, so on the gate the
+> new seat's code questions are raised and never answered.**
+>
+> **Still open (unchanged by the above):** whether the platform-seam ruling gains a
+> "commit it dark" clause — the finding in §4 that on a shared HEAD the committing
+> thread does not control when its seam ships. `scrape_web`/`web_search` still record
+> no payload by design (§5) and need their own diagnosis.
 >
 > ---
 >

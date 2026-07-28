@@ -725,3 +725,47 @@ bug handoffs, though it's genuinely arguable for the concept register.
 
 **Eight rounds in, this is the first time the blocker isn't something I can fix by
 writing better.**
+
+---
+
+## 2026-07-28, evening — the architecture seat now sits on the lane where the problem actually shows up
+
+*(Added by a different thread — I was closing an unrelated bug and walked straight
+into the gap this workstream exists to close.)*
+
+Here is what happened, in order. I was finishing a bug about retries and its fix had
+been blocked by the council's guardian — not because the fix was wrong, but because
+it was judged too architectural to arrive inside a bug patch. The guardian's advice
+was to take it to architecture review instead. So I went looking for architecture
+review, and there wasn't one. The seat you built exists, but only on the lane where
+new features get designed. Bugs don't go through that lane. Neither did the two
+changes that were told to.
+
+You reversed the earlier decision and asked for it on the council proper, so that is
+built and live now. What makes me comfortable about the reversal is that it wasn't a
+change of mind — the earlier decision had written down, in advance, exactly what
+evidence would justify reopening it, and nobody had ever checked. I checked. It had
+already happened more than three times over: ten separate occasions where a reviewer
+with no remit for it stopped and said, in effect, "someone human needs to look at the
+shape of this, not just this fix". That is the remit being unowned, in the reviewers'
+own words.
+
+One caution about that number, because it nearly caught me out. The obvious way to
+count those occasions gives a figure five times too large, and flatteringly so — it
+counts every reviewer who *considered* the question and said there was no concern,
+because we taught them the phrase in their instructions and then searched for the
+phrase. I nearly handed you the inflated number. The honest one still clears the bar,
+comfortably, but it is worth knowing that our own instructions can poison our own
+measurements.
+
+**What I have deliberately not done.** I have not touched the work you have paused
+awaiting a decision. And I have not fixed the thing that limits the new seat: on the
+council lane it can ask questions about the database and get answers, but its
+questions about the *code* go nowhere, because that lane has no mechanism to answer
+them. That is a genuine design question rather than an oversight, and it is yours.
+So the new seat can see, but only with one eye — which is the same complaint this
+workstream has been making all along, now inherited by its own offspring.
+
+**And it has still never said a word.** Putting a seat in a room is not the same as
+it having an opinion. The first real test is the next platform change that goes
+through either lane.

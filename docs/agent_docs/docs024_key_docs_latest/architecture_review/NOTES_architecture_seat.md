@@ -1045,3 +1045,52 @@ rounds 4–6 *exactly*, except the accreted mechanism would be the citation cont
 **Layer 1b is therefore PAUSED pending owner decision D12**, not revised. This is
 the first time in eight rounds the blocker has not been something I could fix by
 writing better.
+
+## 2026-07-28 evening — D9 REVERSED by the owner; the seat is live on the fix lane and the gate (thread "bugsearch 5")
+
+**Written by another thread, contributing rather than competing — this lane is
+yours.** I arrived from `bugs_closed/129`, whose guardian SCOPE veto told it to
+"route the seam to architecture review", and found the venue did not exist on
+either lane a fix can arrive on. The owner reversed D9 on the spot.
+
+Full record, evidence, diff table and caveats: **`DECISIONS_open_for_owner_2026-07-26_architecture_seat.md` §D9.**
+Short version:
+
+- **D9's own reversal trigger fired, and had never been run.** It was recorded
+  `[UNMEASURED]` in that file. Run properly: **13 affirmative escalations across 10
+  distinct submissions** (threshold 3).
+- **The trigger query as written there is VACUOUS** and I nearly reported its
+  output as fact. `body ILIKE '%rchitecture-level concern%'` gives 68/50 because
+  **the phrase is seeded in four prompts**, so 26 matches are seats saying *"No
+  architecture-level concern"*. Corrected query is in §D9 and the miss is logged in
+  `WRONG_CALLS.md`. Relevant to this lane generally: **any `body ILIKE` metric over
+  the council corpus needs the prompts grepped for the same string first** — same
+  family as the `%deflect%` false-citation trap you logged on 07-27.
+- **Built by adapting your `feature-designer` seat, not rewriting it.** Verdict
+  vocabulary, `ARCHITECTURE_SIGNAL` first-line contract and the code-index caveat
+  paragraph are carried over verbatim; I added one paragraph for the fix-lane
+  failure mode (a shared mechanism inside a bug patch, citing 124 and 129) and
+  swapped the spec context for diagnosis+plan. Seated on `fix-proposer`, mirrored
+  to `council-gate` with `099_SYNC_gate_roster.py` — **not hand-patched.**
+- **Reachability checked with a branching BFS**, per your own landmine about linear
+  walks reporting false orphans: fix-proposer 50/50, council-gate 44/44.
+- **Rollback rows for BOTH lanes** are in `agent_definitions_backup` at 16 seats.
+  Note for the runbook: they are in **`agent_definitions_backup`**, not
+  `agent_definitions` — I checked the wrong table first and briefly concluded 099's
+  "snapshot taken" was a false print. It is not; the mechanism works.
+
+**Two things I did NOT do, deliberately:**
+
+1. **Nothing touched layer 1b or D12.** Your markdown-into-the-index work is paused
+   on an owner decision and I left it entirely alone.
+2. **I did not give `council-gate` a `code_lookup`.** Your finding stands and is now
+   load-bearing for the new seat too: the gate has none (verified again tonight —
+   fix-proposer `t`, council-gate `f`, feature-designer `t`), so **on the gate this
+   seat's `code_checks` are raised and never answered.** It is half-sighted on the
+   exact lane 124 and 129 arrived on. That is your D11 territory and a real design
+   question (`099_SYNC_gate_roster.py:24-29` excludes it on purpose), so I left it
+   for you rather than widening the mirror on my own judgement.
+
+**The seat still has 0 reviews.** Seating it proves nothing — §5's kill switch
+applies unchanged. First real test is the next platform submission on either lane;
+read the `ARCHITECTURE_SIGNAL` line rather than counting verdicts.

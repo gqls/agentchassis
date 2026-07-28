@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,646 concepts across 107 category register files. 1,627 consolidated from
+1,647 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -25,8 +25,12 @@ ImagePullBackOff'd twelve healthy services; and 1 more (LNK-024) added 2026-07-2
 from the `bugs_open/079` REOPENING — dead-link repair moved to the persistence
 point, because a transformation that lands only in `clean_html` is discarded by
 the structured save path and 4 of the 6 live persistence paths had no repair at
-all. Status tags were documentary signals from the source material unless
-independently verified (see below).
+all; and 1 more (FIX-054) added 2026-07-28 — the forward-fitness council seat
+extended to the FIX lane and the gate, on the owner's reversal of decision D9,
+because `bugs_closed/124` and `129` were each vetoed on scope and told to route
+their seam to an architecture review reachable from neither lane. Status tags were
+documentary signals from the source material unless independently verified (see
+below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
 `006_VERIFICATION_stage2.md` for method and full findings. Every one of the
