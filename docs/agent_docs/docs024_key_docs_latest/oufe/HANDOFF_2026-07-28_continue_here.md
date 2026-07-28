@@ -91,6 +91,38 @@ browser, so it is not a DB-only discovery check; the natural home is the
 
 Those belong to other workstreams — route, do not fix over the top.
 
+#### Built 2026-07-28 evening — the audit is now DISPATCHABLE, not yet dispatched
+
+Owner asked for the Python recreated in Go and wired in. Done as far as it can go
+without an image:
+
+| piece | where | state |
+|---|---|---|
+| the measurement | `internal/adapters/browserrunner/render_audit_action.go` | built, 6 tests green — **INERT until the adapter image ships** |
+| adapter registration | `adapter.go` `case "render_audit"` | same |
+| `browserPage.Evaluate` | `run_checks_action.go` + test fake | same |
+| the caller | `platform/orchestration/actions/request_render_audit_action.go` | built — **INERT until the chassis image ships** |
+| registry entry | `registry.go`, category `quality` | same |
+| council | corr `4d6585dd-4678-4891-b9a9-7a37b32df1b6` | submitted |
+
+**THE LAST STEP IS DELIBERATELY NOT DONE, and doing it early would break.** No
+workflow calls `request_render_audit` yet, because **a seed naming an
+unregistered action fails at runtime** — image first, then seeds. The order is:
+
+1. `make build-browser-runner-adapter` + `make build-agent-chassis` (bump
+   `IMAGE_TAG`), push, deploy.
+2. **Pod-grep both**, by a string the change CREATED — e.g.
+   `strings /app/... | grep -c 'render_audit'` — and a positive control.
+3. Only then seed a workflow step calling `request_render_audit`.
+4. **Then retire `scripts/render_audit.py`**, which is marked superseded in its
+   own header but deliberately kept: the Go is inert, and deleting the Python
+   first would leave the fleet with no render audit at all. Expect the two to
+   agree on a real site; if they disagree, the port is wrong.
+
+Note for whoever seeds it: the adapter shares a pod with tool acceptance, and a
+25-page audit is 25 sequential navigations. `bugs_open/096` was exactly a long job
+blocking a shared lane — worth deciding whether this wants its own.
+
 ### 3b. More charts, tools and guides — the owner's standing ask
 His words on seeing the first chart: *"this is starting to look great! We'll need
 a lot more of this of course, and tools as is already in the plan."*
