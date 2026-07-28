@@ -4,7 +4,58 @@
 **Severity** medium — no data loss, but it blocks the only supported route for
 publishing a hand-authored copy edit, and it fails identically every time.
 **Owner** `cta_link_integrity` (the script lives in its `scripts/` directory).
-**Status** OPEN. Locally worked around; the shared script is untouched.
+**Status** **OPEN — candidate 1 fixed and council-APPROVED (`854362b1d`, `f795df1ff`),
+INERT until the next chassis roll.** The shared script needs no change.
+
+> ## STATUS 2026-07-28 (bugs thread) — candidate 1, not 2 or 3
+>
+> **The action now accepts EITHER `page_name` OR `page_id` and derives the other**, so the
+> envelope this file describes works as published and every future caller is fixed at
+> once. `page_name` moved Required → Optional; `page_id` added Optional.
+>
+> **Both lookups stay scoped to `target_site_id`.** `page_id` is globally unique, so an
+> unscoped lookup would have turned this into a way to re-render another site's page
+> through an envelope naming this one. `TestRerenderPageSections_PageIDCannotReachPastTheSite`
+> pins it.
+>
+> **The script needs no edit** — candidate 2 becomes unnecessary once the action resolves.
+>
+> **Council:** APPROVED (`0a31be23-d7f6-41c5-be2d-02373a472fae`, 10 reviewers, 0 unreadable,
+> 4 advisory objections, **6 seats abstained** — a small panel).
+>
+> ### Two council questions answered by grep, not by argument
+>
+> - **Does any caller outside `agent_definitions` rely on the old refusal?** **No.** Every
+>   `.sh`/`.py`/`.sql`/`.go`/`.json`/`.md` in the repo was searched. The one shell hit
+>   (`bundle_minilobby_trim2.sh`) *names* the action while assembling a docs bundle and
+>   never invokes it; everything else is a comment or a cross-reference.
+> - **Was there an existing id-or-name page resolver to reuse?** **No.** Two `name → id`
+>   helpers already exist (`saveSectionsLookupPageID`, `lookupPageID` — themselves a
+>   duplication worth collapsing), and nothing resolves the other direction.
+>
+> ### The objection that was right, and what it bought
+>
+> `page_id` is mapped by **no** step config, so it arrives through
+> `ExtractActionInputs` **Strategy 2**, whose own comment warns it *"uses aggressive
+> recursive search that can find stale values"*. Before this change a missing `page_name`
+> failed loudly at the input-spec gate; now a stale `page_id` could resolve a **different
+> page of the same site**. Site scoping does not help there.
+>
+> The action now logs which key resolved the page and what it resolved to. **That does not
+> prevent a wrong resolution — it makes it attributable rather than invisible.** If you are
+> debugging an unexpected re-render, `resolved_by` is the field to read.
+>
+> ### Owed
+>
+> - A roll, then a pod-grep for a string this change created:
+>   `strings /app/agent-chassis | grep -c "rerender_page_sections: page resolved"`.
+> - **The end-to-end run has NOT happened**: nobody has driven
+>   `049b_deploy_single_page.sh … section_data_resolved` through since the fix. Before
+>   doing so, heed this file's own warning and check no section has NULL `content_data`,
+>   or the page escalates to the content writer and authored copy is regenerated.
+> - **Bigger, not fixed here:** Strategy 2's recursive search is a generic exposure for any
+>   action with Optional fields and no explicit `input_fields`. That is shared input
+>   machinery and should not ride along on a page-lookup fix.
 
 ## Symptom
 
