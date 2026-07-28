@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,640 concepts across 107 category register files. 1,627 consolidated from
+1,641 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -16,7 +16,10 @@ fetch-recorded provenance, the declared config-key contract that makes an inert
 step-config key detectable, and its fleet-wide coverage report; and 1 more
 (WFA-002) added 2026-07-28 from the `bugs_open/124` fix — the `$ctx.`
 execution-context parameter namespace, which lets any queue-driven workflow's
-SQL record which run claimed a row. Status tags were documentary signals from the source material unless
+SQL record which run claimed a row; and 1 more (DMR-002) added 2026-07-28 —
+single-service deploy with a registry pre-flight, built while rolling the
+`bugs_open/131` fix because the all-or-nothing `deploy-agents` would have
+ImagePullBackOff'd twelve healthy services. Status tags were documentary signals from the source material unless
 independently verified (see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
@@ -1339,6 +1342,7 @@ an ID prefix, or a status word.
 | DOC-050 | Bundle-first handoff practice (context packs; broad script vs lean assembler) | deployed | Task handoffs pair problem statement with cmd/bundle invocation | documentation-system.md |
 | BIP-004 | collection_tasks queue + batch claiming | deployed | Task queue with SKIP LOCKED atomic batch claiming and orphan-recovery | business-intelligence-platform.md |
 | DMR-001 | Chassis deploy-mechanism reference (targets A–F) | deployed | Taxonomy of 6 deploy mechanisms across chassis/sites/idea.uk targets | deploy-mechanics-reference.md |
+| DMR-002 | `make deploy-<service>` — single-service deploy with a registry pre-flight | deployed | Deploys ONE named service at $(IMAGE_TAG) and refuses if that tag is not in the registry; `deploy-agents` is all-or-nothing | deploy-mechanics-reference.md |
 | DES-014 | Layout archetype library (15/17/18 named layouts) — overview | deployed | Taxonomy of named structural/visual archetypes (brochure-formal, portfolio-kinetic, utility-tool, media-grid,... | design-composition.md |
 | LNK-018 | Semantic linking domain decomposition (5 link types) | partial | Taxonomy splitting link work by lifecycle/complexity; most agents unbuilt | link-management.md |
 | FIX-042 | F3 learning layer: bug_records + guideline side-tasks | aspirational | Taxonomy/amendment mechanism designed, build status unconfirmed | fix-loop.md |
