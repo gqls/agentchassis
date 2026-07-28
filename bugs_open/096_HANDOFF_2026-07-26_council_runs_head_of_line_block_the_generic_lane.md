@@ -7,7 +7,12 @@ its own lane**, and publish→start for a scheduled trigger went from ~18 min to
 after it closed. Not a regression; a named residual.
 **Severity** medium — latency and diagnosability, not correctness. It costs
 sessions time and it makes a correct change look broken.
-**Status** OPEN, but **both halves of the fix are now shipped and the lane is
+**Status** **CLOSED 2026-07-28 — fixed, live, and the relief is now MEASURED**
+with a real council submission in flight. Evidence in "The confirming
+measurement, taken" below. Kept in `bugs_open/` only until the next sweep moves
+it; the defect is not reproducible.
+
+Previously: OPEN, with **both halves of the fix shipped and the lane
 proven to route** — see §"Rollout completed 2026-07-28". Held open deliberately
 for one reason only: the *relief* has not been measured. Routing is proven;
 "a council no longer blocks the fleet" is not, because no real council has run on
@@ -510,3 +515,38 @@ The lane fix is correct and measured. **The blocker is one level down: the
 spawn→call handshake.** Fixing that unblocks this candidate, the diagnosis loop's
 own reliability (half its runs die the same way), and the feature-builder chain —
 so it is worth more than this bug alone.
+
+
+## The confirming measurement, taken (2026-07-28)
+
+Taken with a genuine council submission in flight — the series-facts change,
+correlation `da40ddf0-7acd-40f6-9826-d9161f5601be`, submitted through
+`097_TRIGGER_council_review_v1.sh` after it was pointed at the new topic:
+
+```
+generic-requests-group                                         part=0 lag=0
+generic-requests-group-lane-system-agent-council-gate-requests part=0 lag=1
+generic-requests-group-lane-system-agent-council-gate-requests part=1 lag=0
+generic-requests-group-lane-system-agent-council-gate-requests part=2 lag=2
+```
+
+**The council's backlog is on the council lane and the generic lane is at zero.**
+That is the separation working: the queued council work is no longer in front of
+anything else. The original symptom — a site submission waiting ~28 minutes
+behind a 20KB council message on a single-partition shared topic — is now
+structurally unreachable, because the two no longer share a consumer group.
+
+Worth noting what this measurement does *not* claim. It shows the traffic is
+separated, which is the mechanism this bug is about. It is not a latency
+benchmark, and council dispatch latency itself is unchanged (the council lane has
+its own backlog above). Councils were never the victims here; everything else was.
+
+## Residual, deliberately left
+
+`bugfix_034/VERIFY_034_post_roll.sh:58` still publishes a `council-gate` probe to
+`system.agent.generic.requests`. It belongs to another workstream and is a one-off
+verification probe rather than a routine producer, so the practical impact is
+nil — but it means "all council traffic is off the generic lane" remains
+**false as a blanket statement**, and a future reader measuring after someone runs
+that script should not be confused by it. Whoever owns 034 should switch that
+line.
