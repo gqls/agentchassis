@@ -242,3 +242,66 @@ capability with its own review burden.
 **Consequence:** any original commentary we do write must be **visibly separated**
 from fetched items, or the distinction collapses in the reader's eye and we have
 de facto become a publisher of claims we did not check.
+
+### D13 — Exposure: our OWN NAMED failures and fixes, at an asymmetric ratio (owner, 2026-07-28)
+
+**Option (c) chosen** — named failures with evidence, over (a) generic classes and
+(b) anonymised cases. But with a constraint that is the whole design, in the
+owner's words:
+
+> *"only claim our fixes once or twice but list the errors truthfully as many
+> times as we like."*
+
+**The ratio IS the mechanism.** The caution raised against (c) was that a failure
+followed every time by a redemption reads as humblebrag, and readers detect that
+pattern within about three examples. Rationing the *claims* rather than the
+*failures* dissolves it: there is no pattern to detect, because most failures are
+simply told and left. The honesty stops being a rhetorical setup and becomes the
+default register, with the fixes as the exception the reader notices precisely
+because they are rare.
+
+**The claim we are entitled to make, once or twice:** that we have *"directly
+challenged these facts and gone some way towards fixing them — a long way — almost
+comparable to a human and sometimes more"* (owner). Named instances: the **council
+review gate**, the **diagnosis loop**, the **claims checker**.
+
+> **Owner's condition, and it is a hard one: "we'll need to provide proof."**
+
+### What D13 requires of the writing
+
+- **Two separate budgets.** Failures: unlimited, told plainly, no redemptive
+  clause attached. Fixes: **one or two across the entire section**, and they must
+  be the strongest we have.
+- **Never pair them in the same breath.** A failure that arrives with its fix
+  attached is the humblebrag shape. Let failures stand alone; site the fix claims
+  separately and sparingly.
+- **Proof for both halves.** A named failure needs the evidence that it happened;
+  a claimed fix needs evidence it *worked*, which is the harder half and the one
+  that will be tested. "We built a council" is a capability claim, not a result —
+  the result is what changed after it existed.
+- **The evidence base is unusually strong and it is CONTEMPORANEOUS**, which is
+  the part worth leaning on: `WRONG_CALLS.md` (mistakes recorded as they were
+  caught, with what caught them), `/bugs_open/` and `/bugs_closed/` (each with
+  measured symptom, root cause and verification), council verdicts with reviewer
+  objections, and the concept register. None of it was written for publication.
+  That is rare and it is the proof — a marketing page cannot fake a two-year audit
+  trail of its own errors.
+- **"Almost comparable to a human and sometimes more" is the one claim that will
+  be attacked hardest.** It needs a measured comparison, not an assertion, and we
+  do not have one framed today. Either find the measurement or soften the claim —
+  do not ship it on confidence.
+
+### RAIL added by this thread — publish CLOSED failures, or ones with no exploitation value
+
+D13 authorises naming our own defects. It does **not** authorise publishing live
+attack surface. Some open bugs are security-adjacent — `bugs_open/132` is an
+information disclosure (the bucket `objectKey`), and the fleet has had forged-XFF
+hardening in flight. **Publishing "here is our open information-disclosure bug" is
+not brave honesty, it is careless**, and it would also hand a reader a reason to
+distrust the judgement the whole section is selling.
+
+So: publish a failure when it is **closed and verified**, or when it carries **no
+exploitation value** (an invented statistic, a dead link, a broken build). If a
+defect is open and exploitable, it waits. This costs nothing — the closed set is
+already large and more honest, because a closed bug comes with its fix and its
+verification attached.
