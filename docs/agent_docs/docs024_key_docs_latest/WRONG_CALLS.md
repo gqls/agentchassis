@@ -9003,3 +9003,33 @@ next reader can tell whether they are in scope.*
 
 Family: verified-only-what-i-touched, a-rule-generalised-from-one-instance,
 the-owner-as-the-last-line-of-defence.
+
+## 2026-07-28 — I flipped an env flag for code that was not in the binary, five minutes after writing the rule against exactly that
+
+The claim: setting `CHASSIS_RESPONSES_START_AT=latest` on the chassis would
+stop the response-topic replay. The reality: the running image was
+v1.0.1184, built BEFORE the flag's code existed (commit `f4d24252f` came
+later); an unknown env key is silently ignored, so the "fix" was a no-op that
+cost one more pod restart — which itself restarted the 2–3 hour replay from
+zero. Caught within minutes because the verification I ran next
+(`RESPONSES_START_AT_LATEST` log line + fresh group LAG) contradicted the
+flip; the pod-grep of the binary then showed 0 hits for the symbol.
+
+What made this one embarrassing rather than merely wrong: the pre-flip
+pod-grep gate was already written down TWICE by me that same hour — in the
+CS-2 audit artifact ("before CHASSIS_INTAKE_MODE or CHASSIS_DB_MAX_OPEN_CONNS
+is set non-default anywhere, grep the RUNNING pod's binary…") and in the
+CS-3a council submission itself — and a council seat (debug_historian) had
+flagged precisely this failure shape for the OTHER knob in the same change.
+I applied the gate to the flags I'd been warned about and skipped it for the
+one I'd just invented. A checklist you exempt your newest change from is not
+a checklist; the newest change is the one that has never been through it.
+
+The cheap check that would have caught it, and now has a tally mark:
+`kubectl exec <pod> -- strings /app/agent-chassis | grep -c <symbol my
+change created>` BEFORE any `set env` naming that change. Also the standing
+one-liner: an env flip is a DEPLOY of config against a binary — the binary's
+contents are part of the precondition, not an assumption.
+
+Family: grep-the-config-key-before-calling-it-a-win,
+verified-only-what-i-touched, the-rule-exempted-its-own-author.
