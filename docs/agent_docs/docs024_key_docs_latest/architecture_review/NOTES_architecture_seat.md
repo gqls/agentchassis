@@ -624,3 +624,37 @@ because one raised confidence in a signal the other had not yet made correct.
 Contributed to `108` in full, with the priority inversion it implies: candidate
 1/4 (freshness by commit distance) is now a **prerequisite** for 2/3 being safe,
 not a parallel nicety.
+
+---
+
+## 2026-07-28, 10:00 — the COALESCE fix is LIVE (`v1.0.1182`). D11 layer 1 is COMPLETE.
+
+Pod-grep flipped exactly as pre-validated: `WHERE (body ILIKE` **0 → 1**,
+`WHERE (COALESCE(body` **1 → 0**, layer-1 marker still 1, never-existed control 0.
+Pre-validating the marker against the OLD image (it returned 0/1 before the build
+existed) is what made the flip meaningful rather than a bare presence check.
+
+**The plan the index was added for, now running:**
+```
+Bitmap Heap Scan
+  -> BitmapOr
+       -> Bitmap Index Scan on idx_code_symbols_body_trgm
+       -> Bitmap Index Scan on idx_code_symbols_content_trgm
+```
+Full VERIFY green: hash drift 0, contamination 0, **4,535/4,535 bodies**, 0 empty
+strings, `stop_reason` 6, negative control 0.
+
+### The VERIFY file itself had become a trap, and I nearly left it
+
+Check 5 still `EXPLAIN`ed the **COALESCE** form — the predicate that is no longer
+shipped. Anyone running the file after this roll would have seen a Seq Scan and
+concluded the fix had failed, on a check that looked like coverage. Corrected, with
+the reason and the measurements inline, plus the standing instruction to **keep it
+in step with `answerCodeCheck`'s `case "content"`**.
+
+The general shape, worth more than the instance: **a verification script pinned to
+the OLD implementation reports on a query nobody runs, while presenting as
+coverage.** When a fix changes the shape of the thing being asserted, the assertion
+is part of the change — not a fixture that survives it. This is the same family as
+the vacuous pod-grep and the vacuous NULL-body test, both hit earlier in this same
+piece of work: three ways in one day for a check to pass without checking.

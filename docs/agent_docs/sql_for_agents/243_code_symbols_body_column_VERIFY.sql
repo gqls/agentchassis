@@ -68,12 +68,24 @@ SELECT count(*) AS negative_control_must_be_zero
 FROM code_symbols
 WHERE body ILIKE '%zzz_string_that_appears_nowhere_zzz%';
 
-\echo '=== 5. the OR predicate the lookup will run — check the plan, not the row count ==='
--- guardian (low): an OR across two trigram-indexed columns may use NEITHER index
--- and fall back to a seq scan. At 4,535 rows that is still fast, so this is
--- information, not a gate — but if it seq-scans, the alternative is one index on
--- (COALESCE(body,'') || ' ' || content) instead of the OR.
+\echo '=== 5. the OR predicate the lookup runs — check the PLAN, not the row count ==='
+-- MUST show a BitmapOr across idx_code_symbols_body_trgm AND
+-- idx_code_symbols_content_trgm. A Seq Scan here is a REGRESSION.
+--
+-- guardian objected (low) that an OR across two trigram columns might use neither
+-- index. It was right, and the cause was ours: the predicate originally read
+-- COALESCE(body,'') ILIKE ..., and wrapping a column in an expression disqualifies
+-- its plain-column index. Measured on the live index with bodies populated:
+--   COALESCE(body,'') ILIKE .. OR content ILIKE ..  -> Seq Scan   125.9 ms
+--   body ILIKE ..              OR content ILIKE ..  -> BitmapOr     5.5 ms
+-- Row sets are identical: on a NULL body `body ILIKE x` is NULL, and WHERE
+-- discards NULL exactly as it discards false, so an unindexed row still falls
+-- through to the content side of the OR. Fixed in a4f06f83a, live v1.0.1182.
+--
+-- KEEP THIS QUERY IN STEP WITH answerCodeCheck's `case "content"`. If they drift,
+-- this check measures a query nobody runs — which is worse than not checking,
+-- because it reports on the wrong thing while looking like coverage.
 EXPLAIN
 SELECT path, symbol
 FROM code_symbols
-WHERE (COALESCE(body, '') ILIKE '%stop_reason%' OR content ILIKE '%stop_reason%');
+WHERE (body ILIKE '%stop_reason%' OR content ILIKE '%stop_reason%');

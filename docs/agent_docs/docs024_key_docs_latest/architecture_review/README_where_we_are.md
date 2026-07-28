@@ -517,3 +517,37 @@ re-indexed this morning and the distance didn't move by one commit. Only a push
 would. That's a call about a shared branch carrying many sessions' work, so it is
 yours rather than mine, but it is currently the single biggest thing degrading the
 quality of automated review on this platform.
+
+---
+
+**2026-07-28, mid-morning.** The follow-up deploy landed and the search fix is
+complete. The one-line correction went in, and the search now uses both indexes as
+intended — confirmed by asking the database to show its plan, not by assuming.
+Every check is green: all 4,535 symbols carry their source, nothing was corrupted,
+and the example that never worked returns six results.
+
+**One more near-miss worth recording, because it is the third of the same kind in
+two days.** The verification script I wrote to prove all this was still checking
+the *old* version of the query. Anyone running it after today's deploy would have
+seen the slow plan and concluded the fix had failed — on a check that looked like
+diligence. I caught it while running the script myself.
+
+That's now three separate ways in this one piece of work for a check to pass
+without actually checking anything: a marker that would have read zero from a
+correct deploy, a comparison whose distinguishing case couldn't occur in the data,
+and a script pinned to the code it was meant to be testing. None of them would have
+failed loudly. They'd have all reported success or a false failure, and both are
+expensive.
+
+**Where the work stands.** The thing the owner asked for — a council that can
+actually look things up rather than guessing and being corrected a round later —
+now has its foundation. Reviewers can read what the code does, not just what it is
+called. What they still cannot read is anything written in prose: our bug files,
+the wrong-calls log, the design register are all invisible to them. That is the
+next piece, and it is deliberately separate.
+
+**And the thing I keep raising, which is not a code problem.** The index still
+describes the codebase as it stood on 24 July, because it can only ever mirror what
+has been pushed, and roughly 955 commits have not been. Today's deploy does not
+touch that. Every automated review is reasoning about a fortnight-old tree while
+being told the index is fresh. It needs a push, and that's your call.
