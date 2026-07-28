@@ -490,6 +490,14 @@ here.
   expected total 46, not 45. `[UNRESOLVED]` **two handlers are therefore unaccounted for
   among the other 12 agents**, and there is no snapshot of them from 07-26 to diff, so
   the DB cannot say which. Not chased further.
+
+  > **CORRECTED 2026-07-28 (evening) — both halves of this were wrong.** There was no
+  > `+1`: seed 220's own snapshot already carries `update_component`'s handler at the
+  > moment the 45 was counted, and that step has a `config` twin so it never entered the
+  > census at all. Expected 45, observed 44 — **one** unaccounted, not two. And the
+  > census measures *step-level ONLY*, so a step gaining a `config` twin leaves the
+  > population without being removed — which is what seed 219 does, and what 086 itself
+  > recommends. See "The drift, chased down" below.
 - **The cheap check that would have settled it, and would settle the next one:** there is
   **no baseline for those 12 agents**. `snapshot_agent(<type>, 'baseline')` on each costs
   one call apiece and makes the next drift a two-table diff instead of an open question.
@@ -600,3 +608,103 @@ regardless. A replay would silently restore the routing that seeds 220 and 259 b
 removed. A dated `SUPERSEDED IN PART — DO NOT REPLAY AS WRITTEN` block now sits above
 that section. Nothing else in the repo defines these steps: no Go source, no deployment
 config, no other seed — checked, so the DB row and the numbered seeds are the whole story.
+
+---
+
+# THE DRIFT, CHASED DOWN 2026-07-28 (evening) — and the audit's arithmetic corrected
+
+The audit left `[UNRESOLVED] two handlers unaccounted for`. That is now measured rather
+than inferred, and the audit's own reasoning turns out to have been wrong twice.
+
+## 1. There was no `+1`
+
+The audit read `tool-improver.update_component`'s step-level `error_step` as newly gained
+and adjusted the expected total to 46. Seed 220's own snapshot — taken `18:32:26Z` on
+07-26, the exact moment the 45 was counted — already carries it:
+
+```
+snap_at 2026-07-26 18:32:26.229Z | snap_step_lvl refuse_mangled_write | snap_cfg refuse_mangled_write
+                                 | live_step_lvl refuse_mangled_write | live_cfg refuse_mangled_write
+```
+
+Nothing was gained after the snapshot. **Expected 45, observed 44 — one unaccounted, not
+two.**
+
+## 2. The census does not measure what its name suggests — and the fix decrements it
+
+The number comes from
+
+```sql
+value->>'error_step' IS NOT NULL AND value->'config'->>'error_step' IS NULL
+```
+
+which is **step-level ONLY**. A step that gains a `config.error_step` twin *leaves the
+population* with nothing removed. Mirroring a step-level handler into `config` is exactly
+what seed `219` did and exactly what this bug file recommends as the contained remedy —
+so **applying the recommended fix makes the census fall.** `update_component` is in that
+state, which is why it never counted either before or after.
+
+Eight steps sit there today, invisible to the census: `page-build-handler` ×7,
+`page-content-writer.resolve_links`, `tool-improver.update_component`.
+
+## 3. On the seven agents with a real baseline: nothing lost, nothing gained
+
+Full per-step diff of seed 220's snapshots against live. The *only* differences fleet-wide
+are the ten disabled handlers and the two re-pointed this evening:
+
+| agent · step | snapshot | live |
+|---|---|---|
+| blog-content-planner · create_post_pages | `complete` | disabled |
+| content-gap-planner · apply_plan, plan_gaps | `complete` | disabled |
+| site-adoption-agent · generate_design_intent, write_design_intent | `complete` | disabled |
+| spec-updater · apply_update | `complete` | disabled |
+| tool-improver · note_refusal | `complete` | disabled |
+| webdesign-agent · fork_theme | `complete` | disabled |
+| **image-build-handler · mark_work_item_complete, flag_rebuild** | `complete` | **`mark_work_item_failed`** |
+
+Step-level-only totals for those seven: **28 → 20**, i.e. 28 − 10 disabled + 2 re-pointed.
+Exactly reconciled, no residue.
+
+## 4. Where the missing one can be, and why the DB cannot say
+
+Not among the seven above. Not hidden by deactivation either — **zero** step-level
+handlers exist on any row the census filter excludes for `is_active` / `deleted_at` /
+`is_snapshot` reasons, so an agent being switched off is not the explanation. Six of the
+sixteen handler-owning agents had **never been snapshotted at all** — `css-patch-agent`
+(4 handlers), `improvement-loop` (6), `tool-auditor` (2), `design-audit-agent` (2),
+`internal-linker` (2), `site-review-agent` (1). That is the only place left, and there is
+nothing to diff against. **`[UNRESOLVED]` and now unresolvable** — recorded as such rather
+than guessed at.
+
+## 5. Fixed forward: seed 260 baselines all sixteen
+
+`sql_for_agents/260_baseline_snapshots_error_step_handler_owners.sql` — the audit's own
+recommended cheap fix, made reproducible. 16 baselines at `19:20:49.778Z`, computed from
+the live table rather than hardcoded; purely additive (handler total unchanged at 46,
+post-check 2 returns no unbaselined agent). The diff to run next time the count moves is
+in the seed's footer.
+
+## 6. Two traps that produced six false positives on the first attempt
+
+Recorded because both are generic and neither is obvious:
+
+- **Loop-expanded steps are not definition steps.** `process_sites_iter_0_call_orchestrator`
+  and friends are synthesised per iteration by `loop_expansion_handler.go`
+  (`%s_iter_%d_%s`); they appear in persisted plans and in no `agent_definitions` row.
+  Six "VANISHED" handlers were these.
+- **A diff between two differently-filtered sets invents its own losses.** The plan side
+  matched any `error_step`; the live side matched step-level-only. Eight both-form steps
+  therefore looked deleted. The sets must be filtered identically or the delta is an
+  artefact of the query.
+
+Logged in `WRONG_CALLS.md` as one entry: *a census with a filter is not a census.*
+
+## 7. Incidental, but load-bearing for anyone who edits agent config
+
+A **bulk write touched fifteen agent rows at `2026-07-28 18:22:06.040768Z`** (a second
+one that day, after the 181-agent re-seed at `14:25:02.999Z` the audit noted). Both left
+**every `workflow.steps` entry byte-identical** — the snapshot-vs-live diff above spans
+both and finds only the intended changes. So the re-seed path updates agent rows without
+rewriting workflow steps, and seed 259's change is not at risk from it. Worth knowing,
+because "config re-seed clobber" is a recorded landmine on this fleet and the reflex is
+to assume the worst.

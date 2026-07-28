@@ -9553,3 +9553,61 @@ variant of `overImage`, and not worth a second tool.
 describe, and you wrote the filters. **When a prior-art search comes back empty,
 re-run it with one fewer constraint before believing it** — the constraint you would
 defend most confidently is the one most likely to be carrying your assumption.
+
+---
+
+## 2026-07-28 (evening) — a census with a filter is not a census, and the count fell because the *recommended fix* was applied
+
+**The claim.** `bugs_closed/086`'s per-handler audit, that morning, could not explain
+why the fleet's step-level `error_step` handler count had gone 45 (07-26) → 44 (07-28).
+It reasoned that the seven snapshotted agents had gone **+1** — `tool-improver.update_component`
+having gained a handler — so the expected total was 46, and therefore
+`[UNRESOLVED] **two handlers are unaccounted for**`.
+
+**Both halves were wrong, and the second was wrong in an interesting way.**
+
+The `+1` never happened: seed 220's own snapshot, taken at the exact moment the 45 was
+counted, already shows `update_component` carrying `error_step: refuse_mangled_write`.
+Nothing was gained after it. Expected total 45, observed 44 — **one** unaccounted, not two.
+
+The deeper error is what the number measures. The census filter is
+
+```sql
+value->>'error_step' IS NOT NULL AND value->'config'->>'error_step' IS NULL
+```
+
+— *step-level **ONLY***. A step that gains a `config.error_step` twin silently **leaves
+the population** without anything being removed. And mirroring a step-level handler into
+`config` is precisely what seed 219 did, and precisely what 086 recommended as the safe,
+contained remedy. **The metric goes down when the fix is applied.** Eight steps sit in
+that state today (`page-build-handler` ×7, `page-content-writer.resolve_links`,
+`tool-improver.update_component`), invisible to a count that reads as "how many handlers
+exist".
+
+**What caught it.** Diffing seed 220's snapshots against live, per step, on the exact
+fields the filter tests — rather than re-deriving the total. On all seven snapshotted
+agents the only differences are the ten disabled handlers plus the two re-pointed that
+evening. Nothing lost, nothing gained.
+
+**A first attempt at the same question produced six false positives**, worth recording
+because both causes are generic:
+- **loop-expanded steps** (`process_sites_iter_0_call_orchestrator`) are synthesised at
+  runtime by the loop handler and never exist in any definition — a plan step does not
+  imply a definition step;
+- steps carrying **both** forms were excluded by the live-side filter but present on the
+  plan side, so the diff invented losses out of a filter mismatch it had written itself.
+
+**The cheap check:** when a filtered count moves, **diff the population, not the total**
+— and re-read the filter before trusting the delta, because the filter defines what
+"missing" means. A count whose predicate excludes the remediated state will always report
+the remediation as loss. Related: `[[a-check-answers-the-question-you-encoded]]`,
+`[[narrow-filter-defines-the-conclusion]]`.
+
+**Residual, stated honestly:** the remaining −1 is still unattributed. It can only lie
+among agents that had no baseline at all — six of the sixteen handler owners had never
+been snapshotted (`css-patch-agent`, `improvement-loop`, `tool-auditor`,
+`design-audit-agent`, `site-review-agent`, `internal-linker`; 17 handlers between them).
+Seed `260` baselines all sixteen at one timestamp, so the next time this moves it is a
+two-table diff. That does not recover the missing one — **a baseline only answers
+questions asked after it is taken**, which is the whole argument for taking it before you
+need it.
