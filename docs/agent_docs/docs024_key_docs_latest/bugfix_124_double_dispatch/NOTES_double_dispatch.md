@@ -207,3 +207,35 @@ outlives the publish — so the credits bought a finding as well as a proof.
 
 Cost note for the record: this run cost ONE diagnosis. Before today it would have
 cost two, and one of the two would have been invisible.
+
+## 2026-07-28 17:2x — what the verification run actually found (REFUTED, and that is a success)
+
+The symptom I paid for came back **REFUTED**, with a cited trail. It independently
+confirms the throughput reading I had made by hand — which is worth more than my
+own reading of the same file, because I wrote both.
+
+> *"There is no `notify_scheduler` contract and no race … the scheduler's own
+> comments state the actual, deliberate contract is fire-and-forget — 'we don't
+> wait for the orchestration to finish' — and `stampCompleted` synchronously
+> advances both `last_triggered_at` and `last_completed_at` BY DESIGN, precisely
+> so `countInFlight`'s window closes immediately and a fired task doesn't pin its
+> group."*
+
+Two things it adds that I did not have:
+
+1. **`max_concurrent`'s only read sites are inside `cmd/scheduler/main.go` itself**
+   (`loadDueTasks`' SELECT and `runTick`'s comparison), plus
+   `internal/core-manager/admin/pipeline_admin_handlers.go:HandleListPipelines`
+   which only *displays* the column. **No orchestrator workflow consults it.** So
+   `max_concurrent` means "do not fire this task twice inside one scheduler tick"
+   and nothing more — it is not, and has never been, a limit on how many runs of a
+   lane are in flight. Anyone reading `max_concurrent=1` as "one diagnosis at a
+   time" is reading a guarantee that does not exist.
+2. It flags the loop's own `notify_scheduler` step (`UPDATE scheduled_tasks SET
+   last_completed_at = NOW()`) as writing a value the scheduler already wrote at
+   publish. Harmless, but it is dead config that *reads* like a completion
+   handshake — and reading it that way is exactly how I nearly talked myself out
+   of this fix. Not touched here: out of scope, and worth its own look.
+
+Recorded rather than acted on. The verdict is REFUTED, which is the cheapest place
+to be wrong and the reason the symptom was worth a real run.
