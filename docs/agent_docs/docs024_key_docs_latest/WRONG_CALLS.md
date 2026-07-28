@@ -59,7 +59,8 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-read the row AFTER a render, not after your own write** | **2** |
 | **check the column actually means what you are measuring** | **3** |
 | read the rule before inferring its purpose | 1 |
-| **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **4** |
+| **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **5** |
+| **a duplication audit identifies SHAPE, never INTERCHANGEABILITY — before calling two things duplicates, open BOTH and query live USAGE. A header states intent, not adoption; three of one sweep's "clear duplicates" failed this check (8 "byte-identical" health servers were 8 distinct bodies; two "duplicate" exporters shared a purpose and 0 of 16 functions; the "generic" Firecrawl action had no callers at all while the "bespoke" one was live)** | **1** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
