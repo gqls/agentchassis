@@ -49,7 +49,82 @@ whole UI to go through the experience loop to be "more enticing".
   extension path: `experience_loop/HANDOFF_2026-07-28_appeal_dimension.md`.
   **Do not fire it at this; it costs credits to answer a question nobody asked.**
 
+## 2c. DELTA since this file was last written (11:43) — READ THIS FIRST
+
+Everything below happened after §2b. If you have read this handoff before, this
+section is the only new part.
+
+### The owner used the live site and found eight defects → `bugs_open/131`
+
+**None of them were caught by any check in the fleet.** That file is the near-term
+work list and carries the measurements. Three are already fixed:
+
+| item | state |
+|---|---|
+| **A** headline "Gauntlet" invisible at **1.00:1** | **FIXED** — accent repointed to `--color-stage`, now 3.31:1 |
+| **B** mobile overflow (14 elements at 437px on 390px) | **page-side FIXED** (0 over-wide); **check-side OPEN** |
+| **D** readable column 74% of a phone | **FIXED** — now 83% |
+| **C** "Enter the Gauntlet" reveals nothing | open — the provocation is already on screen and does not change; button sits 1913px down |
+| **E** provocation doesn't read as a question | open (design) |
+| **F** page is busy, no visual ranking | open (design) |
+| **G** record a won verdict | open (feature) |
+| **H** "why argue with an AI when Perplexity is free" | open (product) — **no longer blocks C–F, see below** |
+
+### Owner ruling: design goes AHEAD of the premise
+
+> *"I'm happy to improve the design before deciding on the whole premise as the
+> latter may take longer."*
+
+**C, E and F are unblocked.** Full direction — including the working hypothesis
+that **liveliness and breadth** (more people, and categories: current affairs,
+celebrity, films, news, finance) are the real differentiator from a chat window —
+is in `PLAN_2026-07-22_gauntlet_dead_cta.md` under "OWNER DIRECTION — 2026-07-28".
+
+**One rail from that entry, repeated here because it is easy to get wrong:**
+group-opinion **graphs come AFTER participants, never before**. A chart of group
+opinion on a site with no participants is a fabricated crowd with a graph drawn on
+it, and the chart is the easy part — which is exactly why it would be the tempting
+place to start.
+
+### I broke the live page and repaired it — the rule that caused it is corrected
+
+I copied `html_template` verbatim into `page_components.rendered_html`, following
+**this workstream's own RUNBOOK §10**. That rule is only safe for a component with
+**no template variables**; the gauntlet has 27, so the live page served raw
+`{{.hero_title_plain}}` until the owner reported it.
+
+**`RUNBOOK §11` now corrects §10** with the discriminating query, the substitution
+recipe, and the one-command check:
+`curl -s "<url>?cb=$(date +%s)" | grep -c '{{\.'` → **expect 0, after ANY
+component delivery.**
+
+### Two coupling lessons that will bite the next change
+
+1. **The type scale and the gutter are welded together by `rem`.** Raising
+   `--font-size-base` 16→20px scaled every rem-based padding by 25% and *caused*
+   131's homepage overflow. Proven with a reversible toggle: force the root back
+   to 16px and over-wide elements go 14 → 0; back to 20px, 14 again.
+2. **A component's accent must not be its own background's token.** 131A was
+   `--color-primary` on a `--color-primary` background. **This is a second
+   instance of `bugs_open/112`** (fundamentallyai.com, 1.11:1 and 1.21:1, filed a
+   day earlier by another workstream). Two sites, one mechanism, no detector.
+
+### The experience loop cannot take "make it more enticing"
+
+Established with evidence: five plan sections, five integrity seats, five binary
+check types. **Do not fire it at an appeal request** — it costs credits and ~30
+minutes to answer a question nobody asked.
+`experience_loop/HANDOFF_2026-07-28_appeal_dimension.md` now carries five check
+specs, each with a real measured failing case from 131, and names its first move:
+**fix `no_horizontal_overflow`**, which computes `scrollWidth - clientWidth` and
+therefore reads 0 on every page whose content is clipped. **It silently passes on
+live pages today.**
+
 ## 3. Next actions, highest value first
+
+0. **`bugs_open/131` B–H — the owner's own findings, and the near-term list.**
+   B check-side first (one clause, fleet-wide, silently failing now), then
+   `/about.html`'s 560px table, then C/E/F now that they are unblocked.
 
 1. **`bugs_open/083` — DO NOT speculatively fix. Wait for a real fault.**
    The log is armed and empty. Candidate 3 (retry) is unjustified by evidence;
