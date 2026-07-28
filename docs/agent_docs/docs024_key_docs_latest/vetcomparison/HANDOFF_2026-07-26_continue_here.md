@@ -14,6 +14,20 @@
 > **`bugs_closed/061` is DONE — do not reopen it.** Everything in §5/§6 below stands as
 > written. What remains in this workstream (§1–§4) is not 061 and is mostly another session's.
 
+> ## ⛳ 2026-07-28 — **P1's PROVENANCE BLOCKER IS LIFTED.** Read `PLAN_2026-07-26_site_strength.md` §P1 before planning anything.
+>
+> Left by the `bugfix_100_101_scrape_provenance` lane. P1's step-2 branch
+> *"provenance empty → Go change before any restart"* was **taken and completed by
+> another lane** — code live on `v1.0.1192`, council APPROVED, and the DB now refuses
+> an observation that cannot cite its source. **Your step 3's `v1.0.1169` figure is
+> stale**: all three relevant agents' `image_tag` are on `v1.0.1192`, checked, which
+> is what stops your first restarted crawl hard-failing against the new CHECK.
+>
+> **Your pilot is now the acceptance test for `bugs_open/100` and closes it.** The
+> two-column query, the "if it comes back empty" branch, and two watches your pilot
+> will be the first to exercise are all in the §P1 block. Nothing is asked of you
+> that you were not already going to do — but P1 is a smaller job than this file says.
+
 Cold-start entry point for the next session. Written by session "bugfix 61" after closing
 `bugs_closed/061`. Read this, then `PLAN_2026-07-26_site_strength.md` (the direction, written
 by a *different* session at 19:32 tonight), then `SUMMARY_2026-07-26_readout.md`.

@@ -141,6 +141,88 @@ worth doing. This is the first thing to measure, on a handful of practices, befo
 
 ### P1 — Prove provenance on a pilot, THEN restart collection — DO FIRST
 
+> ## ⛳ 2026-07-28 (from the `bugfix_100_101_scrape_provenance` lane) — **YOUR P1 BLOCKER IS LIFTED. Step 2's branch is already decided, and step 3's check is already done.**
+>
+> Left here rather than in a handoff because this is the file that branches on it.
+> Nothing below is asked of you — it is all *already done*, and it changes what P1 is.
+>
+> **"Provenance is structurally impossible" is no longer true.** Step 2's second
+> branch — *"Provenance empty → a Go change to thread the source URL … before any
+> restart"* — was **taken and completed by another lane**. Platform code, council
+> gate (APPROVED at round 3, corr `f4cf0aab-5a08-4475-91ea-fa831cff323c`), image
+> built, rolled. `bugs_closed/101` and `bugs_open/100`.
+>
+> - **Provenance is recorded from the FETCH, not asked of the model.** That was the
+>   hard requirement in your own §"must **not** be ask the LLM for the source URL" —
+>   it was honoured. The fetcher was already returning the answer; nothing read it.
+> - **The DB now refuses an observation that cannot cite its source.**
+>   `data_observations_provenance_not_empty` CHECK on
+>   `(source_url, source_type)`, applied 2026-07-28 18:30Z, **proven to enforce by
+>   negative control** (an insert with empty provenance errors), and `NOT VALID` —
+>   so your **2,970 historical rows are untouched** and no backfill is owed.
+> - **Your step 3 is DONE and its figure was stale.** The doc says
+>   `vet-practice-verifier` is on `v1.0.1169`; checked 2026-07-28 19:2xZ, all three
+>   relevant agents carry the fix:
+>   ```
+>   business-intel v1.0.1192 · domain-research-classifier v1.0.1192 · vet-practice-verifier v1.0.1192
+>   ```
+>   So the spawned worker pods get the provenance code, not just the deployment.
+>   **This mattered more than it looks:** had `image_tag` still been pre-fix while
+>   the CHECK was live, every insert from your first restarted crawl would have
+>   *hard-failed* — a silent data defect converted into an outage. It was checked
+>   for exactly that reason. Re-check it after any roll rather than trusting this line.
+>
+> ### What P1 now is
+>
+> **Your pilot is the acceptance test for `bugs_open/100`, and running it closes
+> that bug.** No such run has ever happened — collection has been off since
+> **2026-03-18**, which is still the newest `collected_at` as of tonight. Both
+> columns matter:
+>
+> ```sql
+> SELECT source_url, source_type, raw_data ? 'source_url' AS llm_claimed, collected_at
+> FROM business_intel.data_observations ORDER BY collected_at DESC LIMIT 5;
+> ```
+>
+> **`source_url` non-empty AND `llm_claimed` still FALSE.** A populated column alone
+> proves nothing about *where it came from* — if `llm_claimed` is true, the fix in
+> place is the explicitly-rejected "ask the model" candidate and must be reverted.
+>
+> **If provenance comes back empty**, do not guess: grep the chassis log for
+> `no fetch provenance available`. That warning was added so a *shape mismatch* is
+> distinguishable from a genuine absence, and it names the field it looked in. The
+> live shape of `scraped_data` is `[UNVERIFIED]` — traced through code as `data.url`,
+> never observed, because no run carrying it survives the retention clock. Your
+> pilot is the first opportunity to observe it.
+>
+> ### Two things your pilot will be the first to exercise
+>
+> 1. **The `bugs_closed/062` payload watch has a zero denominator.** Three steps now
+>    receive full pages for the first time (`only_main_content: false` became
+>    expressible). The post-roll watch reads **0 errors over 0 scrape attempts** —
+>    measured tonight, `grep -c "Starting scrape"` = 0 — so the clean log is
+>    currently unfalsifiable, not reassuring. **Count attempts before reading the
+>    error count**, and watch during your pilot:
+>    ```bash
+>    kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=1h \
+>      | grep -c "Starting scrape"                       # denominator FIRST
+>    kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=1h \
+>      | grep -i "Message Size Too Large\|Failed to produce"
+>    ```
+>    The 062 failure is **silent to the caller** (~12 min of timeout retries), so an
+>    absent workflow error proves nothing. Mitigation if it bites is config-only, no
+>    roll: set `scrape_config.formats` on the offending step.
+> 2. **Your `max_pages: 3` / `follow_links` finding was right, and is now VISIBLE
+>    rather than fixed.** Those keys are read but honoured **only on a crawl**;
+>    `vet-practice-verifier/scrape_website` is a single-page scrape, so it still
+>    fetches one page. It now *warns at runtime* and appears in
+>    `scripts/audit-config-keys.sh`'s CONDITIONALLY HONOURED section. **The owner
+>    ruled 2026-07-28 that it STAYS that way** — switching it to `action: "crawl"` is
+>    a deliberate behaviour change for whoever owns the agent, not a side effect of a
+>    bug fix. So your 16% figure remains exact, and reaching 28% is still a real
+>    change, not a config flip. (`fallback_url_field` and `extract_mode` *were*
+>    implemented and now work.)
+
 **Do not simply re-enable the three tasks.** Re-enabling is one UPDATE and it is the wrong first
 move: it would spend a fleet-wide crawl to produce data we still could not publish, and it would
 overwrite the current rows while doing so.
