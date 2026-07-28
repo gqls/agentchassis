@@ -192,3 +192,18 @@ dartsonline.com 2026-07-27, 1 rewrite + 1 unlink in one build). So invented link
 *removed* before they ship. That lowers the urgency and does not remove the case: an unlinked
 phantom is a paragraph that lost its link, which is still a worse page than one whose writer
 was told what exists.
+
+---
+
+> **CORRECTED 2026-07-28 (brochure_component_library thread):** the paragraph above —
+> *"invented links are being removed before they ship"* — is **false**. `079`'s repair
+> runs and its output is **discarded at persistence**: `save_page_sections` takes the
+> structured `sections_metadata` path and never reads `validation_result.clean_html` on
+> the primary build plan. Proven in production twice on 2026-07-28 (fundamentallyai
+> capabilities: repair logged 10:45:01.347Z, unrepaired components saved 400ms later,
+> all 9 targets 404 on the live page; vonc /about.html same shape). `bugs_open/079` is
+> **REOPENED** with the mechanism cited. Consequence for sizing THIS bug: there is
+> currently **no downstream mitigation at all** — the writer invents destinations (and
+> `src` paths, which were never in the repair's remit) and they ship. The urgency
+> discount in the paragraph above is withdrawn; this bug is the upstream cause of live
+> 404s on deployed pages today, not of paragraphs that lose their links.
