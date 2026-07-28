@@ -108,10 +108,58 @@ delete it — not to merge anything into it. That is small, safe, and real. Whoe
 takes it should check `ListDeprecatedActions` semantics first; the registry already
 supports `DeprecatedBy`.
 
-**Then:** `score_grippers` becomes a scoring engine with its rule table in
-`site_specs`. **Owner ruling 2026-07-27: after the gripper pilot ships, not
-before** — prove the Tier-3 shape end to end on one site before abstracting it
-from a single example.
+> ### ⛔ CORRECTED 2026-07-28 — the scoring engine is a **WON'T-DO**, and the number that justified it was wrong
+>
+> This section said: *"`score_grippers` becomes a scoring engine with its rule
+> table in `site_specs`"*, justified by *"9 of 296 registry entries serve 2 of
+> ~1,000 sites"*, citing `CHVerticalProfile` as the config-table exemplar.
+> **All three claims fail on inspection.** This is the third premise in this
+> ticket adopted from an unverified sweep, after `med_export_json` and the
+> health servers — the pattern is now recorded in `WRONG_CALLS.md`.
+>
+> **The exemplar is not a config table.** `companies_house_vertical_profiles.go`
+> is `var chVerticalProfiles = map[string]*CHVerticalProfile{…}` — a **Go map
+> compiled into the image**, with one populated entry and a commented-out
+> template for the next. Onboarding a vertical through it costs a build and a
+> roll. It demonstrates "one action, many verticals"; it demonstrates nothing
+> about DB-driven config. *(The genuine DB-driven precedents are `voice_gate` on
+> the `voice` site_specs aspect, `evidence_base`, `growth_config`, and
+> `directory_export_json` via `scheduled_tasks.input_data`.)*
+>
+> **The count is 1, not 9.** Opening all nine: `pull_report_requests` selects its
+> sites with `WHERE … deploy_config ? 'report_island'` — already fleet-generic and
+> already per-site config-driven. `emit_report_status_files` is pure plumbing.
+> `create_report_page` carries three display literals in ~480 lines of generic
+> page persistence. `verify_report_prose` carried two, **and this session removed
+> both**. Measured by grep, gripper/robot-hands mentions in code (not comments)
+> are: `score_grippers` 41, `create_report_page` 3, `report_request_pull` 1,
+> `verify_report_prose` **0**. The four `med_*` serve one *vertical*, which this
+> ticket has already conceded is a data model rather than a duplicate.
+> **One action is irreducibly single-site.**
+>
+> **And N=2 already exists and refutes the abstraction.** idea.uk is the
+> platform's other live Tier-3 signature operation. Its scorer
+> (`idea.uk/golang_files/engine.go`) is an **LLM-produced 1–5 rubric** —
+> `Defensibility / Willingness / Buildability / Reuse / Durability / Risk`, gated
+> on `Advances` and `Risk ≤ 2` — with no candidate index, no published-figure
+> semantics, no units, no capacity/need ratio and no verdict ladder. Intersect it
+> with the config this section proposed to extract (materials→μ, the 1.25 band,
+> cycle-rate→safety tiers, the physics defaults): **the empty set.** Not low
+> overlap — zero fields. A schema shaped around μ and headroom cannot hold "rate
+> a business idea and drop anything in regulated-profession territory".
+>
+> **What actually generalises is the pipeline, not the scorer** — intake → pull →
+> verify → prose → deterministic gate → render → deliver → status. Four of the
+> five gripper actions are already in that generic layer, and
+> `pull_report_requests` already serves site two with **zero changes** the moment
+> an operator adds a `report_island` block to `sites.deploy_config`. A1 picked
+> the one member of the family that is irreducibly domain-specific.
+>
+> **Recorded as won't-do rather than deferred**, deliberately: "generalise after
+> the pilot" leaves a refuted idea on the schedule with a date attached, which is
+> how it gets built by someone who does not reread this. Reopen only if a second
+> site genuinely wants a *physics* scorer — and note that would be N=3, with two
+> worked examples to abstract from instead of one.
 
 *Guard against regression:* the registry has a parity test for *unregistered*
 actions (`registry_parity_test.go`, from `bugs_open/017`) but nothing that notices
