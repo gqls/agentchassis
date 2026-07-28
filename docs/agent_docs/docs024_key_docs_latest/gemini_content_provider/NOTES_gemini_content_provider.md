@@ -1383,3 +1383,61 @@ captured, and **no backfill is possible**: the values were never persisted anywh
 backfill from. Post-roll check is item 3 of the bug's own §"How to verify": the four
 columns non-NULL on a Gemini row, `thinking_tokens` in the 2,764–2,878 range measured
 for the writer's real prompt.
+
+### Council round 1 was REAPED, not decided — and the lane is slower than 030 claims
+
+**Run 1, corr `913a86e0`**: submitted 2026-07-27 22:04 UTC, reached
+`review_constitution`, then **wedged for over four hours** and was killed by the
+watchdog:
+
+```
+error: reaper: stale EXECUTING_STEP for >4h; step=review_constitution
+__step_error: (null)          -- nothing; the step never errored, it never finished
+```
+
+**No LLM call was ever made.** `llm_call_log` between 23:00 and 03:00 UTC holds six
+rows, none from a council seat — so the seat wedged *before* reaching the model, which
+is the spawn→call handshake shape ([[spawn-call-handshake-races]]), not a truncation
+or an unparseable verdict. **`__step_error` being NULL is the tell**: a step that
+failed leaves an error, a step that hung leaves nothing.
+
+**It was not just me.** Two council runs were reaped in the same window — mine at
+`review_constitution` (02:07) and another thread's at `review_guardian` (23:23).
+
+**But the lane is NOT broken, and I checked before concluding it was.** Unfiltered
+over the day: **23 COMPLETED vs 2 FAILED** (~8%), which is in line with the ~11%
+harness-failure rate already recorded for council rounds. So this was bad luck, not a
+new defect — and *not* something to file. Resubmitted the identical plan as
+**corr `fa4ec9c8`**; nothing was revised, so it is a fresh run rather than a
+`RESUBMIT_CORR` revision, which would have implied objections that do not exist.
+
+**Dispatch latency, measured, and it contradicts a closed bug.** Run 2 was published
+**02:40 UTC** and its orchestration row was created **06:56:48 UTC** — **4h16m**
+publish→start. `bugs_open/030` is CLOSED as "publish→start 1s vs ~18min"
+([[dispatch-queue-serialisation-workstream]]). Either that gain does not hold under
+this load, or the two reaped runs held the lane until something cleared them.
+**[UNMEASURED]** which — I have not traced the group's head-of-line state, and I am
+recording the observation rather than the explanation. Anyone budgeting "~30 minutes"
+for a council verdict from the CLAUDE.md figure should know a 4-hour wait is reachable.
+
+### Independent corroboration of the Gemini writer, from a build I did not run
+
+At **02:29 UTC**, `page-content-writer` ran three sections on `gemini-pro-latest` —
+115, 51 and 98 output tokens, all `success=t` — for **`model-directory` on
+ai-agent-orchestration.com**, deployed 02:31:36. That is the model-directory
+workstream's own build, not mine, on a different site.
+
+This is worth more than my own verification: it is the Gemini writer working in
+production **for a thread that was not testing it**, which is the strongest form of
+the untouched-peer check. Three independent page builds on Gemini have now completed.
+
+**And all three rows show the four new columns as NULL** — migration 245 is live, the
+Go that fills it is not. Exactly the documented pre-roll state, confirmed rather than
+assumed:
+
+```
+ created_at | agent_type | provider | max_tokens | wire | reserve | thinking | total
+ 02:30:02   | page-content-writer | gemini | 8000 |  |  |  |
+ 02:29:43   | page-content-writer | gemini | 8000 |  |  |  |
+ 02:29:33   | page-content-writer | gemini | 8000 |  |  |  |
+```
