@@ -832,6 +832,33 @@ dispatch loop is manufacturing instances of it. The item-closing gap looks separ
 cheaper than the spawn defect itself. **Now filed separately as `bugs_open/124`** with a
 live specimen — one item, two complete diagnosis chains, two correlations.
 
+> **CORRECTED 2026-07-28 (bugfix_124_double_dispatch thread). The conclusion above
+> stands; the mechanism does not.** `41d64b75` is NOT "the dispatch loop
+> re-dispatching an already-diagnosed item 43 minutes later", and there is no
+> item-closing gap:
+>
+> ```
+> SELECT orchestration_id, correlation_id, owner_agent_type, created_at, updated_at
+> FROM orchestration_states WHERE orchestration_id::text LIKE '41d64b75%';
+>  → 7803075d… | diagnose-dispatch-loop | 2026-07-27 20:08:16 | 2026-07-27 20:52:32
+> ```
+>
+> Created **20:08:16 — 91 seconds after the item was created at 20:06:45**. It is
+> the CONCURRENT duplicate (which this section already spotted, two sentences
+> later). What happened at 20:49:31 was its `call_handler` request being
+> **retried** — that retry is this bug. And the live `diagnose-dispatch-loop` row
+> does have a `mark_complete`/`complete_work_item` step, which works: the claim
+> that "nothing marks a needs_diagnosis item complete on success" was inferred
+> from a *print statement in the 090 shell script*, not from the config.
+>
+> The real cause of the duplicate: `090_TRIGGER_needs_diagnosis_v1.sh` wrote its
+> intake at `awaiting_diagnosis` **and** published its own orchestrate envelope,
+> while `diagnose-pipeline-trigger` was enabled — two dispatchers, one queue.
+> **Fixed and verified live 2026-07-28 17:05** (chassis v1.0.1191 + migration 258):
+> one 090 run now produces exactly one chain. So the over-count is real and
+> **bounded to before that date** — do not re-derive this bug's rate from `failed`
+> needs_diagnosis rows without splitting on it. See `bugs_closed/124`.
+
 ### Re-measured 2026-07-28 10:00 on v1.0.1182 — ~~ABATED~~ **FALSIFIED 90 MINUTES LATER, by me**
 
 > **CORRECTION 2026-07-28 12:38 — do not use the "abated" reading below.** I called

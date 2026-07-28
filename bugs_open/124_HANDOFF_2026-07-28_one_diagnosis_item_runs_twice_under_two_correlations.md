@@ -116,3 +116,115 @@ diagnosis has run.** A previous attempt on the neighbouring bug cancelled the
 failing orchestration and reaped its pod before filing, and the diagnosis loop
 then recorded that it could find no specimen to examine (`WRONG_CALLS.md`,
 2026-07-27). The duplicate chains ARE the evidence.
+
+---
+
+# RESOLVED 2026-07-28 — root cause was neither filed mechanism
+
+**Fixed by** the `bugfix_124_double_dispatch` thread. Chassis **v1.0.1191**
+(digest `sha256:2f96b795a5c4636d41bdc384318f3f2d264188b9bf4017fb2d74ff2746a760cc`)
++ migration `258_diagnose_loop_stamps_run_correlation.sql`. Working docs:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_124_double_dispatch/`.
+
+## The cause
+
+**Two dispatchers, one queue.** `090_TRIGGER_needs_diagnosis_v1.sh` wrote its
+intake row at `status='awaiting_diagnosis'` **and then published the orchestrate
+envelope itself**. `diagnose-pipeline-trigger` had been enabled, so
+`diagnose-dispatch-loop` — which claims exactly those `awaiting_diagnosis` rows —
+took the same item on its next 60s tick and ran a second, independent diagnosis.
+
+The script's own header described the world before that switch: *"The task ships
+DISABLED — enable it deliberately. Until then, and for any ad-hoc run, THIS
+SCRIPT is the dispatcher."* Somebody enabled it. Nobody updated the script.
+
+## Corrections to this file's own mechanism section
+
+> **CORRECTED.** §Mechanism item 1, marked `[VERIFIED]`: *"Nothing marks a
+> `needs_diagnosis` item complete on success."* **False.** The live
+> `diagnose-dispatch-loop` row has a `mark_complete` (`complete_work_item`) step
+> and it works — every 090-filed item sits at `complete` or `failed` with
+> `claimed_by='diagnose-dispatch-loop'`. The `[VERIFIED]` marker was attached to
+> an inference drawn from a **print statement in the shell script**, not from the
+> live config. Caught by `SELECT jsonb_object_keys(default_config->'workflow'->'steps')`
+> on the live `agent_definitions` row. Fix candidate 1 ("make a diagnosed item
+> terminal") therefore needed no work: it was already true.
+
+> **CORRECTED.** §"What it already cost": orchestration `41d64b75` is described
+> as the loop re-dispatching an already-diagnosed item *"43 minutes after that
+> diagnosis finished"*. Its `created_at` is **20:08:16 — 91 seconds after the
+> item was created**. It is the concurrent duplicate; what happened at 20:49:31
+> was its `call_handler` **retrying** (that retry is `029` proper). The
+> conclusion — that the duplicate wrote `failed` over a completed diagnosis and
+> inflates `029`'s apparent rate — **stands and is strengthened**. Written back
+> into `bugs_open/029` §6 as well.
+
+> **RE-RANKED.** Fix candidate 2 ("make the loop reuse `spec.correlation_id`")
+> was ranked cosmetic — *"does not stop the duplication"*. It was load-bearing.
+> `diagnosis_artifacts` are keyed on the **envelope** correlation
+> (`params.ExecutionContext.CorrelationID`), so for a loop-dispatched item
+> `spec.correlation_id` names **nothing at all** — it resolved only because the
+> script's duplicate chain happened to run under it. Both `diagnosis-triage`
+> items have a `spec.correlation_id` no run ever used. Remove the direct publish
+> without fixing the join and the printed correlation stops resolving for
+> everyone, so the two had to ship together.
+
+## What shipped
+
+1. **The claim is the ticket.** A direct publish now first takes the row
+   `awaiting_diagnosis → diagnosing` atomically and publishes nothing if it loses
+   the claim. This holds even when the `enabled` read is stale — and it always
+   is, because the loop ticks every 60 seconds.
+2. **One dispatcher, read from live state.** `DISPATCH` unset (the new default)
+   asks the database whether the loop is live (task `enabled` **and** the agent
+   row active); `1` forces a direct publish for a wedged loop; `0` is intake
+   only. Nothing for an operator to remember, and it self-corrects if the loop is
+   ever disabled again.
+3. **`$ctx.` — a generic execution-context parameter namespace for
+   `query_database`** (`platform/orchestration/actions/execution_context_params.go`).
+   Any workflow SQL can now bind its own run identity. `claim_item` uses it to
+   stamp `spec.dispatch_correlation_id` inside the same atomic UPDATE that
+   claims, so item → orchestrations → artifacts → doc_notes join on one key for
+   every dispatch path, including `diagnosis-triage`'s.
+
+**Declined:** correlation *override* on `call_agent`/`spawn_agent` (letting a
+child chain adopt an upstream correlation). Prettier trail, but correlation is
+threaded through `awaited_requests`, response routing and the Kafka partition
+key — a large blast radius for a cosmetic gain over the linkage row.
+
+## Verified live, against a real run
+
+`SLUG=scheduler-stamps-completed-at-publish`, fired 2026-07-28 17:04 — the
+verification this file specifies, on a genuinely useful symptom rather than a
+throwaway.
+
+```
+intake corr ae10e615-8e5e-4f02-ab40-da76faeea170   → ZERO orchestrations (the script published nothing)
+run    corr 66a65287-f511-4d2d-9c54-7875939a5a78   → diagnose-dispatch-loop 17:05:28
+                                                      diagnose-orchestrator  17:05:45
+site_work_items.spec->>'dispatch_correlation_id' = 66a65287-…   (the join now holds)
+```
+
+**One chain, not two.** The failing shape — two `diagnose-agent` orchestrations
+minutes apart under different correlations — did not occur.
+
+For contrast, a specimen captured 90 minutes earlier on the unfixed path, another
+session's intake at 16:37:51: `954d8da9` (script) orchestrator 16:37:58 + agent
+16:38:12, and `2a656f25` (loop) dispatch-loop 16:38:28 + orchestrator 16:38:45 +
+agent 16:38:59 — two `diagnose-agent` pods on the same symptom, 47 seconds apart.
+
+## Residual — read this before re-opening
+
+- The **direct-dispatch branch** (loop disabled, or `DISPATCH=1`) leaves the item
+  at `diagnosing` with no closer, relying on `reap_stuck` at 75 minutes — which
+  does not tick when the loop is disabled. That row then sits at `diagnosing`.
+  Deliberate: leaving it at `awaiting_diagnosis` meant enabling the loop would
+  re-run the entire stale backlog. The script prints the close-by-hand SQL.
+- **Ordering is permanent, not one-off.** Migration 258 binds
+  `$ctx.correlation_id`; a chassis predating v1.0.1191 resolves that to nil and
+  **fails `claim_item`, stopping the diagnose lane**. Any rollback below 1191
+  must revert 258 too (the pre-update snapshot is in `agent_definitions`).
+- `029`'s rate must not be re-derived from `failed` needs_diagnosis rows without
+  splitting on 2026-07-28: rows before it include duplicates this bug produced.
+
+**Status: CLOSED — fixed AND live AND verified against a real run.**

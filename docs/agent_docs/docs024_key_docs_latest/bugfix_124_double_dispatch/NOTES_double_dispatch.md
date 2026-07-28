@@ -127,3 +127,53 @@ dispatch (P1), the script asks the DB who the live dispatcher is rather than
 assuming (P2), and `query_database` gains a generic `$ctx.` parameter namespace so
 the loop's claim can stamp the run's own correlation onto the item (P3). Details
 and the declined alternative (correlation override on `call_agent`) in the PLAN.
+
+## 2026-07-28 16:39 — caught in the act, in real time
+
+The 097 submission's own queue report listed two diagnose chains in flight, so I
+looked. Another session filed `needs_diagnosis:validate-page-content-repairs-dead-in-bo`
+at 16:37:51 and both dispatchers took it:
+
+```
+16:37:58  diagnose-orchestrator   corr 954d8da9   ← = the item's spec.correlation_id: the SCRIPT's publish
+16:38:12  diagnose-agent          corr 954d8da9
+16:38:28  diagnose-dispatch-loop  corr 2a656f25   ← fresh: the LOOP. claimed_at 16:38:28
+16:38:45  diagnose-orchestrator   corr 2a656f25
+16:38:59  diagnose-agent          corr 2a656f25
+```
+
+Two `diagnose-agent` pods, both at step `verdict`, on the same symptom, 47 seconds
+apart. Whatever those two return, one of them is money we did not need to spend —
+and the item's `spec.correlation_id` names only the script's chain, so the loop's
+chain is invisible from the item.
+
+This is the specimen the bug file asked for and it arrived unprompted while the
+council was reviewing the fix. Not touched: the standing landmine says the
+duplicate chains ARE the evidence — do not cancel them to tidy the queue.
+
+Also worth recording: it is *someone else's* diagnosis. This is not a cost we pay
+when we go looking for it; it is a cost the fleet pays on every intake.
+
+## 2026-07-28 17:15 — I killed my own council round with my own deploy
+
+Council round 1 (`90361922-e4c4-482e-a0b7-b1a49640265a`) stopped at
+`review_diagnosis_guardian`, `updated_at 16:55:46.936`. The replacement chassis
+pod for v1.0.1191 started at **16:55:47**. Same second.
+
+`awaited_requests` is `{}` — the council was executing a seat INLINE on the
+chassis, not awaiting a child, so there is no outstanding request for a retry
+driver to recover. The round died with the pod and nothing will resurrect it.
+
+**The lesson, which I should have seen coming and did not:** the council gate
+runs its seats inline on the chassis request lane (that is the whole premise of
+`bugs_open/096`, which I had read). So `kubectl rollout restart deployment/agent-chassis`
+kills any council round in flight — including, with a certain symmetry, the one
+reviewing the change you are deploying. There is no warning and the orchestration
+does not go FAILED; it sits at `EXECUTING_STEP` looking alive.
+
+Sequence it the other way: **get the verdict, then roll.** Or, when the image
+genuinely must go first (as here — migration 258 could not be applied against an
+older binary without stopping the diagnose lane), submit AFTER the roll.
+
+Resubmitting on the same correlation with `RESUBMIT_CORR` so the trail
+accumulates rather than starting a fresh, disconnected round.
