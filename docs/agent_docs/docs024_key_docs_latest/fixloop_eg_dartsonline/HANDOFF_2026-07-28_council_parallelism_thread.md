@@ -146,7 +146,41 @@ regain access on 2026-08-01 at 00:00 UTC"*). No submission of any kind is possib
 before then, so the wrapper retry cannot happen until 08-01 regardless of whether
 the spawn defect is fixed. Nothing to do about it but wait.
 
-## Next actions, in order
+## RESOLVED 2026-07-28 evening — wrapper PROVEN, default NOT flipped, thread complete
+
+**The wrapper works.** First end-to-end run: published 15:20:07Z → wrapper at
+`call_council`/`AWAITING_RESPONSES` by ~15:20:44 (37 s) → 16 seats in a dedicated
+pod (`agent-council-gate-446e54ab-58cbg`) → `council_report` 15:26:59Z → wrapper
+`COMPLETED` 15:30:52Z. **~10.75 min end to end, generic-lane LAG 0 throughout.**
+The step it died on in the 07-27 attempt was cleared in 37 seconds.
+
+**The default was NOT flipped, and that is the right outcome.** The flip proposal
+went to the gate on corr `f5da8f65-a3ec-4d16-8254-3dbfcb76953c` → **REVISE**,
+gated by the guardian, 11 reviewers / abstained 5 / **unreadable 0** (a real
+verdict, not the harness). Objections accepted rather than argued:
+
+- **[HIGH]** the plan overwrote a DO-NOT-FLIP header claiming *"the blocker was
+  never in this wrapper"* while `003`/`029` remain open and would be inherited by
+  the council path for the first time. My evidence resolved an **adjacent** bug.
+  The guardian caught me asserting a resolution my own risks section contradicted.
+- **[MEDIUM]** it would move every pipeline's default onto a path proven exactly
+  once, for a benefit **the submission itself called marginal**.
+- **[MEDIUM]** concurrency replica-bounded (2) → k8s-bounded (N) shifts load onto
+  the shared Anthropic budget with headroom UNMEASURED, interacting with `124`.
+- **[MEDIUM, tooling_provenance]** decision history belonged in `doc_notes`, not
+  baked into a SQL comment header. **Done** — `doc_notes`
+  `subject_type='pipeline'`, `subject_key='council-gate-orchestrator'`.
+
+**No resubmission is planned.** The council's reasoning is sound and the urgency
+is gone: the dedicated lane already stopped councils blocking other work, and
+`replicas=2` already delivers two concurrent councils. Re-arguing would spend
+credits on a change I no longer think is justified *now*.
+
+**Preconditions for a future thread to adopt it:** `003`+`029` closed or
+explicitly accepted; Anthropic concurrency headroom measured; `124` fixed. Then
+change the 097 default and the seed header **in the same edit**.
+
+## Next actions (superseded above — kept for the record)
 
 1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
    mechanism and the fix. This thread's remaining job is to retry the wrapper

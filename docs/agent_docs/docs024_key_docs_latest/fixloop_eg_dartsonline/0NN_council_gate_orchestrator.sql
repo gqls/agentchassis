@@ -5,6 +5,38 @@
 -- orchestrator wrapper on top. We don't want to redesign the chassis to
 -- accommodate it but treat it as a workflow."
 --
+-- ██ STATUS 2026-07-28 (evening): PROVEN END TO END, AND STILL **NOT** THE ██
+-- ██ DEFAULT — deliberately. Council verdict REVISE; objections accepted.   ██
+--
+-- PROVEN. A real submission ran through this wrapper end to end on 2026-07-28:
+-- published 15:20:07Z, wrapper at call_council/AWAITING_RESPONSES by ~15:20:44
+-- (37s), the 16 seats executed in a dedicated pod, council_report 15:26:59Z,
+-- wrapper COMPLETED 15:30:52Z (~10.75 min). Generic-lane LAG stayed 0
+-- throughout. The mechanism works and the lane benefit is real.
+--
+-- NOT ADOPTED, and this is the load-bearing part. The proposal to flip 097's
+-- default went to the gate (corr f5da8f65-a3ec-4d16-8254-3dbfcb76953c) and came
+-- back REVISE, gated by the guardian: 11 reviewers, abstained 5, unreadable 0
+-- (a real verdict, not harness noise). Its HIGH objection was aimed squarely at
+-- an EARLIER VERSION OF THIS HEADER, which asserted "the blocker was never in
+-- this wrapper":
+--   bugs_open/003 and 029 (spawn-machinery defects) are still OPEN, and the
+--   council path would inherit them for the first time. The evidence I had
+--   resolved an ADJACENT bug (the response-lane treadmill), not those. Asserting
+--   otherwise while overwriting a DO-NOT-FLIP warning is exactly the
+--   drift-vs-live-behaviour mismatch this gate exists to catch. It was right.
+-- Accepted, not argued. The urgency had gone anyway: the dedicated council lane
+-- already stopped councils blocking other work, and replicas=2 already gives
+-- two concurrent councils.
+--
+-- BEFORE ANY FUTURE THREAD FLIPS THE DEFAULT, meet these first:
+--   1. bugs_open/003 + 029 closed, or explicitly accepted by the owner;
+--   2. Anthropic concurrency headroom MEASURED (currently UNMEASURED);
+--   3. bugs_open/124 fixed — duplicate chains double response-lane load.
+-- Then change the 097 default and this header in the SAME edit.
+-- Decision + full objections: doc_notes subject_key='council-gate-orchestrator'.
+--
+-- ── superseded, kept because the wrong turns are the useful part ────────────
 -- ██ STATUS 2026-07-27: APPLIED AND LIVE, BUT **NOT** THE DEFAULT PATH. ██
 -- Tested end to end the day it was written. The lane fix WORKS — measured
 -- QUEUE DEPTH (LAG) 0 on system.agent.generic.requests while the council ran in
