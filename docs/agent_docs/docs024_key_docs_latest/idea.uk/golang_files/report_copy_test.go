@@ -20,16 +20,37 @@ func TestReportIntroDoesNotDoubleTheFullStop(t *testing.T) {
 	if contains(got, "..") {
 		t.Errorf("doubled full stop in the report intro:\n%s", excerptAround(got, ".."))
 	}
-	if !contains(got, "at the counter. First we assess") {
-		t.Errorf("intro does not read cleanly into the next sentence:\n%s", got[:min(300, len(got))])
+	// The submitted fragment ends the first paragraph, so it must carry exactly
+	// one stop and then the paragraph break — not run on into what follows.
+	if !contains(got, "at the counter.\n\n") {
+		t.Errorf("submitted fragment not cleanly terminated at the paragraph break:\n%s", got[:min(300, len(got))])
 	}
 }
 
 // An unpunctuated description must still get its full stop.
 func TestReportIntroAddsAMissingFullStop(t *testing.T) {
 	got := reportIntro("a comparison service for UK vets")
-	if !contains(got, "for UK vets. First we assess") {
+	if !contains(got, "for UK vets.\n\n") {
 		t.Errorf("intro did not terminate the submitted fragment:\n%s", got[:min(300, len(got))])
+	}
+}
+
+// The intro is the reader's first sight of a £29 purchase. It used to be one
+// block of four long sentences; this pins the structure so a later edit cannot
+// quietly collapse it back into a wall of prose.
+func TestReportIntroIsBrokenIntoParagraphs(t *testing.T) {
+	paras := introParagraphs("a comparison service for UK vets")
+	if len(paras) < 3 {
+		t.Fatalf("want at least 3 intro paragraphs, got %d:\n%q", len(paras), paras)
+	}
+	for i, p := range paras {
+		if p == "" {
+			t.Errorf("intro paragraph %d is empty — check for a stray blank line", i)
+		}
+	}
+	// The reader's own words belong in the opener, not buried in the middle.
+	if !contains(paras[0], "for UK vets.") {
+		t.Errorf("the submitted idea should be in the FIRST paragraph, got: %q", paras[0])
 	}
 }
 

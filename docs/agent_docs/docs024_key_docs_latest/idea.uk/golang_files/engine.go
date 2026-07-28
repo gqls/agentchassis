@@ -763,7 +763,12 @@ func renderHTML(domain, audience, wtp string, assess assessment, advancing, drop
 	fmt.Fprintf(&b, `<div style="padding:22px 34px 0 34px"><div style="font-family:%s;font-size:20px;font-weight:bold;color:%s;letter-spacing:.2px">idea<span style="color:%s">.</span>uk</div><div style="height:3px;width:46px;background:%s;margin-top:10px"></div></div>`, serif, navy, gold, gold)
 	b.WriteString(`<div style="padding:14px 34px 32px 34px">`)
 	fmt.Fprintf(&b, `<h1 style="font-family:%s;font-size:27px;line-height:1.2;color:%s;margin:14px 0 8px;font-weight:bold">Your idea report</h1>`, serif, navy)
-	fmt.Fprintf(&b, `<p style="margin:0 0 22px;color:%s">%s</p>`, slate, esc(reportIntro(domain)))
+	// One <p> per intro paragraph. A single <p> around the whole intro would
+	// render the blank lines as nothing at all — HTML collapses them — so the
+	// text email would be readable and the HTML one would silently stay a wall.
+	for _, para := range introParagraphs(domain) {
+		fmt.Fprintf(&b, `<p style="margin:0 0 14px;color:%s">%s</p>`, slate, esc(para))
+	}
 	sect := func(t string) {
 		fmt.Fprintf(&b, `<div style="font-size:12px;font-weight:bold;letter-spacing:.12em;text-transform:uppercase;color:%s;border-top:1px solid %s;padding-top:18px;margin:26px 0 8px">%s</div>`, navy, line, esc(t))
 	}
@@ -918,15 +923,40 @@ func midSentence(s string) string {
 	r[0] = unicode.ToLower(r[0])
 	return string(r)
 }
+// Paragraphs are separated by a blank line and BOTH renderers split on it — the
+// HTML one emits a <p> per paragraph, the text one prints them as-is. It used to
+// be a single block of four long sentences: the reader's first sight of a £29
+// purchase was a wall of prose that had to be read start to finish to find out
+// what they had bought. Same content, same order, three scannable parts: what
+// this is, what is in it, how it was made.
+//
+// Keep `sentence()` around the submitted text. It is the fix for the doubled full
+// stop a real customer received on 2026-07-26, and this is its only call site
+// here.
 func reportIntro(domain string) string {
-	return "This report is from idea.uk, about what you sent us: " + sentence(domain) + " " +
-		"First we assess the idea you submitted — the problem it addresses, the evidence of demand, " +
-		"who else is out there, where it is defensible and where it is exposed, and a specific next " +
-		"step. Then we go looking for further ideas around it, check each against what already exists " +
-		"and whether people would actually pay, and set out the ones worth pursuing — and the ones we " +
-		"set aside, and why. We use AI to research and draft this report, with live web searches for " +
-		"the checking; a person reviews it before it is sent. Where a finding rests on something we " +
-		"read, the sources are listed under it so you can check them yourself."
+	return "This report is from idea.uk. Here is the idea you sent us: " + sentence(domain) +
+		"\n\n" +
+		"It comes in two parts. First we assess the idea you sent: the problem it addresses, the " +
+		"evidence that people have it, who else is already out there, where it is defensible, where " +
+		"it is exposed, and a specific next step. Then we look for further ideas around it — checking " +
+		"each against what already exists and whether people would actually pay — and set out the " +
+		"ones worth pursuing, along with the ones we set aside and why." +
+		"\n\n" +
+		// Do NOT put a label in front of this sentence. "We use AI to research and
+		// draft this report" is the AI disclosure required by the 2026-07-25 audit
+		// and is pinned as a marker by TestRenderReadable — prefixing it lowercased
+		// the W and broke the assertion. The paragraph break is the structure; the
+		// disclosure keeps its own opening words.
+		"We use AI to research and draft this report, with live web searches for the checking, and a " +
+		"person reads it before it is sent. Where a finding rests on something we read, the source is " +
+		"listed underneath so you can check it yourself."
+}
+
+// introParagraphs splits the intro on blank lines. Shared by both renderers so
+// they cannot drift apart — the previous defect class on this file was two
+// renderers carrying the same literal text separately.
+func introParagraphs(domain string) []string {
+	return strings.Split(reportIntro(domain), "\n\n")
 }
 
 // reportContact is the address the report tells the reader to write to.
