@@ -80,7 +80,7 @@ also its background token has this fault latent. Worth a fleet grep for
 
 ---
 
-## B. Content bleeds off-screen on mobile — and `no_horizontal_overflow` CANNOT detect it [MEDIUM, structural] — PAGE-SIDE FIXED, CHECK-SIDE OPEN
+## B. Content bleeds off-screen on mobile — and `no_horizontal_overflow` CANNOT detect it [MEDIUM, structural] — PAGE-SIDE FIXED · CHECK-SIDE FIXED IN CODE, INERT
 
 Measured live, Chromium, four widths:
 
@@ -126,10 +126,34 @@ to `.gi-container`, which already had **zero**. That NARROWED the column 74%→7
    > crossing-rect scan cannot tell scrollable-within-a-wrapper from cut, which
    > is ALSO why the check clause below needed a scrollable-ancestor escape.
    > Nothing to fix here; at most a design nicety (a visible scroll affordance).
-2. **The check**: `no_horizontal_overflow` should also assert no element's
-   `getBoundingClientRect().right` exceeds the viewport. One extra clause; it
-   would have caught both pages. This is fleet-wide and worth more than the two
-   page fixes.
+2. **The check** — **DONE by another session, 2026-07-28, commit `5042d5ecb`**
+   ("no_horizontal_overflow now sees clipped overflow"). Filed here at 12:5x,
+   fixed by 15:39: the multi-session file-passing working as designed.
+
+   **Their implementation is better than the clause proposed above**, and the
+   difference is worth reading before anyone "improves" it: it excludes
+   `position: fixed|absolute` (off-canvas drawers are a deliberate pattern) and
+   anything inside a horizontally scrollable ancestor — because a scroll
+   container is the standard fix for a wide table, and such a table must then
+   PASS this check rather than be reported forever. It also attributes the
+   offender to the deepest/widest element rather than the ancestor that merely
+   inherited the width. Code at
+   `internal/adapters/browserrunner/run_checks_action.go:652-700`.
+
+   > **STATUS: FIXED IN CODE, NOT LIVE.** Per `/bugs_closed/README.md` the bar is
+   > fixed AND live. `browser-runner-adapter` is its OWN service with its OWN
+   > image — a chassis roll does nothing for it. Fix committed **15:39**; the
+   > running pod is `v1.0.1189`, started **14:26**, i.e. 73 minutes EARLIER. This
+   > item stays OPEN until that adapter is rebuilt and rolled, then re-verify
+   > against this bug's own failing cases (`/` and `/about.html` at 390px).
+
+   > ⚠ **LANDMINE for that verification: `strings` DOES NOT EXIST in the
+   > browser-runner container.** CLAUDE.md's verify-against-the-pod recipe
+   > (`strings /app/<binary> | grep -c`) returns 0 for EVERYTHING there — it
+   > works on the chassis and silently fails on this adapter. Caught only by a
+   > positive control (`no_horizontal_overflow` itself came back 0, which is
+   > impossible). Use `grep -c '<marker>' /app/browser-runner-adapter` directly,
+   > and always pair it with a marker you know is present.
    > **DONE 2026-07-28 (~15:40), commit `5042d5ecb`, council corr `845893c9`
    > pending; INERT until the browser-runner-adapter image rolls.** The clause
    > needed three filters the raw spec lacked, each field-proven: in-flow only
