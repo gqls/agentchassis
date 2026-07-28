@@ -6178,3 +6178,79 @@ not clock age, in the same breath as "the query was RUN").
 makes the DATA correct before the one that makes the PRESENTATION confident. Ranking
 candidates by "what makes the bad state unrepresentable" is the usual rule; this is its
 companion — *and never let a presentation fix overtake the correctness fix it depends on*.
+
+### An acceptance check that fails becomes a SPECIFICATION for an automated rewriter — a wrong test does not merely fail, it gets implemented against correct code (2026-07-28)
+
+**Symptom.** A Tier-4 tool acceptance run fails a multi-step `interaction` check with
+Playwright's `element is not visible`, while the *same selector* is clicked successfully
+by an earlier check in the same fence:
+
+```
+locator resolved to <button type="button" id="rw-accept" …>I understand this tool can be wrong</button>
+  - attempting click action
+    2 × waiting for element to be visible, enabled and stable
+      - element is not visible
+```
+
+Read at speed this looks like a broken control on the page. It is not.
+
+**Diagnose.** Two things, in this order.
+
+1. **Does an earlier check click the same selector and pass?** If so the element works,
+   and the fault is in the fence's assumptions about *state*, not in the tool. A suite is
+   a set of controls for itself; a passing check is evidence about a failing one.
+2. **Read the runner's page lifecycle before believing any multi-step fence.**
+   `internal/adapters/browserrunner/run_checks_action.go` creates one context per profile
+   (`:563`), **one page** (`:569`), navigates **once** (`:584`), and then runs *every*
+   check against it (`:398`). `Do()` (`:768`) supports only `fill`, `click`, `select` —
+   there is no `reload` or `navigate`, so **nothing resets the page between checks and
+   state accumulates.**
+
+**Root cause.** Any *one-shot* UI element — most obviously a condition-of-use / consent
+gate that does `gate.style.display = 'none'` on click — can be exercised exactly once per
+profile. A fence in which two interaction checks each begin by clicking the gate is
+**unsatisfiable by construction**, and the second failure is guaranteed regardless of the
+tool's correctness. The trap is that per-check isolation is the natural assumption and is
+nowhere contradicted in the authoring guidance.
+
+**Fix.** Make the gate its own first interaction check and let later checks inherit the
+opened page:
+
+```json
+{"id":"gate-opens","type":"interaction",
+ "steps":[{"action":"click","selector":"#rw-accept"}],
+ "expect":{"selector":"#rw-verdict","text_matches":"(ClassA|ClassB|All classes covered)"}},
+{"id":"high-input","type":"interaction",
+ "steps":[{"action":"fill","selector":"#rw-ev","value":"15000"}], "expect":{…}}
+```
+
+Check order is load-bearing (array order, fresh page per profile), so say so in the plan.
+This keeps the property the naive fence wanted — a broken gate still fails acceptance
+rather than silently locking the tool while every structural check passes.
+
+**Confirm it was the fence and not the tool by changing ONLY the fence and re-running.**
+Here that took 2-of-11-failed to 13-of-13-passed with the tool source untouched. Fixing
+both at once teaches you nothing and publishes a false cause.
+
+**The part that makes this a platform pattern rather than an authoring slip.** A failed
+acceptance run raises an `improve_tool` work item **carrying the fence as
+`acceptance_test`**, and the build loop dispatches it to `tool-improver`. Its task is
+then *make the tool satisfy this test* — and for a gated tool the only ways to do that
+are to stop the gate hiding, make it reappear, or delete it. **All three weaken or remove
+the disclaimer**, which is frequently the most legally load-bearing markup on the page
+(proximate placement, Hedley Byrne). There is no notion of a protected region, so a
+rewriting agent has no reason to preserve it, and the run afterwards goes green.
+
+Generalised: **an automated repair loop inherits the authority of whatever test it is
+given.** Any check whose failure triggers a rewrite is production configuration, not test
+scaffolding, and should be reviewed as such.
+
+**Also worth noting:** a check that has only ever failed at step 1 has verified *nothing*
+about steps 2 onward, yet a report of "2 of 11 failed" invites reading the other 9 as
+coverage. Here the zero-value branch had never once executed while the tool was being
+described as working.
+
+**Cross-references.** `bugs_open/126` (the case, with fix candidates ordered by what
+closes the door); `bugs_closed/012` (an improver truncating and destroying a component —
+same family: a rewriter with insufficient constraints on what it may not touch);
+`bugs_closed/024` (the inverse — the loop unable to act at all).
