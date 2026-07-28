@@ -813,3 +813,45 @@ nothing in it would have said so.
 matching whatever verdict comes back. Dispatched only after waiting for the
 newest chassis pod to clear 7 minutes — two pods were mid-roll and a council
 dispatch inside that window is eaten silently.
+
+---
+
+## 2026-07-28, 19:30 — round 3 was WEDGED for 2h34m, and the peer check is what settled it
+
+Round 3 (`6872857b-cb51`, fired 16:54:53) sat at `review_editquality` with
+**status EXECUTING_STEP and its last state change one second after creation**.
+Not slow — dead.
+
+**What made that diagnosable rather than a guess, in order of decisiveness:**
+
+1. **The peer check.** Six council-gate runs created AFTER mine all COMPLETED —
+   17:01, 17:08, 18:51, 18:52, **19:04 approved**, 19:10. A submission that
+   started later and finished, while mine had not moved, is the documented exit
+   condition for "this is not a queue". Without that, 2h34m of silence is
+   indistinguishable from the ~30-minute queue latency this lane normally has.
+2. **Two stalls, not one, and on DIFFERENT seats.** Fleet-wide exactly two
+   orchestrations were stuck >30 min: mine at `review_editquality` (16:54:54) and
+   `b8ff4094-05af` at `review_diagnosis_guardian` (16:55:46). **Fifty-two seconds
+   apart, different seats, different submissions.** That rules out "the editquality
+   seat is broken" — which is where I would have gone, because editquality had
+   *also* returned `unreadable` in round 2 and the coincidence was inviting.
+3. **A roll happened AFTER, and did not rescue them.** The chassis rolled to
+   `v1.0.1192` at 18:22-18:23. The lane resumed immediately (four completions
+   after it) but **neither orphan recovered** — both are still EXECUTING_STEP.
+
+> **The tempting wrong conclusion was right there and two seats' worth of evidence
+> killed it.** editquality went unreadable in round 2 and hung in round 3; the
+> obvious story is "that seat is faulty". The peer at a *different* seat, wedged
+> 52 seconds later, says the cause is whatever happened at ~16:55, not the seat.
+> [[check-an-untouched-peer-in-the-same-batch]] applied to orchestrations rather
+> than to a diff.
+
+**Still UNEXPLAINED and worth someone's attention:** what froze two council runs
+within a minute at ~16:55, and why a subsequent pod roll did not recover them.
+Orphan recovery was supposed to be closed (CS-2d, "orphaned work under expired
+claims was unrecoverable"; 029's post-roll response replay). These two are
+counter-evidence, or they are a class those fixes do not cover. **I have NOT
+diagnosed it** — recording the observation with its evidence, not a mechanism.
+`[UNDIAGNOSED]`.
+
+Re-fired round 3 under the same `RESUBMIT_CORR`, pods 67 minutes old, LAG 0.
