@@ -3793,6 +3793,55 @@ drift class the council reviews for.
 Category tags: `registered-but-never-read`, `grep-the-getter-not-the-setter`,
 `inert-layer`.
 
+### Turning on the automatic path does not turn off the manual one
+*(bugs_open/124, 2026-07-28. Fleet-wide shape, not a diagnosis-lane quirk.)*
+
+Almost every lane here grew the same way: a hand-run trigger script first, then an
+automatic loop later, with the script left in place "until the loop is enabled".
+The script says so in its own header. **Enabling the loop is a one-line UPDATE in
+`scheduled_tasks`, and it does not touch the script.** From that moment both
+dispatch, and the work runs twice.
+
+It hides well, because *nothing fails*. Both runs succeed. There is no error, no
+retry, no stuck row — only twice the LLM spend and two trails that cannot be
+joined. It surfaced only when the two disagreed and the failing one wrote `failed`
+over the succeeding one's work item, whereupon the duplicates were miscounted as
+instances of an unrelated open bug and inflated its rate.
+
+**The check, and it is one query.** For any lane with a trigger script, ask
+whether the automatic dispatcher is on *now* rather than trusting the comment:
+
+```sql
+SELECT name, enabled, target_agent_type FROM scheduled_tasks WHERE name LIKE '%<lane>%';
+```
+
+Then read the script for a publish it performs unconditionally. Two publishers for
+one queue state is the defect, whatever the lane.
+
+**What to do about it.** Not "remember to update the script" — that is a defect in
+costume, and it is exactly what failed here. Two structural moves, and the second
+is the one that actually closes the door:
+
+1. **Read dispatch authority from live state.** The script asks the database
+   whether the loop is the dispatcher instead of encoding the answer in a comment.
+   Self-correcting in both directions: disable the loop again and manual dispatch
+   resumes with nobody told to remember.
+2. **Make the claim the ticket.** Any path that dispatches must first take the row
+   out of the claimable state *atomically*, and publish nothing if it loses. (1)
+   alone is a snapshot read, and a 60s tick can fire between the read and the
+   publish; (2) holds regardless of timing. Prefer it wherever the queue already
+   has a claim primitive — most do, and the manual path is usually the one
+   bypassing it.
+
+**Related trap in the same family.** A **`verify-later` that states an expectation
+rather than a question** ("should still be false unless deliberately turned on")
+reads as reassurance to everyone who skims it and is never re-run. The concept
+register carried exactly that line for this task for weeks after it went true.
+Write the query, not the expected answer.
+
+Category tags: `two-dispatchers-one-queue`, `comment-outlived-the-config`,
+`claim-is-the-ticket`, `verify-later-states-an-expectation`.
+
 ## 10. Open bug queue (`/bugs_open/`) — index
 
 The repo-root `/bugs_open/` directory is the live queue of diagnosed-or-filed bugs
@@ -3903,6 +3952,8 @@ See `/bugs_closed/README.md`.
 | 085 | **The render data advertises `current_page` and the page-build path always supplies it empty**, so no section component can know which page it is on and nothing can vary per page. Advertised at `component_library.go:873`; never set by `BuildRenderContextAction`, whose source merge is an allowlist that drops the page record's own name after the step config passed it in. Found by measuring a rendered page (three charts marked for two different pages all rendered on one), not by reading code | **FIXED IN CODE 2026-07-27, INERT until the roll → stays OPEN.** **The bug file's own "one line" was wrong**: the value is dropped at **three** points on one journey — the allowlist merge, `renderCtxToMap` (never emits the key), and `mergeIntoRenderContext` (never restores it, so the regex-fallback renderer stays empty while html/template works). Each looks complete alone; fixing only the filed one-liner changes nothing visible. Caught by querying the SERIALISED context (`? 'current_page'` = **false**, key absent not empty, with `domain` as the positive control). Council REVISE→r2 on `b64141e5`. Pattern in §9 *"a value passed in can be dropped at every hop"*; the generic allowlist is split to `109` |
 | 108 | **The code index reported FRESH while 1,003 commits behind, and never indexed bodies.** Two defects: (B) `content` held declarations only, so every string-literal/route/config-key check returned a zero that read as absence; (A) the freshness verdict keyed on `updated_at`, which the 24h refresh resets even when re-fetching the same pushed tip — "refreshed 17h ago" over a fortnight-old tree, and B's honest empty-answer wording made the false FRESH a *stronger* lie (see §9 "confidence and correctness are separate axes"). Measured cost: it defeated the `097` diagnosis (five iterations chasing a casing theory for a file that postdated the indexed commit) | **CLOSED 2026-07-28 → `/bugs_closed/`** — B: `body` column + trigram index (D11 layer 1, `37f7deff9`, mig 243, live v1.0.1180). A: `ref` + `commit_time` stored at index time (mig 250, `87d0bcf97`, council `b5285973`, live v1.0.1184); verdict keys STALE on COMMIT age, loud-UNKNOWN (never FRESH) on NULL commit_time — a reindex can reset the row clock but never a committer date. Verified: pod-grep marker flip + 4,992/4,992 rows carrying ref+commit_time + `internal/tools-api` 0→29. LANDMINE: the index still mirrors the last PUSHED tip — the banner now SAYS so on every answer, but only a push moves the data |
 | 109 | **The render-context allowlists drop any field not on them, silently — and three are dropped right now.** Filed at the council's request while fixing `085`: four hand-maintained maps (`mergeIntoRenderContextEnhanced`, `renderCtxToMap`, `mergeIntoRenderContext`, `contextToInterfaceMap`) with no relationship anything checks, so adding a `RenderContext` field and wiring it to templates advertises it while it arrives empty forever. Measured: `theme_css`, `title`, `description` are in that state today (plus `contact_email`, a benign alias, and `logo_url`, which survives via `ContentData`) | filed 2026-07-27, **OPEN, unowned**. A contract test shipped with `085` (`TestRenderContextSerialisationCoversTemplateContract`) stops the gap GROWING — it fails on any newly-advertised-but-unserialised field unless pinned with a reason — but does not close it, and covers only the serialise↔render pair. Candidate 1 (derive all four maps from one struct declaration) is the only one that makes the bad state unrepresentable; documentation is listed last on purpose |
+
+| 124 | **One `needs_diagnosis` item ran TWICE, under two correlations — two dispatchers shared one queue.** `090_TRIGGER_needs_diagnosis_v1.sh` wrote its intake at `status='awaiting_diagnosis'` **and** published its own orchestrate envelope, while `diagnose-pipeline-trigger` was enabled — so `diagnose-dispatch-loop`, which claims exactly those rows, ran a second independent diagnosis ~60s later. Every 090-filed item inside the `orchestration_states` retention window showed both chains; each duplicate is a 12–14 min `diagnose-agent` run (31 min longest). When the two disagreed, the failing one wrote `failed` over the succeeding one's item, and those rows were then counted as instances of `029`. **Both filed mechanisms were refuted:** `mark_complete` exists and works (the `[VERIFIED]` claim that nothing closes these items came from a *print statement in the shell script*), and orchestration `41d64b75`, cited by `029` §6 and `124` as a re-dispatch "43 minutes after the diagnosis finished", was created **91 seconds after intake** — the concurrent duplicate. Both conclusions survived; both stories of *how* did not | **CLOSED 2026-07-28 → `bugs_closed/124`, fixed AND live AND verified on a real run.** Three parts: (1) **the claim is the ticket** — a direct publish first takes the row `awaiting_diagnosis → diagnosing` atomically and publishes nothing if it loses, which holds even though the `enabled` read is a snapshot and the loop ticks every 60s; (2) **dispatch authority read from live state** — `DISPATCH` unset now asks the DB whether the loop is live (task `enabled` **and** agent row active), `1` forces a direct publish for a wedged loop, `0` is intake-only; (3) **`$ctx.` execution-context parameter namespace for `query_database`** (concept register WFA-002, chassis **v1.0.1191**) so `claim_item` stamps `spec.dispatch_correlation_id` in the same atomic UPDATE (migration **258**). (3) was NOT cosmetic: `diagnosis_artifacts` are keyed on the **envelope** correlation, so a loop-dispatched item's `spec.correlation_id` names *nothing* — it resolved only because the duplicate ran under it, and both `diagnosis-triage` items point at a uuid no run ever used. Verified 17:04–17:11: **0** orchestrations under the intake correlation, exactly **1** `diagnose-agent` under the run correlation, item `complete` with no hand-written UPDATE. **LANDMINE, permanent:** migration 258 binds `$ctx.correlation_id`; a chassis below v1.0.1191 resolves it to nil and **fails `claim_item`, stopping the diagnose lane** — image first, pod-grep, then config, and any rollback reverts both. Also: do not re-derive `029`'s rate from `failed` needs_diagnosis rows without splitting on 2026-07-28. §9 entry: *"Turning on the automatic path does not turn off the manual one"* | filed + fixed 2026-07-28; workstream `docs024/bugfix_124_double_dispatch/` |
 
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the

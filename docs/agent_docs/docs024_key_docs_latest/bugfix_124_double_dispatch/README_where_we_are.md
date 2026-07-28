@@ -77,3 +77,45 @@ joins the job to the run that did it, whichever route it came in by.
 
 That last part is a small general addition to the platform rather than something
 specific to diagnosis: any queue-driven job can now record which run picked it up.
+
+---
+
+**2026-07-28, evening. Done and verified.**
+
+It works. We fired one real diagnosis through the fixed path at 17:04 and it
+produced exactly one run instead of two: nothing at all under the script's own
+reference number, one set of orchestrations under the watcher's, and a queue row
+that closed itself at 17:11 and now carries the reference number of the run that
+actually did the work. That last bit is new — until today there was no way at all
+to get from one of these jobs to its own diagnosis if the watcher had dispatched
+it.
+
+We chose the symptom for that test deliberately rather than using a throwaway.
+It asks whether our "only run one of these at a time" setting means anything for
+jobs whose work outlives the moment they are sent — a real open question I ran
+into while checking this fix wouldn't slow the fleet down. So the credits bought
+a finding as well as a proof.
+
+**Two mistakes of mine, both on the record rather than tidied away.**
+
+Deploying the new image quietly halved the chassis: it went from two copies to
+one. The second copy had been added by hand earlier today and the deployment file
+still said one, so the next deploy by anybody was always going to undo it, in the
+direction of less capacity, with nobody told. Restored inside a minute, and the
+file now says two so it cannot happen again.
+
+The deploy also killed the review that was assessing this very change. Reviews
+run on the same machines the deploy replaces, and it died mid-sentence at exactly
+the second the new machine came up. Nothing recovers that — it just sits there
+looking busy. Resubmitted on the same reference so the trail stays in one place.
+The lesson is simply: get the verdict, then deploy. Where that is impossible —
+and it was here, because the database change could not be applied against the old
+code without stopping the diagnosis lane altogether — submit after the deploy,
+not before.
+
+**What I'd flag for someone else.** Almost every lane we have grew the same way:
+a hand-run script first, an automatic loop bolted on later, with the script left
+in place "until the loop is switched on". Switching a loop on is one line of SQL
+and it never touches the script. I have written the shape into the debugging
+guide, but nobody has actually gone and audited the other lanes for it, and I
+would not assume this was the only one.

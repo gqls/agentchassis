@@ -177,3 +177,33 @@ older binary without stopping the diagnose lane), submit AFTER the roll.
 
 Resubmitting on the same correlation with `RESUBMIT_CORR` so the trail
 accumulates rather than starting a fresh, disconnected round.
+
+## 2026-07-28 17:11 — verified, end to end, against a real run
+
+`SLUG=scheduler-stamps-completed-at-publish`, fired 17:04 on chassis v1.0.1191
+with migration 258 live. Every clause of the bug file's "How to verify a fix":
+
+```
+site_work_items: status=complete, completed_at=17:11:20, claimed_by=diagnose-dispatch-loop
+                 intake_corr ae10e615…   run_corr 66a65287…
+orchestrations under ae10e615 (intake corr) : 0      ← the script published NOTHING
+orchestrations under 66a65287 (run corr)    : diagnose-dispatch-loop 1
+                                              diagnose-orchestrator  1
+                                              diagnose-agent         1   ← ONE, was two
+diagnosis_artifacts under 66a65287          : bundle 2
+```
+
+- exactly one `diagnose-agent` orchestration ✓
+- item reached a terminal status with no hand-written `UPDATE` ✓
+- `spec.dispatch_correlation_id` equals the correlation the chain actually ran
+  under, and the artifacts are under it ✓ — so the item→run→artifacts join now
+  holds for the automatic path, which it never did before, not even in principle
+
+Deliberately verified against a **real** diagnosis, not an idle window (029's
+note: the fleet reports zero when nothing is running). The symptom chosen was a
+genuine open question rather than a throwaway — whether
+`scheduled_tasks.max_concurrent` governs anything for workflows whose work
+outlives the publish — so the credits bought a finding as well as a proof.
+
+Cost note for the record: this run cost ONE diagnosis. Before today it would have
+cost two, and one of the two would have been invisible.

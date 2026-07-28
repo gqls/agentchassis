@@ -9334,3 +9334,61 @@ this week of: an honest number, obtained through a route the fleet does not take
 
 Family: check-answers-the-question-you-encoded, verify-the-failing-branch,
 omission-is-an-instruction.
+
+---
+
+## 2026-07-28 — a `[VERIFIED]` marker on a claim read out of a *print statement*
+
+*(Recorded by the `bugfix_124_double_dispatch` thread. The claim is not mine; the
+tally is the fleet's, and this one is worth the row because the marker discipline
+did not merely fail to help — it actively vouched for the error.)*
+
+**Asserted**, in `bugs_open/124` §Mechanism, item 1, tagged **`[VERIFIED]`**: *"Nothing
+marks a `needs_diagnosis` item complete on success — the 090 trigger still prints
+'closing it by hand until a diagnose dispatch loop exists'. The loop now exists and
+still does not close them, so a diagnosed item stays claimable."* Fix candidate 1
+was then ranked first on the strength of it: *"Make a diagnosed item terminal…
+This makes the duplicate unrepresentable."* The same belief is asserted in
+`bugs_open/029` §6.
+
+**What was actually true.** The live `diagnose-dispatch-loop` row has had a
+`mark_complete` step (`complete_work_item`) all along, and it works — every
+090-filed item sits at `complete` or `failed` with
+`claimed_by='diagnose-dispatch-loop'`. Candidate 1 required no work whatsoever. The
+real cause was elsewhere: the 090 script publishes its own dispatch **and** leaves
+the row claimable, so the loop runs it a second time.
+
+**What caught it.** Reading the live `agent_definitions` row before building
+anything on the claim. One query:
+
+```sql
+SELECT jsonb_object_keys(default_config->'workflow'->'steps') FROM agent_definitions
+WHERE type='diagnose-dispatch-loop' AND is_active AND COALESCE(is_snapshot,false)=false;
+```
+
+**The cheap check.** **A print statement is not a config row.** The evidence quoted
+for the `[VERIFIED]` tag was *text the script emits to a terminal* — a sentence
+written by a human in 2026-07-09 describing the world at that time. It is the same
+class as a stale comment, and we already have a standing rule for its cousin ("the
+seed is history, the live row is fact"). The rule needs saying about **prose inside
+executable files** too: headers, banners, `echo` output and usage text are all
+documentation, and documentation does not change when the system does.
+
+Concretely: before tagging `[VERIFIED]`, ask *what did I read?* If the answer is a
+string that a human wrote, the tag is not earned no matter how authoritative the
+file. Read the thing the string describes.
+
+**Tally.** *documentation-in-executable-clothing* — third face of the same family
+this month, after `seed-sql-is-history-live-row-is-fact` and `grep-the-config-key-
+before-calling-it-a-win`. Also a second, milder instance in the same file, caught
+the same way: an orchestration cited as running "43 minutes after the diagnosis
+finished" was created 91 seconds after intake — `SELECT created_at` on the id the
+note already quoted. **Before repeating a claim about *when* something ran, select
+its timestamp.**
+
+**Worth saying plainly:** the filer marked the *other* mechanism `[UNVERIFIED]` and
+was scrupulous about it, which is why that one cost nothing. The discipline works.
+This row is about the one case it can't help with — where the check felt done.
+
+Family: seed-sql-is-history-live-row-is-fact, grep-the-config-key-before-calling-it-a-win,
+writes-the-field-is-not-reads-the-field, check-answers-the-question-you-encoded.
