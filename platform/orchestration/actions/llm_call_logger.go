@@ -32,6 +32,11 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 		zap.String("model", params.Model),
 		zap.Bool("success", params.Success))
 
+	// Read out of the options map BEFORE the goroutine: the caller may reuse or
+	// mutate that map once LogLLMCall returns, and this function is explicitly
+	// fire-and-forget, so anything read asynchronously is a data race.
+	wireMax, thinkReserve, thinkTokens, totalTokens := thinkingTelemetry(params.Options)
+
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -76,14 +81,13 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 			nullIfEmpty(params.WorkItemID), nullIfEmpty(params.Vertical),
 			promptVariant, params.RAGContextUsed,
 			params.Temperature, nullIfZero(params.MaxTokens),
-			// Passed through as-is, NOT via nullIfZero: these arrive already
-			// typed nil-or-int by the caller, and 0 is a real value for them
-			// (a thinking model that happened to spend no thinking). Mapping
-			// 0 -> NULL here would collapse "reported zero" into "not
-			// reported" — the empty-vs-absent confusion bugs_open/110 is
-			// itself about. See migration 245.
-			params.WireMaxOutputTokens, params.ThinkingReserveTokens,
-			params.ThinkingTokens, params.TotalOutputTokens,
+			// Derived here, inside the single writer, rather than at each call
+			// site. Passed as-is and NOT through nullIfZero: 0 is a real value
+			// for these (a thinking model that happened to spend no thinking),
+			// and mapping it to NULL would collapse "reported zero" into "not
+			// reported" — the empty-vs-absent confusion bugs_open/110 is itself
+			// about. See migration 245.
+			wireMax, thinkReserve, thinkTokens, totalTokens,
 		)
 
 		if err != nil {
@@ -124,20 +128,24 @@ type LLMCallLogParams struct {
 	PromptVariant  string // For A/B testing prompt versions
 	RAGContextUsed bool   // Whether RAG retrieval was used in this call
 
-	// Thinking-model telemetry (bugs_open/110 candidate 2, migration 245).
-	// interface{} rather than int BECAUSE nil and 0 must stay distinguishable:
-	// nil = the provider reported nothing (anthropic, ollama), 0 = it reported
-	// zero. The int-typed fields above go through nullIfZero() and cannot make
-	// that distinction; these must not.
+	// Options is the SAME map the caller handed to GenerateText, after the call.
+	// AI clients write their telemetry back into it, and LogLLMCall reads the
+	// thinking-model fields out of it (bugs_open/110 candidate 2, migration 245).
 	//
-	// MaxTokens above is the caller's VISIBLE-text budget for every provider.
-	// WireMaxOutputTokens is what was actually put on the wire, which for a
-	// thinking model is larger by ThinkingReserveTokens. Keeping both is the
-	// point: one column could not carry both meanings, which is the defect.
-	WireMaxOutputTokens   interface{} // __sent_wire_max_output_tokens
-	ThinkingReserveTokens interface{} // __sent_thinking_reserve_tokens
-	ThinkingTokens        interface{} // __usage_thinking_tokens — billed as output
-	TotalOutputTokens     interface{} // __usage_total_tokens
+	// This is ONE field rather than four set individually, and that is the whole
+	// design. There are SEVEN LogLLMCall sites, not the two this fix originally
+	// touched — the council's guardian seat asked for the enumeration and it found
+	// five more (companies_house_llm_review_action.go x2,
+	// vet_med_price_scrape_action.go x3). Four separate fields make "I updated
+	// three of them" and "this site sets none" both representable and both silent;
+	// a single map cannot be partially populated. Passing it is the only thing a
+	// call site has to remember, and forgetting yields four honest NULLs rather
+	// than a mix.
+	//
+	// vet_med's three sites hardcode Provider: "ollama" and can never produce
+	// thinking, so they leave this nil deliberately. companies_house reads its
+	// provider from config and CAN be pointed at Gemini, so it must pass it.
+	Options map[string]interface{}
 }
 
 // thinkingTelemetry extracts the four thinking-model fields the AI client leaves

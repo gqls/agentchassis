@@ -93,3 +93,33 @@ func TestThinkingTelemetry_WrongTypeIsTreatedAsAbsent(t *testing.T) {
 		t.Fatalf("a non-int value must be treated as absent, got %#v", thinking)
 	}
 }
+
+// The council's guardian seat asked for the LogLLMCall call-site enumeration and
+// it found SEVEN, not the two this fix first touched. The structural answer was to
+// collapse four settable fields into one Options map, so a site can no longer set
+// some-but-not-all. This pins that: the params struct must expose no individually
+// settable thinking column, or the partial-population failure mode is back.
+func TestLLMCallLogParams_ExposesOptionsNotFourSettableFields(t *testing.T) {
+	p := LLMCallLogParams{Options: map[string]interface{}{
+		"__usage_thinking_tokens": 2878,
+	}}
+	wire, reserve, thinking, total := thinkingTelemetry(p.Options)
+	if v, ok := thinking.(int); !ok || v != 2878 {
+		t.Fatalf("thinking must come from Options, got %#v", thinking)
+	}
+	if wire != nil || reserve != nil || total != nil {
+		t.Fatal("keys absent from Options must stay nil, not be invented")
+	}
+}
+
+// vet_med_price_scrape_action.go's three sites hardcode Provider: "ollama" and
+// pass no Options. That must yield four NULLs rather than four zeroes — an ollama
+// row asserting "spent 0 thinking tokens" would be a measurement nobody made.
+func TestLLMCallLogParams_OmittedOptionsYieldsAllNull(t *testing.T) {
+	p := LLMCallLogParams{Provider: "ollama"}
+	wire, reserve, thinking, total := thinkingTelemetry(p.Options)
+	if wire != nil || reserve != nil || thinking != nil || total != nil {
+		t.Fatalf("a site that passes no Options must log NULLs, got %#v %#v %#v %#v",
+			wire, reserve, thinking, total)
+	}
+}

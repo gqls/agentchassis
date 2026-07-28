@@ -174,6 +174,7 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 				ErrorMessage:    err.Error(),
 				Temperature:     sentTemperature,
 				MaxTokens:       sentMaxTokens,
+				Options:         llmOptions,
 			})
 
 			continue
@@ -204,6 +205,7 @@ func CHLLMReviewAction(ctx context.Context, params ActionParams) (interface{}, e
 			Success:         true,
 			Temperature:     sentTemperature,
 			MaxTokens:       sentMaxTokens,
+			Options:         llmOptions,
 		})
 
 		decisions := parseReviewResponse(response, len(batch))
