@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 // AnthropicClient implements the AIService interface for Anthropic's Claude
@@ -58,9 +59,16 @@ func NewAnthropicClient(ctx context.Context, config map[string]interface{}) (*An
 		return nil, fmt.Errorf("no AI model selected")
 	}*/
 	return &AnthropicClient{
-		apiKey:     apiKey,
-		model:      model,
-		httpClient: &http.Client{},
+		apiKey: apiKey,
+		model:  model,
+		// Ceiling, not a per-call bound — callers still bound calls via ctx.
+		// The chassis's action path carries NO deadline end-to-end, so without
+		// this a stalled connection holds the consume lane until a pod roll
+		// (bugs_open/130: one call waited 30 minutes and was freed only by
+		// pod shutdown). 600s = 1.66x the slowest successful call in 44k
+		// logged calls; a hang now surfaces in llm_call_log as
+		// "Client.Timeout exceeded" at ~600,0xx ms.
+		httpClient: &http.Client{Timeout: 600 * time.Second},
 	}, nil
 }
 

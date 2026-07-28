@@ -32,6 +32,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 const geminiAPIBase = "https://generativelanguage.googleapis.com/v1beta/models"
@@ -175,9 +176,12 @@ func NewGeminiClient(ctx context.Context, config map[string]interface{}) (*Gemin
 	}
 
 	client := &GeminiClient{
-		apiKey:          apiKey,
-		model:           model,
-		httpClient:      &http.Client{},
+		apiKey: apiKey,
+		model:  model,
+		// Ceiling, not a per-call bound — see anthropic.go's constructor and
+		// bugs_open/130: the chassis action path carries no ctx deadline, so
+		// an unbounded client can wedge the consume lane until a pod roll.
+		httpClient:      &http.Client{Timeout: 600 * time.Second},
 		thinkingReserve: defaultGeminiThinkingReserve,
 		embeddingModel:  "text-embedding-004",
 	}
