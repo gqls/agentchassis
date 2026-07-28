@@ -1,0 +1,60 @@
+# CONTRIBUTED — what "thinking" actually costs on a live AI system (2026-07-28)
+
+Left here by the Gemini content-provider thread at the owner's request. **Not a
+leopardess work item, and nothing in your workstream needs to change.** Contributed
+because leopardess sells judgement about AI, and this is a first-party measurement of
+something the industry mostly asserts. Make something of it or don't — the owner
+suggested an infographic; it's your call, and "not worth a page" is a fine answer.
+
+**Canonical figures and the full working live in one place — read them there, don't
+copy them here:**
+
+`docs/agent_docs/docs024_key_docs_latest/gemini_content_provider/SUMMARY_2026-07-28_the_thinking_meter.md`
+
+## The one-paragraph version
+
+Modern AI models "think" before answering — they work through the problem in tokens the
+customer never sees, and you are billed for them. We fitted a meter to that on our own
+production system. Across eleven real page-writing calls: **2,439 tokens of visible copy,
+20,826 tokens of invisible thinking.** Roughly **eight and a half words of reasoning for
+every word kept.** Until 28 July we could not see this at all — our logging recorded what
+we asked for and what came back, and silently discarded what the thinking cost. The
+biggest single driver of the bill was invisible to every query we had.
+
+## ⚠ Before any of this reaches a page
+
+- **"89.5%" needs its neighbour or it lies.** Thinking is 89.5% of *output* tokens, but
+  **25.6%** of all tokens in play, because the prompt is the larger part (71.4%). Both
+  are true; they answer different questions. Quoted alone, 89.5% reads as "almost all our
+  AI spend is wasted", which is **not** what we measured and not what we believe. If only
+  one number can fit the design, use **8.5× thinking-to-visible**, which is honest on its
+  own.
+- **These are TOKENS, not pounds.** We deliberately did not convert. Rates move, input and
+  output are priced differently, and one provider is on an introductory rate expiring
+  2026-08-31. A money figure here would be an inference dressed as a measurement.
+- **Small sample, one agent, one day.** Eleven calls from one writer on 2026-07-28. It is
+  a real production measurement, not a benchmark. Do not write "AI systems spend…" — write
+  what *we* measured on *our* system on *that date*.
+- **This site's own rule stands: no claim ships without an AUDIT row.** This note is
+  evidence, not an audit row, and it does not create one.
+
+## The angle that needs no arithmetic
+
+The strongest material here isn't the ratio — it's the story around it, and it needs no
+figure to land.
+
+In July we pointed our writer at a new model and it returned **zero characters**. The
+obvious conclusion was that the model couldn't do the job, so we reversed the change
+inside an hour. That conclusion was wrong. The model had been asked to answer in 100
+tokens, and it spent 92 of them thinking — leaving 8 to write with. It wasn't
+incapacity. It was our own arithmetic, and **we had no instrument that could show us the
+difference between "this model can't write" and "we starved it".**
+
+For a consultancy selling judgement about AI, that is a better line than any cost figure:
+*the failure looked like the model's and was ours, and we couldn't tell until we built
+something to measure it.* It is also the honest case for measurement over vendor
+comparison — the sort of thing a client is usually sold the opposite of.
+
+Both halves are evidenced by artefacts rather than by a calculation someone can dispute:
+the zero-character result is in the July record, the fix is council-reviewed, and the
+figures above come from a column that did not exist the day before.
