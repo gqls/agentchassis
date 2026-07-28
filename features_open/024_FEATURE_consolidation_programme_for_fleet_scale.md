@@ -9,10 +9,21 @@ bundled. Two items have a live consumer waiting; one is a recommended **won't-do
 > SMTP anywhere in the built code. `httpguard.ClientIP` carries the `bugs_open/090`
 > hardening and its regression test is **verified to fail** when the original
 > defect is reintroduced.
-> Council **corr `c43a1166-7a34-47de-97f2-ade22d342455`, verdict PENDING** — the
-> commits carry **no `Council-Reviewed:` trailer** and must not gain one until
-> `decided_by` is read and says APPROVED (a REVISE would make the trailer a
-> permanent false claim; that mistake was made in this repo on 2026-07-25).
+> Council **APPROVED 2026-07-28 09:25, corr `6db59c8b-829f-4e4f-8273-511e1714d6ce`**
+> (`complete_approved`, no veto). The two code commits **carry no
+> `Council-Reviewed:` trailer and never will** — the verdict post-dates them and
+> history is forward-only, so a trailer here would be a claim the commit could not
+> have honoured. Recorded instead; `098` will list them as un-reviewed and that is
+> the report being accurate, not a defect. A follow-up commit in this lane may
+> carry the trailer.
+>
+> The FIRST submission (`c43a1166`) never reached the council: it died at
+> `complete_invalid` on three schema-type errors of mine — `operation: "create"`
+> (not in the allowlist; a new file is `add`), `grounded_in` as objects (it is
+> `[]string`), `risks` as an array (it is a `string`). That failure is near
+> invisible — no verdict row reads exactly like "still queued". Fixed forward for
+> everyone: `097` now type-checks all three client-side (`be0f6aa16`), each check
+> verified to reject the exact shape that failed.
 > **Adoption is NOT done and is the next step**: wiring `httpguard` into
 > `internal/tools-api/middleware/` touches the gauntlet workstream's service, which
 > has `bugs_open/083` open against it — coordinate first.
