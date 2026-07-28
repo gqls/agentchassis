@@ -2883,3 +2883,115 @@ Both records now resolve on both authoritative servers and publicly:
 SERVFAIL sub-zone is repaired. **Owner asked whether to quote the TXT value: no — enter it bare.**
 The quotes `dig` prints are its display convention for a TXT character-string, not data; a panel
 that wants them adds them itself, and typing them into one that does not gets a literal `"` stored.
+
+### §X.28 — the specimen page, the objection answered, and an £8 tier that ships switched off (2026-07-28 late)
+
+#### 1. The specimen page is LIVE — `/report/example/index.html`
+
+Owner ruled: use an existing report, refresh later. Source is his **own** vet price-comparison
+idea (`ord_1785090638951163875`, sold and delivered 26 July) — never a customer's, and explicitly
+not the test order's.
+
+**Provenance is the product here, so it is stated on the page:** the analysis is reproduced in full
+and verbatim; the only changes are two typographical corrections (the doubled full stop, and the
+score line reading `out of 5 —` with the number missing), both faults in our own renderer at the
+time and both fixed in the software since. Publishing our own formatting bugs would misrepresent
+the product in the other direction.
+
+The stored `report_html` could **not** be reused — it carries email-specific inline styling and its
+own chrome. Converted from the text report to semantic HTML: 4 section headings, 9 subheadings, 11
+source links, 0 residual defects, verified on the published page.
+
+#### 2. RUNBOOK TRAP 1b — a missing REQUIRED field escalates the page to the LLM writer
+
+The first build reported `COMPLETED` and produced nothing. **Not** the documented `slot_name` trap —
+those were correct. `generic-text-block` requires **`heading`** as well as `content`, and
+`rerender_page_sections_action.go:273` escalates the whole page to the content writer rather than
+rendering it incomplete.
+
+**The tell is an absence, not a value.** The `slot_name` trap gives `{"rerendered":0,"carried":3}`.
+This gives **neither key**, plus `escalated:true`. A check of "rendered == section_count" reads the
+NULL as a zero and sends you after the wrong cause entirely.
+
+**And the near-miss:** that escalation raised a `needs_page` item for `page-build-handler`, **which
+regenerates copy with an LLM.** On this page — which publishes the claim that nothing was reworded —
+letting it run would have made a live provenance statement false, silently, with the job green.
+Cancelled before it was claimed. `p4_27` now refuses to dispatch if any required field is missing.
+Written up as RUNBOOK TRAP 1b with the query that names every gap across every section at once.
+
+#### 3. The six card links now do what they say
+
+All six carried `link_url: '/report'` — the **same page**, byte-identical — while promising "See an
+example" and "View specimen report". Repointed once the specimen returned 200, **not before**:
+pointing them at a page that was not yet live would have turned a self-link into a 404, which is
+worse than the defect. Five go to the example; "A specific next step" goes to the form anchor,
+because it is a call to action rather than a demonstration. **0 cards still self-link.**
+
+#### 4. "Couldn't I just ask an AI myself?" — live at 66% down the page
+
+Answers the objection every visitor already has. Sequence on the page now reads: cards (58%) →
+objection (66%) → CTA (68%) → form (73%).
+
+**Two rounds of owner feedback, and the second is the transferable one.** V1 was rejected as "too
+long and it sounds like AI (with negative framing and too many *not*s)". He was right: the copy kept
+defining things by what they were **not** — "we won't identify you", "this is not a promise",
+"nothing else changes". **Stacked negatives are a reliable machine-written tell, and the fix is to
+say what the thing IS.** V2 is about half the length in positive constructions, same content.
+
+#### 5. The name-and-link offer: proposed, then dropped — and the reason generalises
+
+Owner's idea: publish the example with the submitter's name and a link to their site, so the £8
+reads as exposure too. Then he killed it himself, on the sharpest objection available: **we will not
+publish rude or poor submissions, so we cannot promise publication — and a link is a promise whose
+delivery depends on what they send us.**
+
+**A veto and a promise cannot both be honest.** Advertise a link for £8 and we owe it to everyone who
+pays, including the ones we would refuse.
+
+> **Transferable: do not attach a benefit to a transaction when delivering that benefit depends on
+> the quality of what the customer supplies.** Either you publish things you would rather not, or
+> you break a promise to someone who paid. The report has no such problem — we can always deliver
+> that, whatever arrives.
+
+Two supporting reasons pointed the same way: we could not have supported an SEO claim from a site
+with 26 non-bot views in ten days; and selling a link makes it a **paid** link, which search engines
+expect to carry `rel="sponsored"`/`nofollow` — so the version safe to offer is the version with
+little to offer.
+
+#### 6. The £8 example place — built, tested, and SHIPPED OFF
+
+`EXAMPLE_PRICE_GBP` and `EXAMPLE_MAX_PLACES` both default to **0**, so the binary cannot start
+selling cheap reports the moment it rolls. Turning it on is a deliberate act.
+
+**The substantive change was moving price from the PROCESS to the ORDER.** It lived on
+`StripeProvider` and was read from config at checkout time, so a price change while an order sat
+between `requested` and `paid` would have billed someone a figure they were never quoted.
+`CreateCheckout` now takes the amount per call; `sendPayLink` reads the price **once** and uses it
+for both the charge and the email announcing it — reading config for the email while the provider
+charged its own figure is exactly how those two come to disagree.
+
+Three decisions worth keeping:
+
+- **Consent is stored, never inferred from the price.** An operator can change a price; a permission
+  cannot be reconstructed from one. The cheap price and the tick are ONE decision — asking without
+  ticking gets the standard price, ticking without asking records no consent. Both directions tested.
+- **`ConsentedCount` includes declined and expired orders.** The cap bounds how many people we have
+  made a publication promise to, and declining to run a report does not un-ask the question.
+- **`CreateCheckout` refuses a non-positive price.** Stripe would accept a £0 line item and charge
+  nothing — a far worse failure than an error.
+
+The dead `priceGBP` field was **removed** from `StripeProvider` rather than left behind: a field
+that looks like it sets the price and no longer does is a trap for the next reader.
+
+**Not done, because all three amount to switching it on:** owner sign-off on the consent wording;
+the form's tier choice and consent box (a chassis change — the box must be unticked by default with
+the wording visible at that moment); and setting the two env vars. It is a money path, so it wants
+the `bugs_closed/089` treatment — induce it against the live service and watch an £8 order produce
+an £8 checkout — rather than trust in a green suite.
+
+#### 7. Verified together, because four page changes landed in one day
+
+cards → example (6 links), 0 self-linking, 3 form-anchor links, no hero→`/contact.html` regression,
+5 `maxlength` attributes intact. **Each change was verified against the live page after the next one
+shipped**, not only when it landed — a later rerender is exactly when an earlier content_data fix
+quietly disappears.
