@@ -9761,3 +9761,46 @@ than a defence.
 later: not in the query, not in the question, but in the **reading of the output**.
 The tell is a suspiciously round, suspiciously small count — *one* hit, *zero*
 collisions — reported without the hits themselves being listed.
+
+---
+
+## 2026-07-28 — "no council seat sets `max_tokens`" (council parallelism thread)
+
+**The claim, written into a committed handoff:** *"No seat sets `max_tokens`. All
+16 set `tolerate_truncation: true` and leave `max_tokens` NULL (live
+`agent_definitions` row)."* Every seat sets it, uniformly **8000**.
+
+**How it happened.** I queried `value->'config'->>'max_tokens'` across the 16
+`review_*` steps, got NULL for all 16, and reported "not set". The real path is
+one level deeper — `config.ai_service.max_tokens`. I had already made the same
+mistake minutes earlier: an "always-on seats" query on
+`value->'config'->>'relevance_footprint'` returned NULL for all 16, which I
+briefly read as *"all seats always run"* when it equally meant *"wrong path"*.
+**A uniform result across every row is the tell** — real config drifts; sixteen
+identical NULLs usually means the query missed, not that the fleet agrees.
+
+**What caught it.** Two sources disagreeing about one field: `llm_call_log` had
+`max_tokens = 8000` on every row while my config query said NULL. Neither reading
+was checked against the other until the numbers collided.
+
+**The cheap check that would have.** Print the object **once**, instead of
+guessing a path three times:
+
+```sql
+SELECT jsonb_pretty((default_config->'workflow'->'steps'->'review_editquality')
+                    - 'prompt' - 'prompt_template')
+FROM agent_definitions WHERE type='council-gate' AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL;
+```
+
+**The transferable bit.** `->>` returns NULL for *"key absent"* and for *"path
+wrong"* identically, so **a NULL is never evidence that a setting is unset until
+the path itself is proven**. When a config query returns NULL, the next query
+should widen (print the object), not narrow (try another guessed path). Cost here
+was low only because the correction landed in the same session, before anyone
+acted on it — the claim was already committed, and the fix it implied
+("set a `max_tokens` nobody sets") would have been aimed at the wrong thing.
+
+**Recurrence.** Same family as *"a check answers the question you ENCODED"*, in
+the schema layer: the query was well-formed, ran clean, and answered a question
+about a path that does not exist.

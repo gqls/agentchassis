@@ -273,8 +273,44 @@ did not reduce:
 - **It is concentrated**: over 24h, `review_editquality` 10 events (6
   unsalvageable / 4 salvaged); `deferral_honesty` 2; `checkability`, `guardian`,
   `guidelines`, `prior_art` 1 each.
-- **No seat sets `max_tokens`.** All 16 set `tolerate_truncation: true` and leave
-  `max_tokens` NULL (live `agent_definitions` row).
+- ~~**No seat sets `max_tokens`.** All 16 set `tolerate_truncation: true` and
+  leave `max_tokens` NULL (live `agent_definitions` row).~~
+
+> **CORRECTED 2026-07-28 21:40, same session, before anyone acted on it — the
+> claim above is FALSE and the truth is a stronger case, not a weaker one.**
+> **All 16 seats DO set `max_tokens`, uniformly `8000`**, at
+> `config.ai_service.max_tokens` (with `tolerate_truncation: true` one level up at
+> `config.tolerate_truncation`).
+>
+> **What caught it:** `llm_call_log` showed `max_tokens = 8000` on every row while
+> my config query said NULL — two sources disagreeing about the same field.
+> **The error:** I read a NULL from `value->'config'->>'max_tokens'` as *"not
+> set"* when it meant *"wrong path"* — the real key is one level deeper. The same
+> mistake made all 16 seats look always-on in an earlier query
+> (`relevance_footprint` is not at the path I guessed either, so **that table said
+> nothing and no always-on claim should be drawn from it**).
+> **The cheap check I skipped:** print the object once (`jsonb_pretty`, minus the
+> prompt) instead of guessing a path three times. A `->>` NULL is indistinguishable
+> from a missing key, so NULL is never evidence of "unset" until the path is proven.
+
+**The corrected mechanism — the ceiling is real, uniform, and too low for the
+verbose seats.** From `llm_call_log` over 24h, `review_editquality`:
+
+| | |
+|---|---|
+| calls | 48 (28 success, 20 failed) |
+| **truncated at the ceiling** | **12 — `TOLERATED …: response truncated: stop_reason=max_tokens`** |
+| successful output | avg **5504**, max **7773**, against `max_tokens` **8000** |
+
+So the seat truncates on **25% of its calls**, and when it does *not* truncate it
+is still running within ~230 tokens of the cap. Other seats sit against the same
+ceiling: `guidelines` max 7727, `guardian` max 7637, `checkability` avg 6330.
+
+**A trap worth carrying:** the obvious detector for this —
+`count(*) FILTER (WHERE output_tokens >= max_tokens)` — returns **0**, because the
+truncated rows are exactly the rows with `output_tokens IS NULL`. **The metric is
+structurally blind to the event it appears to measure.** Count
+`error_message LIKE 'TOLERATED%'` instead.
 
 The platform already names the remedy, in the code that emits these very rows —
 `platform/orchestration/actions/diagnose_council_decide_action.go:582-583`:
