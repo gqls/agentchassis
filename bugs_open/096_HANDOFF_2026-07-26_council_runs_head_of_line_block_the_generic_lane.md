@@ -550,3 +550,20 @@ nil — but it means "all council traffic is off the generic lane" remains
 **false as a blanket statement**, and a future reader measuring after someone runs
 that script should not be confused by it. Whoever owns 034 should switch that
 line.
+
+---
+
+### CONTRIBUTED 2026-07-28 ~15:05 (work-item parallelisation thread) — Candidate 4's wrapper COMPLETED on its first post-fix attempt
+
+Re-ran the wrapper (`TARGET_AGENT_TYPE=council-gate-orchestrator`, corr
+`dd30cb5c…`, run `2e49db3c…`) after today's response-side fixes went live
+(responses through the worker pool; `CHASSIS_RESPONSES_START_AT=latest`; the
+queue-vs-timeout treadmill mechanism closed). Result: **COMPLETED | complete**
+— spawn fired, `agent-council-gate-593cd1c1` booted, `call_council` received
+the child's response and the wrapper finished. The same path failed at
+`call_council` with "timed out after 3 retries" on 07-27 and ~half the time
+historically. The child's seats themselves died on the fleet LLM spend cap
+(dark until 08-01), which is irrelevant to the handshake and made the test
+free. One run is not a rate: recommend two or three more wrapper runs after
+08-01 (when verdicts are real) before flipping `097`'s default
+`TARGET_AGENT_TYPE` — that flip stays this file's owner's call.
