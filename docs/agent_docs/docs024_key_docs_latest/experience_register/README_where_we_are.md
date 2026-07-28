@@ -308,3 +308,55 @@ deliberately so — the version of the code running in production right now is t
 wrong idea of an entry, so it would refuse everything. The corrected version is committed and
 needs the next build to go out. After that, the nine harvested entries can go in, and then the
 remaining piece is binding them to a real site's pages so the checks run by themselves.
+
+---
+
+**2026-07-28 — the library has things in it now, and putting them in was the most useful thing
+we've done all week.**
+
+The build went out overnight carrying the corrected code, so this morning I pointed the loader at
+the nine entries we harvested at the weekend.
+
+**It rejected six of them.** Every rejection was right, and I'd rather walk through them than
+summarise, because collectively they're the argument for the whole exercise.
+
+One entry's test referred to a value that was never defined anywhere. Nothing would have caught
+that at run time — the test would simply have typed the placeholder's own name into the box and
+sailed through. That's the failure mode this checker was built for and I'd written an instance of
+it myself without noticing.
+
+Five entries had tests carrying a "must be at least N of these" setting. It turns out **nothing in
+our system reads that setting** — I checked the source rather than my own notes. So those tests
+asserted "at least one" while claiming to assert a number. One of them is called *at_least_two_cards*
+and exists specifically because a carousel's arrows should only appear when there are two or more
+cards. It was asserting the opposite of its own name.
+
+And all nine had put a placeholder into the field that decides *when* a pattern gets offered — so
+they'd have been invisible to the thing that picks patterns, permanently. That's the sort of error
+that produces no symptom at all: nothing breaks, the feature just never happens.
+
+Two of the six were my own bugs, in the checker rather than the entries. Both the same mistake I've
+now made three times this week: I'd hand-written a list of the places to go looking, and the list
+was missing entries. Fixed the way the others were — stop keeping a list, look everywhere.
+
+**What came out of it is better than a clean run would have been.**
+
+The library now holds nine entries with twenty-nine working checks — and twenty-three checks it has
+honestly labelled as *things our testing cannot do yet*, each with its reason. That's not
+housekeeping. Sorted by what fixing each would buy us, it's a work list:
+
+Being able to ask "does this element carry this attribute?" would unblock **seven** blocked checks
+across **seven of the nine** entries. It's far and away the biggest single win. And it happens to be
+the dead-link rule — the one we found independently reinvented in six different places, the reason
+this whole workstream started. **We cannot currently check the rule the register was built to
+enforce.**
+
+I want to be clear that this wasn't visible before. We knew our testing had gaps; we'd written a
+rough note about it on Sunday. What we didn't have was the gaps *ranked by how much they cost us*,
+and you only get that by writing the behaviour down formally and asking the system what it can do
+with it. That's the register earning its keep for the first time — not by storing anything, but by
+making a question answerable.
+
+Next is the part that makes it a safety net rather than a library: binding an entry to one real
+site's actual pages, so its checks run on their own. That's where the four dead carousel links I
+found by hand on Sunday become something the system reports without anyone looking for them.
