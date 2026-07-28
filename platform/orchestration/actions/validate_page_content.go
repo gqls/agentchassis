@@ -18,15 +18,27 @@
 //      persisted as page content (robot-hands 2026-07-14: a section stored
 //      "The data schema for this section requires product array data…"
 //      as its rendered copy)
-//   8. Claims vs evidence base (opt-in per site) — when the site has a
-//      site_specs 'evidence_base' aspect: banned-claim patterns (the site's
-//      own audited-out fabrications; blocker — these are KNOWN falsehoods)
-//      and unregistered numbers (numbers asserted as facts about the
-//      business that no evidence_base fact supports; error — extraction has
-//      false positives, and error already routes to a human). Sites without
-//      an evidence_base skip both silently. Scans parse assertion TEXT
+//   8. Claims vs evidence base — TWO HALVES WITH DIFFERENT OPT-IN RULES:
+//      banned-claim patterns are FLEET-WIDE plus per-site (blocker — these are
+//      KNOWN falsehoods) and run on EVERY site whether or not it has a
+//      site_specs 'evidence_base' aspect, so a site nobody armed and every new
+//      site on its first build are still protected (bugs_open/104, see
+//      datahelpers/claims_global.go); unregistered numbers (numbers asserted as
+//      facts about the business that no evidence_base fact supports; error —
+//      extraction has false positives, and error already routes to a human)
+//      remain strictly opt-in and are skipped silently on a site with no
+//      evidence_base. Scans parse assertion TEXT
 //      NODES, never raw HTML (an email/number in a placeholder= attribute or
 //      <code> sample is not an assertion). See SPEC_claims_verification.
+//      The unregistered-number half additionally reads the page's STRUCTURAL
+//      type (bugs_open/102): its lexical gate cannot tell an explainer's worked
+//      example from a sales claim, so prose numbers are not scanned on editorial
+//      page types (guide, blog-post, tool, …). Banned claims are scanned on
+//      every page type — a known falsehood is one wherever it is written, and
+//      the case that motivated this layer was found on a guide. Page type is
+//      read from page_record.page_type (load_page_record populates it) and is
+//      UNKNOWN when no caller supplies it, which scans. See resolvePageType
+//      and datahelpers.ClaimSurface.
 //
 // Returns:
 //   - valid: bool (false if any blockers or errors found)
@@ -272,13 +284,27 @@ func ValidatePageContentAction(ctx context.Context, params ActionParams) (interf
 	// 7. LLM meta-commentary persisted as content
 	issues = append(issues, checkMetaCommentary(htmlStr)...)
 
-	// 8. Claims vs evidence base (opt-in: no-op when the site has none)
+	// 8. Claims vs evidence base. The two halves have DIFFERENT opt-in rules and
+	//    that is deliberate (bugs_open/104):
+	//      - banned claims are FLEET-WIDE and scan with or without a site
+	//        register, so a site nobody has armed — and every new site on its
+	//        first build — is still protected against the universal shapes;
+	//      - the numeric scan stays strictly opt-in on the register's presence,
+	//        because its false-positive rate is why it is never a blocker.
 	if checkClaims && params.DB != nil && siteIDStr != "" {
 		if siteID, err := uuid.Parse(siteIDStr); err == nil {
-			if eb := loadEvidenceBase(ctx, params.DB, siteID, logger); eb != nil {
-				blocks := datahelpers.ExtractAssertionText(htmlStr)
-				issues = append(issues, checkBannedClaims(blocks, eb)...)
-				issues = append(issues, checkUnregisteredNumbers(blocks, eb)...)
+			eb := loadEvidenceBase(ctx, params.DB, siteID, logger) // nil = no register; still scanned below
+			blocks := datahelpers.ExtractAssertionText(htmlStr)
+			issues = append(issues, checkBannedClaims(blocks, eb)...)
+			if eb != nil {
+				// The page's structural type gates the PROSE number heuristic
+				// only (bugs_open/102) — banned claims are scanned on every
+				// page type. Unresolved page type means "unknown", which
+				// scans; see datahelpers.ClaimSurface.
+				surface := datahelpers.ClaimSurface{
+					PageType: resolvePageType(config, params.CollectedData, logger),
+				}
+				issues = append(issues, checkUnregisteredNumbers(blocks, eb, surface)...)
 			}
 		}
 	}
@@ -939,12 +965,19 @@ func checkEmails(html, officialEmail string) []ValidationIssue {
 // (check_unverified_claims), so the gate and the audit agree by one literal
 // implementation on what counts as an asserted claim.
 
-// checkBannedClaims flags the site's own audited-out fabrications. Severity is
-// blocker: every pattern in banned_claims is a KNOWN falsehood for this site,
-// placed there by a human after an audit ruled the claim out.
+// checkBannedClaims flags fabrications from two sources: the fleet-wide set
+// (claims no site may make about itself) and this site's own audited-out
+// patterns. Severity is blocker for both — a per-site pattern is a KNOWN
+// falsehood placed there by a human after an audit, and a fleet-wide pattern is
+// false by construction for every site we run.
+//
+// eb may be nil: a site with no evidence_base row is still scanned against the
+// fleet-wide set. That is bugs_open/104's fix — see claims_global.go for why the
+// set is joined at scan time rather than unioned into the parsed EvidenceBase,
+// and for the pattern deliberately excluded from it.
 func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase) []ValidationIssue {
 	var issues []ValidationIssue
-	for _, f := range eb.ScanBannedClaims(blocks) {
+	for _, f := range datahelpers.ScanAllBannedClaims(blocks, eb) {
 		issues = append(issues, ValidationIssue{
 			Type:        "banned_claim",
 			Category:    "claims",
@@ -957,13 +990,48 @@ func checkBannedClaims(blocks []string, eb *datahelpers.EvidenceBase) []Validati
 	return issues
 }
 
+// pageTypeFallbackPaths are the collected-data locations a page's type can be
+// read from, in priority order. page_record is the one the build path actually
+// populates (load_page_record selects page_type and page-build-handler runs it
+// before validate_content); the others are the same shapes load_page_record
+// itself falls back through, so a workflow that carries the page under a
+// different key is not silently treated as unknown.
+var pageTypeFallbackPaths = []string{
+	"page_record.page_type",
+	"current_page.page_type",
+	"input_data.spec.page_type",
+	"input_data.page_type",
+}
+
+// resolvePageType finds pages.page_type for the content under validation.
+//
+// Returns "" when no caller supplied it — site chrome, a reviewer working on a
+// component, a page that does not exist yet. That is UNKNOWN, and unknown scans
+// exactly as before (datahelpers.ClaimSurface): a page-type-blind scan is the
+// status quo, a page-type-blind SKIP would be new blindness.
+func resolvePageType(config map[string]interface{}, collectedData map[string]interface{}, logger *zap.Logger) string {
+	if pt := resolveConfigString(config, "page_type", collectedData, logger); pt != "" {
+		return pt
+	}
+	for _, path := range pageTypeFallbackPaths {
+		if pt := extractNestedString(collectedData, path); pt != "" {
+			return pt
+		}
+	}
+	return ""
+}
+
 // checkUnregisteredNumbers flags numbers asserted as facts about the business
 // that no evidence_base fact supports. Severity is error — never blocker —
 // because number extraction has false positives by design, and error already
 // routes the page to a human (mark_needs_review) rather than deploying it.
-func checkUnregisteredNumbers(blocks []string, eb *datahelpers.EvidenceBase) []ValidationIssue {
+//
+// surface carries the page's structural type: on an editorial page type the
+// scan returns nothing at all, because its lexical gate cannot tell a worked
+// example from a claim (bugs_open/102).
+func checkUnregisteredNumbers(blocks []string, eb *datahelpers.EvidenceBase, surface datahelpers.ClaimSurface) []ValidationIssue {
 	var issues []ValidationIssue
-	for _, f := range eb.ScanUnregisteredNumbers(blocks) {
+	for _, f := range eb.ScanUnregisteredNumbers(blocks, surface) {
 		issues = append(issues, ValidationIssue{
 			Type:        "unregistered_number",
 			Category:    "claims",

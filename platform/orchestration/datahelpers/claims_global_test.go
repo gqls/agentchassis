@@ -1,0 +1,170 @@
+// FILE: platform/orchestration/datahelpers/claims_global_test.go
+//
+// Regression suite for the fleet-wide banned-claim set (bugs_open/104).
+//
+// The pass-list here is the point. The oufe pattern set was tested carefully
+// before it went live — 10 fabrication shapes blocked, 13 legitimate sentences
+// passed — and it still carried a false-positive class, because no test sentence
+// NEGATED one of its own patterns. Every negated fixture below is real copy taken
+// from a live site during the 2026-07-28 fleet dry run, and each one would have
+// failed a page build.
+
+package datahelpers
+
+import "testing"
+
+func globalFindings(t *testing.T, sentence string) []ClaimFinding {
+	t.Helper()
+	return ScanAllBannedClaims(ExtractAssertionText("<p>"+sentence+"</p>"), nil)
+}
+
+// ---------------------------------------------------------------------------
+// The set must be wired at all. A silently empty global set and a working one
+// are indistinguishable from every other test in this file.
+// ---------------------------------------------------------------------------
+
+func TestGlobalSetIsWired(t *testing.T) {
+	if n := GlobalBannedClaimCount(); n != 9 {
+		t.Fatalf("expected 9 fleet-wide patterns, got %d — if this changed deliberately, "+
+			"re-run the fleet dry run (see claims_global.go header) before editing this number", n)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// MUST BLOCK — one canonical fabrication per pattern.
+// ---------------------------------------------------------------------------
+
+func TestGlobalBlocksOverclaims(t *testing.T) {
+	mustBlock := []string{
+		"A claim without a source does not appear here.",
+		"Prices do not appear here.",
+		"If we cannot verify a figure, it doesn't appear.",
+		"Every claim on this site is verified.",
+		"You can rely on our analysis.",
+		"Our reporting is always accurate.",
+		"Guaranteed accurate pricing on every line.",
+		"Our method is not a disclaimer.",
+		"We are never wrong about a specification.",
+	}
+	for _, s := range mustBlock {
+		if f := globalFindings(t, s); len(f) == 0 {
+			t.Errorf("fleet-wide set did NOT block an overclaim: %q", s)
+		}
+	}
+}
+
+// The shape bugs_open/104 § "How to verify a fix" names explicitly, on a site
+// with no register of its own — which is the whole purpose of the fleet-wide set.
+func TestGlobalAppliesWithNoRegisterAtAll(t *testing.T) {
+	f := ScanAllBannedClaims(
+		ExtractAssertionText("<p>Every claim on this site is verified.</p>"), nil)
+	if len(f) != 1 {
+		t.Fatalf("a site with no evidence_base must still be protected: got %d findings, want 1", len(f))
+	}
+	if f[0].Check != "banned_claim" {
+		t.Errorf("check = %q, want banned_claim", f[0].Check)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// MUST PASS — negated forms. Real copy from the 2026-07-28 fleet dry run; each
+// of these was a FALSE POSITIVE that would have failed a live page build.
+// ---------------------------------------------------------------------------
+
+func TestGlobalDoesNotBlockNegatedDisclosure(t *testing.T) {
+	mustPass := []struct{ site, sentence string }{
+		{"robot-hands.com",
+			"Where manufacturer data has not been independently verified, that is stated explicitly."},
+		{"robot-hands.com",
+			"When a figure cannot be independently verified, it is marked as unverified rather than carried forward as fact."},
+		{"vonc.com",
+			"These reflect platform mechanics as of 2026 and are Spark's own assessment, not independently verified."},
+		{"robot-hands.com",
+			"Specifications come directly from manufacturer datasheets and, where available, independently verified test data."},
+	}
+	for _, c := range mustPass {
+		if f := globalFindings(t, c.sentence); len(f) != 0 {
+			t.Errorf("FALSE POSITIVE on live %s copy — %q matched %q (%s)",
+				c.site, c.sentence, f[0].Pattern, f[0].Reason)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// MUST PASS — legitimate process commitments. A site may describe what it DOES.
+// ---------------------------------------------------------------------------
+
+func TestGlobalDoesNotBlockLegitimateProcessCopy(t *testing.T) {
+	mustPass := []string{
+		"We cite each figure and date it.",
+		"The statute is the authoritative text.",
+		"We check our sources before we publish.",
+		// Owner ruling 2026-07-28: a claim about a site's own delivered work is
+		// not an accuracy overclaim. This is why the `every … is verified`
+		// pattern is narrowed to claim/content nouns.
+		"Every component is verified against production.",
+		// The same shape on other process outputs must also pass.
+		"Every deployment is checked against staging first.",
+	}
+	for _, s := range mustPass {
+		if f := globalFindings(t, s); len(f) != 0 {
+			t.Errorf("FALSE POSITIVE on legitimate copy: %q matched %q (%s)",
+				s, f[0].Pattern, f[0].Reason)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Union semantics with a site's own register.
+// ---------------------------------------------------------------------------
+
+// A per-site pattern and a fleet-wide pattern both apply.
+func TestScanAllUnionsPerSiteAndGlobal(t *testing.T) {
+	eb := mustParseTestEB(t) // leopardess register: "awards won", "peter grenfell", …
+	blocks := ExtractAssertionText(
+		"<p>Awards Won: three.</p><p>Our reporting is always accurate.</p>")
+
+	f := ScanAllBannedClaims(blocks, eb)
+	if len(f) != 2 {
+		t.Fatalf("want 2 findings (1 per-site + 1 fleet-wide), got %d", len(f))
+	}
+	var sawSite, sawGlobal bool
+	for _, x := range f {
+		if x.Pattern == "awards won" {
+			sawSite = true
+		}
+		if x.Reason == "self accuracy overclaim. Anchored to self, so 'the statute is authoritative' still passes." {
+			sawGlobal = true
+		}
+	}
+	if !sawSite || !sawGlobal {
+		t.Errorf("union lost a half: per-site=%v fleet-wide=%v", sawSite, sawGlobal)
+	}
+}
+
+// A site whose register carries a fleet-wide pattern verbatim — oufe does, via
+// migration 226 — must not report the same sentence twice.
+func TestScanAllDeduplicatesIdenticalPattern(t *testing.T) {
+	dup := globalBannedClaims()[6] // "guaranteed (accurate|correct|…)"
+	eb, err := ParseEvidenceBase([]byte(
+		`{"audit_doc":"x","facts":[],"banned_claims":[{"pattern":"` + dup.Pattern +
+			`","reason":"per-site copy of a fleet-wide pattern"}]}`))
+	if err != nil {
+		t.Fatalf("ParseEvidenceBase: %v", err)
+	}
+	f := ScanAllBannedClaims(
+		ExtractAssertionText("<p>Guaranteed accurate to the penny.</p>"), eb)
+	if len(f) != 1 {
+		t.Fatalf("an identical pattern in both sets must report once, got %d findings", len(f))
+	}
+}
+
+// The numeric scan must NOT be dragged fleet-wide by this change: it stays
+// strictly opt-in, because its false-positive rate is why it is never a blocker.
+func TestGlobalSetDoesNotArmTheNumberScan(t *testing.T) {
+	var nilEB *EvidenceBase
+	if f := nilEB.ScanUnregisteredNumbers(
+		ExtractAssertionText("<p>We serve 4,200 clients.</p>"), ClaimSurface{}); len(f) != 0 {
+		t.Errorf("a site with no register must raise no unregistered-number findings, got %d", len(f))
+	}
+}

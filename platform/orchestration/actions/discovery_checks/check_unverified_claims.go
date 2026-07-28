@@ -220,8 +220,13 @@ type pageClaimFindings struct {
 // ParseEvidenceBase returns nil for a row with no facts[] and no
 // banned_claims[], so a writer_block-only row reads as "not opted in" while the
 // writer block itself goes on working. Three sites sat like that for two days
-// with both claims checkers silently off. The HTML scans still need eb (they
-// have nothing to scan against without it); the stat scans use rowExists.
+// with both claims checkers silently off. The stat scans use rowExists.
+//
+// UPDATED 2026-07-28 (bugs_open/104): the HTML scans no longer split the same
+// way. The NUMBER scan still needs eb — it has nothing to compare a figure
+// against without one — but the BANNED-CLAIM scan runs on every site, register
+// or not, because the fleet-wide set is not per-site data. So eb == nil now
+// means "no site-specific patterns and no facts", not "skip the HTML scans".
 func loadEvidenceBaseForCheck(dctx DiscoveryCheckContext) (*datahelpers.EvidenceBase, bool, error) {
 	var data []byte
 	err := dctx.DB.QueryRowContext(dctx.Ctx, `
@@ -253,10 +258,15 @@ func loadEvidenceBaseForCheck(dctx DiscoveryCheckContext) (*datahelpers.Evidence
 // exactly what the next re-render WILL publish, unchecked.
 func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase, rowExists bool) ([]pageClaimFindings, []unverifiedClaimFinding, error) {
 	// page_components — body sections.
+	//
+	// p.page_type joins the select for bugs_open/102: it gates the prose number
+	// heuristic, which cannot tell a guide's worked example from a sales claim.
+	// The column was always in the row this query already reads — the layer
+	// simply never asked for it.
 	pageRows, err := dctx.DB.QueryContext(dctx.Ctx, `
 		SELECT pc.page_id::text, p.name, COALESCE(pc.slot_name, ''),
 		       COALESCE(pc.rendered_html, ''), COALESCE(cc.name, ''),
-		       COALESCE(pc.content_data::text, '')
+		       COALESCE(pc.content_data::text, ''), COALESCE(p.page_type, '')
 		FROM page_components pc
 		JOIN pages p ON p.id = pc.page_id
 		LEFT JOIN content_components cc ON cc.id = pc.component_id
@@ -275,12 +285,14 @@ func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase
 	var pageOrder []string
 
 	for pageRows.Next() {
-		var pageID, pageName, slotName, html, component, contentJSON string
-		if err := pageRows.Scan(&pageID, &pageName, &slotName, &html, &component, &contentJSON); err != nil {
+		var pageID, pageName, slotName, html, component, contentJSON, pageType string
+		if err := pageRows.Scan(&pageID, &pageName, &slotName, &html, &component,
+			&contentJSON, &pageType); err != nil {
 			dctx.Logger.Warn("unverified_claims: page scan error", zap.Error(err))
 			continue
 		}
-		findings := scanComponentClaims(html, slotName, eb)
+		findings := scanComponentClaims(html, slotName, eb,
+			datahelpers.ClaimSurface{PageType: pageType})
 		findings = append(findings, scanStoredStatClaims(
 			component, slotName, decodeContentData(contentJSON, dctx.Logger), eb, rowExists)...)
 		if len(findings) == 0 {
@@ -326,7 +338,12 @@ func scanDeployedClaims(dctx DiscoveryCheckContext, eb *datahelpers.EvidenceBase
 			dctx.Logger.Warn("unverified_claims: site scan error", zap.Error(err))
 			continue
 		}
-		siteFindings = append(siteFindings, scanComponentClaims(html, slotName, eb)...)
+		// Site chrome belongs to no page, so its surface is the zero value —
+		// UNKNOWN, which scans (bugs_open/102). A footer asserting "170 agents"
+		// is a business claim, and there is no page type that could say
+		// otherwise.
+		siteFindings = append(siteFindings, scanComponentClaims(html, slotName, eb,
+			datahelpers.ClaimSurface{})...)
 		siteFindings = append(siteFindings, scanStoredStatClaims(
 			component, slotName, decodeContentData(contentJSON, dctx.Logger), eb, rowExists)...)
 	}
@@ -359,16 +376,33 @@ func decodeContentData(contentJSON string, logger *zap.Logger) map[string]interf
 
 // scanComponentClaims runs both shared HTML scans over one component's markup.
 //
-// Gated on eb: with no register there is nothing to compare prose against, and
-// flagging every number on a site that never opted in would be noise, not a
-// finding. (The stat scans are different — see scanStoredStatClaims.)
-func scanComponentClaims(html, slotName string, eb *datahelpers.EvidenceBase) []unverifiedClaimFinding {
-	if eb == nil || html == "" {
+// The banned-claim half is NOT gated on eb (bugs_open/104): the fleet-wide set
+// applies to every site, armed or not, and ScanAllBannedClaims is nil-safe. The
+// NUMBER half still is — with no register there is nothing to compare prose
+// against, and flagging every number on a site that never opted in would be
+// noise, not a finding. (The stat scans are different — see
+// scanStoredStatClaims.)
+//
+// This deliberately mirrors the build gate (validate_page_content check 8) rather
+// than gating differently: the two surfaces are documented to agree by one
+// literal implementation, and a fix applied to one branch of a two-branch
+// enforcement path is how 016b §9's "reads as done, other branch keeps the bug"
+// entry got written. Note this half of the layer is currently unreachable —
+// improvement-sweep has been disabled since 2026-05-02 (bugs_open/083) — so the
+// change is inert here today and correct when that is re-enabled.
+//
+// surface gates the NUMBER scan only (bugs_open/102). The banned scan below is
+// deliberately not gated by it: this check's own motivating case was a banned
+// claim living on a guide page (see the file header), and a pattern a human
+// audited out is a falsehood on any page type.
+func scanComponentClaims(html, slotName string, eb *datahelpers.EvidenceBase,
+	surface datahelpers.ClaimSurface) []unverifiedClaimFinding {
+	if html == "" {
 		return nil
 	}
 	blocks := datahelpers.ExtractAssertionText(html)
 	var out []unverifiedClaimFinding
-	for _, f := range eb.ScanBannedClaims(blocks) {
+	for _, f := range datahelpers.ScanAllBannedClaims(blocks, eb) {
 		out = append(out, unverifiedClaimFinding{
 			Check: f.Check, SlotName: slotName, Matched: f.Matched,
 			Pattern: f.Pattern, Reason: f.Reason, Snippet: f.Snippet,
@@ -377,7 +411,7 @@ func scanComponentClaims(html, slotName string, eb *datahelpers.EvidenceBase) []
 			Severity: "high", Source: "rendered_html",
 		})
 	}
-	for _, f := range eb.ScanUnregisteredNumbers(blocks) {
+	for _, f := range eb.ScanUnregisteredNumbers(blocks, surface) {
 		out = append(out, unverifiedClaimFinding{
 			Check: f.Check, SlotName: slotName, Matched: f.Matched,
 			Reason: f.Reason, Snippet: f.Snippet, Occurrences: f.Occurrences,
