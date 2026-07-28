@@ -8,6 +8,9 @@
 package discovery_checks
 
 import (
+	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -229,5 +232,69 @@ func TestEvaluateStaticCriteria_AttributeChecksFlowThrough(t *testing.T) {
 	}
 	if len(ev.passed) != 0 {
 		t.Errorf("nothing here should pass, got passed=%v", ev.passed)
+	}
+}
+
+// TestEveryStaticCheckTypeIsClassified is the enforcement the council gate's
+// architecture seat asked for when it objected that "a doc comment is not an
+// enforcement mechanism — nothing stops a third future check type from being
+// added confirm-style by someone who never reads that comment".
+//
+// It reads the `case` labels out of evaluateStaticCriteria's own switch — the
+// same source-lockstep technique the capability table uses — and fails the build
+// for any handled type that is not classified as confirming or refuting. The
+// point is not the table; it is that ADDING A CHECK TYPE NOW FAILS UNTIL YOU
+// DECIDE WHICH GUARANTEE IT GIVES, which is the moment you are made to read the
+// rule. A classification that can be skipped is a comment with extra steps.
+func TestEveryStaticCheckTypeIsClassified(t *testing.T) {
+	src, err := os.ReadFile(filepath.Clean("check_tool_acceptance.go"))
+	if err != nil {
+		t.Fatalf("cannot read the evaluator (this test runs from the package dir): %v", err)
+	}
+	body := string(src)
+	if i := strings.Index(body, "func evaluateStaticCriteria("); i >= 0 {
+		body = body[i:]
+		if j := strings.Index(body[1:], "\nfunc "); j >= 0 {
+			body = body[:j+1]
+		}
+	} else {
+		t.Fatal("evaluateStaticCriteria not found — the evaluator's shape changed; fix this test, not the table")
+	}
+
+	caseRE := regexp.MustCompile(`(?m)^\s*case\s+((?:"[a-z_]+"\s*,?\s*)+):`)
+	valueRE := regexp.MustCompile(`"([a-z_]+)"`)
+	handled := map[string]bool{}
+	for _, m := range caseRE.FindAllStringSubmatch(body, -1) {
+		for _, v := range valueRE.FindAllStringSubmatch(m[1], -1) {
+			handled[v[1]] = true
+		}
+	}
+	if len(handled) == 0 {
+		t.Fatal("no check types found in the evaluator's switch — fix this test rather than the table")
+	}
+
+	for typ := range handled {
+		c, r := experienceStaticConfirming[typ], experienceStaticRefuting[typ]
+		switch {
+		case c && r:
+			t.Errorf("check type %q is classified BOTH confirming and refuting — it gives one guarantee or the other", typ)
+		case !c && !r:
+			t.Errorf("check type %q is handled by evaluateStaticCriteria but classified in neither table.\n"+
+				"  Decide before shipping it: CONFIRMING means it must never fail a page for markup the browser builds;\n"+
+				"  REFUTING means it may fail a page for what it actually SERVES, and must SKIP (never pass, never fail)\n"+
+				"  when its selector matches nothing. Tier 2's guarantee is mixed, and this is where that is recorded.", typ)
+		}
+	}
+	// And the other direction: a classified type nothing implements is a stale
+	// entry, which is how a table starts lying.
+	for typ := range experienceStaticRefuting {
+		if !handled[typ] {
+			t.Errorf("%q is classified refuting but the evaluator does not handle it", typ)
+		}
+	}
+	for typ := range experienceStaticConfirming {
+		if !handled[typ] {
+			t.Errorf("%q is classified confirming but the evaluator does not handle it", typ)
+		}
 	}
 }

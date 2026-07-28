@@ -65,6 +65,50 @@ import (
 	"github.com/andybalholm/cascadia"
 )
 
+// ── the confirm/refute classification ──────────────────────────────────────
+//
+// WHY THIS IS A TABLE AND NOT A PARAGRAPH. Tier 2's original guarantee was
+// "confirm, never refute". Attribute assertion changed that to a mixed
+// contract, and the first version of this change recorded the new rule in
+// evaluateStaticCriteria's doc comment. The council gate's architecture seat
+// objected, correctly:
+//
+//	"A doc comment is not an enforcement mechanism — nothing stops a third
+//	 future check type from being added confirm-style by someone who never
+//	 reads that comment."
+//
+// So the rule is a table every check type must appear in, and
+// TestEveryStaticCheckTypeIsClassified reads the `case` labels out of
+// evaluateStaticCriteria itself and fails the build for any type missing from
+// it. Adding a check type is now the moment you are made to decide which
+// guarantee it gives — which is the only version of this rule that survives
+// the author who does not read comments.
+//
+// This is the same discipline as the capability table's source-lockstep, and it
+// is the standing lesson of this workstream: five hand-maintained lists went
+// stale in one week, so derive from the real thing, or make the build fail when
+// someone adds something and does not classify it.
+
+// experienceStaticConfirming: may PASS or SKIP, never FAIL for absent markup.
+// A runtime-built path passes on its anchor; only an absent anchor fails, which
+// is a statement about the selector, not about what the page serves.
+var experienceStaticConfirming = map[string]bool{
+	"selector_exists": true,
+	"selector_count":  true,
+	"interaction":     true,
+	"asset_loads":     true,
+	"page_status_ok":  true,
+}
+
+// experienceStaticRefuting: may FAIL a page for something it ACTUALLY SERVES.
+// A refuting type must skip when it can see nothing — otherwise it fails every
+// client-side-rendered page — and must never pass on seeing nothing, or it is
+// vacuous. Both halves are pinned by tests.
+var experienceStaticRefuting = map[string]bool{
+	"attribute_absent":  true,
+	"attribute_matches": true,
+}
+
 // attributeVerdict is one of the three outcomes the caller projects onto the
 // evaluation's passed/failed/skipped lists.
 type attributeVerdict int

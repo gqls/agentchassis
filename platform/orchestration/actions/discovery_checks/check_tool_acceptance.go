@@ -364,6 +364,14 @@ func firstOf(ss []string) string {
 // A NEW CHECK TYPE THAT REFUTES MUST HONOUR THAT SKIP RULE. Without it, every
 // client-side-rendered page fails; with it inverted (skip becomes pass), every
 // such check is vacuously green, which is worse because it looks like coverage.
+//
+// THIS IS ENFORCED, NOT MERELY WRITTEN HERE. Every type in the switch below must
+// appear in experienceStaticConfirming or experienceStaticRefuting
+// (static_attribute_checks.go), and TestEveryStaticCheckTypeIsClassified reads
+// these `case` labels and fails the build for any that does not. That exists
+// because the council gate's architecture seat pointed out that a doc comment
+// stops nobody: the next author adds a type without reading this. Now the build
+// makes them classify it, and classifying it is when they read the rule.
 func evaluateStaticCriteria(crit criteriaDoc, httpStatus int, html string) evaluation {
 	var ev evaluation
 
