@@ -121,3 +121,33 @@ Full pod logs from both failures are ephemeral (job cleanup). Salient excerpts a
 the durable copy; the failing orchestration rows `11a6e647-37c1-4d22-b081-e790c22abbb3`
 and `58a53a6a-18f0-4aa0-878b-4ecc727c3f94` were **deliberately not cancelled** so a
 diagnosis run can read them (the 07-27 lesson: cancel destroyed the evidence).
+
+---
+
+## 2026-07-28 12:4x — diagnosis `dcde1ed9` returned CONFIRMED, with an honest corroboration boundary
+
+The loop CONFIRMED the timeout mechanism from the state tier: both orchestrations'
+own `spawn_indexer` `awaited_requests` rows show `status=error` with a ~2-minute
+sent→timeout window ("consistent with the request itself timing out in the
+spawn/await-response completion path"). Its `next_scope` matches this file's open
+questions (child execution/response for requests `91f55361`/`052f24bb`; whether those
+rows ever went through a CLAIM_RECOVERY claim/reset cycle; spawn_agent timeout/retry
+handling).
+
+**What it could NOT corroborate, and why that is not a refutation:** the child-side
+observations ("loads the parent's row", "declines while logging success") are marked
+`explained: false` because *"no code-indexer / child pod log evidence is present in
+this bundle"* — the pods were reaped, and this file is markdown, which the code tier
+cannot read (the exact 108-residual). The log excerpts in this file are the only
+surviving copy of that evidence; they were captured directly from both pods before
+reaping. One genuine correction from the verdict: rows read AFTER the timeout show
+`status=FAILED` (the child's later deliveries would hit the `StatusFailed` "Workflow
+previously failed" branch); the `StatusAwaitingResponses` decline captured in the logs
+happened DURING the 2-minute window. Both branches decline; neither replies.
+
+**Adjacent and possibly curative:** the CS-3a work (`f4d24252f`, `353e98781` — chassis
+response-consumer seed-to-latest, "response replay closed", 0/5 → 4/5 in 47s) shipped
+the same day and targets response deafness after restarts. If the child DOES reply in
+some fraction of cases and the reply goes unconsumed, that is the response-side half
+of this family. Env-gated, default unchanged — check whether it is enabled before
+measuring this bug again.

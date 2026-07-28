@@ -268,3 +268,36 @@ what it mirrors. The question is unchanged: which of the three mechanisms was on
 07-25 build path. New run: correlation `9543aaf1-765e-4ae6-abb9-dbbb4ac13e83`. Read it
 via `diagnosis_artifacts` / `collected_data->'verdict'`; note a code-tier run with no
 explicit subject writes no `doc_notes` row.
+
+---
+
+## 2026-07-28 12:4x — ATTEMPT 4: CONFIRMED. The answer: NONE of the three mechanisms is on the bulk path.
+
+Diagnosis `9543aaf1` (COMPLETED 11:44, five citations, both evidence families):
+
+- The 07-25 rebuild is `site_work_items` id `2647398d-f07c-4ea9-b635-bd831c441952`
+  (source=`rerender-pages`, handler=`page-rerender`, page_id `69d73b19`, completed
+  2026-07-25T01:44:25Z) — the **bulk** `RerenderSitePagesAction → rerenderSinglePage`
+  path, not single-page, not discovery-triggered.
+- `rerenderSinglePage`'s full post-processing chain is: `InjectHeader → InjectFooter →
+  rerenderInjectContactInfo → rerenderCleanDoubleDoctype → StripToolDocHeader`.
+  **`RepairPageLinks` is called nowhere in it** — it lives only inside
+  `ValidatePageContentAction` (`validate_page_content.go`), wired to the separate
+  `page-build-handler/validate_content` step, which this pipeline never invokes.
+  Neither is `PrepareLinkContextAction` nor any discovery link checker. Broken links in
+  the assembled sections pass straight to deploy with nothing to rewrite or block them.
+- The cited code itself records the drift class: the bulk path also lacks the
+  single-page path's `collectJSAssets` ("js_content assets are only emitted by
+  single-page rerenders") — the two paths have been diverging for a while.
+
+**Why attempt 3 failed and 4 succeeded:** attempt 3 (corr `914dc844`) was defeated by
+the stale code index (`bugs_closed/108`) — `RepairPageLinks` postdated the indexed
+commit and the confident zero sent it chasing a casing theory. The index was fixed and
+reindexed at `d98010e8b` this morning; attempt 4 cited the call site directly.
+
+**Fix direction (framework, not per-case):** the defect is a SIBLING-PATH DRIFT — the
+single-page path has the rigorous post-processing; the bulk path re-implements a
+subset. The fix that makes recurrence unrepresentable is ONE shared post-processing
+pipeline both paths call (repair + validation included), not adding one missing call
+to the bulk copy (which leaves the next divergence open). Landmine from memory: do NOT
+wire `InjectLinkConstraints` — it is a dead duplicate (see bugfix 092 notes).
