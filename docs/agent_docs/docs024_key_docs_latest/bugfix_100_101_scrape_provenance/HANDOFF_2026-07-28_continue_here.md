@@ -162,3 +162,51 @@ adoption ratchet the opt-in design depends on for its justification.
 | transferable patterns | `016b §9` — *"Omitting a key is not neutral"* and *"A registry that everything registers with and nothing reads"* |
 | new callable mechanisms | concept register `adopting-and-scraping.md` SCR-002/003/004 |
 | wrong calls | `WRONG_CALLS.md` — two entries dated 2026-07-28 |
+
+---
+
+## 7. ROUND 2 — submitted 2026-07-28 ~18:50, supersedes §3a
+
+**All four owed items are done and committed** (`9cdc08838`, `9ed2d6a87`). Resubmitted
+on the same correlation (`RESUBMIT_CORR=f4cf0aab-5a08-4475-91ea-fa831cff323c`), so
+§3a's list is now history — **do not redo it**. Round 2 is 5 edits / 11 grounded_in.
+
+| round-1 objection | seat | discharged by |
+|---|---|---|
+| parallel doc trail, no `doc_notes` *(GATING)* | `tooling_provenance` | SQL `258` — three notes APPLIED and verified |
+| declaring the keys silenced the audit | `editquality` | `ConditionalKeys` + a third report section + regression test |
+| "no callers" asserted, not shown | `prior_art_librarian` | `git grep … 2ebabf2ca^` in `grounded_in`, pinned ref |
+| name the non-vet pipelines; 062 risk | `guardian` | all three named with their `formats`; post-roll 0/0 measured |
+| how is "chassis is live" confirmed? | `debug_historian` | pod-grep of created symbols, in the RUNBOOK and the PLAN |
+
+**Round 2 needs no roll** — `ConditionalKeys` feeds only the audit path, which runs
+from source via `go run`. Chassis behaviour is unchanged by it.
+
+### If round 2 comes back APPROVED
+Commit the trailer `Council-Reviewed: f4cf0aab-5a08-4475-91ea-fa831cff323c` on a
+follow-up (the code is already committed — the trailer is what makes the `098`
+report's commit↔verdict join exact). **Re-read `decided_by` for THAT round first:**
+a later approval can attach to a different plan.
+
+### If round 2 comes back REVISE again
+Read `decided_by` and `unreadable` **before** reading the objections — round 1 had
+`unreadable: 1` that was *not* the decider, and ~11% of rounds are decided by one
+seat's unparseable JSON (`bugs_open/119`). Then check whether the reviewers'
+read-only queries returned zero again: in round 1 they returned **0 for facts
+measured true twice** (228 actions/1,155 steps; 3 live steps at
+`only_main_content:false`; 1 `add_protocol` carrier). That is the harness, not
+evidence — but it was raised in round 2 as a caveat, never as a defence, because no
+round-1 objection depended on those queries.
+
+## 8. What is genuinely left after round 2
+
+1. **`bugs_open/100`'s two-column verification run** — blocked on `vetcomparison`
+   restarting collection. Unchanged, and it is the only thing standing between 100
+   and closure. §3b has the query.
+2. **The coverage ratchet** — 208 undeclared actions. §3c.
+3. **Nobody has decided** whether `vet-practice-verifier` and
+   `domain-research-classifier` should switch to `action: "crawl"`. They now warn at
+   runtime *and* appear in the audit's CONDITIONALLY HONOURED section, so the state
+   is visible from two directions instead of none. Still an owner's call.
+4. **`domain-research-classifier` has no owner** — worth raising separately from
+   this bug.
