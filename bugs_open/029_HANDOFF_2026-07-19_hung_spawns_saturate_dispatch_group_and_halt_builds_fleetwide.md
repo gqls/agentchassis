@@ -718,3 +718,22 @@ owns this bug gets a live specimen rather than my description of one.
 
 **Consequence for another case:** this is what is blocking `bugs_open/097`'s diagnosis
 run. Two attempts, both dead, so 097's mechanism question stays unanswered.
+
+> **CORRECTION 2026-07-28 — the specimen is gone, and it did not survive the night.**
+> The block above says the hung pod was deliberately left running so the owning thread
+> could inspect a live instance. `agent-diagnose-orchestrator-f26bf2fb-g2sz6` no longer
+> exists (`Error from server (NotFound)`), cleared some time after 21:51 — most likely by
+> the `agent-job-cleanup` CronJob or the 22:06 chassis roll; I did not watch it go and
+> cannot say which.
+>
+> **So "left running for inspection" was a promise I could not keep**, and anyone who
+> reads this file tomorrow looking for the pod will not find it. The timeline, the error
+> string and the log signature above are all still accurate and were captured while it was
+> up; what is lost is the ability to exec into it.
+>
+> **The transferable point is the one worth keeping:** a hung spawned pod is *evidence on
+> a clock*. Nothing in this fleet keeps one for you — job cleanup and pod rolls both reap
+> it — so capture `kubectl get pod -o yaml`, the full logs and the env at the moment you
+> find one, rather than pointing a later reader at a name. This is the same class as the
+> file's own note that the chassis pod running a failed step gets replaced within minutes,
+> taking its logs with it.
