@@ -183,3 +183,63 @@ owner's own git access, because the platform has no implemented way to unpublish
 a page (`delete_repo` is the git adapter's only deletion verb and it is a stub).
 Candidate 3 remains the one that makes this class recoverable without a human
 with repo credentials.
+
+---
+
+## Severity refined 2026-07-28 — LATENT, not firing. It is a landmine, and 087 just re-armed it
+
+Measured after filing, because the original text left the impression this might be
+happening fleet-wide right now. **It is not.** The distinction matters for
+prioritisation and it does not reduce the eventual blast radius.
+
+### Only THREE steps use the buggy resolution, and none of them runs
+
+`determinePageFilename` (`git_deployer_actions.go:368-400`) has **four**
+priorities, not the three I first read — I missed `filename_field` at priority 1.
+Classifying every live `git_commit` step by which one it hits:
+
+| priority | steps | verdict |
+|---|---|---|
+| P1 `filename_field` | 1 — `section-editor::deploy_page` | safe |
+| P2 `file_path` (static) | 2 — the two `deploy_css` steps | safe |
+| **P3 `page_field`** | **3** — `pageflow-builder`, `page-rebuild`, `site-work-orchestrator` (all `…_loop/deploy_page`) | **this bug** |
+| P4 default `index.html` | 16 | see caveat below |
+
+And the three P3 agents have not run. Checked by **structural signature** rather
+than by agent-type extraction, which leaves 570 of 1,913 rows unresolved and
+would have produced a false zero:
+
+```sql
+SELECT count(*), max(created_at) FROM orchestration_states
+WHERE workflow_plan::text LIKE '%build_pages_loop%';   -- 1, 2026-07-28 07:03  (MY test)
+WHERE workflow_plan::text LIKE '%build_items_loop%';   -- 0
+-- retention floor: 2026-07-13 → 2026-07-28, 1,913 rows
+```
+
+**Across fifteen days of retained history the buggy path has executed exactly
+once: my own acceptance test.** So there are no other orphans from this cause in
+the retention window, and candidate 4 (a fleet sweep for orphaned duplicates) is
+lower priority than filed — though orphans predating 07-13 cannot be ruled out
+this way.
+
+### Why this still matters, and matters more than "latent" suggests
+
+`page-rebuild` is dormant **because it was broken** — that is `bugs_open/087`.
+Fixing 087 makes it work, and a working `page-rebuild` on any of the 280
+mismatched pages publishes an orphan. **087's fix is what converts this from a
+dead code path into a live one.** The two must ship together, or 087 should not
+be routed traffic until 125 is fixed.
+
+That is the real finding of this pair: *unblocking one defect armed another*, and
+neither file could see it alone.
+
+### ⚠️ P4 is NOT claimed as a bug — I checked myself before writing it down
+
+Sixteen steps configure neither `filename_field`, `file_path` nor `page_field`,
+which by the priority list defaults to `index.html`. That reads alarmingly —
+`page-rerender::deploy_page` alone has **49 runs** — and it is almost certainly
+fine: `determinePageFilename` serves the SINGLE-file commit path, and there is a
+separate multi-file path (`filesMap`, same file) those steps likely take. **I have
+not traced it, so it is recorded as unverified rather than filed.** If the estate
+were overwriting `index.html` 49 times it would be extremely visible, and it is
+not. `[UNVERIFIED — needs the filesMap path read before anyone acts on it.]`
