@@ -2434,3 +2434,67 @@ fleet. When a quota error names a billing scope, measure at that scope before re
 **Left both the imagery items and the `needs_page` row at `failed`** with attempts
 remaining. Re-fire after the cap is lifted rather than burning retries against a
 provider that will refuse.
+
+---
+
+## 2026-07-28 afternoon session — handoff §4 worked through; the link repair turned out to be vacuous
+
+**§4.1–4.2 both pass.** Canary `8f366ce5` = `complete` 10:45Z (the Google cap is lifted).
+Chart verification: capabilities carries exactly `council-review-outcomes` +
+`news-pipeline-credibility`, index exactly `relojistas-feed-restoration` — 085's
+build-path fix held on its first natural exercise.
+
+**A NEW spend cap is live, and it is ours this time: Anthropic, until 08-01 00:00 UTC.**
+Observed directly: 7 council-gate runs 12:21–13:12Z failing `execute_llm_prompt`
+`provider=anthropic model=claude-sonnet-5`. All 7 rows show `COMPLETED` with the refusal
+in `__step_error` — the 099 family again. Gemini text+image both work (proven below), so
+THIS site's writer/imagery lanes are unaffected; councils and diagnosis are dead until
+08-01. Do not submit council runs before then; queue them.
+
+**§4.3 link crawl, all 10 deployed pages (~14:20Z):** 13 broken internal refs, every one
+on `capabilities.html` — the 9 invented links (all now confirmed 404; the two 000s from
+the morning were origin throttling) + the 4 invented
+`/assets/illustrations/*.svg`. Rest of the estate link-clean except
+`/assets/images/favicon.png`, site-wide, pre-existing (head chrome of 07-24 references
+it; **zero favicon rows in `assets`** — a reference to a file never created; already
+tracked in the 07-26 handoff as the imagery workstream's favicon/OG gap — not refiled).
+
+**§4b's open question answered: `/assets/illustrations/` is pure invention.** Exactly ONE
+`page_components` row in the whole fleet references that directory — the regressed
+carousel itself. No site has ever used it. One authoring defect with the links (092
+upstream), not a lost convention.
+
+**THE BIG FINDING — 079 REOPENED. The link repair runs and its output is discarded.**
+Chased why the 10:05Z build shipped 9 dead links when 079's repair is "live": the gate
+DID repair all 9 (`CONTENT_LINK_REPAIR_DETAIL` 10:45:01.347Z, every target named,
+`/contact`→`/contact.html` rewritten) — and `save_page_sections` persisted the
+UNREPAIRED sections 400ms later, because the structured `sections_metadata` path wins
+whenever metadata exists (`require_sections_metadata: true` guarantees it) and
+`html_field: validation_result.clean_html` is only the fallback
+(`save_page_sections_action.go:166–192`). A dead branch, not a race. Second site same
+day: vonc `/about.html`. The 079 closure's e2e proof had run through `content-reviewer`
+— a route with no save step. Actions taken: `bugs_open/079` REOPENED (moved back, full
+banner), 071 + 092 corrected, 016b §9 pattern added, WRONG_CALLS row added,
+`bugfix_079_phantom_link_gate/NOTES` appended. A 090 verification run is owed once
+Anthropic lanes return 08-01.
+
+**§4.4 imagery: BOTH items complete, end to end.** Re-fired via the
+`HandleRetryWorkItem` SQL (status→`triaged`, attempts reset — `failed` is retryable;
+found at `internal/core-manager/admin/site_admin_handlers.go`, POST
+`/admin/work-items/:id/retry`; admin HTTP needs a JWT so the SQL equivalent was run
+directly). `62b7918f` (llm-cost-calculator) complete 14:35Z, `539893ae`
+(model-approach-selector) complete 14:42Z, both with stored S3 assets. The
+llm-cost-calculator hero was AUTO-PLACED by a follow-up re-render —
+`/assets/images/content-hero-llm-cost-calculator.jpg` serves 200 and the re-render
+authored no new broken refs (re-crawled). The model-approach-selector's follow-up
+re-render (`56fbcc9a`) had failed at 12:20Z "all sections deferred for missing data" —
+correctly, its image did not exist then — and parked at `needs_human_review`; retried it
+14:5xZ now the image exists. VERIFY next session: the selector page carries its hero.
+
+**§4.5 (bugs_open/128) not started this session.**
+
+*Misstep to record:* my first pass read the imagery workflow plan with a wrong jsonpath
+(`$.**.provider` on a plan that stores provider config elsewhere) and returned empty —
+I nearly concluded "no provider info" instead of "wrong query". The 2-step plan dump
+(`generate_image` → `complete`) settled it. Same lesson as ever: an empty read of the
+wrong field looks exactly like "it did nothing".
