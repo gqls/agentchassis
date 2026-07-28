@@ -176,6 +176,29 @@ func RerenderPageSectionsAction(ctx context.Context, params ActionParams) (inter
 		return nil, fmt.Errorf("resolve page: %w", err)
 	}
 
+	// bugs_open/094, council objection (bug_historian, medium): page_id is not
+	// mapped by any step config, so it arrives via ExtractActionInputs Strategy 2,
+	// whose own comment warns it "uses aggressive recursive search that can find
+	// stale values". Before this change a missing page_name failed LOUDLY at the
+	// input-spec gate; now a stale page_id could in principle resolve a DIFFERENT
+	// page of the same site and re-render it silently.
+	//
+	// The site scoping stops it crossing sites; it does not stop it picking the
+	// wrong page WITHIN a site. So record which key was used and what it resolved
+	// to. This does not prevent the wrong resolution — it makes it attributable
+	// instead of invisible, which is the difference between a bug you can find
+	// and one you cannot.
+	resolvedBy := "page_name"
+	if inputs.Get("page_name") == "" {
+		resolvedBy = "page_id (recursive search — no step config maps it)"
+	}
+	logger.Info("rerender_page_sections: page resolved",
+		zap.String("resolved_by", resolvedBy),
+		zap.String("page_name", pageName),
+		zap.String("page_id", pageID.String()),
+		zap.String("site_id", siteID.String()),
+		zap.String("url", pageURL))
+
 	out := map[string]interface{}{
 		"page_id":   pageID.String(),
 		"site_id":   siteID.String(),
