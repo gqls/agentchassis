@@ -258,3 +258,13 @@ damage. Neither needs a diagnosis run; the cause is fully known.
 > > index will fail the same way. Until the index is current, this question has to be
 > > answered by hand — read the page-build pipeline's step list for the 07-25 deploy and
 > > check whether `validate_page_content` was on it — or not asked of the loop at all.
+
+---
+
+**2026-07-28 ~11:45 (bugs thread 2): diagnosis re-fired — the 108 blocker is GONE.**
+`bugs_closed/108` closed today: the code index now describes `d98010e8b` (2026-07-28)
+with `RepairPageLinks` indexed (`symbol` hit count 1), and the freshness banner states
+what it mirrors. The question is unchanged: which of the three mechanisms was on the
+07-25 build path. New run: correlation `9543aaf1-765e-4ae6-abb9-dbbb4ac13e83`. Read it
+via `diagnosis_artifacts` / `collected_data->'verdict'`; note a code-tier run with no
+explicit subject writes no `doc_notes` row.
