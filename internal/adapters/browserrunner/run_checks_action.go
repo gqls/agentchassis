@@ -11,7 +11,12 @@
 //   selector_count         — selector matches at least once (same as exists at v0)
 //   no_console_errors      — no console.error and no uncaught page errors across
 //                            the whole session, INCLUDING during interactions
-//   no_horizontal_overflow — scrollWidth <= clientWidth (P1; typically mobile)
+//   no_horizontal_overflow — scrollWidth <= clientWidth AND no in-flow element
+//                            laid out past the right viewport edge outside a
+//                            scrollable container (P1; typically mobile). The
+//                            second clause exists because a clipping parent
+//                            zeroes scrollWidth-clientWidth while the content
+//                            is still cut off for the visitor (bugs_open/131 B)
 //   interaction            — run steps (fill/click/select) then assert an
 //                            expect selector exists / its text matches (P2 —
 //                            the tier that asserts a tool actually WORKS, not
@@ -103,6 +108,10 @@ type overflowInfo struct {
 	Slot      string // the site_components slot that owns it: header | footer | head
 	InTool    bool   // culprit lies inside the tool's container
 	Located   bool   // the tool's container was found at all
+	// The page does not scroll — a parent clips, so the cut content is
+	// unreachable rather than scrollable-to. The fix target is the same; the
+	// message must say the scrollWidth check alone would have passed.
+	Clipped bool
 	// The deepest descendant that actually forces the width, and why it will not
 	// shrink. Empty when the widest offender is itself the forcing element.
 	ForcedBy     string
@@ -207,8 +216,11 @@ type browserPage interface {
 	NavError() string      // non-empty when navigation itself failed
 	ConsoleErrors() []string
 	Count(selector string) int  // matches in the live DOM
-	// HorizontalOverflow reports scrollWidth > clientWidth, names the widest
-	// offender, and says whether it sits inside the given tool container.
+	// HorizontalOverflow reports content wider than the viewport — either the
+	// document scrolls (scrollWidth > clientWidth) or, when a clipping parent
+	// hides that, in-flow content laid out past the right edge with no
+	// scrollable ancestor to reach it by (bugs_open/131 B). Names the widest
+	// offender and says whether it sits inside the given tool container.
 	HorizontalOverflow(container string) (bool, overflowInfo, error)
 	Do(step criteriaStep) error // one interaction step
 	Text(selector string) (string, error)
@@ -427,6 +439,11 @@ func evaluateOnPage(page browserPage, doc criteriaDoc, checks []criteriaCheck, p
 				// ATTRIBUTE the offender: this decides whether the judge raises a
 				// tool ticket or a site-chrome one (see HorizontalOverflow).
 				detail := "page overflows horizontally (scrollWidth > clientWidth) on " + profile
+				if info.Clipped {
+					detail = "content is laid out past the right viewport edge but a parent CLIPS it" +
+						" — the page does not scroll, so the scrollWidth check alone would pass" +
+						" while the content stays cut off (bugs_open/131 B) on " + profile
+				}
 				if info.Culprit != "" {
 					detail += "; widest offending element: " + info.Culprit
 				}
@@ -626,7 +643,7 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 	v, err := c.page.Evaluate(`(containerSel) => {
 		const vw = document.documentElement.clientWidth;
 		const over = document.documentElement.scrollWidth - vw;
-		if (over <= 2) return {over: over};
+		const scrolls = over > 2;
 
 		const describe = (el) => el.tagName.toLowerCase()
 			+ (el.id ? '#' + el.id : '')
@@ -634,21 +651,49 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 			   ? '.' + el.className.trim().split(/\s+/).join('.')
 			   : '');
 
-		// Widest element crossing the viewport edge; deepest wins ties, since an
-		// ancestor is usually just inheriting an overflowing child's width.
-		let best = null, bestEl = null;
+		// When the document does not scroll, a parent may still CLIP content
+		// laid out past the right edge — getBoundingClientRect reports layout
+		// geometry regardless of ancestor clipping, so the cut is measurable
+		// (bugs_open/131 B: 14 elements at 437px on a 390px viewport while
+		// scrollWidth - clientWidth read 0). An element is CUT only if it is
+		// in-flow (fixed/absolute off-canvas drawers are a deliberate UI
+		// pattern), visible, and no ancestor is horizontally scrollable — a
+		// scroll container makes the width reachable, and is the standard fix
+		// for wide tables, which must then pass this very check.
+		const cut = (el, r) => {
+			if (r.right <= vw + 2) return false;
+			const cs = getComputedStyle(el);
+			if (cs.visibility !== 'visible') return false;
+			if (cs.position === 'fixed' || cs.position === 'absolute') return false;
+			for (let n = el.parentElement; n; n = n.parentElement) {
+				const o = getComputedStyle(n).overflowX;
+				if (o === 'auto' || o === 'scroll') return false;
+			}
+			return true;
+		};
+
+		// Widest offending element; deepest wins ties, since an ancestor is
+		// usually just inheriting an overflowing child's width.
+		let best = null, bestEl = null, cutCount = 0;
 		for (const el of document.querySelectorAll('*')) {
 			const r = el.getBoundingClientRect();
 			if (r.width === 0 && r.height === 0) continue;
-			if (r.right > vw + 1 || r.left < -1) {
-				let depth = 0;
-				for (let n = el; n.parentElement; n = n.parentElement) depth++;
-				if (!best || r.width > best.width || (r.width === best.width && depth > best.depth)) {
-					best = {width: Math.round(r.width), depth: depth};
-					bestEl = el;
-				}
+			let offends;
+			if (scrolls) {
+				offends = r.right > vw + 1 || r.left < -1;
+			} else {
+				offends = cut(el, r);
+				if (offends) cutCount++;
+			}
+			if (!offends) continue;
+			let depth = 0;
+			for (let n = el; n.parentElement; n = n.parentElement) depth++;
+			if (!best || r.width > best.width || (r.width === best.width && depth > best.depth)) {
+				best = {width: Math.round(r.width), depth: depth};
+				bestEl = el;
 			}
 		}
+		if (!scrolls && cutCount === 0) return {over: over};
 		if (!bestEl) return {over: over};
 
 		// Attribution: is the offender inside the tool, or is it site chrome?
@@ -728,6 +773,8 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 
 		return {
 			over: over,
+			clipped: !scrolls,
+			cutCount: cutCount,
 			culprit: describe(bestEl) + ' (' + best.width + 'px)',
 			selector: describe(bestEl),
 			component: component,
@@ -754,14 +801,17 @@ func (c *chromiumPage) HorizontalOverflow(container string) (bool, overflowInfo,
 	info.Located, _ = m["located"].(bool)
 	info.ForcedBy, _ = m["forcedBy"].(string)
 	info.ForcedReason, _ = m["forcedReason"].(string)
+	// clipped only arrives alongside a culprit, so its presence means cut
+	// content was actually found (a clean non-scrolling page returns neither).
+	info.Clipped, _ = m["clipped"].(bool)
 	// JS numbers come back as float64/int; tolerate 2px of rounding.
 	switch n := m["over"].(type) {
 	case float64:
-		return n > 2, info, nil
+		return n > 2 || info.Clipped, info, nil
 	case int:
-		return n > 2, info, nil
+		return n > 2 || info.Clipped, info, nil
 	default:
-		return false, info, nil
+		return info.Clipped, info, nil
 	}
 }
 
