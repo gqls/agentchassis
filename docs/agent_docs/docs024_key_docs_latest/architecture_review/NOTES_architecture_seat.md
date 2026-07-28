@@ -658,3 +658,28 @@ coverage.** When a fix changes the shape of the thing being asserted, the assert
 is part of the change — not a fixture that survives it. This is the same family as
 the vacuous pod-grep and the vacuous NULL-body test, both hit earlier in this same
 piece of work: three ways in one day for a check to pass without checking.
+
+---
+
+## 2026-07-28 ~11:30 UTC — §3 item 1 (108 candidate 1) DONE, by the bugs-sweep thread, under this workstream's design
+
+Freshness by commit identity is live: `ref` + `commit_time` stored at index time
+(migration 250), verdict keyed on commit age, loud-UNKNOWN (never FRESH) on NULL
+commit_time. Council `b5285973` APPROVED round 1; commit `87d0bcf97`; live v1.0.1184
+(pod-grep-verified — the 1183 this thread built was superseded 38s later by a
+concurrent roll whose image carries the same commit). Full account in
+`bugs_closed/108` (now CLOSED — both defects fixed and live).
+
+Notes for this workstream specifically:
+- **The branch was PUSHED during the session** (origin at `d98010e8b`, 19 commits
+  behind local HEAD, was 1,003). §1's "one open ask" is resolved for now; the banner
+  will say honestly if it drifts again — that is the point of the fix.
+- The enabling fact in §3 item 1 ("the indexer receives an explicit ref but does not
+  store it") was confirmed AND sharpened: the cadence's ref arrives via
+  `scheduled_tasks.pre_query`, not `input_data` — the bug file's "no ref parameter"
+  correction was itself superseded. See the closing entry in `bugs_closed/108`.
+- Your §3 item 4 (markdown indexing) is now unblocked in the ordering sense: the
+  presentation-confidence prerequisite from §4 is satisfied.
+- The reindex lane fails bursty at the spawn handshake (2 of 3 dispatches on
+  v1.0.1184) — child-side mechanism now evidenced in `bugs_open/129`, diagnosis
+  `dcde1ed9` filed. Relevant if you dispatch reindexes for the markdown work.

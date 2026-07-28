@@ -533,3 +533,81 @@ index cannot even be wrong usefully — it returns the same empty answer for
 **Not actioned here, deliberately.** The fix is `git push`, which publishes 1,003 commits
 from a shared branch that several sessions are working. That is an owner call, not a
 side-effect of a bug-file update.
+
+---
+
+## 2026-07-28 (bugs thread 2) — DEFECT A FIXED AND LIVE. CLOSING.
+
+Candidate 1 (plus the banner half of candidate 4) built under the owning workstream's
+settled design (architecture_review HANDOFF_2026-07-28 §3 item 1), council APPROVED
+round 1 (corr `b5285973-9038-47a1-b5d9-4a9696fb1eb3`, 9 reviewers, 0 unreadable),
+commit `87d0bcf97`, live on chassis `v1.0.1183`/`v1.0.1184` (the concurrent roll — the
+1184 image builds from a later HEAD and carries the same fix, verified by pod-grep, not
+tag). Migration 250 applied.
+
+### What changed
+
+- `GitHubSource.CommitInfo` (new): resolves the fetched tarball's SHORT sha to the full
+  form + the commit's own committer date — one read-only GET in the spawned pod, whose
+  token was proven by the completed fetches, not asserted.
+- `analyse_repo_local` exports `repo_analysis.commit_time` best-effort; failure leaves it
+  ABSENT (NULL), never invented.
+- `index_code_symbols` stores `ref` + `commit_time` (plain assignment, never COALESCE).
+- `freshnessBanner`: verdict is a function of the indexed COMMIT — STALE on commit age
+  (`codeIndexCommitStaleAfter`, 48h; a reindex resets `updated_at` but can never reset a
+  committer date), **loud UNKNOWN, never FRESH, when `commit_time` is NULL**. The
+  `updated_at` branch survives only as missed-refresh (cadence liveness) detection.
+  Every branch states the pushed-tip mirror fact. Both lanes' call sites updated —
+  grepped exhaustively, not asserted (a council objection, answered with evidence).
+
+### Two corrections to this file's own record
+
+- **The `[CORRECTION]` of 2026-07-27 ("no ref parameter to point") is itself
+  superseded**: `scheduled_tasks.pre_query` — a column that account never read — derives
+  `ref` at fire time (`^[0-9]{3}_` match on recent orchestrations). Both recent index
+  runs carried `ref=086_experience_loop` in `collected_data`, cadence included. The ref
+  reached the indexer all along; it was discarded at the upsert.
+- **A suspected third defect ruled out by the live config**: `analyse_repo_local` pins
+  its fetch to the index's own commit BY DEFAULT (`pin_to_index_commit: true`) — on the
+  indexer lane that would have frozen the index forever, push or no push. The live
+  `code-indexer` row sets it `false` explicitly. No defect; recorded so nobody re-walks
+  the scare.
+
+### Verification, all live 2026-07-28 ~11:30 UTC
+
+- **Pod-grep (the debug_historian seat required this explicitly):** discriminating pair
+  pre-validated on v1.0.1182 (`refreshed %s ago at commit`=1, new strings=0) and flipped
+  on the running v1.0.1184 pod (`0 / 1 / 1`, + CommitInfo error string 1).
+- **Unit-level induced fault:** the exact live failure (updated_at 2h old, commit 4d
+  old) is TestFreshnessBanner's first case and renders STALE; NULL commit_time renders
+  loud-UNKNOWN, never fresh.
+- **Live reindex through the new binary** (corr `7e89536a`, COMPLETED 11:27): all
+  **4,992 of 4,992** rows carry `ref=086_experience_loop` and
+  `commit_time=2026-07-28 10:31:33+00` — byte-equal to `git show -s --format=%cI
+  d98010e8b`. Stored sha upgraded to the full 40-char form. Negative control
+  (commit_time newer than refresh) = 0 rows.
+- **The bug's own regression checks:** `internal/tools-api/` **0 → 29** rows,
+  `RepairPageLinks` **0 → 1**, `platform/mailer/` **0 → 15**.
+
+### The data half resolved itself while this shipped
+
+The branch was **pushed** during this session (origin now at `d98010e8b`, 2026-07-28
+10:31 UTC — 19 commits behind local HEAD, was 1,003). So the live banner now takes the
+QUIET branch — honestly, because the index genuinely describes today's tree. The STALE
+branch is pinned by the unit test and structurally cannot be laundered: FRESH is
+unprovable without evidence about the commit itself. `bugs_open/097`'s central question
+is now actually answerable — its blocker (this bug) is gone.
+
+### Residuals, explicitly routed — not reasons to stay open
+
+- **Candidate 5's remaining half** (gate seats' `code_checks` surfaced into the verdict
+  note) is tracked as architecture_review HANDOFF_2026-07-28 §3 item 6; the routing half
+  shipped 2026-07-27 (config-only, live).
+- **Markdown still unindexed** — arch-review §3 item 4, deliberately AFTER this fix.
+- **The reindex lane fails bursty** (2 of 3 dispatches today) — that is a DIFFERENT
+  defect, now filed with child-side log evidence as `bugs_open/129`, diagnosis
+  `dcde1ed9` dispatched. It delayed this verification by ~an hour; it does not affect
+  the fix.
+
+Both defects (A and B) are fixed and verified against the running system → moving to
+`/bugs_closed/`.

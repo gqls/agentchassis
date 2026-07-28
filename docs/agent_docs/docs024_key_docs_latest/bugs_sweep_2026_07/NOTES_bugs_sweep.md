@@ -165,3 +165,26 @@ CURRENT — owner call, stated in the bug file); prompt-side edits to the CODE I
 LIMITS paragraph (config-side, owning workstream's call, and it errs safe as written).
 
 Council submission `b5285973-9038-47a1-b5d9-4a9696fb1eb3`.
+
+**108 CLOSED (both defects fixed AND live) — moved to `bugs_closed/`.** Council
+`b5285973` APPROVED round 1 (9 reviewers, 0 unreadable; 3 advisory objections, each
+answered with evidence before commit — the exhaustive-caller grep, the reuse search for
+an existing commits-endpoint helper, and the token-presence-by-runtime-witness). Commit
+`87d0bcf97`; mig 250 applied; live on v1.0.1184; VERIFY green 4,992/4,992;
+`internal/tools-api` 0→29, `RepairPageLinks` 0→1. Full trail in the case file.
+
+Three things this close surfaced, priced for the next session:
+- **The branch got PUSHED mid-session** (origin at `d98010e8b`, 19 behind) — the
+  MEMORY.md "955/1,003 commits behind" warning is obsolete; the index now genuinely
+  describes today's tree AND says what it describes.
+- **`bugs_open/129` filed** (spawned child adopts the parent's orchestration row and
+  silently declines — child-side logs; 2-of-3 failure rate on the index lane today;
+  diagnosis `dcde1ed9` dispatched). Cost this close ~an hour of retries.
+- **`TRIGGER_code_indexer_v2.sh` was committed non-executable** — fixed (`d59852fb7`).
+  A `./`-invocation died on Permission denied and the failure was invisible through a
+  grep filter that matched neither that phrase nor anything: when a wrapper filters a
+  script's output, put an unfiltered `tail` fallback in, or check `$?` explicitly.
+
+NEXT per the handoff order: **097** — its blocker is gone twice over (honest banner +
+RepairPageLinks actually indexed). Re-fire its diagnosis with the unchanged question:
+which of the three mechanisms was on the 07-25 build path.
