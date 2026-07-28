@@ -1,0 +1,40 @@
+# Per-cluster environment for the RENDER AUDIT pod.
+#
+# This is the whole reason a second Deployment of the browser-runner image is a
+# different service: REQUESTS_TOPIC and CONSUMER_GROUP point it at its own lane,
+# so a long full-site audit cannot starve tool acceptance, cannot bury its logs,
+# and cannot take it down when a browser wedges (owner ruling 2026-07-28).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: render-audit-adapter
+spec:
+  template:
+    spec:
+      containers:
+        - name: render-audit-adapter
+          env:
+            - name: REQUESTS_TOPIC
+              value: "system.adapter.render-audit.requests"
+            - name: CONSUMER_GROUP
+              value: "render-audit.adapter.group"
+            - name: AGENT_VERSION
+              value: "0.1.0"
+            # P3 failure screenshots — same storage the imagegenerator uses
+            # (bucket + endpoint are in the adapter's config file; region and
+            # path-style are env-only knobs of platform/storage). Missing
+            # secret → screenshots disabled, checks unaffected.
+            - name: S3_REGION
+              value: "us-east-005"
+            - name: S3_USE_PATH_STYLE
+              value: "false"
+            - name: B2_APPLICATION_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY_ID
+            - name: B2_APPLICATION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: personae-storage-secrets
+                  key: B2_APPLICATION_KEY

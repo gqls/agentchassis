@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Base is cluster-agnostic: Deployment + Service only. The configMapGenerator
+# lives in each OVERLAY, as it does for the browser-runner this shares an image
+# with.
+resources:
+  - deployment.yaml
+  - service.yaml

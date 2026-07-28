@@ -1,0 +1,47 @@
+# FILE: deployments/kustomize/services/browser-runner-adapter/overlays/production/uk_001/configs/browser-runner-adapter.yaml
+#
+# PRODUCTION/uk_001 config for the browser-runner adapter — the DEPLOYED source
+# of truth, generated into the browser-runner-adapter-config ConfigMap by this
+# overlay's configMapGenerator. Keep in sync with the repo-root
+# configs/browser-runner-adapter.yaml (local runs). Field names follow 035
+# §2.11 exactly (logging not logger, port as a quoted string).
+
+service_info:
+  name: "browser-runner-adapter"     # used as sender_agent_type in responses
+  version: "0.1.0"
+  environment: "production"
+
+server:
+  port: "8080"                       # STRING in quotes; reads as cfg.Server.Port
+
+logging:
+  level: "info"
+  format: "json"
+
+observability:
+  tracing_endpoint: "${SERVICE_OBSERVABILITY_TRACING_ENDPOINT:http://jaeger-collector:14268/api/traces}"
+
+infrastructure:
+  kafka_brokers:
+    - "personae-kafka-cluster-kafka-bootstrap.kafka.svc.cluster.local:9092"
+
+  # P3 failure screenshots: same bucket + credentials as the imagegenerator
+  # (secret personae-storage-secrets, injected by deployment-env.yaml), under
+  # the runner's own acceptance-evidence/ key prefix. If the credentials are
+  # absent the adapter logs "screenshots disabled" and runs exactly as P0–P2 —
+  # evidence is never load-bearing.
+  object_storage:
+    endpoint: "https://s3.us-east-005.backblazeb2.com"
+    bucket: "personae-prod-uk001-images"
+    access_key_env_var: "B2_APPLICATION_KEY_ID"
+    secret_key_env_var: "B2_APPLICATION_KEY"
+
+  # No database (still true at P3).
+  clients_database: {}
+  templates_database: {}
+  auth_database: {}
+
+custom:
+  adapter_settings:
+    consumer_group: "browser-runner.adapter.group"
+    main_topic: "system.adapter.browser-runner.requests"

@@ -4,10 +4,10 @@
 // deployed pages and measure what a visitor actually sees: text contrast against
 // the effective background, images that failed to load, horizontal overflow.
 //
-// Sibling of `request_browser_run`, and deliberately the same shape: same topic
-// (`system.adapter.browser-runner.requests`), same envelope, same
+// Sibling of `request_browser_run` in shape — same envelope, same
 // `AwaitResponse=true` so the engine registers the awaited request and resumes
-// when the adapter replies.
+// when the adapter replies — but deliberately on a DIFFERENT topic. See
+// `renderAuditTopic` below for why a big audit gets its own pod.
 //
 // WHY THIS EXISTS AS AN ACTION AT ALL. The measurement lives in the
 // browser-runner adapter because that is the only pod with Chromium; the chassis
@@ -40,14 +40,30 @@ import (
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
 )
 
+// renderAuditTopic is the DEDICATED lane for whole-site audits.
+//
+// Deliberately not browserRunnerTopic. A full-site audit is tens of sequential
+// Chromium navigations holding a pod for minutes; on the shared browser-runner
+// it starves tool acceptance, buries that pod's logs, and takes acceptance down
+// with it when a browser wedges. Owner ruling 2026-07-28: a big audit gets its
+// own pod, its own logs and its own failure state. The pod is a second
+// Deployment of the SAME browser-runner image with REQUESTS_TOPIC overridden
+// (deployments/kustomize/services/render-audit-adapter), so this costs a topic,
+// not a binary.
+//
+// `bugs_open/096` is the same lesson one layer up: a long job on a shared lane
+// head-of-line blocks everything until it gets a lane of its own.
+const renderAuditTopic = "system.adapter.render-audit.requests"
+
 // RequestRenderAuditInputSpec documents the step config.
 var RequestRenderAuditInputSpec = datahelpers.ActionInputSpec{
 	Required: []string{},
-	Optional: []string{"site_id_field", "domain_field", "max_pages", "page_names"},
+	Optional: []string{"site_id_field", "domain_field", "max_pages", "page_names", "topic"},
 	Defaults: map[string]interface{}{
 		"site_id_field": "site_record.site_id",
 		"domain_field":  "site_record.domain",
 		"max_pages":     25,
+		"topic":         renderAuditTopic,
 	},
 	Deprecated: map[string]string{},
 }
@@ -136,6 +152,13 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 			zap.String("domain", domain), zap.Int("audited", len(urls)), zap.Int("total", total))
 	}
 
+	// Overridable so a cluster that has not yet deployed the dedicated pod can
+	// point this back at the shared browser-runner rather than publishing into a
+	// topic nothing consumes. A producer aimed at an unconsumed topic piles
+	// messages where nothing will run them, and it looks exactly like latency
+	// (the 096 rollout order: consumer first, producer second).
+	topic := datahelpers.GetStringField(config, "topic", renderAuditTopic)
+
 	newRequestID := uuid.NewString()
 	myResponsesTopic := params.ExecutionContext.ResponsesTopic
 	if myResponsesTopic == "" {
@@ -197,13 +220,13 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	}
 
 	logger.Info("request_render_audit: sending to browser-runner adapter",
-		zap.String("topic", browserRunnerTopic),
+		zap.String("topic", topic),
 		zap.String("request_id", newRequestID),
 		zap.String("domain", domain),
 		zap.Int("urls", len(urls)),
 		zap.Bool("truncated", truncated))
 
-	if err := params.Producer.ProduceWithValidation(ctx, browserRunnerTopic, headers,
+	if err := params.Producer.ProduceWithValidation(ctx, topic, headers,
 		[]byte(params.ExecutionContext.CorrelationID), messageBytes); err != nil {
 		return nil, fmt.Errorf("request_render_audit: send to browser-runner adapter: %w", err)
 	}
@@ -211,7 +234,7 @@ func RequestRenderAuditAction(ctx context.Context, params ActionParams) (interfa
 	return &RequestRepoAnalysisResult{ // same await-signal shape as the sibling requests
 		Success:       true,
 		RequestID:     newRequestID,
-		TopicSentTo:   browserRunnerTopic,
+		TopicSentTo:   topic,
 		AwaitResponse: true,
 		Metadata: map[string]interface{}{
 			"domain":          domain,

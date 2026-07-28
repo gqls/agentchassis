@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: ai-persona-system
+
+resources:
+  - ../../../base
+
+# Per-cluster environment. The topic/consumer-group here are what separate this
+# pod from the browser-runner it shares an image with.
+patches:
+  - path: deployment-env.yaml
+
+# Pin the image tag for this cluster. Keep exactly one tag-pin line — the
+# release tooling seds it. NOTE the image name is the BROWSER-RUNNER's: this
+# service deliberately has no binary of its own.
+images:
+  - name: docker.io/aqls/browser-runner-adapter
+    newTag: v1.0.1194
+
+# Same config shape as the browser-runner because it is the same binary; the
+# copy under configs/ is this service's deployed source of truth.
+configMapGenerator:
+  - name: render-audit-adapter-config
+    files:
+      - browser-runner-adapter.yaml=configs/browser-runner-adapter.yaml

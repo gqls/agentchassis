@@ -1,0 +1,110 @@
+# render-audit-adapter — the whole-site render audit, on its own pod.
+#
+# SAME IMAGE as browser-runner-adapter, different topic. The adapter reads
+# REQUESTS_TOPIC and CONSUMER_GROUP from the environment (035 §2.10), so a second
+# Deployment of the same binary consuming a different topic needs no new binary,
+# no new Dockerfile and no code change. It answers `render_audit`; the original
+# pod keeps answering `run_checks`.
+#
+# WHY A SEPARATE POD AND NOT A SECOND ACTION ON THE EXISTING ONE (owner ruling,
+# 2026-07-28): a big audit deserves its own pod, its own logs, and its own
+# failure state.
+#
+#   ISOLATION. A full-site audit is tens of sequential Chromium navigations
+#   holding one pod for minutes. On the shared adapter that starves tool
+#   acceptance, which is the interactive path someone is usually waiting on.
+#   `bugs_open/096` is the same lesson one layer up: a long council run
+#   head-of-line blocked every other dispatch until it got its own lane, and the
+#   fix there was a lane, not a bigger queue.
+#
+#   LOGS. Both jobs drive a browser and log about pages and selectors. On one pod
+#   the audit's tens-of-pages chatter buries a tool-acceptance failure that a
+#   human is actively debugging. Separate pods means `kubectl logs` answers one
+#   question at a time.
+#
+#   FAILURE STATE. A browser process that wedges or leaks takes its pod with it.
+#   Sharing means an audit crash breaks tool acceptance, and the two have
+#   completely different risk profiles: acceptance drives one known page, the
+#   audit drives arbitrary live pages across the fleet, including ones the
+#   platform did not build.
+#
+# MEMORY is deliberately higher than the browser-runner's. Chromium peaks around
+# 300-500Mi per run, and the audit holds a page open while evaluating a probe
+# over every element in the DOM (`body *`) on page after page.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: render-audit-adapter
+  labels:
+    app: render-audit-adapter
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate   # one runner at a time — avoids two adapters on one partition during rollout
+  selector:
+    matchLabels:
+      app: render-audit-adapter
+  template:
+    metadata:
+      labels:
+        app: render-audit-adapter
+    spec:
+      serviceAccountName: ai-persona-app
+      imagePullSecrets:
+        - name: docker-hub-creds
+      containers:
+        - name: render-audit-adapter
+          # The browser-runner image, unchanged. Only the topic differs.
+          image: docker.io/aqls/browser-runner-adapter:latest  # tag pinned per environment in overlay
+          # command: with the full invocation, NOT args: alone — the Dockerfile
+          # uses CMD, and args: would replace the binary path (035 §2.12).
+          command: ["./browser-runner-adapter", "-config", "/app/configs/browser-runner-adapter.yaml"]
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            # Topic/consumer-group are injected by the overlay's env patch, as
+            # they are for the browser-runner. They are what make this pod a
+            # different consumer of the same code.
+          volumeMounts:
+            - name: config
+              mountPath: /app/configs/browser-runner-adapter.yaml
+              subPath: browser-runner-adapter.yaml
+              readOnly: true
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "768Mi"
+            limits:
+              cpu: "1"
+              memory: "3Gi"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            # A whole-site audit is a long single request. The browser-runner's
+            # 5 failures x 30s would restart this pod mid-audit on a slow fleet
+            # sweep, so the tolerance is wider here — the isolation is only
+            # worth having if the pod survives its own workload.
+            timeoutSeconds: 10
+            failureThreshold: 10
+      volumes:
+        - name: config
+          configMap:
+            # Reuses the browser-runner's configmap: same binary, same config
+            # shape. The overlay creates it under this name.
+            name: render-audit-adapter-config
