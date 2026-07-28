@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,644 concepts across 107 category register files. 1,627 consolidated from
+1,645 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -47,7 +47,7 @@ the entire **claims-verification** subsystem was absent. Its first plan is dated
 2026-07-16, three days after extraction froze, so V0–V5, the `evidence_base`
 register, the banned-claim scanner and the citation verifier were never
 extracted; `grep -rl evidence_base register/` returned nothing until today. Added
-as `claims-verification.md`, **12 concepts (CLM-001..012)**, grounded in code and
+as `claims-verification.md`, **14 concepts (CLM-001..014)**, grounded in code and
 DB read first-hand on 2026-07-27 rather than carried from other documents.
 
 Two of the twelve are recorded defects rather than descriptions — `CLM-009`
@@ -1754,4 +1754,5 @@ an ID prefix, or a status word.
 | CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |
 | LNK-023 | repairOutboundPageLinks: shared rerender-path link repair | deployed | The build gate's dead-link repair applied where rerendered HTML leaves for deploy, both paths, origin-stamped log | link-management.md |
 | CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
+| CLM-014 | cmd/claimscan: run the live gate's own engine over exported page HTML, offline | deployed | The only way to test a candidate pattern set against copy other than the site it was written for; a session nearly rebuilt it. Prints BANNED/NUMBER, never the string "banned_claim" | claims-verification.md |
 | LNK-024 | repairSectionsBeforePersist: dead-link repair at the PERSISTENCE point | built | The gate repairs clean_html, which the structured save path never reads — so repair moves to where sections are written; 4 of 6 persistence paths had none by any route | link-management.md |
