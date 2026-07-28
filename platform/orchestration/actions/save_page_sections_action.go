@@ -120,8 +120,9 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 		}, nil
 	}
 
-	// Look up page_id
-	pageID, err := saveSectionsLookupPageID(ctx, params.DB, siteID, pageName)
+	// Look up page_id (and the page's own url, best-effort origin metadata for
+	// the link-repair record written before the insert below)
+	pageID, pageURL, err := saveSectionsLookupPageID(ctx, params.DB, siteID, pageName)
 	if err != nil {
 		params.Logger.Warn("SavePageSectionsAction: Page not found, skipping",
 			zap.String("page_name", pageName),
@@ -355,6 +356,21 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 			}
 		}
 	}
+
+	// --- Repair dead internal links before anything is persisted (bugs_open/079) ---
+	// Persistence is the enforcement point: the build gate's repair lives in
+	// `clean_html`, which the structured metadata path above never reads, so a
+	// gate-side repair is dead config on the primary build plan and absent
+	// entirely from page-rerender's structured save. Running here means no build
+	// path can persist an unrepaired section whatever its workflow config says.
+	// Placed AFTER the interactive-tool preservation block — so the stored markup
+	// that block carries forward is repaired too — and BEFORE the guards below,
+	// so they measure the bytes that will actually be written. Unlinking keeps
+	// the anchor text, so the guards' stripped-text totals are unchanged by it.
+	// See save_sections_link_repair.go.
+	repairSectionsBeforePersist(ctx, params, siteID,
+		datahelpers.ExtractNestedFieldString(params.CollectedData, "site_record.domain"),
+		pageName, pageURL, sections, params.Logger)
 
 	// --- Content regression guard ---
 	// Refuse to overwrite content-rich pages with empty template shells.
@@ -1114,13 +1130,17 @@ func sectionHTMLIsInteractive(html string) bool {
 		strings.Contains(h, "tool-page")
 }
 
-// saveSectionsLookupPageID finds page UUID by site_id and page name
-func saveSectionsLookupPageID(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string) (uuid.UUID, error) {
+// saveSectionsLookupPageID finds page UUID by site_id and page name, and
+// returns the page's stored url alongside it. The url is best-effort origin
+// metadata for the link-repair record (bugs_open/079) — pages.url is nullable,
+// so an absent one degrades to "" rather than failing the lookup.
+func saveSectionsLookupPageID(ctx context.Context, db *sql.DB, siteID uuid.UUID, pageName string) (uuid.UUID, string, error) {
 	var pageID uuid.UUID
+	var pageURL sql.NullString
 	err := db.QueryRowContext(ctx, `
-		SELECT id FROM pages WHERE site_id = $1 AND name = $2
-	`, siteID, pageName).Scan(&pageID)
-	return pageID, err
+		SELECT id, url FROM pages WHERE site_id = $1 AND name = $2
+	`, siteID, pageName).Scan(&pageID, &pageURL)
+	return pageID, pageURL.String, err
 }
 
 // Problem: When saveSectionsExtractFromHTML can't find data-component attributes,
