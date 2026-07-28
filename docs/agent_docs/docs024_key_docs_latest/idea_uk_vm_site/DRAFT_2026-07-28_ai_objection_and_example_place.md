@@ -1,11 +1,19 @@
-# DRAFT — the "why not just ask an AI?" paragraph, and the £8 example place
+# DRAFT — the "why not just ask an AI?" answer, and the £8 example place
 
-**Status: DRAFT FOR THE OWNER TO EDIT. Nothing here is on the site.** The consent
-wording especially: it is a commitment to a third party, not a code change, and the
-owner should read it as such. I am not a lawyer and this has not been reviewed by one.
+**Status: DRAFT FOR THE OWNER TO EDIT. Nothing here is on the site.** The consent wording
+is a commitment to a third party, not a code change. I am not a lawyer and this has not
+been reviewed by one.
 
-Owner decisions already taken (2026-07-28): do both; price the trial at **£8**, not £5 —
-"5 sounds like the service is a cheap one disguised as an expensive one".
+Owner decisions (2026-07-28): do both; price the trial at **£8**, not £5 — "5 sounds like
+the service is a cheap one disguised as an expensive one".
+
+> **REWRITTEN after owner feedback, same day.** V1 of both paragraphs was too long and
+> "sounded like AI — negative framing and too many *not*s". It was: the copy kept defining
+> things by what they were not ("we won't identify you", "this is not a promise", "nothing
+> else changes"). V2 is roughly half the length and written in positive constructions. The
+> content the owner approved is unchanged. **Keeping the diagnosis because it is the more
+> useful half: stacked negatives are a reliable AI tell, and the fix is to say what the
+> thing IS.**
 
 ---
 
@@ -13,35 +21,20 @@ Owner decisions already taken (2026-07-28): do both; price the trial at **£8**,
 
 ### Couldn't I just ask an AI myself?
 
-Partly, yes — and we'd rather say so than pretend otherwise. If you are comfortable
-prompting one of the big AI tools and willing to spend an evening on it, you can get some
-of what is in this report yourself.
+Up to a point, yes — prompt one of the big tools for an evening and you will get something
+worth reading.
 
-The part that takes the time is not the writing. It is deciding what to ask, checking
-whether the answers are true, and finding out who is already doing it. A conversation
-with an AI tends to follow where you lead it: if you are enthusiastic about your idea,
-the answers usually are too.
+The work is in the checking. We research every report with live web searches and put the
+source under each finding, so you can go and read it yourself. A second AI, from a
+different company, pulls the first one's work apart before you ever see it. Then a person
+reads the lot.
 
-What we do differently is the checking. Every report is researched with live web
-searches, and every finding that rests on something we read is listed underneath with a
-link, so you can go and read it yourself. A second AI model, from a different company, is
-asked to pull the first one's work apart before you see any of it. The same questions get
-asked every time — the problem, the evidence that people actually have it, who else is
-addressing it, where it is defensible, where it is exposed, and one specific next step.
-A person reads the whole thing before it is sent.
+We ask the same questions every time: what the problem is, who has it, who else is solving
+it, where you are strong, where you are exposed, and one thing to do next.
 
-And it is allowed to say no. If your idea is too early to assess honestly, the report
-says so instead of padding it into a verdict. If none of the further ideas we find are
-good enough, it says that too — you can watch exactly that happen in the example.
+And it will tell you when the answer is no. Watch that happen in the example.
 
 **[See the example report in full →]** `/report/example/index.html`
-
-> **Why it is written this way.** It concedes the strongest version of the objection in
-> the first line, because the reader has already thought of it and a page that pretends
-> otherwise loses them. Every differentiator named is one we actually do and the specimen
-> demonstrates. Nothing is claimed about what other tools get wrong: "a conversation
-> tends to follow where you lead it" is a statement about the interaction, not a claim
-> about a competitor's quality that we could not evidence per-instance.
 
 ---
 
@@ -49,85 +42,105 @@ good enough, it says that too — you can watch exactly that happen in the examp
 
 ### The £8 example place
 
-We are building a library of example reports, so people can see what they would get
-before they buy. In exchange for that, you can have a full report — the same one, nothing
-held back — for **£8** instead of £29.
+We are building a library of example reports so people can see the work before they buy.
+Take one of those places and you get the full report — same research, same length — for
+**£8**.
 
-The £8 covers what the research costs us. What you give in return is permission to
-publish your report as one of our examples.
+In return, you let us publish it as an example.
 
-Exactly what that means:
+**Your name is your choice.** Ask us to credit you and we will publish your name and a
+link to your site alongside the report. Stay quiet and we publish the idea and the report
+on their own — your name, your email and your company stay out of it.
 
-- **What we may publish:** the report itself, in full, and the description of the idea
-  you sent us — a report makes no sense without the idea it is about.
-- **How you will be identified: you will not be.** We publish the idea and the report,
-  never your name, your email address or your business's name — unless you tell us in
-  writing that you would like to be credited.
-- **We may not publish it at all.** This is permission, not a promise. We might publish
-  it next week, or never.
-- **You can change your mind.** Email us at any time and we will take it down within five
-  working days, and we will not ask why. What we cannot do is retrieve copies other
-  people have already made while it was up.
-- **How long it lasts:** until you withdraw it.
-- **Nothing else changes.** Same report, same delivery promise, same refund if it turns
-  up nothing worth acting on.
+We might publish next week, or never. The permission is yours to give and yours to
+withdraw: email us and it comes down within five working days.
 
-**If you would rather your idea stayed private, take the £29 report.** That is what it is
-for, and we will never publish it.
+Everything else matches the full report — same delivery, same refund if it turns up
+nothing worth acting on.
+
+Want your idea kept private? That is what the £29 report is for.
 
 ---
 
-## The framing that makes the two prices coherent
+## On crediting with a link — offer it, do not sell it as SEO
+
+The owner's idea: publish the example with the submitter's name and a link to their site,
+so they read the £8 as buying exposure as well as a report. **Worth doing. Worth being
+careful how it is described.**
+
+**Why to offer it.** It converts the cost of the barter into a benefit, and it improves
+the library: a worked example with a real business attached is more persuasive than an
+anonymous one. It also helps the adverse-selection problem — someone who wants their name
+on it is likelier to be a real business with a real idea than someone offloading a
+throwaway.
+
+**Why not to market it as SEO.** Two reasons, and the second is the sharper one:
+
+1. **We cannot support the claim.** idea.uk had 26 non-bot page views in the ten days to
+   28 July, most of them cloud scanners and a Tor exit. A link from a site with no traffic
+   and no history is worth very little today, and this product's entire brand is not
+   overstating things. Selling "an SEO link" from here is the one claim that would read as
+   dishonest to exactly the audience we want.
+2. **Selling a link makes it a paid link.** If part of what £8 buys is a backlink, search
+   engines treat that as a paid link and expect `rel="sponsored"` or `nofollow` — which
+   removes the value being sold. Framed as *credit for the person whose idea it is*, it is
+   editorial attribution and the problem does not arise. The framing is the difference,
+   and the difference is real.
+
+**So:** offer the credit and the link plainly — "we will publish your name and a link to
+your site" — and let the reader decide what that is worth to them. The honest appeal is
+**exposure and credibility**, not link juice: being the worked example on someone's site
+is a marketing benefit that does not depend on domain authority.
+
+Mark the link `rel="nofollow"` regardless. It costs nothing we are honestly offering, it
+matches the `nofollow` discipline already agreed for commercial links elsewhere on the
+estate, and it means the offer stays clean if the site's traffic ever does grow.
+
+---
+
+## The framing that makes two prices coherent
 
 **£29 buys privacy. £8 buys the same report without it.**
 
-This is the load-bearing idea and it should survive editing. It means:
-
-- the £8 is a **barter**, not a discount — so it does not tell the market the £29 was
-  overpriced, which was the owner's concern about £5;
-- the £29 gains a stated benefit it did not visibly have before;
-- the specimen library is paid for by the people who use it.
-
-State it plainly on the page. A cheaper twin with no explanation makes the dearer product
-look like a mark-up; a cheaper twin that visibly costs you something does not.
+A cheaper twin with no explanation tells the market the dearer one was a mark-up — which
+was the owner's objection to £5. A cheaper twin that visibly costs the buyer something
+does not, and it gives the £29 a stated benefit it did not visibly have.
 
 ---
 
-## Conditions to hold it to (from the earlier analysis, owner agreed)
+## Conditions to hold it to
 
 1. **Cap it.** "While we are building our examples library", or a fixed number. Five to
    ten specimens is plenty, and `MAX_ACTIVE_ORDERS=5` means a successful offer could fill
    the queue and make full-price buyers wait.
-2. **£8 covers compute, not attention.** Model spend is ~£1 per report
-   [$1.23 measured 2026-07-28; £ figure approximate], Stripe takes ~32p on £8, so ~£6.70
-   nets. That pays for the machine. It does not pay for the human confirm-and-approve
-   step, which is the real cost. Fine for an experiment; not a business.
-3. **Same report, explicitly.** If the £8 bought a lesser version, the published specimen
-   would not be evidence of what a £29 buyer receives — which defeats the point.
-4. **Consent must be an unticked box the buyer actively ticks**, stored on the order, with
-   the wording visible at that moment — not buried in terms. A pre-ticked box is not
-   consent.
-5. **Watch for adverse selection.** People happy to publish may be those who value their
-   idea least, so this tier can produce exactly the specimens you least want to show.
-   Worth watching rather than assuming — and a reason to keep the right not to publish.
+2. **£8 covers compute, not attention.** Model spend ~£1 per report [$1.23 measured
+   2026-07-28; £ figure approximate], Stripe ~32p on £8, so ~£6.70 nets. That pays for the
+   machine, not for the human confirm-and-approve step. Fine for an experiment.
+3. **Same report, explicitly.** A lesser version would make the published specimen no
+   evidence of what a £29 buyer receives, which defeats the point.
+4. **Consent is an unticked box the buyer ticks**, stored on the order, wording visible at
+   that moment. A pre-ticked box is not consent. Store the credit-me choice separately —
+   two decisions, two records.
+5. **Keep the right not to publish.** Stated in the copy, and it is the backstop for
+   adverse selection.
 
 ---
 
-## What building it actually takes (scoped 2026-07-28, not yet built)
+## What building it takes (scoped 2026-07-28, not yet built)
 
-Not a config flip. `PriceGBP` is one value threaded `Config → StripeProvider.priceGBP →
-CreateCheckout`, so the price is fixed per *process*, not per *order*:
+`PriceGBP` is one value threaded `Config → StripeProvider.priceGBP → CreateCheckout`, so
+price is fixed per *process*, not per *order*:
 
-- `Order` gains a price and a consent flag (both persisted — the consent record must
-  outlive the session that captured it).
+- `Order` gains price, a consent flag, and the credit-me choice (all persisted — a consent
+  record must outlive the session that captured it).
 - `Provider.CreateCheckout(orderID, email)` gains a price argument — an interface change,
-  so `StripeProvider` and `FakeProvider` both move together.
-- `sendPayLink` passes the order's own price; the pay-link email must show the amount the
-  buyer will actually be charged, or the email and the checkout disagree.
-- The request form needs the tier choice and the consent box; the operator's review email
-  should show which tier, so approval is never accidental.
-- Tests: a consent-flagged order must never be created without the box ticked, and an £8
-  order must never produce a £29 checkout (or the reverse).
+  so `StripeProvider` and `FakeProvider` move together.
+- `sendPayLink` passes the order's own price, or the email and the checkout disagree about
+  what the buyer owes.
+- Form: tier choice, consent box, optional name-and-URL fields. Operator review email
+  shows the tier, so approval is never accidental.
+- Tests: no consent-flagged order without the box ticked; an £8 order never produces a £29
+  checkout, or the reverse.
 
-Contained — roughly a morning with tests — but it touches money, so it wants the same
-induce-the-fault verification as `bugs_closed/089`.
+Roughly a morning with tests. It touches money, so it wants the same induce-the-fault
+verification as `bugs_closed/089` rather than trust in a green suite.
