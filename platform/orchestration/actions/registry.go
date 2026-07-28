@@ -1816,6 +1816,12 @@ var GlobalActionRegistry = map[string]ActionDefinition{
 		Description: "Validate and write one experience-register entry — always as draft; approval is a verdict, not a field",
 		IsLocal:     true,
 	},
+	"bind_site_experience": {
+		Handler:     BindSiteExperienceAction,
+		Category:    "experience_register",
+		Description: "Bind a register entry to one site's real pages and selectors, refusing unclosed, empty, unanchored or dead-page bindings",
+		IsLocal:     true,
+	},
 	"rename_tool_identity": {
 		Handler:     RenameToolIdentityAction,
 		Category:    "documentation",
