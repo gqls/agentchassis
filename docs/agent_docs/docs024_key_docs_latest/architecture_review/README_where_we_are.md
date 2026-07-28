@@ -465,3 +465,55 @@ and the column is empty until then. After that, the remaining known gap is that
 markdown is still invisible to every reviewer: our own bug files, the wrong-calls
 log and the design register are all unreadable by the machinery that reviews our
 plans. That needs a separate change and shouldn't be bundled into this one.
+
+---
+
+**2026-07-28, morning.** The chassis rolled overnight and the change is live. It
+works: every one of the 4,535 indexed symbols now carries its source code, and the
+search example that the tool's own documentation has promised since it was written
+— and which had never once matched anything — now returns six results. Nothing was
+disturbed on the way: the check that would have caught the dangerous failure (every
+row silently re-embedded, at cost, invisibly) came back clean before and after.
+
+The indexer's own log says it sliced 4,536 bodies with **zero** errors, which is
+the number I most wanted to see, because a mis-sliced body would have been worse
+than none at all.
+
+**Two things came out of proving it, and I want to be straight that the second is
+more important than the feature.**
+
+The first is mine. A reviewer had objected, mildly, that my search might not use
+the new index and asked me to check before merging. I couldn't check properly
+yesterday because the column was empty — an empty column tells you nothing about
+how a search over a full one will behave. Now that it's full: the reviewer was
+right, and the cause was a defensive `COALESCE` I had added myself. It made the
+query 23 times slower by quietly disqualifying the very index I'd just created.
+One-line fix, committed, live at the next deploy.
+
+The second I did not go looking for. At 07:07 this morning a real diagnosis —
+about the robot-hands 404 links, nothing to do with me — asked the index whether a
+particular function existed. It got back: *"the query was RUN and matched none;
+this is not an unanswered question."* That function does exist. It's in the
+codebase right now. It is missing only from the index's snapshot, which is **955
+commits behind** what we've actually written, under a banner cheerfully reporting
+"refreshed 17 hours ago".
+
+Here is the uncomfortable part. That confident sentence is **mine** — I wrote it
+yesterday, to fix a real problem where an empty result looked like silence and
+nobody could tell "we searched and found nothing" from "nobody ran your query".
+That fix was right. But it turned a hedge into an assertion, and the assertion is
+sitting on top of stale data. **I made the wording more trustworthy without making
+the contents more current, and the combination is more misleading than either
+problem was alone.** I've written that up properly, because I think it's a general
+trap and not a one-off: when you improve how confidently a system states
+something, you inherit responsibility for whether the thing is true yet.
+
+**One thing needs a decision from you, and it isn't a code question.** The index
+can only ever mirror what has been *pushed*. Our working branch has 955 commits on
+it that have never been pushed, so the index describes the codebase as it stood on
+24 July, and every reviewer and every diagnosis is reasoning about that older
+version while believing it is current. No amount of re-indexing changes this — I
+re-indexed this morning and the distance didn't move by one commit. Only a push
+would. That's a call about a shared branch carrying many sessions' work, so it is
+yours rather than mine, but it is currently the single biggest thing degrading the
+quality of automated review on this platform.

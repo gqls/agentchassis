@@ -27,7 +27,36 @@ things up (the honesty caveat is an interim, not a destination).
 Do not reopen D7(b) or D9 on a reversal trigger firing — after a ruling those are
 the evidence you would need to ask the owner to revisit, which is a higher bar.
 
-## 2. THE ONE THING OWED, and it is a verification, not a build
+> ## ✅ UPDATE 2026-07-28 07:15 — LAYER 1 IS LIVE AND PROVEN. §2 below is DONE.
+>
+> Chassis rolled to **`v1.0.1180`**; verified against the running pod. Reindex ran
+> (corr `86815023`): `bodies_sliced=4536 slice_errors=0 file_read_errors=0`.
+> **Bodies 4,535 of 4,535**, `content_hash` drift **0**, and
+> `body ILIKE '%stop_reason%'` **0 → 6** — the contract's own example works for the
+> first time. `bugs_open/108` **defect B is CLOSED**.
+>
+> **Two things came out of verifying it, and the second matters more than layer 1:**
+>
+> 1. **My `COALESCE(body,'')` disqualified the trigram index I had just added** —
+>    a plain-column index cannot match an expression, so the shipped query
+>    **seq-scanned at 125.9 ms** where the same query without it uses a BitmapOr
+>    across both indexes at **5.5 ms**. That is `guardian`'s low objection
+>    vindicated. Fixed in **`a4f06f83a`**, which is **INERT until the next roll** —
+>    so re-run VERIFY check 5 after that roll and expect a BitmapOr, not a Seq Scan.
+> 2. **Fixing defect B made defect A WORSE, on live traffic.** A diagnosis at
+>    07:07:27 was told *"the query was RUN and matched none"* about
+>    `RepairPageLinks`, which exists — the index is **955 commits behind** under a
+>    banner saying *"refreshed 17h ago"*. My new wording is a **stronger denial**
+>    than the old `"(no matches in the index)"`. **⇒ 108 candidate 1 (freshness by
+>    COMMIT DISTANCE) is now a PREREQUISITE, not a parallel nicety.** Full evidence
+>    in `bugs_open/108`; the transferable shape is in `016b` §9.
+>
+> **The distance is not the indexer's fault:** it mirrors the last **pushed** tip,
+> and `origin/086_experience_loop` has sat at `e19aa5d10` while local HEAD moved
+> 955 commits. A reindex cannot fix that — **only a push can.** Worth raising with
+> the owner before any further work on candidate 1.
+
+## 2. ~~THE ONE THING OWED~~ — DONE (kept for the verification recipe, which is reusable)
 
 **Layer 1 is BUILT, COMMITTED, and IN THE IMAGE. It is not yet LIVE.**
 
