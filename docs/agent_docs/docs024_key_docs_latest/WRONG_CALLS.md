@@ -59,7 +59,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **check the column actually means what you are measuring** | **2** |
 | read the rule before inferring its purpose | 1 |
 | **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **4** |
-| **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **1** |
+| **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
 | **resolve BOTH operands to the same ground before comparing — same run, same namespace** | **4** |
 | **confirm the record you are reading is the one that produced the artefact** | **5** |
 | **compare a STRUCTURAL property of the output against the source — counts and a zero exit code cannot see silent loss** | **1** |
@@ -84,6 +84,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **measure a SYMPTOM's exposure across every cause, not only the one you are fixing — a bug file's exposure figure is read as "is this biting?", not "is my code path biting?"; and FETCH the live artefact you have already named in your own prose** | **1** |
 | **RE-RUN the prior-art search when the design outlives it — an absence is true only at the moment you looked, and a peer built the next day is invisible to a search you already did. A search is a reading, not a property.** — *AUTOMATED 2026-07-28: `check_new_capability_surface` in `scripts/pattern-check.py` fires when a staged `.md` proposes a `cmd/`, dockerfile or package that does not exist, and prints the existing peers marked `(new)`. Advisory. Measured 1.33% / 1,500 commits. It re-runs on every later commit touching the doc, which is the half a one-shot review cannot do.* | **1** |
 | **read `decided_by` before writing a `Council-Reviewed:` trailer — and again if the submission went to another round, because a later APPROVAL can attach to a materially DIFFERENT plan and the coverage report cannot tell** | **1** |
+| **treat any check whose failure triggers an automated REWRITE as production configuration — a wrong test does not merely fail, it becomes the specification the repair loop faithfully implements, and it will damage correct code to satisfy it** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
 about process — it is **reasoning about a mechanism from its data instead of its
@@ -8536,3 +8537,67 @@ suspicious. It looked entirely convincing.
 above: those were the wrong *query*. This was the right query pointed at the wrong
 *URL shape* — and no amount of re-reading my own reasoning would have surfaced it,
 because the reasoning was sound and only the input was wrong.
+
+---
+
+## 2026-07-28 — I wrote an acceptance test that could not pass, and it was one dispatch away from deleting a legal disclaimer
+
+**The claim.** That the oufe.com recovery-waterfall tool worked. I had inspected the
+rendered markup, seen every element present and correct, and described the tool as
+working in a handoff. The Tier-4 browser acceptance was recorded as "owed" rather than
+blocking.
+
+**What happened when I finally ran it.** It failed 2 of 11 checks. Both interaction
+checks in my criteria fence clicked the tool's consent gate `#rw-accept` first, and my
+own note under the fence *argued that they must* — "the tool body is hidden behind the
+condition-of-use gate and a hidden input cannot be filled". That reasoning is correct
+and it is irrelevant, because it silently assumes each check gets a fresh page.
+
+It does not. `internal/adapters/browserrunner/run_checks_action.go` opens ONE page per
+profile (`:569`), navigates once (`:584`), then runs every check against that same page
+(`:398`). The gate sets `display:'none'` on click. So check one opened it and check two
+clicked an element that still resolved in the DOM and was no longer visible.
+
+**The check I skipped** is the existing ENGINE row, incremented above: I proved the
+fence against the runner I imagined rather than the one that would execute it. One
+`grep` for `NewPage` in the runner — about fifteen seconds — settles it. I had written
+a multi-step behavioural test against a harness whose execution model I had never read.
+
+**What nearly made this expensive, and why it earns its own row.** The failure
+auto-raised an `improve_tool` work item carrying my fence as `acceptance_test`, for
+dispatch to `tool-improver`. Its task would have been: *make this tool pass a test that
+requires the consent gate to be clickable twice on one page load.* The only ways to
+satisfy that are to stop the gate hiding itself, make it reappear, or remove it — **all
+three weaken or delete the disclaimer**, which is section B of the owner-approved
+wording and the proximate placement the whole negligent-misstatement position rests on.
+It is the one element on that page that most needs to be immovable, and nothing in the
+loop knows that.
+
+A green run afterwards would have looked like success. I cancelled the item `wont_fix`
+by hand before it dispatched — that was attention, not a guard, and attention does not
+scale to the next gated tool. Filed as `bugs_open/126`.
+
+**The generalisation.** An automated repair loop inherits the authority of whatever
+test it is given. A wrong test does not merely fail; it becomes a specification, and
+the loop implements it faithfully against correct code. Every previous row in this file
+is about a wrong *belief* costing a wrong *conclusion*. This is the first where a wrong
+belief of mine was queued to be executed by another agent, on production content, with
+a plausible green result at the end.
+
+**What I got right, and want to make deliberate rather than lucky.** I did not trust
+the failure's headline. "Locator resolved to `<button…>` … element is not visible"
+reads exactly like a broken button, and the tool was the obvious suspect. What pointed
+the other way was that `high-ev-covers-all` **passed** — and it clicks the same button,
+so the button demonstrably works on a fresh page. **A check that passes is evidence
+about the checks that fail**, and a suite is a set of controls for itself if you read
+it that way.
+
+The confirming discipline: I changed only the fence, never the tool source, and re-ran.
+13 of 13. That is what establishes the fence rather than the tool as the defect —
+had I "fixed" both at once, I would have learned nothing and published a false cause.
+
+**A quieter finding underneath it.** `zero-ev-breaks-at-top` had **never executed**. It
+died at its gate click on the only run that ever happened, so the tool's behaviour at
+zero enterprise value was unverified for the entire period I was describing the tool as
+working. A test that has only ever failed at step 1 has told you nothing about steps 2
+onward, and a suite reporting "2 failed" invites you to read the other 9 as coverage.
