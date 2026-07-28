@@ -6579,3 +6579,74 @@ still a log of the fix's OUTPUT, not of the system's state. Sibling of
 §"A pod-grep proves the code is in the binary, never that it is on the path
 your feature uses" — one level further along: the code was in the binary,
 AND on the path, AND ran, and the path then threw its work away.
+
+### A `!= nil` guard around a whole criterion turns "we don't know" into "there is no rule" (2026-07-28)
+
+Found live in `score_grippers_action.go`, in the honesty machinery of a report
+sold to customers. The soft-gripper cup-range check was guarded like this:
+
+```go
+if spec.Tech == "soft" && spec.GripMinMM != nil && spec.GripMaxMM != nil {
+    // compare the part size against the published cup range
+} else {
+    rows = append(rows, criteriaRow{Label: "Jaw travel",
+        Text: &"Not applicable — surface hold, no jaws", Flag: ""})
+}
+```
+
+Read it as a human and it is obviously right: *check the range when we have the
+range*. Read it as the scorer and it says something else — **when the range is
+unpublished, this candidate has no size constraint at all.** The else branch was
+written for vacuum and magnetic grippers, which genuinely have no jaws. A soft
+gripper *has* a size window; we simply do not know it. So a gripper whose
+manufacturer never published its cup range scored `Match` on its remaining
+criteria and the report told a paying customer the part fits.
+
+**The shape, which is what transfers.** A nil-check written as a *precondition
+for evaluating a rule* silently becomes an *exemption from the rule*. The same
+line does both jobs and looks correct doing either. It is especially easy to
+miss when — as here — the fall-through branch already existed for a legitimate
+reason, so the diff that introduced the bug added no branch at all.
+
+Note the asymmetry that makes this worse than it sounds: every other criterion
+in that same file handled absence correctly (`state.unknown = true`, flag
+`none`). One of seven diverged. A reviewer scanning for a missing case sees six
+correct examples and reads the seventh as one of them.
+
+**Why no example-based test caught it.** The suite asserted *instances*: these
+ten fixtures, these requests, these verdicts. Every fixture had a published cup
+range, because real datasheets mostly do. The defect only appears on data nobody
+wrote a fixture for.
+
+**The check that found it, and the one to copy: assert the GUARANTEE, not
+instances of it.** For every subset of the nullable fields, re-score and assert
+that removing a published figure never turns a non-passing candidate into a
+passing one:
+
+```go
+for mask := 1; mask < 1<<len(nullableFigureFields); mask++ {
+    // nil the masked pointers on every fixture, rescore
+    if got.rank <= 1 && was.rank > 1 {
+        t.Fatalf("%s became PASSING (%s) after figures were REMOVED — it was %s",
+            name, got.verdict, was.verdict)
+    }
+}
+```
+
+2^6 masks × 10 fixtures × 4 request shapes, well under a second, and it found the
+defect on its first run. It touches only the pure scoring function, so it
+survives any refactor of where the rules live.
+
+**And it corrected its own author, which is the part worth keeping.** The first
+version asserted that removing a figure could only ever *worsen* a verdict. It
+failed immediately — and the code was right. Losing a figure moves a candidate
+from `No match` to `Insufficient data`, which is honest: without the figure we
+cannot assert failure either. Losing information moves you toward **uncertainty
+in both directions**. The guarantee is not "uncertainty is bad", it is
+"**uncertainty is never mistaken for success**". Getting that distinction wrong
+in the test would have made it either vacuous or permanently red.
+
+**Generalises to:** any pass/fail gate over optional data — validators, discovery
+checks, claim verifiers, eligibility rules. Ask of each: *when this field is
+absent, does my code say "unknown" or does it say "no constraint"?* They are
+different answers and only one of them is safe to publish.
