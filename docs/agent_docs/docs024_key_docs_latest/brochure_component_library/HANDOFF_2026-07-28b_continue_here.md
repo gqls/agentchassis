@@ -28,13 +28,21 @@ Unchanged — see the morning handoff §1. DB access, site/plan/page ids, `.html
 
 ## Next actions, in order
 
-1. **Verify the selector tool's hero landed.** Work item `56fbcc9a` ("Re-render
-   tool-model-approach-selector after its image asset landed") failed at 12:20Z
-   because the image didn't exist yet, parked `needs_human_review`, retried ~14:55Z
-   after asset `d76f0282` landed. Check:
-   `curl -s https://fundamentallyai.com/tools/model-approach-selector/index.html | grep -o 'content-hero[^"]*'`
-   and the item's status. If it failed again, read the error before retrying — the
-   "missing data" premise is gone, so a second failure means something new.
+1. **The selector tool's hero is generated but NOT placed — and the generic build
+   cannot place it.** Asset `d76f0282` exists (item `539893ae` complete 14:42Z). Work
+   item `56fbcc9a` ("Re-render tool-model-approach-selector after its image asset
+   landed") was retried at ~14:45Z WITH the asset present and no-opped again
+   ("no sections ready to build") — so the missing-image premise was wrong.
+   > **CORRECTED 2026-07-28 (same session that wrote the first version of this
+   > item):** the calculator's hero needed NO re-render — its page already carried
+   > the `content-hero-llm-cost-calculator.jpg` reference and generating the file
+   > made it 200. The selector page carries **no hero `<img>` at all**, so it needs
+   > content added, and it is a tool page — the generic `page-build-handler` finds
+   > empty spec sections and no-ops (tool pages belong to the tool pipeline;
+   > `save_page_sections` refuses `rebuild_policy='owned'` pages by design).
+   Route it through the tool pipeline or a scoped section edit, not another retry of
+   `56fbcc9a` (attempt 1 of 3 burned proving this; it is parked `needs_human_review`
+   again, which is the correct resting state until the right route is chosen).
 2. **The capabilities page still serves 13 broken refs** (9 links + 4 carousel svgs).
    Repair now has a decision to make that the morning handoff couldn't see: a hand
    repair still won't survive a rebuild (071's proven point), and the automated repair

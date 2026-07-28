@@ -2498,3 +2498,16 @@ correctly, its image did not exist then — and parked at `needs_human_review`; 
 I nearly concluded "no provider info" instead of "wrong query". The 2-step plan dump
 (`generate_image` → `complete`) settled it. Same lesson as ever: an empty read of the
 wrong field looks exactly like "it did nothing".
+
+**Correction, same afternoon — the selector re-render premise was wrong, and the
+calculator never needed a re-render at all.** I retried `56fbcc9a` believing it had
+failed for want of the image; it no-opped again ("no sections ready") at 14:46Z with the
+asset present. The real mechanism: the calculator's page ALREADY referenced
+`content-hero-llm-cost-calculator.jpg` — the reference predated the file, and generating
+the file made the existing `<img>` go 200 with no page change (the §4b
+"reference-to-nothing" pattern, resolved from the other side). The selector page carries
+NO hero `<img>`, so it needs content added — a tool page the generic build correctly
+refuses (empty spec sections / owned-page guard). One retry attempt burned proving this
+(1 of 3); item re-parked `needs_human_review`, which is correct until it is routed
+through the tool pipeline or a scoped section edit. Handoff 07-28b item 1 corrected in
+place.
