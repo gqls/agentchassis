@@ -43,6 +43,11 @@ func (m *MockProducer) Produce(ctx context.Context, topic string, headers map[st
 	return nil
 }
 
+// ProduceWithValidation on the mock records like Produce; there is no validator.
+func (m *MockProducer) ProduceWithValidation(ctx context.Context, topic string, headers map[string]string, key, value []byte) error {
+	return m.Produce(ctx, topic, headers, key, value)
+}
+
 func (m *MockProducer) Close() error {
 	return nil
 }
@@ -168,7 +173,9 @@ func TestParentChildOrchestrationHandoff(t *testing.T) {
 
 	logger := zap.NewNop()
 	mockProducer := NewMockProducer()
-	coordinator := orchestration.NewSagaCoordinator(db, mockProducer, logger)
+	// nil storage.Client: this test predates the storage parameter and exercises
+	// no artifact path; a nil keeps the package's test binary compiling.
+	coordinator := orchestration.NewSagaCoordinator(db, mockProducer, nil, logger)
 
 	// Test data
 	correlationID := uuid.New().String()
