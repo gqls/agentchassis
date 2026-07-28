@@ -681,3 +681,61 @@ live page for something your change created, which is what I now do.
 
 **The news feed** is still due at 19:49 tonight. Everything about it is ready and
 waiting.
+
+---
+
+### Tuesday 28 July, morning — the analytics is working, and the news feed has a bigger problem than wording
+
+**Your analytics token is in and the tracking script is now built into the site's
+header.** I've checked the actual stored page furniture rather than trusting the
+job that said it succeeded — the tag is there, with your token in it, exactly as
+Cloudflare wrote it. That was the third attempt, and the first two are worth one
+line: the place the previous session's notes told us to put the token is a place
+the page builder never reads, so it looked correct at every step and produced
+nothing. It's in the right place now and that's settled.
+
+**It won't show on the live site for a few hours.** Publishing the header queues a
+rebuild of all ninety-nine pages, which takes around three and a half hours and
+shows nothing at all for the first twenty minutes. I've got a watcher on the live
+page and I'll tell you the moment it appears. Nothing more is needed from either of
+us — it's just slow.
+
+**Now the news.** You asked me to aim the queries at the industry and real
+developments. I did, the feed ran again this morning, and I went and read what came
+back — and I have to be straight with you: it's only slightly better, and the
+reason isn't the wording.
+
+The one genuine win is that it found *"Anticipated acquisition by Adobe of Figma"* —
+exactly the kind of thing you meant. But alongside it came market research reports
+dated 2034 and 2035, font round-ups, Reddit threads, and pages from the W3C
+explaining what the W3C is. Not news. Encyclopaedia entries and marketing.
+
+So I went looking for why, and **the news feed has never actually been searching
+the news.** The system asks for a news search at every stage — one part of the code
+explicitly forces it, another writes it into the message, and the search service
+receives it and even writes it into its own log. And then it calls the actual
+search with only two things: the words to search for, and how many results to
+return. There is nowhere for "news" to travel. It gets thrown away at the last step.
+Not one of the three search providers we use has a single line of code that mentions
+it.
+
+The same goes for any notion of recency — there's a slot in the code for "only show
+me things from the last day/week/month" that has never been wired up either. Which
+is exactly why a search for company acquisitions returned forecasts for 2034: a
+plain web search doesn't care what year it is.
+
+**That means no amount of rewriting the queries will fix it**, and I've now done
+two rounds of that. I've written it up properly as a fleet-wide bug — it affects
+every site we run a news feed on, not just this one.
+
+**I need a decision from you, and there's no urgency to it.** Either we wait for
+that bug to be fixed, and the news page waits with it. Or we switch this site to the
+other mechanism we already have, which genuinely does search for recent items and
+would work today with no code changes — but it costs an AI call every time it
+fetches, and it brings in an outside provider that the original plan for this site
+deliberately avoided. I don't think either is obviously right, so it's yours to call.
+
+**One thing I'd keep regardless:** the retune wasn't wasted. It retired the query
+that was returning "Top Web Design Agencies in the UK" listicles, which was heading
+straight for the rule about never publishing rankings of named agencies. That was
+worth doing on its own, whatever happens to the rest.
