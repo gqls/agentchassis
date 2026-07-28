@@ -750,3 +750,66 @@ written into the migration where the edit has to happen, not into a doc.
 count(*), max(ref) FROM (' || v_pre || ') s'`) rather than asserting its text — a
 pre_query is executable code with no compiler, and this fleet has been bitten by
 re-stating a predicate instead of running the stored one.
+
+---
+
+## 2026-07-28, ~15:15 — what's next, determined by re-grounding rather than by reading my own handoff
+
+**108 is CLOSED** (`6928c9380`, both defects, moved to `bugs_closed/`). Verified
+defect A independently against the RUNNING `v1.0.1189` pod rather than trusting
+the file: the commit-time-keyed banner is in the binary and **the old
+`updated_at`-only text returns 0**. So the prerequisite my own handoff §4 called
+non-negotiable is genuinely done, and the ordering constraint it imposed is
+discharged.
+
+**State of the other open items, re-grounded:**
+
+| item | state |
+|---|---|
+| seat has 0 reviews | **unchanged** — of 6 `capability_gap` specs, only `7b89fb35` has BOTH `owner_approval` and `code_pointers` in a workable status, and it is another thread's. Still a rate limit, still not forceable |
+| markdown in the index | **0 of 4,992 rows**, and `code_symbols_kind_check` still permits Go kinds only |
+| `council-gate` verdict note | still carries no code results |
+| D11 layer 3 | still unscoped |
+
+⇒ **Markdown is next**, and it is the only remaining item that serves the owner's
+D11 directive directly. Seats can now read what the code DOES; they cannot read a
+word of the record of how we get things wrong — which is the corpus this
+workstream has twice been caught by.
+
+### The sizing changed the shape of the job, so it was measured before designing
+
+| corpus | measured 2026-07-28 |
+|---|---|
+| `bugs_open` + `bugs_closed` | 2,816,294 bytes, 1,407 `## ` headings |
+| `WRONG_CALLS.md` | 595,590 bytes, 212 headings / **211 unique** |
+| `016b` | 508,318 bytes, 130 headings, all unique |
+| all `docs024` `.md` | **1,415 files** |
+
+**~1,749 sections against 4,992 existing rows (+35%)** — feasible. Indexing all of
+`docs024` is not, and would be actively harmful: those files are handoffs and
+summaries **superseded by design**, and a seat citing a stale handoff as evidence
+is the precise failure this workstream exists to prevent. Owner scoped it to the
+four durable sources. **The globs are the whole design.**
+
+The in-file duplicate-heading collision against `uq_code_symbols_identity`
+(repo, path, symbol) is **real but rare — measured at 1**, so it needs a
+disambiguator, not a redesign. Measuring it turned "might be a problem" into a
+one-line decision.
+
+### The precondition was checked FIRST this time
+
+The last plan this workstream submitted was approved by twelve seats while
+asserting *"the indexer is already walking the file"* — it was not. So before
+writing a line: `FetchToDir` (`analyse_repo_local_action.go:165`) fetches the
+**whole tarball unfiltered**; `AnalyseWithExclude` (`:197`) filters only the
+**analysis**; `defaultAnalyseExcludePatterns = []string{"docs/"}` (`:285`) is
+therefore an analyser-time exclude. **`docs/` IS on disk in the indexer pod.**
+Had that been a fetch-time exclude, the plan would have been impossible and
+nothing in it would have said so.
+
+**SUBMITTED to the council gate: `SUBMISSION_CORR=7ba5b8c4-0e10-46db-9fc4-2bd0584e943a`**
+(6 edits, 7 grounded_in). Submission committed unedited at
+`SUBMISSION_2026-07-28_markdown_into_the_index.json` so the artifact keeps
+matching whatever verdict comes back. Dispatched only after waiting for the
+newest chassis pod to clear 7 minutes — two pods were mid-roll and a council
+dispatch inside that window is eaten silently.
