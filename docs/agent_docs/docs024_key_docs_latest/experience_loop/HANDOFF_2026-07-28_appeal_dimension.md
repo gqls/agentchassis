@@ -144,16 +144,42 @@ this is no longer blocked behind "what is the Gauntlet for".
 | `action_changes_something` | "Enter the Gauntlet" started a clock and revealed **nothing** — the provocation was already on screen and did not change. | snapshot named regions, fire the control, assert a *named* region differs |
 | `primary_action_reachable` | The primary CTA sat at **y ≈ 1913px** on mobile — two and a half screens down. | bounding box top ÷ viewport height |
 
-### THE STRUCTURAL FINDING — `no_horizontal_overflow` is blind, fleet-wide
+### THE STRUCTURAL FINDING — `no_horizontal_overflow` was blind — **FIXED 2026-07-28**
 
-The existing check computes `document.scrollWidth - document.clientWidth`. On
-**every** overflowing page above that expression returns **0**, because a parent
-clips. **It detects page SCROLL, not content overflow**, and those are different
-faults. A page can hide content off the right edge and pass.
+> **DONE by another session, commit `5042d5ecb`, ~6 hours after this was written.
+> Council APPROVED (corr `845893c9`). Do NOT start it — this section is kept as
+> the WORKED EXAMPLE, not as an open task.**
 
-**This is the single highest-value item in this handoff** — it is one extra
-clause, it is not a new capability, and it silently passes today on at least two
-live pages. Fix it before building anything new.
+The check computed `document.scrollWidth - document.clientWidth`, which returns
+**0** on a page whose content is cut off, because a clipping parent zeroes it.
+It detected page SCROLL, not content overflow — different faults.
+
+**Read their implementation before proposing any of the checks in the table
+above**, because it answers the hardest question those checks share: *how do you
+tell a real fault from a deliberate pattern?* Theirs excludes
+`position: fixed|absolute` (off-canvas drawers) and anything inside a
+horizontally scrollable ancestor — because a scroll container is the STANDARD FIX
+for a wide table, and such a table must then PASS the check rather than be
+reported forever. It attributes to the deepest/widest offender, not the ancestor
+that merely inherited the width.
+`internal/adapters/browserrunner/run_checks_action.go:652-700`.
+
+**That escape clause also corrected one of my own findings**: I reported
+`/about.html`'s 560px table as needing a scroll container. It already had one
+(`div.pc-table-wrapper`, computed `overflow-x: auto`) — my raw crossing-rect scan
+could not tell scrollable-within-a-wrapper from cut. **Any check in the table
+above needs the same kind of escape, or it will report correct pages as broken.**
+
+**STATUS: fixed in code, NOT yet live.** `browser-runner-adapter` is its own
+service with its own image; the fix was committed 15:39 and the running pod
+(`v1.0.1189`) started 14:26. Re-verify after that adapter rolls.
+
+⚠ **`strings` DOES NOT EXIST in the browser-runner container.** CLAUDE.md's
+verify-against-the-pod recipe (`strings /app/<binary> | grep -c`) returns 0 for
+EVERYTHING there — it works on the chassis and silently fails on this adapter.
+Caught only by a positive control (`no_horizontal_overflow` itself returned 0,
+which is impossible). Use `grep -c '<marker>' /app/browser-runner-adapter`
+directly, and always pair it with a marker you know is present.
 
 ### And a caution the same day earned
 
@@ -164,10 +190,14 @@ keep breaking the second and each will pass in isolation.
 
 ## 6. First move for the new thread
 
-Do NOT start by building seats. Start by answering: **can `contrast_ratio` be
-added to the browser-runner's check types alone?** It is one check, fully
-objective, needs no new seat, and would immediately earn its keep across the
-fleet (the brochure workstream measured 101 unreadable pairs on one site).
+Do NOT start by building seats. **The precedent now exists**: `5042d5ecb` added a
+computed check to the browser-runner in one commit and passed council. Follow it.
+
+Start with **`contrast_ratio`** — one check, fully objective, no new seat, and it
+would immediately earn its keep across the fleet (the brochure workstream
+measured 101 unreadable pairs on one site; vonc had a headline at **1.00:1** and a
+link colour at 3.71:1 for weeks, `bugs_open/112` and `bugs_open/131` item A are
+the same mechanism on two different sites).
 If that lands cleanly, the machinery for the comparative checks is proven and the
 seat work becomes worth doing. If it does not, that is the real blocker and it is
 better found on one check than on six.
