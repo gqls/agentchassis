@@ -320,3 +320,51 @@ past every instance — 077, 115 and this file are three sightings of one thing,
 fix that makes the next one visible is cheaper than the fix that drains this batch.
 
 Contributed rather than acted on: the drain itself is this file's owner's call.
+
+### 2026-07-28 — correcting my own contribution above: routing is NOT the bottleneck
+
+> **The measurement I added yesterday framed this as unroutable items needing a route.
+> That framing is wrong, and one query kills it.** I was about to recommend surfacing
+> the 298 on the admin dashboard, having found that
+> `internal/core-manager/admin/confirm_work_item_handler.go:79` only accepts items with
+> `status='needs_human_review'` — "one status value away from a human's screen".
+
+There are already **325 items in `needs_human_review`**, the status that screen shows,
+and the oldest is from **2026-03-15**. The queue humans can see is fuller and older than
+the one they cannot. Routing more items into it changes nothing.
+
+```sql
+SELECT status, count(*), count(DISTINCT item_type), min(created_at)::date
+  FROM site_work_items WHERE status IN ('needs_human_review','detected') GROUP BY 1;
+--  needs_human_review | 325 | 23 | 2026-03-15
+--  detected           | 157 | 23 | 2026-07-14
+```
+
+**So the defect this file names is real but its cause is one level up: there is no
+reader for ANY of the queues.** A router would move rows between three unread lists.
+
+### The unroutable 298, classified by what would actually resolve them
+
+| kind | items | types |
+|---|---|---|
+| **needs a human ANSWER** | **50** | `needs_section_data`, `owned_page_review`, `incomplete_page_group` |
+| advisory / machine-fixable in principle | 186 | `unresolved_cta`, `cta_names_unknown_destination`, `required_fields_missing`, `voice_tells`, `dead_control`, `image_source_unsatisfiable`, `image_url_404`, `contact_form_undeliverable`, `truncated_component` |
+| deliberate roadmap row | 5 | `capability_gap` |
+
+**The 50 are not backlog, they are blocked work.** Sample:
+*"Section 'pricing' on engagement-model needs: Pricing tier names…"* — 17 of them on
+leopardessconsulting.co.uk, waiting since **2026-03-15** for information only the owner
+can supply. The platform has been asking a question for four and a half months and the
+question was never put to anyone.
+
+### What this changes about the fix
+
+Not a router. **An item type must declare who reads it, and "nobody" must be an
+answerable and refusable answer.** A queue with no drain rate is a claim about intent
+that the data contradicts — and the standing owner ruling (2026-07-25, *"the queue
+should not FILL"*) already says as much for the human one.
+
+Put to the owner 2026-07-28 as an explicit call, since it is about what he wants to
+exist rather than about mechanism. Recommendation given: promote the 50, turn the 186
+into a periodic report rather than a queue, and stop writing any type whose reader is
+nobody. **Decision pending — do not act on this section until it is recorded here.**
