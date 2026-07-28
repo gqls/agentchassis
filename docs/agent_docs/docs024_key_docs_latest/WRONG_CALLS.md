@@ -33,6 +33,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **read the CONTRACT a thing plugs into, not just its logic** — *the council-submission case AUTOMATED 2026-07-28: `097` now type-checks `operation`/`grounded_in`/`risks` client-side* | **3** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
 | wait / query again before calling an absence a failure | 9 |
+| **after fixing a class of defect, grep your OWN diff for the same shape before committing — fixing the instances reviewers point at is not fixing the class** | **1** |
 | **test against the ARTEFACT, never against a fixture you wrote to match your assumption about it — a fixture named after real data is not real data** | **1** |
 | **read the ITEM's own row, with the columns that can carry bad news, before inferring its state from an aggregate over the queue containing it — "absence is not failure" does not license "absence is progress"** | **1** |
 | **grep for the capability before asserting it does not exist** | **5** |
@@ -8709,3 +8710,62 @@ correction; a wrong problem wastes a thread.**
 
 Family: no-column-mapping-in-a-pasted-table, i-doubted-one-field-and-promoted-its-neighbour,
 a-false-problem-propagates-further-than-a-false-fact.
+
+---
+
+## 2026-07-28 — the hand-maintained list, three times in one week, by me, in one file
+
+**The claim.** Two separate lists in `write_experience_pattern_action.go`, both written as Go
+literals, both believed complete:
+
+```go
+// which documents may contain {{binding.x}} placeholders
+ValidateExperienceCriteria(tmpl, schema,
+    entry["contract"], entry["states"], entry["data_contract"],
+    entry["degraded_states"], entry["entry_points"])
+```
+
+**What was true.** The harvested entries put placeholders in `section_types` and
+`destination_roles` too. Both were missing from the list, so bindings used in them were reported
+**declared but never used** — and two real entries were refused for a defect they did not have.
+The refusal message was confident, specific, and wrong.
+
+**Why this one is worth a row rather than a shrug.** It is the *third* instance of the same
+mistake in the same week, and I had already fixed the other two **by name**:
+
+1. `experiencePatternJSONFields` — a jsonb column absent from the list is silently never written.
+   A council seat raised it; I closed it with a test that re-derives the columns from the
+   migrations.
+2. `experiencePatternContractFields` — a clause-bearing field absent from the list means a changed
+   clause keeps its approval. Three seats raised it; I closed it by making every column require a
+   classification, so an unclassified one fails the build. I wrote, in that commit message, that a
+   hand-maintained list *"drifts within one change"*.
+3. **Then I left a third hand-maintained list untouched in the same file**, eighty lines above the
+   fix for the second one.
+
+The first two were closed because reviewers pointed at them. The third had no reviewer, and I did
+not go looking — **I fixed the instances I was shown rather than the class I had just named.**
+That is the actual failure: not the missing entry, but treating "list drifts" as a fact about two
+specific lists instead of a fact about lists.
+
+**The cheap check.** After fixing a class of defect, grep your own change for the same shape
+before committing. In this file that was one command:
+
+```bash
+grep -nE '= \[\]string\{|entry\["[a-z_]+"\], entry\[' write_experience_pattern_action.go
+```
+
+**The fix.** No list. Pass every field except the two that cannot contain placeholders (the schema
+and the template itself). There is no reason to enumerate documents-that-might-contain-placeholders
+when "everything else" is both correct and shorter.
+
+**Cost.** Bounded and self-revealing: it surfaced within minutes because the entries were being
+loaded for real. The exposure is what it would have cost later — a refusal message that names the
+wrong cause sends the next person to fix an entry that was already correct.
+
+**Tally.** *After fixing a class, grep your own diff for the same shape* — a new row. Distinct
+from "test against the artefact" (07-27, same file, same day's work): that one is about
+manufacturing evidence, this one is about **fixing an instance and filing the class as done**.
+
+Family: the-list-that-drifts, fixed-the-instance-not-the-class,
+the-lesson-applied-to-everything-except-the-file-it-was-written-in.
