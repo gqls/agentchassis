@@ -1161,3 +1161,68 @@ Also logged: the prior-art miss on `platform/colour.AuditPalette` earlier the sa
 day — I grepped `cmd/` and `scripts/` but not `platform/`, and built a second
 contrast tool without knowing the first existed. Same family: I searched where I
 expected the answer to live rather than everywhere it could.
+
+### 2026-07-28 (evening) — legal pages live, series facts built, and the council caught the hole I was surest about
+
+**Legal pages published.** Checked first and found the real gap: `/disclaimer`,
+`/terms`, `/privacy`, `/legal` all 404, and the footer's `.footer-legal` div was
+**empty** — the `bugs_closed/053` trap, because the chrome was rendered before any
+legal nav group existed. So a site publishing analysis of a named real company had
+no correction route a reader could reach and no privacy notice, while the contact
+form was live.
+
+Owner decision, having no solicitor: publish the approved A/D/E/F text, self-draft
+the privacy notice, park **section G** (liability cap) — the one item genuinely
+flagged for legal review, and it applies only to paid products, of which there are
+none. Mig 249, both pages `rebuild_policy='owned'` + `lock_type='permanent'` with
+`rendered_html` written in the same statement (the 182 pattern).
+
+**Every factual claim in the privacy notice was verified against the live site
+before being written**: no cookies (`Set-Cookie` absent on GET), no analytics, no
+third-party scripts (only first-party `snippets.js`), and the contact form is
+`action="mailto:"` so it sends nothing to this website. A privacy notice is the
+worst possible place to assert something unchecked, and "we don't track you" is a
+claim about ourselves that is trivially falsifiable by a reader with devtools.
+
+**TRAP, and it cost two failed renders.** Both new pages are `owned`, and
+`section_data_resolved` calls `save_page_sections`, which **refuses owned pages** —
+`status=FAILED step=save_sections`. Assemble-only is required. But
+`TRIGGER_rerender_page.sh` cannot request it: `REASON="${3:-section_data_resolved}"`
+treats an empty string as unset, so there is no argument that yields assemble-only.
+Had to publish the envelope directly with `spec.reason` **absent**. The trigger
+needs a real `assemble` mode; noted for whoever touches it next.
+
+**Series facts built** (`claims_series.go`): `Observation{as_of, value, source,
+verified_at}`, with `as_of` distinct from every provenance date, and **every
+observation carrying its own source with no inheritance**.
+
+**The council found a real hole, in the exact place I was most confident.** Round 1
+REVISE, gating objection from `editquality`: `ValidateSeries` enforced the
+never-inherit rule, but `numberSupported` went straight from `IsSeries()` to
+`seriesSupports()` and **never called the validator**. So an unsourced observation
+still registered its value, and an unsourced number could reach a page through any
+series nobody had explicitly validated. That defeats the entire purpose of the
+type, and I had written the never-inherit rule up as the change's central
+guarantee in both the code comment and the commit message.
+
+**The lesson: a rule enforced only in a validator is not enforced.** It has to hold
+at the gate that actually decides. Fixed by making
+`observationHasResolvableSource` the single shared definition, so the validator and
+the gate cannot disagree. Round 2 resubmitted on the same correlation.
+
+Also worth noting the near-miss on reading the verdict: the most recent
+`council-gate` doc_note was a *different* submission's APPROVED. Querying by my own
+correlation showed REVISE. That is the recorded landmine
+(`council-reviewed-trailer-discipline`) firing exactly as described — **read
+`decided_by` for YOUR correlation, never the latest note.**
+
+**One more scanner fix, found by publishing.** claimscan flagged "28" in
+"Verified on 28 July 2026" as an unregistered business figure. The composite-token
+rule catches ISO dates but not the form British English actually writes — which is
+the platform's own stated convention, so *every naturally-worded date on every
+site* was raising a finding. Fixed, bounded to day numbers 1–31 with a month
+adjacent, and tested in both directions (a real figure next to a month name is
+still scanned).
+
+Final state: 8 pages live, claimscan **0 findings across 15 components**, contrast
+all measurable pairs passing.
