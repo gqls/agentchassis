@@ -1,10 +1,10 @@
 # Register — claims-verification
 
-> **covers-through: 2026-07-27** · written 2026-07-27 from first-hand code/DB reads, never part of the extraction.
+> **covers-through: 2026-07-28** · written 2026-07-27 from first-hand code/DB reads, never part of the extraction.
 > Everything else dates from the 2026-07-13 extraction freeze — absence
 > here is not evidence of absence in the platform. See `bugs_open/106`.
 
-12 concepts. **NOT from the 2026-07-13 extraction** — this whole subsystem shipped
+13 concepts. **NOT from the 2026-07-13 extraction** — this whole subsystem shipped
 after extraction froze (its first plan is dated 2026-07-16), so none of it was
 ever in the register. Added 2026-07-27 from the oufe.com workstream, grounded in
 live code and DB reads made that day; every citation below was read first-hand,
@@ -100,3 +100,13 @@ that is said explicitly, because "deployed" would overstate it.
 - **status-evidence:** first full run 2026-07-27 produced a 7,546-char draft citing 3 sources with 3 declared gaps; the audit returned `needs_revision` naming two plausible legal generalisations the draft could not support, and correctly declined to flag its closing disclaimer.
 - **landmine found in its own first runs:** the verification action returns a **receipt of citation ids, not the claims** — a composer handed that receipt correctly refused to assert anything and reported honest gaps. **The failure was safe**, which is the design point.
 - **sources:** `sql_for_agents/224`, `225`; `docs024_key_docs_latest/oufe/NOTES_oufe.md`
+
+### CLM-013 — series facts: many dated observations, each independently sourced
+- **status:** deployed in `v1.0.1185` (pod-verified 2026-07-28) — **no live site holds a series fact yet**
+- **status-evidence:** three distinctive string literals from `claims_series.go` found in the running binary, with a positive control. Added 2026-07-28, after this register file was first written.
+- **what:** A fact could hold one `Value` and three dates — `accessed`, `published`, `verified_at` — **all provenance**, none of them the date the value *applies to*. `Observation{as_of, value, source, verified_at}` adds that, under two rules: **every observation carries its own source and never inherits the parent fact's**, and `as_of` is distinct from `verified_at`. `ValidateSeries` fails closed (≥2 observations, valid and unique `as_of`, a resolvable source per point); `numberSupported` gained a series branch, matching exactly even when the fact carries a `gte` tolerance.
+- **why it matters:** without a series shape the only options were one fact per year (no series identity, so nothing can plot it and nothing knows a point is missing) or numbers embedded in a claim string, which is invisible to every scanner — the `bugs_open/043` failure mode. And the never-inherit rule is what stops interpolation entering as data.
+- **the lesson attached to it:** round 1 of the council review found that `ValidateSeries` enforced the source rule while `numberSupported` never called it, so an unsourced observation still registered its value. **A rule enforced only in a validator is not enforced** — it must hold at the gate that decides. Both now share `observationHasResolvableSource`.
+- **sources:** `platform/orchestration/datahelpers/claims_series.go`; `claims.go` (`Observations`, `numberSupported`); council correlation `da40ddf0` round 1
+- **relations:** CLM-001, CLM-003; VIZ-002, VIZ-003, VIZ-004 (visualisation-and-charts)
+- **verify-later:** first live series on a real site; whether `ParseCitation` per observation per scan is acceptable at fleet scale
