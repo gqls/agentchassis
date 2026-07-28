@@ -421,3 +421,72 @@ Then read what it says and act on THAT:
 
 [UNMEASURED] no failure has been captured in the wild yet — the build is 5 minutes
 old at time of writing. **Recheck after 24–48h of real traffic.**
+
+---
+
+## 10. 2026-07-28 — the logging is armed and has caught NOTHING, and §9's own next step was wrong
+
+> **CORRECTED — §9 said "wait 24–48h of real traffic, then read the log". That
+> premise is false: THERE IS NO REAL TRAFFIC.** The island's request log for the
+> 24h after the roll holds **8 lines, all of them mine** from the 19:43–19:47
+> verification. Waiting cannot produce evidence here, and the guidance would have
+> had the next session wait indefinitely for a burst that no visitor is generating.
+> This only became visible *because* the fix added a request log — the first
+> measurement it produced was that the denominator is zero.
+
+### What was done instead — deliberate sampling, per §5
+
+§5 says "reproduce by sampling until a burst appears", which is the correct
+instruction; §9 contradicted it. 12 rounds fired at the live engine
+(`p4_sources`-adjacent script, 24 LLM calls):
+
+| | result |
+|---|---|
+| client-side | **24 of 24 LLM calls 200** |
+| server-side | **36 of 36 requests 200** (12 × round+position+defend) |
+| latency | 5.9 – 22.5 s; slowest server-side 22.1 s — inside the known band |
+| **fault lines logged** | **0** |
+| `TRUNCATED` lines | **0** |
+
+### Cumulative: no failure since 2026-07-26
+
+Clean LLM calls recorded since the last observed failure, by window:
+
+- 07-26, the 8-round sample taken immediately after the two live browser
+  failures — **23**
+- 07-27, post-deploy round-trip — **2**
+- 07-28, this sample — **24**
+
+**≈49 consecutive clean LLM calls across three days.** The fault has not recurred.
+
+### What that changes
+
+- **Candidate 3 (retry on a transient) is NOT justified by current evidence.** The
+  thing it would paper over has not happened in 49 calls.
+- **Candidate 4 (raise `max_tokens`) is refuted so far**, exactly as §2 predicted:
+  the `TRUNCATED` branch exists, is live, and **has never fired**. Do not raise the
+  cap. If it still has not fired after the next real burst, close candidate 4.
+- **Candidate 2 (explicit HTTP client timeout) stands on its own merits, and is
+  MORE expensive than §4 implies.** `&http.Client{}` (`anthropic.go:63`) is
+  **fleet-wide chassis code — 17 Go files reference `aiservice`** — so this is not
+  an island-only edit. An unbounded client is a genuine latent defect for every
+  agent, not just this one, and it should be argued on that basis with its own
+  council round, not slipped in as a fix for a burst that has stopped.
+
+### Correct posture now: leave it armed, do not speculatively fix
+
+The engine's failures are diagnosable for the first time and nothing is failing.
+The evidence to act on does not exist yet, and manufacturing a fix without it is
+what §4's ordering was written to prevent.
+
+**Re-check trigger, not a date:** whenever the Gauntlet next gets real use, or
+after any Anthropic incident, run:
+
+```bash
+ssh root@toolsapisuk.vs.mythic-beasts.com \
+  'cd /opt/island && docker compose logs tools-api | grep -E "gauntlet/(round|position|defend): "'
+```
+
+[UNMEASURED] no failure has been observed under the new build, so the fix's
+ability to capture a REAL burst is proven only by the induced fault in §9, not by
+a wild one.
