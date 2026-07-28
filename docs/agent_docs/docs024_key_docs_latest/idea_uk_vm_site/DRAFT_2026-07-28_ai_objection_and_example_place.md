@@ -4,6 +4,16 @@
 is a commitment to a third party, not a code change. I am not a lawyer and this has not
 been reviewed by one.
 
+> **CORRECTED 2026-07-28 (late evening): both halves SHIPPED the same evening — the status
+> line above and the "not yet built" section at the foot are STALE.** A follow-on session
+> built and deployed the whole thing after this draft's last edit (20:22); the rewritten
+> `HANDOFF_RESUME_idea_uk_vm_site.md` (22:08) records the wiring. Re-verified live before
+> writing this correction: `/report.html` carries section A and section B verbatim, the two
+> consent checkboxes are present and unticked, `grep -ac "EXAMPLE PLACE" /opt/idea/idea` → 1,
+> and Stripe was asked directly (`amount_total` 800 pence). What caught it: the handoff's
+> START HERE block postdating this file. Do not re-implement anything below — this file is
+> now the record of the copy decisions and the dropped link offer, nothing more.
+
 Owner decisions (2026-07-28): do both; price the trial at **£8**, not £5 — "5 sounds like
 the service is a cheap one disguised as an expensive one".
 
@@ -118,7 +128,7 @@ does not, and it gives the £29 a stated benefit it did not visibly have.
 
 ---
 
-## What building it takes (scoped 2026-07-28, not yet built)
+## What building it takes (scoped 2026-07-28 — BUILT & LIVE the same evening, see the correction at the top)
 
 `PriceGBP` is one value threaded `Config → StripeProvider.priceGBP → CreateCheckout`, so
 price is fixed per *process*, not per *order*:
