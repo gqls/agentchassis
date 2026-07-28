@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -43,7 +44,7 @@ func (f *FirecrawlProvider) IsAvailable() bool {
 	return f.apiKey != ""
 }
 
-func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults int) ([]SearchResult, error) {
+func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults int, opts SearchOptions) ([]SearchResult, error) {
 	if numResults == 0 {
 		numResults = 10
 	}
@@ -55,6 +56,25 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 		"limit": numResults,
 	}
 
+	// v2 sources selects the result vertical; the default (absent) is web.
+	// Images is a documented source but has no response parsing here, so
+	// decline it rather than serve mislabelled results (bugs_open/127).
+	switch opts.SearchType {
+	case "", "web":
+	case "news":
+		payload["sources"] = []string{"news"}
+	default:
+		return nil, fmt.Errorf("firecrawl search_type %q not supported here: %w", opts.SearchType, ErrUnsupportedSearchType)
+	}
+	if opts.TimeRange != "" {
+		if tbs, ok := googleTbsByTimeRange[opts.TimeRange]; ok {
+			payload["tbs"] = tbs
+		} else {
+			f.logger.Warn("Unrecognised time_range, searching without a date filter",
+				zap.String("time_range", opts.TimeRange))
+		}
+	}
+
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
@@ -62,7 +82,9 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 
 	f.logger.Info("Executing search",
 		zap.String("query", query),
-		zap.Int("num_results", numResults))
+		zap.Int("num_results", numResults),
+		zap.String("search_type", opts.SearchType),
+		zap.String("time_range", opts.TimeRange))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", f.apiURL, bytes.NewBuffer(body))
 	if err != nil {
@@ -78,19 +100,23 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 	}
 	defer resp.Body.Close()
 
-	// Response struct matches v2 format
-	// Was: Data []struct{...} (flat array)
-	// Now: Data.Web []struct{...} (nested under "web" key)
+	// Response struct matches v2 format: each requested source comes back
+	// under its own key. Web items carry description; news items carry
+	// snippet and a human-readable relative date ("3 months ago").
+	type fcResult struct {
+		URL         string `json:"url"`
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Snippet     string `json:"snippet"`
+		Date        string `json:"date,omitempty"`
+		Position    int    `json:"position,omitempty"`
+	}
 	var apiResponse struct {
 		Success bool   `json:"success"`
 		Message string `json:"message,omitempty"`
 		Data    struct {
-			Web []struct {
-				URL         string `json:"url"`
-				Title       string `json:"title"`
-				Description string `json:"description"`
-				Position    int    `json:"position,omitempty"`
-			} `json:"web"`
+			Web  []fcResult `json:"web"`
+			News []fcResult `json:"news"`
 		} `json:"data"`
 	}
 
@@ -102,19 +128,24 @@ func (f *FirecrawlProvider) Search(ctx context.Context, query string, numResults
 		return nil, fmt.Errorf("search failed: %s", apiResponse.Message)
 	}
 
-	// iterate Data.Web instead of Data
-	results := make([]SearchResult, 0, len(apiResponse.Data.Web))
-	for _, r := range apiResponse.Data.Web {
+	raw := append(apiResponse.Data.News, apiResponse.Data.Web...)
+	now := time.Now()
+	results := make([]SearchResult, 0, len(raw))
+	for _, r := range raw {
 		snippet := strings.TrimSpace(r.Description)
+		if snippet == "" {
+			snippet = strings.TrimSpace(r.Snippet)
+		}
 		if len(snippet) > 200 {
 			snippet = snippet[:197] + "..."
 		}
 
 		results = append(results, SearchResult{
-			Title:   r.Title,
-			URL:     r.URL,
-			Snippet: snippet,
-			Source:  f.Name(),
+			Title:       r.Title,
+			URL:         r.URL,
+			Snippet:     snippet,
+			PublishedAt: normalisePublishedAt(r.Date, now),
+			Source:      f.Name(),
 		})
 	}
 

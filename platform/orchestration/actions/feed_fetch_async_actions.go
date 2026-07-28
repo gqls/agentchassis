@@ -107,7 +107,7 @@ func FetchScrapeAction(ctx context.Context, params ActionParams) (interface{}, e
 //
 // Source config shape:
 //
-//	{"query": "UK wholesale gas prices news", "num_results": 5}
+//	{"query": "UK wholesale gas prices news", "num_results": 5, "time_range": "week"}
 //
 // or (multiple queries — takes first, each additional query should be a separate source):
 //
@@ -159,6 +159,12 @@ func FetchNewsSearchAction(ctx context.Context, params ActionParams) (interface{
 	params.StepConfig.Config["num_results"] = float64(numResults)
 	if provider != "" {
 		params.StepConfig.Config["provider"] = provider
+	}
+	// Optional recency window ("day", "week", "month", "year") — passed
+	// through to the provider's date filter; absent means the news vertical's
+	// own recency ranking applies.
+	if tr, ok := sourceConfig["time_range"].(string); ok && tr != "" {
+		params.StepConfig.Config["time_range"] = tr
 	}
 
 	logger.Info("FetchNewsSearchAction: delegating to WebSearchAction",

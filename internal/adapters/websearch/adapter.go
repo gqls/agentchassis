@@ -4,6 +4,7 @@ package websearch
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -44,6 +45,7 @@ type RequestPayload struct {
 		Query      string `json:"query"`
 		NumResults int    `json:"num_results,omitempty"`
 		SearchType string `json:"search_type,omitempty"` // web, news, images
+		TimeRange  string `json:"time_range,omitempty"`  // day, week, month, year
 		Provider   string `json:"provider,omitempty"`    // specific provider to use
 	} `json:"data"`
 	ReplyToTopic string `json:"reply_to_topic,omitempty"` // Sometimes included in body
@@ -51,11 +53,12 @@ type RequestPayload struct {
 
 // ResponsePayload with search results
 type ResponsePayload struct {
-	Query     string                   `json:"query"`
-	Results   []providers.SearchResult `json:"results"`
-	Total     int                      `json:"total"`
-	Provider  string                   `json:"provider"`            // which provider was used
-	Fallbacks []string                 `json:"fallbacks,omitempty"` // if any fallbacks were attempted
+	Query      string                   `json:"query"`
+	Results    []providers.SearchResult `json:"results"`
+	Total      int                      `json:"total"`
+	Provider   string                   `json:"provider"`              // which provider was used
+	SearchType string                   `json:"search_type,omitempty"` // the search type actually served
+	Fallbacks  []string                 `json:"fallbacks,omitempty"`   // if any fallbacks were attempted
 }
 
 // Adapter handles web search requests
@@ -211,9 +214,16 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		return
 	}
 
+	opts := providers.SearchOptions{
+		SearchType: req.Data.SearchType,
+		TimeRange:  req.Data.TimeRange,
+	}
+
 	l.Info("Executing search",
 		zap.String("query", req.Data.Query),
 		zap.Int("num_results", req.Data.NumResults),
+		zap.String("search_type", opts.SearchType),
+		zap.String("time_range", opts.TimeRange),
 	)
 
 	// Perform search with fallback
@@ -221,6 +231,7 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		req.Data.Query,
 		req.Data.NumResults,
 		req.Data.Provider,
+		opts,
 	)
 
 	if err != nil {
@@ -234,11 +245,12 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 
 	// Send response
 	response := ResponsePayload{
-		Query:     req.Data.Query,
-		Results:   results,
-		Total:     len(results),
-		Provider:  provider,
-		Fallbacks: fallbacks,
+		Query:      req.Data.Query,
+		Results:    results,
+		Total:      len(results),
+		Provider:   provider,
+		SearchType: req.Data.SearchType,
+		Fallbacks:  fallbacks,
 	}
 
 	a.sendResponse(headers, response)
@@ -361,14 +373,14 @@ func getMapKeys(m map[string]interface{}) []string {
 }
 
 // searchProviderWithRetry wraps a provider search with retry logic
-func (a *Adapter) searchProviderWithRetry(ctx context.Context, provider providers.SearchProvider, query string, numResults int) ([]providers.SearchResult, error) {
+func (a *Adapter) searchProviderWithRetry(ctx context.Context, provider providers.SearchProvider, query string, numResults int, opts providers.SearchOptions) ([]providers.SearchResult, error) {
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetriesPerProvider; attempt++ {
 		// Create per-attempt timeout context
 		attemptCtx, cancel := context.WithTimeout(ctx, requestTimeout)
 
-		results, err := provider.Search(attemptCtx, query, numResults)
+		results, err := provider.Search(attemptCtx, query, numResults, opts)
 		cancel()
 
 		if err == nil {
@@ -381,6 +393,15 @@ func (a *Adapter) searchProviderWithRetry(ctx context.Context, provider provider
 		}
 
 		lastErr = err
+
+		// A provider that cannot serve the requested search type will never
+		// succeed on retry; fall straight through to the next provider.
+		if errors.Is(err, providers.ErrUnsupportedSearchType) {
+			a.logger.Info("Provider declined search type, falling through",
+				zap.String("provider", provider.Name()),
+				zap.String("search_type", opts.SearchType))
+			return nil, err
+		}
 
 		// Check if error is retryable
 		if !isRetryableError(err) {
@@ -430,14 +451,14 @@ func isRetryableError(err error) bool {
 }
 
 // performSearchWithFallback tries providers with fallback and retry logic
-func (a *Adapter) performSearchWithFallback(query string, numResults int, preferredProvider string) ([]providers.SearchResult, string, []string, error) {
+func (a *Adapter) performSearchWithFallback(query string, numResults int, preferredProvider string, opts providers.SearchOptions) ([]providers.SearchResult, string, []string, error) {
 	var fallbacks []string
 
 	// If specific provider requested, try it first
 	if preferredProvider != "" {
 		for _, p := range a.providers {
 			if p.Name() == preferredProvider {
-				results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults)
+				results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults, opts)
 				if err == nil {
 					return results, p.Name(), fallbacks, nil
 				}
@@ -454,7 +475,7 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 	if preferredProvider != a.primaryProvider {
 		for _, p := range a.providers {
 			if p.Name() == a.primaryProvider {
-				results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults)
+				results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults, opts)
 				if err == nil {
 					return results, p.Name(), fallbacks, nil
 				}
@@ -481,7 +502,7 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 			continue
 		}
 
-		results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults)
+		results, err := a.searchProviderWithRetry(a.ctx, p, query, numResults, opts)
 		if err == nil {
 			a.logger.Info("Search successful with fallback provider",
 				zap.String("provider", p.Name()))
@@ -494,7 +515,7 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 		fallbacks = append(fallbacks, p.Name())
 	}
 
-	return nil, "", fallbacks, fmt.Errorf("all %d providers failed after retries", len(a.providers))
+	return nil, "", fallbacks, fmt.Errorf("all %d providers failed or declined search_type=%q after retries", len(a.providers), opts.SearchType)
 }
 
 // sendResponse sends a flat JSON payload:
@@ -511,11 +532,12 @@ func (a *Adapter) performSearchWithFallback(query string, numResults int, prefer
 func (a *Adapter) sendResponse(headers map[string]string, payload ResponsePayload) {
 	// Build the actual result data
 	resultData := map[string]interface{}{
-		"results":   payload.Results,
-		"query":     payload.Query,
-		"total":     payload.Total,
-		"provider":  payload.Provider,
-		"fallbacks": payload.Fallbacks,
+		"results":     payload.Results,
+		"query":       payload.Query,
+		"total":       payload.Total,
+		"provider":    payload.Provider,
+		"search_type": payload.SearchType,
+		"fallbacks":   payload.Fallbacks,
 	}
 
 	// Wrap in the envelope format that the chassis expects (types.ResponseMessage)

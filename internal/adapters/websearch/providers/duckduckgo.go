@@ -42,9 +42,22 @@ func (d *DuckDuckGoProvider) IsAvailable() bool {
 	return d.enabled
 }
 
-func (d *DuckDuckGoProvider) Search(ctx context.Context, query string, numResults int) ([]SearchResult, error) {
+func (d *DuckDuckGoProvider) Search(ctx context.Context, query string, numResults int, opts SearchOptions) ([]SearchResult, error) {
 	if numResults == 0 {
 		numResults = 10
+	}
+
+	// The html.duckduckgo.com endpoint has no news or image vertical, so a
+	// non-web search must be declined rather than answered with web results
+	// wearing the requested label (bugs_open/127).
+	if opts.SearchType != "" && opts.SearchType != "web" {
+		return nil, fmt.Errorf("duckduckgo html endpoint has no %q vertical: %w", opts.SearchType, ErrUnsupportedSearchType)
+	}
+	if opts.TimeRange != "" {
+		if _, ok := ddgTimeFilters[opts.TimeRange]; !ok {
+			d.logger.Warn("Unrecognised time_range, searching without a date filter",
+				zap.String("time_range", opts.TimeRange))
+		}
 	}
 
 	// Rate limiting — wait if we're calling too quickly
@@ -63,13 +76,7 @@ func (d *DuckDuckGoProvider) Search(ctx context.Context, query string, numResult
 	}
 	d.lastRequestAt = time.Now()
 
-	// Build request to DuckDuckGo HTML endpoint
-	params := url.Values{}
-	params.Add("q", query)
-	// kl = region. "uk-en" for UK English results
-	params.Add("kl", "uk-en")
-
-	searchURL := fmt.Sprintf("https://html.duckduckgo.com/html/?%s", params.Encode())
+	searchURL := buildDDGSearchURL(query, opts)
 
 	d.logger.Info("Executing DuckDuckGo search",
 		zap.String("query", query),
@@ -114,6 +121,26 @@ func (d *DuckDuckGoProvider) Search(ctx context.Context, query string, numResult
 		zap.Int("requested", numResults))
 
 	return results, nil
+}
+
+// ddgTimeFilters maps SearchOptions.TimeRange onto the html endpoint's df
+// date-filter parameter.
+var ddgTimeFilters = map[string]string{
+	"day":   "d",
+	"week":  "w",
+	"month": "m",
+	"year":  "y",
+}
+
+func buildDDGSearchURL(query string, opts SearchOptions) string {
+	params := url.Values{}
+	params.Add("q", query)
+	// kl = region. "uk-en" for UK English results
+	params.Add("kl", "uk-en")
+	if df, ok := ddgTimeFilters[opts.TimeRange]; ok {
+		params.Add("df", df)
+	}
+	return fmt.Sprintf("https://html.duckduckgo.com/html/?%s", params.Encode())
 }
 
 // parseHTMLResults extracts search results from DuckDuckGo's HTML response.

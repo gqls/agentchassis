@@ -37,6 +37,7 @@ type WebSearchResult struct {
 //   - query_field: field path to extract query from collected data (default: "query")
 //   - num_results: number of results to return (default: 10)
 //   - search_type: "web", "news", or "images" (default: "web")
+//   - time_range: "day", "week", "month", or "year" (optional recency filter)
 //   - provider: specific provider to use (optional)
 func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, error) {
 	params.Logger.Info("Executing WebSearchAction",
@@ -61,6 +62,11 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 	searchType := "web"
 	if st, ok := config["search_type"].(string); ok {
 		searchType = st
+	}
+
+	timeRange := ""
+	if tr, ok := config["time_range"].(string); ok {
+		timeRange = tr
 	}
 
 	provider := ""
@@ -159,6 +165,7 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 				"query":       query,
 				"num_results": numResults,
 				"search_type": searchType,
+				"time_range":  timeRange,
 				"provider":    provider,
 			},
 			// Include reply routing in body as well
@@ -192,6 +199,7 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 		zap.String("query", query),
 		zap.Int("num_results", numResults),
 		zap.String("search_type", searchType),
+		zap.String("time_range", timeRange),
 	)
 
 	// Send to adapter
@@ -215,6 +223,7 @@ func WebSearchAction(ctx context.Context, params ActionParams) (interface{}, err
 			"query":           query,
 			"num_results":     numResults,
 			"search_type":     searchType,
+			"time_range":      timeRange,
 			"provider":        provider,
 			"timestamp":       time.Now().UTC().Format(time.RFC3339),
 			"responses_topic": myResponsesTopic,
