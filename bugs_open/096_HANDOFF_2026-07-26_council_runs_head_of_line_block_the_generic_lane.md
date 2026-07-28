@@ -400,9 +400,34 @@ hangs do to the fleet); read both before filing anything new.
 > weakened by my own tidying. **Do not cancel the failing row until the diagnosis
 > has run.**
 >
-> What survives unchanged: the LAG 0 measurement, the 2-of-4 archetype failure
-> rate, and the fact that this run failed at `spawn_council`. The lane fix is
-> still correct; only my explanation of the blocker was wrong.
+> What survives unchanged: the LAG 0 measurement and the fact that the wrapper
+> run failed. The lane fix is still correct; only my explanation of the blocker
+> was wrong.
+
+> ### **CORRECTED AGAIN 2026-07-28 — two more of my own numbers were wrong.**
+>
+> **(a) It failed at `call_council`, not `spawn_council`.** I reported it "stuck at
+> `spawn_council`, never reached `call_council`". It did reach it:
+> `orchestration_states` now records the run FAILED at `call_council` with
+> `Request ea2ca368-a6fb-4ec9-ad96-02b236cb469d timed out after 3 retries`. I read
+> the row while it was still mid-retry and described a waypoint as a destination.
+> This matters because it **unifies** the case with the archetype: the wrapper and
+> `diagnose-orchestrator` fail at the *same* step type (`call_*`, `call_agent`),
+> not at different ones.
+>
+> **(b) The "2 of 4" archetype failure rate came from a table that undercounts.**
+> `orchestration_states` reports `build-pipeline-trigger` as 0 FAILED / 0 timeouts
+> over 14 days while `agent_error_log` records **79** `spawn_dispatch` timeouts for
+> it in 29 hours — a timed-out awaited request does not reliably fail its
+> orchestration. So 2-of-4 is a **floor, not a rate**, and the real frequency is
+> unknown but higher. Evidence and the corrected fleet-wide picture are in
+> `bugs_open/029` under the 2026-07-28 section; that bug is actively owned, and the
+> blocker under this candidate belongs to it.
+>
+> Also relevant to anyone re-testing this candidate: **the defect survived the
+> v1.0.1180 roll** (14 timeouts between 22:15:46 and 22:45:45, all after the
+> 22:06:22 roll), so a fresh chassis is not on its own a reason to retry the
+> wrapper.
 
 ### State left behind — safe, and deliberately not the default
 

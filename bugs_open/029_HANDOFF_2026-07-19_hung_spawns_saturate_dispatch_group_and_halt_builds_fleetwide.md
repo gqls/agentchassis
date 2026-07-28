@@ -737,3 +737,96 @@ run. Two attempts, both dead, so 097's mechanism question stays unanswered.
 > find one, rather than pointing a later reader at a name. This is the same class as the
 > file's own note that the chassis pod running a failed step gets replaced within minutes,
 > taking its logs with it.
+
+## 2026-07-28 (council-parallelism thread) — the rate is ~30x what `orchestration_states` shows, and a free reproducer fires every 30 seconds
+
+Contributed as evidence into the shared account, not a competing fix. All of it is from
+`agent_error_log`, which nothing above uses and which changes the target.
+
+### 1. `orchestration_states.status` massively under-reports this defect
+
+```sql
+SELECT agent_type, step_name, action, count(*), min(occurred_at), max(occurred_at)
+FROM agent_error_log WHERE error_message ILIKE '%timed out after%' GROUP BY 1,2,3 ORDER BY 4 DESC;
+```
+
+| agent_type | step | action | n | window |
+|---|---|---|---|---|
+| `generic` | `call_dispatch` | `call_agent` | **469** | 07-01 → 07-25 |
+| `build-pipeline-trigger` | `spawn_dispatch` | `spawn_agent` | **79** | 07-26 17:20 → 07-27 22:45 |
+| `page-build-handler` | `deploy_page` | `call_agent` | 37 | 07-02 → 07-25 |
+| `page-content-writer` | `resolve_links` | `call_agent` | 27 | 07-02 → 07-24 |
+| `diagnose-orchestrator` | `call_diagnoser` | `call_agent` | 3 | 07-20 |
+
+Against that, `orchestration_states` over 14 days reports `build-pipeline-trigger` as
+**166 COMPLETED, 0 FAILED, 0 timeouts**. So **79 spawn timeouts produced zero failed
+orchestrations.** A timed-out awaited request does not reliably surface as a failed
+orchestration, and any rate taken from `orchestration_states` is an undercount.
+
+*This invalidates a number I published yesterday*: I described the wrapper archetype as
+failing "2 of 4" from `orchestration_states`. That table was the wrong source; treat the
+2-of-4 as a floor, not a rate. Corrected in `bugs_open/096` too.
+
+### 2. It is NOT specific to the diagnose/council path
+
+The fresh instance above rules out a general spawn failure on the grounds that
+`page-rerender` and `build-dispatch-loop` were spawning normally in the same window. Both
+of those are genuinely clean (`page-rerender` 271 COMPLETED / 0 timeouts;
+`build-dispatch-loop` 87 / 1 ever). But **`build-pipeline-trigger/spawn_dispatch` was
+failing 79 times across that same period** — it is the dominant *current* source, and it
+is the one the diagnosis loop's own runtime citation named. The diagnose path is a small
+minority of this bug, not its centre.
+
+### 3. It SURVIVED the v1.0.1180 roll — the overnight quiet is not a fix
+
+Roll: 22:06:22Z. Every timeout after 21:30, all on the new image:
+
+```
+22:15:46  22:18:15  22:20:46  22:23:16  22:25:45  22:28:16  22:30:46
+22:33:17  22:33:25(call_dispatch)  22:35:44  22:38:16  22:40:44  22:43:15  22:45:45
+```
+
+Fourteen, roughly every 2.5 minutes, then nothing. **Do not read that silence as a fix.**
+The control says the fleet simply stopped working — `build-pipeline-trigger` orchestrations
+per hour: `20:00`→25, `21:00`→24, `22:00`→23, then `01:00`→3, `02:00`→1, **and nothing at
+all after 02:00**. Four runs since 22:45 is not a clean bill of health.
+
+### 4. It is bursty, which fits this file's saturation mechanism
+
+Runs vs timeouts per hour: `20:00` 25/12, `21:00` 24/1, `22:00` 23/13. Not a steady
+failure rate — it clusters. That is what the `max_concurrent=8` `dispatch` pool
+exhaustion described above would look like from the outside.
+
+### 5. **The cheap reproducer nobody needs to pay for**
+
+Both diagnosis attempts on this bug died, and each cost a run. They did not need to:
+`build-pipeline-trigger` fires on cron every 30 s and reproduces this **for free, dozens of
+times an hour, whenever the fleet is busy**. Watch `agent_error_log` filtered to
+`step_name='spawn_dispatch'` rather than firing a paid diagnosis and hoping it survives the
+bug it is investigating. Note the bursty pattern above: an idle hour will show nothing, so
+measure during a busy window, not overnight.
+
+### 6. A `failed` needs_diagnosis item is NOT evidence the diagnosis failed
+
+The note above cites *"a second, earlier failure the same evening (`site_work_items`
+`needs_diagnosis`, created 20:06:46) also went `failed`"*. **That item is mine, and its
+diagnosis succeeded.** Correlation `eb8df254-f05d-4e50-8798-c52773834df6` has exactly two
+orchestrations — `30084fbe` (`diagnose-orchestrator`) and `5143b54f` (`diagnose-agent`) —
+**both `COMPLETED`**, and it returned a REFUTED verdict in
+`orchestration_states.collected_data->'verdict'`.
+
+The `failed` stamp came from somewhere else entirely. The item's `error` names request
+`c963122a-6f90-441c-b849-0af22bee130a`, which belongs to orchestration `41d64b75` —
+a **`diagnose-dispatch-loop`**, step `call_handler`, sent `20:49:31`, i.e. **43 minutes
+after my diagnosis had already finished.**
+
+So: **the dispatch loop re-dispatched a work item whose diagnosis had already succeeded**,
+because nothing marks a `needs_diagnosis` item complete on success (the 090 trigger still
+prints "closing it by hand until a diagnose dispatch loop exists" — the loop now exists and
+still does not close them). That re-dispatch then hit this bug and stamped `failed` over a
+completed diagnosis. Its own loop orchestration was created at `20:08:16`, **while my run
+was still in flight**, so it is also duplicated paid work.
+
+Two consequences: counting `failed` needs_diagnosis items over-counts this bug, and the
+dispatch loop is manufacturing instances of it. The item-closing gap looks separable and
+cheaper than the spawn defect itself.
