@@ -1048,6 +1048,48 @@ deploy-agents: ## Deploy all agent services with dynamic image tag
 
 #  kubectl apply -k deployments/kustomize/services/agent-chassis/overlays/production/uk_001/
 
+#################################
+# Single-service deploy
+#
+# deploy-agents above is ALL-OR-NOTHING: it seds every service's kustomization to
+# $(IMAGE_TAG) and applies them. That is only safe when every service has been
+# built and pushed at that tag. It usually has not been — services are built one
+# at a time as their code changes, so on a normal day two or three tags exist and
+# the rest of the fleet is several behind. Running it then points twelve healthy
+# deployments at an image that was never pushed, and they ImagePullBackOff
+# together.
+#
+#   make deploy-<service>                deploy ONE service at $(IMAGE_TAG)
+#
+# This mirrors the build side, which already solved the same problem with the
+# build-%-ref / build-%-tree pattern rules. It is deliberately the same shape:
+# one service, named explicitly, no fan-out.
+#
+# The registry pre-flight is the load-bearing part. push-*/deploy-* are git-blind
+# (see the header at the top of this file) — nothing downstream of the build
+# checks that the tag you are deploying exists. Asking the registry before
+# touching the cluster turns a rolled-back deployment into a refusal that costs
+# nothing.
+#################################
+deploy-%: ## Deploy ONE service at $(IMAGE_TAG): make deploy-browser-runner-adapter
+	@OVERLAY="$(KUSTOMIZE_DIR)/services/$*/overlays/$(OVERLAY_PATH)"; \
+	test -d "$$OVERLAY" || { \
+		echo "$(RED)No overlay at $$OVERLAY — is '$*' a service name?$(NC)"; exit 1; }; \
+	test -f "$$OVERLAY/kustomization.yaml" || { \
+		echo "$(RED)No kustomization.yaml in $$OVERLAY$(NC)"; exit 1; }; \
+	if ! docker manifest inspect $(REGISTRY)/$*:$(IMAGE_TAG) >/dev/null 2>&1; then \
+		echo "$(RED)$(REGISTRY)/$*:$(IMAGE_TAG) is not in the registry.$(NC)"; \
+		echo "$(YELLOW)  Deploying it would ImagePullBackOff. Build and push first:$(NC)"; \
+		echo "    make build-$* && docker push $(REGISTRY)/$*:$(IMAGE_TAG)"; \
+		exit 1; \
+	fi; \
+	echo "$(GREEN)Deploying $* at $(IMAGE_TAG) — this service only.$(NC)"; \
+	sed -i.bak 's|newTag:.*|newTag: $(IMAGE_TAG)|' "$$OVERLAY/kustomization.yaml"; \
+	rm -f "$$OVERLAY/kustomization.yaml.bak"; \
+	KUBECONFIG=$(KUBECONFIG_PATH) kubectl apply -k "$$OVERLAY"
+	@echo "$(YELLOW)Verify against the running POD, not the tag — a retag is not a rebuild:$(NC)"
+	@echo "  kubectl -n ai-persona-system get pods -l app=$* -o custom-columns=NAME:.metadata.name,START:.status.startTime,IMAGE:.spec.containers[0].image"
+
 .PHONY: redeploy-agents
 redeploy-agents:  ## Forces a rolling restart of all agent deployments
 	@echo "$(YELLOW)Forcing rollout restart of agent deployments...$(NC)"
