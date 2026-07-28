@@ -26,7 +26,10 @@ type WebhookEvent struct {
 }
 
 type Provider interface {
-	CreateCheckout(orderID, email string) (sessionID, checkoutURL string, err error)
+	// priceGBP is passed per CALL, not held on the provider: the amount is a
+	// property of the order, not of the process. Holding it on the provider is
+	// what made a second tier impossible without this change.
+	CreateCheckout(orderID, email string, priceGBP int) (sessionID, checkoutURL string, err error)
 	ParseWebhook(payload []byte, sigHeader string) (WebhookEvent, error)
 }
 
@@ -35,10 +38,15 @@ type StripeProvider struct {
 	secretKey     string
 	webhookSecret string
 	publicBaseURL string
-	priceGBP      int
 }
 
-func (p *StripeProvider) CreateCheckout(orderID, email string) (string, string, error) {
+func (p *StripeProvider) CreateCheckout(orderID, email string, priceGBP int) (string, string, error) {
+	// Refuse rather than charge a wrong amount. A zero here would bill £0 and a
+	// negative would be rejected by Stripe with a far less obvious error; either
+	// way the buyer's charge must never be inferred from a missing value.
+	if priceGBP <= 0 {
+		return "", "", fmt.Errorf("refusing to create a checkout for £%d — price must be positive", priceGBP)
+	}
 	form := url.Values{}
 	form.Set("mode", "payment")
 	if email != "" {
@@ -46,7 +54,7 @@ func (p *StripeProvider) CreateCheckout(orderID, email string) (string, string, 
 	}
 	form.Set("line_items[0][quantity]", "1")
 	form.Set("line_items[0][price_data][currency]", "gbp")
-	form.Set("line_items[0][price_data][unit_amount]", strconv.Itoa(p.priceGBP*100))
+	form.Set("line_items[0][price_data][unit_amount]", strconv.Itoa(priceGBP*100))
 	form.Set("line_items[0][price_data][product_data][name]", "idea.uk — verified AI opportunity report")
 	form.Set("line_items[0][price_data][product_data][description]", "Ranked, web-verified candidate ideas for your business.")
 	form.Set("metadata[order_id]", orderID)
@@ -129,7 +137,7 @@ func verifyStripeSignature(payload []byte, sigHeader, secret string) error {
 // ── Fake (local/testing only — NEVER in production) ─────────────────────────
 type FakeProvider struct{ publicBaseURL string }
 
-func (p *FakeProvider) CreateCheckout(orderID, email string) (string, string, error) {
+func (p *FakeProvider) CreateCheckout(orderID, email string, priceGBP int) (string, string, error) {
 	return "fake_" + orderID,
 		fmt.Sprintf("%s/order/success?o=%s&fake=1", p.publicBaseURL, orderID), nil
 }

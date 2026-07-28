@@ -16,6 +16,11 @@ func loadConfig() Config {
 	staleReview, _ := strconv.Atoi(env("STALE_REVIEW_DAYS", "14"))
 	stalePayment, _ := strconv.Atoi(env("STALE_PAYMENT_DAYS", "7"))
 	price, _ := strconv.Atoi(env("REPORT_PRICE_GBP", "199"))
+	// Example places ship OFF: 0 disables the tier. Turning it on is a deliberate
+	// act once the copy and consent wording are live, not a default that could
+	// start selling cheap reports the moment this binary rolls.
+	examplePrice, _ := strconv.Atoi(env("EXAMPLE_PRICE_GBP", "0"))
+	examplePlaces, _ := strconv.Atoi(env("EXAMPLE_MAX_PLACES", "0"))
 	pub := env("PUBLIC_BASE_URL", "http://localhost:8080")
 	var origins []string
 	for _, o := range strings.Split(env("ALLOWED_ORIGINS", pub), ",") {
@@ -33,6 +38,8 @@ func loadConfig() Config {
 		ContactEmail:     env("CONTACT_EMAIL", ""),
 		Slots:            env("MONTH_SLOTS", ""),
 		MaxActive:        maxActive,
+		ExamplePriceGBP:  examplePrice,
+		ExampleMaxPlaces: examplePlaces,
 		StaleReviewDays:  staleReview,
 		StalePaymentDays: stalePayment,
 		AllowedOrigins:   origins,
@@ -43,7 +50,7 @@ func makeProvider(cfg Config) Provider {
 	sk, wh := os.Getenv("STRIPE_SECRET_KEY"), os.Getenv("STRIPE_WEBHOOK_SECRET")
 	if sk != "" && wh != "" {
 		return &StripeProvider{secretKey: sk, webhookSecret: wh,
-			publicBaseURL: cfg.PublicBaseURL, priceGBP: cfg.PriceGBP}
+			publicBaseURL: cfg.PublicBaseURL}
 	}
 	log.Println("No Stripe keys — using FakeProvider (local/testing only).")
 	return &FakeProvider{publicBaseURL: cfg.PublicBaseURL}

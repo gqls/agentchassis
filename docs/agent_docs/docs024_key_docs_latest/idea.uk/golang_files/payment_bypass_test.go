@@ -55,7 +55,7 @@ func seedAwaitingPayment(app *App) string {
 func TestFakePaymentShortcutRefusedUnderStripe(t *testing.T) {
 	app, sent := newTestAppWithProvider(&StripeProvider{
 		secretKey: "sk_test_notused", webhookSecret: "whsec_notused",
-		publicBaseURL: "http://test", priceGBP: 29,
+		publicBaseURL: "http://test",
 	})
 	srv := httptest.NewServer(app.routes())
 	defer srv.Close()
@@ -107,7 +107,7 @@ func TestFakePaymentShortcutStillWorksUnderFakeProvider(t *testing.T) {
 // The page itself is harmless to serve (Stripe redirects real buyers here), so
 // it must still answer 200 rather than erroring on the refused shortcut.
 func TestOrderSuccessPageStillRendersUnderStripe(t *testing.T) {
-	app, _ := newTestAppWithProvider(&StripeProvider{publicBaseURL: "http://test", priceGBP: 29})
+	app, _ := newTestAppWithProvider(&StripeProvider{publicBaseURL: "http://test"})
 	srv := httptest.NewServer(app.routes())
 	defer srv.Close()
 

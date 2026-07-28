@@ -48,6 +48,14 @@ type Config struct {
 	ContactEmail    string // public-facing support address shown on pages
 	Slots           string // header capacity phrase, e.g. "a limited number of" or "5"
 	MaxActive       int
+	// The example place: a full report at a lower price, in exchange for
+	// permission to publish it anonymously. 0 disables the tier entirely, which
+	// is the state to leave it in until the copy is live.
+	ExamplePriceGBP int
+	// How many example places to sell. The library needs five or ten, not fifty,
+	// and MaxActive is only 5 — an uncapped cheap tier would fill the queue and
+	// make full-price buyers wait behind it.
+	ExampleMaxPlaces int
 	// Slot-release ages. A slot held by an order nobody has moved is released
 	// automatically after these many days (see Store.ExpireStale). 0 disables.
 	StaleReviewDays  int
@@ -230,14 +238,19 @@ func (a *App) fulfil(id string) {
 // order to awaiting_payment. Shared by confirm (charge-first) and approve
 // (review-first) so the buyer-facing wording lives in exactly one place.
 func (a *App) sendPayLink(o *Order) (string, error) {
-	sessID, checkoutURL, err := a.provider.CreateCheckout(o.ID, o.Email)
+	// ONE price, read once, used for both the charge and the email that announces
+	// it. Reading a.cfg.PriceGBP for the email while the provider charged its own
+	// figure is exactly how an email and a checkout come to disagree about what
+	// someone owes — so the amount is taken from the order and threaded through.
+	price := o.Price(a.cfg.PriceGBP)
+	sessID, checkoutURL, err := a.provider.CreateCheckout(o.ID, o.Email, price)
 	if err != nil {
 		return "", err
 	}
 	a.store.Update(o.ID, func(o *Order) { o.Status = "awaiting_payment"; o.ProviderSessionID = sessID })
 	a.deliverHTML(o.Email, "Your idea.uk report — ready to pay",
-		payLinkText(o.Name, o.Domain, checkoutURL, a.cfg.PriceGBP),
-		payLinkHTML(o.Name, o.Domain, checkoutURL, a.cfg.PriceGBP))
+		payLinkText(o.Name, o.Domain, checkoutURL, price),
+		payLinkHTML(o.Name, o.Domain, checkoutURL, price))
 	return checkoutURL, nil
 }
 
@@ -467,12 +480,27 @@ func (a *App) handleRequest(w http.ResponseWriter, r *http.Request) {
 
 	id := newID()
 	now := time.Now().UTC()
+	// Tier. The example place is taken only when the visitor asks for it AND
+	// ticks the consent box: the price and the permission are one decision, and
+	// granting the cheaper price without the recorded consent would leave us
+	// billing £8 for something we have no right to publish.
+	price, consent := a.cfg.PriceGBP, false
+	if a.exampleTierOpen() && r.FormValue("tier") == "example" &&
+		strings.TrimSpace(r.FormValue("publish_consent")) != "" {
+		price, consent = a.cfg.ExamplePriceGBP, true
+	}
+
 	a.store.Save(&Order{ID: id, Name: name, Email: email, Domain: business,
 		Audience: audience, Assets: notes, Status: "requested",
-		CreatedAt: now, UpdatedAt: now, IP: ip, UserAgent: r.UserAgent()})
+		CreatedAt: now, UpdatedAt: now, IP: ip, UserAgent: r.UserAgent(),
+		PriceGBP: price, PublishConsent: consent})
+	tier := "standard"
+	if consent {
+		tier = "EXAMPLE PLACE — buyer has agreed we may publish this report anonymously"
+	}
 	a.deliver(a.cfg.OperatorEmail, fmt.Sprintf("[idea.uk] New report request %s", id),
-		fmt.Sprintf("New idea.uk report request.\n\nRequester: %s (%s)\nBusiness: %s\nAudience: %s\nNotes: %s\n\nIP: %s\nUA: %s\n\nOrder id: %s\n\nReview and decide (confirm to run the report, or decline) here:\n%s\n",
-			name, email, business, audience, notes, ip, r.UserAgent(), id, a.opLink(id)))
+		fmt.Sprintf("New idea.uk report request.\n\nRequester: %s (%s)\nBusiness: %s\nAudience: %s\nNotes: %s\n\nPrice: £%d (%s)\n\nIP: %s\nUA: %s\n\nOrder id: %s\n\nReview and decide (confirm to run the report, or decline) here:\n%s\n",
+			name, email, business, audience, notes, price, tier, ip, r.UserAgent(), id, a.opLink(id)))
 	a.requestAccepted(w, name)
 }
 
@@ -564,6 +592,23 @@ func commas(n int) string {
 		out = append(out, c)
 	}
 	return string(out)
+}
+
+// exampleTierOpen reports whether an example place can still be taken.
+//
+// Two gates, both deliberate. A zero price switches the tier off entirely, which
+// is how it ships until the copy is live — an unpriced tier must never silently
+// become a free report. And the cap counts orders that ALREADY carry consent, so
+// the library stops at the size we wanted rather than however many people happen
+// to ask.
+func (a *App) exampleTierOpen() bool {
+	if a.cfg.ExamplePriceGBP <= 0 {
+		return false
+	}
+	if a.cfg.ExampleMaxPlaces <= 0 {
+		return false
+	}
+	return a.store.ConsentedCount() < a.cfg.ExampleMaxPlaces
 }
 
 func (a *App) requestAccepted(w http.ResponseWriter, name string) {

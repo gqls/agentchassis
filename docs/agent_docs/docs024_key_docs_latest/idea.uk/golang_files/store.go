@@ -37,6 +37,29 @@ type Order struct {
 	// Empty on rows created before this was added (2026-07-16).
 	IP        string `json:"ip,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
+
+	// Price in whole pounds, fixed on the ORDER at intake rather than read from
+	// config at checkout time. Config is per-process: if the price ever changes
+	// while an order is between "requested" and "paid", a config-time read would
+	// bill the buyer something other than what they were quoted. Zero means a
+	// legacy row written before tiers existed — callers fall back to the standard
+	// price, so old orders keep behaving exactly as they did.
+	PriceGBP int `json:"price_gbp,omitempty"`
+
+	// PublishConsent records that the buyer took an example place and agreed we
+	// may publish the report anonymously. It is a promise made to a person, so it
+	// is stored on the order rather than inferred from the price: a price can be
+	// changed by an operator, and consent cannot be reconstructed from one.
+	PublishConsent bool `json:"publish_consent,omitempty"`
+}
+
+// Price returns what this order should be billed, falling back to the standard
+// price for rows written before tiers existed.
+func (o *Order) Price(standard int) int {
+	if o.PriceGBP > 0 {
+		return o.PriceGBP
+	}
+	return standard
 }
 
 type Store struct {
@@ -241,6 +264,22 @@ type RecoveredOrder struct {
 	ID     string
 	Status string // where it was put back to: "requested" or "paid"
 	Resume bool   // true when the buyer has paid and fulfilment must re-run
+}
+
+// ConsentedCount is how many example places have been taken. Counts every order
+// carrying consent, including declined and expired ones: the cap exists to bound
+// how many people we have made a publication promise to, and declining to run a
+// report does not un-ask the question.
+func (s *Store) ConsentedCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, o := range s.Orders {
+		if o.PublishConsent {
+			n++
+		}
+	}
+	return n
 }
 
 // MarkEventSeen returns true if the event was already processed (idempotency).
