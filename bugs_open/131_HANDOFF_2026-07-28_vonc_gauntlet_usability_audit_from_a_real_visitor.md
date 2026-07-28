@@ -1,9 +1,9 @@
-# 131 — vonc.com Gauntlet: eight defects from the first real visitor session, incl. an invisible headline I shipped
+# 131 — vonc.com Gauntlet: eight defects from the first real visitor session
 
 **Filed:** 2026-07-28 · **By:** gauntlet_dead_cta, from the owner's own use of the
-live site · **Severity:** MIXED — one HIGH (A: headline invisible, regression I
-introduced today), two MEDIUM structural, the rest design/product ·
-**Status:** OPEN
+live site · **Severity:** MIXED — one HIGH (A: headline invisible; long-standing, NOT a
+regression — see the correction in §A), two MEDIUM structural, the rest
+design/product · **Status:** OPEN — A fixed, B–H open
 
 ## Why this file matters more than its severity suggests
 
@@ -36,9 +36,10 @@ threshold. Owner's screenshot shows the headline reading "Enter the ______".
 var(--color-primary) }` while `.gauntlet-interface-section` has
 `background: var(--color-primary)`.
 
-I verified that change with computed font sizes, brace balance, line counts and
-page-level overflow. **Not one of those could see a foreground and background
-becoming the same colour.**
+When I changed the palette earlier that day I verified it with computed font
+sizes, brace balance, line counts and page-level overflow. **Not one of those
+could see a foreground and background being the same colour** — which is why this
+survived a day of checks and was found by a person looking at the page.
 
 **FIXED and live 2026-07-28.** Repointed to `--color-stage` (`#f59e0b`), an
 existing site token, measured **3.31:1** against `#6d28d9` — passes AA for large
