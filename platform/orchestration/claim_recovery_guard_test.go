@@ -56,9 +56,9 @@ func TestStaleResetPredicateIsInsideTheUpdate(t *testing.T) {
 	where := strings.ToLower(m[1])
 
 	for _, predicate := range []string{
-		"processed_at is null",     // never touch a processed row
-		"status <> 'processing'",   // non-processing states keep resetting unconditionally (F2's late-response window)
-		"processing_started_at <",  // the staleness comparison itself
+		"processed_at is null",    // never touch a processed row
+		"status <> 'processing'",  // non-processing states keep resetting unconditionally (F2's late-response window)
+		"processing_started_at <", // the staleness comparison itself
 	} {
 		if !strings.Contains(where, predicate) {
 			t.Errorf("reset WHERE clause lost %q — the staleness decision must stay atomic with the reset. WHERE:\n%s", predicate, where)
