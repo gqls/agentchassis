@@ -558,6 +558,58 @@ UPDATE page_components pc SET slot_name = cc.function
 FROM content_components cc WHERE cc.id = pc.component_id AND pc.page_id = '<id>';
 ```
 
+### ⚠ TRAP 1b — a MISSING REQUIRED FIELD escalates the page to the LLM writer, and the job still reports COMPLETED
+
+Sibling of TRAP 1 and it looks identical from outside: `status COMPLETED`, page never
+built, `build_status` still `pending`, nothing deployed. But `slot_name` is fine and the
+cause is different. Hit 2026-07-28 building the specimen page (`p4_25` → `p4_27`).
+
+`rerender_page_sections_action.go:273` calls `missingRequiredLLMFields()` on every
+section. If a **required** schema field is absent from `content_data`, the action does
+**not** render a half-empty page — it escalates the whole page to the content writer:
+
+```
+rerender_sections -> {"escalated":true,"section_count":2}   ← no "rerendered"/"carried" keys AT ALL
+check_escalated   -> {"condition_met":true,"next_step_override":"complete"}
+workflow          -> COMPLETED, error NULL
+```
+
+**The tell is the absence of `rerendered`/`carried`, not their values.** TRAP 1 gives you
+`{"rerendered":0,"carried":3}`; this gives you neither key and an `escalated:true`
+instead. If you only check "rendered == section_count" you will read a NULL as a zero and
+diagnose the wrong trap.
+
+**Why it matters more than a failed build:** escalation raises a `needs_page` item for
+`page-build-handler`, **which regenerates the copy with an LLM**. On a page of authored
+content that silently replaces what you wrote. On the specimen page — which reproduces a
+real customer-facing report verbatim and *publishes the claim that nothing was reworded* —
+it would have made a published provenance statement false. **Cancel the `needs_page` item
+before it is claimed**, fix the field, and re-dispatch:
+
+```sql
+SELECT id, item_type, status, handler_agent FROM site_work_items
+WHERE site_id='<site>' AND created_by='page-rerender' AND created_at > now() - interval '15 minutes';
+UPDATE site_work_items SET status='cancelled' WHERE id='<id>' AND status='triaged';
+```
+
+**Check required fields BEFORE inserting sections** — one query, and it names every gap
+across every section at once:
+
+```sql
+SELECT cc.function, f.key
+FROM page_components pc
+JOIN pages p ON p.id = pc.page_id
+JOIN content_components cc ON cc.id = pc.component_id
+CROSS JOIN LATERAL jsonb_each(cc.input_schema->'fields') AS f(key,val)
+WHERE p.site_id = '<site>' AND p.name = '<page>'
+  AND (f.val->>'required')::boolean IS TRUE
+  AND NOT (pc.content_data ? f.key);
+```
+
+Known gotcha: **`generic-text-block` requires `heading` as well as `content`** — supplying
+only `content` looks complete and is not. `p4_27` carries this query as a `DO` block that
+raises rather than dispatching, which is the form to copy.
+
 This cost one wasted round on 2026-07-25 (`sql/p4_01b`). It is the CLAUDE.md/016b
 "trust the rendered artefact, not the status" rule in its purest form: **nothing failed.**
 
