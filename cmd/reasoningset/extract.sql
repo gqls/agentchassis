@@ -91,6 +91,22 @@ ORDER BY da.correlation_id, da.iteration;
 -- new labelling. That is the signal: where seats split, the reasoning is
 -- load-bearing.
 --
+-- ROUND IDENTITY (corrected 2026-07-24): one report row IS one round, and one
+-- orchestration holds UP TO 12 of them — the reviser loops plan→review inside a
+-- single run (measured: 189 reports over 136 orchestrations). Peer tallies must
+-- therefore group by report_id, never by orchestration_id; grouping by
+-- orchestration pooled seats across rounds and inflated the published dissent
+-- figure 201→170 on the same 836 rows. round_index is the round's ordinal
+-- within its CORRELATION (resubmission chains share one), for consumers that
+-- want the trail position.
+--
+-- JOIN KEYS (corrected 2026-07-24 — the docs previously said correlation_id):
+-- per-seat llm calls join on ORCHESTRATION_ID + step_name 'review_<seat>'
+-- (measured 1443/1443); correlation_id matches only 15% because a 097
+-- submission council runs under its own orchestration correlation while its
+-- artifacts carry the submission correlation. One seat alias exists:
+-- reviewer 'prior_art_librarian' logs as step 'review_prior_art'.
+--
 -- CAUTION on the semantics of 'approve'. Some seats are relevance-gated and
 -- approve because the change is OUTSIDE their footprint, writing a scope
 -- determination rather than a merit judgement ("doesn't touch classifier logic,
@@ -110,6 +126,8 @@ SELECT jsonb_build_object(
   '_t',               'council',
   'trajectory_id',    da.correlation_id,
   'run_id',           da.orchestration_id,
+  'report_id',        da.id,
+  'round_index',      dense_rank() OVER (PARTITION BY da.correlation_id ORDER BY da.created_at),
   'created_at',       da.created_at,
   'round_decision',   da.metadata->>'decision',
   'reviewers',        (da.metadata->>'reviewers'),
@@ -127,6 +145,46 @@ FROM diagnosis_artifacts da,
      JOIN seat_stats ss ON ss.seat = r->>'reviewer'
 WHERE da.kind = 'council_report'
 ORDER BY da.created_at, r->>'reviewer';
+
+-- ── 4b. the plan each council round reviewed ─────────────────────────────────
+-- Fills the council lane's empty input_state. Pairing is latest-plan-before-
+-- report on the same correlation, done in Go: `iteration` is 0 on every row of
+-- both kinds (dead as a key), and created_at is the only ordering that exists.
+-- Invariant measured 2026-07-24: every fix-loop report has >=1 prior plan
+-- (140/140); every report without one (49) sits on a correlation that has NO
+-- fix_plan at all — the non-fixloop councils (experience-plan, feature-builder,
+-- 097 submissions), whose plan never lands in diagnosis_artifacts.
+SELECT jsonb_build_object(
+  '_t',            'plan',
+  'trajectory_id', da.correlation_id,
+  'run_id',        da.orchestration_id,
+  'created_at',    da.created_at,
+  'body',          da.body,
+  'summary',       da.metadata->>'summary'
+)::text
+FROM diagnosis_artifacts da
+WHERE da.kind = 'fix_plan'
+ORDER BY da.correlation_id, da.created_at;
+
+-- ── 4c. submission-gate plan recovery (best effort, 24h window) ──────────────
+-- A 097 submission council's plan lives ONLY in the dispatching orchestration's
+-- collected_data (keyed by the payload's fix_correlation_id — the correlation
+-- the artifacts are written under). orchestration_states is pruned at ~24h, so
+-- this recovers plans for councils run in roughly the last day and nothing
+-- older; rows it misses stay flagged plan_missing. Emitted with the SUBMISSION
+-- correlation as trajectory_id so Go's plan join needs no special case.
+SELECT jsonb_build_object(
+  '_t',            'subplan',
+  'trajectory_id', os.collected_data->'input_data'->>'fix_correlation_id',
+  'run_id',        os.orchestration_id,
+  'created_at',    os.created_at,
+  'body',          (os.collected_data->'input_data'->'plan')::text,
+  'rationale',     os.collected_data->'input_data'->>'rationale'
+)::text
+FROM orchestration_states os
+WHERE os.collected_data->'input_data' ? 'fix_correlation_id'
+  AND jsonb_typeof(os.collected_data->'input_data'->'plan') = 'object'
+ORDER BY os.created_at;
 
 -- ── 5. the feed-triage lane ─────────────────────────────────────────────────
 -- The best-shaped non-loop reasoning source on the platform, and the only one

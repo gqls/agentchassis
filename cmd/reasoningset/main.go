@@ -97,7 +97,16 @@ type Labels struct {
 	// after. `round_decision` MUST NOT be pooled across the two — a pre-change
 	// "revise" can be a low nit that would be an "approve" under the new rule.
 	RoundDecisionRule string `json:"round_decision_rule,omitempty"`
-	Dissent           *bool  `json:"dissent,omitempty"`
+	// RoundIndex is this round's ordinal within its correlation (resubmission
+	// chains share one), so a consumer can follow a plan's trail across rounds.
+	RoundIndex int `json:"round_index,omitempty"`
+	// PlanSource names where input_state's plan text was recovered from:
+	// "fix_plan" (the loop's own artifact) or "submission_payload" (a 097
+	// submission's orchestration row — only recoverable inside the ~24h prune
+	// window). Empty means no plan was recoverable; such rows are flagged
+	// plan_missing.
+	PlanSource string `json:"plan_source,omitempty"`
+	Dissent    *bool  `json:"dissent,omitempty"`
 	// Contested marks a round where seats actually SPLIT (some approved, some
 	// did not). An uncontested round carries far less signal whichever way it
 	// went — everyone agreeing is cheap.
@@ -141,8 +150,12 @@ type inRow struct {
 	Body         string          `json:"body"`
 
 	// council lane
+	ReportID         string          `json:"report_id"`
+	RoundIndex       int             `json:"round_index"`
 	RoundDecision    string          `json:"round_decision"`
 	Seat             string          `json:"seat"`
+	Rationale        string          `json:"rationale"` // subplan rows only
+	Summary          string          `json:"summary"`   // plan rows only
 	SeatVerdict      string          `json:"seat_verdict"`
 	Objections       json.RawMessage `json:"objections"`
 	Notes            string          `json:"notes"`
@@ -240,7 +253,7 @@ func main() {
 		fatal("labels: %v", err)
 	}
 
-	steps, trails, bundles, councils, feedjudges, feeditems, err := readInput(os.Stdin)
+	steps, trails, bundles, councils, plans, feedjudges, feeditems, err := readInput(os.Stdin)
 	if err != nil {
 		fatal("read: %v", err)
 	}
@@ -249,7 +262,7 @@ func main() {
 	}
 
 	records := build(steps, trails, bundles, labels)
-	records = append(records, buildCouncil(councils, labels)...)
+	records = append(records, buildCouncil(councils, plans, steps, labels)...)
 	records = append(records, buildFeed(feedjudges, feeditems)...)
 
 	out := os.Stdout
@@ -273,9 +286,10 @@ func main() {
 }
 
 func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[string]string, councils []inRow,
-	feedjudges []inRow, feeditems map[string]inRow, err error) {
+	plans map[string][]inRow, feedjudges []inRow, feeditems map[string]inRow, err error) {
 	trails = map[string]inRow{}
 	bundles = map[string]string{}
+	plans = map[string][]inRow{}
 	feeditems = map[string]inRow{}
 	sc := bufio.NewScanner(f)
 	// Bundles run to tens of KB and prompts larger still.
@@ -301,13 +315,15 @@ func readInput(f *os.File) (steps []inRow, trails map[string]inRow, bundles map[
 			bundles[bundleKey(r.TrajectoryID, r.Iteration)] = r.Body
 		case "council":
 			councils = append(councils, r)
+		case "plan", "subplan":
+			plans[r.TrajectoryID] = append(plans[r.TrajectoryID], r)
 		case "feedjudge":
 			feedjudges = append(feedjudges, r)
 		case "feeditem":
 			feeditems[r.ItemID] = r
 		}
 	}
-	return steps, trails, bundles, councils, feedjudges, feeditems, sc.Err()
+	return steps, trails, bundles, councils, plans, feedjudges, feeditems, sc.Err()
 }
 
 func bundleKey(traj string, iter int) string { return traj + "#" + fmt.Sprint(iter) }
@@ -424,19 +440,36 @@ func build(steps []inRow, trails map[string]inRow, bundles map[string]string, la
 // the seat's own verdict; the round's decision and this seat's dissent from it
 // are labels, derived rather than hand-curated — which is what makes this lane
 // usable at 5.6x the diagnosis lane's volume without a labelling campaign.
-func buildCouncil(rows []inRow, labels map[string]Labels) []Record {
+// seatStepName maps a report's reviewer name to its llm_call_log step name.
+// One alias exists in the live data; everything else is 'review_' + seat.
+func seatStepName(seat string) string {
+	if seat == "prior_art_librarian" {
+		return "review_prior_art"
+	}
+	return "review_" + seat
+}
+
+func buildCouncil(rows []inRow, plans map[string][]inRow, steps []inRow, labels map[string]Labels) []Record {
 	// Dissent must be measured against the seats in the SAME round, not against
 	// the round's decision. The council returns "revise" if ANY seat objects, so
 	// comparing a seat to the decision labels every approver in a revise round a
 	// dissenter — which measured 520 of 836 and is obviously wrong: those seats
 	// are the majority. Real dissent is going against your peers on one plan.
+	//
+	// And a round is a REPORT, not an orchestration (corrected 2026-07-24): the
+	// reviser loops plan→review inside one run, so an orchestration holds up to
+	// 12 report rows. The first cut keyed this tally by RunID and pooled seats
+	// across those rounds — on the published 836-row corpus that inflated
+	// dissent 170→201 and contested 799→822. Keyed by report id since.
 	type tally struct{ approve, other int }
+	roundKey := func(c inRow) string { return c.ReportID + "|" + c.RunID + "|" + c.CreatedAt }
 	rounds := map[string]*tally{}
 	for _, c := range rows {
-		t := rounds[c.RunID]
+		k := roundKey(c)
+		t := rounds[k]
 		if t == nil {
 			t = &tally{}
-			rounds[c.RunID] = t
+			rounds[k] = t
 		}
 		if c.SeatVerdict == "approve" {
 			t.approve++
@@ -445,9 +478,33 @@ func buildCouncil(rows []inRow, labels map[string]Labels) []Record {
 		}
 	}
 
+	// Per-seat model provenance joins the spine's review_* calls (already on
+	// stdin) by ORCHESTRATION, not correlation: a 097 submission council runs
+	// under its own orchestration correlation while its artifacts carry the
+	// submission correlation, so the correlation key matches only 15% of seats
+	// and the orchestration key 100% (both measured 2026-07-24). Within a key,
+	// rounds and retries stack; the call a report actually consumed is the
+	// newest SUCCESSFUL one at or before the report's own timestamp — a failed
+	// final retry after an earlier success would otherwise mislabel a row that
+	// has real content as call_failed.
+	calls := map[string][]inRow{}
+	for _, s := range steps {
+		if strings.HasPrefix(s.StepName, "review_") && s.RunID != "" {
+			k := s.RunID + "#" + s.StepName
+			calls[k] = append(calls[k], s)
+		}
+	}
+	for k := range calls {
+		sort.SliceStable(calls[k], func(i, j int) bool { return calls[k][i].CreatedAt < calls[k][j].CreatedAt })
+	}
+	for traj := range plans {
+		sort.SliceStable(plans[traj], func(i, j int) bool { return plans[traj][i].CreatedAt < plans[traj][j].CreatedAt })
+	}
+
+	planJoined, planMissing, provJoined := map[string]int{}, 0, 0
 	out := make([]Record, 0, len(rows))
 	for _, c := range rows {
-		t := rounds[c.RunID]
+		t := rounds[roundKey(c)]
 		seatApproved := c.SeatVerdict == "approve"
 		// The modal verdict among this round's seats. A tie is not dissent for
 		// anyone — the round was genuinely split down the middle.
