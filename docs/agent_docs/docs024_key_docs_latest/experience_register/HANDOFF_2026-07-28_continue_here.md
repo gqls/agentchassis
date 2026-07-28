@@ -22,7 +22,7 @@ leading nowhere is not detectably wrong.
 | Write path `write_experience_pattern` + writer agent (mig 238) | **LIVE** |
 | Bind path `bind_site_experience` | **DEPLOYED v1.0.1194**, never called by a workflow |
 | Consumer `verify_site_experience` | **DEPLOYED v1.0.1194**, never called by a workflow |
-| Approval council `experience-approval-council` (migs 259–262) | **LIVE and has ruled once** |
+| Approval council `experience-approval-council` (migs 259–262, all four **recorded** in schema_migrations) | **LIVE and has ruled once** |
 | **Applying a verdict to an entry's status** | **DOES NOT EXIST** — see §4.1 |
 
 Pod-grep on v1.0.1194 (positive + negative control): `bind_site_experience` 12,
