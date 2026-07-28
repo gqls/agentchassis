@@ -9033,3 +9033,55 @@ contents are part of the precondition, not an assumption.
 
 Family: grep-the-config-key-before-calling-it-a-win,
 verified-only-what-i-touched, the-rule-exempted-its-own-author.
+
+---
+
+## 2026-07-28 (later) — my contrast checker reported the page clean, and the owner sent back a screenshot of unreadable text
+
+**The claim.** That the Thames Water page passed contrast. `cmd/contrastscan` — the tool
+I had built that same day, and written up as the fix for `bugs_open/122` — reported
+"3 measurable pair(s), all pass (worst 4.78)". I quoted that in a summary as evidence
+the page was fine.
+
+**What the owner saw.** A screenshot with the section eyebrow invisible against the
+page, and the chart's title and caption invisible against a white card. Re-measured
+with a wide selector: **1.23**, **1.29**, **2.85**.
+
+**The defect was the tool's DEFAULT SCOPE.** It measured
+`a, button, .btn, [role=button]` — interactive elements only. Links and buttons are a
+small fraction of the text on a page, and nothing about a contrast defect confines
+itself to them. Headings, labels, captions and chart text were never looked at, and
+the tool reported that as *passing* rather than as *not checked*.
+
+**This is the mirror of the lesson I wrote in this file earlier the same day.** That
+entry said an over-reporting audit is worse than none, because its findings get
+"fixed" into real regressions. The inverse is worse still and I walked straight into
+it: **an under-scoped audit produces false green, and false green is trusted.** Noise
+gets ignored; a clean bill of health gets quoted. I quoted it.
+
+**Both defects were ones I had already written down.** `bugs_open/122` records that
+oufe's `--color-primary` is identical to its surface colour, and describes
+`--color-card-bg: #ffffff` as *"latent rather than live — light body text on a white
+card is the same invisibility bug waiting for a news page to be added."* I then
+shipped a component that renders a card, on that palette, and did not connect it.
+**A hazard I documented did not become a hazard I checked for.**
+
+**The check that would have caught it, and it is embarrassingly cheap:** look at the
+page. One screenshot of the section I had just added. I had a working screenshot
+harness open — I had used it three times that day to disprove false positives — and
+did not point it at my own work, because the numbers were green.
+
+**And fixing it broke something the numbers still could not see.** Making the card
+dark fixed the text and made two of the three bars invisible, because the default bar
+fill is `var(--color-primary)`, which was now exactly the card colour. `contrastscan`
+cannot see that either: bars carry no text, and the probe skips elements with no text
+content. This is concept VIZ-011 in the register — *chart furniture is a graphical
+object needing the 3.0 non-text threshold* — written by me the same day, and not
+implemented in the tool that was supposed to enforce it. Caught only by screenshotting
+the result of my own fix.
+
+**The compounding shape worth carrying:** a measuring instrument you built yourself is
+the hardest thing to distrust, because its scope was chosen by the same reasoning that
+chose what to build. When it agrees with you, it may only be agreeing with your blind
+spot. **Verify a fix by looking at the artefact, not by re-running the check that
+passed before you made it.**

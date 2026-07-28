@@ -162,7 +162,21 @@ type pageResult struct {
 }
 
 func main() {
-	selector := flag.String("selector", "a, button, .btn, [role=button]",
+	// DEFAULT SCOPE: every element that renders text, not just interactive ones.
+	//
+	// This default used to be "a, button, .btn, [role=button]". That is a false-green
+	// generator: on 2026-07-28 it reported oufe.com's Thames page clean while a chart
+	// eyebrow sat at 1.23 and a chart title at 1.29 (light text on a white card), both
+	// plainly unreadable in a screenshot the owner sent back. Links and buttons are a
+	// small fraction of the text on a page, and nothing about a contrast defect
+	// confines itself to them.
+	//
+	// An UNDER-scoped audit is worse than an over-reporting one: over-reporting is
+	// noisy and gets ignored, but under-reporting is trusted, and its green is used as
+	// evidence that a page is fine.
+	selector := flag.String("selector",
+		"a, button, .btn, [role=button], h1, h2, h3, h4, h5, h6, p, li, span, td, th, "+
+			"dt, dd, figcaption, label, summary, blockquote",
 		"CSS selector for the elements to measure")
 	asJSON := flag.Bool("json", false, "emit JSON instead of a report")
 	flag.Parse()
