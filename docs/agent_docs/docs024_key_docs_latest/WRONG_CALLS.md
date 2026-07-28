@@ -9491,3 +9491,65 @@ persuasive possible form of being wrong.
 
 Family: quantitative-fit-is-not-a-mechanism, explained-away-the-refutation,
 missing-tool-reads-as-passing-check, computed-with-a-broken-count.
+
+---
+
+## 2026-07-28 (later still) — I built a tool that already existed, because my prior-art grep filtered to the wrong language
+
+**The claim.** That the platform had no browser-based contrast audit, so I built
+`cmd/contrastscan` — and then wrote it into `bugs_open/122` as that bug's own fix
+candidate 2, into the concept register as VIZ-010, and into a summary for the owner.
+
+**`scripts/render_audit.py` had existed since the previous day** and does the same
+job better. It renders every element (`body *`, not a selector list), walks up
+through transparent ancestors compositing alpha, applies 4.5:1 and 3.0:1, flags a
+backdrop it cannot resolve as `overImage` rather than guessing, and additionally
+reports images that failed to load. Run against the page I had just fixed, it
+agrees: `contrast=0 broken-img=0`.
+
+**How I missed it.** I did search for prior art. The command was:
+
+```
+grep -rln "wcagContrastRatio\|contrastRatio" --include=*.go cmd/ scripts/
+```
+
+I even searched the right directory. **`--include=*.go` excluded it, because the
+prior art is Python.** The filter came from my own assumption that platform tooling
+is Go — reinforced by CLAUDE.md's "Go, not Python" convention, which is a rule about
+what to *write*, not a description of what *exists*. A filter taken from an
+assumption returns a confident, well-formed, empty answer, and an empty answer from
+a search you designed looks like evidence of absence.
+
+This is the third distinct form of the same error in one day, and the three are
+worth seeing together, because each defeated the previous fix:
+1. "there is no chart renderer" — searched Go source; the renderer was a **database
+   row**;
+2. "the contrast bug is the link colour" — searched the **stylesheet**; the answer
+   needed a browser;
+3. this one — searched the right place, with the right terms, filtered to the wrong
+   **language**.
+
+**The compounding cost.** `render_audit.py`'s own header names, in its opening
+paragraphs, the two defect families I shipped to a live site that afternoon:
+*"a palette slot the layout supplies a literal for (a #ffffff card_bg on a dark
+site)"* and *"a token used in two roles (--color-primary as both a fill and a
+foreground)"*. Those are exactly the white card and the invisible eyebrow the owner
+screenshotted back to me. **Running the existing tool once would have found both
+before he saw them.** I did not run it because I did not know it existed, and I did
+not know because of a four-character flag.
+
+**The cheap check:** when grepping for prior art, **do not filter by language**.
+Filter by directory if you must, never by extension. The variant that works is
+`grep -rln "<concept>" scripts/ cmd/ platform/` with no `--include` at all; the noise
+is a few dozen lines and the cost of missing is a duplicate tool plus the defects it
+would have caught.
+
+**Resolution:** `cmd/contrastscan` deleted. Register VIZ-010 and bug 122 redirected
+to `render_audit.py`. Nothing distinctive was lost — its one different behaviour
+(refusing to score an unknown backdrop rather than flagging it) is a stricter
+variant of `overImage`, and not worth a second tool.
+
+**The thing worth carrying:** a search is only evidence within the world its filters
+describe, and you wrote the filters. **When a prior-art search comes back empty,
+re-run it with one fewer constraint before believing it** — the constraint you would
+defend most confidently is the one most likely to be carrying your assumption.

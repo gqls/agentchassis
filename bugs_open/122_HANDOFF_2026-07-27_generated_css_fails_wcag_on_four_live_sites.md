@@ -20,7 +20,7 @@ invisible.
 > the answer also depends on ancestors, alpha and gradients.
 >
 > **Re-measured in a real browser** (computed style, alpha-composited backdrop) on
-> 2026-07-28 with the tool this bug asked for, now built as `cmd/contrastscan`.
+> 2026-07-28 in headless Chromium (see the note on tooling at the foot of this file).
 > The corrected picture is in "What is actually wrong" below. In short: **body
 > link colour was largely a false alarm; call-to-action buttons are the real
 > defect, they fail on nearly every site, and on robot-hands the primary CTA is
@@ -225,7 +225,7 @@ secondary items in the 3.3–4.4 band across sites.
    which nobody noticed on a live site.
 
    > **CORRECTED 2026-07-28:** this bug previously said the candidate was "built"
-   > as `cmd/contrastscan`. That was a duplicate of `render_audit.py`, written
+   > as `scripts/render_audit.py`. That was a duplicate of `render_audit.py`, written
    > without finding it because the prior-art grep was `--include=*.go` and the
    > prior art is Python. The Go tool has been deleted.
 3. **Gate the webdesign agent's CSS output** at generation. Still worth doing, and
@@ -255,7 +255,7 @@ its findings get "fixed" into real regressions, and because people stop reading 
 
 Another thread shipped `platform/colour.AuditPalette` on 2026-07-27 (`6dd8667ea`,
 "finds defects on 7 of 10 live sites"). I found it only after building
-`cmd/contrastscan`, which is a prior-art miss on my part — the grep that would
+`scripts/render_audit.py`, which is a prior-art miss on my part — the grep that would
 have caught it is `AuditPalette|contrast` over `platform/`, and I searched
 `cmd/` and `scripts/` only.
 
@@ -266,7 +266,7 @@ deleted as a duplicate of the other.** They audit different layers:
   `site_specs.resolved_composition.palette_id`. DB-only, microseconds, and it can
   run *before* a deploy. Its own load-bearing insight is that intent != artefact,
   which is why it reads the composed row rather than `design_intent`.
-- `cmd/contrastscan` reads the **painted page**. Seconds per page, post-deploy
+- `scripts/render_audit.py` reads the **painted page**. Seconds per page, post-deploy
   only.
 
 The gap that needs both: **a colour can be legible in the palette and illegible on
