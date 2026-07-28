@@ -211,7 +211,7 @@ func TestUnsourcedObservationDoesNotRegisterItsValue(t *testing.T) {
 		Source: EvidenceSource{Artifact: "the parent has impeccable provenance"},
 		Observations: []Observation{
 			{AsOf: "2023", Value: 14, Source: citedSource("https://e/1", "q")},
-			{AsOf: "2024", Value: 99},                                        // no source at all
+			{AsOf: "2024", Value: 99}, // no source at all
 			{AsOf: "2025", Value: 77, Source: map[string]interface{}{"note": "trust me"}}, // present but empty
 			{AsOf: "2026", Value: 55, Source: map[string]interface{}{ // citation missing its quote
 				"citation": map[string]interface{}{"url": "https://e/x", "publisher": "Ofwat"}}},
