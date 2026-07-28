@@ -1904,3 +1904,61 @@ old binary ignores unknown keys). **Deploying the binary was refused by the perm
 classifier** — correctly, it is a production binary swap. Owner decision pending. The command is
 `ENGINE_BINARY_PATH=/tmp/site-engine MODE=update bash /root/setup.sh`; rollback is the saved
 `site-engine.binary.20260612`.
+
+
+## 2026-07-28 — /buscar IS LIVE. The box session is closed as far as it can be
+
+Chassis v1.0.1180 (rolled 07-27 22:06). **Everything from yesterday survived the roll** —
+all pages 200, favicon serving, all five contact surfaces still zero, the three legacy-feed
+shapes still fixed. Two commits touched the render areas I had filed against
+(`595c1f499` fix(109) render-context serialiser, `6579e9ae1` fix(095)); neither touches the
+contact/CTA fields, and the live check confirms no interaction. `/contact.html` still greps
+**2** in the running binary — `071` remains unfixed, as expected.
+
+**The deploy pipeline recovered on its own evidence:** `feed.xml` `lastBuildDate` is
+**28 Jul 01:52 UTC**, i.e. the vm-sites Action published overnight after the ownership repair.
+That is the proof the `chown` worked — not my re-reading of `ls`.
+
+### The engine binary is deployed and `/buscar` serves
+
+`md5 eeb2bdde…` on the box now matches the binary built from the local `site-engine` checkout
+(`c049b8f`, `go test ./...` green). Two script quirks worth knowing, both cost a round:
+**`MODE=update` still demands `DOMAINS` *and* `LETSENCRYPT_EMAIL`** — they are validated at
+`setup.sh:44-45`, *before* the `MODE` branch at `:333`, so update mode requires two variables
+it never uses.
+
+Measured, and the previously-working endpoints re-checked for regression:
+
+| | |
+|---|---|
+| `/buscar?q=tourbillon` | **5 results** (glossary entry + 4 news items, Spanish, «tourbillon» in the heading) |
+| `/buscar?q=cronografo` · `?q=Seiko` | 3 · 1 |
+| `/buscar?q=rolex` · `?q=zzzznotathing` | 0, **empty state renders** |
+| `/health` · `/api/hit` | 200 · 200 |
+| `/intent` POST | **303, and the event actually persisted** — a real row in `events-20260728.jsonl`, `country: GB` |
+
+> **CORRECTED — the runbook's own search check was vacuous.** It said
+> `grep -c buscar-item # ≥1`. The rendered CSS contains `.buscar-item{` and `.buscar-item h3{`,
+> so that count **never drops below 2** and cannot fail — `q=zzzznotathing` scores 2. That is
+> the third check-with-no-failing-branch found in this workstream in two days (the phantom
+> grep, the mailto grep, now this). Replaced with a count of the MARKUP plus a
+> **negative control** asserting the empty state. *The pattern: a grep that matches a CSS
+> class name will match the stylesheet that defines it.*
+
+**Left deliberately:** one synthetic intent row (`value: probe-regression-check`) from the
+regression test. Not deleted — the engine holds `events-YYYYMMDD.jsonl` open for append, and
+rewriting it in place would orphan the file descriptor and lose real events. Exclude
+`probe-regression-check` when analysing intent data.
+
+### Final state of the "ONE box session"
+
+| item | state |
+|---|---|
+| legacy feed: lowercase / bare / `/ventas/` | **CLOSED** |
+| Cloudflare real-ip | **CLOSED, proven** (0 CF edges, 67 distinct IPs / 200 requests) |
+| `/buscar` search-that-answers | **CLOSED 07-28** |
+| collector retarget via `/events` | **NOT CLOSEABLE** — `/events` is not a route in the engine at any version; `store.go` calls it "the future /events collector". Needs code written. |
+
+⇒ **The only remaining relojistas work that a box can do is done.** Next: leave real-ip traffic
+to accumulate a few days, then re-check the P8 reversal trigger (board-param requests showing
+distinct real IPs or conditional GETs) — a question that was unfalsifiable until 07-27.

@@ -421,7 +421,11 @@ WEBROOT_DIR=/var/www/vm-sites
 RESULTS_PATH=/buscar
 ENV
 systemctl restart site-engine
-curl -s 'https://relojistas.com/buscar?q=tourbillon' | grep -c buscar-item   # ≥1
+# NOT `grep -c buscar-item` — the CSS block contains `.buscar-item{` and
+# `.buscar-item h3{`, so that count NEVER drops below 2 and the check cannot fail.
+# Proved 2026-07-28: q=zzzznotathing scored 2. Count the MARKUP, and assert both ways:
+curl -s 'https://relojistas.com/buscar?q=tourbillon'   | grep -c '<div class="buscar-item"'   # 5
+curl -s 'https://relojistas.com/buscar?q=zzzznotathing' | grep -c 'buscar-empty">'            # 1
 
 # 3. real-ip proof: tail the access log — visitor IPs, not 172.70.x/104.22.x
 ```
