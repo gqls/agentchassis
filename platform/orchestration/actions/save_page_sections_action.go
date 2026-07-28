@@ -361,8 +361,15 @@ func SavePageSectionsAction(ctx context.Context, params ActionParams) (interface
 	// Persistence is the enforcement point: the build gate's repair lives in
 	// `clean_html`, which the structured metadata path above never reads, so a
 	// gate-side repair is dead config on the primary build plan and absent
-	// entirely from page-rerender's structured save. Running here means no build
-	// path can persist an unrepaired section whatever its workflow config says.
+	// entirely from page-rerender's structured save. Running here means no
+	// save_page_sections INVOCATION can persist an unrepaired section, whatever
+	// its workflow config says — and that is the whole of the claim. It is NOT
+	// fleet-wide coverage of page_components: ten Go call sites write
+	// rendered_html, and three of them persist LLM-authored prose with no repair
+	// at all (ApplySectionEditAction, create_report_page, rebuild_blog_listing —
+	// bugs_open/136). An earlier draft of this comment said "no build path",
+	// which is the over-broad wording the council caught; it is corrected here
+	// because the next reader of this file would otherwise inherit it.
 	// Placed AFTER the interactive-tool preservation block — so the stored markup
 	// that block carries forward is repaired too — and BEFORE the guards below,
 	// so they measure the bytes that will actually be written. Unlinking keeps

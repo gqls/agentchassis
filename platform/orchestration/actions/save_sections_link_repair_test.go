@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -113,5 +114,66 @@ func TestRepairSectionLinksNarrowsRuntimeFillExemptionToItsOwnSection(t *testing
 	}
 	if len(repairs) != 1 {
 		t.Errorf("expected exactly the one static repair, got %d: %+v", len(repairs), repairs)
+	}
+}
+
+// The repair runs BEFORE the content-regression guard and the Layer 1
+// interactivity guard, so both of them measure post-repair bytes. The claim
+// that this is safe — "unlinking preserves the anchor text, so the guards'
+// totals do not move" — was reasoning, not a check, and the council was right
+// that this is the same shape of claim that "one call site" and "the ordering
+// is at line N" turned out to be. So it is a test now.
+//
+// The two guards' inputs are pure functions of SectionData.HTML, which is what
+// makes this testable without a DB: the content-regression guard computes
+// len(TrimSpace(regexp `<[^>]*>` -> "")) per section and sums it
+// (save_page_sections_action.go, "Content regression guard"), and the
+// interactivity guard calls sectionHTMLIsInteractive per section. Both are
+// reproduced here against the same expressions.
+func TestRepairSectionLinksLeavesBothGuardMeasurementsInvariant(t *testing.T) {
+	idx := datahelpers.NewPageURLIndex([]string{"/contact.html", "/about.html"})
+	sections := []SectionData{
+		{ComponentName: "prose", HTML: `<section><p>Read <a href="/never-built">our pricing</a> or <a href="/contact">talk to us</a>.</p></section>`},
+		{ComponentName: "empty", HTML: `<section><a href="">Read more</a></section>`},
+		{ComponentName: "tool", HTML: `<section class="tool-page"><canvas id="board"></canvas><a href="/never-built">rules</a></section>`},
+		{ComponentName: "clean", HTML: `<section><a href="/about.html">About</a></section>`},
+	}
+
+	// The guards' own arithmetic, before the repair.
+	tagStripper := regexp.MustCompile(`<[^>]*>`)
+	strippedLen := func(s SectionData) int {
+		return len(strings.TrimSpace(tagStripper.ReplaceAllString(s.HTML, "")))
+	}
+	beforeLen := make([]int, len(sections))
+	beforeInteractive := make([]bool, len(sections))
+	beforeTotal := 0
+	for i, s := range sections {
+		beforeLen[i] = strippedLen(s)
+		beforeInteractive[i] = sectionHTMLIsInteractive(s.HTML)
+		beforeTotal += beforeLen[i]
+	}
+
+	_, _, repairs := repairSectionLinks(sections, idx, true)
+	if len(repairs) == 0 {
+		t.Fatal("fixture must actually repair something, or this test asserts nothing")
+	}
+
+	afterTotal := 0
+	for i, s := range sections {
+		if got := strippedLen(s); got != beforeLen[i] {
+			t.Errorf("section %d (%s): the content-regression guard's stripped-text length moved %d -> %d; unlinking must keep the text",
+				i, s.ComponentName, beforeLen[i], got)
+		}
+		if got := sectionHTMLIsInteractive(s.HTML); got != beforeInteractive[i] {
+			t.Errorf("section %d (%s): the interactivity guard's verdict moved %v -> %v; repair must not touch canvas/game-container/tool-page markers",
+				i, s.ComponentName, beforeInteractive[i], got)
+		}
+		afterTotal += strippedLen(s)
+	}
+	if afterTotal != beforeTotal {
+		t.Errorf("the content-regression guard's TOTAL moved %d -> %d — a repaired page could now trip a guard it used to pass", beforeTotal, afterTotal)
+	}
+	if !beforeInteractive[2] {
+		t.Fatal("fixture bug: the tool section must read as interactive before the repair, or the invariant above is vacuous")
 	}
 }
