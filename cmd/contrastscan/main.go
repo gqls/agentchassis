@@ -34,6 +34,30 @@
 // A tool that over-reports on live sites is worse than no tool: it trains people
 // to ignore it, and its findings get "fixed" into real regressions.
 //
+// RELATIONSHIP TO platform/colour.AuditPalette (026 phase 2b, live 2026-07-27).
+// These are complementary and neither replaces the other. Do not delete one as a
+// duplicate of the other; they audit different layers.
+//
+//	AuditPalette   reads the COMPOSED palette from
+//	               site_specs.resolved_composition.palette_id. DB-only, no
+//	               browser, microseconds, and it can run before anything is
+//	               deployed. Its own insight is that intent != artefact, so it
+//	               deliberately reads the composed row rather than design_intent.
+//
+//	contrastscan   reads the PAINTED PAGE. Slower (a real browser, seconds per
+//	               page) and only works post-deploy.
+//
+// The gap that makes both necessary: a colour can be legible in the palette and
+// illegible on the page, because chrome and component CSS carry hardcoded
+// literals that are in no palette. The header CTA rule found on 2026-07-28 is
+// exactly that — `color: white` hardcoded in site_components.rendered_html, on a
+// button whose background is the site's accent. It is absent from the composed
+// palette (checked), so no palette audit at any quality can see it, and it fails
+// on five of six live sites.
+//
+// Rule of thumb: AuditPalette is the cheap gate that should run every build;
+// this is the post-deploy witness for everything the palette does not govern.
+//
 // Usage:
 //
 //	go run ./cmd/contrastscan https://example.com/ https://example.com/about.html

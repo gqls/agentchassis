@@ -241,3 +241,33 @@ them.
 
 The general form: **a contrast audit that over-reports is worse than none**, because
 its findings get "fixed" into real regressions, and because people stop reading it.
+
+## Relationship to the 026 palette contrast check (found 2026-07-28, after building the above)
+
+Another thread shipped `platform/colour.AuditPalette` on 2026-07-27 (`6dd8667ea`,
+"finds defects on 7 of 10 live sites"). I found it only after building
+`cmd/contrastscan`, which is a prior-art miss on my part — the grep that would
+have caught it is `AuditPalette|contrast` over `platform/`, and I searched
+`cmd/` and `scripts/` only.
+
+**They are complementary, and this is worth stating explicitly so neither is
+deleted as a duplicate of the other.** They audit different layers:
+
+- `AuditPalette` reads the **composed palette** from
+  `site_specs.resolved_composition.palette_id`. DB-only, microseconds, and it can
+  run *before* a deploy. Its own load-bearing insight is that intent != artefact,
+  which is why it reads the composed row rather than `design_intent`.
+- `cmd/contrastscan` reads the **painted page**. Seconds per page, post-deploy
+  only.
+
+The gap that needs both: **a colour can be legible in the palette and illegible on
+the page**, because chrome and component CSS carry hardcoded literals that are in
+no palette. Finding 1 above is precisely that — `color: white` hardcoded in
+`site_components.rendered_html`. I checked oufe's composed palette and the CTA
+text colour **is not in it**, so no palette audit at any level of quality can see
+this defect.
+
+So: `AuditPalette` is the cheap pre-deploy gate that should run every build;
+`contrastscan` is the post-deploy witness for everything the palette does not
+govern. Candidate 1 (stop the chrome hardcoding white) remains the fix that
+closes the door, because it removes the literal rather than detecting it.
