@@ -704,3 +704,30 @@ cause of the invented destinations.
 
 **Live exposure right now:** `capabilities.html` serves 200 with at least 7 dead internal
 links. Recorded rather than silently repaired so the next thread inherits the true state.
+
+---
+
+## 2026-07-28 (later, same thread) — the two loose ends closed, and the mechanism goes one level deeper
+
+**All 9 authored targets are now confirmed 404** — `/decision-record` and `/delivery`,
+unresolved under origin throttling this morning, resolve 404 on a clean retry. Full
+crawl of all 10 deployed pages: every one of the 13 broken references this build
+authored sits on `capabilities.html`; the rest of the site is link-clean (one
+site-wide `favicon.png` 404 predates the build and is tracked separately).
+
+**The same build also invented four image paths** — `<img
+src="/assets/illustrations/{review-council,rapid-delivery,verification-audit,vector-search}.svg">`
+replacing four working `/assets/images/*.jpg` references. Checked fleet-wide: exactly
+**one** component in the entire estate references `/assets/illustrations/` — this one.
+The directory has never existed on any site. So the invention surface is `src`
+attributes as well as `href`s, and `RepairPageLinks` (079's fix) never had `<img>` in
+its remit.
+
+**And the sharpest finding: this file's title is now true TWICE OVER.** The gate
+detected every broken link this build authored, *repaired them*, logged the repairs
+durably (`CONTENT_LINK_REPAIR_DETAIL`, 10:45:01.347Z, all 9 targets named) — and the
+repair output was then **discarded at persistence**: `save_page_sections` prefers the
+structured `sections_metadata` path and never reads `validation_result.clean_html` on
+the primary build plan. The unrepaired sections were saved 400ms after the repair log
+and deployed. Full mechanism, evidence and fix candidates: **`bugs_open/079`, REOPENED
+2026-07-28** — detect → discard became detect → repair → discard the repair.
