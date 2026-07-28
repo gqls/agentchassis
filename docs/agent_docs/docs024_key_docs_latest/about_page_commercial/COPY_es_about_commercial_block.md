@@ -122,5 +122,6 @@ call and this workstream's, not a site thread's.
    written and true (`portfolio / tier 2 / for_sale_requested / marketplace_url`), and inert
    until a section exists.
 
-**Open, and not a translation question:** the Afternic listing's **minimum offer is 0**, so the
-design's anti-lowball floor is absent while tier 2's copy invites interest.
+*(An earlier draft of this file said the Afternic minimum offer was 0 and the anti-lowball
+floor absent. **Retracted 2026-07-28 — the floor is $12,000.** My misreading of a dashboard
+paste; the design's protection was never missing.)*

@@ -158,11 +158,14 @@ I have therefore written relojistas' `commercial` aspect with the true facts
 **deliberately not inserted the section**. It is inert and correct, and the day this
 block speaks Spanish it is one section-insert away. `notes` on that row says so.
 
-**One thing worth a decision even for English sites:** relojistas' Afternic listing
-has **Minimum Offer = 0**. The locked design's anti-lowball position is "a minimum-offer
-floor, not a scary public number" — with the floor at 0 that protection is simply
-absent, and the on-page copy still says "register your interest". Nothing renders yet,
-so nothing is wrong on a page; but if `for_sale_requested` is the flag that means
-"represented", it is worth deciding whether a floor is part of what the flag asserts.
+> **RETRACTED 2026-07-28 — please disregard; this was my error, not a finding.**
+> I raised here that relojistas' Afternic listing had **Minimum Offer = 0** and that the
+> locked anti-lowball protection was therefore absent. **Both false.** The floor is
+> **$12,000** (owner). I misread a column-aligned dashboard paste. **No decision is needed
+> and nothing about the design is in question** — sorry for the noise in your file.
+>
+> The one question that survives is a real one, unrelated to the number: **if
+> `for_sale_requested` is the flag that means "represented", is a floor part of what that
+> flag asserts?** Worth deciding on its own merits, not because of relojistas.
 
 Contact for this: the relojistas thread, `traffic_probe/` (docs + NOTES 2026-07-27).

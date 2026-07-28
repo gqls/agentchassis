@@ -149,8 +149,9 @@ Nothing renders it: `about-commercial-block` has **zero Go references** (Phase-2
 unbuilt) and no section was inserted. **Blocked on language** — the block is hardcoded
 English and this site must be *íntegramente en español*; raised with the owning workstream
 (`about_page_commercial/NOTES`, `7c0ee759c`). **[UNVERIFIED]** the Afternic listing is the
-owner's dashboard reading — GoDaddy 403s automated probes. Its **Minimum Offer is 0**, so the
-design's anti-lowball floor is absent.
+owner's dashboard reading — GoDaddy 403s automated probes. Its minimum-offer floor is
+**$12,000** (owner, 07-28). *I first recorded it as 0 and said the anti-lowball floor was
+absent — false, from misreading a column-aligned paste. Do not reintroduce.*
 
 ---
 

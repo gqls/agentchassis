@@ -634,8 +634,9 @@ background.*
    15:30 BST today on his ruling that relojistas gets no contact route
    (`0a959e784`). The underlying platform default still belongs to
    `bugs_open/071`.
-   **Second item on the same site:** the Afternic listing has Minimum Offer = 0,
-   so the design's anti-lowball floor is absent.
+   **~~Second item~~ RETRACTED 07-28:** I claimed the Afternic listing had Minimum
+   Offer = 0 and that the anti-lowball floor was absent. **Both false** — the floor is
+   **$12,000** (owner). I misread a column-aligned dashboard paste. Nothing to decide.
 4. **Architecture review seat.** Approve one new `capability_gap` spec — set both
    `owner_approval` and `code_pointers` — and give the go for a single
    `feature-designer` run on it. This is the *only* action that produces a

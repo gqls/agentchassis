@@ -1838,8 +1838,17 @@ reasoning from the query you found first* — `\dt *nav*` would have ended it in
 `forsale.godaddy.com` returns **403 to automated probes**, and `afternic.com/domain/relojistas.com`
 serves a generic "Sell Domains | Buy Domains" page carrying "NOT LISTED" strings — so my own
 probe is inconclusive in **both** directions and must not be cited either way. Also noted for
-the design: the listing's **Minimum Offer is 0**, so the locked anti-lowball floor is absent
-while the copy would say "register your interest".
+the design: the listing's minimum-offer floor.
+
+> **CORRECTED 2026-07-28 — the floor is $12,000, not 0.** I wrote "Minimum Offer is 0, so the
+> locked anti-lowball floor is absent" and repeated it into four more documents, including
+> another workstream's NOTES and the fleet restart list. The owner corrected it. **I read the
+> number out of a column-aligned dashboard paste whose headers and values did not line up** —
+> the two zeros I took for the floor were Views and Leads. The design's protection was in place
+> the whole time. *Check: a pasted table with more headers than values has no reliable
+> column mapping — quote the label back and ask, or mark it `[UNVERIFIED]`. I marked the
+> listing STATUS as the owner's reading in the same sentence, then treated a number from the
+> same paste as fact.*
 
 
 ## 2026-07-27 (4) — THE BOX SESSION WAS RUN. Three of four items closed; one was never buildable

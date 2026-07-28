@@ -8662,3 +8662,50 @@ becoming a specification for an agent. This one is a wrong *instrument* becoming
 in a bug file — which propagates to every thread that reads it, with no agent involved at
 all. The fence failure was loud. This one was silent, and would have stayed silent, because
 a table of ratios is exactly the shape people do not re-derive.
+
+---
+
+## 2026-07-28 — "the Afternic minimum offer is 0, so the anti-lowball floor is absent" — I read a number out of a misaligned paste
+
+**The claim:** that relojistas' domain listing had **no minimum-offer floor**, and that the
+locked design's anti-lowball protection was therefore missing. I wrote it into **five
+documents and a DB row** — including another workstream's NOTES, the fleet restart list, and
+the Spanish copy spec — each time framed as a decision the owner needed to make.
+
+**It is false. The floor is $12,000.** The owner corrected it.
+
+**Where the 0 came from:** he had pasted his Afternic dashboard as plain text. The header row
+listed ~11 columns (`… Minimum Offer · Sale Lander · Views · Leads · 30-day Searches …`) and
+the value row carried **two**:
+
+```
+relojistas.com
+Listed
+0
+0
+```
+
+I mapped the first `0` onto `Minimum Offer` because it was the first numeric column in the
+header. **There was no column mapping to read** — those zeros were almost certainly Views and
+Leads on a listing nobody has visited yet.
+
+**What caught it:** the owner, four exchanges later. Nothing in my own process would have —
+I never queried it again, because I had written it down as settled.
+
+**The cheap check that would have caught it:** **quote the label back.** *"Reading your paste
+as Minimum Offer = 0 — is that right?"* One clause. Or simply `[UNVERIFIED]` it.
+
+**And the part that stings, because I nearly got it right:** in the *same sentence* I marked
+the listing's STATUS as *"the owner's dashboard reading, NOT independently verified"* — and
+then treated a **number from that same paste** as fact. I had the doubt and applied it to one
+field. *A source is trusted or it isn't; you cannot mark one value from a paste unverified and
+promote its neighbour.*
+
+**Cost:** low to repair, but it propagated furthest of anything I got wrong this week —
+because a *false problem* invites work. It sat in another workstream's NOTES as an open
+design question ("is a floor part of what `for_sale_requested` asserts?"), and someone could
+have spent a session on protection that was in place the whole time. **A wrong fact wastes one
+correction; a wrong problem wastes a thread.**
+
+Family: no-column-mapping-in-a-pasted-table, i-doubted-one-field-and-promoted-its-neighbour,
+a-false-problem-propagates-further-than-a-false-fact.
