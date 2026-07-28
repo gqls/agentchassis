@@ -38,8 +38,21 @@ done < domains.txt
 ```
 
 The two that pass are the interesting control: **something did generate a card for them**, so
-the emitter is not universally broken — the asset pipeline is. **[UNDIAGNOSED]** which path
-produced those two; find it before building a new generator, because it may only need wiring.
+the emitter is not universally broken — the asset pipeline is. ~~**[UNDIAGNOSED]** which path
+produced those two; find it before building a new generator, because it may only need wiring.~~
+
+> **ANSWERED 2026-07-28 (evening) — and the instinct was right: nothing needs building.**
+> The generator exists, is registered, and has been live since 2026-07-11:
+> `platform/orchestration/actions/derive_brand_head_assets_action.go` (`registry.go:185`).
+> It reads the site's active `logo` asset from S3, resizes it to a 64px favicon, composes it
+> centred on the brand colour as a 1200×630 card, and commits both to the site repo.
+> **Reachable in production today** — `asset-deployer` carries a live `check_mode` branch
+> (verified on the live agent row, not the seed):
+> `input_data.spec.mode == "brand_head" OR input_data.mode == "brand_head"`.
+> So "nothing generates og-card.png" is true of what has *run* and false of what *exists*.
+> **robot-hands got its card from this path on 2026-07-11. leopardess's was hand-committed**
+> from its owner-approved logo (`docs/leopardessconsulting/RUNBOOK.md` H4) — which is why
+> leopardess serves a 200 card while having **no `og_card` row at all**.
 
 ## Second defect in the same head block: `og:title` is often just the domain
 
@@ -82,6 +95,56 @@ target was never fetched.
    description.
 
 Do (1) even if (2) and (3) wait — an absent tag is better than a broken one.
+
+> **CORRECTED 2026-07-28 (evening) — this ordering is wrong for THIS estate, and measuring is
+> what showed it.** The ranking above is sound in the abstract ("make the bad state
+> unrepresentable first"), but it was written without checking whether (2) was actually
+> available. It is — on every site:
+>
+> **All 14 live sites have an active `logo` asset**, which is the generator's only
+> precondition. So (2) needs *no code, no council, no build, no roll, and no chrome re-render*
+> — the tag already points at the right path; the file is simply absent. Whereas (1) needs all
+> of those **plus** a head re-render on 14 sites (head is a stored artefact — `bugs_open/117`)
+> and a page redeploy, and its outcome is *no* preview rather than a *working* one.
+>
+> **Measured, not predicted:** the derivation was run for relojistas on 2026-07-28 and the card
+> went from 404 to a live 1200×630 PNG in **18 seconds**, with no deploy of anything else.
+>
+> **(1) still belongs — as the guard, second.** It is what protects a future site whose logo is
+> missing or whose derivation failed.
+>
+> **And a landmine for whoever implements (1):** do **not** gate the tag on "an `og_card` asset
+> row exists". That is the obvious design and it would suppress the tag on
+> **leopardessconsulting.co.uk — the one site whose preview actually works** — because its card
+> was hand-committed and has no row. Whatever (1) keys on must not have that false negative.
+> The precedent to follow is in the same function: `render_site_components_action.go:704-712`
+> already gates `sprites.css` on an active asset "otherwise the `<link>` would 404 on sites
+> without one", while the comment at `:700` waves the og card away as "harmless if they 404
+> until derivation runs". Same question, adjacent lines, opposite answers.
+
+## ⚠ Running the generator is NOT sufficient — look at what it produces
+
+Found the hard way on the relojistas pilot, 2026-07-28. The derivation succeeded on every
+signal — item `complete`, URL 200, valid 1200×630 `image/png`, provenance rows written — and
+**the card is a picture of a brand SPECIFICATION SHEET**: the wordmark twice, side by side, on
+a light swatch and a dark swatch. The generator is faultless; relojistas' stored `logo` asset
+is simply not a logo.
+
+**For an image artefact, dimensions and MIME type are not "structure" — what the picture shows
+is, and the only way to know is to look at it.** `bugs_open/012`'s rule ("check the artefact
+after a rewrite, not just the status") applies here in a medium where every mechanical check
+passes.
+
+Knock-on, and bigger than this bug: **the same asset is relojistas' live header logo** —
+`<img src="/assets/images/logo.jpg" class="logo-img">`, `.logo-img { max-height: 44px; width:
+auto; }`, no crop anywhere in the only stylesheet, source 1408×768. So every page renders the
+two-up board at roughly 81×44px, both wordmarks illegible. Weeks live. **Filed separately —
+see `docs024_key_docs_latest/bugfix_131_og_card/`.**
+
+So the rollout of (2) is **per-site with an eyeball on each result**, not a batch. Spot-checked
+`ai-agent-orchestration.com` and `finetuning.uk` — both proper 400×400 marks, so this is not a
+fleet-wide input problem, which is exactly why it needs checking one at a time rather than
+being assumed either way.
 
 ## How to verify
 
