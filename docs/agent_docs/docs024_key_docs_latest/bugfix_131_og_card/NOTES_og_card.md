@@ -215,3 +215,98 @@ Before the run both files 404'd. The head lists a fallback icon (`logo.jpg`) aft
 was. The card is arguably better than nothing (a share now previews *something* legible-ish
 rather than blank). But "not worse" is not the bar for brand surface. The real fix is the logo
 asset, not the derivation.
+
+---
+
+## 2026-07-28 (3) — rolled to 10 sites, looked at every card: 8 good, 1 wrong, 1 failed
+
+Queued the same item for the 10 remaining 404 sites at 21:49Z. **Drained in ~30 minutes**
+(dispatch is one site per 120s tick, so the wall-clock is the tick rate, not the work — each
+derivation itself takes ~18s).
+
+Result: **9 complete, 1 failed.** On the wire, 10 of 11 now serve a valid 1200×630 PNG.
+
+### Every card, looked at — not inferred from status
+
+| site | what the card actually shows | verdict |
+|---|---|---|
+| vetcomparison.uk | cross + magnifier + "VetComparison.uk" | **best of the set** |
+| oufe.com | "OUFE" cream on near-black | good |
+| fundamentallyai.com | mark + "FundamentallyAI" | good content, very dark |
+| ai-agent-orchestration.com | blue network mark, no name | acceptable |
+| dartsonline.com | geometric dartboard, no name | acceptable |
+| finetuning.uk | teal abstract mark, no name | acceptable |
+| gamesdesign.co.uk | isometric cube, no name | acceptable |
+| vonc.com | magenta star, no name | acceptable |
+| **gaswholesalers.com** | **a 3×3 CONTACT SHEET of nine logo concepts**, with garbled AI text — "GAAS", "WALSE", "WHOLACS", "GS GAS" | **WRONG** |
+| **relojistas.com** | two-up spec sheet (see entry 2) | **WRONG** |
+| **idea.uk** | nothing — derivation FAILED | **404 still** |
+
+### > **CORRECTED, same session — `purpose` does NOT predict card quality. I said it did.**
+
+In entry (3)'s first draft and in chat I reported the fleet split — 10 sites store their logo
+with `purpose='hero'` (AI-generated wide images), 4 with `purpose='logo'` — and presented it as
+a predictor of which cards would come out well.
+
+**gaswholesalers.com refutes it.** It is one of the four `purpose='logo'` sites, with no
+`origin_model` at all, and it produced **the worst card in the set** — a nine-up contact sheet
+of rejected logo concepts with hallucinated lettering.
+
+What `purpose` actually controls is the **deployed geometry** (`ImagePurposes`: `logo` →
+400×400 png, `hero` → 1600×900 jpg). It says nothing whatever about whether the *picture* is a
+logo. I inferred a content property from a geometry field because the correlation held on the
+four sites I had looked at. **The two spec-sheet cases sit on opposite sides of the split** —
+relojistas is `hero`, gaswholesalers is `logo` — which is as clean a refutation as it gets.
+
+*The check that would have caught it:* look at the artefact before generalising from the
+metadata. Exactly the lesson of entry (2), applied one level up and missed anyway.
+
+### idea.uk — a dangling asset pointer, separate defect
+
+```
+step derive_head_assets failed: download logo bytes: failed to download object from s3:
+operation error S3: GetObject, StatusCode: 404, NoSuchKey
+```
+
+Retried to `attempt_count=3` and failed correctly. **idea.uk's `logo` asset row is active and
+points at an S3 key that does not exist.** The row says the asset is there; the object is gone.
+Nothing else in the platform notices, because nothing else reads the bytes — the deployed page
+serves its own copy. Not fixed here.
+
+### Systemic and cosmetic: almost every card has a visible letterbox rectangle
+
+The logo assets are **opaque rectangles**, so `composeOGCard`'s `draw.Over` paints the logo's
+own background square onto the brand-colour card. On most sites the two colours differ and the
+box is plainly visible (vonc: magenta square on near-black; vetcomparison: white box on pale
+grey; fundamentallyai: dark box on darker navy). robot-hands has it too — visible in the
+original reference card.
+
+Fixed by making the logo asset **transparent**, which is the established practice here:
+leopardess's approved logo was "background-knocked-out" (`docs/leopardessconsulting/RUNBOOK.md`
+H4). Demonstrated on the relojistas crop — knocked out, the composed card has no rectangle at
+all. This is a *logo-asset* fix, not a code fix.
+
+### Third defect: the favicon derivation distorts any non-square logo
+
+```go
+faviconPNG, err := encodePNG(resize.Resize(faviconSize, faviconSize, logoImg, resize.Lanczos3))
+```
+
+`resize.Resize(64, 64, ...)` is **non-proportional**. A square mark survives; a wordmark is
+squashed to its aspect ratio. relojistas' corrected 646×275 crop still yields an illegible
+favicon — compressed 2.35× horizontally. Verified by composing it locally with the same maths.
+Affects every wide logo in the estate. `composeOGCard` gets this right (`resize.Thumbnail`
+preserves aspect); the favicon path does not. Not fixed here.
+
+### relojistas: crop done, install BLOCKED
+
+Cropped the light variant to its ink bounds (94,305)-(609,449) with 45%-of-height padding →
+646×275, background knocked out, verified by eye. Composed through `composeOGCard`'s exact
+maths (1200×630, thumbnail to 420px longest edge, centred on `background` `#f9f8f5` — the
+palette has no `header_bg`/`footer_bg`) — **clean, no letterbox.**
+
+**Cannot install it.** `derive_brand_head_assets` reads the logo from S3 by key, so the
+corrected asset must be written there, and reading `personae-storage-secrets` was refused by the
+permission classifier. Not worked around. Awaiting an owner decision — credentials, or the
+`gqls/sites` deploy-repo route (which fixes the header + card today but leaves the S3 logo
+still a spec sheet, so the next derivation would overwrite the good card with a bad one).
