@@ -1,6 +1,6 @@
 # 110 — `llm_call_log.max_tokens` is about to mean two different things depending on provider, and the columns that would disambiguate it do not exist
 
-**Status** **CLOSED 2026-07-28** — both candidates live and verified on live Gemini rows; only a cosmetic `DROP COLUMN` remains (see below) · **Filed** 2026-07-27 by the `gemini_content_provider` workstream ·
+**Status** **CLOSED 2026-07-28** — both candidates live and verified on live Gemini rows; nothing outstanding; the planned DROP was cancelled by owner ruling · **Filed** 2026-07-27 by the `gemini_content_provider` workstream ·
 **Status** OPEN, unowned · **Severity** low blast radius today, **but the window
 to fix it cleanly closes the moment `bugs_open/107`'s P6 lands** ·
 **Introduced by** `8a2b5dea0` (my own change — this is a regression, not a
@@ -200,9 +200,18 @@ Superseded by `total_tokens` (migration **246**, applied; `total_tokens -
 fleet: this table has one writer that names its columns explicitly, so renaming first
 breaks the running binary's INSERT and rolling the Go first breaks against the old
 column. Either order stops `llm_call_log` recording **for every provider**, silently,
-because logging is fire-and-forget. **Phase 2 — `DROP COLUMN total_output_tokens` — is
-owed once a pod-grep shows the INSERT naming `total_tokens`.** That is the one piece of
-this bug still outstanding, and it is a tidy-up, not a defect.
+because logging is fire-and-forget. > **PHASE 2 IS CANCELLED — owner ruling 2026-07-28.** I had written the
+> `DROP COLUMN total_output_tokens` up as owed. The owner's ruling — *"changing column
+> names in DB tables isn't great practice and is asking for trouble"* — applies to the
+> drop as much as to the rename, and he is right: the drop buys tidiness and risks a
+> silent write failure for whatever still names the old column. **The superseded column
+> stays**, carrying the `COMMENT` that says what it is and what replaced it. A few
+> bytes per row is a much better trade than a DDL change nobody is waiting for.
+> **Nothing is outstanding on this bug.** The rule is now enforced at the council's
+> `review_guidelines` seat (migration 247, mirrored to `council-gate` via the 099 sync)
+> so the next plan proposing a bare rename draws an objection rather than passing
+> unremarked — which this one would have, because the seat had no such rule to catch it
+> with.
 
 ### What is NOT claimed
 
