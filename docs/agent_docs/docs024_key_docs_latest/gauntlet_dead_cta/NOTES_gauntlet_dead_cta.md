@@ -1591,3 +1591,105 @@ returned a REAL counter+challenge — **the Gauntlet's opponent is back.**
 - **Branch note:** the shared tree moved to `087_towards_multiple_domains`
   mid-session (another thread's checkout); commits from `5042d5ecb` on are
   there, and 087 contains 086's history — nothing lost, forward-only held.
+
+## 2026-07-28 (evening) — MISSTEPS from the ownership check and the hook-hang chase
+
+No new capability this stretch; the value was in NOT doing things. Seven, with the
+check attached where the error is made.
+
+### 1. I nearly filed a bug on a mechanism that does not exist
+
+Two `git commit`s timed out at 120s. I built a theory: CLAUDE.md mandates
+pathspec commits → `git commit <path>` ignores the index → `git diff --cached` is
+empty → `check-secrets.sh` falls back to `git ls-files` → **7,948 files**. I
+measured **8.2s for one pattern pass**, counted the pattern array, and the
+arithmetic landed almost exactly on my two 120s timeouts. It was a tidy story
+with matching numbers and I was one command from filing it fleet-wide.
+
+**It is false.** `check-secrets.sh:29-34` only scans `git ls-files` when passed
+`--all`; otherwise it takes the staged set and `[[ -z "$files" ]] && exit 0`
+exits immediately. There is no full-repo scan on a normal commit — which is also
+why the script had run in **0.1s** when I timed it standalone, a result I had
+already seen and explained away instead of letting it refute me.
+
+The real cause was **`index.lock` contention**: five commits from concurrent
+sessions inside five minutes (17:34:11, 17:36:35, 17:36:39, 17:37:28, 17:38:31).
+The 120s was my own tool timeout, not git's.
+
+*Check: **a quantitative fit is not a mechanism.** I had a measurement (8.2s), a
+population (7,948) and a matching total (120s) — and the mechanism joining them
+was imaginary. Read the code path before believing the arithmetic, and when an
+early observation contradicts the theory (the 0.1s run), treat it as the
+refutation rather than an anomaly to explain.*
+
+### 2. Right answer, wrong method — the overflow claim
+
+I asserted in `bugs_open/131` and in the experience-loop handoff that
+`no_horizontal_overflow` was structurally blind. **That was true when written**
+(filed 13:07; the fix landed 15:39). But I asserted it from MY OWN probe of
+`scrollWidth - clientWidth`, never having read the check's implementation. Later,
+reading the source, I found a comment saying "AND no in-flow element" and briefly
+concluded I had been wrong — it was the post-fix comment, describing the fix my
+own bug had caused.
+
+Two errors in one: I published a structural claim about code I had not read, and
+then nearly retracted a correct finding because I misdated a comment.
+*Check: before asserting what a check CANNOT do, open it. And when source appears
+to contradict a past claim, date the source before retracting.*
+
+### 3. A vacuous `strings` grep — caught only by the positive control
+
+`strings /app/browser-runner-adapter | grep -c <marker>` returned **0** for the
+131-B clause. It also returned 0 for `no_horizontal_overflow`, which is
+impossible — that is the check's own type name. **`strings` does not exist in
+that container**; every grep through it was vacuous. `grep -c` on the binary
+directly works.
+*Check: CLAUDE.md's verify-against-the-pod recipe assumes `strings`. It is
+present on the chassis and ABSENT on browser-runner-adapter. Always pair a
+pod-grep with a marker you know is there — the negative control alone cannot tell
+"absent" from "instrument disconnected".*
+
+### 4. My `/about.html` finding was half wrong, and another session caught it
+
+I reported a 560px table as needing a scroll container. **It already had one**
+(`div.pc-table-wrapper`, computed `overflow-x: auto`). My raw crossing-rect scan
+could not distinguish scrollable-within-a-wrapper from cut — the "9 elements"
+were the table's own internals. This is exactly why the other session's check
+clause needed a scrollable-ancestor escape.
+*Check: a geometry scan measures LAYOUT, not reachability. Ask whether the
+content can be reached before calling it cut — and every appeal check proposed in
+the experience-loop handoff needs the same escape or it will report correct pages
+as broken.*
+
+### 5. My handoff nominated finished work as its "first move"
+
+The experience-loop handoff told a fresh thread to start by fixing
+`no_horizontal_overflow`. That was done six hours later by another session. Had
+nobody re-read it, a new thread would have spent a session rebuilding it.
+*Check: a handoff's NEXT ACTIONS decay fastest of anything in it. Re-verify the
+first action still needs doing before handing the file on.*
+
+### 6. I left uncommitted work for someone else to sweep
+
+My timed-out commit left `bugs_open/131` dirty. Another session committed it at
+17:20 as "crash residue" — considerate, and exactly the hazard CLAUDE.md
+describes. Nothing lost only because they attributed it.
+*Check: after a tool timeout, `git status` FIRST. A hung commit is not a failed
+commit, and the tree is shared.*
+
+### 7. I did arithmetic on a value my own grep had failed to produce
+
+`grep -cE '^\s*"' scripts/check-secrets.sh` returned **0** patterns; I printed
+`patterns: 0`, fed it into a projection, got `?`, and carried on reasoning about
+the total anyway.
+*Check: a count of 0 from a grep you just wrote is a broken grep until proven
+otherwise. Do not compute with it.*
+
+### What went right, and it is the same thing three times
+
+Items 1, 3 and 5 were all caught by **asking whether the instrument works before
+believing the reading** — reading the script rather than trusting the fit, the
+positive control returning an impossible 0, and re-reading my own handoff against
+the commit log. The tally this week is now five "checks that could not fail" and
+one "tidy arithmetic with no mechanism". They are the same error wearing
+different clothes: **evidence that cannot be wrong is not evidence.**
