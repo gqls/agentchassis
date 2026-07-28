@@ -263,6 +263,20 @@ progressed normally). Resubmitted under the same trail
 (`RESUBMIT_CORR=a45f59af…`, new run `12a378af…`), queued behind CS-2's run.
 Verdicts pending for both: CS-1 corr `a45f59af…`, CS-2 corr `9f0499b9…`.
 
+**CS-1 verdict: APPROVED** (rerun `12a378af…` under corr `a45f59af…`,
+"approved with 3 advisory objection(s) — none high-severity"). The three
+advisories, answered: (1) land the test-compile repair separately from the fix
+— it already was (`2da1c5f50` + `d0cda1e39` vs `afbd005f9`); (2) confirm no
+out-of-repo caller of the deleted `ResetAwaitedRequestForRetry` — confirmed by
+`go build ./cmd/...`: every binary builds except `cmd/reasoningset`, which is
+another session's unrelated in-flight WIP; (3) pod-grep at roll time, not
+commits-and-green-tests — agreed and already in the verification plan: grep
+the running pod for `CLAIM_RECOVERY_STALENESS_HELD` (a string the change
+CREATED) plus a positive control, then induce both branches. CS-2 round 2
+resubmitted under corr `9f0499b9…` (run `e85ae92f…`) answering the guardian
+point-by-point: CS-1 approved + structural co-shipping, audit complete (below),
+backpressure cap (CS-2c `31f2fc1e2`), DB pool knob (CS-2b `924df47d0`).
+
 **Pre-enablement mutable-state audit: DISCHARGED.** `platform/orchestration`
 (root) + `platform/agentbase` package-level vars, every one read-only after
 init: three error sentinels (coordinator.go:48), one compiled regexp
