@@ -51,6 +51,29 @@ would erase the accent entirely.
 **Verified live**, desktop and mobile: `rgb(245,158,11)` on `rgb(109,40,217)` =
 **3.31:1**, 0 raw placeholders.
 
+**THIS IS A SECOND INSTANCE OF AN ALREADY-FILED CLASS — see
+`bugs_open/112_…_shipped_css_diverges_from_the_pinned_palette_and_makes_text_invisible`**
+(filed 2026-07-27 by `brochure_component_library`, after the owner looked at
+fundamentallyai.com and reported unreadable text). Same mechanism, different site:
+
+| site | element | ratio |
+|---|---|---|
+| fundamentallyai.com | eyebrow: `--color-primary` on `--color-background` | **1.11:1** |
+| fundamentallyai.com | card title: `--color-heading` on `--color-card-bg` | **1.21:1** |
+| **vonc.com** | **hero accent: `--color-primary` on a `--color-primary` background** | **1.00:1** |
+
+**Two sites, two workstreams, one mechanism — a token used as foreground where the
+same or near-same token is the background — and BOTH were found by the owner
+looking at the page, not by any check.** That is the strongest possible argument
+for the `contrast_ratio` check proposed in
+`experience_loop/HANDOFF_2026-07-28_appeal_dimension.md`: it is not one site's
+cosmetic problem, it is a recurring structural fault with no detector.
+
+⚠ **112 is also an AMBIGUOUS NUMBER** — `bugs_closed/112` is an unrelated Gemini
+API-key case. Refer to the CSS one by slug. (Its file also shows as deleted in the
+working tree by another session as of 2026-07-28; recover with
+`git show HEAD:bugs_open/112_…` if it has gone.)
+
 **The general defect remains open elsewhere:** any component whose accent token is
 also its background token has this fault latent. Worth a fleet grep for
 `color: var(--color-primary)` inside a section whose background is the same var.
