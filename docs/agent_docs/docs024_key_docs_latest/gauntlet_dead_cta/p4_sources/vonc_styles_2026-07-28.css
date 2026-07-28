@@ -1,0 +1,678 @@
+
+/* =====================================================================
+ * LAYOUT: social-lobby
+ *
+ * Target shape: social platform where rooms replace feeds and the core
+ * content unit is a provocation card (prompt + AI take + "your take"
+ * input + reaction bar). Explicitly NOT dark — light, colour-forward,
+ * energetic. The brand primary dominates visually; a secondary accent
+ * carries the Arena/Stage differentiation.
+ *
+ * Pages this layout supports:
+ *   1. Lobby (homepage)       — hero framing + grid of active rooms
+ *   2. Room / topic index     — grid of rooms or provocations in a topic
+ *   3. Provocation detail     — central card + response stack + reactions
+ *   4. Archetype / profile    — identity card + history strip
+ *
+ * Renderer contract:
+ *   - This template MUST NOT declare --section-* defaults; the renderer
+ *     appends them after rendering based on palette luminance.
+ *   - Renderer-managed surface section classes:
+ *       .features-section, .services-section, .differentiators-section,
+ *       .about-section, .faq-section
+ *     These MUST be surface-coloured here.
+ *   - Hero / lobby / provocation / cta / testimonials are component-
+ *     coloured; the layout supplies spacing and typography only.
+ * ===================================================================== */
+
+:root {
+  /* ── Palette — light, colour-forward fallbacks ──
+   * Fallback hue is a saturated violet-magenta to express "colour-forward
+   * brand dominates" when a site hasn't yet supplied its own palette.
+   * In production the adopted/inferred palette will replace every slot. */
+  --color-primary:         #6d28d9;  /* was #7c3cff — white-on-purple 5.32 -> 7.10 */
+  --color-primary-hover:   #5b21b6;  /* was #6d28d9 — kept a step below primary */
+  --color-primary-text:    #ffffff;
+  /* Links on the DARK page only. Darkening --color-primary would have taken
+     these from 3.71 to 2.78; this lifts them to 7.26 and fixes a pre-existing
+     AA failure. Header nav sets its own colour, and cards contain no anchors. */
+  --color-primary-on-dark: #a78bfa;
+  --color-secondary:       #2d1b69;
+  --color-accent:          #fc5c7d;
+  --color-arena:           #ec4899;   /* pulsing competitive */
+  --color-stage:           #f59e0b;   /* glowing creative */
+  --color-background:      #0a0a0f;
+  --color-surface:         #13121f;
+  --color-surface-alt:     #f4f4f0;
+  --color-text:            #f0eeff;
+  --color-text-muted:      #8b85b0;
+  --color-border:          #2a2640;
+  --color-card-bg:         #ffffff;
+  --color-header-bg:       #ffffff;
+  --color-header-text:     #18181b;
+  --color-cta-bg:          #7c3aed;
+  --color-cta-text:        #ffffff;
+  --color-footer-bg:       #18181b;
+  --color-footer-text:     rgba(255,255,255,0.85);
+  --color-reaction-pos:    #10b981;   /* Genius, Based */
+  --color-reaction-neg:    #ef4444;   /* Delusional, Cursed */
+  --color-reaction-meta:   #6366f1;   /* Suspicious */
+
+  /* ── Typography ── */
+  --font-body:        'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-heading:     'Syne', 'Space Grotesk', system-ui, sans-serif;
+  --font-size-base:   20px;   /* 16 -> 20 (+25%) */
+  --line-height-base: 1.6;
+
+  /* ── Structure — friendly, roomy, shareable-card-friendly ── */
+  --container-max:    1500px;  /* 1200 -> 1500 (+25%) */
+  --container-pad-x:  1.25rem;
+  --card-max:         850px;   /* 680 -> 850 (+25%) */
+  --section-pad-y:    4rem;
+  --section-pad-y-sm: 2.5rem;
+  --radius:           0.75rem;
+  --radius-sm:        0.375rem;
+  --radius-lg:        1.25rem;
+  --shadow-sm:        0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md:        0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg:        0 12px 32px rgba(0,0,0,0.12);
+  --transition:       200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --card-pad:         1.75rem;
+  --grid-gap:         1.5rem;
+
+  
+}
+
+/* ── Base reset ── */
+*, *::before, *::after { box-sizing: border-box; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* rem resolves against the ROOT, not body. Setting the base here is what
+     actually scales the sheet: nearly every size below is in rem. */
+  font-size: var(--font-size-base);
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-body);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  color: var(--color-text);
+  background: var(--color-background);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+main { flex: 1; }
+img { max-width: 100%; height: auto; display: block; }
+
+/* ── Colour Inheritance Model ── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  color: var(--section-heading, var(--color-text));
+  margin: 0 0 1rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+h1 { font-size: clamp(2rem, 5vw, 3rem); }
+h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
+h3 { font-size: 1.25rem; font-weight: 600; }
+h4 { font-size: 1.05rem; font-weight: 600; }
+
+p, li, blockquote { color: var(--section-text, inherit); margin: 0 0 1rem; }
+a {
+  color: var(--color-primary-on-dark);
+  text-decoration: none;
+  transition: color var(--transition);
+  font-weight: 500;
+}
+a:hover { color: var(--color-primary-hover); }
+
+/* ── Layout primitives ── */
+.container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--container-pad-x);
+  width: 100%;
+}
+.container--card { max-width: var(--card-max); }
+.section { padding-block: var(--section-pad-y); }
+
+/* ── Site header — clean white with primary brand accent ── */
+.site-header {
+  background: var(--color-header-bg);
+  color: var(--color-header-text);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+.header-container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 1rem var(--container-pad-x);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
+}
+.logo {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+.logo-img { max-height: 36px; width: auto; }
+.main-nav ul {
+  display: flex;
+  gap: 2rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.main-nav a {
+  color: var(--color-header-text);
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding: 0.5rem 0;
+  border-bottom: 2px solid transparent;
+}
+.main-nav a:hover,
+.main-nav a.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+.mobile-menu-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--color-header-text);
+}
+.mobile-menu-toggle span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: currentColor;
+  margin: 5px 0;
+}
+
+/* ── Hero (component-coloured) ──
+ * Lobby-landing hero: big headline, "what are you playing today?" energy.
+ * Component supplies the gradient or colour field; layout provides spacing
+ * and typography scale. */
+.hero-section { padding-block: calc(var(--section-pad-y) * 1.25); }
+.hero-section .container { text-align: center; max-width: 880px; }
+.hero-section h1 {
+  font-weight: 800;
+  margin-bottom: 1.25rem;
+}
+.hero-subtitle, .hero-section .lead {
+  font-size: 1.15rem;
+  color: var(--section-text-muted, var(--color-text-muted));
+  margin: 0 auto 2rem;
+  max-width: 600px;
+  line-height: 1.55;
+}
+.hero-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* ── Renderer-managed surface sections ── */
+.features-section,
+.services-section,
+.differentiators-section,
+.about-section,
+.faq-section { background: var(--color-surface-alt); }
+
+/* ── Lobby: active-rooms grid ──
+ * The homepage (after hero) shows active rooms. Arena and Stage use
+ * different palette slots to read as different energies. */
+.lobby-section { padding-block: var(--section-pad-y); }
+.lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--grid-gap);
+  margin-top: 2rem;
+}
+.room-card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--card-pad);
+  transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-decoration: none;
+  color: inherit;
+  position: relative;
+  overflow: hidden;
+}
+.room-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  color: inherit;
+}
+.room-card__badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  align-self: flex-start;
+}
+.room-card--arena .room-card__badge {
+  background: color-mix(in srgb, var(--color-arena) 15%, transparent);
+  color: var(--color-arena);
+}
+.room-card--stage .room-card__badge {
+  background: color-mix(in srgb, var(--color-stage) 15%, transparent);
+  color: var(--color-stage);
+}
+.room-card--arena::before,
+.room-card--stage::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+}
+.room-card--arena::before { background: var(--color-arena); }
+.room-card--stage::before { background: var(--color-stage); }
+.room-card__title { font-size: 1.15rem; font-weight: 700; margin: 0; color: var(--color-text); }
+.room-card__prompt {
+  font-size: 0.95rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+}
+.room-card__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  margin-top: auto;
+}
+.room-card__timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+/* ── Provocation card ──
+ * Core content unit. Can appear standalone on a detail page (via
+ * .provocation-section) or in a list. Shareable-card-friendly proportions. */
+.provocation-section { padding-block: var(--section-pad-y); }
+.provocation-section .container { max-width: var(--card-max); }
+.provocation-card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.5rem, 4vw, 2.5rem);
+  box-shadow: var(--shadow-sm);
+}
+.provocation-card__framing {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 0.75rem;
+}
+.provocation-card__prompt {
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--color-text);
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.01em;
+}
+.provocation-card__ai-take {
+  background: var(--color-surface-alt);
+  border-left: 3px solid var(--color-primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+.provocation-card__ai-take__label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-primary);
+  margin-bottom: 0.35rem;
+}
+.provocation-card__ai-take__body { margin: 0; color: var(--color-text); line-height: 1.55; }
+.provocation-card__input {
+  margin-top: 1.25rem;
+}
+.provocation-card__input textarea {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font: inherit;
+  font-size: 1rem;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  color: var(--color-text);
+  min-height: 96px;
+  resize: vertical;
+  transition: border-color var(--transition);
+}
+.provocation-card__input textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.provocation-card__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.provocation-card__timer {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-size: 1rem;
+}
+
+/* ── Reaction bar ── */
+.reaction-bar {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+.reaction-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  min-height: 36px;
+}
+.reaction-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+.reaction-btn[aria-pressed="true"] { background: var(--color-primary); color: var(--color-primary-text); border-color: var(--color-primary); }
+.reaction-btn__count { font-variant-numeric: tabular-nums; opacity: 0.75; font-weight: 500; }
+.reaction-btn--positive[aria-pressed="true"] { background: var(--color-reaction-pos); border-color: var(--color-reaction-pos); }
+.reaction-btn--negative[aria-pressed="true"] { background: var(--color-reaction-neg); border-color: var(--color-reaction-neg); }
+.reaction-btn--meta[aria-pressed="true"]     { background: var(--color-reaction-meta); border-color: var(--color-reaction-meta); }
+
+/* ── Response stack (user takes under a provocation) ── */
+.response-stack { margin-top: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+.response-item {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+.response-item__meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.625rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+.response-item__author { font-weight: 600; color: var(--color-text); }
+.response-item__body { margin: 0; color: var(--color-text); line-height: 1.55; }
+.response-item__reactions { margin-top: 0.75rem; display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.8rem; }
+
+/* ── Archetype / profile page ── */
+.archetype-section { padding-block: var(--section-pad-y); }
+.archetype-section .container { max-width: 820px; }
+.archetype-card {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+  color: #ffffff;
+  border-radius: var(--radius-lg);
+  padding: clamp(1.75rem, 4vw, 3rem);
+  text-align: center;
+  box-shadow: var(--shadow-md);
+}
+.archetype-card__label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.archetype-card__name {
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 800;
+  margin: 0.5rem 0 1rem;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+}
+.archetype-card__description { margin: 0; opacity: 0.9; font-size: 1.05rem; line-height: 1.5; }
+.archetype-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.archetype-stat {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  text-align: center;
+}
+.archetype-stat__value { font-size: 1.75rem; font-weight: 800; color: var(--color-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.archetype-stat__label { font-size: 0.8rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+
+/* ── Generic grids (compat with standard components) ── */
+.features-grid,
+.services-grid,
+.differentiators-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--grid-gap);
+  margin-top: 2.5rem;
+}
+.feature-card,
+.service-card,
+.differentiator-card {
+  background: var(--color-card-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--card-pad);
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.feature-card:hover,
+.service-card:hover,
+.differentiator-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.feature-icon,
+.service-icon { width: 40px; height: 40px; margin-bottom: 1rem; color: var(--color-primary); }
+
+/* ── Forms (including text-input surfaces on provocation pages) ── */
+.form-field { margin-bottom: 1.25rem; }
+.form-field label { display: block; font-weight: 500; margin-bottom: 0.35rem; font-size: 0.9rem; }
+.form-field input,
+.form-field textarea,
+.form-field select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-background);
+  color: var(--color-text);
+  min-height: 44px;
+  transition: border-color var(--transition);
+}
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+/* ── Buttons — pill-shaped CTAs reinforce the friendly energetic feel ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-radius: var(--radius-lg);
+  border: 2px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  min-height: 44px;
+  transition: all var(--transition);
+}
+.btn-primary { background: var(--color-primary); color: var(--color-primary-text); }
+.btn-primary:hover { background: var(--color-primary-hover); transform: translateY(-1px); box-shadow: var(--shadow-md); color: var(--color-primary-text); }
+.btn-secondary { background: transparent; color: var(--color-primary); border-color: var(--color-primary); }
+.btn-secondary:hover { background: var(--color-primary); color: var(--color-primary-text); }
+.btn-ghost { background: transparent; color: var(--color-text); border-color: transparent; }
+.btn-ghost:hover { background: var(--color-surface-alt); }
+.btn-large { padding: 1rem 2rem; font-size: 1.05rem; }
+
+/* ── FAQ ── */
+.faq-section .container { max-width: 820px; }
+.faq-item { border-bottom: 1px solid var(--color-border); padding: 1.25rem 0; }
+.faq-item summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 1rem; min-height: 44px; align-items: center; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-item summary::after { content: "+"; color: var(--color-primary); font-size: 1.25rem; font-weight: 400; }
+.faq-item[open] summary::after { content: "−"; }
+.faq-item p { padding-top: 0.75rem; color: var(--section-text-muted, var(--color-text-muted)); }
+
+/* ── About / Contact ── */
+.about-section .container { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+.contact-section .container { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; }
+
+/* ── Site footer — dark contrast foot to separate from light body ── */
+.site-footer { background: var(--color-footer-bg); color: var(--color-footer-text); padding-top: 3.5rem; margin-top: auto; }
+.footer-container {
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding: 0 var(--container-pad-x);
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 2rem;
+}
+.site-footer h3, .site-footer h4 { color: #ffffff; }
+.site-footer a { color: var(--color-footer-text); }
+.site-footer a:hover { color: var(--color-accent); }
+.site-footer ul { list-style: none; padding: 0; margin: 0; }
+.site-footer li { margin-bottom: 0.5rem; }
+.footer-bottom { margin-top: 3rem; padding: 1.5rem 0; border-top: 1px solid rgba(255,255,255,0.1); text-align: center; font-size: 0.9rem; color: rgba(255,255,255,0.6); }
+
+/* ── Responsive ── */
+@media (max-width: 1024px) {
+  .footer-container { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .section { padding-block: var(--section-pad-y-sm); }
+  .about-section .container,
+  .contact-section .container,
+  .footer-container { grid-template-columns: 1fr; }
+  .main-nav { display: none; }
+  .main-nav.is-open { display: block; }
+  .mobile-menu-toggle { display: inline-flex; }
+  .provocation-card__footer { flex-direction: column; align-items: stretch; }
+}
+
+/* ── Accessibility ── */
+:focus-visible { outline: 3px solid var(--color-primary); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+
+/* === Component-specific styles === */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up { animation: fadeInUp 0.6s ease forwards; }
+
+/* ── Renderer-enforced section defaults ── */
+/* Text/heading colours are picked from the site palette by contrast ratio. */
+/* Themes MUST NOT declare --section-* defaults; the renderer owns this. */
+
+body {
+  --section-text: #8b85b0;
+  --section-text-muted: rgba(139,133,176,0.75);
+  --section-heading: #8b85b0;
+  --section-surface: rgba(255,255,255,0.05);
+  --section-border: rgba(255,255,255,0.2);
+}
+
+.differentiators-section,
+.features-section,
+.faq-section,
+.services-section,
+.about-section {
+  --section-text: #8b85b0;
+  --section-text-muted: rgba(139,133,176,0.75);
+  --section-heading: #8b85b0;
+  --section-surface: rgba(255,255,255,0.05);
+  --section-border: rgba(255,255,255,0.2);
+}
+
+
+/* renderer-enforced compatibility aliases (component vocabulary bridge) */
+:root {
+  --border-radius: var(--radius, 8px);
+  --shadow: var(--shadow-md, 0 2px 12px rgba(0, 0, 0, 0.15));
+  --spacing-section: var(--section-pad-y, 4rem);
+  --container-max-width: var(--container-max, 1200px);
+  --primary-color: var(--color-primary);
+  --secondary-color: var(--color-secondary);
+  --accent-color: var(--color-accent);
+  --color-heading: var(--color-text);
+  --color-white: #ffffff;
+  --color-error: #d64545;
+  --hero-ink: var(--color-text);
+}
+
+/* ── Content width: the last 25% ──────────────────────────────────────────────
+   Four homepage sections follow --container-max and widened with it. Two did
+   not, because their widths are set inside the components' own <style> blocks,
+   which sit in the body and therefore load AFTER this sheet — order alone
+   cannot beat them.
+
+   Overriding here on SPECIFICITY (0,1,1 beats 0,1,0) rather than editing the
+   components, because `hero` is a SHARED library component rendered on 182
+   pages across the fleet — relojistas, the fuel sites, the gripper guides,
+   leopardess. Widening vonc's homepage is not a reason to move 181 other
+   people's pages. This sheet is per-site, so the change stops at vonc.com. */
+body .hero-content { max-width: 1125px; }   /* was 900px  (+25%) */
+/* NB: the component's own selector is `.provocation-card-section .pc-container`
+   = specificity (0,2,0). `body .pc-container` is (0,1,1) and LOSES — class
+   count is compared before element count. Matching its structure takes this
+   to (0,2,1), which wins. Measured, not assumed: the (0,1,1) version left the
+   width at 820px. */
+body .provocation-card-section .pc-container { max-width: 1025px; }   /* was 820px  (+25%) */
