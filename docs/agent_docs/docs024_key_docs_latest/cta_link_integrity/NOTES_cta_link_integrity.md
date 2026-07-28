@@ -1779,3 +1779,25 @@ and it is fine by me if you take it and delete mine.
 Same gap in `brochure_component_library/scripts/republish_page_086.sh`: its
 `input_mapping` carries domain/site_id/page_id only, so it cannot take the
 reason path either. That one is mine to fix.
+
+---
+
+## 2026-07-28 (brochure_component_library thread) — the page_rerender INSERT template needs `handler_agent`
+
+The "route the platform itself uses" INSERT above (2026-07-25 addendum) now hard-blocks:
+an item inserted without `handler_agent` goes `blocked` with *"No handler_agent set —
+item cannot be routed to any agent"* (observed live, item `51e7b867`, 16:52Z). Every
+routed `page_rerender` row in the table carries `handler_agent='page-rerender'` (999 of
+999). Add it to the column list:
+
+```sql
+INSERT INTO site_work_items (site_id, item_type, status, priority, source, created_by,
+                             handler_agent, summary, spec)
+VALUES ('<site>', 'page_rerender', 'triaged', 1, '<source>', '<created_by>',
+        'page-rerender', '<why>', '{"domain":"…","page_id":"…","filename":"x.html",
+        "page_name":"x","reason":"section_data_resolved"}'::jsonb);
+```
+
+Recovery from the blocked state: `UPDATE site_work_items SET
+handler_agent='page-rerender', status='triaged', error=NULL WHERE id='…' AND
+status='blocked';` — the dispatcher picks it up on the next tick.
