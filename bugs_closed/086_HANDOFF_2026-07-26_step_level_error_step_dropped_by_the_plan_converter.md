@@ -379,3 +379,135 @@ that rise **is the fix working**.
 each author declared `complete` for a reason and the three bookkeeping ones are probably
 right. Re-enable individually by renaming `error_step_disabled_086` back. That is a config
 decision, not a defect.
+
+---
+
+# PER-HANDLER REVIEW 2026-07-28 — the owed audit, discharged
+
+The review the owner's ruling made a condition of disabling all ten. Verdicts below;
+the short answer is **7 stay disabled, 2 want re-pointing rather than a yes/no, 1 is
+another workstream's to decide.** Nothing was changed by this audit — it is a reading.
+
+## Containment re-verified live, first
+
+Seed 220's own three post-checks, re-run 2026-07-28 ~17:0xZ:
+
+```
+still_routing_to_complete          0    (want 0)   OK
+error_step_disabled_086 recorded  10    (want 10)  OK
+other step-level handlers intact  44    (want 45)  DRIFT -1, see loose ends
+```
+
+The containment **survived a 181-agent bulk re-seed at 14:25:02.999304Z today** — all
+19 handler-carrying agents were rewritten and the ten renames are still in place. That
+is worth stating because "config re-seed clobber" is a recorded landmine on this fleet;
+here it did not bite.
+
+## The premise moved: 2 of the 10 now carry live traffic
+
+The ruling rested on *"none has fired in 30 days"*. As of today that is no longer true
+of two of them. From `orchestration_states.processing_history` (**note:
+`execution_path` is dead — 0 of 2225 rows populated — so it is the wrong column to ask**):
+
+| step | runs | first seen | last seen |
+|---|---|---|---|
+| `image-build-handler.mark_work_item_complete` | 4 | 2026-07-28 12:16:01Z | 2026-07-28 14:42:42Z |
+| `image-build-handler.flag_rebuild` | 4 | 2026-07-28 12:16:01Z | 2026-07-28 14:42:42Z |
+
+All four orchestrations `COMPLETED`, `__step_error` NULL, `error` NULL — so **the happy
+path ran and the disabled handler was never exercised.** No evidence either way on
+whether disabling was right; only that the exposure is now real rather than theoretical.
+The other eight have **zero** entries.
+
+> `[UNVERIFIED — flagged, not resolved]` `orchestration_states` retains back only to
+> **2026-07-13**, i.e. ~13 days. A "none in 30 days" claim is not answerable from this
+> table. The 07-26 figure may have come from a source with longer retention; I did not
+> establish which. Anyone repeating the 30-day figure should name its source first.
+
+## The finding the three-way split missed
+
+Reading all 19 agents' step maps rather than the ten steps in isolation: **only ONE of
+the seven affected agents has a real error terminal, and it is the one whose handlers
+bypassed it.**
+
+`image-build-handler` declares `mark_work_item_failed → complete_error`, and every one
+of its five `call_*` steps routes errors there. `mark_work_item_complete` and
+`flag_rebuild` alone routed to `complete`. That asymmetry reads as **carelessness, not
+intent** — the author had a loud lane and these two did not use it.
+
+The other six agents (`blog-content-planner`, `content-gap-planner`, `site-adoption-agent`,
+`spec-updater`, `tool-improver`, `webdesign-agent`) have **no error terminal at all** —
+every terminal they own is a `complete_workflow`. For them `error_step: complete` was
+the author reaching for the only terminal that existed. There is nothing better to point
+at without designing a new lane, which is a change, not a review.
+
+## Verdicts
+
+**Stay disabled — no alternative exists, failing loudly is correct (7)**
+
+| agent :: step | on failure, routing to `complete` would have meant |
+|---|---|
+| `blog-content-planner :: create_post_pages` | no blog pages created, run reports green |
+| `content-gap-planner :: apply_plan` | the gap plan never applied |
+| `content-gap-planner :: plan_gaps` | skips `apply_plan`; a green run that planned nothing is indistinguishable from one that found no gaps |
+| `site-adoption-agent :: generate_design_intent` | skips `write_design_intent`; adoption completes with no design intent |
+| `site-adoption-agent :: write_design_intent` | the spec is never written |
+| `spec-updater :: apply_update` | the whole purpose of the agent — merge a field into `site_specs` — silently skipped |
+| `webdesign-agent :: fork_theme` | theme never forked |
+
+**Want re-pointing, not a yes/no — owner's call (2)**
+
+`image-build-handler.mark_work_item_complete` and `.flag_rebuild`. Neither should be
+re-enabled as they were, and leaving them disabled is second-best. Point them at
+`mark_work_item_failed` (which already routes to `complete_error`): the work item gets
+marked failed so the immune system can see it, instead of either a green lie or a
+generic loud failure that leaves the row claiming success.
+
+`flag_rebuild` is the sharper case. Its action is `flag_page_image_rebuild`; if that
+fails silently the imagery is generated and deployed and **the page is never flagged, so
+nothing ever references it — which is precisely `bugs_open/114`'s symptom.** Re-enabling
+this one as-authored would manufacture 114 on demand. These are also the only two with
+live traffic, so this is the one item here with a clock on it.
+
+**Not ours to decide (1)**
+
+`tool-improver.note_refusal`. It sits on the refusal branch (`refuse_mangled_write →
+note_refusal`), and its `next_step` and `error_step` were **both `complete`** — the
+handler drew no distinction at all. Its success-path twin `append_note` has never had an
+`error_step`, so today the two branches are consistent (both fail loudly) and
+re-enabling would make them inconsistent. Against that, the note *is* the point of the
+refusal branch: "record the refusal on the tool's travelling NOTES so the next agent…".
+`scripts/who-owns.py 126` puts `tool-improver`'s refusal path with the **oufe
+workstream** (ACTIVE, 50 commits/14d, `bugs_open/126`). Contributed there; not touched
+here.
+
+## Loose ends, stated rather than tidied away
+
+- **The 45 → 44 drift is only partly resolved.** On the seven agents seed 220
+  snapshotted, the diff pre-update vs live is **nothing lost, one added** —
+  `tool-improver.update_component` gained a step-level `error_step → refuse_mangled_write`
+  (the oufe thread's 126 work, `6e29d6d19`). So those seven went **+1**, which makes the
+  expected total 46, not 45. `[UNRESOLVED]` **two handlers are therefore unaccounted for
+  among the other 12 agents**, and there is no snapshot of them from 07-26 to diff, so
+  the DB cannot say which. Not chased further.
+- **The cheap check that would have settled it, and would settle the next one:** there is
+  **no baseline for those 12 agents**. `snapshot_agent(<type>, 'baseline')` on each costs
+  one call apiece and makes the next drift a two-table diff instead of an open question.
+- **Revert remains available for all ten** — seed 220's snapshots are real and verified
+  present: 7 rows in `agent_definitions_backup` with `snapshot_reason LIKE '220_%'`,
+  taken `2026-07-26 18:32:26.229Z`, one per affected agent.
+
+## A misstep in this audit, recorded because it nearly became the finding
+
+I first looked for those snapshots in `agent_definitions WHERE is_snapshot` — found
+**one row in the entire table**, for none of these agents, and was one step from writing
+up "seed 220's safety net does not exist". It does exist. The two-arg
+`snapshot_agent(type, reason)` overload that seed 220 actually calls writes to
+**`agent_definitions_backup`**, a different table from the one-arg overload, which writes
+to `agent_definitions`. Two same-named functions with different destinations.
+
+What caught it was reading the function before believing the query — and before that, the
+earlier reflex of demanding a positive control: the first diff query returned "0 rows =
+nothing lost", which was **vacuous**, because its snapshot CTE was empty. A query whose
+input set is empty answers every question with reassurance. `[Pattern: an EXCEPT/NOT
+EXISTS diff needs its baseline COUNTED first, or the null result means nothing.]`

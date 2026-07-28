@@ -136,3 +136,54 @@ because that is what it is.
   touch.
 - `bugs_closed/024` — tool fixes never reaching the live page. The inverse
   failure: the loop being unable to act, rather than acting wrongly.
+
+---
+
+## CONTRIBUTION 2026-07-28 (086 per-handler audit) — `note_refusal`'s error handler is disabled, and the decision is yours
+
+Not a change; a handoff of one finding into the workstream that owns this path.
+`scripts/who-owns.py 126` names oufe as owner (ACTIVE, 50 commits/14d), so this thread
+read the path and stopped.
+
+**State.** `tool-improver.note_refusal` currently has **no live error handler**. It
+declared `error_step: complete`, and seed 220 renamed that key to
+`error_step_disabled_086` on 2026-07-26 as containment for `bugs_closed/086` (the plan
+converter had never copied step-level `error_step`, so arming the fix armed 55 handlers
+at once; ten routed to `complete` and were disabled pending per-handler review). Verified
+live 2026-07-28: the step carries `error_step_disabled_086: "complete"` and no
+`error_step`.
+
+**Why it lands on you rather than on 086.** The refusal branch is 126's subject matter:
+
+```
+refuse_mangled_write  action=fail_work_item     next=note_refusal  err=note_refusal
+note_refusal          action=append_doc_note    next=complete      err=complete (DISABLED)
+append_note           action=append_doc_note    next=complete      err=-        (never had one)
+```
+
+**The two readings, both defensible — which is why it is a call and not a fix.**
+
+- *Leave it disabled.* `append_note`, the success-path twin with the identical action,
+  has never had an `error_step`. As things stand the two branches behave the same way
+  (a failed note fails the run); re-enabling `note_refusal` alone makes them diverge.
+- *Re-enable it.* `next_step` and `error_step` were **both `complete`** — the handler
+  drew no distinction whatever, so the author's intent reads as "notes are best-effort".
+  And it sits on the branch where the outcome is already settled: the work item has been
+  failed, the refusal has happened. Failing the orchestration because the *note* about
+  the refusal could not be appended replaces a clear signal with a generic one.
+
+**The consideration that actually bites for 126.** The note is the branch's product —
+*"record the refusal on the tool's travelling NOTES so the next agent…"*. If it fails and
+the run dies loudly, the refusal still happened but **the next agent is not told why**,
+which is close to the failure mode 126 is already about: a fixer aimed at the wrong
+target for want of the record. Whichever way you rule, that is the thing to weigh.
+
+**Revert is one rename**, and the pre-change snapshot is real — `agent_definitions_backup`,
+`snapshot_reason LIKE '220_%'`, `2026-07-26 18:32:26.229Z`, `type='tool-improver'`.
+Seed 220 carries the exact revert SQL in its header comment.
+
+**Unrelated but noticed in the same pass, and it is yours:** `tool-improver.update_component`
+**gained** a step-level `error_step → refuse_mangled_write` since 07-26 (`6e29d6d19`).
+That is now a live handler, and step-level handlers only began working at all in
+v1.0.1169 — so it has real routing behaviour that predates nothing. Worth a deliberate
+test of its failing branch rather than assuming it.

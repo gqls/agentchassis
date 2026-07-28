@@ -9165,3 +9165,57 @@ correction came from asking whether the evidence could have come out any other w
 
 Family: figure-carried-forward-from-prose, a-green-result-from-an-input-that-cannot-fail,
 an-unrecognised-origin-is-not-an-identity.
+
+---
+
+## 2026-07-28 — "seed 220's snapshots do not exist", from a diff whose baseline was empty
+
+**Session:** the 086 per-handler audit (picked up after an owner machine crash).
+
+**The claim, said out loud before it was checked.** Auditing the ten `error_step`
+handlers seed 220 disabled, I wanted to know whether any had drifted since. I diffed the
+live definitions against the seed's own pre-update snapshots and got **0 rows — nothing
+lost**. Then, checking the snapshots themselves, I found **one row in the whole table,
+for none of the seven agents**, and reported to the owner: *"Positive control fails —
+exactly one snapshot row exists in the whole table."* The implication I was one step from
+committing was that seed 220's safety net had never been created, i.e. the ten renames
+were unrevertable.
+
+**It was false.** `snapshot_agent` is **overloaded**. The one-arg form writes into
+`agent_definitions` with `is_snapshot = true`; the two-arg form — `snapshot_agent(type,
+reason)`, the one seed 220 actually calls — writes into a **different table**,
+`agent_definitions_backup`. All seven snapshots are there, `snapshot_reason LIKE '220_%'`,
+taken `2026-07-26 18:32:26.229Z`. The safety net was intact the whole time and revert was
+never in doubt.
+
+**What caught it:** reading `pg_get_functiondef` for the function before believing the
+query about its output. Cost: two wasted queries and one wrong sentence to the owner.
+
+**The cheaper check, and the one with wider reach.** The *first* query — the diff that
+said "nothing lost" — was already worthless, and worthless in the more dangerous
+direction: **its snapshot CTE was empty, so the EXCEPT returned nothing and read as
+reassurance.** An empty baseline answers every question with "all clear". Had I not
+gone on to look at the snapshots for an unrelated reason, "no handlers have drifted"
+would have gone into the audit as a finding.
+
+> **The rule: an `EXCEPT` / `NOT EXISTS` / anti-join diff must COUNT its baseline before
+> it is allowed to report a null result.** `SELECT count(*) FROM <baseline>` on its own
+> line, in the same query. A diff with no baseline is not a passing check, it is an
+> absent one — and it is indistinguishable from a passing one in the output.
+
+**Family resemblance.** This is [[check-answers-the-question-you-encoded]] wearing new
+clothes: there was no filter to notice being wrong, and the query was well-formed and
+returned a clean, plausible, non-empty-looking answer. It is also the third distinct
+instance on this fleet of *a green result from an input that cannot fail* — the same
+shape as a dead control, a `LIKE` guard on a blob, and an acceptance test whose
+distinguishing input cannot occur. The generalisation those three want is: **any check
+that can only emit "fine" should be made to emit "fine" for a case you know is broken,
+once, before you trust it.**
+
+**Tally.** *Count the baseline before believing an anti-join* — new. *Two functions of
+the same name can write to different tables — read the definition, not the name* — new.
+*A green result from an input that cannot fail* — fourth occurrence, and the one that
+keeps earning its place.
+
+Family: a-green-result-from-an-input-that-cannot-fail, check-answers-the-question-you-encoded,
+verify-the-failing-branch.
