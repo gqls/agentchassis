@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-22 concepts, consolidated from 56 raw extractions (28 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U05, U21, U23, U24d, U24f, U25.
+23 concepts (LNK-023 added 2026-07-28, post-freeze), consolidated from 56 raw extractions (28 unique blocks, each mechanically duplicated once in the cluster input file — see note in styling-render-pipeline.md) across units U01, U02, U05, U21, U23, U24d, U24f, U25.
 
 ### LNK-001 — link_registry as first-class link index + planned links-orchestrator family
 - **status:** partial
@@ -182,3 +182,11 @@
 - **sources:** docs/social001_vonc_tiktok_social/tool_docs/NOTES_provocations-index(4).md#2026-07-07; docs/social001_vonc_tiktok_social/minilobby_task/HANDOFF_2026-07-09_vonc_spark_minilobby_trim(2).md#9.5; docs/social001_vonc_tiktok_social/tool_docs/NOTES_lobby-grid(6).md#2026-07-04
 - **relations:** NAV-012 (header nav from pages.in_header); LNK-020 (site_specs cta aspect); silent no-op success pattern
 - **verify-later:** link_registry; CTA URLs in deployed vonc HTML
+
+### LNK-023 — repairOutboundPageLinks: the shared rerender-path link repair
+- **status:** deployed
+- **status-evidence:** Live chassis v1.0.1187+ (pod-grep markers); first production run 2026-07-28 repaired 23 dead links across five robot-hands.com pages (agent_error_log rows, `agent_type='page-rerender'`, code CONTENT_LINK_REPAIR_DETAIL); served pages re-probed clean.
+- **what:** One shared function (`platform/orchestration/actions/rerender_link_repair.go`) applying the build gate's dead-internal-link repair (`datahelpers.RepairPageLinks` against the `loadValidPagePaths` index) at the last step before a RERENDERED page's HTML leaves for deploy — called by both rerender paths (`RerenderSinglePageAction` per page; the bulk collection loop with one index load per run). Exists because `RepairPageLinks` had exactly one call site (the initial-build validate gate), so pages were protected on first build and unprotected on every rebuild (`bugs_open/097`, diagnosis 9543aaf1). Fail-open on index-load failure, loudly. Outbound-only: DB `rendered_html` keeps the unrepaired form (same philosophy as `StripToolDocHeader`); the durable record is the origin-stamped `writeLinkRepairLog` row — `linkRepairOrigin` names WHICH path repaired, so a drifting sibling is detectable from the log. Note: `RerenderSitePagesAction` (the file's "bulk action") is unregistered dead code; the live bulk mechanism is per-page work items through the single-page action.
+- **sources:** bugs_open/097 (2026-07-28 sections); platform/orchestration/actions/rerender_link_repair.go; commit c18f6f430
+- **relations:** LNK-008 (shared links.go); LNK-009 (post-deploy audit — detects what this repairs); CQ-002 (the gate whose repair this extends to rerenders)
+- **verify-later:** rerender_link_repair.go; agent_error_log rows with agent_type='page-rerender' AND error_code='CONTENT_LINK_REPAIR_DETAIL'

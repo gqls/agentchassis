@@ -4,7 +4,7 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-23 concepts, consolidated from 25 raw extractions across units U12, U14, U16, U17b,
+24 concepts (CTXA-024 added 2026-07-28, post-freeze), consolidated from 25 raw extractions across units U12, U14, U16, U17b,
 U18, U19 (all tagged NEW:context-assembly, plus a handful of diagnosis-loop-tagged
 raw blocks from U14/U18/U19 that describe the same production retrieval/assembly
 infrastructure and were folded in here as the closer-fitting home). The
@@ -195,3 +195,11 @@ register/context-pack-tooling.md, matching its native category tag.
 - **sources:** archive_april_26/016b_debugging_guide_7(4).md#"error_step: config-level placement..."
 - **relations:** category note — documentation-system fork-reconciliation concern; error_step / anchorless diagnosis (register/diagnosis-loop.md DIAG-030)
 - **verify-later:** whether the 016b guide family has since been reconciled
+
+### CTXA-024 — GitHubSource.CommitInfo: commit identity + committer date for the code index
+- **status:** deployed
+- **status-evidence:** Live since chassis v1.0.1183 (2026-07-28); the 11:27 reindex stored full 40-char `commit_sha` + `commit_time` byte-equal to `git show -s --format=%cI` on all 4,992 code_symbols rows.
+- **what:** A read-only method on the concrete `*reposource.GitHubSource` (deliberately NOT on the `Fetcher` interface seam): `GET /repos/{o}/{r}/commits/{shaOrRef}` resolving the tarball's short sha to the full form plus the commit's committer date — the self-contained fact the code-index freshness verdict keys on (`bugs_closed/108` defect A: row `updated_at` resets on every refresh; a committer date cannot). Called best-effort by `analyse_repo_local` after `FetchToDir`; failure degrades to an absent `commit_time` (NULL → the banner renders loud-UNKNOWN, never FRESH). Same token/apiBase as the tarball fetch; runs only in spawned repo-cloning pods.
+- **sources:** internal/reposource/github_source.go; bugs_closed/108 (2026-07-28 closing entry); migration 250; commit 87d0bcf97 (council b5285973 APPROVED)
+- **relations:** CTXA-015 (code-indexer/index-orchestrator); CTXA-017 (repo-label symmetry); DIAG-023 (analyse_repo_local)
+- **verify-later:** SELECT DISTINCT ref, commit_sha, commit_time FROM code_symbols; freshnessBanner branches in diagnose_code_lookup_action.go

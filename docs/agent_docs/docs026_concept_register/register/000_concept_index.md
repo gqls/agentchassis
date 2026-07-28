@@ -1729,3 +1729,5 @@ an ID prefix, or a status word.
 | VIZ-010 | cmd/contrastscan: the post-deploy contrast witness | deployed | Computed style + actual painted backdrop, alpha-composited. Complements AuditPalette; neither sees what the other sees | visualisation-and-charts.md |
 | VIZ-011 | Chart furniture is a graphical object, so 3.0 applies | deployed | Axis lines and connectors need 3.0. --color-border scores 1.66 on oufe and fails; the accent scores 6.86 | visualisation-and-charts.md |
 | CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |
+| LNK-023 | repairOutboundPageLinks: shared rerender-path link repair | deployed | The build gate's dead-link repair applied where rerendered HTML leaves for deploy, both paths, origin-stamped log | link-management.md |
+| CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
