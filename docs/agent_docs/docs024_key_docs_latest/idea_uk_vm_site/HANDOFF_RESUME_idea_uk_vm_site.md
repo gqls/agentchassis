@@ -1,6 +1,126 @@
 # RESUME HANDOFF — idea.uk VM site (start a fresh chat here)
 
-> ## ▶ START HERE — state as of 2026-07-27 11:13 UTC (supersedes everything below)
+> ## ▶ START HERE — state as of 2026-07-28 ~20:00 UTC (supersedes everything below)
+>
+> # The product is finished enough. The open question is demand, and it is not an engineering one.
+>
+> **Owner's direction, 2026-07-28: "maybe we start thinking of how to get a buyer on the site" — IN
+> ANOTHER THREAD.** See *The next thread* at the foot of this block. Do not start it here.
+>
+> ### What idea.uk is now
+>
+> Nine guides in journey order, four tools, a £29 paid report, a **£8 example place**, a **published
+> specimen report**, and a funnel where every link goes where its text says. Box `116.203.204.115`,
+> systemd `idea`, orders in `/var/lib/idea/orders.json` (a FILE, no DB), capacity 1/5.
+>
+> **75 orders. Genuine external buyers: still ZERO.** One order on 28 July looked external and was a
+> test — I asserted "our first customer" from an unfamiliar IP and user-agent and was wrong (see
+> `WRONG_CALLS.md`, and §X.27's struck-through heading). Treat any claim of demand with suspicion
+> until money has moved from someone who is not us.
+>
+> ### Shipped 2026-07-28 — ten binary deploys, eleven DB changes, all verified live
+>
+> | what | how it was proven |
+> |---|---|
+> | Slot-leak recovery (`running` orders survive a restart) | stranded a spare order, watched it recover |
+> | **Unconditional cost logging** | a call with `created=0 read=0` — previously invisible |
+> | Three-paragraph report intro | present in a real report |
+> | Score bars in the HTML report | nested tables; SVG and remote images do not render in mail |
+> | Styled error pages + `maxlength` | induced: 52 bytes of `text/plain` → 3,081 of styled HTML |
+> | Subheadings through the assessment | both renderers; the text one had the same wall |
+> | Hero + CTA → the form (was `/contact.html`) | negative control: the misdirect is gone |
+> | Six cards → the specimen (were self-links) | 0 still self-linking |
+> | "Couldn't I just ask an AI myself?" | live at 66% down |
+> | **The £8 example place** | **Stripe asked directly: `amount_total` 800 pence, not 2900** |
+>
+> **COST IS NOW KNOWN AND SELF-MEASURING: £1.23 per report** ($1.23; rises to ~$1.32 after
+> **2026-08-31** when Sonnet 5's introductory rate ends). ~3% of £29. Every future order records its
+> own cost — `journalctl -u idea | grep '\[usage\]'`.
+>
+> ### Verify the box in one go
+>
+> ```bash
+> grep -ac "refused fake=1"       /opt/idea/idea   # 089            → 1
+> grep -ac "X-Real-IP"            /opt/idea/idea   # 090            → 1
+> grep -ac "claude-opus-5"        /opt/idea/idea   # 5-family       → 1
+> grep -ac "\[usage\] %s"         /opt/idea/idea   # cost logging   → 1
+> grep -ac "EXAMPLE PLACE"        /opt/idea/idea   # the £8 tier    → 1
+> grep -ac "margin:18px 0 5px"    /opt/idea/idea   # subheadings    → 1
+> ```
+> Rollbacks kept, newest last: `idea.prev-2026-07-28-pre-usage-log` · `-pre-intro` ·
+> `-pre-scorebars` · `-pre-subheads` · `-pre-tier`. Orders backed up before every deploy.
+>
+> ### The £8 example place — LIVE, and how it is wired
+>
+> A full report in exchange for permission to publish it anonymously. `EXAMPLE_PRICE_GBP=8`,
+> `EXAMPLE_MAX_PLACES=10` in `/etc/idea/idea.env`. **Places used: 0 of 10.**
+>
+> - **Two checkboxes, both unticked, wording beside them.** They are two decisions and the Go reads
+>   them as two: asking without agreeing gets £29; agreeing without asking records no consent.
+> - **Price moved from the PROCESS to the ORDER.** It used to live on `StripeProvider` and be read
+>   from config at checkout time, so a price change mid-order would have billed a figure never
+>   quoted. `sendPayLink` now reads it **once** for both the charge and the email.
+> - **The cap counts declined and expired orders**: it bounds promises made to people, and declining
+>   to run a report does not un-ask.
+> - **Switching it on has an ORDER**: binary (tier off) → env → form. Any other sequence shows an
+>   offer the backend ignores and charges £29 to someone who ticked £8.
+>
+> ### Open, with my read on priority
+>
+> 1. **Demand.** The only question that building cannot answer. → the next thread.
+> 2. **The doubled-full-stop fix is UNEXERCISED after four runs.** It is in the binary and covered by
+>    tests; it needs a submission whose text *ends in a full stop*. Do not report it as proven.
+> 3. **Refresh the specimen** once current formatting has run on a real order (owner: "we can refresh
+>    it at a later date").
+> 4. **`row()` in the idea cards** still glues label to value the way `arow()` did before 28 July.
+> 5. Two SES DNS records are **DONE** — `bounce.leopardess.uk` MX + TXT both resolve. The earlier
+>    SERVFAIL was a broken sub-zone, not propagation.
+>
+> ### Landmines earned on 2026-07-28 — read before touching the chassis side
+>
+> - **RUNBOOK TRAP 1b: a missing REQUIRED field escalates the page to the LLM writer, and the job
+>   still reports `COMPLETED`.** The tell is an ABSENCE: `rerendered`/`carried` are missing entirely
+>   (versus the `slot_name` trap, which gives both as zero) plus `escalated:true`. Checking
+>   "rendered == section_count" reads the NULL as a zero and sends you after the wrong cause.
+>   `generic-text-block` requires **`heading`** as well as `content`.
+> - **That escalation queues an LLM writer over your authored copy.** On the specimen page — which
+>   publishes the claim that nothing was reworded — it would have made a live provenance statement
+>   false, silently. Cancel the `needs_page` item before it is claimed.
+> - **A dead CTA and a WRONG CTA look identical to a link checker.** `/contact.html` returns 200. The
+>   hero button sent buyers away from the purchase for weeks and nothing ever complained.
+> - **`pages.sections` is not written by the rerender path.** A page with `sections='[]'` serves
+>   perfectly and is invisible to `ListedPageEligibilitySQL` and the imagery sweep.
+> - **A bare-word grep is not an attribute check.** `checked` matched twice in prose and briefly
+>   looked like two pre-ticked consent boxes.
+> - **Verify each page change again after the NEXT one ships** — a later rerender is exactly when an
+>   earlier `content_data` fix quietly disappears.
+> - A fresh chassis roll (28 July) changed nothing here: the tool is a **standalone Go module** with
+>   its own build→scp→systemctl path and no chassis coupling. All seven live checks re-passed after it.
+>
+> ### The next thread — getting a buyer
+>
+> **Brief:** idea.uk is complete, correct, and has never had a customer who is not its owner. Find
+> out whether anyone wants it.
+>
+> What that thread should know before it starts:
+>
+> - **The measured baseline.** 18–28 July, bots filtered: **26 views of `/report.html` from 20 unique
+>   IPs, 8 form submissions.** Reverse-DNS: most were `googleusercontent.com`, Tencent ranges and a
+>   Tor exit; **4 of the 26 views were the owner and 4 of the 8 submissions were our own tests.**
+>   Genuine prospects: between nought and a small handful.
+> - **Do not compute a conversion rate from that.** 8/26 = 31% is meaningless and must never be
+>   quoted — both numerator and denominator are dominated by us.
+> - **The funnel data is free and already there.** No Cloudflare (refuted — Hetzner NS, A record
+>   straight to the box). `/var/log/nginx/access.log` spans 5 June → now, unrotated.
+> - **Two price points now exist** — £29 (private) and £8 (published example). The £8 is a demand
+>   experiment as much as a revenue one.
+> - **Email is provably ours now** (SPF + DKIM aligned), so mailing strangers is safe.
+> - The site's whole credibility rests on not overstating. Any acquisition copy has to survive the
+>   same bar — see `bugs_open/043` and the `no figure in any brief` rail.
+>
+> ---
+>
+> ## ▶ PREVIOUS STATE — 2026-07-27 11:13 UTC (superseded by the block above)
 >
 > # 🎉 idea.uk HAS SOLD AND DELIVERED ITS FIRST REPORT.
 >
