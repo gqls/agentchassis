@@ -112,13 +112,24 @@ fifteen components. Contrast passes on everything measurable. The tool is verifi
 in a real browser rather than asserted from its markup. The legal pages are
 published and protected.
 
-The graphing capability is built and proven against real data, but **no live page
-uses it yet**, because the honest next step is blocked: registering a real Thames
-Water series needs sources we can actually fetch and quote, and the two primary
-sources tried today returned "forbidden" and "not found". Search results supplied
-figures, but a search summary is not a verified quote, and this site's entire
-posture depends on not treating it as one. So the graph waits for its data rather
-than being filled with something plausible.
+The first real chart is live on the Thames page, and getting there produced the
+more interesting result. The task was to register a time series. The verified
+figures do not form one: every debt figure sits at a single date, and the two
+percentage figures measure different things — one is average yearly bills, the
+other is an increase above inflation — so plotting them together would have
+invented a trend out of unlike quantities. Forcing a series would have produced a
+chart that looked authoritative and was analytically false.
+
+So what went live is what the data actually supports: the capital structure as at
+31 March 2024, drawn by class, scaled against the total drawn facilities — and
+that total is itself a registered figure rather than a number typed into the
+chart. Four figures, each quoted from a source that was fetched and checked
+character by character rather than taken from a summary of it.
+
+**The time-series renderer therefore remains built and unused**, which is the
+correct state. Two primary sources tried today returned "forbidden" and "not
+found", and a search engine's summary of a figure is not a verified quote. The
+graph waits for data rather than being filled with something plausible.
 
 Three things are owed to other people rather than to us: two sites with unreadable
 buttons belong to other threads and were deliberately left alone rather than
@@ -134,9 +145,11 @@ evidence rather than spending more.
 
 ## Where we're going
 
-The immediate step is the data: get a genuine Thames Water series registered with
-a citation for every point, which needs source access we do not currently have.
-Until that lands the graph stays unused, and that is the correct state.
+The immediate step is still the data, but the question is now sharper: not "get a
+series" but "find a measurement that genuinely moves over time and that we can
+reach a source for". Ofwat's determinations are the obvious candidate, and their
+site refused us today. Until one lands, the time-series renderer stays unused and
+the capital-structure chart carries the page.
 
 Behind it sits the larger idea the owner set out — take a piece of writing, pull
 out the premises it actually rests on, and branch the strongest one or two into
