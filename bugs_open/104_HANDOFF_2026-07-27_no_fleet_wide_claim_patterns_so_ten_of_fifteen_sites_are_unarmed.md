@@ -291,3 +291,84 @@ negation-safe. The two live options are:
 > set "measurably fires on nothing fleet-wide". It was written before it was run,
 > and it is wrong — it fires once. Caught by running it. The distinction matters
 > because option (a) is not free: it lands a blocker on a live page.
+
+---
+
+## FIX BUILT 2026-07-28 — owner ruled O11, nine patterns are fleet-wide. STAYS OPEN: committed, not yet live.
+
+Owner ruling on oufe decision **O11**, taken with the dry-run numbers above in
+front of it: **option "narrowed set, all 15 sites"** — i.e. candidate 2, minus the
+negation-prone pattern. Second ruling, on the single true positive:
+leopardessconsulting's *"Every component is verified against production."* is
+**acceptable** — a claim about a site's own delivered work is not an accuracy
+overclaim — so the `every … is verified` pattern was narrowed rather than the copy
+changed.
+
+**Commits** `93003e6e0` (the fix + register CLM-015), `7eeb28417` (fixture
+correction). **Council** submitted, advisory, `SUBMISSION_CORR
+899ed92e-1bf7-4707-96d8-24f102aa14fa` — no verdict at time of writing.
+
+### What shipped
+
+`platform/orchestration/datahelpers/claims_global.go` — `globalBannedClaims()` (9
+patterns) and `ScanAllBannedClaims(blocks, eb)`, which scans the fleet-wide set
+plus the site's own, dedupes a pattern present in both, and is **nil-safe**: a
+site with no `evidence_base` row is scanned. Wired at **both** enforcement
+surfaces (`validate_page_content` check 8, `check_unverified_claims`
+`scanComponentClaims`), because they are documented to agree by one
+implementation. `cmd/claimscan` includes the set by default with `-no-global` to
+isolate a candidate set.
+
+Two constraints ruled out the obvious mirror of `globalTellPhrases()`:
+
+1. **Not unioned into `EvidenceBase` at parse time.** `EvidenceBase` is marshalled
+   **back** to `site_specs` by `refresh_evidence_base_action.go` and
+   `evidence_citations.go`, so seeding `eb.BannedClaims` would persist the
+   fleet-wide set into every site's stored register through write paths that never
+   intended to touch it — the trap `claims.go` already documents for
+   `EvidenceFact.Kind`. The set is held outside any parsed register, joined at
+   scan time, and `globalEvidence` is unexported so it cannot reach a writer.
+2. **`ParseEvidenceBase`'s nil contract is unchanged.** Only the banned half goes
+   fleet-wide; the numeric scan stays strictly opt-in, because its false-positive
+   rate is why it is never a blocker.
+
+### Verified before commit, against the corpus rather than in the abstract
+
+- Shipped set over the stored `rendered_html` of **all 15 live sites / 908
+  components with no register supplied** — **0 findings**. Nothing on the estate
+  becomes unbuildable.
+- Positive control, same run, still with no register: **6 of 6** overclaim shapes
+  blocked.
+- The four previously-false-positive live sentences: **all pass**, and they are
+  committed as regression fixtures (verbatim from `rendered_html` — retyping them
+  from claimscan's elided snippets produced two quotes no site had published).
+- 8 unit tests; `datahelpers`, `actions`, `discovery_checks` suites green at HEAD.
+
+### Why this is still OPEN
+
+**Go changes are inert until an image is rebuilt and rolled.** The defect is
+reproducible until it ships, which is the `/bugs_open` bar. To close it:
+
+1. Wait for (or read) the council verdict on `899ed92e`.
+2. After the next chassis roll, pod-grep a symbol the change CREATED — not one it
+   merely uses: `strings /app/agent-chassis | grep -c "completeness-of-exclusion"`
+   should be ≥1, with a positive control.
+3. Induce **both** directions on a site with no register (§ "How to verify a fix",
+   plus the third case this session added): "every claim on this site is verified"
+   must fail with a `claims` blocker; "we cite each figure and date it" and "where
+   a figure has not been independently verified, that is stated" must still build.
+
+### What is deliberately NOT fixed, and must not be quietly re-added
+
+`(fully|independently|externally|properly) (verified|audited|fact.?checked)` is
+**excluded from the set**. It is the strongest of the ten — it catches the shape
+oufe actually shipped live — and it caused 4 of 7 dry-run findings, all on negated
+sentences. It needs a **code-level negation guard**: RE2 has no lookbehind, and
+there is no negation-guard prior art in the estate. That is a separate,
+architecture-scope change and nobody owns it. The regression fixtures mean an
+attempt to re-add the pattern fails the test suite rather than a production build.
+
+Also latent: pattern 2, `(does not|doesn't|do not|don't) appear here`, is itself a
+negative construction — "prices do not appear here because they change daily"
+would match. Zero hits fleet-wide today; flagged in the code beside it and the
+most likely source of the next false positive.

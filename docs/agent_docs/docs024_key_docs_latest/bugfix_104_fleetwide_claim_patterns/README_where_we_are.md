@@ -78,3 +78,61 @@ momentary database hiccup into "this site has no patterns" — about the one sit
 that mattered most. The thing that caught the second one was deliberately feeding
 the checker sentences it *must* reject and confirming it did. That test is the
 only reason this session found anything at all.
+
+---
+
+**2026-07-28, later the same evening.**
+
+You made both calls and I built it. Nine patterns are now shared across the whole
+estate rather than living on whichever sites somebody remembered to arm, and they
+apply even to a site that has no fact register at all — so vetcomparison and
+idea.uk are covered, and so is the sixteenth site on the day someone creates it.
+That was the whole point of the bug.
+
+I checked it the way I'd want it checked: the finished code, not the proposal,
+against every page of all fifteen sites. Nothing on the estate would fail a build.
+The checker still catches all six of the fabrication shapes I tested it with, on a
+site with no register whatsoever, and the four honest sentences that the original
+patterns would have blocked now pass — and they're committed as tests, so if
+someone puts that pattern back, the test suite stops them rather than a live site
+build stopping a colleague.
+
+One thing changed my mind while building. The bug file recommends copying how the
+"AI-sounding phrases" checker does this, which is to merge the shared list into
+each site's register as it's read. **That would have quietly written the shared
+patterns into all fifteen sites' stored data**, because two other bits of the
+system write that register back to the database after reading it. The warning was
+sitting in the same file, two hundred lines above, about a different field where
+someone nearly did the same thing. So the shared list is kept separate and joined
+only at the moment of checking. Same result, nothing gets written anywhere.
+
+Now the part I'd rather report than have you find. **I broke the build for about
+four minutes.** The two files I edited were also being edited, right then, by
+another session working on a different bug. When I committed my files by name, I
+took their half-finished work with it — specifically, I committed the code that
+*uses* a new thing while the code that *defines* it was still unsaved on their
+side. So the shared repository briefly didn't compile, and anyone starting a
+build in that window would have seen a failure with my name on it. They committed
+their half four minutes later and it's whole again; I checked it properly this
+time, by exporting the repository as it actually stands rather than testing my own
+copy. It's written up in the wrong-calls log, because my commit message claimed
+the tests were green — which was true of my copy and false of what I'd committed.
+
+The honest lesson is small and annoying: our rule for keeping sessions out of each
+other's way works on every file except one that two people are editing at the same
+moment, and nothing can detect that case. What I should have done is check that
+the shared repository still compiled straight after committing. That's one
+command, and it's now written down in the runbook.
+
+Two smaller corrections, both mine, both caught before they could mislead anyone:
+I claimed the reduced pattern set "fires on nothing" before running it (it fires
+once, on a real overclaim), and two of my test examples were sentences I'd retyped
+from a truncated display rather than copied from the site — so they read as
+quotations of copy that was never published. Both fixed, both recorded.
+
+It is not finished. Code like this does nothing until the next time someone builds
+and deploys a chassis image, so the bug stays open until then, with the exact
+checks to run written into it. And the strongest of the original ten patterns is
+deliberately left out — it's the one that caused the false alarms — so someone will
+need to teach the checker to tell "this is verified" from "this is not verified"
+before it can come back. That's a separate piece of work and nobody owns it yet.

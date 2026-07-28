@@ -128,3 +128,49 @@ claim on this site is verified" must fail with a `claims` blocker; a legitimate
 process sentence ("we cite each figure and date it") must still build. Add a
 third case now required by this session's finding: **"where a figure has not been
 independently verified, that is stated" must still build.**
+
+---
+
+## 7. After the 2026-07-28 change — claimscan includes the fleet-wide set by default
+
+```bash
+go build -o /tmp/claimscan ./cmd/claimscan
+/tmp/claimscan -components comp.tsv                     # fleet-wide only, as an UNARMED site is scanned
+/tmp/claimscan -evidence eb.json -components comp.tsv   # fleet-wide + that site's own = what the gate enforces
+/tmp/claimscan -evidence cand.json -no-global -components comp.tsv   # a CANDIDATE set in isolation
+```
+
+`-evidence` is now optional; it prints the fleet-wide pattern count to stderr so a
+silently empty set cannot look like a clean estate. **Use `-no-global` to reproduce
+this workstream's original numbers** — they were measured before the set existed.
+
+## 8. Two checks this session learned the hard way
+
+**Verify the COMMIT compiles, not your tree.** A pathspec commit of a file another
+session is also editing carries their uncommitted work — and if you commit the
+consumer of a type whose definition is still in their working tree, HEAD stops
+compiling while your own tests stay green. `make build-<service>` builds from HEAD,
+so this breaks everyone's next image build.
+
+```bash
+git archive HEAD | tar -x -C /tmp/headcheck && (cd /tmp/headcheck && go build ./platform/...)
+```
+
+Run it straight after committing platform code. The tell in the diff: a hunk whose
+**context lines are code you did not write**, or insertion counts larger than the
+edits you remember making.
+
+**Quote live copy from the source, never from claimscan's output.** Its snippets are
+elided with `…`, so retyping one produces a plausible sentence the site never
+published. Two regression fixtures and two council `grounded_in` quotes were wrong
+this way. Extract verbatim instead:
+
+```bash
+python3 -c "
+import base64,re,sys
+for line in open('comp_<site>.tsv'):
+    p=line.rstrip('\n').split('\t')
+    if len(p)<3: continue
+    html=base64.b64decode(p[2]).decode('utf-8','replace')
+    for m in re.finditer(r'[^.<>]*<phrase>[^.<>]*\.', html): print(repr(m.group(0).strip()))"
+```

@@ -214,3 +214,100 @@ pattern, so it went in the RUNBOOK (where the command lives) and **not** into §
 again. The new §9 entry is the one thing here that is genuinely transferable and
 not already recorded: *"A checker's missing false-positive apparatus may BE its
 per-site human audit."*
+
+---
+
+## 2026-07-28, evening — the owner ruled, the fix is built, and I broke HEAD on the way
+
+### The two rulings
+
+O11: **narrowed set, all 15 sites** (candidate 2 minus the negation-prone pattern).
+And on the single true positive: leopardess's *"Every component is verified against
+production."* is **acceptable**, so the `every … is verified` pattern was narrowed
+to claim/content nouns instead of the copy being changed.
+
+Worth noting what made the door-closing option affordable: **the dry run was
+register-blind all along.** I had scanned all 15 sites regardless of whether each
+would be armed, which is candidate 2's shape, not candidate 1's. So candidate 2's
+blast radius was already measured — same single finding — and the containment
+candidate 1 offered turned out to buy nothing while leaving vetcomparison.uk and
+idea.uk unprotected. I did not plan that; I noticed it when writing the options up.
+
+### What the design constraint turned out to be
+
+The obvious implementation is the one `104` recommends: mirror `globalTellPhrases()`
+by unioning the global set into `ParseEvidenceBase`. **That would have been a data
+corruption bug.** `EvidenceBase` is marshalled BACK to `site_specs` by
+`refresh_evidence_base_action.go` and `evidence_citations.go`, so seeding
+`eb.BannedClaims` at parse time persists the fleet-wide set into every site's
+stored register through write paths that never intended to touch it. `claims.go`
+documents that exact trap two hundred lines above, for `EvidenceFact.Kind`, and I
+only found it because I went to read how `BannedClaim` was structured. **The
+precedent named in the bug file was the wrong precedent, and the reason is in the
+same file as the code.**
+
+So the set is held outside any parsed register (`claims_global.go`), joined at scan
+time by `ScanAllBannedClaims`, and `globalEvidence` is unexported so it cannot
+reach a writer. `ParseEvidenceBase`'s nil contract is untouched.
+
+### Verification, and the number that matters
+
+Shipped set, no register supplied, all 15 sites / 908 components: **0 BANNED**.
+Positive control same run: **6 of 6** blocked. The four negated sentences: pass.
+`0 findings` is the claim I would most want challenged, so it is worth being
+explicit that it was produced by the built binary (`go build ./cmd/claimscan`
+after the change), not by the candidate JSON I started with.
+
+### Misstep 5 — my commit shipped another session's half-finished dependency, and HEAD did not compile
+
+`93003e6e0` named `validate_page_content.go` and `check_unverified_claims.go`
+because I had edited them. Both also carried the bugs_open/102 `ClaimSurface`
+plumbing from another session, **uncommitted** — so my commit shipped the two
+CONSUMERS of a type whose DEFINITION, in `claims.go`, was still in the working
+tree. HEAD stopped compiling:
+
+```
+check_unverified_claims.go:295: undefined: datahelpers.ClaimSurface
+check_unverified_claims.go:414: too many arguments in call to eb.ScanUnregisteredNumbers
+```
+
+`make build-<service>` builds from committed HEAD, so any session starting an
+image build in that window would have got a failure attributed to my commit.
+
+**What caught it:** the diff's insertion/deletion counts looked too large for the
+edits I remembered, and a hunk header read `func scanComponentClaims(html,
+slotName string, eb *datahelpers.EvidenceBase)` — without the `surface` parameter
+that was in my tree. **A hunk whose context is code you did not write is the
+tell.**
+
+**What fixed it:** forward-only. I prepared the missing half as a labelled
+`sweep:` commit; by the time it ran, the owning session had committed it
+themselves (`3ddb4ed2d`, ~4 minutes after mine). HEAD compiles and all three
+suites pass there now — verified in a clean `git archive HEAD` export, not in the
+tree. Logged in `WRONG_CALLS.md`, because the commit message asserted "suites
+green" and that was true of my tree and false of the commit.
+
+The pathspec discipline did work on everything it could: five other sessions'
+modified files stayed out. It cannot help when two sessions edit one file, and
+this is what that costs.
+
+### Misstep 6 — two of my regression fixtures were sentences no site had published
+
+claimscan elides its snippets with ellipses. I retyped two fixtures from that
+output instead of from the source, and both were wrong: vonc's real sentence
+begins *"Competitor characterisations reflect general platform mechanics…"*, not
+*"These reflect platform mechanics…"*; the robot-hands catalogue one is a long
+sentence about six actuation technologies, not the short paraphrase I wrote.
+
+The tests passed either way — they assert a negated sentence is *not* flagged, and
+a paraphrase negates too. **That is exactly why it was worth fixing**: a fixture
+whose comment says "real copy from a live site" must be real copy, or the next
+person cites a quote that never existed. Caught while checking `grounded_in`
+fidelity for the council submission, by decoding the component base64 and grepping
+the actual sentence. Fixed in `7eeb28417` and in the submission.
+
+### Council
+
+Submitted, advisory: `SUBMISSION_CORR 899ed92e-1bf7-4707-96d8-24f102aa14fa`. Queue
+showed two other councils mid-flight (`review_architecture` ×2 at depth 440–450),
+so ~30 minutes is the expectation, not 2. No verdict yet at time of writing.
