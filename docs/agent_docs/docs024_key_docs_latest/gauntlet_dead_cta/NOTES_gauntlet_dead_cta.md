@@ -1329,3 +1329,91 @@ v1.0.1163 → 0 diagnostic lines, 0 request lines
 No amount of pod-grepping establishes that. **Three of the eight missteps above
 are variants of "my check could not have failed"** — and the tally, not any one
 of them, is the argument for always demonstrating the failing case.
+
+## 2026-07-28 — engine sampling, the vonc.com restyle, and a live bug the owner hit mid-round
+
+### 1. The engine: armed, empty, and "wait for traffic" was wrong
+
+§9 of `bugs_open/083` told the next session to wait 24–48h and read the log. The
+island's first 24h held **8 request lines, all mine**. There is no organic
+traffic; waiting would have waited forever. Sampled instead (§5's actual
+instruction): **24/24 LLM calls 200, 36/36 requests 200, 0 fault lines** ⇒ ~49
+consecutive clean calls across three days. Candidate 3 unjustified; candidate 4
+(`max_tokens`) **refuted so far** — the TRUNCATED branch is live and has never
+fired, exactly as §2 predicted. Candidate 2 is **fleet-wide** (`&&http.Client{}`
+is `platform/aiservice`, referenced by 17 files), not island-only.
+**The first thing the new request log measured was that its own denominator is zero.**
+
+### 2. The restyle: what the owner asked for vs what the measurements said
+
+Asked: bigger text, content ≥25% wider, purple "a little darker" for white-text
+readability. Three findings changed the implementation:
+
+- **`--font-size-base` alone would have done almost nothing.** `font-size` was set
+  on `body`, but `rem` resolves against the ROOT, and nearly every size in the
+  sheet is in `rem`. It had to go on `html`.
+- **Darkening the purple alone would have made things WORSE.** `--color-primary`
+  does double duty: background-with-white-text (5.32:1, already passing) AND text
+  on the dark page (3.71:1, already failing). Darkening improves the first and
+  takes the second to 2.78. **Proved no single value can serve both**: white needs
+  L≤0.183, the dark page needs L≥0.195. Split it — `--color-primary: #6d28d9`
+  (white-on-purple 7.10) plus a new `--color-primary-on-dark: #a78bfa` for links
+  (3.71 → **7.26**, fixing a pre-existing AA failure).
+- **The narrow columns were not in the stylesheet at all.** `hero-content` (900px)
+  and `pc-container` (820px) are set inside component `<style>` blocks, which sit
+  in the body and therefore beat a linked sheet on ORDER.
+
+**NEARLY A BAD MISTAKE:** the obvious fix was to edit the components. `hero` is a
+**SHARED library component rendered on 182 pages across the fleet** — relojistas
+glossaries, the fuel sites, gripper guides, leopardess. Widening vonc's homepage
+is not a reason to move 181 other people's pages. Used a specificity override in
+vonc's own (per-site) stylesheet instead.
+*Check: before editing any `content_components` row, COUNT ITS PAGE_COMPONENTS.*
+
+**And the override failed silently first time.** `body .pc-container` is (0,1,1);
+the component's own `.provocation-card-section .pc-container` is (0,2,0) and WINS
+— class count is compared before element count. Caught only because I measured
+the width afterwards instead of assuming the rule applied. Raised to (0,2,1).
+
+### 3. THE LIVE BUG — the owner lost a round mid-answer
+
+Reported in three pieces while using the page: the AI's challenge vanished while
+they were answering it; the provocation was missing on first arrival ("I may be
+wrong"— they were not); and then Send Defence "does nothing, no JS errors".
+
+**All three were one defect, and it was mine.** The whole round lived in page
+memory. Any reload — refresh, back/forward, a mobile tab evicted while switching
+apps — destroyed a round still LIVE on the server. Reproduced exactly:
+`challenge=''`, block re-hidden, `localStorage=0 sessionStorage=0`. The defence
+button then correctly refused (no roundId) and explained itself **in the status
+line at the top of the section while the visitor was at the bottom looking at the
+button** — which is indistinguishable from a dead button.
+
+**FIRST SUSPECT WAS MY OWN CSS**, published 40 minutes earlier: bigger text can
+clip content and wider containers can overlay a button. Checked before anything
+else — `elementFromPoint` at the button's centre returned the button itself on
+both viewports, `disabled=false`, `pointer-events:auto`. Not mine. But it was the
+first thing tested, not the last.
+
+Fix: persist the round in `sessionStorage` and resume it — id, deadline,
+provocation, counter, challenge, verdict, objectives, **and both typed drafts**.
+**This is NOT the localStorage pattern deleted from the Arena**: that faked a
+submission that went nowhere; this resumes a REAL server-side round by its real
+id and stores nothing that is not already true. Recorded at the code so nobody
+strips it as a regression.
+
+### 4. Missteps
+
+1. **`node --check` on a machine with no node, `&&`-chained to an echo — printed
+   `SYNTAX OK` for a file it never parsed.** Third vacuous check in two days.
+   *Check: if a verification tool might be absent, assert it exists first.*
+2. **`(el.objectives || []).map(...)`** — `querySelectorAll` returns a NodeList,
+   which has `forEach` but **no `map`**. Would have thrown at the first save.
+   Caught by reading my own patch before delivering, not by running it.
+3. **Wrote the first CSS override at the wrong specificity** and would have
+   reported it as done had I not re-measured (see §2).
+4. **`—` inside a `re.sub` replacement** is parsed as a regex template
+   escape and raises. Cost one retry; the script died before writing, so nothing
+   was half-applied.
+5. **Reported "9 gauntlet/ lines" as if they were failures** — a loose grep
+   matching URL paths. The precise pattern returned 0, which was correct.
