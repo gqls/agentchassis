@@ -19,7 +19,7 @@
   "destination_roles": [
     {
       "role": "{{binding.destination_role}}",
-      "of": "{{binding.destination_of}}"
+      "of": "record.entity"
     }
   ],
   "funnel_stage": "consideration",
@@ -33,6 +33,7 @@
     {
       "control_role": "promised_cta",
       "primitive": "navigate",
+      "destination_role": "{{binding.destination_role}}",
       "outcome": "a real page load of the destination named in the same record as the label; the destination page is live and of the promised role, and it delivers what the label said it would",
       "must_not": [
         "resolve to '#'",
@@ -74,9 +75,6 @@
       "role": "{{binding.destination_role}}"
     },
     "destination_role": {
-      "type": "value"
-    },
-    "destination_of": {
       "type": "value"
     }
   },
