@@ -117,6 +117,7 @@ isn't. It had never been wired to any writer before this session.
 | `106` | concept register froze 2026-07-13; **51 of 76 workstreams postdate it** |
 | `107` (skeleton) | every site gets the same brochure layout. **Parked by the owner** |
 | `122` | **generated CSS fails WCAG AA on four live sites** — see §4 above and §8 |
+| `126` | **a gated tool cannot pass acceptance, and the auto-fixer is then aimed at its disclaimer.** Filed 2026-07-28 |
 
 `095` (wrong `slot_name` renders nothing, reports COMPLETED) was **closed by
 another session** — it is in `bugs_closed/` now. Its lesson still applies.
@@ -155,7 +156,15 @@ covers one of them. Verify by type, never by rowcount.
 
 ---
 
-## 7. The one approved thing not yet applied
+## 7. The council lane — APPLIED 2026-07-28 (kept for the rollout order)
+
+> **DONE 2026-07-28.** The chassis roll carried the committed manifest, so the
+> env var went live without anyone touching the overlay. Lane proven end to end
+> with a cheap `page-rerender` (not a council) before the producer was switched;
+> `097` now publishes to `system.agent.council-gate.requests` (commit
+> `f8947b9b8`). Kept below because the ORDER is the reusable part, and because
+> `bugfix_034/VERIFY_034_post_roll.sh:58` is a residual producer still on the
+> generic lane.
 
 `bugs_open/096` — give council traffic its own dispatch lane. Owner approved it.
 Manifest committed as `e88852825`. **Not applied**, for two reasons both recorded
@@ -186,9 +195,14 @@ window.
 ## 8. Suggested next moves, in order
 
 1. ~~Get an answer to O1~~ — **done 2026-07-27**, see §3. Content is unblocked.
-2. **Apply the council lane** at a quiet hour, then run the **Tier-4 browser
-   acceptance** for the waterfall tool — still owed. Markup being present is not
-   evidence a tool works; that claim belongs to the headless run.
+2. ~~Apply the council lane, then run the Tier-4 acceptance~~ — **BOTH DONE
+   2026-07-28.** The lane shipped with the overnight roll and the producer is
+   switched; `096` stays open only because *relief* is unmeasured (routing is
+   proven). The acceptance **failed 2 of 11, then passed 13 of 13** after fixing
+   the fence — the tool source was never touched. Read `bugs_open/126` before
+   writing any acceptance criteria: the runner shares ONE page across all checks,
+   so a one-shot consent gate can only be clicked once, and the auto-raised
+   `improve_tool` item would have pointed a rewriter at the disclaimer.
 3. **Fix the three other WCAG-failing sites** (`122`): dartsonline, robot-hands,
    vonc. The oufe fix is the worked example; the measurement script is in the bug.
 4. **Then the owner's layout/tools/guides/infographics work.** Read
