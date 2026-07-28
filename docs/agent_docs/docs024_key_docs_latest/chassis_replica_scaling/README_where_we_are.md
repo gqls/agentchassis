@@ -127,3 +127,51 @@ their own pods turned out to be something else — a reply that never comes, not
 one that comes too early — which is now squarely in the bug 029 owner's court,
 not ours. Rolls of the chassis will wait for a quiet moment (no council
 mid-run) as you ruled.
+
+---
+
+2026-07-28, late morning — the first stage boundary, and one discovery that
+matters more than the day's building.
+
+The building first. The small safety fix went to the review council and was
+APPROVED (its first review run was literally killed by another thread's
+deploy landing mid-review — the exact "a restart costs an in-flight council"
+problem we have on record — so it went round twice). The main change — the
+to-do-list and worker pool — is written, tested, and committed, switched off
+by default and provably identical to today's behaviour until we flip it. Its
+review is on round three: round one's objection was "prove your prerequisites
+are done, don't assert them", which was fair, and round two's was "we can't
+verify your citations" — also fair — so the audit it demanded now lives in
+the database where reviewers can query it, the danger-radius is measured (the
+change compiles into exactly one binary), and the safety cap I added has a
+real measurement behind it instead of a guess.
+
+The discovery. To measure "before", I fired five cheap page-refreshes at the
+system at once — the same five that sail through one-at-a-time in seconds.
+**All five failed. Twice. And not for the reason anyone would guess.** The
+system did all the work: the page was rebuilt, the publish succeeded, the
+"done" message was sent back. But the queue in front of the publisher was
+running minutes deep with the fleet's own routine work, and the queue of
+"done" messages coming back was minutes deep too — and the system only waits
+three minutes before giving up and re-asking, and every re-ask joins the BACK
+of the queue. So a success message arrived five seconds after the system had
+stopped listening for it, four times in a row, and the job was declared a
+failure with its own success sitting right there. It is a treadmill: once the
+round trip is slower than the patience, no amount of retrying helps — the
+retrying IS what keeps it failing.
+
+Why this matters to you: it means the platform today cannot reliably run even
+five of its cheapest jobs at the same time — not because any part is broken,
+but because three queues and one timeout interact badly under load. It
+almost certainly explains a chunk of the mystery timeout failures the bug-029
+thread has been chasing for days (I've handed them the evidence and a cheap
+test for it). And it confirms the build order you approved: the worker pool
+fixes the first queue, sending replies through the pool (the next stage)
+fixes the second, and the third — the publishers themselves being
+one-at-a-time services — is now on the map as its own future stage, with a
+decision for you when we get there about whether jobs should wait longer or
+retry smarter.
+
+Nothing needs a choice from you today. Next: the review's round three, then
+building the new chassis and rolling it out in a quiet moment, then proving
+the whole thing live with the same five-at-once test that fails today.

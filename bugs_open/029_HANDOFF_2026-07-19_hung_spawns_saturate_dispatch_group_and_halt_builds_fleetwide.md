@@ -861,3 +861,38 @@ a live claim"*) is in `processResponseClaimWithRetry`, adjacent to this bug's te
 but it was committed at **10:52** — after the clean window and after the `v1.0.1182` image
 started at 09:55:02Z, so it cannot be in it. Whatever changed between `1180` and `1182` is
 unidentified. Do not attribute the abatement to that fix.
+
+### CONTRIBUTED 2026-07-28 ~10:45, from the chassis_replica_scaling thread — a candidate mechanism for the ambient timeout class, caught end to end on a CALL (no spawn involved)
+
+While baselining for the parallelisation programme I reproduced the
+`Request timed out after 3 retries` failure **twice** (0/5 both times, second
+run on a stable 30-min-old pod — not roll-adjacent) with every hop evidenced.
+Full write-up: `docs/agent_docs/docs024_key_docs_latest/chassis_replica_scaling/NOTES…`
+(10:40 entry). The shape, compressed:
+
+- Five concurrent `page-rerender` runs → five `git_commit` calls to the
+  git-adapter (sequential by design). With ambient build traffic the adapter's
+  request queue ran **minutes deep**.
+- Each await timed out at +3 min; each F2 retry **re-queued at the BACK** of
+  the adapter's queue. Treadmill: once
+  `(callee queue) + (response lane) > 3 min`, every attempt loses.
+- The kill shot: the adapter ANSWERED the 4th request in 3.0 s at 10:34:45Z
+  (success, request `85891169…`), and the chassis processed that response at
+  **10:37:35Z** — ~2m50s of **response-lane** queueing — five seconds AFTER
+  the await's final timeout. Row `status='error'`, orchestration FAILED, with
+  a success response processed beside it.
+
+Why this belongs in 029's file: nothing in the mechanism is specific to
+`git_commit` or to calls — a `spawn_dispatch` await whose child boots into the
+same >3-min inequality fails identically, and the class is **load-dependent**,
+which fits the bursty/roll-adjacent pattern (rolls both restart consumers AND
+deepen every queue at once) and fits the 09:00-hour zero (shallow queues) as
+well as the overnight zeros. It also predicts the abatement above without any
+code change: less queue, no timeouts. Distinguishing check for this theory,
+cheap: for a sample of `spawn_dispatch` timeouts in `agent_error_log`, look
+for a LATE success response for the same request id in the adapter/child logs
+or a `processed_at` set milliseconds after `error` — if late-success is
+common, it is the treadmill, not lost spawns. Not filed to the diagnosis loop
+by me: this file's owner has diagnosis runs and instrumentation in flight, so
+routing the check through your lane rather than forking one. — work-item
+parallelisation thread

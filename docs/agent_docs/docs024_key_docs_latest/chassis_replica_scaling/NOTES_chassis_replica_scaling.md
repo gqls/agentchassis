@@ -229,6 +229,68 @@ measure COMPLETIONS, not just lane LAG. `[ALSO UNSEPARATED: all five pages are
 one site, so same-site deploy contention vs generic spawn-loss needs a
 cross-site burst to distinguish.]`
 
+## 2026-07-28 ~10:40 — the clean re-run: 0/5 AGAIN, and this time the mechanism is caught end to end. It is a QUEUE-DEPTH vs AWAIT-TIMEOUT treadmill, not a spawn race and not the roll.
+
+Re-ran the identical 5-page burst at 10:25:26–28Z on the stable v1.0.1182 pod
+(30 min post-roll, start time re-verified before firing). **All five FAILED at
+`deploy_page` at 10:37:30–35 — exactly the 4×3-minute retry budget, same
+signature as the confounded run.** The roll explanation is dismissed. What the
+logs and rows show, hop by hop, for the `maker` run (corr `5dec2cdc…`):
+
+1. `deploy_page` is not a spawn at all — it is `git_commit`, a **call to the
+   git-adapter** (step config read from `agent_definitions`; the adapter is
+   one of the eight explicitly sequential-by-design services).
+2. Requests sent 10:25:30 / 10:28:32 / 10:31:33 / 10:34:35 — each timed out
+   at +3 min (`awaited_requests.timeout_at`), each retry re-published and so
+   **rejoined the BACK of the adapter's queue**. The adapter's queue was
+   minutes deep with the fleet's own build traffic (seven
+   `agent-build-dispatch-loop` pods in the window) — and note the adapter had
+   also just restarted in the fleet-wide 09:55 roll.
+3. The adapter DID answer the 4th request — pod `…-tdpcs` log:
+   `Message processed, processing_time: 3.0s`, success response for request
+   `85891169…` produced to `system.agent.generic.responses` at **10:34:45**,
+   inside that await's window.
+4. The chassis processed that response at **10:37:35** — ~2m50s later,
+   because the RESPONSE lane is the same one-goroutine serial design and was
+   itself queued — **five seconds after the await's fourth timeout had
+   expired the row and exhausted the budget.** The row ends `status='error'`;
+   the orchestration FAILED with a success response sitting processed beside
+   it.
+
+**The mechanism, stated once:** an await fails not when its callee is slow
+but when `(callee queue delay) + (response lane delay) > await timeout
+(3 min)`, and the F2 retry makes it a **treadmill** — each retry re-queues at
+the back, so once the inequality holds it holds for every attempt until the
+whole queue drains inside one window. Sequential dispatch never triggers it
+(shallow queues); FIVE concurrent dispatches plus ambient fleet traffic did,
+twice, reproducibly.
+
+Consequences for the programme, in order:
+- **Phase 3 (responses through the pool) is load-bearing, not optional** — the
+  response lane's ~3-minute delay was half the inequality.
+- **CS-2 request-side alone would NOT have saved this batch** (the adapter
+  queue was the other half) — completions, not lane LAG, remain the
+  enablement metric, now with a measured reason.
+- **The adapter tier is the third serialisation layer** (sequential by
+  design, one effective consumer per adapter). P1 does not touch it. Phase 5
+  material, possibly its own workstream; at minimum the await timeout (3 min,
+  step-config) vs adapter-queue-depth interaction needs an owner-visible
+  decision — a longer timeout or a smarter retry (re-use the outstanding
+  request rather than re-queue at the back) each has different failure
+  economics.
+- **This is very likely the 029 lane's ambient `spawn_dispatch`-timeout
+  mechanism** (79 in 29 h): nothing here is specific to `git_commit` — any
+  await whose callee+response path queues past 3 minutes enters the same
+  treadmill. Contributed to bugs_open/029 (their bug, their queue).
+- The wedged specimen from the first burst (`6c4a0bdf`, `check_skipped`,
+  frozen 09:46:30) remains unexplained by this mechanism — it is a genuinely
+  parked EXECUTING_STEP row, still the watchdog's case, still in place.
+
+Cost note: two bursts + one sequential control ≈ 15 cheap re-renders on the
+test site, no LLM steps. The vonc.com pages were left re-rendered; the four
+FAILED-at-deploy runs from the first burst may have deployed anyway on late
+responses (unchecked — test site).
+
 Instrument gotcha for whoever repeats this: `oufe/TRIGGER_rerender_page.sh`
 names its kcat pod `kcat-rerender-$(date +%s)` — seconds granularity, so
 PARALLEL invocations collide with "AlreadyExists" (3 of 5 lost that way on the
