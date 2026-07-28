@@ -233,8 +233,22 @@ Proposal, ordered by cost:
 
 1. **An honest read of the existing site** — near-free, and we have real
    machinery: browser-runner checks (`no_horizontal_overflow`, `no_console_errors`,
-   `page_status_ok`), the contrast scanner (`cmd/contrastscan`), the 44px rule.
+   `page_status_ok`), and **`scripts/render_audit.py`** (register VIZ-010) — a
+   headless-Chromium render witness that composites alpha through transparent
+   ancestors to find the effective background, applies 4.5:1 / 3.0:1, and reports
+   images that failed to load. On fundamentallyai.com it found **101 AA failures
+   across 5 pages in about two minutes**, on a site where every page said
+   `deployed` and ~50 discovery checks had objected to nothing. That is the
+   teaser, almost verbatim. It is **run by hand only — wired into nothing**, so
+   P2 is largely a matter of calling it.
    This is T2 from the buying-design plan, and it is the cheapest strong move.
+
+   > **CORRECTED before this file was two hours old.** This paragraph first cited
+   > `cmd/contrastscan`. That tool **does not exist** — it was built and deleted
+   > the same day (2026-07-28) as a duplicate of the Python one above, and the
+   > register records why: *"the prior-art grep was `--include=*.go` and the prior
+   > art is Python."* Caught by `pattern-check.py`'s `new-capability-surface` on
+   > the commit, not by me. The cheap check that would have caught it is `ls cmd/`.
 2. **A proposed site plan** — pages and sections, a palette, a direction. A
    handful of model calls.
 3. **One rendered section** in the proposed style — the conversion lever, and the
