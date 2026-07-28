@@ -1350,3 +1350,91 @@ The honest options are (a) wait for 127, or (b) switch this site to `api_news`
 recent items) — that works TODAY with no code change, but costs LLM calls per fetch
 and the spec deliberately chose `news_search` to avoid an unchosen xAI source.
 **That is an owner call, not mine.**
+
+---
+
+## 2026-07-28 20:00 — recency window ON: 4 items → 21. And it exposed the next constraint.
+
+`bugs_closed/127` went live on both sides (adapter + chassis v1.0.1192, pod-grep
+`time_range` → 1). `time_range` is OPTIONAL and we had none, so SQL_p15 set
+`month` on all five sources and re-armed them to catch the 19:50 tick.
+
+**Result, against the prediction I recorded in the bug ("expect MORE items, not
+fewer"):**
+
+| | 13:55 (no window) | 19:57 (`time_range: month`) |
+|---|---|---|
+| new items written | **4** | **21** |
+| provider results discarded on age | 46 of 50 | ~0 |
+| date span | 2016 → 2026 | **2026-06-30 → 2026-07-28** |
+
+Newest item published **today**. The upstream filter now matches the downstream
+one, so we stopped paying to fetch a decade of material and throwing 92% away.
+
+### The durable platform fact this turned up — a HARD 30-day ceiling
+
+`feed_actions.go:878`:
+
+```go
+age := time.Since(*publishedAt)
+if age > 30*24*time.Hour {   // skipped
+```
+
+and `:887` skips anything more than 1 day in the FUTURE — which is what silently
+ate the `Market Forecast 2034/2035` pages earlier.
+
+> **This kills the obvious next move before it is made.** My instinct on seeing two
+> starved sources was "widen their window to `year`". That would do **nothing** —
+> the writer discards >30 days regardless of what the provider returns. `month` is
+> not merely a good choice, it is the **only** window that is not either wasteful
+> (wider) or lossy (narrower). Checked before recommending, which is the only
+> reason it is not in this file as a wrong call.
+
+### So the two quiet sources are not mis-tuned — their TOPICS are low-cadence
+
+`web platform standards` returned **0** and `web accessibility UK` returned **2**.
+Neither is a query fault. W3C/WHATWG specifications and UK accessibility
+regulations simply do not produce much inside any 30-day window — they move
+yearly. They *looked* productive before only because they were returning WCAG 2.2
+from 2023 and UK law from 2020.
+
+**Given the hard ceiling, no window or wording fixes a low-cadence topic.** The
+only real options are to change the subject or accept a near-empty source.
+`web platform standards` is also largely redundant with `CSS and browsers`, which
+is the healthiest source we have (8 items: Safari Technology Preview 248,
+Firefox 153/154, Chrome 150) — browser *releases* are the same subject at a
+cadence that actually exists. **That is an editorial call, not a bug: raised with
+the owner rather than retuned unilaterally.**
+
+### `design industry moves` — high yield, wrong material. My third miss on this one.
+
+9 items, roughly **1** relevant. The query `design agency acquisition merger
+industry report` matches on sector-neutral business vocabulary, so it returned
+M&A news from pharma, groceries, insurance, automotive and law:
+
+```
+Layoff Tracker: Amgen lays off around 40 employees
+Will the Kroger-Giant Eagle deal face regulatory challenges?
+Creative Planning buys commercial insurance broker      <- matched "Creative"
+Law firms: The next frontier for private equity
+News Bites: Continental, Danfoss and Dana Announce New Company Mergers
+```
+
+> **This is the third time I have been wrong about this one source**, and the
+> pattern in my own errors is now the useful part. Round 1: `UK web design
+> industry` → agency ranking listicles. Round 2: `design agency acquisition merger
+> industry report` → generic cross-sector M&A. **Both times I replaced one
+> market-category phrasing with another and expected a different outcome.** The
+> terms that fail are the ones that are *sector-neutral* — "industry", "report",
+> "acquisition", "merger" describe a transaction shape, not a field. The terms that
+> work name things that exist only in our field: `CSS`, `browser`, `WCAG`,
+> `typeface`, `design system`. Two of the three successful sources are pure
+> domain nouns.
+
+Applied as round 3 on that principle — and recorded here **before** the next tick
+so the prediction is falsifiable rather than retrofitted: `brand identity design
+studio rebrand` is four design-specific nouns and no transaction vocabulary.
+**Prediction: fewer items than 9, and a higher proportion on-topic.** If it comes
+back with fewer than ~3 relevant items, the honest conclusion is that design-trade
+business news is too thin a seam for a 30-day window and the source should be
+repurposed, not tuned a fourth time.
