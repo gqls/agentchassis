@@ -503,6 +503,17 @@ var phoneContextRe = regexp.MustCompile(`(?i)(\bphone\b|\bcall\b|\btel\b|\+\d{1,
 // Label-prefixed numbers ("Band 3", "Tier 2", "Step 1") are ordinals, not claims.
 var labelPrefixRe = regexp.MustCompile(`(?i)\b(band|tier|step|phase|part|stage|level|section|chapter|question|rule|point|option|version|v)\s*$`)
 
+// A day number in a written-out date: "28 July 2026", "1 January", "3rd March".
+// The composite-token test above catches ISO dates (2026-07-28) but not dates
+// written the way British English actually writes them, which is the platform's
+// stated convention — so without this every naturally-worded date on every site
+// raises an unregistered-number finding. Noise is not harmless in a checker: a
+// scanner that always reports something is one people stop reading.
+var writtenDateRe = regexp.MustCompile(`(?i)^\s*(st|nd|rd|th)?\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b`)
+
+// The same date with the month first: "July 28, 2026".
+var monthBeforeRe = regexp.MustCompile(`(?i)(january|february|march|april|may|june|july|august|september|october|november|december)\s*$`)
+
 // Unit/measurement suffixes that mark a number as not-a-business-count.
 var unitSuffixRe = regexp.MustCompile(`(?i)^\s*(px|rem|em|vh|vw|ms|sec|seconds?|min(ute)?s?\s+read|kb|mb|gb|tb|fps|st\b|nd\b|rd\b|th\b|[-–]\s*(hour|day|week|month|year|minute|second|token|character|step|person|page)\b)`)
 
@@ -646,6 +657,18 @@ func isExcludedNumber(block string, start, end int) bool {
 	// Measurement / ordinal / duration suffixes.
 	if unitSuffixRe.MatchString(block[end:]) {
 		return true
+	}
+
+	// A day number in a written-out date. Bounded to plausible day numbers so a
+	// real business figure sitting next to a month name ("we placed 450 March
+	// orders") is still scanned.
+	if v, err := strconv.Atoi(token); err == nil && v >= 1 && v <= 31 {
+		if writtenDateRe.MatchString(block[end:]) {
+			return true
+		}
+		if monthBeforeRe.MatchString(block[:start]) {
+			return true
+		}
 	}
 
 	return false

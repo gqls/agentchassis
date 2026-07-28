@@ -173,3 +173,30 @@ func TestSeriesDoesNotBlanketSupportSmallerValues(t *testing.T) {
 		t.Fatal("a series must match exactly, even when the fact carries a gte tolerance")
 	}
 }
+
+// A date written the way British English writes it must not be read as a
+// business figure. The composite-token rule catches 2026-07-28; it cannot see
+// "28 July 2026", which is the form the platform's own convention produces.
+func TestWrittenOutDatesAreNotBusinessNumbers(t *testing.T) {
+	eb := &EvidenceBase{}
+	excluded := []string{
+		"Verified on 28 July 2026. If we ever add analytics we will say so.",
+		"The plan was sanctioned on 1 January 2025 by the court.",
+		"Published 3rd March 2024 by the regulator.",
+		"Reported July 28, 2026 in the annual accounts.",
+	}
+	for _, block := range excluded {
+		if f := eb.ScanUnregisteredNumbers([]string{block}); len(f) != 0 {
+			t.Errorf("date in %q flagged as a business number: %+v", block, f)
+		}
+	}
+}
+
+// The exclusion must not swallow a real figure that merely sits near a month.
+func TestFigureNearAMonthIsStillScanned(t *testing.T) {
+	eb := &EvidenceBase{}
+	block := "We served 450 clients in the March quarter."
+	if f := eb.ScanUnregisteredNumbers([]string{block}); len(f) == 0 {
+		t.Fatal("a real business figure next to a month name must still be scanned")
+	}
+}
