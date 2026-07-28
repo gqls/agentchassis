@@ -381,22 +381,38 @@ func processResponseClaimWithRetry(ctx context.Context, repo *StateRepository, r
 					return nil, nil // Safe to skip
 				}
 
-				// Request was claimed but NOT processed (processed_at is nil)
-				// This means a previous attempt failed after claiming
-				// We should allow re-processing by resetting to 'waiting'
-				contextLogger.Warn("CLAIM_RECOVERY: request was claimed but not processed, resetting for retry",
-					zap.String("request_id", requestID),
-					zap.String("current_status", status),
-					zap.String("my_pod", podName))
-
-				// Reset the request to 'waiting' so it can be re-claimed
-				resetErr := repo.ResetAwaitedRequestForRetry(ctx, requestID)
+				// Request was claimed but NOT processed (processed_at is nil).
+				// Two different causes share that shape, and only one may be reset:
+				//   - the claimer died between claim and process → reset and re-claim
+				//   - a duplicate delivery of this response raced a LIVE claim made
+				//     milliseconds ago → resetting steals the claim and the step's
+				//     side effects run twice (chassis_replica_scaling CS-1; the
+				//     hazard 075 deliberately left unfixed)
+				// The staleness predicate lives inside the UPDATE so the decision
+				// is atomic with the reset. A live 'processing' claim spans only
+				// parse → state save → mark complete (handleCompleteResponse marks
+				// processed BEFORE continueExecution), so 2 minutes is far beyond
+				// any live window. 'retrying'/'expired' still reset immediately —
+				// the F2 late-response path depends on that.
+				reset, resetErr := repo.ResetStaleAwaitedRequestForRetry(ctx, requestID, claimRecoveryStaleness)
 				if resetErr != nil {
 					contextLogger.Error("Failed to reset awaited request for retry",
 						zap.String("request_id", requestID),
 						zap.Error(resetErr))
 					// Continue to next retry attempt anyway
+					continue
 				}
+				if !reset {
+					contextLogger.Info("CLAIM_RECOVERY_STALENESS_HELD: live claim in progress, treating as duplicate delivery",
+						zap.String("request_id", requestID),
+						zap.String("current_status", status),
+						zap.String("my_pod", podName))
+					return nil, nil
+				}
+				contextLogger.Warn("CLAIM_RECOVERY: request was claimed but not processed, reset for retry",
+					zap.String("request_id", requestID),
+					zap.String("current_status", status),
+					zap.String("my_pod", podName))
 				// Loop will retry the claim
 				continue
 			}
@@ -3869,9 +3885,25 @@ func (r *StateRepository) MarkAwaitedRequestComplete(ctx context.Context, reques
 	return err
 }
 
-// ResetAwaitedRequestForRetry resets a claimed-but-not-processed request back to waiting
-// This allows recovery when a pod claims a request but fails before processing it
-func (r *StateRepository) ResetAwaitedRequestForRetry(ctx context.Context, requestID string) error {
+// claimRecoveryStaleness is how old a 'processing' claim must be before
+// CLAIM_RECOVERY may steal it back to 'waiting'. The live claim window covers
+// only parse → optimistic-lock state save → MarkAwaitedRequestComplete
+// (handleCompleteResponse stamps processed_at BEFORE continueExecution runs),
+// i.e. milliseconds to low seconds even under version contention — so two
+// minutes distinguishes "claimer died mid-processing" from "claimer is live
+// and this is a duplicate delivery" with a wide margin on both sides.
+const claimRecoveryStaleness = 2 * time.Minute
+
+// ResetStaleAwaitedRequestForRetry resets a claimed-but-not-processed request
+// back to 'waiting' so it can be re-claimed — UNLESS the row is a fresh
+// 'processing' claim, which means a live actor holds it and the caller is
+// looking at a duplicate delivery, not a crashed claimer. Reports whether the
+// reset happened. The freshness check is part of the UPDATE's WHERE clause,
+// never a separate read: a read-then-reset pair reintroduces exactly the race
+// this guard exists to close. Non-'processing' states (waiting, retrying,
+// expired, cancelled, error) reset unconditionally, as they always have —
+// the F2 retry driver's late-response window relies on 'retrying' doing so.
+func (r *StateRepository) ResetStaleAwaitedRequestForRetry(ctx context.Context, requestID string, staleness time.Duration) (bool, error) {
 	query := `
 		UPDATE awaited_requests
 		SET status = 'waiting',
@@ -3879,10 +3911,13 @@ func (r *StateRepository) ResetAwaitedRequestForRetry(ctx context.Context, reque
 			processing_pod = NULL
 		WHERE request_id = $1
 		  AND processed_at IS NULL
+		  AND (status <> 'processing'
+		       OR processing_started_at IS NULL
+		       OR processing_started_at < NOW() - make_interval(secs => $2))
 	`
-	result, err := r.db.ExecContext(ctx, query, requestID)
+	result, err := r.db.ExecContext(ctx, query, requestID, staleness.Seconds())
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	rowsAffected, _ := result.RowsAffected()
@@ -3890,7 +3925,7 @@ func (r *StateRepository) ResetAwaitedRequestForRetry(ctx context.Context, reque
 		zap.String("request_id", requestID),
 		zap.Int64("rows_affected", rowsAffected))
 
-	return nil
+	return rowsAffected > 0, nil
 }
 
 // AwaitedRequestExists checks if an awaited request exists (regardless of status)
