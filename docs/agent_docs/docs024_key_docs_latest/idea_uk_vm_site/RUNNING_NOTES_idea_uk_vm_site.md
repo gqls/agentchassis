@@ -3052,3 +3052,114 @@ First check of the live form matched the string `checked` twice and I briefly ha
 consent boxes. Both were the word "checked" **in prose** — "checked against what already exists".
 The inputs are clean. **A bare-word grep is not an attribute check**; the fix is to match the
 element, not the substring, which is what the follow-up did.
+
+### §X.30 — the two unexercised fixes are now PROVEN in a rendered artefact (2026-07-28, late)
+
+`ord_1785274337709242206` — a deliberate verification run, £29 standard tier, declined at the draft
+so nothing was self-charged. **Both fixes that had been sitting in the binary untested are now
+proven against a real report**, and the run was designed so they *could* fail.
+
+#### Designing the submission so the check could actually fail
+
+This is the whole point of the run, and it is the direct answer to the 07-27 wrong call (a pass
+reported from a run where the defect was structurally unreachable). Before submitting I traced each
+fix to the condition that triggers it:
+
+- **Doubled full stop** → `reportIntro(domain)` at `engine.go:1022` is the *only* call site of
+  `sentence()` on submitted text, and `domain` is the form's **`business`** field. So the business
+  description had to end in a full stop. Stored order confirms: `domain` ends `' in a dispute.'`.
+- **Score line + bars** → only render when at least one candidate scores ≥3 on *both* defensibility
+  and willingness. So `notes` deliberately named a genuinely defensible proprietary asset (a
+  photographic archive with deposit-adjudication outcomes attached).
+
+Both preconditions held, so both checks were live rather than vacuous. The verify script reports
+`UNEXERCISED` rather than `PASS` when a precondition fails — the marker is in the script, not in my
+memory of it.
+
+#### Results
+
+```
+status      : awaiting_review    text 26,264 chars    html 61,545 chars
+TEXT junction: 'ended in a dispute.\n----'      <- exactly one stop
+HTML junction: 'ended in a dispute.</p><p ...'  <- exactly one stop
+total ".." in text: 0        total ".." in html: 0
+(each out of 5)          present        "out of 5 —"  absent
+role="presentation"      42             margin:18px 0 5px  7
+```
+
+All six `[usage]` calls ended `stop=end_turn` — **not one hit `max_tokens`**, so nothing was
+truncated (016b's rule about `output_tokens == max_tokens` meaning a cut completion).
+
+#### Cost: $1.42, and the single-figure claim does not hold
+
+Computed from the run's own `[usage]` lines against the current rate card (opus-5 $5/$25 per MTok;
+sonnet-5 at the $2/$10 intro rate to 2026-08-31; cache read 0.1×, cache **write 1.25×** — the
+5-minute TTL, which is what `engine.go:227` uses, `{"type":"ephemeral"}` with no `ttl`):
+
+```
+opus calls   $1.3120     sonnet calls $0.1125     TOTAL $1.4245
+                                    from 2026-09-01: $1.4807
+output 45,558 tok · fresh input 18,927 · cache created 43,155 · cache read 179,847
+```
+
+**That is 16% above the $1.23 the handoff states, and the variance is structural, not noise.**
+Output tokens are ~92% of spend, and this report is 26,264 chars against the 07-27 report's 13,227
+— roughly double the artefact, roughly proportional cost. A report that clears the bar and scores
+candidates costs materially more than one that does not. **Quote a range, or quote it per report
+with the length attached; a single per-report figure will keep being wrong.**
+
+> **CORRECTION to the handoff's cost line.** It reads "**£1.23 per report** ($1.23; …)", which
+> equates a pound and a dollar. The measurement is in **USD** — the rate card is dollars. The
+> margin conclusion survives either reading (still low single-digit % of £29), so nothing downstream
+> is wrong, but the unit is.
+
+#### The specimen cannot be refreshed from this run — provenance, not formatting
+
+Handoff open-item 3 says to refresh the specimen "once current formatting has run on a real order".
+Current formatting has now run. **It still cannot be used**, and the blocker was not visible from
+the item's own wording. `sql/p4_24` publishes this claim on the page:
+
+> "**This is a real report, reproduced in full.** It was bought and delivered on 26 July 2026 for
+> £29. Nothing has been added, removed or reworded — the only changes are two typographical
+> corrections (a doubled full stop and a mis-rendered score line) …"
+
+This run was **declined, not bought**. Swapping its output in would make a published provenance
+sentence false. Refreshing the specimen needs *either* a genuine purchase *or* a rewritten
+provenance line — an owner call, not an engineering one. Left untouched.
+
+Note the pleasing consequence if it ever is refreshed from a bought report: the two hand-made
+typographical corrections could be **dropped**, because both faults are now fixed at source. The
+caveat exists only because the 26 July report predated the fixes.
+
+#### Handoff item 4 (`row()` glues label to value) is NOT a defect — closing it
+
+The item observes that `row()` in the idea cards renders `<span bold>label</span> value` inline,
+"the way `arow()` did before 28 July". It is a deliberate difference, and the code already says so:
+
+- `arow()` values are **several hundred words** of prose (`engine.go:793-796`) — hence the 28 July
+  change to a block subheading.
+- `row()` values are `findings` and `cheapest_test`, both specced at **"1-2 plain sentences"**
+  (`prompts.go:204`, `prompts.go:253`).
+- `engine.go:798-800` states the rule explicitly: the trailing colon "reads as a label when the
+  value follows on the same line, and as a typo when it does not."
+
+Making `row()` match `arow()` would put a block subheading above a single sentence. **No change.**
+
+#### Missteps this session
+
+- **I miscounted the orders and nearly reported data loss.** `json.load(...)` then
+  `list(d.values())` gave "3 orders, all status `None`" — because `orders.json` is a
+  `{orders, events, subs}` **wrapper**, so I had counted its three top-level keys. The absurd shape
+  (3, and every status null) is what caught it; a plausible-but-wrong number would not have.
+  **Check the container's shape before counting it** — `type(d).__name__` and `list(d.keys())` is
+  two seconds.
+- **`pkill -f "p4_24_specimen"` killed its own shell.** The pattern matched the `bash -c` command
+  line that contained it, so the poll never started and the task exited 144 with an empty log. The
+  engine was server-side and unaffected. **A `pkill -f` pattern matches the killing command too.**
+- **A grep alternation hung for 120s** on the 16KB single-line `p4_24` SQL (catastrophic
+  backtracking on `[^"]\{0,200\}` alternatives). Replaced with a loop of plain fixed-string counts.
+- **Wording tension found between two docs, resolved against the record**: §X.29 calls the
+  outstanding `awaiting_payment` order "the outstanding real order", while the START HERE block and
+  `WRONG_CALLS.md` record the owner correcting exactly that — Will was a test. §X.29's phrase means
+  "the pre-existing order", not "a genuine customer". No factual conflict, but the looser phrase is
+  the one a future reader would quote. Flagging rather than editing §X.29, which is append-only.

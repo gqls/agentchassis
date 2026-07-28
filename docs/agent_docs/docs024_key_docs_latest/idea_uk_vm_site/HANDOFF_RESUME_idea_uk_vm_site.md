@@ -13,10 +13,12 @@
 > specimen report**, and a funnel where every link goes where its text says. Box `116.203.204.115`,
 > systemd `idea`, orders in `/var/lib/idea/orders.json` (a FILE, no DB), capacity 1/5.
 >
-> **75 orders. Genuine external buyers: still ZERO.** One order on 28 July looked external and was a
+> **76 orders (60 spam `requested` / 6 declined / 5 expired / 4 delivered / 1 awaiting_payment).
+> Genuine external buyers: still ZERO.** One order on 28 July looked external and was a
 > test — I asserted "our first customer" from an unfamiliar IP and user-agent and was wrong (see
 > `WRONG_CALLS.md`, and §X.27's struck-through heading). Treat any claim of demand with suspicion
-> until money has moved from someone who is not us.
+> until money has moved from someone who is not us. (The 76th is the 07-28 late verification run,
+> named `idea.uk verification run (not a customer)` in the record so nobody has to infer it.)
 >
 > ### Shipped 2026-07-28 — ten binary deploys, eleven DB changes, all verified live
 >
@@ -33,9 +35,14 @@
 > | "Couldn't I just ask an AI myself?" | live at 66% down |
 > | **The £8 example place** | **Stripe asked directly: `amount_total` 800 pence, not 2900** |
 >
-> **COST IS NOW KNOWN AND SELF-MEASURING: £1.23 per report** ($1.23; rises to ~$1.32 after
-> **2026-08-31** when Sonnet 5's introductory rate ends). ~3% of £29. Every future order records its
-> own cost — `journalctl -u idea | grep '\[usage\]'`.
+> ~~**COST IS NOW KNOWN AND SELF-MEASURING: £1.23 per report** ($1.23; rises to ~$1.32 after
+> **2026-08-31**…). ~3% of £29.~~ **CORRECTED 2026-07-28 late (NOTES §X.30) — two errors.**
+> **(a) The unit is USD, not GBP** — that line equates a pound and a dollar. **(b) It is a RANGE,
+> not a figure: a second measured run came to $1.42** ($1.48 after 2026-08-31). Output tokens are
+> ~92% of spend, so cost tracks report *length* — 26,264 chars here vs 13,227 on 07-27, and roughly
+> double the cost. **Quote "~$1.20–$1.45 depending on length", never one number.** Still low
+> single-digit % of £29, so no business conclusion changes. Every order records its own cost —
+> `journalctl -u idea | grep '\[usage\]'`.
 >
 > ### Verify the box in one go
 >
@@ -68,13 +75,29 @@
 > ### Open, with my read on priority
 >
 > 1. **Demand.** The only question that building cannot answer. → the next thread.
-> 2. **The doubled-full-stop fix is UNEXERCISED after four runs.** It is in the binary and covered by
->    tests; it needs a submission whose text *ends in a full stop*. Do not report it as proven.
-> 3. **Refresh the specimen** once current formatting has run on a real order (owner: "we can refresh
->    it at a later date").
-> 4. **`row()` in the idea cards** still glues label to value the way `arow()` did before 28 July.
+> 2. ~~**The doubled-full-stop fix is UNEXERCISED after four runs.**~~ **DONE 2026-07-28 late —
+>    PROVEN in a rendered artefact** (`ord_1785274337709242206`, NOTES §X.30). Zero `..` in either
+>    renderer, and the check was *exercised*: `business` ended in a full stop, which is the only
+>    trigger (`reportIntro(domain)`, `engine.go:1022`). The score line and bars were proven in the
+>    same run — an idea cleared the bar, so `(each out of 5)` and 42 nested-table bars rendered.
+> 3. **Refresh the specimen — BLOCKED ON PROVENANCE, NOT FORMATTING. Needs an owner call.**
+>    Current formatting has now run, so the stated precondition is met. But `sql/p4_24` publishes
+>    *"This is a real report… **bought and delivered** on 26 July 2026 for £29"*, and the 07-28 run
+>    was **declined, not bought** — swapping it in makes a live provenance claim false. Two honest
+>    routes: wait for a genuine purchase, or reword the provenance line. **Prize either way:** the
+>    page's admission of two hand-made typographical corrections can be *dropped*, because both
+>    faults are now fixed at source.
+> 4. ~~**`row()` in the idea cards** still glues label to value…~~ **CLOSED 2026-07-28 — not a
+>    defect.** `arow()` carries several-hundred-word prose (`engine.go:793-796`); `row()` carries
+>    `findings`/`cheapest_test`, both specced at "1-2 plain sentences" (`prompts.go:204,253`).
+>    `engine.go:798-800` already states the rule. Matching them would put a block subheading above a
+>    single sentence. **Do not "fix" this.**
 > 5. Two SES DNS records are **DONE** — `bounce.leopardess.uk` MX + TXT both resolve. The earlier
 >    SERVFAIL was a broken sub-zone, not propagation.
+> 6. **`ord_1785236456008987049` (Will) still holds a slot** — owner-confirmed a test, will not pay.
+>    Auto-expires ~**4 August** on `STALE_PAYMENT_DAYS=7`; decline it sooner if a slot is wanted.
+>    NB §X.29 calls it "the outstanding real order", meaning *pre-existing*, not *a genuine
+>    customer* — `WRONG_CALLS.md` is authoritative here.
 >
 > ### Landmines earned on 2026-07-28 — read before touching the chassis side
 >

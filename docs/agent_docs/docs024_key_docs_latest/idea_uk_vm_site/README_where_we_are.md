@@ -1632,3 +1632,63 @@ same advice away free, which is itself proof nobody can charge for it.
 cost on every call instead of only sometimes. That would turn "what does a report cost" from
 something I have to go and measure into a number that's simply there on every real customer order.
 It needs another deployment, so I haven't done it — say the word.
+
+---
+
+## 28 July, late evening — the two loose ends are tied off, and one of them turned out not to exist
+
+You asked for one engine run to settle the two fixes that were in the code but had never actually
+been seen working. That's done. It cost $1.42 and took thirteen minutes.
+
+**Both fixes work, and I made sure the test could fail.** This matters more than the result,
+because on 27 July I nearly reported a pass from a run where the bug I was checking for *couldn't
+have appeared no matter what the code did*. So this time I went and found the exact condition that
+sets each fault off, and built the submission to meet it. The doubled full stop only happens when
+the description you type ends in a full stop, so I made sure it did. The broken score line only
+appears when at least one idea is good enough to be scored, so I submitted an idea strong enough to
+clear that bar. Both faults had every chance to show up. Neither did. There is not a single doubled
+full stop anywhere in the report, in either the plain-text or the email version.
+
+**The report itself came out at 26,000 words of text and 61,000 characters of HTML** — about double
+the one from 26 July. That's the interesting bit, because it explains the cost.
+
+**On cost: the "£1.23 a report" figure is too tidy, and I'd stop quoting it as one number.** This
+run came to $1.42. Not because anything went wrong — because the report was twice as long. Nearly
+all the money goes on the words the model writes, so a long report costs roughly double a short
+one. A report where an idea clears the bar and gets scored will always cost more than one where
+nothing does. It's still a small fraction of £29 either way, so the business case doesn't move at
+all — but "what does a report cost" honestly answers "somewhere around $1.20 to $1.45, depending on
+how much there is to say." Also, and this is pedantic but it's in the permanent record: the handoff
+writes that figure as "£1.23" and then "$1.23" in brackets, as though a pound and a dollar were the
+same thing. They aren't. The measurement is in dollars.
+
+**The specimen page can't be refreshed yet, and the reason isn't what the to-do list said.** The
+list said to refresh it once a report had run through the current formatting. One now has. But I
+went and read what the specimen page actually claims about itself, and it says in bold: *"This is a
+real report, reproduced in full. It was bought and delivered on 26 July 2026 for £29."* Today's run
+was declined, not bought — I didn't charge us for it. So putting today's report on that page would
+make a published sentence untrue. That's your call to make, not mine, and there are two honest ways
+to do it: wait for someone to actually buy one, or reword the page to say what the report really
+is. I've left it alone.
+
+There's a small prize waiting whichever way you go. The specimen page currently has to admit that
+two typographical faults were corrected by hand before publishing. Both of those faults are now
+fixed properly in the code — so the next specimen, whenever it comes, won't need that caveat at all.
+
+**One item on the list turned out not to be a fault.** The list flagged that the idea cards glue a
+label onto its value on the same line, where the assessment section was changed on 28 July to put
+the label on its own line above. But those two places hold different things: the assessment answers
+are several hundred words each, which is why they needed a heading to break up the wall. The card
+values are one or two sentences — specified that way in the instructions we give the model. A
+heading above a single sentence would look wrong, and there's a comment in the code that already
+says exactly this. So I've closed it rather than "fixing" it into something worse.
+
+**And a small warning about my own working.** My first count of the orders file said we had three
+orders and that none of them had a status — which would have meant we'd lost seventy-odd records.
+We hadn't. I'd counted the file's three top-level sections instead of the orders inside them. What
+saved me was that the answer was *absurd* rather than merely wrong: three orders, no statuses. If
+I'd made the same mistake and got a believable number back, I'd have reported it. Worth remembering
+when I hand you a figure.
+
+The box is healthy, 76 orders, the queue is back to one slot in use, and that one slot is Will's
+test from this morning, which will clear itself on 4 August.
