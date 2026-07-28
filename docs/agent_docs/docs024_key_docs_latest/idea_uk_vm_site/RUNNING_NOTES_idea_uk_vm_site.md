@@ -2748,3 +2748,114 @@ rather than inventing a destination.
 up a live revenue leak that no scanner had reported, because *every link on the page returned 200*.
 `/contact.html` is a real page. **A dead CTA and a wrong CTA look identical to a link checker** —
 only reading where the link *goes against what its text promises* finds this class.
+
+### §X.27 — the first EXTERNAL customer, a complete cost figure at last, and two fixes to the buying experience (2026-07-28)
+
+#### 1. Someone who is not us bought a report
+
+`ord_1785236456008987049` — **Will**, Android, an IP that is not the owner's, **11:00:56 on 28 July**,
+now `awaiting_payment` with a pay link sent 11:23:32. **The first genuine external prospect this
+product has ever had.** Found by accident: I was checking the order count as a control while
+reproducing an unrelated bug, saw 73→74, and did not assume it was my own test.
+
+> **This does not overturn §X.26's traffic finding** — that measured 18–28 July up to that morning
+> and stands. It adds one real data point to it, which is exactly one more than we had.
+
+Timeline: request 11:00:56 → operator confirmed 11:09:54 → **engine 10 min 59 s** → draft
+11:20:53 → approved, pay link 11:23:32. Report **20,305 chars** — half as long again as any before it.
+
+#### 2. The complete cost of a report: **$1.23**
+
+The first order after the unconditional-logging fix, so for the first time **all six calls logged**:
+
+| # | model | created | read | in | out | cost |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | opus-5 | 26,730 | 81,934 | 1,190 | 8,464 | 0.426 |
+| 2 | opus-5 | 0 | 0 | 771 | 422 | 0.014 |
+| 3 | opus-5 | 0 | 0 | 2,266 | 2,982 | 0.086 |
+| 4 | sonnet-5 | 0 | 0 | 4,138 | 13,791 | 0.146 |
+| 5 | opus-5 | 19,908 | 97,421 | 2,234 | 13,581 | 0.524 |
+| 6 | sonnet-5 | 0 | 0 | 4,290 | 2,478 | 0.033 |
+| | | | | | **total** | **$1.23** |
+
+**Four of six show `created=0 read=0`.** Under the pre-fix binary those four cached nothing and
+therefore logged nothing — I would have measured 2 of 6 *again*. The fix earned itself on its first
+real order. **After 2026-08-31**, when Sonnet 5's introductory rate ends, the identical report costs
+**$1.32**. Against £29 that is ~3%; margin is settled.
+
+Yesterday's `[INFERRED]` bound was "under ~$1.30". It came in at $1.23 — the inference held, and it
+is worth noting *why* it held: it reasoned from which calls were expensive (Opus at `xhigh`, 32k
+caps) rather than scaling the measured figure by the number of missing calls.
+
+#### 3. The copy fixes — one PROVEN, one still not, stated exactly
+
+Yesterday I nearly reported a false pass here, so:
+
+- **Score line: PROVEN.** This report's ideas *cleared the bar*, so the score block actually
+  rendered. `(each out of 5)` present, `out of 5 —` absent. The fix exercised on its failing branch
+  in a real customer's artefact.
+- **Doubled full stop: STILL NOT EXERCISED.** Will typed `"See below"`, which does not end in a
+  stop, so the doubling again had nothing to double. What *is* visible is the sibling branch
+  working — the report reads `"See below."` with a stop `sentence()` added. Good evidence the helper
+  is live; **not** proof of the defect. Third run in a row that has failed to exercise it.
+- **Three-paragraph intro: live** in a real customer's report (new opener present, old absent).
+
+#### 4. A live UX signal, free: Will worked around the form
+
+He put **`"See below"`** in the idea field and the real content elsewhere. The form's shape did not
+fit what he wanted to say. That is the kind of thing no amount of internal review produces, and it
+arrived with the first real user.
+
+#### 5. Score bars in the HTML report (8th deploy)
+
+Five scores were one dense line of numbers; now labelled bars. Built from **nested tables with
+percentage widths and a background colour on a `<td>`** — the only charting technique that survives
+the mail clients. **SVG does not render in Gmail or Outlook**, and a generated chart image is blocked
+by default in most clients; either would show the reader nothing.
+
+The numbers stay beside every bar: a client that flattens styling still leaves "hard to copy 4/5"
+readable. **The bar is an enhancement, never the only carrier of the value** — which is the general
+rule for anything drawn in an email. Two traps handled because there is no console inside an email
+and no way to fix one already delivered: a **zero-width `<td>` is given a minimum width by several
+clients** (so a score of nought would draw a visible bar — the empty side is omitted instead), and
+the spacer cell needs `font-size:0;line-height:0` or its line box makes the row taller than the bar.
+Scores clamped to range: a model returning 6/5 would draw wider than its track.
+
+Plain text deliberately unchanged — an ASCII bar misaligns in the proportional font most clients use
+for `text/plain`.
+
+#### 6. The error page: owner-reported, reproduced, and worse than "not designed"
+
+> Owner: *"they typed too much into the text box and it showed an error page but that error page
+> wasn't designed."*
+
+Reproduced live: `HTTP/2 400 · content-type: text/plain · 52 bytes`. **The form is a NATIVE POST** —
+its JS only stamps the timing field — so a rejection **navigates the browser away from the form**.
+The visitor got an unstyled line, no clue which field, and their typing apparently gone. It hits
+whoever wrote the most: the wrong population to lose at the last step before a £29 purchase.
+
+**Found while fixing it — a second instance:** the rate-limit path wrote a bare HTML fragment
+straight to the wire with no doctype or stylesheet, so it rendered unstyled the same way. Same fix.
+
+Also switched the length checks from **bytes to runes**. A byte count silently gave a shorter
+allowance to anyone writing with accents or non-Latin script, and the number quoted back would not
+have matched what they could see on screen. **The direction only ever accepts more, so it cannot
+newly reject a real person** — which is what made it safe to change alongside a bug fix.
+
+**Verified live by inducing it again:** `text/html`, 3,081 bytes, styled, names the field
+("the extra notes"), gives both counts and the shortfall (5,200 / 4,000 / 1,200), carries a
+back-to-the-filled-in-form control, and creates no order.
+
+`p4_22` then put `maxlength` on all five real fields so it cannot happen at all — checked first that
+the component is **forked to idea.uk (1 site, 1 instance)**, which is what makes a direct template
+edit safe. Limits mirror the Go and are stated as one list, because divergence is silent in both
+directions. The honeypot and hidden timing field are untouched: capping the honeypot would tell a
+bot something.
+
+#### 7. DNS complete
+
+Both records now resolve on both authoritative servers and publicly:
+`MX 10 feedback-smtp.eu-west-2.amazonses.com` and `TXT "v=spf1 include:amazonses.com ~all"`. The
+SERVFAIL sub-zone is repaired. **Owner asked whether to quote the TXT value: no — enter it bare.**
+The quotes `dig` prints are its display convention for a TXT character-string, not data; a panel
+that wants them adds them itself, and typing them into one that does not gets a literal `"` stored.
