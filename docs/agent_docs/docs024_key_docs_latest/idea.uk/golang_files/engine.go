@@ -789,11 +789,24 @@ func renderHTML(domain, audience, wtp string, assess assessment, advancing, drop
 		b.WriteString(`</ul>`)
 	}
 	// ── Part 1: the submitted idea, assessed ────────────────────────────────
+	// The assessment is the densest part of the report — seven fields of model
+	// prose, several hundred words each. They used to render as label-and-value
+	// inside ONE <p>, so each arrived as a wall with a bold run glued to the front
+	// and no visual entry point. Now the label is a subheading in its own right
+	// and the prose sits beneath it, split on any blank lines the model wrote.
+	//
+	// The trailing colon is dropped for the HTML heading: it reads as a label when
+	// the value follows on the same line, and as a typo when it does not. The text
+	// renderer keeps it, because there the value genuinely does follow.
 	arow := func(label, val string) {
-		if val == "" {
+		if strings.TrimSpace(val) == "" {
 			return
 		}
-		fmt.Fprintf(&b, `<p style="margin:0 0 10px;color:%s"><span style="color:%s;font-weight:bold">%s</span> %s</p>`, slate, navy, esc(label), esc(val))
+		fmt.Fprintf(&b, `<p style="margin:18px 0 5px;color:%s;font-weight:bold;font-size:15px">%s</p>`,
+			navy, esc(strings.TrimSuffix(strings.TrimSpace(label), ":")))
+		for _, para := range paragraphs(val) {
+			fmt.Fprintf(&b, `<p style="margin:0 0 9px;color:%s">%s</p>`, slate, esc(para))
+		}
 	}
 	sect("Your idea, assessed")
 	if assess.Reading != "" {
@@ -1028,7 +1041,28 @@ func reportIntro(domain string) string {
 // they cannot drift apart — the previous defect class on this file was two
 // renderers carrying the same literal text separately.
 func introParagraphs(domain string) []string {
-	return strings.Split(reportIntro(domain), "\n\n")
+	return paragraphs(reportIntro(domain))
+}
+
+// paragraphs splits model prose on blank lines, dropping empties. A field that
+// contains no blank line comes back as a single paragraph, so callers can always
+// range over the result without special-casing.
+//
+// Deliberately NOT sentence-splitting. Breaking on ". " would cut "e.g.", "No. 4",
+// "£1,200 p.a." and every abbreviation the model writes, and a report that
+// fragments mid-sentence reads worse than one dense paragraph. Blank lines are
+// the model's own structure; we honour it and add none.
+func paragraphs(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, "\n\n") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return []string{strings.TrimSpace(s)}
+	}
+	return out
 }
 
 // reportContact is the address the report tells the reader to write to.
@@ -1121,10 +1155,19 @@ func render(domain, audience, wtp string, assess assessment, advancing, dropped,
 			"site are the right next step, and the rest of this report looks at directions\n" +
 			"worth considering around it.\n")
 	} else {
+		// Blank line BETWEEN entries, not just a newline: without it the seven
+		// fields run together into one block in a plain-text client, which is the
+		// same wall the HTML side had. The label keeps its colon here because the
+		// value really does follow it.
 		arow := func(label, val string) {
-			if val != "" {
-				fmt.Fprintf(&b, "%s\n   %s\n", label, val)
+			if strings.TrimSpace(val) == "" {
+				return
 			}
+			fmt.Fprintf(&b, "%s\n", label)
+			for _, para := range paragraphs(val) {
+				fmt.Fprintf(&b, "   %s\n", para)
+			}
+			b.WriteString("\n")
 		}
 		arow("The problem, and the evidence people have it:", assess.Problem)
 		arow("Signs of real demand:", assess.DemandEvidence)
