@@ -391,3 +391,20 @@ fix being live, because its own §"How to verify a fix" requires a two-column ch
 collection has been off since March. Closing on a pod-grep would assert a
 discriminating check passed when it was never executed. The blocker for `vetcomparison`
 is nevertheless lifted, and that is written into the bug file for them.
+
+### Misstep 5 — a pathspec commit half-completed the rename
+
+`git mv` staged both sides of 101's move, but my commit pathspec named only
+`bugs_closed/101…` and not `bugs_open/101…`. The add side committed, the delete side
+stayed staged, and **101 existed in BOTH directories at HEAD** — exactly the ambiguity
+the open/closed split exists to prevent, since `/bugs_open/` is meant to answer "what
+is biting prod right now".
+
+Caught by re-reading `git status` after committing, not by any hook. The cause is the
+same property that makes pathspec commits *safe*: they silently omit whatever the
+pathspec does not name. Safety against other sessions' staged work and silent omission
+of your own are one behaviour.
+
+> **The check:** after `git mv` + a pathspec commit, name **both** paths, then confirm
+> with `git ls-files bugs_open/ | grep -c <n>` and the same for `bugs_closed/` —
+> expect `0` and `1`. Fixed in `7de1757fa`.
