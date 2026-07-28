@@ -30,7 +30,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | read the code before asserting a mechanism | 9 |
 | **read the CALLEE's logs before diagnosing the CALLER's timeout** | **1** |
 | **attach the query to a load-bearing absence claim — "checked" without the check text is a claim about diligence** | **1** |
-| **read the CONTRACT a thing plugs into, not just its logic** | **2** |
+| **read the CONTRACT a thing plugs into, not just its logic** — *the council-submission case AUTOMATED 2026-07-28: `097` now type-checks `operation`/`grounded_in`/`risks` client-side* | **3** |
 | **name the LAYERS a claim spans, and touch each one** | **3** |
 | wait / query again before calling an absence a failure | 9 |
 | **test against the ARTEFACT, never against a fixture you wrote to match your assumption about it — a fixture named after real data is not real data** | **1** |
