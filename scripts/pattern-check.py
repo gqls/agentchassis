@@ -510,6 +510,154 @@ def check_truncation_without_reader(files, ref, findings):
 
 
 
+# Surfaces a document can PROPOSE into existence: a binary, an image, a package.
+# Deliberately only three, and deliberately only ones a filename can settle.
+SURFACE_CMD = re.compile(r"\bcmd/([a-z0-9][a-z0-9._-]{1,40})")
+SURFACE_DOCKERFILE = re.compile(r"\b([a-z0-9][a-z0-9._-]{1,40})\.dockerfile\b")
+SURFACE_PKG = re.compile(r"\b(internal|platform|pkg)/([a-z0-9][a-z0-9._-]{1,40})/")
+# How far back counts as "arrived after you last looked".
+SURFACE_RECENT = "14 days ago"
+# Repo top-level names. A doc enumerating the review scope writes "platform/,
+# internal/, pkg/" and the package regex reads the second as a child of the first.
+SURFACE_TOPLEVEL = {"internal", "platform", "pkg", "cmd", "docs", "scripts", "build"}
+
+
+def _tree_names(prefix, ref=None):
+    """Immediate child names under `prefix`, as of the commit under test."""
+    rev = ref[1] if ref else "HEAD"
+    out = sh("git", "ls-tree", "--name-only", f"{rev}:{prefix}")
+    return {n.rstrip("/") for n in out.splitlines() if n.strip()}
+
+
+def _recent_additions(prefix, ref=None):
+    """Names first added under `prefix` in the recent window — one git call.
+
+    These are the whole point: the failure this check exists for is a peer that
+    arrived AFTER the author's prior-art search, so the peer list must say which
+    ones are new rather than presenting a flat alphabetical wall.
+
+    In audit mode the window is anchored to the AUDITED COMMIT's own date, not to
+    today — otherwise auditing a commit from months ago labels half the tree "new",
+    which is exactly the kind of confidently-wrong annotation this file exists to
+    avoid producing.
+    """
+    rev = ref[1] if ref else "HEAD"
+    since = SURFACE_RECENT
+    if ref:
+        stamp = sh("git", "log", "-1", "--format=%cI", rev).strip()
+        if stamp:
+            since = f"{stamp.split('T')[0]} -14 days"
+    out = sh("git", "log", rev, f"--since={since}", "--diff-filter=A",
+             "--name-only", "--format=", "--", prefix)
+    names = set()
+    for line in out.splitlines():
+        rest = line.strip()[len(prefix):].lstrip("/")
+        if rest:
+            names.add(rest.split("/")[0])
+    return names
+
+
+def _peer_list(prefix, ref=None, limit=8):
+    """'a, b (new), c …' — new-in-window first, then the rest, capped."""
+    peers = _tree_names(prefix, ref)
+    if not peers:
+        return ""
+    recent = _recent_additions(prefix, ref) & peers
+    ordered = sorted(recent) + sorted(peers - recent)
+    shown = [f"{BOLD}{p}{RESET} (new)" if p in recent else p for p in ordered[:limit]]
+    more = len(ordered) - len(shown)
+    return ", ".join(shown) + (f" … +{more} more" if more > 0 else "")
+
+
+def check_new_capability_surface(files, ref, findings):
+    """A DOCUMENT that proposes a binary, image or package which does not exist.
+
+    THE INCIDENT (2026-07-27, WRONG_CALLS). A design doc committed 2026-07-24
+    specified a new service `cmd/gripper-intake/` on the island VM. `cmd/tools-api`
+    shipped to that same VM on 07-25 already doing all of it, multi-tool and
+    multi-site. Caught on 07-26 by the OWNER asking an integration question. No
+    mechanism caught it, and none could: the decision lived in markdown, and
+    `097_TRIGGER_council_review_v1.sh:53` refuses docs client-side
+    (`SCOPE_RE='^(platform|internal|pkg)/'`) — correctly, on cost grounds, since 72
+    DESIGN/PLAN/SPEC docs were created in one month.
+
+    WHY A GREP AND NOT A SEAT. The author's prior-art search on the 24th was
+    exhaustive and CORRECT — tools-api did not exist that day. The failure class is
+    a fact that was true at review time and false at build time. Every council seat
+    is a one-shot evaluation against a snapshot; nothing re-validates. This check is
+    free and idempotent, so it re-runs on every later commit that touches the doc —
+    and on 07-25 and 07-26 it would have printed `tools-api` as a peer, newly
+    arrived. That repetition is the entire value, not the first fire.
+
+    MEASURED BEFORE INCLUSION, per this file's own bar — and re-measured against
+    THIS predicate rather than carried over. Over the last 1,500 commits:
+    **20 fires, 1.33%**, inside the accepted band (SUMMARY 2.0%, twin ~2%, README
+    0.7%). An earlier draft measured 0.67%, but that was a cmd/-only predicate; the
+    dockerfile and package clauses roughly double it, so the older figure does not
+    describe what actually ships here.
+
+    Precision, by inspection of the non-incident fires: `cmd/webdesignport`,
+    `tools-api.dockerfile`, `internal/tools-api` and `cmd/assembler` were all genuine
+    proposals-before-existence (the first three were subsequently built; the fourth
+    never was, which is itself worth surfacing). One false-positive CLASS was found
+    and removed — a doc enumerating the review scope writes "platform/, internal/,
+    pkg/" and the package regex read the second as a child of the first; hence
+    SURFACE_TOPLEVEL. Seven of the twenty fires are this incident's own write-up
+    naming the path it tells you NOT to build, which is correct but will not recur.
+
+    A whole-TREE scan is a different and unusable predicate: ~190 docs fire, almost
+    all archived copies naming the long-retired `cmd/bundle`. Staged ADDED lines only.
+
+    DELIBERATELY NOT CHECKED: new compose services (compose files live under docs/,
+    and a service added inside an existing file is invisible to --name-only) and new
+    route prefixes (gin, gorilla and stdlib idioms are all live in this tree at once).
+    Both were dropped as unwritable rather than approximated.
+    """
+    docs = [f for f in files if f.endswith(".md")]
+    if not docs:
+        return
+
+    for path in docs:
+        added = "\n".join(l for l in raw_diff(path, ref).splitlines()
+                          if l.startswith("+") and not l.startswith("+++"))
+        if not added:
+            continue
+
+        # Prose punctuation rides along with a path ("build `cmd/foo`." → "foo.").
+        # Strip it, or the check reports a surface nobody proposed.
+        def _clean(n):
+            return n.strip("._-")
+
+        proposed = []  # (surface, prefix_for_peers)
+        for name in {_clean(n) for n in SURFACE_CMD.findall(added)}:
+            if name and name not in _tree_names("cmd", ref):
+                proposed.append((f"cmd/{name}/", "cmd"))
+        for name in {_clean(n) for n in SURFACE_DOCKERFILE.findall(added)}:
+            if name and f"{name}.dockerfile" not in _tree_names("build/docker/backend", ref):
+                proposed.append((f"{name}.dockerfile", "build/docker/backend"))
+        for top, name in {(t, _clean(n)) for t, n in SURFACE_PKG.findall(added)}:
+            # "platform/internal/pkg" in prose enumerating the review scope is not a
+            # proposal — measured false positive, 2 of 6 non-incident fires.
+            if name in SURFACE_TOPLEVEL:
+                continue
+            if name and name not in _tree_names(top, ref):
+                proposed.append((f"{top}/{name}/", top))
+
+        for surface, prefix in sorted(set(proposed)):
+            peers = _peer_list(prefix, ref)
+            findings.append((
+                "new-capability-surface", path,
+                f"proposes {BOLD}{surface}{RESET}, which does not exist",
+                f"existing {prefix}/: {peers or '(none)'}\n"
+                "     If one of these already does this, say in the doc why it does not — "
+                "a second copy of a service, image or package is the shape that forked the "
+                "VM estate. Peers marked (new) landed in the last fortnight and may postdate "
+                "your prior-art search. Renaming something, or naming a path you have "
+                "deliberately decided AGAINST, fires this too; that is expected and it never "
+                "blocks.",
+            ))
+
+
 # A log sink: anything that writes to stdout/stderr or a logger.
 LOG_SINK = re.compile(
     r"\b(?:log\.(?:Printf|Println|Print|Fatalf|Fatal)"
@@ -603,7 +751,8 @@ def main():
     findings = []
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
                   check_unguarded_migration_insert, check_append_only_docs,
-                  check_truncation_without_reader, check_logged_model_output):
+                  check_truncation_without_reader, check_logged_model_output,
+                  check_new_capability_surface):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit
