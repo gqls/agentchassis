@@ -129,3 +129,26 @@ works, and it will pass whether or not the fix is present.
   shipped, the bucket disagrees, and nothing compares them.
 - `bugs_open/116` (the link checks have never run) is why this class survives: there
   is no post-deploy assertion that what is live matches what was built.
+
+---
+
+### CONTRIBUTED 2026-07-28 ~11:30 (work-item parallelisation thread) — a SECOND concurrent-writer mechanism on gqls/sites, caught in a controlled burst
+
+Five simultaneous `page-rerender` runs (vonc.com, distinct pages) each ended
+in a `git_commit` to gqls/sites. Four deployed; the fifth got a prompt,
+explicit failure from the git-adapter:
+
+    failed to update ref for branch "master": github API request failed with
+    status: 422 Unprocessable Entity - {"message":"Update is not a fast forward"}
+
+So this file's mechanism (a HUMAN-side `git pull` merge breaking the deploy
+diff) has a machine-side sibling: the git-adapter's own concurrent commits
+race read-base→update-ref at the GitHub API, and the loser is refused. Today
+the chassis processed work strictly serially, so the race was nearly
+unreachable; the worker pool (chassis_replica_scaling CS-2, live 2026-07-28)
+makes concurrent same-repo commits ROUTINE. The class is now: gqls/sites has
+multiple concurrent writers and no serialisation anywhere — one fix shape
+(per-repo commit serialisation or 422-retry-with-rebase in the git-adapter)
+would close both the machine race and narrow this file's window. Evidence
+corr: `6aedced7-490d-466a-ba5e-163616bdce45`, 11:26:28Z. Not filed as a new
+number — same repo, same missing serialisation, one account.
