@@ -660,3 +660,90 @@ value, because it produces confident disagreement rather than an error.
 `086_experience_loop`. Verified before continuing: `087` branched from `086` at `b82b3d8b4`, which
 is *after* every commit in this workstream, so the whole chain is reachable and nothing was lost.
 Forward-only holds — no reset was needed and none was made.
+
+---
+
+## 2026-07-28c — the first run against a real page, and what it corrected
+
+Ran the whole chain locally against **vonc.com/provocations/index.html** — the page CC-001 was
+harvested from — before the actions are deployed: read the criteria **as stored in the register**,
+substitute real selectors read off the served page, fetch, evaluate with the same Tier 2 evaluator
+tool acceptance uses. It found four things, three of them mine.
+
+**The honest final result**, after the corrections below:
+
+```
+HELD BACK (4, each with its reason)
+  feed_loads                  deferred — asset_loads only matches the path as TEXT in the page HTML
+  rows_rendered               tier 4  — rows are cloned client-side; Tier 2 sees only the template
+  no_dead_row_hrefs           deferred — no attribute assertion exists
+  template_row_not_a_control  deferred — same gap
+EXECUTED (1)
+  list_exists                 PASS — anchor .provocations-archive__list present
+VERDICT: verified
+```
+
+**Of this entry's five clauses, exactly one is checkable today against that page.** It passes.
+That is a thin verification and the result says so, which is the point: `verified` now arrives
+with its coverage attached rather than as a bare word.
+
+### 1. Deferral did not bind the consumer — the sharpest one
+
+`feed_loads` is recorded **deferred**, and the consumer **ran it anyway and reported a FAILURE**.
+The first verdict of the register's life was `broken`, on a page that is fine.
+
+> **A correct page called broken by a check we had already written down as impossible.** This
+> workstream's standing rule is *fix the harness, never the page* — and here the harness was the
+> one lying. Deferral that binds only the validator and not the runner is a comment.
+
+Deferred checks are now held back **with their reason**, so the report says what is not being
+checked and why.
+
+### 2. Tier was ignored, in the dangerous direction
+
+Everything went to the Tier 2 evaluator, including checks declaring `tier: 4`. A `selector_count`
+evaluated statically is **vacuously green** — it confirms the container's anchor and never counts
+anything. So a `verified` could have rested on an assertion that cannot fail. Now split before
+evaluation, on three independent signals: the register says deferred, the author says `tier: 4`,
+or the platform says the type only exists at Tier 4.
+
+### 3. `dry_run` was a dead config key in my own action
+
+Declared twice in the input spec, read nowhere — exactly the failure the standing note *"grep the
+config key before calling it a win"* describes, committed by me, in a file I wrote yesterday.
+Implemented now, and it earns its place rather than being a convenience: **per-experience approval
+is designed and NOT BUILT**, so every entry is `draft`, every fork is `proposed`, and a proposed
+fork cannot be verified. Without a report-only mode the entire path would be unexercisable — which
+is how a mechanism rots before it is ever used. It writes **nothing**, not even
+`last_check_result`: a dry run that leaves a trace is one somebody later reads as a real result.
+
+### 4. The entry was wrong too, in two ways worth keeping
+
+- `feed_loads` cannot succeed for this component. Verified live: `/data/provocations.json` serves
+  **200**, and the page references **no json at all** — the loader is `/assets/js/snippets.js`.
+  `asset_loads` matches the path as *text in the page HTML*, so for any component whose loader is
+  bundled externally it can only ever fail. Deferred, with that reason.
+- `rows_rendered` said nothing about rows. The rows are cloned client-side, so at Tier 2
+  `selector_count` collapses to the container's anchor — precisely what `list_exists` already
+  asserts. **Two checks, one fact, and the one named for rows was the empty one.** Marked `tier: 4`.
+
+### The general finding: IMPLEMENTED is not SATISFIABLE
+
+I have been describing the write-time validator as catching "checks the platform cannot execute".
+That is too strong, and this run is the counter-example. The capability table answers *does this
+check TYPE exist* — a real question, and `asset_loads` passes it. Whether a check can **succeed**
+depends on how the page is built, and **write-time validation sees the template, never the page.**
+
+So there are two different unassertables, and only the first is caught before a run:
+
+| | caught by | example |
+|---|---|---|
+| the type does not exist | the validator, at write time | `attribute_absent` |
+| the type exists but cannot match here | **only a real run** | `asset_loads` against a bundled loader |
+
+That is the argument for the dry run being a first-class mode rather than a debugging aid, and it
+is a correction to the claim in `SUMMARY_2026-07-28` that write-time validation covers this class.
+
+`[LIMITATION, stated]` This was a **local** run — the bind and verify actions are committed and
+registered but **not deployed and not called by any workflow**, so nothing has yet gone through
+the real orchestration path. What is proven is the machinery and the entry, not the wiring.
