@@ -221,6 +221,104 @@ Two constraints already established that this direction must respect: the owner 
 2026-07-24 that **autoplay is opt-in, not default** (*"movement not for all carousels"*),
 and every figure that appears must come from the evidence base, never from the writer.
 
+## 4d. THE EXPERIENCE REGISTER ALREADY HAS THE VOCABULARY — and cannot join to our components
+
+Owner: *"these components also need to be made aware of by the experience loop."* Chased
+it, and the answer is better and worse than expected.
+
+**`experience_patterns` already exists with 9 rows**, in two kinds — `component-contract`
+(7, i.e. display shapes) and `micro-journey` (2). It has a `section_types` jsonb column
+whose whole job is to name the components a pattern applies to. **This is already the
+registry of known display shapes**, built before this workstream existed.
+
+**One of its rows is the owner's carousel idea, already named:** `teaser-detail-deeplink`
+(kind `micro-journey`) — a teaser that deep-links to its detail. The "short first
+sentence, deliberately unfinished second, completed on click-through" is that pattern.
+**Do not invent a new name for it.**
+
+**And the join is broken.** Testing every `section_types` entry against live component
+functions:
+
+```
+pattern claims             component exists?
+hero-carousel              f      <-- real function: hero-card-carousel
+image-hover-cards          f      <-- real function: image-hover-card-grid
+insight-carousel           f      <-- real function: swipeable-insight-carousel
+people-feature             f      <-- real function: people-feature-block
+gauntlet-interface         t
+lobby-grid                 t
+provocation-card           t
+provocations-archive-list  t
+stat-band                  t
+```
+
+**Four of nine do not resolve, and they are exactly four of the five components this
+workstream built.** The names are near-misses, not nonsense — the register was written
+with approximate names, or the components were renamed afterwards, and **nothing checks
+that a pattern's `section_types` names a component that exists.** `stat-band` resolves
+only because its name happened to match.
+
+`evidence-chart` has **no pattern at all**. So does `contact-info`, and so will anything
+built next.
+
+Also: **`site_experiences` is 0.** The register exists, has patterns, and no site is
+bound to any of them.
+
+### What to do about it — smallest first
+
+1. **A join check.** Every `experience_patterns.section_types` entry must name a live
+   `content_components.function`. Four are wrong today and nothing would ever have said
+   so. This is the same shape as `bugs_open/109` (declarations nobody reconciles) and is
+   a few lines.
+2. **Fix the four names**, then add patterns for `evidence-chart` and `contact-info`.
+3. **Then** bind a site — `site_experiences` being empty means none of this is exercised.
+
+## 4e. THE OWNER'S "KNOWN DISPLAY SHAPES" IDEA — yes, and it is half-built
+
+> *"We could create several display shapes at origination time into a set of known
+> patterns that our components use. If we create a new component we create a new shape.
+> Is that an idea?"*
+
+**Yes, and `experience_patterns` is where it already lives** — see 4d. That changes the
+work from "design a registry" to "make the one we have authoritative", which is a much
+better place to start.
+
+**Why the idea is right, in one line:** a closed vocabulary of shapes is what makes the
+splitter possible at all. "Split this for a carousel" is underspecified; "produce a
+`teaser-detail-deeplink`" is a contract with checkable properties.
+
+**Three things it buys us that we cannot get today:**
+
+- **Content becomes portable across treatments.** Today changing a panel from a grid to a
+  carousel means re-running the writer — the operation that authored nine broken links
+  and four dead image paths this morning.
+- **Two questions become answerable**: *how many shapes do we have?* and *which components
+  share one?* Neither can be asked now, because every component's `input_schema` is
+  bespoke.
+- **It creates a decision point.** Today adding a component silently adds a new implicit
+  schema. "New component → new shape" makes that explicit, so someone has to justify it.
+
+> **The one correction I would make to the owner's phrasing.** *"If we create a new
+> component we create a new shape"* should be **"reuse a shape, or justify a new one"**.
+> Shape-per-component gives 105 shapes and no vocabulary — which is what we have now,
+> unnamed. The count being small is the entire value.
+
+**The distinction to hold on to, because it is easy to lose:** a shape describes what the
+content **is** (a hook and an unfinished continuation), not what it **looks like** (a
+carousel). Two visually different components can share a shape — that is the point. If
+shapes start encoding layout, we have renamed components and gained nothing.
+
+### The hazards, and how to ameliorate them
+
+The owner asked these be taken care of. Concretely:
+
+| hazard | amelioration |
+|---|---|
+| **Claims gate ±70-char window** — splitting can separate a figure from the `context_terms` that verify it, making a sound claim look invented | **A fragment boundary may not fall between a number and its context.** Cheapest form: refuse to split a sentence containing a figure at all — put the whole sentence in one fragment. Test it against a `stat-band` and the `evidence-chart` caption, which are the live cases. |
+| **A deliberate cliffhanger looks like truncation** to checkers built to detect cut completions | **Mark it in the data, not in the prose.** The fragment carries a flag (`continues: true`) so a checker can tell intent from damage. Never rely on punctuation — an ellipsis is exactly what a truncated completion also produces. |
+| **An LLM on the render path** would make every re-render non-deterministic and destroy our only cheap, safe repair route | **Split once at plan/build time, persist into `content_data`.** `rerender_page_sections` stays LLM-free. This is not a preference — that path is how the palette, the inks and the chart were all fixed today without regenerating copy. |
+| **Shape proliferation** | Make the count visible. A report of shapes-vs-components, and a new shape needs a stated reason, the same way a `capability_gap` does. |
+
 ## 5. Open, not blocked, and worth a thread
 
 - **Template sameness** — `model-fine-tuning` and `multi-agent-review-council` still
