@@ -62,8 +62,9 @@ import (
 )
 
 var RenderNewsSectionInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"page_name", "max_items", "max_age_hours", "archive_max_items"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"page_name", "max_items", "max_age_hours", "archive_max_items"},
 }
 
 func init() {

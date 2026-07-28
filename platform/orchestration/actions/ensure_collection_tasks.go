@@ -38,8 +38,9 @@ import (
 )
 
 var EnsureCollectionTasksInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"vertical_slug"},
-	Optional: []string{"task_type", "task_priority"},
+	CheckConfig: true,
+	Required:    []string{"vertical_slug"},
+	Optional:    []string{"task_type", "task_priority"},
 	Defaults: map[string]interface{}{
 		"task_type":     "initial_verification",
 		"task_priority": 5,

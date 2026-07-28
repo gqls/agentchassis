@@ -38,10 +38,11 @@ import (
 )
 
 var LoadExistingComponentInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"section_type"},
-	Optional:   []string{},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"section_type"},
+	Optional:    []string{},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

@@ -41,7 +41,8 @@ import (
 )
 
 var DiagnoseBuildGateInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"branch"},
+	CheckConfig: true,
+	Required:    []string{"branch"},
 	Optional: []string{
 		"repo_owner", "repo_name", "changed_files_field",
 		"build_targets", "image", "timeout_seconds", "namespace",

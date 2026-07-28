@@ -33,8 +33,9 @@ import (
 )
 
 var DiagnoseEscalateInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"fix_correlation_id"},
-	Optional: []string{"council_field", "plan_field", "diagnosis_field", "review_fields"},
+	CheckConfig: true,
+	Required:    []string{"fix_correlation_id"},
+	Optional:    []string{"council_field", "plan_field", "diagnosis_field", "review_fields"},
 	Defaults: map[string]interface{}{
 		"council_field":   "council",
 		"plan_field":      "plan_persisted.plan_json",

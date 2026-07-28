@@ -39,7 +39,8 @@ import (
 )
 
 var FeatureStageRouteInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"fix_correlation_id"},
+	CheckConfig: true,
+	Required:    []string{"fix_correlation_id"},
 	Optional: []string{
 		"plan_field", "state_field", "branch_prefix",
 		"base_ref", "base_ref_field", "council_field",
@@ -232,16 +233,16 @@ func nextStageEmit(plan stagedPlan, prior featureLoopState, corr, short string, 
 		"stages_total": len(plan.Stages),
 		// The single-plan shape the proven read/prepare actions consume — a
 		// STRING so planBytes and template rendering see exact JSON.
-		"stage_plan":     string(stagePlanJSON),
-		"has_repo_edits": len(stageRepoFiles(st)) > 0,
-		"read_ref":       readRef,
-		"gate_build":     st.Gate.Build == nil || *st.Gate.Build,
+		"stage_plan":       string(stagePlanJSON),
+		"has_repo_edits":   len(stageRepoFiles(st)) > 0,
+		"read_ref":         readRef,
+		"gate_build":       st.Gate.Build == nil || *st.Gate.Build,
 		"expected_symbols": append([]string{}, st.ExpectedSymbols...),
 		"branch":           next.Branch,
 		"base_ref":         next.BaseRef,
 		"commit_message": fmt.Sprintf("feat(%s) stage %s: %s\n\nStage %d/%d of a council-approved staged plan (correlation %s).\nHuman review terminal — do not merge without review.",
 			short, st.ID, firstSentence(st.Title), next.Current, len(plan.Stages), corr),
-		"prior_stages": priorStagesDigest(next.Done),
+		"prior_stages":  priorStagesDigest(next.Done),
 		"feature_state": stateMap,
 	}, next
 }

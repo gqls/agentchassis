@@ -69,10 +69,11 @@ import (
 )
 
 var DiagnoseCouncilDecideInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"fix_correlation_id"},
-	Optional:   []string{"review_fields", "hard_veto_from", "max_rounds"},
-	Defaults:   map[string]interface{}{"max_rounds": 2},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"fix_correlation_id"},
+	Optional:    []string{"review_fields", "hard_veto_from", "max_rounds"},
+	Defaults:    map[string]interface{}{"max_rounds": 2},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

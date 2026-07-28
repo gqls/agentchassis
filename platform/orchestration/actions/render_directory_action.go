@@ -68,8 +68,9 @@ import (
 )
 
 var RenderModelDirectoryInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"max_items", "full_max_items", "kind"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"max_items", "full_max_items", "kind"},
 }
 
 func init() {

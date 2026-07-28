@@ -60,7 +60,8 @@ import (
 // ============================================================================
 
 var ScoreGrippersInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id", "mass_kg", "travel_mm", "surface_material"},
+	CheckConfig: true,
+	Required:    []string{"site_id", "mass_kg", "travel_mm", "surface_material"},
 	Optional: []string{"surfaces_n", "accel_ms2", "safety_factor", "cycle_rate",
 		"ip_min", "check_payload"},
 	Defaults:   map[string]interface{}{},

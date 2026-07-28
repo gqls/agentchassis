@@ -49,9 +49,10 @@ import (
 )
 
 var DeriveCardAssetInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id", "entity_id"},
-	Optional: []string{"domain", "entity_type", "page_name"},
-	Defaults: map[string]interface{}{"entity_type": "page"},
+	CheckConfig: true,
+	Required:    []string{"site_id", "entity_id"},
+	Optional:    []string{"domain", "entity_type", "page_name"},
+	Defaults:    map[string]interface{}{"entity_type": "page"},
 }
 
 func init() {

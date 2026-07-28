@@ -73,6 +73,7 @@ import (
 )
 
 var RerenderPageSectionsInputSpec = datahelpers.ActionInputSpec{
+	CheckConfig: true,
 	// target_site_id (NOT site_id) per 001 §Field name collisions: site_id is a
 	// key on the nested-source objects (site_record.site_id, input_data.site_id),
 	// so a bare site_id can be silently bound from the wrong source. The wiring

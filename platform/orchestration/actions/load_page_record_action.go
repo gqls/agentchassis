@@ -49,10 +49,11 @@ import (
 )
 
 var LoadPageRecordInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{"page_name", "page_id"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"page_name", "page_id"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

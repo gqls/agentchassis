@@ -28,10 +28,11 @@ import (
 // ============================================================================
 
 var WriteBuildItemsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{"site_plan", "batch_id"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"site_plan", "batch_id"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 // LoadWorkItemsInputSpec — only site_id needs resolution from collectedData.
@@ -47,9 +48,10 @@ var LoadWorkItemsInputSpec = datahelpers.ActionInputSpec{
 }
 
 var CompleteWorkItemInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"work_item_id"},
-	Optional: []string{"result", "commit_sha"},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"work_item_id"},
+	Optional:    []string{"result", "commit_sha"},
+	Defaults:    map[string]interface{}{},
 	Deprecated: map[string]string{
 		"work_item_id_field": "work_item_id",
 		"commit_sha_field":   "commit_sha",

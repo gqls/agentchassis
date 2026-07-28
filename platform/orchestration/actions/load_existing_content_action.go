@@ -28,10 +28,11 @@ import (
 )
 
 var LoadExistingContentInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id", "page_name"},
-	Optional:   []string{"page_id", "mode"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"site_id", "page_name"},
+	Optional:    []string{"page_id", "mode"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

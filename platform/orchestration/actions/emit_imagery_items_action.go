@@ -34,9 +34,10 @@ import (
 )
 
 var EmitImageryItemsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{},
+	Defaults:    map[string]interface{}{},
 }
 
 func init() {

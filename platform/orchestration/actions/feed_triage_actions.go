@@ -28,8 +28,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var ApplyFeedScoresInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"scores_field", "relevance_threshold"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"scores_field", "relevance_threshold"},
 }
 
 func init() {
@@ -301,8 +302,9 @@ func ApplyFeedScoresAction(ctx context.Context, params ActionParams) (interface{
 // prompt can factor in source reputation.
 
 var LoadFeedItemsForTriageInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"max_items", "min_age_minutes"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"max_items", "min_age_minutes"},
 }
 
 // LoadFeedItemsForTriageAction queries content_feed_items WHERE status = 'ingested'

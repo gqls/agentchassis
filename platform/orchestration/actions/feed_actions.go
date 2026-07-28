@@ -30,13 +30,15 @@ import (
 // ---------------------------------------------------------------------------
 
 var FetchRSSInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"source_config"},
-	Optional: []string{"source_id"},
+	CheckConfig: true,
+	Required:    []string{"source_config"},
+	Optional:    []string{"source_id"},
 }
 
 var FetchLLMNewsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"source_config"},
-	Optional: []string{"source_id"},
+	CheckConfig: true,
+	Required:    []string{"source_config"},
+	Optional:    []string{"source_id"},
 }
 
 var WriteFeedItemsInputSpec = datahelpers.ActionInputSpec{
@@ -50,8 +52,9 @@ var LoadDueSourcesInputSpec = datahelpers.ActionInputSpec{
 }
 
 var UpdateSourceTimestampsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"source_id"},
-	Optional: []string{"error_message"},
+	CheckConfig: true,
+	Required:    []string{"source_id"},
+	Optional:    []string{"error_message"},
 }
 
 func init() {

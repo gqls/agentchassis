@@ -220,3 +220,85 @@ func TestUndeclaredConditionalKeysCatchesSpecError(t *testing.T) {
 		t.Errorf("got %v, want [max_pages] — a conditional key absent from ConfigKeys is a spec error", missing)
 	}
 }
+
+// TestCheckConfigOptsInWithoutConfigKeys pins the second opt-in route, added
+// 2026-07-28 because the first one had stalled adoption at 1 action of 152.
+//
+// ConfigKeys means "settings rather than references". For the large class of
+// actions whose every key is an ExtractActionInputs field there was no honest
+// way to opt in — you had to duplicate keys into a list they do not belong in.
+// CheckConfig separates "I want to be checked" from "here are my non-field
+// settings", which were never the same statement.
+func TestCheckConfigOptsInWithoutConfigKeys(t *testing.T) {
+	RegisterActionInputSpec("test_action_checkconfig", ActionInputSpec{
+		CheckConfig: true,
+		Required:    []string{"site_id"},
+		Optional:    []string{"pages_field"},
+		// ConfigKeys deliberately EMPTY — that is the whole point of this test.
+	})
+
+	unknown, checked := UnknownConfigKeys("test_action_checkconfig", map[string]interface{}{
+		"site_id":       "x",
+		"pages_field":   "a.b",
+		"action":        "noop", // framework key, never unknown
+		"totally_bogus": 1,
+	})
+
+	// The NEGATIVE CONTROL is the load-bearing assertion. A change that made
+	// checksConfig() always false would still satisfy "no false positives" — the
+	// audit would print a clean bill over an unexamined fleet, which is exactly
+	// the failure this whole mechanism exists to prevent. So assert that the
+	// detector FIRES, not merely that it stays quiet.
+	if !checked {
+		t.Fatal("CheckConfig:true must opt the action in even with empty ConfigKeys")
+	}
+	if !reflect.DeepEqual(unknown, []string{"totally_bogus"}) {
+		t.Errorf("expected exactly [totally_bogus], got %v", unknown)
+	}
+}
+
+// TestCheckConfigRecognisesRequiredAndOptional guards the claim that made the
+// bulk opt-in safe: ExtractActionInputs reads config[k] for every Required and
+// Optional key, so for an action that passes its own spec to the extractor those
+// lists ARE a verified statement of what it reads. If the recognised set ever
+// stopped including them, 56 actions would start warning about their own
+// working config on the same day.
+func TestCheckConfigRecognisesRequiredAndOptional(t *testing.T) {
+	RegisterActionInputSpec("test_action_checkconfig_union", ActionInputSpec{
+		CheckConfig: true,
+		Required:    []string{"req_key"},
+		Optional:    []string{"opt_key"},
+		Deprecated:  map[string]string{"old_key": "opt_key"},
+	})
+
+	unknown, checked := UnknownConfigKeys("test_action_checkconfig_union", map[string]interface{}{
+		"req_key": 1, "opt_key": 2, "old_key": 3,
+	})
+	if !checked {
+		t.Fatal("expected checked=true")
+	}
+	if len(unknown) != 0 {
+		t.Errorf("Required/Optional/Deprecated must all be recognised, got unknown=%v", unknown)
+	}
+}
+
+// TestListDeclaredConfigKeysIncludesCheckConfig pins the runtime detector and
+// the OFFLINE audit to one definition of "opted in". They used to test
+// len(ConfigKeys)==0 in three separate places; a CheckConfig action that the
+// validator checked but the audit still counted as an uncovered gap would make
+// the coverage number silently wrong in the safe-looking direction.
+func TestListDeclaredConfigKeysIncludesCheckConfig(t *testing.T) {
+	RegisterActionInputSpec("test_action_audit_join", ActionInputSpec{
+		CheckConfig: true,
+		Optional:    []string{"only_key"},
+	})
+
+	declared := ListDeclaredConfigKeys()
+	keys, present := declared["test_action_audit_join"]
+	if !present {
+		t.Fatal("a CheckConfig action must appear in ListDeclaredConfigKeys, or the audit under-reports coverage")
+	}
+	if !reflect.DeepEqual(keys, []string{"only_key"}) {
+		t.Errorf("expected [only_key], got %v", keys)
+	}
+}

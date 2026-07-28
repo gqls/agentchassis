@@ -32,10 +32,11 @@ import (
 )
 
 var MarkTrainingRunRunningInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"training_run_id"},
-	Optional:   []string{"thunder_instance_id"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"training_run_id"},
+	Optional:    []string{"thunder_instance_id"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

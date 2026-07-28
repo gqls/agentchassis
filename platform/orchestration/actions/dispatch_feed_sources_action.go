@@ -26,8 +26,9 @@ import (
 )
 
 var DispatchFeedSourcesInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"source_type", "max_dispatches"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"source_type", "max_dispatches"},
 	Defaults: map[string]interface{}{
 		"max_dispatches": 10,
 	},

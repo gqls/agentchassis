@@ -70,9 +70,10 @@ import (
 )
 
 var FlagPageImageRebuildInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"scope", "scope_ref"},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"scope", "scope_ref"},
+	Defaults:    map[string]interface{}{},
 }
 
 func init() {

@@ -30,9 +30,10 @@ import (
 // site_id comes from the prior ensure_site_record step via collectedData.
 // task_id is optional (for future maintenance_queue integration).
 var LoadSiteForRebuildInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"task_id"},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"task_id"},
+	Defaults:    map[string]interface{}{},
 	Deprecated: map[string]string{
 		"site_id_field": "site_id",
 		"task_id_field": "task_id",
@@ -60,8 +61,9 @@ var ScanSitesForMaintenanceInputSpec = datahelpers.ActionInputSpec{
 // Config settings (task_type, max_tasks, flag_pages) are pure config, but we
 // declare them as Optional with Defaults so callers CAN override via input_data.
 var PrepareRebuildDispatchesInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{},
-	Optional: []string{"task_type", "max_tasks", "flag_pages"},
+	CheckConfig: true,
+	Required:    []string{},
+	Optional:    []string{"task_type", "max_tasks", "flag_pages"},
 	Defaults: map[string]interface{}{
 		"task_type":  "page_rebuild",
 		"max_tasks":  50,

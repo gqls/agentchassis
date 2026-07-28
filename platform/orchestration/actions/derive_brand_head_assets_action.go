@@ -48,9 +48,10 @@ import (
 )
 
 var DeriveBrandHeadAssetsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"domain"},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"domain"},
+	Defaults:    map[string]interface{}{},
 }
 
 func init() {
@@ -161,8 +162,8 @@ func DeriveBrandHeadAssetsAction(ctx context.Context, params ActionParams) (inte
 		zap.String("background", bgColour))
 
 	return map[string]interface{}{
-		"derived":     true,
-		"favicon_url": "/assets/images/favicon.png",
+		"derived":      true,
+		"favicon_url":  "/assets/images/favicon.png",
 		"og_image_url": "/assets/images/og-card.png",
 	}, nil
 }

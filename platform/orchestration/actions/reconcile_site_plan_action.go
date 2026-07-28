@@ -63,10 +63,11 @@ import (
 )
 
 var ReconcileSitePlanInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"target_site_id"},
-	Optional:   []string{"plan_id"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"target_site_id"},
+	Optional:    []string{"plan_id"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

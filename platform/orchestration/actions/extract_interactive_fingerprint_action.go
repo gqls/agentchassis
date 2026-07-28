@@ -56,10 +56,11 @@ const interactiveScriptTruncateBytes = 12 * 1024
 // ── Input spec ─────────────────────────────────────────────────────────
 
 var ExtractInteractiveFingerprintInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{},
-	Optional:   []string{"crawl_field"},
-	Defaults:   map[string]interface{}{"crawl_field": "crawl_result"},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{},
+	Optional:    []string{"crawl_field"},
+	Defaults:    map[string]interface{}{"crawl_field": "crawl_result"},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

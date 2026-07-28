@@ -37,10 +37,11 @@ import (
 )
 
 var ComputeComponentQualityInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{},
-	Optional:   []string{"component_id", "function", "scan_all", "below_score", "stale_days"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{},
+	Optional:    []string{"component_id", "function", "scan_all", "below_score", "stale_days"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

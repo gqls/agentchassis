@@ -29,8 +29,9 @@ import (
 // ---------------------------------------------------------------------------
 
 var PopulateNavTablesInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"max_header_items"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"max_header_items"},
 	Defaults: map[string]interface{}{
 		"max_header_items": 8,
 	},

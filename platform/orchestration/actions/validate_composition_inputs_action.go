@@ -64,9 +64,10 @@ import (
 // ValidateCompositionInputsInputSpec follows the path-resolution pattern used
 // by other actions in this file set (see ReadSiteSpecAction).
 var ValidateCompositionInputsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{},
+	Defaults:    map[string]interface{}{},
 	Deprecated: map[string]string{
 		"site_id_field": "site_id",
 	},

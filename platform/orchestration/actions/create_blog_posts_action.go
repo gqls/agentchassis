@@ -21,10 +21,11 @@ import (
 )
 
 var CreateBlogPostsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{"plan_field"},
-	Defaults:   map[string]interface{}{"plan_field": "site_plan.result"},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"plan_field"},
+	Defaults:    map[string]interface{}{"plan_field": "site_plan.result"},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

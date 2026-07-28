@@ -37,8 +37,9 @@ import (
 )
 
 var PromoteCandidatesInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"vertical_slug", "business_type"},
-	Optional: []string{"promote_limit", "country"},
+	CheckConfig: true,
+	Required:    []string{"vertical_slug", "business_type"},
+	Optional:    []string{"promote_limit", "country"},
 	Defaults: map[string]interface{}{
 		"promote_limit": 500,
 		"country":       "GB",

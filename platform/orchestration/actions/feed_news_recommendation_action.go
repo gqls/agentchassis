@@ -46,8 +46,9 @@ import (
 )
 
 var EvaluateNewsFeedInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{},
 }
 
 func init() {

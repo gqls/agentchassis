@@ -43,9 +43,10 @@ import (
 )
 
 var EmitSpriteCSSInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"domain"},
-	Defaults: map[string]interface{}{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"domain"},
+	Defaults:    map[string]interface{}{},
 }
 
 func init() {

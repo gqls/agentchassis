@@ -34,7 +34,8 @@ import (
 )
 
 var CreateRerenderItemsInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
 	Optional: []string{
 		"domain", "pages_field", "reason", "component_id",
 		// Single-page mode (see singlePageFromScalars): a producer that made

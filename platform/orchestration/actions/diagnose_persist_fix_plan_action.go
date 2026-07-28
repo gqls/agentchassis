@@ -34,8 +34,9 @@ import (
 )
 
 var DiagnosePersistFixPlanInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"fix_correlation_id"},
-	Optional: []string{"plan_field", "max_edits", "max_plan_bytes", "max_stages", "max_total_edits"},
+	CheckConfig: true,
+	Required:    []string{"fix_correlation_id"},
+	Optional:    []string{"plan_field", "max_edits", "max_plan_bytes", "max_stages", "max_total_edits"},
 	Defaults: map[string]interface{}{
 		// execute_llm_prompt with output_format=json leaves the parsed object
 		// under <output_field>.result; the workflow sets output_field "proposal".

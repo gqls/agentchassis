@@ -42,10 +42,11 @@ import (
 )
 
 var StoreGeneratedComponentInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"section_type"},
-	Optional:   []string{"site_type", "page_context", "description", "design_direction", "generated_template"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"section_type"},
+	Optional:    []string{"site_type", "page_context", "description", "design_direction", "generated_template"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

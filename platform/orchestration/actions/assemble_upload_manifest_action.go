@@ -48,8 +48,9 @@ import (
 // assembleUploadManifestSpec is the input contract (registered for validation and
 // passed to ExtractActionInputs).
 var assembleUploadManifestSpec = datahelpers.ActionInputSpec{
-	Required: []string{"training_run_id", "final_key", "final_url"},
-	Optional: []string{"checkpoint_keys", "checkpoint_urls", "resume_key", "resume_url", "resume_index"},
+	CheckConfig: true,
+	Required:    []string{"training_run_id", "final_key", "final_url"},
+	Optional:    []string{"checkpoint_keys", "checkpoint_urls", "resume_key", "resume_url", "resume_index"},
 }
 
 func init() {

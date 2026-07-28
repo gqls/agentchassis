@@ -35,7 +35,8 @@ import (
 )
 
 var DiagnosePrepareFixCommitInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"fix_correlation_id"},
+	CheckConfig: true,
+	Required:    []string{"fix_correlation_id"},
 	Optional: []string{
 		"plan_field", "files_field", "originals_field",
 		"diagnosis_field", "council_field", "repo_name", "base_branch", "base_branch_field",

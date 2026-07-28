@@ -38,10 +38,11 @@ import (
 )
 
 var WriteAuditFindingsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{"site_id"},
-	Optional:   []string{"findings_field", "audit_source"},
-	Defaults:   map[string]interface{}{"audit_source": "design-audit"},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"findings_field", "audit_source"},
+	Defaults:    map[string]interface{}{"audit_source": "design-audit"},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

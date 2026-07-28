@@ -347,10 +347,11 @@ func createDirectoryCitationFailuresItem(
 //   "dry_run": report only, write nothing (optional, default false)
 
 var RefreshDirectoryClaimsInputSpec = datahelpers.ActionInputSpec{
-	Required:   []string{},
-	Optional:   []string{"kind"},
-	Defaults:   map[string]interface{}{},
-	Deprecated: map[string]string{},
+	CheckConfig: true,
+	Required:    []string{},
+	Optional:    []string{"kind"},
+	Defaults:    map[string]interface{}{},
+	Deprecated:  map[string]string{},
 }
 
 func init() {

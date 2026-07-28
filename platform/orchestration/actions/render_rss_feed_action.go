@@ -48,8 +48,9 @@ import (
 )
 
 var RenderRSSFeedInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id"},
-	Optional: []string{"max_items", "max_age_hours"},
+	CheckConfig: true,
+	Required:    []string{"site_id"},
+	Optional:    []string{"max_items", "max_age_hours"},
 }
 
 func init() {

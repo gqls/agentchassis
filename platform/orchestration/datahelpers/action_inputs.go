@@ -50,10 +50,30 @@ type ActionInputSpec struct {
 	// not by a flag day.
 	ConfigKeys []string
 
+	// CheckConfig opts this action into unknown-config-key detection WITHOUT
+	// requiring a non-empty ConfigKeys. The recognised set is then
+	// Required ∪ Optional ∪ ConfigKeys ∪ Deprecated, exactly as it always was.
+	//
+	// This exists because the opt-in signal was overloaded onto ConfigKeys, and
+	// that is why adoption stalled at 1 action of 152 (measured 2026-07-28).
+	// ConfigKeys means something specific — "settings rather than references" —
+	// so for the large class of actions whose every key is an extractor field
+	// there was NO honest way to opt in: you had to either duplicate keys into a
+	// list they do not belong in, or misdescribe a reference as a setting. The
+	// cheapest correct action was to do nothing, and 151 actions did.
+	//
+	// Prefer CheckConfig for an action that passes its own spec to
+	// ExtractActionInputs. That extractor reads config[k] for every Required and
+	// Optional key (Strategy 0, line ~339), so for such an action the spec is
+	// already a verified statement of what it reads from config and opting in
+	// asserts nothing new. Use ConfigKeys for genuine settings the extractor
+	// does not handle.
+	CheckConfig bool
+
 	// StrictConfig turns an unrecognised config key into a hard validation
-	// error for this action instead of a warning. Set it only once ConfigKeys is
-	// known to be COMPLETE — verified against every live definition using the
-	// action, not just the one in front of you.
+	// error for this action instead of a warning. Set it only once the
+	// recognised set is known to be COMPLETE — verified against every live
+	// definition using the action, not just the one in front of you.
 	StrictConfig bool
 
 	// ConditionalKeys maps a config key to a human-readable statement of the
@@ -117,7 +137,7 @@ func IsFrameworkStepConfigKey(key string) bool {
 // as a pass — the exact shape bugs_open/101 is about.
 func UnknownConfigKeys(actionName string, config map[string]interface{}) (unknown []string, checked bool) {
 	spec, ok := GetActionInputSpec(actionName)
-	if !ok || len(spec.ConfigKeys) == 0 {
+	if !ok || !spec.checksConfig() {
 		return nil, false
 	}
 
@@ -213,11 +233,20 @@ func UndeclaredConditionalKeys(actionName string) []string {
 	return missing
 }
 
+// checksConfig reports whether this action has opted into unknown-config-key
+// detection, by either route. ONE definition of "opted in", used by every gate —
+// UnknownConfigKeys, IsStrictConfigAction and ListDeclaredConfigKeys each tested
+// `len(ConfigKeys) == 0` separately, which is three chances for the runtime
+// check and the offline audit to disagree about which actions are covered.
+func (s ActionInputSpec) checksConfig() bool {
+	return s.CheckConfig || len(s.ConfigKeys) > 0
+}
+
 // IsStrictConfigAction reports whether unrecognised keys should fail validation
 // for this action rather than warn.
 func IsStrictConfigAction(actionName string) bool {
 	spec, ok := GetActionInputSpec(actionName)
-	return ok && spec.StrictConfig && len(spec.ConfigKeys) > 0
+	return ok && spec.StrictConfig && spec.checksConfig()
 }
 
 // ListDeclaredConfigKeys returns the full recognised key set for every action
@@ -227,7 +256,7 @@ func IsStrictConfigAction(actionName string) bool {
 func ListDeclaredConfigKeys() map[string][]string {
 	out := make(map[string][]string, len(actionInputSpecs))
 	for name, spec := range actionInputSpecs {
-		if len(spec.ConfigKeys) == 0 {
+		if !spec.checksConfig() {
 			continue
 		}
 		keys := make([]string, 0, len(spec.Required)+len(spec.Optional)+len(spec.ConfigKeys)+len(spec.Deprecated))

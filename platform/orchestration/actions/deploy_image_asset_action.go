@@ -25,8 +25,9 @@ import (
 // Existing callers (pageflow-builder) use config keys: "uri_field", "domain_field", "purpose"
 // The Deprecated map bridges old config keys to new field names.
 var DeployImageAssetInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"domain"},
-	Optional: []string{"s3_uri", "deploy_path", "purpose", "asset_id", "asset_key"},
+	CheckConfig: true,
+	Required:    []string{"domain"},
+	Optional:    []string{"s3_uri", "deploy_path", "purpose", "asset_id", "asset_key"},
 	Defaults: map[string]interface{}{
 		"purpose": "hero",
 	},

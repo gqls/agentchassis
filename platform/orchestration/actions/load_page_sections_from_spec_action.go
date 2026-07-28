@@ -67,8 +67,9 @@ import (
 )
 
 var LoadPageSectionsFromSpecInputSpec = datahelpers.ActionInputSpec{
-	Required: []string{"site_id", "page_name"},
-	Optional: []string{"page_sections_fallback"},
+	CheckConfig: true,
+	Required:    []string{"site_id", "page_name"},
+	Optional:    []string{"page_sections_fallback"},
 }
 
 func init() {
