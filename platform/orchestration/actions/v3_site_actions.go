@@ -1119,49 +1119,28 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	}
 
 	// =========================================================================
-	// STEP 2: Direct field extraction from current data level
+	// STEP 2: Direct field extraction from current data level — DERIVED from
+	// the struct's json tags (bugs_open/109). Every step-contract scalar is
+	// accepted from data[tag] when non-empty; the exceptions live in
+	// renderContextUnserialised / renderContextControlFields with reasons.
+	// Before this, the hand-list here was the build-side allowlist that
+	// silently dropped any field nobody remembered to add (bugs_open/085's
+	// first drop point).
 	// =========================================================================
+	setRenderContextScalarsFromData(ctx, data)
 
-	// Domain
-	if v, ok := data["domain"].(string); ok && v != "" {
-		ctx.Domain = v
-	}
-
-	// Company name (sets logo_text as fallback)
-	if v, ok := data["company_name"].(string); ok && v != "" {
-		ctx.CompanyName = v
-		if ctx.LogoText == "" {
-			ctx.LogoText = v
-		}
-	}
-
-	// Logo text (explicit override)
-	if v, ok := data["logo_text"].(string); ok && v != "" {
-		ctx.LogoText = v
-	}
-
-	// Tagline
-	if v, ok := data["tagline"].(string); ok && v != "" {
-		ctx.Tagline = v
-	}
-
-	// Email - check both "email" and "contact_email" (reviewed_brief uses contact_email)
-	if v, ok := data["email"].(string); ok && v != "" {
-		ctx.Email = v
-	}
+	// Aliased inputs the tag derivation cannot know: reviewed_brief writes
+	// contact_email / contact_phone, and they win over plain email/phone.
 	if v, ok := data["contact_email"].(string); ok && v != "" {
 		ctx.Email = v
-	}
-
-	// Phone - check both "phone" and "contact_phone"
-	if v, ok := data["phone"].(string); ok && v != "" {
-		ctx.Phone = v
 	}
 	if v, ok := data["contact_phone"].(string); ok && v != "" {
 		ctx.Phone = v
 	}
-	if v, ok := data["contact_email"].(string); ok && v != "" {
-		ctx.Email = v
+
+	// Company name doubles as the logo-text fallback.
+	if ctx.LogoText == "" && ctx.CompanyName != "" {
+		ctx.LogoText = ctx.CompanyName
 	}
 
 	// Extract image URLs from content_data or collected_data
@@ -1183,23 +1162,6 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 				zap.String("field", field),
 				zap.String("url", v))
 		}
-	}
-
-	// Colors - direct fields
-	if v, ok := data["primary_color"].(string); ok && v != "" {
-		ctx.PrimaryColor = v
-	}
-	if v, ok := data["secondary_color"].(string); ok && v != "" {
-		ctx.SecondaryColor = v
-	}
-	if v, ok := data["accent_color"].(string); ok && v != "" {
-		ctx.AccentColor = v
-	}
-	if v, ok := data["text_color"].(string); ok && v != "" {
-		ctx.TextColor = v
-	}
-	if v, ok := data["background_color"].(string); ok && v != "" {
-		ctx.BackgroundColor = v
 	}
 
 	// =========================================================================
@@ -1267,17 +1229,9 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	}
 
 	// =========================================================================
-	// STEP 5: Content generation context (tone, target_audience, industry)
+	// STEP 5: Content generation context — covered by the derived extraction
+	// in STEP 2 (tone, target_audience, industry are step-contract scalars).
 	// =========================================================================
-	if v, ok := data["tone"].(string); ok && v != "" {
-		ctx.Tone = v
-	}
-	if v, ok := data["target_audience"].(string); ok && v != "" {
-		ctx.TargetAudience = v
-	}
-	if v, ok := data["industry"].(string); ok && v != "" {
-		ctx.Industry = v
-	}
 
 	// =========================================================================
 	// STEP 6: Site/page identifiers
@@ -1289,14 +1243,8 @@ func mergeIntoRenderContextEnhanced(ctx *RenderContext, data map[string]interfac
 	}
 
 	// =========================================================================
-	// STEP 7: CTA settings
+	// STEP 7: CTA settings — covered by the derived extraction in STEP 2.
 	// =========================================================================
-	if v, ok := data["cta_text"].(string); ok && v != "" {
-		ctx.CTAText = v
-	}
-	if v, ok := data["cta_url"].(string); ok && v != "" {
-		ctx.CTAUrl = v
-	}
 
 	// =========================================================================
 	// STEP 8: Extract services array (for footer and services sections)
@@ -1430,9 +1378,55 @@ var renderContextUnserialised = map[string]string{
 	"description": "genuinely dropped, tracked in bugs_open/109. Same shape and " +
 		"same hazard as title: written per-page, would bleed if serialised from a " +
 		"site-level context.",
-	"schema_mode": "control field, not template data. It steers render-time " +
-		"validation strictness and is not advertised to templates by " +
-		"contextToInterfaceMap, so it is not part of the contract this map guards.",
+}
+
+// renderContextControlFields are RenderContext fields that steer the render
+// machinery rather than carry template data. They are excluded from every
+// derived map: never advertised to templates, never settable from source or
+// collected data — a control switch that arbitrary content could flip is a
+// different bug than a dropped field.
+var renderContextControlFields = map[string]string{
+	"schema_mode": "validation-strictness switch read by RenderComponent; " +
+		"neither template data nor part of the step contract.",
+}
+
+// renderContextStepContractExcluded says whether a scalar key stays out of the
+// step-boundary contract — the set that renderCtxToMap emits and
+// setRenderContextScalarsFromData accepts. Omissions live in
+// renderContextUnserialised (template fields that must not cross the boundary,
+// with reasons) and renderContextControlFields (machinery fields).
+func renderContextStepContractExcluded(key string) bool {
+	if _, control := renderContextControlFields[key]; control {
+		return true
+	}
+	_, unserialised := renderContextUnserialised[key]
+	return unserialised
+}
+
+// setRenderContextScalarsFromData is the write-side twin of
+// renderContextScalarFields (bugs_open/109): every tagged string field in the
+// step contract is set from data[tag] when data carries a non-empty string.
+// Build and restore both use it, so what the serialiser emits is exactly what
+// they accept — one contract, three call sites, no hand-list to forget a field
+// in. A non-string value under a contract key (e.g. current_page as an object
+// on some envelopes) fails the type assertion and is left to the caller's
+// structured handling.
+func setRenderContextScalarsFromData(ctx *RenderContext, data map[string]interface{}) {
+	v := reflect.ValueOf(ctx).Elem()
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type.Kind() != reflect.String {
+			continue
+		}
+		key := strings.Split(f.Tag.Get("json"), ",")[0]
+		if key == "" || key == "-" || renderContextStepContractExcluded(key) {
+			continue
+		}
+		if s, ok := data[key].(string); ok && s != "" {
+			v.Field(i).SetString(s)
+		}
+	}
 }
 
 // renderContextScalarFields returns the string-valued fields of RenderContext
@@ -1471,7 +1465,7 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 	// renderContextUnserialised (bugs_open/109).
 	result := make(map[string]interface{}, 32)
 	for key, value := range renderContextScalarFields(ctx) {
-		if _, skip := renderContextUnserialised[key]; skip {
+		if renderContextStepContractExcluded(key) {
 			continue
 		}
 		result[key] = value
@@ -1569,44 +1563,19 @@ func renderCtxToMap(ctx *RenderContext) map[string]interface{} {
 }
 
 func mergeIntoRenderContext(ctx *RenderContext, data map[string]interface{}) {
-	if v, ok := data["domain"].(string); ok && v != "" {
-		ctx.Domain = v
-	}
-	if v, ok := data["company_name"].(string); ok && v != "" {
-		ctx.CompanyName = v
-		if ctx.LogoText == "" {
-			ctx.LogoText = v
-		}
-	}
-	if v, ok := data["logo_text"].(string); ok && v != "" {
-		ctx.LogoText = v
-	}
-	if v, ok := data["tagline"].(string); ok && v != "" {
-		ctx.Tagline = v
-	}
-	// current_page survives the round-trip through collected_data only if it is
-	// restored into the struct field here. The catch-all at the end of this
-	// function puts it in ContentData, which is enough for the html/template
-	// path (ContentData wins in contextToInterfaceMap) but NOT for the regex
-	// fallback (contextToMap skips a key the base map already holds, and the
-	// base map holds an empty CurrentPage). Two render paths, one value.
-	if v, ok := data["current_page"].(string); ok && v != "" {
-		ctx.CurrentPage = v
-	}
-	if v, ok := data["email"].(string); ok && v != "" {
-		ctx.Email = v
-	}
-	if v, ok := data["phone"].(string); ok && v != "" {
-		ctx.Phone = v
-	}
-	if v, ok := data["primary_color"].(string); ok && v != "" {
-		ctx.PrimaryColor = v
-	}
-	if v, ok := data["secondary_color"].(string); ok && v != "" {
-		ctx.SecondaryColor = v
-	}
-	if v, ok := data["accent_color"].(string); ok && v != "" {
-		ctx.AccentColor = v
+	// Scalar restore is DERIVED from the struct's json tags — the same step
+	// contract the serialiser emits and the build map accepts (bugs_open/109).
+	// The struct restore matters because of the two render paths: the
+	// ContentData catch-all below is enough for html/template
+	// (contextToInterfaceMap merges ContentData over the base map) but NOT for
+	// the regex fallback (contextToMap skips any key the base map already
+	// holds, and the base map reads the struct). Before derivation only ~10
+	// fields were restored here, so a fallback render saw default colours and
+	// empty cta/industry/year where the main path saw real values —
+	// bugs_open/085's exact shape, times twelve.
+	setRenderContextScalarsFromData(ctx, data)
+	if ctx.LogoText == "" && ctx.CompanyName != "" {
+		ctx.LogoText = ctx.CompanyName
 	}
 
 	// Check nested color_palette

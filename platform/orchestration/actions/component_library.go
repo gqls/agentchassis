@@ -755,30 +755,29 @@ func contextToMap(ctx *RenderContext) map[string]string {
 		logoText = "Company"
 	}
 
-	result := map[string]string{
-		"domain":           ctx.Domain,
-		"logo_text":        logoText,
-		"company_name":     defaultString(ctx.CompanyName, logoText),
-		"tagline":          ctx.Tagline,
-		"current_page":     ctx.CurrentPage,
-		"primary_color":    defaultString(ctx.PrimaryColor, "#1a1a2e"),
-		"secondary_color":  defaultString(ctx.SecondaryColor, "#2d2d44"),
-		"accent_color":     defaultString(ctx.AccentColor, "#16a085"),
-		"text_color":       defaultString(ctx.TextColor, "#333333"),
-		"background_color": defaultString(ctx.BackgroundColor, "#ffffff"),
-		"theme_css":        ctx.ThemeCSS,
-		"title":            ctx.Title,
-		"description":      ctx.Description,
-		"email":            ctx.Email,
-		"contact_email":    ctx.Email,
-		"phone":            ctx.Phone,
-		"cta_text":         defaultString(ctx.CTAText, "Get Started"),
-		"cta_url":          defaultString(ctx.CTAUrl, "/contact.html"),
-		"year":             ctx.Year,
-		"industry":         ctx.Industry,
-		"tone":             ctx.Tone,
-		"target_audience":  ctx.TargetAudience,
+	// Derived from the struct's json tags, same as contextToInterfaceMap
+	// (bugs_open/109) — the two render paths advertise ONE scalar contract.
+	// Deriving both from the same projection is what keeps them from
+	// diverging; the old hand-written literals had already drifted (this one
+	// lacked logo_url, so the fallback path rendered it empty while the main
+	// path had it).
+	result := make(map[string]string, 40)
+	for key, value := range renderContextScalarFields(ctx) {
+		if _, control := renderContextControlFields[key]; control {
+			continue
+		}
+		result[key] = value
 	}
+	result["logo_text"] = logoText
+	result["company_name"] = defaultString(ctx.CompanyName, logoText)
+	result["primary_color"] = defaultString(ctx.PrimaryColor, "#1a1a2e")
+	result["secondary_color"] = defaultString(ctx.SecondaryColor, "#2d2d44")
+	result["accent_color"] = defaultString(ctx.AccentColor, "#16a085")
+	result["text_color"] = defaultString(ctx.TextColor, "#333333")
+	result["background_color"] = defaultString(ctx.BackgroundColor, "#ffffff")
+	result["cta_text"] = defaultString(ctx.CTAText, "Get Started")
+	result["cta_url"] = defaultString(ctx.CTAUrl, "/contact.html")
+	result["contact_email"] = ctx.Email
 
 	// Add all content data fields
 	for key, value := range ctx.ContentData {
@@ -866,47 +865,34 @@ func contextToInterfaceMap(ctx *RenderContext) map[string]interface{} {
 		logoText = "Company"
 	}
 
-	result := map[string]interface{}{
-		// Site info
-		"domain":       ctx.Domain,
-		"site_id":      ctx.SiteID,
-		"logo_text":    logoText,
-		"logo_url":     ctx.LogoURL,
-		"company_name": defaultString(ctx.CompanyName, logoText),
-		"tagline":      ctx.Tagline,
-
-		// Navigation - keep as slice for {{range}}
-		"nav_items":    ctx.NavItems,
-		"current_page": ctx.CurrentPage,
-
-		// Colors
-		"primary_color":    defaultString(ctx.PrimaryColor, "#1a1a2e"),
-		"secondary_color":  defaultString(ctx.SecondaryColor, "#2d2d44"),
-		"accent_color":     defaultString(ctx.AccentColor, "#16a085"),
-		"text_color":       defaultString(ctx.TextColor, "#333333"),
-		"background_color": defaultString(ctx.BackgroundColor, "#ffffff"),
-		"theme_css":        ctx.ThemeCSS,
-
-		// Page
-		"title":       ctx.Title,
-		"description": ctx.Description,
-
-		// Contact
-		"email":         ctx.Email,
-		"contact_email": ctx.Email,
-		"phone":         ctx.Phone,
-
-		// CTA - use defaults if not set
-		"cta_text": defaultString(ctx.CTAText, "Get Started"),
-		"cta_url":  defaultString(ctx.CTAUrl, "/contact.html"),
-
-		// Metadata
-		"year":            ctx.Year,
-		"industry":        ctx.Industry,
-		"tone":            ctx.Tone,
-		"target_audience": ctx.TargetAudience,
-		"services":        ctx.Services,
+	// The scalar half of the template contract is DERIVED from the struct's
+	// json tags (bugs_open/109) — every tagged string field except the control
+	// fields is advertised, so a new RenderContext field reaches templates
+	// without anyone remembering this map. The decorations after the loop are
+	// what tags cannot express: the computed logo_text, render-time defaults,
+	// and the contact_email alias.
+	result := make(map[string]interface{}, 40)
+	for key, value := range renderContextScalarFields(ctx) {
+		if _, control := renderContextControlFields[key]; control {
+			continue
+		}
+		result[key] = value
 	}
+	result["logo_text"] = logoText
+	result["company_name"] = defaultString(ctx.CompanyName, logoText)
+	result["primary_color"] = defaultString(ctx.PrimaryColor, "#1a1a2e")
+	result["secondary_color"] = defaultString(ctx.SecondaryColor, "#2d2d44")
+	result["accent_color"] = defaultString(ctx.AccentColor, "#16a085")
+	result["text_color"] = defaultString(ctx.TextColor, "#333333")
+	result["background_color"] = defaultString(ctx.BackgroundColor, "#ffffff")
+	result["cta_text"] = defaultString(ctx.CTAText, "Get Started")
+	result["cta_url"] = defaultString(ctx.CTAUrl, "/contact.html")
+	result["contact_email"] = ctx.Email
+
+	// Composites — these need shaping, not copying, so they stay explicit.
+	result["site_id"] = ctx.SiteID
+	result["nav_items"] = ctx.NavItems
+	result["services"] = ctx.Services
 
 	// Merge ContentData - this contains LLM-generated content
 	// IMPORTANT: ContentData fields take priority and should NOT be aliased

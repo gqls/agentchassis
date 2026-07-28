@@ -100,7 +100,9 @@ func TestRenderCtxToMapDerivationIsBehaviourPreserving(t *testing.T) {
 	derived := renderContextScalarFields(ctx)
 	got := map[string]bool{}
 	for k := range derived {
-		if _, skip := renderContextUnserialised[k]; skip {
+		// The same predicate renderCtxToMap itself uses: unserialised fields
+		// and control fields (schema_mode) both stay out of the step contract.
+		if renderContextStepContractExcluded(k) {
 			continue
 		}
 		got[k] = true
