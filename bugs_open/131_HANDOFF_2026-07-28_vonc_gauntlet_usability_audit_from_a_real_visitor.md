@@ -118,10 +118,49 @@ to `.gi-container`, which already had **zero**. That NARROWED the column 74%→7
 
 **STILL OPEN:**
 1. `/about.html`'s 560px table — untouched, needs its own scroll container.
+   > **CORRECTED 2026-07-28 (~15:45): the premise was wrong — the table ALREADY
+   > sits in `div.pc-table-wrapper` with computed `overflow-x: auto`** (ancestor
+   > chain measured live in Chromium). The content is reachable by scrolling,
+   > which is exactly the fix this item prescribed. The "9 elements" this file
+   > reports were the table's own internals (`table/thead/tr/th/td`) — a raw
+   > crossing-rect scan cannot tell scrollable-within-a-wrapper from cut, which
+   > is ALSO why the check clause below needed a scrollable-ancestor escape.
+   > Nothing to fix here; at most a design nicety (a visible scroll affordance).
 2. **The check**: `no_horizontal_overflow` should also assert no element's
    `getBoundingClientRect().right` exceeds the viewport. One extra clause; it
    would have caught both pages. This is fleet-wide and worth more than the two
    page fixes.
+   > **DONE 2026-07-28 (~15:40), commit `5042d5ecb`, council corr `845893c9`
+   > pending; INERT until the browser-runner-adapter image rolls.** The clause
+   > needed three filters the raw spec lacked, each field-proven: in-flow only
+   > (off-canvas fixed/absolute UI is a pattern), visible only, and **no flag
+   > when a horizontally scrollable ancestor exists** — without that last one
+   > the clause false-positives on every properly-scrollable table, including
+   > this file's own item 1 (see correction above), and a false acceptance
+   > failure becomes an `improve_tool` fixer aimed at a correct page (126).
+   > **Verified with the exact shipped JS on the live pages**: gauntlet + about
+   > clean; **the homepage FLAGS — a real residual cut this file does not list:
+   > `div.brief-explanation__stat`, right edge 434px on a 390px viewport (44px
+   > cut), in-flow, no scrollable ancestor, cause `flex-wrap:nowrap` on the
+   > stats row.** The morning's page fix measured element WIDTH (14→0
+   > over-wide); a 106px chip POSITIONED past the edge is invisible to that
+   > measure. Page-side fix of the stats row still owed.
+   > **Check-side council APPROVED 14:42 UTC (corr `845893c9`); the verdict
+   > post-dates commit `5042d5ecb`, so this note is the join, not a trailer.**
+   > **Stats-row cut FIXED & VERIFIED LIVE ~15:50 BST:** `flex-wrap: wrap`
+   > added to `.brief-explanation__stats` in the component's base rule —
+   > `content_components.html_template` AND all five `page_components.
+   > rendered_html` in one transaction (§10/§11 discipline; the CSS block has
+   > no `{{.vars}}` so one string replacement, pre-counted to exactly 1 hit
+   > per artefact, applies to both). vonc homepage redeployed (assemble-only
+   > rerender, corr `a8528143`, COMPLETED, `__step_error` NULL) and verified
+   > in the renderer: shipped JS `{over:0}` (was `clipped:true cutCount:3`),
+   > computed `flexWrap === "wrap"`, 0 raw placeholders.
+   > **⚠ The component is shared: robot-hands.com, idea.uk (/index + /tools)
+   > and oufe.com carry the SAME fix in their DB rows but their live pages are
+   > UNCHANGED until each next re-renders** — deliberately no unsolicited
+   > deploy of other workstreams' sites. Their cut (if any — narrower type
+   > scales may fit) heals on their next natural rerender.
 
 ---
 

@@ -1554,3 +1554,40 @@ usage limits. You will regain access on 2026-08-01 at 00:00 UTC."`
   would not be capped. Whether today's v1.0.1185/1187 rolls contain it is that
   workstream's question to answer with its own discriminating check
   (`total_output_tokens`), not this one's.
+
+## 2026-07-28, ~14:50–16:00 BST — cap raised; 130 APPROVED; 131-B closed both sides; a premise correction
+
+Owner raised the API limit ~14:50 BST. Verified before believing: llm_call_log
+showed 4 consecutive anthropic successes from 13:51 UTC; live island probe
+returned a REAL counter+challenge — **the Gauntlet's opponent is back.**
+
+- **130 resubmitted on the same corr → council APPROVED 14:34 UTC.** Verdict
+  post-dates commit `a554bc914` ⇒ no trailer; the join is written in the bug
+  file (083 precedent).
+- **131-B check-side DONE**: `no_horizontal_overflow` now scans the
+  non-scrolling branch for in-flow, visible elements past the right viewport
+  edge with no scrollable ancestor. Commit `5042d5ecb` (+ gofmt sweep
+  `9058287d1`), council APPROVED 14:42 UTC (corr `845893c9`, verdict post-dates
+  commit ⇒ note-join). INERT until the browser-runner-adapter image rolls.
+  Verified with the EXACT shipped JS (extracted from the Go source with sed,
+  never retyped) against three live pages.
+- **PREMISE CORRECTION (recorded in 131 §B):** the about-page "560px table
+  needing a scroll container" ALREADY HAS one (`.pc-table-wrapper`,
+  overflow-x:auto, measured). The "9 crossing elements" were scrollable table
+  internals. The raw one-clause spec would have false-positived on it —
+  the scrollable-ancestor escape in the shipped clause is load-bearing, and
+  the about page became the proof.
+- **NEW real defect found by the new clause**: homepage
+  `div.brief-explanation__stat` 44px off-screen (right 434 on vw 390), cause
+  `flex-wrap:nowrap`. The morning fix measured WIDTH (14→0); a 106px chip
+  POSITIONED past the edge was invisible to it. *Check: after fixing "N
+  over-wide elements → 0", re-measure by POSITION too.*
+- **Fixed at the component** (`brief-explanation`, **5 pages / 4 sites** —
+  the COUNT-page_components landmine caught the blast radius): template + all
+  5 rendered_html in one transaction, exact-pattern pre-count 1 per artefact.
+  Only vonc redeployed (corr `a8528143`); the other four sites' rows carry the
+  fix and heal on their own next rerender — no unsolicited cross-workstream
+  deploys. Live verify: `{over:0}`, computed flexWrap "wrap", 0 placeholders.
+- **Branch note:** the shared tree moved to `087_towards_multiple_domains`
+  mid-session (another thread's checkout); commits from `5042d5ecb` on are
+  there, and 087 contains 086's history — nothing lost, forward-only held.

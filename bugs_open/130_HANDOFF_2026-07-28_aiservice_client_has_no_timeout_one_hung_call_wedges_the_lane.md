@@ -16,9 +16,12 @@ that file's §10 directed).
 **The council round DIED UNJUDGED at `complete_invalid` / `review_editquality`:
 the fleet's Anthropic key hit its API usage limit** ("regain access 2026-08-01
 00:00 UTC") — the run's first LLM seat was the first call to fail. Not a
-submission defect (the fix_plan artifact persisted; the JSON parsed). **Resubmit
-with `RESUBMIT_CORR=1b7d802d-b416-4bcf-9b2f-0445e918ecda` once anthropic calls
-succeed again** (2026-08-01, or earlier if the owner raises the cap).
+submission defect (the fix_plan artifact persisted; the JSON parsed).
+> **RESOLVED same day: the owner raised the limit (~14:50 BST); resubmitted on
+> the same corr; council **APPROVED** 14:34 UTC (council_report on corr
+> `1b7d802d`).** The verdict post-dates the code commit `a554bc914`, so no
+> commit carries a `Council-Reviewed` trailer (the 083 precedent: a verdict
+> post-dating its commit can never carry one) — this note is the join.
 INERT until an image roll (chassis fleet AND island tools-api separately).
 
 ## Symptom

@@ -733,3 +733,31 @@ that is your call, and nothing on our side can substitute for it.
 One small silver lining: the failure alarm we armed on the Gauntlet two days
 ago caught this within seconds and named the real cause. First time it has ever
 fired, and it did its job.
+
+---
+
+2026-07-28, late afternoon. You raised the allowance and I checked it properly
+before believing it: the cluster's AI calls are succeeding again, and I played
+a real exchange against the Gauntlet's opponent — it is back and arguing well.
+
+The timeout fix from earlier passed its review panel on the second attempt (the
+first attempt died with the outage itself, which was fitting). And the blind
+checker you exposed this morning — the one that passes a page whose content is
+cut off the edge of a phone screen — now sees what you saw. It passed its own
+review too. While proving it against the live site it found one more real cut
+that this morning's repair had missed: a statistics chip on the homepage
+hanging half off-screen. That is fixed and live; the same repair is queued up
+for the three other sites that share the block, and will arrive with their next
+natural republish rather than me touching their live pages today.
+
+One correction to this morning's list: the about page's wide table, which we
+had down as needing a scrolling wrapper, turns out to have had one all along —
+a finger can drag it. The morning's measurement couldn't tell "scrollable" from
+"cut off"; the new checker can, and that distinction is exactly why it won't
+cry wolf across the rest of the fleet.
+
+What remains on your list is the design work — making the provocation read as
+the question you must answer, giving the page a visual ranking, and deciding
+what pressing "Enter the Gauntlet" should actually reveal. That last one is a
+genuine either/or you should pick, and I've laid the two options out at the
+end of today's summary in the chat.
