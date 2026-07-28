@@ -327,6 +327,73 @@ enough, and whether the seat's prompt is simply over-long for any sane cap.
 to the shared review apparatus every thread submits through, so it is an owner
 call, not a 21:00 unilateral edit.
 
+### APPLIED 2026-07-28 21:55Z — owner chose "raise editquality only" (8000 → 16000)
+
+`review_editquality` is one of the two `ALWAYS_ON` seats
+(`099_SYNC_gate_roster.py:48` — `{"review_editquality", "review_guardian"}`),
+which is *why* it dominates the damage counts: it runs in **every** round, so it
+has the most exposure. That settles the always-on question the wrong-path config
+query above could not answer — the roster script states it directly.
+
+**Written to BOTH `fix-proposer` and `council-gate`, and that is load-bearing.**
+The gate roster is **mirrored** from the live `fix-proposer` row, and
+`transform_step` (`099:71-90`) rewrites only `error_step`, `input_fields` and
+`prompt_template` — it deep-copies `config.ai_service.max_tokens` **verbatim**.
+So patching the gate alone would have been silently reverted by the next
+`099 --apply`. Setting both leaves source and target in agreement.
+
+```sql
+UPDATE agent_definitions
+SET default_config = jsonb_set(default_config,
+      '{workflow,steps,review_editquality,config,ai_service,max_tokens}', '16000'::jsonb)
+WHERE type IN ('fix-proposer','council-gate') AND is_active
+  AND COALESCE(is_snapshot,false)=false AND deleted_at IS NULL
+  AND default_config #> '{workflow,steps,review_editquality,config,ai_service,max_tokens}' = '8000'::jsonb
+RETURNING type, ...;   -- returned 2 ROWS, read individually, not "UPDATE 2"
+```
+
+**Why the whole-roster `--apply` was NOT used** even though CLAUDE.md says "do not
+hand-patch the gate": that instruction exists to stop the two rosters drifting in
+*membership*. Here the seat set is identical and only one scalar changes, so a
+full re-mirror would have re-synced all 42 steps — far wider than the one-seat
+blast radius that was actually chosen. **The equivalent guarantee was obtained by
+proving the mirror is now a no-op**, which is the check that makes the shortcut
+legitimate:
+
+```
+$ python3 099_SYNC_gate_roster.py          # dry run, after the change
+  added: (none)   removed: (none)
+  drift (steps that would change): (none)
+```
+
+**Verified:** exactly two rows sit off 8000 fleet-wide, both
+`review_editquality`, both 16000; no other seat moved.
+
+**Seed divergence — pre-existing, do NOT "fix" it by hand.** `0NN_council_gate.sql`
+carries `'max_tokens', 3000` at nine sites. The seed was *already* stale against
+the live 8000 before this change, so replaying it would cut every seat's budget by
+more than half — a far bigger regression than the value I raised. The live row plus
+the mirror are the source of truth here; the seed is history (`[[the seed is not
+the system]]`). Editing it to 16000 would leave the other 15 seats wrong at 3000.
+
+**OWED — this is not yet verified in effect.** Config is live immediately, but no
+council round has run since. The change is only proven when a round shows
+`review_editquality` completing without a `TOLERATED` row:
+
+```sql
+SELECT created_at, success, output_tokens, max_tokens,
+       left(error_message, 60)
+FROM llm_call_log
+WHERE step_name='review_editquality' AND created_at > '2026-07-28 21:55Z'
+ORDER BY created_at DESC;
+```
+
+Success = `max_tokens` reads 16000 **and** the truncation share falls from the
+25% baseline. **Do not read a zero-truncation result as proof without checking the
+call count** — the same weak-control error this thread already made twice today.
+Note `output_tokens` is NULL on truncated rows, so count `error_message LIKE
+'TOLERATED%'`, never `output_tokens >= max_tokens`.
+
 ## Next actions (superseded above — kept for the record)
 
 1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
