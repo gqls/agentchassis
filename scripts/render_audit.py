@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 """Render a live page in headless Chromium and measure what a visitor actually sees.
 
+SUPERSEDED 2026-07-28 by internal/adapters/browserrunner/render_audit_action.go,
+a faithful Go port carrying the same probe. KEPT FOR NOW, deliberately: the Go
+version lives in the browser-runner-adapter and is inert until that image is
+rebuilt and rolled. Deleting this before then would leave the fleet with no
+render audit at all, and this is currently the only thing that catches
+features_open/026 family 3 (a component hard-coding an ink over a themed fill).
+
+RETIRE THIS FILE once `render_audit` is confirmed live on the adapter — a pod
+that answers the action, and one real run. Until then prefer this script and
+expect the two to agree; if they disagree, the Go port is wrong.
+
 WHY THIS EXISTS
 ---------------
 Every check the build pipeline runs today reads a SOURCE: a component template,

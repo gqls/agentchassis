@@ -226,6 +226,10 @@ type browserPage interface {
 	Text(selector string) (string, error)
 	// Screenshot captures the page as PNG bytes (P3 failure evidence).
 	Screenshot(fullPage bool) ([]byte, error)
+	// Evaluate runs a JS expression in the page and returns its value. Added for
+	// render_audit, whose whole measurement is one in-page probe; the narrow
+	// per-check methods above cannot express it.
+	Evaluate(script string) (interface{}, error)
 	Close()
 }
 
@@ -833,6 +837,11 @@ func (c *chromiumPage) Do(step criteriaStep) error {
 	}
 	time.Sleep(stepDelay) // let handlers/render settle before the next step or assertion
 	return nil
+}
+
+// Evaluate runs a JS expression in the page and returns its decoded value.
+func (c *chromiumPage) Evaluate(script string) (interface{}, error) {
+	return c.page.Evaluate(script)
 }
 
 func (c *chromiumPage) Text(selector string) (string, error) {

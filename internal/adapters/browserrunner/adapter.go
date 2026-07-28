@@ -58,7 +58,8 @@ type Adapter struct {
 	producer      kafka.Producer
 	requestsTopic string
 
-	runChecks *RunChecksAction
+	runChecks   *RunChecksAction
+	renderAudit *RenderAuditAction
 
 	adapterID  uuid.UUID
 	senderType string
@@ -125,6 +126,7 @@ func NewAdapter(ctx context.Context, cfg *config.ServiceConfig, logger *zap.Logg
 		producer:      producer,
 		requestsTopic: requestsTopic,
 		runChecks:     NewRunChecksAction(logger, store),
+		renderAudit:   NewRenderAuditAction(logger),
 		adapterID:     adapterID,
 		senderType:    senderType,
 		podName:       podName,
@@ -287,6 +289,12 @@ func (a *Adapter) handleMessage(msg kafka.Message) {
 		// holding the drain window.
 		if execErr = json.Unmarshal(in.Body.Data, &req); execErr == nil {
 			result, execErr = a.runChecks.Execute(a.ctx, req)
+		}
+	case "render_audit":
+		var req RenderAuditRequest
+		// Same ctx for the same reason: an audit of a whole site is a long run.
+		if execErr = json.Unmarshal(in.Body.Data, &req); execErr == nil {
+			result, execErr = a.renderAudit.Execute(a.ctx, req)
 		}
 	default:
 		execErr = fmt.Errorf("browser-runner adapter: action %q not implemented", in.Body.Action)

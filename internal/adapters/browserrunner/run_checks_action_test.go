@@ -25,6 +25,8 @@ type fakePage struct {
 	steps          []criteriaStep   // recorded
 	shotErr        error            // error to return from Screenshot
 	shotTaken      bool             // recorded: Screenshot was called
+	evalResult     interface{}      // canned Evaluate return (render_audit probe)
+	evalErr        error
 }
 
 func (f *fakePage) Status() int             { return f.status }
@@ -36,6 +38,10 @@ func (f *fakePage) HorizontalOverflow(container string) (bool, overflowInfo, err
 	return f.overflow, f.ovInfo, f.ovErr
 }
 func (f *fakePage) Text(sel string) (string, error) { return f.texts[sel], nil }
+
+// Evaluate is the seam render_audit drives; run_checks never calls it, so the
+// canned value stays nil for every existing test.
+func (f *fakePage) Evaluate(string) (interface{}, error) { return f.evalResult, f.evalErr }
 func (f *fakePage) Close()                          {}
 func (f *fakePage) Do(step criteriaStep) error {
 	f.steps = append(f.steps, step)
