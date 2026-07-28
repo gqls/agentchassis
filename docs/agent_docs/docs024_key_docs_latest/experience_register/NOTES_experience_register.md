@@ -607,3 +607,56 @@ already know.
 records them is committed but **not deployed** — v1.0.1180 silences a justified unused binding
 without recording it. So the true figure is 23 **plus** the fifteen marked bindings; the table
 above undercounts, and will correct itself at the next roll with no action needed.
+
+---
+
+## 2026-07-28b — the consumer, and the corrected harness figures
+
+**The register now checks its own promises.** `verify_site_experience` runs a bound fork's
+criteria against the page actually being served and moves the fork — and, on a first green run of
+an approved entry, the entry — along their lifecycles.
+
+**The door that matters is the vacuous pass.** A criteria document can produce ZERO executed
+checks: everything deferred, or everything skipped (Tier 2 could not anchor the selector, or the
+id ends in `-EDIT`). Such a run has **no failures**. Read as "no failures ⇒ pass", it verifies a
+fork that asserted nothing — the register committing the exact defect it exists to end. So the
+rule is **at least one PASSED and zero FAILED**, never an absence of failures; zero executed is
+`INCONCLUSIVE` and changes no status. The decision is one testable function
+(`experienceVerdict`) because it is the rule most likely to be "simplified" later by someone
+reading `len(failed) == 0` as sufficient. Proved by induced fault — making that read succeed fails
+four cases, naming the empty and all-skipped documents.
+
+**Reuse rather than a copy:** `discovery_checks.EvaluateStaticCriteriaJSON` is a new exported door
+onto the *same* Tier 2 evaluator tool acceptance uses. Reimplementing the anchor rule would create
+a second definition of "this check passed" — and a divergent *judgement* is worse than a divergent
+value, because it produces confident disagreement rather than an error.
+
+> **CORRECTED — the deferral figures published this morning were an UNDERCOUNT, as flagged, and
+> the correction changes the conclusion's strength.** v1.0.1189 carries the tightened P4, so
+> binding-level deferrals are now recorded. Re-seeded all nine; the register holds **38 deferrals,
+> not 23** — 23 check-level plus exactly the **15** marked bindings predicted. Re-ranked:
+>
+> | blocked on | clauses | entries |
+> |---|---|---|
+> | **attribute assertion** | **13** | **9 of 9** |
+> | waits + retries | 8 | 2 |
+> | cross-page status | 3 | 3 |
+> | empty-region assertion | 3 | 2 |
+> | zero-count / scoped negation | 2 | 2 |
+> | count threshold | 2 | 2 |
+> | focus step + visibility | 2 | 1 |
+> | ordering / conditional | 2 | 2 |
+> | navigation as a step · degraded state · uncategorised | 3 | 3 |
+>
+> This morning's table said attribute assertion blocked 7 clauses across 7 of 9. It is **13 across
+> all nine** — a third of every deferral in the register, and there is no entry it does not
+> affect. The ranking did not change; its margin roughly doubled. **The undercount made the right
+> answer look like a closer call than it is**, which is the practical cost of publishing a figure
+> with a known gap in it — worth remembering that I did label it `[UNDERCOUNT]`, and that the
+> label is what made this a scheduled correction rather than a discovery.
+
+**Branch note for whoever reads `git log`:** another session moved the working tree to
+`087_towards_multiple_domains` mid-task, so the consumer commit landed there rather than on
+`086_experience_loop`. Verified before continuing: `087` branched from `086` at `b82b3d8b4`, which
+is *after* every commit in this workstream, so the whole chain is reachable and nothing was lost.
+Forward-only holds — no reset was needed and none was made.

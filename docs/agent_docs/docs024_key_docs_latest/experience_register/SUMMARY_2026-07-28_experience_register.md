@@ -100,3 +100,19 @@ retro-fitted to it.
 One honest caveat: the corrections made today are committed but not yet in the running system, so
 the deferral count above slightly undercounts. It will correct itself at the next build, with no
 action needed.
+
+---
+
+> **CORRECTION, same day, after the next build shipped.** The table above was written from a
+> deferral count I had marked as incomplete, and the completed count changes its force. The
+> register holds **38 deferrals, not 23** — the missing 15 were the binding-level ones, which only
+> get recorded from v1.0.1189 onward.
+>
+> **Attribute assertion blocks 13 clauses across all nine entries**, not 7 across 7. It is a third
+> of everything deferred, and there is no entry in the register it does not affect. The order of
+> the table is unchanged; the gap between first and second roughly doubled.
+>
+> Also since writing: the **consumer** is built. The register can now run a bound entry's checks
+> against a live page and record what happened — with the rule that verification requires a
+> *pass*, never merely an absence of failures, because a document whose checks were all skipped
+> also has no failures.
