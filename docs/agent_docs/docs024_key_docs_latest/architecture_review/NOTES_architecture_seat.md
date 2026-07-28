@@ -683,3 +683,70 @@ Notes for this workstream specifically:
 - The reindex lane fails bursty at the spawn handshake (2 of 3 dispatches on
   v1.0.1184) — child-side mechanism now evidenced in `bugs_open/129`, diagnosis
   `dcde1ed9` filed. Relevant if you dispatch reindexes for the markdown work.
+
+---
+
+## 2026-07-28, ~11:45 — pinning the indexer's ref, and reading PART of a row again
+
+Owner directive: index the working branch (`086_experience_loop`), because the
+merge to main is not happening soon. Two migrations, and the first one was based
+on a premise I had not checked.
+
+### The push already fixed the staleness — before I changed anything
+
+`ref='086_experience_loop'`, `commit_sha=d98010e8b`, **0 commits behind the branch
+tip**, 4,992 rows, **4,992 bodies**. So the 955-commit gap I had been raising is
+closed, and it closed because the branch was pushed — exactly as predicted, and
+not by anything I did today. Another session has also shipped `ref` and
+`commit_time` columns (108 candidate 1), so the banner can now key its verdict to
+the indexed commit's own date rather than the row clock.
+
+### 251 IS INERT, and the reason is a repeat of this session's own lesson
+
+I wrote 251 to add `{"ref": "086_experience_loop"}` to the task's `input_data`,
+on the premise that the task supplied no ref and therefore fell back to `HEAD` →
+the default branch → main. **I had read the row and not the whole row.** The task
+carries a `pre_query`, and the scheduler treats it as authoritative:
+
+- `cmd/scheduler/main.go:216` — `mergeJSON(task.InputData, dynamicData)`, and
+  `:480` `baseMap[k] = v`, so the pre-query result is the **overlay** and
+  overwrites any static key of the same name;
+- `cmd/scheduler/main.go:198-212` — a pre-query returning **no rows** does not
+  fall back to `input_data`; it stamps the task completed and **`continue`s**.
+  **The task does not fire at all.**
+
+So the static key can never be read, in either branch. That is the third time in
+two days I have acted on a partial read of a live row — and the specific shape,
+*"the config that produces the right answer for a reason nobody can state"*, is
+one I wrote into 251's own header while missing that it applied to me.
+
+### What the old pre_query actually did, and why a constant replaced it
+
+```sql
+SELECT collected_data->'input_data'->>'ref' FROM orchestration_states
+ WHERE collected_data->'input_data'->>'ref' ~ '^[0-9]{3}_'
+   AND COALESCE(owner_agent_type,'') NOT IN ('index-orchestrator','code-indexer')
+   AND created_at > now() - interval '14 days' ORDER BY created_at DESC LIMIT 1
+```
+
+It infers the branch from whatever ref the most recent non-indexer orchestration
+carried — clever, and it is why the index tracked the branch at all. Two failure
+modes make it wrong for a directive that *names* a branch:
+
+1. **No rows ⇒ the index silently stops refreshing.** Nothing errors. It needs
+   only 14 quiet days, or a spell with no `NNN_`-shaped ref in flight.
+2. **It follows whichever branch another session last mentioned**, decided by
+   `ORDER BY created_at DESC`, with nothing recording that the corpus changed
+   identity.
+
+Both bite at the merge: `main` does not match `^[0-9]{3}_`, so **the day this
+branch merges, the pre-query goes dry and the refresh stops quietly** — 108
+defect A re-armed by a stale pin instead of a stale clock. 252 replaces it with
+`SELECT '086_experience_loop'::text AS ref`: one row by construction, so the task
+always fires, and one literal to change at merge time. The reversal trigger is
+written into the migration where the edit has to happen, not into a doc.
+
+252 verifies itself by **executing** the stored pre_query (`EXECUTE 'SELECT
+count(*), max(ref) FROM (' || v_pre || ') s'`) rather than asserting its text — a
+pre_query is executable code with no compiler, and this fleet has been bitten by
+re-stating a predicate instead of running the stored one.
