@@ -670,6 +670,94 @@ SAFE_WRAPPERS = ("Fingerprint(", "TopLevelJSONObjects(", "len(", "IsTruncated(",
                  "utf8.RuneCountInString(", "Itoa(")
 
 
+def check_register_coverage(files, ref, findings):
+    """A commit that CREATES a workstream directory the concept register has never heard of.
+
+    THE BUG (bugs_open/106). Concept-register extraction froze 2026-07-13. Three
+    whole subsystems were later found missing — fixloop (07-16), model-directory
+    (07-17), claims-verification (07-27) — and ALL THREE were found by coincidence,
+    because somebody happened to be working beside the hole. The register is the
+    instrument sessions are told to consult BEFORE concluding something does not
+    exist, so a hole in it reads as "this does not exist" rather than "nobody
+    looked". On 2026-07-26 a session concluded exactly that, wrote it into a live
+    council seat's standing instructions, and was one step from building a
+    redundant subsystem.
+
+    The SENSOR already exists and works —
+    `docs/agent_docs/docs026_concept_register/102_CHECK_register_coverage.py`,
+    sensor + ratchet, built the same day 106 was filed. What it never got was a
+    CADENCE: grep found it referenced in exactly two places, both its own
+    documentation. It runs when a human remembers, which is the same
+    detected-by-coincidence mechanism the bug is about, moved one step earlier.
+    A fourth tool that must be invoked by coincidence does not retire it.
+
+    WHY THIS TRIGGER AND NOT A PERIODIC SWEEP. A cron would report drift up to a
+    week after it appeared, to nobody in particular. This fires at the moment the
+    gap is CREATED, in front of the person creating it, who is the one person who
+    can close it in ten seconds by adding a register line. Put the check where the
+    error is made.
+
+    WHY IT IMPORTS THE SENSOR RATHER THAN REIMPLEMENTING is_covered(). Two
+    hand-maintained copies of one matching rule is precisely the drift class this
+    platform keeps filing bugs about (idx_swi_dedup / workItemTerminalStatuses is
+    the standing example). There is one implementation; this calls it.
+
+    ONLY NEW DIRECTORIES FIRE. 43 existing workstreams are uncovered and on the
+    ratchet — that is accepted backlog, and flagging active work on them every
+    commit is how a check becomes wallpaper.
+
+    MEASURED BEFORE INCLUSION, per this file's bar: see the fire rate recorded in
+    bugs_closed/106.
+    """
+    ws_root = "docs/agent_docs/docs024_key_docs_latest/"
+    base = ref[0] if ref else "HEAD"
+
+    # Which workstream dirs does this commit touch?
+    touched = set()
+    for f in files:
+        if not f.startswith(ws_root):
+            continue
+        rest = f[len(ws_root):]
+        if "/" not in rest:
+            continue                      # a loose file at the root, not a workstream
+        touched.add(rest.split("/", 1)[0])
+    if not touched:
+        return
+
+    # Of those, which are NEW — i.e. have no history before this commit?
+    fresh = [d for d in sorted(touched)
+             if not sh("git", "log", "--oneline", "-1", base, "--", ws_root + d).strip()]
+    if not fresh:
+        return
+
+    # Reuse the sensor's own matching rule; never re-implement it here.
+    import importlib.util
+    repo = sh("git", "rev-parse", "--show-toplevel").strip()
+    sensor_path = os.path.join(
+        repo, "docs/agent_docs/docs026_concept_register/102_CHECK_register_coverage.py")
+    if not os.path.exists(sensor_path):
+        return                              # sensor removed or moved — stay silent, never break a commit
+    spec = importlib.util.spec_from_file_location("register_coverage", sensor_path)
+    sensor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sensor)          # read-only; __main__ guard keeps it quiet
+
+    corpus = sensor.register_text()
+    ratchet = sensor.read_ratchet()
+    for d in fresh:
+        if d in ratchet or sensor.is_covered(d, corpus):
+            continue
+        findings.append((
+            "register-blind-spot", ws_root + d,
+            f"new workstream {BOLD}{d}{RESET} — the concept register has never heard of it",
+            "The register is what sessions consult before concluding a capability does not "
+            "exist, so an unlisted subsystem reads as absent rather than unlooked-for "
+            "(bugs_open/106: three subsystems went missing that way, each found by "
+            "coincidence). If this directory will hold a reusable mechanism, add an entry "
+            "to docs026_concept_register/register/<category>.md; if it is site content or a "
+            "one-off, add it to 102_coverage_ratchet.txt and it stays quiet. Advisory.",
+        ))
+
+
 def check_logged_model_output(files, ref, findings):
     """bugs_open/083 + council corr e004fd81 — logging an LLM response verbatim.
 
@@ -752,7 +840,7 @@ def main():
     for check in (check_untouched_twin, check_gofmt, check_stdin_eater, check_declared_pairs,
                   check_unguarded_migration_insert, check_append_only_docs,
                   check_truncation_without_reader, check_logged_model_output,
-                  check_new_capability_surface):
+                  check_new_capability_surface, check_register_coverage):
         try:
             check(files, ref, findings)
         except Exception as e:  # never let a check break a commit

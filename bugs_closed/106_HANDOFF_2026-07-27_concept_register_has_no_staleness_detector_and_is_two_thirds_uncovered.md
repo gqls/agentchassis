@@ -191,3 +191,101 @@ asked to establish whether the verdict was due or done.)
   a drift guard already exists for *direction documents* (constitution/mission,
   `100_CHECK_direction_integrity.py`). This is the same idea applied to register
   coverage, and that plan is the precedent for how such a guard is introduced here.
+
+---
+
+# CLOSED 2026-07-28 — the sensor now runs without being remembered
+
+**Fixed by** the `bugfix_106_register_coverage_cadence` thread. Docs/scripts only:
+no image, no migration, no council round (out of the gate's `platform|internal|pkg`
+scope). Working docs:
+`docs024_key_docs_latest/bugfix_106_register_coverage_cadence/`.
+
+## What was left, and what shipped
+
+This file's own post-roll triage narrowed the remaining scope to one thing, and
+was right:
+
+> *"A fourth tool that must be invoked by coincidence does not retire it."*
+
+Shipped: **`check_register_coverage`**, the 9th check in
+`scripts/pattern-check.py` — advisory, already run by `.githooks/pre-commit`.
+Registered as **OPP-004**.
+
+**Trigger: a commit that CREATES a workstream directory the register has never
+heard of.** Chosen over a cron deliberately — a cron reports drift up to a week
+late, to nobody in particular; this reports it the instant the gap appears, to the
+one person who can close it in ten seconds. The message names both silencing
+routes (register entry, or the ratchet).
+
+Three properties that keep it off the wallpaper pile:
+
+- **Only NEW directories fire.** The 43 uncovered workstreams on the ratchet are
+  accepted backlog; flagging active work on them every commit is how a check dies.
+- **It imports the sensor rather than reimplementing `is_covered()`.** One matching
+  rule, one implementation — two hand-maintained copies is the `idx_swi_dedup` ↔
+  `workItemTerminalStatuses` drift class. Guarded: if the sensor moves, the check
+  returns silently rather than breaking commits.
+- **Advisory, never blocks**, consistent with the file's stated design.
+
+## Measured before inclusion, per `pattern-check.py`'s own bar
+
+```
+1,500 commits scanned    fires: 4    rate: 0.27%    false positives: 0
+```
+
+Quieter than every existing check (README 0.7%, SUMMARY 2.0%, twin ~2%), which is
+correct for a population of "commits creating a brand-new workstream".
+
+**A very low rate and a dead check look identical from the number**, so all four
+fires were inspected: `memory_index`, `bugs_sweep_2026_07`,
+`bugfix_066_spawn_image_tag`, `gemini_content_provider`. All genuine — and the
+last two are **exactly the pair this file's triage records the sensor finding by
+hand on 2026-07-27**. Same gaps, now caught at creation rather than days later by
+someone who happened to run the tool. That is the closest thing to a controlled
+comparison this bug could have.
+
+## Verified by inducing the gap, as this file demands
+
+> *"induce the gap, because a report that is green on a register somebody has just
+> hand-patched proves only that the patch happened."*
+
+| arm | setup | result |
+|---|---|---|
+| 1 | two new uncovered workstreams staged | **both fire** |
+| 2 | one added to `102_coverage_ratchet.txt` | **only the other fires** |
+| 3 | the other given a register entry instead | **it goes quiet; the first still fires** |
+
+Negative control: silent, 40 ms, on a commit touching no workstream directory.
+
+**And it was demonstrated on itself.** Creating this fix's own workstream directory
+tripped the new check; adding OPP-004 to the register silenced it. The full
+intended loop, exercised on the commit that shipped it.
+
+## Residual — recorded, deliberately not fixed
+
+**The register can be complete in coverage and stale in CONTENT, and nothing
+detects that.** Two live instances hit the same day:
+
+1. `SCH-012` carried `verify-later: … (should still be false unless deliberately
+   turned on)`. It had been **true** for weeks, and that stale expectation is part
+   of why `bugs_closed/124` went unnoticed. **A `verify-later` that states an
+   expected answer rather than a question reads as reassurance, and nobody re-runs
+   it.**
+2. The `psql -t -A` command-tag trap had been found and fixed by two threads, each
+   privately in its own script comment, neither anywhere findable — so a third
+   shipped it into a claim guard (016b §9).
+
+Not folded in, on purpose: the sensor asks only whether a subsystem is
+*represented*, never whether an entry is *accurate*. Those are different questions
+and conflating them is how a coverage check becomes an audit nobody runs — this
+file says so itself. **Sample of two; not filing a bug on it.** If a third instance
+appears, that is the signature this file taught us to read.
+
+**Also not taken:** widening the sensor's inputs (agent types, action names,
+migration files) — a separate change needing its own fire-rate measurement. And
+the R2 / mission-review question, which belongs to the concept-register workstream
+and is blocked on an empty denominator.
+
+**Status: CLOSED — the detector runs on a cadence that does not depend on anyone
+remembering it.**

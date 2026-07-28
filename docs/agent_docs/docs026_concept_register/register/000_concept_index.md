@@ -1,13 +1,15 @@
 # Concept Index — master register
 
-1,641 concepts across 107 category register files. 1,627 consolidated from
+1,642 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
 missingkey=zero structural defect it surfaced) that shipped after extraction
 froze; 2 more (MDL-038/039) added 2026-07-17 for two live platform bugs the
 fix-loop's own first real-case run found — see the addition notes further
-down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28
+down; and 3 more (LCO-005/006, OPP-003) added 2026-07-28; and 1 more (OPP-004) added
+2026-07-28 closing `bugs_open/106` — the register's own coverage check, wired to the
+commit path so a new subsystem announces its own absence
 for capability that shipped this week — a structural fingerprint for LLM
 responses, the diagnosability layer on the island's tools-api, and the
 pre-commit detector that stops model text reaching a log; and 3 more
@@ -844,6 +846,7 @@ an ID prefix, or a status word.
 | DBG-051 | Assumed-status-values trap | deployed | Never assume a status column's vocabulary; always SELECT DISTINCT first | debugging.md |
 | MIGG-001 | Proposed migration runner/ledger for hand-applied agent-def changes | aspirational | Never built; only manual "2d state check" stands in; responds to DBG-010's incident | migration-governance.md |
 | OPP-002 | Operator discipline: verify-by-artifact, dated backups, kcat | deployed | Never trust a status; diff bytes, dated backups, kcat trigger convention | operator-practice.md |
+| OPP-004 | `check_register_coverage`: the register coverage cadence, on the commit path | deployed | A commit creating a workstream the register has never heard of now says so, to the person creating it; closes bugs_open/106. | operator-practice.md |
 | HITL-011 | HITL approval-as-specialised-agent architecture (human-reviewer plan) | aspirational | Never-built plan: dedicated human-reviewer agent, approval_tasks/versions tables | hitl.md |
 | CTS-018 | system.internal site convention | deployed | Never-deployed sites row hosting maintenance/library work items | contracts-and-standards.md |
 | DEV-015 | Chassis action input conventions (dual registration) | deployed | New actions need BOTH ActionInputSpec registration AND a GlobalActionRegistry entry (IsLocal:true). | development-guide.md |
