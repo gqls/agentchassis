@@ -291,6 +291,69 @@ test site, no LLM steps. The vonc.com pages were left re-rendered; the four
 FAILED-at-deploy runs from the first burst may have deployed anyway on late
 responses (unchecked — test site).
 
+---
+
+## 2026-07-28 ~11:10 — CS-2 APPROVED (round 3), DEPLOYED, ENABLED — the pool WORKS in production. And the response-replay outage is measured: ~23 min of response deafness per pod restart.
+
+**CS-2 verdict: APPROVED** on round 3 (corr `9f0499b9…`, "approved with 3
+advisory objection(s) — none high-severity"). The three advisories, answered
+here: (1) *why two new tables rather than extending
+processed_messages/site_work_items* — `site_work_items` is owner-visible
+domain work with its own fragile dedup-index↔Go-list contract and a different
+lifecycle; `processed_messages` is a dedupe ledger keyed by message_id whose
+two-phase contract 003 paid for; the intake table needs raw payload BYTEA,
+kafka coordinates, and its own retention clock. Overloading either would be
+the "one column, three jobs" failure (bugs 108) — the shape was reused, the
+storage deliberately not. (2) *the core-edit signal must be logged, not waved
+past* — logged: the commit hook's architecture signal fired on `28b1a0305`
+and this line is the record. (3) *the seats' Schema section cannot see
+`orchestration_states`/`doc_notes`, so those checks were still author-quoted*
+— true and noted for future submissions: put checkable claims in
+council-visible tables where possible; the artifact stays in `doc_notes`
+regardless (id `701bce70…`) because operators CAN see it.
+
+**Rollout, in order, all gated on a quiet lane (zero review/gate steps both
+times):** image v1.0.1184 built from committed HEAD, pushed, binary-verified
+(all six discriminating strings + positive control), rolled 10:54:56Z; dark
+check passed (env unset → zero `INTAKE_` lines); flag flipped 10:56:37Z
+(`CHASSIS_INTAKE_MODE=worker_pool`, `CHASSIS_DB_MAX_OPEN_CONNS=12`).
+Pod-grep on the RUNNING pod (not git, not the tag): 1/1/1/1 on
+`CLAIM_RECOVERY_STALENESS_HELD` / `INTAKE_MODE_ACTIVE` /
+`INTAKE_BACKPRESSURE` / `CHASSIS_DB_MAX_OPEN_CONNS`. **CS-1 is therefore
+LIVE** (unconditional code); its induced-branch tests are still owed and
+queued behind the replay (below).
+
+**The pool works.** Ambient scheduled traffic flowed immediately: intake rows
+consumed→persisted→claimed→executed→done with claims released (3 events in
+the first minutes, 14 by 11:08, 0 stuck). Sequential control (`judge`
+re-render, corr `a6a66e1e…`): **received 11:00:37 → claimed 11:00:38 →
+event done 11:00:40** — one-second pickup, two-second execution, exactly the
+thin-ingest shape. `[The orchestration itself then parked at deploy_page —
+NOT a pool defect; see below.]`
+
+**The response-replay outage, measured.** The fresh pod's per-pod response
+group (`StartOffset: FirstOffset`) replays the ENTIRE
+`system.agent.generic.responses` history on every start: measured LAG 5,370
+of 12,280 thirteen minutes after pod start, drain ~530/min ⇒ **~23 minutes
+per restart during which the response lane processes history and is deaf to
+fresh responses** — and the window grows with the topic. Consequences:
+- The control (and any await) inside that window rides the treadmill: its
+  response arrives while the lane is still in yesterday.
+- **This is very likely most of what "the ~300s post-roll degraded window"
+  (now observed ~20 min, bugs_open/029) actually is** — not just spawn
+  drops: every await whose response lands in the replay window times out.
+  Numbers match: 029's 07-27 losses "start 13 min after a roll, run 20 min".
+  Contributed to 029.
+- Phase 3 (responses through the pool) + the seed-to-latest option kill
+  this class. Building the env-gated seed-to-latest now
+  (`CHASSIS_RESPONSES_START_AT=latest`, default unchanged = today's
+  FirstOffset), dark; **the flip waits for the owner's Phase 3→4 consent as
+  the plan records** (blind window = pod-restart seconds, covered by F2
+  re-send + at-least-once, per PLAN §13).
+
+Decisive burst test deferred ~15 min until the replay catches up — running it
+against a deaf response lane would measure the replay, not the pool.
+
 Instrument gotcha for whoever repeats this: `oufe/TRIGGER_rerender_page.sh`
 names its kcat pod `kcat-rerender-$(date +%s)` — seconds granularity, so
 PARALLEL invocations collide with "AlreadyExists" (3 of 5 lost that way on the
