@@ -839,7 +839,33 @@ func renderHTML(domain, audience, wtp string, assess assessment, advancing, drop
 			}
 			row("What it's built on:", sentence(x.Asset+", using "+midSentence(x.Capability)))
 			row("What we found:", x.Findings)
-			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">How it scored</span> (each out of 5): hard to copy %d &middot; people will pay %d &middot; easy to build %d &middot; reusable elsewhere %d &middot; built to last %d <span style="color:%s">(%d out of 25 overall)</span></p>`, slate, navy, x.Defensibility, x.Willingness, x.Buildability, x.Reuse, x.Durability, muted, x.Sum)
+			// Scores as bars rather than five numbers in a sentence. Deliberately
+			// built from nested tables with PERCENTAGE widths and a background
+			// colour on a <td>: that is the only charting technique that survives
+			// the mail clients. SVG does not render in Gmail or Outlook, and a
+			// generated chart image is blocked by default in most clients — either
+			// would show the reader nothing at all. A table always draws.
+			//
+			// The numbers stay next to every bar, so the meaning does not depend on
+			// the graphic rendering: a client that flattens the styling still leaves
+			// "hard to copy 4/5" in readable order. The bar is an enhancement, never
+			// the only carrier of the value.
+			fmt.Fprintf(&b, `<p style="margin:14px 0 6px;color:%s"><span style="color:%s;font-weight:bold">How it scored</span> <span style="color:%s">(each out of 5)</span></p>`, slate, navy, muted)
+			b.WriteString(`<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;margin:0 0 10px">`)
+			for _, m := range []struct {
+				label string
+				v     int
+			}{
+				{"hard to copy", x.Defensibility},
+				{"people will pay", x.Willingness},
+				{"easy to build", x.Buildability},
+				{"reusable elsewhere", x.Reuse},
+				{"built to last", x.Durability},
+			} {
+				b.WriteString(scoreBar(m.label, m.v, 5, navy, line, slate, muted))
+			}
+			b.WriteString(scoreBar("overall", x.Sum, 25, gold, line, slate, muted))
+			b.WriteString(`</table>`)
 			fmt.Fprintf(&b, `<p style="margin:0 0 6px;color:%s"><span style="color:%s;font-weight:bold">Risk to you:</span> %d/5 %s</p>`, slate, navy, x.Risk, esc(riskNote(x.Risk)))
 			row("A cheap first test:", x.CheapestTest)
 			srcList(x.Sources)
@@ -933,6 +959,52 @@ func midSentence(s string) string {
 // Keep `sentence()` around the submitted text. It is the fix for the doubled full
 // stop a real customer received on 2026-07-26, and this is its only call site
 // here.
+// scoreBar renders one labelled bar as a table row, for the HTML report.
+//
+// Email-safe by construction: no SVG (Gmail and Outlook drop it), no image (most
+// clients block remote images by default), no CSS classes (many clients strip
+// <style> blocks). Just a <td> with a background colour and a percentage width,
+// which every client since about 2003 draws correctly.
+//
+// Two details that matter and are easy to get wrong:
+//   - A zero-width <td> is rendered inconsistently — some clients give it a
+//     minimum width and the bar reads as a nonzero score. So a full or empty bar
+//     omits the other cell entirely rather than emitting width:0.
+//   - The spacer cell needs font-size:0;line-height:0 or its line box forces the
+//     row taller than the bar, and the bars stop lining up.
+//
+// v is clamped to [0,max]: a model returning 6/5 would otherwise produce a bar
+// wider than its track and blow the table out.
+func scoreBar(label string, v, max int, fill, track, labelCol, valCol string) string {
+	if max <= 0 {
+		return ""
+	}
+	if v < 0 {
+		v = 0
+	}
+	if v > max {
+		v = max
+	}
+	pct := v * 100 / max
+	var bar strings.Builder
+	bar.WriteString(`<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse"><tr>`)
+	if pct > 0 {
+		fmt.Fprintf(&bar, `<td style="width:%d%%;background:%s;height:7px;font-size:0;line-height:0;border-radius:3px">&nbsp;</td>`, pct, fill)
+	}
+	if pct < 100 {
+		fmt.Fprintf(&bar, `<td style="width:%d%%;font-size:0;line-height:0">&nbsp;</td>`, 100-pct)
+	}
+	bar.WriteString(`</tr></table>`)
+
+	return fmt.Sprintf(
+		`<tr>`+
+			`<td style="padding:0 10px 7px 0;color:%s;font-size:14px;white-space:nowrap;vertical-align:middle">%s</td>`+
+			`<td style="padding:0 10px 7px 0;width:100%%;vertical-align:middle"><div style="background:%s;border-radius:3px">%s</div></td>`+
+			`<td style="padding:0 0 7px 0;color:%s;font-size:13px;white-space:nowrap;vertical-align:middle">%d/%d</td>`+
+			`</tr>`,
+		labelCol, html.EscapeString(label), track, bar.String(), valCol, v, max)
+}
+
 func reportIntro(domain string) string {
 	return "This report is from idea.uk. Here is the idea you sent us: " + sentence(domain) +
 		"\n\n" +
