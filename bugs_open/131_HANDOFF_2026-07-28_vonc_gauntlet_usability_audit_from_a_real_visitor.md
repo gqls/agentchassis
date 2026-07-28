@@ -318,3 +318,73 @@ that nothing lies. **None of them asks whether a person can tell what to do.**
 That gap is what `experience_loop/HANDOFF_2026-07-28_appeal_dimension.md` was
 opened to close, and item A is the strongest argument yet for its first
 recommendation: add a `contrast_ratio` check before anything else.
+
+---
+
+## B check-side — NO LONGER INERT, 2026-07-28 16:56Z. Still not *proven*, and the difference matters
+
+**The blocker this item recorded is cleared.** `browser-runner-adapter` now runs
+**v1.0.1190**, pod `browser-runner-adapter-cb96646c7-bcztg`, started `16:56:18Z`,
+rolled via a new single-service makefile target (`35c8277a8`).
+
+**Why a rebuild was needed and a redeploy would have been a no-op.** `v1.0.1188` and
+`v1.0.1189` are the **same image id** (`bb9cb4a8b649`), built `13:43:31Z` — **56 minutes
+before** the fix commit `5042d5ecb` (`14:39:22Z`). A retag is not a rebuild. Rolling
+1189 again would have restarted the pod, looked exactly like a successful deploy, and
+shipped the identical binary.
+
+**Pod-grep, discriminating** (using this file's own landmine recipe — `strings` does not
+exist in this container):
+
+```
+positive control  no_horizontal_overflow            1
+fix marker        "while the content stays cut off" 1     <- was 0 on v1.0.1189
+negative control  zzz_not_a_real_marker_zzz         0
+```
+
+The negative control is there because a `grep -c` that finds something proves the file
+is greppable, not that the binary is the one you think. All three had to move together.
+
+### What is NOT yet proven, and why re-running the named cases will not prove it
+
+This item's own instruction was *"re-verify against this bug's own failing cases (`/` and
+`/about.html` at 390px)"*. **Following that literally would now produce a green result
+that means nothing**, and the reason is recorded earlier in this same file:
+
+- `/about.html` was **never** a real failure — the premise was corrected at ~15:45: the
+  table already sits in `div.pc-table-wrapper` with computed `overflow-x: auto`.
+- `/`'s residual cut (`div.brief-explanation__stat`) was **fixed page-side at ~15:50**
+  via `flex-wrap: wrap`, and verified in the renderer.
+
+So **both named pages are clean, and would be clean with or without the new clause.**
+A pass on them is a happy-path check: it proves the adapter is deployed and reachable,
+which the pod-grep already proved. It says nothing about whether the clause fires.
+
+> **What would actually prove it: a page that IS clipped.** Per
+> [[verify-the-failing-branch]] — a green happy path proves deployment, not correctness;
+> induce the fault. Until the clause is seen returning `clipped:true` with an attributed
+> culprit from the *deployed* adapter, the check-side is **deployed, not demonstrated.**
+
+### The good news: no manual dispatch is needed to get there
+
+The clause is on an **actively exercised path**, so this will happen on its own. The
+check runs inside tool acceptance as `{"id": "no_overflow", "tier": 4, "type":
+"no_horizontal_overflow", "profiles": ["mobile"]}` — **14 orchestrations reference it,
+most recently `2026-07-28 15:17:51Z`** (i.e. shortly before this roll). The next
+acceptance run at the `mobile` profile exercises the new code with nothing fired by hand.
+
+**What to watch for, and where:** a `CheckResult` carrying `pass:false` **plus** a
+populated `culprit` / `component` / selector — the attribution fields are the tell. The
+old clause could only fail on `scrollWidth - clientWidth > 2`; the new one also fails on
+in-flow visible elements laid out past the right edge with no scrollable ancestor. A
+failure with an attributed culprit on a page whose `scrollWidth` is clean **is** the new
+clause, and nothing else produces that shape.
+
+**One caution for whoever confirms it.** A false positive here is not cosmetic: it
+becomes an `improve_tool` fixer aimed at a correct page (`bugs_open/126`). If the first
+flag looks wrong, check for a horizontally scrollable ancestor before treating it as a
+page defect — that escape is exactly what the three filters exist for, and it is what
+kept this file's own item 1 from being reported forever.
+
+**Item B check-side therefore stays OPEN** — but it is now open on *evidence*, not on a
+deploy. `/bugs_closed/`'s bar is fixed AND live; this is live and unwitnessed.
