@@ -1441,3 +1441,45 @@ assumed:
  02:29:43   | page-content-writer | gemini | 8000 |  |  |  |
  02:29:33   | page-content-writer | gemini | 8000 |  |  |  |
 ```
+
+### v1.0.1180 is deployed and does NOT carry 110 candidate 2 — and two of my markers were vacuous
+
+Chassis pod `agent-chassis-5987b8749b-4p4bl`, image **v1.0.1180**, started
+**2026-07-27T22:06:22Z**, 0 restarts. My commit `ca4071c82` landed at **22:02:16Z** —
+**four minutes** before the pod started, i.e. almost certainly after the image build
+had already begun. `make build-*` builds from committed HEAD, so a commit that lands
+mid-build is simply not in the artifact.
+
+**My first two pod-grep markers were VACUOUS and would have told me the opposite:**
+
+| marker | count | what it actually matched |
+|---|---|---|
+| `wire_max_output_tokens` | 1 | `__sent_wire_max_output_tokens` — gemini.go, pre-existing since 107 |
+| `thinking_reserve_tokens` | 5 | `__sent_thinking_reserve_tokens` + the config key, all pre-existing |
+| `total_output_tokens` | **0** | nothing — `__usage_total_tokens` does NOT contain this substring |
+
+**I chose the column names to echo the option keys, which is good for reading the
+code and useless for proving it shipped.** Three of my four column names are
+substrings of strings 107 already put in the binary. Only `total_output_tokens`
+discriminates, plus any multi-column fragment of the INSERT.
+
+**The decisive check was a positive control in the SAME statement.** Absence alone
+could mean the binary lacks the INSERT, the grep is wrong, or `strings` missed it:
+
+```
+rag_context_used                                 1   <- pre-existing, same INSERT
+prompt_variant                                   1   <- pre-existing, same INSERT
+work_item_id, vertical                           1   <- pre-existing, same INSERT
+total_output_tokens                              0   <- mine
+thinking_tokens, total_output_tokens             0   <- mine
+wire_max_output_tokens, thinking_reserve_tokens  0   <- mine
+```
+
+The INSERT is in the binary; my columns are not. **Conclusive: 110 candidate 2 is
+still INERT, and the bug stays OPEN.** It needs an image built from a commit at or
+after `ca4071c82`.
+
+> **This is why "a new chassis was deployed" is not an answer to "is my change
+> live".** Two facts that both looked like yes — a bumped tag and a fresh pod — and
+> the change was still absent. The pod-grep is the only thing that settled it, and it
+> only settled it once the marker was one my change ALONE creates.
