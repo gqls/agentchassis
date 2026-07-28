@@ -7,11 +7,72 @@ its own lane**, and publish→start for a scheduled trigger went from ~18 min to
 after it closed. Not a regression; a named residual.
 **Severity** medium — latency and diagnosability, not correctness. It costs
 sessions time and it makes a correct change look broken.
-**Status** OPEN. **Re-checked 2026-07-27 after the `v1.0.1174` fleet roll: still
-open, structure unchanged, mechanism reproduced with ms evidence** — see
-§"Re-checked 2026-07-27". That section also records a trap that nearly refuted
-this bug wrongly: `orchestration_states.requests_topic` is not the lane a message
-arrived on.
+**Status** OPEN, but **both halves of the fix are now shipped and the lane is
+proven to route** — see §"Rollout completed 2026-07-28". Held open deliberately
+for one reason only: the *relief* has not been measured. Routing is proven;
+"a council no longer blocks the fleet" is not, because no real council has run on
+the new lane yet. The confirming measurement is written out below, and it costs
+nothing extra — the next genuine submission is the test.
+
+Earlier: **re-checked 2026-07-27 after the `v1.0.1174` fleet roll: still open,
+structure unchanged, mechanism reproduced with ms evidence** — see §"Re-checked
+2026-07-27". That section also records a trap that nearly refuted this bug
+wrongly: `orchestration_states.requests_topic` is not the lane a message arrived
+on.
+
+## Rollout completed 2026-07-28
+
+Both halves are live. They had to ship in this order, and the order is the whole
+reason this took two sessions.
+
+**Half 1 — the consumer (was the blocker).** The manifest committed as
+`e88852825` went in with the overnight chassis roll, so the env var is live
+without anyone having to `kubectl apply -k` the overlay (which would have swept
+sixteen other sessions' uncommitted `deployments/` files):
+
+```
+EXTRA_REQUEST_TOPICS=system.agent.scheduled.requests,system.agent.council-gate.requests
+```
+
+Consumer group `generic-requests-group-lane-system-agent-council-gate-requests`
+is live on all three partitions, member = the running chassis pod.
+
+**The lane was proven end to end BEFORE the producer was switched**, using a
+cheap `page-rerender` published to `system.agent.council-gate.requests` rather
+than an expensive council run — the point being that a registered consumer group
+proves subscription, not routing. It returned `COMPLETED | complete` and the page
+re-rendered. That is the check worth copying: **prove a new lane with the
+cheapest agent you have, not with the workload you built it for.**
+
+**Half 2 — the producer.** `097_TRIGGER_council_review_v1.sh` now publishes to
+the council topic (commit `f8947b9b8`). Responses deliberately stay on
+`system.agent.generic.responses`: the response topic was never congested, and
+moving it would strand every reply. The script now carries the rollout order in
+its own header so a future edit cannot silently invert it.
+
+**Residual producer, not mine to switch.** `bugfix_034/VERIFY_034_post_roll.sh:58`
+also publishes a `council-gate` probe to `system.agent.generic.requests`. It
+belongs to another workstream and is a one-off verification probe rather than a
+routine producer, so the impact is negligible — but it means "all council traffic
+is off the generic lane" is **not** yet a true statement. Whoever owns 034 should
+switch that line.
+
+### The confirming measurement, for whoever runs the next council
+
+Run this while a real council submission is in flight. The fix is confirmed when
+a generic dispatch published *during* a council starts within seconds rather than
+waiting for the council to reach a terminal step:
+
+```bash
+kubectl -n kafka exec personae-kafka-cluster-combined-pool-prod-0 -- \
+  bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe \
+  --group generic-requests-group | grep generic.requests
+```
+
+Generic lag should stay flat while the council lane's own group carries the
+backlog. Record the result here and close the bug — or reopen it properly if the
+lag climbs anyway, which would mean the contention is not where this bug says it
+is.
 
 ## Symptom
 
