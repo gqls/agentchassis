@@ -428,3 +428,62 @@ tip). So the indexer already knows the ref it fetched; what it does not do is
 **store** it. Recording `ref` alongside `commit_sha` on the row is the small change
 that makes "N commits behind `<ref>`" computable at read time without giving the
 shared chassis pod a GitHub token it deliberately does not hold.
+
+---
+
+## Measured cost, 2026-07-28 (bugs thread) — this defect defeated a diagnosis run on a DIFFERENT bug
+
+Until now this file argued the false-zero risk. Here is what it actually cost, end to end.
+
+**The setup.** `bugs_open/097` needed one question answered: of three mechanisms that claim
+to cover in-body link integrity, which was on the build path when
+`robot-hands.com/learning-center.html` deployed on 07-25 with six live 404s. I filed a
+diagnosis run for exactly that (`914dc844-7dad-4d5a-8d1b-a9c4296880c4`).
+
+**The outcome.** `UNVERIFIABLE` after all five iterations. And its own citation names why:
+
+```
+tier:  static
+quote: "answered: 0 rows — searched the bodies and declarations of 4535 indexed symbols
+        (4535 with bodies). The query was RUN and found nothing;
+        this is not an unanswered question."
+where: code_symbols index (code_request kind=content/symbol query="repairpagelinks")
+```
+
+**That is a false zero, and the wording is the problem.** `RepairPageLinks` exists and is
+on the very path under investigation:
+
+```
+platform/orchestration/datahelpers/link_repair.go:139   func RepairPageLinks(...)
+platform/orchestration/actions/validate_page_content.go:357
+        cleanHTML, repairs = datahelpers.RepairPageLinks(cleanHTML, pageIndex)
+```
+
+The index cannot know that, because:
+
+| fact | value |
+|---|---|
+| distinct `commit_sha` in `code_symbols` | **1** — `e19aa5d` |
+| that commit's date | 2026-07-24 17:43 |
+| commits behind HEAD | **970** (was 667 when this file was filed — drift is growing) |
+| when `link_repair.go` was added | `43f254be5`, **2026-07-26** — two days AFTER the indexed commit |
+| rows matching `RepairPageLinks` | **0** |
+| rows from `link_repair.go` at all | **0** |
+
+So the file did not exist at the commit the index holds. The query was answered honestly
+against a snapshot two days stale, and the *phrasing* — "The query was RUN and found
+nothing; this is not an unanswered question" — converts that into a positive claim of
+absence. A diagnosing agent reading that reasonably concludes the symbol does not exist.
+
+**Why this is worse than a stale cache.** The loop's own `next_scope` shows it then spent
+an iteration on `"Retry with exact casing (prior searches used lowercase 'repairpagelinks')
+to settle whether this symbol is indexed at all"` — i.e. it correctly suspected its own
+evidence and burned budget chasing a casing theory for a file that was simply absent. The
+index did not merely fail to help; it sent the investigation down a wrong path and then
+ran out of iterations.
+
+**What this adds to the case for fixing it:** the cost is no longer hypothetical. One
+diagnosis run, five iterations, ~254KB of bundles, and `bugs_open/097` still has its
+central question unanswered — because the evidence tier lied with confidence. Any
+`content`/`symbol` answer from this index is currently worthless for anything added since
+2026-07-24, which after 970 commits is most of the interesting surface.
