@@ -326,27 +326,38 @@ Rules that make them worth the effort:
   by four separate threads.
 - **Closed cases live in `/bugs_closed/`** (split out 2026-07-19 so `/bugs_open/`
   answers "what is biting prod right now"). The bar is **fixed AND live** — a fix
-  that is committed but inert until the next image roll stays OPEN, because the
-  defect is still reproducible until it ships. **Grep BOTH directories before
-  filing**, and note the two traps in `/bugs_closed/README.md`: numbering is one
-  sequence shared across both dirs and is never reassigned (so a stale
-  `bugs_open/NNN` or `aaa_fails_to_mend/NNN` pointer resolves by number in the
-  other dir), and **`016` and `017` are each used by two different cases** — a
-  bare number is ambiguous, resolve by slug.
+  committed but inert until the next roll stays OPEN, because the defect is still
+  reproducible until it ships. **Grep BOTH directories before filing.** Numbering
+  is one sequence across both dirs, never reassigned, and **several numbers name
+  two unrelated cases** (016, 017, 083, 112 as of 2026-07-28, and the list grows)
+  — so a bare number is ambiguous and most commit messages saying "083" mean the
+  *other* one. **Resolve by slug, and `git log` the FILE PATH, not the number.**
 - **Before routing work AT an existing bug, check who owns it:**
-  `scripts/who-owns.py <number|slug>` (advisory, ~0.3s, no cluster calls). It
-  resolves the number across both dirs (warning on the ambiguous ones), names the
-  workstream most likely working it, and separates that from dirs merely citing
-  it. "Grep before you file" covers a NEW bug; this is the same failure mode for
-  an existing one, and it is not covered — on 2026-07-20 a thread promoted
-  `bugs_open/023` to a next action with implementation direction while its owning
-  workstream was six council rounds in with code already shipped. That surfaced
-  by luck. If it says OWNED: read their docs, contribute into the bug file
-  itself, do not start a competing fix.
+  `scripts/who-owns.py <number|slug>` (advisory, ~0.3s, no cluster calls) — it
+  names the workstream most likely working it and separates that from dirs merely
+  citing it. "Grep before you file" covers a NEW bug; this is the same failure
+  mode for an existing one. On 2026-07-20 a thread promoted `bugs_open/023` with
+  implementation direction while its owner was six council rounds in with code
+  already shipped. If it says OWNED: contribute into the bug file, do not compete.
+  It reads COMMITS, so a session mid-fix is invisible — check the tree too.
 - **When you diagnose something durable**: file the case in
   `/bugs_open/NNN_HANDOFF_<date>_<slug>.md` (evidence, root cause, fix candidates,
   how to verify) AND add the transferable pattern to 016b §9. The case file is for
   the fixing thread; the §9 entry is so nobody re-walks it.
+- **When you BUILD a new reusable mechanism, register it** in
+  `docs/agent_docs/docs026_concept_register/register/<category>.md` — one entry,
+  `status` / `what` / `sources` / `relations`, and say so explicitly if it is
+  built but never exercised ("deployed" would overstate it). **The bar: another
+  workstream could call this and would not know it exists** — a new exported
+  helper, agent, seat, check type or delivery path. NOT bug fixes, copy, or
+  site-specific work. Update the index count and drop any matching line from
+  `102_coverage_ratchet.txt`.
+  **Routing, because there are now four destinations:** how the SYSTEM fails →
+  016b §9 · how WE were wrong → `WRONG_CALLS.md` · what THIS workstream is doing →
+  the standing five · **what EXISTS and is callable → the concept register.**
+  Why this earns its line: extraction froze 2026-07-13 and **67% of workstreams
+  postdate it** (`bugs_open/106`), so the index sessions are told to consult
+  *before concluding something does not exist* has been going blind ever since.
 - Two rules that keep catching real damage:
   - **`output_tokens == max_tokens` means the completion was CUT**, not finished.
     Any agent that rewrites a whole artifact can persist a fragment and report
