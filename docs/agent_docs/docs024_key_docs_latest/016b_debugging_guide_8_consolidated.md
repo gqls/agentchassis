@@ -6348,3 +6348,30 @@ dates flowed — counts drop, and that is the fix working. Benign twin of
 delivers traffic to code with zero operational history — but here the woken
 code was correct, so enumerating it before shipping turned a would-be alarm
 into a predicted number.
+
+### A pipeline that carries TWO representations of the same artefact will apply your fix to one and persist the other — verify the PERSISTED row, not the action's return map (2026-07-28)
+
+The page-build path carries the page as an assembled HTML string
+(`validation_result.clean_html`) AND as structured per-section metadata
+(`page_content.response.sections_metadata`). The 079 link repair was applied
+to the string; `save_page_sections` prefers the metadata whenever it is
+non-empty — which `require_sections_metadata: true` guarantees — so the
+repaired string is discarded on every build: a dead branch, not a race
+(`save_page_sections_action.go:166-192`). The repairs were REAL and durably
+logged ("Repaired 10 dead internal link(s) before save"), the unrepaired
+sections were saved 400ms later, and the closure's end-to-end proof had run
+through a route with no save step at all — it verified the action's return
+map, never what a natural build persisted (fundamentallyai capabilities +
+vonc /about.html, both 2026-07-28; `bugs_open/079` REOPENED).
+
+The transferable rule: when a value exists in two representations, any
+transformation applied to only one of them is correct-or-vacuous depending
+on which representation the NEXT consumer prefers — and config like
+`html_field` on the consumer is an intention, not a fact, if a
+higher-priority input exists. Before closing a content-mutating fix, induce
+a defect on the NATURAL path and read the persisted artefact (the DB row,
+the deployed page) for the repair. A durable log of what the fix did is
+still a log of the fix's OUTPUT, not of the system's state. Sibling of
+§"A pod-grep proves the code is in the binary, never that it is on the path
+your feature uses" — one level further along: the code was in the binary,
+AND on the path, AND ran, and the path then threw its work away.
