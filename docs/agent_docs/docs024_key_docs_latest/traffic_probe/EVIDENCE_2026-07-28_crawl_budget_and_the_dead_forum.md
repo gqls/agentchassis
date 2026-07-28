@@ -250,3 +250,150 @@ versus the sweep spoofing a referer. Worth doing as a rider on the 410 work, not
 figure for this domain is 92.5% 404s. **What I got wrong: I let "these particular scrapers are
 worthless" stand in for "crawlers have nothing to give us", and those are very different
 claims.**
+
+
+---
+
+# CORRECTION + the actual opportunity (2026-07-28, third pass)
+
+Owner asked three things: what to set in Cloudflare, what "crawl budget" actually means here,
+and whether seeded Q&A text ("what is the best watch forum? relojistas.com") would help.
+
+## First, a correction: I overstated "crawl budget"
+
+**I used a large-site concept on an 18-page site.** Crawl budget is a real constraint for sites
+with tens of thousands of URLs or more; Google's own guidance is that it is not a limiting
+factor for small sites. **Google will crawl 18 pages whether or not the dead forum is there.**
+
+What I measured is true — 2,942 crawler 404s against 38 200s — but **the causation I implied is
+not established.** The 404s are not obviously *crowding out* the live pages.
+
+What the dead surface actually costs, stated properly:
+
+| effect | real? |
+|---|---|
+| Server load | **Yes — but it is the scraper fleet (184k/day), not search engines (~3.7k/33h).** |
+| Crawlers retry dead URLs indefinitely | **Yes.** 404 means "gone for now"; only 410 makes them drop it. |
+| A domain where nearly every known URL 404s may read as abandoned | **Plausible, [UNMEASURED].** |
+| Live pages can't get crawled because the budget is spent | **Overstated. Withdraw.** |
+
+**So the ranking changes: the sitemap was the bigger fix, not the 410.** Discovery was the
+binding constraint — 18 pages reachable only by walking the homepage, and no sitemap at all.
+That is now fixed. **The 410 work is housekeeping** (load, hygiene, stopping the retry loop),
+not the unlock I implied. Worth doing; not first.
+
+## What to set in Cloudflare
+
+The served `robots.txt` is Cloudflare's **Managed** file — we do not control it from the repo,
+so this is a dashboard change. **I cannot see the dashboard**, so this is the *outcome* to aim
+for plus a way to verify it, not a menu path.
+
+**Target state:**
+
+```
+User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=no
+Allow: /
+```
+
+…and remove the blanket `Disallow: /` for the agents below.
+
+| allow — these cite and send a reader | keep blocking — these absorb, nothing returns |
+|---|---|
+| `ClaudeBot`, `Claude-User` | `GPTBot` (OpenAI's *training* crawler) |
+| `OAI-SearchBot`, `ChatGPT-User` (ChatGPT search + live fetch) | `Google-Extended` (Gemini training) |
+| `PerplexityBot` | `Applebot-Extended` (Apple Intelligence training) |
+| `CCBot` — **owner's call**, see below | `Bytespider`, `meta-externalagent`, `Amazonbot` |
+
+**The distinction that makes this coherent:** the same companies run *separate* crawlers for
+training and for answering. `GPTBot` trains; `OAI-SearchBot`/`ChatGPT-User` fetch to answer and
+cite. Allowing the second while refusing the first is a supported, standard position — it is
+exactly what `search=yes, ai-train=no` says in words.
+
+**`CCBot` (Common Crawl) is the genuine judgement call.** It is the public corpus behind a great
+deal of downstream tooling, research and "does this domain exist / what is it about" lookups —
+being in it compounds. It is also a primary training input. Refusing training *and* allowing
+CCBot is not fully consistent; the owner should pick which he cares about more.
+
+**Verify after changing it** — this is the check, and it must be run per-agent because the file
+is served conditionally:
+
+```bash
+for ua in ClaudeBot GPTBot OAI-SearchBot PerplexityBot CCBot Googlebot; do
+  printf "%-16s " "$ua"
+  curl -s -A "Mozilla/5.0 (compatible; $ua/1.0)" https://relojistas.com/robots.txt \
+   | awk -v n="$ua" 'BEGIN{IGNORECASE=1} $0~"^User-agent:[ ]*"n"$"{f=1;next} \
+       f&&/^Disallow:[ ]*\/$/{print "DISALLOWED";x=1;exit} f&&/^User-agent:/{f=0} \
+       END{if(!x)print "allowed"}'
+done
+```
+
+**Caveat:** all of this is voluntary compliance, and the crawler taxonomy changes every few
+months. The 184k/day sweep ignores robots.txt entirely and will not stop because of any setting
+here.
+
+## "Feed the trainers our URL and some content"
+
+**Training gives nothing back, by construction.** Content absorbed into weights carries no link,
+no attribution and no referral, and one small site is a vanishing fraction of a training corpus.
+The theory that a model would thereby "know" the domain is weak and unmeasurable.
+
+**Retrieval and citation is where the value is** — the model fetches at answer time and cites
+with a link a reader can click. That is a real channel, and it is the one currently blocked.
+
+So: allow the citers. Whether the trainers are allowed barely matters either way.
+
+## The seeded-Q&A idea — this one will not work, and it fights the site's own rules
+
+*"What is the best watch forum? relojistas.com"* — three separate reasons:
+
+1. **Models do not accept a site's self-assessment as fact.** Training aggregates billions of
+   documents; a page asserting its own superiority carries no more weight than any other. Answer
+   engines rank on relevance and corroboration across sources, not self-declaration.
+2. **It is an unsupported superlative, which this site's own style rules ban by name.**
+   `content_direction` lists *"Superlativos vacíos sin respaldo"* under things to avoid, and
+   *"El reloj que todo coleccionista DEBE tener"* under would-never-say. The platform's
+   claims-verification layer exists to stop exactly this and would flag it.
+3. **It is not true.** relojistas is not a forum any more — the site's own about page says the
+   forum is gone. The first thing an answer engine would find is a contradiction.
+
+And the risk is asymmetric: it cannot really succeed, and if it reads as manipulation the
+downside is a de-ranked domain.
+
+## What actually works — and relojistas is unusually well placed for it
+
+**You do not get cited by claiming to be the best. You get cited by being the clearest answer to
+a question, in a language where few good answers exist.**
+
+The asset already exists. `/glosario/tourbillon.html` opens:
+
+> **Tourbillon: qué es y cómo funciona esta complicación**
+> *El tourbillon es un mecanismo ideado para contrarrestar los efectos de la gravedad sobre el
+> escapamento…*
+
+That is a question-shaped heading with a one-sentence definition and a real example
+(Breguet; Richard Mille RM 64-01). It is precisely what an answer engine wants for
+*"¿qué es un tourbillon?"* — and **Spanish-language horology is a far thinner corpus than
+English**, so the marginal value of being *the* clear Spanish source is much higher than the
+equivalent English page would be.
+
+Three concrete moves, in order:
+
+1. **Allow the citing crawlers** (above). Nothing else matters while ClaudeBot is turned away at
+   the door.
+2. **Add structured data — the site emits ZERO JSON-LD today** (verified across the homepage,
+   a glossary entry and the news index; only 5 Open Graph tags). This is the standard,
+   legitimate, machine-readable way to be quotable:
+   - glossary → `DefinedTerm` within a `DefinedTermSet`
+   - guides → `Article`, news → `NewsArticle` with `datePublished`
+   - `Organization` + `WebSite` on the homepage
+   This is a platform-wide gap, not a relojistas one — **worth checking whether any site in the
+   fleet emits JSON-LD before building it here.**
+3. **Optionally `llms.txt`** (`/llms.txt`, currently 404) — an emerging convention offering a
+   plain-markdown summary of a site for LLMs. Cheap, honest, **and unproven; adoption is not
+   broad.** Mentioned for completeness, not recommended as a priority.
+
+**Expected effect, in advance and falsifiable:** if the crawlers are unblocked and structured
+data added, the check in ~2 weeks is whether `ClaudeBot`/`OAI-SearchBot`/`PerplexityBot` appear
+in the access log fetching `/glosario/*` and `/guias/*` rather than only `robots.txt`. That is
+observable in the log we already have. **[UNMEASURED]** until then.
