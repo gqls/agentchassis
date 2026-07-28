@@ -125,6 +125,43 @@ already raised 16→20px earlier the same day.
 can tell whether it made the page more enticing — only that it did not break.
 That gap is what this handoff exists to close.
 
+## 5b. THE EVIDENCE ARRIVED — `bugs_open/131`, filed hours after this handoff
+
+The owner then used the live site and found **eight defects the fleet's checks
+could not see**. That file is now the specification for this work: every check
+proposed below has a real, measured failing case on a live page.
+
+**Owner ruling 2026-07-28: design work goes AHEAD of the premise question** — so
+this is no longer blocked behind "what is the Gauntlet for".
+
+### Check specs, each with its live failing case
+
+| check | the real case it would have caught | how it computes |
+|---|---|---|
+| `contrast_ratio` | **1.00:1** — `.gi-title-accent` painted `rgb(109,40,217)` on `rgb(109,40,217)`. The word "Gauntlet" was the same colour as its background, **and had been at 1.34:1 before**, so it was never readable. | WCAG luminance of `getComputedStyle` colour vs the nearest non-transparent ancestor background. Threshold 4.5 body / 3.0 large. |
+| `content_within_viewport` | Homepage: **14 elements at 437px on a 390px screen**. `/about.html`: a 560px table down to 360px. | no element's `getBoundingClientRect().right` may exceed the viewport |
+| `readable_column_width` | The gauntlet's text column was **74% of a 390px screen**; the owner called it "a narrow column down the middle which looks like a mistake". | text element width ÷ viewport width, with a mobile floor |
+| `action_changes_something` | "Enter the Gauntlet" started a clock and revealed **nothing** — the provocation was already on screen and did not change. | snapshot named regions, fire the control, assert a *named* region differs |
+| `primary_action_reachable` | The primary CTA sat at **y ≈ 1913px** on mobile — two and a half screens down. | bounding box top ÷ viewport height |
+
+### THE STRUCTURAL FINDING — `no_horizontal_overflow` is blind, fleet-wide
+
+The existing check computes `document.scrollWidth - document.clientWidth`. On
+**every** overflowing page above that expression returns **0**, because a parent
+clips. **It detects page SCROLL, not content overflow**, and those are different
+faults. A page can hide content off the right edge and pass.
+
+**This is the single highest-value item in this handoff** — it is one extra
+clause, it is not a new capability, and it silently passes today on at least two
+live pages. Fix it before building anything new.
+
+### And a caution the same day earned
+
+Raising `--font-size-base` 16→20px scaled every **rem-based padding** by 25% and
+*caused* the homepage overflow above (proven with a reversible toggle: 14 → 0 → 14).
+**A type-scale check and a layout check must run together**, or the first will
+keep breaking the second and each will pass in isolation.
+
 ## 6. First move for the new thread
 
 Do NOT start by building seats. Start by answering: **can `contrast_ratio` be
