@@ -28,6 +28,36 @@ Unchanged — see the morning handoff §1. DB access, site/plan/page ids, `.html
 
 ## Next actions, in order
 
+> **EVENING SESSION 2026-07-28 (same thread, post-cap-raise): items 1, 2 and 4 are DONE;
+> item 5's §4d is done-and-corrected (see item 5).** The Anthropic cap was raised by the
+> owner ~14:50 BST — the "after 08-01" framing below is stale. What happened, with
+> evidence in NOTES evening entries and `bugs_open/079`:
+> - **Item 1 DONE.** The selector's generated file was ALREADY published (only the
+>   reference was missing; tool pages here are `generic`, not 'owned' — the no-op is the
+>   EMPTY `pages.sections`). Hero placed by scoped edit of the single component's
+>   `rendered_html` + assemble-only 049b rerender; served page verified, image itself
+>   eyeballed. `56fbcc9a` completed.
+> - **Item 2 DONE — it was one revert, not thirteen repairs.** Both corrupted components'
+>   pre-regression `content_data` was sitting in `page_component_history` (displaced at
+>   the 10:45 overwrite): real jpgs, real fragment links. Restored both (corrupted state
+>   archived, source `operator_restore_pre_regression_2026-07-28`), re-rendered LLM-free
+>   (`section_data_resolved` via a `page_rerender` work item — **the INSERT template
+>   needs `handler_agent='page-rerender'` or it hard-blocks**; cta NOTES corrected).
+>   Served: 0 phantoms, 0 invented svgs, charts intact. Residuals, all pre-existing:
+>   favicon 404; the fragment links' anchors don't exist (no `id=` on the page, true of
+>   the last-good state too); `icon-cap-review.jpg` flaps 200/404/200.
+> - **Item 4 DONE early.** 090 verification fired 16:38Z (branch had to be PUSHED first —
+>   the loop clones from origin), verdict **UNVERIFIABLE, no refutation**; chasing its one
+>   new citation yielded a third corroborating site (gamesdesign bayesian-ranking:
+>   repair recomputed today, store unchanged since 07-21). Full addendum in
+>   `bugs_open/079`, which also names the standing reproductions now that capabilities
+>   is clean. Verdict location: child orchestration `collected_data->'verdict'`, NOT
+>   diagnosis_artifacts. Intake auto-closed by the enabled `diagnose-pipeline-trigger`.
+> - **Still open for a next session: item 3 (`bugs_open/128`, read, still unowned);
+>   §4c/§4e design directions; the 079 PLATFORM fix (candidate 1) — now the queue's
+>   biggest lever, Anthropic lane permitting; the anchors-don't-exist residual if the
+>   fragment links should actually scroll.**
+
 1. **The selector tool's hero is generated but NOT placed — and the generic build
    cannot place it.** Asset `d76f0282` exists (item `539893ae` complete 14:42Z). Work
    item `56fbcc9a` ("Re-render tool-model-approach-selector after its image asset
