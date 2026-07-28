@@ -8,6 +8,12 @@
 // NEGATED one of its own patterns. Every negated fixture below is real copy taken
 // from a live site during the 2026-07-28 fleet dry run, and each one would have
 // failed a page build.
+//
+// The fixtures are VERBATIM, extracted from the components' stored rendered_html
+// rather than retyped from claimscan's output — its snippets are truncated with
+// ellipses, and reconstructing a sentence from one produces a plausible quote
+// that the site never published. Two of these were wrong that way before being
+// checked against the source.
 
 package datahelpers
 
@@ -78,9 +84,9 @@ func TestGlobalDoesNotBlockNegatedDisclosure(t *testing.T) {
 		{"robot-hands.com",
 			"When a figure cannot be independently verified, it is marked as unverified rather than carried forward as fact."},
 		{"vonc.com",
-			"These reflect platform mechanics as of 2026 and are Spark's own assessment, not independently verified."},
+			"Competitor characterisations reflect general platform mechanics as of 2026 and are Spark's own assessment, not independently verified."},
 		{"robot-hands.com",
-			"Specifications come directly from manufacturer datasheets and, where available, independently verified test data."},
+			"The catalog indexes gripper models across six actuation technologies — pneumatic, electric, vacuum, magnetic, soft-robotic, and adhesive — with specifications drawn directly from manufacturer datasheets and, where available, independently verified test data."},
 	}
 	for _, c := range mustPass {
 		if f := globalFindings(t, c.sentence); len(f) != 0 {
