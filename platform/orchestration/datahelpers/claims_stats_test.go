@@ -62,7 +62,7 @@ func TestStatCardHTMLSplitsValueFromLabel(t *testing.T) {
 	// And therefore: the HTML numeric scan reports nothing, even though 170
 	// with no supporting fact would be a finding if it could see the label.
 	eb := mustParseStatsEB(t)
-	if got := eb.ScanUnregisteredNumbers(blocks); len(got) != 0 {
+	if got := eb.ScanUnregisteredNumbers(blocks, ClaimSurface{}); len(got) != 0 {
 		t.Fatalf("precondition changed: the HTML scan now sees a stat card (%d findings) — "+
 			"claims_stats.go's rationale needs revisiting", len(got))
 	}

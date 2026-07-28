@@ -186,7 +186,7 @@ func TestWrittenOutDatesAreNotBusinessNumbers(t *testing.T) {
 		"Reported July 28, 2026 in the annual accounts.",
 	}
 	for _, block := range excluded {
-		if f := eb.ScanUnregisteredNumbers([]string{block}); len(f) != 0 {
+		if f := eb.ScanUnregisteredNumbers([]string{block}, ClaimSurface{}); len(f) != 0 {
 			t.Errorf("date in %q flagged as a business number: %+v", block, f)
 		}
 	}
@@ -196,7 +196,7 @@ func TestWrittenOutDatesAreNotBusinessNumbers(t *testing.T) {
 func TestFigureNearAMonthIsStillScanned(t *testing.T) {
 	eb := &EvidenceBase{}
 	block := "We served 450 clients in the March quarter."
-	if f := eb.ScanUnregisteredNumbers([]string{block}); len(f) == 0 {
+	if f := eb.ScanUnregisteredNumbers([]string{block}, ClaimSurface{}); len(f) == 0 {
 		t.Fatal("a real business figure next to a month name must still be scanned")
 	}
 }

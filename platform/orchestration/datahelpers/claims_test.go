@@ -63,9 +63,12 @@ func mustParseTestEB(t *testing.T) *EvidenceBase {
 	return eb
 }
 
+// scanAll scans as the corpus was originally graded: an UNKNOWN surface, which
+// checks prose numbers on every page (ClaimSurface's zero value). The page-type
+// behaviour has its own tests in claims_surface_test.go.
 func scanAll(eb *EvidenceBase, html string) (banned, numbers []ClaimFinding) {
 	blocks := ExtractAssertionText(html)
-	return eb.ScanBannedClaims(blocks), eb.ScanUnregisteredNumbers(blocks)
+	return eb.ScanBannedClaims(blocks), eb.ScanUnregisteredNumbers(blocks, ClaimSurface{})
 }
 
 // ============================================================================

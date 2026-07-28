@@ -39,7 +39,7 @@ func TestClaimsGateSeverities(t *testing.T) {
 		t.Errorf("banned claim must be a blocker in category claims, got %+v", banned)
 	}
 
-	numbers := checkUnregisteredNumbers(blocks, eb)
+	numbers := checkUnregisteredNumbers(blocks, eb, datahelpers.ClaimSurface{})
 	if len(numbers) != 1 || numbers[0].Severity != "error" || numbers[0].Category != "claims" {
 		t.Errorf("unregistered number must be an error in category claims, got %+v", numbers)
 	}

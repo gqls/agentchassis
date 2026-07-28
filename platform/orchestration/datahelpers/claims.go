@@ -27,7 +27,11 @@
 //     - ScanUnregisteredNumbers: high-precision extraction of number-bearing
 //       business claims, flagged when no registered fact supports the number.
 //       Extraction has false positives by design tolerance — callers must
-//       route findings to human review, never block outright on them.
+//       route findings to human review, never block outright on them. It takes
+//       a ClaimSurface (bugs_open/102): its lexical gate cannot tell an
+//       explainer's worked example from a sales claim, so the page's structural
+//       type decides whether prose numbers are claims at all. Banned claims and
+//       stat fields are scanned on every surface regardless.
 //
 // Truth decisions are human: nothing in this file rewrites content. The
 // scans produce findings; humans rule on them.
@@ -517,12 +521,98 @@ var monthBeforeRe = regexp.MustCompile(`(?i)(january|february|march|april|may|ju
 // Unit/measurement suffixes that mark a number as not-a-business-count.
 var unitSuffixRe = regexp.MustCompile(`(?i)^\s*(px|rem|em|vh|vw|ms|sec|seconds?|min(ute)?s?\s+read|kb|mb|gb|tb|fps|st\b|nd\b|rd\b|th\b|[-–]\s*(hour|day|week|month|year|minute|second|token|character|step|person|page)\b)`)
 
+// ============================================================================
+// Claim surface — the STRUCTURAL gate on the prose number scan (bugs_open/102)
+// ============================================================================
+//
+// businessClaimContextRe above is a LEXICAL gate: it asks whether the words
+// around a number sound like business. On a marketing page that is the right
+// question, because nearly every page asserts something about the business. On a
+// page whose body is teaching content it is the wrong question, because an
+// explainer's worked example is lexically identical to a sales claim — "10,000
+// active players farming that item" reads exactly like "10,000 customers".
+//
+// The signal that separates them is not in the words, it is in the schema:
+// pages.page_type says what kind of page the number is on. This is the same
+// argument claims_stats.go makes one level down — a figure in a stat*_value
+// field is a claim BY CONSTRUCTION, so structural position replaces the lexical
+// gate there. Page type is structural position one level UP, and until
+// 2026-07-28 the layer read it nowhere.
+//
+// MEASURED before this was built (2026-07-28, cmd/claimscan against each
+// opted-in site's own live register over live rendered_html): 124
+// unregistered-number findings across the nine sites with an evidence_base row.
+// 47 of them sit on the page types below and ALL 47 are false positives —
+// probability worked examples on gamesdesign blog posts, "an endpoint that
+// returns 200" on an ai-agent-orchestration post, "Set to 0 to disable" in tool
+// help text, a quoted third-party market share on a news index. The findings on
+// content/landing pages are the real ones the layer exists for. A finding class
+// with 0% measured precision is not a weaker finding, it is not a finding: the
+// gate files these at `error` severity, which BLOCKS a rebuild, and the audit
+// files them into a human queue that has no working surface (bugs_open/033).
+
+// ClaimSurface describes WHERE scanned text came from, so the scans can apply
+// structural knowledge the text itself does not carry.
+//
+// The zero value means UNKNOWN — site chrome (which belongs to no page), or a
+// caller with no page record in hand — and unknown is scanned exactly as before.
+// That direction is deliberate: a scanner that has gone quiet and one that is
+// broken look identical from the outside, so an unrecognised or absent page type
+// must stay noisy rather than silently stop checking.
+type ClaimSurface struct {
+	// PageType is pages.page_type for the page this text renders on.
+	PageType string
+}
+
+// editorialPageTypes are the page types whose BODY PROSE is not a first-person
+// claim about the business — instruction, commentary, aggregated third-party
+// listings, or an interactive instrument's own help text. Each entry below is
+// held down by a measured false positive on a live opted-in site; do not widen
+// this from intuition, and never widen it to a page type whose body is
+// marketing copy.
+//
+// 'report' is deliberately ABSENT. Its 14 findings on robot-hands are false
+// positives of a different class — model numbers inside product names ("Schunk
+// EGP 40-N-S-B — manufacturer specification") tripping on `verified` in the
+// context window — and a report page's figures genuinely can be business
+// claims. Excluding it here would fix those by coincidence, not by mechanism.
+var editorialPageTypes = map[string]bool{
+	"guide":         true,
+	"blog-post":     true,
+	"blog-index":    true,
+	"news-index":    true,
+	"section-index": true,
+	"tool":          true,
+	"game":          true,
+}
+
+// ProseNumbersAreClaims reports whether the heuristic number scan applies to
+// prose on this surface. It governs ScanUnregisteredNumbers ONLY:
+//
+//   - ScanBannedClaims runs on every surface. A banned pattern is a human-authored
+//     record of a KNOWN falsehood, not a heuristic, so it has no false-positive
+//     problem to protect against — and the case that motivated the whole check
+//     was a banned claim found on a GUIDE (check_unverified_claims.go, first live
+//     run 2026-07-16: "70+ agents across eight functional departments"). Skipping
+//     editorial pages wholesale would have regressed exactly that catch.
+//   - ScanStatClaims runs on every surface. A stat card on a guide is still a
+//     published figure in a claim-shaped field (claims_stats.go).
+func (s ClaimSurface) ProseNumbersAreClaims() bool {
+	return !editorialPageTypes[strings.ToLower(strings.TrimSpace(s.PageType))]
+}
+
 // ScanUnregisteredNumbers extracts number-bearing business claims from
 // assertion blocks and flags numbers no registered fact supports. False
 // positives are possible by design (severity error → human review, never a
 // blocker).
-func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string) []ClaimFinding {
-	if eb == nil {
+//
+// surface is REQUIRED rather than optional (no ...Surface variant, no second
+// entry point) so the compiler visits every call site. An "unknown means the old
+// behaviour" default parameter would let a new caller silently inherit the
+// page-type-blind scan, which is the shape of bugs_open/093 — one guarded call
+// site and one nobody remembered.
+func (eb *EvidenceBase) ScanUnregisteredNumbers(blocks []string, surface ClaimSurface) []ClaimFinding {
+	if eb == nil || !surface.ProseNumbersAreClaims() {
 		return nil
 	}
 	found := make(map[string]*ClaimFinding)
