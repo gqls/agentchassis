@@ -2995,3 +2995,60 @@ cards → example (6 links), 0 self-linking, 3 form-anchor links, no hero→`/co
 5 `maxlength` attributes intact. **Each change was verified against the live page after the next one
 shipped**, not only when it landed — a later rerender is exactly when an earlier content_data fix
 quietly disappears.
+
+### §X.29 — the £8 example place is LIVE, and the money path was induced against Stripe (2026-07-28 late)
+
+Owner authorised all three switching-on steps. **The order they were done in was the load-bearing
+part**, and any other sequence has a hole in it:
+
+1. **Binary first** (10th deploy) — tier code present, `EXAMPLE_*` env unset, so the tier stayed OFF.
+2. **Then the env** — `EXAMPLE_PRICE_GBP=8`, `EXAMPLE_MAX_PLACES=10`.
+3. **Then the form** — the offer becomes visible only once the backend already honours it.
+
+Any other order gives a window where the site displays an £8 offer the backend ignores: the visitor
+ticks the box, believes they are paying £8, and is charged £29.
+
+Env set with the duplicate check the `CONTACT_EMAIL` incident earned (last line wins in an
+`EnvironmentFile`) and verified in **`/proc/<pid>/environ`, not in the file** — the file saying it
+and the process seeing it are different claims.
+
+#### The money path, induced end to end
+
+Tests were green, which is not the same as watching it happen. A real submission through the live
+form endpoint:
+
+```
+stored order   : price_gbp = 8, publish_consent = true          ✓
+approved       : real cs_live_ checkout session created          ✓
+Stripe says    : amount_total = 800 pence, currency gbp          ✓  (NOT 2900)
+```
+
+**Asked Stripe what it would charge rather than trusting our own log.** That is the only reading
+that settles it — everything upstream is our code describing its own behaviour.
+
+The engine run was deliberately skipped: the order was advanced to `awaiting_review` with the
+service stopped (the documented safe edit), which exercises the whole `approve → sendPayLink →
+CreateCheckout` money path without spending ~£1 and eleven minutes on a report nobody would read.
+**Pick the cheapest induction that still crosses the boundary you are testing** — here the boundary
+is our price reaching Stripe, and the engine sits nowhere near it.
+
+The pay-link email is not separately verified and does not need to be: `sendPayLink` now reads the
+price **once** into a variable handed to both the provider and the email, so a correct Stripe amount
+guarantees a correct email. That is a structural guarantee rather than a test result, which is the
+stronger of the two.
+
+#### Cleanup, and one judgement inside it
+
+Stripe session **expired** via the API so it can never be paid; order set to `declined`.
+
+**`publish_consent` was cleared on the test order.** The cap counts publication promises made to
+*people*, and this promise was made to us — leaving it set would have silently spent one of the ten
+example places on a verification. `price_gbp` is kept as the evidence of what was proved. Places
+used: **0 of 10**. Capacity back to 1 (the outstanding real order).
+
+#### A false alarm worth recording
+
+First check of the live form matched the string `checked` twice and I briefly had two pre-ticked
+consent boxes. Both were the word "checked" **in prose** — "checked against what already exists".
+The inputs are clean. **A bare-word grep is not an attribute check**; the fix is to match the
+element, not the substring, which is what the follow-up did.
