@@ -2751,15 +2751,39 @@ only reading where the link *goes against what its text promises* finds this cla
 
 ### §X.27 — the first EXTERNAL customer, a complete cost figure at last, and two fixes to the buying experience (2026-07-28)
 
-#### 1. Someone who is not us bought a report
+#### 1. An order arrived that was not ours — [CORRECTED: it was a test, see below]
 
 `ord_1785236456008987049` — **Will**, Android, an IP that is not the owner's, **11:00:56 on 28 July**,
-now `awaiting_payment` with a pay link sent 11:23:32. **The first genuine external prospect this
-product has ever had.** Found by accident: I was checking the order count as a control while
+now `awaiting_payment` with a pay link sent 11:23:32. ~~**The first genuine external prospect this
+product has ever had.**~~ Found by accident: I was checking the order count as a control while
 reproducing an unrelated bug, saw 73→74, and did not assume it was my own test.
 
-> **This does not overturn §X.26's traffic finding** — that measured 18–28 July up to that morning
-> and stands. It adds one real data point to it, which is exactly one more than we had.
+> ### ❌ CORRECTED 2026-07-28 (owner): **Will was a TEST, not a customer.** He will not pay.
+>
+> **The heading of this section was wrong and so was the claim.** idea.uk has still never had a
+> genuine external buyer. I inferred "external" from two pieces of circumstantial evidence — an IP
+> that was not the owner's, and an Android user-agent we had not seen before — and then wrote a
+> categorical conclusion in bold into the permanent record. **A device and an address we do not
+> recognise do not make a stranger.** The correct form was `[INFERRED] appears not to originate from
+> one of our own IPs`, which would have invited exactly the correction the owner supplied in one
+> line. Logged in `WRONG_CALLS.md`.
+>
+> **What this does NOT change** — both rest on the artefact, not on who sent it:
+> * **the $1.23 cost figure below.** It was a real, complete, six-call engine run on the production
+>   binary. Who submitted it is irrelevant to what it cost.
+> * **the score-line copy fix being PROVEN.** A real rendered report either contains the defect or
+>   it does not.
+>
+> **What it weakens:** the "he worked around the form" signal in §4 below. A tester typing
+> `"See below"` is much weaker evidence than a naive user doing it — a tester may simply not have
+> cared. Treat it as a hypothesis about the form, not a finding.
+>
+> **What it strengthens:** §X.26's demand conclusion. The count of genuine external prospects over
+> the measured window is not "one". It is still **nought**, and the case for putting this site in
+> front of real people is correspondingly stronger, not weaker.
+>
+> **Also from the owner: do not use Will's idea for the specimen report**, test or not. The specimen
+> must come from one of the owner's own submissions.
 
 Timeline: request 11:00:56 → operator confirmed 11:09:54 → **engine 10 min 59 s** → draft
 11:20:53 → approved, pay link 11:23:32. Report **20,305 chars** — half as long again as any before it.

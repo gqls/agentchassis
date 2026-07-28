@@ -9112,3 +9112,56 @@ and the claim quietly widened from "the action repairs" to "the page ships repai
 the repaired href must be absent from the PERSISTED row. Same family as "writes the
 field ≠ reads the field" and 016b §"pod-grep proves the binary, not the path" — this
 adds the third rung: on the path, ran, and the next step discarded its output.
+
+---
+
+## 2026-07-28 — idea.uk: I promoted "not one of our IPs" into "our first customer"
+
+**The call.** An order appeared that I had not made. I checked the evidence I had —
+an IP that was not the owner's, an Android user-agent we had not seen before, a name
+and Gmail address we did not recognise — and wrote into `RUNNING_NOTES §X.27`, in
+bold: *"The first genuine external prospect this product has ever had."* Then said the
+same thing to the owner as the headline finding of the session.
+
+**It was a test.** The owner corrected it in one line: he will not pay, he was a test.
+idea.uk has still never had a genuine external buyer.
+
+**Why it was wrong, precisely.** Every piece of evidence I had was consistent with the
+claim and none of it *entailed* it. **A device and an address we do not recognise do
+not make a stranger** — they make an origin we cannot attribute. I had an inference
+about identity and I wrote a conclusion about the market, which is a much bigger claim
+resting on the same thin fact. The give-away was in my own sentence: "an IP that is
+not the owner's" is a statement about what something *is not*, and I used it to
+establish what it *is*.
+
+**What caught it.** The owner, immediately, because he happened to read the claim. If
+he had not, it would have sat in the permanent record as the moment this product
+proved market demand — and every later decision about where to spend effort would have
+been taken against a fact that was never true.
+
+**The cheap check:** `[INFERRED]`. One marker, at the moment of writing, on a claim I
+could not verify from the data in front of me: *"appears not to originate from one of
+our own IPs"*. That phrasing invites the correction; the bold assertion does not. The
+rule this workstream already had — *mark the unverified ones too* — exists exactly for
+this, and I applied it carefully to the cost figure in the same session and not at all
+to the sentence I led with.
+
+**The asymmetry worth naming.** I was scrupulous about the number ($1.23, with a
+`[FLOOR]` caveat the day before) and careless about the identity, because the number
+*felt* like the claim under scrutiny. **The claim that gets the marker should be the
+one that would change decisions if wrong, not the one that looks quantitative.** "We
+have a customer" redirects a whole workstream; "$1.23" does not.
+
+**What survived, and why it matters that it did:** the cost measurement and the
+copy-fix proof both rest on the *artefact* — a real six-call run and a real rendered
+report — so who submitted it is irrelevant to either. Findings anchored to an artefact
+survive a wrong attribution; findings anchored to a person do not. That is a reason to
+prefer the former when both are available.
+
+**Tally.** *An unrecognised origin is not an identity* — new. *Mark the claim that
+would change decisions, not the one that looks like a statistic* — new, and the sharper
+form of the existing mark-the-unverified rule. Third session running in which the
+correction came from asking whether the evidence could have come out any other way.
+
+Family: figure-carried-forward-from-prose, a-green-result-from-an-input-that-cannot-fail,
+an-unrecognised-origin-is-not-an-identity.
