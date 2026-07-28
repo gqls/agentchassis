@@ -104,6 +104,14 @@ type Agent struct {
 	// not set the env var, which is all of them except the chassis.
 	extraRequestLanes []requestLane
 
+	// Thin-ingest intake path, from CHASSIS_INTAKE_MODE (chassis_replica_
+	// scaling CS-2). nil/false for every agent that does not set the env var —
+	// see intake.go for the modes and the structural guards.
+	intakeRepo      *orchestration.IntakeRepository
+	intakeRequests  bool
+	intakeResponses bool
+	intakePool      *intakeWorkerPool
+
 	// Topics
 	requestsTopic  string // as an agent this is my requests topic
 	responsesTopic string // as an agent this is my responses topic
@@ -401,7 +409,13 @@ func (a *Agent) setupConsumers() error {
 		return err
 	}
 
-	return a.setupExtraRequestLanes(requestsTopic, consumerGroup)
+	if err := a.setupExtraRequestLanes(requestsTopic, consumerGroup); err != nil {
+		return err
+	}
+
+	// chassis_replica_scaling CS-2: same mainTopic the lane guard judged.
+	a.setupIntake(requestsTopic)
+	return nil
 }
 
 // setupExtraRequestLanes creates a consumer per topic named in
@@ -549,6 +563,13 @@ func (a *Agent) Run() error {
 		}()
 	}
 
+	// Claim-worker pool (chassis_replica_scaling CS-2): executes what the
+	// thin-ingest loops persist. Its goroutines are tracked by the pool's own
+	// WaitGroup — Shutdown stops it explicitly.
+	if a.intakeForRequests() || a.intakeForResponses() {
+		a.startIntakeWorkers()
+	}
+
 	// Start response processing (ALL agents process responses)
 	a.wg.Add(1)
 	go a.processResponses()
@@ -668,8 +689,18 @@ func (a *Agent) consumeRequestLane(consumer *kafka.Consumer, laneTopic string) {
 			// Update activity timestamp for idle timeout
 			a.lastActivity = time.Now()
 
-			// Process the message
-			a.processMessage(msg, "request")
+			// chassis_replica_scaling CS-2: with intake on, this loop persists
+			// and commits in milliseconds — the claim-worker pool executes.
+			// persistIntake blocks until the row is durable (or shutdown), so
+			// the commit below keeps its at-least-once meaning either way.
+			if a.intakeForRequests() {
+				if !a.persistIntake(msg, "request") {
+					return // shutdown mid-persist; offset uncommitted, redelivery covers it
+				}
+			} else {
+				// Process the message
+				a.processMessage(msg, "request")
+			}
 
 			// Commit AFTER processing (unconditional — see commitConsumed)
 			a.commitConsumed(consumer, msg, "request")
@@ -732,8 +763,16 @@ func (a *Agent) processResponses() {
 			// Update activity timestamp for idle timeout
 			a.lastActivity = time.Now()
 
-			// Process the message
-			a.processMessage(msg, "response")
+			// chassis_replica_scaling CS-2/Phase 3: responses go through the
+			// pool only under worker_pool_all — see intake.go.
+			if a.intakeForResponses() {
+				if !a.persistIntake(msg, "response") {
+					return // shutdown mid-persist; offset uncommitted, redelivery covers it
+				}
+			} else {
+				// Process the message
+				a.processMessage(msg, "response")
+			}
 
 			// Commit AFTER processing (unconditional — see commitConsumed)
 			a.commitConsumed(a.responseConsumer, msg, "response")
@@ -1489,6 +1528,13 @@ func (a *Agent) Shutdown() error {
 	a.shutdownOnce.Do(func() {
 		close(a.shutdownChan)
 	})
+
+	// Stop the intake pool first: workers finish their current event and
+	// release their claims inside the same 30s budget the consumers get. An
+	// event that cannot finish in time is recovered by lease expiry + takeover
+	// (intake_workers.go) — the same story as an in-flight message at pod
+	// death.
+	a.stopIntakeWorkers(25 * time.Second)
 
 	// Wait for goroutines with timeout
 	done := make(chan struct{})
