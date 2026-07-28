@@ -109,8 +109,18 @@ The `only_main_content` fix makes three steps receive the **full page** they alw
 asked for, so their scrape responses grow. `bugs_closed/062` was a Kafka
 *Message Size Too Large* failure whose root cause #1 is in this same provider file.
 
+> **CORRECTED 2026-07-28 ~20:30 — `deploy/web-scrape-adapter` reads ONE POD OF THREE,
+> and every command in this section had it wrong.** The deployment runs **3 replicas**
+> in one consumer group on a **1-partition** topic, so exactly one pod consumes and
+> the other two are idle for their entire life. `kubectl logs deploy/…` picks a pod
+> arbitrarily — on 2026-07-28 it picked `d8h2w`, an idle one, whose log is
+> **permanently clean no matter what the working pod is doing**. Use
+> `-l app=web-scrape-adapter --tail=-1`, which reads all three. Filed as part of
+> `bugs_open/133`. Caught by firing a probe scrape and finding the evidence in a pod
+> the documented command does not read.
+
 ```bash
-kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=2h \
+kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=2h \
   | grep -i "Message Size Too Large\|Failed to produce"
 ```
 
@@ -125,7 +135,7 @@ Exposure, worst first (`formats` as configured live):
 **FIRST, ask whether ANY scrape has run — otherwise a clean log is not evidence:**
 
 ```bash
-kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=6h | grep -c "Starting scrape"
+kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=6h | grep -c "Starting scrape"
 ```
 
 Measured 2026-07-28 ~19:00, ~40 min after the roll: **0**. Zero scrapes attempted,
@@ -133,6 +143,31 @@ therefore zero errors — the clean 062 result above was **uninformative, not
 reassuring**. This one extra count is the difference between "the payload change is
 fine" and "nothing has exercised it yet", and the two are indistinguishable in the
 error grep alone. Re-run the watch only once this returns non-zero.
+
+**EXERCISED 2026-07-28 ~19:35 — the denominator is no longer zero.** One probe scrape
+of `https://vetcomparison.uk` (corr `1e97bd22`) through the adapter: **1 attempt, 0
+`Message Size Too Large`, 0 `Failed to produce`, produced successfully.** So the 062
+risk did not materialise on this page. **It also found a defect that no error-based
+watch can see** — the response was only deliverable because the adapter had silently
+truncated `raw_html` from 53,805 to 50,000 chars and appended *"full version in S3"*
+when `upload_results` was false and **nothing had been uploaded**. `bugs_open/133`.
+
+**Firing a probe scrape** — two traps, both of which cost this session a round:
+
+1. The adapter takes a `{"body":…,"headers":…}` **envelope as the Kafka value** and
+   ignores Kafka message headers. A bare body is rejected at `adapter.go:199`
+   (*"Invalid message format - missing headers or body"*) and **committed** — it
+   vanishes with no retry, and the rejection is only visible in the consuming pod.
+2. **The reply topic must already exist.** If it does not, the produce fails and logs
+   `Failed to produce response` — one of the two strings this watch greps. You would
+   manufacture the exact hit you are testing for. Seed the probe topic and confirm it
+   with `kcat -L` **before** firing.
+
+```bash
+# the guard firing IS the signal — it succeeds, so no error grep will ever show it
+kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=1h \
+  | grep "Truncating large field"
+```
 
 **Gotcha:** the 062 failure is SILENT to the caller — the adapter logs the produce
 error and the orchestration then starves through ~12 minutes of timeout retries, each

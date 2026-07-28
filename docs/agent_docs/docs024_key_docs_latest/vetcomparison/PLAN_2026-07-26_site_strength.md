@@ -204,9 +204,9 @@ worth doing. This is the first thing to measure, on a handful of practices, befo
 >    currently unfalsifiable, not reassuring. **Count attempts before reading the
 >    error count**, and watch during your pilot:
 >    ```bash
->    kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=1h \
+>    kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=1h \
 >      | grep -c "Starting scrape"                       # denominator FIRST
->    kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=1h \
+>    kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=1h \
 >      | grep -i "Message Size Too Large\|Failed to produce"
 >    ```
 >    The 062 failure is **silent to the caller** (~12 min of timeout retries), so an

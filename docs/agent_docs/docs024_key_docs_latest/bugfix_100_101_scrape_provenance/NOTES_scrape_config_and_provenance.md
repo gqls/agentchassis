@@ -701,3 +701,109 @@ $ ... | grep -ci "Message Size Too Large|Failed to produce"                     
 so 100's closing test still cannot run. And the 062 watch still reads 0 errors over 0
 attempts. **Both zeroes were re-derived, not carried forward from the handoff** — a
 figure copied between docs is how a stale premise gets diagnosed as a bug.
+
+## §14 — 2026-07-28 ~20:35 — exercising the 062 watch found a bug the watch cannot see (`bugs_open/133`)
+
+§8 item 2 said the 062 watch was unexercised: 0 errors over **0 attempts**. Fixed
+that by firing one real scrape. It took three attempts to get a message the adapter
+would accept, and the failures are the useful part.
+
+### Misstep 1 — I fired a bare body; the adapter wants an envelope
+
+First publish: `PUBLISH_OK`, then nothing. No processing, no error, 80 seconds of
+polling. The instinct was to suspect the `kcat` stdin race
+([[kcat-publish-silently-drops]]) — but the marker had printed, so the publish was
+real. Reading the topic settled it in one command:
+
+```bash
+kcat -C -b <broker> -t system.adapter.webscrape.requests -o -3 -e -q
+```
+
+The two real messages on the topic (from `feed-ingester`) are shaped
+`{"body":{…},"headers":{…}}`. **The adapter parses the envelope out of the Kafka
+VALUE and never reads Kafka message headers at all** (`adapter.go:194-200`). Mine
+was a bare body, so it hit *"Invalid message format - missing headers or body"* and
+was **committed** — no retry, no redelivery, no trace outside one pod's log.
+
+> **The check that resolved it, and it generalises:** when a message is accepted by
+> the broker but ignored by the consumer, **read the topic and copy the shape of a
+> message that works.** I had the adapter source open the whole time and had read
+> the field list; what I had not done was compare it with a real message. Faster
+> than reading the parser, and it cannot be wrong about what production sends.
+
+### Misstep 2 — I nearly manufactured the very error I was testing for
+
+I was about to point `reply_to_topic` at a fresh topic name. If a reply topic does
+not exist, the adapter's produce fails and logs **`Failed to produce response`** —
+one of the two strings the 062 watch greps. That would have been a self-inflicted
+hit on the exact watch, indistinguishable from the real defect. Caught it before
+firing; the probe topic is now seeded and confirmed with `kcat -L` first.
+
+> A probe must not be able to produce the signal it is probing for. Worth asking of
+> any synthetic test against a detector.
+
+### Misstep 3 — I called the batch path "unmitigated", and it is the SOUND one
+
+Grepping `batch_handler.go` for truncation returned nothing, and I said out loud
+that the batch path forwards everything untruncated and is therefore the bigger
+062 exposure. **Wrong, and corrected within the minute by reading forty lines
+further.** `sendBatchSuccessResponse` degrades the payload, resends once, and sends
+a **deliverable error** if even the stub is refused — that *is* the 062 fix. The
+absence of a pre-emptive truncation is a design choice, not a gap.
+
+> **Absence of the mechanism I expected is not absence of a mechanism.** I grepped
+> for *my* candidate fix (`Truncat`) rather than for the *property* (does a failed
+> reply reach the caller?). The corrected reading inverted the conclusion: the path
+> I had just called worse is the better one, and its sibling is the defective one.
+
+### What the probe actually found
+
+One scrape of `https://vetcomparison.uk`, corr `1e97bd22-6823-486b-a5e8-86679b3e32e0`:
+
+```
+19:35:22  Processing webscrape request
+19:35:39  Truncating large field for Kafka  field=raw_html original_len=53805 truncated_to=50000
+19:35:41  Successfully produced message
+19:35:41  Request processed successfully
+```
+
+**1 attempt · 0 `Message Size Too Large` · 0 `Failed to produce`.** So 062 did not
+fire, and the watch finally has a denominator.
+
+**But the reply was only deliverable because 3,805 characters were thrown away**,
+replaced by the literal text *"[Content truncated for Kafka transport - full version
+in S3]"* — with `upload_results:false` and **zero** S3 upload lines in the same
+correlation. The comment above the truncation asserts *"Full content is already in
+S3"*; the upload it refers to is guarded 40 lines earlier by
+`if uploadResults && …`. **4 of the 6 live single-URL scrape steps have
+`upload_results` false or unset**, including `vet-practice-verifier/scrape_website`.
+
+Second defect found while confirming the first: `sendSuccessResponse`
+(`adapter.go:437-447`) logs a produce failure and returns — no degrade, no resend,
+no error response — although `sendErrorResponse` sits at `:450`. `bugs_closed/062`
+noted the single path was "untouched" by its fix; that note was about the bool-trap
+fields, and the silent-drop rule was left unapplied.
+
+Both filed as **`bugs_open/133`**, with the transferable pattern in `016b §9`.
+
+### The measurement defect underneath all of this
+
+`kubectl logs deploy/web-scrape-adapter` — the command in the RUNBOOK, the HANDOFF,
+and now the vetcomparison PLAN — **reads one pod of three.** Three replicas, one
+consumer group, one partition: exactly one pod ever consumes, and the other two are
+idle from birth. `logs deploy/…` picked `d8h2w`, an idle one, so my first three
+diagnostic greps were against a pod that had processed nothing in its life and
+would have read clean under any circumstances whatsoever.
+
+Corrected to `-l app=web-scrape-adapter --tail=-1` in all three docs.
+
+> This is [[check-answers-the-question-you-encoded]] again, and I walked into it
+> having that note in front of me. The command *looks* like "the adapter's logs".
+> It means "one arbitrary replica's logs". Replica count is invisible at the call
+> site, so nothing about the command reads as narrow.
+
+### The probe script
+
+Kept in the session scratchpad rather than the repo — it publishes to a production
+topic and should be an explicit act, not a thing sitting in `scripts/`. Full text
+and both traps are in `bugs_open/133`'s RUNBOOK section; regenerate from there.

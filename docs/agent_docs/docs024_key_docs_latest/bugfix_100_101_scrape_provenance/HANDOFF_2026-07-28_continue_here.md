@@ -43,9 +43,23 @@ untouched.
 time and those steps may not have run yet:
 
 ```bash
-kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=3h \
+kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=3h \
   | grep -i "Message Size Too Large\|Failed to produce"
 ```
+
+> **CORRECTED 2026-07-28 ~20:30 — this command said `deploy/web-scrape-adapter`,
+> which reads ONE POD OF THREE.** 3 replicas, 1 consumer group, 1 partition ⇒ two
+> pods are idle for life and `logs deploy/…` may pick one, giving a permanently
+> clean log regardless of what the working pod does. `bugs_open/133`.
+>
+> **DONE 2026-07-28 ~19:35 — the watch has been exercised**, so §8 item 2 is closed.
+> One probe scrape (corr `1e97bd22`): **1 attempt, 0 / 0.** The 062 risk did not
+> materialise. But the reply was only deliverable because the adapter had truncated
+> `raw_html` 53,805 → 50,000 and appended *"full version in S3"* with
+> `upload_results:false` and **no upload performed** — a data loss that completes
+> successfully and is therefore invisible to this watch. Filed as `bugs_open/133`
+> (also: the single-URL reply path never sends a deliverable error, the gap
+> `bugs_closed/062` left when it fixed only the batch sibling).
 
 The 062 failure is **silent to the caller** (~12 min of timeout retries), so absence
 of a workflow error proves nothing. Worst exposure: `site-scraper/scrape_site` (no

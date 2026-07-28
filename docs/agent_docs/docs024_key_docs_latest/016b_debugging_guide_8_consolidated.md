@@ -4029,6 +4029,8 @@ See `/bugs_closed/README.md`.
 
 | 124 | **One `needs_diagnosis` item ran TWICE, under two correlations — two dispatchers shared one queue.** `090_TRIGGER_needs_diagnosis_v1.sh` wrote its intake at `status='awaiting_diagnosis'` **and** published its own orchestrate envelope, while `diagnose-pipeline-trigger` was enabled — so `diagnose-dispatch-loop`, which claims exactly those rows, ran a second independent diagnosis ~60s later. Every 090-filed item inside the `orchestration_states` retention window showed both chains; each duplicate is a 12–14 min `diagnose-agent` run (31 min longest). When the two disagreed, the failing one wrote `failed` over the succeeding one's item, and those rows were then counted as instances of `029`. **Both filed mechanisms were refuted:** `mark_complete` exists and works (the `[VERIFIED]` claim that nothing closes these items came from a *print statement in the shell script*), and orchestration `41d64b75`, cited by `029` §6 and `124` as a re-dispatch "43 minutes after the diagnosis finished", was created **91 seconds after intake** — the concurrent duplicate. Both conclusions survived; both stories of *how* did not | **CLOSED 2026-07-28 → `bugs_closed/124`, fixed AND live AND verified on a real run.** Three parts: (1) **the claim is the ticket** — a direct publish first takes the row `awaiting_diagnosis → diagnosing` atomically and publishes nothing if it loses, which holds even though the `enabled` read is a snapshot and the loop ticks every 60s; (2) **dispatch authority read from live state** — `DISPATCH` unset now asks the DB whether the loop is live (task `enabled` **and** agent row active), `1` forces a direct publish for a wedged loop, `0` is intake-only; (3) **`$ctx.` execution-context parameter namespace for `query_database`** (concept register WFA-002, chassis **v1.0.1191**) so `claim_item` stamps `spec.dispatch_correlation_id` in the same atomic UPDATE (migration **258**). (3) was NOT cosmetic: `diagnosis_artifacts` are keyed on the **envelope** correlation, so a loop-dispatched item's `spec.correlation_id` names *nothing* — it resolved only because the duplicate ran under it, and both `diagnosis-triage` items point at a uuid no run ever used. Verified 17:04–17:11: **0** orchestrations under the intake correlation, exactly **1** `diagnose-agent` under the run correlation, item `complete` with no hand-written UPDATE. **LANDMINE, permanent:** migration 258 binds `$ctx.correlation_id`; a chassis below v1.0.1191 resolves it to nil and **fails `claim_item`, stopping the diagnose lane** — image first, pod-grep, then config, and any rollback reverts both. Also: do not re-derive `029`'s rate from `failed` needs_diagnosis rows without splitting on 2026-07-28. §9 entry: *"Turning on the automatic path does not turn off the manual one"* | filed + fixed 2026-07-28; workstream `docs024/bugfix_124_double_dispatch/` |
 
+| 133 | **The single-scrape path truncates content to an S3 copy it never wrote, and still drops an oversized reply in silence.** `adapter.go:331-344` cuts `markdown_content`/`html_content`/`raw_html` at 50,000 chars and appends *"full version in S3"*, justified by a comment asserting the full content "is already in S3". The upload it names is guarded at `adapter.go:313` by `if uploadResults && …` — so when `upload_results` is false or unset the content is **destroyed and the marker points at nothing**. MEASURED, not inferred: one scrape of `vetcomparison.uk` with `upload_results:false` (corr `1e97bd22`, 19:35:39Z, v1.0.1192) logged `raw_html 53805 → 50000` with **zero** S3-upload lines, and produced successfully — so it is invisible to the 062 watch, which only greps produce errors. **4 of the 6 live single-URL scrape steps are exposed** (`site-scraper`, `domain-research-classifier`, `site-adoption-agent`, `vet-practice-verifier`; the two `website-*` agents set `true` and are safe). Second defect, same function: `sendSuccessResponse` (`adapter.go:437-447`) logs a produce failure and returns — no degrade, no resend, **no error response**, though `sendErrorResponse` is defined at `:450`. That is exactly `bugs_closed/062`'s rule, applied to the batch sibling and not to this one; 062's note that the single path "is untouched" was about the bool-trap fields only. `[INFERRED]` and worth settling on vetcomparison's P1 pilot: the cut is the document **tail**, and a UK company number lives in the **footer** — which is precisely what `vet-practice-verifier` exists to extract | **OPEN, unowned by the filing lane.** Fix order: (1) make the marker say *discarded* when nothing was uploaded — two lines, kills the false claim; (2) apply 062's degrade/resend/deliverable-error to `sendSuccessResponse`; (3) do NOT default `upload_results` to true as a side effect — that is a cost + behaviour change across four other owners' agents. Also fix the watch command everywhere it is quoted: `deploy/web-scrape-adapter` reads **1 pod of 3** (3 replicas, 1 partition, 1 consumer group ⇒ two are idle for life), so it can report a clean log while the only working pod errors — use `-l app=web-scrape-adapter --tail=-1` | filed 2026-07-28 by session "bugsearch 3", while giving the 062 watch a non-zero denominator |
+
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
 > "grep the index before filing" rule. Indexed rows stop at `081` apart from `098`
@@ -6650,3 +6652,57 @@ in the test would have made it either vacuous or permanently red.
 checks, claim verifiers, eligibility rules. Ask of each: *when this field is
 absent, does my code say "unknown" or does it say "no constraint"?* They are
 different answers and only one of them is safe to publish.
+
+### A mitigation's justification can be conditional while the mitigation is not — and the artefact then asserts the condition was met (2026-07-28)
+
+`bugs_open/133`. The webscrape adapter truncates large content before putting it
+on Kafka, and the comment above the code says why:
+
+```go
+// Truncate large content fields before sending through Kafka.
+// Full content is already in S3 (via storage URIs).
+const maxKafkaContentLen = 50000
+...
+resultMap[field] = content[:maxKafkaContentLen] +
+    "\n\n[Content truncated for Kafka transport - full version in S3]"
+```
+
+The justification is sound *when it holds*. The upload it refers to sits forty
+lines earlier behind `if uploadResults && a.storageClient != nil`, driven by the
+caller's own `upload_results` config — false or unset on **4 of the 6 live
+single-URL scrape steps**. For those callers the content is destroyed, and the
+appended marker states that a full copy exists somewhere it was never written.
+
+**The shape that transfers.** A lossy step is made safe by a *precondition*
+(there is a backup / a retry / a fallback). The precondition is optional; the
+lossy step is unconditional. Nothing enforces the pairing, so the guard runs
+alone — and because the marker text was written under the assumption, **the
+artefact now testifies that the precondition was satisfied.** The loss is not
+merely silent: it is actively mislabelled as recoverable. Anyone auditing later
+reads "full version in S3", believes the data is retrievable, and stops looking.
+
+**Why it survives review.** The comment is *true* — it is a correct description
+of the intended design. Reviewing the truncation block in isolation, there is
+nothing wrong with it. The defect lives in the distance between two `if`s in the
+same function, and neither one is wrong on its own.
+
+**The check to copy — make the marker carry the evidence, not the assumption.**
+Never let compensating text name a resource the code did not just create. Emit
+the actual storage URI, or say *discarded*. A marker that can only be written by
+threading through the real handle cannot lie; a marker that is a string literal
+always can. Generalises to: cache-eviction notes ("see the DB"), summarisation
+("full text retained upstream"), sampled telemetry ("raw events in cold
+storage"), any `…truncated, see X` where `X` was not returned by the write.
+
+**And the second-order one, worth as much as the first:** this was found only
+because a probe scrape was fired to give a *different* watch a denominator. The
+truncation produced **no error** — the message went out successfully — so every
+error-based watch over that path reads clean and always will. **A defect that
+completes successfully is invisible to any check that greps for failure.** When
+a mitigation is known to be lossy, watch for the mitigation firing, not for the
+failure it prevents:
+
+```bash
+kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=1h \
+  | grep "Truncating large field"     # the guard working IS the signal
+```
