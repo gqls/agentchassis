@@ -113,3 +113,66 @@ Per 101 and 100, **not** on a green run or a count going down:
 ## Status
 
 - 2026-07-28 ~17:30 — opened, both bugs re-grounded, scope set.
+
+---
+
+## Corrections (2026-07-28, after council round 1 — verdict REVISE)
+
+> **CORRECTED — D2's mitigation is weaker than this plan claimed.**
+>
+> D2 accepted "operators must remember X" knowingly, on the argument that it was
+> *"mitigated by making non-adoption visible"* through the coverage report. That
+> mitigation is real for actions which have **not** declared a contract. It does
+> **not** hold for a key that IS declared but is honoured only conditionally —
+> `max_pages` and `follow_links` take effect on a crawl and not on a single-page
+> scrape, and by declaring them I made the audit report the two live steps that
+> still misdescribe themselves as **clean**.
+>
+> So the design has three states and I built two: *unknown*, *recognised* — and the
+> missing one, *recognised but conditionally honoured*. Caught by the council's
+> `editquality` seat; logged in `WRONG_CALLS.md` and NOTES §7 misstep 3.
+>
+> **Owed:** a `ConditionalKeys` notion (key → the condition under which it takes
+> effect) so the audit reports these in their own section. Until then, the
+> "UNKNOWN KEYS: none" line must not be read as "no step misdescribes itself".
+
+> **CORRECTED — the plan skipped the platform's own travelling-docs mechanism.**
+>
+> This plan's §"How this gets verified" and the whole documentation approach used a
+> self-built trail (this directory, the bug files, commit messages) and never
+> touched `doc_plans` / `doc_notes`, which is the platform's own subject-keyed
+> mechanism for exactly this, with an `append_doc_note` action already in the
+> registry. Four subjects were touched and none has a note.
+>
+> This is the same "do not build a parallel mechanism" argument D3 makes about the
+> spec registry, applied to Go code and missed for documentation, in one submission.
+> Gating objection from `tooling_provenance`. **Owed on resubmission:** doc_notes
+> against `scrape_web` / `firecrawl_scrape` carrying the two non-obvious findings
+> (the `add_protocol` typo, the `onlyMainContent` inversion).
+
+> **SHARPENED — how "the chassis is live" gets confirmed, before SQL 257.**
+>
+> The plan said 257 must follow the image and called the ordering load-bearing, but
+> never said how the rollout is confirmed. `debug_historian` is right that this is
+> the gap where the lesson gets lost: applying 257 on a tag bump or a merge signal,
+> against a pod still running the old binary, converts a silent data-quality defect
+> into a **hard outage of vet verification** — the constraint refuses writes the
+> running code cannot yet satisfy.
+>
+> **The confirmation is a pod-grep of the RUNNING pod for a symbol this change
+> creates, never the tag, never git:**
+> ```
+> kubectl -n ai-persona-system exec <chassis-pod> -- \
+>   sh -c 'strings /app/agent-chassis | grep -c "unrecognised_keys"'
+> ```
+> Must be ≥1, with `scrape_web` as the positive control (it reads 1 today while
+> `unrecognised_keys` reads 0 — measured 2026-07-28 pre-deploy, which is what makes
+> it a discriminating marker rather than a vacuous one).
+
+> **Status correction:** two images, not "one roll". Already stated in §Phasing, but
+> the guardian seat is right that the breadth is a real cost: the firecrawl change
+> lands in the same roll as an unrelated provenance fix and touches three pipelines
+> outside the vetcomparison workstream that drove this round. Named, not notified —
+> `site-scraper`, `site-adoption-agent`, `website-capture-firecrawl`. The
+> `bugs_closed/062` payload-size question is the specific thing to watch after the
+> roll, and the check is in the RUNBOOK.

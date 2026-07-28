@@ -82,3 +82,49 @@ The assertion is on the **payload**, not on a live response: `only_main_content:
 produce a payload where `onlyMainContent` is **present and false**. Asserting on scraped
 content instead would need Firecrawl and would still not distinguish "we sent false" from
 "Firecrawl happened to keep the footer".
+
+## Post-roll: confirm the chassis actually carries the fix (do this BEFORE SQL 257)
+
+```bash
+POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis -o jsonpath='{.items[0].metadata.name}')
+kubectl -n ai-persona-system exec "$POD" -- sh -c \
+  'echo -n "marker: ";           strings /app/agent-chassis | grep -c "unrecognised_keys";
+   echo -n "positive control: "; strings /app/agent-chassis | grep -c "scrape_web"'
+```
+
+Pass = marker ≥1 **and** control ≥1. **Measured 2026-07-28 pre-deploy: marker 0,
+control 1** — which is what makes `unrecognised_keys` a discriminating marker rather
+than a vacuous one, and gives the check a known before-state to flip.
+
+**Gotcha — never confirm the roll by the image tag.** A same-tag rebuild ships the
+node's stale cached binary, and there was a live same-tag collision at v1.0.1186. At
+the time of writing `IMAGE_TAG` in the makefile equals the tag already deployed, so a
+build without bumping it produces exactly that. Applying SQL 257 off a tag signal
+against a stale binary turns a silent data-quality defect into a **hard outage of vet
+verification**, because the constraint refuses writes the running code cannot satisfy.
+
+## Post-roll: the bugs_closed/062 payload-size watch (web-scrape-adapter)
+
+The `only_main_content` fix makes three steps receive the **full page** they always
+asked for, so their scrape responses grow. `bugs_closed/062` was a Kafka
+*Message Size Too Large* failure whose root cause #1 is in this same provider file.
+
+```bash
+kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=2h \
+  | grep -i "Message Size Too Large\|Failed to produce"
+```
+
+Exposure, worst first (`formats` as configured live):
+
+| step | formats | after the fix |
+|---|---|---|
+| `site-scraper/scrape_site` | *(none — 4-format default + screenshot)* | **grows most** |
+| `website-capture-firecrawl/scrape_main_page` | `["markdown","html","screenshot"]` | grows |
+| `site-adoption-agent/fetch_primary_css` | `["rawHtml"]` | unchanged — `rawHtml` is the raw page, which `onlyMainContent` does not filter |
+
+**Gotcha:** the 062 failure is SILENT to the caller — the adapter logs the produce
+error and the orchestration then starves through ~12 minutes of timeout retries, each
+re-scraping successfully and re-failing identically. So the absence of a workflow error
+is not evidence this is fine; grep the ADAPTER log. Mitigation if it fires is
+config-only and needs no roll: set `scrape_config.formats` on the offending step (the
+override exists precisely because of 062).
