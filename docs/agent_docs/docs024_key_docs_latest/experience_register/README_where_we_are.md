@@ -411,3 +411,45 @@ The change is with the reviewers now. I've asked them one thing squarely rather 
 answer: adding a new *kind* of check to a shared vocabulary might count as an architectural
 decision rather than a small addition, in which case the right outcome is that a human looks at it,
 not that it gets waved through quickly.
+
+---
+
+**Tuesday 28 July, late.** Two more things, one of them a proper answer from the system rather than
+from me.
+
+The reviewers looked at the new checking capability twice. The first time they came back "revise",
+but the reason turned out to be a technical fault on their side — one reviewer's answer arrived
+unreadable, and the rules count that as blocking. Eight of the eleven had approved. Worth knowing
+because it would have been easy to read that as "they didn't like it" and start rewriting.
+
+The second time, thirteen reviewers, nothing unreadable, and a seat spoke that has **never spoken
+before on anything** — the architecture reviewer. It has been counted in the roster for weeks and
+has never once fired. It fired because I asked it a direct question: does adding a new *kind* of
+check to a shared vocabulary count as an architectural decision rather than a small addition? Its
+answer was yes, it does — even though the change is small, well tested, and measured at zero
+collisions with anything that exists.
+
+I'm not arguing with it, and I want to be clear about why, because the temptation was to go back
+with better numbers. Our own rules say a scope objection isn't answered that way: it's a judgement
+about *how* something reached production, not about whether the measurements were good enough.
+Going back with more evidence would be answering a question nobody asked. So it's written down
+where the change lives, and it needs your call rather than mine.
+
+The other reviewer, the one that can veto outright, declined to — it called the change "constrained
+and well-fenced". But it made a point I think is the sharpest thing to come out of today: the other
+system that shares this evaluator, the tool-acceptance pipeline, is a **live second consumer that
+did not review this change**. Not a hypothetical dependency. A real one, with owners, that wasn't
+in the room.
+
+And one straightforwardly good outcome. The architecture seat said something that was just correct:
+I'd recorded an important rule — which checks are allowed to fail a page and which are only allowed
+to confirm — in a code comment, and a comment stops nobody. The next person adds a check without
+reading it. So the rule is now something the build enforces: add a new kind of check and it won't
+compile until you've said which of the two it is. I broke it deliberately to prove it catches you.
+That is the better version of this whole session's lesson, and it came from a reviewer, not from me.
+
+Where things stand: the new image is built and pushed but **not yet running** — the deploy needed a
+permission I don't have, so the fleet is still on yesterday's version and the improvements are inert
+until someone rolls it. The exact command is at the top of the new handoff. Everything else is
+committed, and the register entry that the earlier council criticised has been rewritten and
+validates cleanly, waiting only for that roll to be stored.
