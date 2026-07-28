@@ -10200,3 +10200,45 @@ Rewritten as the discriminating pair (on a guide: banned fires, the number scan 
 four files — that entry is by the session whose commit took my half; `3ddb4ed2d` is mine restoring
 it. Read the two together: neither session did anything careless, and HEAD still stopped compiling
 for four minutes.
+
+---
+
+### 2026-07-28 — experience register — "attribute assertion will give the openable/inert split real Tier 2 coverage"
+
+**The claim.** Written in `NOTES_experience_register.md` 2026-07-28e, mid-session: implementing
+attribute assertion would turn `template_row_not_a_control` executable and so give CC-001's central
+clause real coverage, because the hidden template IS in the served HTML while the cloned rows are not.
+
+**What caught it.** Running it. The check does become executable, and it **FAILS**: the served
+template carries `href="#"`, and the platform's dead-control sweep already exempts
+`data-runtime-fill` shells for precisely that reason. The clause is a claim about the
+post-hydration DOM being asserted against pre-hydration markup.
+
+**The cheap check that would have.** `curl` the page and look at the element **before** writing the
+prediction — one command, and I had already fetched the page for another purpose. I reasoned from
+"the template is in the HTML" (true) to "so the check will pass" (never verified) in the same
+paragraph, with nothing marking the second half as unchecked.
+
+**The second-order one, which is the reason this entry is worth its space.** The resolution I
+reached — re-tier the clause to 4 — is *also the reading that makes my own red result disappear*.
+It may well be right. But I noticed I had arrived at it quickly and comfortably, and that is the
+shape to distrust. Recorded as such in the entry, in NOTES, and filed as `bugs_open/137` for
+someone else to settle rather than closed by me.
+
+### 2026-07-28 — experience register — 7 entries "fail validation", reported by a harness I under-fed
+
+**The claim, nearly written up as a finding.** Running the nine stored register entries through
+`ValidateExperienceCriteria` reported 7 of 9 failing on unused bindings — alarming, since every one
+had been written *through* that validator and must therefore have passed it.
+
+**What caught it.** The contradiction itself. Entries written through a validating path cannot fail
+that path; something about the measurement had to be wrong. It was: the validator takes `extra`
+documents (`contract`, `states`, `data_contract`) whose placeholders also close, and my harness
+passed only `criteria_template` + `binding_schema`. With the full document set: 0 errors.
+
+**The cheap check that would have.** Read the signature of the function before calling it —
+`extra ...interface{}` is the whole story, and it is documented in the comment directly above.
+
+**The pattern.** This is `check-answers-the-question-you-encoded` again: no filter to notice, no
+error raised, just a question quietly narrower than the one I meant to ask. The tell was not in the
+output — it was that the output disagreed with something I already knew to be true.
