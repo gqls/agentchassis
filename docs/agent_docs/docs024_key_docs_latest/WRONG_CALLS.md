@@ -9438,3 +9438,56 @@ same family, except here the filter was authored by the fix itself.
 
 Family: check-answers-the-question-you-encoded, a-quiet-result-reads-as-a-pass,
 verify-the-failing-branch.
+
+---
+
+## 2026-07-28 — a measurement, a population, and a total that matched. The mechanism was imaginary.
+
+**The claim, one command from being filed fleet-wide.** Two `git commit`s timed
+out at 120s. Theory: CLAUDE.md *mandates* pathspec commits → `git commit <path>`
+takes files from the working tree and **ignores the index** → `git diff --cached`
+is therefore empty → `check-secrets.sh` falls back to `git ls-files` → it scans
+**every tracked file**. I measured the repo at **7,948 files** and one pattern
+pass at **8.2 seconds**. Multiply by the pattern array and it lands almost exactly
+on the 120s I had seen. Twice. I was drafting the bug.
+
+**What was true.** `scripts/check-secrets.sh:29-34` scans `git ls-files` **only**
+when passed `--all`. Otherwise it takes the staged set, and
+`[[ -z "$files" ]] && exit 0` returns immediately. **There is no full-repo scan on
+a normal commit.** The real cause was `index.lock` contention — five commits from
+concurrent sessions inside five minutes — and the 120s was my own tool timeout,
+not git's.
+
+**What caught it.** Reading the script. Nothing else would have: every number in
+the theory was real and independently correct.
+
+**The check that would have.** I had already run `check-secrets.sh` standalone and
+watched it finish in **0.1 seconds**. That result refuted the theory outright, and
+I explained it away as "it took the cheap path" rather than letting it stop me.
+*Check: when an early observation contradicts the theory you are building, that is
+the refutation, not an anomaly. And read the code path before believing
+arithmetic — **a quantitative fit is not a mechanism.***
+
+**Why this one is worth the entry even though nothing shipped.** Every previous
+entry in this ledger is a check that COULD NOT FAIL. This is the opposite failure
+and the more seductive one: three independent, correct measurements assembled into
+a causal story that did not exist. A wrong bug filed fleet-wide costs every thread
+that then believes it, and this one would have carried real numbers — the most
+persuasive possible form of being wrong.
+
+**Same session, the smaller ones:**
+- **A pod-grep through `strings` on a container that has no `strings`.** Returned
+  0 for the marker AND 0 for `no_horizontal_overflow`, the check's own type name,
+  which is impossible. Caught by the POSITIVE control; the negative control alone
+  could never have distinguished "absent" from "instrument disconnected".
+  CLAUDE.md's verify-against-the-pod recipe assumes `strings` — present on the
+  chassis, **absent on browser-runner-adapter**.
+- **I asserted what a check could not do without reading it.** The claim happened
+  to be true when written, then I nearly RETRACTED it on reading a source comment
+  that postdated my own bug and described the fix it had caused. *Date the source
+  before retracting.*
+- **I did arithmetic on a count my own grep had failed to produce** (`0` patterns,
+  printed, then fed into a projection).
+
+Family: quantitative-fit-is-not-a-mechanism, explained-away-the-refutation,
+missing-tool-reads-as-passing-check, computed-with-a-broken-count.
