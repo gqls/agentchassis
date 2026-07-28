@@ -57,7 +57,7 @@ func LogLLMCall(db *sql.DB, logger *zap.Logger, params LLMCallLogParams) {
 				work_item_id, vertical, prompt_variant, rag_context_used,
 				temperature, max_tokens,
 				wire_max_output_tokens, thinking_reserve_tokens,
-				thinking_tokens, total_output_tokens
+				thinking_tokens, total_tokens
 			) VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,

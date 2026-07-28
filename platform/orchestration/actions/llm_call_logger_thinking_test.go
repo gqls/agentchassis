@@ -65,7 +65,7 @@ func TestThinkingTelemetry_ReadsTheKeysGeminiActuallyWrites(t *testing.T) {
 		{"wire_max_output_tokens", wire, 16192},
 		{"thinking_reserve_tokens", reserve, 8192},
 		{"thinking_tokens", thinking, 2878},
-		{"total_output_tokens", total, 7105},
+		{"total_tokens", total, 7105},
 	} {
 		if v, ok := c.got.(int); !ok || v != c.want {
 			t.Errorf("%s: want %d, got %#v", c.name, c.want, c.got)
