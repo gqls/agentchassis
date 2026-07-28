@@ -7,7 +7,25 @@
 **Filed:** 2026-07-28, by the gauntlet_dead_cta thread (this is `bugs_open/083`
 gauntlet-engine-503's candidate 2, promoted to its own case on fleet grounds as
 that file's §10 directed).
-**Status:** OPEN — fix built, tests pass, committed `a554bc914`.
+**Status:** CLOSED 2026-07-28 ~21:15 BST — **fixed AND live on BOTH halves, both
+proven, not assumed.**
+- **Chassis (fleet v1.0.1192):** source-inclusion pod-grep — marker commit
+  `af0cde87d` (17:47 BST, introduced `"unknown execution-context field"`)
+  CONTAINS `a554bc914` (this fix, 14:13 BST); the running pod's binary greps
+  **1** for that marker, **0** for a never-existed control. The binary was
+  therefore built from source at/after 17:47 ⊇ this fix.
+- **Island (`aqls/tools-api:v1.0.1193`):** built from committed HEAD ⊇ the fix
+  in a clean `git archive` context; `/tools-api` binary **sha256 byte-identical**
+  local-image vs running-container (`7196ca8b…`); live round-trip 200 with a
+  real AI challenge after the swap. (The docker image ID differed across
+  `save|load` — a storage re-serialization artefact; **binary hash is the
+  witness, image ID is not portable across engines.**)
+- **Negative check:** 148 anthropic calls post-roll — 0 successes cut anywhere
+  near the ceiling, 0 timeouts fired. The ceiling waits for its rare event; a
+  future hang now logs `Client.Timeout exceeded` at ~600,0xx ms instead of
+  wedging a lane until a pod roll.
+
+Original filing status: OPEN — fix built, tests pass, committed `a554bc914`.
 `SUBMISSION_CORR = 1b7d802d-b416-4bcf-9b2f-0445e918ecda`, dispatched 14:12 BST
 (> **CORRECTED 2026-07-28:** an earlier draft said "~11:35 BST" — assumed from
 > memory of the session's start; the orchestration row's `created_at` says

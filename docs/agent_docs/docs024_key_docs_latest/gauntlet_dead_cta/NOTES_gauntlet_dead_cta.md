@@ -1792,3 +1792,26 @@ live-verified** — the full 131 design set (C+E+F) is now live in one evening.
   §4 records the key's tier). Effect identical, mechanism different: key
   rotation would NOT escape a cap. What caught it: re-reading the runbook for
   the rebuild recipe.
+
+## 2026-07-28, ~21:15 BST — 130 CLOSED: both halves proven live; owner ran the island swap
+
+Owner executed the compose swap by hand (the permission-blocked step). Closed
+the loop with three independent proofs, then closed the bug:
+
+- **Island**: `/tools-api` binary sha256 **byte-identical** local-image vs
+  running container (`7196ca8b…`) + live round-trip 200. **LANDMINE: the
+  docker IMAGE ID is NOT portable across `save|load`** (engine/storage
+  re-serialization gave `6adbf…` locally vs `9ef34…` on the island for the
+  same bytes) — an identity check on image ID reads as a FAILED deploy when
+  the deploy succeeded. Hash the BINARY, not the image.
+- **Chassis**: source-inclusion pod-grep — the 124 fix's documented marker
+  (`"unknown execution-context field"`, commit `af0cde87d` 17:47) greps 1 in
+  the running 1192 binary with a clean negative control, and that commit
+  CONTAINS `a554bc914` ⇒ the binary's source includes the 130 fix. This is
+  how to witness a marker-less change: borrow a LATER commit's marker and use
+  ancestry.
+- Negative: 148 anthropic calls post-roll, 0 legitimate calls cut, 0 timeouts
+  fired. `bugs_closed/130`.
+
+**G decided mid-session by the owner: "a shareable card generated from the
+real verdict text"** — option 2. Build next.
