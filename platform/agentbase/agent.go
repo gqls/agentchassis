@@ -268,8 +268,17 @@ func (a *Agent) initializeComponents() error {
 			return fmt.Errorf("failed to connect to database: %w", err)
 		}
 
-		// Set a low, fixed number of max connections per pod
-		db.SetMaxOpenConns(4)
+		// Low by default; overridable because the intake worker pool
+		// (chassis_replica_scaling CS-2) multiplies concurrent DB users —
+		// 4 workers + two consume loops + the response path + the retry
+		// driver against 4 connections is a queue, and a freeze if anything
+		// holds a transaction while acquiring a second conn. Enablement sets
+		// this alongside CHASSIS_INTAKE_MODE; every other agent keeps 4.
+		maxConns := 4
+		if v, err := strconv.Atoi(os.Getenv("CHASSIS_DB_MAX_OPEN_CONNS")); err == nil && v > 0 {
+			maxConns = v
+		}
+		db.SetMaxOpenConns(maxConns)
 
 		// Only keep one idle connection open per pod
 		db.SetMaxIdleConns(1)
