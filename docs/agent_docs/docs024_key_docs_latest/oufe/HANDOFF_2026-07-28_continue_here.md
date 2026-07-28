@@ -105,6 +105,39 @@ without an image:
 | registry entry | `registry.go`, category `quality` | same |
 | council | corr `4d6585dd-4678-4891-b9a9-7a37b32df1b6` | submitted |
 
+#### The audit has its OWN POD as of 2026-07-28 (owner ruling), and it is PROVEN LIVE
+
+`render-audit-adapter` — a second Deployment of the **same browser-runner image**
+with `REQUESTS_TOPIC`/`CONSUMER_GROUP` overridden. Costs a topic, not a binary.
+Own pod, own consumer group, own logs, own failure state; higher memory ceiling
+and a wider liveness tolerance because a whole-site audit is one long request.
+
+**Proven end to end 2026-07-28 21:17**: a `render_audit` published to
+`system.adapter.render-audit.requests` was consumed by that pod and returned real
+measurements — actual nav elements, computed `rgba(255,255,255,0.9)`, ratio 3.54,
+`over_image: true` (the guard working: those links sit on a gradient header, so
+the backdrop is unknowable and the reading is flagged approximate rather than
+asserted).
+
+> **ROLLOUT TRAP, cost ~15 minutes.** The pod started BEFORE its topic existed,
+> got no partition assignment, and sat idle while messages piled up — group
+> registered, `--describe` empty, zero processing logs, no restarts, no errors.
+> A `rollout restart` once the topic existed fixed it instantly. **Create the
+> topic first, or restart the consumer after the first publish**, and do not read
+> "group exists" as "group is consuming" — `--list` showed it while `--describe`
+> showed nothing.
+>
+> Also: `kubectl run -i --rm ... | kcat -P` via stdin looked like it dropped the
+> message (the recorded landmine) — it had NOT; my offset check was wrong.
+> `kafka-get-offsets.sh` works; `GetOffsetShell` returned nothing silently.
+
+**STILL REQUIRED before a workflow can use the dedicated pod:** the deployed
+chassis (`v1.0.1194`) predates the topic change, so its `request_render_audit`
+still publishes to the **shared** browser-runner topic. Verified by grepping the
+running binary. Seeding a workflow today would route audits to the shared pod and
+defeat the isolation. **Rebuild the chassis, pod-grep for
+`system.adapter.render-audit.requests`, then seed.**
+
 **THE LAST STEP IS DELIBERATELY NOT DONE, and doing it early would break.** No
 workflow calls `request_render_audit` yet, because **a seed naming an
 unregistered action fails at runtime** — image first, then seeds. The order is:
