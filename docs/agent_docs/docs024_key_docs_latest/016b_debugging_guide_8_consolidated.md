@@ -6308,3 +6308,43 @@ chain is a *shield* for every defect after it. Dormancy is therefore ambiguous:
 Sibling of §"A fix applied to one branch of a two-branch router reads as done".
 That one is about a fix reaching half its callers; this one is about a fix
 delivering traffic to code that was never ready for it.
+
+### A parameter can be forced, documented, logged — and structurally unable to arrive: audit the SIGNATURE of the last hop, not the artefacts along the way (2026-07-28)
+
+`bugs_open/127` (CLOSED same day). Every `news_search` feed in the fleet ran a
+plain web search for months. The chain looked *better* than healthy at every
+checkable point: `FetchNewsSearchAction` **forces** `search_type = "news"` and
+its doc comment says so; `WebSearchAction` writes it into the Kafka payload; the
+adapter unmarshals it into a typed field with a comment enumerating the legal
+values, and **logs it** on every request. Then it calls
+`provider.Search(ctx, query, numResults)` — an interface with **no parameter for
+the value to travel in**. Unmarshalled, logged, dropped. The `SearchOptions`
+struct designed to carry it had existed the whole time, constructed by nothing.
+
+The standing rule "grep the config key before calling it a win" was already
+written, and this instance shows why its usual form is not enough: the key WAS
+known to the consumer — typed, documented, logged with the right value. Presence
+in a payload, a log line, a doc comment, or a struct definition proves nothing.
+**The only artefact that cannot lie is the parameter list of the call that is
+supposed to use the value.** Follow the value hop by hop until you watch it
+either enter a function that consumes it or fall on the floor; the audit is the
+signature chain, nothing else.
+
+Symptom-side tells, for recognising the class from the data when nobody has read
+the code: results that rank by authority instead of recency (evergreen reference
+pages, listicles, vendor marketing — on this bug, forecast pages dated 2034); a
+metadata column that is NULL on **every** row (`source_published_at`) — a
+uniform NULL is a structural signal, not sparse data; and `success: true` with
+healthy counts throughout, because nothing on the path considers "the wrong kind
+of result" an error.
+
+Fix shape that closes the door: widen the interface so the call site MUST pass
+the options struct — after that, dropping the value is a compile error, not a
+code review hope. And when the value starts arriving, expect dormant downstream
+consumers to wake: the feed writer's >30-day age filter had never once fired
+(no item ever had a date) and began discarding stale results the first hour the
+dates flowed — counts drop, and that is the fix working. Benign twin of
+§"Fixing one defect can ARM another": same mechanism — a fixed upstream
+delivers traffic to code with zero operational history — but here the woken
+code was correct, so enumerating it before shipping turned a would-be alarm
+into a predicted number.

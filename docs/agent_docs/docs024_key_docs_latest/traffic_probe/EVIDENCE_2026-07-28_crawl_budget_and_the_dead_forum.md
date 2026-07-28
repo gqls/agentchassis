@@ -136,3 +136,117 @@ listing, a pitch or a valuation, it must separate: **~184k/day scraper 404s**, v
 successful responses in 33 hours**, versus the human-scale number, which is smaller again. This
 workstream has already logged one instance of counting requests as people
 (`WRONG_CALLS.md`, 2026-07-25) — this is the same trap at ten times the scale.
+
+
+---
+
+# REVISITED, same day — the owner pushed back, and he was right
+
+He asked again: *"What will the crawlers do with my images, text etc. They may use them and that
+can be to my advantage."* Asked me to look once more and be willing to reach a different answer.
+I have.
+
+## Where the first answer was wrong
+
+**I answered a different question from the one asked.** I measured what the crawlers do with
+**404s** — nothing, obviously — and presented that as what they would do with **content**. Those
+are not the same question, and the evidence I gathered cannot settle the second one. The whole
+site is returning errors to them; of course nothing comes back.
+
+**And I called the Cloudflare default "a defensible stance" without measuring what it costs.**
+It is measurable, and it is not free.
+
+## The evidence I did not have when I answered
+
+Tested directly — what relojistas actually tells each crawler:
+
+```
+ClaudeBot → DISALLOWED     Googlebot → allowed
+GPTBot    → DISALLOWED     Applebot  → allowed
+CCBot     → DISALLOWED
+```
+
+And what they did about it, from the origin log:
+
+```
+ClaudeBot   24 requests — ALL of them /robots.txt. Zero pages.
+Bytespider   8 requests — ALL of them /robots.txt. Zero pages.
+Applebot 3,964 requests — allowed, and spent 599 of them on /faq.php 404s.
+```
+
+**ClaudeBot came, asked permission, was refused, and left.** That is not hypothetical exclusion
+I inferred from a config file — it is an observed round trip.
+
+## The finding: the managed robots.txt contradicts itself
+
+```
+User-agent: *
+Content-Signal: search=yes, ai-train=no, use=reference     ← "you MAY read and cite me"
+Allow: /
+
+User-agent: ClaudeBot | GPTBot | CCBot | Google-Extended | …
+Disallow: /                                                ← "you may not fetch me at all"
+```
+
+In robots.txt the **most specific matching group wins**, so a named agent obeys its own
+`Disallow: /` and never sees the `*` group. **The permission to be referenced is a dead letter** —
+granted in one breath to agents that are denied access in the next. Nobody chose that; it is
+what Cloudflare's managed file plus its block-AI toggle produce together.
+
+## The argument that actually decides it
+
+**A robots.txt block is voluntary compliance. It only binds the crawlers that read it.**
+
+- The **184,000/day scraper fleet ignores it entirely** — spoofed browser UAs, no self-identification, and it has been hammering `/attachment.php` regardless.
+- **ClaudeBot read it and left.**
+
+So the block is doing the precise opposite of what a publisher wants: **it stops the crawlers
+that would attribute, cite and send traffic, and does nothing whatever to the ones that would
+take content without credit.** It filters for good behaviour and penalises it.
+
+## What they would actually do with the content — split by kind
+
+| | what happens | worth it? |
+|---|---|---|
+| **Text → answer engines** (ClaudeBot, GPTBot, PerplexityBot) | fetched at answer time, quoted, **cited with a link** | **Yes, and disproportionately here.** Spanish-language horology is far thinner than English. Being *the* Spanish source is a much larger share of a much smaller pool. |
+| **Text → Common Crawl** (CCBot) | enters the public corpus that feeds downstream datasets, research and "what is this domain" tooling | **Yes, and it compounds.** Free, permanent, and the substrate everything else is built on. Currently blocked. |
+| **Text → training** (`ai-train`) | absorbed into weights. No link, no attribution, no referral | **Legitimately refusable.** Nothing comes back. Refusing this is a real choice, not squeamishness. |
+| **Images → image search** (Googlebot, Applebot) | indexed, surfaced, clickable | Yes — and **already allowed**. It just cannot reach them past the 404 wall. |
+| **Images → AI datasets** | absorbed, no attribution | Low value, same class as `ai-train`. |
+| **Images → the 184k sweep** | fetched, 404, retried forever | **No. Unchanged from my first answer** — and this is the one part of it that survives. |
+
+The key distinction, which Cloudflare's own Content-Signal already models and its blanket
+`Disallow` then discards: **`ai-input`/reference (read → cite → send a reader) is advertising.
+`ai-train` (absorb → no attribution) is donation.** They are separable. Right now both are
+refused.
+
+## The concession I should have offered the first time
+
+I considered a **branded placeholder image** at `/attachment.php` and dropped it without saying
+so. It deserves airing, because there is a version that works:
+
+- 98% of those requests are the sweep, which renders nothing → a placeholder is wasted on them.
+- But **149 requests carry a `foroderelojes.es` referer** — a *live* Spanish watch forum whose
+  old threads still embed images that used to live here. Real enthusiasts are reading those pages
+  and seeing a broken image.
+- **Serve the placeholder only when a genuine third-party referer is present, and 410 to
+  everything else** (`map $http_referer` in nginx). The sweep gets told to stop; the humans get a
+  small "Relojistas — relojistas.com" mark on a forum full of the exact audience this site wants.
+
+Modest — the human slice is ~150 requests in 33h, **[UNMEASURED]** how many are real page views
+versus the sweep spoofing a referer. Worth doing as a rider on the 410 work, not as a project.
+
+## Revised recommendation
+
+1. **410 + sitemap** — unchanged, still first. Nothing else matters while 78% of real crawler
+   budget hits a corpse. *(Sitemap shipped 2026-07-28.)*
+2. **Unblock the reference/answer crawlers, and CCBot.** Keep refusing `ai-train` if he wants —
+   Content-Signal already expresses exactly that, and it is the honest line. This is a
+   **Cloudflare dashboard setting, not a file we control** — the managed robots.txt is served at
+   the edge, so it is an owner action.
+3. **Referer-gated placeholder** as a rider on (1).
+
+**What I got right and am keeping:** the 184k/day sweep is not an audience, and any traffic
+figure for this domain is 92.5% 404s. **What I got wrong: I let "these particular scrapers are
+worthless" stand in for "crawlers have nothing to give us", and those are very different
+claims.**

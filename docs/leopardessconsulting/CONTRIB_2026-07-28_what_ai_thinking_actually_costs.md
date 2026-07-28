@@ -83,3 +83,32 @@ rather than a measurement, and it is one most firms cannot honestly claim:
 decision*, which is safe to state because we made it. It does not license the numbers
 to travel without their neighbour, and it does not become a claim about what other
 firms do or should do.
+
+---
+
+## CORRECTION + EXPANSION 2026-07-28 — the estate is bigger than the addendum said, and now verified
+
+The addendum above said *"two content agents on Google, most of the estate on Anthropic,
+one price-scraping job on a locally-hosted model."* That was **incomplete** — it
+understated the story by two whole suppliers. Checked against the live system on
+2026-07-28, the real picture is **five providers**:
+
+| what | provider & model | evidence |
+|---|---|---|
+| Page copy | Google `gemini-pro-latest` | 24 logged calls; live pages |
+| Workflows & orchestration | Anthropic Claude (opus-4-6, sonnet-5, sonnet-4-6, haiku-4-5) | 5,953 calls, 33 agent types |
+| News | xAI `grok-4-1-fast` | 4 active sources, all fetched that morning |
+| Images | Google `gemini-3-pro-image-preview` + Stability SDXL | 152 and 69 assets |
+| Vet-med price scraping | self-hosted `mistral-small3.1` on ollama | 133 calls |
+
+**Anthropic, Google, xAI, Stability, and our own hardware.** The news and image lanes are
+genuinely different integrations, not a model name swapped in config.
+
+**If you use one line from this whole note, use that table.** "We run five model
+providers across one pipeline, each chosen for its job" is a stronger and more checkable
+claim than any token ratio — and unlike the ratio it needs no caveat, because it is a
+description of what the system does rather than a statistic about it.
+
+**Still bounded.** Every row above was verified on 2026-07-28; providers change, so date
+any published version. And a lane being live is not a claim that it is the best available
+choice for that job — only that we run it and can show it.

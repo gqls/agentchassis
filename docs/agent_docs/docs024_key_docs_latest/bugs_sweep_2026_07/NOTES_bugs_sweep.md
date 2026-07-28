@@ -258,3 +258,25 @@ zero-findings on robot-hands, mechanism unestablished, likely 083). 109 was clos
 the sibling thread mid-session (all four maps derived). NEXT candidates: 091 candidate
 1 (coordinate with work_item_completion_integrity), or the unowned untouched list —
 but note the spend cap constrains anything council/diagnosis-shaped until 08-01.
+
+## 2026-07-28 ~13:20 — session 2 continued (the sweep thread)
+
+**Both my fixes went LIVE early, one deliberately, one by riding a sibling's roll.**
+127's adapter I rolled myself (v1.0.1185, markers 1/1/0/2, Firecrawl news + DDG-decline
+witnessed live). Then the 13:05 chassis roll to v1.0.1187 — another thread's — carried
+my committed 109 derivation AND 127's chassis-side `time_range`: pod-grep
+`setRenderContextScalarsFromData` 2, `renderContextControlFields` 1, `time_range` 1,
+all symbols/literals that existed in no earlier image. Commit-per-task is what makes
+this safe: whatever HEAD a sibling builds, it carries whole tasks, not fragments.
+
+**109's council run died on the fleet-wide Anthropic cap, NOT on the plan.**
+`complete_invalid` in 3s; `__step_error` = `review_editquality` → 400 "reached your
+specified API usage limits … regain access 2026-08-01". So `1d082754` is an OUTAGE, not
+a verdict — recorded in the bug file so the missing trailer reads correctly. The cap is
+owned by `bugs_open/130` + the gauntlet thread's write-up; not duplicating it. Note the
+sequence trap I nearly fell into: my first read of the dead run was "queue latency"
+(the standing landmine), and only `updated_at` + `__step_error` said otherwise —
+`status` said COMPLETED and `error` was NULL, the exact 099 shape.
+
+**127's last verification rides the ~13:50 feed refresh** (non-LLM write path, so the
+cap doesn't block it); watcher armed.

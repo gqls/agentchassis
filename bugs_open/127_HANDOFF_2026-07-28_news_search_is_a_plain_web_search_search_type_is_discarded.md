@@ -5,6 +5,34 @@ Affects **every site in the fleet with a `news_search` content source** — meas
 webdesign.co.uk, robot-hands.com, relojistas.com, gaswholesalers.com and
 ai-agent-orchestration.com all use this path.
 
+> ## CLOSED 2026-07-28 — fixed AND live on both sides, production-witnessed
+>
+> **The 13:50 production `content-feed-refresh` — the first through the fixed path —
+> delivered news.** Four new webdesign.co.uk `content_feed_items` rows, all `ingested`:
+>
+> ```
+>  The best new typefaces for July 2026                          | 2026-07-07 13:55:08+00
+>  Meta Open-Sources Astryx: An Agent-Ready React Design System… | 2026-07-21 13:55:08+00
+>  HTML and CSS in Emails: What Works in 2026?                   | 2026-07-07 13:54:58+00
+>  "One of the most creative and respected effects platforms…"   | 2026-07-07 13:54:49+00
+> ```
+>
+> Against the bug's own acceptance criteria: `source_published_at` **populated on every
+> row** (it had been NULL on every row this site ever ingested); dates cluster in the
+> last three weeks; titles are dated news, not listicles/forecast marketing. Two
+> predicted second-order effects also visible: the count is **4, not 10 per source** —
+> the previously-dead >30-day age filter waking up and discarding stale results (this is
+> the fix working, NOT a regression) — and the timestamps carry the fetch's clock time
+> with dates weeks back, which is the relative-date normaliser ("3 weeks ago" → now−21d)
+> operating on Firecrawl's news dates in production.
+>
+> **Known residuals, none a live defect:** ScrapingBee's `news_results` field names
+> remain documented-not-witnessed (fallback provider only; failure mode is loud —
+> zero-parse → fall through — never mislabelling). `time_range` is plumbed and
+> smoke-proven but no live `source_config` sets it yet; it is available, not exercised.
+> DuckDuckGo-only fleets would now fail news requests loudly by design — correct, and
+> known rather than assumed (all three providers were registered in the new pod).
+
 > ## STATUS 2026-07-28 — fix candidates 1+3 COMMITTED (`723a10259`); INERT until BOTH images roll
 >
 > `SearchProvider.Search` now takes the `SearchOptions` that was always defined and never
@@ -21,19 +49,28 @@ ai-agent-orchestration.com all use this path.
 > stop being NULL. 14 regression tests in `providers/search_options_test.go`,
 > `websearch/search_options_test.go`, `actions/web_search_options_test.go`.
 >
-> **Why this stays OPEN — the fix is not live:**
-> 1. **Both images must roll**: `web-search-adapter` (the interface + providers) AND
->    `agent-chassis` (the `time_range` plumbing). The adapter alone delivers the core fix;
->    the chassis part only adds the optional recency window.
-> 2. **Induced verification owed** (recipe below, unchanged): after the roll, fire a fetch
->    with a recent-event query and assert `content_feed_items.source_published_at` is
->    populated and recent. Adapter pod-grep: `"unsupported search type"` present (new),
->    `"all %d providers failed after retries"` absent (replaced by a variant naming the
->    search_type — a marker that flips both ways).
-> 3. **One documented-not-witnessed risk**: the `news_results` field names and `tbs`
->    forwarding for ScrapingBee come from its public docs (fetched 2026-07-28), not from a
->    live call with a real key. If wrong, the news parse yields zero results and errors
->    loudly rather than mislabelling — but check the fallbacks list in the first live run.
+> **ROLL STATUS 2026-07-28 (updated ~13:15): BOTH sides are now LIVE.**
+> 1. **Adapter LIVE on `web-search-adapter:v1.0.1185`** (rolled 10:51 by this thread).
+>    Pod-grep verified all four markers: `"unsupported search type"` 1, the new
+>    `"failed or declined search_type"` 1, the OLD `"all %d providers failed after
+>    retries"` 0 (deleted-marker flip), `normalisePublishedAt` 2. Smoke tests witnessed
+>    live: Firecrawl accepted `sources:["news"]`+`tbs:qdr:w` and returned 3 parsed news
+>    results in 1.7s; a request pinned to DuckDuckGo declined news without retry and fell
+>    through to Firecrawl. (The smoke messages' response-produce error is the header-less
+>    hand-sent message hitting the non-existent default reply topic — production routes
+>    via `reply_to_topic` headers.)
+> 2. **Chassis side LIVE on `agent-chassis:v1.0.1187`** (13:05 roll, another session's,
+>    carrying this commit): pod-grep `time_range` → 1, a literal that appeared nowhere in
+>    the chassis before this change. The optional recency window is now usable from
+>    `source_config`.
+> 3. **Remaining: the production-path check** — the next 6-hourly `content-feed-refresh`
+>    (last 07:50, so ~13:50): assert new webdesign.co.uk `content_feed_items` rows carry
+>    `source_published_at` and news-shaped titles. The feed write path is non-LLM, so the
+>    fleet-wide Anthropic cap outage (`bugs_open/130`) does not block it.
+> 4. **One documented-then-witnessed risk narrowed**: Firecrawl's news mapping is now
+>    witnessed live (item 1). ScrapingBee's `news_results` field names remain
+>    documented-not-witnessed (it is the fallback, not the primary); failure mode stays
+>    loud, not mislabelling.
 >
 > Council verdict `a7ae8ce8-ef40-4503-be8a-972ebe1b0973`: **APPROVED round 1** (10:46Z,
 > `unreadable: 0`, plan summary matched verbatim). The fix commit `723a10259` predates the
@@ -239,3 +276,74 @@ retuned twice (SQL_p9 → SQL_p14) while the bug was live, most recently at 20:2
 07-27. So a title-quality change here has two candidate causes, and only
 `source_published_at` — which no query wording can populate — is a clean
 discriminator for *your* fix. Weighting the assertions accordingly.
+
+---
+
+### RESULT 2026-07-28 13:55 (webdesign.co.uk) — adapter half CONFIRMED LIVE. And the `time_range` residual is not cosmetic.
+
+**Verdict: the interface widening works in production.** All five sources fetched
+at 13:54–13:55, `error_count` 0 on every one.
+
+**1. The parameter now reaches the provider** — the exact hop that was broken.
+Adapter log, `providers/firecrawl.go:83`:
+
+```
+"msg":"Executing search","provider":"firecrawl",
+"query":"typeface release design system open source",
+"num_results":10,"search_type":"news","time_range":""
+```
+
+`search_type` also comes back in the response body (`"search_type":"news"`), and
+every provider result now carries `published_at`. Pod-grep on
+`web-search-adapter-58c74cd968-vz9gn`: `"unsupported search type"` → **1** (present).
+
+**2. The discriminator you named moved cleanly.**
+
+| | before | after |
+|---|---|---|
+| items | 53 | 57 |
+| `source_published_at NOT NULL` | **0 of 53** | **4 of 4 new** |
+
+Every item written by the post-fix fetch is dated. None of the 53 pre-fix ones is.
+No query wording can populate that column, so this is attributable to your change
+and not to this site's two rounds of retuning.
+
+**3. Your post-roll trap fired exactly as predicted, and I am not reporting it as a
+fault.** The provider returned **50 results**; `WriteFeedItemsAction` wrote **4**.
+The >30-day age filter has woken up now that dates flow, and it discarded 46. That
+is the fix working. The four survivors are also the best material this feed has ever
+produced — *Meta Open-Sources Astryx: An Agent-Ready React Design System* (07-21),
+*The best new typefaces for July 2026* (07-07), *HTML and CSS in Emails: What Works
+in 2026?* (07-07), and a design-industry acquisition piece (07-07).
+
+**4. The finding worth carrying to whoever rolls the chassis: `time_range` is doing
+real work, not polish.** `time_range` was empty on every request (chassis v1.0.1180
+is pre-`723a10259`, as expected), and **Firecrawl's news mode alone does not
+constrain recency at all.** Raw results from the 13:55 calls:
+
+```
+typeface release design system open source
+  2026-07-21  Meta Open-Sources Astryx …            <- kept
+  2026-07-07  The best new typefaces for July 2026  <- kept
+  2025-12-16  25 Best Sans Serif Fonts (Figma)
+  2025-10-03  Coinbase has open sourced its design system
+  2020-03-28  Open Source Fonts Are Love Letters …  (WIRED)
+  2016-10-06  An open source font system for everyone   <- TEN YEARS OLD
+
+web accessibility WCAG UK regulations
+  2026-05-18 · 2025-11-18 · 2025-03-03 · 2024-07-19 · 2023-11-22
+  2020-01-31  Web Accessibility Laws in the UK …
+  2018-06-08  … Welcome WCAG 2.1                        <- EIGHT YEARS OLD
+```
+
+So "news mode" buys **dates**, and the 30-day filter is currently the only thing
+buying **recency** — at the cost of discarding 92% of what the provider returns.
+Once `time_range` flows, the same fetch should return ~10 usable items instead of
+~1, because the filtering moves upstream to the provider instead of happening after
+the fact. **Recommend the chassis roll be treated as part of this fix, not an
+optional extra** — on today's evidence it is the difference between a feed that
+works and a feed that trickles.
+
+**Not verified here:** ScrapingBee's `news_results`/`tbs` path (your
+documented-not-witnessed risk) — Firecrawl served every one of these five calls as
+primary, `fallbacks: null`, so ScrapingBee was never exercised.

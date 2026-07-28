@@ -12,6 +12,7 @@ import (
 // Later stages attach middleware and handlers to apiGroup.
 func NewRouter(pool *pgxpool.Pool, cfg *config.Config) *gin.Engine {
 	r := gin.New()
+
 	// gin.Logger() before Recovery so every request is recorded, including one
 	// that panics. Added for bugs_open/083: the island ran gin.New() with only
 	// Recovery, so `docker compose logs tools-api` showed nothing but the startup

@@ -37,11 +37,23 @@ chassis image roll.** See the 2026-07-28 box below; the earlier box records the 
 > undecided — unchanged from the earlier ruling, now pinned by
 > `TestBuildStillExcludesPerPageFields`).
 >
-> **Why the case is not closed:** the fix is inert until a chassis image roll ≥
-> `f78cf8125`, and the post-roll check is owed: render a page on the fallback path (or
-> unit-drive it in the pod image) and confirm restored colours arrive instead of
-> `#1a1a2e`-family defaults. After that, closing is a judgement call on whether the
-> remaining residue (the per-page trio's producers) stays here or moves to its own case.
+> **LIVE on v1.0.1187 (2026-07-28 ~13:05 roll, another session's).** Pod-grep on
+> `agent-chassis-67c48d5747-5zlh2`: `setRenderContextScalarsFromData` → 2,
+> `renderContextControlFields` → 1 — both symbols new in this change, absent from every
+> earlier image. The behavioural evidence is the round-trip/transcription suite at the
+> same commit the pod runs (`TestStepContractScalarsSurviveTheRoundTrip` drives the
+> fallback path and asserts restored colours arrive instead of the `#1a1a2e` defaults).
+>
+> **Council caveat:** submission `1d082754` never got a review — the run died in 3s at
+> `review_editquality` on the fleet-wide Anthropic usage cap (`bugs_open/130`; access
+> returns 2026-08-01). Not a verdict on the plan. No trailer is possible; whether to
+> resubmit post-hoc when the cap lifts is an open judgement, noted here so the missing
+> trailer reads as the outage it is.
+>
+> **What closing needs now:** a decision on the residue — the per-page trio
+> (`theme_css`/`title`/`description`) still needs its producers decided, which was always
+> a behaviour change outside candidate 1's remit. Either close this case on the
+> mechanism-complete bar and file the trio separately, or hold it open for that decision.
 
 > ## STATUS 2026-07-27 — the SERIALISE map is derived and **LIVE on v1.0.1177**; the other three are not
 >

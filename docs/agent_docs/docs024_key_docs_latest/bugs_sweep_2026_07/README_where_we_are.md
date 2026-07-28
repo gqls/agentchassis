@@ -76,3 +76,27 @@ three dated news stories, and the honest-refusal path behaved exactly as designe
 loose ends keep the bug file open: an optional "only last week" recency control waits for
 the next main-service deploy, and the final proof — real feed items with real dates from
 the regular afternoon refresh — was still pending when this was written.
+
+## 2026-07-28, afternoon — the news feeds now carry news, and the case is closed
+
+The afternoon refresh settled it. The same feeds that this morning brought back font
+listicles and marketing pages for 2034 delivered four actual stories — a July typeface
+round-up, an open-source design system release from Meta, a current piece on email
+markup — every one carrying a real publication date from the last three weeks. This site
+had never ingested a single dated item before today.
+
+Two things about that result were predicted in advance, which is worth saying because
+predictions are how you tell a fix from a coincidence. First, the feeds brought back
+four items, not the usual ten: we have always had a rule that discards news older than a
+month, it had just never fired because nothing ever had a date — it woke up today and
+did its job. Second, the recency control I added also went live in the main service
+without me deploying anything: another of our parallel work streams shipped a build that
+naturally carried my committed change, which is exactly how our
+one-commit-per-finished-task discipline is supposed to pay off.
+
+One sour note, not about this bug: our AI provider account hit its usage cap mid-
+afternoon and locks us out until the 1st of August. The review council can't sit until
+then — this fix got its approval in before the door shut; my other change today (a
+tidy-up of how page data reaches templates, also now live) is committed and tested but
+will carry its review receipt late, through no fault of its own. The cap is written up
+separately and needs an owner decision.
