@@ -124,3 +124,50 @@ the checker complained about, and that deserves its own design pass.
 So: the drain is built, reviewed and committed, waiting on the next build. The
 bigger job you have just described is written up with the four exact places it
 needs to happen, ready to start.
+
+---
+
+## 2026-07-28, later — you can sit down and work the 50 today; one earlier claim corrected
+
+You said you would take all the decisions yourself, working through them in the
+admin dashboard, and asked for the surface to be checked. It is checked, and the
+news is better than this morning's note said.
+
+**The correction first.** This morning's handoff said the 50 items that need an
+answer from you were invisible to the dashboard — parked under a status the
+screen does not show, needing to be "promoted" before you could see them. That
+was wrong. I measured it before building anything: all 50 are already in the
+queue the dashboard shows by default, and they have been all along. So decision
+A — "promote the 50" — needs no doing. There is nothing to promote. You can
+simply open the dashboard and they are there.
+
+**How to open it, today:**
+
+1. In the repo, run `make dashboard-port-forward`, then open
+   http://localhost:8080 in your browser and log in.
+2. Set the status filter to "Needs Review". Then use the type dropdown to pick
+   the class you want: `needs_section_data` (42 — the questions, some waiting
+   since March), `owned_page_review` (6), `incomplete_page_group` (2).
+3. For the section-data ones, the item opens with a form built from exactly the
+   fields the platform is missing — the pricing tier names and so on. Fill in
+   what you know, press **Save & Rebuild**, and your answer is written into the
+   site's spec and a rebuild of that page is queued automatically, at high
+   priority. The item closes itself. This path is real code, read end to end
+   today — your answer does not go into a note somewhere, it goes into the site.
+
+I verified the whole journey from a browser's point of view — the page loads,
+the login screen talks to the auth service, the API answers behind it, and the
+running dashboard genuinely contains the paging and filter fixes from the 20th
+(checked against what the pod actually serves, not the version label). The only
+thing I could not do is log in as you, because the credentials are yours. So the
+first real test is you opening one item — five minutes, and if the login itself
+misbehaves that is the one part I could not exercise.
+
+On how you reach it longer-term: the port-forward above works today and costs
+nothing. The VPN route you chose in July also still exists. Building a permanent
+web address for it is new work — worth it only if working this queue becomes a
+weekly habit, and I have not started it.
+
+Decisions B (turn the 186 advisory items into a report) and D (refuse to write
+findings that nobody reads) are untouched and still yours; nothing in today's
+work pre-empts them.

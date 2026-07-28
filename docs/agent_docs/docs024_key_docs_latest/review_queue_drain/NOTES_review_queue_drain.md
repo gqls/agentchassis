@@ -342,3 +342,92 @@ column, no jsonb key, no log row on the item. So the claim holds, **verified by
 reading, not by the loop.** Cost of the run: one queue slot and ~40 minutes, for
 nothing. Worth knowing before reaching for it on a claim you can settle by
 opening two files.
+
+---
+
+## 2026-07-28 (dashboard session) — the 50 were never invisible; the journey is verified; §4.2 of today's handoff corrected
+
+Picked up the 2026-07-28 handoff to build its §4 step 2 ("make the 50 findable").
+The step's premise failed its first measurement, so what shipped is a correction
+and a verified access route, not code.
+
+### The misstep, first: today's handoff asserted a status nobody had grouped by
+
+The handoff says the 50 human-answer items are *"`status='detected'` with no
+handler, so the dashboard cannot see them at all"*. Measured before building:
+
+```sql
+SELECT item_type, status, count(*), min(created_at)::date FROM site_work_items
+WHERE item_type IN ('needs_section_data','owned_page_review','incomplete_page_group')
+  AND status NOT IN ('complete','verified','rejected','wont_fix','cancelled')
+GROUP BY 1,2;
+--  incomplete_page_group | needs_human_review |  2 | 2026-07-15
+--  needs_section_data    | needs_human_review | 42 | 2026-03-15
+--  owned_page_review     | needs_human_review |  6 | 2026-07-17
+```
+
+**All 50, at `needs_human_review`, all `pipeline='build'`** (grouped by pipeline
+separately — 50/50 build). That is the dashboard's default pipeline and its
+best-supported status. They have been on the owner's screen the whole time.
+The `detected` population (157 rows, 24 types) is a different set: all but
+`image_url_404` (5) carry a live `handler_agent` — those are the dead-promoter
+rows of `bugs_open/083_…_detected_findings_never_reach_a_handler.md`, which is
+accurate about its own subject and contains no such misclaim; the error was
+introduced in the handoff's paraphrase. Corrected in place there (§1 and §4.2);
+row added to `WRONG_CALLS.md`. Queue totals at the same instant:
+`needs_human_review` 327, `detected` 157 (both drifting daily — re-measure).
+
+### What the dashboard actually supports (read, not assumed)
+
+- `HandleListWorkItems` (`internal/core-manager/admin/site_admin_handlers.go:507`)
+  accepts **any** `status` value as a query param (:609); default view is
+  `status != 'complete'` (:614); `status_counts`/`type_counts` are scoped by
+  pipeline+site only (:523 — the 033 fix, deliberate).
+- The item-type dropdown is server-built from `type_counts`
+  (`frontends/admin-dashboard/src/App.tsx:892,1010-1012`), so all three types are
+  selectable with live counts. The status dropdown (:1000-1008) has no `detected`
+  option — the only residual UI gap, and it belongs to 083-detected's
+  observability, not to the 50. Not built: the fix for that queue is the
+  promoter, not a viewer.
+- `needs_section_data` has an auto-built form (`buildSectionDataForm`, :585) and
+  a complete submit path (:749-826): each answered field merges into its source
+  `site_specs` aspect (parsed from `spec.missing[].source`), a `content_rewrite`
+  item is POSTed at priority 10 for `page-build-handler`, and the review item is
+  resolved. **The owner's answer genuinely lands** — this is the surface for the
+  42 oldest blocked questions (2026-03-15).
+- `owned_page_review` / `incomplete_page_group` get the generic path: editable
+  view + Resolve/Reject/Confirm (confirm creates a triaged follow-up item,
+  `confirm_work_item_handler.go`).
+
+### The journey, verified through one port-forward (2026-07-28)
+
+`kubectl port-forward -n ai-persona-system svc/admin-dashboard 18080:8080`
+(owner form: `make dashboard-port-forward`, then http://localhost:8080):
+
+```
+GET  /                                   -> 200 (dashboard HTML)
+GET  /assets/index-CPAMeW9R.js           -> contains 'work-items?pipeline='  (the v1.0.1141 server-side-filter code is IN the served bundle)
+POST /api/v1/auth/login  (bad creds)     -> 401 {"error":"Invalid credentials"}   (nginx→auth-service leg works, credential lookup completed)
+GET  /api/v1/admin/work-items (no token) -> 401 {"error":"Authorization header required"}  (nginx→core-manager leg works)
+```
+
+Pods: admin-dashboard / auth-service / core-manager all `v1.0.1180`, started
+2026-07-27 22:06 — post-dates the 1141 fixes, and the bundle grep above verifies
+against the served artefact, not the tag. Auth users live in an **external**
+MySQL (`rs17.uk-noc.com:3306`, db `catalogu_vectordb_chassis` — configmap-prod);
+deliberately not queried — the 401-on-bad-creds already proves the lookup path,
+and counting accounts in a production auth DB was not worth the intrusion.
+**The one unverified step is the owner's own login** — `[UNVERIFIED]` by
+construction; it is his credential. That is §4 step 1's residue, and it is now
+a five-minute sit-down, not an engineering task.
+
+### Where §4 stands after this session
+
+1. Access route: verified to the credential check; his login is the last step.
+   Port-forward works today; WireGuard (NodePort, since 07-20) is the standing
+   alternative; an ingress remains unbuilt and is only worth discussing if he
+   wants a permanent URL.
+2. ~~Make the 50 findable~~ — **already findable**; nothing to build. Corrected.
+3. Decision B (186 → report): untouched, his call, still the "do not build a
+   second unread queue" warning.
+4. Decision D (write-path rule): untouched, still the only door-closer.

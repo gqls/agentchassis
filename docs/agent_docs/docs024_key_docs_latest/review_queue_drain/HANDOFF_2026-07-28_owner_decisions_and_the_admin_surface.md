@@ -30,6 +30,9 @@ The decisions he is taking, from `bugs_open/083`:
 **He has not yet executed these.** Nothing in this handoff should be actioned as though
 he had. What he wants is the *surface* to work through them on.
 
+> **CORRECTED 2026-07-28 (dashboard session): decision A has no execution step — the 50
+> are already at `needs_human_review`, on the screen he reads. See the correction in §4.**
+
 ## 2. The numbers he is deciding against, measured 2026-07-27/28
 
 ```sql
@@ -123,6 +126,21 @@ not breakage, and only the owner can refresh it. Budget for that before a long s
    dashboard cannot see them at all (it filters on `needs_human_review`). Promoting them
    is decision A and is his to make — but the *filter* may be the honest fix rather than
    rewriting 50 rows' status, and that is a design question for this thread.
+
+   > **CORRECTED 2026-07-28 (dashboard session) — the status claim above is wrong, and
+   > it changes this step from "build something" to "already done".** Measured today:
+   > all 50 sit at **`status='needs_human_review'`** (42 `needs_section_data` + 6
+   > `owned_page_review` + 2 `incomplete_page_group`), all in the **build** pipeline —
+   > the dashboard's default view, reachable via the existing Needs Review filter plus
+   > the server-built item-type dropdown, with the full action set including the
+   > auto-built `needs_section_data` form. Nothing needs promoting or filtering; there
+   > is no design question left in this step. The `detected` population is a
+   > *different* set (157 rows, 24 types, all but `image_url_404` carrying a live
+   > `handler_agent`) — its defect is the dead promoter,
+   > `bugs_open/083_HANDOFF_2026-07-26_detected_findings_never_reach_a_handler.md`,
+   > not readership. What caught the error: one `GROUP BY status` over the three item
+   > types. Full evidence in `NOTES_review_queue_drain.md` (2026-07-28). The 083 file
+   > itself is accurate — the error was introduced here, in the paraphrase.
 3. **Decision B** — the 186. A report needs a reader and a cadence; a queue that nobody
    drains is what this whole bug is about, so do not build a second one.
 4. **Decision D is the one that closes the door.** An item type that names no reader

@@ -9219,3 +9219,40 @@ keeps earning its place.
 
 Family: a-green-result-from-an-input-that-cannot-fail, check-answers-the-question-you-encoded,
 verify-the-failing-branch.
+
+## 2026-07-28 — the handoff said the 50 were invisible to the dashboard; they were on its default screen all along
+
+**The claim.** `review_queue_drain/HANDOFF_2026-07-28_…` §4.2: the 50 items needing a
+human answer *"are `status='detected'` with no handler, so the dashboard cannot see
+them at all"* — so the next session's task was to build a way to surface them, and the
+owner was told decision A ("promote the 50") had an execution step.
+
+**Where it came from.** The classification (50 / 186 / 5) was computed in
+`bugs_open/083_…_detected_findings_never_reach_a_handler.md` over "non-terminal items
+with no handler" — a population spanning several statuses. The bug file is about the
+`detected` queue, so when the handoff paraphrased its own classification, the
+population inherited the bug's status. Nobody had run `GROUP BY status` over the three
+item types; the 083 file itself never makes the claim. The error is purely in the
+paraphrase — and it survived because it was written in the same confident voice as the
+measured numbers around it, in a handoff whose own §5 warns *"before proposing a
+route, measure the destination"*.
+
+**What it nearly cost.** A session building a filter/promotion mechanism for items
+that are already at `needs_human_review`, in the build pipeline, on the dashboard's
+default screen, with a working per-item form. The dashboard session's first
+measurement killed it: 42 + 6 + 2, all `needs_human_review`, one query.
+
+**The cheap check.** Before asserting *where* a population sits — a status, a queue, a
+directory — group the population by that column and paste the result next to the
+claim. If the sentence names a status and no query in the document groups by status,
+the sentence is a guess. This is [[check-answers-the-question-you-encoded]]'s sibling:
+the numbers in the document were all real, they were just answers to a different
+question than the sentence they decorated.
+
+**Tally.** *A property asserted about a population that no query grouped by* — new,
+but it is the narrow-filter family's third face. *Confident voice indistinguishable
+from measured voice* — recurring; the `[INFERRED]` marker existed for exactly this
+sentence and was not applied, again.
+
+Family: narrow-filter-defines-the-conclusion, check-answers-the-question-you-encoded,
+writes-the-field-is-not-reads-the-field.
