@@ -397,3 +397,93 @@ Three concrete moves, in order:
 data added, the check in ~2 weeks is whether `ClaudeBot`/`OAI-SearchBot`/`PerplexityBot` appear
 in the access log fetching `/glosario/*` and `/guias/*` rather than only `robots.txt`. That is
 observable in the log we already have. **[UNMEASURED]** until then.
+
+
+---
+
+# MEASURED 2026-07-28 (fourth pass) — Cloudflare MERGES, it does not yield
+
+Owner asked: *"should I just disable robots.txt configuration and we handle it ourselves?"*
+**Yes — and it is now proven that self-serving alone is not enough.**
+
+We shipped our own `robots.txt` in `vm-sites` (`00bc72f`). What is now served:
+
+```
+lines 27-60   # BEGIN Cloudflare Managed content …  Disallow: / for ClaudeBot, GPTBot,
+              CCBot, Amazonbot, Applebot-Extended, Bytespider, Google-Extended,
+              meta-externalagent          ← STILL THERE, and FIRST
+lines 64-82   our file, appended after    ← Content-Signal: ai-train=yes, Sitemap:
+```
+
+**Cloudflare PREPENDS its managed block to the origin's file.** The served result is 82 lines
+with **two `User-agent: *` groups carrying contradictory Content-Signal values**:
+
+```
+line 30:  Content-Signal: search=yes,ai-train=no,use=reference     (Cloudflare's)
+line 75:  Content-Signal: search=yes, ai-input=yes, ai-train=yes   (ours)
+```
+
+Per-agent check after shipping ours — **unchanged**:
+
+```
+ClaudeBot DISALLOWED · GPTBot DISALLOWED · CCBot DISALLOWED · Applebot-Extended DISALLOWED
+OAI-SearchBot allowed · PerplexityBot allowed · Googlebot allowed
+```
+
+**What DID take effect:** the `Sitemap:` line, because `Sitemap` is group-independent — so
+crawlers now get pointed at the sitemap regardless. That half was worth shipping on its own.
+
+## So the dashboard change is required, and it is two settings not one
+
+From the owner's screenshot (`Manage AI bot access`):
+
+1. **"Block AI training bots"** → set to **"Do not block (allow crawlers)"**.
+   This is a Cloudflare-managed WAF rule that *actually blocks requests at the edge* — it is
+   enforcement, not advice, and it is separate from robots.txt.
+2. **"Set your preference to block training in robots.txt"** → set to whatever means *no
+   preference / do not manage*. This is what injects lines 27-60.
+
+Only (2) stops the merge. Only (1) stops the enforcement. **Both, or the effect is partial** —
+and the failure mode is silent, because a blocked crawler simply never appears in the log.
+
+**Then re-run the per-agent check.** Not a single `curl`: the managed file is served
+conditionally, so one fetch proves nothing about any particular agent.
+
+*Also on that panel: "Markdown for Agents" (Pro plan) auto-converts HTML to Markdown for
+requests sending `Accept: text/markdown`. That is a genuine convenience for agent consumers and
+is the same intent as `llms.txt`. Not worth a plan upgrade on its own — noted so the option is
+known.*
+
+## Shipped alongside
+
+- **`/llms.txt`** (live, 200): built **from** the live pages rather than written **about** them —
+  every entry is the page's own `<h1>` and its own first sentence, 18 pages across glosario,
+  guías and noticias. The convention is emerging and **unproven**; it is cheap and honest, which
+  is the entire case for it.
+- **`/robots.txt`** deliberately does **not** disallow the dead vBulletin paths. Blocking them
+  would stop crawlers fetching them and therefore stop them ever seeing the `410` that removes
+  them from an index. Crawl-then-410 first; disallow later if ever.
+
+## Open Graph — the owner was right that it exists, and it is half-broken
+
+He recalled OG work. It is real: `render_site_components_action.go:417-448` emits `og:type`,
+`og:site_name`, `og:title`, `og:image`, `og:url`. But on relojistas:
+
+```
+og:image → https://relojistas.com/assets/images/og-card.png   →  404
+og:title → "relojistas.com"        (the domain, not the page title)
+og:description → ABSENT
+```
+
+**`og-card.png` is 404 on all five sites checked** (fundamentallyai, webdesign, oufe,
+relojistas, idea.uk). So every social/WhatsApp/Slack share of every site in the fleet renders
+with no preview image and, here, a bare domain as its title. **Fleet-wide, [UNMEASURED] beyond
+those five.** Worth its own bug — it is not a relojistas defect.
+
+**Structured data is dormant, not missing.** `process_html` IS registered
+(`registry.go:1042`) and referenced by 2 agent definitions, and it calls
+`datahelpers.AddStructuredData`. But that function only emits when
+`businessInfo["business_name"]` is present, and **zero of seven live sites carry any
+`application/ld+json`**. Registered, reachable, and silently producing nothing — the same
+dormant-machinery class as `bugs_open/117`. And what it would emit is `Organization` only,
+which is not what a glossary needs (`DefinedTerm`).
