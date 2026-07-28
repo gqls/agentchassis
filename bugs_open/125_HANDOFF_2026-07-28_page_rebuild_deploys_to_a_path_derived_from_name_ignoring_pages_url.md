@@ -4,7 +4,7 @@
 `bugs_open/087`'s acceptance test · **Status** OPEN, unowned ·
 **Severity** HIGH — **280 of 431 pages (65%) would deploy to the wrong path**, and each
 one publishes a real, fetchable duplicate of a live page ·
-**One live instance exists right now and needs removing — see "Damage done"**
+**The one live instance was REMOVED by the owner 2026-07-28 ~07:2x UTC; the cause is untouched**
 
 ---
 
@@ -150,3 +150,36 @@ the existing one.
 exposed it), `bugs_open/080` (gap planner bypasses canonicalisation — same
 duplicate-page class, arrived at from another direction), `bugs_open/098`
 (archiving does not retract a deployed page — same missing unpublish primitive).
+
+---
+
+## Cleanup CONFIRMED 2026-07-28 — the orphan is gone, the real page never moved
+
+The owner deleted the file from the sites repo. Verified against the **live
+site**, not the repo, because a deletion in git is not a retraction from a CDN:
+
+```
+/ai-agent-roi-estimator.html                       -> 404 (302 b)
+/ai-agent-roi-estimator.html?cb=<epoch>            -> 404 (302 b)   cache-busted
+/tools/ai-agent-roi-estimator.html                 -> 200 (35,129 b)
+```
+
+The cache-busted request matters: an unbusted GET is a cache's opinion of a page,
+so a plain 404 could have been an edge holding a stale negative. It is genuinely
+gone.
+
+And the real page is **byte-identical to the pre-test capture** — 35,129 bytes,
+sha `b1f0afe6c03e67bf`, taken at 07:07 UTC before the rebuild committed. So the
+test left **no residue at all**: it neither altered the canonical page nor left
+the duplicate behind.
+
+**The CAUSE is untouched.** `resolveFilePath` still never consults `url`, and the
+next `page-rebuild` of any of the 280 mismatched pages recreates an orphan
+exactly like this one. This section records that the *instance* was cleaned, not
+that the bug was fixed — fix candidates 1–4 above all still stand.
+
+**Still true and worth keeping in view:** removing that one file needed the
+owner's own git access, because the platform has no implemented way to unpublish
+a page (`delete_repo` is the git adapter's only deletion verb and it is a stub).
+Candidate 3 remains the one that makes this class recoverable without a human
+with repo credentials.
