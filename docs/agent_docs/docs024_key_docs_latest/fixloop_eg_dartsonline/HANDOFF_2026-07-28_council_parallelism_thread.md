@@ -180,6 +180,38 @@ credits on a change I no longer think is justified *now*.
 explicitly accepted; Anthropic concurrency headroom measured; `124` fixed. Then
 change the 097 default and the seed header **in the same edit**.
 
+## Standing state re-verified 2026-07-28 20:58 on v1.0.1194 (2 replicas)
+
+Everything this thread owns still holds after the day's ~10 rolls:
+
+| check | result |
+|---|---|
+| `council-gate-orchestrator` row | active, `start_step=spawn_council` |
+| `council-gate` row | active, `idle_timeout_seconds=900` (this thread's change, survived) |
+| `097` default | still `council-gate` — **not flipped**, as decided |
+| `bugs_open/124` | **CLOSED** by another thread (`e42fb1ba8`, "one chain, not two, proven on a real diagnosis") — moved to `bugs_closed/` |
+
+**`124`'s landmine discharged for this roll.** Memory records that migration 258
+needs chassis ≥1191 and that you must pod-grep after *every* roll or the diagnose
+lane stops silently. Checked on **both** replicas of `v1.0.1194`:
+
+```
+agent-chassis-74dbd9c9f4-7p6d8 : 1
+agent-chassis-74dbd9c9f4-rxb52 : 1     # strings /app/agent-chassis | grep -c "unknown execution-context field"
+```
+
+Both carry it, so the precondition holds. Worth doing per-replica rather than
+once: with `replicas=2` a retag or a partial roll can leave the two pods on
+different binaries, and a single grep would not show it.
+
+**Post-roll timeout window: NOT yet a clean bill, and deliberately not claimed as
+one.** 10 minutes after the 20:48:11Z roll: 0 timeouts, 11 orchestrations — but
+**0 `build-pipeline-trigger` runs**, so the reproducer never fired and the window
+says almost nothing. This is exactly the shape of the reading I got wrong earlier
+today (see the struck-through "ABATED" section in `bugs_open/029`). Whoever picks
+this up should re-run the hourly table with the control column during a **busy**
+window before drawing any conclusion about the replay fix.
+
 ## Next actions (superseded above — kept for the record)
 
 1. **Follow `chassis_replica_scaling`, do not re-diagnose.** They own the
