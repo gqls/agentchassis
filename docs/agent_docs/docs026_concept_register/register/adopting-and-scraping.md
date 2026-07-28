@@ -4,9 +4,11 @@
 > Subsystems that shipped after this date may be absent from this file
 > **entirely** — absence here is not evidence of absence in the platform. See `bugs_open/106`.
 
-1 concept, consolidated from 2 raw extractions (1 unique block, appearing twice
-due to exact whole-block duplication in the cluster input file) across unit
-U22.
+**5 concepts.** SCR-001 was the original extraction: 1 concept, consolidated from
+2 raw extractions (1 unique block, appearing twice due to exact whole-block
+duplication in the cluster input file) across unit U22. SCR-002..005 were added
+2026-07-28 by the `bugfix_100_101_scrape_provenance` lane and postdate the
+extraction freeze above — which is exactly the gap `bugs_open/106` describes.
 
 ### SCR-001 — Polite-scraping throttle (REQUEST_THROTTLE_MS)
 - **status:** aspirational
@@ -25,12 +27,13 @@ U22.
 - **relations:** `business_intel.data_observations` writer (business-intel-collection.md); the AI-asserted-claim remediation class (bugs_closed/043, bugs_closed/061); SQL 257 (the `NOT VALID` CHECK that makes the unsourced state unrepresentable)
 
 ### SCR-003 — Declared config-key contract + unknown-key detection (`ActionInputSpec.ConfigKeys`)
-- **status:** built, inert until the chassis image rolls; 1 of 228 actions adopted
-- **status-evidence:** committed `2ebabf2ca` 2026-07-28; `platform/orchestration/datahelpers/action_inputs.go` (`UnknownConfigKeys`, `IsStrictConfigAction`, `ListDeclaredConfigKeys`), wired in `platform/validation/workflow.go`. Live audit run reports 1 declared action, 208 undeclared, 726 undeclared (action,key) pairs.
+- **status:** deployed (live on chassis v1.0.1192); **58 of 152 actions adopted** as of 2026-07-28 evening — was 1 until `CheckConfig` landed. Read the live number from `scripts/audit-config-keys.sh`, not from this line
+- **status-evidence:** committed `2ebabf2ca` 2026-07-28; `platform/orchestration/datahelpers/action_inputs.go` (`UnknownConfigKeys`, `IsStrictConfigAction`, `ListDeclaredConfigKeys`), wired in `platform/validation/workflow.go`. Live audit run **2026-07-28 ~19:15Z** reported 1 declared action, 208 undeclared, 726 undeclared (action,key) pairs; **re-run ~20:55Z after `CheckConfig`: 58 declared, 152 undeclared, 571 pairs.** Both figures are dated because this one moves.
 - **what:** An action declares the step-config keys it actually reads; the workflow validator — the only place that sees an action name and its config together on every run — then reports keys the action does **not** read, instead of the runtime silently ignoring them. **Three states, not two** (`ConditionalKeys` added 2026-07-28 after the council's `editquality` seat caught the gap): *unknown* · *recognised* · *recognised but honoured only under a stated condition*. The third exists because declaring a key was itself a way of hiding it — see the CORRECTION on SCR-004. `StrictConfig` escalates the warning to a hard validation refusal once a contract is known complete. Opt-in per action by design: 811 distinct (action,key) pairs across 228 live actions make a fleet-wide allow-list a guess at scale, and an over-strict validator is a worse defect than the inert key it chases. `UnknownConfigKeys` returns a `checked` bool so "declared and clean" can never be read as "never examined". Extends the pre-existing spec registry (134 registrants, previously read by nothing but a parity test) rather than adding a second one.
-- **why it is callable by others:** any action author can opt in with one field and get typo/staleness detection for their step config; this is the general answer to the recurring "config that lies" class (bugs_closed/042, bugs_closed/127, bugs_open/101).
+- **UPDATED 2026-07-28 (evening) — `CheckConfig`, and why adoption was 1/152 rather than "slow".** Opt-in was gated on a non-empty `ConfigKeys`, a field that means something specific: *settings rather than references*. For the large class of actions whose every key is an `ExtractActionInputs` field, there was **no honest way to opt in** — you had to duplicate keys into a list they do not belong in, or misdescribe a reference as a setting. The cheapest correct action was to do nothing, and 151 actions did. `CheckConfig bool` now says only *"check me"*; the recognised set (`Required ∪ Optional ∪ ConfigKeys ∪ Deprecated`) is unchanged. **Prefer `CheckConfig` when the action passes its own spec to `ExtractActionInputs`** — that extractor reads `config[k]` for every `Required`/`Optional` key, so the spec is already a verified statement of what the action reads and opting in asserts nothing new. The three separate `len(ConfigKeys)==0` tests (runtime, strict-mode, offline audit) are now one method, `checksConfig()` — three chances for the runtime check and the audit to disagree about who is covered was itself the drift class this tool detects.
+- **why it is callable by others:** any action author can opt in with one field and get typo/staleness detection for their step config; this is the general answer to the recurring "config that lies" class (bugs_closed/042, bugs_closed/127, bugs_open/101). **The one-line form is now `CheckConfig: true`** for the common case.
 - **sources:** bugs_open/101 fix candidate 1; docs024_key_docs_latest/bugfix_100_101_scrape_provenance/
-- **relations:** `registry_parity_test.go`; 016b §9 *"A registry that everything registers with and nothing reads"*
+- **relations:** `registry_parity_test.go`; 016b §9 *"A registry that everything registers with and nothing reads"*; SCR-005 (what made the batch opt-in scopable)
 
 ### SCR-004 — Config-key coverage report (`scripts/audit-config-keys.sh`, `cmd/config-key-audit`)
 - **status:** built and exercised (read-only; needs cluster access + `go run`)
@@ -38,5 +41,14 @@ U22.
 - **CORRECTED 2026-07-28 (same day):** this entry originally read *"It now reports zero unknown keys and 208 undeclared actions"* as though the zero were a result. **It was not** — it was zero partly because the entry's own author had just declared the offending keys, which made them *recognised* and silenced the report on two live steps that still advertise a crawl `/scrape` cannot perform. Caught by the council gate's `editquality` seat, logged in `WRONG_CALLS.md` 2026-07-28. The report now carries a third **CONDITIONALLY HONOURED** section and, when UNKNOWN KEYS is empty while conditional keys are present, says in terms that "none" does not mean "no step misdescribes itself".
 - **what:** Offline half of SCR-003. Asks the **binary** what each action declares (the declarations are Go, registered by `init()`; a source grep would quietly disagree with the running code) and joins that against every live `agent_definitions` step config. Reports **UNKNOWN KEYS** (action declared its contract, key is not in it — a real inert key) separately from **UNDECLARED ACTIONS** (not opted in, so nothing is known and nothing there is evidence of a bug), because the fix differs and conflating them makes the report unactionable. `--json` for the full machine-readable list; the text listing's cap is labelled a display limit, not a filter.
 - **why it is callable by others:** it is the adoption ratchet for SCR-003 and it answers "is this config key real?" for any action, for anyone, without reading Go.
+- **the number, dated because it moves:** **208 actions / 726 pairs undeclared, 1 declared** (2026-07-28 ~19:15Z) → **152 / 571 undeclared, 58 declared** (same evening, after `CheckConfig`). Read it from a run, not from this line.
 - **sources:** docs024_key_docs_latest/bugfix_100_101_scrape_provenance/RUNBOOK_scrape_config_and_provenance.md
-- **relations:** the `098` unreviewed-commits report (same coverage-ratchet shape); `102_coverage_ratchet.txt`
+- **relations:** the `098` unreviewed-commits report (same coverage-ratchet shape); `102_coverage_ratchet.txt`; SCR-005
+
+### SCR-005 — Config-key ADOPTION report (`cmd/config-key-coverage`)
+- **status:** built and exercised (read-only; `go run`, no DB, no cluster)
+- **status-evidence:** run 2026-07-28; produced the 56/34/85/30 split that scoped the batch opt-in in commit `ce9e28784`, which moved SCR-004's gap from 208 actions to 152.
+- **what:** Dumps the **full** `ActionInputSpec` of every registered action as JSON — `required`, `optional`, `config_keys`, `deprecated`, `opted_in` — where `cmd/config-key-audit` dumps only the declared key set. Two tools because they answer two questions: the audit asks *"who has opted in?"*, this asks **"who is one line away?"**. Joined against `scripts/audit-config-keys.sh --json`, it classifies every undeclared action into: spec already covers every live key (safe one-line opt-in) · spec exists but misses live keys (needs reading) · no spec at all. Cross-referencing which of those files actually pass their spec to `ExtractActionInputs` separates *verified by construction* from *needs a human*. Refuses to print an empty object, for the same reason its sibling does: a dropped blank import would read as "nothing is declared" rather than failing.
+- **why it is callable by others:** the expensive part of the coverage ratchet is proving what each action reads, and declaring a key an action does **not** read is worse than declaring nothing — it silences the detector for a dead key (`WRONG_CALLS.md` 2026-07-28). This is what makes the remaining ~152 tractable in batches instead of one hand-read action at a time, and it is the thing to run before claiming any action is or is not covered.
+- **sources:** commit `ce9e28784`; docs024_key_docs_latest/bugfix_100_101_scrape_provenance/NOTES §15
+- **relations:** SCR-003 (`CheckConfig`), SCR-004 (the gap it drives down)

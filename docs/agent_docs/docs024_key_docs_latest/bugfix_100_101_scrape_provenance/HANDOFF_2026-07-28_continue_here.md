@@ -122,11 +122,26 @@ distinguishable from a genuine absence, and it names the field it looked in. The
 `data.url` shape is `[UNVERIFIED]` — traced through code, never observed, because no
 run carrying `scraped_data` survives the retention clock.
 
-### 3c. Drive the coverage number down
+### 3c. Drive the coverage number down — ~~208~~ **152 actions / 571 pairs** (done in part 2026-07-28 evening)
 
-`./scripts/audit-config-keys.sh` — **208 actions / 726 (action,key) pairs** are still
-undeclared. Each declaration makes that action's dead keys detectable. This is the
-adoption ratchet the opt-in design depends on for its justification.
+`./scripts/audit-config-keys.sh`. Each declaration makes that action's dead keys
+detectable; this is the adoption ratchet the opt-in design depends on for its
+justification.
+
+> **UPDATED 2026-07-28 evening (`ce9e28784`).** 208 / 726 → **152 / 571**; declared
+> 1 → 58. **The ratchet was not stalled by neglect but by its own gate** — opt-in
+> required a non-empty `ConfigKeys`, which means "settings rather than references",
+> so an action whose every key is an `ExtractActionInputs` field could not opt in
+> without misdescribing its own keys. `CheckConfig: true` is the one-line form now.
+>
+> **The 56 done were the ones where opting in asserts NOTHING NEW**: their spec is
+> passed to `ExtractActionInputs` (which reads `config[k]` for every
+> `Required`/`Optional` key, so the spec is already a verified statement of what
+> they read) *and* the audit shows it already covers every key their live steps
+> carry. **The rest need reading, not a flag:** 34 whose spec misses live keys, 85
+> with no spec, 30 that register a spec but never hand it to the extractor.
+> Re-derive that split with `go run ./cmd/config-key-coverage` joined against
+> `./scripts/audit-config-keys.sh --json` rather than trusting these numbers.
 
 ## 4. Residuals — read these before claiming anything is finished
 
@@ -250,7 +265,17 @@ returned only comment prose, and `ConditionalKeys` is genuinely new. NOTES §12.
 2. **The 062 watch is still unexercised** — `grep -c "Starting scrape"` was **0**, so
    the clean error log has a zero denominator. §2, and the RUNBOOK puts the attempt
    count above the watch.
-3. **208 undeclared actions** in the coverage ratchet. §3c.
+3. ~~**208 undeclared actions** in the coverage ratchet.~~ **NOW 152 / 571 pairs
+   (was 208 / 726); declared 1 → 58.** Done 2026-07-28 evening, commit `ce9e28784`,
+   council corr `07cf67c6-12f6-4c56-9646-bc17c4753d5f`. **The ratchet was not stalled
+   by neglect — it was blocked by its own gate:** opt-in required a non-empty
+   `ConfigKeys`, which means "settings rather than references", so an action whose
+   every key is an extractor field could not opt in without misdescribing its own
+   keys. `CheckConfig: true` is now the one-line form. **What remains needs READING,
+   not a flag:** 34 actions whose spec misses live keys, 85 with no spec, and 30 that
+   register a spec but never pass it to `ExtractActionInputs`. Use
+   `cmd/config-key-coverage` (new) joined with `audit-config-keys.sh --json` to
+   re-derive that split rather than trusting these figures. NOTES §15.
 4. ~~**Two owner calls, neither this thread's:**~~ **ONE of the two is now RULED
    (2026-07-28, owner): `vet-practice-verifier` and `domain-research-classifier`
    STAY on scrape, warning.** Not a deferral — a decision. The mismatch is visible

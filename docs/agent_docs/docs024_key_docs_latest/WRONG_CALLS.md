@@ -9611,3 +9611,38 @@ Seed `260` baselines all sixteen at one timestamp, so the next time this moves i
 two-table diff. That does not recover the missing one — **a baseline only answers
 questions asked after it is taken**, which is the whole argument for taking it before you
 need it.
+
+## 2026-07-28 — "adoption is slow" was a diagnosis I never checked, and it was wrong
+
+**The claim.** `bugs_closed/101`'s coverage ratchet sat at 1 adopted action of 152.
+Every doc describing it — the bug file, the concept register, the handoff I was
+handed, and my own first plan for the evening — framed the remaining 208 undeclared
+actions as an adoption problem: keep declaring, drive the number down. §3c of the
+handoff is titled *"Drive the coverage number down"*.
+
+**What was actually true.** Opt-in is gated on `len(spec.ConfigKeys) == 0`, and
+`ConfigKeys` has a specific declared meaning — *"keys this action reads that are NOT
+data-input fields — settings rather than references"*. For the large class of
+actions whose every config key **is** a data-input field, there was no honest way to
+opt in at all: you had to duplicate keys into a list they do not belong in, or call
+a reference a setting. 151 authors did the cheapest correct thing, which was nothing.
+
+**What caught it.** Trying to do the work. The first action I opened to declare —
+`append_doc_note` — already listed all eight of its live keys, in `Optional`. That
+made no sense against "nobody has declared their keys", and reading the gate
+explained why.
+
+**The cheap check that would have caught it months earlier.** *When a voluntary
+mechanism has ~0% adoption, read the mechanism before exhorting the population.*
+One in 152 is not a measurement of 152 authors' diligence; it is a measurement of
+the mechanism's cost. I had the number in front of me in three documents and read it
+as a backlog every time.
+
+**Note the recurrence, which is the part worth the entry.** This is the same lane's
+second self-inflicted blindness in the same tool in one day: earlier, declaring two
+keys to fix a bug silenced the very report built to catch that bug (entry above).
+Both have the shape *the fix authored the thing that hid its own case* — first the
+filter, then the gate. A mechanism's author is the worst-placed person to notice
+that its cost is prohibitive, because for them it was not.
+
+Fixed in `ce9e28784` (`CheckConfig`), 208 → 152 undeclared actions.

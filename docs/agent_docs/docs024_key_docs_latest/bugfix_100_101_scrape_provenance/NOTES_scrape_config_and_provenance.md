@@ -807,3 +807,82 @@ Corrected to `-l app=web-scrape-adapter --tail=-1` in all three docs.
 Kept in the session scratchpad rather than the repo — it publishes to a production
 topic and should be an explicit act, not a thing sitting in `scripts/`. Full text
 and both traps are in `bugs_open/133`'s RUNBOOK section; regenerate from there.
+
+## §15 — 2026-07-28 ~21:00 — the ratchet was not stalled by neglect, it was stalled by its own gate
+
+Picked up §8 item 3: "208 undeclared actions in the coverage ratchet". The framing
+in every doc — including mine — was that adoption is slow and needs pushing. **It
+was not slow. It was structurally blocked, and I nearly spent the session pushing
+on it instead of reading it.**
+
+`UnknownConfigKeys` gates opt-in on `len(spec.ConfigKeys) == 0`. `ConfigKeys` has a
+declared meaning, written two rounds ago by this same lane:
+
+> `// ConfigKeys declares the step-config keys this action reads that are NOT`
+> `// data-input fields — settings rather than references`
+
+So for any action whose every config key **is** a data-input field — the common
+case, because `ExtractActionInputs` handles exactly those — there was **no honest
+way to opt in.** You had to duplicate keys into a list they do not belong in, or
+call a reference a setting. The cheapest correct action was to do nothing, and 151
+actions did.
+
+> **The shape, and I want it recorded because I have now made the inverse mistake
+> twice in one lane:** when a voluntary mechanism has ~0% adoption, read the
+> mechanism before exhorting the population. A 1-in-152 adoption rate is not a
+> statement about 152 authors' diligence; it is a measurement of the mechanism's
+> cost. Two rounds ago the fix authored the filter that hid its own case; this time
+> the fix authored the gate that blocked its own adoption.
+
+### What made a 56-action batch safe rather than reckless
+
+Declaring a key an action does **not** read is worse than declaring nothing — it
+silences the detector for a dead key. So the expensive part is proving what each
+action reads. The proof turned out to already exist for a large subset:
+
+`ExtractActionInputs` builds `allFields` from `spec.Required` + `spec.Optional` and
+reads `config[field]` for each. **So for an action that passes its OWN spec to that
+extractor, the spec is already a verified statement of what it reads from config.**
+Opting such an action in asserts nothing new.
+
+Split, computed rather than eyeballed (`cmd/config-key-coverage`, new — SCR-005):
+
+```
+undeclared 208
+  A. spec already covers every live key : 89   <- of which 56 also pass the spec to the extractor
+  B. spec exists but misses live keys   : 34   <- needs reading, NOT in this change
+  C. no registered spec at all          : 85   <- needs reading, NOT in this change
+```
+
+Only the 56 were touched. Result, from a run:
+
+```
+before  208 actions / 726 pairs undeclared ·  1 declared
+after   152 actions / 571 pairs undeclared · 58 declared
+UNKNOWN KEYS: none        (unchanged — no live definition gains a warning)
+```
+
+### The negative control, because "none" has lied to this lane before
+
+`UNKNOWN KEYS: none` after the change is *necessary and not sufficient* — it is
+precisely what a bad declaration produced two rounds ago. A regression making
+`checksConfig()` always return false would satisfy "no false positives" while
+printing a clean bill over an unexamined fleet. So the test asserts the detector
+**fires**: a `CheckConfig` action with an EMPTY `ConfigKeys` must return
+`checked=true` and must flag a bogus key. That test fails if the mechanism is
+switched off, which is the only property worth pinning here.
+
+### Two things I checked because they would have been silent
+
+- **58, not 57.** `render_directory` and `render_model_directory` share one spec
+  var, so opting in the latter opted in the former. It carries no live config keys,
+  so it never appeared in the gap and this is a no-op — but a count that does not
+  reconcile is worth explaining rather than rounding.
+- **The shared tree does not compile.** `go test ./platform/orchestration/actions/`
+  fails on `spawn_actions.go`, which I never touched — another session's uncommitted
+  signature change. Verified against `git archive HEAD` + only my files: all three
+  affected packages pass. Committed with an explicit pathspec that excludes their
+  file. Without that check I would have had to choose between shipping untested and
+  believing I had broken something I had not.
+
+Council: submitted, corr `07cf67c6-12f6-4c56-9646-bc17c4753d5f`.

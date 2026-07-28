@@ -929,6 +929,10 @@ an ID prefix, or a status word.
 | AGOV-011 | Morality review as configured, layered standard | aspirational | Operator-chosen base standard, not a baked-in moral view | autonomy-governance.md |
 | BIZ-014 | Operator-vs-vendor business model fork / SaaS commercial model | aspirational | Operator-primary, vendor-optional; five cheap-now seams for future separability | business-strategy.md |
 | SCR-001 | Polite-scraping throttle (REQUEST_THROTTLE_MS) | aspirational | Optional per-adapter delay env var for polite bulk scraping | adopting-and-scraping.md |
+| SCR-002 | Fetch-recorded provenance (datahelpers.ExtractFetchProvenance) | deployed | Provenance read from the fetch record, never asked of the model; live on v1.0.1192 | adopting-and-scraping.md |
+| SCR-003 | Declared config-key contract + unknown-key detection (ActionInputSpec) | deployed | Actions declare the step-config keys they read; three states, unknown/recognised/conditionally honoured. Opt in with CheckConfig: true | adopting-and-scraping.md |
+| SCR-004 | Config-key COVERAGE report (scripts/audit-config-keys.sh, cmd/config-key-audit) | deployed | Joins the binary's declarations against every live agent_definitions step config; separates unknown keys from undeclared actions | adopting-and-scraping.md |
+| SCR-005 | Config-key ADOPTION report (cmd/config-key-coverage) | deployed | Dumps every action's FULL spec, so "who is one line away from opting in?" is answerable without hand-reading 208 actions | adopting-and-scraping.md |
 | DIAG-029 | Diagnosis subject threading through orchestrator input_mapping | deployed | Optional subject_type/subject_key fields required three coordinated edits across mapping and both contracts | diagnosis-loop.md |
 | MDL-018 | Anthropic client temperature parameter removed unconditionally | superseded | Opus 4.7+ rejects any non-default temperature; client omits it on every call | model-infrastructure.md |
 | VMB-011 | Cloudflare-proxied-in-front option | deployed | Orange-cloud CF in front of the VM origin; real-IP nginx config required | vm-backend-sites.md |
