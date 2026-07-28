@@ -8907,3 +8907,48 @@ whose *evidence* is true and whose *scope* is wrong. "go-echarts is absent" was 
 checkable, and it made the surrounding sentence feel checked. **A warning I wrote myself,
 in a handoff, in bold, was the thing I never re-derived** — precisely because it looked
 like the output of an investigation rather than an input to one.
+
+---
+
+## 2026-07-28 — `node --check` printed SYNTAX OK on a machine with no node
+
+**The claim.** Having patched a live component's JavaScript, I ran
+`node --check file.js 2>&1 | head -3 && echo "  SYNTAX OK"` and reported the file
+as syntactically valid before delivering it to production.
+
+**What was true.** `node` is not installed here. The shell printed
+`node: command not found`, `head` exited 0 because *it* succeeded, the `&&` fired,
+and `SYNTAX OK` was printed for a file that was never parsed by anything.
+
+**What caught it.** Reading my own output. The "command not found" line was right
+there above the reassurance.
+
+**The cheap check that would have.** `command -v node || echo "NO CHECKER"`.
+**If a verification tool might be absent, assert it exists before trusting its
+silence.** A missing tool and a passing check produce the same exit status.
+
+**Cost.** None realised — the file was afterwards driven in a real browser, which
+is a stronger check and found it fine. But it was luck that the stronger check
+existed: had I relied on the `node` line, an unparsed file would have gone to a
+page a visitor was actively using.
+
+**Same session, the one that nearly shipped:** `(el.objectives || []).map(...)`.
+`querySelectorAll` returns a **NodeList**, which has `forEach` but **no `map`** —
+it would have thrown on the first save. Caught by re-reading the patch, not by any
+tool. *Check: NodeList is not an Array; slice it before using Array methods.*
+
+**And a third, caught by measurement:** I wrote a CSS override at specificity
+(0,1,1) against a component rule at (0,2,0) and would have called it done. Class
+count is compared before element count, so mine lost silently — the width simply
+did not change. *Check: after writing an override, MEASURE the property, never
+assume the rule applied.*
+
+**The tally now stands at four "checks that could not fail" in two days** —
+a file-gated linter, a source-string grep of a binary, a wrong binary path, and
+now a checker that was not installed. Each produced output identical to success.
+**An assertion that cannot fail is not an assertion**, and the failure mode is
+always the same shape: something returned zero, or nothing, or exit 0, and I read
+that as a result rather than asking whether the instrument was connected.
+
+Family: a-clean-result-and-an-unrun-check-are-identical, vacuous-detector,
+the-verification-command-is-code-too, missing-tool-reads-as-passing-check.
