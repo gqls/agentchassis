@@ -351,3 +351,42 @@ actually painted on the live page. Neither can see what the other sees, and the
 button fault above is invisible to theirs because the offending white is hardcoded
 in the page furniture rather than being part of any colour scheme. I have written
 that down in both places so nobody deletes one thinking it duplicates the other.
+
+---
+
+**28 July, evening — you found three things unreadable and you were right about all of them**
+
+Short version: the chart is live and now legible, the footer statement runs the
+full width, and the 403 problem is solved.
+
+The chart itself was the easy part. The part worth telling you about is that our
+contrast checker had told me that page was clean about an hour before you sent the
+screenshot. It was measuring only links and buttons. Headings, labels and the
+chart's own title were never looked at, and it reported that as *passing* rather
+than *not checked*. That is now fixed to measure everything that renders text.
+
+Worse, both faults were ones I had already written down. Yesterday's bug file says
+this site's primary colour is identical to its background colour, and describes
+the white card as a bug waiting to happen. I then built a component that draws a
+card, on that palette, and never made the connection. Writing a hazard down is not
+the same as checking for it.
+
+And fixing it broke something else. Making the card dark made the text readable and
+made two of the three bars invisible, because the default bar colour was then
+exactly the card colour. No contrast tool caught that either, because bars have no
+text in them. I only found it by taking a screenshot of my own fix — which is
+exactly the thing I should have done an hour earlier and did not, because the
+numbers were green.
+
+**On the 403: you do not need an account.** Those sites are not asking anyone to log
+in. They block simple automated fetchers but serve the page normally to a real web
+browser. We already had a headless browser running for the accessibility checks, and
+pointing that at Ofwat returns the page perfectly. So the price determination data is
+reachable, and that is genuinely good news, because the determinations are a real
+series — a number moving across a review — which is exactly what the time-series
+chart was built for and has been sitting unused waiting for.
+
+You are right that we need a lot more charts and tools. One chart and one diagram on
+one case is a demonstration, not a publication. But the pattern underneath it now
+works: a real figure, stored with the sentence it came from and the date we read it,
+drawn as a chart that cannot contain a number nobody verified.
