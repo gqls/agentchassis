@@ -1524,3 +1524,63 @@ review and produced: one real code defect found (the five missed call sites), on
 race of mine found while fixing it, and two unverified claims of mine turned into
 checks. **[VERIFIED]** — seat verdicts read from `diagnosis_artifacts`, not inferred
 from the decision string.
+
+### v1.0.1182 CARRIES candidate 2 — binary proven, path still unproven, blocked on another site
+
+`VERIFY_110_post_roll.sh` against `agent-chassis-59f58fdb57-qh9gd` / **v1.0.1182**:
+
+```
+positive controls (same INSERT)   rag_context_used 1 · prompt_variant 1 · "work_item_id, vertical" 1
+DISCRIMINATING marker             total_output_tokens        1     <- was 0 on v1.0.1180
+negative control                  zzz_not_a_real_symbol      0
+vacuous (shown to prove useless)  wire_max_output_tokens     2  ·  thinking_reserve_tokens 6
+```
+
+**The pod rolled twice while I was verifying** — 1180 → 1181 (09:46) → 1182 (09:55). I
+re-ran the check against 1182 rather than trusting the 1181 result. On this cluster the
+image tag under your feet is not a stable fact; **verify the pod you are about to
+dispatch against, not the one you looked at five minutes ago.**
+
+Owner approved rebuilding `sale` for the path proof. Queued `0ffc5344` at 10:02:28,
+after the 300s post-restart window. **It has not dispatched.**
+
+> **REFUTED, by my own data, within ten minutes of my claiming it.** I read
+> `find_dispatchable_site`'s SQL — `SELECT DISTINCT ON (wi.site_id) … ORDER BY
+> wi.site_id, wi.priority ASC LIMIT 1` — and concluded that site selection is
+> UUID-ordered and therefore **starves** every higher-UUID site, with
+> `webdesign.co.uk` (highest UUID, 69 pending items) worst affected. The SQL reading is
+> correct: `DISTINCT ON` forces `site_id` to lead the ORDER BY, so `LIMIT 1` takes the
+> lowest UUID and `priority` never orders ACROSS sites.
+>
+> **The conclusion about the system was wrong.** 24h of ticks, grouped by the site they
+> actually served:
+>
+> ```
+> webdesign.co.uk 68 · relojistas.com 29 · fundamentallyai.com 21 · dartsonline.com 13
+> vetcomparison.uk 9 · ai-agent-orchestration.com 7 · gaswholesalers.com 4 · …
+> ```
+>
+> **`webdesign.co.uk` has the HIGHEST UUID of the pending sites and got the MOST
+> service.** Sites rotate, because the chosen site's items drain and it leaves the
+> candidate set. There is no starvation. **The cheap check that caught it: group the
+> ticks by the site they served, instead of reasoning about the ORDER BY.** Logged to
+> `WRONG_CALLS.md`.
+
+**What is actually blocking it** — and it is not this workstream, not Gemini, and not
+`110`. Every recent tick picks `fundamentallyai.com` (lowest UUID with pending work),
+spawns `build-dispatch-loop`, and sits at `AWAITING_RESPONSES` with **`awaited=[]`** —
+awaiting responses while awaiting nothing, the hung-spawn shape of `bugs_open/029` /
+[[spawn-call-handshake-races]]. Its item `8f366ce5` has been `triaged`,
+`attempt_count 0`, `claimed_by` empty since 10:05:33: **never claimed.** Three such
+runs are stacked up.
+
+**So the UUID ordering is not starvation, but it IS an amplifier**: it converts one
+site's hung spawn into a head-of-line block for every higher-UUID site. That is a
+sharpening of `029`'s blast radius worth carrying — *its cost is not confined to the
+site it happens on.* dartsonline's last tick was **2026-07-27 20:08**, i.e. before my
+item existed.
+
+**Not acting on it.** `fundamentallyai.com` belongs to the brochure-component-library
+workstream and `029` is the owner's thread; resetting another workstream's work item or
+killing their orchestrations to unblock my verification would be exactly the
+cross-thread damage `scripts/who-owns.py` exists to prevent.
