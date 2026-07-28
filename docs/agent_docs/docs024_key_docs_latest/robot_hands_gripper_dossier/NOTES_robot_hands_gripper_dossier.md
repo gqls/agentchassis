@@ -745,3 +745,70 @@ default**, exactly as its header claims, and the failure path publishes.
 Lane parked again: both `report-*` tasks disabled. Three `manual-test` work items
 and two live report pages left in place for owner inspection; cleanup owed.
 `HANDOFF_RESUME_gripper_dossier.md` written as the cold-start entry point.
+
+---
+
+## 2026-07-28 — a LIVE honesty defect, found by a test written to look for it
+
+Went to plan the A1 generalisation (`score_grippers` → config-driven engine) and
+came back with the opposite conclusion plus a customer-visible bug. Both are
+worth the space.
+
+### The defect: an unpublished cup range scored as `Match`
+
+```go
+if spec.Tech == "soft" && spec.GripMinMM != nil && spec.GripMaxMM != nil {
+    // compare part size against the published range
+} else {
+    // "Not applicable — surface hold, no jaws"
+}
+```
+
+Correct for vacuum and magnetic grippers, which have no jaws. **Wrong for a soft
+gripper, which has a size window we merely do not know.** The unpublished case
+fell through to "not applicable", set no `unknown` flag, and the candidate scored
+`Match` on its remaining criteria — so the report would tell a paying customer
+the part fits a cup whose size nobody has published. Six of seven criteria in
+that file handled absence correctly; this one diverged, which is exactly why a
+reviewer skims past it.
+
+**Fixed** (`7f87c0afa`) to flag `unknown` like its siblings. **INERT until the
+next roll** — the lane is parked, so no report can be generated meanwhile.
+Transferable pattern written up in `016b` §9.
+
+### The test that found it, and how it corrected me
+
+`TestUnknownNeverPasses`: for every subset of the six nullable figures, across
+every fixture and four request shapes, removing a published figure must never
+turn a non-passing candidate into a passing one, nor raise headroom. 2^6 × 10 ×
+4, under a second. It found the defect **on its first real run**.
+
+> **My first version of the property was wrong and the code was right.** I
+> asserted the rank could only ever *worsen* when a figure was removed. It failed
+> at once: OnRobot 2FG7 moves from `No match` to `Insufficient data`. That is
+> honest — without the figure we cannot assert failure either. **Losing
+> information moves a candidate toward uncertainty in BOTH directions.** The
+> guarantee is not "uncertainty is bad", it is "uncertainty is never mistaken for
+> success". Asserting the stronger version would have been permanently red.
+
+Also fixed in the same commit: the gate's contract (`no_match_sentence`,
+`prose_sections`) now travels with the scoring output instead of being a package
+const — a second report type would otherwise have been checked against this
+one's sentence, silently — and `prose["summary_html"].(string)`, the file's only
+unchecked assertion, reachable only on the `match_count==0` path and therefore
+able to panic exactly where the gate matters most.
+
+Council corr `721ac4f7` submitted; **no trailer until `decided_by` is read.**
+
+### A1 is a WON'T-DO, and the number that justified it was wrong
+
+Recorded in full in `features_open/024`. Short version: `CHVerticalProfile`, the
+cited "config table" exemplar, is a **Go map** with one populated entry. The
+"9 of 296 single-site actions" recounts to **1** — `pull_report_requests` already
+selects sites by `deploy_config ? 'report_island'`, `emit_report_status_files` is
+plumbing, and code-literal gripper mentions are 41 / 3 / 1 / **0** across the
+four others. And N=2 already exists: idea.uk's Tier-3 scorer is an LLM 1–5 rubric
+whose intersection with the proposed config table is **the empty set**.
+
+**What generalises is the pipeline, not the scorer** — and four of the five
+actions are already in that layer.
