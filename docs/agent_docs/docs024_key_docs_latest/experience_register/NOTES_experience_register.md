@@ -510,3 +510,100 @@ the non-empty-contract rule fails naming `CC-006_count-up-stat-band.json` exactl
 still **0 rows** — and it must stay that way for now, because **v1.0.1175 carries the INVENTED
 shape**. The register cannot be populated until the next roll ships `799c0c97e`. That is the
 whole remaining gap between "built" and "real".
+
+---
+
+## 2026-07-28 — the register is POPULATED, and the first live run refused most of it
+
+**v1.0.1180** (pod `agent-chassis-5987b8749b-4p4bl`, started 2026-07-27T22:06Z) carries the
+corrected contract shape. The trigger's two-direction precheck passed — `new=1, old=0` — and
+that same precheck had been **refusing** against v1.0.1175 minutes earlier, which is the
+cleanest confirmation available that the invented shape really would have refused everything.
+
+**All nine entries are in.** 9 rows, 9 travelling docs, **0 non-draft**, 29 executable checks,
+23 deferrals. Every row written through `write_experience_pattern` — none by raw INSERT — so the
+register's contents are, as designed, exactly the set its own contract accepted.
+
+### The first live run refused 6 of 9, and every refusal was correct
+
+This is the validator doing the job it was built for, on its first contact with real data. In
+order found:
+
+1. **`binding "X" is declared but never used`** — five entries. Reading them, **every unused
+   binding named a part of the experience the entry's own clauses describe and our checkers
+   cannot assert**: `empty_state_selector` (no empty-region assertion), `item_openable_selector`
+   / `item_static_selector` / `countup_attribute` / `prev_control` / `item_template` /
+   `marker_count` (no attribute assertion), `tool_page` (no navigation), `timer_selector` /
+   `progress_pct_selector` / `final_input` / `final_submit` / `outcome_reasons_selector` (no
+   waits — 300 ms vs a measured 8–23 s), `detail_close_selector` (no ordering).
+   **So an unused binding is the SHADOW of a deferred check.** Blanket tolerance would hide a
+   real mismatch; a hard error would delete the record of what the clause needs the day the
+   harness can run it. It is now a **deferral** on the same terms as a deferred check —
+   declared, carried, reported, never a pass — and `unused_ok` now **requires a reason**. It
+   previously accepted a bare `true` while its own error message promised a reason; an escape
+   hatch that does not demand its justification is a slower way of ignoring the rule.
+
+2. **A genuine defect: MJ-002 used `{{binding.sample_turn_text}}` and never declared it.**
+   Unbindable, so the interaction would have typed the literal placeholder into the box — the
+   `-EDIT` failure mode in different clothes: it runs, it looks green, it asserts nothing.
+
+3. **`min` is read by NOBODY.** Verified in the checkers' source, not from my own table: Tier 2
+   does `anchorPresent`, Tier 4 does `n > 0`, and **neither check struct has a `Min` field**. So
+   `selector_count` is a misnomer — it asserts existence, never a threshold. Five checks carried
+   `min`; three were `min: 1` (which *is* existence, so the inert field is dropped) and two were
+   `min: 2` — including **`at_least_two_cards`, whose entire clause is that the carousel's arrows
+   exist only when there are two or more cards.** A check named `at_least_two_cards` that asserts
+   "at least one" is precisely what this validator exists to catch.
+
+4. **MINE, again the hand-maintained-list class.** The action passed an *enumerated* list of
+   documents to scan for placeholders (`contract`, `states`, `data_contract`, `degraded_states`,
+   `entry_points`) and omitted `section_types` and `destination_roles` — where the harvested
+   entries put theirs. Bindings were reported unused when they were used all along. Fixed the
+   same way as the column lists: **pass every field except the schema and the template.** There
+   is no reason to keep a list of documents-that-might-contain-placeholders.
+
+5. **The entries' own design error, which the refusal exposed: `section_types` held a
+   PLACEHOLDER**, in all nine. It is a selection axis with a GIN index — you cannot match
+   `{{binding.section_type}}` against a real page's section type, so the axis would index a
+   literal placeholder and **the pattern could never be selected at all**. Replaced with the real
+   `section_type` of the component each entry was harvested from, read from `content_components`:
+   `provocations-archive-list`, `provocation-card` + `lobby-grid`, `hero-carousel`,
+   `image-hover-cards`, `insight-carousel`, `stat-band`, `people-feature`, `gauntlet-interface`.
+   A **starting point, not a claim** about every section the pattern suits — the axis widens on a
+   new sighting, the same rule the invariants' `sightings` follow.
+
+6. **CC-002 promised a role it never named.** Its outcome prose says the destination "is live and
+   of the promised role", but the clause carried no `destination_role` — unlike the four
+   analogous entries, which all do. Under-specified against its own words; naming it makes the
+   promise checkable.
+
+### The payoff: the harness gap is now MEASURED, not asserted
+
+Since 07-26 this workstream has carried a note that "four register-worthy clauses are
+unassertable by our own criteria". That was a hand-count from reading. The register now answers
+it from data — 23 deferrals, grouped by the capability that blocks them:
+
+| blocked on | clauses | entries |
+|---|---|---|
+| **attribute assertion (has/lacks an attribute)** | **7** | **7 of 9** |
+| waits + retries (the 300 ms vs 8–23 s gap) | 3 | 2 |
+| cross-page status (a url on `page_status_ok`) | 2 | 2 |
+| focus step + visibility expectation | 2 | 1 |
+| zero-count / scoped negation | 2 | 2 |
+| count threshold (`min`) | 2 | 2 |
+| navigation as a journey step | 1 | 1 |
+| ordering / conditional checks | 1 | 1 |
+| inducing a degraded state | 1 | 1 |
+| empty-region assertion | 1 | 1 |
+
+**Attribute assertion is the single biggest win available, and it is not close**: 7 clauses
+across 7 of the 9 entries. It is also the *anti-dead-control* clause — `no-inert-control`, the
+invariant found in six independent implementations, the reason this workstream exists. We cannot
+currently check the rule we built the register to enforce. That is a prioritised harness roadmap
+derived from evidence, and it is the first thing the register has produced that we did not
+already know.
+
+`[LIMITATION]` The **binding-level** deferrals are not in that table. The tightened P4 that
+records them is committed but **not deployed** — v1.0.1180 silences a justified unused binding
+without recording it. So the true figure is 23 **plus** the fifteen marked bindings; the table
+above undercounts, and will correct itself at the next roll with no action needed.
