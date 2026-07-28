@@ -133,29 +133,49 @@ func (f *EvidenceFact) ValidateSeries() []SeriesProblem {
 		}
 
 		// The load-bearing check. No inheritance: an observation with no source
-		// of its own is not evidence, whatever its parent fact carries.
+		// of its own is not evidence, whatever its parent fact carries. Uses the
+		// SAME predicate as seriesSupports, so the validator and the gate cannot
+		// disagree about what counts as sourced.
 		if len(o.Source) == 0 {
 			problems = append(problems, SeriesProblem{Index: i, AsOf: o.AsOf,
 				Reason: "no source; an observation never inherits the parent fact's source"})
 			continue
 		}
-		cit, err := ParseCitation(o.Source)
-		switch {
-		case err != nil:
-			problems = append(problems, SeriesProblem{Index: i, AsOf: o.AsOf,
-				Reason: "citation unusable: " + err.Error()})
-		case cit != nil:
-			// a citation source is fully validated by ParseCitation
-		default:
-			// Not a citation. Accept the other provenance kinds a fact may use,
-			// and nothing else — an empty-but-present source object must not pass.
-			if !hasNonCitationSource(o.Source) {
+		if !observationHasResolvableSource(o) {
+			if _, err := ParseCitation(o.Source); err != nil {
+				problems = append(problems, SeriesProblem{Index: i, AsOf: o.AsOf,
+					Reason: "citation unusable: " + err.Error()})
+			} else {
 				problems = append(problems, SeriesProblem{Index: i, AsOf: o.AsOf,
 					Reason: "source names no citation, sql or artifact"})
 			}
 		}
 	}
 	return problems
+}
+
+// observationHasResolvableSource is the single definition of "this point is
+// evidence". It is deliberately shared by ValidateSeries and by seriesSupports.
+//
+// Council round 1 (corr da40ddf0) caught the hole this closes: ValidateSeries
+// enforced the never-inherit rule, but numberSupported went straight from
+// IsSeries() to seriesSupports() and never called the validator. An unsourced
+// observation would therefore still have registered its value as supported, so
+// an unsourced number could reach a page through a series nobody had validated
+// — defeating the entire purpose of the type. A rule enforced only in the
+// validator is not enforced; it has to hold at the gate that actually decides.
+func observationHasResolvableSource(o Observation) bool {
+	if len(o.Source) == 0 {
+		return false
+	}
+	cit, err := ParseCitation(o.Source)
+	if err != nil {
+		return false // citation present but unusable (missing url/quote/publisher)
+	}
+	if cit != nil {
+		return true
+	}
+	return hasNonCitationSource(o.Source)
 }
 
 // hasNonCitationSource reports whether a source map carries one of the
@@ -227,6 +247,13 @@ func (f *EvidenceFact) seriesSupports(val float64, lowerWindow string) bool {
 		}
 	}
 	for _, o := range f.Observations {
+		// An observation with no resolvable source of its own is NOT evidence and
+		// must not register its value, even though it sits inside a series whose
+		// other points are impeccable. Without this the type's central guarantee
+		// would hold only for callers who remembered to run ValidateSeries first.
+		if !observationHasResolvableSource(o) {
+			continue
+		}
 		if o.Value == val || (o.Value-val < 1e-9 && val-o.Value < 1e-9) {
 			return true
 		}

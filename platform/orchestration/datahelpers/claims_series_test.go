@@ -200,3 +200,29 @@ func TestFigureNearAMonthIsStillScanned(t *testing.T) {
 		t.Fatal("a real business figure next to a month name must still be scanned")
 	}
 }
+
+// Council round 1 on corr da40ddf0 found this hole: ValidateSeries enforced the
+// per-observation source rule but numberSupported never called it, so an
+// unsourced point still registered its value. The guarantee has to hold at the
+// gate that decides, not only in a validator a caller may never run.
+func TestUnsourcedObservationDoesNotRegisterItsValue(t *testing.T) {
+	eb := &EvidenceBase{Facts: []EvidenceFact{{
+		ID: "SER-debt", Kind: KindSeries, ContextTerms: []string{"net debt"},
+		Source: EvidenceSource{Artifact: "the parent has impeccable provenance"},
+		Observations: []Observation{
+			{AsOf: "2023", Value: 14, Source: citedSource("https://e/1", "q")},
+			{AsOf: "2024", Value: 99},                                        // no source at all
+			{AsOf: "2025", Value: 77, Source: map[string]interface{}{"note": "trust me"}}, // present but empty
+			{AsOf: "2026", Value: 55, Source: map[string]interface{}{ // citation missing its quote
+				"citation": map[string]interface{}{"url": "https://e/x", "publisher": "Ofwat"}}},
+		},
+	}}}
+	if !eb.numberSupported(14, "net debt of 14") {
+		t.Fatal("the properly cited observation must still be supported")
+	}
+	for _, bad := range []float64{99, 77, 55} {
+		if eb.numberSupported(bad, "net debt of something") {
+			t.Errorf("value %v from an unsourced observation must NOT be registered", bad)
+		}
+	}
+}
