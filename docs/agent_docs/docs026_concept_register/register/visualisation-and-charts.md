@@ -93,15 +93,14 @@ a live site*, that is said explicitly.
 - **sources:** `claims.go` `extractAssertions:165-226`; brochure-workstream landmine
 - **relations:** VIZ-001, VIZ-002, VIZ-006, CLM-002
 
-### VIZ-010 — `cmd/contrastscan`: the post-deploy contrast witness
-- **status:** **built, run by hand only — NOT wired into anything**
-- **status-evidence:** checked 2026-07-28 after the owner asked. Every reference to it in the repo is documentation (bug files, this register, migration comments). Zero references in the Makefile, in CI, in any shell script, or in any `agent_definitions` workflow; no `contrast_failure` work-item type exists. Its sibling `cmd/claimscan` is equally unwired.
-- **why the correction matters:** this entry originally said "deployed", which this register's own status vocabulary explicitly forbids for a thing that is built but not exercised — and the overstatement was written in the same file that states the rule. **Nothing runs this on a schedule, so nothing will catch the next contrast defect before a human sees it.** That is not hypothetical: on the day it was built, an unreadable chart reached the live site and was found by the owner looking at a screenshot, not by the tool.
-- **what:** Measures WCAG contrast on live pages in headless Chromium using computed style and the **actual painted backdrop**, alpha-composited. Exits non-zero on failure.
-- **why it matters:** it exists because a stylesheet cannot answer the question — it cannot resolve the cascade, and the result depends on ancestors, alpha and gradients. `bugs_open/122`'s original table was built from a regex and was largely wrong. The tool's three guards are each a false positive it produced before having them, and the general rule is recorded with it: **on live public sites an over-reporting audit is worse than none**, because its findings get "fixed" into real regressions.
-- **complements, does not replace:** `platform/colour.AuditPalette` (026 phase 2b) reads the *composed palette* pre-deploy in microseconds and IS wired into the build; this reads the *painted page* post-deploy and is not wired into anything. A colour can be legible in the palette and illegible on the page, because chrome carries hardcoded literals that are in no palette.
-- **sources:** `cmd/contrastscan/main.go`; `bugs_open/122`; `platform/colour/palette_audit.go:89`
-- **relations:** VIZ-011
+### VIZ-010 — `scripts/render_audit.py`: the post-deploy render witness
+- **status:** built (2026-07-27, brochure workstream), **run by hand only — NOT wired into anything**
+- **status-evidence:** checked 2026-07-28. Nothing in the Makefile, CI, any shell script, or any `agent_definitions` workflow invokes it. Run against oufe.com's Thames page that day: `contrast=0 broken-img=0`.
+- **what:** Renders a live page in headless Chromium and measures what a visitor actually sees. For **every element** (`body *`) it takes the computed colour, walks up through transparent ancestors compositing alpha to find the effective background, and applies 4.5:1 / 3.0:1. A background *image* under text is reported as `overImage` so a reader discounts it rather than trusting a number the page cannot justify. It also reports images that failed to load, which the DB-only `image_url_404` check cannot see.
+- **why it matters:** it is the only thing that catches 026's **family 3** — a component hard-coding an ink over a themed fill — which `check_palette_contrast` states in its own header it cannot see by construction. On fundamentallyai.com it found 101 AA failures across 5 pages in about two minutes, on a site where every page said `deployed` and none of ~50 discovery checks had objected.
+- **the duplication worth recording:** on 2026-07-28 this workstream built `cmd/contrastscan`, a Go tool doing the same job, without finding this one. **The prior-art grep was `--include=*.go` and the prior art is Python.** The Go tool was deleted on discovery; its one arguably-distinct behaviour (refusing to score an unknown backdrop rather than flagging it) is a stricter variant of `overImage` and not worth a second tool. See `WRONG_CALLS.md` 2026-07-28.
+- **sources:** `scripts/render_audit.py`; `platform/orchestration/actions/discovery_checks/check_palette_contrast.go:43,108`
+- **relations:** VIZ-011, CLM-001
 
 ### VIZ-011 — chart furniture is a graphical object, so the 3.0 threshold applies to it
 - **status:** deployed (applied in VIZ-002 and VIZ-006)

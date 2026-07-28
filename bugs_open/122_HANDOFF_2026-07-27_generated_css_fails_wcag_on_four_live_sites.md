@@ -147,7 +147,7 @@ scope to over-fire because of the header trap above.
 
 # What is actually wrong (browser-measured, 2026-07-28)
 
-Measured with `go run ./cmd/contrastscan <url>` — computed style, real painted
+Measured in a browser — computed style, real painted
 backdrop, alpha composited. "Not measurable" means a gradient or image backdrop,
 which computed style cannot resolve; those are excluded rather than guessed.
 
@@ -216,9 +216,18 @@ secondary items in the 3.3–4.4 band across sites.
    and it makes the failure unrepresentable rather than per-site-lucky. Note the
    chrome is a **stored artefact**: existing sites need the `nav_drift` →
    `nav-updater` path, since no page re-render rebuilds chrome (`117`).
-2. **Run `cmd/contrastscan` over the fleet as a post-deploy check** and raise
-   `contrast_failure` at high severity. Built 2026-07-28. This is the candidate
-   that would have caught finding 2, which nobody noticed on a live site.
+2. **Wire `scripts/render_audit.py` over the fleet as a post-deploy check** and
+   raise `contrast_failure` at high severity. **The tool already exists** (built
+   2026-07-27 by the brochure workstream) and is **not wired to anything** — that
+   is the whole of the remaining work for this candidate. It is the only thing
+   that catches 026 family 3, which `check_palette_contrast` states in its own
+   header it cannot see. This is the candidate that would have caught finding 2,
+   which nobody noticed on a live site.
+
+   > **CORRECTED 2026-07-28:** this bug previously said the candidate was "built"
+   > as `cmd/contrastscan`. That was a duplicate of `render_audit.py`, written
+   > without finding it because the prior-art grep was `--include=*.go` and the
+   > prior art is Python. The Go tool has been deleted.
 3. **Gate the webdesign agent's CSS output** at generation. Still worth doing, and
    note it would NOT have caught findings 1–3, because none of them are in the
    generated stylesheet.
@@ -227,7 +236,7 @@ secondary items in the 3.3–4.4 band across sites.
 # How to verify, and the trap in verifying
 
 ```bash
-go run ./cmd/contrastscan https://<site>/            # exits non-zero on any failure
+python3 scripts/render_audit.py https://<site>/      # every element, not a selector list
 ```
 
 **Screenshot anything you are about to report on a live site.** Three separate
