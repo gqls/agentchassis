@@ -2391,3 +2391,46 @@ reader no way to tell.
 Left both items at `failed` deliberately. Retrying now burns attempts 2 and 3 against a
 provider that will refuse, and would leave them `unresolved` — which is in
 `idx_swi_dedup`'s terminal set, so the next sweep would happily file duplicates.
+
+### CORRECTION, same morning — the cap is not just imagery, and it blocked the chart build
+
+> **I told the owner "image generation is capped fleet-wide". That understated it.**
+> The capabilities rebuild failed thirteen minutes later on the *same* 429, from the
+> text side:
+>
+> ```
+> step process_sections_loop_iter_0_generate_content failed: execute_llm_prompt:
+> AI endpoint unavailable: provider=gemini model=gemini-pro-latest ... status 429
+> "Your project has exceeded its monthly spending cap."   RESOURCE_EXHAUSTED
+> ```
+>
+> Measured, last 24h: **6 spend-cap failures — 4 image (`gemini-3-pro-image-preview`),
+> 2 text (`gemini-pro-latest`)** — first at 09:22, last at 09:35, across 4 agents.
+> One Google project spend cap, refusing **both** modalities.
+
+**What still works, and why that is misleading:** `page-rerender` completed 36 times in
+the same window, along with the feed ingester, health checker and the build triggers.
+Every one of those is a **non-LLM** path. My scoped section re-renders yesterday and
+today succeeded for exactly that reason. So the fleet *looks* healthy on a status count
+and cannot write a sentence or draw a picture.
+
+**Practical consequence for this workstream:** the capabilities chart cannot be built
+until the cap is lifted, because the section needs the writer to author its eyebrow,
+title and intro. Nothing else is blocking it — the plan placement is in, `085` is fixed
+on the build path, and the register data is correct.
+
+**The cap is Google's, not ours.** `banana` is our name for the Gemini image API
+(`DefaultBaseURL = https://generativelanguage.googleapis.com/v1beta`, AI Studio); the
+writer is on `gemini-pro-latest` through the same project. Grepped the tree for any
+spend/budget/quota config of our own: **none**. Owner action at https://ai.studio/spend,
+or move to the Vertex base URL the banana client already supports
+(`us-central1-aiplatform.googleapis.com/v1/projects/...`), which bills through GCP.
+
+*Cheap check that generalises:* **a 429 naming one model is a statement about the
+PROJECT, not the model.** I read the imagery 429 as an imagery problem and scoped my
+report to it; the same cap was thirteen minutes from stopping every page build on the
+fleet. When a quota error names a billing scope, measure at that scope before reporting.
+
+**Left both the imagery items and the `needs_page` row at `failed`** with attempts
+remaining. Re-fire after the cap is lifted rather than burning retries against a
+provider that will refuse.
