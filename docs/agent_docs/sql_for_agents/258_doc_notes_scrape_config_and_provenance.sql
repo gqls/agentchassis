@@ -15,6 +15,13 @@
 --
 -- Each note below records the NON-OBVIOUS thing — the bit the next reader would
 -- otherwise re-derive from scratch — not a summary of the fix.
+--
+-- RE-RUN SAFE (added after the council's debug_historian seat asked, round 2):
+-- each INSERT is an INSERT..SELECT guarded by NOT EXISTS on
+-- (subject_type, subject_key, created_by), so re-applying this file is a no-op
+-- rather than three duplicate notes. doc_notes has no unique constraint to lean
+-- on — the table is append-only by design, which is exactly why a re-applied
+-- seed would duplicate silently and nothing would complain.
 
 BEGIN;
 
@@ -22,7 +29,7 @@ BEGIN;
 -- scrape_web — the config-key contract, and the fifth key nobody had found
 -- ---------------------------------------------------------------------------
 INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
-VALUES ('action', 'scrape_web',
+SELECT 'action', 'scrape_web',
 '2026-07-28 (bugs_closed/101, live on chassis v1.0.1192): this action advertised FIVE config keys that no Go code read. Four were in the bug file (max_pages, follow_links, extract_mode, fallback_url_field); the fifth, add_protocol, was found by scripts/audit-config-keys.sh on its first run and is a NEAR-MISS TYPO — the only Go code with that intent reads "add_protocol_if_missing" and belongs to a DIFFERENT action (the URL-validation one). A bare domain reaching the adapter is a failed fetch, so it was not cosmetic. All five are now read.
 
 LANDMINE FOR THE NEXT EDITOR: this action now DECLARES its config contract via ActionInputSpec.ConfigKeys, so the workflow validator reports any step-config key not in that list instead of silently ignoring it. If you teach WebscrapeAction a new config key you MUST add it to WebscrapeInputSpec, or it becomes invisible again — there is a test (TestScrapeWebDeclaresEveryKeyItReads) that fails if you forget.
@@ -32,13 +39,19 @@ LANDMINE 2 — do not read "UNKNOWN KEYS: none" from the audit as "no step misde
 StrictConfig is deliberately FALSE for this action: flipping it makes an unknown key a hard validation failure, which would break those two running agents to make a point about their config. Clean the definitions first.',
 '["bugs_closed-101", "config-contract", "landmine", "council-gate", "scrape"]'::jsonb,
 'bugs_closed/101 + docs024_key_docs_latest/bugfix_100_101_scrape_provenance/',
-'bugsearch-thread');
+'bugsearch-thread'
+WHERE NOT EXISTS (
+    SELECT 1 FROM doc_notes
+    WHERE subject_type = 'action' AND subject_key = 'scrape_web'
+      AND created_by = 'bugsearch-thread'
+);
+
 
 -- ---------------------------------------------------------------------------
 -- firecrawl_scrape — omission is an instruction
 -- ---------------------------------------------------------------------------
 INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
-VALUES ('action', 'firecrawl_scrape',
+SELECT 'action', 'firecrawl_scrape',
 '2026-07-28 (bugs_closed/101, live on web-scrape-adapter v1.0.1192): until this date, "only_main_content: false" was INEXPRESSIBLE on the /scrape path. FirecrawlScrapingProvider.Scrape read the key into a bool and then added it to the payload ONLY WHEN TRUE, so false and unset produced an identical request — and they are not identical to Firecrawl, whose documented default is onlyMainContent=true (it strips headers, navs and footers). Every caller explicitly asking for the whole page received the exact opposite, silently, for as long as the code existed.
 
 THREE LIVE STEPS were asking for false and getting main-content-only: site-scraper/scrape_site, site-adoption-agent/fetch_primary_css, website-capture-firecrawl/scrape_main_page. (A fourth, site-adoption-agent/crawl_site, sets false too but is firecrawl_crawl and always took the CORRECT path — the /crawl payload builder in the same file has always presence-checked. Two paths, one file, opposite semantics. That is why this survived: anyone checking "do we support this key?" found a correct implementation twenty lines away and stopped.)
@@ -48,13 +61,19 @@ THE TRANSFERABLE RULE (016b section 9, "Omitting a key is not neutral"): for any
 WATCH: those three steps now receive FULL pages, so their responses are larger. bugs_closed/062 was a Kafka "Message Size Too Large" failure rooted in this same provider file, and it is SILENT to the caller (~12 min of timeout retries). Grep the ADAPTER log, not the workflow. Worst exposure is site-scraper/scrape_site, which sets no formats override. Mitigation is config-only, no roll: set scrape_config.formats.',
 '["bugs_closed-101", "bugs_closed-062", "landmine", "council-gate", "scrape", "adapter"]'::jsonb,
 'bugs_closed/101 + docs024_key_docs_latest/bugfix_100_101_scrape_provenance/',
-'bugsearch-thread');
+'bugsearch-thread'
+WHERE NOT EXISTS (
+    SELECT 1 FROM doc_notes
+    WHERE subject_type = 'action' AND subject_key = 'firecrawl_scrape'
+      AND created_by = 'bugsearch-thread'
+);
+
 
 -- ---------------------------------------------------------------------------
 -- store_business_verification — provenance is never a model claim
 -- ---------------------------------------------------------------------------
 INSERT INTO doc_notes (subject_type, subject_key, body, categories, source, created_by)
-VALUES ('action', 'store_business_verification',
+SELECT 'action', 'store_business_verification',
 '2026-07-28 (bugs_open/100, live on chassis v1.0.1192): this action used to take source_url / source_type / source_name from verification_result — the LLM OUTPUT OBJECT. The prompt never asked for those fields, so all 2,970 rows in business_intel.data_observations were stored with empty provenance, from the table s creation until now.
 
 DO NOT "FIX" THIS BY ASKING THE MODEL FOR THE URL. That makes provenance an assertion generated by the same call that generated the facts, with nothing to check it against — the class this estate was remediated for in July (bugs_closed/043, bugs_closed/061). It is listed as rejected candidate 4 in bugs_open/100 precisely so nobody re-proposes it. The three model reads are DELETED, not demoted to a fallback: a fallback would have restored the old behaviour the moment a model volunteered a plausible-looking URL. A model-supplied source_url is now logged as IGNORED, so prompt drift toward self-reported provenance becomes visible instead of taking effect.
@@ -68,7 +87,13 @@ CONSTRAINT: migration 257 added data_observations_provenance_not_empty (CHECK, N
 THE CLOSING TEST for bugs_open/100 is two columns, not one: source_url non-empty AND raw_data ? source_url still FALSE. A populated column alone proves the column was written, never BY WHAT.',
 '["bugs_open-100", "provenance", "landmine", "council-gate", "business-intel"]'::jsonb,
 'bugs_open/100 + docs024_key_docs_latest/bugfix_100_101_scrape_provenance/',
-'bugsearch-thread');
+'bugsearch-thread'
+WHERE NOT EXISTS (
+    SELECT 1 FROM doc_notes
+    WHERE subject_type = 'action' AND subject_key = 'store_business_verification'
+      AND created_by = 'bugsearch-thread'
+);
+
 
 COMMIT;
 

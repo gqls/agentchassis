@@ -501,3 +501,72 @@ tested".
 Corrected in the RUNBOOK, this file, and §7 of the handoff. The bug files' "0/0"
 lines are left as written with this note as their qualifier, because they were true
 statements about the error counts — the fault was in what I let them imply.
+
+## §11 — 2026-07-28 ~20:00 — round 2: REVISE, decided by an UNREADABLE seat (the 119 case)
+
+```
+round 1: reviewers 11 | abstained 4 | unreadable 1 | decided_by "gating objection from tooling_provenance"
+round 2: reviewers  9 | abstained 6 | unreadable 1 | decided_by "unreadable reviewer(s): review_editquality.result"
+```
+
+**`decided_by` names the parse failure as the decider.** This is `bugs_open/119`
+exactly — ~11% of rounds decided by one seat's unparseable JSON — and it is why the
+landmine says read `decided_by`/`unreadable` (**not** `abstained`) before the
+objections. Round 1 had `unreadable: 1` too and was *not* the harness; the field to
+read is `decided_by`, and only in round 2 does it name the unreadable seat.
+
+**Substantively the round is 8 approve / 1 object**, and the movement is what matters:
+
+- `tooling_provenance` — round 1's **gating** objector — now **APPROVES**: *"The
+  gating objection (parallel self-built provenance trail) is discharged in substance
+  … matching the travelling-docs convention this seat asked for, and the rationale
+  explicitly names the recursion."*
+- `prior_art_librarian` — **approves**; the pinned-ref grounding answered it.
+- `debug_historian` — **approves**, with one low objection (below).
+- `guardian` — the only objector, two objections, **both now checked**.
+- `editquality` — the seat whose result was unreadable. Its round-1 objection is the
+  one this round's main edit answers, so its verdict is the one I would most have
+  wanted to read. `[UNKNOWN]` whether it would have approved; not inferable.
+
+**No `Council-Reviewed:` trailer is claimed. The verdict is REVISE.** A
+harness-caused REVISE is still a REVISE — the trailer is earned by APPROVED only,
+and inferring approval from "8 of 9 readable seats approved" is exactly the kind of
+arithmetic the trailer discipline exists to prevent.
+
+### Guardian's two objections — both checked, neither a defect
+
+1. **[medium] Do any of the ~137 `ActionInputSpec` registrations use POSITIONAL
+   struct literals?** A new field would break those at compile time. **Checked: no.**
+   All **168** construction sites in the tree are keyed literals
+   (`ActionInputSpec{Optional: …}`); a grep for a bare value as the first element
+   returns nothing. `go build ./...` passing already implied it, but the seat was
+   right that the plan asserted safety without stating the check — so it is stated
+   now as a checked fact rather than an inference from a green build.
+2. **[low] Does anything else parse the audit's stdout or the tool's return shape?**
+   The JSON went from a flat map to `{declared, conditional}`, which would break a
+   silent consumer. **Checked: no consumer exists.**
+   `grep -rn "audit-config-keys\|config-key-audit"` over the tree returns the script,
+   the tool, and their own doc comments — nothing else. The only reader is
+   `scripts/audit-config-keys.sh:47`.
+
+   > That check caught a real defect the seat had not asked about: the tool's own
+   > **usage comment still documented the OLD output shape**. A doc comment that
+   > lies about its own output is the same class this whole bug is about, committed
+   > by the fix for it. Corrected, with the "no consumer" finding written into the
+   > comment so the next shape change knows what to re-check.
+
+### debug_historian's low objection — fixed and proven
+
+*"nothing is said about re-run safety — no pre-state marker or ON CONFLICT guard …
+it's unclear whether it would silently duplicate the three doc_notes rows."* Correct:
+`doc_notes` is append-only by design and has **no unique constraint to lean on**,
+which is precisely why a re-applied seed would duplicate in silence and nothing would
+complain. Each INSERT is now an `INSERT..SELECT` guarded by `NOT EXISTS` on
+(subject_type, subject_key, created_by). Proven by re-applying the file:
+
+```
+BEGIN / INSERT 0 0 / INSERT 0 0 / INSERT 0 0 / COMMIT
+ firecrawl_scrape 1 · scrape_web 1 · store_business_verification 1
+```
+
+Not asserted — the re-run was actually performed and the row counts re-read.

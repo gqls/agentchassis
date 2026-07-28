@@ -15,7 +15,19 @@
 //
 // Usage:
 //
-//	go run ./cmd/config-key-audit            # {"action": ["key", ...], ...}
+//	go run ./cmd/config-key-audit
+//	  {"declared":    {"<action>": ["<key>", ...], ...},
+//	   "conditional": {"<action>": {"<key>": "<the condition>", ...}, ...}}
+//
+// TWO maps, not one merged list. "declared" is every key an action recognises;
+// "conditional" is the subset honoured only under a stated condition. Merging
+// them would recreate exactly the blindness the second map was added to fix —
+// a key can be perfectly well declared and still describe behaviour a given step
+// never performs (bugs_closed/101; WRONG_CALLS.md 2026-07-28).
+//
+// The only consumer of this output is scripts/audit-config-keys.sh — checked, not
+// assumed, when the shape changed: `grep -rn "config-key-audit"` over the tree
+// returns that script and this file's own comments, nothing else.
 //
 // Deliberately imports the actions package for its registration side effects and
 // nothing else. If that import is ever dropped the output becomes an empty
