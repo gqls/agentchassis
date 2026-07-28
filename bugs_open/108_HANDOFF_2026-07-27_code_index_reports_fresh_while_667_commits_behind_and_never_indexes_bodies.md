@@ -487,3 +487,49 @@ diagnosis run, five iterations, ~254KB of bundles, and `bugs_open/097` still has
 central question unanswered — because the evidence tier lied with confidence. Any
 `content`/`symbol` answer from this index is currently worthless for anything added since
 2026-07-24, which after 970 commits is most of the interesting surface.
+
+---
+
+## 2026-07-28 09:2x — defect A measured again, and it is now impairing a council run in flight
+
+*Added by the gripper-dossier/consolidation thread. Evidence only; this case is owned.*
+
+The drift is not slowing. Measured just now, with the commands, so the figure carries
+its own provenance:
+
+```
+$ git ls-remote origin 086_experience_loop
+e19aa5d108eddefb81196363908fe379ac86e447   refs/heads/086_experience_loop   # 2026-07-24
+
+$ git rev-list --count <that sha>..HEAD
+1003
+```
+
+```sql
+SELECT DISTINCT commit_sha, max(updated_at) OVER () FROM code_symbols;
+--  e19aa5d | 2026-07-28 07:05:29+00      <-- REINDEXED TODAY, still 1,003 commits behind
+SELECT count(*) FROM code_symbols WHERE path LIKE 'platform/mailer/%';     -- 0
+SELECT count(*) FROM code_symbols WHERE path LIKE 'platform/httpguard/%';  -- 0
+SELECT count(*) FROM code_symbols WHERE path LIKE 'internal/tools-api/%';  -- 0
+```
+
+**The reindex at 07:05 today did not help, and cannot**, which is the part worth
+restating: the indexer mirrors the last **pushed** tip, so re-running it re-indexes the
+same 24-July tree. Only a push moves it. That makes this the rare defect whose fix is
+not a code change at all.
+
+**A live consequence, happening as this is written.** Council submission
+`6db59c8b-829f-4e4f-8273-511e1714d6ce` is at `review_prior_art` right now, reviewing two
+new packages (`platform/mailer`, `platform/httpguard`) and citing `internal/tools-api` as
+its evidence. **All three are 0 rows in the index.** So the seat whose entire charter is
+*"does this platform already have something that does this?"* is answering from a tree in
+which none of the code under review, and none of the code it is being compared against,
+exists. Whatever it returns, it cannot be evidence either way.
+
+That is a sharper statement of the harm than "answers are stale": for a NEW package the
+index cannot even be wrong usefully — it returns the same empty answer for
+*"this is genuinely novel"* and for *"this shipped three days ago"*.
+
+**Not actioned here, deliberately.** The fix is `git push`, which publishes 1,003 commits
+from a shared branch that several sessions are working. That is an owner call, not a
+side-effect of a bug-file update.
