@@ -133,29 +133,38 @@ retrievable.
   `application/ld+json`**. Registered, reachable, silently producing nothing. Fixing that is the
   fleet-wide answer; it needs a Go change and a roll.
 
-**Interim pattern, DB-only, proven on relojistas 2026-07-28:** a dedicated
-`structured-data-block` component (`section_type=structured-data`) that emits one resolver-owned
-JSON-LD payload and **renders nothing when unset**, attached per page. Used to publish a real
-`DefinedTermSet` of the 8 glossary terms, each with the page's own definition and URL.
-
-**Do NOT put schema into shared components.** The glossary pages render from generic `hero` and
-`Generic Text Block` — **shared by 13 sites across 276 pages.** Glossary-specific markup there
-would be wrong for twelve other sites. This is why the dedicated component exists.
-
-> **TRAP, paid for on the first insert — `pages.sections` must carry the SECTION_TYPE, not the
-> component NAME.** A scoped rerender rebuilds `page_components` with
-> `slot_name = section_type`. If a component's `name` differs from its `section_type` (here
-> `structured-data-block` vs `structured-data`), the entry you wrote into `pages.sections`
-> stops matching after the first rerender and **the assembler silently drops the section**.
+> **RETRACTED 2026-07-28, hours after writing it — the DB-only pattern CANNOT WORK. Do not
+> attempt it.** I built a dedicated `structured-data-block` component, attached it to
+> relojistas' glossary index with a valid `DefinedTermSet` of 8 terms, and it rendered
+> correctly — `page_components.rendered_html` was **2,646 bytes containing valid JSON-LD**.
+> **It never reached a page.**
 >
-> The failure is invisible from the DB side, which is what makes it expensive: the component
-> renders perfectly — `page_components.rendered_html` was 2,646 bytes with the JSON-LD in it —
-> and the page simply never includes it. Checking the stored render says SUCCESS; only fetching
-> the page says otherwise. *Trust the rendered artefact, not the stored one.*
+> The page assembler drops it, correctly and by design. `getPageSections`
+> (`rerender_single_page_action.go`) calls `sectionHasVisibleContent(html)`, which **strips
+> `<style>` and `<script>` blocks, then requires more than 10 characters of remaining text**.
+> A JSON-LD block is `<script type="application/ld+json">` and nothing else — it leaves
+> **zero**. So a metadata-only section is structurally incompatible with this assembler and
+> always will be. The guard is a good one: it exists because nine blanked article bodies once
+> vanished unnoticed.
 >
-> `about-commercial-block` survived the same path only because its `name` and `section_type`
-> are identical. **Easiest safe rule: give new components a `name` equal to their
-> `section_type`.**
+> **How it hid:** every DB-side check said success — component rendered, payload intact,
+> JSON-LD present in the stored HTML — and the deployed file simply never contained it. The
+> tell was in the *deploy* history, not the render: `glosario/index.html` had not been written
+> since the previous day while other pages deployed normally that morning. **When a render
+> "completes" but nothing changes on the page, check whether a deploy artefact was written at
+> all before investigating the render.**
+>
+> There is an escape hatch — `reRuntimeFill`, which keeps sections that carry a runtime-fill
+> marker. **Do not use it for this.** That marker means "a browser-side loader fills this",
+> and borrowing it to smuggle metadata past a content check would make the section lie to
+> every other consumer of that signal.
+>
+> Component left in the library but `is_active = false`, with the reason in its description so
+> nobody rediscovers it and repeats the experiment.
+>
+> **JSON-LD belongs in `<head>`** — where the `og:` tags already are, emitted by
+> `render_site_components_action.go`. That is a Go change and a roll, and it is the only route.
+> It is the same fix as the dormant `AddStructuredData` above: one place, whole fleet.
 
 ---
 

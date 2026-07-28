@@ -2057,3 +2057,36 @@ The component rendered. The stored HTML contains the JSON-LD. The page does not.
 `about-commercial-block` survived the identical path only because its `name` and `section_type`
 are the same string. **Rule for new components: make `name` equal `section_type`.** Recorded in
 `FLEET_GUIDANCE_discoverability.md` §5.
+
+
+### CORRECTED, same session — the JSON-LD component can never work, and my slot-name theory was wrong too
+
+Two corrections to the entry above.
+
+**1. The `pages.sections` / slot-name mismatch was NOT the cause.** I diagnosed it, "fixed" it,
+and re-rendered — no change. Then I read `getPageSections` properly instead of assuming:
+it selects `rendered_html` from `page_components` **ORDER BY position**, and `pages.sections`
+is used only to populate a diagnostic field. The rename was harmless and irrelevant. *I
+reasoned from a plausible mismatch instead of reading the function that consumes the data —
+the same shape as the `InjectFooter` error yesterday.*
+
+**2. The real cause: a metadata-only section is structurally undeliverable.**
+`sectionHasVisibleContent()` strips `<style>` and `<script>` blocks then requires **>10
+characters of remaining text**. A JSON-LD block is a `<script>` and nothing else, so it leaves
+zero and the assembler drops it — correctly. That guard exists because nine blanked article
+bodies once vanished unnoticed.
+
+**What finally pointed at it:** not the render, the **deploy**. Every DB check said success
+(component rendered, payload 2602 bytes, `rendered_html` 2646 with the JSON-LD in it), and
+`git log` on `vm-sites` showed `glosario/index.html` had not been written since **the previous
+day**, while `sobre-nosotros`, `index` and `noticias` all deployed normally that morning.
+*When a render completes but the page does not change, check whether a deploy artefact was
+written at all before investigating the render.*
+
+Backed out cleanly: section removed from all three stores, component left in the library as
+`is_active=false` with the reason in its `description` so nobody repeats it. Retracted in
+`FLEET_GUIDANCE_discoverability.md` §5.
+
+**Where JSON-LD actually has to go: `<head>`**, alongside the `og:` tags already emitted by
+`render_site_components_action.go` — a Go change and a roll, and the same one that fixes the
+dormant `AddStructuredData`. One place, whole fleet.
