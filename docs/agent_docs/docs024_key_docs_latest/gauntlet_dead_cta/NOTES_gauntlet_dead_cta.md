@@ -1417,3 +1417,66 @@ strips it as a regression.
    was half-applied.
 5. **Reported "9 gauntlet/ lines" as if they were failures** — a loose grep
    matching URL paths. The precise pattern returned 0, which was correct.
+
+## 2026-07-28 (later) — the type scale, and the experience loop's boundary
+
+**Owner ask:** provocation title more prominent, "take a position" more obvious,
+text bigger still, and *"put the whole UI to the experience loop to make it more
+enticing"*.
+
+### The loop cannot take that request — and this is a boundary, not a defect
+
+`experience-planner` composes a plan with FIVE sections (journeys, promise
+ledger, data contracts, MVP cut, acceptance criteria), is reviewed by FIVE seats
+(`review_mvp/honesty/journeys/contracts/feasibility`), and its acceptance
+vocabulary is FIVE check types: `selector_exists`, `asset_loads`, `interaction`,
+`page_status_ok`, `no_horizontal_overflow`.
+
+**Every one is a binary existence-or-behaviour assertion.** Its HARD RULES are
+all anti-fabrication. It answers *"does this control do what it promises"* —
+integrity. "Enticing" is hierarchy and emphasis: no seat would look, no section
+could hold it, no check could assert it. Firing it would have cost credits and
+~30 minutes to return a correct plan answering a question nobody asked.
+Written up as `experience_loop/HANDOFF_2026-07-28_appeal_dimension.md`, which
+recommends starting with ONE new check (`contrast_ratio`) rather than seats —
+objective, published threshold, and it would have caught vonc's own links sitting
+at 3.71:1 for weeks.
+
+### The measurements that made the ask concrete
+
+The provocation was never the problem — it was already 32px. **Its LABEL and the
+call to act were whispering at 0.65rem (13px), smaller than body text.**
+
+| element | was | now |
+|---|---|---|
+| "Today's Provocation" | 13px | 20px |
+| the provocation | 32px | 46px (35 mobile) |
+| body | 19px | 23px |
+| "1 · Your position" | 13px | 24px |
+| input | 18px | 21px |
+
+Component checked as used on **1 page** before editing — the `hero`/182-pages
+lesson from earlier the same day, applied.
+
+### MISSTEPS
+
+1. **My first edit script CORRUPTED the template.** A leftover `sub1(pat, None,
+   …)` from a scaffolding pass produced a replacement that deleted the
+   `.gi-challenge-eyebrow` **selector line and its font-size**, leaving whitespace
+   and an unclosed rule — malformed CSS that would have leaked every following
+   declaration. The give-away was the file SHRINKING when the edits should have
+   grown it. **Caught by diffing against the pristine pull before delivery**,
+   then redone from scratch with brace-count, line-count and selector-presence
+   checks. *Check: after a scripted edit, diff and assert the SHAPE changed the
+   way you predicted — size, braces, line count — not just that it "ran".*
+2. **My verification probe measured nothing and reported no change.**
+   `add_style_tag` injects into `<head>`; the component's `<style>` is in the
+   BODY and wins on ORDER at equal specificity. I briefly read "13px → 13px" as
+   "the edit did nothing" when it was the probe that did nothing. Fixed by
+   appending the style to `document.body`. **Third order/specificity trap in one
+   session** (after the two in the stylesheet work). *Check: when a measurement
+   says "no change", suspect the instrument before the change.*
+3. **Fired the Arena rerender by accident** — `bash rerender_arena_vonc.sh | head -2`
+   still EXECUTES the script; `head` only truncates its output. Idempotent and
+   harmless here, but it dispatched real work. *Check: reading a script's banner
+   is `sed -n 1,2p`, not running it and piping to head.*
