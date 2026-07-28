@@ -6145,3 +6145,36 @@ FROM diagnosis_artifacts WHERE correlation_id::text LIKE '<prefix>%' ORDER BY cr
 **Note the gap this leaves.** `scripts/who-owns.py` resolves a **bug number or slug** and
 does **not** cover work items, so the "grep before you file / check who owns it" discipline
 in `CLAUDE.md` has no tool for this class. Until it does, opening the row is the whole check.
+
+### Two fixes that each increase honesty can combine to increase HARM — one raised confidence in a signal the other had not yet made correct (2026-07-28)
+
+**Symptom.** A live diagnosis asked whether `RepairPageLinks` existed and was told
+`answered: 0 rows — searched the names of 4535 indexed symbols. The query was RUN and
+matched none; this is not an unanswered question.` The function exists
+(`datahelpers/link_repair.go:139`). It was absent only from the *indexed snapshot*, which
+was **955 commits behind**, under a banner reading `refreshed 17h ago`.
+
+**Cause.** Two defects in one subsystem (`bugs_open/108`): (A) freshness computed from a
+row timestamp rather than commit distance, so a stale corpus reports fresh; (B) an empty
+result rendered as silence, indistinguishable from "nobody ran the query". B was fixed
+first — deliberately, and it is the better-motivated of the two. The new wording is a
+**stronger denial** than the old `"(no matches in the index)"`, which at least kept the
+word *index* in the sentence. **Fixing B therefore raised the cost of A**: the reviewer is
+now more likely to act on a false negative than before either fix.
+
+**The shape, which is not specific to this subsystem.** When one defect makes a signal
+*untrustworthy* and another makes it *unconvincing*, fixing the second alone converts a
+hedge into an assertion while leaving the assertion wrong. Confidence and correctness are
+separate axes, and repairing confidence first is a **regression wearing a fix's clothes** —
+it will pass every test, because the sentence it emits is exactly the sentence you wanted.
+
+**The check, before shipping a clarity/honesty improvement:** ask *what does a reader now
+do differently on the strength of this wording, and is the underlying signal correct enough
+to carry that?* If a known open defect can still make the signal wrong, either fix that
+first or make the new wording state the residual doubt (here: report **commit distance**,
+not clock age, in the same breath as "the query was RUN").
+
+**Ordering rule this yields:** among fix candidates for one subsystem, land the one that
+makes the DATA correct before the one that makes the PRESENTATION confident. Ranking
+candidates by "what makes the bad state unrepresentable" is the usual rule; this is its
+companion — *and never let a presentation fix overtake the correctness fix it depends on*.

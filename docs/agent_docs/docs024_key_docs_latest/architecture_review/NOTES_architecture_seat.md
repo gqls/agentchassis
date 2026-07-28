@@ -546,3 +546,81 @@ the 40-row cap bound what can reach a prompt regardless of that.
 mirrors the last **pushed** ref (last refreshed 13:36 UTC), this is the working
 tree. **Expect the post-reindex count to be neither number**, and do not read a
 difference as a fault.
+
+---
+
+## 2026-07-28, 07:00–07:15 — LAYER 1 IS LIVE AND PROVEN. And proving it caught two things I did not expect.
+
+Chassis rolled to **`v1.0.1180`** overnight (22:06 BST). Verified against the
+RUNNING pod, not git and not the tag: the two strings the change creates return 1
+each, the string it **deletes** (`"no content matches in the index"`) returns **0**,
+the never-existed control returns 0, and a positive control returns 14 — so the
+grep itself is known to work.
+
+**Reindex fired manually** (corr `86815023`, orch `41955944`), `index-orchestrator`
+→ `code-indexer`, `ref=086_experience_loop`. Publish→start was **~2 minutes**, and
+my first check at ~40s found no row — *I nearly read queue latency as a lost
+dispatch again*, which is the trap already written down twice. The `PUBLISH_OK`
+marker in the kcat command is what made it safe to just wait: it proved the message
+was sent, so absence could only be latency.
+
+**The indexer's own log line, which is the whole result:**
+```
+root=/tmp/analyser-src-451921075  files_read=543  file_read_errors=0
+bodies_sliced=4536  slice_errors=0  symbols=4536
+```
+`root` is a real local path — the `analyse_repo_local` dependency the approved plan
+never mentioned, confirmed in production.
+
+**VERIFY, post-reindex:** bodies **4,535 of 4,535** (100%, 0 empty strings),
+`content_hash` drift **0** (nothing silently re-embedded), and
+`body ILIKE '%stop_reason%'` **0 → 6** — the example the contract has promised
+since it was written and which could never match.
+
+### Misstep 1: MY OWN `COALESCE` disqualified the index I had just added
+
+`guardian`'s low objection asked for an `EXPLAIN` before merge, warning the OR
+might use neither index. It was right, and the cause was mine:
+
+| predicate | plan | time |
+|---|---|---|
+| `COALESCE(body,'') ILIKE .. OR content ILIKE ..` (as shipped) | **Seq Scan** | **125.9 ms** |
+| `body ILIKE .. OR content ILIKE ..` | **BitmapOr, both trigram indexes** | **5.5 ms** |
+
+A plain-column index cannot be matched to an expression, so wrapping the column
+killed it — `idx_code_symbols_body_trgm` was **dead on the only query path that
+uses it**. Row sets are identical: on a NULL body `body ILIKE x` yields NULL, and
+`WHERE` discards NULL exactly as it discards false, so a not-yet-indexed row still
+falls through to the content side. Fixed in `a4f06f83a`, inert until the next roll.
+
+**And the equivalence test was nearly vacuous.** Comparing the two forms on live
+rows returns 6 and 6 — proving nothing, because there are **0 NULL bodies** in the
+table now. The distinguishing input cannot occur in the data. I tested the NULL
+branch directly over a `VALUES` list instead. *A test whose distinguishing case is
+absent from the population is not a test* — the same shape as the vacuous pod-grep,
+one layer down.
+
+### Misstep 2 — not mine, but the more important one: fixing B made A worse
+
+At **07:07:27** a live diagnosis (`914dc844`, robot-hands 404 links) asked whether
+`RepairPageLinks` exists and got:
+
+> `answered: 0 rows — searched the names of 4535 indexed symbols. The query was RUN
+> and matched none; this is not an unanswered question.`
+
+**It exists** — `datahelpers/link_repair.go:139`. It is absent only from the
+indexed snapshot, which is **955 commits behind** (`git cat-file -e e19aa5d:…`
+→ *"exists on disk, but not in e19aa5d"*). The banner said *"refreshed 17h ago"*.
+
+The reindex I ran did **not** move the distance, because the indexer mirrors the
+last **pushed** tip and `origin/086_experience_loop` has sat at `e19aa5d10`
+throughout. That is `bugs_open/108` defect A confirmed on live traffic.
+
+**The uncomfortable part is that my own change sharpened the knife.** I replaced
+`"(no symbol matches in the index)"` with `"the query was RUN and matched none"` —
+correct for the empty-vs-unanswered confusion, and a **stronger denial** when the
+corpus is stale. Two fixes that each increase honesty combined to increase harm,
+because one raised confidence in a signal the other had not yet made correct.
+Contributed to `108` in full, with the priority inversion it implies: candidate
+1/4 (freshness by commit distance) is now a **prerequisite** for 2/3 being safe,
+not a parallel nicety.

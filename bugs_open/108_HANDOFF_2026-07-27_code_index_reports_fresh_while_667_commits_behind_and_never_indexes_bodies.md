@@ -335,3 +335,96 @@ opening a fresh lane.
 - Do not "fix" this by widening the schema hint alone. The hint governs SQL checks
   against ten platform tables; `code_symbols` is reached by `code_checks`, a
   different tier.
+
+---
+
+## 2026-07-28 07:10 — DEFECT B IS FIXED AND LIVE. Defect A is now demonstrated on a running diagnosis, and B's fix has made A *more* dangerous.
+
+Contributed by the owning thread (`architecture_review`), which built candidate 2
+as D11 layer 1 under council approval `18fe4035-4fa6-4079-ab44-8541d6e58944`.
+
+### Defect B (bodies never indexed) — CLOSED, verified live
+
+| check | before | after |
+|---|---|---|
+| `count(body)` | 0 of 4,535 | **4,535 of 4,535** |
+| `body ILIKE '%stop_reason%'` — the contract's own example | 0 | **6** |
+| `content_hash` drift (nothing silently re-embedded) | 0 | **0** |
+| indexer log | — | `bodies_sliced=4536 slice_errors=0 file_read_errors=0` |
+
+Shipped: migration 243 (`body` column + `idx_code_symbols_body_trgm`), commit
+`37f7deff9`, live on chassis `v1.0.1180`. **Candidate 3 (the false contract
+comment at `:29-31`) is done in the same commit**, and candidate 4's ref-tracking
+fact is now stated in that comment. Full trail in `doc_notes` under
+`index_code_symbols` / `diagnose_code_lookup`.
+
+### Defect A — a LIVE diagnosis was misled today, and here is the instance
+
+Correlation `914dc844-7dad-4d5a-8d1b-a9c4296880c4`, bundle rendered
+**2026-07-28 07:07:27**, diagnosing robot-hands.com 404 links. It asked, correctly,
+whether `RepairPageLinks` is on the build path:
+
+```
+[code_request 1] kind=symbol query="RepairPageLinks"
+  answered: 0 rows — searched the names of 4535 indexed symbols. The query was RUN
+  and matched none; this is not an unanswered question.
+[code_request 2] kind=ls query="datahelpers/"
+  answered: 0 rows — no indexed path has that prefix, out of 4535 indexed symbols.
+```
+
+**Both exist.** `platform/orchestration/datahelpers/link_repair.go:139` defines
+`func RepairPageLinks(html string, index PageURLIndex)`. They are absent only from
+the indexed snapshot:
+
+```
+$ git cat-file -e e19aa5d:platform/orchestration/datahelpers/link_repair.go
+  fatal: path ... exists on disk, but not in 'e19aa5d'
+$ git rev-list --count e19aa5d..HEAD
+  955
+```
+
+The banner above it read `(index freshness: refreshed 17h ago at commit e19aa5d)`.
+**Seventeen hours sounds fresh. Nine hundred and fifty-five commits is not.**
+
+**Distance over time — it only ever grows:** 667 at filing (06:00 07-27) → 946
+(21:00 07-27) → **955** (07:10 07-28). A reindex ran successfully at 07:04 today
+and the distance did not move, because the indexer fetches the last **pushed** tip
+of the branch and `origin/086_experience_loop` has been at `e19aa5d10` throughout.
+**This confirms the filed mechanism precisely: the refresh resets the freshness
+clock without advancing the code.** The immediate cause is not the indexer — it is
+that ~955 commits of work sit unpushed, and the index can only ever mirror what
+was pushed.
+
+### THE NEW THING, and it inverts the priority of the candidates
+
+**Fixing defect B raised the cost of defect A.** The empty-answer rendering shipped
+alongside the body fix deliberately replaced `"(no symbol matches in the index)"`
+with `"answered: 0 rows — the query was RUN and matched none; this is not an
+unanswered question."` That is the correct fix for the empty-vs-unanswered
+confusion this bug is largely about — and it makes a **stale-index false negative
+read as a stronger, more confident denial than it used to.** The old wording at
+least kept the word "index" in the sentence.
+
+So the two halves are not independent improvements that can land in either order:
+
+> **Candidate 1/4 (freshness by COMMIT DISTANCE, not clock) is now a prerequisite
+> for candidate 2/3 being safe, not a parallel nicety.** An honest "I searched and
+> found nothing" is only honest if the thing searched is the thing being asked
+> about. We have made the sentence more trustworthy without making the corpus more
+> current, and trustworthiness applied to a stale corpus is exactly how a reviewer
+> is led to a confident wrong answer.
+
+This is a general shape worth naming: **two fixes that each increase honesty can
+combine to increase harm, when one raises confidence in a signal the other has not
+yet made correct.** It belongs in 016b §9.
+
+### What candidate 1 actually needs, now that the ref question is concrete
+
+The earlier note in this file — that the `code-index-refresh` task has no ref
+parameter — still stands, and today's run shows the other half: the indexer's
+`analyse_repo_local` step DOES receive an explicit `ref` when one is dispatched
+manually (this run used `ref=086_experience_loop` and fetched `e19aa5d`, the pushed
+tip). So the indexer already knows the ref it fetched; what it does not do is
+**store** it. Recording `ref` alongside `commit_sha` on the row is the small change
+that makes "N commits behind `<ref>`" computable at read time without giving the
+shared chassis pod a GitHub token it deliberately does not hold.
