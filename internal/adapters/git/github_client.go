@@ -91,18 +91,10 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		branch = repo.DefaultBranch
 	}
 
-	// 2. Get the latest commit SHA from the target branch
-	latestSHA, err := c.getLatestCommitSHA(ctx, repo.Owner.Login, repo.Name, branch)
-	if err != nil {
-		// This might fail if the repo was *just* created and is empty
-		// Let's try to get the base tree SHA
-		latestSHA, err = c.getBaseTreeSHA(ctx, repo.Owner.Login, repo.Name, branch)
-		if err != nil {
-			return "", fmt.Errorf("failed to get latest commit/base tree for branch %q: %w", branch, err)
-		}
-	}
-
-	// 3. Create a "Blob" for each file
+	// 3. Create a "Blob" for each file — ONCE, before the retry loop below.
+	// Blobs are content-addressed: their SHAs stay valid whatever the branch
+	// head moves to, so only the tree/commit/ref steps need re-basing when a
+	// concurrent committer wins the ref race.
 	var treeEntries []TreeEntry
 	for path, fileData := range data.Files {
 		var content, encoding string
@@ -139,24 +131,65 @@ func (c *GitHubClient) CommitToRepo(ctx context.Context, data GitCommitData) (st
 		})
 	}
 
-	// 4. Create a new "Tree" from the blobs
-	newTreeSHA, err := c.createTree(ctx, repo.Owner.Login, repo.Name, latestSHA, treeEntries)
-	if err != nil {
-		return "", fmt.Errorf("failed to create tree: %w", err)
-	}
+	// 2/4/5/6. Read the branch head, build tree+commit on it, move the ref —
+	// retried as one unit on a non-fast-forward (bugs_open/120, owner ruling
+	// 2026-07-28: same-repo deploys serialise). GitHub's 422 on updateRef IS
+	// the serialisation point: every site shares one repo and one branch, and
+	// with more than one adapter replica (or the chassis worker pool driving
+	// concurrent deploys) two commits race read-head→update-ref; the loser
+	// used to surface the 422 and fail its orchestration outright. Now the
+	// loser re-reads the winner's head and re-bases — commits queue one
+	// behind another at the API's own consistency check, the same optimistic
+	// CAS-and-retry idiom as UpdateStateWithVersion. Distinct pages are
+	// distinct files, and a same-file race is last-writer-wins, which is
+	// already re-render semantics. Also covers a HUMAN push landing between
+	// read and update — the collision class bugs_open/120 documents.
+	const maxRefRaceRetries = 4
+	for attempt := 1; ; attempt++ {
+		// Latest commit SHA from the target branch; a just-created empty repo
+		// has no head yet, so fall back to the base tree.
+		latestSHA, err := c.getLatestCommitSHA(ctx, repo.Owner.Login, repo.Name, branch)
+		if err != nil {
+			latestSHA, err = c.getBaseTreeSHA(ctx, repo.Owner.Login, repo.Name, branch)
+			if err != nil {
+				return "", fmt.Errorf("failed to get latest commit/base tree for branch %q: %w", branch, err)
+			}
+		}
 
-	// 5. Create the new "Commit"
-	newCommitSHA, err := c.createCommit(ctx, repo.Owner.Login, repo.Name, data.CommitMessage, newTreeSHA, latestSHA)
-	if err != nil {
-		return "", fmt.Errorf("failed to create commit: %w", err)
-	}
+		newTreeSHA, err := c.createTree(ctx, repo.Owner.Login, repo.Name, latestSHA, treeEntries)
+		if err != nil {
+			return "", fmt.Errorf("failed to create tree: %w", err)
+		}
 
-	// 6. Update the "Ref" (move the target branch to point to the new commit)
-	if err := c.updateRef(ctx, repo.Owner.Login, repo.Name, branch, newCommitSHA); err != nil {
-		return "", fmt.Errorf("failed to update ref for branch %q: %w", branch, err)
-	}
+		newCommitSHA, err := c.createCommit(ctx, repo.Owner.Login, repo.Name, data.CommitMessage, newTreeSHA, latestSHA)
+		if err != nil {
+			return "", fmt.Errorf("failed to create commit: %w", err)
+		}
 
-	return repo.HTMLURL, nil
+		err = c.updateRef(ctx, repo.Owner.Login, repo.Name, branch, newCommitSHA)
+		if err == nil {
+			return repo.HTMLURL, nil
+		}
+		if !isNonFastForward(err) || attempt >= maxRefRaceRetries {
+			return "", fmt.Errorf("failed to update ref for branch %q: %w", branch, err)
+		}
+
+		c.log.Warn("REF_RACE_RETRY: non-fast-forward — a concurrent commit won; re-basing on the new head",
+			zap.String("repo", repo.Name),
+			zap.String("branch", branch),
+			zap.Int("attempt", attempt),
+			zap.Int("max_attempts", maxRefRaceRetries))
+		// Brief, growing pause so the winner's ref settles before re-reading.
+		time.Sleep(time.Duration(attempt) * 250 * time.Millisecond)
+	}
+}
+
+// isNonFastForward recognises GitHub's refusal to move a ref backwards or
+// sideways — the 422 whose body says "Update is not a fast forward". It is
+// the ONLY updateRef failure that re-basing can cure; everything else
+// (auth, rate limit, 5xx) must keep failing loudly.
+func isNonFastForward(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "fast forward")
 }
 
 // CreateBranch creates a new branch from FromBranch's head (default: the
