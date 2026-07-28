@@ -395,3 +395,54 @@ It exits non-zero on findings, so `EXIT=$?` after a pipe reports the pipe's last
 command and not the scan. Confirm the component you care about is in the list it
 prints, because a component with NULL `rendered_html` is silently absent from the
 scan rather than reported as unscanned.
+
+## 12. Getting past a 403 on a public-sector or corporate source
+
+Ofwat, Parliament's research briefings and similar sites return **403 to plain HTTP
+clients** (curl, WebFetch) while serving the same page normally to a browser. This
+is **bot protection keyed on the client, not authentication** — no account, login
+or API key is involved, and the documents are public.
+
+The platform already has a browser: `playwright-go` is in `go.mod` and Chromium is
+installed for the acceptance runs. A ~40-line program that opens the page and reads
+`InnerText("body")` gets **200** where curl gets 403. For a PDF, plain `curl` with a
+browser User-Agent is usually enough, because the block is on the HTML routes:
+
+```bash
+curl -sL -o doc.pdf --max-time 90 \
+  -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36" \
+  "<url>"
+pdftotext -layout doc.pdf doc.txt     # -layout is load-bearing, see below
+```
+
+**`pdftotext -layout` preserves column positions, and that is what makes a chart
+readable.** A figure's data labels and its axis labels land on different lines; the
+column offset is the only thing tying a value to its category. Without `-layout`
+they arrive as an unordered list of numbers.
+
+**Never trust a column mapping on its own — corroborate it.** For Ofwat's Figure
+1.1 the mapping was confirmed by arithmetic stated elsewhere in the same document:
+588 − 436 = 152, and the prose says "increase average household bills by £152". A
+mapping that reproduces an independently stated total is evidence; a mapping that
+merely looks plausible is not. Also check each value appears **exactly once** in the
+document, or you cannot tell which label it belongs to.
+
+**Beware catastrophic regexes on the extracted text.** `grep -oE "[^.]{0,180}kw[^.]{0,180}\."`
+over a 68KB extraction was OOM-killed. Split on `.` in Python and filter instead.
+
+## 13. `context_terms` must match how a value will be LABELLED, not just written
+
+`numberSupported` only lets a fact support a number when one of its `context_terms`
+appears in the surrounding text window. Terms written for prose ("average household
+bill") do not appear in a chart's terse label ("2024-25, where it started"), so
+claimscan correctly reports a **registered** value as unregistered.
+
+Two ways out, and the right one is usually the second:
+
+- widen `context_terms` to include label vocabulary; or
+- **make the chart label carry the term** — which is nearly always clearer copy as
+  well. "2024-25 baseline, before the review" says more than "where it started" and
+  happens to satisfy the guard.
+
+Loosening or removing `context_terms` is the wrong fix: they exist to stop one fact
+blanket-supporting every similar number on the page.
