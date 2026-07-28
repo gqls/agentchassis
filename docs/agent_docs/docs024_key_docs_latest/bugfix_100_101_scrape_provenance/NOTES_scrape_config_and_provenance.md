@@ -470,3 +470,34 @@ trail accumulates. I asked the council to treat one thing sceptically: round 1's
 reviewer verification queries returned **0 for facts I have twice measured as true**.
 If the same checks return zero again, that is the harness and not evidence — but it
 is raised as a caveat, not a defence, because no round-1 objection depended on them.
+
+## §10 — 2026-07-28 ~19:00 — the 062 watch was uninformative, and I nearly reported it as clean
+
+Re-ran the payload-size watch over a 6h window: **0** `Message Size Too Large`, **0**
+`Failed to produce`, 0 errors of any kind. I had already written "0/0" into the bug
+file and the handoff as a post-roll result.
+
+Then asked the question that decides what those zeros mean:
+
+```
+$ kubectl logs deploy/web-scrape-adapter --since=6h | grep -c "Starting scrape"
+0
+```
+
+**No scrape has run at all since the roll.** Zero attempts, therefore zero errors. The
+clean result is not evidence that the larger payloads are fine — it is evidence that
+nothing has exercised them, and the error grep alone cannot tell those apart. The
+`[UNMEASURED]` caveat I attached to the original 0/0 was right, and this is the
+measurement that discharges it in the honest direction: not "fine", but "not yet
+tested".
+
+> **The check, added to the RUNBOOK above the watch:** before reading an error count
+> as clean, count the ATTEMPTS. A denominator of zero makes any error rate look
+> perfect. Same family as the recorded landmine *COUNT the baseline before believing
+> an `EXCEPT`/`NOT EXISTS` diff — an empty baseline reports "all clear"*, and as
+> *log measurement discipline*: I measured in a window during which the thing being
+> measured never happened.
+
+Corrected in the RUNBOOK, this file, and §7 of the handoff. The bug files' "0/0"
+lines are left as written with this note as their qualifier, because they were true
+statements about the error counts — the fault was in what I let them imply.

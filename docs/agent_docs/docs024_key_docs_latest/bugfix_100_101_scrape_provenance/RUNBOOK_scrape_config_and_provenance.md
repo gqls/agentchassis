@@ -122,6 +122,18 @@ Exposure, worst first (`formats` as configured live):
 | `website-capture-firecrawl/scrape_main_page` | `["markdown","html","screenshot"]` | grows |
 | `site-adoption-agent/fetch_primary_css` | `["rawHtml"]` | unchanged — `rawHtml` is the raw page, which `onlyMainContent` does not filter |
 
+**FIRST, ask whether ANY scrape has run — otherwise a clean log is not evidence:**
+
+```bash
+kubectl -n ai-persona-system logs deploy/web-scrape-adapter --since=6h | grep -c "Starting scrape"
+```
+
+Measured 2026-07-28 ~19:00, ~40 min after the roll: **0**. Zero scrapes attempted,
+therefore zero errors — the clean 062 result above was **uninformative, not
+reassuring**. This one extra count is the difference between "the payload change is
+fine" and "nothing has exercised it yet", and the two are indistinguishable in the
+error grep alone. Re-run the watch only once this returns non-zero.
+
 **Gotcha:** the 062 failure is SILENT to the caller — the adapter logs the produce
 error and the orchestration then starves through ~12 minutes of timeout retries, each
 re-scraping successfully and re-failing identically. So the absence of a workflow error
