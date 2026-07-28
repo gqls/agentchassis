@@ -1,0 +1,216 @@
+# NOTES — fleet-wide claim patterns (`bugs_open/104`)
+
+Append-only, newest at the bottom. Evidence, commands, what the system actually
+said, and every misstep.
+
+---
+
+## 2026-07-28 — session "bugsearch 6", opening
+
+Picked `104` from `HANDOFF_2026-07-28_bugsearch2_session.md` §4, which named it
+unowned and the natural follow-on to `106`.
+
+**Ownership re-checked, because the handoff's check was hours old.**
+`scripts/who-owns.py 104` returns **"OWNED or recently active"** with *no owning
+workstream identified* — the only two commits are the filing
+(`02da9491e`) and a triage sweep (`e2634eeb7`), both 07-27. So the verdict is the
+tool being conservative about recency, not a competing thread. But
+`platform/orchestration/datahelpers/claims.go` was committed **today at 13:19**
+(`2e665591b`, oufe), so the file is live under another lane's hands even though
+the bug is not.
+
+`104` is also **oufe decision O11** (`oufe/DECISIONS_2026-07-26_oufe.md:231`),
+where it sits under *"These are new since the register was written, and they are
+the owner's because each changes behaviour beyond this site."* oufe lists `104`
+under "Bugs filed here", i.e. filed for someone else, not owned. Its sibling O13
+(`bugs_open/105`) has since been implemented (`606f485f7`, `b18dd564d`), so the
+decision list is live and being worked through.
+
+**Grounded the figures before quoting them** (`104` says to, and says it drifted
+within hours of being written). Unchanged from the 07-27 triage: **7 of 15 armed,
+8 at zero**, and the two named worst cases — vetcomparison.uk and idea.uk — are
+still at zero.
+
+**The bug file's line numbers have already drifted.** It cites
+`ScanBannedClaims` at `claims.go:284-325` and `ParseEvidenceBase` at `:121-128`;
+they are now at `:442` and `:268`. `claims.go` grew a long comment block about
+`factKindAliases` in between (that block references *a different* bug file's
+candidate 1 — 105's, not 104's; easy to misread).
+
+### Reuse before building
+
+Was about to write a Go harness to run the patterns against live pages. Did not
+need to: **`cmd/claimscan` already exists** and runs the same shared engine as the
+gate — and `sql_for_agents/226`'s own verify section names it. Found it by reading
+226 to the end rather than by grep. `go build ./cmd/claimscan` succeeds against
+the shared tree.
+
+### Misstep 1 — the loop terminated after one site and looked like a result
+
+The first fleet run printed exactly one line (`ai-agent-orchestration.com … 0`)
+followed by `=== DONE ===`. `kubectl exec -i` **consumes the `while read` loop's
+stdin**, so the site list was eaten after the first iteration. Exit 0, no error.
+Fixed with `mapfile` + `</dev/null` on every exec. In the RUNBOOK as GOTCHA 1.
+
+### Misstep 2 — I grepped for a string the tool never prints
+
+Second run completed all 15 sites and reported **0 findings everywhere**. That was
+a false all-clear: I counted `grep -c "banned_claim"`, but claimscan prints line
+prefixes `BANNED` and `NUMBER`. `banned_claim` is the JSON `check` value and
+appears nowhere in CLI output. The correct count is 7, not 0.
+
+This is the [check answers the question you ENCODED] failure exactly: there was no
+filter to notice, the query was simply about something else. What caught it was
+the **positive control**, not review of the code.
+
+### Misstep 3 — two sites returned blank, not zero
+
+`gamesdesign.co.uk` and `robot-hands.com` printed an **empty** count. `file` says
+both scan outputs are `Non-ISO extended-ASCII text`, and plain `grep -c` returns
+empty with **no error** on them. `LC_ALL=C grep -ac` fixes it. Both of these
+sites turned out to matter (see below), so this would have hidden the finding.
+
+### The positive control, which is what actually found the bug
+
+Nine synthetic components, six that must block and three that must pass:
+
+```
+BANNED ctl_block_1 "claim without a source does not appear" — completeness-of-exclusion
+BANNED ctl_block_1 "does not appear here"                   — short form
+BANNED ctl_block_2 "Every figure is verified"               — verification-of-everything
+BANNED ctl_block_3 "You can rely on our"                    — invites reliance
+BANNED ctl_block_4 "Our reporting is always accurate"        — self accuracy overclaim
+BANNED ctl_block_5 "Our method is not a disclaimer"          — repudiates the caveat
+BANNED ctl_block_6 "Guaranteed accurate"                     — accuracy guarantee
+claimscan: 7 finding(s) across 9 component(s)   exit=1
+```
+
+**6 of 6 block cases fired; 3 of 3 legitimate sentences passed** ("We cite each
+figure and date it", "The statute is the authoritative text", "We check our
+sources before we publish"). The engine works and the harness is sound.
+
+### The finding: 7 real hits, and 4 of them are false positives
+
+10 patterns from `226` × **908 components across all 15 live sites**:
+
+```
+leopardessconsulting.co.uk  97 comps  1
+robot-hands.com             90 comps  4
+vonc.com                    55 comps  2
+(all twelve others)                   0
+TOTAL 7, on 6 distinct page+slot surfaces
+```
+
+Every one, read in full:
+
+| site / surface | matched | verdict |
+|---|---|---|
+| leopardess `for-engineering-teams/features` | "Every component is verified against production." | **true positive** — verification-of-everything |
+| robot-hands `how-it-works` | "…where available, independently verified test data." | borderline — hedged, but does assert independent verification |
+| robot-hands `gripper-catalog` | "…pulled from manufacturer datasheets and independently verified." | **true positive** |
+| robot-hands `index/features` | "Where manufacturer data has **not** been independently verified, that is stated explicitly." | **FALSE POSITIVE** |
+| robot-hands `gripper-detail` | "When a figure **cannot** be independently verified, it is marked as unverified rather than carried forward…" | **FALSE POSITIVE** |
+| vonc `about/platform-comparison` ×2 | "…are Spark's own assessment, **not** independently verified." | **FALSE POSITIVE** ×2 |
+
+**All four false positives fire on a negated sentence** — the honest disclosure
+this layer exists to encourage. Severity is `blocker`
+(`validate_page_content.go:930`), so each one fails a whole page build. One
+pattern, `(fully|independently|externally|properly) (verified|audited|fact.?checked)`,
+accounts for **6 of the 7 hits and all 4 false positives**.
+
+### Two checks that make the consequence certain rather than likely
+
+1. **Candidate 1 does reach those sites.** It is gated on `ParseEvidenceBase`
+   returning non-nil, which needs `facts[]` **or** patterns:
+   `robot-hands facts=5 banned=0 → non-nil`, `gamesdesign facts=4 banned=0 →
+   non-nil`, `vonc facts=4 banned=9`, `leopardess facts=18 banned=19`. So
+   candidate 1 arms **9 of 15** sites, including both sites carrying false
+   positives. `104`'s residual note ("still gated by `eb != nil`") is literally
+   true but reads as though the gate keeps these sites out. It does not.
+2. **There is no negation-guard prior art**, and it cannot be done in regex here.
+   I grepped for negation handling and got a hit at `voicetells.go:212` — which on
+   reading is a *check for* "defines by negation ('not X, but Y')" as a style
+   tell, not a guard. **Semantic coincidence; I nearly cited it as precedent.**
+   Go's RE2 has no lookbehind, so a guard must be code, in the shape of
+   `isExcludedNumber`.
+
+### Nothing is biting today
+
+Each site scanned against **its own** live register: **0 findings, every site.**
+6 sites have no `evidence_base` row; 2 have a row with 0 patterns but non-empty
+`facts[]`; 7 have patterns. So this is a latent trap in the *proposal*, not a live
+outage — no page is currently unbuildable.
+
+### Misstep 4 — I suppressed stderr and it became a data claim
+
+The first self-scan table reported **vonc: "no register"**. vonc has a current
+`evidence_base` row with 9 patterns and 4,651 characters. The per-site fetch had
+failed transiently and `2>/dev/null` hid it, so a `kubectl` flake was rendered as
+a fact about the estate — on the single site whose register mattered most to the
+finding. Caught only because it contradicted the § Measurement query I had run ten
+minutes earlier. Now retried 3× with `FETCH_FAIL` printed distinctly from
+`no-row`. In the RUNBOOK as GOTCHA 2.
+
+### The design point underneath all of this
+
+`ScanBannedClaims` has **no** false-positive apparatus, deliberately and with the
+reason written down (`claims.go:439-441`): *"Every match is a KNOWN falsehood for
+this site (each pattern was audited out by a human) — callers treat findings as
+blockers."* Its sibling `ScanUnregisteredNumbers` has an elaborate one, and says
+why: *"Noise is not harmless in a checker: a scanner that always reports something
+is one people stop reading."*
+
+**Fleet-wide patterns remove the premise that justified the absence, and keep
+blocker severity.** Nobody had audited the oufe set against the other fourteen
+sites' copy; this is the first time it was done, and it found four false
+positives in the first ten patterns. `226`'s own test was "10 fabrication shapes
+blocked, 13 legitimate sentences passed" — thorough, and it still missed this,
+because **the pass-list contained no sentence that negates one of its own
+patterns.**
+
+### Side observations, not chased
+
+- **vonc has two `page_components` rows on the same page+slot**
+  (`about`/`platform-comparison`), both length 7,113 — ids `8847777f…` and
+  `4a3d50e8…`. That is why its 2 findings are one sentence counted twice. Not
+  investigated; may be a duplicate-component defect worth its own look.
+- Pattern 7 of the tested set contains the literal alternative **`oufe`**, so the
+  set is not universalisable verbatim regardless of the negation question.
+- `104`'s § Measurement query conflates "no row" with "row, empty array" — both
+  render as `0`. The distinction is load-bearing for candidate 1's reach.
+
+---
+
+## 2026-07-28, later — the narrowed set, measured rather than assumed
+
+I wrote "a narrowed set measurably fires on nothing fleet-wide" into `bugs_open/104`
+**before running it**. Then ran it: dropping the single offending pattern
+`(fully|independently|externally|properly) (verified|audited|fact.?checked)` leaves
+9 patterns which fire **exactly once** across all 908 components:
+
+```
+leopardessconsulting.co.uk  for-engineering-teams/features
+  "Every component is verified"  — verification-of-everything: a claim about outcomes, not process
+  …Every component is verified against production. The architecture is built on tools your…
+TOTAL with narrowed 9-pattern set: 1
+```
+
+That is a **true positive**, so option (a) is still viable — but it is not free:
+it lands a `blocker` on a live leopardess page until either the copy is fixed or a
+human rules the sentence acceptable. Corrected in `104` with a visible correction
+block. **"Fires on nothing" was an inference stated in the same voice as a
+finding, and it took one command to falsify.**
+
+Note what the 9-pattern result also says: with the negation-prone pattern removed,
+**zero false positives across 907 other components.** So the false-positive class
+is concentrated in one pattern, not diffuse — which is what makes option (a) a real
+choice rather than a retreat.
+
+## Housekeeping — one of my "new" gotchas was already written down
+
+`016b` §9 already has *"A command that reads stdin truncates the `while read` loop
+that calls it (2026-07-18)"* at line 1110 — precisely misstep 1. I hit a known
+pattern, so it went in the RUNBOOK (where the command lives) and **not** into §9
+again. The new §9 entry is the one thing here that is genuinely transferable and
+not already recorded: *"A checker's missing false-positive apparatus may BE its
+per-site human audit."*

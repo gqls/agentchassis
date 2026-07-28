@@ -176,3 +176,118 @@ reachable only through `improvement-sweep`, disabled since 2026-05-02
 (`bugs_open/083`; `claims_unverified` has **0** live rows and **1** ever, from 2026-07-17).
 So arming a site fleet-wide arms its **build gate** and nothing else. That is still the
 half that matters for new copy, and it should be said plainly when the value is estimated.
+
+---
+
+## Dry run 2026-07-28 — candidate 1 would break three live sites, and 4 of its 7 blocks would be punishing honest disclosure
+
+Session "bugsearch 6". Not a fix: the blast-radius measurement this file asks for.
+Workstream `docs024_key_docs_latest/bugfix_104_fleetwide_claim_patterns/`
+(PLAN · RUNBOOK · NOTES · README_where_we_are). **The defect as filed is confirmed
+and unchanged — 7 of 15 armed, vetcomparison.uk and idea.uk still at zero. What
+changed is the recommendation.**
+
+### Method
+
+`cmd/claimscan` — which runs the **same shared engine** as the deploy gate and the
+post-deploy audit, and which this file's § Related already names via `226` — over
+the **stored `rendered_html` of all 15 live sites (908 components)**, using the 10
+tested patterns extracted from `sql_for_agents/226`. Positive control first, both
+directions: **6 of 6 overclaim shapes blocked, 3 of 3 legitimate sentences
+passed.** Commands and five gotchas in the RUNBOOK.
+
+### Result
+
+**7 findings, 3 sites, 6 surfaces** — leopardessconsulting 1, robot-hands 4,
+vonc 2; the other twelve sites clean. **Four of the seven are false positives, and
+every one of them fires on a negated sentence:**
+
+- robot-hands `index/features` — "Where manufacturer data has **not** been
+  independently verified, that is stated explicitly."
+- robot-hands `gripper-detail` — "When a figure **cannot** be independently
+  verified, it is marked as unverified rather than carried forward…"
+- vonc `about/platform-comparison` ×2 — "…are Spark's own assessment, **not**
+  independently verified."
+
+Severity is `blocker` (`validate_page_content.go:930`), so each is a failed page
+build — for making exactly the hedged disclosure this layer exists to encourage.
+A single pattern, `(fully|independently|externally|properly)
+(verified|audited|fact.?checked)`, causes **6 of the 7 hits and all 4 false
+positives**. The three true positives are real overclaims and would be correctly
+caught ("Every component is verified against production.").
+
+### CORRECTION to § "Fix candidates, ordered by what closes the door"
+
+This file attaches the dry-run requirement to **candidate 2 only**, on the
+reasoning that candidate 1 is contained by `eb != nil`. Measured, that containment
+does not hold where it matters:
+
+| site | facts[] | banned | `ParseEvidenceBase` |
+|---|---|---|---|
+| robot-hands.com | 5 | 0 | **non-nil** |
+| gamesdesign.co.uk | 4 | 0 | **non-nil** |
+| vonc.com | 4 | 9 | non-nil |
+| leopardessconsulting.co.uk | 18 | 19 | non-nil |
+
+**Candidate 1 arms 9 of 15 sites, including both sites carrying false positives.**
+The residual as written ("still gated by `eb != nil`, so the seven sites with no
+register remain uncovered") is literally true but reads as though the gate keeps
+these sites out. **Both candidates needed the count.** Also: § Measurement's query
+conflates "no row" with "row, empty array" — both render `0`, and the distinction
+is what decides candidate 1's reach. Split it: **6 no row, 2 row-with-facts-only,
+7 with patterns.**
+
+### Why this was invisible to `226`'s testing, and the design point underneath
+
+`226` tested 10 fabrication shapes blocked and 13 legitimate sentences passed —
+careful work. **The pass-list contained no sentence that negates one of its own
+patterns**, and on a single site that never came up.
+
+The structural version: `ScanBannedClaims` has **no** false-positive apparatus,
+deliberately, and the reason is written beside it (`claims.go:439-441`) — *"Every
+match is a KNOWN falsehood for this site (each pattern was audited out by a
+human)"*. Its sibling `ScanUnregisteredNumbers` has an elaborate one and says why
+— *"a scanner that always reports something is one people stop reading"*.
+**Making the patterns fleet-wide removes the premise that justified the absence
+while keeping blocker severity.** The human per-site audit *was* the false-positive
+apparatus.
+
+### What a fix now has to include
+
+- **No negation-guard prior art exists in the estate.** `voicetells.go:212` looks
+  like one and is not — it *checks for* "defines by negation" as a style tell.
+- **Go's RE2 has no lookbehind**, so this cannot be fixed in the pattern string.
+  A guard must be code, in the shape of `isExcludedNumber`.
+- Pattern 7 of the tested set contains the literal alternative **`oufe`** — not
+  universalisable verbatim.
+- § "How to verify a fix" needs a third induced case: **"where a figure has not
+  been independently verified, that is stated" must still build.**
+
+**Nothing is biting today**: every armed site scores **0** against its own live
+register. This is a latent trap in the proposal, not a live outage.
+
+### Status
+
+Still **OPEN**, still unowned as a fix, and still the owner's call — it is oufe
+decision **O11** (`oufe/DECISIONS_2026-07-26_oufe.md:231`), routed to the owner
+because it changes behaviour beyond one site. Now costed rather than cold:
+candidate 1 is **not** "small, precedented, one roll" until the set is
+negation-safe. The two live options are:
+
+- **(a) ship a narrowed set** with the one offending pattern dropped. **Measured,
+  not assumed:** the remaining 9 patterns fire **exactly once** fleet-wide —
+  leopardessconsulting `for-engineering-teams/features`, *"Every component is
+  verified against production."*, a true positive. So option (a) costs **one page
+  build on one site, correctly blocked**, and zero false positives across the
+  other 907 components. It needs a human to confirm that one sentence is an
+  overclaim, and the copy fixed, before or with the roll.
+- **(b) add the negation guard as code**, which is a shared-scanner change and
+  therefore architecture-scope under `CLAUDE.md` § "Platform seams and the
+  ordering exemption" — council round, and registered in the concept register in
+  the commit that ships it. This is the only option that lets the dropped pattern
+  (the strongest of the ten — it caught the shape oufe actually shipped) come back.
+
+> **CORRECTED, same session:** the sentence originally here claimed the narrowed
+> set "measurably fires on nothing fleet-wide". It was written before it was run,
+> and it is wrong — it fires once. Caught by running it. The distinction matters
+> because option (a) is not free: it lands a blocker on a live page.
