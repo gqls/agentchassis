@@ -56,7 +56,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **re-resolve a file:line you carried across sessions — above all one you edited yourself** | **1** |
 | **verify an embedded/quoted artifact is COMPLETE before asserting it — a fixed `[:N]` slice is an unmarked truncation; an author's own ellipsis in evidence is the same defect by hand** | **2** |
 | **re-read the row AFTER a render, not after your own write** | **2** |
-| **check the column actually means what you are measuring** | **2** |
+| **check the column actually means what you are measuring** | **3** |
 | read the rule before inferring its purpose | 1 |
 | **re-ground a figure before repeating it — one copied from a sibling doc inherits ITS measurement date, one copied out of a since-corrected tool keeps the old tool's answer, and one handed to you by a sub-agent sweep carries no measurement date at all; never let any of them land in a commit message, council submission or code comment unmeasured** | **4** |
 | **prove a transform against the ENGINE that will run it, not the one you reasoned in** | **2** |
@@ -84,6 +84,7 @@ a 2.0% fire rate over 300 commits, wired in as advisory.
 | **measure a SYMPTOM's exposure across every cause, not only the one you are fixing — a bug file's exposure figure is read as "is this biting?", not "is my code path biting?"; and FETCH the live artefact you have already named in your own prose** | **1** |
 | **RE-RUN the prior-art search when the design outlives it — an absence is true only at the moment you looked, and a peer built the next day is invisible to a search you already did. A search is a reading, not a property.** — *AUTOMATED 2026-07-28: `check_new_capability_surface` in `scripts/pattern-check.py` fires when a staged `.md` proposes a `cmd/`, dockerfile or package that does not exist, and prints the existing peers marked `(new)`. Advisory. Measured 1.33% / 1,500 commits. It re-runs on every later commit touching the doc, which is the half a one-shot review cannot do.* | **1** |
 | **read `decided_by` before writing a `Council-Reviewed:` trailer — and again if the submission went to another round, because a later APPROVAL can attach to a materially DIFFERENT plan and the coverage report cannot tell** | **1** |
+| **measure a RENDERED property in the thing that renders it — a stylesheet cannot say what colour is painted (it cannot resolve the cascade, ancestors, alpha or gradients), and an audit that over-reports on live sites is worse than none, because its findings get "fixed" into real regressions** | **1** |
 | **treat any check whose failure triggers an automated REWRITE as production configuration — a wrong test does not merely fail, it becomes the specification the repair loop faithfully implements, and it will damage correct code to satisfy it** | **1** |
 
 **What that distribution says right now:** the dominant failure is not sloppiness
@@ -8601,3 +8602,63 @@ died at its gate click on the only run that ever happened, so the tool's behavio
 zero enterprise value was unverified for the entire period I was describing the tool as
 working. A test that has only ever failed at step 1 has told you nothing about steps 2
 onward, and a suite reporting "2 failed" invites you to read the other 9 as coverage.
+
+---
+
+## 2026-07-28 — I filed a table of eleven measured contrast ratios, and the measurement could not have worked
+
+**The claim.** `bugs_open/122`: "generated stylesheets fail WCAG AA on four live sites",
+with a table of eleven sites and two ratios each, presented as measurement. It named a
+cause — the webdesign agent ignoring its own `a { color: var(--color-accent) }`
+instruction — and ranked fix candidates against it.
+
+**What was wrong.** I measured `--color-primary` against each site's background, because
+that is what oufe's CSS used for links. **It is not the link colour anywhere else.**
+dartsonline's `--color-primary` is `#111520` and its background is `#0D1019`, so the
+"1.11 FAIL" was the background compared against itself. No rendered text was involved in
+any row of that table.
+
+The deeper error is that the question is not answerable from a stylesheet at all. Which
+`a` rule wins needs cascade resolution; the contrast also depends on ancestors, alpha
+and gradients. I wrote a regex for a question that requires a renderer, and then wrote
+the output up as a table, which is the format that reads most like fact.
+
+**The check I skipped:** confirm the thing you are measuring is the thing that gets
+rendered — on *each* subject, not on the one that gave you the idea. One `grep` of any
+other site's `a {}` rule would have shown a different variable and killed the
+generalisation in seconds. (Tally row "check the column actually means what you are
+measuring", incremented; and a new row for measuring a rendered property outside the
+renderer.)
+
+**What re-measuring properly found — the bug was real, and worse, and elsewhere.** In a
+browser, with computed style and an alpha-composited backdrop:
+
+- The shared header chrome hardcodes `color: white` on a button whose background is the
+  site's **accent**, so passing is luck. **Five of six measured sites fail.** No palette
+  change can fix it, because the text colour is not derived from the palette. It is also
+  not in `styles.css` at all — it lives in stored chrome, so my entire class of
+  investigation was looking in the wrong file.
+- **robot-hands.com's primary call-to-action is white text on a white button.** Not low
+  contrast: invisible. A live commercial site has been shipping a blank rectangle where
+  its main CTA should be, and the audit I filed could not see it because it only looked
+  at link colour.
+
+**Three false positives on the way, each caught by screenshotting the element.** Comparing
+against the page background rather than the element's; treating a gradient header as
+transparent and falling through to the body (a blue header with white nav "measured" 1.05
+against near-white); and treating `rgba(255,255,255,0.1)` as opaque white (a readable
+white-on-purple button "measured" 1.00). **Every one looked like a serious live defect and
+every one was disproved by looking at the page.** They are now guards in
+`cmd/contrastscan`, each commented with the case that motivated it.
+
+**The thing worth carrying.** For live public sites, an audit that over-reports is worse
+than no audit: its findings get "fixed" into real regressions, and people stop reading it.
+So the discipline is not "measure more", it is **screenshot anything you are about to
+report as broken on a page a user can visit**. Nobody had complained about any of the
+three false positives, and that silence was information I nearly overrode with a number.
+
+**Distinct from the same day's acceptance-fence entry** above: that was a wrong test
+becoming a specification for an agent. This one is a wrong *instrument* becoming a table
+in a bug file — which propagates to every thread that reads it, with no agent involved at
+all. The fence failure was loud. This one was silent, and would have stayed silent, because
+a table of ratios is exactly the shape people do not re-derive.
