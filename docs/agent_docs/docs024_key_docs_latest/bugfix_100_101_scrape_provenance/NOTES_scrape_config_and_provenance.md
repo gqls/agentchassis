@@ -408,3 +408,65 @@ of your own are one behaviour.
 > **The check:** after `git mv` + a pathspec commit, name **both** paths, then confirm
 > with `git ls-files bugs_open/ | grep -c <n>` and the same for `bugs_closed/` —
 > expect `0` and `1`. Fixed in `7de1757fa`.
+
+## §9 — 2026-07-28 ~18:50 BST — round 2: the third state, and the notes I should have written first
+
+Two substantive changes, both answering round-1 objections, plus grounding for the
+other two seats.
+
+**The gating objection cost the least and taught the most.** `tooling_provenance`
+was right that the archaeology went into a parallel trail. SQL `258` applied three
+`doc_notes` (`subject_type='action'`, keyed by action name, matching the existing
+convention — migration-authored notes are normal here, cf. `created_by`
+`212_tool_crosslink_action_notes`):
+
+```
+ subject_type |         subject_key         | cats | body_len
+ action       | firecrawl_scrape            |    6 |     2056
+ action       | scrape_web                  |    5 |     1789
+ action       | store_business_verification |    5 |     2600
+```
+
+Each records the **non-obvious** thing, not a summary: the `add_protocol` typo and
+which action actually reads it; the `onlyMainContent` presence-vs-truthiness
+inversion and why two paths in one file disagreed; and on the writer, why asking the
+model for `source_url` is the *rejected* candidate rather than the obvious fix.
+
+**`ConditionalKeys` — the state I had not modelled.** The audit now prints:
+
+```
+=== UNKNOWN KEYS (action declared its contract; these are not in it) ===
+  none
+  ^ read this WITH the next section — 'none' here does NOT mean
+    'no step misdescribes itself'.
+
+=== CONDITIONALLY HONOURED (declared, so not unknown — but may not apply) ===
+  scrape_web.follow_links: only on a crawl — set the step's config action to "crawl", …
+  scrape_web.max_pages:    only on a crawl — set the step's config action to "crawl", …
+```
+
+Design notes worth keeping:
+- **The condition is prose on purpose.** It is not generically evaluable — whether
+  `max_pages` applies depends on the action's own dispatch, decided inside the
+  action, which the validator cannot see. Putting enforcement there would be a guess
+  dressed as a gate. Enforcement stays at execution (`buildScrapeConfig` already
+  warns); this field exists to stop the **offline** report claiming a clean bill.
+- **`UnknownConfigKeys` stays deliberately silent about conditional keys.** They are
+  not unknown. Merging the two reports would recreate the same blindness from the
+  other direction, and a test asserts a key can never be both.
+- **The weak point, stated rather than hidden:** free prose can go stale if the
+  action's dispatch changes and nobody updates the string.
+  `UndeclaredConditionalKeys` only catches the *structural* error (a conditional key
+  missing from `ConfigKeys`), never a wrong description. Flagged to the council as
+  possibly too weak to be worth having.
+
+**This round needs NO roll** — `ConditionalKeys` feeds only the audit path, which
+runs from source via `go run`. Chassis behaviour is unchanged. That is a property
+worth noticing rather than a lucky break: *the round-1 defect was reported by a tool,
+so the repair belonged in the tool.*
+
+**Round 2 submitted on the SAME correlation** (`RESUBMIT_CORR=f4cf0aab…`) so the
+trail accumulates. I asked the council to treat one thing sceptically: round 1's
+reviewer verification queries returned **0 for facts I have twice measured as true**.
+If the same checks return zero again, that is the harness and not evidence — but it
+is raised as a caveat, not a defence, because no round-1 objection depended on them.
