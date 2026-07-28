@@ -120,6 +120,28 @@ actions suite is green there too (the 07-21 `discovery_checks` RED is gone). Cou
 submission `a7ae8ce8-ef40-4503-be8a-972ebe1b0973`, verdict pending at commit time —
 committed without trailer per standing practice.
 
+**127 APPROVED round 1 and adapter ROLLED (v1.0.1185).** Pod-grep 1/1/0/2 on the four
+markers; smoke tests witnessed Firecrawl serving a real `sources:["news"]`+`tbs` request
+(3 results, 1.7s) and the DDG decline→fall-through path. The response-produce error in
+the smoke test is the header-less hand-sent message hitting the non-existent default
+reply topic — production routes via `reply_to_topic` headers; not a defect. Production
+check pending on the ~13:50 `content-feed-refresh` (watcher armed). Chassis `time_range`
+rides the next chassis roll, deliberately not forced.
+
+**097: re-checked before taking it — another thread ("bugs thread 2") had re-fired the
+diagnosis at ~11:45** the moment 108 closed, and it returned **CONFIRMED in ~12 min**:
+the 07-25 learning-center rebuild ran through the BULK rerender path
+(`rerenderSinglePage`), which deploys independently of the `validate_page_content` gate
+where `RepairPageLinks` lives — the repair was never on that path. Their lane; their
+working tree now shows the rerender/validate files mid-edit. Left alone.
+
+**109 completed in code (`f78cf8125`, council corr `1d082754` pending).** The remaining
+three maps now derive from the struct declaration; two divergence closures stated and
+transcription-tested (fallback renderer painted DEFAULT colours + empty metadata for
+restored contexts — twelve fields with `current_page`'s exact latent gap; `contextToMap`
+lacked `logo_url`). Per-page trio stays excluded. Full suite green on a HEAD overlay.
+Inert until a chassis roll.
+
 ---
 
 ## 2026-07-28, second session ("bugs thread 2") — 108 defect A: freshness by commit identity

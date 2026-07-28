@@ -12,8 +12,36 @@ The objection was accepted. This file is the tracked follow-up it asked for.
 complaint. It is a defect factory rather than a defect.
 **Class:** structural (a contract advertised in one place and honoured by an allowlist in
 another, with no relationship between them that anything checks).
-**Status:** **OPEN — 1 of the 4 maps closed** (`595c1f499`, council-approved, inert until
-the next chassis roll). See the box below for what is left.
+**Status:** **ALL FOUR MAPS NOW DERIVED — candidate 1 complete in code (`f78cf8125`,
+2026-07-28, council corr `1d082754`, verdict pending at commit time), INERT until a
+chassis image roll.** See the 2026-07-28 box below; the earlier box records the first map.
+
+> ## STATUS 2026-07-28 — the remaining three maps derived (`f78cf8125`)
+>
+> `setRenderContextScalarsFromData` is the write-side twin of `renderContextScalarFields`:
+> build (`mergeIntoRenderContextEnhanced`) and restore (`mergeIntoRenderContext`) now
+> accept exactly the step contract the serialiser emits — one predicate
+> (`renderContextStepContractExcluded`), three call sites. Both render maps
+> (`contextToInterfaceMap`, `contextToMap`) derive the template contract from the same
+> projection plus explicit decorations. `schema_mode` moved to a new
+> `renderContextControlFields` (machinery: never advertised, never data-settable — tested).
+>
+> **Two deliberate divergence closures** (the rest is transcription-pinned
+> behaviour-preserving):
+> 1. **Restore now sets twelve more struct fields**, so the regex-fallback renderer stops
+>    painting hard-coded default colours and empty cta/industry/year for restored
+>    contexts — `current_page`'s exact latent gap (085), generalised.
+> 2. **`contextToMap` gains `logo_url`** — the two render literals had themselves drifted.
+>
+> **Still excluded, deliberately:** `theme_css`/`title`/`description` (per-page producers
+> undecided — unchanged from the earlier ruling, now pinned by
+> `TestBuildStillExcludesPerPageFields`).
+>
+> **Why the case is not closed:** the fix is inert until a chassis image roll ≥
+> `f78cf8125`, and the post-roll check is owed: render a page on the fallback path (or
+> unit-drive it in the pod image) and confirm restored colours arrive instead of
+> `#1a1a2e`-family defaults. After that, closing is a judgement call on whether the
+> remaining residue (the per-page trio's producers) stays here or moves to its own case.
 
 > ## STATUS 2026-07-27 — the SERIALISE map is derived and **LIVE on v1.0.1177**; the other three are not
 >
