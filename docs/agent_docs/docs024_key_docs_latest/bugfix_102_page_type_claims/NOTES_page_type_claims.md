@@ -108,3 +108,57 @@ one has an untracked new file is a build-breaking commit for whoever goes first.
 
 Round 1 submitted at 22:02Z, `SUBMISSION_CORR=de4a19f5-8f03-4e74-92cb-c23c10ab829d`.
 Queue depth at submission: 2 rows in `review_editquality`, positions 5 and 15.
+
+### Council round 1: APPROVED with 3 advisory objections — and two of them changed the code
+
+Verdict at 23:2x: **approved with 3 advisory objection(s) — none high-severity**, 13 seats,
+corr `de4a19f5-8f03-4e74-92cb-c23c10ab829d`. An approval is not a reason to skip reading the
+objections; two were right and one was already covered.
+
+**1. edit-quality: `blog-index` is an unmeasured extrapolation.** Correct, and it caught the
+exact thing my own code comment forbids ("do not widen this from intuition"). I had put
+`blog-index` in the editorial set by analogy with `blog-post`. It has **3 pages fleet-wide and
+raised zero findings even scanned against an EMPTY register** — so there is no evidence either
+way. **Dropped.**
+
+**2. guardian + compliance: check the misclassification risk instead of naming it.** I had
+written risk #2 as "a site filing marketing copy under `guide` would go unscanned — check
+whether any site does" and then not checked it. So I checked, and it is real one type over:
+
+```
+gamesdesign.co.uk | about-index   | section-index
+gamesdesign.co.uk | contact-index | section-index
+```
+
+**Two of the twenty `section-index` pages are an ABOUT page and a CONTACT page.** An index page
+type whose body is marketing copy fails the second half of my own membership bar. Its entire
+contribution was 2 false positives (one quoted market-share sentence on robot-hands).
+**Dropped** — a blind spot over an about page is the worse trade, and I would rather carry a
+known false positive than an unknown blind one.
+
+Re-measured with the narrowed set of five (`guide`, `blog-post`, `news-index`, `tool`, `game`):
+
+| | before | 7 types | **5 types (shipped)** |
+|---|---|---|---|
+| fleet total | 124 | 63 | **65** |
+| suppressed | — | 61 | **59** |
+
+The two that come back are exactly robot-hands' `section-index` pages, as predicted.
+
+**3. debug-historian: no pod-grep verification step.** It was in the RUNBOOK but not in the
+submission, so the objection is fair on what the council could see. **And the RUNBOOK's marker
+was wrong anyway** — I had named `section-index`, a string that appears in at least four other
+Go files (`page_growth_budget.go`, `v3_site_actions.go`, `apply_gap_plan_action.go`,
+`populate_nav_tables_action.go`) and which I then removed from the code entirely. It would have
+returned a confident `1` on a binary that did not have the fix. Corrected to `resolvePageType`
+(a symbol only this change introduces: **0** on the live pod today) with `scanComponentClaims`
+(**2**) as the positive control proving the grep method works on that binary.
+
+**Objections I did not act on, and why:** the `reuse_agent` seat asked whether another action
+already resolves `page_type` through a fallback chain — grep for `page_record.page_type` outside
+`load_page_record_action.go` returns nothing, so there was nothing to reuse. The `guidelines`
+seat asked whether the four collected-data reads need an `input_contract` entry; they are
+step-to-step data inside one workflow, already covered by `load_page_record`'s own wiring, and
+no workflow JSON changes here. The `compliance` seat's residual — *ongoing* monitoring for
+future page-type misclassification — is a genuine gap and a genuinely different mechanism;
+filed in the bug file as a named follow-on rather than accreted onto this change.

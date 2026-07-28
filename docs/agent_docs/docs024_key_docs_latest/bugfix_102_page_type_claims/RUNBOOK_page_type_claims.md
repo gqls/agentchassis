@@ -81,23 +81,33 @@ comm -13 before.sorted after.sorted                     # must be EMPTY
 
 ## 2. Verifying the fix is live after a roll
 
-The gate is Go, so it is inert until the image ships. **Pod-grep a string the
-change introduced, not one that already existed** — and pick one specific enough
-that no other file could carry it:
+The gate is Go, so it is inert until the image ships. **Pod-grep a symbol the
+change introduced, with a positive control that proves the grep method works on
+this binary at all.**
 
 ```bash
 POD=$(kubectl -n ai-persona-system get pods -l app=agent-chassis \
       -o jsonpath='{.items[0].metadata.name}')
-kubectl -n ai-persona-system exec $POD -- \
-  sh -c 'strings /app/agent-chassis | grep -c "some-type-nobody"'   # 0 — test-only string, negative control
-kubectl -n ai-persona-system exec $POD -- \
-  sh -c 'strings /app/agent-chassis | grep -c "section-index"'      # >=1 once the editorial map ships
+kubectl -n ai-persona-system exec $POD -- sh -c \
+  'strings /app/agent-chassis | grep -c "resolvePageType"'      # THE MARKER: 0 before, >=1 after
+kubectl -n ai-persona-system exec $POD -- sh -c \
+  'strings /app/agent-chassis | grep -c "scanComponentClaims"'  # POSITIVE CONTROL: 2 before and after
 ```
 
-`section-index` is the discriminating marker: it is a member of
-`editorialPageTypes` and appears nowhere else in the binary today. Confirm with
-the negative control above (a string only the tests contain) that you are not
-reading a match from something else.
+Go keeps function names in the binary, which is what makes this work — verified
+on `agent-chassis-74dbd9c9f4-7p6d8`, 2026-07-28: `scanComponentClaims` → 2,
+`businessClaimContextRe` → 1, `resolvePageType` → **0** (correctly, it had not
+shipped). A zero on the marker WITH a non-zero on the control means "not rolled
+yet"; zero on both means your grep is wrong, not that the fix is missing.
+
+> **CORRECTED — this section first named `section-index` as the marker, and that
+> was wrong twice.** Page-type string literals appear all over the Go source
+> (`page_growth_budget.go`, `v3_site_actions.go`, `apply_gap_plan_action.go`,
+> `populate_nav_tables_action.go` …), so a match proves nothing about this change;
+> and `section-index` was then removed from the editorial set entirely, so the
+> grep would have returned a confident, meaningless 1 on a binary without the fix.
+> **A marker has to be a string that only YOUR change puts in the binary** — a
+> new function name is usually the cleanest one available.
 
 ## 3. Which workflows can actually see a page type
 

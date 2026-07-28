@@ -3,16 +3,18 @@
 **Filed 2026-07-27** by the fabricated-stats lane (`bugs_closed/043`, resolve **by slug**),
 while doing owed item (b) — building evidence registers for the remaining publishing sites.
 
-**Status: FIXED 2026-07-28** (`3ddb4ed2d`, session "bugsearch 7") — code committed, **inert
-until the next chassis roll**. Workstream:
+**Status: FIXED 2026-07-28** (`3ddb4ed2d` + `955832067`, session "bugsearch 7"), **council
+APPROVED** (`de4a19f5-8f03-4e74-92cb-c23c10ab829d`, round 1, 3 advisory objections — two acted
+on) — code committed, **inert until the next chassis roll**. Workstream:
 `docs/agent_docs/docs024_key_docs_latest/bugfix_102_page_type_claims/`. See
 § "The fix, 2026-07-28" at the bottom, which also **corrects two claims in this
 file's own opening**.
 
 ~~**Live exposure today: nil**, because the affected sites have no `evidence_base` row, so the
 scans are off.~~ > **CORRECTED 2026-07-28 — true of webdesign.co.uk, false fleet-wide.**
-Nine sites are armed and carry **124** live unregistered-number findings, **61 of them
-editorial-page false positives**, at a severity that BLOCKS a rebuild. Measured, below.
+Nine sites are armed and carry **124** live unregistered-number findings, **59 of them
+editorial-page false positives the fix removes**, at a severity that BLOCKS a rebuild.
+Measured, below.
 **This bug is what stops that being fixed**, which is why it is worth filing
 rather than absorbing.
 
@@ -182,12 +184,14 @@ Method: `cmd/claimscan` — the same shared engine as the gate and the audit —
 | tool | 7 | 0 |
 | game | 4 | 0 |
 | protocol-tracker | 3 | 3 |
-| section-index | 2 | 0 |
+| section-index | 2 | **2 — kept scanned, see below** |
 | news-index | 1 | 0 |
 | guide | 1 | 0 |
-| **total** | **124** | **63** |
+| **total** | **124** | **65** |
 
-`comm` over the sorted finding lists: **61 suppressed, 0 newly appearing**.
+`comm` over the sorted finding lists: **59 suppressed, 0 newly appearing**. (An earlier
+iteration suppressed 61 by also treating `section-index` and `blog-index` as editorial; the
+council's round-1 objections and the measurement below removed both.)
 
 > **CORRECTION 1 — "live exposure today: nil" was scoped to webdesign.co.uk.** The nine armed
 > sites carry 124 findings today. I read all 61 on editorial page types and **all 61 are false
@@ -227,9 +231,29 @@ claim by construction, and that argument does not weaken on a guide). Both pinne
   (`page_record.page_type`, which `load_page_record` populates and `page-build-handler` runs
   before `validate_content`); the audit via one column added to a `JOIN pages` it already did;
   `cmd/claimscan` via an optional 4th TSV field, warning on stderr when it is absent.
-- Editorial set: `guide`, `blog-post`, `blog-index`, `news-index`, `section-index`, `tool`,
-  `game`. Fleet-wide, hard-coded, no per-site override — candidate 2 is "operators must
-  remember X in a configuration costume", and an unknown type defaults to SCANNED.
+- Editorial set: **`guide`, `blog-post`, `news-index`, `tool`, `game`** — five, each held down
+  by measured false positives on live copy. Fleet-wide, hard-coded, no per-site override —
+  candidate 2 is "operators must remember X in a configuration costume", and an unknown type
+  defaults to SCANNED.
+
+### What the council changed (round 1, APPROVED, 3 advisory objections)
+
+Two objections narrowed the set, and both were right:
+
+- **`blog-index` dropped as an unmeasured extrapolation.** It has 3 pages fleet-wide and raises
+  zero findings even against an EMPTY register. I had added it by analogy with `blog-post` —
+  the exact widening-from-intuition the code comment forbids.
+- **`section-index` dropped on measurement.** The guardian and compliance seats asked me to
+  *check* the misclassification risk I had merely named. It is real one type over: **two of the
+  twenty `section-index` pages are `about-index` and `contact-index` on gamesdesign.co.uk** —
+  marketing bodies filed under an index name. Its whole contribution was 2 false positives (one
+  quoted market-share sentence). A known false positive beats an unknown blind spot over an
+  about page.
+- The third (no pod-grep step in the submission) was already in the workstream RUNBOOK — **but
+  the marker there was wrong**: `section-index` appears in at least four other Go files, so it
+  would have returned a confident `1` on a binary without the fix. Corrected to
+  `resolvePageType` (0 on the live pod today) with `scanComponentClaims` (2) as the positive
+  control.
 
 ### Verification (both directions, per § "How to verify a fix")
 
