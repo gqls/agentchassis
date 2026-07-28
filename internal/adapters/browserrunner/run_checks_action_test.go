@@ -12,31 +12,31 @@ import (
 // configured selector counts, and a record of interaction steps. Selectors not
 // primed count as 0 (absent), matching real Locator.Count.
 type fakePage struct {
-	status   int
-	navErr   string
-	console  []string
-	counts   map[string]int
+	status         int
+	navErr         string
+	console        []string
+	counts         map[string]int
 	overflow       bool
 	ovInfo         overflowInfo // culprit + attribution
 	ovErr          error
 	containerAsked string // the container selector the check resolved to
-	texts    map[string]string
-	stepErr  map[string]error // selector -> error to return from Do
-	steps    []criteriaStep   // recorded
-	shotErr   error // error to return from Screenshot
-	shotTaken bool  // recorded: Screenshot was called
+	texts          map[string]string
+	stepErr        map[string]error // selector -> error to return from Do
+	steps          []criteriaStep   // recorded
+	shotErr        error            // error to return from Screenshot
+	shotTaken      bool             // recorded: Screenshot was called
 }
 
-func (f *fakePage) Status() int            { return f.status }
-func (f *fakePage) NavError() string       { return f.navErr }
+func (f *fakePage) Status() int             { return f.status }
+func (f *fakePage) NavError() string        { return f.navErr }
 func (f *fakePage) ConsoleErrors() []string { return f.console }
-func (f *fakePage) Count(sel string) int   { return f.counts[sel] }
+func (f *fakePage) Count(sel string) int    { return f.counts[sel] }
 func (f *fakePage) HorizontalOverflow(container string) (bool, overflowInfo, error) {
 	f.containerAsked = container
 	return f.overflow, f.ovInfo, f.ovErr
 }
-func (f *fakePage) Text(sel string) (string, error)   { return f.texts[sel], nil }
-func (f *fakePage) Close()                            {}
+func (f *fakePage) Text(sel string) (string, error) { return f.texts[sel], nil }
+func (f *fakePage) Close()                          {}
 func (f *fakePage) Do(step criteriaStep) error {
 	f.steps = append(f.steps, step)
 	if f.stepErr != nil {

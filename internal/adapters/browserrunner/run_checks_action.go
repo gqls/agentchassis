@@ -212,10 +212,10 @@ const (
 // browserPage is what per-check evaluation drives. The real implementation
 // wraps a live Playwright page (chromiumPage); tests inject a fake.
 type browserPage interface {
-	Status() int           // navigation response status (0 = nav failed)
-	NavError() string      // non-empty when navigation itself failed
+	Status() int      // navigation response status (0 = nav failed)
+	NavError() string // non-empty when navigation itself failed
 	ConsoleErrors() []string
-	Count(selector string) int  // matches in the live DOM
+	Count(selector string) int // matches in the live DOM
 	// HorizontalOverflow reports content wider than the viewport — either the
 	// document scrolls (scrollWidth > clientWidth) or, when a clipping parent
 	// hides that, in-flow content laid out past the right edge with no
@@ -619,8 +619,8 @@ func openChromium(ctx context.Context, url, profile string, logger *zap.Logger) 
 	return cp, nil
 }
 
-func (c *chromiumPage) Status() int           { return c.status }
-func (c *chromiumPage) NavError() string       { return c.navErr }
+func (c *chromiumPage) Status() int             { return c.status }
+func (c *chromiumPage) NavError() string        { return c.navErr }
 func (c *chromiumPage) ConsoleErrors() []string { return c.console }
 
 func (c *chromiumPage) Count(selector string) int {
