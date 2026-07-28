@@ -120,6 +120,39 @@ per coherent task, not per iteration.
   council reviews for — the roster changed five times in 18 hours, so it is
   mechanical now.
 
+### Platform seams and the ordering exemption (OWNER RULING, 2026-07-28)
+
+A change that adds or alters a **shared** mechanism is an **architecture-scope**
+change even when it is additive, small and well tested — a new namespace or
+reserved key on a shared action, a new contract, anything whose blast radius is
+"every pipeline that uses X". The guardian seat will veto one that arrives inside
+a bug patch, and it is **right to**: `bugs_closed/124` shipped the `$ctx.`
+parameter namespace that way and drew a REJECTED verdict on exactly that ground.
+
+**The ruling is that the code stays and the precedent gets fixed.** So, from now:
+
+- **A platform seam may ship ahead of its review only when BOTH hold.** (1) There
+  is a **real, stated ordering constraint** — the config or data half cannot be
+  applied against the old binary without breaking something live. Name it in the
+  commit message; "it was convenient" is not one. (2) The seam is **registered in
+  the concept register in the same commit that ships it**, with its landmine and
+  the open review question written down. Not "later" — later is how a seam becomes
+  folklore.
+- **Measure the blast-radius claim before you submit; do not ask the reviewer to.**
+  124's submission listed "verify no collision" as a risk for the council to check.
+  That is not evidence. The check was one query and the answer was decisive
+  (63 `params` entries fleet-wide, exactly one `$`-prefixed — the new one). **"No
+  collision is possible" is a query, not an argument.**
+- **A veto on SCOPE is not answered by resubmitting with better measurements.** It
+  is a judgement about *how* a capability reached production. Record it where the
+  change lives, route the seam to architecture review on its own merits, and let a
+  human break it — especially when seats disagree with each other, which they did
+  here: the guardian's contained alternative was precisely what the `reuse_agent`
+  seat objected to in the same round.
+
+Worked example, with the evidence and the three options costed:
+`docs/agent_docs/docs024_key_docs_latest/bugfix_124_double_dispatch/REVIEW_2026-07-28_ctx_namespace.md`.
+
 ## Diagnosis before debugging (the DEFAULT for any durable claim)
 
 The same loop can diagnose a bug *before* you fix it — read the real code + live

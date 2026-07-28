@@ -296,3 +296,41 @@ happen.
 **This bug stays CLOSED.** The defect is fixed, live and verified against a real
 run. The veto is about how a platform capability reached production, not about
 whether diagnoses still run twice — they do not.
+
+---
+
+## OWNER RULING 2026-07-28 — the veto is resolved. Option A: keep the code, fix the precedent.
+
+The guardian's REJECTED verdict was put to the owner as an architecture review with
+three costed options. **Ruling: Option A.** `$ctx.` stays; the precedent it set is
+corrected by a standing rule rather than by reverting working, measured code.
+
+The rule is now in **`CLAUDE.md` §"Platform seams and the ordering exemption"** and
+binds every session:
+
+1. A platform seam may ship ahead of its review **only** under a **real, stated
+   ordering constraint** (named in the commit — "it was convenient" is not one)
+   **and** only if it is **registered in the concept register in the same commit**
+   that ships it, with its landmine and open question.
+2. **Measure the blast-radius claim before submitting.** 124's submission asked the
+   council to verify no collision was possible; the check was one query and the
+   answer decisive. *"No collision is possible" is a query, not an argument.*
+3. **A scope veto is not answered by resubmitting with better measurements.** Record
+   it, route the seam to review on its own merits, and let a human break it —
+   especially when seats contradict each other, as they did here.
+
+Full review, with the evidence and the three options costed:
+`docs024_key_docs_latest/bugfix_124_double_dispatch/REVIEW_2026-07-28_ctx_namespace.md`.
+
+**The veto was not overturned — its consequence was.** The finding stands, and both
+things the council forced were improvements: a claim became a measurement, and the
+submission's *"every lane had to grow a bespoke Go action"* was corrected against
+the code (32 of the 34 correlation-readers are not about SQL at all; none is a
+reusable mechanism, so there is nothing to migrate — which is the answer the
+`reuse_agent` seat asked for and did not get).
+
+**Accepted with open eyes:** the ordering hazard is mitigated by documentation and a
+pod-grep, not by code. That is Option A's real weakness.
+
+**Not ruled on:** whether `$ctx.` should acquire a second consumer. Nothing depends
+on it today.
