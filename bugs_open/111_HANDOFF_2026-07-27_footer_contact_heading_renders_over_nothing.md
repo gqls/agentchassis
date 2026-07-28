@@ -1,5 +1,25 @@
 # 111 — the footer's "Contact" heading is ungated while its contents are gated
 
+> ## STATUS 2026-07-28 (bugs-sweep thread) — candidate 1 now complete across ALL render surfaces; residual is delivery, not code
+>
+> - **DB components**: `footer-theme-chrome` AND `footer-4-column` were both gated on
+>   2026-07-27 (recorded in the correction below; 118 filed for the is_active selection
+>   defect that made the second one matter).
+> - **Go fallback**: `RenderFallbackFooter` gated in `d4731109d` (2026-07-28) — the
+>   contact container renders only when an email exists, with a regression test covering
+>   both branches plus a neighbouring-column control. Inert until a chassis roll ≥ that
+>   commit. No council trailer: the gate cannot sit until 08-01 (`bugs_open/130`).
+> - **`RenderFooter` checked and CLEAN** (the commit hook's untouched-twin advisory asked):
+>   it dispatches to a DB component's template or to `RenderFallbackFooter`, emitting no
+>   contact markup of its own — all rendering surfaces now carry the gate.
+>
+> **Why this stays OPEN:** the two live instances (`gamesdesign.co.uk`; `relojistas.com`
+> under the owner's no-contact-route ruling) render **stored chrome artefacts** that no
+> page re-render rebuilds — clearing them is `bugs_open/117`/`118` territory (regenerate
+> via `nav_drift` → `nav-updater`), and whether that route has an LLM step decides if it
+> waits for the cap to lift on 08-01. Close when a regenerated footer on either site
+> renders without the bare heading.
+
 > **CORRECTED 2026-07-27, hours after filing — the measurement below is WRONG and the
 > severity is much lower than stated.** I measured contact details from
 > `site_specs.identity.contact`, concluded 8 of 14 live sites render an empty contact block,
