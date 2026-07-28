@@ -299,3 +299,59 @@ grep -c 'THING_THAT_MUST_REMAIN' live.html    # expect >0, else the zeros above 
 A browser UA is required: Cloudflare 403s a bare `Python-urllib`/curl-default
 fingerprint with plain-text `error code: 1010`, which is NOT the origin check.
 This applies to `vonc.com` itself, not just `tools.apis.uk`.
+
+## 11. CORRECTION to §10 — `rendered_html` is NOT always a copy of `html_template`
+
+**§10 says "write the same new string to both columns". That is only safe for a
+component with NO template variables.** It was written from the Arena, which has
+none and an empty `content_data`. Following it on the **gauntlet**, which has 27
+`{{.placeholders}}` and a populated `content_data`, **shipped a live page showing
+raw `{{.hero_title_plain}}` to the owner** (2026-07-28).
+
+**The rule:**
+
+- `content_components.html_template` holds the template, **with** `{{.vars}}`.
+- `page_components.rendered_html` holds that template **with the vars already
+  substituted from that page_component's `content_data`**.
+
+They are byte-identical **only** when the template has no variables.
+
+**Check before copying — one query answers it:**
+
+```sql
+SELECT (SELECT count(*) FROM regexp_matches(cc.html_template,'\{\{\.[a-zA-Z_]+\}\}','g')) AS vars,
+       (SELECT count(*) FROM jsonb_object_keys(COALESCE(pc.content_data,'{}'::jsonb))) AS data_keys
+FROM content_components cc JOIN page_components pc ON pc.component_id = cc.id
+WHERE cc.id = '<component>';
+-- vars = 0  -> §10's copy-both-columns path is safe
+-- vars > 0  -> you MUST substitute; copying the template blanks the page's copy
+```
+
+**Substituting (this is the repair that fixed it):**
+
+```bash
+# pull content_data, substitute, assert nothing is left unrendered
+python3 - template.html content_data.json out.html <<'PY'
+import json,re,sys
+t=open(sys.argv[1]).read(); d=json.load(open(sys.argv[2]))
+missing=[n for n in set(re.findall(r'\{\{\.([a-zA-Z_]+)\}\}',t)) if n not in d]
+assert not missing, f"content_data is missing: {missing}"
+for k,v in d.items(): t=t.replace("{{."+k+"}}", "" if v is None else str(v))
+left=re.findall(r'\{\{\.[a-zA-Z_]+\}\}',t)
+assert not left, f"still unrendered: {sorted(set(left))}"
+open(sys.argv[3],'w').write(t)
+PY
+```
+
+**Then always verify the SERVED page, not the row:**
+
+```bash
+curl -s -A 'Mozilla/5.0 … Chrome/126' "https://<domain>/<path>?cb=$(date +%s)" | grep -c '{{\.'   # expect 0
+```
+
+**Why this got through:** every check I ran was on the change I had *made* — the
+type sizes, brace balance, line counts — and all of them passed. Nothing asserted
+that the page still rendered its own content. **A diff proves what you changed; it
+cannot tell you what you destroyed.** Grep the served page for `{{.` after ANY
+component delivery — it costs one command and it is the difference between
+shipping a page and shipping a template.
