@@ -230,3 +230,63 @@ above, or students proper as the target, or keep the mid-market professional as
 primary. The site is mid-build right now, so this is the cheapest moment it will
 ever be to change — the briefs would need a revision either way, and pages haven't
 been written yet.
+
+---
+
+**28 July — the tool really does work now, and the way I found out is the interesting bit**
+
+Two things this morning. The first was housekeeping: the new chassis you had built
+went out overnight and it carried the change that gives council reviews their own
+queue. Councils used to sit in the same single-file queue as everything else, so one
+long review could hold up every other job on the platform for half an hour. They now
+have their own lane. I tested it with a cheap job first rather than an expensive
+council, which is worth mentioning because a queue can *look* connected and still not
+actually deliver anything — the cheap test tells you the difference for a few pence.
+
+I have deliberately left that item open rather than ticking it off. The lane works;
+what I have not yet proved is that it actually *relieves* the congestion, because no
+real council has run through it yet. The next one anybody submits will prove it, and
+I have written the exact check into the file so whoever is around can do it.
+
+The second thing matters more. I owed you a proper test of the recovery waterfall
+tool — the one where you move the sliders and see who gets paid. I had said it worked.
+What I had actually done was look at the page and see that all the parts were there,
+which is not the same thing and is exactly why the real test was on my list.
+
+I ran it. **It failed.** Two of eleven checks.
+
+The failure turned out to be my fault but not in the way it first looked. The tool
+has a gate on it — the "I understand this tool can be wrong" button you have to press
+before you can use it, which is the disclaimer we agreed. The testing system loads the
+page once and then runs all its checks against that single copy, without reloading. So
+the first test pressed the button, the button did its job and hid itself, and the
+second test then went looking for a button that was, by design, no longer there. The
+tool was fine the whole time. My test was asking it to do something impossible.
+
+Here is the part I want you to know about, because it is the genuinely dangerous bit
+and nothing on the platform would have stopped it.
+
+When a tool fails its test, the system automatically raises a job to go and **fix the
+tool**, and it hands the fixing agent the failed test as the specification. So a
+robot was queued up to make that tool pass my impossible test. The only ways to pass it
+are to stop the disclaimer button hiding itself, make it come back, or delete it
+altogether. In other words: **the repair system was one step away from being pointed
+at our legal disclaimer, and it would have reported success afterwards.** I cancelled
+the job by hand.
+
+Nothing caught that except me happening to look. That is not a system, it is luck, so
+I have written it up as a proper platform bug with fixes ranked by which one actually
+closes the door — the point being that it will happen again on the next tool we put a
+disclaimer on, and we want more tools with disclaimers, not fewer.
+
+I fixed the test rather than the tool, changed nothing else, and re-ran it. **Thirteen
+out of thirteen, on desktop and on mobile.** Changing only the test is what proves the
+tool was never the problem — if I had "fixed" both at once I would have learned
+nothing.
+
+One last thing worth saying plainly. One of those checks — the one that tests what
+happens when there is no value left at all, which is the whole point of the tool — had
+**never actually run**. It had always died at the button before reaching the sums. So
+for the entire period I was describing the tool as working, its most important
+behaviour had never been tested once. It passes now, and it is the first time anyone
+has seen it do so.
