@@ -5,7 +5,14 @@ kind: Deployment
 metadata:
   name: agent-chassis
 spec:
-  replicas: 1
+  # 2 since the work-item-parallelisation programme (2026-07-28). It was scaled
+  # imperatively (`kubectl scale`) and this file still said 1, so the NEXT
+  # `kubectl apply -k` by ANY session silently scaled the fleet's chassis back
+  # down — which is exactly what happened during the bugs_open/124 deploy at
+  # 16:55. An imperative scale is not durable state: `apply -k` is a routine
+  # step in every image deploy, so the declared replica count wins within
+  # minutes and nobody is told. Change the number HERE.
+  replicas: 2
   template:
     spec:
       containers:
