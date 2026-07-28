@@ -1,5 +1,55 @@
 # 100 — The verification write path CANNOT record provenance: it reads the source URL from the LLM
 
+> ## STATUS 2026-07-28 (evening) — FIX IS LIVE AND THE CONSTRAINT ENFORCES. **Stays OPEN on one owed run.**
+>
+> **The title claim is now false, and that is the point:** the write path CAN record
+> provenance. What is left is not a defect — it is this file's own acceptance test,
+> which cannot run until vet collection restarts.
+>
+> **Live on `agent-chassis:v1.0.1192`**, verified against the RUNNING pod, not the tag
+> (the fleet index warns *a retag is not a rebuild* — this check is content-based, so
+> it holds either way):
+> ```
+>   "no fetch provenance available"  1   (was 0 pre-deploy)
+>   unrecognised_keys                1   (was 0)
+>   POSITIVE CONTROL scrape_web      1   (was 1 — proves the grep works)
+> ```
+>
+> **SQL 257 applied 2026-07-28 18:30Z, AFTER the pod-grep confirmed the binary** —
+> the ordering this file called load-bearing. Proven to enforce, not assumed:
+> ```
+>  conname                                | convalidated
+>  data_observations_provenance_not_empty | f              <- NOT VALID, as designed
+>
+>  -- NEGATIVE CONTROL:
+>  INSERT ... (NULL, '', '{}') ->
+>  ERROR: violates check constraint "data_observations_provenance_not_empty"
+>
+>  total | still_unsourced
+>   2970 |            2970   <- history deliberately untouched
+> ```
+> Without that negative control, "quiet" and "not enforcing" would look identical.
+>
+> **WHY THIS STAYS OPEN.** §"How to verify a fix" sets a two-column test: after a real
+> verification, `source_url` must be non-empty **AND** `raw_data ? 'source_url'` must
+> still be **false** — the second column is what distinguishes "the fetcher recorded
+> it" from "the model claimed it". **No such run has happened**, because collection has
+> been off since 2026-03-18. Closing on a pod-grep alone would assert the discriminating
+> check passed when it has never been run — the exact "green status is not a rendered
+> artefact" failure this estate keeps relearning.
+>
+> **FOR `vetcomparison`: your P1 blocker is LIFTED.** "Provenance is structurally
+> impossible" is no longer true — it is recorded from the fetch record, and the DB now
+> refuses any observation that cannot cite its source. The first restarted crawl both
+> exercises and closes this bug. Run the two-column query above and close it, or hand
+> back what it shows.
+>
+> **`[UNVERIFIED]` and material to that run:** the live shape of `scraped_data` was
+> traced through code, not observed (`data.url`). If provenance comes back empty, read
+> the chassis log for `no fetch provenance available` — that warning exists precisely so
+> a shape mismatch is distinguishable from a genuine absence, and it names the field it
+> looked in.
+
 > ## STATUS 2026-07-28 — candidate 1 COMMITTED (`2ebabf2ca`); INERT until the chassis image rolls
 >
 > Taken by the "bugsearch" thread, bundled with `bugs_open/101` as both files instruct.

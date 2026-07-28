@@ -337,3 +337,57 @@ where someone already reading this workstream would find them.
 `site-adoption-agent/crawl_site`, which is `firecrawl_crawl` and therefore goes
 through the `/crawl` path that was **always correct**. So: 4 steps ask for it,
 **3 were getting the opposite**. Both numbers are right about different questions.
+
+## §8 — 2026-07-28 ~18:30 BST — both images live, verified by CREATED symbols; 257 applied and proven
+
+Owner rolled `v1.0.1192` (chassis + adapters together). Verified against the RUNNING
+pods. **Every marker is a symbol this change created**, with a pre-existing string as
+positive control in the same command — because the fleet index warns *a retag is not
+a rebuild* (1188/1189 shared one image id, built 56 min before the fix in it), so a
+tag comparison would have proved nothing:
+
+```
+chassis  unrecognised_keys 1 (was 0) · "does not read" 1 (0) · add_protocol 3 (0)
+         "no fetch provenance available" 1 (0) · CONTROL scrape_web 1 (1)
+adapter  buildScrapePayload 2 (created by this fix; 0 before) · CONTROL onlyMainContent 1
+```
+
+The adapter needed a different marker class: my firecrawl change added **no new string
+literal** (it turned `if v` into `if ok`), so there was nothing textual to grep. The
+extracted **function name** `buildScrapePayload` is in the binary and did not exist
+before — a created-symbol marker obtained as a side effect of making the payload
+testable. Worth remembering: *extracting a pure function to make a change assertable
+also gives you a pod-grep marker for a change that otherwise has none.*
+
+**SQL 257 applied at 18:30Z, after the pod-grep** — the sequencing this file called
+load-bearing, and `debug_historian`'s round-1 objection was exactly that the plan never
+said how "the chassis is live" gets confirmed. It is confirmed by the block above.
+
+Enforcement proven, not assumed:
+```
+ conname                                | convalidated
+ data_observations_provenance_not_empty | f            <- NOT VALID, as designed
+
+ INSERT (NULL, '', '{}') -> ERROR: violates check constraint ...
+ total 2970 | still_unsourced 2970      <- history untouched, deliberately
+```
+The negative control is the whole point: without it, "quiet" and "not enforcing" are
+indistinguishable.
+
+**062 payload watch:** 0 `Message Size Too Large`, 0 `Failed to produce` in 3h.
+`[UNMEASURED]` whether the three affected steps have actually run since the roll — a
+clean log is weak evidence until one has. Re-run it.
+
+**The validator warning has not fired, and that is correct, not a null result.**
+`scrape_web` now declares every key it reads, so it has nothing to report; no other
+action has opted in. The live proof of the detector remains the audit script plus the
+unit tests — which is itself misstep 3 restated: my own declaration is why the runtime
+check is quiet.
+
+**Ticket decisions.** `101` → `/bugs_closed/`: the defect it names is "silently
+ignores", and the silence is gone, live and verified. `100` stays **OPEN** despite its
+fix being live, because its own §"How to verify a fix" requires a two-column check
+(`source_url` non-empty AND `raw_data ? 'source_url'` still false) that has never run —
+collection has been off since March. Closing on a pod-grep would assert a
+discriminating check passed when it was never executed. The blocker for `vetcomparison`
+is nevertheless lifted, and that is written into the bug file for them.
