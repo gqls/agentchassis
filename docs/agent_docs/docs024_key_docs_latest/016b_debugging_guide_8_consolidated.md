@@ -4033,6 +4033,8 @@ See `/bugs_closed/README.md`.
 
 | 106 | **The concept register has no staleness detector and 67% of workstreams postdate its freeze.** Extraction froze 2026-07-13; 51 of 76 workstream dirs postdate it. Three whole subsystems (fixloop 07-16, model-directory 07-17, claims-verification 07-27) were found missing **by coincidence**, each because someone happened to be working beside the hole — and the register is the instrument sessions are told to consult *before concluding a capability does not exist*, so a hole reads as absence rather than as not-having-looked. On 2026-07-26 a session concluded exactly that and was one step from building a redundant subsystem | **CLOSED 2026-07-28 → `bugs_closed/106`.** Candidates 2 (`covers-through:` stamps on all 109 files) and 1 (`102_CHECK_register_coverage.py`, sensor+ratchet) shipped 07-27 by the filing thread; what remained was that the sensor **had no cadence** — grep found it referenced only in its own docs, so it ran when a human remembered, *the same detected-by-coincidence mechanism one step earlier*. Closed by **`check_register_coverage`** (9th check in `scripts/pattern-check.py`, advisory, on the pre-commit path; concept register **OPP-004**): a commit that CREATES a workstream directory the register has never heard of says so, **to the person creating it**, naming both silencing routes. Commit trigger chosen over a cron on purpose — a cron reports a week late to nobody in particular. Only NEW dirs fire (43 uncovered ones are accepted backlog on the ratchet). **Imports the sensor rather than reimplementing `is_covered()`** — one matching rule, one implementation, the `idx_swi_dedup`↔`workItemTerminalStatuses` drift class. **Measured before inclusion** per pattern-check's own bar: 4 fires / 1,500 commits = 0.27%, 0 false positives — and because *a very low rate and a dead check look identical*, all 4 were inspected; 2 of them are the exact pair the sensor found by hand on 07-27, now caught at creation. **Induced-gap verified** (3 arms) and demonstrated on itself: its own workstream dir tripped it, OPP-004 silenced it. **RESIDUAL, recorded not fixed:** the register can be complete in coverage and **stale in CONTENT** — `SCH-012`'s `verify-later` stated an expected answer that had been false for weeks and helped hide `bugs_closed/124`. Sample of two; a third instance is the signature to act on | filed 2026-07-27; closed 2026-07-28; workstream `docs024/bugfix_106_register_coverage_cadence/` |
 
+| 134 | **A doc convention for "optional" leaked into the real key name, so two config keys are inert.** `product-spec-refresher/refresh_specs` declares `"limit?"` and `"category?"`; the action reads `limit` and `category` (`refresh_product_specs_action.go:177,211,215`) and **no Go code anywhere reads a `?`-suffixed key**. `limit` silently takes its hard-coded default of 20 and `category` is empty, whatever the caller passes. The origin is the load-bearing part: seed 156 line 15 is a COMMENT reading `-- {site_id, category?}` — the ordinary notation for "this field is optional" — and 45 lines later the same notation appears inside the actual JSON, so **fixing only the live row is undone by a replay**. Fleet swept for the class (keys ending in `?`, `*`, space or `:`): these two are the only instances | **OPEN, latent — 0 orchestrations have ever run this agent and no `scheduled_tasks` row matches**, which is also why nobody noticed. Fix order: (1) `CheckConfig: true` on the spec — this is exactly the "spec exists but misses live keys" case, and opting in makes the typo visible at runtime AND in the offline audit; (2) correct seed 156 AND the live row; (3) **do NOT add `category?` to the spec** — declaring a dead key silences the detector and leaves the behaviour broken (`WRONG_CALLS.md` 2026-07-28). Not this lane's agent; correcting inert keys IS a behaviour change | filed 2026-07-28 by session "bugsearch 3", found by `cmd/config-key-coverage` — i.e. by `101`'s own tooling |
+
 > **Index gap (noted 2026-07-19; partly closed 2026-07-20; re-measured 2026-07-26):**
 > this table is **materially behind** and a miss here is a false negative for the
 > "grep the index before filing" rule. Indexed rows stop at `081` apart from `098`
@@ -6708,3 +6710,52 @@ failure it prevents:
 kubectl -n ai-persona-system logs -l app=web-scrape-adapter --tail=-1 --since=1h \
   | grep "Truncating large field"     # the guard working IS the signal
 ```
+
+### A voluntary mechanism with ~0% adoption is measuring its own cost, not the population's diligence (2026-07-28)
+
+`bugs_closed/101` shipped an opt-in config-key contract. Months later **1 action of
+152** had adopted it, and four separate documents — the bug file, the concept
+register, the workstream handoff, and the next session's plan — all described the
+remaining 208 as a backlog to grind down. One handoff section was titled *"Drive the
+coverage number down"*.
+
+It was not a backlog. Opt-in gated on `len(spec.ConfigKeys) == 0`, and `ConfigKeys`
+carries a specific declared meaning:
+
+> `// ConfigKeys declares the step-config keys this action reads that are NOT`
+> `// data-input fields — settings rather than references`
+
+For any action whose every config key **is** a data-input field — the common case,
+because the shared extractor handles exactly those — **there was no honest way to opt
+in.** You had to duplicate keys into a list they did not belong in, or call a
+reference a setting. Doing nothing was the cheapest *correct* choice, and 151 authors
+made it. Separating the opt-in signal from the semantic field took the gap from 208
+to 152 in one change.
+
+**The shape that transfers.** An adoption number is a measurement of the mechanism,
+not of the people. Near-zero uptake of something that is genuinely useful and costs
+nothing to adopt does not happen; if uptake is near zero, the cost is not what its
+author thinks it is. The failure mode is that the number gets read as a to-do list,
+which produces more exhortation and no adoption — and each round of exhortation makes
+the mechanism look more established and less questionable.
+
+**Why the author is the worst-placed person to notice.** For them the cost genuinely
+was zero: they had the whole model in their head, and their own first case fitted the
+field's semantics, which is *why* the field's semantics looked general. Every later
+adopter meets a cost the author never paid and cannot see.
+
+**The check, and it is cheap enough to make unconditional: adopt one instance
+yourself, and time it.** Not review the design — *use* it, on a case you did not
+choose. If it is awkward, that is the finding, and it arrives in minutes. Here, the
+first action opened to declare turned out to have already listed all eight of its
+live keys under `Optional`, which made no sense against "nobody has declared their
+keys" and led straight to the gate.
+
+**Generalises to:** any opt-in check, lint rule, annotation, registration or
+convention that "everyone should" use — and to coverage ratchets specifically, since
+a ratchet that cannot turn reports as *unfinished work* forever rather than as
+*broken*. Same estate, same week: `bugs_open/106` (the concept register froze and 67%
+of workstreams postdate it) and `architecture-seat-has-never-fired` (a roster slot
+counted as coverage while firing zero times) are the same class — **a mechanism whose
+usage is assumed rather than measured.** Ask of each: when did this last actually
+run, and who has adopted it since it shipped?
