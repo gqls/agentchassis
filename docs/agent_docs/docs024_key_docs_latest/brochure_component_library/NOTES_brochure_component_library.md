@@ -2294,3 +2294,56 @@ every other page has its `hero-<page>.jpg`. **The asset was specified and never
 generated** — `bugs_open/114`'s family. Deleting the reference would destroy a correct
 illustration request, so the repair is to generate the asset, not to remove the intent.
 Left for a deliberate imagery run.
+
+## 2026-07-28 — the palette check is PROVEN live, on the failing branch
+
+Owner asked for the sweep to be triggered. `design-discovery-agent` has no trigger
+script; the envelope is `input_data: {site_id, domain}` (its `ensure_site_record` step
+declares those two, and `run_discovery_checks` reads `site_record.site_id`).
+
+**fundamentallyai.com** (`7070eb38`): COMPLETED, **13 items filed**, and **zero palette
+findings** — correct, because the palette was repaired on 07-27.
+
+> **That result is vacuous on its own and I nearly reported it as success.** "No finding"
+> and "the check never ran" are the same observation. `palette_contrast` does appear in
+> the run's `collected_data`, but that is the **config echo** — the checks array — not
+> evidence of execution.
+
+**The discriminating run: dartsonline.com** (`b9d71ee9`), chosen because the offline
+audit predicted **1.11:1** for `primary #1A1F2E` on `background #111520`:
+
+```
+severity | summary
+---------+--------------------------------------------------------------------------
+high     | Palette emits 1 unreadable pairing(s); worst is primary used as an ink on
+         | the page background at 1.11:1 (needs 3.0)
+```
+
+Predicted ratio, predicted pairing, predicted severity, filed as `capability_gap` with
+no handler. **The check runs, discriminates, and is right.** That is Phase 2 of
+`features_open/026` proven end to end — and the proof needed a site that *fails*, which
+this thread's own site no longer does.
+
+### What the fundamentallyai sweep found (13 items, all `detected`)
+
+Worth a look, not yet acted on:
+
+- **3 × `deactivated_component`** — the site's `head`, `header` and `footer` chrome point
+  at components that are **deactivated** (`Document Head`, `header-bold-gradient`,
+  `footer-4-column`). The chrome renders, so this is a stale reference rather than a
+  visible break, but it is the same family as `bugs_closed/072` (an artefact frozen
+  against a definition nobody regenerates).
+- **3 × `needs_rerender`** — chrome last rendered before the page content changed.
+- **2 × `needs_imagery`** (`image-build-handler`) — *"Listed tool page llm-cost-calculator
+  has no image of its own"*. **This is the broken hero I left open on 07-27**, filed by
+  the platform rather than by me. The route to fix it exists and has a live handler.
+- **1 × `image_url_404`** — *"Pages reference unknown image
+  /assets/images/brand-illustration.jpg"*. **That URL serves 200** (probed twice today).
+  So the check means "not in the asset registry", not "404", and its item type name is
+  misleading. Not a false finding, but a badly named one — do not read `image_url_404`
+  as an HTTP result.
+- 2 × `audit_tool`, 1 × `improve_tool`, 1 × `acceptance_run`.
+
+*Cheap check that generalises:* **a green result from a check you just enabled proves
+nothing until you have seen it go red.** Pick the input you predicted would fail, run it
+there, and compare against the prediction — not just against "it didn't error".
