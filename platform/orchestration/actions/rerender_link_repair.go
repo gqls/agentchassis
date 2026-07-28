@@ -23,6 +23,7 @@ package actions
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/gqls/agentchassis/platform/orchestration/datahelpers"
@@ -41,6 +42,26 @@ func repairOutboundPageLinks(ctx context.Context, params ActionParams, siteID uu
 		logger.Warn("rerender link repair SKIPPED — page index unavailable; deploying unrepaired",
 			zap.String("page", pageName),
 			zap.String("domain", domain))
+		// A pod log line is not a record (071 gap 3, and the council's round-2
+		// objection to this very branch): a page that shipped UNREPAIRED because
+		// the index failed to load must be findable a day later. Best-effort,
+		// like the repair log itself — the skip record must not fail the deploy
+		// it describes.
+		if params.DB != nil {
+			skipCtx, _ := json.Marshal(map[string]string{"page_name": pageName, "page_url": pageURL})
+			if _, err := params.DB.ExecContext(ctx, `
+				INSERT INTO agent_error_log
+				    (site_id, domain, agent_type, step_name, action,
+				     error_message, error_code, severity, context)
+				VALUES (NULLIF($1,'')::uuid, NULLIF($2, ''), 'page-rerender', $3, 'rerender_page',
+				        $4, 'CONTENT_LINK_REPAIR_SKIPPED', 'warning', $5::jsonb)`,
+				siteID.String(), domain, skipStepName(params),
+				"Rerender link repair SKIPPED — page index unavailable; page deployed unrepaired",
+				string(skipCtx),
+			); err != nil {
+				logger.Warn("rerender link repair: failed to write skip record", zap.Error(err))
+			}
+		}
 		return html
 	}
 	repaired, repairs := datahelpers.RepairPageLinks(html, pageIndex)
@@ -53,18 +74,23 @@ func repairOutboundPageLinks(ctx context.Context, params ActionParams, siteID uu
 		zap.String("domain", domain),
 		zap.Int("rewritten", rewritten),
 		zap.Int("unlinked", unlinked))
-	stepName := "rerender"
-	if params.ExecutionContext != nil && params.ExecutionContext.StepName != "" {
-		stepName = params.ExecutionContext.StepName
-	}
 	writeLinkRepairLog(ctx, params, siteID.String(), domain,
 		linkRepairOrigin{
 			AgentType:  "page-rerender",
-			StepName:   stepName,
+			StepName:   skipStepName(params),
 			ActionName: "rerender_page",
 			PageName:   pageName,
 			PageURL:    pageURL,
 		},
 		repairs, rewritten, unlinked, logger)
 	return repaired
+}
+
+// skipStepName names the workflow step for the durable record, degrading to a
+// stable label when the execution context is absent (unit tests, odd adoptions).
+func skipStepName(params ActionParams) string {
+	if params.ExecutionContext != nil && params.ExecutionContext.StepName != "" {
+		return params.ExecutionContext.StepName
+	}
+	return "rerender"
 }
