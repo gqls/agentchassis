@@ -81,3 +81,35 @@ like the output of a run that did all of it.
 Fixed, and re-checked: all eight now fail when the code is broken, and the four tests whose
 job is to confirm nothing changes still pass. Worth knowing generally — a crash in one test
 quietly disables the rest of the file.
+
+---
+
+**2026-07-28, evening — the fix is written, and it turns out the problem was bigger than we thought**
+
+Yesterday's fix was real but landed in the wrong place. The build gate finds the broken links
+and repairs them, and then the very next step throws the repaired version away and saves the
+original. So the platform knew, wrote down what it knew, and published the 404s anyway.
+
+Today I moved the repair to the last possible moment — the point where sections are actually
+written to the database. Nothing can route around that. Whatever a workflow's configuration
+says, a section with a dead link cannot be saved any more.
+
+Before submitting it for review I checked how many parts of the system this touches, because
+the rule now is that you measure that yourself rather than asking the reviewer to. Six
+different build routines save page sections. **Only two of them have a link check at all.**
+That was the surprise: this was never just "the gate's repair gets discarded on one route" —
+four of the six routes that write page content have never had any link repair, by any route,
+ever. It also settles which of the two candidate fixes was right, and not by argument: fixing
+it inside the gate could never have reached the four routes that have no gate.
+
+A small thing worth admitting, because it is the kind of mistake that reads as competence.
+My first version of that count returned three routes, not six, and it looked perfectly
+credible — it just happened to ask about a place where three of the six do not keep their
+configuration. I had a number that disagreed with the handoff and I was one keystroke from
+submitting mine. Re-running it without the filter is what caught it. A query that quietly
+describes a smaller world than you asked about is very hard to spot from its output alone.
+
+Where it stands: written, tested, committed, and submitted to the reviewer council. It is
+**not live**. This kind of change does nothing until a new image is built and rolled out, and
+I will not call it fixed until I have watched a real page go through it and come out clean.
+The bug file stays open until then, deliberately — the 404s are still reproducible today.

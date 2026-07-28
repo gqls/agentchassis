@@ -1,6 +1,6 @@
 # Concept Index — master register
 
-1,643 concepts across 107 category register files. 1,627 consolidated from
+1,644 concepts across 107 category register files. 1,627 consolidated from
 2,185 raw extraction blocks (32 extraction-unit files, ~4,111 source documents
 under `docs/`) as of 2026-07-13; 4 more (STY-049, FIX-051/052/053) added
 2026-07-16 for a subsystem (fixloop's triage/escalation layer, and the
@@ -21,7 +21,11 @@ execution-context parameter namespace, which lets any queue-driven workflow's
 SQL record which run claimed a row; and 1 more (DMR-002) added 2026-07-28 —
 single-service deploy with a registry pre-flight, built while rolling the
 `bugs_open/131` fix because the all-or-nothing `deploy-agents` would have
-ImagePullBackOff'd twelve healthy services. Status tags were documentary signals from the source material unless
+ImagePullBackOff'd twelve healthy services; and 1 more (LNK-024) added 2026-07-28
+from the `bugs_open/079` REOPENING — dead-link repair moved to the persistence
+point, because a transformation that lands only in `clean_html` is discarded by
+the structured save path and 4 of the 6 live persistence paths had no repair at
+all. Status tags were documentary signals from the source material unless
 independently verified (see below).
 
 **Stage 2 (code/DB verification) ran 2026-07-14 and is COMPLETE** — see
@@ -1750,3 +1754,4 @@ an ID prefix, or a status word.
 | CLM-013 | Series facts: many dated observations, each independently sourced | deployed | Every observation carries its OWN source, never inherited; a rule enforced only in a validator is not enforced | claims-verification.md |
 | LNK-023 | repairOutboundPageLinks: shared rerender-path link repair | deployed | The build gate's dead-link repair applied where rerendered HTML leaves for deploy, both paths, origin-stamped log | link-management.md |
 | CTXA-024 | GitHubSource.CommitInfo: commit identity + committer date | deployed | Resolves short sha to full + committer date so index freshness keys on the commit, never the row clock | context-assembly.md |
+| LNK-024 | repairSectionsBeforePersist: dead-link repair at the PERSISTENCE point | built | The gate repairs clean_html, which the structured save path never reads — so repair moves to where sections are written; 4 of 6 persistence paths had none by any route | link-management.md |

@@ -373,3 +373,80 @@ Full mechanism, config citations and fix candidates: `bugs_open/079` REOPENED ba
 (moved back from bugs_closed). 016b §9 has the transferable pattern; WRONG_CALLS has the
 closure. The fix belongs to whoever picks it up — candidate 1 (repair inside
 save_page_sections, where persistence happens) closes the door structurally.
+
+## 2026-07-28 evening — candidate 1 IMPLEMENTED. Committed, submitted, NOT yet live.
+
+Picked up `HANDOFF_2026-07-28_platform_fix_candidate1.md` cold and built it as written.
+Session-start checks first: no other session on either action file (`git status` clean on
+both, `who-owns.py 079` names this workstream), LLM lane healthy (last `LLM_API_ERROR`
+13:13Z, zero in the preceding 90 minutes).
+
+**What shipped into the tree** (commit `5083124e3`, three files, pathspec):
+`platform/orchestration/actions/save_sections_link_repair.go` (new) — `repairSectionLinks`
+is the pure seam, `repairSectionsBeforePersist` the DB-touching wrapper;
+`save_sections_link_repair_test.go` (new, 3 tests); and the wiring +
+`saveSectionsLookupPageID` now returning `url` in `save_page_sections_action.go`.
+Call site sits between the interactive-tool preservation block and the content-regression
+guard, exactly where the handoff put it. `go build ./platform/orchestration/...` clean,
+`go test ./platform/orchestration/actions/... ./platform/orchestration/datahelpers/...` all
+pass — the shared tree happened to compile, so no `git archive` workaround was needed.
+
+**Blast radius MEASURED before submitting, not asserted** (the 07-28 owner ruling). And the
+first measurement was WRONG in the instructive direction:
+
+```sql
+-- FIRST GO — 3 rows. jsonb_each over default_config->'workflow'->'steps' only.
+--   page-build-handler | page-rerender | tool-recreation-handler
+-- I nearly submitted "3 of 6" against a handoff claiming 6.
+-- SECOND GO — unfiltered, the string anywhere in the config:
+SELECT type, is_active, COALESCE(is_snapshot,false), (deleted_at IS NOT NULL), count(*)
+FROM agent_definitions WHERE default_config::text LIKE '%save_page_sections%' GROUP BY 1,2,3,4;
+-- 11 rows; 6 live callers + 3 fix-loop rows that merely NAME the action in a footprint map.
+```
+
+The narrow query described a small world silently: three agents keep their workflow under a
+different container key, so a `->'workflow'->'steps'` walk simply cannot see them. The
+handoff's list of six was right and my query was the thing that was wrong. Settled with
+`jsonb_path_query_array(default_config,'$.** ? (@.action == "save_page_sections")')`, which
+is container-agnostic:
+
+| agent | save steps | validate steps |
+|---|---|---|
+| page-build-handler | 1 | 1 |
+| pageflow-builder | 1 | 0 |
+| page-rebuild | 1 | 0 |
+| page-rerender | 1 | 0 |
+| site-work-orchestrator | 1 | 0 |
+| tool-recreation-handler | 1 | 1 |
+
+**That second column is the finding, and it is stronger than the handoff's argument.**
+Only 2 of the 6 persistence paths have ANY `validate_page_content` step, so **4 of 6 have
+never had dead-link repair by any route at all** — the bug is not merely "the gate's repair
+is discarded on the build path", it is "most paths that write body sections were never
+within reach of a gate". A candidate-2 fix (repair `sections_metadata` in place inside
+validate) is structurally incapable of covering them. Also measured: `repair_internal_links`
+appears in **zero** live `agent_definitions` rows, so the step-config key collides with
+nothing and the in-code default governs everywhere. "No collision is possible" is a query.
+
+**Council submission** `7c24776e-07f8-4c2e-b1b6-ad3e73c6023c` (default `council-gate`
+target, NOT the orchestrator wrapper — the parallelism thread's own handoff says retry that
+no earlier than 2026-08-01). Lane LAG 0 at submit; one council already in flight at
+`review_editquality`, so mine queues behind it. Budget ~30 minutes.
+
+**Registered as LNK-024** in `docs026_concept_register/register/link-management.md`, status
+**built** not deployed, with the landmine written down: *any* transformation applied only to
+`clean_html` is discarded by the structured save path — the gate's comment-stripping has the
+same defect [INFERRED from the code path, no observed comment damage]. The entry also
+carries the open review question (is a persistence-point content transform the right general
+pattern, or does each transform belong at its own gate) rather than pretending the scope
+question was settled by a bug patch.
+
+**NOT DONE — the fix is inert.** No image built, no roll, nothing verified against a running
+pod. `bugs_open/079` stays OPEN and must, because the defect is still reproducible until it
+ships. Next, in order: verdict → build/push/deploy with a bumped `IMAGE_TAG` → pod-grep
+`"SavePageSectionsAction: repaired dead internal links before persist"` per replica (a
+retag is not a rebuild; check `.ID` + `.CreatedAt`) → the zero-LLM live proof the handoff
+specifies, a `page_rerender` work item at gamesdesign `bayesian-ranking`, whose stored
+sections have carried `href=""` since 07-21 — remembering `handler_agent='page-rerender'`
+in the INSERT or the item hard-blocks. Verify the PERSISTED rows, then crawl the SERVED
+page. Never the action's return map.
