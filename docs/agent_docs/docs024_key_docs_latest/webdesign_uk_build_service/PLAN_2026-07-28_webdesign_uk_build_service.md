@@ -36,7 +36,7 @@ Every line here was checked today. The full commands and their output are in
 
 | capability | state | evidence |
 |---|---|---|
-| **Paid funnel on a VM** | **Built and has taken real money.** idea.uk: stdlib-only Go binary, Stripe behind a `Provider` interface, webhook = source of truth, HMAC-verified, `FakeProvider` for end-to-end tests, price passed **per call** not held on the provider. | `idea.uk/golang_files/billing.go`, `store.go`, `service.go`; first sale 2026-07-27 |
+| **Paid funnel on a VM** | **Built, and a real Stripe transaction has run end to end.** idea.uk: stdlib-only Go binary, Stripe behind a `Provider` interface, webhook = source of truth, HMAC-verified, `FakeProvider` for end-to-end tests, price passed **per call** not held on the provider. **See §2a — the buyer was the owner.** | `idea.uk/golang_files/billing.go`, `store.go`, `service.go` |
 | **Public HTTP tool endpoint** | **Built, one worked example.** gin + own Postgres, CORS → rate-limit → input-cap middleware, request logging. Zero Kafka, zero chassis coupling. | `internal/tools-api/api/server.go:32-58` |
 | **Static site build + deploy** | **Live for 12 sites.** chassis → git-adapter → repo `sites` → GitHub Action → B2. Per-site override to `vm-sites` for VM-hosted sites. | `platform/orchestration/actions/git_deployer_actions.go`, `git_repo_resolution_test.go` |
 | **VM-hosted site with its own backend** | **Live twice.** idea.uk and relojistas.com: nginx + certbot, site-engine under systemd, box pulls its own folder from `vm-sites`. | `sites.github_repo='vm-sites'` for both |
@@ -44,6 +44,37 @@ Every line here was checked today. The full commands and their output are in
 | **Automated "domain in → site out"** | **Does not exist.** New sites are created by hand-authored SQL seeding the `sites` row and its `site_specs` aspects, then trigger scripts publish to Kafka. | `oufe/SEED_2026-07-25_oufe_site_and_specs.sql`; oufe has 12 aspects seeded on day one |
 | **Per-call model cost** | **Measurable.** `llm_call_log` holds 45,205 rows, 2026-03-25 → 2026-07-28. | live query, 2026-07-28 |
 | **Fleet size** | **32 site rows, 14 deployed, 17 `pool-*` shells.** See §12 — this matters. | live query, 2026-07-28 |
+
+### 2a. The correction that should change how this is read
+
+> **CORRECTED 2026-07-28, hours after this file was written.** The first version
+> of §2 said idea.uk *"has taken real money"* and *"survived a real sale"*, citing
+> the 27 July first sale. **The buyer was the owner.** Genuine external buyers:
+> **still zero** — the one order that looked external was a test, and the thread
+> that inferred otherwise recorded its own correction
+> (`idea_uk_vm_site/HANDOFF_RESUME…:17`, `RUNNING_NOTES…:2764`). Caught by the
+> workstream memory index prompting a check of the source docs, not by me
+> re-reading my own draft.
+
+What survives and what does not:
+
+- **The payment code is proven.** A real Stripe transaction ran end to end —
+  checkout, webhook, signature verification, order state, delivery. That is a
+  claim about *the code*, and the buyer's identity does not touch it. Copying
+  `billing.go` remains the right move.
+- **Nothing here evidences demand.** It never did; the phrasing implied it.
+
+**And this is the most useful fact in the whole document, because it points the
+other way from the obvious plan.** idea.uk is complete, verified, working, live,
+and has sold nothing to a stranger. Its own workstream states the lesson in the
+imperative: *a product can be complete, verified and working and still never have
+completed a transaction — ask that of any site declared done.*
+
+So the argument for P1 as a demand test is not tidiness, it is the estate's most
+recent expensive lesson. **Build the shop, point real traffic at it, and find out
+whether anyone types a domain in — before building the engine behind it.** The
+failure mode to avoid is not a broken build pipeline; it is a beautiful one nobody
+buys.
 
 **The single most important line in that table** is the one that says the
 chassis-calling seam does not exist. The owner already knew. What it means for
@@ -346,14 +377,27 @@ not cosmetic, it is required.
 
 ## 7. Price, and what we are allowed to say about cost
 
-The pricing input is measurable and should be measured, not recalled. The
-canonical discipline is already written: `idea_uk_vm_site/EVIDENCE_2026-07-27_ai_unit_economics.md`
-— *the measured figure was a FLOOR covering two of five calls, and presenting it
-as a total would have been false*.
+The pricing input is measurable and should be measured, not recalled. idea.uk has
+now walked this twice and the second lap is the instructive one:
+
+1. `EVIDENCE_2026-07-27_ai_unit_economics.md` measured **$0.641** and said plainly
+   it was a **floor** covering two of five calls, not a total.
+2. **Once all five calls logged, the honest answer turned out to be a *range*, not
+   a number: `~$1.20–$1.45 depending on length`.** Output tokens are **~92% of
+   spend**, so cost tracks the **length of the artefact** — 26,264 characters
+   against the previous run's 13,227 roughly doubled it
+   (`idea_uk_vm_site/HANDOFF_RESUME…:42-43`, `RUNNING_NOTES…:3106`).
+
+**That second finding transfers directly and is the one to design around.** A
+website is a far more variable artefact than a report: a 5-page brochure site and
+a 40-page site are not the same product at the same cost. **So the price cannot be
+a single number unless the deliverable is capped** — which argues for a fixed page
+count in the offer, or tiers, rather than "we'll build you a website".
 
 Applied here:
 
-- Measure a full build from `llm_call_log` before quoting any cost or margin.
+- Measure a full build from `llm_call_log` before quoting any cost or margin, and
+  **quote a range, or cap the deliverable.**
 - Any published figure carries its **measurement date**. `claude-sonnet-5` leaves
   its introductory rate on **2026-08-31** — a 50% rise on that half of the bill,
   five weeks out.

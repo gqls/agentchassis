@@ -152,3 +152,58 @@ not exist`. The column is `display_name`. Cost one round trip; the fix is in the
 RUNBOOK so the next thread does not repeat it. This is the "schema first: `\d
 <table>` before writing SQL" rule in CLAUDE.md, skipped because the query felt
 too small to check.
+
+---
+
+## 2026-07-28 — two corrections to this file's own first entry, both from checking a memory line
+
+### 1. idea.uk has not sold anything to a stranger
+
+I wrote that idea.uk *"has taken real money"* and *"survived a real sale"*. The
+transaction was real; **the buyer was the owner**. Genuine external buyers: still
+zero. The order that looked external on 28 July was a test, and the thread that
+inferred otherwise had already recorded its own correction:
+
+```
+idea_uk_vm_site/HANDOFF_RESUME_idea_uk_vm_site.md:17
+> Genuine external buyers: still ZERO.** One order on 28 July looked external and was a …
+idea_uk_vm_site/RUNNING_NOTES_idea_uk_vm_site.md:2764
+> genuine external buyer. I inferred "external" from two pieces of circumstantial evidence — an IP …
+```
+
+**What caught it:** reading `MEMORY_workstreams.md` to add this lane's entry. Its
+idea.uk line carries the correction, so the check cost one grep. **What would have
+caught it earlier:** reading the lane's own `HANDOFF_RESUME` — which I listed as
+prior art and did not open, because I had already got what I wanted from the PLAN
+and the EVIDENCE doc. *A workstream's resume doc is where its corrections live;
+the plan is where its intentions live.*
+
+**Why it matters more than a wording fix.** The claim as written implied demand,
+and demand is the entire question this product faces. Corrected in PLAN §2a, where
+it now argues **for** the phasing rather than decorating it: idea.uk is complete,
+verified, working and has sold nothing to a stranger. That is the estate's most
+recent expensive lesson and it says *build the shop first*.
+
+### 2. The unit cost is a range, and it tracks artefact length
+
+I cited `EVIDENCE_2026-07-27_ai_unit_economics.md` — correctly, as a floor. But it
+has since been superseded by a complete measurement:
+
+```
+idea_uk_vm_site/HANDOFF_RESUME_idea_uk_vm_site.md:42-43
+> ~92% of spend, so cost tracks report *length* — 26,264 chars here vs 13,227 on 07-27, and roughly
+> double the cost. **Quote "~$1.20–$1.45 depending on length", never one number.**
+```
+
+**Output tokens are ~92% of spend**, so cost is a function of how much artefact
+gets produced. Transferred to PLAN §7 with the consequence spelled out, because
+for a *website* it bites much harder than for a report: a 5-page site and a
+40-page site are not one product at one price. **Either the deliverable is capped
+or the price is a range.** That is a product decision that has arrived from a
+measurement, which is the right direction of travel.
+
+**The general shape of both misses is the same, and it is the one in `WRONG_CALLS`
+from earlier today:** I read the documents that stated the position and not the
+one that recorded the corrections. `EVIDENCE_…` is even named as though it settles
+the matter — and it did say clearly that it was a floor, which I repeated. Being
+faithful to a superseded source is still being wrong.
