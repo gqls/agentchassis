@@ -8952,3 +8952,54 @@ that as a result rather than asking whether the instrument was connected.
 
 Family: a-clean-result-and-an-unrun-check-are-identical, vacuous-detector,
 the-verification-command-is-code-too, missing-tool-reads-as-passing-check.
+
+---
+
+## 2026-07-28 — I shipped a TEMPLATE to production and called it a page. The owner found it.
+
+**The claim.** Having changed the gauntlet's type scale, I verified brace balance,
+line count, selector presence, computed font sizes on both viewports, and no
+horizontal overflow — all green — and reported the change live and correct.
+
+**What was true.** The page was serving **32 raw `{{.placeholder}}` strings**. The
+owner saw `{{.hero_title_plain}} {{.hero_title_accent}}` where the title should be
+and sent it back with "(oops)".
+
+**The mechanism.** `RUNBOOK §10` — *which I wrote three days earlier* — says to
+write the same string to both `content_components.html_template` and
+`page_components.rendered_html`. That rule is correct **only for a component with
+no template variables**, which is what I derived it from (the Arena: 0 vars, empty
+`content_data`). The gauntlet has **27 placeholders and a populated
+`content_data`**; `rendered_html` is the template *with those substituted*.
+Copying the template over it replaced the page with its own unrendered source.
+
+**What caught it.** The owner, on the live site. Nothing I ran would ever have.
+
+**The cheap check that would have.** One command:
+`curl -s "<url>?cb=$(date +%s)" | grep -c '{{\.'` → expect 0. It is now RUNBOOK
+§11, with the discriminating query (count `{{.vars}}` before copying) and the
+substitution recipe.
+
+**The real lesson, which is bigger than the rule.** **Every check I ran was on the
+change I had MADE.** Font sizes — the thing I changed. Braces and line count — the
+integrity of the thing I changed. Overflow — the consequence of the thing I
+changed. Not one of them asked whether the page still did its own job. **A diff
+proves what you changed; it cannot tell you what you destroyed.** After any
+delivery, assert something the change was NEVER ABOUT: that the page still renders
+its own content, still serves 200, still completes its journey.
+
+**Aggravating, and worth stating plainly:** I had spent the previous two days
+logging four separate "checks that could not fail" and writing that *an assertion
+that cannot fail is not an assertion*. This is the inverse and it is worse — a
+suite of assertions that all COULD fail, all passed, and all pointed the same
+wrong way. Comprehensiveness within the blast radius of your own edit is not
+coverage.
+
+**Also:** I generalised a runbook rule from a single instance (the Arena) and did
+not mark it as such. The rule was true of the case it came from and false of the
+next one. *Check: when writing a rule from one example, state the property that
+made the example work — here, "the component has no template variables" — so the
+next reader can tell whether they are in scope.*
+
+Family: verified-only-what-i-touched, a-rule-generalised-from-one-instance,
+the-owner-as-the-last-line-of-defence.
