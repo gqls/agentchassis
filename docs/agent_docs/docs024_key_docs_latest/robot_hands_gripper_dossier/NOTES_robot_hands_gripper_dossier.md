@@ -812,3 +812,193 @@ whose intersection with the proposed config table is **the empty set**.
 
 **What generalises is the pipeline, not the scorer** — and four of the five
 actions are already in that layer.
+
+### Round 2 of council `721ac4f7` — and a correction to the handoff that set it up
+
+**2026-07-28, later.** Resubmitted on the same correlation (`RESUBMIT_CORR`), six
+edits unchanged, everything new in the rationale and evidence.
+
+> **CORRECTED: the handoff's §4 named the wrong objection as gating.**
+> `HANDOFF_2026-07-28_continue_here.md` said the gating objection was the
+> DECLARED CONTRACTS one — `report-builder` having `input_contract`/
+> `output_contract` NULL — and framed the whole next task around declaring them.
+> It is not. `council_decide.decided_by` reads *"gating objection from
+> bug_historian"*, and bug_historian's only **high** is on edit 3 and is about
+> **enforcement**: *"the plan never establishes what the CALLER does with those
+> violations… if logged/recorded but not used to block report delivery, this is
+> exactly the documented shape in bugs_open/079 and bugs_open/083."*
+> The contracts concern is real but **medium**, raised by `guidelines` (×2),
+> `prior_art` and `guardian`. Caught by reading `decided_by` and then every
+> seat's own objection severities instead of trusting the handoff's prose.
+> **The cheap check that would have caught it at write time:** one query —
+> `SELECT k, collected_data->k->'result'->>'verdict', <severities> FROM …
+> jsonb_object_keys(collected_data) k WHERE k LIKE 'review\_%'` — which prints
+> all ten seats in one row each. Had I resubmitted to the handoff's brief I
+> would have answered four mediums and left the high untouched.
+
+**Seat map, round 1** (10 reviewers, 6 abstained): bug_historian `object`
+high:edit3 + low:edit4 · guardian `object` medium:edit2 + low:edit3 ·
+guidelines `object` medium:edit2 + medium:edit3 · prior_art `object`
+medium:edit2 · debug_historian `approve` medium:edit0 · editquality `approve`
+low:edit1 + low:edit6 · constitution / diagnosis_guardian / mission /
+reuse_agent `approve`, clean.
+
+**The enforcement answer (bug_historian, high).** Three parts, all read rather
+than argued, and the conclusion is that enforcement already existed:
+
+1. `verify_report_prose_action.go:135-139` returns `(nil, error)` — the
+   violations are the error text. The `logger.Warn` on :136 is incidental to
+   the `return` on :137.
+2. `coordinator.go:3350-3363` `routeToErrorStepOrFail`: step-level `error_step`
+   first, config-level second, **and `failWorkflow` if neither**. There is no
+   branch on which a failed step proceeds to its `next_step` — the engine is
+   fail-CLOSED by default.
+3. Live wiring: `verify_prose` has `config.error_step=handle_failure`,
+   `next_step=compose_page`, and `compose_page` is the **only**
+   `create_report_page` step in the fleet. A violation goes
+   `handle_failure → publish_failed → fail_out (fail_workflow)`; no page.
+
+So this is the **inverse** of `bugs_open/079` (repair computed, then discarded
+at save): here the return value *is* the control-flow signal.
+
+**LANDMINE, and it nearly reversed my own reading.** My first pass queried
+`s.value->>'error_step'` and got NULL for **every** step in report-builder — it
+reads exactly like "no error routing configured anywhere", which would have made
+bug_historian right. `error_step` lives at `s.value->'config'->>'error_step'`.
+This is already in **016b** (§ at line ~663, and the census at ~4890: *0 of
+14,209 persisted plan steps carry the step-level twin vs 1,828 carrying
+`config.error_step`*) — so the trap was written down and I walked into it anyway
+by querying the field name I expected rather than the one that persists. Not
+filed again; cite 016b.
+
+**The contracts answer (guidelines/prior_art/guardian, medium).** prior_art put
+it best — *"a shape-check that was skipped, not merely an omission"* — so I did
+the shape-check, and the named mechanism does not fit this boundary:
+
+- `input_contract` has **one** runtime reader: `call_agent.go:1005-1011`, under
+  *"PRIORITY 1: Check for new explicit input_mapping"*. It validates the payload
+  sent **to a target agent type** — an agent-to-agent call boundary.
+- `score` / `write_prose` / `verify_prose` are plain actions with **no**
+  `input_mapping` and no target agent; they pass data via `output_field:
+  scoring` → dotted `scoring_field: "scoring"` in `collected_data`.
+  `ValidateInputContract` is **structurally unreachable** on this path.
+- Declaring it there would also be **false**: report-builder's `input_contract`
+  says what a *caller of report-builder* supplies, and `prose_sections` is
+  produced *inside* the workflow by `score`.
+- **`output_contract` has zero readers, runtime or offline.**
+  `workflow_validator/main.go:31` unmarshals it and nothing reads it;
+  `validateOutputContract` (:637) never mentions `agent.OutputContract`,
+  checking only `complete_workflow`'s `output_fields` against produced fields.
+
+**Measured, not assumed** (the "~0% adoption measures the MECHANISM" habit):
+of **182** active non-snapshot `agent_definitions`, **95** have `input_contract`
+and **94** `output_contract` — so the columns are in real use and *"nobody uses
+it"* was **not** available as a defence. Of those 95, **91** carry the runtime
+`{required:[…]}` shape; the offline validator's own `InputContract.Expects` map
+(`main.go:35`) appears in **none** of them, so `validateInputContract`
+early-returns at `:611` for every live row. Two shapes, one column.
+
+**[GAP — recorded, not closed]** The platform has a declaration point for
+agent-call inputs (`input_contract`) and one for an action's step-config keys
+(`datahelpers.ActionInputSpec`), and **neither covers keys inside a payload
+handed from one action to another inside a single workflow** — which is exactly
+what `prose_sections`/`no_match_sentence` are. I did **not** invent a third
+mechanism: that is an architecture-scope change and this is a bug patch, which
+is precisely the precedent CLAUDE.md now records against `bugs_closed/124`.
+Named in the submission's `risks` so no reviewer has to infer it. Belongs at
+architecture review on its own merits.
+
+**editquality's edit-1 symbol.** Confirmed **correct and kept**, not changed:
+`scoreGrippers` (:636) → `assessGripper` (:652 call, :580 decl) → `assessPayloadRated`
+(:588 call, :505 decl), where the guard lives. A two-hop delegation was the
+"structural relationship" the seat asked to see; the handoff's instruction to
+"fix the symbol field" would have introduced an error.
+
+**debug_historian's post-roll objection: discharged.** Re-verified myself rather
+than repeating the handoff's table — v1.0.1194, **both** replicas
+(`…-7p6d8`, `…-rxb52`, started 20:48Z): `carries no prose_sections` 1,
+`carries no no_match_sentence` 1, positive control `No gripper in this index` 3,
+negative control `nonexistent_marker_xyz` 0. Identical on both. The round-1
+`risks` text calling the change "INERT until a chassis roll" is now stale and was
+**withdrawn in the resubmission** rather than left standing.
+
+Fleet-wide sole-consumer claim re-verified without a `LIKE` match this time:
+a `jsonb_each` over every live workflow returns exactly three step rows for the
+three actions, all `report-builder`.
+
+### Round 2 verdict: **APPROVED** — and what actually moved
+
+**2026-07-28 21:43Z**, run `75787940`, ~4 minutes end to end (the queue was clear
+by the time it fired; round 1's 30-minute budget did not apply).
+`decided_by`: *"approved with 1 advisory objection(s) — none high-severity"*.
+Trailer id is the **submission correlation**, `721ac4f7-2076-4fea-9242-b234cfe648d6`.
+
+Seat movement, round 1 → round 2 (same 10 seats, 6 abstained both rounds):
+
+| seat | round 1 | round 2 |
+|---|---|---|
+| `bug_historian` | **object** — high:edit3 (enforcement), low:edit4 | **object** — medium:edit4 only |
+| `guidelines` | object — medium:edit2, medium:edit3 | **approve, clean** |
+| `guardian` | object — medium:edit2, low:edit3 | **approve, clean** |
+| `prior_art` | object — medium:edit2 | **approve** — low:edit3, low:edit0 |
+| `editquality` | approve — low:edit1, low:edit6 | **approve, clean** |
+| `debug_historian` | approve — medium:edit0 | **approve, clean** |
+| constitution / diagnosis_guardian / mission / reuse_agent | approve, clean | approve, clean |
+
+**Nothing in the plan changed except its evidence.** Same six edits, same
+sketches. Four seats moved to clean on reading — which is the honest read of what
+round 1 was actually objecting to: not the change, the *unproven claims around
+it*. The high did not survive contact with `coordinator.go:3350-3363`.
+
+**The three residual advisories, none blocking, two of them owed:**
+
+1. **`bug_historian` medium:edit4 — [ANSWERED HERE, worth carrying to any resubmit
+   that cites it].** It asks whether this file was one of `bugs_closed/076`'s
+   *"113 unguarded call sites"* and whether 076 produced a shared safe-extraction
+   helper this fix should reuse. Checked, and the premise does not hold two ways:
+   - **076 is a different mechanism.** It is about steps that *tolerate a
+     truncated LLM response* (`tolerate_truncation`, opt-in, default false), not
+     about bare type assertions on an LLM-parsed map. There is **no shared
+     safe-extraction helper** to reuse — `grep` for `safeString|SafeString|
+     safeExtract|SafeExtract` across `platform/orchestration/` returns nothing.
+     076's fix was `truncation_guard.go` + `diagnose_council_decide_action.go`.
+   - **The "113" is a figure 076 itself struck through.** Its own correction:
+     *"CORRECTED 2026-07-26 — the title and the headline measurement are both
+     wrong… There are not 113 unguarded call sites. Those 113 steps do not
+     tolerate truncation at all"*, restated as **"37 of 118, not 113 of 118."**
+     The seat quoted the file's *title*, which the file's body retracts.
+   - And this file is already an **adopter** of 076's actual mechanism —
+     `verify_report_prose_action.go:101-117` is the truncation guard, and
+     `truncation_guard.go:38` lists `verify_report_prose` explicitly.
+
+   So edit 4 is a genuinely separate class from 076. **What the seat is still
+   right about**, and this part is not answered: whether bare `.(string)` on
+   LLM-parsed maps recurs elsewhere unaudited is an open question nobody has
+   measured. **[UNMEASURED]** — not filed as a bug, because a count is needed
+   before it is a claim.
+
+2. **`prior_art` low:edit3 — OWED, and it is the right ask.** The gap claim (no
+   mechanism covers action-to-action `collected_data` contracts) is *"load-bearing
+   for the decision not to declare prose_sections/no_match_sentence anywhere…
+   evidenced with file:line citations rather than bare assertion, which is the
+   right shape, but I have not independently confirmed it and it deserves one
+   round of verification before it hardens into precedent for future plans that
+   cite this one."* Exactly right, and precisely the failure mode this estate keeps
+   paying for. **Nobody should cite this round's contracts argument as settled
+   precedent until a second reader has walked `call_agent.go:1005-1011` and the
+   `output_contract` grep.**
+
+3. **`prior_art` low:edit0 — a correct piece of epistemic hygiene, no action.**
+   It notes the council has **no check tier that can reproduce a pod-grep**, so
+   its approval must not be read as independent confirmation that v1.0.1194 is
+   live. It isn't; mine is the only evidence, and it is in the NOTES above with
+   both controls and both replicas.
+
+**Method note worth keeping.** Round 1 read as "the council disliked the change".
+It did not — it disliked four *unevidenced assertions*, three of which I could
+settle by reading code I had never opened, and one of which (enforcement) I had
+asserted in a **file header comment** without checking the engine underneath it.
+`verify_report_prose_action.go:20-22` still says violations route *"so the
+workflow's error_step routes to the failure path"*, which is true for this
+workflow and under-states the engine — absent an `error_step` it fails outright.
+A comment describing the configured case as if it were the only one.

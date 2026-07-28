@@ -269,3 +269,61 @@ we'd otherwise end up with two of each.
 
 I've switched the lane off again now the tests have run. The two pages are left
 up for you to read; say the word and I'll clear them out.
+
+---
+
+**28 July, later that evening.** The review board came back approving the
+gripper honesty fix. It's worth telling you how, because the interesting part
+isn't the approval.
+
+When the board looked at it the first time it said "revise", and the note I left
+myself for the next session said the sticking point was a paperwork one — some
+fields we'd added weren't formally declared anywhere. I picked the work up
+tonight, went and read the board's actual record rather than my own summary of
+it, and my summary was wrong. The reviewer who blocked it was blocking for a
+completely different reason, and a much better one. It asked: you've built a
+gate that spots a dishonest report — but does anything actually *stop* the
+report? Or does it just make a note and carry on? It pointed at two of our own
+open bugs where exactly that had happened before.
+
+That is the right question to ask us, and I couldn't answer it from memory. So I
+went and traced it. The gate refuses, and the refusal is a real refusal: the
+engine's default when a step fails is to stop, and the step that builds the page
+sits directly behind the gate, so a failed check can never reach it. It's the
+opposite of the bug it was being compared to. I could show that in three
+places rather than assert it.
+
+Two things I want on the record because they're the sort of thing that quietly
+costs you money later. First, my note to myself would have sent tonight's
+session off answering the wrong objection entirely — I'd have done a tidy piece
+of paperwork and the real question would have gone untouched, and we'd have
+burned another review round finding that out. The lesson is small and dull:
+don't summarise a verdict, quote it. I've written that up properly.
+
+Second, the same note told me to "fix" a function name in the submission that
+turned out to be correct already. Had I followed my own instructions I'd have
+introduced a mistake into something a reviewer had merely asked me to *confirm*.
+
+On the paperwork point that I'd originally thought was the blocker — I did go
+and look at it properly, and the answer is that the mechanism people kept
+pointing at doesn't fit this case. It's designed for one agent calling another;
+ours is two steps inside a single job passing notes to each other. Half of it
+isn't even read by anything: one of those two columns has no reader anywhere in
+the codebase, which I checked rather than assumed. I said so plainly in the
+submission instead of quietly declaring something untrue to make a warning go
+away, and the three reviewers who'd raised it all withdrew.
+
+There is a real gap underneath it — we have no way to declare "this step hands
+that step these fields" — but inventing one inside a bug fix is precisely the
+mistake we agreed to stop making, so I've written it down for a proper
+architecture discussion rather than smuggling it in.
+
+One reviewer left a caution I want to pass on rather than bury: my claim about
+that gap is now the reason we're *not* doing something, and it hasn't been
+independently checked by anyone but me. It asked that someone verify it before
+it gets treated as settled. That seems right, and I've flagged it so the next
+person doesn't inherit it as fact.
+
+Nothing about the change itself moved between the two rounds. Same fix, same
+six edits. All that changed is that four claims I'd made were replaced by
+evidence. That's a fair description of what the board is for.

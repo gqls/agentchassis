@@ -79,6 +79,29 @@ under a second. **It found the defect on its first real run.**
 `bug_historian`, no veto. **The commits carry no `Council-Reviewed:` trailer and
 must not gain one.**
 
+> **CORRECTED 2026-07-28 (next session) — this section named the WRONG objection
+> as the gating one, and the remediation below was built on it.** The seat is
+> right and the rest is not. `bug_historian`'s only **high** is on **edit 3** and
+> is about **ENFORCEMENT**: *"the plan never establishes what the CALLER does with
+> those violations… if logged/recorded but not used to block report delivery,
+> this is exactly the documented shape in `bugs_open/079` and `bugs_open/083`."*
+> The DECLARED CONTRACTS concern below is real but **medium**, and came from three
+> OTHER seats (`guidelines` ×2, `prior_art`, `guardian`). This paragraph fused the
+> gating seat's *name* to a different seat's *content*.
+>
+> Caught by printing all ten seats' verdicts + severities in one query rather than
+> trusting this prose. Had round 2 followed the brief as written it would have
+> answered four mediums and left the high untouched. **`decided_by` names the
+> SEAT, not the objection** — full entry in `WRONG_CALLS.md` (2026-07-28).
+>
+> **Answered in round 2, resubmitted on the same corr:** enforcement already
+> exists — the action returns `(nil, error)` (`verify_report_prose_action.go:135-139`),
+> the engine is fail-CLOSED when no `error_step` exists (`coordinator.go:3350-3363`),
+> and `verify_prose`'s `config.error_step=handle_failure` diverts away from
+> `compose_page`, the fleet's only `create_report_page` step. It is the **inverse**
+> of the 079 detect-then-discard shape. Evidence and the contracts read:
+> `robot_hands_gripper_dossier/NOTES_…` §"Round 2 of council 721ac4f7".
+
 **The objection, and it is fair:** the change introduces `prose_sections` and
 `no_match_sentence` as **cross-step contract fields**, and the council's own
 read-only check found that `report-builder` has **`input_contract` NULL and
@@ -94,6 +117,12 @@ accumulates):
 2. Fix edit 1's `symbol` field: it said `assessPayloadRated` while the
    `grounded_in` quote came from `scoreGrippers`. `editquality` flagged it LOW and
    only wanted the structural relationship confirmed.
+   > **CORRECTED 2026-07-28 — do NOT "fix" it; the symbol was already right.**
+   > `scoreGrippers` (`:636`) → `assessGripper` (`:652` call, `:580` decl) →
+   > `assessPayloadRated` (`:588` call, `:505` decl), and the guard lives in
+   > `assessPayloadRated`. The seat asked for the relationship to be *confirmed*,
+   > not corrected — following this instruction would have put an error into the
+   > plan. Round 2 keeps the symbol and states the two-hop chain instead.
 
 **The council verified two of my claims for me** — worth knowing they hold:
 `report-builder` is the *only* consumer of `verify_report_prose` and the *only*
