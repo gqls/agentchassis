@@ -327,7 +327,7 @@ enough, and whether the seat's prompt is simply over-long for any sane cap.
 to the shared review apparatus every thread submits through, so it is an owner
 call, not a 21:00 unilateral edit.
 
-### APPLIED 2026-07-28 21:55Z — owner chose "raise editquality only" (8000 → 16000)
+### APPLIED 2026-07-28 21:43:00Z — owner chose "raise editquality only" (8000 → 16000)
 
 `review_editquality` is one of the two `ALWAYS_ON` seats
 (`099_SYNC_gate_roster.py:48` — `{"review_editquality", "review_guardian"}`),
@@ -384,7 +384,7 @@ council round has run since. The change is only proven when a round shows
 SELECT created_at, success, output_tokens, max_tokens,
        left(error_message, 60)
 FROM llm_call_log
-WHERE step_name='review_editquality' AND created_at > '2026-07-28 21:55Z'
+WHERE step_name='review_editquality' AND created_at > '2026-07-28 21:43:00+00'
 ORDER BY created_at DESC;
 ```
 
