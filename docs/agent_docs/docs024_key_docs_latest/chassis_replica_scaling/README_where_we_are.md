@@ -249,3 +249,34 @@ it exists, four hours is still too slow to be an alarm), and the one
 remaining piece of the publishing collision story — the deploy pipeline
 mis-reading merge commits — stays open in the bug ledger for whoever owns
 it next.
+
+---
+
+2026-07-28, end of day — the whole programme you approved this morning is
+live, and it earned its keep before dinner.
+
+Replies now go through the worker pool too; the safety guard proved both of
+its behaviours in a controlled test (it held a live claim, it recovered a
+dead one); and with your yes this afternoon the chassis now runs two copies
+— which quietly fixes something else: a deploy no longer stops the world,
+because one copy keeps working while the other restarts. The council-in-its-
+own-pod idea that was written off as broken completed its first attempt
+since the reply fixes went in — its owner can take it from here.
+
+Two honest wrinkles from the afternoon. First, running the new machinery
+hard exposed a hole in my own design within ninety minutes: work abandoned
+by a dying pod could sit invisible forever, because the recovery only looked
+at work not yet started. Two real jobs from lunchtime were stuck exactly
+that way. One line fixed it, the reviewers approved it, and both stuck jobs
+ran to completion two and a half hours late instead of never — which is the
+system working as intended: found by operating it, fixed the same hour,
+proven on the real casualties. Second, when the AI budget came back
+mid-afternoon (thank you), both outstanding reviews passed — so everything
+that shipped today now carries an approval.
+
+The scoreboard for the day, one line: nought-of-five in twelve minutes at
+breakfast; five-of-five in twenty seconds, on two pods, by tea. What's left
+is written up as a fresh SUMMARY in this folder — short version: the next
+bottlenecks are the dispatch gate's one-site-per-tick (handed to its owner
+with sizing numbers) and the one-at-a-time adapters, and the remaining items
+on this programme are efficiency polish, not correctness.

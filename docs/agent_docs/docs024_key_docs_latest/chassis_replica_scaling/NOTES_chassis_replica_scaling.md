@@ -452,6 +452,56 @@ was reviewed inside CS-2's approved plan.)
   `087_towards_multiple_domains` (another session; 087 is a strict superset —
   verified all this workstream's commits are ancestors of the new HEAD).
 
+## 2026-07-28 late afternoon — Phase 3 + Phase 4 LIVE; CS-1's induced pair fired; Candidate 4 completed; CS-2d found-and-fixed the orphaned-running hole; both new councils APPROVED
+
+**Phase 3** (`worker_pool_all`): flipped after the vacuous-marker check (the
+`worker_pool_all` const does NOT grep in any binary — Go prefix-merges it;
+the zap literals are the real discriminators; control: my own 1186 showed 0
+while running worker_pool). Verified: `responses_via_pool:true`,
+response-kind intake events flowing, control COMPLETED.
+
+**CS-1 induced pair: BOTH branches fired live** via awaited_requests fixtures
++ crafted kcat responses — 14:58:20 `CLAIM_RECOVERY_STALENESS_HELD` (fresh
+claim held; end-state still owned by `induced-live-holder`), 14:58:33
+`CLAIM_RECOVERY` (stale claim reset and re-claimed by the real pod).
+Fixtures deleted after. Discharged AHEAD of its Phase-4 trigger.
+
+**Candidate 4 wrapper: COMPLETED on its first post-fix attempt** (corr
+`dd30cb5c…`) — spawn fired, child booted, `call_council` received the
+response. Same path failed "timed out after 3 retries" on 07-27 and ~half of
+history. Contributed to 096; the 097 default flip stays their owner's call
+after more runs. (The spend cap made the test free — the child's seats
+failed instantly; the cap lifted ~15:05 per the owner, and councils work
+again.)
+
+**Phase 4: replicas=2, owner-consented, LIVE.** The intake layer changed the
+maths: claims CAS coordinates workers ACROSS pods, and the intake UNIQUE
+(topic,partition,offset) dedupes the response broadcast between per-pod
+groups — so scaling was config-only; CS-3's shared group is now an
+efficiency refinement, not a correctness prerequisite. Two-pod burst: **5/5
+in 20.6 s**. Observation, not a defect: at low volume pod 1 wins every claim
+(its ingest→claim latency beats pod 2's 750 ms poll grid); distribution
+appears under sustained load — and the CS-2d recovery below DID execute on
+pod 2 while pod 1 worked, proving cross-pod claiming works when work is
+visible.
+
+**CS-2d — the pool's first operational defect, found live 90 min after
+enablement, fixed same hour, council-APPROVED (round 4 under `9f0499b9…`).**
+Two intake events (211/212, requests from 13:53) sat `running` under a dead
+pod's expired claims forever: the pending-only CandidateKeys never surfaced
+a key with no pending siblings, so the takeover reset was unreachable
+precisely for the case it existed to serve. One-line widen to
+`status IN ('pending','running')` (live holders stay excluded by the lease
+NOT EXISTS); tripwire pins both predicates together. **Recovery verified on
+v1.0.1190: both orphans re-ran at 16:35:01, attempts=2, done — 2.5 h late
+instead of never — with exactly 2 `INTAKE_TAKEOVER_RESET` lines on pod
+sqdzd.** The 10-burst that exposed it: 3 of 10 publishes were the kcat drop
+trap (zero intake rows — instrument, not platform); all 7 that arrived
+COMPLETED.
+
+**Git-adapter re-review: APPROVED** (corr `bf2bef0a…`, 15:13, after the cap
+lifted). Trailer recorded in this commit series.
+
 **Owed and explicitly deferred, with triggers:**
 - CS-1's induced live tests (duplicate response → `STALENESS_HELD`; stale
   claim → `CLAIM_RECOVERY` still fires). The guard is live and
