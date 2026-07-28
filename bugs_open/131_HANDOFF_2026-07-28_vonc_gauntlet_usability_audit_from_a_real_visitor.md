@@ -57,7 +57,7 @@ also its background token has this fault latent. Worth a fleet grep for
 
 ---
 
-## B. Content bleeds off-screen on mobile — and `no_horizontal_overflow` CANNOT detect it [MEDIUM, structural]
+## B. Content bleeds off-screen on mobile — and `no_horizontal_overflow` CANNOT detect it [MEDIUM, structural] — PAGE-SIDE FIXED, CHECK-SIDE OPEN
 
 Measured live, Chromium, four widths:
 
@@ -73,9 +73,28 @@ expression is exactly what the platform's `no_horizontal_overflow` acceptance
 check computes — **so the check passes on a page whose content is visibly cut off**.
 It detects *page scroll*, not *content overflow*, and those are different faults.
 
-**Fix (two parts):**
-1. The pages: `.brief-explanation__text-col` and the about-page table need
-   `max-width:100%` / a scroll container of their own.
+> **ROOT CAUSE FOUND, and the homepage half WAS mine.** Raising
+> `--font-size-base` 16→20px the same morning scaled every **rem-based padding**
+> by 25% as a side effect. `.brief-explanation-section`'s side padding went
+> 64px→80px EACH SIDE, squeezing its container 262px→230px while its grid track
+> stayed 437px. **Proven causal with a reversible toggle:** forcing the root back
+> to 16px takes over-wide elements 14→0; back to 20px returns it to 14.
+> **The type scale and the gutter are different decisions and must not be welded
+> together** — that is the transferable lesson, and it applies to every site whose
+> stylesheet expresses gutters in `rem`.
+
+**FIXED page-side and live 2026-07-28** (homepage): mobile gutters capped and
+`min-width: 0` added so a grid child can shrink below its content's intrinsic
+width. Measured at 360/390/414px: **over-wide 14 → 0**, text column 112%
+(overflowing) → 89–90%. Item D fixed in the same pass: the gauntlet's readable
+column 74% → **83%**.
+
+**A wrong turn worth recording:** my first attempt also added `0.75rem` padding
+to `.gi-container`, which already had **zero**. That NARROWED the column 74%→71%
+— the opposite of the goal. Caught by measuring after, not by reasoning before.
+
+**STILL OPEN:**
+1. `/about.html`'s 560px table — untouched, needs its own scroll container.
 2. **The check**: `no_horizontal_overflow` should also assert no element's
    `getBoundingClientRect().right` exceeds the viewport. One extra clause; it
    would have caught both pages. This is fleet-wide and worth more than the two

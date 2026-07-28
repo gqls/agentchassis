@@ -676,3 +676,29 @@ body .hero-content { max-width: 1125px; }   /* was 900px  (+25%) */
    to (0,2,1), which wins. Measured, not assumed: the (0,1,1) version left the
    width at 820px. */
 body .provocation-card-section .pc-container { max-width: 1025px; }   /* was 820px  (+25%) */
+
+/* ── Mobile gutters must NOT track the type scale ─────────────────────────────
+   Raising --font-size-base 16px -> 20px on 2026-07-28 scaled every rem-based
+   padding by 25% as a side effect. On a 390px screen the brief-explanation
+   section's side padding went 64px -> 80px EACH SIDE, squeezing its container
+   from 262px to 230px while its grid track stayed 437px — so content ran off
+   the right edge. Proven causal: forcing the root back to 16px takes the count
+   of over-wide elements from 14 to 0, and back to 20px returns it to 14.
+
+   The type scale and the gutter are different decisions and must not be welded
+   together. These caps are in rem deliberately SMALL, and the min-width:0 is
+   what actually lets a grid child shrink below its content's intrinsic width.
+   bugs_open/131 items B and D. */
+@media (max-width: 640px) {
+  body .brief-explanation-section { padding-left: 1rem; padding-right: 1rem; }
+  body .brief-explanation__container,
+  body .brief-explanation__text-col { min-width: 0; max-width: 100%; }
+
+  /* D: the readable column was 288px of 390px (74%). The panel's own 30px
+     gutters are most of the loss — and they were 24px before the type bump. */
+  /* MEASURED, not assumed: .gi-container already has ZERO horizontal padding,
+     so adding any here NARROWS the column. A first attempt at 0.75rem took the
+     text from 74% to 71% — the wrong direction. Only the panel's own gutter is
+     worth reclaiming. */
+  body .gauntlet-interface-section .gi-challenge-body { padding-left: 0.6rem; padding-right: 0.6rem; }
+}
