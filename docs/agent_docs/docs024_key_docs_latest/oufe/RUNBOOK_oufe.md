@@ -327,3 +327,71 @@ Chromium and writes an `acceptance-run` doc note.
   per URL — a single-page tool is testable, a multi-page journey is not.
 - A Tier-2 static pass can confirm a selector exists but can never refute one.
   "The tool works" is a Tier-4 claim only.
+
+## 9. Rendering a component you have LOCKED (the trap that follows from locking)
+
+`save_page_sections` **preserves** locked rows rather than rendering them
+(`loadActiveLockedRows`, `save_page_sections_action.go:697`; a row is
+agent-writable only if unlocked or on an expired timed lock). So a row inserted
+WITH a permanent lock and an empty `rendered_html` renders as **nothing, for
+ever**, and the page still reports success. Locking at insert time is the natural
+thing to do and it is the wrong order.
+
+Two ways out. Either lock after the first successful render, or write
+`rendered_html` by hand in the same statement — the migration-182 pattern. When
+writing it by hand, render the component's OWN template rather than
+reimplementing it, or the stored HTML drifts from what the renderer would emit:
+
+```bash
+# pull the template and the data, then execute them with Go's html/template
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+  "SELECT html_template FROM content_components WHERE name='<component>';" > tmpl.html
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc \
+  "SELECT pc.content_data FROM page_components pc JOIN pages p ON p.id=pc.page_id
+   WHERE p.name='<page>' AND pc.slot_name='<slot>';" > data.json
+go run render.go tmpl.html data.json "<component-id>" > out.html   # see NOTES 2026-07-28
+```
+
+Then check the render before storing it: `grep -c '{{' out.html` must be **0**.
+A template referencing a function that is not in the render funcmap fails to
+PARSE rather than degrading — `inc` and `add` are NOT registered (the only
+FuncMaps are `render_css_from_spec_action.go:238` and
+`compute_component_quality.go:354`), so use a CSS counter for numbering.
+
+**Check the locks on the OTHER sections before any re-render.** On this site the
+Thames prose was 7,896 bytes of grounded, audited content sitting unlocked on a
+`rebuild_policy='generic'` page, one re-render away from being regenerated.
+
+## 10. `TRIGGER_rerender_page.sh` — the empty-reason trap
+
+`REASON="${3:-section_data_resolved}"` uses `:-`, which treats an **empty string
+as unset**. Passing `""` to get assemble-only silently gives you
+`section_data_resolved` instead. The run prints the reason it actually used —
+read that line, do not assume:
+
+```
+corr=... page=thames-water (...) domain=oufe.com reason=section_data_resolved nulls=0
+```
+
+## 11. Running claimscan against a live site
+
+The scanner takes the register and a TSV of base64 component HTML. `encode(...)`
+wraps base64 at 76 columns and the TSV is line-delimited, so the newlines must be
+stripped or every component after the first line is truncated:
+
+```bash
+kubectl -n ai-persona-system exec -i postgres-clients-0 -- psql -U clients_user -d clients_db -tAc "
+SELECT p.name||E'\t'||pc.slot_name||E'\t'||replace(encode(convert_to(pc.rendered_html,'UTF8'),'base64'), E'\n','')
+FROM page_components pc JOIN pages p ON p.id=pc.page_id
+WHERE p.site_id='<site>' AND pc.rendered_html IS NOT NULL;" > components.tsv
+
+kubectl ... -tAc "SELECT data::text FROM site_specs
+  WHERE site_id='<site>' AND aspect='evidence_base' AND is_current;" > evidence.json
+
+go run ./cmd/claimscan -evidence evidence.json -components components.tsv
+```
+
+It exits non-zero on findings, so `EXIT=$?` after a pipe reports the pipe's last
+command and not the scan. Confirm the component you care about is in the list it
+prints, because a component with NULL `rendered_html` is silently absent from the
+scan rather than reported as unscanned.
