@@ -551,3 +551,46 @@ describes the codebase as it stood on 24 July, because it can only ever mirror w
 has been pushed, and roughly 955 commits have not been. Today's deploy does not
 touch that. Every automated review is reasoning about a fortnight-old tree while
 being told the index is fresh. It needs a push, and that's your call.
+
+---
+
+**2026-07-28, evening.** The markdown work has been through six rounds of council
+review and I've just split it in two. That needs explaining, because six rounds
+sounds like a plan going badly and it wasn't quite.
+
+Every round found something real. Three of them found things that would have
+shipped broken: a file pattern that would have indexed 28 of the wrong documents
+and missed all 110 of the right ones while reporting success; a safety check I'd
+written that only guarded the new half of the table and left the bigger, older
+half exposed to exactly the failure it was written to prevent; and — the one I
+find hardest to write down — a "durable record" fix that couldn't have worked at
+all, because the table I proposed writing to requires a site ID and the thing
+doing the writing has no site. That was pseudocode for an impossible row, and I'd
+written it one round *after* being told that logging alone wasn't good enough.
+
+But the reason I've split it is a different observation. Looking at the six rounds
+together: **all six objections in the last round were about a helper I invented in
+that same round.** None was about markdown indexing, which nothing has objected to
+since round four. What happened is that a safety concern got raised, I fixed it
+inside this plan, the fix needed a supporting mechanism, that mechanism needed
+another, and each addition became new surface for the reviewers to find fault
+with. The plan had quietly acquired a second change, and the second change was
+doing all the arguing.
+
+So the safety fix is now its own bug file, and it carries everything those rounds
+worked out — including the dead ends, which are the expensive part. The markdown
+change went back on its own.
+
+The thing I'd want you to take from this: **the reviewers were right every single
+time, including the times it was tedious.** One objection was only that I'd used a
+remembered number rather than computing one — and computing it showed the number
+had been wrong in four consecutive submissions, by about double. Nobody checked
+the figure; someone questioned how I'd arrived at it.
+
+**One genuine problem on the platform's side.** One of the reviewers was silently
+missing from three of the six rounds — its output failed to parse and its verdict
+was simply dropped, with nothing in the result saying so. When it finally came
+back it immediately raised the most serious objection of the whole sequence. So
+for three rounds I was being reviewed by a council I believed was complete and
+wasn't. That's logged as a known bug; it isn't mine to fix, but it cost real
+review quality here and it will be costing it elsewhere.
