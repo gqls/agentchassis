@@ -747,3 +747,78 @@ is a correction to the claim in `SUMMARY_2026-07-28` that write-time validation 
 `[LIMITATION, stated]` This was a **local** run — the bind and verify actions are committed and
 registered but **not deployed and not called by any workflow**, so nothing has yet gone through
 the real orchestration path. What is proven is the machinery and the entry, not the wiring.
+
+---
+
+## 2026-07-28d — the approval seat exists, and it ruled
+
+The lifecycle's first gate is built and live: `experience-approval-council` (migration **259**),
+five seats, reviewing the entry **as stored** rather than the harvest file — a verdict has to
+attach to what is actually in the register. It records a verdict and **cannot change the entry**;
+nothing in the lane can write `approved`. Applying a verdict is a separate action, deliberately
+unbuilt, so the council could be run and read before being given power.
+
+Seats, each from something that actually went wrong here this week rather than from a category:
+`observable_outcome`, `honesty` (**hard veto**), `checkability`, `deferral_honesty`, `prior_art`.
+Decision uses the **same** `diagnose_council_decide` the code council uses — a second decision rule
+would drift and then disagree while sharing a vocabulary.
+
+### Verdict on `feed-driven-teaser-list`: REVISE
+
+Corr `ec91c7e4-1b2c-4329-be19-4231cdfa553b`. **5 reviewers, 0 abstained, 0 unreadable**, decided by
+a gating objection from checkability. Twelve objections across four seats; the findings that matter:
+
+- **prior_art [high]** — the entry **restates the `no-inert-control` invariant verbatim in local
+  terms, three times over, instead of referencing it**, and its `requires_invariant` is empty. That
+  is precisely the drift the invariants table exists to end. I had worked on this entry for three
+  days and missed it.
+- **checkability [high]** — the `must_not` list has three items (no href, no tabindex, **no
+  activation handler**); the check covers two. *"A row silently becoming clickable via JS is exactly
+  the dead-control defect this workstream exists to catch, and one third of it is unaddressed and
+  undeclared."*
+- **checkability [medium]** — the degraded-state clause has **no check and no deferral note**: a
+  silent gap, not a declared limitation. Same for "stay hidden" and the hide-the-slot clause.
+- **deferral_honesty [high]** — *"the component's entire reason for existing — the openable/inert
+  split — has zero executable coverage."*
+- **deferral_honesty [medium]** — `feed_loads` sits in `criteria_template` **and** in
+  `deferred_checks`, so whether it counts toward `executable_checks: 2` is ambiguous. *"The ledger
+  is ambiguous exactly where honesty matters most."* That contradiction is mine, introduced this
+  morning.
+- **honesty [low]** — `executable_checks: 2` overstates coverage; only one check is unambiguously
+  executable today.
+
+`observable_outcome` approved. No veto.
+
+### Three defects of mine, found by running it
+
+> **1. I seated five reviewers and discarded all five.** `review_fields` held the bare step names;
+> `execute_llm_prompt` **wraps** its output, so the consumer needs `review_x.result`. The live code
+> council has always done this. Five seats ran, five calls were paid for, five sound opinions were
+> produced, and every one was thrown away — surfaced only because
+> `diagnose_council_decide` refuses to decide with nothing: *"a council with no opinions cannot
+> decide"*.
+>
+> **The part worth keeping is why 259's own guard passed.** It asserted that each seat's
+> `output_field` appears in `review_fields` — and **both sides of that comparison were mine**. It
+> verified my list against my own list while the contract with the CONSUMER was broken.
+> Self-consistent and wrong: the same shape as a fixture written to match the code it tests, which
+> is the second time this week. Migration **260** checks the shape the consumer requires *and*
+> compares against the live code council as an independent witness.
+
+> **2. The deferral seat truncated at 6000, then again at 8000.** Two rounds, same seat — so the
+> budget was not the problem, my prompt was: four questions per check against an entry with five
+> checks and fifteen binding deferrals, with nothing bounding how much to write. Raising the ceiling
+> again would postpone the same failure. Migration **262** does both — 12000 **and** an explicit
+> output budget (at most six objections, spend it on the worst, say so if there are more).
+
+**What needed no fixing, and is the reason the middle verdict was still safe to read:** the
+truncation guard refused to pass the fragment, `diagnose_council_decide` counted the seat
+`unreadable` rather than `abstained`, and the report metadata carried `unreadable: 1` where any
+reader would see it. **A lost opinion could not masquerade as a considered non-objection** — three
+independent mechanisms each doing exactly their job.
+
+### State at end of session
+
+**v1.0.1194 carries the bind and verify actions** (pod-grep: `bind_site_experience` 12,
+`verify_site_experience` 16, `requires Tier 4` 1, `deferred:` 1; negative control 0). So the wiring
+that was blocked this morning is now possible — it is the next thing, not a blocked thing.
