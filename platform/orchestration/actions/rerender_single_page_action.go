@@ -472,7 +472,7 @@ func assemblePage(ctx context.Context, db *sql.DB, page *PageInfo, logger *zap.L
 	// nothing that tells us a page is an Article, a DefinedTerm or a product — and a
 	// wrong @type is a false claim about the page, which is worse than no claim.
 	// Richer per-type markup needs page_type plumbed through PageInfo first.
-	head = injectPageJSONLD(head, page)
+	head = injectPageJSONLD(head, page, logger)
 
 	// 5b. Inject the CSS for this page's components (bugs_open/072). The site
 	// stylesheet is frozen at the last design run, so a component added since
@@ -722,16 +722,37 @@ func sectionHasVisibleContent(html string) bool {
 // Silent no-ops are deliberate here rather than partial output: a JSON-LD block naming
 // a page with no title, or on a site with no domain, is a machine-readable assertion
 // that is wrong, and wrong structured data is worse than none — search engines act on it.
-func injectPageJSONLD(head string, page *PageInfo) string {
+func injectPageJSONLD(head string, page *PageInfo, logger *zap.Logger) string {
+	// Every skip below is NAMED. The council's bug_historian seat objected that the
+	// first version replaced one undetectable silence (metadata sections dropped by
+	// sectionHasVisibleContent) with another (pages skipped for missing PageInfo
+	// fields) — and it was right: the whole reason this change exists is that
+	// JSON-LD's fleet-wide absence was only discovered by a manual measurement.
+	// A skip here is legitimate, but it must never again be invisible.
+	skip := func(reason string) string {
+		if logger != nil && page != nil {
+			logger.Debug("injectPageJSONLD: no structured data emitted",
+				zap.String("reason", reason),
+				zap.String("page", page.Name),
+				zap.String("domain", page.Domain))
+		}
+		return head
+	}
 	if head == "" || page == nil {
+		if logger != nil {
+			logger.Debug("injectPageJSONLD: no structured data emitted", zap.String("reason", "empty head or nil page"))
+		}
 		return head
 	}
 	// Never emit twice: a stored head may already carry one from an earlier render.
 	if strings.Contains(head, "application/ld+json") {
 		return head
 	}
-	if page.Title == "" || page.Domain == "" {
-		return head
+	if page.Title == "" {
+		return skip("page has no title")
+	}
+	if page.Domain == "" {
+		return skip("page has no domain")
 	}
 
 	origin := "https://" + page.Domain
@@ -758,7 +779,7 @@ func injectPageJSONLD(head string, page *PageInfo) string {
 	// cannot break out. Do NOT switch to an Encoder with SetEscapeHTML(false).
 	payload, err := json.Marshal(doc)
 	if err != nil {
-		return head
+		return skip("json.Marshal failed: " + err.Error())
 	}
 
 	block := fmt.Sprintf("\n<script type=\"application/ld+json\">%s</script>\n", payload)

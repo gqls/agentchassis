@@ -42,7 +42,7 @@ func TestInjectPageJSONLD_EmitsWebPage(t *testing.T) {
 		URL: "/glosario/tourbillon.html", MetaDesc: "Definición del tourbillon.",
 		Domain: "relojistas.com",
 	}
-	got := injectPageJSONLD(headWith(""), page)
+	got := injectPageJSONLD(headWith(""), page, nil)
 	d := extractLD(t, got)
 
 	if d["@type"] != "WebPage" {
@@ -70,7 +70,7 @@ func TestInjectPageJSONLD_EmitsWebPage(t *testing.T) {
 
 func TestInjectPageJSONLD_OmitsDescriptionWhenAbsent(t *testing.T) {
 	page := &PageInfo{Title: "Sin descripción", URL: "/x.html", Domain: "relojistas.com"}
-	d := extractLD(t, injectPageJSONLD(headWith(""), page))
+	d := extractLD(t, injectPageJSONLD(headWith(""), page, nil))
 	if _, present := d["description"]; present {
 		t.Error("description key present when the page has none — an empty description is a claim we cannot make")
 	}
@@ -92,7 +92,7 @@ func TestInjectPageJSONLD_NoOpWhenNothingTruthfulToSay(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := injectPageJSONLD(c.head, c.page); got != c.head {
+			if got := injectPageJSONLD(c.head, c.page, nil); got != c.head {
 				t.Errorf("head was modified; want untouched.\n got: %s", got)
 			}
 		})
@@ -101,8 +101,8 @@ func TestInjectPageJSONLD_NoOpWhenNothingTruthfulToSay(t *testing.T) {
 
 func TestInjectPageJSONLD_Idempotent(t *testing.T) {
 	page := &PageInfo{Title: "T", URL: "/x.html", Domain: "relojistas.com"}
-	once := injectPageJSONLD(headWith(""), page)
-	twice := injectPageJSONLD(once, page)
+	once := injectPageJSONLD(headWith(""), page, nil)
+	twice := injectPageJSONLD(once, page, nil)
 	if once != twice {
 		t.Error("second call modified the head; a stored head may already carry a block")
 	}
@@ -119,7 +119,7 @@ func TestInjectPageJSONLD_CannotBreakOutOfTheScriptElement(t *testing.T) {
 		URL:    "/x.html",
 		Domain: "relojistas.com",
 	}
-	got := injectPageJSONLD(headWith(""), page)
+	got := injectPageJSONLD(headWith(""), page, nil)
 
 	if strings.Contains(got, "</script><img") {
 		t.Fatal("raw </script> reached the output — the script element can be closed by page content")
